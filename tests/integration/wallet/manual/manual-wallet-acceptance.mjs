@@ -34,6 +34,7 @@ import { createFlatJournalGeneration, createFlatJournalCatalogue, closeUnattache
 import { createFlatManualGraphCatalogueSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
 import { createGenerationPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs';
 import { MANUAL_WALLET_REAL_RUN_DISABLED, assertManualWalletResult } from './manual-wallet-acceptance-policy.mjs';
+import { MANUAL_WALLET_RECOVERY_FORMAT, assertManualWalletRecoveryResult } from './manual-wallet-recovery-policy.mjs';
 import { createOwnedBackedVault, assertOwnedBackedVaultReceipt } from '../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs';
 import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 
@@ -44,34 +45,39 @@ const safeCode = error => {
     ? value : 'FLAT_EVM_VAULT_FLOW_FAILED';
 };
 
-async function main() {
+export async function runManualWalletAcceptance() {
+  assert.equal(arguments.length, 0, 'MANUAL_WALLET_FIXED_WORKER_NO_OPTIONS');
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   assert.equal(process.argv.length, 2);
-  assert.equal(realpathSync(process.argv[1]), fileURLToPath(import.meta.url));
+  const worker = realpathSync(process.argv[1]);
+  const timeoutRecovery = worker === join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs');
+  assert.ok(timeoutRecovery || worker === fileURLToPath(import.meta.url), 'MANUAL_WALLET_FIXED_WORKER_REQUIRED');
+  const flowName = timeoutRecovery ? 'manual-wallet-timeout-recovery' : 'manual-wallet-acceptance';
   assert.deepEqual(process.execArgv, []);
   assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
   assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, 'integration/run-manual-wallet-acceptance.mjs'));
-  const lock = JSON.parse(readFileSync(join(ROOT, '.local/manual-wallet-acceptance/active.lock')));
+    join(ROOT, 'integration/run-' + flowName + '.mjs'));
+  const lock = JSON.parse(readFileSync(join(ROOT, '.local/' + flowName + '/active.lock')));
   assert.equal(lock.pid, process.ppid);
   assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-  assert.equal(lock.attempt, '.local/manual-wallet-acceptance/attempt-' + lock.runId);
+  assert.equal(lock.attempt, '.local/' + flowName + '/attempt-' + lock.runId);
   const directory = join(ROOT, lock.attempt), privateDirectory = join(directory, 'private-audit');
   const proofDirectory = join(directory, 'public-proofs');
   mkdirSync(privateDirectory, { mode: 0o700 });
   mkdirSync(proofDirectory, { mode: 0o700 });
   const began = performance.now();
   const result = {
-    format: 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', runId: lock.runId,
+    format: timeoutRecovery ? MANUAL_WALLET_RECOVERY_FORMAT : 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
     supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: manualWalletSourcePins(),
     stages: [], proofs: [], transactions: [], accountRequests: [], nativeEffects: { evmVault: 0 },
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
     privateVaultGraphAcceptance: false, partialDeliveryRecoveryAcceptance: false,
+    walletSdkEvmFlowCompleted: false, actualTimeoutFRecoveryAcceptance: false,
     systemicPrivacyAcceptance: false, independentOperators: false,
     realClockFinalityAcceptance: false, performanceTargetAchieved: false, fullWalletAcceptance: false,
     disclosure: [
@@ -215,6 +221,34 @@ async function main() {
     assert.equal(runtime.transactions.length, completedCount, 'EVM_VAULT_APP_RECONCILE_RESENT');
   }
 
+  async function reopenOriginalOfflineCoordinator() {
+    const { sourceOwner, targetOwner } = fixture;
+    const beforeRestartBindings = await checkpointBindings();
+    const oldGrant = await appDriver.unspentGraphGrantForListenerReplacement(graphId);
+    result.exactActionEvidenceBeforeRestart = appDriver.evidence();
+    await walletApp.close();
+    const restartAdmission = session.restartCoordinator();
+    const restarted = await session.idle();
+    assert.equal(restarted.admissions.find(row => row.sequence === restartAdmission.sequence)?.state, 'SUCCEEDED');
+    if (result.originalFailedAdmission) assert.deepEqual(restarted.admissions.find(row =>
+      row.sequence === result.originalFailedAdmission.sequence), result.originalFailedAdmission,
+    'EVM_VAULT_ORIGINAL_FAILED_ADMISSION_CHANGED');
+    assert.deepEqual(await checkpointBindings(), beforeRestartBindings);
+    await openListener();
+    await appDriver.rejectForeignListenerGrant('accountReconcile', { requestId: graphId }, oldGrant);
+    assert.equal(sourceOwner.report().childExited, true); assert.equal(targetOwner.report().childExited, true);
+    const offlineState = await appState();
+    assert.equal(offlineState.portfolio.status, 'UNAVAILABLE');
+    const offlinePortfolio = offlineState.portfolio.generations[0].portfolio;
+    if (offlinePortfolio !== null) for (const asset of offlinePortfolio.assets) {
+      assert.equal(asset.status, 'UNAVAILABLE'); assert.equal(asset.balances, null);
+    }
+    assert.deepEqual(offlineState.account.manualGraphs.find(row => row.requestId === graphId), originalGraphReviews.get(graphId));
+    result.listenerRestart = { originalSessionRetained: true, originalCatalogueRetained: true,
+      oldGrantRejected: true, originalIdsRetained: true, keeperRestart: false, nodeRestart: false,
+      coordinatorMode: 'SAME_ORIGINAL_AUTHENTICATED_JOURNAL_REOPEN', coordinatorProcessRestart: false };
+  }
+
   /** Failure-only acceptance, not an automatic wallet policy. Keep the original
    * error, use the owner's original F and deliberately advance LOCAL time to
    * that exact signed cutoff. Never dispatch, replace or replay the vault leg.
@@ -228,11 +262,31 @@ async function main() {
     const originals = runtime.transactions.filter(entry => entry.signed && entry.receipt?.status === '0x1');
     assert.equal(originals.length, 1, 'EVM_VAULT_RECOVERY_EXACT_ORIGINAL');
     const original = originals[0], ownerAbsentAtRecovery = !sourceOwner.report().available;
+    if (timeoutRecovery) {
+      assert.equal(ownerAbsentAtRecovery, true); assert.equal(targetOwner.report().available, false);
+      assert.equal(result.controlledPostDeliveryInterruption, true);
+      await stage('reopen-original-coordinator-before-timeout-recovery');
+      await reopenOriginalOfflineCoordinator();
+    }
     await stage('failure-only-original-cutoff-recovery');
     if (await runtime.time() < BigInt(graphCutoff)) await runtime.advanceTo(graphCutoff);
     const recovered = await appAccount('recover', { requestId: graphId });
     assert.equal(row(recovered, graphId).state, 'CONFIRMED', 'EVM_VAULT_FAILURE_RECOVERY_UNRESOLVED');
     assert.equal(execution.snapshot(graphRef).outcome, 'RECOVERED', 'EVM_VAULT_FAILURE_NOT_RECOVERED');
+    if (timeoutRecovery) {
+      const proofCount = result.proofs.length, transactionCount = runtime.transactions.length;
+      const fProofs = result.proofs.filter(proof => proof.relation === 'recovery');
+      assert.equal(fProofs.length, 1, 'EVM_VAULT_ORIGINAL_F_PROOF_REQUIRED');
+      const fInputs = JSON.parse(readFileSync(join(proofDirectory, fProofs[0].file + '.inputs.json'), 'utf8'));
+      assert.equal(fInputs.length, 41, 'EVM_VAULT_F_PUBLIC_INPUT_ORDER');
+      assert.equal(BigInt(fInputs[40]), BigInt(graphCutoff), 'EVM_VAULT_F_ORIGINAL_CUTOFF_CHANGED');
+      await appAccount('recover', { requestId: graphId });
+      await appAccount('reconcile', { requestId: graphId });
+      assert.equal(result.proofs.length, proofCount, 'EVM_VAULT_F_RECOVERY_REPROVED');
+      assert.equal(runtime.transactions.length, transactionCount, 'EVM_VAULT_F_RECOVERY_RESENT');
+      assert.equal(runtime.transactions.filter(entry => entry.signed).length, 1, 'EVM_VAULT_NATIVE_LEG_RESUBMITTED');
+      assert.equal(execution.snapshot(graphRef).outcome, 'RECOVERED');
+    }
     if (!sourceOwner.report().available) await sourceOwner.restart();
     if (!targetOwner.report().available) await targetOwner.restart();
     const credit = await accounts[0].ownerActions.recoveryCreditRequest(graphRef);
@@ -251,7 +305,32 @@ async function main() {
       remainingPrivateBalances: restored.assets.map(asset => ({ assetId: asset.asset.assetId, balances: asset.balances })),
       catalogueAdmissionsFenced: catalogue.status().admissionFault };
     result.partialDeliveryRecoveryAcceptance = false;
+    if (timeoutRecovery) {
+      assert.equal(restored.status, 'LIVE'); assert.equal(restored.coherent, true);
+      assert.equal(restored.assets[0].requests.find(item => item.requestId === graphId)?.disposition, 'RECOVERED');
+      const poolStates = await Promise.all(fixture.readers.map(async reader => (await reader.read()).ledger.publicState));
+      const vault = await vaultActor.observe();
+      result.finalPools = poolStates;
+      // recovery120 labels an existing subset of available500: never 500+120.
+      result.recoveryBalances = { source: restored.assets[0].balances, target: restored.assets[1].balances,
+        solverPaltAtomic: String(await capabilities[0].balance(runtime.accounts[1])),
+        targetExternalBltvAtomic: String(await capabilities[1].balance(runtime.accounts[4])),
+        sourcePoolBackingAtomic: poolStates[0].backedAmount, targetPoolBackingAtomic: poolStates[1].backedAmount,
+        vaultAssetsAtomic: vault.snapshot.totalAssets, vaultSharesAtomic: vault.snapshot.totalShares };
+      result.originalFRecovery = { actualFProofAccepted: true, originalRequestId: graphId, disposition: 'RECOVERED',
+        recoveryCutoffPreserved: true, repeatedRecoveryNoEffect: true, nativeLegNotResubmitted: true,
+        ownersRestartedAfterRecovery: true, coordinatorMode: 'SAME_ORIGINAL_AUTHENTICATED_JOURNAL_REOPEN',
+        coordinatorProcessRestart: false, originalListenerReplaced: true, oldGrantRejected: true,
+        originalBindingsUnchanged: true };
+      result.originalGeneration = { generationId: generation.generationId, poolCount: fixture.system.pools.length,
+        requestIds: [...originalHandoffs.keys()], bindingsUnchanged: true };
+      await checkpointBindings();
+      result.exactActionEvidenceAfterRestart = appDriver.evidence();
+      result.manualConsentContractVerified = true;
+      result.actualTimeoutFRecoveryAcceptance = true;
+    }
     await audit();
+    return true;
   }
 
   try {
@@ -260,7 +339,16 @@ async function main() {
     const assetArtifacts = loadBackedAssetDeploymentArtifacts().artifacts;
     execution = await createFlatNativeExecution({ runtime, system, poolIndex: 0,
       bitcoin: null, solana: null, evmDelivery, quorum }, {
-      onProof: retainProof, onPrivateAudit: audit, onStage: value => stage(value.stage) });
+      onProof: retainProof, onPrivateAudit: audit, onStage: async value => {
+        await stage(value.stage);
+        if (timeoutRecovery && value.stage === 'native-delivered-0') {
+          assert.equal(result.controlledPostDeliveryInterruption, undefined, 'MANUAL_ACCEPTANCE_INTERRUPTION_ONCE');
+          result.controlledPostDeliveryInterruption = true;
+          result.expectedInterruptionCode = 'MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY'; save();
+          throw Object.assign(new Error('MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY'),
+            { code: 'MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY' });
+        }
+      } });
     for (const [poolIndex, owner] of [sourceOwner, targetOwner].entries())
       accounts.push(await createFlatAccountAuthority({ runtime, system, poolIndex, owner,
         nativeExecution: poolIndex === 0 ? execution : null,
@@ -361,33 +449,12 @@ async function main() {
     assert.equal(runtime.transactions.length, afterClaimCount, 'EVM_VAULT_DUPLICATE_GRAPH_SENT');
 
     await stage('restart-owner-custody-and-account-reconcile-original-note');
-    const beforeRestartBindings = await checkpointBindings();
-    const oldGrant = await appDriver.unspentGraphGrantForListenerReplacement(graphId);
-    const oldListenerEvidence = appDriver.evidence();
-    await walletApp.close();
-    const restartAdmission = session.restartCoordinator();
-    const restarted = await session.idle();
-    assert.equal(restarted.admissions.find(row => row.sequence === restartAdmission.sequence)?.state, 'SUCCEEDED');
-    assert.deepEqual(await checkpointBindings(), beforeRestartBindings);
-    await openListener();
-    await appDriver.rejectForeignListenerGrant('accountReconcile', { requestId: graphId }, oldGrant);
-    assert.equal(sourceOwner.report().childExited, true); assert.equal(targetOwner.report().childExited, true);
-    const offlineState = await appState();
-    assert.equal(offlineState.portfolio.status, 'UNAVAILABLE');
-    const offlinePortfolio = offlineState.portfolio.generations[0].portfolio;
-    if (offlinePortfolio !== null) for (const asset of offlinePortfolio.assets) {
-      assert.equal(asset.status, 'UNAVAILABLE'); assert.equal(asset.balances, null);
-    }
-    assert.deepEqual(offlineState.account.manualGraphs.find(row => row.requestId === graphId), originalGraphReviews.get(graphId));
+    await reopenOriginalOfflineCoordinator();
     await appAccount('reconcile', { requestId: graphId });
     await appAccount('recover', { requestId: graphId }); // fulfilled original: idempotent, no new F proof or send
     assert.equal(execution.snapshot(graphRef).outcome, 'FULFILLED');
     assert.equal(runtime.transactions.length, afterClaimCount, 'MANUAL_ACCEPTANCE_TERMINAL_RECOVERY_SENT');
     result.offlineOriginalRecovery = { reconcile: true, recover: true, terminalNoOp: true, actualFProofAccepted: false };
-    result.listenerRestart = { originalSessionRetained: true, originalCatalogueRetained: true,
-      oldGrantRejected: true, originalIdsRetained: true, keeperRestart: false, nodeRestart: false,
-      coordinatorMode: 'SAME_ORIGINAL_AUTHENTICATED_JOURNAL_REOPEN', coordinatorProcessRestart: false };
-    result.exactActionEvidenceBeforeRestart = oldListenerEvidence;
     await sourceOwner.restart(); await targetOwner.restart();
     const credit = { transactionHash: bare(delivery.transactionHash),
       calldataSHA256: hash(Buffer.from(delivery.request.data.slice(2), 'hex')) };
@@ -535,14 +602,36 @@ async function main() {
       try { result.lastObservedPools.push((await reader.read()).ledger.publicState); } catch {}
     }
     await audit().catch(() => {});
-    try { await recoverOriginalFailedDelivery(); }
+    if (timeoutRecovery && result.controlledPostDeliveryInterruption === true) {
+      try {
+        const failed = (await appState()).account.snapshot.admissions.filter(item =>
+          item.action === 'execute' && item.requestId === graphId && item.state === 'FAILED');
+        assert.equal(failed.length, 1, 'EVM_VAULT_ORIGINAL_FAILED_ADMISSION_REQUIRED');
+        assert.equal(failed[0].errorCode, result.errorCode);
+        result.originalFailedAdmission = structuredClone(failed[0]);
+      } catch (observationError) {
+        result.errorCode = safeCode(observationError);
+      }
+    }
+    let recovered = false;
+    try { recovered = await recoverOriginalFailedDelivery(); }
     catch (recoveryError) {
       result.failureRecoveryError = safeCode(recoveryError);
       writeFixturePrivate(join(privateDirectory, 'failure-recovery-error.json'), {
         message: String(recoveryError.message), stack: String(recoveryError.stack) });
     }
-    // A fallback never upgrades the failed requested success path.
-    result.phase = 'failed'; result.success = false; save();
+    // Only the fixed F worker can accept the exact intentional interruption.
+    // An arbitrary failure or a happy-path fallback remains failed.
+    // The real public session sanitizes private exception codes; preserve that
+    // rejection rather than widening its allowed labels for a test harness.
+    const expected = timeoutRecovery && recovered === true && result.controlledPostDeliveryInterruption === true
+      && result.expectedInterruptionCode === 'MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY'
+      && result.failedStage === 'native-delivered-0' && result.errorCode === 'FLAT_ACCOUNT_OPERATION_FAILED';
+    if (expected) {
+      result.actualAdmissionFailureCode = result.errorCode; result.expectedInterruptionPreserved = true;
+      delete result.errorCode; result.phase = 'completed'; result.success = true;
+    } else { result.phase = 'failed'; result.success = false; }
+    save();
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.closedEvm !== true) { result.success = false; result.phase = 'failed'; }
@@ -550,10 +639,10 @@ async function main() {
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
     result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began; save();
     if (result.success) {
-      try { assertManualWalletResult(result); }
+      try { if (timeoutRecovery) assertManualWalletRecoveryResult(result); else assertManualWalletResult(result); }
       catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); save(); }
     }
     if (!result.success) process.exitCode = 1;
   }
 }
-await main();
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) await runManualWalletAcceptance();

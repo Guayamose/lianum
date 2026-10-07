@@ -27,6 +27,7 @@ import { POOL_GENERATION_PHASE1_RELEASE, POOL_GENERATION_PHASE2_RELEASE, PHASE1_
 import { poolGenerationSourcePins } from '../pools/pool-generation-source-pins.mjs';
 import { CLAIM_LOADED_V3_REAL_RUN_DISABLED, validateClaimLoadedV3Result } from '../claims/inventory/native-claim-loaded-v3-policy.mjs';
 import { MANUAL_WALLET_REAL_RUN_DISABLED, assertManualWalletResult } from '../wallet/manual/manual-wallet-acceptance-policy.mjs';
+import { assertManualWalletRecoveryResult } from '../wallet/manual/manual-wallet-recovery-policy.mjs';
 import { CLAIM_GRAPH_V3_REAL_RUN_DISABLED, validateClaimGraphV3Result } from '../claims/graph/validation/native-claim-graph-v3-policy.mjs';
 import { PREFLIGHT_REAL_RUN_DISABLED, PREFLIGHT_RESULT, assertNativeIngressV3PreflightResult, preflightForbiddenProcess, PRODUCTION_PREFLIGHT_REAL_RUN_DISABLED, PRODUCTION_PREFLIGHT_RESULT, assertNativeIngressV3ProductionPreflightResult, productionPreflightForbiddenProcess } from '../claims/ingress/native-ingress-v3-preflight-policy.mjs';
 /** Linux supervisor for two fixed local application flows. Importing this module
@@ -240,6 +241,18 @@ const FLOW_PROFILES = Object.freeze({
     lockFormat: 'FLAT_MANUAL_WALLET_ACCEPTANCE_LOCK_V1',
     attemptFormat: 'FLAT_MANUAL_WALLET_ACCEPTANCE_ATTEMPT_V1',
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_MANUAL_EXACT_CATALOGUE_WALLET',
+    sourcePins: manualWalletSourcePins,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
+  manualWalletRecovery: Object.freeze({
+    entry: join(ROOT, 'integration/run-manual-wallet-timeout-recovery.mjs'),
+    worker: join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs'),
+    local: join(ROOT, '.local/manual-wallet-timeout-recovery'),
+    resultFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_RESULT_V1',
+    resourcesFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_RESOURCES_V1',
+    lockFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_LOCK_V1',
+    attemptFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_MANUAL_EXACT_ORIGINAL_TIMEOUT_F',
     sourcePins: manualWalletSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
@@ -486,6 +499,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.poolGenerationPhase1) scoped = assertPoolGenerationPhase1Result(result);
   if (profile === FLOW_PROFILES.poolGenerationPhase2) scoped = assertPoolGenerationPhase2Result(result);
   if (profile === FLOW_PROFILES.manualWallet) scoped = assertManualWalletResult(result);
+  if (profile === FLOW_PROFILES.manualWalletRecovery) scoped = assertManualWalletRecoveryResult(result);
   if (profile === FLOW_PROFILES.nativeClaimLoadedV3) scoped = validateClaimLoadedV3Result(result);
   if (profile === FLOW_PROFILES.nativeClaimGraphV3) scoped = validateClaimGraphV3Result(result);
   if (profile === FLOW_PROFILES.nativeIngressV3ProductionPreflight) scoped = assertNativeIngressV3ProductionPreflightResult(result);
@@ -570,6 +584,11 @@ export async function runManualWalletSupervisor() {
   assert.equal(arguments.length, 0, 'MANUAL_WALLET_NO_SUPERVISOR_OPTIONS');
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   return runFixedFlowSupervisor(FLOW_PROFILES.manualWallet);
+}
+export async function runManualWalletRecoverySupervisor() {
+  assert.equal(arguments.length, 0, 'MANUAL_WALLET_RECOVERY_NO_SUPERVISOR_OPTIONS');
+  assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
+  return runFixedFlowSupervisor(FLOW_PROFILES.manualWalletRecovery);
 }
 export async function runEvmVaultSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_VAULT_NO_SUPERVISOR_OPTIONS');

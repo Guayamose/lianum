@@ -32,6 +32,7 @@ export function manualWalletSourcePins() {
     }
   }
   for (const name of ['integration/run-manual-wallet-acceptance.mjs', 'integration/manual-wallet-acceptance.mjs',
+    'integration/run-manual-wallet-timeout-recovery.mjs', 'integration/manual-wallet-timeout-recovery.mjs',
     'integration/manual-wallet-source-pins.mjs']) visit(join(ROOT, name));
   for (const [path, row] of files) {
     const bytes = regular(path);

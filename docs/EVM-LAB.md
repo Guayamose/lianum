@@ -5,6 +5,7 @@ Desde la raíz del proyecto:
 ```bash
 ./dev lab prepare  # Artefactos públicos, sin nodos ni pruebas de usuario
 ./dev lab          # Laboratorio nuevo, pruebas reales y cierre de procesos
+./dev lab recovery # Otro laboratorio nuevo: entrega real y devolución F tras vencimiento
 ```
 
 El segundo comando crea cuentas de prueba nuevas, arranca Anvil exclusivamente
@@ -67,6 +68,31 @@ al laboratorio público archivado en `/workspace`.
 Esta aceptación cubre una EVM sintética y una generación de cuenta. No demuestra
 finalidad de una red pública, privacidad de metadatos, operadores independientes,
 interfaz visual móvil, reinicio completo del backend o aceptación de siete redes.
-La recuperación incluida observa un grafo ya liquidado; una devolución F tras
-vencimiento necesita su propio escenario. `fullWalletAcceptance` permanece falso
+La recuperación de `./dev lab` observa un grafo ya liquidado. `./dev lab recovery`
+comprueba una devolución F real en su propio escenario. `fullWalletAcceptance` permanece falso
 incluso cuando este recorrido concreto termina correctamente.
+
+El escenario de recuperación interrumpe deliberadamente después de una única
+entrega nativa verificada y antes de la prueba/liquidación global. Conserva el
+error original, reabre el mismo journal del coordinador y sustituye el listener
+con ambos procesos owner ausentes. Adelanta sólo el reloj del Anvil propietario
+al cutoff originalmente autorizado; la wallet revisa y confirma la recuperación
+original, genera la prueba F y comprueba que una segunda recuperación y una
+reconciliación no crean otra prueba, pago ni entrega. Reinicia después los owners
+y recupera las notas originales. El error público sigue filtrado como
+`FLAT_ACCOUNT_OPERATION_FAILED`; no se amplía el contrato público para exponer
+el código privado de la inyección. El resumen separado queda en
+`.internal/dev/reports/evm-recovery-lab.json`.
+
+El escenario exige siete pruebas reales y conserva la pérdida de100 del solver:
+su entrega queda como100 participaciones privadas de destino, no recibe el pago
+reservado de120. La admisión del catálogo permanece cercada tras el fallo; no se
+desbloquea, retira o vuelve a enviar nada para fabricar un recorrido completo.
+La aceptación sólo se declara después de comprobar hashes, métricas, fuentes y
+cierre de procesos de esa ejecución; la policy host por sí sola no es evidencia.
+
+La vista de custodia del escenario F conserva los dos importes:
+`available=500` incluye la devolución de `recovery=120`. El segundo campo indica
+procedencia de una parte del saldo; no se suma otra vez. El total recuperado es
+500: cambio380 más devolución120. Reabrir ese journal y sustituir el listener
+mantiene `coordinatorProcessRestart=false`; el backend original sigue vivo.

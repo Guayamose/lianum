@@ -19,7 +19,7 @@ case "$task_command" in
       './dev test [rutas]   Ejecutar pruebas; acepta las rutas de la estructura nueva' \
       './dev doctor         Verificar herramientas e integridad de la base original' \
       './dev evidence       Comprobar las evidencias públicas originales' \
-      './dev lab [prepare]   Preparar o ejecutar un laboratorio EVM nuevo con pruebas reales' \
+      './dev lab [prepare|run|recovery]   Laboratorio EVM nuevo: flujo completo o recuperación F real' \
       './dev artifacts      Inventariar los artefactos históricos de encoding' \
       './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
       './dev npm [args]     Ejecutar npm con el Node local' \

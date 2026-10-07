@@ -15,6 +15,7 @@ FLAT = RUNTIME / "omnichain-flat-profile/flat-wallet"
 CLEAN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
 active = None
 interrupted = False
+last_lab_attempt = None
 
 def forward_signal(signum, _frame):
     global interrupted
@@ -22,14 +23,17 @@ def forward_signal(signum, _frame):
     if active is not None and active.poll() is None:
         active.send_signal(signum)
 
-def run(entry, *arguments, observe=False):
-    global active
+def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
+    global active, last_lab_attempt
     if interrupted:
         raise SystemExit(130)
     print(f"Lab EVM: {entry}", flush=True)
+    directory = FLAT / ".local" / flow
+    previous_attempts = set(directory.glob("attempt-*")) if observe else set()
+    if observe:
+        last_lab_attempt = None
     active = subprocess.Popen([str(NODE), str(FLAT / entry), *arguments], cwd=FLAT, env=CLEAN_ENV)
     seen = None
-    directory = FLAT / ".local/manual-wallet-acceptance"
     while active.poll() is None:
         if observe:
             try:
@@ -45,22 +49,26 @@ def run(entry, *arguments, observe=False):
         time.sleep(1)
     code = active.returncode
     active = None
+    if observe:
+        new_attempts = set(directory.glob("attempt-*")) - previous_attempts
+        if len(new_attempts) == 1:
+            last_lab_attempt = new_attempts.pop()
     if code:
         raise SystemExit(code)
 
-def retain_summary():
-    directory = FLAT / ".local/manual-wallet-acceptance"
-    attempts = sorted(directory.glob("attempt-*"), key=lambda path: path.stat().st_mtime_ns)
-    if not attempts:
-        raise SystemExit("Lab EVM produced no attempt")
-    attempt = attempts[-1]
+def retain_summary(recovery=False):
+    directory = FLAT / ".local" / ("manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance")
+    if last_lab_attempt is None or last_lab_attempt.parent != directory:
+        raise SystemExit("Lab EVM produced no single new attempt; earlier reports are not reused")
+    attempt = last_lab_attempt
     result_bytes = (attempt / "result.json").read_bytes() if (attempt / "result.json").exists() else b"{}"
     resources_bytes = (attempt / "resources.json").read_bytes()
     result = json.loads(result_bytes)
     resources = json.loads(resources_bytes)
-    accepted = result.get("success") is True and result.get("walletSdkEvmFlowCompleted") is True \
+    completion = "actualTimeoutFRecoveryAcceptance" if recovery else "walletSdkEvmFlowCompleted"
+    accepted = result.get("success") is True and result.get(completion) is True \
         and resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
-    summary = {"format": "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
+    summary = {"format": "LIANUM_DEVELOPMENT_EVM_TIMEOUT_RECOVERY_V1" if recovery else "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
         "runId": result.get("runId", resources.get("runId")), "attempt": str(attempt.relative_to(ROOT)),
         "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
         "startedAt": result.get("startedAt"), "finishedAt": result.get("finishedAt"),
@@ -82,13 +90,29 @@ def retain_summary():
         "finalCapacity": result.get("finalCapacity"),
         "fullWalletAcceptance": False, "browserVisualAcceptance": False,
         "systemicPrivacyAcceptance": False, "independentOperators": False,
-        "actualTimeoutFRecoveryAcceptance": False,
+        "actualTimeoutFRecoveryAcceptance": result.get("actualTimeoutFRecoveryAcceptance", False),
         "limitations": ["Local synthetic EVM and fake PALT/BLTV only; no public-chain acceptance.",
             "Client deliberately discards one actual HTTP admission reply; no physical network outage claimed.",
             "Owners restart as processes; catalogue coordinator reopens its same journal in process.",
             "Recovery here observes an already fulfilled graph; timed-out F recovery needs its own acceptance.",
             "Amounts/timing/router actions and common-host operators remain observable; no privacy certification."]}
-    destination = DEV / "reports/evm-lab.json"
+    if recovery:
+        summary.update({"originalFRecovery": result.get("originalFRecovery"),
+            "recoveryBalances": result.get("recoveryBalances"),
+            "expectedInterruptionCode": result.get("expectedInterruptionCode"),
+            "actualAdmissionFailureCode": result.get("actualAdmissionFailureCode"),
+            "originalFailedAdmission": result.get("originalFailedAdmission"),
+            "expectedInterruptionPreserved": result.get("expectedInterruptionPreserved", False),
+            "failureRecovery": {key: result.get("failureRecovery", {}).get(key) for key in
+                ("ownerAbsentAtIssuance", "recoveryThroughExactSDK", "originalFailurePreserved", "solverPayoutIssued",
+                 "solverUnderlyingLoss", "nativeVaultEffects", "ownerExitsAttempted", "catalogueAdmissionsFenced")},
+            "limitations": ["Local synthetic EVM and fake PALT/BLTV only; no public-chain acceptance.",
+                "Controlled interruption after one real native delivery, before global settlement; signed LOCAL cutoff advanced explicitly.",
+                "Real original F refunds120 to available500; recovery120 labels a subset and is not another spendable amount.",
+                "Solver loses its100 underlying; target private100 shares remain. Catalogue admission fence is retained; no new exits attempted.",
+                "Owners restart as processes; coordinator reopens its same authenticated journal in process and listener is replaced.",
+                "No browser, physical network outage, independent operators or privacy certification accepted."]})
+    destination = DEV / "reports" / ("evm-recovery-lab.json" if recovery else "evm-lab.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -101,8 +125,8 @@ def retain_summary():
 
 def main():
     mode = sys.argv[1] if len(sys.argv) == 2 else "run" if len(sys.argv) == 1 else None
-    if mode not in {"prepare", "run"}:
-        raise SystemExit("Usage: ./dev lab [prepare|run]")
+    if mode not in {"prepare", "run", "recovery"}:
+        raise SystemExit("Usage: ./dev lab [prepare|run|recovery]")
     build(quiet=True)
     DEV.mkdir(parents=True, exist_ok=True)
     with (DEV / "evm-lab.lock").open("a") as lock:
@@ -119,16 +143,18 @@ def main():
         for operation in ("compile", "stats", "prepare-key"):
             run("proof-workers/run-bounded.mjs", "admission", operation)
         run("scripts/prepare-development-evm.mjs")
-        if mode == "run":
+        if mode in {"run", "recovery"}:
+            recovery = mode == "recovery"
+            flow = "manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance"
             try:
-                run("integration/run-manual-wallet-acceptance.mjs", observe=True)
+                run("integration/run-" + flow + ".mjs", observe=True, flow=flow)
             except SystemExit as error:
                 try:
-                    retain_summary()
+                    retain_summary(recovery)
                 except (SystemExit, FileNotFoundError):
                     pass
                 raise error
-            retain_summary()
+            retain_summary(recovery)
 
 if __name__ == "__main__":
     main()
