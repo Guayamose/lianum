@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="local-token" content="__LOCAL_TOKEN__">
+    <meta name="color-scheme" content="dark">
+    <title>Private Omnichain Wallet · Laboratorio local</title>
+    <link rel="stylesheet" href="/style.css">
+    <script type="module" src="/app.mjs"></script>
+    <script type="module" src="/native.mjs"></script>
+    <script type="module" src="/triple.mjs"></script>
+    <script type="module" src="/private.mjs"></script>
+    <script type="module" src="/private-wallet.mjs"></script>
+    <script type="module" src="/private-cohort.mjs"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegación principal">
+        <a class="brand" href="#private" aria-label="Private Omnichain Wallet, inicio">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span>PRIVATE<span class="brand-sub">OMNICHAIN WALLET</span></span>
+        </a>
+        <div class="workspace-label">LABORATORIO LOCAL <span>01</span></div>
+        <nav>
+          <a class="nav-link" href="#private-cohort"><span aria-hidden="true">◉</span> Cohorte de dos titulares</a>
+          <a class="nav-link" href="#shared-wallet"><span aria-hidden="true">◈</span> Saldo privado</a>
+          <a class="nav-link" href="#private"><span aria-hidden="true">◇</span> Pago privado local</a>
+          <a class="nav-link" href="#triple"><span aria-hidden="true">↗</span> Tres cadenas locales</a>
+          <a class="nav-link" href="#native"><span aria-hidden="true">↗</span> Operación nativa local</a>
+          <a class="nav-link" href="#overview"><span aria-hidden="true">◫</span> Estado global</a>
+          <a class="nav-link" href="#execution"><span aria-hidden="true">↗</span> Ejecución PAEG</a>
+          <a class="nav-link" href="#inspection"><span aria-hidden="true">⌘</span> Vista del ejecutor</a>
+          <a class="nav-link" href="#scope"><span aria-hidden="true">◎</span> Alcance y garantías</a>
+        </nav>
+        <div class="sidebar-note">
+          <span class="tiny-label">AUTORIDAD DE ESTE MODELO</span>
+          <strong>Un almacén local</strong>
+          <p>Estado cifrado y escrituras serializadas. El cliente consulta este único ledger.</p>
+          <div class="local-indicator"><span id="connection-dot" class="status-dot"></span><span id="connection-label">Conectando al proceso local</span></div>
+        </div>
+        <div class="sidebar-footer">PAEG / PROTOTIPO DE INVESTIGACIÓN<br><span>Sin conexión a wallets reales</span></div>
+      </aside>
+
+      <div class="main-shell">
+        <div class="safety-bar" role="note">
+          <span class="simulation-tag">PRUEBAS LOCALES</span>
+          <span>Sin fondos reales <span class="separator">/</span> Solo cadenas locales</span>
+          <span class="safety-caption">Perfil privado fijo, base transparente y modelo sintético identificados por separado.</span>
+        </div>
+        <main>
+<section id="account-panel" class="panel">
+  <p class="eyebrow">Cuentas privadas compartidas · activos locales ficticios</p>
+  <h2>Dos titulares, los mismos pools de ETH y PALT</h2>
+  <p>Dos titulares simulados conservan sus notas y su historial por separado. Cada activo usa un pool compartido durante todas las rondas. SOL y BTC son observaciones externas; todavía no son saldo privado gastable.</p>
+  <p><strong>CONTROLADOR COMÚN DE CONFIANZA</strong> · ambos titulares sintéticos usan este host y sus emisores locales. Privacidad: <strong>NOT_EVALUATED</strong>. No se afirma anonimato externo ni independencia real entre personas.</p>
+  <p id="account-status" role="status">Cuentas cerradas</p>
+  <div class="actions"><button id="account-open">Abrir cuentas locales</button><button id="account-query">Consultar estado</button><button id="account-close">Cerrar pools vacíos</button></div>
+  <p id="account-cohort-status" role="status"></p>
+  <div id="account-shared-pools"></div>
+  <label>Titular de esta vista privada<select id="account-owner"><option value="0">Titular simulado 1</option><option value="1">Titular simulado 2</option></select></label>
+  <p id="account-owner-status"></p>
+  <div class="actions"><button id="account-refresh">Conciliar saldos del titular</button><button id="account-restart">Reabrir coordinador del titular</button></div>
+  <div id="account-balances"></div>
+  <div class="form-grid">
+    <label>Activo respaldado<select id="account-asset"></select></label>
+    <label>Importe del depósito o presupuesto del pago<input id="account-amount" inputmode="decimal" value="0.0015" autocomplete="off"></label>
+  </div>
+  <div class="actions"><button id="account-topup">Preparar depósito</button><button id="account-payment">Preparar pago SOL → BTC</button></div>
+  <p>Cada pago local entrega 0,003 SOL y 0,001 BTC. Su presupuesto compensa ambas partes a mitades; el cambio permanece en las notas del titular. La pareja requiere el mismo activo y los mismos términos.</p>
+  <label>Nota original para retirar<select id="account-note"></select></label><button id="account-exit">Preparar retirada</button>
+  <label>Operación preparada o pendiente<select id="account-request"></select></label>
+  <pre id="account-request-detail"></pre>
+  <div class="actions"><button id="account-execute">Confirmar depósito o retirada</button><button id="account-reconcile">Conciliar operación original</button><button id="account-refund">Preparar devolución original</button></div>
+  <label><input id="account-consent" type="checkbox"> Acepto esperar hasta 15 minutos para iniciar este pago con el otro titular simulado</label>
+  <p>La espera solo empareja ambos pagos preparados. El inicio requiere dos consentimientos vigentes y una confirmación explícita. Cancelar durante una ronda no confirma una devolución.</p>
+  <div class="actions"><button id="account-enroll">Inscribir pago preparado</button><button id="account-start">Iniciar pareja confirmada</button><button id="account-cancel">Cancelar participación del titular</button></div>
+  <div class="actions"><button id="account-next">Abrir siguiente ronda</button><button id="account-reset">Verificar recuperación de la ronda</button></div>
+  <p id="account-pending" role="status"></p><button id="account-retry" hidden>Reintentar manualmente la misma solicitud</button>
+  <p id="account-error" role="alert"></p>
+  <p class="muted">Las notas permanecen en los pools hasta una retirada explícita. Los pagos no se ejecutan individualmente ni cambian automáticamente a un modo transparente. El coordinador de cada titular puede reiniciarse cuando la cohorte deja de estar activa y sobreviven su custodia y los nodos. Cerrar exige evacuar los saldos originales; perder toda la infraestructura deja el saldo no disponible. Pools, activos y metadatos públicos pueden relacionarse; este bloque no demuestra privacidad completa ni DeFi.</p>
+</section>
+
+          <header class="page-header" id="overview">
+            <div>
+              <p class="eyebrow">PRIVATE OMNICHAIN WALLET <span>•</span> LABORATORIO LOCAL</p>
+              <h1>Un pago privado.<br><span>Control local.</span></h1>
+              <p class="lead">Prepara un pago privado entre tres cadenas locales y conserva su resultado. Activos ficticios, perfil fijo y límites explícitos.</p>
+            </div>
+            <div class="header-controls">
+              <div class="revision-chip"><span class="status-dot"></span> Modelo · revisión <strong id="revision">—</strong></div>
+              <button class="button subtle" id="refresh" type="button"><span aria-hidden="true">↻</span> Actualizar modelo</button>
+              <span class="last-updated" id="updated-at">Esperando al núcleo local</span>
+            </div>
+          </header>
+
+          <div id="notification" class="notification" role="status" aria-live="polite" hidden></div>
+
+          <section class="panel native-panel private-panel cohort-panel" id="private-cohort" aria-labelledby="cohort-heading">
+            <div class="panel-heading"><div><span class="tiny-label">DOS TITULARES SIMULADOS · CONTROLADOR COMÚN DE CONFIANZA</span><h2 id="cohort-heading">Cohorte privada local acotada</h2></div><span class="badge" id="cohort-connection">Sin conexión</span></div>
+            <p class="panel-description">Dos custodias y destinos originales separados dentro del mismo pool. Este selector representa dos titulares simulados bajo el mismo controlador y la misma sesión local; no autentica personas externas. No es un MVP privado completo ni demuestra anonimato frente al controlador.</p>
+            <div class="native-prerequisite"><strong id="cohort-privacy">Privacidad: NOT_EVALUATED</strong><span>Que terminen los pagos no demuestra privacidad. No hay fallback transparente, reenvío nativo ni salida automática. Se necesita una evaluación independiente del transcript público completo.</span></div>
+            <div class="native-values"><div><span>INGRESO POR TITULAR</span><strong>0,0015 ETH ficticios</strong></div><div><span>PAGO POR TITULAR</span><strong>3.000.000 lamports + 100.000 sats</strong></div><div><span>NOTAS TRAS CADA PAGO</span><strong>3 × 0,0005 ETH</strong></div></div>
+            <p class="panel-description">Cada pago reserva 0,001 ETH, conserva 0,0005 ETH de cambio y emite 0,0005 ETH de compensación por cada rol. Cada nota mantiene su destino original.</p>
+            <p id="cohort-state" class="native-outcome" aria-live="polite">Cohorte sin abrir</p><p id="cohort-counts" class="private-connection"></p><p id="cohort-expiry" class="private-connection"></p>
+            <div class="native-controls"><button class="button" id="cohort-open" disabled>Abrir cohorte local</button><button class="button primary-button" id="cohort-start" disabled>Iniciar ambos pagos tras revisar</button><button class="button" id="cohort-refresh">Consultar estado</button><button class="button" id="cohort-close" disabled>Cerrar solo con el pool vacío</button></div>
+            <div class="cohort-owner-view"><label for="cohort-owner">Titular simulado que estás controlando</label><select id="cohort-owner"><option value="0">Titular 1</option><option value="1">Titular 2</option></select><h3 id="cohort-owner-title">Vista privada propia</h3><p id="cohort-balance">Saldo no verificado</p>
+              <div class="native-controls"><button class="button" id="cohort-prepare-topup" disabled>Preparar ingreso fijo de este titular</button></div>
+              <label class="cohort-consent"><input type="checkbox" id="cohort-consent"> Acepto esperar hasta 15 minutos para formar esta cohorte con los importes fijos anteriores. Iniciar requiere una decisión adicional.</label><p id="cohort-consent-status"></p><div class="native-controls"><button class="button" id="cohort-join" disabled>Registrar mi consentimiento</button><button class="button" id="cohort-cancel" disabled>Cancelar cohorte / detener lo aún no enviado</button></div>
+              <p>Cancelar antes del inicio impide el envío del pago. Después de iniciar, no revierte reservas ni entregas; puede exigir recuperación original. Al vencer la espera, los depósitos conservan sus notas y permiten una salida explícita.</p>
+              <label for="cohort-note">Notas originales disponibles de este titular</label><select id="cohort-note"><option value="">Sin notas disponibles</option></select><div class="native-controls"><button class="button" id="cohort-prepare-exit" disabled>Preparar salida de esta nota</button><button class="button" id="cohort-refund" disabled>Preparar recuperación original elegible</button></div>
+              <label for="cohort-operation">Preparaciones e historial de este titular</label><select id="cohort-operation"><option value="">Sin preparaciones</option></select><p id="cohort-review" class="private-notice shared-review"></p><div class="native-controls"><button class="button primary-button" id="cohort-execute" disabled>Ejecutar los valores guardados</button><button class="button" id="cohort-reconcile" disabled>Conciliar operación original</button></div>
+              <details class="native-details"><summary>Inspeccionar solo las notas de este titular</summary><pre id="cohort-private-notes">Vista privada no disponible</pre></details>
+            </div>
+            <p id="cohort-message" class="private-notice" role="status" aria-live="polite">Consultando el servicio local…</p><div class="native-controls"><button class="button" id="cohort-retry" hidden disabled>Reintentar manualmente la misma solicitud</button></div>
+            <p class="panel-description">Latencia conocida: un pago anterior de este entorno ronda 30 minutos. La cohorte todavía no tiene una medición completa. Funcionalidad antes de optimización; el consentimiento limita cuándo se puede iniciar, no promete ese tiempo de finalización.</p>
+            <div class="panel-footnote">El navegador conserva solo identidades de solicitudes y selección no secreta. Una reconexión no envía nada. Perder el servidor, nodos o custodios deja historial no disponible: no hay reinicio del keeper ni recuperación automática desde el historial. Las dos custodias comparten un equipo de confianza.</div>
+          </section>
+
+          <section class="panel native-panel private-panel" id="shared-wallet" aria-labelledby="shared-heading">
+            <div class="panel-heading"><div><span class="tiny-label">AUTORIDAD COMPARTIDA · ACTIVOS FICTICIOS</span><h2 id="shared-heading">Saldo privado reutilizable</h2></div><span class="badge" id="shared-connection">Sin conexión</span></div>
+            <p class="panel-description">Ingresa una vez, reserva pagos con cambio dentro del mismo pool y elige cuándo retirar. El proceso local debe seguir vivo: todavía no se puede recuperar esta autoridad después de perder sus nodos o su keeper.</p>
+            <div class="native-prerequisite"><strong>Laboratorio de privacidad, con límites explícitos</strong><span>Las autoridades y el equipo local siguen siendo de confianza. Importes, horarios y entradas o salidas públicas pueden correlacionarse; reutilizar el pool no garantiza anonimato.</span></div>
+            <div class="native-values"><div><span>SALDO DEL PROPIETARIO DISPONIBLE</span><strong id="shared-available">Sin verificar</strong></div><div><span>SALDO DEL PROPIETARIO PENDIENTE</span><strong id="shared-pending">Sin verificar</strong></div><div><span>ESTADO ACTUAL</span><strong id="shared-status">Sin autoridad abierta</strong></div></div>
+            <div class="native-controls"><button class="button primary-button" id="shared-open" disabled>Abrir autoridad local</button><button class="button" id="shared-refresh">Consultar estado</button><button class="button" id="shared-close" disabled>Cerrar solo si está vacía</button></div>
+            <div class="shared-forms">
+              <fieldset><legend>1 · Ingreso público</legend><label for="shared-topup">ETH ficticio para el saldo privado</label><input id="shared-topup" inputmode="decimal" value="0.003" autocomplete="off"><button class="button" id="shared-prepare-topup" disabled>Preparar ingreso</button><small>El importe del ingreso será público. Preparar todavía no envía fondos.</small></fieldset>
+              <fieldset><legend>2 · Pago privado con cambio</legend><label for="shared-budget">Presupuesto total · ETH ficticio</label><input id="shared-budget" inputmode="decimal" value="0.001" autocomplete="off"><label for="shared-fee">Compensación SOL · ETH ficticio</label><input id="shared-fee" inputmode="decimal" value="0.0005" autocomplete="off"><label for="shared-sol">Entrega SOL · lamports</label><input id="shared-sol" inputmode="numeric" value="3000000" autocomplete="off"><button class="button" id="shared-prepare-payment" disabled>Preparar pago con cambio</button><small>Bitcoin recibe lamports ÷ 30 en satoshis. El resto del presupuesto compensa BTC. Debe quedar cambio positivo.</small></fieldset>
+              <fieldset><legend>3 · Salida elegida</legend><label for="shared-note">Nota disponible para retirada</label><select id="shared-note"><option value="">Sin notas disponibles</option></select><button class="button" id="shared-prepare-exit" disabled>Preparar retirada de esta nota</button><small>Las compensaciones pertenecen a cada destinatario. Cada salida conserva su destino original; no se retiran automáticamente al pagar.</small></fieldset>
+            </div>
+            <div class="operation-toolbar private-toolbar"><div class="operation-selection"><label for="shared-operation">Preparaciones e historial</label><select id="shared-operation"><option value="">Sin operaciones</option></select></div></div>
+            <div class="native-controls"><button class="button primary-button" id="shared-execute" disabled>Ejecutar estos valores guardados</button><button class="button" id="shared-reconcile" disabled>Conciliar esta operación</button><button class="button" id="shared-prepare-refund" disabled>Preparar devolución de este pago</button><button class="button" id="shared-retry" hidden disabled>Reintentar la misma solicitud</button></div>
+            <p class="private-notice shared-review" id="shared-review" aria-live="polite">Selecciona una preparación para revisar sus valores guardados.</p><p class="private-notice" id="shared-message" aria-live="polite">Consultando el servicio local…</p><p class="native-outcome" id="shared-outcome" aria-live="polite">Sin saldo verificado</p>
+            <div class="panel-footnote">Los importes y saldos privados se muestran solo en esta sesión autenticada y no se guardan en el navegador. Actualizar, volver o reconectar no inicia operaciones. Recuperar una retirada solo puede completar la salida original autorizada si se confirma que todavía no se envió.</div>
+          </section>
+
+          <section class="panel native-panel private-panel" id="private" aria-labelledby="private-heading">
+            <div class="panel-heading"><div><span class="eyebrow">PAGO PRIVADO · EVM → SOLANA → BITCOIN · LINUX LOCAL</span><h2 id="private-heading">Un pago, de la autorización al cobro</h2></div><span class="badge neutral" id="private-status">Consultando</span></div>
+            <p class="panel-description">Revisa el perfil fijo, prepara la operación e inicia una sola ejecución. El motor usa pruebas ZK reales y entregas nativas locales. Antes de enviar la reserva EVM, retiene y verifica la autorización y los paquetes, y confirma la salida del propietario. La reserva se rechaza si cambió el estado del contrato; después se entregan SOL y BTC.</p>
+            <div class="native-prerequisite"><strong>Investigación con activos ficticios</strong><span>El observador, los servicios de firma y el sistema operativo común siguen siendo de confianza. No demuestra privacidad de metadatos, aislamiento de un host malicioso ni una wallet de producción.</span></div>
+            <div class="native-values private-review" aria-label="Perfil fijo del pago local">
+              <div><span>Reserva EVM ficticia</span><strong>0,001 ETH</strong><small>1.000.000.000.000.000 wei</small></div>
+              <div><span>Entrega SOL local</span><strong>3.000.000 lamports</strong><small>Entrega exacta preautorizada</small></div>
+              <div><span>Entrega Bitcoin regtest</span><strong>100.000 sats</strong><small>Importe SOL ÷ 30 · seis confirmaciones</small></div>
+            </div>
+            <p class="panel-description">Compensación por rol: 0,0005 ETH ficticio para SOL y 0,0005 ETH ficticio para BTC. Son retiradas de notas de pago para los ejecutores; no son una devolución al propietario. El reloj de las cadenas es local y controlado.</p>
+            <p class="private-connection" id="private-connection" role="status" aria-live="polite">Consultando el servicio privado local…</p>
+            <p class="private-notice" id="private-notice" role="status" aria-live="polite" hidden></p>
+            <div class="native-controls private-controls">
+              <button class="button subtle" id="private-prepare" type="button" disabled>1. Preparar pago</button>
+              <button class="button primary-button" id="private-start" type="button" disabled>2. Iniciar pago</button>
+              <button class="button subtle" id="private-recover" type="button" aria-describedby="private-recovery-limit" disabled>Recuperar retiradas</button>
+              <button class="button subtle" id="private-refund" type="button" aria-describedby="private-refund-limit" disabled>Solicitar devolución</button>
+              <button class="button subtle" id="private-recover-refund" type="button" aria-describedby="private-refund-limit" disabled>Recuperar devolución</button>
+              <button class="button subtle" id="private-refresh" type="button">Actualizar</button>
+            </div>
+            <p class="panel-description">Preparar conserva esta intención y comprueba los requisitos. Iniciar arranca los nodos, prepara la autorización antes de reservar y ejecuta el recorrido completo; no necesitas mantener esta página abierta. Cerrar el servidor o perder los nodos o el custodio no permite reanudar la ejecución.</p>
+            <p class="panel-description" id="private-recovery-limit">Recuperar retiradas solo reinicia el trabajador de compensaciones después de emitir las notas, mientras siguen vivos el mismo pool y custodio. No reenvía SOL/BTC ni retira EVM para el propietario. La autoridad en espera se conserva como máximo 30 minutos; tras perderla o vencer se requiere conciliación manual. No hay reinicio general de nodos, custodio o sistema operativo.</p>
+            <p class="panel-description" id="private-refund-limit">Solicitar devolución pide recuperar el presupuesto EVM autorizado de 0,001 ETH ficticios. Si se acepta antes del plazo, el servicio espera al corte autenticado antes de enviar. La fecha estimada no autoriza la devolución. Recuperar devolución solo consulta o retira una nota de recuperación ya emitida con el mismo pool y custodio vivos. La retención depende del plazo original más un margen acotado para la prueba, con un techo total de tres horas. Perder esta autoridad exige conciliación manual. Una devolución no revierte entregas SOL/BTC ni demuestra que los ejecutores hayan cobrado.</p>
+            <div class="operation-toolbar private-toolbar"><div class="operation-selection"><label for="private-operation-select">Operación e historial</label><select id="private-operation-select" disabled><option value="">Sin operaciones retenidas</option></select></div><span class="muted-label" id="private-history-count">0 OPERACIONES</span></div>
+            <p class="private-active-note" id="private-active-note"></p>
+            <div class="empty-state" id="private-empty"><h3>Revisa el perfil y prepara tu pago</h3><p>Solo se admiten estas cantidades y destinos nuevos de prueba. No introduzcas direcciones, claves ni fondos reales.</p></div>
+            <div id="private-operation" hidden>
+              <div class="operation-meta"><div><span class="tiny-label">IDENTIFICADOR LOCAL DE LA OPERACIÓN</span><code id="private-operation-id"></code></div><div class="deadline"><span class="tiny-label">ÚLTIMO ESTADO CONSERVADO</span><strong id="private-updated">—</strong><span id="private-observation"></span></div></div>
+              <p class="native-progress" id="private-progress" role="status" aria-live="polite"></p>
+              <ol class="private-steps" id="private-steps" aria-label="Progreso del pago"></ol>
+              <div class="private-facts"><div><span>Proceso del propietario</span><strong id="private-owner"></strong></div><div><span>Compensación SOL</span><strong id="private-payout-sol"></strong></div><div><span>Compensación BTC</span><strong id="private-payout-btc"></strong></div></div>
+              <p class="native-outcome" id="private-outcome"></p>
+              <p class="private-cleanup" id="private-cleanup"></p>
+              <p class="private-recovery" id="private-recovery" role="status" aria-live="polite" hidden></p>
+              <p class="private-recovery" id="private-owner-refund" role="status" aria-live="polite" hidden></p>
+              <details class="native-details"><summary>Ver estado público retenido y límites</summary><pre id="private-evidence" tabindex="0"></pre></details>
+            </div>
+            <div class="panel-footnote">Recargar, reconectar o volver a esta página solo consulta la misma operación; nunca solicita una devolución ni inicia una recuperación automáticamente. Presupuesto autorizado, nota emitida y retirada al propietario son estados distintos. El historial conserva resultados; no representa saldos gastables actuales. No hay reenvío automático, rollback de SOL/BTC ni reanudación tras perder nodos, custodio o sistema operativo.</div>
+          </section>
+
+          <section class="panel native-panel" id="triple" aria-labelledby="triple-heading">
+            <div class="panel-heading"><div><span class="eyebrow">EVM → SOLANA → BITCOIN · SOLO LINUX LOCAL</span><h2 id="triple-heading">Tres cadenas, una operación dependiente</h2></div><span class="badge pending" id="triple-status">Sin iniciar</span></div>
+            <p class="panel-description">El contrato retiene 0,001 ETH ficticio. Una entrega real de 3.000.000 lamports permite calcular y enviar 100.000 sats de regtest. El pago exige los dos resultados exactos y vinculados.</p>
+            <div class="native-prerequisite"><strong>Base transparente de investigación</strong><span>El observador local certifica las cadenas. Aún faltan privacidad del grafo y prueba global; no es la wallet privada terminada.</span></div>
+            <div class="native-values"><div><span>Retenido EVM</span><strong id="triple-held">Sin reserva</strong></div><div><span>Saldo destinatario SOL · sesión</span><strong id="triple-sol">Sin entrega</strong></div><div><span>Saldo destinatario BTC · sesión</span><strong id="triple-btc">Sin entrega</strong></div></div>
+            <p id="triple-progress" class="native-progress" role="status" aria-live="polite">Consultando entorno local.</p>
+            <div class="native-controls">
+              <button class="button subtle" type="button" data-triple="prepare" disabled>1. Preparar tres nodos</button>
+              <button class="button primary" type="button" data-triple="lock" disabled>2. Retener EVM</button>
+              <button class="button subtle" type="button" data-triple="solana" disabled>3. Entregar SOL</button>
+              <button class="button subtle" type="button" data-triple="bitcoin" disabled>4. Calcular y enviar BTC</button>
+              <button class="button subtle" type="button" data-triple="confirm" disabled>5. Confirmar BTC</button>
+              <button class="button primary" type="button" data-triple="settle" disabled>6. Pagar EVM</button>
+            </div>
+            <div class="native-controls native-recovery"><span>Recuperación:</span><button class="button subtle" type="button" data-triple="expire" disabled>Vencer plazo local</button><button class="button subtle" type="button" data-triple="refund" disabled>Recuperar EVM</button><button class="button subtle" type="button" data-triple="certify" disabled>Certificar SOL existente</button><button class="button subtle" type="button" data-triple="reconcile" disabled>Consultar sin reenviar</button></div>
+            <p id="triple-outcome" class="native-outcome">EVM puede devolverse tras vencer. Las entregas SOL y BTC no se deshacen; el solver puede quedar sin cobro.</p>
+            <details class="native-details"><summary>Ver resultados nativos y límites</summary><pre id="triple-evidence">Sin transacciones.</pre></details>
+            <div class="panel-footnote">Atomicidad de ledger: solo cada cadena. Atomicidad del protocolo: no hay commit/abort global; solo una decisión EVM. Atomicidad económica: garantía del usuario condicionada al observador y la finalidad; sin cobertura general para el solver. No se reanuda tras cerrar el servidor.</div>
+          </section>
+
+          <section class="panel native-panel" id="native" aria-labelledby="native-heading">
+            <div class="panel-heading"><div><span class="eyebrow">INTEGRACIÓN EVM + BITCOIN · ACTIVOS FICTICIOS</span><h2 id="native-heading">Una operación entre dos runtimes reales</h2></div><span class="badge pending" id="native-status">Sin iniciar</span></div>
+            <p class="panel-description">Bloquea 0,001 ETH local, entrega 100.000 sats de regtest y decide el pago. El entorno usa cuentas nuevas de prueba, sin conectar wallets reales.</p>
+            <div class="native-prerequisite"><strong>Componente EVM + Bitcoin independiente</strong><span>Este panel conserva la comprobación de dos cadenas. La operación dependiente con Solana está en el panel superior.</span></div>
+            <div class="native-values"><div><span>Retenido en contrato EVM</span><strong id="native-held">Sin reserva</strong></div><div><span>BTC del destinatario en esta sesión</span><strong id="native-received">Sin entrega</strong></div><div><span>Recompensa EVM de esta operación</span><strong id="native-reward">0 wei</strong></div></div>
+            <p id="native-progress" class="native-progress" role="status" aria-live="polite">Consultando entorno local.</p>
+            <div class="native-controls">
+              <button class="button subtle" type="button" data-native="prepare" disabled>1. Preparar nodos locales</button>
+              <button class="button primary" type="button" data-native="lock" disabled>2. Bloquear pago EVM</button>
+              <button class="button subtle" type="button" data-native="send" disabled>3. Enviar Bitcoin</button>
+              <button class="button subtle" type="button" data-native="confirm" disabled>4. Minar 6 bloques locales</button>
+              <button class="button primary" type="button" data-native="settle" disabled>5. Pagar al solver</button>
+            </div>
+            <div class="native-controls native-recovery">
+              <span>Probar recuperación:</span>
+              <button class="button subtle" type="button" data-native="expire" disabled>Avanzar reloj EVM y vencer</button>
+              <button class="button subtle" type="button" data-native="refund" disabled>Recuperar pago EVM</button>
+              <button class="button subtle" type="button" data-native="reconcile" disabled>Consultar resultado sin reenviar</button>
+            </div>
+            <p id="native-outcome" class="native-outcome">Las entregas Bitcoin no se deshacen al recuperar EVM.</p>
+            <p class="panel-description" id="native-privacy">Operación pública con observador local de confianza. Sin settlement privado ni aceptación triple.</p>
+            <details class="native-details"><summary>Ver autoridad y transacciones de esta operación</summary><p id="native-authority"></p><pre id="native-evidence">Sin transacciones.</pre></details>
+            <div class="panel-footnote">Puedes recargar el navegador. Al cerrar el servidor se detienen los nodos; la reanudación tras terminar el proceso aún no está implementada.</div>
+          </section>
+
+          <section aria-labelledby="balance-heading">
+            <div class="section-heading compact">
+              <h2 id="balance-heading">Balance del pago</h2>
+              <span class="muted-label">CRÉDITOS LOCALES FICTICIOS · SIN VALOR MONETARIO</span>
+            </div>
+            <div class="balance-grid">
+              <article class="balance-card primary"><div class="stat-label">Disponible <span aria-hidden="true">↗</span></div><div class="stat-value" id="available">—</div><p>Puede reservarse para otra operación.</p></article>
+              <article class="balance-card"><div class="stat-label">Reservado <span class="small-dot gold"></span></div><div class="stat-value" id="reserved">—</div><p>Asignado, sin iniciar ejecución.</p></article>
+              <article class="balance-card"><div class="stat-label">Comprometido <span class="small-dot teal"></span></div><div class="stat-value" id="committed">—</div><p>Retenido mientras se verifica el resultado.</p></article>
+              <article class="balance-card"><div class="stat-label">Gastado <span aria-hidden="true">↗</span></div><div class="stat-value" id="spent">—</div><p>Pagado al solver dentro del almacén local.</p></article>
+            </div>
+          </section>
+
+          <section class="panel assets-panel" aria-labelledby="assets-heading">
+            <div class="panel-heading"><div><span class="eyebrow">PORTFOLIO DEL MODELO</span><h2 id="assets-heading">Recepciones por red</h2></div><span class="badge neutral">UNIDADES BASE · FICTICIAS</span></div>
+            <div class="table-scroll"><table><thead><tr><th scope="col">Red representada</th><th scope="col">Recibido</th><th scope="col">Disponible</th><th scope="col">Origen del saldo</th></tr></thead><tbody id="assets-body"><tr><td colspan="4" class="empty-cell">Cargando estado local…</td></tr></tbody></table></div>
+            <div class="panel-footnote"><span id="positions-summary">Posiciones: —</span><span>Los activos de distintas redes no se suman entre sí.</span></div>
+          </section>
+
+          <section id="execution" class="execution-section" aria-labelledby="execution-heading">
+            <div class="section-heading"><div><p class="eyebrow">PRIVATE ATOMIC EXECUTION GRAPH</p><h2 id="execution-heading">Una intención. Tres instrucciones.</h2></div><span class="badge outlined">PAGO CONDICIONAL LOCAL</span></div>
+            <p class="section-description">El solver aporta inventario ficticio. Sólo cobra si todas las instrucciones requeridas tienen un resultado sintético válido antes del vencimiento.</p>
+            <div class="scenario-grid">
+              <button type="button" class="scenario-card" id="create-normal" disabled><span class="scenario-number">01</span><span><strong>Recorrer el flujo completo</strong><span class="scenario-description">Ethereum → Solana → Bitcoin</span><span class="scenario-cost">Reserva de 1.000 créditos · comisión incluida: 25</span></span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+              <button type="button" class="scenario-card" id="create-failure" disabled><span class="scenario-number">02</span><span><strong>Explorar un fallo parcial</strong><span class="scenario-description">Bitcoin → Solana → Ethereum</span><span class="scenario-cost">Ejecuta Bitcoin, simula un fallo y recupera el pago.</span></span><span class="scenario-arrow" aria-hidden="true">↗</span></button>
+            </div>
+            <p id="create-hint" class="control-hint">Esperando disponibilidad y permisos del estado local.</p>
+
+            <div class="panel graph-panel">
+              <div class="operation-toolbar"><div class="operation-selection"><label for="operation-select">Operación local</label><select id="operation-select" disabled><option value="">Todavía no hay operaciones</option></select></div><span id="operation-status" class="badge neutral">SIN OPERACIÓN</span></div>
+              <div id="graph-empty" class="empty-state"><div class="empty-symbol" aria-hidden="true">◇ <span>—</span> ◇ <span>—</span> ◇</div><h3>El siguiente paso empieza aquí</h3><p>Crea una intención para reservar su pago y examinar cada instrucción del grafo.</p></div>
+              <div id="operation-details" hidden>
+                <div class="operation-meta"><div><span class="tiny-label">ID PRIVADO DEL GRAFO · EN ESTE CLIENTE</span><code id="operation-id"></code></div><div class="deadline"><span class="tiny-label">VENCIMIENTO EN EL RELOJ DEL MODELO</span><strong id="deadline"></strong><span id="clock-note"></span></div></div>
+                <div id="graph-legs" class="graph-legs"></div>
+                <div id="failure-note" class="inline-warning" hidden></div>
+                <div class="operation-actions"><button id="settle" class="button primary-button" type="button" disabled>Liquidar pago local <span aria-hidden="true">↗</span></button><button id="fail" class="button warning-button" type="button" disabled>Simular fallo de ejecución</button><button id="recover" class="button subtle" type="button" disabled>Avanzar reloj simulado y recuperar</button></div>
+                <p class="operation-warning">Recuperar libera el pago retenido en este modelo. Los efectos ya observados se conservan; no hay rollback de Bitcoin ni de otras cadenas.</p>
+              </div>
+            </div>
+          </section>
+
+          <div class="inspection-grid" id="inspection">
+            <section class="panel inspector" aria-labelledby="view-heading"><div class="panel-heading"><div><span class="eyebrow">DIVULGACIÓN POR INSTRUCCIÓN</span><h2 id="view-heading">Lo que recibe el ejecutor</h2></div><span class="badge neutral" id="view-label">SIN SELECCIÓN</span></div><p class="panel-description">Consulta una instrucción disponible para inspeccionar su proyección: importe, destino, plazo y un token propio. Sin detalles de las otras instrucciones ni ID común del grafo.</p><pre id="executor-view" tabindex="0">Selecciona «Vista mínima» en una instrucción disponible.</pre><p class="panel-footnote">Esta reducción de datos no demuestra anonimato: importes, tiempos y proveedores aún pueden correlacionarse.</p></section>
+            <section class="panel capital-panel" aria-labelledby="capital-heading"><div class="panel-heading"><div><span class="eyebrow">CAPITAL EXPLÍCITO · FICTICIO</span><h2 id="capital-heading">Inventario del solver</h2></div></div><div class="solver-summary"><span id="solver-name">—</span><span>Cobrado <strong id="solver-paid">—</strong> créditos</span></div><div class="table-scroll"><table class="small-table"><thead><tr><th scope="col">Red</th><th scope="col">Libre</th><th scope="col">Retenido</th><th scope="col">Consumido</th></tr></thead><tbody id="capital-body"></tbody></table></div><p class="panel-footnote">El coste ya consumido por el solver permanece aunque el pago del usuario se recupere.</p></section>
+          </div>
+
+          <section class="panel events-panel" aria-labelledby="events-heading"><div class="panel-heading"><div><span class="eyebrow">TRAZABILIDAD DEL MODELO</span><h2 id="events-heading">Últimas transiciones</h2></div><span class="muted-label" id="event-count">0 EVENTOS</span></div><ol id="events-list" class="events-list"><li class="empty-cell">Aún no se han registrado transiciones.</li></ol></section>
+
+          <section class="scope-section" id="scope" aria-labelledby="scope-heading"><div class="section-heading"><div><p class="eyebrow">GARANTÍAS Y LÍMITES</p><h2 id="scope-heading">Qué demuestra este laboratorio</h2></div></div><div class="scope-grid"><article><span class="scope-marker teal-marker">01 / MODELO LOCAL</span><h3>Un único pago condicionado</h3><p>Reservas e inventario se contabilizan en un almacén cifrado con un escritor a la vez. Los resultados son atestaciones sintéticas de un verificador local de confianza.</p><p>Firma local Ed25519 sintética. <strong>Firma nativa de wallets: no implementada.</strong></p></article><article><span class="scope-marker gold-marker">02 / LÍMITES ABIERTOS</span><h3>Sin atomicidad externa universal</h3><p>No se deshacen entregas confirmadas. El panel privado usa pruebas ZK con un perfil fijo y observadores de confianza; los paneles transparentes y el modelo no usan esa prueba global. No hay privacidad de metadatos demostrada, escrow productivo ni garantía de seguridad independiente.</p><p>Una cadena detenida puede impedir la recuperación real. Recuperar en la simulación sólo afecta al modelo. Recuperar pago EVM en el panel nativo envía una devolución al contrato local.</p></article><article><span class="scope-marker muted-label">03 / ENTORNOS DE RED</span><h3>Integración y modelo son distintos</h3><div id="runtime-status" class="runtime-status"></div><p>El panel de simulación no envía transacciones. Los paneles nativos y el pago privado ejecutan transacciones en cadenas locales con activos ficticios. Base, Arbitrum, BNB Chain y Tron quedan fuera de esta vertical.</p></article></div></section>
+
+          <footer class="page-footer"><span>PAEG · Prototipo local · Datos ficticios</span><div><span>Commitment del estado</span><code id="state-commitment">—</code></div></footer>
+        </main>
+      </div>
+    </div>
+  <script type="module" src="/private-account.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "private-omnichain-wallet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.14.0" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "demo": "node scripts/demo.mjs",
+    "start": "node src/server.mjs",
+    "probe": "node scripts/probe-runtimes.mjs"
+  }
+}

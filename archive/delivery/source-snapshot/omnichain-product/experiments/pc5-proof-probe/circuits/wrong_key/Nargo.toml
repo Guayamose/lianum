@@ -1,0 +1,6 @@
+[package]
+name = "wrong_key"
+type = "bin"
+authors = ["PAEG local experiment"]
+
+[dependencies]

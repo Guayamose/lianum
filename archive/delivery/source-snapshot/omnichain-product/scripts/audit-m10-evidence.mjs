@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
+import { resolve, relative, dirname, isAbsolute, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { requireFundedOrder, requireAuthenticatedCopies } from '../src/native-authority.mjs';
+import { parseStrictJSON } from '../experiments/pc5-proof-probe/strict-json.mjs';
+
+const root=fileURLToPath(new URL('..',import.meta.url)),parent='f34b1dcd2983b13f312ff5f0556549c7757c8ce3';
+const read=p=>readFileSync(resolve(root,p)),json=p=>parseStrictJSON(read(p).toString('utf8'));
+const sha=b=>createHash('sha256').update(b).digest('hex');
+const git=(...args)=>execFileSync('git',args,{cwd:root});
+const canonical=p=>['.bin','.png'].includes(extname(p))?read(p):Buffer.from(read(p).toString('utf8').replaceAll('\r\n','\n'));
+const recovery=json('evidence/m10-native-recovery.json'),browser=json('evidence/m10-browser-client.json'),menu=json('evidence/m10-menu-reservation.json');
+for(const r of [recovery,browser,menu]){assert.equal(r.phase,'completed');assert.equal(r.ownRuntimesStopped,true);}
+assert.equal(recovery.checks.length,8);assert.equal(recovery.operations.length,3);assert.equal(recovery.injectedFailures.length,4);
+assert.deepEqual(recovery.operations.map(o=>o.terminalDecision),['PAID','REFUNDED','REFUNDED']);
+assert.equal(recovery.recipientSpend.originalOutputNowAbsent,true);
+assert.equal(recovery.recipientSpend.spentDelivery.txid,recovery.operations[0].bitcoin.txid);
+assert.equal(recovery.operations[0].solverRewardWei,'1000000000000000');
+assert.equal(recovery.operations[0].bitcoin.deliveryPolicy,'HISTORICAL_CONFIRMED_OUTPUT_SPENDING_ALLOWED');
+assert.equal(recovery.operations[0].bitcoin.certifiedBlockhash,recovery.operations[0].bitcoin.blockhash);
+assert.equal(recovery.operations[1].bitcoin,null);assert.equal(recovery.operations[1].ownerRefundWei,'1000000000000000');
+assert.equal(recovery.operations[2].bitcoin.confirmations,0);assert.equal(recovery.operations[2].bitcoin.observedAtEvmTime,undefined);
+assert.equal(recovery.operations[2].bitcoin.certifiedBlockhash,undefined);
+assert.equal(recovery.nativeTransactions.filter(t=>t.label==='observer admits exact native Bitcoin output and pays solver'&&t.receipt.status==='0x1').length,1);
+assert.ok(recovery.nativeTransactions.some(t=>t.revertReason==='STATE_PROFILE'));
+assert.equal(recovery.runtime.bitcoinNetworkActive,false);assert.equal(recovery.runtime.bitcoinPeers,0);
+assert.equal(browser.steps.length,11);assert.equal(browser.injectedLossAfterNativePayout,true);
+assert.ok(browser.steps.some(s=>s.action==='reconcile'&&s.displayedStatus==='Pago EVM ejecutado'));
+assert.equal(browser.reloadPreservedOperation,true);assert.equal(browser.solanaPrerequisiteVisible,true);
+assert.deepEqual(browser.scriptExceptions,[]);assert.equal(browser.narrowLayoutWidth,390);assert.equal(browser.screenshots.length,3);
+for(const p of browser.screenshots)assert.equal(read(p).subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+for(const r of [recovery,browser])for(const [p,digest] of Object.entries(r.sourceSHA256))assert.equal(sha(read(p)),digest,p);
+requireFundedOrder(menu.manifest,menu.reference,menu.observedReservation);
+requireAuthenticatedCopies(menu.holders.map(h=>h.ack),menu.reference,menu.manifest);
+assert.equal(menu.holders.length,4);assert.equal(menu.replacementRaces.length,2);assert.equal(menu.checks.length,6);
+assert.deepEqual(menu.replacementRaces.map(r=>r.phase),['afterCapture','afterVerification']);
+let proofChecks=0;
+for(const h of [...menu.holders,...menu.replacementRaces.map(r=>r.accepted)]){
+  assert.equal(h.ack.frozenHash,menu.reference.orderHash);
+  assert.equal(h.capturedBytesUsedForVerificationAndRetention,true);assert.equal(h.retainedCopyWrittenBeforeAck,true);
+  assert.match(h.capturedPackageSHA256,/^[0-9a-f]{64}$/);
+  assert.equal(h.holderView.owner,menu.manifest.owner);assert.equal(h.holderView.solver,menu.manifest.solver);
+  assert.equal(h.holderView.reservationId,menu.reference.id);assert.deepEqual(h.holderView.holders,menu.manifest.holders);assert.deepEqual(h.holderView.branches,menu.manifest.branches);
+  assert.equal(h.proofChecks.checks.length,2);
+  for(const c of h.proofChecks.checks){assert.equal(c.proofVerified,true);assert.equal(c.ownOpeningMatched,true);assert.equal(c.actualEffectProved,false);proofChecks++;}
+}
+for(const r of menu.replacementRaces){assert.equal(r.incomingReplacedWithAnotherValidProof,true);assert.equal(r.retainedOriginalFrozenBytes,true);}
+assert.equal(proofChecks,12);assert.equal(menu.nativeTripleExposureAuthorized,false);assert.equal(menu.nativeBitcoinSends,0);assert.equal(menu.nativeSolanaSends,0);
+const probe=json('evidence/m10-solana-cli-probe.json'),solana=json('evidence/m10-solana-isolated.json');
+assert.equal(probe.phase,'completed');assert.equal(probe.commands.length,10);assert.ok(probe.commands.every(c=>c.exitCode===0&&c.error===null));assert.equal(probe.validatorStarted,false);
+const expectedArchive='27d598632589970a0516a631aae6f91dcba2a072bdc2a32f9a7f547eae7d726e';
+for(const name of ['m10-solana-extraction','m10-solana-validator-extraction'])assert.equal(json('evidence/'+name+'.json').archiveSHA256,expectedArchive);
+assert.equal(solana.phase,'blocked');assert.equal(solana.validatorArgs,undefined);assert.equal(solana.genesisHash,undefined);assert.equal(solana.transfer,undefined);
+assert.equal(solana.faucetStarted,false);assert.equal(solana.hostSecurityChanged,false);assert.equal(solana.wslRetried,false);assert.equal(solana.disposableKeysAndLedgerRemoved,true);
+assert.equal(solana.commands.at(-1).binary,'solana-genesis.exe');assert.equal(solana.commands.at(-1).exitCode,1);
+assert.match(solana.commands.at(-1).stderr,/Error checking to unpack genesis archive: IO error: Acceso denegado\. \(os error 5\)/);
+assert.ok(solana.commands.at(-1).args.includes('development'));assert.ok(!solana.commands.at(-1).args.includes('--url'));
+const tap=read('evidence/m10-tests.tap').toString();
+for(const pattern of [/^1\.\.269$/m,/^# pass 269$/m,/^# fail 0$/m,/^# skipped 0$/m,/^# cancelled 0$/m])assert.match(tap,pattern);
+assert.equal((tap.match(/^ok \d+ - /gm)||[]).length,269);assert.doesNotMatch(tap,/^not ok /m);
+const history=git('ls-tree','-r','--name-only',parent,'evidence').toString().trim().split('\n');
+for(const p of history)assert.equal(git('hash-object','--path',p,p).toString().trim(),git('rev-parse',`${parent}:${p}`).toString().trim(),p);
+const old=parseStrictJSON(git('show',`${parent}:evidence/m9-audit.json`).toString());
+for(const [p,digest] of Object.entries({...old.sourceSHA256,...old.evidenceSHA256}))assert.equal(sha(git('show',`${parent}:${p}`)),digest,'Historical M9 '+p);
+const sourceSHA256={},evidenceSHA256={};
+for(const p of git('ls-files','--cached','--others','--exclude-standard','-z').toString().split('\0').filter(Boolean))if(!p.startsWith('evidence/'))sourceSHA256[p]=sha(canonical(p));
+function collect(dir){for(const e of readdirSync(resolve(root,dir),{withFileTypes:true})){assert.equal(e.isSymbolicLink(),false);const p=dir+'/'+e.name;if(dir==='evidence'&&(!e.name.startsWith('m10-')||e.name==='m10-audit.json'))continue;if(e.isDirectory())collect(p);else evidenceSHA256[p]=sha(canonical(p));}}collect('evidence');
+const report={classification:'M10_LOCAL_EVIDENCE_CONSISTENCY_NOT_SECURITY_AUDIT_OR_TRIPLE_ACCEPTANCE',parentCommit:parent,nativeRecoveryOperations:3,nativeRecoveryChecks:8,oneShotResponseFailureInjections:4,browserActions:11,browserScreenshots:3,rootTestsPassed:269,retainedProofVerifications:proofChecks,ackReplacementRaces:2,newProofsGenerated:0,solanaCliCommandsPassed:10,solanaGenesisAttempt:'FAILED_OS_ACCESS_DENIED',solanaValidatorStarted:false,solanaTransactions:0,hostSecurityChanged:false,wslRetried:false,tripleAccepted:false,privateSettlementAccepted:false,historicalEvidenceUnchanged:history,sourceSHA256,evidenceSHA256,limits:['Assertions reconcile recorded evidence and actual host signatures; no independent security audit.','Response losses are injected after real local transactions; they are not public-chain failure measurements.','Historical source hashes are validated at the M9 parent commit. Text archive hashes use canonical Git LF.','Solana CLI success does not establish a working validator or transfer.']};
+const output=resolve(root,process.argv[2]||'.local/m10-audit-current.json'),within=relative(root,output);assert.ok(within&&!isAbsolute(within)&&!within.split(/[\\/]/).includes('..'));
+mkdirSync(dirname(output),{recursive:true});writeFileSync(output,JSON.stringify(report,null,2)+'\n');
+console.log(JSON.stringify({nativeRecoveryChecks:8,retainedProofVerifications:proofChecks,rootTestsPassed:269,browserActions:11,historicalEvidencePreserved:history.length,solanaValidatorStarted:false,sourceFiles:Object.keys(sourceSHA256).length,evidenceFiles:Object.keys(evidenceSHA256).length}));
