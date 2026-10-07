@@ -1,0 +1,134 @@
+/** Pure retained-data checks and status projection. A valid checksum or opening
+ * grants no handoff brand, proof acceptance, canonicality or native finality.
+ * Callers must authenticate the persisted packet and canonical gateway source. */
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
+import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { validateDepositIntentStatement, encodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
+import { validateClaimConfig, claimDomainCommitment, claimIntentId, claimTicketId, validateClaimTicket, claimUint } from '../protocol/framing.mjs';
+import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+
+const PACKET_FIELDS = ['version', 'profile', 'trust', 'ownerIdentitySHA256', 'claimDomain', 'ingressProverIdentity',
+  'intentIdentitySHA256', 'revision', 'statement', 'proofResult', 'opening', 'handoffIdentitySHA256'];
+const INTENT_FIELDS = ['id', 'state', 'output', 'amount', 'validFrom', 'validUntil', 'revision', 'proofHash', 'nullifier', 'refundDestination'];
+const METRICS = ['initializationMilliseconds', 'jobPreparationMilliseconds', 'witnessMilliseconds',
+  'proofMilliseconds', 'verificationMilliseconds', 'totalMilliseconds', 'otherMilliseconds'];
+const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+function proofBytes(value) {
+  assert.ok(typeof value === 'string' && value.length <= 2 * 1024 * 1024
+    && /^(?:[0-9a-f]{2})+$/.exec(value)?.[0] === value, 'CLAIM_RETAINED_PROOF_BYTES');
+  return Buffer.from(value, 'hex');
+}
+function proofEvidence(evidence, proof) {
+  exactRecord(evidence, ['relation', 'role', 'runId', 'jobId', 'proofSHA256', 'keySHA256', 'manifestSHA256', 'metricUnits', 'metrics']);
+  assert.equal(evidence.relation, 'deposit_intent', 'CLAIM_RETAINED_PROOF_RELATION');
+  assert.equal(evidence.role, 'owner', 'CLAIM_RETAINED_PROOF_ROLE');
+  for (const key of ['runId', 'jobId']) assert.ok(typeof evidence[key] === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(evidence[key])?.[0] === evidence[key],
+  'CLAIM_RETAINED_PROOF_RUN_ID');
+  for (const key of ['proofSHA256', 'keySHA256', 'manifestSHA256']) bytes32(evidence[key], true);
+  assert.equal(evidence.proofSHA256, sha(proof), 'CLAIM_RETAINED_PROOF_HASH');
+  assert.equal(evidence.metricUnits, 'milliseconds', 'CLAIM_RETAINED_METRIC_UNITS'); exactRecord(evidence.metrics, METRICS);
+  for (const value of Object.values(evidence.metrics)) assert.ok(typeof value === 'string' && value.length <= 64
+    && Number.isFinite(Number(value)) && Number(value) >= 0 && String(Number(value)) === value, 'CLAIM_RETAINED_METRIC');
+}
+
+/** Revalidates the exact persisted packet from an authenticated scoped handoff.
+ * It cannot reconstruct an owner identity from the claim config alone; its
+ * owner digest remains authenticated by that original handoff and keeper. */
+export function validateRetainedClaimPacket(input, options) {
+  exactRecord(options, ['config', 'ingressProverIdentity']);
+  const config = validateClaimConfig(options.config), expectedProver = bytes32(options.ingressProverIdentity, true);
+  const packet = cloneInput(input); exactRecord(packet, PACKET_FIELDS);
+  assert.equal(packet.version, 1, 'CLAIM_RETAINED_PACKET_VERSION');
+  assert.equal(packet.profile, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, 'CLAIM_RETAINED_PACKET_PROFILE');
+  assert.equal(packet.trust, FLAT_OWNER_CLAIM_HANDOFF_TRUST, 'CLAIM_RETAINED_PACKET_TRUST');
+  for (const key of ['ownerIdentitySHA256', 'claimDomain', 'ingressProverIdentity', 'intentIdentitySHA256', 'handoffIdentitySHA256']) bytes32(packet[key], true);
+  assert.equal(packet.claimDomain, claimDomainCommitment(config), 'CLAIM_RETAINED_PACKET_DOMAIN');
+  assert.equal(packet.ingressProverIdentity, expectedProver, 'CLAIM_RETAINED_PACKET_PROVER');
+  assert.ok(Number.isSafeInteger(packet.revision) && !Object.is(packet.revision, -0)
+    && packet.revision >= 0 && packet.revision <= 32, 'CLAIM_RETAINED_PACKET_REVISION');
+  const s = validateDepositIntentStatement(packet.statement);
+  assert.equal(s.scope, config.scope, 'CLAIM_RETAINED_PACKET_SCOPE'); assert.equal(s.policy, config.policy, 'CLAIM_RETAINED_PACKET_POLICY');
+  exactRecord(packet.proofResult, ['proof', 'publicInputs', 'evidence']);
+  assert.deepEqual(packet.proofResult.publicInputs, [...encodeDepositIntentInputs(s)], 'CLAIM_RETAINED_D27_INPUTS');
+  proofEvidence(packet.proofResult.evidence, proofBytes(packet.proofResult.proof));
+  const opening = packet.opening; exactRecord(opening, ['rho', 'x', 'y', 'value', 'noteSecret']);
+  for (const key of ['rho', 'x', 'y']) bytes32(opening[key]); bytes32(opening.noteSecret, true);
+  assert.ok(claimUint(opening.value) > 0n, 'CLAIM_RETAINED_OPENING_VALUE');
+  assert.equal(opening.value, s.amount, 'CLAIM_RETAINED_OPENING_AMOUNT');
+  assert.equal(balanceCommitment(config.scope, config.policy, { type: 4, rho: opening.rho, x: opening.x, y: opening.y,
+    value: opening.value, secret: opening.noteSecret }).toString('hex'), s.output, 'CLAIM_RETAINED_ORIGINAL_NOTE');
+  assert.equal(packet.intentIdentitySHA256, ownerDigest({ profile: FLAT_OWNER_CLAIM_HANDOFF_PROFILE,
+    identitySHA256: packet.ownerIdentitySHA256, claimDomain: packet.claimDomain,
+    scope: s.scope, policy: s.policy, amount: s.amount, output: s.output }), 'CLAIM_RETAINED_INTENT_IDENTITY');
+  const { handoffIdentitySHA256, ...body } = packet;
+  assert.equal(handoffIdentitySHA256, ownerDigest(body), 'CLAIM_RETAINED_HANDOFF_CHECKSUM');
+  assert.ok(Buffer.byteLength(JSON.stringify(packet)) <= 2 * 1024 * 1024, 'CLAIM_RETAINED_PACKET_SIZE');
+  return frozenInput(packet);
+}
+
+/** Supply row.refundMaxFee from the authenticated claim config, never from a
+ * fee quote or the candidate ticket. Native observation freshness remains the
+ * controller's responsibility; this function only projects authenticated data. */
+export function canonicalClaimDepositProjection(rawRow, rawGateway) {
+  const row = cloneInput(rawRow), gateway = cloneInput(rawGateway);
+  bytes32(row.id, true); bytes32(row.claimDomain, true);
+  assert.equal(gateway.claimDomain, row.claimDomain, 'CLAIM_PROJECTION_GATEWAY_DOMAIN');
+  assert.equal(row.packet.claimDomain, row.claimDomain, 'CLAIM_PROJECTION_PACKET_DOMAIN');
+  const s = validateDepositIntentStatement(row.packet.statement);
+  assert.deepEqual(row.packet.proofResult.publicInputs, [...encodeDepositIntentInputs(s)], 'CLAIM_PROJECTION_D27_INPUTS');
+  const proofHash = sha(proofBytes(row.packet.proofResult.proof));
+  assert.equal(row.id, claimIntentId({ claimDomain: row.claimDomain, outputQ: s.output, amount: s.amount }), 'CLAIM_PROJECTION_INTENT_ID');
+  assert.ok(Array.isArray(gateway.intents) && gateway.intents.length <= 16 && Array.isArray(gateway.tickets)
+    && gateway.tickets.length <= 32, 'CLAIM_PROJECTION_HISTORY_BOUND');
+  fixedArray(gateway.intents, gateway.intents.length); fixedArray(gateway.tickets, gateway.tickets.length);
+  const matches = gateway.intents.filter(intent => intent.id === row.id);
+  if (matches.length === 0) {
+    assert.ok(!gateway.intents.some(intent => intent.output === s.output)
+      && !gateway.tickets.some(({ ticket }) => ticket.referenceQ === s.output), 'CLAIM_PROJECTION_UNMATCHED_ORIGINAL_Q');
+    assert.ok(row.status === 'PREPARED' && row.native === null && !row.issueSubmission && !row.refundTicketId
+      && !row.renewalCandidate && row.packet.revision === 0 && (!row.history || row.history.length === 0), 'CLAIM_PROJECTION_MISSING_INTENT');
+    return frozenInput({ status: 'PREPARED', intent: null, refund: null, refundTicketId: null });
+  }
+  assert.equal(matches.length, 1, 'CLAIM_PROJECTION_UNIQUE_INTENT'); const intent = matches[0];
+  assert.equal(gateway.intents.filter(item => item.output === s.output).length, 1, 'CLAIM_PROJECTION_UNIQUE_ORIGINAL_Q');
+  exactRecord(intent, INTENT_FIELDS); assert.ok(['1', '2', '3'].includes(intent.state), 'CLAIM_PROJECTION_INTENT_STATE');
+  assert.ok(claimUint(intent.revision) > 0n, 'CLAIM_PROJECTION_INTENT_REVISION');
+  for (const key of ['output', 'amount', 'validFrom', 'validUntil']) assert.equal(intent[key], s[key], 'CLAIM_PROJECTION_ORIGINAL_D27');
+  assert.equal(intent.proofHash, proofHash, 'CLAIM_PROJECTION_ORIGINAL_PROOF');
+  bytes32(intent.nullifier, intent.state !== '1'); bytes32(intent.refundDestination, intent.state !== '1');
+  assert.equal(intent.nullifier === ZERO, intent.refundDestination === ZERO, 'CLAIM_PROJECTION_INTENT_RESERVATION');
+  if (intent.nullifier !== ZERO) assert.equal(intent.refundDestination, bytes32(row.refundDestination, true), 'CLAIM_PROJECTION_REFUND_DESTINATION');
+  if (row.native?.binding) {
+    const binding = row.native.binding;
+    assert.equal(binding.claimDomain, row.claimDomain, 'CLAIM_PROJECTION_NATIVE_DOMAIN');
+    assert.equal(binding.operationId, row.id, 'CLAIM_PROJECTION_NATIVE_OPERATION');
+    assert.equal(binding.ingress, true, 'CLAIM_PROJECTION_NATIVE_KIND');
+    assert.equal(binding.admissionN, intent.nullifier, 'CLAIM_PROJECTION_ORIGINAL_N');
+  }
+  if (intent.state !== '3') {
+    assert.ok(!row.refundTicketId, 'CLAIM_PROJECTION_UNEXPECTED_REFUND');
+    return frozenInput({ status: intent.state === '2' ? 'ISSUED'
+      : row.native?.status === 'OBSERVED' ? 'HELD_UNISSUED' : row.native ? 'UNKNOWN' : 'PREPOSITIONED',
+    intent, refund: null, refundTicketId: null });
+  }
+  assert.ok(claimUint(row.refundMaxFee) > 0n, 'CLAIM_PROJECTION_REFUND_MAX_FEE');
+  const references = gateway.tickets.filter(({ ticket }) => ticket.referenceIngressN === intent.nullifier || ticket.referenceQ === intent.output);
+  assert.equal(references.length, 1, 'CLAIM_PROJECTION_UNIQUE_REFUND'); const refund = references[0];
+  exactRecord(refund, ['ticket', 'state', 'payoutRouteCommitment']); const ticket = validateClaimTicket(refund.ticket);
+  assert.equal(ticket.kind, '2', 'CLAIM_PROJECTION_REFUND_KIND'); assert.equal(ticket.claimDomain, row.claimDomain, 'CLAIM_PROJECTION_REFUND_DOMAIN');
+  assert.equal(ticket.referenceIngressN, intent.nullifier, 'CLAIM_PROJECTION_REFUND_N');
+  assert.equal(ticket.referenceQ, intent.output, 'CLAIM_PROJECTION_REFUND_Q'); assert.equal(ticket.amount, s.amount, 'CLAIM_PROJECTION_REFUND_AMOUNT');
+  assert.equal(ticket.destinationCommitment, row.refundDestination, 'CLAIM_PROJECTION_REFUND_DESTINATION');
+  assert.equal(ticket.maxFee, row.refundMaxFee, 'CLAIM_PROJECTION_REFUND_FEE');
+  assert.equal(ticket.id, claimTicketId({ claimDomain: row.claimDomain, kind: '2',
+    nonce: String(gateway.tickets.indexOf(refund)) }), 'CLAIM_PROJECTION_REFUND_TICKET_ID');
+  assert.equal(gateway.tickets.filter(item => item.ticket.id === ticket.id).length, 1, 'CLAIM_PROJECTION_UNIQUE_REFUND_ID');
+  if (row.refundTicketId !== undefined) assert.equal(row.refundTicketId, ticket.id, 'CLAIM_PROJECTION_ORIGINAL_REFUND_ID');
+  assert.ok(['1', '2', '3', '4'].includes(refund.state), 'CLAIM_PROJECTION_REFUND_STATE'); bytes32(refund.payoutRouteCommitment);
+  assert.equal(refund.payoutRouteCommitment === ZERO, refund.state === '1', 'CLAIM_PROJECTION_REFUND_ROUTE');
+  return frozenInput({ status: refund.state === '4' ? 'REFUNDED' : 'REFUND_PENDING', intent, refund, refundTicketId: ticket.id });
+}

@@ -1,0 +1,181 @@
+/** Source-only CI51/CO42 witness preparation. Exact facts signatures and public
+ * joins are checked here for hygiene; only pinned genuine proofs and the
+ * canonical gateway/hub establish acceptance. No owner key is accepted. */
+import assert from 'node:assert/strict';
+import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
+  structToNoir, digestBytes, digestWords } from '../../execution/encoding/commitments.mjs';
+import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { FACTS_SCHEMA, validateNativeClaimFacts as validateNativeFacts,
+  encodeNativeClaimFacts as encodeNativeFacts, nativeClaimFactsDigest as nativeFactsDigest,
+  receiptKeyCommitment, nativeAdmissionNullifier } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeAdmissionRuleCommitment, nativeAdmissionRuleRoot, nativeAdmissionChainDomain,
+  nativeAdmissionRuleToNoir, nativeAdmissionObservationToNoir, nativeAdmissionRegistryToNoir }
+  from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeEffectToNoir } from '../../../../engine/src/execution/native/state/native-receipt.mjs';
+import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
+  from '../../../../engine/src/evidence/native-quorum.mjs';
+import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { claimUint, validateClaimConfig, claimDomainCommitment, claimConfigToNoir,
+  claimReceiptSecret, claimRefundSalt, claimDestinationCommitment, claimIngressReceiptCommitment,
+  validateClaimTicket, claimTicketCommitment, claimTicketToNoir, claimTicketSecret,
+  encodeClaimIngressInputs, encodeClaimDischargeInputs } from './framing.mjs';
+
+const COMMON_FIELDS = ['config', 'domain', 'registry', 'rule', 'rulePath', 'certificates', 'currentRevocation'];
+function signatureBytes(value) {
+  assert.equal(typeof value, 'string', 'CLAIM_SIGNATURE_STRING');
+  assert.equal(value.length, 128, 'CLAIM_SIGNATURE_WIDTH');
+  assert.match(value, /^[0-9a-f]{128}$/, 'CLAIM_SIGNATURE_ENCODING');
+  return [...Buffer.from(value, 'hex')];
+}
+
+function factsQuorum(certificates, policy, registry) {
+  fixedArray(certificates, 3);
+  let facts, frame;
+  const indexes = [], signatures = [];
+  for (const certificate of certificates) {
+    exactRecord(certificate, ['schema', 'signerIndex', 'facts', 'frameHex', 'digest', 'signature']);
+    assert.equal(certificate.schema, FACTS_SCHEMA, 'CLAIM_FACTS_SCHEMA');
+    const checked = validateNativeFacts(certificate.facts, policy), encoded = encodeNativeFacts(checked, policy);
+    assert.equal(certificate.frameHex, encoded.toString('hex'), 'CLAIM_FACTS_FRAME');
+    assert.equal(certificate.digest, nativeFactsDigest(checked, policy), 'CLAIM_FACTS_DIGEST');
+    assert.equal(encoded.length, 829, 'CLAIM_FACTS_FRAME_WIDTH');
+    if (frame) assert.ok(frame.equals(encoded), 'CLAIM_FACTS_DISAGREE');
+    else { frame = encoded; facts = checked; }
+    const index = claimUint(certificate.signerIndex, 8);
+    assert.ok(index < 4n, 'CLAIM_ATTESTER_INDEX');
+    signatureBytes(certificate.signature);
+    indexes.push(Number(index)); signatures.push(certificate.signature);
+  }
+  // Original verifier enforces all real low-S signatures, strict ordered
+  // positions, and duplicate/sign-negated aliases in the complete registry.
+  createNativeQuorumHostVerifier({ registry, expectedRegistryCommitment: policy.registryCommitment })
+    .assertQuorumForMessage({ messageBytes: frame, indexes, signatures });
+  return { facts, indexes, signatures };
+}
+
+async function context(input, hashFields) {
+  const config = validateClaimConfig(input.config), domain = validateStruct('domain', input.domain);
+  const codec = createCommitmentCodec({ hashFields });
+  assert.equal(await codec.domainCommitment(domain), config.poolDomain, 'CLAIM_POOL_DOMAIN');
+  for (const [domainKey, configKey] of [['scope', 'scope'], ['policy', 'policy'], ['asset', 'wrapperAssetIdentity'],
+    ['hubDomain', 'hubDomain'], ['ledgerNamespace', 'ledgerNamespace'], ['registryCommitment', 'registryCommitment']])
+    assert.equal(domain[domainKey], config[configKey], 'CLAIM_CONFIG_DOMAIN');
+  const { registry, rule, rulePath } = input;
+  assert.equal(registry.hubDomain, config.hubDomain, 'CLAIM_REGISTRY_HUB');
+  assert.equal(nativeQuorumRegistryCommitment(registry), config.registryCommitment, 'CLAIM_REGISTRY');
+  exactRecord(rulePath, ['index', 'siblings']); fixedArray(rulePath.siblings, 3);
+  rulePath.siblings.forEach(value => bytes32(value));
+  assert.ok(claimUint(rulePath.index, 8) < 8n, 'CLAIM_RULE_INDEX');
+  assert.equal(nativeAdmissionRuleRoot(rule, rulePath), registry.rulesRoot, 'CLAIM_RULE_MEMBERSHIP');
+  assert.equal(nativeAdmissionRuleCommitment(rule), config.nativeRuleCommitment, 'CLAIM_RULE_COMMITMENT');
+  for (const [key, expected] of [['family', config.nativeFamily], ['genesis', config.nativeGenesis], ['asset', config.nativeAsset]])
+    assert.equal(rule[key], expected, 'CLAIM_RULE_NATIVE_DOMAIN');
+  const policy = { ledgerNamespace: config.ledgerNamespace, hubDomain: config.hubDomain,
+    registryCommitment: config.registryCommitment, rule };
+  const quorum = factsQuorum(input.certificates, policy, registry), facts = quorum.facts;
+  claimUint(facts.observation.amount);
+
+  const current = input.currentRevocation;
+  exactRecord(current, ['revokedDigest', 'revokedCount', 'revocationSequence', 'entries']);
+  fixedArray(current.entries, 64); claimUint(current.revokedCount, 32); claimUint(current.revocationSequence);
+  assert.equal(await codec.revokedDigest(config.poolDomain, config.hubDomain, current.entries, current.revokedCount),
+    current.revokedDigest, 'CLAIM_CURRENT_REVOKED_DIGEST');
+  assert.ok(!current.entries.slice(0, Number(current.revokedCount)).includes(facts.nativeGid), 'CLAIM_GID_REVOKED');
+  const admissionRevocationState = await codec.admissionRevocationState(config.poolDomain, {
+    currentRevokedDigest: current.revokedDigest, currentRevokedCount: current.revokedCount,
+    currentRevocationSequence: current.revocationSequence });
+  const nativeContext = facts.nativeContext;
+  const evidence = {
+    registry: nativeAdmissionRegistryToNoir(registry), rule: nativeAdmissionRuleToNoir(rule),
+    rule_siblings: rulePath.siblings.map(digestBytes), rule_index: rulePath.index,
+    effect: nativeEffectToNoir({ chainDomain: { chain: facts.family === '1' ? 'BTC' : 'SOL',
+      genesis: facts.genesis, asset: facts.asset }, effectIdentity: {
+      transactionId: facts.family === '2' ? facts.transactionId : facts.transactionId.slice(0, 64),
+      effectIndex: facts.effectIndex } }),
+    observation: nativeAdmissionObservationToNoir(facts.observation),
+    wire: { transaction_sha256: digestBytes(facts.transactionSHA256), wire_binding_version: facts.wireBindingVersion,
+      wire_binding_kind: facts.wireBindingKind, wire_binding_position: facts.wireBindingPosition,
+      wire_key_commitment: digestBytes(facts.wireKeyCommitment) },
+    native_context: { observed_tip_id: digestBytes(nativeContext.observedTipId), observed_tip_height: nativeContext.observedTipHeight,
+      transaction_slot: nativeContext.transactionSlot, parent_slot: nativeContext.parentSlot, observed_slot: nativeContext.observedSlot },
+    attester_indexes: quorum.indexes, attester_signatures: quorum.signatures.map(signatureBytes),
+    current_revoked_entries: current.entries.map(digestBytes), current_revoked_digest: digestBytes(current.revokedDigest),
+    current_revoked_count: current.revokedCount, current_revocation_sequence: current.revocationSequence,
+  };
+  return { config, domain, codec, facts, claimDomain: claimDomainCommitment(config), admissionRevocationState,
+    nativeChainDomain: nativeAdmissionChainDomain(rule),
+    inputs: { config: claimConfigToNoir(config), domain: structToNoir('domain', domain), evidence } };
+}
+function publicWitness(statement) {
+  return Object.fromEntries(Object.entries(statement).map(([name, value]) =>
+    [name.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()),
+      ['amountQ', 'evidenceFrom', 'evidenceUntil'].includes(name) ? value : digestWords(value)]));
+}
+function result(statement, inputs, encode) {
+  const publicInputs = [...encode(statement)];
+  return frozenInput({ statement, publicInputs, expectedPublicInputs: [...publicInputs],
+    inputs: { ...publicWitness(statement), ...inputs } });
+}
+
+/** Scoped opening is exactly one newly prepared note. D27 verification and
+ * canonical owner-window/revision joins belong to the receiving gateway. */
+export async function buildClaimIngressInputs(raw, options) {
+  exactRecord(options, ['hashFields']); const input = cloneInput(raw);
+  exactRecord(input, [...COMMON_FIELDS, 'noteOpening']);
+  exactRecord(input.noteOpening, ['rho', 'x', 'y', 'value', 'noteSecret']);
+  const opening = input.noteOpening;
+  for (const name of ['rho', 'x', 'y']) bytes32(opening[name]);
+  bytes32(opening.noteSecret, true); assert.ok(claimUint(opening.value) > 0n, 'CLAIM_POSITIVE_AMOUNT');
+  const c = await context(input, options.hashFields), observation = c.facts.observation;
+  assert.equal(observation.destinationCommitment, c.config.escrowEndpointCommitment, 'CLAIM_INGRESS_ESCROW');
+  assert.equal(observation.amount, opening.value, 'CLAIM_NOTE_AMOUNT');
+  const outputQ = balanceCommitment(c.config.scope, c.config.policy, { type: 4, rho: opening.rho,
+    x: opening.x, y: opening.y, value: opening.value, secret: opening.noteSecret }).toString('hex');
+  bytes32(outputQ, true);
+  const secretInput = { claimDomain: c.claimDomain, noteSecret: opening.noteSecret, outputQ };
+  const secret = claimReceiptSecret(secretInput); bytes32(secret, true);
+  const key = receiptKeyCommitment({ ledgerNamespace: c.config.ledgerNamespace, secret }); bytes32(key, true);
+  assert.equal(key, c.facts.wireKeyCommitment, 'CLAIM_INGRESS_WIRE_KEY');
+  const admissionN = nativeAdmissionNullifier({ ledgerNamespace: c.config.ledgerNamespace, secret, nativeGid: c.facts.nativeGid });
+  bytes32(admissionN, true);
+  const refundDestination = claimDestinationCommitment({ claimDomain: c.claimDomain, nativeChainDomain: c.nativeChainDomain,
+    endpoint: observation.sourceCommitment, amount: opening.value, maxFee: c.config.refundMaxFee,
+    salt: claimRefundSalt(secretInput) });
+  const receipt = claimIngressReceiptCommitment({ claimDomain: c.claimDomain, outputQ,
+    amount: opening.value, admissionN, refundDestination });
+  const statement = { claimDomain: c.claimDomain, outputQ, admissionN, refundDestination,
+    admissionRevocationState: c.admissionRevocationState, ingressReceiptLeaf: await c.codec.receiptLeaf(c.config.poolDomain, receipt),
+    amountQ: opening.value, evidenceFrom: observation.evidenceFrom, evidenceUntil: observation.evidenceUntil };
+  return result(statement, { ...c.inputs, note_opening: { rho: digestBytes(opening.rho), x: digestBytes(opening.x),
+    y: digestBytes(opening.y), value: opening.value, note_secret: digestBytes(opening.noteSecret) } }, encodeClaimIngressInputs);
+}
+
+/** The destination opens Dst to the existing native endpoint commitment. The
+ * executor authenticates its corresponding native bytes before signing.
+ * Facts do not contain actual fee, so CO42 cannot prove maxFee compliance. */
+export async function buildClaimDischargeInputs(raw, options) {
+  exactRecord(options, ['hashFields']); const input = cloneInput(raw);
+  exactRecord(input, [...COMMON_FIELDS, 'ticket', 'destination']);
+  const ticket = validateClaimTicket(input.ticket);
+  exactRecord(input.destination, ['endpoint', 'salt']);
+  bytes32(input.destination.endpoint, true); bytes32(input.destination.salt);
+  const c = await context(input, options.hashFields), observation = c.facts.observation;
+  assert.equal(ticket.claimDomain, c.claimDomain, 'CLAIM_TICKET_DOMAIN');
+  assert.equal(observation.sourceCommitment, c.config.escrowEndpointCommitment, 'CLAIM_DISCHARGE_ESCROW');
+  assert.equal(observation.destinationCommitment, input.destination.endpoint, 'CLAIM_DISCHARGE_ENDPOINT');
+  assert.equal(observation.amount, ticket.amount, 'CLAIM_DISCHARGE_AMOUNT');
+  assert.equal(claimDestinationCommitment({ claimDomain: c.claimDomain, nativeChainDomain: c.nativeChainDomain,
+    endpoint: input.destination.endpoint, amount: ticket.amount, maxFee: ticket.maxFee, salt: input.destination.salt }),
+  ticket.destinationCommitment, 'CLAIM_TICKET_DESTINATION');
+  const secret = claimTicketSecret({ claimDomain: c.claimDomain, ticketId: ticket.id }); bytes32(secret, true);
+  const key = receiptKeyCommitment({ ledgerNamespace: c.config.ledgerNamespace, secret }); bytes32(key, true);
+  assert.equal(key, c.facts.wireKeyCommitment, 'CLAIM_TICKET_WIRE_KEY');
+  const dischargeN = nativeAdmissionNullifier({ ledgerNamespace: c.config.ledgerNamespace, secret, nativeGid: c.facts.nativeGid });
+  bytes32(dischargeN, true);
+  const statement = { claimDomain: c.claimDomain, ticketId: ticket.id, ticketCommitment: claimTicketCommitment(ticket),
+    dischargeN, admissionRevocationState: c.admissionRevocationState,
+    evidenceFrom: observation.evidenceFrom, evidenceUntil: observation.evidenceUntil };
+  return result(statement, { ...c.inputs, ticket: claimTicketToNoir(ticket),
+    destination_endpoint: digestBytes(input.destination.endpoint), destination_salt: digestBytes(input.destination.salt) },
+  encodeClaimDischargeInputs);
+}
