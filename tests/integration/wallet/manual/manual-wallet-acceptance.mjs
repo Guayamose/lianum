@@ -27,6 +27,7 @@ import { createFlatAccountAuthority } from '../../../../packages/backend/src/acc
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
 import { createManualWalletAppDriver } from './manual-wallet-app-driver.mjs';
+import { assertManualWalletConvertedPosition } from './manual-wallet-position-checks.mjs';
 import { createFlatPoolAdmissionPolicy } from '../../../../packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs';
 import { createFlatJournalGeneration, createFlatJournalCatalogue, closeUnattachedFlatJournalGeneration }
   from '../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
@@ -399,20 +400,13 @@ async function main() {
     assert.deepEqual(coherent.assets.map(asset => asset.balances.available), ['380', '100']);
     assert.equal(coherent.assets[0].requests.find(value => value.requestId === graphId)?.disposition, 'FULFILLED');
     const positionState = await appState();
-    const vaultPosition = positionState.defi.positions.positions[0];
-    assert.equal(positionState.defi.positions.positions.length, 1);
-    assert.equal(vaultPosition.generationId, generation.generationId);
-    assert.equal(vaultPosition.shareAssetId, accounts[1].assetId); assert.equal(vaultPosition.underlyingAssetId, accounts[0].assetId);
-    for (const key of ['blockHash', 'blockNumber', 'timestamp'])
-      assert.equal(vaultPosition.observed[key], positionState.portfolio.generations[0].portfolio.observed[key]);
-    assert.equal(vaultPosition.availableShares, '100');
-    assert.equal(vaultPosition.estimatedRedeemableUnderlying, '100');
-    assert.equal(vaultPosition.underlyingSpendable, false);
+    const convertedPosition = assertManualWalletConvertedPosition({ positions: positionState.defi.positions,
+      portfolio: positionState.portfolio.generations[0].portfolio, generationId: generation.generationId,
+      shareAssetId: accounts[1].assetId, underlyingAssetId: accounts[0].assetId });
     result.originalNotesRecoveredOnce = true;
     result.privatePortfolioAfterConversion = { coherent: coherent.coherent,
       assets: coherent.assets.map(asset => ({ symbol: asset.asset.symbol, available: asset.balances.available })),
-      position: { availableShares: vaultPosition.availableShares,
-        estimatedRedeemableUnderlying: vaultPosition.estimatedRedeemableUnderlying, underlyingSpendable: false } };
+      position: convertedPosition };
 
     await stage('exit-source-change-and-original-target-shares');
     await exitOwnerNote(0, sourceOwner, 'change', 'vault_exit_0');
