@@ -29,3 +29,6 @@ jobs:
           python3 scripts/development/test_doctor.py
       - name: Run the default host selection
         run: ./dev test
+      - name: Verify new DeFi and laboratory regressions on the host
+        run: |
+          ./dev test packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs tests/integration/chains/solana tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs
