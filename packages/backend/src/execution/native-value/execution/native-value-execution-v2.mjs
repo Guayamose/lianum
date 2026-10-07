@@ -327,14 +327,21 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       }
     }); },
     async reconcile(ref) { return exclusive(async () => {
-      for(const [key,original] of admissionAdapters){
-        if(!key.startsWith(ref+':')||operation(ref).receipts.some(r=>r.slot===original.slot))continue;
-        const result=await original.adapter.reconcile(),receipt={slot:original.slot,...result.receipt};
-        const view=await reader.read();receiptPath(view,receipt.leaf);
-        await update(ref,{receipts:[...operation(ref).receipts,receipt],exposures:operation(ref).exposures.map(e=>e.slot===original.slot?{...e,status:'ADMITTED',nativeId:receipt.opening.globalEffectId}:e)});
-      }
       const entry = operation(ref);
       const kinds = [...(entry.recoverySubmission ? ['recovery'] : []), ...(entry.settlementSubmission ? ['settlement'] : [])];
+      // A retained terminal attempt is reconciled from its original transaction
+      // before asking an unresolved native adapter for more evidence. Source
+      // recovery does not settle a native exposure; keep that exposure unknown.
+      // An unavailable/invalid terminal observation must never trigger a resend
+      // or turn native admission into authority for source settlement.
+      if (!kinds.length) {
+        for(const [key,original] of admissionAdapters){
+          if(!key.startsWith(ref+':')||operation(ref).receipts.some(r=>r.slot===original.slot))continue;
+          const result=await original.adapter.reconcile(),receipt={slot:original.slot,...result.receipt};
+          const view=await reader.read();receiptPath(view,receipt.leaf);
+          await update(ref,{receipts:[...operation(ref).receipts,receipt],exposures:operation(ref).exposures.map(e=>e.slot===original.slot?{...e,status:'ADMITTED',nativeId:receipt.opening.globalEffectId}:e)});
+        }
+      }
       assert.ok(kinds.length, 'FLAT_EXECUTION_PARTIAL_DELIVERY_REQUIRES_RECOVERY');
       let observed, originalError;
       // A rejected/unknown late attempt does not erase a separately retained

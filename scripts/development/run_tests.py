@@ -19,6 +19,8 @@ DEFAULT_TESTS = [
     "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs",
     "packages/backend/tests/execution/account/reconciliation/flat-completion-window.test.mjs",
     "packages/backend/tests/execution/account/reconciliation/failure-diagnostics.test.mjs",
+    "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs",
+    "packages/backend/tests/execution/account/reconciliation/flat-terminal-observer.test.mjs",
     "packages/backend/tests/execution/encoding/flat-pure-math-cache.test.mjs",
 ]
 

@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createFlatTerminalObserver, assertOwnedFlatTerminalObserver, decodeFlatTerminalCalldata,
   inspectFlatTerminalDelta } from '../../../../src/execution/account/reconciliation/flat-terminal-observer.mjs';
+import { decodeNativeValueTerminalCalldata, inspectFlatTerminalDelta as inspectNativeValueTerminalDelta }
+  from '../../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import { encodeFlatTransaction } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import { encodeStatement } from '../../../../src/execution/encoding/statements.mjs';
 import { decodeFlatWords } from '../../../../src/execution/account/reconciliation/flat-system-state.mjs';
@@ -245,4 +247,27 @@ test('fake observer facades and parser results cannot mint the actual owned obse
   assert.throws(() => assertOwnedFlatTerminalObserver(inspectFlatTerminalDelta(assetFixture('settlement')),
     { runtime, system, poolIndex: 0 }), /OWNED_OBSERVER/);
   assert.equal(calls, 0);
+});
+
+test('native-value terminal parsing and recovery still require exact source nullifiers, backing and inclusion time', () => {
+  for (const kind of ['recovery', 'settlement']) for (const poolIndex of [0, 1]) {
+    const original = assetFixture(kind, poolIndex);
+    const data = calldata(kind, original.statement);
+    assert.deepEqual(decodeNativeValueTerminalCalldata(data).statement, original.statement);
+    assert.throws(() => decodeNativeValueTerminalCalldata(data + zero), /TRAILING/);
+    assert.deepEqual(inspectNativeValueTerminalDelta(original), inspectFlatTerminalDelta(original));
+    for (const [mutate, pattern] of [
+      [f => { f.statement.reserveNullifier = hash('substituted original reserve'); }, /ORIGINAL_NULLIFIER/],
+      [f => { f.after.pools[poolIndex].assetBalance = '8'; }, /ACTUAL_ASSET_BACKING/],
+      [f => {
+        const raw = f.after.pools[poolIndex];
+        raw.assetBalance = '8'; raw.rawBacking = changedWord(changedWord(raw.rawBacking, 2, 8), 3, 3);
+      }, /BACKING_CHANGED/],
+      [f => { f.after.timestamp = kind === 'recovery' ? '98' : '100'; }, /RECOVERY_BEFORE_CUTOFF|BLOCK_TIME|SETTLEMENT_INCLUSION_TIME/],
+      [f => { f.stateAdvanced.sequence = '4'; }, /STATE_ADVANCED/],
+    ]) {
+      const changed = assetFixture(kind, poolIndex); mutate(changed);
+      assert.throws(() => inspectNativeValueTerminalDelta(changed), pattern);
+    }
+  }
 });
