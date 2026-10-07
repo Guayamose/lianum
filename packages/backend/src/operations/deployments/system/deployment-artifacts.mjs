@@ -11,6 +11,7 @@ import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
 import { NATIVE_SOURCE_PINS } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
 import { loadProofProfile } from '../../../../../engine/src/execution/proofs/proof-worker.mjs';
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from './deployment-plan.mjs';
+import { DEVELOPMENT_EVM_DIRECTORY, DEVELOPMENT_EVM_BUILD_PIN, developmentEvmBuildAvailable, readDevelopmentEvmBuild } from './development-evm-build.mjs';
 
 const LEDGER_SHA256 = '1ca926abfbe8a40218c6891367bbe3acf0f7b02b5990f7d933a47c1f6d61867f';
 const VERIFIER_RUN = '0db5cb64-67cf-47fb-9608-4036813c4bc6';
@@ -44,7 +45,8 @@ const artifactRole = role => role === 'withdraw' ? 'withdraw_output' : role;
 const LEGACY_SOURCES = Object.freeze({
   deposit_balance: 'experiments/private-core-proof/wallet-notes/.local/prepared/deposit_balance.sol',
   withdraw_balance: 'experiments/private-core-proof/wallet-notes/.local/prepared/withdraw_balance.sol',
-  withdraw: 'evidence/m23-wallet-capability/2026-10-03T07-20-22-656Z/verifiers/withdraw.sol',
+  // The recovered M15 source has the exact same pinned bytes as the lost M23 copy.
+  withdraw: 'evidence/m15-notes-proof/withdraw.sol',
 });
 const OUTPUT_SELECTION = { '*': { '': ['ast'], '*': ['abi', 'evm.bytecode.object',
   'evm.bytecode.linkReferences', 'evm.deployedBytecode.object',
@@ -96,7 +98,11 @@ function immutableDeclarations(contract) {
   return names;
 }
 function loadLedger() {
-  const compilation = pinnedJSON(join(ROOT, '.local/contracts', FLAT_BUILD_PIN.attempt, 'compiled.json'), LEDGER_SHA256);
+  const development = developmentEvmBuildAvailable();
+  if (development) readDevelopmentEvmBuild();
+  const compilation = pinnedJSON(development ? join(DEVELOPMENT_EVM_DIRECTORY, 'ledger/compiled.json')
+    : join(ROOT, '.local/contracts', FLAT_BUILD_PIN.attempt, 'compiled.json'),
+    development ? DEVELOPMENT_EVM_BUILD_PIN.ledgerSHA256 : LEDGER_SHA256);
   compilerIdentity(compilation, 'standard', { ...VERIFIER_SETTINGS,
     optimizer: { enabled: true, runs: 200 }, viaIR: true });
   assert.equal(digestJSON(compilation.settings), FLAT_BUILD_PIN.settingsSHA256, 'FLAT_ARTIFACT_LEDGER_SETTINGS');
@@ -126,6 +132,12 @@ function loadLedger() {
   return { compilation, sourceMap, artifacts, immutableNames };
 }
 function loadReports() {
+  if (developmentEvmBuildAvailable()) {
+    const result = readDevelopmentEvmBuild();
+    assert.deepEqual(result.contracts.map(row => [row.relation, row.publicWords]),
+      FLAT_VERIFIER_ORDER.map(([role, words]) => [artifactRole(role), words]), 'DEVELOPMENT_EVM_VERIFIER_ROLES');
+    return { result, resources: null, development: true };
+  }
   const result = pinnedJSON(join(VERIFIER_DIRECTORY, 'result.json'), RESULT_SHA256);
   const resources = pinnedJSON(join(VERIFIER_DIRECTORY, 'resources.json'), RESOURCES_SHA256);
   assert.equal(result.format, 'FLAT_GENERATED_VERIFIER_COMPILATION_V1');
@@ -173,8 +185,8 @@ function verifyABI(artifact) {
   assert.ok(constructors.length <= 1 && constructors.every(item => item.inputs.length === 0
     && item.stateMutability === 'nonpayable'), 'FLAT_ARTIFACT_VERIFIER_CONSTRUCTOR');
 }
-function loadVerifierBuild(row) {
-  const directory = join(VERIFIER_DIRECTORY, row.relation);
+function loadVerifierBuild(row, development = false) {
+  const directory = join(development ? join(DEVELOPMENT_EVM_DIRECTORY, 'verifiers') : VERIFIER_DIRECTORY, row.relation);
   const manifest = JSON.parse(regular(join(directory, 'manifest.json')));
   assert.deepEqual(manifest, row, 'FLAT_ARTIFACT_MANIFEST_REPORT_BINDING');
   const source = row.relation + '.sol'; assert.equal(row.source, source);
@@ -230,8 +242,16 @@ async function flatLineage(role, row, build, toolchain, crs) {
   assert.equal(sourceVersion, row.lineage.sourceVersion, 'FLAT_ARTIFACT_CURRENT_SOURCE_VERSION');
   const context = { spec, toolchain, identity, sourceVersion, directory: versionDirectory(spec, sourceVersion) };
   const compiled = await loadCompiled(context), prepared = await loadPrepared(context, compiled, crs);
-  assert.equal(compiled.manifestSHA256, row.lineage.compiledManifestSHA256, 'FLAT_ARTIFACT_COMPILED_LINEAGE');
-  assert.equal(prepared.manifestSHA256, row.lineage.keyManifestSHA256, 'FLAT_ARTIFACT_KEY_LINEAGE');
+  if (Object.hasOwn(row.lineage, 'abiSHA256')) {
+    // Generation IDs/timings may differ on another machine. Current generation
+    // receipts are still fully validated by loadCompiled/loadPrepared; reviewed
+    // ABI/ACIR/key/Solidity bytes define this reproducible development build.
+    assert.equal(hash(JSON.stringify(compiled.program.abi)), row.lineage.abiSHA256, 'DEVELOPMENT_EVM_ABI_PIN');
+    assert.equal(compiled.manifest.bytecodeSHA256, row.lineage.bytecodeSHA256, 'DEVELOPMENT_EVM_ACIR_PIN');
+  } else {
+    assert.equal(compiled.manifestSHA256, row.lineage.compiledManifestSHA256, 'FLAT_ARTIFACT_COMPILED_LINEAGE');
+    assert.equal(prepared.manifestSHA256, row.lineage.keyManifestSHA256, 'FLAT_ARTIFACT_KEY_LINEAGE');
+  }
   assert.equal(hash(prepared.key), row.lineage.keySHA256, 'FLAT_ARTIFACT_ACTUAL_KEY_PIN');
   assert.equal(prepared.key.length, row.lineage.keyBytes, 'FLAT_ARTIFACT_ACTUAL_KEY_SIZE');
   assert.equal(hash(prepared.solidity), row.lineage.soliditySHA256, 'FLAT_ARTIFACT_ACTUAL_SOURCE_PIN');
@@ -267,14 +287,14 @@ function legacyLineage(role, row, build) {
  * deployment mutation. The returned data does not grant a runtime capability. */
 export async function loadFlatVerifierArtifacts() {
   assert.equal(arguments.length, 0, 'FLAT_ARTIFACT_NO_ARGUMENTS');
-  const { result, resources } = loadReports();
+  const { result, resources, development = false } = loadReports();
   const helpers = await import(resourceModuleURL);
   const toolchain = helpers.verifyToolchain(), crs = helpers.verifyCRS();
   assert.deepEqual(toolchain, result.toolchain, 'FLAT_ARTIFACT_TOOLCHAIN');
   assert.deepEqual(crs, result.crs, 'FLAT_ARTIFACT_CRS');
   const verifiers = {};
   for (const [index, [role]] of FLAT_VERIFIER_ORDER.entries()) {
-    const row = result.contracts[index], build = loadVerifierBuild(row);
+    const row = result.contracts[index], build = loadVerifierBuild(row, development);
     const lineage = FLAT_ROLES.includes(role)
       ? await flatLineage(role, row, build, toolchain, crs) : legacyLineage(role, row, build);
     const { sourceBytes, ...publicBuild } = build;
@@ -283,10 +303,14 @@ export async function loadFlatVerifierArtifacts() {
   assert.deepEqual(helpers.verifyToolchain(), toolchain, 'FLAT_ARTIFACT_TOOLCHAIN_CHANGED');
   assert.deepEqual(helpers.verifyCRS(), crs, 'FLAT_ARTIFACT_CRS_CHANGED');
   return freeze({ verifiers, provenance: {
-    classification: 'RETAINED_ARTIFACTS_VALIDATED_NOT_DEPLOYMENT_OR_PROOF_ACCEPTANCE',
-    verifierRun: VERIFIER_RUN, verifierResultSHA256: RESULT_SHA256,
-    verifierResourcesSHA256: RESOURCES_SHA256, toolchain, crs,
-    completedVerifierCompilation: result.completedAt, verifierCompilationExitCode: resources.exitCode,
+    classification: development ? 'REVIEWED_REBUILT_PUBLIC_ARTIFACTS_NOT_HISTORICAL_ACCEPTANCE'
+      : 'RETAINED_ARTIFACTS_VALIDATED_NOT_DEPLOYMENT_OR_PROOF_ACCEPTANCE',
+    verifierRun: development ? 'development-evm-v1' : VERIFIER_RUN,
+    verifierResultSHA256: development ? DEVELOPMENT_EVM_BUILD_PIN.manifestSHA256 : RESULT_SHA256,
+    verifierResourcesSHA256: development ? null : RESOURCES_SHA256, toolchain, crs,
+    completedVerifierCompilation: development ? null : result.completedAt,
+    verifierCompilationExitCode: development ? null : resources.exitCode,
+    historicalReportsRecreated: false,
     roleMapping: Object.fromEntries(FLAT_VERIFIER_ORDER.map(([role]) => [role, artifactRole(role)])),
     compilerStarted: false, backendStarted: false, proofGenerated: false, chainObserved: false,
     independentVKHashRecomputed: false,
@@ -301,5 +325,6 @@ export async function loadFlatDeploymentArtifacts() {
   const ledger = loadLedger(), retained = await loadFlatVerifierArtifacts();
   const { classification, ...provenance } = retained.provenance;
   return freeze({ ledger, verifiers: retained.verifiers, provenance: { classification,
-    ledgerAttempt: FLAT_BUILD_PIN.attempt, ledgerCompiledSHA256: LEDGER_SHA256, ...provenance } });
+    ledgerAttempt: developmentEvmBuildAvailable() ? 'development-evm-v1' : FLAT_BUILD_PIN.attempt,
+    ledgerCompiledSHA256: developmentEvmBuildAvailable() ? DEVELOPMENT_EVM_BUILD_PIN.ledgerSHA256 : LEDGER_SHA256, ...provenance } });
 }

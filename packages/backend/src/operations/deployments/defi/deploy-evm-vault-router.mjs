@@ -1,7 +1,9 @@
 /** Fixed, source-pinned router bootstrap for owned local fake-value systems.
  * Importing starts no compiler, prover or runtime. No caller code/RPC/pins. */
 import assert from 'node:assert/strict';
+import { DEVELOPMENT_EVM_DIRECTORY, DEVELOPMENT_EVM_BUILD_PIN, developmentEvmBuildAvailable, readDevelopmentEvmBuild } from '../system/development-evm-build.mjs';
 import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { readFileSync, lstatSync } from 'node:fs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { LOCAL_EVM_PROFILE } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
@@ -56,9 +58,16 @@ function pinnedJSON(path, pin) {
 /** Existing compiler output only. No path/configuration override or fallback. */
 export function loadEvmVaultRouterDeploymentArtifacts() {
   assert.equal(arguments.length, 0, 'EVM_ROUTER_ARTIFACT_NO_OPTIONS');
-  const pin = EVM_VAULT_ROUTER_BUILD_PIN;
-  const manifest = pinnedJSON(new URL('.local/evm-vault-router/v1/manifest.json', root), pin.manifestSHA256);
-  const compilation = pinnedJSON(new URL('.local/evm-vault-router/v1/compiled.json', root), pin.compiledSHA256);
+  const development = developmentEvmBuildAvailable();
+  if (development) readDevelopmentEvmBuild();
+  const pin = development ? { ...EVM_VAULT_ROUTER_BUILD_PIN, compiledSHA256: DEVELOPMENT_EVM_BUILD_PIN.routerSHA256 }
+    : EVM_VAULT_ROUTER_BUILD_PIN;
+  const compilation = pinnedJSON(development ? join(DEVELOPMENT_EVM_DIRECTORY, 'router/compiled.json')
+    : new URL('.local/evm-vault-router/v1/compiled.json', root), pin.compiledSHA256);
+  // Public metadata for this current rebuild; no historical receipt is recreated.
+  const manifest = development ? { ...pin, compiler: compilation.compiler, settings: compilation.settings,
+    immutableReferences: compilation.contracts[pin.source][pin.contract].evm.deployedBytecode.immutableReferences }
+    : pinnedJSON(new URL('.local/evm-vault-router/v1/manifest.json', root), pin.manifestSHA256);
   for (const [key, value] of Object.entries(pin).filter(([key]) => key !== 'manifestSHA256'))
     assert.deepEqual(manifest[key], value, 'EVM_ROUTER_MANIFEST_PIN');
   assert.equal(compilation.classification, 'COMPILED_SOURCES_NOT_DEPLOYMENT_OR_PROOF_ACCEPTANCE');

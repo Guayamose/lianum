@@ -1,0 +1,1852 @@
+{
+  "format": "LIANUM_DEVELOPMENT_EVM_BUILD_V1",
+  "classification": "REBUILT_PUBLIC_ARTIFACTS_FOR_NEW_LOCAL_LAB_NOT_HISTORICAL_ACCEPTANCE",
+  "ledgerSHA256": "bb77b03d81ac04dc933c2889577458497a97b344515336ce5d28237a62b7133b",
+  "toolchain": {
+    "node": "v24.19.0",
+    "noir": "1.0.0-beta.25",
+    "barretenberg": "5.2.0",
+    "auditSHA256": "81aecc452689cfb28709b7d6b3998a1e3c0532de82780a15b2e7a10b3f3e74d6"
+  },
+  "crs": {
+    "points": 2097152,
+    "provenanceSHA256": "e24f63bcea7cc9d1430c3696c109569015fc38c6e44d5a46ebab3a64013939e3",
+    "records": [
+      {
+        "file": "bn254_g1_compressed.dat",
+        "bytes": 67108864,
+        "sha256": "3e1ac09652ee9df779a4955fb8f7050620c7b1ee7f18566581bd00326b06be37"
+      },
+      {
+        "file": "bn254_g2.dat",
+        "bytes": 128,
+        "sha256": "01797bfc4de5a96f0e516a9ea4537d18786dc30cb991aca4274c95822b69c32f"
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "relation": "authorization",
+      "source": "authorization.sol",
+      "publicWords": 16,
+      "lineage": {
+        "sourceVersion": "8adfa5bba156bafa5e9bef38cc51fe8932399f3f2c1520d649a39851fd6de372",
+        "abiSHA256": "23474f5ec7b8bd8134cb599c6423187fc8df92acdaf24461c5368fcea4ecfccd",
+        "bytecodeSHA256": "d811e2addd3ecd9c09ec2eee350ded392ec7b6217755ef612bd40f0ec717e3bf",
+        "keySHA256": "18f7df703241b63bd4b639005e44556d54e7e6fa7da56cafb95b912e28218953",
+        "soliditySHA256": "80bf3e4086ddc841d879d65febc501905deb923207e30c9521aedae4821afcec",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "80bf3e4086ddc841d879d65febc501905deb923207e30c9521aedae4821afcec",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000200000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000015",
+        "$VK_HASH": "0x0417cd7dd78b666c9c496e304f8e2d88c5a4bf4fb4833da1feaab88567793655",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000018",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003f"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17682,
+          "creationBytes": 18010,
+          "runtimeHexTemplateSHA256": "aaef25bf7d1c0cfee06bcc442abd51b90f6ccb216c48c6603db1b92408d14b0e",
+          "links": {
+            "authorization.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "2f422753e15becd3aad04b15354d97da5bfe3df4abbc4d4c3c333d4c75310741"
+    },
+    {
+      "relation": "reservation",
+      "source": "reservation.sol",
+      "publicWords": 58,
+      "lineage": {
+        "sourceVersion": "09a08d3a8febd2ab844ca216551b25763df8c2bc213061672a46ec161db37a22",
+        "abiSHA256": "8d2cf2c0520b2c37a6bda13d5a2a36919cb66fb5c688a2b97727c23812354450",
+        "bytecodeSHA256": "47de269e665b33fb98ad85a94f6aff633c1c62203481ff76a589b7ebf4402094",
+        "keySHA256": "6107377c4a6ce98767c2de4d71a661d09aa56279cfb6d8778d76eca6ef27ea32",
+        "soliditySHA256": "7a6f04c4eb4b5b20c6c776021285c5b895c67b63956f7500125c3d494a412890",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "7a6f04c4eb4b5b20c6c776021285c5b895c67b63956f7500125c3d494a412890",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000040000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000012",
+        "$VK_HASH": "0x1173fd4e710e9e4106f3401a29a8923e19bc3aa15945a3e255f2b55ea8f470bb",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000042",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003c"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17561,
+          "creationBytes": 17889,
+          "runtimeHexTemplateSHA256": "a9ab589bc15eff23e265319818bf09c573c76d493b83a30e9b772538fde60ae6",
+          "links": {
+            "reservation.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "a3dc64a509dd212d1b9e58023d61cdf7a0e8b7840540cf0281c9bae8c3304a1b"
+    },
+    {
+      "relation": "dependency",
+      "source": "dependency.sol",
+      "publicWords": 42,
+      "lineage": {
+        "sourceVersion": "bb6f2d576b8684742bd17d437b6497f9aef8b01fb97118e17da6d02e26477d70",
+        "abiSHA256": "cfb8782c54f57cca154a6323d9678f53cd67898f29d3924020f748f6967dfc4f",
+        "bytecodeSHA256": "5ee822607fac09d115a1948ab2c78a325e3a82424256376b047a9d5732c0bc32",
+        "keySHA256": "f78dceecf5c26c5341d918859df534c9b48cca809a0e6257fb9435754da0307d",
+        "soliditySHA256": "992dd368453ca826a2ba09c9b6199a4dd9eefec53e71860df86652edecf72a4a",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "992dd368453ca826a2ba09c9b6199a4dd9eefec53e71860df86652edecf72a4a",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000080000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000013",
+        "$VK_HASH": "0x1742b7b8f35518c86dbd421bd104d8550931e4082b6a14816ec7be5726f1cc5b",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000032",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003d"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17562,
+          "creationBytes": 17890,
+          "runtimeHexTemplateSHA256": "77e5f04fde5170410765ac29a4171eb5873cf20ae1e2dbc9d2efedca3db1b467",
+          "links": {
+            "dependency.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "ea1abaf75657b199c0ef926e8429cc3c027777fd074b08060cfbcd627ce9e26a"
+    },
+    {
+      "relation": "ready",
+      "source": "ready.sol",
+      "publicWords": 50,
+      "lineage": {
+        "sourceVersion": "133964906926e3d770f811d30b14312c73c25e4116b141ff49890b6f54289c7d",
+        "abiSHA256": "df0496b75c81b1bf4f5b7e433e1aac0f827874dc34c09f5f81cd9c6a417f4e58",
+        "bytecodeSHA256": "d516ced107dfc6a8f7cc51aaac01ea550b64e696fe01a67e48524e3934ca9f34",
+        "keySHA256": "cc2f841db89be74790e78720b2984983f5f49bc35667663f0e5e104aed2d7525",
+        "soliditySHA256": "367241c6b96edbae341c5f8895519bb60cd8d7ec2e184a62aecdca231c4a753f",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "367241c6b96edbae341c5f8895519bb60cd8d7ec2e184a62aecdca231c4a753f",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000080000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000013",
+        "$VK_HASH": "0x15ea46a44890e7821b704a8b635a5ac3f80ab5a74aac9e0599336968ec6e056c",
+        "$NUM_PUBLIC_INPUTS": "0x000000000000000000000000000000000000000000000000000000000000003a",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003d"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17561,
+          "creationBytes": 17889,
+          "runtimeHexTemplateSHA256": "54a17dfa091e37a6a090f049a5d03d2fb087c29ec5c7bba1a6f24902dd72fb59",
+          "links": {
+            "ready.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "953a9ff438cd5d570f9d47fa4af0cf6b30eb371c3cdf2c961262948b3057f174"
+    },
+    {
+      "relation": "admission",
+      "source": "admission.sol",
+      "publicWords": 84,
+      "lineage": {
+        "sourceVersion": "0b381ee3095fb9f5370522ceb1462b4a192827b69a913eb383e95d55000927b8",
+        "abiSHA256": "209a27bbbbaccd8557fd2ed885277fc10364fb6360f4cf8d8399da002e3d6d44",
+        "bytecodeSHA256": "b746e08659f8583a3a9815f916f44bbb5fd10c9a4017fc345988b6e599cbfc15",
+        "keySHA256": "7106aa33ef8bf413a2ef870c9c593d335ac6d50c226789556706127ec04a66e6",
+        "soliditySHA256": "b3d890f4c741df5dd42a121f093c3475e5037f28cacebf048f88d5e17348aa66",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "b3d890f4c741df5dd42a121f093c3475e5037f28cacebf048f88d5e17348aa66",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000100000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000014",
+        "$VK_HASH": "0x288af095bb1ed90ed52f19ed8d9518fb7b6ea1bc09429a9c17b8fcd25084752b",
+        "$NUM_PUBLIC_INPUTS": "0x000000000000000000000000000000000000000000000000000000000000005c",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003e"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17682,
+          "creationBytes": 18010,
+          "runtimeHexTemplateSHA256": "b58bfd0e2a9f3044157eae07dff7996fb8f76a18eab54e2521a4e461b87dd920",
+          "links": {
+            "admission.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "51b143cb441ed94f7af1920f039a2d079e724125659e704ce94434d202f5fc09"
+    },
+    {
+      "relation": "node",
+      "source": "node.sol",
+      "publicWords": 32,
+      "lineage": {
+        "sourceVersion": "8bde68cc275adc32aa55c1b00ba1b729a6d870e9ee9c529752dfb39e5d86aa91",
+        "abiSHA256": "ee5984b5e1a8585b06e88eb05a5b353525b177f50605f3a2212bd04c5f705676",
+        "bytecodeSHA256": "9e4f613e46a682115b18b268cb637f9b6d1ca2eea03e9a0acc6068dcd2c6d29f",
+        "keySHA256": "7db1eb6975fad4fda0ebac6b7e9ad3861604f4eb8d1231b9c2ff8ccf661d5fe4",
+        "soliditySHA256": "e9d3bfaef342bd1b93b159c4386d06f23eb0ea034e03802505bc50e863a985bc",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "e9d3bfaef342bd1b93b159c4386d06f23eb0ea034e03802505bc50e863a985bc",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000040000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000012",
+        "$VK_HASH": "0x0abfb0f365d7459d63404de07df8114696e21869fa235dea2e2a7b6b0edaac7f",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000028",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003c"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17558,
+          "creationBytes": 17886,
+          "runtimeHexTemplateSHA256": "6f0cc7ce8277ac02eb7e24237a612b65c59a5f4111cd13f999d5cdaec9289971",
+          "links": {
+            "node.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "e617bc14af7467f01a354da7ed8247a9db4f63d247b17740ad5e3b3c1bef62ab"
+    },
+    {
+      "relation": "settlement",
+      "source": "settlement.sol",
+      "publicWords": 138,
+      "lineage": {
+        "sourceVersion": "f94b24a32eecca0a2866706198898fd8f520908efc045157613a5afefec63b2c",
+        "abiSHA256": "fe1ab69c6e217f38fedc72f7040262998ab76d89d53ada885316e33eefe07bcc",
+        "bytecodeSHA256": "a4db4959438d92b385fbc87d6730db3995f96364278cc333affed8b78f74f2e3",
+        "keySHA256": "ee31381c7e562d507c5897839decf41ecdc1d3bab287faaa1a70a187e6d6dc5e",
+        "soliditySHA256": "e1b45ae0d92309102a56e57c77b5f316e134c7d538fe6bb4647efffd7bea5c12",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "e1b45ae0d92309102a56e57c77b5f316e134c7d538fe6bb4647efffd7bea5c12",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000040000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000012",
+        "$VK_HASH": "0x0af8055584aedc35cf71e2cc3853edbcf7905b9201368b37f1ebe3cf9343e760",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000092",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003c"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17562,
+          "creationBytes": 17890,
+          "runtimeHexTemplateSHA256": "9623b1dad3351b7e8f030267105d326d8062a648e85d0899464fb724f4580509",
+          "links": {
+            "settlement.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "ea6c2de44bb41c472422539240e43a2dca78a1edd1a6d40ee187d0c13c5969ba"
+    },
+    {
+      "relation": "recovery",
+      "source": "recovery.sol",
+      "publicWords": 41,
+      "lineage": {
+        "sourceVersion": "156f5091fd356a198343b051fda7f46efd65076ee38b95eb8acedfae9651449c",
+        "abiSHA256": "f329afbd7217f6e1e266cbfa9d49e6bde8d99746452d15ffcdc8be0f4a2e4ae0",
+        "bytecodeSHA256": "63a60195c6aa59c62918dbf51df2639da2dbb193e35992c7b87c5da75b836821",
+        "keySHA256": "4ef5e2b6473315a24b0454943358bcc7f86c5b03d4188885b612f346954ff456",
+        "soliditySHA256": "ae180ac43e2d8010a9aaed13d91926320cab7c071d8f91fade93b2769886aace",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "ae180ac43e2d8010a9aaed13d91926320cab7c071d8f91fade93b2769886aace",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000020000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000011",
+        "$VK_HASH": "0x2c43069b8f41ae14b08e45d86cc39824eed1fa012186de1373cbfa1ceeceafcd",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000031",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003b"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17562,
+          "creationBytes": 17890,
+          "runtimeHexTemplateSHA256": "9ae00f6911c8d7885d4ad539352e4f8229877aca630d46992f1bad51bd0d0ac8",
+          "links": {
+            "recovery.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "64efc6a94d3f66b15003feca9a4ed7d4f70ee31e659eda9c0562f63b2c93d0c0"
+    },
+    {
+      "relation": "deposit_balance",
+      "source": "deposit_balance.sol",
+      "publicWords": 26,
+      "lineage": {
+        "soliditySHA256": "47ab7388f52b695fc33b8d71a3fbc0f022b8d50f8007967aa0e4b335ab71ea93",
+        "reuse": "EXACT_GOLDEN_V17_SOURCE",
+        "mode": "deposit_balance",
+        "target": "evm",
+        "statementWords": 26,
+        "keySHA256": "e8b8b1d20c9c7618e799599ccc54dcada8043ee0bf23fd8f3c15c0a800e68767",
+        "provenanceSHA256": "7aa7dacf33baec14b1d98bb48a0bdeb6115c1204b42bd970e87a5c8c23a8630e",
+        "artifactSHA256": "42c9dadc3194592249b5e86c047eba8969e7624669474f68a91aca6554fd9238",
+        "compiledFileSHA256": "42c9dadc3194592249b5e86c047eba8969e7624669474f68a91aca6554fd9238",
+        "circuitSHA256": "e02b8d05c4cad3e8fc00d6d5b8714292bfdf2b9d81d5617145114486e6d3b4ba",
+        "sourceTreeSHA256": "f7b1e2611965d908ece5df618ae95b76763f697671b3dea9bb38886e71236868"
+      },
+      "sourceSHA256": "47ab7388f52b695fc33b8d71a3fbc0f022b8d50f8007967aa0e4b335ab71ea93",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000020000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000011",
+        "$VK_HASH": "0x056498247a90ba15b17a3fa87ad139a4c1627f15ba7edad5ca9f1e11fbd3bba8",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000022",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003b"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17560,
+          "creationBytes": 17888,
+          "runtimeHexTemplateSHA256": "1ed4db2cb8c3210e23e4069c6919cece1621233ca1038c653a1dba5418f42e6c",
+          "links": {
+            "deposit_balance.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "f933210631431e4d102a4a3ccde6a7499df6cc748df29ef0aeff57ad11fb23c5"
+    },
+    {
+      "relation": "withdraw_balance",
+      "source": "withdraw_balance.sol",
+      "publicWords": 39,
+      "lineage": {
+        "soliditySHA256": "d1d06f9b3689f6d531b19775131cc91700772ffa0bcc5e72b083b9f7393b1824",
+        "reuse": "EXACT_GOLDEN_V17_SOURCE",
+        "mode": "withdraw_balance",
+        "target": "evm",
+        "statementWords": 39,
+        "keySHA256": "edb16c5329479e04b026ac4b80216291b7d830f6e0815b4d5d9297fa55fecf8a",
+        "provenanceSHA256": "b155829f4a17d17ad516074d0e0a896fdc1f6f35ef0a129bdee9f936850744da",
+        "artifactSHA256": "99383985b10fcbd786d0d186a7bd02d139741877fe897d682dc1272c937b638b",
+        "compiledFileSHA256": "99383985b10fcbd786d0d186a7bd02d139741877fe897d682dc1272c937b638b",
+        "circuitSHA256": "e45e6e24f2738ae20b1b46ee95a5c9126becff6830ee8439d3b8901ab40b3370",
+        "sourceTreeSHA256": "e6194c6aeeb46051062a87eb8e77229c65cd5dc7d6f5613707ab408b6c2ecf77"
+      },
+      "sourceSHA256": "d1d06f9b3689f6d531b19775131cc91700772ffa0bcc5e72b083b9f7393b1824",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000040000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000012",
+        "$VK_HASH": "0x09a89b60befa43521980130103d18fd243a6b27f058e49c73e317f4f944f709b",
+        "$NUM_PUBLIC_INPUTS": "0x000000000000000000000000000000000000000000000000000000000000002f",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003c"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17562,
+          "creationBytes": 17890,
+          "runtimeHexTemplateSHA256": "b6c868e2e4c8b74d720569266d1862145a72219301ad65448dc24cac127e50f1",
+          "links": {
+            "withdraw_balance.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "5b46e7e0397fa13cb8bcb86f8bfdf251c645f6d904bf1756a9e005bed4f8063c"
+    },
+    {
+      "relation": "withdraw_output",
+      "source": "withdraw_output.sol",
+      "publicWords": 39,
+      "lineage": {
+        "soliditySHA256": "1691a2958f1c0dfacfdc4ec721ad59635808389902750402d7ecfae94684b4b1",
+        "reuse": "EXACT_GOLDEN_V17_SOURCE",
+        "acceptanceReference": "Retained source only; this new laboratory must establish its own proof acceptance"
+      },
+      "sourceSHA256": "1691a2958f1c0dfacfdc4ec721ad59635808389902750402d7ecfae94684b4b1",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000040000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000012",
+        "$VK_HASH": "0x0c15c959a8ebb1e3d879a7fb105deba54444c66123f95bedddaef81b3274dbea",
+        "$NUM_PUBLIC_INPUTS": "0x000000000000000000000000000000000000000000000000000000000000002f",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003c"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17560,
+          "creationBytes": 17888,
+          "runtimeHexTemplateSHA256": "16ac790a953b233baad77de0b1a8304ce448f7880da85dc5110e0a45a6dad951",
+          "links": {
+            "withdraw_output.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "5c99f5bb31d89692fcf89b0d213a5b5958f9d6ab0e7688cdfec8f6875003959b"
+    },
+    {
+      "relation": "deposit_intent",
+      "source": "deposit_intent.sol",
+      "publicWords": 27,
+      "lineage": {
+        "sourceVersion": "246d95a02939b8cd97878e5ed18d7b75afda03d0127e57019f0e8e510cb4c42a",
+        "abiSHA256": "7ab9b5f00cfed920dcba5a39e07e3d4dbcc23e05f892a3a5d4651e352bf2f439",
+        "bytecodeSHA256": "55323e28700ea427607fdd12cde4583726c14ff57b913edfa738289c908522e1",
+        "keySHA256": "1f5ff758dec2c32cda206c210285618ec26f9b251d760798e25464150768a803",
+        "soliditySHA256": "219d4e0941cba964eed0a1161b9072b3463f1abeb99b7494ab4bdd89352abb8f",
+        "keyBytes": 1888
+      },
+      "sourceSHA256": "219d4e0941cba964eed0a1161b9072b3463f1abeb99b7494ab4bdd89352abb8f",
+      "compiler": {
+        "version": "0.8.37+commit.f401782d.Emscripten.clang",
+        "packageVersion": "0.8.37",
+        "resolved": "https://registry.npmjs.org/solc/-/solc-0.8.37.tgz",
+        "integrity": "sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==",
+        "lockSHA256": "01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4",
+        "soljsonSHA256": "221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c"
+      },
+      "settings": {
+        "optimizer": {
+          "enabled": true,
+          "runs": 1
+        },
+        "viaIR": false,
+        "evmVersion": "cancun",
+        "metadata": {
+          "bytecodeHash": "none"
+        },
+        "outputSelection": {
+          "*": {
+            "": [
+              "ast"
+            ],
+            "*": [
+              "abi",
+              "evm.bytecode.object",
+              "evm.bytecode.linkReferences",
+              "evm.deployedBytecode.object",
+              "evm.deployedBytecode.linkReferences",
+              "evm.deployedBytecode.immutableReferences",
+              "evm.methodIdentifiers"
+            ]
+          }
+        }
+      },
+      "immutableNames": {
+        "7864": "$N",
+        "7866": "$LOG_N",
+        "7868": "$VK_HASH",
+        "7870": "$NUM_PUBLIC_INPUTS",
+        "7872": "$MSMSize"
+      },
+      "immutableValues": {
+        "$N": "0x0000000000000000000000000000000000000000000000000000000000020000",
+        "$LOG_N": "0x0000000000000000000000000000000000000000000000000000000000000011",
+        "$VK_HASH": "0x1b5352a3d681b86d715277b15300cfd7504a64f4f32aff0ec954850662b38df8",
+        "$NUM_PUBLIC_INPUTS": "0x0000000000000000000000000000000000000000000000000000000000000023",
+        "$MSMSize": "0x000000000000000000000000000000000000000000000000000000000000003b"
+      },
+      "artifacts": [
+        {
+          "name": "BaseZKHonkVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "CommitmentSchemeLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Errors",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "FrLib",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "Honk",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerificationKey",
+          "runtimeBytes": 44,
+          "creationBytes": 94,
+          "runtimeHexTemplateSHA256": "bff39434ad9beb775179b3888bc152d5eb73a4be327a3d632c62aeaeefca149d",
+          "links": {}
+        },
+        {
+          "name": "HonkVerifier",
+          "runtimeBytes": 17560,
+          "creationBytes": 17888,
+          "runtimeHexTemplateSHA256": "534c54d514dfeb7491404eec0ca4da7461d3f4e17301459d320b3b58ecc1a882",
+          "links": {
+            "deposit_intent.sol": {
+              "RelationsLib": [
+                {
+                  "length": 20,
+                  "start": 3376
+                }
+              ],
+              "ZKTranscriptLib": [
+                {
+                  "length": 20,
+                  "start": 670
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "IVerifier",
+          "runtimeBytes": 0,
+          "creationBytes": 0,
+          "runtimeHexTemplateSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "links": {}
+        },
+        {
+          "name": "RelationsLib",
+          "runtimeBytes": 7929,
+          "creationBytes": 7981,
+          "runtimeHexTemplateSHA256": "95cefa4d5ab632cf94cb020889697e856f2aaf08ddcede12a0ef5bdc03b3b2df",
+          "links": {}
+        },
+        {
+          "name": "ZKTranscriptLib",
+          "runtimeBytes": 6067,
+          "creationBytes": 6119,
+          "runtimeHexTemplateSHA256": "e612d681e0d4572e4227a03881724443cfe932069eb5b184d85cc4ee5a7ede72",
+          "links": {}
+        }
+      ],
+      "compiledSHA256": "f1f6a2184c7a12759a6811959979faaa4e17902460a4194f0927255fc9dbc475"
+    }
+  ],
+  "nativeNodesStarted": false,
+  "proofGenerated": false,
+  "historicalReportsRecreated": false,
+  "routerSHA256": "1521de22c45bfaeb8a554d6600337db745a4baef3cfb71b7de729d166cf639b6"
+}
