@@ -1,3 +1,5 @@
+import { privateMetaMorphoSourcePins } from '../defi/private-metamorpho-source-pins.mjs';
+import { PRIVATE_METAMORPHO_FLOW_RESULT, assertPrivateMetaMorphoResult } from '../defi/private-metamorpho-flow-policy.mjs';
 import {types as coldErrorTypesV1} from 'node:util';
 import {assertWrappedColdCycleReleaseV1,writeWrappedColdStageGrantV1,assertWrappedColdBoundaryV1,wrappedColdSourceIdentityV1} from '../wallet/wrapped/flows/wrapped-wallet-cold-cycle-v1.mjs';
 import { parseNativeProcStat, nativeProcStatV1 as procStat, readNativeFlowRegularV1 as readRegular } from './native-flow-owned-files-v1.mjs';
@@ -256,6 +258,15 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: manualWalletSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
+  privateMetaMorpho: Object.freeze({
+    entry: join(ROOT, 'integration/defi/run-private-metamorpho-flow.mjs'),
+    worker: join(ROOT, 'integration/defi/private-metamorpho-flow.mjs'),
+    local: join(ROOT, '.local/private-metamorpho-flow'),
+    resultFormat: PRIVATE_METAMORPHO_FLOW_RESULT, resourcesFormat: 'LIANUM_PRIVATE_METAMORPHO_RESOURCES_V1',
+    lockFormat: 'LIANUM_PRIVATE_METAMORPHO_LOCK_V1', attemptFormat: 'LIANUM_PRIVATE_METAMORPHO_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_PRIVATE_METAMORPHO', sourcePins: privateMetaMorphoSourcePins,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
   evmVault: Object.freeze({
     entry: join(ROOT, 'integration/run-evm-vault-flow.mjs'),
     worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
@@ -499,6 +510,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.poolGenerationPhase1) scoped = assertPoolGenerationPhase1Result(result);
   if (profile === FLOW_PROFILES.poolGenerationPhase2) scoped = assertPoolGenerationPhase2Result(result);
   if (profile === FLOW_PROFILES.manualWallet) scoped = assertManualWalletResult(result);
+  if (profile === FLOW_PROFILES.privateMetaMorpho) scoped = assertPrivateMetaMorphoResult(result);
   if (profile === FLOW_PROFILES.manualWalletRecovery) scoped = assertManualWalletRecoveryResult(result);
   if (profile === FLOW_PROFILES.nativeClaimLoadedV3) scoped = validateClaimLoadedV3Result(result);
   if (profile === FLOW_PROFILES.nativeClaimGraphV3) scoped = validateClaimGraphV3Result(result);
@@ -589,6 +601,10 @@ export async function runManualWalletRecoverySupervisor() {
   assert.equal(arguments.length, 0, 'MANUAL_WALLET_RECOVERY_NO_SUPERVISOR_OPTIONS');
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   return runFixedFlowSupervisor(FLOW_PROFILES.manualWalletRecovery);
+}
+export async function runPrivateMetaMorphoSupervisor() {
+  assert.equal(arguments.length, 0, 'PRIVATE_METAMORPHO_SUPERVISOR_NO_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.privateMetaMorpho);
 }
 export async function runEvmVaultSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_VAULT_NO_SUPERVISOR_OPTIONS');
