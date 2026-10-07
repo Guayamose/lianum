@@ -7,6 +7,9 @@ interna utilizada durante la ejecución.
 | Carpeta | Contenido | Primer archivo útil |
 | --- | --- | --- |
 | `apps/wallet/` | Aplicación web y servidor HTTP que compone las sesiones | `src/server/run.mjs`, `src/server/server.mjs`, `src/client/app.mjs` |
+| `apps/mobile/` | Cliente nativo, custodia de dispositivo y permisos móviles | `App.tsx`, `README.md` |
+| `apps/platform/` | API móvil y registro PostgreSQL; adaptador económico pendiente | `src/run.mjs`, `README.md` |
+| `packages/mobile-protocol/` | Esquemas y bytes firmados compartidos sin Node | `src/authorization.mjs` |
 | `packages/backend/` | API, estado de cuentas, ejecución y adaptadores | `src/api/accounts/flat-account-session.mjs` |
 | `packages/custody/` | Custodia local, firmas y procesos del propietario | `src/processes/flat-owner-process.mjs` |
 | `packages/proofs/` | Workers, circuitos actuales Noir y bibliotecas de pruebas | `src/catalog.mjs`, `circuits/` |
@@ -18,6 +21,7 @@ interna utilizada durante la ejecución.
 | `contracts/` | Contratos Solidity, separados por consumidor | `wallet/`, `engine/`, `protocol/` |
 | `tests/integration/` | Pruebas de integración de la wallet | Archivos `.mjs` existentes |
 | `scripts/` | Comandos del proyecto, compiladores y utilidades de laboratorio | `development/dev` |
+| `infra/google-cloud/` | Cloud Run, SQL y jobs deshabilitados; validación local | `README.md`, `main.tf` |
 | `experiments/` | Circuitos y código experimental heredado; algunos siguen siendo dependencias | `engine/private-core-proof/` |
 | `docs/` | Documentación y referencias del producto | Este archivo |
 | `archive/` | Entregas originales, propuestas, recibos y respaldo de la restauración | `README.md` |
@@ -101,9 +105,15 @@ cambie código ligado a pruebas o releases. Una edición funcional puede
 invalidar un hash de origen: esa validación debe revisarse junto con el cambio,
 sin desactivar las comprobaciones para conseguir que una operación pase.
 
-La copia interna incluye las dependencias y herramientas públicas restauradas.
-Clonar solo las fuentes no las instala; para otro equipo hacen falta la
-restauración y los respaldos públicos descritos en `scripts/development/README.md`.
+La copia interna incluye dependencias y herramientas públicas restauradas. El
+bootstrap de [DEVELOPMENT.md](DEVELOPMENT.md) permite ejecutar las pruebas de host
+desde un clon limpio. La restauración completa de releases y runtimes necesita
+los materiales descritos en `scripts/development/README.md`.
+
+`apps/mobile`, `apps/platform`, `packages/mobile-protocol` e `infra` se ejecutan
+directamente con dependencias explícitas; no usan la traducción de rutas heredada.
+El cliente móvil no es una conversión automática de la wallet web y la API aún
+no conecta sus permisos al motor económico.
 
 Mientras exista la compatibilidad, conserva nombres de archivo específicos.
 El build rechaza dos fuentes que correspondan a la misma ruta antigua.

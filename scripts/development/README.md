@@ -28,7 +28,7 @@ reiniciar los procesos para cargar cambios.
 
 `check` verifica el archivo original y la sincronización del código, compila
 ABI/tipos de los contratos y comprueba Noir y el HTTP de la wallet.
-`test` ejecuta once archivos de pruebas de host, incluidas las regresiones de
+`test` ejecuta doce archivos de pruebas de host, incluidas las regresiones de
 reconciliación terminal, o las rutas indicadas. Conserva la selección habitual
 en `.internal/dev/reports/host-tests.*` y las selecciones particulares en
 `selected-host-tests.*`, para no sustituir un resultado completo por otro de
@@ -46,8 +46,10 @@ históricas de encoding, sin generarlos ni omitir esas pruebas.
 
 ## Restaurar otra copia
 
-Las herramientas siguientes requieren Linux/WSL y los respaldos públicos
-originales. Un `npm install` en la raíz no sustituye esta restauración.
+Para pruebas de host y los nuevos proyectos móvil/API basta el bootstrap
+público de [docs/DEVELOPMENT.md](../../docs/DEVELOPMENT.md). La restauración
+completa que sigue requiere Linux/WSL y los respaldos públicos originales.
+Un `npm install` en la raíz no sustituye esa restauración.
 
 ```bash
 ./dev build
@@ -70,7 +72,9 @@ Debe existir con propiedad del usuario. Esta ruta pública es independiente
 del código que se desarrolla y no reproduce la identidad del laboratorio
 privado perdido. Los runtimes Solana personalizado y Tron V3 quedan
 inactivos hasta que un flujo autorizado los utilice. El gate canónico de
-Tron sigue cerrado.
+Tron sigue cerrado. Solana ya tiene una aceptación nueva de ingreso/solver;
+el alcance y los pendientes se registran en
+[LOCAL-ACCEPTANCE.md](../../packages/backend/docs/LOCAL-ACCEPTANCE.md).
 
 La explicación histórica completa de la restauración está en
 `archive/restoration/ENVIRONMENT.md`; sus comandos y rutas anteriores se

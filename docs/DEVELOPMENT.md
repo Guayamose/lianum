@@ -37,6 +37,11 @@ controles desde un checkout vacío, sin credenciales del producto. No hay remoto
 Git configurado actualmente: su ejecución en GitHub queda pendiente de subir
 el repositorio.
 
+El workflow [applications.yml](../.github/workflows/applications.yml) instala los
+locks públicos de móvil y API, verifica contratos/tipos y exporta los bundles.
+También comprueba PostgreSQL real en Docker y Terraform con proveedor simulado.
+No requiere claves, cuenta GCP ni estado privado del laboratorio.
+
 ## Laboratorios y pruebas adicionales
 
 ```sh

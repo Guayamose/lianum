@@ -1,45 +1,51 @@
 # Lianum
 
-Wallet omnichain privada en desarrollo. La aplicación web y su backend actual
-están escritos en JavaScript ESM; los contratos usan Solidity y los circuitos,
-Noir.
+Wallet omnichain privada en desarrollo: web en JavaScript ESM, móvil en
+Expo/React Native, contratos Solidity y circuitos Noir. La base de desarrollo
+está versionada; los recorridos de producto aún se están integrando.
 
 ```text
 lianum-project/
-├── apps/wallet/       Aplicación web y servidor HTTP
-├── packages/          Backend, custodia, pruebas y motores compartidos
-├── contracts/         Contratos Solidity
-├── tests/             Integración; unidades junto a su módulo
-├── scripts/           Comandos y herramientas
-├── experiments/       Circuitos y experimentos heredados aún utilizados
-├── docs/              Documentación
-└── archive/           Entregas, propuestas y restauración
+├── apps/
+│   ├── wallet/       Wallet web y servidor del laboratorio
+│   ├── mobile/       Cliente nativo Android/iOS
+│   └── platform/     API móvil, PostgreSQL y Docker local
+├── packages/         Backend, custodia, pruebas y bibliotecas compartidas
+├── contracts/        Contratos Solidity
+├── tests/            Integración; unidades junto a su módulo
+├── infra/            Infraestructura Google Cloud deshabilitada
+├── scripts/          Comandos y herramientas
+├── experiments/      Código heredado aún utilizado
+├── docs/             Documentación
+└── archive/          Entregas originales y restauración
 ```
 
-Abre `lianum.code-workspace` en VS Code o abre esta carpeta directamente.
-Desde aquí:
+Abre `lianum.code-workspace` o esta carpeta en VS Code. En esta máquina:
 
-```bash
-npm run dev
-npm run check
-npm test
+```sh
+./dev start
+./dev check
+./dev test
 ```
 
-También puedes usar `./dev start`, `./dev check` y `./dev test`. El arranque
-imprime una dirección local; abre esa dirección y termina con Ctrl+C. La
-wallet arranca desconectada. Los tests conservan dos fallos previos conocidos.
+El arranque imprime una dirección local y termina con Ctrl+C. La wallet inicia
+desconectada. La selección habitual pasa: 226 resultados en doce archivos.
+También existen `npm run dev`, `npm run check` y `npm test`.
 
-Dentro de cada componente, `src/` contiene código, `tests/` pruebas y `docs/`
-las explicaciones. Edita `apps/wallet/src/client/` para la interfaz y
-`packages/backend/src/` para la
-lógica de servidor. [El mapa de carpetas](docs/STRUCTURE.md) indica dónde están
-custodia, contratos y pruebas.
+Dentro de cada componente, `src/` contiene implementación, `tests/` pruebas y
+`docs/` explicaciones. [El mapa](docs/STRUCTURE.md) señala entradas por dominio.
+Los módulos heredados se preparan en `.internal/runtime/`; edita las carpetas
+normales y reinicia la wallet para cargar cambios.
 
-Una copia generada en `.internal/` conserva las rutas exigidas por el código
-heredado. Los comandos la preparan desde los archivos editables; reinicia la
-wallet después de cambiar código. La eliminación de esa compatibilidad queda
-pendiente. El entorno restaurado de esta máquina permite estos comandos; una
-copia nueva requiere reconstruir sus dependencias públicas.
+Para un clon limpio, el [bootstrap de host](docs/DEVELOPMENT.md) permite ejecutar
+la selección habitual sin el laboratorio privado ni el paquete de restauración.
+La [restauración completa](scripts/development/README.md) sí necesita materiales
+públicos adicionales para releases y runtimes originales.
 
-[Estado actual](STATUS.md) · [Siguiente trabajo](ROADMAP.md) ·
-[Objetivo del producto](PROJECT-VISION.md) · [Entorno](scripts/development/README.md)
+[Móvil](apps/mobile/README.md), [API/Docker](apps/platform/README.md) e
+[infraestructura local](infra/google-cloud/README.md) tienen comandos propios.
+La API aún no está conectada al motor económico: estado privado `null` y
+readiness 503. No hay proyecto ni despliegue en Google Cloud.
+
+[Estado y pendientes](STATUS.md) · [Orden de trabajo](ROADMAP.md) ·
+[Visión](PROJECT-VISION.md) · [Laboratorio EVM](docs/EVM-LAB.md)

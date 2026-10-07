@@ -1,140 +1,115 @@
 # Estado actual
 
-El entorno público de desarrollo está restaurado. La estructura física se ha
-reorganizado en `apps`, `packages`, `contracts`, `tests`, `scripts`,
-`experiments`, `docs` y `archive`. El código editable usa imports de esa
-estructura; el arranque prepara una copia interna compatible con los pines
-históricos.
+Actualizado el 8 de octubre de 2026. Hay una base versionada y utilizable para
+desarrollo; todavía no está completada la wallet omnichain de la visión original.
+Los resultados distinguen código comprobado, laboratorio local y producto
+pendiente. Las entregas históricas permanecen en `archive/`.
 
-- Los 1.684 archivos del recorrido original se reproducen con sus bytes y
-  permisos originales. La copia archivada permanece independiente del código
-  editable.
-- Compilación y tipos de 42 fuentes Solidity, diagnóstico Noir/Barretenberg y
-  arranque HTTP de la wallet desconectada: comprobados.
-- Lectores públicos CI51, CO42 e I84: comprobados.
-- La selección de nueve archivos de pruebas conserva 157 resultados correctos
-  y dos fallos anteriores. Uno impide cargar los casos del servidor por un
-  mock desactualizado; otro espera una lista antigua de exportaciones.
+## Trabajo solicitado
 
-El producto completo y su laboratorio privado no están reconstruidos. Faltan
-sesiones privadas nuevas, validación de extremo a extremo, revisión de las
-cadenas y cierre del trabajo de privacidad, rendimiento y DeFi. El gate
-canónico de Tron continúa cerrado.
+| Paso | Estado comprobado | Qué falta para cerrarlo |
+| --- | --- | --- |
+| 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 226 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
+| 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación económica integral se comprueba adicionalmente en el paso 3. |
+| 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; financiación y autorización con pruebas reales comprobadas. Aceptación integral en curso. | Completar el recorrido, reinicio y recuperación F; aceptación visual y conexión a móvil. |
+| 4. Redes y operaciones combinadas | Solana: ingreso y solver aceptados en Agave nuevo. Lectores públicos y adaptadores restaurados. | Payout con autoridad original, flujo privado BTC/Solana, consenso Tron, aceptación propia de Base/Arbitrum/BNB y composición entre redes. |
+| 5. DeFi | Swap oficial Uniswap V3 y depósito/redención oficial MetaMorpho comprobados en Anvil. Salida acotada y puente privado con 18 regresiones. | Ciclo privado completo con pruebas reales, posiciones y recuperación ante pérdida de keeper/nodo. |
+| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL duraderos; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, aceptación física, recuperación móvil y operación de producción. |
 
-Ejecuta `npm run check`, `npm test`, `npm run doctor` y `npm run evidence` para
-obtener resultados actuales. Los informes están en `.internal/dev/reports/`.
-`doctor` comprueba la integridad de la base original; al editar lógica ligada
-a pines, su hash puede cambiar y requiere revisión como parte del cambio.
+Los pasos 1 y 2 tienen sus cambios implementados y comprobados. Los pasos 3–6
+incluyen avances reales, pero no están cerrados como producto. Google Cloud se
+prepara **sólo localmente**, según la decisión del usuario: no hay proyecto,
+despliegue, `apply` ni recursos creados.
 
-Los documentos anteriores a la restauración están en
-[archive/delivery](archive/delivery/). Sus fechas y porcentajes describen
-la entrega histórica, no el estado de desarrollo actual.
+## Qué puedes ejecutar hoy
 
-## Organización interna — 8 de octubre de 2026
+Desde la raíz:
 
-Se han recolocado 1.137 archivos por dominio y separado implementación,
-pruebas, fixtures y documentación. La wallet tiene `src/client`, `src/server`,
-`tests` y `docs`; backend, custodia, workers, motor y protocolo siguen la
-misma separación. Los componentes y dominios principales tienen guías breves.
-Las carpetas de trabajo contienen como máximo 15 fuentes del inventario
-original en un mismo nivel, frente a 146 antes de esta segunda reorganización.
+```sh
+./dev start       # Wallet web; arranca desconectada
+./dev test        # 12 archivos: 226 PASS, 0 FAIL
+./dev check       # Integridad, tipos/ABI, diagnóstico Noir y HTTP
+./dev doctor      # Herramientas, originales y bloqueos por separado
+./dev artifacts  # Faltantes históricos de la selección de encoding
+```
 
-Los 1.684 archivos del recorrido de ejecución conservan sus bytes y permisos.
-La selección habitual mantiene 157 resultados correctos y dos fallos previos.
-Una selección adicional de encoding resuelve exactamente tres archivos y da
-13 resultados correctos y dos fallos por artefactos históricos ausentes:
-`candidate-poseidon/.local/component/attempts/prove-2/public-inputs.json` y
-`flat-wallet/.local/contracts/2e02620a-404c-4c27-9ac2-4132713e083b/compiled.json`.
-Esos tests conservan su contenido original; no se han regenerado los
-artefactos ni ocultado los fallos. El resultado adicional está en
-`.internal/dev/reports/component-directory-tests.json`.
+La wallet web no inventa saldo al arrancar. Cada integración tiene preparación propia:
 
-## Evaluación del producto — 8 de octubre de 2026
+- [Laboratorio EVM](docs/EVM-LAB.md): build nuevo y recorrido con pruebas reales.
+- [Móvil](apps/mobile/README.md): instalación, contratos, tipos y bundles Android/iOS.
+- [API y PostgreSQL](apps/platform/README.md): réplica Docker y pruebas con base real.
+- [Google Cloud](infra/google-cloud/README.md): validación y seis tests simulados, sin credenciales.
+- [Redes y DeFi](packages/backend/docs/LOCAL-ACCEPTANCE.md): alcance de cada aceptación.
 
-El proyecto tiene un prototipo técnico avanzado y un entorno público útil
-para continuar el desarrollo. Todavía no tiene una aceptación conjunta
-reproducida en un laboratorio nuevo, una aplicación móvil nativa ni un
-despliegue operativo de la arquitectura objetivo en Google Cloud.
+## Evidencia y límites
 
-La entrega del 7 de octubre estimaba un 58% global. Ese número no procedía de
-una medición. La restauración y las dos reorganizaciones han conservado la
-lógica original: mejoran el entorno y la navegación, pero no completan
-funcionalidades del producto.
+La selección habitual pasa con 226 resultados. Se ejecutan además las
+regresiones de salida DeFi, Solana, driver HTTP, móvil y API. La API tiene 11
+casos host y ocho resultados del grupo PostgreSQL real: carreras, JSONB,
+reinicio, respuesta perdida, crash y caída de SQL conservando el proceso HTTP.
+El adaptador de esos tests es un contador SQL; no mueve fondos ni genera pruebas.
 
-### Estimación por los puntos originales
+El cliente móvil pasa diez pruebas de contratos, tipos, prebuild y exportación
+Android/iOS. Eso no acredita biometría/custodia en un teléfono ni una IPA/APK
+instalada. El bootstrap de API mantiene el adaptador económico desconectado:
+liveness es 200, readiness es 503 y `privatePortfolio` es `null`.
 
-Los rangos siguientes son una valoración orientativa de la cobertura técnica,
-basada en las fuentes, las evidencias históricas conservadas y las
-verificaciones locales existentes. No son porcentajes medidos, aceptación
-actual de cada bloque, ni una estimación del tiempo restante. Ningún punto
-está cerrado.
+Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
+Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica la
+autoridad del controlador de payout. Tron conserva
+`OWNED_TRON_RUNTIME_RELEASE=null`: su clausura pública se verifica, pero el
+intento nuevo fue rechazado por la configuración offline antes de consenso.
 
-Para interpretar los rangos: 25–50% corresponde a componentes y pruebas
-aisladas; 50–75%, a recorridos parciales demostrados; 75–90% requeriría
-integración reproducible del bloque; 100%, cumplimiento de sus requisitos
-originales y de los requisitos transversales que le afectan. Los puntos se
-solapan y no constituyen unidades iguales de trabajo.
+Los informes están en `.internal/dev/reports/` y los directorios privados de
+cada intento. No se versionan claves, testigos ni sesiones. Los comandos CI se
+comprueban localmente; no hay remoto ni ejecución registrada de GitHub Actions.
 
-| Punto original | Cobertura orientativa | Base disponible | Trabajo que impide cerrarlo |
-| --- | --- | --- | --- |
-| 1. Wallet unificada | 50–60% | Cliente web, API, SDK, consentimiento manual y consultas públicas para las siete redes. | Recorrido integrado de financiación, autorización, ejecución, estado y recuperación; experiencia móvil con custodia en el dispositivo. |
-| 2. Privacidad por defecto | 40–50% | Circuitos, compromisos, nullifiers, cuentas privadas y pruebas reutilizables. | Garantías del sistema frente a correlación por importes, tiempos, financiación, retiradas, RPC e infraestructura; modelo de observadores y revisión independiente. |
-| 3. PAEG genérico | 60–70% | Grafo acotado de cuatro slots, dependencias, autorizaciones, anti-replay y evidencias históricas de pruebas reales. | Reconciliación nativa correcta, aceptación de las rutas actuales y generalidad comprobada al componer acciones; cuatro slots no son grafos ilimitados. |
-| 4. Liquidación y recuperación económica | 55–65% | Reservas, liquidación, liberación/devolución y escenarios históricos de entrega parcial y reinicio. | Fallos combinados en la integración actual, reintentos sin duplicación y asignación explícita de pérdidas, liquidez y obligaciones del ejecutor. |
-| 5. DeFi privado real | 35–45% | Bóveda local aceptada históricamente, posiciones, controles de mínimo/plazo y evidencia parcial local de Uniswap V3. | Ciclo completo de MetaMorpho, retirada/redención y recuperación integradas; no hay aceptación completa de Uniswap, Aave, Morpho y Jupiter. |
-| 6. Estado privado global | 55–65% | Disponibles, reservados y pendientes diferenciados; notas, posiciones, persistencia y tratamiento de datos desconocidos. | Coherencia entre redes y propietarios durante ejecución, reinicio y recuperación, sin créditos o envíos duplicados ni saldos disponibles ficticios. |
-| 7. Redes heterogéneas en profundidad | 45–55% | Lectores de las siete redes, adaptadores EVM/SVM/UTXO/Tron y recorridos nativos locales históricos. | Aceptación actual por red y combinada, finalidad/reorganizaciones, Solana en el entorno restaurado e integración canónica de Tron. |
-| 8. Agente autónomo | Fuera del alcance | Integración futura mediante API, SDK y permisos. | Su implementación corresponde a Rafa y no entra en el porcentaje de este proyecto. |
+## Artefactos y entorno
 
-La referencia global razonable sigue siendo aproximadamente 50–60% de
-cobertura técnica. No se obtiene un porcentaje de producto listo para
-producción a partir de estos rangos ni de la proporción de tests correctos.
-La distancia pendiente incluye integración, producto móvil, operación y
-validación; no se limita a acabar pequeñas funcionalidades.
+- El archivo original completo conserva 2.649 archivos con sus comprobaciones
+  históricas. Git incluye 1.716; otras 933 referencias/paquetes/drafts públicos
+  locales quedan excluidos explícitamente de CI.
+- La reconstrucción inicial reprodujo 1.684 archivos del recorrido original.
+  El código editable puede cambiar; el archivo histórico y sus pines no cambian.
+- Faltan dos originales de encoding:
+  `candidate-poseidon/.local/component/attempts/prove-2/public-inputs.json` y
+  `flat-wallet/.local/contracts/2e02620a-404c-4c27-9ac2-4132713e083b/compiled.json`.
+  `./dev artifacts` identifica sus consumidores y el hash conocido. No se
+  regeneran como si fueran originales ni se omiten silenciosamente sus tests.
+- También faltan programas/VK y evidencias públicas de releases históricas de
+  claims. El inventario de encoding tiene ese alcance; no certifica todas las
+  integraciones posteriores. Una reconstrucción nueva tendrá identidad propia.
+- El laboratorio privado perdido no se recuperó. Las aceptaciones nuevas usan
+  identidades, claves y estado nuevos.
+- Los módulos heredados requieren `.internal/runtime/`, recursos compartidos y
+  algunos experimentos. Los nuevos móvil/API/infra tienen dependencias explícitas
+  fuera de esa compatibilidad.
 
-### Bloqueos comprobables
+## Distancia respecto a los puntos originales
 
-- La selección habitual de tests sigue fallando: mock desactualizado del
-  servidor y expectativa antigua de exportaciones del cliente. Un archivo
-  falla al cargar y sus casos todavía no se ejecutan. Una selección adicional
-  necesita dos artefactos históricos ausentes; no es la suite completa.
-- En `packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs`,
-  `reconcile()` espera a los adaptadores de admisión antes de observar el
-  resultado terminal conservado. Un adaptador sin respuesta puede impedir
-  reconocer una recuperación que ya finalizó. El problema sigue sin corregir.
-- El runtime personalizado de Solana está recuperado y se ha comprobado su
-  versión. Eso no demuestra una ejecución nativa nueva. Tron conserva
-  `OWNED_TRON_RUNTIME_RELEASE=null`; también hay rutas de aceptación local
-  posteriores con gates cerrados. Recuperar binarios no habilita esas rutas.
-- El laboratorio privado anterior no se recuperó. Hay que crear identidades,
-  claves de prueba y estado de redes nuevos, sin presentarlos como el original.
-- El código tiene imports entre paquetes y dependencias de fixtures y
-  experimentos. La ejecución utiliza una copia interna compatible con las
-  rutas históricas; los paquetes todavía no son unidades independientes.
-- Git está inicializado, pero no tiene commits ni remoto configurado. Falta
-  establecer una base versionada de la restauración antes de cambios de lógica.
+La entrega histórica estimaba un 58% global sin una medición de aceptación.
+No lo convertimos en porcentaje actualizado a partir de commits o tests. Los
+rangos anteriores eran cobertura técnica orientativa:
 
-### Requisitos transversales
+| Punto original | Referencia anterior | Condición para aceptarlo como producto |
+| --- | --- | --- |
+| Wallet unificada | 50–60% | Recorrido desde interfaz/móvil, estado y recuperación entre siete redes. |
+| Privacidad por defecto | 40–50% | Modelo de observadores/colusión y garantías de sistema comprobadas. |
+| PAEG genérico | 60–70% | Composición reproducible dentro de límites explícitos; el perfil actual tiene cuatro slots. |
+| Liquidación y recuperación económica | 55–65% | Entregas parciales, pérdidas asignadas y ningún efecto o saldo duplicado. |
+| DeFi privado real | 35–45% | Ciclos privados completos por protocolo, salida, conservación y recuperación. |
+| Estado privado global | 55–65% | Coherencia de disponibles/reservados/pendientes entre redes y propietarios. |
+| Redes heterogéneas en profundidad | 45–55% | Aceptación de cada red, finalidad, reorganizaciones y operaciones combinadas. |
+| Agente autónomo personal | Fuera del alcance | Rafa lo implementa sobre las APIs y permisos del producto. |
 
-| Requisito original | Estado |
-| --- | --- |
-| Mantenibilidad y documentación funcional | Organización física y guías mejoradas; quedan variantes históricas, módulos grandes, acoplamiento y portabilidad. |
-| Generalidad real | Existe el perfil de cuatro slots; falta demostrar la composición de las rutas actuales con las mismas garantías. |
-| Confianza minimizada | Persisten supuestos sobre autoridades, operadores y RPC. Claves distintas en un laboratorio no prueban operadores independientes; custodia de una nota no equivale a custodia del activo nativo. |
-| Privacidad del sistema | La criptografía parcial no cierra las filtraciones por metadatos ni la privacidad frente a colusión. |
-| Revisión criptográfica independiente | Pendiente; las pruebas y revisiones internas no equivalen a una auditoría externa. |
-| Rendimiento | Sin medición completa que demuestre los objetivos en caliente: sobrecoste propio <30 s, pruebas <20 s y coordinación/liquidación <5 s, midiendo la finalidad nativa aparte. |
+Son referencias de la evaluación anterior, no una medición de los avances
+actuales ni del tiempo pendiente. Ningún punto completo de la visión original
+queda aceptado por pruebas aisladas.
 
-La custodia móvil, el monolito modular en Cloud Run, los workers separados y
-los servicios de soporte siguen siendo arquitectura de destino. No se ha
-encontrado un proyecto móvil nativo ni una configuración de despliegue GCP
-reproducible en el árbol de trabajo inspeccionado.
+La revisión criptográfica independiente está pendiente. Los objetivos en
+caliente de sobrecoste propio <30 s, pruebas <20 s y coordinación <5 s aún no
+están demostrados; la finalidad nativa se mide aparte. Los permisos móviles
+actuales exponen identidad pública estable e importes a la API.
 
-Fuentes: [puntos y requisitos originales](archive/delivery/PROJECT-VISION.md),
-[estado de la entrega](archive/delivery/STATUS.md), fuentes actuales y los
-informes `readiness.json`, `smoke.json`, `host-tests.json`,
-`component-directory-tests.json`, `restored-readers.json` y
-`component-organization.json` en `.internal/dev/reports/`. Esta evaluación
-revisa resultados ya obtenidos; no declara nuevas ejecuciones de las cadenas
-ni nuevas pruebas criptográficas. El orden de continuación está en
-[ROADMAP.md](ROADMAP.md).
+[Criterios de privacidad y operación](docs/PRIVACY-AND-OPERATIONS.md) ·
+[Orden de trabajo](ROADMAP.md) · [Visión original](archive/delivery/PROJECT-VISION.md)
