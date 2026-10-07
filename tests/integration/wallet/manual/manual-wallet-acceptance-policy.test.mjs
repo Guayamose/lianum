@@ -8,7 +8,8 @@ const source = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 function synthetic() {
  const ids = ['vault_top_up','private_vault_graph','vault_exit_0','vault_exit_1'];
  const result = { format:'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', phase:'completed', success:true, localOnly:true,
- fakeFundsOnly:true, publicNetwork:false, sourceUnchanged:true, cleanup:{closedEvm:true}, humanEvmFlowCompleted:true,
+ fakeFundsOnly:true, publicNetwork:false, sourceUnchanged:true, cleanup:{closedEvm:true}, walletSdkEvmFlowCompleted:true,
+ manualConsentContractVerified:true,targetOwnerSuspendedAfterExactHttpAdmission:true,
  responseLoss:{requestId:'vault_top_up',discardedActualAdmissionReply:true,sdkReportedUnknown:true,executeHttpRequests:1,originalJournalReconciled:true,noAutomaticResubmit:true,actualNetworkOutage:false},
  proofs:MANUAL_WALLET_PROOFS.map(relation=>({relation})), fullWalletAcceptance:false,
  economics:{decimals:6,sourceDepositAtomic:'500',privatePayoutAtomic:'120',sourceChangeAtomic:'380',solverOwnUnderlyingAtomic:'100',deliveredPrivateSharesAtomic:'100',redeemedExternalUnderlyingAtomic:'100'},
@@ -58,7 +59,8 @@ test('policy rejects a private GRAPH bypass, wrong economics, extra generations,
  r=>r.originalGeneration.poolCount=8,r=>r.originalGeneration.requestIds[1]='replacement_graph',r=>r.finalVault.totalAssets='1',
  r=>r.finalCapacity.conservativeOutputCapacity[0]=0,r=>r.finalPools[0].backedAmount='120',
  r=>r.offlineOriginalRecovery.actualFProofAccepted=true,r=>r.listenerRestart.coordinatorProcessRestart=true,
- r=>r.humanEvmFlowCompleted=false,r=>r.responseLoss.executeHttpRequests=2,r=>r.responseLoss.originalJournalReconciled=false,
+ r=>r.walletSdkEvmFlowCompleted=false,r=>r.manualConsentContractVerified=false,r=>r.targetOwnerSuspendedAfterExactHttpAdmission=false,
+ r=>r.responseLoss.executeHttpRequests=2,r=>r.responseLoss.originalJournalReconciled=false,
  r=>r.exactActionEvidenceAfterRestart=[],r=>r.proofs.pop(),r=>r.sourceUnchanged=false,r=>r.cleanup.closedEvm=false]) {
   const result=synthetic();change(result);assert.throws(()=>assertManualWalletResult(result));
  }

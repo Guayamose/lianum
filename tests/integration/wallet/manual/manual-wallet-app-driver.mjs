@@ -157,9 +157,21 @@ export function createManualWalletAppDriver(app, { deadlineMs }) {
   async function reviewAccount(method, body) {
     assert.ok(['prepare', 'execute', 'reconcile', 'recover'].includes(method)); id(body.requestId);
     const prepared = await reviewed(actionName('account', method), body);
+    async function confirmed(afterAdmission = null) {
+      await prepared.confirm();
+      if (afterAdmission) await afterAdmission();
+      return pollAccount(method, prepared.body, prepared.sequence,
+        method === 'prepare' ? prepared.body.kind : prepared.review.accountContext.kind);
+    }
     return Object.freeze({ review: prepared.review, cancel: prepared.cancel,
-      async confirm() { await prepared.confirm(); return pollAccount(method, prepared.body, prepared.sequence,
-        method === 'prepare' ? prepared.body.kind : prepared.review.accountContext.kind); },
+      confirm: () => confirmed(),
+      async confirmAfterAdmission(afterAdmission) {
+        assert.equal(method, 'execute'); assert.equal(prepared.review.accountContext.kind, 'GRAPH');
+        assert.equal(typeof afterAdmission, 'function');
+        // Local acceptance lifecycle hook only, after the actual exact grant
+        // is consumed and HTTP admission verified. It authorizes no new action.
+        return confirmed(afterAdmission);
+      },
     });
   }
   return Object.freeze({ state, reviewAccount, evidence: () => structuredClone(evidence),

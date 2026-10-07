@@ -11,7 +11,9 @@ export function assertManualWalletResult(result) {
   assert.equal(result.phase, 'completed'); assert.equal(result.success, true);
   assert.equal(result.localOnly, true); assert.equal(result.fakeFundsOnly, true); assert.equal(result.publicNetwork, false);
   assert.equal(result.sourceUnchanged, true); assert.equal(result.cleanup.closedEvm, true);
-  assert.equal(result.humanEvmFlowCompleted, true);
+  assert.equal(result.walletSdkEvmFlowCompleted, true);
+  assert.equal(result.manualConsentContractVerified, true);
+  assert.equal(result.targetOwnerSuspendedAfterExactHttpAdmission, true);
   assert.deepEqual(result.responseLoss, { requestId: 'vault_top_up', discardedActualAdmissionReply: true,
     sdkReportedUnknown: true, executeHttpRequests: 1, originalJournalReconciled: true,
     noAutomaticResubmit: true, actualNetworkOutage: false });

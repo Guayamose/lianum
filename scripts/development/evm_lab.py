@@ -58,7 +58,7 @@ def retain_summary():
     resources_bytes = (attempt / "resources.json").read_bytes()
     result = json.loads(result_bytes)
     resources = json.loads(resources_bytes)
-    accepted = result.get("success") is True and result.get("humanEvmFlowCompleted") is True \
+    accepted = result.get("success") is True and result.get("walletSdkEvmFlowCompleted") is True \
         and resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
     summary = {"format": "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
         "runId": result.get("runId", resources.get("runId")), "attempt": str(attempt.relative_to(ROOT)),
@@ -72,6 +72,8 @@ def retain_summary():
         "resultSHA256": hashlib.sha256(result_bytes).hexdigest(),
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest(),
         "sourcePinsSHA256": resources.get("sourcePinsSHA256"),
+        "walletSdkEvmFlowCompleted": result.get("walletSdkEvmFlowCompleted", False),
+        "manualConsentContractVerified": result.get("manualConsentContractVerified", False),
         "ownedGroupCleanupConfirmed": resources.get("ownedGroupCleanupConfirmed"),
         "resourceSummary": resources.get("resourceSummary"),
         "responseLoss": result.get("responseLoss"), "listenerRestart": result.get("listenerRestart"),

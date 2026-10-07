@@ -215,3 +215,17 @@ test('discarding the actual TOP_UP admission reply reads the original journal wi
     noAutomaticResubmit: true, actualNetworkOutage: false });
   assert.deepEqual(f.c.calls.map(row => row.action), ['execute']);
 });
+test('owner can stop after exact GRAPH HTTP admission while the original journal remains observable', async t => {
+  const f = await fixture(t), driver = driverFor(f.app);
+  await driver.account('prepare', body);
+  const original = await driver.reviewAccount('execute', { requestId: id });
+  let stopped = false;
+  const result = await original.confirmAfterAdmission(async () => {
+    assert.ok(driver.evidence().some(row => row.action === 'accountExecute' && row.check === 'EXPLICIT_HANDOFF_CONFIRMATION'));
+    assert.ok(driver.evidence().some(row => row.action === 'accountExecute' && row.check === 'USED_EXACT_GRANT_REJECTED'));
+    assert.deepEqual(f.c.calls.map(row => row.action), ['prepare', 'execute']);
+    f.c.ownerOffline = true; stopped = true;
+  });
+  assert.equal(stopped, true); assert.equal(result.originalJournalState, 'CONFIRMED');
+  await assert.rejects(original.confirmAfterAdmission(async () => {}), /REVIEW_ALREADY_USED/);
+});

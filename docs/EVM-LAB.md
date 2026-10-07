@@ -21,6 +21,12 @@ permisos consumidos, permisos de un listener sustituido, reconciliación termina
 y rechazo del segundo pago. La pérdida de respuesta es una inyección controlada
 en el cliente; no simula una partición física de la red.
 
+El script revisa y confirma con el SDK, HTTP y el modelo compartido de la wallet.
+Después de verificar la admisión exacta detiene la custodia de destino antes de
+la entrega. No hay una persona navegando una pantalla durante esta aceptación:
+`walletSdkEvmFlowCompleted` y `manualConsentContractVerified` describen el contrato
+de software comprobado; `browserVisualAcceptance` permanece falso.
+
 Los presupuestos originales permanecen: al menos 2,5 GiB de RAM disponible,
 5 GiB libres, máximo 3 GiB de RSS por worker pesado y un único worker pesado.
 El supervisor conserva un plazo máximo de 90 minutos con reserva para cierre.

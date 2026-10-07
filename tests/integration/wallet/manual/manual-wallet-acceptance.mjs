@@ -172,6 +172,9 @@ async function main() {
   const appState = () => appDriver.state();
   const appDefi = (action, body) => appDriver.defi(action, body);
   async function appAccount(action, body) {
+    // Keep the authenticated private read used for this exact review. A stale
+    // or fenced view must remain diagnosable without weakening UI admission.
+    writeFixturePrivate(join(privateDirectory, body.requestId + '-' + action + '-wallet-state.json'), await appState());
     const { snapshot, ...observation } = await appDriver.account(action, body);
     result.accountRequests.push({ via: 'WALLET_APP_HTTP', ...observation }); save(); return snapshot;
   }
@@ -315,21 +318,22 @@ async function main() {
     const graphBody = await bootstrap.bindManualGraph(approval);
     originalHandoffs.set(graphId, structuredClone(graphBody)); await checkpointBindings();
     await appAccount('prepare', graphBody);
-    // Tokenless shared review, original host grant and authenticated commitment
-    // import all finish while both private views are available. The separate
-    // confirm below is explicit scripted acceptance, not standing consent.
-    // Review the exact immutable GRAPH while both private views are available.
-    // The target then goes offline before the same reviewed execute is confirmed.
+    // Review and exact HTTP admission finish while the original view is intact.
+    // Suspending beforehand would correctly invalidate that bound live view.
     const graphExecution = await appDriver.reviewAccount('execute', { requestId: graphId });
     const manualGraph = graphExecution.review.accountContext.graph;
     for (const [key, expected] of Object.entries({ sourceAmount: '500', reservedAmount: '120', changeAmount: '380',
       solverUnderlyingAmount: '100', deliveredShares: '100', settleBefore: graphCutoff })) assert.equal(manualGraph[key], expected);
     assert.equal(manualGraph.asset.decimals, 6); originalGraphReviews.set(graphId, structuredClone(manualGraph));
     writeFixturePrivate(join(privateDirectory, 'original-graph-sdk-review.json'), graphExecution.review);
-    await targetOwner.suspend();
-    result.targetOwnerExitedBeforeDelivery = targetOwner.report().childExited;
-    assert.equal(result.targetOwnerExitedBeforeDelivery, true);
-    const settled = await graphExecution.confirm();
+    const settled = await graphExecution.confirmAfterAdmission(async () => {
+      assert.equal(runtime.transactions.filter(entry => entry.signed).length, 0,
+        'EVM_VAULT_TARGET_MUST_STOP_BEFORE_DELIVERY');
+      await targetOwner.suspend();
+      result.targetOwnerExitedBeforeDelivery = targetOwner.report().childExited;
+      assert.equal(result.targetOwnerExitedBeforeDelivery, true);
+      result.targetOwnerSuspendedAfterExactHttpAdmission = true;
+    });
     result.accountRequests.push({ via: 'NODE_SDK_EXACT_ONLY_HTTP', requestId: graphId, action: 'execute', admissionSequence: settled.admissionSequence });
     assert.equal(row(settled.snapshot, graphId).state, 'CONFIRMED', 'EVM_VAULT_GRAPH_NOT_CONFIRMED');
     assert.equal(execution.snapshot(graphRef).outcome, 'FULFILLED');
@@ -524,7 +528,8 @@ async function main() {
       solverOwnUnderlyingAtomic: '100', deliveredPrivateSharesAtomic: '100', redeemedExternalUnderlyingAtomic: '100' };
     result.privateVaultGraphAcceptance = true;
     result.privateExitsAndUnderlyingRedemption = true;
-    result.duplicateNoEffect = true; result.humanEvmFlowCompleted = true;
+    result.duplicateNoEffect = true; result.walletSdkEvmFlowCompleted = true;
+    result.manualConsentContractVerified = true;
     result.phase = 'completed'; result.success = true; await audit();
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = safeCode(error);
