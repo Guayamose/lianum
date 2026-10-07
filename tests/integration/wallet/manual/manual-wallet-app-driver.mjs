@@ -161,6 +161,40 @@ export function createManualWalletAppDriver(app, { deadlineMs }) {
     });
   }
   return Object.freeze({ state, reviewAccount, evidence: () => structuredClone(evidence),
+    async executeAccountWithLostReply(body) {
+      // A controlled client-side loss AFTER the real server accepts this one
+      // original TOP_UP. The real backend/prover/EVM keep running. This is an
+      // explicit fault injection, not a claim of a physical network outage.
+      const prepared = await reviewed('accountExecute', body);
+      assert.equal(prepared.review.accountContext.kind, 'TOP_UP');
+      const originalFetch = globalThis.fetch;
+      let sent = 0, discarded = false;
+      globalThis.fetch = async (url, options) => {
+        const response = await originalFetch(url, options);
+        if (String(url) === app.origin + ALL_ACTIONS.accountExecute.route
+          && options?.method === 'POST' && JSON.parse(options.body).requestId === body.requestId) {
+          sent++;
+          if (!discarded) {
+            assert.equal(response.status, 200, 'MANUAL_LOST_REPLY_REAL_ADMISSION_REQUIRED');
+            discarded = true;
+            await response.body?.cancel();
+            throw new TypeError('Acceptance deliberately discarded the admitted HTTP reply');
+          }
+        }
+        return response;
+      };
+      try {
+        await assert.rejects(prepared.confirm(), /MANUAL_ACCEPTANCE_ORIGINAL_OUTCOME_UNKNOWN/);
+      } finally { globalThis.fetch = originalFetch; }
+      assert.equal(discarded, true); assert.equal(sent, 1, 'MANUAL_LOST_REPLY_AUTO_RESUBMIT');
+      const observed = await pollAccount('execute', prepared.body, prepared.sequence, 'TOP_UP');
+      await rejectedReplay('accountExecute', prepared.body, prepared.access);
+      const loss = { requestId: body.requestId, discardedActualAdmissionReply: true,
+        sdkReportedUnknown: true, executeHttpRequests: sent, originalJournalReconciled: true,
+        noAutomaticResubmit: true, actualNetworkOutage: false };
+      evidence.push({ action: 'accountExecute', requestId: body.requestId, check: 'ADMITTED_REPLY_LOST_NO_RESUBMIT', ...loss });
+      return { ...observed, loss };
+    },
     async account(method, body) { return (await reviewAccount(method, body)).confirm(); },
     async unspentGraphGrantForListenerReplacement(requestId) {
       id(requestId); const prepared = await reviewed('accountReconcile', { requestId });

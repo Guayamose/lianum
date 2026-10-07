@@ -1,0 +1,132 @@
+"""Prepare reviewed public artifacts and run one fresh fake-value EVM wallet lab."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+from workspace import ROOT, DEV, RUNTIME, build
+
+NODE = DEV / "toolchains/node-v24.19.0-linux-x64/bin/node"
+FLAT = RUNTIME / "omnichain-flat-profile/flat-wallet"
+CLEAN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
+active = None
+interrupted = False
+
+def forward_signal(signum, _frame):
+    global interrupted
+    interrupted = True
+    if active is not None and active.poll() is None:
+        active.send_signal(signum)
+
+def run(entry, *arguments, observe=False):
+    global active
+    if interrupted:
+        raise SystemExit(130)
+    print(f"Lab EVM: {entry}", flush=True)
+    active = subprocess.Popen([str(NODE), str(FLAT / entry), *arguments], cwd=FLAT, env=CLEAN_ENV)
+    seen = None
+    directory = FLAT / ".local/manual-wallet-acceptance"
+    while active.poll() is None:
+        if observe:
+            try:
+                lock = json.loads((directory / "active.lock").read_text())
+                if lock["pid"] == active.pid:
+                    result = json.loads((FLAT / lock["attempt"] / "result.json").read_text())
+                    current = (result.get("phase"), len(result.get("proofs", [])))
+                    if current != seen:
+                        print(json.dumps({"stage": current[0], "realProofs": current[1]}), flush=True)
+                        seen = current
+            except (FileNotFoundError, json.JSONDecodeError, KeyError):
+                pass
+        time.sleep(1)
+    code = active.returncode
+    active = None
+    if code:
+        raise SystemExit(code)
+
+def retain_summary():
+    directory = FLAT / ".local/manual-wallet-acceptance"
+    attempts = sorted(directory.glob("attempt-*"), key=lambda path: path.stat().st_mtime_ns)
+    if not attempts:
+        raise SystemExit("Lab EVM produced no attempt")
+    attempt = attempts[-1]
+    result_bytes = (attempt / "result.json").read_bytes() if (attempt / "result.json").exists() else b"{}"
+    resources_bytes = (attempt / "resources.json").read_bytes()
+    result = json.loads(result_bytes)
+    resources = json.loads(resources_bytes)
+    accepted = result.get("success") is True and result.get("humanEvmFlowCompleted") is True \
+        and resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
+    summary = {"format": "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
+        "runId": result.get("runId", resources.get("runId")), "attempt": str(attempt.relative_to(ROOT)),
+        "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
+        "startedAt": result.get("startedAt"), "finishedAt": result.get("finishedAt"),
+        "milliseconds": result.get("milliseconds"), "failure": resources.get("failure"),
+        "workerFailure": result.get("errorCode"), "realProofCount": len(result.get("proofs", [])),
+        "proofRelations": [proof["relation"] for proof in result.get("proofs", [])],
+        "proofHashes": [{key: proof.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")}
+                        for proof in result.get("proofs", [])],
+        "resultSHA256": hashlib.sha256(result_bytes).hexdigest(),
+        "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest(),
+        "sourcePinsSHA256": resources.get("sourcePinsSHA256"),
+        "ownedGroupCleanupConfirmed": resources.get("ownedGroupCleanupConfirmed"),
+        "resourceSummary": resources.get("resourceSummary"),
+        "responseLoss": result.get("responseLoss"), "listenerRestart": result.get("listenerRestart"),
+        "offlineOriginalRecovery": result.get("offlineOriginalRecovery"),
+        "finalRecipients": result.get("finalRecipients"), "finalVault": result.get("finalVault"),
+        "finalCapacity": result.get("finalCapacity"),
+        "fullWalletAcceptance": False, "browserVisualAcceptance": False,
+        "systemicPrivacyAcceptance": False, "independentOperators": False,
+        "actualTimeoutFRecoveryAcceptance": False,
+        "limitations": ["Local synthetic EVM and fake PALT/BLTV only; no public-chain acceptance.",
+            "Client deliberately discards one actual HTTP admission reply; no physical network outage claimed.",
+            "Owners restart as processes; catalogue coordinator reopens its same journal in process.",
+            "Recovery here observes an already fulfilled graph; timed-out F recovery needs its own acceptance.",
+            "Amounts/timing/router actions and common-host operators remain observable; no privacy certification."]}
+    destination = DEV / "reports/evm-lab.json"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(".tmp")
+    temporary.write_text(json.dumps(summary, indent=2) + "\n")
+    temporary.chmod(0o600)
+    temporary.replace(destination)
+    print(json.dumps({"accepted": accepted, "realProofCount": summary["realProofCount"],
+                      "report": str(destination.relative_to(ROOT))}), flush=True)
+    if not accepted:
+        raise SystemExit(1)
+
+def main():
+    mode = sys.argv[1] if len(sys.argv) == 2 else "run" if len(sys.argv) == 1 else None
+    if mode not in {"prepare", "run"}:
+        raise SystemExit("Usage: ./dev lab [prepare|run]")
+    build(quiet=True)
+    DEV.mkdir(parents=True, exist_ok=True)
+    with (DEV / "evm-lab.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit("Another EVM lab preparation/run is active")
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(signum, forward_signal)
+        if not (FLAT / ".local/backed-assets/v1/manifest.json").exists():
+            run("scripts/prepare-backed-assets.mjs")
+        # Bounded original workers validate/reuse each completed public artifact.
+        # The missing admission key is generated once with the real circuit/CRS.
+        for operation in ("compile", "stats", "prepare-key"):
+            run("proof-workers/run-bounded.mjs", "admission", operation)
+        run("scripts/prepare-development-evm.mjs")
+        if mode == "run":
+            try:
+                run("integration/run-manual-wallet-acceptance.mjs", observe=True)
+            except SystemExit as error:
+                try:
+                    retain_summary()
+                except (SystemExit, FileNotFoundError):
+                    pass
+                raise error
+            retain_summary()
+
+if __name__ == "__main__":
+    main()

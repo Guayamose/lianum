@@ -1,3 +1,3 @@
-/** Fixed no-argument local acceptance. The source gate is intentionally disabled. */
+/** Fixed fresh local fake-value wallet acceptance; source release is reviewed. */
 import { runManualWalletSupervisor } from '../../native/native-flow-supervisor.mjs';
 await runManualWalletSupervisor();

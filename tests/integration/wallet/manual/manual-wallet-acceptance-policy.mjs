@@ -1,7 +1,8 @@
-/** Source-only gate. Enabling requires the later exclusive heavy slot and a new
- * durable checkpoint of the complete source closure; never an env/CLI override. */
+/** Reviewed local development release, 2026-10-08. The supervisor checkpoints
+ * the complete current closure before starting its exclusive bounded worker.
+ * Only fresh fake-value laboratories are allowed; no env/CLI release override. */
 import assert from 'node:assert/strict';
-export const MANUAL_WALLET_REAL_RUN_DISABLED = true;
+export const MANUAL_WALLET_REAL_RUN_DISABLED = false;
 export const MANUAL_WALLET_PROOFS = Object.freeze(['deposit_balance', 'deposit_intent', 'authorization',
   'reservation', 'dependency', 'ready', 'admission', 'node', 'node', 'node', 'node', 'settlement',
   'withdraw_balance', 'withdraw_balance', 'withdraw_balance']);
@@ -10,6 +11,10 @@ export function assertManualWalletResult(result) {
   assert.equal(result.phase, 'completed'); assert.equal(result.success, true);
   assert.equal(result.localOnly, true); assert.equal(result.fakeFundsOnly, true); assert.equal(result.publicNetwork, false);
   assert.equal(result.sourceUnchanged, true); assert.equal(result.cleanup.closedEvm, true);
+  assert.equal(result.humanEvmFlowCompleted, true);
+  assert.deepEqual(result.responseLoss, { requestId: 'vault_top_up', discardedActualAdmissionReply: true,
+    sdkReportedUnknown: true, executeHttpRequests: 1, originalJournalReconciled: true,
+    noAutomaticResubmit: true, actualNetworkOutage: false });
   assert.deepEqual(result.proofs.map(proof => proof.relation), MANUAL_WALLET_PROOFS);
   assert.deepEqual(result.economics, { decimals: 6, sourceDepositAtomic: '500', privatePayoutAtomic: '120',
     sourceChangeAtomic: '380', solverOwnUnderlyingAtomic: '100', deliveredPrivateSharesAtomic: '100',

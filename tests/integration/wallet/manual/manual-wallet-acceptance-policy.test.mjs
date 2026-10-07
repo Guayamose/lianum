@@ -8,7 +8,8 @@ const source = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 function synthetic() {
  const ids = ['vault_top_up','private_vault_graph','vault_exit_0','vault_exit_1'];
  const result = { format:'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', phase:'completed', success:true, localOnly:true,
- fakeFundsOnly:true, publicNetwork:false, sourceUnchanged:true, cleanup:{closedEvm:true},
+ fakeFundsOnly:true, publicNetwork:false, sourceUnchanged:true, cleanup:{closedEvm:true}, humanEvmFlowCompleted:true,
+ responseLoss:{requestId:'vault_top_up',discardedActualAdmissionReply:true,sdkReportedUnknown:true,executeHttpRequests:1,originalJournalReconciled:true,noAutomaticResubmit:true,actualNetworkOutage:false},
  proofs:MANUAL_WALLET_PROOFS.map(relation=>({relation})), fullWalletAcceptance:false,
  economics:{decimals:6,sourceDepositAtomic:'500',privatePayoutAtomic:'120',sourceChangeAtomic:'380',solverOwnUnderlyingAtomic:'100',deliveredPrivateSharesAtomic:'100',redeemedExternalUnderlyingAtomic:'100'},
  walletApplicationHttpAcceptance:{ originalAccountTopUpAndExit:true,originalDeFiPrepareExecuteReconcileReopen:true,originalRequestIdsRetained:true,
@@ -57,6 +58,7 @@ test('policy rejects a private GRAPH bypass, wrong economics, extra generations,
  r=>r.originalGeneration.poolCount=8,r=>r.originalGeneration.requestIds[1]='replacement_graph',r=>r.finalVault.totalAssets='1',
  r=>r.finalCapacity.conservativeOutputCapacity[0]=0,r=>r.finalPools[0].backedAmount='120',
  r=>r.offlineOriginalRecovery.actualFProofAccepted=true,r=>r.listenerRestart.coordinatorProcessRestart=true,
+ r=>r.humanEvmFlowCompleted=false,r=>r.responseLoss.executeHttpRequests=2,r=>r.responseLoss.originalJournalReconciled=false,
  r=>r.exactActionEvidenceAfterRestart=[],r=>r.proofs.pop(),r=>r.sourceUnchanged=false,r=>r.cleanup.closedEvm=false]) {
   const result=synthetic();change(result);assert.throws(()=>assertManualWalletResult(result));
  }
@@ -82,12 +84,12 @@ test('fixed source pins include new worker and preserve original closure roots',
  assert.doesNotMatch(source('./source-pins.mjs'), /manualWalletSourcePins|manual-wallet-acceptance/);
  assert.match(supervisor,/sourcePins: manualWalletSourcePins/);assert.match(supervisor,/assertManualWalletResult\(result\)/);
 });
-test('supervisor and worker reject disabled gate before creating any run state',async()=>{
- assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED,true);
- const output=new URL('../.local/manual-wallet-acceptance',import.meta.url);assert.equal(existsSync(output),false);
- await assert.rejects(runManualWalletSupervisor(),/MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT/);
- await assert.rejects(import('./manual-wallet-acceptance.mjs'),/MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT/);
- assert.equal(existsSync(output),false);
+test('reviewed fixed local release accepts no caller launch options',async()=>{
+ assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED,false);
+ await assert.rejects(runManualWalletSupervisor({profile:'replacement'}),/MANUAL_WALLET_NO_SUPERVISOR_OPTIONS/);
+ const supervisor=source('./native-flow-supervisor.mjs');
+ assert.match(supervisor,/writeExclusive\(sourcePath, json\(sourcePins\)\)/);
+ assert.match(supervisor,/NATIVE_SOURCE_CLOSURE_CHANGED/);
 });
 
 test('fixed actual composition uses production SDK and explicit host steps with no private GRAPH send or token callback',()=>{

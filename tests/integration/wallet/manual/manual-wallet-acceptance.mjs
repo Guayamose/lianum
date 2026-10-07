@@ -1,6 +1,6 @@
 /** Actual affected path: one private PALT reservation pays a solver only after
  * its gated vault action backs the exact preauthorized private BLTV note.
- * New source-only manual/exact-only catalogue route. The run gate stays disabled.
+ * Reviewed manual/exact-only catalogue route for a fresh development laboratory.
  * This uses one owned local EVM and the original four-slot generic protocol.
  * Native action amounts/timing and the common-host keeper remain observable.
  */
@@ -291,7 +291,11 @@ async function main() {
     const topUp = await manualNote(accounts[0].assetId, { requestId: 'vault_top_up', kind: 'TOP_UP',
       amount: '500', exitRecipient: bare(runtime.accounts[3]) });
     await appAccount('prepare', topUp);
-    assert.equal(row(await appAccount('execute', { requestId: 'vault_top_up' }), 'vault_top_up').state, 'CONFIRMED');
+    const lostFunding = await appDriver.executeAccountWithLostReply({ requestId: 'vault_top_up' });
+    result.responseLoss = lostFunding.loss;
+    const { snapshot: fundingSnapshot, loss: _loss, ...fundingEvidence } = lostFunding;
+    result.accountRequests.push({ via: 'NODE_SDK_EXACT_ONLY_HTTP', ...fundingEvidence });
+    assert.equal(row(fundingSnapshot, 'vault_top_up').state, 'CONFIRMED');
     await appDuplicateExecute('vault_top_up');
     const fundedCount = runtime.transactions.length;
     await appAccount('reconcile', { requestId: 'vault_top_up' });
@@ -520,7 +524,8 @@ async function main() {
       solverOwnUnderlyingAtomic: '100', deliveredPrivateSharesAtomic: '100', redeemedExternalUnderlyingAtomic: '100' };
     result.privateVaultGraphAcceptance = true;
     result.privateExitsAndUnderlyingRedemption = true;
-    result.duplicateNoEffect = true; result.phase = 'completed'; result.success = true; await audit();
+    result.duplicateNoEffect = true; result.humanEvmFlowCompleted = true;
+    result.phase = 'completed'; result.success = true; await audit();
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = safeCode(error);
     if (!fixture && error.fixtureCleanup) result.cleanup = error.fixtureCleanup;
