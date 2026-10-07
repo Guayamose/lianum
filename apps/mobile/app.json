@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Lianum",
+    "slug": "lianum-wallet",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "lianum",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "org.lianum.wallet",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "org.lianum.wallet",
+      "allowBackup": false
+    },
+    "plugins": [
+      "expo-dev-client",
+      ["expo-secure-store", {
+        "configureAndroidBackup": true,
+        "faceIDPermission": "Lianum necesita Face ID para proteger tu clave y confirmar las autorizaciones que revisas."
+      }],
+      ["expo-local-authentication", {
+        "faceIDPermission": "Confirma tu identidad antes de crear o utilizar tu clave de Lianum."
+      }]
+    ]
+  }
+}

@@ -1,0 +1,118 @@
+# Wallet móvil
+
+Aplicación **nativa React Native/Expo para Android e iOS**, con pantallas propias,
+custodia local y autorizaciones manuales acotadas. No carga la wallet web en una
+WebView. Esta entrega establece el cliente y su frontera de seguridad; todavía
+no completa los recorridos económicos del keeper histórico.
+
+## Estructura
+
+- `src/screens/`: pantallas y consentimiento.
+- `src/custody/`: clave local, firma y operación pendiente cifrada.
+- `src/api/`: transporte del protocolo móvil y estado público del servicio.
+- `tests/`: compatibilidad criptográfica, límites y pruebas de host con fronteras
+  nativas simuladas explícitamente.
+- `../../packages/mobile-protocol/`: contrato público compartido con el servidor.
+
+## Desarrollo
+
+Desde la raíz del repositorio, con el Node local:
+
+```sh
+./dev npm --prefix apps/mobile ci
+./dev npm --prefix apps/mobile run typecheck
+./dev npm --prefix apps/mobile test
+./dev npm --prefix apps/mobile run prebuild
+./dev npm --prefix apps/mobile run export
+```
+
+`prebuild` genera proyectos nativos `android/` e `ios/` a partir de `app.json`;
+ambos se excluyen de Git. `export` genera los bundles de Hermes en `dist/`,
+también excluidos. Ninguno publica la aplicación, crea cuentas EAS ni demuestra
+que un binario instalado funcione en un dispositivo.
+
+Para instalar una compilación de desarrollo usa `npm run android` con Android SDK
+y su JDK compatible, o `npm run ios` en macOS con Xcode/CocoaPods. Los comandos
+se ejecutan en `apps/mobile` con el Node local en `PATH`. La creación de proyectos
+iOS puede comprobarse en Linux; la compilación e instalación iOS requieren macOS.
+
+Copia `.env.example` a `.env` y configura `EXPO_PUBLIC_API_ORIGIN` con el origen
+HTTPS del servicio. Esa configuración es pública y se incorpora al bundle: no
+guardes ahí ninguna clave, token privado o secreto. También puedes introducir el
+origen en la pantalla. No se inicia ninguna petición económica automáticamente.
+
+HTTP sólo se admite en una compilación de desarrollo, con
+`EXPO_PUBLIC_ALLOW_INSECURE_LOOPBACK=1`, y sólo para `127.0.0.1` o `localhost` con
+puerto explícito. En un emulador Android se puede conectar el puerto local con
+`adb reverse tcp:8080 tcp:8080`. La excepción no admite una IP de LAN ni habilita
+HTTP en el bundle de producción.
+
+## Qué hace y qué falta
+
+El cliente permite crear una identidad secp256k1, consultar la disponibilidad del
+servicio, revisar el origen/activo/red/destino/importe/comisión/ID/caducidad y
+firmar tras consentimiento y autenticación biométrica. La firma usa SHA256,
+IEEE-P1363 y lowS, compatibles con los codecs Node originales. La autorización
+nueva tiene un dominio propio y no sustituye una autorización de prueba Noir.
+
+El servicio recibe la clave pública de identidad y los términos de cada permiso.
+Puede correlacionarlos. HTTPS y el almacenamiento protegido no resuelven esa
+privacidad de sistema: faltan credenciales/accesos acotados por rol y la adaptación
+de los grafos privados, incluidos sus metadatos. Esta base no acredita el objetivo
+de privacidad por defecto del producto.
+
+El estado inicial presenta el saldo como **no disponible**. `ACCEPTED/ADMITTED`
+sólo indica admisión de autorización: no significa fondos reservados, prueba
+aceptada, operación ejecutada ni liquidación. Una respuesta perdida queda
+`UNKNOWN` con su ID original, sin reenvíos automáticos.
+
+La operación firmada se guarda con protección biométrica **antes** del POST.
+Después de un reinicio, «Recuperar operación guardada» carga su ID y prepara una
+reconciliación explícita; no repite el POST anterior. Esta primera versión mantiene
+una sola operación activa y bloquea reemplazarla hasta una integración que pueda
+establecer su finalización. La API de disponibilidad todavía no proporciona ese
+estado económico.
+
+Faltan el enlace con un keeper real que acepte la autoridad del dispositivo, la
+preparación local de notas/testigos privados, el estado privado autenticado,
+la finalización y recuperación de fondos, y la migración de dispositivo. Un
+backend sin executor real permanece desconectado y con capacidades cerradas.
+
+## Custodia y comprobaciones
+
+La clave se genera mediante `expo-crypto.getRandomBytesAsync`, se conserva en
+SecureStore con `requireAuthentication: true` y, en iOS, accesibilidad
+`WHEN_UNLOCKED_THIS_DEVICE_ONLY`. La clave pública se almacena por separado.
+Cambiar la biometría puede invalidar la clave protegida; el cliente falla y no
+la reemplaza silenciosamente. No hay exportación de clave raíz ni envío al
+servidor.
+
+Esta implementación recupera temporalmente la clave **en memoria JavaScript**
+para firmar. Se limpian los buffers mutables; JavaScript no permite garantizar
+el borrado de cadenas/BigInts ni del estado interno de la librería. No es una
+clave secp256k1 no exportable de Secure Enclave/StrongBox. Falta revisión de
+seguridad y comprobación de biometría y ciclo de vida en dispositivos reales.
+SecureStore tampoco constituye por sí solo un respaldo recuperable: desinstalar,
+perder el teléfono o cambiar la biometría puede impedir recuperar una clave.
+
+La suite de host verifica las firmas contra el `ownerFrame` y verificador Node
+originales, rechaza sustituciones de cada campo, caducidad, highS y permisos
+sin límites; simula las APIs nativas para comprobar protección de almacenamiento,
+cancelación y retención del ID. Esas simulaciones no acreditan aislamiento de
+hardware ni aceptación de fondos.
+
+La instalación fijada usa Expo 57.0.27, React 19.2.3, React Native 0.86.3 y
+`@noble/curves` 2.4.0. `xcode/uuid` se fija a 11.1.1 conservando su API `v4`.
+El audit de npm aún señala 15 dependencias como high, propagadas desde
+`braces <=3.0.3` y `node-forge <=1.4.0` en las herramientas Expo/Metro; sus últimas
+versiones consultadas todavía están afectadas. No se ha degradado Expo/RN ni
+ocultado esos resultados. Resolverlos y revisar el bundle publicado son trabajo
+pendiente antes de distribuir una wallet con fondos.
+
+Advisories pendientes:
+[braces](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) y
+[node-forge](https://github.com/advisories/GHSA-86w9-cpqp-85rv).
+
+Referencias: [SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/),
+[Crypto](https://docs.expo.dev/versions/latest/sdk/crypto/),
+[LocalAuthentication](https://docs.expo.dev/versions/latest/sdk/local-authentication/).
