@@ -48,7 +48,8 @@ def main():
                              "--test-reporter=tap", *executable_tests], cwd=FLAT, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     REPORTS.mkdir(parents=True, exist_ok=True)
-    (REPORTS / "host-tests.log").write_text(result.stdout)
+    report_name = "host-tests" if tests == DEFAULT_TESTS else "selected-host-tests"
+    (REPORTS / (report_name + ".log")).write_text(result.stdout)
     counts = {key: int(value) for key, value in re.findall(
         r"^# (tests|suites|pass|fail|cancelled|skipped|todo) (\d+)$", result.stdout, re.MULTILINE)}
     report = {"schema": "LIANUM_HOST_TEST_RESULT_V1", "status": "PASS" if result.returncode == 0 else "FAIL",
@@ -57,8 +58,9 @@ def main():
               "resolvedTestFiles": executable_tests, "counts": counts,
               "defaultSelection": tests == DEFAULT_TESTS,
               "scope": "Selected existing host tests only; not native chain or original proof acceptance"}
-    (REPORTS / "host-tests.json").write_text(json.dumps(report, indent=2) + "\n")
+    (REPORTS / (report_name + ".json")).write_text(json.dumps(report, indent=2) + "\n")
     sys.stdout.write(result.stdout)
+    print(f"Report: {REPORTS / (report_name + '.json')}")
     sys.exit(result.returncode)
 
 

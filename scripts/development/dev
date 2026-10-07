@@ -19,6 +19,7 @@ case "$task_command" in
       './dev test [rutas]   Ejecutar pruebas; acepta las rutas de la estructura nueva' \
       './dev doctor         Verificar herramientas e integridad de la base original' \
       './dev evidence       Comprobar las evidencias públicas originales' \
+      './dev artifacts      Inventariar los artefactos históricos de encoding' \
       './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
       './dev npm [args]     Ejecutar npm con el Node local' \
       '' \
@@ -32,9 +33,11 @@ case "$task_command" in
     python3 "$task_helpers/workspace.py"
     python3 "$task_helpers/verify_layout.py"
     python3 "$task_helpers/test_workspace.py"
+    python3 "$task_helpers/test_doctor.py"
     exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
   test) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/run_tests.py" "$@" ;;
   doctor) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/doctor.py" "$@" ;;
+  artifacts) exec python3 "$task_helpers/artifacts.py" "$@" ;;
   smoke) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
   evidence|verify-restored) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/verify_restored.mjs" "$@" ;;
   node) exec python3 "$task_helpers/run_node.py" "$@" ;;

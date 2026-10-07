@@ -10,6 +10,7 @@ Los comandos cotidianos se ejecutan desde la raíz:
 ./dev node packages/backend/src/ruta.mjs
 ./dev doctor
 ./dev evidence
+./dev artifacts
 ```
 
 El archivo de ejemplo `ruta.mjs` debe sustituirse por un módulo existente.
@@ -27,11 +28,21 @@ reiniciar los procesos para cargar cambios.
 
 `check` verifica el archivo original y la sincronización del código, compila
 ABI/tipos de los contratos y comprueba Noir y el HTTP de la wallet.
-`test` ejecuta nueve archivos de pruebas existentes, o las rutas indicadas,
-y conserva resultados en `.internal/dev/reports/host-tests.*`. No oculta los
-dos fallos conocidos. `doctor` distingue herramientas, integridad histórica,
+`test` ejecuta once archivos de pruebas de host, incluidas las regresiones de
+reconciliación terminal, o las rutas indicadas. Conserva la selección habitual
+en `.internal/dev/reports/host-tests.*` y las selecciones particulares en
+`selected-host-tests.*`, para no sustituir un resultado completo por otro de
+alcance distinto. Los mocks y expectativas desactualizados están corregidos.
+`doctor` distingue herramientas, integridad histórica,
 resultados de pruebas y bloqueos de producto. `evidence` lee los originales
 CI51, CO42 e I84.
+
+`doctor` verifica las fuentes originales en el archivo inmutable y la
+sincronización del código editable por separado. Editar el producto no altera
+la entrega archivada. Las comprobaciones de pines de cada release y artefacto
+siguen vigentes; un cambio funcional puede requerir una release de desarrollo
+revisada. `artifacts` inventaría los dos originales que faltan a las pruebas
+históricas de encoding, sin generarlos ni omitir esas pruebas.
 
 ## Restaurar otra copia
 
