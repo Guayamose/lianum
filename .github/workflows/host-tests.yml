@@ -31,4 +31,4 @@ jobs:
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
         run: |
-          ./dev test packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs tests/integration/chains/solana tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs
+          ./dev test packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs tests/integration/chains/solana tests/integration/chains/bitcoin tests/integration/chains/tron/tron-candidate-acceptance.test.mjs tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs tests/integration/wallet/manual/manual-wallet-position-checks.test.mjs tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs tests/integration/wallet/manual/manual-wallet-recovery-policy.test.mjs tests/integration/defi/private-metamorpho-flow-policy.test.mjs packages/proofs/tests/native-ingress/native-claims-parent-death.test.mjs
