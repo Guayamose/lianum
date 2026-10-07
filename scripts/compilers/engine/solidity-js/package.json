@@ -1,0 +1,9 @@
+{
+  "name": "lianum-official-solidity-toolchain",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "solc": "0.8.37"
+  }
+}
