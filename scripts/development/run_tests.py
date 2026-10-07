@@ -17,6 +17,7 @@ DEFAULT_TESTS = [
     "apps/wallet/tests/server/exact-action-capabilities.test.mjs", "apps/wallet/tests/server/public-errors.test.mjs",
     "packages/backend/tests/api/wallet/wallet-application-client.test.mjs",
     "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs",
+    "packages/backend/tests/accounts/portfolio/catalogue-owner-requests.test.mjs",
     "packages/backend/tests/execution/account/reconciliation/flat-completion-window.test.mjs",
     "packages/backend/tests/execution/account/reconciliation/failure-diagnostics.test.mjs",
     "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs",

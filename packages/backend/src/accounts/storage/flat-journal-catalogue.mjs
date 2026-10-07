@@ -12,6 +12,7 @@ import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedFlatPortfolio, describeFlatPortfolioJournalAuthority } from '../authority/flat-portfolio-authority.mjs';
 import { assertOwnedFlatPoolAdmissionPolicy } from '../authority/flat-pool-admission-policy.mjs';
 import { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper } from '../portfolio/flat-manual-portfolio-keeper.mjs';
+import { projectCatalogueOwnerRequests } from '../portfolio/catalogue-owner-requests.mjs';
 
 const PROFILE = 'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2';
 const generations = new WeakMap(), catalogues = new WeakMap(), catalogueClaims = new WeakSet();
@@ -435,6 +436,8 @@ export async function createFlatJournalCatalogue(input) {
           portfolio = await generation.portfolio.ownerView();
           assert.deepEqual(portfolio.assets.map(item => item.asset.assetId).sort(), routes.map(route => route.assetId).sort(),
             'FLAT_CATALOGUE_OWNER_VIEW_ROUTES_CHANGED');
+          portfolio = projectCatalogueOwnerRequests({ generationId: generation.id,
+            bindings: [...bindings.values()], portfolio });
           assets.push(...portfolio.assets);
         } catch { portfolio = null; errorCode = 'FLAT_CATALOGUE_GENERATION_VIEW_UNAVAILABLE'; }
         views.push({ generationId: generation.id, routes, portfolio, errorCode });

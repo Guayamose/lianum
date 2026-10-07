@@ -21,7 +21,7 @@ python3 scripts/development/test_doctor.py
 
 El primer comando descarga Node 24.19.0 desde su distribución oficial, verifica
 el SHA256 fijado del archivo y el binario instalado. No modifica Node global.
-La selección habitual ejecuta 224 resultados, incluidos transporte HTTP,
+La selección habitual ejecuta 226 resultados, incluidos transporte HTTP,
 consentimiento y reconciliación. No requiere los binarios nativos ni el CRS.
 
 La verificación `--tracked-delivery` comprueba los 1.716 originales versionados
