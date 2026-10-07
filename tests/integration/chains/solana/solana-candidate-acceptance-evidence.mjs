@@ -34,7 +34,7 @@ export function checkCandidateMetadata(metadata) {
 }
 export function checkOriginalRecord(record, kind, expectedWire) {
   const decode = kind === 'bootstrap' ? validateSolanaNonceBootstrapTransaction
-    : kind === 'redeem' ? validateSolanaNonceBindingTransaction : validateSolanaBindingTransaction;
+    : ['deposit', 'redeem'].includes(kind) ? validateSolanaNonceBindingTransaction : validateSolanaBindingTransaction;
   const decoded = decode(record.nativeWire, record.intent), observed = record.observation;
   assert.equal(record.phase, 'OBSERVED_FINALIZED'); assert.equal(record.broadcastAttempts, 1);
   assert.equal(record.nativeWire, expectedWire ?? record.nativeWire);
@@ -49,24 +49,27 @@ export function checkOriginalRecord(record, kind, expectedWire) {
   if (kind !== 'bootstrap') {
     assert.equal(record.intent.lamports, ACCEPTANCE_AMOUNTS[kind]);
     assert.deepEqual([decoded.wireBindingVersion, decoded.effectIndex, decoded.wireBindingPosition],
-      kind === 'redeem' ? ['2', '1', '2'] : ['1', '0', '1']);
+      ['deposit', 'redeem'].includes(kind) ? ['2', '1', '2'] : ['1', '0', '1']);
   }
   return decoded;
 }
 export function inventoryState(inventory) {
   return structuredClone({ accounts: inventory.accounts, feeAudit: inventory.feeAudit,
-    syntheticPrefunding: inventory.syntheticPrefunding, nonceInfrastructure: inventory.nonceInfrastructure,
+    syntheticPrefunding: inventory.syntheticPrefunding, nonceInfrastructureByAuthority: inventory.nonceInfrastructureByAuthority,
     signingUnresolved: inventory.signingUnresolved });
 }
 export function checkBootstrap(custody, initial) {
-  const bootstrap = custody.nonceBootstrap, infrastructure = auditOwnedSolanaNonceInfrastructure(initial.nonceInfrastructure);
+  assert.deepEqual(Object.keys(custody.nonceBootstrapByAuthority).sort(), ['depositor', 'escrow']);
+  assert.deepEqual(Object.keys(initial.nonceInfrastructureByAuthority).sort(), ['depositor', 'escrow']);
+  for (const role of ['depositor', 'escrow']) {
+  const bootstrap = custody.nonceBootstrapByAuthority[role], infrastructure = auditOwnedSolanaNonceInfrastructure(initial.nonceInfrastructureByAuthority[role]);
   checkOriginalRecord(bootstrap, 'bootstrap');
   assert.equal(bootstrap.observation.genesis, custody.genesisHex.slice(2));
   assert.equal(bootstrap.nativeId, infrastructure.bootstrapNativeId);
   assert.equal(bootstrap.transactionSHA256, infrastructure.bootstrapTransactionSHA256);
   assert.equal(bootstrap.intent.payerPublicKey, infrastructure.payerPublicKey);
   assert.equal(bootstrap.intent.nonceAccountPublicKey, infrastructure.nonceAccountPublicKey);
-  assert.equal(bootstrap.intent.authorityPublicKey, custody.roles.escrow.endpoint);
+  assert.equal(bootstrap.intent.authorityPublicKey, custody.roles[role].endpoint);
   assert.equal(bootstrap.observation.sourceAfter, infrastructure.payerBalance);
   assert.equal(bootstrap.observation.recipientBefore, '0');
   assert.equal(bootstrap.observation.recipientAfter, infrastructure.bootstrapRentLamports);
@@ -79,8 +82,23 @@ export function checkBootstrap(custody, initial) {
     assert.notEqual(row.endpoint, infrastructure.payerPublicKey);
     assert.notEqual(row.endpoint, infrastructure.nonceAccountPublicKey);
   }
+  }
+  assert.notEqual(custody.nonceBootstrapByAuthority.depositor.nativeId, custody.nonceBootstrapByAuthority.escrow.nativeId);
 }
 const accountTotal = (inventory, role) => BigInt(inventory.accounts.find(row => row.role === role).total);
+export function checkCustodyDeposit(initial, afterDeposit, deposit) {
+  checkOriginalRecord(deposit, 'deposit');
+  assert.equal(accountTotal(initial, 'depositor') - accountTotal(afterDeposit, 'depositor'),
+    BigInt(ACCEPTANCE_AMOUNTS.deposit) + BigInt(deposit.observation.feeLamports));
+  assert.equal(accountTotal(afterDeposit, 'escrow') - accountTotal(initial, 'escrow'), BigInt(ACCEPTANCE_AMOUNTS.deposit));
+  assert.equal(accountTotal(afterDeposit, 'recipient'), accountTotal(initial, 'recipient'));
+  assert.equal(afterDeposit.feeAudit.actualFees, deposit.observation.feeLamports);
+  assert.deepEqual(afterDeposit.feeAudit.transfers.map(row => row.nativeId), [deposit.nativeId]);
+  assert.equal(afterDeposit.signingUnresolved, false);
+  assert.equal(deposit.intent.durableNonce, initial.nonceInfrastructureByAuthority.depositor.nonceAccount.durableNonce);
+  assert.notEqual(afterDeposit.nonceInfrastructureByAuthority.depositor.nonceAccount.durableNonce, deposit.intent.durableNonce);
+  assert.deepEqual(afterDeposit.nonceInfrastructureByAuthority.escrow, initial.nonceInfrastructureByAuthority.escrow);
+}
 export function checkCustodyBalances(initial, afterDeposit, afterPayout, records) {
   assert.deepEqual(records.map(row => row.route), ['deposit', 'redeem']);
   const [deposit, payout] = records; checkOriginalRecord(deposit, 'deposit'); checkOriginalRecord(payout, 'redeem');
@@ -94,20 +112,26 @@ export function checkCustodyBalances(initial, afterDeposit, afterPayout, records
   assert.equal(afterPayout.feeAudit.escrowActualFees, payout.observation.feeLamports);
   assert.equal(afterPayout.feeAudit.unresolvedEscrowPreparedFees, '0'); assert.equal(afterPayout.signingUnresolved, false);
   assert.deepEqual(afterPayout.feeAudit.transfers.map(row => row.nativeId), records.map(row => row.nativeId));
-  assert.deepEqual(afterDeposit.nonceInfrastructure, initial.nonceInfrastructure);
-  assert.equal(payout.intent.durableNonce, initial.nonceInfrastructure.nonceAccount.durableNonce);
-  const afterInfrastructure = auditOwnedSolanaNonceInfrastructure(afterPayout.nonceInfrastructure);
-  assert.notEqual(afterInfrastructure.nonceAccount.durableNonce, payout.intent.durableNonce);
+  assert.deepEqual(afterDeposit.nonceInfrastructureByAuthority.escrow, initial.nonceInfrastructureByAuthority.escrow);
+  assert.deepEqual(afterPayout.nonceInfrastructureByAuthority.depositor, afterDeposit.nonceInfrastructureByAuthority.depositor);
+  assert.equal(deposit.intent.durableNonce, initial.nonceInfrastructureByAuthority.depositor.nonceAccount.durableNonce);
+  assert.equal(payout.intent.durableNonce, initial.nonceInfrastructureByAuthority.escrow.nonceAccount.durableNonce);
+  assert.notEqual(afterDeposit.nonceInfrastructureByAuthority.depositor.nonceAccount.durableNonce, deposit.intent.durableNonce);
+  for (const role of ['depositor', 'escrow']) {
+  const afterInfrastructure = auditOwnedSolanaNonceInfrastructure(afterPayout.nonceInfrastructureByAuthority[role]);
+  assert.notEqual(afterInfrastructure.nonceAccount.durableNonce, initial.nonceInfrastructureByAuthority[role].nonceAccount.durableNonce);
   for (const field of ['payerBalance', 'bootstrapNativeId', 'bootstrapFeeLamports', 'bootstrapRentLamports'])
-    assert.equal(afterInfrastructure[field], initial.nonceInfrastructure[field]);
+    assert.equal(afterInfrastructure[field], initial.nonceInfrastructureByAuthority[role][field]);
+  }
   assert.ok(BigInt(afterPayout.nativeHead.slot) >= BigInt(payout.observation.transactionSlot));
 }
 export function publicAcceptanceReport(state) {
-  return { format: 'SOLANA_CANDIDATE_FUNCTIONAL_ACCEPTANCE_V1', scope: 'runtime-functional-only',
+  return { format: 'SOLANA_CANDIDATE_FUNCTIONAL_ACCEPTANCE_V1', scope: 'runtime-ingress-and-solver-only',
     success: state.success === true, phase: state.phase, errorCode: state.errorCode ?? null,
     candidatePin: state.candidatePin ?? null, sourceHashesBefore: state.sourceHashesBefore ?? null,
     sourceHashesAfter: state.sourceHashesAfter ?? null, sourceUnchanged: state.sourceUnchanged === true,
-    checks: structuredClone(state.checks ?? {}), fixedLamports: ACCEPTANCE_AMOUNTS,
+    checks: structuredClone(state.checks ?? {}), fixedLamports: { deposit: ACCEPTANCE_AMOUNTS.deposit, solver: ACCEPTANCE_AMOUNTS.solver },
+    payoutEstablished: false, blockers: ['ORIGINAL_PAYOUT_CONTROLLER_AUTHORITY_REQUIRED'],
     observedFees: structuredClone(state.observedFees ?? {}), cleanup: state.cleanup ? { ownedProcessStopped: state.cleanupExitVerified === true ? state.cleanup.ownedProcessStopped === true : null,
       exitVerification: state.cleanupExitVerified === true ? 'verified' : 'unknown',
       syntheticKeysAndLedgerRemoved: state.cleanup.syntheticKeysAndLedgerRemoved === true,
@@ -116,6 +140,7 @@ export function publicAcceptanceReport(state) {
       'Original owned adapter enforces Memo, identity, single-peer and inode-owned TCP/TCP6/UDP/UDP6 loopback audits',
       'Trusted common-host runtime observation; no public consensus or independent operator claim',
       'Not cSOL graph acceptance, self-custody acceptance, privacy acceptance or a performance measurement',
+      'Payout signing/sending requires the original claim-controller authority; this runtime-only laboratory does not replace it',
       'No EVM, Bitcoin, claims, circuits or proofs were started',
       'Nonce infrastructure and separate solver liquidity are excluded from custody backing and custody fees'] };
 }

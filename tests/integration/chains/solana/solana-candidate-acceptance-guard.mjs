@@ -2,7 +2,7 @@
  * Only a verified direct child may be signalled, including during bootstrap
  * before the owned runtime returns its close capability. */
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, readlinkSync, statfsSync } from 'node:fs';
+import { readFileSync, readdirSync, readlinkSync, statfsSync, lstatSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertOwnedSolanaRuntime } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
@@ -11,7 +11,14 @@ import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS, PRIVATE_PROOF_WORKER_
 const GOLDEN = fileURLToPath(new URL('../../../omnichain-product/', import.meta.url));
 const TOTAL_MILLISECONDS = 10 * 60 * 1000;
 const absent = error => ['ENOENT', 'ESRCH'].includes(error.code);
-const proc = pid => {
+const heavy = /^(?:solana-test-validator|agave-validator|solana-validator|bitcoind|anvil|bb|nargo|cargo|rustc|rust-lld|ld\.lld|cc1|cc1plus)$/;
+const heavyCommands = new Set(['solana-test-validator', 'agave-validator', 'solana-validator', 'bitcoind', 'anvil',
+  'bb', 'nargo', 'cargo', 'rustc', 'rust-lld', 'ld.lld', 'cc1', 'cc1plus'].map(name => name.slice(0, 15)));
+// These host services deliberately hide their executable from unprivileged
+// readers. This is only a concurrency classification; it grants no ownership
+// or signal authority. A direct child always takes the strict identity path.
+const hostServices = new Set(['systemd', '(sd-pam)', 'ssh-agent']);
+const proc = (pid, directChildOnly = false, concurrencyScan = false) => {
   let text;
   try { text = readFileSync(`/proc/${pid}/stat`, 'utf8'); }
   catch (error) { if (absent(error)) return null; throw Error('SOLANA_CANDIDATE_PROCESS_IDENTITY_UNREADABLE'); }
@@ -21,6 +28,14 @@ const proc = pid => {
   const fields = text.slice(end + 2).trim().split(/\s+/);
   assert.ok(fields.length >= 22 && /^[RSDZTWXIKPt]$/.test(fields[0]) && /^[0-9]+$/.test(fields[1])
     && Number.isSafeInteger(Number(fields[1])) && /^[0-9]+$/.test(fields[19]), 'SOLANA_CANDIDATE_PROCESS_STAT_MALFORMED');
+  // Unprivileged Linux users cannot read /proc/<other-user>/exe. Capturing our
+  // direct children needs PPID first; unrelated executables grant no authority.
+  if (directChildOnly && Number(fields[1]) !== process.pid) return null;
+  if (concurrencyScan) {
+    const command = text.slice(first + 2, end);
+    assert.equal(heavyCommands.has(command), false, 'SOLANA_CANDIDATE_PARALLEL_HEAVY_WORK');
+    if (Number(fields[1]) !== process.pid && hostServices.has(command)) return null;
+  }
   let executable;
   try { executable = readlinkSync(`/proc/${pid}/exe`); }
   catch (error) {
@@ -48,11 +63,17 @@ function resources() {
   const disk = statfsSync(GOLDEN, { bigint: true });
   return { availableRAM: Number(match[1]) * 1024, freeDisk: Number(disk.bavail * disk.bsize), mainRSS: process.memoryUsage().rss };
 }
-const heavy = /^(?:solana-test-validator|agave-validator|solana-validator|bitcoind|anvil|bb|nargo|cargo|rustc|rust-lld|ld\.lld|cc1|cc1plus)$/;
 export function assertCandidateNoParallelHeavyWork() {
   for (const name of readdirSync('/proc')) {
     if (!/^[1-9][0-9]*$/.test(name)) continue;
-    const row = proc(Number(name)); if (!row || row.pid === process.pid) continue;
+    // Concurrent jobs started by this developer share our UID. Other users'
+    // load remains covered by the global resource floors rather than treating
+    // inaccessible root process executables as evidence of a validator.
+    let owner;
+    try { owner = lstatSync('/proc/' + name).uid; }
+    catch (error) { if (absent(error)) continue; throw Error('SOLANA_CANDIDATE_PROCESS_IDENTITY_UNREADABLE'); }
+    if (owner !== process.getuid()) continue;
+    const row = proc(Number(name), false, true); if (!row || row.pid === process.pid) continue;
     assert.equal(heavy.test(basename(row.executable)), false, 'SOLANA_CANDIDATE_PARALLEL_HEAVY_WORK');
   }
   const failure = candidateHostResourceFailure(resources()); if (failure) throw Error(failure);
@@ -69,7 +90,7 @@ export function createCandidateResourceGuard() {
     const candidates = readdirSync('/proc').filter(name => /^[1-9][0-9]*$/.test(name));
     assert.ok(candidates.length <= 4096, 'SOLANA_CANDIDATE_PROCESS_ENUMERATION_BOUND');
     for (const name of candidates) {
-      const row = proc(Number(name));
+      const row = proc(Number(name), true);
       if (!row || row.ppid !== process.pid || basename(row.executable) !== 'solana-test-validator') continue;
       assert.ok(row.executable.startsWith(join(GOLDEN, '.local/linux-runtimes') + '/'), 'SOLANA_CANDIDATE_CHILD_EXECUTABLE');
       if (owned) assert.equal(row.pid + ':' + row.startTimeTicks, owned.pid + ':' + owned.startTimeTicks, 'SOLANA_CANDIDATE_MULTIPLE_VALIDATORS');

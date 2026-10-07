@@ -10,6 +10,7 @@ let fixture;
 const missing = () => Object.assign(Error('HOST_ONLY_MISSING'), { code: 'ENOENT' });
 const named = module => Object.fromEntries(Object.entries(module).filter(([key]) => key !== 'default' && key !== 'module.exports'));
 mock.module('node:fs', { exports: { ...named(fs),
+  lstatSync(path) { return fixture.actualProc ? fs.lstatSync(path) : { uid: fixture.uid ?? process.getuid() }; },
   readdirSync(path) { assert.equal(path, '/proc');
     if (fixture.denyEnumeration) throw Object.assign(Error('HOST_ONLY_DENIED'), { code: 'EACCES' });
     if (fixture.actualProc) return fs.readdirSync(path);
@@ -30,7 +31,7 @@ mock.module('node:fs', { exports: { ...named(fs),
     if (fixture.denyStat) throw Object.assign(Error('HOST_ONLY_DENIED'), { code: 'EACCES' });
     if (fixture.malformedStat) return 'HOST_ONLY_MALFORMED_STAT';
     const fields = Array(25).fill('0'); fields[0] = 'S'; fields[1] = String(fixture.ppid); fields[19] = fixture.start;
-    return '987654 (solana-test-val) ' + fields.join(' ');
+    return '987654 (' + (fixture.command ?? 'solana-test-val') + ') ' + fields.join(' ');
   },
   statfsSync(path, options) { return fixture.actualProc ? fs.statfsSync(path, options) : { bavail: 5368709120n, bsize: 1n }; },
 } });
@@ -46,6 +47,34 @@ const reset = extra => { signals.length = 0; fixture = { live: true, ppid: proce
 
 test('guard rejects parallel heavy work before runtime creation', () => {
   reset(); assert.throws(() => assertCandidateNoParallelHeavyWork(), /PARALLEL_HEAVY_WORK/);
+  assert.deepEqual(signals, []);
+});
+
+test('other-user processes are outside the concurrent developer-job scan', () => {
+  reset({ uid: process.getuid() + 1 });
+  assert.doesNotThrow(() => assertCandidateNoParallelHeavyWork());
+  assert.deepEqual(signals, []);
+});
+
+for (const command of ['systemd', '(sd-pam)', 'ssh-agent']) {
+  test('unrelated ' + command + ' does not require privileged executable visibility', () => {
+    reset({ command, ppid: process.pid + 1, denyExe: true });
+    assert.doesNotThrow(() => assertCandidateNoParallelHeavyWork()); assert.deepEqual(signals, []);
+  });
+}
+
+test('an unreadable developer job is blocked and a truncated heavy command is rejected before exe', () => {
+  reset({ command: 'unknown-job', ppid: process.pid + 1, denyExe: true });
+  assert.throws(() => assertCandidateNoParallelHeavyWork(), /PROCESS_IDENTITY_UNREADABLE/);
+  reset({ command: 'solana-test-val', ppid: process.pid + 1, denyExe: true });
+  assert.throws(() => assertCandidateNoParallelHeavyWork(), /PARALLEL_HEAVY_WORK/);
+  assert.deepEqual(signals, []);
+});
+
+test('unrelated parent is rejected before inaccessible executable inspection', async () => {
+  reset({ ppid: process.pid + 1, denyExe: true });
+  const guard = createCandidateResourceGuard(); assert.doesNotThrow(() => guard.check());
+  assert.deepEqual(await guard.finish(), { sampledResourceFloorsHeld: true, ownedChildGone: true, forced: false });
   assert.deepEqual(signals, []);
 });
 

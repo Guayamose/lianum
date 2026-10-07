@@ -14,8 +14,9 @@ import { Readable } from 'node:stream';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { MEMO_PROGRAM } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
-const memoBytes = fs.readFileSync(new URL('../../../solana-candidate-20261005-0720/.local/agave-linux-bounded-build/derived/'
-  + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
+import * as runtimeHarness from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
+// Original public Agave fixture, verified below against the production codec pin.
+const memoBytes = fs.readFileSync(new URL('./fixtures/spl_memo-3.0.0.so', import.meta.url));
 const copy = value => structuredClone(value), h = value => crypto.createHash('sha256').update(value).digest('hex');
 assert.equal(h(memoBytes), MEMO_PROGRAM.codeSHA256);
 const system = '11111111111111111111111111111111', executableFixture = Buffer.from('HOST_ONLY_PINNED_EXECUTABLE_STUB');
@@ -37,6 +38,12 @@ mock.module('node:crypto', { exports: { ...named(crypto),
   },
 } });
 mock.module('node:fs', { exports: { ...named(fs),
+  writeFileSync(path, data, ...args) {
+    if (typeof data === 'string' && data.includes('"diagnostic"')) {
+      try { control.diagnostic = JSON.parse(data).diagnostic; } catch {}
+    }
+    return fs.writeFileSync(mapped(path), data, ...args);
+  },
   mkdirSync(path, ...args) { return fs.mkdirSync(mapped(path), ...args); },
   lstatSync(path, ...args) { return fs.lstatSync(mapped(path), ...args); },
   realpathSync(path, ...args) { return path === actualLocal ? path : fs.realpathSync(path, ...args); },
@@ -63,7 +70,10 @@ mock.module('node:fs/promises', { exports: { ...named(fsp),
   async readlink(path) { assert.match(String(path), /^\/proc\/987654\/fd\/[012]$/); return `socket:[${100 + Number(String(path).at(-1))}]`; },
 } });
 function socket() { const result = new EventEmitter(); result.unref = () => {}; result.close = callback => callback?.(); return result; }
-mock.module('node:net', { exports: { createServer() { const result = socket(); result.listen = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; } } });
+mock.module('node:net', { exports: {
+  createConnection() { throw Error('HOST_FIXTURE_FORBIDDEN_CONNECTION'); },
+  createServer() { const result = socket(); result.listen = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; },
+} });
 mock.module('node:dgram', { exports: { createSocket() { const result = socket(); result.bind = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; } } });
 mock.module('node:child_process', { exports: { ...named(childProcess),
   execFile() { throw new Error('HOST_FIXTURE_FORBIDDEN_EXEC'); }, spawn(binary, args, options) {
@@ -81,6 +91,7 @@ mock.module('node:child_process', { exports: { ...named(childProcess),
 const contextual = value => ({ context: { slot: control.slot }, value: copy(value) });
 const account = lamports => ({ owner: system, executable: false, lamports, data: ['', 'base64'] });
 mock.module(new URL('../../../omnichain-product/src/chains/runtime-harness.mjs', import.meta.url).href, { exports: {
+  ...named(runtimeHarness),
   projectRoot: '/host-only-project',
   async scratchDirectory() { control.directory = await fsp.mkdtemp(join(tmpdir(), 'combined-sol-host-')); return control.directory; },
   async removeOwnScratch(path) { assert.equal(path, control.directory); control.removes++; await fsp.rm(path, { recursive: true }); },
@@ -108,6 +119,9 @@ mock.module(new URL('../../../omnichain-product/src/chains/runtime-harness.mjs',
       case 'getBlockHeight': return c.slot;
       case 'isBlockhashValid': return contextual(true);
       case 'getSlot': return c.slot;
+      case 'minimumLedgerSlot': return 0;
+      case 'getFirstAvailableBlock': return 0;
+      case 'getBlocks': return Array.from({ length: params[1] - params[0] + 1 }, (_, index) => params[0] + index);
       case 'getSignatureStatuses': return contextual(params[0].map(signature => c.observations.has(signature)
         ? { slot: c.observations.get(signature).slot, err: null, confirmationStatus: 'finalized', confirmations: null } : null));
       case 'getTransaction': return copy(c.observations.get(params[0]) ?? null);
@@ -123,7 +137,7 @@ mock.module(new URL('../wallet-platform/modules/chain-adapters/owned-solana-send
     assert.equal(endpoint, `http://127.0.0.1:${control.rpcPort}`); control.sends++;
     const bytes = Buffer.from(wire, 'base64'), nativeId = bytes.subarray(1, 65).toString('hex');
     let record;
-    for (const name of ['nonce-bootstrap', 'signed-native', 'signed-graph']) {
+    for (const name of ['nonce-bootstrap/depositor', 'nonce-bootstrap/escrow', 'signed-native', 'signed-graph']) {
       try { record = JSON.parse(await fsp.readFile(join(control.directory, name, nativeId + '.json'), 'utf8')); break; }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
@@ -170,10 +184,13 @@ mock.module(new URL('./solana-candidate-acceptance-evidence.mjs', import.meta.ur
 } });
 mock.module(new URL('./solana-candidate-acceptance-guard.mjs', import.meta.url).href, { exports: {
   ...originalGuard, assertCandidateNoParallelHeavyWork() { control.preflightChecks++; },
-  createCandidateResourceGuard() { return { check() {
+  createCandidateResourceGuard() { let originalRuntime; return { check() {
     if (control.stopAfterSend && control.sends >= control.stopAfterSend) throw Error('SOLANA_CANDIDATE_HOST_TEST_STOP');
   }, verifyRuntimePID(pid) { assert.equal(pid, 987654); },
-    bindOwnedRuntime(runtime) { assert.equal(runtime.metadata.processId, 987654); }, finish() {
+    bindOwnedRuntime(runtime) { assert.equal(runtime.metadata.processId, 987654); originalRuntime = runtime; }, async finish() {
+    // Match the genuine guard: stop sampling, close the original owned runtime,
+    // then verify exit before the facade observes the shared close outcome.
+    if (originalRuntime) await originalRuntime.close();
     assert.equal(control.stops, 1); assert.equal(control.removes, 1);
     return { sampledResourceFloorsHeld: true, ownedChildGone: true, forced: false };
   } }; },
@@ -189,11 +206,11 @@ async function runFixture(options = {}) {
   finally { process.argv = oldArgv; }
 }
 
-test('source review activation is false and argv cannot select any runtime input', () => {
-  assert.equal(originalPolicy.SOLANA_CANDIDATE_ACCEPTANCE_ENABLED, false);
+test('reviewed runtime-only activation still requires exact opt-in without selectable runtime inputs', () => {
+  assert.equal(originalPolicy.SOLANA_CANDIDATE_ACCEPTANCE_ENABLED, true);
   for (const argv of [[], ['--binary', '/tmp/validator'], [originalPolicy.SOLANA_CANDIDATE_ACCEPTANCE_OPT_IN, '--hash', h('caller')]])
     assert.throws(() => originalPolicy.assertSolanaCandidateAcceptanceGate(argv), /EXACT_OPT_IN_REQUIRED/);
-  assert.throws(() => originalPolicy.assertSolanaCandidateAcceptanceGate([originalPolicy.SOLANA_CANDIDATE_ACCEPTANCE_OPT_IN]), /SOURCE_REVIEW_REQUIRED/);
+  assert.doesNotThrow(() => originalPolicy.assertSolanaCandidateAcceptanceGate([originalPolicy.SOLANA_CANDIDATE_ACCEPTANCE_OPT_IN]));
 });
 
 test('candidate metadata allows an identical historical digest only at the fixed candidate path', () => {
@@ -222,20 +239,22 @@ test('fixed guard keeps the existing RAM/disk/main-worker floors', () => {
   assert.match(originalGuard.candidateHostResourceFailure({ ...sample, mainRSS: sample.mainRSS + 1 }), /MAIN_RSS_LIMIT/);
 });
 
-test('host-only fixed path bootstraps, deposits, redeems full principal, rejects resend, and isolates solver funds', async () => {
+test('host-only fixed path bootstraps both nonces, deposits, and isolates solver funds without payout authority', async () => {
   const result = await runFixture();
-  assert.equal(result.report.success, true, JSON.stringify(result.report));
-  assert.equal(result.report.scope, 'runtime-functional-only');
+  assert.equal(result.report.success, true, control.diagnostic ?? result.report.errorCode);
+  assert.equal(result.report.scope, 'runtime-ingress-and-solver-only');
   assert.equal(control.spawns, 1); assert.equal(control.sends, 4);
   assert.equal(control.preflightChecks, 1); assert.equal(control.stops, 1); assert.equal(control.removes, 1);
   assert.equal(result.report.sourceUnchanged, true);
-  assert.deepEqual(result.report.fixedLamports, { deposit: '1000000', redeem: '1000000', solver: '250000' });
+  assert.deepEqual(result.report.fixedLamports, { deposit: '1000000', solver: '250000' });
+  assert.equal(result.report.payoutEstablished, false);
+  assert.deepEqual(result.report.blockers, ['ORIGINAL_PAYOUT_CONTROLLER_AUTHORITY_REQUIRED']);
   assert.ok(Object.values(result.report.checks).every(value => value === true));
-  assert.deepEqual(result.report.observedFees, { bootstrap: '10000', deposit: '5000', redeem: '5000', solver: '5000' });
+  assert.deepEqual(result.report.observedFees, { bootstrap: { depositor: '10000', escrow: '10000' }, deposit: '5000', solver: '5000' });
   assert.ok(control.seeds.every(seed => seed.every(byte => byte === 0)));
   const run = result.reportPath.slice(0, -'/report.json'.length), audit = join(run, 'private-audit');
-  const signed = JSON.parse(await fsp.readFile(join(audit, 'redeem-signed-before-broadcast.json')));
-  const record = JSON.parse(await fsp.readFile(join(audit, 'redeem-finalized.json')));
+  const signed = JSON.parse(await fsp.readFile(join(audit, 'deposit-signed-before-broadcast.json')));
+  const record = JSON.parse(await fsp.readFile(join(audit, 'deposit-finalized.json')));
   assert.equal(record.nativeWire, signed.nativeWire); assert.equal(record.nativeId, signed.nativeId);
   assert.equal(record.broadcastAttempts, 1); assert.equal(record.intent.lamports, '1000000');
   const serialized = JSON.stringify(result.report);
@@ -249,7 +268,7 @@ test('host-only fixed path bootstraps, deposits, redeems full principal, rejects
 
 test('lost original transfer reply is observed by exact identity without a second send', async () => {
   const result = await runFixture({ uncertainSend: 3 });
-  assert.equal(result.report.success, true, JSON.stringify(result.report));
+  assert.equal(result.report.success, true, control.diagnostic ?? result.report.errorCode);
   assert.equal(control.sends, 4); assert.equal(control.stops, 1); assert.equal(control.removes, 1);
 });
 
@@ -261,8 +280,8 @@ test('stopped attempt preserves signed evidence, closes owned runtime, and does 
   assert.equal(result.report.cleanup.ownedProcessStopped, true);
   const audit = join(result.reportPath.slice(0, -'/report.json'.length), 'private-audit');
   const last = JSON.parse(await fsp.readFile(join(audit, 'last-retained-records.json')));
-  assert.equal(last.custody.length, 2); assert.equal(last.solver.length, 0);
-  assert.equal(last.custody[1].broadcastAttempts, 1);
+  assert.equal(last.custody.length, 1); assert.equal(last.solver.length, 0);
+  assert.equal(last.custody[0].broadcastAttempts, 1);
   assert.ok(control.seeds.every(seed => seed.every(byte => byte === 0)));
 });
 
@@ -277,8 +296,8 @@ test('constructor bootstrap rejection retains only available diagnostics and clo
   assert.equal(result.report.checks.ownedChildGone, true);
   const audit = join(result.reportPath.slice(0, -'/report.json'.length), 'private-audit');
   const stopped = JSON.parse(await fsp.readFile(join(audit, 'stopped.json')));
-  assert.equal(stopped.nonceBootstrapPreparation.signed, false);
-  assert.equal(stopped.nonceBootstrap, undefined);
+  assert.equal(stopped.nonceBootstrapPreparationByAuthority.depositor.signed, false);
+  assert.equal(stopped.nonceBootstrapByAuthority.depositor, null);
   await assert.rejects(fsp.access(join(audit, 'last-retained-records.json')), { code: 'ENOENT' });
   assert.ok(control.seeds.every(seed => seed.every(byte => byte === 0)));
 });

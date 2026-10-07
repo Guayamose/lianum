@@ -1,6 +1,6 @@
-/** Disabled-by-default, fixed runtime-only candidate acceptance. No node starts
- * on import or without BOTH source review activation and the exact opt-in.
- * Run only after candidate source/binary review and explicit parent approval:
+/** Reviewed, fixed runtime-only candidate acceptance. No node starts on import
+ * or without BOTH source review activation and the exact opt-in.
+ * Source/binary review and scope: packages/backend/docs/LOCAL-ACCEPTANCE.md.
  * node integration/solana-candidate-acceptance.mjs --run-reviewed-local-candidate
  * This never runs the claim/graph campaign, proofs, EVM, or Bitcoin. */
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { assertSolanaCandidateAcceptanceGate } from './solana-candidate-acceptance-policy.mjs';
 import { createCandidateResourceGuard, assertCandidateNoParallelHeavyWork } from './solana-candidate-acceptance-guard.mjs';
 import { ACCEPTANCE_AMOUNTS, checkBootstrap, checkCandidateMetadata, checkCustodyBalances,
-  checkOriginalRecord, inventoryState, publicAcceptanceReport } from './solana-candidate-acceptance-evidence.mjs';
+  checkOriginalRecord, checkCustodyDeposit, inventoryState, publicAcceptanceReport } from './solana-candidate-acceptance-evidence.mjs';
 import { validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { SOLANA_PAYOUT_FINAL_SEND_PROFILE } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
@@ -104,7 +104,7 @@ export async function runSolanaCandidateAcceptance() {
   ensurePrivateDirectory(LOCAL);
   const lockPath = join(LOCAL, 'active.lock'), lock = openSync(lockPath, 'wx', 0o600);
   writeFileSync(lock, JSON.stringify({ ownerPID: process.pid, runId: randomUUID() })); fsyncSync(lock); closeSync(lock);
-  let run, audit, guard, pair, state = { success: false, phase: 'preflight', checks: {} }, stageNumber = 0;
+  let run, audit, guard, pair, guardFinished = false, state = { success: false, phase: 'preflight', checks: {} }, stageNumber = 0;
   const privateWrite = (name, value) => writeExclusive(join(audit, name), value);
   const stage = name => { guard?.check(); state.phase = name; privateWrite(String(++stageNumber).padStart(2, '0') + '-stage.json', { stage: name }); };
   try {
@@ -129,7 +129,7 @@ export async function runSolanaCandidateAcceptance() {
     const adapters = { deposit: custody.adapter({ asset: ASSET, route: 'deposit' }),
       redeem: custody.adapter({ asset: ASSET, route: 'redeem' }), solver: graph.adapter({ asset: ASSET, recipientIndex: 0 }) };
     const initial = await custody.inventory(); checkBootstrap(custody, initial);
-    privateWrite('bootstrap.json', custody.nonceBootstrap); privateWrite('inventory-initial.json', initial);
+    privateWrite('bootstrap.json', custody.nonceBootstrapByAuthority); privateWrite('inventory-initial.json', initial);
     privateWrite('runtime-initial.json', custody.metadata);
     state.checks.bootstrapFinalizedOriginalOnce = true; state.checks.nonceInfrastructureExcluded = true;
     const graphStart = { solver: await graph.balance(graph.solver), recipient: await graph.balance(),
@@ -199,35 +199,30 @@ export async function runSolanaCandidateAcceptance() {
     }
     const deposit = await transfer('deposit'), afterDeposit = await custody.inventory();
     privateWrite('inventory-after-deposit.json', afterDeposit);
+    checkCustodyDeposit(initial, afterDeposit, deposit);
     await assert.rejects(graph.observe(deposit.nativeId, { timeoutMs: 0 }), /SOLANA_UNKNOWN_SIGNED_IDENTITY/);
-    const payout = await transfer('redeem'), afterPayout = await custody.inventory();
-    privateWrite('inventory-after-payout.json', afterPayout);
-    checkCustodyBalances(initial, afterDeposit, afterPayout, custody.transfers);
-    state.checks.fullDepositPrincipalRedeemed = true; state.checks.v2OriginalFinalizedOnce = true;
-    state.checks.nonceAdvancedBoundToOriginal = true;
-    stage('prove-original-no-resend-and-namespace-isolation');
-    let repeatGateCalled = false;
-    await assert.rejects(adapters.redeem.resumeReservedPayout({ nativeId: payout.nativeId }, {
-      async beforeBroadcast() { repeatGateCalled = true; throw Error('SOLANA_CANDIDATE_REPLAY_CALLBACK_FORBIDDEN'); },
-      async beforeSend() { repeatGateCalled = true; throw Error('SOLANA_CANDIDATE_REPLAY_CALLBACK_FORBIDDEN'); },
-      assertBeforeSend() { repeatGateCalled = true; throw Error('SOLANA_CANDIDATE_REPLAY_CALLBACK_FORBIDDEN'); },
-    }), /SOLANA_NONCE_FIRST_SEND_ONLY/);
-    assert.equal(repeatGateCalled, false);
+    // The current payout factory requires a genuine original claim-controller
+    // key/send authority. This runtime-only laboratory cannot issue that token.
+    // Exercise native ingress and solver isolation without substituting it.
+    state.blockers = ['ORIGINAL_PAYOUT_CONTROLLER_AUTHORITY_REQUIRED'];
+    state.checks.originalIngressFinalizedOnce = true;
+    state.checks.depositorNonceAdvancedBoundToOriginal = true;
+    stage('prove-original-namespace-isolation');
     const retained = custody.transfers;
-    for (const original of [deposit, payout]) {
+    for (const original of [deposit]) {
       const observation = await custody.observe(original.nativeId, { timeoutMs: 0 });
       assert.equal(observation.status, 'observed'); assert.equal(observation.nativeId, original.nativeId);
       assert.equal(observation.nativeWire, original.nativeWire);
     }
     assert.deepEqual(custody.transfers.map(row => [row.nativeId, row.nativeWire, row.broadcastAttempts]),
       retained.map(row => [row.nativeId, row.nativeWire, row.broadcastAttempts]));
-    assert.deepEqual(inventoryState(await custody.inventory()), inventoryState(afterPayout));
-    state.checks.repeatReadAndResendRejectionUnchanged = true;
+    assert.deepEqual(inventoryState(await custody.inventory()), inventoryState(afterDeposit));
+    state.checks.repeatReadOriginalIngressUnchanged = true;
     const solver = await transfer('solver');
     await assert.rejects(custody.observe(solver.nativeId, { timeoutMs: 0 }), /SOLANA_UNKNOWN_SIGNED_IDENTITY/);
     const final = await custody.inventory(); privateWrite('inventory-final.json', final);
-    assert.deepEqual(inventoryState(final), inventoryState(afterPayout));
-    assert.equal(graph.transfers.length, 1); assert.equal(custody.transfers.length, 2);
+    assert.deepEqual(inventoryState(final), inventoryState(afterDeposit));
+    assert.equal(graph.transfers.length, 1); assert.equal(custody.transfers.length, 1);
     assert.equal(solver.intent.sourcePublicKey, graph.solverHex.slice(2));
     assert.notEqual(solver.intent.sourcePublicKey, custody.roles.escrow.endpoint);
     assert.equal(BigInt(graphStart.solver) - BigInt(await graph.balance(graph.solver)),
@@ -237,8 +232,9 @@ export async function runSolanaCandidateAcceptance() {
     state.checks.solverSeparateLiquidityV1Finalized = true; state.checks.solverLeavesCustodyUnchanged = true;
     checkCandidateMetadata(custody.metadata); privateWrite('runtime-final.json', custody.metadata);
     state.checks.originalAdapterAuditsHeld = true;
-    state.observedFees = { bootstrap: custody.nonceBootstrap.observation.feeLamports,
-      deposit: deposit.observation.feeLamports, redeem: payout.observation.feeLamports, solver: solver.observation.feeLamports };
+    state.observedFees = { bootstrap: Object.fromEntries(Object.entries(custody.nonceBootstrapByAuthority)
+      .map(([role, record]) => [role, record.observation.feeLamports])),
+      deposit: deposit.observation.feeLamports, solver: solver.observation.feeLamports };
     state.phase = 'functional-checks-passed';
   } catch (error) {
     state.errorCode = code(error); state.phase = 'stopped';
@@ -246,25 +242,37 @@ export async function runSolanaCandidateAcceptance() {
     // Preparation failures have no signed bootstrap record; later failures may
     // expose one. Never claim all constructor-time raw records were retained.
     if (audit) privateWrite('stopped.json', { errorCode: state.errorCode,
-      ...(error.nonceBootstrap ? { nonceBootstrap: error.nonceBootstrap } : {}),
-      ...(error.nonceBootstrapPreparation ? { nonceBootstrapPreparation: error.nonceBootstrapPreparation } : {}) });
+      diagnostic: String(error.stack ?? error.message ?? '').slice(0, 8000),
+      ...(error.nonceBootstrapByAuthority ? { nonceBootstrapByAuthority: error.nonceBootstrapByAuthority } : {}),
+      ...(error.nonceBootstrapPreparationByAuthority ? { nonceBootstrapPreparationByAuthority: error.nonceBootstrapPreparationByAuthority } : {}) });
     if (error.cleanup) state.cleanup = error.cleanup;
   } finally {
     // Retain evidence before destroying ephemeral keys/ledger, even on failure.
     if (pair) {
-      try { privateWrite('last-retained-records.json', { bootstrap: pair.custody.nonceBootstrap,
+      try { privateWrite('last-retained-records.json', { bootstrap: pair.custody.nonceBootstrapByAuthority,
         custody: pair.custody.transfers, solver: pair.graph.transfers, metadata: pair.custody.metadata }); }
       catch (error) { state.errorCode ??= code(error); }
+      // Stop resource sampling before the original close starts. A process in
+      // the exit/reap transition may already lack /proc/exe; this is neither a
+      // new child identity nor sufficient standalone evidence of cleanup.
+      try { if (guard) { guardFinished = true; state.cleanupExitVerified = false;
+        const result = await guard.finish(); state.cleanupExitVerified = true;
+        state.checks.sampledResourceFloorsHeld = result.sampledResourceFloorsHeld;
+        state.checks.ownedChildGone = result.ownedChildGone; } }
+      catch (error) { state.errorCode ??= code(error); }
       try {
-        const a = pair.custody.close(), b = pair.graph.close(); assert.equal(a, b);
-        state.cleanup = await a;
+        assert.equal(pair.custody.close, pair.graph.close);
+        // Async facades can return distinct Promise wrappers around the same
+        // one-shot close. Drain both and require identical original outcomes.
+        const [a, b] = await Promise.all([pair.custody.close(), pair.graph.close()]);
+        assert.deepEqual(a, b); state.cleanup = a;
         assert.equal(state.cleanup.ownedProcessStopped, true); assert.equal(state.cleanup.syntheticKeysAndLedgerRemoved, true);
         await assert.rejects(pair.custody.inventory(), /SOLANA_RUNTIME_CLOSED/);
         await assert.rejects(pair.graph.balance(), /SOLANA_RUNTIME_CLOSED/);
         state.checks.sharedOwnedCleanupAndClosedFacades = true;
       } catch (error) { state.errorCode ??= code(error); }
     }
-    try { if (guard) { state.cleanupExitVerified = false; const result = await guard.finish(); state.cleanupExitVerified = true; state.checks.sampledResourceFloorsHeld = result.sampledResourceFloorsHeld;
+    try { if (guard && !guardFinished) { guardFinished = true; state.cleanupExitVerified = false; const result = await guard.finish(); state.cleanupExitVerified = true; state.checks.sampledResourceFloorsHeld = result.sampledResourceFloorsHeld;
       state.checks.ownedChildGone = result.ownedChildGone; } }
     catch (error) { state.errorCode ??= code(error); }
     try { if (audit) { state.sourceHashesAfter = sourceHashes(); privateWrite('sources-after.json', state.sourceHashesAfter);
