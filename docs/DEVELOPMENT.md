@@ -42,6 +42,20 @@ locks públicos de móvil y API, verifica contratos/tipos y exporta los bundles.
 También comprueba PostgreSQL real en Docker y Terraform con proveedor simulado.
 No requiere claves, cuenta GCP ni estado privado del laboratorio.
 
+Con Google Chrome instalado, se comprueba también el DOM real de la wallet
+desconectada:
+
+```sh
+./dev npm ci --ignore-scripts
+./dev npm run test:browser
+```
+
+El lock fija Playwright Core sin descargar otro navegador. Chrome conserva su
+sandbox y utiliza un perfil temporal. Se verifican módulos, consultas locales,
+botones deshabilitados, ausencia de saldo ficticio, retirada de tokens del DOM
+y actualización explícita. Informe y captura quedan en `.internal/dev/reports/`.
+Este smoke no demuestra financiación ni aceptación del recorrido conectado.
+
 ## Laboratorios y pruebas adicionales
 
 ```sh
