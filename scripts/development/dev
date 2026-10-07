@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+task_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+task_helpers="$task_root/scripts/development"
+task_node_dir="$task_root/.internal/dev/toolchains/node-v24.19.0-linux-x64/bin"
+task_legacy_node_dir="$task_root/.internal/dev/toolchains/node-v24.14.0-linux-x64/bin"
+task_flat="$task_root/.internal/runtime/omnichain-flat-profile/flat-wallet"
+unset NODE_OPTIONS NODE_PATH
+export PATH="$task_node_dir:$PATH"
+task_command="${1:-help}"
+if [ "$#" -gt 0 ]; then shift; fi
+case "$task_command" in
+  help|-h|--help)
+    printf '%s\n' \
+      'Lianum — ejecutar desde la raíz del proyecto' \
+      './dev start          Abrir la wallet local (Ctrl+C para cerrar)' \
+      './dev build          Preparar las rutas internas desde el código editable' \
+      './dev check          Verificar estructura y compilación/arranque' \
+      './dev test [rutas]   Ejecutar pruebas; acepta las rutas de la estructura nueva' \
+      './dev doctor         Verificar herramientas e integridad de la base original' \
+      './dev evidence       Comprobar las evidencias públicas originales' \
+      './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
+      './dev npm [args]     Ejecutar npm con el Node local' \
+      '' \
+      'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
+  build) exec python3 "$task_helpers/workspace.py" "$@" ;;
+  start|wallet)
+    python3 "$task_helpers/workspace.py" --quiet
+    cd "$task_flat"
+    exec "$task_node_dir/node" wallet-app/run.mjs "$@" ;;
+  check)
+    python3 "$task_helpers/workspace.py"
+    python3 "$task_helpers/verify_layout.py"
+    python3 "$task_helpers/test_workspace.py"
+    exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
+  test) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/run_tests.py" "$@" ;;
+  doctor) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/doctor.py" "$@" ;;
+  smoke) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
+  evidence|verify-restored) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/verify_restored.mjs" "$@" ;;
+  node) exec python3 "$task_helpers/run_node.py" "$@" ;;
+  setup) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/setup.py" "$@" ;;
+  import) exec python3 "$task_helpers/import_public_backup.py" "$@" ;;
+  restore-package) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/restore_package.py" "$@" ;;
+  canonical) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/materialize_canonical.py" "$@" ;;
+  legacy-node) export PATH="$task_legacy_node_dir:$PATH"; exec "$task_legacy_node_dir/node" "$@" ;;
+  proof-node) exec "$task_node_dir/node" "$@" ;;
+  npm) exec "$task_node_dir/node" "$task_node_dir/../lib/node_modules/npm/bin/npm-cli.js" "$@" ;;
+  *) printf 'Comando desconocido: %s. Consulta ./dev help\n' "$task_command" >&2; exit 2 ;;
+esac
