@@ -1,8 +1,10 @@
 # Artefactos de claims nativos: inventario y reconstrucción
 
 Auditoría del 8 de octubre de 2026. Los fuentes públicos están disponibles; los
-recibos de aceptación originales y varias compilaciones no se recuperaron. Esto
-bloquea el preflight del fixture BTC/Solana y, después, las pruebas de payout.
+recibos de aceptación originales y varias compilaciones no se recuperaron. El
+build de desarrollo nuevo prepara CI51 V3 y CO42 y permite el preflight original
+del fixture BTC/Solana. Las aceptaciones históricas siguen ausentes y el payout
+completo necesita una aceptación nueva.
 `./dev artifacts` verifica actualmente su ámbito de encoding; **no acredita
 estos claims ni recupera sus aceptaciones**.
 
@@ -45,7 +47,7 @@ como sustitución.
 | `.local/proof-workers/relations/native_claim_discharge/<source-version>/` | Ausente completo: programa, stats, VK, Solidity, pointers y recibos de ejecución | [Tooling de pruebas](../../proofs/src/tooling/tooling.mjs), worker de payout y loader de contratos |
 | `.local/proof-workers/relations/native_claim_ingress/<source-version>/` | Ausente completo; además lo exige el loader legado | Tooling de pruebas y loader legado |
 
-La entrada que detecta el bloqueo antes de arrancar nodos es
+La entrada que verifica estos artefactos antes de arrancar nodos es
 [`createOwnedNativeClaimGraphV3Fixture()`](../../../tests/integration/fixtures/claims/lifecycle/owned-native-claim-fixture.mjs).
 Preparar sólo los contratos no resuelve el payout: CO42 necesita también los
 artefactos autentificados que lee su worker.
@@ -100,7 +102,8 @@ inmutables, ABI y tamaños reales de los verifiers de Solidity. El fingerprint
 cubre 46 fuentes transitivos de ejecución y fixture, además de Noir/API/vendor/CRS.
 
 La preparación CO42 recibe SIGTERM del kernel si muere su padre, incluso después
-de `exec` y SIGKILL. Dos regresiones con procesos reales comprueban ese cierre.
+de `exec` y SIGKILL. Cuatro regresiones con procesos reales comprueban ese cierre,
+incluidas las rutas del código editable, runtime y copia limpia de CI.
 Ocho comprobaciones de integración pasan, incluido preflight sin nodos,
 alteración de manifest/VK/ABI/fuentes y traslado de la ruta diagnóstica manteniendo
 ABI, ACIR y key idénticos. El loader de la prueba pública histórica sigue exigiendo

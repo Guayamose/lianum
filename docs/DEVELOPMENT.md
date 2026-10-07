@@ -21,7 +21,7 @@ python3 scripts/development/test_doctor.py
 
 El primer comando descarga Node 24.19.0 desde su distribución oficial, verifica
 el SHA256 fijado del archivo y el binario instalado. No modifica Node global.
-La selección habitual ejecuta 226 resultados, incluidos transporte HTTP,
+La selección habitual ejecuta 244 resultados, incluidos transporte HTTP,
 consentimiento y reconciliación. No requiere los binarios nativos ni el CRS.
 
 La verificación `--tracked-delivery` comprueba los 1.716 originales versionados
@@ -41,6 +41,12 @@ El workflow [applications.yml](../.github/workflows/applications.yml) instala lo
 locks públicos de móvil y API, verifica contratos/tipos y exporta los bundles.
 También comprueba PostgreSQL real en Docker y Terraform con proveedor simulado.
 No requiere claves, cuenta GCP ni estado privado del laboratorio.
+
+Estas mismas comprobaciones pasan desde una copia limpia sin el paquete de
+restauración: selección habitual, 81 regresiones adicionales, tipos y bundles
+móviles, HTTP/PostgreSQL y seis tests Terraform. Se retienen los informes en
+`.internal/dev/reports/clean-*-ci*.json`. GitHub Actions aún no se ha ejecutado
+en remoto.
 
 Con Google Chrome instalado, se comprueba también el DOM real de la wallet
 desconectada:

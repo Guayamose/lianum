@@ -29,7 +29,7 @@ Abre `lianum.code-workspace` o esta carpeta en VS Code. En esta máquina:
 ```
 
 El arranque imprime una dirección local y termina con Ctrl+C. La wallet inicia
-desconectada. La selección habitual pasa: 226 resultados en doce archivos.
+desconectada. La selección habitual pasa: 244 resultados.
 También existen `npm run dev`, `npm run check` y `npm test`.
 
 Dentro de cada componente, `src/` contiene implementación, `tests/` pruebas y

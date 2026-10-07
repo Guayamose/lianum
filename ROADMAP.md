@@ -7,8 +7,8 @@ aislada no cierra un punto entero del producto.
 ## 1. Base fiable — implementada
 
 La importación está dividida por componentes y los cambios funcionales tienen
-commits separados con motivo y validación. La selección habitual pasa: 226
-resultados en doce archivos. Se inventarían los originales ausentes de encoding;
+commits separados con motivo y validación. La selección habitual pasa: 244
+resultados. Los originales ausentes de encoding están inventariados;
 no se omiten sus pruebas ni se fabrican originales.
 
 El bootstrap y los comandos CI se comprueban en una copia con sólo archivos
@@ -42,17 +42,19 @@ Después comprobar la interfaz visible y conectarla a la misma sesión/cuenta.
 
 - Solana: ingreso y solver aceptados en Agave nuevo. Completar payout con
   autoridad original, cuenta privada, reinicio y recuperación.
-- Bitcoin: cerrar ingreso/solver nuevos y después controlador original de
+- Bitcoin: ingreso y solver aceptados en Core nuevo. Completar controlador original de
   claims, gasto, backing, reorganizaciones y recuperación.
-- Tron: corregir configuración offline conservando `assertOffline`, revisar
-  parches y demostrar consenso, transferencia, observación y cierre. Mantener
+- Tron: el parche offline conserva `assertOffline` y el candidato ya produce
+  consenso y un único broadcast. Diagnosticar finalidad pending y cierre SIGABRT. Mantener
   el gate canónico cerrado hasta esa aceptación.
 - Base, Arbitrum y BNB: aceptar stacks y finalidad propios. Otro chainId en Anvil
   no acredita OP Stack, Nitro ni BSC.
 - Componer rutas con el mismo PAEG, estado y journal, verificando entregas
   parciales y asignación económica del fallo.
 
-Programas/VK nuevos tendrán identidad y manifiesto revisados. No presentar
+CI51 V3 y CO42 ya tienen un build y manifiesto nuevos revisados, con las VK
+originales. Aceptar el round trip privado con ocho pruebas genuinas antes de
+extenderlo a grafos y pérdida de procesos. No presentar
 reconstrucciones como los recibos históricos ausentes.
 
 ## 5. Completar DeFi — parcial

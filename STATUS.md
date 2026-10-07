@@ -9,10 +9,10 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 
 | Paso | Estado comprobado | Qué falta para cerrarlo |
 | --- | --- | --- |
-| 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 226 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
+| 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
 | 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación económica integral se comprueba adicionalmente en el paso 3. |
 | 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; financiación y autorización con pruebas reales comprobadas. Aceptación integral en curso. | Completar el recorrido, reinicio y recuperación F; aceptación visual y conexión a móvil. |
-| 4. Redes y operaciones combinadas | Solana: ingreso y solver aceptados en Agave nuevo. Lectores públicos y adaptadores restaurados. | Payout con autoridad original, flujo privado BTC/Solana, consenso Tron, aceptación propia de Base/Arbitrum/BNB y composición entre redes. |
+| 4. Redes y operaciones combinadas | Bitcoin y Solana: ingreso y solver aceptados en Core/Agave nuevos. CI51 V3 y CO42 reconstruidos con sus VK originales. Tron produce consenso y un broadcast, pero su aceptación falla. | Payout con autoridad original, flujo privado BTC/Solana, finalidad/cierre Tron, aceptación propia de Base/Arbitrum/BNB y composición entre redes. |
 | 5. DeFi | Swap oficial Uniswap V3 y depósito/redención oficial MetaMorpho comprobados en Anvil. Salida acotada y puente privado con 18 regresiones. | Ciclo privado completo con pruebas reales, posiciones y recuperación ante pérdida de keeper/nodo. |
 | 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL duraderos; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, aceptación física, recuperación móvil y operación de producción. |
 
@@ -27,7 +27,7 @@ Desde la raíz:
 
 ```sh
 ./dev start       # Wallet web; arranca desconectada
-./dev test        # 12 archivos: 226 PASS, 0 FAIL
+./dev test        # Selección habitual: 244 PASS, 0 FAIL
 ./dev check       # Integridad, tipos/ABI, diagnóstico Noir y HTTP
 ./dev doctor      # Herramientas, originales y bloqueos por separado
 ./dev artifacts  # Faltantes históricos de la selección de encoding
@@ -43,22 +43,27 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 
 ## Evidencia y límites
 
-La selección habitual pasa con 226 resultados. Se ejecutan además las
-regresiones de salida DeFi, Solana, driver HTTP, móvil y API. La API tiene 11
+La selección habitual pasa con 244 resultados. Una copia con sólo fuentes
+versionadas y dependencias públicas pasa además 81 regresiones seleccionadas de
+DeFi, redes, HTTP y procesos de pruebas. La API tiene 11
 casos host y ocho resultados del grupo PostgreSQL real: carreras, JSONB,
 reinicio, respuesta perdida, crash y caída de SQL conservando el proceso HTTP.
 El adaptador de esos tests es un contador SQL; no mueve fondos ni genera pruebas.
 
-El cliente móvil pasa diez pruebas de contratos, tipos, prebuild y exportación
-Android/iOS. Eso no acredita biometría/custodia en un teléfono ni una IPA/APK
+El cliente móvil pasa 17 pruebas de contratos, custodia simulada, conservación
+de operaciones pendientes y procesos de compilación, además de tipos y
+exportación Android/iOS. Su outbox conserva una ejecución UNKNOWN aunque se
+rechace después el permiso de reconciliación; la admisión de permisos no cierra
+su resultado económico. Eso no acredita biometría/custodia en un teléfono ni una IPA/APK
 instalada. El bootstrap de API mantiene el adaptador económico desconectado:
 liveness es 200, readiness es 503 y `privatePortfolio` es `null`.
 
 Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
 Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica la
 autoridad del controlador de payout. Tron conserva
-`OWNED_TRON_RUNTIME_RELEASE=null`: su clausura pública se verifica, pero el
-intento nuevo fue rechazado por la configuración offline antes de consenso.
+`OWNED_TRON_RUNTIME_RELEASE=null`: su clausura pública y el parche offline nuevo
+se verifican. El candidato produce bloques y admite el único broadcast, pero
+no establece finalidad en el plazo y termina SIGABRT. No se acepta como red completa.
 
 Los informes están en `.internal/dev/reports/` y los directorios privados de
 cada intento. No se versionan claves, testigos ni sesiones. Los comandos CI se
@@ -77,10 +82,11 @@ comprueban localmente; no hay remoto ni ejecución registrada de GitHub Actions.
   `./dev artifacts` identifica sus consumidores y el hash conocido. No se
   regeneran como si fueran originales ni se omiten silenciosamente sus tests.
 - También faltan programas/VK y evidencias públicas de releases históricas de
-  claims. El inventario de encoding tiene ese alcance; no certifica todas las
+  claims. Un build nuevo ya prepara CI51 V3 y CO42 con las VK originales, sin
+  fabricar esos recibos históricos ni acreditar payout. El inventario de encoding
+  tiene ese alcance; no certifica todas las
   integraciones posteriores. [El inventario de claims](packages/backend/docs/NATIVE-CLAIMS-ARTIFACTS.md)
-  identifica familias, consumidores y hashes conocidos. Una reconstrucción nueva
-  tendrá identidad propia.
+  identifica familias, consumidores, hashes conocidos y la identidad del build nuevo.
 - El laboratorio privado perdido no se recuperó. Las aceptaciones nuevas usan
   identidades, claves y estado nuevos.
 - Los módulos heredados requieren `.internal/runtime/`, recursos compartidos y
