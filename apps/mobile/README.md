@@ -36,6 +36,29 @@ y su JDK compatible, o `npm run ios` en macOS con Xcode/CocoaPods. Los comandos
 se ejecutan en `apps/mobile` con el Node local en `PATH`. La creación de proyectos
 iOS puede comprobarse en Linux; la compilación e instalación iOS requieren macOS.
 
+Para preparar un APK **debug** local sin instalarlo ni subirlo:
+
+```sh
+./dev npm --prefix apps/mobile run build:android:debug -- --preflight
+./dev npm --prefix apps/mobile run build:android:debug
+```
+
+El preflight comprueba JDK 17 o superior, SDK/API 36, build-tools 36.0.0,
+NDK 27.1.12297006 y CMake 3.22.1. Usa `ANDROID_HOME`, `ANDROID_SDK_ROOT` o
+`~/Android/Sdk`. La compilación genera Android desde `app.json`, verifica el
+[SHA-256 oficial de Gradle 9.3.1](https://services.gradle.org/distributions/gradle-9.3.1-bin.zip.sha256)
+y limita Gradle/CMake a un worker. Comprueba que el APK sólo incluye
+`arm64-v8a` y `x86_64`; registra hash y resultado en
+`.internal/dev/reports/mobile-android-debug.json`.
+
+Necesita 5,5 GiB disponibles al empezar; vigila el RSS de su grupo de procesos
+con un máximo de 3 GiB y conserva 2,5 GiB libres. Comparte el lock del prover
+cuando existe el runtime; una prueba activa bloquea la compilación. No ejecuta
+`gradle --stop` ni detiene procesos ajenos. El APK resultante estará en
+`apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` y necesita Metro,
+por ser una compilación de desarrollo. Aún falta ejecutar este build y probar
+el binario y la biometría en dispositivos; no es una entrega firmada de release.
+
 Copia `.env.example` a `.env` y configura `EXPO_PUBLIC_API_ORIGIN` con el origen
 HTTPS del servicio. Esa configuración es pública y se incorpora al bundle: no
 guardes ahí ninguna clave, token privado o secreto. También puedes introducir el
