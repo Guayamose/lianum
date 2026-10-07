@@ -4,6 +4,8 @@
  * Successful HTTP admission is volatile; only the exact fresh journal decides.
  * Raw HTTP is reserved for negative/replay checks the SDK deliberately blocks. */
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import { syncBuiltinESMExports } from 'node:module';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 import { ALL_ACTIONS } from '../../../../apps/wallet/src/client/state/view-model.mjs';
 
@@ -167,26 +169,32 @@ export function createManualWalletAppDriver(app, { deadlineMs }) {
       // explicit fault injection, not a claim of a physical network outage.
       const prepared = await reviewed('accountExecute', body);
       assert.equal(prepared.review.accountContext.kind, 'TOP_UP');
-      const originalFetch = globalThis.fetch;
+      // The production Node SDK uses node:http, not global fetch. Intercept
+      // only this owned listener's actual POST response; never its authority,
+      // admission, proof or native dispatch. Restore the builtin binding before
+      // polling/replay checks so those reads use the normal transport.
+      const originalRequest = http.request;
       let sent = 0, discarded = false;
-      globalThis.fetch = async (url, options) => {
-        const response = await originalFetch(url, options);
-        if (String(url) === app.origin + ALL_ACTIONS.accountExecute.route
-          && options?.method === 'POST' && JSON.parse(options.body).requestId === body.requestId) {
-          sent++;
-          if (!discarded) {
-            assert.equal(response.status, 200, 'MANUAL_LOST_REPLY_REAL_ADMISSION_REQUIRED');
+      const port = new URL(app.origin).port;
+      http.request = function(options, callback) {
+        const selected = options?.hostname === '127.0.0.1' && String(options.port) === port
+          && options.method === 'POST' && options.path === ALL_ACTIONS.accountExecute.route;
+        if (!selected) return originalRequest.call(this, options, callback);
+        sent++;
+        return originalRequest.call(this, options, response => {
+          callback(response);
+          if (!discarded && response.statusCode === 200) {
             discarded = true;
-            await response.body?.cancel();
-            throw new TypeError('Acceptance deliberately discarded the admitted HTTP reply');
+            response.destroy(new Error('Acceptance deliberately discarded the admitted HTTP reply'));
           }
-        }
-        return response;
+        });
       };
+      syncBuiltinESMExports();
       try {
         await assert.rejects(prepared.confirm(), /MANUAL_ACCEPTANCE_ORIGINAL_OUTCOME_UNKNOWN/);
-      } finally { globalThis.fetch = originalFetch; }
-      assert.equal(discarded, true); assert.equal(sent, 1, 'MANUAL_LOST_REPLY_AUTO_RESUBMIT');
+      } finally { http.request = originalRequest; syncBuiltinESMExports(); }
+      assert.equal(discarded, true, 'MANUAL_LOST_REPLY_REAL_ADMISSION_REQUIRED');
+      assert.equal(sent, 1, 'MANUAL_LOST_REPLY_AUTO_RESUBMIT');
       const observed = await pollAccount('execute', prepared.body, prepared.sequence, 'TOP_UP');
       await rejectedReplay('accountExecute', prepared.body, prepared.access);
       const loss = { requestId: body.requestId, discardedActualAdmissionReply: true,

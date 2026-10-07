@@ -3,6 +3,7 @@
  * exact tokens and SDK run. No native/proof acceptance or activation claim. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { request as httpRequest } from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 import { flatAccountManualGraphDetails as actualDetails, assertOwnedFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
@@ -103,7 +104,7 @@ async function fixture(t, { exact = true, initial = null, catalogueMode = true, 
     if (c.ownerOffline) fail('FLAT_ACCOUNT_OWNER_UNAVAILABLE');
     return { version: 1, status: 'LIVE', asset: review().asset, observed: { blockHash: h('d'), blockNumber: '42', timestamp: '1000' },
       balances: { available: '500', reserved: '0', recovery: '0', locked: '0' },
-      requests: c.rows.map(row => ({ requestId: row.requestId, kind: row.kind, state: row.state === 'CONFIRMED' ? 'CONFIRMED' : 'UNRESOLVED', disposition: row.state === 'CONFIRMED' ? 'FULFILLED' : null })) };
+      requests: c.rows.map(row => ({ requestId: row.requestId, kind: row.kind, state: row.state === 'CONFIRMED' ? 'CONFIRMED' : 'UNRESOLVED', disposition: row.state === 'CONFIRMED' ? row.kind === 'GRAPH' ? 'FULFILLED' : 'APPLIED' : null })) };
   } };
   portfolios.set(portfolio, { runtime, account });
   let catalogue;
@@ -201,4 +202,16 @@ test('lost original listener never invokes an alternate private GRAPH route or a
   await assert.rejects(pending.confirm(), /ORIGINAL_OUTCOME_UNKNOWN/);
   assert.deepEqual(f.c.calls.map(row => row.action), ['prepare']);
   assert.equal(f.c.rows[0].requestId, id);
+});
+test('discarding the actual TOP_UP admission reply reads the original journal without resubmitting', async t => {
+  const f = await fixture(t, { bindApproval: false, initial: 'PREPARED' });
+  f.c.rows[0].kind = 'TOP_UP';
+  const driver = driverFor(f.app), originalRequest = http.request;
+  const completed = await driver.executeAccountWithLostReply({ requestId: id });
+  assert.equal(http.request, originalRequest);
+  assert.equal(completed.originalJournalState, 'CONFIRMED');
+  assert.deepEqual(completed.loss, { requestId: id, discardedActualAdmissionReply: true,
+    sdkReportedUnknown: true, executeHttpRequests: 1, originalJournalReconciled: true,
+    noAutomaticResubmit: true, actualNetworkOutage: false });
+  assert.deepEqual(f.c.calls.map(row => row.action), ['execute']);
 });
