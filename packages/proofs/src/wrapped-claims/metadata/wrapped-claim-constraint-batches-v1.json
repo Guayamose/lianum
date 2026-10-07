@@ -1,0 +1,521 @@
+{
+  "classification": "FIXED_PREPARED_CASE_INVENTORIES_NOT_ACVM_RESULTS",
+  "maximumCasesPerProcess": 40,
+  "distinctPreparedCases": 81,
+  "plannedExecutions": 82,
+  "batches": [
+    {
+      "id": "nonce-core",
+      "relation": "native_claim_ingress_nonce_registry_v3",
+      "cases": [
+        {
+          "name": "ci51-btc-genuine-quorum",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-sol-genuine-quorum",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-btc-mismatched-note-opening",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-sol-signed-wrong-wire-key",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-btc-reversed-quorum-order",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-ingress",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-wrong-destination",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-source-equals-escrow",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-wrong-wire-key",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-wrong-kind",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-wrong-position",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-sol-v2-signed-unknown-version",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-wrong-verifier-set-domain-join",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-old-claim-domain-public-input",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-old-nullifier-public-input",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-wrong-refund-source-join",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-wrong-receipt-leaf-join",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-wrong-quorum-signature",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-zero-source",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-nonce-tuple-btc-family",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-current-index-one-gid-revoked",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-signed-index-zero-rebound",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-signed-index-two-rebound",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-signed-btc-v2-rebound",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-reused-v1-facts-signatures",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-v3-stale-current-revocation-public-join",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-signers-013",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-signers-023",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-signers-123",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-refreshed",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        }
+      ],
+      "caseInventorySHA256": "f4f6165566b684e02fd4937c45ef892fc2c63349ad1f42a40274435255117516"
+    },
+    {
+      "id": "wrapped-registration",
+      "relation": "native_claim_ingress_nonce_registry_v3",
+      "cases": [
+        {
+          "name": "ci51-v3-sol-v2-signed-ingress",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "accept",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-wrong-wrapper",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-old-raw-quorum",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-wrong-leaf-type",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-bare-rule-leaf",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-source-alignment",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-source-path",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-source-root",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-profile-path",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-profile-index",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-duplicate-source",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-registry-epoch",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-btc-v1-unselected-key",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-wrong-wrapper",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-old-raw-quorum",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-wrong-leaf-type",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-bare-rule-leaf",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-source-alignment",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-source-path",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-source-root",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-profile-path",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-profile-index",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-duplicate-source",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-registry-epoch",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v1-unselected-key",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-wrong-wrapper",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-old-raw-quorum",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-wrong-leaf-type",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-bare-rule-leaf",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-source-alignment",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-source-path",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-source-root",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-profile-path",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-profile-index",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-duplicate-source",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-registry-epoch",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        },
+        {
+          "name": "ci51-wrapped-sol-v2-original-nonce-unselected-key",
+          "relation": "native_claim_ingress_nonce_registry_v3",
+          "expected": "constraint-reject",
+          "publicWords": 51
+        }
+      ],
+      "caseInventorySHA256": "b0de5c34c3f2015ba5cede2555a91f4a6f0378be2cb03e2bc854c5737d202521"
+    },
+    {
+      "id": "discharge-compatibility",
+      "relation": "native_claim_discharge_registry_v2",
+      "cases": [
+        {
+          "name": "co42-btc-genuine-redeem",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "accept",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-genuine-refund",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "accept",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-btc-wrong-quorum-signature",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-current-gid-revoked",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-btc-changed-immutable-ticket",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-wrong-destination-opening",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-genuine-redeem",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "accept",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-genuine-refund",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "accept",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-signed-wrong-kind",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-signed-wrong-position",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-signed-unknown-version",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-signed-index-zero-rebound",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-signed-nonzero-tip-padding",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-sol-v2-current-index-one-gid-revoked",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "constraint-reject",
+          "publicWords": 42
+        },
+        {
+          "name": "co42-wrapped-sol-v2-refund-original-v3-ingress",
+          "relation": "native_claim_discharge_registry_v2",
+          "expected": "accept",
+          "publicWords": 42
+        }
+      ],
+      "caseInventorySHA256": "e15c22ab03d0e542dfb5d11b2e503068713a97c069111266f5b149149f64b670"
+    }
+  ]
+}

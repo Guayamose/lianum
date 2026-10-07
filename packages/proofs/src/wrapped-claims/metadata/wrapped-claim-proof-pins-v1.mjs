@@ -1,0 +1,3168 @@
+/** Review anchors, deliberately absent. No caller can install a pin set.
+ * Future literal review must bind both complete actual compiled identities,
+ * all fixed artifact filenames, current host closure, exact three constraint
+ * partitions, fresh retained keys and genuine generated verifier compiles.
+ * Source declarations are not actual compiled/key/generated-verifier pins. */
+export const WRAPPED_CLAIM_PROOF_PIN_SET_V1 = {
+  "schema": "LIANUM_WRAPPED_CLAIM_PROOF_PINS_V3_RETAINED_PREPARATION",
+  "hostSources": [
+    {
+      "root": "golden",
+      "path": "experiments/private-core-proof/wallet-notes/resources.mjs",
+      "bytes": 3089,
+      "sha256": "415d49b3da693225700281f986d7f1658a5f1e89aa73be7f7a622afeebecdc0c"
+    },
+    {
+      "root": "golden",
+      "path": "src/chains/linux-runtime-pins.mjs",
+      "bytes": 664,
+      "sha256": "6956aaf4e19fd1cc97acadef9e5299bbbc9c1f976cd31733ab37b2df25386de8"
+    },
+    {
+      "root": "golden",
+      "path": "src/chains/runtime-harness.mjs",
+      "bytes": 8165,
+      "sha256": "df1d8a20108efba3992790d017e4b5b42a65a7171c299c3274792b35ce28c3ae"
+    },
+    {
+      "root": "golden",
+      "path": "src/chains/solana-runtime.mjs",
+      "bytes": 45919,
+      "sha256": "0aca0f179705beaf908b9eb2b487aca1b370a6e952270dcf50e353b35c2a397a"
+    },
+    {
+      "root": "golden",
+      "path": "src/evidence/native-evidence.mjs",
+      "bytes": 19668,
+      "sha256": "8d93007c6d95a2064af9e32a13cbd0000e9deda183cff13ce50a841bb522d98e"
+    },
+    {
+      "root": "golden",
+      "path": "src/native-bitcoin.mjs",
+      "bytes": 6630,
+      "sha256": "01a2b3e1da168a9b04ba73a804aa72ab65085aff5b7e0582e6f18278487bc9ef"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/funded-graph.mjs",
+      "bytes": 14201,
+      "sha256": "cddef6ce59655e49e49ebd6f822f48811e328ddbabca38b031fed7f96473293d"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/graph.mjs",
+      "bytes": 8964,
+      "sha256": "06c512a41c12621e4ed56691d697ed18d02aa39ec86d2cf291dd7ee6e63c5e99"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/local-deployment.mjs",
+      "bytes": 31440,
+      "sha256": "849eb503f5212c22ffb1a3a3eeb5b716eabc517990e533e16e70a59e69067bc2"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/local-evm.mjs",
+      "bytes": 15911,
+      "sha256": "bdbe143d11b8193ccc37bfb4a4986bcc3fd994a4cadd5867e1dbb7b4f454f724"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/native-capsules.mjs",
+      "bytes": 24943,
+      "sha256": "495c680227076307d9f9f8f8afe3e129b97dcc71a89f6700e7dd92db7482cd0d"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/native-receipt.mjs",
+      "bytes": 6775,
+      "sha256": "9ff5ea7b3bce52a28e7ad0095fc078d27f2948549992782803a2ca1d984ea1cc"
+    },
+    {
+      "root": "golden",
+      "path": "src/paeg/native-state.mjs",
+      "bytes": 9382,
+      "sha256": "0432453c7aafb8e4612e231f2aed1f9415aa6473c9d165edd72e51ad0f86fd33"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-assembly-history.mjs",
+      "bytes": 4597,
+      "sha256": "45f15a77524dd1d7d8ac402fbf632ecc7a99856885d488f223ea71bdbb4e82c8"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-assembly-revocations.mjs",
+      "bytes": 2232,
+      "sha256": "23582051db05fa1d7c9d5e050a94ebd7aa795b9e9cddcbc5092cbacf76665683"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-asset-runtime.mjs",
+      "bytes": 34821,
+      "sha256": "130ab4a4cc953b0f4c0f90bec32d9bd65a957ecbd2cacc4e1fafcd1a35315f5d"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-cohort-public-native.mjs",
+      "bytes": 17085,
+      "sha256": "1e741cf5f4b8921388127fe624ecfd873f07114802b9bc813a0614f97c92bb14"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-native-certificate.mjs",
+      "bytes": 28572,
+      "sha256": "c2928050ed83eabd6a5de60e46611c14ce95514e3e0b62ef79f2b14f68151396"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-note-encoding.mjs",
+      "bytes": 8539,
+      "sha256": "6be2071779422589d73d898b29de5dda8f712fda6414f6c9932f0d24a40293f8"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-note-tree.mjs",
+      "bytes": 10499,
+      "sha256": "e2ac35aa1d1f2a805feb55717fa3bd18308867f9d14940754fb52877f063eb57"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-resource-policy.mjs",
+      "bytes": 833,
+      "sha256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c"
+    },
+    {
+      "root": "golden",
+      "path": "src/private-wallet-note-encoding.mjs",
+      "bytes": 8125,
+      "sha256": "1353c7e58c594fc4ec0a8f6721b6b5b14683c9caad60dba6d6277fa3e7c0ef4e"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/catalog.mjs",
+      "bytes": 9663,
+      "sha256": "5cfeba63766989166eeaff93e010431f74336f398b78cbad0d0e088a913acd69"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/tooling.mjs",
+      "bytes": 34805,
+      "sha256": "18ac833e360d6450f62f9d6f53744eadaed9c202ddfc0f096c720bf0152b5ddc"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/trusted-jobs.mjs",
+      "bytes": 6830,
+      "sha256": "255e77da34eb0555dcec17427fcd4637cfb088acfcb503eb0c55d79db4633adc"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-abi-reviewed-v2.json",
+      "bytes": 78037,
+      "sha256": "32ced70ba954e61f6d933fc3bf5f54a3d315b9a39dc20702170741d5533ac037"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-abi-reviewed-v3.json",
+      "bytes": 78815,
+      "sha256": "41b4d973c2b46937ac08186ec3ed4ededc27b6bec20a803e6b6900def85d6d83"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-abi-source-v1.json",
+      "bytes": 77075,
+      "sha256": "0f5ce910ad8c656a01f0aa739781294ec77bac05394d4b7db6a911963762fafd"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-client-v1.mjs",
+      "bytes": 10814,
+      "sha256": "4df620c785618a298c022e820660e6124e4e590de69813dc4259271d6a11a250"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-constraint-batches-v1.json",
+      "bytes": 18136,
+      "sha256": "038a5a36dd51bdf470b8f33cb934c94242f33eab250187d955b8634b206486ae"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-profile-v1.mjs",
+      "bytes": 4316,
+      "sha256": "58edde83403d1a84bf116c3df5c23137839c5ca7d6474011a1ce679f64de715d"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-role-process-v1.mjs",
+      "bytes": 2204,
+      "sha256": "34848ac112766255a5a28958ff47024de5260303916395358b9ad1cc3b8359f7"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-run-bounded-v1.mjs",
+      "bytes": 8545,
+      "sha256": "4a1b6865d05785d3250876a51b5069d9ee407542952b7fed2acdf546b3034afd"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-tooling-v1.mjs",
+      "bytes": 4778,
+      "sha256": "4f0d3de60c0cb15f508580ae46579e5abbbc992930f86dfacb6370553afafb17"
+    },
+    {
+      "root": "wallet",
+      "path": "proof-workers/wrapped-claim-worker-v1.mjs",
+      "bytes": 8405,
+      "sha256": "7232928d2abd7a41ad1475acef077d3af2c5d7719b29cd2164e32b87cc80dbd4"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-artifact-contract-v1.mjs",
+      "bytes": 9681,
+      "sha256": "8ec2b71744b963e34ee0fcf28b125f3e2e86e80979d8e63a8784425d885b68db"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-proof-artifacts-v1.mjs",
+      "bytes": 40708,
+      "sha256": "f5a815d0f11dd74e71e52f54947247e87c2902b428904580c4e32d020759f702"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-retained-co-origin-v1.mjs",
+      "bytes": 2125,
+      "sha256": "62ffded13048974a2ebd0d448c09e1a241e4ce55e08b6fbcf265f94e91ef15b3"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-retained-origin-v1.mjs",
+      "bytes": 2129,
+      "sha256": "81c85fbe67a28e859fffcdaddb07180d693f7d313ac1d16ffed9f68f8fcd2ee1"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-retained-preparation-v1.mjs",
+      "bytes": 6128,
+      "sha256": "12070f80b8b6bf0c570a08f504389152302e78114a5be1257ec6b31ed5999054"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-stage-provenance-v2.mjs",
+      "bytes": 15339,
+      "sha256": "28395995fc6143b1e91e9d31abc78666065ca77693a8edfbbf569878ab1a2bc6"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/ops/wrapped-claim-verifier-link-contract-v1.mjs",
+      "bytes": 6343,
+      "sha256": "ac75fb8f00d0a3c74acb9d7719c1f90b10a8dd1fcbf914c306f361bd20963fed"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/paeg/commitments.mjs",
+      "bytes": 16173,
+      "sha256": "4f88f89746c703f36756ef5381c72587dcc7c859bbe3aeddda698d6506143e3f"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/paeg/readiness-inputs.mjs",
+      "bytes": 16159,
+      "sha256": "2ee707e64d1e8f805e930ab8ae0506e59e01d5cf5e39d7f5b2aa803438f65241"
+    },
+    {
+      "root": "wallet",
+      "path": "wallet-platform/modules/paeg/statements.mjs",
+      "bytes": 8404,
+      "sha256": "d494115f0b5b4148b57f8715e415daf6251908941c2bbc62a7fe49c0cd17e8df"
+    }
+  ],
+  "roles": {
+    "claim_ingress": {
+      "files": {
+        "source-manifest.json": {
+          "bytes": 81760,
+          "sha256": "a9bd06cb5af33ba36acb008e8cbe016b3ed19ba1496bde435d5fd2925cc560c1"
+        },
+        "compiled-manifest.json": {
+          "bytes": 166512,
+          "sha256": "0d6aaa24cfcb81c1c36b40e62cee7ad51d06b194e662a578a5c5fa88c50498db"
+        },
+        "program.json": {
+          "bytes": 1419217,
+          "sha256": "40cc8a902604ae1890ba37ea78a5a575062b02e259d8c93d9b2f557c477685f0"
+        },
+        "stats-result.json": {
+          "bytes": 38696,
+          "sha256": "115e4118673a84f10624f817f846d1e4fc69fd6981bbf3b63cfc43321cf75067"
+        },
+        "stats-worker-result.json": {
+          "bytes": 171627,
+          "sha256": "4f1afa775a5c06a8ab54679c53d946a36453bcf0c9ccb9eb841bbf041706dc19"
+        },
+        "stats-resources.json": {
+          "bytes": 2556,
+          "sha256": "d5b8855e460356a869baae2162180ca8ba522551b5c33fe9ec8094355f4d4b56"
+        },
+        "stats-runtime-pins.json": {
+          "bytes": 118027,
+          "sha256": "137a1895a3b85c1eba655f72f1ce4314b581fbc7a926fa25112172df91e92c89"
+        },
+        "key-manifest.json": {
+          "bytes": 62455,
+          "sha256": "1b8f27d45f59a555c1be2d84b7fd6b48f46cafc06d19a3bddac60ee1772a05fd"
+        },
+        "key.vk": {
+          "bytes": 1888,
+          "sha256": "1d3015272ecc2ebf4e9f075b2bacc4c87394a1bb90092b6707a0df69e6907ad9"
+        },
+        "verifier.sol": {
+          "bytes": 103925,
+          "sha256": "fb846be221094bb8afda28b10e97349eb1c8ec7340277f93fe1cedd75b129a44"
+        },
+        "compiled-solidity.json": {
+          "bytes": 6851687,
+          "sha256": "939ca3e01fbefe6a5139f8168472b6612238d2e4c8aadf15626a0f72e3d3b8c5"
+        },
+        "preparation-result.json": {
+          "bytes": 173232,
+          "sha256": "0fda9f4b312829093989bc70505984aa722f6582e1d5f0e63ac6dd53f3a4faf4"
+        },
+        "preparation-resources.json": {
+          "bytes": 2783,
+          "sha256": "c409027c45a52cba1a8273451b2237e79c462649f5abbe3fb453463e6795451e"
+        },
+        "preparation-runtime-pins.json": {
+          "bytes": 122479,
+          "sha256": "b4db8248e12add6f2e0e8e866a98851d7fd1e3a888b0fa5e0331a2e9ef4372a0"
+        },
+        "generated-key-stage.json": {
+          "bytes": 109038,
+          "sha256": "fca96654f438b6d6b8516025ecd2a55b2a0dedd6c67ffe833c9adf54b9a378ca"
+        },
+        "preparation-validation-receipt.json": {
+          "bytes": 134170,
+          "sha256": "292146edd0972791e81124036cd8f1a80cae5154cab1058f29f7131d56e6a12b"
+        },
+        "proof-result.json": {
+          "bytes": 189672,
+          "sha256": "31fb3d329ff9cba325447590e0154f2ae1ab03ebb7382f60706b4595c602aa39"
+        },
+        "proof-resources.json": {
+          "bytes": 2615,
+          "sha256": "4389ef19f6c4615ff1126ca2930a713721b6fb6357cf739928dfb708de5234e6"
+        },
+        "proof-runtime-pins.json": {
+          "bytes": 290422,
+          "sha256": "8cef00804febe05ecafe412d987ba0f29367a1f69eb4f0183e86fed765253c48"
+        },
+        "proof.bin": {
+          "bytes": 10304,
+          "sha256": "41a4a199342730c93d71be5a01761c66b78021078745e2fe9d496eabb9c4dc9a"
+        },
+        "public-inputs.json": {
+          "bytes": 787,
+          "sha256": "15b46f48ff85a31cdc4dcbd59ebfa0260a9bc232a864e79b44ee57488f1a20b8"
+        }
+      },
+      "sourceVersion": "853d8f738c93416a74ae11304a0247242ad13eeb8858042b9f7def5e845f78bc",
+      "keySHA256": "1d3015272ecc2ebf4e9f075b2bacc4c87394a1bb90092b6707a0df69e6907ad9",
+      "keyManifestSHA256": "1b8f27d45f59a555c1be2d84b7fd6b48f46cafc06d19a3bddac60ee1772a05fd",
+      "generatedVerifierSHA256": "fb846be221094bb8afda28b10e97349eb1c8ec7340277f93fe1cedd75b129a44",
+      "compiledVerifierSHA256": "939ca3e01fbefe6a5139f8168472b6612238d2e4c8aadf15626a0f72e3d3b8c5"
+    },
+    "claim_discharge": {
+      "files": {
+        "source-manifest.json": {
+          "bytes": 81760,
+          "sha256": "a9bd06cb5af33ba36acb008e8cbe016b3ed19ba1496bde435d5fd2925cc560c1"
+        },
+        "compiled-manifest.json": {
+          "bytes": 166658,
+          "sha256": "afbe326e47d5765d412fffb48809e3baa9786be11003eddcfde2a1fbfbe8936d"
+        },
+        "program.json": {
+          "bytes": 1384536,
+          "sha256": "00b9f1b752a8fcd817c3a5dc940d175b815f0a066c9d3ddb7055d52d6703d5a9"
+        },
+        "stats-result.json": {
+          "bytes": 39576,
+          "sha256": "fe83d6a1b7c272499807e6cf12d04a1f32a49b94372a16851fb18d68b0c0ef6f"
+        },
+        "stats-worker-result.json": {
+          "bytes": 171829,
+          "sha256": "6ee7eb75d213da9c1e1cc868442be74cdc4753d2a0fbbc205074f2c06b7359b3"
+        },
+        "stats-resources.json": {
+          "bytes": 2550,
+          "sha256": "ff0578f30fcfea5948bf8a1dd091a37da3c003f571eedc4e1f31f6d33044d5e9"
+        },
+        "stats-runtime-pins.json": {
+          "bytes": 118027,
+          "sha256": "137a1895a3b85c1eba655f72f1ce4314b581fbc7a926fa25112172df91e92c89"
+        },
+        "key-manifest.json": {
+          "bytes": 41547,
+          "sha256": "e09d5a4cd55259f0da7506b7183cdbdcb6e30d48532de279868b9d8a80a8d54f"
+        },
+        "key.vk": {
+          "bytes": 1888,
+          "sha256": "16af537d6113739fc742d877931c2057ad16db7412605ce33e9210294e16cf8c"
+        },
+        "verifier.sol": {
+          "bytes": 103925,
+          "sha256": "0c94772c736615b0ca1c56f1f71dccbb9d5be870743667b90eae683e08f05c24"
+        },
+        "compiled-solidity.json": {
+          "bytes": 6851626,
+          "sha256": "6bd0385d3953feb14bc8ecaf6c372152c7c433bc12aaef0724724854a4f0f5a3"
+        },
+        "preparation-result.json": {
+          "bytes": 175032,
+          "sha256": "14c556f923a89474a647802b19c519b9b61095e674e58ad4ec3256ff2741a94a"
+        },
+        "preparation-resources.json": {
+          "bytes": 2592,
+          "sha256": "393eb8fa8721c64904d2cd854e470f1788655f2cde2ee53bfa41beef703b5226"
+        },
+        "preparation-runtime-pins.json": {
+          "bytes": 124015,
+          "sha256": "287a52b7f84d9f46321a4870cd23fc94ed86549afa4cc0461e8572de8e8cce23"
+        },
+        "proof-result.json": {
+          "bytes": 178720,
+          "sha256": "e5f59075f137816b095a0c376ececd63dd083a9955a9ff8133ce215dce3b8ab8"
+        },
+        "proof-resources.json": {
+          "bytes": 2610,
+          "sha256": "6600ddb42ba7d8d95a4790be48d422e572bb3b5f05591b446e9be82af262ab66"
+        },
+        "proof-runtime-pins.json": {
+          "bytes": 290422,
+          "sha256": "8cef00804febe05ecafe412d987ba0f29367a1f69eb4f0183e86fed765253c48"
+        },
+        "proof.bin": {
+          "bytes": 10304,
+          "sha256": "a6ab02a4f6ecac4a26b271d0dbf481a8f1d0030f97296b1d499c79ba761b9ddf"
+        },
+        "public-inputs.json": {
+          "bytes": 653,
+          "sha256": "93ed884d7dcd2136c45750f1fedeb134ba9c0308578cf18f52694e3be97ed4c1"
+        }
+      },
+      "sourceVersion": "570f9fe5f711901b618cb959234a3133d48d012e503f778d2c7e18e69bff1cad",
+      "keySHA256": "16af537d6113739fc742d877931c2057ad16db7412605ce33e9210294e16cf8c",
+      "keyManifestSHA256": "e09d5a4cd55259f0da7506b7183cdbdcb6e30d48532de279868b9d8a80a8d54f",
+      "generatedVerifierSHA256": "0c94772c736615b0ca1c56f1f71dccbb9d5be870743667b90eae683e08f05c24",
+      "compiledVerifierSHA256": "6bd0385d3953feb14bc8ecaf6c372152c7c433bc12aaef0724724854a4f0f5a3"
+    }
+  },
+  "constraintFiles": {
+    "nonce-core": {
+      "result": {
+        "bytes": 147823,
+        "sha256": "363c59275db3c9c7aef7da318903058c0548ce17490891891747ce01f1651344"
+      },
+      "resources": {
+        "bytes": 2617,
+        "sha256": "8b95915930687841290d726b27ef7285f7154b09f90a924e609686882b209199"
+      },
+      "runtime": {
+        "bytes": 111874,
+        "sha256": "b047d01642e021295264b1dd1a97fe810bd7123050c93ee1d8956666a88b9fc3"
+      }
+    },
+    "wrapped-registration": {
+      "result": {
+        "bytes": 152587,
+        "sha256": "e12b761b34446748c5f41ca3983c5ee83387adcb72cb84fcedee824ef2ab829b"
+      },
+      "resources": {
+        "bytes": 2631,
+        "sha256": "bfbdc283ba72960937621c1521a950bc05f8f60befd9b0947c75373f8f46f1eb"
+      },
+      "runtime": {
+        "bytes": 111874,
+        "sha256": "b047d01642e021295264b1dd1a97fe810bd7123050c93ee1d8956666a88b9fc3"
+      }
+    },
+    "discharge-compatibility": {
+      "result": {
+        "bytes": 140982,
+        "sha256": "f744ecd2ba459a0ad776b802de43ffc8ba5a8b3da22d6955779b3d7981ba58aa"
+      },
+      "resources": {
+        "bytes": 2635,
+        "sha256": "eb18db0bf25179be624b998af429f719330879e83fce901fbab3593f16c0bd93"
+      },
+      "runtime": {
+        "bytes": 111874,
+        "sha256": "b047d01642e021295264b1dd1a97fe810bd7123050c93ee1d8956666a88b9fc3"
+      }
+    }
+  },
+  "compiled": {
+    "claim_ingress": {
+      "relation": "native_claim_ingress_nonce_registry_v3",
+      "publicWords": 51,
+      "sourceClosureSHA256": "223465eb323d18011fd24194fd97f3848aaa3da5181a489ba5875514045d3bc0",
+      "actualABI": {
+        "parameters": [
+          {
+            "name": "claim_domain",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "output_q",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "admission_n",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "refund_destination",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "admission_revocation_state",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "ingress_receipt_leaf",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "amount_q",
+            "type": {
+              "kind": "integer",
+              "sign": "unsigned",
+              "width": 64
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "evidence_from",
+            "type": {
+              "kind": "integer",
+              "sign": "unsigned",
+              "width": 64
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "evidence_until",
+            "type": {
+              "kind": "integer",
+              "sign": "unsigned",
+              "width": 64
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "config",
+            "type": {
+              "kind": "struct",
+              "path": "claim_support::types::ClaimConfig",
+              "fields": [
+                {
+                  "name": "evm_chain_id",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "evm_genesis",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "gateway",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "gateway_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "wrapper",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "wrapper_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "pool",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "pool_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "pool_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "scope",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "policy",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "wrapper_asset_identity",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "ledger_namespace",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "registry_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "claim_verifier_set_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "native_family",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 8
+                  }
+                },
+                {
+                  "name": "native_genesis",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "native_asset",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "native_rule_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "escrow_endpoint_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "custody_inventory_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "refund_max_fee",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "domain",
+            "type": {
+              "kind": "struct",
+              "path": "poseidon_support::types::Domain",
+              "fields": [
+                {
+                  "name": "scope",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "policy",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "asset",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "registry_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "verifier_set_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "ledger_namespace",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "evidence",
+            "type": {
+              "kind": "struct",
+              "path": "claim_nonce_registry_v3::types::ClaimEvidenceNonceRegistryV3",
+              "fields": [
+                {
+                  "name": "source_set_root",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "sources",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "struct",
+                      "path": "claim_nonce_registry_v3::native_value_support::types::Source",
+                      "fields": [
+                        {
+                          "name": "operator_identity",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        },
+                        {
+                          "name": "endpoint_identity",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        },
+                        {
+                          "name": "client_release",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        },
+                        {
+                          "name": "chain_configuration",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "source_siblings",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "array",
+                      "length": 2,
+                      "type": {
+                        "kind": "array",
+                        "length": 32,
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "registry",
+                  "type": {
+                    "kind": "struct",
+                    "path": "native_support::quorum::Registry",
+                    "fields": [
+                      {
+                        "name": "hub_domain",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "epoch",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "rules_root",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "keys_x",
+                        "type": {
+                          "kind": "array",
+                          "length": 4,
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "name": "keys_y",
+                        "type": {
+                          "kind": "array",
+                          "length": 4,
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "rule",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::statement::Rule",
+                    "fields": [
+                      {
+                        "name": "family",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "genesis",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "asset",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "finality_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "minimum_confirmations",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "maximum_evidence_lifetime",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "maximum_clock_skew",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "profile_siblings",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "array",
+                      "length": 32,
+                      "type": {
+                        "kind": "integer",
+                        "sign": "unsigned",
+                        "width": 8
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "profile_index",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 8
+                  }
+                },
+                {
+                  "name": "effect",
+                  "type": {
+                    "kind": "struct",
+                    "path": "native_support::receipt::NativeEffect",
+                    "fields": [
+                      {
+                        "name": "family",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "genesis",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "asset",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "transaction_id",
+                        "type": {
+                          "kind": "array",
+                          "length": 64,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "effect_index",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "observation",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::statement::Observation",
+                    "fields": [
+                      {
+                        "name": "block_id",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "state_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "block_height",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "observed_at",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "finality_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "confirmations",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "source_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "destination_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "amount",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 128
+                        }
+                      },
+                      {
+                        "name": "custody_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "custody_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "evidence_from",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "evidence_until",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "wire",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::types::WireBinding",
+                    "fields": [
+                      {
+                        "name": "transaction_sha256",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "wire_binding_version",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "wire_binding_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "wire_binding_position",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "wire_key_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "native_context",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::types::NativeContext",
+                    "fields": [
+                      {
+                        "name": "observed_tip_id",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "observed_tip_height",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "transaction_slot",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "parent_slot",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "observed_slot",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "attester_indexes",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "attester_signatures",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "array",
+                      "length": 64,
+                      "type": {
+                        "kind": "integer",
+                        "sign": "unsigned",
+                        "width": 8
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "current_revoked_entries",
+                  "type": {
+                    "kind": "array",
+                    "length": 64,
+                    "type": {
+                      "kind": "array",
+                      "length": 32,
+                      "type": {
+                        "kind": "integer",
+                        "sign": "unsigned",
+                        "width": 8
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "current_revoked_digest",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "current_revoked_count",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 32
+                  }
+                },
+                {
+                  "name": "current_revocation_sequence",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "note_opening",
+            "type": {
+              "kind": "struct",
+              "path": "claim_support::types::NoteOpening",
+              "fields": [
+                {
+                  "name": "rho",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "x",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "y",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "value",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                },
+                {
+                  "name": "note_secret",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          }
+        ],
+        "return_type": null,
+        "error_types": {
+          "361444214588792908": {
+            "error_kind": "string",
+            "string": "attempt to multiply with overflow"
+          },
+          "1998584279744703196": {
+            "error_kind": "string",
+            "string": "attempt to subtract with overflow"
+          },
+          "14990209321349310352": {
+            "error_kind": "string",
+            "string": "attempt to add with overflow"
+          }
+        }
+      },
+      "sourceVersion": "853d8f738c93416a74ae11304a0247242ad13eeb8858042b9f7def5e845f78bc",
+      "programSHA256": "40cc8a902604ae1890ba37ea78a5a575062b02e259d8c93d9b2f557c477685f0",
+      "abiSHA256": "f44a3702b0131d2faaf8e78a7b65fe755755f5f852c568ae71189df43d35daac",
+      "compiledManifestSHA256": "0d6aaa24cfcb81c1c36b40e62cee7ad51d06b194e662a578a5c5fa88c50498db",
+      "bytecodeSHA256": "b69fcddc9028dbdbdbbcf5ea0a8f02783b37150857921f04122202b11d6bd2c6"
+    },
+    "claim_discharge": {
+      "relation": "native_claim_discharge_registry_v2",
+      "publicWords": 42,
+      "sourceClosureSHA256": "eefebca26321de4e2baa07d46d710840760ed961f3384d3941521b271062db3e",
+      "actualABI": {
+        "parameters": [
+          {
+            "name": "claim_domain",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "ticket_id",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "ticket_commitment",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "discharge_n",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "admission_revocation_state",
+            "type": {
+              "kind": "array",
+              "length": 8,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+              }
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "evidence_from",
+            "type": {
+              "kind": "integer",
+              "sign": "unsigned",
+              "width": 64
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "evidence_until",
+            "type": {
+              "kind": "integer",
+              "sign": "unsigned",
+              "width": 64
+            },
+            "visibility": "public"
+          },
+          {
+            "name": "config",
+            "type": {
+              "kind": "struct",
+              "path": "claim_support::types::ClaimConfig",
+              "fields": [
+                {
+                  "name": "evm_chain_id",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "evm_genesis",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "gateway",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "gateway_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "wrapper",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "wrapper_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "pool",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "pool_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "pool_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "scope",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "policy",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "wrapper_asset_identity",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub",
+                  "type": {
+                    "kind": "array",
+                    "length": 20,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub_code_hash",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "ledger_namespace",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "registry_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "claim_verifier_set_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "native_family",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 8
+                  }
+                },
+                {
+                  "name": "native_genesis",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "native_asset",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "native_rule_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "escrow_endpoint_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "custody_inventory_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "refund_max_fee",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "domain",
+            "type": {
+              "kind": "struct",
+              "path": "poseidon_support::types::Domain",
+              "fields": [
+                {
+                  "name": "scope",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "policy",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "asset",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "hub_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "registry_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "verifier_set_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "ledger_namespace",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "evidence",
+            "type": {
+              "kind": "struct",
+              "path": "claim_registry_v2::types::ClaimEvidenceV2",
+              "fields": [
+                {
+                  "name": "source_set_root",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "sources",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "struct",
+                      "path": "claim_registry_v2::native_value_support::types::Source",
+                      "fields": [
+                        {
+                          "name": "operator_identity",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        },
+                        {
+                          "name": "endpoint_identity",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        },
+                        {
+                          "name": "client_release",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        },
+                        {
+                          "name": "chain_configuration",
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "source_siblings",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "array",
+                      "length": 2,
+                      "type": {
+                        "kind": "array",
+                        "length": 32,
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "registry",
+                  "type": {
+                    "kind": "struct",
+                    "path": "native_support::quorum::Registry",
+                    "fields": [
+                      {
+                        "name": "hub_domain",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "epoch",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "rules_root",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "keys_x",
+                        "type": {
+                          "kind": "array",
+                          "length": 4,
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "name": "keys_y",
+                        "type": {
+                          "kind": "array",
+                          "length": 4,
+                          "type": {
+                            "kind": "array",
+                            "length": 32,
+                            "type": {
+                              "kind": "integer",
+                              "sign": "unsigned",
+                              "width": 8
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "rule",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::statement::Rule",
+                    "fields": [
+                      {
+                        "name": "family",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "genesis",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "asset",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "finality_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "minimum_confirmations",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "maximum_evidence_lifetime",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "maximum_clock_skew",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "profile_siblings",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "array",
+                      "length": 32,
+                      "type": {
+                        "kind": "integer",
+                        "sign": "unsigned",
+                        "width": 8
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "profile_index",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 8
+                  }
+                },
+                {
+                  "name": "effect",
+                  "type": {
+                    "kind": "struct",
+                    "path": "native_support::receipt::NativeEffect",
+                    "fields": [
+                      {
+                        "name": "family",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "genesis",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "asset",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "transaction_id",
+                        "type": {
+                          "kind": "array",
+                          "length": 64,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "effect_index",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "observation",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::statement::Observation",
+                    "fields": [
+                      {
+                        "name": "block_id",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "state_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "block_height",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "observed_at",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "finality_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "confirmations",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "source_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "destination_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "amount",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 128
+                        }
+                      },
+                      {
+                        "name": "custody_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "custody_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "evidence_from",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "evidence_until",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "wire",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::types::WireBinding",
+                    "fields": [
+                      {
+                        "name": "transaction_sha256",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "wire_binding_version",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "wire_binding_kind",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 8
+                        }
+                      },
+                      {
+                        "name": "wire_binding_position",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 32
+                        }
+                      },
+                      {
+                        "name": "wire_key_commitment",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "native_context",
+                  "type": {
+                    "kind": "struct",
+                    "path": "admission_support::types::NativeContext",
+                    "fields": [
+                      {
+                        "name": "observed_tip_id",
+                        "type": {
+                          "kind": "array",
+                          "length": 32,
+                          "type": {
+                            "kind": "integer",
+                            "sign": "unsigned",
+                            "width": 8
+                          }
+                        }
+                      },
+                      {
+                        "name": "observed_tip_height",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "transaction_slot",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "parent_slot",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      },
+                      {
+                        "name": "observed_slot",
+                        "type": {
+                          "kind": "integer",
+                          "sign": "unsigned",
+                          "width": 64
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "attester_indexes",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "attester_signatures",
+                  "type": {
+                    "kind": "array",
+                    "length": 3,
+                    "type": {
+                      "kind": "array",
+                      "length": 64,
+                      "type": {
+                        "kind": "integer",
+                        "sign": "unsigned",
+                        "width": 8
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "current_revoked_entries",
+                  "type": {
+                    "kind": "array",
+                    "length": 64,
+                    "type": {
+                      "kind": "array",
+                      "length": 32,
+                      "type": {
+                        "kind": "integer",
+                        "sign": "unsigned",
+                        "width": 8
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "current_revoked_digest",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "current_revoked_count",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 32
+                  }
+                },
+                {
+                  "name": "current_revocation_sequence",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "ticket",
+            "type": {
+              "kind": "struct",
+              "path": "claim_support::types::ClaimTicket",
+              "fields": [
+                {
+                  "name": "kind",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 8
+                  }
+                },
+                {
+                  "name": "id",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "claim_domain",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "amount",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                },
+                {
+                  "name": "destination_commitment",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "max_fee",
+                  "type": {
+                    "kind": "integer",
+                    "sign": "unsigned",
+                    "width": 64
+                  }
+                },
+                {
+                  "name": "reference_ingress_n",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                },
+                {
+                  "name": "reference_q",
+                  "type": {
+                    "kind": "array",
+                    "length": 32,
+                    "type": {
+                      "kind": "integer",
+                      "sign": "unsigned",
+                      "width": 8
+                    }
+                  }
+                }
+              ]
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "destination_endpoint",
+            "type": {
+              "kind": "array",
+              "length": 32,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 8
+              }
+            },
+            "visibility": "private"
+          },
+          {
+            "name": "destination_salt",
+            "type": {
+              "kind": "array",
+              "length": 32,
+              "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 8
+              }
+            },
+            "visibility": "private"
+          }
+        ],
+        "return_type": null,
+        "error_types": {
+          "361444214588792908": {
+            "error_kind": "string",
+            "string": "attempt to multiply with overflow"
+          },
+          "1998584279744703196": {
+            "error_kind": "string",
+            "string": "attempt to subtract with overflow"
+          },
+          "14990209321349310352": {
+            "error_kind": "string",
+            "string": "attempt to add with overflow"
+          }
+        }
+      },
+      "sourceVersion": "570f9fe5f711901b618cb959234a3133d48d012e503f778d2c7e18e69bff1cad",
+      "programSHA256": "00b9f1b752a8fcd817c3a5dc940d175b815f0a066c9d3ddb7055d52d6703d5a9",
+      "abiSHA256": "da32d46883fe14f424729b7fff9e63c24f80f32ab3796aae4090bac041b117fb",
+      "compiledManifestSHA256": "afbe326e47d5765d412fffb48809e3baa9786be11003eddcfde2a1fbfbe8936d",
+      "bytecodeSHA256": "648998b2db4d94414a5b4803d036657887d2d876185702a92c98dd4c819943ba"
+    }
+  },
+  "stageProvenance": {
+    "schema": "LIANUM_WRAPPED_CLAIM_STAGE_PROVENANCE_V3_RETAINED_PREPARATION",
+    "originalCompilationDriverSHA256": "2a4dd114e69911209490a02dbc83557ea65571bc8291939c9e24bcb493839b09",
+    "retainedProgramOrigins": {
+      "claim_ingress": {
+        "relation": "native_claim_ingress_nonce_registry_v3",
+        "kind": "FLAT_WALLET_RETAINED_PROGRAM_REVALIDATION_V1",
+        "originalCompileDriverSHA256": "2a4dd114e69911209490a02dbc83557ea65571bc8291939c9e24bcb493839b09",
+        "originalRunId": "417d22b8-c244-4864-8c23-13c6aa4756ca",
+        "originalArtifactId": "173c0e56-0a97-4dd5-abeb-aa906b11c976",
+        "originalPhase": "failed",
+        "originalErrorCode": "PW_COMPLETE_SOURCE_DECLARED_ABI",
+        "originalSourceVersion": "ed9d423616b710bb981044783b48c26ca45bc104a503a42a68885412878a6738",
+        "revalidationDriverSHA256": "4850b78af509b2c286a97828372544eafb78ce885788cf19f137220fca32fe85",
+        "recoveryId": "4ff2157b-b2a0-47ff-a63a-48008288f952",
+        "artifactId": "46d81f20-19dd-4c0b-baeb-fce32d14efff",
+        "sourceVersion": "853d8f738c93416a74ae11304a0247242ad13eeb8858042b9f7def5e845f78bc",
+        "manifestSHA256": "0d6aaa24cfcb81c1c36b40e62cee7ad51d06b194e662a578a5c5fa88c50498db",
+        "revalidationReceiptSHA256": "5651fe2b12735258b6f8238c97056bec5656760085e197b7bc16b75a96346afc",
+        "programSHA256": "40cc8a902604ae1890ba37ea78a5a575062b02e259d8c93d9b2f557c477685f0",
+        "abiSHA256": "f44a3702b0131d2faaf8e78a7b65fe755755f5f852c568ae71189df43d35daac",
+        "bytecodeSHA256": "b69fcddc9028dbdbdbbcf5ea0a8f02783b37150857921f04122202b11d6bd2c6"
+      },
+      "claim_discharge": {
+        "relation": "native_claim_discharge_registry_v2",
+        "kind": "FLAT_WALLET_RETAINED_PROGRAM_REVALIDATION_V1",
+        "originalCompileDriverSHA256": "2a4dd114e69911209490a02dbc83557ea65571bc8291939c9e24bcb493839b09",
+        "originalRunId": "634ead61-1ec6-437e-b701-8b1f1abf6c8c",
+        "originalArtifactId": "e9594ac8-3987-42fd-9cd2-3cf823771c90",
+        "originalPhase": "failed",
+        "originalErrorCode": "PW_COMPLETE_SOURCE_DECLARED_ABI",
+        "originalSourceVersion": "714b06baff15043f00c31fdddc3179bb7c48dab0162694c12ce1a72a31e6ed5a",
+        "revalidationDriverSHA256": "b3c2fe7ebea990a8ecc386347494c3f46e6fd6c6c768c578b068396cdf1dbba3",
+        "recoveryId": "a0baadbc-e7b0-477d-a083-5f27ac190ca4",
+        "artifactId": "7cbd4144-8198-4c8a-947e-a92c851c3db9",
+        "sourceVersion": "570f9fe5f711901b618cb959234a3133d48d012e503f778d2c7e18e69bff1cad",
+        "manifestSHA256": "afbe326e47d5765d412fffb48809e3baa9786be11003eddcfde2a1fbfbe8936d",
+        "revalidationReceiptSHA256": "cff7c604177f7c3aaa13e75835b88576c21d72527710892e8b7f39c9f6060fa0",
+        "programSHA256": "00b9f1b752a8fcd817c3a5dc940d175b815f0a066c9d3ddb7055d52d6703d5a9",
+        "abiSHA256": "da32d46883fe14f424729b7fff9e63c24f80f32ab3796aae4090bac041b117fb",
+        "bytecodeSHA256": "648998b2db4d94414a5b4803d036657887d2d876185702a92c98dd4c819943ba"
+      }
+    },
+    "constraints": {
+      "driverSourceManifest": {
+        "bytes": 32929,
+        "sha256": "a114dcb03f83daf2748a516bfd8120c3bc08fec504d8c2b5b363e841a8b16549"
+      }
+    },
+    "statistics": {
+      "claim_ingress": {
+        "driverSourceManifest": {
+          "bytes": 35387,
+          "sha256": "d32278aebb9f4f4f6f600d8b2fa9302d7303dd5d7969c5d074286ed8ba67bd1f"
+        },
+        "runId": "a4a89ff2-996d-4c06-aab0-96f316dfd7f0",
+        "mode": "stats"
+      },
+      "claim_discharge": {
+        "driverSourceManifest": {
+          "bytes": 35387,
+          "sha256": "d32278aebb9f4f4f6f600d8b2fa9302d7303dd5d7969c5d074286ed8ba67bd1f"
+        },
+        "runId": "cb3210c4-f6a9-4a3d-881a-572e0de65e7d",
+        "mode": "stats"
+      }
+    },
+    "preparation": {
+      "claim_ingress": {
+        "driverSourceManifest": {
+          "bytes": 39543,
+          "sha256": "74439567fe7a3609fd065b4a2b99c08f66fb6437f436a8303009054738429b2a"
+        },
+        "runId": "e84fb980-fbaf-428d-b7b3-ab5080623921",
+        "mode": "prepare-key"
+      },
+      "claim_discharge": {
+        "driverSourceManifest": {
+          "bytes": 41183,
+          "sha256": "514034e7f966327d85292773585f1a47c3545a6635a3b43bbf746cd87490618c"
+        },
+        "runId": "73ac5d11-578e-4cbc-b2a2-23c1dd5505fb",
+        "mode": "prepare-key"
+      }
+    },
+    "proof": {
+      "claim_ingress": {
+        "driverSourceManifest": {
+          "bytes": 46526,
+          "sha256": "0a2e614aa5460392d8b198bee83ab3dce41f1e1527f902e3ed5648d3b94838e1"
+        },
+        "runId": "05cec8da-018b-4934-beaa-bf71b9394002",
+        "mode": "prove-synthetic-wrapped-v1"
+      },
+      "claim_discharge": {
+        "driverSourceManifest": {
+          "bytes": 46526,
+          "sha256": "0a2e614aa5460392d8b198bee83ab3dce41f1e1527f902e3ed5648d3b94838e1"
+        },
+        "runId": "ade736fb-c605-46e9-bd8e-8d84b741a73c",
+        "mode": "prove-synthetic-wrapped-v1"
+      }
+    },
+    "retainedPreparation": {
+      "claim_ingress": {
+        "format": "WRAPPED_RETAINED_PREPARATION_REVALIDATION_V1",
+        "readerSourceManifest": {
+          "bytes": 12136,
+          "sha256": "b1c6490f9e2292ae3ce3da261240875663525a5201dd6a3e673a9edfd38068b4"
+        },
+        "manifest": {
+          "bytes": 62455,
+          "sha256": "1b8f27d45f59a555c1be2d84b7fd6b48f46cafc06d19a3bddac60ee1772a05fd"
+        },
+        "validationReceipt": {
+          "bytes": 134170,
+          "sha256": "292146edd0972791e81124036cd8f1a80cae5154cab1058f29f7131d56e6a12b"
+        },
+        "originalHostSourceClosureSHA256": "401998cd53a5723bfb75506b8dfb91d1559b7b49c436580f4c5d096a019e7298",
+        "currentHostSourceClosureSHA256": "fba7e6a6602ebd5d8969786d5c7349c295eb39e2efe8cb4715daaf1bf3764657"
+      },
+      "claim_discharge": null
+    }
+  }
+};
+export const WRAPPED_CLAIM_PROOF_PIN_SCHEMA_V1 = 'LIANUM_WRAPPED_CLAIM_PROOF_PINS_V1';
+export const WRAPPED_CLAIM_PROOF_RELEASE_SCHEMA_V1 = 'LIANUM_WRAPPED_CLAIM_PROOF_RELEASE_V1';
+export const WRAPPED_CLAIM_PROOF_ACTUAL_REFS_V1 = Object.freeze({
+  claim_ingress: Object.freeze({"program":"40cc8a902604ae1890ba37ea78a5a575062b02e259d8c93d9b2f557c477685f0","actualABI":"f44a3702b0131d2faaf8e78a7b65fe755755f5f852c568ae71189df43d35daac","key":"1d3015272ecc2ebf4e9f075b2bacc4c87394a1bb90092b6707a0df69e6907ad9","generatedVerifier":"fb846be221094bb8afda28b10e97349eb1c8ec7340277f93fe1cedd75b129a44"}),
+  claim_discharge: Object.freeze({"program":"00b9f1b752a8fcd817c3a5dc940d175b815f0a066c9d3ddb7055d52d6703d5a9","actualABI":"da32d46883fe14f424729b7fff9e63c24f80f32ab3796aae4090bac041b117fb","key":"16af537d6113739fc742d877931c2057ad16db7412605ce33e9210294e16cf8c","generatedVerifier":"0c94772c736615b0ca1c56f1f71dccbb9d5be870743667b90eae683e08f05c24"}),
+});
+
+/** Separate stage evidence lives only in the root-authenticated literal pin/release data.
+ * These schema declarations do not populate a pin set or authorize a stage. */
+export const WRAPPED_CLAIM_PROOF_PIN_SCHEMA_V2='LIANUM_WRAPPED_CLAIM_PROOF_PINS_V2_STAGE_PROVENANCE';
+export const WRAPPED_CLAIM_PROOF_RELEASE_SCHEMA_V2='LIANUM_WRAPPED_CLAIM_PROOF_RELEASE_V2_STAGE_PROVENANCE';
+
+/** Null V3 anchors can later bind retained preparation and its explicit source
+ * transition; they never rewrite the original failed preparation receipts. */
+export const WRAPPED_CLAIM_PROOF_PIN_SCHEMA_V3='LIANUM_WRAPPED_CLAIM_PROOF_PINS_V3_RETAINED_PREPARATION';
+export const WRAPPED_CLAIM_PROOF_RELEASE_SCHEMA_V3='LIANUM_WRAPPED_CLAIM_PROOF_RELEASE_V3_RETAINED_PREPARATION';
