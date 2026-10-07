@@ -78,7 +78,9 @@ comprueban localmente; no hay remoto ni ejecución registrada de GitHub Actions.
   regeneran como si fueran originales ni se omiten silenciosamente sus tests.
 - También faltan programas/VK y evidencias públicas de releases históricas de
   claims. El inventario de encoding tiene ese alcance; no certifica todas las
-  integraciones posteriores. Una reconstrucción nueva tendrá identidad propia.
+  integraciones posteriores. [El inventario de claims](packages/backend/docs/NATIVE-CLAIMS-ARTIFACTS.md)
+  identifica familias, consumidores y hashes conocidos. Una reconstrucción nueva
+  tendrá identidad propia.
 - El laboratorio privado perdido no se recuperó. Las aceptaciones nuevas usan
   identidades, claves y estado nuevos.
 - Los módulos heredados requieren `.internal/runtime/`, recursos compartidos y
