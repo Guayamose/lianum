@@ -11,7 +11,7 @@ import * as fsp from 'node:fs/promises';
 import * as childProcess from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { MEMO_PROGRAM } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
 import * as runtimeHarness from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
@@ -28,7 +28,11 @@ const named = module => Object.fromEntries(Object.entries(module).filter(([key])
 let control;
 const testRoot = await fsp.mkdtemp(join(tmpdir(), 'solana-candidate-host-only-'));
 const actualLocal = new URL('../.local/solana-candidate-acceptance', import.meta.url).pathname;
-const mapped = path => typeof path === 'string' && path.startsWith(actualLocal) ? testRoot + path.slice(actualLocal.length) : path;
+const actualLocalParent = dirname(actualLocal);
+// Both the leaf and its parent belong to the synthetic filesystem seam.
+// A clean checkout has no restored .local parent and must not create one.
+const mapped = path => path === actualLocalParent ? dirname(testRoot)
+  : typeof path === 'string' && path.startsWith(actualLocal) ? testRoot + path.slice(actualLocal.length) : path;
 mock.module('node:crypto', { exports: { ...named(crypto),
   randomBytes(size) { const result = crypto.randomBytes(size); if (size === 32) control.seeds.push(result); return result; },
   createHash(algorithm) {
@@ -46,7 +50,11 @@ mock.module('node:fs', { exports: { ...named(fs),
   },
   mkdirSync(path, ...args) { return fs.mkdirSync(mapped(path), ...args); },
   lstatSync(path, ...args) { return fs.lstatSync(mapped(path), ...args); },
-  realpathSync(path, ...args) { return path === actualLocal ? path : fs.realpathSync(path, ...args); },
+  realpathSync(path, ...args) {
+    const physical = mapped(path);
+    if (physical !== path) { assert.equal(fs.realpathSync(physical, ...args), physical); return path; }
+    return fs.realpathSync(path, ...args);
+  },
   openSync(path, ...args) { return fs.openSync(mapped(path), ...args); },
   unlinkSync(path, ...args) { return fs.unlinkSync(mapped(path), ...args); },
   mkdtempSync(path, ...args) { return fs.mkdtempSync(mapped(path), ...args); },
