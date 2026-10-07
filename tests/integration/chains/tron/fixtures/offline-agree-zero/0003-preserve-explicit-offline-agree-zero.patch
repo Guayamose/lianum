@@ -1,0 +1,19 @@
+--- a/framework/src/main/java/org/tron/core/config/args/Args.java
++++ b/framework/src/main/java/org/tron/core/config/args/Args.java
+@@ -172,6 +172,16 @@
+     // 2. Config overrides defaults (event config bean is read here but not yet applied)
+     applyConfigParams(config);
+ 
++    // The standard network interprets agreeNodeCount=0 as automatic (19).
++    // Preserve explicit zero only for the explicit offline CLI profile. The
++    // original owned driver still checks every disabled service and peer list
++    // before constructing its application, and all checks remain unchanged.
++    if (PARAMETER.p2pDisable && config.hasPath("node.agreeNodeCount")
++        && config.getInt("node.agreeNodeCount") == 0) {
++      nodeConfig.setAgreeNodeCount(0);
++      PARAMETER.agreeNodeCount = 0;
++    }
++
+     // 3. CLI overrides Config (highest priority, including --es → eventSubscribe)
+     applyCLIParams(cmd, jc);
+ 

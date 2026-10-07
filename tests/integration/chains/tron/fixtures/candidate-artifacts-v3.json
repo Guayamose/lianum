@@ -1,0 +1,99 @@
+{
+  "schema": "lianum-tron-compiled-candidate-artifacts/v3",
+  "createdAtUTC": "2026-10-06T02:00:26.077406+00:00",
+  "classification": "COMPILED_CANDIDATE_NOT_RUNTIME_RELEASE",
+  "runtimeRelease": null,
+  "canLaunch": false,
+  "nativeNodeExecuted": false,
+  "nativeSigningExecuted": false,
+  "startupSecurityManagerIncluded": false,
+  "fullGradleRebuild": false,
+  "bitIdenticalUpstreamReproductionClaim": false,
+  "sourceManifestSHA256": "b003a5ba95d4459bb596ca024728538c7a45188402dab111b890ffbc11fbe14d",
+  "officialUpstreamCommit": "5c449a18a2bb995d3b688d1587e664d909b473c7",
+  "originalSignedJarSHA256": "faef7f4d89b9f154632bbab2db1712c25f02ee37b356013e098558ea994accec",
+  "jdkArchiveSHA256": "9c70e102f527ac674ac2fe9c7d47b9a04e2d19842ba5ab8e9b33f368bbadfaea",
+  "lombokSHA256": "c27d6b2aff56241d1b07fcbcc6b183709e6b432c80f7374eeb1d823e86d4b81a",
+  "driverSourceSHA256": "02fdfaa75cbf4a8a4785a8db0e166286c4212047e5a0568a84d5e7fd5f28694f",
+  "actualArtifacts": {
+    "javaSHA256": "1a081a2c18367e5d966d716a6091d5fe2eec26b19e471980d0d8fd550174e21c",
+    "jarSHA256": "ac1e47f7648c7b88143381cb19b76f4cec78036c5490f3fa90c018630bd69485",
+    "driverSHA256": "977e1bcfc698eb5bcde8256ede529cbba9a0f047a9a926f80d3fdb7b46f4a5e4",
+    "ownedShutdownClassSHA256": "963a36503e3be315c095413fd2c4301d79e36016575fd1872d43a0fe0a977921",
+    "offlinePatchSHA256": "eb70261e3ffbbf8ff1c63a878c592f44c7aafcf42872d47e9bd3197763f03d6f",
+    "replayRecorderPatchSHA256": "99f7ef5af4a038e98c220b99f12b150b0f6d1f8233b3e95d15b52d105ae89861"
+  },
+  "compiledClasses": [
+    {
+      "path": "OwnedTronNativeDriver$OwnedShutdown.class",
+      "sha256": "963a36503e3be315c095413fd2c4301d79e36016575fd1872d43a0fe0a977921",
+      "bytes": 1593,
+      "classMajor": 52
+    },
+    {
+      "path": "OwnedTronNativeDriver.class",
+      "sha256": "977e1bcfc698eb5bcde8256ede529cbba9a0f047a9a926f80d3fdb7b46f4a5e4",
+      "bytes": 31628,
+      "classMajor": 52
+    },
+    {
+      "path": "org/tron/core/config/args/Args.class",
+      "sha256": "2598f93f3507449db71319b4a37f1ce86e395f38e50b840c61e06db781204d15",
+      "bytes": 60174,
+      "classMajor": 52
+    },
+    {
+      "path": "org/tron/core/db/Manager$1.class",
+      "sha256": "e4f2bb8f9ab372adb682a6e33db75e2ccb8d7eb8364a6a394a9ba5538b1ca17b",
+      "bytes": 1106,
+      "classMajor": 52
+    },
+    {
+      "path": "org/tron/core/db/Manager$ValidateSignTask.class",
+      "sha256": "c2c352db2e2cc89197dd868cfb460b6d40a1a7870edc689af43ce6d77e20928b",
+      "bytes": 1917,
+      "classMajor": 52
+    },
+    {
+      "path": "org/tron/core/db/Manager.class",
+      "sha256": "5c0ffbeca741370691928e326286ac32babbd7dfb330d98468eea2d9d4e6b35c",
+      "bytes": 101836,
+      "classMajor": 52
+    },
+    {
+      "path": "org/tron/core/db/OwnedLocalTronReplayRecorder.class",
+      "sha256": "d76117a0a7b8c761ab4530dafea58511d00bfbe360cc3ab2c13f94763c85fb3b",
+      "bytes": 10950,
+      "classMajor": 52
+    }
+  ],
+  "candidateInstallMappingOnlyNotPerformed": [
+    {
+      "source": "build-attempt-v3/FullNode-offline.jar",
+      "runtimeRelativePath": "FullNode-offline.jar"
+    },
+    {
+      "source": "build-attempt-v3/classes/OwnedTronNativeDriver.class",
+      "runtimeRelativePath": "driver/OwnedTronNativeDriver.class"
+    },
+    {
+      "source": "build-attempt-v3/classes/OwnedTronNativeDriver$OwnedShutdown.class",
+      "runtimeRelativePath": "driver/OwnedTronNativeDriver$OwnedShutdown.class"
+    }
+  ],
+  "jdkRecovery": "Pinned official archive and complete extracted inventory are retained; no host install performed",
+  "receipts": {
+    "buildReportSHA256": "d2ff48e82ef88cc62f2d07c80b368d6a9811d237711c807d1d23bc3a7834e0fc",
+    "entryPreservationSHA256": "e112c70efc977ab579e0d8651e24f9eecef6082b8784b87b32a9e02f5cc33f61",
+    "terminalSummarySHA256": "b642f9e840f2bf956f7b92d893227d62879132a602efea9063f8fab89e76a29d",
+    "usedBuildApprovalSHA256": "b63b6a9926e71fd1a26f9539bd8f8b546f7928b4f75bb789e1122ecd3559d2aa"
+  },
+  "buildGateRestoredClosed": true,
+  "stillRequiredBeforeAnyNativeActivation": [
+    "review/freeze startup no-network application guard and actual launcher source",
+    "review complete binary/native dependency and exact configuration closure",
+    "separately authorized bounded fixture-only startup/shutdown and failure acceptance",
+    "genuine consensus, original transfer, solidification and permission replay",
+    "permitted owned-process/socket observations with native/JNI and sampling limitations"
+  ]
+}
