@@ -11,6 +11,7 @@ import { Vault as RealVault } from '../../../../engine/src/crypto/vault.mjs';
 import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
 const worlds = new WeakMap(), receipts = new WeakMap();
+const metamorphoWorlds = new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
 mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault: class extends RealVault {
@@ -34,6 +35,12 @@ mock.module('./owned-backed-vault.mjs', { exports: {
   assertOwnedBackedVault(runtime, vault) { assert.equal(worlds.get(runtime)?.vault, vault, 'MOCK_OWNED_VAULT'); },
   ownedBackedVaultBinding(runtime, vault) { assert.equal(worlds.get(runtime)?.vault, vault); return structuredClone(worlds.get(runtime).binding); },
   assertOwnedBackedVaultReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_RECEIPT_REQUIRED'); },
+} });
+mock.module('./owned-metamorpho-vault.mjs', { exports: {
+  isOwnedMetaMorphoVault: vault => metamorphoWorlds.has(vault),
+  assertOwnedMetaMorphoVault(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime, 'MOCK_ORIGINAL_METAMORPHO'); },
+  ownedMetaMorphoVaultBinding(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime); return clone(metamorphoWorlds.get(vault).binding); },
+  assertOwnedMetaMorphoReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_METAMORPHO_RECEIPT'); },
 } });
 const { createOwnedPrivateVaultExit, assertOwnedPrivateVaultExit } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
 const h = value => createHash('sha256').update('SYNTHETIC PRIVATE EXIT ' + value).digest('hex');
@@ -110,6 +117,20 @@ async function fixture(options = {}) {
     async reopen() { return { reopened: true }; },
   };
   worlds.set(world.runtime, world);
+  if (options.metamorpho) {
+    metamorphoWorlds.set(world.vault, world);
+    world.vault.validateQuote = async intent => {
+      world.protocolQuotes = (world.protocolQuotes ?? 0) + 1;
+      assert.equal(intent.kind, 'redeem'); assert.equal(intent.amount, world.statement.amount);
+      assert.ok(BigInt(intent.minimumOutput) <= 100n, 'METAMORPHO_MINIMUM_ABOVE_PREVIEW');
+      assert.ok(BigInt(intent.deadline) > 1000n && BigInt(intent.deadline) <= 1300n, 'METAMORPHO_DEADLINE_WINDOW');
+    };
+    // Deliberately incompatible with the test vault's conversion formula.
+    // A MetaMorpho quote must come from its actual previewRedeem/maxRedeem.
+    const observe = world.vault.observe;
+    world.vault.observe = async () => ({ ...await observe(), snapshot: { blockNumber: '12', blockHash: h('quote-block'),
+      blockTimestamp: '1000', totalAssets: '0', totalShares: '1000000000' } });
+  }
   options.beforeBootstrap?.(world);
   world.bootstrap = { runtime: world.runtime, system: world.system, poolIndex: 1, account: world.account, vault: world.vault };
   if (!options.skipBootstrap) world.service = await createOwnedPrivateVaultExit(world.bootstrap);
@@ -280,4 +301,27 @@ test('fresh authority observation must bind challenge, original request/asset/ou
     w.account.authority.observe = async input => ({ ...await observe(input), ...patch });
     await assert.rejects(w.service.prepare(w.prepare)); assert.equal(w.preparations, 0); assert.equal(w.sends, 0);
   }
+});
+
+test('official MetaMorpho branch joins the same original private EXIT, uses official quote and reconciles one public redemption', async () => {
+  const w = await fixture({ metamorpho: true });
+  const prepared = await w.service.prepare(w.prepare);
+  assert.equal(prepared.phase, 'READY_TO_REDEEM'); assert.equal(w.protocolQuotes, 1);
+  w.loseSendReply = true; await assert.rejects(w.service.execute(requestId), /LOST_SEND_REPLY/);
+  await w.service.reopen(); const completed = await w.service.reconcile(requestId);
+  assert.equal(completed.phase, 'REDEEMED'); assert.equal(completed.redeemedUnderlying, '100');
+  assert.equal(completed.underlyingPrivateSpendable, false);
+  await w.service.execute(requestId); assert.equal(w.sends, 1);
+  assert.equal(receipts.get(await w.service.originalReceipt(requestId)), w.vault);
+});
+
+test('MetaMorpho join refuses stale backing, invalid manual quote and copied receipt without binding or completion', async () => {
+  const w = await fixture({ metamorpho: true });
+  await assert.rejects(w.service.prepare({ ...w.prepare, minimumOutput: '101' }), /METAMORPHO_MINIMUM/);
+  assert.deepEqual((await w.service.snapshot()).operations, []);
+  w.observationLive = false; await assert.rejects(w.service.prepare(w.prepare), /CURRENT_BACKING_REQUIRED/);
+  assert.equal(w.preparations, 0); w.observationLive = true;
+  await w.service.prepare(w.prepare); w.fakeReceipt = true;
+  await assert.rejects(w.service.execute(requestId), /ORIGINAL_METAMORPHO_RECEIPT/);
+  assert.equal((await w.service.snapshot()).operations[0].redeemedUnderlying, null);
 });

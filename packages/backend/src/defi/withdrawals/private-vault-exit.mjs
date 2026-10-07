@@ -15,6 +15,17 @@ import { assertOwnedFlatSystem } from '../../operations/deployments/system/deplo
 import { assertOwnedFlatAccountAuthority } from '../../accounts/authority/flat-account-authority.mjs';
 import { prepareVaultAction } from '../vaults/backed-vault.mjs';
 import { assertOwnedBackedVault, assertOwnedBackedVaultReceipt, ownedBackedVaultBinding } from '../vaults/owned-backed-vault.mjs';
+import { isOwnedMetaMorphoVault, assertOwnedMetaMorphoVault, ownedMetaMorphoVaultBinding,
+  assertOwnedMetaMorphoReceipt } from '../vaults/owned-metamorpho-vault.mjs';
+
+// Both branches require original private bootstrap capabilities. Official
+// MetaMorpho uses its own preview/liquidity checks, never the test vault formula.
+const assertVault = (runtime, vault) => isOwnedMetaMorphoVault(vault)
+  ? assertOwnedMetaMorphoVault(runtime, vault) : assertOwnedBackedVault(runtime, vault);
+const vaultBinding = (runtime, vault) => isOwnedMetaMorphoVault(vault)
+  ? ownedMetaMorphoVaultBinding(runtime, vault) : ownedBackedVaultBinding(runtime, vault);
+const assertReceipt = (vault, receipt) => isOwnedMetaMorphoVault(vault)
+  ? assertOwnedMetaMorphoReceipt(vault, receipt) : assertOwnedBackedVaultReceipt(vault, receipt);
 
 export const PRIVATE_VAULT_EXIT_PROFILE = 'OWNED_PRIVATE_VAULT_EXIT_V1';
 const boundAccounts = new WeakSet(), owned = new WeakMap(), bindings = new WeakMap();
@@ -44,7 +55,7 @@ export function ownedPrivateVaultExitBinding(runtime, service) {
   const binding = bindings.get(service);
   assertOwnedFlatSystem(runtime, binding.system);
   assertOwnedFlatAccountAuthority(binding.account, { runtime, system: binding.system, poolIndex: binding.poolIndex });
-  assertOwnedBackedVault(runtime, binding.vault);
+  assertVault(runtime, binding.vault);
   return binding;
 }
 
@@ -58,8 +69,8 @@ export async function createOwnedPrivateVaultExit(input) {
   assert.ok(poolIndex === 0 || poolIndex === 1, 'PRIVATE_VAULT_EXIT_POOL');
   assertOwnedFlatSystem(runtime, system);
   assertOwnedFlatAccountAuthority(account, { runtime, system, poolIndex });
-  assertOwnedBackedVault(runtime, vault); await assertLocalEvm(runtime);
-  const binding = ownedBackedVaultBinding(runtime, vault), asset = account.registry[0], pool = system.pools[poolIndex];
+  assertVault(runtime, vault); await assertLocalEvm(runtime);
+  const binding = vaultBinding(runtime, vault), asset = account.registry[0], pool = system.pools[poolIndex];
   assert.equal(account.registry.length, 1, 'PRIVATE_VAULT_EXIT_SINGLE_ASSET');
   assert.equal(asset.kind, 'ERC20', 'PRIVATE_VAULT_EXIT_SHARE_ASSET');
   assert.equal(asset.token, binding.identity.vault, 'PRIVATE_VAULT_EXIT_SHARE_ASSET');
@@ -78,7 +89,7 @@ export async function createOwnedPrivateVaultExit(input) {
   async function healthy() {
     assert.ok(!poisoned, 'PRIVATE_VAULT_EXIT_STORAGE_UNAVAILABLE');
     assertOwnedFlatSystem(runtime, system); assertOwnedFlatAccountAuthority(account, { runtime, system, poolIndex });
-    assertOwnedBackedVault(runtime, vault); await assertLocalEvm(runtime);
+    assertVault(runtime, vault); await assertLocalEvm(runtime);
     try { assert.deepEqual(await store.read(password), record, 'PRIVATE_VAULT_EXIT_STORAGE_CHANGED'); }
     catch (error) { poisoned = true; throw error; }
   }
@@ -158,6 +169,10 @@ export async function createOwnedPrivateVaultExit(input) {
     assert.deepEqual(observed.identity, binding.identity, 'PRIVATE_VAULT_EXIT_REDEMPTION_REBOUND');
     assert.ok(BigInt(observed.balances.senderShares) >= BigInt(exit.shares), 'PRIVATE_VAULT_EXIT_EXTERNAL_SHARES_UNAVAILABLE');
     // Validation only: no nonce is consumed, no intent is recorded or signed.
+    if (isOwnedMetaMorphoVault(vault)) {
+      await vault.validateQuote(intent);
+      return;
+    }
     prepareVaultAction({ identity: binding.identity, kind: 'redeem', sender: binding.sender,
       owner: binding.sender, receiver: binding.sender, amount: exit.shares, minimumOutput: intent.minimumOutput,
       deadline: intent.deadline, nonce: intent.reference, quote: observed.snapshot });
@@ -186,7 +201,7 @@ export async function createOwnedPrivateVaultExit(input) {
     assert.ok(phase, 'PRIVATE_VAULT_EXIT_REDEMPTION_PHASE');
     let redeemedUnderlying = null;
     if (phase === 'REDEEMED') {
-      assertOwnedBackedVaultReceipt(vault, result);
+      assertReceipt(vault, result);
       assert.equal(result.execution.confirmation.shares, row.exit.shares, 'PRIVATE_VAULT_EXIT_REDEEMED_SHARES');
       redeemedUnderlying = result.execution.confirmation.assets;
       assert.ok(uint(redeemedUnderlying) >= BigInt(row.intent.minimumOutput), 'PRIVATE_VAULT_EXIT_MINIMUM');
@@ -281,13 +296,13 @@ export async function createOwnedPrivateVaultExit(input) {
       return exclusive(async () => { await reconcile(id); const row = find(id);
         assert.equal(row.phase, 'REDEEMED', 'PRIVATE_VAULT_EXIT_REDEMPTION_NOT_CONFIRMED');
         const result = await vault.reconcile(row.intent.reference); checkAction(row, result);
-        assertOwnedBackedVaultReceipt(vault, result); return result; });
+        assertReceipt(vault, result); return result; });
     },
     async reopen() {
       assert.equal(arguments.length, 0); assert.ok(!busy, 'PRIVATE_VAULT_EXIT_BUSY'); busy = true;
       try {
         assertOwnedFlatAccountAuthority(account, { runtime, system, poolIndex });
-        assertOwnedBackedVault(runtime, vault); await assertLocalEvm(runtime);
+        assertVault(runtime, vault); await assertLocalEvm(runtime);
         const next = await store.read(password);
         // Only the exact acknowledged record or its retained pending write is
         // admissible. A later revision is not blanket permission to adopt it.
