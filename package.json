@@ -1,0 +1,15 @@
+{
+  "name": "lianum",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace de desarrollo de Lianum",
+  "scripts": {
+    "start": "./dev start",
+    "dev": "./dev start",
+    "build": "./dev build",
+    "check": "./dev check",
+    "test": "./dev test",
+    "doctor": "./dev doctor",
+    "evidence": "./dev evidence"
+  }
+}

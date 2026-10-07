@@ -1,0 +1,19 @@
+{
+  "files.exclude": {
+    "**/.internal": true,
+    "**/node_modules": true,
+    "**/__pycache__": true
+  },
+  "search.exclude": {
+    "**/.internal/**": true,
+    "**/archive/**": true,
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true
+  },
+  "files.watcherExclude": {
+    "**/.internal/**": true,
+    "**/archive/reference/**": true,
+    "**/archive/restoration/recipes/dependencies/**": true
+  },
+  "explorer.compactFolders": false
+}

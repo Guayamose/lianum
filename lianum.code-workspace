@@ -1,0 +1,8 @@
+{
+  "folders": [{ "name": "Lianum", "path": "." }],
+  "settings": {
+    "files.exclude": { "**/.internal": true, "**/node_modules": true, "**/__pycache__": true },
+    "search.exclude": { "**/.internal/**": true, "**/archive/**": true, "**/node_modules/**": true },
+    "explorer.compactFolders": false
+  }
+}
