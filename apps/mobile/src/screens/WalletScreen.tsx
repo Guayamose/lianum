@@ -5,7 +5,8 @@ import { MOBILE_ACTIONS, MOBILE_CHAINS, normalizeMobileIntent, type MobileAction
   type MobileChallenge, type MobileIntent } from '@lianum/mobile-protocol';
 import { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge } from '../custody/key-store';
 import { bytesToHex } from '../custody/signing.mjs';
-import { readPendingOperation, retainPendingOperation, type PendingOperation } from '../custody/pending-operations';
+import { readPendingOperation, retainPendingOperation, assertPendingOperationIdentity,
+  type PendingOperation, type PendingAuthorization } from '../custody/pending-operations';
 import { createMobileApi, type MobileState } from '../api/wallet-api.mjs';
 
 const defaultOrigin = process.env.EXPO_PUBLIC_API_ORIGIN ?? '';
@@ -17,7 +18,7 @@ const outcomeLabels = { SUBMITTING: 'Resultado pendiente de comprobar', ACCEPTED
   UNKNOWN: 'Resultado desconocido; conserva el ID y reconcilia', REJECTED: 'Autorización rechazada' };
 const allowedCodes = new Set(['MOBILE_PROTECTED_STORAGE_UNAVAILABLE', 'MOBILE_AUTHENTICATION_CANCELLED',
   'MOBILE_KEY_RECOVERY_REQUIRED', 'MOBILE_KEY_REQUIRED', 'MOBILE_SERVICE_UNAVAILABLE', 'MOBILE_CHALLENGE_EXPIRED',
-  'MOBILE_ORIGINAL_OPERATION_REQUIRED', 'MOBILE_ORIGIN_INVALID']);
+  'MOBILE_ORIGINAL_OPERATION_REQUIRED', 'MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED', 'MOBILE_ORIGIN_INVALID']);
 function safeError(error: unknown): string {
   const code = error instanceof Error && allowedCodes.has(error.message) ? error.message : 'MOBILE_REQUEST_FAILED';
   return ({ MOBILE_PROTECTED_STORAGE_UNAVAILABLE: 'Se necesita un dispositivo con biometría protegida y una compilación nativa.',
@@ -25,6 +26,7 @@ function safeError(error: unknown): string {
     MOBILE_KEY_REQUIRED: 'Crea primero tu identidad local.', MOBILE_SERVICE_UNAVAILABLE: 'El servicio no está disponible para esta acción.',
     MOBILE_CHALLENGE_EXPIRED: 'La revisión ha caducado. Solicita una nueva para la operación original.',
     MOBILE_ORIGINAL_OPERATION_REQUIRED: 'Hay una operación pendiente. Recupera su ID antes de continuar.',
+    MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED: 'Esta acción ya tiene una autorización original. Conserva su resultado; no vuelvas a enviarla.',
     MOBILE_ORIGIN_INVALID: 'Configura el origen HTTPS del servicio.', MOBILE_REQUEST_FAILED: 'No se pudo completar la solicitud. Conserva el ID de la operación.',
   } as Record<string, string>)[code];
 }
@@ -71,8 +73,9 @@ export default function WalletScreen() {
   async function review() {
     if (!publicKey || stale || !state?.capabilities[intent.action]) throw new Error('MOBILE_SERVICE_UNAVAILABLE');
     const original = await readPendingOperation(allowInsecureLocalhost);
-    if (original && original.status !== 'REJECTED' && original.authorization.challenge.intent.requestId !== intent.requestId)
-      throw new Error('MOBILE_ORIGINAL_OPERATION_REQUIRED');
+    assertPendingOperationIdentity(original, { origin, ownerPublicKey: publicKey, intent }, allowInsecureLocalhost);
+    if (original?.authorizations.some(row => row.authorization.challenge.intent.action === intent.action))
+      throw new Error('MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED');
     const api = createMobileApi({ origin, allowInsecureLocalhost });
     const value = await api.challenge(publicKey, normalizeMobileIntent(intent));
     setChallenge(value); setNotice('Comprueba todos los límites antes de autorizar.');
@@ -81,12 +84,12 @@ export default function WalletScreen() {
     setChallenge(null);
     const signature = await signReviewedChallenge(original, origin, allowInsecureLocalhost);
     const authorization = { challenge: original, signature };
-    const submitting: PendingOperation = { authorization, status: 'SUBMITTING' };
+    const submitting: PendingAuthorization = { authorization, status: 'SUBMITTING' };
     // The original ID and signed scope survive a lost reply or app restart.
-    await retainPendingOperation(submitting, allowInsecureLocalhost); setPending(submitting);
+    setPending(await retainPendingOperation(submitting, allowInsecureLocalhost));
     const result = await createMobileApi({ origin, allowInsecureLocalhost }).submit(authorization);
-    const finished: PendingOperation = { authorization, status: result.status };
-    await retainPendingOperation(finished, allowInsecureLocalhost); setPending(finished);
+    const finished: PendingAuthorization = { authorization, status: result.status };
+    setPending(await retainPendingOperation(finished, allowInsecureLocalhost));
     setStale(true); setNotice(outcomeLabels[result.status]);
   }
   function confirm() {
@@ -101,7 +104,7 @@ export default function WalletScreen() {
     const original = await readPendingOperation(allowInsecureLocalhost);
     if (!original) { setNotice('No hay una operación guardada.'); return; }
     setPending(original); setOrigin(original.authorization.challenge.origin);
-    setIntent({ ...original.authorization.challenge.intent, action: 'reconcile' });
+    setIntent({ ...original.originalAuthorization.challenge.intent, action: 'reconcile' });
     setChallenge(null); setStale(true); setNotice(outcomeLabels[original.status]);
   }
   const connected = state?.connection === 'READY' && !stale;
@@ -142,7 +145,7 @@ export default function WalletScreen() {
         <View key={key}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} autoCapitalize="none" autoCorrect={false}
           editable={!busy} value={intent[key]} style={styles.input} keyboardType={key === 'amountAtomic' || key === 'maxFeeAtomic' ? 'number-pad' : 'default'}
           onChangeText={value => update(key, value)} /></View>)}
-      <ActionButton label="Crear ID para una operación nueva" secondary disabled={busy || pending !== null && pending.status !== 'REJECTED'}
+      <ActionButton label="Crear ID para una operación nueva" secondary disabled={busy || pending !== null}
         onPress={() => { void run(async () => { const entropy = await Crypto.getRandomBytesAsync(16);
           update('requestId', bytesToHex(entropy)); entropy.fill(0); }); }} />
       <ActionButton label="Recuperar operación guardada" secondary disabled={busy} onPress={() => { void run(restoreOriginal); }} />
@@ -160,8 +163,11 @@ export default function WalletScreen() {
       <ActionButton label="Cancelar revisión" secondary disabled={busy} onPress={() => setChallenge(null)} />
     </View>}
     {pending && <View style={styles.card}><Text style={styles.cardTitle}>Operación original</Text>
-      <Text selectable style={styles.identifier}>{pending.authorization.challenge.intent.requestId}</Text>
-      <Text style={styles.muted}>{outcomeLabels[pending.status]}</Text></View>}
+      <Text selectable style={styles.identifier}>{pending.originalAuthorization.challenge.intent.requestId}</Text>
+      <Text style={styles.muted}>Resultado económico sin verificar. El rechazo de un permiso posterior no cierra esta operación.</Text>
+      {pending.authorizations.map(row => <Text key={row.authorization.challenge.intent.action} style={styles.muted}>
+        {labels[row.authorization.challenge.intent.action]}: {outcomeLabels[row.status]}</Text>)}
+      {pending.legacyEvidenceIncomplete && <Text style={styles.muted}>El registro anterior no conserva todo el historial de permisos.</Text>}</View>}
     <View accessibilityLiveRegion="polite" style={styles.notice}>{busy && <ActivityIndicator color="#9de3be" />}
       <Text style={styles.noticeText}>{notice}</Text></View>
   </ScrollView></SafeAreaView>;

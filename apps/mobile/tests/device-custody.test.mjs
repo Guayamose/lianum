@@ -7,7 +7,7 @@ import { MOBILE_AUTHORIZATION_PROFILE } from '@lianum/mobile-protocol';
 import * as signing from '../src/custody/signing.mjs';
 
 const store = new Map(), calls = [], privateBuffers = [];
-const control = { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null };
+const control = { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null, discardPendingWrite: false };
 const PRIVATE = 'lianum.owner.secp256k1.v1', PUBLIC = 'lianum.owner.public.v1';
 mock.module('expo-secure-store', { exports: {
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
@@ -25,6 +25,7 @@ mock.module('expo-secure-store', { exports: {
   async setItemAsync(key, value, options) {
     calls.push({ method: 'write', key, options });
     if (key === PRIVATE) { assert.equal(options.requireAuthentication, true); assert.equal(options.keychainAccessible, 6); }
+    if (key.includes('pending') && control.discardPendingWrite) return;
     store.set(key, value);
   },
 } });
@@ -45,10 +46,10 @@ mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { expor
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },
 } });
 const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge } = await import('../src/custody/key-store.ts');
-const { retainPendingOperation, readPendingOperation } = await import('../src/custody/pending-operations.ts');
+const { retainPendingOperation, readPendingOperation, assertPendingOperationIdentity } = await import('../src/custody/pending-operations.ts');
 function reset() {
   store.clear(); calls.length = 0; privateBuffers.length = 0;
-  Object.assign(control, { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null });
+  Object.assign(control, { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null, discardPendingWrite: false });
 }
 const challenge = ownerPublicKey => ({ version: 1, profile: MOBILE_AUTHORIZATION_PROFILE, origin: 'https://wallet.example',
   challengeId: 'a'.repeat(64), nonce: 'b'.repeat(64), expiresAt: Date.now() + 60_000, ownerPublicKey,
@@ -103,13 +104,105 @@ test('pending original authorization survives a reopened store without automatic
   reset(); const publicKey = await createDeviceIdentity(), original = challenge(publicKey);
   const signature = await signReviewedChallenge(original, original.origin);
   const operation = { authorization: { challenge: original, signature }, status: 'SUBMITTING' };
-  await retainPendingOperation(operation);
+  const retained = await retainPendingOperation(operation);
+  assert.equal(retained.economicState, 'UNRESOLVED');
+  assert.deepEqual(retained.originalAuthorization, operation.authorization);
+  assert.deepEqual(retained.authorizations, [operation]);
   const reads = calls.length;
-  assert.deepEqual(await readPendingOperation(), operation);
+  assert.deepEqual(await readPendingOperation(), retained);
   assert.equal(control.randomness, 1); assert.equal(calls.length, reads + 1);
   assert.ok(calls.filter(call => call.key.includes('pending')).every(call => call.options.requireAuthentication === true));
   const changed = { ...original, intent: { ...original.intent, requestId: 'replacement_request_0003' } };
   await assert.rejects(retainPendingOperation({ authorization: { challenge: changed,
     signature: await signReviewedChallenge(changed, changed.origin) }, status: 'SUBMITTING' }), /ORIGINAL_OPERATION_REQUIRED/);
-  assert.deepEqual(await readPendingOperation(), operation);
+  assert.deepEqual(await readPendingOperation(), retained);
+});
+
+async function authorization(publicKey, action, overrides = {}) {
+  const original = challenge(publicKey), originalAction = { execute: 'a', reconcile: 'e', recover: 'f', prepare: 'd' }[action];
+  const reviewed = { ...original, challengeId: originalAction.repeat(64), ...overrides,
+    intent: { ...original.intent, action, ...(overrides.intent ?? {}) } };
+  return { challenge: reviewed, signature: await signReviewedChallenge(reviewed, reviewed.origin) };
+}
+
+test('rejected reconcile/recover permissions preserve original UNKNOWN execution and cannot replace its terms', async () => {
+  reset(); const publicKey = await createDeviceIdentity();
+  const execute = await authorization(publicKey, 'execute');
+  await retainPendingOperation({ authorization: execute, status: 'SUBMITTING' });
+  await retainPendingOperation({ authorization: execute, status: 'UNKNOWN' });
+  for (const action of ['reconcile', 'recover']) {
+    const next = await authorization(publicKey, action);
+    await retainPendingOperation({ authorization: next, status: 'SUBMITTING' });
+    await retainPendingOperation({ authorization: next, status: 'REJECTED' });
+  }
+  const saved = await readPendingOperation();
+  assert.equal(saved.economicState, 'UNRESOLVED');
+  assert.equal(saved.status, 'REJECTED'); // latest permission only
+  assert.deepEqual(saved.originalAuthorization, execute);
+  assert.deepEqual(saved.authorizations.map(row => [row.authorization.challenge.intent.action, row.status]),
+    [['execute', 'UNKNOWN'], ['reconcile', 'REJECTED'], ['recover', 'REJECTED']]);
+  const before = store.get('lianum.pending.authorizations.v1');
+  for (const intent of [{ requestId: 'replacement_request_0003' }, { amountAtomic: '26' },
+    { recipient: '0x' + 'e'.repeat(40) }, { maxFeeAtomic: '2' }, { assetId: 'e'.repeat(64) },
+    { kind: 'TOP_UP' }, { chain: 'base' }]) {
+    const changed = await authorization(publicKey, 'prepare', { intent });
+    assert.throws(() => assertPendingOperationIdentity(saved, changed.challenge), /ORIGINAL_OPERATION_REQUIRED/);
+    await assert.rejects(retainPendingOperation({ authorization: changed, status: 'SUBMITTING' }), /ORIGINAL_OPERATION_REQUIRED/);
+    assert.equal(store.get('lianum.pending.authorizations.v1'), before);
+  }
+  const movedOrigin = await authorization(publicKey, 'prepare', { origin: 'https://foreign.example' });
+  await assert.rejects(retainPendingOperation({ authorization: movedOrigin, status: 'SUBMITTING' }), /ORIGINAL_OPERATION_REQUIRED/);
+  const otherKey = signing.devicePublicKey(new Uint8Array(32).fill(12));
+  assert.throws(() => assertPendingOperationIdentity(saved, { ...execute.challenge, ownerPublicKey: otherKey }), /ORIGINAL_OPERATION_REQUIRED/);
+  assert.deepEqual(await readPendingOperation(), saved);
+});
+
+test('original per-action evidence survives concurrent updates and fresh challenges cannot resend that action', async () => {
+  reset(); const publicKey = await createDeviceIdentity();
+  const execute = await authorization(publicKey, 'execute'), reconcile = await authorization(publicKey, 'reconcile'),
+    recover = await authorization(publicKey, 'recover');
+  await retainPendingOperation({ authorization: execute, status: 'SUBMITTING' });
+  await retainPendingOperation({ authorization: execute, status: 'UNKNOWN' });
+  await Promise.all([retainPendingOperation({ authorization: reconcile, status: 'SUBMITTING' }),
+    retainPendingOperation({ authorization: recover, status: 'SUBMITTING' })]);
+  await Promise.all([retainPendingOperation({ authorization: reconcile, status: 'REJECTED' }),
+    retainPendingOperation({ authorization: recover, status: 'REJECTED' })]);
+  const saved = await readPendingOperation(), bytes = store.get('lianum.pending.authorizations.v1');
+  assert.equal(saved.authorizations.length, 3); assert.deepEqual(saved.originalAuthorization, execute);
+  assert.equal(saved.authorizations[0].status, 'UNKNOWN');
+  const replacement = await authorization(publicKey, 'execute', { challengeId: '9'.repeat(64), nonce: '8'.repeat(64) });
+  await assert.rejects(retainPendingOperation({ authorization: replacement, status: 'SUBMITTING' }), /ORIGINAL_AUTHORIZATION_REQUIRED/);
+  await assert.rejects(retainPendingOperation({ authorization: execute, status: 'SUBMITTING' }), /AUTHORIZATION_STATE_CONFLICT/);
+  await assert.rejects(retainPendingOperation({ authorization: reconcile, status: 'ACCEPTED' }), /AUTHORIZATION_STATE_CONFLICT/);
+  assert.equal(store.get('lianum.pending.authorizations.v1'), bytes);
+});
+
+test('legacy REJECTED permissions remain economically unresolved without inventing earlier evidence', async () => {
+  reset(); const publicKey = await createDeviceIdentity(), reconcile = await authorization(publicKey, 'reconcile');
+  const legacy = JSON.stringify({ authorization: reconcile, status: 'REJECTED' });
+  store.set('lianum.pending.authorizations.v1', legacy);
+  const before = calls.length, saved = await readPendingOperation();
+  assert.equal(saved.economicState, 'UNRESOLVED'); assert.equal(saved.legacyEvidenceIncomplete, true);
+  assert.deepEqual(saved.originalAuthorization, reconcile); assert.equal(saved.authorizations.length, 1);
+  assert.equal(calls.length, before + 1); assert.equal(store.get('lianum.pending.authorizations.v1'), legacy);
+  const changed = await authorization(publicKey, 'prepare', { intent: { requestId: 'replacement_request_0003' } });
+  await assert.rejects(retainPendingOperation({ authorization: changed, status: 'SUBMITTING' }), /ORIGINAL_OPERATION_REQUIRED/);
+  const recover = await authorization(publicKey, 'recover');
+  const next = await retainPendingOperation({ authorization: recover, status: 'SUBMITTING' });
+  assert.equal(next.legacyEvidenceIncomplete, true); assert.deepEqual(next.originalAuthorization, reconcile);
+  assert.deepEqual(next.authorizations[0], { authorization: reconcile, status: 'REJECTED' });
+});
+
+test('pending write readback and invalid economic markers fail before returning a dispatchable authorization', async () => {
+  reset(); const publicKey = await createDeviceIdentity(), execute = await authorization(publicKey, 'execute');
+  control.discardPendingWrite = true;
+  await assert.rejects(retainPendingOperation({ authorization: execute, status: 'SUBMITTING' }), /PENDING_READBACK_FAILED/);
+  assert.equal(await readPendingOperation(), null);
+  control.discardPendingWrite = false;
+  await retainPendingOperation({ authorization: execute, status: 'SUBMITTING' });
+  const key = 'lianum.pending.authorizations.v1', original = store.get(key), altered = JSON.parse(original);
+  altered.economicState = 'REJECTED'; store.set(key, JSON.stringify(altered));
+  await assert.rejects(readPendingOperation(), /PENDING_STATE_INVALID/);
+  store.set(key, original);
+  assert.equal((await readPendingOperation()).economicState, 'UNRESOLVED');
 });

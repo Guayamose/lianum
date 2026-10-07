@@ -14,6 +14,19 @@ no completa los recorridos económicos del keeper histórico.
   nativas simuladas explícitamente.
 - `../../packages/mobile-protocol/`: contrato público compartido con el servidor.
 
+El outbox V2 conserva el primer permiso, los términos económicos originales y
+un permiso por acción. La respuesta de admisión de cada permiso se muestra por
+separado: `execute: UNKNOWN` sigue pendiente aunque `reconcile` o `recover`
+obtengan `REJECTED`. Ninguna respuesta HTTP cierra el estado económico ni libera
+el registro para otra operación. Hace falta una observación financiera original,
+que el bridge pendiente todavía no ofrece. No se generan permisos de reemplazo
+ni reenvíos automáticos de una acción ya retenida.
+
+Los registros V1 se leen sin inventar historial perdido y se conservan como
+económicamente pendientes. Las escrituras se serializan en el realm de JS y
+comprueban readback de SecureStore; esto no demuestra CAS entre procesos ni
+protección nativa frente a rollback.
+
 ## Desarrollo
 
 Desde la raíz del repositorio, con el Node local:
