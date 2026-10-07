@@ -27,6 +27,7 @@ for(const expected of ['compileSdk = "36"','buildTools = "36.0.0"','ndkVersion =
   assert.ok(sdkVersions.includes(expected),'MOBILE_BUILD_REVIEWED_RN_SDK_PROFILE');
 const abi = ['arm64-v8a','x86_64'];
 const gradleSHA256 = 'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
+const gradleJVMArgs = '-Xmx1536m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8';
 process.stdout.write(JSON.stringify({preflight:'PASS',javaMajor,architectures:abi,
   androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1'})+'\n');
 if(process.argv[2] === '--preflight')process.exit(0);
@@ -46,7 +47,10 @@ const report = {format:'LIANUM_MOBILE_ANDROID_DEBUG_BUILD_V1',runId,phase:'start
 const save=()=>writeFileSync(join(reportDirectory,'mobile-android-debug.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
 const bestEffortSave=()=>{try{save();}catch{report.failure??='MOBILE_BUILD_REPORT_WRITE_FAILED';}};
 const env={...process.env,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,
-  PATH:dirname(process.execPath)+':'+process.env.PATH,CMAKE_BUILD_PARALLEL_LEVEL:'1'};
+  PATH:dirname(process.execPath)+':'+process.env.PATH,CMAKE_BUILD_PARALLEL_LEVEL:'1',
+  // Gradle's documented no-daemon mode requires the launcher and build JVM
+  // options to match; otherwise --no-daemon still creates a separate session.
+  JAVA_OPTS:gradleJVMArgs,GRADLE_OPTS:''};
 let active,ownedGroup,killTimer,cleanupUnconfirmed=false;
 function stopGroup(signal='SIGTERM') {
   if(!ownedGroup)return;
@@ -71,12 +75,13 @@ async function run(command,args,cwd) {
       report.peakProcessGroupRSS=Math.max(report.peakProcessGroupRSS,rss);
       const memory=available();report.minimumAvailableRAM=Math.min(report.minimumAvailableRAM,memory);save();
       if(rss>3*GiB||memory<2.5*GiB)stop(rss>3*GiB?'MOBILE_BUILD_PROCESS_GROUP_MEMORY_LIMIT':'MOBILE_BUILD_AVAILABLE_RAM_FLOOR');
-    }catch{stop('MOBILE_BUILD_RESOURCE_MONITOR_FAILED');}
+    }catch(error){report.monitorFailure??=String(error.message).match(/MOBILE_BUILD_[A-Z0-9_]+/)?.[0]??'MOBILE_BUILD_RESOURCE_MONITOR_FAILED';
+      stop('MOBILE_BUILD_RESOURCE_MONITOR_FAILED');}
   },250);
   const timeout=setTimeout(()=>{failure='MOBILE_BUILD_TIMEOUT';stopGroup();killTimer??=setTimeout(()=>stopGroup('SIGKILL'),5000);},30*60*1000);
   try {
     const {code,signal}=await new Promise((resolve,reject)=>{
-      active.once('spawn',()=>{try{ownedGroup=ownSpawnedBuildGroup(active);
+      active.once('spawn',()=>{try{ownedGroup=ownSpawnedBuildGroup(active,{allowDetachedDescendants:true});
         report.ownedBuildProcess=ownedGroup.identity;bestEffortSave();}
         catch(error){cleanupUnconfirmed=true;reject(error);}});
       active.once('error',reject);active.once('close',(code,signal)=>resolve({code,signal}));
@@ -107,7 +112,7 @@ try {
   else{properties+='\ndistributionSha256Sum='+gradleSHA256+'\n';writeFileSync(wrapper,properties);}
   report.phase='gradle';save();
   await run(join(mobile,'android/gradlew'),[':app:assembleDebug','--no-daemon','--max-workers=1',
-    '-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8',
+    '-Dorg.gradle.jvmargs='+gradleJVMArgs,
     '-Porg.gradle.parallel=false','-Pkotlin.compiler.execution.strategy=in-process',
     '-PreactNativeArchitectures='+abi.join(','),'-Pandroid.builder.sdkDownload=false'],join(mobile,'android'));
   const apk=join(mobile,'android/app/build/outputs/apk/debug/app-debug.apk'),bytes=readFileSync(apk);

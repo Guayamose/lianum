@@ -51,12 +51,14 @@ y limita Gradle/CMake a un worker. Comprueba que el APK sólo incluye
 `arm64-v8a` y `x86_64`; registra hash y resultado en
 `.internal/dev/reports/mobile-android-debug.json`.
 
-Necesita 5,5 GiB disponibles al empezar; vigila el RSS de su grupo de procesos
+Necesita 5,5 GiB disponibles al empezar; vigila el RSS de sus procesos y descendientes
 con un máximo de 3 GiB y conserva 2,5 GiB libres. Comparte el lock del prover
 cuando existe el runtime; una prueba activa bloquea la compilación. No ejecuta
-`gradle --stop` ni detiene procesos ajenos. El APK resultante estará en
+`gradle --stop` ni detiene procesos ajenos. Los daemons de uso único de Gradle
+pueden abrir otra sesión: sólo se incorporan tras comprobar padre, PID, inicio
+y UID; las señales individuales vuelven a comprobar esa identidad. El APK resultante estará en
 `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` y necesita Metro,
-por ser una compilación de desarrollo. Aún falta ejecutar este build y probar
+por ser una compilación de desarrollo. Aún falta completar este build y probar
 el binario y la biometría en dispositivos; no es una entrega firmada de release.
 
 Copia `.env.example` a `.env` y configura `EXPO_PUBLIC_API_ORIGIN` con el origen
