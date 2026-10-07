@@ -10,6 +10,8 @@ import { NATIVE_INGRESS_V3_PROFILE, NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_SO
 import { loadNativeClaimArtifacts } from './native-claim-artifacts.mjs';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
   from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import { hasDevelopmentNativeClaimsBuild, loadDevelopmentNativeClaimsArtifacts,
+  loadDevelopmentNativeIngressV3ProofArtifacts } from './development-native-claims-build.mjs';
 const DIR = join(ROOT, 'experiments/native-ingress-v3-artifacts');
 const VALIDATION = join(ROOT, 'experiments/native-ingress-v3-validation');
 const ACCEPTANCE = 'a533bbdf7f6f3b52acc86f6350fdcf6d33aafb7206abc3a5fbb2a95b7fb6bc10';
@@ -116,13 +118,16 @@ async function checkedArtifacts() {
 }
 export async function loadNativeClaimIngressV3Artifacts(){
   assert.equal(arguments.length,0,'V3_ARTIFACT_NO_OPTIONS');
+  if(hasDevelopmentNativeClaimsBuild())return loadDevelopmentNativeClaimsArtifacts();
   const candidate=await checkedArtifacts(),legacy=await loadNativeClaimArtifacts();
   assert.equal(legacy.verifiers.CO42.lineage.sourceVersion,'7ddd3be0eaddf7bc08840d6fa0660ee6e6596108e35c9c1ac83ca4f76f468ea5');
   assert.equal(legacy.verifiers.CO42.keyCommitment,'0cfe032118e9e3d18dd9e4eadc1d738b9ec2116e65c8bed3e35a3db2416a2a83');
   return {contracts:legacy.contracts,verifiers:{CI51:candidate.entry,CO42:legacy.verifiers.CO42}};
 }
 export async function loadNativeClaimIngressV3ProofArtifacts(){
-  assert.equal(arguments.length,0,'V3_ARTIFACT_NO_OPTIONS');const value=await checkedArtifacts();
+  assert.equal(arguments.length,0,'V3_ARTIFACT_NO_OPTIONS');
+  if(hasDevelopmentNativeClaimsBuild())return loadDevelopmentNativeIngressV3ProofArtifacts();
+  const value=await checkedArtifacts();
   return {spec:NATIVE_INGRESS_V3_SPEC,program:value.program,compressed:value.compressed,key:value.key,
     sourceVersion:value.sourceVersion,keySHA256:hash(value.key),keyManifestSHA256:value.keyManifestSHA256,
     compiledManifestSHA256:value.compiledManifestSHA256,artifactSHA256:value.artifactSHA256,

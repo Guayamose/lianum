@@ -71,21 +71,49 @@ Sus IDs originales son stats `ab926291-69ce-4c26-9193-3c2253c11195`, key
 `bcf79517-1ccb-41ef-8aef-3de833aa4c82` y Solidity
 `46d5696e-76b0-45ba-b947-5e8bd5c13e7d`.
 
-## Reconstrucción revisada pendiente
+## Reconstrucción pública revisada
 
-Se está preparando un build público nuevo bajo
-`.local/development-native-claims/v1`. Conservará los circuitos, ABI, CRS,
-compiladores, límites de recursos y hashes de VK originales. CO42 utilizará el
-supervisor genérico original para producir intentos actuales con UUID nuevos.
-V3 tendrá una preparación acotada y una revisión explícita de su manifiesto
-nuevo; sus pruebas de constraints originales deben seguir pasando.
+Se ha preparado un build público nuevo bajo
+`.local/development-native-claims/v2`, con manifiesto fijo
+`0df110957d9bde54085d6ae47b67811dfe626dece77b33dfa14db935b3bef043`.
+La revisión v1 se conserva como evidencia del primer build; v2 elimina del pin
+publicado los UUID variables y normaliza únicamente la ruta diagnóstica del
+`main.nr` en `file_map`. El programa completo, ABI, ACIR, circuitos, CRS,
+compiladores y VK siguen verificados. Los hashes locales reales del programa y
+de sus manifests se comprueban dentro de cada laboratorio.
+
+Desde la raíz, después de preparar las dependencias públicas:
+
+```sh
+./dev node scripts/wallet/preparation/prepare-development-native-claims.mjs
+LIANUM_TEST_NATIVE_CLAIMS_REBUILD=1 ./dev test packages/backend/tests/operations/deployments/claims/development-native-claims-build.test.mjs
+./dev test packages/proofs/tests/native-ingress/native-claims-parent-death.test.mjs
+```
+
+CO42 utiliza el supervisor genérico original y produce intentos actuales con
+UUID nuevos; su reader original conserva todos los checks de compile/stats/key.
+V3 usa un supervisor acotado con el lock global, RSS máximo de 3 GiB, suelo de
+2,5 GiB libres y timeout original por fase. Se han generado las dos VK y ambas
+coinciden exactamente con los hashes originales. Las 40 pruebas originales de
+constraints Noir pasan: 7 aceptadas y 33 rechazadas. Se verifican los compiladores,
+inmutables, ABI y tamaños reales de los verifiers de Solidity. El fingerprint
+cubre 46 fuentes transitivos de ejecución y fixture, además de Noir/API/vendor/CRS.
+
+La preparación CO42 recibe SIGTERM del kernel si muere su padre, incluso después
+de `exec` y SIGKILL. Dos regresiones con procesos reales comprueban ese cierre.
+Ocho comprobaciones de integración pasan, incluido preflight sin nodos,
+alteración de manifest/VK/ABI/fuentes y traslado de la ruta diagnóstica manteniendo
+ABI, ACIR y key idénticos. El loader de la prueba pública histórica sigue exigiendo
+su aceptación original; no devuelve una prueba inventada del build nuevo.
 
 La identidad del **circuito** se conserva. La identidad y los recibos del
-**nuevo build/laboratorio** serán nuevos y se fijarán después de comprobar sus
-resultados reales. El build no fabricará aceptaciones, pruebas, manifiestos,
+**nuevo build/laboratorio** son nuevos y se han fijado después de comprobar sus
+resultados reales. El build no fabrica aceptaciones, pruebas, manifiestos,
 fuentes de revisión ni autoridades bajo los identificadores históricos. Las
 operaciones BTC/Solana y payout deberán establecer su propia aceptación en un
-laboratorio nuevo. Este documento todavía no acredita ese recorrido.
+laboratorio nuevo. **Este build no genera una prueba ni acredita ingreso,
+finalidad o payout nativos completos.** El preflight ya dispone de los artefactos
+necesarios para continuar ese laboratorio conservando sus controles originales.
 
 Evidencia local más detallada: `.internal/dev/reports/native-claims-artifact-inventory.json`
 y `native-claims-source-audit.json`. Son informes ignorados de esta restauración;
