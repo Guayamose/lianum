@@ -4,7 +4,10 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import { performance } from 'node:perf_hooks';
-import { ALL_ACTIONS, ACCOUNT_ACTIONS, DEFI_ACTIONS, NATIVE_IDENTITY_PROFILE } from '../../src/client/state/view-model.mjs';
+import { ALL_ACTIONS, ACCOUNT_ACTIONS, DEFI_ACTIONS, NATIVE_IDENTITY_PROFILE, createWalletClient } from '../../src/client/state/view-model.mjs';
+import { EXACT_BROWSER_ACTIONS, exactBrowserReview } from '../../src/client/features/accounts/exact-action-browser-review.mjs';
+import { bindManualActionConsent } from '../../src/client/features/accounts/manual-action-dom.mjs';
+import { inertDocument } from '../helpers/inert-dom.mjs';
 import { validateFlatAccountPrepare } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 
@@ -262,4 +265,132 @@ test('default and maximum TTL are fixed admission windows, not spending budgets'
   const maxCap = issue(server, 'deposit', { ttlMs: 300000 }); now += 299999;
   assert.equal((await post(server, maxCap)).status, 202);
   assert.equal(f.calls.submit.length, 2);
+});
+
+// Browser import binds the displayed review, while authority continues to be
+// decided by the existing real server registry. Lower services are synthetic.
+async function exactBrowser(t, action = 'accountPrepare') {
+  const f = fixture(action), server = await app(t, f.options);
+  server.createManualActionHandoff();
+  const html = (await http(server, '/')).text;
+  const listenerId = /name="wallet-listener-id" content="([a-f0-9]{64})"/.exec(html)?.[1];
+  assert.ok(listenerId);
+  let posts = 0, loseReply = false;
+  const browser = createWalletClient({ ownerToken: server.ownerAccess.token,
+    exactActionAccess: { origin: server.origin, listenerId },
+    fetchImpl: async (path, options) => {
+      if (options.method === 'POST') posts++;
+      const response = await fetch(server.origin + path, { ...options,
+        headers: { ...options.headers, Origin: server.origin } });
+      if (options.method === 'GET' && f.control.changedListener) {
+        const changed = await response.json(); changed.manualActionHandoff.listenerId = 'e'.repeat(64);
+        return { ok: response.ok, status: response.status, async json() { return changed; } };
+      }
+      if (options.method === 'POST' && loseReply) {
+        loseReply = false; await response.arrayBuffer(); throw error('SYNTHETIC_DROPPED_REPLY');
+      }
+      return response;
+    } });
+  assert.equal(await browser.refresh(), true);
+  return { ...f, server, browser, get posts() { return posts; }, loseReply() { loseReply = true; },
+    review() { browser.review(action, bodies[action]); return browser.getExactActionReview(); },
+    grant(review) { return { review, access: issue(server, action) }; } };
+}
+
+test('browser imports a separate existing exact capability for each simple account and DeFi action', async t => {
+  for (const action of EXACT_BROWSER_ACTIONS) await t.test(action, async t => {
+    const f = await exactBrowser(t, action), review = f.review(), envelope = f.grant(review);
+    assert.match(review.reviewId, /^[0-9a-f]{64}$/);
+    assert.equal(f.browser.canConfirm(), false); assert.equal(await f.browser.confirm(), false);
+    assert.equal(f.posts, 0); assert.equal(f.browser.acceptExactActionAccess(envelope), true);
+    assert.equal(f.posts, 0); assert.equal(JSON.stringify(f.browser.getState()).includes(envelope.access.token), false);
+    assert.equal(f.browser.canConfirm(), true); assert.equal(await f.browser.confirm(), true);
+    assert.equal(f.posts, 1); assert.equal(await f.browser.confirm(), false);
+    assert.equal((await post(f.server, envelope.access, action)).status, 403);
+    assert.equal(f.calls.submit.length + f.calls.defi.length, 1);
+  });
+});
+
+test('browser rejects edited displayed terms, origin, listener, action, review nonce and access envelope', async t => {
+  const f = await exactBrowser(t), review = f.review(), envelope = f.grant(review);
+  for (const alter of [e => e.review.body.assetId = '8'.repeat(64), e => e.review.body.requestId = 'other_original_01',
+    e => e.review.action = 'accountExecute', e => e.review.listenerId = '9'.repeat(64),
+    e => e.review.origin = 'http://127.0.0.1:1', e => e.review.context.kind = 'EXIT',
+    e => e.review.reviewId = '9'.repeat(64), e => e.access.origin = 'http://127.0.0.1:1',
+    e => e.access.extra = true, e => e.extra = true]) {
+    const changed = structuredClone(envelope); alter(changed);
+    assert.equal(f.browser.acceptExactActionAccess(changed), false);
+  }
+  assert.equal(f.posts, 0); assert.equal(f.browser.canConfirm(), false);
+  // A display-matching envelope cannot authenticate a fabricated token.
+  const fabricated = { review, access: { origin: f.server.origin, token: 'f'.repeat(64) } };
+  assert.equal(f.browser.acceptExactActionAccess(fabricated), true);
+  assert.equal(await f.browser.confirm(), false); assert.equal(f.posts, 1);
+  assert.equal(f.calls.submit.length, 0); assert.equal(f.browser.getState().outcome.state, 'UNKNOWN');
+});
+
+test('cancel, refreshed snapshots, repeated review and page departure invalidate browser imports', async t => {
+  for (const interruption of ['cancel', 'refresh', 'disconnect']) await t.test(interruption, async t => {
+    const f = await exactBrowser(t), envelope = f.grant(f.review());
+    assert.equal(f.browser.acceptExactActionAccess(envelope), true);
+    if (interruption === 'cancel') f.browser.cancelReview();
+    else if (interruption === 'refresh') await f.browser.refresh();
+    else f.browser.disconnectManualActionHost();
+    assert.equal(await f.browser.confirm(), false); assert.equal(f.posts, 0);
+    assert.equal(f.browser.acceptExactActionAccess(envelope), false);
+    if (interruption !== 'disconnect') {
+      const next = f.review(); assert.notEqual(next.reviewId, envelope.review.reviewId);
+      assert.equal(f.browser.acceptExactActionAccess({ ...envelope, review: next }), false, 'revoked token cannot be rebound');
+    }
+  });
+  const f = await exactBrowser(t), old = f.grant(f.review());
+  f.browser.cancelReview(); const next = f.review();
+  assert.notEqual(next.reviewId, old.review.reviewId);
+  assert.equal(f.browser.acceptExactActionAccess(old), false, 'even a never-imported old review is rejected');
+});
+
+test('browser consumes permission before a genuinely discarded admitted HTTP reply and never retries', async t => {
+  const f = await exactBrowser(t), envelope = f.grant(f.review());
+  assert.equal(f.browser.acceptExactActionAccess(envelope), true); f.loseReply();
+  assert.equal(await f.browser.confirm(), false); assert.equal(f.browser.getState().outcome.state, 'UNKNOWN');
+  assert.equal(f.browser.getState().originalRequestIds.account, requestId);
+  assert.equal(f.posts, 1); assert.equal(f.calls.submit.length, 1);
+  assert.equal(await f.browser.confirm(), false); assert.equal(f.posts, 1);
+  assert.equal((await post(f.server, envelope.access, 'accountPrepare')).status, 403);
+  await f.browser.refresh(); const next = f.review();
+  assert.equal(f.browser.acceptExactActionAccess({ ...envelope, review: next }), false);
+});
+
+test('actual consent handlers require a fresh checkbox after importing the exact browser grant', async t => {
+  const f = await exactBrowser(t);
+  const dom = inertDocument('<input id="consent" type="checkbox"><button id="confirm"></button><div id="status"></div>');
+  const consent = dom.getElementById('consent'), confirm = dom.getElementById('confirm'), status = dom.getElementById('status');
+  const close = bindManualActionConsent({ client: f.browser, consent, confirm, status, page: dom }); t.after(close);
+  const envelope = f.grant(f.review());
+  consent.checked = true; consent.dispatch('change'); assert.equal(consent.checked, false);
+  assert.equal(f.browser.acceptExactActionAccess(envelope), true);
+  assert.equal(consent.checked, false); assert.equal(confirm.disabled, true); confirm.click(); assert.equal(f.posts, 0);
+  consent.checked = true; consent.dispatch('change'); assert.equal(confirm.disabled, false);
+  confirm.click(); confirm.click();
+  while (f.browser.getState().sending) await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(f.posts, 1); assert.equal(consent.checked, false); assert.equal(confirm.disabled, true);
+  assert.equal(f.browser.getState().outcome.state, 'VOLATILE_QUEUE_ACCEPTANCE');
+  dom.dispatch('pagehide'); assert.equal(f.browser.can('accountPrepare'), false);
+});
+
+test('generic browser review cannot replace graph, native-note or recovery handoff authority', () => {
+  const base = { descriptor: { origin: 'http://127.0.0.1:10000', listenerId: '1'.repeat(64) },
+    revision: 1, reviewId: '2'.repeat(64), action: 'accountPrepare', body: bodies.accountPrepare, context: {} };
+  for (const context of [{ graph: {} }, { nativeNote: {} }]) assert.throws(() => exactBrowserReview({ ...base, context }));
+  for (const action of ['accountRecover', 'redeem', 'wrappedWithdrawExecute']) assert.throws(() => exactBrowserReview({ ...base, action }));
+  for (const reviewId of ['', 'A'.repeat(64), '2'.repeat(64) + '\n']) assert.throws(() => exactBrowserReview({ ...base, reviewId }));
+});
+
+test('exact-only client invalidates grants when refreshed host metadata changes listener', async t => {
+  const f = await exactBrowser(t), envelope = f.grant(f.review());
+  assert.equal(f.browser.acceptExactActionAccess(envelope), true);
+  f.control.changedListener = true;
+  assert.equal(await f.browser.refresh(), false);
+  assert.equal(f.browser.getState().stale, true); assert.equal(f.browser.can('accountPrepare'), false);
+  assert.equal(await f.browser.confirm(), false); assert.equal(f.posts, 0);
 });

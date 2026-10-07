@@ -6,7 +6,7 @@ export function bindManualActionConsent({ client, consent, confirm, status, page
     const key = state.review ? JSON.stringify({ revision: state.revision, review: state.review, grantReady: state.exactGrantReady }) : null;
     if (key !== previous || !state.review) { consent.checked = false; armed = false; previous = key; }
     confirm.disabled = !armed || !client.canConfirm();
-    if (status) status.textContent = !state.review?.manualHandoff && !state.review?.wrappedWithdrawalReview ? '' : state.exactGrantReady
+    if (status) status.textContent = !state.review?.manualHandoff && !state.review?.wrappedWithdrawalReview && !state.review?.exactActionReview ? '' : state.exactGrantReady
       ? 'Capacidad exacta recibida. Revisa los términos y confirma ahora; solo puede usarse una vez.'
       : state.review?.wrappedWithdrawalReview
         ? 'Revisión sin permiso de envío. Preparar, ejecutar y conciliar necesitan cada uno una capacidad exacta distinta del listener original. El permiso de cuenta no sirve para esta salida.'

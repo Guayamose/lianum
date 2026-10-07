@@ -3,6 +3,7 @@ import {validatePublicTokenObservations,projectPublicTokenObservations} from '..
 import {WRAPPED_RESUME_ACTIONS,isWrappedResumeAction} from '../features/withdrawals/wrapped-withdrawal-resume-actions.mjs';
 import { WRAPPED_WITHDRAWAL_ACTIONS, isWrappedWithdrawalAction, validateWrappedWithdrawalRead, wrappedWithdrawalContext } from '../features/withdrawals/wrapped-withdrawal-review.mjs';
 import { validNativeNoteReview } from '../features/claims/native-note-review.mjs';
+import { EXACT_BROWSER_ACTIONS, exactBrowserReview, exactBrowserAccess } from '../features/accounts/exact-action-browser-review.mjs';
 import { HANDOFF_PROFILE, handoffDescriptor, manualReviewRequest, sameHandoff, handoffData, validateManualHandoffMetadata } from '../features/accounts/manual-action-handoff.mjs';
 import { validateGenerationDefiRead, projectGenerationDefiRead } from '../features/defi/generation-defi-contract.mjs';
 import { GENERATION_PORTFOLIO_PROFILE, validateFlatOwnerReadPayload, ownerPortfolioAssetRows, ownerPortfolioGenerations } from '../features/portfolio/owner-portfolio-contract.mjs';
@@ -763,11 +764,22 @@ export function actionAvailability(state, action, { ownerToken = true, actionTok
     && state.data.capabilities[ALL_ACTIONS[action].capability] === true);
 }
 /** A fake fetch can test all interruption flows without running any chain. */
-export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualActionHandoff = null, wrappedWithdrawalAccess = null, now = () => Date.now(), readTimeoutMs = 90000, actionTimeoutMs = 30000 }) {
+export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualActionHandoff = null, wrappedWithdrawalAccess = null, exactActionAccess = null, now = () => Date.now(), readTimeoutMs = 90000, actionTimeoutMs = 30000 }) {
   if (typeof fetchImpl !== 'function') throw new Error('WALLET_FETCH_REQUIRED');
   const hasToken = value => typeof value === 'string' && value.length > 0 && !value.startsWith('__WALLET_');
   const tokenFlags = { ownerToken: hasToken(ownerToken), actionToken: hasToken(actionToken) };
   const pinnedHandoff = manualActionHandoff === null ? null : handoffDescriptor(handoffData(manualActionHandoff));
+  const exactDescriptor = exactActionAccess === null ? null : handoffDescriptor(handoffData(exactActionAccess));
+  let browserExactAccess = null, exactDisconnected = false;
+  const usedExactTokens = new Set();
+  const invalidateExactAccess = () => {
+    if (browserExactAccess) usedExactTokens.add(browserExactAccess);
+    browserExactAccess = null;
+  };
+  const exactReady = () => exactDescriptor !== null && !exactDisconnected;
+  const exactContext = (action, body, accountContext) => accountContext ?? (defiAction(action)
+    ? { profile: DEFI_PROFILE, operation: state.data.defi?.snapshot?.operations?.find(row => row.requestId === body.requestId) ?? null }
+    : null);
   // This is a distinct browser import of an existing issueActionCapability
   // result, never the account-only manualActionHandoff authority workflow.
   const wrappedDescriptor = wrappedWithdrawalAccess === null ? null : handoffDescriptor(handoffData(wrappedWithdrawalAccess));
@@ -779,7 +791,7 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
   };
   const wrappedReady = () => wrappedDescriptor !== null && !wrappedDisconnected;
   let exactGrant = null, handoffDisconnected = false, importingGrant = false;
-  const invalidateGrant = () => { exactGrant = null; invalidateWrappedAccess(); };
+  const invalidateGrant = () => { exactGrant = null; invalidateWrappedAccess(); invalidateExactAccess(); };
   const handoffReady = () => pinnedHandoff !== null && !handoffDisconnected
     && state.data?.manualActionHandoff?.profile === HANDOFF_PROFILE
     && state.data.manualActionHandoff.origin === pinnedHandoff.origin
@@ -806,10 +818,30 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
     subscribe(listener) { listeners.add(listener); listener(copy(state)); return () => listeners.delete(listener); },
     can: action => actionAvailability(state, action, { ...tokenFlags,
       actionToken: isWrappedWithdrawalAction(action) && wrappedDescriptor !== null ? wrappedReady()
-        : tokenFlags.actionToken || handoffReady() && accountAction(action) }),
+        : tokenFlags.actionToken || handoffReady() && accountAction(action)
+          || exactReady() && EXACT_BROWSER_ACTIONS.includes(action) }),
     canConfirm() { return Boolean(state.review && state.review.revision === state.revision && client.can(state.review.action)
       && (!state.review.manualHandoff || exactGrant !== null)
-      && (!state.review.wrappedWithdrawalReview || wrappedExactAccess !== null)); },
+      && (!state.review.wrappedWithdrawalReview || wrappedExactAccess !== null)
+      && (!state.review.exactActionReview || browserExactAccess !== null)); },
+    getExactActionReview() { return state.review?.exactActionReview ? copy(state.review.exactActionReview) : null; },
+    acceptExactActionAccess(input) {
+      if (!exactReady() || state.sending || browserExactAccess || !state.review?.exactActionReview
+        || !client.can(state.review.action) || state.review.revision !== state.revision) return false;
+      try {
+        const review = state.review;
+        const current = exactBrowserReview({ descriptor: exactDescriptor, revision: state.revision,
+          reviewId: review.exactActionReview.reviewId, action: review.action, body: review.body,
+          context: exactContext(review.action, review.body, accountActionContext(state, review.action, review.body)) });
+        if (!sameHandoff(current, review.exactActionReview)) return false;
+        browserExactAccess = exactBrowserAccess(input, current, usedExactTokens);
+        update({ exactGrantReady: true }); return true;
+      } catch { return false; }
+    },
+    disconnectExactActionHost() {
+      exactDisconnected = true; invalidateExactAccess();
+      if (!state.sending && state.review?.exactActionReview) update({ review: null, exactGrantReady: false });
+    },
     getWrappedWithdrawalReview() { return state.review?.wrappedWithdrawalReview ? copy(state.review.wrappedWithdrawalReview) : null; },
     acceptWrappedWithdrawalActionAccess(input) {
       if (!wrappedReady() || state.sending || wrappedExactAccess || !state.review?.wrappedWithdrawalReview || !client.can(state.review.action)) return false;
@@ -860,7 +892,7 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
       finally { importingGrant = false; }
     },
     disconnectManualActionHost() {
-      handoffDisconnected = true; invalidateGrant();
+      handoffDisconnected = true; exactDisconnected = true; invalidateGrant();
       if (!state.sending) update({ review: null, exactGrantReady: false });
     },
     async refresh() {
@@ -873,6 +905,8 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
         const next = validateWalletState(response.value);
         if (pinnedHandoff && next.manualActionHandoff && (next.manualActionHandoff.origin !== pinnedHandoff.origin
           || next.manualActionHandoff.listenerId !== pinnedHandoff.listenerId)) throw new Error('WALLET_MANUAL_HANDOFF_LISTENER_CHANGED');
+        if (exactDescriptor && next.manualActionHandoff && (next.manualActionHandoff.origin !== exactDescriptor.origin
+          || next.manualActionHandoff.listenerId !== exactDescriptor.listenerId)) throw new Error('WALLET_EXACT_BROWSER_LISTENER_CHANGED');
         const portfolioStale = next.errors.portfolio !== null;
         const nativeStale = next.errors.nativeClaims !== null;
         const nativeSnapshotFresh = record(next.nativeClaims?.snapshot);
@@ -930,7 +964,7 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
           throw new Error('Solo se permite consultar y conciliar la solicitud original retenida; no repetir su preparación o envío');
       }
       invalidateGrant();
-      let manualHandoff, wrappedWithdrawalReview;
+      let manualHandoff, wrappedWithdrawalReview, exactActionReview;
       if (wrappedContext && wrappedDescriptor !== null) {
         if (!wrappedReady() || typeof globalThis.crypto?.getRandomValues !== 'function') throw new Error('WALLET_WRAPPED_WITHDRAWAL_UNAVAILABLE');
         wrappedWithdrawalReview = { version: 1, profile: 'ORIGINAL_WRAPPED_WITHDRAWAL_BROWSER_REVIEW_V1',
@@ -938,14 +972,21 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
           reviewId: Array.from(globalThis.crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join(''),
           action, body: copy(body), context: copy(wrappedContext) };
       }
-      if (!wrappedContext && !tokenFlags.actionToken && pinnedHandoff) {
+      if (!wrappedContext && !tokenFlags.actionToken && !context?.graph && !context?.nativeNote
+        && exactReady() && EXACT_BROWSER_ACTIONS.includes(action)) {
+        if (typeof globalThis.crypto?.getRandomValues !== 'function') throw new Error('WALLET_EXACT_BROWSER_REVIEW_UNAVAILABLE');
+        const reviewId = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');
+        exactActionReview = exactBrowserReview({ descriptor: exactDescriptor, revision: state.revision,
+          reviewId, action, body, context: exactContext(action, body, context) });
+      } else if (!wrappedContext && !tokenFlags.actionToken && pinnedHandoff) {
         if (!(context?.graph || context?.nativeNote) || !handoffReady() || typeof globalThis.crypto?.getRandomValues !== 'function')
           throw new Error('WALLET_MANUAL_HANDOFF_UNAVAILABLE');
         const reviewId = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');
         manualHandoff = manualReviewRequest(state.data, action, body, reviewId, pinnedHandoff);
       }
       const review = { action, ...actionReview(action, body, state.nativeIdentityMismatch ? null : state.data.nativeClaims, context, wrappedContext),
-        revision: state.revision, ...(manualHandoff ? { manualHandoff } : {}), ...(wrappedWithdrawalReview ? { wrappedWithdrawalReview } : {}) };
+        revision: state.revision, ...(manualHandoff ? { manualHandoff } : {}), ...(wrappedWithdrawalReview ? { wrappedWithdrawalReview } : {}),
+        ...(exactActionReview ? { exactActionReview } : {}) };
       update({ review, exactGrantReady: false, error: '' }); return copy(review);
     },
     cancelReview() { invalidateGrant(); if (!state.sending) update({ review: null, exactGrantReady: false }); },
@@ -964,7 +1005,16 @@ export function createWalletClient({ fetchImpl, ownerToken, actionToken, manualA
           review.manualHandoff.reviewId, pinnedHandoff))) { client.cancelReview(); return false; } }
         catch { client.cancelReview(); return false; }
       }
-      const sendToken = review.wrappedWithdrawalReview ? wrappedExactAccess : review.manualHandoff ? exactGrant : actionToken;
+      if (review.exactActionReview) {
+        try {
+          const current = exactBrowserReview({ descriptor: exactDescriptor, revision: state.revision,
+            reviewId: review.exactActionReview.reviewId, action: review.action, body: review.body,
+            context: exactContext(review.action, review.body, accountActionContext(state, review.action, review.body)) });
+          if (!sameHandoff(current, review.exactActionReview)) { client.cancelReview(); return false; }
+        } catch { client.cancelReview(); return false; }
+      }
+      const sendToken = review.wrappedWithdrawalReview ? wrappedExactAccess : review.manualHandoff ? exactGrant
+        : review.exactActionReview ? browserExactAccess : actionToken;
       invalidateGrant();
       const group = actionGroup(review.action);
       const id = review.body.requestId ?? state.originalRequestIds[group];

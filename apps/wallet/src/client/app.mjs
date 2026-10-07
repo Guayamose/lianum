@@ -24,6 +24,7 @@ const listenerId = consumeToken('wallet-listener-id');
 const client = createWalletClient({ fetchImpl: (...args) => fetch(...args),
   ownerToken: consumeToken('wallet-owner-token'), actionToken: consumeToken('wallet-action-token'),
   manualActionHandoff: listenerId ? { origin: globalThis.location.origin, listenerId } : null,
+  exactActionAccess: listenerId ? { origin: globalThis.location.origin, listenerId } : null,
   wrappedWithdrawalAccess: listenerId ? { origin: globalThis.location.origin, listenerId } : null });
 const resumeController=listenerId?createWrappedResumeBrowser({origin:globalThis.location.origin,listenerId,fetchImpl:(...args)=>fetch(...args),onChanged:()=>render(client.getState())}):null;
 export const getWrappedResumeReview=()=>resumeController?.getReview()??null;
@@ -34,6 +35,9 @@ export const disconnectWrappedResumeHost=()=>resumeController?.disconnect();
 export const getManualActionReview = () => client.getManualActionReview();
 export const acceptManualActionGrant = grant => client.acceptManualActionGrant(grant);
 export const disconnectManualActionHost = () => client.disconnectManualActionHost();
+export const getExactActionReview = () => client.getExactActionReview();
+export const acceptExactActionAccess = grant => client.acceptExactActionAccess(grant);
+export const disconnectExactActionHost = () => client.disconnectExactActionHost();
 // Separate direct-module import of an existing original one-use action access.
 // The pinned local host must explicitly review this request and call its actual
 // application.issueActionCapability({ action, body }). No automatic host callback.
@@ -563,6 +567,11 @@ function renderReview(state) {
       ['Cuenta original', binding.binding.accountIdentitySHA256], ['Listener original', binding.listenerId],
       ['Bloque revisado', binding.head ? `${binding.head.blockNumber} · ${binding.head.blockHash} · timestamp ${binding.head.timestamp}`
         : 'Sin observación actual; solo conciliación o recuperación original']])
+      $('review-values').append(node('dt', '', label), node('dd', 'mono', value));
+  }
+  if (state.review.exactActionReview) {
+    const original = state.review.exactActionReview;
+    for (const [label, value] of [['Servicio original', original.origin], ['Listener original', original.listenerId]])
       $('review-values').append(node('dt', '', label), node('dd', 'mono', value));
   }
   $('review-notes').replaceChildren(...state.review.notes.map(note => node('p', '', note)));
