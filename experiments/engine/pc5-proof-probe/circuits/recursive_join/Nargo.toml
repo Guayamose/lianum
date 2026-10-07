@@ -1,0 +1,6 @@
+[package]
+name = "recursive_join"
+type = "bin"
+authors = ["PAEG local experiment"]
+
+[dependencies]

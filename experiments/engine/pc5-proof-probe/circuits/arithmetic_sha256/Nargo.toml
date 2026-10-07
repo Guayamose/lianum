@@ -1,0 +1,6 @@
+[package]
+name = "arithmetic_sha256"
+type = "bin"
+authors = ["PAEG local experiment"]
+
+[dependencies]

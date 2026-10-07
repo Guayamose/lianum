@@ -1,0 +1,5 @@
+[package]
+name="withdraw_balance"
+type="bin"
+authors=["PC23 bounded local research"]
+[dependencies]

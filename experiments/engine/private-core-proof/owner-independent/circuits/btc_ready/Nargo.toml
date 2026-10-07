@@ -1,0 +1,5 @@
+[package]
+name="btc_ready"
+type="bin"
+authors=["PC18 local exact-transfer research"]
+[dependencies]

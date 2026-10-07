@@ -1,0 +1,6 @@
+[package]
+name = "wrong_key"
+type = "bin"
+authors = ["PC15 local capability gate"]
+
+[dependencies]

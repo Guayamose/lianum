@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import { Noir } from '@noir-lang/noir_js';
+import { Barretenberg, BackendType, UltraHonkBackend, UltraHonkVerifierBackend } from '@aztec/bb.js';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { H, decode, encode, witness, publicInputs } from './wire.mjs';
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+const read = p => readFileSync(resolve(root, p));
+const fixture = JSON.parse(read('evidence/m8-qb-wire-fixtures.json'));
+const circuit = JSON.parse(read('evidence/m8-qb-proof/circuit.json'));
+const vk = read('evidence/m8-qb-proof/verification-key.bin');
+const original = fixture.branches[0], s = decode('legS', Buffer.from(original.legSHex, 'hex'));
+s.salt[0] ^= 1; const legS = encode('legS', s), b = decode('legB', Buffer.from(original.legBHex, 'hex'));
+b.parentConstraint = H(legS); const legB = encode('legB', b), statement = decode('statement', Buffer.from(original.statementHex, 'hex'));
+statement.C_S = H(legS); statement.C_B = H(legB); const statementBytes = encode('statement', statement);
+const out = resolve(root, 'evidence/m9-pair-equivocation'); mkdirSync(out, { recursive: true });
+const report = { classification: 'VALID_SAME_MENU_RERANDOMIZED_PAIR_CONTROL_FOR_FUNDED_AUTHORIZATION_GATE_NOT_FULFILLMENT', phase: 'starting', branch: 0, sameMenuBinding: statement.menuBinding.toString('hex') === fixture.menuBinding, artifacts: {} };
+const save = (name, bytes) => { writeFileSync(resolve(out, name), bytes); report.artifacts[name] = { bytes: bytes.length, sha256: H(bytes).toString('hex') }; };
+globalThis.fetch = async () => { throw new Error('Offline proving only'); };
+const started = performance.now(); let api;
+try {
+  api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true, memory: { initial: 37, maximum: 32768 } });
+  const crsDir = 'experiments/pc5-proof-probe/.local/crs/131072/', crs = JSON.parse(read(crsDir + 'provenance.json'));
+  for (const record of crs.records) assert.equal(H(read(crsDir + record.file)).toString('hex'), record.sha256);
+  await api.srsInitSrs({ pointsBuf: read(crsDir + 'bn254_g1_compressed.dat'), numPoints: 131072, g2Point: read(crsDir + 'bn254_g2.dat') });
+  const input = witness(Buffer.from(fixture.menuHex, 'hex'), legS, legB, Buffer.from(fixture.resultSaltHex, 'hex'), statementBytes);
+  const solved = await new Noir(circuit).execute(input);
+  const backend = new UltraHonkBackend(circuit.bytecode, api);
+  assert.deepEqual(Buffer.from(await backend.getVerificationKey({ verifierTarget: 'noir-recursive' })), vk);
+  const proof = await backend.generateProof(solved.witness, { verifierTarget: 'noir-recursive' });
+  assert.deepEqual(proof.publicInputs, publicInputs(statementBytes));
+  report.verified = await new UltraHonkVerifierBackend(api).verifyProof({ ...proof, verificationKey: vk }, { verifierTarget: 'noir-recursive' }); assert.equal(report.verified, true);
+  save('proof.bin', proof.proof); save('statement.bin', statementBytes); save('leg-s.bin', legS); save('leg-b.bin', legB);
+  save('public-inputs.json', Buffer.from(JSON.stringify(proof.publicInputs, null, 2) + '\n'));
+  report.frozenOriginalPair = original.commitments; report.validAlternativePair = { C_S: H(legS).toString('hex'), C_B: H(legB).toString('hex') };
+  report.verificationKeySHA256 = H(vk).toString('hex'); report.circuitSHA256 = H(read('evidence/m8-qb-proof/circuit.json')).toString('hex');
+  assert.notEqual(report.frozenOriginalPair.C_S, report.validAlternativePair.C_S); assert.notEqual(report.frozenOriginalPair.C_B, report.validAlternativePair.C_B);
+  report.phase = 'completed';
+} catch (error) { report.phase = 'failed'; report.failure = error.message; process.exitCode = 1; }
+finally { if (api) await api.destroy(); report.milliseconds = performance.now() - started; report.peakRSSKiB = process.resourceUsage().maxRSS; writeFileSync(resolve(out, 'results.json'), JSON.stringify(report, null, 2) + '\n'); }
+console.log(JSON.stringify({ phase: report.phase, verified: report.verified, sameMenu: report.sameMenuBinding, milliseconds: report.milliseconds }));

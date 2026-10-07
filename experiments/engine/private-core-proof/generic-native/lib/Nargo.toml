@@ -1,0 +1,8 @@
+[package]
+name = "generic_native_support"
+type = "lib"
+authors = ["Lianum bounded protocol development"]
+
+[dependencies]
+graph_support = { path = "../../generic-graph/lib" }
+generic_wrappers = { path = "../../generic-wrappers/lib" }

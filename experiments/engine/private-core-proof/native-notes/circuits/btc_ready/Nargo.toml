@@ -1,0 +1,5 @@
+[package]
+name="btc_ready"
+type="bin"
+authors=["PC15 bounded local research"]
+[dependencies]

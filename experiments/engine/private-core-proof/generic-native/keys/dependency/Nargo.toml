@@ -1,0 +1,7 @@
+[package]
+name = "approved_dependency_key"
+type = "lib"
+authors = ["Lianum bounded protocol development"]
+
+[dependencies]
+bb_honk_verifier = { path = "../../recursive-verifier" }

@@ -1,0 +1,6 @@
+[package]
+name = "pc5_quote_binding"
+type = "bin"
+authors = ["PAEG local experiment"]
+
+[dependencies]
