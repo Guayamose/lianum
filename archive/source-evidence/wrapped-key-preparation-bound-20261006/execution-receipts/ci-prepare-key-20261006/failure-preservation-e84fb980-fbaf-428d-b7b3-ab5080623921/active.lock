@@ -1,0 +1,9 @@
+{
+  "pid": 5,
+  "relation": "native_claim_ingress_nonce_registry_v3",
+  "mode": "prepare-key",
+  "batch": null,
+  "caseInventorySHA256": null,
+  "runId": "e84fb980-fbaf-428d-b7b3-ab5080623921",
+  "startedAt": "2026-10-06T12:51:29.968Z"
+}

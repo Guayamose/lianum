@@ -1,0 +1,288 @@
+{
+  "schema": "PUBLIC_SOURCE_EXACT_HISTORICAL_REPLAY_V1",
+  "nativeRuntimeStarted": false,
+  "proofKeyGenerated": false,
+  "economicEffectsStarted": false,
+  "guardsRewritten": false,
+  "packetValidation": [
+    {
+      "packet": "lianum-source75-public-continuation-v7-20261007",
+      "filesVerified": 2385,
+      "manifestSHA256": "adffc3c1035f3f89e8691e5a1051f277c6ce70c4cba38f26dd2ac28ab976bbed"
+    },
+    {
+      "packet": "external-durable-source-delta-20261007",
+      "filesVerified": 2111,
+      "manifestSHA256": "e11557beb35ecf1544dcca477b21cfa1fbb968c71c6d240fdae3bc8bf497f2b6"
+    },
+    {
+      "packet": "original-actor-gate-public-delta-20261007",
+      "filesVerified": 258,
+      "manifestSHA256": "83cd2f9b074bc00c4bd52365eb1f53fc3a48ec5ff57cba8b7df549b67930168c"
+    },
+    {
+      "packet": "closed-fresh-lineage1684-public-delta-20261007",
+      "filesVerified": 49,
+      "manifestSHA256": "8a8dbff5e38848174f71cb9bdec71437e89876764cce495b94ef7d24b8f100ad"
+    }
+  ],
+  "transactions": [
+    {
+      "closure": "wallet-state-dag-source-closure",
+      "stage": "source",
+      "transactionSHA256": "9cdcb749572c7412c283001779a938a7bb12a83fb8a3c359e1489e35580cf401",
+      "beforeRows": 1650,
+      "afterRows": 1670,
+      "beforeFreezeSHA256": "f5d041ba42f7e87bfb8de0e39cb7faf00b16208048266b84c353092180ecb93b",
+      "afterFreezeSHA256": "7587201e1d21f983b901b96b6a8bc97a1fd1a85e70271cd2ebc37802125da343",
+      "filesChanged": 75,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "wallet-state-dag-source-closure",
+      "stage": "root",
+      "transactionSHA256": "fc5b584eb1c78a0ca1b2a187f772ba4c16348826597d73722a6ed49a68080ae8",
+      "beforeRows": 1670,
+      "afterRows": 1670,
+      "beforeFreezeSHA256": "7587201e1d21f983b901b96b6a8bc97a1fd1a85e70271cd2ebc37802125da343",
+      "afterFreezeSHA256": "d735de1e67c947f69b0e25bf0349f3cf377c2c40762d1d217d094608b1c853ec",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "external-owner-cycle-source-closure",
+      "stage": "source",
+      "transactionSHA256": "dcfbd123ba6cdce6e192f2e336c902923b436340bd11d501cc052828789272fd",
+      "beforeRows": 1670,
+      "afterRows": 1675,
+      "beforeFreezeSHA256": "d735de1e67c947f69b0e25bf0349f3cf377c2c40762d1d217d094608b1c853ec",
+      "afterFreezeSHA256": "87a7e8e98c5d7c4676a52cfee1e25c63fbca0c2a93f2b3f2ebeef184133dbf41",
+      "filesChanged": 15,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "external-owner-cycle-source-closure",
+      "stage": "root",
+      "transactionSHA256": "054e9bafe3a40c665fcf3da832b22b3bbf7b993ac12fb1f1ed9cbbb83b9fb484",
+      "beforeRows": 1675,
+      "afterRows": 1675,
+      "beforeFreezeSHA256": "87a7e8e98c5d7c4676a52cfee1e25c63fbca0c2a93f2b3f2ebeef184133dbf41",
+      "afterFreezeSHA256": "ebc2583c59a28fe2dded895eded2c355abcc7bd5b198a4cbd0c03a06efebe35e",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "external-durable-bootstrap-source-closure",
+      "stage": "source",
+      "transactionSHA256": "278c7fd3daba4b4970342ac05ff3d90d5a1d8cfbe1240ee7671598ad088e2f18",
+      "beforeRows": 1675,
+      "afterRows": 1677,
+      "beforeFreezeSHA256": "ebc2583c59a28fe2dded895eded2c355abcc7bd5b198a4cbd0c03a06efebe35e",
+      "afterFreezeSHA256": "644978b7a9ef531017d52f380a5b480b98769748f256869f55b1c644260bdaa2",
+      "filesChanged": 18,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "external-durable-bootstrap-source-closure",
+      "stage": "root",
+      "transactionSHA256": "8b42cff3dcde30089e241d0eb91bc8b527ebc948a6487825745cf8e6fd47dd05",
+      "beforeRows": 1677,
+      "afterRows": 1677,
+      "beforeFreezeSHA256": "644978b7a9ef531017d52f380a5b480b98769748f256869f55b1c644260bdaa2",
+      "afterFreezeSHA256": "21f49fb0e2413748b9ea0414f3e23707e80157a82c6786e0268e2388f8180866",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "external-recovery-view-source-closure",
+      "stage": "source",
+      "transactionSHA256": "3710ba947db62bd8bceb578d1450fa149297e426bf8f077f281607c4e144fb15",
+      "beforeRows": 1677,
+      "afterRows": 1677,
+      "beforeFreezeSHA256": "21f49fb0e2413748b9ea0414f3e23707e80157a82c6786e0268e2388f8180866",
+      "afterFreezeSHA256": "54b00fcd2b02ca6f9294336eec1999852d448186aac0486ed2b3d930aff2eed5",
+      "filesChanged": 9,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "external-recovery-view-source-closure",
+      "stage": "root",
+      "transactionSHA256": "62f2524d773bea29bf9e9131618c750b2391ef6acf450cc5a707658cd1550eb1",
+      "beforeRows": 1677,
+      "afterRows": 1677,
+      "beforeFreezeSHA256": "54b00fcd2b02ca6f9294336eec1999852d448186aac0486ed2b3d930aff2eed5",
+      "afterFreezeSHA256": "83e5969a83dc66da903a54df1a531bd1e0d28ba824846ce73a9054f1901fc49e",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "external-preopen-repair-source-closure",
+      "stage": "source",
+      "transactionSHA256": "14cd1a321ad2494a96668776a2bfcd3fa8d3c9760247d01686c14cb19cdbef68",
+      "beforeRows": 1677,
+      "afterRows": 1680,
+      "beforeFreezeSHA256": "83e5969a83dc66da903a54df1a531bd1e0d28ba824846ce73a9054f1901fc49e",
+      "afterFreezeSHA256": "5c718793467047cb3600da4458909bf26b1265fd65925a12cc8415616575ce92",
+      "filesChanged": 13,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "external-preopen-repair-source-closure",
+      "stage": "root",
+      "transactionSHA256": "62be4189e7251e87aba68ca6fbddce312af4eb1bbc9f37b6667a840b3565e0f4",
+      "beforeRows": 1680,
+      "afterRows": 1680,
+      "beforeFreezeSHA256": "5c718793467047cb3600da4458909bf26b1265fd65925a12cc8415616575ce92",
+      "afterFreezeSHA256": "749b04f740b9e0729ec97f05184c31be5c90b97545d366a67864dc3b71664eae",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "external-bootstrap-partial-source-closure",
+      "stage": "source",
+      "transactionSHA256": "d4fae69a0a86753a5e227c8bdc2912872e1d58c938aab8522fffda65c97a34f6",
+      "beforeRows": 1680,
+      "afterRows": 1681,
+      "beforeFreezeSHA256": "749b04f740b9e0729ec97f05184c31be5c90b97545d366a67864dc3b71664eae",
+      "afterFreezeSHA256": "6b0e0f3ceb1746458289af3d1ebe09323fd9e978ad743318174d566da9dd4d94",
+      "filesChanged": 13,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "external-bootstrap-partial-source-closure",
+      "stage": "root",
+      "transactionSHA256": "9397ad5f7e1fdd43b366428c5be7f9f658a36e5fd12fa3df12c32278701f5178",
+      "beforeRows": 1681,
+      "afterRows": 1681,
+      "beforeFreezeSHA256": "6b0e0f3ceb1746458289af3d1ebe09323fd9e978ad743318174d566da9dd4d94",
+      "afterFreezeSHA256": "b202787bdee986bba71fa8dc892c5a3467a6102bde1c2223492b4cc230013332",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "external-bootstrap-prefix-source-closure",
+      "stage": "source",
+      "transactionSHA256": "3a9247e219a090f3790e81ab9cd6473527e7e0f3e8b0e81f66ca77ad6b2e615d",
+      "beforeRows": 1681,
+      "afterRows": 1682,
+      "beforeFreezeSHA256": "b202787bdee986bba71fa8dc892c5a3467a6102bde1c2223492b4cc230013332",
+      "afterFreezeSHA256": "4499b2dad1ea8bf4ab12616dfa1f28d5bd6e47ed7018b79bebdbe11bdcd70f2c",
+      "filesChanged": 11,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "external-bootstrap-prefix-source-closure",
+      "stage": "root",
+      "transactionSHA256": "d7a63e9724c43f5c8a486c0d21281950e4f0cb5b61c956780fa80a6ac6968ea5",
+      "beforeRows": 1682,
+      "afterRows": 1682,
+      "beforeFreezeSHA256": "4499b2dad1ea8bf4ab12616dfa1f28d5bd6e47ed7018b79bebdbe11bdcd70f2c",
+      "afterFreezeSHA256": "b3d10960037a3e2d261e4752d643273e882b0c4e1e2c51a60e1b01e84a15d1e1",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    },
+    {
+      "closure": "closed-fresh-lineage-source-closure",
+      "stage": "source",
+      "transactionSHA256": "8066393fe28e461c8f84dc3eafbcec90987d3c8bed735f4b460cbac808e2308c",
+      "beforeRows": 1682,
+      "afterRows": 1684,
+      "beforeFreezeSHA256": "b3d10960037a3e2d261e4752d643273e882b0c4e1e2c51a60e1b01e84a15d1e1",
+      "afterFreezeSHA256": "a65548eb1b2e942443fb76c72fb710f10e853167545d570b98cf9bdbbf483043",
+      "filesChanged": 11,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": true,
+      "manifestThenInspectorLast": false
+    },
+    {
+      "closure": "closed-fresh-lineage-source-closure",
+      "stage": "root",
+      "transactionSHA256": "649cf906eb243d9703d4fc1d3aec3af89b1a586c9adc4706c60aa26e5e18a8a0",
+      "beforeRows": 1684,
+      "afterRows": 1684,
+      "beforeFreezeSHA256": "a65548eb1b2e942443fb76c72fb710f10e853167545d570b98cf9bdbbf483043",
+      "afterFreezeSHA256": "7c0dd6dfe0c3898f576f3699713b5d3cf085426832f9da783a659439f9cec2e0",
+      "filesChanged": 2,
+      "exactPreimagesVerified": true,
+      "allPostimageBytesHashesModesVerified": true,
+      "inspectorClosedFirst": false,
+      "manifestThenInspectorLast": true
+    }
+  ],
+  "base": {
+    "rows": 1650,
+    "freezeSHA256": "f5d041ba42f7e87bfb8de0e39cb7faf00b16208048266b84c353092180ecb93b",
+    "verifiedSource75Rows": 1670,
+    "source75FreezeSHA256": "d735de1e67c947f69b0e25bf0349f3cf377c2c40762d1d217d094608b1c853ec",
+    "inverseReconstructedExactly": true
+  },
+  "final": {
+    "sourceRoot": "/workspace/scratch/770c47ebf757/lianum-restored-1750/source-root",
+    "rows": 1684,
+    "freezeSHA256": "7c0dd6dfe0c3898f576f3699713b5d3cf085426832f9da783a659439f9cec2e0",
+    "totalSourceBytes": 23144304,
+    "allBytesHashesModesVerified": true,
+    "noExtraSourceFiles": true
+  },
+  "canonicalRouterResources": {
+    "entries": 1864,
+    "verified": 1864,
+    "missing": [],
+    "installedIntoSourceRoot": false
+  },
+  "newAdmissions": [
+    {
+      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/external-capture-lineage-admission-v1.mjs",
+      "sha256": "183f9a8a6c39204e623bf6ffb5bd3b720d326ea82cf947fc602976552cbc7df8",
+      "text": "import assert from 'node:assert/strict';\nconst ADMISSION = null;\nexport function readExternalCaptureLineageAdmissionV1() {\n  assert.equal(arguments.length, 0);\n  assert.ok(ADMISSION, 'EXTERNAL_CAPTURE_LINEAGE_ADMISSION_CLOSED');\n  return structuredClone(ADMISSION);\n}\n"
+    },
+    {
+      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/external-fresh-capture-admission-v1.mjs",
+      "sha256": "c00177e6177b27436850f27ce2573e42a4c22cb2fa88095b72c7de25c9c72141",
+      "text": "import assert from 'node:assert/strict';\nconst ADMISSION = null;\nexport function readExternalFreshCaptureAdmissionV1() {\n  assert.equal(arguments.length, 0);\n  assert.ok(ADMISSION, 'EXTERNAL_FRESH_CAPTURE_ADMISSION_CLOSED');\n  return structuredClone(ADMISSION);\n}\n"
+    }
+  ]
+}

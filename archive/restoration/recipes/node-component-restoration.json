@@ -1,0 +1,80 @@
+{
+  "locksOrClaimsRestored": false,
+  "files": [
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/compiled.json",
+      "sha256": "342f03e8b2e9e47fe01689537be2d11e8c2f69ce4394d62b5f5bcb9f59b13e81",
+      "bytes": 200
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/stats.json",
+      "sha256": "470c4685a71c6e6e31ce5115bf2d704db63bda916484a053689f7ec538535fd0",
+      "bytes": 113
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/compiled/29084da7f9d90365578b32a87e54b9e4ce165ae7e3701b803df250db738c4004/manifest.json",
+      "sha256": "29084da7f9d90365578b32a87e54b9e4ce165ae7e3701b803df250db738c4004",
+      "bytes": 17937
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/compiled/29084da7f9d90365578b32a87e54b9e4ce165ae7e3701b803df250db738c4004/program.json",
+      "sha256": "6c2d09943e6b138bb67b8133f33331adf08263dc12210b2d1a62d78c56fce38e",
+      "bytes": 857639
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/prepared/generated-pins.json",
+      "sha256": "95a561fdf1c92187407daede21b490673f572ddf5ca0337c4cf00606bef20b96",
+      "bytes": 724
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/prepared/provenance.json",
+      "sha256": "97fcf07956b38166a67660fca40d3fa1b8a925c70b8ba72ec8664f86048321b5",
+      "bytes": 20253
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/prepared/node-component.vk",
+      "sha256": "7db1eb6975fad4fda0ebac6b7e9ad3861604f4eb8d1231b9c2ff8ccf661d5fe4",
+      "bytes": 1888
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/prepared/node-component.sol",
+      "sha256": "e9d3bfaef342bd1b93b159c4386d06f23eb0ea034e03802505bc50e863a985bc",
+      "bytes": 103923
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/stats-2/stats-manifest.json",
+      "sha256": "85d0ddd2f3160767dd34ce7c42810f759af8e2509d413b6bdd3146ab9c83448c",
+      "bytes": 8963
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/compile-2/result.json",
+      "sha256": "6fd70e131837d13ffa124b0f98a2299839a5ed7dbe6f5c907c7bf3760e922e8a",
+      "bytes": 32398
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/compile-2/resources.json",
+      "sha256": "c5584044e4581b0e44d3989e886cbc7df2266bf5d8b70f79bbc8bac2a7f33181",
+      "bytes": 2365
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/stats-2/result.json",
+      "sha256": "e6398a68b140cee232215b6e3ac3b9e82a759ceda7408db30c205d6517163845",
+      "bytes": 32912
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/stats-2/resources.json",
+      "sha256": "d97eac82ee7acaee01180ccfec737c4a14810a13dfee5735ee2406978d4423de",
+      "bytes": 2359
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/prepare-key-2/result.json",
+      "sha256": "fe56168214c893790b43711e69aeb685da32bedfb1ddb8438bb1dbdc592f953c",
+      "bytes": 34705
+    },
+    {
+      "path": "omnichain-flat-profile/candidate-poseidon/.local/component/attempts/prepare-key-2/resources.json",
+      "sha256": "5f0696e7c1cb8fbd62de0b78efcda5acf590011646489d847dd8c3a31b812d89",
+      "bytes": 2377
+    }
+  ]
+}
