@@ -1,0 +1,18 @@
+# The Cloud API image receives only its reviewed runtime and public protocol.
+*
+!apps
+apps/*
+!apps/platform
+apps/platform/*
+!apps/platform/Dockerfile
+!apps/platform/package.json
+!apps/platform/package-lock.json
+!apps/platform/src
+!apps/platform/src/**
+!packages
+packages/*
+!packages/mobile-protocol
+packages/mobile-protocol/*
+!packages/mobile-protocol/package.json
+!packages/mobile-protocol/src
+!packages/mobile-protocol/src/**

@@ -1,0 +1,48 @@
+name: lianum-platform-local
+services:
+  database:
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    environment:
+      POSTGRES_DB: lianum
+      POSTGRES_USER: lianum
+      POSTGRES_PASSWORD: ${LIANUM_LOCAL_DB_PASSWORD:?Use scripts/local.mjs to create the ignored local credential}
+    command: [postgres, -c, shared_buffers=32MB, -c, max_connections=32]
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1
+    pids_limit: 128
+    volumes:
+      - intake-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U lianum -d lianum]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [intake]
+  api:
+    image: lianum-platform:local
+    pull_policy: never
+    environment:
+      LIANUM_PUBLIC_ORIGIN: https://wallet.local.test
+      DATABASE_URL: postgresql://lianum:${LIANUM_LOCAL_DB_PASSWORD}@database:5432/lianum
+    ports:
+      - 127.0.0.1:${LIANUM_LOCAL_PORT:-8080}:8080
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1
+    pids_limit: 64
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks: [intake, edge]
+networks:
+  intake:
+    internal: true
+  edge: {}
+volumes:
+  intake-data:
