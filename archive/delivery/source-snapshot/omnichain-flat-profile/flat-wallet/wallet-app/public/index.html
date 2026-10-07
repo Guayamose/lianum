@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="wallet-listener-id" content="__WALLET_LISTENER_ID__">
+  <meta name="wallet-owner-token" content="__WALLET_OWNER_TOKEN__">
+  <meta name="wallet-action-token" content="__WALLET_ACTION_TOKEN__">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <title>Lianum · Wallet local</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Saltar al contenido</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegación">
+      <a class="brand" href="#portfolio"><span class="brand-mark" aria-hidden="true">◈</span><span>LIANUM<small>PRIVATE WALLET</small></span></a>
+      <div class="workspace">ESPACIO LOCAL <span>FLAT</span></div>
+      <nav>
+        <a href="#portfolio"><span aria-hidden="true">◫</span> Portafolio</a>
+        <a id="account-nav" href="#account" hidden><span aria-hidden="true">⇄</span> Cuenta privada</a>
+        <a id="wrapped-withdrawals-nav" href="#wrapped-withdrawals" hidden><span aria-hidden="true">◇</span> Salidas de notas wrapped</a>
+        <a id="networks-nav" href="#networks" hidden><span aria-hidden="true">◎</span> Redes externas</a>
+        <a id="transfers-nav" href="#transfers" hidden><span aria-hidden="true">↔</span> Transferencias observadas</a>
+        <a id="defi-nav" href="#defi" hidden><span aria-hidden="true">↗</span> Redención de vault</a>
+        <a href="#custody"><span aria-hidden="true">◇</span> Custodia nativa</a>
+        <a href="#operations"><span aria-hidden="true">↗</span> Operaciones</a>
+        <a href="#history"><span aria-hidden="true">≡</span> Solicitudes originales</a>
+      </nav>
+      <div class="sidebar-note"><span class="eyebrow">CONTROL EXPLÍCITO</span><strong>Cada paso, tu decisión</strong><p>Consultar no ejecuta. No hay sondeo, reintentos ni reanudación automáticos.</p></div>
+      <div class="sidebar-footer"><span class="status-dot" id="connection-dot"></span><span id="connection-label">Sin observación</span><small>Sesión del titular · solo memoria</small></div>
+    </aside>
+    <div class="main-shell">
+      <div class="scope-bar"><span>ENTORNO LOCAL</span><p>Perfil flat activo · capacidades originales del proceso local</p><span class="scope-end">Solo rutas originales autorizadas</span></div>
+      <main id="main">
+        <header class="page-header">
+          <div><p class="eyebrow">TU WALLET · VISTA DEL TITULAR</p><h1>Tus activos.<br><span>Su estado observado.</span></h1><p class="lead">Saldos exactos, custodia identificada y solicitudes originales. Según la proyección del host local.</p></div>
+          <div class="header-controls"><span class="badge" id="connection-badge">Sin conexión verificada</span><button id="refresh" class="button" type="button">↻ Actualizar estado</button><span id="updated-at" class="muted small">Todavía sin consulta</span></div>
+        </header>
+        <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+        <div id="error" class="notice danger" role="alert" hidden></div>
+        <section id="portfolio" aria-labelledby="portfolio-title">
+          <div class="section-heading"><div><p class="eyebrow">SALDO PRIVADO</p><h2 id="portfolio-title">Portafolio</h2></div><span id="portfolio-badge" class="badge">No disponible</span></div>
+          <p id="coherence" class="section-description">Esperando la proyección original del titular</p>
+          <div id="portfolio-error" class="inline-warning" hidden></div>
+          <div id="asset-cards" class="asset-grid"></div>
+          <p class="footnote">Las cantidades se muestran por activo y en unidades atómicas exactas. Recuperación es una categoría que puede formar parte de disponible o bloqueado; no se suma como saldo adicional.</p>
+        </section>
+        <section id="account" class="panel" aria-labelledby="account-title" hidden>
+          <div class="section-heading"><div><p class="eyebrow">CUENTA PRIVADA · PREPARACIÓN ORIGINAL</p><h2 id="account-title">Acciones privadas originales</h2></div><span id="account-badge" class="badge">No disponible</span></div>
+          <p class="section-description">TOP_UP incorpora un activo; EXIT retira el activo de su cuenta privada bajo la autorización original. Primero prepara la operación en el proceso del titular y conserva su ownerOperationRef. Aquí solo se vincula, ejecuta o concilia esa preparación.</p>
+          <div class="custody-notice"><p><strong>Cola local volátil</strong><br>La respuesta HTTP 200 indica que el comando entró en la cola local. Puede no ser duradera y no confirma ejecución, liquidación ni saldo. Conserva el ID y consulta manualmente el diario y la vista privada.</p></div>
+          <div id="account-error" class="inline-warning" hidden></div>
+          <div id="account-tabs" class="action-tabs" aria-label="Operación de cuenta privada"></div>
+          <p id="account-availability" class="inline-warning"></p><div id="account-forms"></div>
+          <div id="account-outcome" class="outcome" role="status" aria-live="polite" hidden></div>
+          <h3>Diario original</h3><div id="account-records" class="request-list"></div>
+          <details class="native-details"><summary>Cola local observada · no es un diario duradero</summary><div id="account-admissions"></div></details>
+          <p class="footnote">Las referencias no exponen importe, destinatario ni pruebas. GRAPH admite solo el vault EVM registrado y autorizado privadamente, con revisión de términos exactos. Recuperación F exige el mismo GRAPH y una capacidad exacta independiente; el bearer amplio del navegador no autoriza GRAPH. El reinicio del coordinador permanece privado. Una solicitud activa de cuenta o claims bloquea las acciones que compiten con ella.</p>
+        </section>
+        <section id="wrapped-withdrawals" class="panel" aria-labelledby="wrapped-withdrawals-title" hidden>
+          <div class="section-heading"><div><p class="eyebrow">DOS AUTORIDADES ORIGINALES · REVISIÓN EXACTA</p><h2 id="wrapped-withdrawals-title">Salidas de notas wrapped</h2></div><span class="badge neutral">Sin redención nativa</span></div>
+          <p class="section-description">El cambio del titular de origen y el payout del destinatario son notas y autoridades distintas. Pool, generación, activo, importe y destino permanecen fijados por la sesión original.</p>
+          <div class="custody-notice"><p><strong>Cada acción requiere una capacidad exacta de un solo uso</strong><br>Revisa los términos, recibe del host original el permiso para esa acción concreta y confirma. Preparar no firma ni envía. Cancelar antes de confirmar descarta el permiso de esta página; una solicitud ya enviada puede continuar en el servicio original.</p></div>
+          <div id="wrapped-withdrawal-error" class="inline-warning" hidden></div>
+          <div id="wrapped-withdrawal-records" class="request-list"></div>
+          <div id="wrapped-withdrawal-outcome" class="outcome" role="status" aria-live="polite" hidden></div>
+          <p class="footnote">HTTP 202 confirma admisión duradera, nunca liquidación. La conciliación no reenvía ni elimina el bloqueo permanente por incertidumbre del receptor. Controles de fuente/host: no acreditan aceptación visual, móvil o nativa; las puertas de despliegue y prueba siguen cerradas.</p>
+        </section>
+        <section id="positions" aria-labelledby="positions-title" hidden>
+          <div class="section-heading"><div><p class="eyebrow">POSICIONES OBSERVADAS</p><h2 id="positions-title">Participaciones de vault</h2></div><span class="badge neutral">Solo estimaciones</span></div>
+          <div id="position-cards" class="asset-grid"></div>
+          <p class="footnote">El subyacente estimado no es un segundo saldo gastable. Esta sección no autoriza conversiones ni redenciones del vault.</p>
+        </section>
+        <section id="networks" class="panel" aria-labelledby="networks-title" hidden>
+          <div class="section-heading"><div><p class="eyebrow">LECTURAS EXTERNAS · RPC DE CONFIANZA</p><h2 id="networks-title">Redes externas</h2></div><span class="badge neutral">Sin crédito privado</span></div>
+          <p class="section-description">Holdings nativos consultados en las direcciones fijadas por el host. Configurado no significa conectado. Estas lecturas no verifican consenso de forma independiente ni aumentan el saldo privado gastable.</p>
+          <div id="networks-error" class="inline-warning" hidden></div><div id="network-cards" class="native-grid"></div>
+          <p class="footnote">privateSpendable: false · creditEligible: false · sin selector de dirección, red o RPC</p>
+        </section>
+        <section id="transfers" class="panel" aria-labelledby="transfers-title" hidden>
+          <div class="section-heading"><div><p class="eyebrow">REDES NATIVAS · ORIGINALES FIJADOS POR EL HOST</p><h2 id="transfers-title">Transferencias observadas</h2></div><span class="badge neutral">Metadatos retenidos</span></div>
+          <p class="section-description">Identidades de transacciones originales registradas en el proceso local. Los estados son metadatos RPC retenidos y sin revalidación de finalidad por esta vista. No acreditan entrega, valor retenido por el destinatario, crédito ni saldo privado gastable.</p>
+          <div id="transfers-error" class="inline-warning" hidden></div><div id="transfer-records" class="request-list"></div>
+          <p class="footnote">Solo Actualizar estado puede solicitar otra observación al host cuando sus diarios están disponibles e inactivos. No hay selector de transacción, cadena, dirección o endpoint, ni acción de envío. El importe original no es un importe entregado o acreditado.</p>
+        </section>
+        <section id="custody" class="panel" aria-labelledby="custody-title">
+          <div class="section-heading"><div><p class="eyebrow">WRAPPERS CON RESPALDO NATIVO</p><h2 id="custody-title">Custodia nativa</h2></div><span id="native-badge" class="badge">No disponible</span></div>
+          <div class="custody-notice"><span class="custody-icon" aria-hidden="true">◇</span><p><strong>Claims custodiales, con límites explícitos</strong><br>No son BTC o SOL nativos en autocustodia. El subyacente no está disponible para gastar desde esta vista. Los operadores locales comparten host y confianza en el custodio.</p></div>
+          <div id="native-error" class="inline-warning" hidden></div>
+          <div id="native-cards" class="native-grid"></div>
+          <p id="native-observation" class="footnote">El diario conserva resultados; por sí solo no es una nueva observación de liquidación.</p>
+          <details class="native-details"><summary>Intents y tickets originales</summary><div id="native-records"></div></details>
+        </section>
+        <section id="operations" class="panel" aria-labelledby="operations-title">
+          <div class="section-heading"><div><p class="eyebrow">ACCIÓN MANUAL · REVISIÓN PREVIA</p><h2 id="operations-title">Operaciones nativas</h2></div><span class="badge neutral">Destinos originales</span></div>
+          <p class="section-description">Usa una preparación existente del titular. Esta interfaz no recibe claves raíz o de gasto y no prepara pruebas.</p>
+          <div id="action-tabs" class="action-tabs" aria-label="Tipo de operación"></div>
+          <p id="action-availability" class="inline-warning">Las acciones requieren una consulta válida y una capacidad habilitada.</p>
+          <div id="action-forms"></div>
+          <div id="action-outcome" class="outcome" role="status" aria-live="polite" hidden></div>
+          <p class="footnote">HTTP 202 significa admisión duradera, nunca liquidación nativa. Después de enviar, actualiza manualmente y revisa la solicitud original. Un fallo de transporte no demuestra que la acción fue rechazada.</p>
+        </section>
+        <section id="defi" class="panel" aria-labelledby="defi-title" hidden>
+          <div class="section-heading"><div><p class="eyebrow">VAULT · SALIDA ORIGINAL</p><h2 id="defi-title">Redención pública de shares</h2></div><span class="badge neutral">Subyacente externo</span></div>
+          <div class="custody-notice"><p><strong>Primero, un EXIT original confirmado</strong><br>La salida de shares debe estar confirmada por el titular mediante su flujo de cuenta original. La acción DeFi no crea esa salida. La redención posterior es pública y entrega el subyacente a la dirección externa original; nunca lo añade al saldo privado gastable.</p></div>
+          <div id="defi-error" class="inline-warning" hidden></div><div id="defi-records" class="request-list"></div>
+          <div id="defi-tabs" class="action-tabs" aria-label="Operación del vault"></div>
+          <p id="defi-availability" class="inline-warning"></p><div id="defi-forms"></div>
+          <div id="defi-outcome" class="outcome" role="status" aria-live="polite" hidden></div>
+          <p class="footnote">HTTP 200 es un resultado del servicio, no admisión nativa 202. Deadline: timestamp de la cadena original, nunca el reloj del navegador. Reabrir conserva identidades y no reinicia el keeper.</p>
+        </section>
+        <section id="history" aria-labelledby="history-title">
+          <div class="section-heading"><div><p class="eyebrow">TRAZABILIDAD</p><h2 id="history-title">Solicitudes originales</h2></div><span id="request-count" class="muted small">Sin observación</span></div>
+          <p class="section-description">Estados conservados por su autoridad original. Una admisión y una liquidación son resultados distintos.</p>
+          <div id="request-list" class="request-list"></div>
+        </section>
+        <footer class="page-footer"><span>LIANUM / ACTIVE FLAT</span><p>HOST_REPORTED · Esta interfaz muestra la proyección del host original; no verifica de forma independiente cadenas o pruebas. Sin persistencia del navegador.</p></footer>
+      </main>
+    </div>
+  </div>
+  <dialog id="review-dialog" aria-labelledby="review-title" aria-describedby="review-notes">
+    <div class="dialog-heading"><div><p class="eyebrow">REVISA ANTES DE ENVIAR</p><h2 id="review-title">Revisar operación</h2></div><button id="close-review" class="icon-button" type="button" aria-label="Cerrar revisión">×</button></div>
+    <dl id="review-values" class="review-values"></dl>
+    <p id="handoff-status" role="status"></p>
+      <div id="review-notes" class="review-notes"></div>
+    <label class="consent"><input id="review-consent" type="checkbox"> He revisado la solicitud original, los importes y el alcance de esta acción</label>
+    <div class="dialog-actions"><button id="cancel-review" class="button" type="button">Volver</button><button id="confirm-review" class="button primary" type="button" disabled>Confirmar y enviar una vez</button></div>
+  </dialog>
+  <noscript><p class="notice danger">Esta vista requiere JavaScript. No se ha consultado ni enviado ninguna operación.</p></noscript>
+</body>
+</html>

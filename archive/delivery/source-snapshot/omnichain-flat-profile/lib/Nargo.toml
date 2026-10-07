@@ -1,0 +1,9 @@
+[package]
+name = "flat_node_support"
+type = "lib"
+authors = ["Lianum bounded flat component research"]
+
+[dependencies]
+graph_support = { path = "../../omnichain-product/experiments/private-core-proof/generic-graph/lib" }
+native_support = { path = "../../omnichain-product/experiments/private-core-proof/generic-native/lib" }
+

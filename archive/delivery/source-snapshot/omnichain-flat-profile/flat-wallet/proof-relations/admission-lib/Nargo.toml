@@ -1,0 +1,11 @@
+[package]
+name = "flat_admission_support"
+type = "lib"
+authors = ["Lianum nonrecursive admission source integration"]
+
+[dependencies]
+poseidon_support = { path = "../../../candidate-poseidon/lib" }
+poseidon = { path = "../../../candidate-poseidon/vendor/poseidon" }
+readiness_support = { path = "../readiness-lib" }
+native_support = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-native/lib" }
+graph_support = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-graph/lib" }

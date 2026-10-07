@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {readFileSync,existsSync,readdirSync,writeFileSync,statfsSync,realpathSync} from 'node:fs';
+import {join} from 'node:path';
+import {nativeClaimSourcePins} from '../../integration/native-claim-source-pins.mjs';
+import {linuxRuntimePins} from '../../../../omnichain-product/src/chains/linux-runtime-pins.mjs';
+import {solanaCandidateBoundedLedgerCompatibilityPin,solanaRuntimePins} from '../../wallet-platform/modules/chain-adapters/owned-solana-runtime.mjs';
+import {verifyToolchain,verifyCRS} from '../../../../omnichain-product/experiments/private-core-proof/wallet-notes/resources.mjs';
+const root=process.cwd(),hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
+assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');
+const identity=JSON.parse(readFileSync('../../recovery-library-identity.json')).reconstructed_delta;
+assert.equal(identity.version,23);assert.equal(identity.sha256,'e965915858d7c4d1625eba050521df51d20de7c7dbc04372b146d02feefc8ddf');assert.equal(hash(identity.local_path),identity.sha256);
+const policy='integration/native-ingress-v3-preflight-policy.mjs';assert.equal(hash(policy),'c467f7f7536d4deb2e10953f01b021a6144af26ae02cd2a0c1001383506944c2');
+const manifest=JSON.parse(readFileSync('drafts/native-ingress-v3-integration/installation-manifest.json'));
+for(const f of manifest.files)if(f.target!==policy)assert.equal(hash(f.target),f.installedSHA256,f.target);
+const locks=[];for(const d of readdirSync('.local',{withFileTypes:true}))if(d.isDirectory()&&existsSync(join('.local',d.name,'active.lock')))locks.push(join('.local',d.name,'active.lock'));
+if(existsSync('/tmp/lianum-paeg-proof-host.lock'))locks.push('/tmp/lianum-paeg-proof-host.lock');assert.deepEqual(locks,[]);
+const availableRAMBytes=Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo','utf8'))[1])*1024,d=statfsSync('.'),freeDiskBytes=d.bavail*d.bsize;assert.ok(availableRAMBytes>=2684354560);assert.ok(freeDiskBytes>=5368709120);
+const binaryPins=[];for(const [role,pin] of [...Object.entries(linuxRuntimePins).filter(([role])=>role!=='solc'),['solanaCandidate',solanaCandidateBoundedLedgerCompatibilityPin]]){const p=join('../../omnichain-product/.local/linux-runtimes',pin[0]);assert.equal(hash(p),pin[1],role);binaryPins.push({role,path:pin[0],sha256:pin[1]});}
+const toolchain=verifyToolchain(),crs=verifyCRS(),sourcePins=nativeClaimSourcePins();
+writeFileSync('experiments/native-ingress-v3-production-preflight/launch-checkpoint.json',JSON.stringify({format:'LIANUM_V3_PRODUCTION_PREFLIGHT_LAUNCH_V1',createdAt:new Date().toISOString(),oneExecutionOnly:true,entry:'integration/run-native-ingress-v3-production-preflight.mjs',environment:process.env,checkpoint:identity,policySHA256:hash(policy),disabledPolicySHA256:'052784b2230163b35046a98ad7157a44f11dca787a77314ba209bb96cec08902',installationManifestSHA256:hash('drafts/native-ingress-v3-integration/installation-manifest.json'),node:{path:realpathSync(process.execPath),version:process.version,sha256:hash(process.execPath)},locks,resources:{availableRAMBytes,freeDiskBytes},binaryPins,toolchain,crs,sourcePins},null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({checked:true,sourceFiles:sourcePins.local.length,binaryPins:binaryPins.length,availableRAMBytes,freeDiskBytes,node:process.version}));

@@ -1,0 +1,71 @@
+/** Read-only fixed launch checks; no node, proof, signing or deployment. */
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync, existsSync, readdirSync, writeFileSync, statfsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
+import { nativeClaimSourcePins } from '../../integration/native-claim-source-pins.mjs';
+import { loadNativeClaimIngressV3Artifacts } from '../../wallet-platform/modules/ops/native-claim-ingress-v3-artifacts.mjs';
+import { linuxRuntimePins } from '../../../../omnichain-product/src/chains/linux-runtime-pins.mjs';
+import { solanaCandidateBoundedLedgerCompatibilityPin } from '../../wallet-platform/modules/chain-adapters/owned-solana-runtime.mjs';
+import { verifyToolchain, verifyCRS } from '../../../../omnichain-product/experiments/private-core-proof/wallet-notes/resources.mjs';
+const sha = bytes => createHash('sha256').update(bytes).digest('hex'), hash = path => sha(readFileSync(path));
+const out = 'experiments/native-claim-loaded-v3-sourcepin-retry-20261005', policy = 'integration/native-claim-loaded-v3-policy.mjs';
+assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
+assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
+const checkpoint = JSON.parse(readFileSync('../../recovery-library-identity.json')).reconstructed_delta;
+assert.deepEqual(checkpoint, JSON.parse(readFileSync(join(out, 'frozen-checkpoint-identity.json'))));
+assert.equal(checkpoint.version, 32);
+assert.equal(checkpoint.library_file_id, 'libfile_926d76673640819199875c8ae7ebeb61');
+assert.equal(hash(checkpoint.local_path), checkpoint.sha256);
+assert.equal(hash(policy), 'daeb7aaa9db5a8b16b0a4f43690c88b0ff41752bdffa21bb4bfa7286a884777f');
+assert.equal(hash('integration/native-ingress-v3-preflight-policy.mjs'), '6a62f6e72c5159498c5a6ea3a98ab782da42b33833ff45797972d00e49fa959e');
+assert.equal(hash(process.execPath), 'bc17c508ffeed0ec622934f9b7fa72f8e78da65350e63c3eceb56fa688aa5e12');
+assert.equal(hash('integration/native-claim-graph-v3-policy.mjs'), '57dd5321d6af449be15dfe9676a23ec57a4f2d86fafe3015aec4a706ae2f9abe');
+assert.equal(hash('integration/manual-wallet-acceptance-policy.mjs'), '75ec8ab4b186ec093815cc64f34bf13d7506184c232380069e86e550613c5dfa');
+const locks = [];
+for (const d of readdirSync('.local', { withFileTypes: true })) if (d.isDirectory() && existsSync(join('.local', d.name, 'active.lock'))) locks.push(join('.local', d.name, 'active.lock'));
+for (const name of ['envelope-constraints', 'native-constraints', 'completion-constraints', 'pinned-verification', 'verifier-compilation'])
+  if (existsSync(join('.local/proof-workers', name + '.lock'))) locks.push(join('.local/proof-workers', name + '.lock'));
+if (existsSync('/tmp/lianum-paeg-proof-host.lock')) locks.push('/tmp/lianum-paeg-proof-host.lock');
+assert.deepEqual(locks, []);
+const availableRAMBytes = Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo', 'utf8'))[1]) * 1024;
+const d = statfsSync('.'), freeDiskBytes = d.bavail * d.bsize;
+assert.ok(availableRAMBytes >= 2684354560); assert.ok(freeDiskBytes >= 5368709120);
+const binaryPins = [];
+for (const [role, pin] of [...Object.entries(linuxRuntimePins).filter(([name]) => name !== 'solc'), ['solanaCandidate', solanaCandidateBoundedLedgerCompatibilityPin]]) {
+  assert.equal(hash(join('../../omnichain-product/.local/linux-runtimes', pin[0])), pin[1], role);
+  binaryPins.push({ role, path: pin[0], sha256: pin[1] });
+}
+const sourcePins = nativeClaimSourcePins(), expected = JSON.parse(readFileSync(join(out, 'frozen-source-pins.json')));
+expected.local.sort((a, b) => a.path.localeCompare(b.path));
+const correctionPins = {
+  'wallet-platform/modules/ops/native-operators.mjs': '296bbf891859ddb5383a781cc74e763172fe07d945934c7ad3d7f94962cc8c1c',
+  'wallet-platform/modules/native-claims/operators.mjs': '86430f54577bacd2312c4e964959d0aa462f17c3886e31299123c5688a13daee',
+  'wallet-platform/modules/ops/combined-native-operators.mjs': '1c1fdf9ace6656999e527f07540060085b054ed0834f6fb358fb4dd297e47524',
+};
+for (const [path, expectedHash] of Object.entries(correctionPins)) assert.equal(hash(path), expectedHash, path);
+assert.deepEqual(sourcePins, expected, 'LOADED_V3_EXACT_INSTALLED_CLOSURE');
+const toolchain = verifyToolchain(), crs = verifyCRS();
+const artifactPreflight = await loadNativeClaimIngressV3Artifacts();
+assert.deepEqual(Object.keys(artifactPreflight.verifiers).sort(), ['CI51', 'CO42']);
+const prior = '.local/native-ingress-v3-production-preflight/attempt-4eee4965-381d-45b3-9567-9f45886e7f61/';
+const accepted = JSON.parse(readFileSync(prior + 'resources.json')), priorResult = JSON.parse(readFileSync(prior + 'result.json'));
+assert.equal(accepted.resultAccepted, true); assert.equal(accepted.sourceClosureUnchanged, true);
+assert.equal(accepted.ownedGroupCleanupConfirmed, true); assert.equal(priorResult.success, true);
+const record = { format: 'LIANUM_NATIVE_CLAIM_LOADED_V3_REDEMPTION_LAUNCH_V1', createdAt: new Date().toISOString(), oneExecutionOnly: true,
+  reviewedCorrectionPins: correctionPins, priorStoppedRun: 'ab8e6290-9673-45d8-89db-0462f4cc6943',
+  entry: 'integration/run-native-claim-loaded-v3-flow.mjs', profile: 'SOLANA_LOADED_POST_DELIVERY_REDEMPTION_INGRESS_V3', environment: process.env,
+  checkpoint, policySHA256: hash(policy), disabledPolicySHA256: '37012ee6b6978ff251086c8901a83a79bd11e744d133da2b1057597c2d4f253c',
+  frozenSourcePinsSHA256: hash(join(out, 'frozen-source-pins.json')), sourceFiles: sourcePins.local.length,
+  sourcePinsSHA256: sha(JSON.stringify(sourcePins, null, 2) + '\n'),
+  node: { path: realpathSync(process.execPath), version: process.version, sha256: hash(process.execPath) },
+  locks, resources: { availableRAMBytes, freeDiskBytes }, binaryPins, toolchain, crs,
+  actualReadOnlyClaimArtifactsPreflight: true, priorZeroFundingRun: '27f601c8-a92c-4a9f-ab00-22a13ccddaa9',
+  acceptedZeroDepositPreflight: { runId: priorResult.runId, resultSHA256: hash(prior + 'result.json'), resourcesSHA256: hash(prior + 'resources.json') },
+  requiredPath: { privateClaim: '3000000', privateClaimExit: '3000000', nativeRedemption: '3000000',
+    independentSolverNativeDelivery: '1000000', proofPackets: 4, originalFinalAuthorizationConsumedBeforeKey: true,
+    loadedJointInventory: true, noFullGraphProofs: true, noRefund: true, stopOnPreflightFailure: true },
+  realFunds: false, publicNetwork: false, separateFundedDiagnostic: false };
+writeFileSync(join(out, 'launch-checkpoint.json'), JSON.stringify(record, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+console.log(JSON.stringify({ checked: true, sourceFiles: record.sourceFiles, checkpointVersion: checkpoint.version,
+  sourcePinsSHA256: record.sourcePinsSHA256, binaryPins: binaryPins.length, availableRAMBytes, freeDiskBytes, node: process.version }));

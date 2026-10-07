@@ -1,0 +1,11 @@
+[package]
+name = "flat_dependency_readiness"
+type = "bin"
+authors = ["Lianum nonrecursive readiness source integration"]
+
+[dependencies]
+readiness_support = { path = "../readiness-lib" }
+envelope_support = { path = "../envelope-lib" }
+poseidon_support = { path = "../../../candidate-poseidon/lib" }
+native_support = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-native/lib" }
+graph_support = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-graph/lib" }

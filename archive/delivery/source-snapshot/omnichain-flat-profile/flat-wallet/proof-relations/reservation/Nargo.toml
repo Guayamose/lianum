@@ -1,0 +1,11 @@
+[package]
+name = "flat_wallet_reservation"
+type = "bin"
+authors = ["Lianum flat wallet source integration"]
+
+[dependencies]
+envelope_support = { path = "../envelope-lib" }
+poseidon_support = { path = "../../../candidate-poseidon/lib" }
+graph_support = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-graph/lib" }
+generic_wrappers = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-wrappers/lib" }
+
