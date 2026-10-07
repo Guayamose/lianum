@@ -1,0 +1,56 @@
+{
+  "schema": "synthetic-existing-tron-wire-test-fixture/1",
+  "source": "wallet-platform/modules/chain-adapters/tron-native-transfer-wire.test.mjs",
+  "sourceSHA256": "64e2bf877c90e5783881df783c3a246d6a599e7c764b10d8b8237e917846c91a",
+  "original": {
+    "nativeWire": "0aa7010a02c1452208c56bd8a3b3341d9d40e0c4d086a6375220abababababababababababababababababababababababababababababababab5a67080112630a2d747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e5472616e73666572436f6e747261637412320a15417e5f4552091a69125d5dfcb7b8c2659029395bdf121541353535353535353535353535353535353535353518d1a54c7080f0cc86a637124179be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179810a3042b77c7a5362c5f7e4a2c83bfdccad8636b1777ce1b87d9f763b11f5ef801",
+    "expected": {
+      "nativeId": "759e95558e5b9f1d7e001f2004f5351aed3a7ca06a02a946de05e5ce081ecab1",
+      "transactionSHA256": "8163fd96fe4436dececb6147d58135608780535cf7398c2cc1f5ecbc9f263807",
+      "ownerAddress": "417e5f4552091a69125d5dfcb7b8c2659029395bdf",
+      "recipientAddress": "413535353535353535353535353535353535353535",
+      "amountSun": "1250001",
+      "refBlockBytes": "c145",
+      "refBlockHash": "c56bd8a3b3341d9d",
+      "timestampMs": "1900000000000",
+      "expirationMs": "1900000060000",
+      "wireKeyCommitment": "abababababababababababababababababababababababababababababababab"
+    }
+  },
+  "alternate": {
+    "nativeWire": "0aa7010a02c1452208c56bd8a3b3341d9d40e0c4d086a6375220abababababababababababababababababababababababababababababababab5a67080112630a2d747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e5472616e73666572436f6e747261637412320a15417e5f4552091a69125d5dfcb7b8c2659029395bdf121541353535353535353535353535353535353535353518d1a54c7080f0cc86a6371241c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5622e758b17db71baa8dd5038b2a5270515d5d770b3cfad447af966c91dee8c7601",
+    "expected": {
+      "nativeId": "759e95558e5b9f1d7e001f2004f5351aed3a7ca06a02a946de05e5ce081ecab1",
+      "transactionSHA256": "ee5b674416dbbc4ff06ac278060a37c138b5d128b583a05e1e156eea7d950a28",
+      "ownerAddress": "417e5f4552091a69125d5dfcb7b8c2659029395bdf",
+      "recipientAddress": "413535353535353535353535353535353535353535",
+      "amountSun": "1250001",
+      "refBlockBytes": "c145",
+      "refBlockHash": "c56bd8a3b3341d9d",
+      "timestampMs": "1900000000000",
+      "expirationMs": "1900000060000",
+      "wireKeyCommitment": "abababababababababababababababababababababababababababababababab"
+    }
+  },
+  "canonical": {
+    "nativeWire": "0aa7010a02c1452208c56bd8a3b3341d9d40e0c4d086a637522079eab5174cc501627c17f497b9d3cf504466e87b6d0fbd87713b73b148e5160a5a67080112630a2d747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e5472616e73666572436f6e747261637412320a15417e5f4552091a69125d5dfcb7b8c2659029395bdf121541353535353535353535353535353535353535353518d1a54c7080f0cc86a637124179be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f817984f36229fce135e28658503919c91a3d43380e9a205f616f9c4be51fa5cdceb1c01",
+    "expected": {
+      "nativeId": "370b76e1380fe62b44da99d894e751238491f6697b846068a1218b375c613e8d",
+      "transactionSHA256": "1eac79277b9164706ad0b0ca4039cb82a3190825ae3cbfb143327afa526203b6",
+      "ownerAddress": "417e5f4552091a69125d5dfcb7b8c2659029395bdf",
+      "recipientAddress": "413535353535353535353535353535353535353535",
+      "amountSun": "1250001",
+      "refBlockBytes": "c145",
+      "refBlockHash": "c56bd8a3b3341d9d",
+      "timestampMs": "1900000000000",
+      "expirationMs": "1900000060000",
+      "wireKeyCommitment": "79eab5174cc501627c17f497b9d3cf504466e87b6d0fbd87713b73b148e5160a"
+    }
+  },
+  "syntheticNamespace": "72ba5724b52eebf4c8016d3ed98cb39caac95b640eb4d752275d574f62cbed9d",
+  "syntheticReceiptSecret": "7a15cfcb2823285605d344e098253c366ecd169a824d212c9f312f3b5d461d38",
+  "canonicalK": "79eab5174cc501627c17f497b9d3cf504466e87b6d0fbd87713b73b148e5160a",
+  "provenance": "Existing public test fixture arithmetic; canonical K variation explicitly authorized for synthetic host checks, no runtime signing API",
+  "synthetic": true,
+  "networkTransaction": false
+}
