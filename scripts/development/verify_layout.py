@@ -1,10 +1,16 @@
 """Verify the physical reorganization and the archived original handoff."""
+import argparse
 import json
+import subprocess
 
 from workspace import ROOT, RUNTIME, DEV, digest, layout, physical
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--tracked-delivery', action='store_true',
+                        help='Check versioned originals only; explicitly exclude local reference packets.')
+    args = parser.parse_args()
     config = layout()
     current = json.loads((DEV / "reports/workspace-build.json").read_text())["files"]
     sources = set()
@@ -23,18 +29,42 @@ def main():
     delivery = ROOT / "archive/delivery"
     manifest = json.loads((delivery / "MANIFEST.json").read_text())
     original_paths = json.loads((delivery / "original-paths.json").read_text())
-    for row in manifest["files"]:
+    checked_rows = manifest["files"]
+    excluded = []
+    if args.tracked_delivery:
+        tracked = set(subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT,
+                                             text=True).split('\0'))
+        checked_rows = []
+        for row in manifest['files']:
+            original = original_paths[row['path']]
+            if original in tracked:
+                checked_rows.append(row)
+            elif original.startswith(('archive/reference/', 'archive/reviewed-packets/', 'archive/drafts/')):
+                excluded.append(original)
+            else:
+                raise RuntimeError(f'Original required in Git is not versioned: {original}')
+    for row in checked_rows:
         path = physical(ROOT / original_paths[row["path"]])
         if not path.is_file() or path.stat().st_size != row["bytes"] or digest(path) != row["sha256"]:
             raise RuntimeError(f"Archived original delivery changed: {row['path']}")
-        if path.stat().st_mode & 0o777 != int(row["mode"], 8):
+        actual_mode, original_mode = path.stat().st_mode & 0o777, int(row["mode"], 8)
+        # Git retains executability, not the original owner's read/write bits.
+        mode_matches = (bool(actual_mode & 0o111) == bool(original_mode & 0o111)
+                        if args.tracked_delivery else actual_mode == original_mode)
+        if not mode_matches:
             raise RuntimeError(f"Archived original mode changed: {row['path']}")
     report = {"schema": "LIANUM_LAYOUT_VERIFICATION_V1", "status": "PASS",
               "editableSourceFiles": len(sources), "originalDeliveryFiles": len(manifest["files"]),
+              "verifiedOriginalFiles": len(checked_rows),
+              "deliveryScope": "versioned-originals" if args.tracked_delivery else "complete-restored-delivery",
+              "originalPermissionScope": "git-executability" if args.tracked_delivery else "exact-unix-mode",
+              "excludedLocalReferences": excluded,
               "editedSinceOriginal": changed, "removedSinceOriginal": removed,
               "physicalFiles": True, "runtimeSynchronized": True}
     (DEV / "reports/layout.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"PASS: {len(sources)} physical workspace files; {len(manifest['files'])} originals preserved.")
+    print(f"PASS: {len(sources)} physical workspace files; {len(checked_rows)} originals verified.")
+    if excluded:
+        print(f"Scope: versioned originals; {len(excluded)} local reference files excluded explicitly.")
     if changed:
         print(f"{len(changed)} workspace sources edited since the original delivery.")
 
