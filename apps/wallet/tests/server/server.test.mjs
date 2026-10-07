@@ -26,11 +26,11 @@ const syntheticNative = new WeakSet(), syntheticIdentities = new WeakMap(), synt
 const error = code => Object.assign(new Error(code), { code });
 mock.module('../wallet-platform/modules/api/native-claim-session.mjs', { exports: {
   nativeClaimApiErrorCode,
-  nativeClaimSessionIdentity(value) {
+  walletClaimSessionIdentity(value) {
     if (!syntheticNative.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED');
     return syntheticIdentities.get(value);
   },
-  assertNativeClaimSession(value) {
+  assertWalletClaimSession(value) {
     if (!syntheticNative.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED');
   },
 } });
@@ -568,7 +568,8 @@ test('real configured network transport pins local reads and freezes private boo
   const response = await readState(app), value = validateWalletState(response.json);
   assert.equal(response.status, 200); assert.equal(value.networks.privateSpendable, false);
   assert.equal(value.networks.observation, 'TRUSTED_RPC_NATIVE_HOLDINGS_ONLY');
-  assert.equal(value.networks.chains.length, 5);
+  assert.deepEqual(value.networks.chains.map(row => row.chain),
+    ['ethereum', 'base', 'arbitrum', 'bnb', 'solana', 'bitcoin', 'tron']);
   assert.deepEqual(value.networks.chains.filter(row => row.configured).map(row => row.chain), ['ethereum']);
   const observation = value.networks.observations[0];
   assert.equal(observation.status, 'fresh'); assert.equal(observation.balanceAtomic, '9007199254740993');
