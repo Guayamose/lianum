@@ -13,7 +13,12 @@ export const NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1='native-value-economic-note-
 export const NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1='LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_RESULT_V1';
 // Source-reviewed permission for this one fresh, fake-funded local experiment.
 // This publication does not establish a successful economic restart.
-export const NATIVE_DEVICE_ECONOMIC_NOTE_REAL_RELEASE_V1=null;
+export const NATIVE_DEVICE_ECONOMIC_NOTE_REAL_RELEASE_V1=Object.freeze({
+ format:'REVIEWED_LOCAL_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_RELEASE_V1',profile:NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1,
+ relations:Object.freeze([...DEVICE_RECOVERY_RELATIONS_V1]),captureAfter:'CANONICAL_F_LOST_REPLY_BEFORE_TERMINAL_APPLY',
+ deviceAmountAtomic:'500',refundAtomic:'500',sameDeviceVault:true,plannedCaptureOnly:true,
+ noteProofBackend:'NativeUnixSocket',noteProofThreads:12,independentNoteVerification:'Wasm1',
+ localOnly:true,fakeFundsOnly:true,publicNetwork:false,phone:false,abruptCrash:false});
 const reviewed=()=>({format:'REVIEWED_LOCAL_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_RELEASE_V1',profile:NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1,
  relations:[...DEVICE_RECOVERY_RELATIONS_V1],captureAfter:'CANONICAL_F_LOST_REPLY_BEFORE_TERMINAL_APPLY',deviceAmountAtomic:'500',refundAtomic:'500',
  sameDeviceVault:true,plannedCaptureOnly:true,noteProofBackend:'NativeUnixSocket',noteProofThreads:12,independentNoteVerification:'Wasm1',localOnly:true,fakeFundsOnly:true,publicNetwork:false,phone:false,abruptCrash:false});
