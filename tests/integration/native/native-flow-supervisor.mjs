@@ -1,3 +1,5 @@
+import { osakaSmokeSourcePins } from '../evm/osaka/development-osaka-smoke-source-pins.mjs';
+import { OSAKA_SMOKE_RESULT, assertOsakaSmokeResult, osakaSmokeProcessFailure } from '../evm/osaka/development-osaka-smoke-policy.mjs';
 import { developmentDefiEntrySourcePins } from '../defi/entry/development-defi-entry-source-pins.mjs';
 import { DEVELOPMENT_DEFI_ENTRY_RESULT, assertDevelopmentDefiEntryResult } from '../defi/entry/development-defi-entry-policy.mjs';
 import { developmentNativeClaimSourcePins } from '../claims/development/development-native-claim-source-pins.mjs';
@@ -59,6 +61,15 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  developmentOsakaSmoke: Object.freeze({
+    entry: join(ROOT, 'integration/evm/osaka/run-development-osaka-smoke.mjs'),
+    worker: join(ROOT, 'integration/evm/osaka/development-osaka-smoke.mjs'),
+    local: join(ROOT, '.local/development-osaka-smoke-v1'),
+    resultFormat: OSAKA_SMOKE_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_OSAKA_SMOKE_RESOURCES_V1',
+    lockFormat: 'LIANUM_DEVELOPMENT_OSAKA_SMOKE_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_OSAKA_SMOKE_ATTEMPT_V1',
+    classification: 'BOUNDED_ORIGINAL_OSAKA_DEPLOYMENT_AND_PUBLIC_SYNTHETIC_TRANSFER',
+    sourcePins: osakaSmokeSourcePins, cleanupKeys: Object.freeze(['closedEvm']),
+  }),
   wrappedDeploymentOnly: Object.freeze({
     entry: join(ROOT, 'integration/run-wrapped-deployment-only-v1.mjs'),
     worker: join(ROOT, 'integration/wrapped-deployment-only-v1.mjs'),
@@ -537,6 +548,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if (profile === FLOW_PROFILES.developmentOsakaSmoke) scoped = assertOsakaSmokeResult(result);
   if (profile === FLOW_PROFILES.wrappedDeploymentOnly) scoped = assertWrappedDeploymentOnlyResultV1(result);
   if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) scoped = assertBeginPayoutAuditResultV1(result);
   if (profile === FLOW_PROFILES.wrappedWalletFixedAcceptance) scoped = assertWrappedWalletFixedResultV1(result);
@@ -609,6 +621,10 @@ export async function runNativeWalletRealPreflightSupervisor() {
   return runFixedFlowSupervisor(FLOW_PROFILES.nativeWalletRealPreflight);
 }
 
+export async function runDevelopmentOsakaSmokeSupervisor() {
+  assert.equal(arguments.length, 0, 'OSAKA_NO_SUPERVISOR_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.developmentOsakaSmoke);
+}
 export async function runNativeFlowSupervisor() {
   assert.equal(arguments.length, 0, 'NATIVE_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.nativeFlow);
@@ -977,6 +993,10 @@ async function runFixedFlowSupervisor(profile) {
         const forbidden = nativeWalletUnfundedProcessFailure(sample.ownedProcesses) || (sample.ownedProcesses.some(p => p.proofWorker || p.role === 'wrapped-claim-proof-role') ? 'WRAPPED_PREFLIGHT_PROOF_FORBIDDEN' : null);
         if (forbidden) stop(forbidden, {}, sample);
       }
+      if (profile === FLOW_PROFILES.developmentOsakaSmoke) {
+        const forbidden = osakaSmokeProcessFailure(sample.ownedProcesses);
+        if (forbidden) stop(forbidden, {}, sample);
+      }
       if (profile === FLOW_PROFILES.nativeWalletRealPreflight) {
         const forbidden = nativeWalletUnfundedProcessFailure(sample.ownedProcesses);
         if (forbidden) stop(forbidden, {}, sample);
@@ -1032,6 +1052,10 @@ async function runFixedFlowSupervisor(profile) {
       else if (!childExited || !childClosed) fail('NATIVE_WORKER_EXIT_OR_CLOSE_NOT_OBSERVED');
       if (profile === FLOW_PROFILES.wrappedWalletFixedPreflight || profile === FLOW_PROFILES.wrappedDeploymentOnly) {
         const forbidden = nativeWalletUnfundedProcessFailure([...history.values()]) || ([...history.values()].some(p => p.proofWorker || p.role === 'wrapped-claim-proof-role') ? 'WRAPPED_PREFLIGHT_PROOF_FORBIDDEN' : null);
+        if (forbidden) fail(forbidden);
+      }
+      if (profile === FLOW_PROFILES.developmentOsakaSmoke) {
+        const forbidden = osakaSmokeProcessFailure([...history.values()]);
         if (forbidden) fail(forbidden);
       }
       if (profile === FLOW_PROFILES.nativeWalletRealPreflight) {
