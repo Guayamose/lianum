@@ -1,3 +1,5 @@
+import {nativeSplClaimV1CompilationSourcePins} from '../chains/evm/native-spl-claim-v1-compilation-source-pins.mjs';
+import {SPL_CLAIM_V1_COMPILATION_RESULT,SPL_CLAIM_V1_COMPILATION_DEADLINE,assertNativeSplClaimV1CompilationResult,classifyNativeSplClaimV1Preparation,nativeSplClaimV1CompilationProcessFailure} from '../chains/evm/native-spl-claim-v1-compilation-policy.mjs';
 import {nativeSplClaimTokenCompilationSourcePinsV1} from '../chains/evm/native-spl-claim-token-compilation-source-pins-v1.mjs';
 import {SPL_TOKEN_COMPILATION_RESULT_V1,assertNativeSplClaimTokenCompilationResultV1,nativeSplClaimTokenCompilationProcessFailureV1} from '../chains/evm/native-spl-claim-token-compilation-policy-v1.mjs';
 import {classifyAuthorizationNativeProcessV1} from '../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs';
@@ -95,6 +97,7 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  nativeSplClaimV1CompilationOnly:Object.freeze({entry:join(ROOT,'integration/run-native-spl-claim-v1-compilation.mjs'),worker:join(ROOT,'integration/native-spl-claim-v1-compilation-worker.mjs'),local:join(ROOT,'.local/native-spl-claim-v1-compilation-only-v1'),resultFormat:SPL_CLAIM_V1_COMPILATION_RESULT,resourcesFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_ATTEMPT_V1',classification:'ORIGINAL_CI51_V1_PUBLIC_PREPARATION_AND_TWO_VERIFIERS_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimV1CompilationSourcePins,cleanupKeys:Object.freeze(['preparationChildrenClosed','compilerReset'])}),
   nativeSplClaimTokenCompilationOnlyV1:Object.freeze({entry:join(ROOT,'integration/run-native-spl-claim-token-compilation-v1.mjs'),worker:join(ROOT,'integration/native-spl-claim-token-compilation-worker-v1.mjs'),local:join(ROOT,'.local/native-spl-claim-token-compilation-only-v1'),resultFormat:SPL_TOKEN_COMPILATION_RESULT_V1,resourcesFormat:'LIANUM_SPL_TOKEN_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_TOKEN_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_TOKEN_COMPILATION_ATTEMPT_V1',classification:'NEW_SPL_USDC_CLAIM_TOKEN_SOLIDITY_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimTokenCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset'])}),
   nativeSplCompilationOnlyV1:Object.freeze({
     entry:join(ROOT,'integration/run-native-spl-compilation-v1.mjs'),worker:join(ROOT,'integration/native-spl-compilation-worker-v1.mjs'),
@@ -723,6 +726,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
   if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) scoped = assertJupiterOrcaPublicSwapResultV1(result);
+  if (profile === FLOW_PROFILES.nativeSplClaimV1CompilationOnly) scoped = assertNativeSplClaimV1CompilationResult(result);
   if (profile === FLOW_PROFILES.nativeSplClaimTokenCompilationOnlyV1) scoped = assertNativeSplClaimTokenCompilationResultV1(result);
   if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) scoped = assertAaveCompilationResultV1(result);
   if (profile === FLOW_PROFILES.nativeSplCompilationOnlyV1) scoped = assertNativeSplCompilationResultV1(result);
@@ -987,6 +991,7 @@ export async function runJupiterOrcaPublicSwapSupervisorV1(){
   assertJupiterPublicFixtureSourceReviewV1();assertJupiterPublicSwapSourceReviewV1();
   return runFixedFlowSupervisor(FLOW_PROFILES.jupiterOrcaPublicSwapV1);
 }
+export async function runNativeSplClaimV1CompilationSupervisor(){assert.equal(arguments.length,0,'SPL_CLAIM_V1_COMPILATION_NO_OPTIONS');return runFixedFlowSupervisor(FLOW_PROFILES.nativeSplClaimV1CompilationOnly);}
 export async function runNativeSplClaimTokenCompilationSupervisorV1(){assert.equal(arguments.length,0,'SPL_TOKEN_COMPILATION_SUPERVISOR_NO_OPTIONS');return runFixedFlowSupervisor(FLOW_PROFILES.nativeSplClaimTokenCompilationOnlyV1);}
 export async function runEvmAaveCompilationSupervisorV1(){
   assert.equal(arguments.length,0,'AAVE_COMPILATION_SUPERVISOR_NO_OPTIONS');
@@ -1102,6 +1107,7 @@ async function runFixedFlowSupervisor(profile) {
       const scoped = classifyBeginPayoutAuditProofProcessV1(argv); if (scoped) return scoped;
     }
     if(profile===FLOW_PROFILES.nativeSplCompilationOnlyV1)return classifyNativeSplCompilerProcessV1(argv,readlinkSync(`/proc/${pid}/exe`));
+    if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const p=classifyNativeSplClaimV1Preparation(argv);if(p)return p;}
     const script = argv[1];
     const nativeStat=procStat(pid),nativeParent=nativeStat?procStat(nativeStat.ppid):null;
     const native=classifyAuthorizationNativeProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
@@ -1326,6 +1332,7 @@ async function runFixedFlowSupervisor(profile) {
         const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
         if(forbidden)stop(forbidden,{},sample);
       }
+      if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const forbidden=nativeSplClaimV1CompilationProcessFailure([...history.values()]);if(forbidden)stop(forbidden,{},sample);if(sample.elapsedMilliseconds>SPL_CLAIM_V1_COMPILATION_DEADLINE)stop('SPL_CLAIM_V1_COMPILATION_FIXED_DEADLINE',{},sample);}
       if(profile===FLOW_PROFILES.nativeSplClaimTokenCompilationOnlyV1){const forbidden=nativeSplClaimTokenCompilationProcessFailureV1([...history.values()]);if(forbidden)stop(forbidden,{},sample);if(sample.elapsedMilliseconds>60000)stop('SPL_TOKEN_COMPILATION_FIXED_DEADLINE',{},sample);}
       if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
         const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
@@ -1423,6 +1430,7 @@ async function runFixedFlowSupervisor(profile) {
         const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
         if(forbidden)fail(forbidden);
       }
+      if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const forbidden=nativeSplClaimV1CompilationProcessFailure([...history.values()]);if(forbidden)fail(forbidden);if(elapsed()>SPL_CLAIM_V1_COMPILATION_DEADLINE)fail('SPL_CLAIM_V1_COMPILATION_FIXED_DEADLINE');}
       if(profile===FLOW_PROFILES.nativeSplClaimTokenCompilationOnlyV1){const forbidden=nativeSplClaimTokenCompilationProcessFailureV1([...history.values()]);if(forbidden)fail(forbidden);if(elapsed()>60000)fail('SPL_TOKEN_COMPILATION_FIXED_DEADLINE');}
       if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
         const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
