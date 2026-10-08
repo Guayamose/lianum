@@ -18,7 +18,7 @@ import { assertOwnedFlatSystem } from '../../../operations/deployments/system/de
 import { assertOwnedFlatOperatorQuorum, ownedFlatOperatorQuorumBindings } from '../../../operations/operators/claims/native-operators.mjs';
 import { assertOwnedFlatNativeProvider, ownedFlatNativeProviderReview } from '../../../providers/native-provider.mjs';
 import { assertOwnedFlatEvmVaultProvider, ownedFlatEvmVaultProviderReview } from '../../../providers/evm-vault-provider.mjs';
-import { isOwnedMetaMorphoGraphDeliveryObserverV1 } from '../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
+import { isOwnedOfficialGraphDeliveryObserverV1 } from '../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { createFlatSystemStateReader } from '../reconciliation/flat-system-state.mjs';
 import { createFlatTerminalObserver } from '../reconciliation/flat-terminal-observer.mjs';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField } from '../../encoding/commitments.mjs';
@@ -402,7 +402,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     manualReview(ref) {
       live(); assert.ok(!cancelled, 'FLAT_EXECUTION_CANCELLED');
       const entry = operation(ref), selected = providerSets.get(ref), packets = entry.prepared.rolePackets;
-      if(isOwnedMetaMorphoGraphDeliveryObserverV1(evmDelivery)||selected?.length!==1||selected[0]?.family!=='3'||selected[0]?.slot!==0||packets.dependency[0].dependency.value.dependencyCount!=='0'){
+      if(isOwnedOfficialGraphDeliveryObserverV1(evmDelivery)||selected?.length!==1||selected[0]?.family!=='3'||selected[0]?.slot!==0||packets.dependency[0].dependency.value.dependencyCount!=='0'){
         assert.equal(new Set(selected.map(value=>value.provider)).size,selected.length,'FLAT_EXECUTION_DISTINCT_ORIGINAL_PROVIDERS');
         const readReview=chosen=>{
           const binding={runtime,system,poolIndex,operatorQuorum:quorum,family:chosen.family,recipientIndex:chosen.recipientIndex};

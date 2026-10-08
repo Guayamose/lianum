@@ -1,4 +1,4 @@
-/** Official MetaMorpho family-3 reader. Authority requires the original fixed
+/** Fixed original official-protocol family-3 readers. Authority requires the original fixed
  * protocol, router, signed runtime wire, canonical D27 arrival and backing.
  * No callback, receipt object or profile flag can mint this private brand. */
 import assert from 'node:assert/strict';
@@ -16,10 +16,11 @@ import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mj
 import { decodeDepositIntentInputs } from '../../../execution/account/preparation/deposit-intent.mjs';
 import { decodePrivateExternalDeliveryCall } from '../../../defi/delivery/private-external-delivery.mjs';
 import { evmRuntimeCodeHash } from '../contracts/evm-code-hash.mjs';
-import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
+import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1 } from '../dispatch/evm-graph-delivery-codec-v1.mjs';
 
 const owned = new WeakMap(), facts = new WeakMap();
+const META = 'METAMORPHO_V1_EXACT_SHARE_MINT', UNI = 'UNISWAP_V3_EXACT_OUTPUT_SINGLE';
 const detached = value => { const result = structuredClone(value);
   const freeze = item => { if (item && typeof item === 'object') {
     Object.values(item).forEach(freeze); Object.freeze(item); } return item; }; return freeze(result); };
@@ -29,53 +30,76 @@ const quantity = value => { assert.ok(typeof value === 'string' && /^0x(0|[1-9a-
 const adverse = new Set(['METAMORPHO_GRAPH_REVERTED', 'METAMORPHO_GRAPH_RECEIPT_CHANGED',
   'METAMORPHO_GRAPH_PROTOCOL_ASSET_DELTA', 'METAMORPHO_GRAPH_PROTOCOL_SHARE_DELTA',
   'METAMORPHO_GRAPH_MORPHO_ASSET_DELTA', 'METAMORPHO_GRAPH_SOURCE_POOL_CHANGED',
-  'METAMORPHO_GRAPH_PROTOCOL_CODE_CHANGED', 'LOCAL_EVM_CANONICAL_BLOCK_CHANGED']);
+  'METAMORPHO_GRAPH_PROTOCOL_CODE_CHANGED', 'LOCAL_EVM_CANONICAL_BLOCK_CHANGED',
+  'UNISWAP_GRAPH_POOL_CODE_CHANGED', 'UNISWAP_GRAPH_POOL_BALANCE_DELTA',
+  'UNISWAP_GRAPH_SUPPLY_CHANGED', 'UNISWAP_GRAPH_EXACT_SWAP', 'UNISWAP_GRAPH_SLOT0_CHANGED']);
 function failure(error, authenticated) {
   const code = error?.message?.split('\n', 1)[0];
   return { status: authenticated && error instanceof assert.AssertionError && adverse.has(code) ? 'adverse' : 'unknown',
     reason: typeof code === 'string' && /^[A-Z][A-Z0-9_]{1,79}$/.test(code) ? code : 'METAMORPHO_GRAPH_OBSERVATION_UNAVAILABLE' };
 }
-export const isOwnedMetaMorphoGraphDeliveryObserverV1 = value => owned.has(value);
-export function assertOwnedMetaMorphoGraphDeliveryObserverV1(observer, expected) {
+export const isOwnedMetaMorphoGraphDeliveryObserverV1 = value => owned.get(value)?.protocolKind === META;
+export const isOwnedUniswapGraphDeliveryObserverV1 = value => owned.get(value)?.protocolKind === UNI;
+export const isOwnedOfficialGraphDeliveryObserverV1 = value => owned.has(value);
+function assertOwnedOfficialObserver(observer, expected, protocolKind = null) {
   exactRecord(expected, ['runtime', 'system', 'poolIndex']);
   const state = owned.get(observer); assert.ok(state, 'METAMORPHO_GRAPH_ORIGINAL_OBSERVER_REQUIRED');
+  if (protocolKind !== null) assert.equal(state.protocolKind, protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
   for (const key of ['runtime', 'system', 'poolIndex']) assert.equal(state[key], expected[key], 'METAMORPHO_GRAPH_ORIGINAL_BINDING');
   assertOwnedFlatSystem(state.runtime, state.system);
   assertOwnedPrivateExternalRouterV1(state.router, expected);
+  assert.equal(state.router.protocolKind, state.protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
   assertOfficialProtocolFixture(state.runtime, state.protocolFixture);
 }
+export function assertOwnedMetaMorphoGraphDeliveryObserverV1(observer, expected) { assertOwnedOfficialObserver(observer, expected, META); }
+export function assertOwnedUniswapGraphDeliveryObserverV1(observer, expected) { assertOwnedOfficialObserver(observer, expected, UNI); }
 export function assertOwnedMetaMorphoGraphDeliveryFactsV1(value, { observer }) {
-  assert.ok(owned.has(observer) && facts.get(value) === observer, 'METAMORPHO_GRAPH_ORIGINAL_FACTS_REQUIRED');
+  assert.ok(isOwnedMetaMorphoGraphDeliveryObserverV1(observer) && facts.get(value) === observer, 'METAMORPHO_GRAPH_ORIGINAL_FACTS_REQUIRED');
 }
-/** Exact original descriptor binding, separate from pure framing validation. */
-export function assertOwnedMetaMorphoGraphDescriptorV1(observer, router, descriptor) {
+export function assertOwnedUniswapGraphDeliveryFactsV1(value, { observer }) {
+  assert.ok(isOwnedUniswapGraphDeliveryObserverV1(observer) && facts.get(value) === observer, 'UNISWAP_GRAPH_ORIGINAL_FACTS_REQUIRED');
+}
+/** Both factories retain exact original object identities. The discriminator
+ * below selects framing only after the private ownership map was checked. */
+function assertOwnedOfficialDescriptor(observer, router, descriptor, protocolKind = null) {
   const state = owned.get(observer); assert.ok(state && state.router === router, 'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');
-  assertOwnedMetaMorphoGraphDeliveryObserverV1(observer, { runtime: state.runtime, system: state.system, poolIndex: state.poolIndex });
+  assertOwnedOfficialObserver(observer, { runtime: state.runtime, system: state.system, poolIndex: state.poolIndex }, protocolKind);
   validateEvmGraphDeliveryDescriptorV1(descriptor);
-  assert.equal(descriptor.profile, METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, 'METAMORPHO_GRAPH_DESCRIPTOR_REQUIRED');
+  assert.equal(descriptor.profile, state.profile, 'METAMORPHO_GRAPH_DESCRIPTOR_REQUIRED');
   assert.deepEqual(descriptor.context, state.context, 'METAMORPHO_GRAPH_ORIGINAL_CONTEXT');
   assert.deepEqual(descriptor.plan.identity, router.identity, 'METAMORPHO_GRAPH_ORIGINAL_ROUTER_IDENTITY');
 }
-/** Private bootstrap constructs the context from original deployment pins.
- * Owner D27 and route values remain subject to their proof and PAEG quote. */
-export function prepareOwnedMetaMorphoGraphDescriptorV1(input) {
+export function assertOwnedMetaMorphoGraphDescriptorV1(observer, router, descriptor) { assertOwnedOfficialDescriptor(observer, router, descriptor, META); }
+export function assertOwnedUniswapGraphDescriptorV1(observer, router, descriptor) { assertOwnedOfficialDescriptor(observer, router, descriptor, UNI); }
+function prepareOwnedOfficialDescriptor(input, protocolKind) {
   exactRecord(input, ['observer', 'router', 'route', 'ownerPublicInputs']);
   const state = owned.get(input.observer); assert.ok(state && state.router === input.router, 'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');
-  const descriptor = detached({ profile: METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, context: state.context,
-    plan: { identity: input.router.identity, protocolKind: 'METAMORPHO_V1_EXACT_SHARE_MINT', fee: null,
+  assert.equal(state.protocolKind, protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
+  const descriptor = detached({ profile: state.profile, context: state.context,
+    plan: { identity: input.router.identity, protocolKind, fee: input.router.fee,
       route: input.route, ownerPublicInputs: input.ownerPublicInputs } });
-  assertOwnedMetaMorphoGraphDescriptorV1(input.observer, input.router, descriptor); return descriptor;
+  assertOwnedOfficialDescriptor(input.observer, input.router, descriptor, protocolKind); return descriptor;
 }
-
+export function prepareOwnedMetaMorphoGraphDescriptorV1(input) { return prepareOwnedOfficialDescriptor(input, META); }
+export function prepareOwnedUniswapGraphDescriptorV1(input) { return prepareOwnedOfficialDescriptor(input, UNI); }
 export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
-  assert.equal(arguments.length, 1); exactRecord(input, ['runtime', 'system', 'poolIndex', 'router', 'protocolFixture']);
+  assert.equal(arguments.length, 1); return createOwnedOfficialObserver(input, META);
+}
+export async function createOwnedUniswapGraphDeliveryObserverV1(input) {
+  assert.equal(arguments.length, 1); return createOwnedOfficialObserver(input, UNI);
+}
+async function createOwnedOfficialObserver(input, protocolKind) {
+  exactRecord(input, ['runtime', 'system', 'poolIndex', 'router', 'protocolFixture']);
   const { runtime, system, poolIndex, router, protocolFixture: protocol } = input;
   await assertOwnedLocalEvmV2(runtime); assertOwnedFlatSystem(runtime, system);
   assertOwnedPrivateExternalRouterV1(router, { runtime, system, poolIndex }); assertOfficialProtocolFixture(runtime, protocol);
-  assert.equal(router.protocolKind, 'METAMORPHO_V1_EXACT_SHARE_MINT', 'METAMORPHO_GRAPH_OFFICIAL_PROTOCOL');
+  assert.equal(router.protocolKind, protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
+  const uniswap = protocolKind === UNI, output = uniswap ? protocol.second : protocol.vault;
+  const nativeProtocol = uniswap ? protocol.swapRouter : protocol.vault;
+  const profile = uniswap ? UNISWAP_GRAPH_DELIVERY_PROFILE_V1 : METAMORPHO_GRAPH_DELIVERY_PROFILE_V1;
   const id = router.identity, sourcePoolIndex = router.sourcePoolIndex, sourcePool = system.pools[sourcePoolIndex];
-  assert.equal(id.inputAsset, bare(protocol.first.address)); assert.equal(id.outputAsset, bare(protocol.vault.address));
-  assert.equal(id.protocol, id.outputAsset); assert.equal(sourcePool.asset, protocol.first.address, 'METAMORPHO_GRAPH_SOURCE_ASSET');
+  assert.equal(id.inputAsset, bare(protocol.first.address)); assert.equal(id.outputAsset, bare(output.address));
+  assert.equal(id.protocol, bare(nativeProtocol.address)); assert.equal(sourcePool.asset, protocol.first.address, 'METAMORPHO_GRAPH_SOURCE_ASSET');
   assert.equal(sourcePool.assetMetadata.address, protocol.first.address); assert.equal(sourcePool.assetMetadata.kind, 'ERC20');
   assert.equal(sourcePool.assetMetadata.genesisHash, runtime.metadata.evmGenesis);
   const pins = await router.read(), context = detached({ ...pins.context, routerRuntimeCodeSHA256: pins.routerRuntimeCodeSHA256 });
@@ -86,7 +110,35 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
   const targetReader = await createFlatSystemStateReader({ runtime, system, poolIndex });
   const read = async (contract, method, args, at) => contract.iface.decodeFunctionResult(method,
     await runtime.call({ to: contract.address, data: contract.iface.encodeFunctionData(method, args) }, at));
+  const factoryRows = uniswap ? protocol.deployments.filter(row => row.name === 'uniswap-factory') : [];
+  if (uniswap) assert.equal(factoryRows.length, 1, 'UNISWAP_GRAPH_ORIGINAL_FACTORY');
+  const factory = factoryRows[0], swapPoolCode = uniswap ? await runtime.code(protocol.pool.address, pins.blockNumber) : null;
+  if (uniswap) assert.ok(typeof swapPoolCode === 'string' && swapPoolCode !== '0x', 'UNISWAP_GRAPH_ORIGINAL_POOL_CODE');
+  const inputIsToken0 = BigInt(protocol.first.address) < BigInt(output.address);
+  async function uniswapAt(at) {
+    for (const contract of [protocol.first, protocol.second, protocol.swapRouter, factory])
+      assert.equal(await runtime.code(contract.address, at), contract.code, 'METAMORPHO_GRAPH_PROTOCOL_CODE_CHANGED');
+    assert.equal(await runtime.code(protocol.pool.address, at), swapPoolCode, 'UNISWAP_GRAPH_POOL_CODE_CHANGED');
+    const rows = await Promise.all([
+      read(protocol.swapRouter, 'factory', [], at), read(factory, 'getPool', [protocol.first.address, protocol.second.address, 3000], at),
+      read(protocol.pool, 'factory', [], at), read(protocol.pool, 'token0', [], at), read(protocol.pool, 'token1', [], at),
+      read(protocol.pool, 'fee', [], at), read(protocol.pool, 'slot0', [], at), read(protocol.pool, 'liquidity', [], at),
+      read(protocol.first, 'balanceOf', [protocol.pool.address], at), read(protocol.second, 'balanceOf', [protocol.pool.address], at),
+      read(protocol.first, 'totalSupply', [], at), read(protocol.second, 'totalSupply', [], at),
+      read(protocol.second, 'balanceOf', ['0x' + id.solver], at), read(protocol.pool, 'tickSpacing', [], at),
+    ]);
+    assert.equal(rows[0][0].toLowerCase(), factory.address); assert.equal(rows[1][0].toLowerCase(), protocol.pool.address);
+    assert.equal(rows[2][0].toLowerCase(), factory.address);
+    assert.equal(rows[3][0].toLowerCase(), inputIsToken0 ? protocol.first.address : protocol.second.address);
+    assert.equal(rows[4][0].toLowerCase(), inputIsToken0 ? protocol.second.address : protocol.first.address);
+    assert.equal(rows[5][0], 3000n); assert.equal(router.fee, '3000'); assert.equal(rows[13][0], 60n);
+    const slot0 = Array.from(rows[6]).map(value => typeof value === 'boolean' ? value : value.toString());
+    assert.equal(slot0.length, 7); assert.ok(BigInt(slot0[0]) > 0n && rows[7][0] > 0n && slot0[6] === true, 'UNISWAP_GRAPH_POOL_ACTIVE');
+    return detached({ slot0, liquidity: rows[7][0].toString(), poolInput: rows[8][0].toString(), poolOutput: rows[9][0].toString(),
+      inputSupply: rows[10][0].toString(), outputSupply: rows[11][0].toString(), solverOutput: rows[12][0].toString() });
+  }
   async function protocolAt(at, amount) {
+    if (uniswap) return uniswapAt(at);
     for (const contract of [protocol.first, protocol.vault, protocol.blue])
       assert.equal(await runtime.code(contract.address, at), contract.code, 'METAMORPHO_GRAPH_PROTOCOL_CODE_CHANGED');
     assert.equal((await read(protocol.vault, 'asset', [], at))[0].toLowerCase(), protocol.first.address);
@@ -113,7 +165,7 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
   let observer;
   async function inspect(query, auth) {
     exactRecord(query, ['transactionHash', 'calldataSHA256']); bytes32(query.transactionHash, true); bytes32(query.calldataSHA256, true);
-    assertOwnedMetaMorphoGraphDeliveryObserverV1(observer, { runtime, system, poolIndex }); await assertOwnedLocalEvmV2(runtime);
+    assertOwnedOfficialObserver(observer, { runtime, system, poolIndex }); await assertOwnedLocalEvmV2(runtime);
     const hash = '0x' + query.transactionHash, entries = runtime.transactions.filter(row => row.transactionHash === hash);
     assert.equal(entries.length, 1, 'METAMORPHO_GRAPH_ORIGINAL_SIGNED_JOURNAL'); const row = entries[0];
     assert.equal(row.label, 'gated EVM vault delivery', 'METAMORPHO_GRAPH_GATED_WIRE_REQUIRED');
@@ -129,8 +181,8 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
     assert.equal(quantity(row.request.gas).toString(), wire.gas); assert.equal(quantity(row.request.value).toString(), wire.value);
     assert.equal(row.prepared.genesis, '0x' + context.genesisHash);
     assert.equal(sha(Buffer.from(wire.data.slice(2), 'hex')), query.calldataSHA256, 'METAMORPHO_GRAPH_ORIGINAL_CALLDATA');
-    const decoded = decodePrivateExternalDeliveryCall({ calldata: wire.data, identity: id, protocolKind: router.protocolKind, fee: null });
-    const descriptor = prepareOwnedMetaMorphoGraphDescriptorV1({ observer, router, route: decoded.plan.route, ownerPublicInputs: decoded.plan.ownerPublicInputs });
+    const decoded = decodePrivateExternalDeliveryCall({ calldata: wire.data, identity: id, protocolKind: router.protocolKind, fee: router.fee });
+    const descriptor = prepareOwnedOfficialDescriptor({ observer, router, route: decoded.plan.route, ownerPublicInputs: decoded.plan.ownerPublicInputs }, protocolKind);
     const intent = decodeEvmGraphDeliveryCallV1(wire.data, descriptor);
     sameContext(await router.read()); auth.authenticated = true;
     const receipt = await runtime.receipt(hash);
@@ -153,16 +205,36 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
     assert.equal(header.parentHash, beforeSource.header.hash);
     assert.equal(row.prepared.funds.targetCodeHash, evmRuntimeCodeHash(await runtime.code(router.address, beforeTag)));
     const spent = BigInt(arrival.deliveryEvent.inputSpent), shares = BigInt(amount);
-    assert.equal(spent, BigInt(before.previewMint), 'METAMORPHO_GRAPH_OFFICIAL_PREVIEW'); assert.ok(shares <= BigInt(before.maxMint));
-    assert.equal(BigInt(after.totalAssets), BigInt(before.totalAssets) + spent, 'METAMORPHO_GRAPH_PROTOCOL_ASSET_DELTA');
-    assert.equal(BigInt(after.totalShares), BigInt(before.totalShares) + shares, 'METAMORPHO_GRAPH_PROTOCOL_SHARE_DELTA');
-    assert.equal(after.solverShares, before.solverShares); assert.equal(after.routerShares, before.routerShares);
-    assert.equal(BigInt(after.morphoUnderlying) + BigInt(after.vaultUnderlying),
-      BigInt(before.morphoUnderlying) + BigInt(before.vaultUnderlying) + spent, 'METAMORPHO_GRAPH_MORPHO_ASSET_DELTA');
-    assert.equal(BigInt(after.market[0]), BigInt(before.market[0]) + spent, 'METAMORPHO_GRAPH_MORPHO_ASSET_DELTA');
-    assert.ok(BigInt(after.market[1]) > BigInt(before.market[1]) && BigInt(after.position[0]) > BigInt(before.position[0]));
-    for (const index of [2, 3, 5]) assert.equal(after.market[index], before.market[index]);
-    for (const index of [1, 2]) assert.equal(after.position[index], before.position[index]);
+    if (uniswap) {
+      const logs = receipt.logs.filter(log => log.address.toLowerCase() === protocol.pool.address);
+      assert.equal(logs.length, 1, 'UNISWAP_GRAPH_EXACT_SWAP');
+      const event = protocol.pool.iface.parseLog(logs[0]); assert.equal(event.name, 'Swap', 'UNISWAP_GRAPH_EXACT_SWAP');
+      assert.equal(event.args.sender.toLowerCase(), protocol.swapRouter.address, 'UNISWAP_GRAPH_EXACT_SWAP');
+      assert.equal(event.args.recipient.toLowerCase(), router.address, 'UNISWAP_GRAPH_EXACT_SWAP');
+      assert.equal(inputIsToken0 ? event.args.amount0 : event.args.amount1, spent, 'UNISWAP_GRAPH_EXACT_SWAP');
+      assert.equal(inputIsToken0 ? event.args.amount1 : event.args.amount0, -shares, 'UNISWAP_GRAPH_EXACT_SWAP');
+      assert.equal(BigInt(after.poolInput), BigInt(before.poolInput) + spent, 'UNISWAP_GRAPH_POOL_BALANCE_DELTA');
+      assert.equal(BigInt(after.poolOutput), BigInt(before.poolOutput) - shares, 'UNISWAP_GRAPH_POOL_BALANCE_DELTA');
+      assert.equal(after.inputSupply, before.inputSupply, 'UNISWAP_GRAPH_SUPPLY_CHANGED');
+      assert.equal(after.outputSupply, before.outputSupply, 'UNISWAP_GRAPH_SUPPLY_CHANGED');
+      assert.equal(after.solverOutput, before.solverOutput, 'UNISWAP_GRAPH_POOL_BALANCE_DELTA');
+      assert.equal(after.liquidity, before.liquidity, 'UNISWAP_GRAPH_SLOT0_CHANGED');
+      assert.equal(event.args.liquidity.toString(), after.liquidity, 'UNISWAP_GRAPH_SLOT0_CHANGED');
+      assert.equal(event.args.sqrtPriceX96.toString(), after.slot0[0], 'UNISWAP_GRAPH_SLOT0_CHANGED');
+      assert.equal(event.args.tick.toString(), after.slot0[1], 'UNISWAP_GRAPH_SLOT0_CHANGED');
+      for (const index of [3, 4, 5, 6]) assert.equal(after.slot0[index], before.slot0[index], 'UNISWAP_GRAPH_SLOT0_CHANGED');
+    } else {
+      assert.equal(spent, BigInt(before.previewMint), 'METAMORPHO_GRAPH_OFFICIAL_PREVIEW'); assert.ok(shares <= BigInt(before.maxMint));
+      assert.equal(BigInt(after.totalAssets), BigInt(before.totalAssets) + spent, 'METAMORPHO_GRAPH_PROTOCOL_ASSET_DELTA');
+      assert.equal(BigInt(after.totalShares), BigInt(before.totalShares) + shares, 'METAMORPHO_GRAPH_PROTOCOL_SHARE_DELTA');
+      assert.equal(after.solverShares, before.solverShares); assert.equal(after.routerShares, before.routerShares);
+      assert.equal(BigInt(after.morphoUnderlying) + BigInt(after.vaultUnderlying),
+        BigInt(before.morphoUnderlying) + BigInt(before.vaultUnderlying) + spent, 'METAMORPHO_GRAPH_MORPHO_ASSET_DELTA');
+      assert.equal(BigInt(after.market[0]), BigInt(before.market[0]) + spent, 'METAMORPHO_GRAPH_MORPHO_ASSET_DELTA');
+      assert.ok(BigInt(after.market[1]) > BigInt(before.market[1]) && BigInt(after.position[0]) > BigInt(before.position[0]));
+      for (const index of [2, 3, 5]) assert.equal(after.market[index], before.market[index]);
+      for (const index of [1, 2]) assert.equal(after.position[index], before.position[index]);
+    }
     const current = await targetReader.read(); sameContext(await router.read(current.header.number));
     await runtime.checkReceipt(receipt); await sourceReader.assertCanonical(beforeSource); await sourceReader.assertCanonical(afterSource);
     await targetReader.assertCurrent(current);
@@ -171,13 +243,13 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
   observer = Object.freeze({ identity: detached(id),
     binding: detached({ poolIndex, recipientIndex: String(poolIndex), genesis: context.genesisHash,
       asset: context.targetAssetIdentity, sourceEndpoint: id.solver, destinationEndpoint: id.router }),
-    classification: 'OWNED_LOCAL_OFFICIAL_METAMORPHO_NOT_PUBLIC_CONSENSUS',
+    classification: uniswap ? 'OWNED_LOCAL_OFFICIAL_UNISWAP_NOT_PUBLIC_CONSENSUS' : 'OWNED_LOCAL_OFFICIAL_METAMORPHO_NOT_PUBLIC_CONSENSUS',
     // Return the existing arrival shape so owner custody validates its retained
     // D27 proof/opening without adding a second credit authority.
     async observe(query) { return (await inspect(query, {}))?.arrival ?? null; },
     async assertPrepared(input) {
       exactRecord(input, ['prepared', 'intent']); const { prepared, intent } = detached(input);
-      assertOwnedMetaMorphoGraphDescriptorV1(observer, router, intent.descriptor);
+      assertOwnedOfficialDescriptor(observer, router, intent.descriptor);
       exactRecord(prepared, ['genesis', 'head', 'transaction', 'unsignedWire', 'funds']);
       exactRecord(prepared.head, ['number', 'hash', 'timestamp']);
       exactRecord(prepared.transaction, ['chainId', 'from', 'to', 'nonce', 'gasPrice', 'gas', 'value', 'data']);
@@ -197,16 +269,23 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
       for (const [start, end] of [[plan.route.validFrom, plan.route.validUntil], [statement.validFrom, statement.validUntil]])
         assert.ok(BigInt(start) <= inclusion && inclusion < BigInt(end), 'METAMORPHO_GRAPH_PREFLIGHT_WINDOW');
       const state = await protocolAt(at, plan.route.outputAmount);
-      assert.ok(BigInt(state.previewMint) > 0n && BigInt(state.previewMint) <= BigInt(plan.route.maximumInput), 'METAMORPHO_GRAPH_PREFLIGHT_MAXIMUM');
-      assert.ok(BigInt(plan.route.outputAmount) <= BigInt(state.maxMint), 'METAMORPHO_GRAPH_PREFLIGHT_CAPACITY');
+      if (uniswap) {
+        // The original runtime already simulated this exact D27-bound calldata
+        // with eth_estimateGas at this pinned head and repeats it before key use.
+        // ERC20 reserves alone are not a V3 quote or an available-liquidity claim.
+        assert.ok(BigInt(state.poolOutput) >= BigInt(plan.route.outputAmount), 'UNISWAP_GRAPH_PREFLIGHT_OUTPUT_RESERVE');
+      } else {
+        assert.ok(BigInt(state.previewMint) > 0n && BigInt(state.previewMint) <= BigInt(plan.route.maximumInput), 'METAMORPHO_GRAPH_PREFLIGHT_MAXIMUM');
+        assert.ok(BigInt(plan.route.outputAmount) <= BigInt(state.maxMint), 'METAMORPHO_GRAPH_PREFLIGHT_CAPACITY');
+      }
       const [allowance, balance] = await Promise.all([read(protocol.first, 'allowance', [tx.from, router.address], at), read(protocol.first, 'balanceOf', [tx.from], at)]);
       assert.equal(allowance[0].toString(), plan.route.maximumInput); assert.ok(balance[0] >= BigInt(plan.route.maximumInput));
       const targetPool = system.pools[poolIndex];
       const [consumed, inserted, protocolAllowance, poolAllowance] = await Promise.all([
         runtime.call({ to: router.address, data: '0x' + publicKeccak256(Buffer.from('consumed(bytes32)')).subarray(0, 4).toString('hex') + intent.receiptKeyCommitment }, at),
         targetPool.call('insertedCommitments(bytes32)', ['0x' + statement.output], at),
-        read(protocol.first, 'allowance', [router.address, protocol.vault.address], at),
-        read(protocol.vault, 'allowance', [router.address, targetPool.address], at),
+        read(protocol.first, 'allowance', [router.address, nativeProtocol.address], at),
+        read(output, 'allowance', [router.address, targetPool.address], at),
       ]);
       assert.equal(BigInt(consumed), 0n, 'METAMORPHO_GRAPH_PREFLIGHT_RECEIPT_CONSUMED');
       assert.equal(BigInt(inserted), 0n, 'METAMORPHO_GRAPH_PREFLIGHT_OWNER_OUTPUT_INSERTED');
@@ -234,5 +313,5 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
       facts.set(result, observer); return result;
     },
   });
-  owned.set(observer, { runtime, system, poolIndex, router, protocolFixture: protocol, context }); return observer;
+  owned.set(observer, { runtime, system, poolIndex, router, protocolFixture: protocol, context, protocolKind, profile }); return observer;
 }

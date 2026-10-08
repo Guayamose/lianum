@@ -9,6 +9,7 @@ import { preparePrivateExternalDelivery, encodePrivateExternalDelivery,
   decodePrivateExternalDeliveryCall } from '../../../defi/delivery/private-external-delivery.mjs';
 
 export const METAMORPHO_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_METAMORPHO_GRAPH_DELIVERY_V1';
+export const UNISWAP_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_UNISWAP_V3_GRAPH_DELIVERY_V1';
 const CONTEXT = ['genesisHash', 'ledgerNamespace', 'sourceLedgerNamespace',
   'sourceAssetIdentity', 'targetAssetIdentity', 'routerRuntimeCodeSHA256'];
 const freeze = value => { if (value && typeof value === 'object') {
@@ -21,25 +22,35 @@ const word = value => BigInt(value).toString(16).padStart(64, '0');
 export function isMetaMorphoGraphDescriptorV1(value) {
   return Object.getOwnPropertyDescriptor(value ?? {}, 'profile')?.value === METAMORPHO_GRAPH_DELIVERY_PROFILE_V1;
 }
+export function isUniswapGraphDescriptorV1(value) {
+  return Object.getOwnPropertyDescriptor(value ?? {}, 'profile')?.value === UNISWAP_GRAPH_DELIVERY_PROFILE_V1;
+}
+export const isExternalGraphDescriptorV1 = value => isMetaMorphoGraphDescriptorV1(value) || isUniswapGraphDescriptorV1(value);
 export function validateEvmGraphDeliveryDescriptorV1(value) {
   if (!Object.hasOwn(value ?? {}, 'profile')) return validateEvmVaultDeliveryDescriptor(value);
   exactRecord(value, ['profile', 'context', 'plan']);
-  assert.equal(value.profile, METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, 'EVM_GRAPH_UNKNOWN_DESCRIPTOR_PROFILE');
+  assert.ok(isExternalGraphDescriptorV1(value), 'EVM_GRAPH_UNKNOWN_DESCRIPTOR_PROFILE');
   exactRecord(value.context, CONTEXT); CONTEXT.forEach(key => bytes32(value.context[key], true));
   assert.equal(value.context.sourceLedgerNamespace, value.context.ledgerNamespace, 'EVM_GRAPH_CROSS_LEDGER_NOT_ACCEPTED');
   assert.notEqual(value.context.sourceAssetIdentity, value.context.targetAssetIdentity, 'EVM_GRAPH_DISTINCT_ASSETS');
   preparePrivateExternalDelivery(value.plan);
-  assert.equal(value.plan.protocolKind, 'METAMORPHO_V1_EXACT_SHARE_MINT', 'EVM_GRAPH_METAMORPHO_ONLY');
   assert.equal(value.plan.identity.chainId, '31337', 'EVM_GRAPH_LOCAL_CHAIN');
-  assert.equal(value.plan.fee, null, 'EVM_GRAPH_METAMORPHO_FEE');
-  assert.equal(value.plan.identity.protocol, value.plan.identity.outputAsset, 'EVM_GRAPH_ORIGINAL_SHARE_TOKEN');
+  if (isUniswapGraphDescriptorV1(value)) {
+    assert.equal(value.plan.protocolKind, 'UNISWAP_V3_EXACT_OUTPUT_SINGLE', 'EVM_GRAPH_UNISWAP_ONLY');
+    assert.equal(value.plan.fee, '3000', 'EVM_GRAPH_UNISWAP_FIXED_FEE');
+    assert.notEqual(value.plan.identity.protocol, value.plan.identity.outputAsset, 'EVM_GRAPH_UNISWAP_DISTINCT_PROTOCOL');
+  } else {
+    assert.equal(value.plan.protocolKind, 'METAMORPHO_V1_EXACT_SHARE_MINT', 'EVM_GRAPH_METAMORPHO_ONLY');
+    assert.equal(value.plan.fee, null, 'EVM_GRAPH_METAMORPHO_FEE');
+    assert.equal(value.plan.identity.protocol, value.plan.identity.outputAsset, 'EVM_GRAPH_ORIGINAL_SHARE_TOKEN');
+  }
   return copy(value);
 }
 /** Normalize semantic fields for the unchanged native dispatch/journal/PAEG.
  * maximumInput is a limit, never an observed protocol debit. */
 export function evmGraphDeliveryTermsV1(descriptor) {
   validateEvmGraphDeliveryDescriptorV1(descriptor);
-  if (!isMetaMorphoGraphDescriptorV1(descriptor)) return copy(descriptor);
+  if (!isExternalGraphDescriptorV1(descriptor)) return copy(descriptor);
   const { plan, context } = descriptor, id = plan.identity, route = plan.route;
   return copy({ identity: { chainId: id.chainId, genesisHash: context.genesisHash,
     ledgerNamespace: context.sourceLedgerNamespace, assetIdentity: context.sourceAssetIdentity,
@@ -51,9 +62,11 @@ export function evmGraphDeliveryTermsV1(descriptor) {
 }
 export function evmGraphDeliveryDescriptorCommitmentV1(descriptor) {
   validateEvmGraphDeliveryDescriptorV1(descriptor);
-  if (!isMetaMorphoGraphDescriptorV1(descriptor)) return evmVaultDeliveryDescriptorCommitment(descriptor);
+  if (!isExternalGraphDescriptorV1(descriptor)) return evmVaultDeliveryDescriptorCommitment(descriptor);
   const plan = preparePrivateExternalDelivery(descriptor.plan);
-  const parts = [Buffer.from('LIANUM/PAEG/metamorpho-exact-share-delivery/1'),
+  const tag = isUniswapGraphDescriptorV1(descriptor)
+    ? 'LIANUM/PAEG/uniswap-v3-exact-output-single-delivery/1' : 'LIANUM/PAEG/metamorpho-exact-share-delivery/1';
+  const parts = [Buffer.from(tag),
     ...CONTEXT.map(key => Buffer.from(descriptor.context[key], 'hex')), Buffer.from(plan.descriptor, 'hex')];
   return sha(Buffer.concat(parts.flatMap(part => {
     const size = Buffer.alloc(4); size.writeUInt32BE(part.length); return [size, part];
@@ -62,7 +75,7 @@ export function evmGraphDeliveryDescriptorCommitmentV1(descriptor) {
 export function encodeEvmGraphDeliveryCallV1(intent) {
   exactRecord(intent, ['descriptor', 'receiptKeyCommitment', 'proof']);
   validateEvmGraphDeliveryDescriptorV1(intent.descriptor);
-  if (!isMetaMorphoGraphDescriptorV1(intent.descriptor)) return encodeEvmVaultDeliveryCall(intent);
+  if (!isExternalGraphDescriptorV1(intent.descriptor)) return encodeEvmVaultDeliveryCall(intent);
   return encodePrivateExternalDelivery({ plan: intent.descriptor.plan,
     receiptCommitment: intent.receiptKeyCommitment, proof: intent.proof }).calldata;
 }
@@ -70,7 +83,7 @@ export function encodeEvmGraphDeliveryCallV1(intent) {
  * Canonical inclusion, code and source/target domain checks remain the observer. */
 export function decodeEvmGraphDeliveryCallV1(calldata, descriptor) {
   validateEvmGraphDeliveryDescriptorV1(descriptor);
-  if (!isMetaMorphoGraphDescriptorV1(descriptor)) {
+  if (!isExternalGraphDescriptorV1(descriptor)) {
     const call = decodeEvmVaultDeliveryCall(calldata, descriptor.identity);
     return copy({ descriptor: call.descriptor, receiptKeyCommitment: call.receiptKeyCommitment, proof: call.proof });
   }
