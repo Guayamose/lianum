@@ -6,15 +6,21 @@
 import assert from 'node:assert/strict';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { openNativeEconomicRecoveryAuthorityV1, reopenNativeEconomicFromAuthorityV1 }
+import { openNativeEconomicRecoveryAuthorityV1, openNativeEconomicNoteRecoveryAuthorityV1, reopenNativeEconomicFromAuthorityV1 }
   from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 
 export async function reopenOriginalNativeValueEconomicSuccessorV1(rawIdentity, rawCheckpoint) {
-  assert.equal(arguments.length, 2);
+  assert.equal(arguments.length, 2); return reopenFixedEconomicSuccessor(rawIdentity, rawCheckpoint, false);
+}
+/** Selected only by the separately fixed native-note child entry. */
+export async function reopenOriginalNativeValueEconomicNoteSuccessorV1(rawIdentity, rawCheckpoint) {
+  assert.equal(arguments.length, 2); return reopenFixedEconomicSuccessor(rawIdentity, rawCheckpoint, true);
+}
+async function reopenFixedEconomicSuccessor(rawIdentity, rawCheckpoint, nativeNotes) {
   const identity = cloneInput(rawIdentity), checkpoint = cloneInput(rawCheckpoint);
   exactRecord(identity, ['directory', 'runId', 'sourceSHA256', 'deadlineMs']);
   exactRecord(checkpoint, ['revision', 'commitment']);
-  const authority = await openNativeEconomicRecoveryAuthorityV1(identity, checkpoint);
+  const authority = await (nativeNotes ? openNativeEconomicNoteRecoveryAuthorityV1 : openNativeEconomicRecoveryAuthorityV1)(identity, checkpoint);
   // The fixed original consumer closes its issuer before returning. On any
   // failure it retains OPENING and closes owned resources/lease; no retry here.
   const originals = await reopenNativeEconomicFromAuthorityV1(authority);

@@ -7,7 +7,7 @@ import {readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
 import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {nativeValueOriginalRecoverySourceV1} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
-import {createNativeEconomicRecoveryAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import {createNativeEconomicRecoveryAuthorityV1,createNativeEconomicNoteRecoveryAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {captureNativeValueEconomicRecoveryV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs';
 const MAXIMUM_IPC_BYTES=2*1024*1024;
 const originalBirth=pid=>{const bytes=readFileSync(`/proc/${pid}/stat`,'utf8'),fields=bytes.slice(bytes.lastIndexOf(')')+2).trim().split(/\s+/);
@@ -32,7 +32,7 @@ async function captureOriginalSuccessor(context,nativeNote){
  if(context.originalWalletApplication){const closed=await context.originalWalletApplication.close();assert.equal(closed.listenerClosed,true);context.result.cleanup.closedWalletListener=true;}
  const before={process:originalBirth(process.pid),receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),proofCount:context.result.proofs.length,
    receiverWireCount:runtime.transactions.length,nativeWireCount:nativeRuntime.transactions.length};
- const authority=await createNativeEconomicRecoveryAuthorityV1(identity);
+ const authority=await (nativeNote?createNativeEconomicNoteRecoveryAuthorityV1:createNativeEconomicRecoveryAuthorityV1)(identity);
  // This fixed coordinator fences every original before its first await and
  // returns only after all ten original sections are stopped, sealed and closed.
  let checkpoint;

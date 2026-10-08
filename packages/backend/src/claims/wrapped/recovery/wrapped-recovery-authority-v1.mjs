@@ -73,8 +73,8 @@ function validateRecord(record,identity){
 }
 async function mutate(s,transform,expectedCheckpoint){assert.equal(s.busy,false,'WRAPPED_RECOVERY_BUSY');s.busy=true;try{const old=normalized(await s.store.read());validateRecord(old,s.identity);if(expectedCheckpoint)assert.equal(finalizationHash(checkpoint(old)),finalizationHash(expectedCheckpoint),'WRAPPED_RECOVERY_FINALIZATION_PRIOR_CHANGED');const next=normalized(await s.store.update(old.revision,transform));validateRecord(next,s.identity);s.record=next;return checkpoint(next);}catch(error){s.fault=true;throw error;}finally{s.busy=false;}}
 
-async function authorityFactory(input,expected,creating,funded=false,withTron=false,external=false,nativeD26=false,nativeProvider=false,nativeEconomic=false){
- const identity=nativeEconomic?nativeEconomicIdentity(input):nativeProvider?nativeProviderIdentity(input):nativeD26?nativeD26Identity(input):identityOf(input,funded,withTron,external),sections=sectionsFor(identity);await privateDirectory(identity.directory);const directory=join(identity.directory,identity.profile===NATIVE_ECONOMIC_PROFILE?'native-value-economic':identity.profile===NATIVE_PROVIDER_PROFILE?'native-provider-economic':identity.profile===NATIVE_D26_PROFILE?'device-d26-observation':fundedIdentity(identity)?(tronIdentity(identity)?'funded-tron-recovery':'funded-recovery'):(tronIdentity(identity)?'tron-recovery':'recovery'));
+async function authorityFactory(input,expected,creating,funded=false,withTron=false,external=false,nativeD26=false,nativeProvider=false,nativeEconomic=false,nativeEconomicNotes=false){
+ const identity=nativeEconomic?nativeEconomicIdentity(input,nativeEconomicNotes):nativeProvider?nativeProviderIdentity(input):nativeD26?nativeD26Identity(input):identityOf(input,funded,withTron,external),sections=sectionsFor(identity);await privateDirectory(identity.directory);const directory=join(identity.directory,identity.profile===NATIVE_ECONOMIC_PROFILE?'native-value-economic':identity.profile===NATIVE_PROVIDER_PROFILE?'native-provider-economic':identity.profile===NATIVE_D26_PROFILE?'device-d26-observation':fundedIdentity(identity)?(tronIdentity(identity)?'funded-tron-recovery':'funded-recovery'):(tronIdentity(identity)?'tron-recovery':'recovery'));
  if(creating){await mkdir(directory,{mode:0o700});await syncDirectory(identity.directory);}await privateDirectory(directory);
  const release=await acquireLease(directory,identity);let store,password;
  try{
@@ -1040,10 +1040,10 @@ export function closeNativeProviderRecoveryAuthorityV1(authority){
 
 /** Complete economic native sections; OBSERVE-only and wrapped capabilities
  * cannot enter. The fixed coordinator owns producer ordering and closure. */
-function nativeEconomicIdentity(input){
+function nativeEconomicIdentity(input,nativeNotes=false){
  exactRecord(input,['directory','runId','sourceSHA256','deadlineMs']);
  assert.match(input.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
- assert.equal(input.directory,join(FIXED_WALLET_ROOT,'.local/native-value-economic-recovery-v1','attempt-'+input.runId,'private-audit'),'NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY');
+ assert.equal(input.directory,join(FIXED_WALLET_ROOT,nativeNotes?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+input.runId,'private-audit'),'NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY');
  assert.ok(hex(input.sourceSHA256)&&Number.isSafeInteger(input.deadlineMs)&&input.deadlineMs>0,'NATIVE_ECONOMIC_RECOVERY_IDENTITY');
  return {profile:NATIVE_ECONOMIC_PROFILE,...input};
 }
@@ -1052,6 +1052,14 @@ export function createNativeEconomicRecoveryAuthorityV1(input){
 }
 export function openNativeEconomicRecoveryAuthorityV1(input,expectedCheckpoint){
  assert.equal(arguments.length,2);return authorityFactory(input,expectedCheckpoint,false,false,false,false,false,false,true);
+}
+/** Finite native-note entry only. The caller identity cannot choose a root;
+ * both create and reopen select this fixed directory before any filesystem IO. */
+export function createNativeEconomicNoteRecoveryAuthorityV1(input){
+ assert.equal(arguments.length,1);return authorityFactory(input,null,true,false,false,false,false,false,true,true);
+}
+export function openNativeEconomicNoteRecoveryAuthorityV1(input,expectedCheckpoint){
+ assert.equal(arguments.length,2);return authorityFactory(input,expectedCheckpoint,false,false,false,false,false,false,true,true);
 }
 export function assertNativeEconomicRecoveryCaptureV1(authority){
  assert.equal(arguments.length,1);const s=state(authority);assert.equal(s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_AUTHORITY');

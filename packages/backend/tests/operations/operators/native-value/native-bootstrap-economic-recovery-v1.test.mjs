@@ -102,3 +102,31 @@ test('copies, arbitrary keys and native/wrapped token substitution cannot restor
  assert.throws(()=>bootstrapModule.consumeNativeBootstrapOperatorRecoveryV1({signerIndex:0,privateKeyPem:'caller key'}),/ORIGINAL_OPERATOR_RECOVERY_TOKEN/);
  await assert.rejects(issuer.reopenWrappedRuntimeFromAuthorityV1(f.authority,'receiver'),/NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN/);
 });
+
+// Genuine AEAD issuer on an isolated HOST directory. This exercises the exact
+// route that failed after F; no runtime/proof/section producer is fabricated.
+test('native-note issuer root is selected only by its finite constructor and reopen',async t=>{
+ const runId=randomUUID(),directory=join(fixedRoot,'.local/native-value-economic-note-recovery-v1','attempt-'+runId,'private-audit');
+ const identity={directory,runId,sourceSHA256:h('note-source'),deadlineMs:Date.now()+60000};
+ const legacy={...identity,directory:join(fixedRoot,'.local/native-value-economic-recovery-v1','attempt-'+runId,'private-audit')};
+ await mkdir(directory,{recursive:true,mode:0o700});
+ let authority;
+ t.after(async()=>{try{if(authority)await issuer.closeNativeEconomicRecoveryAuthorityV1(authority);}
+   finally{await rm(join(directory,'..'),{recursive:true,force:true});}});
+ await assert.rejects(issuer.createNativeEconomicRecoveryAuthorityV1(identity),/NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY/);
+ await assert.rejects(issuer.createNativeEconomicNoteRecoveryAuthorityV1(legacy),/NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY/);
+ await assert.rejects(issuer.createNativeEconomicNoteRecoveryAuthorityV1({...identity,directory:join(directory,'..')}),/NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY/);
+ assert.throws(()=>issuer.createNativeEconomicNoteRecoveryAuthorityV1(identity,{nativeNotes:true}),{name:'AssertionError'});
+ authority=await issuer.createNativeEconomicNoteRecoveryAuthorityV1(identity);
+ const status=issuer.wrappedRecoveryAuthorityStatusV1(authority),capture=issuer.assertNativeEconomicRecoveryCaptureV1(authority);
+ assert.equal(capture.directory,directory);assert.equal(capture.sourceSHA256,identity.sourceSHA256);
+ assert.deepEqual(Object.keys(status.sections).sort(),['receiver','graphNative','bootstrap','system','provider','owner','executor','account','session','actor'].sort());
+ assert.ok(Object.values(status.sections).every(value=>value==='ABSENT'));
+ assert.throws(()=>issuer.assertNativeEconomicRecoveryCaptureV1({...authority}),/ORIGINAL_IDLE_AUTHORITY/);
+ await assert.rejects(issuer.openNativeEconomicRecoveryAuthorityV1(identity,status.checkpoint),/NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY/);
+ await assert.rejects(issuer.openNativeEconomicNoteRecoveryAuthorityV1(legacy,status.checkpoint),/NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY/);
+ await issuer.closeNativeEconomicRecoveryAuthorityV1(authority);authority=null;
+ // An accepted directory is not capture authority: missing original sections
+ // still reject before any runtime/account/owner is reconstructed.
+ await assert.rejects(issuer.openNativeEconomicNoteRecoveryAuthorityV1(identity,status.checkpoint),/CAPTURE_NOT_COMPLETE/);
+});

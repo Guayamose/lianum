@@ -9,7 +9,7 @@ import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {exactRecord} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';
-import {reopenOriginalNativeValueEconomicSuccessorV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-successor-v1.mjs';
+import {reopenOriginalNativeValueEconomicSuccessorV1,reopenOriginalNativeValueEconomicNoteSuccessorV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-successor-v1.mjs';
 import {reinstallOriginalNativeDeviceEconomicServiceV1} from '../../../../packages/backend/src/operations/recovery/native-device-economic-service-v1.mjs';
 import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {auditNativeDeviceEconomicSuccessorV1} from './native-device-economic-successor-audit-v1.mjs';
@@ -53,7 +53,7 @@ async function handle(packet){assert.ok(Buffer.byteLength(JSON.stringify(packet)
  exactRecord(packet,packet.action==='OPEN'?['sequence','action','identity','checkpoint']:['sequence','action']);assert.equal(packet.sequence,++sequence);
  if(packet.action==='OPEN'){assert.equal(opened,false);opened=true;identity=packet.identity;assert.ok(Date.now()<identity.deadlineMs);
    deadline=setTimeout(()=>{void close().catch(()=>{});},identity.deadlineMs-Date.now());deadline.unref();
-   acquisition=(async()=>{const value=await reopenOriginalNativeValueEconomicSuccessorV1(identity,packet.checkpoint);originals=value.originals;
+   acquisition=(async()=>{const value=await (nativeNote?reopenOriginalNativeValueEconomicNoteSuccessorV1:reopenOriginalNativeValueEconomicSuccessorV1)(identity,packet.checkpoint);originals=value.originals;
      assert.ok(!closeRequested&&Date.now()<identity.deadlineMs,'NATIVE_ECONOMIC_SUCCESSOR_CLOSED_DURING_REOPEN');
      service=await reinstallOriginalNativeDeviceEconomicServiceV1({...Object.fromEntries(['runtime','system','owner','account','nativeExecution','providerCustody','actor'].map(name=>[name,originals[name]])),
        tls:{certificate:privateTLS('certificate.pem'),privateKey:privateTLS('key.pem')}});return value;})();
