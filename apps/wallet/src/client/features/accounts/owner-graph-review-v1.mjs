@@ -28,7 +28,18 @@ function metaMorphoRoute(r){
  need(uint(r.executionFrom,64)<uint(r.executionUntil,64)&&BigInt(r.executionUntil)<=uint(r.settleBefore,64),'OWNER_GRAPH_METAMORPHO_WINDOW');
  need(typeof r.deliveryLossClause==='string'&&r.deliveryLossClause.length>0&&r.deliveryLossClause.length<=300&&r.protocolAmountsPublic===true&&r.publicNetwork===false,'OWNER_GRAPH_METAMORPHO_ASSURANCE');
 }
+export const OWNER_GRAPH_UNISWAP_ROUTE_FIELDS=Object.freeze(['routeProfile','family','protocolKind','fee','chainId','genesis','router','protocol','inputToken','outputToken','solver','sourcePool','targetPool','sourceAssetIdentity','targetAssetIdentity','targetCommitment','descriptorCommitment','solverMaximumInputAmount','deliveredOutputAmount','executionFrom','executionUntil','settleBefore','payoutCommitment','deliveryRiskCommitment','deliveryLossClause','protocolAmountsPublic','publicNetwork']);
+function uniswapRoute(r){
+ fields(r,OWNER_GRAPH_UNISWAP_ROUTE_FIELDS);need(r.routeProfile==='REGISTERED_LOCAL_EVM_UNISWAP_V3_V1'&&r.family==='3'&&r.chainId==='31337'&&r.protocolKind==='UNISWAP_V3_EXACT_OUTPUT_SINGLE'&&r.fee==='3000','OWNER_GRAPH_UNISWAP_PROFILE');
+ for(const key of ['genesis','sourceAssetIdentity','targetAssetIdentity','targetCommitment','descriptorCommitment','payoutCommitment','deliveryRiskCommitment'])need(hash(r[key]),'OWNER_GRAPH_UNISWAP_HASH');
+ for(const key of ['router','protocol','inputToken','outputToken','solver','sourcePool','targetPool'])need(typeof r[key]==='string'&&/^[0-9a-f]{40}$/.test(r[key])&&r[key]!=='0'.repeat(40),'OWNER_GRAPH_UNISWAP_ENDPOINT');
+ need(r.inputToken!==r.outputToken&&r.sourceAssetIdentity!==r.targetAssetIdentity,'OWNER_GRAPH_UNISWAP_DISTINCT_ASSETS');
+ need(uint(r.solverMaximumInputAmount)>0n&&uint(r.deliveredOutputAmount,64)>0n,'OWNER_GRAPH_UNISWAP_AMOUNT');
+ need(uint(r.executionFrom,64)<uint(r.executionUntil,64)&&BigInt(r.executionUntil)<=uint(r.settleBefore,64),'OWNER_GRAPH_UNISWAP_WINDOW');
+ need(typeof r.deliveryLossClause==='string'&&r.deliveryLossClause.length>0&&r.deliveryLossClause.length<=300&&r.protocolAmountsPublic===true&&r.publicNetwork===false,'OWNER_GRAPH_UNISWAP_ASSURANCE');
+}
 function route(r,wrapped,flat){
+ if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_UNISWAP_V3_V1'){uniswapRoute(r);return;}
  if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_METAMORPHO_V1'){metaMorphoRoute(r);return;}
  if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_VAULT_V1'){vaultRoute(r);return;}
  fields(r,OWNER_GRAPH_ROUTE_FIELDS);need(r.routeProfile===(flat?'REGISTERED_LOCAL_NATIVE_DELIVERY_V1':wrapped?'OWNED_LOCAL_WRAPPED_CLAIM_NATIVE_GRAPH_V1':'OWNED_LOCAL_NATIVE_VALUE_GRAPH_V2'),'OWNER_GRAPH_ROUTE_PROFILE');

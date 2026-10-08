@@ -313,7 +313,20 @@ export function accountReviewDetails(context) {
           [`${label} · red y génesis`, `${network} · ${route.genesis}`],
           [`${label} · origen de respaldo`, `${route.sourcePool} · ${route.sourceAssetIdentity}`],
         );
-        if (['REGISTERED_LOCAL_EVM_VAULT_V1', 'REGISTERED_LOCAL_EVM_METAMORPHO_V1'].includes(route.routeProfile)) {
+        if (route.routeProfile === 'REGISTERED_LOCAL_EVM_UNISWAP_V3_V1') {
+          rows.push(
+            [`${label} · intercambio`, `Uniswap V3 exact output · fee ${route.fee}`],
+            [`${label} · protocolo y router`, `${route.protocol} / ${route.router}`],
+            [`${label} · token de entrada`, route.inputToken],
+            [`${label} · límite del solver`, `${route.solverMaximumInputAmount} unidades atómicas de entrada`],
+            [`${label} · token de salida privado`, `${route.deliveredOutputAmount} unidades atómicas · ${route.outputToken} · ${route.targetAssetIdentity}`],
+            [`${label} · pool de destino`, route.targetPool],
+            [`${label} · destinatario privado`, `Compromiso de salida ${route.targetCommitment}`],
+            [`${label} · descriptor original`, route.descriptorCommitment],
+            [`${label} · compromiso de riesgo`, route.deliveryRiskCommitment],
+            [`${label} · exposición`, 'Protocolo, importes, ejecución y depósito observables en la red local'],
+          );
+        } else if (['REGISTERED_LOCAL_EVM_VAULT_V1', 'REGISTERED_LOCAL_EVM_METAMORPHO_V1'].includes(route.routeProfile)) {
           rows.push(
             [`${label} · depósito en vault`, route.vault],
             [`${label} · router`, route.router],
