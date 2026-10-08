@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync,realpathSync} from 'node:fs';
 import {spawn} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ROOT,LOCAL} from '../../../../packages/proofs/src/catalog.mjs';
@@ -10,7 +9,7 @@ import {hash,regular} from '../../../../packages/proofs/src/tooling/tooling.mjs'
 import {compileNativeSplClaimV1Verifiers,assertNativeSplClaimV1CompiledOriginal,NATIVE_SPL_CLAIM_V1_ORIGINAL_PINS} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs';
 import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';
 import {nativeSplClaimV1CompilationSourcePins} from './native-spl-claim-v1-compilation-source-pins.mjs';
-import {SPL_CLAIM_V1_COMPILATION_RESULT,SPL_CLAIM_V1_COMPILATION_PROFILE,assertNativeSplClaimV1CompilationResult,assertNativeSplClaimV1PreparationReceipt} from './native-spl-claim-v1-compilation-policy.mjs';
+import {SPL_CLAIM_V1_COMPILATION_RESULT,SPL_CLAIM_V1_COMPILATION_PROFILE,assertNativeSplClaimV1CompilationResult,assertNativeSplClaimV1PreparationReceipt,parseNativeSplClaimV1PreparationStatus} from './native-spl-claim-v1-compilation-policy.mjs';
 const FLOW='.local/native-spl-claim-v1-compilation-only-v1';
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),fileURLToPath(import.meta.url));
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.LANG,'C.UTF-8');assert.equal(process.env.PATH,'/usr/bin:/bin');
@@ -25,11 +24,12 @@ const result={format:SPL_CLAIM_V1_COMPILATION_RESULT,profile:SPL_CLAIM_V1_COMPIL
  cleanup:{preparationChildrenClosed:false,compilerReset:false,errors:[]}};
 const save=()=>writeFixturePrivate(join(directory,'result.json'),result);save();
 async function prepareOriginal(mode){
- const runId=randomUUID();result.phase='original-ci51-v1-'+mode;save();let bytes=0,closed=false,childError;
- const child=spawn(process.execPath,[join(ROOT,'proof-workers/run-bounded.mjs'),'native_claim_ingress',mode,runId],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe']});
- const terminal=await new Promise(resolve=>{child.once('error',error=>{childError=error;});child.once('close',(code,signal)=>{closed=true;resolve({code,signal});});for(const stream of [child.stdout,child.stderr])stream.on('data',value=>{bytes+=value.length;if(bytes>1048576)childError??=Error('SPL_CLAIM_V1_PUBLIC_TASK_OUTPUT_LIMIT');});});
+ result.phase='original-ci51-v1-'+mode;save();let bytes=0,closed=false,childError;const stdout=[];
+ const child=spawn(process.execPath,[join(ROOT,'proof-workers/run-bounded.mjs'),'native_claim_ingress',mode],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe']});
+ const terminal=await new Promise(resolve=>{child.once('error',error=>{childError=error;});child.once('close',(code,signal)=>{closed=true;resolve({code,signal});});for(const stream of [child.stdout,child.stderr]){stream.once('error',error=>{childError??=error;});stream.on('data',value=>{bytes+=value.length;if(bytes>1048576)childError??=Error('SPL_CLAIM_V1_PUBLIC_TASK_OUTPUT_LIMIT');else if(stream===child.stdout)stdout.push(value);});}});
  assert.equal(closed,true);if(childError)throw childError;assert.equal(terminal.code,0,'SPL_CLAIM_V1_ORIGINAL_PREPARATION_FAILED');assert.equal(terminal.signal,null,'SPL_CLAIM_V1_ORIGINAL_PREPARATION_SIGNAL');
- const files={};for(const name of ['resources.json','result.json','runtime-pins.json']){const raw=regular(join(LOCAL,'attempts',runId,name));files[name]={bytes:raw.length,sha256:hash(raw)};}const row={mode,runId,files};assertNativeSplClaimV1PreparationReceipt(row);result.preparation.push(row);save();
+ const status=parseNativeSplClaimV1PreparationStatus(Buffer.concat(stdout),mode),runId=status.runId;
+ const files={};for(const name of ['resources.json','result.json','runtime-pins.json']){const raw=regular(join(LOCAL,'attempts',runId,name));files[name]={bytes:raw.length,sha256:hash(raw)};}const row={mode,runId,status,files};assertNativeSplClaimV1PreparationReceipt(row);result.preparation.push(row);save();
 }
 try{
  globalThis.fetch=async()=>{throw Error('SPL_CLAIM_V1_COMPILATION_OFFLINE_REQUIRED');};
