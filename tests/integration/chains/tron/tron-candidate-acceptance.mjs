@@ -23,6 +23,7 @@ import { OWNED_TRON_RUNTIME_RELEASE, TRON_UPSTREAM }
 
 import { assertTronAlignedRocksDbGate, assertTronAlignedRocksDbStartupIdentity, verifyTronAlignedRocksDbCandidateBuild } from './tron-aligned-rocksdb-profile.mjs';
 import { captureTronAlignedRocksDbNativeAudit } from './tron-aligned-rocksdb-native-audit.mjs';
+import { startOwnedTronAlignedCandidateChildV1 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs';
 
 export const TRON_CANDIDATE_OPT_IN = '--run-reviewed-local-candidate';
 export const TRON_CANDIDATE_ACCEPTANCE_ENABLED = true;
@@ -279,6 +280,7 @@ async function sourcePins(profile) {
   return Object.fromEntries(await Promise.all([...new Set(paths)].map(async path => [relative(ROOT, path), sha(await regular(path))])));
 }
 async function startOriginalChild(directory, audit, signal, profile) {
+  if (profile === ALIGNED_ROCKSDB_PROFILE) return startOwnedTronAlignedCandidateChildV1(directory, audit, signal);
   assertPrivateCandidateProfile(profile);
   assert.ok(signal instanceof AbortSignal); if (signal.aborted) throw signal.reason;
   const helper = profile.helper;

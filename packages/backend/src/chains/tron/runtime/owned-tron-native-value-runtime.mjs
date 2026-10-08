@@ -118,7 +118,7 @@ export async function createOwnedLocalTronNativeValueV1(){assert.equal(arguments
   },
   async observeNativeValueOriginal(query){assert.equal(busy,false,'OWNED_TRON_BUSY');busy=true;mutationGenerationV4++;try{return await auditReadV4(()=>observe(query));}finally{busy=false;}},
   report(){return clone({profile:OWNED_TRON_NATIVE_VALUE_PROFILE,closed,latched,phase:journal?readTronJournal(journal).phase:'EMPTY',originalOnly:true,publicNetwork:false,creditEligible:false});},
-  async close(){assert.equal(busy,false);closed=true;await driver.close();},
+  async close(){assert.equal(busy,false);closed=true;return await driver.close();},
   toJSON(){throw new Error('OWNED_TRON_CAPABILITY_NOT_SERIALIZABLE');},
  });brands.add(runtime);sourceOwners.set(runtime,{driver,live,unchanged,auditReadV4,auditStateV4,assertOriginal(original){assert.ok(entry?.signed,'OWNED_TRON_ORIGINAL_SIGNED_REQUIRED');assert.deepEqual(original,entry.signed,'OWNED_TRON_SOURCE_ORIGINAL_REBOUND');}});return runtime;
 }
