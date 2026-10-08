@@ -57,6 +57,11 @@ contadores de actividad: 44/44 resultados correctos, incluidos los 31 casos
 anteriores. Los dos rechazos previos del harness quedan conservados. Las métricas
 no modifican guards, rounds ni el presupuesto de 30 s; sólo miden intervalos
 parciales y CPU del proceso. Todavía no explican el fallo Solana cargado.
+El [diagnóstico de auditorías vacías](docs/CLAIM-AUDIT-LAB.md) ya está aceptado:
+seis llamadas originales en un laboratorio nuevo, CLAIM 307–338 ms y GRAPH
+646–678 ms. Preparación, ejecución y cierre completos duraron 64,308 s;
+fuentes y originales intactos, PID conservados y cuatro locks ausentes.
+No se generaron pruebas ni payouts durante la medición.
 
 La composición local V5 pasa 36 pruebas de metadatos y el preparador, 15 pruebas
 de límites e identidad. Su primera compilación real aceptó las siete fuentes,
