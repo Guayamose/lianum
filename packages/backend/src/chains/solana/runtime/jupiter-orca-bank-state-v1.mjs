@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {JUPITER_OFFICIAL_FILES_V1,JUPITER_OFFICIAL_COMMIT_V1} from '../../../operations/deployments/defi/jupiter-official-material-v1.mjs';
-import {base58Decode} from './owned-solana-runtime.mjs';
+import {base58Decode} from './solana-base58.mjs';
 import {JUPITER_ORCA_V1,decodeOfficialJupiterBincodeAccountV1,decodeJupiterSplTokenAccountV1,
   decodeJupiterSplMintV1,validateOfficialJupiterOrcaPoolV1} from '../dispatch/jupiter-orca-route-codec-v1.mjs';
 const sha=value=>createHash('sha256').update(value).digest('hex');

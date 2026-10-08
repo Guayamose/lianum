@@ -1,3 +1,5 @@
+import { base58Encode, base58Decode } from './solana-base58.mjs';
+export { base58Encode, base58Decode } from './solana-base58.mjs';
 import { assertOwnedRecoveryScratchV1, writeOriginalSolanaEconomicKeysV1, claimStoppedNativeRecoveryV1, writePrivateRuntimeRecoveryV1, readPrivateRuntimeRecoveryV1, sealStoppedNativeFilesV1, assertStoppedNativeFilesV1, cloneRuntimeRecoveryV1 } from '../../shared/runtime/owned-runtime-recovery-files-v1.mjs';
 import { consumeWrappedRuntimeRecoveryV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 /** Owned flat SOL adapter, source-only derivative of the frozen golden
@@ -19,7 +21,6 @@ import { createServer, createConnection } from 'node:net';
 import { createSocket } from 'node:dgram';
 import { scratchDirectory, removeOwnScratch, stopOwnProcess, ownedRuntimeRpc, sleep, projectRoot } from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
 
-const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const PKCS8_ED25519 = Buffer.from('302e020100300506032b657004220420', 'hex');
 const PUBLIC_GENESIS = new Set(['5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1', '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY']);
 const READ_METHODS = new Set(['getAccountInfo', 'getMultipleAccounts', 'getFeeForMessage', 'getMinimumBalanceForRentExemption', 'isBlockhashValid', 'getGenesisHash', 'getVersion', 'getHealth', 'getClusterNodes', 'getBalance', 'getSlot', 'getBlockHeight', 'getLatestBlockhash', 'getSignatureStatuses', 'getTransaction', 'getBlock', 'getBlocks', 'minimumLedgerSlot', 'getFirstAvailableBlock']);
@@ -42,22 +43,6 @@ export function readOwnedSolanaRuntimeAuditState(runtime) {
 
 const safeInteger = (value, code) => { requireCondition(Number.isSafeInteger(value) && !Object.is(value, -0) && value >= 0, code); return BigInt(value); };
 
-export function base58Encode(bytes) {
-  const data = Buffer.from(bytes); let value = data.length ? BigInt('0x' + data.toString('hex')) : 0n, out = '';
-  while (value > 0n) { out = ALPHABET[Number(value % 58n)] + out; value /= 58n; }
-  for (const byte of data) { if (byte !== 0) break; out = '1' + out; }
-  return out;
-}
-export function base58Decode(text, length) {
-  requireCondition(typeof text === 'string' && text.length > 0 && text.length <= 128, 'SOLANA_INVALID_BASE58');
-  let value = 0n;
-  for (const char of text) { const index = ALPHABET.indexOf(char); requireCondition(index >= 0, 'SOLANA_INVALID_BASE58'); value = value * 58n + BigInt(index); }
-  let hex = value ? value.toString(16) : ''; if (hex.length % 2) hex = '0' + hex;
-  const zeroes = text.match(/^1*/)[0].length;
-  const result = Buffer.concat([Buffer.alloc(zeroes), Buffer.from(hex, 'hex')]);
-  requireCondition(base58Encode(result) === text && (length === undefined || result.length === length), 'SOLANA_INVALID_BASE58_LENGTH');
-  return result;
-}
 function lamportsValue(value) {
   requireCondition(typeof value === 'string' && /^(0|[1-9][0-9]*)$/.exec(value)?.[0] === value,
     'SOLANA_INVALID_LAMPORTS');

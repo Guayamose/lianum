@@ -2,7 +2,7 @@
  * Pure helpers grant no native send, claim credit or wallet authority. */
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import {base58Decode,base58Encode} from '../runtime/owned-solana-runtime.mjs';
+import {base58Decode,base58Encode} from '../runtime/solana-base58.mjs';
 export const JUPITER_ORCA_V1=Object.freeze({
  program:'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',dex:'9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP',
  tokenProgram:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',pool:'EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U',
