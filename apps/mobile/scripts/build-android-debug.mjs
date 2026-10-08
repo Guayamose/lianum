@@ -1,8 +1,8 @@
-/** Local debug build only. No device installation, EAS upload or release key. */
+/** Local development APKs only. No device installation, upload or production signing key. */
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, statfsSync,
+import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, statfsSync,
   writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -16,7 +16,11 @@ const project = fileURLToPath(new URL('../../../', import.meta.url));
 const nativeCmakeArguments = nativeBuildLimits.NATIVE_CMAKE_ARGUMENTS;
 assert.ok(JSON.parse(readFileSync(join(mobile, 'app.json'), 'utf8')).expo.plugins
   .includes('./plugins/with-native-build-limits.cjs'), 'MOBILE_BUILD_NATIVE_LIMITS_PLUGIN_REQUIRED');
-assert.ok(process.argv.length === 2 || (process.argv.length === 3 && process.argv[2] === '--preflight'));
+assert.ok(process.argv.length === 2 || (process.argv.length === 3
+  && ['--preflight', '--standalone-local'].includes(process.argv[2])), 'MOBILE_BUILD_FIXED_ARGUMENT');
+const standaloneLocal = process.argv[2] === '--standalone-local';
+const variant = standaloneLocal ? 'release' : 'debug';
+const reportName = standaloneLocal ? 'mobile-android-standalone-local.json' : 'mobile-android-debug.json';
 assert.ok(Number(process.versions.node.split('.')[0]) >= 24, 'MOBILE_BUILD_NODE_24_REQUIRED');
 const sdk = resolve(process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || join(homedir(),'Android/Sdk'));
 for (const path of ['platforms/android-36/android.jar','build-tools/36.0.0/aapt2',
@@ -34,7 +38,7 @@ const abi = ['arm64-v8a','x86_64'];
 const gradleSHA256 = 'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
 const gradleJVMArgs = '-Xmx1024m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8';
 process.stdout.write(JSON.stringify({preflight:'PASS',javaMajor,architectures:abi,
-  androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1'})+'\n');
+  androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1',variant,standaloneLocal})+'\n');
 if(process.argv[2] === '--preflight')process.exit(0);
 
 const GiB = 1024**3;
@@ -45,19 +49,38 @@ const reportDirectory = join(project,'.internal/dev/reports');mkdirSync(reportDi
 const proofDirectory=join(project,'.internal/runtime/omnichain-flat-profile/flat-wallet/.local/proof-workers');
 const lockPath=existsSync(proofDirectory)?join(proofDirectory,'active.lock'):join(reportDirectory,'mobile-build.lock');
 const runId=randomUUID();writeFileSync(lockPath,JSON.stringify({pid:process.pid,runId,
-  relation:'mobile_android_debug',mode:'build'})+'\n',{flag:'wx',mode:0o600});
-const report = {format:'LIANUM_MOBILE_ANDROID_DEBUG_BUILD_V1',runId,phase:'starting',
+  relation:standaloneLocal?'mobile_android_standalone_local':'mobile_android_debug',mode:'build'})+'\n',{flag:'wx',mode:0o600});
+const report = {format:standaloneLocal?'LIANUM_MOBILE_ANDROID_STANDALONE_LOCAL_BUILD_V1':'LIANUM_MOBILE_ANDROID_DEBUG_BUILD_V1',runId,phase:'starting',
   architectures:abi,gradleSHA256,nativeCmakeArguments,nativeJobPool:'owned_build=1',
   requestedGradleJVMArgs:gradleJVMArgs,effectiveJVMProcesses:[],peakProcessSnapshot:[],
   peakProcessGroupRSS:0,minimumAvailableRAM:available(),
-  deviceInstalled:false,uploaded:false,releaseSigned:false,requiresMetro:true,groupSignals:[]};
-const save=()=>writeFileSync(join(reportDirectory,'mobile-android-debug.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
+  deviceInstalled:false,uploaded:false,releaseSigned:false,requiresMetro:true,groupSignals:[],
+  variant,standaloneLocal,distributionProduction:false,noteCustodyOnDevice:false,
+  biometricHardwareTested:false,tlsOnDeviceTested:false};
+const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+function publicSourceInputs() {
+  const sources = [];
+  function retain(path) {
+    const stat = lstatSync(path);
+    assert.ok(!stat.isSymbolicLink(), 'MOBILE_BUILD_SOURCE_SYMLINK');
+    if (stat.isDirectory()) { for (const entry of readdirSync(path).sort()) retain(join(path, entry)); return; }
+    assert.ok(stat.isFile(), 'MOBILE_BUILD_SOURCE_FILE');
+    const bytes = readFileSync(path); sources.push({path:path.slice(project.length),bytes:bytes.length,sha256:sha256(bytes)});
+  }
+  for (const path of ['apps/mobile/App.tsx','apps/mobile/index.ts','apps/mobile/app.json',
+    'apps/mobile/package.json','apps/mobile/package-lock.json','apps/mobile/metro.config.cjs',
+    'apps/mobile/src','apps/mobile/scripts','apps/mobile/plugins','packages/mobile-protocol/package.json',
+    'packages/mobile-protocol/src']) retain(join(project, path));
+  return sources.sort((a,b)=>a.path.localeCompare(b.path));
+}
+const save=()=>writeFileSync(join(reportDirectory,reportName),JSON.stringify(report,null,2)+'\n',{mode:0o600});
 const bestEffortSave=()=>{try{save();}catch{report.failure??='MOBILE_BUILD_REPORT_WRITE_FAILED';}};
 const env={...process.env,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,
   PATH:dirname(process.execPath)+':'+process.env.PATH,CMAKE_BUILD_PARALLEL_LEVEL:'1',
   // Gradle's documented no-daemon mode requires the launcher and build JVM
   // options to match; otherwise --no-daemon still creates a separate session.
   JAVA_OPTS:gradleJVMArgs,GRADLE_OPTS:''};
+if (standaloneLocal) env.NODE_OPTIONS = '--max-old-space-size=384';
 let active,ownedGroup,killTimer,cleanupUnconfirmed=false;
 function captureJVMProcesses(group) {
   for (const stat of group.processes) {
@@ -113,10 +136,15 @@ const interrupted=()=>{report.failure='MOBILE_BUILD_INTERRUPTED';stopGroup();
   killTimer??=setTimeout(()=>stopGroup('SIGKILL'),5000);};
 const onExit=()=>stopGroup('SIGKILL');
 process.once('SIGINT',interrupted);process.once('SIGTERM',interrupted);process.once('exit',onExit);
-async function run(command,args,cwd) {
+async function run(command,args,cwd,captureOutput=false) {
   assert.equal(report.failure,undefined,'MOBILE_BUILD_PREVIOUS_FAILURE');
-  active=spawn(command,args,{cwd,env,detached:true,stdio:'inherit'});
-  let failure;
+  active=spawn(command,args,{cwd,env,detached:true,stdio:captureOutput?['ignore','pipe','inherit']:'inherit'});
+  let failure, output = '', outputBytes = 0;
+  if (captureOutput) active.stdout.on('data',bytes=>{
+    outputBytes += bytes.length;
+    if (outputBytes>1024*1024) { stop('MOBILE_BUILD_INSPECTION_OUTPUT_LIMIT'); return; }
+    output += bytes.toString('utf8');
+  });
   const stop=code=>{failure??=code;report.failure??=code;stopGroup();killTimer??=setTimeout(()=>stopGroup('SIGKILL'),5000);};
   const monitor=setInterval(()=>{
     if(!ownedGroup)return;
@@ -140,6 +168,7 @@ async function run(command,args,cwd) {
     });
     assert.equal(failure,undefined,failure);assert.equal(report.failure,undefined,report.failure);
     assert.equal(code,0,'MOBILE_BUILD_COMMAND_FAILED');assert.equal(signal,null);
+    return output;
   }finally{
     clearInterval(monitor);clearTimeout(timeout);clearTimeout(killTimer);killTimer=undefined;
     if(ownedGroup){
@@ -155,6 +184,7 @@ async function run(command,args,cwd) {
   }
 }
 try {
+  if (standaloneLocal) report.sourceInputsBefore = publicSourceInputs();
   save();report.phase='prebuild';
   await run(process.execPath,[join(mobile,'node_modules/expo/bin/cli'),'prebuild','--no-install','--platform','android'],mobile);
   for (const path of ['android/app/build.gradle', 'android/build.gradle']) {
@@ -169,16 +199,85 @@ try {
   assert.ok(properties.includes('gradle-9.3.1-bin.zip'),'MOBILE_BUILD_REVIEWED_GRADLE_VERSION');
   if(/distributionSha256Sum=/.test(properties))assert.ok(properties.includes('distributionSha256Sum='+gradleSHA256));
   else{properties+='\ndistributionSha256Sum='+gradleSHA256+'\n';writeFileSync(wrapper,properties);}
+  if (standaloneLocal) {
+    const gradlePath=join(mobile,'android/app/build.gradle');
+    const gradle = readFileSync(gradlePath,'utf8');
+    assert.ok(/release\s*\{[\s\S]*?signingConfig signingConfigs\.debug/.test(gradle)
+      && /storeFile file\('debug\.keystore'\)/.test(gradle), 'MOBILE_BUILD_DEVELOPMENT_SIGNING_REQUIRED');
+    assert.ok(gradle.includes('bundleCommand = \"export:embed\"'), 'MOBILE_BUILD_ORIGINAL_EXPO_BUNDLER_REQUIRED');
+    assert.ok(readFileSync(join(mobile,'android/gradle.properties'),'utf8').includes('hermesEnabled=true'),
+      'MOBILE_BUILD_HERMES_REQUIRED');
+    const bundleWorkersBlock = '// BEGIN LIANUM STANDALONE LOCAL BUNDLE\n'
+      + 'react { extraPackagerArgs = [\"--max-workers\", \"1\"] }\n'
+      + '// END LIANUM STANDALONE LOCAL BUNDLE';
+    if (!gradle.includes(bundleWorkersBlock)) {
+      assert.ok(!gradle.includes('LIANUM STANDALONE LOCAL BUNDLE'),'MOBILE_BUILD_BUNDLE_WORKERS_CONFIG_CHANGED');
+      writeFileSync(gradlePath,gradle.trimEnd()+'\n\n'+bundleWorkersBlock+'\n');
+    }
+    report.bundlingWorkers=1;report.nodeHeapMiB=384;
+    report.generatedStandaloneConfigSHA256=sha256(readFileSync(gradlePath));
+    // Gradle's original bundle inputs omit .mjs and the external protocol.
+    // Remove only the generated bundle so this task rebuilds current JS while
+    // preserving native compile caches and the previous debug APK.
+    const generated = join(mobile,'android/app/build/generated/assets/react/release/index.android.bundle');
+    if (existsSync(generated)) { assert.ok(lstatSync(generated).isFile() && !lstatSync(generated).isSymbolicLink(),
+      'MOBILE_BUILD_GENERATED_BUNDLE_FILE'); unlinkSync(generated); }
+    report.originalBundleTaskForcedByMissingOutput = true;report.taskOutputBuildCacheDisabled = true;
+  }
   report.phase='gradle';save();
-  await run(join(mobile,'android/gradlew'),[':app:assembleDebug','--no-daemon','--max-workers=1',
+  await run(join(mobile,'android/gradlew'),[standaloneLocal?':app:assembleRelease':':app:assembleDebug',
+    ...(standaloneLocal?['--no-build-cache']:[]),'--no-daemon','--max-workers=1',
     '-Dorg.gradle.jvmargs='+gradleJVMArgs,
     '-Porg.gradle.parallel=false','-Pkotlin.compiler.execution.strategy=in-process',
     '-PreactNativeArchitectures='+abi.join(','),'-Pandroid.builder.sdkDownload=false'],join(mobile,'android'));
-  const apk=join(mobile,'android/app/build/outputs/apk/debug/app-debug.apk'),bytes=readFileSync(apk);
+  const apk=join(mobile,'android/app/build/outputs/apk',variant,'app-'+variant+'.apk'),bytes=readFileSync(apk);
   const entries=spawnSync('unzip',['-Z','-1',apk],{encoding:'utf8'});assert.equal(entries.status,0,'MOBILE_BUILD_APK_INSPECTION');
   const included=[...new Set([...entries.stdout.matchAll(/^lib\/([^/]+)\//gm)].map(match=>match[1]))].sort();
   assert.deepEqual(included,[...abi].sort(),'MOBILE_BUILD_APK_ARCHITECTURES');
-  report.apk='apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk';
+  if (standaloneLocal) {
+    assert.equal(entries.stdout.split('\n').filter(path=>path==='assets/index.android.bundle').length,1,
+      'MOBILE_BUILD_ONE_EMBEDDED_BUNDLE');
+    const extracted=spawnSync('unzip',['-p',apk,'assets/index.android.bundle'],{maxBuffer:32*1024*1024,timeout:30000});
+    assert.equal(extracted.status,0,'MOBILE_BUILD_BUNDLE_EXTRACTION');
+    const bundle=extracted.stdout;
+    assert.ok(bundle.length>12 && bundle.subarray(0,8).toString('hex')==='c61fbc03c103191f',
+      'MOBILE_BUILD_EMBEDDED_HERMES_REQUIRED');
+    const generated=readFileSync(join(mobile,'android/app/build/generated/assets/react/release/index.android.bundle'));
+    assert.equal(sha256(bundle),sha256(generated),'MOBILE_BUILD_PACKAGED_BUNDLE_JOIN');
+    const mapPath=join(mobile,'android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map');
+    const mapBytes=readFileSync(mapPath), sourceMap=JSON.parse(mapBytes);
+    assert.ok(Array.isArray(sourceMap.sources) && Array.isArray(sourceMap.sourcesContent)
+      && sourceMap.sources.length===sourceMap.sourcesContent.length,'MOBILE_BUILD_ORIGINAL_SOURCE_MAP');
+    const required=['apps/mobile/App.tsx','apps/mobile/src/screens/OriginalAccountScreen.tsx',
+      'apps/mobile/src/custody/key-store.ts','apps/mobile/src/custody/signing.mjs',
+      'apps/mobile/src/custody/original-account-lease-v2.mjs','apps/mobile/src/api/original-account-api-v2.mjs',
+      'packages/mobile-protocol/src/original-account-review-v2.mjs',
+      'packages/mobile-protocol/src/original-account-private-state-v1.mjs'];
+    report.embeddedSourceJoins=required.map(path=>{
+      const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length):path;
+      const matches=sourceMap.sources.map((name,index)=>({name:name.replaceAll('\\','/'),index}))
+        .filter(({name})=>name===path||name.endsWith('/'+path)||name===suffix||name.endsWith('/'+suffix));
+      assert.equal(matches.length,1,'MOBILE_BUILD_ONE_ORIGINAL_SOURCE_IN_BUNDLE');
+      const {name,index}=matches[0];assert.equal(typeof sourceMap.sourcesContent[index],'string','MOBILE_BUILD_SOURCE_CONTENT');
+      const original=readFileSync(join(project,path)),content=Buffer.from(sourceMap.sourcesContent[index]);
+      assert.equal(sha256(content),sha256(original),'MOBILE_BUILD_CURRENT_SOURCE_BUNDLE_JOIN');
+      return {path,mapSource:name,bytes:content.length,sha256:sha256(content)};
+    });
+    report.embeddedJavaScript={asset:'assets/index.android.bundle',bytes:bundle.length,sha256:sha256(bundle),
+      hermesBytecodeVersion:bundle.readUInt32LE(8),packagerSourceMapSHA256:sha256(mapBytes)};
+    report.phase='verifying-development-signature';save();
+    const signer=await run(join(sdk,'build-tools/36.0.0/apksigner'),['verify','--verbose','--print-certs',apk],mobile,true);
+    assert.ok(signer.includes('Number of signers: 1') && signer.includes('Verified using v2 scheme (APK Signature Scheme v2): true')
+      && /^Signer #1 certificate DN: CN=Android Debug,/m.test(signer),'MOBILE_BUILD_DEVELOPMENT_SIGNATURE');
+    const certificateSHA256=/^Signer #1 certificate SHA-256 digest: ([a-f0-9]{64})$/m.exec(signer)?.[1];
+    assert.equal(certificateSHA256,'fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c',
+      'MOBILE_BUILD_EXISTING_DEBUG_CERTIFICATE');
+    report.signing={profile:'ANDROID_DEBUG_ONLY',certificateSHA256,verifiedV2:true};
+    report.sourceInputsAfter=publicSourceInputs();
+    assert.deepEqual(report.sourceInputsAfter,report.sourceInputsBefore,'MOBILE_BUILD_SOURCES_CHANGED');
+    report.requiresMetro=false;
+  }
+  report.apk='apps/mobile/android/app/build/outputs/apk/'+variant+'/app-'+variant+'.apk';
   report.apkSHA256=createHash('sha256').update(bytes).digest('hex');report.apkBytes=bytes.length;
   report.phase='completed';save();process.stdout.write(JSON.stringify(report)+'\n');
 }catch(error){report.phase='failed';report.failure??=String(error.message).match(/MOBILE_BUILD_[A-Z0-9_]+/)?.[0]??'MOBILE_BUILD_FAILED';save();throw error;}
