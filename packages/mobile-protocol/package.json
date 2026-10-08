@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./src/authorization.mjs",
+  "exports": {
+    ".": {
+      "types": "./src/authorization.d.mts",
+      "default": "./src/authorization.mjs"
+    },
+    "./original-account-v2": {
+      "types": "./src/original-account-review-v2.d.mts",
+      "default": "./src/original-account-review-v2.mjs"
+    }
+  },
   "types": "./src/authorization.d.mts"
 }
