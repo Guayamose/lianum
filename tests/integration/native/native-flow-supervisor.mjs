@@ -1,3 +1,5 @@
+import {nativeSplCompilationSourcePinsV1} from '../chains/solana/native-spl-compilation-source-pins-v1.mjs';
+import {SPL_COMPILATION_RESULT_V1,SPL_COMPILATION_LIMITS_V1,assertNativeSplCompilationResultV1,nativeSplCompilationProcessFailureV1,classifyNativeSplCompilerProcessV1} from '../chains/solana/native-spl-compilation-policy-v1.mjs';
 import {jupiterOrcaPublicSwapSourcePinsV1} from '../chains/solana/jupiter-orca-public-swap-source-pins-v1.mjs';
 import {JUPITER_SWAP_RESULT_V1,assertJupiterOrcaPublicSwapResultV1,jupiterOrcaSwapProcessFailureV1} from '../chains/solana/jupiter-orca-public-swap-policy-v1.mjs';
 import {assertJupiterPublicFixtureSourceReviewV1,assertJupiterPublicSwapSourceReviewV1} from '../../../packages/backend/src/operations/deployments/defi/jupiter-official-material-v1.mjs';
@@ -85,6 +87,12 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  nativeSplCompilationOnlyV1:Object.freeze({
+    entry:join(ROOT,'integration/run-native-spl-compilation-v1.mjs'),worker:join(ROOT,'integration/native-spl-compilation-worker-v1.mjs'),
+    local:join(ROOT,'.local/native-spl-compilation-only-v1'),resultFormat:SPL_COMPILATION_RESULT_V1,
+    resourcesFormat:'LIANUM_NATIVE_SPL_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_SPL_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_NATIVE_SPL_COMPILATION_ATTEMPT_V1',
+    classification:'NEW_NATIVE_SPL_SBF_COMPILATION_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerClosed','generatedDeployKeyRemoved']),
+  }),
   jupiterOrcaPublicSwapV1:Object.freeze({
     entry:join(ROOT,'integration/run-jupiter-orca-public-swap-v1.mjs'),worker:join(ROOT,'integration/jupiter-orca-public-swap-worker-v1.mjs'),
     local:join(ROOT,'.local/jupiter-orca-public-swap-v1'),resultFormat:JUPITER_SWAP_RESULT_V1,
@@ -688,6 +696,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   let scoped = {};
   if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) scoped = assertJupiterOrcaPublicSwapResultV1(result);
   if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) scoped = assertAaveCompilationResultV1(result);
+  if (profile === FLOW_PROFILES.nativeSplCompilationOnlyV1) scoped = assertNativeSplCompilationResultV1(result);
   if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
   if (profile === FLOW_PROFILES.deviceOwnerReservationV1) scoped = assertDeviceReservationResultV1(result);
@@ -993,6 +1002,10 @@ export async function runNativeClaimGraphV3Supervisor() {
   assert.equal(CLAIM_GRAPH_V3_REAL_RUN_DISABLED, false, 'CLAIM_GRAPH_V3_REQUIRES_FROZEN_CHECKPOINT_AND_EXPLICIT_LAUNCH');
   return runFixedFlowSupervisor(FLOW_PROFILES.nativeClaimGraphV3);
 }
+export async function runNativeSplCompilationSupervisorV1() {
+  assert.equal(arguments.length,0,'SPL_COMPILATION_NO_SUPERVISOR_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.nativeSplCompilationOnlyV1);
+}
 async function runFixedFlowSupervisor(profile) {
   assertFixedProfile(profile);
   const coldCycle=profile===FLOW_PROFILES.wrappedWalletFixedAcceptance;
@@ -1044,6 +1057,7 @@ async function runFixedFlowSupervisor(profile) {
     if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) {
       const scoped = classifyBeginPayoutAuditProofProcessV1(argv); if (scoped) return scoped;
     }
+    if(profile===FLOW_PROFILES.nativeSplCompilationOnlyV1)return classifyNativeSplCompilerProcessV1(argv,readlinkSync(`/proc/${pid}/exe`));
     const script = argv[1];
     const nativeWallet = classifyNativeWalletRealExecutable(script);
     if (nativeWallet) return nativeWallet;
@@ -1255,6 +1269,10 @@ async function runFixedFlowSupervisor(profile) {
         const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
         if(forbidden)stop(forbidden,{},sample);
       }
+      if(profile===FLOW_PROFILES.nativeSplCompilationOnlyV1){
+        const forbidden=nativeSplCompilationProcessFailureV1([...history.values()]);if(forbidden)stop(forbidden,{},sample);
+        if(sample.elapsedMilliseconds>SPL_COMPILATION_LIMITS_V1.deadlineMilliseconds)stop('SPL_COMPILATION_FIXED_DEADLINE',{},sample);
+      }
       if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) {
         const forbidden = beginPayoutAuditProcessFailureV1([...history.values()]);
         if (forbidden) stop(forbidden, {}, sample);
@@ -1346,6 +1364,10 @@ async function runFixedFlowSupervisor(profile) {
       if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
         const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
         if(forbidden)fail(forbidden);
+      }
+      if(profile===FLOW_PROFILES.nativeSplCompilationOnlyV1){
+        const forbidden=nativeSplCompilationProcessFailureV1([...history.values()]);if(forbidden)fail(forbidden);
+        if(elapsed()>SPL_COMPILATION_LIMITS_V1.deadlineMilliseconds)fail('SPL_COMPILATION_FIXED_DEADLINE');
       }
       if (profile === FLOW_PROFILES.developmentOsakaSmoke) {
         const forbidden = osakaSmokeProcessFailure([...history.values()]);
