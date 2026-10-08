@@ -74,7 +74,8 @@ contract PrivateAaveStaticDelivery {
         require(sha256(address(inputAsset).code) == inputCode && sha256(address(outputAsset).code) == outputCode &&
             sha256(address(targetPool).code) == poolCode, "AAVE_DEPENDENCY_CODE");
         entered = true; consumed[receiptCommitment] = true;
-        uint256 inputBefore = inputAsset.balanceOf(address(this)), sharesBefore = outputAsset.balanceOf(address(this));
+        uint256 inputBefore = inputAsset.balanceOf(address(this));
+        uint256 sharesBefore = outputAsset.balanceOf(address(this));
         uint256 spent = outputAsset.previewMint(route.outputAmount); require(spent > 0 && spent <= route.maximumInput, "AAVE_INPUT_LIMIT");
         require(inputAsset.transferFrom(solver,address(this),route.maximumInput), "AAVE_INPUT_TRANSFER");
         require(inputAsset.balanceOf(address(this)) == inputBefore + route.maximumInput, "AAVE_EXACT_INPUT");
