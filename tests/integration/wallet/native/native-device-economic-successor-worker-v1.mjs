@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {exactRecord} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
+import {privateNativeEconomicSuccessorFirstErrorV1} from './native-device-economic-private-error-v1.mjs';
 import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';
 import {reopenOriginalNativeValueEconomicSuccessorV1,reopenOriginalNativeValueEconomicNoteSuccessorV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-successor-v1.mjs';
 import {reinstallOriginalNativeDeviceEconomicServiceV1} from '../../../../packages/backend/src/operations/recovery/native-device-economic-service-v1.mjs';
@@ -27,7 +28,7 @@ assert.equal(process.connected,true);assert.equal(typeof process.send,'function'
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);
 assert.equal(parent.length,2);assert.equal(parent[0],process.execPath);assert.equal(realpathSync(`/proc/${process.ppid}/exe`),process.execPath);
 assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
-let originals,service,identity,sequence=0,opened=false,closing,deadline,acquisition,closeRequested=false;
+let originals,service,identity,sequence=0,opened=false,closing,deadline,acquisition,closeRequested=false,firstErrorRetained=false;
 const send=async value=>{assert.ok(Buffer.byteLength(JSON.stringify(value))<=MAXIMUM_IPC_BYTES,'NATIVE_ECONOMIC_SUCCESSOR_PUBLIC_IPC_LIMIT');
  await new Promise((done,reject)=>process.send(value,error=>error?reject(error):done()));};
 const privateTLS=name=>{const path=join(identity.directory,'device-tls',name);assert.equal(realpathSync(path),path);const before=lstatSync(path);
@@ -66,6 +67,10 @@ async function handle(packet){assert.ok(Buffer.byteLength(JSON.stringify(packet)
  else{assert.equal(packet.action,'CLOSE');const value=await close();await send({sequence,ok:true,value});process.disconnect();}
 }
 let chain=Promise.resolve();process.on('message',packet=>{chain=chain.then(()=>handle(packet)).catch(async error=>{
+ if(identity&&!firstErrorRetained){firstErrorRetained=true;
+  try{writeFixturePrivate(join(identity.directory,'successor-first-error-private.json'),privateNativeEconomicSuccessorFirstErrorV1(error));}
+  catch{/* Preserve the original failure and its existing cleanup if private diagnostic storage fails. */}
+ }
  const diagnostic=privateFailureDiagnostic(error,'NATIVE_ECONOMIC_SUCCESSOR_ORIGINAL_FAILURE');
  if(identity)writeFixturePrivate(join(identity.directory,'successor-error.json'),diagnostic);
  if(process.connected)await send({sequence,ok:false,errorCode:diagnostic.code}).catch(()=>{});
