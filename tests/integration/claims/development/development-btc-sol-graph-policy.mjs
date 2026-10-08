@@ -21,7 +21,7 @@ export function assertDevelopmentBtcSolGraphResult(value) {
     counts[row.relation] = (counts[row.relation] ?? 0) + 1;
     digest(row.proofSHA256); digest(row.publicInputsSHA256);
     assert.equal(row.evidence?.resourceReceiptCompleted, true, 'BTC_SOL_ORIGINAL_COMPLETED_PROOF_RECEIPTS');
-    assert.equal(row.evidence.selfVerified === true || row.evidence.acceptedResult === true, true);
+    assert.equal(row.relation === 'withdraw_balance' ? row.evidence.acceptedResult === true : row.evidence.selfVerified === true, true);
     if (row.relation === 'withdraw_balance') digest(row.evidence.telemetrySHA256);
     else for (const field of ['manifestSHA256','resultSHA256','resourcesSHA256']) digest(row.evidence[field]);
     if (row.relation === 'native_claim_ingress_v3') {

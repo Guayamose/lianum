@@ -12,7 +12,7 @@ function report() {
     publicNetwork: false, nativeSelfCustody: false, independentOperators: false, nativeProcessRestartEstablished: false,
     keeperLossRecoveryEstablished: false, fullWalletAcceptance: false, selectedAssets: [0],
     proofs: relations.map((relation,index) => ({ relation, proofSHA256: String(index+1).padStart(64,'0'), publicInputsSHA256: 'a'.repeat(64),
-      evidence: { resourceReceiptCompleted: true, selfVerified: true, runId: 'fixture-'+index,
+      evidence: { resourceReceiptCompleted: true, ...(relation === 'withdraw_balance' ? { acceptedResult: true } : { selfVerified: true }), runId: 'fixture-'+index,
         manifestSHA256: 'b'.repeat(64), resultSHA256: 'c'.repeat(64), resourcesSHA256: 'd'.repeat(64), telemetrySHA256: 'e'.repeat(64),
         ...(relation === 'withdraw_balance' ? { purpose: index===12 ? 'owner' : 'recipient' } : {}),
         ...(relation === 'native_claim_ingress_v3' ? { sourceVersion: '65d4737a5da725dc9b73998f240c02346ae50db1731a652feb55071f2ed0d555',
@@ -61,5 +61,15 @@ test('UNKNOWN finality, another send, changed units, source principal loss or in
     v=>{v.graph.claimsAndPoolBackingConserved=false;},v=>{v.checks.solCustodyAndInfrastructureNeverSpent=false;},
     v=>{v.finalClaimState[0].wrapperSupply='20000';},v=>{v.cleanup.bitcoin.result.forced=true;}]) {
     const value=report();mutate(value);assert.throws(()=>assertDevelopmentBtcSolGraphResult(value));
+  }
+});
+
+test('W39 acceptedResult and original manifest selfVerified remain distinct for every graph relation', () => {
+  for (const relation of ['deposit_intent', 'native_claim_ingress_v3', 'authorization', 'reservation', 'dependency',
+    'ready', 'admission', 'node', 'settlement', 'native_claim_discharge', 'withdraw_balance']) {
+    const value = report(), evidence = value.proofs.find(row => row.relation === relation).evidence;
+    if (relation === 'withdraw_balance') Object.assign(evidence, { acceptedResult: false, selfVerified: true });
+    else Object.assign(evidence, { selfVerified: false, acceptedResult: true });
+    assert.throws(() => assertDevelopmentBtcSolGraphResult(value));
   }
 });

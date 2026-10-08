@@ -17,7 +17,7 @@ export function assertDevelopmentNativeClaimResult(value) {
     assert.ok(Object.hasOwn(expected, proof.relation), 'DEVELOPMENT_CLAIM_ORIGINAL_RELATION_ONLY');
     counts[proof.relation] = (counts[proof.relation] ?? 0) + 1;
     assert.match(proof.proofSHA256, /^[0-9a-f]{64}$/); assert.match(proof.publicInputsSHA256, /^[0-9a-f]{64}$/);
-    assert.equal(proof.evidence?.acceptedResult === true || proof.evidence?.selfVerified === true, true,
+    assert.equal(proof.relation === 'withdraw_balance' ? proof.evidence?.acceptedResult === true : proof.evidence?.selfVerified === true, true,
       'DEVELOPMENT_CLAIM_GENUINE_PROOF_RESULT');
     assert.equal(proof.evidence.resourceReceiptCompleted, true, 'DEVELOPMENT_CLAIM_COMPLETED_PROOF_RECEIPTS');
     if (proof.relation === 'withdraw_balance') assert.match(proof.evidence.telemetrySHA256, /^[0-9a-f]{64}$/);

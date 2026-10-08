@@ -5,7 +5,7 @@ function report() {
   const rows = ['deposit_intent', 'native_claim_ingress_v3', 'withdraw_balance', 'native_claim_discharge'];
   const proofs = rows.flatMap((relation,index) => [0,1].map(asset => ({ relation,
     proofSHA256: String(index * 2 + asset + 1).padStart(64,'0'), publicInputsSHA256: 'a'.repeat(64),
-    evidence: { selfVerified: true, resourceReceiptCompleted: true, manifestSHA256: 'b'.repeat(64),
+    evidence: { ...(relation === 'withdraw_balance' ? { acceptedResult: true } : { selfVerified: true }), resourceReceiptCompleted: true, manifestSHA256: 'b'.repeat(64),
       resultSHA256: 'c'.repeat(64), resourcesSHA256: 'd'.repeat(64), telemetrySHA256: 'e'.repeat(64),
       ...(relation === 'native_claim_ingress_v3' ? { sourceVersion: '65d4737a5da725dc9b73998f240c02346ae50db1731a652feb55071f2ed0d555',
         keySHA256: '11682686c16db1276738b60ad906560a58ddf18183acf7ec5fb40f99474d8f6f' } : {}),
@@ -41,4 +41,13 @@ test('missing discharge, substituted keys, duplicate sends or retained native se
   const cleanup=report(); cleanup.cleanup.solana.result.syntheticKeysAndLedgerRemoved=false;
   assert.throws(()=>assertDevelopmentNativeClaimResult(cleanup));
   const unknown=report(); unknown.redemptions[0].status='UNKNOWN'; assert.throws(()=>assertDevelopmentNativeClaimResult(unknown));
+});
+
+test('only the original relation marker qualifies a proof receipt; W39 acceptance cannot substitute for manifest self verification', () => {
+  for (const relation of ['deposit_intent', 'native_claim_ingress_v3', 'native_claim_discharge', 'withdraw_balance']) {
+    const value = report(), evidence = value.proofs.find(row => row.relation === relation).evidence;
+    if (relation === 'withdraw_balance') Object.assign(evidence, { acceptedResult: false, selfVerified: true });
+    else Object.assign(evidence, { selfVerified: false, acceptedResult: true });
+    assert.throws(() => assertDevelopmentNativeClaimResult(value), /DEVELOPMENT_CLAIM_GENUINE_PROOF_RESULT/);
+  }
 });
