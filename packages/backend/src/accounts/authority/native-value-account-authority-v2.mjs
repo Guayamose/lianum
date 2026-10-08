@@ -16,7 +16,7 @@ import { nativeValueOriginalRecoverySourceV1 } from '../../operations/deployment
 import { nativeValueOwnerEconomicIdentityV1 } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
 import { ownedNativeValueProviderCustodyReview as nativeRecoveryProviderReviewV1 } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
-import { createProofProcess } from '../../../../engine/src/execution/proofs/proof-process.mjs';
+import { createProofProcess, createNativeEconomicNoteProofProcessV1 } from '../../../../engine/src/execution/proofs/proof-process.mjs';
 import { reserveProjection } from '../../../../engine/src/execution/local/local-ledger.mjs';
 import { genericAccountIdentity, validateGenericAccountConfig, validateBoundRequest, validateOutcome, immutable, copy, sha }
   from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
@@ -266,6 +266,12 @@ export function assertWrappedWalletAccountManualGraphExecutionV1(capability) {
   wrappedWalletAccountManualGraphDetailsV1(capability); manualGraphs.get(capability).checkRoute();
 }
 export async function createNativeValueAccountAuthority(input, callbacks = {}) { return createAccountAuthority(input, callbacks, false); }
+/** New fixed economic note producer; authenticated original inputs/consents,
+ * with no request, callback or retained DTO selecting a backend. */
+export async function createNativeEconomicNoteAccountAuthorityV1(input,callbacks={}) {
+  assert.ok(arguments.length===1||arguments.length===2,'NATIVE_ECONOMIC_NOTE_CONSTRUCTOR_ARITY');
+  return createAccountAuthority(input,callbacks,false,null,true);
+}
 export async function createWrappedWalletAccountAuthorityV1(input) {
   assertWrappedWalletAccountReleasedV1();
   assert.equal(arguments.length, 1, 'WRAPPED_WALLET_NO_OVERRIDES');
@@ -277,7 +283,8 @@ export async function createWrappedWalletAccountAuthorityV1(input) {
   wrappedOwnerAccounts.add(input.owner); // uncertain construction cannot create a replacement account/journal
   return createAccountAuthority(input, {}, true);
 }
-async function createAccountAuthority(input, callbacks, wrapped, recovery=null) {
+async function createAccountAuthority(input, callbacks, wrapped, recovery=null,nativeNote=false) {
+  assert.ok(!nativeNote||!wrapped,'NATIVE_ECONOMIC_NOTE_ORIGINAL_NATIVE_ONLY');
   const wrappedExecution = wrapped ? await import('../../execution/wrapped/execution/wrapped-wallet-execution-v1.mjs') : null;
   const assertOwnedNativeValueWalletSystem = wrapped ? assertOwnedWrappedClaimWalletSystemV1 : nativeSystem;
   const createNativeValueSystemStateReader = wrapped ? createWrappedWalletStateReaderV1 : nativeReader;
@@ -287,7 +294,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   const assertOwnedNativeValueOwnerProcess = wrapped ? assertOwnedWrappedClaimOwnerProcessV1 : nativeOwner;
   const createNativeValueOwnerObserver = wrapped ? createWrappedClaimOwnerObserverV1 : nativeObserver;
   const assertOwnedNativeValueOwnerObserver = wrapped ? assertOwnedWrappedClaimOwnerObserverV1 : nativeObserverAssert;
-  const accountProfile = wrapped ? 'FIXED_LOCAL_WRAPPED_WALLET_ACCOUNT_V1' : 'FIXED_LOCAL_NATIVE_VALUE_ACCOUNT_V2';
+  const accountProfile = wrapped ? 'FIXED_LOCAL_WRAPPED_WALLET_ACCOUNT_V1' : nativeNote?'FIXED_LOCAL_NATIVE_ECONOMIC_NOTE_ACCOUNT_V1':'FIXED_LOCAL_NATIVE_VALUE_ACCOUNT_V2';
   // Wrapped issuance/discharge uses its original CI/CO controller. Native note
   // consent or legacy records are never adopted as wrapped TOP_UP/EXIT authority.
   const selectOwnerActions = methods => wrapped ? {
@@ -479,7 +486,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
           // No server note key/root or Linux ownerProof is involved. The fixed
           // original worker validates exact ABI/pins/VK/ZK/resources and wipes
           // its one input when the one fresh child exits.
-          prover = createProofProcess({ purpose: 'owner', modes: ['deposit_balance'] });
+          prover = nativeNote ? createNativeEconomicNoteProofProcessV1('owner')
+            : createProofProcess({ purpose: 'owner', modes: ['deposit_balance'] });
           activeLegacy = prover;
           const result = await prover.prove('deposit_balance', input, publicInputs, 'device-deposit-d26');
           assert.equal(result.metrics.acceptedResult, true, 'DEVICE_DEPOSIT_PROOF_NOT_ACCEPTED');
@@ -930,7 +938,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
         // witness nor the note/private root key is retained in the account.
         await write(data=>({...data,deviceExits:[...(data.deviceExits??[]),{jobId:consent.jobId,consent:copy(consent),stage:'PROVING',proof:null,
           proofSHA256:null,publicInputsSHA256:null,submission:null,observation:null,errorCode:null}]}));
-        prover=createProofProcess({purpose:'owner',modes:['withdraw_balance']});activeLegacy=prover;
+        prover=nativeNote?createNativeEconomicNoteProofProcessV1('owner'):createProofProcess({purpose:'owner',modes:['withdraw_balance']});activeLegacy=prover;
         const result=await prover.prove('withdraw_balance',input,publicInputs,'device-exit-w39');assert.equal(result.metrics.acceptedResult,true);
         const view=await exitCurrent(consent,bridge,true),proof=transportProof(result);
         assert.equal(await system.verify('withdraw_balance',Buffer.from(proof.proof,'hex'),proof.publicInputs.map(word=>'0x'+BigInt(word).toString(16).padStart(64,'0')),
@@ -1125,7 +1133,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     const manual = Boolean(operation(ref).manualLifecycle || operation(ref).nativeManualReview);
     if (manual) await requireFixedManualEpoch(ref);
     const entry = operation(ref), mode = entry.kind === 'TOP_UP' ? 'deposit_balance' : 'withdraw_balance';
-    const client = createProofProcess({ purpose: 'owner', modes: [mode] }); activeLegacy = client;
+    const client = nativeNote ? createNativeEconomicNoteProofProcessV1('owner')
+      : createProofProcess({ purpose: 'owner', modes: [mode] }); activeLegacy = client;
     let job = null, result = null;
     try {
       for (let attempt = 0; attempt < (manual ? 1 : 2); attempt++) {
@@ -2026,7 +2035,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
       // Other sections may already be fenced: only this exact same encrypted
       // journal is read. No original economic capability is reconstructed.
       assert.deepEqual(await vault.read(password), record, 'FLAT_ACCOUNT_STORAGE_CHANGED');
-      nativeCaptureRecord = { schema: 'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+      nativeCaptureRecord = { schema: nativeNote?'ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1':'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
         poolIndex, directory, password, accountId, journalId, checkpointSHA256: sha(record),
         identitySHA256, accountIdentity: copy(accountIdentity), ownerIdentity: copy(nativeCaptureOwnerIdentity),
         hasNativeExecution: nativeExecution !== null, manualMode: manualKeeper !== null || nativeRecoveryManualMode,
@@ -2165,7 +2174,11 @@ export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, conte
   const retained = consumeNativeEconomicRecoverySectionV1(token, 'account');
   exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'directory', 'password', 'accountId', 'journalId',
     'checkpointSHA256', 'identitySHA256', 'accountIdentity', 'ownerIdentity', 'hasNativeExecution', 'manualMode', 'providerBindings']);
-  assert.equal(retained.schema, 'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1');
+  // Only the original one-use recovery issuer can supply this sealed section.
+  // Its producer lineage is retained, never inferred from a caller DTO/option.
+  assert.ok(['ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1','ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1'].includes(retained.schema),
+    'NATIVE_ACCOUNT_ORIGINAL_RECOVERY_PROFILE');
+  const nativeNote=retained.schema==='ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1';
   assert.equal(retained.sourceSHA256, admitted.sourceSHA256);
   assert.equal(typeof retained.manualMode, 'boolean'); assert.equal(typeof retained.hasNativeExecution, 'boolean');
   const actualOwner = nativeValueOwnerEconomicIdentityV1(owner, { runtime, system, poolIndex: retained.poolIndex });
@@ -2183,7 +2196,7 @@ export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, conte
     exactRecord(installation, ['descriptor', 'providers']); installation.providers.forEach(provider);
   }
   return createAccountAuthority({ runtime, system, poolIndex: retained.poolIndex, owner, nativeExecution,
-    accountId: retained.accountId, journalId: retained.journalId }, {}, false, { native: true, record: retained, providers });
+    accountId: retained.accountId, journalId: retained.journalId }, {}, false, { native: true, record: retained, providers },nativeNote);
 }
 
 /** Fixed private actor producer: source is read only from an authentic live

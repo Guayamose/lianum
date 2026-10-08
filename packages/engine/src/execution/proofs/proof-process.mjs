@@ -4,6 +4,8 @@
  * No caller command, path, environment, backend, memory or RPC override exists.
  */
 import { fork } from 'node:child_process';
+import {NOTE_NATIVE_WORKERS_V1,nativeEconomicNoteResourcesV1,assertNativeEconomicNoteReceiptV1} from './note-native-execution-v1.mjs';
+import {nativeProcStatV1} from '../../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
 import { assertBeginPayoutAuditLegacyLaunchV1 } from '../../../../proofs/src/jobs/native-flow-proof-scope-v1.mjs';
 import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync, unlinkSync, fstatSync, statSync, statfsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +21,8 @@ import {
   publicInputsFromWitness, encodePrivateProof, decodePrivateProof, loadProofProfile, wipePrivate, proofRoleAllows, assertProofRole,
 } from './proof-worker.mjs';
 
-const workerFile = fileURLToPath(new URL('./proof-worker.mjs', import.meta.url));
+const legacyWorkerFile = fileURLToPath(new URL('./proof-worker.mjs', import.meta.url));
+const nativeNoteRunnerFile=fileURLToPath(new URL('./note-native-execution-v1.mjs',import.meta.url));
 const nativePinsFile = fileURLToPath(new URL('./native-proof-pins.mjs', import.meta.url));
 const nativeValidatorFile = fileURLToPath(new URL('../../experiments/private-core-proof/generic-native/pin-key.mjs', import.meta.url));
 const proofResourcePolicyFile = fileURLToPath(new URL('./proof-resource-policy.mjs', import.meta.url));
@@ -30,7 +33,7 @@ const operationMilliseconds = 15 * 60 * 1000, killGraceMilliseconds = 5000;
 const maximumLogBytes = 1024 * 1024;
 const stages = new Set(['checking-pins', 'initializing-official-wasm', 'initializing-pinned-proving-crs',
   'initializing-pinned-verifier-crs', 'private-witness-in-memory', 'actual-proof-generation',
-  'actual-pinned-verification', 'legacy-proof-and-self-verification', 'legacy-independent-verification']);
+  'actual-pinned-verification', 'legacy-proof-and-self-verification', 'legacy-independent-verification','initializing-official-native']);
 let activeHostJob = null;
 
 function resourceSample(child) {
@@ -75,7 +78,14 @@ function acquireHostLock() {
  * Pins are hashes only. Returned vkFields are public recursive VK fields,
  * never a signing key. Expected public words must come independently from caller.
  */
-export function createProofProcess(options) {
+export function createProofProcess(options){return createFixedProofProcess(options,false);}
+/** New economic note facade only. Same original role checks and private IPC;
+ * no backend/path/limit options and no automatic change to historical callers. */
+export function createNativeEconomicNoteProofProcessV1(purpose){
+ need(arguments.length===1&&['owner','recipient','coordinator'].includes(purpose),'PAEG_PROOF_NOTE_PURPOSE');
+ return createFixedProofProcess({purpose,modes:purpose==='recipient'?['withdraw_balance']:['deposit_balance','withdraw_balance']},true);
+}
+function createFixedProofProcess(options,nativeNote) {
   need(options && typeof options === 'object', 'PAEG_PROOF_CONFIG');
   exactObject(options, Object.hasOwn(options, 'modes') ? ['purpose', 'modes'] : ['purpose']);
   need(PROOF_PURPOSES.includes(options.purpose), 'PAEG_PROOF_PURPOSE');
@@ -86,7 +96,8 @@ export function createProofProcess(options) {
   const allowed = new Set(modes);
   const bindings = Object.fromEntries(modes.map(mode => [mode, loadProofProfile(mode).publicPins]));
   const codePins = {
-    worker: filePin(workerFile), parent: filePin(fileURLToPath(import.meta.url)),
+    worker: filePin(legacyWorkerFile), parent: filePin(fileURLToPath(import.meta.url)),
+    ...(nativeNote?{nativeNoteRunner:filePin(nativeNoteRunnerFile),nativeNoteEntries:Object.fromEntries(Object.entries(NOTE_NATIVE_WORKERS_V1).map(([mode,path])=>[mode,filePin(path)]))}:{}),
     resourcePolicy: filePin(fileURLToPath(new URL('../private-resource-policy.mjs', import.meta.url))),
     proofResourcePolicy: filePin(proofResourcePolicyFile),
     verifierCRS: filePin(verifierCRSFile),
@@ -100,13 +111,16 @@ export function createProofProcess(options) {
     need(!current && !activeHostJob, 'PAEG_PROOF_HOST_BUSY');
     need(allowed.has(mode), 'PAEG_PROOF_MODE');
     assertProofRole(purpose, operation, mode);
-    const beginAuditProof = assertBeginPayoutAuditLegacyLaunchV1(purpose, operation, mode);
+    const beginAuditProof=assertBeginPayoutAuditLegacyLaunchV1(purpose,operation,mode);
+    if(nativeNote)need(!beginAuditProof,'PAEG_PROOF_NOTE_NOT_BEGIN_PAYOUT_AUDIT');
     need(typeof label === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(label), 'PAEG_PROOF_LABEL');
     const expected = normalizePublicInputs(mode, expectedPublicInputs);
     const loaded = loadProofProfile(mode);
     const resourcePolicy = selectProofResourcePolicy(mode, loaded.publicPins);
     need(JSON.stringify(loaded.publicPins) === JSON.stringify(bindings[mode]), 'PAEG_PROOF_BOUND_PROFILE_CHANGED');
-    filePin(workerFile, codePins.worker);
+    const workerFile=nativeNote?NOTE_NATIVE_WORKERS_V1[mode]:legacyWorkerFile;
+    filePin(legacyWorkerFile,codePins.worker);
+    if(nativeNote){filePin(nativeNoteRunnerFile,codePins.nativeNoteRunner);filePin(workerFile,codePins.nativeNoteEntries[mode]);}
     filePin(fileURLToPath(import.meta.url), codePins.parent);
     filePin(fileURLToPath(new URL('../private-resource-policy.mjs', import.meta.url)), codePins.resourcePolicy);
     filePin(proofResourcePolicyFile, codePins.proofResourcePolicy);
@@ -127,10 +141,13 @@ export function createProofProcess(options) {
     let payload;
     try { payload = encodeProofMessage({ protocol: PROOF_PROTOCOL, purpose, operation, mode, input: privateInput, expectedPublicInputs: expected, label }); }
     finally { wipePrivate(privateInput); privateInput = null; }
+    const nativeProducer=nativeNote&&operation==='prove',nativeHistory=new Map();
     const id = randomUUID(), began = performance.now();
     const report = { classification: 'ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY', id, mode, operation, purpose, label,
       startedAt: new Date().toISOString(), phase: 'before-dispatch', ...bindings[mode], policy: resourcePolicy,
-      maximumPages: loaded.maximumPages, threads: 1, zeroKnowledgeEnabled: true, codePins, stages: [], resourceSamples: [],
+      maximumPages: nativeProducer?null:loaded.maximumPages,threads:nativeProducer?12:1,
+      ...(nativeProducer?{preparedMaximumPages:loaded.maximumPages,nativeMemoryScope:'COORDINATOR_PLUS_NATIVE_CHILD',nativeChildIdentities:[],peakWorkerRSS:0}:{}),
+      zeroKnowledgeEnabled:true,codePins,stages:[],resourceSamples:[],
       logs: { stdoutBytes: 0, stderrBytes: 0 }, acceptedResult: false };
     const path = join(telemetryDirectory, id + '.json');
     let child, releaseLock, monitor, deadline, killTimer, result, failure, finished = false, resultSeen = false, sequence = 0;
@@ -149,7 +166,9 @@ export function createProofProcess(options) {
         throw proofError('PAEG_PROOF_TELEMETRY_WRITE');
       }
     };
-    const sample = () => { const value = resourceSample(child); report.resourceSamples.push(value); return value; };
+    const sample=()=>{const value=nativeNote?{at:new Date().toISOString(),...nativeEconomicNoteResourcesV1(child?.pid??null,nativeHistory),parentRSS:process.memoryUsage().rss}:resourceSample(child);
+      if(nativeProducer){report.peakWorkerRSS=Math.max(report.peakWorkerRSS,value.workerRSS);report.nativeChildIdentities=value.nativeChildIdentities;}
+      report.resourceSamples.push(value);return value;};
     const stop = (code, tripSample) => {
       if (finished) return done;
       failure ??= proofError(code);
@@ -171,8 +190,28 @@ export function createProofProcess(options) {
       if (!failure && (exitCode !== 0 || !resultSeen)) failure = proofError('PAEG_PROOF_CHILD_EXIT');
       report.phase = failure ? 'failed' : 'completed'; report.acceptedResult = !failure;
       if (failure) report.failureCode = failure.code;
+      if(nativeNote){
+        try{
+          sample();
+          // An empty sampled history cannot prove BB never spawned before a
+          // rejected startup. Without an authentic retained child identity,
+          // closure is unknown and this native job keeps its original lock.
+          report.nativeChildrenGone=(!nativeProducer||Array.isArray(report.nativeChildIdentities)&&report.nativeChildIdentities.length>0)
+            &&(report.nativeChildIdentities?.every(identity=>nativeProcStatV1(identity.pid)===null)??!nativeProducer);
+          if(nativeProducer&&!failure){report.nativeBackendExecution=report.worker?.nativeBackendExecution;
+            assertNativeEconomicNoteReceiptV1(mode,report.worker,report);}
+          need(report.nativeChildrenGone,'PAEG_PROOF_NOTE_CHILDREN_NOT_CLOSED');
+          filePin(nativeNoteRunnerFile,codePins.nativeNoteRunner);filePin(workerFile,codePins.nativeNoteEntries[mode]);
+          filePin(legacyWorkerFile,codePins.worker);filePin(fileURLToPath(import.meta.url),codePins.parent);
+        }catch(error){failure??=proofError('PAEG_PROOF_NOTE_CLOSURE');report.phase='failed';report.acceptedResult=false;report.failureCode=failure.code;}
+      }
+      if(nativeNote){
+        report.lockPreserved=report.nativeChildrenGone!==true;
+        if(!report.lockPreserved)try{releaseLock?.();}catch{failure??=proofError('PAEG_PROOF_LOCK_RELEASE');report.lockPreserved=true;}
+        if(failure){report.phase='failed';report.acceptedResult=false;report.failureCode=failure.code;}
+      }
       try { persist(); } catch (error) { failure ??= error; report.phase = 'failed'; report.acceptedResult = false; }
-      try { releaseLock?.(); } catch { failure ??= proofError('PAEG_PROOF_LOCK_RELEASE'); }
+      if(!nativeNote){try{releaseLock?.();}catch{failure??=proofError('PAEG_PROOF_LOCK_RELEASE');}}
       current = null; activeHostJob = null; lastReport = structuredClone(report);
       for (const stream of child?.stdio ?? []) stream?.destroy();
       if (failure) { wipePrivate(result); failure.telemetry = structuredClone(report); rejectDone(failure); }
