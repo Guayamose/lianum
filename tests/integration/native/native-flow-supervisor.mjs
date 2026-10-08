@@ -1,3 +1,5 @@
+import { developmentDefiEntrySourcePins } from '../defi/entry/development-defi-entry-source-pins.mjs';
+import { DEVELOPMENT_DEFI_ENTRY_RESULT, assertDevelopmentDefiEntryResult } from '../defi/entry/development-defi-entry-policy.mjs';
 import { developmentNativeClaimSourcePins } from '../claims/development/development-native-claim-source-pins.mjs';
 import { DEVELOPMENT_NATIVE_CLAIM_RESULT, assertDevelopmentNativeClaimResult } from '../claims/development/development-native-claim-policy.mjs';
 import { privateMetaMorphoSourcePins } from '../defi/private-metamorpho-source-pins.mjs';
@@ -269,6 +271,15 @@ const FLOW_PROFILES = Object.freeze({
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_PRIVATE_NATIVE_CLAIM_ROUNDTRIPS_V1', sourcePins: developmentNativeClaimSourcePins,
     cleanupKeys: Object.freeze(['closedEvm', 'closedBitcoin', 'closedSolana']),
   }),
+  developmentDefiEntry: Object.freeze({
+    entry: join(ROOT, 'integration/defi/entry/run-development-defi-entry-flow.mjs'),
+    worker: join(ROOT, 'integration/defi/entry/development-defi-entry-flow.mjs'),
+    local: join(ROOT, '.local/development-defi-entry-roundtrip-v1'),
+    resultFormat: DEVELOPMENT_DEFI_ENTRY_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_DEFI_ENTRY_RESOURCES_V1',
+    lockFormat: 'LIANUM_DEVELOPMENT_DEFI_ENTRY_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_DEFI_ENTRY_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_PUBLIC_INPUT_PRIVATE_DEFI_ENTRY_EXIT_V1', sourcePins: developmentDefiEntrySourcePins,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
   privateMetaMorpho: Object.freeze({
     entry: join(ROOT, 'integration/defi/run-private-metamorpho-flow.mjs'),
     worker: join(ROOT, 'integration/defi/private-metamorpho-flow.mjs'),
@@ -523,6 +534,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.manualWallet) scoped = assertManualWalletResult(result);
   if (profile === FLOW_PROFILES.developmentNativeClaims) scoped = assertDevelopmentNativeClaimResult(result);
   if (profile === FLOW_PROFILES.privateMetaMorpho) scoped = assertPrivateMetaMorphoResult(result);
+  if (profile === FLOW_PROFILES.developmentDefiEntry) scoped = assertDevelopmentDefiEntryResult(result);
   if (profile === FLOW_PROFILES.manualWalletRecovery) scoped = assertManualWalletRecoveryResult(result);
   if (profile === FLOW_PROFILES.nativeClaimLoadedV3) scoped = validateClaimLoadedV3Result(result);
   if (profile === FLOW_PROFILES.nativeClaimGraphV3) scoped = validateClaimGraphV3Result(result);
@@ -617,6 +629,11 @@ export async function runManualWalletRecoverySupervisor() {
 export async function runDevelopmentNativeClaimSupervisor() {
   assert.equal(arguments.length, 0, 'DEVELOPMENT_CLAIM_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.developmentNativeClaims);
+}
+
+export async function runDevelopmentDefiEntrySupervisor() {
+  assert.equal(arguments.length, 0, 'DEVELOPMENT_DEFI_NO_SUPERVISOR_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.developmentDefiEntry);
 }
 
 export async function runPrivateMetaMorphoSupervisor() {

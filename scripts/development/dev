@@ -22,12 +22,17 @@ case "$task_command" in
       './dev lab [prepare|run|recovery]   Laboratorio EVM nuevo: flujo completo o recuperación F real' \
       './dev lab claims     Ingreso y redención privada de claims BTC/SOL en un laboratorio nuevo' \
       './dev lab metamorpho Nota privada de shares, EXIT y redención oficial en un laboratorio nuevo' \
+      './dev lab defi       Entrada privada D27 de Uniswap/MetaMorpho y EXIT original' \
       './dev artifacts      Inventariar los artefactos históricos de encoding' \
       './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
       './dev npm [args]     Ejecutar npm con el Node local' \
       '' \
       'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
   lab)
+    if [ "${1:-}" = "defi" ]; then
+      shift
+      exec python3 "$task_helpers/defi_entry_lab.py" "$@"
+    fi
     if [ "${1:-}" = "metamorpho" ]; then
       shift
       exec python3 "$task_helpers/defi_lab.py" "$@"
