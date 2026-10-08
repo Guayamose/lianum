@@ -89,8 +89,19 @@ identidad, hashes, alcance y comandos.
 
 El primer round trip privado BTC/Solana emitió ambas notas con cuatro pruebas
 D27/CI51, pero falló antes de EXIT/payout por lecturas paralelas incompatibles
-con el controlador original. El harness ahora las serializa, con regresiones;
-el intento fallido se conserva y la aceptación requiere una ejecución nueva.
+con el controlador original. El harness ahora las serializa, con regresiones.
+El segundo intento conservó siete pruebas genuinas, reabrió los owners y el
+controlador originales, y completó EXIT y payout Bitcoin de 100.000 satoshis.
+La respuesta de admisión perdida se resolvió con resume; repetir redeem,
+resume y reconcile no repitió el pago.
+
+El conjunto sigue **rechazado**: la redención Solana devolvió
+`CLAIM_OPERATOR_AUDIT_TOO_OLD` después de `BEGIN_PAYOUT`, antes de conservar
+una firma o envío nativo de payout. La etiqueta final de finalidad procedía del
+texto de una aserción del harness y no describía la causa original. Ese inicio
+de pago impide asumir que el fence está libre o renovar/reintentar la firma.
+La revisión independiente unió las siete pruebas y confirmó fuentes intactas,+cierre propio y ausencia de los 133 PID originales. El presupuesto de auditoría
+de 30 s se conserva; falta resolver su causa y aceptar ocho pruebas nuevas.
 
 Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
 Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica la

@@ -59,7 +59,11 @@ de keeper/nodo y después conectar la custodia móvil a ese mismo núcleo.
   parciales y asignación económica del fallo.
 
 CI51 V3 y CO42 ya tienen un build y manifiesto nuevos revisados, con las VK
-originales. Aceptar el round trip privado con ocho pruebas genuinas antes de
+originales. El segundo round trip completó la retirada Bitcoin y conservó siete
+pruebas, pero rechazó el pago Solana por una auditoría de operador caducada tras
+iniciar payout. Conservar el fence, identificar el coste y el estado de firma,
+y corregir el diagnóstico del harness sin ampliar el presupuesto ni reintentar
+un resultado desconocido. Aceptar el round trip con ocho pruebas genuinas antes de
 extenderlo a grafos y pérdida de procesos. No presentar
 reconstrucciones como los recibos históricos ausentes.
 
