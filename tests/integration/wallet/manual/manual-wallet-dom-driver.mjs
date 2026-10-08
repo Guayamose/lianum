@@ -2,7 +2,7 @@
  * A run establishes evidence only after its fixed source closure,
  * original journals, genuine proofs, lifecycle and scoped policy are reviewed. */
 import assert from 'node:assert/strict';
-import { ALL_ACTIONS, DEFI_PROFILE, accountActionContext, accountReviewDetails, actionReview, validateWalletState }
+import { ALL_ACTIONS, DEFI_PROFILE, accountActionContext, accountReviewDetails, actionReview, buildActionBody, validateWalletState }
   from '../../../../apps/wallet/src/client/state/view-model.mjs';
 
 const actionName = (section, method) => section + method[0].toUpperCase() + method.slice(1);
@@ -119,7 +119,7 @@ export async function createManualWalletDomDriver(app, { page, deadlineMs }) {
     });
   }
   async function reviewed(action, input) {
-    assert.ok(Object.hasOwn(ALL_ACTIONS, action)); const body = structuredClone(input);
+    assert.ok(Object.hasOwn(ALL_ACTIONS, action)); const body = buildActionBody(action, input);
     const current = await state(), baseline = current.account?.snapshot;
     assert.ok(idle(baseline), 'BROWSER_ORIGINAL_JOURNAL_NOT_READY');
     const stateEnvelope = { data: current, stale: false, portfolioStale: current.errors.portfolio !== null,

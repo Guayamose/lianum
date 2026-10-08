@@ -65,7 +65,10 @@ try {
   browser = await startOwnedWalletBrowser(join(ROOT, '.local/manual-wallet-dom-contract'), app.origin);
   driver = await createManualWalletDomDriver(app, { page: browser.page, deadlineMs: Date.now() + 90000 });
   const requestId = 'dom_topup_01';
-  await driver.account('prepare', { requestId, kind: 'TOP_UP', ownerOperationRef, assetId });
+  // Original custody bodies can arrive in another insertion order (GRAPH did
+  // so in the real laboratory). Every displayed value still has to match the
+  // production form's fixed field order before importing any exact grant.
+  await driver.account('prepare', { assetId, ownerOperationRef, kind: 'TOP_UP', requestId });
   const loss = await driver.executeAccountWithLostReply({ requestId });
   assert.equal(loss.loss.browserReportedUnknown, true);
   await driver.account('reconcile', { requestId });
