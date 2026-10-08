@@ -5,6 +5,9 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 import { createPostgresAuthorizationStore, authorizationKey } from '../src/authorization-store.mjs';
+import { createPlatformPool } from '../src/database-pool.mjs';
+import { startPlatformServer } from '../src/server.mjs';
+import { startCommitReplyProxy } from './helpers/commit-reply-proxy.mjs';
 import { startTestPostgres, poolFor } from './helpers/postgres-container.mjs';
 import { MOBILE_AUTHORIZATION_PROFILE, mobileAuthorizationMessage } from '../../../packages/mobile-protocol/src/authorization.mjs';
 let createMobileApi;
@@ -114,6 +117,31 @@ test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: 
     await database.restart(); pool = poolFor(database.connectionString); store = await createPostgresAuthorizationStore(pool);
     assert.deepEqual(await store.consume(pending, Date.now()), { duplicate: true, response: unknown(pending) });
     assert.deepEqual(await store.consume(complete, Date.now()), { duplicate: true, response: accepted(complete) });
+  });
+
+  await t.test('lost COMMIT reply times out without dispatch and preserves real committed UNKNOWN on reconnect', async () => {
+    const proxy = await startCommitReplyProxy(database.connectionString);
+    const boundedPool = createPlatformPool(proxy.connectionString);
+    let app, effects = 0;
+    try {
+      const boundedStore = await createPostgresAuthorizationStore(boundedPool);
+      app = await startPlatformServer({ origin: 'https://wallet.example.test', store: boundedStore,
+        executor: { capabilities: { prepare: true }, submit: async () => { effects++; return { admitted: true }; } } });
+      const original = challenge(), authorization = signed(original);
+      await boundedStore.put(original);
+      const began = Date.now();
+      const response = await fetch(`http://127.0.0.1:${app.port}/v1/mobile/authorizations`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(authorization), signal: AbortSignal.timeout(10_000),
+      });
+      assert.equal(response.status, 503); assert.deepEqual(await response.json(), { error: 'MOBILE_PERSISTENCE_UNAVAILABLE' });
+      assert.ok(Date.now() - began >= 4500 && Date.now() - began < 10_000);
+      assert.equal(proxy.commitForwarded, true); assert.equal(effects, 0);
+      assert.equal(boundedPool.idleCount, 0); assert.equal(boundedPool.totalCount, 0);
+      const retained = await pool.query('SELECT response FROM mobile_authorizations WHERE authorization_key=$1', [authorizationKey(original)]);
+      assert.equal(retained.rows.length, 1); assert.deepEqual(retained.rows[0].response, unknown(original));
+      assert.deepEqual(await store.consume(original, Date.now()), { duplicate: true, response: unknown(original) });
+      assert.equal((await pool.query('SELECT consumed FROM mobile_challenges WHERE challenge_id=$1', [original.challengeId])).rows[0].consumed, true);
+    } finally { await app?.close(); await boundedPool.end(); await proxy.close(); }
   });
 
   let processServer;

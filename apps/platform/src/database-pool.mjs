@@ -5,7 +5,9 @@
 import pg from 'pg';
 export function createPlatformPool(connectionString) {
   const pool = new pg.Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000,
-    statement_timeout: 5000, idleTimeoutMillis: 30_000 });
+    // statement_timeout is enforced by PostgreSQL. query_timeout also bounds
+    // this client's wait when an established transport stops returning bytes.
+    statement_timeout: 5000, query_timeout: 5000, idleTimeoutMillis: 30_000 });
   pool.on('error', () => {});
   return pool;
 }

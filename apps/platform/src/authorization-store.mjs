@@ -30,6 +30,7 @@ export async function createPostgresAuthorizationStore(pool) {
     },
     async consume(challenge, now) {
       const client = await pool.connect();
+      let releaseFailure;
       try {
         await client.query('BEGIN');
         const key = authorizationKey(challenge), terms = operationTerms(challenge);
@@ -60,8 +61,18 @@ export async function createPostgresAuthorizationStore(pool) {
         }
         await client.query('UPDATE mobile_challenges SET consumed=true WHERE challenge_id=$1', [challenge.challengeId]);
         await client.query('COMMIT'); return {duplicate:false,key,response};
-      } catch (error) { await client.query('ROLLBACK'); throw error; }
-      finally { client.release(); }
+      } catch (error) {
+        if (error.message === 'Query read timeout') {
+          // A COMMIT may have completed even when its reply was lost. Discard
+          // this exact connection; queued ROLLBACK cannot establish otherwise.
+          // The durable record remains UNKNOWN and never permits redispatch.
+          releaseFailure = error;
+        } else {
+          try { await client.query('ROLLBACK'); }
+          catch (rollbackError) { releaseFailure = rollbackError; }
+        }
+        throw error;
+      } finally { client.release(releaseFailure); }
     },
     async finish(key, response) {
       const result = await pool.query('UPDATE mobile_authorizations SET response=$2 WHERE authorization_key=$1 RETURNING authorization_key', [key, response]);
