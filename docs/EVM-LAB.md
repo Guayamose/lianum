@@ -205,6 +205,31 @@ Los once jobs PAEG inicializaron workers nuevos. Cualquier propuesta de reutiliz
 inicialización necesitaría volver a verificar límites, clausura de fuentes,
 aislamiento de rol, testigos, inputs, claves, ZK y cierre antes de aceptar una mejora.
 
+Esta es la medición fría del mismo intento, en segundos por prueba. Las filas
+con varias pruebas muestran su media; el total externo lo midió el supervisor
+de cada prueba e incluye más trabajo que init + prove. Los guiones indican que
+el recibo original no separó esas etapas.
+
+| Relación | Pruebas | Init (s) | Prove (s) | Total externo (s) |
+| --- | ---: | ---: | ---: | ---: |
+| `deposit_balance` | 1 | — | — | 38.700 |
+| `deposit_intent` | 1 | 29.494 | 6.974 | 37.076 |
+| `authorization` | 1 | 29.855 | 95.628 | 127.219 |
+| `reservation` | 1 | 30.367 | 10.216 | 41.291 |
+| `dependency` | 1 | 31.215 | 18.877 | 51.186 |
+| `ready` | 1 | 31.177 | 27.879 | 60.099 |
+| `admission` | 1 | 30.224 | 48.329 | 79.625 |
+| `node` | 4 | 31.536 | 11.205 | 43.739 |
+| `settlement` | 1 | 30.279 | 11.206 | 42.274 |
+| `withdraw_balance` | 3 | — | — | 51.516 |
+
+La autorización A consumió 127.219 s externos, de los cuales 95.628 s fueron
+proving. Los once jobs inicializaron de nuevo el runtime, con unos 30 s en cada
+init. Estos datos permiten investigar el coste de inicialización y después la
+autorización, conservando ZK y las verificaciones. No se midió una ejecución
+caliente, ni se cumplen o certifican aquí los objetivos de rendimiento del
+producto. Esta única ejecución fría tampoco mide concurrencia o latencia móvil.
+
 ## Recuperación F nueva aceptada
 
 Intento `59fba9ff-2298-449a-b825-393c002b57e0`: siete pruebas reales (financiación, D27, autorización,
