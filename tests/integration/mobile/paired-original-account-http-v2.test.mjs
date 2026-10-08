@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { fixture, createActorModule } from './paired-original-account-host-fixture.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
   from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
+  from '../../../packages/mobile-protocol/src/original-account-private-state-v1.mjs';
 // Framework sources stay in their actual app directory. This host test is run
 // through ./dev after build and public apps/mobile dependencies are installed.
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
@@ -139,4 +141,36 @@ test('body limits and incomplete headers are bounded without exposing errors or 
   assert.ok(performance.now() - started < 4000);
   assert.equal((await c.f.session.snapshot()).admissions.length, before);
   assert.equal(c.f.world.sends, 0); assert.equal(c.f.world.proofs, 0);
+});
+
+test('separately signed account/pool state uses original ownerView and cannot invent available value from a prepared request', async t => {
+  const c = await setup(t, { execute: false }), before = await c.f.session.snapshot();
+  const access = await c.api.privateState.challenge();
+  const calls = c.calls.length;
+  await assert.rejects(c.api.privateState.openReview({ challenge: access,
+    signature: signDeviceMessage(privateKey, originalAccountAccessMessageV2(access)) }), /SERVICE_UNAVAILABLE/);
+  assert.equal(c.calls.length, calls + 1);
+  const review = await c.api.privateState.openReview({ challenge: access,
+    signature: signDeviceMessage(privateKey, privateStateAccessMessageV1(access)) });
+  assert.equal(review.binding.requestState, 'PREPARED'); assert.equal(review.binding.amountAtomic, '100');
+  await assert.rejects(c.api.privateState.submit({ review,
+    signature: signDeviceMessage(privateKey, originalAccountReviewMessageV2(review)) }), /SERVICE_UNAVAILABLE/);
+  const observed = await c.api.privateState.submit({ review,
+    signature: signDeviceMessage(privateKey, privateStateReviewMessageV1(review)) });
+  // The fixture forbids native balance observations. The authentic account's
+  // ownerView therefore returns UNAVAILABLE, never the prepared amount or 0.
+  assert.equal(observed.status, 'UNAVAILABLE');
+  assert.equal(observed.observed, null); assert.equal(observed.balances, null); assert.equal(observed.backing, null);
+  assert.equal(observed.request.state, 'UNRESOLVED'); assert.equal(observed.completePortfolio, false);
+  assert.equal(observed.mobileNoteCustody, false);
+  assert.deepEqual(Object.keys(observed).sort(), ['version', 'profile', 'scope', 'binding', 'status', 'asset',
+    'observed', 'balances', 'backing', 'request', 'custody', 'mobileNoteCustody', 'completePortfolio'].sort());
+  await assert.rejects(c.api.privateState.submit({ review,
+    signature: signDeviceMessage(privateKey, privateStateReviewMessageV1(review)) }), /SERVICE_UNAVAILABLE/);
+  await assert.rejects(c.api.submit({ review,
+    signature: signDeviceMessage(privateKey, privateStateReviewMessageV1(review)) }), /SERVICE_UNAVAILABLE/);
+  const after = await c.f.session.snapshot();
+  assert.equal(after.revision, before.revision); assert.equal(after.admissions.length, before.admissions.length);
+  assert.equal(c.f.world.proofs, 0); assert.equal(c.f.world.sends, 0);
+  const state = await c.api.state(); assert.equal(state.privatePortfolio, null); assert.equal(state.economicObservation, null);
 });

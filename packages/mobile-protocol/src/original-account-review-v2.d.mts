@@ -34,3 +34,6 @@ export function validateOriginalAccountFreshV2<T extends OriginalAccountAccessV2
 export function originalAccountAccessMessageV2(raw: OriginalAccountAccessV2, options?: OriginOptions): Uint8Array;
 export function originalAccountReviewMessageV2(raw: OriginalAccountReviewV2, options?: OriginOptions): Uint8Array;
 export function normalizeOriginalAccountSignatureV2(value: unknown): string;
+
+// Separate consent domains; existing V2 diagnostics remain unchanged.
+export * from './original-account-private-state-v1.mjs';

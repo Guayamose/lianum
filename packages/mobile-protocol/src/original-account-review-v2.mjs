@@ -96,3 +96,6 @@ export function normalizeOriginalAccountSignatureV2(value) {
   const r = BigInt('0x' + value.slice(0, 64)), s = BigInt('0x' + value.slice(64));
   need(r > 0n && r < ORDER && s > 0n && s <= ORDER / 2n, 'MOBILE_ORIGINAL_SIGNATURE_NONCANONICAL'); return value;
 }
+
+// Separate consent domains; existing V2 diagnostics remain unchanged.
+export * from './original-account-private-state-v1.mjs';

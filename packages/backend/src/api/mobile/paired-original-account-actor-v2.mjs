@@ -1,7 +1,7 @@
 /** Private same-realm bootstrap only. Public platform HTTP is not connected.
  * Holds original session/approval/owner references; no factories or callbacks.
- * Reads request diagnostics only and reconciles the exact already-latched note.
- * No balance projection, GRAPH, prepare, execute, recover, restart or adoption. */
+ * Diagnostics and separately consented account/pool state use the same opaque
+ * originals. No GRAPH, prepare, execute, recover, restart or adoption. */
 import { types } from 'node:util';
 import { randomBytes, createPublicKey, verify } from 'node:crypto';
 import { assertFlatAccountSession } from '../accounts/flat-account-session.mjs';
@@ -13,6 +13,10 @@ import { ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2,
   normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2, normalizeOriginalAccountSignatureV2,
   validateOriginalAccountFreshV2, originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
   from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import { privateStateAccessFrameV1, privateStateReviewFrameV1, normalizePrivateStateAccessV1,
+  normalizePrivateStateReviewV1, privateStateAccessMessageV1, privateStateReviewMessageV1,
+  PRIVATE_STATE_SCOPE_V1, PRIVATE_STATE_OBSERVATION_V1, normalizePrivateStateObservationV1,
+  validatePrivateStateFreshV1 } from '../../../../mobile-protocol/src/original-account-private-state-v1.mjs';
 const pairings = new WeakMap(), actorBrands = new WeakMap();
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const need = (value, code) => { if (!value) fail(code); };
@@ -85,7 +89,7 @@ export async function createPairedOriginalAccountActorV2(input) {
     'MOBILE_ORIGINAL_ACCOUNT_LIFETIME'); return details;
   };
   original();
-  const pairingId = hex(), accesses = new Map(), reviews = new Map();
+  const pairingId = hex(), accesses = new Map(), reviews = new Map(), stateAccesses = new Map(), stateReviews = new Map();
   let busy = false, closed = false;
   function live() { need(!closed, 'MOBILE_ORIGINAL_ACTOR_CLOSED'); original(); }
   async function binding(action) {
@@ -207,8 +211,76 @@ export async function createPairedOriginalAccountActorV2(input) {
           noteCustodyOnDevice: false, nativeEffectsEstablished: false };
       } finally { busy = false; }
     },
+    /** A distinct permission asks for the account/pool balance. Existing
+     * diagnostic nonces/signatures never authorize private financial state. */
+    privateStateChallenge() {
+      need(arguments.length === 0 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); live();
+      capacity(stateAccesses);
+      const value = normalizeOriginalAccountAccessV2({ version: 2, profile: ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2,
+        origin, pairingId, challengeId: hex(), nonce: hex(), expiresAt: Date.now() + ORIGINAL_ACCOUNT_REVIEW_TTL_MS,
+        devicePublicKey, action: 'read' });
+      stateAccesses.set(value.challengeId, { value, consumed: false });
+      return structuredClone(privateStateAccessFrameV1(value));
+    },
+    async openPrivateStateReview(input) {
+      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      try {
+        exact(input, ['challenge', 'signature']);
+        const inner = normalizePrivateStateAccessV1(frameData(input.challenge)).challenge;
+        const access = authenticate({ challenge: inner, signature: input.signature }, normalizeOriginalAccountAccessV2,
+          privateStateAccessMessageV1, stateAccesses, 'challenge');
+        const selected = await binding('read'); live(); validateOriginalAccountFreshV2(access);
+        capacity(stateReviews);
+        const value = normalizeOriginalAccountReviewV2({ version: 2, profile: ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2,
+          origin, pairingId, challengeId: hex(), nonce: hex(), expiresAt: Date.now() + ORIGINAL_ACCOUNT_REVIEW_TTL_MS,
+          devicePublicKey, action: 'read', bootstrapChallengeId: access.challengeId, binding: selected });
+        stateReviews.set(value.challengeId, { value, consumed: false });
+        return structuredClone(privateStateReviewFrameV1(value));
+      } finally { busy = false; }
+    },
+    async readPrivateState(input) {
+      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      try {
+        exact(input, ['review', 'signature']);
+        const inner = normalizePrivateStateReviewV1(frameData(input.review)).review;
+        const review = authenticate({ review: inner, signature: input.signature }, normalizeOriginalAccountReviewV2,
+          privateStateReviewMessageV1, stateReviews, 'review');
+        const selected = await binding('read'); live();
+        need(JSON.stringify(selected) === JSON.stringify(review.binding), 'MOBILE_ORIGINAL_REVIEW_STALE');
+        validateOriginalAccountFreshV2(review);
+        // This original method revalidates retained receipts, owner/reader
+        // head equality and backing. It does not acknowledge, reconcile, prove,
+        // send, discover a new terminal or write the account journal.
+        const first = await account.ownerView(); live();
+        const observed = await account.ownerView(); live();
+        // Two original reads fence head/backing changes during disclosure.
+        // Timestamps may advance; every monetary field and retained request
+        // disposition must still agree. No retry refreshes an old permission.
+        const observationIdentity = value => JSON.stringify({ status: value.status, asset: value.asset,
+          observed: value.observed ? { blockNumber: value.observed.blockNumber,
+            blockHash: value.observed.blockHash, timestamp: value.observed.timestamp } : null,
+          balances: value.balances, backing: value.backing, requests: value.requests });
+        need(observationIdentity(first) === observationIdentity(observed), 'MOBILE_PRIVATE_STATE_HEAD_CHANGED');
+        const after = await binding('read'); live();
+        need(JSON.stringify(after) === JSON.stringify(selected), 'MOBILE_ORIGINAL_REVIEW_STALE');
+        validateOriginalAccountFreshV2(review);
+        need(observed.asset.assetId === selected.assetId && observed.asset.symbol === selected.asset.symbol
+          && observed.asset.decimals === selected.asset.decimals, 'MOBILE_ORIGINAL_ASSET_CHANGED');
+        const rows = observed.requests.filter(row => row.requestId === requestId && row.kind === initial.body.kind);
+        need(rows.length === 1, 'MOBILE_ORIGINAL_OPERATION_REQUIRED');
+        const current = observed.status === 'LIVE';
+        const request = current ? rows[0] : { ...rows[0],
+          state: rows[0].state === 'UNRESOLVED' ? 'UNRESOLVED' : 'STALE', disposition: null };
+        return validatePrivateStateFreshV1(normalizePrivateStateObservationV1({ version: 1,
+          profile: PRIVATE_STATE_OBSERVATION_V1, scope: PRIVATE_STATE_SCOPE_V1, binding: after,
+          status: observed.status, asset: { assetId: selected.assetId, ...selected.asset },
+          observed: current ? observed.observed : null, balances: current ? observed.balances : null,
+          backing: current ? observed.backing : null, request,
+          custody: 'LINUX_ORIGINAL_OWNER_CUSTODY', mobileNoteCustody: false, completePortfolio: false }));
+      } finally { busy = false; }
+    },
     close() { need(arguments.length === 0, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); closed = true;
-      for (const row of [...accesses.values(), ...reviews.values()]) row.consumed = true;
+      for (const row of [...accesses.values(), ...reviews.values(), ...stateAccesses.values(), ...stateReviews.values()]) row.consumed = true;
       return { closed: true, retainedOriginalSession: true, retainedOriginalCustody: true }; },
   });
   actorBrands.set(actor, { live, descriptor: Object.freeze({ origin, pairingId, devicePublicKey }) });

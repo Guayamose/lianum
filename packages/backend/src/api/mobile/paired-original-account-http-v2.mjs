@@ -50,11 +50,22 @@ export async function createPairedOriginalAccountHttpServerV2(input) {
         assertPairedOriginalAccountActorV2(actor); return state;
       }
       if (request.method !== 'POST' || !['/v2/mobile/original-account/challenges',
-        '/v2/mobile/original-account/reviews', '/v2/mobile/original-account/diagnostics'].includes(request.url))
+        '/v2/mobile/original-account/reviews', '/v2/mobile/original-account/diagnostics',
+        '/v1/mobile/original-account/private-state/challenges', '/v1/mobile/original-account/private-state/reviews',
+        '/v1/mobile/original-account/private-state/observations'].includes(request.url))
         fail('HTTP_NOT_FOUND');
       if (request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
       const value = await jsonBody(request);
       if (closed) fail('HTTP_CLOSED'); assertPairedOriginalAccountActorV2(actor);
+      if (request.url.startsWith('/v1/mobile/original-account/private-state/')) {
+        if (request.url.endsWith('/challenges')) {
+          if (!value || Object.getPrototypeOf(value) !== Object.prototype || Reflect.ownKeys(value).length !== 0)
+            fail('HTTP_BODY_REJECTED');
+          return { challenge: actor.privateStateChallenge() };
+        }
+        if (request.url.endsWith('/reviews')) return { review: await actor.openPrivateStateReview(value) };
+        return actor.readPrivateState(value);
+      }
       if (request.url.endsWith('/challenges')) return { challenge: actor.challenge(value) };
       if (request.url.endsWith('/reviews')) return { review: await actor.openReview(value) };
       return actor.submit(value);
