@@ -38,6 +38,10 @@ import { DEVELOPMENT_NATIVE_CLAIM_PROFILE, DEVELOPMENT_NATIVE_CLAIM_RESULT } fro
 import { developmentNativeClaimSourcePins } from './development-native-claim-source-pins.mjs';
 import { assertRoleProofReceiptRecords, assertWithdrawalProofTelemetry } from './development-native-claim-proof-evidence.mjs';
 import { readDevelopmentNativeClaimReceipts } from './development-native-claim-receipts.mjs';
+import { claimOperatorPrivateAuditActivity, claimOperatorPrivateAuditMetrics }
+  from '../../../../packages/backend/src/claims/operations/operators.mjs';
+import { graphOperatorPrivateAuditActivity }
+  from '../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
 
 // The only selector is the source-pinned literal entry/worker pair. There is
 // no caller profile, pool, factory, witness or proof-backend option.
@@ -83,6 +87,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
     process.stdout.write(JSON.stringify({ stage: name }) + '\n'); };
   let fixture, controllerKeeper, controller, accountKeeper, session, http, claimSession, claimHttp, cleanupPromise, interrupted = false;
   const owners = [], handoffs = [], deposits = [], accounts = [], proofClients = {}, ingressProverIdentity = freshFixtureId();
+  let loadedSolanaMetrics = null;
   const earlier = new Map([LOCAL, NATIVE_INGRESS_V3_LOCAL].map(local => [local,
     new Set(existsSync(join(local, 'attempts')) ? readdirSync(join(local, 'attempts')) : [])]));
   const collected = new Set();
@@ -193,20 +198,99 @@ export async function runDevelopmentNativeClaimAcceptance() {
     headers: { Origin: http.origin, 'x-flat-owner-token': http.ownerAccess.token } }); assert.equal(response.status, 200); return response.json(); }
   async function claimOwnerView() { const response = await fetch(claimHttp.origin + '/api/native-claims/owner', {
     headers: { Origin: claimHttp.origin, 'x-native-owner-token': claimHttp.ownerAccess.token } }); assert.equal(response.status, 200); return response.json(); }
+  // Copies from original private brands only. This never enters an observer,
+  // clock, key, journal or current/audit operation and never waits for busy work.
+  function loadedSolanaSnapshot() {
+    const snapshot = { incomplete: false, claim: [], graph: [] };
+    const pick = (value, fields) => Object.fromEntries(fields.map(field => [field, value[field]]));
+    const activityFields = ['schema', 'epochScope', 'keyUseEpoch', 'originalHistoriesMeasured',
+      'totalKeyInvocationsMeasured', 'authorizationCount', 'signedAuthorizationCount',
+      'factCount', 'signedFactCount', 'busy', 'branchClosed', 'branchPoisoned', 'custodyClosed', 'custodyPoisoned'];
+    const reportFields = ['schema', 'operationOrdinal', 'wallMilliseconds', 'processUserMicroseconds',
+      'processSystemMicroseconds', 'cpuScope', 'wallScope', 'wholeOperationScope', 'finalizationScope',
+      'postFenceSamplingAndRetirementNotBudgeted', 'nonCustodyObserverSeparatePhaseNotMeasured',
+      'incomplete', 'truncated', 'peakActiveIntervals', 'rpcCounts', 'keyUsageMeasured'];
+    const labelFields = ['phase', 'method', 'round', 'invocations', 'measuredIntervals', 'wallMilliseconds',
+      'maximumWallMilliseconds', 'processUserMicroseconds', 'processSystemMicroseconds'];
+    for (let index = 0; index < 4; index++) {
+      const row = { index, activity: null, metrics: null }, graph = { index, activity: null };
+      try {
+        row.activity = pick(claimOperatorPrivateAuditActivity(fixture.operators[index]),
+          [...activityFields, 'retainedBindingCount']);
+      } catch { snapshot.incomplete = true; }
+      try {
+        const metrics = claimOperatorPrivateAuditMetrics(fixture.operators[index]);
+        row.metrics = { schema: metrics.schema, collectionIncomplete: metrics.collectionIncomplete,
+          reports: metrics.reports.slice(0, 8).map(report => ({ ...pick(report, reportFields),
+            labels: report.labels.slice(0, 32).map(label => pick(label, labelFields)) })) };
+        if (metrics.collectionIncomplete || metrics.reports.length > 8
+          || metrics.reports.some(report => report.labels.length > 32)
+          || row.metrics.reports.some(report => report.incomplete || report.truncated)) snapshot.incomplete = true;
+      } catch { snapshot.incomplete = true; }
+      try { graph.activity = pick(graphOperatorPrivateAuditActivity(fixture.graphOperators[index]), activityFields); }
+      catch { snapshot.incomplete = true; }
+      if (row.activity?.busy !== false || graph.activity?.busy !== false) snapshot.incomplete = true;
+      snapshot.claim.push(row); snapshot.graph.push(graph);
+    }
+    return snapshot;
+  }
+  function retainLoadedSolanaMetrics(postIdle, requestId) {
+    if (!loadedSolanaMetrics || loadedSolanaMetrics.after !== null) return;
+    try {
+      const after = loadedSolanaSnapshot();
+      loadedSolanaMetrics.after = after;
+      loadedSolanaMetrics.postIdle = postIdle;
+      loadedSolanaMetrics.incomplete ||= !postIdle || after.incomplete;
+      loadedSolanaMetrics.newReports = after.claim.map((row, index) => {
+        const before = loadedSolanaMetrics.before.claim[index].metrics;
+        let baselineOrdinal = before ? before.reports.at(-1)?.operationOrdinal ?? -1 : null;
+        if (baselineOrdinal !== null && (!Number.isSafeInteger(baselineOrdinal) || baselineOrdinal < -1)) baselineOrdinal = null;
+        const reports = row.metrics?.reports.filter(report => baselineOrdinal === null || report.operationOrdinal > baselineOrdinal) ?? [];
+        let missingReports = baselineOrdinal === null ? null : 0;
+        let expected = baselineOrdinal === null ? null : baselineOrdinal + 1;
+        for (const report of reports) {
+          if (!Number.isSafeInteger(report.operationOrdinal) || report.operationOrdinal < 0
+            || expected !== null && report.operationOrdinal < expected) {
+            loadedSolanaMetrics.incomplete = true; missingReports = null;
+          } else if (expected !== null && missingReports !== null) missingReports += report.operationOrdinal - expected;
+          expected = report.operationOrdinal + 1;
+        }
+        if (missingReports === null || missingReports > 0 || !row.metrics) loadedSolanaMetrics.incomplete = true;
+        return { index, baselineOrdinal, missingReports, reportOrdinals: reports.map(report => report.operationOrdinal) };
+      });
+      loadedSolanaMetrics.failures = nativeClaimSessionPrivateFailures(claimSession)
+        .filter(failure => failure.requestId === requestId).slice(-8).map(failure => ({
+          code: failure.code, causeCode: failure.causeCode, causeCodes: failure.causeCodes,
+          ...(failure.auditBudget ? { auditBudget: failure.auditBudget } : {}) }));
+      writeFixturePrivate(join(privateDirectory, 'loaded-solana-redemption-metrics-v1.json'), loadedSolanaMetrics);
+    } catch { loadedSolanaMetrics.incomplete = true; loadedSolanaMetrics.retentionFailed = true; }
+  }
   async function claimRequest(action, body, discard = false) {
-    const response = await fetch(claimHttp.origin + '/api/native-claims/' + action, { method: 'POST', headers: {
-      'Content-Type': 'application/json', Origin: claimHttp.origin, 'x-native-claim-token': claimHttp.clientAccess.token }, body: JSON.stringify(body) });
-    assert.equal(response.status, 202);
-    if (discard) { await response.body.cancel(); result.checks.admittedResponseDiscarded = true; }
-    else { const admission = await response.json(); assert.equal(admission.admitted, true); assert.equal(admission.requestId, body.requestId); }
-    const view = await claimSession.idle(); controller = nativeClaimSessionController(claimSession);
-    const request = view.requests.find(row => row.requestId === body.requestId); assert.ok(request);
-    const privateDiagnostics = nativeClaimSessionPrivateFailures(claimSession).filter(value => value.requestId === body.requestId);
-    if (privateDiagnostics.length) writeFixturePrivate(join(privateDirectory, 'claim-failure-' + body.requestId + '.json'),
-      { requestId: body.requestId, action, failures: privateDiagnostics });
-    result.claimRequests.push({ action, requestId: body.requestId, state: request.state, errorCode: request.errorCode,
-      ...(privateDiagnostics.length ? { privateDiagnostics } : {}),
-      via: 'ORIGINAL_NATIVE_CLAIM_HTTP', admissionResponseDiscarded: discard }); save(); return request;
+    const captureSolana = !btcToSol && action === 'redeem'
+      && body.requestId === 'development_native_redemption_1' && loadedSolanaMetrics === null;
+    if (captureSolana) {
+      const before = loadedSolanaSnapshot();
+      loadedSolanaMetrics = { schema: 'DEVELOPMENT_LOADED_SOLANA_REDEMPTION_METRICS_V1',
+        authority: 'PRIVATE_DIAGNOSTIC_ONLY', totalKeyInvocationsMeasured: false, rpcCounts: null,
+        before, after: null, newReports: [], failures: [], postIdle: false, incomplete: before.incomplete };
+    }
+    try {
+      const response = await fetch(claimHttp.origin + '/api/native-claims/' + action, { method: 'POST', headers: {
+        'Content-Type': 'application/json', Origin: claimHttp.origin, 'x-native-claim-token': claimHttp.clientAccess.token }, body: JSON.stringify(body) });
+      assert.equal(response.status, 202);
+      if (discard) { await response.body.cancel(); result.checks.admittedResponseDiscarded = true; }
+      else { const admission = await response.json(); assert.equal(admission.admitted, true); assert.equal(admission.requestId, body.requestId); }
+      const view = await claimSession.idle();
+      if (captureSolana) retainLoadedSolanaMetrics(true, body.requestId);
+      controller = nativeClaimSessionController(claimSession);
+      const request = view.requests.find(row => row.requestId === body.requestId); assert.ok(request);
+      const privateDiagnostics = nativeClaimSessionPrivateFailures(claimSession).filter(value => value.requestId === body.requestId);
+      if (privateDiagnostics.length) writeFixturePrivate(join(privateDirectory, 'claim-failure-' + body.requestId + '.json'),
+        { requestId: body.requestId, action, failures: privateDiagnostics });
+      result.claimRequests.push({ action, requestId: body.requestId, state: request.state, errorCode: request.errorCode,
+        ...(privateDiagnostics.length ? { privateDiagnostics } : {}),
+        via: 'ORIGINAL_NATIVE_CLAIM_HTTP', admissionResponseDiscarded: discard }); save(); return request;
+    } finally { if (captureSolana) retainLoadedSolanaMetrics(false, body.requestId); }
   }
   try {
     save(); fixture = await createOwnedNativeClaimGraphV3Fixture(privateDirectory, { onStage: stage, onDeployment: audit });
