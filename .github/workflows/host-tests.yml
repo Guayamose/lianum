@@ -72,7 +72,10 @@ jobs:
           packages/backend/tests/defi/delivery/manual-wallet-app-driver-defi.test.mjs
           packages/backend/tests/defi/vaults/generation-private-vault-reader.test.mjs
           packages/backend/tests/defi/withdrawals/generation-private-vault-exit.test.mjs
+          packages/backend/tests/defi/vaults/private-vault-position.test.mjs
+          packages/backend/tests/chains/evm/vault/metamorpho-graph-boundaries-v1.test.mjs
           tests/integration/mobile/paired-original-account-actor-v2.test.mjs
+          tests/integration/mobile/paired-original-account-http-v2.test.mjs
           tests/integration/mobile/paired-original-account-production-boundary.test.mjs
           apps/platform/tests/original-account-v2-protocol.test.mjs
           tests/integration/claims/development/development-btc-sol-redemption-request.test.mjs
@@ -80,6 +83,7 @@ jobs:
           packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs
           tests/integration/wallet/native/native-value-dev-release-v5.test.mjs
           tests/integration/wallet/native/native-value-dev-w39-v5.test.mjs
+          tests/integration/wallet/native/native-value-dev-w39-build-dependencies-v5.test.mjs
           tests/integration/wallet/native/native-value-admission-original-roots-v5.test.mjs
           tests/integration/claims/metrics/native-claim-empty-audit-policy-v1.test.mjs
           tests/integration/wallet/native/paired-native-note-http-loss-v2.test.mjs
