@@ -32,6 +32,7 @@ jobs:
           python3 scripts/development/test_osaka_lab_summary.py
           python3 scripts/development/test_btc_sol_lab_summary.py
           python3 scripts/development/test_btc_sol_lab_lifecycle.py
+          python3 scripts/development/test_native_value_ledger.py
       - name: Run the default host selection
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
@@ -68,3 +69,6 @@ jobs:
           tests/integration/mobile/paired-original-account-production-boundary.test.mjs
           apps/platform/tests/original-account-v2-protocol.test.mjs
           tests/integration/claims/development/development-btc-sol-redemption-request.test.mjs
+          packages/backend/tests/operations/payouts/claim-authorization-lifecycle-v4.test.mjs
+          packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs
+          tests/integration/wallet/native/native-value-dev-release-v5.test.mjs
