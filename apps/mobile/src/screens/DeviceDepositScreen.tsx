@@ -37,6 +37,7 @@ export default function DeviceDepositScreen() {
   const [exitRole, setExitRole] = useState<'change' | 'recovery'>('change'), [exitRecipient, setExitRecipient] = useState('');
   const [exitReview, setExitReview] = useState<DeviceExitQuoteV1 | null>(null), [exitConsent, setExitConsent] = useState<DeviceExitConsentV1 | null>(null);
   const [exitJob, setExitJob] = useState<string | null>(null);
+  const [exitIntent, setExitIntent] = useState<Awaited<ReturnType<Vault['readDeviceExitIntent']>>>(null);
   const exitClient = useRef<ExitClient | null>(null), exitQuote = useRef<object | null>(null), exitRequest = useRef<LocalDeviceExitProofRequestV1 | null>(null);
   const reservationClient = useRef<ReservationClient | null>(null), quote = useRef<object | null>(null);
   const authorizationRequest = useRef<LocalDeviceAuthorizationRequestV1 | null>(null);
@@ -49,7 +50,7 @@ export default function DeviceDepositScreen() {
     balanceClient.current?.close(); balanceClient.current = null;
     epoch.current++; executionClient.current?.close(); executionClient.current = null; clearNativeReview(); setExecutionIntent(null);
     exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
-    exitClient.current?.close(); exitClient.current = null; setExitReview(null); setExitConsent(null); setExitJob(null); authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
+    exitClient.current?.close(); exitClient.current = null; setExitReview(null); setExitConsent(null); setExitJob(null); setExitIntent(null); authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
     reservationClient.current?.close(); reservationClient.current = null; setOwnerReview(null); setReservationConsent(null); setReservationJob(null);
     request.current?.close(); request.current = null; vault.current?.close(); vault.current = null;
     client.current?.close(); client.current = null; setNote(null); setConsent(null); setApproved(false);
@@ -90,30 +91,56 @@ export default function DeviceDepositScreen() {
     catch (error) { if (held === epoch.current && visible.current) setMessage(error instanceof Error ? error.message : 'MOBILE_DEVICE_DEPOSIT_FAILED'); }
     finally { busyRef.current = false; if (visible.current) setBusy(false); }
   }
-  async function connect(held: number) {
+  async function connect(held: number) { await openConnection(held, false); }
+  async function resume(held: number) { await openConnection(held, true); }
+  async function openConnection(held: number, sameOperation: boolean) {
     const metadata = await inspectLocalRootNoteVaultV1(); live(held);
     if (!metadata.rootId || metadata.status !== 'ACTIVE') throw Error('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
-    const publicKey = await readDevicePublicKey(); live(held); if (!publicKey) throw Error('MOBILE_KEY_REQUIRED');
-    const next = await createDeviceOwnerDepositApiV1({ origin, pairingId, devicePublicKey: publicKey });
-    try { live(held); } catch (error) { next.close(); throw error; }
-    const reservations = await createDeviceOwnerReservationApiV1(next.descriptor);
-    try { live(held); } catch (error) { next.close(); reservations.close(); throw error; }
-    const exits = await createDeviceOwnerExitApiV1(next.descriptor);
-    try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); throw error; }
-    const executions = await createDeviceOwnerExecutionApiV1(next.descriptor);
-    try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); executions.close(); throw error; }
-    let balances: BalanceClient;
-    try { balances = await createDeviceOwnerOutputBalanceApiV1(next.descriptor); }
-    catch (error) { next.close(); reservations.close(); exits.close(); executions.close(); throw error; }
-    try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); executions.close(); balances.close(); throw error; }
-    balanceClient.current?.close(); balanceClient.current = balances;
-    executionClient.current?.close(); executionClient.current = executions;
-    exitClient.current = exits; client.current = next; reservationClient.current = reservations; vault.current = openLocalRootNoteVaultV1(metadata.rootId);
-    const state = await vault.current.readDeviceNote(); live(held); if (!state) throw Error('MOBILE_LOCAL_NOTE_REQUIRED');
-    const intent = await vault.current.readDeviceReservationIntent(); live(held); setReservationJob(intent?.jobId ?? null);
-    const nativeIntent = await vault.current.readDeviceExecutionIntent(); live(held); setExecutionIntent(nativeIntent);
-    const pendingExit = await vault.current.readDeviceExitIntent(exitRole); live(held); setExitJob(pendingExit?.jobId ?? null);
-    setNote(state); setMessage('Nota local vinculada. Preparar una prueba no financia ni transmite tu clave.');
+    const custody = openLocalRootNoteVaultV1(metadata.rootId);
+    let next: Client | null = null, reservations: ReservationClient | null = null, exits: ExitClient | null = null;
+    let executions: ExecutionClient | null = null, balances: BalanceClient | null = null;
+    try {
+      // These are public projections of the original authenticated encrypted
+      // record, never a grant or a request to create/admit/replay an operation.
+      const state = await custody.readDeviceNote(); live(held); if (!state) throw Error('MOBILE_LOCAL_NOTE_REQUIRED');
+      if (sameOperation && !state.job) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
+      const descriptorOrigin = sameOperation ? state.job!.origin : origin;
+      const descriptorPairing = sameOperation ? state.job!.pairingId : pairingId;
+      if (state.job && (state.job.origin !== descriptorOrigin || state.job.pairingId !== descriptorPairing))
+        throw Error('MOBILE_LOCAL_ORIGINAL_DOMAIN_CHANGED');
+      const publicKey = await readDevicePublicKey(); live(held); if (!publicKey) throw Error('MOBILE_KEY_REQUIRED');
+      const intent = await custody.readDeviceReservationIntent(); live(held);
+      const nativeIntent = await custody.readDeviceExecutionIntent(); live(held);
+      const pendingExit = await custody.readDeviceExitIntent(exitRole); live(held);
+      if (intent && (intent.rootId !== state.rootId || intent.depositJobId !== state.job?.jobId
+        || intent.origin !== descriptorOrigin || intent.pairingId !== descriptorPairing || intent.devicePublicKey !== publicKey))
+        throw Error('MOBILE_LOCAL_ORIGINAL_DOMAIN_CHANGED');
+      if (nativeIntent && (!intent || nativeIntent.rootId !== state.rootId || nativeIntent.jobId !== intent.jobId)
+        || pendingExit && (!intent || pendingExit.rootId !== state.rootId || pendingExit.parentJobId !== intent.jobId
+          || pendingExit.noteRole !== exitRole)) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_CHANGED');
+      next = await createDeviceOwnerDepositApiV1({ origin: descriptorOrigin, pairingId: descriptorPairing, devicePublicKey: publicKey }); live(held);
+      reservations = await createDeviceOwnerReservationApiV1(next.descriptor); live(held);
+      exits = await createDeviceOwnerExitApiV1(next.descriptor); live(held);
+      executions = await createDeviceOwnerExecutionApiV1(next.descriptor); live(held);
+      balances = await createDeviceOwnerOutputBalanceApiV1(next.descriptor); live(held);
+      // Publish the whole connection only after every original read/identity
+      // check and client acquisition. Partial failure closes these local handles.
+      request.current?.close(); request.current = null; authorizationRequest.current?.close(); authorizationRequest.current = null;
+      exitRequest.current?.close(); exitRequest.current = null; quote.current = null; exitQuote.current = null;
+      client.current?.close(); reservationClient.current?.close(); exitClient.current?.close();
+      executionClient.current?.close(); balanceClient.current?.close(); vault.current?.close(); clearNativeReview();
+      client.current = next; reservationClient.current = reservations; exitClient.current = exits;
+      executionClient.current = executions; balanceClient.current = balances; vault.current = custody;
+      setOrigin(descriptorOrigin); setPairingId(descriptorPairing); setReservationJob(intent?.jobId ?? null);
+      setExecutionIntent(nativeIntent); setExitJob(pendingExit?.jobId ?? null); setExitIntent(pendingExit);
+      if (pendingExit) setExitRecipient(pendingExit.statement.recipient);
+      setConsent(null); setOwnerReview(null); setReservationConsent(null); setExitReview(null); setExitConsent(null); setApproved(false);
+      setNote(state); setMessage(sameOperation
+        ? 'Misma operación local reabierta. El saldo sigue desconocido hasta una consulta firmada fresca; no se ha probado, financiado, reservado, ejecutado ni retirado de nuevo.'
+        : 'Nota local vinculada. Preparar una prueba no financia ni transmite tu clave.');
+    } catch (error) {
+      next?.close(); reservations?.close(); exits?.close(); executions?.close(); balances?.close(); custody.close(); throw error;
+    }
   }
   async function access(held: number) {
     const api = client.current; if (!api) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
@@ -309,11 +336,25 @@ export default function DeviceDepositScreen() {
       throw new Error('Saldo disponible desconocido: no se ha completado la lectura original. No se ha enviado una operación económica.', { cause });
     }
   }
+  async function selectExitRole(held: number) {
+    const custody = vault.current; if (!custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const role = exitRole === 'change' ? 'recovery' : 'change';
+    exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
+    setExitReview(null); setExitConsent(null); clearNativeReview(); setExitJob(null); setExitIntent(null); setApproved(false);
+    const pending = await custody.readDeviceExitIntent(role); live(held);
+    setExitRole(role); setExitJob(pending?.jobId ?? null); setExitIntent(pending);
+    setExitRecipient(pending?.statement.recipient ?? '');
+    setMessage(pending ? 'Intención W39 original retenida. Consulta este mismo trabajo; no regenerar la prueba ni reenviar la retirada.'
+      : 'Esta apertura no tiene un trabajo W39 local. Consultar su inclusión no autoriza una retirada.');
+  }
   async function prepareExit(held: number) {
     clearNativeReview();
     const api = exitClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     authorizationRequest.current?.close(); authorizationRequest.current = null; request.current?.close(); request.current = null;
     setExitReview(null); setExitConsent(null); setOwnerReview(null); setReservationConsent(null); setConsent(null); setApproved(false);
+    const pending = await custody.readDeviceExitIntent(exitRole); live(held);
+    if (pending) { setExitJob(pending.jobId); setExitIntent(pending); setExitRecipient(pending.statement.recipient);
+      throw Error('MOBILE_LOCAL_ORIGINAL_EXIT_REQUIRED'); }
     const subject = await custody.readDeviceExitSubject(exitRole, exitRecipient); live(held);
     const handle = await api.preparation({ ...await exitAccess(held), parentJobId: subject.parentJobId, rootId: subject.rootId,
       noteRole: subject.noteRole, noteRevision: subject.noteRevision, nullifier: subject.nullifier, recipient: subject.recipient }); live(held);
@@ -336,7 +377,7 @@ export default function DeviceDepositScreen() {
     authorizationRequest.current?.close(); authorizationRequest.current = null; request.current?.close(); request.current = null;
     setExitReview(null); setExitConsent(null); setOwnerReview(null); setReservationConsent(null); setConsent(null); setApproved(false);
     const intent = await custody.readDeviceExitIntent(exitRole); live(held); if (!intent) throw Error('MOBILE_LOCAL_ORIGINAL_EXIT_REQUIRED');
-    const value = await api.challenge(action, { ...await exitAccess(held), jobId: intent.jobId }); live(held); setExitJob(intent.jobId); setExitConsent(value);
+    const value = await api.challenge(action, { ...await exitAccess(held), jobId: intent.jobId }); live(held); setExitJob(intent.jobId); setExitIntent(intent); setExitRecipient(intent.statement.recipient); setExitConsent(value);
   }
   async function submitExit(held: number) {
     const api = exitClient.current, custody = vault.current, value = exitConsent;
@@ -349,6 +390,7 @@ export default function DeviceDepositScreen() {
       const result = await api.submit({ consent: value, signature, ...(witness ? { witness } : {}) }); live(held);
       if (result.stage === 'CONFIRMED') { await custody.applyDeviceExitConfirmation(result); live(held); }
       setExitJob(result.jobId); setMessage(result.stage === 'CONFIRMED' ? 'Salida original confirmada y guardada. No se suma como saldo disponible local.' : result.stage);
+      const retained = await custody.readDeviceExitIntent(exitRole); live(held); setExitIntent(retained);
       const state = await custody.readDeviceNote(); live(held); setNote(state);
     } catch (error) { live(held); const notice = 'UNKNOWN: consultar este mismo trabajo W39. Nunca repetir automáticamente la prueba o la retirada.';
       setMessage(notice); throw Error(notice, { cause: error });
@@ -361,6 +403,10 @@ export default function DeviceDepositScreen() {
     <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://origen privado" placeholderTextColor="#9cb0b8" />
     <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#9cb0b8" />
     <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Abrir nota y vinculación</Text></Pressable>
+    <Pressable disabled={busy} onPress={() => void run(resume)}><Text style={styles.button}>Reabrir la misma operación guardada</Text></Pressable>
+    <Text style={styles.text}>Reabrir usa el origen y la vinculación retenidos en la custodia cifrada. No restablece permisos vencidos ni crea autoridad en el servidor. Cada consulta o acción siguiente requiere su firma específica.</Text>
+    {note?.job && <Text style={styles.text}>Trabajo D26 retenido {note.job.jobId}
+{reservationJob ? 'Trabajo U/S retenido ' + reservationJob : ''}</Text>}
     {note && <Text style={styles.text}>Nota {note.commitment.slice(0, 16)} · {note.status}\nSaldo observado: {note.availableBalance ?? 'desconocido'}\n{note.freshness}
 {note.localReservation?.sourceSpentAtRetainedHead ? 'Fuente gastada en el recibo S retenido. Consulta por separado el cambio y la recuperación.' : ''}</Text>}
     <Pressable disabled={busy || !note || note.status === 'FUNDED'} onPress={() => void run(prepare)}><Text style={styles.button}>Revisar prueba D26</Text></Pressable>
@@ -428,14 +474,17 @@ Intención de ejecución: {executionIntent.executeAttemptRetained ? 'guardada; c
 Intención de recuperación: {executionIntent.recoveryAttemptRetained ? 'guardada; consultar original' : 'sin intención local'}</Text>}
       <Text style={styles.title}>Salida de la misma custodia</Text>
       <Text style={styles.text}>El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original. La prueba W39 revela una sola apertura al worker y requiere otra autorización para retirar. No hay adopción de notas por Linux ni reintentos automáticos.</Text>
-      <Pressable disabled={busy} onPress={() => { exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
-        setExitReview(null); setExitConsent(null); clearNativeReview(); setExitJob(null); setApproved(false); setExitRole(role => role === 'change' ? 'recovery' : 'change'); }}>
+      <Pressable disabled={busy} onPress={() => void run(selectExitRole)}>
         <Text style={styles.button}>Apertura: {exitRole === 'change' ? 'cambio' : 'recuperación'}</Text></Pressable>
+      {exitIntent && <Text style={styles.text}>Trabajo W39 retenido {exitIntent.jobId}
+Estado local {exitIntent.receipt ? 'Retirada confirmada por el recibo original' : exitIntent.phase + ' · resultado pendiente de consulta'}
+Destinatario retenido {exitIntent.statement.recipient}
+{exitIntent.receipt?.transactionHash ?? 'Sin recibo local confirmado. No se autoriza otro trabajo ni un reenvío.'}</Text>}
       <TextInput style={styles.input} value={exitRecipient} onChangeText={value => edit(setExitRecipient, value)}
         autoCapitalize="none" placeholder="Destinatario EVM exacto: 40 caracteres hex, sin 0x" placeholderTextColor="#9cb0b8" />
       <Pressable disabled={busy || exitJob !== null} onPress={() => void run(prepareExit)}><Text style={styles.button}>Consultar inclusión y salida original</Text></Pressable>
-      <Pressable disabled={busy} onPress={() => void run(held => reviewExit('WITHDRAW_W39', held))}><Text style={styles.button}>Revisar única retirada W39</Text></Pressable>
-      <Pressable disabled={busy} onPress={() => void run(held => reviewExit('OBSERVE_W39', held))}><Text style={styles.button}>Consultar trabajo/salida original</Text></Pressable>
+      <Pressable disabled={busy || !exitJob || !!exitIntent?.receipt} onPress={() => void run(held => reviewExit('WITHDRAW_W39', held))}><Text style={styles.button}>Revisar única retirada W39</Text></Pressable>
+      <Pressable disabled={busy || !exitJob} onPress={() => void run(held => reviewExit('OBSERVE_W39', held))}><Text style={styles.button}>Consultar trabajo/salida original</Text></Pressable>
     </>}
     {executionConsent && <>
       <Text style={styles.text}>{executionConsent.action}
