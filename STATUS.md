@@ -43,12 +43,16 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 
 ## Evidencia y límites
 
-La selección habitual pasa con 244 resultados. La CI de una copia con sólo fuentes
-versionadas y dependencias públicas pasó 404 pruebas en 46 archivos sobre
-`141b0ef`, incluyendo esa selección y regresiones de DeFi, redes, navegador,
-HTTP, Osaka, recuperación F y procesos de pruebas. Reconstrucción, originales
-versionados y las cinco suites Python también pasaron; no se copió restauración
-privada ni se ejecutaron cadenas nativas en esa CI. La API pasa 22 casos host
+La selección habitual pasa con 244 resultados. La última CI local desde un archivo
+Git público vacío pasó 431 tests del núcleo en 51 archivos, 64 de móvil/HTTP y
+22 casos Python en siete suites sobre `31e9aaa`. También pasaron descarga y
+verificación oficiales de Node, instalación npm sin caché previa, tipos,
+reconstrucción y originales versionados. Fuentes e inputs conservaron sus bytes
+y todos los procesos propios cerraron. El primer bootstrap frío de `4740954`
+falló porque faltaba el directorio de descarga; se corrigió y conserva su rechazo.
+La selección anterior de `141b0ef` pasó 404 tests, con su informe separado.
+No se copió restauración privada ni se ejecutaron cadenas nativas en estas CI.
+La API pasa 22 casos host
 y 19 resultados con PostgreSQL real: carreras, JSONB, reinicio, respuesta
 perdida, crash, caída de SQL y migraciones concurrentes o interrumpidas.
 El adaptador de esos tests es un contador SQL; no mueve fondos ni genera pruebas.
@@ -58,7 +62,7 @@ permiso se revalida después de esperar SQL, antes del adaptador.
 La copia de fuentes públicas comprueba además tipos móviles y los casos host
 de la API; las pruebas SQL reales tienen su informe separado.
 
-El cliente móvil pasa 33 pruebas de contratos, custodia simulada, conservación
+El cliente móvil actualizado pasa 59 pruebas de contratos, custodia simulada, conservación
 de operaciones pendientes y procesos de compilación, además de tipos y
 exportación Android/iOS. Su outbox conserva una ejecución UNKNOWN aunque se
 rechace después el permiso de reconciliación; la admisión de permisos no cierra
@@ -178,6 +182,11 @@ comprueban localmente; no hay remoto ni ejecución registrada de GitHub Actions.
   tiene ese alcance; no certifica todas las
   integraciones posteriores. [El inventario de claims](packages/backend/docs/NATIVE-CLAIMS-ARTIFACTS.md)
   identifica familias, consumidores, hashes conocidos y la identidad del build nuevo.
+- Para aceptar la cuenta móvil original en EVM falta un raw histórico adicional:
+  `.local/native-value-genuine-compilation/graph-only-source-v1/ledger/compiled.json`,
+  SHA256 `f21b27105321ff027954ac5d0660b420c3028bf974a8f9a9e0c93db66c0a11a3`.
+  Los otros 202 ficheros comprobados del release V4 coinciden. El desarrollo
+  V5 prepara un linaje separado; no sustituye ese original ni activa los gates históricos.
 - El laboratorio privado perdido no se recuperó. Las aceptaciones nuevas usan
   identidades, claves y estado nuevos.
 - Los módulos heredados requieren `.internal/runtime/`, recursos compartidos y
