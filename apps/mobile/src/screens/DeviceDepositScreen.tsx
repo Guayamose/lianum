@@ -181,8 +181,8 @@ export default function DeviceDepositScreen() {
     clearNativeReview();
     exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null; setExitReview(null); setExitConsent(null);
     setConsent(null); setReservationConsent(null); setOwnerReview(null); setApproved(false);
-    const api = reservationClient.current, custody = vault.current;
-    if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const api = reservationClient.current, deposit = client.current, custody = vault.current;
+    if (!api || !deposit || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const current = await custody.readDeviceNote(); live(held);
     if (!current?.job || current.status !== 'FUNDED' || current.availableBalance === null) throw Error('MOBILE_LOCAL_FRESH_FUNDED_SOURCE_REQUIRED');
     const authenticated = await reservationAccess(held);
@@ -190,6 +190,16 @@ export default function DeviceDepositScreen() {
     // This same source can enter a retained reservation. Clear the earlier
     // D26 free-balance display before any persistent preparation/await.
     setNote({ ...current, availableBalance: null, freshness: 'UNKNOWN' });
+    // Terms/biometric reads can consume the earlier D26 observation's 15s.
+    // Explicitly observe this same original funding; never PROVE or FUND again.
+    const fundingAccess = await access(held);
+    const fundingReview = await deposit.challenge('OBSERVE_D26', { ...fundingAccess, jobId: current.job.jobId }); live(held);
+    const fundingSignature = await signDeviceDepositConsentV1(fundingReview, origin, pairingId); live(held);
+    const funding = await deposit.submit({ consent: fundingReview, signature: fundingSignature }); live(held);
+    if (funding.state !== 'CONFIRMED' || !funding.observation) throw Error('MOBILE_LOCAL_FRESH_FUNDED_SOURCE_REQUIRED');
+    // The full original CM/NF/job/tx checks refresh only the ephemeral handle.
+    // The quote retains its own deadline; preparation still fails if it expired.
+    await custody.applyDeviceDepositInclusion(funding.observation); live(held);
     const reviewed = await custody.prepareDeviceReservationFromQuote(handle); live(held);
     const retained = await custody.readDeviceNote(); live(held);
     if (retained?.availableBalance !== null) throw Error('MOBILE_LOCAL_RESERVATION_BALANCE_UNRESOLVED');
@@ -364,8 +374,8 @@ export default function DeviceDepositScreen() {
     </>}
     {note?.status === 'FUNDED' && <>
       <Text style={styles.title}>Continuar con la misma nota</Text>
-      <Text style={styles.text}>El servidor original ofrece los términos firmados del grafo. No se adopta otra nota ni se envía una raíz o clave. U revela sólo las aperturas a su worker; S requiere otro consentimiento y una sola reserva. La reserva no ejecuta el grafo; la ejecución y la salida requieren otros consentimientos.</Text>
-      <Pressable disabled={busy || note.availableBalance === null || reservationJob !== null} onPress={() => void run(preparationU)}><Text style={styles.button}>Leer términos originales y guardar cambio/recuperación</Text></Pressable>
+      <Text style={styles.text}>El servidor original ofrece los términos firmados del grafo. Antes de guardar el cambio y la recuperación, autoriza una consulta de esta misma financiación; no financia de nuevo. No se adopta otra nota ni se envía una raíz o clave. U revela sólo las aperturas a su worker; S requiere otro consentimiento y una sola reserva. La reserva no ejecuta el grafo; la ejecución y la salida requieren otros consentimientos.</Text>
+      <Pressable disabled={busy || note.availableBalance === null || reservationJob !== null} onPress={() => void run(preparationU)}><Text style={styles.button}>Leer términos, consultar financiación y guardar cambio/recuperación</Text></Pressable>
     </>}
     {ownerReview && <>
       <Text style={styles.text}>Operación {ownerReview.operationId}
