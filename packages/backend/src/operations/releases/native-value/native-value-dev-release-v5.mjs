@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "163db8820957919f7d3af6987807d6b51524126ff544c833fe5d080b31d128b9",
+  "hostSourceClosureSHA256": "157da91a38fbb761a1003b9ac22b0f4537ea74ed2587ebc705be02735d65f22e",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -662,7 +662,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/evm-vault-flow.mjs",
-      "sha256": "f24639e0bd7a000aa69995273c4b8f1d4b508cd8533a3425de006b2fb9ab749c"
+      "sha256": "f0af63d12db733e678e7478c9b3a1c9917643664e4154291b4d8cf73a90223e9"
     },
     {
       "path": "integration/evm-vault-terminal-checks.mjs",
@@ -1429,6 +1429,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "ddf160ffb23f3e7b1b1790c436ec98734467a9ffaa2c5e2e0d4d66843c538df9"
     },
     {
+      "path": "proof-workers/proving-execution.mjs",
+      "sha256": "d03c5102fdab8083354c71a219cfc75c106cc45eb036d44b0f0dd44aebb96131"
+    },
+    {
       "path": "proof-workers/role-client.mjs",
       "sha256": "4ff7957b1d6ac5b339d868600078e76b4bd7836f0e25dd03dbd904e9afccaf44"
     },
@@ -1438,7 +1442,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/run-bounded.mjs",
-      "sha256": "ddc99882668abdf735fdbaa0ccc1cc87911a16e576ca7edd1b5efa8ff3a026e0"
+      "sha256": "fa829417482c2fbd76ec7aee0c007309017ab74c88c992a90744d9b0ba7e82ad"
     },
     {
       "path": "proof-workers/scoped-proof-tools.mjs",
@@ -1458,7 +1462,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/worker.mjs",
-      "sha256": "bd8f8cfb0b5d0e336d7d9474a6ac0f816066f68758519333dd09b50963cd5500"
+      "sha256": "56aa9f428615800206bd0c45c2fd752cc4208534fca4e2ff58851dfc98387bc1"
     },
     {
       "path": "proof-workers/wrapped-claim-abi-reviewed-v2.json",
