@@ -127,14 +127,15 @@ clausura ESM sin cambios. Ambos facades cierran secuencialmente el mismo proceso
 Core termina sin force, elimina wallets/ledger y rechaza operaciones posteriores.
 Dos preflights anteriores rechazaron actividad transitoria en daemons Gradle
 conocidos: no arrancaron Core, no se mataron procesos ajenos y se retuvieron sus
-locks/diagnósticos para revisión. El intento aprobado pasó el mismo guard. La revisión posterior añadió SIGTERM/SIGINT,
+locks/diagnósticos para revisión. La revisión posterior añadió SIGTERM/SIGINT,
 plazo total de 120 s, muestreo periódico cada 250 ms y rechazo de locks de proofs
 y workers Node/WASM. Se comprobó con cuatro regresiones del host, incluidas
-señales reales a hijos propios sin Core. El informe nativo citado corresponde
-a la versión anterior a esa mejora del guard; queda pendiente su nueva ejecución.
+señales reales a hijos propios sin Core. Después se repitió el recorrido nativo
+completo con el guard final: aprobó los mismos efectos, la monitorización
+periódica y el cierre limpio sin procesos propios ni wallets/ledger retenidos.
 
-Informe `.local/bitcoin-runtime-acceptance/attempt-1hgmcH/report.json`, SHA256
-`7b7a9574dc903afcf2ab061e1631a8e2400edf966b845f1a2f3d198ef22a8d68`.
+Informe final `.local/bitcoin-runtime-acceptance/attempt-6XNSOf/report.json`, SHA256
+`8dec9a5d99f6422923689c2415e93719a2e7c9d5fd9e6fa445bcf21e7b210a74`.
 El alcance es `runtime-ingress-and-solver-only`: no demuestra claims, payout,
 crédito privado, reinicio del nodo ni consenso de la red pública.
 
