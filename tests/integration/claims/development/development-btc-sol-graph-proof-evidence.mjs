@@ -2,7 +2,7 @@
  * the genuine recipient W39 telemetry. No proof/custody authority is issued. */
 import assert from 'node:assert/strict';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
-import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_SIXTEEN_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
+import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_SIXTEEN_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);
 export const DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS = Object.freeze(['authorization','reservation','dependency','ready','admission','node','settlement']);
@@ -26,10 +26,11 @@ export function assertBtcSolGraphProofReceipts(input) {
   assert.equal(manifest.role, spec.role); assert.equal(result.role, spec.role);
   assert.equal(manifest.publicWords, spec.words); assert.deepEqual(manifest.settings, SETTINGS);
   assert.deepEqual(result.settings, SETTINGS);
-  // Fixed public receipt variants only. Eight/sixteen are authorization-only;
+  // Fixed public receipt variants only. Eight/sixteen/twelve are authorization-only;
   // retained generic four/legacy one and specialized ingress one stay exact.
-  const proofLimits = relation === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
-    ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : relation === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
+  const proofLimits = relation === 'authorization' && result.threads === AUTHORIZATION_TWELVE_PROVING_LIMITS.threads
+    ? AUTHORIZATION_TWELVE_PROVING_LIMITS : relation === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
+      ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : relation === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
       ? AUTHORIZATION_PROVING_LIMITS : result.threads === PROVING_LIMITS.threads ? PROVING_LIMITS : LIMITS;
   if (result.threads !== undefined) assert.equal(result.threads, proofLimits.threads, 'DEVELOPMENT_CLAIM_FIXED_THREADS');
   assert.deepEqual(result.limits, proofLimits); assert.deepEqual(resources.limits, proofLimits);

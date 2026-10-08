@@ -11,12 +11,15 @@ export const PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 4 });
 // Retained authorization proofs use the original eight-thread limits.
 // This historical execution profile never becomes a request/profile option.
 export const AUTHORIZATION_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 8 });
-// Sixteen is the next fixed authorization execution only. Retained eight-thread
-// receipts keep their original limits; no request chooses either variant.
+// Retain the exact sixteen-thread execution descriptor for historical receipts.
+// Its failed genuine attempt remains rejected by its original resource report.
 export const AUTHORIZATION_SIXTEEN_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 16 });
+// Current authorization jobs have twelve fixed threads. No caller chooses the
+// historical or current variants; prepared keys and all resource ceilings stay.
+export const AUTHORIZATION_TWELVE_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 12 });
 export function limitsForMode(spec, mode) {
   if (operation(mode) !== 'prove') return LIMITS;
-  return spec.name === 'authorization' ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : PROVING_LIMITS;
+  return spec.name === 'authorization' ? AUTHORIZATION_TWELVE_PROVING_LIMITS : PROVING_LIMITS;
 }
 
 // Runtime pins stay outside the original API/circuit/key identity and the
@@ -55,8 +58,9 @@ export function executionSources(spec, mode) {
 export function assertSuccessfulProvingAttempt(spec, runId) {
   const directory = attemptPath(runId);
   const result = JSON.parse(regular(join(directory, 'result.json')));
-  const provingLimits = spec.name === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
-    ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : spec.name === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
+  const provingLimits = spec.name === 'authorization' && result.threads === AUTHORIZATION_TWELVE_PROVING_LIMITS.threads
+    ? AUTHORIZATION_TWELVE_PROVING_LIMITS : spec.name === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
+      ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : spec.name === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
       ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
   if (result.threads !== provingLimits.threads) {
     assert.equal(result.threads, LIMITS.threads, 'PW_PRIOR_FIXED_THREADS');
