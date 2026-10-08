@@ -3,6 +3,7 @@
  * returned. The enclosing owned runtime supervisor owns aggregate resources. */
 import assert from 'node:assert/strict';
 import { assertBeginPayoutAuditRoleLaunchV1 } from './native-flow-proof-scope-v1.mjs';
+import {RESERVATION_NATIVE_THREADS_V1,assertNativeReservationReceiptV1} from './reservation-native-execution-v1.mjs';
 import {NODE_NATIVE_THREADS_V1,assertNativeNodeReceiptV1} from './node-native-execution-v1.mjs';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
@@ -112,7 +113,8 @@ export function createRoleProofClient(role) {
           assert.equal(report.relation, spec.name); assert.equal(report.phase, 'completed');
         }
         assert.equal(resources.exitCode,0);assert.equal(resources.signal,null);assert.equal(resources.failure,null);
-        if(spec.name==='node'&&result.threads===NODE_NATIVE_THREADS_V1)assertNativeNodeReceiptV1(spec,result,resources);
+        if(spec.name==='reservation'&&result.threads===RESERVATION_NATIVE_THREADS_V1)assertNativeReservationReceiptV1(spec,result,resources);
+        else if(spec.name==='node'&&result.threads===NODE_NATIVE_THREADS_V1)assertNativeNodeReceiptV1(spec,result,resources);
         const manifest = JSON.parse(regular(join(directory, 'proof-manifest.json')));
         const proof = regular(join(directory, 'proof.bin'));
         const inputBytes = regular(join(directory, 'public-inputs.json'));

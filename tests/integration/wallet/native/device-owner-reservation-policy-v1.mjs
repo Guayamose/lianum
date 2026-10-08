@@ -18,7 +18,7 @@ export function assertDeviceReservationResultV1(r){assert.equal(arguments.length
  for(const p of r.proofs.slice(1)){const e=p.evidence;assertBtcSolGraphProofReceipts({relation:p.relation,runId:e.runId,jobId:e.jobId,
   manifest:e.manifest,result:e.result,resources:e.resources,proofSHA256:p.proofSHA256,publicInputsSHA256:p.publicInputsSHA256,
   manifestSHA256:e.manifestSHA256,resultSHA256:e.resultSHA256,resourcesSHA256:e.resourcesSHA256});
-  assert.equal(e.keySHA256,r.artifacts.graphKeys[p.relation]);assert.equal(e.result.threads,p.relation==='authorization'?12:4);}
+  assert.equal(e.keySHA256,r.artifacts.graphKeys[p.relation]);assert.ok(p.relation==='authorization'?e.result.threads===12:[4,12].includes(e.result.threads));}
  const s=r.deviceReservation,c=r.deviceCustody;assert.equal(s.sameOriginalD26Opening,true);assert.equal(s.noLinuxAdoption,true);
  assert.equal(s.observation.sourceCommitment,r.deviceNote.localCommitment);assert.equal(s.observation.sourceNullifier,r.deviceNote.observation.nullifier);
  assert.equal(s.observation.changeCommitment,s.statement.changeCommitment);assert.equal(s.observation.reserveCommitment,s.statement.reserveCommitment);

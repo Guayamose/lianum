@@ -1,10 +1,11 @@
+import {assertNativeReservationReceiptV1} from '../../../../packages/proofs/src/jobs/reservation-native-execution-v1.mjs';
 import {assertNativeNodeReceiptV1} from '../../../../packages/proofs/src/jobs/node-native-execution-v1.mjs';
 import {assertNativeAuthorizationReceiptV1} from '../../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs';
 /** Public receipt joins for the seven fixed original graph relations, original
  * F41 recovery and recipient W39 telemetry. No proof/custody authority is issued. */
 import assert from 'node:assert/strict';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
-import { PROVING_LIMITS,NODE_NATIVE_PROVING_LIMITS_V1, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_SIXTEEN_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
+import { PROVING_LIMITS,NODE_NATIVE_PROVING_LIMITS_V1,RESERVATION_NATIVE_PROVING_LIMITS_V1, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_SIXTEEN_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);
 export const DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS = Object.freeze(['authorization','reservation','dependency','ready','admission','node','settlement']);
@@ -31,14 +32,15 @@ export function assertBtcSolGraphProofReceipts(input) {
   assert.deepEqual(result.settings, SETTINGS);
   // Fixed public receipts: current N native12, current/historical U8/16/12;
   // retained generic four/legacy one and specialized ingress one stay exact.
-  const proofLimits=relation==='node'&&result.threads===NODE_NATIVE_PROVING_LIMITS_V1.threads ? NODE_NATIVE_PROVING_LIMITS_V1 : relation === 'authorization' && result.threads === AUTHORIZATION_TWELVE_PROVING_LIMITS.threads
+  const proofLimits=relation==='reservation'&&result.threads===RESERVATION_NATIVE_PROVING_LIMITS_V1.threads ? RESERVATION_NATIVE_PROVING_LIMITS_V1 : relation==='node'&&result.threads===NODE_NATIVE_PROVING_LIMITS_V1.threads ? NODE_NATIVE_PROVING_LIMITS_V1 : relation === 'authorization' && result.threads === AUTHORIZATION_TWELVE_PROVING_LIMITS.threads
     ? AUTHORIZATION_TWELVE_PROVING_LIMITS : relation === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
       ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : relation === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
       ? AUTHORIZATION_PROVING_LIMITS : result.threads === PROVING_LIMITS.threads ? PROVING_LIMITS : LIMITS;
   if (result.threads !== undefined) assert.equal(result.threads, proofLimits.threads, 'DEVELOPMENT_CLAIM_FIXED_THREADS');
   assert.deepEqual(result.limits, proofLimits); assert.deepEqual(resources.limits, proofLimits);
   if (proofLimits !== LIMITS) {
-    if(relation==='node'&&result.threads===NODE_NATIVE_PROVING_LIMITS_V1.threads)assertNativeNodeReceiptV1({name:relation},result,resources);
+    if(relation==='reservation'&&result.threads===RESERVATION_NATIVE_PROVING_LIMITS_V1.threads)assertNativeReservationReceiptV1({name:relation},result,resources);
+    else if(relation==='node'&&result.threads===NODE_NATIVE_PROVING_LIMITS_V1.threads)assertNativeNodeReceiptV1({name:relation},result,resources);
     else if(result.nativeBackendExecution!==undefined)assertNativeAuthorizationReceiptV1({name:relation},result,resources);
     else assert.deepEqual(result.wasmThreadExecution, { threads: proofLimits.threads, sharedMemory: true,
       oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION');

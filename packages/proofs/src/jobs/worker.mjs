@@ -13,6 +13,7 @@ import { argumentsFor, authenticateSupervisor, attemptPath, regular, hash, jsonB
   claimOperation, publishArtifact, artifactPointer, loadCompiled, loadStats, loadPrepared, compiledPins,
   assertID, assertHash } from '../tooling/tooling.mjs';
 import { executionSources, limitsForMode, assertSuccessfulProvingAttempt } from './proving-execution.mjs';
+import {usesNativeReservationV1,initializeNativeReservationV1,assertNativeReservationCurrentV1,destroyNativeReservationV1,assertNativeReservationLineageV1} from './reservation-native-execution-v1.mjs';
 import {usesNativeNodeV1,initializeNativeNodeV1,assertNativeNodeCurrentV1,destroyNativeNodeV1} from './node-native-execution-v1.mjs';
 import { usesNativeAuthorizationV1, initializeNativeAuthorizationV1, assertNativeAuthorizationCurrentV1, destroyNativeAuthorizationV1 } from './authorization-native-execution-v1.mjs';
 
@@ -20,7 +21,7 @@ import { usesNativeAuthorizationV1, initializeNativeAuthorizationV1, assertNativ
 for (const name of ['log', 'info', 'debug', 'warn', 'error', 'trace']) console[name] = () => {};
 globalThis.fetch = async () => { throw Error('PW_OFFLINE_REQUIRED'); };
 const { spec, mode, runId } = argumentsFor(true), op = operation(mode);
-const taskLimits=limitsForMode(spec,mode),nativeAuthorization=usesNativeAuthorizationV1(spec,mode),nativeNode=usesNativeNodeV1(spec,mode);
+const taskLimits=limitsForMode(spec,mode),nativeAuthorization=usesNativeAuthorizationV1(spec,mode),nativeNode=usesNativeNodeV1(spec,mode),nativeReservation=usesNativeReservationV1(spec,mode);
 const supervisor = authenticateSupervisor(spec, mode, runId), attempt = attemptPath(runId);
 assert.ok(existsSync(attempt), 'PW_SUPERVISOR_ATTEMPT_REQUIRED');
 const initialPins = JSON.parse(regular(join(attempt, 'runtime-pins.json')));
@@ -44,7 +45,7 @@ const report = { format: 'FLAT_WALLET_WORKER_ATTEMPT_V1', profile: PROFILE, rela
 const FULL_PUBLIC_CRS_CACHE_PIN = '2bb84462a0bdad2f6e6dd6182c7779c30aac703115e28f32ca2cc3b57c140622';
 const FULL_PUBLIC_CRS_CACHE_PATH = resolve(ROOT,
   '../../../dev/cache/public-crs/full-v1/bn254_g1_full_uncompressed.dat');
-let context,helpers,api,compressedWitness,rawWitness,crsBefore,job,nodeNativeActive=false;
+let context,helpers,api,compressedWitness,rawWitness,crsBefore,job,nodeNativeActive=false,reservationNativeActive=false;
 let publicCRSFile, publicCRSIdentity;
 const publicFileIdentity = stat => ['dev', 'ino', 'size', 'mode', 'nlink', 'mtimeNs', 'ctimeNs']
   .map(name => [name, stat[name].toString()]);
@@ -125,6 +126,8 @@ async function initialized(component, action) {
 function freezeCheck() {
   if(nativeAuthorization&&api)assertNativeAuthorizationCurrentV1(api);
   if(nativeNode&&nodeNativeActive&&api)assertNativeNodeCurrentV1(api);
+  if(nativeReservation&&reservationNativeActive&&api)assertNativeReservationCurrentV1(api);
+  if(nativeReservation&&report.keyManifestSHA256)assertNativeReservationLineageV1(spec,report);
   assert.deepEqual(executionSources(spec, mode), initialPins.executionSources, 'PW_RUNTIME_CHANGED_DURING_TASK');
   assert.deepEqual(verifyAPI(), initialPins.api, 'PW_API_CHANGED_DURING_TASK');
   assert.deepEqual(verifyVendor(), initialPins.vendor, 'PW_VENDOR_CHANGED_DURING_TASK');
@@ -142,19 +145,20 @@ function fullCRS() {
 }
 async function initialize(bb, maximumPages = MEMORY.standard, verifierOnly = false) {
   assert.ok([MEMORY.standard, MEMORY.dyadic21].includes(maximumPages), 'PW_FIXED_MEMORY_PROFILE');
-  report.maximumPages=nativeNode?null:maximumPages;
+  report.maximumPages=nativeNode||nativeReservation?null:maximumPages;
   await measured('initializationMilliseconds', async () => {
-    phase((nativeAuthorization||nativeNode)&&!verifierOnly?'initializing-native-bb':'initializing-wasm');
+    phase((nativeAuthorization||nativeNode||nativeReservation)&&!verifierOnly?'initializing-native-bb':'initializing-wasm');
+    if(nativeReservation&&!verifierOnly){assertNativeReservationLineageV1(spec,report);api=await initialized('backend',()=>initializeNativeReservationV1(bb));reservationNativeActive=true;return;}
     if(nativeNode&&!verifierOnly){api=await initialized('backend',()=>initializeNativeNodeV1(bb));nodeNativeActive=true;return;}
     if (nativeAuthorization) {
       assert.equal(verifierOnly,false,'PW_NATIVE_PROVE_ONLY');
       api=await initialized('backend',()=>initializeNativeAuthorizationV1(bb));return;
     }
-    api = await initialized('backend', () => bb.Barretenberg.new({ backend:bb.BackendType.Wasm,threads:nativeNode?1:taskLimits.threads, skipSrsInit: true,
+    api = await initialized('backend', () => bb.Barretenberg.new({ backend:bb.BackendType.Wasm,threads:nativeNode||nativeReservation?1:taskLimits.threads, skipSrsInit: true,
       // A fixed sink prevents child C++ logs becoming raw private output.
       ...(op === 'prove' ? { logger: () => {} } : {}),
       memory: { initial: 37, maximum: maximumPages } }));
-    if(op==='prove'&&!nativeNode){
+    if(op==='prove'&&!nativeNode&&!nativeReservation){
       const wasm = api.backend.wasm;
       assert.equal(wasm.getNumThreads(), taskLimits.threads, 'PW_ACTUAL_FIXED_PROVING_THREADS');
       assert.ok(typeof SharedArrayBuffer === 'function'
@@ -163,7 +167,7 @@ async function initialize(bb, maximumPages = MEMORY.standard, verifierOnly = fal
         oneOwnedProcess: true, originalPreparedKeyRequired: true };
     }
     if(verifierOnly){
-      if(nativeNode)assert.equal(api.backend.wasm.getNumThreads(),1,'PW_NODE_INDEPENDENT_FIXED_THREADS');
+      if(nativeNode||nativeReservation)assert.equal(api.backend.wasm.getNumThreads(),1,'PW_NATIVE_INDEPENDENT_FIXED_THREADS');
       phase('initializing-verifier-crs');
       const { initializePrivateVerifierCRS } = await import(verifierCRSModuleURL);
       report.verifierCRS = await initialized('verifierCRS', () => initializePrivateVerifierCRS(api, bb.BN254_G1_GENERATOR,
@@ -183,8 +187,9 @@ async function provingCRS() {
 }
 async function destroy() {
   if (!api) return;
-  const owned=api;api=undefined;phase(nativeAuthorization||nodeNativeActive?'destroying-native-bb':'destroying-wasm');
-  if(nodeNativeActive){nodeNativeActive=false;report.nativeBackendExecution=await destroyNativeNodeV1(owned);}
+  const owned=api;api=undefined;phase(nativeAuthorization||nodeNativeActive||reservationNativeActive?'destroying-native-bb':'destroying-wasm');
+  if(reservationNativeActive){reservationNativeActive=false;report.nativeBackendExecution=await destroyNativeReservationV1(owned);}
+  else if(nodeNativeActive){nodeNativeActive=false;report.nativeBackendExecution=await destroyNativeNodeV1(owned);}
   else if(nativeAuthorization)report.nativeBackendExecution=await destroyNativeAuthorizationV1(owned);
   else await owned.destroy();
 }
@@ -266,6 +271,17 @@ async function prepareKey() {
 }
 /** Private fixed N continuation. No caller-selected backend or parameters.
  * Await actual Child.close/socket/output/PID closure before creating Wasm1. */
+async function verifyNativeReservationIndependently(bb,prepared,proof,words){
+  assert.ok(nativeReservation&&reservationNativeActive,'PW_RESERVATION_NATIVE_PRODUCER_REQUIRED');
+  phase('closing-native-producer');freezeCheck();await destroy();
+  assert.ok(report.nativeBackendExecution,'PW_RESERVATION_NATIVE_CLOSE_REQUIRED');
+  await initialize(bb,MEMORY.standard,true);phase('self-verifying');
+  const verified=await measured('verificationMilliseconds',()=>new bb.UltraHonkVerifierBackend(api).verifyProof({
+    proof,publicInputs:verifierWords(spec,words),verificationKey:prepared.key},{verifierTarget:'evm'}));
+  assert.equal(verified,true,'PW_GENUINE_SELF_VERIFICATION');await destroy();
+  report.independentVerification={backend:'Wasm',threads:1,maximumPages:MEMORY.standard,originalPreparedKeyRequired:true,
+    verifierCRSOnly:true,backendDestroyed:true,nativeProducerClosedBeforeVerification:true};
+}
 async function verifyNativeNodeIndependently(bb,prepared,proof,words){
   assert.ok(nativeNode&&nodeNativeActive,'PW_NODE_NATIVE_PRODUCER_REQUIRED');
   phase('closing-native-producer');freezeCheck();await destroy();
@@ -283,7 +299,7 @@ async function prove() {
   const maximumPages = pagesFor(mode, statistics.manifest.stats);
   const prepared = await loadPrepared(context, compiled, fullCRS());
   Object.assign(report, compiledPins(compiled), { keySHA256: hash(prepared.key), keyManifestSHA256: prepared.manifestSHA256,
-    keyRecomputed:false,maximumPages:nativeNode?null:maximumPages,...(nativeNode?{preparedMaximumPages:maximumPages}:{}) });
+    keyRecomputed:false,maximumPages:nativeNode||nativeReservation?null:maximumPages,...(nativeNode||nativeReservation?{preparedMaximumPages:maximumPages}:{}) });
   phase('receiving-scoped-job');
   await measured('jobPreparationMilliseconds', async () => {
     const adapter = await import(pathToFileURL(join(ROOT, 'proof-workers/trusted-jobs.mjs')));
@@ -321,7 +337,8 @@ async function prove() {
   Object.assign(report, { proofSHA256: hash(proof), proofBytes: proof.length,
     publicInputsSHA256: hash(jsonBytes(words)), proofGenerated: true }); save();
   assert.deepEqual(words,expected,'PW_PROVED_PUBLIC_INPUTS');
-  if(nativeNode)await verifyNativeNodeIndependently(bb,prepared,proof,words);
+  if(nativeReservation)await verifyNativeReservationIndependently(bb,prepared,proof,words);
+  else if(nativeNode)await verifyNativeNodeIndependently(bb,prepared,proof,words);
   else{phase('self-verifying');const verified=await measured('verificationMilliseconds',()=>new bb.UltraHonkVerifierBackend(api).verifyProof({
     proof,publicInputs:verifierWords(spec,words),verificationKey:prepared.key},{verifierTarget:'evm'}));
     assert.equal(verified,true,'PW_GENUINE_SELF_VERIFICATION');}report.selfVerified=true;
@@ -427,7 +444,8 @@ try {
   compressedWitness?.fill(0); rawWitness?.fill(0); job = undefined;
   if (api) {
     try { const owned = api; api = undefined;
-      if(nodeNativeActive){nodeNativeActive=false;report.nativeBackendExecution=await destroyNativeNodeV1(owned);}
+      if(reservationNativeActive){reservationNativeActive=false;report.nativeBackendExecution=await destroyNativeReservationV1(owned);}
+      else if(nodeNativeActive){nodeNativeActive=false;report.nativeBackendExecution=await destroyNativeNodeV1(owned);}
       else if(nativeAuthorization)report.nativeBackendExecution=await destroyNativeAuthorizationV1(owned);else await owned.destroy(); }
     catch (error) { report.phase = 'failed'; report.cleanupErrorCode = errorCode(error); process.exitCode = 1; }
   }

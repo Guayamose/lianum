@@ -13,6 +13,7 @@ import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regula
   errorCode, trustedParent } from '../tooling/tooling.mjs';
 import { executionSources, limitsForMode } from './proving-execution.mjs';
 import {standardProofResourcesV1,proofResourceMonitorErrorCodeV1} from './standard-proof-resources-v1.mjs';
+import {usesNativeReservationV1,nativeReservationResourcesV1,assertNativeReservationReceiptV1} from './reservation-native-execution-v1.mjs';
 import {usesNativeNodeV1,nativeNodeResourcesV1,assertNativeNodeReceiptV1} from './node-native-execution-v1.mjs';
 import {usesNativeAuthorizationV1,nativeAuthorizationResourcesV1,assertNativeAuthorizationReceiptV1} from './authorization-native-execution-v1.mjs';
 
@@ -74,9 +75,9 @@ export async function runBoundedProof(request) {
 }
 async function supervise(spec, mode, runId, privatePayload = null) {
   const began = performance.now(), attempt = attemptPath(runId), lockPath = join(LOCAL, 'active.lock');
-  const taskLimits=limitsForMode(spec,mode),nativeAuthorization=usesNativeAuthorizationV1(spec,mode),nativeNode=usesNativeNodeV1(spec,mode),nativeProving=nativeAuthorization||nativeNode,nativeHistory=new Map();
-  const originalNativeResources=nativeNode?nativeNodeResourcesV1:nativeAuthorizationResourcesV1;
-  const assertOriginalNativeReceipt=nativeNode?assertNativeNodeReceiptV1:assertNativeAuthorizationReceiptV1;
+  const taskLimits=limitsForMode(spec,mode),nativeAuthorization=usesNativeAuthorizationV1(spec,mode),nativeNode=usesNativeNodeV1(spec,mode),nativeReservation=usesNativeReservationV1(spec,mode),nativeProving=nativeAuthorization||nativeNode||nativeReservation,nativeHistory=new Map();
+  const originalNativeResources=nativeReservation?nativeReservationResourcesV1:nativeNode?nativeNodeResourcesV1:nativeAuthorizationResourcesV1;
+  const assertOriginalNativeReceipt=nativeReservation?assertNativeReservationReceiptV1:nativeNode?assertNativeNodeReceiptV1:assertNativeAuthorizationReceiptV1;
   let report, child, interval, timeout, killTimer, completion, resolveClosed;
   let closed = false, stopping = false, failure = null, lockOwned = false, sent = false;
   let outputBytes = 0, exitHandler, termHandler, intHandler;
