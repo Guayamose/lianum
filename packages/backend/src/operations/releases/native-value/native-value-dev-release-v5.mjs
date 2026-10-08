@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "0c8858139eb05700a51b2ddec0c91adc3704c6dc73361e33c2b031571d76895e",
+  "hostSourceClosureSHA256": "fe74da3f36e4c5d060821734e1d9f246f924ac064cfc3b886502579f37982c95",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -1962,7 +1962,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-native-value-profile.mjs",
-      "sha256": "9c1696246eba842ed362985745592322cdbee1f7c0222dcee4c1c73a8572ceef"
+      "sha256": "0a99c04b2385e8307c2a09030a6e55b638e38b0f76c7a8122c99e84c12024225"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs",
