@@ -2,7 +2,7 @@
 
 No authority is derived from names, argv, matching UIDs or reparenting alone.
 Unknown adopted children latch unconfirmed cleanup and are never signalled.
-This draft has not been executed.
+Identity and lifecycle checks are shared with the fixed ledger build wrapper.
 """
 import ctypes
 import json

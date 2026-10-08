@@ -1,6 +1,6 @@
 """Fixed new Solidity-ledger build only; source literal publication stays manual.
 
-This draft has not been executed. Sampled resource limits are not kernel caps.
+Sampled resource limits are not kernel caps.
 No caller command/path/pin/environment or historical output is accepted.
 """
 import fcntl
