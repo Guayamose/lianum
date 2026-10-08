@@ -3,7 +3,7 @@
  * node or financial state is created; execution stops before clearUnknown. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimUint }
   from '../../../../packages/backend/src/claims/protocol/framing.mjs';
@@ -12,7 +12,14 @@ import { bytes32, exactRecord }
   from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
 
 const helper = readFileSync(new URL('./development-btc-sol-graph-case.mjs', import.meta.url), 'utf8');
-const controller = readFileSync(new URL('../../../../packages/backend/src/claims/controller/controller.mjs', import.meta.url), 'utf8');
+// Filesystem URLs intentionally are not import-rewritten by ./dev. Read the
+// actual controller in exactly one of the canonical or generated layouts.
+const controllerPaths = [
+  new URL('../../../../packages/backend/src/claims/controller/controller.mjs', import.meta.url),
+  new URL('../../../wallet-platform/modules/native-claims/controller.mjs', import.meta.url),
+].filter(path => existsSync(path));
+assert.equal(controllerPaths.length, 1, 'EXACTLY_ONE_ORIGINAL_CONTROLLER_SOURCE');
+const controller = readFileSync(controllerPaths[0], 'utf8');
 const beginPayload = helper.indexOf('  const request = {');
 const endPayload = helper.indexOf('  const ticket = await controller.requestRedemption(request);', beginPayload);
 assert.ok(beginPayload > 0 && endPayload > beginPayload, 'ORIGINAL_SOLVER_PAYLOAD_DELIMITERS');
