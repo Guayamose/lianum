@@ -37,7 +37,7 @@ for(const expected of ['compileSdk = "36"','buildTools = "36.0.0"','ndkVersion =
 const abi = ['arm64-v8a','x86_64'];
 const gradleSHA256 = 'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
 const gradleJVMArgs = standaloneLocal
-  ? '-Xmx768m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8'
+  ? '-Xmx768m -XX:MaxMetaspaceSize=384m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -Dfile.encoding=UTF-8'
   : '-Xmx1024m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8';
 process.stdout.write(JSON.stringify({preflight:'PASS',javaMajor,architectures:abi,
   androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1',variant,standaloneLocal})+'\n');
@@ -114,9 +114,19 @@ function captureJVMProcesses(group) {
       jvmFlags:arguments_.filter(value => /^-Xm[xs]/.test(value)
         || value.startsWith('-XX:MaxMetaspaceSize=')
         || value.startsWith('-XX:ReservedCodeCacheSize=')
+        || value === '-XX:+UseSerialGC' || value.startsWith('-XX:ActiveProcessorCount=')
         || value.startsWith('-Dfile.encoding=')),
       peakRSSBytes:stat.rssBytes
     };
+    // Verify the owned Gradle launcher/daemon's actual argv, rather than
+    // treating requested JVM options as evidence of effective execution.
+    // Other Java tools and worker JVMs retain their original configuration.
+    if (standaloneLocal && report.phase === 'gradle' && (stat.pid === ownedGroup.identity.pid
+      || processClass === 'org.gradle.launcher.daemon.bootstrap.GradleDaemon')) {
+      assert.ok(observed.jvmFlags.includes('-XX:+UseSerialGC')
+        && observed.jvmFlags.includes('-XX:ActiveProcessorCount=2'),
+      'MOBILE_BUILD_FIXED_JVM_EXECUTION_FLAGS');
+    }
     const index = report.effectiveJVMProcesses.findIndex(value =>
       value.pid === stat.pid && value.startTimeTicks === stat.startTimeTicks);
     if (index === -1) report.effectiveJVMProcesses.push(observed);
