@@ -1255,6 +1255,18 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       call: (transaction, tag = 'latest') => rpc('eth_call', [request(transaction, false), blockTag(tag)]),
       balance: async (holder, tag = 'latest') => BigInt(await rpc('eth_getBalance', [address(holder), blockTag(tag)])),
       code: (holder, tag = 'latest') => rpc('eth_getCode', [address(holder), blockTag(tag)]),
+      // Read-only EIP-1967 implementation lookup. No slot, endpoint or transaction
+      // is supplied by callers; native-value profiles retain their original surface.
+      ...(nativeValueOnly ? {} : { async proxyImplementation1967(holder, tag = 'latest') {
+        await health(); const target = address(holder), header = await block(blockTag(tag));
+        assert.notEqual(await rpc('eth_getCode', [target, header.number]), '0x', 'LOCAL_EVM_PROXY_CODE');
+        const raw = await rpc('eth_getStorageAt', [target,
+          '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc', header.number]);
+        assert.match(raw, /^0x0{24}[0-9a-f]{40}$/, 'LOCAL_EVM_PROXY_IMPLEMENTATION_WORD');
+        const implementation = address('0x' + raw.slice(-40));
+        assert.notEqual(implementation, '0x' + '0'.repeat(40), 'LOCAL_EVM_PROXY_IMPLEMENTATION_NONZERO');
+        await assertCanonical(header); return implementation;
+      } }),
       nonce: async (holder, tag = 'pending') => {
         const sender = address(holder);
         assert.ok(accounts.includes(sender), 'LOCAL_EVM_NONCE_SENDER_NOT_OWNED');
