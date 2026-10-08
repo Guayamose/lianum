@@ -10,7 +10,7 @@ import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { OWNED_TRON_RUNTIME_RELEASE, startFixedOwnedTronDriver } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
 import { OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1, OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1, assertOwnedTronProductReleaseV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-release-v1.mjs';
-import { startFixedOwnedTronProductDriverV1 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs';
+import { startFixedOwnedTronProductDriverV1, inspectOwnedTronProductDriverPrerequisitesV1 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs';
 import { startOwnedTronAlignedCandidateChildV1, startOwnedTronAlignedProductChildV1, readOriginalTronProductChildBirthV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs';
 import { assertTronProductSupervisorEvidenceV1 }
@@ -36,7 +36,10 @@ test('fixed product gate and arities reject caller profiles before filesystem or
  assert.equal(OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1,5400000);
  assert.throws(()=>assertOwnedTronProductReleaseV1({deadline:Infinity}),/NO_OPTIONS/);
  if(OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1===null)assert.throws(()=>assertOwnedTronProductReleaseV1(),/SOURCE_REVIEW_REQUIRED/);
- else assert.equal(assertOwnedTronProductReleaseV1(),OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1);
+ else {assert.equal(assertOwnedTronProductReleaseV1(),OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1);
+  const prerequisites=inspectOwnedTronProductDriverPrerequisitesV1();assert.equal(prerequisites.canLaunch,true);
+  assert.equal(prerequisites.classification,'REVIEWED_LOCAL_PRODUCT_DRIVER_MATERIAL');assert.equal(prerequisites.productNativeAcceptanceEstablished,false);
+  assert.equal(prerequisites.canonicalRuntimeRelease,null);assert.equal(prerequisites.graphAdmissionEstablished,false);assert.equal(prerequisites.creditEstablished,false);}
  for(const factory of [startFixedOwnedTronDriver,startFixedOwnedTronProductDriverV1])
   await assert.rejects(factory({binary:'/caller',deadline:Infinity}),/ZERO_ARGUMENT_FACTORY/);
  for(const opener of [startOwnedTronAlignedCandidateChildV1,startOwnedTronAlignedProductChildV1])
