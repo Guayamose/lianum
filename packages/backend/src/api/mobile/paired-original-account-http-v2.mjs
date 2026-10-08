@@ -14,7 +14,7 @@ import {deviceOwnerExecutionBridgeActorV1} from '../../accounts/authority/device
 import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
-const listeners = new WeakSet();
+const listeners = new WeakSet(), ownedTransports = new WeakMap(), depositContinuations = new WeakMap();
 const BODY_LIMIT = 8192, REQUEST_MS = 5000, CLOSE_MS = 1000;
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const state = Object.freeze({ version: 2, profile: 'PAIRED_ORIGINAL_ACCOUNT_SERVICE_V2', connection: 'PAIRED',
@@ -136,9 +136,30 @@ export async function createPairedDeviceExecutionTlsServerV1(input){
   const descriptor=pairedOriginalAccountActorDescriptorV2(actor),tls=tlsMaterial(input.tls,descriptor);
   try{return await startOriginalTransport(actor,tls,host,null,input.reservationBridge,input.bridge);}finally{tls.privateKey.fill(0);}
 }
+/** Retire only an ORIGINAL D26 TLS listener for its fixed U/S continuation.
+ * Its private retained lease follows the same actor; it never grants an account,
+ * bridge, handler or financial permission. Normal close still closes the actor. */
+export async function handoffPairedDeviceDepositTlsServerV1(transport) {
+  if (arguments.length !== 1 || types.isProxy(transport)) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const owned = ownedTransports.get(transport);
+  if (!owned || !owned.deposit || owned.handoff || owned.closed() || depositContinuations.has(owned.actor))
+    fail('MOBILE_ORIGINAL_DEPOSIT_HANDOFF_REQUIRED');
+  assertPairedOriginalAccountActorV2(owned.actor);
+  if (owned.running() !== 0) fail('MOBILE_ORIGINAL_HTTP_HANDOFF_BUSY');
+  owned.handoff = true;
+  const closed = await owned.retire();
+  if (!closed.closed || closed.ownedSocketsRemaining !== 0 || closed.originalDiagnosticsInFlight !== 0)
+    fail('MOBILE_ORIGINAL_HTTP_CLEANUP_UNCONFIRMED');
+  assertPairedOriginalAccountActorV2(owned.actor);
+  depositContinuations.set(owned.actor, owned); listeners.delete(owned.actor);
+  return Object.freeze({ ...closed, actorRetainedForOriginalContinuation: true });
+}
 async function startOriginalTransport(actor, tls, host, bridge = null, reservationBridge = null, executionBridge = null) {
   assertPairedOriginalAccountActorV2(actor);
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
+  const continuation = depositContinuations.get(actor);
+  if (continuation && (!tls || bridge !== null || reservationBridge === null || !continuation.handoff
+    || continuation.transferred)) fail('MOBILE_ORIGINAL_DEPOSIT_CONTINUATION_REQUIRED');
   if (listeners.has(actor)) fail('MOBILE_ORIGINAL_HTTP_ALREADY_BOUND'); listeners.add(actor);
   const sockets = new Set(), running = new Set(); let closed = false, closePromise, confirmOwnedClose;
   const handler = (request, response) => {
@@ -267,14 +288,24 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
     });
   } catch (error) { listeners.delete(actor); for (const socket of sockets) socket.destroy(); server.close(); throw error; }
   const address = server.address(), url = tls ? descriptor.origin : 'http://127.0.0.1:' + address.port;
-  return Object.freeze({ url,
+  const owned = { actor, deposit: tls !== null && bridge !== null && reservationBridge === null && executionBridge === null,
+    handoff: false, transferred: false, closed: () => closed, running: () => running.size, retire: closeTransport };
+  const transport = Object.freeze({ url,
     /** Invalidates controller consents, closes only owned listener/sockets, and
      * preserves admitted original work. Its owner must await the original
      * session separately; this transport never cancels custody or native work. */
     close() {
       if (arguments.length !== 0) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+      if (!owned.transferred) { actor.close(); depositContinuations.delete(actor); }
+      return closeTransport();
+    },
+  });
+  ownedTransports.set(transport, owned);
+  if (continuation) { continuation.transferred = true; depositContinuations.delete(actor); }
+  return transport;
+  function closeTransport() {
       if (!closePromise) {
-        closed = true; actor.close();
+        closed = true;
         closePromise = new Promise((resolve, reject) => {
           let done = false, listenerCallback = false;
           const report = () => ({ closed: listenerCallback && !server.listening && sockets.size === 0,
@@ -293,6 +324,5 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
         });
       }
       return closePromise;
-    },
-  });
+  }
 }

@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
-import { createPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
+import { createPairedDeviceDepositTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import { originalAccountAccessMessageV2 } from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import { deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 }
   from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
@@ -264,7 +264,7 @@ async function runOriginalStepV1(context, reservationMode) {
     assert.equal(result.proofs.length, 1); result.deviceOwnerD26NodeAcceptance = true; save();
     if (reservationMode) {
       assert.equal((await vault.readDeviceNote()).availableBalance, '500');
-      const firstClosed = await server.close(); assert.equal(firstClosed.closed,true); assert.equal(firstClosed.ownedSocketsRemaining,0);
+      const firstClosed = await handoffPairedDeviceDepositTlsServerV1(server); assert.equal(firstClosed.closed,true); assert.equal(firstClosed.ownedSocketsRemaining,0);
       result.cleanup.mobileListeners.push(firstClosed); bridge.close();
       continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId });
       server = ownedPair.server = continuation.server;

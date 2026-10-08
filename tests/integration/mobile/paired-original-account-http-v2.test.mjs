@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import { createConnection, createServer as createPortReservation } from 'node:net';
 import { request as httpsRequest } from 'node:https';
 import { execFileSync } from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {createGenericBalanceNativePreparation} from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -27,7 +29,8 @@ const { createOriginalAccountLeaseV2 } = await fromApp('custody/original-account
 const { devicePublicKey, signDeviceMessage } = await fromApp('custody/signing.mjs');
 const { createPairedOriginalAccountActorV2, assertPairedOriginalAccountActorV2,
   pairedOriginalAccountActorDescriptorV2 } = await createActorModule();
-const { createPairedOriginalAccountHttpServerV2, createPairedOriginalAccountTlsServerV2 } = await import(
+const { createPairedOriginalAccountHttpServerV2, createPairedOriginalAccountTlsServerV2, createPairedDeviceDepositTlsServerV1,
+  createPairedDeviceReservationTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } = await import(
   '../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
 const privateKey = new Uint8Array(32).fill(11), publicKey = devicePublicKey(privateKey);
 const origin = 'https://private-actor.example';
@@ -319,4 +322,48 @@ test('closing TLS after original reconcile admission closes owned sockets and pr
   } finally { resume.resolve(); }
   const after = await c.f.session.idle(); assert.equal(after.admissions.length, before + 1);
   assert.equal(after.requests[0].state, 'UNKNOWN'); assert.equal(c.f.world.sends, 1); assert.equal(c.f.world.proofs, 1);
+});
+
+// Only listener ownership moves. Account/actor/approval remain the original HOST
+// capabilities; no proof, funding, native dispatch or phone acceptance occurs.
+test('original D26 TLS handoff preserves its actor only for the genuine U/S successor and final close revokes it', async t => {
+  const material = await tlsFixture(t), reservation = await reservedPort(t), f = await fixture(t, { execute: false });
+  const actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
+    owner: f.world.owner, origin: 'https://localhost:' + reservation.port, devicePublicKey: f.device.publicKey });
+  const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
+  const {createDeviceOwnerDepositBridgeV1} = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
+  const {createDeviceOwnerReservationBridgeV1} = await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
+  const original = {actor,account:f.account,owner:f.world.owner,runtime:f.world.runtime,system:f.world.system,poolIndex:0};
+  const deposit = await createDeviceOwnerDepositBridgeV1(original); await reservation.close();
+  const first = await createPairedDeviceDepositTlsServerV1({bridge:deposit,tls:material});
+  let second, us;
+  t.after(async () => { await second?.close(); await first.close(); us?.close(); deposit.close(); actor.close(); });
+  const direct = tlsFetch(material.certificate);
+  assert.equal((await direct(descriptor.origin + '/v2/mobile/original-account/state')).status,200);
+  for (const fake of [{...first},new Proxy(first,{})]) await assert.rejects(handoffPairedDeviceDepositTlsServerV1(fake));
+  await assert.rejects(handoffPairedDeviceDepositTlsServerV1(first,{closeActor:false}));
+  const retired = await handoffPairedDeviceDepositTlsServerV1(first);
+  assert.equal(retired.closed,true); assert.equal(retired.ownedSocketsRemaining,0); assert.equal(retired.originalDiagnosticsInFlight,0);
+  assert.equal(retired.actorRetainedForOriginalContinuation,true); assertPairedOriginalAccountActorV2(actor);
+  await assert.rejects(createPairedOriginalAccountTlsServerV2({actor,tls:material}),/DEPOSIT_CONTINUATION_REQUIRED/);
+  const h = name => createHash('sha256').update('HOST TLS HANDOFF '+name).digest('hex'), domain=f.world.identity.domain;
+  const nativePreparation = createGenericBalanceNativePreparation({
+    ...Object.fromEntries(['scope','policy','asset','hubDomain','registryCommitment'].map(name=>[name,domain[name]])),operationId:h('operation'),
+    fundingNotBefore:'6000',fundingValidUntil:'6100',settleBefore:'6300',nodes:[{id:'leg_0',dependsOn:[],evidencePolicy:h('evidence'),
+      actionTemplate:{chainDomain:h('chain'),signerIdentity:h('signer'),sourceCommitment:h('source'),destinationCommitment:h('destination'),
+        amount:'1000',custodyKind:1,custodyCommitment:h('custody'),executionFrom:'6000',executionUntil:'6200'},
+      recipientOffer:{x:f.device.publicKey.slice(2,66),y:f.device.publicKey.slice(66),value:'25',secret:h('payout'),randomness:h('randomness')}}]});
+  us = await createDeviceOwnerReservationBridgeV1({...original,nativePreparation,invoiceSignatures:['1'.repeat(128)]});
+  second = await createPairedDeviceReservationTlsServerV1({bridge:us,tls:material});
+  assert.equal(second.url,first.url); await first.close(); assertPairedOriginalAccountActorV2(actor);
+  assert.deepEqual(pairedOriginalAccountActorDescriptorV2(actor),descriptor);
+  const api = createOriginalAccountApiV2({descriptor,fetchImpl:direct});
+  const access = await api.challenge('read'); assert.equal(access.pairingId,descriptor.pairingId);
+  const reviewed = await api.openReview({challenge:access,signature:f.device.sign(originalAccountAccessMessageV2(access))});
+  assert.equal(reviewed.binding.requestId,f.body.requestId);
+  await assert.rejects(handoffPairedDeviceDepositTlsServerV1(first),/HANDOFF_REQUIRED/);
+  await assert.rejects(handoffPairedDeviceDepositTlsServerV1(second),/HANDOFF_REQUIRED/);
+  assert.equal(f.world.proofs,0); assert.equal(f.world.sends,0);
+  const closed = await second.close(); assert.equal(closed.closed,true); assert.equal(closed.ownedSocketsRemaining,0);
+  assert.throws(()=>assertPairedOriginalAccountActorV2(actor),/ACTOR_CLOSED/);
 });
