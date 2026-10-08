@@ -118,6 +118,7 @@ async function runOriginalStepV1(context, reservationMode) {
       tls: { certificate: readFileSync(certificatePath, 'utf8'), privateKey: readFileSync(keyPath, 'utf8') } });
     const ownedPair = { actor, bridge, server, async afterExecutionClose(){await continuation?.afterExecutionClose?.();}, async afterClose() {
       await continuation?.close(); vault?.close(); deviceApi?.close(); host?.close();
+      if(context.deviceEconomicRecovery&&!result.success){result.cleanup.deviceCiphertextRetainedAfterUncertainRestart=true;return;}
       if (host) result.cleanup.syntheticDeviceCiphertextRemoved = host.retire().removed;
       bridge.close(); actor.close();
       const info = lstatSync(tlsDirectory);
@@ -266,8 +267,8 @@ async function runOriginalStepV1(context, reservationMode) {
     if (reservationMode) {
       assert.equal((await vault.readDeviceNote()).availableBalance, '500');
       const firstClosed = await handoffPairedDeviceDepositTlsServerV1(server); assert.equal(firstClosed.closed,true); assert.equal(firstClosed.ownedSocketsRemaining,0);
-      result.cleanup.mobileListeners.push(firstClosed); bridge.close();
-      continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId });
+      result.cleanup.mobileListeners.push(firstClosed); if(!context.deviceEconomicRecovery)bridge.close();
+      continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId,originalDepositBridge:context.deviceEconomicRecovery?bridge:null });
       server = ownedPair.server = continuation.server;
     }
   } finally {

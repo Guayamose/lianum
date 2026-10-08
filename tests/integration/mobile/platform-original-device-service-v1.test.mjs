@@ -58,6 +58,7 @@ const { createPairedOriginalAccountActorV2, assertPairedOriginalAccountActorV2,
 const { createDeviceOwnerDepositBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
 const { createDeviceOwnerReservationBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
 const { createDeviceOwnerExecutionBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs');
+const {createPairedDeviceDepositTlsServerV1,createPairedDeviceAccountTlsServerV1,handoffPairedDeviceDepositTlsServerV1}=await import('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
 assert.ok(filename.includes(marker), 'HOST_TEST_REQUIRES_GENERATED_WORKSPACE');
 const root = filename.slice(0, filename.lastIndexOf(marker));
@@ -218,4 +219,23 @@ test('native recovery privately retires the composed TLS listener before actor c
   assert.equal((await c.f.session.snapshot()).revision, before.revision);
   assert.equal(c.f.world.sends, 0); assert.equal(c.f.world.proofs, 0);
   c.actor.close(); assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
+});
+
+
+test('planned economic capture handoff keeps exactly the original deposit bridge in the composed TLS successor', async t => {
+  const c=await setup(t);await c.release();
+  const first=await createPairedDeviceDepositTlsServerV1({bridge:c.input.depositBridge,tls:c.input.tls});let composed;
+  t.after(async()=>{await composed?.close();await first.close();});
+  const baseline={sends:c.f.world.sends,proofs:c.f.world.proofs};
+  const retired=await handoffPairedDeviceDepositTlsServerV1(first);assert.equal(retired.closed,true);assert.equal(retired.ownedSocketsRemaining,0);
+  const wrong=await createDeviceOwnerDepositBridgeV1({actor:c.actor,account:c.f.account,owner:c.f.world.owner,runtime:c.f.world.runtime,system:c.f.world.system,poolIndex:0});
+  t.after(()=>wrong.close());
+  await assert.rejects(createPairedDeviceAccountTlsServerV1({...c.input,depositBridge:wrong}),/DEPOSIT_CONTINUATION_REQUIRED/);
+  assertPairedOriginalAccountActorV2(c.actor);
+  composed=await createPairedDeviceAccountTlsServerV1(c.input);await first.close();assertPairedOriginalAccountActorV2(c.actor);
+  assert.equal((await c.direct('/v2/mobile/original-account/state')).status,200);
+  assert.deepEqual(pairedOriginalAccountActorDescriptorV2(c.actor).origin,composed.url);
+  assert.deepEqual({sends:c.f.world.sends,proofs:c.f.world.proofs},baseline);
+  const stopped=await composed.close();assert.equal(stopped.closed,true);assert.equal(stopped.ownedSocketsRemaining,0);
+  assert.throws(()=>assertPairedOriginalAccountActorV2(c.actor),/ACTOR_CLOSED/);
 });

@@ -178,3 +178,14 @@ test('fixed device F profile rejects publication absence and caller resources', 
  await assert.rejects(runDeviceOwnerRecoveryFlowV1({cutoff:'0',executor:{}}),/DEVICE_NATIVE_RECOVERY_FIXED_NO_OPTIONS/);
  if(DEVICE_RECOVERY_REAL_RELEASE_V1===null)await assert.rejects(runDeviceOwnerRecoveryFlowV1(),/DEVICE_NATIVE_RELEASE_ABSENT_OR_CHANGED/);
 });
+
+
+test('planned native economic successor accepts only its fixed reviewed release and zero-argument entry', async () => {
+ const {NATIVE_DEVICE_ECONOMIC_REAL_RELEASE_V1,assertNativeDeviceEconomicReleaseV1}=await import('./native-device-economic-policy-v1.mjs');
+ if(NATIVE_DEVICE_ECONOMIC_REAL_RELEASE_V1===null)assert.throws(()=>assertNativeDeviceEconomicReleaseV1(),/NATIVE_DEVICE_ECONOMIC_RELEASE_ABSENT_OR_CHANGED/);
+ else assertNativeDeviceEconomicReleaseV1();
+ assert.throws(()=>assertNativeDeviceEconomicReleaseV1({checkpoint:{},runtime:{},backend:()=>{}}));
+ const {runNativeDeviceEconomicRecoveryFlowV1}=await import('./paired-native-note-flow-v2.mjs');
+ await assert.rejects(runNativeDeviceEconomicRecoveryFlowV1({checkpoint:{},runtime:{}}),/NATIVE_DEVICE_ECONOMIC_FIXED_NO_OPTIONS/);
+ if(NATIVE_DEVICE_ECONOMIC_REAL_RELEASE_V1===null)await assert.rejects(runNativeDeviceEconomicRecoveryFlowV1(),/NATIVE_DEVICE_ECONOMIC_RELEASE_ABSENT_OR_CHANGED/);
+});

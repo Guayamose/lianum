@@ -7,7 +7,7 @@ import {createDeviceOwnerReservationBridgeV1,awaitDeviceOwnerReservationOriginal
  from '../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {createDeviceOwnerExecutionBridgeV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {runDeviceOwnerExecutionContinuationV1} from './device-owner-execution-original-continuation-v1.mjs';
-import {createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
+import {createPairedDeviceAccountTlsServerV1,createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import {deviceReservationConsentMessageV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
@@ -26,7 +26,7 @@ export async function runDeviceOwnerReservationContinuationV1(context){
  async function close(){if(closed)return;closed=true;pending?.close();if(witness)wipeDeviceReservationWitnessV1(witness);api?.close();continuation?.close();vault?.close();executionBridge?.close();bridge?.close();
   if(!executionMode)await closeProviders();}
  async function closeProviders(){if(providersClosed)return;providersClosed=true;
-  if(prepared){const stop=await prepared.recipient.close();assert.equal(stop.exited,true);assert.deepEqual(stop.exit,{code:0,signal:null});result.cleanup.closedDeviceRecipient=true;
+  if(prepared&&!context.economicLifetime?.captured){const stop=await prepared.recipient.close();assert.equal(stop.exited,true);assert.deepEqual(stop.exit,{code:0,signal:null});result.cleanup.closedDeviceRecipient=true;
    if(!prepared.custody.report().leaseIssued)await prepared.custody.close();assert.equal(prepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;}}
  try{
   await stage('device-original-quote-U-change-and-recovery-custody');
@@ -36,7 +36,8 @@ export async function runDeviceOwnerReservationContinuationV1(context){
   const tls={certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')};
   if(executionMode){assert.ok(context.nativeExecution);executionBridge=await createDeviceOwnerExecutionBridgeV1({account,reservationBridge:bridge,
    nativeExecution:context.nativeExecution,providers:[{slot:0,custody:prepared.custody,deliveryRiskSalt:prepared.deliveryRiskSalt}],runtime,system,poolIndex:0});
-   server=await createPairedDeviceExecutionTlsServerV1({bridge:executionBridge,reservationBridge:bridge,tls});
+   server=context.deviceEconomicRecovery?await createPairedDeviceAccountTlsServerV1({depositBridge:context.originalDepositBridge,reservationBridge:bridge,executionBridge,tls})
+     :await createPairedDeviceExecutionTlsServerV1({bridge:executionBridge,reservationBridge:bridge,tls});
   }else server=await createPairedDeviceReservationTlsServerV1({bridge,tls});
   api=await host.reservation.createDeviceOwnerReservationApiV1(descriptor);
   const source=await vault.readDeviceNote();assert.equal(source.availableBalance,'500');assert.equal(source.job.jobId,depositJobId);
@@ -123,7 +124,7 @@ export async function runDeviceOwnerReservationContinuationV1(context){
    sourceSpent:true,linuxOwnerAvailableAtomic:'0',nativeDeliveryTransactions:0};
   result.deviceOwnerUSNodeAcceptance=true;save();
   if(executionMode){result.deviceReservationEconomics=structuredClone(result.economics);
-   continuation=await runDeviceOwnerExecutionContinuationV1({...context,vault,executionBridge});vault=continuation.vault;}
+   continuation=await runDeviceOwnerExecutionContinuationV1({...context,vault,executionBridge,originalPrepared:prepared,originalTransport:server,reservationBridge:bridge});vault=continuation.vault;}
   return{server,close,afterExecutionClose:executionMode?closeProviders:null};
  }catch(error){if(server){const stopped=await server.close();assert.equal(stopped.closed,true);}await close();
   if(executionMode)context.deferDeviceProviderCleanup(closeProviders);throw error;}

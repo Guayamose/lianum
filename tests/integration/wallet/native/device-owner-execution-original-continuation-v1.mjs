@@ -9,6 +9,7 @@ import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../pa
 import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
+import {runNativeDeviceEconomicOriginalContinuationV1} from './native-device-economic-original-continuation-v1.mjs';
 import {assertDeviceFinalOriginalReceiptTreeV1} from './device-owner-execution-native-checks-v1.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),bare=value=>value.startsWith('0x')?value.slice(2):value;
 export async function runDeviceOwnerExecutionContinuationV1(context){
@@ -118,6 +119,8 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
   assert.equal(transport.posts['/v1/mobile/device-execution/execute'],1);
   assert.equal(nativeRuntime.transactions.length,beforeNative.native+1);
   assert.equal(result.proofs.length,recovery?7:11,'DEVICE_NATIVE_ORIGINAL_TERMINAL_RELATIONS');
+  if(context.deviceEconomicRecovery){nativeApi.close();exitApi.close();outputApi.close();
+   return await runNativeDeviceEconomicOriginalContinuationV1({...context,vault,executionHttp,recipientBefore,senderBefore,receiverRecipientBefore});}
   await stage('device-fresh-original-terminal-reconciliation-without-resend');
   const reconcile=async()=>{const consent=await nativeApi.challenge('RECONCILE_NATIVE',{...await access(nativeApi),jobId});
    const reply=await nativeApi.submit(signed(consent));assert.equal(reply.stage,terminalOutcome);assert.equal(reply.outcome,terminalOutcome);

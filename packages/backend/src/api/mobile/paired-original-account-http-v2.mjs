@@ -181,8 +181,12 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
   assertPairedOriginalAccountActorV2(actor);
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
   const continuation = depositContinuations.get(actor);
-  if (continuation && (!tls || bridge !== null || reservationBridge === null || !continuation.handoff
-    || continuation.transferred)) fail('MOBILE_ORIGINAL_DEPOSIT_CONTINUATION_REQUIRED');
+  if (continuation && (!tls || reservationBridge === null || !continuation.handoff || continuation.transferred
+    || (bridge !== null && (bridge !== continuation.bridge || executionBridge === null))))
+    fail('MOBILE_ORIGINAL_DEPOSIT_CONTINUATION_REQUIRED');
+  // The composed continuation retains the SAME original deposit controller.
+  // Its public factory already authenticates all three bridges by private marks;
+  // historical two-controller handoff still passes bridge=null unchanged.
   if (listeners.has(actor)) fail('MOBILE_ORIGINAL_HTTP_ALREADY_BOUND'); listeners.add(actor);
   const sockets = new Set(), running = new Set(); let closed = false, closePromise, confirmOwnedClose;
   const handler = (request, response) => {

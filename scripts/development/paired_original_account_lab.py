@@ -44,6 +44,7 @@ DEVICE_DEPOSIT = False
 DEVICE_RESERVATION = False
 DEVICE_EXECUTION = False
 DEVICE_RECOVERY = False
+NATIVE_ECONOMIC_RECOVERY = False
 
 
 def record(value):
@@ -662,7 +663,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             and result.get("nativeExecution", "missing") == ("ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1" if DEVICE_EXECUTION else None)
             and result.get("nativeDeliveryCount") == (1 if DEVICE_EXECUTION else 0)
             and result.get("nativeGraphAcceptance") is DEVICE_EXECUTION
-            and all(result.get(key) is False for key in SCOPE_FALSE if key != "nativeGraphAcceptance")
+            and all(result.get(key) is False for key in SCOPE_FALSE if key != "nativeGraphAcceptance" and (not NATIVE_ECONOMIC_RECOVERY or key != "nativeProcessRestartEstablished"))
             and worker_result.get("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
             and all(worker_result.get(key) is False for key in ("mobileNoteCustodyEstablished", "tlsEstablished",
                 "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished", "fullWalletAcceptance")),
@@ -680,8 +681,24 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
     receipt_checks["pairedListenersClosed"] = isinstance(listeners, list) and len(listeners) == (2 if DEVICE_RESERVATION else 1 if DEVICE_DEPOSIT else 2) and all(
         record(row).get("closed") is True and record(row).get("listenerClosed") is True
         and record(row).get("ownedSocketsRemaining") == 0 and record(row).get("originalDiagnosticsInFlight") == 0 for row in listeners)
+    if NATIVE_ECONOMIC_RECOVERY:
+        restart = record(result.get("deviceEconomicRestart"))
+        successor = record(record(result.get("cleanup")).get("successor"))
+        original = record(restart.get("originalProcess"))
+        new = record(restart.get("successorProcess"))
+        receipt_checks["plannedOriginalEconomicRestart"] = result.get("nativeDeviceEconomicRestartNodeAcceptance") is True \
+            and result.get("nativeProcessRestartEstablished") is True and result.get("keeperLossRecoveryEstablished") is False \
+            and restart.get("originalSectionsStoppedBeforeReopen") is True and restart.get("parentDeviceVaultRetained") is True \
+            and restart.get("abruptCrashRecoveryEstablished") is False and restart.get("parentProcessExitEstablished") is False \
+            and type(new.get("pid")) is int and new.get("pid") != original.get("pid") and new.get("ppid") == original.get("pid") \
+            and restart.get("originalProofsBeforeRestart") == 7 and restart.get("originalProofsAfterRestart") == 9 \
+            and successor.get("originalBackendStopped") is True and successor.get("originalChildProcessClosed") is True \
+            and successor.get("processId") == new.get("pid") and successor.get("exit") == {"code": 0, "signal": None} \
+            and successor.get("close") == {"code": 0, "signal": None} \
+            and worker_result.get("nativeDeviceEconomicRestartNodeAcceptance") is True \
+            and worker_result.get("nativeProcessRestartEstablished") is True
     accepted = all(receipt_checks.values())
-    summary = {"format": "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+    summary = {"format": "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_RECOVERY else "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
         "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
         "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
         ("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
@@ -716,7 +733,16 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             "Recovery100 is part of reserved100 and total original owner refund500; provider bears delivered native1M plus actual gas, with no T/payout.",
             "Exact encrypted mobile vault/API runs in Node; no physical SecureStore/Hermes/biometrics/phone or independent mobile canonical RPC.",
             "Original jobs/wires stay latched after HTTP loss; no owner-offline/full restart/public-chain/Cloud acceptance."]
-    path = DEV / ("reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
+    if NATIVE_ECONOMIC_RECOVERY:
+        summary["nativeDeviceEconomicRestartNodeAcceptance"] = accepted
+        summary["nativeProcessRestartEstablished"] = accepted
+        summary["plannedCaptureOnly"] = True
+        summary["deviceEconomicRestart"] = result.get("deviceEconomicRestart")
+        summary["limitations"] = ["Planned authenticated complete native economic capture after canonical F and lost mobile reply, before terminal apply/read/W39.",
+            "Original backend sections stopped before one-use reopen in a new causal PID; parent process survives with the same mobile vault and signing key.",
+            "Fresh signed reconciliation and both W39s use the same funded note/openings/S/F; no old proof or delivery is replayed.",
+            "Recoverable AEAD/runtime state is retained. Abrupt-crash recovery, physical SecureStore/Hermes/biometrics/phone, public chains and Cloud are unaccepted."]
+    path = DEV / ("reports/native-device-economic-recovery-lab-v1.json" if NATIVE_ECONOMIC_RECOVERY else "reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -728,10 +754,17 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
 
 
 def main():
-    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
-    if sys.argv[1:] not in ([], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"]):
-        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-deposit|--device-reservation|--device-execution|--device-recovery]")
-    if sys.argv[1:] == ["--device-recovery"]:
+    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, NATIVE_ECONOMIC_RECOVERY, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
+    if sys.argv[1:] not in ([], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"], ["--native-economic-recovery"]):
+        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-deposit|--device-reservation|--device-execution|--device-recovery|--native-economic-recovery]")
+    if sys.argv[1:] == ["--native-economic-recovery"]:
+        DEVICE_DEPOSIT = DEVICE_RESERVATION = DEVICE_EXECUTION = DEVICE_RECOVERY = NATIVE_ECONOMIC_RECOVERY = True
+        ENTRY = FLAT / "integration/run-native-value-economic-recovery-v1.mjs"
+        DIRECTORY = FLAT / ".local/native-value-economic-recovery-v1"
+        PROFILE = "native-value-economic-recovery-v1"
+        RESULT_FORMAT = "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_RESULT_V1"
+        RESOURCES_FORMAT = "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_RESOURCES_V1"
+    elif sys.argv[1:] == ["--device-recovery"]:
         DEVICE_DEPOSIT = DEVICE_RESERVATION = DEVICE_EXECUTION = DEVICE_RECOVERY = True
         ENTRY = FLAT / "integration/run-device-owner-recovery-v1.mjs"
         DIRECTORY = FLAT / ".local/device-owner-recovery-v1"
