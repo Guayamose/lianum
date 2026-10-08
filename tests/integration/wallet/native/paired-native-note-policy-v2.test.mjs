@@ -156,3 +156,14 @@ test('a cached diagnostic acceptance cannot claim private balance reading withou
     rejected(row => { row.pairedOriginalPrivateStateReadNodeAcceptance = true; row.mobileStateReads = missing; });
   }
 });
+
+
+test('new device native happy profile stays closed before runtime or caller options', async () => {
+ const {DEVICE_EXECUTION_REAL_RELEASE_V1,assertDeviceExecutionReleaseV1}=await import('./device-owner-execution-policy-v1.mjs');
+ if(DEVICE_EXECUTION_REAL_RELEASE_V1===null)assert.throws(()=>assertDeviceExecutionReleaseV1(),/DEVICE_NATIVE_RELEASE_ABSENT_OR_CHANGED/);
+ else assertDeviceExecutionReleaseV1();
+ assert.throws(()=>assertDeviceExecutionReleaseV1({release:{},runtime:{}}));
+ const {runDeviceOwnerExecutionFlowV1}=await import('./paired-native-note-flow-v2.mjs');
+ await assert.rejects(runDeviceOwnerExecutionFlowV1({runtime:{},nativeExecution:{}}),/DEVICE_NATIVE_FIXED_NO_OPTIONS/);
+ if(DEVICE_EXECUTION_REAL_RELEASE_V1===null)await assert.rejects(runDeviceOwnerExecutionFlowV1(),/DEVICE_NATIVE_RELEASE_ABSENT_OR_CHANGED/);
+});

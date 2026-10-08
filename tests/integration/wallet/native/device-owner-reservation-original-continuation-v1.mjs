@@ -5,7 +5,9 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {createDeviceOwnerReservationBridgeV1,awaitDeviceOwnerReservationOriginalWorkV1}
  from '../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
+import {createDeviceOwnerExecutionBridgeV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {runDeviceOwnerExecutionContinuationV1} from './device-owner-execution-original-continuation-v1.mjs';
+import {createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import {deviceReservationConsentMessageV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
@@ -15,20 +17,27 @@ const verifyPath=p=>verifyPrivateNotePath({...p,root:'0x'+p.root,leaf:'0x'+p.lea
 export async function runDeviceOwnerReservationContinuationV1(context){
  const {account,owner,runtime,nativeRuntime,bootstrap,system,reader,result,stage,save,active,actor,descriptor,deviceKey,host,
   certificatePath,keyPath,transport,depositJobId,fromApp}=context;
- let vault=context.vault,api,bridge,server,prepared,pending,witness,closed=false;
+ const executionMode=context.deviceExecution===true;
+ let vault=context.vault,api,bridge,executionBridge,server,prepared,pending,witness,continuation,closed=false,providersClosed=false;
  const {signDeviceMessage}=await fromApp('custody/signing.mjs');
  const access=async()=>{active();const value=await api.access();return{access:value,signature:signDeviceMessage(deviceKey,originalAccountAccessMessageV2(value))};};
  const signed=consent=>({consent,signature:signDeviceMessage(deviceKey,deviceReservationConsentMessageV1(consent))});
  const counts=()=>({proofs:result.proofs.length,receiver:runtime.transactions.length,native:nativeRuntime.transactions.length});
- async function close(){if(closed)return;closed=true;pending?.close();if(witness)wipeDeviceReservationWitnessV1(witness);api?.close();vault?.close();bridge?.close();
+ async function close(){if(closed)return;closed=true;pending?.close();if(witness)wipeDeviceReservationWitnessV1(witness);api?.close();continuation?.close();vault?.close();executionBridge?.close();bridge?.close();
+  if(!executionMode)await closeProviders();}
+ async function closeProviders(){if(providersClosed)return;providersClosed=true;
   if(prepared){const stop=await prepared.recipient.close();assert.equal(stop.exited,true);assert.deepEqual(stop.exit,{code:0,signal:null});result.cleanup.closedDeviceRecipient=true;
-   await prepared.custody.close();assert.equal(prepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;}}
+   if(!prepared.custody.report().leaseIssued)await prepared.custody.close();assert.equal(prepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;}}
  try{
   await stage('device-original-quote-U-change-and-recovery-custody');
   prepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap});
   bridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
    nativePreparation:prepared.nativePreparation,invoiceSignatures:prepared.invoiceSignatures});
-  server=await createPairedDeviceReservationTlsServerV1({bridge,tls:{certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')}});
+  const tls={certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')};
+  if(executionMode){assert.ok(context.nativeExecution);executionBridge=await createDeviceOwnerExecutionBridgeV1({account,reservationBridge:bridge,
+   nativeExecution:context.nativeExecution,providers:[{slot:0,custody:prepared.custody,deliveryRiskSalt:prepared.deliveryRiskSalt}],runtime,system,poolIndex:0});
+   server=await createPairedDeviceExecutionTlsServerV1({bridge:executionBridge,reservationBridge:bridge,tls});
+  }else server=await createPairedDeviceReservationTlsServerV1({bridge,tls});
   api=await host.reservation.createDeviceOwnerReservationApiV1(descriptor);
   const source=await vault.readDeviceNote();assert.equal(source.availableBalance,'500');assert.equal(source.job.jobId,depositJobId);
   const firstQuote=await api.preparation({...await access(),depositJobId,rootId:source.rootId}),quote=host.reservation.readDeviceReservationQuoteV1(firstQuote);
@@ -112,6 +121,10 @@ export async function runDeviceOwnerReservationContinuationV1(context){
   result.economics={deviceAmountAtomic:'500',reservedAtomic:'100',changeAtomic:'400',recoveryAtomic:'100',recoveryIsSubsetOfReserve:true,
    receiverFinancialTransactions:2,poolActualAtomic:final.ledger.publicState.actualAssetBalance,poolBackedAtomic:final.ledger.publicState.backedAmount,
    sourceSpent:true,linuxOwnerAvailableAtomic:'0',nativeDeliveryTransactions:0};
-  result.deviceOwnerUSNodeAcceptance=true;save();return{server,close};
- }catch(error){if(server){const stopped=await server.close();assert.equal(stopped.closed,true);}await close();throw error;}
+  result.deviceOwnerUSNodeAcceptance=true;save();
+  if(executionMode){result.deviceReservationEconomics=structuredClone(result.economics);
+   continuation=await runDeviceOwnerExecutionContinuationV1({...context,vault,executionBridge});vault=continuation.vault;}
+  return{server,close,afterExecutionClose:executionMode?closeProviders:null};
+ }catch(error){if(server){const stopped=await server.close();assert.equal(stopped.closed,true);}await close();
+  if(executionMode)context.deferDeviceProviderCleanup(closeProviders);throw error;}
 }

@@ -37,9 +37,12 @@ function exactTlsFetch(descriptor, certificate, evidence) {
     if (options.method === 'POST') evidence.posts[path] = (evidence.posts[path] ?? 0) + 1;
     const discardFund = evidence.dropFund && path === '/v1/mobile/device-deposit/fund';
     const discardU = evidence.dropU && path === '/v1/mobile/device-reservation/jobs';
-    const discard = discardFund || discardU;
+    const discardExecute=evidence.dropExecute&&path==='/v1/mobile/device-execution/execute';
+    const discardWithdraw=evidence.dropWithdraw&&path==='/v1/mobile/device-exit/withdraw';
+    const discard = discardFund || discardU || discardExecute || discardWithdraw;
     if (discardFund) evidence.dropFund = false;
     if (discardU) evidence.dropU = false;
+    if(discardExecute)evidence.dropExecute=false;if(discardWithdraw)evidence.dropWithdraw=false;
     const request = httpsRequest(target, { family: 4, ca: certificate, agent: false,
       minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3', method: options.method ?? 'GET', headers, signal: options.signal }, response => {
       try {
@@ -66,7 +69,7 @@ function exactTlsFetch(descriptor, certificate, evidence) {
           const authorization = JSON.parse(Buffer.concat(chunks)).authorizationSHA256;
           if (discardFund) { evidence.fundAuthorizationSHA256 = authorization; evidence.fundReplyDiscarded = true; }
           if (discardU) { evidence.uAuthorizationSHA256 = authorization; evidence.uReplyDiscarded = true; }
-          void reply.body.cancel().then(() => reject(Error(discardU ? 'DEVICE_US_U_REPLY_LOST' : 'DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
+          void reply.body.cancel().then(() => reject(Error(discardExecute?'DEVICE_NATIVE_EXECUTE_REPLY_LOST':discardWithdraw?'DEVICE_NATIVE_WITHDRAW_REPLY_LOST':discardU ? 'DEVICE_US_U_REPLY_LOST' : 'DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
         } else resolve(reply);
         } catch (error) { reject(error); }
       });
@@ -79,6 +82,7 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) { return runO
 export async function runDeviceOwnerReservationOriginalStepV1(context) {
   assertDeviceReservationReleaseV1(); return runOriginalStepV1(context, true);
 }
+export async function runDeviceOwnerExecutionOriginalStepV1(context){return runOriginalStepV1(context,true);}
 async function runOriginalStepV1(context, reservationMode) {
   assertDeviceDepositReleaseV1();
   const { account, owner, runtime, nativeRuntime, system, reader, joined, result, pairs, privateDirectory,
@@ -111,7 +115,7 @@ async function runOriginalStepV1(context, reservationMode) {
     bridge = await createDeviceOwnerDepositBridgeV1({ actor, account, owner, runtime, system, poolIndex: 0 });
     server = await createPairedDeviceDepositTlsServerV1({ bridge,
       tls: { certificate: readFileSync(certificatePath, 'utf8'), privateKey: readFileSync(keyPath, 'utf8') } });
-    const ownedPair = { actor, bridge, server, async afterClose() {
+    const ownedPair = { actor, bridge, server, async afterExecutionClose(){await continuation?.afterExecutionClose?.();}, async afterClose() {
       await continuation?.close(); vault?.close(); deviceApi?.close(); host?.close();
       if (host) result.cleanup.syntheticDeviceCiphertextRemoved = host.retire().removed;
       bridge.close(); actor.close();
