@@ -129,13 +129,13 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
   async function identity({ terminal = false } = {}) {
     const row = await alignedProc(child.pid); if (!row) { assert.ok(terminal && exit, 'TRON_CANDIDATE_CHILD_DISAPPEARED'); return null; }
     assert.ok(original, 'TRON_CANDIDATE_BIRTH_UNAUTHENTICATED');
-    
+
       for (const key of ['group', 'session', 'uid']) assert.equal(row[key], original[key], 'TRON_ALIGNED_LIVE_IDENTITY_CHANGED');
       assert.deepEqual(row.uids, Array(4).fill(process.getuid()), 'TRON_ALIGNED_LIVE_UID4_CHANGED');
-    
+
     assert.equal(row.start, original.start, 'TRON_CANDIDATE_PID_REPLACED'); assert.equal(row.parent, process.pid, 'TRON_CANDIDATE_CHILD_REPARENTED');
     const executable = await readlink('/proc/' + child.pid + '/exe');
-    
+
       if (executable === join(RUNTIME, 'jdk8/bin/java')) {
         assert.equal(alignedGrantSent, true, 'TRON_ALIGNED_JAVA_BEFORE_ORIGINAL_GRANT');
         const observedArgv = (await readFile('/proc/' + child.pid + '/cmdline')).toString('utf8').split('\0').filter(Boolean);
@@ -152,7 +152,7 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
         assert.equal(alignedJavaIdentity, undefined, 'TRON_ALIGNED_JAVA_TRANSITION_REVERSED');
         assert.equal(executable, original.executable, 'TRON_ALIGNED_STARTUP_EXECUTABLE_CHANGED');
       }
-    
+
     if (readySeen) assert.equal(executable, join(RUNTIME, 'jdk8/bin/java'), 'TRON_CANDIDATE_JAVA_IDENTITY');
     else assert.ok(executable === join(RUNTIME, 'jdk8/bin/java') || /^\/usr\/bin\/python3(?:\.[0-9]+)?$/.test(executable), 'TRON_CANDIDATE_STARTUP_IDENTITY');
     assert.ok(row.rss <= 2147483648, 'TRON_CANDIDATE_CHILD_RSS_LIMIT'); return { ...row, executable };
@@ -245,7 +245,7 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
   releaseCancellation = bindTronCandidateChildCancellation(signal, fail, close);
   let timeout;
   try {
-    
+
       const owner = await alignedProc(process.pid), first = await alignedProc(child.pid), second = await alignedProc(child.pid);
       assertTronAlignedRocksDbStartupIdentity(owner, first, second);
       assert.ok(!signal.aborted && !failure && !exit && !closed, 'TRON_ALIGNED_STARTUP_CANCELLED');
@@ -253,17 +253,17 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
       if (profile === PRODUCT) { productChildren.set(handle,{original:structuredClone(original),closed:()=>closed}); hostGuard.bindOriginalChild(handle); }
       alignedGrantSent = true;
       child.stdin.write(Buffer.from('G')); // One private grant, before any original command.
-    
+
     beginPolling();
     const hello = await Promise.race([ready, new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('TRON_CANDIDATE_STARTUP_TIMEOUT')), 120000); })]);
     readySeen = true; await auditNative(); assert.equal(hello.metadata.classification, 'LOCAL_SYNTHETIC_TRON_JAVA_TRON_CONSENSUS');
     assert.equal(hello.metadata.upstreamCommit, TRON_UPSTREAM.commit); assert.match(hello.metadata.genesis, /^0000000000000000[0-9a-f]{48}$/);
     let alignedNativeAudit;
-    
+
       alignedNativeAudit = await captureTronAlignedRocksDbNativeAudit(directory, await identity());
       await privateWrite(join(audit, 'jni-maps-ready-private.log'), alignedNativeAudit.maps);
       await privateWrite(join(audit, 'original-aligned-rocksdb-ready-audit.json'), alignedNativeAudit.evidence);
-    
+
     Object.assign(handle, { hello, command, auditNative, close,
       assertAlive() { if (signal.aborted) throw signal.reason; assert.ok(original && !closed && !failure && !exit && child.exitCode === null && child.signalCode === null, 'OWNED_TRON_ORIGINAL_PROCESS_REQUIRED'); }, alignedNativeAudit: alignedNativeAudit?.evidence ?? null,
       alignedStartupIdentityEvidence: {
@@ -275,14 +275,14 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
       } });
     return handle;
   } catch (error) {
-    
+
       try { error.childCleanup = await close(); }
       catch (cleanupError) {
         error.childCleanup = { stopped: false, startupAuthenticated: false, nativeOrderlyExit: false };
         error.childCleanupErrorCode = safeCode(cleanupError);
       }
       throw error; // Preserve original capture/admission failure even when cleanup is uncertain.
-    
+
   } finally { clearTimeout(timeout); }
 }
 export async function startOwnedTronAlignedCandidateChildV1(directory, audit, signal) {
