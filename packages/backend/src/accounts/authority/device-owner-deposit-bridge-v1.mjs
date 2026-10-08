@@ -143,12 +143,22 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
     async prove(input) {
       assert.equal(arguments.length, 1, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
       assert.ok(!busy, 'DEVICE_OWNER_BRIDGE_BUSY'); busy = true;
-      let admission;
+      let admission, completion, failure, failed = false;
       try { admission = await authorize(input, 'PROVE_D26');
+        // The same original call is retained through authority/prover cleanup.
+        // A PROVED event alone is not a bridge-idle or cleanup receipt.
+        completion = Promise.withResolvers(); completion.promise.catch(() => {});
+        bridges.get(bridge).proofCompletion = completion.promise;
         // The account owns the fixed job, latch and all resulting public proof
         // data. HTTP closure never retries/aborts this admitted original job.
         return await runDeviceOwnerDepositAuthorizationV1(account, bridge, admission);
-      } finally { if (admission) wipe(admissions.get(admission)?.witness); busy = false; }
+      } catch (error) { failed = true; failure = error; throw error; }
+      finally {
+        if (admission) wipe(admissions.get(admission)?.witness); busy = false;
+        // Resolve only AFTER the original authority Promise and its prover.close
+        // have completed and this bridge released its unchanged busy guard.
+        if (completion) { if (failed) completion.reject(failure); else completion.resolve(); }
+      }
     },
     async challengeFunding(input) {
       assert.equal(arguments.length, 1, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
@@ -187,6 +197,13 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
     close() { assert.equal(arguments.length, 0); closed = true; pending.clear(); return { closed: true, originalWorkRetained: true }; },
   });
   bridges.set(bridge, { account, actor, original, descriptor }); return bridge;
+}
+/** Private same-realm waiting seam, no endpoint, IDs, executor or authority
+ * supplied by a caller. It waits for the retained original proof call only. */
+export async function awaitDeviceOwnerDepositOriginalProofV1(bridge) {
+  assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
+  const value = bridges.get(bridge); assert.ok(value && value.proofCompletion, 'DEVICE_OWNER_BRIDGE_ORIGINAL_PROOF_REQUIRED');
+  value.original(); const original = value.proofCompletion; await original; value.original();
 }
 export function deviceOwnerDepositBridgeActorV1(bridge) {
   assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');

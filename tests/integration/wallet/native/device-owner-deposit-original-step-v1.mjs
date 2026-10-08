@@ -8,7 +8,7 @@ import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { createDeviceOwnerDepositBridgeV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
@@ -139,7 +139,8 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
     assert.equal(proofResponse.status, 504); assert.equal(transport.posts['/v1/mobile/device-deposit/jobs'], 1);
     // An explicit replay is a negative boundary, never an automatic retry.
     await assert.rejects(api.deviceDeposit.submit(signedProof));
-    await proofRetained(); active();
+    await proofRetained();
+    await awaitDeviceOwnerDepositOriginalProofV1(bridge); active();
     for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0); witness = null;
     await stage('device-second-consent-original-funding-reply-loss');
     const funding = await api.deviceDeposit.challenge('FUND_D26', { ...await access(), jobId: consent.jobId });
