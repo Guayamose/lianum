@@ -65,6 +65,40 @@ export function validateTronExecutionContext(raw, signed, inclusion, parent, ref
     nextBlockSlotTimeMs: nextSlot.toString(), permissionCheck: 'independent-threshold-check-on-trusted-historical-prestate',
     taposCheck: 'exact-recent-canonical-reference-under-registered-source', expirationCheck: 'parent-window-and-pinned-fork-rule' });
 }
+/** Private V4 selection from fresh canonical reads, never a cached certificate.
+ * Receiver time is issued by the original round/history token below. The live
+ * solid tip may advance while that immutable common receiver round is audited.
+ */
+async function readReceiverAnchoredTronSolidV4(readLatest,readBlock,at,profile,previous) {
+  const rawLatest=await readLatest(),latest=normalizeTronBlock(rawLatest);
+  // An advancing live context is bounded by the unchanged whole-round 30 s
+  // guard plus registered skew. This does not change selected-block freshness,
+  // certificate time, the source query timer or the quorum's audit deadline.
+  need(BigInt(latest.timestampMs)<=BigInt(at)+30000n+BigInt(profile.maximumClockSkewMs),'FUTURE_BLOCK');
+  if(previous){
+    need(BigInt(latest.height)>=BigInt(previous.height)&&BigInt(latest.timestampMs)>=BigInt(previous.timestampMs),'TRON_GRAPH_ANCESTRY_CHANGED');
+    if(latest.height===previous.height)need(same(latest,previous),'TRON_GRAPH_ANCESTRY_CHANGED');
+  }
+  const headers=[latest];let child=latest,rawChild=rawLatest,selected=null,steps=0n;
+  if(BigInt(child.timestampMs)<=BigInt(at))selected={header:child,raw:rawChild};
+  while(selected===null||(previous&&BigInt(child.height)>BigInt(previous.height))){
+    need(steps<BigInt(profile.maximumAncestry)&&BigInt(child.height)>0n,'TRON_GRAPH_SOLIDIFIED_ANCESTRY_BOUND');steps++;
+    const height=(BigInt(child.height)-1n).toString(),rawParent=await readBlock(height),parent=normalizeTronBlock(rawParent,height==='0');
+    need(parent.height===height,'TRON_GRAPH_REQUESTED_HEIGHT');
+    need(child.parentHash===parent.hash&&BigInt(parent.timestampMs)<=BigInt(child.timestampMs),'TRON_GRAPH_CANONICAL_ANCESTRY_CHANGED');
+    if(previous&&parent.height===previous.height)need(same(parent,previous),'TRON_GRAPH_ANCESTRY_CHANGED');
+    child=parent;rawChild=rawParent;headers.push(parent);
+    if(selected===null&&BigInt(child.timestampMs)<=BigInt(at))selected={header:child,raw:rawChild};
+  }
+  // Every previously traversed header is independently fetched again, including
+  // the actual latest solid tip. No old source observation supplies its truth.
+  for(const header of headers){
+    const current=normalizeTronBlock(await readBlock(header.height),header.height==='0');
+    need(same(header,current),'TRON_GRAPH_ANCESTRY_CHANGED');
+  }
+  checkFreshBlock(selected.header,at,{maxBlockAgeMs:Number(profile.maximumBlockAgeMs),maxFutureSkewMs:Number(profile.maximumClockSkewMs)});
+  return {raw:selected.raw,latest};
+}
 function retained(raw, identity, registration) {
   const r = exact(raw, ['schema', 'nativeId', 'nativeGid', 'transactionSHA256', 'profileCommitment', 'registryCommitment', 'inclusion', 'executionEvidenceCommitment']);
   need(r.schema === 'LIANUM_TRON_GRAPH_RETAINED_ORIGINAL_V1', 'TRON_GRAPH_RETAINED_SCHEMA');
@@ -114,10 +148,20 @@ export function createOwnedTronNativeValueHealthSource(raw) {
       busy = true; nativeReads = 0; const controller = new AbortController(); let timer, nativeWork;
       const live = () => need(!controller.signal.aborted, 'TRON_GRAPH_TIMEOUT');
       // Per-round observer: an expired round cannot mutate another round's latch.
+      let latestReceiverSolid=null;
+      const originalRead=async(path,body,options)=>{live();nativeReads++;const answer=await transport(path,body,
+        {signal:AbortSignal.any([controller.signal,options.signal])});live();return answer;};
       const originalObserver = createTronNativeTransferObserver({ chain: 'tron', genesisHash: profile.genesis,
         original: { ...original, ...(saved ? { inclusion: saved.inclusion } : {}) }, now, freshness,
-        transport: async (path, body, options) => { live(); nativeReads++; const answer = await transport(path, body,
-          { signal: AbortSignal.any([controller.signal, options.signal]) }); live(); return answer; } });
+        transport: async (path, body, options) => {
+          if(path!=='/walletsolidity/getnowblock')return originalRead(path,body,options);
+          exact(body,[]);
+          const selected=await readReceiverAnchoredTronSolidV4(
+            ()=>originalRead(path,body,options),
+            height=>originalRead('/walletsolidity/getblockbynum',freeze({num:height}),options),
+            safeMilliseconds(now()),profile,latestReceiverSolid);
+          live();latestReceiverSolid=selected.latest;return selected.raw;
+        } });
       const atBlock = async height => { live(); let value; try { nativeReads++; value = await transport('/walletsolidity/getblockbynum', freeze({ num: height }), { signal: controller.signal }); }
         catch { throw new ObservationError('TRON_GRAPH_HISTORY_UNAVAILABLE'); } live(); const block = normalizeTronBlock(value, height === '0');
         need(block.height === height, 'TRON_GRAPH_REQUESTED_HEIGHT'); return block; };
