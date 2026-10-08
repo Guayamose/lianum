@@ -18,6 +18,8 @@ import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
 import { createOwnedEvmVaultFixture, prepareEvmVaultFixtureGraph } from '../../fixtures/chains/evm/owned-evm-vault-fixture.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { manualWalletSourcePins } from './manual-wallet-source-pins.mjs';
+import { manualWalletBrowserSourcePins } from './manual-wallet-browser-source-pins.mjs';
+import { MANUAL_WALLET_BROWSER_FORMAT, assertManualWalletBrowserResult } from './manual-wallet-browser-policy.mjs';
 import { NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';
 import { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools } from '../../chains/evm/evm-vault-terminal-checks.mjs';
 import { loadBackedAssetDeploymentArtifacts } from '../../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs';
@@ -51,8 +53,10 @@ export async function runManualWalletAcceptance() {
   assert.equal(process.argv.length, 2);
   const worker = realpathSync(process.argv[1]);
   const timeoutRecovery = worker === join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs');
-  assert.ok(timeoutRecovery || worker === fileURLToPath(import.meta.url), 'MANUAL_WALLET_FIXED_WORKER_REQUIRED');
-  const flowName = timeoutRecovery ? 'manual-wallet-timeout-recovery' : 'manual-wallet-acceptance';
+  const browserMode = worker === join(ROOT, 'integration/manual-wallet-browser-acceptance.mjs');
+  assert.ok(timeoutRecovery || browserMode || worker === fileURLToPath(import.meta.url), 'MANUAL_WALLET_FIXED_WORKER_REQUIRED');
+  const flowName = browserMode ? 'manual-wallet-browser-acceptance' : timeoutRecovery ? 'manual-wallet-timeout-recovery' : 'manual-wallet-acceptance';
+  const captureSources = browserMode ? manualWalletBrowserSourcePins : manualWalletSourcePins;
   assert.deepEqual(process.execArgv, []);
   assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
@@ -70,14 +74,15 @@ export async function runManualWalletAcceptance() {
   mkdirSync(proofDirectory, { mode: 0o700 });
   const began = performance.now();
   const result = {
-    format: timeoutRecovery ? MANUAL_WALLET_RECOVERY_FORMAT : 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', runId: lock.runId,
+    format: browserMode ? MANUAL_WALLET_BROWSER_FORMAT : timeoutRecovery ? MANUAL_WALLET_RECOVERY_FORMAT : 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
-    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: manualWalletSourcePins(),
+    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: captureSources(),
     stages: [], proofs: [], transactions: [], accountRequests: [], nativeEffects: { evmVault: 0 },
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
     privateVaultGraphAcceptance: false, partialDeliveryRecoveryAcceptance: false,
-    walletSdkEvmFlowCompleted: false, actualTimeoutFRecoveryAcceptance: false,
+    walletSdkEvmFlowCompleted: false, walletBrowserEvmFlowCompleted: false, browserClosures: [],
+    actualTimeoutFRecoveryAcceptance: false,
     systemicPrivacyAcceptance: false, independentOperators: false,
     realClockFinalityAcceptance: false, performanceTargetAchieved: false, fullWalletAcceptance: false,
     disclosure: [
@@ -98,7 +103,7 @@ export async function runManualWalletAcceptance() {
   const originalHandoffs = new Map(), originalGraphReviews = new Map(), ownerReviews = new Map();
   let graphRef, graphCutoff;
   const graphId = 'private_vault_graph';
-  let closed = false, interrupted = false;
+  let closed = false, interrupted = false, browserRuntime = null;
   const accounts = [];
   async function retainProof({ label, relation, proof }) {
     const payload = Buffer.isBuffer(proof.proof) ? Buffer.from(proof.proof) : Buffer.from(proof.proof, 'hex');
@@ -124,6 +129,11 @@ export async function runManualWalletAcceptance() {
   }
   async function cleanup() {
     if (closed) return; closed = true;
+    if (browserRuntime) {
+      try { await closeBrowser(); } catch (error) {
+        result.browserCleanupFailure = safeCode(error); result.success = false; result.phase = 'failed';
+      }
+    }
     if (walletApp) await walletApp.close().catch(() => {});
     await Promise.allSettled([...accounts.map(account => account.abort()), execution?.abort(), legacy?.close()].filter(Boolean));
     if (session) await session.close().catch(() => {});
@@ -143,11 +153,22 @@ export async function runManualWalletAcceptance() {
     });
   };
   process.once('SIGTERM', stop); process.once('SIGINT', stop);
+  async function closeBrowser() {
+    if (!browserRuntime) return;
+    const original = browserRuntime; browserRuntime = null; appDriver?.close();
+    result.browserClosures.push(await original.close()); save();
+  }
   async function openListener() {
+    if (browserMode) await closeBrowser();
     walletApp = await startWalletApplication({ accountSession: session,
       defiExit: { runtime: fixture.runtime, service: defiFacade }, actionAccessMode: 'exact-only', port: 0 });
-    appDriver = createManualWalletAppDriver(walletApp, {
-      deadlineMs: Date.parse(lock.startedAt) + NATIVE_FLOW_LIMITS.totalMilliseconds - NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds });
+    const deadlineMs = Date.parse(lock.startedAt) + NATIVE_FLOW_LIMITS.totalMilliseconds - NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds;
+    if (browserMode) {
+      const { startOwnedWalletBrowser } = await import('./owned-wallet-browser.mjs');
+      const { createManualWalletDomDriver } = await import('./manual-wallet-dom-driver.mjs');
+      browserRuntime = await startOwnedWalletBrowser(privateDirectory, walletApp.origin);
+      appDriver = await createManualWalletDomDriver(walletApp, { page: browserRuntime.page, deadlineMs });
+    } else appDriver = createManualWalletAppDriver(walletApp, { deadlineMs });
     assert.equal(walletApp.actionAccess, undefined);
   }
   async function checkpointBindings() {
@@ -386,7 +407,7 @@ export async function runManualWalletAcceptance() {
     const lostFunding = await appDriver.executeAccountWithLostReply({ requestId: 'vault_top_up' });
     result.responseLoss = lostFunding.loss;
     const { snapshot: fundingSnapshot, loss: _loss, ...fundingEvidence } = lostFunding;
-    result.accountRequests.push({ via: 'NODE_SDK_EXACT_ONLY_HTTP', ...fundingEvidence });
+    result.accountRequests.push({ via: browserMode ? 'BROWSER_DOM_EXACT_ONLY_HTTP' : 'NODE_SDK_EXACT_ONLY_HTTP', ...fundingEvidence });
     assert.equal(row(fundingSnapshot, 'vault_top_up').state, 'CONFIRMED');
     await appDuplicateExecute('vault_top_up');
     const fundedCount = runtime.transactions.length;
@@ -527,7 +548,12 @@ export async function runManualWalletAcceptance() {
 
     await stage('redeem-exited-vault-shares-and-close-backing');
     const redemption = { requestId: 'vault_exit_1', minimumOutput: '100', deadline: String((await runtime.time()) + 240n) };
+    const originalExitBefore = await accounts[1].privateStatus();
     const preparedRedemption = await appDefi('prepare', redemption);
+    const originalExitAfter = await accounts[1].privateStatus();
+    assert.deepEqual(originalExitAfter, originalExitBefore, 'MANUAL_WALLET_CONFIRMED_EXIT_REVIEW_CHANGED_ORIGINAL_STATE');
+    writeFixturePrivate(join(privateDirectory, 'original-exit-review-state.json'), { before: originalExitBefore, after: originalExitAfter });
+    result.originalExitReviewStateUnchanged = true;
     assert.equal(preparedRedemption.shares, '100'); assert.equal(preparedRedemption.phase, 'READY_TO_REDEEM');
     const redemptionResult = await appDefi('execute', { requestId: redemption.requestId });
     assert.equal(redemptionResult.phase, 'REDEEMED'); assert.equal(redemptionResult.redeemedUnderlying, '100');
@@ -545,11 +571,12 @@ export async function runManualWalletAcceptance() {
     result.walletApplicationHttpAcceptance = { originalAccountTopUpAndExit: true,
       originalDeFiPrepareExecuteReconcileReopen: true, originalRequestIdsRetained: true,
       accountHttp200WasVolatileOnly: true, confirmedOriginalJournalObserved: true,
-      graphExecutionExposed: false, manualGraphThroughExactSDK: true, graphUsedOriginalPrivateHarnessApi: false,
+      graphExecutionExposed: false, manualGraphThroughExactSDK: !browserMode, manualGraphThroughExactBrowser: browserMode,
+      graphUsedOriginalPrivateHarnessApi: false,
       originalHostManualHandoff: true, authenticatedGrantCommitment: true, explicitScriptedHandoffConfirm: true,
       ownerLocalImmutablePreparations: true, oneMixedKeeper: true, oneCatalogueGeneration: true,
       originalGenerationDeFiFacade: true, exactOneUseReplayRejected: true, noImplicitReauthorization: true,
-      browserVisualAcceptance: false, nativeClaimSessionAcceptance: false };
+      browserVisualAcceptance: browserMode, nativeClaimSessionAcceptance: false };
     result.manualPrivateShareExitRedemption = { ...redemptionResult, originalExitBound: true, duplicateNoEffect: true };
     assert.equal(await capabilities[0].balance(runtime.accounts[4]), 100n);
     const vault = await vaultActor.observe();
@@ -589,7 +616,7 @@ export async function runManualWalletAcceptance() {
       solverOwnUnderlyingAtomic: '100', deliveredPrivateSharesAtomic: '100', redeemedExternalUnderlyingAtomic: '100' };
     result.privateVaultGraphAcceptance = true;
     result.privateExitsAndUnderlyingRedemption = true;
-    result.duplicateNoEffect = true; result.walletSdkEvmFlowCompleted = true;
+    result.duplicateNoEffect = true; result.walletSdkEvmFlowCompleted = !browserMode; result.walletBrowserEvmFlowCompleted = browserMode;
     result.manualConsentContractVerified = true;
     result.phase = 'completed'; result.success = true; await audit();
   } catch (error) {
@@ -635,11 +662,12 @@ export async function runManualWalletAcceptance() {
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.closedEvm !== true) { result.success = false; result.phase = 'failed'; }
-    try { assert.deepEqual(manualWalletSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
+    try { assert.deepEqual(captureSources(), result.sourcePins); result.sourceUnchanged = true; }
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
     result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began; save();
     if (result.success) {
-      try { if (timeoutRecovery) assertManualWalletRecoveryResult(result); else assertManualWalletResult(result); }
+      try { if (browserMode) assertManualWalletBrowserResult(result);
+        else if (timeoutRecovery) assertManualWalletRecoveryResult(result); else assertManualWalletResult(result); }
       catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); save(); }
     }
     if (!result.success) process.exitCode = 1;
