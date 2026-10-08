@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
-import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
+import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, assertBtcSolRecipientWithdrawalTelemetry }
   from './development-btc-sol-graph-proof-evidence.mjs';
 const runId='11111111-1111-4111-8111-111111111111',jobId='22222222-2222-4222-8222-222222222222';
@@ -86,4 +86,22 @@ test('graph receipts reject unlisted threads, absent SAB/provenance, regenerated
       assert.throws(()=>assertBtcSolGraphProofReceipts(value),code);
     }
   }
+});
+
+test('only authorization accepts eight fixed threads with the same prepared-key, SAB and unchanged resource joins',()=>{
+  const eightThreadReceipt=relation=>{
+    const value=fourThreadReceipt(receipt(relation));
+    value.result.threads=8;value.result.limits=value.resources.limits=AUTHORIZATION_PROVING_LIMITS;
+    value.result.wasmThreadExecution.threads=8;return value;
+  };
+  const value=eightThreadReceipt('authorization'),originalKey=value.manifest.keySHA256;
+  assert.equal(assertBtcSolGraphProofReceipts(value).keySHA256,originalKey);
+  for(const relation of DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS.filter(name=>name!=='authorization'))
+    assert.throws(()=>assertBtcSolGraphProofReceipts(eightThreadReceipt(relation)),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
+  for(const mutate of [
+    v=>{v.result.wasmThreadExecution.threads=4;},v=>{v.result.wasmThreadExecution.sharedMemory=false;},
+    v=>{v.manifest.runtimePinsSHA256='0'.repeat(64);},v=>{v.resources.runtimePinsSHA256='0'.repeat(64);},
+    v=>{v.manifest.keyManifestSHA256='0'.repeat(64);},v=>{v.result.keyRecomputed=true;},
+    v=>{v.resources.peakWorkerRSS=AUTHORIZATION_PROVING_LIMITS.workerRSS+1;},
+  ]) {const rejected=eightThreadReceipt('authorization');mutate(rejected);assert.throws(()=>assertBtcSolGraphProofReceipts(rejected));}
 });

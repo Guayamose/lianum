@@ -18,7 +18,7 @@ import { executionSources, limitsForMode, assertSuccessfulProvingAttempt } from 
 for (const name of ['log', 'info', 'debug', 'warn', 'error', 'trace']) console[name] = () => {};
 globalThis.fetch = async () => { throw Error('PW_OFFLINE_REQUIRED'); };
 const { spec, mode, runId } = argumentsFor(true), op = operation(mode);
-const taskLimits = limitsForMode(mode);
+const taskLimits = limitsForMode(spec, mode);
 const supervisor = authenticateSupervisor(spec, mode, runId), attempt = attemptPath(runId);
 assert.ok(existsSync(attempt), 'PW_SUPERVISOR_ATTEMPT_REQUIRED');
 const initialPins = JSON.parse(regular(join(attempt, 'runtime-pins.json')));

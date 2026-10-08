@@ -71,7 +71,7 @@ export async function runBoundedProof(request) {
 }
 async function supervise(spec, mode, runId, privatePayload = null) {
   const began = performance.now(), attempt = attemptPath(runId), lockPath = join(LOCAL, 'active.lock');
-  const taskLimits = limitsForMode(mode);
+  const taskLimits = limitsForMode(spec, mode);
   let report, child, interval, timeout, killTimer, completion, resolveClosed;
   let closed = false, stopping = false, failure = null, lockOwned = false, sent = false;
   let outputBytes = 0, exitHandler, termHandler, intHandler;

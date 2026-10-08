@@ -8,8 +8,12 @@ import { executionSources as originalExecutionSources, assertSuccessfulAttempt,
 // One owned process and one private job. Every resource threshold and the
 // original compile/key/verification limits retain their exact values.
 export const PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 4 });
-export function limitsForMode(mode) {
-  return operation(mode) === 'prove' ? PROVING_LIMITS : LIMITS;
+// The original authorization relation alone uses eight fixed WASM threads.
+// This is a runtime implementation choice, never a request/profile option.
+export const AUTHORIZATION_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 8 });
+export function limitsForMode(spec, mode) {
+  if (operation(mode) !== 'prove') return LIMITS;
+  return spec.name === 'authorization' ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
 }
 
 // Runtime pins stay outside the original API/circuit/key identity and the
@@ -48,7 +52,9 @@ export function executionSources(spec, mode) {
 export function assertSuccessfulProvingAttempt(spec, runId) {
   const directory = attemptPath(runId);
   const result = JSON.parse(regular(join(directory, 'result.json')));
-  if (result.threads !== PROVING_LIMITS.threads) {
+  const provingLimits = result.threads === AUTHORIZATION_PROVING_LIMITS.threads
+    && spec.name === 'authorization' ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
+  if (result.threads !== provingLimits.threads) {
     assert.equal(result.threads, LIMITS.threads, 'PW_PRIOR_FIXED_THREADS');
     // Preserve the original validator and exact limits for retained proofs.
     return assertSuccessfulAttempt(spec, 'prove', runId);
@@ -60,12 +66,12 @@ export function assertSuccessfulProvingAttempt(spec, runId) {
     assert.equal(operation(report.mode), 'prove', 'PW_PRIOR_MODE');
     assert.equal(report.runId, runId, 'PW_PRIOR_RUN');
     assert.equal(report.phase, 'completed', 'PW_PRIOR_SUCCEEDED');
-    assert.deepEqual(report.limits, PROVING_LIMITS, 'PW_PRIOR_LIMITS');
+    assert.deepEqual(report.limits, provingLimits, 'PW_PRIOR_LIMITS');
   }
   assert.equal(resource.exitCode, 0, 'PW_PRIOR_EXIT');
   assert.equal(resource.failure ?? null, null, 'PW_PRIOR_RESOURCE_FAILURE');
   assert.deepEqual(resource.failures, [], 'PW_PRIOR_SUPERVISOR_FAILURES');
-  assert.deepEqual(result.wasmThreadExecution, { threads: PROVING_LIMITS.threads, sharedMemory: true,
+  assert.deepEqual(result.wasmThreadExecution, { threads: provingLimits.threads, sharedMemory: true,
     oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'PW_PRIOR_PROVING_THREADS');
   return result;
 }

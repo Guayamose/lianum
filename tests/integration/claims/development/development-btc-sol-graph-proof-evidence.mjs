@@ -2,7 +2,7 @@
  * the genuine recipient W39 telemetry. No proof/custody authority is issued. */
 import assert from 'node:assert/strict';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
-import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
+import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);
 export const DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS = Object.freeze(['authorization','reservation','dependency','ready','admission','node','settlement']);
@@ -26,12 +26,14 @@ export function assertBtcSolGraphProofReceipts(input) {
   assert.equal(manifest.role, spec.role); assert.equal(result.role, spec.role);
   assert.equal(manifest.publicWords, spec.words); assert.deepEqual(manifest.settings, SETTINGS);
   assert.deepEqual(result.settings, SETTINGS);
-  // Fixed public receipt variants only; specialized ingress retains LIMITS1.
-  const proofLimits = result.threads === PROVING_LIMITS.threads ? PROVING_LIMITS : LIMITS;
+  // Fixed public receipt variants only. Eight is authorization-only; retained
+  // generic four/legacy one and specialized ingress one stay exact.
+  const proofLimits = relation === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
+    ? AUTHORIZATION_PROVING_LIMITS : result.threads === PROVING_LIMITS.threads ? PROVING_LIMITS : LIMITS;
   if (result.threads !== undefined) assert.equal(result.threads, proofLimits.threads, 'DEVELOPMENT_CLAIM_FIXED_THREADS');
   assert.deepEqual(result.limits, proofLimits); assert.deepEqual(resources.limits, proofLimits);
-  if (proofLimits === PROVING_LIMITS) {
-    assert.deepEqual(result.wasmThreadExecution, { threads: PROVING_LIMITS.threads, sharedMemory: true,
+  if (proofLimits !== LIMITS) {
+    assert.deepEqual(result.wasmThreadExecution, { threads: proofLimits.threads, sharedMemory: true,
       oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION');
     // Join the same immutable runtime-source receipt captured by the original
     // worker, proof manifest and external guard. No caller can select sources.
@@ -42,7 +44,7 @@ export function assertBtcSolGraphProofReceipts(input) {
     assert.equal(manifest.keyManifestSHA256, result.keyManifestSHA256, 'DEVELOPMENT_CLAIM_ORIGINAL_PREPARED_KEY');
     assert.equal(result.keyRecomputed, false); assert.equal(result.hostLimitsChanged, false);
     assert.ok(Number.isSafeInteger(resources.peakWorkerRSS) && resources.peakWorkerRSS >= 0
-      && resources.peakWorkerRSS <= PROVING_LIMITS.workerRSS, 'DEVELOPMENT_CLAIM_THREAD_RSS_LIMIT');
+      && resources.peakWorkerRSS <= proofLimits.workerRSS, 'DEVELOPMENT_CLAIM_THREAD_RSS_LIMIT');
   }
   assert.ok(['prove', 'prove-dyadic21'].includes(result.mode)); assert.equal(resources.mode, result.mode);
   for (const report of [result, resources]) assert.equal(report.phase, 'completed', 'DEVELOPMENT_CLAIM_RECEIPT_COMPLETED');
