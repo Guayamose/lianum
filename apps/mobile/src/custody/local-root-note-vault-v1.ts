@@ -19,7 +19,7 @@ import { compileLocalFundedBalanceGraphV1, normalizeLocalFundedProposalV1, local
   localFundedAuthorizationWordsV1, localFundedSpendNullifierV1, localFundedInvoiceFrameV1, localNativeTransferActionCommitmentV1,
   type LocalFundedProposalV1, type LocalFundedStatementV1 } from './funded-balance-owner-codec-v1.mjs';
 
-import { readDeviceReservationQuoteV1 } from '../api/device-owner-reservation-api-v1';
+import { readDeviceReservationQuoteV1, readDeviceReservationInclusionV1 } from '../api/device-owner-reservation-api-v1';
 import { normalizeDeviceReservationCapsuleOptionsV1, normalizeDeviceReservationWitnessV1,
   deviceReservationWitnessBytesV1, wipeDeviceReservationWitnessV1, validateDeviceReservationConsentFreshV1,
   type DeviceReservationCapsuleOptionsV1, type DeviceReservationWitnessV1, type DeviceReservationConsentV1 }
@@ -95,7 +95,9 @@ type DeviceSpend = { version: 1; phase: 'PREPARED' | 'SIGNED'; proposal: LocalFu
   reservationNonce: string; reserveSecret: string; graphNonce: string; paddingSalts: string[];
   change: LocalSpendOpening; recovery: LocalSpendOpening; statement: LocalFundedStatementV1;
   frameSHA256: string; signature: string | null; preparation?: LocalEnvelopePreparation;
-  proofJob?: LocalReservationProofJob };
+  proofJob?: LocalReservationProofJob; reservation?: LocalReservationReceipt };
+type LocalReservationReceipt = { jobId: string; transactionHash: string; blockHash: string;
+  blockNumber: string; timestamp: string; domainCommitment: string; envelope: string; admissionTag: string };
 type LocalEnvelopePreparation = { capsuleOptions: DeviceReservationCapsuleOptionsV1; joinBlinds: string[];
   leafBlinds: string[]; invoiceSignatures: string[] };
 type LocalReservationProofJob = { jobId: string; quoteId: string; depositJobId: string; origin: string;
@@ -232,7 +234,8 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
   const value = parsed(JSON.stringify(raw), ['version', 'phase', 'proposal', 'reservationNonce', 'reserveSecret',
     'graphNonce', 'paddingSalts', 'change', 'recovery', 'statement', 'frameSHA256', 'signature',
     ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'preparation') ? ['preparation'] : []),
-    ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'proofJob') ? ['proofJob'] : [])], MAX_CLEAR_BYTES);
+    ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'proofJob') ? ['proofJob'] : []),
+    ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'reservation') ? ['reservation'] : [])], MAX_CLEAR_BYTES);
   if (value.version !== 1 || !['PREPARED', 'SIGNED'].includes(String(value.phase))) bad();
   const proposal = normalizeLocalFundedProposalV1(value.proposal);
   if (!note.deviceJob?.assetIdentity || proposal.asset !== note.deviceJob.assetIdentity
@@ -280,6 +283,17 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
     const request = reservationWitness(note, spend), bytes = deviceReservationWitnessBytesV1(request);
     try { if (await digest(bytes) !== spend.proofJob.witnessSHA256) bad(); }
     finally { bytes.fill(0); wipeDeviceReservationWitnessV1(request); }
+  }
+  if (Object.hasOwn(value, 'reservation')) {
+    if (!spend.proofJob || !spend.signature) bad();
+    const r = parsed(JSON.stringify(value.reservation), ['jobId', 'transactionHash', 'blockHash', 'blockNumber',
+      'timestamp', 'domainCommitment', 'envelope', 'admissionTag']);
+    if (r.jobId !== spend.proofJob.jobId || r.domainCommitment !== note.deviceJob?.domainCommitment) bad();
+    if (typeof r.blockNumber !== 'string' || typeof r.timestamp !== 'string') bad();
+    localNoteUintBytesV1(r.blockNumber); localNoteUintBytesV1(r.timestamp);
+    spend.reservation = { jobId: hex(r.jobId), transactionHash: hex(r.transactionHash), blockHash: hex(r.blockHash),
+      blockNumber: r.blockNumber, timestamp: r.timestamp, domainCommitment: hex(r.domainCommitment),
+      envelope: hex(r.envelope), admissionTag: hex(r.admissionTag) };
   }
   const compiled = compiledSpend(note, spend), frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
   try {
@@ -1016,6 +1030,13 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         availableBalance: fresh ? note.opening.value : null, nativeEffectsEstablished: note.status === 'FUNDED',
         freshness: fresh ? 'OBSERVED_AT_RETAINED_HEAD' : 'UNKNOWN',
         localReservation: value.spend ? { operationId: value.spend.proposal.operationId, phase: value.spend.phase,
+          stage: value.spend.reservation ? 'RESERVED_AT_RETAINED_HEAD' : 'UNKNOWN',
+          sourceSpentAtRetainedHead: value.spend.reservation !== undefined,
+          sourceNullifier: value.spend.statement.inputNullifier,
+          transactionHash: value.spend.reservation?.transactionHash ?? null,
+          changeCommitment: value.spend.statement.changeCommitment,
+          recoveryCommitment: value.spend.statement.recoveryCommitment,
+          changeAvailableBalance: null, recoveryAvailableBalance: null,
           budget: value.spend.proposal.budget, changeAmount: value.spend.change.opening.value,
           recoveryAmount: value.spend.recovery.opening.value } : null });
     }),
@@ -1056,6 +1077,47 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             return { commitment: note.commitment, availableBalance: !value.spend && Date.now() < inclusion.expiresAt ? note.opening.value : null,
               nativeEffectsEstablished: true, observedHead: inclusion.head.hash };
           } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
+        });
+    },
+    /** Retain the original S receipt against this same encrypted opening and U
+     * job. No backend DTO/receipt copy supplies authority. Outputs are INCLUDED,
+     * never free balance without their own fresh unspent-nullifier observation. */
+    applyDeviceReservationInclusion: (response: object) => {
+      current(); const inclusion = readDeviceReservationInclusionV1(response);
+      return original('Guardar la reserva S original y conservar las aperturas de cambio/recuperación; no ejecutar ni reenviar',
+        async (value, key, before, raw, root) => {
+          const currentInclusion = readDeviceReservationInclusionV1(response), status = currentInclusion.status;
+          const note = value.note, spend = value.spend, job = spend?.proofJob, observed = status.observation;
+          if (currentInclusion !== inclusion || !note?.deviceJob || !note.funding || !spend || !job || !observed
+            || status.stage !== 'RESERVED' || spend.phase !== 'SIGNED' || !spend.signature
+            || job.jobId !== status.jobId || job.depositJobId !== status.consentFields.depositJobId
+            || job.quoteId !== status.consentFields.quoteId || job.witnessSHA256 !== status.consentFields.witnessSHA256
+            || job.origin !== inclusion.origin || job.pairingId !== inclusion.pairingId || job.devicePublicKey !== inclusion.devicePublicKey
+            || note.pool !== inclusion.pool || note.scope !== inclusion.poolTerms.scope || note.policy !== inclusion.poolTerms.policy
+            || note.deviceJob.assetIdentity !== inclusion.poolTerms.assetIdentity || note.deviceJob.domainCommitment !== inclusion.poolTerms.domainCommitment
+            || status.consentFields.custody.rootId !== value.rootId || status.consentFields.custody.noteRevision > value.revision
+            || status.consentFields.custody.frameSHA256 !== spend.frameSHA256
+            || JSON.stringify(spend.statement) !== JSON.stringify(status.statement)
+            || note.commitment !== observed.sourceCommitment
+            || localFundedSpendNullifierV1(note.scope, note.commitment, note.opening.secret) !== observed.sourceNullifier
+            || status.statement.changeCommitment !== observed.changeCommitment
+            || status.statement.reserveCommitment !== observed.reserveCommitment) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
+          const receipt: LocalReservationReceipt = { jobId: job.jobId, transactionHash: observed.transactionHash,
+            blockHash: observed.blockHash, blockNumber: observed.blockNumber, timestamp: observed.timestamp,
+            domainCommitment: observed.domainCommitment, envelope: observed.envelope, admissionTag: observed.admissionTag };
+          if (spend.reservation && JSON.stringify(spend.reservation) !== JSON.stringify(receipt)) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_CHANGED');
+          if (!spend.reservation) {
+            const next: State = { ...value, revision: value.revision + 1, spend: { ...spend, reservation: receipt } };
+            readDeviceReservationInclusionV1(response); await persistSpend(next, key, before, raw, root);
+          }
+          current(); readDeviceReservationInclusionV1(response); liveInclusion = null;
+          return Object.freeze({ rootId: value.rootId, jobId: job.jobId, transactionHash: receipt.transactionHash,
+            sourceCommitment: note.commitment, sourceSpentAtRetainedHead: true, availableBalance: null,
+            change: Object.freeze({ commitment: spend.statement.changeCommitment, amount: spend.change.opening.value,
+              includedAtRetainedHead: true, availableBalance: null }),
+            recovery: Object.freeze({ commitment: spend.statement.recoveryCommitment, amount: spend.recovery.opening.value,
+              availableBalance: null, requiresOriginalFailure: true }),
+            nativeDispatchEstablished: false, withdrawalEstablished: false, mobileCanonicalRpcVerification: false });
         });
     },
     /** No signing or reservation occurs here. Persist and reread BOTH future

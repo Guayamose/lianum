@@ -177,8 +177,9 @@ export default function DeviceDepositScreen() {
         witness = await custody.bindDeviceAuthorizationRequest(authorizationRequest.current, consent); live(held);
       }
       const result = await api.submit({ consent, signature, ...(witness ? { witness } : {}) }); live(held);
+      if (result.stage === 'RESERVED') { await custody.applyDeviceReservationInclusion(result); live(held); }
       setReservationJob(result.jobId); setMessage(result.stage === 'RESERVED'
-        ? 'Reserva S original confirmada; el grafo aún no está ejecutado. El cambio y la recuperación permanecen en la custodia local.'
+        ? 'Reserva S original confirmada y guardada con la misma nota. El cambio está incluido; su saldo libre requiere consulta del nullifier. La recuperación requiere F original. El grafo aún no está ejecutado.'
         : result.stage); const state = await custody.readDeviceNote(); live(held); setNote(state);
     } catch (error) {
       live(held); const notice = 'UNKNOWN: consulta la misma intención U/S. No repetir pruebas ni reservar de nuevo.';
@@ -193,7 +194,8 @@ export default function DeviceDepositScreen() {
     <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://origen privado" placeholderTextColor="#9cb0b8" />
     <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#9cb0b8" />
     <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Abrir nota y vinculación</Text></Pressable>
-    {note && <Text style={styles.text}>Nota {note.commitment.slice(0, 16)} · {note.status}\nSaldo observado: {note.availableBalance ?? 'desconocido'}\n{note.freshness}</Text>}
+    {note && <Text style={styles.text}>Nota {note.commitment.slice(0, 16)} · {note.status}\nSaldo observado: {note.availableBalance ?? 'desconocido'}\n{note.freshness}
+{note.localReservation?.sourceSpentAtRetainedHead ? 'Fuente gastada en el recibo S retenido; cambio incluido, saldo libre aún desconocido.' : ''}</Text>}
     <Pressable disabled={busy || !note || note.status === 'FUNDED'} onPress={() => void run(prepare)}><Text style={styles.button}>Revisar prueba D26</Text></Pressable>
     <Pressable disabled={busy || !note?.job || note.status === 'FUNDED'} onPress={() => void run(held => review('FUND_D26', held))}><Text style={styles.button}>Revisar financiación única</Text></Pressable>
     <Pressable disabled={busy || !note?.job} onPress={() => void run(held => review('OBSERVE_D26', held))}><Text style={styles.button}>Consultar envío original</Text></Pressable>

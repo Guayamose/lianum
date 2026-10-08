@@ -8,6 +8,12 @@ import { normalizeDeviceReservationQuoteV1, normalizeDeviceReservationStatusV1,
   deviceReservationConsentMessageV1, validateDeviceReservationConsentFreshV1,
   type DeviceReservationConsentV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 type Quote = ReturnType<typeof normalizeDeviceReservationQuoteV1>;
+type Status = ReturnType<typeof normalizeDeviceReservationStatusV1>;
+export type DeviceReservationInclusionV1 = Readonly<{ status: Status;
+  origin: string; pairingId: string; devicePublicKey: string;
+  pool: string; poolTerms: DeviceReservationConsentV1['poolTerms'];
+  observedAt: number; expiresAt: number; mobileCanonicalRpcVerification: false }>;
+const inclusions = new WeakMap<object, { live(): void; value: DeviceReservationInclusionV1 }>();
 const quotes = new WeakMap<object, { live(): void; value: Quote }>();
 function bad(): never { throw new Error('MOBILE_DEVICE_RESERVATION_RESPONSE_INVALID'); }
 function exact(raw: unknown, names: string[]): Record<string, unknown> {
@@ -20,6 +26,19 @@ async function sha(bytes: Uint8Array): Promise<string> {
   try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned.buffer)),
     value => value.toString(16).padStart(2, '0')).join(''); }
   finally { owned.fill(0); }
+}
+/** Same SHA ledger tree as the original wallet observer. No Poseidon reduction
+ * and no balance is inferred from inclusion alone: an output can be spent later. */
+async function verifyPath(path: NonNullable<Status['observation']>['changePath']) {
+  const bytes = (value: string) => Uint8Array.from(value.match(/../g)!, pair => parseInt(pair, 16));
+  let root = path.leaf, index = path.index;
+  for (const sibling of path.siblings) {
+    const frame = new Uint8Array(65); frame[0] = 1;
+    frame.set(bytes(index & 1 ? sibling + root : root + sibling), 1);
+    try { root = await sha(frame); } finally { frame.fill(0); }
+    index >>= 1;
+  }
+  if (root !== path.root) bad();
 }
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 export async function createDeviceOwnerReservationApiV1(descriptor: OriginalAccountDescriptorV2) {
@@ -59,8 +78,32 @@ export async function createDeviceOwnerReservationApiV1(descriptor: OriginalAcco
       if (value.jobId !== consent.jobId || !same(value.statement, consent.statement)
         || value.consentFields.depositJobId !== consent.depositJobId || value.consentFields.quoteId !== consent.quoteId
         || !same(value.consentFields.custody, consent.custody) || value.consentFields.witnessSHA256 !== consent.witnessSHA256) bad();
-      // No local balance is inferred from PROVED or a prepared request. An
-      // original RESERVATION_UNKNOWN needs a fresh explicit observation consent.
+      if (consent.action !== 'PROVE_U' && (value.consentFields.proofSHA256 !== consent.proofSHA256
+        || value.consentFields.publicInputsSHA256 !== consent.publicInputsSHA256)) bad();
+      if (value.stage === 'RESERVED') {
+        const observed = value.observation!;
+        if (consent.action === 'PROVE_U' || value.errorCode !== null
+          || observed.domainCommitment !== consent.poolTerms.domainCommitment
+          || observed.changePath.root !== observed.reservePath.root
+          || observed.changePath.index === observed.reservePath.index
+          || BigInt(observed.blockNumber) > BigInt(observed.currentHead.blockNumber)
+          || BigInt(observed.timestamp) > BigInt(observed.currentHead.timestamp)
+          || BigInt(observed.currentHead.blockNumber) < BigInt(consent.observed.blockNumber)
+          || BigInt(observed.currentHead.timestamp) < BigInt(consent.observed.timestamp)) bad();
+        if (observed.blockNumber === observed.currentHead.blockNumber && observed.blockHash !== observed.currentHead.blockHash) bad();
+        if (observed.currentHead.blockNumber === consent.observed.blockNumber
+          && observed.currentHead.blockHash !== consent.observed.blockHash) bad();
+        await verifyPath(observed.changePath); await verifyPath(observed.reservePath); live();
+        validateDeviceReservationConsentFreshV1(consent);
+        const observedAt = Date.now();
+        inclusions.set(value, { live, value: Object.freeze({ status: value,
+          origin: consent.origin, pairingId: consent.pairingId, devicePublicKey: consent.devicePublicKey,
+          pool: consent.binding.asset.pool, poolTerms: consent.poolTerms,
+          observedAt, expiresAt: Math.min(consent.expiresAt, observedAt + 15_000),
+          mobileCanonicalRpcVerification: false as const }) });
+      }
+      // The exact completed response is privately retained. Copies/JSON have no
+      // local provenance. PROVED/UNKNOWN never issue an inclusion or a balance.
       return value;
     },
     close() { closed = true; },
@@ -70,5 +113,13 @@ export async function createDeviceOwnerReservationApiV1(descriptor: OriginalAcco
  * 15-second TTL and original client lifetime are checked on every use. */
 export function readDeviceReservationQuoteV1(handle: object): Quote {
   const row = quotes.get(handle); if (!row) bad(); row.live();
+  if (Date.now() >= row.value.expiresAt) bad(); return row.value;
+}
+
+/** Only the original consent-bound fixed TLS response, with both verified SHA
+ * paths, can be applied locally. This is service provenance; it neither issues
+ * a backend capability nor independently verifies the canonical chain by RPC. */
+export function readDeviceReservationInclusionV1(response: object): DeviceReservationInclusionV1 {
+  const row = inclusions.get(response); if (!row) bad(); row.live();
   if (Date.now() >= row.value.expiresAt) bad(); return row.value;
 }
