@@ -50,6 +50,28 @@ function proc(pid) {
   return row;
  } catch(error) { if(absent(error))return null; throw error; }
 }
+// Discovery matches the original candidate's comm/cmdline policy. It does
+// not acquire an identity or authorize a child. Full /proc checks remain
+// mandatory for every heavy process, proof-lock owner and admitted child.
+function discover(pid) {
+ try {
+  const base=`/proc/${pid}`,text=readFileSync(base+'/stat','utf8'),end=text.lastIndexOf(') '),fields=text.slice(end+2).split(/\s+/);
+  assert.ok(Number.isSafeInteger(pid)&&pid>0&&text.startsWith(pid+' (')&&end>0&&/^[0-9]+$/.test(fields[19]),'TRON_PRODUCT_SCOPE_PROC');
+  if(['Z','X'].includes(fields[0]))return null;
+  const comm=text.slice(text.indexOf('(')+1,end),status=readFileSync(base+'/status','utf8');
+  const uid=/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(status);assert.ok(uid,'TRON_PRODUCT_SCOPE_UID4');
+  const argv=readFileSync(base+'/cmdline','utf8').split('\0').filter(Boolean),name=basename(argv[0]??'');
+  let heavy=/^(?:anvil|bitcoind|bitcoin-cli|solana-test-val|solana-validato|solana-test-validator|agave-validator|solana-keygen|bb|nargo|cargo|rustc|rust-lld|ld\.lld|cc1|cc1plus|javac|java)$/.test(comm)
+   ||/^(?:anvil|bitcoind|bitcoin-cli|solana-test-validator|agave-validator|solana-keygen|bb|nargo|cargo|rustc|rust-lld|ld\.lld|cc1|cc1plus|javac|java)$/.test(name);
+  if(comm==='node'||name==='node'){
+   assert.ok(argv.length>0,'TRON_PRODUCT_NODE_DISCOVERY_UNKNOWN');const cwd=readlinkSync(base+'/cwd');
+   heavy ||= argv.slice(1).some(value=>!value.startsWith('-')&&PROOF_SCRIPTS.has(resolve(cwd,value)));
+  }
+  const after=readFileSync(base+'/stat','utf8'),again=after.slice(after.lastIndexOf(') ')+2).split(/\s+/);
+  assert.equal(again[19],fields[19],'TRON_PRODUCT_SCOPE_BIRTH_CHANGED');assert.equal(again[1],fields[1],'TRON_PRODUCT_SCOPE_BIRTH_CHANGED');
+  return {pid,start:fields[19],uids:uid.slice(1).map(Number),heavy};
+ }catch(error){if(absent(error))return null;throw error;}
+}
 function own(row) { assert.ok(row && !['Z','X'].includes(row.state),'TRON_PRODUCT_SCOPE_LIVE_IDENTITY');
  assert.ok(Number.isSafeInteger(row.pid)&&row.pid>1);assert.match(row.start,/^[0-9]+$/);
  assert.equal(row.uid,process.getuid()); assert.deepEqual(row.uids,Array(4).fill(process.getuid())); }
@@ -125,7 +147,8 @@ export function createTronProductHostGuardV1() {
   }
   for(const name of readdirSync('/proc')) {
    if(!/^[1-9]\d*$/.test(name))continue;
-   let row; try { if(lstatSync('/proc/'+name).uid!==process.getuid())continue; row=proc(Number(name)); }
+   let row; try {const visible=discover(Number(name));if(!visible?.heavy)continue;row=proc(Number(name));
+    if(row){assert.equal(row.start,visible.start,'TRON_PRODUCT_SCOPE_BIRTH_CHANGED');assert.deepEqual(row.uids,visible.uids,'TRON_PRODUCT_SCOPE_UID4_CHANGED');}}
    catch(error){if(absent(error))continue;throw error;}
    if(!row || ['Z','X'].includes(row.state))continue;
    const executable=basename(row.executable), path=script(row), proof=PROOF_SCRIPTS.has(path);

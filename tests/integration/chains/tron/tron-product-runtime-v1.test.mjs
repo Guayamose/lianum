@@ -75,6 +75,7 @@ test('the real host-guard body rejects foreign or stale proof locks and heavy ch
    own:row=>{assert.ok(row,'SYNTHETIC_MISSING_IDENTITY');assert.equal(row.uid,process.getuid());assert.deepEqual(row.uids,Array(4).fill(process.getuid()));},
    existsSync:path=>path===lockPath&&lock,regular:()=>Buffer.from(JSON.stringify({pid:owner.pid})),
    lstatSync:()=>({uid:process.getuid()}),readdirSync:path=>path==='/proc'&&heavy?[String(heavy.pid)]:[],
+   discover:pid=>heavy&&pid===heavy.pid?{...heavy,heavy:true}:null,
    proc:pid=>pid===owner.pid?identity:pid===main.pid?main:heavy&&pid===heavy.pid?heavy:null,
    script:row=>row?.argv[1]??null,readOriginalTronProductChildBirthV1:()=>{throw Error('SYNTHETIC_NO_ORIGINAL_CHILD');}};
   return vm.runInNewContext('('+body.trim()+')',environment)();
@@ -91,6 +92,36 @@ test('the real host-guard body rejects foreign or stale proof locks and heavy ch
  assert.throws(()=>run({currentScope:null,lock:false,heavy:javac}),/PARALLEL_HEAVY_WORK/);
  assert.throws(()=>run({lock:false,heavy:{...anvil,group:anvil.pid,session:anvil.pid}}),/FOREIGN_HEAVY_WORK/);
  assert.throws(()=>run({currentScope:null,lock:false,heavy:anvil}),/PARALLEL_HEAVY_WORK/);
+ // Actual discovery + full proc + guard body against synthetic /proc IO:
+ // the real systemd --user case has visible UID4/comm/cmdline but denies exe.
+ const from=text.indexOf('function proc(pid)'),to=text.indexOf('function own(row)');
+ const helpers=text.slice(from,to);assert.ok(helpers.includes('function discover(pid)'));
+ function discoveredGuard({comm='systemd',argv=['/usr/lib/systemd/systemd','--user'],uids=Array(4).fill(process.getuid()),statError=null,targetPID=main.pid+500}={}) {
+  const target=targetPID,links=[];
+  function stat(pid,name){const f=Array(50).fill('0');Object.assign(f,{0:'S',1:'1',2:String(pid),3:String(pid),19:'100'});return pid+' ('+name+') '+f.join(' ');}
+  const environment={assert,process,ROOT,GOLDEN,join,resolve:(...v)=>v.join('/'),basename:path=>path.split('/').at(-1),BUDGET:5400000,
+   LOCKS:[],PROOF_SCRIPTS:new Set([proof]),captureScope:()=>null,same:(a,b)=>a&&b&&a.pid===b.pid&&a.start===b.start,
+   own:row=>{assert.equal(row.uid,process.getuid());assert.deepEqual(row.uids,Array(4).fill(process.getuid()));},
+   absent:error=>['ENOENT','ESRCH'].includes(error.code),existsSync:()=>false,readdirSync:path=>path==='/proc'?[String(target)]:[],
+   lstatSync:()=>({uid:process.getuid()}),readOriginalTronProductChildBirthV1:()=>{throw Error('NO_ORIGINAL_CHILD');},
+   readFileSync(path){const pid=Number(path.split('/')[2]);if(pid===target&&statError)throw Object.assign(Error(statError),{code:statError});
+    if(path.endsWith('/stat'))return stat(pid,pid===target?comm:'node');
+    if(path.endsWith('/status'))return 'Uid:\t'+(pid===target?uids:Array(4).fill(process.getuid())).join('\t')+'\n';
+    if(path.endsWith('/cmdline'))return (pid===target?argv:[main.executable,'/synthetic/ordinary.mjs']).join('\0')+'\0';throw Error('UNEXPECTED_READ');},
+   readlinkSync(path){links.push(path);if(Number(path.split('/')[2])===target)throw Object.assign(Error('EACCES'),{code:'EACCES'});
+    if(path.endsWith('/exe'))return main.executable;if(path.endsWith('/cwd'))return ROOT;throw Error('UNEXPECTED_LINK');}};
+  const actual=vm.runInNewContext('(()=>{'+helpers+';return ('+body.trim()+')();})()',environment);
+  return {actual,links,target};
+ }
+ const systemd=discoveredGuard();assert.equal(systemd.actual.evidence.scope,'EXCLUSIVE_LOCAL_DRIVER_NO_WALLET_AUTHORITY');
+ assert.equal(systemd.links.some(path=>path.startsWith('/proc/'+systemd.target+'/')),false);
+ assert.equal(discoveredGuard({targetPID:1,uids:[0,0,0,0]}).actual.evidence.scope,'EXCLUSIVE_LOCAL_DRIVER_NO_WALLET_AUTHORITY');
+ for(const comm of ['java','javac','anvil','bitcoind','bb','solana-test-val'])
+  assert.throws(()=>discoveredGuard({comm,argv:['/synthetic/'+comm]}),error=>error.code==='EACCES');
+ assert.throws(()=>discoveredGuard({comm:'java',argv:['/synthetic/java'],uids:[0,0,0,0]}),error=>error.code==='EACCES');
+ assert.throws(()=>discoveredGuard({comm:'opaque',argv:['/synthetic/opaque'],statError:'EACCES'}),error=>error.code==='EACCES');
+ assert.equal(discoveredGuard({statError:'ENOENT'}).actual.evidence.scope,'EXCLUSIVE_LOCAL_DRIVER_NO_WALLET_AUTHORITY');
+
 });
 
 test('fixed opener and actual terminal cleanup reject caller profiles and preserve scratch/lock on rejected closure',async()=>{
