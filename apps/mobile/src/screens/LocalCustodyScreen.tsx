@@ -231,7 +231,7 @@ export default function LocalCustodyScreen() {
       {backup !== '' && <><Text selectable style={styles.secret}>{backup}</Text><Button label="Ocultar copia y cerrar lectura" onPress={hide} /></>}
       <Text style={styles.label}>Importar copia completa en este dispositivo</Text>
       <TextInput accessibilityLabel="Copia secreta JSON de recuperación local" style={styles.input} value={backupInput}
-        onChangeText={setBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={4096} />
+        onChangeText={setBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={99328} />
       <Button label="Autenticar e importar copia con biometría" disabled={busy || backupInput.length === 0}
         onPress={() => { void run(restore); }} />
     </View>

@@ -37,11 +37,11 @@ mock.module('expo-secure-store', { exports: {
   async getItemAsync(name, options) {
     calls.push({ method: 'read', name });
     if (name === ROOT) { assert.equal(options.requireAuthentication, true); assert.equal(options.keychainAccessible, 6); }
-    assert.ok([ROOT, POINTER, RECORD].includes(name)); return store.get(name) ?? null;
+    assert.ok([ROOT, POINTER, RECORD].includes(name) || /^lianum\.note\.record\.chunk\.v1\.[0-9a-f]{64}\.[0-9]{1,2}$/.test(name)); return store.get(name) ?? null;
   },
   async setItemAsync(name, raw, options) {
     calls.push({ method: 'write', name });
-    assert.ok([ROOT, POINTER, RECORD].includes(name)); assert.ok(raw.length <= 2048);
+    assert.ok([ROOT, POINTER, RECORD].includes(name) || /^lianum\.note\.record\.chunk\.v1\.[0-9a-f]{64}\.[0-9]{1,2}$/.test(name)); assert.ok(raw.length <= 2048);
     if (name === ROOT) assert.equal(options.requireAuthentication, true);
     if (control.writeFailure?.(name, raw)) throw new Error('SYNTHETIC_STORAGE_FAILURE');
     store.set(name, raw); control.afterWrite?.(name, raw);
@@ -103,7 +103,7 @@ function reset() {
   Object.assign(control, { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null });
 }
 function rawClearRecord(rootHex = '0b'.repeat(32)) {
-  const e = JSON.parse(store.get(RECORD)), bytes = Buffer.from(e.sealed, 'base64');
+  const stored = JSON.parse(store.get(RECORD)), e = stored.version === 2 ? JSON.parse(Array.from({ length: stored.chunks }, (_, index) => store.get('lianum.note.record.chunk.v1.' + stored.sha256 + '.' + index)).join('')) : stored, bytes = Buffer.from(e.sealed, 'base64');
   const d = createDecipheriv('aes-256-gcm', Buffer.from(rootHex, 'hex'), bytes.subarray(0, 12));
   d.setAAD(Buffer.from(JSON.stringify(['LIANUM/DEVICE/NOTE-VAULT/1', e.rootId, e.revision])));
   d.setAuthTag(bytes.subarray(-16));
@@ -137,7 +137,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['applyDeviceDepositInclusion', 'bindDeviceProofRequest', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signPreparedDeposit']);
+  assert.deepEqual(Object.keys(vault).sort(), ['applyDeviceDepositInclusion', 'bindDeviceProofRequest', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit']);
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -397,4 +397,75 @@ test('copied HTTP inclusion cannot credit an encrypted local note or replace its
   assert.deepEqual(store, before);
   assert.equal((await vault.readDeviceNote()).availableBalance, null);
   assert.equal((await vault.readPreparedNote()).status, 'UNISSUED');
+});
+
+// These backup fixtures authenticate synthetic encrypted custody only. A local
+// FUNDED string cannot issue the original HTTP inclusion brand or spend permit.
+async function completePrivateCustodyBackup() {
+  reset(); const rootHex = '09'.repeat(32), created = await importLocalRootNoteVaultV1(rootHex);
+  const vault = openLocalRootNoteVaultV1(created.rootId); await vault.prepareUnissuedBalanceNote(terms);
+  const value = rawClearRecord(rootHex), note = value.note;
+  const { compileFundedGraph, ownerAuthorizationMessage } = await import('../../../packages/engine/src/execution/graph/funded-graph.mjs');
+  const { devicePublicKey, privateKeyFromHex } = await import('../src/custody/signing.mjs');
+  const noteKey = index => {
+    const privateKey = index.toString(16).padStart(64, '0'), key = privateKeyFromHex(privateKey), pub = devicePublicKey(key); key.fill(0);
+    return { privateKey, opening: { type: 4, rho: (index + 10).toString(16).padStart(64, '0'),
+      x: pub.slice(2, 66), y: pub.slice(66), value: index === 2 ? '380' : '120', secret: (index + 20).toString(16).padStart(64, '0') } };
+  };
+  const change = noteKey(2), recovery = noteKey(3);
+  const proposal = { scope: note.scope, policy: note.policy, asset: '55'.repeat(32), operationId: '66'.repeat(32),
+    budget: '120', fundingNotBefore: '0', fundingValidUntil: '600', settleBefore: '900',
+    nodes: [{ id: 'one', dependsOn: [], chainDomain: '77'.repeat(32), evidencePolicy: '88'.repeat(32), actionCommitment: '99'.repeat(32),
+      payout: { x: recovery.opening.x, y: recovery.opening.y, value: '120', secret: 'aa'.repeat(32), randomness: 'bb'.repeat(32) } }] };
+  const random = { reservationNonce: 'cc'.repeat(32), reserveSecret: 'dd'.repeat(32), graphNonce: 'ee'.repeat(32),
+    paddingSalts: ['01', '02', '03', '04'].map(byte => byte.repeat(32)) };
+  const compiled = compileFundedGraph({ ...proposal, ...random, inputNote: note.opening, changeNote: change.opening, recoveryNote: recovery.opening });
+  note.status = 'FUNDED';
+  note.depositIntent = { relation: 'D26', epoch: '7', frameSHA256: sha(balanceDepositFrame(note.scope, note.policy, '7', note.opening.value, note.commitment)).toString('hex') };
+  note.deviceJob = { jobId: '33'.repeat(32), origin: 'https://localhost:1234', pairingId: '44'.repeat(32), noteRevision: 2,
+    assetIdentity: proposal.asset, domainCommitment: '12'.repeat(32) };
+  note.funding = { transactionHash: '13'.repeat(32), assetId: '14'.repeat(32) };
+  value.revision = 4;
+  value.spend = { version: 1, phase: 'PREPARED', proposal, ...random, change, recovery, statement: compiled.authorizationStatement,
+    frameSHA256: sha(ownerAuthorizationMessage(compiled.authorizationStatement)).toString('hex'), signature: null };
+  const key = await Key.import(Buffer.from(rootHex, 'hex'));
+  const sealed = await (await import('expo-crypto')).aesEncryptAsync(Buffer.from(JSON.stringify(value)), key,
+    { nonce: { length: 12 }, tagLength: 16, additionalData: Buffer.from(JSON.stringify(['LIANUM/DEVICE/NOTE-VAULT/1', created.rootId, 4])) });
+  const envelope = { version: 1, rootId: created.rootId, revision: 4, sealed: await sealed.combined('base64') };
+  const raw = JSON.stringify(envelope), backup = JSON.stringify({ version: 1, profile: 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1', rootHex,
+    rootId: created.rootId, revision: 4, recordSHA256: sha(Buffer.from(raw)).toString('hex'), encryptedRecord: raw });
+  vault.close(); store.clear(); calls.length = 0;
+  return { created, backup, raw, value, proposal };
+}
+test('complete change/recovery custody is AEAD authenticated over bounded immutable chunks; no syntheticFUNDED or copy enables signing', async () => {
+  const fixture = await completePrivateCustodyBackup();
+  assert.ok(fixture.raw.length > 2048);
+  await restoreLocalRootNoteVaultBackupV1(fixture.backup);
+  const manifest = JSON.parse(store.get(RECORD)); assert.equal(manifest.version, 2); assert.ok(manifest.chunks > 1);
+  for (const [name, raw] of store) { assert.ok(raw.length <= 2048); if (name.startsWith('lianum.note.record.chunk.')) {
+    assert.equal(raw.includes(fixture.value.spend.change.privateKey), false);
+    assert.equal(raw.includes(fixture.value.spend.recovery.opening.secret), false);
+  } }
+  assert.deepEqual(rawClearRecord('09'.repeat(32)), fixture.value);
+  const opened = openLocalRootNoteVaultV1(fixture.created.rootId);
+  assert.equal((await opened.readDeviceNote()).availableBalance, null);
+  await assert.rejects(opened.prepareDeviceReservation(fixture.proposal), /FRESH_FUNDED_SOURCE_REQUIRED/);
+  assert.throws(() => opened.signDeviceReservation({ rootId: fixture.created.rootId, expiresAt: Date.now() + 15000 }), /REVIEW_REQUIRED/);
+  assert.equal(await opened.exportBackup(), fixture.backup); opened.close();
+  const pointerIndex = calls.findLastIndex(row => row.method === 'write' && row.name === POINTER);
+  const chunkLast = calls.findLastIndex(row => row.method === 'write' && row.name.startsWith('lianum.note.record.chunk.'));
+  assert.ok(chunkLast >= 0 && pointerIndex > chunkLast);
+});
+test('missing ciphertext chunk restores only from the exact authenticated backup; changed existing chunk is never replaced', async () => {
+  const fixture = await completePrivateCustodyBackup(); await restoreLocalRootNoteVaultBackupV1(fixture.backup);
+  const manifest = JSON.parse(store.get(RECORD)), key = 'lianum.note.record.chunk.v1.' + manifest.sha256 + '.1';
+  const originalChunk = store.get(key), root = store.get(ROOT), pointer = store.get(POINTER);
+  store.delete(key);
+  await assert.rejects(openLocalRootNoteVaultV1(fixture.created.rootId).readDeviceNote(), /RECOVERY_REQUIRED/);
+  await restoreLocalRootNoteVaultBackupV1(fixture.backup);
+  assert.equal(store.get(key), originalChunk); assert.equal(store.get(ROOT), root); assert.equal(store.get(POINTER), pointer);
+  store.set(key, originalChunk.replace(/./, byte => byte === 'A' ? 'B' : 'A'));
+  const corrupt = new Map(store);
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(fixture.backup), /STORAGE_CHANGED|BACKUP_CONFLICT/);
+  assert.deepEqual(store, corrupt);
 });

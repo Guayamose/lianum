@@ -1,5 +1,5 @@
-/** Device-local protected encryption root + one prepared PC23 note.
- * No network, witness export, spend method, ledger credit or backend brand.
+/** Device-local protected encryption root + one PC23 source and its retained
+ * change/recovery custody. No network, native send, U/S proof or backend brand.
  * SecureStore is not a transaction or anti-rollback store. Uncertain writes
  * require explicit recovery; the original ciphertext is never deleted here. */
 import * as SecureStore from 'expo-secure-store';
@@ -15,6 +15,9 @@ import { localBalanceCommitmentMessageV1, localNoteHexBytesV1, localNoteUintByte
 import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, validateDeviceDepositConsentFreshV1,
   type DeviceDepositConsentV1, type DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { readDeviceDepositInclusionV1 } from '../api/device-owner-deposit-api-v1';
+import { compileLocalFundedBalanceGraphV1, normalizeLocalFundedProposalV1, localFundedOwnerFrameV1,
+  localFundedAuthorizationWordsV1, localFundedSpendNullifierV1,
+  type LocalFundedProposalV1, type LocalFundedStatementV1 } from './funded-balance-owner-codec-v1.mjs';
 
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
@@ -27,10 +30,75 @@ const DATA: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.note.encrypted-record.v1', };
 const MAX_STORED_BYTES = 2048;
+const MAX_CLEAR_BYTES = 65536, MAX_ENVELOPE_BYTES = 98304, CHUNK_BYTES = 1800, MAX_CHUNKS = 55;
+const CHUNK_PROFILE = 'LIANUM_DEVICE_ENCRYPTED_CHUNKS_V1';
+const chunkKey = (sha256: string, index: number) => 'lianum.note.record.chunk.v1.' + sha256 + '.' + index;
+/** The manifest points only to bounded immutable CIPHERTEXT chunks. Each native
+ * SecureStore value remains below 2048 bytes. Pointer/AES/AAD and V1 backups
+ * authenticate the same full original envelope, not the manifest as authority. */
+async function readStoredRecord(scope?: Pick<RootOperationScope, 'current'>): Promise<string | null> {
+  const read = (key: string) => scope ? checked(scope, () => SecureStore.getItemAsync(key, DATA)) : SecureStore.getItemAsync(key, DATA);
+  const original = await read(RECORD); if (original === null) return null;
+  const value = JSON.parse(original);
+  if (value.version !== 2) { envelope(original); return original; }
+  const m = parsed(original, ['version', 'profile', 'rootId', 'revision', 'sha256', 'bytes', 'chunks']);
+  if (m.profile !== CHUNK_PROFILE) bad();
+  const rootId = hex(m.rootId), revision = integer(m.revision), checksum = hex(m.sha256);
+  const bytes = integer(m.bytes), count = integer(m.chunks);
+  if (bytes <= MAX_STORED_BYTES || bytes > MAX_ENVELOPE_BYTES || count !== Math.ceil(bytes / CHUNK_BYTES)
+    || count < 2 || count > MAX_CHUNKS) bad('MOBILE_LOCAL_NOTE_CAPACITY');
+  const parts: string[] = [];
+  for (let index = 0; index < count; index++) {
+    const part = await read(chunkKey(checksum, index));
+    if (part === null || part.length !== Math.min(CHUNK_BYTES, bytes - index * CHUNK_BYTES)
+      || !/^[\x20-\x7e]+$/.test(part)) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
+    parts.push(part);
+  }
+  const raw = parts.join('');
+  if (await (scope ? checked(scope, () => digest(new TextEncoder().encode(raw))) : digest(new TextEncoder().encode(raw))) !== checksum
+    || await read(RECORD) !== original) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+  const e = envelope(raw); if (e.rootId !== rootId || e.revision !== revision) bad(); return raw;
+}
+async function writeStoredRecord(scope: RootOperationScope, raw: string): Promise<void> {
+  scope.current(); const e = envelope(raw);
+  if (raw.length <= MAX_STORED_BYTES) { await writeCheckedScoped(scope, RECORD, raw, DATA); return; }
+  const checksum = await checked(scope, () => digest(new TextEncoder().encode(raw)));
+  const count = Math.ceil(raw.length / CHUNK_BYTES);
+  if (count > MAX_CHUNKS) bad('MOBILE_LOCAL_NOTE_CAPACITY');
+  for (let index = 0; index < count; index++) {
+    const key = chunkKey(checksum, index), part = raw.slice(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES);
+    const previous = await checked(scope, () => SecureStore.getItemAsync(key, DATA));
+    if (previous !== null && previous !== part) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+    if (previous === null) await writeCheckedScoped(scope, key, part, DATA);
+    if (await checked(scope, () => SecureStore.getItemAsync(key, DATA)) !== part) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
+  }
+  const manifest = JSON.stringify({ version: 2, profile: CHUNK_PROFILE, rootId: e.rootId, revision: e.revision,
+    sha256: checksum, bytes: raw.length, chunks: count });
+  if (manifest.length > MAX_STORED_BYTES) bad('MOBILE_LOCAL_NOTE_CAPACITY');
+  // All chunks are retained and read back BEFORE exposing this new revision.
+  await writeCheckedScoped(scope, RECORD, manifest, DATA);
+  if (await readStoredRecord(scope) !== raw) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
+}
 type PreparedNote = { scope: string; policy: string; pool: string; recipient: string;
   commitment: string; privateKey: string; opening: LocalBalanceOpeningV1; status: 'UNISSUED' | 'FUNDED'; depositIntent?: DepositIntent;
   deviceJob?: DeviceJob; funding?: DeviceFunding };
-type DeviceJob = { jobId: string; origin: string; pairingId: string; noteRevision: number };
+type DeviceJob = { jobId: string; origin: string; pairingId: string; noteRevision: number;
+  assetIdentity?: string; domainCommitment?: string };
+type LocalSpendOpening = { privateKey: string | null; opening: LocalBalanceOpeningV1 };
+type DeviceSpend = { version: 1; phase: 'PREPARED' | 'SIGNED'; proposal: LocalFundedProposalV1;
+  reservationNonce: string; reserveSecret: string; graphNonce: string; paddingSalts: string[];
+  change: LocalSpendOpening; recovery: LocalSpendOpening; statement: LocalFundedStatementV1;
+  frameSHA256: string; signature: string | null };
+export type LocalDeviceReservationReviewV1 = Readonly<{ version: 1; rootId: string; revision: number;
+  operationId: string; sourceCommitment: string; sourceNullifier: string; budget: string; changeAmount: string;
+  recoveryAmount: string; graphCommitment: string; reserveCommitment: string; changeCommitment: string;
+  recoveryCommitment: string; settleBefore: string; frameSHA256: string; expiresAt: number;
+  actions: readonly Readonly<{ id: string; chainDomain: string; evidencePolicy: string; actionCommitment: string;
+    payoutCommitment: string; payoutAmount: string }>[] }>;
+export type LocalDeviceReservationSignatureV1 = Readonly<{ version: 1; rootId: string; revision: number;
+  statement: Readonly<LocalFundedStatementV1>; signature: string; intermediateWords: readonly string[];
+  custody: Readonly<{ rootId: string; noteRevision: number; encryptedRecordSHA256: string; frameSHA256: string;
+    sourceCommitment: string; sourceNullifier: string; changeCommitment: string; recoveryCommitment: string }> }>;
 type DeviceFunding = { transactionHash: string; assetId: string };
 export type LocalDeviceProofRequestV1 = Readonly<{ rootId: string; noteRevision: number; commitment: string;
   statement: Readonly<{ scope: string; policy: string; epoch: string; amount: string; output: string }>;
@@ -42,7 +110,7 @@ export type LocalDepositReviewV1 = Readonly<{ version: 1; profile: 'LOCAL_UNISSU
 export type LocalDepositSignatureV1 = Readonly<{ version: 1; relation: 'D26' | 'D27';
   rootId: string; revision: number; commitment: string; statement: LocalDepositStatementV1;
   signature: string; status: 'UNISSUED'; availableBalance: null; nativeEffectsEstablished: false }>;
-type State = { version: 1; rootId: string; revision: number; note: PreparedNote | null };
+type State = { version: 1; rootId: string; revision: number; note: PreparedNote | null; spend?: DeviceSpend };
 type Pointer = { version: 1; rootId: string; revision: number; recordSHA256: string; state: 'CREATING' | 'ACTIVE' };
 type Envelope = { version: 1; rootId: string; revision: number; sealed: string };
 export type LocalRootNoteInspectionV1 = Readonly<{ version: 1;
@@ -82,13 +150,15 @@ function pointer(raw: string): Pointer {
     recordSHA256: hex(x.recordSHA256), state: x.state as Pointer['state'] };
 }
 function envelope(raw: string): Envelope {
-  const x = parsed(raw, ['version', 'rootId', 'revision', 'sealed']);
+  const x = parsed(raw, ['version', 'rootId', 'revision', 'sealed'], MAX_ENVELOPE_BYTES);
   if (x.version !== 1 || typeof x.sealed !== 'string' || x.sealed.length === 0
     || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(x.sealed)) return bad();
   return { version: 1, rootId: hex(x.rootId), revision: integer(x.revision), sealed: x.sealed };
 }
 async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
-  const x = parsed(new TextDecoder('utf-8', { fatal: true }).decode(bytes), ['version', 'rootId', 'revision', 'note']);
+  const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes), initial: unknown = JSON.parse(source);
+  if (!initial || typeof initial !== 'object' || Array.isArray(initial)) bad();
+  const x = parsed(source, ['version', 'rootId', 'revision', 'note', ...(Object.hasOwn(initial, 'spend') ? ['spend'] : [])], MAX_CLEAR_BYTES);
   if (x.version !== 1 || x.rootId !== expected.rootId || x.revision !== expected.revision) return bad();
   let note: PreparedNote | null = null;
   if (x.note !== null) {
@@ -96,7 +166,7 @@ async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
     if (typeof noteData !== 'object' || Array.isArray(noteData)) bad();
     const optional = ['depositIntent', 'deviceJob', 'funding'].filter(field => Object.hasOwn(noteData, field));
     const sourceNote = parsed(JSON.stringify(noteData),
-      ['scope', 'policy', 'pool', 'recipient', 'commitment', 'privateKey', 'opening', 'status', ...optional]);
+      ['scope', 'policy', 'pool', 'recipient', 'commitment', 'privateKey', 'opening', 'status', ...optional], MAX_CLEAR_BYTES);
     const n = sourceNote;
     const o = parsed(JSON.stringify(n.opening), ['type', 'rho', 'x', 'y', 'value', 'secret']);
     if (o.type !== 4 || !['UNISSUED', 'FUNDED'].includes(String(n.status)) || typeof o.value !== 'string') return bad();
@@ -113,11 +183,15 @@ async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
     } finally { key.fill(0); }
     if (Object.hasOwn(n, 'depositIntent')) note.depositIntent = await depositIntent(n.depositIntent, note);
     if (Object.hasOwn(n, 'deviceJob')) {
-      const job = parsed(JSON.stringify(n.deviceJob), ['jobId', 'origin', 'pairingId', 'noteRevision']);
+      const j = n.deviceJob;
+      if (!j || typeof j !== 'object' || Array.isArray(j)) bad();
+      const bound = Object.hasOwn(j, 'assetIdentity') || Object.hasOwn(j, 'domainCommitment');
+      const job = parsed(JSON.stringify(j), ['jobId', 'origin', 'pairingId', 'noteRevision',
+        ...(bound ? ['assetIdentity', 'domainCommitment'] : [])]);
       if (typeof job.origin !== 'string' || job.origin.length > 64 || !job.origin.startsWith('https://') || !note.depositIntent
         || note.depositIntent.relation !== 'D26') bad();
       note.deviceJob = { jobId: hex(job.jobId), origin: job.origin, pairingId: hex(job.pairingId),
-        noteRevision: integer(job.noteRevision) };
+        noteRevision: integer(job.noteRevision), ...(bound ? { assetIdentity: hex(job.assetIdentity), domainCommitment: hex(job.domainCommitment) } : {}) };
     }
     if (Object.hasOwn(n, 'funding')) {
       const funded = parsed(JSON.stringify(n.funding), ['transactionHash', 'assetId']);
@@ -125,7 +199,57 @@ async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
     }
     if (note.status === 'FUNDED' ? !note.deviceJob || !note.funding : note.funding !== undefined) bad();
   }
-  return { version: 1, rootId: expected.rootId, revision: expected.revision, note };
+  const result: State = { version: 1, rootId: expected.rootId, revision: expected.revision, note };
+  if (Object.hasOwn(x, 'spend')) {
+    if (!note || note.status !== 'FUNDED') bad('MOBILE_LOCAL_FUNDED_NOTE_REQUIRED');
+    result.spend = await retainedSpend(x.spend, note);
+  }
+  return result;
+}
+function compiledSpend(note: PreparedNote, spend: DeviceSpend) {
+  return compileLocalFundedBalanceGraphV1({ ...spend.proposal, reservationNonce: spend.reservationNonce,
+    reserveSecret: spend.reserveSecret, graphNonce: spend.graphNonce, inputNote: note.opening,
+    changeNote: spend.change.opening, recoveryNote: spend.recovery.opening, paddingSalts: spend.paddingSalts });
+}
+async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSpend> {
+  const value = parsed(JSON.stringify(raw), ['version', 'phase', 'proposal', 'reservationNonce', 'reserveSecret',
+    'graphNonce', 'paddingSalts', 'change', 'recovery', 'statement', 'frameSHA256', 'signature'], MAX_CLEAR_BYTES);
+  if (value.version !== 1 || !['PREPARED', 'SIGNED'].includes(String(value.phase))) bad();
+  const proposal = normalizeLocalFundedProposalV1(value.proposal);
+  if (!note.deviceJob?.assetIdentity || proposal.asset !== note.deviceJob.assetIdentity
+    || proposal.scope !== note.scope || proposal.policy !== note.policy) bad('MOBILE_LOCAL_ORIGINAL_DOMAIN_CHANGED');
+  const validate = async (raw: unknown, amount: string): Promise<LocalSpendOpening> => {
+    const item = parsed(JSON.stringify(raw), ['privateKey', 'opening']);
+    const record = parsed(JSON.stringify(item.opening), ['type', 'rho', 'x', 'y', 'value', 'secret']);
+    if (record.type !== 4 || record.value !== amount) bad();
+    const opening: LocalBalanceOpeningV1 = { type: 4, rho: hex(record.rho), x: hex(record.x), y: hex(record.y),
+      value: amount, secret: hex(record.secret) };
+    if (amount === '0') {
+      if (item.privateKey !== null || [opening.rho, opening.x, opening.y, opening.secret].some(value => value !== '0'.repeat(64))) bad();
+      return { privateKey: null, opening };
+    }
+    const privateKey = hex(item.privateKey), key = privateKeyFromHex(privateKey);
+    try { const pub = bytesToHex(secp256k1.getPublicKey(key, false));
+      if (pub.slice(2, 66) !== opening.x || pub.slice(66) !== opening.y) bad(); }
+    finally { key.fill(0); }
+    return { privateKey, opening };
+  };
+  if (!Array.isArray(value.paddingSalts) || value.paddingSalts.length !== 4
+    || BigInt(proposal.budget) > BigInt(note.opening.value)) bad();
+  const spend: DeviceSpend = { version: 1, phase: value.phase === 'SIGNED' ? 'SIGNED' : 'PREPARED', proposal,
+    reservationNonce: hex(value.reservationNonce), reserveSecret: hex(value.reserveSecret), graphNonce: hex(value.graphNonce),
+    paddingSalts: value.paddingSalts.map(value => hex(value)),
+    change: await validate(value.change, String(BigInt(note.opening.value) - BigInt(proposal.budget))),
+    recovery: await validate(value.recovery, proposal.budget), statement: value.statement as LocalFundedStatementV1,
+    frameSHA256: hex(value.frameSHA256), signature: value.signature === null ? null : hex(value.signature, 64) };
+  const compiled = compiledSpend(note, spend), frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
+  try {
+    if (JSON.stringify(compiled.authorizationStatement) !== JSON.stringify(value.statement)
+      || await digest(frame) !== spend.frameSHA256 || (spend.phase === 'SIGNED') !== (spend.signature !== null)) bad();
+    if (spend.signature && !secp256k1.verify(localNoteHexBytesV1(spend.signature, 64), frame,
+      localNoteHexBytesV1('04' + note.opening.x + note.opening.y, 65), { prehash: true, lowS: true })) bad();
+  } finally { frame.fill(0); }
+  return spend;
 }
 type RootOperationScope = { current(): void; writeStarted(): void };
 async function checked<T>(scope: Pick<RootOperationScope, 'current'>, work: () => Promise<T>): Promise<T> {
@@ -188,10 +312,10 @@ async function rootIdentity(root: Uint8Array): Promise<string> {
 async function sealedRecord(key: Crypto.AESEncryptionKey, value: State): Promise<string> {
   const clear = encoded(value);
   try {
-    if (clear.length > MAX_STORED_BYTES) bad();
+    if (clear.length > MAX_CLEAR_BYTES) bad('MOBILE_LOCAL_NOTE_CAPACITY');
     const sealed = await Crypto.aesEncryptAsync(clear, key, { nonce: { length: 12 }, tagLength: 16, additionalData: binding(value) });
     const raw = JSON.stringify({ version: 1, rootId: value.rootId, revision: value.revision, sealed: await sealed.combined('base64') });
-    if (raw.length > MAX_STORED_BYTES) bad('MOBILE_LOCAL_NOTE_CAPACITY');
+    if (raw.length > MAX_ENVELOPE_BYTES) bad('MOBILE_LOCAL_NOTE_CAPACITY');
     return raw;
   } finally { clear.fill(0); }
 }
@@ -214,7 +338,7 @@ async function writeCheckedScoped(scope: RootOperationScope, key: string, raw: s
 async function initialize(scope: RootOperationScope, root: Uint8Array): Promise<Readonly<{ rootId: string; note: null }>> {
   scope.current();
   if (root.length !== 32 || root.every(byte => byte === 0)) bad('MOBILE_ENTROPY_FAILED');
-  if ([await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)),
+  if ([await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), await readStoredRecord(scope),
     await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE))].some(value => value !== null)) bad('MOBILE_LOCAL_NOTE_ALREADY_EXISTS');
   const rootId = await checked(scope, () => rootIdentity(root)), rootHex = bytesToHex(root);
   const creating: Pointer = { version: 1, rootId, revision: 0, recordSHA256: '0'.repeat(64), state: 'CREATING' };
@@ -224,7 +348,7 @@ async function initialize(scope: RootOperationScope, root: Uint8Array): Promise<
   try {
     const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
     const raw = await checked(scope, () => sealedRecord(activeKey, { version: 1, rootId, revision: 0, note: null }));
-    await writeCheckedScoped(scope, RECORD, raw, DATA);
+    await writeStoredRecord(scope, raw);
     const readback = await checked(scope, () => decrypted(activeKey, raw)); if (readback.note !== null) bad();
     await writeCheckedScoped(scope, POINTER, JSON.stringify({ ...creating, recordSHA256: await checked(scope, () => digest(encoded(envelope(raw)))), state: 'ACTIVE' }), DATA);
     scope.current(); return Object.freeze({ rootId, note: null });
@@ -295,7 +419,7 @@ async function recoverWithinScope(scope: RootOperationScope, rootHex: string, ex
     try {
       await protectedConsent('Recuperar esta custodia local exacta y conservar su nota original', scope);
       if (root.every(byte => byte === 0)) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
-      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), raw = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA));
+      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), raw = await readStoredRecord(scope);
       if (before === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
       const p = pointer(before);
       if (await checked(scope, () => rootIdentity(root)) !== p.rootId) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
@@ -307,15 +431,15 @@ async function recoverWithinScope(scope: RootOperationScope, rootHex: string, ex
         const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
         const emptyRaw = await checked(scope, () => sealedRecord(activeKey, { version: 1, rootId: p.rootId, revision: 0, note: null }));
         if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-          || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== null
+          || await readStoredRecord(scope) !== null
           || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot)
           bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
         try {
-          await writeCheckedScoped(scope, RECORD, emptyRaw, DATA);
+          await writeStoredRecord(scope, emptyRaw);
           const value = await checked(scope, () => decrypted(activeKey, emptyRaw));
           if (value.note !== null || value.revision !== 0) bad();
           if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-            || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== emptyRaw
+            || await readStoredRecord(scope) !== emptyRaw
             || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot)
             bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           await writeCheckedScoped(scope, POINTER, JSON.stringify({ ...p, state: 'ACTIVE',
@@ -328,7 +452,7 @@ async function recoverWithinScope(scope: RootOperationScope, rootHex: string, ex
         || e.revision < p.revision || e.revision > p.revision + 1) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
       const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
       const value = await checked(scope, () => decrypted(activeKey, raw));
-      if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw)
+      if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before || await readStoredRecord(scope) !== raw)
         bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
       await writeCheckedScoped(scope, ROOT, bytesToHex(root), PRIVATE);
       await writeCheckedScoped(scope, POINTER, JSON.stringify({ version: 1, rootId: p.rootId, revision: value.revision,
@@ -346,13 +470,13 @@ export function inspectLocalRootNoteVaultV1(): Promise<LocalRootNoteInspectionV1
     if (!['android', 'ios'].includes(Platform.OS) || !await SecureStore.isAvailableAsync())
       return Object.freeze({ ...base, status: 'UNAVAILABLE', rootId: null, revision: null,
         recordRevision: null, encryptedRecordPresent: false });
-    const before = await SecureStore.getItemAsync(POINTER, DATA), raw = await SecureStore.getItemAsync(RECORD, DATA);
+    const before = await SecureStore.getItemAsync(POINTER, DATA), raw = await readStoredRecord();
     if (before === null) return Object.freeze({ ...base, status: raw === null ? 'ABSENT_METADATA' : 'RECOVERY_REQUIRED',
       rootId: null, revision: null, recordRevision: null, encryptedRecordPresent: raw !== null });
     const p = pointer(before), e = raw === null ? null : envelope(raw);
     const active = p.state === 'ACTIVE' && e !== null && e.rootId === p.rootId && e.revision === p.revision
       && await digest(encoded(e)) === p.recordSHA256;
-    if (await SecureStore.getItemAsync(POINTER, DATA) !== before || await SecureStore.getItemAsync(RECORD, DATA) !== raw)
+    if (await SecureStore.getItemAsync(POINTER, DATA) !== before || await readStoredRecord() !== raw)
       bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
     return Object.freeze({ ...base, status: active ? 'ACTIVE' : 'RECOVERY_REQUIRED', rootId: p.rootId,
       revision: p.revision, recordRevision: e?.rootId === p.rootId ? e.revision : null, encryptedRecordPresent: raw !== null });
@@ -366,7 +490,7 @@ export function restoreLocalRootNoteVaultBackupV1(backupJSON: string) { return c
 async function restoreWithinScope(scope: RootOperationScope, backupJSON: string) {
   return serial(async () => {
     scope.current();
-    const b = parsed(backupJSON, ['version', 'profile', 'rootHex', 'rootId', 'revision', 'recordSHA256', 'encryptedRecord'], 4096);
+    const b = parsed(backupJSON, ['version', 'profile', 'rootHex', 'rootId', 'revision', 'recordSHA256', 'encryptedRecord'], MAX_ENVELOPE_BYTES + 1024);
     if (b.version !== 1 || b.profile !== 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1'
       || typeof b.encryptedRecord !== 'string') bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
     const raw = b.encryptedRecord, e = envelope(raw), rootId = hex(b.rootId), revision = integer(b.revision);
@@ -379,8 +503,27 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string)
       if (root.every(byte => byte === 0) || await checked(scope, () => rootIdentity(root)) !== rootId) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
       const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
       const value = await checked(scope, () => decrypted(activeKey, raw)); // Authenticate and validate the original opening before any write.
-      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), originalRecord = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)),
+      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)),
+        originalPhysical = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)),
         originalRoot = await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE));
+      let originalRecord: string | null, missingOriginalChunks = false;
+      try { originalRecord = await readStoredRecord(scope); }
+      catch (cause) {
+        if (!(cause instanceof Error) || cause.message !== 'MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED'
+          || originalPhysical === null) throw cause;
+        // Only fill missing chunks of this already authenticated EXACT backup.
+        // Never overwrite an existing different part, accept a changed manifest,
+        // re-encrypt/rotate a root, or roll back to another envelope/revision.
+        const m = parsed(originalPhysical, ['version', 'profile', 'rootId', 'revision', 'sha256', 'bytes', 'chunks']);
+        if (m.version !== 2 || m.profile !== CHUNK_PROFILE || m.rootId !== rootId || m.revision !== revision
+          || m.bytes !== raw.length || m.chunks !== Math.ceil(raw.length / CHUNK_BYTES)
+          || m.sha256 !== await checked(scope, () => digest(new TextEncoder().encode(raw)))) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+        for (let index = 0; index < Number(m.chunks); index++) {
+          const part = await checked(scope, () => SecureStore.getItemAsync(chunkKey(String(m.sha256), index), DATA));
+          if (part !== null && part !== raw.slice(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES)) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+        }
+        originalRecord = raw; missingOriginalChunks = true;
+      }
       if (originalRoot !== null && originalRoot !== bytesToHex(root)
         || originalRecord !== null && originalRecord !== raw) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
       if (before !== null) {
@@ -391,15 +534,17 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string)
           bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
       } else if (originalRecord !== null || originalRoot !== null) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
       if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-        || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== originalRecord
+        || (missingOriginalChunks
+          ? await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== originalPhysical
+          : await readStoredRecord(scope) !== originalRecord)
         || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
       const target = { version: 1 as const, rootId, revision, recordSHA256: hex(b.recordSHA256), state: 'ACTIVE' as const };
       try {
         const retainedPointer = before ?? JSON.stringify({ ...target, state: 'CREATING' });
         if (before === null) await writeCheckedScoped(scope, POINTER, retainedPointer, DATA);
         if (originalRoot === null) await writeCheckedScoped(scope, ROOT, bytesToHex(root), PRIVATE);
-        if (originalRecord === null) await writeCheckedScoped(scope, RECORD, raw, DATA);
-        if (await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw
+        if (originalRecord === null || missingOriginalChunks) await writeStoredRecord(scope, raw);
+        if (await readStoredRecord(scope) !== raw
           || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)
           || await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== retainedPointer) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
         await writeCheckedScoped(scope, POINTER, JSON.stringify(target), DATA);
@@ -409,8 +554,9 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string)
   });
 }
 
-/** Opens a device-only capability. It is not an original account approval, has
- * no spend/witness export and cannot be imported into a backend WeakMap.
+/** Opens a device-only capability. It is not an original account approval and
+ * cannot be imported into a backend WeakMap. Its source-note signatures require
+ * exact local reviews and retained custody before leaving this capability.
  * Deposit intent is only local accidental-reuse protection, not global uniqueness:
  * an older backup/other device can lack it. Pools/nullifiers/ledger remain mandatory. */
 export function openLocalRootNoteVaultV1(expectedRootId: string) {
@@ -418,6 +564,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   const current = () => { if (closed) bad(active && writing ? 'MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN' : 'MOBILE_LOCAL_NOTE_CLOSED'); };
   const scope: RootOperationScope = { current, writeStarted() { current(); writing = true; } };
   const reviews = new WeakMap<LocalDepositReviewV1, LocalDepositChoiceV1>();
+  const reservationReviews = new WeakMap<LocalDeviceReservationReviewV1, { createdAt: number; frameSHA256: string }>();
+  let pendingReservation: LocalDeviceReservationReviewV1 | null = null;
   let liveInclusion: object | null = null;
   const signatures = new WeakMap<LocalDepositSignatureV1, number>();
   const proofRequests = new WeakMap<LocalDeviceProofRequestV1, { witness: DeviceDepositWitnessV1; consumed: boolean }>();
@@ -427,7 +575,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     outstandingWitnesses.delete(witness);
   };
   let pendingReview: LocalDepositReviewV1 | null = null;
-  const discardReview = () => { if (pendingReview) reviews.delete(pendingReview); pendingReview = null; };
+  const discardReview = () => { if (pendingReview) reviews.delete(pendingReview); pendingReview = null;
+    if (pendingReservation) reservationReviews.delete(pendingReservation); pendingReservation = null; };
   hex(expectedRootId);
   async function original<T>(prompt: string, work: (value: State, key: Crypto.AESEncryptionKey, originalPointer: string,
     originalRecord: string, originalRoot: Uint8Array) => Promise<T>): Promise<T> {
@@ -435,7 +584,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       active = true; writing = false;
       try {
       current(); await protectedConsent(prompt, { current }); current();
-      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), raw = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA));
+      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), raw = await readStoredRecord(scope);
       if (before === null || raw === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
       const p = pointer(before), e = envelope(raw);
       if (p.state !== 'ACTIVE' || p.rootId !== expectedRootId || e.rootId !== p.rootId || e.revision !== p.revision
@@ -448,12 +597,76 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         current(); if (await checked(scope, () => rootIdentity(root)) !== expectedRootId) bad('MOBILE_LOCAL_NOTE_ROOT_CHANGED');
         const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
         const value = await checked(scope, () => decrypted(activeKey, raw)); current();
-        if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw)
+        if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before || await readStoredRecord(scope) !== raw)
           bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
         current(); const result = await work(value, key, before, raw, root); current(); return result;
       } finally { root.fill(0); key = null; retained = null; }
       } finally { active = false; }
     });
+  }
+  async function persistSpend(next: State, key: Crypto.AESEncryptionKey, before: string, raw: string, root: Uint8Array) {
+    const nextRaw = await checked(scope, () => sealedRecord(key, next));
+    if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+      || await readStoredRecord(scope) !== raw
+      || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+    try {
+      await writeStoredRecord(scope, nextRaw);
+      const stored = await readStoredRecord(scope);
+      if (stored !== nextRaw) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
+      const readback = await checked(scope, () => decrypted(key, stored));
+      if (JSON.stringify(readback) !== JSON.stringify(next)) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
+      if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+        || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+      const nextPointer = JSON.stringify({ version: 1, rootId: next.rootId, revision: next.revision,
+        recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
+      await writeCheckedScoped(scope, POINTER, nextPointer, DATA);
+      if (await readStoredRecord(scope) !== nextRaw) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+      return readback;
+    } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
+  }
+  function fundedSource(value: State) {
+    const note = value.note, observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null;
+    if (!note || note.status !== 'FUNDED' || !note.funding || !note.deviceJob?.assetIdentity || !note.deviceJob.domainCommitment
+      || !observation || observation.commitment !== note.commitment || observation.rootId !== value.rootId
+      || observation.jobId !== note.deviceJob.jobId || observation.transactionHash !== note.funding?.transactionHash
+      || observation.assetId !== note.funding.assetId || observation.scope !== note.scope || observation.policy !== note.policy
+      || observation.pool !== note.pool || observation.domainCommitment !== note.deviceJob.domainCommitment
+      || observation.amount !== note.opening.value
+      || localFundedSpendNullifierV1(note.scope, note.commitment, note.opening.secret) !== observation.nullifier)
+      bad('MOBILE_LOCAL_FRESH_FUNDED_SOURCE_REQUIRED');
+    return { note, observation };
+  }
+  async function spendOpening(amount: string): Promise<LocalSpendOpening> {
+    if (amount === '0') return { privateKey: null, opening: { type: 4, rho: '0'.repeat(64), x: '0'.repeat(64),
+      y: '0'.repeat(64), value: '0', secret: '0'.repeat(64) } };
+    let key: Uint8Array | null = null, rho: Uint8Array | null = null, secret: Uint8Array | null = null;
+    try {
+      rho = await randomWithinScope(scope); secret = await randomWithinScope(scope);
+      for (let attempt = 0; attempt < 16; attempt++) {
+        const candidate = await randomWithinScope(scope);
+        if (secp256k1.utils.isValidSecretKey(candidate)) { key = candidate; break; } candidate.fill(0);
+      }
+      if (!key) bad('MOBILE_ENTROPY_FAILED');
+      const pub = bytesToHex(secp256k1.getPublicKey(key, false));
+      return { privateKey: bytesToHex(key), opening: { type: 4, rho: bytesToHex(rho), x: pub.slice(2, 66),
+        y: pub.slice(66), value: amount, secret: bytesToHex(secret) } };
+    } finally { key?.fill(0); rho?.fill(0); secret?.fill(0); }
+  }
+  function reservationReview(value: State): LocalDeviceReservationReviewV1 {
+    if (!value.note || !value.spend) bad();
+    fundedSource(value);
+    const spend = value.spend, compiled = compiledSpend(value.note, spend), createdAt = Date.now();
+    const review: LocalDeviceReservationReviewV1 = Object.freeze({ version: 1, rootId: value.rootId, revision: value.revision,
+      operationId: spend.proposal.operationId, sourceCommitment: value.note.commitment,
+      sourceNullifier: compiled.authorizationStatement.inputNullifier, budget: spend.proposal.budget,
+      changeAmount: spend.change.opening.value, recoveryAmount: spend.recovery.opening.value,
+      graphCommitment: spend.statement.graphCommitment, reserveCommitment: spend.statement.reserveCommitment,
+      changeCommitment: spend.statement.changeCommitment, recoveryCommitment: spend.statement.recoveryCommitment,
+      settleBefore: spend.statement.settleBefore, frameSHA256: spend.frameSHA256, expiresAt: createdAt + 15_000,
+      actions: Object.freeze(compiled.ownerWitness.graph.nodes.map((node, slot) => Object.freeze({ id: node.id,
+        chainDomain: node.chainDomain, evidencePolicy: node.evidencePolicy, actionCommitment: node.actionCommitment,
+        payoutCommitment: node.payoutCommitment, payoutAmount: compiled.ownerWitness.payouts[slot].value }))) });
+    reservationReviews.set(review, { createdAt, frameSHA256: spend.frameSHA256 }); pendingReservation = review; return review;
   }
   return Object.freeze({
     readPreparedNote: () => original('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
@@ -489,11 +702,11 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             privateKey: bytesToHex(secretKey), commitment: await checked(scope, () => digest(localBalanceCommitmentMessageV1(terms.scope, terms.policy, opening))), opening, status: 'UNISSUED' };
           const next: State = { version: 1, rootId: value.rootId, revision: value.revision + 1, note };
           const nextRaw = await checked(scope, () => sealedRecord(key, next)); current();
-          if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw)
+          if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before || await readStoredRecord(scope) !== raw)
             bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           current();
           try {
-            await writeCheckedScoped(scope, RECORD, nextRaw, DATA);
+            await writeStoredRecord(scope, nextRaw);
             const readback = await checked(scope, () => decrypted(key, nextRaw)); current();
             await writeCheckedScoped(scope, POINTER, JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
               recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' }), DATA);
@@ -561,24 +774,24 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
               const next: State = { ...value, revision: value.revision + 1, note: { ...value.note, depositIntent: intent } };
               const nextRaw = await checked(signing, () => sealedRecord(key, next));
               if (await checked(signing, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-                || await checked(signing, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw
+                || await readStoredRecord(signing) !== raw
                 || await checked(signing, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root))
                 bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
               try {
-                await writeCheckedScoped(signing, RECORD, nextRaw, DATA);
+                await writeStoredRecord(signing, nextRaw);
                 const readback = await checked(signing, () => decrypted(key, nextRaw));
                 if (!readback.note || JSON.stringify(readback.note.depositIntent) !== JSON.stringify(intent)
                   || JSON.stringify(preparedSummary(readback.note)) !== JSON.stringify(review.note)) bad();
                 const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
                   recordSHA256: await checked(signing, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
                 if (await checked(signing, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-                  || await checked(signing, () => SecureStore.getItemAsync(RECORD, DATA)) !== nextRaw) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+                  || await readStoredRecord(signing) !== nextRaw) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
                 await writeCheckedScoped(signing, POINTER, nextPointer, DATA);
                 finalValue = readback; finalRaw = nextRaw; finalPointer = nextPointer;
               } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
             }
             if (await checked(signing, () => SecureStore.getItemAsync(POINTER, DATA)) !== finalPointer
-              || await checked(signing, () => SecureStore.getItemAsync(RECORD, DATA)) !== finalRaw
+              || await readStoredRecord(signing) !== finalRaw
               || await checked(signing, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
             if (!finalValue.note) bad();
             signing.current(); secretKey = privateKeyFromHex(finalValue.note.privateKey);
@@ -643,13 +856,14 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           }
           const next: State = { ...value, revision: value.revision + 1, note: { ...value.note,
             deviceJob: { jobId: consent.jobId, origin: consent.origin, pairingId: consent.pairingId,
-              noteRevision: consent.noteRevision } } };
+              noteRevision: consent.noteRevision, assetIdentity: consent.poolTerms.assetIdentity,
+              domainCommitment: consent.poolTerms.domainCommitment } } };
           const nextRaw = await checked(scope, () => sealedRecord(key, next));
           if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-            || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw
+            || await readStoredRecord(scope) !== raw
             || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           try {
-            await writeCheckedScoped(scope, RECORD, nextRaw, DATA);
+            await writeStoredRecord(scope, nextRaw);
             const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
               recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
             await checked(scope, () => decrypted(key, nextRaw));
@@ -663,14 +877,17 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       const note = value.note; if (!note) return null;
       let observation = null;
       try { observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null; } catch { liveInclusion = null; }
-      const fresh = note.status === 'FUNDED' && observation?.commitment === note.commitment
+      const fresh = !value.spend && note.status === 'FUNDED' && observation?.commitment === note.commitment
         && observation.transactionHash === note.funding?.transactionHash;
       return Object.freeze({ rootId: value.rootId, revision: value.revision, commitment: note.commitment,
         amount: note.opening.value, status: note.status, job: note.deviceJob ? Object.freeze({ ...note.deviceJob }) : null,
         observation: observation ? Object.freeze({ transactionHash: observation.transactionHash, assetId: observation.assetId,
           headHash: observation.head.hash, observedAt: observation.observedAt, expiresAt: observation.expiresAt }) : null,
         availableBalance: fresh ? note.opening.value : null, nativeEffectsEstablished: note.status === 'FUNDED',
-        freshness: fresh ? 'OBSERVED_AT_RETAINED_HEAD' : 'UNKNOWN' });
+        freshness: fresh ? 'OBSERVED_AT_RETAINED_HEAD' : 'UNKNOWN',
+        localReservation: value.spend ? { operationId: value.spend.proposal.operationId, phase: value.spend.phase,
+          budget: value.spend.proposal.budget, changeAmount: value.spend.change.opening.value,
+          recoveryAmount: value.spend.recovery.opening.value } : null });
     }),
     applyDeviceDepositInclusion: (capability: object) => {
       current(); const inclusion = readDeviceDepositInclusionV1(capability);
@@ -696,10 +913,10 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             funding: { transactionHash: inclusion.transactionHash, assetId: inclusion.assetId } } };
           const nextRaw = await checked(scope, () => sealedRecord(key, next));
           if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-            || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw
+            || await readStoredRecord(scope) !== raw
             || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           try {
-            readDeviceDepositInclusionV1(capability); await writeCheckedScoped(scope, RECORD, nextRaw, DATA);
+            readDeviceDepositInclusionV1(capability); await writeStoredRecord(scope, nextRaw);
             const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
               recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
             await checked(scope, () => decrypted(key, nextRaw));
@@ -709,6 +926,98 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             return { commitment: note.commitment, availableBalance: Date.now() < inclusion.expiresAt ? note.opening.value : null,
               nativeEffectsEstablished: true, observedHead: inclusion.head.hash };
           } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
+        });
+    },
+    /** No signing or reservation occurs here. Persist and reread BOTH future
+     * openings plus all original nonce/secret/terms before releasing review.
+     * Authenticated device-source inclusion is mandatory. Raw proposal data
+     * cannot supply a funded source, an opening or signing key. */
+    prepareDeviceReservation: (input: LocalFundedProposalV1): Promise<LocalDeviceReservationReviewV1> => {
+      current(); discardReview(); const proposal = normalizeLocalFundedProposalV1(input);
+      return original('Preparar el gasto de ' + proposal.budget + ' unidades: guardar primero tu cambio y recuperación cifrados; todavía no reservar',
+        async (value, key, before, raw, root) => {
+          const { note, observation } = fundedSource(value);
+          if (proposal.scope !== note.scope || proposal.policy !== note.policy || proposal.asset !== note.deviceJob?.assetIdentity
+            || BigInt(proposal.budget) > BigInt(note.opening.value)
+            || BigInt(proposal.fundingNotBefore) > BigInt(observation.head.timestamp)
+            || BigInt(proposal.fundingValidUntil) <= BigInt(observation.head.timestamp)) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_TERMS');
+          if (value.spend) {
+            if (JSON.stringify(value.spend.proposal) !== JSON.stringify(proposal)) bad('MOBILE_LOCAL_RESERVATION_INTENT_CONFLICT');
+            return reservationReview(value);
+          }
+          if (value.revision >= Number.MAX_SAFE_INTEGER) bad('MOBILE_LOCAL_NOTE_CAPACITY');
+          const random: Uint8Array[] = [];
+          try {
+            for (let index = 0; index < 7; index++) random.push(await randomWithinScope(scope));
+            if (random.some(bytes => bytes.every(byte => byte === 0))) bad('MOBILE_ENTROPY_FAILED');
+            const custody = {
+              reservationNonce: bytesToHex(random[0]), reserveSecret: bytesToHex(random[1]), graphNonce: bytesToHex(random[2]),
+              paddingSalts: random.slice(3).map(bytesToHex),
+              change: await spendOpening(String(BigInt(note.opening.value) - BigInt(proposal.budget))),
+              recovery: await spendOpening(proposal.budget) };
+            const compiled = compileLocalFundedBalanceGraphV1({ ...proposal, reservationNonce: custody.reservationNonce,
+              reserveSecret: custody.reserveSecret, graphNonce: custody.graphNonce, paddingSalts: custody.paddingSalts, inputNote: note.opening,
+              changeNote: custody.change.opening, recoveryNote: custody.recovery.opening });
+            const frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
+            let frameSHA256: string;
+            try { frameSHA256 = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
+            const spend: DeviceSpend = { version: 1, phase: 'PREPARED', proposal, ...custody,
+              statement: compiled.authorizationStatement, frameSHA256, signature: null };
+            const next: State = { ...value, revision: value.revision + 1, spend };
+            const readback = await persistSpend(next, key, before, raw, root);
+            fundedSource(readback); return reservationReview(readback);
+          } finally { for (const bytes of random) bytes.fill(0); }
+        });
+    },
+    /** Consumes an exact local review before await. The source note key signs
+     * only the original H4 authorization after all custody was reread. This
+     * returns an intermediate signature, not a U/S proof or backend grant. */
+    signDeviceReservation: (review: LocalDeviceReservationReviewV1): Promise<LocalDeviceReservationSignatureV1> => {
+      current(); const retained = reservationReviews.get(review);
+      if (!retained || pendingReservation !== review || review.rootId !== expectedRootId
+        || Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_REQUIRED');
+      reservationReviews.delete(review); pendingReservation = null;
+      return original('Autorizar sólo este grafo por ' + review.budget + ' unidades con cambio ' + review.changeAmount
+        + ' y recuperación ' + review.recoveryAmount + '; las claves permanecen en tu dispositivo',
+        async (value, key, before, raw, root) => {
+          const { note } = fundedSource(value), spend = value.spend;
+          if (!spend || value.revision !== review.revision || spend.frameSHA256 !== retained.frameSHA256
+            || Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_CHANGED');
+          const compiled = compiledSpend(note, spend), frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
+          let sourceKey: Uint8Array | null = null;
+          try {
+            if (await checked(scope, () => digest(frame)) !== retained.frameSHA256) bad('MOBILE_LOCAL_RESERVATION_REVIEW_CHANGED');
+            let signature = spend.signature;
+            if (signature === null) {
+              sourceKey = privateKeyFromHex(note.privateKey); signature = signDeviceMessage(sourceKey, frame); current();
+              const next: State = { ...value, revision: value.revision + 1, spend: { ...spend, phase: 'SIGNED', signature } };
+              await persistSpend(next, key, before, raw, root);
+              // A signature never escapes an uncertain local write or expiry.
+              fundedSource(next);
+              if (Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_CHANGED');
+              value = next;
+            }
+            current(); fundedSource(value);
+            if (Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_CHANGED');
+            const observedPointer = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), observedRaw = await readStoredRecord(scope);
+            if (observedPointer === null || observedRaw === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
+            const p = pointer(observedPointer), e = envelope(observedRaw);
+            if (p.state !== 'ACTIVE' || p.rootId !== value.rootId || p.revision !== value.revision || e.rootId !== value.rootId
+              || e.revision !== value.revision || await checked(scope, () => digest(encoded(e))) !== p.recordSHA256
+              || await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== observedPointer)
+              bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            current(); fundedSource(value);
+            if (Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_CHANGED');
+            return Object.freeze({ version: 1, rootId: value.rootId, revision: value.revision,
+              statement: Object.freeze({ ...compiled.authorizationStatement,
+                outputs: Object.freeze([...compiled.authorizationStatement.outputs]) }), signature,
+              intermediateWords: Object.freeze(localFundedAuthorizationWordsV1(compiled.authorizationStatement)),
+              custody: Object.freeze({ rootId: value.rootId, noteRevision: value.revision, encryptedRecordSHA256: p.recordSHA256,
+                frameSHA256: retained.frameSHA256, sourceCommitment: note.commitment,
+                sourceNullifier: compiled.authorizationStatement.inputNullifier,
+                changeCommitment: compiled.authorizationStatement.changeCommitment,
+                recoveryCommitment: compiled.authorizationStatement.recoveryCommitment }) });
+          } finally { sourceKey?.fill(0); frame.fill(0); }
         });
     },
     close() { discardReview(); closed = true; liveInclusion = null; for (const witness of outstandingWitnesses) wipeWitness(witness); },
