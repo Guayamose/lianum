@@ -63,17 +63,47 @@ El resumen humano `.internal/dev/reports/metamorpho-lab.json` conserva el alcanc
 `PRIVATE_SHARE_NOTE_EXIT_AND_PUBLIC_METAMORPHO_REDEMPTION`, aceptado, dos pruebas
 y SHA256 `14436a5844d947a62908a944719fdff64c2953061de9e75f56c996e177a78858`.
 
-Pendiente: entrada privada D27 mediante los routers oficiales de Uniswap y
-MetaMorpho; integración PAEG/grafo y wallet completa; recuperación tras perder
-el keeper/nodo; composición DeFi entre redes. El subyacente redimido es público
-y no se cuenta como un nuevo saldo privado.
+La entrada privada D27 desde los protocolos oficiales también queda comprobada
+con el perfil nuevo:
 
-El perfil nuevo `./dev lab defi` comprueba por separado Uniswap y MetaMorpho:
-entrada pública al protocolo oficial, salida D27 hacia una nota privada y EXIT
-W39 original. Requiere cuatro pruebas genuinas en una ejecución nueva. La
-preparación y las dos regresiones de política pasan; la aceptación nativa de
-este perfil sigue pendiente. Sus inputs son públicos y no establece admisión
-de una leg registrada, conversión PAEG, grafo ni reembolso de provider.
+```sh
+./dev lab defi
+```
+
+Intento `e8eb31eb-d500-4d52-b937-ebc711bdd3d4`: **aceptado**, cuatro pruebas
+D27/W39 nuevas. El swap Uniswap V3 entrega exactamente 1.000 unidades de salida
+y gasta 1.005 de input público, dentro del máximo de 2.000. MetaMorpho gasta
+1.000.000 de subyacente público y acuña exactamente 1.000.000.000.000.000.000
+shares. En ambos casos el router original entrega la salida a una nota privada
+mientras el owner está desconectado; su observación original y D27 preceden el
+saldo. El proceso hijo del owner se reinicia; la coordinación se cierra y
+reabre dentro del mismo proceso con credenciales supervivientes. Repetir la
+reconciliación no envía de nuevo. La retirada W39 por HTTP original confirma el
+EXIT; termina con pasivos privados y allowances en cero. La redención oficial
+MetaMorpho se liga al EXIT y al backing original: se descarta su respuesta
+completa y se recupera el mismo recibo, sin un segundo envío.
+
+El supervisor acepta las fuentes intactas y el cierre completo: worker y Anvil
+exit0, sin señales, ningún proceso propio vivo ni lock, scratch eliminado.
+Duración 228 s; pico del proof worker 1.368.895.488 bytes, grupo propio
+2.172.764.160 bytes y RAM disponible mínima 14.901.571.584 bytes. Mantiene los
+límites originales y las dos regresiones de política. Los cuatro recibos
+originales de pruebas se conservan con identidades, bytes, VK, ZK,
+verificación y cierre; no se usan pruebas del paquete antiguo para este intento.
+
+Intento `.local/development-defi-entry-roundtrip-v1/attempt-e8eb31eb-d500-4d52-b937-ebc711bdd3d4`:
+resultado SHA256 `19e4af3791a28b88e7b37e9db436352964f9ad361b55b136df33e569aebddaea`,
+recursos `453610d3ab40823d99b75481b8c04724e6b69831c61e4cac1d6d11f0a3fdba47` y
+fuentes `115dc3d7099845e366dde0ef3a0c872d0846523043ec6b7608d4cbb915ee1cc8`.
+Resumen humano: `.internal/dev/reports/defi-entry-lab.json`.
+
+El input inicial y la salida final son públicos. Este perfil no establece
+admisión de una leg registrada, conversión PAEG, grafo, reembolso de provider,
+operadores independientes, wallet completa ni recuperación tras perder el
+keeper/nodo. La salida Uniswap no prueba un swap inverso; el subyacente MetaMorpho
+redimido no se cuenta como nuevo saldo privado. Siguen pendientes composición
+DeFi entre redes y despliegue/aceptación en redes públicas. El laboratorio usa
+el cliente EVM local Cancun; no acredita settlement de proofs bajo Osaka.
 
 ## Revisión de aceptación Solana
 
@@ -132,12 +162,12 @@ inducida en la aceptación nativa. Informe local retenido:
 
 | Red | Laboratorio disponible | Criterio pendiente |
 | --- | --- | --- |
-| Ethereum | EVM propio y fixtures de cuentas/grafos | Recorrido privado reproducible desde wallet y recuperación integral |
+| Ethereum | EVM local Cancun; wallet DOM original y recuperación de journal comprobados | Cliente/finalidad públicos, envelopes y settlement post-Osaka; pérdida completa de custodia |
 | Base | Factory EVM sintético con chainId 8453 | OP Stack real y su finalidad; cambiar chainId no prueba Base |
 | Arbitrum | Factory EVM sintético con chainId 42161 | Nitro real y su finalidad |
 | BNB | Factory EVM sintético con chainId 56 | BSC real, consenso y finalidad |
-| Bitcoin | Core: ingreso y solver nativos aprobados, 6 confirmaciones | Autoridad original de payout, integración privada y recuperación |
-| Solana | Agave: ingreso y solver nativos aprobados | Autoridad original de payout, integración privada y recuperación |
+| Bitcoin | Core: ingreso/solver y ciclo privado BTC demostrado dentro del intento global rechazado | Aceptación conjunta de ocho proofs BTC/SOL; wallet/grafo, pérdida de custodia y red pública |
+| Solana | Agave: ingreso/solver; nota privada y EXIT genuinos; payout rechazado por audit caducado | Cerrar payout/CO42 con auditoría vigente, aceptación conjunta, recuperación y red pública |
 | Tron | Consenso, firma y único broadcast nativos; finalidad rechazada | Diagnosticar pending, cierre SIGABRT y completar aceptación antes de release canónica |
 
 Tron conserva `OWNED_TRON_RUNTIME_RELEASE=null`. Para promoverlo hay que cotejar
@@ -201,6 +231,49 @@ y fuentes `71d9685e293a201430420f2a36def4969b6cb5c9c4f7300c01906d7455c34661`.
 El supervisor original se cerró tras el fallo y los procesos propios quedaron
 ausentes. La nueva aceptación requiere otro intento completo, sin reutilizar
 los cuatro recibos ni las notas del intento fallido.
+
+El segundo intento fresco, `f9c90308-a14d-4173-82df-b5429e3cb393`, queda
+**rechazado con siete de ocho pruebas**, sin reutilizar las cuatro anteriores.
+Las dos notas se emiten con los owners desconectados. Pasan el reinicio original
+owner/keeper/controller, lectura serial y reconciliación sin otro envío.
+BTC completa D27/CI51/W39/CO42: devuelve 100.000 satoshi al destinatario,
+DISCHARGED, tras la respuesta HTTP admitida descartada y `resume` original.
+Duplicados `redeem`, `resume` y `reconcile` conservan los efectos. Ingreso y
+redención BTC tienen un broadcast y una minería de seis confirmaciones cada uno.
+
+SOL conserva D27/CI51 y EXIT W39 genuinos, pero su primer `redeem` retorna
+`RECONCILIATION_REQUIRED / CLAIM_OPERATOR_AUDIT_TOO_OLD`. El `BEGIN_PAYOUT` EVM
+original sí se confirmó; el audit de Agave sólo conserva el ingreso finalizado,
+sin transferencia de payout ni CO42. El harness rechazó ese error antes de
+observar/reanudar SOL. Su extractor de mensajes eligió el literal esperado
+`CLAIM_NATIVE_FINALITY_UNRESOLVED` de la AssertionError; esa etiqueta del
+resultado **no acredita un fallo de finalidad nativa**. La causa disponible es
+el audit de operador demasiado antiguo. El intento no retuvo fase/elapsed de
+`auditBudget`, así que la parte exacta del round sigue pendiente de diagnóstico.
+
+El presupuesto de 30 s sigue intacto. La ausencia de payout nativo no demuestra
+que ningún operador haya firmado o quedado poisoned: pudo caducar otro actor
+después de una firma parcial del quorum. El controlador conserva UNKNOWN y su
+fence; no se añade retry, nueva firma, nueva autorización ni una falsa
+observación de finalidad. BTC demostrado no convierte este intento conjunto en
+una aceptación completa de ambas redes.
+
+Se conservan resultado SHA256
+`d357553ae9e91ff57381beaabb7c7cdf042f3a17f8726af94a83d682ab26f1da`,
+recursos `34d848b4e7e9ac45872c2aa2ce2c05754f0c21a9a067de84b8ed7b53e9a27e59`
+y fuentes `c38b45cb7ba20bebc6607b28424b65db3a0274382b536cb54b53bdecfa6ec7b1`.
+Duración 2.035 s; proof worker máximo 1.640.632.320 bytes y grupo
+4.388.188.160 bytes. Los siete recibos de pruebas se cotejan con sus originales.
+El cierre termina con controller/keeper/EVM/BTC/SOL cerrados, las 133 identidades
+originales ausentes, fuentes intactas y lock liberado. El estado sintético y las
+claves se eliminan. BTC/SOL no requirieron force; Solana declara
+`nativeOrderlyExit=false`, conservado como límite del cierre observado.
+
+Los dos intentos y sus rechazos permanecen como evidencia. Los nodos y claves
+sobrevivieron los reinicios de procesos de coordinación, no la pérdida del
+laboratorio; no acreditan autocustodia, operadores independientes, consenso
+público ni recorrido de grafo. Una nueva aceptación requiere estado y recibos
+nuevos y resolver el diagnóstico de audit sin ampliar su frescura.
 
 ## Tron: build nuevo y aceptación candidata rechazada
 

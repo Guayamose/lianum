@@ -75,8 +75,12 @@ cuenta, capability y backing originales.
 
 MetaMorpho ya acepta nota privada en shares, EXIT y redención oficial con dos
 pruebas reales en estado nuevo. La fuente de shares de ese perfil es un depósito
-público explícito. Completar la entrada privada desde Uniswap/MetaMorpho, acción,
-posición y recuperación con las autoridades originales. Reabrir tras pérdida de keeper/nodo conservando el primer envío. Ampliar
+público explícito. El nuevo `./dev lab defi` también acepta entrada pública al
+protocolo oficial y salida hacia una nota privada mediante D27, seguida de EXIT
+W39 y redención MetaMorpho: cuatro pruebas genuinas, reinicio de owner y reapertura
+del mismo journal, con respuesta perdida sin efectos repetidos. Integrar esas
+acciones y posiciones en PAEG/grafo. Reabrir tras pérdida de keeper/nodo
+conservando el primer envío. Ampliar
 después Aave, Morpho y Jupiter; una posición pública no crea saldo privado.
 
 ## 6. Móvil y operación — fundamentos implementados
