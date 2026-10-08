@@ -12,7 +12,7 @@ import { localBalanceCommitmentMessageV1, localBalanceDepositMessageV1,
 
 const ROOT = 'lianum.note.root.encryption.v1', POINTER = 'lianum.note.root.pointer.v1', RECORD = 'lianum.note.root.record.v1';
 const store = new Map(), calls = [], entropyBuffers = [], nativeKeys = [];
-const control = { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, afterWrite: null };
+const control = { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null };
 const sha = bytes => createHash('sha256').update(bytes).digest();
 const heldKey = new WeakMap();
 class Key {
@@ -44,12 +44,14 @@ mock.module('expo-secure-store', { exports: {
     if (name === ROOT) assert.equal(options.requireAuthentication, true);
     if (control.writeFailure?.(name, raw)) throw new Error('SYNTHETIC_STORAGE_FAILURE');
     store.set(name, raw); control.afterWrite?.(name, raw);
+    if (control.pausedWrite) await control.pausedWrite(name, raw);
   },
 } });
 mock.module('expo-local-authentication', { exports: {
   hasHardwareAsync: async () => control.supported, isEnrolledAsync: async () => control.supported,
   async authenticateAsync(options) {
     assert.equal(options.disableDeviceFallback, true); assert.equal(options.biometricsSecurityLevel, 'strong');
+    if (control.pausedAuth) await control.pausedAuth();
     return { success: control.consent };
   },
 } });
@@ -79,13 +81,14 @@ mock.module('expo-crypto', { exports: {
   },
 } });
 mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
-const { createLocalRootNoteVaultV1, importLocalRootNoteVaultV1, recoverLocalRootNoteVaultV1,
-  openLocalRootNoteVaultV1 } = await import('../src/custody/local-root-note-vault-v1.ts');
+const { createLocalRootNoteOperationV1, createLocalRootNoteVaultV1, importLocalRootNoteVaultV1, recoverLocalRootNoteVaultV1,
+  openLocalRootNoteVaultV1, inspectLocalRootNoteVaultV1,
+  restoreLocalRootNoteVaultBackupV1 } = await import('../src/custody/local-root-note-vault-v1.ts');
 const terms = { scope: '11'.repeat(32), policy: '22'.repeat(32), pool: '33'.repeat(20), recipient: '44'.repeat(20), amount: '500' };
 function reset() {
   for (const key of nativeKeys) key.fill(0); nativeKeys.length = 0;
   store.clear(); calls.length = 0; entropyBuffers.length = 0;
-  Object.assign(control, { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, afterWrite: null });
+  Object.assign(control, { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null });
 }
 function rawClearRecord(rootHex = '0b'.repeat(32)) {
   const e = JSON.parse(store.get(RECORD)), bytes = Buffer.from(e.sealed, 'base64');
@@ -122,7 +125,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['close', 'prepareUnissuedBalanceNote', 'readPreparedNote']);
+  assert.deepEqual(Object.keys(vault).sort(), ['close', 'exportBackup', 'prepareUnissuedBalanceNote', 'readPreparedNote']);
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -194,5 +197,85 @@ test('close while native encryption awaits prevents persistence and another capa
   const result = await settled; assert.match(result.error?.message ?? '', /CLOSED/);
   assert.deepEqual(store, before); control.pausedEncrypt = null;
   assert.equal(await openLocalRootNoteVaultV1(f.rootId).readPreparedNote(), null);
+});
+test('public inspection reads no root; explicit protected backup restores the same encrypted note on empty local storage', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
+  const prepared = await vault.prepareUnissuedBalanceNote(terms), originalRecord = store.get(RECORD), originalRoot = store.get(ROOT);
+  const start = calls.length, observed = await inspectLocalRootNoteVaultV1();
+  assert.equal(observed.status, 'ACTIVE'); assert.equal(observed.revision, 1); assert.equal(observed.availableBalance, null);
+  assert.equal(calls.slice(start).some(call => call.name === ROOT), false);
+  control.consent = false; const before = new Map(store);
+  await assert.rejects(vault.exportBackup(), /AUTHENTICATION_CANCELLED/); assert.deepEqual(store, before);
+  control.consent = true;
+  const backup = await vault.exportBackup(), exported = JSON.parse(backup); vault.close();
+  assert.equal(exported.rootHex, originalRoot); assert.equal(exported.encryptedRecord, originalRecord);
+  await assert.rejects(vault.exportBackup(), /CLOSED/);
+  store.clear(); const restored = await restoreLocalRootNoteVaultBackupV1(backup);
+  assert.deepEqual(restored.note, prepared); assert.equal(store.get(ROOT), originalRoot); assert.equal(store.get(RECORD), originalRecord);
+  assert.deepEqual(await openLocalRootNoteVaultV1(created.rootId).readPreparedNote(), prepared);
+  assert.equal((await inspectLocalRootNoteVaultV1()).availableBalance, null);
+});
+test('backup authentication rejects ciphertext tampering and foreign storage; interrupted import retains and resumes exact bytes', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
+  const backup = await vault.exportBackup(); vault.close(); const original = JSON.parse(backup);
+  store.clear();
+  const corrupted = structuredClone(original), e = JSON.parse(corrupted.encryptedRecord), bytes = Buffer.from(e.sealed, 'base64');
+  bytes[13] ^= 1; e.sealed = bytes.toString('base64'); corrupted.encryptedRecord = JSON.stringify(e);
+  corrupted.recordSHA256 = sha(Buffer.from(corrupted.encryptedRecord)).toString('hex');
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(JSON.stringify(corrupted))); assert.equal(store.size, 0);
+  await importLocalRootNoteVaultV1('0c'.repeat(32)); const foreign = new Map(store);
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(backup), /BACKUP_CONFLICT/); assert.deepEqual(store, foreign);
+  store.clear(); control.writeFailure = name => name === RECORD;
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(backup), /WRITE_UNCERTAIN/);
+  assert.equal(JSON.parse(store.get(POINTER)).state, 'CREATING'); assert.equal(store.get(ROOT), original.rootHex);
+  control.writeFailure = null;
+  const restored = await restoreLocalRootNoteVaultBackupV1(backup);
+  assert.equal(restored.rootId, original.rootId); assert.equal(restored.note, null);
+  assert.equal(store.get(RECORD), original.encryptedRecord); assert.equal(store.get(ROOT), original.rootHex);
+});
+test('revoking local create during authentication rejects before entropy or any storage write', async () => {
+  reset(); const operation = createLocalRootNoteOperationV1(); let enter, release;
+  const entered = new Promise(resolve => { enter = resolve; }), resume = new Promise(resolve => { release = resolve; });
+  control.pausedAuth = async () => { enter(); await resume; };
+  const settled = operation.create().then(value => ({ value }), error => ({ error }));
+  try {
+    assert.equal(await Promise.race([entered.then(() => true), settled.then(() => false)]), true);
+    operation.close();
+  } finally { release(); }
+  const result = await settled;
+  assert.match(result.error?.message ?? '', /MOBILE_LOCAL_NOTE_OPERATION_REVOKED/);
+  assert.equal(store.size, 0); assert.equal(entropyBuffers.length, 0);
+  assert.equal(calls.some(call => call.method === 'write'), false);
+  await assert.rejects(operation.recover('0b'.repeat(32), 0), /OPERATION_REVOKED/);
+  control.pausedAuth = null;
+});
+test('revocation during an original restore write retains its uncertain pointer and resumes only the same backup explicitly', async () => {
+  reset(); const first = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(first.rootId);
+  const backup = await vault.exportBackup(), original = JSON.parse(backup); vault.close();
+  store.clear(); calls.length = 0;
+  const operation = createLocalRootNoteOperationV1(); let enter, release;
+  const entered = new Promise(resolve => { enter = resolve; }), resume = new Promise(resolve => { release = resolve; });
+  control.pausedWrite = async name => { if (name === POINTER) { enter(); await resume; } };
+  const settled = operation.restore(backup).then(value => ({ value }), error => ({ error }));
+  try {
+    assert.equal(await Promise.race([entered.then(() => true), settled.then(() => false)]), true);
+    assert.equal(JSON.parse(store.get(POINTER)).state, 'CREATING'); operation.close();
+  } finally { release(); }
+  const result = await settled;
+  assert.match(result.error?.message ?? '', /MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN/);
+  const retained = new Map(store);
+  assert.deepEqual([...store.keys()], [POINTER]);
+  assert.deepEqual(calls.filter(call => call.method === 'write').map(call => call.name), [POINTER]);
+  const pointer = JSON.parse(store.get(POINTER));
+  assert.equal(pointer.rootId, original.rootId); assert.equal(pointer.recordSHA256, original.recordSHA256);
+  await assert.rejects(operation.restore(backup), /OPERATION_REVOKED/); assert.deepEqual(store, retained);
+  control.pausedWrite = null;
+  const fresh = createLocalRootNoteOperationV1();
+  try {
+    const restored = await fresh.restore(backup);
+    assert.equal(restored.rootId, original.rootId); assert.equal(restored.note, null);
+    assert.equal(store.get(ROOT), original.rootHex); assert.equal(store.get(RECORD), original.encryptedRecord);
+    assert.equal(JSON.parse(store.get(POINTER)).state, 'ACTIVE');
+  } finally { fresh.close(); }
 });
 test.after(() => { for (const key of nativeKeys) key.fill(0); store.clear(); });
