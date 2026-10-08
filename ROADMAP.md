@@ -1,136 +1,134 @@
-# Trabajo hasta una base integrada
+# Trabajo hasta completar el producto Lianum
 
-Actualizado el 8 de octubre de 2026. Conserva los seis pasos solicitados. Cada
-aceptación se registra con su alcance en [STATUS.md](STATUS.md); una prueba
-aislada no cierra un punto entero del producto.
+La referencia de alcance es [PROJECT-VISION.md](PROJECT-VISION.md), que conserva
+los objetivos, arquitectura y requisitos de la visión original. Este plan se
+organiza por esos objetivos. Las seis tareas de implementación anteriores eran
+un orden de trabajo, no una definición distinta del producto. El avance y los
+resultados están en [STATUS.md](STATUS.md).
 
-## 1. Base fiable — implementada
+## 1. Wallet unificada para siete redes
 
-La importación está dividida por componentes y los cambios funcionales tienen
-commits separados con motivo y validación. La selección habitual pasa: 244
-resultados. Los originales ausentes de encoding están inventariados;
-no se omiten sus pruebas ni se fabrican originales.
+Completar una experiencia y cuenta coherentes para Ethereum, Base, Arbitrum,
+BNB, Solana, Tron y Bitcoin: financiación, revisión, autorización, reserva,
+prueba, ejecución, finalidad, actualización de estado, salida y recuperación.
 
-El bootstrap y los comandos CI se comprueban en una copia con sólo archivos
-versionados y paquetes públicos. CI reconoce las 933 referencias públicas
-excluidas y comprueba el resto. No hay remoto ni ejecución remota de CI.
+El recorrido web EVM está aceptado en laboratorio, incluida recuperación F,
+reinicio de custodias y respuesta perdida. Completar el recorrido financiero
+móvil sobre la cuenta y custodia originales; conectar las operaciones de cada
+red a esa misma cuenta y a una interfaz que refleje su estado económico real.
 
-## 2. Reconciliación nativa — implementada
+Las claves raíz permanecen en el dispositivo del usuario. Completar
+consentimiento, recuperación de custodia y operaciones pendientes. Un APK o una
+consulta de RPC es un avance; el cierre exige los flujos completos del producto.
+La comprobación física del teléfono se hace al final, según la decisión de Rafa.
 
-`native-value-execution-v2.mjs` reconoce la recuperación terminal conservada
-antes de esperar al adaptador. Las regresiones incluyen un adaptador que nunca
-responde y terminales inválidos. Se conservan identidad, transacción, inclusión
-canónica, respaldo y estado; la incertidumbre no autoriza otro envío.
+## 2. Privacidad por defecto
 
-La prueba F real ya se aceptó en el laboratorio del siguiente paso, con entrega
-parcial, devolución original y repeticiones sin efectos.
+Proteger saldos, posiciones, direcciones, estrategias y rutas, incluyendo las
+correlaciones por importes, tiempos, financiación, retiradas, RPC y actividad
+entre redes. Definir observadores y colusiones y cerrar las filtraciones del
+estado, las pruebas, el transporte, los workers, el almacenamiento y la API.
 
-## 3. Completar el recorrido EVM — en curso
+La API móvil actual ve identidad estable, importes y destinos; el host del
+worker ve testigos. Resolver esas exposiciones conforme al modelo de amenaza.
+No declarar anonimato ni privacidad sistémica a partir de una prueba ZK o de
+procesos con claves distintas en un único host. Toda espera o umbral de
+privacidad exige consentimiento y comportamiento explícito ante fallo.
 
-Usar [el laboratorio nuevo](docs/EVM-LAB.md): financiación, consentimiento,
-reserva, prueba real, ejecución y actualización de estado. Conservar el mismo ID
-y journal ante respuesta HTTP perdida y reinicio.
+## 3. PAEG genérico
 
-El harness SDK usa HTTP y el modelo de revisión compartido de la wallet. El
-nuevo perfil `./dev lab browser` utiliza el DOM real y comprueba los términos
-originales y la casilla de consentimiento antes de cada acción. Su recorrido
-financiero de quince pruebas ya está aceptado en estado nuevo, incluidas tres
-salidas y redención, respuesta perdida y reemplazo de listener sobre el mismo
-journal. El perfil `./dev lab browser-recovery` también aceptó F desde DOM con
-siete pruebas nuevas: entrega parcial, ejecución original interrumpida, ambos
-owners ausentes y devolución sin segundo envío ni crédito. Los deltas privados,
-respaldo, entrega y pérdida del solver se conservan por separado; la cerca
-sigue activa después de F.
+Conservar pasos, dependencias, autorizaciones, condiciones y cumplimiento
+global. Cada ejecutor recibe sólo lo necesario para su parte; el grafo completo
+y su topología no se exponen por defecto.
 
-La comprobación visible ya usa la misma sesión/cuenta original. Ampliar a pérdida
-de keeper/nodo y después conectar la custodia móvil a ese mismo núcleo.
+Componer nuevas acciones y redes reutilizando relaciones, verificadores y
+contratos de evidencia, sin un circuito distinto por combinación de ruta.
+Cerrar la generalidad real y los límites del perfil de cuatro slots; ese perfil
+no equivale a admitir grafos arbitrariamente grandes.
 
-## 4. Redes y operaciones combinadas — parcial
+El grafo Bitcoin → Solana está aceptado con el núcleo existente. Integrar las
+acciones DeFi oficiales y las restantes redes conservando unión con el grafo,
+nullifiers, autorización, finalidad, conservación y recuperación.
 
-- Solana: ingreso y solver aceptados en Agave nuevo. Completar payout con
-  autoridad original, cuenta privada, reinicio y recuperación.
-- Bitcoin: ingreso y solver aceptados en Core nuevo. Completar controlador original de
-  claims, gasto, backing, reorganizaciones y recuperación.
-- Tron: el parche offline conserva `assertOffline` y el candidato ya produce
-  consenso y un único broadcast. Diagnosticar finalidad pending y cierre SIGABRT. Mantener
-  el gate canónico cerrado hasta esa aceptación.
-- Base, Arbitrum y BNB: aceptar stacks y finalidad propios. Otro chainId en Anvil
-  no acredita OP Stack, Nitro ni BSC.
-- Componer rutas con el mismo PAEG, estado y journal, verificando entregas
-  parciales y asignación económica del fallo.
+## 4. Liquidación condicional y recuperación económica
 
-CI51 V3 y CO42 ya tienen un build y manifiesto nuevos revisados, con las VK
-originales. El segundo round trip completó la retirada Bitcoin y conservó siete
-pruebas, pero rechazó el pago Solana por una auditoría de operador caducada tras
-iniciar payout. Conservar el fence, identificar el coste y el estado de firma,
-y corregir el diagnóstico del harness sin ampliar el presupuesto ni reintentar
-un resultado desconocido. Aceptar el round trip con ocho pruebas genuinas antes de
-extenderlo a grafos y pérdida de procesos. No presentar
-reconstrucciones como los recibos históricos ausentes.
+Pagar o liberar reservas según el resultado global y evitar doble cobro.
+Completar timeout, entregas parciales, mensajes perdidos, indisponibilidad,
+reinicio, reorganizaciones y pérdida de keeper, nodos o custodia. Asignar
+explícitamente pérdidas, liquidez, comisiones y supuestos de solvencia.
 
-El segundo grafo CBTC → entrega SOL, `./dev lab btc-sol`, ya está aceptado y
-cerrado con dieciséis pruebas nuevas: entrega SOL única, cambio Bitcoin de
-80.000 satoshis y pago al solver de 20.000, ambos DISCHARGED, sin duplicados y
-con obligaciones finales a cero. La corrección del ID conserva el hash original
-del controlador; el intento anterior rechazado de 15/16 queda conservado.
-Ampliar recuperación tras pérdida de keeper/nodos y destinos Bitcoin propios,
-y aceptar por separado el payout de custodia Solana pendiente. Las guardas y
-presupuestos originales se mantienen.
+La reconciliación terminal y la recuperación F desde la wallet están aceptadas.
+Cerrar el payout Solana pendiente y ampliar los recorridos a los fallos de
+procesos aún no cubiertos. Conservar el primer envío y su identidad; un resultado
+incierto no autoriza otra firma o pago. Una entrega nativa finalizada se respeta
+durante la recuperación del estado privado.
 
-## 5. Completar DeFi — parcial
+## 5. Composición DeFi privada real
 
-Ya se comprueban swap oficial Uniswap V3, depósito/redención oficial MetaMorpho
-y controles atómicos de mínimo, plazo y replay. El puente exige retiro privado,
-cuenta, capability y backing originales.
+Integrar acciones y posiciones de protocolos reales mediante el mismo PAEG,
+con respaldo, conservación, autorización y recuperación. Completar entrada
+privada, posición, acción, salida y redención en Uniswap y MetaMorpho; ampliar
+Aave, Morpho y Jupiter conforme a las interfaces generales.
 
-MetaMorpho ya acepta nota privada en shares, EXIT y redención oficial con dos
-pruebas reales en estado nuevo. La fuente de shares de ese perfil es un depósito
-público explícito. El nuevo `./dev lab defi` también acepta entrada pública al
-protocolo oficial y salida hacia una nota privada mediante D27, seguida de EXIT
-W39 y redención MetaMorpho: cuatro pruebas genuinas, reinicio de owner y reapertura
-del mismo journal, con respuesta perdida sin efectos repetidos. Integrar esas
-acciones y posiciones en PAEG/grafo. Reabrir tras pérdida de keeper/nodo
-conservando el primer envío. Ampliar
-después Aave, Morpho y Jupiter; una posición pública no crea saldo privado.
+Los recorridos aceptados de Uniswap y MetaMorpho parten de una entrada pública
+y producen una nota privada con EXIT y redención. Cerrar la entrada privada y
+su composición con el grafo y el estado global. Una posición observada, una
+cotización o un canje público no constituye por sí mismo saldo privado gastable.
 
-## 6. Móvil y operación — fundamentos implementados
+## 6. Estado privado global coherente
 
-Existen cliente nativo, protocolo compartido, API, PostgreSQL, Docker y
-Terraform. Google Cloud se prepara sólo localmente: todavía no hay proyecto.
-La infraestructura y los jobs permanecen apagados.
+Representar activos, notas, posiciones, reservas y operaciones con identidad
+por activo y dominio. Mantener estado durable, detectar datos obsoletos,
+conciliar el efecto original y recuperarse de reinicios sin doble crédito,
+reserva o envío. No sumar unidades incompatibles ni convertir desconocido en
+cero o disponible.
 
-Conectar permiso móvil a identidad, cuenta, keeper y worker originales; mostrar
-estado privado autenticado y resolver UNKNOWN sin repetir efectos. Completar
-recuperación de custodia/outbox y aceptación física. El APK debug Android ya
-está construido y verificado para ARM64/x86_64; necesita Metro. La biometría y
-la prueba en teléfono quedan para el final por decisión del usuario. Exportar
-bundles o construir un APK no acredita hardware ni una wallet financiada.
+Conectar el estado autenticado de la cuenta original al cliente móvil y a los
+módulos del backend. Los registros SQL de permisos no sustituyen el estado
+económico del ledger. Completar recuperación y coherencia durante las
+operaciones de las siete redes y las posiciones DeFi.
 
-La [cuenta original vinculada V2](docs/ORIGINAL-ACCOUNT-V2.md) ya tiene actor,
-transporte privado, dos consentimientos firmados y pantalla nativa, con 85
-checks host aprobados. Sólo diagnostica y reconcilia TOP_UP/EXIT ya admitidos;
-no acredita un saldo privado ni admite nuevos gastos móviles. Su siguiente
-aceptación exige cuenta y pruebas EVM genuinas, conservando los pines históricos.
-Después configurar y comprobar routing/TLS y ampliar al recorrido económico móvil.
+## 7. Modelos heterogéneos y siete redes en profundidad
 
-Las migraciones SQL versionadas ya están comprobadas con PostgreSQL real y
-Docker, incluyendo concurrencia, interrupción y respuesta COMMIT perdida.
-Cerrar permisos/retención, límites duraderos de
-admisión, transporte privado de jobs y observabilidad. Verificar imágenes y
-contratos reales antes de habilitar workers. Un despliegue GCP con proyecto,
-cuenta y costes concretos sigue siendo una acción futura separada.
+Conservar las diferencias de EVM, SVM, UTXO y Tron: identidad, firmas, comisiones,
+recepción, finalidad, reorganizaciones, observación y reintentos.
 
-Reducir por componentes `.internal/runtime/`, extraer recursos/dependencias
-compartidas y consolidar variantes en los recorridos aceptados.
+- Ethereum: recorrido completo sobre sus garantías y configuración propias.
+- Base, Arbitrum y BNB: aceptar sus stacks, identidad y finalidad propios;
+  cambiar el chainId de Anvil no acredita OP Stack, Nitro o BSC.
+- Bitcoin: completar recepción, gasto, respaldo, reorganizaciones y recuperación.
+- Solana: cerrar payout original y su recuperación, además del ingreso y solver
+  ya aceptados en Agave nuevo.
+- Tron: resolver finalidad y cierre nativos antes de habilitar el runtime.
 
-## Criterios durante todos los pasos
+Completar operaciones entre redes con el mismo PAEG y estado. Sustituir las
+facultades de una autoridad individual SOL/BTC de inventar hechos por
+verificación criptográfica o mecanismos distribuidos con umbral; claves
+separadas en un host no son operadores independientes. Distinguir custodia de
+nota y custodia del activo nativo.
 
-[Privacidad y operación](docs/PRIVACY-AND-OPERATIONS.md) describe observadores,
-autoridades e información visible. Verificar colusión y correlación por importe,
-tiempo y RPC. Procesos separados en un host no prueban operadores independientes.
-Requiere revisión criptográfica externa.
+## Arquitectura y requisitos transversales
 
-Medir frío/caliente, hardware, carga y percentiles. Objetivos originales en
-caliente: sobrecoste propio <30 s, pruebas <20 s y coordinación/liquidación <5 s,
-sin esperas artificiales y con finalidad nativa separada. Conservar las
-validaciones al medir y optimizar.
+Completar móvil iOS/Android con claves raíz del usuario; monolito modular en
+Cloud Run; proof workers separados en Cloud Run Jobs sin claves raíz; Cloud SQL,
+colas, GCS cifrado y Secrets/KMS para credenciales de infraestructura. Los ocho
+módulos y sus responsabilidades están en la visión original. Preparar transporte
+privado de jobs, retención, permisos, observabilidad, backups y recuperación.
+GCP se prepara localmente hasta disponer de proyecto; desplegar y gastar siguen
+siendo acciones separadas. KMS no sustituye la custodia móvil.
+
+Mantener módulos legibles y documentación funcional; consolidar variantes y
+reducir la dependencia de fixtures y de `.internal/runtime/`. Preparar material
+auditable, obtener revisión criptográfica independiente y resolver hallazgos.
+La revisión interna y los tests no sustituyen esa auditoría; contratarla no
+está autorizado por este trabajo local.
+
+Cumplir los objetivos en caliente con hardware, carga y camino causal declarados:
+sobrecoste propio total <30 s, generación y verificación de pruebas <20 s,
+coordinación y liquidación <5 s y esperas artificiales aproximadamente cero.
+La finalidad nativa se mide aparte; las garantías se conservan al optimizar.
+
+Convertir cada objetivo original y requisito transversal en criterios concretos
+de aceptación y cerrar su cumplimiento conjunto. Desarrollar bloques funcionales,
+comprobar lo afectado y continuar; repetir campañas cuando cambios o fallos lo
+justifiquen. El agente externo permanece fuera del alcance y a cargo de Rafa.

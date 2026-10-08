@@ -5,21 +5,33 @@ desarrollo; todavía no está completada la wallet omnichain de la visión origi
 Los resultados distinguen código comprobado, laboratorio local y producto
 pendiente. Las entregas históricas permanecen en `archive/`.
 
-## Trabajo solicitado
+## Objetivos originales del producto
 
-| Paso | Estado comprobado | Qué falta para cerrarlo |
+Los objetivos son los de [PROJECT-VISION.md](PROJECT-VISION.md). Las seis tareas
+pedidas para avanzar eran un orden de ejecución; no sustituyen estos puntos.
+Los rangos son estimaciones de cobertura técnica, no porcentajes medidos ni
+una aceptación de producto terminado.
+
+| Punto original | Cobertura estimada después del trabajo de hoy | Avance comprobado y pendiente principal |
 | --- | --- | --- |
-| 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
-| 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
-| 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada desde el DOM con siete pruebas, además del perfil SDK/HTTP. | Conexión a móvil y recuperación tras pérdida de keeper/nodo. |
-| 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados. Recorrido CBTC → entrega SOL aceptado con 16 pruebas nuevas, grafo FULFILLED y retiradas Bitcoin de 80.000/20.000 satoshis descargadas; respuesta perdida y duplicados sin otro pago. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada del payout Solana del round trip de ocho pruebas; recuperación tras pérdida de nodos/custodia, finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
-| 5. DeFi | Protocolos oficiales Uniswap V3 y MetaMorpho; nota privada, EXIT y redención MetaMorpho aceptados. Entrada pública al protocolo, salida hacia nota privada y retirada pasan con cuatro D27/W39 genuinas, incluido reinicio y respuesta de redención perdida sin duplicación. | Entrada privada a DeFi, integración PAEG/grafo y posiciones; pérdida de keeper/nodo, Aave/Morpho/Jupiter y composición entre redes. |
-| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. APK Android debug construido y verificado. Cuenta original vinculada V2 con diagnóstico/reconciliación y 85 checks host aprobados. | Aceptar V2 sobre un laboratorio genuino, TLS/vinculación operativa, workers, saldo privado real, aceptación física al final, recuperación móvil y operación de producción. |
+| 1. Wallet unificada para siete redes | 60–65% | Recorrido web EVM y fundamentos móviles. Falta recorrido financiero móvil y experiencia integrada en siete redes. |
+| 2. Privacidad por defecto | 40–50% | Criptografía existente conservada; sin aumento sistémico demostrado. Faltan garantías frente a correlación y colusión. |
+| 3. PAEG genérico | 65–70% | Composición BTC/SOL comprobada con el mismo núcleo. Siguen cuatro slots; falta cerrar generalidad y privacidad de topología. |
+| 4. Liquidación y recuperación económica | 65–70% | Reconciliación corregida y recuperación F desde DOM. Faltan pérdida de keeper/nodos/custodia y fallos combinados. |
+| 5. DeFi privado real | 45–55% | Uniswap y MetaMorpho con nota privada, EXIT y redención. Falta entrada privada y composición mediante PAEG. |
+| 6. Estado privado global | 60–65% | Journals, reconciliación y reinicio comprobados. Falta coherencia completa entre redes, activos y móvil. |
+| 7. Redes heterogéneas en profundidad | 55–60% | BTC/SOL y su composición aceptados localmente. Payout SOL, Tron, Base, Arbitrum y BNB pendientes. |
+| 8. Agente autónomo personal | Fuera del alcance | Lo implementa Rafa sobre las interfaces generales del producto. |
 
-Los pasos 1 y 2 tienen sus cambios implementados y comprobados. Los pasos 3–6
-incluyen avances reales, pero no están cerrados como producto. Google Cloud se
-prepara **sólo localmente**, según la decisión del usuario: no hay proyecto,
-despliegue, `apply` ni recursos creados.
+Ningún objetivo original está al 100%. La base de desarrollo y el defecto de
+`reconcile()` sí están implementados y comprobados; son tareas cerradas dentro
+del producto, no los puntos 1 y 2 de la visión. Los requisitos transversales
+siguen vigentes: mantenibilidad, generalidad, confianza minimizada, privacidad,
+revisión criptográfica independiente y rendimiento.
+
+Google Cloud se prepara **sólo localmente**, según la decisión del usuario:
+no hay proyecto, despliegue, `apply` ni recursos creados. La prueba del teléfono
+queda para el final. Estas decisiones no eliminan la arquitectura objetivo.
 
 ## Qué puedes ejecutar hoy
 
