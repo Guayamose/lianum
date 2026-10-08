@@ -4,6 +4,18 @@ import assert from 'node:assert/strict';
 import {normalizeDeviceOutputBalanceV1} from '../../../../packages/mobile-protocol/src/device-output-balance-v1.mjs';
 import {decodeStatement,joinReadiness} from '../../../../packages/backend/src/execution/encoding/statements.mjs';
 import {assertOwnedLocalEvmNativeValueV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+/** Both fixed DEVICE continuations include one I84 receipt before N0. Compare
+ * canonical digest strings directly; these bare hashes are not decimal numbers. */
+export function assertDeviceFinalOriginalReceiptTreeV1(view,executionSnapshot){
+ assert.equal(arguments.length,2);assert.ok(Array.isArray(view.receiptLeaves));
+ assert.equal(view.receiptLeaves.length,64,'DEVICE_FINAL_RECEIPT_TREE_CAPACITY');
+ assert.equal(view.state.receiptCount,'1','DEVICE_FINAL_ORIGINAL_RECEIPT_COUNT');
+ assert.equal(executionSnapshot.admittedReceipts,1,'DEVICE_FINAL_EXECUTOR_RECEIPT_COUNT');
+ for(const leaf of view.receiptLeaves)assert.match(leaf,/^[0-9a-f]{64}$/,'DEVICE_FINAL_RECEIPT_DIGEST');
+ const zero='0'.repeat(64);
+ assert.notEqual(view.receiptLeaves[0],zero,'DEVICE_FINAL_ORIGINAL_RECEIPT_REQUIRED');
+ assert.ok(view.receiptLeaves.slice(1).every(leaf=>leaf===zero),'DEVICE_FINAL_RECEIPT_TREE_PADDING');
+}
 export async function assertDeviceOwnerNativeInclusionV1({runtime,nativeRuntime,reader,result,retainedProofs,detail,save}){
  if(detail.stage!=='dispatch-native-leg-0')return;
  assert.equal(detail.reference,result.deviceReservation.jobId);assert.equal(result.deviceNativeClock,undefined);

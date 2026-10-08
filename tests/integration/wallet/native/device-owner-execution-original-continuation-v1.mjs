@@ -9,6 +9,7 @@ import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../pa
 import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
+import {assertDeviceFinalOriginalReceiptTreeV1} from './device-owner-execution-native-checks-v1.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),bare=value=>value.startsWith('0x')?value.slice(2):value;
 export async function runDeviceOwnerExecutionContinuationV1(context){
  const {account,owner,runtime,nativeRuntime,system,reader,result,stage,save,active,descriptor,deviceKey,host,
@@ -231,15 +232,7 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
   assert.ok(final.ledger.nullifiers.includes('0x'+result.deviceNote.observation.nullifier));
   assert.equal(final.ledger.publicState.spent,recovery?4:3);assert.equal(final.ledger.publicState.actualAssetBalance,recovery?'0':'100');
   assert.equal(final.ledger.publicState.backedAmount,recovery?'0':'100');assert.equal(final.ledger.publicState.liveReservations,0);
-  // I84 includes the native delivery receipt before N0 starts. Both the
-  // settlement and before-N0 recovery retain that one original receipt;
-  // the verified tree exposes its 64 padded positions separately.
-  const admittedReceipts=1;
-  assert.equal(final.receiptLeaves.length,64,'DEVICE_FINAL_RECEIPT_TREE_CAPACITY');
-  assert.equal(final.state.receiptCount,String(admittedReceipts),'DEVICE_FINAL_ORIGINAL_RECEIPT_COUNT');
-  assert.equal(observed.executionSnapshot.admittedReceipts,admittedReceipts,'DEVICE_FINAL_EXECUTOR_RECEIPT_COUNT');
-  assert.ok(final.receiptLeaves.slice(0,admittedReceipts).every(leaf=>BigInt(leaf)!==0n),'DEVICE_FINAL_ORIGINAL_RECEIPT_REQUIRED');
-  assert.ok(final.receiptLeaves.slice(admittedReceipts).every(leaf=>BigInt(leaf)===0n),'DEVICE_FINAL_RECEIPT_TREE_PADDING');
+  assertDeviceFinalOriginalReceiptTreeV1(final,observed.executionSnapshot);
   assert.equal((await account.ownerView()).balances.available,'0');assert.equal((await owner.ownerView.summary()).notes.source.status,'UNISSUED');
   assert.equal((await vault.readDeviceNote()).availableBalance,null);result.deviceExit=exits[0];if(recovery)result.deviceRecoveryExits=exits;
   result.economics={deviceAmountAtomic:'500',reserveAtomic:'100',changeWithdrawalAtomic:'400',remainingSolverPayoutAtomic:'100',
