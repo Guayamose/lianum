@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
+import { canonicalClaimRecordDataV1 } from '../../../../src/claims/storage/segmented-record-store.mjs';
 import { createTronNativeTransferObserver as create, assertTronNativeTransferObserver as brand,
   assertTronNativeTransferObservation as observationBrand } from '../../../../src/chains/tron/observations/tron-native-transfer-observer.mjs';
 import { fixture, block, blockId, NOW, WIRE } from '../../../fixtures/chains/tron/transfers/tron-native-transfer-fixture.mjs';
@@ -97,6 +98,25 @@ test('latched original inclusion and normalized status receipt cannot be replace
   assert.equal((await observer.observe(f.query)).status, 'reorged');
   f.state.included.blockID = blockId(10); assert.equal((await observer.observe(f.query)).status, 'observed');
   assert.throws(() => create({ ...f.config, original: { ...f.original, inclusion: { ...first.evidence.inclusion, transactionIndex: '00' } } }));
+});
+
+
+test('an original canonical history round trip keeps inclusion live and still rejects an altered receipt', async () => {
+  const f = fixture(), first = await create(f.config).observe(f.query);
+  assert.equal(first.status, 'observed');
+  const restored = JSON.parse(canonicalClaimRecordDataV1(first.evidence.inclusion));
+  assert.deepEqual(restored, first.evidence.inclusion);
+  assert.notEqual(JSON.stringify(restored), JSON.stringify(first.evidence.inclusion));
+  // The prior JSON-order comparison rejected this exact storage output before
+  // any certificate re-audit could succeed. No signer/native runtime is present.
+  const reopened = create({ ...f.config, original: { ...f.original, inclusion: restored } });
+  const result = await reopened.observe(f.query);
+  assert.equal(result.status, 'observed');
+  assert.deepEqual(result.evidence.inclusion, restored); observationBrand(result, reopened); limits(result);
+  f.state.info.fee = '1';
+  const changed = await reopened.observe(f.query);
+  assert.equal(changed.status, 'reorged'); assert.equal(changed.reason, 'TRON_TRANSFER_ORIGINAL_INCLUSION_CHANGED');
+  assert.equal(changed.evidence, null); limits(changed);
 });
 
 test('rereads detect changing receipts, inclusion order and displaced/regressed solidified heads', async () => {

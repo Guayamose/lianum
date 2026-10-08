@@ -1,14 +1,16 @@
 /** Original retained TRX transaction observation only. Trusted SolidityNode RPC,
  * no signer, submission, permission verification, private credit or consensus. */
 import { createHash } from 'node:crypto';
-import { types } from 'node:util';
+import { types, isDeepStrictEqual } from 'node:util';
 import { fields, need, freeze, hash32, safeMilliseconds, observationBootstrap,
   describeNetwork, checkFreshBlock, ObservationError } from '../../shared/portfolio/portfolio-registry.mjs';
 import { normalizeTronInteger, normalizeTronBlock } from './tron-observation-adapter.mjs';
 import { bindOriginalTronNativeTransfer } from '../transfers/tron-native-transfer-wire.mjs';
 const owners = new WeakSet(), issued = new WeakMap();
 const exact = (value, required, optional = []) => fields(value, required, optional, true);
-const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+// Original encrypted history sorts record keys. Preserve all values, types,
+// prototypes and array order while accepting that canonical storage round trip.
+const same = isDeepStrictEqual;
 const digest = (tag, value) => createHash('sha256').update(tag + '\0' + JSON.stringify(value)).digest('hex');
 const P = '/walletsolidity/';
 const bareHash = value => { need(typeof value === 'string' && value.length === 64, 'TRON_TRANSFER_HASH'); return hash32(value, false); };
