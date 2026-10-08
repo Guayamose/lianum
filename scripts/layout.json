@@ -2498,6 +2498,18 @@
     {
       "source": "tests/integration/",
       "runtime": "omnichain-flat-profile/flat-wallet/integration/"
+    },
+    {
+      "source": "packages/backend/src/api/mobile/",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/"
+    },
+    {
+      "source": "tests/integration/mobile/",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/"
+    },
+    {
+      "source": "packages/mobile-protocol/src/",
+      "runtime": "mobile-protocol/src/"
     }
   ],
   "files": [
@@ -22448,7 +22460,8 @@
     "docs/reference/wallet/",
     "archive/legacy-client/",
     "archive/legacy-engine/",
-    "archive/source-evidence/"
+    "archive/source-evidence/",
+    "packages/mobile-protocol/src"
   ],
   "organization": "domain-folders-with-separated-source-tests-and-docs"
 }
