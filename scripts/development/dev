@@ -20,12 +20,18 @@ case "$task_command" in
       './dev doctor         Verificar herramientas e integridad de la base original' \
       './dev evidence       Comprobar las evidencias públicas originales' \
       './dev lab [prepare|run|recovery]   Laboratorio EVM nuevo: flujo completo o recuperación F real' \
+      './dev lab claims     Ingreso y redención privada de claims BTC/SOL en un laboratorio nuevo' \
       './dev artifacts      Inventariar los artefactos históricos de encoding' \
       './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
       './dev npm [args]     Ejecutar npm con el Node local' \
       '' \
       'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
-  lab) exec python3 "$task_helpers/evm_lab.py" "$@" ;;
+  lab)
+    if [ "${1:-}" = "claims" ]; then
+      shift
+      exec python3 "$task_helpers/native_claim_lab.py" "$@"
+    fi
+    exec python3 "$task_helpers/evm_lab.py" "$@" ;;
   build) exec python3 "$task_helpers/workspace.py" "$@" ;;
   start|wallet)
     python3 "$task_helpers/workspace.py" --quiet
