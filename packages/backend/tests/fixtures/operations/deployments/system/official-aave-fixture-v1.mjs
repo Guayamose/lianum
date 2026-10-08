@@ -124,8 +124,21 @@ export async function createOfficialAaveFixtureV1(runtime) {
   // Public protocol liquidity only, independent from the private source note.
   await send(first,'approve',[pool.address,1_000_000_000n]);
   await send(pool,'supply',[first.address,1_000_000_000n,sender,0]); await send(first,'approve',[pool.address,0]);
-  const vault = await deploy('StaticATokenLM',build.artifacts.StaticATokenLM,[pool.address,zero],{POOL:pool.address,INCENTIVES_CONTROLLER:zero},build.sourceASTs);
-  await send(vault,'initialize',[aToken.address,'Local Aave static token','LSTATA']);
+  const vaultImplementation = await deploy('StaticATokenLMImplementation',build.artifacts.StaticATokenLM,
+    [pool.address,zero],{POOL:pool.address,INCENTIVES_CONTROLLER:zero},build.sourceASTs);
+  // The official implementation disables initializers in its own storage.
+  // Initialize proxy storage atomically in the original direct CREATE so the
+  // pool asset can authenticate metadata at that exact creation block.
+  const initializeData = vaultImplementation.iface.encodeFunctionData('initialize',
+    [aToken.address,'Local Aave static token','LSTATA']);
+  const vaultProxy = await deploy('StaticATokenLMProxy',core.artifacts.AdminUpgradeabilityProxy,
+    [vaultImplementation.address,provider.address,initializeData],{});
+  const vault = Object.freeze({...vaultProxy,iface:vaultImplementation.iface,
+    implementation:vaultImplementation.address,admin:provider.address});
+  assert.notEqual(vault.admin,sender,'AAVE_STATIC_PROXY_ADMIN_NOT_CALLER');
+  assert.equal(await runtime.proxyImplementation1967(vault.address,vault.receipt.blockNumber),vault.implementation,'AAVE_STATIC_PROXY_IMPLEMENTATION');
+  assert.equal(await runtime.proxyAdmin1967(vault.address,vault.receipt.blockNumber),vault.admin,'AAVE_STATIC_PROXY_ADMIN');
+  proxies.push(vault);
   assert.equal((await read(vault,'asset'))[0].toLowerCase(),first.address); assert.equal((await read(vault,'aToken'))[0].toLowerCase(),aToken.address);
   assert.equal((await read(vault,'rate'))[0],RAY); assert.equal((await read(vault,'totalSupply'))[0],0n);
   const yieldReceiver = await deploy('LocalAaveFlashYield',build.artifacts.LocalAaveFlashYield,[pool.address,first.address],
@@ -136,6 +149,7 @@ export async function createOfficialAaveFixtureV1(runtime) {
     assertOfficialAaveFixtureV1(runtime,fixture); await assertOwnedLocalEvmV2(runtime); const head = await runtime.block(tag);
     for (const row of [...deployments,...proxies]) assert.equal(await runtime.code(row.address,head.number),row.code,'AAVE_OFFICIAL_CODE_CHANGED');
     for (const row of proxies) assert.equal(await runtime.proxyImplementation1967(row.address,head.number),row.implementation,'AAVE_PROXY_IMPLEMENTATION_CHANGED');
+    assert.equal(await runtime.proxyAdmin1967(vault.address,head.number),vault.admin,'AAVE_STATIC_PROXY_ADMIN_CHANGED');
     const current = (await read(pool,'getReserveData',[first.address],head.number))[0];
     assert.equal(current.aTokenAddress.toLowerCase(),aToken.address); assert.equal(current.stableDebtTokenAddress.toLowerCase(),stableDebt.address);
     assert.equal(current.variableDebtTokenAddress.toLowerCase(),variableDebt.address); assert.equal(current.interestRateStrategyAddress.toLowerCase(),strategy.address);

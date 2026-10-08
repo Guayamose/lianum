@@ -343,6 +343,16 @@ export function loadOfficialAaveCoreArtifactsV1() {
     assert.deepEqual(a.deployedLinkReferences, produced.evm.deployedBytecode.linkReferences);
     artifacts[row.name] = {...a, evm: produced.evm};
   }
+  // Extract the constructor-initialized proxy from the SAME pinned upstream
+  // compiler output already joined above. This is published 0.8.10 output,
+  // not a new compilation or a replacement for any standalone artifact.
+  const sourceName = 'contracts/dependencies/openzeppelin/upgradeability/AdminUpgradeabilityProxy.sol';
+  const contractName = 'AdminUpgradeabilityProxy';
+  const produced = readBuilds.get(AAVE_CORE_V3_MATERIAL_V1.contracts[0].buildInfo).output.contracts[sourceName][contractName];
+  artifacts[contractName] = {sourceName, contractName, abi: produced.abi,
+    bytecode: '0x' + produced.evm.bytecode.object, deployedBytecode: '0x' + produced.evm.deployedBytecode.object,
+    linkReferences: produced.evm.bytecode.linkReferences, deployedLinkReferences: produced.evm.deployedBytecode.linkReferences,
+    evm: produced.evm};
   return {artifacts, sourceASTs, sourceRecords: Object.keys(sources).sort().map(path => ({path, sha256: sha(sources[path])}))};
 }
 export function loadOfficialAaveWrapperSourcesV1() {

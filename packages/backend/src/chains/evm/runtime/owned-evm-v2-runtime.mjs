@@ -1266,6 +1266,15 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         const implementation = address('0x' + raw.slice(-40));
         assert.notEqual(implementation, '0x' + '0'.repeat(40), 'LOCAL_EVM_PROXY_IMPLEMENTATION_NONZERO');
         await assertCanonical(header); return implementation;
+      }, async proxyAdmin1967(holder, tag = 'latest') {
+        await health(); const target = address(holder), header = await block(blockTag(tag));
+        assert.notEqual(await rpc('eth_getCode', [target, header.number]), '0x', 'LOCAL_EVM_PROXY_CODE');
+        const raw = await rpc('eth_getStorageAt', [target,
+          '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103', header.number]);
+        assert.match(raw, /^0x0{24}[0-9a-f]{40}$/, 'LOCAL_EVM_PROXY_ADMIN_WORD');
+        const admin = address('0x' + raw.slice(-40));
+        assert.notEqual(admin, '0x' + '0'.repeat(40), 'LOCAL_EVM_PROXY_ADMIN_NONZERO');
+        await assertCanonical(header); return admin;
       } }),
       nonce: async (holder, tag = 'pending') => {
         const sender = address(holder);
