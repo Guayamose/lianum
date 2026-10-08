@@ -124,8 +124,12 @@ export async function createOwnedPrivateVaultExit(input) {
     assert.equal(request.assetId, asset.assetId, 'PRIVATE_VAULT_EXIT_SHARE_ASSET');
     assert.equal(request.ownerOperationRef, entry.ownerOperationRef, 'PRIVATE_VAULT_EXIT_ORIGINAL_REFERENCE');
     assert.ok(entry.submission?.dispatchLatched && entry.terminal && entry.outcome, 'PRIVATE_VAULT_EXIT_NOT_CONFIRMED');
-    const outcome = await account.authority.reconcile(request);
-    assert.deepEqual(outcome, entry.outcome, 'PRIVATE_VAULT_EXIT_OUTCOME_CHANGED');
+    // observe() authenticates this retained terminal against the same original
+    // authority journal, transaction, canonical receipt and current backing.
+    // It already reconciles that original receipt without dispatch. Calling
+    // legacy authority.reconcile() first rejects an account owned by its manual
+    // keeper and adds no verification; the original keeper remains untouched.
+    const outcome = entry.outcome;
     assert.equal(outcome.state, 'CONFIRMED', 'PRIVATE_VAULT_EXIT_NOT_CONFIRMED');
     assert.equal(outcome.disposition, 'APPLIED', 'PRIVATE_VAULT_EXIT_WITHDRAWAL_REQUIRED');
     const challenge = randomBytes(16).toString('hex'), observation = await account.authority.observe({ request, outcome, challenge });

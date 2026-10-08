@@ -151,6 +151,45 @@ test('original share EXIT becomes one manual public redemption with exact units 
   const audit = await w.service.originalReceipt(requestId); assert.equal(receipts.get(audit), w.vault);
 });
 
+test('manual keeper confirmed EXIT redeems using the original fresh terminal observation without legacy admission', async () => {
+  const w = await fixture();
+  let legacyCalls = 0, terminalObservations = 0;
+  w.account.authority.reconcile = async () => {
+    legacyCalls++; throw Error('FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
+  };
+  const originalOutcome = clone(w.entry.outcome), observe = w.account.authority.observe;
+  w.account.authority.observe = async input => {
+    assert.deepEqual(input.request, w.entry.request);
+    assert.deepEqual(input.outcome, originalOutcome);
+    terminalObservations++;
+    return observe(input);
+  };
+  assert.equal((await w.service.prepare(w.prepare)).phase, 'READY_TO_REDEEM');
+  assert.equal((await w.service.execute(requestId)).phase, 'REDEEMED');
+  assert.equal((await w.service.reconcile(requestId)).phase, 'REDEEMED');
+  assert.equal(legacyCalls, 0); assert.equal(terminalObservations, 3);
+  assert.equal(w.preparations, 1); assert.equal(w.sends, 1);
+  assert.ok(w.receiptChecks >= 3);
+});
+
+test('manual keeper cannot redeem a retained EXIT without fresh canonical original outcome and solvent backing', async () => {
+  for (const fault of ['STALE', 'OUTCOME_CHANGED', 'CANONICAL_CHANGED', 'DEFICIT']) {
+    const w = await fixture();
+    w.account.authority.reconcile = async () => { throw Error('FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED'); };
+    const observe = w.account.authority.observe;
+    w.account.authority.observe = async input => {
+      const observed = await observe(input);
+      if (fault === 'STALE') return { ...observed, status: 'STALE' };
+      if (fault === 'OUTCOME_CHANGED') throw Error('FLAT_ACCOUNT_OUTCOME_CHANGED');
+      if (fault === 'CANONICAL_CHANGED') return { ...observed, canonicalOutcomeBlockHash: h('changed-canonical') };
+      return { ...observed, backing: { held: '0', liabilities: '100', deficit: '100' } };
+    };
+    await assert.rejects(w.service.prepare(w.prepare));
+    assert.equal(w.preparations, 0); assert.equal(w.sends, 0);
+    assert.deepEqual((await w.service.snapshot()).operations, []);
+  }
+});
+
 test('duplicate prepare, execute, coordinator reopening and reconciliation keep one original action and send', async () => {
   const w = await fixture(); const original = await w.service.prepare(w.prepare);
   await w.service.prepare(w.prepare); await w.service.execute(requestId); await w.service.reopen();
