@@ -9,7 +9,7 @@ import { createPlatformPool } from '../src/database-pool.mjs';
 import { startPlatformServer } from '../src/server.mjs';
 import { startCommitReplyProxy } from './helpers/commit-reply-proxy.mjs';
 import { startTestPostgres, poolFor } from './helpers/postgres-container.mjs';
-import { MOBILE_AUTHORIZATION_PROFILE, mobileAuthorizationMessage } from '../../../packages/mobile-protocol/src/authorization.mjs';
+import { MOBILE_AUTHORIZATION_PROFILE, mobileAuthorizationMessage, mobileReceiptMessage } from '../../../packages/mobile-protocol/src/authorization.mjs';
 let createMobileApi;
 
 const enabled = process.env.LIANUM_TEST_POSTGRES_DOCKER === '1';
@@ -32,6 +32,13 @@ function signed(value, key = owner.privateKey) {
   const s = BigInt('0x' + bytes.subarray(32).toString('hex'));
   if (s > ORDER / 2n) Buffer.from((ORDER - s).toString(16).padStart(64, '0'), 'hex').copy(bytes, 32);
   return { challenge: value, signature: bytes.toString('hex') };
+}
+function receiptRequest(authorization) {
+  const review = { authorization, nonce: randomBytes(32).toString('hex'), expiresAt: Date.now() + 60_000 };
+  const bytes = sign('sha256', mobileReceiptMessage(review, { allowInsecureLocalhost: true }), { key: owner.privateKey, dsaEncoding: 'ieee-p1363' });
+  const s = BigInt('0x' + bytes.subarray(32).toString('hex'));
+  if (s > ORDER / 2n) Buffer.from((ORDER - s).toString(16).padStart(64, '0'), 'hex').copy(bytes, 32);
+  return { ...review, signature: bytes.toString('hex') };
 }
 async function startChild(connectionString) {
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
@@ -163,6 +170,32 @@ test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: 
     const refreshed = await processServer.api.challenge(owner.ownerPublicKey, original.intent);
     assert.deepEqual(await processServer.api.submit(signed(refreshed)), first);
     assert.equal(Number((await pool.query('SELECT count(*) FROM test_dispatches WHERE authorization_key=$1', [authorizationKey(original)])).rows[0].count), 1);
+  });
+
+  await t.test('mobile signed receipt query joins an expired consumed original without consuming or dispatching again', async () => {
+    // Controlled historical admission time; the real SQL rows and signatures
+    // are genuine. This creates no chain effect or claimed economic terminal.
+    const original = challenge({ origin: processServer.origin, expiresAt: Date.now() - 1 });
+    await store.put(original); const admitted = await store.consume(original, original.expiresAt - 1);
+    await store.finish(admitted.key, accepted(original));
+    const authorization = signed(original), query = receiptRequest(authorization);
+    const before = await pool.query(`SELECT
+      (SELECT count(*) FROM mobile_authorizations)::text AS authorizations,
+      (SELECT count(*) FROM mobile_challenges WHERE consumed)::text AS consumed,
+      (SELECT count(*) FROM test_dispatches)::text AS dispatches`);
+    const receipt = await processServer.api.receipt(query);
+    assert.deepEqual(receipt.authorization, accepted(original));
+    assert.equal(receipt.challengeId, original.challengeId); assert.equal(receipt.nonce, query.nonce);
+    assert.equal(receipt.action, original.intent.action);
+    assert.deepEqual(await processServer.api.receipt(query), receipt);
+    const after = await pool.query(`SELECT
+      (SELECT count(*) FROM mobile_authorizations)::text AS authorizations,
+      (SELECT count(*) FROM mobile_challenges WHERE consumed)::text AS consumed,
+      (SELECT count(*) FROM test_dispatches)::text AS dispatches`);
+    assert.deepEqual(after.rows, before.rows);
+    const substitute = signed({ ...original, nonce: randomBytes(32).toString('hex') });
+    await assert.rejects(processServer.api.receipt(receiptRequest(substitute)), /MOBILE_SERVICE_UNAVAILABLE/);
+    assert.deepEqual(await store.receipt(original), accepted(original));
   });
 
   await t.test('production Pool survives idle SQL connection loss with HTTP alive, then restores readiness without redispatch', async () => {

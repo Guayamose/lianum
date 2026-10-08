@@ -1,11 +1,22 @@
 import { normalizeMobileOrigin, normalizeMobileIntent, validateMobileChallenge,
   normalizeMobileAuthorization, MOBILE_ACTIONS } from '@lianum/mobile-protocol';
+import { normalizeMobileReceiptRequest, validateMobileReceiptReview,
+  MOBILE_AUTHORIZATION_RECEIPT_PROFILE } from '@lianum/mobile-protocol';
 
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const plain = value => value && Object.getPrototypeOf(value) === Object.prototype;
 const exact = (value, names) => plain(value) && Object.keys(value).length === names.length
   && names.every(name => Object.hasOwn(value, name));
+function outcome(value, requestId) {
+  if (!exact(value, ['status', 'requestId', 'operationState', 'retryAllowed'])
+    || value.requestId !== requestId || value.retryAllowed !== false
+    || !['ACCEPTED', 'UNKNOWN', 'REJECTED'].includes(value.status)
+    || value.operationState !== ({ ACCEPTED: 'ADMITTED', UNKNOWN: 'UNKNOWN', REJECTED: 'REJECTED' })[value.status]) {
+    fail('MOBILE_AUTHORIZATION_RESPONSE_INVALID');
+  }
+  return Object.freeze({ ...value });
+}
 export function normalizeMobileState(value) {
   if (!exact(value, ['version', 'connection', 'privatePortfolio', 'capabilities', 'notice'])
     || value.version !== 1 || !['DISCONNECTED', 'READY'].includes(value.connection)
@@ -60,17 +71,27 @@ export function createMobileApi({ origin, fetchImpl = globalThis.fetch, allowIns
       const requestId = authorization.challenge.intent.requestId;
       try {
         const response = await request('/v1/mobile/authorizations', authorization);
-        if (!exact(response, ['status', 'requestId', 'operationState', 'retryAllowed'])
-          || response.requestId !== requestId || response.retryAllowed !== false
-          || !['ACCEPTED', 'UNKNOWN', 'REJECTED'].includes(response.status)
-          || response.operationState !== ({ ACCEPTED: 'ADMITTED', UNKNOWN: 'UNKNOWN', REJECTED: 'REJECTED' })[response.status])
-          fail('MOBILE_AUTHORIZATION_RESPONSE_INVALID');
-        return Object.freeze({ ...response });
+        return outcome(response, requestId);
       } catch {
         // A dropped/invalid reply cannot establish that the action did not run.
         // Preserve its original requestId and never automatically repeat it.
         return Object.freeze({ status: 'UNKNOWN', requestId, operationState: 'UNKNOWN', retryAllowed: false });
       }
+    },
+    async receipt(raw) {
+      const query = normalizeMobileReceiptRequest(raw, options);
+      validateMobileReceiptReview({ authorization: query.authorization, nonce: query.nonce,
+        expiresAt: query.expiresAt }, { origin: server,
+        ownerPublicKey: query.authorization.challenge.ownerPublicKey, ...options });
+      const original = query.authorization.challenge;
+      const response = await request('/v1/mobile/authorization-receipts', query);
+      if (!exact(response, ['version', 'profile', 'nonce', 'challengeId', 'action', 'authorization'])
+        || response.version !== 1 || response.profile !== MOBILE_AUTHORIZATION_RECEIPT_PROFILE
+        || response.nonce !== query.nonce || response.challengeId !== original.challengeId
+        || response.action !== original.intent.action) fail('MOBILE_RECEIPT_RESPONSE_INVALID');
+      // Failure/missing evidence throws, so the existing outbox is preserved.
+      // An admission receipt can never establish an economic terminal state.
+      return Object.freeze({ ...response, authorization: outcome(response.authorization, original.intent.requestId) });
     },
   });
 }

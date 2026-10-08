@@ -78,6 +78,21 @@ export async function createPostgresAuthorizationStore(pool) {
       const result = await pool.query('UPDATE mobile_authorizations SET response=$2 WHERE authorization_key=$1 RETURNING authorization_key', [key, response]);
       if (result.rows.length !== 1) throw new Error('MOBILE_AUTHORIZATION_NOT_RETAINED');
     },
+    async receipt(challenge) {
+      const retained = await pool.query(`SELECT c.challenge,c.consumed,a.terms_hash,a.response
+        FROM mobile_authorizations a JOIN mobile_challenges c ON c.challenge_id=a.challenge_id
+        WHERE a.authorization_key=$1 AND a.challenge_id=$2`,
+        [authorizationKey(challenge), challenge.challengeId]);
+      const original = retained.rows[0];
+      if (retained.rows.length !== 1 || original.consumed !== true
+        || original.terms_hash !== operationTerms(challenge)
+        || digest(original.challenge) !== digest(challenge)) {
+        throw Object.assign(new Error('MOBILE_AUTHORIZATION_NOT_RETAINED'), { code: 'MOBILE_AUTHORIZATION_NOT_RETAINED' });
+      }
+      // Read only: expiry blocks new effects, not evidence of an already
+      // consumed original. No challenge, authorization or response is changed.
+      return original.response;
+    },
     async close() { await pool.end(); },
   });
 }

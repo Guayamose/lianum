@@ -9,9 +9,13 @@ export type MobileChallenge = Readonly<{
   challengeId: string; nonce: string; expiresAt: number; ownerPublicKey: string; intent: MobileIntent;
 }>;
 export type MobileAuthorization = Readonly<{ challenge: MobileChallenge; signature: string }>;
+export type MobileReceiptReview = Readonly<{ authorization: MobileAuthorization; nonce: string; expiresAt: number }>;
+export type MobileReceiptRequest = Readonly<MobileReceiptReview & { signature: string }>;
 export type OriginOptions = { allowInsecureLocalhost?: boolean };
 export const MOBILE_AUTHORIZATION_PROFILE: 'LIANUM_MOBILE_AUTHORIZATION_V1';
 export const MOBILE_CHALLENGE_TTL_MS: 300000;
+export const MOBILE_AUTHORIZATION_RECEIPT_PROFILE: 'LIANUM_MOBILE_AUTHORIZATION_RECEIPT_V1';
+export const MOBILE_RECEIPT_TTL_MS: 60000;
 export const MOBILE_CHAINS: readonly MobileChain[];
 export const MOBILE_ACTIONS: readonly MobileAction[];
 export function normalizeMobileOrigin(value: unknown, options?: OriginOptions): string;
@@ -20,3 +24,7 @@ export function normalizeMobileChallenge(value: unknown, options?: OriginOptions
 export function validateMobileChallenge(value: unknown, options: OriginOptions & { origin: string; ownerPublicKey: string; now?: number }): MobileChallenge;
 export function mobileAuthorizationMessage(value: MobileChallenge, options?: OriginOptions): Uint8Array;
 export function normalizeMobileAuthorization(value: unknown, options?: OriginOptions): MobileAuthorization;
+export function normalizeMobileReceiptReview(value: unknown, options?: OriginOptions): MobileReceiptReview;
+export function validateMobileReceiptReview(value: unknown, options: OriginOptions & { origin: string; ownerPublicKey: string; now?: number }): MobileReceiptReview;
+export function mobileReceiptMessage(value: MobileReceiptReview, options?: OriginOptions): Uint8Array;
+export function normalizeMobileReceiptRequest(value: unknown, options?: OriginOptions): MobileReceiptRequest;

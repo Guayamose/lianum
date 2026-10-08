@@ -14,8 +14,9 @@ integración pendiente, con validación de propietario, keeper y operaciones.
 | `src/server.mjs` | HTTP, esquema, desafío, firma, disponibilidad y entrada única |
 | `src/authorization-store.mjs` | Consumo y respuesta duraderos en PostgreSQL |
 | `src/run.mjs` | Arranque sin hooks económicos, pool acotado y cierre |
-| `src/database-pool.mjs` | Pool compartido que sobrevive a fallos de conexiones SQL idle |
+| `src/database-pool.mjs` | Pool con plazos de espera y errores de transporte propios acotados |
 | `tests/server.test.mjs` | Validación HTTP/criptográfica con persistencia de prueba |
+| `tests/database-pool.test.mjs` | Cliente pg real ante silencio y cierre TCP controlados |
 | `tests/postgres.test.mjs` | PostgreSQL real, carreras, reinicios y cliente móvil real |
 | `tests/helpers/platform-child.mjs` | Proceso HTTP de integración con contador SQL, sin efectos de cadena |
 | `Dockerfile` | Runtime público Node/pg; usuario sin privilegios |
@@ -73,6 +74,8 @@ opción de compilación de desarrollo explícita documentada en `apps/mobile`.
 - `POST /v1/mobile/challenges`: `{ownerPublicKey,intent}`; responde `{challenge}`.
 - `POST /v1/mobile/authorizations`: `{challenge,signature}`; responde estado de
   admisión con el `requestId` original y `retryAllowed:false`.
+- `POST /v1/mobile/authorization-receipts`: consulta firmada del permiso original;
+  lee su admisión conservada, sin consumir ni ejecutar una operación.
 
 Los esquemas exactos y bytes firmados viven en `packages/mobile-protocol`.
 El desafío dura 60 segundos, une origen, propietario, nonce y términos y debe
@@ -84,6 +87,14 @@ el cierre a 10 segundos. El cuerpo admite como máximo
 8192 bytes, JSON UTF8 válido, campos exactos, sin redirecciones de custodia.
 Las respuestas no incluyen fallos internos ni payloads de base de datos.
 
+PostgreSQL limita las sentencias a 5 segundos y el cliente pg limita también su
+espera a 5 segundos ante una conexión establecida que deja de responder. Se
+descarta una conexión con transacción incierta. Perder la respuesta de COMMIT
+no demuestra rollback: puede haber quedado consumido con UNKNOWN duradero,
+sin dispatch ni reenvío. Los listeners pertenecen al Pool y a sus clientes;
+una conexión rota, idle o prestada para una transacción, rechaza las consultas
+sin provocar un error de EventEmitter sin gestionar en el proceso HTTP.
+
 El consumo se confirma **antes** de llamar al adaptador. La clave única es
 propietario + `requestId` + acción. Los términos de la operación original se
 mantienen para prepare/execute/reconcile/recover. JSONB puede reordenar claves:
@@ -92,6 +103,15 @@ Si una respuesta se pierde, el proceso muere o falla guardar la respuesta
 final, queda UNKNOWN duradero y el mismo permiso no vuelve a disparar el
 adaptador. No se promete exactly-once de un efecto externo: resolver UNKNOWN
 necesita observación del keeper/cadena y recuperación económica real pendiente.
+
+La consulta de recibo conserva el challenge y firma originales y añade nonce,
+caducidad de hasta 60 segundos y firma en un dominio distinto. Verifica ambas
+firmas y el alcance exacto antes de un SELECT del registro consumido. Permite
+leer un original después de su caducidad; la autorización de efectos sigue
+caducada. No modifica desafíos ni respuestas y no depende del executor, por lo
+que puede leer con `/health/ready` en 503 por adaptador ausente. SQL no disponible
+devuelve 503 y un original no conservado devuelve 404. Ninguna de esas respuestas
+resuelve el estado económico ni habilita repetir la acción original.
 
 ## Comprobaciones reproducibles
 
@@ -103,15 +123,19 @@ necesita observación del keeper/cadena y recuperación económica real pendient
 ./dev npm --prefix apps/platform run test:docker
 ```
 
-`test` ejecuta 11 pruebas host y omite explícitamente el grupo SQL real.
+`test` ejecuta 17 pruebas host y omite explícitamente el grupo SQL real.
 `test:postgres` crea PostgreSQL 17 oficial por digest, con 256 MiB, puerto
-loopback aleatorio y volumen exclusivo. Ejecuta 7 casos y su grupo (8 PASS):
+loopback aleatorio y volumen exclusivo. Ejecuta 9 casos y su grupo (10 PASS):
 JSONB, carreras de mismo/nuevo desafío, separación propietario/acción,
 términos inmutables, reinicio real de PostgreSQL/proceso HTTP y crashes antes y
 después de un contador de efecto SQL. También mantiene el proceso HTTP y su Pool de producción vivos
 al detener/arrancar SQL: observa el error idle real, readiness 503 durante caída
 y recuperación sin segundo dispatch. No usa una base existente. Limpia sólo
 su contenedor etiquetado y su volumen; el adaptador es un contador de prueba.
+Una prueba retiene los bytes de respuesta de un COMMIT real: comprueba el plazo
+del cliente, UNKNOWN conservado y ausencia de dispatch. Otra consulta un permiso
+caducado mediante la API y el cliente móvil reales, y demuestra que desafíos,
+consumos y contador de efecto SQL no cambian.
 
 `test:docker` comprueba la imagen ya construida, usuario 1000, esquema SQL real,
 liveness 200, readiness 503 y ausencia de balances inventados. Limpia sólo sus

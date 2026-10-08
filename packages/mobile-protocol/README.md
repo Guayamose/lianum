@@ -64,6 +64,39 @@ La respuesta exacta contiene `{ status, requestId, operationState, retryAllowed 
 `retryAllowed` siempre es `false`. No hay reenvíos automáticos ni deducciones de
 saldo a partir de esas respuestas. La clave privada nunca pertenece al contrato.
 
+## Consulta del permiso original
+
+`POST /v1/mobile/authorization-receipts` recibe exactamente:
+
+```js
+{
+  authorization: { challenge, signature }, // Permiso original, conservado sin cambios
+  nonce,                                  // 32 bytes aleatorios hex lowercase
+  expiresAt,                              // Unix milliseconds: máximo 60000 ms
+  signature                               // Firma nueva de la consulta
+}
+```
+
+`mobileReceiptMessage()` normaliza `{authorization,nonce,expiresAt}` y devuelve
+los bytes de `LIANUM_MOBILE_AUTHORIZATION_RECEIPT_V1 + '\n' + JSON.stringify(review)`.
+Se firman con el mismo SHA256/secp256k1/IEEE-P1363/lowS. El nonce debe ser distinto
+del nonce y challengeId originales. El servidor verifica ambas firmas, el origen
+y propietario originales y la caducidad de esta consulta nueva.
+
+La consulta admite un permiso original caducado **sólo para leer** una respuesta
+ya conservada. Debe coincidir con el desafío consumido, propietario, requestId,
+acción y términos originales. No crea ni consume desafíos, no llama al adaptador
+y no permite ejecutar una autorización caducada. Puede funcionar con el
+adaptador económico desconectado si PostgreSQL está disponible.
+
+La respuesta exacta es
+`{version:1,profile,nonce,challengeId,action,authorization}`. `profile` es el dominio
+de consulta y `authorization` contiene la respuesta de admisión original de la
+tabla anterior. No contiene un saldo ni un resultado económico. Un 404, una
+caída de red o un timeout no acreditan rechazo ni ausencia de efectos: el cliente
+conserva la operación pendiente. Repetir una consulta válida sólo vuelve a leer;
+el cliente exige consentimiento nuevo y no inicia consultas automáticas.
+
 `GET /v1/mobile/state` sólo publica disponibilidad y capacidades. Su versión
 actual exige `privatePortfolio: null`; un futuro estado privado autenticado
 necesitará ampliar el contrato y sus verificaciones.

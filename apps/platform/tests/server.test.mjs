@@ -5,7 +5,7 @@ import {connect} from 'node:net';
 import {once} from 'node:events';
 import {startPlatformServer} from '../src/server.mjs';
 import {authorizationKey,operationTerms} from '../src/authorization-store.mjs';
-import {mobileAuthorizationMessage} from '../../../packages/mobile-protocol/src/authorization.mjs';
+import {mobileAuthorizationMessage,mobileReceiptMessage,MOBILE_AUTHORIZATION_RECEIPT_PROFILE} from '../../../packages/mobile-protocol/src/authorization.mjs';
 const ORDER=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 const origin='https://wallet.example.test';
 const keys=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),jwk=keys.publicKey.export({format:'jwk'});
@@ -16,14 +16,28 @@ function signed(challenge) {
   const s=BigInt('0x'+raw.subarray(32).toString('hex'));if(s>ORDER/2n)Buffer.from((ORDER-s).toString(16).padStart(64,'0'),'hex').copy(raw,32);
   return {challenge,signature:raw.toString('hex')};
 }
+function receiptRequest(authorization, now = Date.now()) {
+  const review = { authorization, nonce: randomBytes(32).toString('hex'), expiresAt: now + 60_000 };
+  const raw = sign('sha256', mobileReceiptMessage(review), { key: keys.privateKey, dsaEncoding: 'ieee-p1363' });
+  const s = BigInt('0x' + raw.subarray(32).toString('hex'));
+  if (s > ORDER / 2n) Buffer.from((ORDER - s).toString(16).padStart(64, '0'), 'hex').copy(raw, 32);
+  return { ...review, signature: raw.toString('hex') };
+}
 // Explicit test double for intake sequencing only. PostgreSQL durability and
 // contention are exercised separately by postgres.test.mjs in a real server.
 function store() {
-  const challenges=new Map(),records=new Map();
+  const challenges=new Map(),records=new Map(),originals=new Map();
   return {ready:async()=>true,put:async value=>challenges.set(value.challengeId,value),
     async consume(value){const key=authorizationKey(value);if(records.has(key))return {duplicate:true,response:records.get(key)};
       assert.deepEqual(challenges.get(value.challengeId),value);const response={status:'UNKNOWN',requestId:value.intent.requestId,operationState:'UNKNOWN',retryAllowed:false};
-      records.set(key,response);return {duplicate:false,key,response};},finish:async(key,value)=>records.set(key,value)};
+      records.set(key,response);originals.set(key,value);return {duplicate:false,key,response};},finish:async(key,value)=>records.set(key,value),
+    async receipt(value) {
+      const key = authorizationKey(value);
+      if (!originals.has(key) || JSON.stringify(originals.get(key)) !== JSON.stringify(value))
+        throw Object.assign(new Error('MOBILE_AUTHORIZATION_NOT_RETAINED'), { code: 'MOBILE_AUTHORIZATION_NOT_RETAINED' });
+      return structuredClone(records.get(key));
+    },
+  };
 }
 async function fixture(t,executor=null,persistence=store(),options={}) {
   const app=await startPlatformServer({origin,store:persistence,executor,...options});t.after(()=>app.close());
@@ -120,4 +134,64 @@ test('shutdown closes an unfinished request within its drain deadline',async t=>
   while(!reached)await new Promise(resolve=>setImmediate(resolve));
   const started=Date.now();await app.close();await disconnected;
   assert.ok(Date.now()-started<1000);assert.equal(effects,0);
+});
+
+test('fresh signed receipt query reads an expired consumed original with the economic adapter absent', async t => {
+  let clock = 1_000_000, effects = 0;
+  const persistence = store();
+  const first = await fixture(t, { capabilities: { execute: true }, submit: async () => { effects++; return { admitted: true }; } }, persistence, { now: () => clock });
+  const challenge = (await first.call('/v1/mobile/challenges', { ownerPublicKey, intent: { ...intent, action: 'execute' } })).body.challenge;
+  const authorization = signed(challenge);
+  const admitted = (await first.call('/v1/mobile/authorizations', authorization)).body;
+  clock += 60_001;
+  assert.equal((await first.call('/v1/mobile/authorizations', authorization)).status, 400);
+  for (const name of ['put', 'consume', 'finish']) persistence[name] = async () => { throw Error('READ_ONLY_RECEIPT_VIOLATION'); };
+  const reader = await fixture(t, null, persistence, { now: () => clock });
+  assert.equal((await reader.call('/health/ready')).status, 503);
+  const request = receiptRequest(authorization, clock);
+  const observed = await reader.call('/v1/mobile/authorization-receipts', request);
+  assert.deepEqual(observed, { status: 200, body: { version: 1, profile: MOBILE_AUTHORIZATION_RECEIPT_PROFILE,
+    nonce: request.nonce, challengeId: challenge.challengeId, action: 'execute', authorization: admitted } });
+  assert.deepEqual(await reader.call('/v1/mobile/authorization-receipts', request), observed);
+  assert.equal(effects, 1);
+});
+
+test('receipt permission cannot dispatch, replace an original, cross domains or open an expired authorization', async t => {
+  let clock = 1_000_000, effects = 0;
+  const { call } = await fixture(t, { capabilities: { prepare: true }, submit: async () => { effects++; throw Error('LOST_REPLY'); } }, store(), { now: () => clock });
+  const challenge = (await call('/v1/mobile/challenges', { ownerPublicKey, intent })).body.challenge;
+  const authorization = signed(challenge);
+  const original = (await call('/v1/mobile/authorizations', authorization)).body;
+  clock += 60_001;
+  const request = receiptRequest(authorization, clock);
+  assert.deepEqual((await call('/v1/mobile/authorization-receipts', request)).body.authorization, original);
+  for (const mutate of [value => { value.nonce = 'f'.repeat(64); }, value => { value.authorization.signature = value.signature; },
+    value => { value.signature = value.authorization.signature; }, value => { value.expiresAt = clock; },
+    value => { value.expiresAt = clock + 60_001; }, value => { value.privateKey = 'FORBIDDEN'; }]) {
+    const changed = structuredClone(request); mutate(changed);
+    assert.ok((await call('/v1/mobile/authorization-receipts', changed)).status >= 400);
+  }
+  const different = signed({ ...challenge, challengeId: 'e'.repeat(64), nonce: 'd'.repeat(64) });
+  assert.equal((await call('/v1/mobile/authorization-receipts', receiptRequest(different, clock))).status, 404);
+  const neverConsumed = signed({ ...challenge, intent: { ...intent, requestId: 'original_unconsumed_001' } });
+  assert.equal((await call('/v1/mobile/authorization-receipts', receiptRequest(neverConsumed, clock))).status, 404);
+  assert.equal((await call('/v1/mobile/authorizations', request)).status, 400);
+  assert.equal((await call('/v1/mobile/authorizations', authorization)).status, 400);
+  assert.equal(effects, 1);
+});
+
+test('receipt reads fail closed on unavailable SQL without invoking economic or mutation methods', async t => {
+  const persistence = store();
+  let reads = 0;
+  persistence.receipt = async () => { reads++; throw Error('Unexpected read'); };
+  for (const name of ['put', 'consume', 'finish']) persistence[name] = async () => { throw Error('READ_ONLY_RECEIPT_VIOLATION'); };
+  const { call } = await fixture(t, null, persistence);
+  const authorization = signed({ version: 1, profile: 'LIANUM_MOBILE_AUTHORIZATION_V1', origin,
+    challengeId: 'a'.repeat(64), nonce: 'b'.repeat(64), expiresAt: Date.now() - 1, ownerPublicKey, intent });
+  for (const ready of [async () => false, async () => { throw Error('SQL transport details'); }]) {
+    persistence.ready = ready;
+    assert.deepEqual(await call('/v1/mobile/authorization-receipts', receiptRequest(authorization)),
+      { status: 503, body: { error: 'MOBILE_PERSISTENCE_UNAVAILABLE' } });
+    assert.equal(reads, 0);
+  }
 });

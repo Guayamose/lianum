@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MOBILE_AUTHORIZATION_PROFILE } from '@lianum/mobile-protocol';
+import { MOBILE_AUTHORIZATION_PROFILE, MOBILE_AUTHORIZATION_RECEIPT_PROFILE, mobileReceiptMessage } from '@lianum/mobile-protocol';
 import { createMobileApi, normalizeMobileState } from '../src/api/wallet-api.mjs';
 import { privateKeyFromHex, devicePublicKey, signDeviceMessage } from '../src/custody/signing.mjs';
 import { mobileAuthorizationMessage } from '@lianum/mobile-protocol';
@@ -69,5 +69,33 @@ test('substituted challenges, foreign replies and synthetic private balances fai
     Object.defineProperty(reply(disconnected()), 'redirected', { value: true })]) {
     const api = createMobileApi({ origin, async fetchImpl() { return response; } });
     await assert.rejects(api.state());
+  }
+});
+
+test('receipt client reads only the original permission after expiry and validates its fresh query binding', async () => {
+  const expired = { ...challenge(), expiresAt: Date.now() - 1 };
+  const authorization = { challenge: expired, signature: signDeviceMessage(key, mobileAuthorizationMessage(expired)) };
+  const review = { authorization, nonce: 'e'.repeat(64), expiresAt: Date.now() + 60_000 };
+  const request = { ...review, signature: signDeviceMessage(key, mobileReceiptMessage(review)) };
+  const receipt = { version: 1, profile: MOBILE_AUTHORIZATION_RECEIPT_PROFILE, nonce: review.nonce,
+    challengeId: expired.challengeId, action: intent.action,
+    authorization: { status: 'ACCEPTED', requestId: intent.requestId, operationState: 'ADMITTED', retryAllowed: false } };
+  const calls = [];
+  const api = createMobileApi({ origin, async fetchImpl(url, options) { calls.push({ url, options }); return reply(receipt); } });
+  assert.deepEqual(await api.receipt(request), receipt);
+  assert.deepEqual(calls.map(call => call.url), [origin + '/v1/mobile/authorization-receipts']);
+  assert.deepEqual(JSON.parse(calls[0].options.body), request);
+  assert.equal(JSON.stringify(calls).includes(secretHex), false);
+  for (const mutate of [value => { value.nonce = 'f'.repeat(64); }, value => { value.challengeId = 'f'.repeat(64); },
+    value => { value.action = 'recover'; }, value => { value.authorization.operationState = 'CONFIRMED'; },
+    value => { value.authorization.retryAllowed = true; }]) {
+    const changed = structuredClone(receipt); mutate(changed);
+    const wrong = createMobileApi({ origin, async fetchImpl() { return reply(changed); } });
+    await assert.rejects(wrong.receipt(request));
+  }
+  for (const status of [404, 503]) {
+    let count = 0;
+    const missing = createMobileApi({ origin, async fetchImpl() { count++; return reply({ error: 'NO_ORIGINAL' }, status); } });
+    await assert.rejects(missing.receipt(request), /SERVICE_UNAVAILABLE/); assert.equal(count, 1);
   }
 });

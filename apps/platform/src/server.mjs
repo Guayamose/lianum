@@ -4,7 +4,8 @@ import { createServer } from 'node:http';
 import { randomBytes, createPublicKey, verify } from 'node:crypto';
 import { normalizeMobileIntent, normalizeMobileChallenge, normalizeMobileOrigin,
   normalizeMobileAuthorization, mobileAuthorizationMessage, validateMobileChallenge,
-  MOBILE_AUTHORIZATION_PROFILE } from '../../../packages/mobile-protocol/src/authorization.mjs';
+  normalizeMobileReceiptRequest, validateMobileReceiptReview, mobileReceiptMessage,
+  MOBILE_AUTHORIZATION_PROFILE, MOBILE_AUTHORIZATION_RECEIPT_PROFILE } from '../../../packages/mobile-protocol/src/authorization.mjs';
 const hex = () => randomBytes(32).toString('hex');
 function publicKey(value) {
   return createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',
@@ -46,8 +47,29 @@ export async function startPlatformServer({origin,store=null,executor=null,port=
           capabilities:available?capacities:Object.fromEntries(Object.keys(capacities).map(key=>[key,false])),
           notice:available?'Las operaciones requieren autorización y validación del backend.':'El backend de operaciones todavía no está vinculado.'});
       }
-      if(request.method!=='POST' || !['/v1/mobile/challenges','/v1/mobile/authorizations'].includes(request.url)) return send(404,{error:'MOBILE_ROUTE_NOT_FOUND'});
+      if(request.method!=='POST' || !['/v1/mobile/challenges','/v1/mobile/authorizations','/v1/mobile/authorization-receipts'].includes(request.url)) return send(404,{error:'MOBILE_ROUTE_NOT_FOUND'});
       if(request.headers.origin!==undefined && request.headers.origin!==origin) return send(403,{error:'MOBILE_ORIGIN_BINDING'});
+      if (request.url === '/v1/mobile/authorization-receipts') {
+        // Receipt lookup is available independently of economic capabilities.
+        // This route never calls consume(), finish() or executor.submit().
+        if (!store) return send(503, { error: 'MOBILE_PERSISTENCE_UNAVAILABLE' });
+        if (await persist(() => store.ready()) !== true) return send(503, { error: 'MOBILE_PERSISTENCE_UNAVAILABLE' });
+        const query = normalizeMobileReceiptRequest(await body(request), { allowInsecureLocalhost });
+        const review = validateMobileReceiptReview({ authorization: query.authorization,
+          nonce: query.nonce, expiresAt: query.expiresAt }, { origin,
+          ownerPublicKey: query.authorization.challenge.ownerPublicKey, now: now(), allowInsecureLocalhost });
+        const key = publicKey(review.authorization.challenge.ownerPublicKey);
+        const valid = (message, signature) => verify('sha256', message,
+          { key, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'hex'));
+        if (!valid(mobileAuthorizationMessage(review.authorization.challenge, { allowInsecureLocalhost }), review.authorization.signature)
+          || !valid(mobileReceiptMessage(review, { allowInsecureLocalhost }), query.signature)) {
+          return send(403, { error: 'MOBILE_SIGNATURE_INVALID' });
+        }
+        const authorization = await persist(() => store.receipt(review.authorization.challenge));
+        return send(200, { version: 1, profile: MOBILE_AUTHORIZATION_RECEIPT_PROFILE,
+          nonce: review.nonce, challengeId: review.authorization.challenge.challengeId,
+          action: review.authorization.challenge.intent.action, authorization });
+      }
       if(!await ready())return send(503,{error:'MOBILE_BACKEND_UNAVAILABLE'});
       const input=await body(request);
       if(request.url==='/v1/mobile/challenges') {
@@ -83,7 +105,8 @@ export async function startPlatformServer({origin,store=null,executor=null,port=
       return send(200,result);
     } catch(error) {
       const code=/^MOBILE_[A-Z_]{1,60}$/.test(error?.code??'')?error.code:'MOBILE_REQUEST_REJECTED';
-      return send(code==='MOBILE_OPERATION_CONFLICT'?409:code==='MOBILE_PERSISTENCE_UNAVAILABLE'?503:400,{error:code});
+      return send(code==='MOBILE_OPERATION_CONFLICT'?409:code==='MOBILE_PERSISTENCE_UNAVAILABLE'?503:
+        code==='MOBILE_AUTHORIZATION_NOT_RETAINED'?404:400,{error:code});
     }
   });
   server.requestTimeout=15_000;server.headersTimeout=10_000;server.maxHeadersCount=32;

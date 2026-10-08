@@ -3,6 +3,8 @@
  * consume the original challenge durably and enforce the operation's scope. */
 export const MOBILE_AUTHORIZATION_PROFILE = 'LIANUM_MOBILE_AUTHORIZATION_V1';
 export const MOBILE_CHALLENGE_TTL_MS = 300_000;
+export const MOBILE_AUTHORIZATION_RECEIPT_PROFILE = 'LIANUM_MOBILE_AUTHORIZATION_RECEIPT_V1';
+export const MOBILE_RECEIPT_TTL_MS = 60_000;
 export const MOBILE_CHAINS = Object.freeze(['ethereum', 'base', 'arbitrum', 'bnb', 'solana', 'bitcoin', 'tron']);
 export const MOBILE_ACTIONS = Object.freeze(['prepare', 'execute', 'reconcile', 'recover']);
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -80,9 +82,43 @@ export function mobileAuthorizationMessage(raw, options = {}) {
 export function normalizeMobileAuthorization(raw, options = {}) {
   const authorization = record(raw, ['challenge', 'signature']);
   authorization.challenge = normalizeMobileChallenge(authorization.challenge, options);
-  need(match(authorization.signature, /^[0-9a-f]{128}$/), 'MOBILE_SIGNATURE_ENCODING');
-  const r = BigInt('0x' + authorization.signature.slice(0, 64));
-  const s = BigInt('0x' + authorization.signature.slice(64));
-  need(r > 0n && r < ORDER && s > 0n && s <= ORDER / 2n, 'MOBILE_SIGNATURE_NONCANONICAL');
+  authorization.signature = normalizeSignature(authorization.signature);
   return freeze(authorization);
+}
+function normalizeSignature(value) {
+  need(match(value, /^[0-9a-f]{128}$/), 'MOBILE_SIGNATURE_ENCODING');
+  const r = BigInt('0x' + value.slice(0, 64));
+  const s = BigInt('0x' + value.slice(64));
+  need(r > 0n && r < ORDER && s > 0n && s <= ORDER / 2n, 'MOBILE_SIGNATURE_NONCANONICAL');
+  return value;
+}
+/** Fresh permission to read one original admission receipt. An expired original
+ * authorization is retained verbatim; this framing cannot authorize an effect. */
+export function normalizeMobileReceiptReview(raw, options = {}) {
+  const review = record(raw, ['authorization', 'nonce', 'expiresAt']);
+  review.authorization = normalizeMobileAuthorization(review.authorization, options);
+  need(match(review.nonce, /^[0-9a-f]{64}$/), 'MOBILE_RECEIPT_NONCE_INVALID');
+  need(review.nonce !== review.authorization.challenge.nonce
+    && review.nonce !== review.authorization.challenge.challengeId, 'MOBILE_RECEIPT_NONCE_INVALID');
+  need(Number.isSafeInteger(review.expiresAt) && review.expiresAt > 0, 'MOBILE_RECEIPT_EXPIRY_INVALID');
+  return freeze(review);
+}
+export function validateMobileReceiptReview(raw, { origin, ownerPublicKey, now = Date.now(), ...options }) {
+  const review = normalizeMobileReceiptReview(raw, options);
+  need(review.authorization.challenge.origin === normalizeMobileOrigin(origin, options), 'MOBILE_ORIGIN_BINDING');
+  need(review.authorization.challenge.ownerPublicKey === ownerPublicKey, 'MOBILE_OWNER_BINDING');
+  need(Number.isSafeInteger(now) && review.expiresAt > now
+    && review.expiresAt <= now + MOBILE_RECEIPT_TTL_MS, 'MOBILE_RECEIPT_EXPIRED');
+  return review;
+}
+export function mobileReceiptMessage(raw, options = {}) {
+  const review = normalizeMobileReceiptReview(raw, options);
+  const text = MOBILE_AUTHORIZATION_RECEIPT_PROFILE + '\n' + JSON.stringify(review);
+  return Uint8Array.from(text, character => character.charCodeAt(0));
+}
+export function normalizeMobileReceiptRequest(raw, options = {}) {
+  const request = record(raw, ['authorization', 'nonce', 'expiresAt', 'signature']);
+  const review = normalizeMobileReceiptReview({ authorization: request.authorization,
+    nonce: request.nonce, expiresAt: request.expiresAt }, options);
+  return freeze({ ...review, signature: normalizeSignature(request.signature) });
 }
