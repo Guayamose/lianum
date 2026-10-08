@@ -57,8 +57,24 @@ export async function createManualWalletDomDriver(app, { page, deadlineMs }) {
     return input === undefined ? module[name]() : module[name](input);
   }, { name, input }));
   const requireHealthy = () => assert.deepEqual(failures, [], 'BROWSER_PAGE_OR_STATE_FAILED');
+  // The production module starts one read on load. DOMContentLoaded and a
+  // visible button do not mean its original catalogue read has finished.
+  // Retain that response before navigating, then wait for its final render
+  // before handing control back to local owner preparation.
+  const initialRead = page.waitForResponse(response => response.url() === app.origin + '/api/wallet/state'
+    && response.request().method() === 'GET', { timeout: timeout() });
+  // Navigation can fail before this retained response settles; close will
+  // then reject it. Keep that rejection handled without replacing its value.
+  initialRead.catch(() => {});
   await page.goto(app.origin, { waitUntil: 'domcontentloaded', timeout: timeout() });
   await page.locator('#refresh').waitFor({ state: 'visible', timeout: timeout() });
+  const initialResponse = await initialRead;
+  assert.equal(initialResponse.status(), 200);
+  validateWalletState(await initialResponse.json());
+  await page.waitForFunction(() => document.getElementById('refresh')?.disabled === false
+    && document.getElementById('updated-at')?.textContent.startsWith('Última consulta: '),
+    null, { timeout: timeout() });
+  requireHealthy();
   async function state() {
     remaining(); requireHealthy();
     await page.waitForFunction(() => document.getElementById('refresh')?.disabled === false,

@@ -43,6 +43,7 @@ jobs:
           tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs
           tests/integration/wallet/manual/manual-wallet-recovery-policy.test.mjs
           tests/integration/wallet/manual/manual-wallet-browser-policy.test.mjs
+          tests/integration/wallet/manual/manual-wallet-dom-startup.test.mjs
           tests/integration/wallet/manual/wallet-browser-process-observation.test.mjs
           tests/integration/defi/private-metamorpho-flow-policy.test.mjs
           tests/integration/defi/private-metamorpho-proof-evidence.test.mjs
