@@ -268,7 +268,23 @@ try {
       'apps/mobile/src/custody/key-store.ts','apps/mobile/src/custody/signing.mjs',
       'apps/mobile/src/custody/original-account-lease-v2.mjs','apps/mobile/src/api/original-account-api-v2.mjs',
       'packages/mobile-protocol/src/original-account-review-v2.mjs',
-      'packages/mobile-protocol/src/original-account-private-state-v1.mjs'];
+      'packages/mobile-protocol/src/original-account-private-state-v1.mjs',
+      // The packaged financial route must contain these exact current sources.
+      'apps/mobile/src/screens/DeviceDepositScreen.tsx',
+      'apps/mobile/src/api/device-owner-deposit-api-v1.ts',
+      'apps/mobile/src/api/device-owner-reservation-api-v1.ts',
+      'apps/mobile/src/api/device-owner-execution-api-v1.ts',
+      'apps/mobile/src/api/device-owner-exit-api-v1.ts',
+      'apps/mobile/src/api/device-owner-output-balance-api-v1.ts',
+      'apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs',
+      'apps/mobile/src/custody/device-balance-withdrawal-codec-v1.mjs',
+      'apps/mobile/src/custody/owner-commitment-codec-v1.mjs',
+      'apps/mobile/src/custody/poseidon2-bn254-v1.mjs',
+      'packages/mobile-protocol/src/device-deposit-consent-v1.mjs',
+      'packages/mobile-protocol/src/device-reservation-consent-v1.mjs',
+      'packages/mobile-protocol/src/device-execution-consent-v1.mjs',
+      'packages/mobile-protocol/src/device-exit-consent-v1.mjs',
+      'packages/mobile-protocol/src/device-output-balance-v1.mjs'];
     report.embeddedSourceJoins=required.map(path=>{
       const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length):path;
       const matches=sourceMap.sources.map((name,index)=>({name:name.replaceAll('\\','/'),index}))
