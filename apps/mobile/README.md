@@ -105,8 +105,46 @@ cuando existe el runtime; una prueba activa bloquea la compilación. No ejecuta
 pueden abrir otra sesión: sólo se incorporan tras comprobar padre, PID, inicio
 y UID; las señales individuales vuelven a comprobar esa identidad. El APK resultante estará en
 `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` y necesita Metro,
-por ser una compilación de desarrollo. Aún falta completar este build y probar
-el binario y la biometría en dispositivos; no es una entrega firmada de release.
+por ser una compilación de desarrollo.
+
+El build del commit `141b0ef54a78dfe8f32818c51067bf761ff3cb4c` pasó en 6 min 19 s,
+con 308 tareas Gradle. Se conserva el APK verificado en:
+
+```text
+.local/mobile/artifacts/android-debug-bdfa2078-166b-45bf-8d43-d175536cb173/lianum-wallet-debug.apk
+```
+
+Su tamaño es **102 729 139 bytes** y su SHA-256:
+
+```text
+dc5645cc9a989784a2bf8fe3ced1cdaaae2e2ff29d5b3d61a4de109ebdb3f71e
+```
+
+`aapt2` confirma `org.lianum.wallet`, versión `0.1.0`, SDK mínimo 24, objetivo 36,
+ABI `arm64-v8a` y `x86_64`, `debuggable=true` y `allowBackup=false`.
+`apksigner verify` acepta la firma APK v2 con certificado **Android Debug**.
+El APK carga el código de la aplicación mediante Metro. La variante debug
+incluye transporte claro para desarrollo; el cliente sigue exigiendo HTTPS
+salvo la excepción local explícita descrita más abajo.
+
+Las capturas antes y después coinciden en las **35 fuentes fijadas** y en el
+Node 24.19.0, JDK principal y SDK. El build usó JDK Ubuntu 21.0.12.1 y un worker
+Temurin 17.0.20.1 resuelto en la caché Gradle propia; también se conservaron
+versiones y hashes de ambos binarios Java. El pico RSS total fue
+**3 069 050 880 bytes**, dentro del límite de 3 GiB; quedaron al menos
+14 077 702 144 bytes de RAM disponibles. Los procesos propios cerraron,
+el lock se retiró y no fue necesario enviar señales.
+
+Los cuatro `build.ninja` de app y Expo Modules Core, en ambas ABI, asignan sus
+130 tareas de compilación/enlace al pool compartido de tamaño uno. Los probes
+temporales LTO de CMake 3.22 no heredan ese pool; no se ha medido su concurrencia.
+Todos sus procesos siguen dentro del mismo guard de memoria.
+
+Los logs, manifiesto, firma, capturas y archivos Ninja originales están en
+`.internal/dev/reports/mobile-android-debug-attempt-bdfa2078-166b-45bf-8d43-d175536cb173/`.
+El primer intento rechazado por memoria también permanece conservado.
+La instalación y la biometría física se comprobarán al final, por indicación
+del usuario. Esta entrega conserva su firma debug y no se ha publicado como release.
 
 El límite usa los argumentos CMake
 [`CMAKE_JOB_POOLS`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOLS.html),

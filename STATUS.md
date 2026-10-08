@@ -14,7 +14,7 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada desde el DOM con siete pruebas, además del perfil SDK/HTTP. | Conexión a móvil y recuperación tras pérdida de keeper/nodo. |
 | 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados; retirada privada Bitcoin completada dentro del ensayo conjunto rechazado con siete pruebas. Nuevo recorrido CBTC → entrega SOL preparado sobre el mismo núcleo. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada de payout Solana, aceptar ocho pruebas y el recorrido combinado; finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
 | 5. DeFi | Protocolos oficiales Uniswap V3 y MetaMorpho; nota privada, EXIT y redención MetaMorpho aceptados. El nuevo recorrido de entrada privada y salida por ambos protocolos pasa con cuatro D27/W39 genuinas, incluido reinicio y respuesta de redención perdida sin duplicación. | Integrar PAEG/grafo y posiciones; pérdida de keeper/nodo, Aave/Morpho/Jupiter y composición entre redes. |
-| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, APK y aceptación física, recuperación móvil y operación de producción. |
+| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. APK Android debug construido y verificado. | Bridge a cuentas/keeper y workers, saldo privado real, aceptación física al final, recuperación móvil y operación de producción. |
 
 Los pasos 1 y 2 tienen sus cambios implementados y comprobados. Los pasos 3–6
 incluyen avances reales, pero no están cerrados como producto. Google Cloud se
@@ -43,9 +43,12 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 
 ## Evidencia y límites
 
-La selección habitual pasa con 244 resultados. Una copia con sólo fuentes
-versionadas y dependencias públicas pasa además 125 regresiones seleccionadas de
-DeFi, redes, navegador, HTTP y procesos de pruebas. La API pasa 22 casos host
+La selección habitual pasa con 244 resultados. La CI de una copia con sólo fuentes
+versionadas y dependencias públicas pasó 404 pruebas en 46 archivos sobre
+`141b0ef`, incluyendo esa selección y regresiones de DeFi, redes, navegador,
+HTTP, Osaka, recuperación F y procesos de pruebas. Reconstrucción, originales
+versionados y las cinco suites Python también pasaron; no se copió restauración
+privada ni se ejecutaron cadenas nativas en esa CI. La API pasa 22 casos host
 y 19 resultados con PostgreSQL real: carreras, JSONB, reinicio, respuesta
 perdida, crash, caída de SQL y migraciones concurrentes o interrumpidas.
 El adaptador de esos tests es un contador SQL; no mueve fondos ni genera pruebas.
@@ -69,7 +72,18 @@ transacción y lock PostgreSQL. Se comprueban adopción del esquema anterior,
 concurrencia, rollback, timeout y respuesta COMMIT perdida. La imagen Docker
 actual realiza esa migración antes de la API y conserva el estado desconectado.
 Android usa un único pool Ninja para compilación y enlace de app y bibliotecas:
-la regresión real y el prebuild Expo verifican el límite; todavía no es un APK.
+la regresión real, el prebuild Expo y los targets reales del APK verifican el
+pool. Los probes internos de configuración LTO no tienen ese pool; no se
+afirma su concurrencia. El guard total incluye todos los procesos propios.
+
+El APK Android debug `0.1.0` se construyó sobre `141b0ef` en 6 min 19 s.
+`aapt2` y `apksigner` verificaron paquete `org.lianum.wallet`, SDK mínimo 24,
+objetivo 36, ARM64/x86_64 y firma debug V2. Los 35 inputs permanecieron iguales,
+todos los procesos propios cerraron y el pico fue 3.069.050.880 bytes, por debajo
+de 3 GiB. La copia estable y su SHA256 están en [la guía móvil](apps/mobile/README.md).
+Necesita Metro; no es release ni se ha instalado. La validación física se deja
+para el final por decisión del usuario; los tests no se presentan como biometría
+real ni custodia móvil de notas originales.
 
 El recorrido EVM desde navegador pasó en un laboratorio nuevo con quince pruebas
 genuinas y sus inputs originales verificados. La respuesta TOP_UP perdida dejó

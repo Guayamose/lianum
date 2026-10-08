@@ -92,8 +92,10 @@ La infraestructura y los jobs permanecen apagados.
 
 Conectar permiso móvil a identidad, cuenta, keeper y worker originales; mostrar
 estado privado autenticado y resolver UNKNOWN sin repetir efectos. Completar
-recuperación de custodia/outbox, build instalable, biometría y aceptación física.
-Exportar bundles no acredita hardware ni una wallet financiada.
+recuperación de custodia/outbox y aceptación física. El APK debug Android ya
+está construido y verificado para ARM64/x86_64; necesita Metro. La biometría y
+la prueba en teléfono quedan para el final por decisión del usuario. Exportar
+bundles o construir un APK no acredita hardware ni una wallet financiada.
 
 Las migraciones SQL versionadas ya están comprobadas con PostgreSQL real y
 Docker, incluyendo concurrencia, interrupción y respuesta COMMIT perdida.
