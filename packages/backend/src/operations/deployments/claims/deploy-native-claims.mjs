@@ -430,6 +430,17 @@ async function checkedStorage(binding, flatSystem) {
     await exactCode(runtime, record, block);
   const expect = async (target, signature, args, values) => assert.equal(await target.call(signature, args, block),
     prefix(values.map(value => word(value).slice(2)).join('')), 'CLAIM_BOOTSTRAP_STORAGE_' + signature);
+  const expectMetadata = async (target, signature, value) => {
+    const method = claimArtifactMethod(target.artifact, signature);
+    assert.equal(method.abi.outputs.length, 1, 'CLAIM_BOOTSTRAP_TOKEN_METADATA_ABI');
+    assert.equal(method.abi.outputs[0].type, 'string', 'CLAIM_BOOTSTRAP_TOKEN_METADATA_ABI');
+    // These fixed token names/symbols use the identical dynamic bytes/string layout.
+    // Keep the original encoder's bounded bytes support and verify the real string ABI.
+    assert.ok(typeof value === 'string' && /^[\x20-\x7e]{1,64}$/.exec(value)?.[0] === value, 'CLAIM_BOOTSTRAP_TOKEN_METADATA_VALUE');
+    const encoded = encodeClaimABI([{ type: 'bytes' }], ['0x' + Buffer.from(value, 'utf8').toString('hex')]);
+    assert.equal(await target.call(signature, [], block), encoded,
+      'CLAIM_BOOTSTRAP_TOKEN_METADATA_' + signature);
+  };
   await expect(authority, 'hub()', [], [flatSystem.hub.address]); await expect(authority, 'isSealed()', [], [1]);
   await expect(flatSystem.hub, 'claimAuthority()', [], [authority.address]);
   for (let i = 0; i < 2; i++) {
@@ -454,8 +465,8 @@ async function checkedStorage(binding, flatSystem) {
     for (let n = 0; n < 16; n++) await expect(gateway, 'intentHistory(uint256)', [n], [0]);
     for (let n = 0; n < 32; n++) await expect(gateway, 'ticketHistory(uint256)', [n], [0]);
     await expect(wrapper, 'gateway()', [], [gateway.address]); await expect(wrapper, 'decimals()', [], [i === 0 ? 8 : binding.spl?6:9]);
-    await expect(wrapper,'symbol()',[],[i===0?'cBTC':binding.spl?'cUSDC':'cSOL']);
-    await expect(wrapper,'name()',[],[i===0?'Custodial Bitcoin Claim':binding.spl?'Custodial USDC SPL Claim':'Custodial Solana Claim']);
+    await expectMetadata(wrapper,'symbol()',i===0?'cBTC':binding.spl?'cUSDC':'cSOL');
+    await expectMetadata(wrapper,'name()',i===0?'Custodial Bitcoin Claim':binding.spl?'Custodial USDC SPL Claim':'Custodial Solana Claim');
     await expect(wrapper, 'totalSupply()', [], [0]);
     for (const holder of [runtime.accounts[0], gateway.address, pool.address]) await expect(wrapper, 'balanceOf(address)', [holder], [0]);
     await expect(wrapper, 'allowance(address,address)', [gateway.address, pool.address], [0]);
