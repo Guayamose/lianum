@@ -33,6 +33,8 @@ jobs:
           python3 scripts/development/test_btc_sol_lab_summary.py
           python3 scripts/development/test_btc_sol_lab_lifecycle.py
           python3 scripts/development/test_native_value_ledger.py
+          python3 -B tests/integration/chains/tron/fixtures/aligned-rocksdb-v1/test_build.py
+          python3 -B tests/integration/chains/tron/fixtures/aligned-rocksdb-v1/test_parent_death.py
           python3 scripts/development/test_empty_audit_lab_lifecycle.py
           python3 scripts/development/test_empty_audit_lab_summary.py
           python3 scripts/development/test_paired_original_account_lab.py
@@ -46,6 +48,7 @@ jobs:
           tests/integration/chains/solana
           tests/integration/chains/bitcoin
           tests/integration/chains/tron/tron-candidate-acceptance.test.mjs
+          tests/integration/chains/tron/tron-aligned-rocksdb-profile.test.mjs
           tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs
           tests/integration/wallet/manual/manual-wallet-position-checks.test.mjs
           tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs
