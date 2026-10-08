@@ -1,3 +1,4 @@
+import type { OriginalPrivateStateObservationV1 } from '@lianum/mobile-protocol/original-account-v2';
 import type { OriginalAccountActionV2, OriginalAccountBindingV2, OriginalAccountAccessV2,
   OriginalAccountReviewV2, OriginalAccountAccessAuthorizationV2, OriginalAccountReviewAuthorizationV2 }
   from '@lianum/mobile-protocol/original-account-v2';
@@ -14,11 +15,21 @@ export type OriginalAccountDiagnosticV2 = Readonly<{
     state: 'SUCCEEDED' | 'FAILED'; errorCode: string | null }> | null;
   privatePortfolio: null; economicObservation: null; noteCustodyOnDevice: false; nativeEffectsEstablished: false;
 }>;
+export type OriginalPrivateStateApiV1 = Readonly<{
+  descriptor: OriginalAccountDescriptorV2;
+  challenge(): Promise<OriginalAccountAccessV2>;
+  openReview(request: OriginalAccountAccessAuthorizationV2): Promise<OriginalAccountReviewV2>;
+  submit(request: OriginalAccountReviewAuthorizationV2): Promise<OriginalPrivateStateObservationV1>;
+}>;
+export function createOriginalPrivateStateApiV1(options: {
+  descriptor: OriginalAccountDescriptorV2; fetchImpl?: typeof fetch;
+}): OriginalPrivateStateApiV1;
 export function normalizeOriginalAccountServiceV2(value: unknown): OriginalAccountServiceV2;
 export function createOriginalAccountApiV2(options: {
   descriptor: OriginalAccountDescriptorV2; fetchImpl?: typeof fetch;
 }): Readonly<{
   descriptor: OriginalAccountDescriptorV2;
+  privateState: OriginalPrivateStateApiV1;
   state(): Promise<OriginalAccountServiceV2>;
   challenge(action: OriginalAccountActionV2): Promise<OriginalAccountAccessV2>;
   openReview(request: OriginalAccountAccessAuthorizationV2): Promise<OriginalAccountReviewV2>;

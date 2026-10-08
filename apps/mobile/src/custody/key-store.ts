@@ -7,6 +7,8 @@ import { mobileAuthorizationMessage, validateMobileChallenge, mobileReceiptMessa
 import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
   validateOriginalAccountFreshV2, originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
   from '@lianum/mobile-protocol/original-account-v2';
+import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
+  from '@lianum/mobile-protocol/original-account-v2';
 import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } from './signing.mjs';
 
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
@@ -103,7 +105,8 @@ type OriginalReviewV2 = ReturnType<typeof normalizeOriginalAccountReviewV2>;
 // Only these two reviewed domains are exposed. This helper stays private:
 // protected storage never offers a general arbitrary-message signing API.
 async function signOriginalAccountPermissionV2(raw: OriginalAccessV2 | OriginalReviewV2,
-  expectedOrigin: string, expectedPairingId: string, phase: 'access' | 'review'): Promise<string> {
+  expectedOrigin: string, expectedPairingId: string, phase: 'access' | 'review',
+  purpose: 'diagnostic' | 'private-state' = 'diagnostic'): Promise<string> {
   await assertProtectedStorage();
   const publicKey = await readDevicePublicKey();
   if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
@@ -114,9 +117,13 @@ async function signOriginalAccountPermissionV2(raw: OriginalAccessV2 | OriginalR
     validateOriginalAccountFreshV2(checked);
   };
   current();
+  if (purpose === 'private-state' && checked.action !== 'read') throw new Error('MOBILE_PRIVATE_STATE_INVALID');
   let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, {
-    ...privateOptions, authenticationPrompt: phase === 'access'
-      ? 'Mostrar la revisión privada de tu cuenta original' : 'Consultar o reconciliar esta petición original',
+    ...privateOptions, authenticationPrompt: purpose === 'private-state'
+      ? phase === 'access' ? 'Mostrar qué cuenta y pool podrán revelar su saldo privado'
+        : 'Leer el saldo privado actual de esta cuenta y este pool; sin enviar fondos'
+      : phase === 'access' ? 'Mostrar la revisión privada de tu cuenta original'
+        : 'Consultar o reconciliar esta petición original',
   });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const privateKey = privateKeyFromHex(retained);
@@ -124,8 +131,10 @@ async function signOriginalAccountPermissionV2(raw: OriginalAccessV2 | OriginalR
     if (devicePublicKey(privateKey) !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
     if (await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
     current();
-    const message = checked.profile === 'LIANUM_ORIGINAL_ACCOUNT_ACCESS_V2' ? originalAccountAccessMessageV2(checked)
-      : originalAccountReviewMessageV2(checked);
+    const message = purpose === 'private-state'
+      ? phase === 'access' ? privateStateAccessMessageV1(checked) : privateStateReviewMessageV1(checked)
+      : checked.profile === 'LIANUM_ORIGINAL_ACCOUNT_ACCESS_V2' ? originalAccountAccessMessageV2(checked)
+        : originalAccountReviewMessageV2(checked);
     return signDeviceMessage(privateKey, message);
   } finally { privateKey.fill(0); retained = null; }
 }
@@ -134,4 +143,13 @@ export function signOriginalAccountAccessV2(value: OriginalAccessV2, origin: str
 }
 export function signOriginalAccountReviewV2(value: OriginalReviewV2, origin: string, pairingId: string): Promise<string> {
   return signOriginalAccountPermissionV2(value, origin, pairingId, 'review');
+}
+
+/** Explicit protected signing for account/pool balance disclosure. These
+ * signatures cannot be used for diagnostic/reconcile or native note spending. */
+export function signOriginalPrivateStateAccessV1(value: OriginalAccessV2, origin: string, pairingId: string): Promise<string> {
+  return signOriginalAccountPermissionV2(value, origin, pairingId, 'access', 'private-state');
+}
+export function signOriginalPrivateStateReviewV1(value: OriginalReviewV2, origin: string, pairingId: string): Promise<string> {
+  return signOriginalAccountPermissionV2(value, origin, pairingId, 'review', 'private-state');
 }

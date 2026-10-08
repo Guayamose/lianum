@@ -23,12 +23,13 @@ find(screen); assert.ok(listener && ts.isArrowFunction(listener));
 const listenerBody = source.slice(listener.body.getStart(ast), listener.body.end);
 const deferred = () => { let resolve; return { promise: new Promise(done => { resolve = done; }), resolve }; };
 function fixture() {
-  const key = deferred(), state = deferred(), stateEntered = deferred(), events = [], values = { available: false, key: null, notice: '' };
+  const key = deferred(), state = deferred(), stateEntered = deferred(), events = [], values = { available: false, key: null, notice: '', privateState: null };
   const globals = { origin: 'https://original.example', pairingId: '1'.repeat(64), expoFetch: 'EXPLICIT_NATIVE_FETCH_BOUNDARY',
     mounted: { current: true }, observationEpoch: { current: 0 }, AppState: { currentState: 'active' },
     context: { current: { devicePublicKey: null } }, accessLease: { current: null }, reviewLease: { current: null },
     consent: { invalidate() { events.push('consent-invalidated'); } },
     setAccess() {}, setReview() {}, setDiagnostic() {},
+    setPrivateState(value) { values.privateState = value; },
     setAvailable(value) { values.available = value; events.push('availability-' + value); },
     setDevicePublicKey(value) { values.key = value; events.push('key-displayed'); },
     setNotice(value) { values.notice = value; },
@@ -72,5 +73,13 @@ test('a new invalidation or unmount while HTTP waits leaves the previous check u
     const f = fixture(), pending = f.refresh(); f.key.resolve('04' + '11'.repeat(64)); await f.waitForState(pending);
     change(f); f.state.resolve({ privatePortfolio: null }); await pending;
     assert.equal(f.values.available, false); assert.equal(f.values.notice, '');
+  }
+});
+
+test('background or input invalidation removes previously displayed private quantities immediately', () => {
+  for (const change of [f => f.lifecycle('background'), f => f.globals.invalidate()]) {
+    const f = fixture(); f.values.privateState = { status: 'LIVE', balances: { available: '123' } };
+    change(f); assert.equal(f.values.privateState, null);
+    assert.equal(f.globals.observationEpoch.current, 1);
   }
 });

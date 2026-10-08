@@ -7,6 +7,9 @@ import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
 import { createOriginalAccountApiV2, normalizeOriginalAccountServiceV2 } from '../src/api/original-account-api-v2.mjs';
 import { devicePublicKey, signDeviceMessage } from '../src/custody/signing.mjs';
 import { originalAccountFramesV2 } from './helpers/original-account-frames-v2.mjs';
+import { privateStateAccessFrameV1, privateStateReviewFrameV1, PRIVATE_STATE_SCOPE_V1,
+  PRIVATE_STATE_OBSERVATION_V1, privateStateAccessMessageV1, privateStateReviewMessageV1 }
+  from '@lianum/mobile-protocol/original-account-v2';
 const key = new Uint8Array(32).fill(11), device = devicePublicKey(key);
 const state = () => ({ version: 2, profile: 'PAIRED_ORIGINAL_ACCOUNT_SERVICE_V2', connection: 'PAIRED',
   privatePortfolio: null, economicObservation: null, noteCustodyOnDevice: false,
@@ -159,4 +162,44 @@ test('a quiet response stream expires even if its transport ignores abort or can
   await Promise.resolve(); await Promise.resolve();
   t.mock.timers.tick(15_000); await pending;
   assert.equal(cancelled, 1); assert.equal(f.calls.length, 1); assert.equal(f.calls[0].options.signal.aborted, true);
+});
+
+test('private-state transport binds the original asset/lifetime and rejects stale, inflated or substituted observations before display', async () => {
+  const stateFixture = () => {
+    const f = fixture();
+    f.responses.set('challenges', { challenge: privateStateAccessFrameV1(f.access) });
+    f.responses.set('reviews', { review: privateStateReviewFrameV1(f.review) });
+    const value = { version: 1, profile: PRIVATE_STATE_OBSERVATION_V1, scope: PRIVATE_STATE_SCOPE_V1,
+      binding: structuredClone(f.review.binding), status: 'LIVE',
+      asset: { assetId: f.review.binding.assetId, ...f.review.binding.asset },
+      observed: { observedAt: Date.now(), blockNumber: '10', blockHash: 'a1'.repeat(32), timestamp: '10000' },
+      balances: { available: '100', reserved: '0', recovery: '40', locked: '0' },
+      backing: { held: '100', liabilities: '100', surplus: '0', deficit: '0' },
+      request: { requestId: f.review.binding.requestId, kind: f.review.binding.kind, state: 'UNRESOLVED', disposition: null },
+      custody: 'LINUX_ORIGINAL_OWNER_CUSTODY', mobileNoteCustody: false, completePortfolio: false };
+    f.responses.set('observations', value);
+    return { ...f, value, stateSignedReview: { review: f.review, signature: signDeviceMessage(key, privateStateReviewMessageV1(f.review)) } };
+  };
+  const f = stateFixture();
+  assert.deepEqual(await f.api.privateState.challenge(), f.access);
+  assert.deepEqual(await f.api.privateState.openReview({ challenge: f.access,
+    signature: signDeviceMessage(key, privateStateAccessMessageV1(f.access)) }), f.review);
+  const observed = await f.api.privateState.submit(f.stateSignedReview);
+  assert.equal(observed.balances.available, '100'); assert.equal(observed.balances.recovery, '40');
+  assert.ok(f.calls.every(row => row.url.includes('/v1/mobile/original-account/private-state/')));
+  for (const mutate of [value => { value.asset.pool = 'a2'.repeat(20); },
+    value => { value.binding.originalAccountLifetime = 'a2'.repeat(32); },
+    value => { value.binding.observedProcessGeneration++; },
+    value => { value.observed.observedAt -= 15_001; },
+    value => { value.balances.recovery = '101'; },
+    value => { value.backing.held = '99'; },
+    value => { value.status = 'UNAVAILABLE'; },
+    value => { value.completePortfolio = true; }]) {
+    const changed = stateFixture(); mutate(changed.value);
+    await assert.rejects(changed.api.privateState.submit(changed.stateSignedReview), /PRIVATE_STATE_INVALID|REVIEW_CHANGED/);
+  }
+  const unavailable = stateFixture();
+  Object.assign(unavailable.value, { status: 'UNAVAILABLE', observed: null, balances: null, backing: null });
+  const unknown = await unavailable.api.privateState.submit(unavailable.stateSignedReview);
+  assert.equal(unknown.balances, null);
 });

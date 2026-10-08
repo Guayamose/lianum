@@ -6,6 +6,8 @@ import { createPublicKey, verify } from 'node:crypto';
 import { ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2,
   originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
   from '@lianum/mobile-protocol/original-account-v2';
+import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
+  from '@lianum/mobile-protocol/original-account-v2';
 import * as signing from '../src/custody/signing.mjs';
 const PRIVATE = 'lianum.owner.secp256k1.v1', PUBLIC = 'lianum.owner.public.v1';
 const secret = '0b'.repeat(32), device = signing.devicePublicKey(new Uint8Array(32).fill(11));
@@ -34,7 +36,7 @@ mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
 mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { exports: { ...signing,
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },
 } });
-const { signOriginalAccountAccessV2, signOriginalAccountReviewV2 } = await import('../src/custody/key-store.ts');
+const { signOriginalAccountAccessV2, signOriginalAccountReviewV2, signOriginalPrivateStateAccessV1, signOriginalPrivateStateReviewV1 } = await import('../src/custody/key-store.ts');
 const pub = createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
   x: Buffer.from(device.slice(2, 66), 'hex').toString('base64url'),
   y: Buffer.from(device.slice(66), 'hex').toString('base64url') } });
@@ -102,4 +104,24 @@ test('expiry or public/private identity substitution during protected read rejec
     finally { time.mock.restore(); }
     assert.ok(privateBuffers.length === 1 && privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
   }
+});
+
+test('private account/pool balance has distinct protected consent domains; diagnostic and balance signatures cannot substitute', async () => {
+  const f = fixture();
+  const access = await signOriginalPrivateStateAccessV1(f.access, f.access.origin, f.access.pairingId);
+  const review = await signOriginalPrivateStateReviewV1(f.review, f.review.origin, f.review.pairingId);
+  const valid = (message, signature) => verify('sha256', message, { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'hex'));
+  assert.equal(valid(privateStateAccessMessageV1(f.access), access), true);
+  assert.equal(valid(privateStateReviewMessageV1(f.review), review), true);
+  assert.equal(valid(originalAccountAccessMessageV2(f.access), access), false);
+  assert.equal(valid(originalAccountReviewMessageV2(f.review), review), false);
+  assert.equal(valid(privateStateAccessMessageV1(f.access), review), false);
+  const reads = calls.filter(row => row.name === PRIVATE);
+  assert.equal(reads.length, 2); assert.match(reads[0].options.authenticationPrompt, /cuenta y pool/);
+  assert.match(reads[1].options.authenticationPrompt, /saldo privado.*sin enviar fondos/);
+  assert.ok(privateBuffers.length === 2 && privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+  assert.equal(store.get(PRIVATE), secret);
+  const before = reads.length;
+  await assert.rejects(signOriginalPrivateStateAccessV1({ ...f.access, action: 'reconcile' }, f.access.origin, f.access.pairingId), /PRIVATE_STATE_INVALID/);
+  assert.equal(calls.filter(row => row.name === PRIVATE).length, before);
 });

@@ -5,6 +5,9 @@ import { normalizeMobileOrigin } from '@lianum/mobile-protocol';
 import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
   normalizeOriginalAccountBindingV2, normalizeOriginalAccountSignatureV2,
   validateOriginalAccountFreshV2 } from '@lianum/mobile-protocol/original-account-v2';
+import { normalizePrivateStateAccessV1, normalizePrivateStateReviewV1,
+  privateStateAccessFrameV1, privateStateReviewFrameV1, normalizePrivateStateObservationV1,
+  validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-v2';
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -37,8 +40,9 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     if (Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
     return validateOriginalAccountFreshV2(value);
   }
-  async function request(path, payload) {
-    const target = original.origin + '/v2/mobile/original-account/' + path;
+  async function request(path, payload, privateState = false) {
+    const target = original.origin + (privateState ? '/v1/mobile/original-account/private-state/'
+      : '/v2/mobile/original-account/') + path;
     const controller = new AbortController();
     let timeout, reader;
     try {
@@ -81,8 +85,36 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
       if (reader) { void reader.cancel().catch(() => {}); reader.releaseLock(); }
     }
   }
+  const privateState = Object.freeze({
+    descriptor: original,
+    async challenge() {
+      const raw = await request('challenges', {}, true);
+      if (!exact(raw, ['challenge'])) fail('MOBILE_ORIGINAL_RESPONSE_INVALID');
+      return scope(normalizePrivateStateAccessV1(raw.challenge).challenge);
+    },
+    async openReview(raw) {
+      if (!exact(raw, ['challenge', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+      const challenge = scope(normalizeOriginalAccountAccessV2(raw.challenge));
+      const signature = normalizeOriginalAccountSignatureV2(raw.signature);
+      const value = await request('reviews', { challenge: privateStateAccessFrameV1(challenge), signature }, true);
+      if (!exact(value, ['review'])) fail('MOBILE_ORIGINAL_RESPONSE_INVALID');
+      const review = scope(normalizePrivateStateReviewV1(value.review).review);
+      if (review.bootstrapChallengeId !== challenge.challengeId) fail('MOBILE_REVIEW_CHANGED');
+      return review;
+    },
+    async submit(raw) {
+      if (!exact(raw, ['review', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+      const review = scope(normalizeOriginalAccountReviewV2(raw.review));
+      const signature = normalizeOriginalAccountSignatureV2(raw.signature);
+      const value = await request('observations', { review: privateStateReviewFrameV1(review), signature }, true);
+      const observed = validatePrivateStateFreshV1(normalizePrivateStateObservationV1(value));
+      if (!same(observed.binding, review.binding)) fail('MOBILE_REVIEW_CHANGED');
+      return observed;
+    },
+  });
   return Object.freeze({
     descriptor: original,
+    privateState,
     async state() { return normalizeOriginalAccountServiceV2(await request('state')); },
     async challenge(action) {
       if (!['read', 'reconcile'].includes(action)) fail('MOBILE_ORIGINAL_ACTION');
@@ -143,4 +175,10 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
       return Object.freeze({ ...value, binding, admission });
     },
   });
+}
+
+/** The same bounded/origin-bound transport, separate signature domain and fixed
+ * routes. It exposes only read consent and never a raw path or execute hook. */
+export function createOriginalPrivateStateApiV1(options) {
+  return createOriginalAccountApiV2(options).privateState;
 }
