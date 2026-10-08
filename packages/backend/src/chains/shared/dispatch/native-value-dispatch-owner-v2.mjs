@@ -233,4 +233,3 @@ export async function reopenOriginalNativeProviderEconomicRecoveryV1(token,conte
 export function takeOriginalNativeProviderRecoveredLeaseV1(custody){
  assert.equal(arguments.length,1);const s=custodies.get(custody);assert.ok(s,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');return s.takeRecoveredLease();
 }
-

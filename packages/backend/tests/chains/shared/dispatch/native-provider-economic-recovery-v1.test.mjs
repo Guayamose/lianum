@@ -42,13 +42,14 @@ async function setup(urls){
  const {mock}=await import('node:test'),assert=(await import('node:assert/strict')).default;
  const {createHash,createPublicKey,verify}=await import('node:crypto');
  const h=v=>createHash('sha256').update('INERT provider recovery HOST:'+v).digest('hex'),copy=v=>structuredClone(v);
+ const originalRuntime=await import(urls.runtime);
  const systems=new WeakMap(),native=new WeakMap(),recipients=new WeakSet(),bindRequests=new WeakMap();
  const original=(runtime,system)=>assert.equal(systems.get(system)?.runtime,runtime,'HOST_ORIGINAL_ECONOMIC_SYSTEM');
  mock.module(urls.system,{exports:{assertOwnedNativeValueSystem:original,nativeValueOriginalRecoverySourceV1(runtime,system){original(runtime,system);return h('source');}}});
  mock.module(urls.quorum,{exports:{assertOwnedNativeValueQuorum(quorum,{runtime,system}){original(runtime,system);assert.equal(system.quorum,quorum);}}});
  mock.module(urls.bootstrap,{exports:{assertNativeValueOperatorBootstrapForSystem(bootstrap,{runtime,system}){original(runtime,system);assert.equal(systems.get(system).bootstrap,bootstrap);return bootstrap.metadata;},
   assertNativeValueBootstrapNativeRuntime(bootstrap,{runtime,system,nativeRuntime}){original(runtime,system);assert.equal(systems.get(system).bootstrap,bootstrap);assert.ok(native.has(nativeRuntime));}}});
- mock.module(urls.runtime,{exports:{assertOwnedLocalEvmNativeValueRuntime(runtime){assert.ok(native.has(runtime),'HOST_ORIGINAL_NATIVE_RUNTIME');},assertOwnedLocalEvmObservedClockV1(){throw Error('HOST_UNUSED_TRON');}}});
+ mock.module(urls.runtime,{exports:{...originalRuntime,assertOwnedLocalEvmNativeValueRuntime(runtime){assert.ok(native.has(runtime),'HOST_ORIGINAL_NATIVE_RUNTIME');},assertOwnedLocalEvmObservedClockV1(){throw Error('HOST_UNUSED_TRON');}}});
  mock.module(urls.reader,{exports:{async createNativeValueSystemStateReader({runtime,system}){original(runtime,system);const view=Object.freeze({financialAcceptance:false});return {async read(){return view;},async assertCurrent(actual){assert.equal(actual,view);}};}}});
  mock.module(urls.recipient,{exports:{assertOwnedNativeRecipientProcess(value){assert.ok(recipients.has(value),'HOST_ORIGINAL_RECIPIENT');}}});
  const equal=(a,b)=>assert.deepEqual(a,b,'HOST_BINDING_REBOUND');
@@ -77,7 +78,7 @@ async function setup(urls){
   recipient.acceptedQuote=async()=>({scope:pool.domain.scope,policy:pool.domain.policy,asset:pool.domain.asset,hubDomain:pool.domain.hubDomain,registryCommitment:pool.domain.registryCommitment,
    action:{...offer.actionTemplate,receiptKeyCommitment:h('K'),receiptRho:h('rho'),deliveryRiskCommitment:h('loss'),actionSalt:h('salt')},payoutCommitment:h('payout'),deliveryRiskSalt:h('lossSalt')});
   recipients.add(recipient);await custody.bindQuote({recipientCustody:recipient});
-  const lease=await custody.bindDispatch({request:{hostBoundary:true,dependencyProof:{proof:'11'.repeat(32),publicInputs:['0']},readyProof:{proof:'22'.repeat(32),publicInputs:['0']}});
+  const lease=await custody.bindDispatch({request:{hostBoundary:true,dependencyProof:{proof:'11'.repeat(32),publicInputs:['0']},readyProof:{proof:'22'.repeat(32),publicInputs:['0']}}});
   const resources=await open(lease,c);return {...c,custody,lease,resources,key:offer.providerKey};
  }
  async function open(lease,c){const request=Object.freeze({});bindRequests.set(request,{runtime:c.runtime,system:c.system,poolIndex:0,lease});return provider.openNativeValueDispatchLease(lease,{runtime:c.runtime,system:c.system,poolIndex:0},request);}
