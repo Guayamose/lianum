@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "cd3a6e976552185c83069867297af00accf5764ff2c2b9a7af0304246f8830da",
+  "hostSourceClosureSHA256": "c71e5921ddffbcde319ebb2210d8d810c032f9560a0347a3515e4910c2867757",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -962,7 +962,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "4442719b3e450ff817e22618c525380dbc3eb9809e538305e4845f02bceff685"
+      "sha256": "df3535886f81fadd16dc6a4d87bacf6fe6272c0cb6f036b8894e99fd9edd4da7"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -2469,8 +2469,12 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "e76ab5a39498b6926f73c18e9dfd737ff6405925f06391e4aadf7b471bc64141"
     },
     {
+      "path": "wallet-platform/modules/global-state/native-device-original-w39-metrics-frame-v1.mjs",
+      "sha256": "07096143609918ecbad2580bf10717bea0812eacdc42476964983307f2a39200"
+    },
+    {
       "path": "wallet-platform/modules/global-state/native-value-account-authority-v2.mjs",
-      "sha256": "8378794331ca68d6e6f2edf41756cfaa9712ac02227cbe72f3d2845300287a29"
+      "sha256": "e977b00972bd001b49c6012209539ee546ca51bf1c863b134f54c664827d60f0"
     },
     {
       "path": "wallet-platform/modules/global-state/wrapped-wallet-account-authority-v1.mjs",
