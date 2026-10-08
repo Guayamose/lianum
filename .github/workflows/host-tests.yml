@@ -89,3 +89,4 @@ jobs:
           tests/integration/wallet/native/paired-native-note-http-loss-v2.test.mjs
           tests/integration/wallet/native/paired-native-note-policy-v2.test.mjs
           tests/integration/wallet/native/paired-native-note-start-pipe-v2.test.mjs
+          tests/integration/runners/fixed-flow-source-pins.test.mjs

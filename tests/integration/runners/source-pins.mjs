@@ -56,7 +56,8 @@ export function evmVaultSourcePins() {
 function fixedFlowSourcePins(profile) {
   assert.ok(['native-flow', 'account-recovery', 'asset-portfolio', 'evm-vault-flow'].includes(profile), 'NATIVE_FIXED_SOURCE_PROFILE');
   const files = new Map();
-  const allowed = path => [ROOT, FLAT, GOLDEN].some(root => path.startsWith(root + sep));
+  const allowed = path => [ROOT, FLAT, GOLDEN, resolve(FLAT, '../mobile-protocol')]
+    .some(root => path.startsWith(root + sep));
   function visit(path) {
     assert.ok(allowed(path) && path.endsWith('.mjs'), 'NATIVE_LOCAL_EXECUTION_SOURCE_ONLY');
     if (files.has(path)) return;

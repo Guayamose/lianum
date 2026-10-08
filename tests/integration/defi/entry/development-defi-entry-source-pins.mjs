@@ -7,7 +7,8 @@ import { regular, hash, verifyAPI, verifyVendor } from '../../../../packages/pro
 export function developmentDefiEntrySourcePins() {
   assert.equal(arguments.length, 0, 'DEVELOPMENT_DEFI_SOURCE_PINS_NO_OPTIONS');
   const files = new Map();
-  const allowed = path => [ROOT, FLAT, GOLDEN].some(root => path.startsWith(root + sep));
+  const allowed = path => [ROOT, FLAT, GOLDEN, resolve(FLAT, '../mobile-protocol')]
+    .some(root => path.startsWith(root + sep));
   function visit(path) {
     assert.ok(allowed(path) && path.endsWith('.mjs'), 'NATIVE_LOCAL_EXECUTION_SOURCE_ONLY');
     if (files.has(path)) return;
