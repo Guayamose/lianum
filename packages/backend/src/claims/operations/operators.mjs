@@ -1511,7 +1511,7 @@ function createClaimOperator(input, custody) {
       // Only this original CLAIM branch has authenticated the USDC custody
       // rule on the same validator. GRAPH remains native BTC/SOL; its paths
       // still cover the complete three-asset registry and all unused leaves.
-      if (bound.nativeRuntimes.some(isOwnedSolanaSplCustodyV1)) {
+      if (bound.nativeRuntimes.some(native => isOwnedSolanaSplCustodyV1(native))) {
         equal(binding.rules, [bound.policies[0].rule, bound.graphSolanaRule], 'COMBINED_OPERATOR_SPL_NATIVE_GRAPH_RULES');
         return freeze(copy(bound.registeredRules));
       }

@@ -32,15 +32,18 @@ test('combined SPL GRAPH paths retain all eight registry leaves without relabell
  assert.equal(tree.commitments.length,8);assert.deepEqual(tree.commitments.slice(3),Array(5).fill('0'.repeat(64)));
  function source(relative,mapped){const url=new URL(relative,import.meta.url);return readFileSync(existsSync(url)?url:join(ROOT,mapped),'utf8');}
  const claim=source('../../../../packages/backend/src/claims/operations/operators.mjs','wallet-platform/modules/native-claims/operators.mjs');
- const start=claim.indexOf("equal(binding.rules, [bound.policies[0].rule, bound.graphSolanaRule], 'COMBINED_OPERATOR_SPL_NATIVE_GRAPH_RULES')");
- const end=claim.indexOf('return freeze(copy(bound.registeredRules));',start)+'return freeze(copy(bound.registeredRules));'.length;
+ const start=claim.indexOf('if (bound.nativeRuntimes.some(',claim.indexOf('assertGraphBinding(binding) {'));
+ const end=claim.indexOf('return null;',start)+'return null;'.length;
  assert.ok(start>=0&&end>start);
  const equal=(a,b,message)=>assert.deepEqual(structuredClone(a),structuredClone(b),message);
- function project(rules){
-  const context=createContext({binding:{rules},bound:{policies:[{rule:tree.rules[0]}],graphSolanaRule:tree.graphSolanaRule,registeredRules:tree.registeredRules},equal,copy:structuredClone,freeze:value=>Object.freeze(value)});
-  return new Script('(function(){'+claim.slice(start,end)+'})()').runInContext(context);
+ function project(rules,spl=true){
+  const originalSpl=Object.freeze({});let classified=0;
+  const context=createContext({binding:{rules},bound:{nativeRuntimes:[Object.freeze({}),originalSpl],policies:[{rule:tree.rules[0]}],graphSolanaRule:tree.graphSolanaRule,registeredRules:tree.registeredRules},equal,copy:structuredClone,freeze:value=>Object.freeze(value),
+   isOwnedSolanaSplCustodyV1(native){assert.equal(arguments.length,1,'SOLANA_SPL_CLASSIFIER_ARITY');classified++;return spl&&native===originalSpl;}});
+  const result=new Script('(function(){'+claim.slice(start,end)+'})()').runInContext(context);assert.equal(classified,2);return result;
  }
  assert.deepEqual(project(graphRules),tree.registeredRules);
+ assert.equal(project(graphRules,false),null);
  assert.throws(()=>project(tree.rules),/COMBINED_OPERATOR_SPL_NATIVE_GRAPH_RULES/);
  assert.throws(()=>project([graphRules[0],{...graphRules[1],asset}]),/COMBINED_OPERATOR_SPL_NATIVE_GRAPH_RULES/);
  const graph=source('../../../../packages/backend/src/operations/operators/claims/native-operators.mjs','wallet-platform/modules/ops/native-operators.mjs');
