@@ -68,6 +68,12 @@ un resultado desconocido. Aceptar el round trip con ocho pruebas genuinas antes 
 extenderlo a grafos y pérdida de procesos. No presentar
 reconstrucciones como los recibos históricos ausentes.
 
+El primer grafo CBTC → entrega SOL completó 15/16 pruebas genuinas y cerró
+rechazado: entrega SOL, payout del cambio Bitcoin y EXIT EVM del solver pasaron;
+su payout Bitcoin no llegó a iniciarse por un ID mal formado. El harness ya usa
+el hash original del controlador, con dos regresiones. Repetir `./dev lab btc-sol`
+en estado nuevo y aceptar sus dieciséis pruebas sin ampliar guardas ni presupuestos.
+
 ## 5. Completar DeFi — parcial
 
 Ya se comprueban swap oficial Uniswap V3, depósito/redención oficial MetaMorpho
@@ -96,6 +102,13 @@ recuperación de custodia/outbox y aceptación física. El APK debug Android ya
 está construido y verificado para ARM64/x86_64; necesita Metro. La biometría y
 la prueba en teléfono quedan para el final por decisión del usuario. Exportar
 bundles o construir un APK no acredita hardware ni una wallet financiada.
+
+La [cuenta original vinculada V2](docs/ORIGINAL-ACCOUNT-V2.md) ya tiene actor,
+transporte privado, dos consentimientos firmados y pantalla nativa, con 85
+checks host aprobados. Sólo diagnostica y reconcilia TOP_UP/EXIT ya admitidos;
+no acredita un saldo privado ni admite nuevos gastos móviles. Su siguiente
+aceptación exige cuenta y pruebas EVM genuinas, conservando los pines históricos.
+Después configurar y comprobar routing/TLS y ampliar al recorrido económico móvil.
 
 Las migraciones SQL versionadas ya están comprobadas con PostgreSQL real y
 Docker, incluyendo concurrencia, interrupción y respuesta COMMIT perdida.

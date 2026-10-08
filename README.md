@@ -4,6 +4,10 @@ Wallet omnichain privada en desarrollo: web en JavaScript ESM, móvil en
 Expo/React Native, contratos Solidity y circuitos Noir. La base de desarrollo
 está versionada; los recorridos de producto aún se están integrando.
 
+La nueva pestaña móvil «Cuenta vinculada» consulta o reconcilia una petición
+original ya admitida, con dos consentimientos firmados. Su vinculación local,
+componentes y límites están en [la guía del protocolo V2](docs/ORIGINAL-ACCOUNT-V2.md).
+
 ```text
 lianum-project/
 ├── apps/

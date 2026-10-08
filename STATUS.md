@@ -12,9 +12,9 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
 | 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
 | 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada desde el DOM con siete pruebas, además del perfil SDK/HTTP. | Conexión a móvil y recuperación tras pérdida de keeper/nodo. |
-| 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados; retirada privada Bitcoin completada dentro del ensayo conjunto rechazado con siete pruebas. Nuevo recorrido CBTC → entrega SOL preparado sobre el mismo núcleo. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada de payout Solana, aceptar ocho pruebas y el recorrido combinado; finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
+| 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados; retirada privada Bitcoin completada dentro del ensayo conjunto rechazado con siete pruebas. El primer recorrido CBTC → entrega SOL completó 15/16 pruebas, incluida salida EVM del solver, antes de fallar su solicitud de payout Bitcoin; identificador corregido con regresión. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada de payout Solana, aceptar ocho pruebas y repetir el recorrido combinado completo; finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
 | 5. DeFi | Protocolos oficiales Uniswap V3 y MetaMorpho; nota privada, EXIT y redención MetaMorpho aceptados. El nuevo recorrido de entrada privada y salida por ambos protocolos pasa con cuatro D27/W39 genuinas, incluido reinicio y respuesta de redención perdida sin duplicación. | Integrar PAEG/grafo y posiciones; pérdida de keeper/nodo, Aave/Morpho/Jupiter y composición entre redes. |
-| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. APK Android debug construido y verificado. | Bridge a cuentas/keeper y workers, saldo privado real, aceptación física al final, recuperación móvil y operación de producción. |
+| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. APK Android debug construido y verificado. Cuenta original vinculada V2 con diagnóstico/reconciliación y 85 checks host aprobados. | Aceptar V2 sobre un laboratorio genuino, TLS/vinculación operativa, workers, saldo privado real, aceptación física al final, recuperación móvil y operación de producción. |
 
 Los pasos 1 y 2 tienen sus cambios implementados y comprobados. Los pasos 3–6
 incluyen avances reales, pero no están cerrados como producto. Google Cloud se
@@ -65,6 +65,17 @@ rechace después el permiso de reconciliación; la admisión de permisos no cier
 su resultado económico. Eso no acredita biometría/custodia en un teléfono ni una IPA/APK
 instalada. El bootstrap de API mantiene el adaptador económico desconectado:
 liveness es 200, readiness es 503 y `privatePortfolio` es `null`.
+
+El protocolo de [cuenta original vinculada V2](docs/ORIGINAL-ACCOUNT-V2.md)
+añade actor ligado a session/approval/owner originales, HTTP privado, cliente y
+pestaña nativa. Pasaron 85 casos en el árbol canónico (87,959 s), con firmas y
+HTTP reales y fixtures explícitos para runtime, owner y pruebas financieras.
+Los métodos exactos de ciclo de vida se comprueban mediante AST; no hubo renderer
+React ni teléfono. También pasan tipos y exportación Hermes Android/iOS del
+cliente actualizado, con un único worker Metro. La consulta conserva saldo
+privado pendiente. La reconciliación
+puede actualizar el journal de una petición ya iniciada; no crea nuevas notas ni
+autoriza un gasto móvil. Falta su aceptación con pruebas genuinas y routing/TLS.
 
 La API verifica el historial y los checksums del esquema al arrancar, sin crear
 tablas. `npm run db:migrate` aplica la migración revisada por separado, con
@@ -124,6 +135,17 @@ texto de una aserción del harness y no describía la causa original. Ese inicio
 de pago impide asumir que el fence está libre o renovar/reintentar la firma.
 La revisión independiente unió las siete pruebas y confirmó fuentes intactas, cierre propio y ausencia de los 133 PID originales. El presupuesto de auditoría
 de 30 s se conserva; falta resolver su causa y aceptar ocho pruebas nuevas.
+
+El primer recorrido combinado `./dev lab btc-sol` también queda rechazado.
+Sus 15 pruebas genuinas acreditan una entrega SOL de 1.000.000 lamports y el
+payout Bitcoin de 80.000 satoshis del cambio del owner, incluido resume tras
+respuesta perdida y duplicados sin otro pago. El EXIT EVM del solver por 20.000
+CBTC sí se minó; después falló su solicitud de redención por un identificador de
+37 caracteres donde se exigen 64. No se inició ese segundo payout Bitcoin ni se
+generó su CO42. La corrección omite el ID opcional y conserva el hash determinista
+del controlador original; pasan dos regresiones antes de estado/RPC. Se han
+verificado las 15 pruebas, fuentes intactas, 141 identidades ausentes y cuatro
+locks liberados. Es necesario otro intento completo con estado y claves nuevos.
 
 Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
 Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica la
