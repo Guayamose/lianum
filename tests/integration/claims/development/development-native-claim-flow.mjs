@@ -29,6 +29,7 @@ import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures
 import { DEVELOPMENT_NATIVE_CLAIM_PROFILE, DEVELOPMENT_NATIVE_CLAIM_RESULT } from './development-native-claim-policy.mjs';
 import { developmentNativeClaimSourcePins } from './development-native-claim-source-pins.mjs';
 import { assertRoleProofReceiptRecords, assertWithdrawalProofTelemetry } from './development-native-claim-proof-evidence.mjs';
+import { readDevelopmentNativeClaimReceipts } from './development-native-claim-receipts.mjs';
 
 const LOCAL_RUN = '.local/development-native-claim-roundtrip-v1';
 const bare = value => value.slice(2);
@@ -221,7 +222,7 @@ async function main() {
     result.checks.ownerOfflineNativeIngress = true; result.checks.originalNotesCreditedOnce = true;
     await stage('clean-original-keeper-and-controller-restart');
     const countsBeforeRestart = [runtime.transactions.length, fixture.bitcoin.transfers.length, fixture.solana.transfers.length];
-    const nativeReceipts = await Promise.all(deposits.map(value => controller.privateNativeReceipt({ operationId: value.intentId })));
+    const nativeReceipts = await readDevelopmentNativeClaimReceipts(controller, deposits.map(value => value.intentId));
     const previousKeeperPid = controllerKeeper.status().keeperProcessId; controller.close(); controller = null;
     await controllerKeeper.restart(); await openController(); await controller.reconcileAll({});
     assert.notEqual(controllerKeeper.status().keeperProcessId, previousKeeperPid);
