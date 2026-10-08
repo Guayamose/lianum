@@ -18,7 +18,18 @@ function vaultRoute(r){
  for(const k of ['router','vault','solver','sourcePool','targetPool'])need(typeof r[k]==='string'&&/^[0-9a-f]{40}$/.test(r[k])&&r[k]!=='0'.repeat(40),'OWNER_GRAPH_VAULT_ENDPOINT');
  need(uint(r.solverUnderlyingAmount)>0n&&uint(r.deliveredShares)>0n,'OWNER_GRAPH_VAULT_AMOUNT');need(uint(r.executionFrom,64)<uint(r.executionUntil,64)&&BigInt(r.executionUntil)<=uint(r.settleBefore,64),'OWNER_GRAPH_VAULT_WINDOW');need(typeof r.deliveryLossClause==='string'&&r.deliveryLossClause.length>0&&r.deliveryLossClause.length<=300,'OWNER_GRAPH_VAULT_LOSS');
 }
+export const OWNER_GRAPH_METAMORPHO_ROUTE_FIELDS=Object.freeze([...OWNER_GRAPH_VAULT_ROUTE_FIELDS.filter(key=>key!=='solverUnderlyingAmount'),
+ 'protocolKind','solverMaximumUnderlyingAmount','deliveryRiskCommitment','protocolAmountsPublic','publicNetwork']);
+function metaMorphoRoute(r){
+ fields(r,OWNER_GRAPH_METAMORPHO_ROUTE_FIELDS);need(r.routeProfile==='REGISTERED_LOCAL_EVM_METAMORPHO_V1'&&r.family==='3'&&r.chainId==='31337'&&r.protocolKind==='METAMORPHO_V1_EXACT_SHARE_MINT','OWNER_GRAPH_METAMORPHO_PROFILE');
+ for(const key of ['genesis','sourceAssetIdentity','targetAssetIdentity','targetCommitment','descriptorCommitment','payoutCommitment','deliveryRiskCommitment'])need(hash(r[key]),'OWNER_GRAPH_METAMORPHO_HASH');
+ for(const key of ['router','vault','solver','sourcePool','targetPool'])need(typeof r[key]==='string'&&/^[0-9a-f]{40}$/.test(r[key])&&r[key]!=='0'.repeat(40),'OWNER_GRAPH_METAMORPHO_ENDPOINT');
+ need(uint(r.solverMaximumUnderlyingAmount)>0n&&uint(r.deliveredShares,64)>0n,'OWNER_GRAPH_METAMORPHO_AMOUNT');
+ need(uint(r.executionFrom,64)<uint(r.executionUntil,64)&&BigInt(r.executionUntil)<=uint(r.settleBefore,64),'OWNER_GRAPH_METAMORPHO_WINDOW');
+ need(typeof r.deliveryLossClause==='string'&&r.deliveryLossClause.length>0&&r.deliveryLossClause.length<=300&&r.protocolAmountsPublic===true&&r.publicNetwork===false,'OWNER_GRAPH_METAMORPHO_ASSURANCE');
+}
 function route(r,wrapped,flat){
+ if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_METAMORPHO_V1'){metaMorphoRoute(r);return;}
  if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_VAULT_V1'){vaultRoute(r);return;}
  fields(r,OWNER_GRAPH_ROUTE_FIELDS);need(r.routeProfile===(flat?'REGISTERED_LOCAL_NATIVE_DELIVERY_V1':wrapped?'OWNED_LOCAL_WRAPPED_CLAIM_NATIVE_GRAPH_V1':'OWNED_LOCAL_NATIVE_VALUE_GRAPH_V2'),'OWNER_GRAPH_ROUTE_PROFILE');
  const evm=r.family==='3';need(flat?['1','2'].includes(r.family)&&r.chainId===null:evm?['1','8453','42161','56'].includes(r.chainId):r.family==='4'&&r.chainId===null,'OWNER_GRAPH_NATIVE_FAMILY');

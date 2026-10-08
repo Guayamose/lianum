@@ -313,15 +313,21 @@ export function accountReviewDetails(context) {
           [`${label} · red y génesis`, `${network} · ${route.genesis}`],
           [`${label} · origen de respaldo`, `${route.sourcePool} · ${route.sourceAssetIdentity}`],
         );
-        if (route.routeProfile === 'REGISTERED_LOCAL_EVM_VAULT_V1') {
+        if (['REGISTERED_LOCAL_EVM_VAULT_V1', 'REGISTERED_LOCAL_EVM_METAMORPHO_V1'].includes(route.routeProfile)) {
           rows.push(
             [`${label} · depósito en vault`, route.vault],
             [`${label} · router`, route.router],
-            [`${label} · liquidez del solver`, `${route.solverUnderlyingAmount} unidades atómicas del subyacente`],
+            [`${label} · liquidez del solver`, route.routeProfile === 'REGISTERED_LOCAL_EVM_METAMORPHO_V1'
+              ? `Límite ${route.solverMaximumUnderlyingAmount} unidades atómicas del subyacente`
+              : `${route.solverUnderlyingAmount} unidades atómicas del subyacente`],
             [`${label} · shares entregadas`, `${route.deliveredShares} unidades atómicas · ${route.targetAssetIdentity}`],
             [`${label} · pool de destino`, route.targetPool],
             [`${label} · destinatario privado`, `Compromiso de salida ${route.targetCommitment}`],
             [`${label} · descriptor original`, route.descriptorCommitment],
+          );
+          if (route.routeProfile === 'REGISTERED_LOCAL_EVM_METAMORPHO_V1') rows.push(
+            [`${label} · protocolo`, 'MetaMorpho oficial; importes, ejecución y depósito observables en la red local'],
+            [`${label} · compromiso de riesgo`, route.deliveryRiskCommitment],
           );
         } else {
           const endpointEncoding = route.family === '1' ? 'script Bitcoin en hexadecimal'
