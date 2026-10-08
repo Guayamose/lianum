@@ -5,7 +5,9 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -18,6 +20,28 @@ active = None
 interrupted = False
 pending_signal = None
 last_lab_attempt = None
+last_lab_supervisor_pid = None
+last_lab_supervisor_code = None
+last_lab_supervisor_identity = None
+
+def capture_child_identity(child):
+    def read():
+        path = Path(f"/proc/{child.pid}/stat")
+        if path.stat().st_uid != os.getuid():
+            raise ValueError("OWNED_SUPERVISOR_UID_CHANGED")
+        value = path.read_text()
+        if not value.startswith(str(child.pid) + " ("):
+            raise ValueError("OWNED_SUPERVISOR_PID_CHANGED")
+        fields = value.rsplit(") ", 1)[1].split()
+        return {"pid": child.pid, "ppid": int(fields[1]), "pgrp": int(fields[2]),
+            "session": int(fields[3]), "startTimeTicks": fields[19]}
+    try:
+        before, after = read(), read()
+        if before != after or before["ppid"] != os.getpid():
+            return None
+        return before
+    except (OSError, ValueError, IndexError):
+        return None
 
 def forward_signal(signum, _frame):
     global interrupted, pending_signal
@@ -27,7 +51,7 @@ def forward_signal(signum, _frame):
         active.send_signal(signum)
 
 def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
-    global active, last_lab_attempt
+    global active, last_lab_attempt, last_lab_supervisor_pid, last_lab_supervisor_code, last_lab_supervisor_identity
     if interrupted:
         raise SystemExit(130)
     print(f"Lab EVM: {entry}", flush=True)
@@ -35,11 +59,17 @@ def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
     previous_attempts = set(directory.glob("attempt-*")) if observe else set()
     if observe:
         last_lab_attempt = None
+        last_lab_supervisor_pid = None
+        last_lab_supervisor_code = None
+        last_lab_supervisor_identity = None
     owner_pid = os.getpid()
     def guard_parent():
         if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != owner_pid:
             os._exit(125)
     active = subprocess.Popen([str(NODE), str(FLAT / entry), *arguments], cwd=FLAT, env=CLEAN_ENV, preexec_fn=guard_parent)
+    supervisor_pid = active.pid
+    if observe:
+        last_lab_supervisor_identity = capture_child_identity(active)
     # A signal may arrive while Popen has not yet returned the owned child.
     if interrupted and active.poll() is None:
         active.send_signal(pending_signal or signal.SIGTERM)
@@ -60,24 +90,96 @@ def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
     code = active.returncode
     active = None
     if observe:
+        last_lab_supervisor_pid = supervisor_pid
+        last_lab_supervisor_code = code
         new_attempts = set(directory.glob("attempt-*")) - previous_attempts
         if len(new_attempts) == 1:
             last_lab_attempt = new_attempts.pop()
     if code:
         raise SystemExit(code)
 
+def private_evidence(path):
+    before = path.lstat()
+    if path.resolve() != path or not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or before.st_mode & 0o077:
+        raise ValueError("PRIVATE_REGULAR_FILE_REQUIRED")
+    if before.st_size > 16 * 1024 * 1024:
+        raise ValueError("EVIDENCE_READING_BOUND")
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise ValueError("EVIDENCE_IDENTITY_CHANGED")
+        value = stream.read(16 * 1024 * 1024 + 1)
+        after = os.fstat(stream.fileno())
+    if len(value) > 16 * 1024 * 1024 or any(getattr(before, key) != getattr(after, key)
+        for key in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")):
+        raise ValueError("EVIDENCE_CHANGED_DURING_READING")
+    return value
+
 def retain_summary(recovery=False, browser=False):
     directory = FLAT / ".local" / ("manual-wallet-browser-acceptance" if browser else "manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance")
     if last_lab_attempt is None or last_lab_attempt.parent != directory:
         raise SystemExit("Lab EVM produced no single new attempt; earlier reports are not reused")
     attempt = last_lab_attempt
-    result_bytes = (attempt / "result.json").read_bytes() if (attempt / "result.json").exists() else b"{}"
-    resources_bytes = (attempt / "resources.json").read_bytes()
-    result = json.loads(result_bytes)
-    resources = json.loads(resources_bytes)
+    if attempt.resolve() != attempt or not attempt.is_dir():
+        raise SystemExit("Lab EVM original attempt path changed")
+    documents, original_bytes, read_failures = {}, {}, []
+    for name in ("result", "resources", "source-pins"):
+        try:
+            original_bytes[name] = private_evidence(attempt / (name + ".json"))
+            value = json.loads(original_bytes[name])
+            if not isinstance(value, dict):
+                raise ValueError("EVIDENCE_OBJECT_REQUIRED")
+            documents[name] = value
+        except (OSError, ValueError):
+            read_failures.append(name); documents[name] = {}
+    result, resources, sources = (documents[name] for name in ("result", "resources", "source-pins"))
+    result_bytes, resources_bytes = original_bytes.get("result", b""), original_bytes.get("resources", b"")
+    source_sha256 = hashlib.sha256(original_bytes["source-pins"]).hexdigest() if "source-pins" in original_bytes else None
     completion = "walletBrowserEvmFlowCompleted" if browser else "actualTimeoutFRecoveryAcceptance" if recovery else "walletSdkEvmFlowCompleted"
-    accepted = result.get("success") is True and result.get(completion) is True \
-        and resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
+    prefix = "FLAT_MANUAL_WALLET_BROWSER" if browser else "FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY" if recovery else "FLAT_MANUAL_WALLET_ACCEPTANCE"
+    result_format = prefix + "_ACCEPTANCE_RESULT_V1" if browser else prefix + "_RESULT_V1"
+    resources_format = prefix + "_RESOURCES_V1"
+    run_id, worker_pid = result.get("runId"), resources.get("workerPID")
+    record = lambda value: value if isinstance(value, dict) else {}
+    worker_result = record(resources.get("workerResult"))
+    supervisor = {"supervisorPID": last_lab_supervisor_pid, "workerPID": worker_pid}
+    supervisor_identity, worker_identity = (record(resources.get(key)) for key in ("supervisorIdentity", "workerIdentity"))
+    receipt_checks = {
+        "originalEvidenceRead": not read_failures,
+        "supervisorExitZero": type(last_lab_supervisor_code) is int and last_lab_supervisor_code == 0,
+        "resultFormat": result.get("format") == result_format,
+        "resourcesFormat": resources.get("format") == resources_format,
+        "runIdentity": isinstance(run_id, str) and bool(re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", run_id))
+            and attempt.name == "attempt-" + run_id and resources.get("runId") == run_id and worker_result.get("runId") == run_id,
+        "supervisorIdentity": type(last_lab_supervisor_pid) is int and last_lab_supervisor_pid > 1
+            and resources.get("supervisorPID") == last_lab_supervisor_pid and supervisor_identity.get("pid") == last_lab_supervisor_pid
+            and supervisor_identity.get("ppid") == os.getpid() and result.get("supervisor") == supervisor and worker_result.get("supervisor") == supervisor
+            and isinstance(last_lab_supervisor_identity, dict)
+            and all(supervisor_identity.get(key) == value for key, value in last_lab_supervisor_identity.items()),
+        "workerIdentity": type(worker_pid) is int and worker_pid > 1 and worker_identity.get("pid") == worker_pid
+            and worker_identity.get("ppid") == last_lab_supervisor_pid and worker_identity.get("pgrp") == worker_pid
+            and worker_identity.get("session") == worker_pid and resources.get("ownedProcessGroup") == worker_pid,
+        "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
+            for value in (supervisor_identity, worker_identity)),
+        "resultCompleted": result.get("phase") == "completed" and result.get("success") is True and result.get(completion) is True,
+        "resourcesCompleted": resources.get("phase") == "completed" and resources.get("failure") is None and resources.get("failures") == [],
+        "originalResultJoined": worker_result.get("format") == result_format and worker_result.get("phase") == "completed"
+            and worker_result.get("success") is True and worker_result.get("path") == str((attempt / "result.json").relative_to(FLAT))
+            and worker_result.get("bytes") == len(result_bytes) and worker_result.get("sha256") == hashlib.sha256(result_bytes).hexdigest(),
+        "sourceJoined": result.get("sourceUnchanged") is True and resources.get("sourceClosureUnchanged") is True
+            and source_sha256 is not None and resources.get("sourcePinsSHA256") == source_sha256
+            and result.get("sourcePins") == sources and resources.get("sourcePins") == sources,
+        "localScope": all(value.get("localOnly") is True and value.get("fakeFundsOnly") is True and value.get("publicNetwork") is False
+            for value in (result, resources, worker_result)),
+        "originalCleanup": resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
+            and resources.get("lockReleased") is True and resources.get("withinTotalDeadline") is True
+            and record(result.get("cleanup")).get("closedEvm") is True and record(worker_result.get("cleanup")).get("closedEvm") is True,
+        "workerExitZero": all(resources.get(key) is True for key in ("workerSpawned", "workerExitObserved", "workerCloseObserved"))
+            and all(type(record(resources.get(key)).get("code")) is int and record(resources.get(key)).get("code") == 0 and record(resources.get(key)).get("signal") is None
+                for key in ("workerExit", "workerClose")),
+    }
+    accepted = all(receipt_checks.values())
     summary = {"format": "LIANUM_DEVELOPMENT_EVM_BROWSER_ACCEPTANCE_V1" if browser else "LIANUM_DEVELOPMENT_EVM_TIMEOUT_RECOVERY_V1" if recovery else "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
         "runId": result.get("runId", resources.get("runId")), "attempt": str(attempt.relative_to(ROOT)),
         "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
@@ -87,9 +189,11 @@ def retain_summary(recovery=False, browser=False):
         "proofRelations": [proof["relation"] for proof in result.get("proofs", [])],
         "proofHashes": [{key: proof.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")}
                         for proof in result.get("proofs", [])],
-        "resultSHA256": hashlib.sha256(result_bytes).hexdigest(),
-        "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest(),
-        "sourcePinsSHA256": resources.get("sourcePinsSHA256"),
+        "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
+        "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
+        "sourcePinsSHA256": source_sha256,
+        "supervisorExitCode": last_lab_supervisor_code, "receiptChecks": receipt_checks,
+        "evidenceReadFailures": read_failures,
         "walletSdkEvmFlowCompleted": result.get("walletSdkEvmFlowCompleted", False),
         "walletBrowserEvmFlowCompleted": result.get("walletBrowserEvmFlowCompleted", False),
         "manualConsentContractVerified": result.get("manualConsentContractVerified", False),
