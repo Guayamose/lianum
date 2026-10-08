@@ -26,23 +26,69 @@ function publicGenesis(profile,accounts){
  const config={chainId:profile.chainId,homesteadBlock:0,eip150Block:0,eip155Block:0,eip158Block:0,byzantiumBlock:0,constantinopleBlock:0,petersburgBlock:0,istanbulBlock:0,berlinBlock:0,londonBlock:0,terminalTotalDifficulty:0,mergeNetsplitBlock:0,shanghaiTime:0,cancunTime:0};
  return {config,nonce:'0x0000000000000000',timestamp:quantity(profile.genesisTimestamp),extraData:'0x',gasLimit:quantity(profile.maxGas),difficulty:'0x0',mixHash:'0x'+'00'.repeat(32),coinbase:'0x'+'00'.repeat(20),number:0,gasUsed:'0x0',parentHash:'0x'+'00'.repeat(32),baseFeePerGas:'0x3b9aca00',blobGasUsed:'0x0',excessBlobGas:'0x0',alloc:Object.fromEntries(accounts.map(a=>[a.slice(2),{balance:quantity(profile.accountBalanceWei),nonce:'0x0',code:'0x',storage:{}}]))};
 }
-async function check(state){
- await privateDirectory(state.cwd);const before=await lstat(state.vault.path);
- assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.nlink===1&&(before.mode&0o777)===0o600&&before.uid===process.getuid());
- assert.ok(!state.closed,'NATIVE_ECONOMIC_ORIGINAL_CUSTODY');
- const current=await state.vault.read(state.password);
- assert.equal(current.revision,state.revision,'NATIVE_ECONOMIC_KEYS_REVISION_CHANGED');assert.equal(hash(current.data),state.commitment,'NATIVE_ECONOMIC_KEYS_CHANGED');
- const after=await lstat(state.vault.path);for(const key of ['dev','ino','uid','size','mtimeMs','ctimeMs'])assert.equal(after[key],before[key]);
- assert.deepEqual(Object.keys(current.data).sort(),['accounts','family','privateKeys','profile','runtimePin','schema'].sort());
- assert.equal(current.data.schema,schema);assert.equal(current.data.family,state.family);assert.deepEqual(current.data.profile,state.profile);assert.deepEqual(current.data.runtimePin,NATIVE_ECONOMIC_ANVIL_PIN_V2);
- assert.deepEqual(current.data.accounts,state.accounts);assert.equal(current.data.privateKeys.length,5);
- for(let i=0;i<5;i++){
-  assert.ok(typeof current.data.privateKeys[i]==='string'&&/^[0-9a-f]{64}$/.exec(current.data.privateKeys[i])?.[0]===current.data.privateKeys[i]);const key=Buffer.from(current.data.privateKeys[i],'hex');
-  try{assert.equal(await nativeEconomicLocalAddressV2(key),state.accounts[i],'NATIVE_ECONOMIC_KEYS_PUBLIC_BINDING');}finally{key.fill(0);}
- }
- return current;
+const custodyFileFields=['dev','ino','uid','size','mode','nlink','mtimeMs','ctimeMs'];
+const MAX_CUSTODY_CIPHERTEXT_BYTES=2*1024*1024;
+function alive(state){assert.ok(!state.closed&&!state.poisoned,'NATIVE_ECONOMIC_ORIGINAL_CUSTODY');}
+function poison(state){
+ state.poisoned=true;
+ for(const lease of [...state.leases])revokeNativeEconomicCustodySigningV2(lease);
 }
-function original(custody){const state=slots.get(custody);assert.ok(state&&!state.closed,'NATIVE_ECONOMIC_ORIGINAL_CUSTODY');return state;}
+/** Fresh physical read of the immutable ciphertext, not a cached native view.
+ * Only a full AEAD/key check can establish the retained digest below. */
+async function ciphertext(state){
+ alive(state);await privateDirectory(state.cwd);alive(state);
+ const before=await lstat(state.vault.path);
+ assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.nlink===1&&(before.mode&0o777)===0o600&&before.uid===process.getuid());
+ assert.ok(before.size>0&&before.size<=MAX_CUSTODY_CIPHERTEXT_BYTES,'NATIVE_ECONOMIC_KEYS_FILE_SIZE');
+ const file=await open(state.vault.path,constants.O_RDONLY|constants.O_NOFOLLOW);
+ try{
+  const opened=await file.stat();assert.ok(opened.isFile());
+  for(const key of custodyFileFields)assert.equal(opened[key],before[key],'NATIVE_ECONOMIC_KEYS_FILE_CHANGED');
+  const bytes=Buffer.alloc(before.size+1);let offset=0;
+  while(offset<bytes.length){
+   const {bytesRead}=await file.read(bytes,offset,bytes.length-offset,offset);
+   if(bytesRead===0)break;offset+=bytesRead;
+  }
+  assert.equal(offset,before.size,'NATIVE_ECONOMIC_KEYS_FILE_CHANGED');
+  const digest=createHash('sha256').update(bytes.subarray(0,offset)).digest('hex');
+  const after=await file.stat();
+  for(const key of custodyFileFields)assert.equal(after[key],before[key],'NATIVE_ECONOMIC_KEYS_FILE_CHANGED');
+  const named=await lstat(state.vault.path);
+  for(const key of custodyFileFields)assert.equal(named[key],before[key],'NATIVE_ECONOMIC_KEYS_FILE_CHANGED');
+  await privateDirectory(state.cwd);alive(state);
+  return Object.freeze({pin:Object.freeze({bytes:offset,sha256:digest}),identity:Object.freeze(Object.fromEntries(custodyFileFields.map(key=>[key,before[key]])))});
+ }finally{await file.close();}
+}
+async function retainedCiphertext(state){
+ try{
+  const current=await ciphertext(state);alive(state);
+  assert.ok(state.ciphertext,'NATIVE_ECONOMIC_KEYS_AUTHENTICATED_CIPHERTEXT_REQUIRED');
+  assert.deepEqual(current.pin,state.ciphertext,'NATIVE_ECONOMIC_KEYS_CIPHERTEXT_CHANGED');return current.pin;
+ }catch(error){poison(state);throw error;}
+}
+async function check(state){
+ let current;
+ try{
+  const before=await ciphertext(state);alive(state);
+  if(state.ciphertext)assert.deepEqual(before.pin,state.ciphertext,'NATIVE_ECONOMIC_KEYS_CIPHERTEXT_CHANGED');
+  current=await state.vault.read(state.password);alive(state);
+  assert.equal(current.revision,state.revision,'NATIVE_ECONOMIC_KEYS_REVISION_CHANGED');assert.equal(hash(current.data),state.commitment,'NATIVE_ECONOMIC_KEYS_CHANGED');
+  assert.deepEqual(Object.keys(current.data).sort(),['accounts','family','privateKeys','profile','runtimePin','schema'].sort());
+  assert.equal(current.data.schema,schema);assert.equal(current.data.family,state.family);assert.deepEqual(current.data.profile,state.profile);assert.deepEqual(current.data.runtimePin,NATIVE_ECONOMIC_ANVIL_PIN_V2);
+  assert.deepEqual(current.data.accounts,state.accounts);assert.equal(current.data.privateKeys.length,5);
+  for(let i=0;i<5;i++){
+   assert.ok(typeof current.data.privateKeys[i]==='string'&&/^[0-9a-f]{64}$/.exec(current.data.privateKeys[i])?.[0]===current.data.privateKeys[i]);const key=Buffer.from(current.data.privateKeys[i],'hex');
+   try{assert.equal(await nativeEconomicLocalAddressV2(key),state.accounts[i],'NATIVE_ECONOMIC_KEYS_PUBLIC_BINDING');alive(state);}finally{key.fill(0);}
+  }
+  const after=await ciphertext(state);alive(state);
+  assert.deepEqual(after,before,'NATIVE_ECONOMIC_KEYS_CIPHERTEXT_CHANGED');
+  // The digest is published only after authenticating this exact file's AEAD,
+  // record, revision and all five original public-key bindings.
+  if(!state.ciphertext)state.ciphertext=after.pin;
+  return current;
+ }catch(error){current?.data?.privateKeys?.fill('');poison(state);throw error;}
+}
+function original(custody){const state=slots.get(custody);assert.ok(state&&!state.closed&&!state.poisoned,'NATIVE_ECONOMIC_ORIGINAL_CUSTODY');return state;}
 function capability(state){const cap=Object.freeze(Object.create(null));slots.set(cap,state);return cap;}
 export async function createNativeEconomicLocalCustodyV2(input){
  assert.equal(arguments.length,1);const state=config(input);await privateDirectory(state.cwd);
@@ -83,7 +129,11 @@ export async function reopenNativeEconomicLocalCustodyV2(input,retained){
 export function nativeEconomicLocalCustodyPublicV2(custody){
  assert.equal(arguments.length,1);const state=original(custody);return Object.freeze({accounts:Object.freeze([...state.accounts]),genesis:Object.freeze({...state.genesis}),commitment:state.commitment,revision:state.revision});
 }
-export async function checkNativeEconomicLocalCustodyV2(custody){assert.equal(arguments.length,1);const state=original(custody);await check(state);await assertNativeEconomicGenesisV2(state.genesis);return nativeEconomicLocalCustodyPublicV2(custody);}
+export async function checkNativeEconomicLocalCustodyV2(custody){
+ assert.equal(arguments.length,1);const state=original(custody);
+ try{await retainedCiphertext(state);await assertNativeEconomicGenesisV2(state.genesis);return nativeEconomicLocalCustodyPublicV2(custody);}
+ catch(error){poison(state);throw error;}
+}
 export async function signNativeEconomicCustodyTransactionV2(custody,transaction){
  assert.equal(arguments.length,2);original(custody);
  const prepared=Object.freeze({transaction:Object.freeze(structuredClone(transaction))});
