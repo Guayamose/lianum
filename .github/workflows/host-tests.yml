@@ -64,3 +64,6 @@ jobs:
           packages/backend/tests/defi/delivery/manual-wallet-app-driver-defi.test.mjs
           packages/backend/tests/defi/vaults/generation-private-vault-reader.test.mjs
           packages/backend/tests/defi/withdrawals/generation-private-vault-exit.test.mjs
+          tests/integration/mobile/paired-original-account-actor-v2.test.mjs
+          tests/integration/mobile/paired-original-account-production-boundary.test.mjs
+          apps/platform/tests/original-account-v2-protocol.test.mjs

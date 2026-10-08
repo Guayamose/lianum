@@ -51,6 +51,8 @@ jobs:
         run: |
           npm run typecheck
           npm test
+      - name: Verify explicitly paired original diagnostics over loopback HTTP
+        run: ./dev test tests/integration/mobile/paired-original-account-http-v2.test.mjs
       - name: Export Android and iOS bundles
         working-directory: apps/mobile
         run: npm run export
