@@ -166,8 +166,8 @@ inducida en la aceptación nativa. Informe local retenido:
 | Base | Factory EVM sintético con chainId 8453 | OP Stack real y su finalidad; cambiar chainId no prueba Base |
 | Arbitrum | Factory EVM sintético con chainId 42161 | Nitro real y su finalidad |
 | BNB | Factory EVM sintético con chainId 56 | BSC real, consenso y finalidad |
-| Bitcoin | Core: ingreso/solver y ciclo privado BTC demostrado dentro del intento global rechazado | Aceptación conjunta de ocho proofs BTC/SOL; wallet/grafo, pérdida de custodia y red pública |
-| Solana | Agave: ingreso/solver; nota privada y EXIT genuinos; payout rechazado por audit caducado | Cerrar payout/CO42 con auditoría vigente, aceptación conjunta, recuperación y red pública |
+| Bitcoin | Core: ingreso/solver y grafo BTC→SOL aceptado con dieciséis proofs; dos retiradas BTC confirmadas y descargadas | Wallets receptoras independientes, pérdida completa de custodia y red pública |
+| Solana | Agave: ingreso/solver y entrega finalizada dentro del grafo aceptado; EXIT privado genuino en el intento anterior | Retirada nativa SOL del intento de ocho proofs, rechazada por audit caducado; recuperación completa y red pública |
 | Tron | Consenso, firma y único broadcast nativos; finalidad rechazada | Diagnosticar pending, cierre SIGABRT y completar aceptación antes de release canónica |
 
 Tron conserva `OWNED_TRON_RUNTIME_RELEASE=null`. Para promoverlo hay que cotejar
