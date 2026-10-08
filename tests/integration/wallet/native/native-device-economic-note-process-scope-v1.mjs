@@ -21,22 +21,21 @@ const unexpected=()=>({role:'native-economic-unexpected-process',proofWorker:tru
 function originalAnvilArguments(argv,successor){
   // V2 has no server wallet, mnemonic or config-out. Its genesis contains only
   // five public local-custody allocations; restored state remains exact bytes.
-  if(!Array.isArray(argv)||argv.length!==(successor?22:20))return false;
+  if(!Array.isArray(argv)||argv.length!==20)return false;
   if(argv[0]!==NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1||argv[1]!=='--host'||argv[2]!=='127.0.0.1'
     ||argv[3]!=='--port'||!(/^[1-9][0-9]{0,4}$/.exec(argv[4])?.[0]===argv[4])||Number(argv[4])>65535
     ||argv[5]!=='--chain-id'||!['31337','1'].includes(argv[6])||argv[7]!=='--hardfork'||argv[8]!=='cancun'
     ||argv[9]!=='--timestamp'||argv[10]!==({31337:'1900000210',1:'1900000310'})[argv[6]]
-    ||argv[11]!=='--accounts'||argv[12]!=='0'||argv[13]!=='--init'
+    ||argv[11]!=='--accounts'||argv[12]!=='0'||argv[13]!== (successor?'--load-state':'--init')
     ||argv[15]!=='--quiet'||argv[16]!=='--no-cors'||argv[17]!=='--no-mining'
     ||argv[18]!=='--gas-limit'||argv[19]!=='30000000')return false;
   const directory=dirname(argv[14]),prefix=argv[6]==='1'?'flat-economic-native-v2-':'flat-economic-receiver-v2-';
   if(dirname(directory)!==join(GOLDEN,'.local/integrations')
     ||new RegExp('^'+prefix+'[A-Za-z0-9]{6}$').exec(basename(directory))?.[0]!==basename(directory)
-    ||argv[14]!==join(directory,'native-economic-genesis-v2.json'))return false;
-  // The executable is argv[0]; the fixed vector has twenty entries including it.
-  return !successor?argv.length===20:argv.length===22&&argv[20]==='--load-state'
-    &&new RegExp('^reopen-state-([1-9]|1[0-5])\\.json$').exec(basename(argv[21]))?.[0]===basename(argv[21])
-    &&dirname(argv[21])===directory;
+    )return false;
+  // Initial genesis and restored chain are mutually exclusive official CLI modes.
+  return !successor?argv[14]===join(directory,'native-economic-genesis-v2.json')
+    :new RegExp('^reopen-state-([1-9]|1[0-5])\\.json$').exec(basename(argv[14]))?.[0]===basename(argv[14]);
 }
 
 /** Pure labels only; unknown children of the fixed successor receive the

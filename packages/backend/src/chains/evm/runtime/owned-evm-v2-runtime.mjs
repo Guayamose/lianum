@@ -549,10 +549,13 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     handle = startOwnProcess(binary, [
       '--host', '127.0.0.1', '--port', String(port), '--chain-id', String(processProfile.chainId),
       '--hardfork', processProfile.hardfork, '--timestamp', String(genesisTimestamp),
-      ...(economicV2?['--accounts','0','--init',localCustodyPublic.genesis.path]:['--accounts', '5', '--balance', '10', ...mnemonicArgs, '--config-out', walletConfigPath]),
+      // Official Anvil rejects --init together with --load-state. A V2
+      // successor loads the exact captured chain, then verifies its original
+      // genesis/history/accounts/receipts below; initial V2 uses the public genesis.
+      ...(economicV2?['--accounts','0',...(restored?['--load-state',stateFilePin.path]:['--init',localCustodyPublic.genesis.path])]:['--accounts', '5', '--balance', '10', ...mnemonicArgs, '--config-out', walletConfigPath]),
       '--quiet', '--no-cors', '--no-mining', '--gas-limit', String(osaka ? processProfile.blockGas : processProfile.maxGas),
       ...(osaka ? ['--enable-tx-gas-limit'] : []),
-      ...(stateFilePin?['--load-state',stateFilePin.path]:[]),
+      ...(stateFilePin&&!economicV2?['--load-state',stateFilePin.path]:[]),
     ], cwd);
     handle.child.once('exit', (code, signal) => { exitEvent = { code, signal }; nativeSourceLifetime.abort(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
     handle.child.once('error', error => { spawnError = error; nativeSourceLifetime.abort(error); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
