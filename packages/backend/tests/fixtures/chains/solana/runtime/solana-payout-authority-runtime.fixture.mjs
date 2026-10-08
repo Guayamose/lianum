@@ -120,7 +120,7 @@ export function createRuntimeFixture(routeName = 'redeem', options = {}) {
       assertOriginalIngressUnobserved,prepareNonceAtCurrentHead,reservationReads,handle,persistNative,
       base58Encode,sendOwnedSolanaTransaction,recordFor,close,nonceObservations,same,payoutController,originalKeyControllerV4,assertPrepared,readPayoutAuditState} = env;
     let readGeneration=0n,mutationGeneration=0n;
-    let busy=false,observationBusy=false,inventoryBusy=false,closed=false,shuttingDown=false,
+    let busy=false,observationBusy=false,inventoryBusy=false,closed=false,shuttingDown=false,recoveryCapturing=false,
       isolationFailure=null,nativePersistenceFailure=null,signingUnresolved=false,
       activePrepared=null,activeRoute=null,preSignReadWindow=false,preBroadcastReadWindow=false;
     ${stateCheckSource}
@@ -131,6 +131,7 @@ export function createRuntimeFixture(routeName = 'redeem', options = {}) {
       setState(patch) {
         if ('closed' in patch) closed=patch.closed;
         if ('shuttingDown' in patch) shuttingDown=patch.shuttingDown;
+        if ('recoveryCapturing' in patch) recoveryCapturing=patch.recoveryCapturing;
         if ('isolationFailure' in patch) isolationFailure=patch.isolationFailure;
         if ('nativePersistenceFailure' in patch) nativePersistenceFailure=patch.nativePersistenceFailure;
       }
@@ -179,4 +180,3 @@ export async function assertConsumedWithoutSend(f, mode, work, reason) {
   await assert.rejects(f.start('transfer'), /PRIOR_TRANSFER_UNRESOLVED|BUSY_OR_CLOSED/);
   assert.deepEqual(f.counters(), before); assertReleased(f);
 }
-

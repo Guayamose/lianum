@@ -67,12 +67,13 @@ for (const route of ['refund', 'redeem']) for (const mode of ['transfer', 'resum
     await assert.rejects(f.start(mode,cb),which==='native'?/NATIVE_OBSERVATION_TOO_OLD/:/TEST_AUTHORITY_TOO_OLD/);
     assert.equal(f.record().broadcastAttempts,0); assert.equal(f.counters().sendCalls,0); assertReleased(f);
   });
-  for (const fault of ['native-fsync', 'native-final-await', 'authority-final-await', 'closed', 'shutdown', 'isolation', 'journal', 'process', 'record-identity', 'fee', 'intent', 'wire']) {
+  for (const fault of ['native-fsync', 'native-final-await', 'authority-final-await', 'closed', 'shutdown', 'recovery-capture', 'isolation', 'journal', 'process', 'record-identity', 'fee', 'intent', 'wire']) {
     test(`${route}/${mode}: ${fault} after latch has no resend`, async()=>{
       const f=fixture(route,{deadProcess:fault==='process',afterLatch({api,record,clock}) {
         if(fault==='native-fsync') clock.now+=30_000;
         if(fault==='closed') api.setState({closed:true});
         if(fault==='shutdown') api.setState({shuttingDown:true});
+        if(fault==='recovery-capture') api.setState({recoveryCapturing:true});
         if(fault==='isolation') api.setState({isolationFailure:Error('SOLANA_ISOLATION_FAILURE')});
         if(fault==='journal') api.setState({nativePersistenceFailure:Error('SOLANA_JOURNAL_UNCERTAIN')});
         if(fault==='record-identity') f.records.set(record.nativeId,structuredClone(record));
