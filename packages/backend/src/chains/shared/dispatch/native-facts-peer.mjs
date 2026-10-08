@@ -10,6 +10,7 @@ import { FACTS_SCHEMA, validateNativeFacts, encodeNativeFacts, nativeFactsDigest
   nativeRuleCommitment, nativeFactIdentity, nativeCustodyCommitment,
   nativeObservedEffectCommitment, validateBitcoinBinding,
   validateSolanaBindingTransaction } from './native-receipt-binding.mjs';
+import { validateNativeSplClaimBindingTransactionV1 } from '../../solana/dispatch/native-spl-custody-codec-v1.mjs';
 import { validateClaimSolanaBindingTransaction } from '../../solana/runtime/owned-solana-nonce-binding.mjs';
 import { validateEvmDeliveryWire, evmFundingEndpointCommitment } from '../../evm/dispatch/evm-facts-binding.mjs';
 import { evmGraphDeliveryTermsV1 } from '../../evm/dispatch/evm-graph-delivery-codec-v1.mjs';
@@ -17,12 +18,14 @@ import { evmGraphDeliveryTermsV1 } from '../../evm/dispatch/evm-graph-delivery-c
 export const FACTS_QUORUM_PROFILE = 'LIANUM_NATIVE_QUORUM_3_OF_4_SECP256K1_V2';
 export const FACTS_INVENTORY_SCHEMA = 'LIANUM_FLAT_FACTS_PEER_INVENTORY_V1';
 export const CLAIM_FACTS_INVENTORY_SCHEMA = 'LIANUM_FLAT_CLAIM_FACTS_PEER_INVENTORY_V2';
+export const SPL_CLAIM_FACTS_INVENTORY_SCHEMA = 'LIANUM_FLAT_SPL_CLAIM_FACTS_PEER_INVENTORY_V1';
 // Fixed module-private codecs. Public construction accepts no profile selector
 // or validation callback, and claim inventories cannot reopen as generic v1.
 const V1_CODEC = Object.freeze({ validate: validateNativeFacts, encode: encodeNativeFacts, digest: nativeFactsDigest,
   solana: validateSolanaBindingTransaction, inventorySchema: FACTS_INVENTORY_SCHEMA, claim: false });
 const CLAIM_CODEC = Object.freeze({ validate: validateNativeClaimFacts, encode: encodeNativeClaimFacts, digest: nativeClaimFactsDigest,
   solana: validateClaimSolanaBindingTransaction, inventorySchema: CLAIM_FACTS_INVENTORY_SCHEMA, claim: true });
+const SPL_CLAIM_CODEC = Object.freeze({validate:validateNativeClaimFacts,encode:encodeNativeClaimFacts,digest:nativeClaimFactsDigest,solana:validateNativeSplClaimBindingTransactionV1,inventorySchema:SPL_CLAIM_FACTS_INVENTORY_SCHEMA,claim:true,spl:true});
 export const FACTS_PEER_ASSURANCE = 'HOST_BOUNDARY_ONLY_NOT_NATIVE_CONSENSUS_OR_INDEPENDENT_OPERATORS';
 const ZERO = '0'.repeat(64);
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -103,6 +106,7 @@ function policyCopy(input, codec) {
   for (const key of ['ledgerNamespace', 'hubDomain', 'registryCommitment']) hex(input[key]);
   nativeRuleCommitment(input.rule); // exact family/genesis/asset/finality/bounds
   if (codec.claim) need(['1', '2'].includes(input.rule.family), 'CLAIM_FAMILY');
+  if (codec.spl) need(input.rule.family === '2', 'SPL_CLAIM_FAMILY');
   return frozen(copy(input));
 }
 
@@ -112,6 +116,7 @@ function policyCopy(input, codec) {
  */
 export function createNativeFactsSigner(input) { return createFactsSigner(input, V1_CODEC); }
 export function createNativeClaimFactsSigner(input) { return createFactsSigner(input, CLAIM_CODEC); }
+export function createNativeSplClaimFactsSigner(input) { return createFactsSigner(input, SPL_CLAIM_CODEC); }
 function createFactsSigner(input, codec) {
   exact(input, ['privateKey', 'policy']);
   const policy = policyCopy(input.policy, codec), privateKey = input.privateKey;
@@ -179,6 +184,7 @@ function validateCertificate(input, policy, publicKey, now, codec) {
  */
 export function createNativeFactsCollector(input) { return createFactsCollector(input, V1_CODEC); }
 export function createNativeClaimFactsCollector(input) { return createFactsCollector(input, CLAIM_CODEC); }
+export function createNativeSplClaimFactsCollector(input) { return createFactsCollector(input, SPL_CLAIM_CODEC); }
 function createFactsCollector(input, codec) {
   exact(input, ['policy', 'registry', 'rulePath', 'clock']);
   const policy = policyCopy(input.policy, codec), registry = registryCopy(input.registry), clock = clockCapabilities(input.clock);
@@ -233,6 +239,7 @@ function configurationDigest(config, codec) {
  */
 export function createNativeFactsInventory(input) { return createFactsInventory(input, V1_CODEC); }
 export function createNativeClaimFactsInventory(input) { return createFactsInventory(input, CLAIM_CODEC); }
+export function createNativeSplClaimFactsInventory(input) { return createFactsInventory(input, SPL_CLAIM_CODEC); }
 function createFactsInventory(input, codec) {
   const config = publicConfiguration(input, codec);
   return frozen({ schema: codec.inventorySchema, configurationDigest: configurationDigest(config, codec), lastClock: '0', entries: [] });
@@ -278,7 +285,7 @@ function deriveFacts(result, request, config, at, codec) {
     : endpoint(request.family, rule.genesis, rule.asset, destination);
   const endpoints = { family: request.family, genesis: rule.genesis, asset: rule.asset, sourceCommitment, destinationCommitment };
   const nativeGid = requestedGid(request, policy, wire.effectIndex), amount = request.family === '1' ? result.intent.amountSatoshi
-    : request.family === '2' ? result.intent.lamports : wire.amount;
+    : request.family === '2' ? (codec.spl ? result.intent.amount : result.intent.lamports) : wire.amount;
   const evidenceUntil = (uint(at) + uint(rule.maximumEvidenceLifetime)).toString(); uint(evidenceUntil);
   const observation = { blockId: result.blockId, stateCommitment: nativeObservedEffectCommitment({ ...endpoints,
     nativeGid, blockId: result.blockId, blockHeight: result.blockHeight, transactionSHA256: wire.transactionSHA256, amount }),
@@ -347,6 +354,7 @@ function validateInventory(state, config, codec) {
  */
 export async function createNativeFactsPeer(input) { return createFactsPeer(input, V1_CODEC); }
 export async function createNativeClaimFactsPeer(input) { return createFactsPeer(input, CLAIM_CODEC); }
+export async function createNativeSplClaimFactsPeer(input) { return createFactsPeer(input, SPL_CLAIM_CODEC); }
 async function createFactsPeer(input, codec) {
   exact(input, ['policy', 'signerIndex', 'recipients', 'signer', 'reader', 'clock', 'store']);
   exact(input.signer, ['publicKey', 'signFacts']); need(typeof input.signer.signFacts === 'function', 'SIGNER_CAPABILITY');

@@ -2,6 +2,7 @@
  * cannot mint the private observer brand. Native inventory is deliberately not
  * supplied here: each operator must independently inspect its owned native chain. */
 import assert from 'node:assert/strict';
+import {isOwnedSolanaSplCustodyV1} from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { createHash } from 'node:crypto';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
@@ -219,7 +220,7 @@ async function assertPins(runtime, claims, header) {
         configurationCommitment: gateway.configurationCommitment,
         custodyInventoryDomain: prefix(config.custodyInventoryDomain), nativeAssetKey: assetKey, isSealed: word(1),
         MAX_INTENTS: word(16), MAX_TICKETS: word(32) }).map(([key, value]) => expect(gateway, key + '()', [], value)),
-      expect(wrapper, 'gateway()', [], word(gateway.address)), expect(wrapper, 'decimals()', [], word(config.nativeFamily === '1' ? 8 : 9)),
+      expect(wrapper, 'gateway()', [], word(gateway.address)), expect(wrapper, 'decimals()', [], word(config.nativeFamily === '1' ? 8 : claims.nativeSplCustodyProfile===true?6:9)),
       expect(claims.authority, 'gateways(uint256)', [i], word(gateway.address)),
       expect(claims.authority, 'gatewayPool(address)', [gateway.address], word(pool.address)),
       expect(claims.authority, 'gatewayCodeHash(address)', [gateway.address], gateway.codeHash),
@@ -414,9 +415,11 @@ export async function createOwnedClaimObserver(input) {
     },
   });
   const bindings = Object.freeze({ runtime, system: claims, registry: claims.flatSystem.registry, configs: claims.configs,
-    policies: claims.policies, nativeRuntimes: claims.nativeRuntimes, journalRoot: claims.journalRoot });
+    policies: claims.policies, nativeRuntimes: claims.nativeRuntimes, registeredRules:claims.registeredRules??claims.policies.map(p=>p.rule),graphSolanaRule:claims.graphSolanaRule??null, journalRoot: claims.journalRoot });
   owned.set(observer, { runtime, claims, bindings });
   // Creating an observer is not enough: require a complete pinned canonical
   // reconstruction before publishing its capability to private operators.
-  const initial = await observer.read(); await observer.assertCurrent(initial); return observer;
+  const initial = await observer.read(); await observer.assertCurrent(initial);
+  for(const native of claims.nativeRuntimes)if(isOwnedSolanaSplCustodyV1(native))await native.initializeOriginalClaimRegistryV1(observer);
+  await observer.assertCurrent(initial);return observer;
 }

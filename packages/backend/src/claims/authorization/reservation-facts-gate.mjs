@@ -1,3 +1,4 @@
+import {NATIVE_SPL_CLAIM_INTENT_PROFILE_V1,validateNativeSplClaimBindingTransactionV1} from '../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 /** Private reservation/facts join. No signing or authority is created here.
  * Owned operators retain these bindings in their separate encrypted journals;
  * the only ordinary facts request remains family/recipientIndex/nativeId/K. */
@@ -31,7 +32,7 @@ export function createClaimReservationBinding(raw) {
   assert.equal(typeof value.ingress, 'boolean', 'CLAIM_RESERVATION_KIND');
   const request = claimFactsRequest(value.request);
   const wire = request.family === '1' ? validateBitcoinBinding(value.nativeWire, value.intent)
-    : validateClaimSolanaBindingTransaction(value.nativeWire, value.intent);
+    : value.intent.profile===NATIVE_SPL_CLAIM_INTENT_PROFILE_V1?validateNativeSplClaimBindingTransactionV1(value.nativeWire,value.intent):validateClaimSolanaBindingTransaction(value.nativeWire, value.intent);
   // Candidate-only exact v2 SOL ingress joins. The owned deployment gate
   // separately requires the actual new CI51-compatible verifier lineage.
   if (value.ingress) assert.ok(wire.wireBindingVersion === '1'

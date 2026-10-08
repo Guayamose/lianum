@@ -1,3 +1,7 @@
+import {DEVELOPMENT_BTC_SPL_GRAPH_PROFILE,DEVELOPMENT_BTC_SPL_GRAPH_RESULT} from './development-btc-spl-jupiter-policy-v1.mjs';
+import {developmentBtcSplJupiterSourcePinsV1} from './development-btc-spl-jupiter-source-pins-v1.mjs';
+import {captureOwnedFlatSolanaSourceForSplV1} from '../../../../packages/backend/src/providers/native-provider.mjs';
+import {validateNativeSplClaimBindingTransactionV1,decodeNativeSplInventoryV1,NATIVE_SPL_CUSTODY_V1 as SPL} from '../../../../packages/backend/src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 /** Fixed fresh development acceptance, launched by its owned supervisor.
  * Original V3 custody/controller authorities and eight genuine proofs in fresh
  * synthetic state. Neither old private evidence nor legacy gates are resumed. */
@@ -9,7 +13,7 @@ import { createFlatNativeExecution } from '../../../../packages/backend/src/exec
 import { createFlatSystemStateReader } from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_PROFILE, DEVELOPMENT_BTC_SOL_GRAPH_RESULT } from './development-btc-sol-graph-policy.mjs';
 import { developmentBtcSolGraphSourcePins } from './development-btc-sol-graph-source-pins.mjs';
-import { runDevelopmentBtcSolGraphCase, exitAndRedeemDevelopmentBtcSolPayout } from './development-btc-sol-graph-case.mjs';
+import { runDevelopmentBtcSolGraphCase,runDevelopmentBtcSplSourceGraphCaseV1, exitAndRedeemDevelopmentBtcSolPayout } from './development-btc-sol-graph-case.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, assertBtcSolRecipientWithdrawalTelemetry }
   from './development-btc-sol-graph-proof-evidence.mjs';
 import { ROOT, LOCAL, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
@@ -18,7 +22,7 @@ import { privateFailureDiagnostic } from '../../../../packages/backend/src/execu
 import { createRoleProofClient } from '../../../../packages/proofs/src/jobs/role-client.mjs';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
   from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
-import { createOwnedNativeClaimGraphV3Fixture } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';
+import { createOwnedNativeClaimGraphV3Fixture,createOwnedNativeSplClaimGraphFixtureV1 } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';
 import { createDurableNativeClaimControllerKeeper, createNativeClaimController }
   from '../../../../packages/backend/src/claims/controller/controller.mjs';
 import { claimDomainCommitment } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
@@ -47,29 +51,31 @@ import { graphOperatorPrivateAuditActivity }
 // no caller profile, pool, factory, witness or proof-backend option.
 const graphWorker = join(ROOT, 'integration/claims/development/development-btc-sol-graph-flow.mjs');
 const btcToSol = process.argv[1] !== undefined && realpathSync(process.argv[1]) === graphWorker;
-const LOCAL_RUN = btcToSol ? '.local/development-btc-sol-graph-v1' : '.local/development-native-claim-roundtrip-v1';
-const selectedAssets = btcToSol ? [0] : [0, 1];
-const sourcePins = btcToSol ? developmentBtcSolGraphSourcePins : developmentNativeClaimSourcePins;
+const splWorker=join(ROOT,'integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs');
+const btcToSpl=process.argv[1]!==undefined&&realpathSync(process.argv[1])===splWorker,withGraph=btcToSol||btcToSpl;
+const LOCAL_RUN = btcToSpl?'.local/development-btc-spl-jupiter-v1':btcToSol ? '.local/development-btc-sol-graph-v1' : '.local/development-native-claim-roundtrip-v1';
+const selectedAssets = withGraph ? [0] : [0, 1];
+const sourcePins = btcToSpl?developmentBtcSplJupiterSourcePinsV1:btcToSol ? developmentBtcSolGraphSourcePins : developmentNativeClaimSourcePins;
 const bare = value => value.slice(2);
 const code = error => String(error?.message ?? '').match(/\b(?:DEVELOPMENT_CLAIM|CLAIM|SOLANA|BITCOIN|PW|FLAT|NATIVE|ROLE_CLIENT|LOCAL_EVM|COMBINED_OPERATOR)_[A-Z0-9_]+\b/)?.[0]
   ?? 'DEVELOPMENT_CLAIM_FAILED';
 export async function runDevelopmentNativeClaimAcceptance() {
   assert.equal(arguments.length, 0, 'DEVELOPMENT_CLAIM_NO_WORKER_OPTIONS');
   assert.equal(process.argv.length, 2); assert.deepEqual(process.execArgv, []);
-  assert.equal(realpathSync(process.argv[1]), btcToSol ? graphWorker : fileURLToPath(import.meta.url));
+  assert.equal(realpathSync(process.argv[1]), btcToSpl?splWorker:btcToSol ? graphWorker : fileURLToPath(import.meta.url));
   assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
   assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, btcToSol ? 'integration/claims/development/run-development-btc-sol-graph-flow.mjs' : 'integration/claims/development/run-development-native-claim-flow.mjs'));
+    join(ROOT, btcToSpl?'integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs':btcToSol ? 'integration/claims/development/run-development-btc-sol-graph-flow.mjs' : 'integration/claims/development/run-development-native-claim-flow.mjs'));
   const lock = JSON.parse(readFileSync(join(ROOT, LOCAL_RUN, 'active.lock')));
   assert.equal(lock.pid, process.ppid); assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(lock.attempt, LOCAL_RUN + '/attempt-' + lock.runId);
   const directory = join(ROOT, lock.attempt), privateDirectory = join(directory, 'private-audit'), proofsDirectory = join(directory, 'public-proofs');
   mkdirSync(privateDirectory, { mode: 0o700 }); mkdirSync(proofsDirectory, { mode: 0o700 });
-  const result = { format: btcToSol ? DEVELOPMENT_BTC_SOL_GRAPH_RESULT : DEVELOPMENT_NATIVE_CLAIM_RESULT,
-    profile: btcToSol ? DEVELOPMENT_BTC_SOL_GRAPH_PROFILE : DEVELOPMENT_NATIVE_CLAIM_PROFILE, runId: lock.runId,
+  const result = { format: btcToSpl?DEVELOPMENT_BTC_SPL_GRAPH_RESULT:btcToSol ? DEVELOPMENT_BTC_SOL_GRAPH_RESULT : DEVELOPMENT_NATIVE_CLAIM_RESULT,
+    profile: btcToSpl?DEVELOPMENT_BTC_SPL_GRAPH_PROFILE:btcToSol ? DEVELOPMENT_BTC_SOL_GRAPH_PROFILE : DEVELOPMENT_NATIVE_CLAIM_PROFILE, runId: lock.runId,
     selectedAssets, startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false, nativeSelfCustody: false, independentOperators: false,
     nativeProcessRestartEstablished: false, keeperLossRecoveryEstablished: false, graphExecutionEstablished: false,
@@ -80,7 +86,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       'Each original native ingress issues a private custodial claim note; its original EXIT precedes native redemption and discharge.',
       'Native custody and operator processes survive coordinator and keeper restart; process-loss recovery is excluded.',
       'One admitted redemption HTTP response is discarded deliberately, then the original journal is resumed without another native send.',
-      btcToSol ? 'One original CBTC invoice pays a separate solver for an explicitly priced SOL delivery; this establishes no asset parity or FX discovery.'
+      btcToSpl?'One original CBTC invoice pays SOL to the same validator; that SOURCE alone wraps to WSOL and swaps through original Jupiter/Orca into a distinct six-decimal USDC custodial note. No prefunded WSOL, relabelled SOL backing or customer key reaches the backend.':btcToSol ? 'One original CBTC invoice pays a separate solver for an explicitly priced SOL delivery; this establishes no asset parity or FX discovery.'
         : 'Original graph peers supply their required current source coverage but perform no economic graph transfer.'] };
   const save = () => writeFixturePrivate(join(directory, 'result.json'), result);
   const stage = async name => { result.phase = name; result.stages.push({ name, at: new Date().toISOString() }); save();
@@ -97,7 +103,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
     const bytes = Buffer.isBuffer(proof.proof) || proof.proof instanceof Uint8Array ? Buffer.from(proof.proof) : Buffer.from(proof.proof, 'hex');
     const name = String(result.proofs.length + 1).padStart(3, '0') + '-' + label, inputs = fixtureJSON(proof.publicInputs);
     let evidence = proof.evidence ?? proof.metrics ?? null;
-    if (relation === 'deposit_intent' || (btcToSol && DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS.includes(relation))) {
+    if (relation === 'deposit_intent' || (withGraph && DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS.includes(relation))) {
       assert.match(evidence.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
       assert.equal(earlier.get(LOCAL).has(evidence.runId), false, 'DEVELOPMENT_CLAIM_FRESH_D27_ATTEMPT');
       const original = join(LOCAL, 'attempts', evidence.runId), manifestBytes = readFileSync(join(original, 'proof-manifest.json'));
@@ -117,7 +123,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       assert.match(evidence.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
       assert.equal(earlierLegacyTelemetry.has(evidence.id + '.json'), false, 'DEVELOPMENT_CLAIM_FRESH_W39_ATTEMPT');
       const telemetry = readFileSync(join(originalLegacyTelemetry, evidence.id + '.json'));
-      evidence = (btcToSol && evidence.purpose === 'recipient' ? assertBtcSolRecipientWithdrawalTelemetry : assertWithdrawalProofTelemetry)({ returnedMetrics: evidence, storedMetrics: JSON.parse(telemetry),
+      evidence = (withGraph && evidence.purpose === 'recipient' ? assertBtcSolRecipientWithdrawalTelemetry : assertWithdrawalProofTelemetry)({ returnedMetrics: evidence, storedMetrics: JSON.parse(telemetry),
         proofSHA256: hash(bytes), publicInputsSHA256: hash(JSON.stringify(proof.publicInputs)), telemetrySHA256: hash(telemetry) });
     }
     writeFileSync(join(proofsDirectory, name + '.bin'), bytes, { flag: 'wx', mode: 0o600 });
@@ -129,18 +135,19 @@ export async function runDevelopmentNativeClaimAcceptance() {
     if (fixture?.runtime) writeFixturePrivate(join(privateDirectory, 'evm.json'), { metadata: fixture.runtime.metadata,
       transactions: fixture.runtime.transactions, receipts: fixture.runtime.receipts });
     for (const [name, native] of [['bitcoin', fixture?.bitcoin], ['solana', fixture?.solana],
-      ...(btcToSol ? [['graph-bitcoin', fixture?.graphBitcoin], ['graph-solana', fixture?.graphSolana]] : [])]) if (native)
+      ...(withGraph ? [['graph-bitcoin', fixture?.graphBitcoin], ['graph-solana', fixture?.graphSolana]] : [])]) if (native)
       writeFixturePrivate(join(privateDirectory, name + '.json'), { metadata: native.metadata, transfers: native.transfers });
     for (const [local, previous] of earlier) for (const id of (existsSync(join(local, 'attempts')) ? readdirSync(join(local, 'attempts')) : [])) {
       if (previous.has(id) || collected.has(id)) continue;
       const path = join(local, 'attempts', id, 'proof-manifest.json'); if (!existsSync(path)) continue;
       const manifestBytes = readFileSync(path), manifest = JSON.parse(manifestBytes);
-      if (!['native_claim_ingress_v3', 'native_claim_discharge'].includes(manifest.relation)) continue;
+      if (!['native_claim_ingress','native_claim_ingress_v3', 'native_claim_discharge'].includes(manifest.relation)) continue;
       assert.equal(manifest.selfVerified, true);
       if (manifest.relation === 'native_claim_ingress_v3') {
         assert.equal(local, NATIVE_INGRESS_V3_LOCAL); assert.equal(manifest.sourceVersion, NATIVE_INGRESS_V3_SOURCE_VERSION);
         assert.equal(manifest.keySHA256, NATIVE_INGRESS_V3_KEY_SHA256);
-      } else { assert.equal(local, LOCAL); assert.equal(manifest.keySHA256, '0cfe032118e9e3d18dd9e4eadc1d738b9ec2116e65c8bed3e35a3db2416a2a83'); }
+      } else if(manifest.relation==='native_claim_ingress'){assert.equal(btcToSpl,true,'SPL_ORIGINAL_V1_INGRESS_SCOPE');assert.equal(local,LOCAL);assert.equal(manifest.sourceVersion,'c13d5cc0e1be06158727cf933013492fe44efe987d09e4dee9bb9216c04fb418');assert.equal(manifest.keySHA256,fixture.claims.verifiers.CI51.lineage.keySHA256,'SPL_ACTUAL_DEPLOYED_CI51_V1_KEY');}
+      else { assert.equal(local, LOCAL); assert.equal(manifest.keySHA256, '0cfe032118e9e3d18dd9e4eadc1d738b9ec2116e65c8bed3e35a3db2416a2a83'); }
       const proof = readFileSync(join(local, 'attempts', id, 'proof.bin')), inputs = readFileSync(join(local, 'attempts', id, 'public-inputs.json'));
       assert.equal(hash(proof), manifest.proofSHA256); assert.equal(hash(inputs), manifest.publicInputsSHA256);
       const resultBytes = readFileSync(join(local, 'attempts', id, 'result.json')), resourcesBytes = readFileSync(join(local, 'attempts', id, 'resources.json'));
@@ -293,8 +300,8 @@ export async function runDevelopmentNativeClaimAcceptance() {
     } finally { if (captureSolana) retainLoadedSolanaMetrics(false, body.requestId); }
   }
   try {
-    save(); fixture = await createOwnedNativeClaimGraphV3Fixture(privateDirectory, { onStage: stage, onDeployment: audit });
-    const { runtime, claims, system } = fixture, amounts = btcToSol ? ['100000', '0'] : ['100000', '3000000'];
+    save(); fixture = await (btcToSpl?createOwnedNativeSplClaimGraphFixtureV1:createOwnedNativeClaimGraphV3Fixture)(privateDirectory, { onStage: stage, onDeployment: audit });
+    const { runtime, claims, system } = fixture, amounts = withGraph ? ['100000', '0'] : ['100000', '3000000'];
     await stage('registered-original-v4-quorum-before-funds');
     assert.equal(fixture.quorum.authorizationLifecycleProfile, 'CLAIM_AUTHORIZATION_LIFECYCLE_V4');
     for (const poolIndex of [0, 1]) { const checkpoint = await fixture.graphQuorum.checkpoint({ poolIndex, requestId: freshFixtureId() });
@@ -303,14 +310,14 @@ export async function runDevelopmentNativeClaimAcceptance() {
     for (const native of [fixture.bitcoin, fixture.solana, fixture.graphBitcoin, fixture.graphSolana]) assert.equal(native.transfers.length, 0);
     result.checks.registeredOriginalQuorumPreflight = true;
     const initialNative = [await fixture.bitcoin.inventory(), await fixture.solana.inventory()];
-    result.nonceInfrastructure = checkClaimGraphV3Bootstrap(initialNative[1], fixture.solana, claims.configs[1]);
-    result.checks.dualNonceInfrastructureExcluded = true; writeFixturePrivate(join(privateDirectory, 'initial-native.json'), initialNative);
+    if(btcToSpl){assert.equal(claims.nativeSplCustodyProfile,true);assert.equal(claims.registeredRules.length,3);assert.equal(claims.nativeRuntimes.length,2);assert.equal(initialNative[1].escrow.total,'0');const backing=decodeNativeSplInventoryV1(initialNative[1].spl);assert.equal(backing.nativePrincipalAvailable,'0');assert.equal(backing.nativePrincipalReserved,'0');assert.equal(initialNative[1].accounts.find(row=>row.role==='depositor').total,'0');assert.equal(initialNative[1].accounts.find(row=>row.role==='recipient').total,'0');result.checks.distinctUsdcSixDecimalBootstrap=true;}
+    else {result.nonceInfrastructure = checkClaimGraphV3Bootstrap(initialNative[1], fixture.solana, claims.configs[1]);result.checks.dualNonceInfrastructureExcluded=true;} writeFixturePrivate(join(privateDirectory, 'initial-native.json'), initialNative);
     controllerKeeper = await createDurableNativeClaimControllerKeeper({ runtime, claims, path: join(privateDirectory, 'controller.v3'), password: freshFixtureId() });
     for (const role of ['claim_ingress', 'claim_discharge']) proofClients[role] = createRoleProofClient(role);
     await openController();
-    for (const index of selectedAssets) {
+    async function issueOriginalNative(index){
       await stage('original-native-ingress-and-private-issuance-' + index);
-      const owner = await fixture.createOwner(index, 'asset-' + index); owners[index] = owner;
+      const owner = owners[index]??await fixture.createOwner(index, 'asset-' + index); owners[index] = owner;
       await owner.owner.prepareDepositIntent({ amount: amounts[index], validFrom: String(await runtime.time()),
         validUntil: String((await runtime.time()) + 86400n), exitRecipient: bare(runtime.accounts[index + 3]) });
       const proof = await owner.ownerProof.proveDepositIntent(); retainProof('asset-' + index + '-D27', 'deposit_intent', proof);
@@ -325,10 +332,11 @@ export async function runDevelopmentNativeClaimAcceptance() {
       await owner.restart(); await owner.owner.reconcileDepositIntent(issued.submission);
       const count = runtime.transactions.length; await owner.owner.reconcileDepositIntent(issued.submission); assert.equal(runtime.transactions.length, count);
     }
+    for(const index of selectedAssets)await issueOriginalNative(index);
     result.checks.ownerOfflineNativeIngress = true; result.checks.originalNotesCreditedOnce = true;
     await stage('clean-original-keeper-and-controller-restart');
     const countsBeforeRestart = [runtime.transactions.length, fixture.bitcoin.transfers.length, fixture.solana.transfers.length];
-    const nativeReceipts = btcToSol ? [await controller.privateNativeReceipt({ operationId: deposits[0].intentId })]
+    const nativeReceipts = withGraph ? [await controller.privateNativeReceipt({ operationId: deposits[0].intentId })]
       : await readDevelopmentNativeClaimReceipts(controller, deposits.map(value => value.intentId));
     const previousKeeperPid = controllerKeeper.status().keeperProcessId; controller.close(); controller = null;
     await controllerKeeper.restart(); await openController(); await controller.reconcileAll({});
@@ -339,10 +347,10 @@ export async function runDevelopmentNativeClaimAcceptance() {
     assert.deepEqual([runtime.transactions.length, fixture.bitcoin.transfers.length, fixture.solana.transfers.length], countsBeforeRestart);
     result.checks.cleanKeeperRestartNoSend = true;
     let graphExecution = null, graphCase = null;
-    if (btcToSol) {
-      // The empty CSOL owner exists only for the original two-pool portfolio;
+    if (withGraph) {
+      // The empty native owner owner exists only for the original two-pool portfolio;
       // no SOL custody deposit or private SOL note is synthesized.
-      owners[1] = await fixture.createOwner(1, 'empty-sol-portfolio');
+      owners[1] = await fixture.createOwner(1, btcToSpl?'empty-usdc-portfolio':'empty-sol-portfolio');
       graphExecution = await createFlatNativeExecution({ runtime, system, poolIndex: 0,
         bitcoin: fixture.graphBitcoin, solana: fixture.graphSolana, quorum: fixture.graphQuorum }, {
         onStage: async event => stage('original-btc-sol-' + event.stage),
@@ -354,7 +362,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       accountId: 'development_claim_' + index, journalId: 'development_claim_journal_' + index }, {
       onProof: async ({ label, relation, proof }) => retainProof('asset-' + index + '-' + label, relation, proof), onPrivateAudit: audit,
       onStage: async event => {
-        if (btcToSol && event.stage === 'OWNER_SUSPENDED_BEFORE_NATIVE') {
+        if (withGraph && event.stage === 'OWNER_SUSPENDED_BEFORE_NATIVE') {
           assert.equal(index, 0); assert.equal(owners[0].report().available, false);
           assert.equal(owners[0].report().childExited, true);
           assert.equal(fixture.graphSolana.transfers.length, 0); assert.equal(fixture.graphBitcoin.transfers.length, 0);
@@ -372,15 +380,25 @@ export async function runDevelopmentNativeClaimAcceptance() {
     for (const owner of owners) { await owner.suspend(); await owner.restart(); }
     assert.deepEqual((await ownerView()).assets.map(asset => asset.balances.available), amounts); assert.equal(runtime.transactions.length, restartCount);
     result.checks.ownerChildAndCoordinatorRestartNoSend = true;
-    if (btcToSol) {
-      graphCase = await runDevelopmentBtcSolGraphCase({ fixture, owner: owners[0], account: accounts[0], execution: graphExecution,
+    if (withGraph) {
+      graphCase = await (btcToSpl?runDevelopmentBtcSplSourceGraphCaseV1:runDevelopmentBtcSolGraphCase)({ fixture, owner: owners[0], account: accounts[0], execution: graphExecution,
         request: accountRequest, ownerView, stage, audit, onProof: async event => retainProof('btc-sol-' + event.label, event.relation, event.proof), privateDirectory });
       result.graph = graphCase.report; result.graphExecutionEstablished = true;
+    }
+    if(btcToSpl){
+      await stage('original-source-sol-wrap-before-spl-ingress');const sourceToken=await captureOwnedFlatSolanaSourceForSplV1(graphCase.sourceProvider);await fixture.solana.bindOriginalSourceV1(sourceToken);
+      amounts[1]=await fixture.solana.quoteOriginalDepositAmountV1();assert.match(amounts[1],/^[1-9][0-9]*$/);selectedAssets.push(1);
+      await issueOriginalNative(1);await accountRequest('restart');const credited=await ownerView();assert.deepEqual(credited.assets.map(asset=>asset.balances.available),['80000',amounts[1]]);
+      const usdc=credited.nativeClaims[1];assert.equal(usdc.nativeAssetKind,'SOLANA_SPL_USDC');assert.equal(usdc.nativeSymbol,'USDC');assert.equal(usdc.availablePrivateClaims,amounts[1]);assert.equal(usdc.underlyingSpendable,false);assert.equal(usdc.decimals,6);assert.equal(usdc.mint,SPL.mint);
+      const native=await fixture.solana.inventory(),funds=decodeNativeSplInventoryV1(native.spl);assert.equal(funds.nativePrincipalAvailable,amounts[1]);assert.equal(funds.nativePrincipalReserved,'0');
+      const record=fixture.solana.transfers[0],wire=validateNativeSplClaimBindingTransactionV1(record.nativeWire,record.intent);assert.equal(record.intent.operation,'deposit');assert.equal(record.intent.amount,amounts[1]);assert.equal(wire.signatureHex,record.nativeId);assert.equal(record.phase,'OBSERVED_FINALIZED');assert.equal(record.broadcastAttempts,1);assert.equal(native.accounts.find(row=>row.role==='depositor').total,record.observation.surplusReturned);assert.equal(BigInt(record.observation.actualOutputReceived),BigInt(amounts[1])+BigInt(record.observation.surplusReturned));
+      result.spl={asset:'USDC',wrapper:'cUSDC',decimals:6,mint:SPL.mint,custodyProgram:SPL.program,assetCommitment:claims.configs[1].nativeAsset,custodyDomain:claims.configs[1].custodyInventoryDomain,principal:amounts[1],sourceLamports:'10000000',sourceOriginalNativeId:fixture.graphSolana.transfers[0].nativeId,sourceOriginalTransactionSHA256:fixture.graphSolana.transfers[0].transactionSHA256,depositNativeId:record.nativeId,depositTransactionSHA256:record.transactionSHA256,actualInputSpent:record.observation.actualInputSpent,actualOutputReceived:record.observation.actualOutputReceived,publicSurplusReturned:record.observation.surplusReturned,initialPrincipal:'0',distinctSolFeeReserve:true,originalV1VerifierKeySHA256:claims.verifiers.CI51.lineage.keySHA256};
+      result.checks.originalSourceOnlyWrapped=true;result.checks.originalJupiterSwapCreditedOnce=true;result.checks.originalUsdcOwnerUpdated=true;await audit();
     }
     for (const index of selectedAssets) {
       await stage('original-private-exit-and-native-redemption-' + index);
       const exitId = 'development_native_exit_' + index, exitRef = freshFixtureId();
-      const exitRole = btcToSol ? 'change' : 'source', exitAmount = btcToSol ? '80000' : amounts[index];
+      const exitRole = withGraph&&index===0 ? 'change' : 'source', exitAmount = withGraph&&index===0 ? '80000' : amounts[index];
       await owners[index].owner.prepareWithdrawal({ role: exitRole, epoch: String((await runtime.time()) / 600n) });
       await accounts[index].ownerActions.registerExit(exitRef, exitRole);
       await accountRequest('prepare', { requestId: exitId, kind: 'EXIT', ownerOperationRef: exitRef, assetId: accounts[index].assetId });
@@ -393,7 +411,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       let reply = await claimRequest('redeem', redemption, index === 0), view = await claimOwnerView();
       assert.equal(view.tickets.length, 1); const ticket = view.tickets[0]; assert.equal(ticket.kind, 'REDEEM'); assert.equal(ticket.amount, exitAmount);
       if (reply.state !== 'CONFIRMED') {
-        if (btcToSol && reply.errorCode !== null && reply.errorCode !== 'CLAIM_NATIVE_FINALITY_UNRESOLVED') {
+        if (withGraph && reply.errorCode !== null && reply.errorCode !== 'CLAIM_NATIVE_FINALITY_UNRESOLVED') {
           writeFixturePrivate(join(privateDirectory, 'btc-sol-original-redemption-failure.json'), {
             reply, ticket, originalControllerStatus: await controller.status(), nativeRecords: fixture.bitcoin.transfers });
           // Preserve an original audit/authorization failure; a finality label
@@ -415,7 +433,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       result.redemptions.push({ assetIndex: index, amount: exitAmount, role: exitRole, status: 'DISCHARGED', duplicateNoEffect: true });
       await claimHttp.close(); claimHttp = null; claimSession = null;
     }
-    if (btcToSol) {
+    if (withGraph) {
       await exitAndRedeemDevelopmentBtcSolPayout({ fixture, graphCase, controller, stage, audit,
         onProof: async event => retainProof(event.label, event.relation, event.proof), confirmOriginal, privateDirectory });
       result.redemptions.push({ assetIndex: 0, amount: '20000', role: 'solver', status: 'DISCHARGED', duplicateNoEffect: true });
@@ -432,10 +450,10 @@ export async function runDevelopmentNativeClaimAcceptance() {
     writeFixturePrivate(join(privateDirectory, 'final-native.json'), finalNative);
     for (const index of [0, 1]) assert.equal(BigInt(finalNative[index].accounts.find(row => row.role === 'recipient').total)
       - BigInt(initialNative[index].accounts.find(row => row.role === 'recipient').total), BigInt(amounts[index]));
+    if(btcToSpl){const funds=decodeNativeSplInventoryV1(finalNative[1].spl);assert.equal(funds.nativePrincipalAvailable,'0');assert.equal(funds.nativePrincipalReserved,'0');assert.equal(funds.nativePrincipalFree,'0');assert.ok(BigInt(funds.feeReserveAvailable)>0n);assert.deepEqual(fixture.solana.transfers.map(row=>row.route),['deposit','redeem']);for(const row of fixture.solana.transfers){const wire=validateNativeSplClaimBindingTransactionV1(row.nativeWire,row.intent);assert.equal(wire.signatureHex,row.nativeId);assert.equal(wire.transactionSHA256,row.transactionSHA256);assert.equal(row.phase,'OBSERVED_FINALIZED');assert.equal(row.broadcastAttempts,1);assert.equal(row.observation.nativeWire,row.nativeWire);assert.equal(row.intent.amount,amounts[1]);}result.spl.finalPrincipal='0';result.spl.finalReserved='0';result.spl.finalFeeReserve=funds.feeReserveAvailable;result.spl.finalRecipientPrincipal=finalNative[1].accounts.find(row=>row.role==='recipient').total;result.spl.finalPublicSurplus=finalNative[1].accounts.find(row=>row.role==='depositor').total;assert.equal(result.spl.finalPublicSurplus,result.spl.publicSurplusReturned);result.checks.originalUsdcPayoutAndReservationClosed=true;}
+    else {
     checkClaimGraphV3Inventory(finalNative[1], fixture.solana, claims.configs[1]);
     assert.deepEqual(fixture.solana.transfers.map(row => row.route), btcToSol ? [] : ['deposit', 'redeem']);
-    assert.deepEqual(fixture.bitcoin.transfers.map(row => row.route), btcToSol ? ['deposit', 'redeem', 'redeem'] : ['deposit', 'redeem']);
-    for (const row of fixture.bitcoin.transfers) { assert.equal(row.phase, 'OBSERVED_CONFIRMED'); assert.equal(row.broadcastAttempts, 1); assert.equal(row.confirmationMiningAttempts, 1); }
     for (const row of fixture.solana.transfers) {
       const role = row.route === 'deposit' ? 'depositor' : 'escrow', pin = finalNative[1].nonceInfrastructureByAuthority[role];
       const decoded = validateSolanaNonceBindingTransaction(row.nativeWire, row.intent);
@@ -445,11 +463,11 @@ export async function runDevelopmentNativeClaimAcceptance() {
       assert.equal(row.intent.durableNonce, initialNative[1].nonceInfrastructureByAuthority[role].nonceAccount.durableNonce);
       assert.notEqual(row.intent.durableNonce, pin.nonceAccount.durableNonce); assert.equal(row.observation.nativeWire, row.nativeWire);
     }
-    if (btcToSol) {
-      assert.deepEqual(finalNative[1].nonceInfrastructureByAuthority, initialNative[1].nonceInfrastructureByAuthority);
-      assert.deepEqual(finalNative[1].accounts, initialNative[1].accounts);
-      assert.deepEqual(finalNative[1].feeAudit, initialNative[1].feeAudit);
-      result.checks.solCustodyAndInfrastructureNeverSpent = true;
+    }
+    assert.deepEqual(fixture.bitcoin.transfers.map(row => row.route), withGraph ? ['deposit', 'redeem', 'redeem'] : ['deposit', 'redeem']);
+    for (const row of fixture.bitcoin.transfers) { assert.equal(row.phase, 'OBSERVED_CONFIRMED'); assert.equal(row.broadcastAttempts, 1); assert.equal(row.confirmationMiningAttempts, 1); }
+    if (withGraph) {
+      if(btcToSol){assert.deepEqual(finalNative[1].nonceInfrastructureByAuthority, initialNative[1].nonceInfrastructureByAuthority);assert.deepEqual(finalNative[1].accounts, initialNative[1].accounts);assert.deepEqual(finalNative[1].feeAudit, initialNative[1].feeAudit);result.checks.solCustodyAndInfrastructureNeverSpent=true;}
       const sourceReader = await createFlatSystemStateReader({ runtime, system, poolIndex: 0 });
       const sourceFinal = await sourceReader.read();
       assert.equal(sourceFinal.ledger.publicState.backedAmount, '0'); assert.equal(sourceFinal.ledger.publicState.actualAssetBalance, '0');
@@ -458,7 +476,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
     } else result.checks.dualNonceIngressAndPayoutAdvanced = true;
     result.nativeEffects = { bitcoin: fixture.bitcoin.transfers.length, solana: fixture.solana.transfers.length,
       graphBitcoin: fixture.graphBitcoin.transfers.length, graphSolana: fixture.graphSolana.transfers.length,
-      eachBroadcastOnce: [...fixture.bitcoin.transfers, ...fixture.solana.transfers, ...(btcToSol ? fixture.graphSolana.transfers : [])].every(row => row.broadcastAttempts === 1) };
+      eachBroadcastOnce: [...fixture.bitcoin.transfers, ...fixture.solana.transfers, ...(withGraph ? fixture.graphSolana.transfers : [])].every(row => row.broadcastAttempts === 1) };
     result.checks.allOriginalLiabilitiesClosed = true; await audit(); result.phase = 'completed'; result.success = true;
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = code(error);

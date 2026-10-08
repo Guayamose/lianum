@@ -10,7 +10,7 @@ import { checkpointAuthorizationFrame, revocationFrame }
   from '../../../../../engine/src/evidence/native-hub-messages.mjs';
 import { exactRecord } from '../../../execution/encoding/commitments.mjs';
 import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { createNativeFactsSigner, createNativeClaimFactsSigner } from '../../../chains/shared/dispatch/native-facts-peer.mjs';
+import { createNativeFactsSigner, createNativeClaimFactsSigner, createNativeSplClaimFactsSigner } from '../../../chains/shared/dispatch/native-facts-peer.mjs';
 import { encodeFlatNativeHealth } from '../../../chains/shared/health/native-health.mjs';
 import { claimBackingFrame, claimIngressAuthorizationFrame, claimPayoutAuthorizationFrame,
   claimPayoutBroadcastFrame } from '../../../claims/authorization/permits.mjs';
@@ -136,10 +136,13 @@ export function signCombinedGraphAuthorization(token, kind, message) {
   assert.ok(codec, 'COMBINED_OPERATOR_GRAPH_SIGNING_DOMAIN');
   return signature(original(token).key, codec(message)).toString('hex');
 }
-export function createCombinedFactsSigner(token, scope, policy) {
+export function createCombinedFactsSigner(token, scope, policy) { return createCombinedFactsSignerFixed(token,scope,policy,false); }
+/** Fixed claim-only SPL codec; same operator/key leases, signing coverage and poison. */
+export function createCombinedNativeSplClaimFactsSignerV1(token,policy) { return createCombinedFactsSignerFixed(token,'claim',policy,true); }
+function createCombinedFactsSignerFixed(token, scope, policy, spl) {
   assertCombinedOperatorLive(token);
   assert.ok(['claim', 'graph'].includes(scope), 'COMBINED_OPERATOR_FACTS_DOMAIN');
-  const signer = (scope === 'claim' ? createNativeClaimFactsSigner : createNativeFactsSigner)({
+  const signer = (spl ? createNativeSplClaimFactsSigner : scope === 'claim' ? createNativeClaimFactsSigner : createNativeFactsSigner)({
     privateKey: original(token).key.privateKey, policy });
   return Object.freeze({ publicKey: signer.publicKey, async signFacts(facts) {
     assertCombinedOperatorLive(token);

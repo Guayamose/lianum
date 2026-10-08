@@ -7,6 +7,7 @@ import { assertOwnedFlatPortfolio } from '../../accounts/authority/flat-portfoli
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from './owned-state.mjs';
 import { assertOwnedClaimOperatorQuorum } from './operators.mjs';
+import {originalNativeClaimAssetUnitsV1} from './native-claim-asset-units-v1.mjs';
 import { claimDomainCommitment } from '../protocol/framing.mjs';
 
 function custodyFailureDiagnostic(error, fallback) {
@@ -18,12 +19,13 @@ function custodyFailureDiagnostic(error, fallback) {
   return Object.freeze({ code, causeCode, causeCodes });
 }
 
-export function projectNativeClaimPosition(assetView, config, ready) {
+export function projectNativeClaimPosition(assetView, config, ready, units=null) {
   assert.equal(assetView.asset.assetId.length, 64, 'CLAIM_PORTFOLIO_ASSET');
   assert.ok(config.nativeFamily === '1' || config.nativeFamily === '2', 'CLAIM_PORTFOLIO_NATIVE_FAMILY');
   const available = assetView.status === 'LIVE' ? assetView.balances.available : null;
   return Object.freeze({ kind: 'CUSTODIAL_NATIVE_CLAIM', assetId: assetView.asset.assetId,
-    nativeSymbol: config.nativeFamily === '1' ? 'BTC' : 'SOL',
+    nativeSymbol: units?.nativeSymbol??(config.nativeFamily === '1' ? 'BTC' : 'SOL'),
+    ...(units?.nativeAssetKind?{nativeAssetKind:units.nativeAssetKind,decimals:units.decimals,atomicUnit:units.atomicUnit,mint:units.mint}:{}),
     nativeGenesis: config.nativeGenesis, availablePrivateClaims: available,
     custodyObservation: ready ? 'CURRENT_QUORUM' : 'UNAVAILABLE',
     nativeSelfCustody: false, underlyingSpendable: false,
@@ -73,7 +75,7 @@ export function createNativeClaimPortfolioView(input) {
           diagnostic = custodyFailureDiagnostic(error, 'CLAIM_PORTFOLIO_CUSTODY_UNAVAILABLE');
         }
       } else diagnostic = custodyFailureDiagnostic(null, 'CLAIM_PORTFOLIO_PRIVATE_VIEW_UNAVAILABLE');
-      const position = projectNativeClaimPosition(asset, config, ready);
+      const position = projectNativeClaimPosition(asset, config, ready,originalNativeClaimAssetUnitsV1(runtime,claims,config));
       positions.push(diagnostic ? Object.freeze({ ...position, custodyDiagnostic: diagnostic }) : position);
     }
     return { ...view, nativeClaims: positions };

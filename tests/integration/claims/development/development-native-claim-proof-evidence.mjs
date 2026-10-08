@@ -7,6 +7,7 @@ const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);
 const specs = Object.freeze({
   deposit_intent: { role: 'owner', words: 27 },
+  native_claim_ingress: {role:'claim_ingress',words:51,source:'c13d5cc0e1be06158727cf933013492fe44efe987d09e4dee9bb9216c04fb418'},
   native_claim_ingress_v3: { role: 'claim_ingress', words: 51,
     source: '65d4737a5da725dc9b73998f240c02346ae50db1731a652feb55071f2ed0d555',
     key: '11682686c16db1276738b60ad906560a58ddf18183acf7ec5fb40f99474d8f6f' },

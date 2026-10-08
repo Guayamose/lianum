@@ -1,8 +1,10 @@
+import {loadNativeSplClaimTokenArtifactsV1} from './native-spl-claim-token-artifacts-v1.mjs';
+import {assertOwnedSolanaSplCustodyV1,isOwnedSolanaSplCustodyV1} from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
 /** Fixed owned-local custody bootstrap. Importing starts no node, compiler,
  * prover or deployment. Only the artifact loader's exact retained builds can
  * enter this bootstrap; data-shaped objects cannot mint its private brands. */
 import assert from 'node:assert/strict';
-import { reserveOriginalClaimCustodyV1 } from '../../operators/claims/shared-custody-allocation-v1.mjs';
+import { reserveOriginalClaimCustodyV1,reserveOriginalSplClaimCustodyV1 } from '../../operators/claims/shared-custody-allocation-v1.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { lstat, realpath, readdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
@@ -24,7 +26,7 @@ import { NATIVE_INGRESS_V3_PROFILE } from '../../../../../proofs/src/native-ingr
 import { loadFlatDeploymentArtifacts } from '../system/deployment-artifacts.mjs';
 import { deployFlatSystem, assertOwnedFlatSystem } from '../system/deploy-system.mjs';
 import { NATIVE_CLAIM_REFUND_FEES, buildOwnedNativeClaimRules,
-  buildNativeClaimDeploymentPlan, claimConfigurationABI, claimArtifactMethod } from './native-claim-deployment-plan.mjs';
+  buildNativeClaimDeploymentPlan,buildNativeSplClaimDeploymentPlanV1,buildNativeSplClaimRulesV1, claimConfigurationABI, claimArtifactMethod } from './native-claim-deployment-plan.mjs';
 
 export { deriveOwnedNativeCurrencyAsset, buildOwnedNativeClaimRules } from './native-claim-deployment-plan.mjs';
 
@@ -61,6 +63,9 @@ export async function createNativeClaimIngressV3Bootstrap(input) {
   assert.equal(arguments.length, 1, 'CLAIM_BOOTSTRAP_ARGUMENTS');
   return createBootstrap(input, true);
 }
+/** New fixed BTC+SPL custody set. SOURCE SOL remains graph-only on the same
+ * original validator; the EVM native-family/genesis relabel fence is unchanged. */
+export async function createNativeSplClaimIngressV1Bootstrap(input){assert.equal(arguments.length,1);return createBootstrap(input,false,true);}
 export async function prepareNativeClaimsBootstrap(capability, context) {
   assert.equal(arguments.length, 2, 'CLAIM_BOOTSTRAP_ARGUMENTS');
   exactRecord(context, ['runtime', 'sender', 'ledger', 'libraries', 'verifiers', 'generatedLibraries', 'configuration']);
@@ -75,31 +80,35 @@ export async function deployNativeClaimSystem(runtime, options) {
 // Both the no-node V3 preflight and the owned bootstrap use these exact fixed
 // readers. Every call rereads their complete original dependencies; no artifact
 // cache, caller data, path, compatibility pin or runtime authority is accepted.
-async function loadBootstrapArtifacts(ingressV3) {
-  const bundlePromise = ingressV3
+async function loadBootstrapArtifacts(ingressV3,spl=false) {
+  const bundlePromise = spl
+    ? import('./native-spl-claim-v1-artifacts.mjs').then(module=>module.loadNativeSplClaimV1Artifacts())
+    : ingressV3
     ? import('./native-claim-ingress-v3-artifacts.mjs').then(module => module.loadNativeClaimIngressV3Artifacts())
     : import('./native-claim-artifacts.mjs').then(module => module.loadNativeClaimArtifacts());
   const [bundle, baseBundle] = await Promise.all([bundlePromise, loadFlatDeploymentArtifacts()]);
+  if(spl){const fresh=loadNativeSplClaimTokenArtifactsV1();return {bundle:{...bundle,contracts:{...bundle.contracts,artifacts:{...bundle.contracts.artifacts,nativeSplToken:fresh.artifacts.nativeSplToken},splTokenCompilation:fresh}},baseBundle};}
   return { bundle, baseBundle };
 }
+export async function preflightNativeSplClaimIngressV1Artifacts(){assert.equal(arguments.length,0,'SPL_CLAIM_BOOTSTRAP_NO_OPTIONS');await loadBootstrapArtifacts(false,true);}
 export async function preflightNativeClaimIngressV3Artifacts() {
   assert.equal(arguments.length, 0, 'V3_BOOTSTRAP_ARTIFACT_PREFLIGHT_NO_OPTIONS');
   await loadBootstrapArtifacts(true);
 }
 
-function nativeIdentity(nativeRuntimes) {
+function nativeIdentity(nativeRuntimes,spl=false) {
   fixedArray(nativeRuntimes, 2);
   const [bitcoin, solana] = nativeRuntimes;
   assertOwnedBitcoinRuntime(bitcoin); assertOwnedSolanaRuntime(solana);
   assert.equal(bitcoin.metadata.profile, BITCOIN_CUSTODY_PROFILE, 'CLAIM_BOOTSTRAP_BITCOIN_CUSTODY');
-  assert.equal(solana.metadata.classification, SOLANA_CUSTODY_PROFILE, 'CLAIM_BOOTSTRAP_SOLANA_CUSTODY');
+  if(spl)assertOwnedSolanaSplCustodyV1(solana);else assert.equal(solana.metadata.classification, SOLANA_CUSTODY_PROFILE, 'CLAIM_BOOTSTRAP_SOLANA_CUSTODY');
   for (const native of nativeRuntimes) {
     assert.equal(typeof native.inventory, 'function', 'CLAIM_BOOTSTRAP_CUSTODY_INVENTORY');
     exactRecord(native.roles, ['depositor', 'escrow', 'recipient']);
     assert.equal(new Set(Object.values(native.roles).map(role => role.endpoint)).size, 3, 'CLAIM_BOOTSTRAP_DISTINCT_ROLES');
     assert.equal(native.transfers.length, 0, 'CLAIM_BOOTSTRAP_UNUSED_CUSTODY');
   }
-  return buildOwnedNativeClaimRules({ bitcoinGenesis: bitcoin.genesis, solanaGenesis: bare(solana.genesisHex) });
+  return spl?buildNativeSplClaimRulesV1({bitcoinGenesis:bitcoin.genesis,solanaGenesis:bare(solana.genesisHex),splAsset:solana.metadata.asset}):buildOwnedNativeClaimRules({ bitcoinGenesis: bitcoin.genesis, solanaGenesis: bare(solana.genesisHex) });
 }
 async function currentHead(runtime, header) {
   await runtime.assertCanonical(header); const current = await runtime.block();
@@ -169,7 +178,7 @@ function facade(runtime, record, artifact) {
 }
 
 async function nativePreflight(binding) {
-  const tree = nativeIdentity(binding.nativeRuntimes);
+  const tree = nativeIdentity(binding.nativeRuntimes,binding.spl);
   assert.deepEqual(tree.rules, binding.rules, 'CLAIM_BOOTSTRAP_NATIVE_IDENTITY_CHANGED');
   for (const [i, native] of binding.nativeRuntimes.entries()) {
     const rule = binding.rules[i], roles = binding.nativeRoles[i];
@@ -192,6 +201,7 @@ async function nativePreflight(binding) {
       assert.equal(adapter.binding.family, rule.family); assert.equal(adapter.binding.genesis, rule.genesis);
       assert.equal(adapter.binding.asset, rule.asset);
     }
+    if(binding.spl&&i===1){assertOwnedSolanaSplCustodyV1(native);const empty=await native.assertOriginalEmptyBootstrapV1();assert.equal(empty.nativePrincipalAvailable,'0');assert.equal(empty.initializedPrincipal,false);assert.ok(BigInt(empty.feeReserveAvailable)>=BigInt(NATIVE_CLAIM_REFUND_FEES[i]));continue;}
     const inventory = await native.inventory();
     if (bootstrapPins !== null)
       assert.ok(Object.hasOwn(inventory, 'nonceInfrastructureByAuthority'), 'CLAIM_BOOTSTRAP_COMPLETE_DUAL_NONCE_INVENTORY');
@@ -208,17 +218,17 @@ async function nativePreflight(binding) {
     }
   }
 }
-async function createBootstrap(input, ingressV3) {
+async function createBootstrap(input, ingressV3,spl=false) {
   exactRecord(input, ['runtime', 'nativeRuntimes', 'journalRoot']);
   const { runtime, journalRoot } = input; fixedArray(input.nativeRuntimes, 2);
-  const nativeRuntimes = Object.freeze([...input.nativeRuntimes]), tree = nativeIdentity(nativeRuntimes);
+  const nativeRuntimes = Object.freeze([...input.nativeRuntimes]), tree = nativeIdentity(nativeRuntimes,spl);
   // Native ownership brands were checked by nativeIdentity before this scope
   // decision. A free profile string or caller artifact cannot select a key.
-  if (ingressV3) {
+  if (ingressV3&&!spl) {
     assert.equal(nativeRuntimes[1].nonceIngressProfile, NATIVE_INGRESS_V3_PROFILE,
       'V3_BOOTSTRAP_OWNED_NONCE_PROFILE_REQUIRED');
     exactRecord(nativeRuntimes[1].nonceInfrastructureByAuthority, ['depositor', 'escrow']);
-  } else {
+  } else if(!spl) {
     for (const native of nativeRuntimes) assert.ok(native.nonceIngressProfile === undefined
       && native.nonceInfrastructureByAuthority === undefined, 'V3_RUNTIME_REQUIRES_NEW_BOOTSTRAP');
   }
@@ -226,7 +236,7 @@ async function createBootstrap(input, ingressV3) {
   assert.ok(typeof journalRoot === 'string' && isAbsolute(journalRoot) && resolve(journalRoot) === journalRoot,
     'CLAIM_BOOTSTRAP_ABSOLUTE_JOURNAL');
   assert.ok(!assignedJournals.has(journalRoot), 'CLAIM_BOOTSTRAP_JOURNAL_ALREADY_ASSIGNED');
-  reserveOriginalClaimCustodyV1(nativeRuntimes, journalRoot);
+  (spl?reserveOriginalSplClaimCustodyV1:reserveOriginalClaimCustodyV1)(nativeRuntimes, journalRoot);
   await assertLocalEvm(runtime);
   assert.equal(runtime.metadata.chainId, '31337', 'CLAIM_BOOTSTRAP_LOCAL_EVM');
   const stat = await lstat(journalRoot);
@@ -237,11 +247,11 @@ async function createBootstrap(input, ingressV3) {
   // before the outer base-ledger deployment can send its first transaction.
   // Both entrypoints are fixed no-options loaders. Never retry V3 failures
   // through the legacy loader, or update an existing domain in place.
-  const { bundle, baseBundle } = await loadBootstrapArtifacts(ingressV3);
+  const { bundle, baseBundle } = await loadBootstrapArtifacts(ingressV3,spl);
   const genesis = await runtime.block('0x0'); await runtime.assertCanonical(genesis);
   assert.equal(genesis.hash, runtime.metadata.evmGenesis, 'CLAIM_BOOTSTRAP_EVM_GENESIS');
-  const binding = { runtime, nativeRuntimes, nativeRoles: frozenInput(nativeRuntimes.map(native => cloneInput(native.roles))),
-    rules: tree.rules, rulesRoot: prefix(tree.root), journalRoot, evmGenesis: bare(genesis.hash), bundle, baseBundle,
+  const binding = { runtime, nativeRuntimes,spl, nativeRoles: frozenInput(nativeRuntimes.map(native => cloneInput(native.roles))),
+    rules: tree.rules,registeredRules:spl?tree.registeredRules:tree.rules,graphSolanaRule:spl?tree.graphSolanaRule:null, rulesRoot: prefix(tree.root), journalRoot, evmGenesis: bare(genesis.hash), bundle, baseBundle,
     inventoryDomains: Object.freeze([randomBytes(32).toString('hex'), randomBytes(32).toString('hex')]),
     claimIngressProfile: ingressV3 ? NATIVE_INGRESS_V3_PROFILE : 'LEGACY_NATIVE_CLAIM_INGRESS',
     state: 'validating', deployments: [], sealReceipts: [] };
@@ -252,7 +262,7 @@ async function createBootstrap(input, ingressV3) {
   nativeRuntimes.forEach(native => assignedCustody.add(native));
   assignedJournals.add(journalRoot);
   const capability = Object.freeze({ classification: 'OWNED_LOCAL_NATIVE_CLAIM_BOOTSTRAP',
-    claimIngressProfile: binding.claimIngressProfile,
+    claimIngressProfile: binding.claimIngressProfile,nativeSplCustodyProfile:binding.spl,registeredRules:binding.registeredRules,graphSolanaRule:binding.graphSolanaRule,
     rulesRoot: binding.rulesRoot, rules: tree.rules, rulePaths: frozenInput(tree.paths) });
   binding.state = 'ready'; bootstraps.set(capability, binding); return capability;
 }
@@ -310,6 +320,7 @@ async function authenticateBase(binding, context, block) {
   return baseLibraries;
 }
 function artifactFor(binding, record) {
+  if(binding.spl&&record.source==='native-claims/NativeSplClaimTokenV1.sol'&&record.contractName==='NativeSplClaimTokenV1')return binding.bundle.contracts.artifacts.nativeSplToken;
   const artifact = binding.bundle.contracts.compilation.contracts[record.source]?.[record.contractName];
   if (artifact) return artifact;
   const entries = Object.values(binding.bundle.verifiers).filter(entry => entry.source === record.source);
@@ -342,7 +353,7 @@ async function prepareBootstrap(binding, context) {
     };
     const bundle = { contracts: binding.bundle.contracts, verifiers: Object.fromEntries(Object.entries(binding.bundle.verifiers)
       .map(([role, { sourceBytes, ...entry }]) => [role, entry])) };
-    const plan = await buildNativeClaimDeploymentPlan({ bundle, ledger: binding.baseBundle.ledger, sender,
+    const plan = await (binding.spl?buildNativeSplClaimDeploymentPlanV1:buildNativeClaimDeploymentPlan)({ bundle, ledger: binding.baseBundle.ledger, sender,
       nextNonce: (await runtime.nonce(sender, 'pending')).toString(), evmGenesis: binding.evmGenesis,
       libraries: Object.fromEntries(Object.entries(libraries).map(([role, value]) => [role, pin(value)])),
       verifiers: Object.fromEntries(Object.entries(context.verifiers).map(([role, value]) => [role, pin(value)])),
@@ -373,7 +384,7 @@ async function prepareBootstrap(binding, context) {
     binding.assetCapabilities = [];
     for (const [i, wrapper] of binding.wrappers.entries()) binding.assetCapabilities.push(await createOwnedPoolAsset({ runtime,
       deployment: { address: wrapper.address, transactionHash: wrapper.receipt.transactionHash,
-        expectedCode: wrapper.expectedCode, codeHash: wrapper.codeHash }, symbol: i === 0 ? 'cBTC' : 'cSOL', decimals: i === 0 ? 8 : 9, kind: 'ERC20' }));
+        expectedCode: wrapper.expectedCode, codeHash: wrapper.codeHash }, symbol: i === 0 ? 'cBTC' : binding.spl?'cUSDC':'cSOL', decimals: i === 0 ? 8 : binding.spl?6:9, kind: 'ERC20' }));
     binding.state = 'prepared';
     return Object.freeze({ assetCapabilities: Object.freeze([...binding.assetCapabilities]), claimAuthority: freeze(pin(binding.authority)) });
   } catch (cause) { binding.state = 'failed'; throw failure(binding, cause); }
@@ -440,7 +451,9 @@ async function checkedStorage(binding, flatSystem) {
       await expect(gateway, name + '()', [], [0]);
     for (let n = 0; n < 16; n++) await expect(gateway, 'intentHistory(uint256)', [n], [0]);
     for (let n = 0; n < 32; n++) await expect(gateway, 'ticketHistory(uint256)', [n], [0]);
-    await expect(wrapper, 'gateway()', [], [gateway.address]); await expect(wrapper, 'decimals()', [], [i === 0 ? 8 : 9]);
+    await expect(wrapper, 'gateway()', [], [gateway.address]); await expect(wrapper, 'decimals()', [], [i === 0 ? 8 : binding.spl?6:9]);
+    await expect(wrapper,'symbol()',[],[i===0?'cBTC':binding.spl?'cUSDC':'cSOL']);
+    await expect(wrapper,'name()',[],[i===0?'Custodial Bitcoin Claim':binding.spl?'Custodial USDC SPL Claim':'Custodial Solana Claim']);
     await expect(wrapper, 'totalSupply()', [], [0]);
     for (const holder of [runtime.accounts[0], gateway.address, pool.address]) await expect(wrapper, 'balanceOf(address)', [holder], [0]);
     await expect(wrapper, 'allowance(address,address)', [gateway.address, pool.address], [0]);
@@ -475,7 +488,7 @@ async function deployClaims(runtime, options) {
     await seal(binding, binding.authority);
     const bootstrap = await checkedStorage(binding, flatSystem);
     const claims = freeze({ classification: 'OWNED_LOCAL_CUSTODIAL_NATIVE_CLAIMS_NOT_PROOF_ACCEPTANCE', flatSystem,
-      claimIngressProfile: binding.claimIngressProfile,
+      claimIngressProfile: binding.claimIngressProfile,nativeSplCustodyProfile:binding.spl,registeredRules:binding.registeredRules,graphSolanaRule:binding.graphSolanaRule,
       authority: binding.authority, gateways: binding.gateways, wrappers: binding.wrappers, verifiers: binding.verifiers,
       libraries: binding.libraries, verifierPins: binding.plan.verifierPins, configs: binding.plan.configs,
       policies: binding.plan.policies, nativeRuntimes: binding.nativeRuntimes, journalRoot: binding.journalRoot,

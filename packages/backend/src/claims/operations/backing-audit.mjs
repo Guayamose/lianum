@@ -1,3 +1,5 @@
+import {NATIVE_SPL_CLAIM_INTENT_PROFILE_V1,encodeNativeSplClaimUnsignedWireV1} from '../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
+import {OWNED_NATIVE_SPL_INVENTORY_PROFILE_V1,assertNativeSplClaimPreparationV1,auditNativeSplClaimInventoryV1} from './native-spl-backing-audit-v1.mjs';
 import { auditDualNonceInventory, auditNonceIngressPreparation } from '../ingress/ingress-v3-host.mjs';
 /** Pure arithmetic over complete owned snapshots. Supplying these records does
  * not turn them into trusted observations or mint/signing capabilities. */
@@ -30,15 +32,16 @@ export function auditClaimIngressPreparation({ gateway, config, intentId, prepar
   if (config.nativeFamily === '2' && Object.hasOwn(raw.intent, 'nonceAccountPublicKey'))
     return auditNonceIngressPreparation({ gateway, config, intentId, prepared: raw, wireSalt, roles, timestamp, infrastructure });
   const prepared = cloneInput(raw); exactRecord(prepared, ['genesis', 'intent', 'unsignedWire', 'funds']);
+  const spl=config.nativeFamily==='2'&&prepared.intent.profile===NATIVE_SPL_CLAIM_INTENT_PROFILE_V1;if(spl)assertNativeSplClaimPreparationV1(prepared,config);
   const intent = gateway.intents.find(row => row.id === intentId);
   assert.ok(intent && intent.state === '1' && intent.nullifier === ZERO, 'CLAIM_PRESIGN_PENDING_INTENT');
   assert.equal(gateway.activePayout, ZERO, 'CLAIM_PRESIGN_PAYOUT_FENCE');
   assert.ok(claimUint(intent.validFrom) <= claimUint(timestamp) && claimUint(timestamp) < claimUint(intent.validUntil), 'CLAIM_PRESIGN_OWNER_EXPIRED');
   assert.equal(prepared.genesis, config.nativeGenesis, 'CLAIM_PRESIGN_GENESIS');
   assertOwnedCustodyIntent('deposit', roles, config.nativeFamily, prepared.intent);
-  const btc = config.nativeFamily === '1', amount = btc ? prepared.intent.amountSatoshi : prepared.intent.lamports;
+  const btc = config.nativeFamily === '1', amount = btc ? prepared.intent.amountSatoshi : spl ? prepared.intent.amount : prepared.intent.lamports;
   assert.equal(amount, intent.amount, 'CLAIM_PRESIGN_EXACT_AMOUNT');
-  assert.equal(prepared.unsignedWire, btc ? encodeBitcoinBinding(prepared.intent) : encodeSolanaBindingMessage(prepared.intent), 'CLAIM_PRESIGN_EXACT_UNSIGNED_WIRE');
+  assert.equal(prepared.unsignedWire, btc ? encodeBitcoinBinding(prepared.intent) : spl ? encodeNativeSplClaimUnsignedWireV1(prepared.intent) : encodeSolanaBindingMessage(prepared.intent), 'CLAIM_PRESIGN_EXACT_UNSIGNED_WIRE');
   const fee = btc ? prepared.intent.feeSatoshi : prepared.funds.feeLamports;
   assert.ok(claimUint(fee) > 0n && claimUint(fee) <= claimUint(config.refundMaxFee), 'CLAIM_PRESIGN_FEE_BOUND');
   bytes32(prepared.intent.wireKeyCommitment, true); bytes32(wireSalt, true);
@@ -49,16 +52,17 @@ export function auditClaimIngressPreparation({ gateway, config, intentId, prepar
 }
 export function auditClaimPayoutPreparation({ gateway, config, ticketId, prepared: raw, route, wireSalt, roles, requireSigning = true }) {
   const prepared = cloneInput(raw); exactRecord(prepared, ['genesis', 'intent', 'unsignedWire', 'funds']);
+  const spl=config.nativeFamily==='2'&&prepared.intent.profile===NATIVE_SPL_CLAIM_INTENT_PROFILE_V1;if(spl)assertNativeSplClaimPreparationV1(prepared,config);
   const row = gateway.tickets.find(entry => entry.ticket.id === ticketId), ticket = row?.ticket;
   assert.equal(row?.state, requireSigning ? '2' : '1', 'CLAIM_PRESIGN_EXACT_TICKET_STATE');
   assert.equal(gateway.activePayout, requireSigning ? ticketId : ZERO, 'CLAIM_PRESIGN_EXACT_PAYOUT_FENCE');
   assert.equal(prepared.genesis, config.nativeGenesis, 'CLAIM_PRESIGN_GENESIS');
   assertOwnedCustodyIntent(ticket.kind === '2' ? 'refund' : 'redeem', roles, config.nativeFamily, prepared.intent);
-  const btc = config.nativeFamily === '1', amount = btc ? prepared.intent.amountSatoshi : prepared.intent.lamports;
+  const btc = config.nativeFamily === '1', amount = btc ? prepared.intent.amountSatoshi : spl ? prepared.intent.amount : prepared.intent.lamports;
   assert.equal(amount, ticket.amount, 'CLAIM_PRESIGN_EXACT_AMOUNT');
   const noncePayout = !btc && Object.hasOwn(prepared.intent, 'nonceAccountPublicKey');
   assert.equal(prepared.unsignedWire, btc ? encodeBitcoinBinding(prepared.intent)
-    : noncePayout ? encodeSolanaNonceBindingMessage(prepared.intent) : encodeSolanaBindingMessage(prepared.intent),
+    : noncePayout ? encodeSolanaNonceBindingMessage(prepared.intent) : spl ? encodeNativeSplClaimUnsignedWireV1(prepared.intent) : encodeSolanaBindingMessage(prepared.intent),
   'CLAIM_PRESIGN_EXACT_UNSIGNED_WIRE');
   assert.equal(prepared.intent.wireKeyCommitment, receiptKeyCommitment({ ledgerNamespace: config.ledgerNamespace,
     secret: claimTicketSecret({ claimDomain: gateway.claimDomain, ticketId }) }), 'CLAIM_PRESIGN_TICKET_K');
@@ -117,6 +121,7 @@ export function auditClaimGateway(raw, config) {
 }
 
 export function auditClaimNativeInventory(raw, config, roles, bootstrapPins = null) {
+  if(raw.profile===OWNED_NATIVE_SPL_INVENTORY_PROFILE_V1)return auditNativeSplClaimInventoryV1(raw,config,roles);
   if (config.nativeFamily === '2' && Object.hasOwn(raw, 'nonceInfrastructureByAuthority')) {
     assert.ok(bootstrapPins, 'CLAIM_V3_ORIGINAL_BOOTSTRAP_PINS_REQUIRED');
     return auditDualNonceInventory(raw, config, roles, bootstrapPins);
@@ -220,6 +225,7 @@ export function assertClaimRoute({ config, claimDomain, amount, destinationCommi
   } else {
     assert.equal(route.selectedInputValue, '0', 'CLAIM_SOL_ROUTE_INPUT'); assert.equal(route.changeFloor, '0', 'CLAIM_SOL_ROUTE_CHANGE');
     const account = inventory.accounts.find(row => row.endpoint === route.endpoint);
-    assert.ok(route.destinationFunded && account?.exists && u(account.total) >= u(account.rentExemptMinimum), 'CLAIM_SOL_DESTINATION_FUNDED');
+    if(inventory.profile===OWNED_NATIVE_SPL_INVENTORY_PROFILE_V1){assert.ok(route.destinationFunded&&account?.exists&&account.mint==='EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v','CLAIM_SPL_DESTINATION_INITIALIZED');}
+    else assert.ok(route.destinationFunded && account?.exists && u(account.total) >= u(account.rentExemptMinimum), 'CLAIM_SOL_DESTINATION_FUNDED');
   }
 }

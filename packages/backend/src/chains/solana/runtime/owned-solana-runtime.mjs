@@ -28,6 +28,24 @@ const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const fail = code => { throw new Error(code); };
 const requireCondition = (condition, code) => { if (!condition) fail(code); };
 const ownedSolanaRuntimes = new WeakSet(), ownedSolanaLiveness = new WeakMap(), ownedSolanaAuditStates = new WeakMap();
+const originalSplContextsV1=new WeakMap(),originalSplFacadesV1=new WeakMap(),originalSplGraphsV1=new WeakMap();
+export function consumeOwnedSolanaSplContextV1(token){requireCondition(arguments.length===1,'SOLANA_SPL_CONTEXT_ARITY');const value=originalSplContextsV1.get(token);requireCondition(value,'SOLANA_SPL_ORIGINAL_CONTEXT_REQUIRED');originalSplContextsV1.delete(token);value.assertLive();return value;}
+export function isOwnedSolanaSplCustodyV1(runtime){requireCondition(arguments.length===1,'SOLANA_SPL_CLASSIFIER_ARITY');return originalSplFacadesV1.has(runtime);}
+export function assertOwnedSolanaSplCustodyV1(runtime){requireCondition(arguments.length===1&&originalSplFacadesV1.has(runtime),'SOLANA_SPL_ORIGINAL_CUSTODY_REQUIRED');assertOwnedSolanaRuntimeLive(runtime);}
+export function assertOwnedSolanaSplGraphSourceV1(runtime){requireCondition(arguments.length===1&&originalSplGraphsV1.has(runtime),'SOLANA_SPL_ORIGINAL_GRAPH_SOURCE_REQUIRED');assertOwnedSolanaRuntimeLive(runtime);}
+export function assertOwnedSolanaSplGraphPairV1(spl,graph){
+ requireCondition(arguments.length===2,'SOLANA_SPL_GRAPH_PAIR_ARITY');assertOwnedSolanaSplCustodyV1(spl);assertOwnedSolanaSplGraphSourceV1(graph);
+ const group=originalSplFacadesV1.get(spl);requireCondition(originalSplGraphsV1.get(graph)===group&&group.spl===spl&&group.graph===graph&&spl!==graph&&spl.close===graph.close,'SOLANA_SPL_SAME_ORIGINAL_VALIDATOR');
+ requireCondition(group.genesis===spl.genesis&&group.genesis===graph.genesis&&group.splAsset!==group.solAsset,'SOLANA_SPL_DISTINCT_PHYSICAL_DOMAINS');return true;
+}
+export function assertOwnedSolanaSplClaimCohortV1(runtimes){
+ requireCondition(arguments.length===1&&Array.isArray(runtimes)&&runtimes.length===2,'SOLANA_SPL_FIXED_COHORT');const [spl,sol]=runtimes;assertOwnedSolanaSplCustodyV1(spl);assertOwnedSolanaRuntimeLive(sol);
+ const group=originalSplFacadesV1.get(spl);requireCondition(group.spl===spl&&group.sol===sol&&group.close===spl.close&&group.close===sol.close&&spl!==sol,'SOLANA_SPL_SHARED_ORIGINAL_VALIDATOR');
+ requireCondition(group.genesis===sol.genesis&&group.genesis===spl.genesis&&group.splAsset!==group.solAsset,'SOLANA_SPL_ASSET_ALIAS');
+ requireCondition(new Set([...Object.values(sol.roles),...Object.values(spl.roles)].map(row=>row.endpoint)).size===6,'SOLANA_SPL_CUSTODY_ENDPOINT_ALIAS');return true;
+}
+export async function createOwnedCombinedSolanaSplRuntimeV1(){requireCondition(arguments.length===0,'SOLANA_SPL_FACTORY_NO_OPTIONS');const value=await createOwnedSolanaRuntimeProfile(async()=>{},SOLANA_PRIVATE_COHORT_OPTIONS,true,true,true,null,false,true);return Object.freeze({custody:value.spl,graph:value.graph});}
+
 export function assertOwnedSolanaRuntime(runtime) {
   requireCondition(ownedSolanaRuntimes.has(runtime), 'SOLANA_OWNED_RUNTIME_CAPABILITY');
 }
@@ -69,6 +87,9 @@ import {assertJupiterPublicFixtureSourceReviewV1,assertJupiterPublicSwapSourceRe
 import {jupiterPublicBankGenesisV1,validateJupiterPublicBankAccountsV1,jupiterExplicitTokenProgramV1,JUPITER_TOKEN_PROGRAMDATA_V1,JUPITER_BANK_RENT_V1,JUPITER_BANK_CLOCK_V1} from './jupiter-orca-bank-state-v1.mjs';
 import {JUPITER_ORCA_V1,quoteJupiterOrcaSolUsdcV1,encodeJupiterOrcaFixtureMessageV1,validateJupiterOrcaFixtureTransactionV1,decodeJupiterSplTokenAccountV1} from '../dispatch/jupiter-orca-route-codec-v1.mjs';
 import {validateJupiterOrcaSwapObservationV1} from '../observations/jupiter-orca-swap-observation-v1.mjs';
+import {loadOwnedNativeSplProducedProgramV1} from '../../../operations/deployments/defi/native-spl-produced-program-v1.mjs';
+import {deriveNativeSplConfigurationV1,nativeSplAssetCommitmentV1} from '../dispatch/native-spl-custody-codec-v1.mjs';
+import {deriveOwnedNativeCurrencyAsset} from '../../../operations/deployments/claims/native-claim-deployment-plan.mjs';
 export const SOLANA_CUSTODY_PROFILE = 'OWNED_FLAT_SOLANA_CUSTODY_V1';
 // Candidate protocol identity only; not proof-profile activation or send authority.
 export const SOLANA_NONCE_INGRESS_PROFILE = 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3';
@@ -492,10 +513,12 @@ function restoreSolanaKeyV1(row,role){
  if(row.seedHex===null){requireCondition(['depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].includes(role),'SOLANA_RECOVERY_MISSING_SOURCE_KEY');return{seed:Buffer.alloc(32),publicBytes,address:row.address};}
  requireCondition(typeof row.seedHex==='string'&&/^[0-9a-f]{64}$/.test(row.seedHex),'SOLANA_RECOVERY_SEED');const seed=Buffer.from(row.seedHex,'hex'),key=createPrivateKey({key:Buffer.concat([PKCS8_ED25519,seed]),type:'pkcs8',format:'der'});assert.deepEqual(createPublicKey(key).export({type:'spki',format:'der'}).subarray(-32),publicBytes,'SOLANA_RECOVERY_KEY_PAIR');return{seed,publicBytes,address:row.address};
 }
-async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false) {
+async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false,jupiterSpl=false) {
   requireCondition(!jupiterPublic||(!cohort&&!custody&&!combined&&!recovery),'JUPITER_BANK_FIXED_PROFILE');
-  const jupiterMaterial=jupiterPublic?loadJupiterOfficialMaterialV1():null;
-  let jupiterGenesisRows=null,jupiterGenesisFiles=null,jupiterCurrentRows=null;
+  requireCondition(!jupiterSpl||(cohort&&custody&&combined&&!recovery&&!jupiterPublic),'SOLANA_SPL_FIXED_ORIGINAL_PROFILE');
+  const splMaterial=jupiterSpl?loadOwnedNativeSplProducedProgramV1():null;
+  const jupiterMaterial=jupiterPublic||jupiterSpl?loadJupiterOfficialMaterialV1():null;
+  let jupiterGenesisRows=null,jupiterGenesisFiles=null,jupiterCurrentRows=null,splFacade=null;
   // Load once before any native operation; never yield to import at a send boundary.
   const payoutController = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
   const originalKeyControllerV4 = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
@@ -570,6 +593,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     await progress('Creating fresh synthetic keys for isolated local Solana');
     if(!restored)for (const role of ['solver', 'recipient', ...(cohort ? ['recipient1'] : []), 'unusedMint']) keys[role] = createSyntheticKey();
     if(jupiterPublic)for(const role of ['jupiterSource','jupiterDestination'])keys[role]=createSyntheticKey();
+    if(jupiterSpl)for(const role of ['splFeePayer','splSource','splRefund','splRecipient','splRecipientOwner'])keys[role]=createSyntheticKey();
     if (custody&&!restored) for (const role of ['depositorNonceBootstrapPayer', 'depositorNonce', 'nonceBootstrapPayer', 'escrowNonce'])
       keys[role] = createSyntheticKey();
     if (combined&&!restored) {
@@ -657,8 +681,17 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         custodyGenesisArguments.push('--account', key.address, accountFile);
       }
     }
-    if(jupiterPublic){
-      jupiterGenesisRows=jupiterPublicBankGenesisV1(jupiterMaterial,keys.solver.address,keys.jupiterSource.address,keys.jupiterDestination.address);
+    if(jupiterPublic||jupiterSpl){
+      jupiterGenesisRows=jupiterPublicBankGenesisV1(jupiterMaterial,jupiterSpl?keys.graphRecipient1.address:keys.solver.address,jupiterSpl?keys.splSource.address:keys.jupiterSource.address,jupiterSpl?keys.splRefund.address:keys.jupiterDestination.address);
+      if(jupiterSpl){
+        const address=keys.splSource.address;jupiterGenesisRows=jupiterGenesisRows.map(row=>{if(row.address!==address)return row;const data=Buffer.from(row.data);data.writeBigUInt64LE(0n,64);const lamports=JUPITER_ORCA_V1.tokenRent;
+          return {...row,data,dataSHA256:digest(data),lamports,origin:{classification:'RENT_ONLY_WSOL_ZERO_PRINCIPAL_BEFORE_ORIGINAL_SOURCE'},json:{pubkey:address,account:{...row.json.account,lamports:Number(lamports),data:[data.toString('base64'),'base64']}}};});
+        const recipient=Buffer.alloc(165);base58Decode(JUPITER_ORCA_V1.usdcMint,32).copy(recipient);keys.splRecipientOwner.publicBytes.copy(recipient,32);recipient[108]=1;
+        const privateAccounts=[{pubkey:keys.splFeePayer.address,account:{lamports:100000000,data:['','base64'],owner:SYSTEM_PROGRAM,executable:false,rentEpoch:0,space:0}},
+          {pubkey:keys.splRecipient.address,account:{lamports:Number(JUPITER_ORCA_V1.tokenRent),data:[recipient.toString('base64'),'base64'],owner:JUPITER_ORCA_V1.tokenProgram,executable:false,rentEpoch:0,space:165}}];
+        for(const [i,account]of privateAccounts.entries()){const path=join(cwd,'spl-operational-account-'+i+'.json');await writeFile(path,JSON.stringify(account),{mode:0o600});custodyGenesisArguments.push('--account',account.pubkey,path);}
+        const path=join(cwd,'new-native-spl-custody-v1.so');await writeFile(path,splMaterial.elf,{mode:0o600});custodyGenesisArguments.push('--bpf-program',splMaterial.program,path);
+      }
       jupiterCurrentRows=jupiterGenesisRows;
       jupiterGenesisFiles=[];
       for(const [index,row] of jupiterGenesisRows.entries()){
@@ -1860,6 +1893,32 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       });
       if (custody) readPayoutAuditState = () => readOwnedSolanaRuntimeAuditState(runtime);
       return runtime;
+    }
+    if(jupiterSpl){
+      const sol=createFacade(true),graph=createFacade(false),instance=digest(Buffer.from(lifetimeId)),addresses=deriveNativeSplConfigurationV1({payer:keys.splFeePayer.address,instance});
+      const splAsset=nativeSplAssetCommitmentV1({genesis:base58Decode(genesis,32).toString('hex'),config:addresses.config.address,vault:addresses.vault.address}),token=Object.freeze({profile:'ORIGINAL_OWNED_SOLANA_SPL_INTERNAL_CONTEXT_V1'});
+      const assertLive=()=>ownedSolanaLiveness.get(sol)();
+      const context={genesis,genesisHex:base58Decode(genesis,32).toString('hex'),instance,addresses,splAsset,material:splMaterial,rows:jupiterGenesisRows,close,graph,sol,assertLive,read,healthy,
+        publicKeys:{sourceOwner:keys.graphRecipient1.address,source:keys.splSource.address,refund:keys.splRefund.address,recipient:keys.splRecipient.address,feePayer:keys.splFeePayer.address},
+        get originalState(){assertLive();return readOwnedSolanaRuntimeAuditState(sol);},
+        beginOperation(route){assertLive();requireCondition(!busy&&!observationBusy&&!inventoryBusy&&!signingUnresolved&&activeNativeReads===0,'SOLANA_SPL_ORIGINAL_OPERATION_FENCE');busy=true;activeRoute=route;mutationGeneration++;},
+        finishOperation(){busy=false;activeRoute=null;activePrepared=null;preSignReadWindow=false;},
+        setPrepared(value){requireCondition(busy,'SOLANA_SPL_PREPARATION_WITHOUT_WRITER');activePrepared=value;},
+        setReadWindow(value){requireCondition(busy&&typeof value==='boolean','SOLANA_SPL_ORIGINAL_READ_WINDOW');preSignReadWindow=value;},
+        beginInventory(){assertLive();requireCondition(!inventoryBusy&&!observationBusy&&(!busy||preSignReadWindow||reservationReads.active),'SOLANA_SPL_INVENTORY_BUSY');inventoryBusy=true;readGeneration++;},
+        finishInventory(){inventoryBusy=false;readGeneration++;},
+        get signingUnresolved(){return signingUnresolved;},
+        setSigningUnresolved(value){requireCondition(typeof value==='boolean','SOLANA_SPL_SIGNING_FENCE');signingUnresolved=value;mutationGeneration++;},
+        async persistState(value){if(nativePersistenceFailure)throw nativePersistenceFailure;try{const path=join(cwd,'spl-state.json'),tmp=path+'.next',file=await open(tmp,'wx',0o600);try{await file.writeFile(JSON.stringify(value));await file.sync();}finally{await file.close();}await rename(tmp,path);const d=await open(cwd,'r');try{await d.sync();}finally{await d.close();}}catch(cause){nativePersistenceFailure=new Error('SOLANA_NATIVE_JOURNAL_UNCERTAIN',{cause});throw nativePersistenceFailure;}},
+        async persistTransfer(record){return persistNative(record,journalDirectory);},
+        signFixed(kind,message){assertLive();requireCondition(busy&&signingUnresolved&&!preSignReadWindow,'SOLANA_SPL_ORIGINAL_KEY_FENCE');requireCondition(kind==='source'||kind==='fee','SOLANA_SPL_FIXED_KEY');const key=kind==='source'?keys.graphRecipient1:keys.splFeePayer;return sign(null,message,createPrivateKey({key:Buffer.concat([PKCS8_ED25519,key.seed]),type:'pkcs8',format:'der'}));},
+        sendOnce(nativeWire){assertLive();requireCondition(busy&&!preSignReadWindow&&!nativePersistenceFailure,'SOLANA_SPL_ORIGINAL_SEND_FENCE');return sendOwnedSolanaTransaction(endpoint,nativeWire);},
+        reservationWindow:(work)=>reservationReads.run(work,()=>requireCondition(activeNativeReads===0&&!inventoryBusy&&!observationBusy,'SOLANA_SPL_READS_NOT_IDLE')),
+        register(runtime,records){requireCondition(!splFacade,'SOLANA_SPL_FACADE_ALREADY_MINTED');splFacade=runtime;ownedSolanaRuntimes.add(runtime);ownedSolanaLiveness.set(runtime,assertLive);ownedSolanaAuditStates.set(runtime,()=>{const state=readOwnedSolanaRuntimeAuditState(sol);return frozenInput({...cloneInput(state),transfers:cloneInput(records()),custodyTransfers:[...state.custodyTransfers,...cloneInput(records())],adverseHistory:state.adverseHistory||records().some(row=>row.phase==='OBSERVED_ADVERSE'||row.adverseReason!==undefined)});});}
+      };
+      originalSplContextsV1.set(token,context);const {createOwnedSolanaSplCustodyFromOriginalV1}=await import('./owned-solana-spl-custody-v1.mjs');
+      const spl=await createOwnedSolanaSplCustodyFromOriginalV1(token),group=Object.freeze({spl,sol,graph,close,genesis,splAsset,solAsset:deriveOwnedNativeCurrencyAsset({family:'2',genesis:context.genesisHex})});
+      originalSplFacadesV1.set(spl,group);originalSplGraphsV1.set(graph,group);assertOwnedSolanaSplClaimCohortV1([spl,sol]);return Object.freeze({custody:sol,graph,spl});
     }
     return combined ? Object.freeze({ custody: createFacade(true), graph: createFacade(false) }) : createFacade(custody);
   } catch (error) {

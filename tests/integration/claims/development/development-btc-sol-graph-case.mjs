@@ -3,7 +3,7 @@
  * accepted invoice does not assert price discovery or parity between them. */
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { prepareNativeClaimGraph } from '../graph/flows/prepare-native-claim-graph.mjs';
+import { prepareNativeClaimGraph,prepareNativeSplSourceGraphV1 } from '../graph/flows/prepare-native-claim-graph.mjs';
 import { createFlatSystemStateReader } from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { createProofProcess } from '../../../../packages/engine/src/execution/proofs/proof-process.mjs';
 import { walletInputPublicWords, decodeWalletPoolInputs } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
@@ -15,21 +15,24 @@ import { freshFixtureId, writeFixturePrivate } from '../../fixtures/runners/owne
 export const DEVELOPMENT_BTC_SOL_AMOUNTS = Object.freeze({ source: '100000', payout: '20000',
   change: '80000', deliveredLamports: '1000000' });
 
-export async function runDevelopmentBtcSolGraphCase({ fixture, owner, account, execution,
-  request, ownerView, stage, audit, onProof, privateDirectory }) {
+export async function runDevelopmentBtcSolGraphCase(input){return runGraphCase(input,false);}
+export async function runDevelopmentBtcSplSourceGraphCaseV1(input){return runGraphCase(input,true);}
+async function runGraphCase({ fixture, owner, account, execution,
+  request, ownerView, stage, audit, onProof, privateDirectory },spl) {
   const { runtime, system } = fixture;
+  const recipientIndex=spl?1:0,deliveredLamports=spl?'10000000':'1000000';
   const reader = await createFlatSystemStateReader({ runtime, system, poolIndex: 0 });
   const beforeCustody = [await fixture.bitcoin.inventory(), await fixture.solana.inventory()];
   const beforeClaims = await fixture.observer.read();
   const beforeGraphBalances = [await fixture.graphSolana.balance(fixture.graphSolana.solver),
-    await fixture.graphSolana.balance(fixture.graphSolana.recipients[0])];
+    await fixture.graphSolana.balance(fixture.graphSolana.recipients[recipientIndex])];
   assert.deepEqual(fixture.bitcoin.transfers.map(row => row.route), ['deposit']);
   assert.equal(fixture.solana.transfers.length, 0); assert.equal(fixture.graphBitcoin.transfers.length, 0);
   assert.equal(fixture.graphSolana.transfers.length, 0);
   assert.deepEqual(beforeClaims.gateways.map(row => row.wrapperSupply), ['100000', '0']);
   const cutoff = String((await runtime.time()) + 7200n);
   await stage('prepare-original-btc-claim-funded-sol-graph');
-  const graph = await prepareNativeClaimGraph(fixture, privateDirectory, owner, {
+  const graph = spl?await prepareNativeSplSourceGraphV1(fixture,privateDirectory,owner,onProof):await prepareNativeClaimGraph(fixture, privateDirectory, owner, {
     poolIndex: 0, cutoff, payoutAmount: DEVELOPMENT_BTC_SOL_AMOUNTS.payout,
     nativeAmount: DEVELOPMENT_BTC_SOL_AMOUNTS.deliveredLamports,
   }, onProof);
@@ -68,16 +71,16 @@ export async function runDevelopmentBtcSolGraphCase({ fixture, owner, account, e
   assert.equal(fixture.graphSolana.transfers.length, 1); assert.equal(fixture.graphBitcoin.transfers.length, 0);
   const delivery = fixture.graphSolana.transfers[0];
   assert.equal(delivery.phase, 'OBSERVED_FINALIZED'); assert.equal(delivery.broadcastAttempts, 1);
-  assert.equal(delivery.intent.lamports, '1000000');
+  assert.equal(delivery.intent.lamports, deliveredLamports);
   const wire = validateSolanaBindingTransaction(delivery.nativeWire, delivery.intent);
   assert.equal(wire.signatureHex, delivery.nativeId); assert.equal(wire.transactionSHA256, delivery.transactionSHA256);
   assert.equal(delivery.observation.nativeWire, delivery.nativeWire);
   assert.ok(!Object.values(fixture.solana.roles).some(role => role.endpoint === delivery.intent.sourcePublicKey));
   const afterGraphBalances = [await fixture.graphSolana.balance(fixture.graphSolana.solver),
-    await fixture.graphSolana.balance(fixture.graphSolana.recipients[0])];
+    await fixture.graphSolana.balance(fixture.graphSolana.recipients[recipientIndex])];
   assert.equal(BigInt(beforeGraphBalances[0]) - BigInt(afterGraphBalances[0]),
-    1000000n + BigInt(delivery.observation.feeLamports));
-  assert.equal(BigInt(afterGraphBalances[1]) - BigInt(beforeGraphBalances[1]), 1000000n);
+    BigInt(deliveredLamports) + BigInt(delivery.observation.feeLamports));
+  assert.equal(BigInt(afterGraphBalances[1]) - BigInt(beforeGraphBalances[1]), BigInt(deliveredLamports));
   const afterCustody = [await fixture.bitcoin.inventory(), await fixture.solana.inventory()];
   for (const index of [0,1]) {
     assert.deepEqual(afterCustody[index].accounts, beforeCustody[index].accounts);
@@ -104,8 +107,8 @@ export async function runDevelopmentBtcSolGraphCase({ fixture, owner, account, e
   assert.deepEqual(view.assets.map(row => row.balances.available), ['80000','0']);
   assert.equal(view.assets[0].requests.find(row => row.requestId === requestId)?.disposition, 'FULFILLED');
   await audit();
-  return { graph, report: { sourceAsset: 'CBTC', payoutAsset: 'CBTC', deliveryFamily: '2',
-    sourceAtomic: '100000', payoutAtomic: '20000', changeAtomic: '80000', deliveredLamports: '1000000',
+  return { graph,sourceProvider:graph.providers[0].provider, report: { sourceAsset: 'CBTC', payoutAsset: 'CBTC', deliveryFamily: '2',
+    sourceAtomic: '100000', payoutAtomic: '20000', changeAtomic: '80000', deliveredLamports,
     ownerAbsentDuringNativeAndSettlement: true, originalConfirmedHttpJournal: true,
     originalFinalizedSignatureOnce: true, separateSolverLiquidity: true,
     custodyPrincipalAndNoncesUnchangedDuringGraph: true, claimsAndPoolBackingConserved: true,

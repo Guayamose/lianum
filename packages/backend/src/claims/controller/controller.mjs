@@ -1,6 +1,8 @@
 import { assertBeginPayoutAuditReleaseV1, assertBeginPayoutAuditReceiptV1, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1,
   CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1 } from '../payouts/begin-payout-audit-policy-v1.mjs';
 import { readOwnedBitcoinRuntimeAuditState } from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
+import { isOwnedSolanaSplCustodyV1, assertOwnedSolanaSplCustodyV1 } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
+import { validateNativeSplClaimBindingTransactionV1 } from '../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 import { readOwnedSolanaRuntimeAuditState } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { CLAIM_BITCOIN_PAYOUT_FINAL_SEND_PROFILE } from '../payouts/bitcoin-payout-broadcast.mjs';
 import { createPayoutFinalSendGate } from '../payouts/payout-final-send.mjs';
@@ -60,6 +62,27 @@ export function consumeNativeClaimOriginalKeyAuthorityV4(token, purpose, runtime
 
 // Only the genuine completed payout closure below can mint these capabilities.
 const solanaPayoutAuthorities = new WeakMap();
+const splPayoutPreparations = new WeakMap(), splBegins = new WeakMap(), splIngressSends = new WeakMap();
+// These consumers cannot mint authority. A rejected use burns the capability.
+export async function consumeNativeSplClaimPayoutPreparationV1(token, native, route, request) {
+  assert.equal(arguments.length, 4, 'CLAIM_SPL_PREPARATION_ARITY');
+  const state=splPayoutPreparations.get(token); assert.ok(state,'CLAIM_SPL_ORIGINAL_PREPARATION_REQUIRED');splPayoutPreparations.delete(token);
+  assertOwnedSolanaSplCustodyV1(native);assert.equal(native,state.native);assert.equal(route,state.route);
+  return state.consume(request);
+}
+export async function consumeNativeSplClaimBeginAuthorizationV1(token, native, prepared) {
+  assert.equal(arguments.length, 3, 'CLAIM_SPL_BEGIN_ARITY');
+  const state=splBegins.get(token);assert.ok(state,'CLAIM_SPL_ORIGINAL_BEGIN_REQUIRED');splBegins.delete(token);
+  assertOwnedSolanaSplCustodyV1(native);assert.equal(native,state.native);assert.equal(prepared,state.prepared);
+  return state.consume();
+}
+export function openNativeSplClaimIngressSendV1(token,native,prepared,record) {
+  assert.equal(arguments.length,4,'CLAIM_SPL_INGRESS_SEND_ARITY');
+  const state=splIngressSends.get(token);assert.ok(state,'CLAIM_SPL_ORIGINAL_INGRESS_SEND_REQUIRED');splIngressSends.delete(token);
+  assertOwnedSolanaSplCustodyV1(native);assert.equal(native,state.native);assert.equal(prepared,state.prepared);
+  for(const name of ['nativeId','nativeWire','transactionSHA256','route'])assert.equal(record[name],state.record[name]);
+  assert.deepEqual(record.intent,prepared.intent);return state.open();
+}
 const controllers = new WeakMap();
 // Restrict the whole original diagnostic lifetime, including attempted reopen.
 // Neither the owner state nor its stop marker is a caller-supplied capability.
@@ -272,7 +295,7 @@ async function createController(input, beginAuditOnly) {
     authorizationOrigins.set(authorization, { method, request: capturedRequest, result, captured: freeze(copy(result)), dispatch: null });
     return result;
   }
-  const readers = [], rulePaths = nativeAdmissionRulesTree(claims.policies.map(p => p.rule)).paths;
+  const readers = [], rulePaths = nativeAdmissionRulesTree(bindings.registeredRules).paths.slice(0,claims.configs.length);
   try { for (let i = 0; i < claims.configs.length; i++) readers.push(await createFlatSystemStateReader({ runtime, system: claims.flatSystem, poolIndex: i }));
     await observer.read(); await journal.read(); }
   catch (error) { journal.release(); throw error; }
@@ -332,6 +355,97 @@ async function createController(input, beginAuditOnly) {
         return lease.auditStarted;
       } });
     return token;
+  }
+  function splPayoutPreparation(row) {
+    const {native,config}=selected(row.claimDomain);assertOwnedSolanaSplCustodyV1(native);
+    const name=row.ticket.kind==='2'?'refund':'redeem',originalTicket=freeze(copy(row.ticket)),originalNative=row.native;
+    const originalKey=row.key,originalSalt=row.salt;let finalized=false;
+    const token=Object.freeze(Object.create(null));splPayoutPreparations.set(token,{native,route:name,async consume(request){
+      live();assertIngressKeeperLive();assert.equal(row.native,originalNative);assert.equal(row.native.status,'ATTEMPT_STARTED');
+      assert.deepEqual(row.ticket,originalTicket);assert.equal(row.key,originalKey);assert.equal(row.salt,originalSalt);
+      exactRecord(request,['amount','wireKeyCommitment']);assert.equal(request.amount,originalTicket.amount);assert.equal(request.wireKeyCommitment,originalKey);
+      const started=performance.now(),state=await view(row.claimDomain),current=state.gateway.tickets.find(v=>v.ticket.id===row.id);
+      assert.equal(current?.state,'1');assert.deepEqual(current.ticket,originalTicket);await observer.assertCurrent(state.snapshot);
+      const endpointBytes=native.roles[name==='refund'?'depositor':'recipient'].endpoint;
+      const construct=fee=>{
+        assert.ok(claimUint(fee)>0n&&claimUint(fee)<=claimUint(originalTicket.maxFee),'CLAIM_SPL_ACTUAL_FEE_BOUND');
+        const routeValue={endpoint:endpointBytes,salt:originalSalt,quotedFee:fee,selectedInputValue:'0',changeFloor:'0',destinationFunded:true};
+        assert.equal(destination(row.claimDomain,endpointBytes,originalTicket.amount,originalTicket.maxFee,originalSalt),originalTicket.destinationCommitment);
+        const action=terms(state,{action:A.BEGIN_PAYOUT,operationId:row.id,revision:'1',amount:originalTicket.amount,
+          destinationCommitment:originalTicket.destinationCommitment,maxFee:originalTicket.maxFee,routeCommitment:claimRouteCommitment(routeValue)});
+        assert.equal(action.wireBindingCommitment,ZERO);
+        return {config,action,routeCommitment:action.routeCommitment,destinationSalt:originalSalt,started};
+      };
+      return Object.freeze({...construct(originalTicket.maxFee),async withQuotedFee(fee){
+        assert.equal(finalized,false,'CLAIM_SPL_ACTUAL_QUOTE_ONCE');finalized=true;
+        live();assertIngressKeeperLive();assert.equal(row.native,originalNative);assert.deepEqual(row.ticket,originalTicket);
+        await observer.assertCurrent(state.snapshot);
+        assert.ok(performance.now()-started>=0&&performance.now()-started<30000,'CLAIM_SPL_ORIGINAL_PREPARATION_TOO_OLD');
+        return freeze(construct(fee));
+      }});
+    }});return token;
+  }
+  function splBeginAuthority(row,prepared,permit,action,receipt,signing) {
+    const {native,config}=selected(row.claimDomain);assertOwnedSolanaSplCustodyV1(native);
+    const origin=authorizationOrigins.get(permit.authorization),captured=freeze(copy(permit));
+    assert.ok(origin&&origin.result===permit&&origin.dispatch,'CLAIM_SPL_ORIGINAL_BEGIN_DISPATCH');
+    assert.equal(origin.method,'backing');assert.equal(origin.request.terms.action,A.BEGIN_PAYOUT);
+    assert.deepEqual(origin.request.terms,action);assert.deepEqual(action,prepared.intent.action);
+    assert.equal(receipt.method,'beginPayout');assert.equal(receipt.operationId,row.id);assert.equal(receipt.status,'SUCCEEDED');assert.equal(receipt.receipt?.status,'0x1');
+    const capturedTicket=freeze(copy(row.ticket)),evmFence=freeze(copy(runtime.ingressSendState)),nativeIdentity=row.native;
+    const check=async()=>{
+      live();assertIngressKeeperLive();assert.equal(row.native,nativeIdentity);assert.deepEqual(row.ticket,capturedTicket);assert.deepEqual(row.native.prepared,prepared);
+      assert.deepEqual(permit,captured);assert.deepEqual(origin.captured,captured);assert.deepEqual(runtime.ingressSendState,evmFence);
+      const current=signing.gateway.tickets.find(v=>v.ticket.id===row.id);assert.equal(current?.state,'2');assert.deepEqual(current.ticket,capturedTicket);
+      assert.equal(signing.gateway.activePayout,row.id);assert.equal(current.payoutRouteCommitment,action.routeCommitment);
+      await observer.assertCurrent(signing.snapshot);
+      const now=claimUint(signing.snapshot.head.timestamp);assert.ok(claimUint(permit.message.validFrom)<=now&&now<claimUint(permit.message.validUntil),'CLAIM_SPL_ORIGINAL_BEGIN_EXPIRED');
+      const age=performance.now()-authorizationStarts.get(permit.authorization);assert.ok(Number.isFinite(age)&&age>=0&&age<30000,'CLAIM_SPL_ORIGINAL_BEGIN_TOO_OLD');
+    };
+    const token=Object.freeze(Object.create(null));splBegins.set(token,{native,prepared,async consume(){await check();
+      return Object.freeze({config:freeze(copy(config)),action:freeze(copy(action)),head:freeze(copy(signing.snapshot.head)),
+        permit:freeze({message:copy(permit.message),indexes:copy(permit.indexes),signatures:copy(permit.signatures)}),assertCurrent:check});
+    }});return token;
+  }
+  function splIngressKey(row,prepared,authorization,started) {
+    const {native}=selected(row.claimDomain);assertOwnedSolanaSplCustodyV1(native);
+    const originalNative=row.native,preparedCopy=freeze(copy(prepared)),captured=freeze(copy(authorization)),evmFence=freeze(copy(runtime.ingressSendState));
+    const token=Object.freeze(Object.create(null));originalKeyAuthoritiesV4.set(token,{purpose:'ingress',runtimeClose:native.close,genesis:native.genesis,route:'deposit',prepared,
+      consume(){live();assertIngressKeeperLive();assert.equal(row.native,originalNative);assert.equal(row.native.status,'SIGNING_UNKNOWN');
+        assert.deepEqual(prepared,preparedCopy);assert.deepEqual(row.native.prepared,preparedCopy);assert.deepEqual(authorization,captured);assert.deepEqual(row.native.presignAuthorization,captured);
+        assert.deepEqual(runtime.ingressSendState,evmFence);assert.ok(!evmFence.busy&&!evmFence.uncertain);
+        const age=performance.now()-started;assert.ok(Number.isFinite(age)&&age>=0&&age<30000,'CLAIM_PRESIGN_AUDIT_TOO_OLD');return started;
+      }});return token;
+  }
+  // V1 ingress keeps its original presign + all-four reservation + INCLUDED
+  // EVM permit order. This opaque bridge adds exact one-send continuation; it
+  // does not claim the separate durable-nonce V3 broadcast codec.
+  async function splIngressSend(row,prepared,permit,confirmed) {
+    const {native}=selected(row.claimDomain);assertOwnedSolanaSplCustodyV1(native);
+    const binding=row.native.binding,capturedBinding=freeze(copy(binding)),capturedPrepared=freeze(copy(prepared)),originalNative=row.native;
+    const started=authorizationStarts.get(permit.authorization),capturedPermit=freeze(copy(permit)),evmFence=freeze(copy(runtime.ingressSendState));
+    const originals=native.transfers.filter(r=>r.nativeId===binding.request.nativeId);assert.equal(originals.length,1);const record=freeze(copy(originals[0]));
+    assert.equal(record.phase,'SIGNED_NOT_BROADCAST');assert.equal(record.broadcastAttempts,0);assert.equal(record.nativeWire,binding.nativeWire);
+    assert.equal(record.transactionSHA256,binding.transactionSHA256);assert.deepEqual(record.intent,prepared.intent);
+    await observer.assertCurrent(confirmed.snapshot);await observer.assertUnrevoked({claimDomain:binding.claimDomain,nativeGid:binding.nativeGid},confirmed.snapshot);
+    const check=phase=>{
+      live();assertIngressKeeperLive();assert.equal(row.native,originalNative);assert.equal(row.native.status,'RESERVED_BEFORE_BROADCAST');
+      assert.deepEqual(row.native.binding,capturedBinding);assert.deepEqual(row.native.prepared,capturedPrepared);assert.deepEqual(prepared,capturedPrepared);
+      assert.deepEqual(permit,capturedPermit);assert.deepEqual(runtime.ingressSendState,evmFence);assert.ok(!evmFence.busy&&!evmFence.uncertain);
+      const current=native.transfers.filter(r=>r.nativeId===binding.request.nativeId);assert.equal(current.length,1);
+      for(const name of ['nativeId','nativeWire','transactionSHA256','route'])assert.equal(current[0][name],record[name]);
+      assert.deepEqual(current[0].intent,prepared.intent);assert.equal(current[0].phase,phase);assert.equal(current[0].broadcastAttempts,phase==='SIGNED_NOT_BROADCAST'?0:1);
+      assert.equal(current[0].externalSubmissionObserved,false);
+      const age=performance.now()-started;assert.ok(Number.isFinite(age)&&age>=0&&age<30000,'CLAIM_SPL_ORIGINAL_RESERVATION_TOO_OLD');
+      const now=claimUint(confirmed.snapshot.head.timestamp);assert.ok(claimUint(permit.message.validFrom)<=now&&now<claimUint(permit.message.validUntil),'CLAIM_SPL_ORIGINAL_RESERVATION_EXPIRED');
+    };
+    check('SIGNED_NOT_BROADCAST');let entered=false,ready=false,used=false;let otherFence;
+    const token=Object.freeze(Object.create(null));splIngressSends.set(token,{native,prepared,record,open(){check('SIGNED_NOT_BROADCAST');otherFence=otherNativeStateFence(native);
+      return Object.freeze({async beforeSend(value){assert.equal(value,prepared);assert.equal(entered,false);entered=true;check('BROADCAST_UNKNOWN');
+        await observer.assertCurrent(confirmed.snapshot);const reservation=assertCanonicalClaimReservation(binding,await observer.readReservation({claimDomain:binding.claimDomain,admissionN:binding.admissionN},confirmed.snapshot));assert.equal(reservation.consumed,false);
+        await observer.assertUnrevoked({claimDomain:binding.claimDomain,nativeGid:binding.nativeGid},confirmed.snapshot);await observer.assertCurrent(confirmed.snapshot);check('BROADCAST_UNKNOWN');ready=true;
+      },assertBeforeSend(value){assert.equal(value,prepared);assert.ok(entered&&ready&&!used);used=true;check('BROADCAST_UNKNOWN');otherFence();}});
+    }});return token;
   }
   async function serial(work, { readOrReconcile = false } = {}) { live(); beginAuditOwner?.assertOpen(); assert.ok(!busy, 'CLAIM_CONTROLLER_BUSY');
     assert.ok(readOrReconcile || !journal.requiresReconciliation?.(), 'CLAIM_KEEPER_RECONCILIATION_REQUIRED'); busy = true;
@@ -559,7 +673,7 @@ async function createController(input, beginAuditOnly) {
   async function reserveNative(row, collection, prepared, signed) {
     const { config, native } = selected(row.claimDomain), ingress = collection === 'deposits';
     const decoded = config.nativeFamily === '1' ? validateBitcoinBinding(signed.nativeWire, prepared.intent)
-      : validateClaimSolanaBindingTransaction(signed.nativeWire, prepared.intent);
+      : isOwnedSolanaSplCustodyV1(native)?validateNativeSplClaimBindingTransactionV1(signed.nativeWire,prepared.intent):validateClaimSolanaBindingTransaction(signed.nativeWire, prepared.intent);
     const nativeId = config.nativeFamily === '1' ? decoded.txid : decoded.signatureHex;
     const actual = native.transfers.find(v => nativeIdOf(v, config.nativeFamily) === nativeId);
     assert.ok(actual); assert.equal(wireOf(actual, config.nativeFamily), signed.nativeWire, 'CLAIM_OWNED_NATIVE_WIRE');
@@ -586,6 +700,7 @@ async function createController(input, beginAuditOnly) {
     const confirmed = await view(row.claimDomain);
     assertCanonicalClaimReservation(binding, await observer.readReservation({ claimDomain: row.claimDomain, admissionN: binding.admissionN }, confirmed.snapshot));
     row.native.status = 'RESERVED_BEFORE_BROADCAST'; await saveRow(collection, row);
+    if(ingress&&isOwnedSolanaSplCustodyV1(native))return splIngressSend(row,prepared,permit,confirmed);
   }
   async function retainedUnsentIngress(row, collection) {
     if (collection !== 'deposits' || !row.native?.binding) return false;
@@ -1070,8 +1185,9 @@ async function createController(input, beginAuditOnly) {
             assert.ok(performance.now() - auditStarted < 30_000, 'CLAIM_PRESIGN_AUDIT_TOO_OLD');
             await adapter.assertPrepared(prepared);
             live(); assert.ok(performance.now() - auditStarted < 30_000, 'CLAIM_PRESIGN_AUDIT_TOO_OLD');
+            if(isOwnedSolanaSplCustodyV1(native))return splIngressKey(row,prepared,authorization,auditStarted);
           },
-          async onSigned(signed) { await reserveNative(row, 'deposits', row.native.prepared, signed); },
+          async onSigned(signed) { return reserveNative(row, 'deposits', row.native.prepared, signed); },
           ...(native.nonceIngressProfile === 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3' ? {
             beforeBroadcast: prepared => authorizeIngressBroadcast(row, prepared, adapter),
               beforeSend: prepared => beforeIngressSend(row, prepared),
@@ -1234,10 +1350,11 @@ async function createController(input, beginAuditOnly) {
               }
               await assertAuthorizationSnapshot(fresh.snapshot, permit.head);
               row.native.prepared = copy(prepared); await saveRow('tickets', row);
-              await evm({ domain: row.claimDomain, operationId: row.id, stage: 'BEGIN_PAYOUT', method: 'beginPayout',
+              const beginReceipt = await evm({ domain: row.claimDomain, operationId: row.id, stage: 'BEGIN_PAYOUT', method: 'beginPayout',
                 args: [prefix(row.id), row.route, permit.authorization], snapshot: fresh.snapshot });
               // beginPayout changes EVM state; its pre-call anchor cannot be reused.
               const signing = await view(row.claimDomain);
+              if(isOwnedSolanaSplCustodyV1(native))await adapter.authorizeOriginalBeginV1(prepared,splBeginAuthority(row,prepared,permit,t,beginReceipt,signing));
               const authorization = await quorum.authorizePayout({ claimDomain: row.claimDomain, ticketId: row.id, prepared, route: row.route, wireSalt: row.native.wireSalt });
               row.native.status = 'SIGNING_UNKNOWN'; row.native.presignAuthorization = authorization; await saveRow('tickets', row);
               await assertAuthorizationSnapshot(signing.snapshot, authorization.head);
@@ -1249,7 +1366,8 @@ async function createController(input, beginAuditOnly) {
             },
             async onSigned(signed) { await reserveNative(row, 'tickets', row.native.prepared, signed); },
             ...(config.nativeFamily === '1' ? { payoutSendToken: bitcoinPayoutSendToken(row, adapter) } : {}),
-            ...(config.nativeFamily === '2' && (native.nonceInfrastructure || native.nonceInfrastructureByAuthority) ? {
+            ...(isOwnedSolanaSplCustodyV1(native)?{payoutPreparationToken:splPayoutPreparation(row)}:{}),
+            ...(config.nativeFamily === '2' && (native.nonceInfrastructure || native.nonceInfrastructureByAuthority || isOwnedSolanaSplCustodyV1(native)) ? {
               beforeBroadcast: prepared => authorizePayoutBroadcast(row, prepared, adapter),
             } : {}),
           });

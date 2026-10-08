@@ -1,3 +1,4 @@
+import {originalNativeClaimAssetUnitsV1} from '../../claims/operations/native-claim-asset-units-v1.mjs';
 /** One owner-scoped native-claim account over an original controller. Durable
  * admission precedes acknowledgment. Reopening a UI never replays a job.
  * Native custody and RPC authority remain in the trusted local bootstrap. */
@@ -46,18 +47,18 @@ export function nativeClaimSessionPrivateFailures(value) {
   assertNativeClaimSession(value); return copy(privateFailures.get(value));
 }
 
-function originalIdentity(claims, account, wrapped = false) {
+function originalIdentity(runtime,claims, account, wrapped = false) {
   need(Array.isArray(claims.configs), 'NATIVE_CLAIM_REGISTERED_DOMAIN_REQUIRED');
   const matches = claims.configs.filter(config => claimDomainCommitment(config) === account.claimDomain);
   need(matches.length === 1, 'NATIVE_CLAIM_REGISTERED_DOMAIN_REQUIRED');
-  const config = matches[0], bitcoin = config.nativeFamily === '1';
+  const config = matches[0], bitcoin = config.nativeFamily === '1',units=wrapped?Object.freeze(bitcoin?{claimSymbol:'cBTC',nativeSymbol:'BTC',decimals:8,atomicUnit:'satoshi'}:{claimSymbol:'cSOL',nativeSymbol:'SOL',decimals:9,atomicUnit:'lamport'}):originalNativeClaimAssetUnitsV1(runtime,claims,config);
   // These are the fixed deployed NativeClaimToken family semantics, not caller
   // labels, a portfolio ordering guess, or independently spendable native funds.
   return Object.freeze({ version: 1, profile: wrapped ? 'ORIGINAL_WRAPPED_CLAIM_SESSION_IDENTITY_V1' : 'ORIGINAL_NATIVE_CLAIM_SESSION_IDENTITY_V1',
     accountId: account.accountId, claimDomain: account.claimDomain,
     nativeFamily: config.nativeFamily, nativeGenesis: config.nativeGenesis, nativeAsset: config.nativeAsset,
-    wrapperAssetIdentity: config.wrapperAssetIdentity, claimSymbol: bitcoin ? 'cBTC' : 'cSOL',
-    nativeSymbol: bitcoin ? 'BTC' : 'SOL', decimals: bitcoin ? 8 : 9, atomicUnit: bitcoin ? 'satoshi' : 'lamport',
+    wrapperAssetIdentity: config.wrapperAssetIdentity, claimSymbol:units.claimSymbol,nativeSymbol:units.nativeSymbol,decimals:units.decimals,atomicUnit:units.atomicUnit,
+    ...(units.nativeAssetKind?{nativeAssetKind:units.nativeAssetKind,mint:units.mint}:{}),
     observation: 'ORIGINAL_BOUND_CONFIGURATION_ONLY' });
 }
 
@@ -106,7 +107,7 @@ async function createClaimSession(input, wrapped) {
   need(runtime.accounts.includes(input.caller), 'NATIVE_CLAIM_OWNED_CALLER');
   const account = { accountId: input.accountId, ownerIdentitySHA256: input.ownerIdentitySHA256,
     claimDomain: input.claimDomain, caller: input.caller };
-  const identity = originalIdentity(claims, account, wrapped);
+  const identity = originalIdentity(runtime,claims, account, wrapped);
   const journal = ownedClaimControllerJournal(keeper, runtime, claims);
   need(!leasedControllers.has(controller), 'NATIVE_CLAIM_CONTROLLER_SESSION_BUSY');
   leasedControllers.add(controller);

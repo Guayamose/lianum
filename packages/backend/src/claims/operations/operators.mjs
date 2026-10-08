@@ -20,13 +20,16 @@ import { exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedBitcoinRuntime } from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import * as bitcoinRuntimeLiveness from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
+import {isOwnedSolanaSplCustodyV1,assertOwnedSolanaSplCustodyV1,assertOwnedSolanaSplGraphPairV1} from '../../chains/solana/runtime/owned-solana-runtime.mjs';
+import {assertOwnedNativeSplRegisteredObserverV1} from '../../chains/solana/runtime/owned-solana-spl-custody-v1.mjs';
+import {buildNativeSplClaimRulesV1} from '../../operations/deployments/claims/native-claim-deployment-plan.mjs';
 import { assertOwnedSolanaRuntime } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import * as solanaRuntimeLiveness from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { createNativeClaimFactsSigner as createNativeFactsSigner,
   createNativeClaimFactsPeer as createNativeFactsPeer,
   createNativeClaimFactsInventory as createNativeFactsInventory,
   createNativeClaimFactsCollector as createNativeFactsCollector,
-  nativeFactsRegistryCommitment } from '../../chains/shared/dispatch/native-facts-peer.mjs';
+  nativeFactsRegistryCommitment,createNativeSplClaimFactsSigner,createNativeSplClaimFactsPeer,createNativeSplClaimFactsInventory,createNativeSplClaimFactsCollector } from '../../chains/shared/dispatch/native-facts-peer.mjs';
 import { encodeFlatNativeHealth } from '../../chains/shared/health/native-health.mjs';
 import { assertStableClaimOperatorFact as assertStableOperatorFact } from '../../operations/operators/claims/operator-fact-audit.mjs';
 import { assertOwnedCustodyIntent, ownedCustodyRoute } from '../../chains/shared/runtime/owned-native-custody.mjs';
@@ -45,7 +48,7 @@ import { createOwnedOperatorNativeReads, quiesceOwnedOperatorNativeReads,
   assertOwnedOperatorNativeReadsQuiescent, releaseOwnedOperatorNativeReadQuiescence } from '../../operations/operators/claims/owned-native-operator-reads.mjs';
 import { acquireCombinedOperatorCustody, assertCombinedOperatorLive, assertCombinedOperatorIdle, combinedOperatorStatus,
   registerCombinedOperatorBranch, poisonCombinedOperator, closeCombinedOperator,
-  signCombinedClaimAuthorization, signCombinedClaimAuthorizationV4, createCombinedFactsSigner,
+  signCombinedClaimAuthorization, signCombinedClaimAuthorizationV4, createCombinedFactsSigner,createCombinedNativeSplClaimFactsSignerV1,
   assertCombinedGraphCoverage, assertCombinedGraphCoverageV4, assertCombinedGraphSourceCurrentV4 } from '../../operations/operators/claims/combined-native-operators.mjs';
 
 export const CLAIM_OPERATOR_PROFILE = 'SAME_HOST_SYNTHETIC_NATIVE_CLAIM_ATTESTER_V1';
@@ -355,7 +358,7 @@ function createClaimOperator(input, custody) {
           const binding = relevant.find(b => b.request.nativeId === transfer.nativeId);
           assert.ok(binding, 'CLAIM_UNKNOWN_NATIVE_EXPOSURE'); const row = original(binding);
           assert.equal(transfer.route, row.route, 'CLAIM_NATIVE_ROUTE_CHANGED');
-          assert.equal(transfer.amount, config.nativeFamily === '1' ? row.intent.amountSatoshi : row.intent.lamports, 'CLAIM_NATIVE_AMOUNT_CHANGED');
+          assert.equal(transfer.amount, config.nativeFamily === '1' ? row.intent.amountSatoshi : isOwnedSolanaSplCustodyV1(native)?row.intent.amount:row.intent.lamports, 'CLAIM_NATIVE_AMOUNT_CHANGED');
           const exactStaged = staged?.claimDomain === domain && staged?.request.nativeId === transfer.nativeId;
           assert.ok(exactStaged || ['OBSERVED_CONFIRMED', 'OBSERVED_FINALIZED'].includes(transfer.phase), 'CLAIM_UNRESOLVED_NATIVE_SEND');
         }
@@ -807,11 +810,16 @@ function createClaimOperator(input, custody) {
         assert.equal(new Set(bound.configs.map(c => c.custodyInventoryDomain)).size, domains.length, 'CLAIM_INVENTORY_ALIAS');
         assert.equal(new Set(bound.configs.map(c => c.nativeFamily + ':' + c.nativeGenesis)).size,
           domains.length, 'CLAIM_NATIVE_ASSET_RELABEL');
-        const tree = nativeAdmissionRulesTree(bound.policies.map(policy => policy.rule));
+        const spl=bound.nativeRuntimes.some(native=>isOwnedSolanaSplCustodyV1(native));
+        if(spl){assert.equal(bound.nativeRuntimes.length,2);assertOwnedSolanaSplCustodyV1(bound.nativeRuntimes[1]);assertOwnedNativeSplRegisteredObserverV1(bound.nativeRuntimes[1],observer);
+          const proposal=buildNativeSplClaimRulesV1({bitcoinGenesis:bound.configs[0].nativeGenesis,solanaGenesis:bound.configs[1].nativeGenesis,splAsset:bound.configs[1].nativeAsset});
+          equal(bound.registeredRules,proposal.registeredRules,'CLAIM_SPL_COMPLETE_REGISTERED_RULES');equal(bound.graphSolanaRule,proposal.graphSolanaRule,'CLAIM_SPL_ORIGINAL_GRAPH_SOL_RULE');}
+        else equal(bound.registeredRules,bound.policies.map(policy=>policy.rule),'CLAIM_COMPLETE_REGISTERED_RULES');
+        const tree = nativeAdmissionRulesTree(bound.registeredRules);
         assert.equal(tree.root, bound.registry.rulesRoot, 'CLAIM_COMPLETE_REGISTERED_RULES');
         const peerStates = {}, recipients = new Map();
         for (const [i, config] of bound.configs.entries()) {
-          const native = bound.nativeRuntimes[i], policy = bound.policies[i], domain = domains[i];
+          const native = bound.nativeRuntimes[i], policy = bound.policies[i], domain = domains[i],spl=isOwnedSolanaSplCustodyV1(native);
           (config.nativeFamily === '1' ? assertOwnedBitcoinRuntime : assertOwnedSolanaRuntime)(native);
           assert.equal(typeof native.inventory, 'function', 'CLAIM_OWNED_CUSTODY_REQUIRED');
           nativeReads.set(domain, createOwnedOperatorNativeReads({ native, family: config.nativeFamily }));
@@ -821,12 +829,12 @@ function createClaimOperator(input, custody) {
             { family: config.nativeFamily, genesis: config.nativeGenesis, asset: config.nativeAsset }, 'CLAIM_NATIVE_POLICY_PIN');
           assert.equal(nativeRuleCommitment(policy.rule), config.nativeRuleCommitment, 'CLAIM_NATIVE_RULE_PIN');
           assert.equal(nativeFactsRegistryCommitment(bound.registry), config.registryCommitment, 'CLAIM_REGISTRY_COMMITMENT');
-          createNativeFactsCollector({ policy, registry: bound.registry, rulePath: tree.paths[i], clock });
+          (spl?createNativeSplClaimFactsCollector:createNativeFactsCollector)({ policy, registry: bound.registry, rulePath: tree.paths[i], clock });
           for (const route of ['deposit', 'refund', 'redeem']) {
             const spec = ownedCustodyRoute(route), id = peerKey(domain, route), binding = native.adapter({ asset: config.nativeAsset, route }).binding;
             const routes = [{ recipientIndex: String(spec.recipientIndex), sourceEndpoint: binding.sourceEndpoint, destinationEndpoint: binding.destinationEndpoint }];
             recipients.set(id, routes); readers.set(id, nativeReads.get(domain).factReader({ asset: config.nativeAsset, route }));
-            peerStates[id] = { revision: '0', state: createNativeFactsInventory({ policy, signerIndex: String(signerIndex), publicKey, recipients: routes }) };
+            peerStates[id] = { revision: '0', state: (spl?createNativeSplClaimFactsInventory:createNativeFactsInventory)({ policy, signerIndex: String(signerIndex), publicKey, recipients: routes }) };
           }
         }
         // Fresh V3 directory only. Attester keys still live in this parent;
@@ -841,9 +849,9 @@ function createClaimOperator(input, custody) {
         record = await vault.read();
         await readVault(); activeView = await observer.read();
         for (const [i, config] of bound.configs.entries()) for (const route of ['deposit', 'refund', 'redeem']) {
-          const id = peerKey(domains[i], route), policy = bound.policies[i];
-          peers.set(id, await createNativeFactsPeer({ policy, signerIndex: String(signerIndex), recipients: recipients.get(id),
-            signer: custody ? createCombinedFactsSigner(custody, 'claim', policy) : createNativeFactsSigner({ privateKey: key.privateKey, policy }),
+          const id = peerKey(domains[i], route), policy = bound.policies[i],spl=isOwnedSolanaSplCustodyV1(bound.nativeRuntimes[i]);
+          peers.set(id, await (spl?createNativeSplClaimFactsPeer:createNativeFactsPeer)({ policy, signerIndex: String(signerIndex), recipients: recipients.get(id),
+            signer: custody ? spl?createCombinedNativeSplClaimFactsSignerV1(custody,policy):createCombinedFactsSigner(custody, 'claim', policy) : (spl?createNativeSplClaimFactsSigner:createNativeFactsSigner)({ privateKey: key.privateKey, policy }),
             clock, store: store(id),
             reader: { observe: async request => {
               const match = record.data.bindings.find(b => b.claimDomain === domains[i]
@@ -868,7 +876,7 @@ function createClaimOperator(input, custody) {
         assert.equal(operation.state, ingress ? '1' : '2', 'CLAIM_OPERATION_STATE');
         if (!ingress) assert.equal(gateway.activePayout, input.operationId, 'CLAIM_ACTIVE_PAYOUT_REQUIRED');
         const amount = ingress ? operation.amount : operation.ticket.amount;
-        assert.equal(config.nativeFamily === '1' ? row.intent.amountSatoshi : row.intent.lamports, amount, 'CLAIM_SIGNED_AMOUNT');
+        assert.equal(config.nativeFamily === '1' ? row.intent.amountSatoshi : isOwnedSolanaSplCustodyV1(native)?row.intent.amount:row.intent.lamports, amount, 'CLAIM_SIGNED_AMOUNT');
         const binding = createClaimReservationBinding({ claimDomain: input.claimDomain, gateway: config.gateway,
           ledgerNamespace: config.ledgerNamespace, genesis: config.nativeGenesis, asset: config.nativeAsset,
           operationId: input.operationId, revision: ingress ? operation.revision : '1', ingress,
@@ -1495,7 +1503,8 @@ function createClaimOperator(input, custody) {
         'COMBINED_OPERATOR_SAME_NATIVE_NODE_REQUIRED');
         const custodyEndpoints = new Set(Object.values(native.roles).map(role => role.endpoint));
         for (const recipientIndex of [0, 1]) {
-          const route = graph.adapter({ asset: config.nativeAsset, recipientIndex }).binding;
+          const spl=isOwnedSolanaSplCustodyV1(native);if(spl)assertOwnedSolanaSplGraphPairV1(native,graph);
+          const route = graph.adapter({ asset: spl?bound.graphSolanaRule.asset:config.nativeAsset, recipientIndex }).binding;
           assert.ok(!custodyEndpoints.has(route.sourceEndpoint), 'COMBINED_OPERATOR_GRAPH_SOURCE_IS_CUSTODY');
         }
       }

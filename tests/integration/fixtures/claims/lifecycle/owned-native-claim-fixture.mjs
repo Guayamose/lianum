@@ -3,13 +3,13 @@
 import assert from 'node:assert/strict';
 import { lstatSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { createOwnedLocalEvmV2 } from '../../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { createOwnedLocalEvmV2,createOwnedLocalEvmObservedClockV1 } from '../../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOwnedBitcoinCustodyRuntime, createOwnedCombinedBitcoinRuntime }
   from '../../../../../packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
-import { createOwnedSolanaCustodyRuntime, createOwnedCombinedSolanaRuntime }
+import { createOwnedSolanaCustodyRuntime, createOwnedCombinedSolanaRuntime,createOwnedCombinedSolanaSplRuntimeV1 }
   from '../../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
-import { createNativeClaimBootstrap, createNativeClaimIngressV3Bootstrap, deployNativeClaimSystem,
-  preflightNativeClaimIngressV3Artifacts } from '../../../../../packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs';
+import { createNativeClaimBootstrap, createNativeClaimIngressV3Bootstrap,createNativeSplClaimIngressV1Bootstrap,deployNativeClaimSystem,
+  preflightNativeClaimIngressV3Artifacts,preflightNativeSplClaimIngressV1Artifacts } from '../../../../../packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs';
 import { createOwnedClaimObserver } from '../../../../../packages/backend/src/claims/operations/owned-state.mjs';
 import { createLocalClaimOperator, createClaimOperatorQuorum } from '../../../../../packages/backend/src/claims/operations/operators.mjs';
 import { createCombinedLocalNativeOperator } from '../../../../../packages/backend/src/operations/operators/claims/combined-native-operators.mjs';
@@ -43,7 +43,10 @@ export async function createOwnedNativeClaimGraphV3Fixture(directory, callbacks 
   return createFixture(directory, callbacks, true, true);
 }
 
-async function createFixture(directory, callbacks, withGraph, ingressV3 = false) {
+/** New same-validator SOURCE SOL plus distinct registered SPL custody. */
+export async function createOwnedNativeSplClaimGraphFixtureV1(directory,callbacks={}){return createFixture(directory,callbacks,true,false,true);}
+
+async function createFixture(directory, callbacks, withGraph, ingressV3 = false,spl=false) {
   privateDirectory(directory);
   const onStage = callbacks.onStage ?? (async () => {});
   const onDeployment = callbacks.onDeployment ?? (async () => {});
@@ -58,6 +61,7 @@ async function createFixture(directory, callbacks, withGraph, ingressV3 = false)
     get observer() { return observer; }, get quorum() { return quorum; },
     get graphQuorum() { return graphQuorum; },
     get rules() { return bootstrap?.rules; }, get rulePaths() { return bootstrap?.rulePaths; },
+    get registeredRules(){return bootstrap?.registeredRules;},get graphSolanaRule(){return bootstrap?.graphSolanaRule;},get splCustodyProfile(){return bootstrap?.nativeSplCustodyProfile===true;},
     operators, graphOperators, owners, resources,
     async createOwner(poolIndex, label) {
       assert.ok(poolIndex === 0 || poolIndex === 1, 'NATIVE_CLAIM_OWNER_POOL');
@@ -99,17 +103,19 @@ async function createFixture(directory, callbacks, withGraph, ingressV3 = false)
     },
   };
   try {
+    if(spl){await onStage('preflight-genuine-spl-v1-artifacts-before-nodes');await preflightNativeSplClaimIngressV1Artifacts();}
     if (ingressV3) {
       await onStage('preflight-genuine-claim-artifacts-before-nodes');
       await preflightNativeClaimIngressV3Artifacts();
     }
-    await onStage('start-owned-evm'); runtime = await createOwnedLocalEvmV2();
+    await onStage('start-owned-evm'); runtime = await (spl?createOwnedLocalEvmObservedClockV1:createOwnedLocalEvmV2)();
     await onStage('start-owned-bitcoin-custody');
     if (withGraph) ({ custody: bitcoin, graph: graphBitcoin } = await createOwnedCombinedBitcoinRuntime());
     else bitcoin = await createOwnedBitcoinCustodyRuntime();
     await onStage('start-owned-solana-custody');
     try {
-      if (withGraph) ({ custody: solana, graph: graphSolana } = await createOwnedCombinedSolanaRuntime());
+      if(spl)({custody:solana,graph:graphSolana}=await createOwnedCombinedSolanaSplRuntimeV1());
+      else if (withGraph) ({ custody: solana, graph: graphSolana } = await createOwnedCombinedSolanaRuntime());
       else solana = await createOwnedSolanaCustodyRuntime();
     }
     catch (error) {
@@ -124,7 +130,7 @@ async function createFixture(directory, callbacks, withGraph, ingressV3 = false)
     }
     const journalRoot = join(directory, 'claim-keepers'); mkdirSync(journalRoot, { mode: 0o700 });
     await onStage('preflight-owned-native-claim-custody');
-    bootstrap = await (ingressV3 ? createNativeClaimIngressV3Bootstrap : createNativeClaimBootstrap)(
+    bootstrap = await (spl?createNativeSplClaimIngressV1Bootstrap:ingressV3 ? createNativeClaimIngressV3Bootstrap : createNativeClaimBootstrap)(
       { runtime, nativeRuntimes: [bitcoin, solana], journalRoot });
     for (let signerIndex = 0; signerIndex < 4; signerIndex++) {
       if (withGraph) {
@@ -145,7 +151,7 @@ async function createFixture(directory, callbacks, withGraph, ingressV3 = false)
     quorum = createClaimOperatorQuorum({ operators: operators.slice(0, 3) });
     if (withGraph) {
       for (const operator of graphOperators) await operator.bind({ runtime, system: claims.flatSystem,
-        bitcoin: graphBitcoin, solana: graphSolana, rules: bootstrap.rules, rulePaths: bootstrap.rulePaths });
+        bitcoin: graphBitcoin, solana: graphSolana, rules: spl?[bootstrap.rules[0],bootstrap.graphSolanaRule]:bootstrap.rules, rulePaths:spl?[bootstrap.rulePaths[0],bootstrap.rulePaths[2]]: bootstrap.rulePaths });
       graphQuorum = createFlatOperatorQuorum({ operators: graphOperators.slice(0, 3) });
     }
     await onStage('owned-claim-account-ready'); return fixture;

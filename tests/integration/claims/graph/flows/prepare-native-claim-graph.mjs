@@ -22,7 +22,13 @@ const bare = value => value.slice(2);
  * is in the selected claim pool's units; nativeAmount is delivered lamports.
  * No node list, factory, endpoint, key or proof backend is caller supplied.
  */
-export async function prepareNativeClaimGraph(fixture, privateDirectory, owner, options, onProof = async () => {}) {
+export async function prepareNativeClaimGraph(fixture,privateDirectory,owner,options,onProof=async()=>{}){return prepareGraph(fixture,privateDirectory,owner,options,onProof,false);}
+/** Fixed BTC invoice funds one real SOL10M SOURCE for Jupiter; no WSOL deposit
+ * or quote authorizes source principal, and the SOL leaf remains distinct. */
+export async function prepareNativeSplSourceGraphV1(fixture,privateDirectory,owner,onProof=async()=>{}){
+ const now=await fixture.runtime.time();return prepareGraph(fixture,privateDirectory,owner,{poolIndex:0,cutoff:String(now+7200n),payoutAmount:'20000',nativeAmount:'10000000'},onProof,true);
+}
+async function prepareGraph(fixture,privateDirectory,owner,options,onProof,spl){
   exactRecord(options, ['cutoff', 'payoutAmount', 'nativeAmount',
     ...(options && Object.hasOwn(options, 'poolIndex') ? ['poolIndex'] : [])]);
   const { cutoff, payoutAmount, nativeAmount, poolIndex = 1 } = options;
@@ -40,7 +46,8 @@ export async function prepareNativeClaimGraph(fixture, privateDirectory, owner, 
   assert.ok(fixture.owners.some(entry => entry.owner === owner && entry.poolIndex === poolIndex),
     'NATIVE_CLAIM_GRAPH_FIXTURE_OWNER');
   assert.ok(graphSolana && graphQuorum && Array.isArray(fixture.resources), 'NATIVE_CLAIM_GRAPH_FIXTURE_REQUIRED');
-  const rule = fixture.rules[1], rulePath = fixture.rulePaths[1];
+  if(spl)assert.equal(fixture.splCustodyProfile,true,'SPL_GRAPH_ORIGINAL_FIXED_FIXTURE');
+  const recipientIndex=spl?1:0,rule = spl?fixture.graphSolanaRule:fixture.rules[1], rulePath = fixture.rulePaths[spl?2:1];
   assert.equal(rule.family, '2', 'NATIVE_CLAIM_GRAPH_SOL_RULE');
   assert.ok(!preparations.has(fixture), 'NATIVE_CLAIM_GRAPH_ONE_PREPARATION');
   const now = await runtime.time(), domain = system.pools[poolIndex].domain;
@@ -54,12 +61,12 @@ export async function prepareNativeClaimGraph(fixture, privateDirectory, owner, 
   const directory = join(runtime.metadata.scratchDirectory, 'flat-native-claim-graph-provider');
   mkdirSync(directory, { mode: 0o700 });
   const provider = await createOwnedFlatNativeProvider({ runtime, system, poolIndex,
-    nativeRuntime: graphSolana, operatorQuorum: graphQuorum, rule, rulePath, recipientIndex: 0,
+    nativeRuntime: graphSolana, operatorQuorum: graphQuorum, rule, rulePath, recipientIndex,
     terms: { scope: domain.scope, policy: domain.policy, asset: domain.asset, amount: nativeAmount,
       executionFrom, executionUntil, settleBefore: cutoff },
     acceptedLossClause: NATIVE_ADMISSION_LOSS_CLAUSE, directory, password: freshFixtureId() });
   fixture.resources.push(provider);
-  const selected = { slot: 0, family: '2', recipientIndex: 0, rule, rulePath, deliveryRiskSalt: null, provider };
+  const selected = { slot: 0, family: '2', recipientIndex, rule, rulePath, deliveryRiskSalt: null, provider };
   const offer = provider.offer();
   const recipientBoot = { mode: 'create', path: join(privateDirectory, 'native-claim-graph-recipient.vault'),
     password: freshFixtureId(),

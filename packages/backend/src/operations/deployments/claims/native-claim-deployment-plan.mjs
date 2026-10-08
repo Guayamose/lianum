@@ -40,6 +40,7 @@ export const NATIVE_CLAIM_CONTRACTS = Object.freeze({
   nativeClaimCodec: ['native-claims/NativeClaimCodec.sol', 'NativeClaimCodec'],
   nativeClaimValidation: ['native-claims/NativeClaimValidation.sol', 'NativeClaimValidation'],
   token: ['native-claims/NativeClaimToken.sol', 'NativeClaimToken'],
+  nativeSplToken:['native-claims/NativeSplClaimTokenV1.sol','NativeSplClaimTokenV1'],
   gateway: ['native-claims/NativeClaimGateway.sol', 'NativeClaimGateway'],
   authority: ['native-claims/NativeClaimAuthority.sol', 'NativeClaimAuthority'],
 });
@@ -75,6 +76,13 @@ export function buildOwnedNativeClaimRules(input) {
   rules.forEach(nativeRuleCommitment);
   return frozenInput({ rules, ...nativeAdmissionRulesTree(rules) });
 }
+export function buildNativeSplClaimRulesV1(input){
+ exactRecord(input,['bitcoinGenesis','solanaGenesis','splAsset']);bytes32(input.solanaGenesis,true);bytes32(input.splAsset,true);
+ const original=buildOwnedNativeClaimRules({bitcoinGenesis:input.bitcoinGenesis,solanaGenesis:input.solanaGenesis});
+ assert.notEqual(input.splAsset,original.rules[1].asset,'CLAIM_SPL_DISTINCT_REGISTERED_ASSET');
+ const rules=[original.rules[0],{...original.rules[1],asset:input.splAsset}],registeredRules=[...rules,original.rules[1]];registeredRules.forEach(nativeRuleCommitment);
+ assert.equal(new Set(registeredRules.map(nativeRuleCommitment)).size,3,'CLAIM_SPL_DISTINCT_COMPLETE_REGISTERED_RULES');return frozenInput({...nativeAdmissionRulesTree(registeredRules),rules,registeredRules,graphSolanaRule:original.rules[1]});
+}
 export function claimConfigurationABI(config) {
   validateClaimConfig(config);
   return Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([name, type]) =>
@@ -102,7 +110,9 @@ export function claimCreationPlan({ source, contractName, artifact, sender, nonc
     creationSHA256: sha(Buffer.from(creationData.slice(2), 'hex')) });
 }
 
-export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {
+export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {return buildClaimDeploymentPlan(raw,{hashFields},false);}
+export async function buildNativeSplClaimDeploymentPlanV1(raw,{hashFields}){return buildClaimDeploymentPlan(raw,{hashFields},true);}
+async function buildClaimDeploymentPlan(raw, { hashFields }, spl) {
   const input = snapshot(raw);
   exactRecord(input, ['bundle', 'ledger', 'sender', 'nextNonce', 'evmGenesis', 'libraries',
     'verifiers', 'configuration', 'rules', 'nativeRoles', 'inventoryDomains']);
@@ -112,7 +122,7 @@ export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {
   input.configuration.pools.forEach(pool => exactRecord(pool, ['policy', 'deploymentDomain']));
   assert.equal(new Set(input.inventoryDomains).size, 2, 'CLAIM_PLAN_DISTINCT_INVENTORIES');
   input.inventoryDomains.forEach(value => bytes32(value, true));
-  const rules = buildOwnedNativeClaimRules({ bitcoinGenesis: input.rules[0].genesis, solanaGenesis: input.rules[1].genesis });
+  const rules = spl?buildNativeSplClaimRulesV1({bitcoinGenesis:input.rules[0].genesis,solanaGenesis:input.rules[1].genesis,splAsset:input.rules[1].asset}):buildOwnedNativeClaimRules({ bitcoinGenesis: input.rules[0].genesis, solanaGenesis: input.rules[1].genesis });
   assert.deepEqual(input.rules, rules.rules, 'CLAIM_PLAN_FIXED_NATIVE_RULES');
   assert.equal(input.configuration.rulesRoot, prefixed(rules.root), 'CLAIM_PLAN_RULES_ROOT');
   let nonce = claimUint(input.nextNonce);
@@ -165,16 +175,16 @@ export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {
   const at = offset => predictNativeCreateAddress(input.sender, nonce + BigInt(offset));
   const tokenAddresses = [at(0), at(1)], gatewayAddresses = [at(2), at(3)], authorityAddress = at(4);
   const { artifacts } = input.bundle.contracts;
-  for (const role of ['token', 'gateway', 'authority'])
+  for (const role of ['token', 'gateway', 'authority',...(spl?['nativeSplToken']:[])])
     assert.deepEqual(artifacts[role].evm.deployedBytecode.immutableReferences, {}, 'CLAIM_PLAN_STORAGE_ONLY_CONTRACT');
   const runtime = (role, deployedAddress) => deriveNativeRuntimeCode({ artifact: artifacts[role],
     deployedAddress, libraries: links, immutableNames: {}, immutableValues: {} });
-  const wrapperHash = evmRuntimeCodeHash(runtime('token', tokenAddresses[0]));
+  const tokenRoles=['token',spl?'nativeSplToken':'token'],wrapperHashes=tokenRoles.map((role,i)=>evmRuntimeCodeHash(runtime(role,tokenAddresses[i])));
   const gatewayHash = evmRuntimeCodeHash(runtime('gateway', gatewayAddresses[0]));
   const authorityHash = evmRuntimeCodeHash(runtime('authority', authorityAddress));
   const flatPlan = await buildFlatDeploymentPlan({ compilation: input.ledger.compilation, sourceMap: input.ledger.sourceMap,
     chainId: '31337', sender: input.sender, nextNonce: (nonce + 5n).toString(), ...input.configuration,
-    pools: input.configuration.pools.map((pool, i) => ({ ...pool, asset: tokenAddresses[i], assetCodeHash: wrapperHash })),
+    pools: input.configuration.pools.map((pool, i) => ({ ...pool, asset: tokenAddresses[i], assetCodeHash: wrapperHashes[i] })),
     libraries: input.libraries, verifiers: input.verifiers,
     claimAuthority: { address: authorityAddress, codeHash: authorityHash } }, { hashFields });
   const configs = [], deployments = [], gatewayValues = [], payoutEndpointCommitments = [];
@@ -186,7 +196,7 @@ export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {
     assert.equal(new Set(Object.values(roles).map(value => value.endpoint)).size, 3, 'CLAIM_PLAN_DISTINCT_NATIVE_ROLES');
     const config = validateClaimConfig({ evmChainId: '31337', evmGenesis: bytes32(input.evmGenesis, true),
       gateway: bare(gatewayAddresses[i]), gatewayCodeHash: bare(gatewayHash),
-      wrapper: bare(tokenAddresses[i]), wrapperCodeHash: bare(wrapperHash), pool: bare(pool.address),
+      wrapper: bare(tokenAddresses[i]), wrapperCodeHash: bare(wrapperHashes[i]), pool: bare(pool.address),
       poolCodeHash: bare(pool.codeHash), poolDomain: bare(pool.domainCommitment), scope: bare(pool.scope),
       policy: bare(pool.configuration.policy), wrapperAssetIdentity: bare(pool.assetIdentity),
       hub: bare(flatPlan.hub.address), hubCodeHash: bare(flatPlan.hub.codeHash), hubDomain: bare(flatPlan.hubDomain),
@@ -201,9 +211,9 @@ export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {
       authority: authorityAddress, authorityCodeHash: authorityHash,
       codecCodeHash: claimLibraries.nativeClaimCodec.codeHash, validationCodeHash: claimLibraries.nativeClaimValidation.codeHash,
       payoutEndpoints: payoutEndpoints.map(prefixed), escrowEndpoint: prefixed(roles.escrow.endpoint) });
-    const [source, contractName] = NATIVE_CLAIM_CONTRACTS.token;
-    deployments.push(claimCreationPlan({ source, contractName, artifact: artifacts.token, sender: input.sender,
-      nonce: (nonce + BigInt(i)).toString(), values: [gatewayAddresses[i], rule.family] }));
+    const role=tokenRoles[i],[source, contractName] = NATIVE_CLAIM_CONTRACTS[role];
+    deployments.push(claimCreationPlan({ source, contractName, artifact: artifacts[role], sender: input.sender,
+      nonce: (nonce + BigInt(i)).toString(), values: spl&&i===1?[gatewayAddresses[i]]:[gatewayAddresses[i], rule.family] }));
   }
   const gateways = gatewayValues.map((value, i) => {
     const [source, contractName] = NATIVE_CLAIM_CONTRACTS.gateway;
@@ -218,7 +228,7 @@ export async function buildNativeClaimDeploymentPlan(raw, { hashFields }) {
       pools: flatPlan.pools.map(pool => pool.address), gatewayCodeHashes: [gatewayHash, gatewayHash],
       gatewayConfigurations: gateways.map(gateway => gateway.configurationCommitment) }] });
   assert.equal(authority.codeHash, authorityHash, 'CLAIM_PLAN_AUTHORITY_HASH_CYCLE');
-  deployments.forEach(value => assert.equal(value.codeHash, wrapperHash, 'CLAIM_PLAN_WRAPPER_HASH_CYCLE'));
+  deployments.forEach((value,i) => assert.equal(value.codeHash, wrapperHashes[i], 'CLAIM_PLAN_WRAPPER_HASH_CYCLE'));
   gateways.forEach(value => assert.equal(value.codeHash, gatewayHash, 'CLAIM_PLAN_GATEWAY_HASH_CYCLE'));
   return frozenInput({ classification: 'PREDICTED_NATIVE_CLAIMS_NOT_DEPLOYMENT_OR_PROOF_ACCEPTANCE',
     prerequisites, libraries: claimLibraries, generatedLibraries: generated, verifiers, verifierPins,

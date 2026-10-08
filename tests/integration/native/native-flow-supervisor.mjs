@@ -1,3 +1,5 @@
+import {developmentBtcSplJupiterSourcePinsV1} from '../claims/development/development-btc-spl-jupiter-source-pins-v1.mjs';
+import {DEVELOPMENT_BTC_SPL_GRAPH_RESULT,assertDevelopmentBtcSplSourceReviewV1,assertDevelopmentBtcSplJupiterResultV1} from '../claims/development/development-btc-spl-jupiter-policy-v1.mjs';
 import {nativeSplClaimV1CompilationSourcePins} from '../chains/evm/native-spl-claim-v1-compilation-source-pins.mjs';
 import {SPL_CLAIM_V1_COMPILATION_RESULT,SPL_CLAIM_V1_COMPILATION_DEADLINE,assertNativeSplClaimV1CompilationResult,classifyNativeSplClaimV1Preparation,nativeSplClaimV1CompilationProcessFailure} from '../chains/evm/native-spl-claim-v1-compilation-policy.mjs';
 import {nativeSplClaimTokenCompilationSourcePinsV1} from '../chains/evm/native-spl-claim-token-compilation-source-pins-v1.mjs';
@@ -411,6 +413,7 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: manualWalletSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
+  developmentBtcSplJupiterV1:Object.freeze({entry:join(ROOT,'integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs'),worker:join(ROOT,'integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs'),local:join(ROOT,'.local/development-btc-spl-jupiter-v1'),resultFormat:DEVELOPMENT_BTC_SPL_GRAPH_RESULT,resourcesFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_RESOURCES_V1',lockFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_LOCK_V1',attemptFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_ATTEMPT_V1',classification:'BOUNDED_LOCAL_PRIVATE_CBTC_SOURCE_SOL_JUPITER_USDC_CUSTODY_V1',sourcePins:developmentBtcSplJupiterSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedBitcoin','closedSolana'])}),
   developmentBtcSolGraph: Object.freeze({
     entry: join(ROOT, 'integration/claims/development/run-development-btc-sol-graph-flow.mjs'),
     worker: join(ROOT, 'integration/claims/development/development-btc-sol-graph-flow.mjs'),
@@ -753,6 +756,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.manualWallet) scoped = assertManualWalletResult(result);
   if (profile === FLOW_PROFILES.manualWalletBrowser) scoped = assertManualWalletBrowserResult(result);
   if (profile === FLOW_PROFILES.manualWalletBrowserRecovery) scoped = assertManualWalletBrowserRecoveryResult(result);
+  if(profile===FLOW_PROFILES.developmentBtcSplJupiterV1)scoped=assertDevelopmentBtcSplJupiterResultV1(result);
   if (profile === FLOW_PROFILES.developmentBtcSolGraph) scoped = assertDevelopmentBtcSolGraphResult(result);
   if (profile === FLOW_PROFILES.developmentNativeClaims) scoped = assertDevelopmentNativeClaimResult(result);
   if (profile === FLOW_PROFILES.nativeClaimEmptyAuditMetrics) scoped = assertEmptyAuditResult(result);
@@ -961,6 +965,7 @@ export async function runManualWalletRecoverySupervisor() {
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   return runFixedFlowSupervisor(FLOW_PROFILES.manualWalletRecovery);
 }
+export async function runDevelopmentBtcSplJupiterSupervisorV1(){assert.equal(arguments.length,0,'SPL_GRAPH_FIXED_SUPERVISOR_NO_OPTIONS');assertDevelopmentBtcSplSourceReviewV1();return runFixedFlowSupervisor(FLOW_PROFILES.developmentBtcSplJupiterV1);}
 export async function runDevelopmentBtcSolGraphSupervisor() {
   assert.equal(arguments.length, 0, 'DEVELOPMENT_BTC_SOL_NO_SUPERVISOR_OPTIONS');
   assert.equal(DEVELOPMENT_BTC_SOL_GRAPH_REAL_RUN_DISABLED, false, 'DEVELOPMENT_BTC_SOL_REQUIRES_REVIEWED_EXCLUSIVE_CHECKPOINT');

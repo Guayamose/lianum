@@ -32,7 +32,19 @@ import { createPinnedVerifier } from '../../../proofs/src/verification/pinned-ve
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 
 export const OWNED_FLAT_NATIVE_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_NATIVE_PROVIDER_V1';
-const ownedProviders = new WeakMap();
+const ownedProviders = new WeakMap(), originalSolanaSplSourcesV1 = new WeakMap();
+/** Only a live ORIGINAL provider with its verified OBSERVED journal can mint
+ * this one-use source. No supplied wire, amount, callback or metadata is accepted. */
+export async function captureOwnedFlatSolanaSourceForSplV1(provider) {
+  assert.equal(arguments.length,1,'SPL_SOURCE_CAPTURE_NO_OPTIONS');
+  const original=ownedProviders.get(provider);assert.ok(original&&original.family==='2','SPL_SOURCE_ORIGINAL_SOL_PROVIDER');
+  original.assertLive();return original.captureSolanaSplSource();
+}
+export async function consumeOwnedFlatSolanaSourceForSplV1(token, nativeRuntime) {
+  assert.equal(arguments.length,2,'SPL_SOURCE_CONSUME_NO_OPTIONS');const original=originalSolanaSplSourcesV1.get(token);
+  assert.ok(original&&!original.consumed,'SPL_SOURCE_ORIGINAL_TOKEN_REQUIRED');
+  original.consumed=true;assert.equal(original.nativeRuntime,nativeRuntime,'SPL_SOURCE_ORIGINAL_RUNTIME_BINDING');await original.assertCurrent();return original.value;
+}
 export function assertOwnedFlatNativeProvider(provider, expected) {
   const retained = ownedProviders.get(provider);
   assert.ok(retained, 'FLAT_PROVIDER_OWNED_CAPABILITY'); retained.assertLive();
@@ -183,7 +195,7 @@ export async function createOwnedFlatNativeProvider(input) {
   try {
     record = await vault.create({ schema: SCHEMA, bootstrap, providerKey,
       privateKeyPem: key.privateKey.export({ type: 'pkcs8', format: 'pem' }), quote: null,
-      dispatch: null, providerSigning: null }, password);
+      dispatch: null, providerSigning: null, splSource: null }, password);
     await unchanged();
   } catch (error) { key = password = record = undefined; throw error; }
   const actionTemplate = freeze({ chainDomain: bootstrap.chainDomain, signerIdentity: nativeProviderIdentity(providerKey),
@@ -299,6 +311,39 @@ export async function createOwnedFlatNativeProvider(input) {
   });
   ownedProviders.set(provider, { runtime, system, poolIndex, nativeRuntime, operatorQuorum,
     family: rule.family, recipientIndex, assertLive: live,
+    captureSolanaSplSource(){return serial(async()=>{
+      assert.equal(rule.family,'2','SPL_SOURCE_SOL_ONLY');
+      const {assertOwnedSolanaSplGraphSourceV1}=await import('../chains/solana/runtime/owned-solana-runtime.mjs');
+      assertOwnedSolanaSplGraphSourceV1(nativeRuntime);
+      assert.equal(terms.amount,'10000000','SPL_SOURCE_FIXED_ORIGINAL_INPUT');
+      assert.equal(recipientIndex,1,'SPL_SOURCE_FIXED_ORIGINAL_RECIPIENT');
+      assert.equal(record.data.splSource,null,'SPL_SOURCE_ALREADY_RESERVED_NO_REPLACEMENT');
+      const journal=record.data.dispatch?.state.journal;
+      assert.ok(journal&&journal.phase==='OBSERVED'&&journal.signed&&journal.observation,'SPL_SOURCE_ORIGINAL_OBSERVED_REQUIRED');
+      assert.equal(journal.observation.status,'observed');assert.equal(journal.observation.nativeId,journal.signed.nativeId);
+      assert.equal(journal.observation.nativeWire,journal.signed.nativeWire);
+      const signed=freeze(copy(journal.signed)),dispatch=freeze(copy(record.data.dispatch));
+      const observation=copy(await nativeAdapter.observe({nativeId:signed.nativeId}));
+      exactRecord(observation,['status','nativeId','nativeWire']);assert.equal(observation.status,'observed');
+      assert.equal(observation.nativeId,signed.nativeId);assert.equal(observation.nativeWire,signed.nativeWire);
+      const current=await stateReader.read();await stateReader.assertCurrent(current);await unchanged();
+      equal(record.data.dispatch,dispatch,'SPL_SOURCE_ORIGINAL_DISPATCH_CHANGED');
+      const retained={schema:'ORIGINAL_FLAT_SOLANA_SOURCE_RESERVED_FOR_SPL_V1',nativeId:signed.nativeId,
+        transactionSHA256:signed.transactionSHA256,amount:terms.amount,sourceEndpoint:native.sourceEndpoint,
+        destinationEndpoint:native.destinationEndpoint,genesis:rule.genesis,asset:rule.asset,payoutCommitment:record.data.quote.payoutCommitment};
+      // The encrypted original provider journal reserves this SOURCE before
+      // the token exists. Failure/closure never permits replacement or retry.
+      await save({...record.data,splSource:retained});
+      const token=Object.freeze({profile:'ORIGINAL_FLAT_SOLANA_SOURCE_FOR_SPL_V1'}),began=performance.now();
+      const value=freeze({...copy(retained),nativeWire:signed.nativeWire});
+      originalSolanaSplSourcesV1.set(token,{nativeRuntime,value,consumed:false,async assertCurrent(){
+        live();assertOwnedSolanaSplGraphSourceV1(nativeRuntime);assert.ok(performance.now()-began<30000,'SPL_SOURCE_ORIGINAL_30S_BUDGET');
+        await unchanged();equal(record.data.splSource,retained,'SPL_SOURCE_RESERVATION_CHANGED');equal(record.data.dispatch,dispatch,'SPL_SOURCE_ORIGINAL_DISPATCH_CHANGED');
+        const observed=copy(await nativeAdapter.observe({nativeId:signed.nativeId}));exactRecord(observed,['status','nativeId','nativeWire']);
+        equal(observed,observation,'SPL_SOURCE_CANONICAL_OUTCOME_CHANGED');await unchanged();
+        assert.ok(performance.now()-began<30000,'SPL_SOURCE_ORIGINAL_30S_BUDGET');
+      }});return token;
+    });},
     manualReview(){
       live();assert.ok(record.data.quote&&record.data.dispatch,'FLAT_PROVIDER_QUOTE_REQUIRED');
       return freeze({routeProfile:'REGISTERED_LOCAL_NATIVE_DELIVERY_V1',family:rule.family,chainId:null,genesis:rule.genesis,
