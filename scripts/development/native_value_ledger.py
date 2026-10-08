@@ -113,18 +113,50 @@ def source_capsule():
     return rows
 
 
+def _task_source_capsule(task):
+    rows = source_capsule()
+    if task is not None:
+        from native_artifact_tasks import fixed_w39_task
+        require(task is fixed_w39_task(), "LEDGER_FIXED_TASK_REQUIRED")
+        rows = list(rows)
+        for path in (ROOT / "scripts/development/native_value_w39.py",
+                     ROOT / "scripts/development/native_artifact_tasks.py"):
+            rows.append({"source": path.relative_to(ROOT).as_posix(), "sourceSHA256": sha(regular(path))})
+    return rows
+
+
 def main():
+    return _run_fixed_task()
+
+
+def run_w39():
+    from native_artifact_tasks import fixed_w39_task
+    return _run_fixed_task(fixed_w39_task())
+
+
+def _run_fixed_task(task=None):
+    if task is not None:
+        from native_artifact_tasks import fixed_w39_task
+        require(task is fixed_w39_task(), "LEDGER_FIXED_TASK_REQUIRED")
+    entry = task.entry if task is not None else ENTRY
+    output_directory = task.output if task is not None else OUTPUT
+    reports_directory = task.reports if task is not None else REPORTS
+    output_names = task.output_names if task is not None else ("compiled.json", "receipt.json")
+    wrapper = task.wrapper if task is not None else Path(__file__).resolve()
+    exec_args = task.exec_args if task is not None else ()
+    require(task is None or (len(sys.argv) == 1 and Path(sys.argv[0]).resolve() == wrapper),
+            "LEDGER_FIXED_W39_WRAPPER_INVOCATION")
     require(len(sys.argv) == 1 and Path(__file__).resolve() == ROOT / "scripts/development/native_value_ledger.py",
             "LEDGER_FIXED_WRAPPER_INVOCATION")
     require(Path.cwd().resolve() == ROOT, "LEDGER_FIXED_WRAPPER_CWD")
     require(not any((FLAT / ".local").rglob("active.lock")), "LEDGER_NATIVE_OR_PROOF_SLOT_BUSY")
-    require(not (OUTPUT / "compiled.json").exists() and not (OUTPUT / "receipt.json").exists(),
+    require(not any((output_directory / name).exists() for name in output_names),
             "LEDGER_EXISTING_OUTPUT_RETAINED")
-    REPORTS.mkdir(parents=True, exist_ok=True, mode=0o700)
-    require(REPORTS.resolve() == REPORTS, "LEDGER_PHYSICAL_REPORT_DIRECTORY")
-    attempt = REPORTS / ("attempt-" + str(uuid.uuid4()))
+    reports_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    require(reports_directory.resolve() == reports_directory, "LEDGER_PHYSICAL_REPORT_DIRECTORY")
+    attempt = reports_directory / ("attempt-" + str(uuid.uuid4()))
     attempt.mkdir(mode=0o700)
-    report = {"schema": "LIANUM_NEW_NATIVE_VALUE_LEDGER_RESOURCE_RECEIPT_V5", "phase": "starting",
+    report = {"schema": task.schema if task is not None else "LIANUM_NEW_NATIVE_VALUE_LEDGER_RESOURCE_RECEIPT_V5", "phase": "starting",
               "runId": attempt.name[8:], "failure": None, "childExitCode": None,
               "sourceClosureUnchanged": False, "ownedCleanupConfirmed": False,
               "historicalArtifactRecovered": False, "proofGenerated": False, "nativeNodesStarted": False,
@@ -223,7 +255,7 @@ def main():
             previous_handlers[name] = signal.signal(name, interrupted)
         sample()
         report["node"] = checked_node()
-        sources = source_capsule()
+        sources = _task_source_capsule(task)
         private_json(attempt / "source-pins.json", sources)
         save()
         for path in (DEV / "evm-lab.lock", PROOF_LOCK):
@@ -232,7 +264,7 @@ def main():
                 descriptors[path] = (fd, os.fstat(fd))
                 report["proofLockAcquired"] = True
                 os.write(fd, json.dumps({"parentPID": os.getpid(), "runId": report["runId"],
-                                         "mode": "NEW_NATIVE_VALUE_LEDGER_V5"}).encode())
+                                         "mode": task.lock_mode if task is not None else "NEW_NATIVE_VALUE_LEDGER_V5"}).encode())
             else:
                 fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
                 descriptors[path] = (fd, os.fstat(fd))
@@ -246,7 +278,7 @@ def main():
         require(time.monotonic() - began < COMPILE_SECONDS, "LEDGER_COMPILATION_DEADLINE")
         require(report["failure"] is None, "LEDGER_INTERRUPTED_BEFORE_CHILD")
         try:
-            child = inventory.spawn([str(NODE), str(ENTRY)], cwd=FLAT, env=ENV)
+            child = inventory.spawn([str(NODE), *exec_args, str(entry)], cwd=FLAT, env=ENV)
         finally:
             # Popen can succeed while authentication subsequently fails. Keep
             # the original object so that missing birth never means no child.
@@ -296,17 +328,17 @@ def main():
         report["ownedCleanupConfirmed"] = inventory.cleanup_confirmed()
         if not report["ownedCleanupConfirmed"]:
             fail("LEDGER_OWNED_CLEANUP_UNCONFIRMED")
-        report["sourceClosureUnchanged"] = source_capsule() == sources
+        report["sourceClosureUnchanged"] = _task_source_capsule(task) == sources
         if not report["sourceClosureUnchanged"]:
             fail("LEDGER_SOURCE_CHANGED")
         require(checked_node() == report["node"], "LEDGER_NODE_CHANGED_AFTER_BUILD")
-        for name in ("compiled.json", "receipt.json"):
-            path = OUTPUT / name
+        for name in output_names:
+            path = output_directory / name
             if path.exists():
                 data = regular(path)
                 report[name] = {"path": path.relative_to(FLAT).as_posix(), "bytes": len(data), "sha256": sha(data)}
         if report["failure"] is None:
-            require(all(name in report for name in ("compiled.json", "receipt.json")), "LEDGER_OUTPUT_ABSENT")
+            require(all(name in report for name in output_names), "LEDGER_OUTPUT_ABSENT")
     except Exception as error:
         caught(error, "guard-body")
     finally:
@@ -379,7 +411,7 @@ def main():
                 caught(error, "private-log-close")
         if sources is not None:
             try:
-                report["sourceClosureUnchanged"] = source_capsule() == sources
+                report["sourceClosureUnchanged"] = _task_source_capsule(task) == sources
                 require(report["sourceClosureUnchanged"], "LEDGER_SOURCE_CHANGED_DURING_CLEANUP")
                 require(checked_node() == report["node"], "LEDGER_NODE_CHANGED_DURING_CLEANUP")
             except Exception as error:
