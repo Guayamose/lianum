@@ -1,8 +1,16 @@
-/** HOST framing and actual close/verify continuation only. No circuit witness,
- * account, native process, generated proof, key generation or financial state. */
+/** HOST framing, encrypted journal and actual close/verify continuation only.
+ * No circuit witness, account authority, native process or financial state. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {Vault} from '../../../src/crypto/vault.mjs';
+import {copy as accountCopy} from '../../../src/execution/accounts/generic-account-journal.mjs';
+import {captureNativeDeviceOriginalW39MetricsFrameV1,restoreNativeDeviceOriginalW39MetricsFrameV1}
+  from '../../../../backend/src/accounts/authority/native-device-original-w39-metrics-frame-v1.mjs';
 import {createContext,Script} from 'node:vm';
 import {NOTE_NATIVE_PROFILE_V1,NOTE_NATIVE_THREADS_V1,NOTE_NATIVE_BINARY_V1,NOTE_NATIVE_BINARY_SHA256_V1,
  NOTE_NATIVE_PINS_V1,NOTE_NATIVE_WORKERS_V1,NOTE_NATIVE_LINEAGE_V1,classifyNativeEconomicNoteProcessV1,assertNativeEconomicNoteTelemetryV1,
@@ -174,4 +182,55 @@ test('actual note verification continuation waits for original Child.close and n
  await assert.rejects(failed.run(),value=>value===error);assert.deepEqual(failed.events,['native-close-started']);
  const invalid=fixture(async()=>{},false);await assert.rejects(invalid.run(),/SELF_VERIFICATION_FAILED/);
  assert.equal(invalid.events.at(-1),'wasm-destroyed');
+});
+
+// Real journal/Vault roundtrip over explicit synthetic released-format metadata.
+// This test runs no BB, circuit, chain, witness, opening or financial authority.
+test('original W39 metric frames survive encrypted account journal reopening without truncating fractional telemetry',async t=>{
+ const digest=bytes=>createHash('sha256').update(bytes).digest('hex'),mode='withdraw_balance',row=receipt(mode);
+ const proof={proof:'11'.repeat(32),publicInputs:Array(39).fill('1')};
+ const metrics={...NOTE_NATIVE_LINEAGE_V1[mode],...row.resource,id:'01234567-89ab-4cde-8fab-0123456789ab',mode,operation:'prove',purpose:'owner',
+  classification:'ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY',phase:'completed',acceptedResult:true,exit:{code:0,signal:null},
+  lockPreserved:false,zeroKnowledgeEnabled:true,policy:structuredClone(PRIVATE_RESOURCE_POLICY),threads:12,maximumPages:null,preparedMaximumPages:32768,
+  totalMilliseconds:1.375,worker:{...row.worker,proofSHA256:digest(Buffer.from(proof.proof,'hex')),publicInputsSHA256:digest(JSON.stringify(proof.publicInputs)),
+   proofBytes:32,publicInputCount:39,witnessMilliseconds:0.125,proofMilliseconds:0.25,nativeCloseMilliseconds:0.375,verificationMilliseconds:0.625,totalMilliseconds:0.875},
+  resourceSamples:[{availableRAM:PRIVATE_RESOURCE_POLICY.floors.availableRAM,freeDisk:PRIVATE_RESOURCE_POLICY.floors.freeDisk,workerRSS:1}]};
+ assert.throws(()=>accountCopy(metrics),TypeError,'HOST_REPRO_ORIGINAL_INTEGER_JOURNAL_REJECTS_TIMINGS');
+ const frame=captureNativeDeviceOriginalW39MetricsFrameV1(metrics,proof);assert.equal(frame.json,JSON.stringify(metrics));
+ const directory=await mkdtemp(join(tmpdir(),'w39-metrics-frame-host-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const path=join(directory,'operations.vault'),password='HOST_W39_FRAME_ONLY',vault=new Vault(path);
+ await vault.create({deviceExits:[{stage:'PROVING',proof:null}]},password);
+ const saved=await vault.update(password,0,data=>({...data,deviceExits:[{stage:'PROVED',proof:accountCopy(proof),originalPublicProofMetricsFrame:frame}]}));
+ const readback=await new Vault(path).read(password);assert.deepEqual(accountCopy(readback),saved);
+ const retained=readback.data.deviceExits[0],restored=restoreNativeDeviceOriginalW39MetricsFrameV1(retained.originalPublicProofMetricsFrame,retained.proof);
+ assert.deepEqual(restored,metrics);assert.equal(JSON.stringify(restored),JSON.stringify(metrics));
+ assert.equal(restored.totalMilliseconds,1.375);assert.equal(restored.worker.verificationMilliseconds,0.625);
+ assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1({...frame,json:frame.json+' '},proof),/FRAME_CHANGED/);
+ for(const json of [' '+frame.json,'{"mode":"withdraw_balance",'+frame.json.slice(1)])
+  assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1({...frame,json,sha256:digest(json)},proof),/FRAME_EXACT/);
+ assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1(frame,{...proof,proof:'22'.repeat(32)}),/METRICS_PROOF_CHANGED/);
+ assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1(frame,{...proof,publicInputs:Array(39).fill('2')}),/METRICS_INPUTS_CHANGED/);
+ const noncanonicalProof={...proof,publicInputs:['1\n',...proof.publicInputs.slice(1)]},noncanonicalMetrics=structuredClone(metrics);
+ noncanonicalMetrics.worker.publicInputsSHA256=digest(JSON.stringify(noncanonicalProof.publicInputs));
+ assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1(noncanonicalMetrics,noncanonicalProof),/METRICS_INPUT_ENCODING/);
+ assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1({...metrics,id:metrics.id+'\n'},proof));
+ const altered=structuredClone(metrics);altered.worker.independentVerification.nativeProducerClosedBeforeVerification=false;
+ const alteredJSON=JSON.stringify(altered);
+ assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1({...frame,json:alteredJSON,sha256:digest(alteredJSON)},proof));
+ for(const value of [NaN,Infinity,-0])assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1({...metrics,totalMilliseconds:value},proof),/METRICS_NUMBER/);
+ assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1({...metrics,threads:12.5},proof),/METRICS_NUMBER/);
+ assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1({...metrics,other:{totalMilliseconds:0.5}},proof),/METRICS_NUMBER/);
+ let invoked=0;const accessor={...metrics};Object.defineProperty(accessor,'totalMilliseconds',{enumerable:true,get(){invoked++;throw Error('HOST_GETTER');}});
+ assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1(accessor,proof),/METRICS_ACCESSOR/);assert.equal(invoked,0);
+ assert.throws(()=>captureNativeDeviceOriginalW39MetricsFrameV1(new Proxy(metrics,{ownKeys(){invoked++;throw Error('HOST_PROXY');}}),proof),/METRICS_PLAIN/);assert.equal(invoked,0);
+ // Historical integer telemetry objects continue down the unchanged old row
+ // reader. The new frame also preserves their fixed Wasm1 interpretation.
+ const legacy=structuredClone(metrics);delete legacy.lockPreserved;delete legacy.nativeChildrenGone;delete legacy.nativeBackendExecution;
+ delete legacy.nativeChildIdentities;delete legacy.nativeMemoryScope;delete legacy.peakWorkerRSS;delete legacy.preparedMaximumPages;
+ delete legacy.worker.nativeBackendExecution;delete legacy.worker.independentVerification;delete legacy.worker.preparedMaximumPages;
+ legacy.threads=legacy.worker.threads=1;legacy.maximumPages=legacy.worker.maximumPages=32768;
+ legacy.totalMilliseconds=1;for(const name of ['witnessMilliseconds','proofMilliseconds','nativeCloseMilliseconds','verificationMilliseconds','totalMilliseconds'])delete legacy.worker[name];
+ assert.deepEqual(accountCopy(legacy),legacy);
+ const historical=captureNativeDeviceOriginalW39MetricsFrameV1(legacy,proof);
+ assert.deepEqual(restoreNativeDeviceOriginalW39MetricsFrameV1(historical,proof),legacy);
 });

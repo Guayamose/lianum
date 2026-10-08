@@ -92,6 +92,8 @@ import {deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/d
 import {normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1,deviceExitConsentMessageV1}
   from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import {verifyPrivateNotePath} from '../../../../engine/src/notes/private-note-tree.mjs';
+import {captureNativeDeviceOriginalW39MetricsFrameV1,restoreNativeDeviceOriginalW39MetricsFrameV1}
+  from './native-device-original-w39-metrics-frame-v1.mjs';
 
 // Private original producer: a recovered journal can reinstall only its own
 // paired pipeline. Neither HTTP IDs nor a prepared JSON object issue this mark.
@@ -945,7 +947,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
           view.header.number),true,'DEVICE_EXIT_DEPLOYED_VERIFIER_REJECTED');await reader.assertCurrent(view);continueWork();
         await onProof({label:'device-exit-w39',relation:'withdraw_balance',role:'device-owner',proof:{...proof,metrics:result.metrics}});
         await exitUpdate(consent.jobId,{stage:'PROVED',proof,proofSHA256:byteSHA(Buffer.from(proof.proof,'hex')),publicInputsSHA256:sha(proof.publicInputs),
-          ...(recovery?.native?{originalPublicProofMetrics:copy(result.metrics)}:{})});
+          ...(recovery?.native?{originalPublicProofMetricsFrame:captureNativeDeviceOriginalW39MetricsFrameV1(result.metrics,proof)}:{})});
         return reply(exitPublic(exitRow(consent.jobId)));
       }catch(error){if(!unavailable&&exitRows().some(row=>row.jobId===consent.jobId))try{await exitUpdate(consent.jobId,{stage:'FAILED',
           errorCode:privateFailureDiagnostic(error,'DEVICE_EXIT_PROOF_REJECTED').code});}catch{}throw error;}
@@ -1925,9 +1927,9 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     nativeDeviceRecoveredProofs(){return exclusive(async()=>{
       await healthy();assert.ok(recovery?.native&&!wrapped&&recoveredDeviceInstallationIssued,'NATIVE_DEVICE_RECOVERY_ORIGINAL_INSTALLATION_REQUIRED');
       const rows=exitRows();assert.ok(rows.length<=2,'NATIVE_DEVICE_RECOVERY_FIXED_EXIT_COUNT');
-      return rows.map(row=>{assert.ok(row.originalPublicProofMetrics&&row.proof&&row.stage!=='PROVING','NATIVE_DEVICE_RECOVERY_ORIGINAL_W39_PENDING');
+      return rows.map(row=>{assert.ok((row.originalPublicProofMetricsFrame||row.originalPublicProofMetrics)&&row.proof&&row.stage!=='PROVING','NATIVE_DEVICE_RECOVERY_ORIGINAL_W39_PENDING');
         assert.equal(row.proofSHA256,byteSHA(Buffer.from(row.proof.proof,'hex')));assert.equal(row.publicInputsSHA256,sha(row.proof.publicInputs));
-        return{relation:'withdraw_balance',label:'device-exit-w39',proof:{...copy(row.proof),metrics:copy(row.originalPublicProofMetrics)},status:exitPublic(row)};});
+        return{relation:'withdraw_balance',label:'device-exit-w39',proof:{...copy(row.proof),metrics:row.originalPublicProofMetricsFrame?restoreNativeDeviceOriginalW39MetricsFrameV1(row.originalPublicProofMetricsFrame,row.proof):copy(row.originalPublicProofMetrics)},status:exitPublic(row)};});
     });},
     nativeDeviceRecoveredInstallation(descriptor,providerCustody){return exclusive(async()=>{
       await healthy();assert.ok(recovery?.native&&!wrapped&&nativeExecution!==null,'NATIVE_DEVICE_RECOVERY_NATIVE_ACCOUNT_REQUIRED');
