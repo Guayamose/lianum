@@ -40,12 +40,12 @@ export function assertNativeSplCompilationResultV1(result){
  for(const key of ['privateCreditEstablished','nativeNodesStarted','sourceRegistrationEstablished','compiledReleaseEstablished'])assert.equal(result[key],false);
  assert.match(result.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
  const dir=join(ROOT,'.local/native-spl-compilation-only-v1','attempt-'+result.runId);
- for(const name of ['native_spl_custody_v1.so','receipt.json','source-pins.json','generated-key-cleanup-receipt.json']){const raw=regular(join(dir,name));assert.equal(result.files[name]?.bytes,raw.length);assert.equal(result.files[name]?.sha256,hash(raw));}
- const elf=regular(join(dir,'native_spl_custody_v1.so'));assertNativeSplElfV1(elf);
+ for(const name of ['lianum_native_spl_custody_v1.so','receipt.json','source-pins.json','generated-key-cleanup-receipt.json']){const raw=regular(join(dir,name));assert.equal(result.files[name]?.bytes,raw.length);assert.equal(result.files[name]?.sha256,hash(raw));}
+ const elf=regular(join(dir,'lianum_native_spl_custody_v1.so'));assertNativeSplElfV1(elf);
  assert.deepEqual(JSON.parse(regular(join(dir,'source-pins.json'))),result.sourcePins);
  const receipt=JSON.parse(regular(join(dir,'receipt.json')));
  assert.equal(receipt.format,'LIANUM_NEW_NATIVE_SPL_SBF_COMPILATION_RECEIPT_V1');assert.equal(receipt.runId,result.runId);
- assert.equal(receipt.sourcePinsSHA256,result.files['source-pins.json'].sha256);assert.equal(receipt.programSHA256,result.files['native_spl_custody_v1.so'].sha256);
+ assert.equal(receipt.sourcePinsSHA256,result.files['source-pins.json'].sha256);assert.equal(receipt.programSHA256,result.files['lianum_native_spl_custody_v1.so'].sha256);
  assert.equal(receipt.compilerExitCode,0);assert.equal(receipt.compilerSignal,null);assert.equal(receipt.generatedDeployKeyRemoved,true);assert.equal(receipt.sourceUnchanged,true);
  const keyCleanup=JSON.parse(regular(join(dir,'generated-key-cleanup-receipt.json')));assert.deepEqual(receipt.generatedDeployKeyCleanup,keyCleanup);
  assert.equal(keyCleanup.format,'LIANUM_NEW_SPL_GENERATED_DEPLOY_KEY_CLEANUP_V1');assert.equal(keyCleanup.runId,result.runId);assert.equal(keyCleanup.compilerPID,receipt.compilerPID);

@@ -36,7 +36,7 @@ function removeGeneratedDeployKey(){
  for(const name of readdirSync('/proc')){if(!/^[1-9][0-9]*$/.test(name))continue;const current=nativeProcStatV1(Number(name));
   if(current?.pgrp===workerIdentity.pgrp)assert.equal(current.pid,process.pid,'SPL_COMPILATION_KEY_CLEANUP_GROUP_NOT_CLOSED');}
  const after=nativeProcStatV1(process.pid);assert.ok(after);for(const key of ['pid','ppid','pgrp','session','startTimeTicks'])assert.equal(after[key],workerIdentity[key],'SPL_COMPILATION_KEY_CLEANUP_WORKER_CHANGED');
- const output=join(SPL_COMPILATION_MATERIAL_V1,'out'),generatedKey=join(output,'native_spl_custody_v1-keypair.json');
+ const output=join(SPL_COMPILATION_MATERIAL_V1,'out'),generatedKey=join(output,'lianum_native_spl_custody_v1-keypair.json');
  assert.equal(realpathSync(output),output);const directoryInfo=lstatSync(output);assert.ok(directoryInfo.isDirectory()&&directoryInfo.uid===process.getuid()&&(directoryInfo.mode&0o077)===0,'SPL_COMPILATION_KEY_CLEANUP_PRIVATE_DIRECTORY');
  let keySHA256=null;
  if(existsSync(generatedKey)){assert.equal(realpathSync(generatedKey),generatedKey);const info=lstatSync(generatedKey);assert.ok(info.isFile()&&info.uid===process.getuid()&&(info.mode&0o077)===0,'SPL_COMPILATION_KEY_CLEANUP_PRIVATE_FILE');
@@ -69,13 +69,13 @@ try{
  for(const name of ['stdout','stderr'])writeFixturePrivate(join(directory,'compiler-'+name+'.json'),{bytes:captureCounts[name],retainedBytes:captures[name].length,truncated:captureCounts[name]>captures[name].length,text:captures[name].toString('utf8')});
  if(childError)throw childError;if(outputFailure)throw outputFailure;
  assert.equal(interrupted,false,'SPL_COMPILATION_INTERRUPTED');assert.equal(result.compilerExitCode,0,'SPL_COMPILATION_COMPILER_EXIT');assert.equal(result.compilerSignal,null,'SPL_COMPILATION_COMPILER_SIGNAL');
- const elf=regular(join(output,'native_spl_custody_v1.so'));assertNativeSplElfV1(elf);
+ const elf=regular(join(output,'lianum_native_spl_custody_v1.so'));assertNativeSplElfV1(elf);
  assert.deepEqual(nativeSplCompilationSourcePinsV1(),sourcePins,'SPL_COMPILATION_SOURCE_CHANGED');result.sourceUnchanged=true;
  removeGeneratedDeployKey();
- assert.deepEqual(readdirSync(output),['native_spl_custody_v1.so'],'SPL_COMPILATION_UNEXPECTED_OUTPUT');
- const outputFD=openSync(join(directory,'native_spl_custody_v1.so'),'wx',0o600);try{writeFileSync(outputFD,elf);fsyncSync(outputFD);}finally{closeSync(outputFD);}
+ assert.deepEqual(readdirSync(output),['lianum_native_spl_custody_v1.so'],'SPL_COMPILATION_UNEXPECTED_OUTPUT');
+ const outputFD=openSync(join(directory,'lianum_native_spl_custody_v1.so'),'wx',0o600);try{writeFileSync(outputFD,elf);fsyncSync(outputFD);}finally{closeSync(outputFD);}
  const directoryFD=openSync(directory,'r');try{fsyncSync(directoryFD);}finally{closeSync(directoryFD);}writeFixturePrivate(join(directory,'source-pins.json'),sourcePins);
- for(const name of ['native_spl_custody_v1.so','source-pins.json','generated-key-cleanup-receipt.json']){const raw=regular(join(directory,name));result.files[name]={bytes:raw.length,sha256:hash(raw)};}
+ for(const name of ['lianum_native_spl_custody_v1.so','source-pins.json','generated-key-cleanup-receipt.json']){const raw=regular(join(directory,name));result.files[name]={bytes:raw.length,sha256:hash(raw)};}
  writeFixturePrivate(join(directory,'receipt.json'),{format:'LIANUM_NEW_NATIVE_SPL_SBF_COMPILATION_RECEIPT_V1',runId:lock.runId,
   programSHA256:hash(elf),sourcePinsSHA256:result.files['source-pins.json'].sha256,arguments:material.argv.slice(1),compilerExitCode:0,compilerSignal:null,
   compilerPID:child.pid,sourceUnchanged:true,generatedDeployKeyRemoved:true,generatedDeployKeyCleanup:keyCleanupReceipt,historicalArtifactRecovered:false,privateCreditEstablished:false,compiledReleaseEstablished:false});
