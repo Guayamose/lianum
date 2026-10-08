@@ -1,3 +1,6 @@
+import { nativeClaimEmptyAuditSourcePins } from '../claims/metrics/native-claim-empty-audit-source-pins-v1.mjs';
+import { EMPTY_AUDIT_REAL_RUN_DISABLED, EMPTY_AUDIT_RESULT, assertEmptyAuditResult, emptyAuditProcessFailure }
+  from '../claims/metrics/native-claim-empty-audit-policy-v1.mjs';
 import { developmentBtcSolGraphSourcePins } from '../claims/development/development-btc-sol-graph-source-pins.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_REAL_RUN_DISABLED, DEVELOPMENT_BTC_SOL_GRAPH_RESULT, assertDevelopmentBtcSolGraphResult } from '../claims/development/development-btc-sol-graph-policy.mjs';
 import { osakaSmokeSourcePins } from '../evm/osaka/development-osaka-smoke-source-pins.mjs';
@@ -65,6 +68,15 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  nativeClaimEmptyAuditMetrics: Object.freeze({
+    entry: join(ROOT, 'integration/claims/metrics/run-native-claim-empty-audit-v1.mjs'),
+    worker: join(ROOT, 'integration/claims/metrics/native-claim-empty-audit-v1.mjs'),
+    local: join(ROOT, '.local/native-claim-empty-audit-metrics-v1'),
+    resultFormat: EMPTY_AUDIT_RESULT, resourcesFormat: 'LIANUM_EMPTY_ORIGINAL_AUDIT_METRICS_RESOURCES_V1',
+    lockFormat: 'LIANUM_EMPTY_ORIGINAL_AUDIT_METRICS_LOCK_V1', attemptFormat: 'LIANUM_EMPTY_ORIGINAL_AUDIT_METRICS_ATTEMPT_V1',
+    classification: 'BOUNDED_FRESH_EMPTY_ORIGINAL_AUDIT_METRICS_NOT_FINANCIAL_ACCEPTANCE',
+    sourcePins: nativeClaimEmptyAuditSourcePins, cleanupKeys: Object.freeze(['closedEvm', 'closedBitcoin', 'closedSolana']),
+  }),
   developmentOsakaSmoke: Object.freeze({
     entry: join(ROOT, 'integration/evm/osaka/run-development-osaka-smoke.mjs'),
     worker: join(ROOT, 'integration/evm/osaka/development-osaka-smoke.mjs'),
@@ -587,6 +599,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.manualWalletBrowserRecovery) scoped = assertManualWalletBrowserRecoveryResult(result);
   if (profile === FLOW_PROFILES.developmentBtcSolGraph) scoped = assertDevelopmentBtcSolGraphResult(result);
   if (profile === FLOW_PROFILES.developmentNativeClaims) scoped = assertDevelopmentNativeClaimResult(result);
+  if (profile === FLOW_PROFILES.nativeClaimEmptyAuditMetrics) scoped = assertEmptyAuditResult(result);
   if (profile === FLOW_PROFILES.privateMetaMorpho) scoped = assertPrivateMetaMorphoResult(result);
   if (profile === FLOW_PROFILES.developmentDefiEntry) scoped = assertDevelopmentDefiEntryResult(result);
   if (profile === FLOW_PROFILES.manualWalletRecovery) scoped = assertManualWalletRecoveryResult(result);
@@ -699,6 +712,12 @@ export async function runDevelopmentBtcSolGraphSupervisor() {
   assert.equal(DEVELOPMENT_BTC_SOL_GRAPH_REAL_RUN_DISABLED, false, 'DEVELOPMENT_BTC_SOL_REQUIRES_REVIEWED_EXCLUSIVE_CHECKPOINT');
   return runFixedFlowSupervisor(FLOW_PROFILES.developmentBtcSolGraph);
 }
+export async function runNativeClaimEmptyAuditMetricsSupervisor() {
+  assert.equal(arguments.length, 0, 'EMPTY_AUDIT_NO_SUPERVISOR_OPTIONS');
+  assert.equal(EMPTY_AUDIT_REAL_RUN_DISABLED, false, 'EMPTY_AUDIT_REQUIRES_REVIEWED_EXCLUSIVE_CHECKPOINT');
+  return runFixedFlowSupervisor(FLOW_PROFILES.nativeClaimEmptyAuditMetrics);
+}
+
 export async function runDevelopmentNativeClaimSupervisor() {
   assert.equal(arguments.length, 0, 'DEVELOPMENT_CLAIM_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.developmentNativeClaims);
@@ -1042,6 +1061,10 @@ async function runFixedFlowSupervisor(profile) {
         const forbidden = unfundedHealthProcessFailure(sample.ownedProcesses);
         if (forbidden) stop(forbidden, {}, sample);
       }
+      if (profile === FLOW_PROFILES.nativeClaimEmptyAuditMetrics) {
+        const forbidden = emptyAuditProcessFailure(sample.ownedProcesses);
+        if (forbidden) stop(forbidden, {}, sample);
+      }
       // Failed proof attempts deliberately retain their lock. That lock is
       // evidence, not an unrelated group we are allowed to stop or clean up.
       if (!stopping && !childExited) { assertHeavyLocks(); assertOtherIntegrationLocks(); }
@@ -1101,6 +1124,10 @@ async function runFixedFlowSupervisor(profile) {
       }
       if (profile === FLOW_PROFILES.nativeClaimUnfundedHealth) {
         const forbidden = unfundedHealthProcessFailure([...history.values()]);
+        if (forbidden) fail(forbidden);
+      }
+      if (profile === FLOW_PROFILES.nativeClaimEmptyAuditMetrics) {
+        const forbidden = emptyAuditProcessFailure([...history.values()]);
         if (forbidden) fail(forbidden);
       }
       if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) {
