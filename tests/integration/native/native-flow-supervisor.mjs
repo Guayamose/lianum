@@ -1,3 +1,5 @@
+import { pairedNativeNoteSourcePinsV2 } from '../wallet/native/paired-native-note-source-pins-v2.mjs';
+import { PAIRED_NATIVE_NOTE_RESULT_V2, assertPairedNativeNoteReleaseV2, assertPairedNativeNoteResultV2 } from '../wallet/native/paired-native-note-policy-v2.mjs';
 import { nativeClaimEmptyAuditSourcePins } from '../claims/metrics/native-claim-empty-audit-source-pins-v1.mjs';
 import { EMPTY_AUDIT_REAL_RUN_DISABLED, EMPTY_AUDIT_RESULT, assertEmptyAuditResult, emptyAuditProcessFailure }
   from '../claims/metrics/native-claim-empty-audit-policy-v1.mjs';
@@ -48,7 +50,7 @@ import { PREFLIGHT_REAL_RUN_DISABLED, PREFLIGHT_RESULT, assertNativeIngressV3Pre
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { constants, closeSync, existsSync, fstatSync, fsyncSync, lstatSync,
+import { constants, closeSync, createReadStream, existsSync, fstatSync, fsyncSync, lstatSync,
   mkdirSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync,
   renameSync, statfsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
@@ -68,6 +70,16 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  pairedNativeNoteV2: Object.freeze({
+    entry: join(ROOT, 'integration/run-paired-native-note-v2.mjs'),
+    worker: join(ROOT, 'integration/paired-native-note-flow-v2.mjs'),
+    local: join(ROOT, '.local/paired-native-note-v2'),
+    resultFormat: PAIRED_NATIVE_NOTE_RESULT_V2,
+    resourcesFormat: 'LIANUM_PAIRED_NATIVE_NOTE_RESOURCES_V2',
+    lockFormat: 'LIANUM_PAIRED_NATIVE_NOTE_LOCK_V2', attemptFormat: 'LIANUM_PAIRED_NATIVE_NOTE_ATTEMPT_V2',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_PAIRED_ORIGINAL_ACCOUNT_NOTE_V2',
+    sourcePins: pairedNativeNoteSourcePinsV2, cleanupKeys: Object.freeze(['closedEvm', 'closedNativeEvm']),
+  }),
   nativeClaimEmptyAuditMetrics: Object.freeze({
     entry: join(ROOT, 'integration/claims/metrics/run-native-claim-empty-audit-v1.mjs'),
     worker: join(ROOT, 'integration/claims/metrics/native-claim-empty-audit-v1.mjs'),
@@ -585,6 +597,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
   if (profile === FLOW_PROFILES.developmentOsakaSmoke) scoped = assertOsakaSmokeResult(result);
   if (profile === FLOW_PROFILES.wrappedDeploymentOnly) scoped = assertWrappedDeploymentOnlyResultV1(result);
   if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) scoped = assertBeginPayoutAuditResultV1(result);
@@ -659,6 +672,70 @@ export async function runNativeWalletRealPreflightSupervisor() {
   assert.equal(arguments.length, 0, 'NATIVE_WALLET_NO_SUPERVISOR_OPTIONS');
   assert.ok(NATIVE_WALLET_UNFUNDED_RELEASE_V1, 'NATIVE_WALLET_UNFUNDED_RELEASE_ABSENT');
   return runFixedFlowSupervisor(FLOW_PROFILES.nativeWalletRealPreflight);
+}
+
+/** The new profile's Python capsule represents the actual fixed launcher,
+ * never a caller copy or an entry invoked directly by another host. Existing
+ * enumerated profiles and their process predicates remain untouched. */
+function assertPairedNativeNoteLauncherV2() {
+  const parentPID = process.ppid, before = procStat(parentPID);
+  assert.ok(before && live(before), 'PAIRED_NOTE_ORIGINAL_LAUNCHER_UNAVAILABLE');
+  assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'PAIRED_NOTE_LAUNCHER_UID');
+  const status = readFileSync(`/proc/${parentPID}/status`, 'utf8');
+  const uids = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(status);
+  assert.ok(uids && uids.slice(1).every(value => Number(value) === process.getuid()), 'PAIRED_NOTE_LAUNCHER_UID');
+  const project = resolve(ROOT, '../../../..'), cwd = realpathSync(`/proc/${parentPID}/cwd`);
+  assert.equal(cwd, project, 'PAIRED_NOTE_LAUNCHER_CWD');
+  const argv = readFileSync(`/proc/${parentPID}/cmdline`, 'utf8').split('\0').filter(Boolean);
+  assert.equal(argv.length, 3, 'PAIRED_NOTE_LAUNCHER_ARGV'); assert.equal(argv[1], '-B', 'PAIRED_NOTE_LAUNCHER_ARGV');
+  assert.match(basename(argv[0]), /^python3(?:\.\d+)?$/, 'PAIRED_NOTE_LAUNCHER_ARGV');
+  assert.equal(realpathSync(resolve(cwd, argv[2])), join(project, 'scripts/development/paired_original_account_lab.py'),
+    'PAIRED_NOTE_FIXED_LAUNCHER');
+  const after = procStat(parentPID);
+  assert.ok(after && live(after) && sameIdentity(before, after) && before.ppid === after.ppid
+    && before.pgrp === after.pgrp && before.session === after.session, 'PAIRED_NOTE_LAUNCHER_IDENTITY_CHANGED');
+  assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'PAIRED_NOTE_LAUNCHER_UID');
+  const finalUids = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(readFileSync(`/proc/${parentPID}/status`, 'utf8'));
+  assert.ok(finalUids && finalUids.slice(1).every(value => Number(value) === process.getuid()), 'PAIRED_NOTE_LAUNCHER_UID');
+}
+
+export async function runPairedNativeNoteSupervisorV2() {
+  assert.equal(arguments.length, 0, 'PAIRED_NOTE_NO_SUPERVISOR_OPTIONS');
+  assertPairedNativeNoteReleaseV2();
+  assertPairedNativeNoteLauncherV2();
+  await consumePairedNativeNoteStartPipeV2();
+  assertPairedNativeNoteLauncherV2();
+  return runFixedFlowSupervisor(FLOW_PROFILES.pairedNativeNoteV2);
+}
+
+/** One private inherited pipe, fixed original parent, before any worker is
+ * admitted. EOF/error/timeout fail without starting a proof/native runtime. */
+async function consumePairedNativeNoteStartPipeV2() {
+  const value = process.env.LIANUM_PAIRED_ORIGINAL_START_FD_V2;
+  assert.ok(typeof value === 'string' && /^[1-9][0-9]{0,5}$/.test(value), 'PAIRED_NOTE_ORIGINAL_START_PIPE_REQUIRED');
+  const fd = Number(value), info = fstatSync(fd);
+  assert.ok(fd >= 3 && info.isFIFO() && info.uid === process.getuid() && (info.mode & 0o077) === 0,
+    'PAIRED_NOTE_ORIGINAL_START_PIPE_REQUIRED');
+  await new Promise((resolveDone, rejectDone) => {
+    let settled = false, count = 0;
+    const stream = createReadStream(null, { fd, autoClose: true, highWaterMark: 2 });
+    const finish = error => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      if (error) { stream.destroy(); rejectDone(error); }
+      else resolveDone();
+    };
+    const timer = setTimeout(() => finish(Error('PAIRED_NOTE_ORIGINAL_START_PIPE_DEADLINE')), 2000);
+    stream.on('data', bytes => {
+      count += bytes.length;
+      if (count !== 1 || bytes.length !== 1 || bytes[0] !== 0x47)
+        finish(Error('PAIRED_NOTE_ORIGINAL_START_GRANT_CHANGED'));
+    });
+    stream.once('end', () => finish(count === 1 ? null : Error('PAIRED_NOTE_ORIGINAL_START_CANCELLED')));
+    stream.once('error', () => finish(Error('PAIRED_NOTE_ORIGINAL_START_PIPE_ERROR')));
+    stream.once('close', () => { if (!settled) finish(Error('PAIRED_NOTE_ORIGINAL_START_PIPE_CLOSED')); });
+  });
+  delete process.env.LIANUM_PAIRED_ORIGINAL_START_FD_V2;
 }
 
 export async function runDevelopmentOsakaSmokeSupervisor() {
