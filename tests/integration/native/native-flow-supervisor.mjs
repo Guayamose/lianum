@@ -1,3 +1,5 @@
+import { developmentBtcSolGraphSourcePins } from '../claims/development/development-btc-sol-graph-source-pins.mjs';
+import { DEVELOPMENT_BTC_SOL_GRAPH_REAL_RUN_DISABLED, DEVELOPMENT_BTC_SOL_GRAPH_RESULT, assertDevelopmentBtcSolGraphResult } from '../claims/development/development-btc-sol-graph-policy.mjs';
 import { osakaSmokeSourcePins } from '../evm/osaka/development-osaka-smoke-source-pins.mjs';
 import { OSAKA_SMOKE_RESULT, assertOsakaSmokeResult, osakaSmokeProcessFailure } from '../evm/osaka/development-osaka-smoke-policy.mjs';
 import { developmentDefiEntrySourcePins } from '../defi/entry/development-defi-entry-source-pins.mjs';
@@ -301,6 +303,15 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: manualWalletSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
+  developmentBtcSolGraph: Object.freeze({
+    entry: join(ROOT, 'integration/claims/development/run-development-btc-sol-graph-flow.mjs'),
+    worker: join(ROOT, 'integration/claims/development/development-btc-sol-graph-flow.mjs'),
+    local: join(ROOT, '.local/development-btc-sol-graph-v1'),
+    resultFormat: DEVELOPMENT_BTC_SOL_GRAPH_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_BTC_SOL_GRAPH_RESOURCES_V1',
+    lockFormat: 'LIANUM_DEVELOPMENT_BTC_SOL_GRAPH_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_BTC_SOL_GRAPH_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_PRIVATE_CBTC_INVOICE_SOL_DELIVERY_V1', sourcePins: developmentBtcSolGraphSourcePins,
+    cleanupKeys: Object.freeze(['closedEvm', 'closedBitcoin', 'closedSolana']),
+  }),
   developmentNativeClaims: Object.freeze({
     entry: join(ROOT, 'integration/claims/development/run-development-native-claim-flow.mjs'),
     worker: join(ROOT, 'integration/claims/development/development-native-claim-flow.mjs'),
@@ -574,6 +585,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.manualWallet) scoped = assertManualWalletResult(result);
   if (profile === FLOW_PROFILES.manualWalletBrowser) scoped = assertManualWalletBrowserResult(result);
   if (profile === FLOW_PROFILES.manualWalletBrowserRecovery) scoped = assertManualWalletBrowserRecoveryResult(result);
+  if (profile === FLOW_PROFILES.developmentBtcSolGraph) scoped = assertDevelopmentBtcSolGraphResult(result);
   if (profile === FLOW_PROFILES.developmentNativeClaims) scoped = assertDevelopmentNativeClaimResult(result);
   if (profile === FLOW_PROFILES.privateMetaMorpho) scoped = assertPrivateMetaMorphoResult(result);
   if (profile === FLOW_PROFILES.developmentDefiEntry) scoped = assertDevelopmentDefiEntryResult(result);
@@ -681,6 +693,11 @@ export async function runManualWalletRecoverySupervisor() {
   assert.equal(arguments.length, 0, 'MANUAL_WALLET_RECOVERY_NO_SUPERVISOR_OPTIONS');
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   return runFixedFlowSupervisor(FLOW_PROFILES.manualWalletRecovery);
+}
+export async function runDevelopmentBtcSolGraphSupervisor() {
+  assert.equal(arguments.length, 0, 'DEVELOPMENT_BTC_SOL_NO_SUPERVISOR_OPTIONS');
+  assert.equal(DEVELOPMENT_BTC_SOL_GRAPH_REAL_RUN_DISABLED, false, 'DEVELOPMENT_BTC_SOL_REQUIRES_REVIEWED_EXCLUSIVE_CHECKPOINT');
+  return runFixedFlowSupervisor(FLOW_PROFILES.developmentBtcSolGraph);
 }
 export async function runDevelopmentNativeClaimSupervisor() {
   assert.equal(arguments.length, 0, 'DEVELOPMENT_CLAIM_NO_SUPERVISOR_OPTIONS');
