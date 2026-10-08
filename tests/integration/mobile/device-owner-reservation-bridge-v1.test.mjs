@@ -67,3 +67,36 @@ test('fixed U/S framing signs all custody and witness bindings below4096 and rej
     proofSHA256:null,publicInputsSHA256:null},statement,observation:null,errorCode:null,authorizationSHA256:h('authorized')};
   assert.throws(()=>normalizeDeviceReservationStatusV1(status));
 });
+
+// New boundaries only: real HOST signatures/encodings, never dispatch/proof acceptance.
+import {createDeviceOwnerExecutionBridgeV1,consumeDeviceOwnerExecutionAuthorizationV1}
+  from '../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {normalizeDeviceExecutionConsentV1,deviceExecutionConsentMessageV1}
+  from '../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
+test('device continuation rejects caller executors/providers before dispatch and keeps native PoP domains distinct',async t=>{
+  const {f,actor,bridge}=await setup(t);let effects=0;
+  await assert.rejects(createDeviceOwnerExecutionBridgeV1({account:f.account,reservationBridge:bridge,
+    nativeExecution:{prepare(){effects++;},execute(){effects++;}},providers:[{slot:0,custody:{},deliveryRiskSalt:h('risk')}],
+    runtime:f.world.runtime,system:f.world.system,poolIndex:0}),/FLAT_EXECUTION_OWNED_CAPABILITY/);
+  assert.throws(()=>consumeDeviceOwnerExecutionAuthorizationV1({...bridge},{},f.account));assert.equal(effects,0);
+  const access=actor.challenge({action:'read'}),review=await actor.openReview({challenge:access,signature:f.device.sign(originalAccountAccessMessageV2(access))});
+  const domain=f.world.identity.domain,terms=genericBalanceNativeTerms(preparation(domain)),input={scope:domain.scope,policy:domain.policy,asset:domain.asset,...terms,
+    reservationNonce:h('r2'),reserveSecret:h('s2'),graphNonce:h('g2'),inputNote:opening('s2','100'),changeNote:opening('c2','75'),
+    recoveryNote:opening('f2','25'),paddingSalts:Array.from({length:4},(_,i)=>h('p2'+i))};
+  const statement=compileFundedGraph(input).authorizationStatement,asset=f.account.config.registry[0];
+  const reservation=normalizeDeviceReservationConsentV1({version:1,profile:'LIANUM_DEVICE_ORIGINAL_US_V1',action:'OBSERVE_S',origin,
+    pairingId:access.pairingId,devicePublicKey:access.devicePublicKey,challengeId:h('ec'),nonce:h('en'),expiresAt:Date.now()+15000,binding:review.binding,
+    poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,assetIdentity:asset.assetIdentity,domainCommitment:f.world.identity.domainCommitment},
+    depositJobId:h('ed'),quoteId:h('eq'),jobId:h('ej'),custody:{rootId:h('er'),noteRevision:3,encryptedRecordSHA256:h('enc'),frameSHA256:h('ef'),
+      sourceCommitment:statement.inputCommitment,sourceNullifier:statement.inputNullifier,changeCommitment:statement.changeCommitment,recoveryCommitment:statement.recoveryCommitment},
+    statement,witnessSHA256:h('ew'),proofSHA256:h('ep'),publicInputsSHA256:h('epi'),observed:{blockNumber:'1',blockHash:h('eb'),timestamp:'6000'},openingDisclosure:null});
+  const consent=normalizeDeviceExecutionConsentV1({version:1,profile:'LIANUM_DEVICE_ORIGINAL_EXECUTION_V1',action:'EXECUTE_NATIVE',reservation,
+    nativeBindingSHA256:h('binding'),reservationTransactionHash:h('Stx'),executionSnapshotSHA256:h('snapshot'),lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}),
+    frame=deviceExecutionConsentMessageV1(consent),pub=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',
+      x:Buffer.from(f.device.publicKey.slice(2,66),'hex').toString('base64url'),y:Buffer.from(f.device.publicKey.slice(66),'hex').toString('base64url')}}),signed=f.device.sign(frame);
+  assert.ok(frame.length<=4096);assert.equal(verify('sha256',deviceReservationConsentMessageV1(reservation),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signed,'hex')),false);
+  for(const changed of [{...consent,action:'RECOVER_NATIVE'},{...consent,reservationTransactionHash:h('otherStx')},
+    {...consent,nativeBindingSHA256:h('otherbinding')},{...consent,executionSnapshotSHA256:h('othersnapshot')}])
+    assert.equal(verify('sha256',deviceExecutionConsentMessageV1(changed),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signed,'hex')),false);
+  assert.equal(f.world.proofs,0);assert.equal(f.world.sends,0);
+});

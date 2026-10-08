@@ -81,6 +81,22 @@ import { validateGenericBalanceNativePreparation,genericBalanceNativeTerms } fro
 import { buildAuthorizedEnvelope } from '../../../../custody/src/signing/authorized-envelope.mjs';
 import { createRoleProofClient } from '../../../../proofs/src/jobs/role-client.mjs';
 import { encodeStatement } from '../../execution/encoding/statements.mjs';
+import {consumeDeviceOwnerExecutionInstallationV1,consumeDeviceOwnerExecutionAuthorizationV1,assertDeviceOwnerExecutionBridgeV1}
+  from './device-owner-execution-bridge-v1.mjs';
+import {deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
+
+export async function installDeviceOwnerExecutionV1(account,bridge){
+  assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);
+  return owned.get(account).installDeviceExecution(bridge,consumeDeviceOwnerExecutionInstallationV1(bridge,account));
+}
+export async function readDeviceOwnerExecutionStatusV1(account,bridge,jobId){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);reference(jobId);
+  return owned.get(account).deviceExecutionStatus(jobId,bridge);
+}
+export async function runDeviceOwnerExecutionAuthorizationV1(account,bridge,admission){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+  return owned.get(account).deviceExecution(consumeDeviceOwnerExecutionAuthorizationV1(bridge,admission,account));
+}
 
 export async function runDeviceOwnerReservationAuthorizationV1(account,bridge,authorization) {
   assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
@@ -269,6 +285,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   let busy = false, unavailable = false, closed = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null, captureProviderBindings=null, activeLegacy = null, activeDeviceOwner = null;
   let idle = Promise.resolve(), releaseIdle, abortPromise, ownerViewTerminalObserver;
   const manualGraphApprovals = new Map(), nativeProviderSets = new Map(), nativeNoteApprovals = new Map();
+  const deviceExecutionInstallations=new Map(),deviceExecutionProviders=new Map();
   const proofRunner = createFlatProofRunner({ onProof });
   const exclusive = async work => {
     assert.ok(!busy && !unavailable && !closed && !cancelled && !capturing, 'FLAT_ACCOUNT_UNAVAILABLE');
@@ -623,6 +640,17 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     assert.equal(action,'RESERVE_S');assert.equal(row.stage,'PROVED','DEVICE_RESERVATION_RECONCILE_ORIGINAL_ONLY');
     assert.equal(row.submission,null,'DEVICE_RESERVATION_RECONCILE_ORIGINAL_ONLY');
     const deposit=reservationSubject(consent.depositJobId,consent.custody.rootId,consent);await observeDevice(deposit);
+    // Bind these exact U packets to the account's original executor BEFORE S.
+    // An already-spent historical U/S job cannot acquire a new dispatch route.
+    if(nativeExecution!==null){const installation=deviceExecutionProviders.get(original.bridge);
+      assert.ok(installation,'DEVICE_EXECUTION_ORIGINAL_INSTALLATION_REQUIRED');
+      assert.equal(row.nativeBinding??null,null,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+      const prepared={authorization:row.authorization,rolePackets:row.rolePackets};
+      const binding=await nativeExecution.prepare(row.jobId,prepared,installation.providers);
+      assert.deepEqual(binding,flatAccountGraphBinding(prepared,identity),'DEVICE_EXECUTION_ORIGINAL_BINDING_CHANGED');
+      await reservationUpdate(row.jobId,{nativeBinding:binding,nativeStage:'PREPARED',nativeLatched:false,
+        nativeRecoveryLatched:false,nativeOutcome:null,nativeTerminal:null,nativeErrorCode:null});
+    }
     const before=await reservationCurrent(consent),packet=row.rolePackets.reservation,funding=packet.funding.value;
     const index=before.ledger.commitments.indexOf('0x'+funding.inputCommitment);
     assert.ok(index>=0&&!before.ledger.nullifiers.includes('0x'+funding.inputNullifier),'DEVICE_RESERVATION_SOURCE_NOT_UNSPENT');
@@ -650,6 +678,74 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     }catch(error){const hash=error.transactionRecord?.transactionHash;
       if(!unavailable)await reservationUpdate(row.jobId,{...(hash?{submission:{...submission,transactionHash:bare(hash)}}:{}),
         errorCode:/^[A-Z0-9_]{1,100}$/.test(error.code??'')?error.code:'DEVICE_RESERVATION_SEND_UNRESOLVED'});throw error;}
+  });}
+  function deviceExecutionOriginal(bridge,row){
+    const installation=deviceExecutionInstallations.get(bridge);assert.ok(installation,'DEVICE_EXECUTION_ORIGINAL_INSTALLATION_REQUIRED');
+    assertOwnedNativeValueExecution(nativeExecution,{runtime,system,poolIndex});
+    reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,installation.descriptor);
+    assert.ok(row.nativeBinding&&row.submission?.dispatchLatched===true,'DEVICE_EXECUTION_BINDING_BEFORE_S_REQUIRED');
+    assert.deepEqual(row.nativeBinding,flatAccountGraphBinding({authorization:row.authorization,rolePackets:row.rolePackets},identity),
+      'DEVICE_EXECUTION_ORIGINAL_BINDING_CHANGED');return installation;
+  }
+  async function deviceExecutionPublic(bridge,row){
+    deviceExecutionOriginal(bridge,row);const reservation=await reservationObservation(row);
+    assert.equal(reservation.stage,'RESERVED','DEVICE_EXECUTION_ORIGINAL_S_REQUIRED');
+    const retained=reservationRow(row.jobId),snapshot=nativeExecution.snapshot(row.jobId);
+    return {jobId:row.jobId,reservation,nativeBindingSHA256:sha(retained.nativeBinding),executionSnapshot:copy(snapshot),
+      executionSnapshotSHA256:sha(snapshot),stage:retained.nativeStage,outcome:retained.nativeOutcome,
+      terminal:copy(retained.nativeTerminal),errorCode:retained.nativeErrorCode,lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'};
+  }
+  async function retainDeviceTerminal(row,result){
+    assert.ok(['FULFILLED','RECOVERED'].includes(result.outcome),'DEVICE_EXECUTION_ORIGINAL_TERMINAL_REQUIRED');
+    const receipt=result.receipt;assert.ok(receipt,'DEVICE_EXECUTION_ORIGINAL_RECEIPT_REQUIRED');await runtime.checkReceipt(receipt);
+    const transaction=await runtime.transaction(receipt.transactionHash),originals=runtime.transactions.filter(value=>value.transactionHash===receipt.transactionHash);
+    assert.ok(transaction&&originals.length===1,'DEVICE_EXECUTION_ORIGINAL_TRANSACTION_REQUIRED');const original=originals[0];
+    assert.equal(receipt.status,'0x1');assert.equal(receipt.to,pool.address);assert.equal(transaction.from,system.sender);
+    assert.equal(transaction.to,pool.address);assert.equal(transaction.input,original.request.data);
+    assert.equal(transaction.value,original.request.value??'0x0');assert.equal(BigInt(transaction.nonce),BigInt(original.senderNonce));
+    assert.equal(transaction.blockHash,receipt.blockHash);assert.equal(transaction.blockNumber,receipt.blockNumber);
+    const calldataSHA256=flatAccountCalldataHash(transaction.input);assert.equal(result.calldataSHA256,calldataSHA256);
+    const decoded=decodeNativeValueTerminalCalldata(transaction.input);
+    assert.equal(decoded.kind,result.outcome==='RECOVERED'?'recovery':'settlement');
+    assert.equal(decoded.statement.reserveNullifier,row.nativeBinding.reserveNullifier);
+    if(result.outcome==='RECOVERED')assert.equal(decoded.statement.recoveryCommitment,row.nativeBinding.recoveryCommitment);
+    // The original executor's terminal observer already validates the entire
+    // historical pool/hub/backing delta. Rejoin its same signed original wire.
+    await runtime.assertCanonical(receipt);
+    const terminal={transactionHash:bare(receipt.transactionHash),blockHash:bare(receipt.blockHash),
+      blockNumber:BigInt(receipt.blockNumber).toString(),calldataSHA256,outcome:result.outcome};
+    const retained=reservationRow(row.jobId);
+    if(retained.nativeTerminal!==null)assert.deepEqual(terminal,retained.nativeTerminal,'DEVICE_EXECUTION_TERMINAL_CHANGED');
+    else await reservationUpdate(row.jobId,{nativeTerminal:terminal,nativeOutcome:result.outcome,nativeStage:result.outcome,nativeErrorCode:null});
+  }
+  async function deviceExecution(original){return exclusive(async()=>{
+    await healthy();continueWork();assert.ok(!wrapped,'DEVICE_EXECUTION_NATIVE_ONLY');
+    const {bridge,consent,action}=original,row=reservationRow(consent.reservation.jobId);
+    deviceExecutionOriginal(bridge,row);originalReservationConsent(row,consent.reservation);
+    const current=await deviceExecutionPublic(bridge,row);
+    assert.equal(consent.nativeBindingSHA256,current.nativeBindingSHA256,'DEVICE_EXECUTION_BINDING_CHANGED');
+    assert.equal(consent.reservationTransactionHash,current.reservation.observation.transactionHash,'DEVICE_EXECUTION_RESERVATION_CHANGED');
+    assert.equal(consent.executionSnapshotSHA256,current.executionSnapshotSHA256,'DEVICE_EXECUTION_STATE_CHANGED');
+    assert.equal(consent.lossClause,current.lossClause,'DEVICE_EXECUTION_LOSS_CLAUSE_CHANGED');
+    let result;
+    try{
+      if(action==='EXECUTE_NATIVE'){
+        assert.equal(row.nativeLatched,false,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+        assert.equal(row.nativeOutcome,null,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+        await reservationUpdate(row.jobId,{nativeLatched:true,nativeStage:'EXECUTING',nativeExecutionConsent:copy(consent)});
+        continueWork();result=await nativeExecution.execute(row.jobId);
+      }else if(action==='RECOVER_NATIVE'){
+        assert.equal(row.nativeRecoveryLatched,false,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+        assert.equal(row.nativeOutcome,null,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+        assert.ok(BigInt((await reader.read()).head.timestamp)>=BigInt(row.nativeBinding.settleBefore),'DEVICE_EXECUTION_RECOVERY_BEFORE_CUTOFF');
+        await reservationUpdate(row.jobId,{nativeRecoveryLatched:true,nativeStage:'RECOVERING',nativeRecoveryConsent:copy(consent)});
+        continueWork();result=await nativeExecution.recover(row.jobId);
+      }else{assert.equal(action,'RECONCILE_NATIVE');result=await nativeExecution.reconcile(row.jobId);}
+      await retainDeviceTerminal(reservationRow(row.jobId),result);
+      return {...await deviceExecutionPublic(bridge,reservationRow(row.jobId)),authorizationSHA256:byteSHA(deviceExecutionConsentMessageV1(consent))};
+    }catch(error){if(!unavailable&&reservationRow(row.jobId).nativeOutcome===null){const diagnostic=privateFailureDiagnostic(error,'DEVICE_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED');
+        try{await reservationUpdate(row.jobId,{nativeStage:'UNKNOWN',nativeErrorCode:diagnostic.code});}catch{}}
+      throw error;}
   });}
   function request(value) {
     const bound = validateBoundRequest(value, config), entry = operation(bound.ownerOperationRef);
@@ -1595,12 +1691,25 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     },
     async close() {
       assert.equal(busy, false, 'FLAT_ACCOUNT_BUSY');
-      if (!closed) { await proofRunner.close(); closed = true; password = null; record = null; }
+      if (!closed) { await proofRunner.close(); closed = true; password = null; record = null;
+        deviceExecutionInstallations.clear();deviceExecutionProviders.clear(); }
       return { closed: true, retainedOwnerCustody: true, retainedRuntimes: true };
     },
   });
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable,
-    deviceDeposit, deviceReservation,
+    deviceDeposit, deviceReservation,deviceExecution,
+    installDeviceExecution(bridge,installation){return exclusive(async()=>{
+      await healthy();assert.ok(!wrapped&&nativeExecution!==null,'DEVICE_EXECUTION_ORIGINAL_EXECUTOR_REQUIRED');
+      assert.equal(installation.nativeExecution,nativeExecution,'DEVICE_EXECUTION_EXECUTOR_REBOUND');
+      assert.ok(!deviceExecutionInstallations.has(bridge)&&!deviceExecutionProviders.has(installation.reservationBridge),
+        'DEVICE_EXECUTION_ORIGINAL_INSTALLATION_ONCE');
+      // Installation after a source reservation is forbidden even though the
+      // executor's pure packet decoder itself does not read the source ledger.
+      for(const row of reservationRows())if(['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===installation.descriptor[name]))
+        assert.equal(row.submission,null,'DEVICE_EXECUTION_INSTALL_BEFORE_S_REQUIRED');
+      deviceExecutionInstallations.set(bridge,installation);deviceExecutionProviders.set(installation.reservationBridge,installation);
+      return{installed:true,originalExecutor:true};});},
+    deviceExecutionStatus(id,bridge){return exclusive(async()=>{await healthy();return deviceExecutionPublic(bridge,reservationRow(id));});},
     deviceReservationStatus(id,descriptor) { return exclusive(async()=>{await healthy();const row=reservationRow(id);
       reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,descriptor);return reservationPublic(row);}); },
     deviceDepositStatus(id) { return exclusive(async () => { await healthy(); return devicePublic(deviceRow(id)); }); },

@@ -10,6 +10,7 @@ import { types } from 'node:util';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
 import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
+import {deviceOwnerExecutionBridgeActorV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 const listeners = new WeakSet();
@@ -122,7 +123,19 @@ export async function createPairedDeviceReservationTlsServerV1(input) {
   try { return await startOriginalTransport(actor, tls, host, null, input.bridge); }
   finally { tls.privateKey.fill(0); }
 }
-async function startOriginalTransport(actor, tls, host, bridge = null, reservationBridge = null) {
+/** Fixed continuation listener shares the original actor/TLS dispatcher. The
+ * previous D26/U/S listener must be closed; no second listener or transport is
+ * authority to select/change native providers or resend an original delivery. */
+export async function createPairedDeviceExecutionTlsServerV1(input){
+  if(arguments.length!==1)fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const names=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['bridge','reservationBridge','tls','host']:['bridge','reservationBridge','tls'];
+  exactInput(input,names);const actor=deviceOwnerExecutionBridgeActorV1(input.bridge);
+  if(actor!==deviceOwnerReservationBridgeActorV1(input.reservationBridge))fail('MOBILE_ORIGINAL_EXECUTION_ACTOR_CHANGED');
+  const host=names.includes('host')?input.host:'127.0.0.1';if(!['127.0.0.1','0.0.0.0'].includes(host))fail('MOBILE_ORIGINAL_TLS_CONFIGURATION');
+  const descriptor=pairedOriginalAccountActorDescriptorV2(actor),tls=tlsMaterial(input.tls,descriptor);
+  try{return await startOriginalTransport(actor,tls,host,null,input.reservationBridge,input.bridge);}finally{tls.privateKey.fill(0);}
+}
+async function startOriginalTransport(actor, tls, host, bridge = null, reservationBridge = null, executionBridge = null) {
   assertPairedOriginalAccountActorV2(actor);
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
   if (listeners.has(actor)) fail('MOBILE_ORIGINAL_HTTP_ALREADY_BOUND'); listeners.add(actor);
@@ -137,6 +150,13 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       }
       if (request.url === '/v2/mobile/original-account/state' && request.method === 'GET') {
         assertPairedOriginalAccountActorV2(actor); return state;
+      }
+      if(executionBridge!==null&&request.method==='POST'&&request.url.startsWith('/v1/mobile/device-execution/')){
+        if(!tls||request.headers.origin!==descriptor.origin)fail('HTTP_ORIGIN_REJECTED');
+        const methods={'execution-reviews':'challengeExecution',execute:'execute','reconciliation-reviews':'challengeReconciliation',
+          reconcile:'reconcile','recovery-reviews':'challengeRecovery',recover:'recover'};
+        const method=methods[request.url.slice('/v1/mobile/device-execution/'.length)];if(!method)fail('HTTP_NOT_FOUND');
+        const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');return executionBridge[method](input);
       }
       if (reservationBridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-reservation/')) {
         if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');

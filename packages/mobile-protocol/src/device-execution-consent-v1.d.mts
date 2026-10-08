@@ -1,0 +1,17 @@
+import type {DeviceReservationConsentV1,DeviceReservationStatusV1} from './device-reservation-consent-v1.mjs';
+export const DEVICE_EXECUTION_CONSENT_V1:'LIANUM_DEVICE_ORIGINAL_EXECUTION_V1';
+export type DeviceExecutionConsentV1=Readonly<{version:1;profile:typeof DEVICE_EXECUTION_CONSENT_V1;
+  action:'EXECUTE_NATIVE'|'RECONCILE_NATIVE'|'RECOVER_NATIVE';reservation:DeviceReservationConsentV1;
+  nativeBindingSHA256:string;reservationTransactionHash:string;executionSnapshotSHA256:string;
+  lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}>;
+export type DeviceExecutionStatusV1=Readonly<{jobId:string;reservation:Omit<DeviceReservationStatusV1,'authorizationSHA256'>;
+  nativeBindingSHA256:string;executionSnapshot:Readonly<{reference:string;stage:string;outcome:'FULFILLED'|'RECOVERED'|null;
+    executionStarted:boolean;nativeExposure:readonly Readonly<{slot:number;family:string;status:string}>[];
+    admittedReceipts:number;errorCode:string|null;errorCauseCodes:readonly string[];keeperRestart:false;nodeRestart:false;
+    fullWalletAcceptance:false;claimsEnabled:false}>;executionSnapshotSHA256:string;
+  stage:'PREPARED'|'EXECUTING'|'UNKNOWN'|'FULFILLED'|'RECOVERING'|'RECOVERED';outcome:'FULFILLED'|'RECOVERED'|null;
+  terminal:Readonly<{transactionHash:string;blockHash:string;blockNumber:string;calldataSHA256:string;outcome:'FULFILLED'|'RECOVERED'}>|null;
+  errorCode:string|null;lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1';authorizationSHA256:string}>;
+export function normalizeDeviceExecutionConsentV1(raw:unknown):DeviceExecutionConsentV1;
+export function validateDeviceExecutionConsentFreshV1(raw:unknown,now?:number):DeviceExecutionConsentV1;
+export function deviceExecutionConsentMessageV1(raw:unknown):Uint8Array;
