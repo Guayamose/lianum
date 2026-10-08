@@ -29,6 +29,7 @@ import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField
 import { decodeStatement, joinReadiness, joinAdmission, joinSettlement } from '../../encoding/statements.mjs';
 import { buildDependencyInputs, buildReadyInputs } from '../../account/preparation/readiness-inputs.mjs';
 import { validateFlatExecutionPreparation } from '../../account/execution/flat-native-execution.mjs';
+import { nativeValueOriginalAdmissionConsumer } from '../preparation/native-value-dev-admission-consumer-v5.mjs';
 import { loadNativeValueLiveArtifacts } from '../../../../../proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs';
 import { buildNodeInputs, buildSettlementInputs } from '../../account/reconciliation/completion-inputs.mjs';
 import { flatCompletionWindow } from '../../account/reconciliation/flat-completion-window.mjs';
@@ -114,7 +115,7 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
   assert.equal(quorum,system.quorum,'NV2_EXECUTION_ORIGINAL_QUORUM');
   assertOwnedNativeValueQuorum(quorum,{runtime,system});
   // Gate before storage, checkpoint signatures, native custody or any proof.
-  await loadNativeValueLiveArtifacts();
+  if(wrapped)await loadNativeValueLiveArtifacts();else await nativeValueOriginalAdmissionConsumer(runtime,system).load();
   assert.ok(Object.keys(callbacks).every(key => ['onStage', 'onProof', 'onPrivateAudit'].includes(key)), 'FLAT_EXECUTION_CALLBACKS');
   const onStage = callbacks.onStage ?? (async () => {}), onProof = callbacks.onProof ?? (async () => {}),
     onPrivateAudit = callbacks.onPrivateAudit ?? (async () => {});
@@ -216,7 +217,8 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     const included=await reader.read();receiptPath(included,receipt.leaf);
     await update(ref,{receipts:[...operation(ref).receipts,receipt],exposures:operation(ref).exposures.map(value=>value.slot===selected.slot
       ? {...value,status:'ADMITTED',nativeId:receipt.opening.globalEffectId}:value)});
-    await onPrivateAudit({reference:ref,stage:'native-admitted',receipt,transactionHash:admitted.transactionHash});
+    await onPrivateAudit({reference:ref,stage:'native-admitted',receipt,transactionHash:admitted.transactionHash,
+      ...(admitted.originalProofEvidence?{originalProofEvidence:admitted.originalProofEvidence}:{})});
   }
   async function currentHealth(){
     await refreshNativeValueReceiverClock(runtime);

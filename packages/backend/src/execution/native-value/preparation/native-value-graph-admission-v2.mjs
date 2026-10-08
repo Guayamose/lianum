@@ -23,8 +23,7 @@ import { createNativeValueSystemStateReader } from '../reconciliation/native-val
 import { createNativeValueCurrentGate } from '../execution/native-value-current-gate-v2.mjs';
 import { encodeFlatTransaction } from '../../encoding/transaction-codec.mjs';
 import { withFlatHash } from '../../../../../proofs/src/tooling/scoped-proof-tools.mjs';
-import { loadNativeValueLiveArtifacts } from '../../../../../proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs';
-import { createNativeValueLiveProofClient } from '../../../../../proofs/src/native-value/runtime/native-value-live-v2-client.mjs';
+import { nativeValueOriginalAdmissionConsumer } from './native-value-dev-admission-consumer-v5.mjs';
 const owned=new WeakMap(),copy=cloneInput,freeze=frozenInput;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const words=a=>a.map(v=>'0x'+BigInt(v).toString(16).padStart(64,'0'));
@@ -55,14 +54,14 @@ export async function createOwnedNativeValueGraphAdmission(input) {
   const binding={runtime,system,poolIndex};
   const authority=()=>{assertOwnedNativeValueSystem(runtime,system);assertOwnedNativeValueQuorum(quorum,{runtime,system});
     assertOwnedNativeValueProvider(provider,binding);assert.equal(system.claimsEnabled,false,'NV2_GRAPH_CLAIMS_DISABLED_REQUIRED');};
-  authority();const artifacts=await loadNativeValueLiveArtifacts();
+  authority();const consumer=nativeValueOriginalAdmissionConsumer(runtime,system),artifacts=await consumer.load();
   const reader=await createNativeValueSystemStateReader(binding),gate=await createNativeValueCurrentGate({...binding,quorum});
   const directory=await mkdtemp(join(runtime.metadata.scratchDirectory,'native-value-admission-'));
   const vault=new Vault(join(directory,'admission.vault'));let password=randomBytes(32).toString('hex');
   let record=await vault.create({schema:'OWNED_NATIVE_VALUE_GRAPH_ADMISSION_V2',pool:system.pools[poolIndex].address,
     requestSHA256:null,phase:'UNUSED',submission:null,receipt:null,statement:null},password);
   assert.deepEqual(await vault.read(password),record);
-  let closed=false,poisoned=false,busy=false,proofClient=null,cancelled=false,originalRequest=null;
+  let closed=false,poisoned=false,busy=false,proofClient=null,cancelled=false,originalRequest=null,originalProofEvidence=null;
   const live=()=>{assert.ok(!closed&&!poisoned,'NV2_GRAPH_CLOSED_OR_UNCERTAIN');authority();};
   async function unchanged(){live();try{assert.deepEqual(await vault.read(password),record);}catch(cause){poisoned=true;throw Error('NV2_GRAPH_STORAGE_CHANGED',{cause});}}
   async function save(patch){await unchanged();try{record=await vault.update(password,record.revision,data=>({...data,...copy(patch)}));
@@ -86,7 +85,7 @@ export async function createOwnedNativeValueGraphAdmission(input) {
     await save({phase:'ADMITTED',submission:{...submission,transactionHash:transaction.transactionHash}});
     return freeze(copy({classification:'ACTUAL_NATIVE_VALUE_GRAPH_RECEIPT_NOT_N_T_SETTLEMENT_OR_PRIVATE_CREDIT',
       receipt:retained.receipt,admissionStatement:retained.statement,transactionHash:transaction.transactionHash,
-      creditEligible:false,privateSpendableAtomic:null}));
+      creditEligible:false,privateSpendableAtomic:null,...(consumer.development?{originalProofEvidence}:{} )}));
   }
   const adapter=Object.freeze({
     admit(raw){const request=copy(raw);exactRecord(request,['dependencyProof','readyProof','readinessOpening','action','deliveryRiskSalt','receiptSpendSecret']);
@@ -165,9 +164,10 @@ export async function createOwnedNativeValueGraphAdmission(input) {
           assert.equal(job.statement.admissionNullifier,observed.admissionNullifier,'NV2_GRAPH_ORIGINAL_ADMISSION_NULLIFIER');
           failurePhase='persist-proof-intent';await save({phase:'PROOF_PENDING'});
           failurePhase='prove-admission';
-          proofClient=createNativeValueLiveProofClient();
+          proofClient=consumer.createClient();
           const result=await proofClient.prove({inputs:job.inputs,expectedPublicInputs:job.expectedPublicInputs});
           proofClient.close();proofClient=null;
+          if(consumer.development)originalProofEvidence=copy(result.evidence);
           const admission={proof:result.proof,publicInputs:result.publicInputs};
           failurePhase='verify-admission';
           assert.equal(await system.verify('admission',Buffer.from(admission.proof,'hex'),words(admission.publicInputs)),true,'NV2_GRAPH_DEPLOYED_I_REJECTED');

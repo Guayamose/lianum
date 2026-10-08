@@ -3,7 +3,7 @@
  * retained artifacts using the genuine module before returning a candidate. */
 import assert from 'node:assert/strict';
 import { NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 } from './native-value-dev-mobile-package-pins-v5.mjs';
-import { nativeValueDevHostSourcePinsV5 } from './native-value-dev-source-pins-v5.mjs';
+import { nativeValueDevFinancialSourcePinsV5 as nativeValueDevHostSourcePinsV5 } from './native-value-dev-financial-source-pins-v5.mjs';
 import { NATIVE_VALUE_DEV_SCHEMA_V5, NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5,
   NATIVE_VALUE_DEV_RETAINED_SHA256_V5, NATIVE_VALUE_DEV_W39_ADAPTER_SHA256_V5,
   nativeValueDevDigestV5, nativeValueDevRetainedMetadataV5, validateNativeValueDevReleaseV5 }
