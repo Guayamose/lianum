@@ -36,10 +36,11 @@ nuevo perfil `./dev lab browser` utiliza el DOM real y comprueba los términos
 originales y la casilla de consentimiento antes de cada acción. Su recorrido
 financiero de quince pruebas ya está aceptado en estado nuevo, incluidas tres
 salidas y redención, respuesta perdida y reemplazo de listener sobre el mismo
-journal. Completar la integración desde DOM del escenario F ya aceptado por
-SDK/HTTP con entrega parcial, ejecución
-original incierta y ausencia del owner, sin segundo envío o crédito. Publicar deltas privados, respaldo,
-entrega nativa y pérdida/obligación del solver por separado.
+journal. El perfil `./dev lab browser-recovery` también aceptó F desde DOM con
+siete pruebas nuevas: entrega parcial, ejecución original interrumpida, ambos
+owners ausentes y devolución sin segundo envío ni crédito. Los deltas privados,
+respaldo, entrega y pérdida del solver se conservan por separado; la cerca
+sigue activa después de F.
 
 La comprobación visible ya usa la misma sesión/cuenta original. Ampliar a pérdida
 de keeper/nodo y después conectar la custodia móvil a ese mismo núcleo.

@@ -254,6 +254,90 @@ Es aceptación SDK/HTTP de recuperación local, no navegador, red pública,
 reinicio del keeper/nodo ni wallet completa. El coordinador original sobrevive;
 se reabre su journal y se sustituyen los listeners.
 
+## Recuperación F desde la wallet web aceptada
+
+El 8 de octubre de 2026, `./dev lab browser-recovery` completó el intento nuevo
+`0b44fe86-23a2-4297-bff4-abb4e604d3e4`, iniciado sobre `5a0c544`, con siete
+pruebas genuinas: deposit_balance, deposit_intent, authorization, reservation,
+dependency, ready y recovery. Son pruebas nuevas en cuentas, claves de custodia,
+journals y Anvil nuevos; los artefactos y claves de verificación públicas se
+reutilizan conforme a sus pines y loaders.
+
+La financiación, confirmación del grafo y devolución F pasaron por los
+formularios de la wallet web real. La automatización verificó los términos y
+que la casilla estuviera desmarcada antes de importar y confirmar cada permiso
+exacto. La pérdida de una respuesta HTTP realmente admitida dejó UNKNOWN en
+el navegador, con un solo POST y conciliación del journal original sin reenvío.
+Después de la reserva S, ambos propietarios estuvieron ausentes durante una
+única entrega real al vault. El execute conservó su admisión FAILED original,
+filtrada públicamente como `FLAT_ACCOUNT_OPERATION_FAILED`, y la interrupción
+controlada privada `MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY`.
+
+Se cerró el primer Chrome, se sustituyó el listener y se reabrió el mismo
+journal autenticado. El permiso anterior recibió rechazo y las identidades
+originales permanecieron iguales. La interfaz confirmó F al cutoff autorizado,
+con ambos propietarios todavía ausentes. Repetir recuperación y conciliación
+no generó otra prueba, entrega, pago o crédito. Después se reiniciaron los
+procesos de los propietarios y se leyeron sus notas originales.
+
+El origen terminó con `available=500`, incluyendo `recovery=120` como parte
+de ese mismo saldo; el destino conserva 100 participaciones privadas. El vault
+conserva 100 activos/100 shares, los pools mantienen respaldo 500/100 y las
+reservas son cero. El solver perdió sus 100 de entrega y no recibió el pago
+reservado. No se intentó ninguna salida; la cerca de admisión del catálogo
+permanece activa. Esto conserva el resultado económico original de F y su
+incertidumbre anterior, sin fabricar una liquidación global o un recorrido
+feliz posterior.
+
+Los 16 checks del resumen pasaron. La auditoría de archivos comprobó los siete
+proofs y sus inputs reales: seis joins de manifests/resultados/recursos originales
+cerrados y una telemetría heredada almacenada/devuelta idéntica, con ZK y
+verificación habilitados y salida 0. Los objetos sourcePins del archivo, worker
+y supervisor coinciden; los 410 archivos locales también se comprobaron de
+nuevo por longitud y hash. Las fuentes permanecieron iguales durante el intento.
+
+Las dos instancias Chrome cerraron con guard PASS, sandbox de kernel
+(`NoNewPrivs=1`, `Seccomp=2`), UID/grupo/sesión originales, salida 0, ninguna
+señal ni procesos restantes. Sus máximos RSS fueron 883273728 y 888233984 bytes,
+por debajo de 1 GiB. Los 36 PID retenidos del grupo y el supervisor estaban
+ausentes tras el cierre; los locks de flujo/proving también desaparecieron.
+El worker tardó 593999.5 ms y el supervisor 595515.4 ms, unos 9 minutos 56
+segundos. El mayor prover alcanzó 2975383552 bytes, por debajo de 3 GiB; la
+RAM disponible mínima fue 13222424576 bytes. Estos tiempos pertenecen a este
+intento frío y no certifican los objetivos de rendimiento del producto.
+
+| Evidencia del intento F DOM | SHA256 |
+| --- | --- |
+| `result.json` original | `cdaed0f6504a4702f79ae694338380b6275505c04a63802c00e9c7ac90f3d977` |
+| `resources.json` original | `4f822733c86f42c95d65bcab801d657f94bb2119ccec49786e37cb965a5581bd` |
+| Bytes de `source-pins.json` original | `09e62a69a29b499b9f590e1ac28211d37d426f4e50379985c649848839b38640` |
+| SourcePins como JSON compacto | `38c7476f0b92745d54baba7617c88eaf5aa67d96d19fb20978998e6020929ddc` |
+| Resumen `evm-browser-recovery-lab.json` | `0ff6e8c1419b5f822c2fd8339c761742171d0599a282a0dd66d8d4406bc60d06` |
+
+Los dos hashes sourcePins describen el mismo objeto: el primero corresponde al
+archivo JSON indentado con newline, y el segundo a su serialización compacta,
+comprobada idéntica al inicio y al cierre. Esa diferencia de formato no es un
+cambio de fuentes. Los originales están en
+`.internal/runtime/omnichain-flat-profile/flat-wallet/.local/manual-wallet-browser-timeout-recovery/attempt-0b44fe86-23a2-4297-bff4-abb4e604d3e4/`;
+la auditoría está en `.internal/dev/reports/evm-browser-recovery-proof-audit.json`.
+El envoltorio Python se capturó antes aparte: 20261 bytes, SHA256
+`6214c9ac96e2bb2c12660fe72efd8ec30a5ed344e43fcce6ef5674a342e96035`,
+sin cambios al terminar.
+
+`walletBrowserTimeoutFRecoveryCompleted=true`,
+`actualTimeoutFRecoveryAcceptance=true` y `manualConsentContractVerified=true`
+describen este recorrido específico. `walletBrowserEvmFlowCompleted=false`,
+`walletSdkEvmFlowCompleted=false` y `fullWalletAcceptance=false` evitan
+confundirlo con el recorrido feliz, la aceptación SDK o el producto completo.
+Se automatizó el DOM real; no fue una persona navegando. La preparación de
+testigos sigue en custodia Linux, el reloj local de Anvil se adelantó
+explícitamente, y no se demuestra una caída física de red, custodia móvil,
+operadores independientes, privacidad certificada o redes públicas.
+`keeperRestart=false`, `nodeRestart=false` y
+`coordinatorProcessRestart=false`: se reabrió el journal del mismo coordinador
+y se reemplazó su listener, conservando el reinicio real de los propietarios
+como una comprobación separada.
+
 ## Despliegues Osaka comprobados
 
 `./dev lab osaka` comprueba un perfil local nuevo y fijo. Activa explícitamente

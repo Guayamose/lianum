@@ -11,7 +11,7 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | --- | --- | --- |
 | 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
 | 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
-| 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada por SDK/HTTP con siete pruebas. | Recuperación F desde DOM, conexión a móvil y recuperación tras pérdida de keeper/nodo. |
+| 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada desde el DOM con siete pruebas, además del perfil SDK/HTTP. | Conexión a móvil y recuperación tras pérdida de keeper/nodo. |
 | 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados; retirada privada Bitcoin completada dentro del ensayo conjunto rechazado con siete pruebas. Nuevo recorrido CBTC → entrega SOL preparado sobre el mismo núcleo. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada de payout Solana, aceptar ocho pruebas y el recorrido combinado; finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
 | 5. DeFi | Protocolos oficiales Uniswap V3 y MetaMorpho; nota privada, EXIT y redención MetaMorpho aceptados. El nuevo recorrido de entrada privada y salida por ambos protocolos pasa con cuatro D27/W39 genuinas, incluido reinicio y respuesta de redención perdida sin duplicación. | Integrar PAEG/grafo y posiciones; pérdida de keeper/nodo, Aave/Morpho/Jupiter y composición entre redes. |
 | 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, APK y aceptación física, recuperación móvil y operación de producción. |
@@ -87,6 +87,14 @@ atribuye una causa ni una corrección. No hubo pérdida del proceso keeper/nodo 
 custodia en dispositivo. [El informe del recorrido](docs/EVM-LAB.md) conserva
 identidad, hashes, alcance y comandos.
 
+La recuperación F desde el DOM también pasó en un intento separado con siete
+pruebas genuinas. Tras una única entrega y ejecución interrumpida, la wallet
+reabrió el mismo journal y confirmó la devolución original sin otro pago ni
+crédito. Origen 500 incluye los 120 devueltos; destino conserva 100 shares y el
+solver pierde sus 100 de entrega. Ambos Chrome y todos los procesos propios
+cerraron; la cerca sigue activa. El intento frío duró 9 min 56 s. No comprueba
+pérdida del keeper/nodo ni recupera automáticamente una ejecución incierta.
+
 El primer round trip privado BTC/Solana emitió ambas notas con cuatro pruebas
 D27/CI51, pero falló antes de EXIT/payout por lecturas paralelas incompatibles
 con el controlador original. El harness ahora las serializa, con regresiones.
@@ -100,7 +108,7 @@ El conjunto sigue **rechazado**: la redención Solana devolvió
 una firma o envío nativo de payout. La etiqueta final de finalidad procedía del
 texto de una aserción del harness y no describía la causa original. Ese inicio
 de pago impide asumir que el fence está libre o renovar/reintentar la firma.
-La revisión independiente unió las siete pruebas y confirmó fuentes intactas,+cierre propio y ausencia de los 133 PID originales. El presupuesto de auditoría
+La revisión independiente unió las siete pruebas y confirmó fuentes intactas, cierre propio y ausencia de los 133 PID originales. El presupuesto de auditoría
 de 30 s se conserva; falta resolver su causa y aceptar ocho pruebas nuevas.
 
 Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
