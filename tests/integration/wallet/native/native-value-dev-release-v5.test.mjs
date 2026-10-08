@@ -20,6 +20,7 @@ import { deployNativeValueDevSystemV5 } from '../../../../packages/backend/src/o
 import { inspectNativeValueDevReleaseV5Candidate } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-producer-v5.mjs';
 import { NATIVE_WALLET_REAL_RELEASE_V1, NATIVE_WALLET_UNFUNDED_RELEASE_V1 } from './native-wallet-real-release-v4.mjs';
 import { NATIVE_NOTE_WALLET_ACCEPTANCE_RELEASE } from './native-note-wallet-acceptance-v1.mjs';
+import { W39_DEV_DIRECTORY_V5, W39_DEV_FILES_V5, W39_DEV_KIND_V5, W39_DEV_HISTORICAL_MISSING_V5, w39DevOriginalBasisV5 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-w39-contract-v5.mjs';
 function metadataFixture() {
   const paths = [...new Set([...NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4.map(row => row.path),
     ...NATIVE_VALUE_DEV_REQUIRED_HOST_ROOTS_V5])].sort();
@@ -30,6 +31,7 @@ function metadataFixture() {
     w39AdapterManifestSHA256: NATIVE_VALUE_DEV_W39_ADAPTER_SHA256_V5,
     publicMobilePackagesSHA256: NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5,
     hostSourceClosureSHA256: nativeValueDevDigestV5(sourceFiles), sourceFiles, retained,
+    producedW39:{kind:W39_DEV_KIND_V5,role:'withdraw',files:Object.fromEntries(W39_DEV_FILES_V5.map(name=>[name,{path:W39_DEV_DIRECTORY_V5+'/'+name,sha256:'08'.repeat(32)}])),historicalPin:w39DevOriginalBasisV5().pin,historicalMissing:W39_DEV_HISTORICAL_MISSING_V5,historicalArtifactRecovered:false,proofAcceptanceEstablished:false},
     producedLedger:{kind:NATIVE_VALUE_DEV_LEDGER_KIND_V5,
       compiled:{path:NATIVE_VALUE_DEV_LEDGER_COMPILED_PATH_V5,sha256:'06'.repeat(32)},
       receipt:{path:NATIVE_VALUE_DEV_LEDGER_RECEIPT_PATH_V5,sha256:'07'.repeat(32)},historicalCompiled:retained.ledger.compiled,

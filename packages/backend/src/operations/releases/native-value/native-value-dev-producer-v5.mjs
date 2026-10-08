@@ -23,6 +23,7 @@ export async function inspectNativeValueDevReleaseV5Candidate() {
     w39AdapterManifestSHA256: NATIVE_VALUE_DEV_W39_ADAPTER_SHA256_V5,
     publicMobilePackagesSHA256: NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5,
     producedLedger: inspection.producedLedger,
+    producedW39: inspection.producedW39,
     hostSourceClosureSHA256: nativeValueDevDigestV5(sourceFiles), sourceFiles, retained,
     scope: { localOnly: true, claimsEnabled: false, proofAcceptanceEstablished: false,
       mobileNoteCustodyEstablished: false, nativeGraphAcceptanceEstablished: false } });
