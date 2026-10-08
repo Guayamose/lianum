@@ -12,6 +12,7 @@ import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/priv
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
 const worlds = new WeakMap(), receipts = new WeakMap();
 const metamorphoWorlds = new WeakMap();
+const retainedParts=new Map(),exitReopenTokens=new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
 mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault: class extends RealVault {
@@ -37,12 +38,22 @@ mock.module('./owned-backed-vault.mjs', { exports: {
   assertOwnedBackedVaultReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_RECEIPT_REQUIRED'); },
 } });
 mock.module('./owned-metamorpho-vault.mjs', { exports: {
+  isOwnedOfficialStaticVaultV1: vault => metamorphoWorlds.has(vault),
   isOwnedMetaMorphoVault: vault => metamorphoWorlds.has(vault),
   assertOwnedMetaMorphoVault(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime, 'MOCK_ORIGINAL_METAMORPHO'); },
   ownedMetaMorphoVaultBinding(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime); return clone(metamorphoWorlds.get(vault).binding); },
   assertOwnedMetaMorphoReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_METAMORPHO_RECEIPT'); },
 } });
-const { createOwnedPrivateVaultExit, assertOwnedPrivateVaultExit } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
+mock.module('../native-claims/wrapped-private-lifetime-registry-v1.mjs',{exports:{
+ async retainWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity,privateState){assert.equal(family,'wallet-vault-exit');const handle={};retainedParts.set(handle,{runtime,identity:clone(identity),privateState:clone(privateState)});return handle;},
+ async readWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity){assert.equal(family,'wallet-vault-exit');const entries=[...retainedParts].filter(([,row])=>row.runtime===runtime&&JSON.stringify(row.identity)===JSON.stringify(identity));assert.equal(entries.length,1);return {handle:entries[0][0],privateState:clone(entries[0][1].privateState)};},
+ async updateWrappedPrivateLifetimePartV1(handle,privateState){const row=retainedParts.get(handle);assert.ok(row);row.privateState=clone(privateState);},
+ assertWrappedPrivateLifetimePartSealedV1:handle=>assert.ok(retainedParts.has(handle)),
+}});
+mock.module('../global-state/external-defi-catalogue-recovery-v1.mjs',{exports:{
+ consumeExternalDefiPrivateVaultExitReopenV1(token){const row=exitReopenTokens.get(token);assert.ok(row&&!row.used,'HOST_ORIGINAL_EXIT_TOKEN');row.used=true;return row.value;},
+}});
+const { createOwnedPrivateVaultExit, assertOwnedPrivateVaultExit,createRetainedOwnedPrivateVaultExitV1,captureRetainedOwnedPrivateVaultExitV1,reopenRetainedOwnedPrivateVaultExitV1 } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
 const h = value => createHash('sha256').update('SYNTHETIC PRIVATE EXIT ' + value).digest('hex');
 const address = name => h(name).slice(0, 40), clone = value => structuredClone(value);
 const requestId = 'original_share_exit';
@@ -133,7 +144,7 @@ async function fixture(options = {}) {
   }
   options.beforeBootstrap?.(world);
   world.bootstrap = { runtime: world.runtime, system: world.system, poolIndex: 1, account: world.account, vault: world.vault };
-  if (!options.skipBootstrap) world.service = await createOwnedPrivateVaultExit(world.bootstrap);
+  if (!options.skipBootstrap) world.service = await (options.retained?createRetainedOwnedPrivateVaultExitV1:createOwnedPrivateVaultExit)(world.bootstrap);
   world.prepare = { requestId, minimumOutput: '99', deadline: '1300' };
   return world;
 }
@@ -363,4 +374,25 @@ test('MetaMorpho join refuses stale backing, invalid manual quote and copied rec
   await w.service.prepare(w.prepare); w.fakeReceipt = true;
   await assert.rejects(w.service.execute(requestId), /ORIGINAL_METAMORPHO_RECEIPT/);
   assert.equal((await w.service.snapshot()).operations[0].redeemedUnderlying, null);
+});
+
+function reopenHostExit(w,saved){
+ const nextRuntime={...w.runtime},nextAccount={...w.account},previousRuntime=w.runtime;w.runtime=nextRuntime;w.account=nextAccount;worlds.set(nextRuntime,w);
+ metamorphoWorlds.set(w.vault,w);for(const row of retainedParts.values())if(row.runtime===previousRuntime)row.runtime=nextRuntime;
+ const token=Object.freeze(Object.create(null));exitReopenTokens.set(token,{used:false,value:{input:{runtime:nextRuntime,system:w.system,poolIndex:1,account:nextAccount,vault:w.vault},saved}});return token;
+}
+test('HOST retained official EXIT reopens a new object after lost reply and reconciles the same operation without another send',async()=>{
+ const w=await fixture({metamorpho:true,retained:true});await w.service.prepare(w.prepare);w.loseSendReply=true;await assert.rejects(w.service.execute(requestId),/LOST_SEND_REPLY/);assert.equal(w.sends,1);
+ const saved=await captureRetainedOwnedPrivateVaultExitV1(w.service),token=reopenHostExit(w,saved);await assert.rejects(w.service.execute(requestId),/CLOSED/);
+ await assert.rejects(reopenRetainedOwnedPrivateVaultExitV1({...token}),/ORIGINAL_EXIT_TOKEN/);const opened=await reopenRetainedOwnedPrivateVaultExitV1(token);assert.notEqual(opened,w.service);
+ await assert.rejects(reopenRetainedOwnedPrivateVaultExitV1(token),/ORIGINAL_EXIT_TOKEN/);await assert.rejects(opened.execute(requestId),/RECONCILE_REQUIRED/);
+ const reconciled=await opened.reconcile(requestId);assert.equal(reconciled.phase,'REDEEMED');assert.equal(reconciled.redeemedUnderlying,'100');await opened.execute(requestId);assert.equal(w.sends,1);assert.equal(w.preparations,1);
+ assert.equal(reconciled.requestId,saved.record.data.operations[0].exit.requestId);assert.equal(reconciled.underlyingPrivateSpendable,false);await opened.close();
+});
+test('HOST retained official EXIT refuses a newer journal revision and an unresolved observation without manufacturing permission',async()=>{
+ const w=await fixture({metamorpho:true,retained:true});await w.service.prepare(w.prepare);const saved=await captureRetainedOwnedPrivateVaultExitV1(w.service);const original=await readFile(saved.lifetime.credentials.path);
+ await new RealVault(saved.lifetime.credentials.path).update(saved.lifetime.credentials.password,saved.record.revision,data=>data);
+ const changed=reopenHostExit(w,saved);await assert.rejects(reopenRetainedOwnedPrivateVaultExitV1(changed));assert.equal(w.sends,0);
+ await writeFile(saved.lifetime.credentials.path,original);const token=reopenHostExit(w,saved),opened=await reopenRetainedOwnedPrivateVaultExitV1(token);w.blockSend=true;const state=await opened.reconcile(requestId);assert.equal(state.sendBlocked,true);
+ await assert.rejects(opened.execute(requestId),/RECONCILE_REQUIRED/);assert.equal(w.sends,0);await opened.close();
 });

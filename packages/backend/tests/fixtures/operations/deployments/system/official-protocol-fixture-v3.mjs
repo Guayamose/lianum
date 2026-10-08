@@ -86,7 +86,10 @@ export async function captureOfficialProtocolFixtureRecoveryV1(runtime,fixture){
 }
 export async function reopenOfficialProtocolFixtureRecoveryV1(token){
  assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../../../src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs');
- const {runtime,record:r}=consumeExternalDefiBootstrapPartV1(token,'protocols');await assertOwnedLocalEvmV2(runtime);
+ return reopenOfficialProtocolRecordV1(consumeExternalDefiBootstrapPartV1(token,'protocols'));
+}
+export async function reopenOfficialProtocolVaultFixtureRecoveryV1(token){assert.equal(arguments.length,1);const {consumeExternalDefiProtocolFixtureReopenV1}=await import('../../../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return reopenOfficialProtocolRecordV1(consumeExternalDefiProtocolFixtureReopenV1(token),true);}
+async function reopenOfficialProtocolRecordV1({runtime,record:r},exitOnly=false){await assertOwnedLocalEvmV2(runtime);
  assert.equal(r.schema,'ORIGINAL_OFFICIAL_PROTOCOL_FIXTURE_V1');assert.equal(r.genesis,runtime.metadata.evmGenesis);assert.deepEqual(await runtime.block(),r.head);
  const pinsRaw=readFileSync(join(D,'protocol-fixture-artifact-pins.json'));
  assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');
@@ -109,7 +112,7 @@ export async function reopenOfficialProtocolFixtureRecoveryV1(token){
  for(const read of r.reads)assert.equal(await runtime.call({to:read.address,data:read.calldata},r.head.number),read.result,'ORIGINAL_PROTOCOL_CONFIG_STATE');
  const sender=runtime.accounts[0];
  const read=async(contract,method,args=[])=>contract.iface.decodeFunctionResult(method,await runtime.call({from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)}));
- const send=async(contract,method,args=[])=>{const receipt=await runtime.send('official-'+contract.name+'-'+method,{from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)});await runtime.assertCanonical(receipt);return receipt;};
+ const send=async(contract,method,args=[])=>{assert.equal(exitOnly,false,'METAMORPHO_EXIT_RECOVERY_NO_PROTOCOL_WRITE');const receipt=await runtime.send('official-'+contract.name+'-'+method,{from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)});await runtime.assertCanonical(receipt);return receipt;};
  const fixture=Object.freeze({runtime,first:named['input-token'],second:named['output-token'],swapRouter:named['uniswap-router'],pool,vault:named.metamorpho,blue:named['morpho-blue'],marketId:r.marketId,deployments:Object.freeze(deployments),read,send});
  await runtime.assertCanonical(r.head);assert.deepEqual(await runtime.block(),r.head);owned.set(fixture,runtime);return fixture;
 }

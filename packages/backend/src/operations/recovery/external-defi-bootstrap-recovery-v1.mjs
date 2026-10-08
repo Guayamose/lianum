@@ -91,3 +91,22 @@ export async function reopenExternalDefiBootstrapFromAuthorityV1(input){
   await runtime.assertCanonical(r.head);assert.deepEqual(await runtime.block(),r.head);return issue(s);
  }catch(error){if(operatorGroup)await Promise.allSettled(operatorGroup.operators.map(o=>o.close()));throw error;}
 }
+
+/** Separate finite system section for an EXIT-only catalogue continuation.
+ * Uses the full original system producer/consumer, never protocol/GRAPH actors.
+ * Original runtime and owner processes remain their own ordered sections. */
+export async function retainExternalDefiVaultExitSystemForReopenV1(input){
+ assert.equal(arguments.length,1);exactRecord(input,['runtime','system','attemptAuthority']);const {runtime,system,attemptAuthority}=input;assertSameAttempt(runtime,attemptAuthority);assertOwnedFlatSystem(runtime,system);
+ const head=await runtime.block(),record=await captureOwnedFlatSystemRecoveryV1(runtime,system);assert.deepEqual(record.head,head);await runtime.assertCanonical(head);assert.deepEqual(await runtime.block(),head);
+ const id={profile:'EXTERNAL_DEFI_VAULT_EXIT_SYSTEM_LIFETIME_V1',genesis:runtime.metadata.evmGenesis,hub:system.hub.address};
+ const state={schema:'EXTERNAL_DEFI_VAULT_EXIT_SYSTEM_STATE_V1',system:record};const handle=await retainWrappedPrivateLifetimePartV1(runtime,SLOT,id,state);assertWrappedPrivateLifetimePartSealedV1(handle);
+ await retainOriginalWrappedRecoverySectionV1(attemptAuthority,'system',{schema:'EXTERNAL_DEFI_VAULT_EXIT_SYSTEM_SECTION_V1',identity:id,stateSHA256:sha(state),graphRecoveryEstablished:false});
+ return {retained:true,originalResourcesStopped:true};
+}
+export async function reopenExternalDefiVaultExitSystemFromAuthorityV1(input){
+ assert.equal(arguments.length,1);exactRecord(input,['runtime','attemptAuthority']);const {runtime,attemptAuthority}=input;await assertOwnedLocalEvmV2(runtime);assertSameAttempt(runtime,attemptAuthority);
+ const d=consumeOriginalWrappedRecoverySectionV1(attemptAuthority,'system');exactRecord(d,['schema','identity','stateSHA256','graphRecoveryEstablished']);assert.equal(d.schema,'EXTERNAL_DEFI_VAULT_EXIT_SYSTEM_SECTION_V1');assert.equal(d.graphRecoveryEstablished,false);assert.equal(d.identity.profile,'EXTERNAL_DEFI_VAULT_EXIT_SYSTEM_LIFETIME_V1');assert.equal(d.identity.genesis,runtime.metadata.evmGenesis);
+ const saved=await readWrappedPrivateLifetimePartV1(runtime,SLOT,d.identity),state=saved.privateState;exactRecord(state,['schema','system']);assert.equal(state.schema,'EXTERNAL_DEFI_VAULT_EXIT_SYSTEM_STATE_V1');assert.equal(sha(state),d.stateSHA256);assertWrappedPrivateLifetimePartSealedV1(saved.handle);
+ const system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record:state.system},'system'));assertOwnedFlatSystem(runtime,system);assert.equal(system.hub.address,d.identity.hub);assert.deepEqual(await runtime.block(),state.system.head);await runtime.assertCanonical(state.system.head);
+ return Object.freeze({runtime,system,graphRecoveryEstablished:false,close:async()=>({closed:true})});
+}

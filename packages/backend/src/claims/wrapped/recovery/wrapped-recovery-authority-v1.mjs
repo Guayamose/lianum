@@ -1200,3 +1200,19 @@ export async function retainNativeEconomicBootstrapV1(authority,bootstrap){
  catch(error){s.fault=true;const failures=await abortNativeEconomicFixedCapture(s,input,['bootstrap']);
    if(failures.length)throw new AggregateError([error,...failures],'NATIVE_BOOTSTRAP_CAPTURE_AND_CLEANUP_FAILED',{cause:error});throw error;}
 }
+
+/** Finite ordered EXIT continuation. No producer/state/factory callbacks,
+ * caller pins, replacement IDs or generic protocol bootstrap are admitted. */
+export async function retainExternalDefiVaultExitSystemRecoveryV1(authority,input){
+ assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime','system']);const registry=await import('./wrapped-private-lifetime-registry-v1.mjs');registry.assertWrappedPrivateLifetimeAttemptV1(input.runtime,state(authority).identity);
+ return fixedCapture(authority,'system',async token=>{const module=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');return module.retainExternalDefiVaultExitSystemForReopenV1({...input,attemptAuthority:token});});
+}
+export async function reopenExternalDefiVaultExitSystemRecoveryV1(authority,input){
+ assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime']);return fixedReopen(authority,'system',async token=>{const module=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');return module.reopenExternalDefiVaultExitSystemFromAuthorityV1({...input,attemptAuthority:token});},value=>value.close());
+}
+export async function retainExternalDefiVaultCatalogueRecoveryV1(authority,input){
+ assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['catalogue','services']);return fixedCapture(authority,'wallet',async token=>{const module=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return module.retainExternalDefiVaultCatalogueForReopenV1(input,token);});
+}
+export async function reopenExternalDefiVaultCatalogueRecoveryV1(authority,input){
+ assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime','system','owners']);return fixedReopen(authority,'wallet',async token=>{const module=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return module.reopenExternalDefiVaultCatalogueFromRecoveryV1({...input,attemptAuthority:token});},value=>value.close());
+}

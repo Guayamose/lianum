@@ -27,6 +27,8 @@ const vaultBinding = (runtime, vault) => isOwnedOfficialStaticVaultV1(vault)
 const assertReceipt = (vault, receipt) => isOwnedOfficialStaticVaultV1(vault)
   ? assertOwnedMetaMorphoReceipt(vault, receipt) : assertOwnedBackedVaultReceipt(vault, receipt);
 
+import {createRetainedPrivateVaultExitJournalV1,openRetainedPrivateVaultExitJournalV1} from '../vaults/retained-external-vault-journal-v1.mjs';
+const recoveries=new WeakMap();
 export const PRIVATE_VAULT_EXIT_PROFILE = 'OWNED_PRIVATE_VAULT_EXIT_V1';
 const boundAccounts = new WeakSet(), owned = new WeakMap(), bindings = new WeakMap();
 const fresh = () => randomBytes(32).toString('hex');
@@ -62,8 +64,12 @@ export function ownedPrivateVaultExitBinding(runtime, service) {
 /** PRIVATE bootstrap with the actual share-account authority and same original
  * vault keeper. One join per account prevents two independent workflow journals
  * from claiming the same exit. This is surviving-keeper recovery only. */
-export async function createOwnedPrivateVaultExit(input) {
-  assert.equal(arguments.length, 1, 'PRIVATE_VAULT_EXIT_BOOTSTRAP_ARGUMENTS');
+export async function createOwnedPrivateVaultExit(input) {assert.equal(arguments.length,1,'PRIVATE_VAULT_EXIT_BOOTSTRAP_ARGUMENTS');return privateVaultExit(input,null);}
+export function createRetainedOwnedPrivateVaultExitV1(input){assert.equal(arguments.length,1);assert.ok(isOwnedOfficialStaticVaultV1(input.vault),'EXTERNAL_EXIT_OFFICIAL_VAULT_REQUIRED');return privateVaultExit(input,{saved:null});}
+export function captureRetainedOwnedPrivateVaultExitV1(service){assert.equal(arguments.length,1);const state=recoveries.get(service);assert.ok(state,'EXTERNAL_EXIT_RETAINED_REQUIRED');return state.capture();}
+export function retainedOwnedPrivateVaultExitContextV1(service){assert.equal(arguments.length,1);const state=recoveries.get(service);assert.ok(state,'EXTERNAL_EXIT_RETAINED_REQUIRED');return state.context();}
+export async function reopenRetainedOwnedPrivateVaultExitV1(token){assert.equal(arguments.length,1);const {consumeExternalDefiPrivateVaultExitReopenV1}=await import('../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');const {input,saved}=consumeExternalDefiPrivateVaultExitReopenV1(token);assert.ok(isOwnedOfficialStaticVaultV1(input.vault));return privateVaultExit(input,{saved});}
+async function privateVaultExit(input,retained) {
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'account', 'vault']);
   const { runtime, system, poolIndex, account, vault } = input;
   assert.ok(poolIndex === 0 || poolIndex === 1, 'PRIVATE_VAULT_EXIT_POOL');
@@ -81,30 +87,34 @@ export async function createOwnedPrivateVaultExit(input) {
   // recipient. A third-party beneficiary is not inferred from bootstrap data.
   assert.equal(binding.sender, binding.receiver, 'PRIVATE_VAULT_EXIT_SAME_RECIPIENT_REQUIRED');
   assert.ok(!boundAccounts.has(account), 'PRIVATE_VAULT_EXIT_ALREADY_BOUND'); boundAccounts.add(account);
-  const directory = await mkdtemp(join(runtime.metadata.scratchDirectory, 'private-vault-exit-'));
-  const store = new Vault(join(directory, 'operations.vault')), password = fresh();
+  const directory = retained?.saved?retained.saved.directory:await mkdtemp(join(runtime.metadata.scratchDirectory, 'private-vault-exit-'));
+  const store = new Vault(join(directory, 'operations.vault'));let password=retained?.saved?retained.saved.lifetime.credentials.password:fresh();
   const identity = { profile: PRIVATE_VAULT_EXIT_PROFILE, account: account.config, binding, poolIndex };
-  let record = await store.create({ identity, operations: [] }, password), pending = null, poisoned = false, busy = false;
+  let record = retained?.saved?await store.read(password):await store.create({ identity, operations: [] }, password), pending = null, poisoned = false, busy = false,closed=false,capturing=false;
+  if(retained?.saved){assert.equal(retained.saved.schema,'EXTERNAL_ORIGINAL_PRIVATE_VAULT_EXIT_V1');assert.deepEqual(retained.saved.identity,identity);assert.deepEqual(record,retained.saved.record);assert.deepEqual(record.data.identity,identity);}
+  const lifetime=retained?await (retained.saved?openRetainedPrivateVaultExitJournalV1(runtime,identity,{path:store.path,password},record,retained.saved.lifetime):createRetainedPrivateVaultExitJournalV1(runtime,identity,{path:store.path,password},record)):null;
+  const requiresReconciliation=new Set(retained?.saved?record.data.operations.map(row=>row.exit.requestId):[]);
   assert.deepEqual(await store.read(password), record, 'PRIVATE_VAULT_EXIT_INITIAL_READBACK');
   async function healthy() {
-    assert.ok(!poisoned, 'PRIVATE_VAULT_EXIT_STORAGE_UNAVAILABLE');
+    if(retained)assert.ok(!closed,'EXTERNAL_EXIT_CLOSED');assert.ok(!poisoned, 'PRIVATE_VAULT_EXIT_STORAGE_UNAVAILABLE');
     assertOwnedFlatSystem(runtime, system); assertOwnedFlatAccountAuthority(account, { runtime, system, poolIndex });
     assertVault(runtime, vault); await assertLocalEvm(runtime);
-    try { assert.deepEqual(await store.read(password), record, 'PRIVATE_VAULT_EXIT_STORAGE_CHANGED'); }
+    try {if(lifetime)await lifetime.check(record); assert.deepEqual(await store.read(password), record, 'PRIVATE_VAULT_EXIT_STORAGE_CHANGED'); }
     catch (error) { poisoned = true; throw error; }
   }
   async function exclusive(work) {
-    assert.ok(!busy, 'PRIVATE_VAULT_EXIT_BUSY'); busy = true;
+    if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_EXIT_CLOSED');assert.ok(!busy, 'PRIVATE_VAULT_EXIT_BUSY'); busy = true;
     try { await healthy(); return await work(); } finally { busy = false; }
   }
   async function write(transform) {
     try {
       await healthy(); pending = { revision: record.revision + 1, data: copy(transform(copy(record.data))) };
+      if(lifetime)await lifetime.before(record,pending);
       const next = await store.update(password, record.revision, data => {
         assert.deepEqual(data, record.data, 'PRIVATE_VAULT_EXIT_ORIGINAL_JOURNAL_REQUIRED'); return pending.data;
       });
       assert.deepEqual(next, pending, 'PRIVATE_VAULT_EXIT_WRITE_CHANGED');
-      assert.deepEqual(await store.read(password), next, 'PRIVATE_VAULT_EXIT_DURABLE_READBACK'); record = next; pending = null;
+      assert.deepEqual(await store.read(password), next, 'PRIVATE_VAULT_EXIT_DURABLE_READBACK');if(lifetime)await lifetime.acknowledged(next); record = next; pending = null;
     } catch (error) { poisoned = true; throw error; }
   }
   const find = id => { const row = record.data.operations.find(row => row.exit.requestId === requestId(id));
@@ -215,13 +225,14 @@ export async function createOwnedPrivateVaultExit(input) {
   }
   async function reconcile(id) {
     const row = find(id); assert.deepEqual(await originalExit(id), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
-    return accept(id, await vault.reconcile(row.intent.reference));
+    const result=await accept(id, await vault.reconcile(row.intent.reference));if(['READY_TO_REDEEM','REDEEMED','REVERTED'].includes(result.phase)&&!result.sendBlocked)requiresReconciliation.delete(id);return result;
   }
   const service = Object.freeze({
     async prepare(input) {
       assert.equal(arguments.length, 1); exactRecord(input, ['requestId', 'minimumOutput', 'deadline']);
       const intent = copy(input); requestId(intent.requestId); uint(intent.minimumOutput); uint(intent.deadline, 64);
       return exclusive(async () => {
+        if(retained?.saved)assert.ok(record.data.operations.some(row=>row.exit.requestId===intent.requestId),'EXTERNAL_EXIT_ORIGINAL_REQUEST_ONLY');assert.ok(!requiresReconciliation.has(intent.requestId),'EXTERNAL_EXIT_RECONCILE_REQUIRED');
         const exit = await originalExit(intent.requestId);
         let row = record.data.operations.find(row => row.exit.requestId === intent.requestId);
         if (row) {
@@ -253,7 +264,7 @@ export async function createOwnedPrivateVaultExit(input) {
       assert.equal(arguments.length, 1); exactRecord(input, ['requestId', 'minimumOutput', 'deadline']);
       const intent = copy(input); requestId(intent.requestId); uint(intent.minimumOutput); uint(intent.deadline, 64);
       return exclusive(async () => {
-        let row = find(intent.requestId);
+        assert.ok(!requiresReconciliation.has(intent.requestId),'EXTERNAL_EXIT_RECONCILE_REQUIRED');let row = find(intent.requestId);
         assert.deepEqual(await originalExit(intent.requestId), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
         assert.ok(['READY_TO_REDEEM', 'REQUOTING_REDEMPTION'].includes(row.phase), 'PRIVATE_VAULT_EXIT_REQUOTE_UNSUBMITTED_ONLY');
         if (row.phase === 'REQUOTING_REDEMPTION') {
@@ -278,7 +289,7 @@ export async function createOwnedPrivateVaultExit(input) {
     async execute(id) {
       assert.equal(arguments.length, 1); requestId(id);
       return exclusive(async () => {
-        const row = find(id); assert.deepEqual(await originalExit(id), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
+        assert.ok(!requiresReconciliation.has(id),'EXTERNAL_EXIT_RECONCILE_REQUIRED');const row = find(id); assert.deepEqual(await originalExit(id), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
         if (['REDEEMED', 'REVERTED'].includes(row.phase)) return reconcile(id);
         assert.equal(row.phase, 'READY_TO_REDEEM', 'PRIVATE_VAULT_EXIT_RECONCILE_REQUIRED');
         assert.equal(row.sendBlocked, false, 'PRIVATE_VAULT_EXIT_SEND_BLOCKED');
@@ -302,8 +313,9 @@ export async function createOwnedPrivateVaultExit(input) {
         const result = await vault.reconcile(row.intent.reference); checkAction(row, result);
         assertReceipt(vault, result); return result; });
     },
+    ...(retained?{close(){assert.ok(!busy&&!pending,'EXTERNAL_EXIT_BUSY');closed=true;password=null;return {closed:true};}}:{}),
     async reopen() {
-      assert.equal(arguments.length, 0); assert.ok(!busy, 'PRIVATE_VAULT_EXIT_BUSY'); busy = true;
+      assert.equal(arguments.length, 0);if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_EXIT_CLOSED');assert.ok(!busy, 'PRIVATE_VAULT_EXIT_BUSY'); busy = true;
       try {
         assertOwnedFlatAccountAuthority(account, { runtime, system, poolIndex });
         assertVault(runtime, vault); await assertLocalEvm(runtime);
@@ -313,7 +325,7 @@ export async function createOwnedPrivateVaultExit(input) {
         if (pending && next.revision === pending.revision)
           assert.deepEqual(next, pending, 'PRIVATE_VAULT_EXIT_ORIGINAL_JOURNAL_REQUIRED');
         else assert.deepEqual(next, record, 'PRIVATE_VAULT_EXIT_ORIGINAL_JOURNAL_REQUIRED');
-        await vault.reopen(); record = next; pending = null; poisoned = false;
+        if(lifetime)await lifetime.check(next);await vault.reopen(); record = next; pending = null; poisoned = false;
         return detached({ reopened: true, originalIdentitiesRetained: true, keeperRestart: false,
           requestIds: record.data.operations.map(row => row.exit.requestId) });
       } catch (error) { poisoned = true; throw error; } finally { busy = false; }
@@ -321,5 +333,5 @@ export async function createOwnedPrivateVaultExit(input) {
   });
   bindings.set(service, Object.freeze({ runtime, system, poolIndex, account, vault,
     shareAssetId: asset.assetId, binding: detached(binding) }));
-  owned.set(service, runtime); return service;
+  owned.set(service, runtime);if(retained)recoveries.set(service,{context(){assert.ok(!closed&&!capturing);return Object.freeze({runtime,system,poolIndex,account,vault,identity});},async capture(){assert.ok(!busy&&!closed&&!capturing&&!poisoned&&!pending,'EXTERNAL_EXIT_CAPTURE_IDLE');capturing=true;busy=true;try{await healthy();for(const row of record.data.operations)assert.deepEqual(await originalExit(row.exit.requestId),row.exit,'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');const saved={schema:'EXTERNAL_ORIGINAL_PRIVATE_VAULT_EXIT_V1',directory,identity:copy(identity),record:copy(record),lifetime:await lifetime.capture(record)};closed=true;password=null;return saved;}catch(error){poisoned=true;closed=true;password=null;throw error;}finally{busy=false;}}});return service;
 }

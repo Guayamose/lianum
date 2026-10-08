@@ -5,9 +5,12 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {GENERIC_COMPILER_PIN} from '../../../../../../engine/src/execution/local/local-deployment.mjs';
 import { ROOT } from '../../../../../../proofs/src/catalog.mjs';
 import { assertOwnedLocalEvmV2 } from '../../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { loadBackedAssetDeploymentArtifacts } from '../../../../../src/operations/deployments/defi/deploy-backed-assets.mjs';
+import {loadOfficialAaveWrapperSourcesV1} from '../../../../../src/operations/deployments/defi/aave-v3-official-material-v1.mjs';
+import {exactRecord} from '../../../../../src/execution/encoding/commitments.mjs';
 import { loadOfficialAaveCoreArtifactsV1 } from '../../../../../src/operations/deployments/defi/aave-v3-official-material-v1.mjs';
 import { compileAaveDevelopmentContractsV1 } from '../../../../../src/operations/deployments/defi/aave-v3-development-compilation-v1.mjs';
 import { linkAaveCreationCodeV1, expectedAaveRuntimeCodeV1 } from '../../../../../src/operations/deployments/defi/aave-v3-runtime-code-v1.mjs';
@@ -144,6 +147,15 @@ export async function createOfficialAaveFixtureV1(runtime) {
   const yieldReceiver = await deploy('LocalAaveFlashYield',build.artifacts.LocalAaveFlashYield,[pool.address,first.address],
     {pool:pool.address,asset:first.address,sender},build.sourceASTs);
   await send(first,'transfer',[yieldReceiver.address,90_000n]);
+  return officialAaveFacadeV1(runtime,build,{first,vault,pool,provider,configurator,aToken,stableDebt,variableDebt,strategy,yieldReceiver,deployments,proxies});
+
+}
+
+async function officialAaveFacadeV1(runtime,build,actors,exitOnly=false){
+ const {first,vault,pool,provider,configurator,aToken,stableDebt,variableDebt,strategy,yieldReceiver,deployments,proxies}=actors;
+ const sender=runtime.accounts[0];
+ async function read(contract,method,args=[],tag='latest'){return contract.iface.decodeFunctionResult(method,await runtime.call({from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)},tag));}
+ async function send(contract,method,args=[]){assert.equal(exitOnly,false,'AAVE_EXIT_RECOVERY_NO_PROTOCOL_WRITE');const receipt=await runtime.send('aave-official-'+contract.name+'-'+method,{from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)});await runtime.assertCanonical(receipt);return receipt;}
   let fixture;
   async function assertCurrent(tag = 'latest') {
     assertOfficialAaveFixtureV1(runtime,fixture); await assertOwnedLocalEvmV2(runtime); const head = await runtime.block(tag);
@@ -180,3 +192,41 @@ export async function createOfficialAaveFixtureV1(runtime) {
       inputSHA256:build.inputSHA256,sourceRecords:build.sourceRecords,outputSHA256:sha(JSON.stringify({artifacts:build.artifacts,sourceASTs:build.sourceASTs}))})});
   owned.set(fixture,{runtime,build}); await assertCurrent(); return fixture;
 }
+
+function aaveRecoveryArtifactsV1(core,build){
+ return {underlying:loadBackedAssetDeploymentArtifacts().artifacts.token,...core.artifacts,
+ StaticATokenLMImplementation:build.artifacts.StaticATokenLM,StaticATokenLMProxy:core.artifacts.AdminUpgradeabilityProxy,LocalAaveFlashYield:build.artifacts.LocalAaveFlashYield};
+}
+function assertRetainedAaveBuildV1(build){
+ assertOfficialAaveSourceReviewV1();assert.equal(build.compiler,GENERIC_COMPILER_PIN.version);assert.deepEqual(build.compilerPin,GENERIC_COMPILER_PIN);const sources=loadOfficialAaveWrapperSourcesV1();
+ for(const name of ['BoundedMetaMorphoExit.sol','BoundedAaveStaticExit.sol','LocalAaveFlashYield.sol','PrivateAaveStaticDelivery.sol'])sources['contracts/defi/'+name]={content:readFileSync(join(ROOT,'contracts/defi',name),'utf8')};
+ const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',outputSelection:{'*':{'*':['abi','evm.bytecode','evm.deployedBytecode'],'':['ast']}}};
+ assert.deepEqual(build.settings,settings);assert.equal(sha(JSON.stringify({language:'Solidity',sources,settings})),build.inputSHA256);assert.equal(build.inputSHA256,OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationInputSHA256);
+ assert.equal(sha(JSON.stringify({artifacts:build.artifacts,sourceASTs:build.sourceASTs})),OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationOutputSHA256);
+ assert.deepEqual(build.sourceRecords,Object.entries(sources).sort(([a],[b])=>a.localeCompare(b)).map(([path,row])=>({path,bytes:Buffer.byteLength(row.content),sha256:sha(row.content)})));
+}
+export async function captureOfficialAaveFixtureRecoveryV1(runtime,fixture){
+ assert.equal(arguments.length,2);assertOfficialAaveFixtureV1(runtime,fixture);const head=await fixture.assertCurrent(),build=owned.get(fixture).build;assertRetainedAaveBuildV1(build);
+ const core=loadOfficialAaveCoreArtifactsV1(),artifacts=aaveRecoveryArtifactsV1(core,build);
+ const records=fixture.deployments.map(row=>({name:row.name,address:row.address,code:row.code,receipt:structuredClone(row.receipt),creationSHA256:row.creationSHA256,artifactSHA256:sha(JSON.stringify(artifacts[row.name]))}));
+ const proxies=fixture.proxies.map(row=>({name:row.name,address:row.address,code:row.code,implementation:row.implementation,...(row.admin?{admin:row.admin}:{}),...(row.receipt?{receipt:structuredClone(row.receipt),creationSHA256:row.creationSHA256}:{})}));
+ const actors=Object.fromEntries(['first','vault','pool','provider','configurator','aToken','stableDebt','variableDebt','strategy','yieldReceiver'].map(name=>[name,fixture[name].address]));
+ await runtime.assertCanonical(head);assert.deepEqual(await runtime.block(),head);
+ return {schema:'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1',genesis:runtime.metadata.evmGenesis,head:structuredClone(head),buildFrame:aaveBuildFrameV1(build),records,proxies,actors};
+}
+export async function reopenOfficialAaveFixtureRecoveryV1(token){
+ assert.equal(arguments.length,1);const {consumeExternalDefiProtocolFixtureReopenV1}=await import('../../../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs');const {runtime,record:r}=consumeExternalDefiProtocolFixtureReopenV1(token);
+ exactRecord(r,['schema','genesis','head','buildFrame','records','proxies','actors']);assert.equal(r.schema,'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1');assert.equal(r.genesis,runtime.metadata.evmGenesis);await assertOwnedLocalEvmV2(runtime);assert.deepEqual(await runtime.block(),r.head);const retainedBuild=aaveBuildFromFrameV1(r.buildFrame);assertRetainedAaveBuildV1(retainedBuild);
+ const pinsRaw=readFileSync(join(ROOT,'wallet-platform/artifacts/private-external-v1/protocol-fixture-artifact-pins.json'));assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8');
+ for(const row of JSON.parse(pinsRaw).files.filter(row=>row.path.startsWith('abi-tools/')))assert.equal(sha(readFileSync(join(ROOT,'wallet-platform/artifacts/private-external-v1',row.path))),row.sha256);
+ const {Interface}=createRequire(join(ROOT,'wallet-platform/artifacts/private-external-v1/abi-tools/package.json'))('ethers'),core=loadOfficialAaveCoreArtifactsV1(),artifacts=aaveRecoveryArtifactsV1(core,retainedBuild),deployments=[],byAddress=new Map(),libraries={};
+ const libraryNames=new Set(Object.values(core.artifacts).flatMap(artifact=>Object.values(artifact.evm.bytecode.linkReferences).flatMap(refs=>Object.keys(refs))));
+ for(const row of r.records){assert.ok(artifacts[row.name]&&!byAddress.has(row.address),'AAVE_ORIGINAL_DEPLOYMENT_REQUIRED');const artifact=artifacts[row.name];assert.equal(sha(JSON.stringify(artifact)),row.artifactSHA256);const originals=runtime.transactions.filter(tx=>tx.transactionHash===row.receipt.transactionHash);assert.equal(originals.length,1);const tx=originals[0];assert.equal(tx.label,'aave-official-deploy-'+row.name);assert.equal(tx.phase,'mined');assert.equal(tx.request.from,runtime.accounts[0]);assert.ok(tx.request.data.startsWith(linkAaveCreationCodeV1(artifact,libraries)));assert.equal(sha(Buffer.from(tx.request.data.slice(2),'hex')),row.creationSHA256);assert.deepEqual(tx.receipt,row.receipt);assert.equal(row.receipt.status,'0x1');assert.equal(row.receipt.contractAddress.toLowerCase(),row.address);await runtime.checkReceipt(row.receipt);await runtime.assertCanonical(row.receipt);assert.equal(await runtime.code(row.address,r.head.number),row.code);const record=Object.freeze({...structuredClone(row),iface:new Interface(artifact.abi)});deployments.push(record);byAddress.set(record.address,record);if(libraryNames.has(row.name))libraries[row.name]=row.address;}
+ const proxies=[];
+ for(const row of r.proxies){const implementation=byAddress.get(row.implementation);assert.ok(implementation,'AAVE_ORIGINAL_PROXY_IMPLEMENTATION');assert.equal(await runtime.code(row.address,r.head.number),row.code);assert.equal(await runtime.proxyImplementation1967(row.address,r.head.number),row.implementation);if(row.admin){assert.equal(await runtime.proxyAdmin1967(row.address,r.head.number),row.admin);assert.equal(row.admin,r.actors.provider);assert.notEqual(row.admin,runtime.accounts[0]);}const original=byAddress.get(row.address);if(original){assert.equal(original.code,row.code);assert.deepEqual(original.receipt,row.receipt);}const proxy=Object.freeze({...structuredClone(row),iface:implementation.iface});proxies.push(proxy);byAddress.set(proxy.address,proxy);}
+ const actors={deployments,proxies};exactRecord(r.actors,['first','vault','pool','provider','configurator','aToken','stableDebt','variableDebt','strategy','yieldReceiver']);for(const [name,address]of Object.entries(r.actors)){assert.ok(byAddress.has(address));actors[name]=byAddress.get(address);}
+ const fixture=await officialAaveFacadeV1(runtime,retainedBuild,actors,true);await runtime.assertCanonical(r.head);assert.deepEqual(await runtime.block(),r.head);return fixture;
+}
+
+function aaveBuildFrameV1(build){const bytes=Buffer.from(JSON.stringify(build));assert.ok(bytes.length<=16*1024*1024);return {profile:'ORIGINAL_AAVE_BUILD_JSON_FRAME_V1',bytes:bytes.length,sha256:sha(bytes),chunks:Array.from({length:Math.ceil(bytes.length/65536)},(_,i)=>bytes.subarray(i*65536,(i+1)*65536).toString('base64'))};}
+function aaveBuildFromFrameV1(frame){exactRecord(frame,['profile','bytes','sha256','chunks']);assert.equal(frame.profile,'ORIGINAL_AAVE_BUILD_JSON_FRAME_V1');assert.ok(Number.isSafeInteger(frame.bytes)&&frame.bytes>0&&frame.bytes<=16*1024*1024);assert.ok(Array.isArray(frame.chunks)&&frame.chunks.length===Math.ceil(frame.bytes/65536));const bytes=Buffer.concat(frame.chunks.map((text,i)=>{assert.equal(typeof text,'string');const part=Buffer.from(text,'base64');assert.equal(part.toString('base64'),text);assert.equal(part.length,i+1===frame.chunks.length?frame.bytes-i*65536:65536);return part;}));assert.equal(bytes.length,frame.bytes);assert.equal(sha(bytes),frame.sha256);const json=bytes.toString('utf8');assert.ok(Buffer.from(json).equals(bytes));const build=JSON.parse(json);assert.equal(JSON.stringify(build),json);return build;}

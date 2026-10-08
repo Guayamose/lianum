@@ -20,6 +20,8 @@ import { expectedAaveRuntimeCodeV1 } from '../../operations/deployments/defi/aav
 import { assertAaveStaticRedemptionAccountingV1 } from './aave-static-redemption-accounting-v1.mjs';
 import { assertMorphoVaultRedemptionAccountingV1 } from './morpho-vault-redemption-accounting-v1.mjs';
 
+const recoveries = new WeakMap();
+import {createRetainedOfficialVaultJournalV1,openRetainedOfficialVaultJournalV1} from './retained-external-vault-journal-v1.mjs';
 const variants = new WeakMap(), owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const clone = value => JSON.parse(canonical(value));
@@ -66,17 +68,24 @@ function expectedCode(build, vault, asset) {
 
 export function createOwnedMetaMorphoVault(input) { assert.equal(arguments.length,1); return createOwnedProtocolVaultV1(input,'METAMORPHO'); }
 export function createOwnedAaveStaticVaultV1(input) { assert.equal(arguments.length,1); return createOwnedProtocolVaultV1(input,'AAVE_STATIC'); }
-async function createOwnedProtocolVaultV1(input, variant) {
+export function createRetainedOwnedMetaMorphoVaultV1(input){assert.equal(arguments.length,1);return createOwnedProtocolVaultV1(input,'METAMORPHO',{saved:null});}
+export function createRetainedOwnedAaveStaticVaultV1(input){assert.equal(arguments.length,1);return createOwnedProtocolVaultV1(input,'AAVE_STATIC',{saved:null});}
+export function captureRetainedOwnedOfficialStaticVaultV1(value){assert.equal(arguments.length,1);const state=recoveries.get(value);assert.ok(state,'EXTERNAL_VAULT_RETAINED_REQUIRED');return state.capture();}
+export function retainedOwnedOfficialStaticVaultContextV1(value){assert.equal(arguments.length,1);const state=recoveries.get(value);assert.ok(state,'EXTERNAL_VAULT_RETAINED_REQUIRED');return state.context();}
+export async function reopenRetainedOwnedOfficialStaticVaultV1(token){assert.equal(arguments.length,1);const {consumeExternalDefiOfficialVaultReopenV1}=await import('../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');const {input,saved}=consumeExternalDefiOfficialVaultReopenV1(token);assert.ok(['METAMORPHO','AAVE_STATIC'].includes(saved.variant));return createOwnedProtocolVaultV1(input,saved.variant,{saved});}
+async function createOwnedProtocolVaultV1(input, variant, retained = null) {
   const aave = variant === 'AAVE_STATIC'; exactRecord(input, ['runtime', 'protocolFixture']);
   const { runtime, protocolFixture: fixture } = input;
   await assertOwnedLocalEvmV2(runtime); if(aave)assertOfficialAaveFixtureV1(runtime,fixture);else assertOfficialProtocolFixture(runtime, fixture);
   assert.equal(runtime.metadata.chainId, '31337');
   const require = createRequire(join(ROOT, 'wallet-platform/artifacts/private-external-v1/abi-tools/package.json'));
   const originalBuild = aave ? officialAaveFixtureCompilationV1(runtime,fixture) : null;
-  const { Interface } = require('ethers'), build = aave ? {...originalBuild,artifact:originalBuild.artifacts.BoundedAaveStaticExit,sourceSHA256:originalBuild.inputSHA256} : compileExit(), iface = new Interface(build.artifact.abi);
+  const { Interface } = require('ethers'), build = aave ? {...originalBuild,artifact:originalBuild.artifacts.BoundedAaveStaticExit,sourceSHA256:originalBuild.inputSHA256} : (retained?.saved?retained.saved.build:compileExit()), iface = new Interface(build.artifact.abi);
   const sender = runtime.accounts[0], vault = fixture.vault, asset = fixture.first;
   const creation = '0x' + build.artifact.evm.bytecode.object + iface.encodeDeploy([vault.address]).slice(2);
-  const deployment = await runtime.send(aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit', { from: sender, data: creation });
+  if(retained?.saved){assert.equal(retained.saved.schema,'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1');assert.equal(retained.saved.variant,variant);assert.deepEqual(retained.saved.build,build);if(!aave)assert.equal(build.sourceSHA256,sha(readFileSync(join(ROOT,'contracts/defi/BoundedMetaMorphoExit.sol'),'utf8')));assert.match(build.compiler,/^0\.8\.37\+commit\.f401782d/);}
+  const deployment = retained?.saved ? retained.saved.deployment : await runtime.send(aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit', { from: sender, data: creation });
+  if(retained?.saved){const original=runtime.transactions.filter(row=>row.transactionHash===deployment.transactionHash);assert.equal(original.length,1);assert.equal(original[0].label,aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit');assert.equal(original[0].phase,'mined');assert.equal(original[0].request.from,sender);assert.equal(original[0].request.data,creation);assert.deepEqual(original[0].receipt,deployment);await runtime.checkReceipt(deployment);}
   await runtime.assertCanonical(deployment); const router = deployment.contractAddress.toLowerCase();
   const routerCode = aave ? expectedAaveRuntimeCodeV1(build.artifact,build.sourceASTs,{}, {vault:vault.address,asset:asset.address}) : expectedCode(build, vault.address, asset.address);
   assert.equal(await runtime.code(router, deployment.blockNumber), routerCode, 'METAMORPHO_EXIT_DEPLOYED_CODE');
@@ -84,17 +93,21 @@ async function createOwnedProtocolVaultV1(input, variant) {
     runtimeId: sha(runtime.metadata.scratchDirectory), asset: bare(asset.address), vault: bare(vault.address),
     assetCodeSHA256: sha(Buffer.from(bare(asset.code), 'hex')), vaultCodeSHA256: sha(Buffer.from(bare(vault.code), 'hex')) });
   const binding = detached({ identity: id, sender: bare(sender), receiver: bare(sender) });
-  const directory = await mkdtemp(join(runtime.metadata.scratchDirectory, aave?'aave-static-exit-':'metamorpho-exit-'));
-  const store = new Vault(join(directory, 'operations.vault')), password = fresh(), keeper = fresh();
-  let record = await store.create({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', identity: id, router, operations: [], sendBlocked: false }, password);
-  let busy = false, poisoned = false, pending = null, adapter;
+  const directory = retained?.saved ? retained.saved.directory : await mkdtemp(join(runtime.metadata.scratchDirectory, aave?'aave-static-exit-':'metamorpho-exit-'));
+  const store = new Vault(join(directory, 'operations.vault'));let password=retained?.saved?retained.saved.lifetime.credentials.password:fresh();const keeper=retained?.saved?retained.saved.keeper:fresh();
+  let record = retained?.saved ? await store.read(password) : await store.create({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', identity: id, router, operations: [], sendBlocked: false }, password);
+  const lifetimeIdentity={profile:'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_LIFETIME_V1',variant,binding};
+  if(retained?.saved){assert.deepEqual(binding,retained.saved.binding);assert.deepEqual(record,retained.saved.record);assert.equal(record.data.profile,aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1');assert.deepEqual(record.data.identity,id);assert.equal(record.data.router,router);}
+  const lifetime=retained?await (retained.saved?openRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record,retained.saved.lifetime):createRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record)):null;
+  let busy = false, poisoned = false, pending = null, adapter,closed=false,capturing=false;
   const assertFixture = async () => { assertOfficialProtocolFixture(runtime, fixture); await assertOwnedLocalEvmV2(runtime); };
-  async function healthy() { assert.ok(!poisoned, 'METAMORPHO_STORAGE_UNAVAILABLE'); await assertFixture();
-    try { assert.deepEqual(await store.read(password), record, 'METAMORPHO_JOURNAL_CHANGED'); } catch (error) { poisoned = true; throw error; } }
-  async function exclusive(work) { assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try { await healthy(); return await work(); } finally { busy = false; } }
+  async function healthy() { if(retained)assert.ok(!closed,'EXTERNAL_VAULT_CLOSED'); assert.ok(!poisoned, 'METAMORPHO_STORAGE_UNAVAILABLE'); await assertFixture();
+    try { if(lifetime)await lifetime.check(record);assert.deepEqual(await store.read(password), record, 'METAMORPHO_JOURNAL_CHANGED'); } catch (error) { poisoned = true; throw error; } }
+  async function exclusive(work) {if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_VAULT_CLOSED'); assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try { await healthy(); return await work(); } finally { busy = false; } }
   async function write(transform) { try { await healthy(); pending = { revision: record.revision + 1, data: clone(transform(clone(record.data))) };
+    if(lifetime)await lifetime.before(record,pending);
     const next = await store.update(password, record.revision, old => { assert.deepEqual(old, record.data); return pending.data; });
-    assert.deepEqual(next, pending); assert.deepEqual(await store.read(password), next); record = next; pending = null;
+    assert.deepEqual(next, pending); assert.deepEqual(await store.read(password), next);if(lifetime)await lifetime.acknowledged(next); record = next; pending = null;
   } catch (error) { poisoned = true; throw error; } }
   const find = ref => { reference(ref); const row = record.data.operations.find(row => row.reference === ref); assert.ok(row, 'METAMORPHO_PREPARATION_REQUIRED'); return row; };
   const update = (ref, changes) => write(data => ({ ...data, operations: data.operations.map(row => row.reference === ref ? { ...row, ...clone(changes) } : row) }));
@@ -289,14 +302,17 @@ async function createOwnedProtocolVaultV1(input, variant) {
     async reconcile(ref) { return exclusive(async () => { const row = find(ref);
       const freshObservation = row.execution ? await reconcileSend(ref, 'execution') : row.approval ? await reconcileSend(ref, 'approval') : false;
       return output(ref, freshObservation); }); },
-    async reopen() { assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try {
+    async reopen() {if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_VAULT_CLOSED'); assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try {
       await assertFixture(); const next = await store.read(password);
       assert.deepEqual(next, pending && next.revision === pending.revision ? pending : record, 'METAMORPHO_ORIGINAL_CHECKPOINT');
-      record = next; pending = null; poisoned = false;
+      if(lifetime)await lifetime.check(next);record = next; pending = null; poisoned = false;
       return { reopened: true, processRestartSupported: false, references: record.data.operations.map(row => row.reference) };
     } catch (error) { poisoned = true; throw error; } finally { busy = false; } },
+    ...(retained?{close(){assert.ok(!busy&&!pending,'EXTERNAL_VAULT_BUSY');closed=true;password=null;return {closed:true};}}:{}),
     metadata: detached({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', sourceSHA256: build.sourceSHA256, compiler: build.compiler,
       publicRedemption: true, privateSpendable: false, underlyingAddress: asset.address, vaultAddress: vault.address, routerAddress: router }),
   });
-  owned.set(adapter, runtime); variants.set(adapter,variant); bindings.set(adapter, binding); return adapter;
+  owned.set(adapter, runtime); variants.set(adapter,variant); bindings.set(adapter, binding);
+  if(retained){recoveries.set(adapter,{context(){assert.ok(!closed&&!capturing);return Object.freeze({runtime,fixture,variant,binding});},async capture(){assert.ok(!busy&&!closed&&!capturing&&!poisoned&&!pending,'EXTERNAL_VAULT_CAPTURE_IDLE');capturing=true;busy=true;try{await healthy();await observed();const saved={schema:'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1',variant,directory,keeper,binding:clone(binding),build:structuredClone(build),deployment:clone(deployment),record:clone(record),lifetime:await lifetime.capture(record)};closed=true;password=null;return saved;}catch(error){poisoned=true;closed=true;password=null;throw error;}finally{busy=false;}}});}
+  return adapter;
 }
