@@ -58,9 +58,10 @@ const vault = {
   async reopen() { return { reopened: true, originalIdentitiesRetained: true, keeperRestart: false, requestIds: operations.map(row => row.requestId) }; },
 };
 Object.freeze(vault); vaultBrand.set(vault, syntheticRuntime);
-const app = await startWalletApplication({ actionAccessMode: 'exact-only', accountSession: account,
+let app = await startWalletApplication({ actionAccessMode: 'exact-only', accountSession: account,
   defiExit: { runtime: syntheticRuntime, service: vault } });
 let browser, driver, report, cleanup;
+const browserClosures = [];
 try {
   browser = await startOwnedWalletBrowser(join(ROOT, '.local/manual-wallet-dom-contract'), app.origin);
   driver = await createManualWalletDomDriver(app, { page: browser.page, deadlineMs: Date.now() + 90000 });
@@ -84,23 +85,56 @@ try {
   // to establish the shared driver's generation-bound reopen postcondition.
   await driver.duplicateDefiExecute(exitId);
   assert.equal(effects.filter(item => item.syntheticRedemption).length, 1);
+  const firstEvidence = driver.evidence();
+  const originalIds = rows.map(row => row.requestId);
+  const oldGrant = app.issueActionCapability({ action: 'accountReconcile', body: { requestId } });
+  const firstOrigin = app.origin;
+  driver.close();
+  browserClosures.push(await browser.close());
+  browser = null;
+  await app.close();
+  app = await startWalletApplication({ actionAccessMode: 'exact-only', accountSession: account,
+    defiExit: { runtime: syntheticRuntime, service: vault } });
+  assert.notEqual(app.origin, firstOrigin);
+  browser = await startOwnedWalletBrowser(join(ROOT, '.local/manual-wallet-dom-contract'), app.origin);
+  driver = await createManualWalletDomDriver(app, { page: browser.page, deadlineMs: Date.now() + 90000 });
+  await driver.rejectForeignListenerGrant('accountReconcile', { requestId }, oldGrant);
+  await driver.account('reconcile', { requestId });
+  await driver.defi('reconcile', { requestId: exitId });
+  assert.deepEqual(rows.map(row => row.requestId), originalIds);
+  assert.equal(effects.filter(item => item.syntheticRedemption).length, 1);
   report = { format: 'SYNTHETIC_LOWER_SERVICES_DOM_CONTRACT_V1', contractPassed: true,
     genuineProofAcceptance: false, nativeEffects: 0, browser: browser.version, guard: browser.inspect(),
-    generationReopenExercised: false, syntheticServiceEffects: effects, evidence: driver.evidence() };
+    generationReopenExercised: false, syntheticServiceEffects: effects,
+    listenerReplacement: { browserInstances: 2, sameSyntheticAccount: true, sameSyntheticVaultJournal: true,
+      originalRequestIdsRetained: true, oldGrantRejected: true, originalReconcileCompleted: true },
+    evidence: [...firstEvidence, ...driver.evidence()] };
 } catch (error) {
+  let latchedBrowserFailure = null;
+  try { browser?.inspect(); } catch (failure) { latchedBrowserFailure = failure.message; }
   console.log(JSON.stringify({ accepted: false, failure: error.message,
     browserCleanup: error.browserCleanup ?? null, diagnostics: browser?.diagnostics?.(),
-    genuineProofAcceptance: false, nativeEffects: 0 }));
+    latchedBrowserFailure, genuineProofAcceptance: false, nativeEffects: 0 }));
   throw error;
 } finally {
   driver?.close();
-  try { cleanup = await browser?.close(); } finally { await app.close(); }
+  try {
+    cleanup = await browser?.close();
+    if (cleanup) browserClosures.push(cleanup);
+  } catch (error) {
+    console.log(JSON.stringify({ accepted: false, browserCleanup: error.browserCleanup ?? null,
+      latchedBrowserFailure: error.cause?.message ?? error.message, genuineProofAcceptance: false, nativeEffects: 0 }));
+    throw error;
+  } finally { await app.close(); }
   if (cleanup && !report) console.log(JSON.stringify({ closedAfterRejectedContract: true, cleanup }));
 }
-assert.equal(cleanup.browserOwnedCleanupConfirmed, true);
-assert.equal(cleanup.guardPassed, true); assert.equal(cleanup.sandboxedRendererObserved, true);
-assert.deepEqual(cleanup.exit, { code: 0, signal: null });
-assert.deepEqual(cleanup.outsideOwnedGroup, []); assert.deepEqual(cleanup.signals, []);
-assert.equal(cleanup.newChromeProcessesRemaining, 0);
+assert.equal(browserClosures.length, 2);
+for (const closure of browserClosures) {
+  assert.equal(closure.browserOwnedCleanupConfirmed, true);
+  assert.equal(closure.guardPassed, true); assert.equal(closure.sandboxedRendererObserved, true);
+  assert.deepEqual(closure.exit, { code: 0, signal: null });
+  assert.deepEqual(closure.outsideOwnedGroup, []); assert.deepEqual(closure.signals, []);
+  assert.equal(closure.newChromeProcessesRemaining, 0);
+}
 assert.deepEqual(walletBrowserRuntimePins(), runtimePins);
-console.log(JSON.stringify({ ...report, cleanup, sourceDistributionUnchanged: true }));
+console.log(JSON.stringify({ ...report, cleanup, browserClosures, sourceDistributionUnchanged: true }));
