@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {mkdir,rm,readFile,writeFile} from 'node:fs/promises';
+import {mkdir,rm,readFile,writeFile,lstat,utimes} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
@@ -23,7 +23,8 @@ const relative=mapped?{
  "gate": "./native-value-evm-dispatch-gate.mjs",
  "profile": "./evm-native-value-v2.mjs",
  "authority": "../native-claims/wrapped-recovery-authority-v1.mjs",
- "admission": "../../../../../omnichain-product/src/paeg/native-admission.mjs"
+ "admission": "../../../../../omnichain-product/src/paeg/native-admission.mjs",
+ "vault": "../../../../../omnichain-product/src/vault.mjs"
 }: {
  provider:'../../../../src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs',system:'../../../../src/operations/deployments/native-value/native-value-system-v2.mjs',
  quorum:'../../../../src/operations/operators/native-value/native-value-operators-v4.mjs',bootstrap:'../../../../src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs',
@@ -32,6 +33,7 @@ const relative=mapped?{
  journal:'../../../../src/chains/shared/dispatch/native-value-dispatch-journal-v2.mjs',gate:'../../../../src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs',
  profile:'../../../../src/chains/evm/transfers/evm-native-value-v2.mjs',authority:'../../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',
  admission:'../../../../../engine/src/execution/native/dispatch/native-admission.mjs',
+ vault:'../../../../../engine/src/crypto/vault.mjs',
 };
 const urls=Object.fromEntries(Object.entries(relative).map(([key,path])=>[key,new URL(path,import.meta.url).href]));
 const fixedRoot=fileURLToPath(new URL('../../../',urls.authority));
@@ -58,7 +60,7 @@ async function setup(urls){
  const state=raw=>copy(raw.events.at(-1)?.data??{phase:'BOUND',intent:null,providerKeyStarted:false,dispatchSignature:null,sendStarted:false,signed:null});
  mock.module(urls.journal,{exports:{createNativeValueDispatchJournal(){return {schema:'INERT_HOST_JOURNAL',events:[]};},readNativeValueDispatchJournal(_binding,raw){assert.equal(raw.schema,'INERT_HOST_JOURNAL');return state(raw);},assertNativeValueRetainedIntent:(_binding,intent)=>copy(intent)}});
  mock.module(urls.gate,{exports:{consumeNativeValueProviderBindRequest(request,expected){assert.deepEqual(bindRequests.get(request),expected,'HOST_ORIGINAL_BIND_REQUEST');bindRequests.delete(request);}}});
- const profileModule=await import(urls.profile),admission=await import(urls.admission),provider=await import(urls.provider),authority=await import(urls.authority);
+ const profileModule=await import(urls.profile),admission=await import(urls.admission),provider=await import(urls.provider),authority=await import(urls.authority),{Vault}=await import(urls.vault);
  function contexts(directory){
   const genesis=h('genesis'),profile=profileModule.createProfile({chain:'ethereum',genesisHash:'0x'+genesis,sourceSetRoot:h('sources'),maximumAncestry:'32',maximumEvidenceLifetime:'300',maximumBlockAgeMs:'10000',maximumClockSkewMs:'30000',maximumQueryMs:'1000'});
   const registry={quorum:{keys:[]}},bootstrap={metadata:{adapterProfiles:[{profile}],attesterKeys:[]},retainOriginal(){throw Error('HOST_NO_RETAIN_OR_BROADCAST');}};
@@ -86,19 +88,19 @@ async function setup(urls){
   const statement={hubDomain:h('hub'),registryCommitment:h('registry'),readyStatement:h('ready'),localCommitment:h('local'),dispatchId:h('dispatch'),actionCommitment:h('action'),globalEffectId:h('gid'),deliveryRiskCommitment:h('loss'),signedAt:'1101'};
   let record=await f.resources.store.load();const pending={phase:'PROVIDER_KEY_PENDING',intent:null,providerKeyStarted:true,dispatchStatement:statement,dispatchSignature:null,sendStarted:false,signed:{nativeId:h('nativeId'),nativeWire:'INERT_HOST_PUBLIC_WIRE'}};
   record=await f.resources.store.commit({expectedRevision:record.revision,nextState:{...record.state,events:[...record.state.events,{kind:'INERT_PENDING',data:pending}]}});
-  const signature=f.resources.signDispatchOnce(statement),pub=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(f.key.x,'hex').toString('base64url'),y:Buffer.from(f.key.y,'hex').toString('base64url')}});
+  const signature=await f.resources.signDispatchOnce(statement),pub=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(f.key.x,'hex').toString('base64url'),y:Buffer.from(f.key.y,'hex').toString('base64url')}});
   assert.equal(verify('sha256',admission.nativeDispatchStatementFrame(statement),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'hex')),true);
   return f.resources.store.commit({expectedRevision:record.revision,nextState:{...record.state,events:[...record.state.events,{kind:'INERT_UNKNOWN',data:{...pending,phase:'UNKNOWN',dispatchSignature:signature,sendStarted:true}}]}});
  }
- return {h,create,contexts,open,signedUnknown,provider,authority};
+ return {h,create,contexts,open,signedUnknown,provider,authority,Vault,closeSystem(c){systems.delete(c.system);}};
 }
 const host=await setup(urls);
-async function fixture(t){
- const runId=randomUUID(),directory=join(fixedRoot,'.local/native-provider-economic-recovery-v1','attempt-'+runId,'private-audit');
- await mkdir(directory,{recursive:true,mode:0o700});t.after(()=>rm(resolve(directory,'..'),{recursive:true,force:true}));
+async function fixture(t,release=false){
+ let created;const runId=randomUUID(),directory=join(fixedRoot,'.local/native-provider-economic-recovery-v1','attempt-'+runId,'private-audit');
+ await mkdir(directory,{recursive:true,mode:0o700});t.after(async()=>{try{if(release&&created){await created.resources.close();await host.authority.closeNativeProviderRecoveryAuthorityV1(created.owner);}}finally{await rm(resolve(directory,'..'),{recursive:true,force:true});}});
  const nativeDirectory=join(directory,'native');await mkdir(nativeDirectory,{mode:0o700});
  const identity={directory,runId,sourceSHA256:host.h('source'),deadlineMs:Date.now()+60000},f=await host.create(nativeDirectory);
- const owner=await host.authority.createNativeProviderRecoveryAuthorityV1(identity);return {...f,owner,identity,nativeDirectory};
+ const owner=await host.authority.createNativeProviderRecoveryAuthorityV1(identity);created={...f,owner,identity,nativeDirectory};return created;
 }
 async function freshProcess(input,body){
  const source=`const input=JSON.parse(process.argv[1]);const host=await (${setup.toString()})(input.urls);${body}`;
@@ -149,4 +151,40 @@ test('authenticated current-head corruption fails before reopen; snapshot copies
  assert.equal(flip(value),true);await writeFile(path,JSON.stringify(value),{mode:0o600});
  await assert.rejects(host.authority.openNativeProviderRecoveryAuthorityV1(f.identity,checkpoint),{code:'CLAIM_STORE_AUTHENTICATION'});
  await assert.rejects(host.provider.reopenOriginalNativeProviderEconomicRecoveryV1(Object.freeze({schema:'ORIGINAL_NATIVE_PROVIDER_ECONOMIC_RECOVERY_V1'}),{runtime:f.runtime,system:f.system,nativeRuntime:f.nativeRuntime,bootstrap:f.bootstrap}),/ORIGINAL_SECTION_TOKEN/);
+});
+
+
+test('provider current reads fresh ciphertext without KDF, while original CAS and key use authenticate the complete Vault',async t=>{
+ const f=await fixture(t,true);
+ const original=host.Vault.prototype.read;let reads=0;
+ t.mock.method(host.Vault.prototype,'read',async function(password){if(this.path===join(f.nativeDirectory,'native-value-provider.vault'))reads++;return original.call(this,password);});
+ const initial=await f.resources.store.load();
+ for(let i=0;i<3;i++){assert.deepEqual(await f.resources.store.load(),initial);await f.resources.assertLeaseCurrent();}
+ assert.equal(reads,0,'current reads must verify the file without repeating scrypt');
+ const unknown=await host.signedUnknown(f);
+ assert.equal(reads,5,'two original CAS decrypt/readbacks and full signer authentication');
+ assert.deepEqual(await f.resources.store.load(),unknown);assert.equal(reads,5);
+ const path=join(f.nativeDirectory,'native-value-provider.vault');await utimes(path,2000000,2000000);
+ const before=await lstat(path),raw=await readFile(path,'utf8');
+ const envelope=JSON.parse(raw);envelope.ciphertext=(envelope.ciphertext[0]==='A'?'B':'A')+envelope.ciphertext.slice(1);
+ const changed=JSON.stringify(envelope);assert.equal(Buffer.byteLength(changed),before.size);await writeFile(path,changed);await utimes(path,before.atime,before.mtime);
+ const after=await lstat(path);for(const field of ['dev','ino','mode','uid','gid','nlink','size','mtimeMs'])assert.equal(after[field],before[field]);
+ await assert.rejects(f.resources.store.load(),error=>{
+  assert.match(error.message,/NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE/);
+  assert.notEqual(error.cause.actual.sha256,error.cause.expected.sha256,'the fresh ciphertext hash rejects tamper despite unchanged identity/size/mtime');return true;
+ });
+ assert.equal(reads,5);assert.equal(f.custody.report().persistenceUncertain,true);
+});
+
+test('provider key intent burns before authentication and rejects lifetime closure during the original read',async t=>{
+ const f=await fixture(t,true);
+ const statement={hubDomain:host.h('hub'),registryCommitment:host.h('registry'),readyStatement:host.h('ready'),localCommitment:host.h('local'),dispatchId:host.h('dispatch'),actionCommitment:host.h('action'),globalEffectId:host.h('gid'),deliveryRiskCommitment:host.h('loss'),signedAt:'1101'};
+ const old=await f.resources.store.load(),pending={phase:'PROVIDER_KEY_PENDING',intent:null,providerKeyStarted:true,dispatchStatement:statement,dispatchSignature:null,sendStarted:false,signed:{nativeId:host.h('nativeId'),nativeWire:'INERT_HOST_PUBLIC_WIRE'}};
+ await f.resources.store.commit({expectedRevision:old.revision,nextState:{...old.state,events:[...old.state.events,{kind:'INERT_PENDING',data:pending}]}});
+ let reached,resume;const entered=new Promise(resolve=>reached=resolve),held=new Promise(resolve=>resume=resolve),original=host.Vault.prototype.read;
+ t.mock.method(host.Vault.prototype,'read',async function(password){const value=await original.call(this,password);if(this.path===join(f.nativeDirectory,'native-value-provider.vault')){reached();await held;}return value;});
+ const signing=f.resources.signDispatchOnce(statement);assert.throws(()=>f.resources.signDispatchOnce(statement),/KEY_ALREADY_STARTED/);await entered;
+ assert.throws(()=>f.resources.close(),/CLOSE_BUSY/);host.closeSystem(f);resume();
+ await assert.rejects(signing,/NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE/);
+ assert.equal(f.custody.report().persistenceUncertain,true);assert.equal(f.control.reads,0);
 });

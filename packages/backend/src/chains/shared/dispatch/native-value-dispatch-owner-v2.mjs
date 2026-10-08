@@ -8,8 +8,9 @@
  * Economic reopening consumes a separate native AEAD issuer and the original
  * key/journal; it cannot reset a missing record or replace a retained wire. */
 import assert from 'node:assert/strict';
-import { createPrivateKey,createPublicKey } from 'node:crypto';
-import { lstat, realpath } from 'node:fs/promises';
+import { createPrivateKey,createPublicKey,createHash } from 'node:crypto';
+import { constants } from 'node:fs';
+import { lstat, realpath, open } from 'node:fs/promises';
 import { isAbsolute,join,relative,resolve,sep } from 'node:path';
 import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
 import { freshKey, signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
@@ -35,6 +36,9 @@ import { assertNativeProviderRecoveryAuthorityV1,retainNativeProviderRecoveryV1,
 const leases=new WeakMap(),custodies=new WeakMap(),copy=cloneInput,freeze=frozenInput;
 export const NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS=Object.freeze(['NEW_NATIVE_VALUE_SYSTEM_RELEASE_ARTIFACTS_ABSENT','ACTUAL_LOCAL_NATIVE_PROVIDER_INTEGRATION_UNEXECUTED','ACTUAL_TRON_NATIVE_AND_DISPATCH_ACCEPTANCE_UNEXECUTED']);
 const SCHEMA='OWNED_NATIVE_VALUE_PROVIDER_CUSTODY_V2';
+const ciphertextFields=Object.freeze(['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs']);
+const ciphertextIdentityFields=Object.freeze(['dev','ino','mode','uid','gid','nlink','size']);
+const MAX_PROVIDER_CIPHERTEXT_BYTES=2*1024*1024;
 export function assertOwnedNativeValueProviderCustody(custody,expected){
  exactRecord(expected,['runtime','system','poolIndex']);const state=custodies.get(custody);
  assert.ok(state,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');for(const k of Object.keys(expected))assert.equal(state[k],expected[k]);state.live();
@@ -95,7 +99,7 @@ async function createProviderCustody(input,recovery=null){
    assert.equal(j.crv,'secp256k1');key={privateKey,publicKey,x:Buffer.from(j.x,'base64url'),y:Buffer.from(j.y,'base64url')};}
  else key=freshKey();
  let closed=false,poisoned=false,busy=false,lease=null,backend,backendPending,capturing=false,captureStarted=false,captured=false,captureToken,
-   activeResourceOperations=0,recoveredLeaseTaken=false,closePrivatePromise,captureIdentity;
+   activeResourceOperations=0,recoveredLeaseTaken=false,closePrivatePromise,captureIdentity,authenticatedCiphertext;
  const recovered=Boolean(recovery),recoveredLeasePresent=Boolean(recovery?.lease);
  let privateInput=copy(Object.fromEntries(['poolIndex','profileCommitment','recipientEndpoint','terms','acceptedLossClause','directory','password'].map(k=>[k,input[k]])));
  const nativeIdentity={family:evm?'3':'4',genesis:p.genesis,chainId:evm?p.chainId:null,solver:native.solverEndpoint,recipient:native.recipientEndpoint};
@@ -108,19 +112,52 @@ async function createProviderCustody(input,recovery=null){
  const base=freeze({domain,pool:pool.address.slice(2),registry:system.registry,profiles:system.adapterProfiles,profileCommitment:providerProfileCommitment,providerKey:publicKey,native,
    acceptedLossClause:NATIVE_ADMISSION_LOSS_CLAUSE,leaseId:sha256('LIANUM/original-native-value-provider/2\0'+publicKey.x+publicKey.y+domain.hubDomain)});
  function live(){assert.ok(!closed&&!poisoned&&!capturing,'NATIVE_VALUE_PROVIDER_CUSTODY_CLOSED_OR_UNCERTAIN');assertOwnedNativeValueSystem(runtime,system);assertOwnedNativeValueQuorum(system.quorum,{runtime,system});assertNativeValueBootstrapNativeRuntime(bootstrap,{runtime,system,nativeRuntime,profileCommitment:providerProfileCommitment});}
- async function unchanged(){live();try{await privateDirectory(nativeRuntime,directory);equal(await vault.read(password),record);}catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE',{cause});}}
- async function save(next){await unchanged();try{const saved=await vault.update(password,record.revision,()=>copy(next));equal(await vault.read(password),saved);record=saved;}catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_CUSTODY_WRITE_UNCERTAIN',{cause});}}
+ // The retained ciphertext is authenticated after creation/reopen and every
+ // original CAS write. Every current check still reads the complete physical
+ // file; native heads, health inventories and certificates are never cached.
+ async function ciphertext(guard=live){
+  guard();await privateDirectory(nativeRuntime,directory);guard();
+  assert.equal(await realpath(vault.path),vault.path);guard();
+  const before=await lstat(vault.path);guard();
+  assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.nlink===1&&(before.mode&0o777)===0o600,'NATIVE_VALUE_PROVIDER_CIPHERTEXT_FILE');
+  assert.equal(before.uid,process.getuid(),'NATIVE_VALUE_PROVIDER_CIPHERTEXT_OWNER');
+  assert.ok(before.size>0&&before.size<=MAX_PROVIDER_CIPHERTEXT_BYTES,'NATIVE_VALUE_PROVIDER_CIPHERTEXT_SIZE');
+  const handle=await open(vault.path,constants.O_RDONLY|constants.O_NOFOLLOW);let result;
+  try{
+   guard();const opened=await handle.stat();guard();
+   for(const field of ciphertextFields)assert.equal(opened[field],before[field],'NATIVE_VALUE_PROVIDER_CIPHERTEXT_CHANGED');
+   const bytes=Buffer.alloc(before.size+1);let offset=0;
+   while(offset<bytes.length){const {bytesRead}=await handle.read(bytes,offset,bytes.length-offset,offset);guard();if(!bytesRead)break;offset+=bytesRead;}
+   assert.equal(offset,before.size,'NATIVE_VALUE_PROVIDER_CIPHERTEXT_CHANGED');
+   const sha256=createHash('sha256').update(bytes.subarray(0,offset)).digest('hex');
+   const after=await handle.stat();guard();const named=await lstat(vault.path);guard();
+   for(const field of ciphertextFields){assert.equal(after[field],before[field],'NATIVE_VALUE_PROVIDER_CIPHERTEXT_CHANGED');assert.equal(named[field],before[field],'NATIVE_VALUE_PROVIDER_CIPHERTEXT_CHANGED');}
+   await privateDirectory(nativeRuntime,directory);guard();
+   result=Object.freeze({sha256,identity:Object.freeze(Object.fromEntries(ciphertextIdentityFields.map(field=>[field,before[field]])))});
+  }finally{await handle.close();}
+  guard();return result;
+ }
+ async function authenticate(expected,{replace=false,guard=live}={}){
+  const before=await ciphertext(guard);guard();
+  if(!replace){assert.ok(authenticatedCiphertext,'NATIVE_VALUE_PROVIDER_AUTHENTICATED_CIPHERTEXT_REQUIRED');equal(before,authenticatedCiphertext);}
+  const actual=await vault.read(password);guard();equal(actual,expected);
+  const after=await ciphertext(guard);guard();equal(after,before);
+  // No await follows publication of this authenticated identity and byte hash.
+  authenticatedCiphertext=after;return actual;
+ }
+ async function unchanged(){live();try{const actual=await ciphertext();live();assert.ok(authenticatedCiphertext,'NATIVE_VALUE_PROVIDER_AUTHENTICATED_CIPHERTEXT_REQUIRED');equal(actual,authenticatedCiphertext);}catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE',{cause});}}
+ async function save(next){await unchanged();try{const saved=await vault.update(password,record.revision,()=>copy(next));live();await authenticate(saved,{replace:true});live();record=saved;}catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_CUSTODY_WRITE_UNCERTAIN',{cause});}}
  async function hashFields(fields){live();if(!backendPending)backendPending=(async()=>{const helpers=await import(resourceModuleURL);assert.equal(helpers.verifyToolchain().barretenberg,'5.2.0');const bb=await loadPinned('@aztec/bb.js');
    backend=await bb.Barretenberg.new({backend:bb.BackendType.Wasm,threads:1,skipSrsInit:true,memory:{initial:37,maximum:32768}});return backend;})();
    const h=await backendPending;live();assert.ok(Array.isArray(fields)&&fields.length>0&&fields.length<=137);const inputs=fields.map(v=>{assert.ok(typeof v==='bigint'&&v>=0n&&v<FIELD_MODULUS);return Buffer.from(v.toString(16).padStart(64,'0'),'hex');});
    const result=Buffer.from((await h.poseidon2Hash({inputs})).hash).toString('hex');canonicalField(result);return result;}
  function closeOwner(){assert.ok(!capturing||closed,'NATIVE_VALUE_PROVIDER_CAPTURE_OWNS_LIFETIME');assert.ok(!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CLOSE_BUSY');return closePrivate();}
- function closePrivate(){if(closePrivatePromise)return closePrivatePromise;closed=true;key=password=record=privateInput=undefined;input=recovery=null;closePrivatePromise=(async()=>{try{await backendPending;}finally{await backend?.destroy();backend=backendPending=undefined;}})();return closePrivatePromise;}
+ function closePrivate(){if(closePrivatePromise)return closePrivatePromise;closed=true;key=password=record=privateInput=authenticatedCiphertext=undefined;input=recovery=null;closePrivatePromise=(async()=>{try{await backendPending;}finally{await backend?.destroy();backend=backendPending=undefined;}})();return closePrivatePromise;}
  try{if(recovery){exactRecord(record.data,['schema','base','terms','publicKey','privateKeyPem','quote','approvedIntent','dispatch']);
    assert.equal(record.data.schema,SCHEMA);equal(record.data.base,base);equal(record.data.terms,terms);equal(record.data.publicKey,publicKey);
    equal(recovery.nativeIdentity,nativeIdentity);equal(recovery.receiverIdentity,receiverIdentity);
    assert.equal(recovery.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system),'NATIVE_PROVIDER_REOPEN_ORIGINAL_SOURCE');}
- else record=await vault.create({schema:SCHEMA,base,terms,publicKey,privateKeyPem:key.privateKey.export({type:'pkcs8',format:'pem'}),quote:null,approvedIntent:null,dispatch:null},password);await unchanged();}
+ else record=await vault.create({schema:SCHEMA,base,terms,publicKey,privateKeyPem:key.privateKey.export({type:'pkcs8',format:'pem'}),quote:null,approvedIntent:null,dispatch:null},password);await authenticate(record,{replace:true});}
  catch(error){await closePrivate();throw error;}
  async function serial(work){live();assert.equal(busy,false,'NATIVE_VALUE_PROVIDER_CUSTODY_BUSY');busy=true;try{await unchanged();await nativeLive();return await work();}finally{busy=false;}}
  function restoreLease(binding,approvedIntent,recoveryLease){
@@ -132,9 +169,13 @@ async function createProviderCustody(input,recovery=null){
     const resources=Object.freeze({binding,approvedIntent,nativeRuntime,store,hashFields:fields=>resourceTask(()=>hashFields(fields)),gasLimit:'100000',assertLive:live,
       assertLeaseCurrent(){return resourceTask(async()=>{await unchanged();assert.ok(lease===scoped);equal(record.data.approvedIntent,approvedIntent);await nativeLive();});},
       assertPreparedCurrent:original=>resourceTask(()=>nativeRuntime.assertNativeValuePreparedCurrent(original)),
-      signDispatchOnce(statement){live();assert.equal(keyStarted,false,'NATIVE_VALUE_PROVIDER_KEY_ALREADY_STARTED');const state=readNativeValueDispatchJournal(binding,record.data.dispatch.state);
-        assert.equal(state.phase,'PROVIDER_KEY_PENDING');equal(state.dispatchStatement,statement);keyStarted=true;
-        return signature(key,nativeDispatchStatementFrame(statement)).toString('hex');},
+      signDispatchOnce(statement){live();assert.equal(keyStarted,false,'NATIVE_VALUE_PROVIDER_KEY_ALREADY_STARTED');const retained=record,requested=copy(statement);
+        const pending=readNativeValueDispatchJournal(binding,record.data.dispatch.state);assert.equal(pending.phase,'PROVIDER_KEY_PENDING');equal(pending.dispatchStatement,requested);
+        keyStarted=true;return resourceTask(async()=>{try{await authenticate(retained);live();assert.equal(record,retained,'NATIVE_VALUE_PROVIDER_SIGNING_RECORD_CHANGED');
+          const state=readNativeValueDispatchJournal(binding,record.data.dispatch.state);
+          assert.equal(state.phase,'PROVIDER_KEY_PENDING');equal(state.dispatchStatement,requested);const frame=nativeDispatchStatementFrame(requested);
+          return signature(key,frame).toString('hex');
+        }catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE',{cause});}});},
       observeOriginal:query=>resourceTask(()=>nativeRuntime.observeNativeValueOriginal(query)),
       retainOriginal(raw){return resourceTask(async()=>{live();exactRecord(raw,['profileCommitment','originalPreparation','signed']);assert.equal(raw.profileCommitment,binding.profileCommitment);
         const t=raw.originalPreparation.transaction;if(!evm){const {permissionId,...expected}=t;assert.equal(permissionId,'0');
@@ -177,7 +218,8 @@ async function createProviderCustody(input,recovery=null){
  async capture(token){const identity=nativeProviderRecoverySectionIdentityV1(token);assert.ok(capturing&&!closed&&!poisoned&&!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_FENCE_REQUIRED');
    assert.equal(captureStarted,false,'NATIVE_VALUE_PROVIDER_CAPTURE_ONCE');captureStarted=true;captureToken=token;
    equal(identity,captureIdentity);
-   await privateDirectory(nativeRuntime,directory);equal(await vault.read(password),record);await nativeLive();
+   const captureLive=()=>assert.ok(capturing&&!closed&&!poisoned&&!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_FENCE_REQUIRED');
+   await authenticate(record,{guard:captureLive});captureLive();await nativeLive();captureLive();
    const state=lease?leases.get(lease):null;
    const value={schema:'ORIGINAL_NATIVE_PROVIDER_ECONOMIC_RECOVERY_V1',sourceSHA256:identity.sourceSHA256,input:copy(privateInput),record:copy(record),
      nativeIdentity:copy(nativeIdentity),receiverIdentity:copy(receiverIdentity),lease:state?{opened:state.opened,keyStarted:state.keyStarted()}:null};
