@@ -67,3 +67,4 @@ jobs:
           tests/integration/mobile/paired-original-account-actor-v2.test.mjs
           tests/integration/mobile/paired-original-account-production-boundary.test.mjs
           apps/platform/tests/original-account-v2-protocol.test.mjs
+          tests/integration/claims/development/development-btc-sol-redemption-request.test.mjs
