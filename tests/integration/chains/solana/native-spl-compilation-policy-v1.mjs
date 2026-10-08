@@ -7,7 +7,7 @@ import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs'
 export const SPL_COMPILATION_RESULT_V1='LIANUM_NEW_NATIVE_SPL_COMPILATION_ONLY_RESULT_V1';
 export const SPL_COMPILATION_LIMITS_V1=Object.freeze({deadlineMilliseconds:600000,maximumCompilerRSSBytes:3*1024**3});
 export function classifyNativeSplCompilerProcessV1(argv,executable){
- const project=resolve(FLAT,'../../..'),tools=join(project,'.internal/dev/toolchains/platform-tools-v1.48'),target=join(project,'.internal/dev/toolchains/native-spl-custody-v2/target');
+ const project=resolve(FLAT,'../../..'),tools=join(project,'.internal/dev/toolchains/platform-tools-v1.48'),target=join(project,'.internal/dev/toolchains/native-spl-custody-v3/target');
  const command=join(project,'.internal/runtime/omnichain-product/.local/linux-runtimes/agave-v2.3.13/solana-release/bin/cargo-build-sbf');
  if(executable===command)return {role:'spl-fixed-cargo-command',proofWorker:false};
  const fixedTools=['rust/bin/rustc','rust/bin/cargo','llvm/bin/clang-19','llvm/bin/llvm-ar','llvm/bin/llvm-objcopy','llvm/bin/llvm-readelf','rust/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld'].map(path=>join(tools,'distribution',path));
@@ -53,6 +53,6 @@ export function assertNativeSplCompilationResultV1(result){
  assert.equal(keyCleanup.format,'LIANUM_NEW_SPL_GENERATED_DEPLOY_KEY_CLEANUP_V1');assert.equal(keyCleanup.runId,result.runId);assert.equal(keyCleanup.compilerPID,receipt.compilerPID);
  assert.ok(Number.isSafeInteger(keyCleanup.compilerPID)&&keyCleanup.compilerPID>1);for(const key of ['compilerClosed','compilerGroupClosed','removed'])assert.equal(keyCleanup[key],true);
  assert.equal(keyCleanup.method,'FIXED_PRIVATE_REGULAR_FILE_AFTER_ORIGINAL_CHILD_AND_GROUP_CLOSE');assert.ok(keyCleanup.keySHA256===null||/^[0-9a-f]{64}$/.test(keyCleanup.keySHA256));
- assert.deepEqual(receipt.arguments,['--manifest-path',join(resolve(FLAT,'../../..'),'.internal/dev/toolchains/native-spl-custody-v2/source/Cargo.toml'),'--sbf-sdk',join(resolve(FLAT,'../../..'),'.internal/dev/toolchains/platform-tools-v1.48/sbf-sdk'),'--sbf-out-dir',join(resolve(FLAT,'../../..'),'.internal/dev/toolchains/native-spl-custody-v2/out'),'--skip-tools-install','--tools-version','v1.48','--jobs','1','--offline','--','--locked']);
+ assert.deepEqual(receipt.arguments,['--manifest-path',join(resolve(FLAT,'../../..'),'.internal/dev/toolchains/native-spl-custody-v3/source/Cargo.toml'),'--sbf-sdk',join(resolve(FLAT,'../../..'),'.internal/dev/toolchains/platform-tools-v1.48/sbf-sdk'),'--sbf-out-dir',join(resolve(FLAT,'../../..'),'.internal/dev/toolchains/native-spl-custody-v3/out'),'--skip-tools-install','--tools-version','v1.48','--jobs','1','--offline','--','--locked']);
  return {newNativeSplProgramCompiled:true,privateCreditEstablished:false,nativeNodesStarted:false,sourceRegistrationEstablished:false,compiledReleaseEstablished:false};
 }
