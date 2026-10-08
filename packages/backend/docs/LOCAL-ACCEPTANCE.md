@@ -29,40 +29,44 @@ dirección propietaria y sigue siendo pública. Ninguna observación crea saldo
 privado. El puente cuenta con regresiones de pérdida de respuesta, journal,
 replay, backing obsoleto y capabilities copiadas.
 
-Aceptado: protocolo oficial local y puente de salida comprobado en pruebas del
-host. Pendiente: recorrido completo de entrada privada, grafo, salida y redención
-con pruebas reales sobre estos protocolos; recuperación tras perder el proceso
-del keeper/nodo; composición DeFi entre redes.
+La aceptación nueva de shares privadas se ejecuta desde la raíz con:
 
-## MetaMorpho: nota privada y salida reales
+```sh
+./dev lab metamorpho
+```
 
-Desde la raíz: `./dev lab metamorpho`. El wrapper fija el directorio interno,
-Node y el supervisor; no requiere abrir las rutas de compatibilidad.
+Resultado nuevo **aprobado**, con dos pruebas genuinas: financiación privada
+`deposit_balance` y retirada `withdraw_balance`. La fuente inicial de shares
+es un depósito público explícito en el MetaMorpho oficial del laboratorio:
+1.000.000 de unidades subyacentes producen 1.000.000.000.000.000.000 shares.
+La nota privada, su EXIT y el backing originales preceden la redención oficial.
+Se comprueban el reinicio del owner/coordinador con credenciales supervivientes,
+la respuesta completa de redención descartada, la reapertura/reconciliación del
+journal y duplicados sin segundo envío. Termina con saldo privado, backing,
+pasivos y supply de shares en cero; devuelve el subyacente al propietario público.
 
-**Aceptado en laboratorio nuevo**: un depósito público sintético de 1.000.000
-unidades de subyacente aporta 10^18 shares oficiales. D26 financia la nota
-privada; W39 confirma su EXIT original; el puente verifica esa retirada y
-redime oficialmente al mismo propietario público. Held, liabilities, supply y
-saldo privado terminan en cero; se restaura el subyacente inicial.
+El supervisor acepta el resultado, las fuentes sin cambios y el cierre completo
+del grupo propio. Anvil termina con exit0, sin señales, y elimina su scratch.
+Las dos pruebas se enlazan independientemente con los recibos públicos originales
+almacenados: identidad, bytes, key, verificación, ZK, exit0 y cierre de recursos.
+El recorrido duró 122 s; el pico del worker de proofs fue 1.341.374.464 bytes,
+el del worker principal 468.180.992 bytes y la RAM disponible mínima
+17.218.490.368 bytes. El guard conserva los límites originales. Las 20 regresiones del puente pasan.
+El wrapper se validó en sintaxis y rechazo de opciones; el resultado anterior
+corresponde al runner original supervisado, sin una segunda ejecución.
 
-La custodia se detiene y reinicia y el coordinador reabre el mismo journal.
-Descartar una respuesta ya completada y reabrir/reconciliar el puente no produce
-otra aprobación o redención. El adaptador del puente usa la observación original
-actual del keeper manual; siguen exigidos calldata, recibo, inclusión canónica,
-identidad y respaldo. Las 20 regresiones del puente pasan.
+Intento `.local/private-metamorpho-flow/attempt-6cd6b65d-7e39-4357-8f95-6bc6756ffb56`:
+resultado SHA256 `f8c7532d31444dafe929f892629a8136a85b2c4646419e800185f4f25767d45e`,
+recursos `48edda2248db093d458817c36e8a15153cde0fb6863dd88e5a52a85dd7bcd5af` y
+fuentes `c24b27dfc5475c2f1ab9ab40ed2754a1c41a48507a611a5c180ac1128ed78d0c`.
+El resumen humano `.internal/dev/reports/metamorpho-lab.json` conserva el alcance
+`PRIVATE_SHARE_NOTE_EXIT_AND_PUBLIC_METAMORPHO_REDEMPTION`, aceptado, dos pruebas
+y SHA256 `14436a5844d947a62908a944719fdff64c2953061de9e75f56c996e177a78858`.
 
-El supervisor acepta las dos pruebas, sus recibos originales y fuentes sin
-cambios, con salida 0, procesos propios cerrados y scratch eliminado. Duración
-122 s; pico del grupo propio 1,864 GB. Resumen local
-`.internal/dev/reports/metamorpho-lab.json`, intento `6cd6b65d-7e39-4357-8f95-6bc6756ffb56`;
-resultado SHA256 `f8c7532d31444dafe929f892629a8136a85b2c4646419e800185f4f25767d45e`, recursos
-`48edda2248db093d458817c36e8a15153cde0fb6863dd88e5a52a85dd7bcd5af`.
-
-Esta prueba usa HTTP de la cuenta y el puente originales, sin navegador.
-La entrada a MetaMorpho es pública y la redención sigue siendo pública. No
-acredita conversión privada PAEG, pérdida de keeper/nodo, red pública ni
-wallet completa. La entrada privada original desde Uniswap/MetaMorpho sigue
-pendiente; las pruebas y claves del titular no se versionan.
+Pendiente: entrada privada D27 mediante los routers oficiales de Uniswap y
+MetaMorpho; integración PAEG/grafo y wallet completa; recuperación tras perder
+el keeper/nodo; composición DeFi entre redes. El subyacente redimido es público
+y no se cuenta como un nuevo saldo privado.
 
 ## Revisión de aceptación Solana
 
