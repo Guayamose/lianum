@@ -7,7 +7,7 @@ export type DeviceExecutionConsentV1=Readonly<{version:1;profile:typeof DEVICE_E
 export type DeviceExecutionStatusV1=Readonly<{jobId:string;reservation:Omit<DeviceReservationStatusV1,'authorizationSHA256'>;
   nativeBindingSHA256:string;executionSnapshot:Readonly<{reference:string;stage:string;outcome:'FULFILLED'|'RECOVERED'|null;
     executionStarted:boolean;nativeExposure:readonly Readonly<{slot:number;family:string;status:string}>[];
-    admittedReceipts:number;errorCode:string|null;errorCauseCodes:readonly string[];keeperRestart:false;nodeRestart:false;
+    admittedReceipts:number;errorCode:string|null;errorCauseCodes:readonly string[];errorAuditBudget?:Readonly<{phase:string;method?:string;round?:string;elapsedMilliseconds:number;limitMilliseconds:30000}>;keeperRestart:false;nodeRestart:false;
     fullWalletAcceptance:false;claimsEnabled:false}>;executionSnapshotSHA256:string;
   stage:'PREPARED'|'EXECUTING'|'UNKNOWN'|'FULFILLED'|'RECOVERING'|'RECOVERED';outcome:'FULFILLED'|'RECOVERED'|null;
   terminal:Readonly<{transactionHash:string;blockHash:string;blockNumber:string;calldataSHA256:string;outcome:'FULFILLED'|'RECOVERED'}>|null;
@@ -15,3 +15,6 @@ export type DeviceExecutionStatusV1=Readonly<{jobId:string;reservation:Omit<Devi
 export function normalizeDeviceExecutionConsentV1(raw:unknown):DeviceExecutionConsentV1;
 export function validateDeviceExecutionConsentFreshV1(raw:unknown,now?:number):DeviceExecutionConsentV1;
 export function deviceExecutionConsentMessageV1(raw:unknown):Uint8Array;
+
+export function normalizeDeviceExecutionStatusV1(raw:unknown):DeviceExecutionStatusV1;
+export function deviceExecutionSnapshotBytesV1(raw:DeviceExecutionStatusV1['executionSnapshot']):Uint8Array;

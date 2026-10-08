@@ -69,15 +69,17 @@ test('fixed U/S framing signs all custody and witness bindings below4096 and rej
 });
 
 // New boundaries only: real HOST signatures/encodings, never dispatch/proof acceptance.
-import {createDeviceOwnerExecutionBridgeV1,consumeDeviceOwnerExecutionAuthorizationV1}
-  from '../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
-import {normalizeDeviceExecutionConsentV1,deviceExecutionConsentMessageV1}
+// Native imports must follow the original fixture's mock.module installation.
+const {createDeviceOwnerExecutionBridgeV1,consumeDeviceOwnerExecutionAuthorizationV1}
+  =await import('../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs');
+import {normalizeDeviceExecutionConsentV1,deviceExecutionConsentMessageV1,normalizeDeviceExecutionStatusV1,deviceExecutionSnapshotBytesV1}
   from '../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import {normalizeDeviceExitConsentV1,deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1}
   from '../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import {createBalanceNote,walletWithdrawInput,walletInputPublicWords,balanceWithdrawFrame}
   from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {PrivateNoteTree} from '../../../packages/engine/src/notes/private-note-tree.mjs';
+import {canonical} from '../../../packages/engine/src/crypto/privacy.mjs';
 test('device continuation rejects caller executors/providers before dispatch and keeps native PoP domains distinct',async t=>{
   const {f,actor,bridge}=await setup(t);let effects=0;
   await assert.rejects(createDeviceOwnerExecutionBridgeV1({account:f.account,reservationBridge:bridge,
@@ -103,6 +105,32 @@ test('device continuation rejects caller executors/providers before dispatch and
   for(const changed of [{...consent,action:'RECOVER_NATIVE'},{...consent,reservationTransactionHash:h('otherStx')},
     {...consent,nativeBindingSHA256:h('otherbinding')},{...consent,executionSnapshotSHA256:h('othersnapshot')}])
     assert.equal(verify('sha256',deviceExecutionConsentMessageV1(changed),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signed,'hex')),false);
+  // Public HOST framing only: independent original canonical oracle keeps
+  // an optional deadline diagnostic byte-exact without promoting UNKNOWN.
+  const tree=new PrivateNoteTree([Buffer.from(statement.changeCommitment,'hex'),Buffer.from(statement.reserveCommitment,'hex')]),
+    path=index=>{const row=tree.path(index);return{root:row.root.slice(2),index:row.index,leaf:row.leaf.slice(2),siblings:row.siblings.map(value=>value.slice(2))};},
+    observed={profile:'LIANUM_DEVICE_ORIGINAL_S_OBSERVATION_V1',transactionHash:h('Stx'),blockHash:h('Sblock'),blockNumber:'1',timestamp:'6000',
+      sourceCommitment:statement.inputCommitment,sourceNullifier:statement.inputNullifier,changeCommitment:statement.changeCommitment,
+      reserveCommitment:statement.reserveCommitment,domainCommitment:f.world.identity.domainCommitment,envelope:h('env'),admissionTag:h('admission'),
+      currentHead:{blockNumber:'1',blockHash:h('Sblock'),timestamp:'6000'},changePath:path(0),reservePath:path(1)};
+  for(const errorAuditBudget of [{phase:'graph-current',elapsedMilliseconds:30001,limitMilliseconds:30000},
+    {round:'pre-key',limitMilliseconds:30000,phase:'after-native-audit',method:'operation',elapsedMilliseconds:30001}]){
+    const snapshot={reference:reservation.jobId,stage:'ORIGINAL_OUTCOME_UNRESOLVED',outcome:null,executionStarted:true,
+      nativeExposure:[{slot:0,family:'3',status:'POSSIBLE'}],admittedReceipts:0,errorCode:'FLAT_OPERATOR_AUDIT_TOO_OLD',errorCauseCodes:[],errorAuditBudget,
+      keeperRestart:false,nodeRestart:false,fullWalletAcceptance:false,claimsEnabled:false};
+    const response={jobId:reservation.jobId,reservation:{jobId:reservation.jobId,stage:'RESERVED',consentFields:
+      Object.fromEntries(['depositJobId','quoteId','jobId','custody','statement','witnessSHA256','proofSHA256','publicInputsSHA256'].map(name=>[name,reservation[name]])),
+      statement,observation:observed,errorCode:null},nativeBindingSHA256:h('binding'),executionSnapshot:snapshot,
+      executionSnapshotSHA256:createHash('sha256').update(canonical(snapshot)).digest('hex'),stage:'UNKNOWN',outcome:null,terminal:null,
+      errorCode:'FLAT_OPERATOR_AUDIT_TOO_OLD',lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1',authorizationSHA256:h('nativePoP')};
+    const parsed=normalizeDeviceExecutionStatusV1(response),bytes=deviceExecutionSnapshotBytesV1(parsed.executionSnapshot);
+    assert.deepEqual(Buffer.from(bytes),Buffer.from(canonical(snapshot)));assert.equal(createHash('sha256').update(bytes).digest('hex'),response.executionSnapshotSHA256);
+    assert.equal(parsed.stage,'UNKNOWN');assert.equal(parsed.outcome,null);assert.equal(Object.isFrozen(parsed.executionSnapshot.errorAuditBudget),true);
+    assert.throws(()=>normalizeDeviceExecutionStatusV1({...response,executionSnapshot:{...snapshot,privateWitness:h('secret')}}));
+    assert.throws(()=>normalizeDeviceExecutionStatusV1({...response,executionSnapshot:{...snapshot,claimsEnabled:true}}));
+    assert.throws(()=>normalizeDeviceExecutionStatusV1({...response,stage:'FULFILLED',outcome:'FULFILLED'}));
+    bytes.fill(0);
+  }
   assert.equal(f.world.proofs,0);assert.equal(f.world.sends,0);
 });
 test('device W39 retains original note signature/39 words while rejecting root/key and cross-role or recipient PoP reuse',async t=>{
