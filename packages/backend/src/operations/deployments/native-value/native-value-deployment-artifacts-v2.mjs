@@ -24,6 +24,7 @@ import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nati
   NATIVE_VALUE_DEV_LEDGER_COMPILED_PATH_V5, NATIVE_VALUE_DEV_LEDGER_RECEIPT_PATH_V5, NATIVE_VALUE_DEV_LEDGER_KIND_V5,
   NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5, validateNativeValueDevProducedLedgerDescriptorV5, validateNativeValueDevLedgerReceiptV5 }
   from '../../releases/native-value/native-value-dev-release-contract-v5.mjs';
+import { inspectProducedW39ArtifactsV5 } from './native-value-dev-w39-artifacts-v5.mjs';
 const issued = new WeakSet();
 const ADMISSION_PREPARED_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/native-value-verifier-preparation';
 const ADMISSION_COMPILE_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/generic-native-admission-compile';
@@ -293,12 +294,12 @@ export async function loadNativeValueDeploymentArtifacts() {
 
 // Private shared validator only. The historical entry retains its exact V4
 // fences; the development entry never reuses or changes that host pin table.
-async function loadRetainedNativeValueArtifacts(release, producedLedger) {
+async function loadRetainedNativeValueArtifacts(release, producedLedger, producedW39) {
   const ledger = loadLedger(release, producedLedger?.compiled ?? release.ledger.compiled);
   exactRecord(release.verifiers, NATIVE_VALUE_VERIFIER_ORDER.map(([role]) => role));
   const verifiers = {};
   for (const [role, words] of NATIVE_VALUE_VERIFIER_ORDER)
-    verifiers[role] = await loadVerifier(release.verifiers[role], role, words, release);
+    verifiers[role] = role==='withdraw'&&producedW39 ? producedW39.verifier : await loadVerifier(release.verifiers[role], role, words, release);
   return { ledger, verifiers };
 }
 function retainedRawFilesUnchanged(release, producedLedger) {
@@ -322,13 +323,15 @@ async function inspectFixedRetainedNativeValueArtifactsV5() {
   assert.deepEqual(verifyToolchain(), retained.toolchain, 'NATIVE_VALUE_DEV_TOOLCHAIN');
   assert.deepEqual(verifyCRS(), retained.crs, 'NATIVE_VALUE_DEV_CRS');
   const producedLedger = inspectProducedNativeValueLedgerV5();
-  const loaded = await loadRetainedNativeValueArtifacts(retained, producedLedger);
+  const producedW39 = inspectProducedW39ArtifactsV5();
+  const loaded = await loadRetainedNativeValueArtifacts(retained, producedLedger, producedW39);
   retainedRawFilesUnchanged(retained, producedLedger);
   assert.deepEqual(nativeValueDevRetainedMetadataV5(), retained, 'NATIVE_VALUE_DEV_ORIGINAL_RECORD_CHANGED');
   assert.deepEqual(verifyToolchain(), retained.toolchain, 'NATIVE_VALUE_DEV_TOOLCHAIN_CHANGED');
   assert.deepEqual(verifyCRS(), retained.crs, 'NATIVE_VALUE_DEV_CRS_CHANGED');
   assert.deepEqual(inspectProducedNativeValueLedgerV5(),producedLedger,'NATIVE_VALUE_DEV_PRODUCED_LEDGER_CHANGED');
-  return { retained, producedLedger, ...loaded };
+  assert.deepEqual(inspectProducedW39ArtifactsV5().descriptor,producedW39.descriptor,'NATIVE_VALUE_DEV_W39_CHANGED_AFTER_ASYNC_READ');
+  return { retained, producedLedger, producedW39, ...loaded };
 }
 /** Read-only producer evidence. No caller input and, crucially, no issued.add:
  * copied inspection records can never satisfy assertNativeValueArtifactBundle. */
@@ -337,7 +340,7 @@ export async function inspectRetainedNativeValueArtifactsForDevV5() {
   const loaded = await inspectFixedRetainedNativeValueArtifactsV5();
   return frozenInput({ historicalReleaseSHA256: NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5,
     retainedMetadataSHA256: NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
-    producedLedger: loaded.producedLedger, verifierRoles: Object.keys(loaded.verifiers), artifactBundleIssued: false,
+    producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor, verifierRoles: Object.keys(loaded.verifiers), artifactBundleIssued: false,
     compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
     toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
 }
@@ -353,6 +356,7 @@ export async function loadNativeValueDevDeploymentArtifactsV5() {
   for (const row of release.sourceFiles) validateNativeValueDevPinnedBytesV5(row, bytes(row.path));
   const loaded = await inspectFixedRetainedNativeValueArtifactsV5();
   assert.deepEqual(loaded.producedLedger,release.producedLedger,'NATIVE_VALUE_DEV_REVIEWED_PRODUCED_LEDGER_PIN');
+  assert.deepEqual(loaded.producedW39.descriptor,release.producedW39,'NATIVE_VALUE_DEV_REVIEWED_PRODUCED_W39_PIN');
   for (const row of release.sourceFiles) validateNativeValueDevPinnedBytesV5(row, bytes(row.path));
   inspectNativeValueDevMobileDependenciesV5();
   assert.deepEqual(validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5), release,
@@ -365,7 +369,8 @@ export async function loadNativeValueDevDeploymentArtifactsV5() {
       historicalReleaseSHA256: release.historicalReleaseSHA256,
       retainedMetadataSHA256: release.retainedMetadataSHA256,
       publicMobilePackagesSHA256: release.publicMobilePackagesSHA256,
-      producedLedger: release.producedLedger, historicalArtifactRecovered: false,
+      producedLedger: release.producedLedger, producedW39: release.producedW39, historicalArtifactRecovered: false,
+      pc15WithdrawProofAcceptanceEstablished: false,
       toolchain: loaded.retained.toolchain, crs: loaded.retained.crs,
       claimsEnabled: false, proofAcceptanceEstablished: false, independentVKHashRecomputed: false,
       mobileNoteCustodyEstablished: false, nativeGraphAcceptanceEstablished: false } });
