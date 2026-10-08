@@ -428,7 +428,10 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
         && capacity.spent + 5 * capacity.liveReservations + capacity.outputCapacity + 1 <= 64, 'DEVICE_DEPOSIT_HEADROOM');
       const calldata = encodeFlatTransaction('depositBalance', row.proof);
       const submission = { kind: 'deposit', calldata, calldataSHA256: flatAccountCalldataHash(calldata),
-        publicInputs: row.proof.publicInputs, statement: decodeWalletPoolInputs('deposit_balance', row.proof.publicInputs),
+        // Retain the original proven terms in the owner's bare-bytes32 format.
+        // PROVE joined every field to these exact public inputs; the full
+        // transition validator independently re-encodes the tuple below.
+        publicInputs: row.proof.publicInputs, statement: copy(row.consent.statement),
         before: snapshotFromView(view), epoch: consent.statement.epoch, transactionHash: null,
         dispatchLatched: true, ownerConfirmed: false, observation: null };
       // Durable original latch FIRST. Any later exception/reply loss can only
