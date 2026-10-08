@@ -33,7 +33,7 @@ class FakeOwnedChild:
 
 
 class LabCancellation(unittest.TestCase):
-    def exercise(self, filename, timing, signum):
+    def exercise(self, filename, timing, signum, flow_stage=False):
         spec = importlib.util.spec_from_file_location("synthetic_lab", HERE / filename)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -63,7 +63,9 @@ class LabCancellation(unittest.TestCase):
                  patch.object(module, "build"), \
                  patch.object(module.sys, "argv", [str(HERE / filename)]):
                 with self.assertRaises(SystemExit):
-                    if filename in ("native_claim_lab.py", "evm_lab.py"):
+                    if filename == "btc_sol_lab.py" and flow_stage:
+                        module.run(module.ENTRY, observe=True)
+                    elif filename in ("native_claim_lab.py", "evm_lab.py"):
                         module.run(module.ENTRY, observe=False)
                     else:
                         module.main()
@@ -75,11 +77,19 @@ class LabCancellation(unittest.TestCase):
             self.assertEqual(child.signals, [signum])
 
     def test_pending_and_live_signals_reach_only_the_new_owned_child(self):
-        for filename in ("native_claim_lab.py", "evm_lab.py", "defi_lab.py", "defi_entry_lab.py", "osaka_lab.py"):
+        for filename in ("native_claim_lab.py", "evm_lab.py", "defi_lab.py", "defi_entry_lab.py", "osaka_lab.py", "btc_sol_lab.py"):
             for signum in (signal.SIGINT, signal.SIGTERM):
                 for timing in ("before", "during", "after"):
                     with self.subTest(filename=filename, signum=signum, timing=timing):
                         self.exercise(filename, timing, signum)
+
+    def test_btc_sol_fixed_flow_stage_preserves_pending_and_live_signals(self):
+        # The inventory above calls main(), so BTC/SOL exercises its fixed
+        # preparer. Exercise the following supervisor stage independently too.
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            for timing in ("before", "during", "after"):
+                with self.subTest(signum=signum, timing=timing):
+                    self.exercise("btc_sol_lab.py", timing, signum, flow_stage=True)
 
     @unittest.skipUnless(sys.platform == "linux", "PDEATHSIG is Linux-specific")
     def test_parent_sigkill_terminates_the_real_owned_python_child(self):
@@ -112,12 +122,13 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 module.DEV = directory / 'dev'; module.FLAT = directory
 module.DIRECTORY = directory / 'attempts'; module.DIRECTORY.mkdir()
 module.NODE = Path(sys.executable); module.ENTRY = directory / 'child.py'
+if source.name == 'btc_sol_lab.py': module.PREPARE = module.ENTRY
 module.build = lambda **kwargs: None
 module.sys.argv = ['owned-parent-death-probe']
 if source.name in ('native_claim_lab.py', 'evm_lab.py'): module.run(module.ENTRY)
 else: module.main()
 """
-        for filename in ("native_claim_lab.py", "evm_lab.py", "defi_lab.py", "defi_entry_lab.py", "osaka_lab.py"):
+        for filename in ("native_claim_lab.py", "evm_lab.py", "defi_lab.py", "defi_entry_lab.py", "osaka_lab.py", "btc_sol_lab.py"):
             with self.subTest(filename=filename), tempfile.TemporaryDirectory(prefix="lianum-parent-death-") as temporary:
                 directory = Path(temporary)
                 (directory / "child.py").write_text(fixture)
