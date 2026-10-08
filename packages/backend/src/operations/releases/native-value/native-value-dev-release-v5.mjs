@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "6413ace0b915d069bf2259f0ee4f4f6c117d70791adde63901b12cc98189ffbf",
+  "hostSourceClosureSHA256": "b7994e8bb31c6bb2064dd71bc967a079b81ba81a442ed94a50f26335350b0eb8",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -638,7 +638,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/claims/development/development-btc-sol-graph-proof-evidence.mjs",
-      "sha256": "f35cd896ee9133a9ce4413ea047eb29d146bb96769bc0d2ff0581883e364c8dd"
+      "sha256": "5b97f9f097bf22eea3810194526462a9705976dac244c38f2a58193e95267b04"
     },
     {
       "path": "integration/claims/development/development-btc-sol-graph-source-pins.mjs",
@@ -706,11 +706,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-execution-original-continuation-v1.mjs",
-      "sha256": "6f037dc3e4b4386fdc6b211d1e61e7700ffffc624673553bbd74caf714abd3e7"
+      "sha256": "b6c7a66d5e5dcd5286b274cf79f5f1bfad581e1fc3359abe29d0059b1faf08ab"
     },
     {
       "path": "integration/device-owner-execution-policy-v1.mjs",
-      "sha256": "845b7dce487c2b97de0054ea7d86825c2ca5a249d9dbee9c3065f807047788c9"
+      "sha256": "8016be9f2b818010dc05d80522f4505468cbd76cc524aab60b2c1d6de48dcc1c"
     },
     {
       "path": "integration/device-owner-execution-source-pins-v1.mjs",
@@ -718,7 +718,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-recovery-policy-v1.mjs",
-      "sha256": "01501cb2f84d6169fcc88235eae0901b90cffbb544120a7fababac395550a663"
+      "sha256": "f50c50dbe8d9ae6f652e4864f27cd31ea1609b1a14ff259537721d4204f65ead"
     },
     {
       "path": "integration/device-owner-recovery-source-pins-v1.mjs",
@@ -878,7 +878,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "ef1c74e036a8a9749bf3628cb384fe9ca4e5a04f4586414834cbcff0ef154847"
+      "sha256": "c6fda88eb2a899bcc0fea30c35fd18ab5556d8dfbefcf6e87b91f629a67ea224"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -1637,16 +1637,20 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "a27abc17e24a705006c94951e7ffd6698928c286ab6ddcac229ce5c2a1b0f0d9"
     },
     {
+      "path": "proof-workers/node-native-execution-v1.mjs",
+      "sha256": "d71a4e75e08e97965e1ee52372f2fe4751cbd712913ee843b68c8860b9a58d88"
+    },
+    {
       "path": "proof-workers/pinned-verifier.mjs",
       "sha256": "ddf160ffb23f3e7b1b1790c436ec98734467a9ffaa2c5e2e0d4d66843c538df9"
     },
     {
       "path": "proof-workers/proving-execution.mjs",
-      "sha256": "4f6bb82e46de5efd0f89af6d3b05f245f4b76382b915406072c2cf195672880d"
+      "sha256": "8e9e5ec6cfb469934c14d848445da9ac49021a4089727ece2bcb01aabac6dd2c"
     },
     {
       "path": "proof-workers/role-client.mjs",
-      "sha256": "4ff7957b1d6ac5b339d868600078e76b4bd7836f0e25dd03dbd904e9afccaf44"
+      "sha256": "061c935d3211077afe380e07ae159198f1ef89bd919f1658d7b0ee7d11beae21"
     },
     {
       "path": "proof-workers/role-process.mjs",
@@ -1654,7 +1658,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/run-bounded.mjs",
-      "sha256": "69a0f2966b6712ba4b2b513a97cf2d923c3d741ed32ff9ab7d36e9144da87fa1"
+      "sha256": "aa261d36c7c1ca16597f199461738936bbee6da9311f0be75e6d7b77efe55337"
     },
     {
       "path": "proof-workers/scoped-proof-tools.mjs",
@@ -1678,7 +1682,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/worker.mjs",
-      "sha256": "5d630c02c8bea65fd3eb841669b6354b9e0006c9456e4460589dca0be21b71e4"
+      "sha256": "9b27379aba71cfac1030099717121c47eacd7e2c4d28d0df062706d90f524772"
     },
     {
       "path": "proof-workers/wrapped-claim-abi-reviewed-v2.json",
