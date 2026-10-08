@@ -26,6 +26,7 @@ const poisonedOperators = new WeakSet(), poisonedQuorums = new WeakSet();
 mock.module(url('../ops/deploy-native-claims.mjs'), { exports: { assertOwnedNativeClaimSystem(runtime, claims) { assert.equal(systems.get(claims), runtime, 'TEST_OWNED_CLAIMS'); } } });
 mock.module(url('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { LOCAL_EVM_PROFILE: { maxGas: 30000000 },
   async assertOwnedLocalEvmV2(runtime) { assert.equal(runtime.testOwned, true); },
+  async refreshNativeValueReceiverClock(runtime) { assert.equal(runtime.testOwned, true); },
   assertSignedEvmTransaction(wire, expected) { assert.ok(wire.startsWith('0x')); assert.ok(expected.data); } } });
 mock.module(url('./owned-state.mjs'), { exports: { assertOwnedClaimObserver(o) { assert.ok(observers.has(o)); }, ownedClaimObserverBindings(o) { return observers.get(o); } } });
 mock.module(url('./operators.mjs'), { exports: {

@@ -17,7 +17,7 @@ import { randomBytes } from 'node:crypto';
 import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '../../execution/encoding/commitments.mjs';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
-import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction, refreshNativeValueReceiverClock } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../operations/owned-state.mjs';
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/operators.mjs';
 import * as claimOperators from '../operations/operators.mjs';
@@ -449,7 +449,17 @@ async function createController(input, beginAuditOnly) {
   }
   async function serial(work, { readOrReconcile = false } = {}) { live(); beginAuditOwner?.assertOpen(); assert.ok(!busy, 'CLAIM_CONTROLLER_BUSY');
     assert.ok(readOrReconcile || !journal.requiresReconciliation?.(), 'CLAIM_KEEPER_RECONCILIATION_REQUIRED'); busy = true;
-    try { await journal.read(); return await work(); } finally { beginAuditOwner?.finish(); busy = false; } }
+    try {
+      await journal.read();
+      if (!readOrReconcile) {
+        // Reconcile the sole original EVM effect before advancing the observed
+        // receiver. New consent uses that fresh head; an existing signed call,
+        // proof, authorization and its 30-second window are never rewritten.
+        await clearUnknown();
+        await refreshNativeValueReceiverClock(runtime);
+      }
+      return await work();
+    } finally { beginAuditOwner?.finish(); busy = false; } }
   function selected(domain) {
     bytes32(domain, true); const i = claims.configs.findIndex(c => claimDomainCommitment(c) === domain);
     assert.ok(i >= 0, 'CLAIM_CONTROLLER_DOMAIN');
