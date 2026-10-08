@@ -8,7 +8,8 @@ import { readFile, readdir, lstat, realpath, readlink, mkdir, mkdtemp, writeFile
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { beginTronCandidateLifetime, bindTronCandidateChildCancellation } from './tron-candidate-lifetime.mjs';
+import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import { PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import { prepareOwnedTronNative, assertPreparationCurrent, bindOwnedTronSigned, PROFILE }
@@ -25,7 +26,7 @@ const RUNTIME = join(projectRoot, '.local/owned-tron-native-value-v1');
 const ACCEPTANCE = join(RUNTIME, 'candidate-acceptance');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const clone = value => structuredClone(value);
-const safeCode = error => /^[A-Z][A-Z0-9_]{2,120}$/.test(error?.message ?? '') ? error.message : 'TRON_CANDIDATE_ASSERTION_OR_IO_FAILED';
+const safeCode = error => String(error?.message ?? '').match(/\bTRON_CANDIDATE_[A-Z0-9_]+\b/)?.[0] ?? 'TRON_CANDIDATE_ASSERTION_OR_IO_FAILED';
 const provenancePins = Object.freeze({
   'candidate-artifacts-v3.json': '48aecfcb7ba0f8bdc53029a1ce9c496d15c6aab9ae8b7290ced13131b3fb7975',
   'jdk-acquisition.json': '0e2404b5ab76d082f5e29f6cb6f584c21230090b290c0d43da832f4f7239b115',
@@ -160,12 +161,26 @@ async function gradleSnapshot(pid) {
   return { ...row, executable, cwd, args, threadTicks };
 }
 async function noHeavyWork() {
+  for (const path of ['/tmp/lianum-paeg-proof-host.lock', join(ROOT, '.local/proof-workers/active.lock'),
+    join(ROOT, '.local/proof-workers-native-ingress-v3/active.lock')]) {
+    try { await lstat(path); throw Error('TRON_CANDIDATE_PROOF_HOST_BUSY'); } catch (error) { if (!absent(error)) throw error; }
+  }
   for (const name of await readdir('/proc')) {
     if (!/^[1-9][0-9]*$/.test(name)) continue;
     try {
       if ((await lstat('/proc/' + name)).uid !== process.getuid()) continue;
       const text = await readFile('/proc/' + name + '/stat', 'utf8'), end = text.lastIndexOf(') ');
       assert.ok(end > text.indexOf('('), 'TRON_CANDIDATE_PROCESS_STAT'); const comm = text.slice(text.indexOf('(') + 1, end);
+      if (comm === 'node') {
+        const args = (await readFile('/proc/' + name + '/cmdline')).toString('utf8').split('\0').filter(Boolean);
+        const fixedWorkers = [join(ROOT, 'proof-workers/worker.mjs'), join(ROOT, 'proof-workers/native-claims-build-worker.mjs'),
+          join(ROOT, 'proof-workers/native-ingress-v3-worker.mjs'), join(GOLDEN, 'src/paeg/proof-worker.mjs')];
+        for (const argument of args.slice(1)) {
+          if (argument.startsWith('-')) continue;
+          assert.equal(fixedWorkers.includes(resolve(await readlink('/proc/' + name + '/cwd'), argument)), false,
+            'TRON_CANDIDATE_PARALLEL_WASM_PROVER');
+        }
+      }
       if (comm === 'java') {
         const first = await gradleSnapshot(Number(name));
         if (first && first.executable === '/usr/lib/jvm/java-21-openjdk-amd64/bin/java'
@@ -188,13 +203,14 @@ async function proc(pid) {
   return { pid, parent: Number(fields[1]), start: fields[19], state: fields[0], rss: Number(fields[21]) * 4096 };
 }
 async function sourcePins() {
-  const paths = [HERE, fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)),
+  const paths = [HERE, fileURLToPath(new URL('./tron-candidate-lifetime.mjs', import.meta.url)), fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)),
     ...Object.keys(provenancePins).map(name => fileURLToPath(new URL(name, FIXTURES))),
     fileURLToPath(new URL('offline-agree-zero/source/org/tron/core/config/args/Args.java', FIXTURES)),
     join(ROOT, 'runtime-drivers/owned-tron-native-value/OwnedTronNativeDriver.java')];
   return Object.fromEntries(await Promise.all(paths.map(async path => [relative(ROOT, path), sha(await regular(path))])));
 }
-async function startOriginalChild(directory, audit) {
+async function startOriginalChild(directory, audit, signal) {
+  assert.ok(signal instanceof AbortSignal); if (signal.aborted) throw signal.reason;
   const helper = fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES));
   // No inherited socket descriptors; Python closes every FD above stdio before
   // exec. Complete binary/native closure was authenticated before spawning.
@@ -203,7 +219,7 @@ async function startOriginalChild(directory, audit) {
   const original = await proc(child.pid); assert.ok(original?.parent === process.pid, 'TRON_CANDIDATE_ORIGINAL_CHILD');
   let exit, resolveExit; const exited = new Promise(resolve => resolveExit = resolve);
   child.once('exit', (code, signal) => { exit = { code, signal }; resolveExit(exit); });
-  let buffer = '', stderr = '', pending, resolveReady, rejectReady, closed = false, failure;
+  let buffer = '', stderr = '', pending, resolveReady, rejectReady, closed = false, failure, closePromise, releaseCancellation;
   const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
   const fail = error => { failure ??= error; pending?.reject(error); pending = null; rejectReady(error); };
   child.once('error', () => fail(Error('TRON_CANDIDATE_CHILD_EXEC_FAILED')));
@@ -230,6 +246,7 @@ async function startOriginalChild(directory, audit) {
     assert.ok(row.rss <= 2147483648, 'TRON_CANDIDATE_CHILD_RSS_LIMIT'); return { ...row, executable };
   }
   async function auditNative() {
+    if (signal.aborted) throw signal.reason;
     assert.ok(!failure && !exit, 'TRON_CANDIDATE_ORIGINAL_LIVE_CHILD'); const row = await identity();
     const status = await readFile('/proc/' + child.pid + '/status', 'utf8');
     // The same original PID hashes its fixed binaries in Python before arming
@@ -265,8 +282,9 @@ async function startOriginalChild(directory, audit) {
       new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('TRON_CANDIDATE_COMMAND_OUTCOME_UNKNOWN')), 10000); })]);
     } catch (error) { fail(error); throw error; } finally { clearTimeout(timeout); pending = undefined; }
   }
-  async function close() {
-    if (closed) return; clearInterval(interval); if (checkRunning) await checkRunning; closed = true;
+  function close() { return closePromise ??= closeOriginal(); }
+  async function closeOriginal() {
+    if (closed) throw Error('TRON_CANDIDATE_DUPLICATE_INTERNAL_CLOSE'); clearInterval(interval); if (checkRunning) await checkRunning; closed = true;
     try { if (!failure && !exit) await command('CLOSE'); } catch { /* Never resend any economic command. */ }
     child.stdin.end(); let forced = false;
     try {
@@ -277,8 +295,9 @@ async function startOriginalChild(directory, audit) {
       await privateWrite(join(audit, 'stderr-private.log'), stderr);
       return { stopped: true, exitCode: exit.code, signal: exit.signal, forced,
         nativeOrderlyExit: exit.code === 0 && exit.signal === null && !forced, sampledResourceFloorsHeld: sampled };
-    } finally { child.stdin.destroy(); }
+    } finally { releaseCancellation?.(); child.stdin.destroy(); }
   }
+  releaseCancellation = bindTronCandidateChildCancellation(signal, fail, close);
   let timeout;
   try {
     const hello = await Promise.race([ready, new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('TRON_CANDIDATE_STARTUP_TIMEOUT')), 120000); })]);
@@ -287,8 +306,8 @@ async function startOriginalChild(directory, audit) {
     return { hello, command, auditNative, close };
   } catch (error) { error.childCleanup = await close(); throw error; } finally { clearTimeout(timeout); }
 }
-async function executeTronCandidateAcceptance() {
-  assert.equal(arguments.length, 0); assertTronCandidateGate(process.argv.slice(2)); await noHeavyWork();
+async function executeTronCandidateAcceptance(lifetime) {
+  assert.equal(arguments.length, 1); lifetime.assertActive(); assertTronCandidateGate(process.argv.slice(2)); await noHeavyWork();
   const before = await sourcePins(), inventory = await verifyTronCandidateInventory();
   await mkdir(ACCEPTANCE, { recursive: true, mode: 0o700 }); const audit = await mkdtemp(join(ACCEPTANCE, 'attempt-'));
   const scratch = await mkdtemp(join(ACCEPTANCE, 'scratch-')); let original, cleanup, success = false, errorCode = null;
@@ -296,7 +315,7 @@ async function executeTronCandidateAcceptance() {
     canonicalRuntimeRelease: null, publicNetwork: false, privateCreditEstablished: false,
     registeredGraphAuthorizationEstablished: false, nativeProcessRestartEstablished: false, inventory };
   try {
-    original = await startOriginalChild(scratch, audit); checks.nativeConsensusProducedNewBlocks = true;
+    lifetime.assertActive(); original = await startOriginalChild(scratch, audit, lifetime.signal); checks.nativeConsensusProducedNewBlocks = true;
     const { metadata } = original.hello, command = original.command; report.genesis = metadata.genesis;
     const health = await command('HEALTH'); assert.ok(BigInt(health.head.number) >= 2n);
     const wireKeyCommitment = randomBytes(32).toString('hex'), intent = { ownerAddress: metadata.solverEndpoint,
@@ -316,10 +335,39 @@ async function executeTronCandidateAcceptance() {
     await command('ARMSEND', [raw.preparationId]); assertPreparationCurrent(prepared, await command('CURRENT', [raw.preparationId]), String(Date.now()));
     assert.deepEqual(await command('BROADCAST', [raw.preparationId, signed.nativeId, signed.transactionSHA256]), { nativeId: signed.nativeId, accepted: true });
     checks.originalBroadcastOnce = true; let observed;
+    // Only original read-only commands. No send, key arm, speculative mining,
+    // latest-state authority fallback or softened finality test.
+    async function retainPendingAudit(index) {
+      const before = await command('HEALTH');
+      const info = await command('SOURCEINFO', [signed.nativeId]);
+      const transaction = await command('SOURCETX', [signed.nativeId]);
+      const solid = await command('SOURCESOLID');
+      const head = await command('SOURCEBLOCK', [before.head.number]);
+      const included = info.blockNumber === undefined ? null : await command('SOURCEBLOCK', [info.blockNumber]);
+      const after = await command('HEALTH');
+      const infoPresent = info.id !== undefined, transactionPresent = transaction.txID !== undefined;
+      const pending = { infoPresent, transactionPresent, infoIdentityMatches: infoPresent && info.id === signed.nativeId,
+        transactionIdentityMatches: transactionPresent && transaction.txID === signed.nativeId,
+        transactionRawMatchesOriginal: transactionPresent && transaction.raw_data_hex === decoded.rawDataHex,
+        pendingPoolSize: before.pendingCount, headContainsOriginal: head.transactions.some(value => value.txID === signed.nativeId),
+        headHeight: before.head.number, solidHeight: solid.block_header.raw_data.number,
+        receiptHeight: info.blockNumber ?? null, receiptResult: info.result ?? null,
+        originalPendingBranch: !infoPresent ? 'NO_ORIGINAL_TRANSACTION_INFO' : !transactionPresent ? 'NO_ORIGINAL_TRANSACTION'
+          : BigInt(solid.block_header.raw_data.number) < BigInt(info.blockNumber) ? 'ORIGINAL_RECEIPT_BLOCK_NOT_SOLIDIFIED'
+          : 'READS_ADVANCED_AFTER_PENDING_OBSERVATION',
+        headStableDuringRead: before.head.id === after.head.id && before.solid.id === after.solid.id,
+        canonicalReceiptBlockContainsOriginal: included !== null && included.transactions.some(value => value.txID === signed.nativeId) };
+      report.lastPendingDiagnostic = pending;
+      await privateWrite(join(audit, 'pending-readonly-' + String(index).padStart(3, '0') + '.json'),
+        { before, info, transaction, solid, head, included, after, pending });
+    }
+
     for (let count = 0; count < 120; count++) {
       observed = await command('OBSERVE', [signed.nativeId]); if (observed.status === 'observed') break;
-      assert.equal(observed.status, 'pending', 'TRON_CANDIDATE_NATIVE_OUTCOME_UNKNOWN'); await wait(500);
+      assert.equal(observed.status, 'pending', 'TRON_CANDIDATE_NATIVE_OUTCOME_UNKNOWN');
+      if (count % 20 === 0) await retainPendingAudit(count); await wait(500);
     }
+    if (observed.status === 'pending') await retainPendingAudit(120);
     assert.equal(observed.status, 'observed', 'TRON_CANDIDATE_NATIVE_FINALITY_TIMEOUT'); assert.equal(observed.nativeWire, signed.nativeWire);
     const info = await command('SOURCEINFO', [signed.nativeId]), block = await command('SOURCEBLOCK', [info.blockNumber]);
     const replay = await command('SOURCEREPLAY', [signed.nativeId, block.blockID]);
@@ -349,6 +397,7 @@ async function executeTronCandidateAcceptance() {
     checks.originalOwnerAmountAndFeeDelta = true; await original.auditNative(); checks.childNetworkSocketGuardAndAnonymousUnixOnly = true;
     await privateWrite(join(audit, 'original-native-observation.json'), { info, block, replay, first, repeated, final });
     assert.deepEqual(await verifyTronCandidateInventory(), inventory); assert.deepEqual(await sourcePins(), before);
+    lifetime.assertActive(); checks.signalDeadlineAndOwnedChildCancellationInstalled = true;
     checks.sourceAndOriginalBinaryClosureUnchanged = true; report.amountSun = intent.amountSun; report.feeSun = info.fee;
     report.nativeId = signed.nativeId; report.containingBlock = block.blockID; success = true;
   } catch (error) { errorCode = safeCode(error); cleanup = error.childCleanup;
@@ -357,6 +406,7 @@ async function executeTronCandidateAcceptance() {
     try { if (original) cleanup = await original.close(); } catch (error) { errorCode ??= safeCode(error); }
     if (cleanup?.stopped === true) { await rm(scratch, { recursive: true }); checks.syntheticKeysAndLedgerRemoved = true; }
     else success = false;
+    if (lifetime.signal.aborted) { success = false; errorCode ??= safeCode(lifetime.signal.reason); }
     success = success && !errorCode && cleanup?.nativeOrderlyExit === true && cleanup?.forced === false;
     Object.assign(report, { success, errorCode, checks, cleanup: cleanup ?? null,
       disclosures: ['Genuine Java-Tron consensus with fresh synthetic genesis and fixture funds',
@@ -375,13 +425,13 @@ export async function runTronCandidateAcceptance() {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   assert.equal(await realpath(directory), directory, 'TRON_CANDIDATE_LOCK_DIRECTORY_PATH');
   const lockPath = join(directory, 'active.lock'), owner = await open(lockPath, 'wx', 0o600);
-  const identity = await owner.stat(); let result;
+  const identity = await owner.stat(); const lifetime = beginTronCandidateLifetime(); let result;
   try {
     await owner.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString(), fixedLocalFixture: true }));
     await owner.sync();
-    result = await executeTronCandidateAcceptance(); return result;
+    result = await executeTronCandidateAcceptance(lifetime); return result;
   } finally {
-    await owner.close();
+    lifetime.finish(); await owner.close();
     if (result?.report.cleanup?.stopped === true && result?.report.checks?.syntheticKeysAndLedgerRemoved === true) {
       const retained = await lstat(lockPath);
       assert.ok(retained.isFile() && !retained.isSymbolicLink() && retained.ino === identity.ino
