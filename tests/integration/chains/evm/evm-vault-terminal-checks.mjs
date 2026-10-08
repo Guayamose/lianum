@@ -10,7 +10,7 @@ const integer = value => { assert.ok(match(value, /^(?:0|[1-9][0-9]*)$/), 'EVM_V
 
 /** No sends, signatures, proof work or new runtime. Every balance is read at
  * the captured original head, and the complete read is checked against it. */
-export async function readEvmVaultReplayState({ runtime, readers, vault, capabilities, holders, sender }) {
+export async function readEvmVaultReplayState({ runtime, readers, vault, protocolFixture = null, capabilities, holders, sender }) {
   await assertLocalEvm(runtime);
   const header = await runtime.block();
   const views = [];
@@ -19,9 +19,34 @@ export async function readEvmVaultReplayState({ runtime, readers, vault, capabil
     assert.equal('0x' + view.head.hash, header.hash, 'EVM_VAULT_REPLAY_READ_HEAD');
     views.push(view);
   }
-  const position = await vault.observe();
-  assert.equal('0x' + position.snapshot.blockHash, header.hash, 'EVM_VAULT_REPLAY_READ_HEAD');
-  const { snapshot: _block, ...vaultBalances } = position.balances;
+  let protocolAccounting;
+  if (protocolFixture !== null) {
+    assert.equal(vault, undefined, 'UNISWAP_REPLAY_VAULT_ABSENT');
+    const { assertOfficialProtocolFixture } = await import('../../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs');
+    assertOfficialProtocolFixture(runtime, protocolFixture);
+    const original = protocolFixture, factoryRows = original.deployments.filter(row => row.name === 'uniswap-factory');
+    assert.equal(factoryRows.length, 1, 'UNISWAP_REPLAY_ORIGINAL_FACTORY');
+    const factory = factoryRows[0], read = async (contract, method, args = []) => Array.from(contract.iface.decodeFunctionResult(method,
+      await runtime.call({ to: contract.address, data: contract.iface.encodeFunctionData(method, args) }, header.number)))
+      .map(value => typeof value === 'boolean' ? value : value.toString());
+    const poolCode = await runtime.code(original.pool.address, header.number);
+    assert.ok(poolCode !== '0x', 'UNISWAP_REPLAY_ORIGINAL_POOL_CODE');
+    const rows = await Promise.all([read(factory, 'getPool', [original.first.address, original.second.address, 3000]),
+      read(original.pool, 'factory'), read(original.pool, 'token0'), read(original.pool, 'token1'), read(original.pool, 'fee'),
+      read(original.pool, 'slot0'), read(original.pool, 'liquidity'),
+      read(original.first, 'balanceOf', [original.pool.address]), read(original.second, 'balanceOf', [original.pool.address])]);
+    assert.equal(rows[0][0].toLowerCase(), original.pool.address); assert.equal(rows[1][0].toLowerCase(), factory.address);
+    assert.equal(rows[4][0], '3000');
+    protocolAccounting = { uniswap: { factory: factory.address, pool: original.pool.address, router: original.swapRouter.address,
+      poolCode, token0: rows[2][0].toLowerCase(), token1: rows[3][0].toLowerCase(), fee: rows[4][0],
+      slot0: rows[5], liquidity: rows[6][0], inputReserve: rows[7][0], outputReserve: rows[8][0] } };
+  } else {
+    const position = await vault.observe();
+    assert.equal('0x' + position.snapshot.blockHash, header.hash, 'EVM_VAULT_REPLAY_READ_HEAD');
+    const { snapshot: _block, ...vaultBalances } = position.balances;
+    protocolAccounting = { vault: { identity: position.identity, balances: vaultBalances,
+      totalAssets: position.snapshot.totalAssets, totalShares: position.snapshot.totalShares } };
+  }
   const participants = [...new Set(holders)]; assert.ok(participants.includes(sender));
   const tokens = [];
   for (const asset of capabilities) {
@@ -49,8 +74,7 @@ export async function readEvmVaultReplayState({ runtime, readers, vault, capabil
       receiptLeaves: view.receiptLeaves, spentTags: view.spentTags, revokedEntries: view.revokedEntries,
       checkpointCount: view.checkpointCount, checkpointNodes: view.checkpointTree.nodes,
       evidenceHistory: view.evidenceHistory, overflow: view.overflow, capacity: view.capacity })),
-    tokens, vault: { identity: position.identity, balances: vaultBalances,
-      totalAssets: position.snapshot.totalAssets, totalShares: position.snapshot.totalShares } } });
+    tokens, ...protocolAccounting } });
 }
 
 /** Check economic replay rejection, not which earlier contract guard fired.

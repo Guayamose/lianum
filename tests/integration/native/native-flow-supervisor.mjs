@@ -375,6 +375,18 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: evmVaultSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
+  evmUniswap: Object.freeze({
+    entry: join(ROOT, 'integration/run-evm-uniswap-flow.mjs'),
+    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    local: join(ROOT, '.local/evm-uniswap-flow'),
+    resultFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',
+    resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
+    lockFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_LOCK_V1',
+    attemptFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_EVM_UNISWAP_FLOW',
+    sourcePins: evmVaultSourcePins,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
   nativeFlow: Object.freeze({
     entry: join(ROOT, 'integration/run-native-flow.mjs'),
     worker: join(ROOT, 'integration/native-flow.mjs'),
@@ -812,6 +824,10 @@ export async function runPrivateMetaMorphoSupervisor() {
 export async function runEvmVaultSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_VAULT_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.evmVault);
+}
+export async function runEvmUniswapSupervisor() {
+  assert.equal(arguments.length, 0, 'EVM_UNISWAP_NO_SUPERVISOR_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.evmUniswap);
 }
 export async function runNativeClaimSupervisor() {
   assert.equal(arguments.length, 0, 'NATIVE_CLAIM_NO_SUPERVISOR_OPTIONS');

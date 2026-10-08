@@ -89,7 +89,7 @@ function fixedFlowSourcePins(profile) {
         ? ['integration/run-account-recovery.mjs', 'integration/account-recovery.mjs']
         : profile === 'asset-portfolio'
           ? ['integration/run-asset-portfolio.mjs', 'integration/asset-portfolio.mjs']
-          : ['integration/run-evm-vault-flow.mjs', 'integration/evm-vault-flow.mjs']),
+          : ['integration/run-evm-vault-flow.mjs', 'integration/run-evm-uniswap-flow.mjs', 'integration/evm-vault-flow.mjs']),
         'wallet-platform/modules/paeg/flat-native-execution.mjs',
         'wallet-platform/modules/global-state/flat-account-authority.mjs',
         'mobile-core/flat-owner-process.mjs', 'mobile-core/flat-owner-custody.mjs',

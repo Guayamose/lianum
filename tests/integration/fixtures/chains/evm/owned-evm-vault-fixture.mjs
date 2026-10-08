@@ -23,11 +23,12 @@ import { createLocalFlatOperator, createFlatOperatorQuorum } from '../../../../.
 import { createFlatSystemStateReader } from '../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
 import { decodeDepositIntentInputs } from '../../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
-import { createOwnedFlatEvmVaultProvider, createOwnedFlatMetaMorphoProviderV1 } from '../../../../../packages/backend/src/providers/evm-vault-provider.mjs';
+import { createOwnedFlatEvmVaultProvider, createOwnedFlatMetaMorphoProviderV1, createOwnedFlatUniswapProviderV1 } from '../../../../../packages/backend/src/providers/evm-vault-provider.mjs';
 import { createFlatOwnerProcess } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
 import { createOfficialProtocolFixture } from '../../../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { createOwnedPrivateExternalRouterV1 } from '../../../../../packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs';
-import { createOwnedMetaMorphoGraphDeliveryObserverV1, prepareOwnedMetaMorphoGraphDescriptorV1 }
+import { createOwnedMetaMorphoGraphDeliveryObserverV1, prepareOwnedMetaMorphoGraphDescriptorV1,
+  createOwnedUniswapGraphDeliveryObserverV1, prepareOwnedUniswapGraphDescriptorV1 }
   from '../../../../../packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { evmRuntimeCodeHash } from '../../../../../packages/backend/src/chains/evm/contracts/evm-code-hash.mjs';
 import { freshFixtureId, writeFixturePrivate } from '../../runners/owned-flat-fixture.mjs';
@@ -57,7 +58,8 @@ function positiveUint(value, bits) {
 export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
   privateDirectory(directory);
   const officialMetaMorpho = callbacks.protocolProfile === 'OFFICIAL_METAMORPHO_V1';
-  assert.ok(callbacks.protocolProfile === undefined || officialMetaMorpho, 'EVM_VAULT_FIXED_PROTOCOL_PROFILE');
+  const officialUniswap = callbacks.protocolProfile === 'OFFICIAL_UNISWAP_V3_V1', official = officialMetaMorpho || officialUniswap;
+  assert.ok(callbacks.protocolProfile === undefined || official, 'EVM_VAULT_FIXED_PROTOCOL_PROFILE');
   const onStage = callbacks.onStage ?? (async () => {});
   const onDeployment = callbacks.onDeployment ?? (async () => {});
   assert.equal(typeof onStage, 'function'); assert.equal(typeof onDeployment, 'function');
@@ -66,7 +68,8 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
   const fixture = {
     get runtime() { return runtime; }, get assets() { return assets; }, get system() { return system; },
     get officialProtocol() { return officialProtocol; },
-    get solver() { return officialMetaMorpho ? runtime.accounts[0] : runtime.accounts[1]; },
+    get protocolProfile() { return callbacks.protocolProfile ?? 'LEGACY_VAULT'; },
+    get solver() { return official ? runtime.accounts[0] : runtime.accounts[1]; },
     get targetExitRecipient() { return officialMetaMorpho ? runtime.accounts[0] : runtime.accounts[4]; },
     get router() { return router; }, get evmDelivery() { return evmDelivery; }, get quorum() { return quorum; },
     get sourceOwner() { return sourceOwner; }, get targetOwner() { return targetOwner; },
@@ -95,11 +98,11 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
   try {
     await onStage('start-owned-local-evm-v2');
     runtime = await createOwnedLocalEvmV2();
-    if (officialMetaMorpho) {
-      await onStage('deploy-original-official-metamorpho-and-underlying');
+    if (official) {
+      await onStage(officialUniswap ? 'deploy-original-official-uniswap-and-tokens' : 'deploy-original-official-metamorpho-and-underlying');
       officialProtocol = await createOfficialProtocolFixture(runtime);
       const records = [];
-      for (const contract of [officialProtocol.first, officialProtocol.vault]) records.push(Object.freeze({
+      for (const contract of [officialProtocol.first, officialUniswap ? officialProtocol.second : officialProtocol.vault]) records.push(Object.freeze({
         address: contract.address, codeHash: evmRuntimeCodeHash(contract.code),
         symbol: (await officialProtocol.read(contract, 'symbol'))[0], decimals: Number((await officialProtocol.read(contract, 'decimals'))[0]),
         deployment: Object.freeze({ address: contract.address, transactionHash: contract.receipt.transactionHash,
@@ -133,10 +136,11 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
     assert.equal(system.sender, runtime.accounts[0], 'EVM_VAULT_FIXTURE_SOURCE_SENDER');
     assert.equal(system.pools[1].domain.asset, shareIdentity, 'EVM_VAULT_FIXTURE_SHARE_IDENTITY');
     await onStage('deploy-fixed-evm-vault-router-and-observer');
-    if (officialMetaMorpho) {
+    if (official) {
       router = await createOwnedPrivateExternalRouterV1({ runtime, system, poolIndex: 1,
-        protocolFixture: officialProtocol, protocolKind: 'METAMORPHO_V1_EXACT_SHARE_MINT' });
-      evmDelivery = await createOwnedMetaMorphoGraphDeliveryObserverV1({ runtime, system, poolIndex: 1, router,
+        protocolFixture: officialProtocol, protocolKind: officialUniswap ? 'UNISWAP_V3_EXACT_OUTPUT_SINGLE' : 'METAMORPHO_V1_EXACT_SHARE_MINT' });
+      const observerFactory = officialUniswap ? createOwnedUniswapGraphDeliveryObserverV1 : createOwnedMetaMorphoGraphDeliveryObserverV1;
+      evmDelivery = await observerFactory({ runtime, system, poolIndex: 1, router,
         protocolFixture: officialProtocol });
     } else {
       router = await deployEvmVaultRouter(runtime, system, { sourcePoolIndex: 0, destinationPoolIndex: 1,
@@ -193,7 +197,7 @@ export async function prepareEvmVaultFixtureGraph(fixture, directory, options, o
   assert.equal(statement.validUntil, executionUntil);
   await onProof({ label: 'target-deposit-intent', relation: 'deposit_intent', proof: depositProof });
   const descriptor = fixture.officialProtocol
-    ? prepareOwnedMetaMorphoGraphDescriptorV1({ observer: evmDelivery, router,
+    ? (fixture.protocolProfile === 'OFFICIAL_UNISWAP_V3_V1' ? prepareOwnedUniswapGraphDescriptorV1 : prepareOwnedMetaMorphoGraphDescriptorV1)({ observer: evmDelivery, router,
       route: { maximumInput: assetAmount, outputAmount: shareAmount, validFrom: executionFrom, validUntil: executionUntil },
       ownerPublicInputs: [...depositProof.publicInputs] })
     : validateEvmVaultDeliveryDescriptor({ identity: router.identity,
@@ -202,7 +206,8 @@ export async function prepareEvmVaultFixtureGraph(fixture, directory, options, o
   const providerDirectory = join(runtime.metadata.scratchDirectory, 'flat-evm-vault-provider');
   mkdirSync(providerDirectory, { mode: 0o700 });
   const rule = fixture.rules[0], rulePath = fixture.rulePaths[0];
-  const providerFactory = fixture.officialProtocol ? createOwnedFlatMetaMorphoProviderV1 : createOwnedFlatEvmVaultProvider;
+  const providerFactory = fixture.protocolProfile === 'OFFICIAL_UNISWAP_V3_V1' ? createOwnedFlatUniswapProviderV1
+    : fixture.officialProtocol ? createOwnedFlatMetaMorphoProviderV1 : createOwnedFlatEvmVaultProvider;
   const provider = await providerFactory({ runtime, system, poolIndex: 0, router,
     observer: evmDelivery, operatorQuorum: quorum, rule, rulePath, descriptor, depositProof: depositProof.proof,
     terms: { scope: domain.scope, policy: domain.policy, asset: domain.asset, amount: shareAmount,
