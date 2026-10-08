@@ -1,3 +1,4 @@
+import {loadNativeSplClaimValidationArtifactsV1} from './native-spl-claim-validation-artifacts-v1.mjs';
 import {loadNativeSplClaimTokenArtifactsV1} from './native-spl-claim-token-artifacts-v1.mjs';
 import {assertOwnedSolanaSplCustodyV1,isOwnedSolanaSplCustodyV1} from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
 /** Fixed owned-local custody bootstrap. Importing starts no node, compiler,
@@ -87,7 +88,7 @@ async function loadBootstrapArtifacts(ingressV3,spl=false) {
     ? import('./native-claim-ingress-v3-artifacts.mjs').then(module => module.loadNativeClaimIngressV3Artifacts())
     : import('./native-claim-artifacts.mjs').then(module => module.loadNativeClaimArtifacts());
   const [bundle, baseBundle] = await Promise.all([bundlePromise, loadFlatDeploymentArtifacts()]);
-  if(spl){const fresh=loadNativeSplClaimTokenArtifactsV1();return {bundle:{...bundle,contracts:{...bundle.contracts,artifacts:{...bundle.contracts.artifacts,nativeSplToken:fresh.artifacts.nativeSplToken},splTokenCompilation:fresh}},baseBundle};}
+  if(spl){const fresh=loadNativeSplClaimTokenArtifactsV1(),validation=loadNativeSplClaimValidationArtifactsV1();return {bundle:{...bundle,contracts:{...bundle.contracts,artifacts:{...bundle.contracts.artifacts,nativeSplToken:fresh.artifacts.nativeSplToken,nativeSplClaimValidation:validation.artifacts.nativeSplClaimValidation},splTokenCompilation:fresh,splValidationCompilation:validation}},baseBundle};}
   return { bundle, baseBundle };
 }
 export async function preflightNativeSplClaimIngressV1Artifacts(){assert.equal(arguments.length,0,'SPL_CLAIM_BOOTSTRAP_NO_OPTIONS');await loadBootstrapArtifacts(false,true);}
@@ -320,6 +321,7 @@ async function authenticateBase(binding, context, block) {
   return baseLibraries;
 }
 function artifactFor(binding, record) {
+  if(binding.spl&&record.source==='native-claims/NativeSplClaimValidationV1.sol'&&record.contractName==='NativeSplClaimValidationV1')return binding.bundle.contracts.artifacts.nativeSplClaimValidation;
   if(binding.spl&&record.source==='native-claims/NativeSplClaimTokenV1.sol'&&record.contractName==='NativeSplClaimTokenV1')return binding.bundle.contracts.artifacts.nativeSplToken;
   const artifact = binding.bundle.contracts.compilation.contracts[record.source]?.[record.contractName];
   if (artifact) return artifact;
@@ -440,7 +442,7 @@ async function checkedStorage(binding, flatSystem) {
       encodeClaimABI(verifierMethod.outputs, [gateway.deployment.verifiers]), 'CLAIM_BOOTSTRAP_FULL_VERIFIER_CONFIGURATION');
     for (const [name, value] of Object.entries({ hub: flatSystem.hub.address, pool: pool.address,
       authority: authority.address, authorityCodeHash: authority.codeHash,
-      codecCodeHash: binding.libraries.nativeClaimCodec.codeHash, validationCodeHash: binding.libraries.nativeClaimValidation.codeHash,
+      codecCodeHash: binding.libraries.nativeClaimCodec.codeHash, validationCodeHash: binding.spl&&i===1?binding.libraries.nativeSplClaimValidation.codeHash:binding.libraries.nativeClaimValidation.codeHash,
       configurationCommitment: gateway.configurationCommitment, claimDomain: prefix(claimDomainCommitment(config)),
       custodyInventoryDomain: prefix(config.custodyInventoryDomain),
       nativeAssetKey: prefix(sha(Buffer.from(word(config.nativeFamily).slice(2) + config.nativeGenesis, 'hex'))),

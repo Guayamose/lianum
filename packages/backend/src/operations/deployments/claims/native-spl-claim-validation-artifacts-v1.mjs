@@ -1,0 +1,24 @@
+/** Fixed NEW compilation consumer. Importing starts no compiler or chain.
+ * The retained native token and its compilation are never replaced. */
+import assert from 'node:assert/strict';
+import {join} from 'node:path';
+import {ROOT} from '../../../../../proofs/src/catalog.mjs';
+import {regular,hash} from '../../../../../proofs/src/tooling/tooling.mjs';
+import {GENERIC_COMPILER_PIN} from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import {assertNativeSplClaimValidationCompilationArtifactsV1} from './native-spl-claim-validation-compilation-v1.mjs';
+const freezeBuildPins=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freezeBuildPins(child);Object.freeze(value);}return value;};
+export const NATIVE_SPL_CLAIM_VALIDATION_BUILD_RELEASE_V1=null;
+export function loadNativeSplClaimValidationArtifactsV1(){
+ assert.equal(arguments.length,0,'SPL_VALIDATION_BUILD_NO_OPTIONS');const pin=NATIVE_SPL_CLAIM_VALIDATION_BUILD_RELEASE_V1;assert.ok(pin,'SPL_VALIDATION_GENUINE_COMPILATION_REVIEW_REQUIRED');
+ assert.equal(pin.format,'LIANUM_NEW_SPL_CLAIM_VALIDATION_REVIEWED_BUILD_V1');assert.match(pin.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(pin.historicalArtifactRecovered,false);assert.equal(pin.privateCreditEstablished,false);
+ assert.deepEqual(Object.keys(pin.files).sort(),['compiled.json','receipt.json','resources.json','result.json','source-pins.json']);
+ const directory=join(ROOT,'.local/native-spl-claim-validation-compilation-only-v1','attempt-'+pin.runId),rows={};
+ for(const [name,record] of Object.entries(pin.files)){assert.match(record.sha256,/^[0-9a-f]{64}$/);assert.ok(Number.isSafeInteger(record.bytes)&&record.bytes>0);const raw=regular(join(directory,name));assert.equal(raw.length,record.bytes,'SPL_VALIDATION_REVIEWED_BUILD_SIZE');assert.equal(hash(raw),record.sha256,'SPL_VALIDATION_REVIEWED_BUILD_HASH');rows[name]=JSON.parse(raw);}
+ const compiled=rows['compiled.json'],receipt=rows['receipt.json'],result=rows['result.json'],resources=rows['resources.json'];assertNativeSplClaimValidationCompilationArtifactsV1(compiled);
+ assert.equal(result.format,'LIANUM_SPL_VALIDATION_COMPILATION_ONLY_RESULT_V1');assert.equal(result.profile,'NATIVE_SPL_CLAIM_VALIDATION_NEW_COMPILATION_ONLY_V1');assert.equal(result.runId,pin.runId);assert.equal(result.phase,'completed');assert.equal(result.success,true);assert.equal(result.sourceUnchanged,true);assert.equal(result.compilationCount,1);assert.deepEqual(result.cleanup,{compilerReset:true,errors:[]});assert.deepEqual(result.proofs,[]);
+ assert.equal(resources.format,'LIANUM_SPL_VALIDATION_COMPILATION_RESOURCES_V1');assert.equal(resources.runId,pin.runId);assert.equal(resources.phase,'completed');assert.equal(resources.failure,null);assert.equal(resources.resultAccepted,true);assert.equal(resources.sourceClosureUnchanged,true);assert.equal(resources.ownedGroupCleanupConfirmed,true);assert.equal(resources.lockReleased,true);assert.deepEqual(resources.groupSignals,[]);assert.equal(resources.workerSpawned,true);assert.equal(resources.workerExitObserved,true);assert.equal(resources.workerCloseObserved,true);assert.equal(resources.withinTotalDeadline,true);assert.deepEqual(resources.failures,[]);assert.equal(resources.workerExit.code,0);assert.equal(resources.workerExit.signal,null);assert.equal(resources.workerClose.code,0);assert.equal(resources.workerClose.signal,null);
+ assert.equal(resources.supervisorPID,result.supervisor.supervisorPID);assert.equal(resources.workerPID,result.supervisor.workerPID);assert.equal(resources.workerResult.runId,pin.runId);assert.equal(resources.workerResult.sha256,pin.files['result.json'].sha256);assert.equal(resources.workerResult.bytes,pin.files['result.json'].bytes);
+ assert.deepEqual(rows['source-pins.json'],result.sourcePins);assert.deepEqual(resources.sourcePins,result.sourcePins);assert.equal(resources.sourcePinsSHA256,pin.files['source-pins.json'].sha256);for(const name of ['compiled.json','receipt.json','source-pins.json'])assert.deepEqual(result.files[name],pin.files[name]);
+ assert.deepEqual(receipt,{format:'LIANUM_NEW_OFFICIAL_SPL_VALIDATION_COMPILATION_RECEIPT_V1',runId:pin.runId,phase:'completed',compilationCount:1,compiler:GENERIC_COMPILER_PIN,inputSHA256:compiled.inputSHA256,compiledSHA256:pin.files['compiled.json'].sha256,sourcePinsSHA256:pin.files['source-pins.json'].sha256,sourceUnchanged:true,compilerReset:true,historicalArtifactRecovered:false,proofAcceptanceEstablished:false,nativeNodesStarted:false,privateGraphAcceptance:false});
+ return {...compiled,provenance:{runId:pin.runId,files:pin.files,newCompilationOnly:true,privateCreditEstablished:false}};
+}
