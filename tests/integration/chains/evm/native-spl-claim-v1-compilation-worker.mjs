@@ -39,7 +39,7 @@ try{
  writeFixturePrivate(join(directory,'compiled.json'),compiled);writeFixturePrivate(join(directory,'source-pins.json'),sourcePins);
  for(const name of ['compiled.json','source-pins.json']){const raw=regular(join(directory,name));result.files[name]={bytes:raw.length,sha256:hash(raw)};}
  writeFixturePrivate(join(directory,'receipt.json'),{format:'LIANUM_NEW_ORIGINAL_SPL_CLAIM_V1_COMPILATION_RECEIPT_V1',runId:lock.runId,phase:'completed',compilationCount:2,
- compiledSHA256:result.files['compiled.json'].sha256,sourcePinsSHA256:result.files['source-pins.json'].sha256,originalPins:NATIVE_SPL_CLAIM_V1_ORIGINAL_PINS,preparation:result.preparation,
+ compiledSHA256:result.files['compiled.json'].sha256,sourcePinsSHA256:result.files['source-pins.json'].sha256,originalPins:NATIVE_SPL_CLAIM_V1_ORIGINAL_PINS,ci51ProgrammeProvenance:compiled.ci51ProgrammeProvenance,preparation:result.preparation,
  sourceUnchanged:true,compilerReset:true,historicalReportsRecreated:false,historicalCI51VkEqualityEstablished:false,proofAcceptanceEstablished:false,nativeNodesStarted:false,privateGraphAcceptance:false});
  const raw=regular(join(directory,'receipt.json'));result.files['receipt.json']={bytes:raw.length,sha256:hash(raw)};
  assert.deepEqual(await nativeSplClaimV1CompilationSourcePins(),sourcePins,'SPL_CLAIM_V1_COMPILATION_SOURCE_CHANGED');result.phase='completed';result.success=true;await assertNativeSplClaimV1CompilationResult(result);
