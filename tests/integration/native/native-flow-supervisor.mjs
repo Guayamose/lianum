@@ -6,6 +6,8 @@ import {assertOfficialAaveSourceReviewV1} from '../../../packages/backend/tests/
 import { nativeWalletTronDevSourcePinsV5 } from '../wallet/native/native-wallet-tron-dev-source-pins-v5.mjs';
 import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, NATIVE_WALLET_TRON_DEV_RESULT_V5 } from '../wallet/native/native-wallet-tron-dev-policy-v5.mjs';
 import { pairedNativeNoteSourcePinsV2 } from '../wallet/native/paired-native-note-source-pins-v2.mjs';
+import { deviceOwnerDepositSourcePinsV1 } from '../wallet/native/device-owner-deposit-source-pins-v1.mjs';
+import { DEVICE_DEPOSIT_RESULT_V1, assertDeviceDepositReleaseV1, assertDeviceDepositResultV1 } from '../wallet/native/device-owner-deposit-policy-v1.mjs';
 import { PAIRED_NATIVE_NOTE_RESULT_V2, assertPairedNativeNoteReleaseV2, assertPairedNativeNoteResultV2 } from '../wallet/native/paired-native-note-policy-v2.mjs';
 import { nativeClaimEmptyAuditSourcePins } from '../claims/metrics/native-claim-empty-audit-source-pins-v1.mjs';
 import { EMPTY_AUDIT_REAL_RUN_DISABLED, EMPTY_AUDIT_RESULT, assertEmptyAuditResult, emptyAuditProcessFailure }
@@ -83,6 +85,15 @@ const FLOW_PROFILES = Object.freeze({
     local:join(ROOT,'.local/evm-aave-compilation-only-v1'),resultFormat:AAVE_COMPILATION_RESULT_V1,
     resourcesFormat:'LIANUM_AAVE_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_AAVE_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_AAVE_COMPILATION_ATTEMPT_V1',
     classification:'NEW_OFFICIAL_AAVE_COMPILATION_ONLY_NOT_FINANCIAL_ACCEPTANCE',sourcePins:aaveCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset']),
+  }),
+  deviceOwnerDepositV1: Object.freeze({
+    entry: join(ROOT, 'integration/run-device-owner-deposit-v1.mjs'),
+    worker: join(ROOT, 'integration/device-owner-deposit-flow-v1.mjs'),
+    local: join(ROOT, '.local/device-owner-deposit-v1'),
+    resultFormat: DEVICE_DEPOSIT_RESULT_V1, resourcesFormat: 'LIANUM_DEVICE_OWNER_DEPOSIT_RESOURCES_V1',
+    lockFormat: 'LIANUM_DEVICE_OWNER_DEPOSIT_LOCK_V1', attemptFormat: 'LIANUM_DEVICE_OWNER_DEPOSIT_ATTEMPT_V1',
+    classification: 'ONE_ORIGINAL_DEVICE_OWNED_D26_SYNTHETIC_LOCAL_FUNDING_NOT_PHONE_ACCEPTANCE',
+    sourcePins: deviceOwnerDepositSourcePinsV1, cleanupKeys: Object.freeze(['closedEvm', 'closedNativeEvm']),
   }),
   pairedNativeNoteV2: Object.freeze({
     entry: join(ROOT, 'integration/run-paired-native-note-v2.mjs'),
@@ -661,6 +672,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) scoped = assertAaveCompilationResultV1(result);
   if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
+  if (profile === FLOW_PROFILES.deviceOwnerDepositV1) scoped = assertDeviceDepositResultV1(result);
   if (profile === FLOW_PROFILES.developmentOsakaSmoke) scoped = assertOsakaSmokeResult(result);
   if (profile === FLOW_PROFILES.wrappedDeploymentOnly) scoped = assertWrappedDeploymentOnlyResultV1(result);
   if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) scoped = assertBeginPayoutAuditResultV1(result);
@@ -746,7 +758,7 @@ export async function runNativeWalletRealPreflightSupervisor() {
 /** The new profile's Python capsule represents the actual fixed launcher,
  * never a caller copy or an entry invoked directly by another host. Existing
  * enumerated profiles and their process predicates remain untouched. */
-function assertPairedNativeNoteLauncherV2() {
+function assertPairedNativeNoteLauncherV2(deviceDeposit = false) {
   const parentPID = process.ppid, before = procStat(parentPID);
   assert.ok(before && live(before), 'PAIRED_NOTE_ORIGINAL_LAUNCHER_UNAVAILABLE');
   assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'PAIRED_NOTE_LAUNCHER_UID');
@@ -756,7 +768,9 @@ function assertPairedNativeNoteLauncherV2() {
   const project = resolve(ROOT, '../../../..'), cwd = realpathSync(`/proc/${parentPID}/cwd`);
   assert.equal(cwd, project, 'PAIRED_NOTE_LAUNCHER_CWD');
   const argv = readFileSync(`/proc/${parentPID}/cmdline`, 'utf8').split('\0').filter(Boolean);
-  assert.equal(argv.length, 3, 'PAIRED_NOTE_LAUNCHER_ARGV'); assert.equal(argv[1], '-B', 'PAIRED_NOTE_LAUNCHER_ARGV');
+  assert.equal(argv.length, deviceDeposit ? 4 : 3, 'PAIRED_NOTE_LAUNCHER_ARGV');
+  if (deviceDeposit) assert.equal(argv[3], '--device-deposit', 'DEVICE_DEPOSIT_FIXED_LAUNCHER_ARGV');
+  assert.equal(argv[1], '-B', 'PAIRED_NOTE_LAUNCHER_ARGV');
   assert.match(basename(argv[0]), /^python3(?:\.\d+)?$/, 'PAIRED_NOTE_LAUNCHER_ARGV');
   assert.equal(realpathSync(resolve(cwd, argv[2])), join(project, 'scripts/development/paired_original_account_lab.py'),
     'PAIRED_NOTE_FIXED_LAUNCHER');
@@ -775,6 +789,15 @@ export async function runPairedNativeNoteSupervisorV2() {
   await consumePairedNativeNoteStartPipeV2();
   assertPairedNativeNoteLauncherV2();
   return runFixedFlowSupervisor(FLOW_PROFILES.pairedNativeNoteV2);
+}
+
+export async function runDeviceOwnerDepositSupervisorV1() {
+  assert.equal(arguments.length, 0, 'DEVICE_DEPOSIT_NO_SUPERVISOR_OPTIONS');
+  assertDeviceDepositReleaseV1();
+  assertPairedNativeNoteLauncherV2(true);
+  await consumePairedNativeNoteStartPipeV2();
+  assertPairedNativeNoteLauncherV2(true);
+  return runFixedFlowSupervisor(FLOW_PROFILES.deviceOwnerDepositV1);
 }
 
 /** One private inherited pipe, fixed original parent, before any worker is

@@ -40,6 +40,7 @@ interrupted = False
 pending_signal = None
 CLEANUP_SECONDS = 15
 START_PIPE_ENV = "LIANUM_PAIRED_ORIGINAL_START_FD_V2"
+DEVICE_DEPOSIT = False
 
 
 def record(value):
@@ -265,18 +266,19 @@ def _run_original_supervisor(lock):
     return attempt, child.pid, child.returncode, state["supervisorIdentity"]
 
 
-def proof_checks(rows, note_keys):
+def proof_checks(rows, note_keys, device_deposit=False):
     typed = isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("evidence"), dict) for row in rows)
     proofs = rows if typed else []
-    expected = [("deposit_balance", 26), ("withdraw_balance", 39)]
+    expected = [("deposit_balance", 26)] if device_deposit else [("deposit_balance", 26), ("withdraw_balance", 39)]
+    count = len(expected)
     checks = {"proofRowsTyped": typed,
-        "twoOriginalNoteRelations": typed and len(proofs) == 2 and [(row.get("relation"), row.get("publicWords")) for row in proofs] == expected,
-        "twoFreshOriginalProofAttempts": typed and len(proofs) == 2 and all(isinstance(row["evidence"].get("id"), str)
+        "twoOriginalNoteRelations": typed and len(proofs) == count and [(row.get("relation"), row.get("publicWords")) for row in proofs] == expected,
+        "twoFreshOriginalProofAttempts": typed and len(proofs) == count and all(isinstance(row["evidence"].get("id"), str)
             and UUID.fullmatch(row["evidence"]["id"]) for row in proofs)
-            and len({row["evidence"].get("id") for row in proofs}) == 2,
-        "twoDistinctOriginalProofBytes": typed and len(proofs) == 2 and len({row.get("proofSHA256") for row in proofs}) == 2
+            and len({row["evidence"].get("id") for row in proofs}) == count,
+        "twoDistinctOriginalProofBytes": typed and len(proofs) == count and len({row.get("proofSHA256") for row in proofs}) == count
             and all(digest(row.get("proofSHA256")) and digest(row.get("publicInputsSHA256")) and row.get("amountAtomic") == "500" for row in proofs),
-        "twoCompletedGenuineProofReceipts": typed and len(proofs) == 2 and all(
+        "twoCompletedGenuineProofReceipts": typed and len(proofs) == count and all(
             row["evidence"].get("classification") == "ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY"
             and row["evidence"].get("mode") == row.get("relation") and row["evidence"].get("operation") == "prove"
             and row["evidence"].get("purpose") == "owner" and row["evidence"].get("phase") == "completed"
@@ -290,6 +292,8 @@ def proof_checks(rows, note_keys):
             and record(row["evidence"].get("worker")).get("publicInputCount") == row.get("publicWords")
             and digest(row["evidence"].get("keySHA256")) and row["evidence"]["keySHA256"] == note_keys.get(row.get("relation"))
             and record(row["evidence"].get("worker")).get("keySHA256") == row["evidence"]["keySHA256"] for row in proofs)}
+    if device_deposit:
+        checks = {key.replace("two", "one", 1): value for key, value in checks.items()}
     return proofs, checks
 
 
@@ -335,7 +339,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
             for value in (supervisor_identity, worker_identity)),
         "resultCompleted": result.get("phase") == "completed" and result.get("success") is True
-            and result.get("pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
+            and result.get("deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
         "resourcesCompleted": resources.get("phase") == "completed" and "failure" in resources and resources["failure"] is None
             and resources.get("failures") == [],
         "originalResultJoined": worker_result.get("format") == RESULT_FORMAT and worker_result.get("phase") == "completed"
@@ -348,7 +352,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             for value in (result, resources, worker_result)),
         "fixedPairedScope": result.get("profile") == PROFILE and result.get("nativeExecution", "missing") is None
             and result.get("nativeDeliveryCount") == 0 and all(result.get(key) is False for key in SCOPE_FALSE)
-            and worker_result.get("pairedOriginalAccountNodeAcceptance") is True
+            and worker_result.get("deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
             and all(worker_result.get(key) is False for key in ("mobileNoteCustodyEstablished", "tlsEstablished",
                 "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished", "fullWalletAcceptance")),
         "originalCleanup": resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
@@ -359,17 +363,17 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             and all(type(record(resources.get(key)).get("code")) is int and record(resources.get(key)).get("code") == 0
                 and "signal" in record(resources.get(key)) and record(resources[key])["signal"] is None for key in ("workerExit", "workerClose")),
     }
-    proofs, proof_receipts = proof_checks(result.get("proofs"), record(record(result.get("artifacts")).get("noteKeys")))
+    proofs, proof_receipts = proof_checks(result.get("proofs"), record(record(result.get("artifacts")).get("noteKeys")), DEVICE_DEPOSIT)
     receipt_checks.update(proof_receipts)
     listeners = record(result.get("cleanup")).get("mobileListeners")
-    receipt_checks["pairedListenersClosed"] = isinstance(listeners, list) and len(listeners) == 2 and all(
+    receipt_checks["pairedListenersClosed"] = isinstance(listeners, list) and len(listeners) == (1 if DEVICE_DEPOSIT else 2) and all(
         record(row).get("closed") is True and record(row).get("listenerClosed") is True
         and record(row).get("ownedSocketsRemaining") == 0 and record(row).get("originalDiagnosticsInFlight") == 0 for row in listeners)
     accepted = all(receipt_checks.values())
-    summary = {"format": "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+    summary = {"format": "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
         "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
         "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
-        "pairedOriginalAccountNodeAcceptance": accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
+        ("deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
         "proofHashes": [{key: row.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")} for row in proofs],
         "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
@@ -380,7 +384,12 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             "Node runs the exact mobile V2 API, lease, protocol and Noble signatures through an explicit paired loopback translation.",
             "This establishes neither TLS, React/device execution, biometric signing, private portfolio nor note custody on a phone.",
             "Only the original owner child restarts; keeper/backend/node loss recovery, native graph delivery and public finality are excluded."]}
-    path = DEV / "reports/paired-original-account-lab-v2.json"
+    if DEVICE_DEPOSIT:
+        summary["limitations"] = ["One genuine D26 and one synthetic funding wire to a client-owned opening, never adopted by the Linux owner.",
+            "Actual exact-origin loopback TLS1.3 and real mobile API/Noble signatures in Node; no phone, Hermes, SecureStore or biometric execution.",
+            "PROVE HTTP504 and deliberately lost FUND reply do not retry the original job or signed wire; explicit OBSERVE authenticates the same ledger inclusion.",
+            "No graph/reservation/EXIT, portable vault persistence or full mobile economic custody acceptance."]
+    path = DEV / ("reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -392,9 +401,16 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
 
 
 def main():
-    global active, active_identity, active_pidfd
-    if len(sys.argv) != 1:
-        raise SystemExit("Usage: ./dev lab mobile-original")
+    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
+    if sys.argv[1:] not in ([], ["--device-deposit"]):
+        raise SystemExit("Usage: ./dev lab mobile-original | ./dev lab mobile-device")
+    if sys.argv[1:] == ["--device-deposit"]:
+        DEVICE_DEPOSIT = True
+        ENTRY = FLAT / "integration/run-device-owner-deposit-v1.mjs"
+        DIRECTORY = FLAT / ".local/device-owner-deposit-v1"
+        PROFILE = "device-owner-deposit-v1"
+        RESULT_FORMAT = "LIANUM_DEVICE_OWNER_DEPOSIT_RESULT_V1"
+        RESOURCES_FORMAT = "LIANUM_DEVICE_OWNER_DEPOSIT_RESOURCES_V1"
     if sys.platform != "linux" or Path.cwd().resolve() != ROOT:
         raise SystemExit("Run the fixed paired original lab from the project root in Linux/WSL")
     if Path(__file__).resolve() != ROOT / "scripts/development/paired_original_account_lab.py" or Path(sys.argv[0]).resolve() != Path(__file__).resolve():

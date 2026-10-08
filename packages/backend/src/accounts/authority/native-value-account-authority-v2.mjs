@@ -398,11 +398,15 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
             proofSHA256: byteSHA(Buffer.from(proof.proof, 'hex')), publicInputsSHA256: sha(proof.publicInputs),
             nullifier: nullifier(Buffer.from(consent.statement.scope, 'hex'), Buffer.from(consent.statement.output, 'hex'),
               Buffer.from(input.secret)).toString('hex') });
+          await onPrivateAudit({ reference: consent.jobId, phase: 'device-deposit-proof-retained', stage: 'PROVED' });
           return devicePublic(deviceRow(consent.jobId));
         } catch (error) {
           if (!unavailable && deviceRows().some(row => row.jobId === consent.jobId))
             await deviceUpdate(consent.jobId, { stage: 'FAILED', errorCode: /^[A-Z0-9_]{1,100}$/.test(error.code ?? '')
               ? error.code : 'DEVICE_DEPOSIT_PROOF_REJECTED' });
+          // Private completion notification only; preserve the original proof
+          // error if diagnostic retention itself is unavailable.
+          await onPrivateAudit({ reference: consent.jobId, phase: 'device-deposit-proof-retained', stage: 'FAILED' }).catch(() => {});
           throw error;
         } finally {
           bytes.fill(0); for (const value of Object.values(input)) if (Array.isArray(value)) value.fill(0);
