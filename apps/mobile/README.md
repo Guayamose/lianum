@@ -5,6 +5,14 @@ custodia local y autorizaciones manuales acotadas. No carga la wallet web en una
 WebView. Esta entrega establece el cliente y su frontera de seguridad; todavía
 no completa los recorridos económicos del keeper histórico.
 
+La pestaña **Custodia local** permite crear una raíz protegida por biometría,
+preparar una nota cifrada, respaldar/restaurar esa misma preparación y firmar
+los términos originales D26 o D27. El respaldo contiene la raíz: su custodia
+corresponde al usuario. Las revisiones caducan en 15 segundos y se revocan al
+editar, ocultar la pantalla o pasar a segundo plano. La nota permanece
+`UNISSUED`: una firma local todavía no constituye financiación ni saldo disponible.
+El enlace con prueba, depósito e inclusión canónica está en construcción.
+
 ## Estructura
 
 - `src/screens/`: pantallas y consentimiento.
@@ -116,17 +124,25 @@ Para construir el APK local con JavaScript y Hermes incluidos:
 El constructor original ensambla `app-release.apk` con la firma Android Debug
 existente. Funciona sin Metro; conserva las dos arquitecturas, lint y el límite
 de 3 GiB. Para esta variante el JVM principal usa heap 768 MiB y metaspace
-384 MiB. El informe comprueba el bundle Hermes empaquetado, ocho fuentes
-actuales, firma V2 y cierre de los procesos.
+384 MiB, SerialGC y dos procesadores activos, verificados en los argumentos
+reales de Gradle. El informe une el bundle Hermes empaquetado con doce fuentes
+actuales, incluidas la custodia y las firmas locales, y verifica firma V2 y cierre.
 
-El intento `f3a40856-76de-425c-b59e-46ab37b9e006` completó la compilación con
-**42 073 983 bytes** y SHA-256
-`546f13a4b9e9e5bcdc60e37c297fba0ddba522a29a1707ad59bf0c5d451af5c4`.
-El resultado generado está en
-`apps/mobile/android/app/build/outputs/apk/release/app-release.apk`.
-La instalación y comprobación en teléfono quedan para el final, según la
-decisión de Rafa. Los dos intentos previos detenidos por memoria se conservan
-como rechazados; la firma es de desarrollo local.
+El intento `5f2e0774-27db-40c4-936b-aa17bea29422` completó la compilación con
+**42 169 935 bytes** y SHA-256
+`a258a8346f25a124818c2a8eea51d6c78306e307493edd16b2a3e25dd1617596`. La copia estable está en:
+
+```text
+.local/mobile/artifacts/android-standalone-5f2e0774-27db-40c4-936b-aa17bea29422/lianum-wallet-local.apk
+```
+
+Incluye Hermes 98; funciona sin Metro. Las 42 fuentes capturadas conservaron
+sus bytes y los ocho procesos registrados cerraron sin señales efectivas. El
+pico RSS fue **2 339 147 776 bytes**, dentro del límite original de 3 GiB. El
+intento anterior `4c121601…` conserva su rechazo por exceder ese límite en
+3,02 MiB; no se ha cambiado su resultado. La instalación y comprobación en
+teléfono quedan para el final, según la decisión de Rafa. La firma sigue siendo
+de desarrollo local; este APK no cierra el recorrido financiero desde el móvil.
 
 El build del commit `141b0ef54a78dfe8f32818c51067bf761ff3cb4c` pasó en 6 min 19 s,
 con 308 tareas Gradle. Se conserva el APK verificado en:
