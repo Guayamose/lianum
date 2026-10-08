@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "525fdb82936511319e25298086d0c7c382fac02c0e640af66d5308115238820a",
+  "hostSourceClosureSHA256": "0c8858139eb05700a51b2ddec0c91adc3704c6dc73361e33c2b031571d76895e",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -622,7 +622,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/claims/development/development-btc-sol-graph-source-pins.mjs",
-      "sha256": "40fedd32d6aa8c704399c11d9d176e4d54f9c0aded85c022b7993310234f88e0"
+      "sha256": "47f1f94a8165581e14a8cb384a6d9c7aa3584703d93e43c6fbd2d86c7803f03e"
     },
     {
       "path": "integration/claims/development/development-native-claim-policy.mjs",
@@ -630,7 +630,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/claims/development/development-native-claim-source-pins.mjs",
-      "sha256": "12cca1e4a36df30c6cc7596e37f41c0e21657171851aeb7fd055898dd8fc1b1d"
+      "sha256": "32c75998fa2e7be8568ba145996bc86bc2187e05adae1ef693c6f598defe7905"
     },
     {
       "path": "integration/claims/metrics/native-claim-empty-audit-policy-v1.mjs",
@@ -802,7 +802,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-wallet-real-driver-v1.mjs",
-      "sha256": "9861e957fea5996a046875c106a0eac2cc6d1fe28c7137e741043342f2e2db8d"
+      "sha256": "3566f27a48022c6f8c4de38c08190f461b5a2ed7dd3e862004cc307950780172"
     },
     {
       "path": "integration/native-wallet-real-evidence-v1.mjs",
@@ -2634,7 +2634,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-execution-v2.mjs",
-      "sha256": "40e6e01311dd9bf25303bdd09576ffcdaacd1b44aa68ba612fde3ee00c344684"
+      "sha256": "c28a561598ac4d9dcad6f5c73bc26d1ca485c4ed01e7549d62737a3efb7b7081"
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-failure-retention.mjs",
@@ -3287,4 +3287,4 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "mobileNoteCustodyEstablished": false,
     "nativeGraphAcceptanceEstablished": false
   }
-} );
+});
