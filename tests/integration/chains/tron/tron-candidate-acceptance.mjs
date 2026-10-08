@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { beginTronCandidateLifetime, bindTronCandidateChildCancellation } from './tron-candidate-lifetime.mjs';
 import { createTronPrivateLogCapture } from './tron-candidate-log-capture.mjs';
+import { captureTronCandidateDiskLogs } from './tron-candidate-disk-log-capture.mjs';
 import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import { PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
@@ -205,7 +206,8 @@ async function proc(pid) {
 }
 async function sourcePins() {
   const paths = [HERE, fileURLToPath(new URL('./tron-candidate-lifetime.mjs', import.meta.url)),
-    fileURLToPath(new URL('./tron-candidate-log-capture.mjs', import.meta.url)), fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)),
+    fileURLToPath(new URL('./tron-candidate-log-capture.mjs', import.meta.url)),
+    fileURLToPath(new URL('./tron-candidate-disk-log-capture.mjs', import.meta.url)), fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)),
     ...Object.keys(provenancePins).map(name => fileURLToPath(new URL(name, FIXTURES))),
     fileURLToPath(new URL('offline-agree-zero/source/org/tron/core/config/args/Args.java', FIXTURES)),
     join(ROOT, 'runtime-drivers/owned-tron-native-value/OwnedTronNativeDriver.java')];
@@ -310,9 +312,10 @@ async function startOriginalChild(directory, audit, signal) {
         await privateWrite(join(audit, 'jvm-fatal-private.log'), fatalBytes);
         nativeFatalTrace = { retainedPrivate: true, bytes: fatalBytes.length, sha256: sha(fatalBytes) };
       } catch (error) { if (!absent(error)) throw error; }
+      const privateDiskLogCapture = await captureTronCandidateDiskLogs(directory, audit);
       return { stopped: true, exitCode: exit.code, signal: exit.signal, forced,
         nativeOrderlyExit: exit.code === 0 && exit.signal === null && !forced, sampledResourceFloorsHeld: sampled,
-        nativeFatalTrace, privateStreamCapture: { stdout: outLog.metadata, stderr: errLog.metadata } };
+        nativeFatalTrace, privateDiskLogCapture, privateStreamCapture: { stdout: outLog.metadata, stderr: errLog.metadata } };
     } finally { releaseCancellation?.(); child.stdin.destroy(); }
   }
   releaseCancellation = bindTronCandidateChildCancellation(signal, fail, close);
