@@ -13,6 +13,9 @@ const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/dev
  ['flat/',FLAT],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
 const FIXED=Object.freeze(['golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
  'integration/run-native-value-economic-note-recovery-v1.mjs',
+ 'integration/run-evm-metamorpho-exit-recovery-v1.mjs',
+ 'integration/run-evm-aave-exit-recovery-v1.mjs',
+ 'integration/external-defi-vault-exit-successor-v1.mjs',
  'integration/native-value-economic-note-recovery-flow-v1.mjs','integration/native-device-economic-note-successor-worker-v1.mjs',
  'integration/native-device-economic-note-process-scope-v1.mjs',
  'proof-workers/native-value-dev-live-v5-artifacts.mjs',

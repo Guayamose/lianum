@@ -1,3 +1,4 @@
+import {sha as canonicalJournalSHA} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
 /** Actual affected path: one private underlying reservation pays a solver only after
  * its gated official action backs the preauthorized private output note.
  * This uses one owned local EVM and the original four-slot generic protocol.
@@ -15,7 +16,7 @@ import { noteWordsToHash } from '../../../../packages/engine/src/notes/private-n
 import { nativeStaticCalldata } from '../../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
 import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
 import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import { createOwnedEvmVaultFixture, prepareEvmVaultFixtureGraph } from '../../fixtures/chains/evm/owned-evm-vault-fixture.mjs';
+import { createOwnedEvmVaultFixture, createOwnedRetainedMetaMorphoVaultFixtureV1, createOwnedRetainedAaveVaultFixtureV1, prepareEvmVaultFixtureGraph } from '../../fixtures/chains/evm/owned-evm-vault-fixture.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { evmVaultSourcePins } from '../../runners/source-pins.mjs';
 import { NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';
@@ -33,11 +34,17 @@ import { createOwnedMetaMorphoVault, createOwnedAaveStaticVaultV1, assertOwnedMe
 import { createPrivateVaultPortfolioView } from '../../../../packages/backend/src/defi/vaults/private-vault-position.mjs';
 import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 
+import {createRetainedMetaMorphoExitWalletV1,createRetainedAaveExitWalletV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
+import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-source-pins-v1.mjs';
+import {captureAndLaunchExternalDefiVaultExitSuccessorV1} from '../../wallet/native/native-device-economic-launcher-v1.mjs';
+import {assertExternalDefiVaultExitRecoveryResultV1} from './external-defi-vault-exit-policy-v1.mjs';
 import { aavePrivateGraphSourcePinsV1 } from './aave-private-graph-source-pins-v1.mjs';
 const bare = value => value.slice(2);
 // The fixed supervisor entries reuse this original worker. Neither accepts
 // an argv/environment selector or changes the proof/custody authority.
 const SCENARIOS = Object.freeze({
+  'integration/run-evm-metamorpho-exit-recovery-v1.mjs':Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
+  'integration/run-evm-aave-exit-recovery-v1.mjs':Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
   'integration/run-evm-vault-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_METAMORPHO_V1', local: '.local/evm-vault-flow' }),
   'integration/run-evm-aave-flow.mjs': Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/evm-aave-flow-v1'}),
   'integration/run-evm-uniswap-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1', local: '.local/evm-uniswap-flow' }),
@@ -62,7 +69,7 @@ async function main() {
   const scenario = Object.entries(SCENARIOS).find(([entry]) => parentEntry === join(ROOT, entry))?.[1];
   assert.ok(scenario, 'EVM_VAULT_FIXED_ORIGINAL_SUPERVISOR');
   const PROTOCOL_PROFILE = scenario.protocol, AAVE = PROTOCOL_PROFILE === 'OFFICIAL_AAVE_STATIC_V1',
-    UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1', RECOVERY = scenario.recovery === true;
+    UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1', RECOVERY = scenario.recovery === true, RETAINED_EXIT=scenario.retainedExit===true;
   assert.ok(!RECOVERY || UNISWAP, 'EVM_UNISWAP_F_FIXED_PROTOCOL_ONLY');
   const SOURCE = '5000000', SHARES = UNISWAP ? '1000' : AAVE ? '1000000' : '1000000000000000000',
     INPUT = UNISWAP ? '2000' : AAVE ? '1100000' : '1000000', PAYOUT = UNISWAP ? '1200' : '1200000',
@@ -80,7 +87,7 @@ async function main() {
     format: RECOVERY ? EVM_UNISWAP_RECOVERY_RESULT : 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
-    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: AAVE ? aavePrivateGraphSourcePinsV1() : evmVaultSourcePins(),
+    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: RETAINED_EXIT?externalDefiVaultExitSourcePinsV1():AAVE ? aavePrivateGraphSourcePinsV1() : evmVaultSourcePins(),
     stages: [], proofs: [], transactions: [], accountRequests: [], nativeEffects: { evmVault: 0 },
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
     protocolProfile: PROTOCOL_PROFILE, privateVaultGraphAcceptance: false, privateUniswapGraphAcceptance: false, privateAaveGraphAcceptance: false,
@@ -93,7 +100,7 @@ async function main() {
         : 'One owned local EVM, official MetaMorpho with synthetic underlying, controlled local inclusion and one canonical confirmation.',
       'Solver supplies public input. Source private reserve pays only after exact destination private note backing is proven.',
       'The router action, amounts, K, protocol and destination pool remain public. Common-host observers/keeper are trusted.',
-      'Two encrypted owner children and a disposable account coordinator restart; the original authority and EVM survive.',
+      RETAINED_EXIT?'Planned original closure after terminal graph/payout/EXIT/redemption; a new backend child opens the same five-section issuer and reconciles existing receipts. The audit parent remains alive; abrupt loss and GRAPH recovery are not established.':'Two encrypted owner children and a disposable account coordinator restart; the original authority and EVM survive.',
       'This exercises one registered EVM action under the generic relation; arbitrary DeFi and seven-chain acceptance remain unproved.',
       ...(RECOVERY ? ['Controlled interruption after the one completed swap/D27 delivery, before I/N/T; no physical network outage is claimed.',
         'F refunds the original source reserve at its signed cutoff. The swap is irreversible: target owns the delivered note; solver loses its actual input and receives no payout.'] : []),
@@ -106,6 +113,7 @@ async function main() {
     save(); process.stdout.write(JSON.stringify({ stage: name }) + '\n');
   }
   let fixture, execution, portfolio, keeper, session, http, walletApp, appDriver, vaultActor, vaultExit, legacy, manualSession, privateView;
+  let retainedExitWallet,externalSuccessor,retainedExitCaptured=false;
   let solverBalanceBeforeDelivery, solverBalanceAfterDelivery;
   let graphRef, graphCutoff, solverPayoutCommitment, reserveNullifier;
   const graphId = 'private_vault_graph';
@@ -135,6 +143,7 @@ async function main() {
   }
   async function cleanup() {
     if (closed) return; closed = true;
+    if(externalSuccessor){try{const status=await externalSuccessor.close();result.cleanup.closedSuccessor=status.originalChildProcessClosed===true;result.externalVaultBackendRecovery.successorClosure=status;}catch(error){result.cleanup.closedSuccessor=false;result.success=false;result.phase='failed';result.cleanup.successorError=safeCode(error);}}
     if (walletApp) await walletApp.close().catch(() => {});
     await Promise.allSettled([...accounts.map(account => account.abort()), execution?.abort(), legacy?.close()].filter(Boolean));
     if (http) await http.close().catch(() => {});
@@ -143,7 +152,8 @@ async function main() {
     try { portfolio?.close(); } catch {}
     for (const account of accounts) await account.close().catch(() => {});
     await execution?.close().catch(() => {});
-    if (fixture) result.cleanup = await fixture.close();
+    if(retainedExitWallet&&!retainedExitCaptured)await retainedExitWallet.close().catch(error=>{result.cleanup.retainedWalletError=safeCode(error);result.success=false;result.phase='failed';});
+    if (fixture) result.cleanup = {...result.cleanup,...await fixture.close()};
   }
   const stop = () => {
     if (interrupted) return; interrupted = true;
@@ -191,9 +201,9 @@ async function main() {
   }
   async function exitOwnerNote(index, owner, role, requestId) {
     const preparation = ownerPreparations[index];
-    const review = await preparation.review({ requestId, kind: 'EXIT', role });
+    const review = RETAINED_EXIT?await retainedExitWallet.catalogue.reviewOwnerPreparation({assetId:retainedExitWallet.accounts[index].assetId,request:{requestId,kind:'EXIT',role}}):await preparation.review({ requestId, kind: 'EXIT', role });
     assert.equal(review.kind, 'EXIT'); assert.equal(review.recipient, bare(index === 0 ? fixture.runtime.accounts[3] : fixture.targetExitRecipient));
-    const body = await preparation.confirm(); assert.equal(body.requestId, requestId);
+    const body = RETAINED_EXIT?await retainedExitWallet.catalogue.confirmOwnerPreparation():await preparation.confirm(); assert.equal(body.requestId, requestId);
     await appAccount('prepare', body);
     assert.equal(row(await appAccount('execute', { requestId }), requestId).state, 'CONFIRMED');
     const completedCount = fixture.runtime.transactions.length;
@@ -326,7 +336,7 @@ async function main() {
   }
 
   try {
-    save(); fixture = await createOwnedEvmVaultFixture(privateDirectory, { onStage: stage, onDeployment: audit, protocolProfile: PROTOCOL_PROFILE });
+    save(); fixture = RETAINED_EXIT?await(AAVE?createOwnedRetainedAaveVaultFixtureV1:createOwnedRetainedMetaMorphoVaultFixtureV1)(privateDirectory,{onStage:stage,onDeployment:audit}):await createOwnedEvmVaultFixture(privateDirectory, { onStage: stage, onDeployment: audit, protocolProfile: PROTOCOL_PROFILE });
     const { runtime, system, assets, capabilities, sourceOwner, targetOwner, readers, quorum, evmDelivery, router, solver, targetExitRecipient, officialProtocol } = fixture;
     if(AAVE)writeFixturePrivate(join(privateDirectory,'aave-new-compilation.json'),officialProtocol.compilation);
     const assetArtifacts = loadBackedAssetDeploymentArtifacts().artifacts;
@@ -352,8 +362,10 @@ async function main() {
       accounts: accounts.map((account, poolIndex) => ({ poolIndex, account })),
       accountId: 'private_vault_account', journalId: 'private_vault_journal' });
     if (!UNISWAP) {
-      vaultActor = await (AAVE ? createOwnedAaveStaticVaultV1 : createOwnedMetaMorphoVault)({ runtime, protocolFixture: officialProtocol });
-      vaultExit = await createOwnedPrivateVaultExit({ runtime, system, poolIndex: 1, account: accounts[1], vault: vaultActor });
+      if(RETAINED_EXIT){retainedExitWallet=await(AAVE?createRetainedAaveExitWalletV1:createRetainedMetaMorphoExitWalletV1)({runtime,system,owners:[sourceOwner,targetOwner],protocolFixture:officialProtocol},{onProof:retainProof});vaultActor=retainedExitWallet.vault;vaultExit=retainedExitWallet.exit;
+        result.externalVaultBackendRecovery={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',variant:AAVE?'AAVE_STATIC':'METAMORPHO',bornBeforeFunding:true,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false};
+      }else{vaultActor = await (AAVE ? createOwnedAaveStaticVaultV1 : createOwnedMetaMorphoVault)({ runtime, protocolFixture: officialProtocol });
+      vaultExit = await createOwnedPrivateVaultExit({ runtime, system, poolIndex: 1, account: accounts[1], vault: vaultActor });}
       privateView = createPrivateVaultPortfolioView({ runtime, portfolio, vault: vaultActor,
         shareAssetId: accounts[1].assetId, underlyingAssetId: accounts[0].assetId });
     }
@@ -362,7 +374,7 @@ async function main() {
     session = manualSession.session;
     http = await startFlatAccountHttp({ session, port: 0 });
     walletApp = await startWalletApplication({ accountSession: session,
-      ...(UNISWAP ? {} : { defiExit: { runtime, service: vaultExit } }), actionAccessMode: 'exact-only', port: 0 });
+      ...(UNISWAP||RETAINED_EXIT ? {} : { defiExit: { runtime, service: vaultExit } }), actionAccessMode: 'exact-only', port: 0 });
     appDriver = createManualWalletAppDriver(walletApp, {
       deadlineMs: Date.parse(lock.startedAt) + NATIVE_FLOW_LIMITS.totalMilliseconds - NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds });
     assert.equal((await appState()).capabilities.graphExecution, false);
@@ -491,6 +503,13 @@ async function main() {
         privateSharesAfter:afterYield.positions[0].availableShares,estimatedBefore:beforeYield.positions[0].estimatedRedeemableUnderlying,
         estimatedAfter:afterYield.positions[0].estimatedRedeemableUnderlying};save();
     }
+    if(RETAINED_EXIT){
+      const listener=await walletApp.close();assert.equal(listener.listenerClosed,true);await http.close();walletApp=null;http=null;
+      portfolio.close();portfolio=retainedExitWallet.portfolio;session=retainedExitWallet.session;
+      privateView=createPrivateVaultPortfolioView({runtime:fixture.runtime,portfolio,vault:vaultActor,shareAssetId:retainedExitWallet.accounts[1].assetId,underlyingAssetId:retainedExitWallet.accounts[0].assetId});
+      http=await startFlatAccountHttp({session,port:0});walletApp=await startWalletApplication({accountSession:session,defiExit:{runtime,service:retainedExitWallet.exit},actionAccessMode:'exact-only',port:0});
+      appDriver=createManualWalletAppDriver(walletApp,{deadlineMs:Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds});
+    }
     await stage(UNISWAP ? 'exit-source-change-and-original-target-output' : 'exit-source-change-and-original-target-shares');
     await exitOwnerNote(0, sourceOwner, 'change', 'vault_exit_0');
     await exitOwnerNote(1, targetOwner, 'source', 'vault_exit_1');
@@ -552,7 +571,7 @@ async function main() {
       const redemptionResult = await appDefi('execute', { requestId: redemption.requestId });
       assert.equal(redemptionResult.phase, 'REDEEMED'); assert.equal(redemptionResult.redeemedUnderlying, underlyingMinimum); if(AAVE) assert.ok(BigInt(underlyingMinimum)>BigInt(SHARES),'AAVE_REDEEM_INCLUDES_GENUINE_YIELD');
       assert.equal(redemptionResult.underlyingPrivateSpendable, false);
-      const redeemed = await vaultExit.originalReceipt(redemption.requestId);
+      const redeemed = await(RETAINED_EXIT?retainedExitWallet.service:vaultExit).originalReceipt(redemption.requestId);
       assertOwnedMetaMorphoReceipt(vaultActor, redeemed);
       writeFixturePrivate(join(privateDirectory, 'vault-redemption.json'), redeemed);
       if(AAVE)result.aaveRedemption=redeemed.execution.confirmation.aaveRedemption;
@@ -600,7 +619,22 @@ async function main() {
     result.privatePAEGConversionEstablished = true; result.originalExactConsent = appDriver.evidence();
     result.privateOutputExitEstablished = true;
     if (!UNISWAP) result.privateExitsAndUnderlyingRedemption = true;
-    result.duplicateNoEffect = true; result.phase = 'completed'; result.success = true; await audit();
+    result.duplicateNoEffect = true;
+    if(RETAINED_EXIT){
+      await stage('planned-terminal-vault-catalogue-capture-and-new-backend');
+      const closedApp=await walletApp.close();assert.equal(closedApp.listenerClosed,true);walletApp=null;
+      // Dispose only the original, already terminal graph resources. Their
+      // permissions are deliberately absent from the new EXIT-only backend.
+      await execution.close();for(const account of accounts)await account.close();
+      for(const selected of fixture.providers)await selected.provider.close();for(const operator of fixture.operators)await operator.close();for(const recipient of fixture.recipients)await recipient.close();
+      const firstReceipt=await retainedExitWallet.service.originalReceipt('vault_exit_1');
+      const quiesced=await session.quiesceForPrivateRecovery();assert.equal(quiesced.phase,'CLOSED');await http.close();http=null;
+      externalSuccessor=await captureAndLaunchExternalDefiVaultExitSuccessorV1({externalDefiVaultExitRecovery:true,wallet:retainedExitWallet,fixture,privateDirectory,result,active(){assert.equal(interrupted,false);assert.ok(Date.now()<Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds);},save});
+      retainedExitCaptured=true;
+      const observed=await externalSuccessor.audit();assert.equal(observed.sameOriginalReceipt,true);assert.equal(observed.actualWireCountBefore,observed.actualWireCountAfter);assert.equal(observed.originalExitRequestIdsRetained,true);assert.equal(observed.originalCatalogueRequestIdsRetained,true);
+      result.externalVaultBackendRecovery={...result.externalVaultBackendRecovery,...externalSuccessor.report,audit:observed,originalRedemptionReceiptSHA256:canonicalJournalSHA(firstReceipt)};
+    }
+    result.phase = 'completed'; result.success = true; await audit();
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = safeCode(error);
     if (!fixture && error.fixtureCleanup) result.cleanup = error.fixtureCleanup;
@@ -637,9 +671,10 @@ async function main() {
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.closedEvm !== true) { result.success = false; result.phase = 'failed'; }
-    try { assert.deepEqual(AAVE?aavePrivateGraphSourcePinsV1():evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
+    try { assert.deepEqual(RETAINED_EXIT?externalDefiVaultExitSourcePinsV1():AAVE?aavePrivateGraphSourcePinsV1():evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
     result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began;
+    if(RETAINED_EXIT&&result.success){try{assertExternalDefiVaultExitRecoveryResultV1(result);}catch(error){result.success=false;result.phase='failed';result.errorCode=safeCode(error);}}
     if (RECOVERY && result.success) {
       try { assertEvmUniswapRecoveryResult(result); }
       catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); }

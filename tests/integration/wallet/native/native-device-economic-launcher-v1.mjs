@@ -1,3 +1,10 @@
+import {sha as canonicalJournalSHA} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import {retainedExternalVaultWalletContextV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
+import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
+import {externalVaultExitLifetimeContextV1,markExternalVaultExitCapturedV1} from '../../chains/evm/external-defi-vault-exit-lifetime-v1.mjs';
+import {externalDefiVaultExitSourcePinsV1} from '../../chains/evm/external-defi-vault-exit-source-pins-v1.mjs';
+import {hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {retainExternalDefiVaultCatalogueRecoveryV1,retainExternalDefiOwnersRecoveryV1,retainExternalDefiVaultExitSystemRecoveryV1,retainWrappedPrivateLifetimeRecoveryV1,retainExternalDefiReceiverRuntimeV2,finishWrappedRecoveryCaptureV1,closeWrappedRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 /** Fixed planned F capture and original successor. The caller is the PRIVATE
  * original fixture, not HTTP/SQL. No device root/opening/key is serialized over
  * IPC; economic actions remain fresh signed HTTPS requests to original bridges. */
@@ -48,6 +55,10 @@ async function captureOriginalSuccessor(context,nativeNote){
  assert.equal(runtime.processStatus().stopped,true);assert.equal(nativeRuntime.processStatus().stopped,true);assert.equal(owner.report().childExited,true);
  assert.equal(originalPrepared.custody.report().closed,true);context.result.cleanup.closedDeviceProvider=true;
  const stoppedOriginals={receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),transport:oldTransport};
+ return launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external:false});
+}
+async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external}){
+ const economicLifetime=external?context.externalLifetime:context.economicLifetime;
  const child=fork(WORKER,[],{execPath:process.execPath,execArgv:[],cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},
    serialization:'json',stdio:['ignore','inherit','inherit','ipc']});
  const pending=new Map();let sequence=0,closed=null,closeReply,exitEvent,firstBirth;
@@ -70,10 +81,15 @@ async function captureOriginalSuccessor(context,nativeNote){
    assert.equal(reply.listenerClosed,true);assert.equal(reply.ownedSocketsRemaining,0);return{...reply,exit:observed,close:observed,originalChildProcessClosed:true};})();closeReply.catch(()=>{});}return closeReply;}
  economicLifetime.closeSuccessor=close;
  try{
-  const opened=await request('OPEN',{identity,checkpoint});firstBirth=originalBirth(child.pid);
+  const opened=await request('OPEN',{identity,checkpoint,...(external?{expected:context.expected}:{} )});firstBirth=external?externalBirth(child.pid):originalBirth(child.pid);
   assert.equal(firstBirth.ppid,process.pid);assert.equal(firstBirth.pgrp,before.process.pgrp);assert.equal(firstBirth.session,before.process.session);
   assert.notEqual(firstBirth.pid,before.process.pid);assert.equal(opened.receipt.processId,child.pid);assert.equal(opened.receipt.originalProcessLifetimeDifferent,true);
   assert.equal(opened.receipt.originalSectionsStoppedBeforeCheckpoint,true);assert.equal(opened.receipt.issuerClosed,true);assert.equal(opened.receipt.sourceSHA256,sourceSHA256);
+  if(external){
+    assert.equal(opened.receiverWireCount,context.expected.actualWireCountBefore);assert.equal(opened.variant,context.expected.variant);assert.deepEqual(firstBirth.uid,before.process.uid);
+    const report={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',sourceSHA256,checkpoint,originalProcess:before.process,successorProcess:firstBirth,originalSectionsStoppedBeforeReopen:true,newBackendPID:true,bornBeforeFunding:true,variant:context.expected.variant,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false,before,stoppedOriginals,receipt:opened.receipt};
+    return Object.freeze({audit:()=>request('AUDIT'),close,processId:child.pid,report});
+  }
   assert.deepEqual(opened.descriptor,context.descriptor);assert.equal(opened.rootId,context.result.deviceCustody.sameRoot);
   assert.equal(opened.parentJobId,context.result.deviceReservation.jobId);assert.equal(opened.depositJobId,context.depositJobId);
   const report={profile:'ORIGINAL_PLANNED_NATIVE_DEVICE_RESTART_V1',sourceSHA256,checkpoint,originalProcess:before.process,successorProcess:firstBirth,
@@ -82,4 +98,34 @@ async function captureOriginalSuccessor(context,nativeNote){
   context.result.deviceEconomicRestart=report;context.save();
   return Object.freeze({wait:()=>request('WAIT'),audit:()=>request('AUDIT'),close,processId:child.pid,report});
  }catch(error){if(child.connected)child.disconnect();try{await completion;}catch{}throw error;}
+}
+
+const externalBirth=pid=>{const value=originalBirth(pid),status=readFileSync(`/proc/${pid}/status`,'utf8'),match=/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(status);assert.ok(match);return{...value,uid:match.slice(1).map(Number)};};
+/** Finite caller over the branded before-effects wallet and original External5.
+ * Incoming HTTP/DTOs can neither select this child nor supply captured state. */
+export async function captureAndLaunchExternalDefiVaultExitSuccessorV1(context){
+ assert.equal(arguments.length,1);assert.equal(context.externalDefiVaultExitRecovery,true);assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/evm-vault-flow.mjs'));context.active();
+ const wallet=retainedExternalVaultWalletContextV1(context.wallet),life=externalVaultExitLifetimeContextV1(context.fixture.recoveryLifetime);
+ assert.equal(wallet.runtime,life.runtime);assert.equal(wallet.runtime,context.fixture.runtime);assert.equal(wallet.system,context.fixture.system);assert.equal(wallet.protocolFixture,context.fixture.officialProtocol);assert.equal(wallet.owners[0],context.fixture.sourceOwner);assert.equal(wallet.owners[1],context.fixture.targetOwner);assert.equal(context.privateDirectory,life.identity.directory);
+ const sourceSHA256=hash(JSON.stringify(externalDefiVaultExitSourcePinsV1()));assert.equal(sourceSHA256,life.identity.sourceSHA256);
+ const receipt=await wallet.service.originalReceipt('vault_exit_1'),exit=retainedOwnedPrivateVaultExitContextV1(wallet.service);
+ assert.equal(ownedPrivateVaultExitBinding(wallet.runtime,wallet.service).vault,wallet.vault);
+ const snapshot=await wallet.catalogue.keeper.snapshot();assert.deepEqual(snapshot.requests.map(row=>row.requestId),['vault_exit_0','vault_exit_1']);assert.deepEqual(snapshot.requests.map(row=>row.state),['CONFIRMED','CONFIRMED']);
+ const before={process:externalBirth(process.pid),receiver:wallet.runtime.processStatus(),owners:wallet.owners.map(owner=>owner.report()),receiverWireCount:wallet.runtime.transactions.length};
+ const expected={variant:wallet.variant,actualWireCountBefore:before.receiverWireCount,catalogueIdentitySHA256:canonicalJournalSHA(wallet.catalogue.status()),receiptSHA256:canonicalJournalSHA(receipt),redemptionReferenceSHA256:canonicalJournalSHA(receipt.reference),exitIdentitySHA256:canonicalJournalSHA(exit.identity)};
+ // Each fixed writer owns/fences its originals; credentials never enter IPC.
+ // The receiver is last, after all original readers/owners have stopped.
+ let checkpoint;
+ try{
+  await retainExternalDefiVaultCatalogueRecoveryV1(life.authority,{catalogue:wallet.catalogue,services:[wallet.service]});
+  await retainExternalDefiOwnersRecoveryV1(life.authority,{owners:wallet.owners});
+  await retainExternalDefiVaultExitSystemRecoveryV1(life.authority,{runtime:wallet.runtime,system:wallet.system});
+  await retainWrappedPrivateLifetimeRecoveryV1(life.authority,wallet.runtime);
+  await retainExternalDefiReceiverRuntimeV2(life.authority,wallet.runtime);
+  checkpoint=await finishWrappedRecoveryCaptureV1(life.authority);
+ }catch(error){try{await closeWrappedRecoveryAuthorityV1(life.authority);}catch(cleanup){throw new AggregateError([error,cleanup],'EXTERNAL_VAULT_CAPTURE_ISSUER_CLOSE_FAILED',{cause:error});}throw error;}
+ assert.equal(wallet.runtime.processStatus().stopped,true);for(const owner of wallet.owners){const row=owner.report();assert.equal(row.childExited,true);assert.deepEqual(row.exit,{code:0,signal:null});}
+ const stoppedOriginals={receiver:wallet.runtime.processStatus(),owners:wallet.owners.map(owner=>owner.report())};
+ markExternalVaultExitCapturedV1(context.fixture.recoveryLifetime);
+ return launchCapturedOriginalSuccessor({...context,expected,externalLifetime:{}},{WORKER:join(ROOT,'integration/external-defi-vault-exit-successor-v1.mjs'),identity:life.identity,checkpoint,before,stoppedOriginals,sourceSHA256,external:true});
 }

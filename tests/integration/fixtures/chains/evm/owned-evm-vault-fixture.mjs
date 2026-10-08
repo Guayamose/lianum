@@ -10,7 +10,7 @@ import { derivePrivateAssetIdentity } from '../../../../../packages/engine/src/n
 import { createNativeRecipientProcess } from '../../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
 import { nativeAdmissionRulesTree, NATIVE_ADMISSION_LOSS_CLAUSE }
   from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
-import { createOwnedLocalEvmV2 } from '../../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { createOwnedLocalEvmV2, createOwnedExternalDefiReceiverV2 } from '../../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOwnedPoolAsset } from '../../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs';
 import { createEvmVaultDeliveryObserver }
   from '../../../../../packages/backend/src/chains/evm/vault/evm-vault-delivery-observer.mjs';
@@ -24,7 +24,7 @@ import { createFlatSystemStateReader } from '../../../../../packages/backend/src
 import { exactRecord } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
 import { decodeDepositIntentInputs } from '../../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
 import { createOwnedFlatEvmVaultProvider, createOwnedFlatMetaMorphoProviderV1, createOwnedFlatUniswapProviderV1, createOwnedFlatAaveStaticProviderV1 } from '../../../../../packages/backend/src/providers/evm-vault-provider.mjs';
-import { createFlatOwnerProcess } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
+import { createFlatOwnerProcess, createRetainedFlatOwnerProcessV1 } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
 import { createOfficialProtocolFixture } from '../../../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { createOfficialAaveFixtureV1 } from '../../../../../packages/backend/tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import { createOwnedPrivateExternalRouterV1 } from '../../../../../packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs';
@@ -57,7 +57,10 @@ function positiveUint(value, bits) {
  * Suspend an owner for an offline interval and restart that same capability;
  * close() is terminal and is reserved for final cleanup.
  */
-export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
+export async function createOwnedEvmVaultFixture(directory, callbacks = {}) { return vaultFixture(directory,callbacks,false); }
+export function createOwnedRetainedMetaMorphoVaultFixtureV1(directory,callbacks={}){assert.ok(arguments.length===1||arguments.length===2);exactRecord(callbacks,Object.keys(callbacks));assert.ok(Object.keys(callbacks).every(key=>['onStage','onDeployment'].includes(key)));return vaultFixture(directory,{...callbacks,protocolProfile:'OFFICIAL_METAMORPHO_V1'},true);}
+export function createOwnedRetainedAaveVaultFixtureV1(directory,callbacks={}){assert.ok(arguments.length===1||arguments.length===2);exactRecord(callbacks,Object.keys(callbacks));assert.ok(Object.keys(callbacks).every(key=>['onStage','onDeployment'].includes(key)));return vaultFixture(directory,{...callbacks,protocolProfile:'OFFICIAL_AAVE_STATIC_V1'},true);}
+async function vaultFixture(directory,callbacks,retained) {
   privateDirectory(directory);
   const officialAave = callbacks.protocolProfile === 'OFFICIAL_AAVE_STATIC_V1';
   const officialMetaMorpho = callbacks.protocolProfile === 'OFFICIAL_METAMORPHO_V1';
@@ -66,10 +69,11 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
   const onStage = callbacks.onStage ?? (async () => {});
   const onDeployment = callbacks.onDeployment ?? (async () => {});
   assert.equal(typeof onStage, 'function'); assert.equal(typeof onDeployment, 'function');
-  let runtime, assets, officialProtocol, system, router, evmDelivery, quorum, sourceOwner, targetOwner, rulesTree, cleanupPromise;
+  let recoveryLifetime, runtime, assets, officialProtocol, system, router, evmDelivery, quorum, sourceOwner, targetOwner, rulesTree, cleanupPromise;
   const capabilities = [], operators = [], readers = [], recipients = [], recipientBoots = [], providers = [], rules = [];
   const fixture = {
-    get runtime() { return runtime; }, get assets() { return assets; }, get system() { return system; },
+    get runtime() { return runtime; },
+    ...(retained?{get recoveryLifetime(){return recoveryLifetime;}}:{}), get assets() { return assets; }, get system() { return system; },
     get officialProtocol() { return officialProtocol; },
     get protocolProfile() { return callbacks.protocolProfile ?? 'LEGACY_VAULT'; },
     get solver() { return official ? runtime.accounts[0] : runtime.accounts[1]; },
@@ -90,6 +94,7 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
         for (const entry of providers) result.providers.push(await close(entry.provider));
         result.sourceOwner = await close(sourceOwner); result.targetOwner = await close(targetOwner);
         for (const operator of operators) result.operators.push(await close(operator));
+        if(recoveryLifetime)result.privateLifetime=await close(recoveryLifetime);
         const evm = await close(runtime);
         result.closedEvm = evm.closed; result.closedEvmStatus = evm.status ?? null;
         if (evm.error) result.closedEvmError = evm.error;
@@ -100,7 +105,8 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
   };
   try {
     await onStage('start-owned-local-evm-v2');
-    runtime = await createOwnedLocalEvmV2();
+    runtime = await(retained?createOwnedExternalDefiReceiverV2:createOwnedLocalEvmV2)();
+    if(retained){const m=await import('../../../chains/evm/external-defi-vault-exit-lifetime-v1.mjs');recoveryLifetime=await m.createExternalVaultExitLifetimeV1(runtime,directory);}
     if (official) {
       await onStage(officialUniswap ? 'deploy-original-official-uniswap-and-tokens' : officialAave ? 'deploy-new-official-aave-static-and-underlying' : 'deploy-original-official-metamorpho-and-underlying');
       officialProtocol = await (officialAave ? createOfficialAaveFixtureV1 : createOfficialProtocolFixture)(runtime);
@@ -158,7 +164,7 @@ export async function createOwnedEvmVaultFixture(directory, callbacks = {}) {
       readers.push(await createFlatSystemStateReader({ runtime, system, poolIndex }));
       const ownerDirectory = join(directory, poolIndex === 0 ? 'source-owner' : 'target-owner');
       mkdirSync(ownerDirectory, { mode: 0o700 });
-      const owner = await createFlatOwnerProcess({ runtime, system, poolIndex, directory: ownerDirectory,
+      const owner = await(retained?createRetainedFlatOwnerProcessV1:createFlatOwnerProcess)({ runtime, system, poolIndex, directory: ownerDirectory,
         password: freshFixtureId(), create: true, checkpoint: null,
         onCheckpoint: value => writeFixturePrivate(join(ownerDirectory, 'checkpoint.json'), value),
         ...(poolIndex === 1 ? { deliveryObserver: evmDelivery } : {}) });
