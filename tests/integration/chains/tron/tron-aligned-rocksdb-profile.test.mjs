@@ -49,15 +49,15 @@ test('candidate gate is source-owned and rejects all caller options before any i
   }
   // Run the real private startup body with synthetic ChildProcess IO. This
   // regression proves catch/closure reachability, never a native authority.
-  const text = await readFile(new URL('./tron-candidate-acceptance.mjs', import.meta.url), 'utf8');
-  const body = text.slice(text.indexOf('async function startOriginalChild('), text.indexOf('async function executeTronCandidateAcceptance('));
+  const text = await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'), 'utf8');
+  const body = text.slice(text.indexOf('async function startAlignedChild('), text.indexOf('export async function startOwnedTronAlignedCandidateChildV1('));
   for (const mode of ['capture-null', 'capture-throws', 'capture-throws-close-uncertain']) {
     const child = new EventEmitter(), written = [], profile = {}, files = [];
     child.pid = 2147483647; child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
     child.stdin = { write: value => written.push(value), end: () => { if (mode !== 'capture-throws-close-uncertain') { child.emit('exit', 125, null); child.emit('close', 125, null); } }, destroy() {} };
     child.kill = () => { throw Error('UNKNOWN_PID_MUST_NEVER_BE_SIGNALLED'); };
     const environment = { assert, Buffer, process, Promise, AbortSignal, join,
-      spawn: () => child, assertPrivateCandidateProfile: value => assert.equal(value, profile), ALIGNED_ROCKSDB_PROFILE: profile,
+      spawn: () => child, CANDIDATE: profile, PRODUCT: Object.freeze({}), assertOwnedTronPrivateDirectory: async () => {},
       proc: async () => null,
       alignedProc: async pid => { if (pid === process.pid) return owner; if (mode.startsWith('capture-throws')) throw Error('SYNTHETIC_CAPTURE_FAILURE'); return null; },
       assertTronAlignedRocksDbStartupIdentity,
