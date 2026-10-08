@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { ROOT, FLAT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { regular, hash, verifyAPI, verifyVendor } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+const MOBILE_PROTOCOL = resolve(FLAT, '../mobile-protocol');
 export function developmentBtcSolGraphSourcePins() {
   assert.equal(arguments.length, 0); const files = new Map();
   function visit(path) {
-    assert.ok([ROOT, FLAT, GOLDEN].some(root => path.startsWith(root + sep)) && path.endsWith('.mjs'));
+    assert.ok([ROOT, FLAT, GOLDEN, MOBILE_PROTOCOL].some(root => path.startsWith(root + sep)) && path.endsWith('.mjs'),
+      'DEVELOPMENT_CLAIM_FIXED_SOURCE_ROOT');
     if (files.has(path)) return;
     const bytes = regular(path), source = bytes.toString('utf8');
     files.set(path, { path: relative(FLAT, path).split(sep).join('/'), bytes: bytes.length, sha256: hash(bytes) });
