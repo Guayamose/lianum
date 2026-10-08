@@ -310,6 +310,9 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
           retainedState: { stage: retained.stage, executionStarted: retained.executionStarted,
             nativeExposure: retained.exposures.map(({ slot, family, status }) => ({ slot, family, status })),
             admittedReceipts: retained.receipts.length }, authoritativeErrorCommit: 'NOT_ATTEMPTED' };
+        // Only the existing private audit callback can inspect the original error.
+        // It stays outside enumerable diagnostic/result projections and authority.
+        Object.defineProperty(failure, 'originalError', { value: error });
         try { Promise.resolve(onPrivateAudit(failure)).catch(() => {}); } catch {} // reporting cannot replace the first error
         try {
           await update(ref, { errorCode: diagnostic.code, errorCauseCodes: diagnostic.causeCodes,
