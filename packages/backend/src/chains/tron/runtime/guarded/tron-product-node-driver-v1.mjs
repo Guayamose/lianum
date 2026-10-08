@@ -92,7 +92,10 @@ export async function startFixedOwnedTronProductDriverV1() {
    native:original.alignedNativeAudit,material,totalMilliseconds:OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1,
    currentSourcePinsSHA256:sha(Buffer.from(JSON.stringify(sourceBefore))),publicNetwork:false,privateCreditEstablished:false,registeredGraphAuthorizationEstablished:false});
   let queue=Promise.resolve();const command=(kind,args=[])=>{const result=queue.then(()=>{assertAlive();return original.command(kind,args);});queue=result.catch(()=>{});return result;};
-  return Object.freeze({directory,metadata:Object.freeze({...hello.metadata,javaSHA256:material.javaSHA256,patchedNodeSHA256:material.jarSHA256,
+  return Object.freeze({directory,auditDirectory:audit,
+   alignedNativeAudit:structuredClone(original.alignedNativeAudit),alignedStartupIdentityEvidence:structuredClone(original.alignedStartupIdentityEvidence),
+   async auditNative(){assert.equal(arguments.length,0,'TRON_PRODUCT_AUDIT_NO_OPTIONS');assertAlive();await original.auditNative();assertAlive();},
+   async captureAlignedNativeAudit(){assert.equal(arguments.length,0,'TRON_PRODUCT_AUDIT_NO_OPTIONS');assertAlive();const value=await original.captureAlignedNativeAudit();assertAlive();return value;},metadata:Object.freeze({...hello.metadata,javaSHA256:material.javaSHA256,patchedNodeSHA256:material.jarSHA256,
    driverSHA256:material.driverSHA256,offlinePatchSHA256:material.offlinePatchSHA256,replayRecorderPatchSHA256:material.replayRecorderPatchSHA256,
    sourceSHA256:material.sourceSHA256,buildReportSHA256:material.buildReportSHA256,acceptedCandidateReportSHA256:material.acceptedCandidateReportSHA256,
    storageEngine:'ROCKSDB',configuredGenesisTimestampMs:'1749999999000',originalLocalTotalMilliseconds:OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1,
