@@ -25,8 +25,8 @@ import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nati
   NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5, validateNativeValueDevProducedLedgerDescriptorV5, validateNativeValueDevLedgerReceiptV5 }
   from '../../releases/native-value/native-value-dev-release-contract-v5.mjs';
 const issued = new WeakSet();
-const ADMISSION_PREPARED_ROOT = resolve(ROOT, '../../drafts/native-value-verifier-preparation');
-const ADMISSION_COMPILE_ROOT = resolve(ROOT, '../../drafts/generic-native-admission-compile');
+const ADMISSION_PREPARED_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/native-value-verifier-preparation';
+const ADMISSION_COMPILE_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/generic-native-admission-compile';
 const ADMISSION_READER_PIN = Object.freeze({path:'admission-prepared/read-native-value-artifacts.mjs',sha256:'5e1ea4272221d8790a93bb1ab4c0399c1a475bfc23ea87a1676cd7202549ef63'});
 const ADMISSION_DRIVER_PIN = Object.freeze({path:'admission-prepared/driver-source-manifest.json',sha256:'09ffe3beb3a3024e65f36aeaa4b80d32e6a2a43a31d20e3f7bb63ea54e091d3e'});
 const sha = b => createHash('sha256').update(b).digest('hex');
