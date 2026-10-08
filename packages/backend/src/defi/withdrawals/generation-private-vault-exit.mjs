@@ -9,6 +9,7 @@ import * as originalExits from './private-vault-exit.mjs';
 import { assertOwnedFlatJournalCatalogue, assertOwnedFlatJournalCatalogueAccount }
   from '../../accounts/storage/flat-journal-catalogue.mjs';
 import { assertFlatManualGraphCatalogueSession } from '../../api/accounts/flat-manual-graph-session.mjs';
+import { isOwnedMetaMorphoVault } from '../vaults/owned-metamorpho-vault.mjs';
 import { projectPrivateVaultPosition } from '../vaults/private-vault-position.mjs';
 
 export const GENERATION_VAULT_POSITION_PROFILE = 'OWNED_GENERATION_PRIVATE_VAULT_POSITIONS_V1';
@@ -112,6 +113,14 @@ export function createGenerationPrivateVaultExit(input) {
     return { generationId: entry.membership.generationId, shareAssetId: entry.shareAssetId,
       status: errorCode === null ? 'AVAILABLE' : 'UNAVAILABLE', requestIds, errorCode };
   }
+  async function readOriginalPositionVault(entry, portfolioView) {
+    genuine(entry);
+    if (!isOwnedMetaMorphoVault(entry.original.vault)) return entry.original.vault.observe();
+    const share = portfolioView.assets.find(value => value.asset.assetId === entry.shareAssetId);
+    const asset = entry.membership.portfolio.registry.find(value => value.assetId === entry.shareAssetId);
+    need(share?.status === 'LIVE' && asset, 'ORIGINAL_SHARE_POSITION_UNAVAILABLE');
+    return entry.original.vault.observePrivateShares({ amount: share.balances.available, holder: '0x' + asset.pool });
+  }
   const facade = Object.freeze({
     async prepare(input) { assert.equal(arguments.length, 1); exactRecord(input, ['requestId', 'minimumOutput', 'deadline']);
       return exclusive(() => action('prepare', input)); },
@@ -160,7 +169,7 @@ export function createGenerationPrivateVaultExit(input) {
         let portfolioView=null,vaultView=null;
         try {genuine(entry);portfolioView=await entry.membership.portfolio.ownerView();} catch {}
         if(portfolioView!==null) try {
-          genuine(entry);vaultView=await entry.original.vault.observe();
+          genuine(entry);vaultView=await readOriginalPositionVault(entry,portfolioView);
           assert.deepEqual(vaultView.identity,entry.original.binding.identity,'PRIVATE_VAULT_GENERATION_VAULT_CHANGED');
         } catch {vaultView=null;}
         const original={generationId:entry.membership.generationId,shareAssetId:entry.shareAssetId,
@@ -184,7 +193,7 @@ export function createGenerationPrivateVaultExit(input) {
         try {
           genuine(entry); need(entry.underlyingAssetId !== null, 'UNDERLYING_NOT_REGISTERED');
           const portfolioView = await entry.membership.portfolio.ownerView();
-          const vaultView = await entry.original.vault.observe();
+          const vaultView = await readOriginalPositionVault(entry, portfolioView);
           assert.deepEqual(vaultView.identity, entry.original.binding.identity, 'PRIVATE_VAULT_GENERATION_VAULT_CHANGED');
           const position = projectPrivateVaultPosition({ portfolioView, vaultView, shareAssetId: entry.shareAssetId,
             underlyingAssetId: entry.underlyingAssetId });

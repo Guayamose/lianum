@@ -191,6 +191,25 @@ export async function createOwnedMetaMorphoVault(input) {
   }
   adapter = Object.freeze({
     observe: () => exclusive(() => observed()),
+    /** Read-only official conversion at the same pinned block as share custody.
+     * A private note still requires original EXIT before public redemption. */
+    observePrivateShares(input) { return exclusive(async () => {
+      exactRecord(input, ['amount', 'holder']);
+      assert.ok(typeof input.amount === 'string' && /^(0|[1-9][0-9]*)$/.test(input.amount)
+        && BigInt(input.amount) < (1n << 64n), 'METAMORPHO_PRIVATE_SHARE_AMOUNT');
+      assert.ok(typeof input.holder === 'string' && /^0x[0-9a-f]{40}$/.test(input.holder)
+        && input.holder !== '0x' + '0'.repeat(40), 'METAMORPHO_PRIVATE_SHARE_HOLDER');
+      const amount = input.amount, holder = input.holder, current = await observed(), at = current.header.number;
+      const [preview, maximum, held] = await Promise.all([
+        read(vault, 'previewRedeem', [amount], at), read(vault, 'maxRedeem', [holder], at),
+        read(vault, 'balanceOf', [holder], at),
+      ]);
+      assert.ok(BigInt(amount) <= held[0], 'METAMORPHO_PRIVATE_SHARE_BACKING');
+      await runtime.assertCanonical(current.header);
+      assert.deepEqual(await runtime.block(), current.header, 'METAMORPHO_PRIVATE_POSITION_HEAD_CHANGED');
+      return detached({ ...current, privateSharePreview: { amount, holder,
+        redeemableUnderlying: preview[0].toString(), maximumShares: maximum[0].toString(), heldShares: held[0].toString() } });
+    }); },
     validateQuote: intent => exclusive(() => quote(clone(intent))),
     async prepareOnce(intent) { return exclusive(async () => {
       exactRecord(intent, ['reference', 'kind', 'amount', 'minimumOutput', 'deadline']); reference(intent.reference);

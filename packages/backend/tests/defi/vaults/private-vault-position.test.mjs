@@ -37,3 +37,33 @@ test('plain caller views cannot instantiate the private producer', () => {
   assert.throws(() => createPrivateVaultPortfolioView({ runtime: {}, portfolio: {}, vault: {},
     shareAssetId: '12'.repeat(32), underlyingAssetId: '34'.repeat(32) }), /OWNED_CAPABILITY_REQUIRED/);
 });
+
+// Supplied read-only presentation values; these tests grant no protocol,
+// observer, private note or financial acceptance authority.
+function officialPreview() {
+  const input = fixture(), share = input.portfolioView.assets[0];
+  share.balances.available = '99500000000000'; share.backing.held = '100000000000000';
+  input.vaultView.snapshot.totalAssets = '100'; input.vaultView.snapshot.totalShares = '100000000000000';
+  input.vaultView.privateSharePreview = { amount: share.balances.available, holder: '0x' + '56'.repeat(20),
+    heldShares: share.backing.held, redeemableUnderlying: '99', maximumShares: share.backing.held };
+  return input;
+}
+test('official decimal-offset preview is retained instead of the synthetic ratio', () => {
+  const input = officialPreview(), view = projectPrivateVaultPosition(input);
+  assert.equal(view.availableShares, '99500000000000');
+  assert.equal(view.estimatedRedeemableUnderlying, '99');
+  assert.equal(view.underlyingSpendable, false);
+  assert.equal(input.portfolioView.assets[1].balances.available, '200');
+  const synthetic = structuredClone(input); delete synthetic.vaultView.privateSharePreview;
+  assert.equal(projectPrivateVaultPosition(synthetic).estimatedRedeemableUnderlying, '100');
+  input.vaultView.privateSharePreview.amount = '1';
+  assert.throws(() => projectPrivateVaultPosition(input), /PREVIEW_SHARE_AMOUNT/);
+});
+test('insufficient real maxRedeem removes valuation while original note ownership remains', () => {
+  const input = officialPreview(); input.vaultView.privateSharePreview.maximumShares = '1000000000000';
+  const view = projectPrivateVaultPosition(input);
+  assert.equal(view.status, 'STALE'); assert.equal(view.estimatedRedeemableUnderlying, null);
+  assert.equal(input.portfolioView.assets[0].status, 'LIVE');
+  assert.equal(input.portfolioView.assets[0].balances.available, '99500000000000');
+  assert.equal(view.underlyingSpendable, false);
+});
