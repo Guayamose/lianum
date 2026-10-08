@@ -230,7 +230,15 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
   assert.ok(final.ledger.nullifiers.includes('0x'+bare(decoded.statement.reserveNullifier)));
   assert.ok(final.ledger.nullifiers.includes('0x'+result.deviceNote.observation.nullifier));
   assert.equal(final.ledger.publicState.spent,recovery?4:3);assert.equal(final.ledger.publicState.actualAssetBalance,recovery?'0':'100');
-  assert.equal(final.ledger.publicState.backedAmount,recovery?'0':'100');assert.equal(final.ledger.publicState.liveReservations,0);assert.equal(final.receiptLeaves.length,1);
+  assert.equal(final.ledger.publicState.backedAmount,recovery?'0':'100');assert.equal(final.ledger.publicState.liveReservations,0);
+  // The verified receipt tree always exposes its 64 padded positions. Its
+  // contract count records the one admitted leg, or zero before N0 on F.
+  const admittedReceipts=recovery?0:1;
+  assert.equal(final.receiptLeaves.length,64,'DEVICE_FINAL_RECEIPT_TREE_CAPACITY');
+  assert.equal(final.state.receiptCount,String(admittedReceipts),'DEVICE_FINAL_ORIGINAL_RECEIPT_COUNT');
+  assert.equal(observed.executionSnapshot.admittedReceipts,admittedReceipts,'DEVICE_FINAL_EXECUTOR_RECEIPT_COUNT');
+  assert.ok(final.receiptLeaves.slice(0,admittedReceipts).every(leaf=>BigInt(leaf)!==0n),'DEVICE_FINAL_ORIGINAL_RECEIPT_REQUIRED');
+  assert.ok(final.receiptLeaves.slice(admittedReceipts).every(leaf=>BigInt(leaf)===0n),'DEVICE_FINAL_RECEIPT_TREE_PADDING');
   assert.equal((await account.ownerView()).balances.available,'0');assert.equal((await owner.ownerView.summary()).notes.source.status,'UNISSUED');
   assert.equal((await vault.readDeviceNote()).availableBalance,null);result.deviceExit=exits[0];if(recovery)result.deviceRecoveryExits=exits;
   result.economics={deviceAmountAtomic:'500',reserveAtomic:'100',changeWithdrawalAtomic:'400',remainingSolverPayoutAtomic:'100',
