@@ -146,3 +146,31 @@ test('original U/S protected domains use the retained PoP key, refuse substituti
     assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
   } finally { time.mock.restore(); control.slowRead = null; }
 });
+
+test('native EXECUTE/reconcile/recovery domains keep the protected PoP identity, original risk clause and revocation after biometric delay', async () => {
+  const { deviceReservationFixtureV1 } = await import('./helpers/device-reservation-fixture-v1.mjs');
+  const { deviceExecutionConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs');
+  const { deviceReservationConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs');
+  const { signDeviceExecutionConsentV1 } = await import('../src/custody/key-store.ts');
+  fixture(); const f = deviceReservationFixtureV1(new Uint8Array(32).fill(11));
+  const base = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_EXECUTION_V1',
+    reservation: { ...f.consent, action: 'OBSERVE_S', proofSHA256: '21'.repeat(32), publicInputsSHA256: '22'.repeat(32), openingDisclosure: null },
+    nativeBindingSHA256: '23'.repeat(32), reservationTransactionHash: '24'.repeat(32), executionSnapshotSHA256: '25'.repeat(32),
+    lossClause: 'FULL_OWNER_REFUND_PROVIDER_LOSS_V1' };
+  for (const action of ['EXECUTE_NATIVE', 'RECONCILE_NATIVE', 'RECOVER_NATIVE']) {
+    const consent = { ...base, action }, signature = await signDeviceExecutionConsentV1(consent, f.descriptor.origin, f.descriptor.pairingId);
+    assert.equal(verify('sha256', deviceExecutionConsentMessageV1(consent), { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'hex')), true);
+    assert.equal(verify('sha256', deviceReservationConsentMessageV1(base.reservation), { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'hex')), false);
+    for (const other of ['EXECUTE_NATIVE', 'RECONCILE_NATIVE', 'RECOVER_NATIVE'].filter(value => value !== action))
+      assert.equal(verify('sha256', deviceExecutionConsentMessageV1({ ...base, action: other }), { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'hex')), false);
+  }
+  assert.equal(calls.filter(row => row.name === PRIVATE).length, 3); assert.equal(store.get(PRIVATE), secret);
+  assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+  const consent = { ...base, action: 'EXECUTE_NATIVE' }, before = calls.filter(row => row.name === PRIVATE).length;
+  await assert.rejects(signDeviceExecutionConsentV1(consent, 'https://foreign.example', f.descriptor.pairingId), /REVIEW_CHANGED/);
+  await assert.rejects(signDeviceExecutionConsentV1({ ...consent, lossClause: 'PARTIAL_REFUND' }, f.descriptor.origin, f.descriptor.pairingId), /EXECUTION_INVALID/);
+  assert.equal(calls.filter(row => row.name === PRIVATE).length, before);
+  const revoked = new AbortController(); control.slowRead = async () => revoked.abort();
+  await assert.rejects(signDeviceExecutionConsentV1(consent, f.descriptor.origin, f.descriptor.pairingId, revoked.signal), /REVOKED/);
+  assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0))); control.slowRead = null;
+});

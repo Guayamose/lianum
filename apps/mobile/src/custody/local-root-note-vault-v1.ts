@@ -30,6 +30,8 @@ import { localDeviceWithdrawalStatementV1, localDeviceWithdrawalFrameV1, localDe
   type LocalDeviceWithdrawalStatementV1, type LocalDeviceWithdrawalPathV1 } from './device-balance-withdrawal-codec-v1.mjs';
 import { normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1, deviceExitWitnessBytesV1, validateDeviceExitConsentFreshV1,
   type DeviceExitConsentV1, type DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1 } from '../api/device-owner-execution-api-v1';
+import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
 const RECORD = 'lianum.note.root.record.v1';
@@ -100,7 +102,12 @@ type DeviceSpend = { version: 1; phase: 'PREPARED' | 'SIGNED'; proposal: LocalFu
   reservationNonce: string; reserveSecret: string; graphNonce: string; paddingSalts: string[];
   change: LocalSpendOpening; recovery: LocalSpendOpening; statement: LocalFundedStatementV1;
   frameSHA256: string; signature: string | null; preparation?: LocalEnvelopePreparation;
-  proofJob?: LocalReservationProofJob; reservation?: LocalReservationReceipt; exits?: Partial<Record<DeviceExitRoleV1, LocalExitIntentV1>> };
+  proofJob?: LocalReservationProofJob; reservation?: LocalReservationReceipt; execution?: LocalNativeExecutionV1;
+  exits?: Partial<Record<DeviceExitRoleV1, LocalExitIntentV1>> };
+type LocalNativeAttemptV1 = { consentSHA256: string; executionSnapshotSHA256: string };
+type LocalNativeExecutionV1 = { version: 1; jobId: string; nativeBindingSHA256: string; reservationTransactionHash: string;
+  execute?: LocalNativeAttemptV1; recovery?: LocalNativeAttemptV1;
+  terminal?: { transactionHash: string; blockHash: string; blockNumber: string; calldataSHA256: string; outcome: 'FULFILLED' | 'RECOVERED' } };
 type DeviceExitRoleV1 = 'change' | 'recovery';
 type LocalExitIntentV1 = { version: 1; phase: 'PREPARED' | 'SIGNED'; parentJobId: string; nativeBindingSHA256: string;
   quoteId: string; jobId: string; origin: string; pairingId: string; devicePublicKey: string; rootId: string;
@@ -252,6 +259,7 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
     ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'preparation') ? ['preparation'] : []),
     ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'proofJob') ? ['proofJob'] : []),
     ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'reservation') ? ['reservation'] : []),
+    ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'execution') ? ['execution'] : []),
     ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'exits') ? ['exits'] : [])], MAX_CLEAR_BYTES);
   if (value.version !== 1 || !['PREPARED', 'SIGNED'].includes(String(value.phase))) bad();
   const proposal = normalizeLocalFundedProposalV1(value.proposal);
@@ -311,6 +319,28 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
     spend.reservation = { jobId: hex(r.jobId), transactionHash: hex(r.transactionHash), blockHash: hex(r.blockHash),
       blockNumber: r.blockNumber, timestamp: r.timestamp, domainCommitment: hex(r.domainCommitment),
       envelope: hex(r.envelope), admissionTag: hex(r.admissionTag) };
+  }
+  if (Object.hasOwn(value, 'execution')) {
+    if (!spend.reservation || !spend.proofJob || !value.execution || typeof value.execution !== 'object') bad();
+    const source = value.execution;
+    const e = parsed(JSON.stringify(source), ['version', 'jobId', 'nativeBindingSHA256', 'reservationTransactionHash',
+      ...['execute', 'recovery', 'terminal'].filter(name => Object.hasOwn(source, name))], MAX_CLEAR_BYTES);
+    if (e.version !== 1 || e.jobId !== spend.proofJob.jobId || e.reservationTransactionHash !== spend.reservation.transactionHash
+      || !['execute', 'recovery', 'terminal'].some(name => Object.hasOwn(e, name))) bad();
+    const execution: LocalNativeExecutionV1 = { version: 1, jobId: hex(e.jobId), nativeBindingSHA256: hex(e.nativeBindingSHA256),
+      reservationTransactionHash: hex(e.reservationTransactionHash) };
+    for (const name of ['execute', 'recovery'] as const) if (Object.hasOwn(e, name)) {
+      const attempt = parsed(JSON.stringify(e[name]), ['consentSHA256', 'executionSnapshotSHA256']);
+      execution[name] = { consentSHA256: hex(attempt.consentSHA256), executionSnapshotSHA256: hex(attempt.executionSnapshotSHA256) };
+    }
+    if (Object.hasOwn(e, 'terminal')) {
+      const terminal = parsed(JSON.stringify(e.terminal), ['transactionHash', 'blockHash', 'blockNumber', 'calldataSHA256', 'outcome']);
+      if (!['FULFILLED', 'RECOVERED'].includes(String(terminal.outcome)) || typeof terminal.blockNumber !== 'string') bad();
+      localNoteUintBytesV1(terminal.blockNumber);
+      execution.terminal = { transactionHash: hex(terminal.transactionHash), blockHash: hex(terminal.blockHash), blockNumber: terminal.blockNumber,
+        calldataSHA256: hex(terminal.calldataSHA256), outcome: terminal.outcome === 'FULFILLED' ? 'FULFILLED' : 'RECOVERED' };
+    }
+    spend.execution = execution;
   }
   if (Object.hasOwn(value, 'exits')) {
     if (!spend.reservation || !spend.proofJob || !value.exits || typeof value.exits !== 'object' || Array.isArray(value.exits)) bad();
@@ -1437,6 +1467,81 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           withdrawnAmount: row.statement.amount, transactionHash: receipt.transactionHash, availableBalance: null,
           independentCanonicalRpc: false, localSourceKeyPreserved: true });
       });
+    },
+    /** Local intent is reread before a native action leaves this device. This
+     * does not claim server admission; a lost reply remains original-only. An
+     * old backup is not anti-rollback: native ledger/latches still fence effects. */
+    retainDeviceExecutionIntent: (review: object) => {
+      current(); const consent = readDeviceExecutionReviewV1(review);
+      if (consent.action === 'RECONCILE_NATIVE') bad('MOBILE_LOCAL_NATIVE_ACTION_REQUIRED');
+      return original('Guardar una única intención de ' + consent.action + ' para la reserva original; no repetir tras respuesta perdida',
+        async (value, key, before, raw, root) => {
+          if (readDeviceExecutionReviewV1(review) !== consent) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_REQUIRED');
+          const note = value.note, spend = value.spend, job = spend?.proofJob, reservation = spend?.reservation, fields = consent.reservation;
+          if (!note?.deviceJob || !spend || !job || !reservation || fields.jobId !== job.jobId
+            || fields.depositJobId !== job.depositJobId || fields.quoteId !== job.quoteId || fields.witnessSHA256 !== job.witnessSHA256
+            || fields.custody.rootId !== value.rootId || fields.custody.frameSHA256 !== spend.frameSHA256
+            || JSON.stringify(fields.statement) !== JSON.stringify(spend.statement)
+            || fields.origin !== job.origin || fields.pairingId !== job.pairingId || fields.devicePublicKey !== job.devicePublicKey
+            || fields.poolTerms.scope !== note.scope || fields.poolTerms.policy !== note.policy
+            || fields.poolTerms.assetIdentity !== note.deviceJob.assetIdentity || fields.poolTerms.domainCommitment !== reservation.domainCommitment
+            || consent.reservationTransactionHash !== reservation.transactionHash) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_REQUIRED');
+          const previous = spend.execution;
+          if (previous && (previous.nativeBindingSHA256 !== consent.nativeBindingSHA256
+            || previous.reservationTransactionHash !== consent.reservationTransactionHash)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
+          const action = consent.action === 'EXECUTE_NATIVE' ? 'execute' : 'recovery';
+          if (previous?.[action] || previous?.terminal) bad('MOBILE_LOCAL_NATIVE_RECONCILE_ORIGINAL_ONLY');
+          const frame = deviceExecutionConsentMessageV1(consent);
+          let consentSHA256: string;
+          try { consentSHA256 = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
+          readDeviceExecutionReviewV1(review);
+          const execution: LocalNativeExecutionV1 = { ...previous, version: 1, jobId: job.jobId,
+            nativeBindingSHA256: consent.nativeBindingSHA256, reservationTransactionHash: consent.reservationTransactionHash,
+            [action]: { consentSHA256, executionSnapshotSHA256: consent.executionSnapshotSHA256 } };
+          await persistSpend({ ...value, revision: value.revision + 1, spend: { ...spend, execution } }, key, before, raw, root);
+          readDeviceExecutionReviewV1(review); current(); liveInclusion = null;
+          return Object.freeze({ jobId: job.jobId, action: consent.action, consentSHA256, availableBalance: null, serverAdmissionEstablished: false });
+        });
+    },
+    readDeviceExecutionIntent: () => original('Consultar la intención nativa original; no ejecutar ni recuperar de nuevo', async value => {
+      const row = value.spend?.execution; return row ? Object.freeze({ jobId: row.jobId, rootId: value.rootId,
+        nativeBindingSHA256: row.nativeBindingSHA256, reservationTransactionHash: row.reservationTransactionHash,
+        executeAttemptRetained: !!row.execute, recoveryAttemptRetained: !!row.recovery, outcome: row.terminal?.outcome ?? null,
+        transactionHash: row.terminal?.transactionHash ?? null, availableBalance: null, independentCanonicalRpc: false }) : null;
+    }),
+    applyDeviceExecutionTerminal: (response: object) => {
+      current(); const observation = readDeviceExecutionTerminalV1(response);
+      return original('Guardar el resultado original de esta ejecución; no cambiar claves, repetir entregas ni proyectar saldo libre',
+        async (value, key, before, raw, root) => {
+          const actual = readDeviceExecutionTerminalV1(response), status = actual.status, consent = actual.consent;
+          const note = value.note, spend = value.spend, job = spend?.proofJob, reservation = spend?.reservation, terminal = status.terminal;
+          if (actual.status !== observation.status || !note?.deviceJob || !spend || !job || !reservation || !terminal
+            || status.jobId !== job.jobId || status.reservation.consentFields.depositJobId !== job.depositJobId
+            || status.reservation.consentFields.quoteId !== job.quoteId || status.reservation.consentFields.witnessSHA256 !== job.witnessSHA256
+            || status.reservation.consentFields.custody.rootId !== value.rootId
+            || status.reservation.consentFields.custody.frameSHA256 !== spend.frameSHA256
+            || JSON.stringify(status.reservation.statement) !== JSON.stringify(spend.statement)
+            || consent.reservation.origin !== job.origin || consent.reservation.pairingId !== job.pairingId
+            || consent.reservation.devicePublicKey !== job.devicePublicKey
+            || consent.reservation.poolTerms.scope !== note.scope || consent.reservation.poolTerms.policy !== note.policy
+            || consent.reservation.poolTerms.assetIdentity !== note.deviceJob.assetIdentity
+            || consent.reservation.poolTerms.domainCommitment !== reservation.domainCommitment
+            || consent.reservationTransactionHash !== reservation.transactionHash) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_REQUIRED');
+          const previous = spend.execution;
+          if (previous && (previous.nativeBindingSHA256 !== status.nativeBindingSHA256
+            || previous.reservationTransactionHash !== consent.reservationTransactionHash)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
+          const receipt = { transactionHash: terminal.transactionHash, blockHash: terminal.blockHash, blockNumber: terminal.blockNumber,
+            calldataSHA256: terminal.calldataSHA256, outcome: terminal.outcome };
+          if (previous?.terminal && JSON.stringify(previous.terminal) !== JSON.stringify(receipt)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
+          if (!previous?.terminal) {
+            const execution: LocalNativeExecutionV1 = { ...previous, version: 1, jobId: job.jobId,
+              nativeBindingSHA256: status.nativeBindingSHA256, reservationTransactionHash: consent.reservationTransactionHash, terminal: receipt };
+            readDeviceExecutionTerminalV1(response); await persistSpend({ ...value, revision: value.revision + 1, spend: { ...spend, execution } }, key, before, raw, root);
+          }
+          readDeviceExecutionTerminalV1(response); current(); liveInclusion = null;
+          return Object.freeze({ jobId: job.jobId, outcome: receipt.outcome, transactionHash: receipt.transactionHash,
+            availableBalance: null, localOpeningsPreserved: true, independentCanonicalRpc: false });
+        });
     },
     readDeviceReservationIntent: () => original('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
       async value => value.spend?.proofJob ? Object.freeze({ ...value.spend.proofJob, rootId: value.rootId,

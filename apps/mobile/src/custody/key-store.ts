@@ -18,6 +18,8 @@ import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessag
 
 import { validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { validateDeviceExecutionConsentFreshV1, deviceExecutionConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
 const PUBLIC_KEY = 'lianum.owner.public.v1';
 const privateOptions: SecureStore.SecureStoreOptions = {
@@ -229,5 +231,29 @@ export async function signDeviceExitConsentV1(raw: Parameters<typeof validateDev
   try {
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
     current(); message = deviceExitConsentMessageV1(value); return signDeviceMessage(key, message);
+  } finally { message?.fill(0); key.fill(0); retained = null; }
+}
+
+/** Native continuation is a separate consent domain. The same protected PoP
+ * identity authorizes only this original reservation/provider-risk clause;
+ * its signature never replaces the hidden note owner or native provider. */
+export async function signDeviceExecutionConsentV1(raw: Parameters<typeof validateDeviceExecutionConsentFreshV1>[0],
+  expectedOrigin: string, expectedPairingId: string, signal?: AbortSignal): Promise<string> {
+  await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw Error('MOBILE_KEY_REQUIRED');
+  const value = validateDeviceExecutionConsentFreshV1(raw);
+  const current = () => { if (signal?.aborted) throw Error('MOBILE_DEVICE_EXECUTION_REVOKED'); validateDeviceExecutionConsentFreshV1(value);
+    if (value.reservation.origin !== expectedOrigin || value.reservation.pairingId !== expectedPairingId
+      || value.reservation.devicePublicKey !== publicKey) throw Error('MOBILE_REVIEW_CHANGED'); };
+  current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
+    authenticationPrompt: value.action === 'EXECUTE_NATIVE'
+      ? 'Ejecutar una sola vez esta reserva original; entrega irreversible al riesgo aceptado por el proveedor'
+      : value.action === 'RECOVER_NATIVE' ? 'Recuperar la reserva original al vencer el plazo; pérdida de entrega a cargo del proveedor'
+        : 'Reconciliar esta ejecución original; no repetir la reserva ni una entrega' });
+  if (retained === null) throw Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
+  try {
+    if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
+    current(); message = deviceExecutionConsentMessageV1(value); return signDeviceMessage(key, message);
   } finally { message?.fill(0); key.fill(0); retained = null; }
 }

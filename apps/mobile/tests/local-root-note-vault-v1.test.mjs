@@ -86,7 +86,7 @@ mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
 // host test resolves only this exact edge to the same original TS bytes.
 const vaultModuleURL = new URL('../src/custody/local-root-note-vault-v1.ts', import.meta.url).href;
 const tsResolution = registerHooks({ resolve(specifier, context, nextResolve) {
-  if (context.parentURL === vaultModuleURL && ['../api/device-owner-deposit-api-v1', '../api/device-owner-reservation-api-v1', '../api/device-owner-exit-api-v1'].includes(specifier))
+  if (context.parentURL === vaultModuleURL && ['../api/device-owner-deposit-api-v1', '../api/device-owner-reservation-api-v1', '../api/device-owner-exit-api-v1', '../api/device-owner-execution-api-v1'].includes(specifier))
     return nextResolve(specifier + '.ts', context);
   return nextResolve(specifier, context);
 } });
@@ -137,7 +137,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
+  assert.deepEqual(Object.keys(vault).sort(), ['retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -398,6 +398,8 @@ test('copied HTTP inclusion cannot credit an encrypted local note or replace its
   assert.throws(() => vault.createDeviceExitProofRequest({ statement: { amount: '400' }, noteRole: 'change' }), /RESPONSE_INVALID/);
   assert.throws(() => vault.bindDeviceExitProofRequest({}, {}), /ORIGINAL_EXIT_REQUEST_REQUIRED/);
   assert.throws(() => vault.applyDeviceExitConfirmation({ stage: 'CONFIRMED', observation: { amount: '400' } }), /RESPONSE_INVALID/);
+  assert.throws(() => vault.retainDeviceExecutionIntent({ action: 'EXECUTE_NATIVE', reservation: {} }), /RESPONSE_INVALID/);
+  assert.throws(() => vault.applyDeviceExecutionTerminal({ stage: 'FULFILLED', terminal: {} }), /RESPONSE_INVALID/);
   assert.deepEqual(store, before);
   assert.equal((await vault.readDeviceNote()).availableBalance, null);
   assert.equal((await vault.readPreparedNote()).status, 'UNISSUED');

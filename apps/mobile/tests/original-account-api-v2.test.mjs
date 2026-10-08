@@ -228,3 +228,36 @@ test('device U uses its exact consent domain and one fixed POST; a lost response
   await assert.rejects(api.deviceReservation.submit({ consent, signature, witness: { ...f.witness, privateKey: '11'.repeat(32) } }), /RESERVATION_INVALID/);
   assert.equal(calls.length, before);
 });
+
+// These frames demonstrate transport/signature boundaries only. They do not
+// carry an owned executor or establish any delivery, S/T/F or native balance.
+test('native continuation uses only its three fixed routes and one POST; lost replies never replay a reserve or delivery', async () => {
+  const { deviceReservationFixtureV1 } = await import('./helpers/device-reservation-fixture-v1.mjs');
+  const { deviceExecutionConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs');
+  for (const [action, reviewPath, submitPath] of [['EXECUTE_NATIVE', 'execution-reviews', 'execute'],
+    ['RECONCILE_NATIVE', 'reconciliation-reviews', 'reconcile'], ['RECOVER_NATIVE', 'recovery-reviews', 'recover']]) {
+    const f = deviceReservationFixtureV1(key), calls = [];
+    const consent = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_EXECUTION_V1', action,
+      reservation: { ...f.consent, action: 'OBSERVE_S', proofSHA256: '21'.repeat(32), publicInputsSHA256: '22'.repeat(32), openingDisclosure: null },
+      nativeBindingSHA256: '23'.repeat(32), reservationTransactionHash: '24'.repeat(32), executionSnapshotSHA256: '25'.repeat(32),
+      lossClause: 'FULL_OWNER_REFUND_PROVIDER_LOSS_V1' };
+    const api = createOriginalAccountApiV2({ descriptor: f.descriptor, fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url.endsWith('/' + reviewPath)) return new Response(JSON.stringify(consent), { headers: { 'content-type': 'application/json' } });
+      assert.ok(url.endsWith('/' + submitPath)); throw Error('SYNTHETIC_LOST_ADMITTED_RESPONSE');
+    } });
+    const reviewed = await api.deviceExecution.challenge(action, { access: f.access,
+      signature: signDeviceMessage(key, originalAccountAccessMessageV2(f.access)), jobId: f.consent.jobId });
+    const signature = signDeviceMessage(key, deviceExecutionConsentMessageV1(reviewed));
+    await assert.rejects(api.deviceExecution.submit({ consent: reviewed, signature }), /LOST_ADMITTED/);
+    assert.deepEqual(calls.map(row => row.url.split('/').at(-1)), [reviewPath, submitPath]);
+    assert.ok(calls.every(row => row.url.includes('/v1/mobile/device-execution/')));
+    const body = JSON.parse(calls[1].options.body); assert.deepEqual(Object.keys(body).sort(), ['consent', 'signature']);
+    assert.equal(body.consent.reservation.jobId, f.consent.jobId);
+    const before = calls.length;
+    await assert.rejects(api.deviceExecution.submit({ consent: { ...reviewed, reservation: { ...reviewed.reservation, origin: 'https://foreign.example' } }, signature }), /REVIEW_CHANGED/);
+    await assert.rejects(api.deviceExecution.submit({ consent: reviewed, signature, providers: [] }), /REQUEST_INVALID/);
+    await assert.rejects(api.deviceExecution.challenge('RESERVE_S', { access: f.access, signature, jobId: f.consent.jobId }), /REQUEST_INVALID/);
+    assert.equal(calls.length, before);
+  }
+});

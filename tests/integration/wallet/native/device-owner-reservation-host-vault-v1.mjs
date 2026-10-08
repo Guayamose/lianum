@@ -57,12 +57,13 @@ export async function openDeviceReservationHostVaultV1({appRoot,directory,fetch}
  };
  const hook=registerHooks({resolve(specifier,context,next){
   if(context.parentURL?.startsWith(root)&&Object.hasOwn(sources,specifier))return{url:'data:text/javascript,'+encodeURIComponent(sources[specifier]),shortCircuit:true};
-  if(context.parentURL===vaultURL&&['../api/device-owner-deposit-api-v1','../api/device-owner-reservation-api-v1'].includes(specifier))return next(specifier+'.ts',context);
+  if(context.parentURL===vaultURL&&['../api/device-owner-deposit-api-v1','../api/device-owner-reservation-api-v1','../api/device-owner-exit-api-v1','../api/device-owner-execution-api-v1'].includes(specifier))return next(specifier+'.ts',context);
   return next(specifier,context);
  }});
  try{
-  const original=await import(vaultURL),deposit=await import(root+'api/device-owner-deposit-api-v1.ts'),reservation=await import(root+'api/device-owner-reservation-api-v1.ts');
-  return Object.freeze({original,deposit,reservation,
+  const original=await import(vaultURL),deposit=await import(root+'api/device-owner-deposit-api-v1.ts'),reservation=await import(root+'api/device-owner-reservation-api-v1.ts'),
+   execution=await import(root+'api/device-owner-execution-api-v1.ts'),exit=await import(root+'api/device-owner-exit-api-v1.ts');
+  return Object.freeze({original,deposit,reservation,execution,exit,
    evidence(){const s=live(),rows=readdirSync(directory).map(name=>{const p=file(name),info=lstatSync(p);assert.ok(info.isFile()&&!info.isSymbolicLink());
      const raw=readFileSync(p);assert.ok(raw.length<=2048);return{key:name,bytes:raw.length,sha256:createHash('sha256').update(raw).digest('hex')};});
     return{nodeAesGcm:true,nodeCryptographicEntropy:true,ciphertextPersisted:rows.length>0,maximumStoredValueBytes:Math.max(0,...rows.map(r=>r.bytes)),ciphertextFiles:rows,

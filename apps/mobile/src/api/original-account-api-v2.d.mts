@@ -1,3 +1,4 @@
+import type { DeviceExecutionConsentV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import type { DeviceExitConsentV1, DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import type { DeviceReservationConsentV1, DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import type { DeviceDepositConsentV1, DeviceDepositStatementV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
@@ -33,6 +34,10 @@ export function createOriginalAccountApiV2(options: {
 }): Readonly<{
   descriptor: OriginalAccountDescriptorV2;
   privateState: OriginalPrivateStateApiV1;
+  deviceExecution: Readonly<{
+    challenge(action: DeviceExecutionConsentV1['action'], input: { access: OriginalAccountAccessV2; signature: string; jobId: string }): Promise<DeviceExecutionConsentV1>;
+    submit(input: { consent: DeviceExecutionConsentV1; signature: string }): Promise<unknown>;
+  }>;
   deviceExit: Readonly<{
     preparation(input: { access: OriginalAccountAccessV2; signature: string; parentJobId: string; noteRole: 'change' | 'recovery';
       rootId: string; noteRevision: number; nullifier: string; recipient: string }): Promise<unknown>;

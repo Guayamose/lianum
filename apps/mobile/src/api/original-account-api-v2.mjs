@@ -15,6 +15,8 @@ import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFr
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { normalizeDeviceExitConsentV1, validateDeviceExitConsentFreshV1, normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { validateDeviceExecutionConsentFreshV1 }
+  from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -48,7 +50,8 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     return validateOriginalAccountFreshV2(value);
   }
   async function request(path, payload, privateState = false) {
-    const target = original.origin + (privateState === 'device-exit' ? '/v1/mobile/device-exit/'
+    const target = original.origin + (privateState === 'device-execution' ? '/v1/mobile/device-execution/'
+      : privateState === 'device-exit' ? '/v1/mobile/device-exit/'
       : privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
       : privateState === 'device-deposit' ? '/v1/mobile/device-deposit/'
       : privateState ? '/v1/mobile/original-account/private-state/'
@@ -125,6 +128,29 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
   return Object.freeze({
     descriptor: original,
     privateState,
+    deviceExecution: Object.freeze({
+      async challenge(action, input) {
+        if (!['EXECUTE_NATIVE', 'RECONCILE_NATIVE', 'RECOVER_NATIVE'].includes(action)
+          || !exact(input, ['access', 'signature', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION'); normalizeOriginalAccountSignatureV2(input.signature);
+        const path = action === 'EXECUTE_NATIVE' ? 'execution-reviews' : action === 'RECONCILE_NATIVE' ? 'reconciliation-reviews' : 'recovery-reviews';
+        const value = validateDeviceExecutionConsentFreshV1(await request(path, input, 'device-execution'));
+        if (value.action !== action || value.reservation.jobId !== input.jobId
+          || Object.keys(original).some(name => value.reservation[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        return value;
+      },
+      async submit(input) {
+        if (!exact(input, ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const consent = validateDeviceExecutionConsentFreshV1(input.consent);
+        if (Object.keys(original).some(name => consent.reservation[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        const signature = normalizeOriginalAccountSignatureV2(input.signature);
+        // One request. Lost response keeps the original reservation/job; the
+        // caller may explicitly reconcile it, never replay execution/recovery.
+        return await request(consent.action === 'EXECUTE_NATIVE' ? 'execute' : consent.action === 'RECONCILE_NATIVE' ? 'reconcile' : 'recover',
+          { consent, signature }, 'device-execution');
+      },
+    }),
     deviceExit: Object.freeze({
       async preparation(input) {
         if (!exact(input, ['access', 'signature', 'parentJobId', 'noteRole', 'rootId', 'noteRevision', 'nullifier', 'recipient'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');

@@ -8,6 +8,7 @@ import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
 import {deviceOwnerDepositSourcePinsV1} from './device-owner-deposit-source-pins-v1.mjs';
 const MOBILE=resolve(FLAT,'../../../apps/mobile'),PROJECT=resolve(ROOT,'../../../..');
 const CLIENT=Object.freeze(['src/api/original-account-api-v2.mjs','src/api/device-owner-deposit-api-v1.ts','src/api/device-owner-reservation-api-v1.ts',
+ 'src/api/device-owner-exit-api-v1.ts','src/api/device-owner-execution-api-v1.ts','src/custody/device-balance-withdrawal-codec-v1.mjs',
  'src/custody/local-root-note-vault-v1.ts','src/custody/signing.mjs','src/custody/balance-note-codec-v1.mjs','src/custody/unissued-deposit-terms-v1.mjs',
  'src/custody/funded-balance-owner-codec-v1.mjs']);
 const RUNNER=Object.freeze(['integration/device-owner-reservation-flow-v1.mjs','integration/run-device-owner-reservation-v1.mjs',
