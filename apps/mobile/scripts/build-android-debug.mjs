@@ -8,6 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ownSpawnedBuildGroup } from './owned-build-process.mjs';
+import { nativeProcStatV1 } from '../../../tests/integration/native/native-flow-owned-files-v1.mjs';
 import nativeBuildLimits from '../plugins/with-native-build-limits.cjs';
 
 const mobile = fileURLToPath(new URL('../', import.meta.url));
@@ -31,7 +32,7 @@ for(const expected of ['compileSdk = "36"','buildTools = "36.0.0"','ndkVersion =
   assert.ok(sdkVersions.includes(expected),'MOBILE_BUILD_REVIEWED_RN_SDK_PROFILE');
 const abi = ['arm64-v8a','x86_64'];
 const gradleSHA256 = 'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
-const gradleJVMArgs = '-Xmx1536m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8';
+const gradleJVMArgs = '-Xmx1024m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8';
 process.stdout.write(JSON.stringify({preflight:'PASS',javaMajor,architectures:abi,
   androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1'})+'\n');
 if(process.argv[2] === '--preflight')process.exit(0);
@@ -47,6 +48,7 @@ const runId=randomUUID();writeFileSync(lockPath,JSON.stringify({pid:process.pid,
   relation:'mobile_android_debug',mode:'build'})+'\n',{flag:'wx',mode:0o600});
 const report = {format:'LIANUM_MOBILE_ANDROID_DEBUG_BUILD_V1',runId,phase:'starting',
   architectures:abi,gradleSHA256,nativeCmakeArguments,nativeJobPool:'owned_build=1',
+  requestedGradleJVMArgs:gradleJVMArgs,effectiveJVMProcesses:[],peakProcessSnapshot:[],
   peakProcessGroupRSS:0,minimumAvailableRAM:available(),
   deviceInstalled:false,uploaded:false,releaseSigned:false,requiresMetro:true,groupSignals:[]};
 const save=()=>writeFileSync(join(reportDirectory,'mobile-android-debug.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
@@ -57,6 +59,49 @@ const env={...process.env,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,
   // options to match; otherwise --no-daemon still creates a separate session.
   JAVA_OPTS:gradleJVMArgs,GRADLE_OPTS:''};
 let active,ownedGroup,killTimer,cleanupUnconfirmed=false;
+function captureJVMProcesses(group) {
+  for (const stat of group.processes) {
+    if (/^[ZX]$/.test(stat.state)) continue;
+    let arguments_;
+    try {
+      arguments_ = readFileSync(`/proc/${stat.pid}/cmdline`, 'utf8').split('\0').filter(Boolean);
+    } catch (error) {
+      if (['ENOENT', 'ESRCH'].includes(error.code)) continue;
+      throw error;
+    }
+    if (!/(^|\/)java$/.test(arguments_[0] ?? '')) continue;
+    const current = nativeProcStatV1(stat.pid);
+    if (!current) continue;
+    assert.ok(current.startTimeTicks === stat.startTimeTicks
+      && current.pgrp === stat.pgrp && current.session === stat.session,
+    'MOBILE_BUILD_JVM_IDENTITY_CHANGED');
+    const processClass = arguments_.find(value => [
+      'org.gradle.wrapper.GradleWrapperMain',
+      'org.gradle.launcher.daemon.bootstrap.GradleDaemon',
+      'org.gradle.process.internal.worker.GradleWorkerMain',
+      'worker.org.gradle.process.internal.worker.GradleWorkerMain',
+      'org.jetbrains.kotlin.daemon.KotlinCompileDaemon'
+    ].includes(value)) ?? (arguments_.includes('-jar') ? 'java-jar' : 'java-worker');
+    const observed = {
+      pid:stat.pid,startTimeTicks:stat.startTimeTicks,ppid:stat.ppid,
+      pgrp:stat.pgrp,session:stat.session,uid:stat.uid,
+      executable:arguments_[0],processClass,
+      jvmFlags:arguments_.filter(value => /^-Xm[xs]/.test(value)
+        || value.startsWith('-XX:MaxMetaspaceSize=')
+        || value.startsWith('-XX:ReservedCodeCacheSize=')
+        || value.startsWith('-Dfile.encoding=')),
+      peakRSSBytes:stat.rssBytes
+    };
+    const index = report.effectiveJVMProcesses.findIndex(value =>
+      value.pid === stat.pid && value.startTimeTicks === stat.startTimeTicks);
+    if (index === -1) report.effectiveJVMProcesses.push(observed);
+    else {
+      observed.peakRSSBytes = Math.max(observed.peakRSSBytes,
+        report.effectiveJVMProcesses[index].peakRSSBytes);
+      report.effectiveJVMProcesses[index] = observed;
+    }
+  }
+}
 function stopGroup(signal='SIGTERM') {
   if(!ownedGroup)return;
   const result=ownedGroup.signal(signal);
@@ -77,6 +122,8 @@ async function run(command,args,cwd) {
     if(!ownedGroup)return;
     try{
       const group=ownedGroup.snapshot(),rss=group.rssBytes;
+      captureJVMProcesses(group);
+      if (rss > report.peakProcessGroupRSS) report.peakProcessSnapshot = group.processes;
       report.peakProcessGroupRSS=Math.max(report.peakProcessGroupRSS,rss);
       const memory=available();report.minimumAvailableRAM=Math.min(report.minimumAvailableRAM,memory);save();
       if(rss>3*GiB||memory<2.5*GiB)stop(rss>3*GiB?'MOBILE_BUILD_PROCESS_GROUP_MEMORY_LIMIT':'MOBILE_BUILD_AVAILABLE_RAM_FLOOR');

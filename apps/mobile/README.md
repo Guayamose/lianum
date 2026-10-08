@@ -90,6 +90,14 @@ archivos Gradle generados antes de iniciar la compilación. Comprueba que el APK
 `arm64-v8a` y `x86_64`; registra hash y resultado en
 `.internal/dev/reports/mobile-android-debug.json`.
 
+El JVM de Gradle usa un heap máximo de 1024 MiB y metaspace máximo de 512 MiB.
+El informe conserva los límites solicitados y las opciones observadas en los
+procesos Java propios, incluidos los workers y el daemon de uso único, con su
+identidad de Linux y RSS máximo. Las opciones de un worker pueden diferir de
+las del JVM principal; todos cuentan para el mismo límite total. Se usan los
+[argumentos JVM de Gradle](https://docs.gradle.org/9.3.1/userguide/build_environment.html#sec:configuring_jvm_memory)
+y la [compilación Kotlin en proceso](https://kotlinlang.org/docs/gradle-compilation-and-caches.html#defining-kotlin-compiler-execution-strategy).
+
 Necesita 5,5 GiB disponibles al empezar; vigila el RSS de sus procesos y descendientes
 con un máximo de 3 GiB y conserva 2,5 GiB libres. Comparte el lock del prover
 cuando existe el runtime; una prueba activa bloquea la compilación. No ejecuta
