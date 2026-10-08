@@ -33,6 +33,7 @@ jobs:
           python3 scripts/development/test_btc_sol_lab_summary.py
           python3 scripts/development/test_btc_sol_lab_lifecycle.py
           python3 scripts/development/test_native_value_ledger.py
+          python3 scripts/development/test_native_value_w39.py
           python3 -B tests/integration/chains/tron/fixtures/aligned-rocksdb-v1/test_build.py
           python3 -B tests/integration/chains/tron/fixtures/aligned-rocksdb-v1/test_parent_death.py
           python3 scripts/development/test_empty_audit_lab_lifecycle.py
@@ -78,6 +79,7 @@ jobs:
           packages/backend/tests/operations/payouts/claim-authorization-lifecycle-v4.test.mjs
           packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs
           tests/integration/wallet/native/native-value-dev-release-v5.test.mjs
+          tests/integration/wallet/native/native-value-dev-w39-v5.test.mjs
           tests/integration/wallet/native/native-value-admission-original-roots-v5.test.mjs
           tests/integration/claims/metrics/native-claim-empty-audit-policy-v1.test.mjs
           tests/integration/wallet/native/paired-native-note-http-loss-v2.test.mjs
