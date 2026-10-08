@@ -227,7 +227,7 @@ async function runFixed(unfundedOnly,tron=false) {
     result.nativeRecordStates=tron&&nativeRuntime?[{phase:nativeRuntime.report().phase,signed:Boolean(nativeAudit().entry?.signed),broadcastCount:nativeTransactionCount()}]:nativeRuntime?.transactions.map(r=>({phase:r.phase,signed:!!r.signed,receiptStatus:r.receipt?.status??null,
       ...(r.finalityConfirmation?{finalityConfirmation:Object.fromEntries(['phase','requiredEmptyBlocks','confirmedEmptyBlocks','includedNumber','includedTimestamp','tipNumber','tipTimestamp','finalizedNumber'].map(k=>[k,r.finalityConfirmation[k]]))}:{})}))??[];
     writeFixturePrivate(join(privateDirectory,'observation-counts.json'),{phase:result.phase,nativeRecordStates:result.nativeRecordStates,
-      receiverTransactions:runtime?.transactions.length??0,nativeTransactions:nativeRuntime?.transactions.length??0,
+      receiverTransactions:runtime?.transactions.length??0,nativeTransactions:nativeTransactionCount(),
       originalOwnerAvailable:owner?.report().available??null}); save();
   }
   async function cleanup(){
