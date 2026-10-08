@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "9518e8c6fe1e45862f0a32be3a6748cb0b939a2fb6648349789d476188f390fe",
+  "hostSourceClosureSHA256": "6ac85db8133dcfc8fed226fcfffc30b5fb2829c06dbed32dd61b77aad556100e",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -646,7 +646,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/defi/entry/development-defi-entry-source-pins.mjs",
-      "sha256": "f9cf3e6ac839eb036555da316802f5886105d26e45cf507e9985cd4d0cedae14"
+      "sha256": "fd23b9b0f1406c2286a4452b70b7f59f00938c97d10e682bbaad20e7e3d66a85"
     },
     {
       "path": "integration/defi/private-metamorpho-flow-policy.mjs",
@@ -658,7 +658,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/defi/private-metamorpho-source-pins.mjs",
-      "sha256": "f618ba1e87a2ed11280f012a6e7195a7dc6efa2f8441da4f8d21308fd2f59915"
+      "sha256": "93c3bffecf0394cbc6d39f6b440c503958c068b7d9137b6178d3e63e950b97f4"
     },
     {
       "path": "integration/evm-vault-flow.mjs",
@@ -678,7 +678,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/evm/osaka/development-osaka-smoke-source-pins.mjs",
-      "sha256": "9ebc18a5772ac63154e4b582fe9ad7215d6d4aa204494e1c4e0e023c372d51ef"
+      "sha256": "1c68f7f2d2e8c01d8a60f23fc7067f5b60229423938bfa19345543a9ea8afd58"
     },
     {
       "path": "integration/manual-wallet-acceptance-policy.mjs",
@@ -922,7 +922,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/source-pins.mjs",
-      "sha256": "6a1965d17b0067c8d5aa29ba760aba336ae6051ee8872e7823818a6a8eef258c"
+      "sha256": "41dd4bc2193ef6336bc08c444b601677e4107c79137658f58c844b29cf515771"
     },
     {
       "path": "integration/task-catalog.mjs",
