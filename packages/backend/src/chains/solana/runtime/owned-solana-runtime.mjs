@@ -80,6 +80,8 @@ import { ownedCustodyRoute, assertOwnedCustodyIntent, ownedCustodyFeeAudit, crea
   auditOwnedSolanaNonceInfrastructure } from '../../shared/runtime/owned-native-custody.mjs';
 import { sendOwnedSolanaTransaction } from '../transfers/owned-solana-send.mjs';
 import { readOwnedSolanaSocketInodes } from './owned-solana-socket-inodes.mjs';
+import {assertJupiterPublicFixtureSourceReviewV1,loadJupiterOfficialMaterialV1} from '../../../operations/deployments/defi/jupiter-official-material-v1.mjs';
+import {jupiterPublicBankGenesisV1,validateJupiterPublicBankAccountsV1,JUPITER_BANK_CLOCK_V1} from './jupiter-orca-bank-state-v1.mjs';
 export const SOLANA_CUSTODY_PROFILE = 'OWNED_FLAT_SOLANA_CUSTODY_V1';
 // Candidate protocol identity only; not proof-profile activation or send authority.
 export const SOLANA_NONCE_INGRESS_PROFILE = 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3';
@@ -486,6 +488,13 @@ export async function createOwnedCombinedSolanaRuntime(progress = async () => {}
   requireCondition(arguments.length <= 1 && typeof progress === 'function', 'SOLANA_COMBINED_FIXED_CONSTRUCTOR');
   return createOwnedSolanaRuntimeProfile(progress, SOLANA_PRIVATE_COHORT_OPTIONS, true, true, true);
 }
+const ownedJupiterPublicBanksV1=new WeakSet();
+export function assertOwnedJupiterPublicBankV1(bank){requireCondition(arguments.length===1&&ownedJupiterPublicBanksV1.has(bank),'ORIGINAL_JUPITER_PUBLIC_BANK_REQUIRED');}
+/** Source-reviewed fixed public bank. It does not expose native claim adapters. */
+export async function createOwnedJupiterPublicBankV1(){
+ requireCondition(arguments.length===0,'JUPITER_BANK_NO_OPTIONS');assertJupiterPublicFixtureSourceReviewV1();
+ return createOwnedSolanaRuntimeProfile(async()=>{},SOLANA_PRIVATE_COHORT_OPTIONS,false,false,false,null,true);
+}
 const fixedOwnedSolanaSend = sendOwnedSolanaTransaction;
 const originalSolanaRecoveryCapturesV1=new WeakMap(),originalSolanaRetentionArmsV1=new WeakMap();
 export async function armOwnedSolanaRecoveryRetentionV1(runtime){requireCondition(arguments.length===1,'SOLANA_RETENTION_ARITY');assertOwnedSolanaRuntime(runtime);const arm=originalSolanaRetentionArmsV1.get(runtime);requireCondition(arm,'SOLANA_RETENTION_FIXED_CUSTODY');return arm();}
@@ -496,7 +505,10 @@ function restoreSolanaKeyV1(row,role){
  if(row.seedHex===null){requireCondition(['depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].includes(role),'SOLANA_RECOVERY_MISSING_SOURCE_KEY');return{seed:Buffer.alloc(32),publicBytes,address:row.address};}
  requireCondition(typeof row.seedHex==='string'&&/^[0-9a-f]{64}$/.test(row.seedHex),'SOLANA_RECOVERY_SEED');const seed=Buffer.from(row.seedHex,'hex'),key=createPrivateKey({key:Buffer.concat([PKCS8_ED25519,seed]),type:'pkcs8',format:'der'});assert.deepEqual(createPublicKey(key).export({type:'spki',format:'der'}).subarray(-32),publicBytes,'SOLANA_RECOVERY_KEY_PAIR');return{seed,publicBytes,address:row.address};
 }
-async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null) {
+async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false) {
+  requireCondition(!jupiterPublic||(!cohort&&!custody&&!combined&&!recovery),'JUPITER_BANK_FIXED_PROFILE');
+  const jupiterMaterial=jupiterPublic?loadJupiterOfficialMaterialV1():null;
+  let jupiterGenesisRows=null,jupiterGenesisFiles=null;
   // Load once before any native operation; never yield to import at a send boundary.
   const payoutController = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
   const originalKeyControllerV4 = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
@@ -570,6 +582,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
   try {
     await progress('Creating fresh synthetic keys for isolated local Solana');
     if(!restored)for (const role of ['solver', 'recipient', ...(cohort ? ['recipient1'] : []), 'unusedMint']) keys[role] = createSyntheticKey();
+    if(jupiterPublic)for(const role of ['jupiterSource','jupiterDestination'])keys[role]=createSyntheticKey();
     if (custody&&!restored) for (const role of ['depositorNonceBootstrapPayer', 'depositorNonce', 'nonceBootstrapPayer', 'escrowNonce'])
       keys[role] = createSyntheticKey();
     if (combined&&!restored) {
@@ -656,6 +669,17 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
             data: ['', 'base64'], owner: SYSTEM_PROGRAM, executable: false, rentEpoch: 0, space: 0 } }), { mode: 0o600 });
         custodyGenesisArguments.push('--account', key.address, accountFile);
       }
+    }
+    if(jupiterPublic){
+      jupiterGenesisRows=jupiterPublicBankGenesisV1(jupiterMaterial,keys.solver.address,keys.jupiterSource.address,keys.jupiterDestination.address);
+      jupiterGenesisFiles=[];
+      for(const [index,row] of jupiterGenesisRows.entries()){
+        const path=join(cwd,'jupiter-public-account-'+index+'.json'),raw=Buffer.from(JSON.stringify(row.json));
+        const file=await open(path,'wx',0o600);try{await file.writeFile(raw);await file.sync();}finally{await file.close();}
+        jupiterGenesisFiles.push({address:row.address,path,jsonSHA256:digest(raw)});
+        custodyGenesisArguments.push('--account',row.address,path);
+      }
+      const directory=await open(cwd,'r');try{await directory.sync();}finally{await directory.close();}
     }
     const ports = portReservation = await reserveOwnLoopbackPorts();
     const { rpcPort, gossipPort, faucetPort, dynamicBase, dynamicEnd } = ports;
@@ -1579,6 +1603,50 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         }
         fail('SOLANA_INVENTORY_CONTEXT_CHANGED');
       } finally { inventoryBusy = false; if (ownsWriter) busy = false; }
+    }
+    if(jupiterPublic){
+      async function inspectBank(){
+        requireCondition(arguments.length===0,'JUPITER_BANK_INSPECTION_NO_OPTIONS');await healthy();
+        // Recheck every original public byte and every file actually passed to
+        // this child. IDL/argv alone is not evidence of loaded executable bytes.
+        const current=jupiterPublicBankGenesisV1(loadJupiterOfficialMaterialV1(),keys.solver.address,keys.jupiterSource.address,keys.jupiterDestination.address);
+        assert.deepEqual(current.map(row=>({address:row.address,dataSHA256:row.dataSHA256,owner:row.owner,lamports:row.lamports,executable:row.executable})),
+          jupiterGenesisRows.map(row=>({address:row.address,dataSHA256:row.dataSHA256,owner:row.owner,lamports:row.lamports,executable:row.executable})));
+        for(const row of jupiterGenesisFiles)requireCondition(digest(await readFile(row.path))===row.jsonSHA256,'JUPITER_BANK_GENESIS_FILE_CHANGED');
+        const minimum=await read('getSlot',[{commitment:'finalized'}]);safeInteger(minimum,'JUPITER_BANK_FINALIZED_SLOT');
+        const response=await read('getMultipleAccounts',[[...jupiterGenesisRows.map(row=>row.address),JUPITER_BANK_CLOCK_V1],
+          {commitment:'finalized',minContextSlot:minimum,encoding:'base64'}]);
+        requireCondition(contextSlot(response)>=BigInt(minimum),'JUPITER_BANK_CONTEXT_ROLLBACK');
+        const observed=validateJupiterPublicBankAccountsV1(jupiterGenesisRows,response),slot=Number(observed.slot);
+        const blockOptions={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0};
+        const block=await read('getBlock',[slot,blockOptions]);
+        requireCondition(block&&Number.isSafeInteger(block.parentSlot)&&block.parentSlot<slot,'JUPITER_BANK_CANONICAL_BLOCK');
+        base58Decode(block.blockhash,32);base58Decode(block.previousBlockhash,32);
+        requireCondition(safeInteger(await read('getSlot',[{commitment:'finalized'}]),'JUPITER_BANK_FINALIZED_SLOT')>=BigInt(slot),'JUPITER_BANK_FINALITY_ROLLBACK');
+        requireCondition((await read('getBlock',[slot,blockOptions]))?.blockhash===block.blockhash,'JUPITER_BANK_BLOCK_CHANGED');
+        await healthy();return frozenInput({...observed,genesis,blockHash:block.blockhash,parentSlot:String(block.parentSlot),
+          sourcePublicKey:keys.jupiterSource.address,destinationPublicKey:keys.jupiterDestination.address,payerPublicKey:keys.solver.address});
+      }
+      // RPC health can precede the first finalized non-genesis block. Wait for
+      // its real frontier; never supply the old snapshot Clock or invent a slot.
+      let finalizedReady=false;
+      for(let attempt=0;attempt<120;attempt++){
+        await healthy();const slot=await read('getSlot',[{commitment:'finalized'}]);safeInteger(slot,'JUPITER_BANK_FINALIZED_SLOT');
+        if(slot>0){const block=await read('getBlock',[slot,{commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0}]);
+          if(block&&Number.isSafeInteger(block.parentSlot)&&block.parentSlot<slot){finalizedReady=true;break;}}
+        await sleep(250);
+      }
+      requireCondition(finalizedReady,'JUPITER_BANK_FINALIZED_FRONTIER_TIMEOUT');
+      const initial=await inspectBank();
+      metadata.classification='OWNED_JUPITER_ORCA_PUBLIC_BANK_V1';
+      delete metadata.receiptBinding;
+      metadata.signing='No native send exposed by the public bank facade; synthetic account keys only';
+      metadata.publicMarket={commit:jupiterMaterial.commit,initialObservation:initial,genesisAccountCount:13,
+        clockSnapshotLoaded:false,originalClaimLaneEnabled:false,privateCreditEstablished:false,
+        swapExecutionEstablished:false,locallyCompiledProgramEstablished:false,publicNetwork:false};
+      const bank=Object.freeze({profile:'OWNED_JUPITER_ORCA_PUBLIC_BANK_V1',inspect:inspectBank,
+        get metadata(){return cloneInput(metadata);},close});
+      ownedJupiterPublicBanksV1.add(bank);return bank;
     }
     function createFacade(custody) {
       const namespace = combined && !custody ? graphRecords : records, adapters = new Map();
