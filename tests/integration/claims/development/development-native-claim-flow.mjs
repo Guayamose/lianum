@@ -312,7 +312,8 @@ export async function runDevelopmentNativeClaimAcceptance() {
           throw new Error(reply.errorCode);
         }
         assert.equal(reply.state, 'RECONCILIATION_REQUIRED');
-        assert.ok(reply.errorCode === null || reply.errorCode === 'CLAIM_NATIVE_FINALITY_UNRESOLVED');
+        assert.ok(reply.errorCode === null || reply.errorCode === 'CLAIM_NATIVE_FINALITY_UNRESOLVED',
+          reply.errorCode ?? 'DEVELOPMENT_CLAIM_REDEMPTION_OUTCOME_UNRESOLVED');
         assert.equal((await controller.privateNativeReceipt({ operationId: ticket.ticketId })).broadcastAttempts, 1);
         await confirmOriginal(ticket.ticketId); reply = await claimRequest('resume', { requestId: redemption.requestId }); }
       assert.equal(reply.state, 'CONFIRMED', reply.errorCode); view = await claimOwnerView();
