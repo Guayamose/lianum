@@ -24,6 +24,7 @@ import * as originalFactsPeer from '../../../src/chains/shared/dispatch/native-f
 import * as originalNativeBinding from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
 import * as originalPermits from '../../../src/claims/authorization/permits.mjs';
 import * as originalNoteEncoding from '../../../../engine/src/notes/private-note-encoding.mjs';
+import * as originalAuditMetrics from '../../../src/claims/operations/operator-audit-metrics.mjs';
 
 import { encodeSolanaNonceBindingMessage } from '../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 
@@ -34,6 +35,15 @@ const url = path => new URL(path, import.meta.url).href;
 const owned = { runtimes: new WeakMap(), systems: new WeakMap(), natives: new WeakSet(), observers: new WeakMap() };
 const auditStates = new WeakMap();
 const records = new Map(), closedNatives = new WeakSet(); let serial = 0;
+let metricsFaultMode = null;
+let metricsOverhead = null;
+mock.module(url('../native-claims/operator-audit-metrics.mjs'), { exports: Object.fromEntries(
+  Object.entries(originalAuditMetrics).map(([name, original]) => [name, (...args) => {
+    if (metricsFaultMode === name) throw new Error('TEST_PRIVATE_COLLECTOR_FAULT');
+    if (name === 'checkpointClaimOperatorMetrics') metricsOverhead?.();
+    return original(...args);
+  }])) });
+
 let attesterKeyUses = 0, factsKeyUses = 0, onKeyUse = null, onBackingFrame = null, onClaimFactsFrame = null;
 const observedFactsSigner = create => input => {
   const signer = create(input);
@@ -114,7 +124,7 @@ mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: {
 const bridge = await import('../../../src/operations/operators/claims/combined-native-operators.mjs');
 const { createCombinedLocalNativeOperator } = bridge;
 const { createFlatOperatorQuorum, assertOwnedFlatOperatorQuorum, createScopedFlatOperator, createLocalFlatOperator } = await import('../../../src/operations/operators/claims/native-operators.mjs');
-const { createClaimOperatorQuorum, openClaimOriginalAuthorizationLeaseV4, consumeClaimOperatorKeyLeaseV4, assertOwnedClaimOperatorQuorum, createScopedClaimOperator, createLocalClaimOperator } = await import('../../../src/claims/operations/operators.mjs');
+const { createClaimOperatorQuorum, openClaimOriginalAuthorizationLeaseV4, consumeClaimOperatorKeyLeaseV4, assertOwnedClaimOperatorQuorum, createScopedClaimOperator, createLocalClaimOperator, claimOperatorPrivateAuditMetrics } = await import('../../../src/claims/operations/operators.mjs');
 
 function fixture(t, { family = '2', sameNode = true, standalone = false } = {}) {
   const id = ++serial, pairs = [0, 1, 2, 3].map(signerIndex => standalone
@@ -1052,4 +1062,82 @@ test('V4 BEGIN_PAYOUT initial full-round expiry reports the exact method and rou
   assert.equal(attesterKeyUses, keys);
   for (const i of [0, 1, 2]) assert.equal(f.claimStore(i).data.authorizations.length, 0);
   assert.equal(f.controls.nativeReadBusy, false); assert.equal(f.controls.nativeReadCollisions, 0);
+});
+
+
+// Original constructors/brands/quorum/journal/codecs and fixed keys remain the
+// same as this file's explicit host fixture. No native benchmark or proof.
+test('private collector faults preserve original authorization work and clear busy after success', async t => {
+  t.mock.method(performance, 'now', () => 0);
+  const failures = ['beginClaimOperatorMetrics', 'enterClaimOperatorMetricsPhase',
+    'leaveClaimOperatorMetricsPhase', 'checkpointClaimOperatorMetrics', 'finishClaimOperatorMetrics'];
+  for (const failure of failures) {
+    const { f, q, p } = await loadedPayout(t);
+    const mark = readMark(f), keys = attesterKeyUses;
+    metricsFaultMode = failure;
+    let permit;
+    try { permit = await q.claim.backing(p.begin); }
+    finally { metricsFaultMode = null; }
+    assert.equal(permit.authorizationLifecycleProfile, 'CLAIM_AUTHORIZATION_LIFECYCLE_V4');
+    assert.equal(attesterKeyUses - keys, 6, 'all fixed backing/health signatures still occur once');
+    assertOwnReads(f, mark, { prepared: 9 });
+    for (const pair of f.pairs.slice(0, 3)) {
+      assert.equal(claimOperatorPrivateAuditMetrics(pair.claim).collectionIncomplete, true);
+    }
+    const beforeValidationKeys = attesterKeyUses;
+    await q.claim.assertOriginalAuthorizationCurrent(permit);
+    assert.equal(attesterKeyUses, beforeValidationKeys);
+  }
+});
+
+test('collector finally failure cannot replace an original cause or poison a pre-key rejection', async t => {
+  t.mock.method(performance, 'now', () => 0);
+  const { f, q, p } = await loadedPayout(t), keys = attesterKeyUses;
+  const originalError = new Error('TEST_ORIGINAL_CURRENT_FAILURE');
+  let graphRead = false;
+  f.controls.beforeGraphRead = () => { graphRead = true; };
+  // Inject after the complete CLAIM audit, at the original GRAPH-coverage
+  // currentness fence. Earlier observer failures are deliberately aggregated
+  // by the audit and would exercise a different error boundary.
+  f.controls.beforeClaimCurrent = () => { if (graphRead) throw originalError; };
+  metricsFaultMode = 'finishClaimOperatorMetrics';
+  try { await assert.rejects(q.claim.backing(p.begin), error => error === originalError); }
+  finally {
+    metricsFaultMode = null;
+    f.controls.beforeClaimCurrent = null;
+    f.controls.beforeGraphRead = null;
+  }
+  assert.equal(attesterKeyUses, keys);
+  assert.equal(f.controls.nativeReadBusy, false);
+  for (const pair of f.pairs.slice(0, 3)) assert.equal(pair.claim.status().poisoned, false);
+  // A successful later original operation proves all busy/queue state drained.
+  const permit = await q.claim.backing(p.begin);
+  assert.equal(permit.authorizationLifecycleProfile, 'CLAIM_AUTHORIZATION_LIFECYCLE_V4');
+  assert.throws(() => claimOperatorPrivateAuditMetrics(Object.freeze({ ...f.pairs[0].claim })), /CLAIM_OWNED_OPERATOR_REQUIRED/);
+  assert.throws(() => claimOperatorPrivateAuditMetrics(new Proxy(f.pairs[0].claim, {})), /CLAIM_OWNED_OPERATOR_REQUIRED/);
+});
+
+test('diagnostic sampling overhead stays inside the unchanged original audit guard before any new key', async t => {
+  let now = 0;
+  t.mock.method(performance, 'now', () => now);
+  const { f, q, p } = await loadedPayout(t), keys = attesterKeyUses;
+  let graphRead = false;
+  f.controls.beforeGraphRead = () => { graphRead = true; };
+  // Sampling overhead expires the same existing post-GRAPH guard exercised
+  // by the original BEGIN_PAYOUT regression, after custody audit completed.
+  metricsOverhead = () => { if (graphRead) now = 30_000; };
+  try {
+    await assert.rejects(q.claim.backing(p.begin), error => {
+      assert.equal(error.message, 'CLAIM_OPERATOR_AUDIT_TOO_OLD');
+      assert.equal(error.auditBudget.limitMilliseconds, 30_000);
+      assert.equal(error.auditBudget.elapsedMilliseconds, 30_000);
+      return true;
+    });
+  } finally {
+    metricsOverhead = null;
+    f.controls.beforeGraphRead = null;
+  }
+  assert.equal(attesterKeyUses, keys);
+  assert.equal(f.controls.nativeReadBusy, false);
+  for (const index of [0, 1, 2]) assert.equal(f.claimStore(index).data.authorizations.length, 0);
 });

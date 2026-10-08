@@ -1,3 +1,6 @@
+import { createClaimOperatorMetricsLifetime, beginClaimOperatorMetrics, enterClaimOperatorMetricsPhase,
+  leaveClaimOperatorMetricsPhase, checkpointClaimOperatorMetrics, finishClaimOperatorMetrics,
+  claimOperatorMetricsReports, claimOperatorMetricsLifetimeIncomplete } from './operator-audit-metrics.mjs';
 import { claimBitcoinPayoutBroadcastFrame, CLAIM_BITCOIN_PAYOUT_BROADCAST_PROFILE } from '../payouts/bitcoin-payout-broadcast.mjs';
 import { auditIngressBroadcastOperator } from '../ingress/ingress-v3-lifecycle.mjs';
 import { nonceIngressBroadcastFrame, assertNonceIngressDeployment } from '../ingress/ingress-v3-host.mjs';
@@ -87,6 +90,53 @@ function createClaimOperator(input, custody) {
   let observer, bound, vault, record, activeView, activeFactsAnchor, cachedView, started, busy = false, poisoned = false, closed = false;
   let activeKeyUsed = false, activeV4 = null, activeV4Facts = null, keyUseEpoch = 0;
   let auditMethod = 'operation', auditRound = 'whole-operation';
+  let metricsCallsFailed = false;
+  function createMetricsLifetime() {
+    try {
+      const token = createClaimOperatorMetricsLifetime();
+      if (!token) metricsCallsFailed = true;
+      return token;
+    } catch { metricsCallsFailed = true; return null; }
+  }
+  const metricsLifetime = createMetricsLifetime();
+  let activeAuditMetrics = null;
+  function beginMetrics() {
+    try {
+      const token = beginClaimOperatorMetrics(metricsLifetime);
+      if (!token) metricsCallsFailed = true;
+      return token;
+    } catch { metricsCallsFailed = true; return null; }
+  }
+  function enterMetrics(phase) {
+    try {
+      const token = enterClaimOperatorMetricsPhase(activeAuditMetrics, phase, auditMethod, auditRound);
+      if (!token && activeAuditMetrics) metricsCallsFailed = true;
+      return token;
+    } catch { metricsCallsFailed = true; return null; }
+  }
+  function leaveMetrics(token) {
+    try { if (leaveClaimOperatorMetricsPhase(token) !== true) metricsCallsFailed = true; }
+    catch { metricsCallsFailed = true; }
+  }
+  function checkpointMetrics() {
+    try { if (checkpointClaimOperatorMetrics(activeAuditMetrics) !== true) metricsCallsFailed = true; }
+    catch { metricsCallsFailed = true; }
+  }
+  function finishMetrics() {
+    try { if (finishClaimOperatorMetrics(metricsLifetime, activeAuditMetrics) !== true) metricsCallsFailed = true; }
+    catch { metricsCallsFailed = true; }
+  }
+  function privateMetricsReports() {
+    try {
+      const reports = claimOperatorMetricsReports(metricsLifetime);
+      const collectionIncomplete = metricsCallsFailed || claimOperatorMetricsLifetimeIncomplete(metricsLifetime);
+      return Object.freeze({ schema: 'CLAIM_PRIVATE_OPERATION_METRICS_VIEW_V1', collectionIncomplete, reports });
+    } catch {
+      metricsCallsFailed = true;
+      return Object.freeze({ schema: 'CLAIM_PRIVATE_OPERATION_METRICS_VIEW_V1',
+        collectionIncomplete: true, reports: Object.freeze([]) });
+    }
+  }
   const originalPayoutFacts = new Map(), v4OperationResults = new WeakMap();
   let operationGeneration = 0;
   const peers = new Map(), readers = new Map(), nativeReads = new Map();
@@ -98,16 +148,23 @@ function createClaimOperator(input, custody) {
   const cleanup = () => { closed = true; key = cachedView = undefined; vault?.close(); nativeReads.clear(); if (custody) { peers.clear(); readers.clear(); } };
   const ready = () => { live(); assert.ok(bound, 'CLAIM_OPERATOR_NOT_BOUND'); assertOwnedClaimObserver(observer); };
   async function readVault() {
-    try { equal(await vault.read(), record, 'CLAIM_OPERATOR_JOURNAL_CHANGED'); }
-    catch (cause) { poison(); throw new Error('CLAIM_OPERATOR_JOURNAL_UNAVAILABLE', { cause }); }
+    const measuredPhase = enterMetrics('read-vault');
+    try {
+      try { equal(await vault.read(), record, 'CLAIM_OPERATOR_JOURNAL_CHANGED'); }
+      catch (cause) { poison(); throw new Error('CLAIM_OPERATOR_JOURNAL_UNAVAILABLE', { cause }); }
+    } finally { leaveMetrics(measuredPhase); }
   }
   async function save(data) {
+    const measuredPhase = enterMetrics('durable-save');
     try {
-      live(); const next = await vault.update(record.revision, () => copy(data));
-      equal(await vault.read(), next, 'CLAIM_OPERATOR_JOURNAL_READBACK'); record = next;
-    } catch (cause) { poison(); throw new Error('CLAIM_OPERATOR_DURABLE_WRITE_UNCERTAIN', { cause }); }
+      try {
+        live(); const next = await vault.update(record.revision, () => copy(data));
+        equal(await vault.read(), next, 'CLAIM_OPERATOR_JOURNAL_READBACK'); record = next;
+      } catch (cause) { poison(); throw new Error('CLAIM_OPERATOR_DURABLE_WRITE_UNCERTAIN', { cause }); }
+    } finally { leaveMetrics(measuredPhase); }
   }
   function withinAuditBudget(phase) {
+    checkpointMetrics();
     const elapsed = performance.now() - started;
     try { assert.ok(activeView && Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'CLAIM_OPERATOR_AUDIT_TOO_OLD'); }
     catch (error) {
@@ -118,40 +175,49 @@ function createClaimOperator(input, custody) {
     }
   }
   async function current(phase = 'claim-current') {
-    live();
+    const measuredPhase = enterMetrics('current');
     try {
-      withinAuditBudget(phase);
-      await observer.assertCurrent(activeView);
       live();
-      withinAuditBudget(phase);
-    } catch (error) { cachedView = undefined; throw error; }
+      try {
+        withinAuditBudget(phase);
+        await observer.assertCurrent(activeView);
+        live();
+        withinAuditBudget(phase);
+      } catch (error) { cachedView = undefined; throw error; }
+    } finally { leaveMetrics(measuredPhase); }
   }
   async function readCurrentView() {
     // Reciprocal coverage repeatedly enters the combined key at one EVM head.
     // Retain one original immutable reconstruction per operator, never a
     // sibling's view or a native observation/inventory result.
     if (!custody) return observer.read();
+    const measuredPhase = enterMetrics('read-current-view');
     try {
-      if (cachedView) {
-        const header = await bound.runtime.block(), head = cachedView.head;
-        if (header.number === '0x' + BigInt(head.number).toString(16)
-          && header.hash === '0x' + head.hash && header.timestamp === '0x' + BigInt(head.timestamp).toString(16)) {
-          // Re-prove original issued-view ownership, canonical current head,
-          // deployment pins and both pool views. Never fall back on failure.
-          await observer.assertCurrent(cachedView); return cachedView;
+      try {
+        if (cachedView) {
+          const header = await bound.runtime.block(), head = cachedView.head;
+          if (header.number === '0x' + BigInt(head.number).toString(16)
+            && header.hash === '0x' + head.hash && header.timestamp === '0x' + BigInt(head.timestamp).toString(16)) {
+            // Re-prove original issued-view ownership, canonical current head,
+            // deployment pins and both pool views. Never fall back on failure.
+            await observer.assertCurrent(cachedView); return cachedView;
+          }
         }
-      }
-      cachedView = undefined;
-      const view = await observer.read(); cachedView = view; return view;
-    } catch (error) { cachedView = undefined; throw error; }
+        cachedView = undefined;
+        const view = await observer.read(); cachedView = view; return view;
+      } catch (error) { cachedView = undefined; throw error; }
+    } finally { leaveMetrics(measuredPhase); }
   }
   async function jointCurrent() {
-    await current('before-graph-coverage');
-    if (custody) {
-      if (activeV4) activeV4.setGraphSource(await assertCombinedGraphCoverageV4(custody, activeView.head));
-      else await assertCombinedGraphCoverage(custody, activeView.head);
-      await current('after-graph-coverage'); if (activeV4) activeV4.assertGraphSource();
-    }
+    const measuredPhase = enterMetrics('joint-current');
+    try {
+      await current('before-graph-coverage');
+      if (custody) {
+        if (activeV4) activeV4.setGraphSource(await assertCombinedGraphCoverageV4(custody, activeView.head));
+        else await assertCombinedGraphCoverage(custody, activeView.head);
+        await current('after-graph-coverage'); if (activeV4) activeV4.assertGraphSource();
+      }
+    } finally { leaveMetrics(measuredPhase); }
   }
   const clock = Object.freeze({ async read() { await current(); return freeze({ timestamp: activeView.head.timestamp, head: activeView.head.hash }); },
     async assertCurrent(header) { equal(header, { timestamp: activeView.head.timestamp, head: activeView.head.hash }); await current(); } });
@@ -208,6 +274,8 @@ function createClaimOperator(input, custody) {
     ready(); assert.ok(!busy, 'CLAIM_OPERATOR_BUSY'); busy = true; operationGeneration++;
     const generation = operationGeneration; activeKeyUsed = false;
     auditMethod = 'operation'; auditRound = 'whole-operation'; started = performance.now();
+    activeAuditMetrics = beginMetrics();
+    const measuredOperation = enterMetrics('serial');
     try {
       await readVault(); activeView = await readCurrentView();
       if (expectedHead) equal(activeView.head, expectedHead, 'CLAIM_QUORUM_HEAD_CHANGED');
@@ -224,7 +292,14 @@ function createClaimOperator(input, custody) {
       // specialized authorization's persistence block. No key means no poison.
       if (custody && activeKeyUsed && !poisoned) { poison(); throw new Error('CLAIM_ATTESTATION_UNCERTAIN', { cause }); }
       throw cause;
-    } finally { activeV4?.release(); activeView = undefined; activeFactsAnchor = undefined; activeKeyUsed = false; activeV4 = null; activeV4Facts = null; busy = false; }
+    } finally {
+      try { activeV4?.release(); activeView = undefined; activeFactsAnchor = undefined; activeKeyUsed = false; activeV4 = null; activeV4Facts = null; busy = false; }
+      finally {
+        leaveMetrics(measuredOperation);
+        finishMetrics();
+        activeAuditMetrics = null;
+      }
+    }
   }
   async function audit({ staged = null, allowObservedDebt = false } = {}) {
     const inventories = [], financials = [], failures = [];
@@ -519,11 +594,15 @@ function createClaimOperator(input, custody) {
       // Invalidate the previous round before the first read. No old observation
       // or graph-only refresh can justify this new start.
       quiet.release();
-      started = performance.now(); await readVault(); activeView = await readCurrentView();
-      equal(activeView.head, head, 'CLAIM_V4_ORIGINAL_HEAD_CHANGED');
-      const fresh = freeze(copy(await prepare()));
-      equal(fresh, candidate, 'CLAIM_V4_ORIGINAL_ECONOMIC_AUTHORIZATION_CHANGED');
-      await finishRound();
+      started = performance.now();
+      const measuredRound = enterMetrics('v4-round');
+      try {
+        await readVault(); activeView = await readCurrentView();
+        equal(activeView.head, head, 'CLAIM_V4_ORIGINAL_HEAD_CHANGED');
+        const fresh = freeze(copy(await prepare()));
+        equal(fresh, candidate, 'CLAIM_V4_ORIGINAL_ECONOMIC_AUTHORIZATION_CHANGED');
+        await finishRound();
+      } finally { leaveMetrics(measuredRound); }
     };
     // The initial preparation itself is a complete bounded observation round.
     await finishRound();
@@ -883,6 +962,7 @@ function createClaimOperator(input, custody) {
             && claimUint(observation.evidenceUntil) <= claimUint(unsignedEntry.maximumEvidenceUntil), 'CLAIM_V4_UNSIGNED_FACTS_EXPIRED');
         }
         quiet.assertCurrent(); graphFence.assertGraphSource(); assertV4Live(evmFence);
+        checkpointMetrics();
         const elapsed = performance.now() - started;
         assert.ok(Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'CLAIM_OPERATOR_AUDIT_TOO_OLD');
       };
@@ -892,13 +972,16 @@ function createClaimOperator(input, custody) {
           started = performance.now(); await readVault(); activeView = await readCurrentView();
           equal(activeView.head, head, 'CLAIM_V4_ORIGINAL_FACTS_HEAD');
         }
-        const report = await audit({ allowObservedDebt: true }); assertReconciledCoverage(report);
-        const economic = await retainInventoryAudit(report);
-        if (inventoryCommitment === undefined) inventoryCommitment = economic;
-        assert.equal(economic, inventoryCommitment, 'CLAIM_V4_PAYOUT_FACTS_ECONOMIC_CHANGED');
-        if (validationOriginal) assert.equal(economic, validationOriginal.inventoryCommitment, 'CLAIM_V4_PAYOUT_FACTS_ORIGINAL_ECONOMIC_CHANGED');
-        assertCanonicalClaimReservation(binding, await observer.readReservation({ claimDomain: binding.claimDomain, admissionN: binding.admissionN }, activeView));
-        await jointCurrent(); await quiet.acquire(); assertRound();
+        const measuredRound = enterMetrics('v4-facts-round');
+        try {
+          const report = await audit({ allowObservedDebt: true }); assertReconciledCoverage(report);
+          const economic = await retainInventoryAudit(report);
+          if (inventoryCommitment === undefined) inventoryCommitment = economic;
+          assert.equal(economic, inventoryCommitment, 'CLAIM_V4_PAYOUT_FACTS_ECONOMIC_CHANGED');
+          if (validationOriginal) assert.equal(economic, validationOriginal.inventoryCommitment, 'CLAIM_V4_PAYOUT_FACTS_ORIGINAL_ECONOMIC_CHANGED');
+          assertCanonicalClaimReservation(binding, await observer.readReservation({ claimDomain: binding.claimDomain, admissionN: binding.admissionN }, activeView));
+          await jointCurrent(); await quiet.acquire(); assertRound();
+        } finally { leaveMetrics(measuredRound); }
       };
       activeV4 = { assertCurrent: assertRound, release: quiet.release, nativeStates: quiet.nativeStates, ...graphFence };
       activeV4Facts = { request, slot,
@@ -1415,7 +1498,7 @@ function createClaimOperator(input, custody) {
       await current();
     }, expectedHead),
   });
-  operators.set(operator, { ready, assertV4Live, captureV4EvmFence, captureV4NativeState, nativeReadHandles: () => [...nativeReads.values()], supportsV4: Boolean(custody), get keyUseEpoch() { return keyUseEpoch; },
+  operators.set(operator, { privateAuditMetrics: privateMetricsReports, ready, assertV4Live, captureV4EvmFence, captureV4NativeState, nativeReadHandles: () => [...nativeReads.values()], supportsV4: Boolean(custody), get keyUseEpoch() { return keyUseEpoch; },
     poisonIfKeyUsed(epoch) { if (keyUseEpoch !== epoch) poison(); },
     assertV4ResultCurrent(result, evmFence, withNativeState = true) {
       const retained = v4OperationResults.get(result);
@@ -1891,6 +1974,15 @@ export function createClaimOperatorQuorum(input) {
     } });
   same(); quorums.set(quorum, { same, observer: states[0].observer }); return quorum;
 }
+/** Original-brand private diagnostics, including failures after poison/close.
+ * No HTTP projection, original result, native identity or key is returned. */
+export function claimOperatorPrivateAuditMetrics(capability) {
+  assert.equal(arguments.length, 1, 'CLAIM_PRIVATE_METRICS_NO_OPTIONS');
+  const state = operators.get(capability);
+  assert.ok(state, 'CLAIM_OWNED_OPERATOR_REQUIRED');
+  return state.privateAuditMetrics();
+}
+
 export function assertOwnedClaimOperatorQuorum(capability, observer) {
   const state = quorums.get(capability); assert.ok(state, 'CLAIM_OWNED_QUORUM_REQUIRED'); state.same();
   assert.equal(state.observer, observer, 'CLAIM_QUORUM_OBSERVER');
