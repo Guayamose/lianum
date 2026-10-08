@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {loadJupiterOfficialMaterialV1} from '../../../../src/operations/deployments/defi/jupiter-official-material-v1.mjs';
 import {JUPITER_ORCA_V1} from '../../../../src/chains/solana/dispatch/jupiter-orca-route-codec-v1.mjs';
-import {validateJupiterPublicBankAccountsV1,jupiterExplicitTokenProgramV1,JUPITER_TOKEN_PROGRAMDATA_V1} from '../../../../src/chains/solana/runtime/jupiter-orca-bank-state-v1.mjs';
+import {validateJupiterPublicBankAccountsV1,jupiterExplicitTokenProgramV1,jupiterNativeWsolMintV1,JUPITER_TOKEN_PROGRAMDATA_V1} from '../../../../src/chains/solana/runtime/jupiter-orca-bank-state-v1.mjs';
 import {createOwnedJupiterPublicBankV1,assertOwnedJupiterPublicBankV1} from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 function sample(){
@@ -41,4 +41,14 @@ test('explicit Tokenkeg loader joins original ELF and both V3 loader accounts; b
   const bad=structuredClone(response);mutate(bad);assert.throws(()=>validateJupiterPublicBankAccountsV1(rows,bad,token));
  }
  assert.equal(token.program.address,JUPITER_ORCA_V1.tokenProgram);assert.equal(token.program.lamports,'1141440');assert.equal(token.programData.lamports,'934400880');
+});
+
+// Pure native mint metadata, not a validator/Token execution or private credit.
+test('WSOL mint uses exact Agave genesis bytes and balance while retaining snapshot provenance',()=>{
+ const mint=jupiterNativeWsolMintV1(loadJupiterOfficialMaterialV1()),{rows,response}=sample();
+ assert.equal(mint.origin.classification,'NATIVE_GENESIS_NOT_SNAPSHOT');assert.equal(mint.owner,JUPITER_ORCA_V1.tokenProgram);assert.equal(mint.lamports,'1000000000');assert.equal(mint.data.length,82);assert.equal(mint.data[44],9);assert.equal(mint.data[45],1);assert.equal(mint.data.readBigUInt64LE(36),0n);assert.equal(mint.data.readUInt32LE(0),0);assert.equal(mint.data.readUInt32LE(46),0);
+ rows[7]=mint;response.value[7]={owner:mint.owner,lamports:Number(mint.lamports),executable:false,data:[mint.data.toString('base64'),'base64']};
+ assert.equal(validateJupiterPublicBankAccountsV1(rows,response).accounts[7].dataSHA256,mint.dataSHA256);
+ const wrongBalance=structuredClone(response);wrongBalance.value[7].lamports=165690819597;assert.throws(()=>validateJupiterPublicBankAccountsV1(rows,wrongBalance),/JUPITER_BANK_OBSERVED_LAMPORTS:So111/);
+ const wrongSupply=structuredClone(response),bytes=Buffer.from(wrongSupply.value[7].data[0],'base64');bytes.writeBigUInt64LE(1n,36);wrongSupply.value[7].data[0]=bytes.toString('base64');assert.throws(()=>validateJupiterPublicBankAccountsV1(rows,wrongSupply),/JUPITER_BANK_OBSERVED_DATA_PIN/);
 });

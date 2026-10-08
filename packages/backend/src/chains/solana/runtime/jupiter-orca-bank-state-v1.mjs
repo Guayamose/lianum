@@ -49,6 +49,16 @@ export function jupiterExplicitTokenProgramV1(material){
  return {elf:Buffer.from(elf),program:rpcAccount(JUPITER_ORCA_V1.tokenProgram,{owner:UPGRADEABLE,lamports:rent(program.length),executable:true,rentEpoch:'0',data:program},origin),
   programData:rpcAccount(JUPITER_TOKEN_PROGRAMDATA_V1,{owner:UPGRADEABLE,lamports:rent(programData.length),executable:false,rentEpoch:'0',data:programData},origin)};
 }
+/** Canonical Agave native mint installed by create_genesis_config_with_leader_ex_no_features.
+ * The public fixture snapshot remains provenance, not this genesis balance. */
+export function jupiterNativeWsolMintV1(material){
+ assert.equal(arguments.length,1);assert.equal(material.commit,JUPITER_OFFICIAL_COMMIT_V1);
+ const path=prefix+JUPITER_ORCA_V1.solMint+'.bin',raw=pinned(material,path),snapshot=decodeOfficialJupiterBincodeAccountV1(raw);
+ const data=Buffer.alloc(82);data[44]=9;data[45]=1;
+ assert.equal(snapshot.owner,JUPITER_ORCA_V1.tokenProgram);assert.equal(snapshot.executable,false);assert.deepEqual(snapshot.data,data,'JUPITER_WSOL_NATIVE_MINT_BYTES');
+ const mint=decodeJupiterSplMintV1(data);assert.deepEqual(mint,{supply:'0',decimals:9,mintAuthorityOption:0,freezeAuthorityOption:0});
+ return rpcAccount(JUPITER_ORCA_V1.solMint,{owner:JUPITER_ORCA_V1.tokenProgram,lamports:'1000000000',executable:false,rentEpoch:'1',data},{classification:'NATIVE_GENESIS_NOT_SNAPSHOT',path,rawSHA256:sha(raw),agaveVersion:'2.3.13',genesisSourceSHA256:'cc1a58be03c9b0291de5285b1cc258345128493ea06613f46bdb09caccd8e8f7',tokenDeclarationsCrate:'spl-generic-token-1.0.1',tokenDeclarationsSHA256:'741a62a566d97c58d33f9ed32337ceedd4e35109a686e31b1866c5dfa56abddc'});
+}
 function freshToken(mint,owner,native){
  const data=Buffer.alloc(165);base58Decode(mint,32).copy(data);base58Decode(owner,32).copy(data,32);
  data[108]=1;if(native){data.writeBigUInt64LE(BigInt(JUPITER_ORCA_V1.amount),64);data.writeUInt32LE(1,109);data.writeBigUInt64LE(BigInt(JUPITER_ORCA_V1.tokenRent),113);}
@@ -64,6 +74,7 @@ export function jupiterPublicBankGenesisV1(material,payer,source,destination){
  const explicitToken=jupiterExplicitTokenProgramV1(material);
  const rows=snapshotAddresses.map(address=>{
   if(address===JUPITER_ORCA_V1.tokenProgram)return explicitToken.program;
+  if(address===JUPITER_ORCA_V1.solMint)return jupiterNativeWsolMintV1(material);
   const raw=pinned(material,prefix+address+'.bin'),account=decodeOfficialJupiterBincodeAccountV1(raw);
   assert.equal(account.owner,address===JUPITER_ORCA_V1.pool?JUPITER_ORCA_V1.dex:
     address===JUPITER_ORCA_V1.authority?'11111111111111111111111111111111':
@@ -104,7 +115,7 @@ export function validateJupiterPublicBankAccountsV1(rows,response,tokenProgram=n
  const observations=rows.map((expected,index)=>{
   const actual=decodedRPC(response.value[index]);assert.equal(actual.owner,expected.owner,'JUPITER_BANK_OBSERVED_OWNER');
   assert.equal(actual.executable,expected.executable,'JUPITER_BANK_OBSERVED_EXECUTABLE');
-  assert.equal(actual.lamports,expected.lamports,'JUPITER_BANK_OBSERVED_LAMPORTS');
+  assert.equal(actual.lamports,expected.lamports,'JUPITER_BANK_OBSERVED_LAMPORTS:'+expected.address);
   assert.equal(sha(actual.data),expected.dataSHA256,'JUPITER_BANK_OBSERVED_DATA_PIN');assert.equal(actual.data.length,expected.data.length);
   return {address:expected.address,owner:actual.owner,executable:actual.executable,lamports:actual.lamports,
     dataBytes:actual.data.length,dataSHA256:sha(actual.data),origin:expected.origin};

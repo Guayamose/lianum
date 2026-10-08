@@ -662,6 +662,8 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       jupiterCurrentRows=jupiterGenesisRows;
       jupiterGenesisFiles=[];
       for(const [index,row] of jupiterGenesisRows.entries()){
+        // Agave installs this canonical mint itself after initial accounts.
+        if(row.address===JUPITER_ORCA_V1.solMint)continue;
         if(row.address===JUPITER_ORCA_V1.tokenProgram){
           const raw=jupiterExplicitTokenProgramV1(jupiterMaterial).elf,path=join(cwd,'jupiter-original-token-program.so');
           const file=await open(path,'wx',0o600);try{await file.writeFile(raw);await file.sync();}finally{await file.close();}
