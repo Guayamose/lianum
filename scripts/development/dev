@@ -20,6 +20,7 @@ case "$task_command" in
       './dev doctor         Verificar herramientas e integridad de la base original' \
       './dev evidence       Comprobar las evidencias públicas originales' \
       './dev lab [prepare|run|recovery|browser|browser-recovery]   Laboratorio EVM nuevo: SDK o DOM, feliz o F real' \
+      './dev lab audit-base Seis auditorías originales vacías con métricas privadas acotadas' \
       './dev lab btc-sol    Factura privada CBTC, entrega SOL y dos redenciones BTC originales' \
       './dev lab claims     Ingreso y redención privada de claims BTC/SOL en un laboratorio nuevo' \
       './dev lab metamorpho Nota privada de shares, EXIT y redención oficial en un laboratorio nuevo' \
@@ -31,6 +32,10 @@ case "$task_command" in
       '' \
       'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
   lab)
+    if [ "${1:-}" = "audit-base" ]; then
+      shift
+      exec python3 "$task_helpers/empty_audit_lab.py" "$@"
+    fi
     if [ "${1:-}" = "btc-sol" ]; then
       shift
       exec python3 "$task_helpers/btc_sol_lab.py" "$@"
