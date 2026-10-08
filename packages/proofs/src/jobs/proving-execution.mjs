@@ -1,5 +1,6 @@
 /** Fixed proving execution only. No circuit/VK identity, witness or authority. */
 import assert from 'node:assert/strict';
+import {usesNativeNodeV1,NODE_NATIVE_PINS_V1,assertNativeNodeReceiptV1} from './node-native-execution-v1.mjs';
 import { usesNativeAuthorizationV1, AUTHORIZATION_NATIVE_PINS_V1, assertNativeAuthorizationReceiptV1 } from './authorization-native-execution-v1.mjs';
 import { join, relative, sep } from 'node:path';
 import { ROOT, GOLDEN, EXPERIMENT, PROFILE, LIMITS, operation } from '../catalog.mjs';
@@ -18,9 +19,11 @@ export const AUTHORIZATION_SIXTEEN_PROVING_LIMITS = Object.freeze({ ...LIMITS, t
 // Current authorization jobs have twelve fixed threads. No caller chooses the
 // historical or current variants; prepared keys and all resource ceilings stay.
 export const AUTHORIZATION_TWELVE_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 12 });
+// Only current N proving uses native12. Retained N1/N4 receipts keep their fixed original profiles.
+export const NODE_NATIVE_PROVING_LIMITS_V1=Object.freeze({...LIMITS,threads:12});
 export function limitsForMode(spec, mode) {
   if (operation(mode) !== 'prove') return LIMITS;
-  return spec.name === 'authorization' ? AUTHORIZATION_TWELVE_PROVING_LIMITS : PROVING_LIMITS;
+  return spec.name === 'authorization' ? AUTHORIZATION_TWELVE_PROVING_LIMITS : spec.name==='node' ? NODE_NATIVE_PROVING_LIMITS_V1 : PROVING_LIMITS;
 }
 
 // Runtime pins stay outside the original API/circuit/key identity and the
@@ -44,10 +47,11 @@ export function executionSources(spec, mode) {
   const original = originalExecutionSources(spec, mode);
   // The imported policy itself is captured by the original before/after checks.
   const extra = ['proof-workers/proving-execution.mjs','proof-workers/authorization-native-execution-v1.mjs',
+    'proof-workers/node-native-execution-v1.mjs',
     'proof-workers/standard-proof-resources-v1.mjs',
     'integration/native-flow-owned-files-v1.mjs','integration/native-flow-owned-rss-v1.mjs'].map(path=>executionRecord(join(ROOT,path)));
-  if (usesNativeAuthorizationV1(spec,mode)) {
-    for (const [path,expected] of AUTHORIZATION_NATIVE_PINS_V1) {
+  if (usesNativeAuthorizationV1(spec,mode)||usesNativeNodeV1(spec,mode)) {
+    for (const [path,expected] of usesNativeNodeV1(spec,mode)?NODE_NATIVE_PINS_V1:AUTHORIZATION_NATIVE_PINS_V1) {
       const record=executionRecord(join(EXPERIMENT,'node_modules',path));
       assert.equal(record.sha256,expected,'PW_NATIVE_OFFICIAL_PIN');extra.push(record);
     }
@@ -67,7 +71,7 @@ export function executionSources(spec, mode) {
 export function assertSuccessfulProvingAttempt(spec, runId) {
   const directory = attemptPath(runId);
   const result = JSON.parse(regular(join(directory, 'result.json')));
-  const provingLimits = spec.name === 'authorization' && result.threads === AUTHORIZATION_TWELVE_PROVING_LIMITS.threads
+  const provingLimits = spec.name==='node'&&result.threads===NODE_NATIVE_PROVING_LIMITS_V1.threads ? NODE_NATIVE_PROVING_LIMITS_V1 : spec.name === 'authorization' && result.threads === AUTHORIZATION_TWELVE_PROVING_LIMITS.threads
     ? AUTHORIZATION_TWELVE_PROVING_LIMITS : spec.name === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
       ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : spec.name === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
       ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
@@ -88,7 +92,8 @@ export function assertSuccessfulProvingAttempt(spec, runId) {
   assert.equal(resource.exitCode, 0, 'PW_PRIOR_EXIT');
   assert.equal(resource.failure ?? null, null, 'PW_PRIOR_RESOURCE_FAILURE');
   assert.deepEqual(resource.failures, [], 'PW_PRIOR_SUPERVISOR_FAILURES');
-  if (result.nativeBackendExecution !== undefined) assertNativeAuthorizationReceiptV1(spec,result,resource);
+  if(spec.name==='node'&&result.threads===NODE_NATIVE_PROVING_LIMITS_V1.threads)assertNativeNodeReceiptV1(spec,result,resource);
+  else if (result.nativeBackendExecution !== undefined) assertNativeAuthorizationReceiptV1(spec,result,resource);
   else assert.deepEqual(result.wasmThreadExecution, { threads: provingLimits.threads, sharedMemory: true,
     oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'PW_PRIOR_PROVING_THREADS');
   return result;

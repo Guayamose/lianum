@@ -28,7 +28,7 @@ export function assertDeviceExecutionResultV1(r){assert.equal(arguments.length,1
  for(const p of r.proofs.filter(p=>['dependency','ready','node','settlement'].includes(p.relation))){const e=p.evidence;
   assertBtcSolGraphProofReceipts({relation:p.relation,runId:e.runId,jobId:e.jobId,manifest:e.manifest,result:e.result,resources:e.resources,
    proofSHA256:p.proofSHA256,publicInputsSHA256:p.publicInputsSHA256,manifestSHA256:e.manifestSHA256,resultSHA256:e.resultSHA256,resourcesSHA256:e.resourcesSHA256});
-  assert.equal(e.keySHA256,r.artifacts.graphKeys[p.relation]);assert.equal(e.result.threads,4);}
+  assert.equal(e.keySHA256,r.artifacts.graphKeys[p.relation]);assert.equal(e.result.threads,p.relation==='node'&&e.result.nativeBackendExecution?12:4);}
  const i=r.proofs[5],e=i.evidence;assert.equal(i.publicWords,84);assert.equal(i.originalCanonicalCall,true);assert.equal(i.deployedVerifierAccepted,true);
  assert.equal(e.keySHA256,r.artifacts.admissionKey);assert.equal(e.programSHA256,r.artifacts.admissionProgram);
  for(const report of [e.manifest,e.result,e.resources]){assert.equal(report.runId,e.runId);assert.equal(report.jobId,e.jobId);

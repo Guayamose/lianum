@@ -13,6 +13,7 @@ import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regula
   errorCode, trustedParent } from '../tooling/tooling.mjs';
 import { executionSources, limitsForMode } from './proving-execution.mjs';
 import {standardProofResourcesV1,proofResourceMonitorErrorCodeV1} from './standard-proof-resources-v1.mjs';
+import {usesNativeNodeV1,nativeNodeResourcesV1,assertNativeNodeReceiptV1} from './node-native-execution-v1.mjs';
 import {usesNativeAuthorizationV1,nativeAuthorizationResourcesV1,assertNativeAuthorizationReceiptV1} from './authorization-native-execution-v1.mjs';
 
 function dataRecord(value, names) {
@@ -73,7 +74,9 @@ export async function runBoundedProof(request) {
 }
 async function supervise(spec, mode, runId, privatePayload = null) {
   const began = performance.now(), attempt = attemptPath(runId), lockPath = join(LOCAL, 'active.lock');
-  const taskLimits = limitsForMode(spec, mode),nativeAuthorization=usesNativeAuthorizationV1(spec,mode),nativeHistory=new Map();
+  const taskLimits=limitsForMode(spec,mode),nativeAuthorization=usesNativeAuthorizationV1(spec,mode),nativeNode=usesNativeNodeV1(spec,mode),nativeProving=nativeAuthorization||nativeNode,nativeHistory=new Map();
+  const originalNativeResources=nativeNode?nativeNodeResourcesV1:nativeAuthorizationResourcesV1;
+  const assertOriginalNativeReceipt=nativeNode?assertNativeNodeReceiptV1:assertNativeAuthorizationReceiptV1;
   let report, child, interval, timeout, killTimer, completion, resolveClosed;
   let closed = false, stopping = false, failure = null, lockOwned = false, sent = false;
   let outputBytes = 0, exitHandler, termHandler, intHandler;
@@ -100,8 +103,8 @@ async function supervise(spec, mode, runId, privatePayload = null) {
   function sample() {
     if (closed) return;
     try {
-      const current = nativeAuthorization ? nativeAuthorizationResourcesV1(child?.pid,nativeHistory) : standardProofResourcesV1(child);
-      if(nativeAuthorization){report.nativeMemoryScope=current.memoryScope;report.nativeChildIdentities=current.nativeChildIdentities;}
+      const current = nativeProving ? originalNativeResources(child?.pid,nativeHistory) : standardProofResourcesV1(child);
+      if(nativeProving){report.nativeMemoryScope=current.memoryScope;report.nativeChildIdentities=current.nativeChildIdentities;}
       report.samples++; report.latestResources = current;
       report.minimumAvailableRAM = Math.min(report.minimumAvailableRAM, current.availableRAM);
       report.minimumFreeDisk = Math.min(report.minimumFreeDisk, current.freeDisk);
@@ -186,14 +189,14 @@ async function supervise(spec, mode, runId, privatePayload = null) {
       assert.equal(result.runId, runId, 'PW_WORKER_RESULT_RUN');
       assert.deepEqual(result.limits, taskLimits, 'PW_WORKER_FIXED_LIMITS');
       assert.equal(result.threads, taskLimits.threads, 'PW_WORKER_FIXED_THREADS');
-      if(nativeAuthorization){
-        const finalNative=nativeAuthorizationResourcesV1(child.pid,nativeHistory);
+      if(nativeProving){
+        const finalNative=originalNativeResources(child.pid,nativeHistory);
         report.nativeBackendExecution=result.nativeBackendExecution;report.nativeMemoryScope=finalNative.memoryScope;
         report.outputBytes=outputBytes+(result.nativeBackendExecution?.outputBytes??0);
         assert.ok(report.outputBytes<=LIMITS.outputBytes,'PW_NATIVE_OUTPUT_LIMIT');
         report.nativeChildIdentities=finalNative.nativeChildIdentities;
         report.nativeChildrenGone=finalNative.liveNativeBackends===0&&finalNative.nativeBackendRSS===0;
-        assertNativeAuthorizationReceiptV1(spec,result,report);
+        assertOriginalNativeReceipt(spec,result,report);
       }
       assert.deepEqual(executionSources(spec, mode), runtimePins.executionSources, 'PW_RUNTIME_CHANGED_AFTER_WORKER');
       assert.deepEqual(verifyAPI(), runtimePins.api, 'PW_API_CHANGED_AFTER_WORKER');
@@ -214,7 +217,7 @@ async function supervise(spec, mode, runId, privatePayload = null) {
       report.phase = failure === null && report.exitCode === 0 ? 'completed' : 'failed';
       report.elapsedMilliseconds = performance.now() - began; report.completedAt = new Date().toISOString();
       try {
-        report.finalResources = nativeAuthorization && child?.pid ? nativeAuthorizationResourcesV1(child.pid,nativeHistory) : resources();
+        report.finalResources = nativeProving && child?.pid ? originalNativeResources(child.pid,nativeHistory) : resources();
         const finalFailure = resourceFailure(report.finalResources);
         if (finalFailure) {
           report.failedResourceSample ??= report.finalResources;

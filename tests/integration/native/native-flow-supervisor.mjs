@@ -4,6 +4,7 @@ import {nativeSplClaimV1CompilationSourcePins} from '../chains/evm/native-spl-cl
 import {SPL_CLAIM_V1_COMPILATION_RESULT,SPL_CLAIM_V1_COMPILATION_DEADLINE,assertNativeSplClaimV1CompilationResult,classifyNativeSplClaimV1Preparation,nativeSplClaimV1CompilationProcessFailure} from '../chains/evm/native-spl-claim-v1-compilation-policy.mjs';
 import {nativeSplClaimTokenCompilationSourcePinsV1} from '../chains/evm/native-spl-claim-token-compilation-source-pins-v1.mjs';
 import {SPL_TOKEN_COMPILATION_RESULT_V1,assertNativeSplClaimTokenCompilationResultV1,nativeSplClaimTokenCompilationProcessFailureV1} from '../chains/evm/native-spl-claim-token-compilation-policy-v1.mjs';
+import {classifyNodeNativeProcessV1} from '../../../packages/proofs/src/jobs/node-native-execution-v1.mjs';
 import {classifyAuthorizationNativeProcessV1} from '../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs';
 import {classifyI84NativeProcessV1} from '../../../packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {nativeSplCompilationSourcePinsV1} from '../chains/solana/native-spl-compilation-source-pins-v1.mjs';
@@ -639,7 +640,7 @@ export function classifyNativeIngressV3Executable(script) {
  * proof role/backend. It shares the original process-group ownership sampler. */
 export function nativeWalletUnfundedProcessFailure(processes) {
   return processes.some(item => item.proofWorker || ['native-value-live-v2-proof-role','native-value-dev-live-v5-proof-role', 'flat-proof-role',
-    'native-ingress-v3-proof-role','flat-authorization-native-coordinator','native-value-dev-live-v5-native-coordinator'].includes(item.role)) ? 'NATIVE_WALLET_UNFUNDED_PROOF_FORBIDDEN' : null;
+    'native-ingress-v3-proof-role','flat-node-native-coordinator','flat-authorization-native-coordinator','native-value-dev-live-v5-native-coordinator'].includes(item.role)) ? 'NATIVE_WALLET_UNFUNDED_PROOF_FORBIDDEN' : null;
 }
 
 /** Source-only helper: rejects observed proof processes in the original
@@ -666,7 +667,7 @@ export function nativeExitedProcessClassification(process, established) {
 export function nativeProofProcessResources(processes) {
   const active = processes.filter(live);
   const protectedProofProcesses = active.filter(item => item.proofWorker
-    || item.role === 'native-value-dev-live-v5-native-coordinator' || item.role === 'flat-authorization-native-coordinator' || item.role === 'wrapped-claim-proof-role' || item.role === 'native-ingress-v3-proof-role' || item.role === 'native-value-live-v2-proof-role' || item.role === 'native-value-dev-live-v5-proof-role');
+    || item.role === 'flat-node-native-coordinator' || item.role === 'native-value-dev-live-v5-native-coordinator' || item.role === 'flat-authorization-native-coordinator' || item.role === 'wrapped-claim-proof-role' || item.role === 'native-ingress-v3-proof-role' || item.role === 'native-value-live-v2-proof-role' || item.role === 'native-value-dev-live-v5-proof-role');
   // A native U uses one original Node coordinator plus its sole BB child.
   // They share the same 3GiB ceiling; splitting PIDs never enlarges it.
   const nativeUCombinedRSS = active.filter(item => item.role === 'flat-authorization-native-coordinator').map(parent =>
@@ -675,8 +676,12 @@ export function nativeProofProcessResources(processes) {
   const nativeI84CombinedRSS=active.filter(item=>item.role==='native-value-dev-live-v5-native-coordinator').map(parent=>
     integer(parent.rssBytes)+active.filter(item=>item.role==='native-value-dev-live-v5-native-backend'&&item.ppid===parent.pid)
       .reduce((sum,child)=>sum+integer(child.rssBytes),0));
-  return { maximumProofWorkerRSSBytes: Math.max(0, ...nativeUCombinedRSS,...nativeI84CombinedRSS, ...protectedProofProcesses.map(item => integer(item.rssBytes))),
-    liveProofWorkers: active.filter(item => item.proofWorker).length };
+  const nativeNCombinedRSS=active.filter(item=>item.role==='flat-node-native-coordinator').map(parent=>
+    integer(parent.rssBytes)+active.filter(item=>item.role==='flat-node-native-backend'&&item.ppid===parent.pid)
+      .reduce((sum,child)=>sum+integer(child.rssBytes),0));
+  return { maximumProofWorkerRSSBytes: Math.max(0,...nativeNCombinedRSS, ...nativeUCombinedRSS,...nativeI84CombinedRSS, ...protectedProofProcesses.map(item => integer(item.rssBytes))),
+    liveProofWorkers:active.filter(item=>item.proofWorker).length+active.filter(parent=>parent.role==='flat-node-native-coordinator'
+      &&!active.some(child=>child.role==='flat-node-native-backend'&&child.ppid===parent.pid)).length };
 }
 
 /** Aggregate RSS is observation only. A validator plus a prover may exceed
@@ -1122,6 +1127,9 @@ async function runFixedFlowSupervisor(profile) {
     const i84Native=classifyI84NativeProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
       nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);
     if(i84Native)return i84Native;
+    const nodeNative=classifyNodeNativeProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
+      nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);
+    if(nodeNative)return nodeNative;
     const native=classifyAuthorizationNativeProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
       nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);
     if(native)return native;
