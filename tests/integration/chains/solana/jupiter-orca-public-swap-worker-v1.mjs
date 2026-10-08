@@ -42,7 +42,8 @@ try{
  result.afterBank=await bank.inspect();result.native=bank.metadata;writeFixturePrivate(join(directory,'bank-after.json'),result.afterBank);
  result.publicSwapEstablished=true;
 }catch(error){result.phase='failed';result.success=false;result.errorCode=/^[A-Z][A-Z0-9_]{2,160}$/.test(error?.message??'')?error.message:'JUPITER_PUBLIC_SWAP_FAILED';
- writeFixturePrivate(join(directory,'error-private.json'),{code:error?.code??null,message:String(error?.message??error),stack:String(error?.stack??'')});process.exitCode=1;
+ writeFixturePrivate(join(directory,'error-private.json'),{code:error?.code??null,message:String(error?.message??error),stack:String(error?.stack??''),
+  ...(error?.jupiterMetadataNumericField?{metadataNumericField:error.jupiterMetadataNumericField}:{})});process.exitCode=1;
 }finally{
  try{if(bank){const records=bank.swaps;writeFixturePrivate(join(directory,'signed-attempts.json'),records.map(({nativeEvidenceJSON,...row})=>row));
    writeFixturePrivate(join(directory,'runtime-metadata.json'),bank.metadata);
@@ -57,6 +58,7 @@ try{
    const raw=regular(join(directory,name));result.files[name]={bytes:raw.length,sha256:hash(raw)};}
   if(result.phase!=='failed'&&result.cleanup.closedSolana&&result.cleanup.errors.length===0){result.phase='completed';result.success=true;assertJupiterOrcaPublicSwapResultV1(result);}
  }catch(error){result.phase='failed';result.success=false;result.errorCode??=/^[A-Z][A-Z0-9_]{2,160}$/.test(error?.message??'')?error.message:'JUPITER_SWAP_FINAL_EVIDENCE_FAILED';
-  writeFixturePrivate(join(directory,'error-cleanup-private.json'),{code:error?.code??null,message:String(error?.message??error),stack:String(error?.stack??'')});process.exitCode=1;}
+  writeFixturePrivate(join(directory,'error-cleanup-private.json'),{code:error?.code??null,message:String(error?.message??error),stack:String(error?.stack??''),
+  ...(error?.jupiterMetadataNumericField?{metadataNumericField:error.jupiterMetadataNumericField}:{})});process.exitCode=1;}
  result.interrupted=interrupted;result.elapsedMilliseconds=performance.now()-began;save();process.off('SIGTERM',onTerm);process.off('SIGINT',onInt);
 }

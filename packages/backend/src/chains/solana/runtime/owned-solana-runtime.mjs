@@ -1712,7 +1712,17 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       }
       const bank=Object.freeze({profile:'OWNED_JUPITER_ORCA_PUBLIC_BANK_V1',inspect:inspectBank,swapOnce,
         observeSwap:async function(){requireCondition(arguments.length===0&&!busy,'JUPITER_SWAP_OBSERVE_NO_OPTIONS_OR_BUSY');return observeFixedSwap();},
-        get swaps(){return cloneInput(swapRecord?[swapRecord]:[]);},get metadata(){return cloneInput(metadata);},close});
+        get swaps(){return cloneInput(swapRecord?[swapRecord]:[]);},get metadata(){
+        try{return cloneInput(metadata);}catch(error){
+          // Private path/type only; preserve INPUT_INTEGER, no value/RPC dump.
+          if(error?.message==='INPUT_INTEGER'){
+            const visit=(value,path)=>{if(typeof value==='number'&&(!Number.isSafeInteger(value)||Object.is(value,-0)))return path;
+              if(value&&typeof value==='object')for(const [key,next]of Object.entries(value)){const found=visit(next,path+'.'+key);if(found)return found;}return null;};
+            const field=visit(metadata,'metadata');if(field)error.jupiterMetadataNumericField=Object.freeze({path:field,type:'number',safeInteger:false});
+          }
+          throw error;
+        }
+      },close});
       ownedJupiterPublicBanksV1.add(bank);return bank;
     }
     function createFacade(custody) {
