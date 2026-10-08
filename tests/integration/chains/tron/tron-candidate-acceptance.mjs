@@ -24,6 +24,8 @@ import { OWNED_TRON_RUNTIME_RELEASE, TRON_UPSTREAM }
 import { assertTronAlignedRocksDbGate, assertTronAlignedRocksDbStartupIdentity, verifyTronAlignedRocksDbCandidateBuild } from './tron-aligned-rocksdb-profile.mjs';
 import { captureTronAlignedRocksDbNativeAudit } from './tron-aligned-rocksdb-native-audit.mjs';
 import { startOwnedTronAlignedCandidateChildV1 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs';
+import { startFixedOwnedTronDriver } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
+import { assertOwnedTronProductReleaseV1 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-release-v1.mjs';
 
 export const TRON_CANDIDATE_OPT_IN = '--run-reviewed-local-candidate';
 export const TRON_CANDIDATE_ACCEPTANCE_ENABLED = true;
@@ -34,23 +36,25 @@ const ORIGINAL_CANDIDATE_PROFILE = Object.freeze({ name: 'original-offline-agree
   helper: fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)), aligned: false });
 const ALIGNED_ROCKSDB_PROFILE = Object.freeze({ name: 'aligned-rocksdb-v1', acceptance: join(RUNTIME, 'aligned-rocksdb-candidate-acceptance'),
   helper: fileURLToPath(new URL('aligned-rocksdb-v1/launch.py', FIXTURES)), aligned: true });
+const PRODUCT_ORIGINAL_PROFILE = Object.freeze({ name:'guarded-product-original-v1', acceptance:join(RUNTIME,'product-original-acceptance-v1'), aligned:true });
 function assertPrivateCandidateProfile(profile) {
-  assert.ok(profile === ORIGINAL_CANDIDATE_PROFILE || profile === ALIGNED_ROCKSDB_PROFILE, 'TRON_CANDIDATE_FIXED_PRIVATE_PROFILE');
+  assert.ok(profile === ORIGINAL_CANDIDATE_PROFILE || profile === ALIGNED_ROCKSDB_PROFILE || profile === PRODUCT_ORIGINAL_PROFILE, 'TRON_CANDIDATE_FIXED_PRIVATE_PROFILE');
 }
 function assertCandidateProfileGate(profile) {
   assertPrivateCandidateProfile(profile);
-  if (profile === ALIGNED_ROCKSDB_PROFILE) assertTronAlignedRocksDbGate(process.argv.slice(2));
+  if (profile === PRODUCT_ORIGINAL_PROFILE) { assert.deepEqual(process.argv.slice(2),[],'TRON_PRODUCT_NO_ACCEPTANCE_OPTIONS');assertOwnedTronProductReleaseV1(); }
+  else if (profile === ALIGNED_ROCKSDB_PROFILE) assertTronAlignedRocksDbGate(process.argv.slice(2));
   else assertTronCandidateGate(process.argv.slice(2));
 }
 async function candidateInventory(profile) {
   assertPrivateCandidateProfile(profile);
   const original = await verifyTronCandidateInventory();
-  return profile === ALIGNED_ROCKSDB_PROFILE ? { ...original, newCandidate: await verifyTronAlignedRocksDbCandidateBuild() } : original;
+  return profile.aligned === true ? { ...original, newCandidate: await verifyTronAlignedRocksDbCandidateBuild() } : original;
 }
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const clone = value => structuredClone(value);
-const safeCode = error => String(error?.message ?? '').match(/\bTRON_(?:CANDIDATE|ALIGNED)_[A-Z0-9_]+\b/)?.[0] ?? 'TRON_CANDIDATE_ASSERTION_OR_IO_FAILED';
+const safeCode = error => String(error?.message ?? '').match(/\bTRON_(?:CANDIDATE|ALIGNED|PRODUCT)_[A-Z0-9_]+\b/)?.[0] ?? 'TRON_CANDIDATE_ASSERTION_OR_IO_FAILED';
 const provenancePins = Object.freeze({
   'candidate-artifacts-v3.json': '48aecfcb7ba0f8bdc53029a1ce9c496d15c6aab9ae8b7290ced13131b3fb7975',
   'jdk-acquisition.json': '0e2404b5ab76d082f5e29f6cb6f584c21230090b290c0d43da832f4f7239b115',
@@ -247,6 +251,7 @@ async function sourcePins(profile) {
     fileURLToPath(new URL('./tron-aligned-rocksdb-profile.mjs', import.meta.url)),
     fileURLToPath(new URL('./tron-aligned-rocksdb-native-audit.mjs', import.meta.url)),
     fileURLToPath(new URL('./run-reviewed-aligned-rocksdb-candidate.mjs', import.meta.url)),
+    ...(profile===PRODUCT_ORIGINAL_PROFILE?[fileURLToPath(new URL('./run-tron-product-original-acceptance-v1.mjs',import.meta.url))]:[]),
     fileURLToPath(new URL('aligned-rocksdb-v1/launch.py', FIXTURES)),
     fileURLToPath(new URL('aligned-rocksdb-v1/build.py', FIXTURES)),
     fileURLToPath(new URL('aligned-rocksdb-v1/compile-child.py', FIXTURES)),
@@ -257,10 +262,10 @@ async function sourcePins(profile) {
     ...Object.keys(provenancePins).map(name => fileURLToPath(new URL(name, FIXTURES))),
     fileURLToPath(new URL('offline-agree-zero/source/org/tron/core/config/args/Args.java', FIXTURES)),
     join(ROOT, 'runtime-drivers/owned-tron-native-value/OwnedTronNativeDriver.java')];
-  if (profile === ALIGNED_ROCKSDB_PROFILE) {
+  if (profile.aligned === true) {
     const visited = new Set();
     async function visit(path) {
-      assert.ok([ROOT, FLAT, GOLDEN].some(root => path.startsWith(root + '/')) && path.endsWith('.mjs'), 'TRON_ALIGNED_LOCAL_SOURCE_CLOSURE');
+      assert.ok([ROOT, FLAT, GOLDEN,resolve(FLAT,'../mobile-protocol')].some(root => path.startsWith(root + '/')) && path.endsWith('.mjs'), 'TRON_ALIGNED_LOCAL_SOURCE_CLOSURE');
       if (visited.has(path)) return; visited.add(path);
       const source = (await regular(path)).toString('utf8');
       const names = new Set();
@@ -472,19 +477,22 @@ async function startOriginalChild(directory, audit, signal, profile) {
     error.childCleanup = await close(); throw error;
   } finally { clearTimeout(timeout); }
 }
-async function executeTronCandidateAcceptance(lifetime, profile) {
-  assert.equal(arguments.length, 2); lifetime.assertActive(); assertCandidateProfileGate(profile); await noHeavyWork();
-  const before = await sourcePins(profile), inventory = await candidateInventory(profile);
-  await mkdir(profile.acceptance, { recursive: true, mode: 0o700 }); const audit = await mkdtemp(join(profile.acceptance, 'attempt-'));
-  const scratch = await mkdtemp(join(profile.acceptance, 'scratch-')); let original, cleanup, success = false, errorCode = null;
-  const checks = {}, report = { schema: 'LIANUM_TRON_BINARY_CANDIDATE_ACCEPTANCE_V1', scope: 'native-candidate-solver-only',
-    ...(profile === ALIGNED_ROCKSDB_PROFILE ? { candidateProfile: 'aligned-rocksdb-v1', candidateRuntimeRelease: null } : {}),
-    canonicalRuntimeRelease: null, publicNetwork: false, privateCreditEstablished: false,
-    registeredGraphAuthorizationEstablished: false, nativeProcessRestartEstablished: false, inventory };
-  try {
-    lifetime.assertActive(); original = await startOriginalChild(scratch, audit, lifetime.signal, profile); checks.nativeConsensusProducedNewBlocks = true;
-    const { metadata } = original.hello, command = original.command; report.genesis = metadata.genesis;
-    if (profile === ALIGNED_ROCKSDB_PROFILE) {
+// Private port adapter over the newly acquired original factory. No caller
+// driver/profile/command or endpoint can reach this fixed acceptance entry.
+function productCommandPorts(driver,lifetime) {
+ const ports={HEALTH:[0,()=>driver.health()],PREPARE:[2,(...v)=>driver.prepare(...v)],CURRENT:[1,v=>driver.current(v)],
+  ARMKEY:[1,v=>driver.armKey(v)],ARMSEND:[1,v=>driver.armSend(v)],SIGN:[2,(...v)=>driver.sign(...v)],
+  BROADCAST:[3,(...v)=>driver.broadcast(...v)],OBSERVE:[1,v=>driver.observe(v)],SOURCEBLOCK:[1,v=>driver.readBlock(v)],
+  SOURCESOLID:[0,()=>driver.readSolidBlock()],SOURCETX:[1,v=>driver.readTransaction(v)],SOURCEINFO:[1,v=>driver.readTransactionInfo(v)],
+  SOURCEREPLAY:[2,(...v)=>driver.readReplay(...v)]};
+ return async(kind,args=[])=>{lifetime.assertActive();assert.ok(Object.hasOwn(ports,kind),'TRON_PRODUCT_FIXED_ACCEPTANCE_PORT');
+  assert.equal(args.length,ports[kind][0],'TRON_PRODUCT_FIXED_ACCEPTANCE_ARITY');const value=await ports[kind][1](...args);lifetime.assertActive();return value;};
+}
+async function exerciseOriginalTronEconomy(lifetime,profile,original,audit,report,checks,before,inventory) {
+ assertPrivateCandidateProfile(profile);
+    const metadata=profile===PRODUCT_ORIGINAL_PROFILE?original.metadata:original.hello.metadata;
+    const command=profile===PRODUCT_ORIGINAL_PROFILE?productCommandPorts(original,lifetime):original.command; report.genesis = metadata.genesis;
+    if (profile.aligned === true) {
       report.originalAlignedNativeAudit = original.alignedNativeAudit; report.originalAlignedStartupIdentityEvidence = original.alignedStartupIdentityEvidence;
       checks.actualRocksDbStoresCheckpointAndOriginalJNI = true;
     }
@@ -567,7 +575,7 @@ async function executeTronCandidateAcceptance(lifetime, profile) {
       BigInt(intent.amountSun) + BigInt(info.fee)); assert.ok(BigInt(info.fee) <= BigInt(PROFILE.maximumFeeSun));
     checks.originalOwnerAmountAndFeeDelta = true; await original.auditNative(); checks.childNetworkSocketGuardAndAnonymousUnixOnly = true;
     await privateWrite(join(audit, 'original-native-observation.json'), { info, block, replay, first, repeated, final });
-    if (profile === ALIGNED_ROCKSDB_PROFILE) {
+    if (profile.aligned === true) {
       const afterNative = await original.captureAlignedNativeAudit();
       assert.deepEqual(afterNative.evidence.libraries, original.alignedNativeAudit.libraries);
       assert.deepEqual(afterNative.evidence.stores, original.alignedNativeAudit.stores);
@@ -578,7 +586,20 @@ async function executeTronCandidateAcceptance(lifetime, profile) {
     assert.deepEqual(await candidateInventory(profile), inventory); assert.deepEqual(await sourcePins(profile), before);
     lifetime.assertActive(); checks.signalDeadlineAndOwnedChildCancellationInstalled = true;
     checks.sourceAndOriginalBinaryClosureUnchanged = true; report.amountSun = intent.amountSun; report.feeSun = info.fee;
-    report.nativeId = signed.nativeId; report.containingBlock = block.blockID; success = true;
+    report.nativeId = signed.nativeId; report.containingBlock = block.blockID; return true;
+}
+async function executeTronCandidateAcceptance(lifetime, profile) {
+  assert.equal(arguments.length, 2); lifetime.assertActive(); assertCandidateProfileGate(profile); await noHeavyWork();
+  const before = await sourcePins(profile), inventory = await candidateInventory(profile);
+  await mkdir(profile.acceptance, { recursive: true, mode: 0o700 }); const audit = await mkdtemp(join(profile.acceptance, 'attempt-'));
+  const scratch = await mkdtemp(join(profile.acceptance, 'scratch-')); let original, cleanup, success = false, errorCode = null;
+  const checks = {}, report = { schema: 'LIANUM_TRON_BINARY_CANDIDATE_ACCEPTANCE_V1', scope: 'native-candidate-solver-only',
+    ...(profile === ALIGNED_ROCKSDB_PROFILE ? { candidateProfile: 'aligned-rocksdb-v1', candidateRuntimeRelease: null } : {}),
+    canonicalRuntimeRelease: null, publicNetwork: false, privateCreditEstablished: false,
+    registeredGraphAuthorizationEstablished: false, nativeProcessRestartEstablished: false, inventory };
+  try {
+    lifetime.assertActive(); original = await startOriginalChild(scratch, audit, lifetime.signal, profile); checks.nativeConsensusProducedNewBlocks = true;
+    success=await exerciseOriginalTronEconomy(lifetime,profile,original,audit,report,checks,before,inventory);
   } catch (error) { errorCode = safeCode(error); cleanup = error.childCleanup;
     if (profile === ALIGNED_ROCKSDB_PROFILE && Buffer.isBuffer(error.alignedPrivateMaps))
       await privateWrite(join(audit, 'jni-maps-rejected-private.log'), error.alignedPrivateMaps);
@@ -629,6 +650,43 @@ export async function runTronCandidateAcceptance() {
 export async function runTronAlignedRocksDbCandidateAcceptance() {
   assert.equal(arguments.length, 0, 'TRON_ALIGNED_NO_RUN_OPTIONS');
   return runFixedTronCandidate(ALIGNED_ROCKSDB_PROFILE);
+}
+/** Fresh local product factory acceptance. No private wallet/credit/GRAPH.
+ * The original candidate keeps its own 300s profile. This one-send fixture uses
+ * a 300s economic phase AFTER the fixed 90min factory's guarded startup. */
+export async function runTronProductOriginalAcceptanceV1() {
+ assert.equal(arguments.length,0,'TRON_PRODUCT_NO_ACCEPTANCE_OPTIONS');assertCandidateProfileGate(PRODUCT_ORIGINAL_PROFILE);
+ const profile=PRODUCT_ORIGINAL_PROFILE;let lifetime,original,cleanup,success=false,errorCode=null;
+ let audit,releaseCancellation;const checks={},report={schema:'LIANUM_TRON_PRODUCT_ORIGINAL_FACTORY_ACCEPTANCE_V1',scope:'local-original-product-driver-solver-only',
+  canonicalRuntimeRelease:null,publicNetwork:false,privateCreditEstablished:false,registeredGraphAuthorizationEstablished:false,
+  privateWalletAcceptanceEstablished:false,nativeProcessRestartEstablished:false,productDriverFixedMilliseconds:5400000,fixtureEconomicMaximumMilliseconds:300000};
+ try {
+  await noHeavyWork();const before=await sourcePins(profile),inventory=await candidateInventory(profile);report.inventory=inventory;
+  await mkdir(profile.acceptance,{recursive:true,mode:0o700});assert.equal(await realpath(profile.acceptance),profile.acceptance);
+  const info=await lstat(profile.acceptance);assert.ok(info.isDirectory()&&!info.isSymbolicLink()&&info.uid===process.getuid()&&(info.mode&0o7777)===0o700);
+  audit=await mkdtemp(join(profile.acceptance,'attempt-'));await privateWrite(join(audit,'source-pins-before.json'),before);
+  original=await startFixedOwnedTronDriver();lifetime=beginTronCandidateLifetime();
+  releaseCancellation=bindTronCandidateChildCancellation(lifetime.signal,()=>{},()=>original.close());lifetime.assertActive();checks.nativeConsensusProducedNewBlocks=true;
+  report.originalDriverAuditDirectory=original.auditDirectory;report.originalScratch=original.directory;
+  success=await exerciseOriginalTronEconomy(lifetime,profile,original,audit,report,checks,before,inventory);
+  await privateWrite(join(audit,'source-pins-after.json'),await sourcePins(profile));
+ }catch(error){errorCode=safeCode(error);cleanup=error.productCleanup??error.childCleanup;
+  if(audit)await privateWrite(join(audit,'stopped-private.json'),{errorCode,diagnostic:String(error.stack??error).slice(0,8000)});
+ }finally{
+  try{if(original)cleanup=await original.close();}catch(error){errorCode??=safeCode(error);cleanup=error.productCleanup??cleanup;}
+  if(cleanup?.stopped===true&&cleanup.scratchRemoved===true&&cleanup.syntheticKeysAndLedgerRemoved===true)checks.syntheticKeysAndLedgerRemoved=true;
+  if(lifetime?.signal.aborted){success=false;errorCode??=safeCode(lifetime.signal.reason);}
+  success=success&&!errorCode&&cleanup?.stopped===true&&cleanup?.nativeOrderlyExit===true&&cleanup?.forced===false&&cleanup?.exitCode===0&&cleanup?.signal===null
+   &&cleanup?.sourceUnchanged===true&&checks.syntheticKeysAndLedgerRemoved===true;
+  Object.assign(report,{success,errorCode,checks,cleanup:cleanup??null,
+   disclosures:['Fresh product driver from the original zero-option factory; one synthetic 1000000sun transfer and original canonical permission/observer checks',
+    'Original factory/startup is bounded by its fixed 90min lifetime and original startup guard; economic phase starts after acquisition and uses unchanged 300s harness cancellation',
+    'No original wallet graph or private credit established',
+    'Original seven classes/JAR/JDK/Args and aligned two classes retained; genuine JNI/maps/rocksdb observations and owned cleanup required',
+    'No canonical runtime release, public network/Cloud, I84/private claims, process-loss recovery or private wallet acceptance established']});
+  releaseCancellation?.();lifetime?.finish();if(audit)await privateWrite(join(audit,'report.json'),report);
+ }
+ return {report,reportPath:audit?join(audit,'report.json'):null};
 }
 if (process.argv[1] && resolve(process.argv[1]) === HERE) {
   try { const result = await runTronCandidateAcceptance(); console.log(JSON.stringify(result)); process.exitCode = result.report.success ? 0 : 1; }
