@@ -156,7 +156,17 @@ export async function runManualWalletAcceptance() {
   async function closeBrowser() {
     if (!browserRuntime) return;
     const original = browserRuntime; browserRuntime = null; appDriver?.close();
-    result.browserClosures.push(await original.close()); save();
+    try { result.browserClosures.push(await original.close()); }
+    catch (error) {
+      if (error.browserCleanup) result.browserClosures.push(error.browserCleanup);
+      writeFixturePrivate(join(privateDirectory, 'browser-cleanup-error.json'), {
+        message: error.message, stack: error.stack,
+        cause: error.cause ? { message: error.cause.message, stack: error.cause.stack } : null,
+        browserCleanup: error.browserCleanup ?? null,
+      });
+      result.browserGuardFailure = error.cause?.message?.split('\n')[0] ?? error.message;
+      throw error;
+    } finally { save(); }
   }
   async function openListener() {
     if (browserMode) await closeBrowser();
