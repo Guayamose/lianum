@@ -1,3 +1,5 @@
+import {aaveCompilationSourcePinsV1} from '../chains/evm/aave-compilation-source-pins-v1.mjs';
+import {AAVE_COMPILATION_RESULT_V1,assertAaveCompilationResultV1,aaveCompilationProcessFailureV1} from '../chains/evm/aave-compilation-policy-v1.mjs';
 import {aavePrivateGraphSourcePinsV1} from '../chains/evm/aave-private-graph-source-pins-v1.mjs';
 import {assertAavePrivateGraphResultV1} from '../chains/evm/aave-private-graph-policy-v1.mjs';
 import {assertOfficialAaveSourceReviewV1} from '../../../packages/backend/tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
@@ -76,6 +78,12 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  evmAaveCompilationOnlyV1:Object.freeze({
+    entry:join(ROOT,'integration/run-evm-aave-compilation-v1.mjs'),worker:join(ROOT,'integration/aave-compilation-worker-v1.mjs'),
+    local:join(ROOT,'.local/evm-aave-compilation-only-v1'),resultFormat:AAVE_COMPILATION_RESULT_V1,
+    resourcesFormat:'LIANUM_AAVE_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_AAVE_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_AAVE_COMPILATION_ATTEMPT_V1',
+    classification:'NEW_OFFICIAL_AAVE_COMPILATION_ONLY_NOT_FINANCIAL_ACCEPTANCE',sourcePins:aaveCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset']),
+  }),
   pairedNativeNoteV2: Object.freeze({
     entry: join(ROOT, 'integration/run-paired-native-note-v2.mjs'),
     worker: join(ROOT, 'integration/paired-native-note-flow-v2.mjs'),
@@ -650,6 +658,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) scoped = assertAaveCompilationResultV1(result);
   if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
   if (profile === FLOW_PROFILES.developmentOsakaSmoke) scoped = assertOsakaSmokeResult(result);
@@ -872,6 +881,10 @@ export async function runPrivateMetaMorphoSupervisor() {
 export async function runEvmVaultSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_VAULT_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.evmVault);
+}
+export async function runEvmAaveCompilationSupervisorV1(){
+  assert.equal(arguments.length,0,'AAVE_COMPILATION_SUPERVISOR_NO_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.evmAaveCompilationOnlyV1);
 }
 export async function runEvmAaveSupervisorV1() {
   assert.equal(arguments.length,0,'AAVE_SUPERVISOR_NO_OPTIONS');assertOfficialAaveSourceReviewV1();
@@ -1181,6 +1194,10 @@ async function runFixedFlowSupervisor(profile) {
       const sample = resources(); recordSample(sample);
       const reason = nativeResourceFailure(sample);
       if (reason) stop(reason, {}, sample);
+      if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
+        const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
+        if(forbidden)stop(forbidden,{},sample);
+      }
       if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) {
         const forbidden = beginPayoutAuditProcessFailureV1([...history.values()]);
         if (forbidden) stop(forbidden, {}, sample);
@@ -1264,6 +1281,10 @@ async function runFixedFlowSupervisor(profile) {
       if (profile === FLOW_PROFILES.wrappedWalletFixedPreflight || profile === FLOW_PROFILES.wrappedDeploymentOnly) {
         const forbidden = nativeWalletUnfundedProcessFailure([...history.values()]) || ([...history.values()].some(p => p.proofWorker || p.role === 'wrapped-claim-proof-role') ? 'WRAPPED_PREFLIGHT_PROOF_FORBIDDEN' : null);
         if (forbidden) fail(forbidden);
+      }
+      if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
+        const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
+        if(forbidden)fail(forbidden);
       }
       if (profile === FLOW_PROFILES.developmentOsakaSmoke) {
         const forbidden = osakaSmokeProcessFailure([...history.values()]);
