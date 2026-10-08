@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, assertBtcSolRecipientWithdrawalTelemetry }
   from './development-btc-sol-graph-proof-evidence.mjs';
 const runId='11111111-1111-4111-8111-111111111111',jobId='22222222-2222-4222-8222-222222222222';
@@ -16,6 +17,15 @@ function receipt(relation) {
       target:'evm',mode:'prove',phase:'completed'},
     resources:{format:'FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1',profile:PROFILE,relation,runId,jobId,limits:LIMITS,mode:'prove',phase:'completed',
       exitCode:0,signal:null,failure:null,failures:[],lockPreserved:false,hostLimitsChanged:false}};
+}
+function fourThreadReceipt(value) {
+  const runtimePinsSHA256='2'.repeat(64),keyManifestSHA256='3'.repeat(64);
+  Object.assign(value.manifest,{runtimePinsSHA256,keyManifestSHA256});
+  Object.assign(value.result,{threads:4,limits:PROVING_LIMITS,runtimePinsSHA256,keyManifestSHA256,
+    wasmThreadExecution:{threads:4,sharedMemory:true,oneOwnedProcess:true,originalPreparedKeyRequired:true},
+    keyRecomputed:false,hostLimitsChanged:false});
+  Object.assign(value.resources,{limits:PROVING_LIMITS,runtimePinsSHA256,peakWorkerRSS:PROVING_LIMITS.workerRSS});
+  return value;
 }
 test('all seven graph relations join their original role/word-count/settings/result/resources schemas',()=>{
   for(const relation of DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS)
@@ -46,4 +56,34 @@ test('recipient W39 stays recipient and preserves exact returned/stored ZK telem
     v=>{v.returnedMetrics.worker.zeroKnowledgeEnabled=v.storedMetrics.worker.zeroKnowledgeEnabled=false;},
     v=>{v.returnedMetrics.failureCode=v.storedMetrics.failureCode='CLEANUP_FAILED';}
   ]) {const value=telemetry();mutate(value);assert.throws(()=>assertBtcSolRecipientWithdrawalTelemetry(value));}
+});
+test('all seven generic graph relations accept the fixed original-key shared-memory four-thread receipt',()=>{
+  for(const relation of DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS) {
+    const value=fourThreadReceipt(receipt(relation)),originalKey=value.manifest.keySHA256;
+    const accepted=assertBtcSolGraphProofReceipts(value);
+    assert.equal(accepted.resourceReceiptCompleted,true);assert.equal(accepted.keySHA256,originalKey);
+  }
+});
+test('graph receipts reject unlisted threads, absent SAB/provenance, regenerated keys and RSS above the unchanged budget',()=>{
+  for(const relation of DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS) {
+    for(const threads of [2,3,5]) {
+      const value=fourThreadReceipt(receipt(relation));value.result.threads=threads;
+      value.result.limits=value.resources.limits={...PROVING_LIMITS,threads};
+      value.result.wasmThreadExecution.threads=threads;
+      assert.throws(()=>assertBtcSolGraphProofReceipts(value),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
+    }
+    for(const [mutate,code] of [
+    [value=>{value.result.wasmThreadExecution.sharedMemory=false;},/DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION/],
+    [value=>{delete value.result.wasmThreadExecution;},/DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION/],
+    [value=>{value.manifest.runtimePinsSHA256='0'.repeat(64);},/DEVELOPMENT_CLAIM_PROOF_THREAD_SOURCES/],
+    [value=>{value.resources.runtimePinsSHA256='0'.repeat(64);},/DEVELOPMENT_CLAIM_GUARD_THREAD_SOURCES/],
+    [value=>{value.manifest.keyManifestSHA256='0'.repeat(64);},/DEVELOPMENT_CLAIM_ORIGINAL_PREPARED_KEY/],
+    [value=>{value.resources.peakWorkerRSS=PROVING_LIMITS.workerRSS+1;},/DEVELOPMENT_CLAIM_THREAD_RSS_LIMIT/],
+    [value=>{value.result.keyRecomputed=true;},undefined],
+    [value=>{value.result.hostLimitsChanged=true;},undefined],
+    ]) {
+      const value=fourThreadReceipt(receipt(relation));mutate(value);
+      assert.throws(()=>assertBtcSolGraphProofReceipts(value),code);
+    }
+  }
 });

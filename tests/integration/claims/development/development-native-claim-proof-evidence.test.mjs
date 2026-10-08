@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PROFILE, SETTINGS, LIMITS } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import { assertRoleProofReceiptRecords, assertWithdrawalProofTelemetry } from './development-native-claim-proof-evidence.mjs';
 const runId = '11111111-1111-4111-8111-111111111111', jobId = '22222222-2222-4222-8222-222222222222';
 const other = '33333333-3333-4333-8333-333333333333', proofSHA256 = 'a'.repeat(64), publicInputsSHA256 = 'b'.repeat(64);
@@ -24,6 +25,15 @@ function roleReceipt(relation) {
         : { target: 'evm', publicWords: words, proofGenerated: true, proofSHA256, publicInputsSHA256 }) },
     resources: { format: v3 ? 'V3_SCOPED_PROOF_RESOURCES_V1' : 'FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1', profile, relation, runId, jobId,
       limits: LIMITS, mode: 'prove', phase: 'completed', exitCode: 0, signal: null, failure: null, failures: [], lockPreserved: false, hostLimitsChanged: false } };
+}
+function fourThreadReceipt(value) {
+  const runtimePinsSHA256='2'.repeat(64),keyManifestSHA256='3'.repeat(64);
+  Object.assign(value.manifest,{runtimePinsSHA256,keyManifestSHA256});
+  Object.assign(value.result,{threads:4,limits:PROVING_LIMITS,runtimePinsSHA256,keyManifestSHA256,
+    wasmThreadExecution:{threads:4,sharedMemory:true,oneOwnedProcess:true,originalPreparedKeyRequired:true},
+    keyRecomputed:false,hostLimitsChanged:false});
+  Object.assign(value.resources,{limits:PROVING_LIMITS,runtimePinsSHA256,peakWorkerRSS:PROVING_LIMITS.workerRSS});
+  return value;
 }
 test('CI51/CO42/D27 join original successful receipts and reject a completed proof with failed resources', () => {
   for (const relation of ['deposit_intent', 'native_claim_ingress_v3', 'native_claim_discharge']) {
@@ -73,4 +83,38 @@ test('W39 retains its actual public telemetry format and rejects unsuccessful, s
     value=>{value.returnedMetrics.worker.zeroKnowledgeEnabled=value.storedMetrics.worker.zeroKnowledgeEnabled=false;}]) {
     const value=telemetry();mutate(value);assert.throws(()=>assertWithdrawalProofTelemetry(value));
   }
+});
+test('generic D27/CO42 accept the fixed shared-memory four-thread receipts with the original key; V3 remains one thread',()=>{
+  for(const relation of ['deposit_intent','native_claim_discharge']) {
+    const value=fourThreadReceipt(roleReceipt(relation)),originalKey=value.manifest.keySHA256;
+    const accepted=assertRoleProofReceiptRecords(value);
+    assert.equal(accepted.resourceReceiptCompleted,true);assert.equal(accepted.keySHA256,originalKey);
+  }
+  const specialized=roleReceipt('native_claim_ingress_v3');specialized.result.threads=1;
+  assert.equal(assertRoleProofReceiptRecords(specialized).resourceReceiptCompleted,true);
+});
+test('role receipts reject unlisted thread counts, missing SAB/provenance, key regeneration and widened RSS; V3 cannot adopt four',()=>{
+  for(const relation of ['deposit_intent','native_claim_discharge']) {
+    for(const threads of [2,3,5]) {
+      const value=fourThreadReceipt(roleReceipt(relation));value.result.threads=threads;
+      value.result.limits=value.resources.limits={...PROVING_LIMITS,threads};
+      value.result.wasmThreadExecution.threads=threads;
+      assert.throws(()=>assertRoleProofReceiptRecords(value),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
+    }
+    for(const [mutate,code] of [
+    [value=>{value.result.wasmThreadExecution.sharedMemory=false;},/DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION/],
+    [value=>{delete value.result.wasmThreadExecution;},/DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION/],
+    [value=>{value.manifest.runtimePinsSHA256='0'.repeat(64);},/DEVELOPMENT_CLAIM_PROOF_THREAD_SOURCES/],
+    [value=>{value.resources.runtimePinsSHA256='0'.repeat(64);},/DEVELOPMENT_CLAIM_GUARD_THREAD_SOURCES/],
+    [value=>{value.manifest.keyManifestSHA256='0'.repeat(64);},/DEVELOPMENT_CLAIM_ORIGINAL_PREPARED_KEY/],
+    [value=>{value.resources.peakWorkerRSS=PROVING_LIMITS.workerRSS+1;},/DEVELOPMENT_CLAIM_THREAD_RSS_LIMIT/],
+    [value=>{value.result.keyRecomputed=true;},undefined],
+    [value=>{value.result.hostLimitsChanged=true;},undefined],
+    ]) {
+      const value=fourThreadReceipt(roleReceipt(relation));mutate(value);
+      assert.throws(()=>assertRoleProofReceiptRecords(value),code);
+    }
+  }
+  const specialized=fourThreadReceipt(roleReceipt('native_claim_ingress_v3'));
+  assert.throws(()=>assertRoleProofReceiptRecords(specialized),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
 });
