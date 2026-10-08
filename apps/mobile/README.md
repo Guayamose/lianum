@@ -34,6 +34,21 @@ términos, capacidades recientes y caducidad tras biometría y tras almacenamien
 consume la revisión antes de iniciar el POST. Si la revisión cambia durante la
 retención, conserva el permiso original pendiente y evita ese envío.
 
+Cada permiso guardado ofrece «Consultar permiso» para leer únicamente su admisión
+original. La consulta conserva el permiso completo, crea un nonce aleatorio y
+vence en 60 segundos. Muestra el alcance y exige consentimiento y biometría
+nuevos, con una firma en dominio propio. No reenvía el permiso de ejecución.
+Funciona después de caducar el permiso original y puede consultar PostgreSQL
+cuando el adaptador económico está desconectado.
+
+Esta consulta también usa una revisión privada revocable: cancelar, cambiar
+origen o propietario, refrescar y salir de primer plano impiden usar un callback
+anterior. Se comprueba de nuevo después de biometría y de leer o guardar la
+operación protegida. La revisión se consume antes del POST de lectura. Un 404,
+timeout o respuesta perdida conserva el outbox pendiente; una lectura tardía no
+rebaja un permiso ACCEPTED a UNKNOWN. Leer ACCEPTED sólo confirma admisión del
+permiso: el estado económico sigue UNRESOLVED y no libera la operación.
+
 ## Desarrollo
 
 Desde la raíz del repositorio, con el Node local:

@@ -2,7 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
-import { mobileAuthorizationMessage, validateMobileChallenge, type MobileChallenge } from '@lianum/mobile-protocol';
+import { mobileAuthorizationMessage, validateMobileChallenge, mobileReceiptMessage,
+  validateMobileReceiptReview, type MobileChallenge, type MobileReceiptReview } from '@lianum/mobile-protocol';
 import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } from './signing.mjs';
 
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
@@ -73,5 +74,24 @@ export async function signReviewedChallenge(challenge: MobileChallenge, expected
     // protected read as well, before any signature or network transmission.
     validateMobileChallenge(checked, { origin: expectedOrigin, ownerPublicKey: publicKey, allowInsecureLocalhost });
     return signDeviceMessage(privateKey, mobileAuthorizationMessage(checked, { allowInsecureLocalhost }));
+  } finally { privateKey.fill(0); retained = null; }
+}
+export async function signReviewedReceipt(review: MobileReceiptReview, expectedOrigin: string,
+  allowInsecureLocalhost = false): Promise<string> {
+  await assertProtectedStorage();
+  const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
+  const checked = validateMobileReceiptReview(review, {
+    origin: expectedOrigin, ownerPublicKey: publicKey, allowInsecureLocalhost,
+  });
+  let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, {
+    ...privateOptions, authenticationPrompt: 'Consultar el permiso original de Lianum',
+  });
+  if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const privateKey = privateKeyFromHex(retained);
+  try {
+    if (devicePublicKey(privateKey) !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
+    validateMobileReceiptReview(checked, { origin: expectedOrigin, ownerPublicKey: publicKey, allowInsecureLocalhost });
+    return signDeviceMessage(privateKey, mobileReceiptMessage(checked, { allowInsecureLocalhost }));
   } finally { privateKey.fill(0); retained = null; }
 }

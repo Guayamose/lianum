@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { MOBILE_ACTIONS, MOBILE_CHAINS, normalizeMobileIntent, type MobileAction, type MobileChain,
-  type MobileChallenge, type MobileIntent } from '@lianum/mobile-protocol';
-import { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge } from '../custody/key-store';
+  type MobileChallenge, type MobileIntent, type MobileAuthorization, type MobileReceiptReview } from '@lianum/mobile-protocol';
+import { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge, signReviewedReceipt } from '../custody/key-store';
 import { bytesToHex } from '../custody/signing.mjs';
 import { readPendingOperation, retainPendingOperation, assertPendingOperationIdentity,
   type PendingOperation, type PendingAuthorization } from '../custody/pending-operations';
 import { createMobileApi, type MobileState } from '../api/wallet-api.mjs';
 import { createMobileReviewLease, type ReviewLease, type MobileReviewContext } from '../custody/review-lease.mjs';
+import { createMobileReceiptLease, type ReceiptLease } from '../custody/receipt-lease.mjs';
 
 const defaultOrigin = process.env.EXPO_PUBLIC_API_ORIGIN ?? '';
 const allowInsecureLocalhost = __DEV__ && process.env.EXPO_PUBLIC_ALLOW_INSECURE_LOOPBACK === '1';
@@ -20,6 +21,7 @@ const outcomeLabels = { SUBMITTING: 'Resultado pendiente de comprobar', ACCEPTED
 const allowedCodes = new Set(['MOBILE_PROTECTED_STORAGE_UNAVAILABLE', 'MOBILE_AUTHENTICATION_CANCELLED',
   'MOBILE_KEY_RECOVERY_REQUIRED', 'MOBILE_KEY_REQUIRED', 'MOBILE_SERVICE_UNAVAILABLE', 'MOBILE_CHALLENGE_EXPIRED',
   'MOBILE_ORIGINAL_OPERATION_REQUIRED', 'MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED', 'MOBILE_ORIGIN_INVALID',
+  'MOBILE_RECEIPT_EXPIRED',
   'MOBILE_REVIEW_INACTIVE', 'MOBILE_REVIEW_STALE', 'MOBILE_REVIEW_CHANGED']);
 function safeError(error: unknown): string {
   const code = error instanceof Error && allowedCodes.has(error.message) ? error.message : 'MOBILE_REQUEST_FAILED';
@@ -27,6 +29,7 @@ function safeError(error: unknown): string {
     MOBILE_AUTHENTICATION_CANCELLED: 'Autenticación cancelada.', MOBILE_KEY_RECOVERY_REQUIRED: 'Tu clave no está accesible. Conserva el dispositivo y sigue la guía de recuperación.',
     MOBILE_KEY_REQUIRED: 'Crea primero tu identidad local.', MOBILE_SERVICE_UNAVAILABLE: 'El servicio no está disponible para esta acción.',
     MOBILE_CHALLENGE_EXPIRED: 'La revisión ha caducado. Solicita una nueva para la operación original.',
+    MOBILE_RECEIPT_EXPIRED: 'La consulta ha caducado. Revisa de nuevo el permiso original.',
     MOBILE_ORIGINAL_OPERATION_REQUIRED: 'Hay una operación pendiente. Recupera su ID antes de continuar.',
     MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED: 'Esta acción ya tiene una autorización original. Conserva su resultado; no vuelvas a enviarla.',
     MOBILE_REVIEW_INACTIVE: 'La revisión ya no está activa. Comprueba disponibilidad y solicita una nueva.',
@@ -53,6 +56,11 @@ export default function WalletScreen() {
   const [intent, setIntent] = useState<MobileIntent>(emptyIntent);
   const [challenge, setChallenge] = useState<MobileChallenge | null>(null);
   const [pending, setPending] = useState<PendingOperation | null>(null);
+  const [receiptReview, setReceiptReview] = useState<MobileReceiptReview | null>(null);
+  const receiptTarget = useRef<MobileAuthorization | null>(null);
+  const displayedReceiptLease = useRef<ReceiptLease | null>(null);
+  const currentPending = useRef(pending);
+  currentPending.current = pending;
   const observedAt = useRef(0), displayedLease = useRef<ReviewLease | null>(null);
   const currentContext = useRef<MobileReviewContext>({ origin, ownerPublicKey: publicKey, intent,
     connection: state?.connection ?? null, capabilities: state?.capabilities ?? null,
@@ -63,8 +71,19 @@ export default function WalletScreen() {
   const [consent] = useState(() => createMobileReviewLease({
     readContext: () => ({ ...currentContext.current, foreground: AppState.currentState === 'active' }), allowInsecureLocalhost,
   }));
+  const [receiptConsent] = useState(() => createMobileReceiptLease({ allowInsecureLocalhost,
+    readContext: () => {
+      const authorization = receiptTarget.current;
+      const retained = authorization !== null && currentPending.current?.authorizations.some(row =>
+        JSON.stringify(row.authorization) === JSON.stringify(authorization));
+      return { origin: currentContext.current.origin, ownerPublicKey: currentContext.current.ownerPublicKey,
+        authorization: retained ? authorization : null, foreground: AppState.currentState === 'active' };
+    },
+  }));
   function invalidateReview(markStale = false) {
     consent.invalidate(); displayedLease.current = null; setChallenge(null);
+    receiptConsent.invalidate(); receiptTarget.current = null;
+    displayedReceiptLease.current = null; setReceiptReview(null);
     if (markStale) { observedAt.current = 0; currentContext.current.stale = true; setStale(true); }
   }
 
@@ -73,7 +92,7 @@ export default function WalletScreen() {
     const subscription = AppState.addEventListener('change', status => {
       if (status !== 'active') invalidateReview(true);
     });
-    return () => { consent.invalidate(); subscription.remove(); };
+    return () => { consent.invalidate(); receiptConsent.invalidate(); subscription.remove(); };
   }, []);
   async function run(work: () => Promise<void>) {
     if (busy) return;
@@ -90,6 +109,7 @@ export default function WalletScreen() {
     const value = await api.state(); observedAt.current = Date.now(); setState(value); setStale(false); setNotice(value.notice);
   }
   async function review() {
+    invalidateReview();
     if (!publicKey || stale || !state?.capabilities[intent.action]) throw new Error('MOBILE_SERVICE_UNAVAILABLE');
     const original = await readPendingOperation(allowInsecureLocalhost);
     assertPendingOperationIdentity(original, { origin, ownerPublicKey: publicKey, intent }, allowInsecureLocalhost);
@@ -121,6 +141,51 @@ export default function WalletScreen() {
     Alert.alert('Autorizar esta operación', 'Confirma exclusivamente los límites que aparecen en esta revisión.', [
       { text: 'Cancelar', style: 'cancel', onPress: () => invalidateReview() },
       { text: 'Autorizar con biometría', onPress: () => { void run(() => signAndSubmit(lease)); } },
+    ]);
+  }
+  async function reviewReceipt(authorization: MobileAuthorization) {
+    invalidateReview();
+    receiptTarget.current = authorization;
+    const ticket = receiptConsent.begin();
+    // Re-read the protected original before constructing a permission to query
+    // it. A stale UI row cannot supply a replacement authorization.
+    const original = await readPendingOperation(allowInsecureLocalhost);
+    if (!original?.authorizations.some(row => JSON.stringify(row.authorization) === JSON.stringify(authorization))) {
+      throw new Error('MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED');
+    }
+    currentPending.current = original;
+    setPending(original);
+    const entropy = await Crypto.getRandomBytesAsync(32);
+    try {
+      const displayed = receiptConsent.finish(ticket, {
+        authorization, nonce: bytesToHex(entropy), expiresAt: Date.now() + 60_000,
+      });
+      displayedReceiptLease.current = displayed.lease;
+      setReceiptReview(displayed.review);
+      setNotice('Consulta únicamente la admisión de este permiso. El resultado económico sigue sin verificar.');
+    } finally { entropy.fill(0); }
+  }
+  async function queryReceipt(lease: ReceiptLease) {
+    displayedReceiptLease.current = null;
+    setReceiptReview(null);
+    const receipt = await receiptConsent.query(lease, {
+      sign: review => signReviewedReceipt(review, review.authorization.challenge.origin, allowInsecureLocalhost),
+      post: query => createMobileApi({ origin: query.authorization.challenge.origin, allowInsecureLocalhost }).receipt(query),
+      retain: async (authorization, observed) => {
+        const retained = await retainPendingOperation({ authorization, status: observed.authorization.status }, allowInsecureLocalhost);
+        currentPending.current = retained;
+        setPending(retained);
+      },
+    });
+    invalidateReview();
+    setNotice(outcomeLabels[receipt.authorization.status] + '. Resultado económico sin verificar.');
+  }
+  function confirmReceipt() {
+    const lease = displayedReceiptLease.current;
+    if (!receiptReview || !lease || busy) return;
+    Alert.alert('Consultar este permiso', 'La firma permite leer su admisión original. No autoriza movimientos ni confirma fondos.', [
+      { text: 'Cancelar', style: 'cancel', onPress: () => invalidateReview() },
+      { text: 'Consultar con biometría', onPress: () => { void run(() => queryReceipt(lease)); } },
     ]);
   }
   async function restoreOriginal() {
@@ -188,9 +253,28 @@ export default function WalletScreen() {
     {pending && <View style={styles.card}><Text style={styles.cardTitle}>Operación original</Text>
       <Text selectable style={styles.identifier}>{pending.originalAuthorization.challenge.intent.requestId}</Text>
       <Text style={styles.muted}>Resultado económico sin verificar. El rechazo de un permiso posterior no cierra esta operación.</Text>
-      {pending.authorizations.map(row => <Text key={row.authorization.challenge.intent.action} style={styles.muted}>
-        {labels[row.authorization.challenge.intent.action]}: {outcomeLabels[row.status]}</Text>)}
+      {pending.authorizations.map(row => <View key={row.authorization.challenge.intent.action}>
+        <Text style={styles.muted}>{labels[row.authorization.challenge.intent.action]}: {outcomeLabels[row.status]}</Text>
+        <ActionButton label={'Consultar permiso: ' + labels[row.authorization.challenge.intent.action]} secondary
+          disabled={busy || !publicKey} onPress={() => { void run(() => reviewReceipt(row.authorization)); }} />
+      </View>)}
       {pending.legacyEvidenceIncomplete && <Text style={styles.muted}>El registro anterior no conserva todo el historial de permisos.</Text>}</View>}
+    {receiptReview && <View style={[styles.card, styles.review]}><Text style={styles.cardTitle}>Consulta del permiso original</Text>
+      <Text style={styles.muted}>Sólo consulta de admisión. No ejecuta, reenvía ni cierra la operación económica.</Text>
+      {Object.entries({ Servicio: receiptReview.authorization.challenge.origin,
+        Acción: labels[receiptReview.authorization.challenge.intent.action],
+        'ID original': receiptReview.authorization.challenge.intent.requestId,
+        Tipo: receiptReview.authorization.challenge.intent.kind, Red: receiptReview.authorization.challenge.intent.chain,
+        Activo: receiptReview.authorization.challenge.intent.assetId, Importe: receiptReview.authorization.challenge.intent.amountAtomic,
+        Destino: receiptReview.authorization.challenge.intent.recipient,
+        'Comisión máxima': receiptReview.authorization.challenge.intent.maxFeeAtomic,
+        Identidad: receiptReview.authorization.challenge.ownerPublicKey,
+        'Challenge original': receiptReview.authorization.challenge.challengeId,
+        'Nonce de consulta': receiptReview.nonce, Caducidad: new Date(receiptReview.expiresAt).toLocaleString() }).map(([label, value]) =>
+        <View key={label}><Text style={styles.label}>{label}</Text><Text selectable style={styles.reviewValue}>{value}</Text></View>)}
+      <ActionButton label="Consultar con biometría" disabled={busy} onPress={confirmReceipt} />
+      <ActionButton label="Cancelar consulta" secondary disabled={busy} onPress={() => invalidateReview()} />
+    </View>}
     <View accessibilityLiveRegion="polite" style={styles.notice}>{busy && <ActivityIndicator color="#9de3be" />}
       <Text style={styles.noticeText}>{notice}</Text></View>
   </ScrollView></SafeAreaView>;

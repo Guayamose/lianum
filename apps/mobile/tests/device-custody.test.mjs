@@ -3,7 +3,7 @@
  * biometrics, hardware isolation, mobile fund recovery or native acceptance. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOBILE_AUTHORIZATION_PROFILE } from '@lianum/mobile-protocol';
+import { MOBILE_AUTHORIZATION_PROFILE, mobileReceiptMessage } from '@lianum/mobile-protocol';
 import * as signing from '../src/custody/signing.mjs';
 
 const store = new Map(), calls = [], privateBuffers = [];
@@ -45,7 +45,7 @@ mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { expor
   ...signing,
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },
 } });
-const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge } = await import('../src/custody/key-store.ts');
+const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge, signReviewedReceipt } = await import('../src/custody/key-store.ts');
 const { retainPendingOperation, readPendingOperation, assertPendingOperationIdentity } = await import('../src/custody/pending-operations.ts');
 function reset() {
   store.clear(); calls.length = 0; privateBuffers.length = 0;
@@ -205,4 +205,31 @@ test('pending write readback and invalid economic markers fail before returning 
   await assert.rejects(readPendingOperation(), /PENDING_STATE_INVALID/);
   store.set(key, original);
   assert.equal((await readPendingOperation()).economicState, 'UNRESOLVED');
+});
+
+test('fresh protected receipt signing preserves an expired original and updates only its permission admission', async () => {
+  reset();
+  const publicKey = await createDeviceIdentity(), execute = await authorization(publicKey, 'execute');
+  await retainPendingOperation({ authorization: execute, status: 'SUBMITTING' });
+  await retainPendingOperation({ authorization: execute, status: 'UNKNOWN' });
+  const recover = await authorization(publicKey, 'recover');
+  await retainPendingOperation({ authorization: recover, status: 'SUBMITTING' });
+  await retainPendingOperation({ authorization: recover, status: 'REJECTED' });
+  let clock = execute.challenge.expiresAt + 1;
+  const time = mock.method(Date, 'now', () => clock);
+  const review = { authorization: execute, nonce: '8'.repeat(64), expiresAt: clock + 60_000 };
+  try {
+    const signature = await signReviewedReceipt(review, execute.challenge.origin);
+    const expectedKey = signing.privateKeyFromHex(store.get(PRIVATE));
+    try { assert.equal(signature, signing.signDeviceMessage(expectedKey, mobileReceiptMessage(review))); }
+    finally { expectedKey.fill(0); }
+    const observed = await retainPendingOperation({ authorization: execute, status: 'ACCEPTED' });
+    assert.equal(observed.economicState, 'UNRESOLVED'); assert.deepEqual(observed.originalAuthorization, execute);
+    assert.deepEqual(observed.authorizations.map(row => row.status), ['ACCEPTED', 'REJECTED']);
+    await assert.rejects(retainPendingOperation({ authorization: execute, status: 'UNKNOWN' }), /STATE_CONFLICT/);
+    assert.deepEqual((await readPendingOperation()).authorizations.map(row => row.status), ['ACCEPTED', 'REJECTED']);
+    control.slowRead = async () => { clock += 60_001; };
+    await assert.rejects(signReviewedReceipt(review, execute.challenge.origin), /RECEIPT_EXPIRED/);
+    assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+  } finally { time.mock.restore(); }
 });
