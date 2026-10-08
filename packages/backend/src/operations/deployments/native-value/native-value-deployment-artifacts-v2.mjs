@@ -22,7 +22,7 @@ import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../../releases/native-value/native-
 import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nativeValueDevDigestV5, validateNativeValueDevPinnedBytesV5,
   NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5, NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
   NATIVE_VALUE_DEV_LEDGER_COMPILED_PATH_V5, NATIVE_VALUE_DEV_LEDGER_RECEIPT_PATH_V5, NATIVE_VALUE_DEV_LEDGER_KIND_V5,
-  validateNativeValueDevProducedLedgerDescriptorV5, validateNativeValueDevLedgerReceiptV5 }
+  NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5, validateNativeValueDevProducedLedgerDescriptorV5, validateNativeValueDevLedgerReceiptV5 }
   from '../../releases/native-value/native-value-dev-release-contract-v5.mjs';
 const issued = new WeakSet();
 const ADMISSION_PREPARED_ROOT = resolve(ROOT, '../../drafts/native-value-verifier-preparation');
@@ -50,8 +50,10 @@ function bytes(path, maximum = 128*1024*1024) {
   // Resolve only fixed release entries under the installed wallet; reject every
   // symlink component, traversal, absolute path and oversized artifact.
   assert.equal(typeof path,'string'); assert.ok(path.length && !path.startsWith('/') && !path.split('/').some(p=>!p||p==='.'||p==='..'),'NATIVE_VALUE_ARTIFACT_PATH');
-  const roots=[['golden/',GOLDEN],['candidate/',CANDIDATE],['flat/',FLAT],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],['mobile-app/',resolve(FLAT,'../../../apps/mobile')],['mobile-protocol-workspace/',resolve(FLAT,'../../../packages/mobile-protocol')],['admission-prepared/',ADMISSION_PREPARED_ROOT],['admission-compile/',ADMISSION_COMPILE_ROOT]];
-  const selected=roots.find(([prefix])=>path.startsWith(prefix));let p=selected?.[1]??ROOT;if(selected&&['mobile-protocol/','mobile-app/','mobile-protocol-workspace/'].includes(selected[0]))assert.equal(realpathSync(p),p,'NATIVE_VALUE_DEV_FIXED_ROOT_ALIAS');const parts=(selected?path.slice(selected[0].length):path).split('/'); for (const part of parts) { p=join(p,part); assert.ok(!lstatSync(p).isSymbolicLink(),'NATIVE_VALUE_ARTIFACT_SYMLINK'); }
+  if(path.startsWith('development-'))assert.ok(NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5.includes(path),'NATIVE_VALUE_DEV_FIXED_DEVELOPMENT_SOURCE_ONLY');
+  if(path.startsWith('workspace-module/'))assert.ok(NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5.includes(path),'NATIVE_VALUE_DEV_FIXED_WORKSPACE_MODULE_ONLY');
+  const roots=[['workspace-module/',resolve(FLAT,'../../..')],['development-tooling/',resolve(FLAT,'../../../scripts/development')],['development-config/',resolve(FLAT,'../../../scripts')],['development-root/',resolve(FLAT,'../../..')],['golden/',GOLDEN],['candidate/',CANDIDATE],['flat/',FLAT],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],['mobile-app/',resolve(FLAT,'../../../apps/mobile')],['mobile-protocol-workspace/',resolve(FLAT,'../../../packages/mobile-protocol')],['admission-prepared/',ADMISSION_PREPARED_ROOT],['admission-compile/',ADMISSION_COMPILE_ROOT]];
+  const selected=roots.find(([prefix])=>path.startsWith(prefix));let p=selected?.[1]??ROOT;if(selected&&['workspace-module/','mobile-protocol/','mobile-app/','mobile-protocol-workspace/','development-tooling/','development-config/','development-root/'].includes(selected[0]))assert.equal(realpathSync(p),p,'NATIVE_VALUE_DEV_FIXED_ROOT_ALIAS');const parts=(selected?path.slice(selected[0].length):path).split('/'); for (const part of parts) { p=join(p,part); assert.ok(!lstatSync(p).isSymbolicLink(),'NATIVE_VALUE_ARTIFACT_SYMLINK'); }
   const s=lstatSync(p); assert.ok(s.isFile() && s.size<=maximum,'NATIVE_VALUE_ARTIFACT_FILE');
   const result=readFileSync(p); assert.equal(result.length,s.size,'NATIVE_VALUE_ARTIFACT_FILE_CHANGED'); return result;
 }

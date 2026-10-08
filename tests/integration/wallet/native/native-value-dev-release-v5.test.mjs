@@ -45,6 +45,10 @@ test('pure metadata fixture validates only historical identity and current host 
   assert.throws(() => assertNativeValueArtifactBundle(structuredClone(checked)), /FIXED_ARTIFACT_BUNDLE_REQUIRED/);
 });
 for (const [name, change] of [
+  ['omitted actual Python launcher', row => { row.sourceFiles = row.sourceFiles.filter(p => p.path !== 'development-tooling/paired_original_account_lab.py'); row.hostSourceClosureSHA256 = nativeValueDevDigestV5(row.sourceFiles); }],
+  ['unreviewed workspace module', row => { row.sourceFiles.push({path:'workspace-module/packages/backend/caller.mjs',sha256:'01'.repeat(32)}); row.sourceFiles.sort((a,b)=>a.path.localeCompare(b.path)); row.hostSourceClosureSHA256=nativeValueDevDigestV5(row.sourceFiles); }],
+  ['physical workspace alias', row => { row.sourceFiles.push({path:'development-root/packages/proofs/src/catalog.mjs',sha256:'01'.repeat(32)}); row.sourceFiles.sort((a,b)=>a.path.localeCompare(b.path)); row.hostSourceClosureSHA256=nativeValueDevDigestV5(row.sourceFiles); }],
+  ['unreviewed Python helper', row => { row.sourceFiles.push({path:'development-tooling/caller_helper.py',sha256:'01'.repeat(32)}); row.sourceFiles.sort((a,b)=>a.path.localeCompare(b.path)); row.hostSourceClosureSHA256=nativeValueDevDigestV5(row.sourceFiles); }],
   ['produced ledger caller path', row=>row.producedLedger.compiled.path='caller/compiled.json'],
   ['produced ledger fake historical recovery', row=>row.producedLedger.historicalArtifactRecovered=true],
   ['produced ledger changed original missing pin', row=>row.producedLedger.historicalCompiled.sha256='09'.repeat(32)],

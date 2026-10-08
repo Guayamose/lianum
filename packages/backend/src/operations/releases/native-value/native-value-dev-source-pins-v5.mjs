@@ -9,18 +9,24 @@ import { createRequire } from 'node:module';
 import { NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 } from './native-value-dev-mobile-package-pins-v5.mjs';
 import { ROOT, FLAT, GOLDEN, CANDIDATE } from '../../../../../proofs/src/catalog.mjs';
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 } from './native-value-wallet-host-source-pins-v4.mjs';
-import { NATIVE_VALUE_DEV_REQUIRED_HOST_ROOTS_V5 } from './native-value-dev-release-contract-v5.mjs';
+import { NATIVE_VALUE_DEV_REQUIRED_HOST_ROOTS_V5, NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5 } from './native-value-dev-release-contract-v5.mjs';
 const MOBILE = resolve(FLAT, '../mobile-protocol');
 const MOBILE_APP = resolve(FLAT, '../../../apps/mobile');
 const MOBILE_PROTOCOL_PACKAGE = resolve(FLAT, '../../../packages/mobile-protocol');
-const roots = Object.freeze([['golden/', GOLDEN], ['candidate/', CANDIDATE],
+const DEVELOPMENT_ROOT = resolve(FLAT, '../../..');
+const roots = Object.freeze([['development-tooling/', join(DEVELOPMENT_ROOT, 'scripts/development')],
+  ['development-config/', join(DEVELOPMENT_ROOT, 'scripts')], ['golden/', GOLDEN], ['candidate/', CANDIDATE],
   ['mobile-protocol/', MOBILE], ['mobile-app/', MOBILE_APP],
-  ['mobile-protocol-workspace/', MOBILE_PROTOCOL_PACKAGE], ['flat/', FLAT]]);
+  ['mobile-protocol-workspace/', MOBILE_PROTOCOL_PACKAGE], ['flat/', FLAT], ['workspace-module/', DEVELOPMENT_ROOT], ['development-root/', DEVELOPMENT_ROOT]]);
 const excluded = join(ROOT, 'wallet-platform/modules/ops/native-value-dev-release-v5.mjs');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 function pathFor(name) {
   assert.ok(typeof name === 'string' && name.length > 0 && !name.startsWith('/')
     && !name.split('/').some(part => !part || part === '.' || part === '..'), 'NATIVE_VALUE_DEV_FIXED_PATH');
+  if (name.startsWith('development-')) assert.ok(NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5.includes(name),
+    'NATIVE_VALUE_DEV_FIXED_DEVELOPMENT_SOURCE_ONLY');
+  if (name.startsWith('workspace-module/')) assert.ok(NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5.includes(name),
+    'NATIVE_VALUE_DEV_FIXED_WORKSPACE_MODULE_ONLY');
   const selected = roots.find(([prefix]) => name.startsWith(prefix));
   return join(selected?.[1] ?? ROOT, selected ? name.slice(selected[0].length) : name);
 }
@@ -28,7 +34,12 @@ function label(path) {
   if (path.startsWith(ROOT + sep)) return relative(ROOT, path).split(sep).join('/');
   const selected = roots.find(([, root]) => path.startsWith(root + sep));
   assert.ok(selected, 'NATIVE_VALUE_DEV_LOCAL_SOURCE_ONLY');
-  return selected[0] + relative(selected[1], path).split(sep).join('/');
+  let name = selected[0] + relative(selected[1], path).split(sep).join('/');
+  if (selected[0] === 'workspace-module/' && !NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5.includes(name))
+    name = 'development-root/' + relative(DEVELOPMENT_ROOT, path).split(sep).join('/');
+  if (name.startsWith('development-')) assert.ok(NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5.includes(name),
+    'NATIVE_VALUE_DEV_FIXED_DEVELOPMENT_SOURCE_ONLY');
+  return name;
 }
 function regular(path) {
   const name = label(path), selected = roots.find(([prefix]) => name.startsWith(prefix));

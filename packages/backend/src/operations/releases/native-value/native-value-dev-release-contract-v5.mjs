@@ -16,7 +16,52 @@ export const NATIVE_VALUE_DEV_SCHEMA_V5 = 'LIANUM_NATIVE_VALUE_RETAINED_ARTIFACT
 export const NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5 = 'c1f9b420205bd8c67c77d5802c25be80461f1f58ecefcdec4278373a4fb3fad1';
 export const NATIVE_VALUE_DEV_RETAINED_SHA256_V5 = '1395e94fa1e3c7d0ff6ca3d57f3ab04474a33373870a286a8c75c9f53752b690';
 export const NATIVE_VALUE_DEV_W39_ADAPTER_SHA256_V5 = '8b3d3adddb9e7d0064a40744cb3b0e0e37bf2028728c3e07b5489b58acd05376';
+export const NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5 = Object.freeze([
+  'development-root/dev',
+  'development-tooling/dev',
+  'development-tooling/native_value_ledger.py',
+  'development-tooling/ledger_owned_processes.py',
+  'development-tooling/paired_original_account_lab.py',
+  'development-tooling/osaka_lab.py',
+  'development-tooling/workspace.py',
+  'development-tooling/import_paths.py',
+  'development-config/layout.json',
+]);
+export const NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5 = Object.freeze([
+  'workspace-module/experiments/wallet/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs',
+  'workspace-module/packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs',
+  'workspace-module/packages/backend/src/claims/protocol/framing.mjs',
+  'workspace-module/packages/backend/src/claims/protocol/inputs.mjs',
+  'workspace-module/packages/backend/src/execution/account/preparation/readiness-inputs.mjs',
+  'workspace-module/packages/backend/src/execution/encoding/commitments.mjs',
+  'workspace-module/packages/backend/src/execution/encoding/statements.mjs',
+  'workspace-module/packages/engine/src/chains/shared/runtime-harness.mjs',
+  'workspace-module/packages/engine/src/chains/solana/solana-runtime.mjs',
+  'workspace-module/packages/engine/src/evidence/native-evidence.mjs',
+  'workspace-module/packages/engine/src/evidence/native-quorum.mjs',
+  'workspace-module/packages/engine/src/execution/graph/funded-graph.mjs',
+  'workspace-module/packages/engine/src/execution/graph/graph.mjs',
+  'workspace-module/packages/engine/src/execution/native/dispatch/native-admission.mjs',
+  'workspace-module/packages/engine/src/execution/native/dispatch/native-capsules.mjs',
+  'workspace-module/packages/engine/src/execution/native/state/native-receipt.mjs',
+  'workspace-module/packages/engine/src/execution/native/state/native-state.mjs',
+  'workspace-module/packages/engine/src/native/native-bitcoin.mjs',
+  'workspace-module/packages/engine/src/notes/private-native-certificate.mjs',
+  'workspace-module/packages/engine/src/notes/private-note-encoding.mjs',
+  'workspace-module/packages/engine/src/notes/private-note-tree.mjs',
+  'workspace-module/packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs',
+  'workspace-module/packages/proofs/src/catalog.mjs',
+  'workspace-module/packages/proofs/src/jobs/trusted-jobs.mjs',
+]);
 export const NATIVE_VALUE_DEV_REQUIRED_HOST_ROOTS_V5 = Object.freeze([
+  ...NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5,
+  ...NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5,
+  'proof-workers/native-claims-parent-death.py',
+  'integration/run-paired-native-note-v2.mjs',
+  'integration/paired-native-note-flow-v2.mjs',
+  'integration/paired-native-note-policy-v2.mjs',
+  'integration/paired-native-note-source-pins-v2.mjs',
+  'integration/native-flow-supervisor.mjs',
   'wallet-platform/modules/ops/native-value-dev-release-contract-v5.mjs',
   'wallet-platform/modules/ops/native-value-dev-source-pins-v5.mjs',
   'wallet-platform/modules/ops/native-value-dev-producer-v5.mjs',
@@ -88,6 +133,10 @@ export function validateNativeValueDevReleaseV5(input) {
     assert.ok(row.path.length <= 512 && row.path.length > 0 && !row.path.startsWith('/')
       && !row.path.split('/').some(part => !part || part === '.' || part === '..'), 'NATIVE_VALUE_DEV_SOURCE_PATH');
     assert.ok(!row.path.startsWith('flat/flat-wallet/') && !row.path.startsWith('flat/candidate-poseidon/'), 'NATIVE_VALUE_DEV_SOURCE_ALIAS');
+    if (row.path.startsWith('development-')) assert.ok(NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5.includes(row.path),
+      'NATIVE_VALUE_DEV_FIXED_DEVELOPMENT_SOURCE_ONLY');
+    if (row.path.startsWith('workspace-module/')) assert.ok(NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5.includes(row.path),
+      'NATIVE_VALUE_DEV_FIXED_WORKSPACE_MODULE_ONLY');
     assert.notEqual(row.path, 'wallet-platform/modules/ops/native-value-dev-release-v5.mjs',
       'NATIVE_VALUE_DEV_NO_SELF_PIN');
     hash(row.sha256); assert.ok(!seen.has(row.path), 'NATIVE_VALUE_DEV_DUPLICATE_SOURCE'); seen.add(row.path);
