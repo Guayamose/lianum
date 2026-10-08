@@ -182,7 +182,10 @@ async function fixture(t) {
   f.quorum = Object.freeze({async checkpoint({requestId}) { return {message: {
     expectedPoolSequence: '0', expectedHubStateSequence: '0', requestId: p(requestId), validUntil: '1900'},
     abiSignatures: [0,1,2].map(index => ({signerIndex: String(index), v: '27', r: p('0'.repeat(63)+'1'), s: p('0'.repeat(63)+'1')}))}; }});
+  // Explicit synthetic legacy deployment provenance selects the original V2
+  // artifact mock; terminal tests do not claim artifact/brand acceptance.
   f.system = Object.freeze({claimsEnabled: false, quorum: f.quorum,
+    provenance: Object.freeze({schema: 'LIANUM_NATIVE_VALUE_GRAPH_ONLY_RELEASE_V2'}),
     pools: [0,1].map(index => ({address: p(h('pool-' + index).slice(0,40)), domain: base.domain, domainCommitment: p(base.d)})),
     hub: {address: p(h('hub').slice(0,40))}});
   f.lease = Object.freeze({});
