@@ -68,11 +68,14 @@ un resultado desconocido. Aceptar el round trip con ocho pruebas genuinas antes 
 extenderlo a grafos y pérdida de procesos. No presentar
 reconstrucciones como los recibos históricos ausentes.
 
-El primer grafo CBTC → entrega SOL completó 15/16 pruebas genuinas y cerró
-rechazado: entrega SOL, payout del cambio Bitcoin y EXIT EVM del solver pasaron;
-su payout Bitcoin no llegó a iniciarse por un ID mal formado. El harness ya usa
-el hash original del controlador, con dos regresiones. Repetir `./dev lab btc-sol`
-en estado nuevo y aceptar sus dieciséis pruebas sin ampliar guardas ni presupuestos.
+El segundo grafo CBTC → entrega SOL, `./dev lab btc-sol`, ya está aceptado y
+cerrado con dieciséis pruebas nuevas: entrega SOL única, cambio Bitcoin de
+80.000 satoshis y pago al solver de 20.000, ambos DISCHARGED, sin duplicados y
+con obligaciones finales a cero. La corrección del ID conserva el hash original
+del controlador; el intento anterior rechazado de 15/16 queda conservado.
+Ampliar recuperación tras pérdida de keeper/nodos y destinos Bitcoin propios,
+y aceptar por separado el payout de custodia Solana pendiente. Las guardas y
+presupuestos originales se mantienen.
 
 ## 5. Completar DeFi — parcial
 

@@ -275,6 +275,54 @@ laboratorio; no acreditan autocustodia, operadores independientes, consenso
 público ni recorrido de grafo. Una nueva aceptación requiere estado y recibos
 nuevos y resolver el diagnóstico de audit sin ampliar su frescura.
 
+## Grafo CBTC → entrega SOL y dos retiradas Bitcoin
+
+```sh
+./dev lab btc-sol
+```
+
+Intento `67ca1114-cb94-4f87-9041-1cd7b7e62e82`, sobre `759d732`: **aceptado y
+cerrado**, dieciséis pruebas genuinas nuevas. D27/CI51 emiten una nota CBTC de
+100.000 satoshis; U/S/P/R/I, cuatro N y C completan el grafo original. El solver
+entrega 1.000.000 lamports una sola vez, con el owner ausente. El journal termina
+CONFIRMED y el grafo FULFILLED. Reinicio, reconcile y recover no repiten el envío.
+
+W39/CO42 descargan el cambio de 80.000 satoshis y el pago del solver de 20.000.
+La admisión HTTP perdida se conserva y se resuelve por resume original; repetir
+redeem/resume conserva CONFIRMED sin otro efecto. Bitcoin retiene ingreso y dos
+pagos con seis o más confirmaciones, un broadcast por transferencia y comisión
+de 222 satoshis cada uno. La custodia SOL y sus nonces no se gastan. Supply,
+deudas, reservas y obligaciones finales quedan a cero. Los dos pagos Bitcoin
+van al destinatario fijo de la custodia local; no representan dos wallets
+Bitcoin independientes ni acreditan descubrimiento de precio o un bridge.
+
+No se reutilizó ninguna de las quince pruebas del primer intento rechazado
+`d284e41a`. Éste permanece conservado, incluida su entrega SOL, la retirada del
+cambio y el EXIT EVM del solver antes del ID mal formado. La corrección usa el
+hash determinista original del controlador y mantiene las dos regresiones.
+Los programas, VK, guardas y presupuesto de auditoría de 30 s permanecen iguales.
+
+Duración: 2.649.977,794 ms (44 min 09,978 s). Pico del prover 2.970.472.448 bytes,
+worker principal 598.491.136 y supervisor 97.656.832. El RSS total del grupo se
+midió, sin atribuirle el límite individual de 3 GiB. La auditoría independiente
+unió los dieciséis recibos y verificó 399 fuentes, 20 archivos API y 11 de vendor.
+Las 219 identidades originales y cuatro locks quedaron ausentes. Controller,
+keeper y runtimes cerraron; scratch, wallets, claves y ledgers sintéticos se
+retiraron sin force. Solana declara `nativeOrderlyExit=false`,
+`nativeStopFailure=null`; no se atribuye salida ordenada nativa.
+
+Evidencia local conservada en `.internal/dev/reports/`:
+
+- Resultado original SHA256 `93735732687f1c10c95d1bb4ce3cdf182f26c2751f8995cb3c51eed800c1955e`.
+- Recursos SHA256 `47cde74251728dffb2933f595a1f07384ae1e172a453fd493dcabf75ca69d399`.
+- AFTER SHA256 `a6ace6cbcaaa7dda1f8e9302c0445146e7ab22ec415f2ee22acd895a68b0119a`.
+- Manifiesto de las dieciséis pruebas SHA256 `b54bd6567d9d323b43f6bc946944293009894b4b20e215ad6833815d3ce5acad`.
+
+La aceptación cubre este grafo local con fondos ficticios. El payout de custodia
+Solana del ensayo de ocho pruebas sigue rechazado. No acredita pérdida de
+keeper/nodos, recuperación F de este grafo, operadores independientes, red pública,
+custodia móvil ni wallet omnichain completa.
+
 ## Tron: build nuevo y aceptación candidata rechazada
 
 ```sh

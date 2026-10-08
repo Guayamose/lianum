@@ -12,7 +12,7 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
 | 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
 | 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada desde el DOM con siete pruebas, además del perfil SDK/HTTP. | Conexión a móvil y recuperación tras pérdida de keeper/nodo. |
-| 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados; retirada privada Bitcoin completada dentro del ensayo conjunto rechazado con siete pruebas. El primer recorrido CBTC → entrega SOL completó 15/16 pruebas, incluida salida EVM del solver, antes de fallar su solicitud de payout Bitcoin; identificador corregido con regresión. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada de payout Solana, aceptar ocho pruebas y repetir el recorrido combinado completo; finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
+| 4. Redes y operaciones combinadas | Ingreso y solver BTC/SOL aceptados. Recorrido CBTC → entrega SOL aceptado con 16 pruebas nuevas, grafo FULFILLED y retiradas Bitcoin de 80.000/20.000 satoshis descargadas; respuesta perdida y duplicados sin otro pago. Tron produce consenso y un broadcast, pero su aceptación falla. | Resolver autorización caducada del payout Solana del round trip de ocho pruebas; recuperación tras pérdida de nodos/custodia, finalidad/cierre Tron y stacks propios de Base/Arbitrum/BNB. |
 | 5. DeFi | Protocolos oficiales Uniswap V3 y MetaMorpho; nota privada, EXIT y redención MetaMorpho aceptados. El nuevo recorrido de entrada privada y salida por ambos protocolos pasa con cuatro D27/W39 genuinas, incluido reinicio y respuesta de redención perdida sin duplicación. | Integrar PAEG/grafo y posiciones; pérdida de keeper/nodo, Aave/Morpho/Jupiter y composición entre redes. |
 | 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. APK Android debug construido y verificado. Cuenta original vinculada V2 con diagnóstico/reconciliación y 85 checks host aprobados. | Aceptar V2 sobre un laboratorio genuino, TLS/vinculación operativa, workers, saldo privado real, aceptación física al final, recuperación móvil y operación de producción. |
 
@@ -149,7 +149,20 @@ CBTC sí se minó; después falló su solicitud de redención por un identificad
 generó su CO42. La corrección omite el ID opcional y conserva el hash determinista
 del controlador original; pasan dos regresiones antes de estado/RPC. Se han
 verificado las 15 pruebas, fuentes intactas, 141 identidades ausentes y cuatro
-locks liberados. Es necesario otro intento completo con estado y claves nuevos.
+locks liberados. Ese rechazo permanece conservado.
+
+El segundo intento combinado, `67ca1114-cb94-4f87-9041-1cd7b7e62e82`, queda
+**aceptado y cerrado** sobre `759d732`: 16 pruebas genuinas nuevas, entrega SOL
+de 1.000.000 lamports, grafo FULFILLED y redenciones Bitcoin de 80.000/20.000
+satoshis DISCHARGED, sin pagos duplicados. Termina con supply y obligaciones
+a cero. La auditoría independiente comprobó los recibos, 399 fuentes, 20 archivos
+API y 11 de vendor; 219 procesos originales y cuatro locks quedaron ausentes.
+Se retiraron scratch, wallets, claves y ledgers sintéticos sin cierre forzado.
+Solana conserva `nativeOrderlyExit=false` y `nativeStopFailure=null`.
+Duró 44 min 09,978 s; es una aceptación local, sin operadores independientes,
+red pública, descubrimiento de precio ni pérdida de keeper/nodos. Ambos pagos
+Bitcoin usan el destinatario fijo del runtime de custodia. Este grafo no resuelve
+el payout de custodia Solana rechazado en el ensayo anterior de ocho pruebas.
 
 Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
 Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica la
