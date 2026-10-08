@@ -65,7 +65,7 @@ export function assertCombinedGraphBinding(token, binding) {
   assertCombinedOperatorLive(token);
   const claim = original(token).branches.get('claim');
   assert.ok(claim, 'COMBINED_OPERATOR_CLAIM_REQUIRED');
-  claim.assertGraphBinding(binding);
+  return claim.assertGraphBinding(binding);
 }
 export async function assertCombinedClaimCoverage(token, binding, head) {
   assertCombinedGraphBinding(token, binding);

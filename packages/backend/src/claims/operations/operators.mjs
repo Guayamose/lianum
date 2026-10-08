@@ -1508,6 +1508,14 @@ function createClaimOperator(input, custody) {
           assert.ok(!custodyEndpoints.has(route.sourceEndpoint), 'COMBINED_OPERATOR_GRAPH_SOURCE_IS_CUSTODY');
         }
       }
+      // Only this original CLAIM branch has authenticated the USDC custody
+      // rule on the same validator. GRAPH remains native BTC/SOL; its paths
+      // still cover the complete three-asset registry and all unused leaves.
+      if (bound.nativeRuntimes.some(isOwnedSolanaSplCustodyV1)) {
+        equal(binding.rules, [bound.policies[0].rule, bound.graphSolanaRule], 'COMBINED_OPERATOR_SPL_NATIVE_GRAPH_RULES');
+        return freeze(copy(bound.registeredRules));
+      }
+      return null;
     },
     assertCoverage: expectedHead => serial(async () => {
       const report = await audit(); assertReconciledCoverage(report);

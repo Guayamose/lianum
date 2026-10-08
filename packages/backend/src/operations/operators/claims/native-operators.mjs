@@ -474,11 +474,19 @@ function createFlatOperator(input, custody, recovered = null) {
         equal(system.registry.keys[signerIndex], publicKey);
         assert.equal(new Set(families).size, families.length, 'FLAT_OPERATOR_DUPLICATE_FAMILY');
         rules.forEach(nativeRuleCommitment);
-        // Membership alone admits an omitted registered family. Reconstruct the
-        // full fixed eight-leaf registry, including its zero unused leaves.
-        const completeTree = nativeAdmissionRulesTree(rules);
+        // A combined SPL attester's original CLAIM branch covers USDC custody
+        // separately from native SOL GRAPH. No caller-selected registered set
+        // is accepted; standalone and legacy bindings still require all rules.
+        const registeredRules = (custody ? assertCombinedGraphBinding(custody,
+          { runtime, system, bitcoin, solana, rules }) : null) ?? rules;
+        const completeTree = nativeAdmissionRulesTree(registeredRules);
         assert.equal(completeTree.root, system.registry.rulesRoot, 'FLAT_OPERATOR_INCOMPLETE_REGISTERED_RULES');
-        equal(rulePaths, completeTree.paths);
+        const commitments = registeredRules.map(nativeRuleCommitment);
+        const graphPaths = rules.map(rule => {
+          const index = commitments.indexOf(nativeRuleCommitment(rule));
+          assert.ok(index >= 0, 'FLAT_OPERATOR_UNREGISTERED_GRAPH_RULE'); return completeTree.paths[index];
+        });
+        equal(rulePaths, graphPaths);
         paths = Object.fromEntries(families.map((family, i) => [family, rulePaths[i]]));
         if (families.includes('1')) {
           assertOwnedBitcoinRuntime(bitcoin);
