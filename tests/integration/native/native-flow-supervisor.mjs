@@ -1,3 +1,6 @@
+import {jupiterOrcaPublicSwapSourcePinsV1} from '../chains/solana/jupiter-orca-public-swap-source-pins-v1.mjs';
+import {JUPITER_SWAP_RESULT_V1,assertJupiterOrcaPublicSwapResultV1,jupiterOrcaSwapProcessFailureV1} from '../chains/solana/jupiter-orca-public-swap-policy-v1.mjs';
+import {assertJupiterPublicFixtureSourceReviewV1,assertJupiterPublicSwapSourceReviewV1} from '../../../packages/backend/src/operations/deployments/defi/jupiter-official-material-v1.mjs';
 import {aaveCompilationSourcePinsV1} from '../chains/evm/aave-compilation-source-pins-v1.mjs';
 import {AAVE_COMPILATION_RESULT_V1,assertAaveCompilationResultV1,aaveCompilationProcessFailureV1} from '../chains/evm/aave-compilation-policy-v1.mjs';
 import {aavePrivateGraphSourcePinsV1} from '../chains/evm/aave-private-graph-source-pins-v1.mjs';
@@ -80,6 +83,12 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  jupiterOrcaPublicSwapV1:Object.freeze({
+    entry:join(ROOT,'integration/run-jupiter-orca-public-swap-v1.mjs'),worker:join(ROOT,'integration/jupiter-orca-public-swap-worker-v1.mjs'),
+    local:join(ROOT,'.local/jupiter-orca-public-swap-v1'),resultFormat:JUPITER_SWAP_RESULT_V1,
+    resourcesFormat:'LIANUM_JUPITER_ORCA_PUBLIC_SWAP_RESOURCES_V1',lockFormat:'LIANUM_JUPITER_ORCA_PUBLIC_SWAP_LOCK_V1',attemptFormat:'LIANUM_JUPITER_ORCA_PUBLIC_SWAP_ATTEMPT_V1',
+    classification:'ONE_ORIGINAL_PUBLIC_JUPITER_ORCA_SWAP_NOT_PRIVATE_CREDIT',sourcePins:jupiterOrcaPublicSwapSourcePinsV1,cleanupKeys:Object.freeze(['closedSolana']),
+  }),
   evmAaveCompilationOnlyV1:Object.freeze({
     entry:join(ROOT,'integration/run-evm-aave-compilation-v1.mjs'),worker:join(ROOT,'integration/aave-compilation-worker-v1.mjs'),
     local:join(ROOT,'.local/evm-aave-compilation-only-v1'),resultFormat:AAVE_COMPILATION_RESULT_V1,
@@ -669,6 +678,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) scoped = assertJupiterOrcaPublicSwapResultV1(result);
   if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) scoped = assertAaveCompilationResultV1(result);
   if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
@@ -904,6 +914,11 @@ export async function runPrivateMetaMorphoSupervisor() {
 export async function runEvmVaultSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_VAULT_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.evmVault);
+}
+export async function runJupiterOrcaPublicSwapSupervisorV1(){
+  assert.equal(arguments.length,0,'JUPITER_SWAP_SUPERVISOR_NO_OPTIONS');
+  assertJupiterPublicFixtureSourceReviewV1();assertJupiterPublicSwapSourceReviewV1();
+  return runFixedFlowSupervisor(FLOW_PROFILES.jupiterOrcaPublicSwapV1);
 }
 export async function runEvmAaveCompilationSupervisorV1(){
   assert.equal(arguments.length,0,'AAVE_COMPILATION_SUPERVISOR_NO_OPTIONS');
@@ -1217,6 +1232,10 @@ async function runFixedFlowSupervisor(profile) {
       const sample = resources(); recordSample(sample);
       const reason = nativeResourceFailure(sample);
       if (reason) stop(reason, {}, sample);
+      if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) {
+        const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
+        if(forbidden)stop(forbidden,{},sample);
+      }
       if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
         const forbidden = aaveCompilationProcessFailureV1([...history.values()]);
         if(forbidden)stop(forbidden,{},sample);
@@ -1304,6 +1323,10 @@ async function runFixedFlowSupervisor(profile) {
       if (profile === FLOW_PROFILES.wrappedWalletFixedPreflight || profile === FLOW_PROFILES.wrappedDeploymentOnly) {
         const forbidden = nativeWalletUnfundedProcessFailure([...history.values()]) || ([...history.values()].some(p => p.proofWorker || p.role === 'wrapped-claim-proof-role') ? 'WRAPPED_PREFLIGHT_PROOF_FORBIDDEN' : null);
         if (forbidden) fail(forbidden);
+      }
+      if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) {
+        const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
+        if(forbidden)fail(forbidden);
       }
       if (profile === FLOW_PROFILES.evmAaveCompilationOnlyV1) {
         const forbidden = aaveCompilationProcessFailureV1([...history.values()]);

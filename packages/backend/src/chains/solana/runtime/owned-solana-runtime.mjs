@@ -80,8 +80,10 @@ import { ownedCustodyRoute, assertOwnedCustodyIntent, ownedCustodyFeeAudit, crea
   auditOwnedSolanaNonceInfrastructure } from '../../shared/runtime/owned-native-custody.mjs';
 import { sendOwnedSolanaTransaction } from '../transfers/owned-solana-send.mjs';
 import { readOwnedSolanaSocketInodes } from './owned-solana-socket-inodes.mjs';
-import {assertJupiterPublicFixtureSourceReviewV1,loadJupiterOfficialMaterialV1} from '../../../operations/deployments/defi/jupiter-official-material-v1.mjs';
+import {assertJupiterPublicFixtureSourceReviewV1,assertJupiterPublicSwapSourceReviewV1,loadJupiterOfficialMaterialV1} from '../../../operations/deployments/defi/jupiter-official-material-v1.mjs';
 import {jupiterPublicBankGenesisV1,validateJupiterPublicBankAccountsV1,JUPITER_BANK_CLOCK_V1} from './jupiter-orca-bank-state-v1.mjs';
+import {JUPITER_ORCA_V1,quoteJupiterOrcaSolUsdcV1,encodeJupiterOrcaFixtureMessageV1,validateJupiterOrcaFixtureTransactionV1,decodeJupiterSplTokenAccountV1} from '../dispatch/jupiter-orca-route-codec-v1.mjs';
+import {validateJupiterOrcaSwapObservationV1} from '../observations/jupiter-orca-swap-observation-v1.mjs';
 export const SOLANA_CUSTODY_PROFILE = 'OWNED_FLAT_SOLANA_CUSTODY_V1';
 // Candidate protocol identity only; not proof-profile activation or send authority.
 export const SOLANA_NONCE_INGRESS_PROFILE = 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3';
@@ -508,7 +510,7 @@ function restoreSolanaKeyV1(row,role){
 async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false) {
   requireCondition(!jupiterPublic||(!cohort&&!custody&&!combined&&!recovery),'JUPITER_BANK_FIXED_PROFILE');
   const jupiterMaterial=jupiterPublic?loadJupiterOfficialMaterialV1():null;
-  let jupiterGenesisRows=null,jupiterGenesisFiles=null;
+  let jupiterGenesisRows=null,jupiterGenesisFiles=null,jupiterCurrentRows=null;
   // Load once before any native operation; never yield to import at a send boundary.
   const payoutController = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
   const originalKeyControllerV4 = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
@@ -672,6 +674,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     }
     if(jupiterPublic){
       jupiterGenesisRows=jupiterPublicBankGenesisV1(jupiterMaterial,keys.solver.address,keys.jupiterSource.address,keys.jupiterDestination.address);
+      jupiterCurrentRows=jupiterGenesisRows;
       jupiterGenesisFiles=[];
       for(const [index,row] of jupiterGenesisRows.entries()){
         const path=join(cwd,'jupiter-public-account-'+index+'.json'),raw=Buffer.from(JSON.stringify(row.json));
@@ -1617,7 +1620,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         const response=await read('getMultipleAccounts',[[...jupiterGenesisRows.map(row=>row.address),JUPITER_BANK_CLOCK_V1],
           {commitment:'finalized',minContextSlot:minimum,encoding:'base64'}]);
         requireCondition(contextSlot(response)>=BigInt(minimum),'JUPITER_BANK_CONTEXT_ROLLBACK');
-        const observed=validateJupiterPublicBankAccountsV1(jupiterGenesisRows,response),slot=Number(observed.slot);
+        const observed=validateJupiterPublicBankAccountsV1(jupiterCurrentRows,response),slot=Number(observed.slot);
         const blockOptions={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0};
         const block=await read('getBlock',[slot,blockOptions]);
         requireCondition(block&&Number.isSafeInteger(block.parentSlot)&&block.parentSlot<slot,'JUPITER_BANK_CANONICAL_BLOCK');
@@ -1640,12 +1643,83 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       const initial=await inspectBank();
       metadata.classification='OWNED_JUPITER_ORCA_PUBLIC_BANK_V1';
       delete metadata.receiptBinding;
-      metadata.signing='No native send exposed by the public bank facade; synthetic account keys only';
+      metadata.signing='One fixed public swap with ephemeral synthetic solver key; no customer/claim authority';
       metadata.publicMarket={commit:jupiterMaterial.commit,initialObservation:initial,genesisAccountCount:13,
         clockSnapshotLoaded:false,originalClaimLaneEnabled:false,privateCreditEstablished:false,
         swapExecutionEstablished:false,locallyCompiledProgramEstablished:false,publicNetwork:false};
-      const bank=Object.freeze({profile:'OWNED_JUPITER_ORCA_PUBLIC_BANK_V1',inspect:inspectBank,
-        get metadata(){return cloneInput(metadata);},close});
+      let swapAttempted=false,swapRecord=null;
+      async function observeFixedSwap(){
+        requireCondition(!observationBusy,'JUPITER_SWAP_OBSERVATION_BUSY');observationBusy=true;
+        try{
+          await healthy();if(!swapRecord)return frozenInput({status:'unavailable',broadcastAttempts:0,privateCreditEstablished:false});
+          const signature=swapRecord.signature,status=(await read('getSignatureStatuses',[[signature],{searchTransactionHistory:true}])).value[0];
+          if(!status||status.confirmationStatus!=='finalized')return frozenInput({status:'pending',signature,broadcastAttempts:swapRecord.broadcastAttempts,privateCreditEstablished:false});
+          const transaction=await read('getTransaction',[signature,{encoding:'base64',commitment:'finalized',maxSupportedTransactionVersion:0}]);
+          requireCondition(transaction,'JUPITER_SWAP_ORIGINAL_HISTORY_REQUIRED');
+          const blockOptions={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0};
+          const block=await read('getBlock',[transaction.slot,blockOptions]),finalizedSlot=await read('getSlot',[{commitment:'finalized'}]);
+          const afterAccounts=await read('getMultipleAccounts',[jupiterGenesisRows.map(row=>row.address),
+            {commitment:'finalized',minContextSlot:transaction.slot,encoding:'base64'}]);
+          const observed=validateJupiterOrcaSwapObservationV1({intent:swapRecord.intent,nativeWire:swapRecord.nativeWire,genesis,
+            observedGenesis:await read('getGenesisHash'),status,transaction,block,finalizedSlot,beforeRows:jupiterGenesisRows,
+            afterAccounts,payerBefore:swapRecord.payerBefore,expectedFee:swapRecord.preparedFee});
+          requireCondition((await read('getBlock',[transaction.slot,blockOptions]))?.blockhash===block.blockhash,'JUPITER_SWAP_CANONICAL_BLOCK_CHANGED');
+          assert.deepEqual((await read('getSignatureStatuses',[[signature],{searchTransactionHistory:true}])).value[0],status,'JUPITER_SWAP_FINAL_STATUS_CHANGED');
+          const {updatedRows,...publicObservation}=observed;
+          const nativeEvidenceJSON=JSON.stringify({intent:swapRecord.intent,nativeWire:swapRecord.nativeWire,genesis,observedGenesis:genesis,
+            status,transaction,block,finalizedSlot,afterAccounts,payerBefore:swapRecord.payerBefore,expectedFee:swapRecord.preparedFee,
+            beforeRows:jupiterGenesisRows.map(({data,json,...row})=>({...row,data:data.toString('base64')}))});
+          if(!swapRecord.observation){
+            swapRecord.phase='OBSERVED_FINALIZED';swapRecord.observation=publicObservation;swapRecord.nativeEvidenceJSON=nativeEvidenceJSON;
+            await persistNative(swapRecord);jupiterCurrentRows=updatedRows;signingUnresolved=false;
+            metadata.publicMarket.swapExecutionEstablished=true;
+          }else{
+            const {finalizedSlot:originalFrontier,...original}=swapRecord.observation,{finalizedSlot:currentFrontier,...current}=publicObservation;
+            assert.deepEqual(current,original,'JUPITER_SWAP_ORIGINAL_OUTCOME_CHANGED');requireCondition(BigInt(currentFrontier)>=BigInt(originalFrontier),'JUPITER_SWAP_FINALITY_ROLLBACK');
+            assert.deepEqual(updatedRows.map(row=>[row.address,row.dataSHA256,row.lamports]),jupiterCurrentRows.map(row=>[row.address,row.dataSHA256,row.lamports]),'JUPITER_SWAP_POST_STATE_CHANGED');
+          }
+          await inspectBank();
+          return frozenInput({...publicObservation,broadcastAttempts:swapRecord.broadcastAttempts});
+        }finally{observationBusy=false;}
+      }
+      async function swapOnce(){
+        requireCondition(arguments.length===0,'JUPITER_SWAP_NO_OPTIONS');assertJupiterPublicSwapSourceReviewV1();
+        requireCondition(!busy&&!observationBusy,'JUPITER_SWAP_ORIGINAL_BUSY');
+        if(swapAttempted){requireCondition(swapRecord,'JUPITER_SWAP_ATTEMPT_ALREADY_FAILED_NO_REPLACEMENT');return observeFixedSwap();}
+        swapAttempted=true;busy=true;
+        try{
+          await inspectBank();const began=performance.now(),recent=await read('getLatestBlockhash',[{commitment:'confirmed'}]);
+          contextSlot(recent);base58Decode(recent.value.blockhash,32);
+          const reserves=address=>decodeJupiterSplTokenAccountV1(jupiterGenesisRows.find(row=>row.address===address).data).amount;
+          const quote=quoteJupiterOrcaSolUsdcV1(reserves(JUPITER_ORCA_V1.reserveSol),reserves(JUPITER_ORCA_V1.reserveUsdc));
+          const intent={payer:keys.solver.address,source:keys.jupiterSource.address,destination:keys.jupiterDestination.address,
+            blockhash:recent.value.blockhash,quotedOutput:quote.quotedOutput,minimumOutput:quote.minimumOutput};
+          const encoded=encodeJupiterOrcaFixtureMessageV1(intent.payer,intent.source,intent.destination,intent.blockhash,intent.quotedOutput);
+          const fee=await read('getFeeForMessage',[encoded.message.toString('base64'),{commitment:'confirmed',minContextSlot:Number(contextSlot(recent))}]);
+          requireCondition(Number.isSafeInteger(fee.value)&&fee.value>0,'JUPITER_SWAP_ORIGINAL_FEE');
+          const payerBefore=await balance(keys.solver.address);requireCondition(BigInt(payerBefore)>BigInt(fee.value),'JUPITER_SWAP_OWNED_GAS_FUNDS');
+          await inspectBank();const valid=await read('isBlockhashValid',[intent.blockhash,{commitment:'confirmed',minContextSlot:Number(contextSlot(recent))}]);
+          requireCondition(valid.value===true,'JUPITER_SWAP_ORIGINAL_BLOCKHASH');await healthy();
+          requireCondition(performance.now()-began<30000,'JUPITER_SWAP_ORIGINAL_KEY_BUDGET');
+          signingUnresolved=true;
+          const privateKey=createPrivateKey({key:Buffer.concat([PKCS8_ED25519,keys.solver.seed]),type:'pkcs8',format:'der'});
+          const signature=sign(null,encoded.message,privateKey),nativeWire=Buffer.concat([Buffer.from([1]),signature,encoded.message]).toString('base64');
+          const decoded=validateJupiterOrcaFixtureTransactionV1(nativeWire,intent);
+          swapRecord={nativeId:signature.toString('hex'),signature:decoded.signature,nativeWire,intent,payerBefore,preparedFee:String(fee.value),
+            transactionSHA256:decoded.transactionSHA256,messageSHA256:decoded.messageSHA256,phase:'SIGNED_NOT_BROADCAST',broadcastAttempts:0,
+            relation:'OFFICIAL_PUBLIC_JUPITER_ORCA_SWAP_NOT_PRIVATE_CREDIT'};
+          records.set(swapRecord.nativeId,swapRecord);await persistNative(swapRecord);
+          await inspectBank();await healthy();requireCondition(performance.now()-began<30000,'JUPITER_SWAP_ORIGINAL_BROADCAST_BUDGET');
+          swapRecord.phase='BROADCAST_UNKNOWN';swapRecord.broadcastAttempts=1;await persistNative(swapRecord);
+          await healthy();requireCondition(performance.now()-began<30000,'JUPITER_SWAP_ORIGINAL_BROADCAST_BUDGET');
+          try{requireCondition(await sendOwnedSolanaTransaction(endpoint,nativeWire)===decoded.signature,'JUPITER_SWAP_ORIGINAL_RPC_SIGNATURE');}
+          catch(error){swapRecord.transportFailure=/^[A-Z][A-Z0-9_]{2,160}$/.test(error?.message??'')?error.message:'JUPITER_SWAP_SEND_UNCERTAIN';await persistNative(swapRecord);}
+          return await observeFixedSwap();
+        }finally{busy=false;}
+      }
+      const bank=Object.freeze({profile:'OWNED_JUPITER_ORCA_PUBLIC_BANK_V1',inspect:inspectBank,swapOnce,
+        observeSwap:async function(){requireCondition(arguments.length===0&&!busy,'JUPITER_SWAP_OBSERVE_NO_OPTIONS_OR_BUSY');return observeFixedSwap();},
+        get swaps(){return cloneInput(swapRecord?[swapRecord]:[]);},get metadata(){return cloneInput(metadata);},close});
       ownedJupiterPublicBanksV1.add(bank);return bank;
     }
     function createFacade(custody) {

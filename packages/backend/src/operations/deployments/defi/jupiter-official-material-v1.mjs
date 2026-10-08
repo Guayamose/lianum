@@ -129,7 +129,9 @@ export const JUPITER_OFFICIAL_FILES_V1=Object.freeze([
     "sha256": "70d67f94991e09e079980e83ea24c305ad3756bbb4716fdcf4839e5e0a3743e4"
   }
 ]);
-export const JUPITER_PUBLIC_FIXTURE_SOURCE_REVIEW_V1=null;
+export const JUPITER_PUBLIC_FIXTURE_SOURCE_REVIEW_V1=Object.freeze({commit:JUPITER_OFFICIAL_COMMIT_V1,
+  program:JUPITER_OFFICIAL_PROGRAM_V1,dex:ORCA_OFFICIAL_PROGRAM_V1,pool:JUPITER_OFFICIAL_POOL_V1,localOnly:true,fakeFundsOnly:true,
+  recoveredArtifact:false,locallyCompiled:false,publicNetwork:false,privateCreditEstablished:false,fullWalletAcceptance:false});
 export function assertJupiterPublicFixtureSourceReviewV1(){
  assert.equal(arguments.length,0);assert.deepEqual(JUPITER_PUBLIC_FIXTURE_SOURCE_REVIEW_V1,{commit:JUPITER_OFFICIAL_COMMIT_V1,
   program:JUPITER_OFFICIAL_PROGRAM_V1,dex:ORCA_OFFICIAL_PROGRAM_V1,pool:JUPITER_OFFICIAL_POOL_V1,localOnly:true,fakeFundsOnly:true,
@@ -145,4 +147,17 @@ export function loadJupiterOfficialMaterialV1(){
  const variants=idl.types.find(row=>row.name==='Swap').type.variants;assert.equal(variants[3].name,'TokenSwap');assert.equal(variants[3].fields,undefined);
  for(const name of ['jupiter_v6.so','orca_v2.so']){const raw=files.get('jupiter-core/tests/fixtures/'+name);assert.equal(raw.subarray(0,4).toString('hex'),'7f454c46');assert.equal(raw[4],2);assert.equal(raw[5],1);assert.equal(raw.readUInt16LE(18),247,'JUPITER_SBF_ELF_REQUIRED');}
  return {directory,files,idl,commit:JUPITER_OFFICIAL_COMMIT_V1,privateCreditEstablished:false};
+}
+
+// A separate source review is required before the fixed public send. It does
+// not publish private credit, CI51 ingress, wallet or public-chain acceptance.
+export const JUPITER_PUBLIC_SWAP_SOURCE_REVIEW_V1=Object.freeze({profile:'JUPITER_ORCA_PUBLIC_SWAP_V1',commit:JUPITER_OFFICIAL_COMMIT_V1,
+  program:JUPITER_OFFICIAL_PROGRAM_V1,dex:ORCA_OFFICIAL_PROGRAM_V1,pool:JUPITER_OFFICIAL_POOL_V1,inputLamports:'10000000',slippageBps:50,
+  oneOriginalSignature:true,oneOriginalBroadcast:true,localOnly:true,fakeFundsOnly:true,publicNetwork:false,privateCreditEstablished:false,
+  systemMemoClaimLaneEnabled:false,fullWalletAcceptance:false});
+export function assertJupiterPublicSwapSourceReviewV1(){
+ assert.equal(arguments.length,0);assert.deepEqual(JUPITER_PUBLIC_SWAP_SOURCE_REVIEW_V1,{profile:'JUPITER_ORCA_PUBLIC_SWAP_V1',commit:JUPITER_OFFICIAL_COMMIT_V1,
+  program:JUPITER_OFFICIAL_PROGRAM_V1,dex:ORCA_OFFICIAL_PROGRAM_V1,pool:JUPITER_OFFICIAL_POOL_V1,inputLamports:'10000000',slippageBps:50,
+  oneOriginalSignature:true,oneOriginalBroadcast:true,localOnly:true,fakeFundsOnly:true,publicNetwork:false,privateCreditEstablished:false,
+  systemMemoClaimLaneEnabled:false,fullWalletAcceptance:false},'JUPITER_PUBLIC_SWAP_SOURCE_REVIEW_REQUIRED');
 }
