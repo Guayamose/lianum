@@ -1,0 +1,162 @@
+/** Portable client against explicit fetch responses; these examples carry no
+ * original account authority. Real paired HTTP has a separate integration. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
+  from '@lianum/mobile-protocol/original-account-v2';
+import { createOriginalAccountApiV2, normalizeOriginalAccountServiceV2 } from '../src/api/original-account-api-v2.mjs';
+import { devicePublicKey, signDeviceMessage } from '../src/custody/signing.mjs';
+import { originalAccountFramesV2 } from './helpers/original-account-frames-v2.mjs';
+const key = new Uint8Array(32).fill(11), device = devicePublicKey(key);
+const state = () => ({ version: 2, profile: 'PAIRED_ORIGINAL_ACCOUNT_SERVICE_V2', connection: 'PAIRED',
+  privatePortfolio: null, economicObservation: null, noteCustodyOnDevice: false,
+  nativeEffectsEstablished: false, actions: { read: true, reconcile: true } });
+function fixture(action = 'read') {
+  const { access, review } = originalAccountFramesV2({ devicePublicKey: device, action });
+  const descriptor = { origin: access.origin, pairingId: access.pairingId, devicePublicKey: device };
+  const admission = action === 'read' ? null : { version: 1, admitted: true, sequence: 2, action: 'reconcile',
+    requestId: review.binding.requestId, state: 'FAILED', errorCode: 'FLAT_ACCOUNT_OPERATION_FAILED' };
+  const diagnostic = { version: 2, profile: 'PAIRED_ORIGINAL_ACCOUNT_DIAGNOSTIC_V2', action,
+    binding: structuredClone(review.binding), admission, privatePortfolio: null, economicObservation: null,
+    noteCustodyOnDevice: false, nativeEffectsEstablished: false };
+  const responses = new Map([['state', state()], ['challenges', { challenge: access }],
+    ['reviews', { review }], ['diagnostics', diagnostic]]), calls = [];
+  let response = null;
+  const api = createOriginalAccountApiV2({ descriptor, fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    assert.equal(options.redirect, 'error'); assert.equal(options.credentials, 'omit');
+    assert.equal(options.cache, 'no-store'); assert.equal(options.headers.Origin, descriptor.origin);
+    assert.ok(options.signal instanceof AbortSignal);
+    return response ?? new Response(JSON.stringify(responses.get(url.split('/').at(-1))),
+      { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } });
+  } });
+  const signedAccess = { challenge: access, signature: signDeviceMessage(key, originalAccountAccessMessageV2(access)) };
+  const signedReview = { review, signature: signDeviceMessage(key, originalAccountReviewMessageV2(review)) };
+  return { api, access, review, diagnostic, signedAccess, signedReview, responses, calls,
+    setResponse: value => { response = value; } };
+}
+test('explicit descriptor and portable frames traverse only the diagnostic routes, without economic capabilities', async () => {
+  for (const action of ['read', 'reconcile']) {
+    const f = fixture(action);
+    assert.deepEqual(await f.api.state(), state());
+    assert.deepEqual(await f.api.challenge(action), f.access);
+    assert.deepEqual(await f.api.openReview(f.signedAccess), f.review);
+    assert.deepEqual(await f.api.submit(f.signedReview), f.diagnostic);
+    assert.deepEqual(f.calls.map(row => row.url.split('/').at(-1)), ['state', 'challenges', 'reviews', 'diagnostics']);
+    assert.equal(JSON.stringify(f.calls).includes('privateKey'), false);
+    assert.equal(f.diagnostic.privatePortfolio, null);
+  }
+});
+test('unbound/invalid descriptors, extra fields and execute/recover cannot issue any HTTP request', async () => {
+  for (const descriptor of [{}, { origin: 'http://127.0.0.1:8000', pairingId: '1'.repeat(64), devicePublicKey: device },
+    { origin: 'https://original.example', pairingId: 'bad', devicePublicKey: device }])
+    assert.throws(() => createOriginalAccountApiV2({ descriptor }));
+  const f = fixture();
+  for (const action of ['execute', 'recover', 'prepare']) await assert.rejects(f.api.challenge(action), /ORIGINAL_ACTION/);
+  await assert.rejects(f.api.openReview({ ...f.signedAccess, account: {} }), /ORIGINAL_REQUEST_INVALID/);
+  await assert.rejects(f.api.submit({ ...f.signedReview, callback() {} }), /ORIGINAL_REQUEST_INVALID/);
+  assert.equal(f.calls.length, 0);
+});
+test('substituted challenge origin, pairing, key or action is rejected before protected signing', async () => {
+  for (const changes of [{ origin: 'https://foreign.example' }, { pairingId: 'a2'.repeat(32) },
+    { devicePublicKey: devicePublicKey(new Uint8Array(32).fill(12)) }, { action: 'reconcile' }]) {
+    const f = fixture(); f.responses.set('challenges', { challenge: { ...f.access, ...changes } });
+    await assert.rejects(f.api.challenge('read'), /REVIEW_CHANGED/); assert.equal(f.calls.length, 1);
+  }
+});
+test('substituted review bootstrap/action/descriptor and expired inputs cannot advance to diagnostic POST', async () => {
+  for (const changes of [{ bootstrapChallengeId: 'a2'.repeat(32) }, { action: 'reconcile' },
+    { pairingId: 'a2'.repeat(32) }, { origin: 'https://foreign.example' }]) {
+    const f = fixture(); f.responses.set('reviews', { review: { ...f.review, ...changes } });
+    await assert.rejects(f.api.openReview(f.signedAccess), /REVIEW_CHANGED/); assert.equal(f.calls.length, 1);
+  }
+  const f = fixture();
+  await assert.rejects(f.api.openReview({ ...f.signedAccess, challenge: { ...f.access, expiresAt: Date.now() - 1 } }), /ORIGINAL_EXPIRED/);
+  await assert.rejects(f.api.submit({ ...f.signedReview, review: { ...f.review, expiresAt: Date.now() - 1 } }), /ORIGINAL_EXPIRED/);
+  assert.equal(f.calls.length, 0);
+});
+test('a diagnostic may update request stage but cannot substitute original lifetime/terms/submission or project balances', async () => {
+  for (const change of [value => { value.binding.originalAccountLifetime = 'a2'.repeat(32); },
+    value => { value.binding.requestId = 'replacement_request_0051'; }, value => { value.binding.amountAtomic = '101'; },
+    value => { value.binding.asset.symbol = 'SOL'; }, value => { value.binding.journalRevision--; },
+    value => { value.binding.observedProcessGeneration--; },
+    value => { value.binding.submission.transactionHash = 'a2'.repeat(32); },
+    value => { value.privatePortfolio = []; }, value => { value.nativeEffectsEstablished = true; }]) {
+    const f = fixture('reconcile'); change(f.diagnostic);
+    await assert.rejects(f.api.submit(f.signedReview), /REVIEW_CHANGED|ORIGINAL_RESPONSE_INVALID/);
+    assert.equal(f.calls.length, 1);
+  }
+  const f = fixture('reconcile'); f.diagnostic.binding.requestState = 'CONFIRMED';
+  f.diagnostic.binding.authorityStage = 'CONFIRMED'; f.diagnostic.binding.journalRevision++;
+  f.diagnostic.admission.state = 'SUCCEEDED'; f.diagnostic.admission.errorCode = null;
+  const value = await f.api.submit(f.signedReview);
+  assert.equal(value.binding.requestState, 'CONFIRMED'); assert.equal(value.privatePortfolio, null);
+  assert.equal(value.economicObservation, null); assert.equal(value.nativeEffectsEstablished, false);
+});
+test('permission admission must retain the original request and queue state; it never becomes economic confirmation', async () => {
+  for (const changes of [{ admitted: false }, { version: 2 }, { requestId: 'replacement_request_0051' },
+    { action: 'execute' }, { state: 'CONFIRMED' }, { state: 'SUCCEEDED', errorCode: 'BAD' },
+    { state: 'FAILED', errorCode: null }, { sequence: 0 }, { callback: 'extra' }]) {
+    const f = fixture('reconcile'); Object.assign(f.diagnostic.admission, changes);
+    await assert.rejects(f.api.submit(f.signedReview), /ORIGINAL_RESPONSE_INVALID/);
+  }
+  const f = fixture(); f.diagnostic.admission = { version: 1, admitted: true };
+  await assert.rejects(f.api.submit(f.signedReview), /ORIGINAL_RESPONSE_INVALID/);
+  assert.throws(() => normalizeOriginalAccountServiceV2({ ...state(), economicObservation: 'CONFIRMED' }), /RESPONSE_INVALID/);
+});
+test('diagnostics never regress an initiated or terminal original request even at a newer journal revision', async () => {
+  for (const [beforeRequest, beforeAuthority, afterRequest, afterAuthority] of [
+    ['UNKNOWN', 'UNKNOWN', 'PREPARED', 'UNKNOWN'], ['UNKNOWN', 'UNKNOWN', 'UNKNOWN', 'READY'],
+    ['CONFIRMED', 'CONFIRMED', 'UNKNOWN', 'CONFIRMED'], ['CONFIRMED', 'CONFIRMED', 'CONFIRMED', 'UNKNOWN'],
+  ]) {
+    const f = fixture('reconcile');
+    f.review.binding.requestState = beforeRequest; f.review.binding.authorityStage = beforeAuthority;
+    f.signedReview.signature = signDeviceMessage(key, originalAccountReviewMessageV2(f.review));
+    f.diagnostic.binding.requestState = afterRequest; f.diagnostic.binding.authorityStage = afterAuthority;
+    f.diagnostic.binding.journalRevision++;
+    await assert.rejects(f.api.submit(f.signedReview), /REVIEW_CHANGED/);
+    assert.equal(f.calls.length, 1);
+  }
+});
+test('redirects, foreign URLs, oversized/non-JSON/error responses reject without transport retry', async () => {
+  for (const response of [
+    { redirected: true, url: '', headers: new Headers(), ok: true, text: async () => '{}' },
+    { redirected: false, url: 'https://foreign.example', headers: new Headers(), ok: true, text: async () => '{}' },
+    new Response('{}', { headers: { 'content-type': 'text/html' } }),
+    new Response('{}', { headers: { 'content-type': 'application/json', 'content-length': '16385' } }),
+    new Response('x'.repeat(16385), { headers: { 'content-type': 'application/json' } }),
+    new Response('{}', { status: 503, headers: { 'content-type': 'application/json' } }),
+  ]) {
+    const f = fixture(); f.setResponse(response);
+    await assert.rejects(f.api.state()); assert.equal(f.calls.length, 1);
+  }
+});
+test('chunked or falsely short responses stop at the byte limit and cancel only their response stream', async () => {
+  for (const declared of [null, '1']) {
+    let reads = 0, cancelled = 0;
+    const stream = new ReadableStream({ pull(controller) { reads++; controller.enqueue(new Uint8Array(4096).fill(120)); },
+      cancel() { cancelled++; } }, { highWaterMark: 0 });
+    const headers = { 'content-type': 'application/json' };
+    if (declared !== null) headers['content-length'] = declared;
+    const f = fixture(); f.setResponse(new Response(stream, { headers }));
+    await assert.rejects(f.api.state(), /ORIGINAL_RESPONSE_INVALID/);
+    assert.equal(reads, 5); assert.equal(cancelled, 1); assert.equal(f.calls.length, 1);
+  }
+});
+test('a missing streaming body is rejected rather than calling an unbounded text adapter', async () => {
+  const f = fixture(); let textCalls = 0;
+  f.setResponse({ ok: true, redirected: false, url: '', headers: new Headers({ 'content-type': 'application/json' }),
+    body: null, text: async () => { textCalls++; return JSON.stringify(state()); } });
+  await assert.rejects(f.api.state(), /ORIGINAL_STREAM_REQUIRED/);
+  assert.equal(textCalls, 0); assert.equal(f.calls.length, 1);
+});
+test('a quiet response stream expires even if its transport ignores abort or cancel never resolves', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let cancelled = 0;
+  const stream = new ReadableStream({ pull() {}, cancel() { cancelled++; return new Promise(() => {}); } }, { highWaterMark: 0 });
+  const f = fixture(); f.setResponse(new Response(stream, { headers: { 'content-type': 'application/json' } }));
+  const pending = assert.rejects(f.api.state(), /SERVICE_UNAVAILABLE/);
+  await Promise.resolve(); await Promise.resolve();
+  t.mock.timers.tick(15_000); await pending;
+  assert.equal(cancelled, 1); assert.equal(f.calls.length, 1); assert.equal(f.calls[0].options.signal.aborted, true);
+});
