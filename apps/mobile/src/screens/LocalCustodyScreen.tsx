@@ -1,25 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createLocalRootNoteOperationV1, inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1,
-  type LocalPreparedNoteSummaryV1, type LocalRootNoteInspectionV1 } from '../custody/local-root-note-vault-v1';
+  type LocalDepositReviewV1, type LocalDepositSignatureV1, type LocalPreparedNoteSummaryV1, type LocalRootNoteInspectionV1 } from '../custody/local-root-note-vault-v1';
 
 function Button({ label, onPress, disabled = false }: { label: string; onPress(): void; disabled?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled}
     onPress={onPress} style={[styles.button, disabled && styles.disabled]}><Text style={styles.buttonText}>{label}</Text></Pressable>;
 }
 const initial = 'Custodia local de preparación. No financia notas ni habilita gastos.';
+const emptyNote = { scope: '', policy: '', pool: '', recipient: '', amount: '' };
+const noteFields = [['scope', 'Scope HEX (32 bytes)'], ['policy', 'Policy HEX (32 bytes)'],
+  ['pool', 'Pool de contexto HEX (20 bytes)'], ['recipient', 'Destinatario de contexto HEX (20 bytes)'],
+  ['amount', 'Importe atómico de la nota preparada']] as const;
 export default function LocalCustodyScreen() {
   const [inspection, setInspection] = useState<LocalRootNoteInspectionV1 | null>(null);
   const [prepared, setPrepared] = useState<LocalPreparedNoteSummaryV1 | null>(null);
   const [readback, setReadback] = useState(false);
   const [backup, setBackup] = useState(''), [backupInput, setBackupInput] = useState('');
   const [rootInput, setRootInput] = useState(''), [revisionInput, setRevisionInput] = useState('');
+  const [noteForm, setNoteForm] = useState(emptyNote);
+  const [relation, setRelation] = useState<'D26' | 'D27'>('D26');
+  const [epochInput, setEpochInput] = useState(''), [fromInput, setFromInput] = useState(''), [untilInput, setUntilInput] = useState('');
+  const [depositReview, setDepositReview] = useState<LocalDepositReviewV1 | null>(null);
+  const [signed, setSigned] = useState<LocalDepositSignatureV1 | null>(null), [accepted, setAccepted] = useState(false);
+  const reviewRef = useRef<LocalDepositReviewV1 | null>(null), acceptedRef = useRef(false);
+  const reviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [notice, setNotice] = useState(initial), [busy, setBusy] = useState(false);
   const busyRef = useRef(false), mounted = useRef(true), epoch = useRef(0);
   const vault = useRef<ReturnType<typeof openLocalRootNoteVaultV1> | null>(null);
   const operation = useRef<ReturnType<typeof createLocalRootNoteOperationV1> | null>(null);
   const visible = (generation: number) => mounted.current && epoch.current === generation && AppState.currentState === 'active';
+  function discardDeposit() {
+    vault.current?.close(); vault.current = null; reviewRef.current = null; acceptedRef.current = false;
+    if (reviewTimer.current !== null) clearTimeout(reviewTimer.current); reviewTimer.current = null;
+    setDepositReview(null); setSigned(null); setAccepted(false);
+  }
   function hide() {
+    discardDeposit(); setNoteForm(emptyNote); setEpochInput(''); setFromInput(''); setUntilInput('');
     epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null;
     setBackup(''); setBackupInput(''); setRootInput(''); setRevisionInput('');
     setPrepared(null); setReadback(false);
@@ -27,7 +44,7 @@ export default function LocalCustodyScreen() {
   useEffect(() => {
     mounted.current = true;
     const listener = AppState.addEventListener('change', value => { if (value !== 'active') hide(); });
-    return () => { mounted.current = false; epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null; listener.remove(); };
+    return () => { mounted.current = false; if (reviewTimer.current !== null) clearTimeout(reviewTimer.current); reviewRef.current = null; acceptedRef.current = false; epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null; listener.remove(); };
   }, []);
   async function run(work: (generation: number) => Promise<void>) {
     if (busyRef.current || AppState.currentState !== 'active') return;
@@ -55,6 +72,7 @@ export default function LocalCustodyScreen() {
           : 'No hay metadatos de custodia. Crear una raíz no sustituirá otra raíz existente.');
   }
   async function read(generation: number) {
+    discardDeposit();
     if (!inspection?.rootId || inspection.status !== 'ACTIVE') return;
     vault.current?.close(); const capability = openLocalRootNoteVaultV1(inspection.rootId); vault.current = capability;
     try {
@@ -63,6 +81,7 @@ export default function LocalCustodyScreen() {
     } finally { capability.close(); if (vault.current === capability) vault.current = null; }
   }
   async function exportBackup(generation: number) {
+    discardDeposit();
     if (!inspection?.rootId || inspection.status !== 'ACTIVE') return;
     vault.current?.close(); const capability = openLocalRootNoteVaultV1(inspection.rootId); vault.current = capability;
     try {
@@ -109,6 +128,53 @@ export default function LocalCustodyScreen() {
       if (visible(generation)) setNotice('La misma raíz ha recuperado el registro original. No se creó ni financió otra nota.');
     } finally { root = ''; capability.close(); if (operation.current === capability) operation.current = null; }
   }
+  async function prepareNote(generation: number) {
+    if (!inspection?.rootId || inspection.status !== 'ACTIVE' || !readback || prepared) return;
+    discardDeposit();
+    const capability = openLocalRootNoteVaultV1(inspection.rootId); vault.current = capability;
+    try {
+      const note = await capability.prepareUnissuedBalanceNote({ ...noteForm });
+      if (!visible(generation)) return;
+      setPrepared(note); setReadback(true); await refresh(generation);
+      if (visible(generation)) setNotice('Apertura criptográfica local preparada y cifrada. Sigue UNISSUED; el importe no es saldo. Actualiza la copia de recuperación.');
+    } finally { capability.close(); if (vault.current === capability) vault.current = null; }
+  }
+  async function reviewDeposit(generation: number) {
+    if (!inspection?.rootId || inspection.status !== 'ACTIVE' || !prepared) return;
+    discardDeposit(); const capability = openLocalRootNoteVaultV1(inspection.rootId); vault.current = capability;
+    try {
+      const review = await capability.reviewPreparedDeposit(relation === 'D26'
+        ? { relation: 'D26', epoch: epochInput } : { relation: 'D27', validFrom: fromInput, validUntil: untilInput });
+      if (!visible(generation)) { capability.close(); return; }
+      reviewRef.current = review; setDepositReview(review); setPrepared(review.note);
+      reviewTimer.current = setTimeout(hide, Math.max(0, review.expiresAt - Date.now()));
+      setNotice('Revisa los términos originales. La autorización caduca en 15 segundos y no financia ni envía nada.');
+    } catch (error) { capability.close(); if (vault.current === capability) vault.current = null; throw error; }
+  }
+  async function signDeposit(generation: number, original: LocalDepositReviewV1) {
+    const capability = vault.current;
+    if (!capability || reviewRef.current !== original || !acceptedRef.current || !visible(generation)) return;
+    acceptedRef.current = false; setAccepted(false);
+    try {
+      const result = await capability.signPreparedDeposit(original);
+      if (!visible(generation)) return;
+      setSigned(result); await refresh(generation);
+      if (visible(generation)) setNotice('Firma local emitida sólo para este término. La nota continúa UNISSUED y no se envió a la red. Actualiza la copia; un backup anterior no ofrece protección antirollback.');
+    } finally { capability.close(); if (vault.current === capability) vault.current = null; }
+  }
+  function confirmDeposit() {
+    const original = reviewRef.current, generation = epoch.current;
+    if (!original || !acceptedRef.current || !visible(generation)) return;
+    Alert.alert('Firmar el depósito local ' + original.choice.relation,
+      'Raíz: ' + original.rootId + '\nNota: ' + original.note.commitment
+      + '\nImporte atómico: ' + original.note.amount + '\nTérminos firmados: ' + JSON.stringify(original.statement)
+      + '\nSe guardará el intento exacto antes de firmar. No autoriza un gasto, no crea saldo y no envía datos. La restricción del intento sólo es local.', [
+        { text: 'Cancelar', style: 'cancel', onPress: discardDeposit },
+        { text: 'Firmar con biometría', onPress: () => {
+          if (visible(generation) && reviewRef.current === original && acceptedRef.current) void run(value => signDeposit(value, original));
+        } },
+      ]);
+  }
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text style={styles.title}>Custodia local</Text>
     <Text style={styles.muted}>Raíz protegida y registro cifrado en este dispositivo, separados de la identidad que firma permisos HTTP. Esta preparación no habilita financiación ni gasto.</Text>
@@ -123,6 +189,41 @@ export default function LocalCustodyScreen() {
       <Button label="Leer registro con biometría" disabled={busy || inspection?.status !== 'ACTIVE'} onPress={() => { void run(read); }} />
       {readback && <Text style={styles.muted}>{prepared ? 'Hay una nota preparada UNISSUED. Su importe no se cuenta como dinero disponible.' : 'El registro autenticado está vacío.'}</Text>}
       {prepared && <Text selectable style={styles.value}>Compromiso de la nota preparada: {prepared.commitment}</Text>}
+    </View>
+    <View style={styles.card}><Text style={styles.heading}>Preparar una nota local</Text>
+      <Text style={styles.muted}>Sólo un registro UNISSUED. Los términos se introducen de forma explícita; no son un descubrimiento autenticado de contratos ni habilitan financiación.</Text>
+      {noteFields.map(([key, label]) => <View key={key}><Text style={styles.label}>{label}</Text>
+        <TextInput accessibilityLabel={label} style={styles.input} value={noteForm[key]} autoCapitalize="none" autoCorrect={false}
+          maxLength={key === 'amount' ? 20 : key === 'pool' || key === 'recipient' ? 40 : 64}
+          editable={!busy && prepared === null} onChangeText={value => { discardDeposit(); setNoteForm(current => ({ ...current, [key]: value })); }} />
+      </View>)}
+      <Button label="Preparar apertura local con biometría" disabled={busy || !readback || prepared !== null || inspection?.status !== 'ACTIVE'}
+        onPress={() => { void run(prepareNote); }} />
+    </View>
+    <View style={styles.card}><Text style={styles.heading}>Firma local de depósito</Text>
+      <Text style={styles.muted}>Una firma D26/D27 de la nota original, sin abrirla al backend. No genera prueba, financiación ni gasto. Pool y destinatario son contexto local; sólo se firman los campos originales del circuito.</Text>
+      <View style={{ flexDirection: 'row', gap: 12 }}><Button label="D26 · epoch" disabled={busy} onPress={() => { discardDeposit(); setRelation('D26'); }} />
+        <Button label="D27 · ventana absoluta" disabled={busy} onPress={() => { discardDeposit(); setRelation('D27'); }} /></View>
+      <Text style={styles.value}>Relación: {relation}</Text>
+      {relation === 'D26' ? <TextInput accessibilityLabel="Epoch original D26" value={epochInput} style={styles.input} editable={!busy} maxLength={20}
+        onChangeText={value => { discardDeposit(); setEpochInput(value); }} /> : <>
+        <TextInput accessibilityLabel="Inicio absoluto D27 (Unix segundos)" value={fromInput} style={styles.input} editable={!busy} maxLength={20}
+          onChangeText={value => { discardDeposit(); setFromInput(value); }} />
+        <TextInput accessibilityLabel="Fin exclusivo D27 (Unix segundos)" value={untilInput} style={styles.input} editable={!busy} maxLength={20}
+          onChangeText={value => { discardDeposit(); setUntilInput(value); }} /></>}
+      <Button label="Revisar término exacto con biometría" disabled={busy || prepared === null || inspection?.status !== 'ACTIVE'} onPress={() => { void run(reviewDeposit); }} />
+      {depositReview && <><Text selectable style={styles.value}>Raíz: {depositReview.rootId} · revisión {depositReview.revision}</Text>
+        <Text selectable style={styles.value}>Nota: {depositReview.note.commitment}</Text>
+        <Text selectable style={styles.value}>Pool local: {depositReview.note.pool} · destinatario local: {depositReview.note.recipient}</Text>
+        <Text selectable style={styles.value}>Término original: {JSON.stringify(depositReview.statement)}</Text>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} disabled={busy || signed !== null}
+          onPress={() => { const next = !acceptedRef.current; acceptedRef.current = next; setAccepted(next); if (!next) discardDeposit(); }}>
+          <Text style={styles.muted}>{accepted ? '☑' : '☐'} He revisado raíz, nota, scope, policy, importe y vigencia. Sólo autorizo esta firma local.</Text>
+        </Pressable>
+        <Button label="Confirmar firma exacta con biometría" disabled={busy || !accepted || signed !== null} onPress={confirmDeposit} />
+        <Button label="Cancelar revisión y cerrar" disabled={busy} onPress={discardDeposit} />
+      </>}
+      {signed && <Text selectable style={styles.value}>Resultado local (se oculta al caducar o salir): {JSON.stringify(signed)}</Text>}
     </View>
     <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
       <Text style={styles.muted}>Guarda el JSON completo, incluida la raíz HEX y el registro cifrado. La clave por sí sola no recupera un registro perdido. Actualiza la copia si cambia la revisión. Este formato no es una frase BIP39.</Text>

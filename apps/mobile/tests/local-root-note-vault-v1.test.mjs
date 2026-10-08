@@ -3,7 +3,7 @@
  * No Android/iOS, Hermes, biometric hardware, funded note or proof is accepted. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash, createCipheriv, createDecipheriv } from 'node:crypto';
+import { createHash, createCipheriv, createDecipheriv, createPublicKey, verify } from 'node:crypto';
 import { balanceCommitment, balanceDepositFrame, balanceWithdrawFrame }
   from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { depositIntentFrame } from '../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
@@ -125,7 +125,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['close', 'exportBackup', 'prepareUnissuedBalanceNote', 'readPreparedNote']);
+  assert.deepEqual(Object.keys(vault).sort(), ['close', 'exportBackup', 'prepareUnissuedBalanceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signPreparedDeposit']);
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -279,3 +279,79 @@ test('revocation during an original restore write retains its uncertain pointer 
   } finally { fresh.close(); }
 });
 test.after(() => { for (const key of nativeKeys) key.fill(0); store.clear(); });
+
+function notePublicKey(opening) {
+  return createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
+    x: Buffer.from(opening.x, 'hex').toString('base64url'), y: Buffer.from(opening.y, 'hex').toString('base64url') } });
+}
+test('D26 signs only its original review after durable encrypted intent; reopen reauthorizes exactly the same term', async () => {
+  reset(); const f = await createLocalRootNoteVaultV1(), cap = openLocalRootNoteVaultV1(f.rootId);
+  const prepared = await cap.prepareUnissuedBalanceNote(terms), review = await cap.reviewPreparedDeposit({ relation: 'D26', epoch: '7' });
+  assert.equal(review.rootId, f.rootId); assert.equal(review.revision, 1); assert.deepEqual(review.note, prepared);
+  assert.throws(() => cap.signPreparedDeposit({ ...review }), /REVIEW_INVALID/);
+  const signed = await cap.signPreparedDeposit(review), clear = rawClearRecord();
+  const frame = balanceDepositFrame(terms.scope, terms.policy, '7', '500', prepared.commitment);
+  assert.deepEqual(clear.note.depositIntent, { relation: 'D26', epoch: '7', frameSHA256: sha(frame).toString('hex') });
+  assert.equal(clear.revision, 2); assert.equal(signed.revision, 2); assert.equal(signed.status, 'UNISSUED');
+  assert.equal(signed.availableBalance, null); assert.equal(signed.nativeEffectsEstablished, false);
+  assert.equal(verify('sha256', frame, { key: notePublicKey(clear.note.opening), dsaEncoding: 'ieee-p1363' }, Buffer.from(signed.signature, 'hex')), true);
+  assert.ok(BigInt('0x' + signed.signature.slice(64)) <= 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n / 2n);
+  assert.equal(Object.hasOwn(signed, 'opening') || Object.hasOwn(signed, 'privateKey') || Object.hasOwn(signed, 'publicKey'), false);
+  assert.throws(() => cap.signPreparedDeposit(review), /REVIEW_INVALID/);
+  cap.close(); const reopened = openLocalRootNoteVaultV1(f.rootId), writes = calls.filter(x => x.method === 'write').length;
+  const repeated = await reopened.signPreparedDeposit(await reopened.reviewPreparedDeposit({ relation: 'D26', epoch: '7' }));
+  assert.equal(repeated.signature, signed.signature); assert.equal(repeated.revision, 2);
+  assert.equal(calls.filter(x => x.method === 'write').length, writes);
+  await assert.rejects(reopened.reviewPreparedDeposit({ relation: 'D26', epoch: '8' }), /INTENT_CONFLICT/);
+  await assert.rejects(reopened.reviewPreparedDeposit({ relation: 'D27', validFrom: '0', validUntil: '99' }), /INTENT_CONFLICT/);
+  assert.equal(rawClearRecord().note.commitment, prepared.commitment);
+});
+test('D27 uses original absolute-window bytes and lowS key without exposing opening; cancel/cross-capability/expiry refuse signing', async () => {
+  reset(); const f = await createLocalRootNoteVaultV1(), cap = openLocalRootNoteVaultV1(f.rootId);
+  const prepared = await cap.prepareUnissuedBalanceNote(terms);
+  const choice = { relation: 'D27', validFrom: '0', validUntil: '18446744073709551615' };
+  let review = await cap.reviewPreparedDeposit(choice);
+  const other = openLocalRootNoteVaultV1(f.rootId);
+  assert.throws(() => other.signPreparedDeposit(review), /REVIEW_INVALID/); other.close();
+  const now = Date.now; Date.now = () => review.expiresAt;
+  try { assert.throws(() => cap.signPreparedDeposit(review), /REVIEW_INVALID/); } finally { Date.now = now; }
+  review = await cap.reviewPreparedDeposit(choice); control.consent = false;
+  await assert.rejects(cap.signPreparedDeposit(review), /AUTHENTICATION_CANCELLED/);
+  assert.equal(rawClearRecord().note.depositIntent, undefined);
+  assert.throws(() => cap.signPreparedDeposit(review), /REVIEW_INVALID/);
+  control.consent = true; review = await cap.reviewPreparedDeposit(choice);
+  const signed = await cap.signPreparedDeposit(review), clear = rawClearRecord();
+  const statement = { scope: terms.scope, policy: terms.policy, validFrom: choice.validFrom,
+    validUntil: choice.validUntil, amount: terms.amount, output: prepared.commitment };
+  assert.deepEqual(signed.statement, statement);
+  const frame = depositIntentFrame(statement); assert.equal(frame.length, 176);
+  assert.equal(verify('sha256', frame, { key: notePublicKey(clear.note.opening), dsaEncoding: 'ieee-p1363' }, Buffer.from(signed.signature, 'hex')), true);
+  assert.deepEqual(clear.note.depositIntent, { ...choice, frameSHA256: sha(frame).toString('hex') });
+  assert.equal(await cap.readPreparedNote().then(x => x.status), 'UNISSUED');
+});
+test('closing before intent set prevents writes; closing after original set preserves uncertain intent without any signature', async () => {
+  reset(); let f = await createLocalRootNoteVaultV1(), cap = openLocalRootNoteVaultV1(f.rootId);
+  await cap.prepareUnissuedBalanceNote(terms); let review = await cap.reviewPreparedDeposit({ relation: 'D26', epoch: '7' });
+  const original = new Map(store); let resume, entered;
+  const held = new Promise(resolve => { resume = resolve; }), barrier = new Promise(resolve => { entered = resolve; });
+  control.pausedEncrypt = async () => { entered(); await held; };
+  const pending = cap.signPreparedDeposit(review), settled = pending.then(() => { throw new Error('PREMATURE_SIGNING_SUCCESS'); }, error => { throw error; });
+  // Attach the rejection handler now, before the barrier can finish prematurely.
+  const observed = settled.then(value => ({ value }), error => ({ error }));
+  try {
+    await Promise.race([barrier, observed.then(() => { throw new Error('PREMATURE_SIGNING_TERMINATION'); })]);
+    cap.close();
+  } finally { resume(); control.pausedEncrypt = null; }
+  await assert.rejects(pending, /CLOSED/); await observed; assert.deepEqual(store, original);
+  reset(); f = await createLocalRootNoteVaultV1(); cap = openLocalRootNoteVaultV1(f.rootId);
+  const prepared = await cap.prepareUnissuedBalanceNote(terms), root = store.get(ROOT);
+  review = await cap.reviewPreparedDeposit({ relation: 'D26', epoch: '7' });
+  control.afterWrite = name => { if (name === RECORD) cap.close(); };
+  await assert.rejects(cap.signPreparedDeposit(review), /WRITE_UNCERTAIN/); control.afterWrite = null;
+  assert.equal(JSON.parse(store.get(POINTER)).revision, 1); assert.equal(JSON.parse(store.get(RECORD)).revision, 2);
+  assert.equal(rawClearRecord().note.depositIntent.relation, 'D26');
+  const recovered = await recoverLocalRootNoteVaultV1(root, 2); assert.equal(recovered.note.commitment, prepared.commitment);
+  const reopened = openLocalRootNoteVaultV1(f.rootId);
+  await assert.rejects(reopened.reviewPreparedDeposit({ relation: 'D26', epoch: '8' }), /INTENT_CONFLICT/);
+  assert.equal((await reopened.readPreparedNote()).status, 'UNISSUED');
+});
