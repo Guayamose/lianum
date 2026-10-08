@@ -327,12 +327,19 @@ _NODE_ORIGINAL = {
     "compiledManifestSHA256": "29084da7f9d90365578b32a87e54b9e4ce165ae7e3701b803df250db738c4004",
     "artifactSHA256": "6c2d09943e6b138bb67b8133f33331adf08263dc12210b2d1a62d78c56fce38e",
     "bytecodeSHA256": "9e4f613e46a682115b18b268cb637f9b6d1ca2eea03e9a0acc6068dcd2c6d29f"}
-_EXECUTION_GRAPH = {"dependency": ("dependency", 42), "ready": ("local", 50), "node": ("local", 32),
+_RESERVATION_ORIGINAL = {
+    "sourceVersion": "09a08d3a8febd2ab844ca216551b25763df8c2bc213061672a46ec161db37a22",
+    "compiledManifestSHA256": "2c508f3e2bc4b38887dbad32a58d0f310185fbd32b95cfeb4110fef4e7147069",
+    "artifactSHA256": "3ba226da2769a0233dc3659b224a7f116a0a97f212f1799f9bbb2cd4bded8452",
+    "bytecodeSHA256": "47de269e665b33fb98ad85a94f6aff633c1c62203481ff76a589b7ebf4402094",
+    "keyManifestSHA256": "f637c6289251a9010c208827b3dcafbfca286d7ab30e7d9dca2047cf4d9d56b7",
+    "keySHA256": "6107377c4a6ce98767c2de4d71a661d09aa56279cfb6d8778d76eca6ef27ea32"}
+_EXECUTION_GRAPH = {"reservation": ("reservation", 58), "dependency": ("dependency", 42), "ready": ("local", 50), "node": ("local", 32),
     "settlement": ("assembler", 138), "recovery": ("recovery", 41)}
 
 
 def _execution_backend_receipt(relation, manifest, worker, resources):
-    """Strict public framing of I84/N Native12; never reuse the U profile."""
+    """Strict public framing of I84/N/S Native12; never reuse the U profile."""
     native = worker.get("nativeBackendExecution")
     if native is None:
         if "nativeBackendExecution" in worker:
@@ -351,11 +358,11 @@ def _execution_backend_receipt(relation, manifest, worker, resources):
             and _public_equal(resources.get("limits"), worker.get("limits")) \
             and ("wasmThreadExecution" not in worker if threads == 1 else _public_equal(worker.get("wasmThreadExecution"), {
                 "threads": 4, "sharedMemory": True, "oneOwnedProcess": True, "originalPreparedKeyRequired": True}))
-    if relation not in ("admission_native_value_v2", "node") or not isinstance(native, dict):
+    if relation not in ("admission_native_value_v2", "node", "reservation") or not isinstance(native, dict):
         return False
     i84 = relation == "admission_native_value_v2"
     pages = 65536 if i84 else 32768
-    fixed = {"profile": "LIANUM_ORIGINAL_I84_V5_NATIVE_UNIX_SOCKET_V1" if i84 else "LIANUM_ORIGINAL_N_NATIVE_UNIX_SOCKET_V1",
+    fixed = {"profile": "LIANUM_ORIGINAL_I84_V5_NATIVE_UNIX_SOCKET_V1" if i84 else "LIANUM_ORIGINAL_S_NATIVE_UNIX_SOCKET_V1" if relation == "reservation" else "LIANUM_ORIGINAL_N_NATIVE_UNIX_SOCKET_V1",
         "backend": "NativeUnixSocket", "threads": 12, "bbVersion": "5.2.0",
         "binarySHA256": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
         "originalPreparedKeyRequired": True, "oneEphemeralJob": True, "memoryScope": "COORDINATOR_PLUS_NATIVE_CHILD",
@@ -458,7 +465,8 @@ def _execution_raw_proof_receipt(row):
         and m.get("keySHA256") == w.get("keySHA256") == e.get("keySHA256") and digest(m.get("keySHA256")) \
         and m.get("keyManifestSHA256") == w.get("keyManifestSHA256") and digest(m.get("keyManifestSHA256")) \
         and m.get("sourceVersion") == w.get("sourceVersion") and digest(m.get("sourceVersion")) \
-        and (relation != "node" or all(m.get(key) == value and w.get(key) == value for key, value in _NODE_ORIGINAL.items()))
+        and (relation != "node" or all(m.get(key) == value and w.get(key) == value for key, value in _NODE_ORIGINAL.items())) \
+        and (relation != "reservation" or all(m.get(key) == value and w.get(key) == value for key, value in _RESERVATION_ORIGINAL.items()))
 
 
 def execution_proof_checks(rows, note_keys):
@@ -506,9 +514,13 @@ def execution_proof_checks(rows, note_keys):
 def _reservation_backend_execution(relation, manifest, worker, resources, threads):
     """Public framing only; raw bytes/key/proof joins remain in the original reader.
 
-    Historic WASM U12/S4 stays exact. Only U12 can use the fixed native backend,
-    with the original Child.close, sampled identity and combined RSS receipt.
+    Historic WASM U12/S4 stays exact. Native S12 requires its separate fixed
+    lineage and independent verifier after actual producer closure; U retains
+    its original profile and verifier strategy.
     """
+    if relation == "reservation" and threads == 12:
+        return all(worker.get(key) == value and manifest.get(key) == value for key, value in _RESERVATION_ORIGINAL.items()) \
+            and _execution_backend_receipt(relation, manifest, worker, resources)
     if "nativeBackendExecution" not in worker:
         return worker.get("wasmThreadExecution") == {"threads": threads, "sharedMemory": True,
             "oneOwnedProcess": True, "originalPreparedKeyRequired": True}
@@ -559,7 +571,7 @@ def reservation_proof_checks(rows, note_keys):
     flat_ok = []
     for row in proofs[1:]:
         e = record(row.get("evidence")); m, w, r = (record(e.get(name)) for name in ("manifest", "result", "resources"))
-        relation = row.get("relation"); threads = 12 if relation == "authorization" else 4
+        relation = row.get("relation"); threads = 12 if relation == "authorization" or relation == "reservation" and w.get("threads") == 12 else 4
         raw_join = False
         try:
             run_id = e.get("runId")
@@ -572,6 +584,11 @@ def reservation_proof_checks(rows, note_keys):
                 and hashlib.sha256(private_evidence(path / "public-inputs.json")).hexdigest() == row.get("publicInputsSHA256")
         except (OSError, ValueError, TypeError):
             pass
+        if relation == "reservation" and threads == 12:
+            try:
+                raw_join = raw_join and _execution_raw_proof_receipt(row)
+            except (OSError, ValueError, TypeError):
+                raw_join = False
         flat_ok.append(raw_join and m.get("format") == "FLAT_WALLET_PUBLIC_PROOF_V1"
             and w.get("format") == "FLAT_WALLET_WORKER_ATTEMPT_V1" and r.get("format") == "FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1"
             and all(v.get("runId") == e.get("runId") and v.get("jobId") == e.get("jobId") and v.get("relation") == relation for v in (m, w, r))
