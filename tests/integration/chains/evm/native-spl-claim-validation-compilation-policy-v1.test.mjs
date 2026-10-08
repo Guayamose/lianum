@@ -24,8 +24,12 @@ test('same retained gateway ABI links BTC to its original library and SPL to the
  for(const change of [r=>{r.source=original.source;},r=>{r.contractName=original.contractName;},r=>{r.address=original.address;},r=>{r.codeHash=original.codeHash;}]){
   const bad={...spl};change(bad);assert.throws(()=>bindNativeSplClaimValidationLibrariesV1(base,original,bad));}
 });
-test('new validation artifact gate stays closed until its own genuine compilation is reviewed',()=>{
- assert.equal(NATIVE_SPL_CLAIM_VALIDATION_BUILD_RELEASE_V1,null);
+test('validation consumer admits only the immutable reviewed compilation and grants no private credit',()=>{
+ const pin=NATIVE_SPL_CLAIM_VALIDATION_BUILD_RELEASE_V1;
+ assert.equal(pin.runId,'927b41e2-d646-424c-87ed-74372c36a9c5');assert.equal(Object.isFrozen(pin),true);
+ assert.equal(Object.isFrozen(pin.files),true);for(const file of Object.values(pin.files))assert.equal(Object.isFrozen(file),true);
+ assert.throws(()=>{pin.files['compiled.json'].sha256='00'.repeat(32);},TypeError);
  assert.throws(()=>loadNativeSplClaimValidationArtifactsV1({}),/NO_OPTIONS/);
- assert.throws(()=>loadNativeSplClaimValidationArtifactsV1(),/GENUINE_COMPILATION_REVIEW_REQUIRED/);
+ const artifact=loadNativeSplClaimValidationArtifactsV1();assert.equal(artifact.provenance.runId,pin.runId);
+ assert.equal(artifact.provenance.newCompilationOnly,true);assert.equal(artifact.provenance.privateCreditEstablished,false);
 });
