@@ -20,7 +20,8 @@ import { createNativeValueAccountAuthority, nativeValueAccountManualNoteDetails 
 import { createNativeValueManualGraphAccountSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedOriginalAccountHttpServerV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
-import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, validateOriginalAccountFreshV2 } from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, validateOriginalAccountFreshV2,
+  privateStateAccessMessageV1, privateStateReviewMessageV1 } from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
@@ -67,11 +68,11 @@ export async function runPairedNativeNoteFlowV2() {
     physicalPhoneEstablished: false, mobilePortfolioEstablished: false, independentInfrastructureEstablished: false,
     fullWalletAcceptance: false, nativeDeliveryCount: 0, sourcePins: await pairedNativeNoteSourcePinsV2(),
     supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, stages: [], proofs: [], notes: [],
-    mobileRequests: [], checks: {}, cleanup: { errors: [], mobileListeners: [] },
+    mobileRequests: [], mobileStateReads: [], pairedOriginalPrivateStateReadNodeAcceptance: false, checks: {}, cleanup: { errors: [], mobileListeners: [] },
     disclosure: ['Two original Linux native-asset notes; all value is synthetic on owned local Anvil.',
       'Signed HTTPS descriptor is translated to owned loopback HTTP in the fixed test; no TLS or phone acceptance.',
       'Node uses real mobile API/lease/Noble signatures; note keys remain in the original Linux custody child.',
-      'V2 reads and reconciles already-admitted notes; diagnostics expose no portfolio or economic observation.',
+      'V2 diagnostics expose no portfolio; separate state-read consent reveals only the original account/pool balance.',
       'Same owner object reopens its original encrypted checkpoint; no lost-keeper, node or backend restart.',
       'Receiver uses the retained Cancun/gas30M local profile; no post-Osaka private-proof compatibility claim.'] };
   const save = () => writeFixturePrivate(join(directory, 'result.json'), result);
@@ -349,6 +350,32 @@ export async function runPairedNativeNoteFlowV2() {
       result.checks.consumedMobilePermissionRejected = true;
       if (lostReply) result.checks.originalMobileHttpReplyLostOnceNoRetry = true; save(); return selected;
     }
+    async function mobileStateRead(pairing, note, available) {
+      const before = await effectCounts(), journalBefore = await joined.session.snapshot();
+      pairing.setAction('read');
+      const challenge = await pairing.api.privateState.challenge();
+      const access = pairing.lease.finishAccess(pairing.lease.begin(), challenge);
+      const reviewed = await pairing.lease.openReview(access.lease, {
+        sign: value => signDeviceMessage(deviceKey, privateStateAccessMessageV1(value)),
+        post: value => pairing.api.privateState.openReview(value) });
+      const observation = await pairing.lease.submit(reviewed.lease, {
+        sign: value => signDeviceMessage(deviceKey, privateStateReviewMessageV1(value)),
+        post: value => pairing.api.privateState.submit(value) });
+      assert.equal(observation.status, 'LIVE'); assert.equal(observation.balances.available, available);
+      assert.equal(observation.binding.requestId, note.requestId);
+      assert.equal(observation.binding.submission.transactionHash, bare(note.transactionHash));
+      assert.equal(observation.request.state, 'CONFIRMED'); assert.equal(observation.request.disposition, 'APPLIED');
+      assert.deepEqual(observation.balances, note.observedOwnerView.balances);
+      assert.deepEqual(observation.backing, note.observedOwnerView.backing);
+      assert.equal(observation.completePortfolio, false); assert.equal(observation.mobileNoteCustody, false);
+      const after = await effectCounts(), journalAfter = await joined.session.snapshot();
+      assert.deepEqual(after, before); assert.equal(journalAfter.revision, journalBefore.revision);
+      assert.equal(journalAfter.admissions.length, journalBefore.admissions.length);
+      result.mobileStateReads.push({ observation, before, after, journalRevisionBefore: journalBefore.revision,
+        journalRevisionAfter: journalAfter.revision, admissionsBefore: journalBefore.admissions.length,
+        admissionsAfter: journalAfter.admissions.length,
+        transport: 'SIGNED_HTTPS_DESCRIPTOR_TRANSLATED_TO_OWNED_LOOPBACK_NO_TLS' }); save();
+    }
     async function notePreparation(kind, requestId) {
       const proposal = { requestId, kind, ...(kind === 'TOP_UP' ? { amount: '500', exitRecipient: bare(runtime.accounts[3]) } : { role: 'source' }) };
       const before = await owner.publicView.summary(), reviewed = await preparation.review(proposal);
@@ -385,6 +412,7 @@ export async function runPairedNativeNoteFlowV2() {
     result.checks.mobileUnsignedDisclosureRejected = true;
     await stage('real-mobile-signed-original-read-and-reconcile');
     await diagnostic(first, 'read'); await diagnostic(first, 'reconcile', true); await diagnostic(first, 'read');
+    await mobileStateRead(first, result.notes[0], '500');
     const stale = await review(first, 'read'), restartBefore = await owner.publicView.summary(), effectsBefore = await effectCounts();
     const checkpointBefore = checkpoints.at(-1); assert.ok(checkpointBefore);
     assert.equal(checkpointBefore.pending, null); assert.equal(checkpointBefore.version, 1);
@@ -418,6 +446,7 @@ export async function runPairedNativeNoteFlowV2() {
     await assert.rejects(second.api.submit({ review: cross.value, signature: signature(cross.value) }), /REVIEW_CHANGED/);
     first.lease.invalidate(); result.checks.crossRequestMobilePermissionRejected = true;
     await diagnostic(second, 'read'); await diagnostic(second, 'reconcile');
+    await mobileStateRead(second, result.notes[1], '0');
     const duplicateBefore = await effectCounts();
     for (const requestId of [topUp.body.requestId, exit.body.requestId]) {
       await driver.duplicateAccountExecute(requestId); await driver.account('reconcile', { requestId });
@@ -441,7 +470,8 @@ export async function runPairedNativeNoteFlowV2() {
       finalSpentCount: final.ledger.publicState.spent };
     assert.deepEqual(result.proofs.map(row => row.relation), ['deposit_balance', 'withdraw_balance']);
     result.checks.exactTwoFreshOriginalProofReceipts = true; result.walletHttpEvidence = driver.evidence();
-    await audit(); result.pairedOriginalAccountNodeAcceptance = true; result.success = true;
+    await audit(); result.pairedOriginalAccountNodeAcceptance = true;
+    result.pairedOriginalPrivateStateReadNodeAcceptance = true; result.success = true;
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = safeCode(error);
     writeFixturePrivate(join(privateDirectory, 'error.json'), { diagnostic: privateFailureDiagnostic(error), stack: String(error.stack ?? error) });

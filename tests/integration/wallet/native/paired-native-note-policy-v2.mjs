@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { normalizePrivateStateObservationV1 } from '../../../../packages/mobile-protocol/src/original-account-private-state-v1.mjs';
 export const PAIRED_NATIVE_NOTE_PROFILE_V2 = 'paired-native-note-v2';
 export const PAIRED_NATIVE_NOTE_RESULT_V2 = 'LIANUM_PAIRED_NATIVE_NOTE_RESULT_V2';
 export const PAIRED_NATIVE_NOTE_REAL_RELEASE_V2 = Object.freeze({
@@ -174,6 +175,30 @@ export function assertPairedNativeNoteResultV2(result) {
       assert.equal(row.admission.errorCode, null);
     }
   }
+  // Earlier diagnostic-only reports remain diagnostic-only. A new private
+  // state scope needs both original observations and unchanged effect/journal
+  // counts; an added true flag cannot upgrade an old report.
+  assert.ok(result.pairedOriginalPrivateStateReadNodeAcceptance === undefined
+    || typeof result.pairedOriginalPrivateStateReadNodeAcceptance === 'boolean');
+  if (result.pairedOriginalPrivateStateReadNodeAcceptance === true) {
+    assert.ok(Array.isArray(result.mobileStateReads) && result.mobileStateReads.length === 2);
+    for (const [index, row] of result.mobileStateReads.entries()) {
+      const note = result.notes[index], observed = normalizePrivateStateObservationV1(row.observation);
+      assert.equal(observed.status, 'LIVE'); assert.equal(observed.binding.requestId, note.requestId);
+      assert.equal(observed.binding.kind, note.kind);
+      assert.equal(observed.binding.originalAccountLifetime, restart.accountLifetimeBefore);
+      assert.equal(observed.binding.observedProcessGeneration, index === 0 ? restart.before.processGeneration : restart.after.processGeneration);
+      assert.equal(observed.binding.submission.transactionHash, note.transactionHash.slice(2));
+      assert.equal(observed.request.state, 'CONFIRMED'); assert.equal(observed.request.disposition, 'APPLIED');
+      assert.deepEqual(observed.balances, note.observedOwnerView.balances);
+      assert.deepEqual(observed.backing, note.observedOwnerView.backing);
+      assert.deepEqual(row.before, row.after);
+      assert.equal(row.before.proofs, index + 1); assert.equal(row.before.nativeTransactions, 0);
+      assert.equal(row.journalRevisionBefore, row.journalRevisionAfter);
+      assert.equal(row.admissionsBefore, row.admissionsAfter);
+      assert.equal(row.transport, 'SIGNED_HTTPS_DESCRIPTOR_TRANSLATED_TO_OWNED_LOOPBACK_NO_TLS');
+    }
+  }
   assert.equal(result.cleanup.closedEvm, true); assert.equal(result.cleanup.closedNativeEvm, true);
   assert.equal(result.cleanup.closedOwner, true); assert.equal(result.cleanup.closedSession, true);
   assert.equal(result.cleanup.ownerStop.closed, true); assert.equal(result.cleanup.ownerStop.childExited, true);
@@ -197,6 +222,7 @@ export function assertPairedNativeNoteResultV2(result) {
     for (const field of ['exitObserved', 'exitCode', 'signal']) assert.equal(row.stop[field], row.status[field]);
   }
   return Object.freeze({ pairedOriginalAccountNodeAcceptance: true,
+    pairedOriginalPrivateStateReadNodeAcceptance: result.pairedOriginalPrivateStateReadNodeAcceptance === true,
     mobileNoteCustodyEstablished: false, tlsEstablished: false, reactRendererEstablished: false,
     physicalPhoneEstablished: false, mobilePortfolioEstablished: false, fullWalletAcceptance: false });
 }

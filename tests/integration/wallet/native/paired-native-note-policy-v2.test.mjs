@@ -87,7 +87,8 @@ function retainedReportMetadata() {
 function rejected(mutator) { const result = retainedReportMetadata(); mutator(result); assert.throws(() => assertPairedNativeNoteResultV2(result)); }
 test('metadata-only accepted shape retains scope and the fixed release gate never accepts caller values', () => {
   const scope = assertPairedNativeNoteResultV2(retainedReportMetadata());
-  assert.equal(scope.pairedOriginalAccountNodeAcceptance, true); assert.equal(scope.physicalPhoneEstablished, false);
+  assert.equal(scope.pairedOriginalAccountNodeAcceptance, true);
+  assert.equal(scope.pairedOriginalPrivateStateReadNodeAcceptance, false); assert.equal(scope.physicalPhoneEstablished, false);
   assert.equal(scope.mobileNoteCustodyEstablished, false); assert.equal(scope.tlsEstablished, false);
   if (PAIRED_NATIVE_NOTE_REAL_RELEASE_V2 === null) assert.throws(() => assertPairedNativeNoteReleaseV2(), /RELEASE_ABSENT_OR_CHANGED/);
   else assert.equal(assertPairedNativeNoteReleaseV2(), true);
@@ -148,4 +149,10 @@ test('malformed, widened scope, interrupted and incomplete original cleanup rema
   rejected(row => { row.cleanup.ownerStop.exit.signal = 'SIGKILL'; });
   for (const name of ['syntheticOwnerStateRemoved', 'syntheticSessionJournalRemoved', 'syntheticAccountStateRemoved'])
     rejected(row => { row.cleanup[name] = false; });
+});
+
+test('a cached diagnostic acceptance cannot claim private balance reading without both original state observations', () => {
+  for (const missing of [undefined, [], [{ observation: { status: 'LIVE', balances: { available: '500' } } }]]) {
+    rejected(row => { row.pairedOriginalPrivateStateReadNodeAcceptance = true; row.mobileStateReads = missing; });
+  }
 });
