@@ -21,7 +21,7 @@ function fixture(){
   runtimeGasRejections:['0','16777217','30000000'].map(gas=>({gas,noJournalNonceBalanceOrHeadEffect:true})),
   nodeCapRejection:{schema:'ORIGINAL_OWNED_OSAKA_NODE_GAS_REJECTION_V1',attempts:1,gas:'16777217',cap:'16777216',zeroValue:true,
    originalStateUnchanged:true,before,after:structuredClone(before),originalNodeRejection:{schema:'ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1',method:'eth_sendTransaction',
-    message:{text:'Transaction gas limit is greater than the block gas limit, gas_limit: 16777217, cap: 16777216'}}},
+    message:{text:'intrinsic gas too high -- tx.gas_limit > resolved tx gas limit cap'}}},
   originalPoolRegistrationTransactionHashes:[h(45),h(46)],
   publicTransfer:{transactionHash:h(47),amount:'1',senderNonceDelta:'1',sourceTokenDelta:'-1',recipientTokenDelta:'1',
    contractCodesUnchanged:true,broadcasts:1,originalCanonicalReceipt:true,signedWireAcceptanceEstablished:false}};

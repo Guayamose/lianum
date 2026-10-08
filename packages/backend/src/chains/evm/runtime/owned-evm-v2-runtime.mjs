@@ -1456,7 +1456,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
           assert.equal(failure?.schema, 'ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1', 'OSAKA_GAS_PROBE_NODE_REJECTION_REQUIRED');
           assert.equal(failure.method, 'eth_sendTransaction', 'OSAKA_GAS_PROBE_NODE_REJECTION_REQUIRED');
           assert.equal(failure.message?.text,
-            'Transaction gas limit is greater than the block gas limit, gas_limit: 16777217, cap: 16777216',
+            'intrinsic gas too high -- tx.gas_limit > resolved tx gas limit cap',
             'OSAKA_GAS_PROBE_EXACT_CAP_REJECTION');
           assert.equal(failure.message.omitted, false, 'OSAKA_GAS_PROBE_EXACT_CAP_REJECTION');
           assert.ok(Number.isInteger(failure.rpcCode), 'OSAKA_GAS_PROBE_NODE_REJECTION_REQUIRED');

@@ -51,7 +51,7 @@ export function assertOsakaSmokeResult(value) {
   assert.equal(probe.originalNodeRejection.schema,'ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1');
   assert.equal(probe.originalNodeRejection.method,'eth_sendTransaction');
   assert.equal(probe.originalNodeRejection.message.text,
-    'Transaction gas limit is greater than the block gas limit, gas_limit: 16777217, cap: 16777216');
+    'intrinsic gas too high -- tx.gas_limit > resolved tx gas limit cap');
   const t=value.publicTransfer;assert.equal(t.amount,'1');assert.equal(t.senderNonceDelta,'1');
   assert.equal(t.sourceTokenDelta,'-1');assert.equal(t.recipientTokenDelta,'1');assert.equal(t.contractCodesUnchanged,true);
   assert.equal(t.broadcasts,1);assert.equal(t.originalCanonicalReceipt,true);assert.equal(t.signedWireAcceptanceEstablished,false);

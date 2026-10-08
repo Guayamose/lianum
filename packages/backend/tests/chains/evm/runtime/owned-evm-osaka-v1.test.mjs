@@ -37,8 +37,8 @@ async function rpc(endpoint,method,params=[]) {
         if(c.probeSpoof)throw Object.assign(Error('OWNED_RPC_REMOTE_ERROR'),{schema:'ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1'});
         if(c.probeStateChanged)c.nonce='0x1';
         const error=Error('OWNED_RPC_REMOTE_ERROR');failures.set(error,{schema:'ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1',method,
-          rpcCode:-32003,message:{text:c.probeOtherError?'other failure':
-            'Transaction gas limit is greater than the block gas limit, gas_limit: 16777217, cap: 16777216',omitted:false}});
+          rpcCode:-32003,message:{text:c.probeWrongCapBranch?'Transaction gas limit is greater than the block gas limit, gas_limit: 16777217, cap: 16777216':c.probeOtherError?'other failure':
+            'intrinsic gas too high -- tx.gas_limit > resolved tx gas limit cap',omitted:false}});
         throw error;
       }
       assert.equal(BigInt(tx.gas),BigInt(c.expectedGas));c.pending=true;return c.txHash;
@@ -127,10 +127,10 @@ test('original send and dispatch reject zero/cap+1/30M before journal, nonce, ba
  }finally{await runtime.abort();}
 });
 test('fixed original node probe authenticates remote error, unchanged state and one use; ambiguous/accepted responses poison fence',async()=>{
- for(const variation of ['reject','accept','wrong-error','spoof','state-change']){
+ for(const variation of ['reject','accept','wrong-error','wrong-cap-branch','spoof','state-change']){
   const {runtime,c}=await fixture();try{
    c.probeAccept=variation==='accept';c.probeOtherError=variation==='wrong-error';
-   c.probeSpoof=variation==='spoof';c.probeStateChanged=variation==='state-change';
+   c.probeWrongCapBranch=variation==='wrong-cap-branch';c.probeSpoof=variation==='spoof';c.probeStateChanged=variation==='state-change';
    if(variation==='reject'){
     const proof=await probeOwnedOsakaTransactionGasRejectionV1(runtime);assert.equal(proof.originalStateUnchanged,true);
     assert.deepEqual(proof.before,proof.after);assert.equal(runtime.mutationStatus.uncertain,false);
