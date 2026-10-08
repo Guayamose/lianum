@@ -214,7 +214,7 @@ try {
       assert.ok(!gradle.includes('LIANUM STANDALONE LOCAL BUNDLE'),'MOBILE_BUILD_BUNDLE_WORKERS_CONFIG_CHANGED');
       writeFileSync(gradlePath,gradle.trimEnd()+'\n\n'+bundleWorkersBlock+'\n');
     }
-    report.bundlingWorkers=1;report.nodeHeapMiB=384;
+    report.bundlingWorkers=1;report.nodeHeapMiB=384;report.lintWorkerHeapMiB=192;
     report.generatedStandaloneConfigSHA256=sha256(readFileSync(gradlePath));
     // Gradle's original bundle inputs omit .mjs and the external protocol.
     // Remove only the generated bundle so this task rebuilds current JS while
@@ -226,7 +226,7 @@ try {
   }
   report.phase='gradle';save();
   await run(join(mobile,'android/gradlew'),[standaloneLocal?':app:assembleRelease':':app:assembleDebug',
-    ...(standaloneLocal?['--no-build-cache']:[]),'--no-daemon','--max-workers=1',
+    ...(standaloneLocal?['--no-build-cache','-Pandroid.experimental.lint.heapSize=192m']:[]),'--no-daemon','--max-workers=1',
     '-Dorg.gradle.jvmargs='+gradleJVMArgs,
     '-Porg.gradle.parallel=false','-Pkotlin.compiler.execution.strategy=in-process',
     '-PreactNativeArchitectures='+abi.join(','),'-Pandroid.builder.sdkDownload=false'],join(mobile,'android'));
