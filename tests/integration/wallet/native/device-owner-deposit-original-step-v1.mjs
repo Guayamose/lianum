@@ -6,7 +6,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
-import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
@@ -110,6 +110,9 @@ async function runOriginalStepV1(context, reservationMode) {
       '-sha256', '-days', '2', '-nodes', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost',
       '-addext', 'basicConstraints=critical,CA:FALSE', '-keyout', keyPath, '-out', certificatePath],
       { timeout: 5000, maxBuffer: 4096, stdio: 'ignore', env: { PATH: '/usr/bin:/bin', LANG: 'C' } });
+    // The original successor reads both files through its private-file guard.
+    // OpenSSL otherwise leaves the certificate at the caller's public umask.
+    chmodSync(certificatePath, 0o600); chmodSync(keyPath, 0o600);
     actor = await createPairedOriginalAccountActorV2({ session: joined.session, approval: preparation.approval,
       owner, origin, devicePublicKey: devicePublicKey(deviceKey) });
     const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
