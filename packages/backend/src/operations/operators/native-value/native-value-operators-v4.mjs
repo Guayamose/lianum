@@ -347,7 +347,11 @@ function createNativeOperator(raw,recovery=null) {
       exactRecord(input, ['runtime', 'system']); live(); assert.ok(!bindAttempted, 'NATIVE_VALUE_BIND_ONCE'); bindAttempted = true;
       try {
         const { runtime, system } = input; assertOwnedNativeValueSystem(runtime, system);
-        const binding = nativeValueInventoryBinding({ registry: system.registry, profiles: system.adapterProfiles, signerIndex: String(signerIndex), publicKey });
+        const observedBinding = nativeValueInventoryBinding({ registry: system.registry, profiles: system.adapterProfiles, signerIndex: String(signerIndex), publicKey });
+        // Only the one-use original bootstrap token can retain this byte order.
+        // The current deployed identity must still match every semantic field.
+        const binding = recovery ? nativeValueInventoryBinding(recovery.binding) : observedBinding;
+        if (recovery) equal(binding, observedBinding);
         // The private one-use request prevents a holder of the public system
         // from opening this operator's resource store and rewriting its history.
         const request = Object.freeze(Object.create(null));

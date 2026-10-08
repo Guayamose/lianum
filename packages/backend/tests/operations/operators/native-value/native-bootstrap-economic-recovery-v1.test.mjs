@@ -28,6 +28,7 @@ const relative=mapped?{
  commitments:'../../../../src/execution/encoding/commitments.mjs'};
 const urls=Object.fromEntries(Object.entries(relative).map(([name,path])=>[name,new URL(path,import.meta.url).href]));
 const native=new WeakSet(),systems=new WeakMap(),h=value=>createHash('sha256').update('INERT native bootstrap HOST:'+value).digest('hex');
+const recoveryHostTokens=new WeakMap();
 let operators;
 // Keep actual decoders/source consumers used by the original wire modules.
 // Importing these modules creates no runtime; backend subjects still follow mocks.
@@ -47,6 +48,15 @@ const actualReader=await import(urls.reader);
 mock.module(urls.reader,{exports:{...actualReader,async createNativeValueSystemStateReader({runtime,system}){original(runtime,system);return {
  async read(){throw Error('HOST_NO_RECEIVER_INVENTORY');},async assertCurrent(){throw Error('HOST_NO_RECEIVER_INVENTORY');}};},
  assertNativeValueCurrentView(){throw Error('HOST_NO_RECEIVER_INVENTORY');}}});
+// The whole economic issuer requires every original section. This HOST-only
+// token port supplies the bootstrap section read back from the real AEAD issuer
+// below; it makes no claim to restore a runtime or economic system authority.
+const actualIssuer=await import(urls.issuer);
+mock.module(urls.issuer,{exports:{...actualIssuer,consumeNativeEconomicRecoverySectionV1(token,section){
+ const entry=recoveryHostTokens.get(token);
+ if(!entry)return actualIssuer.consumeNativeEconomicRecoverySectionV1(token,section);
+ assert.equal(section,'bootstrap');assert.equal(entry.used,false,'HOST_BOOTSTRAP_TOKEN_CONSUMED');entry.used=true;return structuredClone(entry.data);
+}}});
 // Backend imports follow mocks; ESM hoisting must not load concrete dependencies.
 operators=await import(urls.operators);
 const bootstrapModule=await import(urls.bootstrap),issuer=await import(urls.issuer),storeModule=await import(urls.store),profile=await import(urls.profile);
@@ -86,6 +96,43 @@ test('native bootstrap capture fences before await and preserves four original k
  }
  await assert.rejects(issuer.openNativeEconomicRecoveryAuthorityV1(f.identity,status.checkpoint),/EEXIST/);
  assert.equal(Object.values(status.sections).filter(value=>value==='CAPTURED').length,1,'partial capture must not authorize whole reopen');
+ // The issuer canonicalizes object keys. The historical inventory digest must
+ // still validate against the exact original frame, without a journal rewrite.
+ assert.equal(record.schema,'ORIGINAL_NATIVE_BOOTSTRAP_ECONOMIC_BINDING_RECOVERY_V2');
+ const frameURL=new URL('./native-value-economic-binding-frame-v1.mjs',urls.bootstrap).href;
+ const inventoryURL=new URL('./native-value-inventory-v4.mjs',urls.bootstrap).href;
+ const frameCodec=await import(frameURL),inventory=await import(inventoryURL);
+ for(let i=0;i<4;i++){
+   const originalBinding=inventory.nativeValueInventoryBinding({registry:f.system.registry,profiles:f.system.adapterProfiles,
+     signerIndex:String(i),publicKey:f.handles.operators[i].publicKey});
+   const observed=record.signers[i].binding,digest=before[i].state.bindingDigest,frame=record.bindingFrames[i];
+   assert.equal(JSON.stringify(observed)===frame.json,false,'canonical AEAD reordering must exercise the original failure');
+   assert.equal(frame.json,JSON.stringify(originalBinding));assert.equal(frame.bindingDigest,digest);
+   assert.throws(()=>inventory.validateNativeValueOperatorInventory(before[i].state,observed));
+   const restored=frameCodec.restoreNativeValueEconomicBindingFrameV1(frame,observed,digest);
+   assert.deepEqual(inventory.validateNativeValueOperatorInventory(before[i].state,restored),before[i].state);
+   const wrongObserved=structuredClone(observed);wrongObserved.registry.quorum.registryEpoch='1';
+   assert.throws(()=>frameCodec.restoreNativeValueEconomicBindingFrameV1(frame,wrongObserved,digest),/OBSERVED_BINDING_CHANGED/);
+   const rewritten=frameCodec.captureNativeValueEconomicBindingFrameV1(observed,createHash('sha256').update(JSON.stringify(observed)).digest('hex'));
+   assert.throws(()=>frameCodec.restoreNativeValueEconomicBindingFrameV1(rewritten,observed,digest),/ORIGINAL_BINDING_DIGEST/);
+ }
+ const token=Object.freeze(Object.create(null));recoveryHostTokens.set(token,{used:false,data:record});
+ const nextNative={metadata:{restoredOriginalState:true}},nextRuntime={};native.add(nextNative);
+ await assert.rejects(bootstrapModule.reopenOriginalNativeBootstrapEconomicRecoveryV1({...token},nextNative),/ORIGINAL_SECTION_TOKEN/);
+ const mutatedToken=Object.freeze(Object.create(null)),mutatedRecord=structuredClone(record),mutatedNative={metadata:{restoredOriginalState:true}};
+ mutatedRecord.bindingFrames[0].json+=' ';native.add(mutatedNative);recoveryHostTokens.set(mutatedToken,{used:false,data:mutatedRecord});
+ await assert.rejects(bootstrapModule.reopenOriginalNativeBootstrapEconomicRecoveryV1(mutatedToken,mutatedNative),/BINDING_FRAME_DIGEST/);
+ assert.deepEqual(record.stores.map(value=>value.record),before,'bad frames must not rewrite history');
+ const successor=await bootstrapModule.reopenOriginalNativeBootstrapEconomicRecoveryV1(token,nextNative);t.after(()=>successor.close());
+ const nextSystem={profile:'OWNED_GENERIC_NATIVE_VALUE_SYSTEM_V2',claimsEnabled:false,registry:record.registry,adapterProfiles:record.metadata.adapterProfiles};
+ const resources=await bootstrapModule.provisionNativeValueOperators(successor,{runtime:nextRuntime,registry:nextSystem.registry,adapterProfiles:nextSystem.adapterProfiles});
+ systems.set(nextSystem,{runtime:nextRuntime,resources});
+ const handles=await bootstrapModule.finishNativeValueOperators(successor,{runtime:nextRuntime,system:nextSystem});
+ Object.assign(nextSystem,handles);Object.freeze(nextSystem);
+ assert.deepEqual(await Promise.all(resources.map(value=>value.store.load())),before);
+ assert.deepEqual(handles.operators.map(operator=>operator.publicKey),f.handles.operators.map(operator=>operator.publicKey));
+ assert.ok(handles.operators.every(operator=>operator.status().bound&&!operator.status().poisoned));
+ await assert.rejects(bootstrapModule.reopenOriginalNativeBootstrapEconomicRecoveryV1(token,nextNative),/HOST_BOOTSTRAP_TOKEN_CONSUMED/);
 });
 test('a durable competing CAS write rejects capture and closes keys without resetting its journal',async t=>{
  const f=await fixture(t),old=await f.resources[0].store.load();

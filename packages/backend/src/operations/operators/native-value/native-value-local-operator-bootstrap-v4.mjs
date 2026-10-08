@@ -20,6 +20,7 @@ import { nativeValueOriginalRecoverySourceV1 } from '../../deployments/native-va
 import { assertNativeValueRegistrations } from '../../deployments/native-value/native-value-registry-v2.mjs';
 import { createNativeValueOperatorInventory, nativeValueInventoryBinding, nativeValuePolicy,
   validateNativeValueOperatorInventory } from './native-value-inventory-v4.mjs';
+import { captureNativeValueEconomicBindingFrameV1, restoreNativeValueEconomicBindingFrameV1 } from './native-value-economic-binding-frame-v1.mjs';
 import { profileCommitment, sourceCommitment, sha256, validateProfile } from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { PROFILE_SCHEMA, REGISTRY_SCHEMA, CHAINS, createProfile } from '../../../chains/evm/transfers/evm-native-value-v2.mjs';
 import * as Tron from '../../../chains/tron/transfers/tron-native-graph-profile.mjs';
@@ -123,17 +124,19 @@ async function createFixedLocalNativeValueBootstrap(raw,wallclock,recovery=null)
   // A fresh bootstrap must never discard an earlier signer's retained history.
   runtimes.forEach(r=>{pendingNativeRuntimes.delete(r);claimedNativeRuntimes.add(r);});
   if(recovery){
-    exactRecord(recovery,['schema','metadata','registry','signers','stores','originals']);
-    assert.equal(recovery.schema,'ORIGINAL_NATIVE_BOOTSTRAP_ECONOMIC_RECOVERY_V1');
+    exactRecord(recovery,['schema','metadata','registry','signers','stores','originals','bindingFrames']);
+    assert.equal(recovery.schema,'ORIGINAL_NATIVE_BOOTSTRAP_ECONOMIC_BINDING_RECOVERY_V2');
     assert.equal(wallclock,false,'NATIVE_VALUE_RECOVERY_FIXED_EVM_PROFILE');
     assert.equal(entries.length,1);assert.equal(entries[0].profile.schema,PROFILE_SCHEMA);
-    fixedArray(recovery.signers,4);fixedArray(recovery.stores,4);
+    fixedArray(recovery.signers,4);fixedArray(recovery.stores,4);fixedArray(recovery.bindingFrames,4);
   }
   const tree=merkle(entries.map(e=>profileCommitment(e.profile)),3),operators=[];
   try{for(let signerIndex=0;signerIndex<4;signerIndex++){
     if(!recovery)operators.push(createLocalNativeValueOperator({signerIndex}));
     else{assert.equal(recovery.signers[signerIndex].signerIndex,signerIndex);
-      const token=Object.freeze(Object.create(null));operatorRecoveryTokens.set(token,copy(recovery.signers[signerIndex]));
+      const signer=copy(recovery.signers[signerIndex]);
+      signer.binding=restoreNativeValueEconomicBindingFrameV1(recovery.bindingFrames[signerIndex],signer.binding,signer.record.state.bindingDigest);
+      const token=Object.freeze(Object.create(null));operatorRecoveryTokens.set(token,signer);
       try{operators.push(await reopenOriginalNativeOperatorEconomicRecoveryV1(token));}
       finally{operatorRecoveryTokens.delete(token);}
     }
@@ -192,8 +195,10 @@ export async function provisionNativeValueOperators(bootstrap,{runtime,registry,
     if(!s.recovery){await mkdir(root,{recursive:true,mode:0o700});directory=await mkdtemp(join(root,'session-'));live();}
     const resources=[];
     for(let i=0;i<4;i++) {
-      const binding=nativeValueInventoryBinding({registry,profiles:adapterProfiles,signerIndex:String(i),publicKey:s.operators[i].publicKey});
-      const identity={profile:'NATIVE_VALUE_LOCAL_CHECKPOINT_INVENTORY_V4',binding},retained=s.recovery?.stores[i];
+      const observedBinding=nativeValueInventoryBinding({registry,profiles:adapterProfiles,signerIndex:String(i),publicKey:s.operators[i].publicKey});
+      const retained=s.recovery?.stores[i];
+      const binding=s.recovery?restoreNativeValueEconomicBindingFrameV1(s.recovery.bindingFrames[i],observedBinding,retained.record.state.bindingDigest):observedBinding;
+      const identity={profile:'NATIVE_VALUE_LOCAL_CHECKPOINT_INVENTORY_V4',binding};
       if(retained){exactRecord(retained,['options','checkpoint','record']);exactRecord(retained.options,['path','password','identity']);
         assert.deepEqual(retained.options.identity,identity,'NATIVE_VALUE_RECOVERY_STORE_IDENTITY');
         assert.ok(retained.options.path.startsWith(root+'/session-')&&retained.options.path.endsWith('/operator-'+i),'NATIVE_VALUE_RECOVERY_ORIGINAL_STORE_PATH');
@@ -273,7 +278,8 @@ export async function captureOriginalNativeBootstrapEconomicRecoveryV1(bootstrap
     stores.push({options:copy(s.storeCredentials[index]),checkpoint:checkpoint(snapshot),record});
   }
   for(const entry of s.entries)entry.assertLive();assert.equal(s.activeResources,0);
-  const retained={schema:'ORIGINAL_NATIVE_BOOTSTRAP_ECONOMIC_RECOVERY_V1',metadata:copy(s.metadata),registry:copy(s.registry),signers,stores,
+  const bindingFrames=signers.map(signer=>captureNativeValueEconomicBindingFrameV1(signer.binding,signer.record.state.bindingDigest));
+  const retained={schema:'ORIGINAL_NATIVE_BOOTSTRAP_ECONOMIC_BINDING_RECOVERY_V2',metadata:copy(s.metadata),registry:copy(s.registry),signers,stores,bindingFrames,
     originals:[...s.originals].map(([key,original])=>({key,original:copy(original)}))};
   canonicalClaimRecordDataV1(retained);s.captured=true;return retained;
 }
