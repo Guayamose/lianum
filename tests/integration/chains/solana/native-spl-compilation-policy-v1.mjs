@@ -31,7 +31,9 @@ export function nativeSplCompilationProcessFailureV1(rows){
 export function assertNativeSplElfV1(raw){
  assert.ok(Buffer.isBuffer(raw)&&raw.length>64&&raw.length<=10*1024**2,'SPL_COMPILATION_ELF_SIZE');
  assert.equal(raw.subarray(0,4).toString('hex'),'7f454c46');assert.equal(raw[4],2);assert.equal(raw[5],1);assert.equal(raw[6],1);
- assert.equal(raw.readUInt16LE(16),3,'SPL_COMPILATION_ELF_DYN');assert.equal(raw.readUInt16LE(18),247,'SPL_COMPILATION_ELF_BPF');return true;
+ // The fixed Solana LLVM target emits EM_SBF=263, registered for Solana's
+ // backend: https://github.com/solana-labs/solana/issues/27579
+ assert.equal(raw.readUInt16LE(16),3,'SPL_COMPILATION_ELF_DYN');assert.equal(raw.readUInt16LE(18),263,'SPL_COMPILATION_ELF_SBF');return true;
 }
 export function assertNativeSplCompilationResultV1(result){
  assert.equal(result.format,SPL_COMPILATION_RESULT_V1);assert.equal(result.phase,'completed');assert.equal(result.success,true);assert.equal(result.sourceUnchanged,true);
