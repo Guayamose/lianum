@@ -2,6 +2,7 @@
  * native finality or original controller authority can be minted here. */
 import assert from 'node:assert/strict';
 import { PROFILE, SETTINGS, LIMITS } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);
 const specs = Object.freeze({
@@ -30,7 +31,25 @@ export function assertRoleProofReceiptRecords(input) {
   }
   assert.equal(manifest.role, spec.role); assert.equal(result.role, spec.role);
   assert.equal(manifest.publicWords, spec.words); assert.deepEqual(manifest.settings, SETTINGS);
-  assert.deepEqual(result.settings, SETTINGS); assert.deepEqual(result.limits, LIMITS); assert.deepEqual(resources.limits, LIMITS);
+  assert.deepEqual(result.settings, SETTINGS);
+  // Fixed public receipt variants only; specialized ingress retains LIMITS1.
+  const proofLimits = !v3 && result.threads === PROVING_LIMITS.threads ? PROVING_LIMITS : LIMITS;
+  if (result.threads !== undefined) assert.equal(result.threads, proofLimits.threads, 'DEVELOPMENT_CLAIM_FIXED_THREADS');
+  assert.deepEqual(result.limits, proofLimits); assert.deepEqual(resources.limits, proofLimits);
+  if (proofLimits === PROVING_LIMITS) {
+    assert.deepEqual(result.wasmThreadExecution, { threads: PROVING_LIMITS.threads, sharedMemory: true,
+      oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION');
+    // Join the same immutable runtime-source receipt captured by the original
+    // worker, proof manifest and external guard. No caller can select sources.
+    digest(result.runtimePinsSHA256);
+    assert.equal(manifest.runtimePinsSHA256, result.runtimePinsSHA256, 'DEVELOPMENT_CLAIM_PROOF_THREAD_SOURCES');
+    assert.equal(resources.runtimePinsSHA256, result.runtimePinsSHA256, 'DEVELOPMENT_CLAIM_GUARD_THREAD_SOURCES');
+    digest(result.keyManifestSHA256);
+    assert.equal(manifest.keyManifestSHA256, result.keyManifestSHA256, 'DEVELOPMENT_CLAIM_ORIGINAL_PREPARED_KEY');
+    assert.equal(result.keyRecomputed, false); assert.equal(result.hostLimitsChanged, false);
+    assert.ok(Number.isSafeInteger(resources.peakWorkerRSS) && resources.peakWorkerRSS >= 0
+      && resources.peakWorkerRSS <= PROVING_LIMITS.workerRSS, 'DEVELOPMENT_CLAIM_THREAD_RSS_LIMIT');
+  }
   assert.ok(['prove', 'prove-dyadic21'].includes(result.mode)); assert.equal(resources.mode, result.mode);
   for (const report of [result, resources]) assert.equal(report.phase, 'completed', 'DEVELOPMENT_CLAIM_RECEIPT_COMPLETED');
   assert.equal(manifest.selfVerified, true); assert.equal(result.selfVerified, true);
