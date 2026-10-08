@@ -75,6 +75,7 @@ jobs:
           packages/backend/tests/operations/payouts/claim-authorization-lifecycle-v4.test.mjs
           packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs
           tests/integration/wallet/native/native-value-dev-release-v5.test.mjs
+          tests/integration/wallet/native/native-value-admission-original-roots-v5.test.mjs
           tests/integration/claims/metrics/native-claim-empty-audit-policy-v1.test.mjs
           tests/integration/wallet/native/paired-native-note-http-loss-v2.test.mjs
           tests/integration/wallet/native/paired-native-note-policy-v2.test.mjs
