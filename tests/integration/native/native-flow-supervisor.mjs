@@ -1322,7 +1322,7 @@ async function runFixedFlowSupervisor(profile) {
   }
   function assertOtherApplicationLocks() {
     for (const other of Object.values(FLOW_PROFILES))
-      if (other !== profile) assert.equal(existsSync(join(other.local, 'active.lock')), false,
+      if (other !== profile && join(other.local, 'active.lock') !== LOCK) assert.equal(existsSync(join(other.local, 'active.lock')), false,
         'NATIVE_OTHER_APPLICATION_LOCK');
   }
   function resources() {
