@@ -17,3 +17,16 @@ test('HOST economic process scope accepts only causal successor and exact zero-w
  assert.deepEqual(classify([process.execPath,NEXT],process.execPath,parent('/tmp/other.mjs')),{role:'native-economic-unexpected-process',proofWorker:true});
  assert.deepEqual(classify(['/tmp/anvil'], '/tmp/anvil',parent(MAIN)),{role:'native-economic-unexpected-process',proofWorker:true});
 });
+
+test('Native-note successor cannot reuse a legacy economic parent or Anvil vector',async()=>{
+ const {classifyNativeEconomicNoteRestartProcessV1:notes,NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1:NOTE_MAIN,NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1:NOTE_NEXT}=await import('./native-device-economic-note-process-scope-v1.mjs');
+ assert.deepEqual(notes([process.execPath,NOTE_NEXT],process.execPath,parent(NOTE_MAIN)),{role:'native-economic-successor-role',proofWorker:false});
+ assert.deepEqual(notes(anvil(false),ANVIL,parent(NOTE_MAIN)),{role:'evm-runtime',proofWorker:false});
+ assert.deepEqual(notes(anvil(true),ANVIL,parent(NOTE_NEXT)),{role:'evm-runtime',proofWorker:false});
+ for(const legacy of[MAIN,NEXT]){
+  assert.deepEqual(notes([process.execPath,NOTE_NEXT],process.execPath,parent(legacy)),{role:'native-economic-unexpected-process',proofWorker:true});
+  assert.deepEqual(notes(anvil(true),ANVIL,parent(legacy)),{role:'native-economic-unexpected-process',proofWorker:true});
+ }
+ const altered=anvil(true);altered[12]='5';assert.deepEqual(notes(altered,ANVIL,parent(NOTE_NEXT)),{role:'native-economic-unexpected-process',proofWorker:true});
+ assert.deepEqual(notes([...process.argv.slice(0,1),NOTE_NEXT,'--backend=Wasm'],process.execPath,parent(NOTE_MAIN)),{role:'native-economic-unexpected-process',proofWorker:true});
+});

@@ -9,15 +9,22 @@ import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {nativeValueOriginalRecoverySourceV1} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import {createNativeEconomicRecoveryAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {captureNativeValueEconomicRecoveryV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs';
-const MAXIMUM_IPC_BYTES=2*1024*1024,WORKER=join(ROOT,'integration/native-device-economic-successor-worker-v1.mjs');
+const MAXIMUM_IPC_BYTES=2*1024*1024;
 const originalBirth=pid=>{const bytes=readFileSync(`/proc/${pid}/stat`,'utf8'),fields=bytes.slice(bytes.lastIndexOf(')')+2).trim().split(/\s+/);
  assert.match(fields[19],/^[0-9]+$/);return{pid,ppid:Number(fields[1]),pgrp:Number(fields[2]),session:Number(fields[3]),startTimeTicks:fields[19]};};
 export async function captureAndLaunchNativeDeviceEconomicSuccessorV1(context){
- assert.equal(arguments.length,1);assert.equal(context.deviceEconomicRecovery,true);context.active();
+ assert.equal(arguments.length,1);assert.notEqual(context.deviceEconomicNativeNotes,true);return captureOriginalSuccessor(context,false);
+}
+export async function captureAndLaunchNativeDeviceNoteEconomicSuccessorV1(context){
+ assert.equal(arguments.length,1);assert.equal(context.deviceEconomicNativeNotes,true);return captureOriginalSuccessor(context,true);
+}
+async function captureOriginalSuccessor(context,nativeNote){
+ assert.equal(context.deviceEconomicRecovery,true);context.active();
+ const WORKER=join(ROOT,nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs');
  const {runtime,nativeRuntime,bootstrap,system,owner,account,nativeExecution,joined,actor,originalTransport,originalPrepared,economicLifetime}=context;
- assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs'));
+ assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
  const sourceSHA256=nativeValueOriginalRecoverySourceV1(runtime,system),identity={directory:context.privateDirectory,runId:context.runId,sourceSHA256,deadlineMs:context.deadlineMs};
- assert.equal(identity.directory,join(ROOT,'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
+ assert.equal(identity.directory,join(ROOT,nativeNote?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
  // The recipient child is an original invoice producer, not an issuer section.
  // Stop it explicitly before capture while preserving its original invoice.
  const recipient=await originalPrepared.recipient.close();assert.equal(recipient.exited,true);assert.deepEqual(recipient.exit,{code:0,signal:null});

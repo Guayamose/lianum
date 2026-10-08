@@ -13,14 +13,20 @@ import {reopenOriginalNativeValueEconomicSuccessorV1} from '../../../../packages
 import {reinstallOriginalNativeDeviceEconomicServiceV1} from '../../../../packages/backend/src/operations/recovery/native-device-economic-service-v1.mjs';
 import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {auditNativeDeviceEconomicSuccessorV1} from './native-device-economic-successor-audit-v1.mjs';
-const HERE=fileURLToPath(import.meta.url),MAXIMUM_IPC_BYTES=2*1024*1024;
+let launched=false;
+/** The finite entry determines the producer; control IPC cannot select it. */
+export function runNativeDeviceEconomicSuccessorV1(){assert.equal(arguments.length,0);return runOriginalSuccessor(false);}
+export function runNativeDeviceNoteEconomicSuccessorV1(){assert.equal(arguments.length,0);return runOriginalSuccessor(true);}
+function runOriginalSuccessor(nativeNote){
+assert.equal(launched,false,'NATIVE_ECONOMIC_SUCCESSOR_SINGLE_ENTRY');launched=true;
+const HERE=join(ROOT,nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs'),MAXIMUM_IPC_BYTES=2*1024*1024;
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),HERE);assert.equal(realpathSync(process.cwd()),ROOT);
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
 assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');
 assert.equal(process.connected,true);assert.equal(typeof process.send,'function');
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);
 assert.equal(parent.length,2);assert.equal(parent[0],process.execPath);assert.equal(realpathSync(`/proc/${process.ppid}/exe`),process.execPath);
-assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs'));
+assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
 let originals,service,identity,sequence=0,opened=false,closing,deadline,acquisition,closeRequested=false;
 const send=async value=>{assert.ok(Buffer.byteLength(JSON.stringify(value))<=MAXIMUM_IPC_BYTES,'NATIVE_ECONOMIC_SUCCESSOR_PUBLIC_IPC_LIMIT');
  await new Promise((done,reject)=>process.send(value,error=>error?reject(error):done()));};
@@ -67,3 +73,6 @@ let chain=Promise.resolve();process.on('message',packet=>{chain=chain.then(()=>h
  });});
 process.once('disconnect',()=>{void close().catch(error=>{process.stderr.write(privateFailureDiagnostic(error,'NATIVE_ECONOMIC_SUCCESSOR_CLEANUP_FAILED').code+'\n');process.exitCode=1;});});
 for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>{void close().then(()=>{if(process.connected)process.disconnect();},error=>{process.stderr.write(privateFailureDiagnostic(error,'NATIVE_ECONOMIC_SUCCESSOR_CLEANUP_FAILED').code+'\n');process.exitCode=1;});});
+
+}
+if(process.argv[1]===fileURLToPath(import.meta.url))runNativeDeviceEconomicSuccessorV1();

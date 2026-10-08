@@ -11,7 +11,11 @@ const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/dev
  ['golden/',GOLDEN],['candidate/',CANDIDATE],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],
  ['mobile-app/',join(DEVELOPMENT,'apps/mobile')],['mobile-protocol-workspace/',join(DEVELOPMENT,'packages/mobile-protocol')],
  ['flat/',FLAT],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
-const FIXED=Object.freeze(['proof-workers/native-value-dev-live-v5-artifacts.mjs',
+const FIXED=Object.freeze(['golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
+ 'integration/run-native-value-economic-note-recovery-v1.mjs',
+ 'integration/native-value-economic-note-recovery-flow-v1.mjs','integration/native-device-economic-note-successor-worker-v1.mjs',
+ 'integration/native-device-economic-note-process-scope-v1.mjs','development-tooling/native_economic_note_receipts.py',
+ 'proof-workers/native-value-dev-live-v5-artifacts.mjs',
  'proof-workers/native-value-dev-live-v5-client.mjs','proof-workers/native-value-dev-live-v5-role-process.mjs',
  'proof-workers/native-value-dev-live-v5-worker.mjs','proof-workers/native-value-dev-live-v5-run-bounded.mjs',
  'proof-workers/native-value-dev-live-v5-tooling.mjs','wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs',
@@ -55,7 +59,7 @@ export function nativeValueDevFinancialSourcePinsV5(){
    assert.ok(name.startsWith('.'),'NV5_FINANCIAL_STATIC_LOCAL_IMPORT');visit(resolve(dirname(path),name));
   }
  }
- for(const name of FIXED)visit(join(ROOT,name));
+ for(const name of FIXED)visit(pathFor(name));
  assert.deepEqual(nativeValueDevHostSourcePinsV5(),original,'NV5_FINANCIAL_BASE_CHANGED');
  for(const [path,row]of files)assert.equal(sha(bytes(path)),row.sha256,'NV5_FINANCIAL_CAPTURE_CHANGED');
  const result=[...files.values()].sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);

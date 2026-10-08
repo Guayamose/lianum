@@ -26,6 +26,9 @@ import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, 
 import { pairedNativeNoteSourcePinsV2 } from '../wallet/native/paired-native-note-source-pins-v2.mjs';
 import { deviceOwnerDepositSourcePinsV1 } from '../wallet/native/device-owner-deposit-source-pins-v1.mjs';
 import { DEVICE_DEPOSIT_RESULT_V1, assertDeviceDepositReleaseV1, assertDeviceDepositResultV1 } from '../wallet/native/device-owner-deposit-policy-v1.mjs';
+import {nativeDeviceEconomicNoteSourcePinsV1} from '../wallet/native/native-device-economic-note-source-pins-v1.mjs';
+import {assertNativeEconomicNoteRecoverableAnvilV1,classifyNativeEconomicNoteRestartProcessV1} from '../wallet/native/native-device-economic-note-process-scope-v1.mjs';
+import {NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1,assertNativeDeviceEconomicNoteReleaseV1,assertNativeDeviceEconomicNoteResultV1} from '../wallet/native/native-device-economic-note-policy-v1.mjs';
 import {nativeDeviceEconomicSourcePinsV1} from '../wallet/native/native-device-economic-source-pins-v1.mjs';
 import {assertNativeEconomicRecoverableAnvilV1,classifyNativeEconomicRestartProcessV1} from '../wallet/native/native-device-economic-process-scope-v1.mjs';
 import {NATIVE_DEVICE_ECONOMIC_RESULT_V1,assertNativeDeviceEconomicReleaseV1,assertNativeDeviceEconomicResultV1} from '../wallet/native/native-device-economic-policy-v1.mjs';
@@ -128,6 +131,13 @@ const FLOW_PROFILES = Object.freeze({
     local:join(ROOT,'.local/evm-aave-compilation-only-v1'),resultFormat:AAVE_COMPILATION_RESULT_V1,
     resourcesFormat:'LIANUM_AAVE_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_AAVE_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_AAVE_COMPILATION_ATTEMPT_V1',
     classification:'NEW_OFFICIAL_AAVE_COMPILATION_ONLY_NOT_FINANCIAL_ACCEPTANCE',sourcePins:aaveCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset']),
+  }),
+  nativeDeviceEconomicNoteRecoveryV1:Object.freeze({
+    entry:join(ROOT,'integration/run-native-value-economic-note-recovery-v1.mjs'),worker:join(ROOT,'integration/native-value-economic-note-recovery-flow-v1.mjs'),
+    local:join(ROOT,'.local/native-value-economic-note-recovery-v1'),resultFormat:NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_RESOURCES_V1',
+    lockFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_ATTEMPT_V1',
+    classification:'NATIVE12_NOTES_ORIGINAL_PLANNED_NATIVE_ECONOMIC_RESTART_AFTER_F_SAME_DEVICE_W39_NOT_ABRUPT_CRASH_OR_PHONE',sourcePins:nativeDeviceEconomicNoteSourcePinsV1,
+    cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
   nativeDeviceEconomicRecoveryV1:Object.freeze({
     entry:join(ROOT,'integration/run-native-value-economic-recovery-v1.mjs'),worker:join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs'),
@@ -768,6 +778,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.nativeSplCompilationOnlyV1) scoped = assertNativeSplCompilationResultV1(result);
   if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
+  if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)scoped=assertNativeDeviceEconomicNoteResultV1(result);
   if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1)scoped=assertNativeDeviceEconomicResultV1(result);
   if(profile===FLOW_PROFILES.deviceOwnerRecoveryV1)scoped=assertDeviceRecoveryResultV1(result);
   if(profile===FLOW_PROFILES.deviceOwnerExecutionV1)scoped=assertDeviceExecutionResultV1(result);
@@ -859,7 +870,7 @@ export async function runNativeWalletRealPreflightSupervisor() {
 /** The new profile's Python capsule represents the actual fixed launcher,
  * never a caller copy or an entry invoked directly by another host. Existing
  * enumerated profiles and their process predicates remain untouched. */
-function assertPairedNativeNoteLauncherV2(deviceDeposit = false, deviceReservation = false, deviceExecution=false,deviceRecovery=false,deviceEconomicRecovery=false) {
+function assertPairedNativeNoteLauncherV2(deviceDeposit = false, deviceReservation = false, deviceExecution=false,deviceRecovery=false,deviceEconomicRecovery=false,deviceEconomicNativeNotes=false) {
   const parentPID = process.ppid, before = procStat(parentPID);
   assert.ok(before && live(before), 'PAIRED_NOTE_ORIGINAL_LAUNCHER_UNAVAILABLE');
   assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'PAIRED_NOTE_LAUNCHER_UID');
@@ -870,7 +881,7 @@ function assertPairedNativeNoteLauncherV2(deviceDeposit = false, deviceReservati
   assert.equal(cwd, project, 'PAIRED_NOTE_LAUNCHER_CWD');
   const argv = readFileSync(`/proc/${parentPID}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(argv.length, deviceDeposit ? 4 : 3, 'PAIRED_NOTE_LAUNCHER_ARGV');
-  if (deviceDeposit) assert.equal(argv[3], deviceEconomicRecovery?'--native-economic-recovery':deviceRecovery?'--device-recovery':deviceExecution?'--device-execution':deviceReservation ? '--device-reservation' : '--device-deposit', 'DEVICE_DEPOSIT_FIXED_LAUNCHER_ARGV');
+  if (deviceDeposit) assert.equal(argv[3], deviceEconomicNativeNotes?'--native-economic-note-recovery':deviceEconomicRecovery?'--native-economic-recovery':deviceRecovery?'--device-recovery':deviceExecution?'--device-execution':deviceReservation ? '--device-reservation' : '--device-deposit', 'DEVICE_DEPOSIT_FIXED_LAUNCHER_ARGV');
   assert.equal(argv[1], '-B', 'PAIRED_NOTE_LAUNCHER_ARGV');
   assert.match(basename(argv[0]), /^python3(?:\.\d+)?$/, 'PAIRED_NOTE_LAUNCHER_ARGV');
   assert.equal(realpathSync(resolve(cwd, argv[2])), join(project, 'scripts/development/paired_original_account_lab.py'),
@@ -890,6 +901,13 @@ export async function runPairedNativeNoteSupervisorV2() {
   await consumePairedNativeNoteStartPipeV2();
   assertPairedNativeNoteLauncherV2();
   return runFixedFlowSupervisor(FLOW_PROFILES.pairedNativeNoteV2);
+}
+
+export async function runNativeDeviceEconomicNoteRecoverySupervisorV1(){
+  assert.equal(arguments.length,0,'NATIVE_DEVICE_ECONOMIC_NOTE_NO_SUPERVISOR_OPTIONS');assertNativeDeviceEconomicNoteReleaseV1();
+  assertPairedNativeNoteLauncherV2(true,true,true,true,true,true);await consumePairedNativeNoteStartPipeV2();assertPairedNativeNoteLauncherV2(true,true,true,true,true,true);
+  await assertNativeEconomicNoteRecoverableAnvilV1();
+  return runFixedFlowSupervisor(FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1);
 }
 
 export async function runNativeDeviceEconomicRecoverySupervisorV1(){
@@ -1157,6 +1175,8 @@ async function runFixedFlowSupervisor(profile) {
     if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const p=classifyNativeSplClaimV1Preparation(argv);if(p)return p;}
     const script = argv[1];
     const nativeStat=procStat(pid),nativeParent=nativeStat?procStat(nativeStat.ppid):null;
+    if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1){const scoped=classifyNativeEconomicNoteRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
+      nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1){const scoped=classifyNativeEconomicRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
       nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     const noteNative=classifyNativeEconomicNoteProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
@@ -1389,7 +1409,7 @@ async function runFixedFlowSupervisor(profile) {
       const sample = resources(); recordSample(sample);
       const reason = nativeResourceFailure(sample);
       if (reason) stop(reason, {}, sample);
-      if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
+      if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         stop('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED',{},sample);
       if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) {
         const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
@@ -1484,7 +1504,7 @@ async function runFixedFlowSupervisor(profile) {
         finalGroupMeasurementSucceeded = true;
         const reason = nativeResourceFailure(sample); if (reason) fail(reason, { sample });
       } catch (error) { fail('NATIVE_FINAL_RESOURCE_MEASUREMENT_FAILURE', { errorCode: publicErrorCode(error) }); }
-      if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
+      if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         fail('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED');
       if (!workerSpawned) fail('NATIVE_WORKER_NOT_STARTED');
       else if (!childExited || !childClosed) fail('NATIVE_WORKER_EXIT_OR_CLOSE_NOT_OBSERVED');

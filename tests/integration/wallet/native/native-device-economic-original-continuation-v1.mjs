@@ -9,7 +9,7 @@ import {deviceExecutionConsentMessageV1} from '../../../../packages/mobile-proto
 import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
-import {captureAndLaunchNativeDeviceEconomicSuccessorV1} from './native-device-economic-launcher-v1.mjs';
+import {captureAndLaunchNativeDeviceEconomicSuccessorV1,captureAndLaunchNativeDeviceNoteEconomicSuccessorV1} from './native-device-economic-launcher-v1.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),bare=s=>s.startsWith('0x')?s.slice(2):s;
 export async function runNativeDeviceEconomicOriginalContinuationV1(context){
  assert.equal(arguments.length,1);assert.equal(context.deviceEconomicRecovery,true);assert.equal(context.deviceRecovery,true);
@@ -58,7 +58,7 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
   await stage('original-F-lost-reply-capture-all-backend-sections-before-terminal-apply');
   assert.equal(result.proofs.length,7);const mobileBefore=await vault.readDeviceExecutionIntent();assert.equal(mobileBefore.outcome,null);
   assert.equal((await vault.readDeviceNote()).availableBalance,null);
-  successor=await captureAndLaunchNativeDeviceEconomicSuccessorV1(context);await audit();
+  successor=await (context.deviceEconomicNativeNotes?captureAndLaunchNativeDeviceNoteEconomicSuccessorV1:captureAndLaunchNativeDeviceEconomicSuccessorV1)(context);await audit();
   assert.deepEqual(await vault.readDeviceExecutionIntent(),mobileBefore,'DEVICE_CUSTODY_UNCHANGED_BY_BACKEND_CAPTURE');
   nativeApi=await host.execution.createDeviceOwnerExecutionApiV1(descriptor);exitApi=await host.exit.createDeviceOwnerExitApiV1(descriptor);
   outputApi=await host.outputBalance.createDeviceOwnerOutputBalanceApiV1(descriptor);
