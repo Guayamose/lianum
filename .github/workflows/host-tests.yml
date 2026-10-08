@@ -35,6 +35,7 @@ jobs:
           python3 scripts/development/test_native_value_ledger.py
           python3 scripts/development/test_empty_audit_lab_lifecycle.py
           python3 scripts/development/test_empty_audit_lab_summary.py
+          python3 scripts/development/test_paired_original_account_lab.py
       - name: Run the default host selection
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
@@ -77,3 +78,4 @@ jobs:
           tests/integration/claims/metrics/native-claim-empty-audit-policy-v1.test.mjs
           tests/integration/wallet/native/paired-native-note-http-loss-v2.test.mjs
           tests/integration/wallet/native/paired-native-note-policy-v2.test.mjs
+          tests/integration/wallet/native/paired-native-note-start-pipe-v2.test.mjs
