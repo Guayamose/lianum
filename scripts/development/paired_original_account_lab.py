@@ -43,6 +43,7 @@ START_PIPE_ENV = "LIANUM_PAIRED_ORIGINAL_START_FD_V2"
 DEVICE_DEPOSIT = False
 DEVICE_RESERVATION = False
 DEVICE_EXECUTION = False
+DEVICE_RECOVERY = False
 
 
 def record(value):
@@ -315,8 +316,9 @@ def execution_proof_checks(rows, note_keys):
     typed = isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("evidence"), dict) for row in rows)
     proofs = rows if typed else []
     relations = ["deposit_balance", "authorization", "reservation", "dependency", "ready", "admission_native_value_v2",
+        "recovery", "withdraw_balance", "withdraw_balance"] if DEVICE_RECOVERY else ["deposit_balance", "authorization", "reservation", "dependency", "ready", "admission_native_value_v2",
         "node", "node", "node", "node", "settlement", "withdraw_balance"]
-    checks = {"proofRowsTyped": typed, "twelveOriginalRelations": typed and [r.get("relation") for r in proofs] == relations,
+    checks = {"proofRowsTyped": typed, "expectedOriginalRelations": typed and [r.get("relation") for r in proofs] == relations,
         **{"prefix_" + name: value for name, value in prefix_checks.items()}}
     raw_checks = []
     for row in proofs[3:]:
@@ -332,7 +334,7 @@ def execution_proof_checks(rows, note_keys):
                     and original.get("phase") == "completed" and original.get("acceptedResult") is True \
                     and original.get("worker") == e.get("worker") and record(e.get("worker")).get("proofSHA256") == row.get("proofSHA256") \
                     and record(e.get("worker")).get("publicInputsSHA256") == row.get("publicInputsSHA256") \
-                    and original.get("exit") == {"code": 0, "signal": None} and row.get("amountAtomic") == "400" \
+                    and original.get("exit") == {"code": 0, "signal": None} and row.get("amountAtomic") == ("100" if DEVICE_RECOVERY and row is proofs[-1] else "400") \
                     and e.get("keySHA256") == note_keys.get("withdraw_balance")
             else:
                 run_id = e.get("runId")
@@ -365,8 +367,8 @@ def execution_proof_checks(rows, note_keys):
             raw_checks.append(ok)
         except (OSError, ValueError, TypeError):
             raw_checks.append(False)
-    checks["nineNewOriginalReceiptsRawJoined"] = len(raw_checks) == 9 and all(raw_checks)
-    checks["twelveDistinctOriginalProofBytes"] = typed and len(proofs) == 12 and len({row.get("proofSHA256") for row in proofs}) == 12
+    checks["newOriginalReceiptsRawJoined"] = len(raw_checks) == (6 if DEVICE_RECOVERY else 9) and all(raw_checks)
+    checks["distinctOriginalProofBytes"] = typed and len(proofs) == (9 if DEVICE_RECOVERY else 12) and len({row.get("proofSHA256") for row in proofs}) == (9 if DEVICE_RECOVERY else 12)
     return proofs, checks
 
 
@@ -460,7 +462,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
             for value in (supervisor_identity, worker_identity)),
         "resultCompleted": result.get("phase") == "completed" and result.get("success") is True
-            and result.get("deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
+            and result.get("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
         "resourcesCompleted": resources.get("phase") == "completed" and "failure" in resources and resources["failure"] is None
             and resources.get("failures") == [],
         "originalResultJoined": worker_result.get("format") == RESULT_FORMAT and worker_result.get("phase") == "completed"
@@ -476,7 +478,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             and result.get("nativeDeliveryCount") == (1 if DEVICE_EXECUTION else 0)
             and result.get("nativeGraphAcceptance") is DEVICE_EXECUTION
             and all(result.get(key) is False for key in SCOPE_FALSE if key != "nativeGraphAcceptance")
-            and worker_result.get("deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
+            and worker_result.get("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
             and all(worker_result.get(key) is False for key in ("mobileNoteCustodyEstablished", "tlsEstablished",
                 "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished", "fullWalletAcceptance")),
         "originalCleanup": resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
@@ -494,10 +496,10 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         record(row).get("closed") is True and record(row).get("listenerClosed") is True
         and record(row).get("ownedSocketsRemaining") == 0 and record(row).get("originalDiagnosticsInFlight") == 0 for row in listeners)
     accepted = all(receipt_checks.values())
-    summary = {"format": "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+    summary = {"format": "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
         "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
         "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
-        ("deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
+        ("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
         "proofHashes": [{key: row.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")} for row in proofs],
         "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
@@ -524,7 +526,12 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             "Exact mobile API/codec/vault execute in Node with original AES-GCM/RNG and ciphertext readback; no physical SecureStore/Hermes/biometrics/phone.",
             "Separate execute/exit consents and retained single jobs/wires survive HTTP loss; same encrypted openings and terminal receipts reopen without adoption by Linux.",
             "Solver payout100 remains backed; no payout EXIT, actual F recovery, full process restart, public chain, Cloud or independent mobile RPC acceptance."]
-    path = DEV / ("reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
+    if DEVICE_RECOVERY:
+        summary["limitations"] = ["Same original device D26/U/S, one admitted EVM native delivery, fixed stop before N0, cutoff/F41, change400+recovery100 W39s.",
+            "Recovery100 is part of reserved100 and total original owner refund500; provider bears delivered native1M plus actual gas, with no T/payout.",
+            "Exact encrypted mobile vault/API runs in Node; no physical SecureStore/Hermes/biometrics/phone or independent mobile canonical RPC.",
+            "Original jobs/wires stay latched after HTTP loss; no owner-offline/full restart/public-chain/Cloud acceptance."]
+    path = DEV / ("reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -536,10 +543,17 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
 
 
 def main():
-    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
-    if sys.argv[1:] not in ([], ["--device-deposit"], ["--device-reservation"], ["--device-execution"]):
-        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-deposit|--device-reservation|--device-execution]")
-    if sys.argv[1:] == ["--device-execution"]:
+    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
+    if sys.argv[1:] not in ([], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"]):
+        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-deposit|--device-reservation|--device-execution|--device-recovery]")
+    if sys.argv[1:] == ["--device-recovery"]:
+        DEVICE_DEPOSIT = DEVICE_RESERVATION = DEVICE_EXECUTION = DEVICE_RECOVERY = True
+        ENTRY = FLAT / "integration/run-device-owner-recovery-v1.mjs"
+        DIRECTORY = FLAT / ".local/device-owner-recovery-v1"
+        PROFILE = "device-owner-recovery-v1"
+        RESULT_FORMAT = "LIANUM_DEVICE_OWNER_RECOVERY_RESULT_V1"
+        RESOURCES_FORMAT = "LIANUM_DEVICE_OWNER_RECOVERY_RESOURCES_V1"
+    elif sys.argv[1:] == ["--device-execution"]:
         DEVICE_DEPOSIT = DEVICE_RESERVATION = DEVICE_EXECUTION = True
         ENTRY = FLAT / "integration/run-device-owner-execution-v1.mjs"
         DIRECTORY = FLAT / ".local/device-owner-execution-v1"

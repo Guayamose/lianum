@@ -167,3 +167,14 @@ test('new device native happy profile stays closed before runtime or caller opti
  await assert.rejects(runDeviceOwnerExecutionFlowV1({runtime:{},nativeExecution:{}}),/DEVICE_NATIVE_FIXED_NO_OPTIONS/);
  if(DEVICE_EXECUTION_REAL_RELEASE_V1===null)await assert.rejects(runDeviceOwnerExecutionFlowV1(),/DEVICE_NATIVE_RELEASE_ABSENT_OR_CHANGED/);
 });
+
+
+test('fixed device F profile rejects publication absence and caller resources', async () => {
+ const {DEVICE_RECOVERY_REAL_RELEASE_V1,assertDeviceRecoveryReleaseV1}=await import('./device-owner-recovery-policy-v1.mjs');
+ if(DEVICE_RECOVERY_REAL_RELEASE_V1===null)assert.throws(()=>assertDeviceRecoveryReleaseV1(),/DEVICE_NATIVE_RELEASE_ABSENT_OR_CHANGED/);
+ else assertDeviceRecoveryReleaseV1();
+ assert.throws(()=>assertDeviceRecoveryReleaseV1({cutoff:'0',executor:{}}));
+ const {runDeviceOwnerRecoveryFlowV1}=await import('./paired-native-note-flow-v2.mjs');
+ await assert.rejects(runDeviceOwnerRecoveryFlowV1({cutoff:'0',executor:{}}),/DEVICE_NATIVE_RECOVERY_FIXED_NO_OPTIONS/);
+ if(DEVICE_RECOVERY_REAL_RELEASE_V1===null)await assert.rejects(runDeviceOwnerRecoveryFlowV1(),/DEVICE_NATIVE_RELEASE_ABSENT_OR_CHANGED/);
+});

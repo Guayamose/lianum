@@ -38,11 +38,12 @@ function exactTlsFetch(descriptor, certificate, evidence) {
     const discardFund = evidence.dropFund && path === '/v1/mobile/device-deposit/fund';
     const discardU = evidence.dropU && path === '/v1/mobile/device-reservation/jobs';
     const discardExecute=evidence.dropExecute&&path==='/v1/mobile/device-execution/execute';
+    const discardRecovery=evidence.dropRecovery&&path==='/v1/mobile/device-execution/recover';
     const discardWithdraw=evidence.dropWithdraw&&path==='/v1/mobile/device-exit/withdraw';
-    const discard = discardFund || discardU || discardExecute || discardWithdraw;
+    const discard = discardFund || discardU || discardExecute || discardWithdraw || discardRecovery;
     if (discardFund) evidence.dropFund = false;
     if (discardU) evidence.dropU = false;
-    if(discardExecute)evidence.dropExecute=false;if(discardWithdraw)evidence.dropWithdraw=false;
+    if(discardRecovery)evidence.dropRecovery=false;if(discardExecute)evidence.dropExecute=false;if(discardWithdraw)evidence.dropWithdraw=false;
     const request = httpsRequest(target, { family: 4, ca: certificate, agent: false,
       minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3', method: options.method ?? 'GET', headers, signal: options.signal }, response => {
       try {
@@ -69,7 +70,7 @@ function exactTlsFetch(descriptor, certificate, evidence) {
           const authorization = JSON.parse(Buffer.concat(chunks)).authorizationSHA256;
           if (discardFund) { evidence.fundAuthorizationSHA256 = authorization; evidence.fundReplyDiscarded = true; }
           if (discardU) { evidence.uAuthorizationSHA256 = authorization; evidence.uReplyDiscarded = true; }
-          void reply.body.cancel().then(() => reject(Error(discardExecute?'DEVICE_NATIVE_EXECUTE_REPLY_LOST':discardWithdraw?'DEVICE_NATIVE_WITHDRAW_REPLY_LOST':discardU ? 'DEVICE_US_U_REPLY_LOST' : 'DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
+          void reply.body.cancel().then(() => reject(Error(discardRecovery?'DEVICE_NATIVE_RECOVERY_REPLY_LOST':discardExecute?'DEVICE_NATIVE_EXECUTE_REPLY_LOST':discardWithdraw?'DEVICE_NATIVE_WITHDRAW_REPLY_LOST':discardU ? 'DEVICE_US_U_REPLY_LOST' : 'DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
         } else resolve(reply);
         } catch (error) { reject(error); }
       });
