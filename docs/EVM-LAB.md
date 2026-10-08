@@ -7,6 +7,8 @@ Desde la raíz del proyecto:
 ./dev lab          # Laboratorio nuevo, pruebas reales y cierre de procesos
 ./dev lab recovery # Otro laboratorio nuevo: entrega real y devolución F tras vencimiento
 ./dev lab browser  # Wallet DOM real, quince pruebas y salidas en estado nuevo
+./dev lab browser-recovery # Recuperación F desde el DOM; siete pruebas nuevas
+./dev lab osaka    # Despliegues y límite de gas; no genera pruebas privadas
 ```
 
 El segundo comando crea cuentas de prueba nuevas, arranca Anvil exclusivamente
@@ -251,3 +253,43 @@ El resumen está en `.internal/dev/reports/evm-recovery-lab.json`.
 Es aceptación SDK/HTTP de recuperación local, no navegador, red pública,
 reinicio del keeper/nodo ni wallet completa. El coordinador original sobrevive;
 se reabre su journal y se sustituyen los listeners.
+
+## Despliegues Osaka comprobados
+
+`./dev lab osaka` comprueba un perfil local nuevo y fijo. Activa explícitamente
+el límite de 16.777.216 gas por transacción de
+[EIP-7825](https://eips.ethereum.org/EIPS/eip-7825); el límite de bloque permanece
+en 30 millones. Las aceptaciones privadas anteriores usaron Cancun y conservan
+sus fuentes y resultados originales.
+
+Intento `63e7918a-994e-44af-a766-86171c68ce90`: aceptado con 47 transacciones,
+44 CREATE, dos registros de pool y una transferencia pública de una unidad.
+Se despliegan los doce verificadores, librerías, hub, dos pools, activos y router
+fijados, con comprobación completa de código, constructores y almacenamiento.
+Todas las transacciones declaran como máximo 16.777.216 gas; el máximo consumido
+fue 12.211.265. El mayor código tiene 24.558 bytes y el mayor initcode 30.924,
+dentro de [EIP-170](https://eips.ethereum.org/EIPS/eip-170) y
+[EIP-3860](https://eips.ethereum.org/EIPS/eip-3860).
+
+El runtime rechaza gas cero, cap+1 y 30 millones antes de registrar o enviar.
+Una única petición cap+1 al nodo original también fue rechazada; cabeza,
+nonces, balances, mempool y journal quedaron idénticos. La revisión independiente
+unió las 47 transacciones y recibos, sus hashes y las 390 fuentes. Se cerraron
+los tres PID originales y ambos locks, sin señales ni force y con scratch
+eliminado. Cero pruebas privadas; 5,49 s en el worker y 5,71 s en el supervisor.
+
+Resultado SHA256 `a53a8beaa1a285ebb2fc4739fff6a13f84cb983ff9cabd62c034131b1db3e551`,
+recursos `2ad2878653d6a6439b03f8ca1b942b8ca67493555aa9a8c7d308750dd1af8da4`,
+fuentes `db5aa70ce21d42e5c8047578e05db6a213b5f283c3a880e8c6cdc4c137fefed7`.
+Resumen: `.internal/dev/reports/osaka-smoke-lab.json`.
+
+El primer intento `cc834a62-4247-433d-ab24-66e0b9ced1ce` sigue rechazado,
+sin despliegues: el nodo rechazó gas excesivo, pero el mock esperaba el mensaje
+de otra rama RPC. La corrección compara el mensaje auténtico exacto y conserva
+el fence y las comprobaciones de estado; ocho regresiones host pasan.
+
+Este smoke no llama a los verificadores con pruebas privadas ni demuestra el
+coste de MODEXP o de settlement bajo Osaka. Tampoco acredita un cliente de
+producción, consenso público, firma wire real, recorrido de wallet o rendimiento
+del producto. La liquidación privada necesita su aceptación separada bajo ese
+perfil antes de usarlo en producción.
