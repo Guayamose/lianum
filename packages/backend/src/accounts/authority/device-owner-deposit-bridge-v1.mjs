@@ -84,8 +84,7 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
   async function retainedRead(input) {
     // First signature only releases the original private descriptor. The second,
     // distinct domain below is mandatory BEFORE any worker/journal admission.
-    const review = await actor.openReview(input); live();
-    assert.equal(review.action, 'read', 'DEVICE_OWNER_BRIDGE_READ_AUTH_REQUIRED'); return review.binding;
+    const bound = await actor.deviceDepositSignedReadBindingV1(input); live(); return bound;
   }
   function issue(action, bound, selected, view, fields) {
     for (const [id, row] of pending) if (row.consumed || row.value.expiresAt <= Date.now()) pending.delete(id);

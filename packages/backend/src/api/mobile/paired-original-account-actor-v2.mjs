@@ -279,6 +279,17 @@ export async function createPairedOriginalAccountActorV2(input) {
           custody: 'LINUX_ORIGINAL_OWNER_CUSTODY', mobileNoteCustody: false, completePortfolio: false }));
       } finally { busy = false; }
     },
+    /** A signed read releases only the original binding. The device bridge
+     * issues its own distinct economic consent; no unused V2 review is created. */
+    async deviceDepositSignedReadBindingV1(input) {
+      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      try {
+        const access = authenticate(input, normalizeOriginalAccountAccessV2, originalAccountAccessMessageV2, accesses, 'challenge');
+        need(access.action === 'read', 'DEVICE_OWNER_BRIDGE_READ_AUTH_REQUIRED');
+        const selected = await binding('read'); live(); validateOriginalAccountFreshV2(access);
+        return structuredClone(selected);
+      } finally { busy = false; }
+    },
     async deviceDepositOriginalBinding() {
       need(arguments.length === 0 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try { const value = await binding('read'); live(); return value; } finally { busy = false; }

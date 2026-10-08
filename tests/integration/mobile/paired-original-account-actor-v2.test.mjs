@@ -10,6 +10,20 @@ const origin = 'https://private-actor.example';
 const { createPairedOriginalAccountActorV2 } = await createActorModule();
 const pair = f => createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
   owner: f.world.owner, origin, devicePublicKey: f.device.publicKey });
+test('signed device reads consume each original nonce without filling unused review capacity or granting execution', async t => {
+  const f = await fixture(t, { execute: false }), actor = await pair(f);
+  for (let i = 0; i < 7; i++) {
+    const challenge = actor.challenge({ action: 'read' });
+    const signed = { challenge, signature: f.device.sign(originalAccountAccessMessageV2(challenge)) };
+    const binding = await actor.deviceDepositSignedReadBindingV1(signed);
+    assert.equal(binding.requestId, f.body.requestId);
+    await assert.rejects(actor.deviceDepositSignedReadBindingV1(signed), /CHALLENGE_CHANGED/);
+  }
+  const challenge = actor.challenge({ action: 'reconcile' });
+  await assert.rejects(actor.deviceDepositSignedReadBindingV1({ challenge,
+    signature: f.device.sign(originalAccountAccessMessageV2(challenge)) }), /READ_AUTH_REQUIRED/);
+  assert.equal(f.world.sends, 0); assert.equal(f.world.proofs, 0); actor.close();
+});
 async function review(actor, f, action = 'read') {
   const challenge = actor.challenge({ action });
   return actor.openReview({ challenge, signature: f.device.sign(originalAccountAccessMessageV2(challenge)) });
