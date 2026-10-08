@@ -8,9 +8,13 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ownSpawnedBuildGroup } from './owned-build-process.mjs';
+import nativeBuildLimits from '../plugins/with-native-build-limits.cjs';
 
 const mobile = fileURLToPath(new URL('../', import.meta.url));
 const project = fileURLToPath(new URL('../../../', import.meta.url));
+const nativeCmakeArguments = nativeBuildLimits.NATIVE_CMAKE_ARGUMENTS;
+assert.ok(JSON.parse(readFileSync(join(mobile, 'app.json'), 'utf8')).expo.plugins
+  .includes('./plugins/with-native-build-limits.cjs'), 'MOBILE_BUILD_NATIVE_LIMITS_PLUGIN_REQUIRED');
 assert.ok(process.argv.length === 2 || (process.argv.length === 3 && process.argv[2] === '--preflight'));
 assert.ok(Number(process.versions.node.split('.')[0]) >= 24, 'MOBILE_BUILD_NODE_24_REQUIRED');
 const sdk = resolve(process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || join(homedir(),'Android/Sdk'));
@@ -42,7 +46,8 @@ const lockPath=existsSync(proofDirectory)?join(proofDirectory,'active.lock'):joi
 const runId=randomUUID();writeFileSync(lockPath,JSON.stringify({pid:process.pid,runId,
   relation:'mobile_android_debug',mode:'build'})+'\n',{flag:'wx',mode:0o600});
 const report = {format:'LIANUM_MOBILE_ANDROID_DEBUG_BUILD_V1',runId,phase:'starting',
-  architectures:abi,gradleSHA256,peakProcessGroupRSS:0,minimumAvailableRAM:available(),
+  architectures:abi,gradleSHA256,nativeCmakeArguments,nativeJobPool:'owned_build=1',
+  peakProcessGroupRSS:0,minimumAvailableRAM:available(),
   deviceInstalled:false,uploaded:false,releaseSigned:false,requiresMetro:true,groupSignals:[]};
 const save=()=>writeFileSync(join(reportDirectory,'mobile-android-debug.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
 const bestEffortSave=()=>{try{save();}catch{report.failure??='MOBILE_BUILD_REPORT_WRITE_FAILED';}};
@@ -105,6 +110,13 @@ async function run(command,args,cwd) {
 try {
   save();report.phase='prebuild';
   await run(process.execPath,[join(mobile,'node_modules/expo/bin/cli'),'prebuild','--no-install','--platform','android'],mobile);
+  for (const path of ['android/app/build.gradle', 'android/build.gradle']) {
+    const generated = readFileSync(join(mobile, path), 'utf8');
+    for (const argument of nativeCmakeArguments) {
+      assert.ok(generated.includes("'" + argument + "'"), 'MOBILE_BUILD_NATIVE_LIMITS_GENERATED');
+    }
+  }
+  report.generatedNativeLimitsVerified = true;
   const wrapper=join(mobile,'android/gradle/wrapper/gradle-wrapper.properties');
   let properties=readFileSync(wrapper,'utf8');
   assert.ok(properties.includes('gradle-9.3.1-bin.zip'),'MOBILE_BUILD_REVIEWED_GRADLE_VERSION');

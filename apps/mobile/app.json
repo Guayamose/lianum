@@ -16,6 +16,7 @@
       "allowBackup": false
     },
     "plugins": [
+      "./plugins/with-native-build-limits.cjs",
       "expo-dev-client",
       ["expo-secure-store", {
         "configureAndroidBackup": true,

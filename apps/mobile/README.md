@@ -10,6 +10,7 @@ no completa los recorridos económicos del keeper histórico.
 - `src/screens/`: pantallas y consentimiento.
 - `src/custody/`: clave local, firma y operación pendiente cifrada.
 - `src/api/`: transporte del protocolo móvil y estado público del servicio.
+- `plugins/`: configuración nativa generada, incluido el límite de compilación Android.
 - `tests/`: compatibilidad criptográfica, límites y pruebas de host con fronteras
   nativas simuladas explícitamente.
 - `../../packages/mobile-protocol/`: contrato público compartido con el servidor.
@@ -82,7 +83,10 @@ El preflight comprueba JDK 17 o superior, SDK/API 36, build-tools 36.0.0,
 NDK 27.1.12297006 y CMake 3.22.1. Usa `ANDROID_HOME`, `ANDROID_SDK_ROOT` o
 `~/Android/Sdk`. La compilación genera Android desde `app.json`, verifica el
 [SHA-256 oficial de Gradle 9.3.1](https://services.gradle.org/distributions/gradle-9.3.1-bin.zip.sha256)
-y limita Gradle/CMake a un worker. Comprueba que el APK sólo incluye
+y limita Gradle a un worker. El plugin público `with-native-build-limits.cjs`
+configura app y bibliotecas Android con un único pool Ninja `owned_build=1`,
+compartido por compilación y enlace. El helper verifica esos argumentos en los
+archivos Gradle generados antes de iniciar la compilación. Comprueba que el APK sólo incluye
 `arm64-v8a` y `x86_64`; registra hash y resultado en
 `.internal/dev/reports/mobile-android-debug.json`.
 
@@ -95,6 +99,15 @@ y UID; las señales individuales vuelven a comprobar esa identidad. El APK resul
 `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` y necesita Metro,
 por ser una compilación de desarrollo. Aún falta completar este build y probar
 el binario y la biometría en dispositivos; no es una entrega firmada de release.
+
+El límite usa los argumentos CMake
+[`CMAKE_JOB_POOLS`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOLS.html),
+[`CMAKE_JOB_POOL_COMPILE`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOL_COMPILE.html)
+y [`CMAKE_JOB_POOL_LINK`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOL_LINK.html).
+La regresión ejecuta Ninja directamente con `-j8`: una fixture sin pools muestra
+concurrencia y la misma fixture con este pool sólo admite un compilador o linker
+a la vez. `CMAKE_BUILD_PARALLEL_LEVEL` por sí solo limita `cmake --build`; AGP
+también puede invocar Ninja directamente. No se modifican AGP ni cachés ajenas.
 
 Copia `.env.example` a `.env` y configura `EXPO_PUBLIC_API_ORIGIN` con el origen
 HTTPS del servicio. Esa configuración es pública y se incorpora al bundle: no
