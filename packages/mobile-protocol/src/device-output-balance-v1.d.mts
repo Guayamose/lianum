@@ -1,0 +1,11 @@
+export const DEVICE_OUTPUT_BALANCE_V1:'LIANUM_DEVICE_ORIGINAL_OUTPUT_BALANCE_V1';
+export type DeviceOutputBalancePathV1=Readonly<{root:string;index:number;leaf:string;siblings:readonly string[]}>;
+export type DeviceOutputBalanceNoteV1=Readonly<{noteRole:'change'|'recovery';commitment:string;nullifier:string;amount:string;
+  state:'UNSPENT'|'SPENT'|'LOCKED';path:DeviceOutputBalancePathV1|null}>;
+export type DeviceOutputBalanceV1=Readonly<{version:1;profile:typeof DEVICE_OUTPUT_BALANCE_V1;origin:string;pairingId:string;devicePublicKey:string;
+  parentJobId:string;rootId:string;noteRevision:number;nativeBindingSHA256:string;reservationTransactionHash:string;assetId:string;pool:string;
+  poolTerms:Readonly<{scope:string;policy:string;codeHash:string;assetIdentity:string;domainCommitment:string}>;sourceNullifier:string;sourceNullifierSpent:true;
+  nativeOutcome:null|'FULFILLED'|'RECOVERED';change:DeviceOutputBalanceNoteV1;recovery:DeviceOutputBalanceNoteV1;
+  observed:Readonly<{blockNumber:string;blockHash:string;timestamp:string}>;expiresAt:number;authorizationSHA256:string}>;
+export function normalizeDeviceOutputBalanceV1(raw:unknown):DeviceOutputBalanceV1;
+export function validateDeviceOutputBalanceFreshV1(raw:unknown,now?:number):DeviceOutputBalanceV1;

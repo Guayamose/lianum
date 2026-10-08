@@ -35,6 +35,8 @@ export function createOriginalAccountApiV2(options: {
   descriptor: OriginalAccountDescriptorV2;
   privateState: OriginalPrivateStateApiV1;
   deviceExecution: Readonly<{
+    outputBalances(input: { access: OriginalAccountAccessV2; signature: string; parentJobId: string; rootId: string;
+      noteRevision: number; changeNullifier: string; recoveryNullifier: string }): Promise<unknown>;
     challenge(action: DeviceExecutionConsentV1['action'], input: { access: OriginalAccountAccessV2; signature: string; jobId: string }): Promise<DeviceExecutionConsentV1>;
     submit(input: { consent: DeviceExecutionConsentV1; signature: string }): Promise<unknown>;
   }>;

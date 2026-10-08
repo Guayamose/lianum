@@ -31,6 +31,7 @@ import { localDeviceWithdrawalStatementV1, localDeviceWithdrawalFrameV1, localDe
 import { normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1, deviceExitWitnessBytesV1, validateDeviceExitConsentFreshV1,
   type DeviceExitConsentV1, type DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1 } from '../api/device-owner-execution-api-v1';
+import { readDeviceOutputBalanceV1 } from '../api/device-owner-output-balance-api-v1';
 import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
@@ -743,6 +744,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     wipeDeviceReservationWitnessV1(witness); outstandingAuthorizationWitnesses.delete(witness); };
 
   let liveInclusion: object | null = null;
+  let liveOutputBalances: object | null = null;
   const signatures = new WeakMap<LocalDepositSignatureV1, number>();
   const proofRequests = new WeakMap<LocalDeviceProofRequestV1, { witness: DeviceDepositWitnessV1; consumed: boolean }>();
   const outstandingWitnesses = new Set<DeviceDepositWitnessV1>();
@@ -781,6 +783,9 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     });
   }
   async function persistSpend(next: State, key: Crypto.AESEncryptionKey, before: string, raw: string, root: Uint8Array) {
+    // Local mutations/withdrawal intent invalidate an earlier monetary read.
+    // Freshness is ephemeral and is never restored from ciphertext or a DTO.
+    liveOutputBalances = null;
     // Validate/reconstruct the exact candidate before encryption. The same
     // decoder gives nested fields a stable order without weakening readback.
     const candidateBytes = encoded(next);
@@ -1116,12 +1121,63 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
         }).finally(() => wipeWitness(row.witness));
     },
+    readDeviceOutputBalanceSubject: () => original('Leer sólo los identificadores de estas dos notas; no revelar aperturas ni autorizar W39', async value => {
+      const note = value.note, spend = value.spend;
+      if (!note?.deviceJob || !note.funding || !spend?.proofJob || !spend.reservation) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
+      return Object.freeze({ parentJobId: spend.proofJob.jobId, rootId: value.rootId, noteRevision: value.revision,
+        changeNullifier: localFundedSpendNullifierV1(note.scope, spend.statement.changeCommitment, spend.change.opening.secret),
+        recoveryNullifier: localFundedSpendNullifierV1(note.scope, spend.statement.recoveryCommitment, spend.recovery.opening.secret) });
+    }),
+    applyDeviceOutputBalances: (handle: object) => {
+      current(); const observation = readDeviceOutputBalanceV1(handle);
+      return original('Guardar en memoria la lectura original de cambio/recuperación; no firmar, probar ni enviar', async value => {
+        const note = value.note, spend = value.spend, job = spend?.proofJob;
+        if (!note?.deviceJob || !note.funding || !spend?.reservation || !job || observation.rootId !== value.rootId
+          || observation.noteRevision !== value.revision || observation.parentJobId !== job.jobId
+          || observation.origin !== job.origin || observation.pairingId !== job.pairingId || observation.devicePublicKey !== job.devicePublicKey
+          || observation.pool !== note.pool || observation.assetId !== note.funding.assetId
+          || observation.poolTerms.scope !== note.scope || observation.poolTerms.policy !== note.policy
+          || observation.poolTerms.assetIdentity !== note.deviceJob.assetIdentity || observation.poolTerms.domainCommitment !== note.deviceJob.domainCommitment
+          || observation.reservationTransactionHash !== spend.reservation.transactionHash
+          || observation.sourceNullifier !== spend.statement.inputNullifier) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_REQUIRED');
+        if (spend.execution && (spend.execution.nativeBindingSHA256 !== observation.nativeBindingSHA256
+          || spend.execution.terminal && spend.execution.terminal.outcome !== observation.nativeOutcome)) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
+        for (const role of ['change', 'recovery'] as const) {
+          const output = observation[role], opening = spend[role].opening;
+          const frame = localBalanceCommitmentMessageV1(note.scope, note.policy, opening); let commitment: string;
+          try { commitment = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
+          if (output.commitment !== commitment || output.commitment !== spend.statement[role === 'change' ? 'changeCommitment' : 'recoveryCommitment']
+            || output.nullifier !== localFundedSpendNullifierV1(note.scope, commitment, opening.secret)
+            || BigInt(output.amount) !== BigInt(opening.value)) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
+          if (spend.exits?.[role]?.receipt && output.state !== 'SPENT') bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
+        }
+        current(); if (readDeviceOutputBalanceV1(handle) !== observation) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
+        liveOutputBalances = handle; return Object.freeze({ observedHead: observation.observed.blockHash, expiresAt: observation.expiresAt,
+          assetIdentity: observation.poolTerms.assetIdentity, domainCommitment: observation.poolTerms.domainCommitment });
+      });
+    },
+    forgetDeviceOutputBalanceObservation() { current(); liveOutputBalances = null; },
     readDeviceNote: () => original('Consultar el estado de tu nota local y su envío original', async value => {
       const note = value.note; if (!note) return null;
       let observation = null;
       try { observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null; } catch { liveInclusion = null; }
       const fresh = !value.spend && note.status === 'FUNDED' && observation?.commitment === note.commitment
         && observation.transactionHash === note.funding?.transactionHash;
+      let outputObservation: ReturnType<typeof readDeviceOutputBalanceV1> | null = null;
+      try { outputObservation = liveOutputBalances ? readDeviceOutputBalanceV1(liveOutputBalances) : null; } catch { liveOutputBalances = null; }
+      const output = (role: 'change' | 'recovery') => {
+        const spend = value.spend; if (!spend) return null;
+        const intent = spend.exits?.[role], observed = outputObservation?.[role];
+        const confirmed = !!intent?.receipt;
+        const usable = !!observed && !intent;
+        return Object.freeze({ commitment: spend.statement[role === 'change' ? 'changeCommitment' : 'recoveryCommitment'],
+          amount: spend[role].opening.value, state: confirmed ? 'WITHDRAWN' : intent ? 'WITHDRAWAL_PENDING'
+            : observed?.state ?? (role === 'recovery' ? 'LOCKED' : spend.reservation ? 'INCLUDED_AT_RETAINED_HEAD' : 'PENDING_RESERVATION'),
+          availableBalance: usable ? observed!.state === 'UNSPENT' ? observed!.amount : observed!.state === 'SPENT' ? '0' : null : null,
+          freshness: usable ? 'OBSERVED_AT_RETAINED_HEAD' : 'UNKNOWN',
+          observation: usable ? { headHash: outputObservation!.observed.blockHash, expiresAt: outputObservation!.expiresAt } : null,
+          withdrawnAmount: confirmed ? intent!.statement.amount : null, withdrawalTransactionHash: intent?.receipt?.transactionHash ?? null });
+      };
       return Object.freeze({ rootId: value.rootId, revision: value.revision, commitment: note.commitment,
         amount: note.opening.value, status: note.status, job: note.deviceJob ? Object.freeze({ ...note.deviceJob }) : null,
         observation: observation ? Object.freeze({ transactionHash: observation.transactionHash, assetId: observation.assetId,
@@ -1135,7 +1191,9 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           transactionHash: value.spend.reservation?.transactionHash ?? null,
           changeCommitment: value.spend.statement.changeCommitment,
           recoveryCommitment: value.spend.statement.recoveryCommitment,
-          changeAvailableBalance: null, recoveryAvailableBalance: null,
+          changeAvailableBalance: output('change')!.availableBalance, recoveryAvailableBalance: output('recovery')!.availableBalance,
+          assetIdentity: note.deviceJob?.assetIdentity ?? null, domainCommitment: note.deviceJob?.domainCommitment ?? null,
+          change: output('change'), recovery: output('recovery'),
           budget: value.spend.proposal.budget, changeAmount: value.spend.change.opening.value,
           recoveryAmount: value.spend.recovery.opening.value } : null });
     }),
@@ -1553,7 +1611,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     readDeviceReservationIntent: () => original('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
       async value => value.spend?.proofJob ? Object.freeze({ ...value.spend.proofJob, rootId: value.rootId,
         operationId: value.spend.proposal.operationId, nativeEffectsEstablished: false as const }) : null),
-    close() { discardReview(); closed = true; liveInclusion = null;
+    close() { discardReview(); closed = true; liveInclusion = null; liveOutputBalances = null;
       for (const witness of outstandingWitnesses) wipeWitness(witness);
       for (const witness of outstandingAuthorizationWitnesses) wipeAuthorization(witness);
       for (const witness of outstandingExitWitnesses) wipeExit(witness); },

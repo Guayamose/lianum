@@ -10,7 +10,7 @@ import {assertOwnedNativeValueExecution} from '../../execution/native-value/exec
 import {assertOwnedNativeValueProviderCustody} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import {assertDeviceOwnerReservationBridgeV1,deviceOwnerReservationBridgeActorV1} from './device-owner-reservation-bridge-v1.mjs';
 import {installDeviceOwnerExecutionV1,readDeviceOwnerExecutionStatusV1,runDeviceOwnerExecutionAuthorizationV1,
-  assertOwnedNativeValueAccountAuthority,prepareDeviceOwnerExitV1,readDeviceOwnerExitStatusV1,runDeviceOwnerExitAuthorizationV1}
+  assertOwnedNativeValueAccountAuthority,prepareDeviceOwnerExitV1,readDeviceOwnerExitStatusV1,runDeviceOwnerExitAuthorizationV1,readDeviceOwnerOutputBalanceV1}
   from './native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {normalizeOriginalAccountSignatureV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
@@ -18,6 +18,7 @@ import {DEVICE_EXECUTION_CONSENT_V1,normalizeDeviceExecutionConsentV1,validateDe
   deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
 import {DEVICE_RESERVATION_CONSENT_V1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {originalAccountAccessMessageV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import {DEVICE_OUTPUT_BALANCE_V1,normalizeDeviceOutputBalanceV1} from '../../../../mobile-protocol/src/device-output-balance-v1.mjs';
 import {DEVICE_EXIT_CONSENT_V1,DEVICE_EXIT_DISCLOSURE_V1,normalizeDeviceExitConsentV1,validateDeviceExitConsentFreshV1,
   deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1}
   from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
@@ -104,6 +105,14 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
     reconcile(input){assert.equal(arguments.length,1);return work(input,'RECONCILE_NATIVE');},
     challengeRecovery(input){assert.equal(arguments.length,1);return challenge(input,'RECOVER_NATIVE');},
     recover(input){assert.equal(arguments.length,1);return work(input,'RECOVER_NATIVE');},
+    async observeOutputBalances(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','parentJobId','rootId','noteRevision','changeNullifier','recoveryNullifier']);
+      live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+      try{const access=await exitRead(input),observed=await readDeviceOwnerOutputBalanceV1(account,bridge,Object.fromEntries(
+          ['parentJobId','rootId','noteRevision','changeNullifier','recoveryNullifier'].map(name=>[name,input[name]])));live();
+        assert.ok(input.access.expiresAt>Date.now(),'DEVICE_OUTPUT_READ_EXPIRED');
+        return normalizeDeviceOutputBalanceV1({version:1,profile:DEVICE_OUTPUT_BALANCE_V1,...descriptor,...observed,
+          expiresAt:Math.min(input.access.expiresAt,Date.now()+15000),authorizationSHA256:access.authorizationSHA256});
+      }finally{busy=false;}},
     async prepareExit(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','parentJobId','noteRole','rootId','noteRevision','nullifier','recipient']);
       live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
       try{const access=await exitRead(input),terms=await prepareDeviceOwnerExitV1(account,bridge,Object.fromEntries(

@@ -96,7 +96,7 @@ mock.module(expoFetchURL, { exports: { fetch: (...args) => {
 // host test resolves only this exact edge to the same original TS bytes.
 const vaultModuleURL = new URL('../src/custody/local-root-note-vault-v1.ts', import.meta.url).href;
 const tsResolution = registerHooks({ resolve(specifier, context, nextResolve) {
-  if (context.parentURL === vaultModuleURL && ['../api/device-owner-deposit-api-v1', '../api/device-owner-reservation-api-v1', '../api/device-owner-exit-api-v1', '../api/device-owner-execution-api-v1'].includes(specifier))
+  if (context.parentURL === vaultModuleURL && ['../api/device-owner-deposit-api-v1', '../api/device-owner-reservation-api-v1', '../api/device-owner-exit-api-v1', '../api/device-owner-execution-api-v1', '../api/device-owner-output-balance-api-v1'].includes(specifier))
     return nextResolve(specifier + '.ts', context);
   return nextResolve(specifier, context);
 } });
@@ -410,6 +410,7 @@ test('copied HTTP inclusion cannot credit an encrypted local note or replace its
   assert.throws(() => vault.applyDeviceExitConfirmation({ stage: 'CONFIRMED', observation: { amount: '400' } }), /RESPONSE_INVALID/);
   assert.throws(() => vault.retainDeviceExecutionIntent({ action: 'EXECUTE_NATIVE', reservation: {} }), /RESPONSE_INVALID/);
   assert.throws(() => vault.applyDeviceExecutionTerminal({ stage: 'FULFILLED', terminal: {} }), /RESPONSE_INVALID/);
+  assert.throws(() => vault.applyDeviceOutputBalances({ change: { amount: '400', state: 'UNSPENT' } }), /RESPONSE_INVALID/);
   assert.deepEqual(store, before);
   assert.equal((await vault.readDeviceNote()).availableBalance, null);
   assert.equal((await vault.readPreparedNote()).status, 'UNISSUED');
@@ -499,7 +500,7 @@ test('copied U request, quote or signature never releases openings or rewrites a
 // HOST HTTP framing is deliberately synthetic. The actual mobile API issues
 // its own inclusion/quote handles; neither this fixture nor AES claims a chain
 // confirmation, original backend authority, hardware or economic acceptance.
-test('original vault persists/reopens quoted change and recovery despite nested key order; coherent public hashes cannot bless corruption', async () => {
+test('original vault persists output custody and binds fresh READ balance to local PC23/NF; expiry/reopen or coherent public hashes confer no availability', async () => {
   const fixture = await completePrivateCustodyBackup(), rootHex = '09'.repeat(32), value = fixture.value;
   delete value.spend;
   async function writeClear(clear, corruptTag = false) {
@@ -522,6 +523,8 @@ test('original vault persists/reopens quoted change and recovery despite nested 
   const { originalAccountAccessMessageV2 } = await import('@lianum/mobile-protocol/original-account-v2');
   const { createDeviceOwnerDepositApiV1 } = await import('../src/api/device-owner-deposit-api-v1.ts');
   const { createDeviceOwnerReservationApiV1 } = await import('../src/api/device-owner-reservation-api-v1.ts');
+  const { createDeviceOwnerOutputBalanceApiV1 } = await import('../src/api/device-owner-output-balance-api-v1.ts');
+  const { normalizeDeviceReservationConsentV1, deviceReservationConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs');
   const deviceKey = new Uint8Array(32).fill(11), note = value.note, publicKey = devicePublicKey(deviceKey), framing = deviceReservationFixtureV1(deviceKey);
   const descriptor = { origin: note.deviceJob.origin, pairingId: note.deviceJob.pairingId, devicePublicKey: publicKey };
   const frames = originalAccountFramesV2({ devicePublicKey: publicKey });
@@ -575,10 +578,80 @@ test('original vault persists/reopens quoted change and recovery despite nested 
   assert.deepEqual(stored.spend.preparation.capsuleOptions, framing.capsuleOptions); assert.deepEqual(stored.spend.preparation.invoiceSignatures, [invoice]);
   assert.equal(prepared.sourceCommitment, note.commitment); assert.equal(prepared.sourceNullifier, observation.nullifier);
   assert.ok(calls.filter(row => row.method === 'write').every(row => store.get(row.name).length <= 2048));
-  vault.close(); const reopened = openLocalRootNoteVaultV1(value.rootId);
+  const signed = await vault.signDeviceReservation(prepared), request = await vault.createDeviceAuthorizationRequest(signed, handle);
+  const fields = { depositJobId: request.depositJobId, quoteId: request.quoteId, jobId: request.jobId, custody: request.custody,
+    statement: request.statement, witnessSHA256: request.witnessSHA256, proofSHA256: '25'.repeat(32), publicInputsSHA256: '26'.repeat(32) };
+  const sConsent = normalizeDeviceReservationConsentV1({ ...framing.consent, ...descriptor, ...fields, action: 'OBSERVE_S',
+    poolTerms, binding: frames.review.binding, challengeId: '27'.repeat(32), nonce: '28'.repeat(32), observed: consent.observed,
+    expiresAt: Date.now() + 15000, openingDisclosure: null });
+  const outputTree = new PrivateNoteTree([Buffer.from(request.statement.changeCommitment, 'hex'), Buffer.from(request.statement.reserveCommitment, 'hex')]);
+  const asPath = (tree, index) => { const p = tree.path(index); return { root: p.root.slice(2), index: p.index,
+    leaf: p.leaf.slice(2), siblings: p.siblings.map(x => x.slice(2)) }; };
+  const sStatus = { jobId: request.jobId, stage: 'RESERVED', consentFields: fields, statement: request.statement,
+    observation: { profile: 'LIANUM_DEVICE_ORIGINAL_S_OBSERVATION_V1', transactionHash: '29'.repeat(32), blockHash: '21'.repeat(32), blockNumber: '1', timestamp: '1',
+      sourceCommitment: request.statement.inputCommitment, sourceNullifier: request.statement.inputNullifier, changeCommitment: request.statement.changeCommitment,
+      reserveCommitment: request.statement.reserveCommitment, domainCommitment: poolTerms.domainCommitment, envelope: '30'.repeat(32), admissionTag: '31'.repeat(32),
+      currentHead: consent.observed, changePath: asPath(outputTree, 0), reservePath: asPath(outputTree, 1) }, errorCode: null,
+    authorizationSHA256: sha(deviceReservationConsentMessageV1(sConsent)).toString('hex') };
+  const preparationFetch = control.fetch; let balanceBody = null;
+  control.fetch = async (target, options) => {
+    if (!target.endsWith('/device-reservation/observations') && !target.endsWith('/device-execution/output-balances')) return preparationFetch(target, options);
+    const input = JSON.parse(options.body);
+    if (target.endsWith('/device-execution/output-balances')) assert.deepEqual(Object.keys(input).sort(),
+      ['access', 'signature', 'parentJobId', 'rootId', 'noteRevision', 'changeNullifier', 'recoveryNullifier'].sort());
+    const body = target.endsWith('/device-reservation/observations') ? sStatus
+      : { ...balanceBody, authorizationSHA256: sha(originalAccountAccessMessageV2(input.access)).toString('hex') };
+    const response = new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    Object.defineProperty(response, 'url', { value: target }); return response;
+  };
+  const retainedS = await reservation.submit({ consent: sConsent, signature: signDeviceMessage(deviceKey, deviceReservationConsentMessageV1(sConsent)) });
+  await vault.applyDeviceReservationInclusion(retainedS); request.close();
+  const balances = await createDeviceOwnerOutputBalanceApiV1(descriptor), subject = await vault.readDeviceOutputBalanceSubject();
+  const local = rawClearRecord(rootHex), spend = local.spend;
+  balanceBody = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_OUTPUT_BALANCE_V1', ...descriptor, ...subject,
+    nativeBindingSHA256: '32'.repeat(32), reservationTransactionHash: sStatus.observation.transactionHash,
+    assetId: note.funding.assetId, pool: note.pool, poolTerms, sourceNullifier: request.statement.inputNullifier,
+    sourceNullifierSpent: true, nativeOutcome: 'FULFILLED',
+    change: { noteRole: 'change', commitment: spend.statement.changeCommitment, nullifier: subject.changeNullifier,
+      amount: spend.change.opening.value, state: 'UNSPENT', path: asPath(outputTree, 0) },
+    recovery: { noteRole: 'recovery', commitment: spend.statement.recoveryCommitment, nullifier: subject.recoveryNullifier,
+      amount: spend.recovery.opening.value, state: 'LOCKED', path: null }, observed: consent.observed, expiresAt: Date.now() + 10000 };
+  delete balanceBody.changeNullifier; delete balanceBody.recoveryNullifier;
+  async function readBalance() { const access = await balances.access(); return balances.observe({ ...subject, access,
+    signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(access)) }); }
+  const beforeRead = new Map(store), balance = await readBalance();
+  assert.throws(() => vault.applyDeviceOutputBalances({ ...balance }), /RESPONSE_INVALID/);
+  await vault.applyDeviceOutputBalances(balance); assert.deepEqual(store, beforeRead, 'READ creates no encrypted/economic job or write');
+  const fresh = await vault.readDeviceNote(); assert.equal(fresh.availableBalance, null);
+  assert.equal(fresh.localReservation.changeAvailableBalance, '380'); assert.equal(fresh.localReservation.recoveryAvailableBalance, null);
+  assert.equal(fresh.localReservation.recovery.state, 'LOCKED'); assert.equal(fresh.localReservation.assetIdentity, proposal.asset);
+  // Even a TLS-provenance handle must match BOTH locally retained PC23 openings/NF.
+  const originalAmount = balanceBody.change.amount; balanceBody.change.amount = '379';
+  const wrongAmount = await readBalance(); await assert.rejects(vault.applyDeviceOutputBalances(wrongAmount), /OUTPUT_BALANCE_CHANGED/); balanceBody.change.amount = originalAmount;
+  assert.equal((await vault.readDeviceNote()).localReservation.changeAvailableBalance, null, 'a newer READ revokes the previous observation');
+  const originalNF = balanceBody.change.nullifier; balanceBody.change.nullifier = '33'.repeat(32);
+  await assert.rejects(readBalance(), /RESPONSE_INVALID/); balanceBody.change.nullifier = originalNF;
+  const originalPath = balanceBody.change.path; balanceBody.change.path = { ...originalPath, root: '34'.repeat(32) };
+  await assert.rejects(readBalance(), /RESPONSE_INVALID/); balanceBody.change.path = originalPath;
+  // F requires a real included recovery path in the response; a LOCKED field
+  // cannot turn into money merely by toggling the terminal label.
+  balanceBody.nativeOutcome = 'RECOVERED'; await assert.rejects(readBalance(), /OUTPUT_BALANCE_INVALID/);
+  const recoveryTree = new PrivateNoteTree([Buffer.from(spend.statement.changeCommitment, 'hex'), Buffer.from(spend.statement.recoveryCommitment, 'hex')]);
+  balanceBody.change.path = asPath(recoveryTree, 0); balanceBody.recovery.path = asPath(recoveryTree, 1); balanceBody.recovery.state = 'UNSPENT';
+  await vault.applyDeviceOutputBalances(await readBalance());
+  assert.equal((await vault.readDeviceNote()).localReservation.recoveryAvailableBalance, '120');
+  balanceBody.change.state = 'SPENT'; await vault.applyDeviceOutputBalances(await readBalance());
+  assert.equal((await vault.readDeviceNote()).localReservation.changeAvailableBalance, '0', 'zero requires the fresh spent NF response');
+  balanceBody.change.state = 'UNSPENT'; await vault.applyDeviceOutputBalances(await readBalance());
+  const observedAt = Date.now(), clock = mock.method(Date, 'now', () => observedAt + 16000);
+  try { const expired = await vault.readDeviceNote(); assert.equal(expired.localReservation.changeAvailableBalance, null);
+    assert.equal(expired.localReservation.change.freshness, 'UNKNOWN'); assert.equal(expired.localReservation.change.amount, '380'); }
+  finally { clock.mock.restore(); }
+  balances.close(); vault.close(); const reopened = openLocalRootNoteVaultV1(value.rootId);
   assert.equal((await reopened.readDeviceNote()).availableBalance, null);
-  const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, stored.revision);
-  assert.equal(JSON.parse(store.get(POINTER)).revision, stored.revision); reopened.close();
+  assert.equal((await reopened.readDeviceNote()).localReservation.changeAvailableBalance, null);
+  const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, local.revision);
+  assert.equal(JSON.parse(store.get(POINTER)).revision, local.revision); reopened.close();
   // An attacker may recompute ALL public hashes/manifest/pointer. A forged
   // AES tag still fails; an authenticated record with an unknown field also
   // fails the original strict state decoder instead of being normalized away.
@@ -594,4 +667,47 @@ test('original vault persists/reopens quoted change and recovery despite nested 
     await assert.rejects(badVault.readDeviceNote()); assert.deepEqual(store, beforeRejected); badVault.close();
   }
   deposit.close(); reservation.close(); deviceKey.fill(0); control.fetch = null;
+});
+
+// These fixed TLS responses are explicit HOST framing, never original monetary
+// acceptance. They exercise the client's signed READ/path/lifetime boundaries.
+test('output READ never installs a superseded response or a copied/closed handle; wrong authorization digest is rejected', async () => {
+  reset();
+  const { createDeviceOwnerOutputBalanceApiV1, readDeviceOutputBalanceV1 } = await import('../src/api/device-owner-output-balance-api-v1.ts');
+  const { originalAccountFramesV2 } = await import('./helpers/original-account-frames-v2.mjs');
+  const { devicePublicKey, signDeviceMessage } = await import('../src/custody/signing.mjs');
+  const { originalAccountAccessMessageV2 } = await import('@lianum/mobile-protocol/original-account-v2');
+  const { PrivateNoteTree } = await import('../../../packages/engine/src/notes/private-note-tree.mjs');
+  const key = new Uint8Array(32).fill(11), frames = originalAccountFramesV2({ devicePublicKey: devicePublicKey(key) });
+  const descriptor = { origin: frames.access.origin, pairingId: frames.access.pairingId, devicePublicKey: frames.access.devicePublicKey };
+  const hash = n => n.toString(16).padStart(64, '0'), cm = hash(20), tree = new PrivateNoteTree([Buffer.from(cm, 'hex')]), p = tree.path(0);
+  const input = { access: frames.access, signature: signDeviceMessage(key, originalAccountAccessMessageV2(frames.access)),
+    parentJobId: hash(21), rootId: hash(22), noteRevision: 7, changeNullifier: hash(23), recoveryNullifier: hash(24) };
+  const base = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_OUTPUT_BALANCE_V1', ...descriptor, parentJobId: input.parentJobId,
+    rootId: input.rootId, noteRevision: input.noteRevision, nativeBindingSHA256: hash(25), reservationTransactionHash: hash(26),
+    assetId: hash(27), pool: '28'.repeat(20), poolTerms: { scope: hash(29), policy: hash(30), codeHash: hash(31), assetIdentity: hash(32), domainCommitment: hash(33) },
+    sourceNullifier: hash(34), sourceNullifierSpent: true, nativeOutcome: null,
+    change: { noteRole: 'change', commitment: cm, nullifier: input.changeNullifier, amount: '400', state: 'UNSPENT',
+      path: { root: p.root.slice(2), index: p.index, leaf: p.leaf.slice(2), siblings: p.siblings.map(x => x.slice(2)) } },
+    recovery: { noteRole: 'recovery', commitment: hash(35), nullifier: input.recoveryNullifier, amount: '100', state: 'LOCKED', path: null },
+    observed: { blockNumber: '1', blockHash: hash(36), timestamp: '1' }, expiresAt: Date.now() + 10000,
+    authorizationSHA256: sha(originalAccountAccessMessageV2(frames.access)).toString('hex') };
+  let count = 0, digestTampered = false; const entered = Promise.withResolvers(), released = Promise.withResolvers();
+  control.fetch = async (target, options) => {
+    assert.ok(target.endsWith('/device-execution/output-balances'));
+    const body = structuredClone(base); if (digestTampered) body.authorizationSHA256 = hash(37);
+    if (++count === 1) { entered.resolve(); await released.promise; }
+    const response = new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    Object.defineProperty(response, 'url', { value: target }); return response;
+  };
+  const api = await createDeviceOwnerOutputBalanceApiV1(descriptor), first = api.observe(input);
+  // Retain rejection immediately, then let the later authenticated response win.
+  const firstRejected = assert.rejects(first, /RESPONSE_INVALID/); await entered.promise;
+  const second = await api.observe(input); released.resolve(); await firstRejected;
+  assert.equal(readDeviceOutputBalanceV1(second).change.amount, '400');
+  assert.throws(() => readDeviceOutputBalanceV1({ ...second }), /RESPONSE_INVALID/);
+  digestTampered = true; await assert.rejects(api.observe(input), /RESPONSE_INVALID/);
+  assert.throws(() => readDeviceOutputBalanceV1(second), /RESPONSE_INVALID/);
+  digestTampered = false; const third = await api.observe(input); api.close();
+  assert.throws(() => readDeviceOutputBalanceV1(third), /CLIENT_CLOSED/); key.fill(0); control.fetch = null;
 });

@@ -206,7 +206,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       if(executionBridge!==null&&request.method==='POST'&&request.url.startsWith('/v1/mobile/device-execution/')){
         if(!tls||request.headers.origin!==descriptor.origin)fail('HTTP_ORIGIN_REJECTED');
         const methods={'execution-reviews':'challengeExecution',execute:'execute','reconciliation-reviews':'challengeReconciliation',
-          reconcile:'reconcile','recovery-reviews':'challengeRecovery',recover:'recover'};
+          reconcile:'reconcile','recovery-reviews':'challengeRecovery',recover:'recover','output-balances':'observeOutputBalances'};
         const method=methods[request.url.slice('/v1/mobile/device-execution/'.length)];if(!method)fail('HTTP_NOT_FOUND');
         const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');return executionBridge[method](input);
       }

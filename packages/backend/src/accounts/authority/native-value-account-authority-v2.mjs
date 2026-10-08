@@ -105,6 +105,12 @@ export async function prepareDeviceOwnerExitV1(account,bridge,input){
   assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);
   return owned.get(account).deviceExitTerms(bridge,input);
 }
+/** Read-only monetary observation for this original device S. No W39 intent,
+ * proof or withdrawal permission is issued, and no opening/root key is read. */
+export async function readDeviceOwnerOutputBalanceV1(account,bridge,input){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);
+  return owned.get(account).deviceOutputBalance(bridge,input);
+}
 export async function readDeviceOwnerExitStatusV1(account,bridge,jobId){
   assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);reference(jobId);
   return owned.get(account).deviceExitStatus(jobId,bridge);
@@ -795,6 +801,43 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
       epoch:(BigInt(view.head.timestamp)/600n).toString(),root:bare(path.root),nullifier:input.nullifier,amount:amount.toString(),recipient:input.recipient,commitment},
       path:{root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)},
       poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,assetIdentity:asset.assetIdentity,domainCommitment:identity.domainCommitment},
+      observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp}};
+  }
+  async function outputBalance(bridge,input){
+    exactRecord(input,['parentJobId','rootId','noteRevision','changeNullifier','recoveryNullifier']);
+    reference(input.changeNullifier);reference(input.recoveryNullifier);
+    const parent=reservationRow(input.parentJobId),installation=deviceExecutionOriginal(bridge,parent);
+    assert.equal(input.rootId,parent.consent.custody.rootId,'DEVICE_OUTPUT_ROOT_CHANGED');
+    assert.ok(Number.isSafeInteger(input.noteRevision)&&input.noteRevision>=parent.consent.custody.noteRevision,'DEVICE_OUTPUT_CUSTODY_REVISION');
+    const reserved=await reservationObservation(parent);assert.equal(reserved.stage,'RESERVED','DEVICE_OUTPUT_ORIGINAL_S_REQUIRED');
+    const sourceNullifier=parent.consent.statement.inputNullifier;
+    assert.equal(new Set([sourceNullifier,input.changeNullifier,input.recoveryNullifier]).size,3,'DEVICE_OUTPUT_NULLIFIERS_CHANGED');
+    if(parent.nativeOutcome!==null){
+      assert.ok(parent.nativeTerminal,'DEVICE_OUTPUT_ORIGINAL_TERMINAL_REQUIRED');
+      assert.equal(nativeExecution.snapshot(parent.jobId).outcome,parent.nativeOutcome,'DEVICE_OUTPUT_ORIGINAL_TERMINAL_CHANGED');
+      const terminal=await runtime.receipt('0x'+parent.nativeTerminal.transactionHash);assert.ok(terminal);
+      await runtime.checkReceipt(terminal);await runtime.assertCanonical(terminal);
+    }
+    const quote=originalQuote(parent.consent.quoteId),deposit=reservationSubject(parent.consent.depositJobId,input.rootId,installation.descriptor),
+      budget=BigInt(genericBalanceNativeTerms(validateGenericBalanceNativePreparation(quote.preparation)).budget),
+      view=await reader.read();
+    assert.ok(view.ledger.nullifiers.includes('0x'+sourceNullifier),'DEVICE_OUTPUT_ORIGINAL_SOURCE_SPEND_REQUIRED');
+    function note(role,amount){
+      assert.ok(amount>0n,'DEVICE_OUTPUT_POSITIVE_NOTE_REQUIRED');
+      const commitment=parent.nativeBinding[role==='change'?'changeCommitment':'recoveryCommitment'],nullifier=input[role+'Nullifier'];
+      if(role==='recovery'&&parent.nativeOutcome!=='RECOVERED')return{noteRole:role,commitment,nullifier,amount:amount.toString(),state:'LOCKED',path:null};
+      const indices=view.ledger.commitments.flatMap((leaf,index)=>leaf==='0x'+commitment?[index]:[]);
+      assert.equal(indices.length,1,'DEVICE_OUTPUT_ORIGINAL_NOTE_REQUIRED');const path=view.ledger.tree.path(indices[0]);
+      assert.equal(verifyPrivateNotePath(path),true,'DEVICE_OUTPUT_ORIGINAL_PATH');
+      return{noteRole:role,commitment,nullifier,amount:amount.toString(),state:view.ledger.nullifiers.includes('0x'+nullifier)?'SPENT':'UNSPENT',
+        path:{root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)}};
+    }
+    const change=note('change',BigInt(deposit.consent.statement.amount)-budget),recovery=note('recovery',budget);
+    await reader.assertCurrent(view);continueWork();
+    return{parentJobId:parent.jobId,rootId:input.rootId,noteRevision:input.noteRevision,nativeBindingSHA256:sha(parent.nativeBinding),
+      reservationTransactionHash:reserved.observation.transactionHash,assetId:asset.assetId,pool:identity.pool,
+      poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,assetIdentity:asset.assetIdentity,domainCommitment:identity.domainCommitment},
+      sourceNullifier,sourceNullifierSpent:true,nativeOutcome:parent.nativeOutcome,change,recovery,
       observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp}};
   }
   function exitBinding(consent,bridge){reservationBinding(consent);const parent=reservationRow(consent.parentJobId),installation=deviceExecutionOriginal(bridge,parent);
@@ -1828,6 +1871,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable,
     deviceDeposit, deviceReservation,deviceExecution,
     deviceExit,deviceExitTerms(bridge,input){return exclusive(async()=>{await healthy();return exitTerms(bridge,input);});},
+    deviceOutputBalance(bridge,input){return exclusive(async()=>{await healthy();return outputBalance(bridge,input);});},
     deviceExitStatus(id,bridge){return exclusive(async()=>{await healthy();const row=exitRow(id);exitBinding(row.consent,bridge);return exitPublic(row);});},
     installDeviceExecution(bridge,installation){return exclusive(async()=>{
       await healthy();assert.ok(!wrapped&&nativeExecution!==null,'DEVICE_EXECUTION_ORIGINAL_EXECUTOR_REQUIRED');

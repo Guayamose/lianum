@@ -129,6 +129,12 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     descriptor: original,
     privateState,
     deviceExecution: Object.freeze({
+      async outputBalances(input) {
+        if (!exact(input, ['access', 'signature', 'parentJobId', 'rootId', 'noteRevision', 'changeNullifier', 'recoveryNullifier'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION'); normalizeOriginalAccountSignatureV2(input.signature);
+        return await request('output-balances', input, 'device-execution');
+      },
       async challenge(action, input) {
         if (!['EXECUTE_NATIVE', 'RECONCILE_NATIVE', 'RECOVER_NATIVE'].includes(action)
           || !exact(input, ['access', 'signature', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');

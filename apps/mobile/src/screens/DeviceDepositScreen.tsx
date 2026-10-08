@@ -5,6 +5,7 @@ import { createOriginalAccountApiV2 } from '../api/original-account-api-v2.mjs';
 import { createDeviceOwnerDepositApiV1 } from '../api/device-owner-deposit-api-v1';
 import { createDeviceOwnerReservationApiV1 } from '../api/device-owner-reservation-api-v1';
 import { createDeviceOwnerExecutionApiV1 } from '../api/device-owner-execution-api-v1';
+import { createDeviceOwnerOutputBalanceApiV1 } from '../api/device-owner-output-balance-api-v1';
 import type { DeviceExecutionConsentV1, DeviceExecutionStatusV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import { createDeviceOwnerExitApiV1, readDeviceExitQuoteV1 } from '../api/device-owner-exit-api-v1';
 import { wipeDeviceExitWitnessV1, type DeviceExitConsentV1, type DeviceExitWitnessV1, type DeviceExitQuoteV1 }
@@ -17,6 +18,7 @@ import type { DeviceDepositConsentV1, DeviceDepositWitnessV1 } from '../../../..
 import { wipeDeviceReservationWitnessV1, type DeviceReservationConsentV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 type ExecutionClient = Awaited<ReturnType<typeof createDeviceOwnerExecutionApiV1>>;
+type BalanceClient = Awaited<ReturnType<typeof createDeviceOwnerOutputBalanceApiV1>>;
 type ReservationClient = Awaited<ReturnType<typeof createDeviceOwnerReservationApiV1>>;
 type ExitClient = Awaited<ReturnType<typeof createDeviceOwnerExitApiV1>>;
 type Client = Awaited<ReturnType<typeof createDeviceOwnerDepositApiV1>>;
@@ -31,6 +33,7 @@ export default function DeviceDepositScreen() {
   const [executionStatus, setExecutionStatus] = useState<DeviceExecutionStatusV1 | null>(null);
   const [executionIntent, setExecutionIntent] = useState<Awaited<ReturnType<Vault['readDeviceExecutionIntent']>>>(null);
   const executionClient = useRef<ExecutionClient | null>(null), nativeSigning = useRef<AbortController | null>(null);
+  const balanceClient = useRef<BalanceClient | null>(null);
   const [exitRole, setExitRole] = useState<'change' | 'recovery'>('change'), [exitRecipient, setExitRecipient] = useState('');
   const [exitReview, setExitReview] = useState<DeviceExitQuoteV1 | null>(null), [exitConsent, setExitConsent] = useState<DeviceExitConsentV1 | null>(null);
   const [exitJob, setExitJob] = useState<string | null>(null);
@@ -43,6 +46,7 @@ export default function DeviceDepositScreen() {
   const busyRef = useRef(false), visible = useRef(true), epoch = useRef(0);
   function clearNativeReview() { nativeSigning.current?.abort(); nativeSigning.current = null; setExecutionConsent(null); setExecutionStatus(null); setApproved(false); }
   function clear() {
+    balanceClient.current?.close(); balanceClient.current = null;
     epoch.current++; executionClient.current?.close(); executionClient.current = null; clearNativeReview(); setExecutionIntent(null);
     exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
     exitClient.current?.close(); exitClient.current = null; setExitReview(null); setExitConsent(null); setExitJob(null); authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
@@ -57,6 +61,17 @@ export default function DeviceDepositScreen() {
   useEffect(() => { if (!note?.availableBalance) return;
     const timer = setTimeout(() => setNote(value => value ? { ...value, availableBalance: null, freshness: 'UNKNOWN' } : value),
       Math.max(0, (note.observation?.expiresAt ?? Date.now()) - Date.now())); return () => clearTimeout(timer);
+  }, [note]);
+  useEffect(() => {
+    const expiry = note?.localReservation?.change?.observation?.expiresAt ?? note?.localReservation?.recovery?.observation?.expiresAt;
+    if (!expiry) return;
+    const timer = setTimeout(() => { vault.current?.forgetDeviceOutputBalanceObservation();
+      setNote(value => value?.localReservation ? { ...value, localReservation: { ...value.localReservation,
+        changeAvailableBalance: null, recoveryAvailableBalance: null,
+        change: value.localReservation.change ? { ...value.localReservation.change, availableBalance: null, freshness: 'UNKNOWN', observation: null } : null,
+        recovery: value.localReservation.recovery ? { ...value.localReservation.recovery, availableBalance: null, freshness: 'UNKNOWN', observation: null } : null } } : value);
+    }, Math.max(0, expiry - Date.now()));
+    return () => clearTimeout(timer);
   }, [note]);
   useEffect(() => {
     const expiry = ownerReview?.expiresAt ?? reservationConsent?.expiresAt ?? exitReview?.expiresAt ?? exitConsent?.expiresAt ?? executionConsent?.reservation.expiresAt;
@@ -87,6 +102,11 @@ export default function DeviceDepositScreen() {
     try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); throw error; }
     const executions = await createDeviceOwnerExecutionApiV1(next.descriptor);
     try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); executions.close(); throw error; }
+    let balances: BalanceClient;
+    try { balances = await createDeviceOwnerOutputBalanceApiV1(next.descriptor); }
+    catch (error) { next.close(); reservations.close(); exits.close(); executions.close(); throw error; }
+    try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); executions.close(); balances.close(); throw error; }
+    balanceClient.current?.close(); balanceClient.current = balances;
     executionClient.current?.close(); executionClient.current = executions;
     exitClient.current = exits; client.current = next; reservationClient.current = reservations; vault.current = openLocalRootNoteVaultV1(metadata.rootId);
     const state = await vault.current.readDeviceNote(); live(held); if (!state) throw Error('MOBILE_LOCAL_NOTE_REQUIRED');
@@ -262,6 +282,23 @@ export default function DeviceDepositScreen() {
     const value = await api.access(); live(held);
     const signature = await signOriginalAccountAccessV2(value, origin, pairingId); live(held); return { access: value, signature };
   }
+  async function observeOutputBalances(held: number) {
+    const api = balanceClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    custody.forgetDeviceOutputBalanceObservation(); setNote(await custody.readDeviceNote()); live(held);
+    try {
+      const subject = await custody.readDeviceOutputBalanceSubject(); live(held);
+      const access = await api.access(); live(held);
+      const signature = await signOriginalAccountAccessV2(access, origin, pairingId); live(held);
+      const handle = await api.observe({ access, signature, ...subject }); live(held);
+      await custody.applyDeviceOutputBalances(handle); live(held);
+      setNote(await custody.readDeviceNote()); live(held);
+      setMessage('Lectura original de estas dos notas. No se autoriza una prueba, ejecución ni retirada; la disponibilidad caduca y no se suman otros activos.');
+    } catch (cause) {
+      live(held);
+      custody.forgetDeviceOutputBalanceObservation(); setNote(await custody.readDeviceNote()); live(held);
+      throw new Error('Saldo disponible desconocido: no se ha completado la lectura original. No se ha enviado una operación económica.', { cause });
+    }
+  }
   async function prepareExit(held: number) {
     clearNativeReview();
     const api = exitClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
@@ -315,7 +352,7 @@ export default function DeviceDepositScreen() {
     <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#9cb0b8" />
     <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Abrir nota y vinculación</Text></Pressable>
     {note && <Text style={styles.text}>Nota {note.commitment.slice(0, 16)} · {note.status}\nSaldo observado: {note.availableBalance ?? 'desconocido'}\n{note.freshness}
-{note.localReservation?.sourceSpentAtRetainedHead ? 'Fuente gastada en el recibo S retenido; cambio incluido, saldo libre aún desconocido.' : ''}</Text>}
+{note.localReservation?.sourceSpentAtRetainedHead ? 'Fuente gastada en el recibo S retenido. Consulta por separado el cambio y la recuperación.' : ''}</Text>}
     <Pressable disabled={busy || !note || note.status === 'FUNDED'} onPress={() => void run(prepare)}><Text style={styles.button}>Revisar prueba D26</Text></Pressable>
     <Pressable disabled={busy || !note?.job || note.status === 'FUNDED'} onPress={() => void run(held => review('FUND_D26', held))}><Text style={styles.button}>Revisar financiación única</Text></Pressable>
     <Pressable disabled={busy || !note?.job} onPress={() => void run(held => review('OBSERVE_D26', held))}><Text style={styles.button}>Consultar envío original</Text></Pressable>
@@ -358,6 +395,16 @@ Esta firma nunca autoriza reenvíos automáticos.</Text>
       <Pressable disabled={busy || !approved} onPress={() => void run(submitReservation)}><Text style={styles.button}>Autorizar únicamente esta acción U/S</Text></Pressable>
     </>}
     {note?.localReservation?.sourceSpentAtRetainedHead && <>
+      <Text style={styles.title}>Notas de esta reserva</Text>
+      <Text style={styles.text}>Activo {note.localReservation.assetIdentity} · dominio {note.localReservation.domainCommitment}</Text>
+      {(['change', 'recovery'] as const).map(role => {
+        const output = note.localReservation?.[role]; return output ? <Text key={role} style={styles.text}>
+          {role === 'change' ? 'Cambio' : 'Recuperación'} · importe local {output.amount}
+          {'\n'}Estado: {output.state} · disponible observado: {output.availableBalance ?? 'desconocido'}
+          {output.withdrawnAmount !== null ? '\nRetirada original confirmada: ' + output.withdrawnAmount : ''}
+        </Text> : null;
+      })}
+      <Pressable disabled={busy} onPress={() => void run(observeOutputBalances)}><Text style={styles.button}>Autorizar sólo lectura del saldo de estas notas</Text></Pressable>
       <Text style={styles.title}>Ejecutar la misma reserva</Text>
       <Text style={styles.text}>Una entrega irreversible permanece al riesgo aceptado por el proveedor. Si se pierde la respuesta, consulta la ejecución original. La recuperación conserva la misma reserva y exige el plazo original vencido.</Text>
       <Pressable disabled={busy || !!executionIntent?.executeAttemptRetained || !!executionIntent?.outcome}
