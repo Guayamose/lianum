@@ -36,7 +36,9 @@ for(const expected of ['compileSdk = "36"','buildTools = "36.0.0"','ndkVersion =
   assert.ok(sdkVersions.includes(expected),'MOBILE_BUILD_REVIEWED_RN_SDK_PROFILE');
 const abi = ['arm64-v8a','x86_64'];
 const gradleSHA256 = 'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
-const gradleJVMArgs = '-Xmx1024m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8';
+const gradleJVMArgs = standaloneLocal
+  ? '-Xmx768m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8'
+  : '-Xmx1024m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8';
 process.stdout.write(JSON.stringify({preflight:'PASS',javaMajor,architectures:abi,
   androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1',variant,standaloneLocal})+'\n');
 if(process.argv[2] === '--preflight')process.exit(0);
