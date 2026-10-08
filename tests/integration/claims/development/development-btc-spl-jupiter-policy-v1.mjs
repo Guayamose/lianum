@@ -4,13 +4,13 @@ import assert from 'node:assert/strict';
 import {hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
 import {inspectNativeSplClaimV1PreparedBytes} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs';
 import {NATIVE_SPL_CUSTODY_V1 as SPL} from '../../../../packages/backend/src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
-export const DEVELOPMENT_BTC_SPL_GRAPH_SOURCE_REVIEW_V1=null;
+export const DEVELOPMENT_BTC_SPL_GRAPH_SOURCE_REVIEW_V1=Object.freeze({"profile":"FRESH_PRIVATE_CBTC_SOURCE_SOL_JUPITER_USDC_CUSTODY_V1","sourceLamports":"10000000","nativeMint":"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v","custodyProgram":"5RnJjhp7NKPgawoXnPJiXJtjJ5ktkMUrRuBtP4YmLSUM","ci51VerifierKeySHA256":"003e1915d3d9178ad78c1286844ff1658457d4da84746dc572b424bb5b5451e4","verifierCompilationRunId":"0290bdde-0deb-4c65-9e8d-b4c5bf62ce3f","verifierCompilationSHA256":"4b5d5dabb57d762ce754bf0142896eafb14162085d53b041517e44dae1aa05da","custodyElfSHA256":"a8521c684df423a85355808f9babc276670bcd7af5307eeff16a2bfa372361ce","localOnly":true,"fakeFundsOnly":true,"publicNetwork":false,"privateGraphAcceptanceEstablished":false,"fullWalletAcceptance":false});
 export const DEVELOPMENT_BTC_SPL_GRAPH_PROFILE='FRESH_PRIVATE_CBTC_SOURCE_SOL_JUPITER_USDC_CUSTODY_V1';
 export const DEVELOPMENT_BTC_SPL_GRAPH_RESULT='LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_RESULT_V1';
 const digest=v=>assert.match(v,/^[0-9a-f]{64}$/);
 export function assertDevelopmentBtcSplSourceReviewV1(){
  assert.equal(arguments.length,0,'SPL_FIXED_SOURCE_REVIEW_NO_OPTIONS');const p=DEVELOPMENT_BTC_SPL_GRAPH_SOURCE_REVIEW_V1;assert.ok(p,'SPL_PRIVATE_FLOW_SOURCE_REVIEW_REQUIRED');
- assert.deepEqual(p,{profile:DEVELOPMENT_BTC_SPL_GRAPH_PROFILE,sourceLamports:'10000000',nativeMint:SPL.mint,custodyProgram:SPL.program,localOnly:true,fakeFundsOnly:true,publicNetwork:false,privateGraphAcceptanceEstablished:false,fullWalletAcceptance:false});return p;
+ assert.deepEqual(p,{profile:DEVELOPMENT_BTC_SPL_GRAPH_PROFILE,sourceLamports:'10000000',nativeMint:SPL.mint,custodyProgram:SPL.program,ci51VerifierKeySHA256:'003e1915d3d9178ad78c1286844ff1658457d4da84746dc572b424bb5b5451e4',verifierCompilationRunId:'0290bdde-0deb-4c65-9e8d-b4c5bf62ce3f',verifierCompilationSHA256:'4b5d5dabb57d762ce754bf0142896eafb14162085d53b041517e44dae1aa05da',custodyElfSHA256:'a8521c684df423a85355808f9babc276670bcd7af5307eeff16a2bfa372361ce',localOnly:true,fakeFundsOnly:true,publicNetwork:false,privateGraphAcceptanceEstablished:false,fullWalletAcceptance:false});return p;
 }
 export function assertDevelopmentBtcSplJupiterResultV1(value){
  assert.equal(arguments.length,1);assert.equal(value.format,DEVELOPMENT_BTC_SPL_GRAPH_RESULT);assert.equal(value.profile,DEVELOPMENT_BTC_SPL_GRAPH_PROFILE);assert.equal(value.phase,'completed');assert.equal(value.success,true);
