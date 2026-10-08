@@ -9,6 +9,7 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { beginTronCandidateLifetime, bindTronCandidateChildCancellation } from './tron-candidate-lifetime.mjs';
+import { createTronPrivateLogCapture } from './tron-candidate-log-capture.mjs';
 import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import { PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
@@ -118,7 +119,7 @@ export async function verifyTronCandidateInventory() {
     originalProvenanceSHA256: provenancePins, fullGradleRebuild: false, originalDuplicateJarNames: true };
 }
 async function privateWrite(path, value) {
-  await writeFile(path, typeof value === 'string' ? value : JSON.stringify(value), { mode: 0o600, flag: 'wx' });
+  await writeFile(path, typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value), { mode: 0o600, flag: 'wx' });
 }
 async function hostResources() {
   const available = /^MemAvailable:\s+([0-9]+) kB$/m.exec(await readFile('/proc/meminfo', 'utf8'));
@@ -203,7 +204,8 @@ async function proc(pid) {
   return { pid, parent: Number(fields[1]), start: fields[19], state: fields[0], rss: Number(fields[21]) * 4096 };
 }
 async function sourcePins() {
-  const paths = [HERE, fileURLToPath(new URL('./tron-candidate-lifetime.mjs', import.meta.url)), fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)),
+  const paths = [HERE, fileURLToPath(new URL('./tron-candidate-lifetime.mjs', import.meta.url)),
+    fileURLToPath(new URL('./tron-candidate-log-capture.mjs', import.meta.url)), fileURLToPath(new URL('tron-candidate-seccomp.py', FIXTURES)),
     ...Object.keys(provenancePins).map(name => fileURLToPath(new URL(name, FIXTURES))),
     fileURLToPath(new URL('offline-agree-zero/source/org/tron/core/config/args/Args.java', FIXTURES)),
     join(ROOT, 'runtime-drivers/owned-tron-native-value/OwnedTronNativeDriver.java')];
@@ -219,13 +221,16 @@ async function startOriginalChild(directory, audit, signal) {
   const original = await proc(child.pid); assert.ok(original?.parent === process.pid, 'TRON_CANDIDATE_ORIGINAL_CHILD');
   let exit, resolveExit; const exited = new Promise(resolve => resolveExit = resolve);
   child.once('exit', (code, signal) => { exit = { code, signal }; resolveExit(exit); });
-  let buffer = '', stderr = '', pending, resolveReady, rejectReady, closed = false, failure, closePromise, releaseCancellation;
+  let buffer = '', pending, resolveReady, rejectReady, closed = false, failure, closePromise, releaseCancellation;
+  const rawStdout = createTronPrivateLogCapture(), stderr = createTronPrivateLogCapture();
   const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
   const fail = error => { failure ??= error; pending?.reject(error); pending = null; rejectReady(error); };
   child.once('error', () => fail(Error('TRON_CANDIDATE_CHILD_EXEC_FAILED')));
   child.once('exit', () => { if (!closed) fail(Error('TRON_CANDIDATE_CHILD_EXITED')); });
-  child.stderr.on('data', bytes => { stderr += bytes.toString('utf8'); if (Buffer.byteLength(stderr) > 1024 * 1024) fail(Error('TRON_CANDIDATE_PRIVATE_LOG_BOUND')); });
+  child.stderr.on('data', bytes => { if (stderr.append(bytes)) fail(Error('TRON_CANDIDATE_PRIVATE_LOG_BOUND')); });
   child.stdout.on('data', bytes => {
+    if (rawStdout.append(bytes)) return fail(Error('TRON_CANDIDATE_PRIVATE_LOG_BOUND'));
+    if (failure) return; // Keep the bounded diagnostic prefix; protocol work has already failed.
     buffer += bytes.toString('utf8'); if (buffer.length > 65536) return fail(Error('TRON_CANDIDATE_PROTOCOL_BOUND'));
     let index;
     while ((index = buffer.indexOf('\n')) >= 0) {
@@ -292,9 +297,22 @@ async function startOriginalChild(directory, audit, signal) {
       if (!exit) { await identity(); child.kill('SIGTERM'); await grace(exited, 5000); }
       if (!exit) { await identity(); forced = true; child.kill('SIGKILL'); await grace(exited, 5000); }
       assert.ok(exit, 'TRON_CANDIDATE_EXIT_UNKNOWN'); assert.equal(await proc(child.pid), null, 'TRON_CANDIDATE_CHILD_STILL_PRESENT');
-      await privateWrite(join(audit, 'stderr-private.log'), stderr);
+      const errLog = stderr.snapshot(), outLog = rawStdout.snapshot();
+      await privateWrite(join(audit, 'stderr-private.log'), errLog.bytes);
+      await privateWrite(join(audit, 'stdout-private.log'), outLog.bytes);
+      let nativeFatalTrace = null;
+      const fatalPath = join(directory, 'hs_err_pid' + child.pid + '.log');
+      try {
+        const fatalStat = await lstat(fatalPath);
+        assert.ok(fatalStat.isFile() && !fatalStat.isSymbolicLink() && fatalStat.uid === process.getuid(), 'TRON_CANDIDATE_FATAL_TRACE_ORIGINAL_FILE');
+        assert.ok(fatalStat.size <= 16 * 1024 * 1024, 'TRON_CANDIDATE_FATAL_TRACE_BOUND');
+        const fatalBytes = await regular(fatalPath);
+        await privateWrite(join(audit, 'jvm-fatal-private.log'), fatalBytes);
+        nativeFatalTrace = { retainedPrivate: true, bytes: fatalBytes.length, sha256: sha(fatalBytes) };
+      } catch (error) { if (!absent(error)) throw error; }
       return { stopped: true, exitCode: exit.code, signal: exit.signal, forced,
-        nativeOrderlyExit: exit.code === 0 && exit.signal === null && !forced, sampledResourceFloorsHeld: sampled };
+        nativeOrderlyExit: exit.code === 0 && exit.signal === null && !forced, sampledResourceFloorsHeld: sampled,
+        nativeFatalTrace, privateStreamCapture: { stdout: outLog.metadata, stderr: errLog.metadata } };
     } finally { releaseCancellation?.(); child.stdin.destroy(); }
   }
   releaseCancellation = bindTronCandidateChildCancellation(signal, fail, close);

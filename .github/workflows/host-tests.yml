@@ -44,6 +44,7 @@ jobs:
           tests/integration/defi/private-metamorpho-proof-evidence.test.mjs
           tests/integration/claims/development
           tests/integration/chains/tron/tron-candidate-lifetime.test.mjs
+          tests/integration/chains/tron/tron-candidate-log-capture.test.mjs
           packages/proofs/tests/native-ingress/native-claims-parent-death.test.mjs
           packages/backend/tests/defi/delivery/manual-wallet-app-driver-defi.test.mjs
           packages/backend/tests/defi/vaults/generation-private-vault-reader.test.mjs
