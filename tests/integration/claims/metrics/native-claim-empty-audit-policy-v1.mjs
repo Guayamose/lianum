@@ -1,7 +1,7 @@
 /** Draft diagnostic policy; no financial acceptance or old release activation. */
 import assert from 'node:assert/strict';
 
-export const EMPTY_AUDIT_REAL_RUN_DISABLED = true;
+export const EMPTY_AUDIT_REAL_RUN_DISABLED = false;
 export const EMPTY_AUDIT_PROFILE = 'FRESH_EMPTY_ORIGINAL_CLAIM_GRAPH_AUDIT_METRICS_V1';
 export const EMPTY_AUDIT_RESULT = 'LIANUM_FRESH_EMPTY_ORIGINAL_AUDIT_METRICS_RESULT_V1';
 export const EMPTY_AUDIT_ACTIVITY_SCOPE = 'ORIGINAL_V4_EPOCH_AND_PERSISTED_HISTORIES_ONLY';
