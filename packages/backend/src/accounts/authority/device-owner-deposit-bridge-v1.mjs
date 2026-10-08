@@ -175,8 +175,15 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
     async fund(input) {
       assert.equal(arguments.length, 1, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
       assert.ok(!busy, 'DEVICE_OWNER_BRIDGE_BUSY'); busy = true;
+      const completion = Promise.withResolvers(); completion.promise.catch(() => {});
+      bridges.get(bridge).fundingCompletion = completion.promise;
+      let failed = false, failure;
       try { return await runDeviceOwnerDepositAuthorizationV1(account, bridge, await authorize(input, 'FUND_D26')); }
-      finally { busy = false; }
+      catch (error) { failed = true; failure = error; throw error; }
+      finally {
+        busy = false;
+        if (failed) completion.reject(failure); else completion.resolve();
+      }
     },
     async challengeObservation(input) {
       assert.equal(arguments.length, 1, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
@@ -204,6 +211,13 @@ export async function awaitDeviceOwnerDepositOriginalProofV1(bridge) {
   assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
   const value = bridges.get(bridge); assert.ok(value && value.proofCompletion, 'DEVICE_OWNER_BRIDGE_ORIGINAL_PROOF_REQUIRED');
   value.original(); const original = value.proofCompletion; await original; value.original();
+}
+/** Same admitted FUND call only. HTTP loss has no resend/cancel authority.
+ * Rejection preserves the original authorization/send/observation cause. */
+export async function awaitDeviceOwnerDepositOriginalFundingV1(bridge) {
+  assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
+  const value = bridges.get(bridge); assert.ok(value && value.fundingCompletion, 'DEVICE_OWNER_BRIDGE_ORIGINAL_FUNDING_REQUIRED');
+  value.original(); const original = value.fundingCompletion; await original; value.original();
 }
 export function deviceOwnerDepositBridgeActorV1(bridge) {
   assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');

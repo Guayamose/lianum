@@ -6,6 +6,7 @@ import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, lstatSync, rmSync,
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runInNewContext } from 'node:vm';
+import { EventEmitter } from 'node:events';
 const source = readFileSync(new URL('./paired-native-note-flow-v2.mjs', import.meta.url), 'utf8');
 const begin = source.indexOf('      const translate = async (target, options) =>');
 const end = source.indexOf('      const api = createOriginalAccountApiV2', begin);
@@ -64,4 +65,48 @@ test('fixed cleanup removes only its own isolated synthetic vault/journal direct
   assert.equal(readFileSync(evidence, 'utf8'), '{}');
   mkdirSync(journalDirectory, { mode: 0o700 }); symlinkSync(journalDirectory, ownerDirectory);
   await assert.rejects(remove(ownerDirectory)); assert.equal(existsSync(journalDirectory), true);
+});
+
+// Same original HTTPS event callbacks, synthetic sockets only. These tests
+// establish Promise error routing, not TLS, signatures, native value or proofs.
+const deviceSource = readFileSync(new URL('./device-owner-deposit-original-step-v1.mjs', import.meta.url), 'utf8');
+const tlsBegin = deviceSource.indexOf('function exactTlsFetch(');
+const tlsEnd = deviceSource.indexOf('export async function runDeviceOwnerDepositOriginalStepV1', tlsBegin);
+assert.ok(tlsBegin >= 0 && tlsEnd > tlsBegin);
+function deviceTransport(status, body = '{}', protocol = 'TLSv1.3') {
+  const evidence = { posts: {}, responses: [], dropFund: true, fundReplyDiscarded: false };
+  let requests = 0;
+  const selected = runInNewContext(`(function(){ ${deviceSource.slice(tlsBegin, tlsEnd)}; return exactTlsFetch; })()`,
+    { assert, URL, Response, Buffer, httpsRequest(_target, _options, callback) {
+      requests++; const request = new EventEmitter(); request.destroy = error => request.emit('error', error);
+      request.end = () => queueMicrotask(() => {
+        const response = new EventEmitter(); response.statusCode = status;
+        response.headers = { 'content-type': 'application/json' };
+        response.socket = { getProtocol: () => protocol }; response.destroy = () => {};
+        callback(response); response.emit('data', Buffer.from(body)); response.emit('end');
+      }); return request;
+    } });
+  return { fetch: selected({ origin: 'https://localhost:1234' }, 'HOST_SYNTHETIC_CERT', evidence), evidence, requests: () => requests };
+}
+const deviceFund = 'https://localhost:1234/v1/mobile/device-deposit/fund';
+test('original TLS adapter delivers genuine non200 status without inventing a discarded successful funding reply', async () => {
+  for (const status of [403, 504]) {
+    const value = deviceTransport(status), response = await value.fetch(deviceFund, { method: 'POST', body: '{}' });
+    assert.equal(response.status, status); assert.equal(value.evidence.fundHttpStatus, status);
+    assert.equal(value.evidence.fundReplyDiscarded, false); assert.equal(value.requests(), 1);
+    assert.equal(value.evidence.dropFund, false); assert.equal(value.evidence.posts['/v1/mobile/device-deposit/fund'], 1);
+  }
+});
+test('original TLS callback failures reject the original Promise instead of throwing outside worker catch', async () => {
+  const malformed = deviceTransport(200, '{');
+  await assert.rejects(malformed.fetch(deviceFund, { method: 'POST', body: '{}' }), error => error.name === 'SyntaxError');
+  assert.equal(malformed.requests(), 1);
+  const protocol = deviceTransport(200, '{}', 'TLSv1.2');
+  await assert.rejects(protocol.fetch(deviceFund, { method: 'POST', body: '{}' })); assert.equal(protocol.requests(), 1);
+});
+test('original TLS adapter discards a real200 once, preserving its public authorization digest without resubmission', async () => {
+  const value = deviceTransport(200, JSON.stringify({ authorizationSHA256: 'a'.repeat(64) }));
+  await assert.rejects(value.fetch(deviceFund, { method: 'POST', body: '{}' }), /FUND_REPLY_LOST_BEFORE_API/);
+  assert.equal(value.evidence.fundHttpStatus, 200); assert.equal(value.evidence.fundReplyDiscarded, true);
+  assert.equal(value.evidence.fundAuthorizationSHA256, 'a'.repeat(64)); assert.equal(value.requests(), 1);
 });

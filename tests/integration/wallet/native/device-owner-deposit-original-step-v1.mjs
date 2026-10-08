@@ -8,7 +8,7 @@ import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
@@ -36,7 +36,9 @@ function exactTlsFetch(descriptor, certificate, evidence) {
     if (discard) evidence.dropFund = false;
     const request = httpsRequest(target, { family: 4, ca: certificate, agent: false,
       minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3', method: options.method ?? 'GET', headers, signal: options.signal }, response => {
-      const protocol = response.socket.getProtocol(); assert.equal(protocol, 'TLSv1.3'); evidence.tlsVersion = protocol;
+      try {
+        const protocol = response.socket.getProtocol(); assert.equal(protocol, 'TLSv1.3'); evidence.tlsVersion = protocol;
+      } catch (error) { response.destroy(); reject(error); return; }
       const chunks = []; let length = 0;
       response.on('data', chunk => {
         length += chunk.length;
@@ -45,16 +47,20 @@ function exactTlsFetch(descriptor, certificate, evidence) {
       });
       response.once('error', reject);
       response.once('end', () => {
+        // Event callbacks run outside the Promise executor: reject every
+        // original callback error instead of throwing past the worker catch.
+        try {
         evidence.responses.push({ path, status: response.statusCode });
         const reply = new Response(Buffer.concat(chunks), { status: response.statusCode, headers: response.headers });
         Object.defineProperty(reply, 'url', { value: target });
-        if (discard) {
-          assert.equal(response.statusCode, 200, 'DEVICE_DEPOSIT_ACTUAL_FUND_REPLY_REQUIRED');
-          evidence.fundReplyDiscarded = true;
+        if (discard) evidence.fundHttpStatus = response.statusCode;
+        if (discard && response.statusCode === 200) {
           // Only a public reply field is retained; the API receives no body.
           evidence.fundAuthorizationSHA256 = JSON.parse(Buffer.concat(chunks)).authorizationSHA256;
+          evidence.fundReplyDiscarded = true;
           void reply.body.cancel().then(() => reject(Error('DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
         } else resolve(reply);
+        } catch (error) { reject(error); }
       });
     });
     request.once('error', reject); request.end(options.body);
@@ -146,9 +152,19 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
     const funding = await api.deviceDeposit.challenge('FUND_D26', { ...await access(), jobId: consent.jobId });
     const signedFunding = { consent: funding, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(funding)) };
     transport.dropFund = true;
-    await assert.rejects(api.deviceDeposit.submit(signedFunding), /FUND_REPLY_LOST_BEFORE_API/);
-    assert.equal(transport.posts['/v1/mobile/device-deposit/fund'], 1); assert.equal(transport.fundReplyDiscarded, true);
-    assert.equal(transport.fundAuthorizationSHA256, sha(deviceDepositConsentMessageV1(funding)));
+    await assert.rejects(api.deviceDeposit.submit(signedFunding), /FUND_REPLY_LOST_BEFORE_API|SERVICE_UNAVAILABLE/);
+    result.deviceFundingHttp = { status: transport.fundHttpStatus ?? null, posts: transport.posts['/v1/mobile/device-deposit/fund'],
+      actualReplyDiscarded: transport.fundReplyDiscarded, clientReportedUnknown: true, automaticRetry: false }; save();
+    await stage('device-original-funding-await-same-admitted-work');
+    // Preserve the ORIGINAL cause even when HTTP publishes only a generic
+    // error. A timeout/reply loss never retries or cancels that admitted call.
+    await awaitDeviceOwnerDepositOriginalFundingV1(bridge); active();
+    assert.equal(transport.posts['/v1/mobile/device-deposit/fund'], 1);
+    assert.ok([200, 504].includes(transport.fundHttpStatus), 'DEVICE_DEPOSIT_FUND_HTTP_UNRESOLVED');
+    if (transport.fundHttpStatus === 200) {
+      assert.equal(transport.fundReplyDiscarded, true);
+      assert.equal(transport.fundAuthorizationSHA256, sha(deviceDepositConsentMessageV1(funding)));
+    } else assert.equal(transport.fundReplyDiscarded, false);
     await stage('device-explicit-original-inclusion-same-opening');
     const observe = async () => {
       const consent = await api.deviceDeposit.challenge('OBSERVE_D26', { ...await access(), jobId: funding.jobId });
@@ -185,7 +201,7 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
       linuxNoteStatus: linux.notes.source.status, linuxNoteObservedUnspent: linux.notes.source.observedUnspent,
       poolBacking: final.ledger.publicState, proofHttp: { status: proofResponse.status, posts: 1,
         clientReportedUnknown: true, automaticRetry: false, explicitRejectedReplayPosts: transport.posts['/v1/mobile/device-deposit/jobs'] - 1 },
-      fundHttp: { actualAdmissionReplyDiscarded: transport.fundReplyDiscarded, posts: 1,
+      fundHttp: { status: transport.fundHttpStatus, originalWorkCompleted: true, actualAdmissionReplyDiscarded: transport.fundReplyDiscarded, posts: 1,
         clientReportedUnknown: true, automaticRetry: false, explicitRejectedReplayPosts: transport.posts['/v1/mobile/device-deposit/fund'] - 1 },
       freshObservationSameOriginalWire: true, proveReplayRejected: true, fundReplayRejected: true,
       explicitFreshFundingRejected: true, signedConsentByteJoin: true, tlsVersion: transport.tlsVersion,

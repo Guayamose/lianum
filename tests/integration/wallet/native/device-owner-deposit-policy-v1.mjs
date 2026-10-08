@@ -53,7 +53,8 @@ export function assertDeviceDepositResultV1(result) {
   assert.equal(note.poolBacking.spent, 0); assert.equal(note.poolBacking.leaves, 1);
   assert.equal(note.proofHttp.status, 504); assert.equal(note.proofHttp.posts, 1);
   assert.equal(note.proofHttp.clientReportedUnknown, true); assert.equal(note.proofHttp.automaticRetry, false);
-  assert.equal(note.fundHttp.actualAdmissionReplyDiscarded, true); assert.equal(note.fundHttp.posts, 1);
+  assert.ok([200, 504].includes(note.fundHttp.status)); assert.equal(note.fundHttp.originalWorkCompleted, true);
+  assert.equal(note.fundHttp.actualAdmissionReplyDiscarded, note.fundHttp.status === 200); assert.equal(note.fundHttp.posts, 1);
   assert.equal(note.fundHttp.clientReportedUnknown, true); assert.equal(note.fundHttp.automaticRetry, false);
   assert.equal(note.freshObservationSameOriginalWire, true); assert.equal(note.proveReplayRejected, true);
   assert.equal(note.fundReplayRejected, true); assert.equal(note.explicitFreshFundingRejected, true);
