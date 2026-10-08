@@ -10,8 +10,8 @@ import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { OWNED_TRON_RUNTIME_RELEASE, startFixedOwnedTronDriver } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
 import { OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1, OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1, assertOwnedTronProductReleaseV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-release-v1.mjs';
-import { startFixedOwnedTronProductDriverV1, inspectOwnedTronProductDriverPrerequisitesV1 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs';
-import { startOwnedTronAlignedCandidateChildV1, startOwnedTronAlignedProductChildV1, readOriginalTronProductChildBirthV1 }
+import { startFixedOwnedTronProductDriverV1, inspectOwnedTronProductDriverPrerequisitesV1, startFixedOwnedTronFirstErrorPrivateProductDriverV3, inspectOwnedTronFirstErrorPrivateDriverPrerequisitesV3 } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs';
+import { startOwnedTronAlignedCandidateChildV1, startOwnedTronAlignedProductChildV1, startOwnedTronFirstErrorPrivateProductChildV3, readOriginalTronProductChildBirthV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs';
 import { assertTronProductSupervisorEvidenceV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-host-scope-v1.mjs';
@@ -130,7 +130,7 @@ test('fixed opener and actual terminal cleanup reject caller profiles and preser
  assert.match(text,/const PRODUCT = Object\.freeze\(\{ helper: HELPER, milliseconds: 90 \* 60 \* 1000 \}\)/);
  const from=text.indexOf('async function startAlignedChild('),to=text.indexOf('export async function startOwnedTronAlignedCandidateChildV1(');
  const body=text.slice(from,to);let spawned=false;
- const actual=vm.runInNewContext('('+body.trim()+')',{assert,AbortSignal,process,CANDIDATE:{},PRODUCT:{},spawn(){spawned=true;throw Error('CALLER_MUST_NOT_SPAWN');}});
+ const actual=vm.runInNewContext('('+body.trim()+')',{assert,AbortSignal,process,CANDIDATE:{},PRODUCT:{},FIRST_ERROR_PRODUCT:{},spawn(){spawned=true;throw Error('CALLER_MUST_NOT_SPAWN');}});
  await assert.rejects(actual('/caller','/caller',new AbortController().signal,{helper:'/caller',milliseconds:Infinity}),/FIXED_OPENER_PROFILE/);
  assert.equal(spawned,false);
  // Execute the actual finish body with metadata-only IO. No child is created.
@@ -171,4 +171,25 @@ test('fixed opener and actual terminal cleanup reject caller profiles and preser
  assert.equal(good.lockRetained,false);assert.ok(good.calls.indexOf('cleanup.json')<good.calls.indexOf('release-lock'));
  const neverAttempted=await runFinish(finish,undefined,{attempted:false,hasOriginal:false});
  assert.equal(neverAttempted.error,undefined);assert.equal(neverAttempted.result.originalChildSpawned,false);
+});
+
+// Compile/material joins only: this test reads the authentic fixed compiler
+// outputs and rejects caller options; no Java runtime is started.
+test('safe first-error derivative uses only genuine v4 build material and retains v2 provenance',async()=>{
+ const {inspectOwnedTronFirstErrorPrivateMaterialV3}=await import('../../../../packages/backend/src/chains/tron/runtime/guarded/tron-first-error-private-material-v3.mjs');
+ await assert.rejects(inspectOwnedTronFirstErrorPrivateMaterialV3({buildReportSHA256:'f'.repeat(64)}),/NO_OPTIONS/);
+ await assert.rejects(startFixedOwnedTronFirstErrorPrivateProductDriverV3({helper:'/caller'}),/ZERO_ARGUMENT_FACTORY/);
+ await assert.rejects(startOwnedTronFirstErrorPrivateProductChildV3('/caller','/caller',new AbortController().signal,{helper:'/caller'}),/NO_OPTIONS/);
+ const material=await inspectOwnedTronFirstErrorPrivateMaterialV3(),prerequisites=inspectOwnedTronFirstErrorPrivateDriverPrerequisitesV3();
+ assert.equal(material.namespace,'reviewed-first-error-private-v4');assert.equal(material.acceptedCandidateReportSHA256,null);
+ assert.equal(material.originalCandidateReportSHA256,OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1.acceptedCandidateReportSHA256);
+ assert.equal(material.originalAlignedSourceSHA256,'d2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0');
+ assert.equal(material.sourceSHA256,'472a1e6ebef937f966cb4d5b3455bf39c7f007b47bb759e3cac3bd62cc22ee3e');
+ assert.equal(material.buildReportSHA256,'50b5e002006824b7dbdfe2732d834bcfc8a37a0982d73c4dc294167dbbbc7d15');
+ assert.equal(material.driverSHA256,'2ecbffc99a3703b94328cde0c775d1ea0dfeb70df8a3f6c32df3780478de1c6f');
+ assert.equal(material.privateFirstErrorFormat,'LIANUM_TRON_FIRST_ERROR_PRIVATE_V3');
+ for(const key of ['derivativeNativeAcceptanceEstablished','graphAdmissionEstablished','privateCreditEstablished'])assert.equal(material[key],false);
+ assert.equal(prerequisites.canLaunch,true);assert.equal(prerequisites.canonicalRuntimeRelease,null);
+ assert.equal(prerequisites.totalMilliseconds,OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1);
+ assert.equal(OWNED_TRON_RUNTIME_RELEASE,null);
 });

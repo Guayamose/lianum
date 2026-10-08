@@ -8,7 +8,8 @@ import { constants } from 'node:fs';
 import { join } from 'node:path';
 import { projectRoot } from '../../../../../../engine/src/chains/shared/runtime-harness.mjs';
 import { exact, hex } from '../../transfers/owned-tron-native-value-profile.mjs';
-import { startOwnedTronAlignedProductChildV1 } from './tron-aligned-child-opener-v1.mjs';
+import { startOwnedTronAlignedProductChildV1, startOwnedTronFirstErrorPrivateProductChildV3 } from './tron-aligned-child-opener-v1.mjs';
+import { assertTronFirstErrorPrivateProfileV3, TRON_FIRST_ERROR_PRIVATE_CANDIDATE_RELEASE_V3 } from '../../../../../../../tests/integration/chains/tron/tron-first-error-private-profile-v3.mjs';
 import { createTronProductHostGuardV1 } from './tron-product-host-scope-v1.mjs';
 import { assertOwnedTronProductReleaseV1, OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1, OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1 } from './tron-product-release-v1.mjs';
 import { captureTronProductSourcePinsV1 } from './tron-product-source-pins-v1.mjs';
@@ -42,8 +43,24 @@ export function inspectOwnedTronProductDriverPrerequisitesV1() {
   canLaunch:OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1!==null,
   blockers:OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1===null?['TRON_PRODUCT_SOURCE_REVIEW_REQUIRED']:['GENUINE_NEW_PRODUCT_DRIVER_ACCEPTANCE_REQUIRED']});
 }
+/** The v2 factory keeps its original helper and material. The diagnostic
+ * factory below is a separately fixed, reviewed source path, never options. */
 export async function startFixedOwnedTronProductDriverV1() {
- assert.equal(arguments.length,0,'TRON_PRODUCT_ZERO_ARGUMENT_FACTORY');assert.equal(process.platform,'linux');assert.equal(process.arch,'x64');
+ assert.equal(arguments.length,0,'TRON_PRODUCT_ZERO_ARGUMENT_FACTORY');return startOriginalProductDriver(false);
+}
+export function inspectOwnedTronFirstErrorPrivateDriverPrerequisitesV3() {
+ assert.equal(arguments.length,0,'TRON_FIRST_ERROR_INSPECT_NO_OPTIONS');const original=inspectOwnedTronProductDriverPrerequisitesV1();
+ return Object.freeze({...original,diagnosticRelease:TRON_FIRST_ERROR_PRIVATE_CANDIDATE_RELEASE_V3,
+  classification:TRON_FIRST_ERROR_PRIVATE_CANDIDATE_RELEASE_V3===null?'LOCAL_SAFE_FIRST_ERROR_DRIVER_REVIEW_PENDING':'REVIEWED_LOCAL_SAFE_FIRST_ERROR_DRIVER_COMPILE_ONLY',
+  canLaunch:original.canLaunch&&TRON_FIRST_ERROR_PRIVATE_CANDIDATE_RELEASE_V3!==null,
+  derivativeNativeAcceptanceEstablished:false,privateFirstErrorFormat:'LIANUM_TRON_FIRST_ERROR_PRIVATE_V3',
+  blockers:TRON_FIRST_ERROR_PRIVATE_CANDIDATE_RELEASE_V3===null?['TRON_FIRST_ERROR_ACTUAL_BUILD_REVIEW_REQUIRED']:['GENUINE_FIRST_ERROR_DIAGNOSTIC_DRIVER_ATTEMPT_PENDING']});
+}
+export async function startFixedOwnedTronFirstErrorPrivateProductDriverV3() {
+ assert.equal(arguments.length,0,'TRON_FIRST_ERROR_ZERO_ARGUMENT_FACTORY');assertTronFirstErrorPrivateProfileV3();return startOriginalProductDriver(true);
+}
+async function startOriginalProductDriver(firstError) {
+ assert.equal(arguments.length,1);assert.equal(process.platform,'linux');assert.equal(process.arch,'x64');
  assertOwnedTronProductReleaseV1();
  const host=createTronProductHostGuardV1(),lifetime=beginLifetime(host.evidence),runId=randomUUID();
  let lock,lockStat,original,startupCleanup,directory,audit,closed=false,closePromise,sourceBefore,scratchRemoved=false,openerAttempted=false;
@@ -84,7 +101,7 @@ export async function startFixedOwnedTronProductDriverV1() {
   audit=join(LOCAL,'attempt-'+runId);await mkdir(audit,{mode:0o700});await privateDirectory(audit);
   await publish(join(audit,'source-pins-before.json'),sourceBefore);
   lifetime.assertActive();await privateDirectory(BASE);directory=await mkdtemp(join(BASE,'scratch-'));await chmod(directory,0o700);await privateDirectory(directory);
-  openerAttempted=true;original=await startOwnedTronAlignedProductChildV1(directory,audit,lifetime.signal);
+  openerAttempted=true;original=await (firstError?startOwnedTronFirstErrorPrivateProductChildV3:startOwnedTronAlignedProductChildV1)(directory,audit,lifetime.signal);
   lifetime.assertActive();const hello=original.hello,material=original.material;
   exact(hello,['kind','metadata']);assert.equal(hello.metadata.classification,'LOCAL_SYNTHETIC_TRON_JAVA_TRON_CONSENSUS');hex(hello.metadata.genesis,32,true);
   await publish(join(audit,'original-startup.json'),{format:'LIANUM_TRON_PRODUCT_GUARDED_STARTUP_V1',runId,

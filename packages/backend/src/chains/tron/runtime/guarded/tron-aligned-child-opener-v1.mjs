@@ -16,10 +16,12 @@ import { captureTronAlignedRocksDbNativeAudit } from './tron-aligned-native-audi
 import { createTronProductHostGuardV1 } from './tron-product-host-scope-v1.mjs';
 import { inspectOwnedTronAlignedCandidateMaterialV1, inspectOwnedTronReviewedMaterialV1 } from './tron-reviewed-material-v1.mjs';
 import { assertOwnedTronProductReleaseV1 } from './tron-product-release-v1.mjs';
+import { inspectOwnedTronFirstErrorPrivateMaterialV3 } from './tron-first-error-private-material-v3.mjs';
 const RUNTIME = join(projectRoot, '.local/owned-tron-native-value-v1');
 const HELPER = join(ROOT, 'integration/chains/tron/fixtures/aligned-rocksdb-v1/launch.py');
 const CANDIDATE = Object.freeze({ helper: HELPER, milliseconds: 300_000 });
 const PRODUCT = Object.freeze({ helper: HELPER, milliseconds: 90 * 60 * 1000 });
+const FIRST_ERROR_PRODUCT = Object.freeze({ helper: join(ROOT, 'integration/chains/tron/fixtures/first-error-private-v3/launch.py'), milliseconds: 90 * 60 * 1000 });
 const productChildren = new WeakMap();
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const safeCode = error => String(error?.message ?? '').match(/\bTRON_(?:CANDIDATE|ALIGNED|PRODUCT)_[A-Z0-9_]+\b/)?.[0] ?? 'TRON_PRODUCT_ASSERTION_OR_IO_FAILED';
@@ -91,7 +93,7 @@ function assertTronAlignedRocksDbStartupIdentity(owner, first, second) {
 }
 
 async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
-  assert.ok(profile === CANDIDATE || profile === PRODUCT, 'TRON_PRODUCT_FIXED_OPENER_PROFILE');
+  assert.ok(profile === CANDIDATE || profile === PRODUCT || profile === FIRST_ERROR_PRODUCT, 'TRON_PRODUCT_FIXED_OPENER_PROFILE');
   await assertOwnedTronPrivateDirectory(directory); await assertOwnedTronPrivateDirectory(audit);
   assert.ok(signal instanceof AbortSignal); if (signal.aborted) throw signal.reason;
   const helper = profile.helper;
@@ -250,7 +252,7 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
       assertTronAlignedRocksDbStartupIdentity(owner, first, second);
       assert.ok(!signal.aborted && !failure && !exit && !closed, 'TRON_ALIGNED_STARTUP_CANCELLED');
       original = second;
-      if (profile === PRODUCT) { productChildren.set(handle,{original:structuredClone(original),closed:()=>closed}); hostGuard.bindOriginalChild(handle); }
+      if (profile === PRODUCT || profile === FIRST_ERROR_PRODUCT) { productChildren.set(handle,{original:structuredClone(original),closed:()=>closed}); hostGuard.bindOriginalChild(handle); }
       alignedGrantSent = true;
       child.stdin.write(Buffer.from('G')); // One private grant, before any original command.
 
@@ -270,7 +272,7 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
         format: 'LIANUM_TRON_ALIGNED_PYTHON_JAVA_TRANSITION_V1', pythonBirth: original, javaFirstObservation: alignedJavaIdentity,
         grantOctet: 'G', authorizedExecTransitions: 1, originalJavaArgv: alignedJavaArgv },
       async captureAlignedNativeAudit() {
-        assert.ok(profile === CANDIDATE || profile === PRODUCT); await auditNative();
+        assert.ok(profile === CANDIDATE || profile === PRODUCT || profile === FIRST_ERROR_PRODUCT); await auditNative();
         return captureTronAlignedRocksDbNativeAudit(directory, await identity());
       } });
     return handle;
@@ -303,4 +305,15 @@ export function readOriginalTronProductChildBirthV1(handle) {
  assert.equal(arguments.length,1); const value=productChildren.get(handle);
  assert.ok(value,'TRON_PRODUCT_ORIGINAL_OPENER_REQUIRED'); assert.equal(value.closed(),false,'TRON_PRODUCT_OPENER_CLOSED');
  return structuredClone(value.original);
+}
+
+/** Fixed safe-diagnostic derivative, separately activated after its real v4
+ * build. The original v2 candidate/product factories remain unchanged. */
+export async function startOwnedTronFirstErrorPrivateProductChildV3(directory, audit, signal) {
+  assert.equal(arguments.length, 3, 'TRON_FIRST_ERROR_OPENER_NO_OPTIONS');
+  assertOwnedTronProductReleaseV1();
+  const hostGuard = createTronProductHostGuardV1();
+  const material = await inspectOwnedTronFirstErrorPrivateMaterialV3(); hostGuard.assertActive();
+  const child = await startAlignedChild(directory, audit, signal, FIRST_ERROR_PRODUCT, hostGuard);
+  return Object.assign(child, { material, originalHostScope: hostGuard.evidence });
 }

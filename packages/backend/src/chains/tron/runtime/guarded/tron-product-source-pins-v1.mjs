@@ -28,6 +28,8 @@ export function captureTronProductSourcePinsV1() {
  for(const name of ['tron-aligned-rocksdb-profile.mjs','fixtures/candidate-artifacts-v3.json','fixtures/jdk-acquisition.json',
   'fixtures/aligned-rocksdb-v1/build.py','fixtures/aligned-rocksdb-v1/compile-child.py','fixtures/aligned-rocksdb-v1/launch.py',
   'fixtures/aligned-rocksdb-v1/source/OwnedTronNativeDriver.java','fixtures/tron-candidate-seccomp.py',
+  'tron-first-error-private-profile-v3.mjs','fixtures/first-error-private-v3/build.py','fixtures/first-error-private-v3/compile-child.py',
+  'fixtures/first-error-private-v3/launch.py','fixtures/first-error-private-v3/source/OwnedTronNativeDriver.java',
   'fixtures/offline-agree-zero/source/org/tron/core/config/args/Args.java'])capture(join(fixed,name));
  capture(join(resolve(ROOT,'../../../..'),'scripts/development/ledger_owned_processes.py'));
  capture(join(ROOT,'runtime-drivers/owned-tron-native-value/OwnedTronNativeDriver.java'));
