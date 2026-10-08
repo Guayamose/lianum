@@ -8,7 +8,7 @@ import { projectRoot } from '../../../../packages/engine/src/chains/shared/runti
 import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
 import { OWNED_TRON_RUNTIME_RELEASE } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
 
-export const TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE = null;
+export const TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE = {"format":"REVIEWED_LOCAL_TRON_ALIGNED_ROCKSDB_CANDIDATE_V1","sourceSHA256":"d2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0","buildReportSHA256":"3914c0bc2d07852049bc3747475287d720173ca92702c4f7c81037daf8d7a7ee","classSHA256":"65313f923fac150adfcda7f2f66e3e5e17cf093b8fb26be81844c49bc9aaf029","innerClassSHA256":"963a36503e3be315c095413fd2c4301d79e36016575fd1872d43a0fe0a977921"};
 if (TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE !== null) Object.freeze(TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE);
 export const TRON_ALIGNED_ROCKSDB_SOURCE_SHA256 = 'd2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0';
 const ORIGINAL_SOURCE_SHA256 = '02fdfaa75cbf4a8a4785a8db0e166286c4212047e5a0568a84d5e7fd5f28694f';
