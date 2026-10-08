@@ -183,7 +183,7 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
     const originalProof = context.retainedProofs.get('deposit_balance'); assert.ok(originalProof);
     const transactions = runtime.transactions.filter(row => row.label === 'flat-account-device-deposit');
     assert.equal(transactions.length, 1); const transaction = transactions[0];
-    assert.equal(transaction.request.data, encodeFlatTransaction('depositBalance', originalProof));
+    assert.equal(transaction.request.data, encodeFlatTransaction('depositBalance', { proof: originalProof.proof, publicInputs: originalProof.publicInputs }));
     assert.equal(transaction.transactionHash, '0x' + observation.transactionHash);
     assert.equal(transaction.request.to, system.pools[0].address); assert.equal(BigInt(transaction.request.value), 500n);
     const beforeReplay = { transactions: runtime.transactions.length, proofs: result.proofs.length };
