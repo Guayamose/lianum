@@ -1,3 +1,4 @@
+import type { DeviceExitConsentV1, DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import type { DeviceReservationConsentV1, DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import type { DeviceDepositConsentV1, DeviceDepositStatementV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import type { OriginalPrivateStateObservationV1 } from '@lianum/mobile-protocol/original-account-v2';
@@ -32,6 +33,13 @@ export function createOriginalAccountApiV2(options: {
 }): Readonly<{
   descriptor: OriginalAccountDescriptorV2;
   privateState: OriginalPrivateStateApiV1;
+  deviceExit: Readonly<{
+    preparation(input: { access: OriginalAccountAccessV2; signature: string; parentJobId: string; noteRole: 'change' | 'recovery';
+      rootId: string; noteRevision: number; nullifier: string; recipient: string }): Promise<unknown>;
+    challengeJob(input: { access: OriginalAccountAccessV2; signature: string; quoteId: string; jobId: string | null; witnessSHA256: string }): Promise<DeviceExitConsentV1>;
+    challenge(action: 'WITHDRAW_W39' | 'OBSERVE_W39', input: { access: OriginalAccountAccessV2; signature: string; jobId: string }): Promise<DeviceExitConsentV1>;
+    submit(input: { consent: DeviceExitConsentV1; signature: string; witness?: DeviceExitWitnessV1 }): Promise<unknown>;
+  }>;
   deviceReservation: Readonly<{
     preparation(input: { access: OriginalAccountAccessV2; signature: string; depositJobId: string; rootId: string }): Promise<unknown>;
     challengeJob(input: { access: OriginalAccountAccessV2; signature: string; depositJobId: string; quoteId: string;

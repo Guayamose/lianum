@@ -16,6 +16,8 @@ import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
 import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 
+import { validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
 const PUBLIC_KEY = 'lianum.owner.public.v1';
 const privateOptions: SecureStore.SecureStoreOptions = {
@@ -204,5 +206,28 @@ export async function signDeviceReservationConsentV1(raw: Parameters<typeof vali
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
     current(); message = deviceReservationConsentMessageV1(value);
     return signDeviceMessage(key, message);
+  } finally { message?.fill(0); key.fill(0); retained = null; }
+}
+
+/** Device PoP for these three W39 operations only. The separate note key signs
+ * the exact PC23 withdrawal frame locally; neither protected key is exported. */
+export async function signDeviceExitConsentV1(raw: Parameters<typeof validateDeviceExitConsentFreshV1>[0],
+  expectedOrigin: string, expectedPairingId: string): Promise<string> {
+  await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
+  const value = validateDeviceExitConsentFreshV1(raw);
+  const current = () => { validateDeviceExitConsentFreshV1(value);
+    if (value.origin !== expectedOrigin || value.pairingId !== expectedPairingId || value.devicePublicKey !== publicKey)
+      throw new Error('MOBILE_REVIEW_CHANGED'); };
+  current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
+    authenticationPrompt: value.action === 'PROVE_W39'
+      ? 'Revelar una única apertura de ' + value.noteRole + ' al worker W39; ninguna raíz o clave privada'
+      : value.action === 'WITHDRAW_W39' ? 'Retirar una sola vez ' + value.statement.amount + ' unidades al destinatario ' + value.statement.recipient
+        : 'Consultar esta salida original; no generar otra prueba ni reenviar' });
+  if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
+  try {
+    if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
+    current(); message = deviceExitConsentMessageV1(value); return signDeviceMessage(key, message);
   } finally { message?.fill(0); key.fill(0); retained = null; }
 }

@@ -4,14 +4,18 @@ import { fetch as nativeFetch } from 'expo/fetch';
 import { createOriginalAccountApiV2 } from '../api/original-account-api-v2.mjs';
 import { createDeviceOwnerDepositApiV1 } from '../api/device-owner-deposit-api-v1';
 import { createDeviceOwnerReservationApiV1 } from '../api/device-owner-reservation-api-v1';
+import { createDeviceOwnerExitApiV1, readDeviceExitQuoteV1 } from '../api/device-owner-exit-api-v1';
+import { wipeDeviceExitWitnessV1, type DeviceExitConsentV1, type DeviceExitWitnessV1, type DeviceExitQuoteV1 }
+  from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import { readDevicePublicKey, signOriginalAccountAccessV2, signOriginalPrivateStateAccessV1,
-  signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1 } from '../custody/key-store';
-import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceProofRequestV1, type LocalDeviceAuthorizationRequestV1, type LocalDeviceReservationReviewV1 }
+  signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1, signDeviceExitConsentV1 } from '../custody/key-store';
+import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceExitProofRequestV1, type LocalDeviceProofRequestV1, type LocalDeviceAuthorizationRequestV1, type LocalDeviceReservationReviewV1 }
   from '../custody/local-root-note-vault-v1';
 import type { DeviceDepositConsentV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1, type DeviceReservationConsentV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 type ReservationClient = Awaited<ReturnType<typeof createDeviceOwnerReservationApiV1>>;
+type ExitClient = Awaited<ReturnType<typeof createDeviceOwnerExitApiV1>>;
 type Client = Awaited<ReturnType<typeof createDeviceOwnerDepositApiV1>>;
 type Vault = ReturnType<typeof openLocalRootNoteVaultV1>;
 export default function DeviceDepositScreen() {
@@ -20,6 +24,10 @@ export default function DeviceDepositScreen() {
   const [ownerReview, setOwnerReview] = useState<LocalDeviceReservationReviewV1 | null>(null);
   const [reservationConsent, setReservationConsent] = useState<DeviceReservationConsentV1 | null>(null);
   const [reservationJob, setReservationJob] = useState<string | null>(null);
+  const [exitRole, setExitRole] = useState<'change' | 'recovery'>('change'), [exitRecipient, setExitRecipient] = useState('');
+  const [exitReview, setExitReview] = useState<DeviceExitQuoteV1 | null>(null), [exitConsent, setExitConsent] = useState<DeviceExitConsentV1 | null>(null);
+  const [exitJob, setExitJob] = useState<string | null>(null);
+  const exitClient = useRef<ExitClient | null>(null), exitQuote = useRef<object | null>(null), exitRequest = useRef<LocalDeviceExitProofRequestV1 | null>(null);
   const reservationClient = useRef<ReservationClient | null>(null), quote = useRef<object | null>(null);
   const authorizationRequest = useRef<LocalDeviceAuthorizationRequestV1 | null>(null);
   const [consent, setConsent] = useState<DeviceDepositConsentV1 | null>(null);
@@ -27,7 +35,8 @@ export default function DeviceDepositScreen() {
   const client = useRef<Client | null>(null), vault = useRef<Vault | null>(null), request = useRef<LocalDeviceProofRequestV1 | null>(null);
   const busyRef = useRef(false), visible = useRef(true), epoch = useRef(0);
   function clear() {
-    epoch.current++; authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
+    epoch.current++; exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
+    exitClient.current?.close(); exitClient.current = null; setExitReview(null); setExitConsent(null); setExitJob(null); authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
     reservationClient.current?.close(); reservationClient.current = null; setOwnerReview(null); setReservationConsent(null); setReservationJob(null);
     request.current?.close(); request.current = null; vault.current?.close(); vault.current = null;
     client.current?.close(); client.current = null; setNote(null); setConsent(null); setApproved(false);
@@ -41,14 +50,15 @@ export default function DeviceDepositScreen() {
       Math.max(0, (note.observation?.expiresAt ?? Date.now()) - Date.now())); return () => clearTimeout(timer);
   }, [note]);
   useEffect(() => {
-    const expiry = ownerReview?.expiresAt ?? reservationConsent?.expiresAt;
+    const expiry = ownerReview?.expiresAt ?? reservationConsent?.expiresAt ?? exitReview?.expiresAt ?? exitConsent?.expiresAt;
     if (!expiry) return;
     const timer = setTimeout(() => {
       authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
+      exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null; setExitReview(null); setExitConsent(null);
       setOwnerReview(null); setReservationConsent(null); setApproved(false);
     }, Math.max(0, expiry - Date.now()));
     return () => clearTimeout(timer);
-  }, [ownerReview, reservationConsent]);
+  }, [ownerReview, reservationConsent, exitReview, exitConsent]);
   const live = (held: number) => { if (!visible.current || held !== epoch.current) throw Error('MOBILE_DEVICE_DEPOSIT_REVOKED'); };
   async function run(work: (held: number) => Promise<void>) {
     if (busyRef.current || !visible.current) return; busyRef.current = true; setBusy(true); const held = epoch.current;
@@ -64,9 +74,12 @@ export default function DeviceDepositScreen() {
     try { live(held); } catch (error) { next.close(); throw error; }
     const reservations = await createDeviceOwnerReservationApiV1(next.descriptor);
     try { live(held); } catch (error) { next.close(); reservations.close(); throw error; }
-    client.current = next; reservationClient.current = reservations; vault.current = openLocalRootNoteVaultV1(metadata.rootId);
+    const exits = await createDeviceOwnerExitApiV1(next.descriptor);
+    try { live(held); } catch (error) { next.close(); reservations.close(); exits.close(); throw error; }
+    exitClient.current = exits; client.current = next; reservationClient.current = reservations; vault.current = openLocalRootNoteVaultV1(metadata.rootId);
     const state = await vault.current.readDeviceNote(); live(held); if (!state) throw Error('MOBILE_LOCAL_NOTE_REQUIRED');
     const intent = await vault.current.readDeviceReservationIntent(); live(held); setReservationJob(intent?.jobId ?? null);
+    const pendingExit = await vault.current.readDeviceExitIntent(exitRole); live(held); setExitJob(pendingExit?.jobId ?? null);
     setNote(state); setMessage('Nota local vinculada. Preparar una prueba no financia ni transmite tu clave.');
   }
   async function access(held: number) {
@@ -75,6 +88,7 @@ export default function DeviceDepositScreen() {
     const signature = await signOriginalAccountAccessV2(challenge, origin, pairingId); live(held); return { access: challenge, signature };
   }
   async function prepare(held: number) {
+    exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null; setExitReview(null); setExitConsent(null);
     setOwnerReview(null); setReservationConsent(null); setApproved(false);
     const api = client.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const diagnostics = createOriginalAccountApiV2({ descriptor: api.descriptor, fetchImpl: nativeFetch }).privateState;
@@ -93,6 +107,7 @@ export default function DeviceDepositScreen() {
     setConsent(jobReview); setApproved(false); setMessage('Revisa la revelación acotada antes de generar D26.');
   }
   async function review(action: 'FUND_D26' | 'OBSERVE_D26', held: number) {
+    exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null; setExitReview(null); setExitConsent(null);
     setOwnerReview(null); setReservationConsent(null); setApproved(false);
     const api = client.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const current = await custody.readDeviceNote(); live(held); if (!current?.job) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
@@ -128,6 +143,7 @@ export default function DeviceDepositScreen() {
     return { access: challenge, signature };
   }
   async function preparationU(held: number) {
+    exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null; setExitReview(null); setExitConsent(null);
     setConsent(null); setReservationConsent(null); setOwnerReview(null); setApproved(false);
     const api = reservationClient.current, custody = vault.current;
     if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
@@ -158,6 +174,7 @@ export default function DeviceDepositScreen() {
     setReservationConsent(consent); setMessage('La intención U original está guardada; la prueba todavía no reserva ni ejecuta el grafo.');
   }
   async function reviewReservation(action: 'RESERVE_S' | 'OBSERVE_S', held: number) {
+    exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null; setExitReview(null); setExitConsent(null);
     setConsent(null); setReservationConsent(null); setOwnerReview(null); setApproved(false);
     const api = reservationClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const intent = await custody.readDeviceReservationIntent(); live(held); if (!intent) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
@@ -186,6 +203,53 @@ export default function DeviceDepositScreen() {
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { if (witness) wipeDeviceReservationWitnessV1(witness);
       authorizationRequest.current?.close(); authorizationRequest.current = null; }
+  }
+  async function exitAccess(held: number) {
+    const api = exitClient.current; if (!api) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const value = await api.access(); live(held);
+    const signature = await signOriginalAccountAccessV2(value, origin, pairingId); live(held); return { access: value, signature };
+  }
+  async function prepareExit(held: number) {
+    const api = exitClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    authorizationRequest.current?.close(); authorizationRequest.current = null; request.current?.close(); request.current = null;
+    setExitReview(null); setExitConsent(null); setOwnerReview(null); setReservationConsent(null); setConsent(null); setApproved(false);
+    const subject = await custody.readDeviceExitSubject(exitRole, exitRecipient); live(held);
+    const handle = await api.preparation({ ...await exitAccess(held), parentJobId: subject.parentJobId, rootId: subject.rootId,
+      noteRole: subject.noteRole, noteRevision: subject.noteRevision, nullifier: subject.nullifier, recipient: subject.recipient }); live(held);
+    exitQuote.current = handle; setExitReview(readDeviceExitQuoteV1(handle));
+    setMessage('El observador original comprueba esta apertura no gastada y el recibo S/F necesario. Revisa la salida exacta antes de firmar.');
+  }
+  async function reviewExitProof(held: number) {
+    const api = exitClient.current, custody = vault.current, handle = exitQuote.current;
+    if (!api || !custody || !handle || !exitReview || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
+    setExitReview(null); setApproved(false);
+    const pending = await custody.createDeviceExitProofRequest(handle); live(held);
+    exitRequest.current?.close(); exitRequest.current = pending; setExitJob(pending.jobId);
+    const value = await api.challengeJob({ ...await exitAccess(held), quoteId: pending.quoteId, jobId: pending.jobId, witnessSHA256: pending.witnessSHA256 }); live(held);
+    setExitConsent(value); setMessage('Intención W39 cifrada antes de firmar/enviar. Revisa por separado la revelación de esta única apertura.');
+  }
+  async function reviewExit(action: 'WITHDRAW_W39' | 'OBSERVE_W39', held: number) {
+    const api = exitClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    authorizationRequest.current?.close(); authorizationRequest.current = null; request.current?.close(); request.current = null;
+    setExitReview(null); setExitConsent(null); setOwnerReview(null); setReservationConsent(null); setConsent(null); setApproved(false);
+    const intent = await custody.readDeviceExitIntent(exitRole); live(held); if (!intent) throw Error('MOBILE_LOCAL_ORIGINAL_EXIT_REQUIRED');
+    const value = await api.challenge(action, { ...await exitAccess(held), jobId: intent.jobId }); live(held); setExitJob(intent.jobId); setExitConsent(value);
+  }
+  async function submitExit(held: number) {
+    const api = exitClient.current, custody = vault.current, value = exitConsent;
+    if (!api || !custody || !value || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
+    setExitConsent(null); setApproved(false);
+    const signature = await signDeviceExitConsentV1(value, origin, pairingId); live(held); let witness: DeviceExitWitnessV1 | undefined;
+    try {
+      if (value.action === 'PROVE_W39') { if (!exitRequest.current) throw Error('MOBILE_LOCAL_ORIGINAL_EXIT_REQUIRED');
+        witness = await custody.bindDeviceExitProofRequest(exitRequest.current, value); live(held); }
+      const result = await api.submit({ consent: value, signature, ...(witness ? { witness } : {}) }); live(held);
+      if (result.stage === 'CONFIRMED') { await custody.applyDeviceExitConfirmation(result); live(held); }
+      setExitJob(result.jobId); setMessage(result.stage === 'CONFIRMED' ? 'Salida original confirmada y guardada. No se suma como saldo disponible local.' : result.stage);
+      const state = await custody.readDeviceNote(); live(held); setNote(state);
+    } catch (error) { live(held); const notice = 'UNKNOWN: consultar este mismo trabajo W39. Nunca repetir automáticamente la prueba o la retirada.';
+      setMessage(notice); throw Error(notice, { cause: error });
+    } finally { if (witness) wipeDeviceExitWitnessV1(witness); exitRequest.current?.close(); exitRequest.current = null; }
   }
   const edit = (update: (value: string) => void, value: string) => { clear(); update(value); };
   return <ScrollView contentContainerStyle={styles.body}>
@@ -236,6 +300,41 @@ Esta firma nunca autoriza reenvíos automáticos.</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
         onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado este consentimiento exacto</Text></Pressable>
       <Pressable disabled={busy || !approved} onPress={() => void run(submitReservation)}><Text style={styles.button}>Autorizar únicamente esta acción U/S</Text></Pressable>
+    </>}
+    {note?.localReservation?.sourceSpentAtRetainedHead && <>
+      <Text style={styles.title}>Salida de la misma custodia</Text>
+      <Text style={styles.text}>El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original. La prueba W39 revela una sola apertura al worker y requiere otra autorización para retirar. No hay adopción de notas por Linux ni reintentos automáticos.</Text>
+      <Pressable disabled={busy} onPress={() => { exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
+        setExitReview(null); setExitConsent(null); setExitJob(null); setApproved(false); setExitRole(role => role === 'change' ? 'recovery' : 'change'); }}>
+        <Text style={styles.button}>Apertura: {exitRole === 'change' ? 'cambio' : 'recuperación'}</Text></Pressable>
+      <TextInput style={styles.input} value={exitRecipient} onChangeText={value => edit(setExitRecipient, value)}
+        autoCapitalize="none" placeholder="Destinatario EVM exacto: 40 caracteres hex, sin 0x" placeholderTextColor="#9cb0b8" />
+      <Pressable disabled={busy || exitJob !== null} onPress={() => void run(prepareExit)}><Text style={styles.button}>Consultar inclusión y salida original</Text></Pressable>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewExit('WITHDRAW_W39', held))}><Text style={styles.button}>Revisar única retirada W39</Text></Pressable>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewExit('OBSERVE_W39', held))}><Text style={styles.button}>Consultar trabajo/salida original</Text></Pressable>
+    </>}
+    {exitReview && <>
+      <Text style={styles.text}>W39 · {exitReview.noteRole}
+Nota {exitReview.statement.commitment}
+Importe {exitReview.statement.amount}
+Destinatario {exitReview.statement.recipient}
+Raíz Merkle {exitReview.statement.root}
+Epoch {exitReview.statement.epoch}
+Vinculación nativa {exitReview.nativeBindingSHA256}</Text>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} Autorizo esta salida exacta con la clave de esta apertura</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(reviewExitProof)}><Text style={styles.button}>Guardar intención y firmar W39 local</Text></Pressable>
+    </>}
+    {exitConsent && <>
+      <Text style={styles.text}>{exitConsent.action}
+Trabajo {exitConsent.jobId}
+Apertura {exitConsent.noteRole}
+Importe {exitConsent.statement.amount}
+Destinatario {exitConsent.statement.recipient}
+{exitConsent.openingDisclosure ?? 'No revelar otra apertura'}</Text>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado este único consentimiento W39</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(submitExit)}><Text style={styles.button}>Autorizar únicamente esta acción W39</Text></Pressable>
     </>}
     <Text style={styles.text}>{message}</Text><Pressable onPress={clear}><Text style={styles.button}>Cerrar y ocultar</Text></Pressable>
   </ScrollView>;

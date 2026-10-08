@@ -63,3 +63,28 @@ test('portable native quote action matches the original H4 V2 bytes, including u
     assert.throws(() => localNativeTransferActionCommitmentV1({ ...action, ...changes }));
   }
 });
+
+// Same original PC23 W39 encoding, with real Node ECDSA and the original depth6
+// tree as independent oracle. This host case establishes no funded custody.
+test('device W39 exact same opening/frame/witness/39words crosses original PC23 and rejects path/amount substitution', async () => {
+  const { createBalanceNote, walletWithdrawInput, walletInputPublicWords, balanceWithdrawFrame } = await import('../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs');
+  const { PrivateNoteTree } = await import('../../../packages/engine/src/notes/private-note-tree.mjs');
+  const { localDeviceWithdrawalStatementV1, localDeviceWithdrawalWitnessV1, localDeviceWithdrawalFrameV1,
+    localDeviceWithdrawalPublicWordsV1 } = await import('../src/custody/device-balance-withdrawal-codec-v1.mjs');
+  const scope = 'ff'.repeat(32), policy = '80'.repeat(32), recipient = 'ab'.repeat(20), epoch = ((1n << 64n) - 1n).toString();
+  const note = createBalanceNote({ scope, policy, value: epoch });
+  const rawOpening = { type: 4, rho: note.rho.toString('hex'), x: note.x.toString('hex'), y: note.y.toString('hex'), value: epoch, secret: note.secret.toString('hex') };
+  const tree = new PrivateNoteTree([note.commitment]); const originalPath = tree.path(0);
+  const path = { root: originalPath.root.slice(2), index: originalPath.index, leaf: originalPath.leaf.slice(2), siblings: originalPath.siblings.map(value => value.slice(2)) };
+  const statement = localDeviceWithdrawalStatementV1({ scope, policy, epoch, opening: rawOpening, path, recipient });
+  const original = walletWithdrawInput({ scope, policy, epoch, note, path: originalPath, recipient });
+  const signature = Buffer.from(original.signature).toString('hex');
+  assert.deepEqual(localDeviceWithdrawalWitnessV1({ statement, opening: rawOpening, path, signature }), original);
+  assert.deepEqual(Buffer.from(localDeviceWithdrawalFrameV1(statement)), balanceWithdrawFrame(scope, policy, note.commitment, Buffer.from(recipient, 'hex'), epoch, epoch));
+  assert.deepEqual(localDeviceWithdrawalPublicWordsV1(statement), walletInputPublicWords('withdraw_balance', original));
+  assert.equal(localDeviceWithdrawalPublicWordsV1(statement).length, 39);
+  for (const changes of [{ index: 1 }, { leaf: '01'.repeat(32) }, { root: '00'.repeat(32) }, { siblings: [...path.siblings.slice(0, 5)] }])
+    assert.throws(() => localDeviceWithdrawalStatementV1({ scope, policy, epoch, opening: rawOpening, path: { ...path, ...changes }, recipient }));
+  assert.throws(() => localDeviceWithdrawalStatementV1({ scope, policy, epoch, opening: { ...rawOpening, value: '0' }, path, recipient }));
+  assert.throws(() => localDeviceWithdrawalStatementV1({ scope, policy, epoch, opening: rawOpening, path, recipient: '00'.repeat(20) }));
+});

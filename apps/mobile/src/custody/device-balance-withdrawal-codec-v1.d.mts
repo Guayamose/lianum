@@ -1,0 +1,13 @@
+import type { LocalBalanceOpeningV1 } from './balance-note-codec-v1.mjs';
+export type LocalDeviceWithdrawalPathV1 = Readonly<{ root: string; index: number; leaf: string; siblings: readonly string[] }>;
+export type LocalDeviceWithdrawalStatementV1 = Readonly<{ scope: string; policy: string; epoch: string;
+  root: string; nullifier: string; amount: string; recipient: string; commitment: string }>;
+export type LocalDeviceWithdrawalWitnessV1 = { scope: number[]; policy: number[]; epoch: string; root: number[];
+  spent: number[]; amount: string; recipient: number[]; siblings: number[][]; leaf_index: string;
+  rho: number[]; key_x: number[]; key_y: number[]; value: string; secret: number[]; signature: number[] };
+export function localDeviceWithdrawalStatementV1(raw: { scope: string; policy: string; epoch: string;
+  opening: LocalBalanceOpeningV1; path: LocalDeviceWithdrawalPathV1; recipient: string }): LocalDeviceWithdrawalStatementV1;
+export function localDeviceWithdrawalFrameV1(statement: LocalDeviceWithdrawalStatementV1): Uint8Array;
+export function localDeviceWithdrawalWitnessV1(raw: { statement: LocalDeviceWithdrawalStatementV1;
+  opening: LocalBalanceOpeningV1; path: LocalDeviceWithdrawalPathV1; signature: string }): LocalDeviceWithdrawalWitnessV1;
+export function localDeviceWithdrawalPublicWordsV1(statement: LocalDeviceWithdrawalStatementV1): string[];

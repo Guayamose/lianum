@@ -13,6 +13,8 @@ import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1,
 import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFreshV1,
   normalizeDeviceReservationWitnessV1, wipeDeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import { normalizeDeviceExitConsentV1, validateDeviceExitConsentFreshV1, normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1 }
+  from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -46,7 +48,8 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     return validateOriginalAccountFreshV2(value);
   }
   async function request(path, payload, privateState = false) {
-    const target = original.origin + (privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
+    const target = original.origin + (privateState === 'device-exit' ? '/v1/mobile/device-exit/'
+      : privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
       : privateState === 'device-deposit' ? '/v1/mobile/device-deposit/'
       : privateState ? '/v1/mobile/original-account/private-state/'
       : '/v2/mobile/original-account/') + path;
@@ -122,6 +125,42 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
   return Object.freeze({
     descriptor: original,
     privateState,
+    deviceExit: Object.freeze({
+      async preparation(input) {
+        if (!exact(input, ['access', 'signature', 'parentJobId', 'noteRole', 'rootId', 'noteRevision', 'nullifier', 'recipient'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION'); normalizeOriginalAccountSignatureV2(input.signature);
+        return await request('preparation-reviews', input, 'device-exit');
+      },
+      async challengeJob(input) {
+        if (!exact(input, ['access', 'signature', 'quoteId', 'jobId', 'witnessSHA256'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION'); normalizeOriginalAccountSignatureV2(input.signature);
+        const value = validateDeviceExitConsentFreshV1(await request('job-reviews', input, 'device-exit'));
+        if (value.action !== 'PROVE_W39' || Object.keys(original).some(name => value[name] !== original[name])
+          || value.quoteId !== input.quoteId || value.witnessSHA256 !== input.witnessSHA256
+          || input.jobId !== null && value.jobId !== input.jobId) fail('MOBILE_REVIEW_CHANGED'); return value;
+      },
+      async challenge(action, input) {
+        if (!['WITHDRAW_W39', 'OBSERVE_W39'].includes(action) || !exact(input, ['access', 'signature', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION'); normalizeOriginalAccountSignatureV2(input.signature);
+        const value = validateDeviceExitConsentFreshV1(await request(action === 'WITHDRAW_W39'
+          ? 'withdrawal-reviews' : 'observation-reviews', input, 'device-exit'));
+        if (value.action !== action || value.jobId !== input.jobId || Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED'); return value;
+      },
+      async submit(input) {
+        if (!exact(input, input?.consent?.action === 'PROVE_W39' ? ['consent', 'signature', 'witness'] : ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const consent = validateDeviceExitConsentFreshV1(normalizeDeviceExitConsentV1(input.consent));
+        if (Object.keys(original).some(name => consent[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        const signature = normalizeOriginalAccountSignatureV2(input.signature); let witness;
+        try {
+          if (consent.action === 'PROVE_W39') witness = normalizeDeviceExitWitnessV1(input.witness);
+          return await request(consent.action === 'PROVE_W39' ? 'jobs' : consent.action === 'WITHDRAW_W39' ? 'withdraw' : 'observations',
+            { consent, signature, ...(witness ? { witness } : {}) }, 'device-exit');
+        } finally { if (witness) wipeDeviceExitWitnessV1(witness); }
+      },
+    }),
     deviceReservation: Object.freeze({
       async preparation(input) {
         if (!exact(input, ['access', 'signature', 'depositJobId', 'rootId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
