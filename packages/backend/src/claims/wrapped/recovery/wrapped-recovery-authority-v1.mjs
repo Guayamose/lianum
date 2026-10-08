@@ -1095,7 +1095,7 @@ async function retainNativeEconomicFixedSection(authority,input,section){
    const {module:m,stem}=await nativeProducer(section),args=nativeCaptureArgs(input,section,token);
    if(['receiver','graphNative'].includes(section)){
      const record=await m.captureOwnedNativeEconomicRuntimeV1(...args);
-     assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(record.family,section);
+     assert.equal(record.schema,m.isOwnedNativeEconomicRuntimeV2(nativeOriginalFor(input,section))?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(record.family,section);
      assert.equal(record.terminal.ownedProcessStopped,true);assert.equal(record.terminal.forced,false);
      await assertStoppedNativeFilesV1(record.cwd,record.files);await retainOriginalWrappedRecoverySectionV1(token,section,record);
    }else{
