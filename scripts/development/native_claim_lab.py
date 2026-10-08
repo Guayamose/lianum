@@ -65,20 +65,25 @@ def run(entry, observe=False):
         raise SystemExit(code if code > 0 else 2)
 
 def retain_summary(attempt):
-    result_bytes = (attempt / "result.json").read_bytes()
     resources_bytes = (attempt / "resources.json").read_bytes()
-    result = json.loads(result_bytes)
     resources = json.loads(resources_bytes)
-    accepted = result.get("success") is True and result.get("profile") == PROFILE \
+    try:
+        result_bytes = (attempt / "result.json").read_bytes()
+    except FileNotFoundError:
+        result_bytes = None
+    result = json.loads(result_bytes) if result_bytes is not None else {}
+    accepted = result_bytes is not None and result.get("success") is True and result.get("profile") == PROFILE \
         and resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
     summary = {"format": "LIANUM_DEVELOPMENT_NATIVE_CLAIMS_LAB_V1", "accepted": accepted,
-        "runId": result.get("runId"), "attempt": str(attempt.relative_to(ROOT)),
+        "runId": result.get("runId", resources.get("runId")), "attempt": str(attempt.relative_to(ROOT)),
         "scope": PROFILE, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
-        "resultSHA256": hashlib.sha256(result_bytes).hexdigest(),
+        "resultPresent": result_bytes is not None,
+        "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if result_bytes is not None else None,
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest(),
         "sourcePinsSHA256": resources.get("sourcePinsSHA256"),
         "failure": resources.get("failure"), "workerFailure": result.get("errorCode"),
-        "realProofCount": len(result.get("proofs", [])),
+        "realProofCount": len(result.get("proofs", [])) if result_bytes is not None
+            else (0 if resources.get("workerSpawned") is False else None),
         "proofRelations": [row["relation"] for row in result.get("proofs", [])],
         "proofHashes": [{key: row.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")} for row in result.get("proofs", [])],
         "nativeEffects": result.get("nativeEffects"), "redemptions": result.get("redemptions"),
