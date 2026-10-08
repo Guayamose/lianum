@@ -25,6 +25,23 @@ import { nativeValueCheckpointMessage, assertNativeValueCheckpointCurrent, check
 export const NATIVE_VALUE_OPERATOR_PROFILE = 'SAME_HOST_NATIVE_VALUE_FULL_INVENTORY_CHECKPOINT_BOUNDARIES_V4';
 const bootstrapRequests = new WeakMap();
 const operators = new WeakMap(), quorums = new WeakMap(), sourceOwners = new WeakMap(), sourceHistories = new WeakMap(), rounds = new WeakSet();
+// Share only an outstanding public receiver-current check inside the genuine
+// quorum round. Every settled check is discarded; inventories, store reads,
+// native observations, certificates and key/send rounds remain independent.
+const roundCurrentChecks = new WeakMap();
+async function assertRoundCurrent(shared, reader, view) {
+  if (shared === null) return reader.assertCurrent(view);
+  assert.ok(rounds.has(shared) && shared.view === view, 'NATIVE_VALUE_PRIVATE_CURRENT_ROUND_REQUIRED');
+  const current = roundCurrentChecks.get(shared);
+  assert.ok(current && current.view === view, 'NATIVE_VALUE_ORIGINAL_CURRENT_ROUND_REQUIRED');
+  if (current.pending === null) {
+    const pending = Promise.resolve().then(() => current.reader.assertCurrent(view)).finally(() => {
+      if (current.pending === pending) current.pending = null;
+    });
+    current.pending = pending;
+  }
+  return current.pending;
+}
 const copy = cloneInput, freeze = frozenInput;
 const equal = (a, b) => assert.deepEqual(a, b, 'NATIVE_VALUE_OPERATOR_CHANGED');
 // Closed source labels only. Diagnostics cannot mint an observation or weaken
@@ -99,7 +116,7 @@ export function createLocalNativeValueOperator(raw) {
   async function current() {
     owned(); budget(active.started);
     assertNativeValueCurrentView(active.view, { runtime: bound.runtime, system: bound.system, poolIndex: active.view.poolIndex });
-    await bound.readers[active.view.poolIndex].assertCurrent(active.view); owned(); budget(active.started);
+    await assertRoundCurrent(active.shared, bound.readers[active.view.poolIndex], active.view); owned(); budget(active.started);
     assert.ok(BigInt(active.view.head.timestamp) >= BigInt(record.state.lastClock), 'NATIVE_VALUE_RECEIVER_CLOCK_ROLLBACK');
   }
   // Only these native-only current-registry fields cross into each source.
@@ -200,7 +217,7 @@ export function createLocalNativeValueOperator(raw) {
       await unchanged(); if (shared !== null) assert.ok(rounds.has(shared), 'NATIVE_VALUE_PRIVATE_ROUND_REQUIRED');
       const started = shared?.started ?? performance.now();
       const view = shared?.view ?? await bound.readers[poolIndex].read();
-      active = { view, started }; assert.equal(view.poolIndex, poolIndex); await current();
+      active = { view, started, shared }; assert.equal(view.poolIndex, poolIndex); await current();
       const result = await work(view); await current(); await unchanged(); await current(); return result;
     } catch (cause) {
       if (keyUsed) { poison(); throw new Error('NATIVE_VALUE_POST_KEY_UNCERTAIN', { cause }); }
@@ -370,9 +387,12 @@ export function createNativeValueOperatorQuorum(raw) {
   async function run(kind, request) {
     const input = copy(request); pool(input.poolIndex); assert.ok(!busy, 'NATIVE_VALUE_QUORUM_BUSY'); busy = true;
     const counts = states.map(state => state.useCount()), token = Object.freeze(Object.create(null)), reserved = [];
+    let shared;
     try {
       binding(); for (const state of states) { state.reserve(token); reserved.push(state); }
-      const started = performance.now(), view = await first.readers[input.poolIndex].read(), shared = Object.freeze({ view, started, token }); rounds.add(shared);
+      const started = performance.now(), view = await first.readers[input.poolIndex].read();
+      shared = Object.freeze({ view, started, token }); rounds.add(shared);
+      roundCurrentChecks.set(shared, { reader: first.readers[input.poolIndex], view, pending: null });
       const results = await drained(states.map(state => () => state[kind](input, shared))); budget(started); binding();
       // Final fresh independently reobserved inventories after all signatures
       // have persisted. A failure poisons every key used by this whole round.
@@ -406,7 +426,7 @@ export function createNativeValueOperatorQuorum(raw) {
       assert.ok(BigInt(interval.evidenceFrom) <= BigInt(view.head.timestamp) && BigInt(view.head.timestamp) < BigInt(interval.evidenceUntil), 'NATIVE_VALUE_FACTS_EXPIRED');
       return freeze({ certificates: results, collected, head: copy(view.head), audits });
     } catch (cause) { states.forEach((state, i) => state.poisonIfUsed(counts[i])); throw cause; }
-    finally { for (const state of reserved) state.release(token); busy = false; }
+    finally { if (shared) { roundCurrentChecks.delete(shared); rounds.delete(shared); } for (const state of reserved) state.release(token); busy = false; }
   }
   const quorum = Object.freeze({ health: request => run('health', request), certify: request => run('certify', request), checkpoint: request => run('checkpoint', request),
     signerIndexes: freeze(chosen.map(op => op.signerIndex)) });
