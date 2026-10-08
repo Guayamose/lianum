@@ -5,11 +5,13 @@ import assert from 'node:assert/strict';
 import { AssertionError } from 'node:assert';
 import { createHash } from 'node:crypto';
 import { exactRecord, bytes32 } from '../../execution/encoding/commitments.mjs';
+import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { claimUint, claimDomainCommitment } from '../../claims/protocol/framing.mjs';
 import { ownedClaimControllerJournal as nativeJournal } from '../../claims/controller/controller-journal.mjs';
 import { ownedNativeClaimControllerBindings as nativeBindings, restartNativeClaimController as nativeRestart } from '../../claims/controller/controller.mjs';
 
 const wrappedSessions = new WeakSet();
+const privateFailures = new WeakMap();
 const sessions = new WeakMap(), identities = new WeakMap(), leasedControllers = new WeakSet();
 const requestId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{8,100}$/.exec(value)?.[0] === value;
 const copy = value => structuredClone(value);
@@ -35,6 +37,13 @@ export function nativeClaimSessionController(value) { assertNativeClaimSession(v
 export function nativeClaimSessionIdentity(value) {
   need(arguments.length === 1, 'NATIVE_CLAIM_IDENTITY_ARGUMENTS');
   assertNativeClaimSession(value); return identities.get(value);
+}
+
+/** Bounded private failure observations over this original in-process session.
+ * Not persisted, exposed through HTTP, or used as signing/retry authority. */
+export function nativeClaimSessionPrivateFailures(value) {
+  need(arguments.length === 1, 'NATIVE_CLAIM_PRIVATE_FAILURE_ARGUMENTS');
+  assertNativeClaimSession(value); return copy(privateFailures.get(value));
 }
 
 function originalIdentity(claims, account, wrapped = false) {
@@ -104,7 +113,7 @@ async function createClaimSession(input, wrapped) {
   let closed = false, closing = false, active = false, available = true, lastError = null;
   let tail = Promise.resolve(), pending = 0, admitting = 0, revision = 0;
   let visible = [], ownerStatus = null, refreshPending = null, ownerReadPending = false;
-  const jobs = new Set();
+  const jobs = new Set(), failures = [];
 
   function ownedDeposit(data, id) {
     const row = data.deposits.find(item => item.id === id);
@@ -212,6 +221,12 @@ async function createClaimSession(input, wrapped) {
         await change(id, { state: done ? 'CONFIRMED' : 'RECONCILIATION_REQUIRED', errorCode: null,
           result: copy(reconciliationOnly ? outcome : outcome.result) });
       } catch (error) {
+        // Keep only fixed protocol labels and the original 30 s audit budget.
+        // Native keys, comparison values, RPC text and stacks never enter this view.
+        if (!wrapped) {
+          failures.push(Object.freeze({ requestId: id, ...privateFailureDiagnostic(error, 'NATIVE_CLAIM_OPERATION_FAILED') }));
+          if (failures.length > 8) failures.shift();
+        }
         lastError = nativeClaimApiErrorCode(error);
         // An unavailable journal must not turn an uncertain write into a
         // different durable claim. The original request remains reconcilable.
@@ -321,5 +336,5 @@ async function createClaimSession(input, wrapped) {
       return view();
     },
   });
-  sessions.set(session, () => controller); if (wrapped) wrappedSessions.add(session); identities.set(session, identity); return session;
+  sessions.set(session, () => controller); if (!wrapped) privateFailures.set(session, failures); if (wrapped) wrappedSessions.add(session); identities.set(session, identity); return session;
 }

@@ -17,7 +17,7 @@ mock.module(url('../native-claims/controller.mjs'), { exports: {
 mock.module(url('../native-claims/controller-journal.mjs'), { exports: {
   ownedClaimControllerJournal(keeper) { assert.ok(journals.has(keeper)); return journals.get(keeper); },
 } });
-const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity } = await import('../../../src/api/claims/native-claim-session.mjs');
+const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures } = await import('../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../src/api/claims/native-claim-http.mjs');
 const hash = value => createHash('sha256').update(value).digest('hex');
 function syntheticConfig(family = '2') {
@@ -28,6 +28,17 @@ function syntheticConfig(family = '2') {
 }
 const domain = claimDomainCommitment(syntheticConfig()), owner = '22'.repeat(32), intentId = '33'.repeat(32), otherIntent = '44'.repeat(32);
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+
+function originalAuditFailure() {
+  let error;
+  try { assert.equal('synthetic private comparison actual', 'synthetic private comparison expected', 'CLAIM_OPERATOR_AUDIT_TOO_OLD'); }
+  catch (value) { error = value; }
+  error.auditBudget = Object.freeze({ phase: 'after-graph-coverage', method: 'begin-payout', round: 'pre-key',
+    elapsedMilliseconds: 30017, limitMilliseconds: 30000 });
+  error.nativeIdentity = 'synthetic private native identity';
+  error.rpc = 'synthetic private rpc endpoint';
+  return error;
+}
 
 test('public errors preserve fixed native uncertainty categories without exporting RPC text or identifiers', () => {
   for (const code of ['SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE', 'SOLANA_RPC_BLOCKHASH_NOT_FOUND',
@@ -60,7 +71,7 @@ async function fixture({ family = '2' } = {}) {
   ], tickets: [], evm: [], apiAccounts: [], apiAdmissions: [] };
   let store = await createClaimRecordStore(options, initial), fault = false, interrupted = false, gate = null;
   let signing = 0, issuance = 0, restartCount = 0, reconciliations = 0, loseIssueReply = false, failRestart = false;
-  let journalReads = 0, journalWrites = 0;
+  let journalReads = 0, journalWrites = 0, nextReconcileError = null;
   const journal = {
     read: async () => { journalReads++; return structuredClone((await store.read()).data); },
     async update(transform) {
@@ -75,7 +86,10 @@ async function fixture({ family = '2' } = {}) {
   journals.set(keeper, journal);
   const projection = row => ({ intentId: row.id, claimDomain: row.claimDomain, amount: '1', status: row.status });
   const controller = {
-    async reconcileAll() { reconciliations++; assert.equal(fault, false); return { reconciled: true }; },
+    async reconcileAll() { reconciliations++; assert.equal(fault, false);
+      if (nextReconcileError) { const failure = nextReconcileError; nextReconcileError = null;
+        if (failure.uncertain) fault = true; throw failure.error; }
+      return { reconciled: true }; },
     async reconcile({ operationId }) { const data = await journal.read(); return projection(data.deposits.find(row => row.id === operationId)); },
     async preposition({ intentId: id }) { await journal.update(data => { const row = data.deposits.find(item => item.id === id); if (row.status === 'PREPARED') row.status = 'PREPOSITIONED'; return data; }); return controller.reconcile({ operationId: id }); },
     async ingress({ intentId: id }) { await journal.update(data => { const row = data.deposits.find(item => item.id === id); if (!row.native) { signing++; row.native = { originalId: 'synthetic-single-send' }; } return data; }); },
@@ -96,6 +110,7 @@ async function fixture({ family = '2' } = {}) {
     reconciliations: () => reconciliations,
     loseReply() { loseIssueReply = true; },
     failRestartOnce() { failRestart = true; },
+    failNextReconcile(error, { uncertain = false } = {}) { assert.equal(nextReconcileError, null); nextReconcileError = { error, uncertain }; },
     blockAdmission() { gate = { entered: deferred(), release: deferred() }; return gate; },
     failWrite() { interrupted = true; },
     async session(change = {}) { const session = await createNativeClaimSession({ ...input, ...change }); sessions.push(session); return session; },
@@ -103,6 +118,88 @@ async function fixture({ family = '2' } = {}) {
     async close() { for (const session of sessions) await session.close(); store.close(); await rm(directory, { recursive: true, force: true }); },
   };
 }
+
+test('private failure observation preserves the original audit code and budget without public or durable disclosure', async () => {
+  const f = await fixture(); let http;
+  try {
+    const session = await f.session(), error = originalAuditFailure();
+    assert.deepEqual(nativeClaimSessionPrivateFailures(session), []);
+    f.failNextReconcile(error); http = await startNativeClaimHttp({ session });
+    const response = await fetch(http.origin + '/api/native-claims/deposit', { method: 'POST', headers: {
+      origin: http.origin, 'content-type': 'application/json', 'x-native-claim-token': http.clientAccess.token },
+      body: JSON.stringify({ requestId: 'private_failure_01', intentId }) });
+    assert.equal(response.status, 202); assert.equal((await response.json()).admitted, true);
+    await session.idle();
+    const expected = { requestId: 'private_failure_01', code: 'CLAIM_OPERATOR_AUDIT_TOO_OLD',
+      causeCode: null, causeCodes: [], auditBudget: error.auditBudget };
+    assert.deepEqual(nativeClaimSessionPrivateFailures(session), [expected]);
+    const before = f.storageStats(), returned = nativeClaimSessionPrivateFailures(session);
+    returned[0].auditBudget.elapsedMilliseconds = 0; returned[0].causeCodes.push('CLAIM_INVENTED'); returned.push({});
+    assert.deepEqual(nativeClaimSessionPrivateFailures(session), [expected]);
+    assert.deepEqual(f.storageStats(), before, 'private accessor performs no journal observation or update');
+    const snapshot = await (await fetch(http.origin + '/api/native-claims/snapshot')).json();
+    assert.equal(snapshot.requests[0].state, 'RECONCILIATION_REQUIRED');
+    assert.equal(snapshot.requests[0].errorCode, 'CLAIM_OPERATOR_AUDIT_TOO_OLD');
+    const ownerView = await (await fetch(http.origin + '/api/native-claims/owner', { headers: {
+      origin: http.origin, 'x-native-owner-token': http.ownerAccess.token } })).json();
+    const journal = await f.journal.read();
+    for (const value of [snapshot, ownerView, journal]) {
+      const text = JSON.stringify(value);
+      for (const forbidden of ['auditBudget', 'elapsedMilliseconds', 'privateDiagnostics', 'private comparison',
+        'private native identity', 'private rpc endpoint']) assert.equal(text.includes(forbidden), false, forbidden);
+    }
+    assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 });
+    assert.equal(f.reconciliations(), 1, 'diagnosis adds no retry');
+  } finally { await http?.close(); await f.close(); }
+});
+
+test('private failure observation retains a nested original budget and leaves uncertain durable state untouched', async () => {
+  const f = await fixture();
+  try {
+    const session = await f.session(), original = originalAuditFailure();
+    const error = new Error('CLAIM_ATTESTATION_UNCERTAIN', { cause: original });
+    error.key = 'synthetic private key';
+    f.failNextReconcile(error, { uncertain: true }); await session.submit('deposit', { requestId: 'private_failure_02', intentId });
+    const snapshot = await session.idle();
+    assert.equal(snapshot.requests[0].state, 'RUNNING');
+    assert.equal(snapshot.storageAvailable, false); assert.equal(f.keeper.status().uncertain, true);
+    const durableBefore = await f.journal.read();
+    assert.deepEqual(nativeClaimSessionPrivateFailures(session), [{ requestId: 'private_failure_02',
+      code: 'CLAIM_ATTESTATION_UNCERTAIN', causeCode: 'CLAIM_OPERATOR_AUDIT_TOO_OLD',
+      causeCodes: ['CLAIM_OPERATOR_AUDIT_TOO_OLD'], auditBudget: original.auditBudget }]);
+    assert.throws(() => nativeClaimSessionPrivateFailures({ ...session }), /ORIGINAL_SESSION_REQUIRED/);
+    assert.throws(() => nativeClaimSessionPrivateFailures(session, {}), /PRIVATE_FAILURE_ARGUMENTS/);
+    assert.throws(() => nativeClaimSessionPrivateFailures(), /PRIVATE_FAILURE_ARGUMENTS/);
+    assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 });
+    assert.equal(f.reconciliations(), 1);
+    assert.equal(JSON.stringify(nativeClaimSessionPrivateFailures(session)).includes('synthetic private'), false);
+    assert.equal(f.keeper.status().uncertain, true); assert.deepEqual(await f.journal.read(), durableBefore);
+  } finally { await f.close(); }
+});
+
+test('private failure observation retains at most eight session-local failures and never persists or widens the audit budget', async () => {
+  const f = await fixture();
+  try {
+    const session = await f.session();
+    for (let index = 0; index < 10; index++) {
+      const error = originalAuditFailure();
+      if (index === 9) error.auditBudget = { ...error.auditBudget, limitMilliseconds: 30001 };
+      f.failNextReconcile(error); await session.submit('deposit', { requestId: 'private_failure_' + String(index).padStart(2, '0'), intentId });
+      await session.idle();
+    }
+    const failures = nativeClaimSessionPrivateFailures(session);
+    assert.equal(failures.length, 8);
+    assert.deepEqual(failures.map(value => value.requestId), Array.from({ length: 8 }, (_, index) => 'private_failure_' + String(index + 2).padStart(2, '0')));
+    assert.equal(failures.at(-1).code, 'CLAIM_OPERATOR_AUDIT_TOO_OLD');
+    assert.equal(Object.hasOwn(failures.at(-1), 'auditBudget'), false, 'an altered freshness limit is not retained as an original budget');
+    assert.equal(f.reconciliations(), 10); assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 });
+    await session.close(); await f.reopenStore(); const reopened = await f.session();
+    assert.deepEqual(nativeClaimSessionPrivateFailures(reopened), []);
+    assert.equal((await reopened.snapshot()).requests.length, 10);
+    assert.equal(f.reconciliations(), 10, 'reopening performs no retry or diagnostic replay');
+    assert.equal(JSON.stringify(await f.journal.read()).includes('auditBudget'), false);
+  } finally { await f.close(); }
+});
 
 test('admission acknowledgment waits for encrypted durable write before any effect', async () => {
   const f = await fixture();

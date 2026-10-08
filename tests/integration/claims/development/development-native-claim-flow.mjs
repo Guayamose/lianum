@@ -28,7 +28,7 @@ import { createNativeClaimPortfolioView } from '../../../../packages/backend/src
 import { createGenericAccountKeeper } from '../../../../packages/engine/src/execution/accounts/generic-account-keeper.mjs';
 import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
 import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
-import { createNativeClaimSession, nativeClaimSessionController } from '../../../../packages/backend/src/api/claims/native-claim-session.mjs';
+import { createNativeClaimSession, nativeClaimSessionController, nativeClaimSessionPrivateFailures } from '../../../../packages/backend/src/api/claims/native-claim-session.mjs';
 import { startNativeClaimHttp } from '../../../../packages/backend/src/api/claims/native-claim-http.mjs';
 import { checkClaimGraphV3Bootstrap, checkClaimGraphV3Inventory } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
@@ -200,7 +200,11 @@ export async function runDevelopmentNativeClaimAcceptance() {
     else { const admission = await response.json(); assert.equal(admission.admitted, true); assert.equal(admission.requestId, body.requestId); }
     const view = await claimSession.idle(); controller = nativeClaimSessionController(claimSession);
     const request = view.requests.find(row => row.requestId === body.requestId); assert.ok(request);
+    const privateDiagnostics = nativeClaimSessionPrivateFailures(claimSession).filter(value => value.requestId === body.requestId);
+    if (privateDiagnostics.length) writeFixturePrivate(join(privateDirectory, 'claim-failure-' + body.requestId + '.json'),
+      { requestId: body.requestId, action, failures: privateDiagnostics });
     result.claimRequests.push({ action, requestId: body.requestId, state: request.state, errorCode: request.errorCode,
+      ...(privateDiagnostics.length ? { privateDiagnostics } : {}),
       via: 'ORIGINAL_NATIVE_CLAIM_HTTP', admissionResponseDiscarded: discard }); save(); return request;
   }
   try {
