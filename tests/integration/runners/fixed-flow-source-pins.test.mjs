@@ -15,6 +15,10 @@ for (const [name, capture] of Object.entries({ evmVaultSourcePins, privateMetaMo
     assert.match(row.sha256, /^[0-9a-f]{64}$/);
     assert.ok(row.bytes > 0);
     assert.equal(new Set(pins.local.map(value => value.path)).size, pins.local.length);
+    if (name === 'evmVaultSourcePins') {
+      for (const entry of ['run-evm-vault-flow.mjs', 'run-evm-uniswap-flow.mjs'])
+        assert.ok(pins.local.some(value => value.path === 'flat-wallet/integration/' + entry), 'BOTH_ORIGINAL_DEFI_ENTRIES_MUST_BE_CAPTURED');
+    }
     assert.throws(() => capture({ root: '/tmp' }), /NO_OPTIONS/);
   });
 }

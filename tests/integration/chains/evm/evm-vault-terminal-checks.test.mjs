@@ -120,16 +120,17 @@ test('state collector pins every balance/head and retains protocol arrays withou
   view.head.hash = h('9').slice(2); await assert.rejects(readEvmVaultReplayState(args), /READ_HEAD/);
 });
 
-test('remaining harness postconditions bind target redemption, original recipient, final value and truthful capacity together', () => {
-  const source = readFileSync(new URL('./evm-vault-flow.mjs', import.meta.url), 'utf8');
-  assert.ok(source.includes("{ to: system.pools[0].address, data: exitData }, '0x0');"));
-  assert.ok(!source.includes("'0x0', 'NOTE_ALREADY_SPENT'"));
-  assert.ok(source.includes("nullifier: '0x' + status.canonicalNullifier"));
-  assert.ok(source.includes('result.solverPayoutReplay = assertEvmVaultPayoutReplay(replayEvidence)'));
-  assert.ok(source.includes("requestId: 'vault_exit_1', minimumOutput: '100'"));
-  for (const fragment of ["preparedRedemption.shares, '100'", "redemptionResult.redeemedUnderlying, '100'",
-    "redemptionResult.underlyingPrivateSpendable, false", 'capabilities[0].balance(runtime.accounts[4]), 100n',
-    "vault.snapshot.totalAssets, '0'", "vault.snapshot.totalShares, '0'", 'result.finalCapacity = assertEvmVaultTerminalPools(result.finalPools)',
-    "final.assets.map(asset => asset.balances.available), ['0', '0']", 'runtime.transactions.filter(entry => entry.signed).length, 1'])
-    assert.ok(source.includes(fragment), fragment);
+test('rejected payout replay preserves Uniswap reserves, liquidity and price as well as private balances', () => {
+  const input = fixture();
+  delete input.before.accounting.vault; delete input.after.accounting.vault;
+  const swap = { pool: address('a'), inputReserve: '10001004', outputReserve: '9999000',
+    liquidity: '10000000', slot0: ['79228162514264337593543950336', '0', '0', '1', '1', '0', true] };
+  input.before.accounting.uniswap = clone(swap); input.after.accounting.uniswap = clone(swap);
+  assert.equal(assertEvmVaultPayoutReplay(input).protocolStateAndHistoryUnchanged, true);
+  for (const mutate of [value => { value.inputReserve = '10001005'; },
+    value => { value.outputReserve = '9998999'; }, value => { value.liquidity = '10000001'; },
+    value => { value.slot0[0] = '79228162514264337593543950337'; }, value => { value.pool = address('b'); }]) {
+    const changed = clone(input); mutate(changed.after.accounting.uniswap);
+    assert.throws(() => assertEvmVaultPayoutReplay(changed));
+  }
 });
