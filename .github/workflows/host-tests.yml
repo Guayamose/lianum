@@ -29,6 +29,7 @@ jobs:
           python3 scripts/development/test_doctor.py
           python3 scripts/development/test_lab_cancellation.py
           python3 scripts/development/test_evm_lab_summary.py
+          python3 scripts/development/test_osaka_lab_summary.py
       - name: Run the default host selection
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
@@ -42,6 +43,10 @@ jobs:
           tests/integration/wallet/manual/manual-wallet-position-checks.test.mjs
           tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs
           tests/integration/wallet/manual/manual-wallet-recovery-policy.test.mjs
+          tests/integration/wallet/manual/manual-wallet-browser-recovery-policy.test.mjs
+          packages/backend/tests/chains/evm/runtime/owned-evm-osaka-v1.test.mjs
+          tests/integration/evm/osaka/development-osaka-smoke-policy.test.mjs
+          tests/integration/evm/osaka/development-osaka-smoke-finalize.test.mjs
           tests/integration/wallet/manual/manual-wallet-browser-policy.test.mjs
           tests/integration/wallet/manual/manual-wallet-dom-startup.test.mjs
           tests/integration/wallet/manual/wallet-browser-process-observation.test.mjs
