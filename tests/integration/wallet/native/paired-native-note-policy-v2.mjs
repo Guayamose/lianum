@@ -5,7 +5,11 @@ import { createHash } from 'node:crypto';
 import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 export const PAIRED_NATIVE_NOTE_PROFILE_V2 = 'paired-native-note-v2';
 export const PAIRED_NATIVE_NOTE_RESULT_V2 = 'LIANUM_PAIRED_NATIVE_NOTE_RESULT_V2';
-export const PAIRED_NATIVE_NOTE_REAL_RELEASE_V2 = null;
+export const PAIRED_NATIVE_NOTE_REAL_RELEASE_V2 = Object.freeze({
+  format: 'REVIEWED_LOCAL_PAIRED_NATIVE_NOTE_RELEASE_V2', profile: PAIRED_NATIVE_NOTE_PROFILE_V2,
+  amountAtomic: '500', relations: Object.freeze(['deposit_balance', 'withdraw_balance']),
+  localOnly: true, fakeFundsOnly: true, publicNetwork: false, mobileNoteCustody: false, tls: false,
+});
 /** A new local scope reviewed independently from all legacy release gates.
  * The literal stays closed until review; no caller may supply a substitute. */
 export function assertPairedNativeNoteReleaseV2() {
