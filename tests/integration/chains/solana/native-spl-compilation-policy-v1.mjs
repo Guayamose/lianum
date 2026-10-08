@@ -12,7 +12,7 @@ export function classifyNativeSplCompilerProcessV1(argv,executable){
  if(executable===command)return {role:'spl-fixed-cargo-command',proofWorker:false};
  const fixedTools=['rust/bin/rustc','rust/bin/cargo','llvm/bin/clang-19','llvm/bin/llvm-ar','llvm/bin/llvm-objcopy','llvm/bin/llvm-readelf','rust/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld'].map(path=>join(tools,'distribution',path));
  if(fixedTools.includes(executable)||executable===realpathSync(join(homedir(),'.cargo/bin/rustup')))return {role:'spl-rust-toolchain',proofWorker:false};
- if([realpathSync('/usr/bin/cc'),realpathSync('/usr/bin/ld'),'/usr/lib/gcc/x86_64-linux-gnu/13/collect2'].includes(executable))return {role:'spl-rust-toolchain',proofWorker:false};
+ if([realpathSync('/usr/bin/cc'),realpathSync('/usr/bin/ld'),'/usr/libexec/gcc/x86_64-linux-gnu/13/collect2'].includes(executable))return {role:'spl-rust-toolchain',proofWorker:false};
  if(executable.startsWith(target+sep)&&/\/build\/[^/]+\/build-script-(?:build|main)(?:-[0-9a-f]+)?$/.test(executable))return {role:'spl-crate-build-script',proofWorker:false};
  const scripts=['strip.sh','install.sh'].map(name=>join(tools,'sbf-sdk/scripts',name));
  if(executable==='/usr/bin/bash'&&scripts.includes(argv[1])||executable==='/usr/bin/env'&&argv[1]==='bash'&&scripts.includes(argv[2]))return {role:'spl-sdk-script',proofWorker:false};
