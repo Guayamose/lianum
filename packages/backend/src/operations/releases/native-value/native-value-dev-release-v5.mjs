@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "d14c9f8260664836f9dd551ef8048e43e6e71d670414cd0b1df9602d068d3537",
+  "hostSourceClosureSHA256": "3f5ecd9573a40f21b87b711c17477e01b3fd873aea345c042380a9ae4bc7112f",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -690,7 +690,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
-      "sha256": "8532dd1834805f4eac2770ca35c436a6499a389b9653562370d5102a780b4e73"
+      "sha256": "adc161a7669fddb36101bfa22fa3d230a82f5a756850e13844c1a30d69be4dff"
     },
     {
       "path": "integration/device-owner-deposit-policy-v1.mjs",
@@ -730,7 +730,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-reservation-original-continuation-v1.mjs",
-      "sha256": "ab69fc531d838801d8ddd4855a10137dc927f7d4c6b2a06cfcceaaa9298e6439"
+      "sha256": "4944e0fcc977b2695285f5a7e4f122a47508a4331f06ec11350d616268c82e5b"
     },
     {
       "path": "integration/device-owner-reservation-original-preparation-v1.mjs",
@@ -2246,7 +2246,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/tron-native-value-health-source-v4.mjs",
-      "sha256": "48a7377a37fc149e9384282015be7e224906093b6a97a1db23389d3aba64bf47"
+      "sha256": "2601df55f22f567d2fb4afbc63068764fd2875f379f40a4431e1fba04ad1865a"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/tron-observation-adapter.mjs",
