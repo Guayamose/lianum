@@ -1,6 +1,7 @@
 /** Fixed original DEVICE D26/U/S/native-I84/F/change+recovery-W39. This is Node execution of
  * the mobile custody code, never physical-phone or full-mobile acceptance. */
 import assert from 'node:assert/strict';
+import {assertDeviceOwnerOutputBalanceReadsV1} from './device-owner-execution-native-checks-v1.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import {assertDeviceReservationResultV1,DEVICE_RESERVATION_PROFILE_V1,DEVICE_RESERVATION_RESULT_V1} from './device-owner-reservation-policy-v1.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
@@ -77,6 +78,7 @@ export function assertDeviceRecoveryResultV1(r){assert.equal(arguments.length,1)
   fullOwnerRefundAtomic:'500',recoveryIsSubsetOfReserve:true,solverPayoutAtomic:'0',poolActualAtomic:'0',poolBackedAtomic:'0',liveReservations:0,
   nativeDeliveryAmountAtomic:'1000000',nativeDeliveryTransactions:1,nativeProviderPrincipalLossAtomic:'1000000',nativeProviderGasLossAtomic:n.nativeWire.gasCostAtomic,
   sourceSpent:true,changeSpent:true,recoverySpent:true,linuxOwnerAvailableAtomic:'0',solverPayoutExitEstablished:false});
+ assertDeviceOwnerOutputBalanceReadsV1(r,true);
  assert.equal(r.cleanup.closedNativeExecution,true);
  return{deviceOwnerNativeRecoveryNodeAcceptance:true,deviceOwnerUSNodeAcceptance:true,deviceOwnerD26NodeAcceptance:true,nativeGraphAcceptance:true,nativeDeliveryCount:1,
   mobileNoteCustodyEstablished:false,tlsEstablished:false,reactRendererEstablished:false,mobilePortfolioEstablished:false,physicalPhoneEstablished:false,

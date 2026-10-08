@@ -147,7 +147,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
+  assert.deepEqual(Object.keys(vault).sort(), ['readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -652,6 +652,42 @@ test('original vault persists output custody and binds fresh READ balance to loc
   assert.equal((await reopened.readDeviceNote()).localReservation.changeAvailableBalance, null);
   const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, local.revision);
   assert.equal(JSON.parse(store.get(POINTER)).revision, local.revision); reopened.close();
+  // Authenticated synthetic HOST W39 custody uses the ORIGINAL frame, key,
+  // signature and witness decoder. No chain withdrawal is credited by this test.
+  const withdrawal = await import('../src/custody/device-balance-withdrawal-codec-v1.mjs');
+  const { deviceExitWitnessBytesV1, wipeDeviceExitWitnessV1 } = await import('../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs');
+  const exitStatement = withdrawal.localDeviceWithdrawalStatementV1({ scope: note.scope, policy: note.policy, epoch: '1',
+    opening: spend.change.opening, path: balanceBody.change.path, recipient: '35'.repeat(20) });
+  const exitFrame = withdrawal.localDeviceWithdrawalFrameV1(exitStatement);
+  let exitSignature; const heldNoteKey = Buffer.from(spend.change.privateKey, 'hex');
+  try { exitSignature = signDeviceMessage(heldNoteKey, exitFrame); } finally { exitFrame.fill(0); heldNoteKey.fill(0); }
+  const exitWitness = withdrawal.localDeviceWithdrawalWitnessV1({ statement: exitStatement, opening: spend.change.opening,
+    path: balanceBody.change.path, signature: exitSignature }), exitBytes = deviceExitWitnessBytesV1(exitWitness);
+  let exitWitnessHash;
+  try { exitWitnessHash = sha(exitBytes).toString('hex'); } finally { exitBytes.fill(0); wipeDeviceExitWitnessV1(exitWitness); }
+  const exitIntent = { version: 1, phase: 'SIGNED', parentJobId: request.jobId, nativeBindingSHA256: balanceBody.nativeBindingSHA256,
+    quoteId: '36'.repeat(32), jobId: '37'.repeat(32), ...descriptor, rootId: value.rootId, noteRevision: local.revision,
+    noteRole: 'change', statement: exitStatement, path: balanceBody.change.path, signature: exitSignature, witnessSHA256: exitWitnessHash };
+  const freshBalances = await createDeviceOwnerOutputBalanceApiV1(descriptor);
+  balanceBody.nativeOutcome = 'RECOVERED'; balanceBody.change.state = 'SPENT'; balanceBody.expiresAt = Date.now() + 10000;
+  for (const confirmed of [false, true]) {
+    const candidate = structuredClone(local); candidate.revision += confirmed ? 2 : 1;
+    candidate.spend.exits = { change: { ...exitIntent, ...(confirmed ? { receipt: { transactionHash: '38'.repeat(32), blockHash: '21'.repeat(32),
+      blockNumber: '1', calldataSHA256: '39'.repeat(32), timestamp: '1', domainCommitment: poolTerms.domainCommitment } } : {}) } };
+    store.clear(); await restoreLocalRootNoteVaultBackupV1((await writeClear(candidate)).backup);
+    const cap = openLocalRootNoteVaultV1(value.rootId), selectors = await cap.readDeviceOutputBalanceSubject();
+    balanceBody.noteRevision = selectors.noteRevision;
+    const signedRead = await freshBalances.access(), original = await freshBalances.observe({ ...selectors, access: signedRead,
+      signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(signedRead)) });
+    await cap.applyDeviceOutputBalances(original); const observed = (await cap.readDeviceNote()).localReservation.change;
+    assert.equal(observed.state, confirmed ? 'WITHDRAWN' : 'WITHDRAWAL_PENDING');
+    assert.equal(observed.availableBalance, confirmed ? '0' : null, 'SPENT without a confirmed W39 receipt never clears an uncertain intent');
+    assert.equal(observed.withdrawnAmount, confirmed ? '380' : null);
+    cap.close(); const again = openLocalRootNoteVaultV1(value.rootId);
+    assert.equal((await again.readDeviceNote()).localReservation.changeAvailableBalance, null, 'reopen never retains monetary freshness');
+    again.close();
+  }
+  freshBalances.close();
   // An attacker may recompute ALL public hashes/manifest/pointer. A forged
   // AES tag still fails; an authenticated record with an unknown field also
   // fails the original strict state decoder instead of being normalized away.

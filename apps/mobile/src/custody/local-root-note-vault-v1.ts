@@ -1169,7 +1169,9 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         const spend = value.spend; if (!spend) return null;
         const intent = spend.exits?.[role], observed = outputObservation?.[role];
         const confirmed = !!intent?.receipt;
-        const usable = !!observed && !intent;
+        // A confirmed local receipt alone remains UNKNOWN. Zero additionally
+        // requires this live original READ to observe the same NF as SPENT.
+        const usable = !!observed && (!intent || confirmed && observed.state === 'SPENT');
         return Object.freeze({ commitment: spend.statement[role === 'change' ? 'changeCommitment' : 'recoveryCommitment'],
           amount: spend[role].opening.value, state: confirmed ? 'WITHDRAWN' : intent ? 'WITHDRAWAL_PENDING'
             : observed?.state ?? (role === 'recovery' ? 'LOCKED' : spend.reservation ? 'INCLUDED_AT_RETAINED_HEAD' : 'PENDING_RESERVATION'),

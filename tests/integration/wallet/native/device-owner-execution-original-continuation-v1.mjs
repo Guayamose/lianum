@@ -14,20 +14,63 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
  const {account,owner,runtime,nativeRuntime,system,reader,result,stage,save,active,descriptor,deviceKey,host,
   executionBridge,transport,fromApp,retainedProofs}=context;
  const recovery=context.deviceRecovery===true,terminalOutcome=recovery?'RECOVERED':'FULFILLED';
- let vault=context.vault,nativeApi,exitApi,pendingExit,witness,closed=false;
+ let vault=context.vault,nativeApi,exitApi,outputApi,pendingExit,witness,closed=false;
  const {signDeviceMessage}=await fromApp('custody/signing.mjs');
  const counts=()=>({proofs:result.proofs.length,receiver:runtime.transactions.length,native:nativeRuntime.transactions.length});
  const signed=consent=>({consent,signature:signDeviceMessage(deviceKey,deviceExecutionConsentMessageV1(consent))});
  const exitSigned=consent=>({consent,signature:signDeviceMessage(deviceKey,deviceExitConsentMessageV1(consent))});
  const access=async api=>{active();const value=await api.access();return{access:value,signature:signDeviceMessage(deviceKey,originalAccountAccessMessageV2(value))};};
- function close(){if(closed)return;closed=true;pendingExit?.close();wipeDeviceExitWitnessV1(witness);nativeApi?.close();exitApi?.close();vault?.close();}
+ function close(){if(closed)return;closed=true;pendingExit?.close();wipeDeviceExitWitnessV1(witness);nativeApi?.close();exitApi?.close();outputApi?.close();vault?.close();}
  try{
   nativeApi=await host.execution.createDeviceOwnerExecutionApiV1(descriptor);
   exitApi=await host.exit.createDeviceOwnerExitApiV1(descriptor);
+  outputApi=await host.outputBalance.createDeviceOwnerOutputBalanceApiV1(descriptor);
   const jobId=result.deviceReservation.jobId,rootId=result.deviceCustody.sameRoot;
   const sourceBefore=await vault.readDeviceNote();assert.equal(sourceBefore.availableBalance,null);
   assert.equal(sourceBefore.localReservation.transactionHash,result.deviceReservation.observation.transactionHash);
   assert.equal(sourceBefore.localReservation.sourceNullifier,result.deviceNote.observation.nullifier);
+  result.deviceOutputBalances={profile:'LIANUM_DEVICE_ORIGINAL_OUTPUT_BALANCE_READS_V1',reads:[]};
+  // Each READ has its own original one-use signed permission. Only public CM/NF
+  // selectors leave the vault; neither openings nor W39 economic grants do.
+  async function readOutputs(phase,states,outcome){
+   await stage('device-original-output-balance-'+phase);
+   const before=counts(),writes=host.evidence().writes,subject=await vault.readDeviceOutputBalanceSubject();
+   assert.equal(subject.parentJobId,jobId);assert.equal(subject.rootId,rootId);
+   const permission=await access(outputApi),readPosts=transport.posts['/v1/mobile/device-execution/output-balances']??0,
+    handle=await outputApi.observe({...permission,...subject});
+   assert.equal(transport.posts['/v1/mobile/device-execution/output-balances'],readPosts+1);
+   const value=host.outputBalance.readDeviceOutputBalanceV1(handle);
+   assert.equal(value.authorizationSHA256,sha(originalAccountAccessMessageV2(permission.access)));
+   assert.equal(value.reservationTransactionHash,result.deviceReservation.observation.transactionHash);
+   assert.equal(value.sourceNullifier,result.deviceNote.observation.nullifier);assert.equal(value.sourceNullifierSpent,true);
+   assert.equal(value.nativeOutcome,outcome);
+   const current=await reader.read();await reader.assertCurrent(current);
+   assert.deepEqual(value.observed,{blockNumber:current.head.number,blockHash:current.head.hash,timestamp:current.head.timestamp});
+   assert.ok(current.ledger.nullifiers.includes('0x'+value.sourceNullifier));
+   for(const [role,amount]of[['change','400'],['recovery','100']]){
+    const row=value[role];assert.equal(row.commitment,result.deviceCustody[role+'Commitment']);
+    assert.equal(row.nullifier,subject[role+'Nullifier']);assert.equal(row.amount,amount);assert.equal(row.state,states[role]);
+    if(row.state==='LOCKED'){assert.equal(row.path,null);assert.equal(current.ledger.commitments.includes('0x'+row.commitment),false);}
+    else{const path=current.ledger.tree.path(row.path.index);assert.deepEqual(row.path,{root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)});
+     assert.equal(current.ledger.nullifiers.includes('0x'+row.nullifier),row.state==='SPENT');}
+   }
+   await vault.applyDeviceOutputBalances(handle);const local=(await vault.readDeviceNote()).localReservation;
+   assert.equal(local.assetIdentity,value.poolTerms.assetIdentity);assert.equal(local.domainCommitment,value.poolTerms.domainCommitment);
+   const notes={};let available=0n,complete=true;
+   for(const role of ['change','recovery']){const row=local[role],expected=states[role]==='UNSPENT'?value[role].amount:states[role]==='SPENT'?'0':null;
+    assert.equal(row.availableBalance,expected);assert.equal(row.amount,value[role].amount);assert.equal(row.commitment,value[role].commitment);
+    assert.equal(row.state,states[role]==='SPENT'?'WITHDRAWN':states[role]);
+    assert.equal(row.freshness,'OBSERVED_AT_RETAINED_HEAD');assert.equal(row.observation.headHash,value.observed.blockHash);
+    notes[role]=row;if(expected===null)complete=false;else available+=BigInt(expected);}
+   await vault.applyDeviceOutputBalances(handle); // same live observation, no durable/economic effects
+   await reader.assertCurrent(current);assert.deepEqual(counts(),before);assert.equal(host.evidence().writes,writes);
+   const record={phase,response:value,local:notes,sameAssetAvailableAtomic:complete?available.toString():null,
+    countsBefore:before,countsAfter:counts(),encryptedWritesBefore:writes,encryptedWritesAfter:host.evidence().writes,
+    originalReadPosts:transport.posts['/v1/mobile/device-execution/output-balances']-readPosts,
+    originalHeadAndLedgerMatched:true,repeatedApplyNoWrites:true};
+   result.deviceOutputBalances.reads.push(record);save();return record;
+  }
+  await readOutputs('after-S',{change:'UNSPENT',recovery:'LOCKED'},null);
   await stage('device-one-native-execute-consent-after-original-S');
   const execute=await nativeApi.challenge('EXECUTE_NATIVE',{...await access(nativeApi),jobId});
   assert.equal(execute.reservationTransactionHash,result.deviceReservation.observation.transactionHash);
@@ -117,6 +160,10 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
    intentReopenedBeforeExecute:true,terminalEncrypted:true,terminalReopened:true,repeatedTerminalWrites:0,
    localOpeningsPreserved:true,independentMobileCanonicalRpc:false,nativeWire:{transactionHash:nativeRecord.transactionHash,receipt:nativeReceipt,
     amountAtomic:'1000000',recipientDeltaAtomic:'1000000',senderDeltaAtomic:String(1000000n+nativeGas),gasCostAtomic:String(nativeGas)}};save();
+  const afterTerminalReopen=(await vault.readDeviceNote()).localReservation;
+  assert.equal(afterTerminalReopen.changeAvailableBalance,null);assert.equal(afterTerminalReopen.recoveryAvailableBalance,null);
+  result.deviceOutputBalances.terminalReopenAvailableUnknown=true;
+  await readOutputs(recovery?'after-F':'after-T',{change:'UNSPENT',recovery:recovery?'UNSPENT':'LOCKED'},terminalOutcome);
   const exits=[];let withdrawn=0n;
   for(const noteRole of recovery?['change','recovery']:['change']){const amount=noteRole==='change'?'400':'100';
   await stage('device-original-'+noteRole+'-opening-W39-separate-consents');
@@ -169,7 +216,15 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
    canonicalReceiptEncrypted:true,receiptReopened:true,repeatedLocalWrites:0,duplicateProofRejected:true,duplicateWithdrawalRejected:true,
    originalDeviceChangeOpening:noteRole==='change',originalDeviceRecoveryOpening:noteRole==='recovery',recipientDeltaAtomic:amount,availableBalance:null};
   exits.push(exitReport);save();
+  const afterExitReopen=(await vault.readDeviceNote()).localReservation;
+  assert.equal(afterExitReopen.changeAvailableBalance,null);assert.equal(afterExitReopen.recoveryAvailableBalance,null);
+  await readOutputs('after-W39-'+noteRole,{change:'SPENT',recovery:recovery?(noteRole==='recovery'?'SPENT':'UNSPENT'):'LOCKED'},terminalOutcome);
   }
+  vault.close();vault=host.original.openLocalRootNoteVaultV1(rootId);
+  const reopenedBalance=(await vault.readDeviceNote()).localReservation;
+  assert.equal(reopenedBalance.changeAvailableBalance,null);assert.equal(reopenedBalance.recoveryAvailableBalance,null);
+  result.deviceOutputBalances.finalReopenAvailableUnknown=true;
+  await readOutputs('after-final-reopen',{change:'SPENT',recovery:recovery?'SPENT':'LOCKED'},terminalOutcome);
   const final=await reader.read();await reader.assertCurrent(final);
   for(const exit of exits)assert.ok(final.ledger.nullifiers.includes('0x'+exit.statement.nullifier));
   assert.ok(final.ledger.nullifiers.includes('0x'+bare(decoded.statement.reserveNullifier)));
