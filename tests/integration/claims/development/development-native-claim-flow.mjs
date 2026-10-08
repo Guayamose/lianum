@@ -14,6 +14,7 @@ import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, as
   from './development-btc-sol-graph-proof-evidence.mjs';
 import { ROOT, LOCAL, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import { createRoleProofClient } from '../../../../packages/proofs/src/jobs/role-client.mjs';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
   from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
@@ -379,7 +380,8 @@ export async function runDevelopmentNativeClaimAcceptance() {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = code(error);
     if (error.fixtureCleanup) Object.assign(result.cleanup, error.fixtureCleanup);
     writeFixturePrivate(join(privateDirectory, 'error-private.json'), { message: String(error.message), stack: String(error.stack),
-      cause: error.cause ? String(error.cause.stack ?? error.cause.message) : null }); await audit().catch(() => {});
+      cause: error.cause ? String(error.cause.stack ?? error.cause.message) : null,
+      privateDiagnostic: privateFailureDiagnostic(error, 'NATIVE_CLAIM_OPERATION_FAILED') }); await audit().catch(() => {});
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.errors.length || !['closedEvm', 'closedBitcoin', 'closedSolana', 'closedController', 'closedKeeper'].every(name => result.cleanup[name] === true)) {
