@@ -15,6 +15,7 @@ import { ROOT } from '../../../../proofs/src/catalog.mjs';
 import { assertOwnedLocalEvmV2 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOfficialProtocolFixture } from '../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { assertMorphoVaultRedemptionAccountingV1 } from './morpho-vault-redemption-accounting-v1.mjs';
 
 const owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -96,19 +97,38 @@ export async function createOwnedMetaMorphoVault(input) {
     await assertFixture(); const header = await runtime.block(at), tag = header.number;
     assert.equal(await runtime.code(vault.address, tag), vault.code, 'METAMORPHO_CODE_CHANGED');
     assert.equal(await runtime.code(asset.address, tag), asset.code, 'METAMORPHO_ASSET_CODE_CHANGED');
+    assert.equal(await runtime.code(fixture.blue.address, tag), fixture.blue.code, 'METAMORPHO_MORPHO_CODE_CHANGED');
+    assert.equal((await read(vault, 'MORPHO', [], tag))[0].toLowerCase(), fixture.blue.address, 'METAMORPHO_ORIGINAL_MORPHO');
+    const params = await read(fixture.blue, 'idToMarketParams', [fixture.marketId], tag);
+    assert.equal(params[0].toLowerCase(), asset.address, 'METAMORPHO_ORIGINAL_MARKET');
+    for (const index of [1, 2, 3]) assert.equal(params[index].toLowerCase(), '0x' + '0'.repeat(40), 'METAMORPHO_ORIGINAL_MARKET');
+    assert.equal(params[4], 0n, 'METAMORPHO_ORIGINAL_MARKET');
     assert.equal(await runtime.code(router, tag), routerCode, 'METAMORPHO_EXIT_CODE_CHANGED');
     assert.equal((await read(vault, 'asset', [], tag))[0].toLowerCase(), asset.address);
     const values = await Promise.all([
       read(vault, 'totalAssets', [], tag), read(vault, 'totalSupply', [], tag), read(vault, 'balanceOf', [sender], tag),
       read(asset, 'balanceOf', [sender], tag), read(vault, 'allowance', [sender, router], tag),
       read(vault, 'balanceOf', [router], tag), read(routerContract, 'used', [sender, '0x' + ref], tag),
+      read(fixture.blue, 'market', [fixture.marketId], tag),
+      read(fixture.blue, 'position', [fixture.marketId, vault.address], tag),
+      read(asset, 'balanceOf', [fixture.blue.address], tag), read(asset, 'balanceOf', [vault.address], tag),
+      read(asset, 'totalSupply', [], tag),
     ]);
     await runtime.assertCanonical(header);
-    const [assets, shares, senderShares, senderAssets, allowance, routerShares, used] = values.map(row => row[0]);
+    const [assets, shares, senderShares, senderAssets, allowance, routerShares, used] = values.slice(0, 7).map(row => row[0]);
+    const morpho = { protocol: fixture.blue.address, marketId: fixture.marketId, positionOwner: vault.address,
+      market: Object.fromEntries(['totalSupplyAssets', 'totalSupplyShares', 'totalBorrowAssets', 'totalBorrowShares', 'lastUpdate', 'fee']
+        .map((name, index) => [name, values[7][index].toString()])),
+      position: Object.fromEntries(['supplyShares', 'borrowShares', 'collateral'].map((name, index) => [name, values[8][index].toString()])),
+      underlyingBalance: values[9][0].toString(), vaultUnderlyingBalance: values[10][0].toString(), assetTotalSupply: values[11][0].toString() };
+    // Fixed original market has zero collateral, IRM, LLTV and debt; these are
+    // read from the same canonical block, not inferred from a vault NAV.
+    for (const name of ['totalBorrowAssets', 'totalBorrowShares', 'fee']) assert.equal(morpho.market[name], '0', 'METAMORPHO_ORIGINAL_MARKET');
+    for (const name of ['borrowShares', 'collateral']) assert.equal(morpho.position[name], '0', 'METAMORPHO_ORIGINAL_POSITION');
     return detached({ identity: id, snapshot: { blockNumber: quantity(tag).toString(), blockHash: bare(header.hash),
       blockTimestamp: quantity(header.timestamp).toString(), totalAssets: assets.toString(), totalShares: shares.toString() },
       balances: { senderShares: senderShares.toString(), senderAssets: senderAssets.toString(), allowance: allowance.toString(),
-        routerShares: routerShares.toString(), used }, header, privateSpendable: false });
+        routerShares: routerShares.toString(), used }, morpho, header, privateSpendable: false });
   }
   async function quote(intent) {
     exactRecord(intent, ['reference', 'kind', 'amount', 'minimumOutput', 'deadline']); reference(intent.reference);
@@ -151,12 +171,14 @@ export async function createOwnedMetaMorphoVault(input) {
     let confirmation = null, phase;
     if (receipt.status === '0x0') {
       assert.deepEqual(before.balances, after.balances, 'METAMORPHO_REVERT_BALANCES');
+      assert.deepEqual(before.morpho, after.morpho, 'METAMORPHO_REVERT_MORPHO');
       assert.equal(before.snapshot.totalAssets, after.snapshot.totalAssets); assert.equal(before.snapshot.totalShares, after.snapshot.totalShares);
       phase = 'REVERTED';
     } else {
       assert.equal(receipt.status, '0x1');
       if (kind === 'approval') {
         assert.equal(after.balances.allowance, row.action.amount, 'METAMORPHO_EXACT_ALLOWANCE');
+        assert.deepEqual(before.morpho, after.morpho, 'METAMORPHO_APPROVAL_MORPHO_CHANGED');
         for (const name of ['senderShares', 'senderAssets', 'routerShares', 'used']) assert.equal(after.balances[name], before.balances[name]);
         phase = 'PREPARED';
       } else {
@@ -172,7 +194,8 @@ export async function createOwnedMetaMorphoVault(input) {
         assert.equal(BigInt(after.balances.senderAssets) - BigInt(before.balances.senderAssets), assets, 'METAMORPHO_EXACT_ASSET_DELTA');
         assert.equal(before.balances.used, false); assert.equal(after.balances.used, true); assert.equal(after.balances.routerShares, before.balances.routerShares);
         assert.equal(BigInt(before.snapshot.totalShares) - BigInt(after.snapshot.totalShares), shares, 'METAMORPHO_SHARE_SUPPLY');
-        confirmation = { shares: shares.toString(), assets: assets.toString(), transactionHash: bare(hash), privateSpendable: false }; phase = 'OBSERVED';
+        const morphoRedemption = assertMorphoVaultRedemptionAccountingV1({ before: before.morpho, after: after.morpho, assets: assets.toString() });
+        confirmation = { shares: shares.toString(), assets: assets.toString(), transactionHash: bare(hash), morphoRedemption, privateSpendable: false }; phase = 'OBSERVED';
       }
     }
     await update(ref, { [kind]: { ...submission, transactionHash: bare(hash), receipt: clone(receipt), confirmation },

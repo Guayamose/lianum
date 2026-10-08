@@ -45,7 +45,8 @@ export async function readEvmVaultReplayState({ runtime, readers, vault, protoco
     assert.equal('0x' + position.snapshot.blockHash, header.hash, 'EVM_VAULT_REPLAY_READ_HEAD');
     const { snapshot: _block, ...vaultBalances } = position.balances;
     protocolAccounting = { vault: { identity: position.identity, balances: vaultBalances,
-      totalAssets: position.snapshot.totalAssets, totalShares: position.snapshot.totalShares } };
+      totalAssets: position.snapshot.totalAssets, totalShares: position.snapshot.totalShares,
+      ...(position.morpho ? { morpho: position.morpho } : {}) } };
   }
   const participants = [...new Set(holders)]; assert.ok(participants.includes(sender));
   const tokens = [];
