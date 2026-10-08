@@ -11,11 +11,46 @@ export function nativeClaimEmptyAuditSourcePins() {
   const workspace = resolve(ROOT, '../../../..');
   assert.equal(join(workspace, '.internal/runtime/omnichain-flat-profile/flat-wallet'), ROOT, 'EMPTY_AUDIT_FIXED_WORKSPACE_RUNTIME');
   assert.equal(realpathSync(workspace), workspace, 'EMPTY_AUDIT_PHYSICAL_WORKSPACE_REQUIRED');
+  // The reviewed public preparer executes this one fixed physical fixture
+  // through new URL(). Pin the exact canonical ESM closure as well as the
+  // generated modules; neither a caller path nor another workspace escape is
+  // admitted. Historical workers and import mapping remain byte-identical.
+  const workspaceModulePaths = new Set([
+    'experiments/wallet/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs',
+    'packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs',
+    'packages/backend/src/claims/protocol/framing.mjs',
+    'packages/backend/src/claims/protocol/inputs.mjs',
+    'packages/backend/src/execution/account/preparation/readiness-inputs.mjs',
+    'packages/backend/src/execution/encoding/commitments.mjs',
+    'packages/backend/src/execution/encoding/statements.mjs',
+    'packages/engine/src/chains/shared/runtime-harness.mjs',
+    'packages/engine/src/chains/solana/solana-runtime.mjs',
+    'packages/engine/src/evidence/native-evidence.mjs',
+    'packages/engine/src/evidence/native-quorum.mjs',
+    'packages/engine/src/execution/graph/funded-graph.mjs',
+    'packages/engine/src/execution/graph/graph.mjs',
+    'packages/engine/src/execution/native/dispatch/native-admission.mjs',
+    'packages/engine/src/execution/native/dispatch/native-capsules.mjs',
+    'packages/engine/src/execution/native/state/native-receipt.mjs',
+    'packages/engine/src/execution/native/state/native-state.mjs',
+    'packages/engine/src/native/native-bitcoin.mjs',
+    'packages/engine/src/notes/private-native-certificate.mjs',
+    'packages/engine/src/notes/private-note-encoding.mjs',
+    'packages/engine/src/notes/private-note-tree.mjs',
+    'packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs',
+    'packages/proofs/src/catalog.mjs',
+    'packages/proofs/src/jobs/trusted-jobs.mjs',
+  ]);
   function visit(path) {
-    assert.ok([ROOT, FLAT, GOLDEN].some(root => path.startsWith(root + sep)) && path.endsWith('.mjs'));
+    const runtimeModule = [ROOT, FLAT, GOLDEN].some(root => path.startsWith(root + sep));
+    const workspacePath = path.startsWith(workspace + sep)
+      ? relative(workspace, path).split(sep).join('/') : null;
+    assert.ok(path.endsWith('.mjs') && (runtimeModule || workspaceModulePaths.has(workspacePath)),
+      'EMPTY_AUDIT_FIXED_MODULE_SOURCE');
     if (files.has(path)) return;
     const bytes = regular(path), source = bytes.toString('utf8');
-    files.set(path, { path: relative(FLAT, path).split(sep).join('/'), bytes: bytes.length, sha256: hash(bytes) });
+    files.set(path, { workspaceModule: !runtimeModule, path: runtimeModule
+      ? relative(FLAT, path).split(sep).join('/') : workspacePath, bytes: bytes.length, sha256: hash(bytes) });
     const imports = new Set();
     for (const match of source.matchAll(/\b(?:import|export)\s+(?:[^;'"\n]*?\s+from\s*)?(['"])([^'"]+)\1/g)) imports.add(match[2]);
     for (const match of source.matchAll(/^\s*(?:import|export)\s+(?:[^;'"]*?\s+from\s*)?(['"])([^'"]+)\1/gm)) imports.add(match[2]);
@@ -51,5 +86,8 @@ export function nativeClaimEmptyAuditSourcePins() {
   });
   return { profile: 'fresh-empty-original-claim-graph-audit-metrics-v1',
     workspaceFiles, runtimeHelpers,
-    local: [...files.values()].sort((a,b) => a.path.localeCompare(b.path)), officialAPI: verifyAPI(), vendor: verifyVendor() };
+    workspaceModules: [...files.values()].filter(row => row.workspaceModule).map(({ workspaceModule, ...row }) => row)
+      .sort((a,b) => a.path.localeCompare(b.path)),
+    local: [...files.values()].filter(row => !row.workspaceModule).map(({ workspaceModule, ...row }) => row)
+      .sort((a,b) => a.path.localeCompare(b.path)), officialAPI: verifyAPI(), vendor: verifyVendor() };
 }
