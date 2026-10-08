@@ -79,7 +79,7 @@ def launch(scratch):
          and directory.resolve(strict=True) == directory, 'TRON_ALIGNED_FIXED_SCRATCH_NAMESPACE')
     info = directory.lstat()
     need(info.st_uid == os.getuid() and stat.S_ISDIR(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o700, 'TRON_ALIGNED_PRIVATE_SCRATCH')
-    new = root / 'reviewed-aligned-rocksdb-v1'
+    new = root / 'reviewed-aligned-rocksdb-v2'
     need(new.resolve(strict=True) == new and stat.S_IMODE(new.stat().st_mode) == 0o700 and new.stat().st_uid == os.getuid(), 'TRON_ALIGNED_NEW_BUILD_NAMESPACE')
     release = read_release(regular(HERE.parent.parent / 'tron-aligned-rocksdb-profile.mjs'))
     pin(root / 'jdk8/bin/java', '1a081a2c18367e5d966d716a6091d5fe2eec26b19e471980d0d8fd550174e21c')

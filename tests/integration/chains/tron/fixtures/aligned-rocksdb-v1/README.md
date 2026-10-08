@@ -10,6 +10,8 @@ LEVELDB to ROCKSDB and genesis 1750000000000 to 1749999999000. Reversing them mu
 produce the original SHA256 02fdfaa75cbf4a8a4785a8db0e166286c4212047e5a0568a84d5e7fd5f28694f.
 No runtime/compiler result is included in this source fixture.
 
+The first namespace `reviewed-aligned-rocksdb-v1` retains a rejected guard attempt: javac exited zero, but /proc/exe disappeared between the original scan and executable lookup. Its report and outputs stay unchanged. The next reviewed build uses only the new `reviewed-aligned-rocksdb-v2` namespace. A missing executable is terminal only after the original Popen observes exit, its retained pidfd is readable, and the original inventory confirms unchanged birth and closure. A live disappearance, changed UID/birth/executable or uncertain inventory still rejects.
+
 After source review, the fixed Python preparer may be run once:
 
 `python3 tests/integration/chains/tron/fixtures/aligned-rocksdb-v1/build.py --build-reviewed-aligned-rocksdb`
@@ -51,5 +53,5 @@ removing every synthetic key/config/ledger/JNI scratch and releasing the lock.
 
 Host checks are separate metadata/OS-guard regressions, never native acceptance:
 `node --max-old-space-size=384 --test-concurrency=1 --test tests/integration/chains/tron/tron-aligned-rocksdb-profile.test.mjs`
-and Python `test_build.py` (eight cases) plus `test_parent_death.py` (one kernel test covering actual parent death, actual Popen with failed capture/enrollment, and an actual FIFO reader whose opening is delayed). The latter uses only disposable Python fixtures with no JDK/JAR/compiler; it verifies EOF rejection and preserves unknown-birth rejection. Node has four metadata/source cases including the real startup body under synthetic IO. Neither proves Java cleanup or native finality. Source-only delivery does
+and Python `test_build.py` (nine cases) plus `test_parent_death.py` (two kernel tests covering actual parent death, actual Popen with failed capture/enrollment, an actual FIFO reader whose opening is delayed, and an original Popen/pidfd exiting between scan and executable lookup). The latter uses only disposable Python fixtures with no JDK/JAR/compiler; it verifies EOF rejection and preserves unknown-birth rejection. Node has four metadata/source cases including the real startup body under synthetic IO. Neither proves Java cleanup or native finality. Source-only delivery does
 not claim those tests or the real kernel probe have run.

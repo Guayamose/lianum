@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import resource
+import select
 import selectors
 import shutil
 import signal
@@ -24,7 +25,7 @@ PROJECT = next((p for p in HERE.parents if (p / 'scripts/layout.json').is_file()
 if PROJECT is None:
     PROJECT = next(p for p in HERE.parents if p.name == '.internal').parent
 RUNTIME = PROJECT / '.internal/runtime/omnichain-product/.local/owned-tron-native-value-v1'
-DESTINATION = RUNTIME / 'reviewed-aligned-rocksdb-v1'
+DESTINATION = RUNTIME / 'reviewed-aligned-rocksdb-v2'
 LOCK_DIRECTORY = RUNTIME / 'candidate-acceptance'
 SOURCE = HERE / 'source/OwnedTronNativeDriver.java'
 ORIGINAL = PROJECT / 'packages/chains/drivers/owned-tron-native-value/OwnedTronNativeDriver.java'
@@ -139,7 +140,7 @@ def inputs():
 
 
 def assert_owned_destination(path):
-    need(path == DESTINATION and path.name == 'reviewed-aligned-rocksdb-v1' and path.parent == RUNTIME, 'TRON_ALIGNED_FIXED_NAMESPACE')
+    need(path == DESTINATION and path.name == 'reviewed-aligned-rocksdb-v2' and path.parent == RUNTIME, 'TRON_ALIGNED_FIXED_NAMESPACE')
     info = path.lstat()
     need(path.resolve(strict=True) == path and not path.is_symlink() and stat.S_ISDIR(info.st_mode)
          and info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700, 'TRON_ALIGNED_OWNED_NAMESPACE')
@@ -184,6 +185,34 @@ def compiler_environment():
 
 def process_executable(pid):
     return Path('/proc', str(pid), 'exe').resolve(strict=True)
+
+
+def checked_compiler_executable(inventory, sampled):
+    # The original scan may precede kernel exit by a few microseconds. Missing
+    # /proc/exe is terminal only for our already-retained original Popen/pidfd.
+    child = inventory.child
+    need(child is not None and sampled['pid'] == child.pid, 'TRON_ALIGNED_COMPILER_ORIGINAL_POPEN_REQUIRED')
+    retained = inventory.records.get(child.pid)
+    need(retained is not None and retained['origin'] == 'ORIGINAL_POPEN_PREEXEC_PIPE'
+         and retained['pidfd'] is not None and not retained['gone'] and not inventory.unsafe,
+         'TRON_ALIGNED_COMPILER_RETAINED_PIDFD_REQUIRED')
+    original = retained['original']
+    need(all(sampled[key] == original[key] for key in ('pid', 'ppid', 'pgrp', 'session', 'startTimeTicks', 'uid', 'uids'))
+         and original['pid'] == original['pgrp'] == original['session'] == child.pid
+         and original['ppid'] == os.getpid() and original['uid'] == os.getuid()
+         and original['uids'] == [os.getuid()] * 4, 'TRON_ALIGNED_COMPILER_SAMPLED_IDENTITY_CHANGED')
+    try:
+        executable = process_executable(child.pid)
+    except FileNotFoundError:
+        need(child.poll() is not None, 'TRON_ALIGNED_COMPILER_EXECUTABLE_DISAPPEARED_WHILE_LIVE')
+        need(select.select([retained['pidfd']], [], [], 0)[0] == [retained['pidfd']],
+             'TRON_ALIGNED_COMPILER_TERMINAL_PIDFD_UNCONFIRMED')
+        live = inventory.scan()
+        need(not live and not inventory.unsafe and not inventory.unknown and retained['gone'] is True,
+             'TRON_ALIGNED_COMPILER_TERMINAL_INVENTORY_UNCONFIRMED')
+        return None
+    need(executable in (PYTHON, RUNTIME / 'jdk8/bin/javac'), 'TRON_ALIGNED_COMPILER_EXECUTABLE_CHANGED')
+    return executable
 
 
 def wait_compiler_reader(inventory, deadline):
@@ -378,8 +407,7 @@ def compile_owned(report):
             live = inventory.scan()
             need(not inventory.unsafe and all(value['pid'] == active.pid for value in live), 'TRON_ALIGNED_COMPILER_IDENTITY_CHANGED')
             for value in live:
-                executable = process_executable(value['pid'])
-                need(executable in (PYTHON, RUNTIME / 'jdk8/bin/javac'), 'TRON_ALIGNED_COMPILER_EXECUTABLE_CHANGED')
+                executable = checked_compiler_executable(inventory, value)
                 if executable == RUNTIME / 'jdk8/bin/javac': row['compilerExecutableObserved'] = True
             rss = sum(value['rssBytes'] for value in live)
             need(rss <= RSS_LIMIT, 'TRON_ALIGNED_COMPILER_RSS_LIMIT')

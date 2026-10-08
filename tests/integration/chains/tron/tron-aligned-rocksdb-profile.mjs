@@ -13,7 +13,7 @@ if (TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE !== null) Object.freeze(TRON_ALIGNED_
 export const TRON_ALIGNED_ROCKSDB_SOURCE_SHA256 = 'd2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0';
 const ORIGINAL_SOURCE_SHA256 = '02fdfaa75cbf4a8a4785a8db0e166286c4212047e5a0568a84d5e7fd5f28694f';
 const RUNTIME = join(projectRoot, '.local/owned-tron-native-value-v1');
-const DESTINATION = join(RUNTIME, 'reviewed-aligned-rocksdb-v1');
+const DESTINATION = join(RUNTIME, 'reviewed-aligned-rocksdb-v2');
 const FIXTURE = fileURLToPath(new URL('./fixtures/aligned-rocksdb-v1/', import.meta.url));
 const NAMES = ['OwnedTronNativeDriver$OwnedShutdown.class', 'OwnedTronNativeDriver.class'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -127,7 +127,7 @@ export async function verifyTronAlignedRocksDbCandidateBuild() {
   const launcherBytes = await regular(join(FIXTURE, 'launch.py'));
   assert.equal(sha(launcherBytes), build.inputs.launcherSHA256);
   return { classification: 'REVIEWED_NEW_ALIGNED_GENESIS_ROCKSDB_CANDIDATE_NOT_CANONICAL_RELEASE',
-    namespace: 'reviewed-aligned-rocksdb-v1', sourceSHA256: sha(candidateSource), buildReportSHA256: sha(buildBytes),
+    namespace: 'reviewed-aligned-rocksdb-v2', sourceSHA256: sha(candidateSource), buildReportSHA256: sha(buildBytes),
     classSHA256: release.classSHA256, innerClassSHA256: release.innerClassSHA256, launcherSHA256: sha(launcherBytes),
     storageEngine: 'ROCKSDB', genesisTimestampMs: '1749999999000', sourceLiteralChanges: 2,
     javaTmpDirectoryIsOwnedScratch: true, nativeAcceptanceEstablished: false };
