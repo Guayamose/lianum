@@ -589,6 +589,18 @@ assert.equal(runtime.metadata.chainId,'31337');assert.equal(nativeRuntime.metada
     (tron?assertNativeWalletTronDevResultV5:unfundedOnly?assertNativeWalletUnfundedResult:assertNativeWalletRealResult)(result);save();
   } catch(error){
     const diagnostic=privateFailureDiagnostic(error);result.errorCode=diagnostic.code;result.errorCauseCodes=diagnostic.causeCodes;
+    // Original exception stays in the private audit only; never stdout or the public result.
+    // Retention must not prevent the original runtime/owner/session cleanup below.
+    try {
+      const causeChain=[],seen=new Set([error]);
+      for(let cause=error?.cause;cause&&!seen.has(cause)&&causeChain.length<4;cause=cause.cause){
+        seen.add(cause);causeChain.push({name:String(cause.name),code:typeof cause.code==='string'?cause.code:null,
+          message:String(cause.message),stack:String(cause.stack)});
+      }
+      writeFixturePrivate(join(privateDirectory,'error-private.json'),{name:String(error?.name),
+        code:typeof error?.code==='string'?error.code:null,message:String(error?.message),stack:String(error?.stack),
+        causeChain,privateDiagnostic:diagnostic});
+    } catch { /* Preserve the original error and still close every owned resource. */ }
     if(diagnostic.auditBudget)result.errorAuditBudget=diagnostic.auditBudget;
     result.failedPhase=result.phase;await auditCounts().catch(()=>{});await cleanup().catch(()=>{});
     result.phase='failed';result.success=false;save();process.exitCode=1;
