@@ -16,7 +16,7 @@ const RECEIPT = join(OUTPUT, 'derivation.json');
 const POINTS = 2097152, BYTES = POINTS * 64;
 const REVIEWED_FULL_PUBLIC_CRS_SHA256 = '2bb84462a0bdad2f6e6dd6182c7779c30aac703115e28f32ca2cc3b57c140622';
 const SOURCES = Object.freeze([
-  ['packages/proofs/scripts/derive-full-public-crs.py', '4cf28c72b10f3ceb110cc23fcd5c73108859a0728388a9ded1a1643cfe0d69b3'],
+  ['scripts/development/public-crs/derive-full-public-crs.py', 'f64907cc6af0d13ced0fe6d958729db313a1df8a0aa5ad376d9952f4d2bc9bf8'],
   ['.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/tooling.mjs', '18ac833e360d6450f62f9d6f53744eadaed9c202ddfc0f096c720bf0152b5ddc'],
   ['.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/catalog.mjs', '5cfeba63766989166eeaff93e010431f74336f398b78cbad0d0e088a913acd69'],
   ['.internal/runtime/omnichain-product/experiments/private-core-proof/wallet-notes/resources.mjs', '415d49b3da693225700281f986d7f1658a5f1e89aa73be7f7a622afeebecdc0c'],
@@ -73,7 +73,7 @@ export async function deriveOriginalFullPublicCrs() {
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2, 'PUBLIC_CRS_ORIGINAL_GUARD_REQUIRED');
   assert.equal(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1]),
-    join(REPOSITORY, 'packages/proofs/scripts/derive-full-public-crs.py'), 'PUBLIC_CRS_ORIGINAL_GUARD_REQUIRED');
+    join(REPOSITORY, 'scripts/development/public-crs/derive-full-public-crs.py'), 'PUBLIC_CRS_ORIGINAL_GUARD_REQUIRED');
   const lock = JSON.parse(regular('/tmp/lianum-paeg-proof-host.lock'));
   assert.equal(lock.parentPID, process.ppid, 'PUBLIC_CRS_ORIGINAL_GUARD_LOCK');
   assert.equal(lock.mode, 'ORIGINAL_FULL_PUBLIC_CRS_V1', 'PUBLIC_CRS_ORIGINAL_GUARD_LOCK');

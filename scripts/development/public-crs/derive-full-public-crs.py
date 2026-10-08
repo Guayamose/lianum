@@ -10,8 +10,8 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
-ENTRY = ROOT / "packages/proofs/scripts/derive-full-public-crs.mjs"
-WRAPPER = ROOT / "packages/proofs/scripts/derive-full-public-crs.py"
+ENTRY = ROOT / "scripts/development/public-crs/derive-full-public-crs.mjs"
+WRAPPER = ROOT / "scripts/development/public-crs/derive-full-public-crs.py"
 sys.path.insert(0, str(ROOT / "scripts/development"))
 from native_value_ledger import NODE, ENV, PROOF_LOCK, DEV, FLAT, checked_node, sample, regular
 from ledger_owned_processes import LedgerOwnedProcesses
