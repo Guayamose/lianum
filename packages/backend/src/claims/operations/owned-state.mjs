@@ -216,7 +216,7 @@ async function assertPins(runtime, claims, header) {
     await Promise.all([
       ...Object.entries({ claimDomain: prefix(claimDomainCommitment(config)), hub: word(system.hub.address), pool: word(pool.address),
         authority: word(claims.authority.address), authorityCodeHash: claims.authority.codeHash,
-        codecCodeHash: claims.libraries.nativeClaimCodec.codeHash, validationCodeHash: claims.libraries.nativeClaimValidation.codeHash,
+        codecCodeHash: claims.libraries.nativeClaimCodec.codeHash, validationCodeHash: claims.nativeSplCustodyProfile===true&&i===1?claims.libraries.nativeSplClaimValidation.codeHash:claims.libraries.nativeClaimValidation.codeHash,
         configurationCommitment: gateway.configurationCommitment,
         custodyInventoryDomain: prefix(config.custodyInventoryDomain), nativeAssetKey: assetKey, isSealed: word(1),
         MAX_INTENTS: word(16), MAX_TICKETS: word(32) }).map(([key, value]) => expect(gateway, key + '()', [], value)),
