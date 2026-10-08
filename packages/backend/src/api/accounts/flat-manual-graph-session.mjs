@@ -8,6 +8,9 @@ import { flatAccountManualGraphDetails, assertFlatAccountManualGraphExecution } 
 
 import { assertOwnedNativeValueAccountAuthority, nativeValueAccountManualGraphDetails, assertNativeValueAccountManualGraphExecution, nativeValueAccountManualNoteDetails } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 
+import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
+  from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import { nativeValueOriginalRecoverySourceV1 } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { wrappedWalletAccountManualGraphDetailsV1, assertWrappedWalletAccountManualGraphExecutionV1 } from '../../accounts/authority/wrapped-wallet-account-authority-v1.mjs';
 import { assertOwnedWrappedWalletPortfolioV1, assertOwnedWrappedWalletPortfolioAccountV1, claimWrappedWalletPortfolioJournalV1 } from '../../accounts/portfolio/wrapped-wallet-portfolio-v1.mjs';
 const sessions = new WeakMap(), portfolios = new WeakSet(), catalogueSessions = new WeakSet(), nativeAccounts = new WeakSet();
@@ -210,7 +213,8 @@ export async function createFlatManualGraphCatalogueSession(input) {
  * HTTP one-use handoff and shared browser/Node SDK. It never fabricates a legacy
  * portfolio/catalogue brand, adopts a journal, or enables native-backed claims.
  * The returned session admits only its exact original graph or native note approvals. */
-export async function createNativeValueManualGraphAccountSession(input) {
+export async function createNativeValueManualGraphAccountSession(input) { return nativeGraphSession(input, null); }
+async function nativeGraphSession(input, recovery) {
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'account', 'journal']);
   const { runtime, system, poolIndex, account } = input;
   exactRecord(input.journal, ['path', 'password']);
@@ -220,9 +224,11 @@ export async function createNativeValueManualGraphAccountSession(input) {
     'FLAT_ACCOUNT_NATIVE_GRAPH_ONLY_REQUIRED');
   need(!nativeAccounts.has(account), 'FLAT_ACCOUNT_MANUAL_GRAPH_SESSION_ALREADY_CREATED');
   nativeAccounts.add(account); // uncertain creation never grants a second journal
-  const { createGenericAccountKeeper } = await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const { createDurableGenericAccountKeeperV1, reopenDurableGenericAccountKeeperV1 } = await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
   const { createFlatAccountSession } = await import('./flat-account-session.mjs');
-  const keeper = await createGenericAccountKeeper({ config: account.config, journal, authority: account.authority });
+  const keeper = recovery
+    ? await reopenDurableGenericAccountKeeperV1({ config: account.config, journal, authority: account.authority }, recovery.keeper)
+    : await createDurableGenericAccountKeeperV1({ config: account.config, journal, authority: account.authority });
   let session;
   const originalApproval = (action, value) => {
     const body = action === 'prepare' ? value : { requestId: value };
@@ -238,8 +244,10 @@ export async function createNativeValueManualGraphAccountSession(input) {
   });
   try { session = await createFlatAccountSession({ keeper: graphKeeper, ownerHandoff: { ownerView: () => account.ownerView() } }); }
   catch (error) { await keeper.close(); throw error; }
-  const graphs = new Map(), notes = new Map(); sessions.set(session, { runtime, system, poolIndex, nativeAccount: account, graphs, notes });
-  return Object.freeze({ session,
+  const graphs = new Map(), notes = new Map(); const state = { runtime, system, poolIndex, nativeAccount: account, graphs, notes,
+    durableKeeper: keeper, nativeCaptured: false, nativeFence: null, nativeIdentity: null, nativeRecord: null, nativeCapturePromise: null, nativeKeeperCaptureStarted: false, nativeStopped: false };
+  sessions.set(session, state);
+  const joined = Object.freeze({ session,
     bindManualNote(approval) {
       const details = originalNote(session, approval), requestId = details.body.requestId, old = notes.get(requestId);
       need(!graphs.has(requestId) && (!old || old === approval), 'NATIVE_VALUE_MANUAL_NOTE_REBOUND');
@@ -263,6 +271,24 @@ export async function createNativeValueManualGraphAccountSession(input) {
       graphs.set(requestId, approval); return structuredClone(details.body);
     },
   });
+  if (recovery) {
+    try {
+      assertOwnedNativeValueAccountAuthority(account, { runtime, system, poolIndex, owner: recovery.owner });
+      // This original factory reads the SAME owner Vault and the recovered
+      // account journal. It does not adopt a saved review as a capability.
+      const preparation = await account.ownerActions.restoreManualPreparation();
+      for (const retained of recovery.notes) {
+        await preparation.reconcileOriginal({ requestId: retained.body.requestId });
+        const approval = preparation.originalApproval(retained.body.requestId), details = nativeValueAccountManualNoteDetails(approval);
+        need(sha({ body: details.body, review: details.review }) === sha(retained), 'NATIVE_SESSION_ORIGINAL_NOTE_CHANGED');
+        joined.bindManualNote(approval);
+      }
+      const snapshot = await session.snapshot();
+      need(snapshot.storageAvailable && snapshot.observation === 'CURRENT' && snapshot.revision === recovery.journalRevision,
+        'NATIVE_SESSION_ORIGINAL_JOURNAL_CHANGED');
+    } catch (error) { await session.close(); throw error; }
+  }
+  return joined;
 }
 
 /** One wrapped BTC/SOL session through the same generic keeper and HTTP/SDK.
@@ -332,4 +358,89 @@ export function fenceWrappedWalletGraphSessionV1(session){
  const state=sessions.get(session);need(state?.wrappedPortfolio&&state.durableKeeper&&!state.captured&&!state.recoveryFence,'WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');
  state.recoveryReviews=[...state.graphs.values()].map(approval=>{const details=original(session,approval);return {body:details.body,review:details.review};});
  state.recoveryFence=session.quiesceForPrivateRecovery();state.recoveryFence.catch(()=>{});
+}
+
+/** Same original durable generic keeper, selected by a native section token.
+ * No listener callback, journal ID, or copied approval can recreate membership. */
+export function fenceOriginalNativeSessionEconomicRecoveryV1(session, authority) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS');
+  const admitted = assertNativeEconomicRecoveryCaptureV1(authority), state = sessions.get(session);
+  need(state?.nativeAccount && state.durableKeeper && !state.nativeFence, 'NATIVE_SESSION_ORIGINAL_REQUIRED');
+  assertOwnedNativeValueAccountAuthority(state.nativeAccount, { runtime: state.runtime, system: state.system, poolIndex: state.poolIndex });
+  need(nativeValueOriginalRecoverySourceV1(state.runtime, state.system) === admitted.sourceSHA256, 'NATIVE_SESSION_SOURCE_CHANGED');
+  // Current mobile composition has only its original note consent. General
+  // manual GRAPH grant restoration remains a distinct original producer.
+  need(state.graphs.size === 0, 'NATIVE_SESSION_GRAPH_RECOVERY_PRODUCER_REQUIRED');
+  state.nativeReviews = [...state.notes.values()].map(approval => { const details = originalNote(session, approval);
+    return structuredClone({ body: details.body, review: details.review }); });
+  state.nativeIdentity = admitted;
+  state.nativeFence = session.quiesceForPrivateRecovery(); // closing fence runs before first await
+  state.nativeFence.catch(() => {});
+}
+export function captureOriginalNativeSessionEconomicRecoveryV1(session, token) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS');
+  const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'session'), state = sessions.get(session);
+  need(state?.nativeFence && !state.nativeCaptured, 'NATIVE_SESSION_ORIGINAL_CAPTURE_REQUIRED');
+  need(sha(admitted) === sha(state.nativeIdentity), 'NATIVE_SESSION_CAPTURE_CHANGED'); state.nativeCaptured = true;
+  state.nativeCapturePromise = (async () => {
+    const originalSnapshot = await state.nativeFence;
+    need(!originalSnapshot.busy && originalSnapshot.queued === 0, 'NATIVE_SESSION_ORIGINAL_IDLE_REQUIRED');
+    const { captureDurableGenericAccountKeeperV1 } = await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    state.nativeKeeperCaptureStarted = true;
+    const keeper = await captureDurableGenericAccountKeeperV1(state.durableKeeper); // closes actual worker/IPC before returning
+    state.nativeStopped = true;
+    state.nativeRecord = { schema: 'ORIGINAL_NATIVE_SESSION_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+      poolIndex: state.poolIndex, accountIdentitySHA256: sha(genericAccountIdentity(state.nativeAccount.config)),
+      journalRevision: originalSnapshot.revision, keeper, notes: structuredClone(state.nativeReviews) };
+    return structuredClone(state.nativeRecord);
+  })(); state.nativeCapturePromise.catch(() => {}); return state.nativeCapturePromise;
+}
+export async function stopCapturedNativeSessionEconomicRecoveryV1(session, token) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS');
+  const state = sessions.get(session); need(state?.nativeIdentity, 'NATIVE_SESSION_ORIGINAL_REQUIRED');
+  need(sha(nativeEconomicRecoverySectionIdentityV1(token, 'session')) === sha(state.nativeIdentity));
+  need(state.nativeStopped && state.nativeRecord, 'NATIVE_SESSION_ORIGINAL_CLOSE_UNCONFIRMED');
+  state.nativeRecord = null; state.notes.clear(); return { closed: true, originalResourcesStopped: true };
+}
+export async function abortNativeSessionEconomicRecoveryV1(session, token) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS'); const state = sessions.get(session);
+  need(state?.nativeIdentity && sha(nativeEconomicRecoverySectionIdentityV1(token, 'session')) === sha(state.nativeIdentity));
+  let captureError = null;
+  try { if (state.nativeCapturePromise) await state.nativeCapturePromise; else await state.nativeFence; }
+  catch (error) { captureError = error; }
+  if (!state.nativeStopped) {
+    try {
+      const stopped = await state.durableKeeper.close(); need(stopped?.closed === true, 'NATIVE_SESSION_ORIGINAL_CLOSE_UNCONFIRMED');
+      // The immutable durable helper sets its closed flag in finally. If its
+      // capture/OS-close rejected, a later idempotent {closed:true} cannot prove
+      // that original worker/IPC closed. Preserve that uncertainty and cause.
+      need(!state.nativeKeeperCaptureStarted, 'NATIVE_SESSION_ORIGINAL_CLOSE_UNCONFIRMED');
+      state.nativeStopped = true;
+    } catch (cleanup) {
+      if (captureError) throw new AggregateError([captureError, cleanup], 'NATIVE_SESSION_CAPTURE_AND_CLOSE_FAILED', { cause: captureError });
+      throw cleanup;
+    }
+  }
+  need(state.nativeStopped, 'NATIVE_SESSION_ORIGINAL_CLOSE_UNCONFIRMED'); return { closed: true, originalResourcesStopped: true };
+}
+export async function reopenOriginalNativeSessionEconomicRecoveryV1(token, contexts) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS'); exactRecord(contexts, ['runtime', 'system', 'account', 'owner']);
+  const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'session');
+  need(nativeValueOriginalRecoverySourceV1(contexts.runtime, contexts.system) === admitted.sourceSHA256, 'NATIVE_SESSION_SOURCE_CHANGED');
+  const retained = consumeNativeEconomicRecoverySectionV1(token, 'session');
+  exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'accountIdentitySHA256', 'journalRevision', 'keeper', 'notes']);
+  need(retained.schema === 'ORIGINAL_NATIVE_SESSION_ECONOMIC_RECOVERY_V1' && retained.sourceSHA256 === admitted.sourceSHA256);
+  assertOwnedNativeValueAccountAuthority(contexts.account, { runtime: contexts.runtime, system: contexts.system,
+    poolIndex: retained.poolIndex, owner: contexts.owner });
+  need(sha(genericAccountIdentity(contexts.account.config)) === retained.accountIdentitySHA256, 'NATIVE_SESSION_ORIGINAL_ACCOUNT_CHANGED');
+  return nativeGraphSession({ runtime: contexts.runtime, system: contexts.system, poolIndex: retained.poolIndex,
+    account: contexts.account, journal: retained.keeper.journal }, { ...retained, owner: contexts.owner });
+}
+
+export function assertNativeSessionEconomicMembershipV1(session, expected) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS'); exactRecord(expected, ['runtime', 'system', 'account', 'owner']);
+  const state = sessions.get(session); need(state?.nativeAccount && state.durableKeeper && !state.nativeFence, 'NATIVE_SESSION_ORIGINAL_REQUIRED');
+  need(state.runtime === expected.runtime && state.system === expected.system && state.nativeAccount === expected.account,
+    'NATIVE_SESSION_ORIGINAL_MEMBERSHIP_REQUIRED');
+  assertOwnedNativeValueAccountAuthority(expected.account, { runtime: expected.runtime, system: expected.system, poolIndex: state.poolIndex, owner: expected.owner });
 }

@@ -12,7 +12,7 @@ import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '../../../.
 import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '../../../execution/encoding/commitments.mjs';
 import { buildNativeValueDeploymentPlan } from './native-value-deployment-plan-v2.mjs';
 import { NATIVE_VALUE_LEDGER_ROLES, NATIVE_VALUE_VERIFIER_ORDER as FLAT_VERIFIER_ORDER, loadNativeValueDeploymentArtifacts, loadNativeValueDevDeploymentArtifactsV5 } from './native-value-deployment-artifacts-v2.mjs';
-import { assertNativeValueOperatorBootstrap, provisionNativeValueOperators, finishNativeValueOperators } from '../../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
+import { assertNativeValueOperatorBootstrap, provisionNativeValueOperators, finishNativeValueOperators, assertNativeBootstrapEconomicCaptureV1 } from '../../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import { consumeNativeValueOperatorBootstrapRequest } from '../../operators/native-value/native-value-operators-v4.mjs';
 import { verifyNativeValueConstructorStorage } from './native-value-deployment-checks-v2.mjs';
 import { NATIVE_VALUE_SOURCE_CLOSURE, NATIVE_VALUE_REQUIRED_ARTIFACTS } from '../../releases/native-value/native-value-wallet-release-v4.mjs';
@@ -22,7 +22,8 @@ export const NATIVE_VALUE_ACTIVATION_BLOCKERS = NATIVE_VALUE_REQUIRED_ARTIFACTS;
 import { assertOwnedPoolAsset, createNativePoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
 
 const ZERO32 = '0x' + '00'.repeat(32), ZERO_ADDRESS = '0x' + '00'.repeat(20);
-const ownedSystems = new WeakMap(), observationSystems = new WeakMap(), activeDeployments = new WeakSet();
+const ownedSystems = new WeakMap(), observationSystems = new WeakMap(), activeDeployments = new WeakSet(), economicCaptures=new WeakMap();
+import {assertNativeEconomicRecoveryCaptureV1,nativeEconomicRecoverySectionIdentityV1,consumeNativeEconomicRecoverySectionV1} from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const keccak = code => '0x' + publicKeccak256(Buffer.from(code.slice(2), 'hex')).toString('hex');
 const encodedWords = values => nativeStaticArguments(values.map(() => ({ type: 'uint256' })), values);
@@ -87,7 +88,7 @@ function staticData(artifact, signature, args = []) {
  * to the exact still-owned runtime. A copied object/address list never passes. */
 export function assertOwnedNativeValueSystem(runtime, system) {
   assert.ok(ownedSystems.has(system) && ownedSystems.get(system).runtime === runtime, 'NATIVE_VALUE_OWNED_DEPLOYMENT_REQUIRED');
-  ownedSystems.get(system).assertLive();
+  const entry=ownedSystems.get(system);assert.ok(!entry.capturing&&!entry.closed,'NATIVE_VALUE_ECONOMIC_SYSTEM_FENCED_OR_CLOSED');entry.assertLive();
 }
 
 export function nativeValueOperatorResources(runtime, system, request) {
@@ -329,7 +330,7 @@ async function deployFixedNativeValueSystem(input, loadedBundle) {
     // No caller receives this object until all four binds and the final full
     // canonical receiver snapshot succeed. Any failure revokes the private brand.
     const live = () => { assertNativeValueOperatorBootstrap(configuration.bootstrap); };
-    ownedSystems.set(system, { runtime, operators:operatorResources, assertLive:live, bundle, close:()=>configuration.bootstrap.close() });
+    ownedSystems.set(system, { runtime, operators:operatorResources, assertLive:live, bundle, originalBootstrap:configuration.bootstrap, capturing:false,closed:false, close:()=>configuration.bootstrap.close() });
     try {
       const handles = await finishNativeValueOperators(configuration.bootstrap,{runtime,system});
       system.operators = handles.operators; system.quorum = handles.quorum;
@@ -375,7 +376,11 @@ function observationRecord(value){return Object.fromEntries(observationRecordFie
 function observationArtifactSHA(artifact){return createHash('sha256').update(observationCanonical(artifact)).digest('hex');}
 import {canonicalClaimRecordDataV1 as observationCanonical} from '../../../claims/storage/segmented-record-store.mjs';
 export async function captureNativeValueD26ObservationSystemV1(runtime,system) {
-  assert.equal(arguments.length,2);assertOwnedNativeValueSystem(runtime,system);await assertLocalEvm(runtime);
+  assert.equal(arguments.length,2);assertOwnedNativeValueSystem(runtime,system);
+  return captureNativeSystemRecord(runtime,system,()=>assertOwnedNativeValueSystem(runtime,system),'ORIGINAL_NATIVE_D26_OBSERVATION_SYSTEM_V1');
+}
+async function captureNativeSystemRecord(runtime,system,assertCapture,schema){
+  assertCapture();await assertLocalEvm(runtime);
   assert.ok(system.pools.every(pool=>pool.asset===ZERO_ADDRESS),'NATIVE_D26_RECOVERY_NATIVE_ASSET_ONLY');
   const before=await runtime.block();
   const records=[system.hub,...system.pools,...Object.values(system.libraries),...Object.values(system.verifiers),...Object.values(system.generatedLibraries)];
@@ -383,7 +388,7 @@ export async function captureNativeValueD26ObservationSystemV1(runtime,system) {
   const pins=Object.fromEntries(records.map(record=>[record.address,observationArtifactSHA(record.artifact)]));
   const metadata=Object.fromEntries(['classification','profile','claimsEnabled','adapterProfiles','chainId','sender','plan','registry',
     'hubDomain','registryCommitment','verifierSetCommitment','ledgerNamespace','bootstrap'].map(name=>[name,structuredClone(system[name])]));
-  const record={schema:'ORIGINAL_NATIVE_D26_OBSERVATION_SYSTEM_V1',metadata,pins,
+  const record={schema,metadata,pins,
     hub:observationRecord(system.hub),pools:system.pools.map(pool=>({...observationRecord(pool),
       ...Object.fromEntries(['scope','policy','asset','assetCodeHash','assetIdentity','domain','domainCommitment','assetMetadata'].map(name=>[name,structuredClone(pool[name])]))})),
     libraries:Object.fromEntries(Object.entries(system.libraries).map(([name,value])=>[name,observationRecord(value)])),
@@ -391,7 +396,7 @@ export async function captureNativeValueD26ObservationSystemV1(runtime,system) {
     generatedLibraries:Object.fromEntries(Object.entries(system.generatedLibraries).map(([name,value])=>[name,observationRecord(value)])),
     genesis:runtime.metadata.evmGenesis,head:structuredClone(before),
     retainedHostSourceSHA256:ownedSystems.get(system).bundle.provenance.hostSourceClosureSHA256};
-  await unchangedHead(runtime,before);assertOwnedNativeValueSystem(runtime,system);return record;
+  await unchangedHead(runtime,before);assertCapture();return record;
 }
 export function stopCapturedNativeValueD26ObservationSystemV1(runtime,system) {
   assert.equal(arguments.length,2);assertOwnedNativeValueSystem(runtime,system);ownedSystems.get(system).close();
@@ -402,6 +407,18 @@ export async function reopenNativeValueD26ObservationSystemV1(token,runtime) {
   const {consumeNativeD26ObservationSectionV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
   const retained=consumeNativeD26ObservationSectionV1(token,'deviceD26'),capture=retained.system;
   assert.equal(capture.schema,'ORIGINAL_NATIVE_D26_OBSERVATION_SYSTEM_V1');
+  const {bundle,header,hub,pools,libraries,verifiers,generatedLibraries}=await restoreNativeSystemParts(runtime,capture);
+  const system={...capture.metadata,hub,pools,libraries,verifiers,generatedLibraries};
+  const entry={runtime,closed:false};observationSystems.set(system,entry);freeze(system);
+  try{
+    const {createNativeValueObservationStateReaderV1}=await import('../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs');
+    for(const poolIndex of [0,1]){const reader=await createNativeValueObservationStateReaderV1({runtime,system,poolIndex});const view=await reader.read();await reader.assertCurrent(view);}
+    await unchangedHead(runtime,header);
+    return {system,deposit:retained,close(){entry.closed=true;}};
+  }catch(error){entry.closed=true;throw error;}
+}
+
+async function restoreNativeSystemParts(runtime,capture){
   // Fixed genuine loader checks all 12 retained/program/VK/ABI/runtime roles.
   // Captured address/immutable data is AEAD-authenticated original output, never
   // caller-selected artifact or pin; derive the complete code again below.
@@ -446,17 +463,101 @@ export async function reopenNativeValueD26ObservationSystemV1(token,runtime) {
   }
   const libraries={},verifiers={},generatedLibraries={};
   for(const [name,value]of Object.entries(capture.libraries))libraries[name]=await restore(value);
-  for(const [role]of FLAT_VERIFIER_ORDER)verifiers[role]=await restore(capture.verifiers[role]);
+  for(const [role]of FLAT_VERIFIER_ORDER)verifiers[role]={...await restore(capture.verifiers[role]),lineage:bundle.verifiers[role].lineage};
   for(const [name,value]of Object.entries(capture.generatedLibraries))generatedLibraries[name]=await restore(value);
   const hub=await restore(capture.hub),nativeAsset=await createNativePoolAsset({runtime}),pools=[];
   for(const record of capture.pools){assert.equal(record.asset,ZERO_ADDRESS);assert.deepEqual(record.assetMetadata,nativeAsset.metadata);
     pools.push({...await restore(record),...record,assetCapability:nativeAsset});}
-  const system={...capture.metadata,hub,pools,libraries,verifiers,generatedLibraries};
-  const entry={runtime,closed:false};observationSystems.set(system,entry);freeze(system);
-  try{
-    const {createNativeValueObservationStateReaderV1}=await import('../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs');
-    for(const poolIndex of [0,1]){const reader=await createNativeValueObservationStateReaderV1({runtime,system,poolIndex});const view=await reader.read();await reader.assertCurrent(view);}
-    await unchangedHead(runtime,header);
-    return {system,deposit:retained,close(){entry.closed=true;}};
-  }catch(error){entry.closed=true;throw error;}
+  return {bundle,header,hub,pools,libraries,verifiers,generatedLibraries};
+}
+
+/** Only the fixed economic native issuer can retain/reopen this original brand.
+ * D26 observation capability and public deployment records grant no economics. */
+export function fenceOriginalNativeSystemEconomicRecoveryV1(runtime,system,authority){
+ assert.equal(arguments.length,3);const identity=assertNativeEconomicRecoveryCaptureV1(authority),entry=ownedSystems.get(system);
+ assert.ok(entry&&entry.runtime===runtime&&!entry.capturing&&!entry.closed,'NATIVE_VALUE_ORIGINAL_ECONOMIC_SYSTEM_REQUIRED');
+ assertNativeBootstrapEconomicCaptureV1(entry.originalBootstrap,{runtime,system,authority});
+ assert.equal(identity.sourceSHA256,entry.bundle.provenance.hostSourceClosureSHA256,'NATIVE_VALUE_ECONOMIC_CAPTURE_ORIGINAL_SOURCE');
+ entry.capturing=true;economicCaptures.set(system,{runtime,identity,captured:false,token:null});
+}
+export async function captureOriginalNativeSystemEconomicRecoveryV1(runtime,system,token){
+ assert.equal(arguments.length,3);const identity=nativeEconomicRecoverySectionIdentityV1(token,'system'),capture=economicCaptures.get(system),entry=ownedSystems.get(system);
+ const check=()=>{assert.ok(capture&&entry&&entry.runtime===runtime&&capture.runtime===runtime&&entry.capturing&&!entry.closed,'NATIVE_VALUE_ECONOMIC_CAPTURE_FENCE_REQUIRED');
+   assert.deepEqual(capture.identity,identity,'NATIVE_VALUE_ECONOMIC_CAPTURE_AUTHORITY_REBOUND');};
+ check();assert.equal(capture.captured,false,'NATIVE_VALUE_ECONOMIC_SYSTEM_CAPTURE_ONCE');capture.token=token;
+ const record=await captureNativeSystemRecord(runtime,system,check,'ORIGINAL_NATIVE_SYSTEM_ECONOMIC_RECOVERY_V1');
+ record.registrationReceipts=structuredClone(system.registrationReceipts);record.deployments=system.deployments.map(observationRecord);
+ capture.captured=true;return record;
+}
+export function stopCapturedNativeSystemEconomicRecoveryV1(runtime,system,token){
+ assert.equal(arguments.length,3);nativeEconomicRecoverySectionIdentityV1(token,'system');const capture=economicCaptures.get(system),entry=ownedSystems.get(system);
+ assert.ok(capture&&entry&&entry.runtime===runtime&&entry.capturing&&capture.captured&&!entry.closed,'NATIVE_VALUE_ECONOMIC_SYSTEM_CAPTURE_REQUIRED');
+ assert.equal(capture.token,token);entry.closed=true;ownedSystems.delete(system);return {closed:true,originalResourcesStopped:true};
+}
+export function abortNativeSystemEconomicRecoveryV1(runtime,system,token){
+ assert.equal(arguments.length,3);nativeEconomicRecoverySectionIdentityV1(token,'system');const capture=economicCaptures.get(system),entry=ownedSystems.get(system);
+ assert.ok(capture&&capture.runtime===runtime,'NATIVE_VALUE_ECONOMIC_CAPTURE_FENCE_REQUIRED');if(capture.token)assert.equal(capture.token,token);
+ if(entry)entry.closed=true;ownedSystems.delete(system);return {closed:true,recoveryIncomplete:true};
+}
+export async function reopenOriginalNativeSystemEconomicRecoveryV1(token,input){
+ assert.equal(arguments.length,2);exactRecord(input,['runtime','bootstrap']);const {runtime,bootstrap}=input;
+ const identity=nativeEconomicRecoverySectionIdentityV1(token,'system'),capture=consumeNativeEconomicRecoverySectionV1(token,'system');
+ assert.equal(capture.schema,'ORIGINAL_NATIVE_SYSTEM_ECONOMIC_RECOVERY_V1');
+ assert.equal(capture.retainedHostSourceSHA256,identity.sourceSHA256,'NATIVE_VALUE_ECONOMIC_REOPEN_ORIGINAL_SOURCE');
+ assert.equal(runtime.metadata.restoredOriginalState,true,'NATIVE_VALUE_ECONOMIC_RESTORED_RECEIVER_REQUIRED');
+ const {bundle,header,hub,pools,libraries,verifiers,generatedLibraries}=await restoreNativeSystemParts(runtime,capture);
+ assert.equal(bundle.provenance.hostSourceClosureSHA256,identity.sourceSHA256,'NATIVE_VALUE_ECONOMIC_CURRENT_SOURCE_CHANGED');
+ const metadata=assertNativeValueOperatorBootstrap(bootstrap);assert.deepEqual(metadata.attesterKeys,capture.metadata.registry.quorum.keys,'NATIVE_VALUE_ECONOMIC_MEMBER_KEYS');
+ assert.deepEqual(metadata.adapterProfiles,capture.metadata.adapterProfiles,'NATIVE_VALUE_ECONOMIC_SOURCE_REGISTRATION');
+ for(const receipt of capture.registrationReceipts){await runtime.checkReceipt(receipt);await runtime.assertCanonical(receipt);}
+ await verifyNativeEconomicOriginalStorage(runtime,hub,pools,capture.metadata.plan,header);
+ const records=[hub,...pools,...Object.values(libraries),...Object.values(verifiers),...Object.values(generatedLibraries)];
+ assert.deepEqual(capture.deployments.map(value=>value.address).sort(),records.map(value=>value.address).sort(),'NATIVE_VALUE_ECONOMIC_DEPLOYMENT_INVENTORY');
+ const commonAsset=pools.every(pool=>pool.asset===pools[0].asset&&pool.assetCodeHash===pools[0].assetCodeHash)?pools[0]:null;
+ const system={...capture.metadata,hub,pools,libraries,verifiers,generatedLibraries,deployments:records,registrationReceipts:structuredClone(capture.registrationReceipts),
+   asset:commonAsset?.asset??null,assetCodeHash:commonAsset?.assetCodeHash??null,assetIdentity:commonAsset?.assetIdentity??null,
+   assetMetadata:commonAsset?.assetMetadata??null,assetCapability:commonAsset?.assetCapability??null,provenance:bundle.provenance,
+   async verify(role,proof,publicInputs,block='latest'){
+     assertOwnedNativeValueSystem(runtime,system);await assertLocalEvm(runtime);const spec=FLAT_VERIFIER_ORDER.find(([name])=>name===role);assert.ok(spec,'NATIVE_VALUE_DEPLOY_VERIFIER_ROLE');
+     fixedArray(publicInputs,spec[1]);const verifier=verifiers[role];await expectedCodeAt(runtime,verifier,block);
+     const raw=await runtime.call({to:verifier.address,data:nativeProofCalldata(verifier.artifact,'verify(bytes,bytes32[])',proof,publicInputs)},block);
+     assert.ok(raw===encodedWords([0])||raw===encodedWords([1]),'NATIVE_VALUE_DEPLOY_VERIFIER_BOOLEAN');return raw===encodedWords([1]);
+   },assetBalance(holder,block='latest'){assertOwnedNativeValueSystem(runtime,system);assert.ok(commonAsset,'NATIVE_VALUE_DEPLOY_AMBIGUOUS_AGGREGATE_ASSET');return commonAsset.assetCapability.balance(holder,block);},
+   get receipts(){assertOwnedNativeValueSystem(runtime,system);return freeze(structuredClone(runtime.receipts));}};
+ const resources=await provisionNativeValueOperators(bootstrap,{runtime,registry:system.registry,adapterProfiles:system.adapterProfiles});
+ const live=()=>{assertNativeValueOperatorBootstrap(bootstrap);},entry={runtime,operators:resources,assertLive:live,bundle,originalBootstrap:bootstrap,capturing:false,closed:false,close:()=>bootstrap.close()};
+ ownedSystems.set(system,entry);
+ try{const handles=await finishNativeValueOperators(bootstrap,{runtime,system});system.operators=handles.operators;system.quorum=handles.quorum;freeze(system);
+   const {createNativeValueSystemStateReader}=await import('../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs');
+   const readers=await drained([0,1].map(poolIndex=>()=>createNativeValueSystemStateReader({runtime,system,poolIndex}))),views=await drained(readers.map(reader=>()=>reader.read()));
+   assert.deepEqual(views[0].head,views[1].head,'NATIVE_VALUE_ECONOMIC_COMMON_HEAD');await drained(readers.map((reader,index)=>()=>reader.assertCurrent(views[index])));
+   await unchangedHead(runtime,header);live();return system;
+ }catch(error){entry.closed=true;ownedSystems.delete(system);try{bootstrap.close();}catch(cleanup){throw new AggregateError([error,cleanup],'NATIVE_VALUE_ECONOMIC_SYSTEM_REOPEN_CLEANUP_FAILED',{cause:error});}throw error;}
+}
+
+/** Recheck the original immutable registry/configuration at the current head.
+ * Constructor verification deliberately still requires an empty new system.
+ * Economic restoration checks mutable backing/trees/cursors through the same
+ * original full state readers below, preserving genuine funded/spent state. */
+async function verifyNativeEconomicOriginalStorage(runtime,hub,pools,plan,header){
+ const expect=async(target,signature,args,values)=>assert.equal((await target.call(signature,args,header.number)).toLowerCase(),encodedWords(values),'NATIVE_VALUE_ECONOMIC_IMMUTABLE_STORAGE_'+signature);
+ const configWords=plan.verifierSet.pins.flatMap(pin=>[pin.verifier,pin.codeHash]);
+ configWords.push(plan.verifierSet.poseidon2Domains,plan.verifierSet.poseidon2DomainsCodeHash,plan.verifierSet.hubCodec,plan.verifierSet.hubCodecCodeHash);
+ for(const [key,value]of Object.entries({...plan.hub.immutableValues,pool0CodeHash:plan.pools[0].codeHash,pool1CodeHash:plan.pools[1].codeHash}))
+   if(key!=='claimAuthorityCodeHash')await expect(hub,key+'()',[],[value]);
+ await expect(hub,'verifierConfiguration()',[],configWords);
+ for(let index=0;index<4;index++){
+   const key=plan.registry.quorum.keys[index],signer='0x'+publicKeccak256(Buffer.from(key.x+key.y,'hex')).subarray(12).toString('hex');
+   await expect(hub,'attester(uint8)',[index],['0x'+key.x,'0x'+key.y,signer]);
+ }
+ assert.equal(plan.hub.immutableValues.claimAuthority,ZERO_ADDRESS);assert.equal(plan.hub.immutableValues.claimAuthorityCodeHash,ZERO32);
+ const {SEMANTIC_PROFILE}=await import('../../../chains/shared/transfers/generic-native-value-v2.mjs'),text=Buffer.from(SEMANTIC_PROFILE);
+ assert.equal(await hub.call('NATIVE_VALUE_PROFILE()',[],header.number),'0x'+encodedWords([32,text.length]).slice(2)+text.toString('hex').padEnd(Math.ceil(text.length/32)*64,'0'));
+ for(const [index,pool]of pools.entries()){
+   const projected=plan.pools[index];for(const [name,value]of Object.entries(projected.immutableValues))await expect(pool,name+'()',[],[value]);
+   await expect(pool,'verifierConfiguration()',[],configWords);await expect(pool,'EPOCH_SECONDS()',[],[600]);
+   await expect(hub,'isRegisteredPool(address)',[pool.address],[1]);await expect(hub,'poolDomain(address)',[pool.address],[projected.domainCommitment]);
+   await expect(hub,'domainPool(bytes32)',[projected.domainCommitment],[pool.address]);assertOwnedPoolAsset(runtime,pool.assetCapability);
+ }
+ await unchangedHead(runtime,header);
 }

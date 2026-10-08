@@ -22,6 +22,8 @@ const EXTERNAL_PROFILE='EXTERNAL_DEFI_PRIVATE_RECOVERY_AUTHORITY_V1',EXTERNAL_FU
 const externalIdentity=identity=>[EXTERNAL_PROFILE,EXTERNAL_FUNDED_PROFILE,EXTERNAL_REPAIR_PROFILE,EXTERNAL_PARTIAL_PROFILE,EXTERNAL_LINEAGE_PROFILE].includes(identity.profile);
 const NATIVE_D26_PROFILE='NATIVE_DEVICE_D26_OBSERVATION_RECOVERY_V1';
 const NATIVE_PROVIDER_PROFILE='NATIVE_PROVIDER_ECONOMIC_RECOVERY_V1';
+const NATIVE_ECONOMIC_PROFILE='NATIVE_VALUE_ECONOMIC_RECOVERY_V1';
+const NATIVE_ECONOMIC_SECTIONS=Object.freeze(['receiver','graphNative','bootstrap','system','provider','owner','executor','account','session','actor']);
 const PROFILE='WRAPPED_FIXED_PRIVATE_RECOVERY_AUTHORITY_V1';
 const FUNDED_PROFILE='WRAPPED_FIXED_FUNDED_PRIVATE_RECOVERY_AUTHORITY_V1';
 const TRON_PROFILE='WRAPPED_FIXED_TRON_PRIVATE_RECOVERY_AUTHORITY_V1',FUNDED_TRON_PROFILE='WRAPPED_FIXED_FUNDED_TRON_PRIVATE_RECOVERY_AUTHORITY_V1';
@@ -31,8 +33,8 @@ const FIXED_WALLET_ROOT=resolve(fileURLToPath(new URL('../../../',import.meta.ur
 const RUNTIMES=Object.freeze(['bitcoin','solana','receiver','graphNative']);
 const ALL_RUNTIMES=Object.freeze([...RUNTIMES,'graphNativeTron']);
 const SECTIONS=Object.freeze([...RUNTIMES,'system','owners','keeper','fixture','privateLifetime']);
-const sectionsFor=identity=>identity.profile===NATIVE_PROVIDER_PROFILE?['provider']:identity.profile===NATIVE_D26_PROFILE?['deviceD26','receiver']:externalIdentity(identity)?['receiver','privateLifetime','system','owners','wallet']:[...SECTIONS,...(tronIdentity(identity)?['graphNativeTron']:[]),...(fundedIdentity(identity)?['wallet']:[])];
-const authorities=new WeakMap(),writes=new WeakMap(),reads=new WeakMap(),capturedRuntimeOwners=new WeakMap();
+const sectionsFor=identity=>identity.profile===NATIVE_ECONOMIC_PROFILE?[...NATIVE_ECONOMIC_SECTIONS]:identity.profile===NATIVE_PROVIDER_PROFILE?['provider']:identity.profile===NATIVE_D26_PROFILE?['deviceD26','receiver']:externalIdentity(identity)?['receiver','privateLifetime','system','owners','wallet']:[...SECTIONS,...(tronIdentity(identity)?['graphNativeTron']:[]),...(fundedIdentity(identity)?['wallet']:[])];
+const authorities=new WeakMap(),writes=new WeakMap(),reads=new WeakMap(),capturedRuntimeOwners=new WeakMap(),nativeAbortTokens=new WeakMap();
 const clone=value=>structuredClone(value);
 const normalized=value=>JSON.parse(JSON.stringify(value));
 const hex=value=>typeof value==='string'&&/^[0-9a-f]{64}$/.test(value);
@@ -71,8 +73,8 @@ function validateRecord(record,identity){
 }
 async function mutate(s,transform,expectedCheckpoint){assert.equal(s.busy,false,'WRAPPED_RECOVERY_BUSY');s.busy=true;try{const old=normalized(await s.store.read());validateRecord(old,s.identity);if(expectedCheckpoint)assert.equal(finalizationHash(checkpoint(old)),finalizationHash(expectedCheckpoint),'WRAPPED_RECOVERY_FINALIZATION_PRIOR_CHANGED');const next=normalized(await s.store.update(old.revision,transform));validateRecord(next,s.identity);s.record=next;return checkpoint(next);}catch(error){s.fault=true;throw error;}finally{s.busy=false;}}
 
-async function authorityFactory(input,expected,creating,funded=false,withTron=false,external=false,nativeD26=false,nativeProvider=false){
- const identity=nativeProvider?nativeProviderIdentity(input):nativeD26?nativeD26Identity(input):identityOf(input,funded,withTron,external),sections=sectionsFor(identity);await privateDirectory(identity.directory);const directory=join(identity.directory,identity.profile===NATIVE_PROVIDER_PROFILE?'native-provider-economic':identity.profile===NATIVE_D26_PROFILE?'device-d26-observation':fundedIdentity(identity)?(tronIdentity(identity)?'funded-tron-recovery':'funded-recovery'):(tronIdentity(identity)?'tron-recovery':'recovery'));
+async function authorityFactory(input,expected,creating,funded=false,withTron=false,external=false,nativeD26=false,nativeProvider=false,nativeEconomic=false){
+ const identity=nativeEconomic?nativeEconomicIdentity(input):nativeProvider?nativeProviderIdentity(input):nativeD26?nativeD26Identity(input):identityOf(input,funded,withTron,external),sections=sectionsFor(identity);await privateDirectory(identity.directory);const directory=join(identity.directory,identity.profile===NATIVE_ECONOMIC_PROFILE?'native-value-economic':identity.profile===NATIVE_PROVIDER_PROFILE?'native-provider-economic':identity.profile===NATIVE_D26_PROFILE?'device-d26-observation':fundedIdentity(identity)?(tronIdentity(identity)?'funded-tron-recovery':'funded-recovery'):(tronIdentity(identity)?'tron-recovery':'recovery'));
  if(creating){await mkdir(directory,{mode:0o700});await syncDirectory(identity.directory);}await privateDirectory(directory);
  const release=await acquireLease(directory,identity);let store,password;
  try{
@@ -96,7 +98,7 @@ export function createWrappedTronRecoveryAuthorityV1(input){assert.equal(argumen
 export function openWrappedTronRecoveryAuthorityV1(input,expected){assert.equal(arguments.length,2);return authorityFactory(input,expected,false,false,true);}
 export function createWrappedFundedTronRecoveryAuthorityV1(input){assert.equal(arguments.length,1);return authorityFactory(input,null,true,true,true);}
 export function openWrappedFundedTronRecoveryAuthorityV1(input,expected){assert.equal(arguments.length,2);return authorityFactory(input,expected,false,true,true);}
-export function wrappedRecoveryAuthorityStatusV1(authority){assert.equal(arguments.length,1);const s=authorities.get(authority);assert.ok(s&&!s.closed,'WRAPPED_RECOVERY_ORIGINAL_AUTHORITY');return Object.freeze({profile:s.identity.profile,runId:s.identity.runId,sourceSHA256:s.identity.sourceSHA256,deadlineMs:s.identity.deadlineMs,checkpoint:checkpoint(s.record),phase:s.record.data.phase,operationInProgress:s.operation!==null,uncertain:s.fault,sections:Object.freeze(Object.fromEntries(sectionsFor(s.identity).map(name=>[name,s.record.data.sections[name]?.state??'ABSENT']))),scope:s.identity.profile===NATIVE_PROVIDER_PROFILE?'ORIGINAL_NATIVE_PROVIDER_REOPEN_V1':s.identity.profile===NATIVE_D26_PROFILE?'ORIGINAL_DEVICE_D26_OBSERVE_ONLY_V1':s.identity.profile===EXTERNAL_LINEAGE_PROFILE?'RESTORE_ONLY_ORIGINAL_ACTOR_LINEAGE_V1':fundedIdentity(s.identity)?'ORDERED_FUNDED_ORIGINAL_REOPEN_V1':'ORDERED_PRE_PRINCIPAL_ORIGINAL_REOPEN_V1',nativeRecoveryEstablished:false,fundedEffectRecoveryEstablished:false});}
+export function wrappedRecoveryAuthorityStatusV1(authority){assert.equal(arguments.length,1);const s=authorities.get(authority);assert.ok(s&&!s.closed,'WRAPPED_RECOVERY_ORIGINAL_AUTHORITY');return Object.freeze({profile:s.identity.profile,runId:s.identity.runId,sourceSHA256:s.identity.sourceSHA256,deadlineMs:s.identity.deadlineMs,checkpoint:checkpoint(s.record),phase:s.record.data.phase,operationInProgress:s.operation!==null,uncertain:s.fault,sections:Object.freeze(Object.fromEntries(sectionsFor(s.identity).map(name=>[name,s.record.data.sections[name]?.state??'ABSENT']))),scope:s.identity.profile===NATIVE_ECONOMIC_PROFILE?'ORIGINAL_NATIVE_VALUE_ECONOMIC_REOPEN_V1':s.identity.profile===NATIVE_PROVIDER_PROFILE?'ORIGINAL_NATIVE_PROVIDER_REOPEN_V1':s.identity.profile===NATIVE_D26_PROFILE?'ORIGINAL_DEVICE_D26_OBSERVE_ONLY_V1':s.identity.profile===EXTERNAL_LINEAGE_PROFILE?'RESTORE_ONLY_ORIGINAL_ACTOR_LINEAGE_V1':fundedIdentity(s.identity)?'ORDERED_FUNDED_ORIGINAL_REOPEN_V1':'ORDERED_PRE_PRINCIPAL_ORIGINAL_REOPEN_V1',nativeRecoveryEstablished:false,fundedEffectRecoveryEstablished:false});}
 
 // The only section writer accepts an ephemeral capability delivered directly
 // to a fixed original producer. The attempt handle is not a section writer.
@@ -111,7 +113,7 @@ async function fixedCapture(authority,section,produce){
  return wrappedRecoveryAuthorityStatusV1(authority);
 }
 export async function retainWrappedRuntimeRecoveryV1(authority,family,runtime){
- assert.equal(arguments.length,3);assert.ok(ALL_RUNTIMES.includes(family));assert.ok(sectionsFor(state(authority).identity).includes(family),'WRAPPED_RECOVERY_RUNTIME_PROFILE_REQUIRED');assert.ok(runtime && typeof runtime==='object');assert.equal(capturedRuntimeOwners.has(runtime),false,'WRAPPED_RECOVERY_RUNTIME_ALREADY_ASSIGNED');capturedRuntimeOwners.set(runtime,authority);return fixedCapture(authority,family,async token=>{
+ assert.equal(arguments.length,3);assert.ok(ALL_RUNTIMES.includes(family));assert.notEqual(state(authority).identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RUNTIME_CAPTURE');assert.ok(sectionsFor(state(authority).identity).includes(family),'WRAPPED_RECOVERY_RUNTIME_PROFILE_REQUIRED');assert.ok(runtime && typeof runtime==='object');assert.equal(capturedRuntimeOwners.has(runtime),false,'WRAPPED_RECOVERY_RUNTIME_ALREADY_ASSIGNED');capturedRuntimeOwners.set(runtime,authority);return fixedCapture(authority,family,async token=>{
   let data;if(family==='bitcoin'){const m=await import('../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');data=await m.captureOwnedBitcoinRecoveryV1(runtime);}
   else if(family==='solana'){const m=await import('../../../chains/solana/runtime/owned-solana-runtime.mjs');data=await m.captureOwnedSolanaRecoveryV1(runtime);}
   else if(family==='graphNativeTron'){const m=await import('../../../chains/tron/runtime/owned-tron-native-value-runtime.mjs');data=await m.captureOwnedTronRecoveryV1(runtime);}
@@ -225,7 +227,7 @@ export async function reconcileWrappedRecoveryFinalizationV1(input,publicationIn
 }
 
 async function issueWrappedRecoverySectionV1(s,section){
- assert.equal(arguments.length,2);assert.ok(sectionsFor(s.identity).includes(section));assert.ok(s.operation,'WRAPPED_RECOVERY_FIXED_REOPEN_REQUIRED');if(externalIdentity(s.identity)){const order=sectionsFor(s.identity);assert.ok(order.slice(0,order.indexOf(section)).every(name=>s.record.data.sections[name]?.state==='OPENED'),'EXTERNAL_RECOVERY_REOPEN_ORDER');}assert.equal(s.creating,false,'WRAPPED_RECOVERY_NEW_PROCESS_REQUIRED');assert.ok(Date.now()<authorityReopenDeadline(s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');
+ assert.equal(arguments.length,2);assert.ok(sectionsFor(s.identity).includes(section));assert.ok(s.operation,'WRAPPED_RECOVERY_FIXED_REOPEN_REQUIRED');if(externalIdentity(s.identity)||s.identity.profile===NATIVE_ECONOMIC_PROFILE){const order=sectionsFor(s.identity);assert.ok(order.slice(0,order.indexOf(section)).every(name=>s.record.data.sections[name]?.state==='OPENED'),'EXTERNAL_RECOVERY_REOPEN_ORDER');}assert.equal(s.creating,false,'WRAPPED_RECOVERY_NEW_PROCESS_REQUIRED');assert.ok(Date.now()<authorityReopenDeadline(s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');
  const claim={processId:process.pid,nonce:randomBytes(32).toString('hex')};await mutate(s,old=>{assert.ok(['CAPTURED','REOPENING'].includes(old.phase));const row=old.sections[section];assert.equal(row?.state,'CAPTURED','WRAPPED_RECOVERY_OPEN_ALREADY_CONSUMED');row.state='OPENING';row.claim=claim;old.phase='REOPENING';return old;});
  const token=opaque();reads.set(token,{s,section,operation:s.operation,data:clone(s.record.data.sections[section].data),claim,used:false});return token;
 }
@@ -236,7 +238,7 @@ export function originalWrappedRecoverySectionIdentityV1(token,section){
  return Object.freeze(clone(entry.s.identity));
 }
 export function consumeOriginalWrappedRecoverySectionV1(token,section){assert.equal(arguments.length,2);const r=reads.get(token);assert.ok(r&&r.section===section&&!r.used&&r.operation===r.s.operation,'WRAPPED_RECOVERY_ORIGINAL_OPEN_TOKEN');r.used=true;assert.equal(r.s.closed,false);assert.equal(r.s.fault,false);assert.ok(Date.now()<authorityReopenDeadline(r.s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');return clone(r.data);}
-export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
+export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.notEqual(r?.s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
 async function fixedReopen(authority,section,work,stop){
  const s=state(authority);s.operation=opaque();let token,result,returned=false;
  try{token=await issueWrappedRecoverySectionV1(s,section);const r=reads.get(token);result=await work(token);returned=true;assert.equal(r.used,true,'WRAPPED_RECOVERY_OPEN_TOKEN_UNUSED');await mutate(s,old=>{const row=old.sections[section];assert.equal(row.state,'OPENING');assert.deepEqual(row.claim,r.claim);row.state='OPENED';return old;});return result;}
@@ -244,7 +246,7 @@ async function fixedReopen(authority,section,work,stop){
  finally{if(token)reads.delete(token);s.operation=null;}
 }
 export async function reopenWrappedRuntimeFromAuthorityV1(authority,family){
- assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));assert.notEqual(state(authority).identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');return fixedReopen(authority,family,async token=>{
+ assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));assert.notEqual(state(authority).identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.notEqual(state(authority).identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');return fixedReopen(authority,family,async token=>{
   if(family==='bitcoin'){const m=await import('../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');return m.reopenOwnedBitcoinRecoveryV1(token);}
   if(family==='solana'){const m=await import('../../../chains/solana/runtime/owned-solana-runtime.mjs');return m.reopenOwnedSolanaRecoveryV1(token);}
   if(family==='graphNativeTron'){const m=await import('../../../chains/tron/runtime/owned-tron-native-value-runtime.mjs');return m.reopenOwnedTronRecoveryV1(token);}
@@ -995,13 +997,13 @@ export function openNativeProviderRecoveryAuthorityV1(input,expectedCheckpoint){
  assert.equal(arguments.length,2);return authorityFactory(input,expectedCheckpoint,false,false,false,false,false,true);
 }
 export function assertNativeProviderRecoveryAuthorityV1(authority){
- assert.equal(arguments.length,1);const s=state(authority);assert.equal(s.identity.profile,NATIVE_PROVIDER_PROFILE,'NATIVE_PROVIDER_DISTINCT_RECOVERY_AUTHORITY');
+ assert.equal(arguments.length,1);const s=state(authority);assert.ok([NATIVE_PROVIDER_PROFILE,NATIVE_ECONOMIC_PROFILE].includes(s.identity.profile),'NATIVE_PROVIDER_DISTINCT_RECOVERY_AUTHORITY');
  assert.equal(s.creating,true);assert.equal(s.record.data.phase,'CAPTURING');assert.equal(s.record.data.sections.provider,null,'NATIVE_PROVIDER_CAPTURE_ONCE');
  return Object.freeze(clone(s.identity));
 }
 export function nativeProviderRecoverySectionIdentityV1(token){
- assert.equal(arguments.length,1);const identity=originalWrappedRecoverySectionIdentityV1(token,'provider');
- assert.equal(identity.profile,NATIVE_PROVIDER_PROFILE,'NATIVE_PROVIDER_DISTINCT_RECOVERY_TOKEN');return identity;
+ assert.equal(arguments.length,1);const identity=nativeAbortTokens.has(token)?nativeEconomicRecoverySectionIdentityV1(token,'provider'):originalWrappedRecoverySectionIdentityV1(token,'provider');
+ assert.ok([NATIVE_PROVIDER_PROFILE,NATIVE_ECONOMIC_PROFILE].includes(identity.profile),'NATIVE_PROVIDER_DISTINCT_RECOVERY_TOKEN');return identity;
 }
 export function consumeNativeProviderRecoverySectionV1(token){
  assert.equal(arguments.length,1);nativeProviderRecoverySectionIdentityV1(token);return consumeOriginalWrappedRecoverySectionV1(token,'provider');
@@ -1033,4 +1035,148 @@ export async function reopenNativeProviderFromAuthorityV1(authority,contexts){
 export function closeNativeProviderRecoveryAuthorityV1(authority){
  assert.equal(arguments.length,1);assert.equal(authorities.get(authority)?.identity.profile,NATIVE_PROVIDER_PROFILE,'NATIVE_PROVIDER_DISTINCT_RECOVERY_AUTHORITY');
  return closeWrappedRecoveryAuthorityV1(authority);
+}
+
+
+/** Complete economic native sections; OBSERVE-only and wrapped capabilities
+ * cannot enter. The fixed coordinator owns producer ordering and closure. */
+function nativeEconomicIdentity(input){
+ exactRecord(input,['directory','runId','sourceSHA256','deadlineMs']);
+ assert.match(input.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+ assert.equal(input.directory,join(FIXED_WALLET_ROOT,'.local/native-value-economic-recovery-v1','attempt-'+input.runId,'private-audit'),'NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY');
+ assert.ok(hex(input.sourceSHA256)&&Number.isSafeInteger(input.deadlineMs)&&input.deadlineMs>0,'NATIVE_ECONOMIC_RECOVERY_IDENTITY');
+ return {profile:NATIVE_ECONOMIC_PROFILE,...input};
+}
+export function createNativeEconomicRecoveryAuthorityV1(input){
+ assert.equal(arguments.length,1);return authorityFactory(input,null,true,false,false,false,false,false,true);
+}
+export function openNativeEconomicRecoveryAuthorityV1(input,expectedCheckpoint){
+ assert.equal(arguments.length,2);return authorityFactory(input,expectedCheckpoint,false,false,false,false,false,false,true);
+}
+export function assertNativeEconomicRecoveryCaptureV1(authority){
+ assert.equal(arguments.length,1);const s=state(authority);assert.equal(s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_AUTHORITY');
+ assert.equal(s.creating,true);assert.equal(s.record.data.phase,'CAPTURING');
+ assert.ok(NATIVE_ECONOMIC_SECTIONS.every(section=>s.record.data.sections[section]===null),'NATIVE_ECONOMIC_CAPTURE_ONCE');return Object.freeze(clone(s.identity));
+}
+export function nativeEconomicRecoverySectionIdentityV1(token,section){
+ assert.equal(arguments.length,2);assert.ok(NATIVE_ECONOMIC_SECTIONS.includes(section));
+ const abort=nativeAbortTokens.get(token);if(abort){assert.equal(abort.section,section,'NATIVE_ECONOMIC_CLEANUP_SECTION');return Object.freeze(clone(abort.identity));}
+ const identity=originalWrappedRecoverySectionIdentityV1(token,section);
+ assert.equal(identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');return identity;
+}
+export function consumeNativeEconomicRecoverySectionV1(token,section){
+ assert.equal(arguments.length,2);nativeEconomicRecoverySectionIdentityV1(token,section);return consumeOriginalWrappedRecoverySectionV1(token,section);
+}
+export function closeNativeEconomicRecoveryAuthorityV1(authority){
+ assert.equal(arguments.length,1);assert.equal(authorities.get(authority)?.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_AUTHORITY');return closeWrappedRecoveryAuthorityV1(authority);
+}
+
+// Fixed producer table belongs to this issuer. Caller-selected methods/paths,
+// section callbacks and JSON records never enter its write-token registry.
+const nativeProducerModules=Object.freeze({
+ actor:async()=>({module:await import('../../../api/mobile/paired-original-account-actor-v2.mjs'),stem:'NativeActor'}),
+ session:async()=>({module:await import('../../../api/accounts/flat-manual-graph-session.mjs'),stem:'NativeSession'}),
+ account:async()=>({module:await import('../../../accounts/authority/native-value-account-authority-v2.mjs'),stem:'NativeAccount'}),
+ executor:async()=>({module:await import('../../../execution/native-value/execution/native-value-execution-v2.mjs'),stem:'NativeExecution'}),
+ provider:async()=>({module:await import('../../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs'),stem:'NativeProvider'}),
+ owner:async()=>({module:await import('../../../../../custody/src/processes/native-value-owner-process-v2.mjs'),stem:'NativeOwner'}),
+ bootstrap:async()=>({module:await import('../../../operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs'),stem:'NativeBootstrap'}),
+ system:async()=>({module:await import('../../../operations/deployments/native-value/native-value-system-v2.mjs'),stem:'NativeSystem'}),
+ receiver:async()=>({module:await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs'),stem:null}),
+ graphNative:async()=>({module:await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs'),stem:null})
+});
+const nativeCaptureOrder=Object.freeze(['actor','session','account','executor','provider','owner','system','bootstrap','graphNative','receiver']);
+function nativeOriginalFor(input,section){return section==='receiver'?input.runtime:section==='graphNative'?input.nativeRuntime:section==='executor'?input.nativeExecution:section==='provider'?input.providerCustody:input[section];}
+async function nativeProducer(section){return nativeProducerModules[section]();}
+function nativeCaptureArgs(input,section,token){return section==='system'?[input.runtime,input.system,token]:[nativeOriginalFor(input,section),token];}
+async function retainNativeEconomicFixedSection(authority,input,section){
+ return fixedCapture(authority,section,async token=>{
+   const state=authorities.get(authority);state.nativeCaptureTokens??=new Map();state.nativeCaptureTokens.set(section,token);
+   const {module:m,stem}=await nativeProducer(section),args=nativeCaptureArgs(input,section,token);
+   if(['receiver','graphNative'].includes(section)){
+     const record=await m.captureOwnedNativeEconomicRuntimeV1(...args);
+     assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(record.family,section);
+     assert.equal(record.terminal.ownedProcessStopped,true);assert.equal(record.terminal.forced,false);
+     await assertStoppedNativeFilesV1(record.cwd,record.files);await retainOriginalWrappedRecoverySectionV1(token,section,record);
+   }else{
+     const record=await m['captureOriginal'+stem+'EconomicRecoveryV1'](...args);
+     await retainOriginalWrappedRecoverySectionV1(token,section,record);
+     const stopped=await m['stopCaptured'+stem+'EconomicRecoveryV1'](...args);
+     assert.deepEqual(stopped,section==='provider'?{closed:true,originalPrivateStateRetained:true}:{closed:true,originalResourcesStopped:true});
+   }
+   return {retained:true,originalResourcesStopped:true};
+ });
+}
+async function abortNativeEconomicFixedCapture(s,input,fenced){
+ const errors=[];
+ // Fail-closed cleanup capabilities are distinct from writers/readers. They
+ // cannot retain/consume a section or create a reopened economic object.
+ for(const section of nativeCaptureOrder.filter(section=>fenced.includes(section))){
+   const token=s.nativeCaptureTokens?.get(section)??opaque();nativeAbortTokens.set(token,{identity:s.identity,section});
+   try{const {module:m,stem}=await nativeProducer(section),args=nativeCaptureArgs(input,section,token);
+     if(['receiver','graphNative'].includes(section))await m.abortOwnedNativeEconomicRuntimeV1(...args);
+     else await m['abort'+stem+'EconomicRecoveryV1'](...args);
+   }catch(error){errors.push(error);}finally{nativeAbortTokens.delete(token);}
+ }
+ return errors;
+}
+/** Consumes only the fixed coordinator's original-reference request. */
+export async function retainNativeEconomicRecoveryV1(authority,request){
+ assert.equal(arguments.length,2);assertNativeEconomicRecoveryCaptureV1(authority);const s=authorities.get(authority);
+ const coordinator=await import('../../../operations/recovery/native-value-economic-recovery-v1.mjs');
+ const {input,fenced,fenceError,transportFenced}=coordinator.consumeNativeEconomicCaptureRequestV1(request,authority);
+ try{
+   if(transportFenced){const transport=await import('../../../api/mobile/paired-original-account-http-v2.mjs');
+     await transport.stopCapturedNativeDeviceTransportRecoveryV1(input.transport,authority);}
+   if(fenceError)throw fenceError;
+   for(const section of nativeCaptureOrder)await retainNativeEconomicFixedSection(authority,input,section);
+   return await finishWrappedRecoveryCaptureV1(authority);
+ }catch(error){s.fault=true;const failures=[];
+   if(transportFenced){try{const m=await import('../../../api/mobile/paired-original-account-http-v2.mjs');await m.abortNativeDeviceTransportRecoveryV1(input.transport,authority);}catch(cleanup){failures.push(cleanup);}}
+   failures.push(...await abortNativeEconomicFixedCapture(s,input,fenced));
+   if(failures.length)throw new AggregateError([error,...failures],'NATIVE_ECONOMIC_CAPTURE_AND_CLEANUP_FAILED',{cause:error});throw error;}
+}
+/** Same originals, fixed ordered consumers, fresh process and one-use sections.
+ * Historical deadlines and UNKNOWN wires are data validated by those consumers.
+ * No caller supplies factories, callbacks, keys, or restored records. */
+export async function reopenNativeEconomicFromAuthorityV1(authority){
+ assert.equal(arguments.length,1);assert.equal(state(authority).identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_AUTHORITY');
+ const opened={};let composition;
+ const reopen=async(section,work,stop)=>{const value=await fixedReopen(authority,section,work,stop);opened[section]=value;return value;};
+ try{
+   const r=await nativeProducer('receiver'),runtime=await reopen('receiver',token=>r.module.reopenOwnedNativeEconomicReceiverV1(token),value=>value.close());
+   const nativeRuntime=await reopen('graphNative',token=>r.module.reopenOwnedNativeEconomicGraphRuntimeV1(token),value=>value.close());
+   const b=await nativeProducer('bootstrap'),bootstrap=await reopen('bootstrap',token=>b.module.reopenOriginalNativeBootstrapEconomicRecoveryV1(token,nativeRuntime),value=>value.close());
+   const y=await nativeProducer('system'),system=await reopen('system',token=>y.module.reopenOriginalNativeSystemEconomicRecoveryV1(token,{runtime,bootstrap}),()=>bootstrap.close());
+   const p=await nativeProducer('provider'),providerCustody=await reopen('provider',token=>p.module.reopenOriginalNativeProviderEconomicRecoveryV1(token,{runtime,system,nativeRuntime,bootstrap}),value=>value.close());
+   const o=await nativeProducer('owner'),owner=await reopen('owner',token=>o.module.reopenOriginalNativeOwnerEconomicRecoveryV1(token,{runtime,system}),value=>value.close());
+   const dispatchLease=p.module.takeOriginalNativeProviderRecoveredLeaseV1(providerCustody);
+   const e=await nativeProducer('executor'),nativeExecution=await reopen('executor',token=>e.module.reopenOriginalNativeExecutionEconomicRecoveryV1(token,{runtime,system,nativeRuntime,bootstrap,providerCustody,dispatchLease}),value=>value.close());
+   const a=await nativeProducer('account'),account=await reopen('account',token=>a.module.reopenOriginalNativeAccountEconomicRecoveryV1(token,{runtime,system,owner,nativeExecution,providerCustody}),value=>value.abort());
+   const t=await nativeProducer('session');composition=await reopen('session',token=>t.module.reopenOriginalNativeSessionEconomicRecoveryV1(token,{runtime,system,account,owner}),value=>value.session.close());
+   const c=await nativeProducer('actor'),actor=await reopen('actor',token=>c.module.reopenOriginalNativeActorEconomicRecoveryV1(token,{session:composition.session,account,owner}),value=>value.close());
+   await closeNativeEconomicRecoveryAuthorityV1(authority);
+   return Object.freeze({runtime,nativeRuntime,bootstrap,system,providerCustody,dispatchLease,owner,nativeExecution,account,session:composition.session,
+     bindManualNote:composition.bindManualNote,bindManualGraph:composition.bindManualGraph,actor});
+ }catch(error){const failures=[];
+   for(const section of [...NATIVE_ECONOMIC_SECTIONS].reverse()){
+     const value=opened[section];if(!value||section==='system')continue;
+     try{if(section==='account')await value.abort();else if(section==='session')await value.session.close();else if(section==='provider'){if(!value.report().closed)await value.close();}else await value.close();}
+     catch(cleanup){failures.push(cleanup);}
+   }
+   // Keep every durable OPENING claim intact while releasing this failed
+   // process's original key/store/lease. Closure never grants a second open.
+   if(!authorities.get(authority)?.closed){try{await closeNativeEconomicRecoveryAuthorityV1(authority);}catch(cleanup){failures.push(cleanup);}}
+   if(failures.length)throw new AggregateError([error,...failures],'NATIVE_ECONOMIC_REOPEN_AND_CLEANUP_FAILED',{cause:error});throw error;
+ }
+}
+
+/** First dependent cut: exact original bootstrap producer. A partial capture
+ * remains CAPTURING and can never pass complete economic reopen admission. */
+export async function retainNativeEconomicBootstrapV1(authority,bootstrap){
+ assert.equal(arguments.length,2);assert.equal(state(authority).identity.profile,NATIVE_ECONOMIC_PROFILE);
+ const s=authorities.get(authority),input={bootstrap};
+ try{return await retainNativeEconomicFixedSection(authority,input,'bootstrap');}
+ catch(error){s.fault=true;const failures=await abortNativeEconomicFixedCapture(s,input,['bootstrap']);
+   if(failures.length)throw new AggregateError([error,...failures],'NATIVE_BOOTSTRAP_CAPTURE_AND_CLEANUP_FAILED',{cause:error});throw error;}
 }

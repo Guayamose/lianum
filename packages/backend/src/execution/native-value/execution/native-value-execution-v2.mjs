@@ -18,7 +18,7 @@ import { types } from 'node:util';
 import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
 import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
-import { assertOwnedNativeValueSystem as nativeSystem } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
+import { assertOwnedNativeValueSystem as nativeSystem, nativeValueOriginalRecoverySourceV1 } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { assertOwnedNativeValueQuorum as nativeQuorum } from '../../../operations/operators/native-value/native-value-operators-v4.mjs';
 import { assertOwnedNativeValueProviderCustody as nativeCustody, ownedNativeValueProviderCustodyReview as nativeCustodyReview } from '../../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { createOwnedNativeValueProvider as nativeProvider } from '../../../chains/evm/dispatch/native-value-evm-dispatch-gate.mjs';
@@ -31,6 +31,9 @@ import { buildDependencyInputs, buildReadyInputs } from '../../account/preparati
 import { validateFlatExecutionPreparation } from '../../account/execution/flat-native-execution.mjs';
 import { nativeValueOriginalAdmissionConsumer } from '../preparation/native-value-dev-admission-consumer-v5.mjs';
 import { loadNativeValueLiveArtifacts } from '../../../../../proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs';
+import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
+  from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import { assertNativeValueBootstrapNativeRuntime } from '../../../operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import { buildNodeInputs, buildSettlementInputs } from '../../account/reconciliation/completion-inputs.mjs';
 import { flatCompletionWindow } from '../../account/reconciliation/flat-completion-window.mjs';
 import { nativeValueFailureDiagnostic } from '../reconciliation/native-value-failure-retention.mjs';
@@ -134,6 +137,7 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     else lifetimeHandle=await lifetimeRegistry.retainWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,binding,lifetimeState);}
   async function retainLifetime(next){if(wrapped){await lifetimeRegistry.updateWrappedPrivateLifetimePartV1(lifetimeHandle,next);lifetimeState=copy(next);}}
   const providerSets = new Map(), admissionAdapters = new Map(), abis = {}, proofs = createFlatProofRunner({ onProof });
+  let nativeCaptureIdentity = null, nativeCaptureRecord = null;
   let closed = false, poisoned = false, busy = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null,captureProviderBindings=null, activeDone = Promise.resolve(), releaseActive;
   const live = () => assert.ok(!closed && !poisoned && !capturing, 'FLAT_EXECUTION_UNAVAILABLE');
   async function healthy() { live(); assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
@@ -391,8 +395,8 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       admittedReceipts: entry.receipts.length, errorCode: entry.errorCode, errorCauseCodes: entry.errorCauseCodes ?? [],
       ...(entry.errorAuditBudget ? { errorAuditBudget: entry.errorAuditBudget } : {}),
       keeperRestart: false, nodeRestart: false, fullWalletAcceptance: false,claimsEnabled:wrapped }); },
-    async abort() { cancelled = true; for(const {adapter} of admissionAdapters.values())adapter.stop(); await proofs.abort(); await activeDone; return { aborted: true }; },
-    async close() { await keeper.abort(); await proofs.close();const failures=[];
+    async abort() { assert.ok(wrapped || !capturing, 'NATIVE_EXECUTION_CAPTURE_OWNS_LIFETIME'); cancelled = true; for(const {adapter} of admissionAdapters.values())adapter.stop(); await proofs.abort(); await activeDone; return { aborted: true }; },
+    async close() { if (closed) return { closed: true }; assert.ok(wrapped || !capturing, 'NATIVE_EXECUTION_CAPTURE_OWNS_LIFETIME'); await keeper.abort(); await proofs.close();const failures=[];
       for(const {adapter,provider} of admissionAdapters.values()){try{adapter.close();}catch(error){failures.push(error);}try{await provider.close();}catch(error){failures.push(error);}}
       closed = true; password = undefined; providerSets.clear();admissionAdapters.clear();
       if(failures.length)throw new AggregateError(failures,'NV2_EXECUTION_CLEANUP_FAILED');return { closed: true }; },
@@ -408,6 +412,51 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       const providers=captureProviders,providerBindings=captureProviderBindings;
       return {record:{schema:'WRAPPED_ORIGINAL_EXECUTION_RECOVERY_V1',poolIndex,directory,password,checkpointSHA256:privateRecoveryDigest(record),providerBindings,
         adapters:[...admissionAdapters].map(([key,value])=>({key,slot:value.slot}))},providers};
+    },
+    nativeFence(authority) {
+      const admitted = assertNativeEconomicRecoveryCaptureV1(authority);
+      assert.ok(!wrapped && !closed && !poisoned && !busy && !cancelled && !capturing, 'NATIVE_EXECUTION_ORIGINAL_IDLE_REQUIRED');
+      assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256, 'NATIVE_EXECUTION_ORIGINAL_SOURCE_CHANGED');
+      // Review while these exact providers are live; a later provider fence
+      // must not require reopening any old economic capability for capture.
+      const selected = [...providerSets].map(([reference, rows]) => ({ reference, providers: rows.map(row => ({ ...row })) }));
+      const all = selected.flatMap(row => row.providers);
+      assert.ok(all.every(row => row.slot === 0 && row.custody === all[0]?.custody), 'NATIVE_EXECUTION_FIXED_ORIGINAL_PROVIDER_REQUIRED');
+      assert.ok(admissionAdapters.size <= 1, 'NATIVE_EXECUTION_ONE_ORIGINAL_LEASE_REQUIRED');
+      const bindings = selected.map(({ reference, providers }) => ({ reference, providers: providers.map(({ custody, ...row }) =>
+        ({ ...row, custodyIdentitySHA256: privateRecoveryDigest(nativeCustodyReview(custody, { runtime, system, poolIndex })) })) }));
+      nativeCaptureIdentity = admitted; captureProviders = selected; captureProviderBindings = bindings; capturing = true;
+    },
+    async nativeCapture(token) {
+      const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'executor');
+      assert.ok(!wrapped && capturing && !closed && !captureStarted, 'NATIVE_EXECUTION_ORIGINAL_CAPTURE_REQUIRED');
+      assert.deepEqual(admitted, nativeCaptureIdentity); captureStarted = true;
+      assert.deepEqual(await vault.read(password), record, 'FLAT_EXECUTION_STORAGE_CHANGED');
+      nativeCaptureRecord = { schema: 'ORIGINAL_NATIVE_EXECUTION_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+        poolIndex, directory, password, checkpointSHA256: privateRecoveryDigest(record), providerBindings: copy(captureProviderBindings),
+        adapters: [...admissionAdapters].map(([key, value]) => ({ key, slot: value.slot })) };
+      return copy(nativeCaptureRecord);
+    },
+    async nativeStop(token) {
+      assert.deepEqual(nativeEconomicRecoverySectionIdentityV1(token, 'executor'), nativeCaptureIdentity);
+      assert.ok(!wrapped && capturing && nativeCaptureRecord && !busy && !closed, 'NATIVE_EXECUTION_CAPTURE_OWNS_LIFETIME');
+      // All admitted jobs have drained before fencing. These adapters own role
+      // workers; provider key/journal lifetime belongs to the provider section.
+      for (const { adapter } of admissionAdapters.values()) adapter.stop();
+      await proofs.close();
+      for (const { adapter } of admissionAdapters.values()) adapter.close();
+      assert.equal(privateRecoveryDigest(await vault.read(password)), nativeCaptureRecord.checkpointSHA256, 'FLAT_EXECUTION_STORAGE_CHANGED');
+      closed = true; password = undefined; providerSets.clear(); admissionAdapters.clear(); nativeCaptureRecord = null;
+      return { closed: true, originalResourcesStopped: true };
+    },
+    async nativeAbort(token) {
+      assert.deepEqual(nativeEconomicRecoverySectionIdentityV1(token, 'executor'), nativeCaptureIdentity);
+      assert.ok(!wrapped && capturing, 'NATIVE_EXECUTION_CAPTURE_OWNS_LIFETIME');
+      for (const { adapter } of admissionAdapters.values()) adapter.stop();
+      await proofs.abort(); await activeDone; await proofs.close();
+      for (const { adapter } of admissionAdapters.values()) adapter.close();
+      closed = true; password = undefined; providerSets.clear(); admissionAdapters.clear();
+      return { closed: true, originalResourcesStopped: true };
     },
     manualReview(ref) {
       live(); assert.ok(!cancelled, 'FLAT_EXECUTION_CANCELLED');
@@ -433,6 +482,11 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     for(const {reference,providers}of recovery.providers)providerSets.set(reference,Object.freeze(providers.map(row=>Object.freeze({...row}))));
     assert.deepEqual(recovery.adapters.map(({key,slot})=>({key,slot})),recovery.record.adapters,'WRAPPED_EXECUTION_ORIGINAL_ADAPTERS_CHANGED');
     try{for(const {key,slot,dispatchLease}of recovery.adapters){
+      if (recovery.native) {
+        const ref = key.slice(0, key.lastIndexOf(':')), retained = operation(ref);
+        if (retained.recoverySubmission !== null || retained.settlementSubmission !== null
+          || retained.receipts.some(value => value.slot === slot)) continue;
+      }
       const provider=await createOwnedNativeValueProvider({runtime,system,poolIndex,dispatchLease});
       let adapter;try{adapter=await createOwnedNativeValueGraphAdmission({runtime,system,poolIndex,provider});}catch(error){await provider.close();throw error;}
       admissionAdapters.set(key,{adapter,provider,slot});
@@ -459,3 +513,46 @@ export async function reopenWrappedWalletExecutionFromRecoveryV1(token){
 export function wrappedWalletExecutionPrivateInitializationV1(execution){const state=owners.get(execution);assert.ok(state?.wrapped);return state.initialization();}
 
 export function fenceWrappedWalletExecutionRecoveryV1(execution){const state=owners.get(execution);assert.ok(state?.wrapped);return state.fence();}
+
+/** Fixed native producers. Shape copies and wrapped/D26 tokens cannot mint an
+ * executor, and no caller callback/role factory is accepted on reopening. */
+export function fenceOriginalNativeExecutionEconomicRecoveryV1(execution, authority) {
+  assert.equal(arguments.length, 2); const state = owners.get(execution);
+  assert.ok(state?.wrapped === false, 'NATIVE_EXECUTION_ORIGINAL_REQUIRED'); return state.nativeFence(authority);
+}
+export function captureOriginalNativeExecutionEconomicRecoveryV1(execution, token) {
+  assert.equal(arguments.length, 2); const state = owners.get(execution);
+  assert.ok(state?.wrapped === false, 'NATIVE_EXECUTION_ORIGINAL_REQUIRED'); return state.nativeCapture(token);
+}
+export function stopCapturedNativeExecutionEconomicRecoveryV1(execution, token) {
+  assert.equal(arguments.length, 2); const state = owners.get(execution);
+  assert.ok(state?.wrapped === false, 'NATIVE_EXECUTION_ORIGINAL_REQUIRED'); return state.nativeStop(token);
+}
+export function abortNativeExecutionEconomicRecoveryV1(execution, token) {
+  assert.equal(arguments.length, 2); const state = owners.get(execution);
+  assert.ok(state?.wrapped === false, 'NATIVE_EXECUTION_ORIGINAL_REQUIRED'); return state.nativeAbort(token);
+}
+export async function reopenOriginalNativeExecutionEconomicRecoveryV1(token, contexts) {
+  assert.equal(arguments.length, 2); exactRecord(contexts, ['runtime', 'system', 'nativeRuntime', 'bootstrap', 'providerCustody', 'dispatchLease']);
+  const { runtime, system, nativeRuntime, bootstrap, providerCustody, dispatchLease } = contexts;
+  const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'executor');
+  assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256);
+  const retained = consumeNativeEconomicRecoverySectionV1(token, 'executor');
+  exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'directory', 'password', 'checkpointSHA256', 'providerBindings', 'adapters']);
+  assert.equal(retained.schema, 'ORIGINAL_NATIVE_EXECUTION_ECONOMIC_RECOVERY_V1');
+  assert.equal(retained.sourceSHA256, admitted.sourceSHA256);
+  nativeCustody(providerCustody, { runtime, system, poolIndex: retained.poolIndex });
+  const profileCommitment = providerCustody.offer().evidencePolicy;
+  assertNativeValueBootstrapNativeRuntime(bootstrap, { runtime, system, nativeRuntime, profileCommitment });
+  const providers = retained.providerBindings.map(({ reference, providers }) => ({ reference,
+    providers: providers.map(({ custodyIdentitySHA256, ...row }) => {
+      assert.equal(row.slot, 0, 'NATIVE_EXECUTION_FIXED_ORIGINAL_PROVIDER_REQUIRED');
+      assert.equal(privateRecoveryDigest(nativeCustodyReview(providerCustody, { runtime, system, poolIndex: retained.poolIndex })), custodyIdentitySHA256);
+      return { ...row, custody: providerCustody };
+    }) }));
+  assert.ok(retained.adapters.length <= 1);
+  const adapters = retained.adapters.map(row => { exactRecord(row, ['key', 'slot']); assert.equal(row.slot, 0);
+    assert.ok(dispatchLease !== null, 'NATIVE_EXECUTION_ORIGINAL_LEASE_REQUIRED'); return { ...row, dispatchLease }; });
+  return createExecution({ runtime, system, poolIndex: retained.poolIndex, quorum: system.quorum }, {}, false,
+    { native: true, record: retained, providers, adapters });
+}

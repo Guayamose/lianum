@@ -43,8 +43,15 @@ mockModule('../chain-adapters/owned-evm-v2-runtime.mjs', { async refreshNativeVa
   assert.ok(states.has(runtime));
 } });
 mockModule('../chain-adapters/local-evm-ownership.mjs', { async assertLocalEvm(runtime) { assert.ok(states.has(runtime)); } });
-mockModule('../ops/native-value-system-v2.mjs', { assertOwnedNativeValueSystem: checkedSystem });
+mockModule('../ops/native-value-system-v2.mjs', { assertOwnedNativeValueSystem: checkedSystem,
+  nativeValueOriginalRecoverySourceV1(runtime, system) { checkedSystem(runtime, system); return h('economic source'); } });
 mockModule('../ops/native-value-operators-v4.mjs', { assertOwnedNativeValueQuorum: checkedQuorum });
+mockModule('../ops/native-value-local-operator-bootstrap-v4.mjs', { assertNativeValueBootstrapNativeRuntime(bootstrap, value) {
+  assert.deepEqual(Object.keys(value).sort(), ['nativeRuntime', 'profileCommitment', 'runtime', 'system']);
+  checkedSystem(value.runtime, value.system); const f = states.get(value.runtime);
+  assert.equal(bootstrap, f.bootstrap); assert.equal(value.nativeRuntime, f.nativeRuntime);
+  assert.equal(value.profileCommitment, f.custody.offer().evidencePolicy);
+} });
 mockModule('../chain-adapters/native-value-dispatch-owner-v2.mjs', {
   assertOwnedNativeValueProviderCustody(custody, {runtime, system}) {
     checkedSystem(runtime, system); assert.equal(custody, states.get(runtime).custody);
@@ -119,7 +126,27 @@ mockModule('../../../proof-workers/scoped-proof-tools.mjs', {
     return {proof: '11'.repeat(32), publicInputs: [...encodeStatement(name, job.statement)]};
   }, async abort() {}, async close() {}}; },
 });
-const {createNativeValueExecution} = await import('../../../../src/execution/native-value/execution/native-value-execution-v2.mjs');
+// Recovery issuer is a private inert HOST port. Its token brands are not a
+// chain/new-process grant. Actual keeper state, codecs and terminal-first
+// reconciliation below remain production code, over the explicit mocks above.
+const actualRecovery = await import('../../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+const hostAuthorities = new WeakSet(), hostTokens = new WeakMap();
+const hostIdentity = Object.freeze({ profile: 'NATIVE_VALUE_ECONOMIC_RECOVERY_V1', directory: '/HOST_ONLY',
+  runId: '00000000-0000-4000-8000-000000000002', sourceSHA256: h('economic source'), deadlineMs: 1234567890000 });
+mockModule('../native-claims/wrapped-recovery-authority-v1.mjs', { ...actualRecovery,
+  assertNativeEconomicRecoveryCaptureV1(authority) { assert.ok(hostAuthorities.has(authority), 'HOST_ORIGINAL_ISSUER_REQUIRED'); return hostIdentity; },
+  nativeEconomicRecoverySectionIdentityV1(token, section) { assert.equal(hostTokens.get(token)?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED'); return hostIdentity; },
+  consumeNativeEconomicRecoverySectionV1(token, section) { const row = hostTokens.get(token); assert.equal(row?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED');
+    assert.equal(row.consumed, false, 'HOST_SECTION_CONSUMED'); assert.ok(row.record); row.consumed = true; return copy(row.record); },
+});
+const executionAPI = await import('../../../../src/execution/native-value/execution/native-value-execution-v2.mjs');
+const {createNativeValueExecution} = executionAPI;
+function recoveryIssuer() {
+  const authority = Object.freeze({}); hostAuthorities.add(authority);
+  const token = Object.freeze({}); const row = { section: 'executor', consumed: false, record: null }; hostTokens.set(token, row);
+  return { authority, token, retain(record) { assert.equal(row.record, null); row.record = copy(record); } };
+}
+
 async function preparedFixture(families) {
   const rules = families.map(family => ({ family, genesis: h('genesis-' + family), asset: h(family === '3' ? 'BLTV' : 'asset-' + family),
     finalityKind: family, minimumConfirmations: family === '2' ? '0' : '6', maximumEvidenceLifetime: '300', maximumClockSkew: '30' }));
@@ -160,7 +187,7 @@ async function preparedFixture(families) {
 async function fixture(t) {
   const base = await preparedFixture(['3']), directory = await mkdtemp(join(tmpdir(), 'terminal-first-host-'));
   const f = {...base, writes: [], sent: [], terminalReads: [], proofs: [], admissionCalls: 0,
-    adapterReconciles: 0, providerCreates: 0, custodyBinds: 0};
+    adapterReconciles: 0, providerCreates: 0, providerCloses: 0, custodyBinds: 0};
   fixtures.set(base.d, f);
   t.after(async () => { await f.keeper?.close(); fixtures.delete(base.d); await rm(directory, {recursive: true, force: true}); });
   const packets = base.prepared.rolePackets, commitments = [p(packets.reservation.funding.value.inputCommitment),
@@ -194,10 +221,10 @@ async function fixture(t) {
   f.custody = Object.freeze({report: () => ({quoteBound: true}), offer: () => ({
     evidencePolicy: packets.local[0].local.value.evidencePolicy, actionTemplate: copy(packets.local[0].action)}),
     async bindDispatch() {f.custodyBinds++; return f.lease;}});
-  f.provider = Object.freeze({async close() {}});
+  f.provider = Object.freeze({async close() {f.providerCloses++;}});
   f.adapter = Object.freeze({async admit() {f.admissionCalls++; throw new Error('TEST_NATIVE_ADMISSION_UNKNOWN');},
     async reconcile() {f.adapterReconciles++; throw new Error('TEST_NATIVE_ADAPTER_OFFLINE');}, stop() {}, close() {}});
-  states.set(f.runtime, f); f.ref = h('reference');
+  states.set(f.runtime, f); f.ref = h('reference'); f.bootstrap = Object.freeze({ HOST_ONLY: true }); f.nativeRuntime = Object.freeze({ HOST_ONLY: true });
   f.keeper = await createNativeValueExecution({runtime: f.runtime, system: f.system, poolIndex: 0, quorum: f.quorum});
   await f.keeper.prepare(f.ref, base.prepared, [{slot: 0, custody: f.custody, deliveryRiskSalt: h('risk-salt')}]);
   await assert.rejects(f.keeper.execute(f.ref), /TEST_NATIVE_ADMISSION_UNKNOWN/);
@@ -276,4 +303,45 @@ test('a previously confirmed recovery still requires a fresh original terminal o
   f.terminalUnavailable = false;
   await f.keeper.reconcile(f.ref);
   assert.equal(f.terminalReads.length, reads + 2); assert.equal(f.sent.length, sends);
+});
+
+test('native retained terminal acknowledgement reopens before adapters and never reissues proof, wire or exposure', async t => {
+  const f = await fixture(t); f.view.head.timestamp = '2000'; f.loseRecoveryReply = true;
+  await assert.rejects(f.keeper.recover(f.ref), /TEST_RECOVERY_ACK_LOST/);
+  const counts = { sends: f.sent.length, proofs: f.proofs.length, providers: f.providerCreates, binds: f.custodyBinds, admits: f.admissionCalls };
+  const retainedBefore = f.keeper.snapshot(f.ref), issuer = recoveryIssuer();
+  assert.throws(() => executionAPI.fenceOriginalNativeExecutionEconomicRecoveryV1({ ...f.keeper }, issuer.authority), /ORIGINAL_REQUIRED/);
+  executionAPI.fenceOriginalNativeExecutionEconomicRecoveryV1(f.keeper, issuer.authority);
+  await assert.rejects(f.keeper.reconcile(f.ref), /UNAVAILABLE/);
+  issuer.retain(await executionAPI.captureOriginalNativeExecutionEconomicRecoveryV1(f.keeper, issuer.token));
+  assert.deepEqual(await executionAPI.stopCapturedNativeExecutionEconomicRecoveryV1(f.keeper, issuer.token), { closed: true, originalResourcesStopped: true });
+  assert.equal(f.providerCloses, 0);
+  const contexts = { runtime: f.runtime, system: f.system, nativeRuntime: f.nativeRuntime, bootstrap: f.bootstrap,
+    providerCustody: f.custody, dispatchLease: f.lease };
+  f.keeper = await executionAPI.reopenOriginalNativeExecutionEconomicRecoveryV1(issuer.token, contexts);
+  assert.deepEqual(f.keeper.snapshot(f.ref), retainedBefore);
+  // No new adapter/provider is built for the already retained F wire.
+  assert.deepEqual(await f.keeper.reconcile(f.ref), { outcome: 'RECOVERED', original: true });
+  assert.equal(f.adapterReconciles, 0);
+  assert.deepEqual({ sends: f.sent.length, proofs: f.proofs.length, providers: f.providerCreates, binds: f.custodyBinds, admits: f.admissionCalls }, counts);
+  assert.deepEqual(f.keeper.snapshot(f.ref).nativeExposure, [{ slot: 0, family: '3', status: 'POSSIBLE' }]);
+  await assert.rejects(executionAPI.reopenOriginalNativeExecutionEconomicRecoveryV1(issuer.token, contexts), /SECTION_CONSUMED/);
+  await assert.rejects(executionAPI.reopenOriginalNativeExecutionEconomicRecoveryV1({ ...issuer.token }, contexts), /ORIGINAL_SECTION_REQUIRED/);
+});
+
+test('native checkpoint mutation rejects retention and cleanup retains original provider ownership', async t => {
+  const f = await fixture(t), issuer = recoveryIssuer();
+  const before = { sends: f.sent.length, proofs: f.proofs.length, providers: f.providerCreates, closes: f.providerCloses, admissions: f.admissionCalls };
+  executionAPI.fenceOriginalNativeExecutionEconomicRecoveryV1(f.keeper, issuer.authority);
+  // Each fixture uses the same synthetic domain; identify THIS original
+  // encrypted Vault by its causal fixture scratch path, never a previous test.
+  const originalStores = [...stores].filter(([path]) => path.startsWith(f.runtime.metadata.scratchDirectory + '/')
+    && path.endsWith('/operations.vault'));
+  assert.equal(originalStores.length, 1); const [, stored] = originalStores[0];
+  assert.equal(stored.record.data.domainCommitment, '0x' + f.d); stored.record.revision++;
+  await assert.rejects(executionAPI.captureOriginalNativeExecutionEconomicRecoveryV1(f.keeper, issuer.token), /STORAGE_CHANGED/);
+  assert.deepEqual(await executionAPI.abortNativeExecutionEconomicRecoveryV1(f.keeper, issuer.token), { closed: true, originalResourcesStopped: true });
+  // fixture already published original readiness and attempted admission.
+  // The rejected capture/cleanup must add no wire/proof/admission or provider close.
+  assert.deepEqual({ sends: f.sent.length, proofs: f.proofs.length, providers: f.providerCreates, closes: f.providerCloses, admissions: f.admissionCalls }, before);
 });

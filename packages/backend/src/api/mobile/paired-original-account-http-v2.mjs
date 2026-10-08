@@ -7,8 +7,9 @@ import { createServer as createHttpsServer } from 'node:https';
 import { createPrivateKey, X509Certificate } from 'node:crypto';
 import { isIP } from 'node:net';
 import { types } from 'node:util';
-import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
+import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2, nativePairedActorEconomicSourceV1, assertNativeActorSessionAccountMembershipV1 }
   from './paired-original-account-actor-v2.mjs';
+import { assertNativeEconomicRecoveryCaptureV1 } from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
@@ -311,7 +312,8 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
   } catch (error) { listeners.delete(actor); for (const socket of sockets) socket.destroy(); server.close(); throw error; }
   const address = server.address(), url = tls ? descriptor.origin : 'http://127.0.0.1:' + address.port;
   const owned = { actor, deposit: tls !== null && bridge !== null && reservationBridge === null && executionBridge === null,
-    handoff: false, transferred: false, closed: () => closed, running: () => running.size, retire: closeTransport };
+    handoff: false, transferred: false, tls: tls !== null, bridge, reservationBridge, executionBridge,
+    nativeRecovery: null, closed: () => closed, running: () => running.size, retire: closeTransport };
   const composed = bridge !== null && reservationBridge !== null && executionBridge !== null;
   let composedClose;
   const transport = Object.freeze({ url,
@@ -320,6 +322,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
      * session separately; this transport never cancels custody or native work. */
     close() {
       if (arguments.length !== 0) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+      if (owned.nativeRecovery) return owned.nativeRecovery.promise;
       if (composed) {
         // Fence this listener synchronously. Already-started requests retain
         // their original admission/work; neither HTTP close nor SQL may cancel
@@ -368,4 +371,54 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       }
       return closePromise;
   }
+}
+
+/** Fixed same-realm recovery ownership only. This closes the actual listener
+ * without revoking the actor before its own encrypted capture. No HTTP route,
+ * caller close option, handler or supplied descriptor can select this branch. */
+export function assertNativeDeviceTransportEconomicMembershipV1(transport, expected) {
+  if (arguments.length !== 2 || types.isProxy(transport)) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  exactInput(expected, ['actor', 'session', 'account']); const owned = ownedTransports.get(transport);
+  if (!owned || !owned.tls || !owned.bridge || !owned.reservationBridge || !owned.executionBridge
+    || owned.actor !== expected.actor || owned.closed() || owned.nativeRecovery || owned.handoff)
+    fail('MOBILE_ORIGINAL_HTTP_ECONOMIC_TRANSPORT_REQUIRED');
+  assertNativeActorSessionAccountMembershipV1(owned.actor, { session: expected.session, account: expected.account });
+}
+export function fenceOriginalNativeDeviceTransportRecoveryV1(transport, authority) {
+  if (arguments.length !== 2 || types.isProxy(transport)) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const identity = assertNativeEconomicRecoveryCaptureV1(authority), owned = ownedTransports.get(transport);
+  if (!owned) fail('MOBILE_ORIGINAL_HTTP_ECONOMIC_TRANSPORT_REQUIRED');
+  if (!owned.tls || !owned.bridge || !owned.reservationBridge || !owned.executionBridge
+    || owned.closed() || owned.nativeRecovery || owned.handoff) fail('MOBILE_ORIGINAL_HTTP_ECONOMIC_TRANSPORT_REQUIRED');
+  assertPairedOriginalAccountActorV2(owned.actor);
+  if (nativePairedActorEconomicSourceV1(owned.actor) !== identity.sourceSHA256 || owned.running() !== 0)
+    fail('MOBILE_ORIGINAL_HTTP_ECONOMIC_CAPTURE_BUSY');
+  owned.nativeRecovery = { authority, promise: null, stopped: false };
+  // retire fences closed synchronously. No request can enter between the
+  // transport fence and the actor/account/provider fences in the coordinator.
+  owned.nativeRecovery.promise = owned.retire(); owned.nativeRecovery.promise.catch(() => {});
+  return Object.freeze({ actor: owned.actor });
+}
+export async function stopCapturedNativeDeviceTransportRecoveryV1(transport, authority) {
+  if (arguments.length !== 2 || types.isProxy(transport)) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const owned = ownedTransports.get(transport), capture = owned?.nativeRecovery;
+  if (!capture || capture.authority !== authority || capture.stopped) fail('MOBILE_ORIGINAL_HTTP_ECONOMIC_CAPTURE_REQUIRED');
+  const report = await capture.promise;
+  if (!report.closed || !report.listenerClosed || report.ownedSocketsRemaining !== 0
+    || report.originalDiagnosticsInFlight !== 0 || owned.running() !== 0)
+    fail('MOBILE_ORIGINAL_HTTP_CLEANUP_UNCONFIRMED');
+  // These controllers retain no unclosed original job because running is zero.
+  // Their nonce maps are invalidated; economic one-use latches remain in Vault.
+  owned.bridge.close(); owned.reservationBridge.close(); owned.executionBridge.close();
+  capture.stopped = true; listeners.delete(owned.actor); depositContinuations.delete(owned.actor);
+  return Object.freeze({ ...report, actorRetainedForOriginalRecovery: true });
+}
+
+export async function abortNativeDeviceTransportRecoveryV1(transport, authority) {
+  if (arguments.length !== 2 || types.isProxy(transport)) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const owned = ownedTransports.get(transport), capture = owned?.nativeRecovery;
+  if (!capture || capture.authority !== authority) fail('MOBILE_ORIGINAL_HTTP_ECONOMIC_CAPTURE_REQUIRED');
+  if (capture.stopped) return { closed: true, originalResourcesStopped: true };
+  await stopCapturedNativeDeviceTransportRecoveryV1(transport, authority);
+  return { closed: true, originalResourcesStopped: true };
 }

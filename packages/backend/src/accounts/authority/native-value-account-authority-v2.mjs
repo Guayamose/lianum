@@ -10,6 +10,11 @@ import { randomBytes } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Vault } from '../../../../engine/src/crypto/vault.mjs';
+import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
+  from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import { nativeValueOriginalRecoverySourceV1 } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
+import { nativeValueOwnerEconomicIdentityV1 } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
+import { ownedNativeValueProviderCustodyReview as nativeRecoveryProviderReviewV1 } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
 import { createProofProcess } from '../../../../engine/src/execution/proofs/proof-process.mjs';
 import { reserveProjection } from '../../../../engine/src/execution/local/local-ledger.mjs';
@@ -291,6 +296,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   let password = recovery?recovery.record.password:'synthetic-' + randomBytes(32).toString('hex');
   let record = recovery?await vault.read(password):await vault.create({ version: 1, identitySHA256, accountIdentity, operations: [] }, password);
   if(recovery){
+    if (recovery.native) { assert.equal(recovery.record.identitySHA256, identitySHA256);
+      assert.deepEqual(recovery.record.accountIdentity, accountIdentity); }
     assert.equal(record.data.identitySHA256,identitySHA256,'WRAPPED_ACCOUNT_ORIGINAL_OWNER_CHANGED');
     assert.deepEqual(record.data.accountIdentity,accountIdentity,'WRAPPED_ACCOUNT_ORIGINAL_IDENTITY_CHANGED');
     assert.equal(sha(record),recovery.record.checkpointSHA256,'WRAPPED_ACCOUNT_ORIGINAL_CHECKPOINT_CHANGED');
@@ -304,6 +311,10 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   }
   async function retainLifetime(next){if(wrapped){await lifetimeRegistry.updateWrappedPrivateLifetimePartV1(lifetimeHandle,next);lifetimeState=copy(next);}}
 
+  let nativeCaptureIdentity = null, nativeCaptureRecord = null, nativeCaptureOwnerIdentity = null;
+  let nativeRecoveryManualMode = recovery?.native ? recovery.record.manualMode : false;
+  const recoveredInstallations = recovery?.native ? copy(recovery.record.providerBindings.installations) : [];
+  const reboundInstallations = new Set();
   let busy = false, unavailable = false, closed = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null, captureProviderBindings=null, activeLegacy = null, activeDeviceOwner = null;
   let idle = Promise.resolve(), releaseIdle, abortPromise, ownerViewTerminalObserver;
   const manualGraphApprovals = new Map(), nativeProviderSets = new Map(), nativeNoteApprovals = new Map();
@@ -1621,7 +1632,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     },
     prepare: value => exclusive(async () => {
       await healthy(); const { bound, entry } = request(value);
-      assert.ok(manualKeeper === null, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
+      assert.ok(manualKeeper === null && !nativeRecoveryManualMode, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
       assert.ok(entry.kind !== 'GRAPH' || entry.nativeBinding !== null, 'FLAT_ACCOUNT_NATIVE_PREPARATION_REQUIRED');
       if (entry.kind === 'GRAPH') await manualGraphTime(bound.ownerOperationRef);
       if (entry.nativeManualReview) await requireFixedManualEpoch(bound.ownerOperationRef);
@@ -1630,7 +1641,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     }),
     execute: value => exclusive(async () => {
       await healthy(); const { bound, entry } = request(value), ref = bound.ownerOperationRef;
-      assert.ok(manualKeeper === null, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
+      assert.ok(manualKeeper === null && !nativeRecoveryManualMode, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
       assert.ok(entry.request !== null, 'FLAT_ACCOUNT_NOT_PREPARED');
       if (entry.outcome !== null) return reconcileOriginal(bound);
       assert.equal(entry.stage, 'READY', 'FLAT_ACCOUNT_RECONCILE_ORIGINAL_ONLY');
@@ -1644,13 +1655,13 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     }),
     reconcile: value => exclusive(async () => {
       await healthy(); const { bound, entry } = request(value);
-      assert.ok(manualKeeper === null, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
+      assert.ok(manualKeeper === null && !nativeRecoveryManualMode, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
       assert.ok(['EXECUTING', 'RECOVERING', 'UNKNOWN', 'CONFIRMED'].includes(entry.stage), 'FLAT_ACCOUNT_NOT_STARTED');
       return reconcileOriginal(bound);
     }),
     recover: value => exclusive(async () => {
       await healthy(); const { bound } = request(value);
-      assert.ok(manualKeeper === null, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
+      assert.ok(manualKeeper === null && !nativeRecoveryManualMode, 'FLAT_ACCOUNT_MANUAL_KEEPER_REQUIRED');
       try { return await recoverOriginal(bound); }
       catch (error) { await unresolved(bound.ownerOperationRef, error); throw error; }
     }),
@@ -1852,7 +1863,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
             ownerConfirmed: submission.ownerConfirmed } : null })) };
     }),
     async abort() {
-      cancelled = true;
+      assert.ok(wrapped || !capturing, 'NATIVE_ACCOUNT_CAPTURE_OWNS_LIFETIME'); cancelled = true;
       abortPromise ??= (async () => {
         activeDeviceOwner?.stop();
         await Promise.allSettled([activeLegacy?.abort(), proofRunner.abort(), nativeExecution?.abort()]);
@@ -1862,13 +1873,14 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
       return abortPromise;
     },
     async close() {
+      assert.ok(wrapped || !capturing || closed, 'NATIVE_ACCOUNT_CAPTURE_OWNS_LIFETIME');
       assert.equal(busy, false, 'FLAT_ACCOUNT_BUSY');
       if (!closed) { await proofRunner.close(); closed = true; password = null; record = null;
         deviceExecutionInstallations.clear();deviceExecutionProviders.clear(); }
       return { closed: true, retainedOwnerCustody: true, retainedRuntimes: true };
     },
   });
-  const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable,
+  const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable || (!wrapped && capturing),
     deviceDeposit, deviceReservation,deviceExecution,
     deviceExit,deviceExitTerms(bridge,input){return exclusive(async()=>{await healthy();return exitTerms(bridge,input);});},
     deviceOutputBalance(bridge,input){return exclusive(async()=>{await healthy();return outputBalance(bridge,input);});},
@@ -1880,8 +1892,19 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
         'DEVICE_EXECUTION_ORIGINAL_INSTALLATION_ONCE');
       // Installation after a source reservation is forbidden even though the
       // executor's pure packet decoder itself does not read the source ledger.
-      for(const row of reservationRows())if(['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===installation.descriptor[name]))
-        assert.equal(row.submission,null,'DEVICE_EXECUTION_INSTALL_BEFORE_S_REQUIRED');
+      const matching = reservationRows().filter(row => ['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===installation.descriptor[name]));
+      if (matching.some(row => row.submission !== null)) {
+        const retained = recoveredInstallations.find(row => sha(row.descriptor) === sha(installation.descriptor));
+        assert.ok(retained && !reboundInstallations.has(sha(retained.descriptor)), 'DEVICE_EXECUTION_INSTALL_BEFORE_S_REQUIRED');
+        const actual = installation.providers.map(row => ({ slot: row.slot, deliveryRiskSalt: row.deliveryRiskSalt,
+          custodyIdentitySHA256: sha(nativeRecoveryProviderReviewV1(row.custody, { runtime, system, poolIndex })) }));
+        assert.deepEqual(actual, retained.providers, 'NATIVE_ACCOUNT_ORIGINAL_PROVIDERS_CHANGED');
+        for (const row of matching) if (row.submission !== null) {
+          assert.ok(row.nativeBinding && row.submission.dispatchLatched, 'DEVICE_EXECUTION_BINDING_BEFORE_S_REQUIRED');
+          assert.deepEqual(row.nativeBinding, flatAccountGraphBinding({ authorization: row.authorization, rolePackets: row.rolePackets }, identity));
+        }
+        reboundInstallations.add(sha(retained.descriptor));
+      }
       deviceExecutionInstallations.set(bridge,installation);deviceExecutionProviders.set(installation.reservationBridge,installation);
       return{installed:true,originalExecutor:true};});},
     deviceExecutionStatus(id,bridge){return exclusive(async()=>{await healthy();return deviceExecutionPublic(bridge,reservationRow(id));});},
@@ -1911,6 +1934,59 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
         return snapshot;
       }catch(error){unavailable=true;throw error;}
     },
+    nativeFence(authority) {
+      const admitted = assertNativeEconomicRecoveryCaptureV1(authority);
+      assert.ok(!wrapped && !busy && !closed && !cancelled && !unavailable && !capturing, 'NATIVE_ACCOUNT_ORIGINAL_IDLE_REQUIRED');
+      assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256, 'NATIVE_ACCOUNT_ORIGINAL_SOURCE_CHANGED');
+      nativeCaptureOwnerIdentity = nativeValueOwnerEconomicIdentityV1(owner, { runtime, system, poolIndex });
+      if (nativeExecution !== null) nativeExecutionAssert(nativeExecution, { runtime, system, poolIndex });
+      const selected = [...nativeProviderSets].map(([reference, rows]) => ({ reference, providers: rows.map(row => ({ ...row })) }));
+      const installationBindings = [...deviceExecutionInstallations.values()].map(value => ({
+        descriptor: copy(value.descriptor), providers: value.providers.map(row => ({ ...row })) }));
+      const all = [...selected.flatMap(value => value.providers), ...installationBindings.flatMap(value => value.providers)];
+      assert.ok(all.every(row => row.slot === 0 && row.custody === all[0]?.custody), 'NATIVE_ACCOUNT_FIXED_ORIGINAL_PROVIDER_REQUIRED');
+      const providerBinding = row => ({ slot: row.slot, deliveryRiskSalt: row.deliveryRiskSalt,
+        custodyIdentitySHA256: sha(nativeRecoveryProviderReviewV1(row.custody, { runtime, system, poolIndex })) });
+      captureProviders = selected;
+      captureProviderBindings = { operations: selected.map(({ reference, providers }) => ({ reference, providers: providers.map(providerBinding) })),
+        installations: installationBindings.map(({ descriptor, providers }) => ({ descriptor, providers: providers.map(providerBinding) })) };
+      nativeCaptureIdentity = admitted; capturing = true; // no asynchronous gap admits another request
+      return Object.freeze({ owner, nativeExecution, providers: Object.freeze(all.map(row => row.custody)) });
+    },
+    async nativeCapture(token) {
+      const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'account');
+      assert.ok(!wrapped && capturing && !closed && !captureStarted, 'NATIVE_ACCOUNT_ORIGINAL_CAPTURE_REQUIRED');
+      assert.deepEqual(admitted, nativeCaptureIdentity); captureStarted = true;
+      // Other sections may already be fenced: only this exact same encrypted
+      // journal is read. No original economic capability is reconstructed.
+      assert.deepEqual(await vault.read(password), record, 'FLAT_ACCOUNT_STORAGE_CHANGED');
+      nativeCaptureRecord = { schema: 'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+        poolIndex, directory, password, accountId, journalId, checkpointSHA256: sha(record),
+        identitySHA256, accountIdentity: copy(accountIdentity), ownerIdentity: copy(nativeCaptureOwnerIdentity),
+        hasNativeExecution: nativeExecution !== null, manualMode: manualKeeper !== null || nativeRecoveryManualMode,
+        providerBindings: copy(captureProviderBindings) };
+      return copy(nativeCaptureRecord);
+    },
+    async nativeStop(token) {
+      assert.deepEqual(nativeEconomicRecoverySectionIdentityV1(token, 'account'), nativeCaptureIdentity);
+      assert.ok(!wrapped && capturing && nativeCaptureRecord && !busy && !closed, 'NATIVE_ACCOUNT_CAPTURE_OWNS_LIFETIME');
+      await proofRunner.close();
+      assert.equal(sha(await vault.read(password)), nativeCaptureRecord.checkpointSHA256, 'FLAT_ACCOUNT_STORAGE_CHANGED');
+      // Executor, provider, owner and operator lifetimes belong to their own
+      // issuer sections. Closing this coordinator grants no permission to send.
+      closed = true; password = null; record = null; nativeCaptureRecord = null;
+      deviceExecutionInstallations.clear(); deviceExecutionProviders.clear();
+      manualGraphApprovals.clear(); nativeNoteApprovals.clear(); nativeProviderSets.clear();
+      return { closed: true, originalResourcesStopped: true };
+    },
+    async nativeAbort(token) {
+      assert.deepEqual(nativeEconomicRecoverySectionIdentityV1(token, 'account'), nativeCaptureIdentity);
+      assert.ok(!wrapped && capturing, 'NATIVE_ACCOUNT_CAPTURE_OWNS_LIFETIME');
+      activeDeviceOwner?.stop(); await proofRunner.abort(); await idle; await proofRunner.close();
+      closed = true; password = null; record = null;
+      deviceExecutionInstallations.clear(); deviceExecutionProviders.clear();
+      return { closed: true, originalResourcesStopped: true };
+    },
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,accountId,journalId,poolIndex};},
     fence(){assert.ok(wrapped&&!busy&&!closed&&!cancelled&&!unavailable&&!capturing,'WRAPPED_ACCOUNT_ORIGINAL_CAPTURE_REQUIRED');capturing=true;
       captureProviders=[...nativeProviderSets].map(([reference,rows])=>({reference,providers:rows.map(row=>({...row}))}));captureProviderBindings=captureProviders.map(({reference,providers})=>({reference,providers:providers.map(row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,custodyIdentitySHA256:sha(recoveryProviderReviewV1(row.custody,{runtime,system,poolIndex}))}))}));return captureProviders;},
@@ -1927,7 +2003,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     recoveredApprovals:()=>[...manualGraphApprovals.values()],
   };
   owned.set(capability,privateState);
-  if(recovery){
+  if(recovery && !recovery.native){
     const m=await import('../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs');
     const restored=recovery.providers.map(({reference,providers})=>({reference,providers:providers.map(row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,
       custodyIdentitySHA256:sha(m.ownedNativeValueProviderCustodyReview(row.custody,{runtime,system,poolIndex}))}))}));
@@ -1941,6 +2017,17 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
         checkRoute(){throw Error('WRAPPED_ACCOUNT_RECOVERED_CONSENT_REVIEW_REQUIRED');}});
       manualGraphApprovals.set(body.ownerOperationRef,approval);
     }
+  }
+  if (recovery?.native) {
+    const restored = recovery.providers.map(({ reference, providers }) => ({ reference, providers: providers.map(row => ({
+      slot: row.slot, deliveryRiskSalt: row.deliveryRiskSalt,
+      custodyIdentitySHA256: sha(nativeRecoveryProviderReviewV1(row.custody, { runtime, system, poolIndex })) })) }));
+    assert.deepEqual(restored, recovery.record.providerBindings.operations, 'NATIVE_ACCOUNT_ORIGINAL_PROVIDERS_CHANGED');
+    for (const { reference, providers } of recovery.providers)
+      nativeProviderSets.set(reference, Object.freeze(providers.map(row => Object.freeze({ ...row }))));
+    // Original pairings/manual keepers are separate private producers. Persisted
+    // IDs or signatures cannot recreate their WeakMap authority after restart.
+    manualGraphApprovals.clear(); nativeNoteApprovals.clear();
   }
   return capability;
 }
@@ -1984,4 +2071,58 @@ export async function captureOriginalDeviceD26ObservationV1(input) {
   assert.equal(data.row.consent.origin,descriptor.origin);assert.equal(data.row.consent.pairingId,descriptor.pairingId);
   assert.equal(data.row.consent.devicePublicKey,descriptor.devicePublicKey);
   return {...data,descriptor};
+}
+
+/** Original native section only. A wrapped or D26 observation token, copied
+ * account, caller callback or restored DTO cannot reconstruct this authority. */
+export function fenceOriginalNativeAccountEconomicRecoveryV1(account, authority) {
+  assert.equal(arguments.length, 2); const state = owned.get(account);
+  assert.ok(state?.wrapped === false, 'NATIVE_ACCOUNT_ORIGINAL_REQUIRED'); return state.nativeFence(authority);
+}
+export function captureOriginalNativeAccountEconomicRecoveryV1(account, token) {
+  assert.equal(arguments.length, 2); const state = owned.get(account);
+  assert.ok(state?.wrapped === false, 'NATIVE_ACCOUNT_ORIGINAL_REQUIRED'); return state.nativeCapture(token);
+}
+export function stopCapturedNativeAccountEconomicRecoveryV1(account, token) {
+  assert.equal(arguments.length, 2); const state = owned.get(account);
+  assert.ok(state?.wrapped === false, 'NATIVE_ACCOUNT_ORIGINAL_REQUIRED'); return state.nativeStop(token);
+}
+export function abortNativeAccountEconomicRecoveryV1(account, token) {
+  assert.equal(arguments.length, 2); const state = owned.get(account);
+  assert.ok(state?.wrapped === false, 'NATIVE_ACCOUNT_ORIGINAL_REQUIRED'); return state.nativeAbort(token);
+}
+export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, contexts) {
+  assert.equal(arguments.length, 2); exactRecord(contexts, ['runtime', 'system', 'owner', 'nativeExecution', 'providerCustody']);
+  const { runtime, system, owner, nativeExecution, providerCustody } = contexts;
+  const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'account');
+  assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256);
+  const retained = consumeNativeEconomicRecoverySectionV1(token, 'account');
+  exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'directory', 'password', 'accountId', 'journalId',
+    'checkpointSHA256', 'identitySHA256', 'accountIdentity', 'ownerIdentity', 'hasNativeExecution', 'manualMode', 'providerBindings']);
+  assert.equal(retained.schema, 'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1');
+  assert.equal(retained.sourceSHA256, admitted.sourceSHA256);
+  assert.equal(typeof retained.manualMode, 'boolean'); assert.equal(typeof retained.hasNativeExecution, 'boolean');
+  const actualOwner = nativeValueOwnerEconomicIdentityV1(owner, { runtime, system, poolIndex: retained.poolIndex });
+  for (const name of ['identitySHA256', 'processIdentitySHA256']) assert.equal(actualOwner[name], retained.ownerIdentity[name], 'NATIVE_ACCOUNT_ORIGINAL_OWNER_CHANGED');
+  assert.ok(actualOwner.generation > retained.ownerIdentity.generation, 'NATIVE_ACCOUNT_OWNER_SUCCESSOR_REQUIRED');
+  assert.equal(retained.hasNativeExecution, nativeExecution !== null, 'NATIVE_ACCOUNT_ORIGINAL_EXECUTOR_CHANGED');
+  if (nativeExecution !== null) nativeExecutionAssert(nativeExecution, { runtime, system, poolIndex: retained.poolIndex });
+  exactRecord(retained.providerBindings, ['operations', 'installations']);
+  const provider = row => { exactRecord(row, ['slot', 'deliveryRiskSalt', 'custodyIdentitySHA256']); assert.equal(row.slot, 0);
+    assert.equal(sha(nativeRecoveryProviderReviewV1(providerCustody, { runtime, system, poolIndex: retained.poolIndex })), row.custodyIdentitySHA256,
+      'NATIVE_ACCOUNT_ORIGINAL_PROVIDERS_CHANGED'); return { slot: row.slot, deliveryRiskSalt: row.deliveryRiskSalt, custody: providerCustody }; };
+  const providers = retained.providerBindings.operations.map(row => { exactRecord(row, ['reference', 'providers']);
+    return { reference: row.reference, providers: row.providers.map(provider) }; });
+  for (const installation of retained.providerBindings.installations) {
+    exactRecord(installation, ['descriptor', 'providers']); installation.providers.forEach(provider);
+  }
+  return createAccountAuthority({ runtime, system, poolIndex: retained.poolIndex, owner, nativeExecution,
+    accountId: retained.accountId, journalId: retained.journalId }, {}, false, { native: true, record: retained, providers });
+}
+
+/** Fixed private actor producer: source is read only from an authentic live
+ * account/system, never from a descriptor or request-selected account ID. */
+export function nativeValueOriginalRecoverySourceV1FromAccount(account) {
+  assert.equal(arguments.length, 1); assertOwnedNativeValueAccountAuthority(account);
+  const state = owned.get(account); return nativeValueOriginalRecoverySourceV1(state.runtime, state.system);
 }

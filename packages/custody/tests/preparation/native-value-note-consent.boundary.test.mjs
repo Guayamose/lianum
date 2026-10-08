@@ -39,7 +39,7 @@ test('same SDK, HTTP routes and proof identities; no consent transport circuit, 
   const shared = await source('../wallet-platform/modules/api/flat-manual-graph-session.mjs');
   const server = await source('../wallet-app/server.mjs');
   assert.match(native, /'deposit_balance' : 'withdraw_balance'/); assert.match(native, /if \(manual\).*requireFixedManualEpoch/);
-  assert.match(shared, /createGenericAccountKeeper\(\{ config: account.config, journal, authority: account.authority \}\)/);
+  assert.match(shared, /createDurableGenericAccountKeeperV1\(\{ config: account.config, journal, authority: account.authority \}\)/);
   assert.match(shared, /flatManualNativeNoteActionTarget/); assert.match(server, /WALLET_NATIVE_NOTE_EXACT_ACCESS_REQUIRED/);
   assert.doesNotMatch(server, /prepareNativeNotePreparation|ownerProof|native-value-owner-custody|rootKey|privateKey/);
   const nativeSession = shared.slice(shared.indexOf('export async function createNativeValueManualGraphAccountSession'), shared.indexOf('export async function createWrappedWalletManualGraphSessionV1'));

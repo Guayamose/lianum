@@ -23,6 +23,11 @@ mock.module('../ops/native-value-wallet-binding-v2.mjs', { exports: {
 } });
 mock.module('../../../mobile-core/native-value-owner-process-v2.mjs', { exports: {
   createNativeValueOwnerProcess() { throw Error('HOST_NATIVE_OWNER_PROCESS_FORBIDDEN'); },
+  nativeValueOwnerEconomicIdentityV1(owner, expected) {
+    const world = owners.get(owner); assert.ok(world && !world.closed, 'SYNTHETIC_OWNER_ORIGINAL');
+    for (const key of Object.keys(expected)) assert.equal(world[key], expected[key]);
+    return { identitySHA256: sha(world.identity), processIdentitySHA256: h('owner process'), generation: world.generation };
+  },
   assertOwnedNativeValueOwnerProcess(owner, expected) {
     const world = owners.get(owner); assert.ok(world && !world.closed, 'SYNTHETIC_OWNER_ORIGINAL');
     if (expected) for (const key of Object.keys(expected)) assert.equal(world[key], expected[key]);
@@ -63,6 +68,30 @@ mock.module('../../../../../omnichain-product/src/paeg/proof-process.mjs', { exp
     async close() {}, async abort() {},
   }); },
 } });
+// Only the recovery issuer/source ports are inert here. Their WeakMaps are
+// test-owned, not economic authority; original account/session/actor and AEAD
+// journals below are exercised. The real issuer/new-process test is separate.
+const actualSystem = await import('../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs');
+mock.module('../ops/native-value-system-v2.mjs', { exports: { ...actualSystem,
+  nativeValueOriginalRecoverySourceV1(runtime, system) {
+    assert.equal(systems.get(system), owned(runtime), 'SYNTHETIC_SYSTEM_ORIGINAL'); return h('economic source');
+  },
+} });
+const actualRecovery = await import('../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+const hostAuthorities = new WeakMap(), hostTokens = new WeakMap();
+const hostIdentity = Object.freeze({ profile: 'NATIVE_VALUE_ECONOMIC_RECOVERY_V1', directory: '/HOST_ONLY',
+  runId: '00000000-0000-4000-8000-000000000001', sourceSHA256: h('economic source'), deadlineMs: 1234567890000 });
+mock.module('../native-claims/wrapped-recovery-authority-v1.mjs', { exports: { ...actualRecovery,
+  assertNativeEconomicRecoveryCaptureV1(authority) { assert.equal(hostAuthorities.get(authority), hostIdentity, 'HOST_ORIGINAL_ISSUER_REQUIRED'); return hostIdentity; },
+  nativeEconomicRecoverySectionIdentityV1(token, section) { const row = hostTokens.get(token); assert.equal(row?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED'); return hostIdentity; },
+  consumeNativeEconomicRecoverySectionV1(token, section) { const row = hostTokens.get(token); assert.equal(row?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED');
+    assert.equal(row.consumed, false, 'HOST_SECTION_CONSUMED'); assert.ok(row.record); row.consumed = true; return structuredClone(row.record); },
+} });
+export function hostEconomicRecovery() {
+  const authority = Object.freeze(Object.create(null)); hostAuthorities.set(authority, hostIdentity);
+  return { authority, token(section) { const token = Object.freeze(Object.create(null)); hostTokens.set(token, { section, consumed: false, record: null }); return token; },
+    retain(token, record) { const row = hostTokens.get(token); assert.ok(row && row.record === null); row.record = structuredClone(record); } };
+}
 const { createNativeValueAccountAuthority } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const { createNativeValueManualGraphAccountSession } = await import('../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
 export const createActorModule = () => import('../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs');
@@ -86,7 +115,7 @@ export async function fixture(t, { execute = true, kind = 'TOP_UP', role = kind 
   domain.ledgerNamespace = domain.hubDomain;
   domain.asset = derivePrivateAssetIdentity(31337, '0x' + '0'.repeat(40), '0x' + '0'.repeat(64)).slice(2);
   const world = { poolIndex: 0, identity: { pool: '12'.repeat(20), domain, domainCommitment: '1'.padStart(64, '0') },
-    closed: false, generation: 1, scopeChanged: false, unavailable: false, sends: 0, observations: 0, proofs: 0 };
+    closed: false, generation: 1, scopeChanged: false, unavailable: false, sends: 0, observations: 0, proofs: 0, recoveryClosers: [] };
   world.runtime = { metadata: { scratchDirectory: scratch, chainId: '31337', evmGenesis: '0x' + h('genesis') },
     transactions: [], time: async () => 6000n,
     async send(_label, request) { world.sends++; const transactionHash = '0x' + h('lost original transaction');
@@ -107,8 +136,10 @@ export async function fixture(t, { execute = true, kind = 'TOP_UP', role = kind 
     world.summaryStarted?.(); if (world.summaryGate) await world.summaryGate; return summary();
   } }, ownerView: {
     nativeNotePreparations: async () => ({ version: 1, records: review ? [{ review: structuredClone(review), ownerState: 'PREPARED' }] : [] }),
-    async preparationTerms() { return { identitySHA256: sha(world.identity), observed: { timestamp: '6000' },
-      prepared: { epoch: '10', amount: '100', recipient: '56'.repeat(20), submissionBound: false } }; },
+    async preparationTerms({ kind: selectedKind }) { return { identitySHA256: sha(world.identity), kind: selectedKind,
+      observed: { blockHash: h('head'), timestamp: '6000' }, eligible: false,
+      note: { role: role ?? 'source', amount: '100', recipient: '56'.repeat(20), status: kind === 'TOP_UP' ? 'UNISSUED' : 'LOCKED', observedUnspent: kind === 'EXIT' },
+      prepared: { stage: 'PREPARED', epoch: '10', amount: '100', recipient: '56'.repeat(20), submissionBound: false } }; },
   }, ownerProof: { async deposit() { world.proofs++; const statement = { scope: domain.scope, policy: domain.policy, epoch: '10', amount: '100', output: h('synthetic commitment') };
     return { inputs: { SYNTHETIC_HOST_ONLY: true }, statement, publicInputs: encodeWalletPoolInputs('deposit_balance', statement) }; } },
   owner: { async bindSubmission() { return { dispatchAllowed: true }; } } };
@@ -135,6 +166,6 @@ export async function fixture(t, { execute = true, kind = 'TOP_UP', role = kind 
   if (execute) { joined.session.execute(body.requestId); await joined.session.idle();
     const status = await account.privateStatus(); assert.equal(status.operations[0].stage, 'UNKNOWN');
     assert.equal(status.operations[0].submission.dispatchLatched, true); assert.equal(world.sends, 1); }
-  t.after(async () => { await joined.session.close(); await account.close(); world.closed = true; await rm(scratch, { recursive: true, force: true }); });
+  t.after(async () => { for (const close of world.recoveryClosers.toReversed()) await close(); await joined.session.close(); await account.close(); world.closed = true; await rm(scratch, { recursive: true, force: true }); });
   return { world, account, approval, session: joined.session, body, review, device: device() };
 }

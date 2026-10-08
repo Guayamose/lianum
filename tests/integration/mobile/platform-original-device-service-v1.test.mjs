@@ -52,7 +52,7 @@ mock.module('../chain-adapters/native-value-dispatch-owner-v2.mjs', { exports: {
   openNativeValueDispatchLease() { throw Error('HOST_NATIVE_LEASE_FORBIDDEN'); },
   createOwnedNativeValueProviderCustody() { throw Error('HOST_NATIVE_PROVIDER_CREATION_FORBIDDEN'); },
 } });
-const { fixture, createActorModule } = await import('./paired-original-account-host-fixture.mjs');
+const { fixture, createActorModule, hostEconomicRecovery } = await import('./paired-original-account-host-fixture.mjs');
 const { createPairedOriginalAccountActorV2, assertPairedOriginalAccountActorV2,
   pairedOriginalAccountActorDescriptorV2 } = await createActorModule();
 const { createDeviceOwnerDepositBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
@@ -190,4 +190,32 @@ test('504 and service close preserve the same original admitted reconciliation u
   assert.equal(snapshot.admissions.at(-1).state, 'FAILED'); assert.equal(snapshot.requests[0].state, 'UNKNOWN');
   assert.equal(c.f.world.proofs, 1); assert.equal(c.f.world.sends, 1);
   assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
+});
+
+test('native recovery privately retires the composed TLS listener before actor capture and rejects copied/crossed transports', async t => {
+  const c = await setup(t); await c.release();
+  const api = await import('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
+  const transport = await api.createPairedDeviceAccountTlsServerV1(c.input);
+  t.after(() => transport.close());
+  const expected = { actor: c.actor, session: c.f.session, account: c.f.account }, issuer = hostEconomicRecovery();
+  api.assertNativeDeviceTransportEconomicMembershipV1(transport, expected);
+  for (const fake of [{ ...transport }, new Proxy(transport, {})])
+    assert.throws(() => api.assertNativeDeviceTransportEconomicMembershipV1(fake, expected));
+  assert.throws(() => api.assertNativeDeviceTransportEconomicMembershipV1(transport,
+    { ...expected, session: { ...c.f.session } }), /MEMBERSHIP_CHANGED/);
+  const before = await c.f.session.snapshot();
+  api.fenceOriginalNativeDeviceTransportRecoveryV1(transport, issuer.authority);
+  // Fencing synchronously prevents new admissions; the actor itself remains
+  // alive until its ORIGINAL owner records can be captured by its own section.
+  assertPairedOriginalAccountActorV2(c.actor);
+  await assert.rejects(c.direct('/v2/mobile/original-account/state'));
+  await assert.rejects(api.abortNativeDeviceTransportRecoveryV1(transport, { ...issuer.authority }), /CAPTURE_REQUIRED/);
+  const closed = await api.stopCapturedNativeDeviceTransportRecoveryV1(transport, issuer.authority);
+  assert.equal(closed.closed, true); assert.equal(closed.listenerClosed, true); assert.equal(closed.ownedSocketsRemaining, 0);
+  assert.equal(closed.originalDiagnosticsInFlight, 0); assert.equal(closed.actorRetainedForOriginalRecovery, true);
+  await transport.close(); assertPairedOriginalAccountActorV2(c.actor);
+  assert.deepEqual(await api.abortNativeDeviceTransportRecoveryV1(transport, issuer.authority), { closed: true, originalResourcesStopped: true });
+  assert.equal((await c.f.session.snapshot()).revision, before.revision);
+  assert.equal(c.f.world.sends, 0); assert.equal(c.f.world.proofs, 0);
+  c.actor.close(); assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
 });

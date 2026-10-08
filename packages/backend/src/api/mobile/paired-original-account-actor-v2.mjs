@@ -6,8 +6,10 @@ import { types } from 'node:util';
 import { randomBytes, createPublicKey, verify } from 'node:crypto';
 import { assertFlatAccountSession } from '../accounts/flat-account-session.mjs';
 import { flatManualNativeNoteActionTarget } from '../accounts/flat-manual-graph-session.mjs';
-import { nativeValueAccountManualNoteDetails, assertOwnedNativeValueAccountAuthority } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import { nativeValueAccountManualNoteDetails, assertOwnedNativeValueAccountAuthority, nativeValueOriginalRecoverySourceV1FromAccount } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { genericAccountIdentity, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
+  from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { normalizeMobileOrigin } from '../../../../mobile-protocol/src/authorization.mjs';
 import { ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_TTL_MS,
   normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2, normalizeOriginalAccountSignatureV2,
@@ -68,6 +70,9 @@ function key(value) {
  * pairingId/publicKey lookup or a challenge request received from HTTP. */
 export async function createPairedOriginalAccountActorV2(input) {
   need(arguments.length === 1, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  return createOriginalActor(input, null);
+}
+async function createOriginalActor(input, recovery) {
   exact(input, ['session', 'approval', 'owner', 'origin', 'devicePublicKey']);
   const { session, approval, owner, origin, devicePublicKey } = input;
   normalizeMobileOrigin(origin); const device = key(devicePublicKey);
@@ -89,9 +94,9 @@ export async function createPairedOriginalAccountActorV2(input) {
     'MOBILE_ORIGINAL_ACCOUNT_LIFETIME'); return details;
   };
   original();
-  const pairingId = hex(), accesses = new Map(), reviews = new Map(), stateAccesses = new Map(), stateReviews = new Map();
-  let busy = false, closed = false;
-  function live() { need(!closed, 'MOBILE_ORIGINAL_ACTOR_CLOSED'); original(); }
+  const pairingId = recovery?.pairingId ?? hex(), accesses = new Map(), reviews = new Map(), stateAccesses = new Map(), stateReviews = new Map();
+  let busy = false, closed = false, capturing = false, captureIdentity = null, captured = false;
+  function live() { need(!closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_CLOSED'); original(); }
   async function binding(action) {
     live();
     const journal = await session.snapshot(); live();
@@ -167,7 +172,7 @@ export async function createPairedOriginalAccountActorV2(input) {
     /** The generic nonce reveals no account or operation. The following signed
      * bootstrap permission is required before any private review is returned. */
     challenge(input) {
-      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE');
+      need(arguments.length === 1 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE');
       exact(input, ['action']); need(['read', 'reconcile'].includes(input.action), 'MOBILE_ORIGINAL_ACTION');
       capacity(accesses);
       const value = normalizeOriginalAccountAccessV2({ version: 2, profile: ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2,
@@ -176,7 +181,7 @@ export async function createPairedOriginalAccountActorV2(input) {
       accesses.set(value.challengeId, { value, consumed: false }); return structuredClone(value);
     },
     async openReview(input) {
-      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      need(arguments.length === 1 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try {
         const access = authenticate(input, normalizeOriginalAccountAccessV2, originalAccountAccessMessageV2, accesses, 'challenge');
         const selected = await binding(access.action); live(); validateOriginalAccountFreshV2(access);
@@ -188,7 +193,7 @@ export async function createPairedOriginalAccountActorV2(input) {
       } finally { busy = false; }
     },
     async submit(input) {
-      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      need(arguments.length === 1 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try {
         const review = authenticate(input, normalizeOriginalAccountReviewV2, originalAccountReviewMessageV2, reviews, 'review');
         const selected = await binding(review.action); live();
@@ -214,7 +219,7 @@ export async function createPairedOriginalAccountActorV2(input) {
     /** A distinct permission asks for the account/pool balance. Existing
      * diagnostic nonces/signatures never authorize private financial state. */
     privateStateChallenge() {
-      need(arguments.length === 0 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); live();
+      need(arguments.length === 0 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); live();
       capacity(stateAccesses);
       const value = normalizeOriginalAccountAccessV2({ version: 2, profile: ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2,
         origin, pairingId, challengeId: hex(), nonce: hex(), expiresAt: Date.now() + ORIGINAL_ACCOUNT_REVIEW_TTL_MS,
@@ -223,7 +228,7 @@ export async function createPairedOriginalAccountActorV2(input) {
       return structuredClone(privateStateAccessFrameV1(value));
     },
     async openPrivateStateReview(input) {
-      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      need(arguments.length === 1 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try {
         exact(input, ['challenge', 'signature']);
         const inner = normalizePrivateStateAccessV1(frameData(input.challenge)).challenge;
@@ -239,7 +244,7 @@ export async function createPairedOriginalAccountActorV2(input) {
       } finally { busy = false; }
     },
     async readPrivateState(input) {
-      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      need(arguments.length === 1 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try {
         exact(input, ['review', 'signature']);
         const inner = normalizePrivateStateReviewV1(frameData(input.review)).review;
@@ -282,7 +287,7 @@ export async function createPairedOriginalAccountActorV2(input) {
     /** A signed read releases only the original binding. The device bridge
      * issues its own distinct economic consent; no unused V2 review is created. */
     async deviceDepositSignedReadBindingV1(input) {
-      need(arguments.length === 1 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      need(arguments.length === 1 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try {
         const access = authenticate(input, normalizeOriginalAccountAccessV2, originalAccountAccessMessageV2, accesses, 'challenge');
         need(access.action === 'read', 'DEVICE_OWNER_BRIDGE_READ_AUTH_REQUIRED');
@@ -291,14 +296,63 @@ export async function createPairedOriginalAccountActorV2(input) {
       } finally { busy = false; }
     },
     async deviceDepositOriginalBinding() {
-      need(arguments.length === 0 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      need(arguments.length === 0 && !busy && !closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
       try { const value = await binding('read'); live(); return value; } finally { busy = false; }
     },
-    close() { need(arguments.length === 0, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); closed = true;
+    close() { need(arguments.length === 0, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+      need(!capturing || closed, 'MOBILE_ORIGINAL_CAPTURE_OWNS_LIFETIME'); closed = true;
       for (const row of [...accesses.values(), ...reviews.values(), ...stateAccesses.values(), ...stateReviews.values()]) row.consumed = true;
       return { closed: true, retainedOriginalSession: true, retainedOriginalCustody: true }; },
   });
-  actorBrands.set(actor, { account, live, descriptor: Object.freeze({ origin, pairingId, devicePublicKey }) });
+  if (recovery) {
+    exact(recovery.initial, ['body', 'review']);
+    need(sha(recovery.initial.body) === bodySHA256 && sha(recovery.initial.review) === reviewSHA256, 'MOBILE_ORIGINAL_RECOVERED_APPROVAL_CHANGED');
+    need(/^[0-9a-f]{64}$/.test(pairingId), 'MOBILE_ORIGINAL_RECOVERED_PAIRING_INVALID');
+    exact(recovery.challenges, ['accesses', 'reviews', 'stateAccesses', 'stateReviews']);
+    const sets = { accesses: [accesses, normalizeOriginalAccountAccessV2], reviews: [reviews, normalizeOriginalAccountReviewV2],
+      stateAccesses: [stateAccesses, normalizeOriginalAccountAccessV2], stateReviews: [stateReviews, normalizeOriginalAccountReviewV2] };
+    for (const [name, [map, normalize]] of Object.entries(sets)) {
+      need(Array.isArray(recovery.challenges[name]) && recovery.challenges[name].length <= 4, 'MOBILE_ORIGINAL_RECOVERED_CHALLENGES_INVALID');
+      for (const retained of recovery.challenges[name]) {
+        exact(retained, ['id', 'value', 'consumed']); const value = normalize(frameData(retained.value));
+        need(retained.id === value.challengeId && !map.has(retained.id) && typeof retained.consumed === 'boolean'
+          && value.origin === origin && value.pairingId === pairingId && value.devicePublicKey === devicePublicKey,
+          'MOBILE_ORIGINAL_RECOVERED_CHALLENGE_CHANGED');
+        // Preserve consumed status and exact expiry even when it is past. The
+        // ordinary authenticate/capacity guards reject replay; no renewal here.
+        map.set(retained.id, { value, consumed: retained.consumed });
+      }
+    }
+  }
+  const state = { account, session, owner, live, descriptor: Object.freeze({ origin, pairingId, devicePublicKey }),
+    fence(authority) {
+      const admitted = assertNativeEconomicRecoveryCaptureV1(authority); original();
+      const source = nativeValueOriginalRecoverySourceV1FromAccount(account);
+      need(source === admitted.sourceSHA256, 'MOBILE_ORIGINAL_CAPTURE_SOURCE_CHANGED');
+      need(!busy && !closed && !capturing, 'MOBILE_ORIGINAL_CAPTURE_IDLE_REQUIRED');
+      captureIdentity = admitted; capturing = true;
+    },
+    capture(token) {
+      const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'actor');
+      need(capturing && !closed && !captured && sha(admitted) === sha(captureIdentity), 'MOBILE_ORIGINAL_CAPTURE_REQUIRED'); captured = true;
+      const rows = map => [...map].map(([id, row]) => ({ id, value: structuredClone(row.value), consumed: row.consumed }));
+      return { schema: 'ORIGINAL_NATIVE_PAIRED_ACTOR_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+        origin, pairingId, devicePublicKey, initial: structuredClone({ body: initial.body, review: initial.review }),
+        challenges: { accesses: rows(accesses), reviews: rows(reviews), stateAccesses: rows(stateAccesses), stateReviews: rows(stateReviews) } };
+    },
+    stop(token) {
+      need(sha(nativeEconomicRecoverySectionIdentityV1(token, 'actor')) === sha(captureIdentity));
+      need(capturing && captured && !busy && !closed, 'MOBILE_ORIGINAL_CAPTURE_OWNS_LIFETIME');
+      closed = true; accesses.clear(); reviews.clear(); stateAccesses.clear(); stateReviews.clear();
+      return { closed: true, originalResourcesStopped: true };
+    },
+    abort(token) {
+      need(capturing && !busy && sha(nativeEconomicRecoverySectionIdentityV1(token, 'actor')) === sha(captureIdentity));
+      closed = true; accesses.clear(); reviews.clear(); stateAccesses.clear(); stateReviews.clear();
+      return { closed: true, originalResourcesStopped: true };
+    },
+  };
+  actorBrands.set(actor, state);
   return actor;
 }
 
@@ -322,4 +376,57 @@ export function assertPairedOriginalAccountActorAccountV2(actor, account) {
 }
 export function pairedOriginalAccountPublicFrameV2(value) {
   need(arguments.length === 1, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); return frameData(value);
+}
+
+/** One fixed producer from the genuine actor. Grants, pair identity and nonce
+ * state are encrypted by the issuer; HTTP never receives this checkpoint. */
+export function fenceOriginalNativeActorEconomicRecoveryV1(actor, authority) {
+  need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); return state.fence(authority);
+}
+export function captureOriginalNativeActorEconomicRecoveryV1(actor, token) {
+  need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); return state.capture(token);
+}
+export function stopCapturedNativeActorEconomicRecoveryV1(actor, token) {
+  need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); return state.stop(token);
+}
+export function abortNativeActorEconomicRecoveryV1(actor, token) {
+  need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); return state.abort(token);
+}
+export async function reopenOriginalNativeActorEconomicRecoveryV1(token, contexts) {
+  need(arguments.length === 2, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); exact(contexts, ['session', 'account', 'owner']);
+  const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'actor');
+  need(nativeValueOriginalRecoverySourceV1FromAccount(contexts.account) === admitted.sourceSHA256, 'MOBILE_ORIGINAL_CAPTURE_SOURCE_CHANGED');
+  const retained = consumeNativeEconomicRecoverySectionV1(token, 'actor');
+  exact(retained, ['schema', 'sourceSHA256', 'origin', 'pairingId', 'devicePublicKey', 'initial', 'challenges']);
+  need(retained.schema === 'ORIGINAL_NATIVE_PAIRED_ACTOR_ECONOMIC_RECOVERY_V1' && retained.sourceSHA256 === admitted.sourceSHA256);
+  assertOwnedNativeValueAccountAuthority(contexts.account, { owner: contexts.owner });
+  // The restored session must already hold the original note approval minted
+  // from owner Vault and account journal, not from this serialized checkpoint.
+  const approval = flatManualNativeNoteActionTarget(contexts.session, 'reconcile', { requestId: retained.initial.body.requestId });
+  need(approval, 'MOBILE_ORIGINAL_RECOVERED_SESSION_APPROVAL_REQUIRED');
+  return createOriginalActor({ session: contexts.session, approval, owner: contexts.owner,
+    origin: retained.origin, devicePublicKey: retained.devicePublicKey }, retained);
+}
+
+export function assertNativeActorEconomicMembershipV1(actor, expected) {
+  need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); exact(expected, ['session', 'account', 'owner']);
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); state.live();
+  need(state.session === expected.session && state.account === expected.account && state.owner === expected.owner,
+    'MOBILE_ORIGINAL_ACTOR_MEMBERSHIP_CHANGED');
+}
+
+export function nativePairedActorEconomicSourceV1(actor) {
+  need(arguments.length === 1 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); state.live();
+  return nativeValueOriginalRecoverySourceV1FromAccount(state.account);
+}
+
+export function assertNativeActorSessionAccountMembershipV1(actor, expected) {
+  need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); exact(expected, ['session', 'account']);
+  const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); state.live();
+  need(state.session === expected.session && state.account === expected.account, 'MOBILE_ORIGINAL_ACTOR_MEMBERSHIP_CHANGED');
 }

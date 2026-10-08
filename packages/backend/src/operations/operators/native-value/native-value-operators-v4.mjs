@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { privateFailureDiagnostic } from '../../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { types } from 'node:util';
-import { createPublicKey, generateKeyPairSync } from 'node:crypto';
+import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
 import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
 import { nativeHubSignatureToAbi } from '../../../../../engine/src/evidence/native-hub-messages.mjs';
@@ -23,6 +23,7 @@ import { nativeValueInventoryBinding, nativeValuePolicy, validateNativeValueOper
 import { nativeValueCheckpointMessage, assertNativeValueCheckpointCurrent, checkpointAuthorizationFrame,
   checkpointAuthorizationDigest, MAX_NATIVE_VALUE_CHECKPOINTS } from '../../recovery/native-value-checkpoint-v4.mjs';
 export const NATIVE_VALUE_OPERATOR_PROFILE = 'SAME_HOST_NATIVE_VALUE_FULL_INVENTORY_CHECKPOINT_BOUNDARIES_V4';
+import {assertNativeEconomicRecoveryCaptureV1,nativeEconomicRecoverySectionIdentityV1} from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 const bootstrapRequests = new WeakMap();
 const operators = new WeakMap(), quorums = new WeakMap(), sourceOwners = new WeakMap(), sourceHistories = new WeakMap(), rounds = new WeakSet();
 // Share only an outstanding public receiver-current check inside the genuine
@@ -87,14 +88,21 @@ function budget(started) {
 /** Creates only a dedicated synthetic same-host attester. Cannot import/export
  * a private key, bind a V1 system, or sign before authenticated private bootstrap. */
 export function createLocalNativeValueOperator(raw) {
+  assert.equal(arguments.length,1);return createNativeOperator(raw);
+}
+function createNativeOperator(raw,recovery=null) {
   exactRecord(raw, ['signerIndex']); const signerIndex = signerSlot(raw.signerIndex);
-  let key = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
+  if(recovery){exactRecord(recovery,['schema','signerIndex','publicKey','privateKeyPem','uses','record','binding']);assert.equal(recovery.schema,'ORIGINAL_NATIVE_OPERATOR_ECONOMIC_RECOVERY_V1');assert.equal(recovery.signerIndex,signerIndex);assert.ok(Number.isSafeInteger(recovery.uses)&&recovery.uses>=0);}
+  let key = recovery?{privateKey:createPrivateKey(recovery.privateKeyPem)}:generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
   const jwk = createPublicKey(key.privateKey).export({ format: 'jwk' });
+  assert.equal(jwk.crv,'secp256k1','NATIVE_VALUE_OPERATOR_ORIGINAL_KEY_CURVE');
   const publicKey = freeze({ x: Buffer.from(jwk.x, 'base64url').toString('hex'), y: Buffer.from(jwk.y, 'base64url').toString('hex') });
   const signerAddress = '0x' + publicKeccak256(Buffer.from(publicKey.x + publicKey.y, 'hex')).subarray(12).toString('hex');
-  let bound, record, busy = false, poisoned = false, closed = false, bindAttempted = false, uses = 0;
+  if(recovery)equal(publicKey,recovery.publicKey);
+  let bound, record, busy = false, poisoned = false, closed = false, bindAttempted = false, uses = recovery?.uses??0;
+  let capturing=false,captured=false,captureToken;
   let active, keyUsed = false, reservation = null;
-  function live() { assert.ok(!closed && !poisoned, 'NATIVE_VALUE_OPERATOR_CLOSED_OR_POISONED'); }
+  function live() { assert.ok(!closed && !poisoned && !capturing, 'NATIVE_VALUE_OPERATOR_CLOSED_OR_POISONED'); }
   function poison() { poisoned = true; key = undefined; }
   function owned() { live(); assert.ok(bound, 'NATIVE_VALUE_OPERATOR_NOT_BOUND'); assertOwnedNativeValueSystem(bound.runtime, bound.system);
     assert.equal(bound.system.profile, 'OWNED_GENERIC_NATIVE_VALUE_SYSTEM_V2', 'NATIVE_VALUE_OPERATOR_SYSTEM_PROFILE');
@@ -352,7 +360,9 @@ export function createLocalNativeValueOperator(raw) {
         const readers = await Promise.all([0, 1].map(poolIndex => createNativeValueSystemStateReader({ runtime, system, poolIndex })));
         bound = { runtime, system, binding, resources, readers, policies: binding.profiles.map(row => nativeValuePolicy(binding, row)) };
         record = copy(await resources.store.load()); exactRecord(record, ['revision', 'state']); inputUint(record.revision);
-        validateNativeValueOperatorInventory(record.state, binding); await unchanged(); owned();
+        validateNativeValueOperatorInventory(record.state, binding);
+        if(recovery){equal(binding,recovery.binding);equal(record,recovery.record);recovery=null;}
+        await unchanged(); owned();
         return freeze({ profile: NATIVE_VALUE_OPERATOR_PROFILE, signerIndex, publicKey });
       } catch (cause) { poison(); throw cause; }
     },
@@ -361,9 +371,17 @@ export function createLocalNativeValueOperator(raw) {
     checkpoint(request) { assert.equal(arguments.length, 1, 'NATIVE_VALUE_PUBLIC_REQUEST_ARITY'); return checkpoint(request); },
     audit(request) { const input = copy(request); exactRecord(input, ['poolIndex']); return serial(pool(input.poolIndex), () => auditAll()); },
     status() { return freeze({ closed, poisoned, bound: !!bound, busy, reserved: reservation !== null, signerIndex, keyUses: String(uses) }); },
-    close() { assert.ok(!busy && reservation === null, 'NATIVE_VALUE_OPERATOR_BUSY'); closed = true; key = undefined; },
+    close() { assert.ok(!capturing||closed,'NATIVE_VALUE_OPERATOR_CAPTURE_OWNS_LIFETIME');assert.ok(!busy && reservation === null, 'NATIVE_VALUE_OPERATOR_BUSY');closed = true;key = recovery = undefined; },
   });
-  operators.set(operator, { reserve(token) { owned(); assert.ok(!busy && reservation === null, 'NATIVE_VALUE_OPERATOR_BUSY'); reservation = token; },
+  operators.set(operator, {
+    recoveryIdle(){owned();assert.ok(bound&&record&&!busy&&reservation===null&&!keyUsed,'NATIVE_VALUE_OPERATOR_RECOVERY_NOT_IDLE');},
+    fence(authority){assertNativeEconomicRecoveryCaptureV1(authority);owned();assert.ok(bound&&record&&!busy&&reservation===null&&!keyUsed,'NATIVE_VALUE_OPERATOR_RECOVERY_NOT_IDLE');capturing=true;},
+    capture(token){nativeEconomicRecoverySectionIdentityV1(token,'bootstrap');assert.ok(capturing&&!closed&&!poisoned&&!busy&&reservation===null&&!captured,'NATIVE_VALUE_OPERATOR_RECOVERY_FENCE_REQUIRED');
+      captured=true;captureToken=token;return {schema:'ORIGINAL_NATIVE_OPERATOR_ECONOMIC_RECOVERY_V1',signerIndex,publicKey:copy(publicKey),
+        privateKeyPem:key.privateKey.export({format:'pem',type:'pkcs8'}).toString(),uses,record:copy(record),binding:copy(bound.binding)};},
+    stopCaptured(token){nativeEconomicRecoverySectionIdentityV1(token,'bootstrap');assert.equal(token,captureToken);assert.ok(capturing&&captured&&!busy&&reservation===null,'NATIVE_VALUE_OPERATOR_CAPTURE_REQUIRED');closed=true;key=recovery=undefined;return {closed:true};},
+    abortCaptured(token){nativeEconomicRecoverySectionIdentityV1(token,'bootstrap');if(captureToken)assert.equal(token,captureToken);assert.ok(capturing&&!busy&&reservation===null,'NATIVE_VALUE_OPERATOR_RECOVERY_FENCE_REQUIRED');closed=true;key=recovery=undefined;return {closed:true,recoveryIncomplete:true};},
+    reserve(token) { owned(); assert.ok(!busy && reservation === null, 'NATIVE_VALUE_OPERATOR_BUSY'); reservation = token; },
     release(token) { assert.ok(!busy && reservation === token, 'NATIVE_VALUE_OPERATOR_RESERVATION'); reservation = null; },
     bound: () => { owned(); return bound; }, health, certify, checkpoint,
     coverage: shared => serial(shared.view.poolIndex, () => coverage(), shared),
@@ -464,4 +482,17 @@ export function consumeNativeValueOperatorBootstrapRequest(token, { runtime, sys
   const entry = bootstrapRequests.get(token);
   assert.ok(entry && entry.runtime === runtime && entry.system === system, 'NATIVE_VALUE_PRIVATE_BOOTSTRAP_REQUEST');
   bootstrapRequests.delete(token); return freeze({ signerIndex: entry.signerIndex, publicKey: entry.publicKey });
+}
+
+
+/** Private operator retention paths. JSON/public-key data cannot create one. */
+function nativeRecoveryOperator(operator){const state=operators.get(operator);assert.ok(state,'NATIVE_VALUE_ORIGINAL_OPERATOR_REQUIRED');return state;}
+export function assertNativeOperatorEconomicRecoveryIdleV1(operator){assert.equal(arguments.length,1);nativeRecoveryOperator(operator).recoveryIdle();}
+export function fenceOriginalNativeOperatorEconomicRecoveryV1(operator,authority){assert.equal(arguments.length,2);nativeRecoveryOperator(operator).fence(authority);}
+export function captureOriginalNativeOperatorEconomicRecoveryV1(operator,token){assert.equal(arguments.length,2);return nativeRecoveryOperator(operator).capture(token);}
+export function stopCapturedNativeOperatorEconomicRecoveryV1(operator,token){assert.equal(arguments.length,2);return nativeRecoveryOperator(operator).stopCaptured(token);}
+export function abortNativeOperatorEconomicRecoveryV1(operator,token){assert.equal(arguments.length,2);return nativeRecoveryOperator(operator).abortCaptured(token);}
+export async function reopenOriginalNativeOperatorEconomicRecoveryV1(token){
+ assert.equal(arguments.length,1);const {consumeNativeBootstrapOperatorRecoveryV1}=await import('./native-value-local-operator-bootstrap-v4.mjs');
+ const retained=consumeNativeBootstrapOperatorRecoveryV1(token);return createNativeOperator({signerIndex:retained.signerIndex},retained);
 }

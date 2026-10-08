@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { createHash, ECDH } from 'node:crypto';
 import { open, readFile, lstat } from 'node:fs/promises';
 import { assertOwnedRecoveryScratchV1, writeInitialNativeCredentialsV1, claimStoppedNativeRecoveryV1, writePrivateRuntimeRecoveryV1, readPrivateRuntimeRecoveryV1, sealStoppedNativeFilesV1, assertStoppedNativeFilesV1, cloneRuntimeRecoveryV1 } from '../../shared/runtime/owned-runtime-recovery-files-v1.mjs';
-import { consumeExternalDefiReceiverRepairV1, consumeWrappedRuntimeRecoveryV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import { consumeExternalDefiReceiverRepairV1, consumeWrappedRuntimeRecoveryV1, assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { join } from 'node:path';
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
 import { linuxRuntimePins } from '../../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
@@ -101,7 +101,7 @@ export async function probeOwnedOsakaTransactionGasRejectionV1(runtime) {
   assert.ok(ownedRuntimes.has(runtime) && probe, 'OSAKA_GAS_PROBE_ORIGINAL_RUNTIME');
   return probe();
 }
-const originalEvmRecoveryCapturesV1 = new WeakMap(),originalEvmRetentionArmsV1=new WeakMap();
+const originalEvmRecoveryCapturesV1 = new WeakMap(),originalEvmRetentionArmsV1=new WeakMap(),originalEvmEconomicFencesV1=new WeakMap();
 export async function armOwnedEvmRecoveryRetentionV1(runtime){assert.equal(arguments.length,1);assert.ok(ownedRuntimes.has(runtime)||ownedNativeValueFamily.has(runtime),'EVM_RETENTION_ORIGINAL_RUNTIME');const arm=originalEvmRetentionArmsV1.get(runtime);assert.ok(arm,'EVM_RETENTION_FIXED_FAMILY');return arm();}
 export async function captureOwnedEvmRecoveryV1(runtime) {
   assert.equal(arguments.length,1);assert.ok(ownedRuntimes.has(runtime)||ownedNativeValueFamily.has(runtime),'EVM_RECOVERY_ORIGINAL_RUNTIME');
@@ -118,6 +118,17 @@ export async function reopenOwnedNativeD26ObservationReceiverV1(token) {
   const {consumeNativeD26ObservationSectionV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
   const record=consumeNativeD26ObservationSectionV1(token,'receiver');
   return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,true);
+}
+/** Distinct economic-native issuer; OBSERVE-only/wrapped tokens cannot enter. */
+export async function reopenOwnedNativeEconomicReceiverV1(token){
+  assert.equal(arguments.length,1);
+  const {consumeNativeEconomicRecoverySectionV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+  return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,consumeNativeEconomicRecoverySectionV1(token,'receiver'),true);
+}
+export async function reopenOwnedNativeEconomicGraphRuntimeV1(token){
+  assert.equal(arguments.length,1);
+  const {consumeNativeEconomicRecoverySectionV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+  return createFixedOwnedLocalEvm(LOCAL_NATIVE_VALUE_PROCESS_PROFILE,false,consumeNativeEconomicRecoverySectionV1(token,'graphNative'),true);
 }
 export async function reopenOwnedReceiverPreopenRepairV1(token) {
   assert.equal(arguments.length,1);
@@ -437,6 +448,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   const cwd = restored?restored.cwd:await scratchDirectory(recoveryPrefix);
   let initialPrivateRecord=null,stateFilePin=null;
   const recoverySuffix=String(restored?restored.processGeneration+1:0)+(preopenRepair?'-repair-'+preopenRepair.repairOrdinal:'');
+  let economicRecoveryFence=null;
   let recoveryCapturing=false,recoveryRetained=Boolean(restored),recoveryRpcActive=0,recoveryCaptureResult=null,recoveryCapture=null;
   const processGeneration=restored?restored.processGeneration+1:0;
   assert.ok(Number.isSafeInteger(processGeneration)&&processGeneration>=0&&processGeneration<16,'EVM_RECOVERY_GENERATION_BOUND');
@@ -478,6 +490,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   };
   const close = async (options = {}) => {
     assert.deepEqual(Object.keys(options).filter(key => key !== 'removeScratch'), [], 'LOCAL_EVM_CLOSE_OPTIONS');
+    assert.ok(!economicRecoveryFence||recoveryCapturing,'EVM_ECONOMIC_CAPTURE_OWNS_LIFETIME');
     if(recoveryRetained&&!recoveryCapturing&&recoveryCapture){try{await recoveryCapture();return processStatus();}catch(error){recoveryCapturing=true;try{await close(options);}catch(cleanup){throw new AggregateError([error,cleanup],'EVM_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}}
     const removeScratch = options.removeScratch ?? false;
     assert.equal(typeof removeScratch, 'boolean', 'LOCAL_EVM_CLEANUP_BOOLEAN');
@@ -658,6 +671,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       return tx;
     };
     const mutate = async operation => {
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION');
       assert.ok(!uncertainMutation, 'LOCAL_EVM_UNCERTAIN_MUTATION_REQUIRES_RECONCILIATION');
       busy = true; ingressMutationEpoch++; try { await health(); return await operation(); } finally { busy = false; }
@@ -779,6 +793,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
      * checks and retain exact raw/GID/provider signature before returning.
      */
     const dispatch = async scopedRequest => {
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.equal(observedClock,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
       // Fixed literal import avoids the runtime/gate/wire-codec module cycle.
       // It completes before preparation; no import/RPC is inserted after the
@@ -971,6 +986,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         throw new Error('NATIVE_VALUE_ORIGINAL_FINALITY_UNAVAILABLE',{cause});}
     }
     const dispatchNativeValueV1 = async scopedRequest => {
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.ok(ownedNativeValueFamily.has(runtime), 'OWNED_NATIVE_VALUE_ORIGINAL_RUNTIME_REQUIRED');
       // Fixed literal and original module identity. No public brand registration,
       // dynamically selected signer, general native send, or caller callbacks.
@@ -1208,6 +1224,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
      * The cause-specific latch prevents an unrelated successful signed receipt
      * from clearing deployment, time, missing-wire or unknown-key uncertainty. */
     const reconcileSignedTransaction = async hash => {
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.match(hash, /^0x[0-9a-f]{64}$/);
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION'); busy = true; ingressMutationEpoch++;
       try {
@@ -1335,6 +1352,19 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       const files=await sealStoppedNativeFilesV1(cwd);const captured={schema:'OWNED_FIXED_EVM_CAPTURE_V1',family:recoveryFamily,cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:genesisHash};
       await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);recoveryCaptureResult=captured;return cloneRuntimeRecoveryV1(captured);
     } catch(error){try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'EVM_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}
+    });
+    if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmEconomicFencesV1.set(runtime,{
+      preflight(){assertAlive();assert.deepEqual(runtimePin,recoveryAnvilPinV1,'EVM_ECONOMIC_ORIGINAL_RECOVERABLE_BINARY_REQUIRED');
+        assert.ok(!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'EVM_ECONOMIC_CAPTURE_REQUIRES_QUIESCENCE');},
+      fence(authority){const identity=assertNativeEconomicRecoveryCaptureV1(authority);assertAlive();
+        assert.deepEqual(runtimePin,recoveryAnvilPinV1,'EVM_ECONOMIC_ORIGINAL_RECOVERABLE_BINARY_REQUIRED');
+        assert.ok(economicRecoveryFence===null&&!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'EVM_ECONOMIC_CAPTURE_REQUIRES_QUIESCENCE');
+        economicRecoveryFence=cloneRuntimeRecoveryV1(identity);recoveryRetained=true;},
+      async capture(token){const identity=nativeEconomicRecoverySectionIdentityV1(token,recoveryFamily);
+        assert.deepEqual(identity,economicRecoveryFence,'EVM_ECONOMIC_ORIGINAL_CAPTURE_TOKEN');return recoveryCapture();},
+      async abort(token){const identity=nativeEconomicRecoverySectionIdentityV1(token,recoveryFamily);
+        assert.deepEqual(identity,economicRecoveryFence,'EVM_ECONOMIC_ORIGINAL_CAPTURE_TOKEN');recoveryCapturing=true;await close();
+        return {closed:true,recoveryIncomplete:true};}
     });
     if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmRetentionArmsV1.set(runtime,()=>{assertAlive();assert.equal(processGeneration,0,'EVM_RETENTION_ORIGINAL_GENERATION');assert.ok(initialPrivateRecord&&!busy&&transactions.length===0,'EVM_RETENTION_BEFORE_NATIVE_EFFECTS');recoveryRetained=true;return cloneRuntimeRecoveryV1({schema:'OWNED_NATIVE_INITIAL_RETENTION_V1',family:recoveryFamily,cwd,processGeneration,initialPrivateRecord});});
     if(observedClock)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive});
@@ -1532,4 +1562,20 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     try { error.cleanup = await close({ removeScratch: true }); } catch (cleanupError) { error.cleanupError = cleanupError; }
     throw error;
   }
+}
+
+/** Original runtime remains readable for the fixed capture checks. Every public
+ * mutation/dispatch/reconcile is fenced synchronously, and close belongs to its
+ * issuer until genuine dump+transaction/history retention and owned stop finish. */
+export function assertOwnedNativeEconomicRuntimeRecoverableV1(runtime){
+ assert.equal(arguments.length,1);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');privateState.preflight();
+}
+export function fenceOwnedNativeEconomicRuntimeV1(runtime,authority){
+ assert.equal(arguments.length,2);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');privateState.fence(authority);
+}
+export async function captureOwnedNativeEconomicRuntimeV1(runtime,token){
+ assert.equal(arguments.length,2);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');return privateState.capture(token);
+}
+export async function abortOwnedNativeEconomicRuntimeV1(runtime,token){
+ assert.equal(arguments.length,2);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');return privateState.abort(token);
 }

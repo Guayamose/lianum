@@ -3,7 +3,7 @@
  * proofs, mobile note custody, private balances or a phone/Cloud transport. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, device, createActorModule } from './paired-original-account-host-fixture.mjs';
+import { fixture, device, createActorModule, hostEconomicRecovery } from './paired-original-account-host-fixture.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, normalizeOriginalAccountReviewV2 }
   from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 const origin = 'https://private-actor.example';
@@ -235,4 +235,61 @@ test('prepared original EXIT approval can be privately read without withdrawal e
   assert.equal(result.privatePortfolio, null); assert.equal(result.economicObservation, null);
   await assert.rejects(review(actor, f, 'reconcile'), /RECONCILE_NOT_STARTED/);
   assert.equal(f.world.sends, 0); assert.equal(f.world.proofs, 0); actor.close();
+});
+
+// Test-issued recovery tokens are explicit inert ports; the same actual native
+// account Vault, durable coordinator process, session and actor are retained.
+// No economic or native/phone restart acceptance is claimed by this HOST case.
+test('native pairing recovery keeps original journal/nonces/expiry and reissues approval only from original owner records', async t => {
+  const accountAPI = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
+  const sessionAPI = await import('../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+  const actorAPI = await createActorModule();
+  const f = await fixture(t), actor = await pair(f), issuer = hostEconomicRecovery();
+  const selected = await review(actor, f); await actor.submit(signed(selected, f));
+  const unused = actor.challenge({ action: 'read' }), privateUnused = actor.privateStateChallenge();
+  const counts = { sends: f.world.sends, proofs: f.world.proofs };
+  const originalJournal = await f.session.snapshot();
+  actorAPI.assertNativeActorEconomicMembershipV1(actor, { session: f.session, account: f.account, owner: f.world.owner });
+  sessionAPI.assertNativeSessionEconomicMembershipV1(f.session, { runtime: f.world.runtime, system: f.world.system, account: f.account, owner: f.world.owner });
+  assert.throws(() => actorAPI.assertNativeActorEconomicMembershipV1({ ...actor }, { session: f.session, account: f.account, owner: f.world.owner }), /ORIGINAL_REQUIRED/);
+  assert.throws(() => actorAPI.assertNativeActorEconomicMembershipV1(actor, { session: { ...f.session }, account: f.account, owner: f.world.owner }), /MEMBERSHIP_CHANGED/);
+  // All original fences execute before the first asynchronous capture.
+  actorAPI.fenceOriginalNativeActorEconomicRecoveryV1(actor, issuer.authority);
+  sessionAPI.fenceOriginalNativeSessionEconomicRecoveryV1(f.session, issuer.authority);
+  accountAPI.fenceOriginalNativeAccountEconomicRecoveryV1(f.account, issuer.authority);
+  assert.throws(() => actor.challenge({ action: 'read' }), /UNAVAILABLE/);
+  await assert.rejects(f.account.privateStatus(), /UNAVAILABLE/);
+  const actorToken = issuer.token('actor'), sessionToken = issuer.token('session'), accountToken = issuer.token('account');
+  const actorRecord = actorAPI.captureOriginalNativeActorEconomicRecoveryV1(actor, actorToken); issuer.retain(actorToken, actorRecord);
+  assert.equal(actorRecord.challenges.accesses.find(row => row.id === unused.challengeId).value.expiresAt, unused.expiresAt);
+  assert.equal(actorRecord.challenges.stateAccesses.find(row => row.id === privateUnused.challenge.challengeId).value.expiresAt, privateUnused.challenge.expiresAt);
+  assert.deepEqual(actorAPI.stopCapturedNativeActorEconomicRecoveryV1(actor, actorToken), { closed: true, originalResourcesStopped: true });
+  issuer.retain(sessionToken, await sessionAPI.captureOriginalNativeSessionEconomicRecoveryV1(f.session, sessionToken));
+  assert.deepEqual(await sessionAPI.stopCapturedNativeSessionEconomicRecoveryV1(f.session, sessionToken), { closed: true, originalResourcesStopped: true });
+  issuer.retain(accountToken, await accountAPI.captureOriginalNativeAccountEconomicRecoveryV1(f.account, accountToken));
+  assert.deepEqual(await accountAPI.stopCapturedNativeAccountEconomicRecoveryV1(f.account, accountToken), { closed: true, originalResourcesStopped: true });
+  f.world.generation = 2; // Explicit synthetic owner generation, never OS custody.
+  const account = await accountAPI.reopenOriginalNativeAccountEconomicRecoveryV1(accountToken, { runtime: f.world.runtime,
+    system: f.world.system, owner: f.world.owner, nativeExecution: null, providerCustody: null });
+  f.world.recoveryClosers.push(() => account.close());
+  const joined = await sessionAPI.reopenOriginalNativeSessionEconomicRecoveryV1(sessionToken, { runtime: f.world.runtime,
+    system: f.world.system, account, owner: f.world.owner }); f.world.recoveryClosers.push(() => joined.session.close());
+  const reopened = await actorAPI.reopenOriginalNativeActorEconomicRecoveryV1(actorToken, { session: joined.session, account, owner: f.world.owner });
+  f.world.recoveryClosers.push(() => reopened.close());
+  assert.equal(actorAPI.pairedOriginalAccountActorDescriptorV2(reopened).pairingId, actorRecord.pairingId);
+  assert.equal((await joined.session.snapshot()).revision, originalJournal.revision);
+  await assert.rejects(reopened.submit(signed(selected, f)), /CHALLENGE_CHANGED/);
+  // The unused generic permission keeps its original deadline, not a new TTL.
+  t.mock.timers.enable({ apis: ['Date'], now: Math.max(unused.expiresAt, privateUnused.challenge.expiresAt) });
+  await assert.rejects(reopened.openReview({ challenge: unused, signature: f.device.sign(originalAccountAccessMessageV2(unused)) }), /EXPIRED/);
+  const { privateStateAccessMessageV1 } = await import('../../../packages/mobile-protocol/src/original-account-private-state-v1.mjs');
+  await assert.rejects(reopened.openPrivateStateReview({ challenge: privateUnused,
+    signature: f.device.sign(privateStateAccessMessageV1(privateUnused.challenge)) }), /EXPIRED/);
+  t.mock.timers.reset();
+  const fresh = await review(reopened, f); const diagnostic = await reopened.submit(signed(fresh, f));
+  assert.equal(diagnostic.binding.requestState, 'UNKNOWN');
+  assert.equal(diagnostic.binding.observedProcessGeneration, 2);
+  assert.deepEqual({ sends: f.world.sends, proofs: f.world.proofs }, counts);
+  await assert.rejects(actorAPI.reopenOriginalNativeActorEconomicRecoveryV1(actorToken, { session: joined.session, account, owner: f.world.owner }), /SECTION_CONSUMED/);
+  await assert.rejects(actorAPI.reopenOriginalNativeActorEconomicRecoveryV1({ ...actorToken }, { session: joined.session, account, owner: f.world.owner }), /ORIGINAL_SECTION_REQUIRED/);
 });

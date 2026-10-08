@@ -95,7 +95,7 @@ async function createProviderCustody(input,recovery=null){
    assert.equal(j.crv,'secp256k1');key={privateKey,publicKey,x:Buffer.from(j.x,'base64url'),y:Buffer.from(j.y,'base64url')};}
  else key=freshKey();
  let closed=false,poisoned=false,busy=false,lease=null,backend,backendPending,capturing=false,captureStarted=false,captured=false,captureToken,
-   activeResourceOperations=0,recoveredLeaseTaken=false,closePrivatePromise;
+   activeResourceOperations=0,recoveredLeaseTaken=false,closePrivatePromise,captureIdentity;
  const recovered=Boolean(recovery),recoveredLeasePresent=Boolean(recovery?.lease);
  let privateInput=copy(Object.fromEntries(['poolIndex','profileCommitment','recipientEndpoint','terms','acceptedLossClause','directory','password'].map(k=>[k,input[k]])));
  const nativeIdentity={family:evm?'3':'4',genesis:p.genesis,chainId:evm?p.chainId:null,solver:native.solverEndpoint,recipient:native.recipientEndpoint};
@@ -173,10 +173,10 @@ async function createProviderCustody(input,recovery=null){
  fence(authority){live();assert.equal(evm,true,'NATIVE_PROVIDER_EVM_RECOVERY_ONLY');
    const identity=assertNativeProviderRecoveryAuthorityV1(authority);
    assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system),'NATIVE_PROVIDER_CAPTURE_ORIGINAL_SOURCE');
-   assert.ok(!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_BUSY');capturing=true;},
+   assert.ok(!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_BUSY');captureIdentity=copy(identity);capturing=true;},
  async capture(token){const identity=nativeProviderRecoverySectionIdentityV1(token);assert.ok(capturing&&!closed&&!poisoned&&!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_FENCE_REQUIRED');
    assert.equal(captureStarted,false,'NATIVE_VALUE_PROVIDER_CAPTURE_ONCE');captureStarted=true;captureToken=token;
-   assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system),'NATIVE_PROVIDER_CAPTURE_ORIGINAL_SOURCE');
+   equal(identity,captureIdentity);
    await privateDirectory(nativeRuntime,directory);equal(await vault.read(password),record);await nativeLive();
    const state=lease?leases.get(lease):null;
    const value={schema:'ORIGINAL_NATIVE_PROVIDER_ECONOMIC_RECOVERY_V1',sourceSHA256:identity.sourceSHA256,input:copy(privateInput),record:copy(record),
@@ -188,7 +188,8 @@ async function createProviderCustody(input,recovery=null){
  async abortCaptured(token){nativeProviderRecoverySectionIdentityV1(token);if(captureToken)assert.equal(captureToken,token);
    assert.ok(capturing&&!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_FENCE_REQUIRED');await closePrivate();
    return {closed:true,recoveryIncomplete:true,originalPrivateStateRetained:true};},
- takeRecoveredLease(){live();assert.ok(recovered&&recoveredLeasePresent&&lease&&!recoveredLeaseTaken,'NATIVE_VALUE_ORIGINAL_RECOVERED_LEASE_REQUIRED');recoveredLeaseTaken=true;return lease;},
+ takeRecoveredLease(){live();assert.ok(recovered&&!recoveredLeaseTaken,'NATIVE_VALUE_ORIGINAL_RECOVERED_LEASE_REQUIRED');recoveredLeaseTaken=true;
+   if(!recoveredLeasePresent){assert.equal(lease,null,'NATIVE_VALUE_ORIGINAL_LEASE_ABSENT');return null;}assert.ok(lease,'NATIVE_VALUE_ORIGINAL_RECOVERED_LEASE_REQUIRED');return lease;},
  review(){live();assert.ok(record.data.quote,'NATIVE_VALUE_ORIGINAL_ACCEPTED_QUOTE_REQUIRED');
     return freeze(copy({routeProfile:'OWNED_LOCAL_NATIVE_VALUE_GRAPH_V2',family:evm?'3':'4',chainId:evm?p.chainId:null,genesis:p.genesis,
       sourcePool:pool.address,sourceAssetIdentity:domain.asset,nativeAsset:p.asset,solver:native.solverEndpoint,recipient:native.recipientEndpoint,
@@ -232,4 +233,10 @@ export async function reopenOriginalNativeProviderEconomicRecoveryV1(token,conte
 }
 export function takeOriginalNativeProviderRecoveredLeaseV1(custody){
  assert.equal(arguments.length,1);const s=custodies.get(custody);assert.ok(s,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');return s.takeRecoveredLease();
+}
+
+
+/** Synchronous fence used by the fixed joint native coordinator before await. */
+export function fenceOriginalNativeProviderEconomicRecoveryV1(custody,authority){
+ assert.equal(arguments.length,2);const owned=custodies.get(custody);assert.ok(owned,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');owned.fence(authority);
 }
