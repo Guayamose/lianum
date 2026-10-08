@@ -59,6 +59,7 @@ const { createDeviceOwnerDepositBridgeV1 } = await import('../../../packages/bac
 const { createDeviceOwnerReservationBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
 const { createDeviceOwnerExecutionBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs');
 const {createPairedDeviceDepositTlsServerV1,createPairedDeviceAccountTlsServerV1,handoffPairedDeviceDepositTlsServerV1}=await import('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
+const { installOriginalNativeDeviceLocalServiceV1 } = await import('../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs');
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
 assert.ok(filename.includes(marker), 'HOST_TEST_REQUIRES_GENERATED_WORKSPACE');
 const root = filename.slice(0, filename.lastIndexOf(marker));
@@ -66,7 +67,7 @@ const { startPlatformOriginalDeviceServiceV1 } = await import(pathToFileURL(join
   'apps/platform/src/original-device-service-v1.mjs')));
 const h = label => createHash('sha256').update('PLATFORM ORIGINAL SERVICE HOST ' + label).digest('hex');
 const deferred = () => { let resolve; return { promise: new Promise(done => { resolve = done; }), resolve }; };
-async function setup(t, execute = false) {
+async function setup(t, execute = false, operator = false) {
   const nativeExecution = Object.freeze({ abort() { throw Error('HOST_NATIVE_ABORT_FORBIDDEN'); } });
   executors.set(nativeExecution, {});
   const f = await fixture(t, { execute, nativeExecution });
@@ -83,7 +84,8 @@ async function setup(t, execute = false) {
     '-addext', 'basicConstraints=critical,CA:FALSE', '-keyout', keyPath, '-out', certificatePath],
   { timeout: 5000, maxBuffer: 4096, stdio: 'ignore', env: { PATH: '/usr/bin:/bin', LANG: 'C' } });
   const tls = { certificate: await readFile(certificatePath, 'utf8'), privateKey: await readFile(keyPath, 'utf8') };
-  const actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
+  let actor;
+  if (!operator) actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
     owner: f.world.owner, origin, devicePublicKey: f.device.publicKey });
   const original = { actor, account: f.account, owner: f.world.owner, runtime: f.world.runtime,
     system: f.world.system, poolIndex: 0 };
@@ -98,14 +100,21 @@ async function setup(t, execute = false) {
       recipientOffer: { x: f.device.publicKey.slice(2, 66), y: f.device.publicKey.slice(66),
         value: '25', secret: h('payout'), randomness: h('payout-randomness') } }] });
   const usInput = { ...original, nativePreparation, invoiceSignatures: ['1'.repeat(128)] };
-  const depositBridge = await createDeviceOwnerDepositBridgeV1(original);
-  const reservationBridge = await createDeviceOwnerReservationBridgeV1(usInput);
+  let depositBridge, reservationBridge, executionBridge;
   const custody = Object.freeze({}); providers.set(custody, {});
-  const executionBridge = await createDeviceOwnerExecutionBridgeV1({ account: f.account, reservationBridge, nativeExecution,
-    providers: [{ slot: 0, custody, deliveryRiskSalt: h('risk') }], runtime: f.world.runtime, system: f.world.system, poolIndex: 0 });
+  if (!operator) {
+    depositBridge = await createDeviceOwnerDepositBridgeV1(original);
+    reservationBridge = await createDeviceOwnerReservationBridgeV1(usInput);
+    executionBridge = await createDeviceOwnerExecutionBridgeV1({ account: f.account, reservationBridge, nativeExecution,
+      providers: [{ slot: 0, custody, deliveryRiskSalt: h('risk') }], runtime: f.world.runtime, system: f.world.system, poolIndex: 0 });
+  }
+  const operatorInput = { runtime: f.world.runtime, system: f.world.system, owner: f.world.owner, account: f.account, nativeExecution,
+    session: f.session, approval: f.approval, provider: { nativePreparation, invoiceSignatures: ['1'.repeat(128)], custody,
+      recipient: Object.freeze({ HOST_INERT_RECIPIENT: true }), deliveryRiskSalt: h('risk') },
+    configuration: { origin, devicePublicKey: f.device.publicKey, tls } };
   const input = { depositBridge, reservationBridge, executionBridge, tls };
   let service;
-  t.after(async () => { await service?.close(); depositBridge.close(); reservationBridge.close(); executionBridge.close(); actor.close(); });
+  t.after(async () => { await service?.close(); depositBridge?.close(); reservationBridge?.close(); executionBridge?.close(); actor?.close(); });
   function direct(path, body, selectedOrigin = origin) {
     return new Promise((resolve, reject) => {
       const encoded = body === undefined ? undefined : JSON.stringify(body);
@@ -121,8 +130,12 @@ async function setup(t, execute = false) {
       }); req.once('error', reject); req.end(encoded);
     });
   }
-  return { f, actor, input, usInput, direct, release,
-    async start() { service = await startPlatformOriginalDeviceServiceV1(input); return service; } };
+  return { f, actor, input, operatorInput, usInput, direct, release,
+    async start() { service = await startPlatformOriginalDeviceServiceV1(input); return service; },
+    async installOperator() {
+      const installed = await installOriginalNativeDeviceLocalServiceV1(operatorInput);
+      ({ actor, depositBridge, reservationBridge, executionBridge } = installed); service = installed.transport; return installed;
+    } };
 }
 async function review(c, action) {
   const challenged = await c.direct('/v2/mobile/original-account/challenges', { action });
@@ -238,4 +251,31 @@ test('planned economic capture handoff keeps exactly the original deposit bridge
   assert.deepEqual({sends:c.f.world.sends,proofs:c.f.world.proofs},baseline);
   const stopped=await composed.close();assert.equal(stopped.closed,true);assert.equal(stopped.ownedSocketsRemaining,0);
   assert.throws(()=>assertPairedOriginalAccountActorV2(c.actor),/ACTOR_CLOSED/);
+});
+
+// Same real account/session/actor/bridges/TLS as above. Only native executor,
+// provider and recipient are explicit inert HOST doubles; no bootstrap/proof runs.
+test('local product installation requires original owner/account/executor/provider references and leaves PREPARED scope untouched', async t => {
+  const a = await setup(t, false, true), b = await setup(t, false, true);
+  let traps = 0;
+  for (const replacement of [{ account: { ...a.f.account } }, { owner: b.f.world.owner }, { account: b.f.account },
+    { nativeExecution: { ...a.operatorInput.nativeExecution } },
+    { provider: { ...a.operatorInput.provider, custody: { ...a.operatorInput.provider.custody } } },
+    { onProof() { traps++; } }, { rootKey: 'HOST_FORBIDDEN' }])
+    await assert.rejects(installOriginalNativeDeviceLocalServiceV1({ ...a.operatorInput, ...replacement }));
+  const bad = { ...a.operatorInput }; Object.defineProperty(bad, 'account', { enumerable: true, get() { traps++; throw Error('TRAP'); } });
+  await assert.rejects(installOriginalNativeDeviceLocalServiceV1(bad)); assert.equal(traps, 0);
+  const before = await a.f.session.snapshot(); await a.release(); const installed = await a.installOperator();
+  assert.equal(installed.descriptor.origin, a.operatorInput.configuration.origin);
+  assert.equal(installed.descriptor.devicePublicKey, a.f.device.publicKey);
+  assert.deepEqual(await a.f.session.snapshot(), before);
+  assert.equal(a.f.world.proofs, 0); assert.equal(a.f.world.sends, 0);
+  const selected = await review(a, 'read');
+  const observed = await a.direct('/v2/mobile/original-account/diagnostics', { review: selected,
+    signature: a.f.device.sign(originalAccountReviewMessageV2(selected)) });
+  assert.equal(observed.status, 200); assert.equal(observed.body.binding.requestState, 'PREPARED');
+  assert.equal(a.f.world.proofs, 0); assert.equal(a.f.world.sends, 0);
+  const closed = await installed.transport.close(); assert.equal(closed.closed, true);
+  assert.equal(closed.originalWorkSettled, true); assert.equal(closed.ownedSocketsRemaining, 0);
+  assert.throws(() => assertPairedOriginalAccountActorV2(installed.actor), /ACTOR_CLOSED/);
 });

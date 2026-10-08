@@ -63,6 +63,7 @@ mock.module('../chain-adapters/owned-pool-asset.mjs', { exports: {
   assertOwnedPoolAsset(runtime, asset) { assert.equal(assets.get(asset), owned(runtime)); },
 } });
 mock.module('../../../../../omnichain-product/src/paeg/proof-process.mjs', { exports: {
+  createNativeEconomicNoteProofProcessV1() { throw Error('HOST_NATIVE_NOTE_PROOF_PROCESS_FORBIDDEN'); },
   createProofProcess() { return Object.freeze({
     async prove(_mode, _inputs, publicInputs) { return { proof: 'ab'.repeat(32), publicInputs: [...publicInputs], metrics: { acceptedResult: true, SYNTHETIC_HOST_ONLY: true } }; },
     async close() {}, async abort() {},
