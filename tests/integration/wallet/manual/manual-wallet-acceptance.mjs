@@ -444,7 +444,8 @@ export async function runManualWalletAcceptance() {
       assert.equal(result.targetOwnerExitedBeforeDelivery, true);
       result.targetOwnerSuspendedAfterExactHttpAdmission = true;
     });
-    result.accountRequests.push({ via: 'NODE_SDK_EXACT_ONLY_HTTP', requestId: graphId, action: 'execute', admissionSequence: settled.admissionSequence });
+    result.accountRequests.push({ via: browserMode ? 'BROWSER_DOM_EXACT_ONLY_HTTP' : 'NODE_SDK_EXACT_ONLY_HTTP',
+      requestId: graphId, action: 'execute', admissionSequence: settled.admissionSequence });
     assert.equal(row(settled.snapshot, graphId).state, 'CONFIRMED', 'EVM_VAULT_GRAPH_NOT_CONFIRMED');
     assert.equal(execution.snapshot(graphRef).outcome, 'FULFILLED');
     assert.equal(sourceOwner.report().childExited, true);
