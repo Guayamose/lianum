@@ -825,19 +825,24 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
      * authenticate exact prepared facts, then perform final current P/R/health
      * checks and retain exact raw/GID/provider signature before returning.
      */
-    const dispatch = async scopedRequest => {
+    // Only the two fixed wrappers below select the private clock branch.
+    // Both retain the same original preparation, final authority and wire path.
+    const dispatchOriginal = async (scopedRequest, observedClaim) => {
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
-      assert.equal(observedClock,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
+      assert.equal(observedClock,observedClaim,'LOCAL_EVM_FIXED_DISPATCH_CLOCK');
       // Fixed literal import avoids the runtime/gate/wire-codec module cycle.
       // It completes before preparation; no import/RPC is inserted after the
       // final beforeSign check and the actual sign-only RPC.
       const { assertOwnedEvmDispatchRequest } = await import('../dispatch/evm-dispatch-gate.mjs');
       const { isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest } = await import('../../../claims/protocol/evm-dispatch-gate.mjs');
       const { isOwnedClaimEvmDispatchRequest: isWrapped, assertOwnedClaimEvmDispatchRequest: openWrapped } = await import('../../../claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs');
+      if (observedClaim) assert.ok(isOwnedClaimEvmDispatchRequest(scopedRequest),
+        'LOCAL_OBSERVED_RECEIVER_ORIGINAL_CLAIM_REQUIRED');
       const claimV4 = isOwnedClaimEvmDispatchRequest(scopedRequest) || isWrapped(scopedRequest);
-      const scope = isWrapped(scopedRequest) ? openWrapped(scopedRequest, runtime) : isOwnedClaimEvmDispatchRequest(scopedRequest)
-        ? assertOwnedClaimEvmDispatchRequest(scopedRequest, runtime)
-        : assertOwnedEvmDispatchRequest(scopedRequest, runtime);
+      const scope = observedClaim ? assertOwnedClaimEvmDispatchRequest(scopedRequest, runtime)
+        : isWrapped(scopedRequest) ? openWrapped(scopedRequest, runtime) : isOwnedClaimEvmDispatchRequest(scopedRequest)
+          ? assertOwnedClaimEvmDispatchRequest(scopedRequest, runtime)
+          : assertOwnedEvmDispatchRequest(scopedRequest, runtime);
       assert.deepEqual(Object.keys(scope).sort(), ['beforeSign', ...(claimV4 ? ['consumeBeforeKey'] : []), 'onSigned', 'transaction'], 'EVM_SCOPED_FIELDS');
       if (claimV4) assert.equal(typeof scope.consumeBeforeKey, 'function', 'EVM_ORIGINAL_KEY_CONSUMER_V4');
       assert.equal(typeof scope.beforeSign, 'function', 'EVM_FINAL_GUARD');
@@ -914,7 +919,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
           entry.phase = 'broadcast-result-unknown';
           const hash = await rpc('eth_sendRawTransaction', [entry.signed.nativeWire]);
           assert.equal(hash, entry.transactionHash, 'EVM_BROADCAST_HASH_CHANGED');
-          entry.phase = 'broadcast'; await mineAt(lastTimestamp + 1n);
+          entry.phase = 'broadcast'; await mineAt(observedClaim ? await nextObservedSecond() : lastTimestamp + 1n);
           const mined = await receipt(entry.transactionHash);
           assert.ok(mined, 'LOCAL_EVM_RECEIPT_MISSING_AFTER_MINE');
           const header = await assertCanonical(mined);
@@ -943,6 +948,17 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
           throw error;
         } finally {if(localSigningLease)revokeNativeEconomicCustodySigningV2(localSigningLease);}
       });
+    };
+
+    const dispatch = async scopedRequest => {
+      assert.equal(observedClock,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
+      return dispatchOriginal(scopedRequest,false);
+    };
+    // The observed receiver exposes only the original native-claim capability.
+    // Generic/wrapped/copy requests fail before preparation or native key use.
+    const dispatchObservedClaimV1 = async scopedRequest => {
+      assert.equal(observedClock,true,'LOCAL_OBSERVED_RECEIVER_CLAIM_ONLY');
+      return dispatchOriginal(scopedRequest,true);
     };
 
     // A separate versioned branch. Never relax the original value-zero contract
@@ -1312,7 +1328,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       assertCanonical: logicalReadV4(assertCanonical), receipt: logicalReadV4(receipt),
       transaction: logicalReadV4(transaction), checkReceipt: logicalReadV4(checkReceipt),
       ...(nativeValueOnly ? { dispatchNativeValueV1, assertNativeValuePreparedCurrent: logicalReadV4(assertNativeValuePreparedCurrent),
-        observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedClock?{send,refreshObservedClock}:{ send, advanceTo, dispatch }),
+        observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
       signedTransaction: logicalReadV4(signedTransaction), reconcileSignedTransaction,
       call: (transaction, tag = 'latest') => rpc('eth_call', [request(transaction, false), blockTag(tag)]),
       balance: async (holder, tag = 'latest') => BigInt(await rpc('eth_getBalance', [address(holder), blockTag(tag)])),
