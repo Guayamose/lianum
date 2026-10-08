@@ -19,7 +19,7 @@ import { loadNativeValueDevDeploymentArtifactsV5 } from '../deployments/native-v
 import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../releases/native-value/native-value-dev-release-v5.mjs';
 import { createNativeValueOwnerProcess } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueExecution, assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
-import { createNativeValueAccountAuthority, assertOwnedNativeValueAccountAuthority } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import { createNativeEconomicNoteAccountAuthorityV1, assertOwnedNativeValueAccountAuthority } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { createNativeValueManualGraphAccountSession } from '../../api/accounts/flat-manual-graph-session.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
 import { createDeviceOwnerDepositBridgeV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
@@ -183,7 +183,7 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
       } });
     // Native executor MUST exist before the account and before any D26 admission.
     nativeExecution = await createNativeValueExecution({ runtime, system, poolIndex: 0, quorum: system.quorum });
-    account = await createNativeValueAccountAuthority({ runtime, system, poolIndex: 0, owner, nativeExecution,
+    account = await createNativeEconomicNoteAccountAuthorityV1({ runtime, system, poolIndex: 0, owner, nativeExecution,
       accountId: fresh(), journalId: fresh() });
     joined = await createNativeValueManualGraphAccountSession({ runtime, system, poolIndex: 0, account,
       journal: { path: join(directory, 'account-session.vault'), password: fresh() } });
