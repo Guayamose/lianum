@@ -9,8 +9,9 @@ import { randomUUID } from 'node:crypto';
 import { types } from 'node:util';
 import { ROOT, LOCAL, PROFILE, LIMITS, DISCLOSURE, relation, operation } from '../catalog.mjs';
 import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regular, replaceJSON,
-  resources, resourceFailure, executionSources, verifyAPI, verifyVendor, hash, jsonBytes,
+  resources, resourceFailure, verifyAPI, verifyVendor, hash, jsonBytes,
   errorCode, trustedParent } from '../tooling/tooling.mjs';
+import { executionSources, limitsForMode } from './proving-execution.mjs';
 
 function dataRecord(value, names) {
   assert.ok(value && !types.isProxy(value) && Object.getPrototypeOf(value) === Object.prototype, 'PW_API_RECORD');
@@ -70,6 +71,7 @@ export async function runBoundedProof(request) {
 }
 async function supervise(spec, mode, runId, privatePayload = null) {
   const began = performance.now(), attempt = attemptPath(runId), lockPath = join(LOCAL, 'active.lock');
+  const taskLimits = limitsForMode(mode);
   let report, child, interval, timeout, killTimer, completion, resolveClosed;
   let closed = false, stopping = false, failure = null, lockOwned = false, sent = false;
   let outputBytes = 0, exitHandler, termHandler, intHandler;
@@ -112,7 +114,7 @@ async function supervise(spec, mode, runId, privatePayload = null) {
     report = { format: 'FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1', profile: PROFILE,
       relation: spec.name, mode, runId, jobId: privatePayload?.jobId ?? null,
       phase: 'preflight', startedAt: new Date().toISOString(), disclosure: DISCLOSURE,
-      limits: LIMITS, hostLimitsChanged: false, samples: 0, failures: [], failure: null,
+      limits: taskLimits, hostLimitsChanged: false, samples: 0, failures: [], failure: null,
       peakWorkerRSS: 0, minimumAvailableRAM: Number.MAX_SAFE_INTEGER,
       minimumFreeDisk: Number.MAX_SAFE_INTEGER, outputBytes: 0, rawOutputRetained: false,
       environment: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' },
@@ -179,6 +181,8 @@ async function supervise(spec, mode, runId, privatePayload = null) {
       const result = JSON.parse(regular(join(attempt, 'result.json')));
       assert.equal(result.phase, 'completed', 'PW_WORKER_RESULT_FAILED');
       assert.equal(result.runId, runId, 'PW_WORKER_RESULT_RUN');
+      assert.deepEqual(result.limits, taskLimits, 'PW_WORKER_FIXED_LIMITS');
+      assert.equal(result.threads, taskLimits.threads, 'PW_WORKER_FIXED_THREADS');
       assert.deepEqual(executionSources(spec, mode), runtimePins.executionSources, 'PW_RUNTIME_CHANGED_AFTER_WORKER');
       assert.deepEqual(verifyAPI(), runtimePins.api, 'PW_API_CHANGED_AFTER_WORKER');
       assert.deepEqual(verifyVendor(), runtimePins.vendor, 'PW_VENDOR_CHANGED_AFTER_WORKER');

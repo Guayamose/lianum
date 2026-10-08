@@ -7,16 +7,18 @@ import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { ROOT, LOCAL, PROFILE, SETTINGS, LIMITS, MEMORY, DISCLOSURE, operation, pagesFor } from '../catalog.mjs';
 import { argumentsFor, authenticateSupervisor, attemptPath, regular, hash, jsonBytes,
-  writeNew, writeJSON, replaceJSON, ensureDirectory, executionSources, circuitIdentity, versionDirectory,
+  writeNew, writeJSON, replaceJSON, ensureDirectory, circuitIdentity, versionDirectory,
   verifyAPI, verifyVendor, resourceModuleURL, verifierCRSModuleURL, loadPinned, errorCode,
   assertABI, publicWords, verifierWords, validateJob, assertStats, assertKeyBytes, canonicalKeyHash,
   claimOperation, publishArtifact, artifactPointer, loadCompiled, loadStats, loadPrepared, compiledPins,
-  assertSuccessfulAttempt, assertID, assertHash } from '../tooling/tooling.mjs';
+  assertID, assertHash } from '../tooling/tooling.mjs';
+import { executionSources, limitsForMode, assertSuccessfulProvingAttempt } from './proving-execution.mjs';
 
 // Libraries cannot place witnesses or provider tuples in operational logs.
 for (const name of ['log', 'info', 'debug', 'warn', 'error', 'trace']) console[name] = () => {};
 globalThis.fetch = async () => { throw Error('PW_OFFLINE_REQUIRED'); };
 const { spec, mode, runId } = argumentsFor(true), op = operation(mode);
+const taskLimits = limitsForMode(mode);
 const supervisor = authenticateSupervisor(spec, mode, runId), attempt = attemptPath(runId);
 assert.ok(existsSync(attempt), 'PW_SUPERVISOR_ATTEMPT_REQUIRED');
 const initialPins = JSON.parse(regular(join(attempt, 'runtime-pins.json')));
@@ -25,7 +27,7 @@ const jobId = lock.jobId;
 const started = performance.now();
 const report = { format: 'FLAT_WALLET_WORKER_ATTEMPT_V1', profile: PROFILE, relation: spec.name,
   role: spec.role, mode, runId, jobId: jobId ?? null, phase: 'starting', startedAt: new Date().toISOString(),
-  disclosure: DISCLOSURE, target: 'evm', settings: SETTINGS, limits: LIMITS, threads: 1,
+  disclosure: DISCLOSURE, target: 'evm', settings: SETTINGS, limits: taskLimits, threads: taskLimits.threads,
   maximumPages: MEMORY.standard, hostLimitsChanged: false, supervisor, publicWords: spec.publicWords,
   // Public timing attribution only. No witness, caller option or performance
   // acceptance is transported here; the original seven metrics stay exact.
@@ -138,8 +140,18 @@ async function initialize(bb, maximumPages = MEMORY.standard, verifierOnly = fal
   report.maximumPages = maximumPages;
   await measured('initializationMilliseconds', async () => {
     phase('initializing-wasm');
-    api = await initialized('backend', () => bb.Barretenberg.new({ backend: bb.BackendType.Wasm, threads: 1, skipSrsInit: true,
+    api = await initialized('backend', () => bb.Barretenberg.new({ backend: bb.BackendType.Wasm, threads: taskLimits.threads, skipSrsInit: true,
+      // A fixed sink prevents child C++ logs becoming raw private output.
+      ...(op === 'prove' ? { logger: () => {} } : {}),
       memory: { initial: 37, maximum: maximumPages } }));
+    if (op === 'prove') {
+      const wasm = api.backend.wasm;
+      assert.equal(wasm.getNumThreads(), taskLimits.threads, 'PW_ACTUAL_FIXED_PROVING_THREADS');
+      assert.ok(typeof SharedArrayBuffer === 'function'
+        && wasm.getMemory().buffer instanceof SharedArrayBuffer, 'PW_PROVING_SHARED_WASM_MEMORY');
+      report.wasmThreadExecution = { threads: wasm.getNumThreads(), sharedMemory: true,
+        oneOwnedProcess: true, originalPreparedKeyRequired: true };
+    }
     if (verifierOnly) {
       phase('initializing-verifier-crs');
       const { initializePrivateVerifierCRS } = await import(verifierCRSModuleURL);
@@ -306,7 +318,7 @@ async function verify() {
   const pointer = JSON.parse(regular(join(context.directory, 'latest-proof.json')));
   assert.deepEqual(Object.keys(pointer).sort(), ['artifactId', 'manifestSHA256', 'runId'], 'PW_PROOF_POINTER');
   assertID(pointer.artifactId);
-  const prior = assertSuccessfulAttempt(spec, 'prove', pointer.runId), source = attemptPath(pointer.runId);
+  const prior = assertSuccessfulProvingAttempt(spec, pointer.runId), source = attemptPath(pointer.runId);
   assert.equal(prior.selfVerified, true, 'PW_PRIOR_SELF_VERIFIED');
   const manifestBytes = regular(join(source, 'proof-manifest.json')), manifest = JSON.parse(manifestBytes);
   assert.equal(hash(manifestBytes), assertHash(pointer.manifestSHA256), 'PW_PROOF_MANIFEST_HASH');
