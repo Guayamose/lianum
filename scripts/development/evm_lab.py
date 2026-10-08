@@ -145,8 +145,13 @@ def retain_summary(recovery=False, browser=False):
     worker_result = record(resources.get("workerResult"))
     supervisor = {"supervisorPID": last_lab_supervisor_pid, "workerPID": worker_pid}
     supervisor_identity, worker_identity = (record(resources.get(key)) for key in ("supervisorIdentity", "workerIdentity"))
+    original_proofs = result.get("proofs")
+    proof_rows_typed = isinstance(original_proofs, list) and all(isinstance(row, dict)
+        and isinstance(row.get("relation"), str) for row in original_proofs)
+    proofs = original_proofs if proof_rows_typed else []
     receipt_checks = {
         "originalEvidenceRead": not read_failures,
+        "proofRowsTyped": proof_rows_typed,
         "supervisorExitZero": type(last_lab_supervisor_code) is int and last_lab_supervisor_code == 0,
         "resultFormat": result.get("format") == result_format,
         "resourcesFormat": resources.get("format") == resources_format,
@@ -187,10 +192,10 @@ def retain_summary(recovery=False, browser=False):
         "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
         "startedAt": result.get("startedAt"), "finishedAt": result.get("finishedAt"),
         "milliseconds": result.get("milliseconds"), "failure": resources.get("failure"),
-        "workerFailure": result.get("errorCode"), "realProofCount": len(result.get("proofs", [])),
-        "proofRelations": [proof["relation"] for proof in result.get("proofs", [])],
+        "workerFailure": result.get("errorCode"), "realProofCount": len(proofs) if proof_rows_typed else None,
+        "proofRelations": [proof["relation"] for proof in proofs],
         "proofHashes": [{key: proof.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")}
-                        for proof in result.get("proofs", [])],
+                        for proof in proofs],
         "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
         "sourcePinsSHA256": source_sha256,

@@ -129,6 +129,16 @@ class EvmSummary(unittest.TestCase):
                 self.assertEqual(code, 1); self.assertFalse(summary["accepted"])
                 self.assertIn(missing, summary["evidenceReadFailures"])
 
+    def test_corrupt_proof_rows_preserve_failure_without_inventing_a_zero_count(self):
+        for value in (None, {}, "corrupt", [None], [{"relation": 17}]):
+            with self.subTest(value=value):
+                code, summary = self.exercise("browser", lambda r, s, p, m: r.update(proofs=value))
+                self.assertEqual(code, 1); self.assertFalse(summary["accepted"])
+                self.assertFalse(summary["receiptChecks"]["proofRowsTyped"])
+                self.assertIsNone(summary["realProofCount"])
+                self.assertEqual(summary["proofRelations"], [])
+                self.assertEqual(summary["proofHashes"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
