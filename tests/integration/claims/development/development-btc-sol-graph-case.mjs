@@ -142,7 +142,7 @@ export async function exitAndRedeemDevelopmentBtcSolPayout({ fixture, graphCase,
   const receipt = await runtime.send('btc-sol-original-solver-note-exit', {
     to: system.pools[0].address, data: encodeFlatTransaction('withdrawBalance', proof) });
   await runtime.checkReceipt(receipt); await runtime.assertCanonical(receipt); assert.equal(receipt.status, '0x1');
-  const request = { requestId: 'development_btc_sol_solver_redemption', claimDomain: claimDomainCommitment(fixture.claims.configs[0]),
+  const request = { claimDomain: claimDomainCommitment(fixture.claims.configs[0]),
     caller: runtime.accounts[1], amount: '20000', maxFee: fixture.claims.configs[0].refundMaxFee };
   const ticket = await controller.requestRedemption(request);
   let outcome = await controller.payout({ ticketId: ticket.ticketId });
