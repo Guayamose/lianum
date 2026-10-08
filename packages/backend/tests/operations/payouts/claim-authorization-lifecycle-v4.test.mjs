@@ -98,6 +98,7 @@ mock.module(url('../paeg/flat-system-state.mjs'), { exports: {
   },
 } });
 mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: {
+  openClaimRecordStore() { throw new Error('TEST_UNEXPECTED_STORE_REOPEN'); },
   async createClaimRecordStore({ path }, data) {
     assert.ok(!records.has(path)); const row = { data: copy(data), revision: 0, closed: false, corrupt: false, updates: [], writes: 0 };
     records.set(path, row);
