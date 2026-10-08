@@ -45,7 +45,8 @@ def main():
             # Keep runtime-relative paths accepted for archived commands.
             executable_tests.append(str(RUNTIME / relative) if relative else test)
     executable_tests = list(dict.fromkeys(executable_tests))
-    result = subprocess.run([str(NODE), "--experimental-test-module-mocks", "--test",
+    result = subprocess.run([str(NODE), "--max-old-space-size=384", "--test-concurrency=1",
+                             "--experimental-test-module-mocks", "--test",
                              "--test-reporter=tap", *executable_tests], cwd=FLAT, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     REPORTS.mkdir(parents=True, exist_ok=True)
