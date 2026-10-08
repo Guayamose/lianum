@@ -52,6 +52,22 @@ y todos los procesos propios cerraron. El primer bootstrap frío de `4740954`
 falló porque faltaba el directorio de descarga; se corrigió y conserva su rechazo.
 La selección anterior de `141b0ef` pasó 404 tests, con su informe separado.
 No se copió restauración privada ni se ejecutaron cadenas nativas en estas CI.
+Después se comprobó la suite de autorización V4, el collector privado y los
+contadores de actividad: 44/44 resultados correctos, incluidos los 31 casos
+anteriores. Los dos rechazos previos del harness quedan conservados. Las métricas
+no modifican guards, rounds ni el presupuesto de 30 s; sólo miden intervalos
+parciales y CPU del proceso. Todavía no explican el fallo Solana cargado.
+
+La composición local V5 pasa 36 pruebas de metadatos y el preparador, 15 pruebas
+de límites e identidad. Su primera compilación real aceptó las siete fuentes,
+sus AST y los cuatro artefactos originales del ledger, en 39,666 s de watchdog
+y con 439.681.024 bytes de RSS máximo muestreado del hijo. Las fuentes quedaron
+intactas, los procesos cerraron y se liberó el lock. El raw nuevo se guarda en
+`.local/development-native-value-ledger/v5`; el histórico `f21b2710…` sigue
+ausente. La publicación V5 permanece cerrada y no hay aceptación financiera
+móvil en esta compilación. `./dev check` comprueba ahora 1.811 fuentes físicas
+y los 2.649 originales; pasan Solidity, Noir/Barretenberg y HTTP.
+
 La API pasa 22 casos host
 y 19 resultados con PostgreSQL real: carreras, JSONB, reinicio, respuesta
 perdida, crash, caída de SQL y migraciones concurrentes o interrumpidas.
