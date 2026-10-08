@@ -2,7 +2,7 @@
  * proof or runtime authority is manufactured here. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, hash } from '../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs';
+import { fixture, hash, installRetainedNoncePayout, trackLifecycle, addLifecycleMethod } from '../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs';
 
 test('new claim backing authorization starts from the refreshed observed receiver head', async () => {
   const f = await fixture();
@@ -41,4 +41,78 @@ test('an uncertain original EVM effect blocks clock advancement and a second dis
     await f.controller.status();
     assert.equal(refreshed, 1);
   } finally { await f.close(); }
+});
+
+
+// Run the ACTUAL controller over its existing inert native/proof ports. The
+// observed receiver second is separate from the monotonic authorization clock;
+// only its original refresh port materializes the new head after slow work.
+async function postProofDischarge(t, expireSignedAuthority) {
+  const f = await fixture(), n = await installRetainedNoncePayout(f, { status: 'RESERVED_BEFORE_BROADCAST' });
+  const clock = { now: 0 }, mocked = t.mock.method(performance, 'now', () => clock.now);
+  let observedSecond = 10n, refreshed = 0, proofCalls = 0, health, capturedHealth, refreshesAtAuthorization;
+  const prepared = structuredClone(n.prepared), nativeWire = n.original.nativeWire;
+  try {
+    n.control.observationStatus = 'observed';
+    f.options.runtime.testRefreshReceiverClock = async () => {
+      refreshed++;
+      if (BigInt(f.state.head.timestamp) < observedSecond) f.state.head = {
+        number: String(BigInt(f.state.head.number) + 1n), hash: hash('post-proof observed head/' + observedSecond), timestamp: String(observedSecond),
+      };
+    };
+    const track = trackLifecycle(f);
+    f.options.quorum.facts = async () => ({ head: structuredClone(f.state.head), certificates: [] });
+    f.options.proofClients.claim_discharge.prove = async ({ expectedPublicInputs }) => {
+      proofCalls++; await Promise.resolve(); clock.now = 37_000; observedSecond = 47n;
+      return { proof: 'abcd', publicInputs: expectedPublicInputs };
+    };
+    const signatures = [0, 1, 2].map(signerIndex => ({ signerIndex, v: 27, r: hash('fixed-r'), s: hash('fixed-s') }));
+    f.options.quorum.health = async () => {
+      // A stale serial-start head cannot authorize the next EVM transaction.
+      assert.equal(f.state.head.timestamp, '47'); assert.ok(refreshed >= 2);
+      health = f.control.registerAuthorization({ head: structuredClone(f.state.head),
+        message: { validFrom: '47', validUntil: '77' }, abiSignatures: signatures });
+      capturedHealth = structuredClone(health); refreshesAtAuthorization = refreshed; return health;
+    };
+    track.wrap('health');
+    addLifecycleMethod(f, 'discharge', [
+      { name: 'proof', type: 'tuple', components: [{ name: 'proof', type: 'bytes' }, { name: 'inputs', type: 'bytes32[]' }] },
+      { name: 'sequence', type: 'uint64' }, { name: 'from', type: 'uint64' }, { name: 'until', type: 'uint64' },
+      { name: 'signatures', type: 'tuple[3]', components: [{ name: 'signerIndex', type: 'uint8' },
+        { name: 'v', type: 'uint8' }, { name: 'r', type: 'bytes32' }, { name: 's', type: 'bytes32' }] },
+    ]);
+    f.control.preparedHook = async value => {
+      assert.equal(BigInt(value.head.timestamp), 47n); assert.equal(refreshed, refreshesAtAuthorization);
+    };
+    f.control.afterBeforeSign = async () => {
+      assert.deepEqual(health, capturedHealth); assert.equal(refreshed, refreshesAtAuthorization);
+      if (expireSignedAuthority) { await Promise.resolve(); clock.now += 30_000; observedSecond = 77n; }
+    };
+    f.control.includedHook = () => { f.state.gateways[0].tickets[0].state = '4'; };
+    if (expireSignedAuthority) {
+      await assert.rejects(f.controller.payout({ ticketId: n.id }), /CLAIM_ORIGINAL_V4_AUDIT_TOO_OLD/);
+      assert.equal(f.runtime.transactions.length, 0);
+      assert.equal((await n.journal.read()).evm.at(-1).status, 'REJECTED_NO_KEY');
+      assert.equal(f.state.head.timestamp, '47', 'expiry cannot rewrite the original authorization head');
+    } else {
+      await f.controller.payout({ ticketId: n.id });
+      const row = (await n.journal.read()).evm.at(-1);
+      assert.equal(row.method, 'discharge'); assert.equal(row.status, 'SUCCEEDED');
+      assert.equal(row.finalAudit.profile, 'CLAIM_EVM_ORIGINAL_CERTIFICATE_FINAL_AUDIT_V4');
+      assert.equal(f.runtime.transactions.length, 1);
+      assert.equal((await n.journal.read()).tickets[0].status, 'DISCHARGED');
+    }
+    assert.equal(proofCalls, 1); assert.equal(track.permits.length, 1);
+    assert.equal(track.permits[0].anchor.head.timestamp, '47');
+    assert.deepEqual(health, capturedHealth); assert.equal(refreshed, refreshesAtAuthorization);
+    assert.deepEqual(n.prepared, prepared); assert.equal(n.original.nativeWire, nativeWire);
+    assert.equal(n.original.broadcastAttempts, 0); assert.equal(n.control.signingCalls, 0); assert.equal(n.control.sends, 0);
+  } finally { mocked.mock.restore(); await f.close(); }
+}
+
+test('post-proof original health authorization uses a fresh observed receiver head after 37 seconds of slow work', async t => {
+  await postProofDischarge(t, false);
+});
+test('post-proof original signed health expiry keeps its head and signatures; no refresh, key or native resend', async t => {
+  await postProofDischarge(t, true);
 });

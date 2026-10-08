@@ -530,6 +530,14 @@ async function createController(input, beginAuditOnly) {
       const resolved = await resolveEvm(row); assert.ok(terminal(resolved.status), 'CLAIM_UNKNOWN_EVM_RECONCILE_ORIGINAL_ONLY');
     }
   }
+  async function authorizationView(domain) {
+    // A native prepare/sign/retain or a genuine proof can outlive the head at
+    // serial admission. Advance only before constructing a NEW authorization
+    // snapshot; existing signed calls and their original windows stay intact.
+    await clearUnknown();
+    await refreshNativeValueReceiverClock(runtime);
+    return view(domain);
+  }
   async function evm({ domain, operationId, stage, method, args, snapshot, handoff = null, caller = runtime.accounts[0] }) {
     await clearUnknown(); live(); const { gateway } = selected(domain);
     const calldata = encodeControllerClaimCall(gateway.artifact, method, args), calldataSHA256 = hashCalldata(calldata);
@@ -698,7 +706,7 @@ async function createController(input, beginAuditOnly) {
     // All four peers retain the private binding, including the spare peer.
     for (const op of operators) retained.push(await op.retainSignedEffect(requests));
     retained.forEach(v => assert.deepEqual(v, retained[0], 'CLAIM_ALL_FOUR_BINDINGS_DISAGREE'));
-    const fresh = await view(row.claimDomain), t = terms(fresh, { action: ingress ? A.RESERVE_INGRESS : A.RESERVE_PAYOUT,
+    const fresh = await authorizationView(row.claimDomain), t = terms(fresh, { action: ingress ? A.RESERVE_INGRESS : A.RESERVE_PAYOUT,
       operationId: row.id, revision: binding.revision, amount: ingress ? row.packet.statement.amount : row.ticket.amount,
       destinationCommitment: ingress ? row.refundDestination : row.ticket.destinationCommitment,
       maxFee: ingress ? config.refundMaxFee : row.ticket.maxFee, nullifier: binding.admissionN,
@@ -1185,7 +1193,7 @@ async function createController(input, beginAuditOnly) {
       try {
         await adapter.transfer({ amount: row.packet.statement.amount, wireKeyCommitment: row.key }, {
           async beforeSign(prepared) {
-            const fresh = await view(row.claimDomain); assertOriginalIntent(row, fresh.gateway.intents.find(v => v.id === row.id));
+            const fresh = await authorizationView(row.claimDomain); assertOriginalIntent(row, fresh.gateway.intents.find(v => v.id === row.id));
             assert.equal(prepared.intent.wireKeyCommitment, row.key);
             const auditStarted = performance.now();
             const authorization = await quorum.authorizeIngress({ claimDomain: row.claimDomain, intentId: row.id, prepared, wireSalt: row.native.wireSalt });
@@ -1221,7 +1229,7 @@ async function createController(input, beginAuditOnly) {
       await clearUnknown(); const original = await view(row.claimDomain);
       if (original.gateway.intents.find(v => v.id === row.id)?.state === '2') return freeze(await syncRow(row, 'deposits'));
       assertOriginalIntent(row, original.gateway.intents.find(v => v.id === row.id));
-      const proof = await evidence(row, 'deposits'), { config } = selected(row.claimDomain), state = await view(row.claimDomain);
+      const proof = await evidence(row, 'deposits'), { config } = selected(row.claimDomain), state = await authorizationView(row.claimDomain);
       const intent = state.gateway.intents.find(v => v.id === row.id); assertOriginalIntent(row, intent);
       const t = terms(state, { action: A.ISSUE, operationId: row.id, revision: intent.revision, amount: row.packet.statement.amount,
         destinationCommitment: row.refundDestination, maxFee: config.refundMaxFee, nullifier: row.native.binding.admissionN,
@@ -1256,7 +1264,7 @@ async function createController(input, beginAuditOnly) {
       if (intent?.state === '3') return freeze(await syncRow(row, 'deposits'));
       assert.equal(intent?.state, '1'); assert.ok(BigInt(state.snapshot.head.timestamp) >= BigInt(intent.validUntil), 'CLAIM_LATEST_EXPIRY_NOT_PASSED');
       const proof = await evidence(row, 'deposits');
-      state = await view(row.claimDomain);
+      state = await authorizationView(row.claimDomain);
       const health = await authorize('health', { claimDomain: row.claimDomain, mode: 'debt' });
       await assertAuthorizationSnapshot(state.snapshot, health.head);
       intent = state.gateway.intents.find(v => v.id === row.id); assert.equal(intent?.state, '1');
@@ -1275,10 +1283,11 @@ async function createController(input, beginAuditOnly) {
       await clearUnknown();
       const prior = (await journal.read()).tickets.find(v => v.redemptionRequestId === requestId);
       if (prior) assert.deepEqual(prior.redemptionRequest, immutableRequest, 'CLAIM_REDEMPTION_REQUEST_REBOUND');
-      const state = await view(request.claimDomain);
+      let state = await view(request.claimDomain);
       if (prior && state.gateway.tickets.some(v => v.ticket.id === prior.id)) return freeze(await syncRow(prior, 'tickets'));
       const salt = prior?.salt ?? randomBytes(32).toString('hex');
       const nativeRoute = await route(request.claimDomain, 'redeem', request.amount, request.maxFee, salt);
+      state = await authorizationView(request.claimDomain);
       const dst = destination(request.claimDomain, nativeRoute.endpoint, request.amount, request.maxFee, salt);
       const id = claimTicketId({ claimDomain: request.claimDomain, kind: '1', nonce: state.gateway.nextTicketNonce });
       if (prior) assert.equal(id, prior.id, 'CLAIM_REDEMPTION_ORIGINAL_NONCE_CHANGED');
@@ -1337,7 +1346,7 @@ async function createController(input, beginAuditOnly) {
             async beforeSign(prepared) {
               row.route = await route(row.claimDomain, row.ticket.kind === '2' ? 'refund' : 'redeem', row.ticket.amount, row.ticket.maxFee, row.salt, prepared);
               assert.equal(destination(row.claimDomain, row.route.endpoint, row.ticket.amount, row.ticket.maxFee, row.salt), row.ticket.destinationCommitment);
-              const fresh = await view(row.claimDomain), t = terms(fresh, { action: A.BEGIN_PAYOUT, operationId: row.id, revision: '1', amount: row.ticket.amount,
+              const fresh = await authorizationView(row.claimDomain), t = terms(fresh, { action: A.BEGIN_PAYOUT, operationId: row.id, revision: '1', amount: row.ticket.amount,
                 destinationCommitment: row.ticket.destinationCommitment, maxFee: row.ticket.maxFee, routeCommitment: claimRouteCommitment(row.route) });
               const permit = await authorize('backing', { claimDomain: row.claimDomain, terms: t, route: row.route, ownerAuthorization: null, prepared });
               if (beginAuditOwner) {
@@ -1413,7 +1422,7 @@ async function createController(input, beginAuditOnly) {
       // Observation never re-enters transfer, including after a lost reply.
       if (!row.native.binding || !(await observeNative(row, 'tickets'))) return freeze(await syncRow(row, 'tickets'));
       const proof = await evidence(row, 'tickets');
-      state = await view(row.claimDomain);
+      state = await authorizationView(row.claimDomain);
       const health = await authorize('health', { claimDomain: row.claimDomain, mode: 'debt' });
       await assertAuthorizationSnapshot(state.snapshot, health.head);
       await evm({ domain: row.claimDomain, operationId: row.id, stage: 'DISCHARGE', method: 'discharge',
