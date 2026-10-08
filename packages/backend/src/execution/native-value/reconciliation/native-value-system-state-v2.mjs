@@ -70,9 +70,10 @@ function vector(values, count) {
     else assert.equal(value, ZERO, 'FLAT_STATE_VECTOR_PADDING');
   });
 }
-function treeView(nodes, count, roots = undefined) {
+function treeView(nodes, count, roots = undefined, emptyLeaf = undefined) {
   const entries = [...nodes], leaves = entries.slice(64);
   return freeze({ root: entries[1], count, leafCount: count, nodes: entries, leaves,
+    ...(emptyLeaf !== undefined ? { emptyLeaf } : {}),
     ...(roots ? { prefixRoots: [...roots] } : {}),
     path(position) {
       index(position, count); const siblings = [];
@@ -144,7 +145,7 @@ export async function decodeFlatFieldTree(raw, count, expectedRoot, domain, kind
       roots.push(historyNodes[1]);
     }
   }
-  return treeView(nodes, n, roots);
+  return treeView(nodes, n, roots, empty);
 }
 
 export async function decodeFlatHubState(raw, { domain, domainCommitment }, math) {

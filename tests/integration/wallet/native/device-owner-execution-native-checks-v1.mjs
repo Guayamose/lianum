@@ -12,9 +12,17 @@ export function assertDeviceFinalOriginalReceiptTreeV1(view,executionSnapshot){
  assert.equal(view.state.receiptCount,'1','DEVICE_FINAL_ORIGINAL_RECEIPT_COUNT');
  assert.equal(executionSnapshot.admittedReceipts,1,'DEVICE_FINAL_EXECUTOR_RECEIPT_COUNT');
  for(const leaf of view.receiptLeaves)assert.match(leaf,/^[0-9a-f]{64}$/,'DEVICE_FINAL_RECEIPT_DIGEST');
+ const tree=view.receiptTree;assert.ok(tree,'DEVICE_FINAL_AUTHENTICATED_RECEIPT_TREE_REQUIRED');
+ assert.equal(tree.count,1,'DEVICE_FINAL_RECEIPT_TREE_COUNT');
+ assert.equal(tree.leafCount,1,'DEVICE_FINAL_RECEIPT_TREE_COUNT');
+ assert.equal(tree.root,view.state.receiptRoot,'DEVICE_FINAL_RECEIPT_TREE_ROOT');
+ assert.deepEqual(tree.leaves,view.receiptLeaves,'DEVICE_FINAL_RECEIPT_TREE_LEAVES');
+ assert.match(tree.emptyLeaf,/^[0-9a-f]{64}$/,'DEVICE_FINAL_TYPED_RECEIPT_EMPTY_LEAF');
  const zero='0'.repeat(64);
+ assert.notEqual(tree.emptyLeaf,zero,'DEVICE_FINAL_TYPED_RECEIPT_EMPTY_LEAF');
  assert.notEqual(view.receiptLeaves[0],zero,'DEVICE_FINAL_ORIGINAL_RECEIPT_REQUIRED');
- assert.ok(view.receiptLeaves.slice(1).every(leaf=>leaf===zero),'DEVICE_FINAL_RECEIPT_TREE_PADDING');
+ assert.notEqual(view.receiptLeaves[0],tree.emptyLeaf,'DEVICE_FINAL_ORIGINAL_RECEIPT_REQUIRED');
+ assert.ok(view.receiptLeaves.slice(1).every(leaf=>leaf===tree.emptyLeaf),'DEVICE_FINAL_RECEIPT_TREE_PADDING');
 }
 export async function assertDeviceOwnerNativeInclusionV1({runtime,nativeRuntime,reader,result,retainedProofs,detail,save}){
  if(detail.stage!=='dispatch-native-leg-0')return;
