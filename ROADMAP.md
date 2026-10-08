@@ -6,6 +6,62 @@ organiza por esos objetivos. Las seis tareas de implementación anteriores eran
 un orden de trabajo, no una definición distinta del producto. El avance y los
 resultados están en [STATUS.md](STATUS.md).
 
+## Avance comprobado y próximo cierre
+
+Corte del 8 de octubre de 2026 con la aceptación privada original de Uniswap.
+Mantener los siete objetivos y seis requisitos de la visión, con los rangos
+orientativos de STATUS sin recalcularlos por pruebas, módulos o commits.
+
+- **Wallet y estado:** APK autónomo actualizado aceptado sin Metro, con
+  custodia/firma nuevas, doce joins originales y pico RSS de grupo de
+  2.339.147.776 bytes bajo el mismo límite de 3 GiB. La raíz, backup/restauración
+  y firmas locales D26/D27 tienen trece pruebas móviles y tipos correctos;
+  Poseidon2 BigInt pasó seis vectores contra BB oficial. El SDK vinculado pasó
+  dos pruebas genuinas, owners Linux y saldo privado 500→0. Cerrar financiación
+  y PAEG desde la raíz React Native, recuperación y recorrido en dispositivo,
+  además de las siete redes; los checks locales no cierran ese ciclo económico.
+- **Privacidad y generalidad:** preservar las garantías y el núcleo PAEG al
+  añadir las entradas privadas DeFi. Resolver el modelo de observadores y
+  colusiones y la privacidad de topología; los cuatro slots y un único host
+  siguen siendo límites explícitos.
+- **DeFi y liquidación:** los intentos Meta `2f5683bc` y `d35d8dfa` llegaron a
+  quince pruebas/EXIT/redención real, pero conservan sus rechazos del driver.
+  Las correcciones `a135359` y `4dc79b8` están aplicadas; los checks enfocados de
+  reapertura/dedup pasaron, sin repetir ni reclasificar los ensayos originales.
+  Uniswap `f485446e` está aceptado con quince pruebas genuinas: reserva privada,
+  PAEG, swap, T, EXIT de origen/destino, pago al solver y replay sin efecto
+  duplicado. Cerrar Meta completo y F DeFi, y ampliar posiciones/protocolos;
+  ninguna de estas aceptaciones locales cierra el objetivo 5 completo.
+- **Redes heterogéneas:** conservar la composición BTC/SOL aceptada. El round
+  trip `f9c90308` tuvo siete pruebas y auditoría caducada durante `BEGIN_PAYOUT`,
+  sin envío de payout SOL; cerrar su resultado original sin firmar o pagar otra
+  vez. Tron `attempt-3RVzzq` pasó las 12 comprobaciones nativas originales con
+  JNI/RocksDB y cierre ordenado; el rechazo previo `EACCES` se conserva. El
+  recorrido wallet V5 `a7e3da95` quedó rechazado con financiación real y cinco
+  pruebas D26/U/S/P/R, sin I84 ni entrega nativa, por escritura original incierta
+  durante preparación del proveedor; conserva el bloqueo de sustitución.
+  Los nodos quedaron cerrados. El rechazo previo por
+  publicación generada desfasada se conserva y el build la actualizó manteniendo
+  los guards. Cerrar el recorrido con estado privado y GRAPH. Base, Arbitrum
+  y BNB siguen pendientes con sus stacks y finalidad propios.
+- **Rendimiento:** conservar los 2²¹ puntos, G2, VK y verificaciones originales.
+  El cache público redujo la llamada API de inicialización de 27,017 a 0,612 s y
+  ya intervino en pruebas genuinas verificadas: el nuevo Meta midió
+  inicialización 1,063–1,311 s y prove del owner-envelope 87,310 s. Los cuatro
+  hilos fijos ya se usaron en Uniswap con la misma VK y guard de RAM:
+  pico 3.046.023.168 bytes bajo 3 GiB, prove U 37,369 s y verificación 17,262 ms.
+  La variante fija U8 conserva los originales y el mismo guard: el nuevo Tron
+  midió prove 28,520 s, verificación propia 17,513 ms y total 31,856 s; pico de
+  pruebas 3.112.554.496 bytes bajo 3 GiB. Su recorrido completo quedó rechazado
+  antes de entrega nativa y prove aún supera 20 s. Mejorar su coste y medir su
+  generalidad; los objetivos en caliente
+  <30/<20/<5 s y la revisión criptográfica independiente siguen pendientes.
+
+Preparar Google Cloud sólo localmente y comprobar el teléfono al final, según
+la decisión vigente. Priorizar cierres funcionales y comprobar lo afectado;
+conservar los rechazos originales y repetir recorridos cuando un cambio o fallo
+lo justifique. Ninguna aceptación local cierra por sí sola un objetivo completo.
+
 ## 1. Wallet unificada para siete redes
 
 Completar una experiencia y cuenta coherentes para Ethereum, Base, Arbitrum,
@@ -70,10 +126,12 @@ con respaldo, conservación, autorización y recuperación. Completar entrada
 privada, posición, acción, salida y redención en Uniswap y MetaMorpho; ampliar
 Aave, Morpho y Jupiter conforme a las interfaces generales.
 
-Los recorridos aceptados de Uniswap y MetaMorpho parten de una entrada pública
-y producen una nota privada con EXIT y redención. Cerrar la entrada privada y
-su composición con el grafo y el estado global. Una posición observada, una
-cotización o un canje público no constituye por sí mismo saldo privado gastable.
+Uniswap ya tiene un recorrido aceptado desde reserva privada, con autorización,
+estado común, respaldo, quorum, liquidación T y EXIT de ambas notas. MetaMorpho
+llegó a redención real pero conserva el rechazo del driver; completar su
+aceptación y F DeFi. Los ciclos públicos anteriores siguen acreditando entrada
+pública a una nota privada y no se reclasifican como entrada privada. Una posición
+observada, cotización o canje público no basta para emitir saldo privado gastable.
 
 ## 6. Estado privado global coherente
 
@@ -99,7 +157,8 @@ recepción, finalidad, reorganizaciones, observación y reintentos.
 - Bitcoin: completar recepción, gasto, respaldo, reorganizaciones y recuperación.
 - Solana: cerrar payout original y su recuperación, además del ingreso y solver
   ya aceptados en Agave nuevo.
-- Tron: resolver finalidad y cierre nativos antes de habilitar el runtime.
+- Tron: conservar el factory nativo aceptado y completar su integración original
+  con wallet, respaldo privado y GRAPH antes de habilitar el runtime.
 
 Completar operaciones entre redes con el mismo PAEG y estado. Sustituir las
 facultades de una autoridad individual SOL/BTC de inventar hechos por
