@@ -10,6 +10,8 @@ import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
 import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
   from '@lianum/mobile-protocol/original-account-v2';
 import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } from './signing.mjs';
+import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
 const PUBLIC_KEY = 'lianum.owner.public.v1';
@@ -152,4 +154,27 @@ export function signOriginalPrivateStateAccessV1(value: OriginalAccessV2, origin
 }
 export function signOriginalPrivateStateReviewV1(value: OriginalReviewV2, origin: string, pairingId: string): Promise<string> {
   return signOriginalAccountPermissionV2(value, origin, pairingId, 'review', 'private-state');
+}
+/** Only these fixed D26 domains, never an arbitrary-message signing callback.
+ * This is the device transport identity; the circuit verifies the separate
+ * note key/signature hidden in its opening. */
+export async function signDeviceDepositConsentV1(raw: Parameters<typeof validateDeviceDepositConsentFreshV1>[0],
+  expectedOrigin: string, expectedPairingId: string): Promise<string> {
+  await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
+  const value = validateDeviceDepositConsentFreshV1(raw);
+  const current = () => { validateDeviceDepositConsentFreshV1(value);
+    if (value.origin !== expectedOrigin || value.pairingId !== expectedPairingId || value.devicePublicKey !== publicKey)
+      throw new Error('MOBILE_REVIEW_CHANGED'); };
+  current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
+    authenticationPrompt: value.action === 'PROVE_D26'
+      ? 'Revelar únicamente la apertura de esta nota al worker D26; conserva la raíz y la clave en el teléfono'
+      : value.action === 'FUND_D26' ? 'Financiar una sola vez esta nota de ' + value.statement.amount + ' unidades'
+        : 'Consultar el envío original de esta nota; no reenviar ni generar otra prueba' });
+  if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const key = privateKeyFromHex(retained);
+  try {
+    if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
+    current(); return signDeviceMessage(key, deviceDepositConsentMessageV1(value));
+  } finally { key.fill(0); retained = null; }
 }

@@ -2,6 +2,7 @@
  * Node's real AES-GCM/SHA and original Node PC23/D27 encoders cross-check data.
  * No Android/iOS, Hermes, biometric hardware, funded note or proof is accepted. */
 import test, { mock } from 'node:test';
+import { registerHooks } from 'node:module';
 import assert from 'node:assert/strict';
 import { createHash, createCipheriv, createDecipheriv, createPublicKey, verify } from 'node:crypto';
 import { balanceCommitment, balanceDepositFrame, balanceWithdrawFrame }
@@ -81,9 +82,20 @@ mock.module('expo-crypto', { exports: {
   },
 } });
 mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
+// Metro/TypeScript resolve this extensionless production import. Node's
+// host test resolves only this exact edge to the same original TS bytes.
+const vaultModuleURL = new URL('../src/custody/local-root-note-vault-v1.ts', import.meta.url).href;
+const tsResolution = registerHooks({ resolve(specifier, context, nextResolve) {
+  if (context.parentURL === vaultModuleURL && specifier === '../api/device-owner-deposit-api-v1')
+    return nextResolve(specifier + '.ts', context);
+  return nextResolve(specifier, context);
+} });
+let originalVault;
+try { originalVault = await import(vaultModuleURL); }
+finally { tsResolution.deregister(); }
 const { createLocalRootNoteOperationV1, createLocalRootNoteVaultV1, importLocalRootNoteVaultV1, recoverLocalRootNoteVaultV1,
   openLocalRootNoteVaultV1, inspectLocalRootNoteVaultV1,
-  restoreLocalRootNoteVaultBackupV1 } = await import('../src/custody/local-root-note-vault-v1.ts');
+  restoreLocalRootNoteVaultBackupV1 } = originalVault;
 const terms = { scope: '11'.repeat(32), policy: '22'.repeat(32), pool: '33'.repeat(20), recipient: '44'.repeat(20), amount: '500' };
 function reset() {
   for (const key of nativeKeys) key.fill(0); nativeKeys.length = 0;
@@ -125,7 +137,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['close', 'exportBackup', 'prepareUnissuedBalanceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signPreparedDeposit']);
+  assert.deepEqual(Object.keys(vault).sort(), ['applyDeviceDepositInclusion', 'bindDeviceProofRequest', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signPreparedDeposit']);
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -354,4 +366,35 @@ test('closing before intent set prevents writes; closing after original set pres
   const reopened = openLocalRootNoteVaultV1(f.rootId);
   await assert.rejects(reopened.reviewPreparedDeposit({ relation: 'D26', epoch: '8' }), /INTENT_CONFLICT/);
   assert.equal((await reopened.readPreparedNote()).status, 'UNISSUED');
+});
+
+
+test('specific D26 opening lease keeps root/privateKey local, rejects copies and erases on close', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
+  await vault.prepareUnissuedBalanceNote(terms);
+  const review = await vault.reviewPreparedDeposit({ relation: 'D26', epoch: '10' });
+  const signed = await vault.signPreparedDeposit(review);
+  assert.throws(() => vault.createDeviceProofRequest({ ...signed }), /SIGNATURE_REQUIRED/);
+  const request = await vault.createDeviceProofRequest(signed);
+  const clear = rawClearRecord();
+  assert.equal(request.rootId, created.rootId); assert.equal(request.commitment, clear.note.commitment);
+  assert.equal('witness' in request, false); assert.equal('privateKey' in request, false); assert.equal('rootHex' in request, false);
+  const witness = { scope: Array.from({ length: 8 }, (_, i) => parseInt(terms.scope.slice(i * 8, i * 8 + 8), 16)),
+    policy: Array.from({ length: 8 }, (_, i) => parseInt(terms.policy.slice(i * 8, i * 8 + 8), 16)),
+    epoch: '10', amount: '500', output: Array.from({ length: 8 }, (_, i) => parseInt(clear.note.commitment.slice(i * 8, i * 8 + 8), 16)),
+    rho: [...Buffer.from(clear.note.opening.rho, 'hex')], key_x: [...Buffer.from(clear.note.opening.x, 'hex')],
+    key_y: [...Buffer.from(clear.note.opening.y, 'hex')], secret: [...Buffer.from(clear.note.opening.secret, 'hex')],
+    signature: [...Buffer.from(signed.signature, 'hex')] };
+  assert.equal(request.witnessSHA256, sha(Buffer.from(JSON.stringify(witness))).toString('hex'));
+  request.close(); vault.close();
+  assert.throws(() => vault.createDeviceProofRequest(signed), /CLOSED/);
+  assert.equal((await openLocalRootNoteVaultV1(created.rootId).readDeviceNote()).availableBalance, null);
+});
+test('copied HTTP inclusion cannot credit an encrypted local note or replace its opening', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
+  await vault.prepareUnissuedBalanceNote(terms); const before = new Map(store);
+  assert.throws(() => vault.applyDeviceDepositInclusion({ commitment: 'a'.repeat(64), amount: '500', status: 'CONFIRMED' }), /RESPONSE_INVALID/);
+  assert.deepEqual(store, before);
+  assert.equal((await vault.readDeviceNote()).availableBalance, null);
+  assert.equal((await vault.readPreparedNote()).status, 'UNISSUED');
 });

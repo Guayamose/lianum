@@ -12,6 +12,9 @@ import { normalizeLocalDepositChoiceV1, localUnissuedDepositStatementV1, localUn
   type LocalDepositChoiceV1, type LocalDepositStatementV1 } from './unissued-deposit-terms-v1.mjs';
 import { localBalanceCommitmentMessageV1, localNoteHexBytesV1, localNoteUintBytesV1,
   type LocalBalanceOpeningV1 } from './balance-note-codec-v1.mjs';
+import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, validateDeviceDepositConsentFreshV1,
+  type DeviceDepositConsentV1, type DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { readDeviceDepositInclusionV1 } from '../api/device-owner-deposit-api-v1';
 
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
@@ -25,7 +28,13 @@ const DATA: SecureStore.SecureStoreOptions = {
   keychainService: 'org.lianum.wallet.note.encrypted-record.v1', };
 const MAX_STORED_BYTES = 2048;
 type PreparedNote = { scope: string; policy: string; pool: string; recipient: string;
-  commitment: string; privateKey: string; opening: LocalBalanceOpeningV1; status: 'UNISSUED'; depositIntent?: DepositIntent };
+  commitment: string; privateKey: string; opening: LocalBalanceOpeningV1; status: 'UNISSUED' | 'FUNDED'; depositIntent?: DepositIntent;
+  deviceJob?: DeviceJob; funding?: DeviceFunding };
+type DeviceJob = { jobId: string; origin: string; pairingId: string; noteRevision: number };
+type DeviceFunding = { transactionHash: string; assetId: string };
+export type LocalDeviceProofRequestV1 = Readonly<{ rootId: string; noteRevision: number; commitment: string;
+  statement: Readonly<{ scope: string; policy: string; epoch: string; amount: string; output: string }>;
+  witnessSHA256: string; jobId: string | null; close(): void }>;
 type DepositIntent = LocalDepositChoiceV1 & Readonly<{ frameSHA256: string }>;
 export type LocalDepositReviewV1 = Readonly<{ version: 1; profile: 'LOCAL_UNISSUED_DEPOSIT_REVIEW_V1';
   reviewId: string; rootId: string; revision: number; createdAt: number; expiresAt: number;
@@ -83,17 +92,18 @@ async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
   if (x.version !== 1 || x.rootId !== expected.rootId || x.revision !== expected.revision) return bad();
   let note: PreparedNote | null = null;
   if (x.note !== null) {
-    if (typeof x.note !== 'object' || Array.isArray(x.note)) bad();
-    const sourceNote = parsed(JSON.stringify(x.note), Object.hasOwn(x.note, 'depositIntent')
-      ? ['scope', 'policy', 'pool', 'recipient', 'commitment', 'privateKey', 'opening', 'status', 'depositIntent']
-      : ['scope', 'policy', 'pool', 'recipient', 'commitment', 'privateKey', 'opening', 'status']);
+    const noteData = x.note;
+    if (typeof noteData !== 'object' || Array.isArray(noteData)) bad();
+    const optional = ['depositIntent', 'deviceJob', 'funding'].filter(field => Object.hasOwn(noteData, field));
+    const sourceNote = parsed(JSON.stringify(noteData),
+      ['scope', 'policy', 'pool', 'recipient', 'commitment', 'privateKey', 'opening', 'status', ...optional]);
     const n = sourceNote;
     const o = parsed(JSON.stringify(n.opening), ['type', 'rho', 'x', 'y', 'value', 'secret']);
-    if (o.type !== 4 || n.status !== 'UNISSUED' || typeof o.value !== 'string') return bad();
+    if (o.type !== 4 || !['UNISSUED', 'FUNDED'].includes(String(n.status)) || typeof o.value !== 'string') return bad();
     localNoteUintBytesV1(o.value); if (BigInt(o.value) <= 0n) return bad();
     const opening: LocalBalanceOpeningV1 = { type: 4, rho: hex(o.rho), x: hex(o.x), y: hex(o.y), value: o.value, secret: hex(o.secret) };
     note = { scope: hex(n.scope), policy: hex(n.policy), pool: hex(n.pool, 20), recipient: hex(n.recipient, 20),
-      commitment: hex(n.commitment), privateKey: hex(n.privateKey), opening, status: 'UNISSUED' };
+      commitment: hex(n.commitment), privateKey: hex(n.privateKey), opening, status: n.status === 'FUNDED' ? 'FUNDED' : 'UNISSUED' };
     if (note.pool === '0'.repeat(40) || note.recipient === '0'.repeat(40) || note.pool === note.recipient) return bad();
     const key = privateKeyFromHex(note.privateKey);
     try {
@@ -102,6 +112,18 @@ async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
       if (await digest(localBalanceCommitmentMessageV1(note.scope, note.policy, opening)) !== note.commitment) return bad();
     } finally { key.fill(0); }
     if (Object.hasOwn(n, 'depositIntent')) note.depositIntent = await depositIntent(n.depositIntent, note);
+    if (Object.hasOwn(n, 'deviceJob')) {
+      const job = parsed(JSON.stringify(n.deviceJob), ['jobId', 'origin', 'pairingId', 'noteRevision']);
+      if (typeof job.origin !== 'string' || job.origin.length > 64 || !job.origin.startsWith('https://') || !note.depositIntent
+        || note.depositIntent.relation !== 'D26') bad();
+      note.deviceJob = { jobId: hex(job.jobId), origin: job.origin, pairingId: hex(job.pairingId),
+        noteRevision: integer(job.noteRevision) };
+    }
+    if (Object.hasOwn(n, 'funding')) {
+      const funded = parsed(JSON.stringify(n.funding), ['transactionHash', 'assetId']);
+      note.funding = { transactionHash: hex(funded.transactionHash), assetId: hex(funded.assetId) };
+    }
+    if (note.status === 'FUNDED' ? !note.deviceJob || !note.funding : note.funding !== undefined) bad();
   }
   return { version: 1, rootId: expected.rootId, revision: expected.revision, note };
 }
@@ -230,11 +252,13 @@ export function importLocalRootNoteVaultV1(rootHex: string) {
     finally { root.fill(0); }
   }));
 }
-const preparedSummary = (note: PreparedNote): LocalPreparedNoteSummaryV1 => Object.freeze({
+const preparedSummary = (note: PreparedNote): LocalPreparedNoteSummaryV1 => {
+  if (note.status !== 'UNISSUED') bad('MOBILE_LOCAL_NOTE_ALREADY_FUNDED');
+  return Object.freeze({
   scope: note.scope, policy: note.policy, pool: note.pool, recipient: note.recipient,
   commitment: note.commitment, amount: note.opening.value, status: 'UNISSUED',
-  availableBalance: null, nativeEffectsEstablished: false });
-const summary = (value: State): LocalPreparedNoteSummaryV1 | null => value.note === null ? null : preparedSummary(value.note);
+  availableBalance: null, nativeEffectsEstablished: false }); };
+const summary = (value: State): LocalPreparedNoteSummaryV1 | null => value.note === null || value.note.status !== 'UNISSUED' ? null : preparedSummary(value.note);
 async function depositIntent(input: unknown, note: PreparedNote): Promise<DepositIntent> {
   if (!input || typeof input !== 'object' || !('relation' in input)) bad();
   const row = parsed(JSON.stringify(input), input.relation === 'D26'
@@ -245,7 +269,11 @@ async function depositIntent(input: unknown, note: PreparedNote): Promise<Deposi
     choice = { relation: 'D27', validFrom: row.validFrom, validUntil: row.validUntil };
   else bad();
   choice = normalizeLocalDepositChoiceV1(choice);
-  const frame = localUnissuedDepositFrameV1(preparedSummary(note), choice);
+  // Historical framing of the retained deposit intent also verifies a funded
+  // record. This does not change that note's status or authorize another job.
+  const frame = localUnissuedDepositFrameV1({ scope: note.scope, policy: note.policy, pool: note.pool,
+    recipient: note.recipient, commitment: note.commitment, amount: note.opening.value,
+    status: 'UNISSUED', availableBalance: null, nativeEffectsEstablished: false }, choice);
   try {
     const hash = hex(row.frameSHA256);
     if (await digest(frame) !== hash) bad('MOBILE_LOCAL_DEPOSIT_INTENT_INVALID');
@@ -390,6 +418,14 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   const current = () => { if (closed) bad(active && writing ? 'MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN' : 'MOBILE_LOCAL_NOTE_CLOSED'); };
   const scope: RootOperationScope = { current, writeStarted() { current(); writing = true; } };
   const reviews = new WeakMap<LocalDepositReviewV1, LocalDepositChoiceV1>();
+  let liveInclusion: object | null = null;
+  const signatures = new WeakMap<LocalDepositSignatureV1, number>();
+  const proofRequests = new WeakMap<LocalDeviceProofRequestV1, { witness: DeviceDepositWitnessV1; consumed: boolean }>();
+  const outstandingWitnesses = new Set<DeviceDepositWitnessV1>();
+  const wipeWitness = (witness: DeviceDepositWitnessV1) => {
+    for (const item of Object.values(witness)) if (Array.isArray(item)) item.fill(0);
+    outstandingWitnesses.delete(witness);
+  };
   let pendingReview: LocalDepositReviewV1 | null = null;
   const discardReview = () => { if (pendingReview) reviews.delete(pendingReview); pendingReview = null; };
   hex(expectedRootId);
@@ -547,12 +583,134 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             if (!finalValue.note) bad();
             signing.current(); secretKey = privateKeyFromHex(finalValue.note.privateKey);
             const signature = signDeviceMessage(secretKey, frame); signing.current();
-            return Object.freeze({ version: 1, relation: choice.relation, rootId: value.rootId,
+            const result: LocalDepositSignatureV1 = Object.freeze({ version: 1, relation: choice.relation, rootId: value.rootId,
               revision: finalValue.revision, commitment: review.note.commitment, statement: review.statement,
               signature, status: 'UNISSUED', availableBalance: null, nativeEffectsEstablished: false });
+            signatures.set(result, Date.now() + 15_000); return result;
           } finally { secretKey?.fill(0); frame.fill(0); }
         });
     },
-    close() { discardReview(); closed = true; },
+    /** Creates a revocable in-memory request for the EXACT signed local D26.
+     * The returned object exposes its public hash, never root/privateKey.
+     * Only bindDeviceProofRequest can consume its original retained opening. */
+    createDeviceProofRequest: (signed: LocalDepositSignatureV1): Promise<LocalDeviceProofRequestV1> => {
+      current(); const expiry = signatures.get(signed);
+      if (expiry === undefined || Date.now() >= expiry || signed.relation !== 'D26'
+        || signed.rootId !== expectedRootId || !('epoch' in signed.statement)) bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
+      signatures.delete(signed);
+      return original('Preparar la revelación de una sola apertura D26 al worker; la raíz y la clave de nota permanecen aquí',
+        async value => {
+          if (!value.note || value.note.status !== 'UNISSUED'
+            || value.revision !== signed.revision || value.note.commitment !== signed.commitment
+            || value.note.depositIntent?.relation !== 'D26' || !('epoch' in signed.statement)
+            || value.note.depositIntent.epoch !== signed.statement.epoch || Date.now() >= expiry) bad('MOBILE_LOCAL_PROOF_SIGNATURE_CHANGED');
+          const note = value.note, words = (raw: string) => Array.from({ length: 8 }, (_, index) => Number.parseInt(raw.slice(index * 8, index * 8 + 8), 16));
+          const witness = normalizeDeviceDepositWitnessV1({ scope: words(note.scope), policy: words(note.policy),
+            epoch: signed.statement.epoch, amount: note.opening.value, output: words(note.commitment),
+            rho: [...localNoteHexBytesV1(note.opening.rho)], key_x: [...localNoteHexBytesV1(note.opening.x)],
+            key_y: [...localNoteHexBytesV1(note.opening.y)], secret: [...localNoteHexBytesV1(note.opening.secret)],
+            signature: [...localNoteHexBytesV1(signed.signature, 64)] });
+          const bytes = deviceDepositWitnessBytesV1(witness);
+          try {
+            const witnessSHA256 = await checked(scope, () => digest(bytes));
+            const request: LocalDeviceProofRequestV1 = Object.freeze({ rootId: value.rootId, noteRevision: note.deviceJob?.noteRevision ?? value.revision,
+              commitment: note.commitment, statement: { scope: note.scope, policy: note.policy,
+                epoch: signed.statement.epoch, amount: note.opening.value, output: note.commitment }, witnessSHA256,
+              jobId: note.deviceJob?.jobId ?? null,
+              close() { const row = proofRequests.get(request); if (row) { row.consumed = true; wipeWitness(row.witness); } } });
+            proofRequests.set(request, { witness, consumed: false }); outstandingWitnesses.add(witness); return request;
+          } catch (error) { wipeWitness(witness); throw error; } finally { bytes.fill(0); }
+        });
+    },
+    bindDeviceProofRequest: (request: LocalDeviceProofRequestV1, rawConsent: DeviceDepositConsentV1): Promise<DeviceDepositWitnessV1> => {
+      current(); const row = proofRequests.get(request), consent = validateDeviceDepositConsentFreshV1(rawConsent);
+      if (consent.origin.length > 64) bad('MOBILE_LOCAL_ORIGIN_CAPACITY');
+      if (!row || row.consumed || consent.action !== 'PROVE_D26' || consent.rootId !== expectedRootId
+        || consent.noteRevision !== request.noteRevision || consent.witnessSHA256 !== request.witnessSHA256
+        || JSON.stringify(consent.statement) !== JSON.stringify(request.statement)) bad('MOBILE_LOCAL_PROOF_REQUEST_REQUIRED');
+      row.consumed = true;
+      return original('Entregar sólo esta apertura D26 por TLS a ' + new URL(consent.origin).hostname + '; todavía no financiar',
+        async (value, key, before, raw, root) => {
+          validateDeviceDepositConsentFreshV1(consent);
+          if (!value.note || value.note.status !== 'UNISSUED' || (!value.note.deviceJob && value.revision !== request.noteRevision)
+            || value.note.commitment !== request.commitment || value.note.pool !== consent.binding.asset.pool
+            || value.note.scope !== consent.poolTerms.scope || value.note.policy !== consent.poolTerms.policy) bad('MOBILE_LOCAL_PROOF_REQUEST_CHANGED');
+          if (value.note.deviceJob) {
+            const originalJob = value.note.deviceJob;
+            if (originalJob.jobId !== consent.jobId || originalJob.origin !== consent.origin || originalJob.pairingId !== consent.pairingId
+              || originalJob.noteRevision !== consent.noteRevision) bad('MOBILE_LOCAL_ORIGINAL_JOB_CHANGED');
+            const witness = normalizeDeviceDepositWitnessV1(row.witness); wipeWitness(row.witness); return witness;
+          }
+          const next: State = { ...value, revision: value.revision + 1, note: { ...value.note,
+            deviceJob: { jobId: consent.jobId, origin: consent.origin, pairingId: consent.pairingId,
+              noteRevision: consent.noteRevision } } };
+          const nextRaw = await checked(scope, () => sealedRecord(key, next));
+          if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+            || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw
+            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+          try {
+            await writeCheckedScoped(scope, RECORD, nextRaw, DATA);
+            const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
+              recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
+            await checked(scope, () => decrypted(key, nextRaw));
+            if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            await writeCheckedScoped(scope, POINTER, nextPointer, DATA); validateDeviceDepositConsentFreshV1(consent);
+            const witness = normalizeDeviceDepositWitnessV1(row.witness); wipeWitness(row.witness); return witness;
+          } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
+        }).finally(() => wipeWitness(row.witness));
+    },
+    readDeviceNote: () => original('Consultar el estado de tu nota local y su envío original', async value => {
+      const note = value.note; if (!note) return null;
+      let observation = null;
+      try { observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null; } catch { liveInclusion = null; }
+      const fresh = note.status === 'FUNDED' && observation?.commitment === note.commitment
+        && observation.transactionHash === note.funding?.transactionHash;
+      return Object.freeze({ rootId: value.rootId, revision: value.revision, commitment: note.commitment,
+        amount: note.opening.value, status: note.status, job: note.deviceJob ? Object.freeze({ ...note.deviceJob }) : null,
+        observation: observation ? Object.freeze({ transactionHash: observation.transactionHash, assetId: observation.assetId,
+          headHash: observation.head.hash, observedAt: observation.observedAt, expiresAt: observation.expiresAt }) : null,
+        availableBalance: fresh ? note.opening.value : null, nativeEffectsEstablished: note.status === 'FUNDED',
+        freshness: fresh ? 'OBSERVED_AT_RETAINED_HEAD' : 'UNKNOWN' });
+    }),
+    applyDeviceDepositInclusion: (capability: object) => {
+      current(); const inclusion = readDeviceDepositInclusionV1(capability);
+      return original('Guardar la inclusión original de esta misma nota; la apertura y la clave siguen aquí',
+        async (value, key, before, raw, root) => {
+          readDeviceDepositInclusionV1(capability); const note = value.note;
+          if (!note || !note.deviceJob || note.deviceJob.jobId !== inclusion.jobId || inclusion.rootId !== value.rootId
+            || note.commitment !== inclusion.commitment || note.opening.value !== inclusion.amount
+            || note.pool !== inclusion.pool || note.scope !== inclusion.scope || note.policy !== inclusion.policy) bad('MOBILE_LOCAL_ORIGINAL_INCLUSION_REQUIRED');
+          // Verify the original spend nullifier from this exact device opening,
+          // in addition to the exact PC23 commitment checked on every open.
+          const tag = new TextEncoder().encode('PC15/note-spend/1'), frame = new Uint8Array(2 + tag.length + 3 * 36);
+          frame[0] = tag.length >> 8; frame[1] = tag.length & 255; frame.set(tag, 2);
+          let cursor = 2 + tag.length;
+          for (const field of [note.scope, note.commitment, note.opening.secret]) {
+            frame[cursor + 3] = 32; frame.set(localNoteHexBytesV1(field), cursor + 4); cursor += 36;
+          }
+          try { if (await checked(scope, () => digest(frame)) !== inclusion.nullifier) bad('MOBILE_LOCAL_NULLIFIER_CHANGED'); }
+          finally { frame.fill(0); }
+          if (note.funding && (note.funding.transactionHash !== inclusion.transactionHash
+            || note.funding.assetId !== inclusion.assetId)) bad('MOBILE_LOCAL_ORIGINAL_INCLUSION_CHANGED');
+          const next: State = { ...value, revision: value.revision + 1, note: { ...note, status: 'FUNDED',
+            funding: { transactionHash: inclusion.transactionHash, assetId: inclusion.assetId } } };
+          const nextRaw = await checked(scope, () => sealedRecord(key, next));
+          if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+            || await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== raw
+            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+          try {
+            readDeviceDepositInclusionV1(capability); await writeCheckedScoped(scope, RECORD, nextRaw, DATA);
+            const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
+              recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
+            await checked(scope, () => decrypted(key, nextRaw));
+            if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            await writeCheckedScoped(scope, POINTER, nextPointer, DATA);
+            liveInclusion = capability;
+            return { commitment: note.commitment, availableBalance: Date.now() < inclusion.expiresAt ? note.opening.value : null,
+              nativeEffectsEstablished: true, observedHead: inclusion.head.hash };
+          } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
+        });
+    },
+    close() { discardReview(); closed = true; liveInclusion = null; for (const witness of outstandingWitnesses) wipeWitness(witness); },
   });
 }

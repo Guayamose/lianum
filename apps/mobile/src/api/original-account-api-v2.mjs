@@ -8,6 +8,8 @@ import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
 import { normalizePrivateStateAccessV1, normalizePrivateStateReviewV1,
   privateStateAccessFrameV1, privateStateReviewFrameV1, normalizePrivateStateObservationV1,
   validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-v2';
+import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1,
+  normalizeDeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -41,7 +43,8 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     return validateOriginalAccountFreshV2(value);
   }
   async function request(path, payload, privateState = false) {
-    const target = original.origin + (privateState ? '/v1/mobile/original-account/private-state/'
+    const target = original.origin + (privateState === 'device-deposit' ? '/v1/mobile/device-deposit/'
+      : privateState ? '/v1/mobile/original-account/private-state/'
       : '/v2/mobile/original-account/') + path;
     const controller = new AbortController();
     let timeout, reader;
@@ -115,6 +118,40 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
   return Object.freeze({
     descriptor: original,
     privateState,
+    deviceDeposit: Object.freeze({
+      async challengeJob(input) {
+        if (!exact(input, ['access', 'signature', 'statement', 'rootId', 'noteRevision', 'witnessSHA256', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        scope(normalizeOriginalAccountAccessV2(input.access)); normalizeOriginalAccountSignatureV2(input.signature);
+        const value = validateDeviceDepositConsentFreshV1(await request('job-reviews', input, 'device-deposit'));
+        if (value.action !== 'PROVE_D26' || Object.keys(original).some(name => value[name] !== original[name])
+          || !same(value.statement, input.statement) || value.rootId !== input.rootId
+          || value.noteRevision !== input.noteRevision || value.witnessSHA256 !== input.witnessSHA256) fail('MOBILE_REVIEW_CHANGED');
+        return value;
+      },
+      async challenge(action, input) {
+        if (!['FUND_D26', 'OBSERVE_D26'].includes(action) || !exact(input, ['access', 'signature', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        scope(normalizeOriginalAccountAccessV2(input.access)); normalizeOriginalAccountSignatureV2(input.signature);
+        const value = validateDeviceDepositConsentFreshV1(await request(action === 'FUND_D26'
+          ? 'funding-reviews' : 'observation-reviews', input, 'device-deposit'));
+        if (value.action !== action || value.jobId !== input.jobId || Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        return value;
+      },
+      async submit(input) {
+        if (!exact(input, input?.consent?.action === 'PROVE_D26' ? ['consent', 'signature', 'witness'] : ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const consent = validateDeviceDepositConsentFreshV1(normalizeDeviceDepositConsentV1(input.consent));
+        if (Object.keys(original).some(name => consent[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        normalizeOriginalAccountSignatureV2(input.signature);
+        let witness;
+        try {
+          if (consent.action === 'PROVE_D26') witness = normalizeDeviceDepositWitnessV1(input.witness);
+          // One POST only. A timeout/lost response is UNKNOWN; never retry a
+          // proof or funding call. Subsequent explicit consent observes same job.
+          return await request(consent.action === 'PROVE_D26' ? 'jobs'
+            : consent.action === 'FUND_D26' ? 'fund' : 'observations', { consent, signature: input.signature,
+              ...(witness ? { witness } : {}) }, 'device-deposit');
+        } finally { if (witness) for (const item of Object.values(witness)) if (Array.isArray(item)) item.fill(0); }
+      },
+    }),
     async state() { return normalizeOriginalAccountServiceV2(await request('state')); },
     async challenge(action) {
       if (!['read', 'reconcile'].includes(action)) fail('MOBILE_ORIGINAL_ACTION');
