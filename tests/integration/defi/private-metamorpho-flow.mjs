@@ -2,10 +2,10 @@
  * Source of shares is an explicit public fixture deposit. No private PAEG
  * conversion, public network, new credit or lost-keeper recovery is inferred. */
 import assert from 'node:assert/strict';
-import { readFileSync, realpathSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT } from '../../../packages/proofs/src/catalog.mjs';
+import { ROOT, GOLDEN } from '../../../packages/proofs/src/catalog.mjs';
 import { hash } from '../../../packages/proofs/src/tooling/tooling.mjs';
 import { createOwnedLocalEvmV2 } from '../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { evmRuntimeCodeHash } from '../../../packages/backend/src/chains/evm/contracts/evm-code-hash.mjs';
@@ -22,6 +22,7 @@ import { createFlatSystemStateReader } from '../../../packages/backend/src/execu
 import { createOwnedMetaMorphoVault, assertOwnedMetaMorphoReceipt } from '../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
 import { createOwnedPrivateVaultExit } from '../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 import { privateMetaMorphoSourcePins } from './private-metamorpho-source-pins.mjs';
+import { assertPrivateMetaMorphoProofTelemetry } from './private-metamorpho-proof-evidence.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../fixtures/runners/owned-flat-fixture.mjs';
 
 const bare = value => value.slice(2);
@@ -60,6 +61,8 @@ async function main() {
   let runtime, protocol, capability, system, owner, account, keeper, session, http, vault, bridge, reader,
     closed = false, interrupted = false;
   const operators = [];
+  const telemetryDirectory = join(GOLDEN, 'evidence/paeg-proof-attempts');
+  const earlierTelemetry = new Set(existsSync(telemetryDirectory) ? readdirSync(telemetryDirectory) : []);
   async function audit() {
     if (runtime) writeFixturePrivate(join(privateDirectory, 'evm.json'), {
       metadata: runtime.metadata, transactions: runtime.transactions, receipts: runtime.receipts });
@@ -70,10 +73,17 @@ async function main() {
       ? Buffer.from(proof.proof) : Buffer.from(proof.proof, 'hex');
     const name = String(result.proofs.length + 1).padStart(3, '0') + '-' + label;
     const inputs = fixtureJSON(proof.publicInputs);
+    const originalMetrics = proof.metrics;
+    assert.match(originalMetrics.id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.equal(earlierTelemetry.has(originalMetrics.id + '.json'), false, 'PRIVATE_METAMORPHO_FRESH_PROOF_ATTEMPT');
+    const telemetry = readFileSync(join(telemetryDirectory, originalMetrics.id + '.json'));
+    const evidence = assertPrivateMetaMorphoProofTelemetry({ relation, returnedMetrics: originalMetrics,
+      storedMetrics: JSON.parse(telemetry), proofSHA256: hash(bytes),
+      publicInputsSHA256: hash(JSON.stringify(proof.publicInputs)), telemetrySHA256: hash(telemetry) });
     writeFileSync(join(proofDirectory, name + '.bin'), bytes, { flag: 'wx', mode: 0o600 });
     writeFileSync(join(proofDirectory, name + '.inputs.json'), inputs, { flag: 'wx', mode: 0o600 });
     result.proofs.push({ label, relation, file: name, proofSHA256: hash(bytes),
-      publicInputsSHA256: hash(inputs), evidence: proof.evidence ?? proof.metrics }); save();
+      publicInputsSHA256: hash(inputs), evidence }); save();
   };
   async function cleanup() {
     if (closed) return; closed = true;

@@ -10,7 +10,7 @@ function syntheticReport() {
     cleanup: { closedEvm: true, evm: { stopped: true, scratchRemoved: true } },
     proofs: ['deposit_balance', 'withdraw_balance'].map((relation, index) => ({ relation,
       proofSHA256: String(index + 1).repeat(64), publicInputsSHA256: String(index + 3).repeat(64),
-      evidence: { acceptedResult: true } })),
+      evidence: { acceptedResult: true, resourceReceiptCompleted: true, telemetrySHA256: 'e'.repeat(64) } })),
     checks: Object.fromEntries(['originalPrivateShareFunding', 'originalNoteRestoredWithoutSend',
       'originalPrivateExitAndBacking', 'completedResponseDeliberatelyDiscarded', 'originalJournalRecoveryWithoutResend',
       'underlyingRestoredAndPrivateLiabilitiesClosed'].map(name => [name, true])),
@@ -22,7 +22,8 @@ function syntheticReport() {
 test('exit acceptance rejects unaccepted or absent genuine-note evidence and incomplete cleanup', () => {
   const original = syntheticReport(); assertPrivateMetaMorphoResult(original);
   for (const mutate of [value => value.proofs.pop(), value => value.proofs[1].evidence.acceptedResult = false,
-    value => value.checks.originalPrivateExitAndBacking = false, value => value.cleanup.evm.scratchRemoved = false]) {
+    value => value.checks.originalPrivateExitAndBacking = false, value => value.cleanup.evm.scratchRemoved = false,
+    value => value.proofs[1].evidence.resourceReceiptCompleted = false]) {
     const value = structuredClone(original); mutate(value); assert.throws(() => assertPrivateMetaMorphoResult(value));
   }
 });

@@ -13,6 +13,8 @@ export function assertPrivateMetaMorphoResult(value) {
     'PRIVATE_METAMORPHO_TWO_GENUINE_NOTE_PROOFS');
   for (const proof of value.proofs) {
     assert.equal(proof.evidence?.acceptedResult, true, 'PRIVATE_METAMORPHO_PROOF_ACCEPTANCE');
+    assert.equal(proof.evidence?.resourceReceiptCompleted, true, 'PRIVATE_METAMORPHO_PROOF_RESOURCES');
+    assert.match(proof.evidence.telemetrySHA256, /^[0-9a-f]{64}$/);
     assert.match(proof.proofSHA256, /^[0-9a-f]{64}$/); assert.match(proof.publicInputsSHA256, /^[0-9a-f]{64}$/);
   }
   assert.notEqual(value.proofs[0].proofSHA256, value.proofs[1].proofSHA256);
