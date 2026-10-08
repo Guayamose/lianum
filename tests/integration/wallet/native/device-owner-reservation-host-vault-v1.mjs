@@ -28,7 +28,10 @@ class Sealed{constructor(bytes){this.bytes=Buffer.from(bytes);}static fromCombin
  async combined(encoding){assert.equal(encoding,'base64');return this.bytes.toString('base64');}}
 export const HostCrypto=Object.freeze({CryptoDigestAlgorithm:Object.freeze({SHA256:'SHA-256'}),AESEncryptionKey:Key,AESSealedData:Sealed,
  getRandomBytesAsync:async width=>{live();assert.equal(width,32);return Uint8Array.from(randomBytes(width));},
- digest:async(algorithm,bytes)=>{live();assert.equal(algorithm,'SHA-256');return Uint8Array.from(createHash('sha256').update(bytes).digest()).buffer;},
+ digest:async(algorithm,bytes)=>{live();assert.equal(algorithm,'SHA-256');
+  assert.ok(bytes instanceof ArrayBuffer||ArrayBuffer.isView(bytes));
+  const raw=ArrayBuffer.isView(bytes)?Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength):Buffer.from(bytes);
+  return Uint8Array.from(createHash('sha256').update(raw).digest()).buffer;},
  aesEncryptAsync:async(clear,key,options)=>{live();assert.deepEqual(options.nonce,{length:12});assert.equal(options.tagLength,16);
   const nonce=randomBytes(12),cipher=createCipheriv('aes-256-gcm',keys.get(key),nonce);cipher.setAAD(Buffer.from(options.additionalData));
   return new Sealed(Buffer.concat([nonce,cipher.update(clear),cipher.final(),cipher.getAuthTag()]));},
