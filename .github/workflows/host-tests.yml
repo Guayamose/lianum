@@ -30,5 +30,21 @@ jobs:
       - name: Run the default host selection
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
-        run: |
-          ./dev test packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs tests/integration/chains/solana tests/integration/chains/bitcoin tests/integration/chains/tron/tron-candidate-acceptance.test.mjs tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs tests/integration/wallet/manual/manual-wallet-position-checks.test.mjs tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs tests/integration/wallet/manual/manual-wallet-recovery-policy.test.mjs tests/integration/defi/private-metamorpho-flow-policy.test.mjs packages/proofs/tests/native-ingress/native-claims-parent-death.test.mjs
+        run: >-
+          ./dev test
+          packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs
+          tests/integration/chains/solana
+          tests/integration/chains/bitcoin
+          tests/integration/chains/tron/tron-candidate-acceptance.test.mjs
+          tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs
+          tests/integration/wallet/manual/manual-wallet-position-checks.test.mjs
+          tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs
+          tests/integration/wallet/manual/manual-wallet-recovery-policy.test.mjs
+          tests/integration/defi/private-metamorpho-flow-policy.test.mjs
+          tests/integration/defi/private-metamorpho-proof-evidence.test.mjs
+          tests/integration/claims/development
+          tests/integration/chains/tron/tron-candidate-lifetime.test.mjs
+          packages/proofs/tests/native-ingress/native-claims-parent-death.test.mjs
+          packages/backend/tests/defi/delivery/manual-wallet-app-driver-defi.test.mjs
+          packages/backend/tests/defi/vaults/generation-private-vault-reader.test.mjs
+          packages/backend/tests/defi/withdrawals/generation-private-vault-exit.test.mjs
