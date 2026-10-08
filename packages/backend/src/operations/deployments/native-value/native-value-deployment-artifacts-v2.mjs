@@ -24,7 +24,7 @@ import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nati
   NATIVE_VALUE_DEV_LEDGER_COMPILED_PATH_V5, NATIVE_VALUE_DEV_LEDGER_RECEIPT_PATH_V5, NATIVE_VALUE_DEV_LEDGER_KIND_V5,
   NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5, validateNativeValueDevProducedLedgerDescriptorV5, validateNativeValueDevLedgerReceiptV5 }
   from '../../releases/native-value/native-value-dev-release-contract-v5.mjs';
-import { inspectProducedW39ArtifactsV5 } from './native-value-dev-w39-artifacts-v5.mjs';
+import { inspectProducedW39ConsumerArtifactsV5 as inspectProducedW39ArtifactsV5 } from './native-value-dev-w39-consumer-artifacts-v5.mjs';
 const issued = new WeakSet();
 const ADMISSION_PREPARED_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/native-value-verifier-preparation';
 const ADMISSION_COMPILE_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/generic-native-admission-compile';
