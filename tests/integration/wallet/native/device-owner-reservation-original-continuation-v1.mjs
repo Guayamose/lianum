@@ -40,10 +40,25 @@ export async function runDeviceOwnerReservationContinuationV1(context){
      :await createPairedDeviceExecutionTlsServerV1({bridge:executionBridge,reservationBridge:bridge,tls});
   }else server=await createPairedDeviceReservationTlsServerV1({bridge,tls});
   api=await host.reservation.createDeviceOwnerReservationApiV1(descriptor);
-  const source=await vault.readDeviceNote();assert.equal(source.availableBalance,'500');assert.equal(source.job.jobId,depositJobId);
+  const source=await vault.readDeviceNote();if(!context.deviceEconomicRecovery)assert.equal(source.availableBalance,'500');assert.equal(source.job.jobId,depositJobId);
   const firstQuote=await api.preparation({...await access(),depositJobId,rootId:source.rootId}),quote=host.reservation.readDeviceReservationQuoteV1(firstQuote);
   const another=await api.preparation({...await access(),depositJobId,rootId:source.rootId}),again=host.reservation.readDeviceReservationQuoteV1(another);
   for(const k of ['quoteId','proposal','capsuleOptions','invoiceSignatures','poolTerms'])assert.deepEqual(again[k],quote[k],'DEVICE_US_ORIGINAL_QUOTE_RETAINED');
+  if(context.deviceEconomicRecovery){
+   // Provider setup and the original quote may outlive the previous 15s
+   // monetary read. Renew only OBSERVE_D26 on the SAME retained bridge; no
+   // proof, funding, quote window or durable note is recreated.
+   const before=counts(),writes=host.evidence().writes;
+   assert.equal(typeof context.refreshOriginalDepositInclusion,'function');
+   const fresh=await context.refreshOriginalDepositInclusion();active();
+   for(const key of ['jobId','rootId','commitment','nullifier','transactionHash'])
+    assert.equal(fresh[key],result.deviceNote.observation[key],'DEVICE_C4_SAME_ORIGINAL_D26_INCLUSION');
+   assert.deepEqual(counts(),before);assert.equal(host.evidence().writes,writes,'DEVICE_C4_FRESH_D26_READ_NO_WRITE');
+   result.deviceFundingFreshnessBeforeU={jobId:fresh.jobId,transactionHash:fresh.transactionHash,
+    observedAt:fresh.observedAt,expiresAt:fresh.expiresAt,proofsBefore:before.proofs,proofsAfter:result.proofs.length,
+    receiverWiresBefore:before.receiver,receiverWiresAfter:runtime.transactions.length,nativeWiresBefore:before.native,
+    nativeWiresAfter:nativeRuntime.transactions.length,encryptedWritesBefore:writes,encryptedWritesAfter:host.evidence().writes};
+  }
   const review=await vault.prepareDeviceReservationFromQuote(another);assert.equal(review.sourceCommitment,result.deviceNote.localCommitment);
   assert.equal(review.changeAmount,'400');assert.equal(review.recoveryAmount,'100');assert.equal(review.budget,'100');
   assert.equal((await vault.readDeviceNote()).availableBalance,null,'DEVICE_US_PENDING_SOURCE_NOT_FREE');

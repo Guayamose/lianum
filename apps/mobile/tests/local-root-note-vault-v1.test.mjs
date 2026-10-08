@@ -500,7 +500,8 @@ test('copied U request, quote or signature never releases openings or rewrites a
 // HOST HTTP framing is deliberately synthetic. The actual mobile API issues
 // its own inclusion/quote handles; neither this fixture nor AES claims a chain
 // confirmation, original backend authority, hardware or economic acceptance.
-test('original vault persists output custody and binds fresh READ balance to local PC23/NF; expiry/reopen or coherent public hashes confer no availability', async () => {
+test('original vault persists output custody and binds fresh READ balance to local PC23/NF; expiry/reopen or coherent public hashes confer no availability', async t => {
+  const realNow = Date.now; t.after(() => { Date.now = realNow; });
   const fixture = await completePrivateCustodyBackup(), rootHex = '09'.repeat(32), value = fixture.value;
   delete value.spend;
   async function writeClear(clear, corruptTag = false) {
@@ -536,7 +537,7 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const poolTerms = { scope: note.scope, policy: note.policy, codeHash: '15'.repeat(32), assetIdentity: proposal.asset, domainCommitment: note.deviceJob.domainCommitment };
   const tree = new PrivateNoteTree([Buffer.from(note.commitment, 'hex')]), path = tree.path(0), now = Date.now();
   const statement = { scope: note.scope, policy: note.policy, epoch: note.depositIntent.epoch, amount: note.opening.value, output: note.commitment };
-  const consent = normalizeDeviceDepositConsentV1({ version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_D26_V1', action: 'OBSERVE_D26', ...descriptor,
+  let consent = normalizeDeviceDepositConsentV1({ version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_D26_V1', action: 'OBSERVE_D26', ...descriptor,
     challengeId: '16'.repeat(32), nonce: '17'.repeat(32), expiresAt: now + 15000, binding: frames.review.binding, poolTerms,
     jobId: note.deviceJob.jobId, rootId: value.rootId, noteRevision: note.deviceJob.noteRevision, statement,
     witnessSHA256: '18'.repeat(32), proofSHA256: '19'.repeat(32), publicInputsSHA256: '20'.repeat(32),
@@ -552,7 +553,9 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const quote = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_US_QUOTE_V1', ...descriptor, quoteId: '23'.repeat(32),
     depositJobId: consent.jobId, rootId: value.rootId, sourceCommitment: note.commitment, sourceNullifier: observation.nullifier,
     poolTerms, proposal, capsuleOptions: framing.capsuleOptions, invoiceSignatures: [invoice], observed: consent.observed, expiresAt: now + 15000 };
+  const httpPaths = [];
   control.fetch = async (target, options) => {
+    httpPaths.push(new URL(target).pathname);
     assert.equal(new URL(target).origin, descriptor.origin); const input = JSON.parse(options.body); let body;
     if (target.endsWith('/challenges')) body = { challenge: frames.access };
     else if (target.endsWith('/device-deposit/observation-reviews')) body = consent;
@@ -569,8 +572,39 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const included = await deposit.submit({ consent: selected, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(selected)) });
   const vault = openLocalRootNoteVaultV1(value.rootId);
   await vault.applyDeviceDepositInclusion(included.observation);
+  // Simulate provider/quote setup crossing the monetary read's fixed 15s.
+  // The quote is fresh; only the earlier D26 observation has expired.
+  const freshAt = now + 15000; Date.now = () => freshAt;
+  Object.assign(frames.access, { challengeId: '32'.repeat(32), nonce: '33'.repeat(32), expiresAt: freshAt + 60000 });
+  quote.expiresAt = freshAt + 15000;
   const quoteAccess = await reservation.access(), handle = await reservation.preparation({ access: quoteAccess,
     signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(quoteAccess)), rootId: value.rootId, depositJobId: consent.jobId });
+  const originalStore = new Map(store), writes = calls.filter(row => row.method === 'write').length;
+  await assert.rejects(vault.prepareDeviceReservationFromQuote(handle), /MOBILE_DEVICE_DEPOSIT_RESPONSE_INVALID/);
+  assert.deepEqual(store, originalStore); assert.equal(calls.filter(row => row.method === 'write').length, writes);
+  consent = normalizeDeviceDepositConsentV1({ ...consent, challengeId: '34'.repeat(32), nonce: '35'.repeat(32), expiresAt: freshAt + 15000 });
+  Object.assign(observation, { observedAt: freshAt, expiresAt: freshAt + 15000 });
+  Object.assign(frames.access, { challengeId: '36'.repeat(32), nonce: '37'.repeat(32) });
+  const postsBefore = httpPaths.length, freshAccess = await deposit.access(), freshConsent = await deposit.challenge('OBSERVE_D26', { access: freshAccess,
+    signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(freshAccess)), jobId: consent.jobId });
+  const freshInclusion = await deposit.submit({ consent: freshConsent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(freshConsent)) });
+  const refreshed = await vault.applyDeviceDepositInclusion(freshInclusion.observation);
+  assert.equal(refreshed.availableBalance, '500'); assert.deepEqual(store, originalStore);
+  assert.equal(calls.filter(row => row.method === 'write').length, writes, 'fresh same funding only refreshes the ephemeral handle');
+  assert.deepEqual(httpPaths.slice(postsBefore), ['/v2/mobile/original-account/challenges',
+    '/v1/mobile/device-deposit/observation-reviews', '/v1/mobile/device-deposit/observations']);
+  assert.equal(rawClearRecord(rootHex).note.funding.transactionHash, observation.transactionHash);
+  // A client-branded response for a different funding cannot exploit the
+  // no-write refresh branch, even with otherwise coherent public framing.
+  const originalTransactionHash = observation.transactionHash; observation.transactionHash = '38'.repeat(32);
+  consent = normalizeDeviceDepositConsentV1({ ...consent, challengeId: '39'.repeat(32), nonce: '40'.repeat(32) });
+  Object.assign(frames.access, { challengeId: '41'.repeat(32), nonce: '42'.repeat(32) });
+  const changedAccess = await deposit.access(), changedConsent = await deposit.challenge('OBSERVE_D26', { access: changedAccess,
+    signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(changedAccess)), jobId: consent.jobId });
+  const changedInclusion = await deposit.submit({ consent: changedConsent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(changedConsent)) });
+  await assert.rejects(vault.applyDeviceDepositInclusion(changedInclusion.observation), /MOBILE_LOCAL_ORIGINAL_INCLUSION_CHANGED/);
+  assert.deepEqual(store, originalStore); assert.equal(calls.filter(row => row.method === 'write').length, writes);
+  observation.transactionHash = originalTransactionHash;
   const before = rawClearRecord(rootHex), prepared = await vault.prepareDeviceReservationFromQuote(handle), stored = rawClearRecord(rootHex);
   assert.equal(stored.revision, before.revision + 1); assert.deepEqual(stored.note, before.note);
   assert.equal(stored.spend.phase, 'PREPARED'); assert.equal(stored.spend.signature, null);

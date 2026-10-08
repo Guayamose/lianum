@@ -268,7 +268,8 @@ async function runOriginalStepV1(context, reservationMode) {
       assert.equal((await vault.readDeviceNote()).availableBalance, '500');
       const firstClosed = await handoffPairedDeviceDepositTlsServerV1(server); assert.equal(firstClosed.closed,true); assert.equal(firstClosed.ownedSocketsRemaining,0);
       result.cleanup.mobileListeners.push(firstClosed); if(!context.deviceEconomicRecovery)bridge.close();
-      continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId,originalDepositBridge:context.deviceEconomicRecovery?bridge:null });
+      continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId,originalDepositBridge:context.deviceEconomicRecovery?bridge:null,
+        refreshOriginalDepositInclusion:context.deviceEconomicRecovery?observe:null });
       server = ownedPair.server = continuation.server;
     }
   } finally {

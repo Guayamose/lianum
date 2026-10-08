@@ -1219,6 +1219,16 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           finally { frame.fill(0); }
           if (note.funding && (note.funding.transactionHash !== inclusion.transactionHash
             || note.funding.assetId !== inclusion.assetId)) bad('MOBILE_LOCAL_ORIGINAL_INCLUSION_CHANGED');
+          if (note.status === 'FUNDED' && note.funding) {
+            // A fresh observation of this exact original funding changes only
+            // the ephemeral handle. Preserve ciphertext, revision and intent.
+            if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+              || await readStoredRecord(scope) !== raw
+              || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            current(); readDeviceDepositInclusionV1(capability); liveInclusion = capability;
+            return { commitment: note.commitment, availableBalance: !value.spend ? note.opening.value : null,
+              nativeEffectsEstablished: true, observedHead: inclusion.head.hash };
+          }
           const next: State = { ...value, revision: value.revision + 1, note: { ...note, status: 'FUNDED',
             funding: { transactionHash: inclusion.transactionHash, assetId: inclusion.assetId } } };
           const nextRaw = await checked(scope, () => sealedRecord(key, next));
