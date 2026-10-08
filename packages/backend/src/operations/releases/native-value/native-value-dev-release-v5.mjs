@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "987b4e289c3f81f3551572c34f1fa06b061553dbcc8fa057558df354efe1a156",
+  "hostSourceClosureSHA256": "1587ea87a8c5106e3893f2ad920cd742d2e3c71ad034c9ec17fb02239c94c0b7",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -802,7 +802,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-wallet-real-driver-v1.mjs",
-      "sha256": "e57f48e930643314e6f722d53d3080b740206c3bc9fc5b15a8f231ed5bd385e1"
+      "sha256": "9861e957fea5996a046875c106a0eac2cc6d1fe28c7137e741043342f2e2db8d"
     },
     {
       "path": "integration/native-wallet-real-evidence-v1.mjs",
