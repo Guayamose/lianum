@@ -1844,6 +1844,29 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     deviceReservationStatus(id,descriptor) { return exclusive(async()=>{await healthy();const row=reservationRow(id);
       reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,descriptor);return reservationPublic(row);}); },
     deviceDepositStatus(id) { return exclusive(async () => { await healthy(); return devicePublic(deviceRow(id)); }); },
+    async captureDeviceD26Observation(jobId){
+      assert.ok(!wrapped&&!busy&&!closed&&!cancelled&&!unavailable&&!capturing,'NATIVE_D26_RECOVERY_ORIGINAL_IDLE_ACCOUNT');
+      // Fence the original account BEFORE the first await. A snapshot copy or
+      // a restored ID cannot bypass this private branch.
+      capturing=true;
+      try{
+        await healthy();const row=deviceRow(jobId);deviceBinding(row.consent);
+        assert.ok(['FUNDING_UNKNOWN','CONFIRMED'].includes(row.stage),'NATIVE_D26_RECOVERY_ADMITTED_FUNDING_REQUIRED');
+        assert.equal(row.submission?.dispatchLatched,true);assert.ok(row.proof&&row.nullifier);
+        assert.equal(byteSHA(Buffer.from(row.proof.proof,'hex')),row.proofSHA256,'NATIVE_D26_RECOVERY_PROOF_CHANGED');
+        assert.equal(sha(row.proof.publicInputs),row.publicInputsSHA256);
+        const m=await import('../../operations/deployments/native-value/native-value-system-v2.mjs');
+        const systemRecord=await m.captureNativeValueD26ObservationSystemV1(runtime,system);
+        const snapshot={schema:'ORIGINAL_NATIVE_DEVICE_D26_OBSERVATION_V1',poolIndex,identity:copy(identity),
+          identitySHA256,asset:copy(asset),accountIdentity:copy(accountIdentity),config:copy(config),row:copy(row),system:systemRecord};
+        await proofRunner.close();if(nativeExecution!==null)await nativeExecution.close();
+        const stopped=await owner.close();assert.deepEqual(stopped,{closed:true,childExited:true});
+        const report=owner.report();assert.equal(report.closed,true);assert.equal(report.childExited,true);
+        m.stopCapturedNativeValueD26ObservationSystemV1(runtime,system);
+        closed=true;password=null;record=null;deviceExecutionInstallations.clear();deviceExecutionProviders.clear();
+        return snapshot;
+      }catch(error){unavailable=true;throw error;}
+    },
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,accountId,journalId,poolIndex};},
     fence(){assert.ok(wrapped&&!busy&&!closed&&!cancelled&&!unavailable&&!capturing,'WRAPPED_ACCOUNT_ORIGINAL_CAPTURE_REQUIRED');capturing=true;
       captureProviders=[...nativeProviderSets].map(([reference,rows])=>({reference,providers:rows.map(row=>({...row}))}));captureProviderBindings=captureProviders.map(({reference,providers})=>({reference,providers:providers.map(row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,custodyIdentitySHA256:sha(recoveryProviderReviewV1(row.custody,{runtime,system,poolIndex}))}))}));return captureProviders;},
@@ -1902,3 +1925,19 @@ export function recoveredWrappedWalletManualGraphApprovalsV1(account){
 export function wrappedWalletAccountPrivateInitializationV1(account){const state=owned.get(account);assert.ok(state?.wrapped);return state.initialization();}
 
 export function fenceWrappedWalletAccountRecoveryV1(account){const state=owned.get(account);assert.ok(state?.wrapped);return state.fence();}
+
+
+/** Fixed native retention producer. No record/path/descriptor supplied by caller
+ * can mint recovery: original account and paired actor references are required. */
+export async function captureOriginalDeviceD26ObservationV1(input) {
+  assert.equal(arguments.length,1);exactRecord(input,['actor','account','runtime','system','jobId']);
+  const {actor,account,runtime,system,jobId}=input;reference(jobId);
+  assertOwnedNativeValueAccountAuthority(account,{runtime,system});
+  const m=await import('../../api/mobile/paired-original-account-actor-v2.mjs');
+  m.assertPairedOriginalAccountActorAccountV2(actor,account);
+  const descriptor=copy(m.pairedOriginalAccountActorDescriptorV2(actor));
+  const data=await owned.get(account).captureDeviceD26Observation(jobId);actor.close();
+  assert.equal(data.row.consent.origin,descriptor.origin);assert.equal(data.row.consent.pairingId,descriptor.pairingId);
+  assert.equal(data.row.consent.devicePublicKey,descriptor.devicePublicKey);
+  return {...data,descriptor};
+}

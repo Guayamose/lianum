@@ -111,6 +111,14 @@ export async function reopenOwnedReceiverRecoveryV1(token) {
   assert.equal(arguments.length,1);const record=consumeWrappedRuntimeRecoveryV1(token,'receiver');
   return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,true);
 }
+/** Only the native OBSERVE issuer's distinct one-use token enters here.
+ * The recovered runtime remains private to its read-only service. */
+export async function reopenOwnedNativeD26ObservationReceiverV1(token) {
+  assert.equal(arguments.length,1);
+  const {consumeNativeD26ObservationSectionV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+  const record=consumeNativeD26ObservationSectionV1(token,'receiver');
+  return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,true);
+}
 export async function reopenOwnedReceiverPreopenRepairV1(token) {
   assert.equal(arguments.length,1);
   const {record,repair}=consumeExternalDefiReceiverRepairV1(token);

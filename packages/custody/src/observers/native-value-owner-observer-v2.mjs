@@ -26,10 +26,22 @@ export function assertOwnedNativeValueOwnerObserver(observer, { runtime, system,
     'FLAT_OWNER_OWNED_OBSERVER_REQUIRED'); assertOwnedNativeValueWalletSystem(runtime, system);
 }
 export async function createNativeValueOwnerObserver(options) {
+  return createFixedNativeValueOwnerObserver(options,assertOwnedNativeValueWalletSystem,createNativeValueSystemStateReader);
+}
+/** Only this constructor accepts the private OBSERVE-only recovered brand. */
+export async function createNativeValueObservationOwnerObserverV1(options) {
+  assert.equal(arguments.length,1);
+  const {assertOwnedNativeValueObservationSystemV1}=await import('../../../backend/src/operations/deployments/native-value/native-value-system-v2.mjs');
+  const assertObservation=(runtime,system)=>{assertOwnedNativeValueObservationSystemV1(runtime,system);
+    assert.equal(system.profile,'OWNED_GENERIC_NATIVE_VALUE_SYSTEM_V2');assert.equal(system.claimsEnabled,false);assert.ok(Object.isFrozen(system));};
+  const {createNativeValueObservationStateReaderV1}=await import('../../../backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs');
+  return createFixedNativeValueOwnerObserver(options,assertObservation,createNativeValueObservationStateReaderV1);
+}
+async function createFixedNativeValueOwnerObserver(options,assertSystem,createReader) {
   exactRecord(options, ['runtime', 'system', 'poolIndex']);
   const hasDelivery = false; // This profile has no vault delivery or claim issuance observer.
   const { runtime, system, poolIndex } = options;
-  assertOwnedNativeValueWalletSystem(runtime, system); await assertLocalEvm(runtime);
+  assertSystem(runtime, system); await assertLocalEvm(runtime);
   assert.ok(poolIndex === 0 || poolIndex === 1); const pool = system.pools[poolIndex];
   assertOwnedPoolAsset(runtime, pool.assetCapability);
   const asset = pool.assetCapability.metadata;
@@ -44,7 +56,7 @@ export async function createNativeValueOwnerObserver(options) {
   const identitySHA256 = ownerDigest(identity);
   const deliveryObserver = null;
   const assertDeliveryObserver = null;
-  const reader = await createNativeValueSystemStateReader({ runtime, system, poolIndex });
+  const reader = await createReader({ runtime, system, poolIndex });
   const codeRecords = [system.hub, ...system.pools, ...Object.values(system.libraries),
     ...Object.values(system.verifiers), ...Object.values(system.generatedLibraries)];
   async function readAssetAt(holder, header) {
@@ -59,7 +71,7 @@ export async function createNativeValueOwnerObserver(options) {
     return observed;
   }
   async function readAt(tag) {
-    assertOwnedNativeValueWalletSystem(runtime, system); await assertLocalEvm(runtime);
+    assertSystem(runtime, system); await assertLocalEvm(runtime);
     const header = await runtime.block(tag);
     const [rawState, rawHistory, rawBacking, codes, poolAsset] = await Promise.all([
       ...['canonicalState()', 'canonicalRootHistory()', 'canonicalBacking()'].map(method => pool.call(method, [], header.number)),
@@ -110,7 +122,7 @@ export async function createNativeValueOwnerObserver(options) {
     assert.ok(['deposit', 'reservation', 'recovery', 'withdraw_source', 'withdraw_change', 'withdraw_recovery'].includes(query.kind));
     assert.equal(query.identitySHA256, identitySHA256); hash(query.calldataSHA256);
     if (query.transactionHash !== null) hash(query.transactionHash);
-    assertOwnedNativeValueWalletSystem(runtime, system); await assertLocalEvm(runtime);
+    assertSystem(runtime, system); await assertLocalEvm(runtime);
     const candidates = runtime.transactions.filter(record => record.request.to === pool.address
       && record.request.from === system.sender && typeof record.request.data === 'string'
       && sha(Buffer.from(record.request.data.slice(2), 'hex')) === query.calldataSHA256

@@ -255,9 +255,18 @@ function sameHead(left, right) {
 
 /** Async bootstrap. A lookalike runtime/system cannot create this reader. */
 export async function createNativeValueSystemStateReader(input) {
+  return createFixedNativeValueStateReader(input,assertOwnedFlatSystem);
+}
+/** Distinct read-only brand; the economic factory keeps its original guard. */
+export async function createNativeValueObservationStateReaderV1(input) {
+  assert.equal(arguments.length,1);
+  const {assertOwnedNativeValueObservationSystemV1}=await import('../../../operations/deployments/native-value/native-value-system-v2.mjs');
+  return createFixedNativeValueStateReader(input,assertOwnedNativeValueObservationSystemV1);
+}
+async function createFixedNativeValueStateReader(input,assertSystem) {
   exactRecord(input, ['runtime', 'system', 'poolIndex']);
   const { runtime, system, poolIndex } = input;
-  assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime); index(poolIndex, 2);
+  assertSystem(runtime, system); await assertLocalEvm(runtime); index(poolIndex, 2);
 
   const reader = {
     async assertCurrent(head) {
@@ -265,7 +274,7 @@ export async function createNativeValueSystemStateReader(input) {
         assert.ok(issued.has(head) && issued.get(head).runtime === runtime && issued.get(head).system === system
           && head.poolIndex === poolIndex, 'NATIVE_VALUE_STATE_OWN_HEAD_REQUIRED');
         assert.equal(issued.get(head).historical, false, 'FLAT_STATE_HISTORICAL_NOT_CURRENT');
-        assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
+        assertSystem(runtime, system); await assertLocalEvm(runtime);
         const header = issued.get(head).header;
         await runtime.assertCanonical(header); sameHead(header, await runtime.block());
         await assertCodes(runtime, system, header);
@@ -277,7 +286,7 @@ export async function createNativeValueSystemStateReader(input) {
       try {
         assert.ok(issued.has(head) && issued.get(head).runtime === runtime && issued.get(head).system === system
           && head.poolIndex === poolIndex, 'NATIVE_VALUE_STATE_OWN_HEAD_REQUIRED');
-        assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
+        assertSystem(runtime, system); await assertLocalEvm(runtime);
         const { header } = issued.get(head);
         await runtime.assertCanonical(header); await assertCodes(runtime, system, header);
         await runtime.assertCanonical(header);
@@ -288,7 +297,7 @@ export async function createNativeValueSystemStateReader(input) {
       try {
         assert.ok(typeof blockNumber === 'string' && blockNumber.length <= 18
           && /^0x(?:0|[1-9a-f][0-9a-f]*)$/.exec(blockNumber)?.[0] === blockNumber, 'FLAT_STATE_HISTORICAL_BLOCK');
-        assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
+        assertSystem(runtime, system); await assertLocalEvm(runtime);
         const header = copy(await runtime.block(blockNumber));
         assert.equal(header.number, blockNumber, 'FLAT_STATE_HISTORICAL_BLOCK');
         const math = fixedMath(system.libraries.poseidon2Domains, header.number);
@@ -321,7 +330,7 @@ export async function createNativeValueSystemStateReader(input) {
           canonicalField(query.domainCommitment, true); canonicalField(query.authorizationRoot); bytes32(query.checkpoint, true);
           query = copy(query);
         }
-        assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
+        assertSystem(runtime, system); await assertLocalEvm(runtime);
         const header = copy(await runtime.block()), at = header.number;
         const math = fixedMath(system.libraries.poseidon2Domains, at);
         const head = await readAt(runtime, system, poolIndex, header, math, query);
