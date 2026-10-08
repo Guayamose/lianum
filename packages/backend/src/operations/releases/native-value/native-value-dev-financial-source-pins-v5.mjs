@@ -14,7 +14,7 @@ const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/dev
 const FIXED=Object.freeze(['golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
  'integration/run-native-value-economic-note-recovery-v1.mjs',
  'integration/native-value-economic-note-recovery-flow-v1.mjs','integration/native-device-economic-note-successor-worker-v1.mjs',
- 'integration/native-device-economic-note-process-scope-v1.mjs','development-tooling/native_economic_note_receipts.py',
+ 'integration/native-device-economic-note-process-scope-v1.mjs',
  'proof-workers/native-value-dev-live-v5-artifacts.mjs',
  'proof-workers/native-value-dev-live-v5-client.mjs','proof-workers/native-value-dev-live-v5-role-process.mjs',
  'proof-workers/native-value-dev-live-v5-worker.mjs','proof-workers/native-value-dev-live-v5-run-bounded.mjs',
