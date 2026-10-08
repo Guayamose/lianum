@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node src/run.mjs",
+    "db:migrate": "node src/migrate.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:postgres": "node scripts/test-postgres.mjs",
     "test:docker": "node scripts/test-docker.mjs",

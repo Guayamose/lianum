@@ -3,12 +3,14 @@
 import { createPostgresAuthorizationStore, authorizationKey } from '../../src/authorization-store.mjs';
 import { startPlatformServer } from '../../src/server.mjs';
 import { createPlatformPool } from '../../src/database-pool.mjs';
+import { migratePlatformDatabase } from '../../src/schema-migrations.mjs';
 import { errorMonitor } from 'node:events';
 
 const pool = createPlatformPool(process.env.LIANUM_TEST_DATABASE_URL);
 // errorMonitor observes without handling EventEmitter errors. Removing the
 // production listener still kills this process and makes the restart test fail.
 pool.on(errorMonitor,()=>process.stdout.write('{"testEvent":"SQL_IDLE_ERROR"}\n'));
+await migratePlatformDatabase(pool);
 const store = await createPostgresAuthorizationStore(pool);
 await pool.query('CREATE TABLE IF NOT EXISTS test_dispatches(id bigserial PRIMARY KEY, authorization_key text NOT NULL)');
 const executor = {

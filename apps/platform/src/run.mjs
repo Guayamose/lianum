@@ -4,7 +4,16 @@ import { startPlatformServer } from './server.mjs';
 const port=Number(process.env.PORT??8080);
 if(!Number.isInteger(port)||port<1||port>65535)throw new Error('PLATFORM_PORT_INVALID');
 const origin=process.env.LIANUM_PUBLIC_ORIGIN;
-const store=process.env.DATABASE_URL?await createPostgresAuthorizationStore(createPlatformPool(process.env.DATABASE_URL)):null;
+let store = null;
+if (process.env.DATABASE_URL) {
+  const pool = createPlatformPool(process.env.DATABASE_URL);
+  try {
+    store = await createPostgresAuthorizationStore(pool);
+    // Deployment/local init runs src/migrate.mjs separately. Normal startup
+    // verifies the recorded schema and never creates or changes SQL tables.
+    await store.ready();
+  } catch (error) { await pool.end(); throw error; }
+}
 // Deliberately unbound until the reviewed mobile owner/account bridge exists.
 // Neither an environment variable nor a remote request supplies private hooks.
 const server=await startPlatformServer({origin,store,executor:null,host:'0.0.0.0',port});

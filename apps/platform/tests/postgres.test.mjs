@@ -9,6 +9,8 @@ import { createPlatformPool } from '../src/database-pool.mjs';
 import { startPlatformServer } from '../src/server.mjs';
 import { startCommitReplyProxy } from './helpers/commit-reply-proxy.mjs';
 import { startTestPostgres, poolFor } from './helpers/postgres-container.mjs';
+import { migratePlatformDatabase } from '../src/schema-migrations.mjs';
+import { runMigrationCases } from './helpers/migration-cases.mjs';
 import { MOBILE_AUTHORIZATION_PROFILE, mobileAuthorizationMessage, mobileReceiptMessage } from '../../../packages/mobile-protocol/src/authorization.mjs';
 let createMobileApi;
 
@@ -72,8 +74,11 @@ async function startChild(connectionString) {
 test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: !enabled && 'Run npm run test:postgres: creates only an isolated 256 MiB Docker fixture', timeout: 120_000 }, async t => {
   ({createMobileApi}=await import('../../mobile/src/api/wallet-api.mjs'));
   const database = await startTestPostgres(); t.after(() => database.close());
-  let pool = poolFor(database.connectionString), store = await createPostgresAuthorizationStore(pool);
+  let pool = poolFor(database.connectionString);
   t.after(async () => { if (pool) await pool.end(); });
+  await runMigrationCases(t, pool, database.connectionString, { challenge, unknown, accepted });
+  await migratePlatformDatabase(pool);
+  let store = await createPostgresAuthorizationStore(pool);
 
   await t.test('JSONB key reordering preserves canonical challenge binding; altered/expired/missing originals fail closed', async () => {
     const original = challenge(); await store.put(original);

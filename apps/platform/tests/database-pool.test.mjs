@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createPlatformPool } from '../src/database-pool.mjs';
 import { createPostgresAuthorizationStore } from '../src/authorization-store.mjs';
+import { migratePlatformDatabase } from '../src/schema-migrations.mjs';
 
 function message(type, payload) {
   const size = Buffer.alloc(4);
@@ -102,4 +103,13 @@ test('an active transaction transport reset rejects without killing the owning p
   assert.equal(child.stderr, '');
   assert.equal(f.queries.at(-1), 'BEGIN');
   assert.equal(f.queries.includes('COMMIT'), false);
+});
+
+test('silent migration transport discards its owned transaction and sends no queued rollback', { timeout: 12_000 }, async t => {
+  const f = await silentPeer(t), began = Date.now();
+  await assert.rejects(migratePlatformDatabase(f.pool), /Query read timeout/);
+  assert.ok(Date.now() - began >= 4500 && Date.now() - began < 10_000);
+  assert.equal(f.pool.idleCount, 0);
+  assert.equal(f.pool.totalCount, 0);
+  assert.deepEqual(f.queries, ['BEGIN']);
 });
