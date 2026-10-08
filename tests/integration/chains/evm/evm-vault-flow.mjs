@@ -447,7 +447,7 @@ async function main() {
       const redemptionCount = runtime.transactions.length;
       await appDefi('reopen', {}); await appDefi('prepare', redemption);
       await appDefi('reconcile', { requestId: redemption.requestId });
-      await appDefi('execute', { requestId: redemption.requestId }); assert.equal(runtime.transactions.length, redemptionCount);
+      await appDriver.duplicateDefiExecute(redemption.requestId); assert.equal(runtime.transactions.length, redemptionCount);
       const finalApp = await appState();
       assert.equal(finalApp.capabilities.graphExecution, false);
       assert.equal(finalApp.defi.snapshot.operations.find(item => item.requestId === redemption.requestId)?.phase, 'REDEEMED');
