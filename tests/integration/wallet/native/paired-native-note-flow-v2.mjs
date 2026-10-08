@@ -17,7 +17,8 @@ import { loadNativeValueDevDeploymentArtifactsV5, NATIVE_VALUE_VERIFIER_ORDER } 
 import { createNativeValueSystemStateReader } from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import { createNativeValueOwnerProcess } from '../../../../packages/custody/src/processes/native-value-owner-process-v2.mjs';
 import {createNativeValueExecution} from '../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs';
-import {NATIVE_VALUE_LIVE_V2_LOCAL,NATIVE_VALUE_LIVE_V2_SPEC,nativeValueLivePublicWords} from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
+import {NATIVE_VALUE_LIVE_V2_LOCAL as NATIVE_VALUE_DEV_LIVE_V5_LOCAL} from '../../../../packages/proofs/src/native-value/tooling/native-value-dev-live-v5-tooling.mjs';
+import {NATIVE_VALUE_LIVE_V2_SPEC,nativeValueLivePublicWords} from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
 import {decodeNativeWalletAdmissionCalldata} from './native-wallet-real-evidence-v1.mjs';
 import {deviceOwnerExecutionSourcePinsV1} from './device-owner-execution-source-pins-v1.mjs';
 import {DEVICE_EXECUTION_PROFILE_V1,DEVICE_EXECUTION_RESULT_V1,assertDeviceExecutionReleaseV1,assertDeviceExecutionResultV1} from './device-owner-execution-policy-v1.mjs';
@@ -154,7 +155,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
   const telemetryDirectory = join(GOLDEN, 'evidence/paeg-proof-attempts');
   const earlierFlatJobs = new Set(existsSync(join(LOCAL, 'attempts')) ? readdirSync(join(LOCAL, 'attempts')) : []);
   const earlierJobs = new Set(existsSync(telemetryDirectory) ? readdirSync(telemetryDirectory) : []);
-  const earlierI84Jobs=new Set(existsSync(join(NATIVE_VALUE_LIVE_V2_LOCAL,'attempts'))?readdirSync(join(NATIVE_VALUE_LIVE_V2_LOCAL,'attempts')):[]);
+  const earlierI84Jobs=new Set(existsSync(join(NATIVE_VALUE_DEV_LIVE_V5_LOCAL,'attempts'))?readdirSync(join(NATIVE_VALUE_DEV_LIVE_V5_LOCAL,'attempts')):[]);
   async function onProof({ label, relation, proof }) {
     active();
     if (deviceReservation && (['authorization','reservation'].includes(relation)||deviceExecution&&['dependency','ready','node','settlement','recovery'].includes(relation))) {
@@ -210,7 +211,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     const e=value.originalProofEvidence;assert.ok(e);assert.equal(result.proofs.some(row=>row.relation==='admission_native_value_v2'),false);
     assert.equal(earlierI84Jobs.has(e.runId),false,'DEVICE_NATIVE_FRESH_I84_JOB');
     assert.match(e.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-    const original=join(NATIVE_VALUE_LIVE_V2_LOCAL,'attempts',e.runId),manifestBytes=readFileSync(join(original,'proof-manifest.json')),
+    const original=join(NATIVE_VALUE_DEV_LIVE_V5_LOCAL,'attempts',e.runId),manifestBytes=readFileSync(join(original,'proof-manifest.json')),
       resultBytes=readFileSync(join(original,'result.json')),resourcesBytes=readFileSync(join(original,'resources.json')),
       bytes=readFileSync(join(original,'proof.bin')),inputBytes=readFileSync(join(original,'public-inputs.json')),
       runtimePins=readFileSync(join(original,'runtime-pins.json')),manifest=JSON.parse(manifestBytes),workerResult=JSON.parse(resultBytes),resources=JSON.parse(resourcesBytes);
