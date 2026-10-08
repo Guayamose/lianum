@@ -400,3 +400,41 @@ Informe `candidate-acceptance/attempt-dLP1hZ/report.json`, SHA256
 Los prefijos privados quedan acotados, el PID original está ausente y las claves,
 configuración y ledger sintéticos se eliminaron. El candidato sigue rechazado
 y la release canónica permanece null.
+
+### Diagnóstico con los logs de disco completos
+
+El intento `attempt-Jhu0c6`, sobre `d1d9db0`, conserva el rechazo
+`TRON_CANDIDATE_NATIVE_FINALITY_TIMEOUT` tras un único broadcast. El supervisor
+de observación terminó en 96,91 s; las 1.811 fuentes conservaron sus bytes.
+Se verificaron después 416 entradas originales del JDK, clases, JAR y overlay
+Args. Los PID del wrapper, Node y Java están ausentes, los cuatro locks
+desaparecieron y se retiraron configuración, claves y ledger sintéticos.
+Informe SHA256:
+`9e130680e02899a2ef8c4ff03d62f4b8f2f20f9fd5c0abcdeaf7ab2a43b50587`.
+
+Esta vez se retuvieron completos `logs/tron.log` (97.793 bytes, SHA256
+`534f063599909527a9a7ae559d5e8e2e35c92d9ef31e52e675c23f71de7135a5`)
+y `logs/db/db.log` (2.429 bytes, SHA256
+`299c1f9981b42d4e82c850a48b1f993bdc987510a0d87f69cf956f9495184c73`).
+El primero registra el aviso de tiempo de packing excedido en `Manager.java:1707`:
+el bloque 3 termina sin transacciones, y pending pasa de uno a cero. La fuente
+original extrae la transacción de la cola antes de comprobar ese plazo.
+No aparece una excepción de procesamiento en esos logs completos.
+
+La revisión del [productor original](https://github.com/tronprotocol/java-tron/blob/5c449a18a2bb995d3b688d1587e664d909b473c7/consensus/src/main/java/org/tron/consensus/dpos/DposTask.java)
+y de [sus slots](https://github.com/tronprotocol/java-tron/blob/5c449a18a2bb995d3b688d1587e664d909b473c7/consensus/src/main/java/org/tron/consensus/dpos/DposSlot.java)
+identifica un desajuste en la configuración del laboratorio: el génesis fijo
+`1750000000000` deja resto 1.000 al dividir por 3.000 ms. Los slots conservan
+esa fase, mientras el productor despierta en múltiplos UTC de 3.000 ms. Los
+logs muestran bloques con timestamp 2.000 ms anterior a la producción.
+El plazo permitido por la [configuración original](https://github.com/tronprotocol/java-tron/blob/5c449a18a2bb995d3b688d1587e664d909b473c7/common/src/main/java/org/tron/core/config/args/NodeConfig.java)
+queda como máximo 1.500 ms después del slot. Esto explica el rechazo por plazo
+antes de procesar la transacción; la corrección del génesis sigue pendiente de
+compilación y aceptación nuevas. No se altera el reloj, amplía el plazo ni reenvía.
+
+El cierre vuelve a `SIGABRT`, con `forced=false` y `nativeOrderlyExit=false`.
+El fatal privado ocupa 102.118 bytes, SHA256
+`bbe3e6bcb6dd53ef1ca2d51bd658435352208528ad9de0432c2b383aa076e186`;
+la pila conserva `hawtjni_thread_cleanup`, `jni_DetachCurrentThread` y
+`VM_Exit::wait_if_vm_exited`. Este defecto de cierre requiere su propia
+corrección. El diagnóstico conserva ambos fallos y no habilita la release.
