@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "ea728b044d574461e7b22cd8d0f9a62ba599000bae679dc3c10ca8c2bdbec97c",
+  "hostSourceClosureSHA256": "fae1139dee72599a89a56d41ea4eb40803b3940d4d997389e383cef816f756f9",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -1862,7 +1862,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/jupiter-orca-bank-state-v1.mjs",
-      "sha256": "0d5c1b266047c961c38ee5f180ac16b2accc5ac0a47af6c6883d24409bf17979"
+      "sha256": "27fe1dd517dbcf5adc988e59544cd52e6b880fd293923f37ae26c4af5cf96b96"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/jupiter-orca-swap-observation-v1.mjs",
@@ -1994,7 +1994,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-solana-runtime.mjs",
-      "sha256": "0c73bcc238ca91fd9273d122af2df5baa43f8e2554d27678c8a814e671f62b92"
+      "sha256": "1e57f61e183cae1c141ebf59624120ae7974b39aa3bf73d9fa54e2c3494ffcf4"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-solana-send.mjs",
@@ -2031,6 +2031,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "wallet-platform/modules/chain-adapters/private-external-incoming-observer-v1.mjs",
       "sha256": "4b7c8131f3bdd0b4166dfe5fc060ff69b518d0f520d603ace7f1e16f60dcca27"
+    },
+    {
+      "path": "wallet-platform/modules/chain-adapters/solana-base58.mjs",
+      "sha256": "499bf263d414acf679d93e1d746958dfb93bf39e0325c10fed60e10abf9a9e54"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/solana-observation-adapter.mjs",
@@ -2082,7 +2086,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chains/solana/dispatch/jupiter-orca-route-codec-v1.mjs",
-      "sha256": "76db2b09bd04052eb240f3f1be0f5b637cd8d40460d66cab814a59ad90f9ab42"
+      "sha256": "641c912d2d4878f1ee198723b0ad6424704b8ac81b71dd69cfcde2c073498716"
     },
     {
       "path": "wallet-platform/modules/defi-adapters/aave-static-redemption-accounting-v1.mjs",
