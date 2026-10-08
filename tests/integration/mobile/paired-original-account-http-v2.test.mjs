@@ -1,9 +1,14 @@
-/** Actual owned loopback HTTP + Noble device signatures + genuine original
+/** Actual owned loopback HTTP / direct TLS + Noble signatures + genuine original
  * account/approval/session/journal over the explicit synthetic native fixture.
- * URL translation below establishes no TLS, mobile hardware or native value. */
+ * HTTP cases translate URLs; TLS cases use their exact HTTPS origin and ephemeral
+ * HOST certificates. Neither establishes mobile hardware or native value. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createConnection } from 'node:net';
+import { createConnection, createServer as createPortReservation } from 'node:net';
+import { request as httpsRequest } from 'node:https';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { fixture, createActorModule } from './paired-original-account-host-fixture.mjs';
@@ -22,11 +27,63 @@ const { createOriginalAccountLeaseV2 } = await fromApp('custody/original-account
 const { devicePublicKey, signDeviceMessage } = await fromApp('custody/signing.mjs');
 const { createPairedOriginalAccountActorV2, assertPairedOriginalAccountActorV2,
   pairedOriginalAccountActorDescriptorV2 } = await createActorModule();
-const { createPairedOriginalAccountHttpServerV2 } = await import(
+const { createPairedOriginalAccountHttpServerV2, createPairedOriginalAccountTlsServerV2 } = await import(
   '../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
 const privateKey = new Uint8Array(32).fill(11), publicKey = devicePublicKey(privateKey);
 const origin = 'https://private-actor.example';
 const deferred = () => { let resolve; return { promise: new Promise(done => { resolve = done; }), resolve }; };
+// Only future HOST tests create these temporary infrastructure keys. They are
+// never notes/device keys, committed fixtures or inputs to a financial lab.
+async function tlsFixture(t) {
+  const directory = await mkdtemp(join(tmpdir(), 'lianum-original-tls-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const certificatePath = join(directory, 'certificate.pem'), keyPath = join(directory, 'tls-key.pem');
+  execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1',
+    '-sha256', '-days', '2', '-nodes', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost',
+    '-addext', 'basicConstraints=critical,CA:FALSE', '-keyout', keyPath, '-out', certificatePath],
+  { timeout: 5000, maxBuffer: 4096, stdio: 'ignore', env: { PATH: '/usr/bin:/bin', LANG: 'C' } });
+  return { certificate: await readFile(certificatePath, 'utf8'), privateKey: await readFile(keyPath, 'utf8') };
+}
+async function reservedPort(t) {
+  const server = createPortReservation();
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  const port = server.address().port;
+  const close = () => server.listening ? new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())) : Promise.resolve();
+  t.after(close); return { port, close };
+}
+// A real request to the EXACT HTTPS URL: no alternate origin/port, plaintext,
+// redirects or URL translator. Only this test trusts its ephemeral certificate.
+function tlsFetch(certificate) {
+  return (target, options = {}) => new Promise((resolve, reject) => {
+    const payload = options.body, headers = { ...options.headers };
+    if (payload !== undefined) headers['Content-Length'] = Buffer.byteLength(payload);
+    const request = httpsRequest(target, { family: 4, ca: certificate, minVersion: 'TLSv1.3',
+      method: options.method ?? 'GET', headers, signal: options.signal }, message => {
+      const chunks = []; let length = 0;
+      message.on('data', chunk => { length += chunk.length;
+        if (length > 16384) { request.destroy(Error('HOST_TLS_RESPONSE_LIMIT')); return; } chunks.push(chunk); });
+      message.once('error', reject);
+      message.once('end', () => {
+        const response = new Response(Buffer.concat(chunks), { status: message.statusCode, headers: message.headers });
+        Object.defineProperty(response, 'url', { value: target }); resolve(response);
+      });
+    });
+    request.once('error', reject); request.end(payload);
+  });
+}
+async function tlsSetup(t, options) {
+  const material = await tlsFixture(t), reservation = await reservedPort(t), f = await fixture(t, options);
+  const actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
+    owner: f.world.owner, origin: 'https://localhost:' + reservation.port, devicePublicKey: publicKey });
+  const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
+  await reservation.close();
+  const server = await createPairedOriginalAccountTlsServerV2({ actor, tls: material });
+  t.after(async () => { const closed = await server.close(); assert.equal(closed.closed, true);
+    assert.equal(closed.listenerClosed, true); assert.equal(closed.ownedSocketsRemaining, 0); });
+  assert.equal(server.url, descriptor.origin);
+  const direct = tlsFetch(material.certificate), api = createOriginalAccountApiV2({ descriptor, fetchImpl: direct });
+  return { f, actor, descriptor, server, direct, api, material };
+}
 async function setup(t, options) {
   const f = await fixture(t, options), actor = await createPairedOriginalAccountActorV2({
     session: f.session, approval: f.approval, owner: f.world.owner, origin, devicePublicKey: publicKey });
@@ -173,4 +230,93 @@ test('separately signed account/pool state uses original ownerView and cannot in
   assert.equal(after.revision, before.revision); assert.equal(after.admissions.length, before.admissions.length);
   assert.equal(c.f.world.proofs, 0); assert.equal(c.f.world.sends, 0);
   const state = await c.api.state(); assert.equal(state.privatePortfolio, null); assert.equal(state.economicObservation, null);
+});
+
+test('direct HTTPS reaches the same original account with Noble permissions and separate private-state consent', { timeout: 30_000 }, async t => {
+  const c = await tlsSetup(t), before = await c.f.session.snapshot();
+  const service = await c.api.state(); assert.equal(service.privatePortfolio, null);
+  assert.equal(service.noteCustodyOnDevice, false);
+  const access = await c.api.challenge('read'); assert.equal('binding' in access, false);
+  const rejected = await c.direct(c.server.url + '/v2/mobile/original-account/reviews', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: c.descriptor.origin },
+    body: JSON.stringify({ challenge: access, signature: '00'.repeat(64) }) });
+  assert.equal(rejected.status, 403); assert.deepEqual(await rejected.json(), { error: 'REQUEST_REJECTED' });
+  const review = await c.api.openReview({ challenge: access,
+    signature: signDeviceMessage(privateKey, originalAccountAccessMessageV2(access)) });
+  const observed = await c.api.submit({ review,
+    signature: signDeviceMessage(privateKey, originalAccountReviewMessageV2(review)) });
+  assert.equal(observed.binding.requestState, 'UNKNOWN'); assert.equal(observed.admission, null);
+  const financialAccess = await c.api.privateState.challenge();
+  const financialReview = await c.api.privateState.openReview({ challenge: financialAccess,
+    signature: signDeviceMessage(privateKey, privateStateAccessMessageV1(financialAccess)) });
+  const unavailable = await c.api.privateState.submit({ review: financialReview,
+    signature: signDeviceMessage(privateKey, privateStateReviewMessageV1(financialReview)) });
+  assert.equal(unavailable.status, 'UNAVAILABLE'); assert.equal(unavailable.balances, null);
+  assert.equal(unavailable.mobileNoteCustody, false);
+  assert.equal((await c.f.session.snapshot()).revision, before.revision);
+  assert.equal(c.f.world.sends, 1); assert.equal(c.f.world.proofs, 1);
+});
+
+test('TLS installation rejects copied authority, certificate/key or SAN mismatch and callbacks before binding', { timeout: 30_000 }, async t => {
+  const material = await tlsFixture(t), reservation = await reservedPort(t), f = await fixture(t, { execute: false });
+  const actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
+    owner: f.world.owner, origin: 'https://localhost:' + reservation.port, devicePublicKey: publicKey });
+  let traps = 0;
+  for (const fake of [{ ...actor }, new Proxy(actor, { get() { traps++; throw Error('TRAP'); } })])
+    await assert.rejects(createPairedOriginalAccountTlsServerV2({ actor: fake, tls: material }), /ORIGINAL_REQUIRED/);
+  assert.equal(traps, 0);
+  await assert.rejects(createPairedOriginalAccountTlsServerV2({ actor, tls: { ...material, privateKey: 'not a key' } }), /TLS_CONFIGURATION/);
+  await assert.rejects(createPairedOriginalAccountTlsServerV2({ actor, tls: material, host: 'remote.invalid' }), /TLS_CONFIGURATION/);
+  await assert.rejects(createPairedOriginalAccountTlsServerV2({ actor, tls: material, handler() {} }), /HTTP_CONFIGURATION/);
+  const other = await fixture(t, { execute: false }), wrong = await createPairedOriginalAccountActorV2({
+    session: other.session, approval: other.approval, owner: other.world.owner,
+    origin: 'https://foreign.invalid:' + reservation.port, devicePublicKey: publicKey });
+  await assert.rejects(createPairedOriginalAccountTlsServerV2({ actor: wrong, tls: material }), /TLS_CONFIGURATION/);
+  assert.equal(f.world.sends, 0); assert.equal(f.world.proofs, 0);
+  actor.close(); wrong.close();
+});
+
+test('direct TLS enforces origin and body limits; a failed owned bind does not claim the actor forever', { timeout: 30_000 }, async t => {
+  const material = await tlsFixture(t), reservation = await reservedPort(t), f = await fixture(t, { execute: false });
+  const actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
+    owner: f.world.owner, origin: 'https://localhost:' + reservation.port, devicePublicKey: publicKey });
+  await assert.rejects(createPairedOriginalAccountTlsServerV2({ actor, tls: material }), { code: 'EADDRINUSE' });
+  await reservation.close();
+  const server = await createPairedOriginalAccountTlsServerV2({ actor, tls: material });
+  t.after(async () => { const closed = await server.close(); assert.equal(closed.closed, true);
+    assert.equal(closed.ownedSocketsRemaining, 0); });
+  const direct = tlsFetch(material.certificate);
+  const send = (origin, body) => direct(server.url + '/v2/mobile/original-account/challenges', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body) });
+  const foreign = await send('https://foreign.invalid', { action: 'read' });
+  assert.equal(foreign.status, 403); assert.deepEqual(await foreign.json(), { error: 'REQUEST_REJECTED' });
+  const oversized = await send(server.url, { action: 'read', extra: 'x'.repeat(8192) });
+  assert.equal(oversized.status, 400); assert.deepEqual(await oversized.json(), { error: 'REQUEST_REJECTED' });
+  const before = await f.session.snapshot();
+  const socket = createConnection({ host: '127.0.0.1', port: reservation.port });
+  const socketClosed = new Promise((resolve, reject) => { socket.once('error', reject); socket.once('close', resolve); });
+  await new Promise((resolve, reject) => { socket.once('connect', resolve); socket.once('error', reject); });
+  const closed = await server.close(); await socketClosed;
+  assert.equal(closed.closed, true); assert.equal(closed.ownedSocketsRemaining, 0);
+  assert.equal((await f.session.snapshot()).revision, before.revision);
+  assert.equal(f.world.sends, 0); assert.equal(f.world.proofs, 0);
+});
+
+test('closing TLS after original reconcile admission closes owned sockets and preserves its UNKNOWN journal without resubmission', { timeout: 30_000 }, async t => {
+  const c = await tlsSetup(t), entered = deferred(), resume = deferred();
+  c.f.world.observationStarted = entered.resolve; c.f.world.observationGate = resume.promise;
+  const access = await c.api.challenge('reconcile');
+  const review = await c.api.openReview({ challenge: access,
+    signature: signDeviceMessage(privateKey, originalAccountAccessMessageV2(access)) });
+  const before = (await c.f.session.snapshot()).admissions.length;
+  const pending = c.api.submit({ review,
+    signature: signDeviceMessage(privateKey, originalAccountReviewMessageV2(review)) }); pending.catch(() => {});
+  try {
+    await Promise.race([entered.promise, pending.then(() => { throw Error('HOST_TLS_ORIGINAL_OBSERVER_NOT_REACHED'); })]);
+    const closed = await c.server.close(); assert.equal(closed.closed, true);
+    assert.equal(closed.ownedSocketsRemaining, 0); assert.ok(closed.originalDiagnosticsInFlight >= 1);
+    await assert.rejects(pending); assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
+  } finally { resume.resolve(); }
+  const after = await c.f.session.idle(); assert.equal(after.admissions.length, before + 1);
+  assert.equal(after.requests[0].state, 'UNKNOWN'); assert.equal(c.f.world.sends, 1); assert.equal(c.f.world.proofs, 1);
 });
