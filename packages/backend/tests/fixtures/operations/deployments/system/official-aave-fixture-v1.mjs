@@ -14,12 +14,20 @@ import { linkAaveCreationCodeV1, expectedAaveRuntimeCodeV1 } from '../../../../.
 const owned = new WeakMap(), sha = value => createHash('sha256').update(value).digest('hex');
 const zero = '0x' + '0'.repeat(40), RAY = 10n ** 27n;
 // New source review. This is intentionally separate from protocol/native/private acceptance.
-export const OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1 = null;
+export const OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1 = Object.freeze({
+  profile:'OFFICIAL_AAVE_STATIC_V1',coreVersion:'1.19.3',
+  wrapperCommit:'101f5d977889254ca2d2711b9582b45f832d10a0',compilation:'NEW_REVIEWED',
+  compilationInputSHA256:'9e5bc8f4f7ddc5a5e244aa05af154c515a552179259b2be6c806d98f91c144b8',
+  compilationOutputSHA256:'08691c84cc7cfb3a4d2f3244daab71b1995e1c5ee4e7a6b415f0155ef6c348bb',
+  localOnly:true,fakeFundsOnly:true,publicNetwork:false,privateGraphAcceptance:false,
+});
 export function assertOfficialAaveSourceReviewV1() {
   assert.equal(arguments.length,0);const value=OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1;
   assert.ok(value!==null,'AAVE_DEVELOPMENT_SOURCE_REVIEW_REQUIRED');
   assert.deepEqual(value,{profile:'OFFICIAL_AAVE_STATIC_V1',coreVersion:'1.19.3',
     wrapperCommit:'101f5d977889254ca2d2711b9582b45f832d10a0',compilation:'NEW_REVIEWED',
+    compilationInputSHA256:'9e5bc8f4f7ddc5a5e244aa05af154c515a552179259b2be6c806d98f91c144b8',
+    compilationOutputSHA256:'08691c84cc7cfb3a4d2f3244daab71b1995e1c5ee4e7a6b415f0155ef6c348bb',
     localOnly:true,fakeFundsOnly:true,publicNetwork:false,privateGraphAcceptance:false});
 }
 export function assertOfficialAaveFixtureV1(runtime, fixture) {
@@ -38,6 +46,9 @@ export async function createOfficialAaveFixtureV1(runtime) {
     assert.equal(sha(readFileSync(join(abiD,row.path))), row.sha256);
   const require = createRequire(join(abiD, 'abi-tools/package.json')), {Interface} = require('ethers');
   const core = loadOfficialAaveCoreArtifactsV1(), build = compileAaveDevelopmentContractsV1();
+  assert.equal(build.inputSHA256,OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationInputSHA256,'AAVE_REVIEWED_COMPILATION_INPUT');
+  assert.equal(sha(JSON.stringify({artifacts:build.artifacts,sourceASTs:build.sourceASTs})),
+    OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationOutputSHA256,'AAVE_REVIEWED_COMPILATION_OUTPUT');
   const sender = runtime.accounts[0], deployments = [], proxies = [], libraries = {};
   async function read(contract, method, args = [], tag = 'latest') {
     return contract.iface.decodeFunctionResult(method, await runtime.call({from: sender, to: contract.address,
