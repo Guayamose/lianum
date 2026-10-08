@@ -1,9 +1,9 @@
 /** Internal one-task process. Its actual parent, sources and IPC are authenticated. */
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { ROOT, LOCAL, PROFILE, SETTINGS, LIMITS, MEMORY, DISCLOSURE, operation, pagesFor } from '../catalog.mjs';
 import { argumentsFor, authenticateSupervisor, attemptPath, regular, hash, jsonBytes,
@@ -27,9 +27,72 @@ const report = { format: 'FLAT_WALLET_WORKER_ATTEMPT_V1', profile: PROFILE, rela
   role: spec.role, mode, runId, jobId: jobId ?? null, phase: 'starting', startedAt: new Date().toISOString(),
   disclosure: DISCLOSURE, target: 'evm', settings: SETTINGS, limits: LIMITS, threads: 1,
   maximumPages: MEMORY.standard, hostLimitsChanged: false, supervisor, publicWords: spec.publicWords,
+  // Public timing attribution only. No witness, caller option or performance
+  // acceptance is transported here; the original seven metrics stay exact.
+  initialization: { backend: { calls: 0, milliseconds: 0 },
+    provingCRS: { calls: 0, milliseconds: 0, points: LIMITS.provingCRSPoints, encoding: 'BN254_G1_COMPRESSED_32_BYTES' },
+    verifierCRS: { calls: 0, milliseconds: 0 } },
   records: [], metrics: { initializationMilliseconds: 0, jobPreparationMilliseconds: 0,
     witnessMilliseconds: 0, proofMilliseconds: 0, verificationMilliseconds: 0, totalMilliseconds: 0 } };
+// Public bytes were derived once from the original complete compressed CRS by
+// the pinned official API and reviewed. Only exact absence uses the original
+// route; a present cache with wrong bytes, metadata or identity is rejected.
+const FULL_PUBLIC_CRS_CACHE_PIN = '2bb84462a0bdad2f6e6dd6182c7779c30aac703115e28f32ca2cc3b57c140622';
+const FULL_PUBLIC_CRS_CACHE_PATH = resolve(ROOT,
+  '../../../dev/cache/public-crs/full-v1/bn254_g1_full_uncompressed.dat');
 let context, helpers, api, compressedWitness, rawWitness, crsBefore, job;
+let publicCRSFile, publicCRSIdentity;
+const publicFileIdentity = stat => ['dev', 'ino', 'size', 'mode', 'nlink', 'mtimeNs', 'ctimeNs']
+  .map(name => [name, stat[name].toString()]);
+function assertPublicCRSIdentity() {
+  assert.deepEqual(publicFileIdentity(fstatSync(publicCRSFile, { bigint: true })), publicCRSIdentity,
+    'PW_PUBLIC_CRS_FD_CHANGED');
+  assert.equal(realpathSync(FULL_PUBLIC_CRS_CACHE_PATH), FULL_PUBLIC_CRS_CACHE_PATH, 'PW_PUBLIC_CRS_SYMLINK');
+  assert.deepEqual(publicFileIdentity(lstatSync(FULL_PUBLIC_CRS_CACHE_PATH, { bigint: true })), publicCRSIdentity,
+    'PW_PUBLIC_CRS_PATH_CHANGED');
+}
+function assertPublicCRSCache() {
+  if (publicCRSFile === undefined) return;
+  assertPublicCRSIdentity();
+  const scratch = Buffer.alloc(64 * 1024), digest = createHash('sha256');
+  let position = 0;
+  try {
+    let bytes;
+    while ((bytes = readSync(publicCRSFile, scratch, 0, scratch.length, position)) > 0) {
+      position += bytes; digest.update(scratch.subarray(0, bytes));
+    }
+    assert.equal(position, LIMITS.provingCRSPoints * 64, 'PW_FULL_PUBLIC_CRS_CACHE_SIZE');
+    assert.equal(digest.digest('hex'), assertHash(FULL_PUBLIC_CRS_CACHE_PIN), 'PW_FULL_PUBLIC_CRS_CACHE_PIN');
+    assertPublicCRSIdentity();
+  } finally { scratch.fill(0); }
+}
+function fullProvingCRSBytes() {
+  assert.equal(crsBefore?.points, LIMITS.provingCRSPoints, 'PW_ORIGINAL_FULL_CRS_REQUIRED');
+  // lstat, unlike existsSync, does not turn permission or IO failures into an
+  // absence fallback. A dangling symlink is present and must be rejected.
+  try { lstatSync(FULL_PUBLIC_CRS_CACHE_PATH); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    report.publicCRSCache = { used: false, reason: 'EXACT_CACHE_ABSENCE' };
+    return regular(helpers.CRS + 'bn254_g1_compressed.dat');
+  }
+  assertHash(FULL_PUBLIC_CRS_CACHE_PIN);
+  assert.equal(publicCRSFile, undefined, 'PW_ONE_PUBLIC_CRS_LOAD');
+  assert.equal(realpathSync(FULL_PUBLIC_CRS_CACHE_PATH), FULL_PUBLIC_CRS_CACHE_PATH, 'PW_PUBLIC_CRS_SYMLINK');
+  publicCRSFile = openSync(FULL_PUBLIC_CRS_CACHE_PATH, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const stat = fstatSync(publicCRSFile, { bigint: true });
+  assert.ok(stat.isFile(), 'PW_PUBLIC_CRS_REGULAR_FILE');
+  assert.equal(stat.size, BigInt(LIMITS.provingCRSPoints * 64), 'PW_FULL_PUBLIC_CRS_CACHE_SIZE');
+  publicCRSIdentity = publicFileIdentity(stat);
+  const bytes = readFileSync(publicCRSFile);
+  assertPublicCRSIdentity();
+  assert.equal(bytes.length, LIMITS.provingCRSPoints * 64, 'PW_FULL_PUBLIC_CRS_CACHE_SIZE');
+  assert.equal(hash(bytes), FULL_PUBLIC_CRS_CACHE_PIN, 'PW_FULL_PUBLIC_CRS_CACHE_PIN');
+  report.initialization.provingCRS.encoding = 'BN254_G1_UNCOMPRESSED_64_BYTES';
+  report.publicCRSCache = { used: true, points: LIMITS.provingCRSPoints, bytes: bytes.length,
+    sha256: FULL_PUBLIC_CRS_CACHE_PIN, originalFullCRSVerified: true };
+  return bytes;
+}
 const save = () => replaceJSON(join(attempt, 'result.json'), report);
 function parentDisconnected() {
   if (report.phase === 'completed') return;
@@ -47,6 +110,13 @@ async function measured(metric, action) {
   const began = performance.now();
   try { return await action(); } finally { report.metrics[metric] += performance.now() - began; save(); }
 }
+// Keep the aggregate initialization budget unchanged; these nested timers
+// distinguish public backend startup from CRS decoding in the same job.
+async function initialized(component, action) {
+  const entry = report.initialization[component];
+  const began = performance.now(); entry.calls++;
+  try { return await action(); } finally { entry.milliseconds += performance.now() - began; }
+}
 function freezeCheck() {
   assert.deepEqual(executionSources(spec, mode), initialPins.executionSources, 'PW_RUNTIME_CHANGED_DURING_TASK');
   assert.deepEqual(verifyAPI(), initialPins.api, 'PW_API_CHANGED_DURING_TASK');
@@ -56,6 +126,7 @@ function freezeCheck() {
     assert.deepEqual(circuitIdentity(spec, context.toolchain), context.identity, 'PW_NOIR_CHANGED_DURING_TASK');
   }
   if (crsBefore) assert.deepEqual(helpers.verifyCRS(), crsBefore, 'PW_FULL_CRS_CHANGED_DURING_TASK');
+  assertPublicCRSCache();
 }
 function fullCRS() {
   crsBefore = helpers.verifyCRS();
@@ -67,21 +138,25 @@ async function initialize(bb, maximumPages = MEMORY.standard, verifierOnly = fal
   report.maximumPages = maximumPages;
   await measured('initializationMilliseconds', async () => {
     phase('initializing-wasm');
-    api = await bb.Barretenberg.new({ backend: bb.BackendType.Wasm, threads: 1, skipSrsInit: true,
-      memory: { initial: 37, maximum: maximumPages } });
+    api = await initialized('backend', () => bb.Barretenberg.new({ backend: bb.BackendType.Wasm, threads: 1, skipSrsInit: true,
+      memory: { initial: 37, maximum: maximumPages } }));
     if (verifierOnly) {
       phase('initializing-verifier-crs');
       const { initializePrivateVerifierCRS } = await import(verifierCRSModuleURL);
-      report.verifierCRS = await initializePrivateVerifierCRS(api, bb.BN254_G1_GENERATOR,
-        regular(helpers.CRS + 'bn254_g2.dat'));
+      report.verifierCRS = await initialized('verifierCRS', () => initializePrivateVerifierCRS(api, bb.BN254_G1_GENERATOR,
+        regular(helpers.CRS + 'bn254_g2.dat')));
     }
   });
 }
 async function provingCRS() {
   phase('initializing-full-proving-crs');
-  await measured('initializationMilliseconds', () => api.srsInitSrs({
-    pointsBuf: regular(helpers.CRS + 'bn254_g1_compressed.dat'), numPoints: LIMITS.provingCRSPoints,
-    g2Point: regular(helpers.CRS + 'bn254_g2.dat') }));
+  await measured('initializationMilliseconds', () => initialized('provingCRS', async () => {
+    const pointsBuf = fullProvingCRSBytes();
+    try {
+      return await api.srsInitSrs({ pointsBuf, numPoints: LIMITS.provingCRSPoints,
+        g2Point: regular(helpers.CRS + 'bn254_g2.dat') });
+    } finally { pointsBuf.fill(0); }
+  }));
 }
 async function destroy() {
   if (!api) return;
@@ -315,6 +390,11 @@ try {
     catch (error) { report.phase = 'failed'; report.cleanupErrorCode = errorCode(error); process.exitCode = 1; }
   }
   try { freezeCheck(); } catch (error) { report.phase = 'failed'; report.finalPinErrorCode = errorCode(error); process.exitCode = 1; }
+  if (publicCRSFile !== undefined) {
+    try { closeSync(publicCRSFile); }
+    catch (error) { report.phase = 'failed'; report.publicCRSClosureErrorCode = errorCode(error); process.exitCode = 1; }
+    finally { publicCRSFile = undefined; }
+  }
   report.metrics.totalMilliseconds = performance.now() - started;
   report.metrics.otherMilliseconds = report.metrics.totalMilliseconds - report.metrics.initializationMilliseconds
     - report.metrics.jobPreparationMilliseconds - report.metrics.witnessMilliseconds - report.metrics.proofMilliseconds
