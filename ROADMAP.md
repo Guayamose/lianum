@@ -22,7 +22,8 @@ antes de esperar al adaptador. Las regresiones incluyen un adaptador que nunca
 responde y terminales inválidos. Se conservan identidad, transacción, inclusión
 canónica, respaldo y estado; la incertidumbre no autoriza otro envío.
 
-La demostración económica con prueba F real pertenece también al siguiente paso.
+La prueba F real ya se aceptó en el laboratorio del siguiente paso, con entrega
+parcial, devolución original y repeticiones sin efectos.
 
 ## 3. Completar el recorrido EVM — en curso
 
@@ -32,8 +33,8 @@ y journal ante respuesta HTTP perdida y reinicio.
 
 El harness usa SDK, HTTP y el modelo de revisión compartido de la wallet. Debe
 declarar ese alcance; no demuestra interacción visual en navegador. Completar
-recuperación F real con entrega parcial, ejecución original incierta y ausencia
-del owner, sin segundo envío o crédito. Publicar deltas privados, respaldo,
+la integración del escenario F ya aceptado con entrega parcial, ejecución
+original incierta y ausencia del owner, sin segundo envío o crédito. Publicar deltas privados, respaldo,
 entrega nativa y pérdida/obligación del solver por separado.
 
 Después comprobar la interfaz visible y conectarla a la misma sesión/cuenta.

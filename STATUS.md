@@ -10,8 +10,8 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | Paso | Estado comprobado | Qué falta para cerrarlo |
 | --- | --- | --- |
 | 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
-| 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación económica integral se comprueba adicionalmente en el paso 3. |
-| 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; financiación y autorización con pruebas reales comprobadas. Aceptación integral en curso. | Completar el recorrido, reinicio y recuperación F; aceptación visual y conexión a móvil. |
+| 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
+| 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; financiación y autorización comprobadas; recuperación F real aceptada con siete pruebas. Aceptación integral en curso. | Completar el recorrido desde navegador y sus salidas; conexión a móvil y recuperación tras pérdida de procesos. |
 | 4. Redes y operaciones combinadas | Bitcoin y Solana: ingreso y solver aceptados en Core/Agave nuevos. CI51 V3 y CO42 reconstruidos con sus VK originales. Tron produce consenso y un broadcast, pero su aceptación falla. | Payout con autoridad original, flujo privado BTC/Solana, finalidad/cierre Tron, aceptación propia de Base/Arbitrum/BNB y composición entre redes. |
 | 5. DeFi | Swap oficial Uniswap V3 y depósito/redención oficial MetaMorpho comprobados en Anvil. Salida acotada y puente privado con 20 regresiones. MetaMorpho completa nota privada, EXIT y redención oficial con D26/W39 reales. | Ciclo privado completo con pruebas reales, posiciones y recuperación ante pérdida de keeper/nodo. |
 | 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL duraderos; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, aceptación física, recuperación móvil y operación de producción. |
@@ -45,12 +45,16 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 
 La selección habitual pasa con 244 resultados. Una copia con sólo fuentes
 versionadas y dependencias públicas pasa además 107 regresiones seleccionadas de
-DeFi, redes, HTTP y procesos de pruebas. La API tiene 11
-casos host y ocho resultados del grupo PostgreSQL real: carreras, JSONB,
+DeFi, redes, HTTP y procesos de pruebas. La API tiene 18
+casos host y diez resultados del grupo PostgreSQL real: carreras, JSONB,
 reinicio, respuesta perdida, crash y caída de SQL conservando el proceso HTTP.
 El adaptador de esos tests es un contador SQL; no mueve fondos ni genera pruebas.
+La consulta firmada lee la admisión original después de caducar sin consumir ni
+disparar efectos. Las conexiones SQL silenciosas o rotas tienen límites y el
+permiso se revalida después de esperar SQL, antes del adaptador.
+La copia de fuentes públicas pasa tipos, 31 tests móviles y 18 host de la API.
 
-El cliente móvil pasa 23 pruebas de contratos, custodia simulada, conservación
+El cliente móvil pasa 31 pruebas de contratos, custodia simulada, conservación
 de operaciones pendientes y procesos de compilación, además de tipos y
 exportación Android/iOS. Su outbox conserva una ejecución UNKNOWN aunque se
 rechace después el permiso de reconciliación; la admisión de permisos no cierra
@@ -63,7 +67,9 @@ Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica l
 autoridad del controlador de payout. Tron conserva
 `OWNED_TRON_RUNTIME_RELEASE=null`: su clausura pública y el parche offline nuevo
 se verifican. El candidato produce bloques y admite el único broadcast, pero
-no establece finalidad en el plazo y termina SIGABRT. No se acepta como red completa.
+no establece finalidad en el plazo y termina SIGABRT. El diagnóstico nuevo
+observa mempool vacío y ausencia de tx/receipt, con head/solid avanzando; el
+fallo de cierre se localiza en el detach de LevelDB/HawtJNI durante VM_Exit. No se acepta como red completa.
 
 Los informes están en `.internal/dev/reports/` y los directorios privados de
 cada intento. No se versionan claves, testigos ni sesiones. Los comandos CI se

@@ -65,7 +65,8 @@ DeFi llamaba a una ruta heredada incompatible con el keeper manual. El fallo
 se corrigió y MetaMorpho ha validado el puente con D26/W39 reales. Todavía se
 requiere una ejecución EVM completa posterior a esa corrección; las pruebas
 anteriores se conservan como intentos rechazados, sin reutilizarlas como éxito.
-La recuperación F y la interacción visual también requieren su propia ejecución.
+La recuperación F ya se aceptó en su propio escenario; la interacción visual
+sigue pendiente de ejecución.
 
 El resultado resumido queda en `.internal/dev/reports/evm-lab.json`. Los hashes
 permiten relacionarlo con los resultados y mediciones originales de esta NUEVA
@@ -104,3 +105,25 @@ La vista de custodia del escenario F conserva los dos importes:
 procedencia de una parte del saldo; no se suma otra vez. El total recuperado es
 500: cambio380 más devolución120. Reabrir ese journal y sustituir el listener
 mantiene `coordinatorProcessRestart=false`; el backend original sigue vivo.
+
+## Recuperación F nueva aceptada
+
+Intento `59fba9ff-2298-449a-b825-393c002b57e0`: siete pruebas reales (financiación, D27, autorización,
+reserva, dependencia, readiness y F). Tras una única entrega real queda la
+admisión FAILED original; F se incluye al cutoff que había autorizado el titular.
+Repetir F/reconcile, reabrir el journal y sustituir el listener no añade pruebas,
+entregas, pagos ni créditos; el permiso del listener antiguo se rechaza.
+
+Tras reiniciar los dos titulares, el origen tiene 500 disponibles, con los
+120 devueltos incluidos; el destino tiene 100 shares y las reservas son cero.
+El solver pierde su entrega de 100, sin recibir el pago reservado. La cerca del
+catálogo permanece activa. No se realizan retiradas para ocultar ese estado.
+
+El supervisor acepta fuentes sin cambios y cierre completo sin señales:
+514,386.8 ms; siete pruebas genuinas. Resultado SHA256 `b6736a5eb09a0ce6f90379ba12e6fc850cf0d8e274b885e8654f7d817b911313`,
+recursos `b065c3a10bc23ebb518ad6d1bb0081843c597878142da589ba6c994f69cddd7e`, fuentes `74512f9fb832f88c202fc9a360d4733edb94c7f8070bdc96e2debc4acf411c1b`.
+El resumen está en `.internal/dev/reports/evm-recovery-lab.json`.
+
+Es aceptación SDK/HTTP de recuperación local, no navegador, red pública,
+reinicio del keeper/nodo ni wallet completa. El coordinador original sobrevive;
+se reabre su journal y se sustituyen los listeners.

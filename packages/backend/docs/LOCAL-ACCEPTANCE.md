@@ -226,3 +226,27 @@ el ledger; por tanto la rama concreta sigue pendiente de nueva auditoría
 read-only. No se sustituye finalidad por aceptación del mempool ni se reenvía.
 La release canónica sigue null; no hay autoridad de grafo, crédito privado,
 claims, consenso público ni recuperación tras perder proceso.
+
+## Tron: diagnóstico nativo posterior
+
+El candidato posterior conserva un único broadcast y consultas originales.
+Al inicio la tx está en el mempool y su raw coincide; después el mempool está
+vacío y no aparecen tx ni TransactionInfo. Head y solid avanzan de 2 a 23.
+No hay inclusión canónica demostrada. El saldo observado vuelve al inicial;
+esto encaja con descarte o rollback durante el packing, todavía una inferencia.
+El Logback del JAR escribe sus warnings a disco; hay que retener esos logs en
+el siguiente diagnóstico antes de retirar el scratch.
+
+El cierre vuelve a SIGABRT, sin fuerza del harness. Esta vez se conserva el
+error fatal privado del JVM: 102.321 bytes, SHA256
+`3bbee07b27f41e1ecf890bb4952175579a1a92a2187fe318853ca4a788681312`.
+La pila pasa por `jni_DetachCurrentThread`, `hawtjni_thread_cleanup` y
+`VM_Exit::wait_if_vm_exited`. El callback de [HawtJNI 1.18](https://raw.githubusercontent.com/fusesource/hawtjni/hawtjni-project-1.18/hawtjni-generator/src/main/resources/hawtjni.c)
+y [HotSpot 8u504](https://raw.githubusercontent.com/openjdk/jdk8u/jdk8u504-b01/hotspot/src/share/vm/runtime/vm_operations.cpp)
+explican esa ruta, sin demostrar todavía una corrección.
+
+Informe `candidate-acceptance/attempt-dLP1hZ/report.json`, SHA256
+`25bf2d7befae07365eb90d24ab064dd9857ba3c6a325d9fd17061434451aacbe`.
+Los prefijos privados quedan acotados, el PID original está ausente y las claves,
+configuración y ledger sintéticos se eliminaron. El candidato sigue rechazado
+y la release canónica permanece null.
