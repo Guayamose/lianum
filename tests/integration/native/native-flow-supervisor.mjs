@@ -33,6 +33,7 @@ import {types as coldErrorTypesV1} from 'node:util';
 import {assertWrappedColdCycleReleaseV1,writeWrappedColdStageGrantV1,assertWrappedColdBoundaryV1,wrappedColdSourceIdentityV1} from '../wallet/wrapped/flows/wrapped-wallet-cold-cycle-v1.mjs';
 import { parseNativeProcStat, nativeProcStatV1 as procStat, readNativeFlowRegularV1 as readRegular } from './native-flow-owned-files-v1.mjs';
 export { parseNativeProcStat } from './native-flow-owned-files-v1.mjs';
+import { nativeOwnedRSSV1 } from './native-flow-owned-rss-v1.mjs';
 import { classifyBeginPayoutAuditProofProcessV1, beginPayoutAuditProcessFailureV1 } from '../../../packages/proofs/src/jobs/native-flow-proof-scope-v1.mjs';
 // Fixed wrapped-only loader. Generic profiles never evaluate the external bootstrap.
 let wrappedSourceModuleV2 = null;
@@ -511,7 +512,7 @@ function assertFixedProfile(profile) {
 }
 const CLEAN_ENV = Object.freeze({ PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' });
 const HASH = data => createHash('sha256').update(data).digest('hex');
-const live = process => !/^[ZX]$/.test(process.state);
+const live = process => !/^[ZX]$/.test(process.state) || (process.liveThreadCount ?? 0) > 0;
 const METRICS = Object.freeze(['availableRAMBytes', 'freeDiskBytes', 'supervisorRSSBytes',
   'mainWorkerRSSBytes', 'descendantRSSBytes', 'ownedGroupRSSBytes', 'maximumProofWorkerRSSBytes']);
 export const NATIVE_FLOW_LIMITS = Object.freeze({
@@ -1089,7 +1090,7 @@ async function runFixedFlowSupervisor(profile) {
       const stat = procStat(Number(entry));
       if (!stat) continue;
       const known = identities.get(stat.pid);
-      if (known && sameIdentity(known, stat) && (stat.pgrp !== pgid || stat.session !== pgid) && live(stat)) escaped.push(stat);
+      if (known && sameIdentity(known, stat) && (stat.pgrp !== pgid || stat.session !== pgid)) escaped.push(stat);
       if (stat.pgrp === pgid) group.push(stat);
     }
     if (escaped.length || group.some(stat => stat.session !== pgid)) {
@@ -1107,21 +1108,34 @@ async function runFixedFlowSupervisor(profile) {
       groupOwnershipLost = true; throw Error('NATIVE_GROUP_CONTINUITY_UNCONFIRMED');
     }
     const processes = [];
-    for (const stat of group) {
-      let status, classification;
+    for (const observed of group) {
+      let measured = nativeOwnedRSSV1(observed); if (measured === null) continue;
+      const stat = measured.stat, established = history.get(`${stat.pid}:${stat.startTimeTicks}`);
+      let classification;
       try {
-        status = readFileSync(`/proc/${stat.pid}/status`, 'utf8');
         classification = live(stat) ? classify(stat.pid)
           : nativeExitedProcessClassification(stat, history.get(`${stat.pid}:${stat.startTimeTicks}`));
-      } catch (error) { if (['ENOENT', 'ESRCH'].includes(error.code)) continue; throw error; }
-      const after = procStat(stat.pid);
-      if (!after) continue;
+      } catch (error) {
+        if (!['ENOENT', 'ESRCH'].includes(error.code)) throw error;
+        // Missing cmdline/exe during exit cannot erase measured sibling memory.
+        // An unclassified original identity receives the stricter proof bound.
+        classification = sameIdentity(stat, established)
+          ? { role: established.role, proofWorker: established.proofWorker,
+            ...(established.proofRelation === undefined ? {} : { proofRelation: established.proofRelation, proofOperation: established.proofOperation }) }
+          : { role: 'owned-descendant', proofWorker: true };
+      }
+      let after = procStat(stat.pid); if (!after) continue;
       assert.ok(sameIdentity(stat, after) && after.pgrp === pgid && after.session === pgid,
         'NATIVE_MEASURED_PROCESS_CHANGED');
-      const rss = /^VmRSS:\s+(\d+)\s+kB$/m.exec(status);
-      assert.ok(rss || !live(after), 'NATIVE_OWNED_RSS_UNAVAILABLE');
+      if (!live(after) && measured.liveThreadCount === undefined) {
+        const exiting = nativeOwnedRSSV1(after); if (exiting === null) continue;
+        measured = { ...exiting, rssBytes: Math.max(measured.rssBytes, exiting.rssBytes) }; after = exiting.stat;
+      }
+      if ((measured.liveThreadCount ?? 0) > 0 && classification.role === 'owned-descendant' && !sameIdentity(stat, established))
+        classification = { role: 'owned-descendant', proofWorker: true };
       identities.set(after.pid, after);
-      processes.push({ ...after, ...classification, rssBytes: integer(rss ? Number(rss[1]) * 1024 : 0) });
+      processes.push({ ...after, ...classification, rssBytes: integer(measured.rssBytes), rssSource: measured.rssSource,
+        ...(measured.liveThreadCount === undefined ? {} : { liveThreadCount: measured.liveThreadCount }) });
     }
     processes.sort((a, b) => a.pid - b.pid);
     if (!processes.length) {
