@@ -4,6 +4,7 @@
  * Activation is impossible until native-value-system-v2 owns a real deployment. */
 import assert from 'node:assert/strict';
 import { privateFailureDiagnostic } from '../../../execution/account/reconciliation/failure-diagnostics.mjs';
+import { retainNativeValueOriginalAuditTimingV1 } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import { types } from 'node:util';
 import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
 import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
@@ -109,23 +110,36 @@ function createNativeOperator(raw,recovery=null) {
     assert.equal(bound.system.claimsEnabled, false, 'NATIVE_VALUE_OPERATOR_GRAPH_ONLY');
     equal(bound.system.registry, bound.binding.registry); equal(bound.system.adapterProfiles, bound.binding.profiles);
     assert.equal(bound.resources.assertLive(), undefined, 'NATIVE_VALUE_SYNCHRONOUS_LIVENESS_REQUIRED'); }
+  // Numeric private failure diagnostics only. Store counts are original
+  // operator requests; source time excludes its nested receiver-current reads.
+  async function timedStore(kind, work) {
+    const timing = active?.timing, began = performance.now();
+    if (timing) timing[kind === 'load' ? 'storeLoads' : 'storeCommits']++;
+    try { return await work(); }
+    finally { if (timing) timing.storeMilliseconds += performance.now() - began; }
+  }
+  function timingPhase(value) { if (active) active.timing.phase = value; }
   async function unchanged() {
-    try { equal(await bound.resources.store.load(), record); }
+    try { equal(await timedStore('load', () => bound.resources.store.load()), record); }
     catch (cause) { poison(); throw new Error('NATIVE_VALUE_JOURNAL_UNAVAILABLE_OR_CHANGED', { cause }); }
   }
   async function save(next) {
     try {
       owned(); await unchanged(); const state = validateNativeValueOperatorInventory(next, bound.binding);
-      const result = await bound.resources.store.commit(freeze({ expectedRevision: record.revision, nextState: copy(state) }));
+      const result = await timedStore('commit', () => bound.resources.store.commit(freeze({ expectedRevision: record.revision, nextState: copy(state) })));
       exactRecord(result, ['revision', 'state']); assert.equal(inputUint(result.revision), BigInt(record.revision) + 1n); equal(result.state, state);
-      equal(await bound.resources.store.load(), result); record = copy(result);
+      equal(await timedStore('load', () => bound.resources.store.load()), result); record = copy(result);
     } catch (cause) { poison(); throw new Error('NATIVE_VALUE_DURABLE_WRITE_UNCERTAIN', { cause }); }
   }
   async function current() {
-    owned(); budget(active.started);
-    assertNativeValueCurrentView(active.view, { runtime: bound.runtime, system: bound.system, poolIndex: active.view.poolIndex });
-    await assertRoundCurrent(active.shared, bound.readers[active.view.poolIndex], active.view); owned(); budget(active.started);
-    assert.ok(BigInt(active.view.head.timestamp) >= BigInt(record.state.lastClock), 'NATIVE_VALUE_RECEIVER_CLOCK_ROLLBACK');
+    const timing = active?.timing, began = performance.now();
+    if (timing) timing.currentChecks++;
+    try {
+      owned(); budget(active.started);
+      assertNativeValueCurrentView(active.view, { runtime: bound.runtime, system: bound.system, poolIndex: active.view.poolIndex });
+      await assertRoundCurrent(active.shared, bound.readers[active.view.poolIndex], active.view); owned(); budget(active.started);
+      assert.ok(BigInt(active.view.head.timestamp) >= BigInt(record.state.lastClock), 'NATIVE_VALUE_RECEIVER_CLOCK_ROLLBACK');
+    } finally { if (timing) timing.currentMilliseconds += performance.now() - began; }
   }
   // Only these native-only current-registry fields cross into each source.
   const currentRegistry = Object.freeze({ async read() {
@@ -143,15 +157,24 @@ function createNativeOperator(raw,recovery=null) {
       // No Action/P/R/checkpoint/payout, public callback or cached audit enters it.
       const history = Object.freeze(Object.create(null));
       sourceHistories.set(history, { entry: entry ? copy(entry) : null, policy, sourceIndex: String(signerIndex), nativeId, head: copy(active.view.head) });
-      let source;
-      try { source = await bound.resources.readerFor({ history, profileCommitment: profileCommitment(registration.profile),
-        nativeId, retained: entry ? freeze(copy(entry)) : null, currentRegistry }); }
-      finally { sourceHistories.delete(history); }
-      assert.ok(source && Object.isFrozen(source), 'NATIVE_VALUE_ORIGINAL_SOURCE_REQUIRED');
-      assert.equal(source.sourceIndex, String(signerIndex), 'NATIVE_VALUE_SOURCE_SIGNER_POSITION');
-      assert.equal(source.profileCommitment, profileCommitment(registration.profile), 'NATIVE_VALUE_SOURCE_PROFILE');
-      assert.ok(!sourceOwners.has(source), 'NATIVE_VALUE_FRESH_SOURCE_INSTANCE_REQUIRED'); sourceOwners.set(source, operator);
-      const observed = await source.observe(freeze({ nativeId })); assertTypedSourceObservation(observed, source, policy);
+      let source, observed;
+      const timing = active.timing, sourceBegan = performance.now(), priorCurrent = timing.currentMilliseconds;
+      try {
+        try { source = await bound.resources.readerFor({ history, profileCommitment: profileCommitment(registration.profile),
+          nativeId, retained: entry ? freeze(copy(entry)) : null, currentRegistry }); }
+        finally { sourceHistories.delete(history); }
+        assert.ok(source && Object.isFrozen(source), 'NATIVE_VALUE_ORIGINAL_SOURCE_REQUIRED');
+        assert.equal(source.sourceIndex, String(signerIndex), 'NATIVE_VALUE_SOURCE_SIGNER_POSITION');
+        assert.equal(source.profileCommitment, profileCommitment(registration.profile), 'NATIVE_VALUE_SOURCE_PROFILE');
+        assert.ok(!sourceOwners.has(source), 'NATIVE_VALUE_FRESH_SOURCE_INSTANCE_REQUIRED'); sourceOwners.set(source, operator);
+        timing.nativeSourceObservations++;
+        observed = await source.observe(freeze({ nativeId })); assertTypedSourceObservation(observed, source, policy);
+        // Count only the genuine source's bounded numeric return. All original
+        // validation and currentness assertions still follow in their old order.
+        const reads = observed.nativeReadCount;
+        if (typeof reads === 'string' && /^(0|[1-9][0-9]{0,3})$/.test(reads) && Number(reads) <= 4096)
+          timing.nativeReadCount += Number(reads);
+      } finally { timing.nativeSourceMilliseconds += Math.max(0, performance.now() - sourceBegan - (timing.currentMilliseconds - priorCurrent)); }
       await current(); inputUint(observed.nativeReadCount, 32, 4096n); assert.equal(observed.nativeId, nativeId); assert.equal(observed.sourceIndex, String(signerIndex));
       if (observed.status !== 'observed') return { status: observed.status === 'reorged' ? 'adverse' : 'unknown',
         reason: observed.status === 'reorged' ? 'NATIVE_VALUE_AUTHENTICATED_SOURCE_ADVERSE' : 'NATIVE_VALUE_SOURCE_UNKNOWN', observed: false, nativeReadCount: observed.nativeReadCount, sourceStatus: observed.status, sourceFailureCode:sourceFailureCode(observed.reason) };
@@ -225,9 +248,14 @@ function createNativeOperator(raw,recovery=null) {
       await unchanged(); if (shared !== null) assert.ok(rounds.has(shared), 'NATIVE_VALUE_PRIVATE_ROUND_REQUIRED');
       const started = shared?.started ?? performance.now();
       const view = shared?.view ?? await bound.readers[poolIndex].read();
-      active = { view, started, shared }; assert.equal(view.poolIndex, poolIndex); await current();
+      active = { view, started, shared, timing: { profile: 'NATIVE_VALUE_ORIGINAL_AUDIT_TIMING_V1', operation: 'audit', phase: 'initial',
+        currentMilliseconds: 0, storeMilliseconds: 0, nativeSourceMilliseconds: 0,
+        currentChecks: 0, storeLoads: 0, storeCommits: 0, nativeSourceObservations: 0, nativeReadCount: 0 } };
+      assert.equal(view.poolIndex, poolIndex); await current();
       const result = await work(view); await current(); await unchanged(); await current(); return result;
     } catch (cause) {
+      if (active) retainNativeValueOriginalAuditTimingV1(cause, { ...active.timing,
+        elapsedMilliseconds: Math.floor(performance.now() - active.started), limitMilliseconds: 30_000 });
       if (keyUsed) { poison(); throw new Error('NATIVE_VALUE_POST_KEY_UNCERTAIN', { cause }); }
       throw cause;
     } finally { busy = false; active = undefined; keyUsed = false; }
@@ -246,6 +274,7 @@ function createNativeOperator(raw,recovery=null) {
   async function health(request, shared = null) {
     const input = copy(request); exactRecord(input, ['poolIndex', 'validUntil']); pool(input.poolIndex); inputUint(input.validUntil);
     return serial(input.poolIndex, async view => {
+      active.timing.operation = 'health';
       await coverage(); const { timestamp, ...state } = view.healthState;
       const message = freeze({ ...state, validFrom: timestamp, validUntil: input.validUntil });
       assert.ok(BigInt(input.validUntil) > BigInt(timestamp) && BigInt(input.validUntil) - BigInt(timestamp) <= 30n, 'NATIVE_VALUE_HEALTH_WINDOW');
@@ -279,6 +308,7 @@ function createNativeOperator(raw,recovery=null) {
   async function checkpoint(request, shared = null) {
     const input = copy(request); exactRecord(input, ['poolIndex', 'requestId']); pool(input.poolIndex); bytes32(input.requestId, true);
     return serial(input.poolIndex, async view => {
+      active.timing.operation = 'checkpoint';
       await coverage();
       let position = record.state.checkpoints.findIndex(row => row.message.requestId === b32(input.requestId));
       if (position < 0) {
@@ -306,16 +336,18 @@ function createNativeOperator(raw,recovery=null) {
   async function certify(request, shared = null) {
     const input = copy(request); exactRecord(input, ['poolIndex', 'profileCommitment', 'nativeId']); pool(input.poolIndex); bytes32(input.nativeId, true); bytes32(input.profileCommitment, true);
     return serial(input.poolIndex, async () => {
+      active.timing.operation = 'certify'; timingPhase('initial-coverage');
       await coverage(); const i = bound.binding.profiles.findIndex(row => profileCommitment(row.profile) === input.profileCommitment);
       assert.ok(i >= 0, 'NATIVE_VALUE_UNREGISTERED_PROFILE'); const inventory = record.state.inventories[i];
       let position = inventory.entries.findIndex(entry => entry.original.nativeId === input.nativeId);
-      const previous = inventory.entries[position], result = await observe(i, input.nativeId, previous);
+      const previous = inventory.entries[position]; timingPhase('new-original-observation');
+      const result = await observe(i, input.nativeId, previous);
       if (previous) {
         const checked = copy(record.state), entry = checked.inventories[i].entries[position];
         checked.lastClock = active.view.head.timestamp; entry.lastCheckedAt = active.view.head.timestamp;
         if (entry.status !== 'adverse') { entry.status = result.status; entry.reason = result.reason; }
         if (result.status === 'live') entry.watermark = nativeValueWatermark(result.original.facts);
-        await save(checked);
+        timingPhase('checked-original-save'); await save(checked);
       }
       if(result.status!=='live'){
         const failure=new Error('NATIVE_VALUE_NEW_ORIGINAL_UNAVAILABLE');
@@ -324,7 +356,7 @@ function createNativeOperator(raw,recovery=null) {
       }
       const facts = result.original.facts, bytes = encodeFacts(facts, bound.policies[i]), digest = sha256(bytes);
       const retained = previous?.history.find(certificate => certificate.digest === digest);
-      if (retained) { await coverage(); return copy(retained); }
+      if (retained) { timingPhase('retained-certificate-coverage'); await coverage(); return copy(retained); }
       const next = copy(record.state);
       if (position < 0) {
         position = next.inventories[i].entries.length;
@@ -333,13 +365,14 @@ function createNativeOperator(raw,recovery=null) {
       }
       const entry = next.inventories[i].entries[position];
       entry.pending = { facts, frameHex: bytes.toString('hex'), digest }; next.lastClock = active.view.head.timestamp;
-      await save(next); await coverage(digest);
-      const signature = keySign(bytes); assertNativeValueSignature(publicKey, signature, bytes);
+      timingPhase('unsigned-intent-save'); await save(next); timingPhase('pre-key-coverage'); await coverage(digest);
+      timingPhase('key-sign'); const signature = keySign(bytes); assertNativeValueSignature(publicKey, signature, bytes);
       const certificate = { schema: factsSchema(bound.policies[i]), signerIndex: String(signerIndex), facts, frameHex: bytes.toString('hex'), digest, signature };
       const signed = copy(record.state), row = signed.inventories[i].entries[position];
       row.history.push(certificate); row.pending = null;
       if (BigInt(facts.observation.evidenceUntil) > BigInt(row.maximumEvidenceUntil)) row.maximumEvidenceUntil = facts.observation.evidenceUntil;
-      await save(signed); await coverage(); return freeze(copy(certificate));
+      timingPhase('signed-save'); await save(signed); timingPhase('post-key-coverage'); await coverage();
+      timingPhase('return'); return freeze(copy(certificate));
     }, shared);
   }
   const operator = Object.freeze({ profile: NATIVE_VALUE_OPERATOR_PROFILE, signerIndex, publicKey,
@@ -388,7 +421,7 @@ function createNativeOperator(raw,recovery=null) {
     reserve(token) { owned(); assert.ok(!busy && reservation === null, 'NATIVE_VALUE_OPERATOR_BUSY'); reservation = token; },
     release(token) { assert.ok(!busy && reservation === token, 'NATIVE_VALUE_OPERATOR_RESERVATION'); reservation = null; },
     bound: () => { owned(); return bound; }, health, certify, checkpoint,
-    coverage: shared => serial(shared.view.poolIndex, () => coverage(), shared),
+    coverage: shared => serial(shared.view.poolIndex, () => { active.timing.operation = 'coverage'; return coverage(); }, shared),
     useCount: () => uses, poisonIfUsed: count => { if (uses !== count) poison(); }, poison,
   });
   return operator;

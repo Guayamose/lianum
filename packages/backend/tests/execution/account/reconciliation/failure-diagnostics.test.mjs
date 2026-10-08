@@ -71,3 +71,31 @@ test('claim deadline diagnostics retain only closed method, round and phase labe
     assert.equal(diagnose(value).auditBudget, undefined);
   assert.equal(privateFailureDiagnostic(Object.assign(new Error('CLAIM_OTHER'), { auditBudget: budget })).auditBudget, undefined);
 });
+
+
+test('original native audit timings survive the same failure chain without DTOs or private fields', async () => {
+  const { retainNativeValueOriginalAuditTimingV1, nativeValueFailureDiagnostic } = await import(
+    '../../../../src/execution/native-value/reconciliation/native-value-failure-retention.mjs');
+  const timing = { profile: 'NATIVE_VALUE_ORIGINAL_AUDIT_TIMING_V1', operation: 'certify', phase: 'post-key-coverage',
+    currentMilliseconds: 1000.9, storeMilliseconds: 9000.8, nativeSourceMilliseconds: 21000.7,
+    currentChecks: 15, storeLoads: 8, storeCommits: 2, nativeSourceObservations: 3, nativeReadCount: 180,
+    elapsedMilliseconds: 31001, limitMilliseconds: 30000 };
+  const cause = new Error('NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE');
+  retainNativeValueOriginalAuditTimingV1(cause, timing);
+  const wrapped = new Error('NATIVE_VALUE_POST_KEY_UNCERTAIN', { cause });
+  const actual = nativeValueFailureDiagnostic(wrapped).nativeAuditTiming;
+  assert.deepEqual(actual, { ...timing, currentMilliseconds: 1000, storeMilliseconds: 9000, nativeSourceMilliseconds: 21000 });
+  assert.ok(Object.isFrozen(actual)); timing.storeMilliseconds = 1;
+  assert.equal(actual.storeMilliseconds, 9000);
+  assert.equal(nativeValueFailureDiagnostic(Object.assign(new Error('NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE'),
+    { nativeAuditTiming: actual })).nativeAuditTiming, undefined);
+  for (const invalid of [{ ...timing, nativeId: 'SYNTHETIC_PRIVATE_DO_NOT_RETAIN' }, { ...timing, limitMilliseconds: 60000 },
+    { ...timing, currentChecks: 1.5 }, { ...timing, nativeSourceMilliseconds: Infinity },
+    new Proxy(timing, { ownKeys() { throw Error('must not invoke'); } }),
+    Object.defineProperty({ ...timing }, 'phase', { get() { throw Error('must not invoke'); } })]) {
+    const error = new Error('NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE');
+    retainNativeValueOriginalAuditTimingV1(error, invalid);
+    assert.equal(nativeValueFailureDiagnostic(error).nativeAuditTiming, undefined);
+  }
+  assert.equal(JSON.stringify(nativeValueFailureDiagnostic(wrapped)).includes('SYNTHETIC_PRIVATE'), false);
+});
