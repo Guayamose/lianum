@@ -11,10 +11,10 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | --- | --- | --- |
 | 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
 | 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
-| 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; financiación y autorización comprobadas; recuperación F real aceptada con siete pruebas. Aceptación integral en curso. | Completar el recorrido desde navegador y sus salidas; conexión a móvil y recuperación tras pérdida de procesos. |
+| 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; recuperación F real aceptada con siete pruebas. Perfil de navegador con consentimiento DOM y quince pruebas preparado y revisado. | Aceptar la nueva ejecución del navegador y sus salidas; conexión a móvil y recuperación tras pérdida de procesos. |
 | 4. Redes y operaciones combinadas | Bitcoin y Solana: ingreso y solver aceptados en Core/Agave nuevos. CI51 V3 y CO42 reconstruidos con sus VK originales. Tron produce consenso y un broadcast, pero su aceptación falla. | Payout con autoridad original, flujo privado BTC/Solana, finalidad/cierre Tron, aceptación propia de Base/Arbitrum/BNB y composición entre redes. |
-| 5. DeFi | Swap oficial Uniswap V3 y depósito/redención oficial MetaMorpho comprobados en Anvil. Salida acotada y puente privado con 20 regresiones. MetaMorpho completa nota privada, EXIT y redención oficial con D26/W39 reales. | Ciclo privado completo con pruebas reales, posiciones y recuperación ante pérdida de keeper/nodo. |
-| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL duraderos; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, aceptación física, recuperación móvil y operación de producción. |
+| 5. DeFi | Swap oficial Uniswap V3 y depósito/redención oficial MetaMorpho comprobados en Anvil. Puente privado con 20 regresiones; nota privada MetaMorpho, EXIT y redención con D26/W39 reales aceptados. Nuevo perfil D27/W39 por protocolo preparado. | Ejecutar y aceptar ese perfil; integrar PAEG/grafo, posiciones y recuperación ante pérdida de keeper/nodo. |
+| 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, APK y aceptación física, recuperación móvil y operación de producción. |
 
 Los pasos 1 y 2 tienen sus cambios implementados y comprobados. Los pasos 3–6
 incluyen avances reales, pero no están cerrados como producto. Google Cloud se
@@ -44,23 +44,37 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 ## Evidencia y límites
 
 La selección habitual pasa con 244 resultados. Una copia con sólo fuentes
-versionadas y dependencias públicas pasa además 107 regresiones seleccionadas de
-DeFi, redes, HTTP y procesos de pruebas. La API tiene 18
-casos host y diez resultados del grupo PostgreSQL real: carreras, JSONB,
-reinicio, respuesta perdida, crash y caída de SQL conservando el proceso HTTP.
+versionadas y dependencias públicas pasa además 123 regresiones seleccionadas de
+DeFi, redes, navegador, HTTP y procesos de pruebas. La API pasa 22 casos host
+y 19 resultados con PostgreSQL real: carreras, JSONB, reinicio, respuesta
+perdida, crash, caída de SQL y migraciones concurrentes o interrumpidas.
 El adaptador de esos tests es un contador SQL; no mueve fondos ni genera pruebas.
 La consulta firmada lee la admisión original después de caducar sin consumir ni
 disparar efectos. Las conexiones SQL silenciosas o rotas tienen límites y el
 permiso se revalida después de esperar SQL, antes del adaptador.
-La copia de fuentes públicas pasa tipos, 31 tests móviles y 18 host de la API.
+La copia de fuentes públicas comprueba además tipos móviles y los casos host
+de la API; las pruebas SQL reales tienen su informe separado.
 
-El cliente móvil pasa 31 pruebas de contratos, custodia simulada, conservación
+El cliente móvil pasa 33 pruebas de contratos, custodia simulada, conservación
 de operaciones pendientes y procesos de compilación, además de tipos y
 exportación Android/iOS. Su outbox conserva una ejecución UNKNOWN aunque se
 rechace después el permiso de reconciliación; la admisión de permisos no cierra
 su resultado económico. Eso no acredita biometría/custodia en un teléfono ni una IPA/APK
 instalada. El bootstrap de API mantiene el adaptador económico desconectado:
 liveness es 200, readiness es 503 y `privatePortfolio` es `null`.
+
+La API verifica el historial y los checksums del esquema al arrancar, sin crear
+tablas. `npm run db:migrate` aplica la migración revisada por separado, con
+transacción y lock PostgreSQL. Se comprueban adopción del esquema anterior,
+concurrencia, rollback, timeout y respuesta COMMIT perdida. La imagen Docker
+actual realiza esa migración antes de la API y conserva el estado desconectado.
+Android usa un único pool Ninja para compilación y enlace de app y bibliotecas:
+la regresión real y el prebuild Expo verifican el límite; todavía no es un APK.
+
+El primer round trip privado BTC/Solana emitió ambas notas con cuatro pruebas
+D27/CI51, pero falló antes de EXIT/payout por lecturas paralelas incompatibles
+con el controlador original. El harness ahora las serializa, con regresiones;
+el intento fallido se conserva y la aceptación requiere una ejecución nueva.
 
 Solana usa el Agave personalizado original con génesis, claves y ledger nuevos.
 Verifica nonces duraderos, comisiones y balances de ingreso/solver; no fabrica la

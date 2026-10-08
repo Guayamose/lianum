@@ -68,6 +68,13 @@ MetaMorpho; integración PAEG/grafo y wallet completa; recuperación tras perder
 el keeper/nodo; composición DeFi entre redes. El subyacente redimido es público
 y no se cuenta como un nuevo saldo privado.
 
+El perfil nuevo `./dev lab defi` comprueba por separado Uniswap y MetaMorpho:
+entrada pública al protocolo oficial, salida D27 hacia una nota privada y EXIT
+W39 original. Requiere cuatro pruebas genuinas en una ejecución nueva. La
+preparación y las dos regresiones de política pasan; la aceptación nativa de
+este perfil sigue pendiente. Sus inputs son públicos y no establece admisión
+de una leg registrada, conversión PAEG, grafo ni reembolso de provider.
+
 ## Revisión de aceptación Solana
 
 Se habilita exclusivamente el runner de aceptación del runtime local restaurado:
@@ -172,6 +179,28 @@ Informe final `.local/bitcoin-runtime-acceptance/attempt-6XNSOf/report.json`, SH
 `8dec9a5d99f6422923689c2415e93719a2e7c9d5fd9e6fa445bcf21e7b210a74`.
 El alcance es `runtime-ingress-and-solver-only`: no demuestra claims, payout,
 crédito privado, reinicio del nodo ni consenso de la red pública.
+
+## BTC/Solana: round trip privado nuevo
+
+`./dev lab claims` usa los controladores originales para D27/CI51 y W39/CO42
+de ambas redes, con ocho pruebas genuinas esperadas. Mantiene las claves y los
+nodos originales durante el reinicio de owner/keeper; no acredita pérdida
+completa de procesos, rutas de grafo ni consenso público.
+
+El primer intento, `3f4f6c01-c2a3-4676-bc01-4be0db648091`, quedó **rechazado**
+tras emitir ambas notas con cuatro pruebas D27/CI51. Falló antes de EXIT/payout:
+el harness consultaba en paralelo un controlador privado que sólo admite una
+lectura activa. El controlador conserva esa restricción; el harness ahora
+consulta secuencialmente y dos regresiones comprueban el caso y el fallo anterior.
+No se presenta ese intento como un recorrido de ocho pruebas aceptado.
+
+Se conservan resultado SHA256
+`11c4021df66b0cc0586d8c95ce3c4d61ca6751b345cce77aafa776e952595d27`,
+recursos `3fa1e9ada28b0596be9a11c20139ba29c9dad2511c4fab182a405790057ccef4`
+y fuentes `71d9685e293a201430420f2a36def4969b6cb5c9c4f7300c01906d7455c34661`.
+El supervisor original se cerró tras el fallo y los procesos propios quedaron
+ausentes. La nueva aceptación requiere otro intento completo, sin reutilizar
+los cuatro recibos ni las notas del intento fallido.
 
 ## Tron: build nuevo y aceptación candidata rechazada
 

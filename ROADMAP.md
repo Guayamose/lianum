@@ -31,8 +31,10 @@ Usar [el laboratorio nuevo](docs/EVM-LAB.md): financiación, consentimiento,
 reserva, prueba real, ejecución y actualización de estado. Conservar el mismo ID
 y journal ante respuesta HTTP perdida y reinicio.
 
-El harness usa SDK, HTTP y el modelo de revisión compartido de la wallet. Debe
-declarar ese alcance; no demuestra interacción visual en navegador. Completar
+El harness SDK usa HTTP y el modelo de revisión compartido de la wallet. El
+nuevo perfil `./dev lab browser` utiliza el DOM real y comprueba los términos
+originales y la casilla de consentimiento antes de cada acción. Su aceptación
+financiera de quince pruebas requiere una ejecución nueva. Completar
 la integración del escenario F ya aceptado con entrega parcial, ejecución
 original incierta y ausencia del owner, sin segundo envío o crédito. Publicar deltas privados, respaldo,
 entrega nativa y pérdida/obligación del solver por separado.
@@ -81,7 +83,9 @@ estado privado autenticado y resolver UNKNOWN sin repetir efectos. Completar
 recuperación de custodia/outbox, build instalable, biometría y aceptación física.
 Exportar bundles no acredita hardware ni una wallet financiada.
 
-Cerrar migraciones SQL versionadas, permisos/retención, límites duraderos de
+Las migraciones SQL versionadas ya están comprobadas con PostgreSQL real y
+Docker, incluyendo concurrencia, interrupción y respuesta COMMIT perdida.
+Cerrar permisos/retención, límites duraderos de
 admisión, transporte privado de jobs y observabilidad. Verificar imágenes y
 contratos reales antes de habilitar workers. Un despliegue GCP con proyecto,
 cuenta y costes concretos sigue siendo una acción futura separada.

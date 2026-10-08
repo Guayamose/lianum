@@ -6,6 +6,7 @@ Desde la raíz del proyecto:
 ./dev lab prepare  # Artefactos públicos, sin nodos ni pruebas de usuario
 ./dev lab          # Laboratorio nuevo, pruebas reales y cierre de procesos
 ./dev lab recovery # Otro laboratorio nuevo: entrega real y devolución F tras vencimiento
+./dev lab browser  # Wallet DOM real, quince pruebas y salidas en estado nuevo
 ```
 
 El segundo comando crea cuentas de prueba nuevas, arranca Anvil exclusivamente
@@ -27,6 +28,20 @@ Después de verificar la admisión exacta detiene la custodia de destino antes d
 la entrega. No hay una persona navegando una pantalla durante esta aceptación:
 `walletSdkEvmFlowCompleted` y `manualConsentContractVerified` describen el contrato
 de software comprobado; `browserVisualAcceptance` permanece falso.
+
+El perfil `browser` es independiente: conserva ese mismo núcleo y sus
+autoridades, pero financiación, revisión, ejecución, reconciliación y salida se
+confirman mediante la interfaz web real en Chrome con sandbox. El driver compara
+cada término original y comprueba que la casilla empieza sin marcar antes de
+importar el permiso de un solo uso. Al descartar una respuesta HTTP ya admitida,
+la interfaz conserva UNKNOWN y consulta la operación original sin reenviarla.
+Los replays negativos se prueban por HTTP y no realizan acciones financieras.
+
+La custodia Linux prepara importe, destino y testigo fuera del navegador. Este
+perfil no convierte la wallet web en custodia móvil autónoma. Fija la distribución
+de Chrome y Playwright y verifica identidad, grupo, UID, sandbox y cierre de
+cada proceso propio. El ensayo del contrato DOM ya pasó con un servidor sintético;
+la aceptación financiera de quince relaciones requiere ejecutar este perfil.
 
 Los presupuestos originales permanecen: al menos 2,5 GiB de RAM disponible,
 5 GiB libres, máximo 3 GiB de RSS por worker pesado y un único worker pesado.
@@ -73,6 +88,11 @@ permiten relacionarlo con los resultados y mediciones originales de esta NUEVA
 ejecución. Las claves y journals privados quedan en directorios con permisos
 restringidos dentro de `.internal/`; no se añaden a Git. El arranque no escribe
 al laboratorio público archivado en `/workspace`.
+
+El perfil de navegador retiene su resumen separado en
+`.internal/dev/reports/evm-browser-lab.json`. No reutiliza un intento SDK o F.
+Una ejecución fallida conserva su fallo y no cuenta como aceptación del
+navegador, aunque haya generado pruebas válidas antes de fallar.
 
 Esta aceptación cubre una EVM sintética y una generación de cuenta. No demuestra
 finalidad de una red pública, privacidad de metadatos, operadores independientes,
