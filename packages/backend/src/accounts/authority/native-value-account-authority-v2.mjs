@@ -73,6 +73,25 @@ import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, deviceDep
   from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { createHash } from 'node:crypto';
 import { nullifier } from '../../../../engine/src/notes/private-note-encoding.mjs';
+import { consumeDeviceOwnerReservationAuthorizationV1,assertDeviceOwnerReservationBridgeV1 } from './device-owner-reservation-bridge-v1.mjs';
+import { normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,deviceReservationConsentMessageV1,
+  normalizeDeviceReservationCapsuleOptionsV1,wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
+import { compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage } from '../../../../engine/src/execution/graph/funded-graph.mjs';
+import { validateGenericBalanceNativePreparation,genericBalanceNativeTerms } from '../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
+import { buildAuthorizedEnvelope } from '../../../../custody/src/signing/authorized-envelope.mjs';
+import { createRoleProofClient } from '../../../../proofs/src/jobs/role-client.mjs';
+import { encodeStatement } from '../../execution/encoding/statements.mjs';
+
+export async function runDeviceOwnerReservationAuthorizationV1(account,bridge,authorization) {
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+  const original=consumeDeviceOwnerReservationAuthorizationV1(bridge,authorization,account);
+  return owned.get(account).deviceReservation(original);
+}
+export async function readDeviceOwnerReservationStatusV1(account,bridge,jobId) {
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+  const descriptor=assertDeviceOwnerReservationBridgeV1(bridge,account);reference(jobId);
+  return owned.get(account).deviceReservationStatus(jobId,descriptor);
+}
 
 /** These seams expose no arbitrary executor/witness callback. The argument
  * must be the capability emitted by a genuine bridge after its distinct
@@ -247,7 +266,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   }
   async function retainLifetime(next){if(wrapped){await lifetimeRegistry.updateWrappedPrivateLifetimePartV1(lifetimeHandle,next);lifetimeState=copy(next);}}
 
-  let busy = false, unavailable = false, closed = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null, captureProviderBindings=null, activeLegacy = null;
+  let busy = false, unavailable = false, closed = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null, captureProviderBindings=null, activeLegacy = null, activeDeviceOwner = null;
   let idle = Promise.resolve(), releaseIdle, abortPromise, ownerViewTerminalObserver;
   const manualGraphApprovals = new Map(), nativeProviderSets = new Map(), nativeNoteApprovals = new Map();
   const proofRunner = createFlatProofRunner({ onProof });
@@ -450,6 +469,188 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
       }
     });
   }
+  // Device U/S continues the original D26 note. Its source opening is never
+  // written into this Vault or adopted by the Linux owner process.
+  const reservationRows=()=>record.data.deviceReservations??[];
+  const reservationRow=id=>{reference(id);const row=reservationRows().find(value=>value.jobId===id);
+    assert.ok(row,'DEVICE_RESERVATION_ORIGINAL_JOB_REQUIRED');return row;};
+  const reservationUpdate=(id,fields)=>write(data=>({...data,deviceReservations:(data.deviceReservations??[])
+    .map(row=>row.jobId===id?{...row,...copy(fields)}:row)}));
+  const reservationPublic=row=>({jobId:row.jobId,stage:row.stage,consentFields:{
+    ...Object.fromEntries(['depositJobId','quoteId','jobId','custody','statement','witnessSHA256'].map(name=>[name,copy(row.consent[name])])),
+    proofSHA256:row.proofSHA256,publicInputsSHA256:row.publicInputsSHA256},statement:copy(row.consent.statement),
+    observation:copy(row.observation),errorCode:row.errorCode});
+  function reservationSubject(depositJobId,rootId,descriptor){
+    const deposit=deviceRow(depositJobId);assert.equal(deposit.stage,'CONFIRMED','DEVICE_RESERVATION_D26_REQUIRED');
+    assert.equal(deposit.consent.rootId,rootId,'DEVICE_RESERVATION_ROOT_CHANGED');
+    for(const name of ['origin','pairingId','devicePublicKey'])assert.equal(deposit.consent[name],descriptor[name],'DEVICE_RESERVATION_DEVICE_CHANGED');
+    return deposit;
+  }
+  function reservationBinding(consent){
+    assert.equal(consent.binding.accountIdentitySHA256,sha(accountIdentity),'DEVICE_RESERVATION_ACCOUNT_CHANGED');
+    assert.equal(consent.binding.originalAccountLifetime,config.lifetime,'DEVICE_RESERVATION_LIFETIME_CHANGED');
+    assert.equal(consent.binding.assetId,asset.assetId,'DEVICE_RESERVATION_ASSET_CHANGED');
+    for(const name of ['scope','policy','codeHash','assetIdentity'])assert.equal(consent.poolTerms[name],asset[name],'DEVICE_RESERVATION_ASSET_CHANGED');
+    assert.equal(consent.poolTerms.domainCommitment,identity.domainCommitment,'DEVICE_RESERVATION_DOMAIN_CHANGED');
+  }
+  async function reservationCurrent(consent){await healthy();continueWork();reservationBinding(consent);
+    const view=await reader.read();await reader.assertCurrent(view);continueWork();return view;}
+  function originalQuote(id){reference(id);const quote=(record.data.deviceReservationQuotes??[]).find(row=>row.quoteId===id);
+    assert.ok(quote,'DEVICE_RESERVATION_ORIGINAL_QUOTE_REQUIRED');return quote;}
+  function originalReservationConsent(row,consent){reservationBinding(consent);
+    for(const name of ['depositJobId','quoteId','jobId','witnessSHA256'])assert.equal(consent[name],row.consent[name],'DEVICE_RESERVATION_JOB_CHANGED');
+    for(const name of ['custody','statement'])assert.deepEqual(consent[name],row.consent[name],'DEVICE_RESERVATION_JOB_CHANGED');
+    assert.equal(consent.proofSHA256,row.proofSHA256,'DEVICE_RESERVATION_PROOF_CHANGED');
+    assert.equal(consent.publicInputsSHA256,row.publicInputsSHA256,'DEVICE_RESERVATION_PROOF_CHANGED');
+    reservationSubject(consent.depositJobId,consent.custody.rootId,consent);
+  }
+  async function reservationObservation(row){
+    if(row.submission===null)return reservationPublic(row);
+    const submission=row.submission,observation=await observer.readTransaction({kind:'reservation',identitySHA256,
+      transactionHash:submission.transactionHash,calldataSHA256:submission.calldataSHA256});
+    if(observation===null)return {...reservationPublic(row),stage:'RESERVATION_UNKNOWN'};
+    validateFlatAccountOwnerObservation({identity,artifact:pool.artifact,submission,
+      authorization:decodeStatement('authorization',row.authorization.publicInputs),observation});
+    const view=await reservationCurrent(row.consent),statement=row.consent.statement;
+    assert.ok(view.ledger.nullifiers.includes('0x'+statement.inputNullifier),'DEVICE_RESERVATION_ORIGINAL_SPEND_REQUIRED');
+    const pathFor=commitment=>{const indices=view.ledger.commitments.flatMap((leaf,index)=>leaf==='0x'+commitment?[index]:[]);
+      assert.equal(indices.length,1,'DEVICE_RESERVATION_ORIGINAL_OUTPUT_REQUIRED');const path=view.ledger.tree.path(indices[0]);
+      return {root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)};};
+    const receipt=await runtime.receipt('0x'+observation.transaction.hash);assert.ok(receipt,'DEVICE_RESERVATION_ORIGINAL_RECEIPT_REQUIRED');
+    await runtime.checkReceipt(receipt);const block=await runtime.assertCanonical(receipt);
+    const actual=decodeStatement('reservation',submission.publicInputs);
+    const retained={profile:'LIANUM_DEVICE_ORIGINAL_S_OBSERVATION_V1',transactionHash:observation.transaction.hash,
+      blockHash:observation.receipt.blockHash,blockNumber:BigInt(block.number).toString(),timestamp:observation.after.timestamp,
+      sourceCommitment:statement.inputCommitment,sourceNullifier:statement.inputNullifier,
+      changeCommitment:statement.changeCommitment,reserveCommitment:statement.reserveCommitment,
+      domainCommitment:actual.domainCommitment,envelope:actual.envelope,admissionTag:actual.admissionTag,
+      currentHead:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},
+      changePath:pathFor(statement.changeCommitment),reservePath:pathFor(statement.reserveCommitment)};
+    // Store the authentic historical transition once. Re-observation may give
+    // fresh paths, but cannot alter the original transaction or authorizing time.
+    if(row.observation===null)await reservationUpdate(row.jobId,{stage:'RESERVED',errorCode:null,observation:retained,
+      submission:{...submission,observation}});
+    await reader.assertCurrent(view);return {...reservationPublic(reservationRow(row.jobId)),observation:retained};
+  }
+  async function deviceReservation(original){return exclusive(async()=>{
+    await healthy();continueWork();assert.ok(!wrapped,'DEVICE_RESERVATION_NATIVE_ACCOUNT_REQUIRED');
+    const {action,consent}=original;
+    if(action==='PREPARE_U'){
+      const deposit=reservationSubject(original.depositJobId,original.rootId,original.descriptor);
+      assert.equal(original.binding.accountIdentitySHA256,sha(accountIdentity),'DEVICE_RESERVATION_ACCOUNT_CHANGED');
+      assert.equal(original.binding.originalAccountLifetime,config.lifetime,'DEVICE_RESERVATION_LIFETIME_CHANGED');
+      await observeDevice(deposit);const view=await reader.read();await reader.assertCurrent(view);
+      const preparation=validateGenericBalanceNativePreparation(original.nativePreparation),nativeConfig=preparation.config;
+      for(const name of ['scope','policy','asset','hubDomain','registryCommitment'])
+        assert.equal(nativeConfig[name],identity.domain[name],'DEVICE_RESERVATION_PREPARATION_DOMAIN_CHANGED');
+      const proposal={scope:nativeConfig.scope,policy:nativeConfig.policy,asset:nativeConfig.asset,...genericBalanceNativeTerms(preparation)};
+      assert.ok(BigInt(proposal.budget)<=BigInt(deposit.consent.statement.amount),'DEVICE_RESERVATION_SOURCE_VALUE');
+      assert.ok(BigInt(view.head.timestamp)>=BigInt(proposal.fundingNotBefore)&&BigInt(view.head.timestamp)<BigInt(proposal.fundingValidUntil),
+        'DEVICE_RESERVATION_ORIGINAL_WINDOW');
+      const quotes=record.data.deviceReservationQuotes??[];
+      let quote=quotes.find(row=>row.depositJobId===deposit.jobId&&row.rootId===original.rootId);
+      if(quote){assert.deepEqual(quote.preparation,preparation,'DEVICE_RESERVATION_PREPARATION_CHANGED');
+        assert.deepEqual(quote.invoiceSignatures,original.invoiceSignatures,'DEVICE_RESERVATION_INVOICES_CHANGED');}
+      else {assert.ok(quotes.length<8,'DEVICE_RESERVATION_QUOTE_CAPACITY');quote={quoteId:randomBytes(32).toString('hex'),
+        depositJobId:deposit.jobId,rootId:original.rootId,descriptor:copy(original.descriptor),preparation,
+        invoiceSignatures:copy(original.invoiceSignatures)};
+        await write(data=>({...data,deviceReservationQuotes:[...(data.deviceReservationQuotes??[]),quote]}));}
+      // This write is the same authenticated account lifetime. It does not
+      // invalidate a consumed READ or emit a new economic grant/review.
+      return {quoteId:quote.quoteId,depositJobId:deposit.jobId,rootId:original.rootId,sourceCommitment:deposit.consent.statement.output,
+        sourceNullifier:deposit.nullifier,poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,
+          assetIdentity:asset.assetIdentity,domainCommitment:identity.domainCommitment},proposal,
+        capsuleOptions:normalizeDeviceReservationCapsuleOptionsV1({nodes:preparation.nodes.map(({id,action,receiptSpendSecret})=>({id,action,receiptSpendSecret})),
+          slotSalts:preparation.slotSalts}),invoiceSignatures:copy(quote.invoiceSignatures),
+        observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp}};
+    }
+    reservationBinding(consent);const reply=value=>({...value,authorizationSHA256:byteSHA(deviceReservationConsentMessageV1(consent))});
+    if(action==='PROVE_U'){
+      assert.ok(!reservationRows().some(row=>row.jobId===consent.jobId||row.consent.custody.sourceCommitment===consent.custody.sourceCommitment),
+        'DEVICE_RESERVATION_ORIGINAL_JOB_ALREADY_ADMITTED');
+      const deposit=reservationSubject(consent.depositJobId,consent.custody.rootId,consent),quote=originalQuote(consent.quoteId);
+      assert.equal(quote.depositJobId,deposit.jobId,'DEVICE_RESERVATION_QUOTE_SOURCE_CHANGED');
+      assert.equal(quote.rootId,consent.custody.rootId,'DEVICE_RESERVATION_QUOTE_ROOT_CHANGED');
+      for(const name of ['origin','pairingId','devicePublicKey'])assert.equal(quote.descriptor[name],consent[name],'DEVICE_RESERVATION_QUOTE_DEVICE_CHANGED');
+      assert.ok(consent.custody.noteRevision>=deposit.consent.noteRevision,'DEVICE_RESERVATION_CUSTODY_REVISION');
+      assert.equal(consent.custody.sourceCommitment,deposit.consent.statement.output,'DEVICE_RESERVATION_SOURCE_CHANGED');
+      assert.equal(consent.custody.sourceNullifier,deposit.nullifier,'DEVICE_RESERVATION_SOURCE_NULLIFIER_CHANGED');
+      const witness=normalizeDeviceReservationWitnessV1(original.witness),bytes=deviceReservationWitnessBytesV1(witness);
+      let capability,ownerInputs,client;
+      try{
+        assert.equal(byteSHA(bytes),consent.witnessSHA256,'DEVICE_RESERVATION_WITNESS_CHANGED');
+        const preparation=validateGenericBalanceNativePreparation(quote.preparation),proposal={scope:preparation.config.scope,
+          policy:preparation.config.policy,asset:preparation.config.asset,...genericBalanceNativeTerms(preparation)};
+        for(const name of Object.keys(proposal))assert.deepEqual(witness.input[name],proposal[name],'DEVICE_RESERVATION_PROPOSAL_CHANGED');
+        assert.equal(witness.input.inputNote.value,deposit.consent.statement.amount,'DEVICE_RESERVATION_SOURCE_VALUE');
+        assert.deepEqual(witness.envelopePreparation.capsuleOptions,normalizeDeviceReservationCapsuleOptionsV1({
+          nodes:preparation.nodes.map(({id,action,receiptSpendSecret})=>({id,action,receiptSpendSecret})),slotSalts:preparation.slotSalts}),
+          'DEVICE_RESERVATION_CAPSULES_CHANGED');
+        assert.deepEqual(witness.invoiceSignatures,quote.invoiceSignatures,'DEVICE_RESERVATION_INVOICES_CHANGED');
+        const compiled=compileFundedGraph(witness.input),signed=attachFundedSignatures(compiled,{ownerSignature:witness.ownerSignature,invoiceSignatures:witness.invoiceSignatures});
+        assert.deepEqual(compiled.authorizationStatement,consent.statement,'DEVICE_RESERVATION_STATEMENT_CHANGED');
+        assert.equal(byteSHA(ownerAuthorizationMessage(compiled.authorizationStatement)),consent.custody.frameSHA256,'DEVICE_RESERVATION_FRAME_CHANGED');
+        await observeDevice(deposit);await reservationCurrent(consent);
+        // Durable job latch precedes the single original owner proof. Custody
+        // digests are a signed declaration; they are not a server claim about
+        // encryption or the device's physical SecureStore.
+        await write(data=>({...data,deviceReservations:[...(data.deviceReservations??[]),{jobId:consent.jobId,consent:copy(consent),
+          stage:'PROVING',proofSHA256:null,publicInputsSHA256:null,authorization:null,rolePackets:null,submission:null,observation:null,errorCode:null}]}));
+        capability=await withFlatHash(hashFields=>buildAuthorizedEnvelope({signed,domain:identity.domain,
+          ...witness.envelopePreparation},{hashFields}));ownerInputs=capability.ownerAuthorizationInputs();
+        const statement=capability.publicStatement(),rolePackets={};
+        for(const name of ['reservation','recovery','assembler'])rolePackets[name]=capability[name]().select();
+        for(const name of ['local','dependency'])rolePackets[name]=Array.from({length:4},(_,i)=>capability[name](i).select());
+        capability.destroy();capability=null;client=createRoleProofClient('owner');activeDeviceOwner=client;
+        const result=await client.prove({relation:'authorization',inputs:ownerInputs,expectedPublicInputs:[...encodeStatement('authorization',statement)]});
+        const authorization=transportProof(result),view=await reservationCurrent(consent);
+        assert.equal(await system.verify('authorization',Buffer.from(authorization.proof,'hex'),authorization.publicInputs
+          .map(word=>'0x'+BigInt(word).toString(16).padStart(64,'0')),view.header.number),true,'DEVICE_RESERVATION_DEPLOYED_U_REJECTED');
+        flatAccountGraphBinding({authorization,rolePackets},identity);await reader.assertCurrent(view);continueWork();
+        await onProof({label:'device-reservation-u',relation:'authorization',role:'device-owner',proof:result});
+        await reservationUpdate(consent.jobId,{stage:'PROVED',authorization,rolePackets,proofSHA256:byteSHA(Buffer.from(authorization.proof,'hex')),
+          publicInputsSHA256:sha(authorization.publicInputs)});
+        await onPrivateAudit({reference:consent.jobId,phase:'device-reservation-proof-retained',stage:'PROVED'});
+        return reply(reservationPublic(reservationRow(consent.jobId)));
+      }catch(error){if(!unavailable&&reservationRows().some(row=>row.jobId===consent.jobId))
+          await reservationUpdate(consent.jobId,{stage:'FAILED',errorCode:/^[A-Z0-9_]{1,100}$/.test(error.code??'')?error.code:'DEVICE_RESERVATION_U_REJECTED'});
+        throw error;
+      }finally{bytes.fill(0);wipeDeviceReservationWitnessV1(witness);capability?.destroy();ownerInputs=null;
+        client?.close();activeDeviceOwner=null;}
+    }
+    const row=reservationRow(consent.jobId);originalReservationConsent(row,consent);
+    if(action==='OBSERVE_S')return reply(await reservationObservation(row));
+    assert.equal(action,'RESERVE_S');assert.equal(row.stage,'PROVED','DEVICE_RESERVATION_RECONCILE_ORIGINAL_ONLY');
+    assert.equal(row.submission,null,'DEVICE_RESERVATION_RECONCILE_ORIGINAL_ONLY');
+    const deposit=reservationSubject(consent.depositJobId,consent.custody.rootId,consent);await observeDevice(deposit);
+    const before=await reservationCurrent(consent),packet=row.rolePackets.reservation,funding=packet.funding.value;
+    const index=before.ledger.commitments.indexOf('0x'+funding.inputCommitment);
+    assert.ok(index>=0&&!before.ledger.nullifiers.includes('0x'+funding.inputNullifier),'DEVICE_RESERVATION_SOURCE_NOT_UNSPENT');
+    const path=before.ledger.tree.path(index),job=await withFlatHash(hashFields=>reservationWitness(packet,{inputRoot:bare(path.root),
+      inputPath:{leaf:bare(path.leaf),index:path.index,siblings:path.siblings.map(bare)}},{hashFields}));
+    // No retry after S uncertainty either: this is one retained original job.
+    await reservationUpdate(row.jobId,{stage:'RESERVING',reservationConsent:copy(consent)});
+    let submission,calldata;
+    try{
+    const proof=await proofRunner.prove('reservation',job,'device-reservation-s'),fresh=await reservationCurrent(consent);
+    for(const name of ['publicState','commitments','nullifiers'])assert.deepEqual(fresh.ledger[name],before.ledger[name],'DEVICE_RESERVATION_FRESH_S_REQUIRED');
+    assert.ok(BigInt(fresh.head.timestamp)>=BigInt(funding.fundingNotBefore)&&BigInt(fresh.head.timestamp)<BigInt(funding.fundingValidUntil),
+      'DEVICE_RESERVATION_ORIGINAL_WINDOW');
+    const projection=reserveProjection(before.ledger,'0x'+funding.reserveCommitment,'0x'+funding.changeCommitment);
+    calldata=encodeFlatTransaction('reserveGenericGuarded',{authorization:row.authorization,reservation:proof,
+      expectedSequence:projection.expectedSequence,expectedPostRoot:projection.expectedPostRoot});
+    submission={kind:'reservation',calldata,calldataSHA256:flatAccountCalldataHash(calldata),publicInputs:proof.publicInputs,
+      statement:job.statement,before:snapshotFromView(fresh),epoch:null,transactionHash:null,dispatchLatched:true,ownerConfirmed:false,observation:null};
+    await reservationUpdate(row.jobId,{stage:'RESERVATION_UNKNOWN',submission});
+    }catch(error){if(!unavailable)await reservationUpdate(row.jobId,{errorCode:/^[A-Z0-9_]{1,100}$/.test(error.code??'')
+      ?error.code:'DEVICE_RESERVATION_S_UNRESOLVED'});throw error;}
+    try{continueWork();const receipt=await runtime.send('flat-account-device-reservation',{to:pool.address,data:calldata,value:'0'});
+      await reservationUpdate(row.jobId,{submission:{...submission,transactionHash:bare(receipt.transactionHash)}});
+      return reply(await reservationObservation(reservationRow(row.jobId)));
+    }catch(error){const hash=error.transactionRecord?.transactionHash;
+      if(!unavailable)await reservationUpdate(row.jobId,{...(hash?{submission:{...submission,transactionHash:bare(hash)}}:{}),
+        errorCode:/^[A-Z0-9_]{1,100}$/.test(error.code??'')?error.code:'DEVICE_RESERVATION_SEND_UNRESOLVED'});throw error;}
+  });}
   function request(value) {
     const bound = validateBoundRequest(value, config), entry = operation(bound.ownerOperationRef);
     if (wrapped) assert.equal(bound.kind, 'GRAPH', 'WRAPPED_WALLET_ORIGINAL_CLAIM_CONTROLLER_REQUIRED');
@@ -1385,6 +1586,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     async abort() {
       cancelled = true;
       abortPromise ??= (async () => {
+        activeDeviceOwner?.stop();
         await Promise.allSettled([activeLegacy?.abort(), proofRunner.abort(), nativeExecution?.abort()]);
         await idle;
         return { cancelled: true, retainedEncryptedEvidence: true };
@@ -1398,7 +1600,9 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     },
   });
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable,
-    deviceDeposit,
+    deviceDeposit, deviceReservation,
+    deviceReservationStatus(id,descriptor) { return exclusive(async()=>{await healthy();const row=reservationRow(id);
+      reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,descriptor);return reservationPublic(row);}); },
     deviceDepositStatus(id) { return exclusive(async () => { await healthy(); return devicePublic(deviceRow(id)); }); },
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,accountId,journalId,poolIndex};},
     fence(){assert.ok(wrapped&&!busy&&!closed&&!cancelled&&!unavailable&&!capturing,'WRAPPED_ACCOUNT_ORIGINAL_CAPTURE_REQUIRED');capturing=true;

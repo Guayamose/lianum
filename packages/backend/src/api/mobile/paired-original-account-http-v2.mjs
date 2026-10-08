@@ -9,6 +9,8 @@ import { isIP } from 'node:net';
 import { types } from 'node:util';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
+import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
+import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 const listeners = new WeakSet();
 const BODY_LIMIT = 8192, REQUEST_MS = 5000, CLOSE_MS = 1000;
@@ -55,18 +57,18 @@ function reply(response, status, body) {
     'cache-control': 'no-store', 'connection': 'close', 'x-content-type-options': 'nosniff' });
   response.end(bytes);
 }
-async function jsonBody(request) {
+async function jsonBody(request, maximum = BODY_LIMIT) {
   if (request.headers['content-type'] !== 'application/json' || request.headers['content-encoding'] !== undefined
     || request.headers['transfer-encoding'] !== undefined) fail('HTTP_BODY_REJECTED');
   const length = request.headers['content-length'];
   if (typeof length !== 'string' || !/^(0|[1-9][0-9]{0,4})$/.test(length)
-    || Number(length) < 2 || Number(length) > BODY_LIMIT) fail('HTTP_BODY_REJECTED');
+    || Number(length) < 2 || Number(length) > maximum) fail('HTTP_BODY_REJECTED');
   const parts = []; let bytes = 0;
   let owned;
   try {
     for await (const part of request) {
       bytes += part.length; parts.push(part);
-      if (bytes > BODY_LIMIT || bytes > Number(length)) fail('HTTP_BODY_REJECTED');
+      if (bytes > maximum || bytes > Number(length)) fail('HTTP_BODY_REJECTED');
     }
     if (bytes !== Number(length)) fail('HTTP_BODY_REJECTED');
     owned = Buffer.concat(parts);
@@ -107,7 +109,20 @@ export async function createPairedDeviceDepositTlsServerV1(input) {
   try { return await startOriginalTransport(actor, tls, host, input.bridge); }
   finally { tls.privateKey.fill(0); }
 }
-async function startOriginalTransport(actor, tls, host, bridge = null) {
+/** Separate fixed U/S installation; the accepted D26 listener keeps its
+ * original routes/body budget. No route accepts a bridge or native preparation. */
+export async function createPairedDeviceReservationTlsServerV1(input) {
+  if (arguments.length !== 1) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const names = input && !types.isProxy(input) && Object.hasOwn(input, 'host')
+    ? ['bridge', 'tls', 'host'] : ['bridge', 'tls'];
+  exactInput(input, names); const actor = deviceOwnerReservationBridgeActorV1(input.bridge);
+  const host = names.includes('host') ? input.host : '127.0.0.1';
+  if (!['127.0.0.1', '0.0.0.0'].includes(host)) fail('MOBILE_ORIGINAL_TLS_CONFIGURATION');
+  const descriptor = pairedOriginalAccountActorDescriptorV2(actor), tls = tlsMaterial(input.tls, descriptor);
+  try { return await startOriginalTransport(actor, tls, host, null, input.bridge); }
+  finally { tls.privateKey.fill(0); }
+}
+async function startOriginalTransport(actor, tls, host, bridge = null, reservationBridge = null) {
   assertPairedOriginalAccountActorV2(actor);
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
   if (listeners.has(actor)) fail('MOBILE_ORIGINAL_HTTP_ALREADY_BOUND'); listeners.add(actor);
@@ -122,6 +137,17 @@ async function startOriginalTransport(actor, tls, host, bridge = null) {
       }
       if (request.url === '/v2/mobile/original-account/state' && request.method === 'GET') {
         assertPairedOriginalAccountActorV2(actor); return state;
+      }
+      if (reservationBridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-reservation/')) {
+        if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
+        const methods = { 'preparation-reviews': 'challengePreparation', 'job-reviews': 'challengeJob', 'jobs': 'prove',
+          'reservation-reviews': 'challengeReservation', 'reserve': 'reserve', 'observation-reviews': 'challengeObservation', 'observations': 'observe' };
+        const method = methods[request.url.slice('/v1/mobile/device-reservation/'.length)]; if (!method) fail('HTTP_NOT_FOUND');
+        // Fixed capacity-four owner witness plus framed consent. Existing
+        // diagnostic/D26 and other U/S routes retain their original 8KiB body bound.
+        const input = await jsonBody(request, method === 'prove' ? 32768 : BODY_LIMIT); if (closed) fail('HTTP_CLOSED');
+        try { return await reservationBridge[method](input); }
+        finally { if (method === 'prove') wipeDeviceReservationWitnessV1(input.witness); }
       }
       if (bridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-deposit/')) {
         if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
