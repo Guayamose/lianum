@@ -56,8 +56,8 @@ def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
     if code:
         raise SystemExit(code)
 
-def retain_summary(recovery=False):
-    directory = FLAT / ".local" / ("manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance")
+def retain_summary(recovery=False, browser=False):
+    directory = FLAT / ".local" / ("manual-wallet-browser-acceptance" if browser else "manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance")
     if last_lab_attempt is None or last_lab_attempt.parent != directory:
         raise SystemExit("Lab EVM produced no single new attempt; earlier reports are not reused")
     attempt = last_lab_attempt
@@ -65,10 +65,10 @@ def retain_summary(recovery=False):
     resources_bytes = (attempt / "resources.json").read_bytes()
     result = json.loads(result_bytes)
     resources = json.loads(resources_bytes)
-    completion = "actualTimeoutFRecoveryAcceptance" if recovery else "walletSdkEvmFlowCompleted"
+    completion = "walletBrowserEvmFlowCompleted" if browser else "actualTimeoutFRecoveryAcceptance" if recovery else "walletSdkEvmFlowCompleted"
     accepted = result.get("success") is True and result.get(completion) is True \
         and resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
-    summary = {"format": "LIANUM_DEVELOPMENT_EVM_TIMEOUT_RECOVERY_V1" if recovery else "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
+    summary = {"format": "LIANUM_DEVELOPMENT_EVM_BROWSER_ACCEPTANCE_V1" if browser else "LIANUM_DEVELOPMENT_EVM_TIMEOUT_RECOVERY_V1" if recovery else "LIANUM_DEVELOPMENT_EVM_WALLET_ACCEPTANCE_V1", "accepted": accepted,
         "runId": result.get("runId", resources.get("runId")), "attempt": str(attempt.relative_to(ROOT)),
         "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
         "startedAt": result.get("startedAt"), "finishedAt": result.get("finishedAt"),
@@ -81,6 +81,7 @@ def retain_summary(recovery=False):
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest(),
         "sourcePinsSHA256": resources.get("sourcePinsSHA256"),
         "walletSdkEvmFlowCompleted": result.get("walletSdkEvmFlowCompleted", False),
+        "walletBrowserEvmFlowCompleted": result.get("walletBrowserEvmFlowCompleted", False),
         "manualConsentContractVerified": result.get("manualConsentContractVerified", False),
         "ownedGroupCleanupConfirmed": resources.get("ownedGroupCleanupConfirmed"),
         "resourceSummary": resources.get("resourceSummary"),
@@ -88,7 +89,7 @@ def retain_summary(recovery=False):
         "offlineOriginalRecovery": result.get("offlineOriginalRecovery"),
         "finalRecipients": result.get("finalRecipients"), "finalVault": result.get("finalVault"),
         "finalCapacity": result.get("finalCapacity"),
-        "fullWalletAcceptance": False, "browserVisualAcceptance": False,
+        "fullWalletAcceptance": False, "browserVisualAcceptance": accepted if browser else False,
         "systemicPrivacyAcceptance": False, "independentOperators": False,
         "actualTimeoutFRecoveryAcceptance": result.get("actualTimeoutFRecoveryAcceptance", False),
         "limitations": ["Local synthetic EVM and fake PALT/BLTV only; no public-chain acceptance.",
@@ -112,7 +113,17 @@ def retain_summary(recovery=False):
                 "Solver loses its100 underlying; target private100 shares remain. Catalogue admission fence is retained; no new exits attempted.",
                 "Owners restart as processes; coordinator reopens its same authenticated journal in process and listener is replaced.",
                 "No browser, physical network outage, independent operators or privacy certification accepted."]})
-    destination = DEV / "reports" / ("evm-recovery-lab.json" if recovery else "evm-lab.json")
+    if browser:
+        summary.update({"browserClosures": result.get("browserClosures"),
+            "originalExitReviewStateUnchanged": result.get("originalExitReviewStateUnchanged", False),
+            "walletApplicationHttpAcceptance": result.get("walletApplicationHttpAcceptance"),
+            "limitations": ["Local owned EVM and fake PALT/BLTV only; no public-chain acceptance.",
+                "Scripted real production DOM checks each original term and checkbox before importing one-use authority from the original local host.",
+                "Owner amount/destination/witness preparation remains in the separate original Linux custody process; browser is not self-contained mobile custody.",
+                "One actual admitted HTTP reply is discarded; no physical network outage is claimed.",
+                "Owners restart as processes; coordinator reopens its same authenticated journal and listener is replaced.",
+                "Amounts, timing and router actions remain observable; no independent-operator or privacy/performance certification."]})
+    destination = DEV / "reports" / ("evm-browser-lab.json" if browser else "evm-recovery-lab.json" if recovery else "evm-lab.json")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -125,8 +136,8 @@ def retain_summary(recovery=False):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) == 2 else "run" if len(sys.argv) == 1 else None
-    if mode not in {"prepare", "run", "recovery"}:
-        raise SystemExit("Usage: ./dev lab [prepare|run|recovery]")
+    if mode not in {"prepare", "run", "recovery", "browser"}:
+        raise SystemExit("Usage: ./dev lab [prepare|run|recovery|browser]")
     build(quiet=True)
     DEV.mkdir(parents=True, exist_ok=True)
     with (DEV / "evm-lab.lock").open("a") as lock:
@@ -143,18 +154,19 @@ def main():
         for operation in ("compile", "stats", "prepare-key"):
             run("proof-workers/run-bounded.mjs", "admission", operation)
         run("scripts/prepare-development-evm.mjs")
-        if mode in {"run", "recovery"}:
+        if mode in {"run", "recovery", "browser"}:
             recovery = mode == "recovery"
-            flow = "manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance"
+            browser = mode == "browser"
+            flow = "manual-wallet-browser-acceptance" if browser else "manual-wallet-timeout-recovery" if recovery else "manual-wallet-acceptance"
             try:
                 run("integration/run-" + flow + ".mjs", observe=True, flow=flow)
             except SystemExit as error:
                 try:
-                    retain_summary(recovery)
+                    retain_summary(recovery, browser)
                 except (SystemExit, FileNotFoundError):
                     pass
                 raise error
-            retain_summary(recovery)
+            retain_summary(recovery, browser)
 
 if __name__ == "__main__":
     main()
