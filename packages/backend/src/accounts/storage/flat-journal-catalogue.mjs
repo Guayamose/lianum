@@ -3,7 +3,7 @@
  * no registry replacement, balance migration, resend or keeper adoption. */
 import assert from 'node:assert/strict';
 import { resolve, dirname } from 'node:path';
-import { lstat } from 'node:fs/promises';
+import { lstat, realpath } from 'node:fs/promises';
 import { Vault } from '../../../../engine/src/crypto/vault.mjs';
 import { validateJournalCredentials } from '../../../../engine/src/execution/accounts/generic-account-process.mjs';
 import { immutable, sha, genericAccountIdentity, validateInput, validateBoundRequest, bindGenericAccountRequest }
@@ -11,8 +11,12 @@ import { immutable, sha, genericAccountIdentity, validateInput, validateBoundReq
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedFlatPortfolio, describeFlatPortfolioJournalAuthority } from '../authority/flat-portfolio-authority.mjs';
 import { assertOwnedFlatPoolAdmissionPolicy } from '../authority/flat-pool-admission-policy.mjs';
-import { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper } from '../portfolio/flat-manual-portfolio-keeper.mjs';
+import { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper, createRetainedFlatManualPortfolioKeeperV1, captureRetainedFlatManualPortfolioKeeperV1 } from '../portfolio/flat-manual-portfolio-keeper.mjs';
+import { retainedFlatAccountInventoryV1 } from '../authority/flat-account-authority.mjs';
+import { consumeExternalDefiCatalogueGenerationReopenV1 as consumeGenerationToken } from '../recovery/external-defi-catalogue-recovery-v1.mjs';
 import { projectCatalogueOwnerRequests } from '../portfolio/catalogue-owner-requests.mjs';
+
+import { retainWrappedPrivateLifetimePartV1, readWrappedPrivateLifetimePartV1, updateWrappedPrivateLifetimePartV1, assertWrappedPrivateLifetimePartSealedV1 } from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 
 const PROFILE = 'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2';
 const generations = new WeakMap(), catalogues = new WeakMap(), catalogueClaims = new WeakSet();
@@ -46,7 +50,9 @@ function descriptor(generation) {
 /** Owns construction once. No serialized keeper, imported journal, callback
  * authority or "reopen with a fresh keeper" option exists. The dependent manual
  * portfolio factory holds the one-time lease over every underlying authority. */
-export async function createFlatJournalGeneration(input) {
+export async function createFlatJournalGeneration(input) { return generationFactory(input,false); }
+export async function createRetainedFlatJournalGenerationV1(input) { assert.equal(arguments.length,1); return generationFactory(input,true); }
+async function generationFactory(input,retained) {
   exactRecord(input, ['runtime', 'portfolio', 'poolAdmissions', 'journal']);
   const { runtime, portfolio, poolAdmissions } = input;
   assertOwnedFlatPortfolio(runtime, portfolio);
@@ -57,12 +63,12 @@ export async function createFlatJournalGeneration(input) {
   assert.deepEqual(fresh.map(entry => entry.route.assetId).sort(), portfolio.config.registry.map(asset => asset.assetId).sort(),
     'FLAT_CATALOGUE_ORIGINAL_REGISTRY_REQUIRED');
   const identity = genericAccountIdentity(portfolio.config), id = sha({ profile: PROFILE, identity });
-  const keeper = await createFlatManualPortfolioKeeper({ runtime, portfolio, journal });
+  const keeper = await (retained ? createRetainedFlatManualPortfolioKeeperV1 : createFlatManualPortfolioKeeper)({ runtime, portfolio, journal });
   assertOwnedFlatManualPortfolioKeeper(keeper, { runtime, portfolio });
   const state = { id, identity, runtime, portfolio, poolAdmissions, keeper,
     accounts: Object.freeze(owned.accounts.map(entry => Object.freeze({ poolIndex: entry.poolIndex, account: entry.account }))),
     journalPath: resolve(journal.path), config: portfolio.config, routes: fresh.map(entry => entry.route),
-    freshAtCreation: fresh, admissionAssets: immutable(poolAdmissions.status().current), attached: false };
+    retained, freshAtCreation: fresh, admissionAssets: immutable(poolAdmissions.status().current), attached: false };
   const capability = Object.freeze({ generationId: id, identity: immutable(identity) });
   generations.set(capability, state); return capability;
 }
@@ -78,15 +84,27 @@ export async function closeUnattachedFlatJournalGeneration(capability, { runtime
 /** Every new binding is authenticated/read back before the original child is
  * called. Keeper/coordinator restart keeps the original catalogue and children;
  * whole-keeper/node recreation is deliberately not offered. */
-export async function createFlatJournalCatalogue(input) {
+export async function createFlatJournalCatalogue(input) { return catalogueFactory(input,null); }
+export async function createRetainedFlatJournalCatalogueV1(input) { assert.equal(arguments.length,1); return catalogueFactory(input,{create:true}); }
+async function catalogueFactory(input,durable) {
   exactRecord(input, ['runtime', 'initialGeneration', 'journal']);
   const { runtime, initialGeneration } = input, initial = originalGeneration(initialGeneration, runtime);
   requireTrue(!initial.attached && !catalogueClaims.has(initialGeneration), 'GENERATION_ALREADY_ATTACHED');
   const credentials = validateJournalCredentials(input.journal), path = resolve(credentials.path);
+  async function originalPrivatePath(file=true){
+    const parent=dirname(path),dir=await lstat(parent);
+    requireTrue(dir.isDirectory()&&!dir.isSymbolicLink()&&(dir.mode&0o777)===0o700,'DURABLE_PRIVATE_DIRECTORY');
+    requireTrue(await realpath(parent)===parent,'DURABLE_DIRECTORY_ALIAS');
+    if(typeof process.getuid==='function')requireTrue(dir.uid===process.getuid(),'DURABLE_DIRECTORY_OWNER');
+    if(file){const st=await lstat(path);requireTrue(st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&(st.mode&0o777)===0o600,'DURABLE_PRIVATE_JOURNAL');
+      requireTrue(await realpath(path)===path,'DURABLE_JOURNAL_ALIAS');if(typeof process.getuid==='function')requireTrue(st.uid===process.getuid(),'DURABLE_JOURNAL_OWNER');}
+  }
+  if(durable)await originalPrivatePath(!!durable.saved);
   requireTrue(path !== initial.journalPath, 'JOURNAL_PATH_REUSE');
   const directory = await lstat(dirname(path));
   requireTrue(directory.isDirectory() && !directory.isSymbolicLink() && (directory.mode & 0o077) === 0, 'PRIVATE_DIRECTORY_REQUIRED');
-  await initial.poolAdmissions.verifyFreshGeneration();
+  if (!durable?.saved) await initial.poolAdmissions.verifyFreshGeneration();
+  if (durable) requireTrue(initial.retained, 'RETAINED_GENERATION_REQUIRED');
   requireTrue(!initial.attached && !catalogueClaims.has(initialGeneration), 'GENERATION_ALREADY_ATTACHED');
   initial.attached = true; catalogueClaims.add(initialGeneration);
   const byId = new Map([[initial.id, initial]]), byAsset = new Map(initial.routes.map(route => [route.assetId, initial.id]));
@@ -95,20 +113,49 @@ export async function createFlatJournalCatalogue(input) {
     requireTrue(route, 'ADMISSION_ROUTE_REQUIRED'); return [route.economicIdentitySHA256, assetId];
   }));
   const vault = new Vault(path); let password = credentials.password;
-  let record = await vault.create({ version: 2, profile: PROFILE,
+  let record = durable?.saved ? await vault.read(password) : await vault.create({ version: 2, profile: PROFILE,
     catalogueId: sha({ profile: PROFILE, initial: initial.identity }),
     generations: [descriptor(initial)], current, bindings: [], events: [] }, password);
+  if(durable)await originalPrivatePath();
   assert.deepEqual(await vault.read(password), record, 'FLAT_CATALOGUE_INITIAL_READBACK');
+  const lifetimeIdentity={profile:'EXTERNAL_FLAT_CATALOGUE_LIFETIME_V1',catalogueId:record.data.catalogueId,genesis:runtime.metadata.evmGenesis};
+  const mark=value=>({revision:value.revision,stateSHA256:sha(value.data)});
+  const lifetimeState=checkpoint=>({journal:{path,password},checkpoint});
+  let lifetimeHandle=null;
+  if(durable?.saved){
+    assert.deepEqual(mark(record),durable.saved.checkpoint,'FLAT_CATALOGUE_ORIGINAL_CHECKPOINT');
+    assert.deepEqual(record,durable.saved.record,'FLAT_CATALOGUE_ORIGINAL_RECORD');
+    assert.deepEqual(lifetimeIdentity,durable.saved.identity,'FLAT_CATALOGUE_ORIGINAL_IDENTITY');
+    const original=await readWrappedPrivateLifetimePartV1(runtime,'wallet-catalogue',lifetimeIdentity);
+    assert.deepEqual(original.privateState,lifetimeState(durable.saved.checkpoint),'FLAT_CATALOGUE_ORIGINAL_LIFETIME');
+    requireTrue(original.privateState.checkpoint.pending===undefined,'UNCERTAIN_DURABLE_WRITE');lifetimeHandle=original.handle;
+    requireTrue(durable.generations.length===record.data.generations.length,'ORIGINAL_GENERATION_COUNT');
+    for(const capability of durable.generations){const generation=originalGeneration(capability,runtime);
+      const expected=record.data.generations.find(row=>row.generationId===generation.id);assert.deepEqual(descriptor(generation),expected,'FLAT_CATALOGUE_ORIGINAL_GENERATION');
+      if(generation!==initial){requireTrue(!generation.attached&&!catalogueClaims.has(capability),'GENERATION_ALREADY_ATTACHED');generation.attached=true;catalogueClaims.add(capability);byId.set(generation.id,generation);}
+    }
+    byAsset.clear();for(const generation of byId.values())for(const route of generation.routes){requireTrue(!byAsset.has(route.assetId),'ASSET_ROUTE_REUSE');byAsset.set(route.assetId,generation.id);}
+  }else if(durable)lifetimeHandle=await retainWrappedPrivateLifetimePartV1(runtime,'wallet-catalogue',lifetimeIdentity,lifetimeState(mark(record)));
+  const retain=async checkpoint=>{if(durable)await updateWrappedPrivateLifetimePartV1(lifetimeHandle,lifetimeState(checkpoint));};
   let busy = false, closed = false, storageFault = false, admissionFault = false, pendingWrite = null;
   let presentationRevision = record.revision, pendingReview = null, pendingOwnerReview = null, pendingGeneration = null;
   const bindings = new Map(), references = new Map();
+  if(durable?.saved){
+    admissionFault=true; // Recovery grants no fresh admissions or restored consent.
+    for(const entry of record.data.bindings){const generation=byId.get(entry.generationId);requireTrue(generation,'ORIGINAL_GENERATION_REQUIRED');
+      validateBoundRequest(entry.boundRequest,generation.config);
+      assert.deepEqual(bindGenericAccountRequest(entry.request,generation.config),entry.boundRequest,'FLAT_CATALOGUE_ORIGINAL_REQUEST');
+      requireTrue(entry.request.kind==='EXIT'&&!bindings.has(entry.request.requestId)&&!references.has(entry.request.ownerOperationRef),'ORIGINAL_EXIT_BINDING_REQUIRED');
+      bindings.set(entry.request.requestId,immutable(entry));references.set(entry.request.ownerOperationRef,entry.request.requestId);
+    }
+  }
   async function exclusive(work) {
     requireTrue(!busy && !closed, 'UNAVAILABLE'); busy = true;
     try { return await work(); } finally { busy = false; }
   }
   async function stored() {
     requireTrue(!storageFault, 'STORAGE_FENCED');
-    try { assert.deepEqual(await vault.read(password), record, 'FLAT_CATALOGUE_STORAGE_CHANGED'); }
+    try { if(durable)await originalPrivatePath();assert.deepEqual(await vault.read(password), record, 'FLAT_CATALOGUE_STORAGE_CHANGED'); }
     catch (error) { storageFault = true; throw error; }
   }
   async function write(transform) {
@@ -116,12 +163,13 @@ export async function createFlatJournalCatalogue(input) {
     const data = immutable(transform(structuredClone(record.data)));
     pendingWrite = { revision: record.revision + 1, data };
     try {
+      await retain({...mark(record),pending:mark(pendingWrite)});
       const next = await vault.update(password, record.revision, current => {
         assert.deepEqual(current, record.data, 'FLAT_CATALOGUE_STORAGE_CHANGED'); return data;
       });
       assert.deepEqual(next, pendingWrite, 'FLAT_CATALOGUE_WRITE_CHANGED');
       assert.deepEqual(await vault.read(password), next, 'FLAT_CATALOGUE_WRITE_READBACK');
-      record = next; pendingWrite = null;
+      await retain(mark(next)); record = next; pendingWrite = null;
     } catch (error) { storageFault = true; throw error; }
   }
   function bound(requestId) {
@@ -137,7 +185,16 @@ export async function createFlatJournalCatalogue(input) {
     // uncertain. A candidate binding without readback never enters this map.
     try {
       const result = await generation.keeper[method](requestId);
-      assert.deepEqual(result.request, entry.boundRequest, 'FLAT_CATALOGUE_CHILD_REQUEST_CHANGED');
+      if(durable?.saved&&method==='reconcile'&&result.request===undefined){
+        // V3 original reconciliation may return only its state/generation. The
+        // owned keeper's authenticated private row supplies the binding; this
+        // metadata never clears that keeper's unresolved-execution fence.
+        exactRecord(result,['state','generation']);
+        const status=await generation.keeper.privateStatus(),rows=status.requests.filter(row=>row.request.requestId===requestId);
+        requireTrue(rows.length===1,'ORIGINAL_REQUEST_REQUIRED');
+        assert.deepEqual(rows[0].request,entry.boundRequest,'FLAT_CATALOGUE_CHILD_REQUEST_CHANGED');
+        requireTrue(result.state===rows[0].phase&&result.generation===rows[0].generation,'ORIGINAL_RECONCILIATION_CHANGED');
+      }else assert.deepEqual(result.request, entry.boundRequest, 'FLAT_CATALOGUE_CHILD_REQUEST_CHANGED');
       return result;
     } catch (error) { admissionFault = true; throw error; }
   }
@@ -158,6 +215,7 @@ export async function createFlatJournalCatalogue(input) {
     return result;
   }
   async function newAdmissionsHealthy() {
+    requireTrue(!durable?.saved,'RECOVERY_EXIT_ONLY');
     await stored(); requireTrue(!admissionFault, 'ADMISSIONS_FENCED');
     requireTrue([...byId.values()].every(generation => generation.poolAdmissions.status().appendUncertain !== true), 'APPEND_OUTCOME_UNRESOLVED');
     const frames = await snapshots();
@@ -176,6 +234,7 @@ export async function createFlatJournalCatalogue(input) {
         if (expectedGenerationId !== null) requireTrue(generation.id === expectedGenerationId, 'REQUEST_GENERATION_REUSE');
         return { entry: prior, generation, input };
       }
+      requireTrue(!durable?.saved,'RECOVERY_ORIGINAL_REQUEST_ONLY');
       requireTrue(!references.has(input.ownerOperationRef), 'OWNER_REFERENCE_REUSE');
       const generation = byId.get(byAsset.get(input.assetId)); requireTrue(generation, 'ASSET_NOT_REGISTERED');
       validateInput(input, generation.config.registry);
@@ -294,6 +353,7 @@ export async function createFlatJournalCatalogue(input) {
     async appendGeneration(capability) { return exclusive(async () => {
       await newAdmissionsHealthy();
       const generation = originalGeneration(capability, runtime);
+      if(durable)requireTrue(generation.retained,'RETAINED_GENERATION_REQUIRED');
       requireTrue(!generation.attached && !catalogueClaims.has(capability) && !byId.has(generation.id), 'GENERATION_ALREADY_ATTACHED');
       requireTrue(byId.size < 8, 'GENERATION_CAPACITY');
       requireTrue(byAsset.size + generation.routes.length <= 8, 'POOL_ROUTE_CAPACITY');
@@ -332,6 +392,7 @@ export async function createFlatJournalCatalogue(input) {
       return descriptor(generation);
     }); },
     async reviewOwnerPreparation(input) { return exclusive(async () => {
+      requireTrue(!durable?.saved,'RECOVERY_ORIGINAL_REQUEST_ONLY');
       exactRecord(input, ['assetId', 'request']); input = immutable(input);
       requireTrue(pendingReview === null && pendingOwnerReview === null, 'REVIEW_ALREADY_PENDING');
       const generation = byId.get(byAsset.get(input.assetId)); requireTrue(generation, 'ASSET_NOT_REGISTERED');
@@ -461,6 +522,67 @@ export async function createFlatJournalCatalogue(input) {
       pendingOwnerPreparation: pendingOwnerReview ? { generationId: pendingOwnerReview.generationId,
         requestId: pendingOwnerReview.review?.request.requestId ?? null, state: pendingOwnerReview.state } : null, keeperRestart: false, originalBindingsRewritten: false }),
   });
-  catalogues.set(catalogue, { runtime, byId });
+  catalogues.set(catalogue, { runtime, byId, durable:!!durable,
+    async capture(){
+      requireTrue(durable&&!busy&&!closed&&!storageFault&&pendingWrite===null&&pendingGeneration===null&&pendingReview===null&&pendingOwnerReview===null,'DURABLE_CAPTURE_UNAVAILABLE');
+      busy=true;
+      try {await stored();assertWrappedPrivateLifetimePartSealedV1(lifetimeHandle);
+        const pools=new Set();
+        for(const generation of byId.values())for(const member of generation.accounts){
+          requireTrue(!pools.has(member.poolIndex),'DURABLE_EXTERNAL_POOL_REUSE');pools.add(member.poolIndex);
+          const inventory=await retainedFlatAccountInventoryV1(member.account);
+          requireTrue(inventory.poolIndex===member.poolIndex,'ORIGINAL_RETAINED_ACCOUNT_REQUIRED');
+        }
+        requireTrue(record.data.bindings.every(entry=>entry.request.kind==='EXIT'),'DURABLE_EXIT_ONLY');
+        const retained=[];
+        for(const generation of byId.values()){
+          requireTrue(generation.retained,'RETAINED_GENERATION_REQUIRED');
+          const keeper=await captureRetainedFlatManualPortfolioKeeperV1(generation.keeper);
+          retained.push({descriptor:descriptor(generation),config:generation.config,keeper,
+            accounts:generation.accounts.map(({poolIndex,account})=>({poolIndex,account})),
+            routeOrder:generation.routes.map(route=>route.assetId)});
+        }
+        closed=true;
+        const saved={schema:'EXTERNAL_FLAT_CATALOGUE_RECOVERY_V1',identity:lifetimeIdentity,journal:{path,password},checkpoint:mark(record),record:structuredClone(record),generations:retained};
+        password=null;return saved;
+      }catch(error){storageFault=true;closed=true;password=null;
+        const errors=[];for(const generation of byId.values())for(const resource of [generation.keeper,...generation.accounts.map(row=>row.account)])try{await resource.close();}catch(cleanup){errors.push(cleanup);}
+        if(errors.length)throw new AggregateError([error,...errors],'FLAT_CATALOGUE_CAPTURE_CLOSE_FAILED',{cause:error});throw error;
+      }finally{busy=false;}
+    }
+  });
   return catalogue;
+}
+
+/** PRIVATE capture: original capability required, never a status DTO. */
+export async function captureRetainedFlatJournalCatalogueV1(catalogue){
+ assert.equal(arguments.length,1);const state=catalogues.get(catalogue);requireTrue(state?.durable,'ORIGINAL_RETAINED_CATALOGUE_REQUIRED');return state.capture();
+}
+export async function reopenRetainedFlatJournalCatalogueV1(token){
+ assert.equal(arguments.length,1);const {consumeExternalDefiCatalogueReopenV1}=await import('../recovery/external-defi-catalogue-recovery-v1.mjs');
+ const {input,saved,generations:restored}=consumeExternalDefiCatalogueReopenV1(token);
+ return catalogueFactory(input,{saved,generations:restored});
+}
+export function reopenRetainedFlatJournalGenerationV1(token){
+ assert.equal(arguments.length,1);const {runtime,portfolio,poolAdmissions,keeper,saved}=consumeGenerationToken(token);
+ assertOwnedFlatPortfolio(runtime,portfolio);const actors=describeFlatPortfolioJournalAuthority(runtime,portfolio);assertOwnedFlatPoolAdmissionPolicy(poolAdmissions,actors);
+ assertOwnedFlatManualPortfolioKeeper(keeper,{runtime,portfolio});assert.deepEqual(portfolio.config,saved.config,'FLAT_CATALOGUE_ORIGINAL_CONFIG');
+ const identity=genericAccountIdentity(portfolio.config),id=sha({profile:PROFILE,identity});assert.equal(id,saved.descriptor.generationId);
+ assert.deepEqual(identity,saved.descriptor.identity);assert.deepEqual(portfolio.config.registry,saved.descriptor.registry);
+ for(const route of saved.descriptor.routes)assert.deepEqual(poolAdmissions.identityForAsset(route.assetId),route,'FLAT_CATALOGUE_ORIGINAL_ROUTE');
+ const capability=Object.freeze({generationId:id,identity:immutable(identity)});
+ generations.set(capability,{id,identity,runtime,portfolio,poolAdmissions,keeper,accounts:Object.freeze(actors.accounts),journalPath:resolve(saved.keeper.journal.path),config:portfolio.config,
+ routes:saved.descriptor.routes,admissionAssets:saved.descriptor.admissionAssets,freshAtCreation:null,retained:true,attached:false});return capability;
+}
+
+export function retainedFlatJournalCatalogueRuntimeV1(catalogue){
+ assert.equal(arguments.length,1);const state=catalogues.get(catalogue);requireTrue(state?.durable,'ORIGINAL_RETAINED_CATALOGUE_REQUIRED');return state.runtime;
+}
+
+/** Fixed issuer cleanup owns the restored child authorities as well as keeper. */
+export async function closeRetainedFlatJournalCatalogueV1(catalogue){
+ assert.equal(arguments.length,1);const state=catalogues.get(catalogue);requireTrue(state?.durable,'ORIGINAL_RETAINED_CATALOGUE_REQUIRED');const errors=[];
+ try{await catalogue.keeper.close();}catch(error){errors.push(error);}
+ for(const generation of state.byId.values())for(const resource of [...generation.accounts.map(row=>row.account),generation.portfolio])try{await resource.close();}catch(error){errors.push(error);}
+ if(errors.length)throw new AggregateError(errors,'FLAT_CATALOGUE_ORIGINAL_CLOSE_FAILED');return {closed:true};
 }

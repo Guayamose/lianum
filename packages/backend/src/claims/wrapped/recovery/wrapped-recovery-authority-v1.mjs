@@ -301,6 +301,18 @@ export async function reopenExternalDefiWalletFromAuthorityV1(authority,input,ca
   const m=await import('../../../accounts/recovery/external-defi-wallet-recovery-v1.mjs');return m.reopenExternalDefiWalletFromRecoveryV1({...input,attemptAuthority:token},callbacks);},wallet=>wallet.close());
 }
 
+/** Fixed new catalogue producer. The original five-section AEAD issuer and
+ * ordered, one-use reopen remain authoritative; no saved DTO is an opener. */
+export async function retainExternalDefiCatalogueRecoveryV1(authority,catalogue){
+ assert.equal(arguments.length,2);externalAuthority(authority);return fixedCapture(authority,'wallet',async token=>{
+  const m=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return m.retainExternalDefiCatalogueForReopenV1(catalogue,token);});
+}
+export async function reopenExternalDefiCatalogueFromAuthorityV1(authority,input,callbacks={}){
+ assert.ok(arguments.length===2||arguments.length===3);externalAuthority(authority);exactRecord(input,['runtime','system','owners']);return fixedReopen(authority,'wallet',async token=>{
+  const m=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return m.reopenExternalDefiCatalogueFromRecoveryV1({...input,attemptAuthority:token},callbacks);
+ },async catalogue=>{const m=await import('../../../accounts/storage/flat-journal-catalogue.mjs');return m.closeRetainedFlatJournalCatalogueV1(catalogue);});
+}
+
 export function createExternalDefiFundedRecoveryAuthorityV1(input){assert.equal(arguments.length,1);return authorityFactory(input,null,true,true,false,true);}
 export function openExternalDefiFundedRecoveryAuthorityV1(input,checkpoint){assert.equal(arguments.length,2);return authorityFactory(input,checkpoint,false,true,false,true);}
 

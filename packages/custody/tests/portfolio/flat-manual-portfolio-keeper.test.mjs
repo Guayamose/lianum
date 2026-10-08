@@ -8,6 +8,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { genericAccountIdentity, validateBoundRequest, immutable, sha } from '../../../engine/src/execution/accounts/generic-account-journal.mjs';
 const accountBrands = new WeakMap(), systems = new WeakMap();
+// Explicit synthetic registry/issuer ports. The keeper and its encrypted
+// journal below are real; these ports do not claim financial recovery.
+const retainedRegistries = new WeakMap(), retainedParts = new WeakMap(), reopenTokens = new WeakMap();
+const checkpointEvents = [];
 const url = p => new URL(p, import.meta.url).href;
 mock.module(url('../wallet-platform/modules/global-state/flat-account-authority.mjs'), { exports: {
   assertOwnedFlatAccountAuthority(account, expected) {
@@ -18,16 +22,50 @@ mock.module(url('../wallet-platform/modules/global-state/flat-account-authority.
 mock.module(url('../wallet-platform/modules/ops/deploy-system.mjs'), { exports: {
   assertOwnedFlatSystem(runtime, system) { assert.equal(systems.get(runtime), system); },
 } });
+// This suite supplies no poolAdmissions. Do not instantiate the unrelated
+// chain/configuration dependency tree through that unused optional port.
+mock.module(url('../wallet-platform/modules/global-state/flat-pool-admission-policy.mjs'), { exports: {
+  assertOwnedFlatPoolAdmissionPolicy() { assert.fail('HOST_POOL_ADMISSIONS_NOT_SUPPLIED'); },
+} });
+mock.module(url('../wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs'), { exports: {
+  async retainWrappedPrivateLifetimeIndexedPartV1(runtime, family, identity, privateState) {
+    assert.equal(family, 'wallet-catalogue-keeper'); assert.ok(!retainedRegistries.has(runtime));
+    const handle = Object.freeze(Object.create(null)), part = { identity: structuredClone(identity), privateState: structuredClone(privateState), handle };
+    retainedRegistries.set(runtime, part); retainedParts.set(handle, part); return handle;
+  },
+  async readWrappedPrivateLifetimeIndexedPartV1(runtime, family, identity) {
+    assert.equal(family, 'wallet-catalogue-keeper'); const part = retainedRegistries.get(runtime); assert.ok(part);
+    assert.deepEqual(part.identity, identity); return { privateState: structuredClone(part.privateState), handle: part.handle };
+  },
+  async updateWrappedPrivateLifetimePartV1(handle, privateState) {
+    const part = retainedParts.get(handle); assert.ok(part);
+    const actual = await new Vault(privateState.journal.path).read(privateState.journal.password), cp = privateState.checkpoint;
+    assert.deepEqual({ revision: actual.revision, stateSHA256: sha(actual.data) }, cp.acknowledged);
+    if (cp.pending !== null) assert.equal(cp.pending.revision, actual.revision + 1);
+    checkpointEvents.push(cp.pending === null ? 'acknowledged' : 'before-write');
+    part.privateState = structuredClone(privateState);
+  },
+  assertWrappedPrivateLifetimePartSealedV1(handle) { assert.ok(retainedParts.has(handle)); },
+} });
+mock.module(url('../wallet-platform/modules/global-state/external-defi-catalogue-recovery-v1.mjs'), { exports: {
+  consumeExternalDefiCatalogueKeeperReopenV1(token) {
+    const entry = reopenTokens.get(token); assert.ok(entry && !entry.used, 'SYNTHETIC_ORIGINAL_ONE_USE_TOKEN_REQUIRED');
+    entry.used = true; return entry.value;
+  },
+} });
 const { createFlatPortfolioAuthority, assertOwnedFlatPortfolioAccount } = await import('../../../backend/src/accounts/authority/flat-portfolio-authority.mjs');
-const { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper } = await import('../../../backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs');
+const { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper,
+  createRetainedFlatManualPortfolioKeeperV1, captureRetainedFlatManualPortfolioKeeperV1,
+  reopenRetainedFlatManualPortfolioKeeperV1, assertRetainedFlatManualPortfolioKeeperIdentityV1,
+} = await import('../../../backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs');
 const { createFlatAccountSession } = await import('../../../backend/src/api/accounts/flat-account-session.mjs');
 const h = n => Number(n).toString(16).padStart(64, '0'), clone = x => structuredClone(x), NDRA = 'NO_DISPATCH_REAUTHORIZATION_REQUIRED';
-function child(runtime, system, poolIndex) {
+function child(runtime, system, poolIndex, restored = null) {
   const asset = { assetId: h(10 + poolIndex), kind: 'NATIVE', symbol: poolIndex ? 'ETHB' : 'ETHA', decimals: 18,
     chainId: '31337', genesis: h(1), pool: String(poolIndex + 1).repeat(40), scope: h(20 + poolIndex), policy: h(30),
     token: '0'.repeat(40), codeHash: h(40 + poolIndex), assetIdentity: h(50), custody: 'ONCHAIN_NOTE_POOL', trust: 'PINNED_LOCAL_CONTRACT_AND_TRUSTED_NATIVE_ISSUER' };
   const config = { accountId: 'child_account_0' + poolIndex, journalId: 'child_journal_0' + poolIndex, lifetime: h(60 + poolIndex), registry: [asset] };
-  const entries = new Map(), receipts = new WeakSet(); let root = null, epoch = '10', offline = false, failGraph = false, failRecovery = false, fakeGraphReceipt = false;
+  const entries = new Map(restored ? clone(restored.entries) : []), receipts = new WeakSet(); let root = null, epoch = restored?.epoch ?? '10', offline = false, failGraph = false, failRecovery = false, fakeGraphReceipt = false;
   const calls = { prepare: 0, execute: 0, reconcile: 0, recover: 0, recoveryEffects: 0, reauthorize: 0, ownerView: 0 };
   function linked(keeper) { assert.equal(keeper, root, 'SYNTHETIC_ORIGINAL_ROOT_REQUIRED'); }
   function original(request) { validateBoundRequest(request, config); const e = entries.get(request.ownerOperationRef); assert.ok(e);
@@ -44,7 +82,10 @@ function child(runtime, system, poolIndex) {
   const manualLifecycle = {
     assertCanBindPortfolioKeeper({ keeper, portfolio }) {
       assertOwnedFlatManualPortfolioKeeper(keeper, { runtime, portfolio }); assertOwnedFlatPortfolioAccount(portfolio, account);
-      assert.ok(root === null || root === keeper); assert.ok([...entries.values()].every(e => e.request === null) || root === keeper);
+      assert.ok(root === null || root === keeper);
+      if (root === null && [...entries.values()].some(e => e.request !== null)) {
+        assert.ok(restored); assertRetainedFlatManualPortfolioKeeperIdentityV1(keeper, restored.keeperSaved);
+      } else assert.ok([...entries.values()].every(e => e.request === null) || root === keeper);
     },
     bindPortfolioKeeper(input) { this.assertCanBindPortfolioKeeper(input); root = input.keeper; },
     async prepare({ keeper, request }) { linked(keeper); const e = original(request); assert.ok(['TOP_UP', 'EXIT'].includes(request.kind)); e.request = request; calls.prepare++; },
@@ -59,7 +100,7 @@ function child(runtime, system, poolIndex) {
       }
       e.state = 'CONFIRMED'; e.outcome = outcome(e); return { type: 'CONFIRMED', outcome: e.outcome };
     },
-    async observeOriginal({ keeper, request }) { linked(keeper); const e = original(request);
+    async observeOriginal({ keeper, request }) { linked(keeper); const e = original(request); calls.reconcile++;
       if (e.outcome) return { type: 'CONFIRMED', outcome: e.outcome };
       if ([NDRA, 'PREPARED'].includes(e.state)) return { type: e.state, receipt: receipt(e, e.state) };
       return { type: 'UNKNOWN', receipt: null }; },
@@ -97,6 +138,7 @@ function child(runtime, system, poolIndex) {
   });
   accountBrands.set(account, { runtime, system, poolIndex });
   return { account, asset, calls, get root() { return root; }, set epoch(v) { epoch = v; }, set offline(v) { offline = v; },
+    retainedForHost(keeperSaved) { return { entries: clone([...entries]), epoch, keeperSaved }; },
     set failGraph(v) { failGraph = v; }, set failRecovery(v) { failRecovery = v; }, set fakeGraphReceipt(v) { fakeGraphReceipt = v; },
     register(kind, suffix) { const body = { requestId: 'original_' + suffix + '_01', kind, ownerOperationRef: h(300 + entries.size + poolIndex * 10), assetId: asset.assetId };
       entries.set(body.ownerOperationRef, { body, request: null, generation: 0, epoch: '10', state: 'PREPARED', authorizationSHA256: h(400 + entries.size),
@@ -204,4 +246,69 @@ test('existing legacy journal is never overwritten and failed creation retains i
   await assert.rejects(createFlatManualPortfolioKeeper({ runtime, portfolio,
     journal: { path: join(directory, 'replacement.vault'), password: 'synthetic-existing-password' } }), /AUTHORITY_ALREADY_CLAIMED/);
   assert.equal(source.root, null);
+});
+test('retained V3 journal reopens only its checkpoint, reconciles original state and requires a new review', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'retained-portfolio-test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const runtime = {}, system = { bootstrap: 'synthetic_original_retained_system' }; systems.set(runtime, system); const original = child(runtime, system, 0);
+  const config = { accountId: 'retained_root_account', journalId: 'retained_root_journal' };
+  const portfolio = createFlatPortfolioAuthority({ runtime, system, accounts: [{ poolIndex: 0, account: original.account }], ...config });
+  const journal = { path: join(directory, 'original.vault'), password: 'synthetic-retained-password' };
+  checkpointEvents.length = 0;
+  const keeper = await createRetainedFlatManualPortfolioKeeperV1({ runtime, portfolio, journal });
+  const request = original.register('EXIT', 'retained'); await keeper.prepare(request); original.epoch = '11';
+  await keeper.execute(request.requestId); await keeper.reviewReauthorization(request.requestId);
+  const before = await readFile(journal.path), saved = await captureRetainedFlatManualPortfolioKeeperV1(keeper);
+  assert.equal(saved.checkpoint.pending, null); assert.deepEqual(await readFile(journal.path), before);
+  assert.throws(() => assertOwnedFlatManualPortfolioKeeper(keeper), /OWNED_MANUAL_KEEPER_REQUIRED/);
+  await assert.rejects(keeper.execute(request.requestId), /BUSY/);
+
+  function successor(checkpoint, previous = original) {
+    const nextRuntime = {}, nextSystem = { bootstrap: system.bootstrap }; systems.set(nextRuntime, nextSystem);
+    const current = child(nextRuntime, nextSystem, 0, previous.retainedForHost(checkpoint));
+    const nextPortfolio = createFlatPortfolioAuthority({ runtime: nextRuntime, system: nextSystem,
+      accounts: [{ poolIndex: 0, account: current.account }], ...config });
+    const handle = Object.freeze(Object.create(null)), part = { identity: { profile: 'EXTERNAL_FLAT_MANUAL_KEEPER_LIFETIME_V1',
+      identity: genericAccountIdentity(checkpoint.config) }, privateState: { config: checkpoint.config,
+      journal: checkpoint.journal, checkpoint: checkpoint.checkpoint }, handle };
+    retainedRegistries.set(nextRuntime, part); retainedParts.set(handle, part);
+    const token = Object.freeze(Object.create(null)); reopenTokens.set(token, { used: false,
+      value: { input: { runtime: nextRuntime, portfolio: nextPortfolio, journal: checkpoint.journal }, saved: checkpoint } });
+    return { current, token };
+  }
+  const next = successor(saved);
+  await assert.rejects(reopenRetainedFlatManualPortfolioKeeperV1({ ...next.token }), /ONE_USE_TOKEN_REQUIRED/);
+  const opened = await reopenRetainedFlatManualPortfolioKeeperV1(next.token);
+  assert.notEqual(opened, keeper); t.after(() => opened.close());
+  assertRetainedFlatManualPortfolioKeeperIdentityV1(opened, saved);
+  assert.throws(() => assertRetainedFlatManualPortfolioKeeperIdentityV1({ ...opened }, saved), /OWNED_MANUAL_KEEPER_REQUIRED/);
+  await assert.rejects(reopenRetainedFlatManualPortfolioKeeperV1(next.token), /ONE_USE_TOKEN_REQUIRED/);
+  assert.equal(await opened.confirmReauthorization(), false);
+  assert.equal((await opened.privateStatus()).pendingReview, null);
+  assert.equal((await opened.snapshot()).requests[0].errorCode, 'FLAT_MANUAL_ORIGINAL_RECONCILIATION_REQUIRED');
+  await assert.rejects(opened.execute(request.requestId), /ORIGINAL_RECONCILIATION_REQUIRED/);
+  await assert.rejects(opened.reviewReauthorization(request.requestId), /ORIGINAL_RECONCILIATION_REQUIRED/);
+  assert.equal(next.current.calls.execute, 0); assert.equal(next.current.calls.reauthorize, 0);
+  await opened.reconcileOriginal(request.requestId);
+  assert.ok(next.current.calls.reconcile > 0); assert.deepEqual(await readFile(journal.path), before);
+  assert.equal(await opened.confirmReauthorization(), false);
+  await opened.reviewReauthorization(request.requestId); await opened.confirmReauthorization();
+  await opened.execute(request.requestId);
+  const done = (await opened.privateStatus()).requests[0];
+  assert.equal(done.phase, 'CONFIRMED'); assert.equal(done.generation, 1);
+  assert.equal(next.current.calls.reauthorize, 1); assert.equal(next.current.calls.execute, 1);
+  for (let i = 0; i < checkpointEvents.length; i++) if (checkpointEvents[i] === 'before-write') assert.equal(checkpointEvents[++i], 'acknowledged');
+  const terminalSaved = await captureRetainedFlatManualPortfolioKeeperV1(opened), terminal = successor(terminalSaved, next.current);
+  const terminalKeeper = await reopenRetainedFlatManualPortfolioKeeperV1(terminal.token); t.after(() => terminalKeeper.close());
+  const terminalBytes = await readFile(journal.path);
+  await assert.rejects(terminalKeeper.execute(request.requestId), /ORIGINAL_RECONCILIATION_REQUIRED/);
+  await terminalKeeper.reconcileOriginal(request.requestId); await terminalKeeper.execute(request.requestId);
+  assert.ok(terminal.current.calls.reconcile > 0); assert.equal(terminal.current.calls.execute, 0);
+  assert.deepEqual(await readFile(journal.path), terminalBytes);
+  const finalSaved = await captureRetainedFlatManualPortfolioKeeperV1(terminalKeeper);
+  const actual = await new Vault(journal.path).read(journal.password);
+  await new Vault(journal.path).update(journal.password, actual.revision, data => data);
+  const tampered = successor(finalSaved, terminal.current);
+  await assert.rejects(reopenRetainedFlatManualPortfolioKeeperV1(tampered.token), /ORIGINAL_CHECKPOINT_REQUIRED/);
+  assert.equal(tampered.current.root, null); assert.equal(tampered.current.calls.execute, 0);
 });

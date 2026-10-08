@@ -13,7 +13,7 @@ import {assertOwnedLocalEvmV2} from '../../../chains/evm/runtime/owned-evm-v2-ru
 import {createClaimRecordStore,openClaimRecordStore} from '../../storage/segmented-record-store.mjs';
 const PROFILE='WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1';
 const ROOT=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
-const PARTS=Object.freeze(['native-receiver','native-bitcoin','native-solana','native-graph-evm','native-graph-tron','operator-keys','custody-bootstrap','owner-0','owner-1','claim-keeper','wallet','wallet-account-0','wallet-account-1','wallet-execution-0','wallet-execution-1','wallet-graph-keeper','wallet-graph-keeper-0','wallet-graph-keeper-1','wallet-withdrawal',...Array.from({length:8},(_,i)=>'provider-'+i),...Array.from({length:8},(_,i)=>'recipient-'+i)]);
+const PARTS=Object.freeze(['native-receiver','native-bitcoin','native-solana','native-graph-evm','native-graph-tron','operator-keys','custody-bootstrap','owner-0','owner-1','claim-keeper','wallet','wallet-account-0','wallet-account-1','wallet-execution-0','wallet-execution-1','wallet-graph-keeper','wallet-graph-keeper-0','wallet-graph-keeper-1','wallet-withdrawal','wallet-catalogue',...Array.from({length:8},(_,i)=>'wallet-catalogue-keeper-'+i),...Array.from({length:8},(_,i)=>'provider-'+i),...Array.from({length:8},(_,i)=>'recipient-'+i)]);
 const registries=new WeakMap(),runtimes=new WeakMap(),parts=new WeakMap();
 const same=(a,b,code='WRAPPED_LIFETIME_PRIVATE_IDENTITY_CHANGED')=>assert.ok(isDeepStrictEqual(a,b),code);
 const copy=value=>structuredClone(value),opaque=()=>Object.freeze(Object.create(null));
@@ -53,14 +53,14 @@ export async function retainWrappedPrivateLifetimeRegistryForReopenV1(runtime,to
 export async function reopenWrappedPrivateLifetimeRegistryFromAuthorityV1({runtime,attemptAuthority}){const {consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1}=await import('./wrapped-recovery-authority-v1.mjs');const authority=originalWrappedRecoverySectionIdentityV1(attemptAuthority,'privateLifetime'),saved=consumeOriginalWrappedRecoverySectionV1(attemptAuthority,'privateLifetime');exactRecord(saved,['schema','input','checkpoint']);assert.equal(saved.schema,PROFILE);for(const key of ['directory','runId','sourceSHA256','deadlineMs'])assert.equal(saved.input[key],authority[key]);return openWrappedPrivateLifetimeRegistryV1({runtime,...saved.input},saved.checkpoint);}
 
 export async function retainWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity,privateState){
- assert.equal(arguments.length,4);assert.ok(['provider','recipient'].includes(family));const s=forRuntime(runtime),normalizedIdentity=copy(identity),normalizedState=copy(privateState);
+ assert.equal(arguments.length,4);assert.ok(['provider','recipient','wallet-catalogue-keeper'].includes(family));const s=forRuntime(runtime),normalizedIdentity=copy(identity),normalizedState=copy(privateState);
  return serialize(s,async()=>{const names=PARTS.filter(name=>name.startsWith(family+'-')),existing=names.filter(name=>s.record.data.parts[name]&&isDeepStrictEqual(s.record.data.parts[name].identity,normalizedIdentity));assert.ok(existing.length<=1,'WRAPPED_LIFETIME_INDEXED_IDENTITY_AMBIGUOUS');
   if(existing.length){same(s.record.data.parts[existing[0]].privateState,normalizedState,'WRAPPED_LIFETIME_INITIALIZATION_CHANGED');return handleFor(s,existing[0]);}
   const name=names.find(name=>s.record.data.parts[name]===undefined);assert.ok(name,'WRAPPED_LIFETIME_INDEXED_CAPACITY');await persist(s,data=>{assert.equal(data.parts[name],undefined);data.parts[name]={identity:normalizedIdentity,privateState:normalizedState,version:1};return data;});return handleFor(s,name);
  });
 }
 export async function readWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity){
- assert.equal(arguments.length,3);assert.ok(['provider','recipient'].includes(family));const s=forRuntime(runtime);return serialize(s,async()=>{const matches=Object.entries(s.record.data.parts).filter(([name,row])=>name.startsWith(family+'-')&&isDeepStrictEqual(row.identity,identity));assert.equal(matches.length,1,'WRAPPED_LIFETIME_ORIGINAL_INDEXED_PART_REQUIRED');const [name,row]=matches[0];return Object.freeze({privateState:copy(row.privateState),version:row.version,handle:handleFor(s,name)});});
+ assert.equal(arguments.length,3);assert.ok(['provider','recipient','wallet-catalogue-keeper'].includes(family));const s=forRuntime(runtime);return serialize(s,async()=>{const matches=Object.entries(s.record.data.parts).filter(([name,row])=>name.startsWith(family+'-')&&isDeepStrictEqual(row.identity,identity));assert.equal(matches.length,1,'WRAPPED_LIFETIME_ORIGINAL_INDEXED_PART_REQUIRED');const [name,row]=matches[0];return Object.freeze({privateState:copy(row.privateState),version:row.version,handle:handleFor(s,name)});});
 }
 
 export function wrappedPrivateLifetimeRegistryIdentityV1(registry){assert.equal(arguments.length,1);const s=registries.get(registry);live(s);return Object.freeze({...s.identity});}

@@ -31,7 +31,7 @@ import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash, val
 import { validateFlatManualReview, validateFlatManualRecords, validateFlatManualReauthorization,
   currentFlatManualAuthorization } from '../../../../custody/src/preparation/flat-owner-manual-binding.mjs';
 import { assertOwnedFlatManualAccountKeeper } from '../storage/flat-manual-account-keeper.mjs';
-import { assertOwnedFlatManualPortfolioKeeper } from '../portfolio/flat-manual-portfolio-keeper.mjs';
+import { assertOwnedFlatManualPortfolioKeeper, assertRetainedFlatManualPortfolioKeeperIdentityV1 } from '../portfolio/flat-manual-portfolio-keeper.mjs';
 import { assertOwnedFlatPortfolioAccount } from './flat-portfolio-authority.mjs';
 
 const owned = new WeakMap(), manualGraphs = new WeakMap();
@@ -712,7 +712,10 @@ async function flatAccountAuthority(input,callbacks,durable) {
     assertOwnedFlatManualPortfolioKeeper(input.keeper, { runtime, portfolio: input.portfolio });
     assertOwnedFlatPortfolioAccount(input.portfolio, capability);
     assert.ok(manualKeeper === null || manualKeeper === input.keeper, 'FLAT_ACCOUNT_MANUAL_KEEPER_ALREADY_BOUND');
-    if (manualKeeper === null) assert.ok(record.data.operations.every(entry => entry.request === null), 'FLAT_ACCOUNT_LEGACY_KEEPER_MIGRATION_UNSUPPORTED');
+    if (manualKeeper === null) {
+      if (durable?.manualKeeper) assertRetainedFlatManualPortfolioKeeperIdentityV1(input.keeper,durable.manualKeeper);
+      else assert.ok(record.data.operations.every(entry => entry.request === null), 'FLAT_ACCOUNT_LEGACY_KEEPER_MIGRATION_UNSUPPORTED');
+    }
   }
   const manualLifecycle = {
     assertCanBindPortfolioKeeper: input => { checkPortfolioKeeperBinding(input); },
@@ -1066,3 +1069,10 @@ export async function reopenRetainedFlatAccountV1(token){
 }
 
 export async function retainedFlatAccountInventoryV1(account){const s=owned.get(account);assert.ok(s?.durable);return immutable(await s.inventory());}
+
+/** Only the fixed catalogue issuer may restore a retained manual keeper binding. */
+export async function reopenRetainedCatalogueFlatAccountV1(token){
+ assert.equal(arguments.length,1);const {consumeExternalDefiCatalogueAccountReopenV1}=await import('../recovery/external-defi-catalogue-recovery-v1.mjs');
+ const {input,saved,callbacks,manualKeeper}=consumeExternalDefiCatalogueAccountReopenV1(token);
+ return flatAccountAuthority(input,callbacks,{saved,manualKeeper});
+}
