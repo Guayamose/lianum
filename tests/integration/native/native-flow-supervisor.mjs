@@ -1184,7 +1184,9 @@ async function runFixedFlowSupervisor(profile) {
         stop('NATIVE_WORKER_EXITED_WITH_LIVE_DESCENDANTS', {}, sample);
       if (childClosed && sample.ownedGroupLiveCount === 0 && (!coldCycle||groupGone)) resolveCompletion();
     } catch (error) {
-      stop('NATIVE_RESOURCE_MONITOR_FAILURE', { errorCode: publicErrorCode(error), classification: publicFailureCode(error) });
+      stop('NATIVE_RESOURCE_MONITOR_FAILURE', { errorCode: publicErrorCode(error), classification: publicFailureCode(error),
+        stackFrames: typeof error?.stack === 'string' ? error.stack.split('\n')
+          .filter(line => /^\s+at /.test(line)).slice(0, 12) : [] });
     }
   }
   function releaseLock() {
