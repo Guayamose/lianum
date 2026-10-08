@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "8acf8ab270b80ea1af6b78ff20090fbae3ca72886750711a04a45fd253aa722b",
+  "hostSourceClosureSHA256": "a180851433fb61c33229802c642dc47cccae12afb1a13d74f5169a92af643873",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -678,7 +678,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
-      "sha256": "f6db60bc924ab27df9c5ae1403f9ad39032216907ed537c33bb58cef5dc31b7e"
+      "sha256": "8f402151bcf38af0f51e85d0d9e18f6e27b238b7b318a86f29e419706d8d030c"
     },
     {
       "path": "integration/device-owner-deposit-policy-v1.mjs",
@@ -1514,7 +1514,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/proving-execution.mjs",
-      "sha256": "2b6f7d9e7ba8e023266a53508dc96edfb011e308be800745e2f4ad558337c335"
+      "sha256": "88cb8b4983419046cb06f1e0fd550c05563a865c2eac395d1dabb1e9b21980ab"
     },
     {
       "path": "proof-workers/role-client.mjs",
