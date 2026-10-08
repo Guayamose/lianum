@@ -107,6 +107,27 @@ y UID; las señales individuales vuelven a comprobar esa identidad. El APK resul
 `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` y necesita Metro,
 por ser una compilación de desarrollo.
 
+Para construir el APK local con JavaScript y Hermes incluidos:
+
+```sh
+./dev npm --prefix apps/mobile run build:android:debug -- --standalone-local
+```
+
+El constructor original ensambla `app-release.apk` con la firma Android Debug
+existente. Funciona sin Metro; conserva las dos arquitecturas, lint y el límite
+de 3 GiB. Para esta variante el JVM principal usa heap 768 MiB y metaspace
+384 MiB. El informe comprueba el bundle Hermes empaquetado, ocho fuentes
+actuales, firma V2 y cierre de los procesos.
+
+El intento `f3a40856-76de-425c-b59e-46ab37b9e006` completó la compilación con
+**42 073 983 bytes** y SHA-256
+`546f13a4b9e9e5bcdc60e37c297fba0ddba522a29a1707ad59bf0c5d451af5c4`.
+El resultado generado está en
+`apps/mobile/android/app/build/outputs/apk/release/app-release.apk`.
+La instalación y comprobación en teléfono quedan para el final, según la
+decisión de Rafa. Los dos intentos previos detenidos por memoria se conservan
+como rechazados; la firma es de desarrollo local.
+
 El build del commit `141b0ef54a78dfe8f32818c51067bf761ff3cb4c` pasó en 6 min 19 s,
 con 308 tareas Gradle. Se conserva el APK verificado en:
 
