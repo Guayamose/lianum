@@ -19,7 +19,9 @@ export function classifyNativeSplCompilerProcessV1(argv,executable){
  if(executable==='/usr/bin/uname'&&argv.length===2&&['-s','-m'].includes(argv[1]))return {role:'spl-sdk-script',proofWorker:false};
  if(executable==='/usr/bin/dirname'&&argv.length===2&&scripts.some(script=>argv[1]===script||argv[1].startsWith(tools+sep)))return {role:'spl-sdk-script',proofWorker:false};
  if(executable==='/usr/bin/mkdir'&&argv.length===3&&argv[1]==='-p'&&resolve(argv[2])===join(tools,'sbf-sdk/dependencies'))return {role:'spl-sdk-script',proofWorker:false};
- return {role:'spl-unexpected-child',proofWorker:false};
+ // Retain the executable identity in this fixed compiler-only receipt. No
+ // command arguments, environment, financial job or key material is recorded.
+ return {role:'spl-unexpected-child',proofWorker:false,compilerExecutable:executable};
 }
 export function nativeSplCompilationProcessFailureV1(rows){
  for(const row of rows){if(row.proofWorker===true||!['main-worker','spl-fixed-cargo-command','spl-rust-toolchain','spl-crate-build-script','spl-sdk-script'].includes(row.role))return 'SPL_COMPILATION_UNEXPECTED_CHILD';
