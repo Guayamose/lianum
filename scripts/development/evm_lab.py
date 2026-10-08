@@ -1,4 +1,5 @@
 """Prepare reviewed public artifacts and run one fresh fake-value EVM wallet lab."""
+import ctypes
 import fcntl
 import hashlib
 import json
@@ -15,11 +16,13 @@ FLAT = RUNTIME / "omnichain-flat-profile/flat-wallet"
 CLEAN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
 active = None
 interrupted = False
+pending_signal = None
 last_lab_attempt = None
 
 def forward_signal(signum, _frame):
-    global interrupted
+    global interrupted, pending_signal
     interrupted = True
+    pending_signal = signum
     if active is not None and active.poll() is None:
         active.send_signal(signum)
 
@@ -32,7 +35,14 @@ def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
     previous_attempts = set(directory.glob("attempt-*")) if observe else set()
     if observe:
         last_lab_attempt = None
-    active = subprocess.Popen([str(NODE), str(FLAT / entry), *arguments], cwd=FLAT, env=CLEAN_ENV)
+    owner_pid = os.getpid()
+    def guard_parent():
+        if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != owner_pid:
+            os._exit(125)
+    active = subprocess.Popen([str(NODE), str(FLAT / entry), *arguments], cwd=FLAT, env=CLEAN_ENV, preexec_fn=guard_parent)
+    # A signal may arrive while Popen has not yet returned the owned child.
+    if interrupted and active.poll() is None:
+        active.send_signal(pending_signal or signal.SIGTERM)
     seen = None
     while active.poll() is None:
         if observe:
@@ -138,6 +148,8 @@ def main():
     mode = sys.argv[1] if len(sys.argv) == 2 else "run" if len(sys.argv) == 1 else None
     if mode not in {"prepare", "run", "recovery", "browser"}:
         raise SystemExit("Usage: ./dev lab [prepare|run|recovery|browser]")
+    if sys.platform != "linux":
+        raise SystemExit("The fixed EVM wallet laboratory requires Linux/WSL")
     build(quiet=True)
     DEV.mkdir(parents=True, exist_ok=True)
     with (DEV / "evm-lab.lock").open("a") as lock:

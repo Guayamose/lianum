@@ -37,6 +37,8 @@ class LabCancellation(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("synthetic_lab", HERE / filename)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        if filename == "evm_lab.py":
+            module.ENTRY = Path("integration/run-manual-wallet-acceptance.mjs")
         child = FakeOwnedChild(module, signum, after_assignment=timing == "after")
         launches = []
 
@@ -61,7 +63,7 @@ class LabCancellation(unittest.TestCase):
                  patch.object(module, "build"), \
                  patch.object(module.sys, "argv", [str(HERE / filename)]):
                 with self.assertRaises(SystemExit):
-                    if filename == "native_claim_lab.py":
+                    if filename in ("native_claim_lab.py", "evm_lab.py"):
                         module.run(module.ENTRY, observe=False)
                     else:
                         module.main()
@@ -73,7 +75,7 @@ class LabCancellation(unittest.TestCase):
             self.assertEqual(child.signals, [signum])
 
     def test_pending_and_live_signals_reach_only_the_new_owned_child(self):
-        for filename in ("native_claim_lab.py", "defi_lab.py", "defi_entry_lab.py"):
+        for filename in ("native_claim_lab.py", "evm_lab.py", "defi_lab.py", "defi_entry_lab.py"):
             for signum in (signal.SIGINT, signal.SIGTERM):
                 for timing in ("before", "during", "after"):
                     with self.subTest(filename=filename, signum=signum, timing=timing):
@@ -112,10 +114,10 @@ module.DIRECTORY = directory / 'attempts'; module.DIRECTORY.mkdir()
 module.NODE = Path(sys.executable); module.ENTRY = directory / 'child.py'
 module.build = lambda **kwargs: None
 module.sys.argv = ['owned-parent-death-probe']
-if source.name == 'native_claim_lab.py': module.run(module.ENTRY)
+if source.name in ('native_claim_lab.py', 'evm_lab.py'): module.run(module.ENTRY)
 else: module.main()
 """
-        for filename in ("native_claim_lab.py", "defi_lab.py", "defi_entry_lab.py"):
+        for filename in ("native_claim_lab.py", "evm_lab.py", "defi_lab.py", "defi_entry_lab.py"):
             with self.subTest(filename=filename), tempfile.TemporaryDirectory(prefix="lianum-parent-death-") as temporary:
                 directory = Path(temporary)
                 (directory / "child.py").write_text(fixture)
