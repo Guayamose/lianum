@@ -68,7 +68,7 @@ export function nativeSplCompilationMaterialV1(){
  // with --skip-tools-install. It is absent in this fixed prepared profile;
  // neither an unreviewed global rustc nor a global installation is permitted.
  const globalCompiler=join(homedir(),'.cache/solana/v1.48/platform-tools/rust/bin/rustc');assert.equal(existsSync(globalCompiler),false,'SPL_COMPILATION_GLOBAL_TOOLCHAIN_PRESENT');
- for(const path of ['/usr/bin/bash','/usr/bin/env','/usr/bin/dirname','/usr/bin/mkdir','/usr/bin/uname','/usr/bin/cc','/usr/bin/ld','/usr/lib/gcc/x86_64-linux-gnu/13/collect2'])record(realpathSync(path));
+ for(const path of ['/usr/bin/bash','/usr/bin/env','/usr/bin/dirname','/usr/bin/mkdir','/usr/bin/uname','/usr/bin/cc','/usr/bin/ld','/usr/libexec/gcc/x86_64-linux-gnu/13/collect2'])record(realpathSync(path));
  const originalSdk=join(dirname(SPL_COMPILATION_COMMAND_V1),'platform-tools-sdk/sbf');
  for(const original of walkFiles(originalSdk)){const rel=relative(originalSdk,original);if(rel.startsWith('dependencies'+sep))continue;
   const path=within(sdk,join(sdk,rel));assert.equal(realpathSync(original),original);assert.equal(realpathSync(path),path);
