@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { decodeTronNativeTransferWire } from './tron-native-transfer-wire.mjs';
+import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
 export const OWNED_TRON_NATIVE_VALUE_PROFILE = 'LIANUM_OWNED_LOCAL_TRON_NATIVE_VALUE_V1';
 export const TRON_LOCAL_CLASSIFICATION = 'LOCAL_SYNTHETIC_TRON_JAVA_TRON_CONSENSUS';
 export const PROFILE = Object.freeze({ classification: TRON_LOCAL_CLASSIFICATION, publicNetwork: false,
@@ -28,6 +29,9 @@ export function address(value) { hex(value,21); assert.ok(value.startsWith('41')
 export function freeze(value) { if (value && typeof value === 'object') { for (const x of Object.values(value)) freeze(x); Object.freeze(value); } return value; }
 export const clone = value => freeze(structuredClone(value));
 export const digest = value => sha256(JSON.stringify(value));
+// Encrypted custody canonicalizes object keys. These content commitments must
+// survive that storage round trip while binding every original snapshot field.
+const preparationDigest = value => sha256(canonical(value));
 export function normalizeBinding(raw) {
   exact(raw,['leaseId','profileCommitment','genesis','actionCommitment','receiptKeyCommitment','readyStatement','dependencyProofSHA256','readyProofSHA256']);
   for(const name of Object.keys(raw))hex(raw[name],32,true);
@@ -84,7 +88,7 @@ export function prepareOwnedTronNative({binding,intent,snapshot,nowMs}) {
   assert.ok(BigInt(s.ownerBalanceSun)>=BigInt(t.amountSun)+BigInt(PROFILE.maximumFeeSun),'OWNED_TRON_SOLVER_BALANCE');
   return clone({profile:OWNED_TRON_NATIVE_VALUE_PROFILE,binding:b,genesis:b.genesis,head:s.head,transaction,unsignedWire,snapshot:s,
     funds:{balanceSun:s.ownerBalanceSun,maximumFeeSun:PROFILE.maximumFeeSun,estimatedFeeSun:estimatedFee.toString(),
-      ownershipCommitment:digest({genesis:b.genesis,ownerAddress:t.ownerAddress,permission:s.ownerPermission}),observationCommitment:digest(s)}});
+      ownershipCommitment:preparationDigest({genesis:b.genesis,ownerAddress:t.ownerAddress,permission:s.ownerPermission}),observationCommitment:preparationDigest(s)}});
 }
 export function assertPreparationCurrent(prepared,snapshot,nowMs) {
   assert.equal(prepared.profile,OWNED_TRON_NATIVE_VALUE_PROFILE);const t=prepared.transaction;
