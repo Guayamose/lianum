@@ -4,6 +4,9 @@ import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import { mobileAuthorizationMessage, validateMobileChallenge, mobileReceiptMessage,
   validateMobileReceiptReview, type MobileChallenge, type MobileReceiptReview } from '@lianum/mobile-protocol';
+import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
+  validateOriginalAccountFreshV2, originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
+  from '@lianum/mobile-protocol/original-account-v2';
 import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } from './signing.mjs';
 
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
@@ -94,4 +97,41 @@ export async function signReviewedReceipt(review: MobileReceiptReview, expectedO
     validateMobileReceiptReview(checked, { origin: expectedOrigin, ownerPublicKey: publicKey, allowInsecureLocalhost });
     return signDeviceMessage(privateKey, mobileReceiptMessage(checked, { allowInsecureLocalhost }));
   } finally { privateKey.fill(0); retained = null; }
+}
+type OriginalAccessV2 = ReturnType<typeof normalizeOriginalAccountAccessV2>;
+type OriginalReviewV2 = ReturnType<typeof normalizeOriginalAccountReviewV2>;
+// Only these two reviewed domains are exposed. This helper stays private:
+// protected storage never offers a general arbitrary-message signing API.
+async function signOriginalAccountPermissionV2(raw: OriginalAccessV2 | OriginalReviewV2,
+  expectedOrigin: string, expectedPairingId: string, phase: 'access' | 'review'): Promise<string> {
+  await assertProtectedStorage();
+  const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
+  const checked = phase === 'access' ? normalizeOriginalAccountAccessV2(raw) : normalizeOriginalAccountReviewV2(raw);
+  const current = () => {
+    if (checked.origin !== expectedOrigin || checked.pairingId !== expectedPairingId
+      || checked.devicePublicKey !== publicKey) throw new Error('MOBILE_REVIEW_CHANGED');
+    validateOriginalAccountFreshV2(checked);
+  };
+  current();
+  let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, {
+    ...privateOptions, authenticationPrompt: phase === 'access'
+      ? 'Mostrar la revisión privada de tu cuenta original' : 'Consultar o reconciliar esta petición original',
+  });
+  if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const privateKey = privateKeyFromHex(retained);
+  try {
+    if (devicePublicKey(privateKey) !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
+    if (await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
+    current();
+    const message = checked.profile === 'LIANUM_ORIGINAL_ACCOUNT_ACCESS_V2' ? originalAccountAccessMessageV2(checked)
+      : originalAccountReviewMessageV2(checked);
+    return signDeviceMessage(privateKey, message);
+  } finally { privateKey.fill(0); retained = null; }
+}
+export function signOriginalAccountAccessV2(value: OriginalAccessV2, origin: string, pairingId: string): Promise<string> {
+  return signOriginalAccountPermissionV2(value, origin, pairingId, 'access');
+}
+export function signOriginalAccountReviewV2(value: OriginalReviewV2, origin: string, pairingId: string): Promise<string> {
+  return signOriginalAccountPermissionV2(value, origin, pairingId, 'review');
 }
