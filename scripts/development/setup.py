@@ -307,6 +307,28 @@ def prepare_crs():
     print("Public CRS verified", flush=True)
 
 
+def prepare_native_bb():
+    """Restore execution permission for the exact original BB5.2 binary."""
+    binary = PROJECT / "omnichain-product/experiments/private-core-proof/node_modules/@aztec/bb.js/build/amd64-linux/bb"
+    expected = "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b"
+    checked(binary, expected, 38240512)
+    if binary.resolve() != binary.absolute():
+        raise RuntimeError("Native BB must use its physical original path")
+    flat = PROJECT / "omnichain-flat-profile/flat-wallet"
+    if (flat / ".local/proof-workers/active.lock").exists() or Path("/tmp/lianum-paeg-proof-host.lock").exists():
+        raise RuntimeError("Review and retain the original proof lock before changing native BB permissions")
+    for lock in (flat / ".local").glob("*/active.lock"):
+        raise RuntimeError("Native BB permissions cannot change during an original supervised run")
+    previous = binary.stat().st_mode & 0o777
+    binary.chmod(0o755)
+    checked(binary, expected, 38240512)
+    write_json(REPORTS / "native-bb-permissions.json", {
+        "path": str(binary), "sha256": expected, "bytes": 38240512,
+        "previousMode": oct(previous), "mode": "0o755", "originalBytesUnchanged": True,
+        "proofGenerated": False, "nativeProcessStarted": False})
+    print("Original native BB execution permission restored; bytes unchanged", flush=True)
+
+
 def prepare_native():
     native = PROJECT / "omnichain-product/.local/linux-runtimes"
     native.mkdir(parents=True, exist_ok=True)
@@ -375,14 +397,14 @@ def prepare_solana():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("steps", nargs="*", choices=["public", "node", "proof-node", "packages", "crs", "native", "solana"])
+    parser.add_argument("steps", nargs="*", choices=["public", "node", "proof-node", "packages", "crs", "native", "native-bb", "solana"])
     args = parser.parse_args()
     for path in [DEV, DOWNLOADS, REPORTS, OBJECTS, DEV / "toolchains"]:
         path.mkdir(parents=True, exist_ok=True)
-    steps = args.steps or ["public", "node", "proof-node", "packages", "crs", "native", "solana"]
+    steps = args.steps or ["public", "node", "proof-node", "packages", "crs", "native", "native-bb", "solana"]
     functions = {"public": restore_public, "node": prepare_node, "packages": prepare_packages,
                  "crs": prepare_crs, "native": prepare_native, "solana": prepare_solana,
-                 "proof-node": prepare_proof_node}
+                 "proof-node": prepare_proof_node, "native-bb": prepare_native_bb}
     for step in steps:
         functions[step]()
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {ChildProcess} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {Socket} from 'node:net';
-import {constants,closeSync,fstatSync,lstatSync,openSync,readFileSync,readlinkSync,readdirSync,realpathSync,statSync,unlinkSync} from 'node:fs';
+import {accessSync,constants,closeSync,fstatSync,lstatSync,openSync,readFileSync,readlinkSync,readdirSync,realpathSync,statSync,unlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {ROOT,EXPERIMENT,LIMITS,operation} from '../catalog.mjs';
 import {regular,hash,resources,authenticateSupervisor,argumentsFor} from '../tooling/tooling.mjs';
@@ -66,6 +66,7 @@ export async function initializeNativeAuthorizationV1(bb){
   assert.equal(arguments.length,1);const{spec,mode,runId}=argumentsFor(true);authenticateSupervisor(spec,mode,runId);
   assert.ok(nativeProve(spec,mode),'PW_NATIVE_AUTHORIZATION_ONLY');
   assert.equal(process.platform,'linux');assert.equal(process.arch,'x64');pins();
+  try{accessSync(AUTHORIZATION_NATIVE_BINARY_V1,constants.X_OK);}catch{throw Error('PW_NATIVE_EXECUTABLE_PERMISSION');}
   const parent=nativeProcStatV1(process.pid);assert.ok(parent);const socketPath=`/tmp/bb-${process.pid}-0-0.sock`;
   try{lstatSync(socketPath);throw Error('PW_NATIVE_SOCKET_MUST_BE_ABSENT');}catch(error){if(error.code!=='ENOENT')throw error;}
   const binaryFD=openSync(AUTHORIZATION_NATIVE_BINARY_V1,constants.O_RDONLY|constants.O_NOFOLLOW),binaryIdentity=fileIdentity(fstatSync(binaryFD,{bigint:true}));
