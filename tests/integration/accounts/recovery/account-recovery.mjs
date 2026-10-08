@@ -96,11 +96,13 @@ async function main() {
   }
   const row = (view, id) => { const value = view.requests.find(value => value.requestId === id);
     assert.ok(value, 'FLAT_ACCOUNT_HTTP_REQUEST_MISSING'); return value; };
-  async function publicSnapshot() {
-    const response = await fetch(http.origin + '/api/flat-account/snapshot'); assert.equal(response.status, 200);
+  async function ownerSnapshot() {
+    const response = await fetch(http.origin + '/api/flat-account/snapshot', { headers: {
+      Origin: http.origin, 'x-flat-owner-token': http.ownerAccess.token } });
+    assert.equal(response.status, 200);
     const value = await response.json(), text = JSON.stringify(value);
     for (const forbidden of ['assetId', 'ownerOperationRef', 'commitment', 'nullifier', 'proof', 'scope', 'policy', 'amount', 'balance'])
-      assert.equal(text.toLowerCase().includes('"' + forbidden.toLowerCase() + '"'), false, 'FLAT_ACCOUNT_PUBLIC_DISCLOSURE');
+      assert.equal(text.toLowerCase().includes('"' + forbidden.toLowerCase() + '"'), false, 'FLAT_ACCOUNT_OWNER_HISTORY_EXCESS_DISCLOSURE');
     return value;
   }
   async function ownerView() {
@@ -167,7 +169,7 @@ async function main() {
     await request('execute', { requestId: graphId });
     assert.equal(runtime.transactions.length, exposureTransactions, 'FLAT_ACCOUNT_DUPLICATE_EXECUTION_SENT');
     assert.equal(bitcoin.transfers.length, 1); assert.equal(solana.transfers.length, 0);
-    await publicSnapshot();
+    await ownerSnapshot();
 
     await stage('stop-foreign-nodes-and-check-original-cutoff');
     result.foreignStoppedBeforeRecovery = { bitcoin: await bitcoin.close(), solana: await solana.close() };
@@ -228,7 +230,7 @@ async function main() {
     assert.equal(bitcoin.transfers.length, 1); assert.equal(solana.transfers.length, 0);
     result.finalPool = final.ledger.publicState; result.finalOwnerBalances = finalPrivate.balances;
     result.partialDeliveryRecoveryAcceptance = true; result.ownerRecoveryExitAccepted = true;
-    result.publicAPI = await publicSnapshot(); result.success = true; result.phase = 'completed'; await audit();
+    result.publicAPI = await ownerSnapshot(); result.success = true; result.phase = 'completed'; await audit();
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = safeCode(error);
     writeFixturePrivate(join(privateDirectory, 'error.json'), { message: String(error.message), stack: String(error.stack),

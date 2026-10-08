@@ -92,14 +92,15 @@ const outcome = (scope, data, errorCode = null, httpStatus = null) => frozen({
 });
 
 async function read(input, owner) {
-  const scope = owner ? 'OWNER_PRIVATE_STATUS' : 'PUBLIC_SNAPSHOT';
+  const scope = owner ? 'OWNER_PRIVATE_STATUS' : 'OWNER_PRIVATE_SNAPSHOT';
   const result = await (owner ? readNativeClaimOwnerWire(input) : readNativeClaimSnapshotWire(input));
   if (result.errorCode) return outcome(scope, null, result.errorCode, result.httpStatus);
   try { return outcome(scope, owner ? ownerStatus(result.body) : snapshot(result.body), null, result.httpStatus); }
   catch { return outcome(scope, null, 'NATIVE_CLAIM_STATUS_RESPONSE_INVALID', result.httpStatus); }
 }
 
-/** Public journal snapshot: accepts only { origin }; never sends a token. */
+/** Owner-private journal history: accepts the existing { origin, token }
+ * ownerAccess. No anonymous health fallback exposes IDs or operation counts. */
 export async function readNativeClaimSnapshot(input) {
   need(arguments.length === 1, 'NATIVE_CLAIM_STATUS_ACCESS_INVALID'); return read(input, false);
 }

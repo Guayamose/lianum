@@ -240,7 +240,7 @@ test('canonical request fields and public error codes reject trailing LF and CR'
   assert.equal(f.calls.filter(name => name !== 'snapshot').length, 0);
 });
 
-test('fixed HTTP routes admit original-ID lifecycle and expose no keeper mutation payload', async t => {
+test('fixed HTTP routes keep original-ID history private and expose no keeper mutation payload', async t => {
   const f = await fixture(t, true);
   for (const [action, input] of [['prepare', preparation()], ['execute', { requestId: 'request_0001' }],
     ['restart', {}], ['execute', { requestId: 'request_0001' }]]) {
@@ -250,11 +250,29 @@ test('fixed HTTP routes admit original-ID lifecycle and expose no keeper mutatio
     assert.deepEqual(Object.keys(accepted).sort(), ['action', 'admitted', 'requestId', 'sequence', 'version']);
     await f.session.idle();
   }
-  const response = await fetch(`${f.server.origin}/api/flat-account/snapshot`);
+  const url = `${f.server.origin}/api/flat-account/snapshot`, other = await fixture(t, true);
+  const beforeReads = f.calls.filter(name => name === 'snapshot').length;
+  for (const headers of [{}, { Origin: f.server.origin, 'x-flat-owner-token': f.server.clientAccess.token },
+    { 'x-flat-owner-token': f.server.ownerAccess.token },
+    { Origin: 'http://example.invalid', 'x-flat-owner-token': f.server.ownerAccess.token },
+    { Origin: f.server.origin, 'x-flat-owner-token': other.server.ownerAccess.token }]) {
+    const denied = await fetch(url, { headers });
+    assert.equal(denied.status, 403);
+    assert.deepEqual(await denied.json(), { error: headers.Origin === 'http://example.invalid'
+      ? 'FLAT_ACCOUNT_INVALID_ORIGIN' : 'FLAT_ACCOUNT_OWNER_ACCESS_REQUIRED' });
+  }
+  assert.equal(f.calls.filter(name => name === 'snapshot').length, beforeReads,
+    'UNAUTHORIZED_HISTORY_READ_DOES_NOT_OBSERVE_KEEPER');
+  const response = await fetch(url, { headers: { Origin: f.server.origin,
+    'x-flat-owner-token': f.server.ownerAccess.token } });
   assert.equal(response.status, 200); assert.equal(response.headers.get('access-control-allow-origin'), null);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   const text = await response.text();
   assert.match(text, /CONFIRMED/); assert.doesNotMatch(text, /PRIVATE_|900001|assetId|ownerOperationRef/);
+  const history = JSON.parse(text);
+  assert.equal(history.requests[0].requestId, 'request_0001');
+  assert.equal(history.admissions.length, 4);
+  assert.equal(history.admissions.at(-1).requestId, 'request_0001');
   assert.equal(f.stats().sends, 1);
 });
 

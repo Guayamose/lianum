@@ -39,7 +39,7 @@ const claimConfig = Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([key, type]) => 
 claimConfig.ledgerNamespace = claimConfig.hubDomain;
 const origin = 'http://127.0.0.1:12345', token = 'ab'.repeat(32), domain = claimDomainCommitment(claimConfig);
 const clone = value => structuredClone(value);
-const publicSnapshot = () => ({ version: 1, profile: 'OWNED_LOCAL_DURABLE_NATIVE_CLAIM_ACCOUNT_V1', phase: 'READY',
+const journalSnapshot = () => ({ version: 1, profile: 'OWNED_LOCAL_DURABLE_NATIVE_CLAIM_ACCOUNT_V1', phase: 'READY',
   storageAvailable: true, busy: false, queued: 0, revision: 3, observation: 'DURABLE_JOURNAL_ONLY', errorCode: null,
   requests: [{ requestId: 'deposit_0001', action: 'deposit', state: 'CONFIRMED', errorCode: null }],
   requiresExternalEffectReconciliation: false, capabilities: { keeperRestart: true, nativeNodeRestart: false,
@@ -52,7 +52,7 @@ const ownerStatus = () => ({ profile: 'OWNED_LOCAL_DURABLE_NATIVE_CLAIM_ACCOUNT_
   tickets: [{ ticketId: '55'.repeat(32), claimDomain: domain, amount: '1000000', kind: 'REDEEM', status: 'UNKNOWN', nativeSelfCustody: false }],
   requests: [{ requestId: 'deposit_0001', action: 'deposit', state: 'CONFIRMED', errorCode: null,
     result: { rawUnforwarded: 'heterogeneous-result-not-client-status' } }] });
-function transport(body = publicSnapshot(), options = {}) {
+function transport(body = journalSnapshot(), options = {}) {
   const bytes = Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
   active = { calls: [], ends: 0, requestDestroyed: 0, responseDestroyed: 0, status: 200,
     headers: { 'content-type': 'application/json; charset=utf-8', 'content-length': String(bytes.length) },
@@ -64,13 +64,18 @@ const noNativeAcceptance = result => {
   assert.equal(result.limitations.nativeSettlementEstablished, false);
 };
 
-test('public GET uses one exact loopback route with no token, body, redirect or credential persistence', async () => {
-  const c = transport(), result = await readNativeClaimSnapshot({ origin });
+test('owner journal GET uses one exact route and owner token without mutation, fallback or credential persistence', async () => {
+  const c = transport(), access = { origin, token }, pending = readNativeClaimSnapshot(access);
+  access.origin = 'http://external.invalid:12345'; access.token = 'cd'.repeat(32);
+  const result = await pending;
   assert.equal(c.calls.length, 1); assert.equal(c.ends, 1);
   assert.deepEqual(c.calls[0], { hostname: '127.0.0.1', port: 12345, method: 'GET', path: '/api/native-claims/snapshot',
-    agent: false, maxHeaderSize: 8192, headers: { Host: '127.0.0.1:12345', Origin: origin, Accept: 'application/json', 'Accept-Encoding': 'identity' } });
-  assert.equal(result.readStatus, 'RECEIVED'); assert.equal(result.scope, 'PUBLIC_SNAPSHOT');
-  assert.deepEqual(result.data, publicSnapshot()); noNativeAcceptance(result);
+    agent: false, maxHeaderSize: 8192, headers: { Host: '127.0.0.1:12345', Origin: origin, Accept: 'application/json',
+      'Accept-Encoding': 'identity', 'x-native-owner-token': token } });
+  assert.equal(c.calls[0].headers['x-native-claim-token'], undefined);
+  assert.equal(c.calls[0].headers['x-flat-owner-token'], undefined);
+  assert.equal(result.readStatus, 'RECEIVED'); assert.equal(result.scope, 'OWNER_PRIVATE_SNAPSHOT');
+  assert.deepEqual(result.data, journalSnapshot()); noNativeAcceptance(result);
   assert.ok(Object.isFrozen(result) && Object.isFrozen(result.data.requests[0]));
   assert.ok(!JSON.stringify(result).includes(token));
 });
@@ -91,10 +96,10 @@ test('owner GET uses only its dedicated token header and preserves unknown/priva
 
 test('unavailable, reconciliation-required and closed snapshots never become zero or settlement success', async () => {
   for (const phase of ['READY', 'UNAVAILABLE', 'CLOSED']) {
-    const body = publicSnapshot(); body.phase = phase; body.storageAvailable = phase === 'READY';
+    const body = journalSnapshot(); body.phase = phase; body.storageAvailable = phase === 'READY';
     body.requiresExternalEffectReconciliation = true; body.requests[0].state = 'RECONCILIATION_REQUIRED';
     body.errorCode = 'CLAIM_KEEPER_RECONCILIATION_REQUIRED'; transport(body);
-    const result = await readNativeClaimSnapshot({ origin });
+    const result = await readNativeClaimSnapshot({ origin, token });
     assert.equal(result.readStatus, 'RECEIVED'); assert.equal(result.data.phase, phase);
     assert.equal(result.data.storageAvailable, phase === 'READY'); assert.equal(result.data.requiresExternalEffectReconciliation, true);
     assert.equal(result.data.requests[0].state, 'RECONCILIATION_REQUIRED'); noNativeAcceptance(result);
@@ -110,22 +115,28 @@ test('invalid origins, auth fields, getters, proxies and option injection reject
   const origins = ['http://localhost:12345', 'https://127.0.0.1:12345', 'http://127.1:12345', 'http://2130706433:12345',
     'http://[::1]:12345', 'http://user:pass@127.0.0.1:12345', origin + '/', origin + '?x=1', origin + '#x', origin + '\n',
     'http://127.0.0.1:012345', 'http://127.0.0.1:0', 'http://127.0.0.1:65536', 'http://example.com:12345'];
-  for (const input of [...origins.map(origin => ({ origin })), { origin, token }, { origin, path: '/api/native-claims/deposit' },
-    { origin, method: 'POST' }, { origin, headers: {} }, { origin, timeout: 0 }, accessor, proxy, revoked.proxy])
-    await assert.rejects(readNativeClaimSnapshot(input), /NATIVE_CLAIM_STATUS_ACCESS_INVALID/);
-  for (const input of [{ origin }, { origin, token: token + '\n' }, { origin, token: 'AB'.repeat(32) },
-    { origin, token, mutationToken: token }, { origin, token, fetch() {} }])
-    await assert.rejects(readNativeClaimOwnerStatus(input), /NATIVE_CLAIM_STATUS_ACCESS_INVALID/);
-  await assert.rejects(readNativeClaimSnapshot({ origin }, {}), /NATIVE_CLAIM_STATUS_ACCESS_INVALID/);
+  // Both histories require exact owner access. Invalid origin/token shapes
+  // are rejected locally; a well-formed wrong secret is denied by the server.
+  for (const read of [readNativeClaimSnapshot, readNativeClaimOwnerStatus]) {
+    for (const input of [...origins.map(origin => ({ origin, token })), { origin }, { origin, token: '' },
+      { origin, token: token + '\n' }, { origin, token: 'AB'.repeat(32) }, { origin, token: 'ab'.repeat(31) },
+      { origin, token, path: '/api/native-claims/deposit' }, { origin, token, method: 'POST' },
+      { origin, token, headers: {} }, { origin, token, timeout: 0 }, { origin, token, mutationToken: token },
+      { origin, token, fetch() {} }, accessor, proxy, revoked.proxy])
+      await assert.rejects(read(input), /NATIVE_CLAIM_STATUS_ACCESS_INVALID/);
+    await assert.rejects(read({ origin, token }, {}), /NATIVE_CLAIM_STATUS_ACCESS_INVALID/);
+  }
   assert.equal(c.calls.length, 0); assert.equal(traps, 0);
-  const allowed = transport(); await readNativeClaimSnapshot({ origin: 'http://127.0.0.1:80' });
+  const allowed = transport(); await readNativeClaimSnapshot({ origin: 'http://127.0.0.1:80', token });
   assert.equal(allowed.calls[0].headers.Host, '127.0.0.1:80');
 });
 
 test('redirects cannot forward the owner token or trigger a second request', async () => {
-  for (const status of [301, 302, 303, 307, 308]) {
+  for (const read of [readNativeClaimSnapshot, readNativeClaimOwnerStatus]) for (const status of [301, 302, 303, 307, 308]) {
     const c = transport({}, { status, headers: { location: 'https://external.invalid/steal' } });
-    const result = await readNativeClaimOwnerStatus({ origin, token });
+    const result = await read({ origin, token });
+    assert.equal(c.calls[0].headers['x-native-owner-token'], token);
+    assert.equal(result.scope, read === readNativeClaimSnapshot ? 'OWNER_PRIVATE_SNAPSHOT' : 'OWNER_PRIVATE_STATUS');
     assert.equal(result.errorCode, 'NATIVE_CLAIM_STATUS_REDIRECT_FORBIDDEN'); assert.equal(result.data, null);
     assert.equal(c.calls.length, 1); assert.ok(c.requestDestroyed && c.responseDestroyed); noNativeAcceptance(result);
     assert.ok(!JSON.stringify(result).includes('external.invalid')); assert.ok(!JSON.stringify(result).includes(token));
@@ -140,13 +151,16 @@ test('busy/access/unavailable failures preserve only bounded API codes; malforme
     [500, { error: 'CLAIM_UNAVAILABLE\nprivate' }, 'NATIVE_CLAIM_STATUS_HTTP_ERROR'],
     [500, { error: 'CLAIM_UNAVAILABLE', nativeWire: token }, 'NATIVE_CLAIM_STATUS_HTTP_ERROR'],
     [202, { admitted: true, state: 'CONFIRMED' }, 'NATIVE_CLAIM_STATUS_HTTP_ERROR']]) {
-    const c = transport(body, { status }), result = await readNativeClaimOwnerStatus({ origin, token });
-    assert.equal(result.readStatus, 'UNAVAILABLE'); assert.equal(result.errorCode, expected); assert.equal(result.httpStatus, status);
-    assert.equal(result.data, null); assert.equal(c.calls.length, 1); noNativeAcceptance(result);
-    assert.ok(!JSON.stringify(result).includes(token));
+    for (const read of [readNativeClaimSnapshot, readNativeClaimOwnerStatus]) {
+      const c = transport(body, { status }), result = await read({ origin, token });
+      assert.equal(c.calls[0].headers['x-native-owner-token'], token);
+      assert.equal(result.readStatus, 'UNAVAILABLE'); assert.equal(result.errorCode, expected); assert.equal(result.httpStatus, status);
+      assert.equal(result.data, null); assert.equal(c.calls.length, 1); noNativeAcceptance(result);
+      assert.ok(!JSON.stringify(result).includes(token));
+    }
   }
   const c = transport({}, { networkError: 'private transport failure ' + token });
-  const result = await readNativeClaimSnapshot({ origin });
+  const result = await readNativeClaimSnapshot({ origin, token });
   assert.equal(result.errorCode, 'NATIVE_CLAIM_STATUS_NETWORK_UNAVAILABLE'); assert.equal(c.calls.length, 1);
   assert.ok(!JSON.stringify(result).includes(token));
 });
@@ -157,7 +171,7 @@ test('invalid response/schema, balance claims, future states and extra private f
     b => { b.requests[0].state = 'SETTLED'; }, b => { b.requests[0].rawWire = token; },
     b => { b.balance = '0'; }, b => { b.requests[0].errorCode = 'CLAIM_BAD\n'; }, b => { b.requests = Array(129).fill(b.requests[0]); }];
   for (const mutate of mutations) {
-    const b = publicSnapshot(); mutate(b); transport(b); const result = await readNativeClaimSnapshot({ origin });
+    const b = journalSnapshot(); mutate(b); transport(b); const result = await readNativeClaimSnapshot({ origin, token });
     assert.equal(result.errorCode, 'NATIVE_CLAIM_STATUS_RESPONSE_INVALID'); assert.equal(result.data, null);
   }
   for (const mutate of [b => { b.deposits[0].spendablePrivateBalance = '0'; }, b => { b.underlyingSpendable = true; },
@@ -177,7 +191,7 @@ test('byte limits, incomplete streams, invalid JSON and encoding are bounded wit
     ['{}', { headers: { 'content-type': 'application/json', 'content-length': '99' } }, 'RESPONSE_INCOMPLETE'],
     ['{', {}, 'RESPONSE_INVALID'], ['{}', { headers: { 'content-type': 'text/html' } }, 'RESPONSE_INVALID'],
     ['{}', { headers: { 'content-type': 'application/json', 'content-encoding': 'gzip' } }, 'RESPONSE_INVALID']]) {
-    const c = transport(body, options), result = await readNativeClaimSnapshot({ origin });
+    const c = transport(body, options), result = await readNativeClaimSnapshot({ origin, token });
     assert.equal(result.errorCode, 'NATIVE_CLAIM_STATUS_' + expected); assert.equal(result.data, null);
     assert.equal(c.calls.length, 1); assert.ok(c.requestDestroyed && c.responseDestroyed);
   }
@@ -206,20 +220,30 @@ test('client imports only read transport/util and exposes no generic route or ac
   assert.deepEqual([...source.matchAll(/export async function (\w+)/g)].map(match => match[1]), ['readNativeClaimSnapshot', 'readNativeClaimOwnerStatus']);
 });
 
-test('current session-generated public and owner contracts are accepted with synthetic in-memory bootstrap only', async () => {
+test('current session-generated authenticated journal and owner contracts are accepted with synthetic in-memory bootstrap only', async () => {
   const owner = '66'.repeat(32), projected = ownerStatus().deposits[0];
   const data = { deposits: [{ id: projected.intentId, claimDomain: domain, packet: { ownerIdentitySHA256: owner } }],
     tickets: [], apiAccounts: [], apiAdmissions: [] };
   const journal = { async read() { return clone(data); }, async update(change) { const next = change(clone(data));
     Object.assign(data, next); return clone(data); } };
   const keeper = { status: () => ({ keeperRestart: true, uncertain: false, requiresExternalEffectReconciliation: false }) };
-  const runtime = { accounts: ['0x' + '77'.repeat(20)] }, controller = { async status() { return { deposits: [projected], tickets: [] }; } };
+  const runtime = { accounts: ['0x' + '77'.repeat(20)] }, claims = { configs: [claimConfig] },
+    controller = { async status() { return { deposits: [projected], tickets: [] }; } };
   mock.module(new URL('../native-claims/controller.mjs', import.meta.url).href, { exports: {
-    ownedNativeClaimControllerBindings(value) { assert.equal(value, controller); return { runtime, keeper, claims: { configs: [claimConfig] } }; },
+    ownedNativeClaimControllerBindings(value) { assert.equal(value, controller); return { runtime, keeper, claims }; },
     restartNativeClaimController() { assert.fail('NO_RESTART_IN_READ_ONLY_CONTRACT_TEST'); },
   } });
   mock.module(new URL('../native-claims/controller-journal.mjs', import.meta.url).href, { exports: {
     ownedClaimControllerJournal(value) { assert.equal(value, keeper); return journal; },
+  } });
+  // Fixed cSOL/9 data for this inert controller, not a native-system brand.
+  mock.module(new URL('../native-claims/native-claim-asset-units-v1.mjs', import.meta.url).href, { exports: {
+    originalNativeClaimAssetUnitsV1(actualRuntime, actualClaims, config) {
+      assert.equal(arguments.length, 3); assert.equal(actualRuntime, runtime); assert.equal(actualClaims, claims);
+      assert.equal(config, claimConfig); assert.equal(config.nativeFamily, '2');
+      assert.notEqual(claims.nativeSplCustodyProfile, true);
+      return Object.freeze({ claimSymbol: 'cSOL', nativeSymbol: 'SOL', decimals: 9, atomicUnit: 'lamport' });
+    },
   } });
   const { createNativeClaimSession, nativeClaimSessionIdentity } = await import('../../../src/api/claims/native-claim-session.mjs');
   const session = await createNativeClaimSession({ controller, accountId: 'host_contract_account',
@@ -227,8 +251,8 @@ test('current session-generated public and owner contracts are accepted with syn
   try {
     const identity = nativeClaimSessionIdentity(session);
     assert.equal(identity.claimDomain, domain); assert.equal(identity.claimSymbol, 'cSOL'); assert.ok(Object.isFrozen(identity));
-    const publicWire = await session.snapshot(); assert.equal(Object.hasOwn(publicWire, 'identity'), false); transport(publicWire);
-    const publicRead = await readNativeClaimSnapshot({ origin }); assert.deepEqual(publicRead.data, publicWire);
+    const snapshotWire = await session.snapshot(); assert.equal(Object.hasOwn(snapshotWire, 'identity'), false); transport(snapshotWire);
+    const snapshotRead = await readNativeClaimSnapshot({ origin, token }); assert.deepEqual(snapshotRead.data, snapshotWire);
     const privateWire = await session.ownerView(); assert.equal(Object.hasOwn(privateWire, 'identity'), false); transport(privateWire);
     const privateRead = await readNativeClaimOwnerStatus({ origin, token }); assert.deepEqual(privateRead.data, privateWire);
     assert.equal(privateRead.data.deposits[0].spendablePrivateBalance, null); noNativeAcceptance(privateRead);

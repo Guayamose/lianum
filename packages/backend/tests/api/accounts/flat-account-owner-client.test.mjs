@@ -132,8 +132,12 @@ test('owner route uses only flat owner header, with no public fallback, mutation
   const privateNative = transport({ error: 'NATIVE_CLAIM_OWNER_ACCESS_REQUIRED' }, { status: 403 });
   await readNativeClaimOwnerStatus({ origin, token }); assert.equal(privateNative.calls[0].headers['x-flat-owner-token'], undefined);
   assert.equal(privateNative.calls[0].headers['x-native-owner-token'], token);
-  const publicNative = transport({}); await readNativeClaimSnapshot({ origin });
-  assert.ok(!Object.keys(publicNative.calls[0].headers).some(name => /token/.test(name)));
+  const snapshotNative = transport({}); await readNativeClaimSnapshot({ origin, token });
+  assert.equal(snapshotNative.calls[0].path, '/api/native-claims/snapshot');
+  assert.equal(snapshotNative.calls[0].headers.Origin, origin);
+  assert.equal(snapshotNative.calls[0].headers['x-native-owner-token'], token);
+  assert.equal(snapshotNative.calls[0].headers['x-flat-owner-token'], undefined);
+  assert.equal(snapshotNative.calls[0].headers['x-native-claim-token'], undefined);
   const denied = await read({ error: 'FLAT_ACCOUNT_OWNER_ACCESS_REQUIRED' }, { status: 403 });
   assert.equal(denied.result.data, null); assert.equal(denied.c.calls.length, 1);
 });
@@ -234,7 +238,7 @@ test('fixed flat-owner response budget survives five seconds and expires at nine
   assert.equal((await laterRead).readStatus, 'RECEIVED'); assert.equal(completed.calls.length, 1);
   t.mock.timers.tick(90000); assert.equal(completed.destroyed, 0, 'completion clears its original timer');
 
-  for (const [read, access] of [[readNativeClaimSnapshot, { origin }], [readNativeClaimOwnerStatus, { origin, token }]]) {
+  for (const [read, access] of [[readNativeClaimSnapshot, { origin, token }], [readNativeClaimOwnerStatus, { origin, token }]]) {
     const native = transport({}, { stall: true }); let done = false;
     const operation = read(access); operation.then(() => { done = true; }); await Promise.resolve();
     t.mock.timers.tick(4999); await Promise.resolve(); assert.equal(done, false); assert.equal(native.destroyed, 0);

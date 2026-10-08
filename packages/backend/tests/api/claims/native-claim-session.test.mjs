@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '../../../src/claims/protocol/framing.mjs';
 import { createClaimRecordStore, openClaimRecordStore } from '../../../src/claims/storage/segmented-record-store.mjs';
-const bindings = new WeakMap(), journals = new WeakMap();
+const bindings = new WeakMap(), journals = new WeakMap(), syntheticUnitBindings = new WeakMap();
 const url = path => new URL(path, import.meta.url).href;
 mock.module(url('../native-claims/controller.mjs'), { exports: {
   ownedNativeClaimControllerBindings(controller) { const value = bindings.get(controller); assert.ok(value, 'TEST_ORIGINAL_CONTROLLER'); return value; },
@@ -16,6 +16,18 @@ mock.module(url('../native-claims/controller.mjs'), { exports: {
 } });
 mock.module(url('../native-claims/controller-journal.mjs'), { exports: {
   ownedClaimControllerJournal(keeper) { assert.ok(journals.has(keeper)); return journals.get(keeper); },
+} });
+// The controller is explicitly synthetic. This dependency substitutes only
+// its fixed legacy presentation; production still requires the sealed system.
+mock.module(url('../native-claims/native-claim-asset-units-v1.mjs'), { exports: {
+  originalNativeClaimAssetUnitsV1(runtime, claims, config) {
+    assert.equal(arguments.length, 3); assert.equal(syntheticUnitBindings.get(claims), runtime);
+    assert.ok(claims.configs.includes(config)); assert.notEqual(claims.nativeSplCustodyProfile, true);
+    assert.ok(['1', '2'].includes(config.nativeFamily));
+    return Object.freeze(config.nativeFamily === '1'
+      ? { claimSymbol: 'cBTC', nativeSymbol: 'BTC', decimals: 8, atomicUnit: 'satoshi' }
+      : { claimSymbol: 'cSOL', nativeSymbol: 'SOL', decimals: 9, atomicUnit: 'lamport' });
+  },
 } });
 const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures } = await import('../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../src/api/claims/native-claim-http.mjs');
@@ -99,7 +111,9 @@ async function fixture({ family = '2' } = {}) {
     async status() { const data = await journal.read(); return { deposits: data.deposits.map(projection), tickets: [] }; },
   };
   const input = { controller, accountId: 'owner_account_01', ownerIdentitySHA256: owner, claimDomain: domain, caller: '0x' + '66'.repeat(20) };
-  bindings.set(controller, { runtime: { accounts: [input.caller, '0x' + '77'.repeat(20)] }, claims, keeper,
+  const runtime = { accounts: [input.caller, '0x' + '77'.repeat(20)] };
+  syntheticUnitBindings.set(claims, runtime);
+  bindings.set(controller, { runtime, claims, keeper,
     async restart() { store.close();
       if (failRestart) { failRestart = false; fault = true; throw Error('CLAIM_KEEPER_REOPEN_UNCERTAIN'); }
       store = await openClaimRecordStore(options); fault = false; restartCount++; return controller; } });
@@ -137,7 +151,8 @@ test('private failure observation preserves the original audit code and budget w
     returned[0].auditBudget.elapsedMilliseconds = 0; returned[0].causeCodes.push('CLAIM_INVENTED'); returned.push({});
     assert.deepEqual(nativeClaimSessionPrivateFailures(session), [expected]);
     assert.deepEqual(f.storageStats(), before, 'private accessor performs no journal observation or update');
-    const snapshot = await (await fetch(http.origin + '/api/native-claims/snapshot')).json();
+    const snapshot = await (await fetch(http.origin + '/api/native-claims/snapshot', { headers: {
+      origin: http.origin, 'x-native-owner-token': http.ownerAccess.token } })).json();
     assert.equal(snapshot.requests[0].state, 'RECONCILIATION_REQUIRED');
     assert.equal(snapshot.requests[0].errorCode, 'CLAIM_OPERATOR_AUDIT_TOO_OLD');
     const ownerView = await (await fetch(http.origin + '/api/native-claims/owner', { headers: {
@@ -273,7 +288,19 @@ test('actual loopback HTTP exposes durable admission and separate private owner 
       body: JSON.stringify({ requestId: 'http_deposit_01', intentId }) });
     assert.equal(response.status, 202); assert.equal((await response.json()).admitted, true);
     await session.idle();
-    const snapshot = await (await fetch(http.origin + '/api/native-claims/snapshot')).json();
+    const snapshotUrl = http.origin + '/api/native-claims/snapshot', beforeReads = f.storageStats();
+    for (const readHeaders of [{}, headers, { 'x-native-owner-token': http.ownerAccess.token },
+      { origin: 'http://example.invalid', 'x-native-owner-token': http.ownerAccess.token },
+      { origin: http.origin, 'x-native-owner-token': '00'.repeat(32) }]) {
+      const deniedHistory = await fetch(snapshotUrl, { headers: readHeaders });
+      assert.equal(deniedHistory.status, 403);
+      assert.deepEqual(await deniedHistory.json(), { error: readHeaders.origin === 'http://example.invalid'
+        ? 'NATIVE_CLAIM_INVALID_ORIGIN' : 'NATIVE_CLAIM_OWNER_ACCESS_REQUIRED' });
+    }
+    assert.deepEqual(f.storageStats(), beforeReads, 'UNAUTHORIZED_HISTORY_READ_DOES_NOT_OBSERVE_JOURNAL');
+    const snapshot = await (await fetch(snapshotUrl, { headers: {
+      origin: http.origin, 'x-native-owner-token': http.ownerAccess.token } })).json();
+    assert.equal(snapshot.requests[0].requestId, 'http_deposit_01');
     assert.equal(snapshot.requests[0].state, 'CONFIRMED'); assert.ok(!JSON.stringify(snapshot).includes(intentId));
     const denied = await fetch(http.origin + '/api/native-claims/owner', { headers }); assert.equal(denied.status, 403);
     const ownerView = await (await fetch(http.origin + '/api/native-claims/owner', { headers: {

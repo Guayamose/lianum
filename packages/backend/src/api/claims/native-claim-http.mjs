@@ -92,8 +92,13 @@ export async function startNativeClaimHttp(options) {
         return send(400, { error: 'NATIVE_CLAIM_GET_BODY_FORBIDDEN' });
       // Match the raw target. No query strings, encoded paths or caller-selected
       // path segments can select a different account, file or backend.
-      if (request.method === 'GET' && request.url === `${prefix}/snapshot`)
+      // Request IDs and admission history belong to this owner, including
+      // when balances and witnesses are absent from the projection.
+      if (request.method === 'GET' && request.url === `${prefix}/snapshot`) {
+        if (request.headers.origin !== origin || !validToken(request.headers['x-native-owner-token'], ownerToken))
+          return send(403, { error: 'NATIVE_CLAIM_OWNER_ACCESS_REQUIRED' });
         return send(200, await session.snapshot());
+      }
       if (request.method === 'GET' && request.url === `${prefix}/owner`) {
         if (request.headers.origin !== origin || !validToken(request.headers['x-native-owner-token'], ownerToken))
           return send(403, { error: 'NATIVE_CLAIM_OWNER_ACCESS_REQUIRED' });

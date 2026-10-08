@@ -10,7 +10,7 @@ export const FLAT_OWNER_READ_TIMEOUT_MS = 90000;
 const NATIVE_CODE = /^(?:NATIVE_CLAIM|CLAIM|VAULT|SOLANA|BITCOIN|LOCAL_EVM|ROLE_CLIENT|FLAT_OPERATOR|COMBINED_OPERATOR)_[A-Z0-9_]{1,100}$/;
 const FLAT_CODE = /^(?:FLAT_ACCOUNT|JOURNAL)_[A-Z0-9_]{1,90}$/;
 const routes = Object.freeze({
-  nativeSnapshot: Object.freeze({ path: '/api/native-claims/snapshot', header: null, prefix: 'NATIVE_CLAIM_STATUS',
+  nativeSnapshot: Object.freeze({ path: '/api/native-claims/snapshot', header: 'x-native-owner-token', prefix: 'NATIVE_CLAIM_STATUS',
     code: NATIVE_CODE, timeoutMilliseconds: OWNER_READ_TIMEOUT_MS }),
   nativeOwner: Object.freeze({ path: '/api/native-claims/owner', header: 'x-native-owner-token', prefix: 'NATIVE_CLAIM_STATUS',
     code: NATIVE_CODE, timeoutMilliseconds: OWNER_READ_TIMEOUT_MS }),
