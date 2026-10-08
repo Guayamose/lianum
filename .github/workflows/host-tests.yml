@@ -35,6 +35,7 @@ jobs:
       - name: Verify new DeFi and laboratory regressions on the host
         run: >-
           ./dev test
+          packages/backend/tests/api/claims/native-claim-session.test.mjs
           packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs
           tests/integration/chains/solana
           tests/integration/chains/bitcoin
