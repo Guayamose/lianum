@@ -56,21 +56,33 @@ Después se comprobó la suite de autorización V4, el collector privado y los
 contadores de actividad: 44/44 resultados correctos, incluidos los 31 casos
 anteriores. Los dos rechazos previos del harness quedan conservados. Las métricas
 no modifican guards, rounds ni el presupuesto de 30 s; sólo miden intervalos
-parciales y CPU del proceso. Todavía no explican el fallo Solana cargado.
+parciales y CPU del proceso. El harness cargado añade seis regresiones nuevas y
+conserva las dos de catch existentes: 8/8 PASS en copia pública. Captura una sola
+vez antes del POST Solana y después de idle, detecta huecos en los informes y
+preserva el resultado si falla la medición. Todavía no se ha ejecutado ese nuevo
+perfil cargado ni se ha explicado su fallo histórico.
 El [diagnóstico de auditorías vacías](docs/CLAIM-AUDIT-LAB.md) ya está aceptado:
 seis llamadas originales en un laboratorio nuevo, CLAIM 307–338 ms y GRAPH
 646–678 ms. Preparación, ejecución y cierre completos duraron 64,308 s;
 fuentes y originales intactos, PID conservados y cuatro locks ausentes.
 No se generaron pruebas ni payouts durante la medición.
 
-La composición local V5 pasa 36 pruebas de metadatos y el preparador, 15 pruebas
-de límites e identidad. Su primera compilación real aceptó las siete fuentes,
+La composición local V5 pasa 64 checks canónicos: 40 de metadatos, 14 del pipe
+de arranque, ocho del perfil financiero/HTTP y dos de las rutas originales I84.
+El CLI pasa diez casos Python; el preparador del ledger, 15 de límites e
+identidad. Los checks host no arrancan cadenas ni generan pruebas financieras.
+Su primera compilación real aceptó las siete fuentes,
 sus AST y los cuatro artefactos originales del ledger, en 39,666 s de watchdog
 y con 439.681.024 bytes de RSS máximo muestreado del hijo. Las fuentes quedaron
 intactas, los procesos cerraron y se liberó el lock. El raw nuevo se guarda en
 `.local/development-native-value-ledger/v5`; el histórico `f21b2710…` sigue
-ausente. La publicación V5 permanece cerrada y no hay aceptación financiera
-móvil en esta compilación. `./dev check` comprueba ahora 1.811 fuentes físicas
+ausente. La inspección real V5 corrigió dos rutas I84 y después identificó
+nueve inputs W39 ausentes. Cuatro se recuperaron con bytes exactos de un ZIP;
+los cinco restantes están detallados en [originales pendientes](docs/RECOVERY-INPUTS.md).
+Se revisaron 28 ZIP por tamaño/hash y el paquete restaurado. Los dos rechazos
+del inspector quedan conservados; el lector histórico y sus pins siguen intactos.
+La publicación V5 permanece cerrada y no hay aceptación financiera
+móvil en esta compilación. `./dev check` comprueba ahora 1.825 fuentes físicas
 y los 2.649 originales; pasan Solidity, Noir/Barretenberg y HTTP.
 
 La API pasa 22 casos host

@@ -99,8 +99,14 @@ reales. Los casos de lifecycle ejecutan los métodos exactos seleccionados por
 AST de TypeScript; no representan un renderer React ni un teléfono.
 
 El árbol canónico pasa 85 checks host, typescript y exportación Hermes Android/iOS.
-Los bundles se exportaron con un único worker Metro. La aceptación sobre un
-laboratorio EVM genuino se prepara por separado. Los checks host no acreditan
+Los bundles se exportaron con un único worker Metro. El laboratorio pareado
+añade 64 checks canónicos de metadatos, pérdida de respuesta, pipe de arranque
+y rutas I84, además de diez casos Python del CLI. Su entrada preparada es
+`./dev lab mobile-original`; la publicación V5 sigue cerrada por los cinco
+[originales W39 pendientes](RECOVERY-INPUTS.md). El ledger V5 nuevo ya tiene una
+compilación real aceptada en su namespace propio; el preparador rechaza
+sobrescribirla. Todavía no hay aceptación financiera móvil genuina.
+Los checks host no acreditan
 fondos, pruebas Noir, TLS, biometría física, notas en teléfono ni
 cartera móvil completa. La prueba física queda para el final, según la decisión
 del usuario. El APK debug anterior requiere Metro; los cambios JS revisados se
