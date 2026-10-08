@@ -3,8 +3,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, lstatSync } from 'node:fs';
-import { LOCAL_EVM_PROFILE } from '../../../../../engine/src/execution/local/local-evm.mjs';
-import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
+import { assertLocalEvm, assertLocalEvmDeploymentProfile } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
   nativeStaticCalldata } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
@@ -222,7 +221,7 @@ export async function deployBackedAssets(runtime, input) {
   await assertLocalEvm(runtime);
   assert.ok(!claimedRuntimes.has(runtime), 'BACKED_DEPLOY_ALREADY_ATTEMPTED');
   assert.equal(runtime.metadata.chainId, '31337');
-  assert.deepEqual(runtime.metadata.profile, LOCAL_EVM_PROFILE);
+  const deploymentProfile = await assertLocalEvmDeploymentProfile(runtime);
   const bundle = loadBackedAssetDeploymentArtifacts(), sender = address(runtime.accounts[0]);
   const first = await runtime.block(), nextNonce = await runtime.nonce(sender, 'pending');
   const plan = planFromBundle(bundle, { sender, nextNonce: nextNonce.toString(), genesisHash: runtime.metadata.evmGenesis, ...configuration });
@@ -237,7 +236,7 @@ export async function deployBackedAssets(runtime, input) {
     assert.equal((await runtime.nonce(sender, 'pending')).toString(), projected.nonce, 'BACKED_DEPLOY_NONCE_CHANGED');
     assert.equal(await runtime.code(projected.address, before.number), '0x', 'BACKED_DEPLOY_CREATE_OCCUPIED');
     await unchangedHead(runtime, before);
-    const request = { from: sender, data: projected.creationData, gas: '0x' + LOCAL_EVM_PROFILE.maxGas.toString(16), value: '0x0' };
+    const request = { from: sender, data: projected.creationData, gas: '0x' + deploymentProfile.maxGas.toString(16), value: '0x0' };
     const label = 'deploy fixed backed asset ' + projected.contractName;
     // The owned runtime journals before broadcast and has its own permanent
     // ambiguity latch. There is deliberately no retry or fallback here.
@@ -245,7 +244,7 @@ export async function deployBackedAssets(runtime, input) {
     assert.equal(receipt.status, '0x1'); assert.equal(receipt.contractAddress, projected.address);
     assert.equal(receipt.from, sender); assert.equal(receipt.to, null);
     assert.equal(BigInt(receipt.blockNumber), BigInt(before.number) + 1n, 'BACKED_DEPLOY_ADJACENT_CREATION');
-    assert.ok(BigInt(receipt.gasUsed) > 0n && BigInt(receipt.gasUsed) <= 30_000_000n, 'BACKED_DEPLOY_GAS_LIMIT');
+    assert.ok(BigInt(receipt.gasUsed) > 0n && BigInt(receipt.gasUsed) <= BigInt(deploymentProfile.maxGas), 'BACKED_DEPLOY_GAS_LIMIT');
     const journal = runtime.transactions;
     assert.equal(journal.length, journalStart + 1, 'BACKED_DEPLOY_EXACT_JOURNAL_APPEND');
     const entry = journal[journalStart];
@@ -257,7 +256,7 @@ export async function deployBackedAssets(runtime, input) {
     assert.ok(transaction, 'BACKED_DEPLOY_TRANSACTION_MISSING');
     assert.equal(transaction.hash, receipt.transactionHash); assert.equal(transaction.from, sender); assert.equal(transaction.to, null);
     assert.equal(transaction.input, projected.creationData); assert.equal(BigInt(transaction.nonce).toString(), projected.nonce);
-    assert.equal(transaction.value, '0x0'); assert.equal(BigInt(transaction.gas), 30_000_000n);
+    assert.equal(transaction.value, '0x0'); assert.equal(BigInt(transaction.gas), BigInt(deploymentProfile.maxGas));
     assert.equal(transaction.blockHash, receipt.blockHash); assert.equal(transaction.blockNumber, receipt.blockNumber);
     assert.equal(transaction.transactionIndex, receipt.transactionIndex);
     await runtime.checkReceipt(receipt);

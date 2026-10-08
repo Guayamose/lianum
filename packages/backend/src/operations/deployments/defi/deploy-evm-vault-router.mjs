@@ -5,8 +5,7 @@ import { DEVELOPMENT_EVM_DIRECTORY, DEVELOPMENT_EVM_BUILD_PIN, developmentEvmBui
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { readFileSync, lstatSync } from 'node:fs';
-import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
-import { LOCAL_EVM_PROFILE } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertLocalEvm, assertLocalEvmDeploymentProfile } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments, nativeStaticCalldata }
   from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
@@ -126,6 +125,7 @@ async function exactCode(runtime, record, at) {
   assert.equal(actual, record.expectedCode, 'EVM_ROUTER_COMPLETE_CODE'); assert.equal(codeHash(actual), record.codeHash, 'EVM_ROUTER_CODE_HASH');
 }
 async function originalCreation(runtime, record) {
+  const deploymentProfile = await assertLocalEvmDeploymentProfile(runtime);
   const hash = record.receipt.transactionHash, entries = runtime.transactions.filter(entry => entry.transactionHash === hash);
   assert.equal(entries.length, 1, 'EVM_ROUTER_ORIGINAL_CREATION'); const entry = entries[0];
   assert.equal(entry.phase, 'mined'); assert.equal(entry.request.to, undefined);
@@ -139,7 +139,7 @@ async function originalCreation(runtime, record) {
   assert.deepEqual(receipt.logs, record.expectedCreationLogs ?? []);
   assert.equal(transaction.hash, hash); assert.equal(transaction.to, null); assert.equal(transaction.from, record.sender);
   assert.equal(transaction.input, record.creationData); assert.equal(BigInt(transaction.nonce).toString(), record.nonce);
-  assert.equal(BigInt(transaction.value), 0n); assert.equal(BigInt(transaction.gas), BigInt(LOCAL_EVM_PROFILE.maxGas));
+  assert.equal(BigInt(transaction.value), 0n); assert.equal(BigInt(transaction.gas), BigInt(deploymentProfile.maxGas));
   assert.equal(transaction.blockHash, receipt.blockHash); assert.equal(transaction.blockNumber, receipt.blockNumber);
   assert.equal(transaction.transactionIndex, receipt.transactionIndex); assert.equal(BigInt(receipt.transactionIndex), 0n);
   assert.equal(predictNativeCreateAddress(record.sender, BigInt(record.nonce)), record.address);
@@ -162,7 +162,7 @@ export async function deployEvmVaultRouter(runtime, system, options) {
     && sourcePoolIndex !== destinationPoolIndex, 'EVM_ROUTER_POOL_INDICES');
   assert.ok(runtime.accounts.includes(solver), 'EVM_ROUTER_OWNED_SOLVER');
   assert.ok(!attempts.has(system), 'EVM_ROUTER_DEPLOY_ALREADY_ATTEMPTED');
-  assert.equal(runtime.metadata.chainId, '31337'); assert.deepEqual(runtime.metadata.profile, LOCAL_EVM_PROFILE);
+  assert.equal(runtime.metadata.chainId, '31337'); const deploymentProfile = await assertLocalEvmDeploymentProfile(runtime);
   const bundle = loadEvmVaultRouterDeploymentArtifacts(), assetsBundle = loadBackedAssetDeploymentArtifacts();
   const source = system.pools[sourcePoolIndex], destination = system.pools[destinationPoolIndex];
   const token = backedAssets.token, vault = backedAssets.vault, sender = address(system.sender);
@@ -237,13 +237,13 @@ export async function deployEvmVaultRouter(runtime, system, options) {
   await verifyDependencies(first); assert.equal(await runtime.code(predicted, first.number), '0x', 'EVM_ROUTER_CREATE_OCCUPIED');
   await sameHead(runtime, first); assert.equal(await runtime.nonce(sender, 'pending'), nonce, 'EVM_ROUTER_NONCE_CHANGED');
   assert.ok(!attempts.has(system), 'EVM_ROUTER_DEPLOY_ALREADY_ATTEMPTED'); attempts.add(system);
-  const request = { from: sender, data: creationData, gas: '0x' + LOCAL_EVM_PROFILE.maxGas.toString(16), value: '0x0' };
+  const request = { from: sender, data: creationData, gas: '0x' + deploymentProfile.maxGas.toString(16), value: '0x0' };
   const start = runtime.transactions.length, label = 'deploy fixed PrivateVaultDeliveryRouter';
   const receipt = await runtime.send(label, request);
   const journal = runtime.transactions; assert.equal(journal.length, start + 1, 'EVM_ROUTER_EXACT_JOURNAL_APPEND');
   assert.equal(journal[start].label, label); assert.deepEqual(journal[start].request, request);
   assert.equal(receipt.contractAddress, predicted); assert.equal(BigInt(receipt.blockNumber), BigInt(first.number) + 1n);
-  assert.ok(BigInt(receipt.gasUsed) > 0n && BigInt(receipt.gasUsed) <= BigInt(LOCAL_EVM_PROFILE.maxGas));
+  assert.ok(BigInt(receipt.gasUsed) > 0n && BigInt(receipt.gasUsed) <= BigInt(deploymentProfile.maxGas));
   const record = { sender, address: predicted, nonce: nonce.toString(), receipt: structuredClone(receipt), creationData,
     expectedCode, codeHash: codeHash(expectedCode), codeSHA256: codeSHA(expectedCode) };
   const creation = await originalCreation(runtime, record);
