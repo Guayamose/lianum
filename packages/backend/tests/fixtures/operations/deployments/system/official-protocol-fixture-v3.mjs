@@ -11,8 +11,9 @@ import {loadBackedAssetDeploymentArtifacts} from '../../../../../src/operations/
 const D=join(dirname(fileURLToPath(import.meta.url)),'../../artifacts/private-external-v1'),require=createRequire(join(D,'abi-tools/package.json'));
 let Interface,AbiCoder,keccak256;
 const zero='0x'+'0'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
+import { assertOfficialAaveFixtureV1 } from './official-aave-fixture-v1.mjs';
 const owned=new WeakMap();
-export function assertOfficialProtocolFixture(runtime,fixture){assert.equal(owned.get(fixture),runtime,'ORIGINAL_PROTOCOL_FIXTURE_REQUIRED');}
+export function assertOfficialProtocolFixture(runtime,fixture){if (owned.has(fixture)) assert.equal(owned.get(fixture),runtime,'ORIGINAL_PROTOCOL_FIXTURE_REQUIRED'); else assertOfficialAaveFixtureV1(runtime,fixture);}
 function artifact(path,source,name){const output=JSON.parse(readFileSync(path));return source?output.contracts[source][name]:output;}
 function creation(a){const b=a.bytecode??a.evm?.bytecode?.object;assert.ok(typeof b==='string');const raw=b.startsWith('0x')?b.slice(2):b;assert.ok(/^[0-9a-f]+$/.test(raw)&&raw.length%2===0,'FIXED_CREATION_HEX');return'0x'+raw;}
 export async function createOfficialProtocolFixture(runtime){

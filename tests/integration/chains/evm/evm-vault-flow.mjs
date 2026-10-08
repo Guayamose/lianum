@@ -28,15 +28,17 @@ import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/a
 import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
 import { createManualWalletAppDriver } from '../../wallet/manual/manual-wallet-app-driver.mjs';
-import { createOwnedMetaMorphoVault, assertOwnedMetaMorphoReceipt } from '../../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
+import { createOwnedMetaMorphoVault, createOwnedAaveStaticVaultV1, assertOwnedMetaMorphoReceipt } from '../../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
 import { createPrivateVaultPortfolioView } from '../../../../packages/backend/src/defi/vaults/private-vault-position.mjs';
 import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 
+import { aavePrivateGraphSourcePinsV1 } from './aave-private-graph-source-pins-v1.mjs';
 const bare = value => value.slice(2);
-// The two fixed supervisor entries reuse this original worker. Neither accepts
+// The fixed supervisor entries reuse this original worker. Neither accepts
 // an argv/environment selector or changes the proof/custody authority.
 const SCENARIOS = Object.freeze({
   'integration/run-evm-vault-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_METAMORPHO_V1', local: '.local/evm-vault-flow' }),
+  'integration/run-evm-aave-flow.mjs': Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/evm-aave-flow-v1'}),
   'integration/run-evm-uniswap-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1', local: '.local/evm-uniswap-flow' }),
 });
 const safeCode = error => {
@@ -56,9 +58,9 @@ async function main() {
   const parentEntry = realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1]));
   const scenario = Object.entries(SCENARIOS).find(([entry]) => parentEntry === join(ROOT, entry))?.[1];
   assert.ok(scenario, 'EVM_VAULT_FIXED_ORIGINAL_SUPERVISOR');
-  const PROTOCOL_PROFILE = scenario.protocol, UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1';
-  const SOURCE = '5000000', SHARES = UNISWAP ? '1000' : '1000000000000000000',
-    INPUT = UNISWAP ? '2000' : '1000000', PAYOUT = UNISWAP ? '1200' : '1200000',
+  const PROTOCOL_PROFILE = scenario.protocol, AAVE = PROTOCOL_PROFILE === 'OFFICIAL_AAVE_STATIC_V1', UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1';
+  const SOURCE = '5000000', SHARES = UNISWAP ? '1000' : AAVE ? '1000000' : '1000000000000000000',
+    INPUT = UNISWAP ? '2000' : AAVE ? '1100000' : '1000000', PAYOUT = UNISWAP ? '1200' : '1200000',
     CHANGE = String(BigInt(SOURCE) - BigInt(PAYOUT));
   const lock = JSON.parse(readFileSync(join(ROOT, scenario.local, 'active.lock')));
   assert.equal(lock.pid, process.ppid);
@@ -73,15 +75,16 @@ async function main() {
     format: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
-    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: evmVaultSourcePins(),
+    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: AAVE ? aavePrivateGraphSourcePinsV1() : evmVaultSourcePins(),
     stages: [], proofs: [], transactions: [], accountRequests: [], nativeEffects: { evmVault: 0 },
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
-    protocolProfile: PROTOCOL_PROFILE, privateVaultGraphAcceptance: false, privateUniswapGraphAcceptance: false,
+    protocolProfile: PROTOCOL_PROFILE, privateVaultGraphAcceptance: false, privateUniswapGraphAcceptance: false, privateAaveGraphAcceptance: false,
     partialDeliveryRecoveryAcceptance: false,
     systemicPrivacyAcceptance: false, independentOperators: false,
     realClockFinalityAcceptance: false, performanceTargetAchieved: false, fullWalletAcceptance: false,
     disclosure: [
       UNISWAP ? 'One owned local EVM, official Uniswap V3 fee-3000 exact-output swap with synthetic tokens, controlled local inclusion and one canonical confirmation.'
+        : AAVE ? 'One owned local EVM, official Aave V3/StaticATokenLM with synthetic underlying and genuine paid Pool yield, one canonical confirmation.'
         : 'One owned local EVM, official MetaMorpho with synthetic underlying, controlled local inclusion and one canonical confirmation.',
       'Solver supplies public input. Source private reserve pays only after exact destination private note backing is proven.',
       'The router action, amounts, K, protocol and destination pool remain public. Common-host observers/keeper are trusted.',
@@ -228,7 +231,7 @@ async function main() {
     const solverAfter = await capabilities[0].balance(fixture.solver);
     const spent = solverBalanceBeforeDelivery - solverAfter;
     assert.ok(spent > 0n && spent <= BigInt(INPUT), 'EVM_VAULT_RECOVERY_ORIGINAL_SPEND');
-    if (!UNISWAP) assert.equal(spent, BigInt(INPUT));
+    if (!UNISWAP && !AAVE) assert.equal(spent, BigInt(INPUT));
     assert.equal(await capabilities[1].balance(fixture.targetExitRecipient), BigInt(SHARES));
     const finalPools = [];
     for (const reader of fixture.readers) {
@@ -247,6 +250,7 @@ async function main() {
   try {
     save(); fixture = await createOwnedEvmVaultFixture(privateDirectory, { onStage: stage, onDeployment: audit, protocolProfile: PROTOCOL_PROFILE });
     const { runtime, system, assets, capabilities, sourceOwner, targetOwner, readers, quorum, evmDelivery, router, solver, targetExitRecipient, officialProtocol } = fixture;
+    if(AAVE)writeFixturePrivate(join(privateDirectory,'aave-new-compilation.json'),officialProtocol.compilation);
     const assetArtifacts = loadBackedAssetDeploymentArtifacts().artifacts;
     execution = await createFlatNativeExecution({ runtime, system, poolIndex: 0,
       bitcoin: null, solana: null, evmDelivery, quorum }, {
@@ -261,7 +265,7 @@ async function main() {
       accounts: accounts.map((account, poolIndex) => ({ poolIndex, account })),
       accountId: 'private_vault_account', journalId: 'private_vault_journal' });
     if (!UNISWAP) {
-      vaultActor = await createOwnedMetaMorphoVault({ runtime, protocolFixture: officialProtocol });
+      vaultActor = await (AAVE ? createOwnedAaveStaticVaultV1 : createOwnedMetaMorphoVault)({ runtime, protocolFixture: officialProtocol });
       vaultExit = await createOwnedPrivateVaultExit({ runtime, system, poolIndex: 1, account: accounts[1], vault: vaultActor });
       privateView = createPrivateVaultPortfolioView({ runtime, portfolio, vault: vaultActor,
         shareAssetId: accounts[1].assetId, underlyingAssetId: accounts[0].assetId });
@@ -289,7 +293,13 @@ async function main() {
     assert.equal(fundingReview.amount, SOURCE);
     const fundingBody = await ownerPreparations[0].confirm(); assert.equal(fundingBody.requestId, 'vault_top_up');
     await appAccount('prepare', fundingBody);
+    if(AAVE) {
+      const lost=await appDriver.executeAccountWithLostReply({requestId:'vault_top_up'});
+      assert.equal(row(lost.snapshot,'vault_top_up').state,'CONFIRMED');result.fundingReplyLoss=lost.loss;
+      result.accountRequests.push({action:'execute',requestId:'vault_top_up',via:'NODE_SDK_EXACT_ONLY_HTTP',originalJournalState:'CONFIRMED'});save();
+    }else {
     assert.equal(row(await appAccount('execute', { requestId: 'vault_top_up' }), 'vault_top_up').state, 'CONFIRMED');
+    }
     await appDuplicateExecute('vault_top_up');
     const fundedCount = runtime.transactions.length;
     await appAccount('reconcile', { requestId: 'vault_top_up' });
@@ -312,7 +322,7 @@ async function main() {
     const reviewed = consent.review.accountContext.graph;
     assert.equal(reviewed.reservedAmount, PAYOUT); assert.equal(reviewed.changeAmount, CHANGE);
     const reviewedRoute = reviewed.graph.legs[0].route;
-    assert.equal(reviewedRoute.routeProfile, UNISWAP ? 'REGISTERED_LOCAL_EVM_UNISWAP_V3_V1' : 'REGISTERED_LOCAL_EVM_METAMORPHO_V1');
+    assert.equal(reviewedRoute.routeProfile, UNISWAP ? 'REGISTERED_LOCAL_EVM_UNISWAP_V3_V1' : AAVE ? 'REGISTERED_LOCAL_EVM_AAVE_STATIC_V1' : 'REGISTERED_LOCAL_EVM_METAMORPHO_V1');
     assert.equal(UNISWAP ? reviewedRoute.solverMaximumInputAmount : reviewedRoute.solverMaximumUnderlyingAmount, INPUT);
     assert.equal(UNISWAP ? reviewedRoute.deliveredOutputAmount : reviewedRoute.deliveredShares, SHARES);
     if (UNISWAP) {
@@ -322,7 +332,7 @@ async function main() {
       assert.equal(reviewedRoute.outputToken, bare(officialProtocol.second.address));
     }
     assert.equal(reviewedRoute.protocolAmountsPublic, true);
-    writeFixturePrivate(join(privateDirectory, UNISWAP ? 'original-uniswap-consent.json' : 'original-metamorpho-consent.json'), consent.review);
+    writeFixturePrivate(join(privateDirectory, UNISWAP ? 'original-uniswap-consent.json' : AAVE ? 'original-aave-consent.json' : 'original-metamorpho-consent.json'), consent.review);
     solverBalanceBeforeDelivery = await capabilities[0].balance(solver);
     const settled = await consent.confirmAfterAdmission(async () => {
       assert.equal(runtime.transactions.filter(entry => entry.signed).length, 0, 'EVM_VAULT_TARGET_MUST_STOP_BEFORE_DELIVERY');
@@ -345,14 +355,14 @@ async function main() {
     solverBalanceAfterDelivery = await capabilities[0].balance(solver);
     const actualInput = solverBalanceBeforeDelivery - solverBalanceAfterDelivery;
     assert.ok(actualInput > 0n && actualInput <= BigInt(INPUT), 'EVM_VAULT_EXACT_BOUNDED_INPUT');
-    if (!UNISWAP) assert.equal(actualInput, BigInt(INPUT));
+    if (!UNISWAP && !AAVE) assert.equal(actualInput, BigInt(INPUT));
     assert.equal(await capabilities[0].allowance(solver, router.address), 0n);
     result.actualGlobalClaim = { at: new Date().toISOString(), sourceOwnerAbsent: true, targetOwnerAbsent: true,
       source: source.ledger.publicState, destination: destination.ledger.publicState,
-      protocol: UNISWAP ? 'OFFICIAL_UNISWAP_V3_EXACT_OUTPUT_SINGLE' : 'OFFICIAL_METAMORPHO',
+      protocol: UNISWAP ? 'OFFICIAL_UNISWAP_V3_EXACT_OUTPUT_SINGLE' : AAVE ? 'OFFICIAL_AAVE_V3_STATIC_TOKEN' : 'OFFICIAL_METAMORPHO',
       exactOutputAmount: SHARES, solverPayout: PAYOUT, maximumInput: INPUT, actualInput: String(actualInput) };
-    if (UNISWAP) result.privateUniswapGraphAcceptance = true; else result.privateVaultGraphAcceptance = true;
-    await audit(); process.stdout.write(JSON.stringify({ result: UNISWAP ? 'ACTUAL_PRIVATE_UNISWAP_GLOBAL_CLAIM' : 'ACTUAL_PRIVATE_VAULT_GLOBAL_CLAIM' }) + '\n');
+    if (UNISWAP) result.privateUniswapGraphAcceptance = true; else if(AAVE) result.privateAaveGraphAcceptance = true; else result.privateVaultGraphAcceptance = true;
+    await audit(); process.stdout.write(JSON.stringify({ result: UNISWAP ? 'ACTUAL_PRIVATE_UNISWAP_GLOBAL_CLAIM' : AAVE ? 'ACTUAL_PRIVATE_AAVE_GLOBAL_CLAIM' : 'ACTUAL_PRIVATE_VAULT_GLOBAL_CLAIM' }) + '\n');
     const afterClaimCount = runtime.transactions.length;
     await request('execute', { requestId: graphId });
     assert.equal(runtime.transactions.length, afterClaimCount, 'EVM_VAULT_DUPLICATE_GRAPH_SENT');
@@ -371,7 +381,7 @@ async function main() {
     assert.equal(coherent.assets[0].requests.find(value => value.requestId === graphId)?.disposition, 'FULFILLED');
     if (!UNISWAP) {
       assert.equal(coherent.positions[0].availableShares, SHARES);
-      assert.equal(coherent.positions[0].estimatedRedeemableUnderlying, INPUT);
+      assert.equal(coherent.positions[0].estimatedRedeemableUnderlying,AAVE?SHARES:INPUT);
       assert.equal(coherent.positions[0].underlyingSpendable, false);
     }
     result.originalNotesRecoveredOnce = true;
@@ -381,6 +391,17 @@ async function main() {
         : { position: { availableShares: coherent.positions[0].availableShares,
           estimatedRedeemableUnderlying: coherent.positions[0].estimatedRedeemableUnderlying, underlyingSpendable: false } }) };
 
+    if(AAVE) {
+      const beforeYield=await privateView();
+      result.aaveYield=await officialProtocol.accrueYield();
+      const afterYield=await privateView();
+      assert.deepEqual(afterYield.assets.map(row=>row.balances),beforeYield.assets.map(row=>row.balances),'AAVE_YIELD_NO_PRIVATE_NOTE_MINT');
+      assert.equal(afterYield.positions[0].availableShares,SHARES);
+      assert.ok(BigInt(afterYield.positions[0].estimatedRedeemableUnderlying)>BigInt(beforeYield.positions[0].estimatedRedeemableUnderlying),'AAVE_PRIVATE_POSITION_RETAINED_YIELD');
+      result.aaveYield={...result.aaveYield,privateSharesBefore:beforeYield.positions[0].availableShares,
+        privateSharesAfter:afterYield.positions[0].availableShares,estimatedBefore:beforeYield.positions[0].estimatedRedeemableUnderlying,
+        estimatedAfter:afterYield.positions[0].estimatedRedeemableUnderlying};save();
+    }
     await stage(UNISWAP ? 'exit-source-change-and-original-target-output' : 'exit-source-change-and-original-target-shares');
     await exitOwnerNote(0, sourceOwner, 'change', 'vault_exit_0');
     await exitOwnerNote(1, targetOwner, 'source', 'vault_exit_1');
@@ -435,15 +456,17 @@ async function main() {
 
     if (!UNISWAP) {
       await stage('redeem-exited-vault-shares-and-close-backing');
-      const redemption = { requestId: 'vault_exit_1', minimumOutput: INPUT, deadline: String((await runtime.time()) + 240n) };
+      const underlyingMinimum = AAVE ? String((await officialProtocol.read(officialProtocol.vault,'previewRedeem',[BigInt(SHARES)]))[0]) : INPUT;
+      const redemption = { requestId: 'vault_exit_1', minimumOutput: underlyingMinimum, deadline: String((await runtime.time()) + 240n) };
       const preparedRedemption = await appDefi('prepare', redemption);
       assert.equal(preparedRedemption.shares, SHARES); assert.equal(preparedRedemption.phase, 'READY_TO_REDEEM');
       const redemptionResult = await appDefi('execute', { requestId: redemption.requestId });
-      assert.equal(redemptionResult.phase, 'REDEEMED'); assert.equal(redemptionResult.redeemedUnderlying, INPUT);
+      assert.equal(redemptionResult.phase, 'REDEEMED'); assert.equal(redemptionResult.redeemedUnderlying, underlyingMinimum); if(AAVE) assert.ok(BigInt(underlyingMinimum)>BigInt(SHARES),'AAVE_REDEEM_INCLUDES_GENUINE_YIELD');
       assert.equal(redemptionResult.underlyingPrivateSpendable, false);
       const redeemed = await vaultExit.originalReceipt(redemption.requestId);
       assertOwnedMetaMorphoReceipt(vaultActor, redeemed);
       writeFixturePrivate(join(privateDirectory, 'vault-redemption.json'), redeemed);
+      if(AAVE)result.aaveRedemption=redeemed.execution.confirmation.aaveRedemption;
       const redemptionCount = runtime.transactions.length;
       await appDefi('reopen', {}); await appDefi('prepare', redemption);
       await appDefi('reconcile', { requestId: redemption.requestId });
@@ -457,9 +480,9 @@ async function main() {
         graphExecutionExposed: false, graphThroughOriginalExactConsent: true, graphUsedOriginalPrivateHarnessApi: false,
         browserVisualAcceptance: false, nativeClaimSessionAcceptance: false };
       result.manualPrivateShareExitRedemption = { ...redemptionResult, originalExitBound: true, duplicateNoEffect: true };
-      assert.equal(await capabilities[0].balance(solver), solverBalanceAfterDelivery + BigInt(PAYOUT) + BigInt(INPUT));
+      assert.equal(await capabilities[0].balance(solver), solverBalanceAfterDelivery + BigInt(PAYOUT) + BigInt(underlyingMinimum));
       const vault = await vaultActor.observe();
-      assert.equal(vault.snapshot.totalAssets, '0'); assert.equal(vault.snapshot.totalShares, '0');
+      assert.equal(vault.snapshot.totalShares,'0'); if(AAVE) { assert.ok(BigInt(vault.snapshot.totalAssets)<=1n,'AAVE_EXPLICIT_RAY_RESIDUAL'); result.aaveResidualUnderlying=vault.snapshot.totalAssets; } else assert.equal(vault.snapshot.totalAssets,'0');
     } else {
       const finalApp = await appState(); assert.equal(finalApp.capabilities.graphExecution, false);
       result.walletApplicationHttpAcceptance = { originalAccountTopUpAndExit: true,
@@ -482,8 +505,8 @@ async function main() {
     assert.equal(final.status, 'LIVE');
     assert.deepEqual(final.assets.map(asset => asset.balances.available), ['0', '0']);
     assert.equal(runtime.transactions.filter(entry => entry.signed).length, 1);
-    if (UNISWAP) result.privateUniswapGraphAcceptance = true; else result.privateVaultGraphAcceptance = true;
-    result.protocol = UNISWAP ? 'OFFICIAL_UNISWAP_V3_EXACT_OUTPUT_SINGLE' : 'OFFICIAL_METAMORPHO';
+    if (UNISWAP) result.privateUniswapGraphAcceptance = true; else if(AAVE) result.privateAaveGraphAcceptance = true; else result.privateVaultGraphAcceptance = true;
+    result.protocol = UNISWAP ? 'OFFICIAL_UNISWAP_V3_EXACT_OUTPUT_SINGLE' : AAVE ? 'OFFICIAL_AAVE_V3_STATIC_TOKEN' : 'OFFICIAL_METAMORPHO';
     result.sourcePrivateReservationEstablished = true;
     result.privatePAEGConversionEstablished = true; result.originalExactConsent = appDriver.evidence();
     result.privateOutputExitEstablished = true;
@@ -499,7 +522,7 @@ async function main() {
       try { result.lastObservedPools.push((await reader.read()).ledger.publicState); } catch {}
     }
     await audit().catch(() => {});
-    try { await recoverOriginalFailedDelivery(); }
+    try { if(!AAVE) await recoverOriginalFailedDelivery(); }
     catch (recoveryError) {
       result.failureRecoveryError = safeCode(recoveryError);
       writeFixturePrivate(join(privateDirectory, 'failure-recovery-error.json'), {
@@ -510,7 +533,7 @@ async function main() {
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.closedEvm !== true) { result.success = false; result.phase = 'failed'; }
-    try { assert.deepEqual(evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
+    try { assert.deepEqual(AAVE?aavePrivateGraphSourcePinsV1():evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
     result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began; save();
     if (!result.success) process.exitCode = 1;

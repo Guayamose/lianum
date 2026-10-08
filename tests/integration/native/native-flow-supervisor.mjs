@@ -1,3 +1,6 @@
+import {aavePrivateGraphSourcePinsV1} from '../chains/evm/aave-private-graph-source-pins-v1.mjs';
+import {assertAavePrivateGraphResultV1} from '../chains/evm/aave-private-graph-policy-v1.mjs';
+import {assertOfficialAaveSourceReviewV1} from '../../../packages/backend/tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import { nativeWalletTronDevSourcePinsV5 } from '../wallet/native/native-wallet-tron-dev-source-pins-v5.mjs';
 import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, NATIVE_WALLET_TRON_DEV_RESULT_V5 } from '../wallet/native/native-wallet-tron-dev-policy-v5.mjs';
 import { pairedNativeNoteSourcePinsV2 } from '../wallet/native/paired-native-note-source-pins-v2.mjs';
@@ -396,6 +399,18 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: evmVaultSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
+  evmAave: Object.freeze({
+    entry: join(ROOT, 'integration/run-evm-aave-flow.mjs'),
+    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    local: join(ROOT, '.local/evm-aave-flow-v1'),
+    resultFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',
+    resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
+    lockFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_LOCK_V1',
+    attemptFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_PRIVATE_AAVE_STATIC_GRAPH_V1',
+    sourcePins: aavePrivateGraphSourcePinsV1,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
   nativeFlow: Object.freeze({
     entry: join(ROOT, 'integration/run-native-flow.mjs'),
     worker: join(ROOT, 'integration/native-flow.mjs'),
@@ -622,6 +637,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
   if (profile === FLOW_PROFILES.developmentOsakaSmoke) scoped = assertOsakaSmokeResult(result);
   if (profile === FLOW_PROFILES.wrappedDeploymentOnly) scoped = assertWrappedDeploymentOnlyResultV1(result);
@@ -842,6 +858,10 @@ export async function runPrivateMetaMorphoSupervisor() {
 export async function runEvmVaultSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_VAULT_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.evmVault);
+}
+export async function runEvmAaveSupervisorV1() {
+  assert.equal(arguments.length,0,'AAVE_SUPERVISOR_NO_OPTIONS');assertOfficialAaveSourceReviewV1();
+  return runFixedFlowSupervisor(FLOW_PROFILES.evmAave);
 }
 export async function runEvmUniswapSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_UNISWAP_NO_SUPERVISOR_OPTIONS');

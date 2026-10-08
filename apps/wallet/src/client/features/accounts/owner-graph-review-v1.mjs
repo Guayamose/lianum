@@ -20,8 +20,8 @@ function vaultRoute(r){
 }
 export const OWNER_GRAPH_METAMORPHO_ROUTE_FIELDS=Object.freeze([...OWNER_GRAPH_VAULT_ROUTE_FIELDS.filter(key=>key!=='solverUnderlyingAmount'),
  'protocolKind','solverMaximumUnderlyingAmount','deliveryRiskCommitment','protocolAmountsPublic','publicNetwork']);
-function metaMorphoRoute(r){
- fields(r,OWNER_GRAPH_METAMORPHO_ROUTE_FIELDS);need(r.routeProfile==='REGISTERED_LOCAL_EVM_METAMORPHO_V1'&&r.family==='3'&&r.chainId==='31337'&&r.protocolKind==='METAMORPHO_V1_EXACT_SHARE_MINT','OWNER_GRAPH_METAMORPHO_PROFILE');
+function metaMorphoRoute(r,aave=false){
+ fields(r,OWNER_GRAPH_METAMORPHO_ROUTE_FIELDS);need(r.routeProfile===(aave?'REGISTERED_LOCAL_EVM_AAVE_STATIC_V1':'REGISTERED_LOCAL_EVM_METAMORPHO_V1')&&r.family==='3'&&r.chainId==='31337'&&r.protocolKind===(aave?'AAVE_V3_STATIC_EXACT_SHARE_MINT':'METAMORPHO_V1_EXACT_SHARE_MINT'),'OWNER_GRAPH_METAMORPHO_PROFILE');
  for(const key of ['genesis','sourceAssetIdentity','targetAssetIdentity','targetCommitment','descriptorCommitment','payoutCommitment','deliveryRiskCommitment'])need(hash(r[key]),'OWNER_GRAPH_METAMORPHO_HASH');
  for(const key of ['router','vault','solver','sourcePool','targetPool'])need(typeof r[key]==='string'&&/^[0-9a-f]{40}$/.test(r[key])&&r[key]!=='0'.repeat(40),'OWNER_GRAPH_METAMORPHO_ENDPOINT');
  need(uint(r.solverMaximumUnderlyingAmount)>0n&&uint(r.deliveredShares,64)>0n,'OWNER_GRAPH_METAMORPHO_AMOUNT');
@@ -40,6 +40,7 @@ function uniswapRoute(r){
 }
 function route(r,wrapped,flat){
  if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_UNISWAP_V3_V1'){uniswapRoute(r);return;}
+ if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_AAVE_STATIC_V1'){metaMorphoRoute(r,true);return;}
  if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_METAMORPHO_V1'){metaMorphoRoute(r);return;}
  if(flat&&Object.getOwnPropertyDescriptor(r??{},'routeProfile')?.value==='REGISTERED_LOCAL_EVM_VAULT_V1'){vaultRoute(r);return;}
  fields(r,OWNER_GRAPH_ROUTE_FIELDS);need(r.routeProfile===(flat?'REGISTERED_LOCAL_NATIVE_DELIVERY_V1':wrapped?'OWNED_LOCAL_WRAPPED_CLAIM_NATIVE_GRAPH_V1':'OWNED_LOCAL_NATIVE_VALUE_GRAPH_V2'),'OWNER_GRAPH_ROUTE_PROFILE');

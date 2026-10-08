@@ -326,11 +326,11 @@ export function accountReviewDetails(context) {
             [`${label} · compromiso de riesgo`, route.deliveryRiskCommitment],
             [`${label} · exposición`, 'Protocolo, importes, ejecución y depósito observables en la red local'],
           );
-        } else if (['REGISTERED_LOCAL_EVM_VAULT_V1', 'REGISTERED_LOCAL_EVM_METAMORPHO_V1'].includes(route.routeProfile)) {
+        } else if (['REGISTERED_LOCAL_EVM_VAULT_V1', 'REGISTERED_LOCAL_EVM_METAMORPHO_V1', 'REGISTERED_LOCAL_EVM_AAVE_STATIC_V1'].includes(route.routeProfile)) {
           rows.push(
             [`${label} · depósito en vault`, route.vault],
             [`${label} · router`, route.router],
-            [`${label} · liquidez del solver`, route.routeProfile === 'REGISTERED_LOCAL_EVM_METAMORPHO_V1'
+            [`${label} · liquidez del solver`, ['REGISTERED_LOCAL_EVM_METAMORPHO_V1','REGISTERED_LOCAL_EVM_AAVE_STATIC_V1'].includes(route.routeProfile)
               ? `Límite ${route.solverMaximumUnderlyingAmount} unidades atómicas del subyacente`
               : `${route.solverUnderlyingAmount} unidades atómicas del subyacente`],
             [`${label} · shares entregadas`, `${route.deliveredShares} unidades atómicas · ${route.targetAssetIdentity}`],
@@ -338,8 +338,8 @@ export function accountReviewDetails(context) {
             [`${label} · destinatario privado`, `Compromiso de salida ${route.targetCommitment}`],
             [`${label} · descriptor original`, route.descriptorCommitment],
           );
-          if (route.routeProfile === 'REGISTERED_LOCAL_EVM_METAMORPHO_V1') rows.push(
-            [`${label} · protocolo`, 'MetaMorpho oficial; importes, ejecución y depósito observables en la red local'],
+          if (['REGISTERED_LOCAL_EVM_METAMORPHO_V1','REGISTERED_LOCAL_EVM_AAVE_STATIC_V1'].includes(route.routeProfile)) rows.push(
+            [`${label} · protocolo`, route.routeProfile==='REGISTERED_LOCAL_EVM_AAVE_STATIC_V1' ? 'Aave V3 oficial; cuotas estáticas cuyo valor incorpora el rendimiento del Pool. Importes, ejecución y depósito observables en la red local' : 'MetaMorpho oficial; importes, ejecución y depósito observables en la red local'],
             [`${label} · compromiso de riesgo`, route.deliveryRiskCommitment],
           );
         } else {
