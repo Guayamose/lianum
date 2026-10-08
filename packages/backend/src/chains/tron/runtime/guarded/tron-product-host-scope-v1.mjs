@@ -10,14 +10,16 @@ import { PRIVATE_RESOURCE_POLICY } from '../../../../../../engine/src/crypto/pri
 import { readOriginalTronProductChildBirthV1 } from './tron-aligned-child-opener-v1.mjs';
 const BUDGET = 90 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const PROFILES = Object.freeze(['acceptance', 'preflight'].map(kind => Object.freeze({
+const PROFILES = Object.freeze([...['acceptance', 'preflight'].map(kind => Object.freeze({
  entry: join(ROOT, `integration/run-native-wallet-real-${kind}-v1.mjs`),
  worker: join(ROOT, `integration/native-wallet-real-${kind}-v1.mjs`),
  local: join(ROOT, `.local/native-wallet-real-${kind}-v1`),
  resources: `NATIVE_WALLET_REAL_${kind.toUpperCase()}_RESOURCES_V1`,
  lock: `NATIVE_WALLET_REAL_${kind.toUpperCase()}_LOCK_V1`,
-})));
-const PROOF_SCRIPTS = new Set(['worker.mjs','native-value-live-v2-worker.mjs','native-ingress-v3-worker.mjs',
+})),Object.freeze({entry:join(ROOT,'integration/run-native-wallet-tron-dev-v5.mjs'),
+ worker:join(ROOT,'integration/native-wallet-tron-dev-v5.mjs'),local:join(ROOT,'.local/native-wallet-tron-dev-v5'),
+ resources:'NATIVE_WALLET_TRON_DEV_RESOURCES_V5',lock:'NATIVE_WALLET_TRON_DEV_LOCK_V5'})]);
+const PROOF_SCRIPTS = new Set(['worker.mjs','native-value-live-v2-worker.mjs','native-value-dev-live-v5-worker.mjs','native-ingress-v3-worker.mjs',
  'native-claims-build-worker.mjs'].map(name => join(ROOT, 'proof-workers', name)));
 PROOF_SCRIPTS.add(join(GOLDEN, 'src/paeg/proof-worker.mjs'));
 const LOCKS = Object.freeze([[join(ROOT,'.local/proof-workers/active.lock'),'pid'],
@@ -87,7 +89,7 @@ export function assertTronProductSupervisorEvidenceV1(value) {
  assert.equal(script(main),profile.worker); assert.equal(script(supervisor),profile.entry);
  const node = realpathSync(process.execPath); assert.equal(main.executable,node); assert.equal(supervisor.executable,node);
  assert.equal(lock.format,profile.lock); assert.equal(lock.pid,supervisor.pid); assert.equal(lock.supervisorStartTimeTicks,supervisor.start);
- assert.match(lock.runId,UUID); assert.equal(lock.attempt,`.local/native-wallet-real-${profileIndex===0?'acceptance':'preflight'}-v1/attempt-${lock.runId}`);
+ assert.match(lock.runId,UUID); assert.equal(lock.attempt,`${relative(ROOT,profile.local)}/attempt-${lock.runId}`);
  assert.equal(resources.format,profile.resources); assert.equal(resources.runId,lock.runId); assert.equal(resources.phase,'running');
  assert.equal(resources.failure,null); assert.equal(resources.supervisorPID,supervisor.pid); assert.equal(resources.workerPID,main.pid);
  for(const [row,identity] of [[main,resources.workerIdentity],[supervisor,resources.supervisorIdentity]]) {
@@ -118,7 +120,7 @@ function captureScope() {
  const files = new Map();
  for(const row of pins.local) {
   assert.ok(row && typeof row.path==='string' && !row.path.includes('\0') && !row.path.startsWith('/'));
-  const path=resolve(FLAT,row.path); assert.ok([ROOT,FLAT,GOLDEN,MOBILE_PROTOCOL].some(root=>path.startsWith(root+'/')));
+  const path=resolve(FLAT,row.path); assert.ok([ROOT,FLAT,GOLDEN,MOBILE_PROTOCOL,...(index===2?[resolve(FLAT,'../../..')]:[])].some(root=>path.startsWith(root+'/')));
   assert.equal(relative(FLAT,path),row.path); assert.ok(!files.has(path));
   assert.match(row.sha256,/^[0-9a-f]{64}$/);assert.ok(Number.isSafeInteger(row.bytes)&&row.bytes>=0); files.set(path,row);
  }

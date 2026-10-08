@@ -31,7 +31,18 @@ export const NATIVE_VALUE_LOCAL_WALLCLOCK_BOOTSTRAP_PROFILE_V1='OWNED_LOCAL_TRON
 // Explicit new initial registration, never a rewrite of V4 or any certificate.
 // The native facts frame hashes this lifetime; full-audit 30s guards are separate.
 export const LOCAL_TRON_WALLCLOCK_LIMITS_V1=Object.freeze({...limits,maximumAncestry:'256',maximumEvidenceLifetime:'300'});
-export const LOCAL_TRON_WALLCLOCK_PROFILE_RELEASE_V1=null;
+export const LOCAL_TRON_WALLCLOCK_PROFILE_RELEASE_V1=Object.freeze({format:'REVIEWED_LOCAL_TRON_INITIAL_WALLCLOCK_PROFILE_V1',
+  maximumEvidenceLifetime:'300',maximumAncestry:'256',maximumTaposDistance:'256',fullAuditMilliseconds:30000,
+  localOnly:true,publicNetwork:false,independentInfrastructureEstablished:false,
+  acceptedPrivateGraphEstablished:false,privateNativeCreditEstablished:false});
+export function assertLocalTronWallclockProfileReleaseV1(){
+ assert.equal(arguments.length,0,'NATIVE_VALUE_WALLCLOCK_RELEASE_NO_OPTIONS');
+ assert.ok(LOCAL_TRON_WALLCLOCK_PROFILE_RELEASE_V1,'NATIVE_VALUE_WALLCLOCK_PROFILE_RELEASE_ABSENT');
+ assert.deepEqual(LOCAL_TRON_WALLCLOCK_PROFILE_RELEASE_V1,{format:'REVIEWED_LOCAL_TRON_INITIAL_WALLCLOCK_PROFILE_V1',
+  maximumEvidenceLifetime:'300',maximumAncestry:'256',maximumTaposDistance:'256',fullAuditMilliseconds:30000,
+  localOnly:true,publicNetwork:false,independentInfrastructureEstablished:false,
+  acceptedPrivateGraphEstablished:false,privateNativeCreditEstablished:false});return true;
+}
 const operatorIdentity=i=>sha256('LIANUM/owned-local-native-operator-slot/1\0'+i);
 function merkle(leaves,depth) {
   let level=[...leaves,...Array((1<<depth)-leaves.length).fill(ZERO)];const levels=[level];
@@ -84,7 +95,7 @@ export async function createOwnedLocalNativeValueOperatorBootstrap(raw) {
  * pending explicit policy review plus real runtime and wallclock acceptance. */
 export async function createOwnedLocalTronWallclockOperatorBootstrapV1(raw){
   assert.equal(arguments.length,1,'NATIVE_VALUE_LOCAL_BOOTSTRAP_ARITY');exactRecord(raw,['nativeRuntimes']);
-  assert.ok(LOCAL_TRON_WALLCLOCK_PROFILE_RELEASE_V1,'NATIVE_VALUE_WALLCLOCK_PROFILE_RELEASE_ABSENT');
+  assertLocalTronWallclockProfileReleaseV1();
   assert.equal(raw.nativeRuntimes.length,1,'NATIVE_VALUE_WALLCLOCK_TRON_ONLY');
   const R=await import('../../../chains/tron/runtime/owned-tron-native-value-runtime.mjs');
   assert.ok(R.isOwnedLocalTronNativeValueV1(raw.nativeRuntimes[0]),'NATIVE_VALUE_WALLCLOCK_ORIGINAL_TRON_REQUIRED');

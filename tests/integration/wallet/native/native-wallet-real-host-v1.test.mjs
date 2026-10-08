@@ -73,7 +73,7 @@ test('proof schedule is driver-derived D/U/S/P/R/native-I84/Nx4/T/W/W, no I36 or
 });
 test('fixed source ordering gates funds before all loaded and original checks, no arbitrary transports',()=>{
   const s=readFileSync(new URL('./native-wallet-real-driver-v1.mjs',import.meta.url),'utf8');
-  assert.ok(s.indexOf('await loadNativeValueDeploymentArtifacts()')<s.indexOf('runtime=await createOwnedLocalEvmV2()'));
+  assert.ok(s.indexOf('loadNativeValueDeploymentArtifacts())')<s.indexOf('createOwnedLocalEvmV2());nativeRuntime='));
   assert.ok(s.indexOf("await health('empty'")<s.indexOf("await stage('manual-top-up-shared-http-sdk')"));
   assert.ok(s.indexOf("await health('loaded-before-authorization'")<s.indexOf('await owner.owner.prepareAuthorization'));
   assert.match(s,/OWNER_SUSPENDED_BEFORE_NATIVE/);assert.match(s,/health\('reserved-before-native'/);

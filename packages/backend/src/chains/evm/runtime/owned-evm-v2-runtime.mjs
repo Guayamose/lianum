@@ -45,11 +45,20 @@ export const LOCAL_OSAKA_EVM_PROFILE_V1 = Object.freeze({ ...LOCAL_EVM_PROFILE,
 export const LOCAL_OBSERVED_RECEIVER_PROFILE_V1=Object.freeze({...LOCAL_EVM_PROFILE,
   name:'PAEG_LOCAL_OBSERVED_WALLCLOCK_RECEIVER_V1',genesisTimestamp:null,
   clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',publicNetwork:false});
-export const LOCAL_OBSERVED_RECEIVER_RELEASE_V1=null;
+export const LOCAL_OBSERVED_RECEIVER_RELEASE_V1=Object.freeze({format:'REVIEWED_LOCAL_OBSERVED_RECEIVER_SOURCE_V1',
+  clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',localOnly:true,publicNetwork:false,
+  acceptedRuntimeEstablished:false,privateNativeCreditEstablished:false});
+export function assertLocalObservedReceiverReleaseV1(){
+ assert.equal(arguments.length,0,'LOCAL_OBSERVED_RELEASE_NO_OPTIONS');
+ assert.ok(LOCAL_OBSERVED_RECEIVER_RELEASE_V1,'LOCAL_OBSERVED_RECEIVER_RELEASE_ABSENT');
+ assert.deepEqual(LOCAL_OBSERVED_RECEIVER_RELEASE_V1,{format:'REVIEWED_LOCAL_OBSERVED_RECEIVER_SOURCE_V1',
+  clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',localOnly:true,publicNetwork:false,
+  acceptedRuntimeEstablished:false,privateNativeCreditEstablished:false});return true;
+}
 const observedReceiverClocks=new WeakMap();
 export async function createOwnedLocalEvmObservedClockV1(){
   assert.equal(arguments.length,0,'LOCAL_OBSERVED_CLOCK_FIXED_CONSTRUCTOR');
-  assert.ok(LOCAL_OBSERVED_RECEIVER_RELEASE_V1,'LOCAL_OBSERVED_RECEIVER_RELEASE_ABSENT');
+  assertLocalObservedReceiverReleaseV1();
   return createFixedOwnedLocalEvm(LOCAL_OBSERVED_RECEIVER_PROFILE_V1);
 }
 /** Refresh only this new original receiver. Old factory behavior is unchanged.

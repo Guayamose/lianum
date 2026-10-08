@@ -1,3 +1,5 @@
+import { nativeWalletTronDevSourcePinsV5 } from '../wallet/native/native-wallet-tron-dev-source-pins-v5.mjs';
+import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, NATIVE_WALLET_TRON_DEV_RESULT_V5 } from '../wallet/native/native-wallet-tron-dev-policy-v5.mjs';
 import { pairedNativeNoteSourcePinsV2 } from '../wallet/native/paired-native-note-source-pins-v2.mjs';
 import { PAIRED_NATIVE_NOTE_RESULT_V2, assertPairedNativeNoteReleaseV2, assertPairedNativeNoteResultV2 } from '../wallet/native/paired-native-note-policy-v2.mjs';
 import { nativeClaimEmptyAuditSourcePins } from '../claims/metrics/native-claim-empty-audit-source-pins-v1.mjs';
@@ -137,6 +139,13 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: wrappedWalletFixedSourcePinsV1, cleanupKeys: Object.freeze(['closedEvm', 'closedGraphEvm', 'closedBitcoin', 'closedSolana']),
   }),
 
+  nativeWalletTronDevV5:Object.freeze({entry:join(ROOT,'integration/run-native-wallet-tron-dev-v5.mjs'),
+   worker:join(ROOT,'integration/native-wallet-tron-dev-v5.mjs'),local:join(ROOT,'.local/native-wallet-tron-dev-v5'),
+   resultFormat:NATIVE_WALLET_TRON_DEV_RESULT_V5,resourcesFormat:'NATIVE_WALLET_TRON_DEV_RESOURCES_V5',
+   lockFormat:'NATIVE_WALLET_TRON_DEV_LOCK_V5',attemptFormat:'NATIVE_WALLET_TRON_DEV_ATTEMPT_V5',
+   classification:'BOUNDED_LOCAL_ORIGINAL_TRON_PRIVATE_WALLET_GRAPH_V5',sourcePins:nativeWalletTronDevSourcePinsV5,
+   cleanupKeys:Object.freeze(['closedEvm','closedNativeTron']),
+  }),
   nativeWalletRealAcceptance: Object.freeze({
     entry: join(ROOT, 'integration/run-native-wallet-real-acceptance-v1.mjs'),
     worker: join(ROOT, 'integration/native-wallet-real-acceptance-v1.mjs'),
@@ -504,6 +513,10 @@ const sameIdentity = (a, b) => a && b && a.pid === b.pid && a.startTimeTicks ===
 /** Fixed executable labels only. The existing shared proof lock remains the
  * owner; the native I84 backend is included in its same one-heavy-worker/RSS bound. */
 export function classifyNativeWalletRealExecutable(script) {
+  if(script===join(ROOT,'proof-workers/native-value-dev-live-v5-role-process.mjs'))
+    return {role:'native-value-dev-live-v5-proof-role',proofWorker:false};
+  if(script===join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'))
+    return {role:'native-value-dev-live-v5-proof-worker',proofWorker:true};
   if (script === join(ROOT, 'proof-workers/native-value-live-v2-role-process.mjs'))
     return { role: 'native-value-live-v2-proof-role', proofWorker: false };
   if (script === join(ROOT, 'proof-workers/native-value-live-v2-worker.mjs'))
@@ -523,7 +536,7 @@ export function classifyNativeIngressV3Executable(script) {
 /** Unfunded profile may hash inside its original owner, but never launch a
  * proof role/backend. It shares the original process-group ownership sampler. */
 export function nativeWalletUnfundedProcessFailure(processes) {
-  return processes.some(item => item.proofWorker || ['native-value-live-v2-proof-role', 'flat-proof-role',
+  return processes.some(item => item.proofWorker || ['native-value-live-v2-proof-role','native-value-dev-live-v5-proof-role', 'flat-proof-role',
     'native-ingress-v3-proof-role'].includes(item.role)) ? 'NATIVE_WALLET_UNFUNDED_PROOF_FORBIDDEN' : null;
 }
 
@@ -551,7 +564,7 @@ export function nativeExitedProcessClassification(process, established) {
 export function nativeProofProcessResources(processes) {
   const active = processes.filter(live);
   const protectedProofProcesses = active.filter(item => item.proofWorker
-    || item.role === 'wrapped-claim-proof-role' || item.role === 'native-ingress-v3-proof-role' || item.role === 'native-value-live-v2-proof-role');
+    || item.role === 'wrapped-claim-proof-role' || item.role === 'native-ingress-v3-proof-role' || item.role === 'native-value-live-v2-proof-role' || item.role === 'native-value-dev-live-v5-proof-role');
   return { maximumProofWorkerRSSBytes: Math.max(0, ...protectedProofProcesses.map(item => integer(item.rssBytes))),
     liveProofWorkers: active.filter(item => item.proofWorker).length };
 }
@@ -615,6 +628,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.nativeClaimBeginPayoutAuditV1) scoped = assertBeginPayoutAuditResultV1(result);
   if (profile === FLOW_PROFILES.wrappedWalletFixedAcceptance) scoped = assertWrappedWalletFixedResultV1(result);
   if (profile === FLOW_PROFILES.wrappedWalletFixedPreflight) scoped = assertWrappedWalletFixedPreflightResultV1(result);
+  if (profile === FLOW_PROFILES.nativeWalletTronDevV5) scoped = assertNativeWalletTronDevResultV5(result);
   if (profile === FLOW_PROFILES.nativeWalletRealAcceptance) scoped = assertNativeWalletRealResult(result);
   if (profile === FLOW_PROFILES.nativeWalletRealPreflight) scoped = assertNativeWalletUnfundedResult(result);
   if (profile === FLOW_PROFILES.poolGenerationPhase1) scoped = assertPoolGenerationPhase1Result(result);
@@ -674,6 +688,10 @@ export async function runWrappedWalletFixedPreflightSupervisorV1() {
   await initializeWrappedSupervisorSourceV2();
   assert.equal(arguments.length, 0); assert.ok(WRAPPED_WALLET_FIXED_PREFLIGHT_RELEASE_V1, 'WRAPPED_FIXED_PREFLIGHT_NOT_RELEASED');
   return runFixedFlowSupervisor(FLOW_PROFILES.wrappedWalletFixedPreflight);
+}
+export async function runNativeWalletTronDevSupervisorV5(){
+ assert.equal(arguments.length,0,'TRON_WALLET_DEV_SUPERVISOR_NO_OPTIONS');assertNativeWalletTronDevReleaseV5();
+ return runFixedFlowSupervisor(FLOW_PROFILES.nativeWalletTronDevV5);
 }
 export async function runNativeWalletRealAcceptanceSupervisor() {
   assert.equal(arguments.length, 0, 'NATIVE_WALLET_NO_SUPERVISOR_OPTIONS');

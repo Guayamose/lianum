@@ -1,3 +1,10 @@
+import { createOwnedLocalTronNativeValueV1, assertOwnedLocalTronNativeValueV1, readOwnedLocalTronNativeValueAuditStateV4, openOwnedTronOriginalReadPort } from '../../../../packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs';
+import { readTronJournal } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-native-value-journal.mjs';
+import { decodeTronNativeTransferWire } from '../../../../packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs';
+import { describeOwnedLocalTronNativeValueSource } from '../../../../packages/backend/src/chains/tron/health/owned-tron-native-value-health-source-v4.mjs';
+import { loadNativeValueDevLiveArtifactsV5 } from '../../../../packages/proofs/src/native-value/metadata/native-value-dev-live-v5-artifacts.mjs';
+import { nativeWalletTronDevSourcePinsV5 } from './native-wallet-tron-dev-source-pins-v5.mjs';
+import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, NATIVE_WALLET_TRON_DEV_RESULT_V5 } from './native-wallet-tron-dev-policy-v5.mjs';
 /** Fixed one-profile genuine native-value wallet acceptance. Import is inert.
  * This is an explicitly scripted fake-value local acceptance, never a wallet
  * agent/planner or public-chain transaction. It uses the SAME original owner,
@@ -6,7 +13,7 @@
  * invocation repeats unfunded and loaded-liability preflights on its own fixture.
  */
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync, lstatSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
 import { createProofProcess } from '../../../../packages/engine/src/execution/proofs/proof-process.mjs';
@@ -15,13 +22,13 @@ import { NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../packages/engine/src/ex
 import { walletInputPublicWords } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { noteWordsToHash } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import { createOwnedLocalEvmV2, createOwnedLocalEvmNativeValueV1,
-  assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1 } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+  assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, createOwnedLocalEvmObservedClockV1, refreshNativeValueReceiverClock } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { describeOwnedLocalEvmNativeValueSource } from '../../../../packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-v4.mjs';
 import { profileCommitment } from '../../../../packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs';
 import { createOwnedNativeValueProviderCustody } from '../../../../packages/backend/src/providers/native-value-provider-v2.mjs';
-import { createOwnedLocalNativeValueOperatorBootstrap } from '../../../../packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
-import { deployNativeValueSystem, assertOwnedNativeValueSystem } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
-import { loadNativeValueDeploymentArtifacts, NATIVE_VALUE_VERIFIER_ORDER } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import { createOwnedLocalNativeValueOperatorBootstrap, createOwnedLocalTronWallclockOperatorBootstrapV1 } from '../../../../packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
+import { deployNativeValueSystem, deployNativeValueDevSystemV5, assertOwnedNativeValueSystem } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
+import { loadNativeValueDeploymentArtifacts, loadNativeValueDevDeploymentArtifactsV5, NATIVE_VALUE_VERIFIER_ORDER } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 import { loadNativeValueLiveArtifacts } from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs';
 import { NATIVE_VALUE_LIVE_V2_KEY_SHA256, NATIVE_VALUE_LIVE_V2_SOURCE_VERSION } from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
 import { NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256 } from '../../../../packages/proofs/src/native-value/metadata/native-value-v2-profile.mjs';
@@ -57,8 +64,12 @@ export async function runNativeWalletRealPreflight() {
   assert.ok(NATIVE_WALLET_UNFUNDED_RELEASE_V1,'NATIVE_WALLET_UNFUNDED_RELEASE_ABSENT');
   return runFixed(true);
 }
-async function runFixed(unfundedOnly) {
-  const suffix=unfundedOnly?'preflight':'acceptance', stem='native-wallet-real-'+suffix+'-v1';
+export async function runNativeWalletTronDevAcceptanceV5(){
+ assert.equal(arguments.length,0,'NATIVE_WALLET_TRON_NO_OPTIONS');assertNativeWalletTronDevReleaseV5();
+ return runFixed(false,true);
+}
+async function runFixed(unfundedOnly,tron=false) {
+  const suffix=unfundedOnly?'preflight':'acceptance', stem=tron?'native-wallet-tron-dev-v5':'native-wallet-real-'+suffix+'-v1';
   assert.equal(process.argv.length,2,'NATIVE_WALLET_NO_ARGUMENTS'); assert.deepEqual(process.execArgv,[]);
   assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration',stem+'.mjs'));
   assert.equal(realpathSync(process.cwd()),ROOT); assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
@@ -71,13 +82,13 @@ async function runFixed(unfundedOnly) {
   const directory=join(ROOT,lock.attempt), privateDirectory=join(directory,'private-audit'), proofDirectory=join(directory,'public-proofs');
   mkdirSync(privateDirectory,{mode:0o700}); mkdirSync(proofDirectory,{mode:0o700});
   const deadlineMs=Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds;
-  const result={format:unfundedOnly?NATIVE_WALLET_PREFLIGHT_RESULT_V1:NATIVE_WALLET_RESULT_V1,
+  const result={format:tron?NATIVE_WALLET_TRON_DEV_RESULT_V5:unfundedOnly?NATIVE_WALLET_PREFLIGHT_RESULT_V1:NATIVE_WALLET_RESULT_V1,
     runId:lock.runId,startedAt:new Date().toISOString(),phase:'starting',success:false,
     localOnly:true,fakeFundsOnly:true,publicNetwork:false,supervisor:{supervisorPID:process.ppid,workerPID:process.pid},
-    sourcePins:nativeWalletRealSourcePins(),stages:[],proofs:[],admissionProof:null,health:[],httpEvidence:[],
-    preflight:{},funded:false,nativeDeliveryCount:0,cleanup:{closedEvm:null,closedNativeEvm:null},
+    sourcePins:tron?nativeWalletTronDevSourcePinsV5():nativeWalletRealSourcePins(),stages:[],proofs:[],admissionProof:null,health:[],httpEvidence:[],
+    preflight:{},funded:false,nativeDeliveryCount:0,cleanup:{closedEvm:null,...(tron?{closedNativeTron:null}:{closedNativeEvm:null})},
     keeperRestart:false,nodeRestart:false,fullWalletAcceptance:false,actualFRecoveryAcceptance:false,
-    disclosure:['One owned local synthetic chain-ID-1 Anvil, not Ethereum mainnet or production-client/finality acceptance.',
+    disclosure:[tron?'One owned local Java-Tron node and wallclock receiver; original TRX solver delivery is not private native custody credit.':'One owned local synthetic chain-ID-1 Anvil, not Ethereum mainnet or production-client/finality acceptance.',
       'One original private source account pays an independent solver only after genuine I84 admission and ordinary four-slot N/T settlement.',
       'Four registered source slots share one host/node; fresh complete histories do not establish independent infrastructure.',
       'Separate solver-native liquidity is never source-custody backing or privately spendable native credit.',
@@ -86,6 +97,32 @@ async function runFixed(unfundedOnly) {
   let runtime,nativeRuntime,bootstrap,system,reader,owner,execution,account,joined,preparation,app,driver,custody,recipient,recipientBoot,legacy;
   let closed=false,interrupted=false,graphRef,graphPrepared,ownerScope,preflightIdentity;
   const proofsByLabel=new Map(),handoffs=new Map();
+  function nativeAudit(){assert.ok(tron&&nativeRuntime);return readOwnedLocalTronNativeValueAuditStateV4(nativeRuntime);}
+  function nativeTransactionCount(){if(!nativeRuntime)return 0;if(!tron)return nativeRuntime.transactions.length;
+   return nativeAudit().journal?.events.filter(e=>e.kind==='BROADCAST').length??0;}
+  function originalNativeProofs(){
+   const dependency=proofsByLabel.get('leg-0-dependency'),readiness=proofsByLabel.get('leg-0-readiness');assert.ok(dependency&&readiness);
+   const d=decodeStatement('dependency',dependency.publicInputs),ready=decodeStatement('ready',readiness.publicInputs);joinReadiness(d,ready);
+   return {dependency,readiness,ready};
+  }
+  async function checkOriginalTronInclusion(detail){
+   assert.equal(detail.reference,graphRef);assert.equal(owner.report().available,false);
+   const {dependency,readiness,ready}=originalNativeProofs(),proofHash=hash(fixtureJSON([dependency,readiness]));
+   const action=graphPrepared.rolePackets.local[0].action,core=graphPrepared.rolePackets.reservation.core.value;
+   const bounds={readyFrom:ready.readyFrom,readyUntil:ready.readyUntil,executionFrom:action.executionFrom,
+    executionUntil:action.executionUntil,settleBefore:core.settleBefore};
+   await assertOwnedLocalTronNativeValueV1(nativeRuntime);const audit=nativeAudit();assert.equal(audit.journal,null);
+   const before=await nativeRuntime.health();await refreshNativeValueReceiverClock(runtime);const view=await reader.read();
+   const nativeSecond=BigInt(before.head.timestampMs)/1000n,receiverSecond=BigInt(view.head.timestamp),wall=BigInt(Date.now());
+   assert.ok(wall-BigInt(before.head.timestampMs)>=0n&&wall-BigInt(before.head.timestampMs)<=5000n,'TRON_WALLET_ACTUAL_NATIVE_CLOCK');
+   for(const now of [nativeSecond,receiverSecond])assert.ok(BigInt(bounds.readyFrom)<=now&&now<BigInt(bounds.readyUntil)
+    &&BigInt(bounds.executionFrom)<=now&&now<BigInt(bounds.executionUntil)&&now<BigInt(bounds.settleBefore),'TRON_WALLET_ORIGINAL_WINDOW_CLOSED');
+   const checkpoint=view.checkpoints.find(row=>row.digest===ready.checkpoint);assert.ok(checkpoint,'TRON_WALLET_ORIGINAL_CHECKPOINT');
+   await reader.assertCurrent(view);assert.equal(nativeTransactionCount(),0);assert.equal(hash(fixtureJSON([dependency,readiness])),proofHash);
+   result.nativeClockSynchronization={phase:'completed',receiverObservedWallclock:true,nativeClockChanged:false,windowsChanged:false,
+    proofBytesUnchanged:true,nativeHeadSecond:nativeSecond.toString(),receiverHeadSecond:receiverSecond.toString(),bounds};save();
+  }
+
   const save=()=>writeFixturePrivate(join(directory,'result.json'),result);
   const remaining=()=>{const n=deadlineMs-Date.now();assert.ok(n>0,'NATIVE_WALLET_ORIGINAL_DEADLINE');return n;};
   async function stage(name){remaining();result.phase=name;result.stages.push({name,at:new Date().toISOString()});save();process.stdout.write(JSON.stringify({stage:name})+'\n');}
@@ -111,13 +148,14 @@ async function runFixed(unfundedOnly) {
   // using the pre-funding receiver schedule below; never repair it here.
   async function checkOriginalNativeFixtureInclusion(detail) {
     if(detail.stage!=='dispatch-native-leg-0')return;
+    if(tron)return checkOriginalTronInclusion(detail);
     assert.equal(detail.reference,graphRef,'NATIVE_WALLET_CLOCK_ORIGINAL_GRAPH');
     assert.equal(result.nativeClockSynchronization,undefined,'NATIVE_WALLET_CLOCK_NO_RETRY');
     const sync=result.nativeClockSynchronization={phase:'checking',clockChanged:false,windowsChanged:false};save();
     try {
       assert.equal(owner.report().available,false,'NATIVE_WALLET_CLOCK_OWNER_STAYS_ABSENT');
       await assertOwnedLocalEvmNativeValueV1(nativeRuntime);
-      assert.equal(nativeRuntime.transactions.length,0,'NATIVE_WALLET_CLOCK_BEFORE_FIRST_PREPARATION');
+      assert.equal(nativeTransactionCount(),0,'NATIVE_WALLET_CLOCK_BEFORE_FIRST_PREPARATION');
       assert.deepEqual(nativeRuntime.mutationStatus,{busy:false,uncertain:false});
       const dependency=proofsByLabel.get('leg-0-dependency'),readiness=proofsByLabel.get('leg-0-readiness');
       assert.ok(dependency&&readiness,'NATIVE_WALLET_CLOCK_ORIGINAL_PROOFS_REQUIRED');
@@ -148,7 +186,7 @@ async function runFixed(unfundedOnly) {
       Object.assign(sync,{nativeHeadBefore:before.toString(),sourceHead:sourceNow.toString(),plannedNativeInclusion:next.toString(),bounds});save();
       await reader.assertCurrent(source);
       const after=await nativeRuntime.block();assert.deepEqual(after,head,'NATIVE_WALLET_CLOCK_UNCHANGED_NATIVE_HEAD');
-      await reader.assertCurrent(source);assert.equal(nativeRuntime.transactions.length,0);
+      await reader.assertCurrent(source);assert.equal(nativeTransactionCount(),0);
       assert.equal(owner.report().available,false);assert.equal(hash(fixtureJSON([dependency,readiness])),proofBinding);
       assert.deepEqual(bounds,{readyFrom:ready.readyFrom,readyUntil:ready.readyUntil,
         executionFrom:action.executionFrom,executionUntil:action.executionUntil,settleBefore:core.settleBefore});
@@ -156,6 +194,10 @@ async function runFixed(unfundedOnly) {
     } catch(error) {sync.phase='failed';sync.errorCode=privateFailureDiagnostic(error).code;save();throw error;}
   }
   async function retainExecutionFailure(event){
+    if(tron&&event.stage==='native-admitted'){
+      assert.equal(result.originalI84WorkerEvidence,undefined,'TRON_WALLET_SINGLE_I84_JOB');
+      assert.ok(event.originalProofEvidence);result.originalI84WorkerEvidence=structuredClone(event.originalProofEvidence);save();
+    }
     // Fixed private diagnostic events only; no operation reference, native ID,
     // witness, raw exception, or economic state is exported by this projection.
     if(event.stage==='execution-first-failure'){
@@ -170,7 +212,7 @@ async function runFixed(unfundedOnly) {
     }
   }
   async function auditCounts(){
-    if(nativeRuntime)result.nativeDeliveryCount=nativeRuntime.transactions.filter(r=>r.signed&&r.receipt?.status==='0x1').length;
+    if(nativeRuntime)result.nativeDeliveryCount=tron?(nativeAudit().journal&&readTronJournal(nativeAudit().journal).phase==='OBSERVED'?1:0):nativeRuntime.transactions.filter(r=>r.signed&&r.receipt?.status==='0x1').length;
     if(execution&&graphRef){
       try{result.originalGraphSnapshot=execution.snapshot(graphRef);
         result.originalGraphSnapshotAvailability={status:'AVAILABLE_MEMORY_SNAPSHOT'};
@@ -182,7 +224,7 @@ async function runFixed(unfundedOnly) {
       }
     }
     // Retain actual phase labels/counts, never native IDs, signatures or raw wire.
-    result.nativeRecordStates=nativeRuntime?.transactions.map(r=>({phase:r.phase,signed:!!r.signed,receiptStatus:r.receipt?.status??null,
+    result.nativeRecordStates=tron&&nativeRuntime?[{phase:nativeRuntime.report().phase,signed:Boolean(nativeAudit().entry?.signed),broadcastCount:nativeTransactionCount()}]:nativeRuntime?.transactions.map(r=>({phase:r.phase,signed:!!r.signed,receiptStatus:r.receipt?.status??null,
       ...(r.finalityConfirmation?{finalityConfirmation:Object.fromEntries(['phase','requiredEmptyBlocks','confirmedEmptyBlocks','includedNumber','includedTimestamp','tipNumber','tipTimestamp','finalizedNumber'].map(k=>[k,r.finalityConfirmation[k]]))}:{})}))??[];
     writeFixturePrivate(join(privateDirectory,'observation-counts.json'),{phase:result.phase,nativeRecordStates:result.nativeRecordStates,
       receiverTransactions:runtime?.transactions.length??0,nativeTransactions:nativeRuntime?.transactions.length??0,
@@ -203,8 +245,16 @@ async function runFixed(unfundedOnly) {
     if(recipient)await close('recipient',()=>recipient.close());
     if(owner)await close('owner',()=>owner.close());
     if(bootstrap)await close('bootstrap',()=>bootstrap.close());
-    for(const [name,resource] of [['closedEvm',runtime],['closedNativeEvm',nativeRuntime]])if(resource){
-      try{await resource.close();result.cleanup[name]=true;}catch(error){result.cleanup[name]=false;failures.push({name,code:privateFailureDiagnostic(error).code});}}
+    for(const [name,resource] of [['closedEvm',runtime],[tron?'closedNativeTron':'closedNativeEvm',nativeRuntime]])if(resource){
+      try{const stopped=await resource.close();if(tron&&resource===nativeRuntime){assert.equal(stopped.stopped,true);assert.equal(stopped.forced,false);assert.equal(stopped.exitCode,0);assert.equal(stopped.signal,null);result.cleanup.tronOriginal=stopped;}result.cleanup[name]=true;}catch(error){result.cleanup[name]=false;failures.push({name,code:privateFailureDiagnostic(error).code});}}
+    if(tron&&failures.length===0){await close('synthetic-private-files',async()=>{
+     for(const name of ['owner','original-solver-payout.vault','original-account-journal.vault']){
+      const path=join(privateDirectory,name);assert.equal(realpathSync(path),path,'TRON_WALLET_PRIVATE_CLEANUP_ALIAS');const stat=lstatSync(path);
+      assert.equal(stat.uid,process.getuid());assert.equal(stat.isSymbolicLink(),false);
+      assert.ok(stat.isDirectory()?(stat.mode&0o7777)===0o700:(stat.mode&0o7777)===0o600,'TRON_WALLET_PRIVATE_CLEANUP_MODE');
+      rmSync(path,{recursive:stat.isDirectory()});
+     }result.cleanup.syntheticPrivateFilesRemoved=true;
+    });}
     result.cleanup.failures=failures;if(failures.length)throw Error('NATIVE_WALLET_CLEANUP_INCOMPLETE');
   }
   const stop=()=>{if(interrupted)return;interrupted=true;result.interruption={at:new Date().toISOString(),phase:result.phase};
@@ -240,18 +290,18 @@ async function runFixed(unfundedOnly) {
     handoffs.set(body.requestId,body);return body;
   }
   async function accountAction(action,body){
-    remaining();const before=[runtime.transactions.length,nativeRuntime.transactions.length];
+    remaining();const before=[runtime.transactions.length,nativeTransactionCount()];
     const output=await driver.account(action,body);
-    if(action==='reconcile')assert.deepEqual([runtime.transactions.length,nativeRuntime.transactions.length],before,'NATIVE_WALLET_RECONCILE_RESENT');
+    if(action==='reconcile')assert.deepEqual([runtime.transactions.length,nativeTransactionCount()],before,'NATIVE_WALLET_RECONCILE_RESENT');
     await auditCounts();return output.snapshot;
   }
   async function duplicateNoEffect(requestId){
-    const before=[runtime.transactions.length,nativeRuntime.transactions.length],client=createWalletApplicationClient({origin:app.origin,ownerToken:app.ownerAccess.token});
+    const before=[runtime.transactions.length,nativeTransactionCount()],client=createWalletApplicationClient({origin:app.origin,ownerToken:app.ownerAccess.token});
     assert.equal(await client.refresh(),true);
     // Confirmed execute cannot acquire a fresh grant; the SDK rejects it before
     // any send. Every successful action also tests its original token replay.
     assert.throws(()=>client.review('accountExecute',{requestId}));
-    assert.deepEqual([runtime.transactions.length,nativeRuntime.transactions.length],before);
+    assert.deepEqual([runtime.transactions.length,nativeTransactionCount()],before);
   }
   async function awaitSessionAdmission(receipt){
     for(;;){remaining();const s=await joined.session.snapshot(),row=s.admissions.find(a=>a.sequence===receipt.sequence);
@@ -261,7 +311,7 @@ async function runFixed(unfundedOnly) {
   }
   try {
     await stage('genuine-artifacts-before-runtime-or-funding');
-    const bundle=await loadNativeValueDeploymentArtifacts(),live=await loadNativeValueLiveArtifacts();
+    const bundle=await (tron?loadNativeValueDevDeploymentArtifactsV5():loadNativeValueDeploymentArtifacts()),live=await (tron?loadNativeValueDevLiveArtifactsV5():loadNativeValueLiveArtifacts());
     assert.deepEqual(Object.keys(bundle.verifiers).sort(),NATIVE_VALUE_VERIFIER_ORDER.map(([name])=>name).sort());
     assert.equal(live.keySHA256,NATIVE_VALUE_LIVE_V2_KEY_SHA256);assert.equal(live.sourceVersion,NATIVE_VALUE_LIVE_V2_SOURCE_VERSION);
     assert.equal(live.artifactSHA256,NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256);
@@ -272,22 +322,43 @@ async function runFixed(unfundedOnly) {
       admissionProgramSHA256:live.artifactSHA256,admissionSourceVersion:live.sourceVersion};
     result.preflight.genuineArtifactsLoadedBeforeRuntimes=true;result.preflight.allTwelveVerifierLineages=true;
     await stage('unfunded-original-runtime-deployment-and-session');
-    runtime=await createOwnedLocalEvmV2();nativeRuntime=await createOwnedLocalEvmNativeValueV1();
-    await assertOwnedLocalEvmV2(runtime);await assertOwnedLocalEvmNativeValueV1(nativeRuntime);
+    runtime=await (tron?createOwnedLocalEvmObservedClockV1():createOwnedLocalEvmV2());nativeRuntime=await (tron?createOwnedLocalTronNativeValueV1():createOwnedLocalEvmNativeValueV1());
+    await assertOwnedLocalEvmV2(runtime);await (tron?assertOwnedLocalTronNativeValueV1(nativeRuntime):assertOwnedLocalEvmNativeValueV1(nativeRuntime));
     // Inspect the actual original objects before deployment, owner terms or funds.
     // Native-value instances intentionally omit receiver send/dispatch/clock APIs.
-    assert.equal(typeof runtime.advanceTo,'function','NATIVE_WALLET_RECEIVER_CLOCK_API_REQUIRED');
+    if(tron){assert.equal(Object.hasOwn(runtime,'advanceTo'),false,'TRON_WALLET_RECEIVER_NO_CALLER_CLOCK');
+      assert.equal(typeof runtime.refreshObservedClock,'function','TRON_WALLET_ORIGINAL_OBSERVED_CLOCK');
+    }else assert.equal(typeof runtime.advanceTo,'function','NATIVE_WALLET_RECEIVER_CLOCK_API_REQUIRED');
     for(const name of ['advanceTo','send','dispatch'])
       assert.equal(Object.hasOwn(nativeRuntime,name),false,'NATIVE_WALLET_NATIVE_MUTATOR_API_FORBIDDEN');
-    for(const name of ['health','block','time','dispatchNativeValueV1','assertNativeValuePreparedCurrent','observeNativeValueOriginal'])
+    for(const name of (tron?['health','dispatchNativeValueV1','assertNativeValuePreparedCurrent','observeNativeValueOriginal']:['health','block','time','dispatchNativeValueV1','assertNativeValuePreparedCurrent','observeNativeValueOriginal']))
       assert.equal(typeof nativeRuntime[name],'function','NATIVE_WALLET_NATIVE_ORIGINAL_API_REQUIRED');
     result.preflight.actualRuntimeCapabilitySurfaceVerified=true;
     result.preflight.nativeClockMutatorAbsent=true;save();
-    assert.notEqual(runtime,nativeRuntime);assert.notEqual(runtime.metadata.processId,nativeRuntime.metadata.processId);
-    assert.equal(runtime.metadata.chainId,'31337');assert.equal(nativeRuntime.metadata.chainId,'1');
+    assert.notEqual(runtime,nativeRuntime);if(tron)assert.notEqual(runtime.metadata.processId,nativeRuntime.metadata.processId??nativeRuntime.metadata.pid);else assert.notEqual(runtime.metadata.processId,nativeRuntime.metadata.processId);
+    assert.equal(runtime.metadata.chainId,'31337');
+    let registered;
+    if(tron){
+      assert.equal(nativeRuntime.metadata.classification,'LOCAL_SYNTHETIC_TRON_JAVA_TRON_CONSENSUS');
+      result.nativeProfile={family:'4',genesis:nativeRuntime.metadata.genesis,publicNetwork:false,
+       productionClientAcceptance:'UNVERIFIED',publicConsensusOrFinalityVerified:false};
+      bootstrap=await createOwnedLocalTronWallclockOperatorBootstrapV1({nativeRuntimes:[nativeRuntime]});
+      registered=bootstrap.metadata.adapterProfiles[0];assert.equal(bootstrap.metadata.adapterProfiles.length,1);
+      assert.equal(registered.profile.maximumAncestry,'256');assert.equal(registered.profile.maximumEvidenceLifetime,'300');
+      assert.equal(registered.profile.genesis,nativeRuntime.metadata.genesis);
+      for(let i=0;i<4;i++)assert.deepEqual(registered.sources[i].identity,describeOwnedLocalTronNativeValueSource(nativeRuntime,{profile:registered.profile,sourceIndex:String(i)}).identity);
+      system=await deployNativeValueDevSystemV5({runtime,options:{deploymentDomain:'0x'+freshFixtureId(),registryEpoch:'1',bootstrap,
+       pools:[0,1].map(()=>({policy:'0x'+freshFixtureId(),deploymentDomain:'0x'+freshFixtureId()}))}});
+      assertOwnedNativeValueSystem(runtime,system);assert.equal(system.claimsEnabled,false);
+      assert.deepEqual(system.adapterProfiles,bootstrap.metadata.adapterProfiles);
+      for(const d of system.deployments)assert.ok(d.runtimeBytes<=24576);
+      result.preflight.fixtureClockSchedule={receiverMode:'OBSERVED_WALLCLOCK_SECONDS_V1',nativeConsensusClockOriginal:true,
+       syntheticBlockScheduleInstalled:false,windowsRenewed:false};save();
+    }else{
+assert.equal(runtime.metadata.chainId,'31337');assert.equal(nativeRuntime.metadata.chainId,'1');
     result.nativeProfile={chainId:'1',publicNetwork:false,productionClientAcceptance:'UNVERIFIED',publicConsensusOrFinalityVerified:false};
     bootstrap=await createOwnedLocalNativeValueOperatorBootstrap({nativeRuntimes:[nativeRuntime]});
-    assert.equal(bootstrap.metadata.adapterProfiles.length,1);const registered=bootstrap.metadata.adapterProfiles[0];
+    assert.equal(bootstrap.metadata.adapterProfiles.length,1);registered=bootstrap.metadata.adapterProfiles[0];
     assert.equal(registered.profile.chainId,'1');assert.equal(registered.profile.genesis,bare(nativeRuntime.metadata.evmGenesis));
     assert.equal(registered.profile.maximumEvidenceLifetime,'30');
     assert.equal(new Set(registered.sources.map(s=>s.identity.endpointIdentity)).size,4);
@@ -307,12 +378,13 @@ async function runFixed(unfundedOnly) {
     assert.ok(receiverNow<=receiverInitial,'NATIVE_WALLET_INITIAL_CLOCK_ALIGNMENT_UNAVAILABLE');
     assert.ok((nativeNow-receiverInitial)*1000n<=BigInt(registered.profile.maximumClockSkewMs),
       'NATIVE_WALLET_INITIAL_NATIVE_SKEW_LIMIT');
-    assert.equal(nativeRuntime.transactions.length,0);
+    assert.equal(nativeTransactionCount(),0);
     if(receiverNow<receiverInitial)await runtime.advanceTo(receiverInitial.toString());
     assert.equal(await runtime.time(),receiverInitial);assert.equal(await nativeRuntime.time(),nativeNow);
     result.preflight.fixtureClockSchedule={nativeInitialSecond:nativeNow.toString(),receiverInitialSecond:receiverInitial.toString(),
       sourceBlocksBeforeNative:Number(sourceBlocksBeforeNative),expectedReadyFrom:nativeNext.toString(),
       receiverScheduledBeforeOwnerTermsAndFunds:true,nativeClockMutated:false};save();
+    }
     reader=await createNativeValueSystemStateReader({runtime,system,poolIndex:0});
     const ownerDir=join(privateDirectory,'owner');mkdirSync(ownerDir,{mode:0o700});
     owner=await createNativeValueOwnerProcess({runtime,system,poolIndex:0,directory:ownerDir,password:freshFixtureId(),create:true,checkpoint:null,
@@ -336,7 +408,7 @@ async function runFixed(unfundedOnly) {
     const preReview=await preparation.review(proposal);assert.equal(preReview.amount,proposal.amount);
     assert.equal(preparation.cancelReview(),true);assert.equal(await preparation.confirm(),false);
     assert.equal(runtime.transactions.filter(t=>BigInt(t.request.value??'0')!==0n).length,0);
-    assert.equal(nativeRuntime.transactions.length,0);assert.equal(result.proofs.length,0);
+    assert.equal(nativeTransactionCount(),0);assert.equal(result.proofs.length,0);
     Object.assign(result.preflight,{genuineOriginalFactories:true,constructorStorageVerified:true,sameOriginalFixture:true,
       sameOriginalOwnerAccountSession:true,exactRegisteredNativeProfile:true,emptyCurrentFullInventoryHealth:true,
       sourceFundingAbsent:true,nativeDeliveryAbsent:true,confirmedSourceValueTransfers:0,
@@ -347,13 +419,13 @@ async function runFixed(unfundedOnly) {
       await stage('manual-top-up-shared-http-sdk');
       const receiverPayerBefore=await runtime.balance(runtime.accounts[0]),receiverTransactionStart=runtime.transactions.length;
       const changeBefore=await runtime.balance(runtime.accounts[3]),payoutBefore=await runtime.balance(runtime.accounts[1]);
-      const nativeSenderBefore=await nativeRuntime.balance(nativeRuntime.accounts[0]),nativeRecipientBefore=await nativeRuntime.balance(nativeRuntime.accounts[1]);
+      const nativeSenderBefore=tron?BigInt((await nativeRuntime.health()).ownerBalanceSun):await nativeRuntime.balance(nativeRuntime.accounts[0]),nativeRecipientBefore=tron?null:await nativeRuntime.balance(nativeRuntime.accounts[1]);
       const topUp=await ownerReview(proposal);await accountAction('prepare',topUp);
       await accountAction('execute',{requestId:topUp.requestId});result.funded=true;
       await accountAction('reconcile',{requestId:topUp.requestId});await duplicateNoEffect(topUp.requestId);
       await stage('same-fixture-loaded-liability-preflight-before-U-S');
       await health('loaded-before-authorization',NATIVE_WALLET_ECONOMICS_V1.sourceDepositAtomic,0,0);
-      assert.equal(nativeRuntime.transactions.length,0);assert.equal(result.proofs.length,1);
+      assert.equal(nativeTransactionCount(),0);assert.equal(result.proofs.length,1);
       await stage('original-owner-and-solver-one-leg-graph-preparation');
       const now=await runtime.time(),cutoff=now+28800n,domain=system.pools[0].domain,operationId=freshFixtureId();
       const directory=join(nativeRuntime.metadata.scratchDirectory,'original-native-solver');mkdirSync(directory,{mode:0o700});
@@ -389,7 +461,7 @@ async function runFixed(unfundedOnly) {
       await accountAction('prepare',graph);await accountAction('execute',{requestId:graph.requestId});
       assert.equal(owner.report().available,false);assert.equal(owner.report().childExited,true);
       const snap=execution.snapshot(graphRef);assert.equal(snap.outcome,'FULFILLED');assert.equal(snap.admittedReceipts,1);
-      assert.deepEqual(snap.nativeExposure,[{slot:0,family:'3',status:'ADMITTED'}]);
+      assert.deepEqual(snap.nativeExposure,[{slot:0,family:tron?'4':'3',status:'ADMITTED'}]);
       await accountAction('reconcile',{requestId:graph.requestId});await duplicateNoEffect(graph.requestId);
       const view=await health('settled-loaded',NATIVE_WALLET_ECONOMICS_V1.sourceDepositAtomic,0,1);
       const admissions=runtime.transactions.filter(t=>t.request.to===system.hub.address&&t.request.data?.slice(2,10)===FLAT_TRANSACTION_METHODS.admit.selector);
@@ -407,6 +479,10 @@ async function runFixed(unfundedOnly) {
       assert.equal(system.verifiers.admission.lineage.programSHA256,result.artifacts.admissionProgramSHA256);
       assert.equal(await system.verify('admission',Buffer.from(decoded.request.admission.proof,'hex'),hexWords(decoded.request.admission.publicInputs)),true);
       const retained=await retainProof({label:'original-native-I84',relation:'admission_native_value_v2',proof:decoded.request.admission});
+      if(tron){const original=result.originalI84WorkerEvidence;assert.ok(original);
+        assert.equal(original.proofSHA256,retained.proofSHA256);assert.equal(original.publicInputsSHA256,retained.publicInputsSHA256);
+        assert.equal(original.keySHA256,system.verifiers.admission.lineage.keySHA256);
+        assert.equal(original.programSHA256,system.verifiers.admission.lineage.programSHA256);}
       Object.assign(retained,{originalCanonicalCall:true,deployedVerifierAccepted:true,originalI84ArtifactBound:true,
         keySHA256:system.verifiers.admission.lineage.keySHA256,programSHA256:system.verifiers.admission.lineage.programSHA256,
         originalCallSHA256:hash(Buffer.from(admitted.request.data.slice(2),'hex')),receiptSHA256:hash(fixtureJSON(admitted.receipt))});
@@ -449,24 +525,46 @@ async function runFixed(unfundedOnly) {
       const exit=await ownerReview({requestId:NATIVE_WALLET_REQUEST_IDS_V1[2],kind:'EXIT',role:'change'});
       await accountAction('prepare',exit);await accountAction('execute',{requestId:exit.requestId});
       await accountAction('reconcile',{requestId:exit.requestId});await duplicateNoEffect(exit.requestId);
-      const final=await health('closed','0',0,1),nativeOriginals=nativeRuntime.transactions.filter(t=>t.signed);
+      const final=await health('closed','0',0,1);
       const unusedReader=await createNativeValueSystemStateReader({runtime,system,poolIndex:1}),unused=await unusedReader.read();
       assert.deepEqual(unused.head,final.head);assert.equal(unused.ledger.publicState.backedAmount,'0');
       assert.equal(unused.ledger.publicState.actualAssetBalance,'0');assert.equal(unused.ledger.publicState.liveReservations,0);
       await unusedReader.assertCurrent(unused);await reader.assertCurrent(final);
-      assert.equal(nativeOriginals.length,1);const native=nativeOriginals[0];
-      assert.equal(native.phase,'mined');assert.equal(native.receipt.status,'0x1');await nativeRuntime.checkReceipt(native.receipt);
-      await nativeRuntime.assertCanonical(native.receipt);const nativeTx=await nativeRuntime.transaction(native.transactionHash);
-      assert.equal(nativeTx.from,nativeRuntime.accounts[0]);assert.equal(nativeTx.to,nativeRuntime.accounts[1]);
-      assert.equal(BigInt(nativeTx.value).toString(),NATIVE_WALLET_ECONOMICS_V1.solverNativeDeliveryAtomic);
       const changeDelta=String(await runtime.balance(runtime.accounts[3])-changeBefore),payoutDelta=String(await runtime.balance(runtime.accounts[1])-payoutBefore);
       assert.equal(changeDelta,NATIVE_WALLET_ECONOMICS_V1.sourceChangeAtomic);assert.equal(payoutDelta,NATIVE_WALLET_ECONOMICS_V1.solverPayoutAtomic);
-      const nativeRecipientAfter=await nativeRuntime.balance(nativeRuntime.accounts[1]);
-      assertNativeWalletConservation({sourceDeposit:NATIVE_WALLET_ECONOMICS_V1.sourceDepositAtomic,sourceChange:changeDelta,solverPayout:payoutDelta,
-        sourcePoolBacked:final.ledger.publicState.backedAmount,sourcePoolActual:final.ledger.publicState.actualAssetBalance,
-        liveReservations:final.ledger.publicState.liveReservations,nativeRecipientBefore:String(nativeRecipientBefore),nativeRecipientAfter:String(nativeRecipientAfter),
-        nativeSenderBefore:String(nativeSenderBefore),nativeSenderAfter:String(await nativeRuntime.balance(nativeRuntime.accounts[0])),
+            let nativeRecipientAfter;
+      if(tron){
+       const audit=nativeAudit(),journal=readTronJournal(audit.journal);assert.equal(journal.phase,'OBSERVED');
+       assert.equal(journal.uncertainty,null);assert.equal(journal.adverse,false);assert.equal(journal.providerAttested,true);assert.equal(journal.sendStarted,true);
+       assert.equal(nativeTransactionCount(),1);const signed=journal.signed,wire=decodeTronNativeTransferWire(signed.nativeWire);
+       assert.equal(wire.nativeId,signed.nativeId);assert.equal(wire.transactionSHA256,signed.transactionSHA256);
+       assert.equal(wire.ownerAddress,nativeRuntime.accounts[0]);assert.equal(wire.recipientAddress,nativeRuntime.accounts[1]);
+       assert.equal(wire.amountSun,NATIVE_WALLET_ECONOMICS_V1.solverNativeDeliveryAtomic);
+       const port=openOwnedTronOriginalReadPort(nativeRuntime,signed),info=await port.readTransactionInfo(),tx=await port.readTransaction();
+       assert.equal(info.id,signed.nativeId);assert.equal(info.result,'SUCESS');assert.equal(tx.txID,signed.nativeId);assert.equal(tx.raw_data_hex,wire.rawDataHex);
+       const solid=await port.readSolidBlock(),block=await port.readBlock(info.blockNumber);
+       assert.ok(BigInt(solid.block_header.raw_data.number)>=BigInt(info.blockNumber));
+       assert.equal(block.block_header.raw_data.timestamp,info.blockTimeStamp);
+       assert.equal(block.transactions.filter(row=>row.txID===signed.nativeId&&row.raw_data_hex===wire.rawDataHex).length,1);
+       const replay=await port.readReplay({nativeId:signed.nativeId,blockId:block.blockID});
+       assert.equal(replay.nativeId,signed.nativeId);assert.equal(replay.blockId,block.blockID);assert.equal(replay.transactionSHA256,signed.transactionSHA256);
+       const now=await nativeRuntime.health();assert.equal(nativeSenderBefore-BigInt(now.ownerBalanceSun),BigInt(wire.amountSun)+BigInt(info.fee));
+       assert.equal(final.ledger.publicState.backedAmount,'0');assert.equal(final.ledger.publicState.actualAssetBalance,'0');assert.equal(final.ledger.publicState.liveReservations,0);
+       assert.equal(BigInt(NATIVE_WALLET_ECONOMICS_V1.sourceDepositAtomic),BigInt(changeDelta)+BigInt(payoutDelta));
+       result.tronConservation={amountSun:wire.amountSun,feeSun:info.fee,sourceDeltaSun:(nativeSenderBefore-BigInt(now.ownerBalanceSun)).toString(),
+        canonicalSolidifiedOriginal:true,originalPermissionReplayRead:true,broadcastCount:1,recipientBalanceDeltaObserved:false};
+       writeFixturePrivate(join(privateDirectory,'original-tron-canonical-observation.json'),{info,tx,solid,block,replay,finalHealth:now});
+      }else{
+       const nativeOriginals=nativeRuntime.transactions.filter(t=>t.signed);assert.equal(nativeOriginals.length,1);const native=nativeOriginals[0];
+       assert.equal(native.phase,'mined');assert.equal(native.receipt.status,'0x1');await nativeRuntime.checkReceipt(native.receipt);await nativeRuntime.assertCanonical(native.receipt);
+       const nativeTx=await nativeRuntime.transaction(native.transactionHash);assert.equal(nativeTx.from,nativeRuntime.accounts[0]);assert.equal(nativeTx.to,nativeRuntime.accounts[1]);
+       assert.equal(BigInt(nativeTx.value).toString(),NATIVE_WALLET_ECONOMICS_V1.solverNativeDeliveryAtomic);
+       nativeRecipientAfter=await nativeRuntime.balance(nativeRuntime.accounts[1]);
+       assertNativeWalletConservation({sourceDeposit:NATIVE_WALLET_ECONOMICS_V1.sourceDepositAtomic,sourceChange:changeDelta,solverPayout:payoutDelta,
+        sourcePoolBacked:final.ledger.publicState.backedAmount,sourcePoolActual:final.ledger.publicState.actualAssetBalance,liveReservations:final.ledger.publicState.liveReservations,
+        nativeRecipientBefore:String(nativeRecipientBefore),nativeRecipientAfter:String(nativeRecipientAfter),nativeSenderBefore:String(nativeSenderBefore),nativeSenderAfter:String(await nativeRuntime.balance(nativeRuntime.accounts[0])),
         nativeValue:NATIVE_WALLET_ECONOMICS_V1.solverNativeDeliveryAtomic,nativeGasUsed:BigInt(native.receipt.gasUsed).toString(),nativeGasPrice:BigInt(nativeTx.gasPrice).toString()});
+      }
       let receiverGas=0n,receiverValue=0n;
       for(const sent of runtime.transactions.slice(receiverTransactionStart)){
         assert.equal(sent.request.from,runtime.accounts[0]);assert.equal(sent.phase,'mined');
@@ -481,14 +579,14 @@ async function runFixed(unfundedOnly) {
       assert.deepEqual(result.confirmedRequestIds,NATIVE_WALLET_REQUEST_IDS_V1);
       result.httpEvidence.push(...driver.evidence());result.economics=NATIVE_WALLET_ECONOMICS_V1;
       result.finalAccounting={sourcePoolBacked:'0',sourcePoolActual:'0',unusedPoolBacked:'0',unusedPoolActual:'0',liveReservations:0,sourceChangeDelta:changeDelta,solverPayoutDelta:payoutDelta,
-        nativeRecipientDelta:String(nativeRecipientAfter-nativeRecipientBefore),nativeSenderValueAndGasAccounted:true,receiverFundingAndGasAccounted:true};
+        nativeRecipientDelta:tron?null:String(nativeRecipientAfter-nativeRecipientBefore),nativeSenderValueAndGasAccounted:!tron,...(tron?{nativeSenderValueAndFeeAccounted:true}:{}),receiverFundingAndGasAccounted:true};
       result.acceptance={ownerAbsentDuringNativeAndSettlement:true,ordinaryFourSlotNTSettlement:true,ownerRestartedOriginal:true,
         recipientReopenedOriginal:true,sameSessionReopened:true,oldListenerGrantRejected:true,duplicateRequestsNoEffect:true,
         payoutReplayRejected:true,exactSourceConservation:true,exactNativeConservation:true,sourceReservationClosed:true};
     }
-    await auditCounts();await cleanup();assert.deepEqual(nativeWalletRealSourcePins(),result.sourcePins);result.sourceUnchanged=true;
+    await auditCounts();await cleanup();assert.deepEqual(tron?nativeWalletTronDevSourcePinsV5():nativeWalletRealSourcePins(),result.sourcePins);result.sourceUnchanged=true;
     result.phase='completed';result.success=true;
-    (unfundedOnly?assertNativeWalletUnfundedResult:assertNativeWalletRealResult)(result);save();
+    (tron?assertNativeWalletTronDevResultV5:unfundedOnly?assertNativeWalletUnfundedResult:assertNativeWalletRealResult)(result);save();
   } catch(error){
     const diagnostic=privateFailureDiagnostic(error);result.errorCode=diagnostic.code;result.errorCauseCodes=diagnostic.causeCodes;
     if(diagnostic.auditBudget)result.errorAuditBudget=diagnostic.auditBudget;

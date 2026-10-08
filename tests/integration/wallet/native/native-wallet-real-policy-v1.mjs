@@ -41,6 +41,17 @@ function common(result) {
 }
 export function assertNativeWalletRealResult(result) {
   assert.equal(result.format, NATIVE_WALLET_RESULT_V1); common(result);
+  assertNativeWalletCoreClosureV1(result);
+  assert.deepEqual(result.finalAccounting, { sourcePoolBacked: '0', sourcePoolActual: '0', unusedPoolBacked: '0', unusedPoolActual: '0', liveReservations: 0,
+    sourceChangeDelta: '40000', solverPayoutDelta: '10000', nativeRecipientDelta: '100000', nativeSenderValueAndGasAccounted: true, receiverFundingAndGasAccounted: true });
+  return { scope: 'ONE_GENUINE_LOCAL_EVM_NATIVE_WALLET_GRAPH_AND_NOTE_CLOSURE',
+    genuineNativeValueGraphAccepted: true, fullWalletAcceptance: false, actualFRecoveryAcceptance: false };
+}
+
+/** Pure shared source-account/HTTP/proof-schedule closure. The fixed outer
+ * policies separately require their original native facts and accounting. */
+export function assertNativeWalletCoreClosureV1(result){
+ assert.equal(arguments.length,1,'NATIVE_WALLET_CORE_METADATA_ARITY');
   assert.equal(result.funded, true); assert.equal(result.nativeDeliveryCount, 1);
   assert.deepEqual(result.economics, NATIVE_WALLET_ECONOMICS_V1);
   assert.deepEqual(result.proofs.map(p => [p.relation, p.publicWords]),
@@ -56,8 +67,6 @@ export function assertNativeWalletRealResult(result) {
     'recipientReopenedOriginal', 'sameSessionReopened', 'oldListenerGrantRejected', 'duplicateRequestsNoEffect',
     'payoutReplayRejected', 'exactSourceConservation', 'exactNativeConservation', 'sourceReservationClosed']) assert.equal(result.acceptance[key], true, key);
   assert.deepEqual(result.confirmedRequestIds, NATIVE_WALLET_REQUEST_IDS_V1);
-  assert.deepEqual(result.finalAccounting, { sourcePoolBacked: '0', sourcePoolActual: '0', unusedPoolBacked: '0', unusedPoolActual: '0', liveReservations: 0,
-    sourceChangeDelta: '40000', solverPayoutDelta: '10000', nativeRecipientDelta: '100000', nativeSenderValueAndGasAccounted: true, receiverFundingAndGasAccounted: true });
   const e = result.httpEvidence;
   for (const requestId of NATIVE_WALLET_REQUEST_IDS_V1) for (const action of ['prepare','execute','reconcile'])
     assert.ok(e.some(r => r.requestId === requestId && r.action === action && r.via === 'NODE_SDK_EXACT_ONLY_HTTP'
@@ -70,6 +79,5 @@ export function assertNativeWalletRealResult(result) {
     assert.ok(e.some(r=>r.requestId===requestId&&r.action===action&&r.check==='USED_EXACT_GRANT_REJECTED'));
   }
   assert.equal(result.fullWalletAcceptance, false); assert.equal(result.actualFRecoveryAcceptance, false);
-  return { scope: 'ONE_GENUINE_LOCAL_EVM_NATIVE_WALLET_GRAPH_AND_NOTE_CLOSURE',
-    genuineNativeValueGraphAccepted: true, fullWalletAcceptance: false, actualFRecoveryAcceptance: false };
+ return true;
 }
