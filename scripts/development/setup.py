@@ -55,6 +55,7 @@ def relative_path(raw):
 
 def download(url, filename, expected, size=None, byte_range=None):
     destination = DOWNLOADS / filename
+    destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         return checked(destination, expected, size)
     part = destination.with_name(destination.name + ".part")
