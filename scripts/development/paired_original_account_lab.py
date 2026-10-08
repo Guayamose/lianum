@@ -41,6 +41,7 @@ pending_signal = None
 CLEANUP_SECONDS = 15
 START_PIPE_ENV = "LIANUM_PAIRED_ORIGINAL_START_FD_V2"
 DEVICE_DEPOSIT = False
+DEVICE_RESERVATION = False
 
 
 def record(value):
@@ -267,6 +268,8 @@ def _run_original_supervisor(lock):
 
 
 def proof_checks(rows, note_keys, device_deposit=False):
+    if DEVICE_RESERVATION:
+        return reservation_proof_checks(rows, note_keys)
     typed = isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("evidence"), dict) for row in rows)
     proofs = rows if typed else []
     expected = [("deposit_balance", 26)] if device_deposit else [("deposit_balance", 26), ("withdraw_balance", 39)]
@@ -294,6 +297,54 @@ def proof_checks(rows, note_keys, device_deposit=False):
             and record(row["evidence"].get("worker")).get("keySHA256") == row["evidence"]["keySHA256"] for row in proofs)}
     if device_deposit:
         checks = {key.replace("two", "one", 1): value for key, value in checks.items()}
+    return proofs, checks
+
+
+def reservation_proof_checks(rows, note_keys):
+    typed = isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("evidence"), dict) for row in rows)
+    proofs = rows if typed else []
+    checks = {"proofRowsTyped": typed, "threeOriginalRelations": typed and len(proofs) == 3
+        and [(r.get("relation"), r.get("publicWords")) for r in proofs] == [("deposit_balance", 26), ("authorization", 16), ("reservation", 58)]}
+    # D26 retains its original one-proof reader. Its branch is selected only
+    # for this check, with global mode restored even if inspection rejects.
+    global DEVICE_RESERVATION
+    previous = DEVICE_RESERVATION
+    DEVICE_RESERVATION = False
+    try:
+        _, original = proof_checks(proofs[:1], note_keys, True)
+    finally:
+        DEVICE_RESERVATION = previous
+    checks.update({"d26_" + name: value for name, value in original.items()})
+    checks["threeDistinctOriginalProofBytes"] = typed and len(proofs) == 3 and len({r.get("proofSHA256") for r in proofs}) == 3
+    flat_ok = []
+    for row in proofs[1:]:
+        e = record(row.get("evidence")); m, w, r = (record(e.get(name)) for name in ("manifest", "result", "resources"))
+        relation = row.get("relation"); threads = 12 if relation == "authorization" else 4
+        raw_join = False
+        try:
+            run_id = e.get("runId")
+            if not isinstance(run_id, str) or UUID.fullmatch(run_id) is None:
+                raise ValueError("DEVICE_US_PROOF_RUN")
+            path = FLAT / ".local/proof-workers/attempts" / run_id
+            raw_join = all(hashlib.sha256(private_evidence(path / name)).hexdigest() == e.get(field) for name, field in (
+                ("proof-manifest.json", "manifestSHA256"), ("result.json", "resultSHA256"), ("resources.json", "resourcesSHA256")))
+            raw_join = raw_join and hashlib.sha256(private_evidence(path / "proof.bin")).hexdigest() == row.get("proofSHA256") \
+                and hashlib.sha256(private_evidence(path / "public-inputs.json")).hexdigest() == row.get("publicInputsSHA256")
+        except (OSError, ValueError, TypeError):
+            pass
+        flat_ok.append(raw_join and m.get("format") == "FLAT_WALLET_PUBLIC_PROOF_V1"
+            and w.get("format") == "FLAT_WALLET_WORKER_ATTEMPT_V1" and r.get("format") == "FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1"
+            and all(v.get("runId") == e.get("runId") and v.get("jobId") == e.get("jobId") and v.get("relation") == relation for v in (m, w, r))
+            and m.get("selfVerified") is True and w.get("selfVerified") is True
+            and w.get("phase") == "completed" and r.get("phase") == "completed"
+            and r.get("failure") is None and r.get("failures") == [] and r.get("exitCode") == 0 and r.get("signal", "missing") is None
+            and w.get("threads") == threads and record(w.get("limits")).get("threads") == threads and w.get("limits") == r.get("limits")
+            and w.get("wasmThreadExecution") == {"threads": threads, "sharedMemory": True, "oneOwnedProcess": True, "originalPreparedKeyRequired": True}
+            and all(v.get("runtimePinsSHA256") == w.get("runtimePinsSHA256") for v in (m, r)) and digest(w.get("runtimePinsSHA256"))
+            and w.get("keyRecomputed") is False and w.get("keySHA256") == m.get("keySHA256")
+            and e.get("keySHA256") == m.get("keySHA256") and digest(m.get("keySHA256"))
+            and m.get("proofSHA256") == row.get("proofSHA256") and m.get("publicInputsSHA256") == row.get("publicInputsSHA256"))
+    checks["twoCompletedOriginalUSReceipts"] = len(flat_ok) == 2 and all(flat_ok)
     return proofs, checks
 
 
@@ -339,7 +390,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
             for value in (supervisor_identity, worker_identity)),
         "resultCompleted": result.get("phase") == "completed" and result.get("success") is True
-            and result.get("deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
+            and result.get("deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
         "resourcesCompleted": resources.get("phase") == "completed" and "failure" in resources and resources["failure"] is None
             and resources.get("failures") == [],
         "originalResultJoined": worker_result.get("format") == RESULT_FORMAT and worker_result.get("phase") == "completed"
@@ -352,7 +403,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             for value in (result, resources, worker_result)),
         "fixedPairedScope": result.get("profile") == PROFILE and result.get("nativeExecution", "missing") is None
             and result.get("nativeDeliveryCount") == 0 and all(result.get(key) is False for key in SCOPE_FALSE)
-            and worker_result.get("deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
+            and worker_result.get("deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
             and all(worker_result.get(key) is False for key in ("mobileNoteCustodyEstablished", "tlsEstablished",
                 "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished", "fullWalletAcceptance")),
         "originalCleanup": resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
@@ -366,14 +417,14 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
     proofs, proof_receipts = proof_checks(result.get("proofs"), record(record(result.get("artifacts")).get("noteKeys")), DEVICE_DEPOSIT)
     receipt_checks.update(proof_receipts)
     listeners = record(result.get("cleanup")).get("mobileListeners")
-    receipt_checks["pairedListenersClosed"] = isinstance(listeners, list) and len(listeners) == (1 if DEVICE_DEPOSIT else 2) and all(
+    receipt_checks["pairedListenersClosed"] = isinstance(listeners, list) and len(listeners) == (2 if DEVICE_RESERVATION else 1 if DEVICE_DEPOSIT else 2) and all(
         record(row).get("closed") is True and record(row).get("listenerClosed") is True
         and record(row).get("ownedSocketsRemaining") == 0 and record(row).get("originalDiagnosticsInFlight") == 0 for row in listeners)
     accepted = all(receipt_checks.values())
-    summary = {"format": "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+    summary = {"format": "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
         "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
         "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
-        ("deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
+        ("deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
         "proofHashes": [{key: row.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")} for row in proofs],
         "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
@@ -389,7 +440,12 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             "Actual exact-origin loopback TLS1.3 and real mobile API/Noble signatures in Node; no phone, Hermes, SecureStore or biometric execution.",
             "PROVE HTTP504 and deliberately lost FUND reply do not retry the original job or signed wire; explicit OBSERVE authenticates the same ledger inclusion.",
             "No graph/reservation/EXIT, portable vault persistence or full mobile economic custody acceptance."]
-    path = DEV / ("reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
+    if DEVICE_RESERVATION:
+        summary["limitations"] = ["Original client-owned D26/U/S on synthetic local EVM; one funding and one reservation, no native delivery or EXIT.",
+            "Exact mobile vault/codec/API run in Node with real AES-GCM/RNG and private ciphertext files; Expo SecureStore/biometrics/Hermes/phone remain untested.",
+            "Same encrypted device note/output custody is retained before U and S. HTTP loss waits the original admitted work; no reproof/send retry.",
+            "Linux owner note remains UNISSUED/available0. Recovery100 is a prospective subset of reserve100, not another funded balance."]
+    path = DEV / ("reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -401,10 +457,17 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
 
 
 def main():
-    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
-    if sys.argv[1:] not in ([], ["--device-deposit"]):
-        raise SystemExit("Usage: ./dev lab mobile-original | ./dev lab mobile-device")
-    if sys.argv[1:] == ["--device-deposit"]:
+    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
+    if sys.argv[1:] not in ([], ["--device-deposit"], ["--device-reservation"]):
+        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-deposit|--device-reservation]")
+    if sys.argv[1:] == ["--device-reservation"]:
+        DEVICE_DEPOSIT = DEVICE_RESERVATION = True
+        ENTRY = FLAT / "integration/run-device-owner-reservation-v1.mjs"
+        DIRECTORY = FLAT / ".local/device-owner-reservation-v1"
+        PROFILE = "device-owner-reservation-v1"
+        RESULT_FORMAT = "LIANUM_DEVICE_OWNER_RESERVATION_RESULT_V1"
+        RESOURCES_FORMAT = "LIANUM_DEVICE_OWNER_RESERVATION_RESOURCES_V1"
+    elif sys.argv[1:] == ["--device-deposit"]:
         DEVICE_DEPOSIT = True
         ENTRY = FLAT / "integration/run-device-owner-deposit-v1.mjs"
         DIRECTORY = FLAT / ".local/device-owner-deposit-v1"

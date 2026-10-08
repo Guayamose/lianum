@@ -18,6 +18,9 @@ import { deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceD
 import { verifyPrivateNotePath } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import { nullifier } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
+import { runDeviceOwnerReservationContinuationV1 } from './device-owner-reservation-original-continuation-v1.mjs';
+import { openDeviceReservationHostVaultV1 } from './device-owner-reservation-host-vault-v1.mjs';
+import { assertDeviceReservationReleaseV1 } from './device-owner-reservation-policy-v1.mjs';
 import { assertDeviceDepositReleaseV1 } from './device-owner-deposit-policy-v1.mjs';
 const bare = value => value.replace(/^0x/, '');
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -32,8 +35,11 @@ function exactTlsFetch(descriptor, certificate, evidence) {
     const path = new URL(target).pathname, headers = { ...options.headers };
     if (options.body !== undefined) headers['Content-Length'] = Buffer.byteLength(options.body);
     if (options.method === 'POST') evidence.posts[path] = (evidence.posts[path] ?? 0) + 1;
-    const discard = evidence.dropFund && path === '/v1/mobile/device-deposit/fund';
-    if (discard) evidence.dropFund = false;
+    const discardFund = evidence.dropFund && path === '/v1/mobile/device-deposit/fund';
+    const discardU = evidence.dropU && path === '/v1/mobile/device-reservation/jobs';
+    const discard = discardFund || discardU;
+    if (discardFund) evidence.dropFund = false;
+    if (discardU) evidence.dropU = false;
     const request = httpsRequest(target, { family: 4, ca: certificate, agent: false,
       minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3', method: options.method ?? 'GET', headers, signal: options.signal }, response => {
       try {
@@ -53,12 +59,14 @@ function exactTlsFetch(descriptor, certificate, evidence) {
         evidence.responses.push({ path, status: response.statusCode });
         const reply = new Response(Buffer.concat(chunks), { status: response.statusCode, headers: response.headers });
         Object.defineProperty(reply, 'url', { value: target });
-        if (discard) evidence.fundHttpStatus = response.statusCode;
+        if (discardFund) evidence.fundHttpStatus = response.statusCode;
+        if (discardU) evidence.uHttpStatus = response.statusCode;
         if (discard && response.statusCode === 200) {
           // Only a public reply field is retained; the API receives no body.
-          evidence.fundAuthorizationSHA256 = JSON.parse(Buffer.concat(chunks)).authorizationSHA256;
-          evidence.fundReplyDiscarded = true;
-          void reply.body.cancel().then(() => reject(Error('DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
+          const authorization = JSON.parse(Buffer.concat(chunks)).authorizationSHA256;
+          if (discardFund) { evidence.fundAuthorizationSHA256 = authorization; evidence.fundReplyDiscarded = true; }
+          if (discardU) { evidence.uAuthorizationSHA256 = authorization; evidence.uReplyDiscarded = true; }
+          void reply.body.cancel().then(() => reject(Error(discardU ? 'DEVICE_US_U_REPLY_LOST' : 'DEVICE_DEPOSIT_FUND_REPLY_LOST_BEFORE_API')), reject);
         } else resolve(reply);
         } catch (error) { reject(error); }
       });
@@ -67,7 +75,11 @@ function exactTlsFetch(descriptor, certificate, evidence) {
   });
 }
 
-export async function runDeviceOwnerDepositOriginalStepV1(context) {
+export async function runDeviceOwnerDepositOriginalStepV1(context) { return runOriginalStepV1(context, false); }
+export async function runDeviceOwnerReservationOriginalStepV1(context) {
+  assertDeviceReservationReleaseV1(); return runOriginalStepV1(context, true);
+}
+async function runOriginalStepV1(context, reservationMode) {
   assertDeviceDepositReleaseV1();
   const { account, owner, runtime, nativeRuntime, system, reader, joined, result, pairs, privateDirectory,
     stage, save, active, notePreparation, fromApp, deviceKey, proofRetained } = context;
@@ -79,7 +91,7 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
   const linuxBefore = await owner.ownerView.summary();
   assert.equal(linuxBefore.notes.source.status, 'UNISSUED');
   const setupTransactions = runtime.transactions.length, nativeTransactions = nativeRuntime.transactions.length;
-  let key, witness, actor, bridge, server;
+  let key, witness, actor, bridge, server, host, vault, localRequest, deviceApi, continuation, vaultRootId;
   const tlsDirectory = join(privateDirectory, 'device-tls');
   mkdirSync(tlsDirectory, { mode: 0o700 });
   const reservation = createServer();
@@ -99,45 +111,74 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
     bridge = await createDeviceOwnerDepositBridgeV1({ actor, account, owner, runtime, system, poolIndex: 0 });
     server = await createPairedDeviceDepositTlsServerV1({ bridge,
       tls: { certificate: readFileSync(certificatePath, 'utf8'), privateKey: readFileSync(keyPath, 'utf8') } });
-    pairs.push({ actor, bridge, server, async afterClose() {
+    const ownedPair = { actor, bridge, server, async afterClose() {
+      await continuation?.close(); vault?.close(); deviceApi?.close(); host?.close();
+      if (host) result.cleanup.syntheticDeviceCiphertextRemoved = host.retire().removed;
       bridge.close(); actor.close();
       const info = lstatSync(tlsDirectory);
       assert.equal(info.uid, process.getuid()); assert.equal(info.isDirectory(), true);
       assert.equal(info.isSymbolicLink(), false); assert.equal(info.mode & 0o077, 0);
       assert.equal(realpathSync(tlsDirectory), tlsDirectory); rmSync(tlsDirectory, { recursive: true });
       assert.equal(existsSync(tlsDirectory), false); result.cleanup.syntheticDeviceTlsMaterialRemoved = true;
-    } });
+    } }; pairs.push(ownedPair);
     const transport = { posts: {}, responses: [], dropFund: false, fundReplyDiscarded: false };
-    const api = createOriginalAccountApiV2({ descriptor, fetchImpl: exactTlsFetch(descriptor, readFileSync(certificatePath, 'utf8'), transport) });
+    const fixedFetch = exactTlsFetch(descriptor, readFileSync(certificatePath, 'utf8'), transport);
+    const api = createOriginalAccountApiV2({ descriptor, fetchImpl: fixedFetch });
+    if (reservationMode) {
+      // The canonical mobile root is supplied by the original fixed bootstrap.
+      host = await openDeviceReservationHostVaultV1({ appRoot: context.appRoot, directory: join(privateDirectory, 'device-ciphertext'), fetch: fixedFetch });
+      const created = await host.original.createLocalRootNoteVaultV1();
+      vaultRootId = created.rootId; vault = host.original.openLocalRootNoteVaultV1(vaultRootId);
+      deviceApi = await host.deposit.createDeviceOwnerDepositApiV1(descriptor);
+    }
     const state = await api.state(); assert.equal(state.privatePortfolio, null); assert.equal(state.noteCustodyOnDevice, false);
     const access = async () => {
       active(); const value = await api.challenge('read');
       return { access: value, signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(value)) };
     };
-    for (let attempt = 0; attempt < 16 && !key; attempt++) {
+    if (!reservationMode) for (let attempt = 0; attempt < 16 && !key; attempt++) {
       const candidate = randomBytes(32);
       try { key = privateKeyFromHex(candidate.toString('hex')); } catch { /* no job exists */ }
       finally { candidate.fill(0); }
     }
-    assert.ok(key); const publicKey = devicePublicKey(key);
-    assert.notEqual(publicKey, descriptor.devicePublicKey, 'DEVICE_NOTE_KEY_DISTINCT_FROM_TRANSPORT_KEY');
+    if (!reservationMode) assert.ok(key);
+    let publicKey = key ? devicePublicKey(key) : null;
+    if (!reservationMode) assert.notEqual(publicKey, descriptor.devicePublicKey, 'DEVICE_NOTE_KEY_DISTINCT_FROM_TRANSPORT_KEY');
+    if (reservationMode) {
+      const nativeNow = await nativeRuntime.time(), now = await runtime.time(), aligned = nativeNow - 2n;
+      assert.ok(now <= aligned, 'DEVICE_US_ORIGINAL_CLOCK_ALIGNMENT');
+      if (now < aligned) await runtime.advanceTo(aligned.toString());
+      assert.equal(await nativeRuntime.time(), nativeNow);
+      result.deviceClockAlignment = { receiverSecond: String(await runtime.time()), nativeSecond: String(nativeNow), nativeClockChanged: false };
+    }
     const view = await reader.read(); await reader.assertCurrent(view);
-    const scope = bare(view.domain.scope), policy = bare(view.domain.policy), rootId = randomBytes(32).toString('hex');
-    const opening = { type: 4, rho: randomBytes(32).toString('hex'), x: publicKey.slice(2, 66),
+    const scope = bare(view.domain.scope), policy = bare(view.domain.policy);
+    let rootId = reservationMode ? vaultRootId : randomBytes(32).toString('hex');
+    let opening = reservationMode ? null : { type: 4, rho: randomBytes(32).toString('hex'), x: publicKey.slice(2, 66),
       y: publicKey.slice(66), value: '500', secret: randomBytes(32).toString('hex') };
-    const commitment = sha(localBalanceCommitmentMessageV1(scope, policy, opening));
+    const preparedLocal = reservationMode ? await vault.prepareUnissuedBalanceNote({ scope, policy, pool: bare(system.pools[0].address), recipient: bare(runtime.accounts[3]), amount: '500' }) : null;
+    const commitment = reservationMode ? preparedLocal.commitment : sha(localBalanceCommitmentMessageV1(scope, policy, opening));
     const note = { scope, policy, pool: bare(system.pools[0].address), recipient: bare(runtime.accounts[3]),
       commitment, amount: '500', status: 'UNISSUED', availableBalance: null, nativeEffectsEstablished: false };
     const epoch = (BigInt(view.head.timestamp) / 600n).toString();
     const statement = { scope, policy, epoch, amount: '500', output: commitment };
-    const noteSignature = signDeviceMessage(key, localUnissuedDepositFrameV1(note, { relation: 'D26', epoch }));
-    witness = normalizeDeviceDepositWitnessV1({ scope: words(scope), policy: words(policy), epoch, amount: '500',
+    const noteSignature = reservationMode ? await vault.signPreparedDeposit(await vault.reviewPreparedDeposit({ relation: 'D26', epoch })) : signDeviceMessage(key, localUnissuedDepositFrameV1(note, { relation: 'D26', epoch }));
+    if (reservationMode) localRequest = await vault.createDeviceProofRequest(noteSignature);
+    witness = reservationMode ? null : normalizeDeviceDepositWitnessV1({ scope: words(scope), policy: words(policy), epoch, amount: '500',
       output: words(commitment), rho: bytes(opening.rho), key_x: bytes(opening.x), key_y: bytes(opening.y),
       secret: bytes(opening.secret), signature: bytes(noteSignature) });
-    assert.equal(Object.hasOwn(witness, 'privateKey'), false); assert.equal(Object.hasOwn(witness, 'root'), false);
-    const witnessBytes = deviceDepositWitnessBytesV1(witness), witnessSHA256 = sha(witnessBytes); witnessBytes.fill(0);
+    if (!reservationMode) { assert.equal(Object.hasOwn(witness, 'privateKey'), false); assert.equal(Object.hasOwn(witness, 'root'), false); }
+    const witnessBytes = reservationMode ? null : deviceDepositWitnessBytesV1(witness), witnessSHA256 = reservationMode ? localRequest.witnessSHA256 : sha(witnessBytes); witnessBytes?.fill(0);
     const consent = await api.deviceDeposit.challengeJob({ ...await access(), statement, rootId,
-      noteRevision: 2, witnessSHA256, jobId: null });
+      noteRevision: reservationMode ? localRequest.noteRevision : 2, witnessSHA256, jobId: null });
+    if (reservationMode) {
+      witness = await vault.bindDeviceProofRequest(localRequest, consent); localRequest.close();
+      publicKey = '04' + Buffer.from(witness.key_x).toString('hex') + Buffer.from(witness.key_y).toString('hex');
+      assert.notEqual(publicKey, descriptor.devicePublicKey);
+      opening = { type: 4, rho: Buffer.from(witness.rho).toString('hex'), x: publicKey.slice(2,66), y: publicKey.slice(66), value: '500', secret: Buffer.from(witness.secret).toString('hex') };
+      assert.equal(sha(localBalanceCommitmentMessageV1(scope, policy, opening)), commitment);
+      assert.equal(Object.hasOwn(witness, 'privateKey'), false); assert.equal(Object.hasOwn(witness, 'root'), false);
+    }
     const signedProof = { consent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent)), witness };
     await stage('device-original-D26-job-HTTP-UNKNOWN');
     await assert.rejects(api.deviceDeposit.submit(signedProof), /SERVICE_UNAVAILABLE/);
@@ -168,8 +209,13 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
     await stage('device-explicit-original-inclusion-same-opening');
     const observe = async () => {
       const consent = await api.deviceDeposit.challenge('OBSERVE_D26', { ...await access(), jobId: funding.jobId });
-      const value = await api.deviceDeposit.submit({ consent,
-        signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent)) });
+      const signed = { consent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent)) };
+      let value;
+      if (reservationMode) {
+        const reply = await deviceApi.submit(signed); assert.equal(reply.state, 'CONFIRMED');
+        value = { stage: 'CONFIRMED', authorizationSHA256: sha(deviceDepositConsentMessageV1(consent)), observation: host.deposit.readDeviceDepositInclusionV1(reply.observation) };
+        await vault.applyDeviceDepositInclusion(reply.observation);
+      } else value = await api.deviceDeposit.submit(signed);
       assert.equal(value.authorizationSHA256, sha(deviceDepositConsentMessageV1(consent)));
       assert.equal(value.stage, 'CONFIRMED'); assert.equal(value.observation.commitment, commitment);
       return value.observation;
@@ -212,12 +258,19 @@ export async function runDeviceOwnerDepositOriginalStepV1(context) {
       poolActualAtomic: final.ledger.publicState.actualAssetBalance, poolBackedAtomic: final.ledger.publicState.backedAmount,
       linuxOwnerAvailableAtomic: ownerView.balances.available, privateNoteCount: final.ledger.commitments.length };
     assert.equal(result.proofs.length, 1); result.deviceOwnerD26NodeAcceptance = true; save();
+    if (reservationMode) {
+      assert.equal((await vault.readDeviceNote()).availableBalance, '500');
+      const firstClosed = await server.close(); assert.equal(firstClosed.closed,true); assert.equal(firstClosed.ownedSocketsRemaining,0);
+      result.cleanup.mobileListeners.push(firstClosed); bridge.close();
+      continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId });
+      server = ownedPair.server = continuation.server;
+    }
   } finally {
-    key?.fill(0); if (witness) for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0);
+    key?.fill(0); localRequest?.close(); if (witness) for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0);
     // The shared original close owns successful listeners and retirement. A
     // startup rejection before a listener exists has no admitted financial job.
     if (!server) {
-      bridge?.close(); actor?.close();
+      bridge?.close(); actor?.close(); vault?.close(); deviceApi?.close(); host?.close();
       if (existsSync(tlsDirectory)) rmSync(tlsDirectory, { recursive: true });
     }
   }
