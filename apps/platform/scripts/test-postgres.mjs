@@ -12,7 +12,7 @@ child.once('close', async (code, signal) => {
   try {
     const files = ['apps/platform/src/server.mjs', 'apps/platform/src/authorization-store.mjs', 'apps/platform/src/database-pool.mjs',
       'apps/platform/tests/postgres.test.mjs', 'apps/platform/tests/helpers/platform-child.mjs',
-      'apps/platform/tests/helpers/postgres-container.mjs', 'apps/mobile/src/api/wallet-api.mjs',
+      'apps/platform/tests/helpers/postgres-container.mjs', 'apps/platform/tests/helpers/commit-reply-proxy.mjs', 'apps/mobile/src/api/wallet-api.mjs',
       'packages/mobile-protocol/src/authorization.mjs'];
     const hashes = Object.fromEntries(await Promise.all(files.map(async path => [path,
       createHash('sha256').update(await readFile(root + path)).digest('hex')])));
