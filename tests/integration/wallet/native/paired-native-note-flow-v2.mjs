@@ -369,8 +369,19 @@ export async function runPairedNativeNoteFlowV2() {
     result.checks.originalTopUpAdmissionReplyLostOnce = true;
     result.notes.push(await observedNote(topUp.body, '500', 'deposit_balance'));
     result.checks.genuineTopUpReceiptAndBacking = true;
-    const unsigned = await first.api.challenge('read');
-    await assert.rejects(first.api.openReview({ challenge: unsigned, signature: '0'.repeat(128) }), /SERVICE_UNAVAILABLE/);
+    const disclosureEffectsBefore = await effectCounts(), unsigned = await first.api.challenge('read');
+    const unsignedCallsBefore = first.calls();
+    await assert.rejects(first.api.openReview({ challenge: unsigned, signature: '0'.repeat(128) }), /SIGNATURE_NONCANONICAL/);
+    assert.equal(first.calls(), unsignedCallsBefore, 'PAIRED_NOTE_NONCANONICAL_SIGNATURE_MUST_NOT_POST');
+    const forbidden = await first.api.challenge('read'), forbiddenCallsBefore = first.calls();
+    const unpairedDeviceKey = new Uint8Array(32).fill(12);
+    try {
+      assert.notEqual(devicePublicKey(unpairedDeviceKey), publicKey, 'PAIRED_NOTE_DISTINCT_UNPAIRED_DEVICE_REQUIRED');
+      const signature = signDeviceMessage(unpairedDeviceKey, originalAccountAccessMessageV2(forbidden));
+      await assert.rejects(first.api.openReview({ challenge: forbidden, signature }), /SERVICE_UNAVAILABLE/);
+      assert.equal(first.calls(), forbiddenCallsBefore + 1, 'PAIRED_NOTE_UNPAIRED_SIGNATURE_REJECTED_BY_ORIGINAL_HTTP');
+    } finally { unpairedDeviceKey.fill(0); }
+    assert.deepEqual(await effectCounts(), disclosureEffectsBefore);
     result.checks.mobileUnsignedDisclosureRejected = true;
     await stage('real-mobile-signed-original-read-and-reconcile');
     await diagnostic(first, 'read'); await diagnostic(first, 'reconcile', true); await diagnostic(first, 'read');
