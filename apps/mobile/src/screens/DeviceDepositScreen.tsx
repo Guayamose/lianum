@@ -91,7 +91,8 @@ export default function DeviceDepositScreen() {
       const state = await custody.readDeviceNote(); live(held); setNote(state); setMessage(result.state);
     } catch (error) {
       live(held); const state = await custody.readDeviceNote(); live(held); setNote(state);
-      setMessage('UNKNOWN: consulta explícitamente el trabajo/envío original. No hay reintento automático.'); throw error;
+      const notice = 'UNKNOWN: consulta explícitamente el trabajo/envío original. No hay reintento automático.';
+      setMessage(notice); throw new Error(notice, { cause: error });
     } finally { if (witness) for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0); }
   }
   const edit = (update: (value: string) => void, value: string) => { clear(); update(value); };
