@@ -251,6 +251,10 @@ try {
     assert.ok(Array.isArray(sourceMap.sources) && Array.isArray(sourceMap.sourcesContent)
       && sourceMap.sources.length===sourceMap.sourcesContent.length,'MOBILE_BUILD_ORIGINAL_SOURCE_MAP');
     const required=['apps/mobile/App.tsx','apps/mobile/src/screens/OriginalAccountScreen.tsx',
+      'apps/mobile/src/screens/LocalCustodyScreen.tsx',
+      'apps/mobile/src/custody/local-root-note-vault-v1.ts',
+      'apps/mobile/src/custody/balance-note-codec-v1.mjs',
+      'apps/mobile/src/custody/unissued-deposit-terms-v1.mjs',
       'apps/mobile/src/custody/key-store.ts','apps/mobile/src/custody/signing.mjs',
       'apps/mobile/src/custody/original-account-lease-v2.mjs','apps/mobile/src/api/original-account-api-v2.mjs',
       'packages/mobile-protocol/src/original-account-review-v2.mjs',
