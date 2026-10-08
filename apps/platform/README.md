@@ -94,6 +94,9 @@ no demuestra rollback: puede haber quedado consumido con UNKNOWN duradero,
 sin dispatch ni reenvío. Los listeners pertenecen al Pool y a sus clientes;
 una conexión rota, idle o prestada para una transacción, rechaza las consultas
 sin provocar un error de EventEmitter sin gestionar en el proceso HTTP.
+La caducidad del permiso se comprueba otra vez inmediatamente antes de llamar
+al adaptador, después de esperar el consumo SQL. Si vence durante esa espera,
+no hay dispatch y el original ya consumido conserva UNKNOWN y `retryAllowed:false`.
 
 El consumo se confirma **antes** de llamar al adaptador. La clave única es
 propietario + `requestId` + acción. Los términos de la operación original se
@@ -123,7 +126,7 @@ resuelve el estado económico ni habilita repetir la acción original.
 ./dev npm --prefix apps/platform run test:docker
 ```
 
-`test` ejecuta 17 pruebas host y omite explícitamente el grupo SQL real.
+`test` ejecuta 18 pruebas host y omite explícitamente el grupo SQL real.
 `test:postgres` crea PostgreSQL 17 oficial por digest, con 256 MiB, puerto
 loopback aleatorio y volumen exclusivo. Ejecuta 9 casos y su grupo (10 PASS):
 JSONB, carreras de mismo/nuevo desafío, separación propietario/acción,

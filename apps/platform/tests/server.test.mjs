@@ -195,3 +195,34 @@ test('receipt reads fail closed on unavailable SQL without invoking economic or 
     assert.equal(reads, 0);
   }
 });
+
+test('expiry during durable consumption prevents dispatch and preserves UNKNOWN original', async t => {
+  let clock = 1_000_000, effects = 0, expireOnce = true;
+  const persistence = store(), consume = persistence.consume;
+  persistence.consume = async challenge => {
+    const admission = await consume(challenge);
+    if (!admission.duplicate && expireOnce) {
+      expireOnce = false;
+      clock = challenge.expiresAt;
+    }
+    return admission;
+  };
+  const { call } = await fixture(t, { capabilities: { execute: true }, submit: async () => {
+    effects++; return { admitted: true };
+  } }, persistence, { now: () => clock });
+  const terms = { ...intent, action: 'execute' };
+  const challenge = (await call('/v1/mobile/challenges', { ownerPublicKey, intent: terms })).body.challenge;
+  const original = signed(challenge);
+  const expected = { status: 'UNKNOWN', requestId: terms.requestId, operationState: 'UNKNOWN', retryAllowed: false };
+  assert.deepEqual(await call('/v1/mobile/authorizations', original), { status: 200, body: expected });
+  assert.equal(effects, 0);
+  assert.deepEqual(await persistence.receipt(challenge), expected);
+  assert.equal((await call('/v1/mobile/authorizations', original)).status, 400);
+  const replacement = (await call('/v1/mobile/challenges', { ownerPublicKey, intent: terms })).body.challenge;
+  assert.deepEqual(await call('/v1/mobile/authorizations', signed(replacement)), { status: 200, body: expected });
+  const receipt = await call('/v1/mobile/authorization-receipts', receiptRequest(original, clock));
+  assert.equal(receipt.status, 200);
+  assert.deepEqual(receipt.body.authorization, expected);
+  assert.deepEqual(await persistence.receipt(challenge), expected);
+  assert.equal(effects, 0);
+});

@@ -95,7 +95,14 @@ export async function startPlatformServer({origin,store=null,executor=null,port=
         let timer;
         let outcome;
         try {
-          outcome=await Promise.race([Promise.resolve().then(()=>executor.submit(challenge)),
+          outcome=await Promise.race([Promise.resolve().then(() => {
+            // SQL locks/round trips may outlive the consent window. Recheck
+            // immediately before dispatch; consumption still remains durable
+            // UNKNOWN and never becomes retryable if this permission expired.
+            validateMobileChallenge(challenge, { origin, ownerPublicKey: challenge.ownerPublicKey,
+              now: now(), allowInsecureLocalhost });
+            return executor.submit(challenge);
+          }),
             new Promise(resolve=>{timer=setTimeout(()=>resolve(null),submitTimeoutMs);})]);
         } finally {clearTimeout(timer);}
         if(outcome?.admitted===true)result={status:'ACCEPTED',requestId:challenge.intent.requestId,operationState:'ADMITTED',retryAllowed:false};
