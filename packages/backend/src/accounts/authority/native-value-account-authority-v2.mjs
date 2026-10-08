@@ -68,7 +68,7 @@ export function assertNativeValueAccountManualGraphExecution(capability) {
 import { validateNativeValueManualReview, validateNativeValueManualRecords } from '../../../../custody/src/preparation/native-value-owner-manual-binding-v1.mjs';
 import { consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1 }
   from './device-owner-deposit-bridge-v1.mjs';
-import { walletInputPublicWords, decodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { walletInputPublicWords, decodeWalletPoolInputs, balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, deviceDepositConsentMessageV1 }
   from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { createHash } from 'node:crypto';
@@ -84,6 +84,9 @@ import { encodeStatement } from '../../execution/encoding/statements.mjs';
 import {consumeDeviceOwnerExecutionInstallationV1,consumeDeviceOwnerExecutionAuthorizationV1,assertDeviceOwnerExecutionBridgeV1}
   from './device-owner-execution-bridge-v1.mjs';
 import {deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
+import {normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1,deviceExitConsentMessageV1}
+  from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
+import {verifyPrivateNotePath} from '../../../../engine/src/notes/private-note-tree.mjs';
 
 export async function installDeviceOwnerExecutionV1(account,bridge){
   assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);
@@ -96,6 +99,19 @@ export async function readDeviceOwnerExecutionStatusV1(account,bridge,jobId){
 export async function runDeviceOwnerExecutionAuthorizationV1(account,bridge,admission){
   assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
   return owned.get(account).deviceExecution(consumeDeviceOwnerExecutionAuthorizationV1(bridge,admission,account));
+}
+
+export async function prepareDeviceOwnerExitV1(account,bridge,input){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);
+  return owned.get(account).deviceExitTerms(bridge,input);
+}
+export async function readDeviceOwnerExitStatusV1(account,bridge,jobId){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);reference(jobId);
+  return owned.get(account).deviceExitStatus(jobId,bridge);
+}
+export async function runDeviceOwnerExitAuthorizationV1(account,bridge,admission){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+  return owned.get(account).deviceExit(consumeDeviceOwnerExecutionAuthorizationV1(bridge,admission,account));
 }
 
 export async function runDeviceOwnerReservationAuthorizationV1(account,bridge,authorization) {
@@ -746,6 +762,119 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     }catch(error){if(!unavailable&&reservationRow(row.jobId).nativeOutcome===null){const diagnostic=privateFailureDiagnostic(error,'DEVICE_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED');
         try{await reservationUpdate(row.jobId,{nativeStage:'UNKNOWN',nativeErrorCode:diagnostic.code});}catch{}}
       throw error;}
+  });}
+  const exitRows=()=>record.data.deviceExits??[];
+  const exitRow=id=>{reference(id);const row=exitRows().find(value=>value.jobId===id);assert.ok(row,'DEVICE_EXIT_ORIGINAL_JOB_REQUIRED');return row;};
+  const exitUpdate=(id,fields)=>write(data=>({...data,deviceExits:(data.deviceExits??[]).map(row=>row.jobId===id?{...row,...copy(fields)}:row)}));
+  const exitPublic=row=>({jobId:row.jobId,stage:row.stage,statement:copy(row.consent.statement),consentFields:{
+    ...Object.fromEntries(['parentJobId','nativeBindingSHA256','quoteId','jobId','rootId','noteRevision','noteRole','statement','witnessSHA256'].map(name=>[name,copy(row.consent[name])])),
+    proofSHA256:row.proofSHA256,publicInputsSHA256:row.publicInputsSHA256},observation:copy(row.observation),errorCode:row.errorCode});
+  async function exitTerms(bridge,input){
+    exactRecord(input,['parentJobId','noteRole','rootId','noteRevision','nullifier','recipient']);
+    reference(input.nullifier);assert.match(input.recipient,/^[0-9a-f]{40}$/);assert.notEqual(input.recipient,'0'.repeat(40));assert.notEqual(input.recipient,identity.pool);
+    const parent=reservationRow(input.parentJobId),installation=deviceExecutionOriginal(bridge,parent);
+    assert.equal(input.rootId,parent.consent.custody.rootId,'DEVICE_EXIT_ROOT_CHANGED');
+    assert.ok(Number.isSafeInteger(input.noteRevision)&&input.noteRevision>=parent.consent.custody.noteRevision,'DEVICE_EXIT_CUSTODY_REVISION');
+    assert.ok(['change','recovery'].includes(input.noteRole),'DEVICE_EXIT_ORIGINAL_NOTE_ROLE');
+    const reserved=await reservationObservation(parent);assert.equal(reserved.stage,'RESERVED','DEVICE_EXIT_ORIGINAL_S_REQUIRED');
+    if(input.noteRole==='recovery'){
+      assert.equal(parent.nativeOutcome,'RECOVERED','DEVICE_EXIT_ORIGINAL_F_REQUIRED');assert.ok(parent.nativeTerminal,'DEVICE_EXIT_ORIGINAL_F_REQUIRED');
+      const terminalReceipt=await runtime.receipt('0x'+parent.nativeTerminal.transactionHash);assert.ok(terminalReceipt);await runtime.checkReceipt(terminalReceipt);await runtime.assertCanonical(terminalReceipt);
+      assert.equal(nativeExecution.snapshot(parent.jobId).outcome,'RECOVERED','DEVICE_EXIT_ORIGINAL_F_REQUIRED');
+    }
+    const quote=originalQuote(parent.consent.quoteId),deposit=reservationSubject(parent.consent.depositJobId,input.rootId,installation.descriptor),
+      budget=BigInt(genericBalanceNativeTerms(validateGenericBalanceNativePreparation(quote.preparation)).budget),
+      amount=input.noteRole==='change'?BigInt(deposit.consent.statement.amount)-budget:budget;
+    assert.ok(amount>0n,'DEVICE_EXIT_POSITIVE_NOTE_REQUIRED');
+    const commitment=input.noteRole==='change'?parent.nativeBinding.changeCommitment:parent.nativeBinding.recoveryCommitment,
+      view=await reader.read(),indices=view.ledger.commitments.flatMap((leaf,index)=>leaf==='0x'+commitment?[index]:[]);
+    assert.equal(indices.length,1,'DEVICE_EXIT_ORIGINAL_NOTE_REQUIRED');assert.ok(!view.ledger.nullifiers.includes('0x'+input.nullifier),'DEVICE_EXIT_NOTE_ALREADY_SPENT');
+    const path=view.ledger.tree.path(indices[0]);await reader.assertCurrent(view);continueWork();
+    return {...Object.fromEntries(['parentJobId','noteRole','rootId','noteRevision'].map(name=>[name,input[name]])),nullifierSpent:false,
+      nativeBindingSHA256:sha(parent.nativeBinding),statement:{scope:asset.scope,policy:asset.policy,
+      epoch:(BigInt(view.head.timestamp)/600n).toString(),root:bare(path.root),nullifier:input.nullifier,amount:amount.toString(),recipient:input.recipient,commitment},
+      path:{root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)},
+      poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,assetIdentity:asset.assetIdentity,domainCommitment:identity.domainCommitment},
+      observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp}};
+  }
+  function exitBinding(consent,bridge){reservationBinding(consent);const parent=reservationRow(consent.parentJobId),installation=deviceExecutionOriginal(bridge,parent);
+    assert.equal(consent.nativeBindingSHA256,sha(parent.nativeBinding),'DEVICE_EXIT_ORIGINAL_BINDING_CHANGED');
+    assert.equal(consent.rootId,parent.consent.custody.rootId,'DEVICE_EXIT_ROOT_CHANGED');
+    for(const name of ['origin','pairingId','devicePublicKey'])assert.equal(consent[name],installation.descriptor[name],'DEVICE_EXIT_DEVICE_CHANGED');return parent;}
+  async function exitCurrent(consent,bridge,epoch){await healthy();continueWork();exitBinding(consent,bridge);const view=await reader.read();await reader.assertCurrent(view);
+    if(epoch)assert.equal(consent.statement.epoch,(BigInt(view.head.timestamp)/600n).toString(),'DEVICE_EXIT_EPOCH_CHANGED');return view;}
+  async function observeExit(row,bridge){
+    exitBinding(row.consent,bridge);if(row.submission===null)return exitPublic(row);
+    const observation=await observer.readTransaction({kind:'withdraw_'+row.consent.noteRole,identitySHA256,
+      transactionHash:row.submission.transactionHash,calldataSHA256:row.submission.calldataSHA256});
+    if(observation===null)return{...exitPublic(row),stage:'WITHDRAWAL_UNKNOWN'};
+    validateFlatAccountOwnerObservation({identity,artifact:pool.artifact,submission:row.submission,authorization:null,observation});
+    const view=await exitCurrent(row.consent,bridge,false);assert.ok(view.ledger.nullifiers.includes('0x'+row.consent.statement.nullifier),'DEVICE_EXIT_ORIGINAL_SPEND_REQUIRED');
+    const receipt=await runtime.receipt('0x'+observation.transaction.hash);assert.ok(receipt);await runtime.checkReceipt(receipt);const block=await runtime.assertCanonical(receipt);
+    const retained={profile:'LIANUM_DEVICE_ORIGINAL_W39_OBSERVATION_V1',jobId:row.jobId,parentJobId:row.consent.parentJobId,rootId:row.consent.rootId,
+      noteRole:row.consent.noteRole,commitment:row.consent.statement.commitment,nullifier:row.consent.statement.nullifier,
+      amount:row.consent.statement.amount,recipient:row.consent.statement.recipient,transactionHash:observation.transaction.hash,
+      blockHash:observation.receipt.blockHash,blockNumber:BigInt(block.number).toString(),calldataSHA256:row.submission.calldataSHA256,
+      timestamp:observation.after.timestamp,domainCommitment:identity.domainCommitment};
+    if(row.observation!==null)assert.deepEqual(retained,row.observation,'DEVICE_EXIT_ORIGINAL_OBSERVATION_CHANGED');
+    else await exitUpdate(row.jobId,{stage:'CONFIRMED',errorCode:null,observation:retained,submission:{...row.submission,observation}});
+    await reader.assertCurrent(view);return exitPublic(exitRow(row.jobId));
+  }
+  async function deviceExit(original){return exclusive(async()=>{
+    const {bridge,action,consent}=original;exitBinding(consent,bridge);const reply=value=>({...value,authorizationSHA256:byteSHA(deviceExitConsentMessageV1(consent))});
+    if(action==='PROVE_W39'){
+      assert.ok(!exitRows().some(row=>row.jobId===consent.jobId||row.consent.statement.commitment===consent.statement.commitment),
+        'DEVICE_EXIT_ORIGINAL_JOB_ALREADY_ADMITTED');assert.ok(exitRows().length<16,'DEVICE_EXIT_JOURNAL_CAPACITY');
+      const input=normalizeDeviceExitWitnessV1(original.witness),bytes=deviceExitWitnessBytesV1(input);let prover;
+      try{
+        assert.equal(byteSHA(bytes),consent.witnessSHA256,'DEVICE_EXIT_WITNESS_CHANGED');const publicInputs=walletInputPublicWords('withdraw_balance',input),
+          statement=decodeWalletPoolInputs('withdraw_balance',publicInputs);
+        for(const name of ['scope','policy','root','nullifier','recipient'])assert.equal(statement[name].slice(2),consent.statement[name],'DEVICE_EXIT_STATEMENT_CHANGED');
+        for(const name of ['epoch','amount'])assert.equal(statement[name],consent.statement[name],'DEVICE_EXIT_STATEMENT_CHANGED');
+        const opening={type:4,rho:Buffer.from(input.rho),x:Buffer.from(input.key_x),y:Buffer.from(input.key_y),value:input.value,secret:Buffer.from(input.secret)},
+          commitment=balanceCommitment(consent.statement.scope,consent.statement.policy,opening);
+        try{assert.equal(commitment.toString('hex'),consent.statement.commitment,'DEVICE_EXIT_ORIGINAL_OPENING_CHANGED');
+          assert.equal(nullifier(Buffer.from(consent.statement.scope,'hex'),commitment,opening.secret).toString('hex'),consent.statement.nullifier,'DEVICE_EXIT_NULLIFIER_CHANGED');}
+        finally{for(const name of ['rho','x','y','secret'])opening[name].fill(0);}
+        const historicalPath={root:'0x'+consent.statement.root,leaf:'0x'+consent.statement.commitment,index:Number(input.leaf_index),
+          siblings:input.siblings.map(bytes=>'0x'+Buffer.from(bytes).toString('hex'))};assert.equal(verifyPrivateNotePath(historicalPath),true,'DEVICE_EXIT_ORIGINAL_PATH_CHANGED');
+        const terms=await exitTerms(bridge,{parentJobId:consent.parentJobId,noteRole:consent.noteRole,rootId:consent.rootId,noteRevision:consent.noteRevision,
+          nullifier:consent.statement.nullifier,recipient:consent.statement.recipient});
+        for(const name of ['scope','policy','commitment','amount','recipient','nullifier','epoch'])assert.equal(consent.statement[name],terms.statement[name],'DEVICE_EXIT_TERMS_CHANGED');
+        const before=await exitCurrent(consent,bridge,true);assert.ok(before.ledger.roots.includes('0x'+consent.statement.root),'DEVICE_EXIT_ORIGINAL_ROOT_REQUIRED');
+        assert.ok(!before.ledger.nullifiers.includes('0x'+consent.statement.nullifier),'DEVICE_EXIT_NOTE_ALREADY_SPENT');
+        // The durable latch precedes the one original W39 worker. Neither the
+        // witness nor the note/private root key is retained in the account.
+        await write(data=>({...data,deviceExits:[...(data.deviceExits??[]),{jobId:consent.jobId,consent:copy(consent),stage:'PROVING',proof:null,
+          proofSHA256:null,publicInputsSHA256:null,submission:null,observation:null,errorCode:null}]}));
+        prover=createProofProcess({purpose:'owner',modes:['withdraw_balance']});activeLegacy=prover;
+        const result=await prover.prove('withdraw_balance',input,publicInputs,'device-exit-w39');assert.equal(result.metrics.acceptedResult,true);
+        const view=await exitCurrent(consent,bridge,true),proof=transportProof(result);
+        assert.equal(await system.verify('withdraw_balance',Buffer.from(proof.proof,'hex'),proof.publicInputs.map(word=>'0x'+BigInt(word).toString(16).padStart(64,'0')),
+          view.header.number),true,'DEVICE_EXIT_DEPLOYED_VERIFIER_REJECTED');await reader.assertCurrent(view);continueWork();
+        await onProof({label:'device-exit-w39',relation:'withdraw_balance',role:'device-owner',proof:{...proof,metrics:result.metrics}});
+        await exitUpdate(consent.jobId,{stage:'PROVED',proof,proofSHA256:byteSHA(Buffer.from(proof.proof,'hex')),publicInputsSHA256:sha(proof.publicInputs)});
+        return reply(exitPublic(exitRow(consent.jobId)));
+      }catch(error){if(!unavailable&&exitRows().some(row=>row.jobId===consent.jobId))try{await exitUpdate(consent.jobId,{stage:'FAILED',
+          errorCode:privateFailureDiagnostic(error,'DEVICE_EXIT_PROOF_REJECTED').code});}catch{}throw error;}
+      finally{bytes.fill(0);wipeDeviceExitWitnessV1(input);if(prover)await prover.close();activeLegacy=null;}
+    }
+    const row=exitRow(consent.jobId);for(const name of ['parentJobId','nativeBindingSHA256','quoteId','rootId','noteRevision','noteRole','witnessSHA256'])
+      assert.equal(consent[name],row.consent[name],'DEVICE_EXIT_ORIGINAL_JOB_CHANGED');assert.deepEqual(consent.statement,row.consent.statement,'DEVICE_EXIT_STATEMENT_CHANGED');
+    assert.equal(consent.proofSHA256,row.proofSHA256,'DEVICE_EXIT_PROOF_CHANGED');assert.equal(consent.publicInputsSHA256,row.publicInputsSHA256,'DEVICE_EXIT_PROOF_CHANGED');
+    if(action==='OBSERVE_W39')return reply(await observeExit(row,bridge));
+    assert.equal(action,'WITHDRAW_W39');assert.equal(row.stage,'PROVED','DEVICE_EXIT_RECONCILE_ORIGINAL_ONLY');assert.equal(row.submission,null,'DEVICE_EXIT_RECONCILE_ORIGINAL_ONLY');
+    const view=await exitCurrent(consent,bridge,true);assert.ok(view.ledger.roots.includes('0x'+consent.statement.root),'DEVICE_EXIT_ORIGINAL_ROOT_REQUIRED');
+    assert.ok(!view.ledger.nullifiers.includes('0x'+consent.statement.nullifier),'DEVICE_EXIT_NOTE_ALREADY_SPENT');
+    const calldata=encodeFlatTransaction('withdrawBalance',row.proof),submission={kind:'withdraw_'+consent.noteRole,calldata,calldataSHA256:flatAccountCalldataHash(calldata),
+      publicInputs:row.proof.publicInputs,statement:{scope:consent.statement.scope,policy:consent.statement.policy,epoch:consent.statement.epoch,
+        root:consent.statement.root,nullifier:consent.statement.nullifier,amount:consent.statement.amount,recipient:consent.statement.recipient},before:snapshotFromView(view),
+      epoch:consent.statement.epoch,transactionHash:null,dispatchLatched:true,ownerConfirmed:false,observation:null};
+    await exitUpdate(row.jobId,{stage:'WITHDRAWAL_UNKNOWN',withdrawalConsent:copy(consent),submission});
+    try{continueWork();const receipt=await runtime.send('flat-account-device-exit',{to:pool.address,data:calldata,value:'0'});
+      await exitUpdate(row.jobId,{submission:{...submission,transactionHash:bare(receipt.transactionHash)}});return reply(await observeExit(exitRow(row.jobId),bridge));}
+    catch(error){if(!unavailable)try{const hash=error.transactionRecord?.transactionHash;await exitUpdate(row.jobId,{...(hash?{submission:{...submission,transactionHash:bare(hash)}}:{}),
+        errorCode:privateFailureDiagnostic(error,'DEVICE_EXIT_SEND_UNRESOLVED').code});}catch{}throw error;}
   });}
   function request(value) {
     const bound = validateBoundRequest(value, config), entry = operation(bound.ownerOperationRef);
@@ -1698,6 +1827,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   });
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable,
     deviceDeposit, deviceReservation,deviceExecution,
+    deviceExit,deviceExitTerms(bridge,input){return exclusive(async()=>{await healthy();return exitTerms(bridge,input);});},
+    deviceExitStatus(id,bridge){return exclusive(async()=>{await healthy();const row=exitRow(id);exitBinding(row.consent,bridge);return exitPublic(row);});},
     installDeviceExecution(bridge,installation){return exclusive(async()=>{
       await healthy();assert.ok(!wrapped&&nativeExecution!==null,'DEVICE_EXECUTION_ORIGINAL_EXECUTOR_REQUIRED');
       assert.equal(installation.nativeExecution,nativeExecution,'DEVICE_EXECUTION_EXECUTOR_REBOUND');

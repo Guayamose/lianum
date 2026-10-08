@@ -73,6 +73,11 @@ import {createDeviceOwnerExecutionBridgeV1,consumeDeviceOwnerExecutionAuthorizat
   from '../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {normalizeDeviceExecutionConsentV1,deviceExecutionConsentMessageV1}
   from '../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
+import {normalizeDeviceExitConsentV1,deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1}
+  from '../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import {createBalanceNote,walletWithdrawInput,walletInputPublicWords,balanceWithdrawFrame}
+  from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import {PrivateNoteTree} from '../../../packages/engine/src/notes/private-note-tree.mjs';
 test('device continuation rejects caller executors/providers before dispatch and keeps native PoP domains distinct',async t=>{
   const {f,actor,bridge}=await setup(t);let effects=0;
   await assert.rejects(createDeviceOwnerExecutionBridgeV1({account:f.account,reservationBridge:bridge,
@@ -98,5 +103,28 @@ test('device continuation rejects caller executors/providers before dispatch and
   for(const changed of [{...consent,action:'RECOVER_NATIVE'},{...consent,reservationTransactionHash:h('otherStx')},
     {...consent,nativeBindingSHA256:h('otherbinding')},{...consent,executionSnapshotSHA256:h('othersnapshot')}])
     assert.equal(verify('sha256',deviceExecutionConsentMessageV1(changed),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signed,'hex')),false);
+  assert.equal(f.world.proofs,0);assert.equal(f.world.sends,0);
+});
+test('device W39 retains original note signature/39 words while rejecting root/key and cross-role or recipient PoP reuse',async t=>{
+  const {f,actor}=await setup(t),access=actor.challenge({action:'read'}),review=await actor.openReview({challenge:access,signature:f.device.sign(originalAccountAccessMessageV2(access))});
+  const asset=f.account.config.registry[0],note=createBalanceNote({scope:asset.scope,policy:asset.policy,value:'75'}),tree=new PrivateNoteTree([note.commitment]),
+    witness=walletWithdrawInput({scope:asset.scope,policy:asset.policy,epoch:'10',note,path:tree.path(0),recipient:'a'.repeat(40)}),words=walletInputPublicWords('withdraw_balance',witness);
+  assert.equal(words.length,39);assert.deepEqual(walletInputPublicWords('withdraw_balance',normalizeDeviceExitWitnessV1(witness)),words);
+  assert.throws(()=>normalizeDeviceExitWitnessV1({...witness,privateKey:h('private')}));assert.throws(()=>normalizeDeviceExitWitnessV1({...witness,rootKey:h('private')}));
+  assert.equal(verify('sha256',balanceWithdrawFrame(asset.scope,asset.policy,note.commitment,'a'.repeat(40),'75','10'),
+    {key:note.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(witness.signature)),true);
+  const payload=deviceExitWitnessBytesV1(witness),consent=normalizeDeviceExitConsentV1({version:1,profile:'LIANUM_DEVICE_ORIGINAL_W39_V1',action:'PROVE_W39',origin,
+    pairingId:access.pairingId,devicePublicKey:access.devicePublicKey,challengeId:h('xc'),nonce:h('xn'),expiresAt:Date.now()+15000,binding:review.binding,
+    poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,assetIdentity:asset.assetIdentity,domainCommitment:f.world.identity.domainCommitment},
+    parentJobId:h('parent'),nativeBindingSHA256:h('binding'),quoteId:h('xq'),jobId:h('xj'),rootId:h('root'),noteRevision:4,noteRole:'change',
+    statement:{scope:asset.scope,policy:asset.policy,epoch:'10',root:tree.root.slice(2),nullifier:words.slice(25,33).map(x=>BigInt(x).toString(16).padStart(8,'0')).join(''),
+      amount:'75',recipient:'a'.repeat(40),commitment:note.commitment.toString('hex')},witnessSHA256:createHash('sha256').update(payload).digest('hex'),proofSHA256:null,publicInputsSHA256:null,
+    observed:{blockNumber:'1',blockHash:h('xb'),timestamp:'6000'},openingDisclosure:'ONE_W39_OPENING_TO_ORIGINAL_EPHEMERAL_WORKER'});payload.fill(0);
+  const frame=deviceExitConsentMessageV1(consent),signed=f.device.sign(frame),pub=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',
+    x:Buffer.from(f.device.publicKey.slice(2,66),'hex').toString('base64url'),y:Buffer.from(f.device.publicKey.slice(66),'hex').toString('base64url')}});
+  assert.ok(frame.length<=4096);
+  for(const changed of [{...consent,noteRole:'recovery'},{...consent,parentJobId:h('otherparent')},
+    {...consent,statement:{...consent.statement,recipient:'b'.repeat(40)}}])
+    assert.equal(verify('sha256',deviceExitConsentMessageV1(changed),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signed,'hex')),false);
   assert.equal(f.world.proofs,0);assert.equal(f.world.sends,0);
 });

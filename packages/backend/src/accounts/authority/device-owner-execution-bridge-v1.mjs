@@ -10,13 +10,17 @@ import {assertOwnedNativeValueExecution} from '../../execution/native-value/exec
 import {assertOwnedNativeValueProviderCustody} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import {assertDeviceOwnerReservationBridgeV1,deviceOwnerReservationBridgeActorV1} from './device-owner-reservation-bridge-v1.mjs';
 import {installDeviceOwnerExecutionV1,readDeviceOwnerExecutionStatusV1,runDeviceOwnerExecutionAuthorizationV1,
-  assertOwnedNativeValueAccountAuthority}
+  assertOwnedNativeValueAccountAuthority,prepareDeviceOwnerExitV1,readDeviceOwnerExitStatusV1,runDeviceOwnerExitAuthorizationV1}
   from './native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {normalizeOriginalAccountSignatureV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
 import {DEVICE_EXECUTION_CONSENT_V1,normalizeDeviceExecutionConsentV1,validateDeviceExecutionConsentFreshV1,
   deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
 import {DEVICE_RESERVATION_CONSENT_V1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {originalAccountAccessMessageV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import {DEVICE_EXIT_CONSENT_V1,DEVICE_EXIT_DISCLOSURE_V1,normalizeDeviceExitConsentV1,validateDeviceExitConsentFreshV1,
+  deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1}
+  from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 const bridges=new WeakMap(),admissions=new WeakMap(),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const nonce=()=>randomBytes(32).toString('hex');
 export async function createDeviceOwnerExecutionBridgeV1(input){
@@ -33,7 +37,7 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
   const key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',
     x:Buffer.from(descriptor.devicePublicKey.slice(2,66),'hex').toString('base64url'),
     y:Buffer.from(descriptor.devicePublicKey.slice(66),'hex').toString('base64url')}});
-  let closed=false,busy=false,completion;const pending=new Map(),admitted=new Map();
+  let closed=false,busy=false,completion;const pending=new Map(),admitted=new Map(),exitQuotes=new Map(),exitPending=new Map(),exitSources=new Set();
   const live=()=>{assert.ok(!closed,'DEVICE_EXECUTION_BRIDGE_CLOSED');original();};
   const grant=value=>{const cap=Object.freeze(Object.defineProperty(Object.create(null),'toJSON',{
     value(){throw Error('DEVICE_EXECUTION_NOT_SERIALIZABLE');}}));admissions.set(cap,{bridge,account,...value,consumed:false});return cap;};
@@ -65,13 +69,68 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
       if(action==='EXECUTE_NATIVE')admitted.set(id,retained.promise);completion=retained.promise;
       return await runDeviceOwnerExecutionAuthorizationV1(account,bridge,grant({action,consent}));
     }catch(error){failure=error;throw error;}finally{busy=false;if(retained){if(failure)retained.reject(failure);else retained.resolve();}}}
+  async function exitRead(input){const binding=await actor.deviceDepositSignedReadBindingV1({challenge:cloneInput(input.access),signature:input.signature});
+    live();return{binding,authorizationSHA256:sha(originalAccountAccessMessageV2(input.access))};}
+  function issueExit(action,binding,fields,view){for(const[id,row]of exitPending)if(row.consumed||row.value.expiresAt<=Date.now())exitPending.delete(id);
+    assert.ok(exitPending.size<4,'DEVICE_EXIT_CHALLENGE_CAPACITY');
+    const value=normalizeDeviceExitConsentV1({version:1,profile:DEVICE_EXIT_CONSENT_V1,action,...descriptor,challengeId:nonce(),nonce:nonce(),
+      expiresAt:Date.now()+15000,binding,poolTerms:{scope:view.domain.scope,policy:view.domain.policy,codeHash:account.config.registry[0].codeHash,
+      assetIdentity:view.domain.asset,domainCommitment:view.domainCommitment},...fields,observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},
+      openingDisclosure:action==='PROVE_W39'?DEVICE_EXIT_DISCLOSURE_V1:null});deviceExitConsentMessageV1(value);
+    exitPending.set(value.challengeId,{value,consumed:false});return cloneInput(value);}
+  async function challengeExit(input,action){exactRecord(input,['access','signature','jobId']);live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+    try{const {binding}=await exitRead(input),row=await readDeviceOwnerExitStatusV1(account,bridge,input.jobId),view=await reader.read();await reader.assertCurrent(view);
+      if(action==='WITHDRAW_W39')assert.equal(row.stage,'PROVED','DEVICE_EXIT_PROVED_REQUIRED');return issueExit(action,binding,row.consentFields,view);
+    }finally{busy=false;}}
+  async function exitWork(input,action){exactRecord(input,action==='PROVE_W39'?['consent','signature','witness']:['consent','signature']);
+    live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;let retained,failure,witness;
+    try{const consent=validateDeviceExitConsentFreshV1(cloneInput(input.consent)),row=exitPending.get(consent.challengeId);
+      assert.ok(row&&!row.consumed&&consent.action===action,'DEVICE_EXIT_ORIGINAL_CONSENT');assert.deepEqual(consent,row.value);
+      assert.equal(verify('sha256',deviceExitConsentMessageV1(consent),{key,dsaEncoding:'ieee-p1363'},
+        Buffer.from(normalizeOriginalAccountSignatureV2(input.signature),'hex')),true,'DEVICE_EXIT_DEVICE_SIGNATURE');
+      assert.deepEqual(await actor.deviceDepositOriginalBinding(),consent.binding,'DEVICE_EXIT_BINDING_CHANGED');live();validateDeviceExitConsentFreshV1(consent);
+      const workKey=consent.jobId+':'+action;if(action!=='OBSERVE_W39')assert.ok(!admitted.has(workKey),'DEVICE_EXIT_RECONCILE_ORIGINAL_ONLY');
+      if(action==='PROVE_W39'){assert.ok(!exitSources.has(consent.statement.commitment),'DEVICE_EXIT_ORIGINAL_SOURCE_ALREADY_ADMITTED');
+        witness=normalizeDeviceExitWitnessV1(cloneInput(input.witness));const bytes=deviceExitWitnessBytesV1(witness);
+        try{assert.equal(sha(bytes),consent.witnessSHA256,'DEVICE_EXIT_WITNESS_CHANGED');}finally{bytes.fill(0);}exitSources.add(consent.statement.commitment);}
+      row.consumed=true;retained=Promise.withResolvers();retained.promise.catch(()=>{});
+      if(action!=='OBSERVE_W39')admitted.set(workKey,retained.promise);completion=retained.promise;
+      return await runDeviceOwnerExitAuthorizationV1(account,bridge,grant({action,consent,witness}));
+    }catch(error){failure=error;throw error;}finally{wipeDeviceExitWitnessV1(witness);busy=false;
+      if(retained){if(failure)retained.reject(failure);else retained.resolve();}}}
   const bridge=Object.freeze({challengeExecution(input){assert.equal(arguments.length,1);return challenge(input,'EXECUTE_NATIVE');},
     execute(input){assert.equal(arguments.length,1);return work(input,'EXECUTE_NATIVE');},
     challengeReconciliation(input){assert.equal(arguments.length,1);return challenge(input,'RECONCILE_NATIVE');},
     reconcile(input){assert.equal(arguments.length,1);return work(input,'RECONCILE_NATIVE');},
     challengeRecovery(input){assert.equal(arguments.length,1);return challenge(input,'RECOVER_NATIVE');},
     recover(input){assert.equal(arguments.length,1);return work(input,'RECOVER_NATIVE');},
-    close(){assert.equal(arguments.length,0);closed=true;pending.clear();return{closed:true,originalWorkRetained:true};}});
+    async prepareExit(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','parentJobId','noteRole','rootId','noteRevision','nullifier','recipient']);
+      live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+      try{const access=await exitRead(input),terms=await prepareDeviceOwnerExitV1(account,bridge,Object.fromEntries(
+          ['parentJobId','noteRole','rootId','noteRevision','nullifier','recipient'].map(name=>[name,input[name]])));
+        // Preserve the same original W39 intent across READ/biometric delay.
+        // Each renewal still performs the complete original fresh ledger read.
+        // Changed path/root/epoch/recipient cannot silently replace that intent.
+        const old=[...exitQuotes.values()].find(row=>row.parentJobId===terms.parentJobId&&row.noteRole===terms.noteRole&&row.rootId===terms.rootId);
+        if(old)for(const name of ['nativeBindingSHA256','noteRevision','statement','path','poolTerms'])
+          assert.deepEqual(old[name],terms[name],'DEVICE_EXIT_ORIGINAL_QUOTE_CHANGED');
+        else assert.ok(exitQuotes.size<4,'DEVICE_EXIT_QUOTE_CAPACITY');
+        const quote={version:1,profile:'LIANUM_DEVICE_ORIGINAL_W39_QUOTE_V1',...descriptor,quoteId:old?.quoteId??nonce(),...terms,
+          expiresAt:Math.min(input.access.expiresAt,Date.now()+15000)};exitQuotes.set(quote.quoteId,cloneInput(quote));
+        return{quote,authorizationSHA256:access.authorizationSHA256};}finally{busy=false;}},
+    async challengeExitJob(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','quoteId','jobId','witnessSHA256']);
+      live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+      try{const {binding}=await exitRead(input),quote=exitQuotes.get(input.quoteId);assert.ok(quote&&quote.expiresAt>Date.now(),'DEVICE_EXIT_ORIGINAL_QUOTE_REQUIRED');
+        const view=await reader.read();await reader.assertCurrent(view);return issueExit('PROVE_W39',binding,{poolTerms:quote.poolTerms,
+          ...Object.fromEntries(['parentJobId','nativeBindingSHA256','rootId','noteRevision','noteRole','statement'].map(name=>[name,quote[name]])),
+          quoteId:quote.quoteId,jobId:input.jobId,witnessSHA256:input.witnessSHA256,proofSHA256:null,publicInputsSHA256:null},view);
+      }finally{busy=false;}},
+    proveExit(input){assert.equal(arguments.length,1);return exitWork(input,'PROVE_W39');},
+    challengeWithdrawal(input){assert.equal(arguments.length,1);return challengeExit(input,'WITHDRAW_W39');},
+    withdraw(input){assert.equal(arguments.length,1);return exitWork(input,'WITHDRAW_W39');},
+    challengeExitObservation(input){assert.equal(arguments.length,1);return challengeExit(input,'OBSERVE_W39');},
+    observeExit(input){assert.equal(arguments.length,1);return exitWork(input,'OBSERVE_W39');},
+    close(){assert.equal(arguments.length,0);closed=true;pending.clear();exitPending.clear();exitQuotes.clear();return{closed:true,originalWorkRetained:true};}});
   bridges.set(bridge,{account,reservationBridge,nativeExecution,providers,actor,descriptor,original,
     installationConsumed:false,get completion(){return completion;}});await installDeviceOwnerExecutionV1(account,bridge);return bridge;
 }

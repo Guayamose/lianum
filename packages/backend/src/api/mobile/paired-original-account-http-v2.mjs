@@ -11,6 +11,7 @@ import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescripto
   from './paired-original-account-actor-v2.mjs';
 import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {deviceOwnerExecutionBridgeActorV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 const listeners = new WeakSet();
@@ -150,6 +151,14 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       }
       if (request.url === '/v2/mobile/original-account/state' && request.method === 'GET') {
         assertPairedOriginalAccountActorV2(actor); return state;
+      }
+      if(executionBridge!==null&&request.method==='POST'&&request.url.startsWith('/v1/mobile/device-exit/')){
+        if(!tls||request.headers.origin!==descriptor.origin)fail('HTTP_ORIGIN_REJECTED');
+        const methods={'preparation-reviews':'prepareExit','job-reviews':'challengeExitJob',jobs:'proveExit',
+          'withdrawal-reviews':'challengeWithdrawal',withdraw:'withdraw','observation-reviews':'challengeExitObservation',observations:'observeExit'};
+        const method=methods[request.url.slice('/v1/mobile/device-exit/'.length)];if(!method)fail('HTTP_NOT_FOUND');
+        const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');
+        try{return await executionBridge[method](input);}finally{if(method==='proveExit')wipeDeviceExitWitnessV1(input.witness);}
       }
       if(executionBridge!==null&&request.method==='POST'&&request.url.startsWith('/v1/mobile/device-execution/')){
         if(!tls||request.headers.origin!==descriptor.origin)fail('HTTP_ORIGIN_REJECTED');
