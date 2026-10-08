@@ -16,11 +16,11 @@ import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIden
   from '../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import { evmFundingEndpointCommitment } from '../chains/evm/dispatch/evm-facts-binding.mjs';
 import { validateEvmGraphDeliveryDescriptorV1, evmGraphDeliveryDescriptorCommitmentV1,
-  encodeEvmGraphDeliveryCallV1, evmGraphDeliveryTermsV1, isMetaMorphoGraphDescriptorV1, isUniswapGraphDescriptorV1 } from '../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
+  encodeEvmGraphDeliveryCallV1, evmGraphDeliveryTermsV1, isMetaMorphoGraphDescriptorV1, isUniswapGraphDescriptorV1, isAaveStaticGraphDescriptorV1 } from '../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
 import { decodeEvmVaultDepositStatement } from '../chains/evm/vault/evm-vault-delivery.mjs';
 import { assertOwnedEvmGraphDeliveryRouterV1, assertOwnedEvmGraphDeliveryObserverV1,
   assertOwnedEvmGraphDeliveryDescriptorV1 } from '../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
-import { isOwnedMetaMorphoGraphDeliveryObserverV1, isOwnedUniswapGraphDeliveryObserverV1 } from '../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
+import { isOwnedMetaMorphoGraphDeliveryObserverV1, isOwnedUniswapGraphDeliveryObserverV1, isOwnedAaveStaticGraphDeliveryObserverV1 } from '../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { createOwnedEvmVaultDispatchGate } from '../chains/evm/dispatch/evm-dispatch-gate.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
   from '../../../engine/src/evidence/native-quorum.mjs';
@@ -127,8 +127,9 @@ export async function createOwnedFlatMetaMorphoProviderV1(input) {
 export async function createOwnedFlatUniswapProviderV1(input) {
   return createOwnedFlatEvmDeliveryProvider(input, 'UNISWAP');
 }
+export async function createOwnedFlatAaveStaticProviderV1(input) { return createOwnedFlatEvmDeliveryProvider(input,'AAVE_STATIC'); }
 async function createOwnedFlatEvmDeliveryProvider(input, variant) {
-  const officialMetaMorpho = variant === 'METAMORPHO', officialUniswap = variant === 'UNISWAP';
+  const officialMetaMorpho = variant === 'METAMORPHO', officialUniswap = variant === 'UNISWAP', officialAave = variant === 'AAVE_STATIC';
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'router', 'observer', 'operatorQuorum', 'rule', 'rulePath',
     'descriptor', 'depositProof', 'terms', 'acceptedLossClause', 'directory', 'password']);
   const { runtime, system, router, observer, operatorQuorum } = input;
@@ -140,8 +141,10 @@ async function createOwnedFlatEvmDeliveryProvider(input, variant) {
   assert.equal(isOwnedMetaMorphoGraphDeliveryObserverV1(observer), officialMetaMorpho, 'FLAT_PROVIDER_FIXED_OBSERVER_VARIANT');
   assert.equal(isUniswapGraphDescriptorV1(descriptor), officialUniswap, 'FLAT_PROVIDER_FIXED_DESCRIPTOR_VARIANT');
   assert.equal(isOwnedUniswapGraphDeliveryObserverV1(observer), officialUniswap, 'FLAT_PROVIDER_FIXED_OBSERVER_VARIANT');
+  assert.equal(isAaveStaticGraphDescriptorV1(descriptor),officialAave,'FLAT_PROVIDER_FIXED_DESCRIPTOR_VARIANT');
+  assert.equal(isOwnedAaveStaticGraphDeliveryObserverV1(observer),officialAave,'FLAT_PROVIDER_FIXED_OBSERVER_VARIANT');
   const descriptorTerms = evmGraphDeliveryTermsV1(descriptor),
-    profile = officialUniswap ? OWNED_FLAT_UNISWAP_PROVIDER_PROFILE_V1
+    profile = officialAave ? 'OWNED_FLAT_AAVE_STATIC_PROVIDER_V1' : officialUniswap ? OWNED_FLAT_UNISWAP_PROVIDER_PROFILE_V1
       : officialMetaMorpho ? OWNED_FLAT_METAMORPHO_PROVIDER_PROFILE_V1 : OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE;
   assert.ok(typeof depositProof === 'string' && /^(?:[0-9a-f]{2})+$/.exec(depositProof)?.[0] === depositProof
     && depositProof.length <= 131072, 'FLAT_PROVIDER_ORIGINAL_D27_PROOF');
@@ -356,7 +359,7 @@ async function createOwnedFlatEvmDeliveryProvider(input, variant) {
         executionFrom: d.route.executionFrom, executionUntil: d.route.executionUntil, settleBefore: terms.settleBefore,
         payoutCommitment: record.data.quote.payoutCommitment, deliveryRiskCommitment: record.data.quote.action.deliveryRiskCommitment,
         deliveryLossClause: bootstrap.acceptedLossClause, protocolAmountsPublic: true, publicNetwork: false });
-      if (officialMetaMorpho) return freeze({ routeProfile: 'REGISTERED_LOCAL_EVM_METAMORPHO_V1', family: '3',
+      if (officialMetaMorpho || officialAave) return freeze({ routeProfile: officialAave ? 'REGISTERED_LOCAL_EVM_AAVE_STATIC_V1' : 'REGISTERED_LOCAL_EVM_METAMORPHO_V1', family: '3',
         protocolKind: original.plan.protocolKind, chainId: d.identity.chainId, genesis: d.identity.genesisHash,
         router: d.identity.router, vault: d.identity.vault, solver: d.identity.solver,
         sourcePool: bootstrap.pool, targetPool: d.identity.targetPool,

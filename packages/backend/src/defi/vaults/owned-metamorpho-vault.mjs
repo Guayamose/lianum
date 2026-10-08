@@ -15,9 +15,12 @@ import { ROOT } from '../../../../proofs/src/catalog.mjs';
 import { assertOwnedLocalEvmV2 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOfficialProtocolFixture } from '../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { assertOfficialAaveFixtureV1, officialAaveFixtureCompilationV1 } from '../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
+import { expectedAaveRuntimeCodeV1 } from '../../operations/deployments/defi/aave-v3-runtime-code-v1.mjs';
+import { assertAaveStaticRedemptionAccountingV1 } from './aave-static-redemption-accounting-v1.mjs';
 import { assertMorphoVaultRedemptionAccountingV1 } from './morpho-vault-redemption-accounting-v1.mjs';
 
-const owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap();
+const variants = new WeakMap(), owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const clone = value => JSON.parse(canonical(value));
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
@@ -29,7 +32,9 @@ const quantity = value => { assert.match(value, /^0x(0|[1-9a-f][0-9a-f]*)$/); re
 const uint = (value, bits = 128) => { assert.ok(typeof value === 'string' && /^(0|[1-9][0-9]*)$/.test(value), 'METAMORPHO_UINT');
   const n = BigInt(value); assert.ok(n > 0n && n < (1n << BigInt(bits)), 'METAMORPHO_UINT_RANGE'); return n; };
 function reference(value) { assert.match(value, /^[0-9a-f]{64}$/); assert.notEqual(value, '0'.repeat(64)); return value; }
-export const isOwnedMetaMorphoVault = value => owned.has(value);
+export const isOwnedMetaMorphoVault = value => owned.has(value) && variants.get(value) === 'METAMORPHO';
+export const isOwnedAaveStaticVaultV1 = value => owned.has(value) && variants.get(value) === 'AAVE_STATIC';
+export const isOwnedOfficialStaticVaultV1 = value => owned.has(value);
 export function assertOwnedMetaMorphoVault(runtime, value) {
   assert.ok(owned.get(value) === runtime && owned.has(value), 'METAMORPHO_ORIGINAL_CAPABILITY');
 }
@@ -59,26 +64,29 @@ function expectedCode(build, vault, asset) {
   assert.deepEqual([...seen].sort(), ['asset', 'vault']); return '0x' + code.toString('hex');
 }
 
-export async function createOwnedMetaMorphoVault(input) {
-  assert.equal(arguments.length, 1); exactRecord(input, ['runtime', 'protocolFixture']);
+export function createOwnedMetaMorphoVault(input) { assert.equal(arguments.length,1); return createOwnedProtocolVaultV1(input,'METAMORPHO'); }
+export function createOwnedAaveStaticVaultV1(input) { assert.equal(arguments.length,1); return createOwnedProtocolVaultV1(input,'AAVE_STATIC'); }
+async function createOwnedProtocolVaultV1(input, variant) {
+  const aave = variant === 'AAVE_STATIC'; exactRecord(input, ['runtime', 'protocolFixture']);
   const { runtime, protocolFixture: fixture } = input;
-  await assertOwnedLocalEvmV2(runtime); assertOfficialProtocolFixture(runtime, fixture);
+  await assertOwnedLocalEvmV2(runtime); if(aave)assertOfficialAaveFixtureV1(runtime,fixture);else assertOfficialProtocolFixture(runtime, fixture);
   assert.equal(runtime.metadata.chainId, '31337');
   const require = createRequire(join(ROOT, 'wallet-platform/artifacts/private-external-v1/abi-tools/package.json'));
-  const { Interface } = require('ethers'), build = compileExit(), iface = new Interface(build.artifact.abi);
+  const originalBuild = aave ? officialAaveFixtureCompilationV1(runtime,fixture) : null;
+  const { Interface } = require('ethers'), build = aave ? {...originalBuild,artifact:originalBuild.artifacts.BoundedAaveStaticExit,sourceSHA256:originalBuild.inputSHA256} : compileExit(), iface = new Interface(build.artifact.abi);
   const sender = runtime.accounts[0], vault = fixture.vault, asset = fixture.first;
   const creation = '0x' + build.artifact.evm.bytecode.object + iface.encodeDeploy([vault.address]).slice(2);
-  const deployment = await runtime.send('deploy-bounded-metamorpho-exit', { from: sender, data: creation });
+  const deployment = await runtime.send(aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit', { from: sender, data: creation });
   await runtime.assertCanonical(deployment); const router = deployment.contractAddress.toLowerCase();
-  const routerCode = expectedCode(build, vault.address, asset.address);
+  const routerCode = aave ? expectedAaveRuntimeCodeV1(build.artifact,build.sourceASTs,{}, {vault:vault.address,asset:asset.address}) : expectedCode(build, vault.address, asset.address);
   assert.equal(await runtime.code(router, deployment.blockNumber), routerCode, 'METAMORPHO_EXIT_DEPLOYED_CODE');
-  const id = detached({ chainId: '31337', genesisHash: bare(runtime.metadata.evmGenesis), domain: sha('METAMORPHO_EXIT/' + router),
+  const id = detached({ chainId: '31337', genesisHash: bare(runtime.metadata.evmGenesis), domain: sha((aave?'AAVE_STATIC_EXIT/':'METAMORPHO_EXIT/') + router),
     runtimeId: sha(runtime.metadata.scratchDirectory), asset: bare(asset.address), vault: bare(vault.address),
     assetCodeSHA256: sha(Buffer.from(bare(asset.code), 'hex')), vaultCodeSHA256: sha(Buffer.from(bare(vault.code), 'hex')) });
   const binding = detached({ identity: id, sender: bare(sender), receiver: bare(sender) });
-  const directory = await mkdtemp(join(runtime.metadata.scratchDirectory, 'metamorpho-exit-'));
+  const directory = await mkdtemp(join(runtime.metadata.scratchDirectory, aave?'aave-static-exit-':'metamorpho-exit-'));
   const store = new Vault(join(directory, 'operations.vault')), password = fresh(), keeper = fresh();
-  let record = await store.create({ profile: 'OWNED_METAMORPHO_EXIT_V1', identity: id, router, operations: [], sendBlocked: false }, password);
+  let record = await store.create({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', identity: id, router, operations: [], sendBlocked: false }, password);
   let busy = false, poisoned = false, pending = null, adapter;
   const assertFixture = async () => { assertOfficialProtocolFixture(runtime, fixture); await assertOwnedLocalEvmV2(runtime); };
   async function healthy() { assert.ok(!poisoned, 'METAMORPHO_STORAGE_UNAVAILABLE'); await assertFixture();
@@ -97,26 +105,39 @@ export async function createOwnedMetaMorphoVault(input) {
     await assertFixture(); const header = await runtime.block(at), tag = header.number;
     assert.equal(await runtime.code(vault.address, tag), vault.code, 'METAMORPHO_CODE_CHANGED');
     assert.equal(await runtime.code(asset.address, tag), asset.code, 'METAMORPHO_ASSET_CODE_CHANGED');
+    if(aave)await fixture.assertCurrent(tag);else {
     assert.equal(await runtime.code(fixture.blue.address, tag), fixture.blue.code, 'METAMORPHO_MORPHO_CODE_CHANGED');
     assert.equal((await read(vault, 'MORPHO', [], tag))[0].toLowerCase(), fixture.blue.address, 'METAMORPHO_ORIGINAL_MORPHO');
     const params = await read(fixture.blue, 'idToMarketParams', [fixture.marketId], tag);
     assert.equal(params[0].toLowerCase(), asset.address, 'METAMORPHO_ORIGINAL_MARKET');
     for (const index of [1, 2, 3]) assert.equal(params[index].toLowerCase(), '0x' + '0'.repeat(40), 'METAMORPHO_ORIGINAL_MARKET');
     assert.equal(params[4], 0n, 'METAMORPHO_ORIGINAL_MARKET');
+    }
     assert.equal(await runtime.code(router, tag), routerCode, 'METAMORPHO_EXIT_CODE_CHANGED');
     assert.equal((await read(vault, 'asset', [], tag))[0].toLowerCase(), asset.address);
     const values = await Promise.all([
       read(vault, 'totalAssets', [], tag), read(vault, 'totalSupply', [], tag), read(vault, 'balanceOf', [sender], tag),
       read(asset, 'balanceOf', [sender], tag), read(vault, 'allowance', [sender, router], tag),
       read(vault, 'balanceOf', [router], tag), read(routerContract, 'used', [sender, '0x' + ref], tag),
+      ...(aave?[]:[
       read(fixture.blue, 'market', [fixture.marketId], tag),
       read(fixture.blue, 'position', [fixture.marketId, vault.address], tag),
       read(asset, 'balanceOf', [fixture.blue.address], tag), read(asset, 'balanceOf', [vault.address], tag),
       read(asset, 'totalSupply', [], tag),
+      ]),
     ]);
     await runtime.assertCanonical(header);
     const [assets, shares, senderShares, senderAssets, allowance, routerShares, used] = values.slice(0, 7).map(row => row[0]);
-    const morpho = { protocol: fixture.blue.address, marketId: fixture.marketId, positionOwner: vault.address,
+    let morpho = null, aaveAccounting = null;
+    if(aave) {
+      const rows=await Promise.all([read(vault,'rate',[],tag),read(fixture.aToken,'scaledBalanceOf',[vault.address],tag),
+        read(fixture.aToken,'scaledTotalSupply',[],tag),read(fixture.aToken,'balanceOf',[vault.address],tag),
+        read(asset,'balanceOf',[fixture.aToken.address],tag),read(asset,'balanceOf',[vault.address],tag),read(asset,'totalSupply',[],tag),
+        read(fixture.stableDebt,'totalSupply',[],tag),read(fixture.variableDebt,'totalSupply',[],tag)]);
+      aaveAccounting={pool:fixture.pool.address,aToken:fixture.aToken.address,wrapper:vault.address,
+        ...Object.fromEntries(['rate','scaledWrapper','scaledTotal','wrapperAssets','poolUnderlying','wrapperUnderlying','inputSupply','stableDebt','variableDebt'].map((key,index)=>[key,rows[index][0].toString()]))};
+    }else {
+    morpho = { protocol: fixture.blue.address, marketId: fixture.marketId, positionOwner: vault.address,
       market: Object.fromEntries(['totalSupplyAssets', 'totalSupplyShares', 'totalBorrowAssets', 'totalBorrowShares', 'lastUpdate', 'fee']
         .map((name, index) => [name, values[7][index].toString()])),
       position: Object.fromEntries(['supplyShares', 'borrowShares', 'collateral'].map((name, index) => [name, values[8][index].toString()])),
@@ -125,10 +146,11 @@ export async function createOwnedMetaMorphoVault(input) {
     // read from the same canonical block, not inferred from a vault NAV.
     for (const name of ['totalBorrowAssets', 'totalBorrowShares', 'fee']) assert.equal(morpho.market[name], '0', 'METAMORPHO_ORIGINAL_MARKET');
     for (const name of ['borrowShares', 'collateral']) assert.equal(morpho.position[name], '0', 'METAMORPHO_ORIGINAL_POSITION');
+    }
     return detached({ identity: id, snapshot: { blockNumber: quantity(tag).toString(), blockHash: bare(header.hash),
       blockTimestamp: quantity(header.timestamp).toString(), totalAssets: assets.toString(), totalShares: shares.toString() },
       balances: { senderShares: senderShares.toString(), senderAssets: senderAssets.toString(), allowance: allowance.toString(),
-        routerShares: routerShares.toString(), used }, morpho, header, privateSpendable: false });
+        routerShares: routerShares.toString(), used }, ...(aave?{aave:aaveAccounting}:{morpho}), header, privateSpendable: false });
   }
   async function quote(intent) {
     exactRecord(intent, ['reference', 'kind', 'amount', 'minimumOutput', 'deadline']); reference(intent.reference);
@@ -148,7 +170,7 @@ export async function createOwnedMetaMorphoVault(input) {
   }
   function output(ref, freshObservation = false) {
     const row = find(ref), result = detached({ reference: ref, action: row.action, phase: row.phase, execution: row.execution,
-      sendBlocked: record.data.sendBlocked, privateSpendable: false, assurance: 'ORIGINAL_LOCAL_METAMORPHO_PUBLIC_REDEMPTION',
+      sendBlocked: record.data.sendBlocked, privateSpendable: false, assurance: aave?'ORIGINAL_LOCAL_AAVE_STATIC_PUBLIC_REDEMPTION':'ORIGINAL_LOCAL_METAMORPHO_PUBLIC_REDEMPTION',
       processRestartSupported: false });
     if (freshObservation && row.phase === 'OBSERVED') receipts.set(result, adapter); return result;
   }
@@ -171,14 +193,14 @@ export async function createOwnedMetaMorphoVault(input) {
     let confirmation = null, phase;
     if (receipt.status === '0x0') {
       assert.deepEqual(before.balances, after.balances, 'METAMORPHO_REVERT_BALANCES');
-      assert.deepEqual(before.morpho, after.morpho, 'METAMORPHO_REVERT_MORPHO');
+      assert.deepEqual(aave?before.aave:before.morpho,aave?after.aave:after.morpho,'OFFICIAL_VAULT_REVERT_PROTOCOL');
       assert.equal(before.snapshot.totalAssets, after.snapshot.totalAssets); assert.equal(before.snapshot.totalShares, after.snapshot.totalShares);
       phase = 'REVERTED';
     } else {
       assert.equal(receipt.status, '0x1');
       if (kind === 'approval') {
         assert.equal(after.balances.allowance, row.action.amount, 'METAMORPHO_EXACT_ALLOWANCE');
-        assert.deepEqual(before.morpho, after.morpho, 'METAMORPHO_APPROVAL_MORPHO_CHANGED');
+        assert.deepEqual(aave?before.aave:before.morpho,aave?after.aave:after.morpho,'OFFICIAL_VAULT_APPROVAL_PROTOCOL');
         for (const name of ['senderShares', 'senderAssets', 'routerShares', 'used']) assert.equal(after.balances[name], before.balances[name]);
         phase = 'PREPARED';
       } else {
@@ -194,8 +216,8 @@ export async function createOwnedMetaMorphoVault(input) {
         assert.equal(BigInt(after.balances.senderAssets) - BigInt(before.balances.senderAssets), assets, 'METAMORPHO_EXACT_ASSET_DELTA');
         assert.equal(before.balances.used, false); assert.equal(after.balances.used, true); assert.equal(after.balances.routerShares, before.balances.routerShares);
         assert.equal(BigInt(before.snapshot.totalShares) - BigInt(after.snapshot.totalShares), shares, 'METAMORPHO_SHARE_SUPPLY');
-        const morphoRedemption = assertMorphoVaultRedemptionAccountingV1({ before: before.morpho, after: after.morpho, assets: assets.toString() });
-        confirmation = { shares: shares.toString(), assets: assets.toString(), transactionHash: bare(hash), morphoRedemption, privateSpendable: false }; phase = 'OBSERVED';
+        const protocolRedemption = aave?assertAaveStaticRedemptionAccountingV1({before:before.aave,after:after.aave,assets:assets.toString()}):assertMorphoVaultRedemptionAccountingV1({ before: before.morpho, after: after.morpho, assets: assets.toString() });
+        confirmation = { shares: shares.toString(), assets: assets.toString(), transactionHash: bare(hash), ...(aave?{aaveRedemption:protocolRedemption}:{morphoRedemption:protocolRedemption}), privateSpendable: false }; phase = 'OBSERVED';
       }
     }
     await update(ref, { [kind]: { ...submission, transactionHash: bare(hash), receipt: clone(receipt), confirmation },
@@ -273,8 +295,8 @@ export async function createOwnedMetaMorphoVault(input) {
       record = next; pending = null; poisoned = false;
       return { reopened: true, processRestartSupported: false, references: record.data.operations.map(row => row.reference) };
     } catch (error) { poisoned = true; throw error; } finally { busy = false; } },
-    metadata: detached({ profile: 'OWNED_METAMORPHO_EXIT_V1', sourceSHA256: build.sourceSHA256, compiler: build.compiler,
+    metadata: detached({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', sourceSHA256: build.sourceSHA256, compiler: build.compiler,
       publicRedemption: true, privateSpendable: false, underlyingAddress: asset.address, vaultAddress: vault.address, routerAddress: router }),
   });
-  owned.set(adapter, runtime); bindings.set(adapter, binding); return adapter;
+  owned.set(adapter, runtime); variants.set(adapter,variant); bindings.set(adapter, binding); return adapter;
 }

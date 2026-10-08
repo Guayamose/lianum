@@ -15,16 +15,16 @@ import { assertOwnedFlatSystem } from '../../operations/deployments/system/deplo
 import { assertOwnedFlatAccountAuthority } from '../../accounts/authority/flat-account-authority.mjs';
 import { prepareVaultAction } from '../vaults/backed-vault.mjs';
 import { assertOwnedBackedVault, assertOwnedBackedVaultReceipt, ownedBackedVaultBinding } from '../vaults/owned-backed-vault.mjs';
-import { isOwnedMetaMorphoVault, assertOwnedMetaMorphoVault, ownedMetaMorphoVaultBinding,
+import { isOwnedOfficialStaticVaultV1, assertOwnedMetaMorphoVault, ownedMetaMorphoVaultBinding,
   assertOwnedMetaMorphoReceipt } from '../vaults/owned-metamorpho-vault.mjs';
 
 // Both branches require original private bootstrap capabilities. Official
 // MetaMorpho uses its own preview/liquidity checks, never the test vault formula.
-const assertVault = (runtime, vault) => isOwnedMetaMorphoVault(vault)
+const assertVault = (runtime, vault) => isOwnedOfficialStaticVaultV1(vault)
   ? assertOwnedMetaMorphoVault(runtime, vault) : assertOwnedBackedVault(runtime, vault);
-const vaultBinding = (runtime, vault) => isOwnedMetaMorphoVault(vault)
+const vaultBinding = (runtime, vault) => isOwnedOfficialStaticVaultV1(vault)
   ? ownedMetaMorphoVaultBinding(runtime, vault) : ownedBackedVaultBinding(runtime, vault);
-const assertReceipt = (vault, receipt) => isOwnedMetaMorphoVault(vault)
+const assertReceipt = (vault, receipt) => isOwnedOfficialStaticVaultV1(vault)
   ? assertOwnedMetaMorphoReceipt(vault, receipt) : assertOwnedBackedVaultReceipt(vault, receipt);
 
 export const PRIVATE_VAULT_EXIT_PROFILE = 'OWNED_PRIVATE_VAULT_EXIT_V1';
@@ -173,7 +173,7 @@ export async function createOwnedPrivateVaultExit(input) {
     assert.deepEqual(observed.identity, binding.identity, 'PRIVATE_VAULT_EXIT_REDEMPTION_REBOUND');
     assert.ok(BigInt(observed.balances.senderShares) >= BigInt(exit.shares), 'PRIVATE_VAULT_EXIT_EXTERNAL_SHARES_UNAVAILABLE');
     // Validation only: no nonce is consumed, no intent is recorded or signed.
-    if (isOwnedMetaMorphoVault(vault)) {
+    if (isOwnedOfficialStaticVaultV1(vault)) {
       await vault.validateQuote(intent);
       return;
     }

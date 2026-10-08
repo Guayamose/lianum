@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedFlatPortfolio } from '../../accounts/authority/flat-portfolio-authority.mjs';
 import { assertOwnedBackedVault } from './owned-backed-vault.mjs';
-import { isOwnedMetaMorphoVault, assertOwnedMetaMorphoVault } from './owned-metamorpho-vault.mjs';
+import { isOwnedOfficialStaticVaultV1, assertOwnedMetaMorphoVault } from './owned-metamorpho-vault.mjs';
 import { previewVaultRedeem } from './backed-vault.mjs';
 
 export function projectPrivateVaultPosition({ portfolioView, vaultView, shareAssetId, underlyingAssetId }) {
@@ -47,7 +47,7 @@ export function projectPrivateVaultPosition({ portfolioView, vaultView, shareAss
 export function createPrivateVaultPortfolioView(input) {
   exactRecord(input, ['runtime', 'portfolio', 'vault', 'shareAssetId', 'underlyingAssetId']);
   const { runtime, portfolio, vault, shareAssetId, underlyingAssetId } = input;
-  const official = isOwnedMetaMorphoVault(vault);
+  const official = isOwnedOfficialStaticVaultV1(vault);
   const assertVault = () => official ? assertOwnedMetaMorphoVault(runtime, vault) : assertOwnedBackedVault(runtime, vault);
   assertOwnedFlatPortfolio(runtime, portfolio); assertVault();
   const share = portfolio.registry.find(value => value.assetId === shareAssetId);
