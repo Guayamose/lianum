@@ -3,13 +3,12 @@
  * plus one explicitly paired public device key; never a note/root, account DTO,
  * SQL executor, signer, proof or callback. Local values are not mainnet assets. */
 import assert from 'node:assert/strict';
-import { randomBytes, createPublicKey, createHash } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { mkdir, mkdtemp, lstat, realpath, open } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { ROOT, FLAT } from '../../../../proofs/src/catalog.mjs';
 import { Vault } from '../../../../engine/src/crypto/vault.mjs';
-import { normalizeMobileOrigin } from '../../../../mobile-protocol/src/authorization.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { createOwnedNativeEconomicReceiverV2, createOwnedNativeEconomicGraphRuntimeV2 }
   from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
@@ -28,20 +27,27 @@ import { createDeviceOwnerExecutionBridgeV1 } from '../../accounts/authority/dev
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { createPairedDeviceAccountTlsServerV1 } from '../../api/mobile/paired-original-account-http-v2.mjs';
 import { prepareOriginalNativeDeviceLocalProviderV1 } from './native-device-local-provider-v1.mjs';
+import { normalizeOriginalNativeDeviceLocalConfigurationV1, assertOriginalNativeDeviceLocalColdStartV1,
+  prepareOriginalNativeDeviceLocalRestartV1, bindOriginalNativeDeviceLocalRestartV1, captureOriginalNativeDeviceLocalRestartV1,
+  originalNativeDeviceLocalCaptureStateV1, closeOriginalNativeDeviceLocalRestartAuthorityV1, readOriginalNativeDeviceLocalCaptureRequestV1 }
+  from './native-device-local-restart-v1.mjs';
 const fresh = () => randomBytes(32).toString('hex');
 export const ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1 = 'ORIGINAL_NATIVE_DEVICE_LOCAL_OPERATOR_V1';
 const local = join(ROOT, '.local/original-device-local-operator-v1');
 const requiredSources = Object.freeze([
   'wallet-platform/modules/ops/native-device-local-operator-v1.mjs',
   'wallet-platform/modules/ops/native-device-local-provider-v1.mjs',
+  'wallet-platform/modules/ops/native-device-local-restart-v1.mjs',
 ]);
 // These exact current product callers are consumers outside the original
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
-  Object.freeze({ path: 'apps/platform/src/original-device-local-operator-v1.mjs', bytes: 1974, sha256: '29c3b6e2c986e8732f9b257902bd5ff01b78ac30f63243acbedde39dc1216369' }),
-  Object.freeze({ path: 'apps/platform/src/run-original-device-local-v1.mjs', bytes: 4176, sha256: 'cef994efd2d7d57ca3c7ff5b5ca6b7a07ef685bc65c42552cd4533ec8a57b25b' }),
- ]);
+  Object.freeze({ path: 'apps/platform/src/original-device-local-operator-v1.mjs', bytes: 3034, sha256: 'c4bca82704673d0f54da0da6acb152f617cdbd6225fa6aa8a779c111b4fc5100' }),
+  Object.freeze({ path: 'apps/platform/src/run-original-device-local-v1.mjs', bytes: 208, sha256: 'b46e992f973d8dde44f217b1739308e43a0ee03f5bffda5b7c2ccffe49d0c422' }),
+  Object.freeze({ path: 'apps/platform/src/original-device-local-caller-v1.mjs', bytes: 6137, sha256: '4e264a3a0cd0378a6bfcbf14e81dbc1516e5271105a70dde97e679debee640b0' }),
+  Object.freeze({ path: 'apps/platform/src/run-original-device-local-reopen-v1.mjs', bytes: 238, sha256: 'cfd3176249afa1b3369f89f4056f1dd28fc9c89e2fe8296147367b8c4a1c2b10' }),
+]);
 async function assertReviewedLocalProductCallers() {
   const directory = resolve(FLAT, '../../..');
   assert.equal(await realpath(directory), directory, 'NATIVE_DEVICE_PRODUCT_CALLER_ROOT_ALIAS');
@@ -68,19 +74,7 @@ async function assertReviewedLocalProductCallers() {
 export function originalNativeDeviceLocalConfigurationPathV1() {
   assert.equal(arguments.length, 0); return join(local, 'operator.json');
 }
-function configuration(input) {
-  exactRecord(input, ['origin', 'devicePublicKey', 'tls']);
-  const origin = normalizeMobileOrigin(input.origin), devicePublicKey = input.devicePublicKey;
-  assert.ok(typeof devicePublicKey === 'string' && /^04[0-9a-f]{128}$/.exec(devicePublicKey)?.[0] === devicePublicKey,
-    'NATIVE_DEVICE_PRODUCT_DEVICE_KEY');
-  createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
-    x: Buffer.from(devicePublicKey.slice(2, 66), 'hex').toString('base64url'),
-    y: Buffer.from(devicePublicKey.slice(66), 'hex').toString('base64url') } });
-  exactRecord(input.tls, ['certificate', 'privateKey']);
-  for (const name of ['certificate', 'privateKey']) assert.ok(typeof input.tls[name] === 'string'
-    && Buffer.byteLength(input.tls[name]) > 0 && Buffer.byteLength(input.tls[name]) <= 16384, 'NATIVE_DEVICE_PRODUCT_TLS');
-  return { origin, devicePublicKey, tls: { certificate: input.tls.certificate, privateKey: input.tls.privateKey } };
-}
+const configuration = normalizeOriginalNativeDeviceLocalConfigurationV1;
 /** Internal installation from actual bootstrap references. JSON/copies cannot
  * satisfy account/executor/provider brands; the actor validates the original
  * PREPARED session approval before any route is installed. No operation runs. */
@@ -114,18 +108,31 @@ export async function installOriginalNativeDeviceLocalServiceV1(input) {
     throw error;
   }
 }
-/** The platform's fixed caller uses this constructor, not the internal install
- * input. Its source must be in the same reviewed physical V5 publication. */
-export async function createOriginalNativeDeviceLocalOperatorV1(input) {
-  assert.equal(arguments.length, 1); const selected = configuration(input); // detach before first await
+/** V5 authenticates these backend consumers. The exact app caller bytes are
+ * separately pinned here, outside the immutable compiler/source allowlist. */
+export async function assertOriginalNativeDeviceLocalSourceReviewV1() {
+  assert.equal(arguments.length, 0);
   assert.ok(NATIVE_VALUE_DEV_RELEASE_V5 !== null && requiredSources.every(path =>
     NATIVE_VALUE_DEV_RELEASE_V5.sourceFiles.some(row => row.path === path)), 'NATIVE_DEVICE_PRODUCT_SOURCE_REVIEW_REQUIRED');
-  await loadNativeValueDevDeploymentArtifactsV5(); // all physical source/artifact pins before allocation/spawn
-  await assertReviewedLocalProductCallers(); // exact callers before either runtime or credential allocation
-  let runtime, nativeRuntime, bootstrap, system, owner, nativeExecution, account, joined, provider, installed, closing, ownerPassword, checkpoint;
+  await loadNativeValueDevDeploymentArtifactsV5();
+  await assertReviewedLocalProductCallers();
+}
+/** Fixed original NativeNote constructor, before any D26 admission. */
+export async function createOriginalNativeDeviceLocalOperatorV1(input) {
+  assert.equal(arguments.length, 1); const selected = configuration(input); // detach before first await
+  const restartDeadlineMs = Date.now() + 90 * 60 * 1000 - 15000;
+  await assertOriginalNativeDeviceLocalSourceReviewV1();
+  await assertOriginalNativeDeviceLocalColdStartV1();
+  let runtime, nativeRuntime, bootstrap, system, owner, nativeExecution, account, joined, provider, installed, closing, ownerPassword, checkpoint, restart;
   function close() {
     assert.equal(arguments.length, 0); return closing ??= (async () => {
     const failures = [], stopped = {};
+    if (restart) {
+      const state = originalNativeDeviceLocalCaptureStateV1(restart);
+      if (state.completion) {
+        try { return await state.completion; } catch (error) { failures.push(error); }
+      }
+    }
     const stop = async (name, work, check) => {
       try { const result = await work(); assert.ok(check(result), 'NATIVE_DEVICE_PRODUCT_CLOSE_UNCONFIRMED'); stopped[name] = true; }
       catch (error) { stopped[name] = false; failures.push(error); }
@@ -133,7 +140,7 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
     // Listener fences new admissions and drains SAME admitted work first.
     if (installed) await stop('transport', () => installed.transport.close(), r => r.closed === true
       && r.originalWorkSettled === true && r.ownedSocketsRemaining === 0);
-    if (account) await stop('accountAbort', () => account.abort(), r => r.cancelled === true);
+    if (account && (!restart || originalNativeDeviceLocalCaptureStateV1(restart).phase === 'OPEN')) await stop('accountAbort', () => account.abort(), r => r.cancelled === true);
     if (joined) await stop('session', () => joined.session.close(), r => r.phase === 'CLOSED');
     if (account) await stop('account', () => account.close(), r => r.closed === true);
     if (nativeExecution) await stop('executor', () => nativeExecution.close(), r => r.closed === true);
@@ -147,6 +154,7 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
     for (const [name, resource] of [['receiver', runtime], ['nativeRuntime', nativeRuntime]]) if (resource)
       await stop(name, () => resource.close({ removeScratch: false }), r => r.stopped === true && resource.lifecycle.filter(row => row.event === 'stopped-owned-process').length === 1
         && resource.lifecycle.find(row => row.event === 'stopped-owned-process').forced === false);
+    if (restart) await stop('issuer', async () => { await closeOriginalNativeDeviceLocalRestartAuthorityV1(restart); return { closed: true }; }, r => r.closed === true);
     selected.tls = null;
     if (failures.length) throw new AggregateError(failures, 'NATIVE_DEVICE_PRODUCT_CLOSE_UNCONFIRMED');
     ownerPassword = null; checkpoint = null;
@@ -193,11 +201,19 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
     const approval = preparation.originalApproval(requestId); assert.deepEqual(joined.bindManualNote(approval), body);
     await joined.session.prepare(body); // durable PREPARED scope; NEVER execute/prove/FUND
     provider = await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
+    restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
+      nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS
     installed = await installOriginalNativeDeviceLocalServiceV1({ runtime, system, owner, account, nativeExecution, session: joined.session,
       approval, provider, configuration: selected });
+    bindOriginalNativeDeviceLocalRestartV1(restart, installed);
+    let captureRequest;
+    function capture() {
+      assert.equal(arguments.length, 0);
+      return captureRequest ??= captureOriginalNativeDeviceLocalRestartV1(restart, readOriginalNativeDeviceLocalCaptureRequestV1());
+    }
     return Object.freeze({ profile: ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
       descriptor: installed.descriptor, localFakeValues: true, automaticFunding: false,
-      cloudAuthority: false, close });
+      cloudAuthority: false, capture, close });
   } catch (error) {
     try { await close(); } catch (failure) {
       throw new AggregateError([error, failure], 'NATIVE_DEVICE_PRODUCT_START_CLEANUP_UNCONFIRMED', { cause: error });

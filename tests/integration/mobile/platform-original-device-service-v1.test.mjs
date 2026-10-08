@@ -279,3 +279,17 @@ test('local product installation requires original owner/account/executor/provid
   assert.equal(closed.originalWorkSettled, true); assert.equal(closed.ownedSocketsRemaining, 0);
   assert.throws(() => assertPairedOriginalAccountActorV2(installed.actor), /ACTOR_CLOSED/);
 });
+
+
+test('product planned restart rejects a copied or crossed account before issuer IO and never invokes a caller terminal snapshot', async t => {
+  const a = await setup(t, false, true), b = await setup(t, false, true);
+  const { prepareOriginalNativeDeviceLocalRestartV1 } = await import('../../../packages/backend/src/operations/recovery/native-device-local-restart-v1.mjs');
+  const before = await a.f.session.snapshot(); let snapshots = 0;
+  const requested = { runtime: a.f.world.runtime, nativeRuntime: null, bootstrap: null, system: a.f.world.system,
+    owner: a.f.world.owner, nativeExecution: { snapshot() { snapshots++; return { outcome: 'RECOVERED' }; } },
+    account: { ...a.f.account }, session: a.f.session, provider: a.operatorInput.provider, deadlineMs: Date.now() + 60000 };
+  await assert.rejects(prepareOriginalNativeDeviceLocalRestartV1(requested), /NATIVE_VALUE_ACCOUNT_OWNED_AUTHORITY_REQUIRED/);
+  await assert.rejects(prepareOriginalNativeDeviceLocalRestartV1({ ...requested, account: b.f.account }), /FLAT_ACCOUNT_OWNED_AUTHORITY_REQUIRED/);
+  assert.equal(snapshots, 0); assert.deepEqual(await a.f.session.snapshot(), before);
+  assert.equal(a.f.world.proofs, 0); assert.equal(a.f.world.sends, 0);
+});

@@ -25,3 +25,16 @@ export async function platformOriginalDeviceLocalConfigurationPathV1() {
   const { originalNativeDeviceLocalConfigurationPathV1 } = await import(original);
   return originalNativeDeviceLocalConfigurationPathV1();
 }
+
+/** A separate fixed caller opens one complete original NativeNote F checkpoint.
+ * The private reference JSON is not an account/runtime/permission. */
+export async function reopenPlatformOriginalDeviceLocalOperatorV1(input) {
+  if (arguments.length !== 1) throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
+  exact(input, ['origin', 'devicePublicKey', 'tls']); exact(input.tls, ['certificate', 'privateKey']);
+  const selected = { origin: input.origin, devicePublicKey: input.devicePublicKey,
+    tls: { certificate: input.tls.certificate, privateKey: input.tls.privateKey } };
+  for (const value of [selected.origin, selected.devicePublicKey, selected.tls.certificate, selected.tls.privateKey])
+    if (typeof value !== 'string') throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_CONFIGURATION');
+  const module = await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-restart-v1.mjs', import.meta.url));
+  return module.reopenOriginalNativeDeviceLocalOperatorV1(selected);
+}

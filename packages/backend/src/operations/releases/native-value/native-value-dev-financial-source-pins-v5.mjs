@@ -24,7 +24,8 @@ const FIXED=Object.freeze(['golden/src/paeg/note-deposit-native-worker-v1.mjs','
  'proof-workers/native-value-dev-live-v5-tooling.mjs','wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs',
  'integration/run-native-wallet-tron-dev-v5.mjs','integration/native-wallet-tron-dev-v5.mjs',
  'integration/native-wallet-tron-dev-policy-v5.mjs','integration/native-wallet-tron-dev-source-pins-v5.mjs',
- 'wallet-platform/modules/ops/native-device-local-operator-v1.mjs','wallet-platform/modules/ops/native-device-local-provider-v1.mjs']);
+ 'wallet-platform/modules/ops/native-device-local-operator-v1.mjs','wallet-platform/modules/ops/native-device-local-provider-v1.mjs',
+ 'wallet-platform/modules/ops/native-device-local-restart-v1.mjs']);
 const excluded=join(ROOT,'wallet-platform/modules/ops/native-value-dev-release-v5.mjs');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function pathFor(name){
