@@ -356,6 +356,13 @@ async function deployFixedNativeValueSystem(input, loadedBundle) {
 
 /** Read-only brand is intentionally not accepted by assertOwnedNativeValueSystem.
  * Only the fixed native issuer can reconstruct it after encrypted retention. */
+/** Source identity of an authentic economic system. A D26 observation facade
+ * cannot provide the original recovery identity or become an economic system. */
+export function nativeValueOriginalRecoverySourceV1(runtime,system){
+  assert.equal(arguments.length,2);assertOwnedNativeValueSystem(runtime,system);
+  const source=ownedSystems.get(system).bundle.provenance.hostSourceClosureSHA256;
+  assert.match(source,/^[0-9a-f]{64}$/,'NATIVE_VALUE_ORIGINAL_RECOVERY_SOURCE');return source;
+}
 export function assertOwnedNativeValueObservationSystemV1(runtime,system) {
   if(ownedSystems.has(system))return assertOwnedNativeValueSystem(runtime,system);
   const retained=observationSystems.get(system);
