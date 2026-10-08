@@ -17,7 +17,7 @@ import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohor
 import { linuxRuntimePins } from '../../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
 import {
   pinnedBinary, scratchDirectory, removeOwnScratch, unusedLoopbackPort,
-  startOwnProcess, stopOwnProcess, ownedRuntimeRpc, sleep,
+  startOwnProcess, stopOwnProcess, ownedRuntimeRpc, originalOwnedRuntimeRpcFailureV1, sleep,
 } from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
 import { createOwnedEvmReadBatch } from './owned-evm-read-batch.mjs';
 import { POOL_GENERATION_PHASE1_RELEASE, POOL_GENERATION_PHASE2_RELEASE } from '../../../../../../tests/integration/pools/pool-generation-acceptance-policy.mjs';
@@ -33,6 +33,11 @@ export const LOCAL_EVM_PROFILE = Object.freeze({
   name: 'PAEG_LOCAL_FAKE_CLOCK_V1', chainId: 31337, hardfork: 'cancun',
   genesisTimestamp: 1_900_000_210, accountCount: 5, accountBalanceWei: '10000000000000000000',
   maxGas: 30_000_000, manualMining: true, publicNetwork: false,
+});
+// New fixed development profile; historical Cancun/wire/recovery factories stay unchanged.
+export const LOCAL_OSAKA_EVM_PROFILE_V1 = Object.freeze({ ...LOCAL_EVM_PROFILE,
+  name: 'PAEG_LOCAL_OSAKA_CAPPED_GAS_V1', hardfork: 'osaka', maxGas: 16_777_216,
+  blockGas: 30_000_000, enforcedTransactionGasLimit: true,
 });
 // Additive receiver fixture, separate from every legacy immutable clock/state.
 // Actual genesis and every newly mined timestamp are sampled from host walltime;
@@ -76,8 +81,17 @@ const nativeProcessProfiles = new Map([
   [LOCAL_NATIVE_VALUE_BNB_PROCESS_PROFILE, Object.freeze({ profile: OWNED_EVM_NATIVE_VALUE_BNB_PROFILE_V1, normalize: normalizeOwnedEvmNativeValueBnbIntent, network: 'BNB', client: 'BSC execution and validator consensus/finality' })],
 ]);
 const ownedRuntimes = new WeakSet(), ownedNativeValueRuntimes = new WeakSet(), ownedNativeValueFamily = new WeakMap();
+const ownedRuntimeGasLimits = new WeakMap(), ownedOsakaGasProbes = new WeakMap();
 const nativeSourceOpeners = new WeakMap(), nativeRuntimeLiveness = new WeakMap(), nativeAuditStatesV4 = new WeakMap(), wrappedGraphOperationsV4 = new WeakMap();
 let nativeRuntimeSequence = 0n;
+/** One fixed negative request, exclusively on its original fresh Osaka node.
+ * No options, endpoint, sender, payload or callback can be supplied. */
+export async function probeOwnedOsakaTransactionGasRejectionV1(runtime) {
+  assert.equal(arguments.length, 1, 'OSAKA_GAS_PROBE_NO_OPTIONS');
+  const probe = ownedOsakaGasProbes.get(runtime);
+  assert.ok(ownedRuntimes.has(runtime) && probe, 'OSAKA_GAS_PROBE_ORIGINAL_RUNTIME');
+  return probe();
+}
 const originalEvmRecoveryCapturesV1 = new WeakMap(),originalEvmRetentionArmsV1=new WeakMap();
 export async function armOwnedEvmRecoveryRetentionV1(runtime){assert.equal(arguments.length,1);assert.ok(ownedRuntimes.has(runtime)||ownedNativeValueFamily.has(runtime),'EVM_RETENTION_ORIGINAL_RUNTIME');const arm=originalEvmRetentionArmsV1.get(runtime);assert.ok(arm,'EVM_RETENTION_FIXED_FAMILY');return arm();}
 export async function captureOwnedEvmRecoveryV1(runtime) {
@@ -157,6 +171,12 @@ export async function assertOwnedLocalEvmNativeValueV1(runtime) {
 }
 const poolGenerationControls = new WeakMap();
 export const isOwnedLocalEvmV2 = runtime => ownedRuntimes.has(runtime);
+/** Fixed launcher value, authenticated by the original private ownership map. */
+export function ownedLocalEvmTransactionGasLimit(runtime) {
+  assert.equal(arguments.length, 1);
+  assert.ok(ownedRuntimes.has(runtime) && ownedRuntimeGasLimits.has(runtime), 'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED');
+  return ownedRuntimeGasLimits.get(runtime);
+}
 const hex = value => `0x${BigInt(value).toString(16)}`;
 const address = value => { assert.match(value, /^0x[0-9a-f]{40}$/i, 'LOCAL_EVM_ADDRESS'); return value.toLowerCase(); };
 const bytes = value => { assert.match(value, /^0x(?:[0-9a-f]{2})*$/i, 'LOCAL_EVM_BYTES'); return value.toLowerCase(); };
@@ -330,6 +350,11 @@ export async function createOwnedLocalEvmV2() {
   assert.equal(arguments.length, 0, 'LOCAL_EVM_FIXED_CONSTRUCTOR');
   return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE);
 }
+/** New zero-options development lifetime, explicit Osaka plus EIP-7825 enforcement. */
+export async function createOwnedLocalEvmOsakaV1() {
+  assert.equal(arguments.length, 0, 'LOCAL_EVM_FIXED_CONSTRUCTOR');
+  return createFixedOwnedLocalEvm(LOCAL_OSAKA_EVM_PROFILE_V1);
+}
 /** No options, caller endpoints, keys, chain overrides, or existing runtimes.
  * Uses chain ID 1 in a TEST-ONLY loopback fixture with its own observed genesis.
  * This factory is NOT an Ethereum mainnet provider or a generic signing API. */
@@ -374,7 +399,8 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   assert.ok(!poolGenerationAcceptance || processProfile === LOCAL_EVM_PROFILE, 'POOL_GENERATION_NATIVE_PROFILE_INCOMPATIBLE');
   const nativeDescriptor = nativeProcessProfiles.get(processProfile);
   const observedClock=processProfile===LOCAL_OBSERVED_RECEIVER_PROFILE_V1;
-  assert.ok(processProfile === LOCAL_EVM_PROFILE || nativeDescriptor || observedClock, 'LOCAL_EVM_PRIVATE_FIXED_PROFILE');
+  const osaka=processProfile===LOCAL_OSAKA_EVM_PROFILE_V1;
+  assert.ok(processProfile === LOCAL_EVM_PROFILE || nativeDescriptor || observedClock || osaka, 'LOCAL_EVM_PRIVATE_FIXED_PROFILE');
   const nativeValueOnly = Boolean(nativeDescriptor), nativeValueProfile = nativeDescriptor?.profile;
   const chainQuantity = hex(processProfile.chainId);
 
@@ -472,9 +498,10 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     if(restored&&shouldUseOwnedEvmStateFileV1(restored.stateDump))stateFilePin=await writeOwnedEvmStateFileV1({cwd,suffix:recoverySuffix,stateDump:restored.stateDump});
     handle = startOwnProcess(binary, [
       '--host', '127.0.0.1', '--port', String(port), '--chain-id', String(processProfile.chainId),
-      '--hardfork', 'cancun', '--timestamp', String(genesisTimestamp),
+      '--hardfork', processProfile.hardfork, '--timestamp', String(genesisTimestamp),
       '--accounts', '5', '--balance', '10', ...mnemonicArgs, '--config-out', walletConfigPath,
-      '--quiet', '--no-cors', '--no-mining', '--gas-limit', String(processProfile.maxGas),
+      '--quiet', '--no-cors', '--no-mining', '--gas-limit', String(osaka ? processProfile.blockGas : processProfile.maxGas),
+      ...(osaka ? ['--enable-tx-gas-limit'] : []),
       ...(stateFilePin?['--load-state',stateFilePin.path]:[]),
     ], cwd);
     handle.child.once('exit', (code, signal) => { exitEvent = { code, signal }; nativeSourceLifetime.abort(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
@@ -1381,7 +1408,68 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
             return Number(milliseconds); } });
       });
       if (processProfile === LOCAL_NATIVE_VALUE_PROCESS_PROFILE) ownedNativeValueRuntimes.add(runtime);
-    } else ownedRuntimes.add(runtime);
+    } else { ownedRuntimes.add(runtime); ownedRuntimeGasLimits.set(runtime, processProfile.maxGas); }
+    if (osaka) {
+      let probeUsed = false;
+      ownedOsakaGasProbes.set(runtime, () => {
+        assert.ok(!probeUsed, 'OSAKA_GAS_PROBE_ONE_ATTEMPT_ONLY');
+        // Claim the one permitted attempt before the first await; the original
+        // mutation guard still rejects concurrent work and existing uncertainty.
+        probeUsed = true;
+        return mutate(async () => {
+          const snapshot = async () => {
+            const settled = await Promise.allSettled([
+              block(), rpc('eth_getTransactionCount', [accounts[0], 'latest']),
+              rpc('eth_getTransactionCount', [accounts[0], 'pending']),
+              rpc('eth_getTransactionCount', [accounts[4], 'latest']),
+              rpc('eth_getTransactionCount', [accounts[4], 'pending']),
+              rpc('eth_getBalance', [accounts[0], 'latest']),
+              rpc('eth_getBalance', [accounts[4], 'latest']), rpc('eth_pendingTransactions'),
+            ]);
+            const values = settled.map(row => { if (row.status === 'rejected') throw row.reason; return row.value; });
+            const [head, sourceLatest, sourcePending, targetLatest, targetPending,
+              sourceBalance, targetBalance, pending] = values;
+            assert.deepEqual(pending, [], 'OSAKA_GAS_PROBE_EMPTY_MEMPOOL');
+            assert.equal(sourceLatest, sourcePending, 'OSAKA_GAS_PROBE_EXCLUSIVE_NONCE');
+            assert.equal(targetLatest, targetPending, 'OSAKA_GAS_PROBE_EXCLUSIVE_NONCE');
+            return { head, sourceLatest, sourcePending, targetLatest, targetPending,
+              sourceBalance, targetBalance, journalLength: transactions.length,
+              receiptLength: receipts.length, timestamp: lastTimestamp.toString() };
+          };
+          const before = await snapshot();
+          assert.equal(before.head.number, '0x0', 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          assert.equal(before.journalLength, 0, 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          assert.equal(before.receiptLength, 0, 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          assert.equal(BigInt(before.sourceLatest), 0n, 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          assert.equal(BigInt(before.targetLatest), 0n, 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          assert.equal(BigInt(before.sourceBalance), BigInt(processProfile.accountBalanceWei), 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          assert.equal(BigInt(before.targetBalance), BigInt(processProfile.accountBalanceWei), 'OSAKA_GAS_PROBE_FRESH_GENESIS_ONLY');
+          // Deliberately bypass ONLY this runtime's request cap for ONE fixed
+          // node rejection. A successful or ambiguous response poisons the
+          // original mutation fence and requires owned cleanup; it never retries.
+          uncertainMutation = true;
+          let failure;
+          try {
+            await rpc('eth_sendTransaction', [{ from: accounts[0], to: accounts[4],
+              gas: '0x1000001', value: '0x0', data: '0x' }]);
+          } catch (error) { failure = originalOwnedRuntimeRpcFailureV1(error); }
+          assert.equal(failure?.schema, 'ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1', 'OSAKA_GAS_PROBE_NODE_REJECTION_REQUIRED');
+          assert.equal(failure.method, 'eth_sendTransaction', 'OSAKA_GAS_PROBE_NODE_REJECTION_REQUIRED');
+          assert.equal(failure.message?.text,
+            'Transaction gas limit is greater than the block gas limit, gas_limit: 16777217, cap: 16777216',
+            'OSAKA_GAS_PROBE_EXACT_CAP_REJECTION');
+          assert.equal(failure.message.omitted, false, 'OSAKA_GAS_PROBE_EXACT_CAP_REJECTION');
+          assert.ok(Number.isInteger(failure.rpcCode), 'OSAKA_GAS_PROBE_NODE_REJECTION_REQUIRED');
+          const after = await snapshot();
+          await health(); await assertCanonical(before.head);
+          assert.deepEqual(after, before, 'OSAKA_GAS_PROBE_UNEXPECTED_EFFECT');
+          uncertainMutation = false;
+          return cloned({ schema: 'ORIGINAL_OWNED_OSAKA_NODE_GAS_REJECTION_V1', gas: '16777217',
+            cap: '16777216', attempts: 1, zeroValue: true, originalNodeRejection: failure,
+            originalStateUnchanged: true, before, after });
+        });
+      });
+    }
     if (poolGenerationAcceptance) poolGenerationControls.set(runtime, Object.freeze({
       withholdNextSuccessorRegistrationAcknowledgement() {
         assert.equal(arguments.length, 0); assertAlive();
