@@ -231,9 +231,10 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
   assert.ok(final.ledger.nullifiers.includes('0x'+result.deviceNote.observation.nullifier));
   assert.equal(final.ledger.publicState.spent,recovery?4:3);assert.equal(final.ledger.publicState.actualAssetBalance,recovery?'0':'100');
   assert.equal(final.ledger.publicState.backedAmount,recovery?'0':'100');assert.equal(final.ledger.publicState.liveReservations,0);
-  // The verified receipt tree always exposes its 64 padded positions. Its
-  // contract count records the one admitted leg, or zero before N0 on F.
-  const admittedReceipts=recovery?0:1;
+  // I84 includes the native delivery receipt before N0 starts. Both the
+  // settlement and before-N0 recovery retain that one original receipt;
+  // the verified tree exposes its 64 padded positions separately.
+  const admittedReceipts=1;
   assert.equal(final.receiptLeaves.length,64,'DEVICE_FINAL_RECEIPT_TREE_CAPACITY');
   assert.equal(final.state.receiptCount,String(admittedReceipts),'DEVICE_FINAL_ORIGINAL_RECEIPT_COUNT');
   assert.equal(observed.executionSnapshot.admittedReceipts,admittedReceipts,'DEVICE_FINAL_EXECUTOR_RECEIPT_COUNT');

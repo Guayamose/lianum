@@ -1,14 +1,15 @@
 import {assertNativeNodeReceiptV1} from '../../../../packages/proofs/src/jobs/node-native-execution-v1.mjs';
 import {assertNativeAuthorizationReceiptV1} from '../../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs';
-/** Public receipt joins for the seven fixed original graph relations and
- * the genuine recipient W39 telemetry. No proof/custody authority is issued. */
+/** Public receipt joins for the seven fixed original graph relations, original
+ * F41 recovery and recipient W39 telemetry. No proof/custody authority is issued. */
 import assert from 'node:assert/strict';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
 import { PROVING_LIMITS,NODE_NATIVE_PROVING_LIMITS_V1, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_SIXTEEN_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);
 export const DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS = Object.freeze(['authorization','reservation','dependency','ready','admission','node','settlement']);
-const specs = Object.freeze(Object.fromEntries(DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS.map(name =>
+const receiptRelations=Object.freeze([...DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS,'recovery']);
+const specs = Object.freeze(Object.fromEntries(receiptRelations.map(name =>
   [name, Object.freeze({ role: CATALOG[name].role, words: CATALOG[name].publicWords })])));
 export function assertBtcSolGraphProofReceipts(input) {
   assert.equal(arguments.length, 1);
