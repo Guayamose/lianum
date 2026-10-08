@@ -195,7 +195,7 @@ function envelope(raw: string): Envelope {
     || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(x.sealed)) return bad();
   return { version: 1, rootId: hex(x.rootId), revision: integer(x.revision), sealed: x.sealed };
 }
-async function state(bytes: Uint8Array, expected: Envelope): Promise<State> {
+async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'revision'>): Promise<State> {
   const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes), initial: unknown = JSON.parse(source);
   if (!initial || typeof initial !== 'object' || Array.isArray(initial)) bad();
   const x = parsed(source, ['version', 'rootId', 'revision', 'note', ...(Object.hasOwn(initial, 'spend') ? ['spend'] : [])], MAX_CLEAR_BYTES);
@@ -781,7 +781,14 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     });
   }
   async function persistSpend(next: State, key: Crypto.AESEncryptionKey, before: string, raw: string, root: Uint8Array) {
-    const nextRaw = await checked(scope, () => sealedRecord(key, next));
+    // Validate/reconstruct the exact candidate before encryption. The same
+    // decoder gives nested fields a stable order without weakening readback.
+    const candidateBytes = encoded(next);
+    let candidate: State;
+    try { candidate = await checked(scope, () => state(candidateBytes,
+      { rootId: next.rootId, revision: next.revision })); }
+    finally { candidateBytes.fill(0); }
+    const nextRaw = await checked(scope, () => sealedRecord(key, candidate));
     if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
       || await readStoredRecord(scope) !== raw
       || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
@@ -790,7 +797,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       const stored = await readStoredRecord(scope);
       if (stored !== nextRaw) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
       const readback = await checked(scope, () => decrypted(key, stored));
-      if (JSON.stringify(readback) !== JSON.stringify(next)) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
+      if (JSON.stringify(readback) !== JSON.stringify(candidate)) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
       if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
         || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
       const nextPointer = JSON.stringify({ version: 1, rootId: next.rootId, revision: next.revision,

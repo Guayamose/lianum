@@ -1,7 +1,7 @@
 /** Host contract only: Expo storage/auth/RNG/AES handles are explicit doubles.
  * Node's real AES-GCM/SHA and original Node PC23/D27 encoders cross-check data.
  * No Android/iOS, Hermes, biometric hardware, funded note or proof is accepted. */
-import test, { mock } from 'node:test';
+import test, { mock, after } from 'node:test';
 import { registerHooks } from 'node:module';
 import assert from 'node:assert/strict';
 import { createHash, createCipheriv, createDecipheriv, createPublicKey, verify } from 'node:crypto';
@@ -13,8 +13,8 @@ import { localBalanceCommitmentMessageV1, localBalanceDepositMessageV1,
 
 const ROOT = 'lianum.note.root.encryption.v1', POINTER = 'lianum.note.root.pointer.v1', RECORD = 'lianum.note.root.record.v1';
 const store = new Map(), calls = [], entropyBuffers = [], nativeKeys = [];
-const control = { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null };
-const sha = bytes => createHash('sha256').update(bytes).digest();
+const control = { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null, fetch: null };
+const sha = bytes => createHash('sha256').update(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes).digest();
 const heldKey = new WeakMap();
 class Key {
   static async import(bytes) {
@@ -82,6 +82,16 @@ mock.module('expo-crypto', { exports: {
   },
 } });
 mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
+const expoFetchURL = new URL('../node_modules/expo/fetch.js', import.meta.url).href;
+const expoFetchResolution = registerHooks({ resolve(specifier, context, nextResolve) {
+  if (specifier === 'expo/fetch' && context.parentURL?.startsWith(new URL('../src/api/', import.meta.url).href))
+    return nextResolve(expoFetchURL, context);
+  return nextResolve(specifier, context);
+} });
+after(() => expoFetchResolution.deregister());
+mock.module(expoFetchURL, { exports: { fetch: (...args) => {
+  assert.equal(typeof control.fetch, 'function', 'HOST_EXPO_FETCH_NOT_INSTALLED'); return control.fetch(...args);
+} } });
 // Metro/TypeScript resolve this extensionless production import. Node's
 // host test resolves only this exact edge to the same original TS bytes.
 const vaultModuleURL = new URL('../src/custody/local-root-note-vault-v1.ts', import.meta.url).href;
@@ -100,7 +110,7 @@ const terms = { scope: '11'.repeat(32), policy: '22'.repeat(32), pool: '33'.repe
 function reset() {
   for (const key of nativeKeys) key.fill(0); nativeKeys.length = 0;
   store.clear(); calls.length = 0; entropyBuffers.length = 0;
-  Object.assign(control, { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null });
+  Object.assign(control, { supported: true, consent: true, randomOrdinal: 10, writeFailure: null, pausedEncrypt: null, pausedAuth: null, pausedWrite: null, afterWrite: null, fetch: null });
 }
 function rawClearRecord(rootHex = '0b'.repeat(32)) {
   const stored = JSON.parse(store.get(RECORD)), e = stored.version === 2 ? JSON.parse(Array.from({ length: stored.chunks }, (_, index) => store.get('lianum.note.record.chunk.v1.' + stored.sha256 + '.' + index)).join('')) : stored, bytes = Buffer.from(e.sealed, 'base64');
@@ -484,4 +494,104 @@ test('copied U request, quote or signature never releases openings or rewrites a
   assert.throws(() => vault.bindDeviceAuthorizationRequest({ rootId: created.rootId, expiresAt: Date.now() + 15000 }, {}), /AUTHORIZATION_REQUEST_REQUIRED/);
   assert.equal(await vault.readDeviceReservationIntent(), null); assert.deepEqual(store, before);
   vault.close(); assert.throws(() => vault.bindDeviceAuthorizationRequest({}, {}), /CLOSED/);
+});
+
+// HOST HTTP framing is deliberately synthetic. The actual mobile API issues
+// its own inclusion/quote handles; neither this fixture nor AES claims a chain
+// confirmation, original backend authority, hardware or economic acceptance.
+test('original vault persists/reopens quoted change and recovery despite nested key order; coherent public hashes cannot bless corruption', async () => {
+  const fixture = await completePrivateCustodyBackup(), rootHex = '09'.repeat(32), value = fixture.value;
+  delete value.spend;
+  async function writeClear(clear, corruptTag = false) {
+    const key = await Key.import(Buffer.from(rootHex, 'hex'));
+    const sealed = await (await import('expo-crypto')).aesEncryptAsync(Buffer.from(JSON.stringify(clear)), key,
+      { nonce: { length: 12 }, tagLength: 16, additionalData: Buffer.from(JSON.stringify(['LIANUM/DEVICE/NOTE-VAULT/1', clear.rootId, clear.revision])) });
+    if (corruptTag) sealed.bytes[sealed.bytes.length - 1] ^= 1;
+    const e = { version: 1, rootId: clear.rootId, revision: clear.revision, sealed: await sealed.combined('base64') }, raw = JSON.stringify(e);
+    return { raw, backup: JSON.stringify({ version: 1, profile: 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1', rootHex,
+      rootId: clear.rootId, revision: clear.revision, recordSHA256: sha(Buffer.from(raw)).toString('hex'), encryptedRecord: raw }) };
+  }
+  await restoreLocalRootNoteVaultBackupV1((await writeClear(value)).backup);
+  const { deviceReservationFixtureV1 } = await import('./helpers/device-reservation-fixture-v1.mjs');
+  const { originalAccountFramesV2 } = await import('./helpers/original-account-frames-v2.mjs');
+  const { devicePublicKey, signDeviceMessage } = await import('../src/custody/signing.mjs');
+  const { compileFundedGraph, payoutInvoiceMessage } = await import('../../../packages/engine/src/execution/graph/funded-graph.mjs');
+  const { localFundedSpendNullifierV1 } = await import('../src/custody/funded-balance-owner-codec-v1.mjs');
+  const { PrivateNoteTree } = await import('../../../packages/engine/src/notes/private-note-tree.mjs');
+  const { normalizeDeviceDepositConsentV1, deviceDepositConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs');
+  const { originalAccountAccessMessageV2 } = await import('@lianum/mobile-protocol/original-account-v2');
+  const { createDeviceOwnerDepositApiV1 } = await import('../src/api/device-owner-deposit-api-v1.ts');
+  const { createDeviceOwnerReservationApiV1 } = await import('../src/api/device-owner-reservation-api-v1.ts');
+  const deviceKey = new Uint8Array(32).fill(11), note = value.note, publicKey = devicePublicKey(deviceKey), framing = deviceReservationFixtureV1(deviceKey);
+  const descriptor = { origin: note.deviceJob.origin, pairingId: note.deviceJob.pairingId, devicePublicKey: publicKey };
+  const frames = originalAccountFramesV2({ devicePublicKey: publicKey });
+  Object.assign(frames.access, descriptor); Object.assign(frames.review.binding.asset, { pool: note.pool });
+  frames.review.binding.assetId = note.funding.assetId;
+  const proposal = { ...framing.proposal, scope: note.scope, policy: note.policy, asset: note.deviceJob.assetIdentity };
+  const compiled = compileFundedGraph({ ...framing.witness.input, ...proposal, inputNote: note.opening });
+  const invoice = signDeviceMessage(Buffer.from('4'.padStart(64, '0'), 'hex'), payoutInvoiceMessage(compiled.authorizationStatement, compiled.ownerWitness.graph.nodes[0], 0));
+  const poolTerms = { scope: note.scope, policy: note.policy, codeHash: '15'.repeat(32), assetIdentity: proposal.asset, domainCommitment: note.deviceJob.domainCommitment };
+  const tree = new PrivateNoteTree([Buffer.from(note.commitment, 'hex')]), path = tree.path(0), now = Date.now();
+  const statement = { scope: note.scope, policy: note.policy, epoch: note.depositIntent.epoch, amount: note.opening.value, output: note.commitment };
+  const consent = normalizeDeviceDepositConsentV1({ version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_D26_V1', action: 'OBSERVE_D26', ...descriptor,
+    challengeId: '16'.repeat(32), nonce: '17'.repeat(32), expiresAt: now + 15000, binding: frames.review.binding, poolTerms,
+    jobId: note.deviceJob.jobId, rootId: value.rootId, noteRevision: note.deviceJob.noteRevision, statement,
+    witnessSHA256: '18'.repeat(32), proofSHA256: '19'.repeat(32), publicInputsSHA256: '20'.repeat(32),
+    observed: { blockNumber: '1', blockHash: '21'.repeat(32), timestamp: '1' }, openingDisclosure: null });
+  const observation = { version: 1, profile: 'ORIGINAL_DEVICE_D26_INCLUSION_V1', jobId: consent.jobId, rootId: value.rootId,
+    commitment: note.commitment, amount: note.opening.value, assetId: note.funding.assetId, pool: note.pool, scope: note.scope, policy: note.policy,
+    genesis: consent.binding.asset.genesis, domainCommitment: poolTerms.domainCommitment, proofSHA256: consent.proofSHA256,
+    publicInputsSHA256: consent.publicInputsSHA256, transactionHash: note.funding.transactionHash, calldataSHA256: '22'.repeat(32),
+    receiptBlockHash: '21'.repeat(32), head: { number: '1', hash: '21'.repeat(32), timestamp: '1' },
+    path: { root: path.root.slice(2), index: path.index, leaf: path.leaf.slice(2), siblings: path.siblings.map(x => x.slice(2)) },
+    nullifier: localFundedSpendNullifierV1(note.scope, note.commitment, note.opening.secret), observedAt: now, expiresAt: now + 15000,
+    nativeEffectsEstablished: true, mobileKeyCustody: true, backendOpeningDisclosure: 'ONE_D26_OPENING', mobileCanonicalRpcVerification: false };
+  const quote = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_US_QUOTE_V1', ...descriptor, quoteId: '23'.repeat(32),
+    depositJobId: consent.jobId, rootId: value.rootId, sourceCommitment: note.commitment, sourceNullifier: observation.nullifier,
+    poolTerms, proposal, capsuleOptions: framing.capsuleOptions, invoiceSignatures: [invoice], observed: consent.observed, expiresAt: now + 15000 };
+  control.fetch = async (target, options) => {
+    assert.equal(new URL(target).origin, descriptor.origin); const input = JSON.parse(options.body); let body;
+    if (target.endsWith('/challenges')) body = { challenge: frames.access };
+    else if (target.endsWith('/device-deposit/observation-reviews')) body = consent;
+    else if (target.endsWith('/device-deposit/observations')) body = { jobId: consent.jobId, stage: 'CONFIRMED',
+      consentFields: {}, statement, observation, errorCode: null, authorizationSHA256: sha(deviceDepositConsentMessageV1(consent)).toString('hex') };
+    else { assert.ok(target.endsWith('/device-reservation/preparation-reviews')); body = { quote,
+      authorizationSHA256: sha(originalAccountAccessMessageV2(input.access)).toString('hex') }; }
+    const response = new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    Object.defineProperty(response, 'url', { value: target }); return response;
+  };
+  const deposit = await createDeviceOwnerDepositApiV1(descriptor), reservation = await createDeviceOwnerReservationApiV1(descriptor);
+  const access = await deposit.access(), selected = await deposit.challenge('OBSERVE_D26', { access,
+    signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(access)), jobId: consent.jobId });
+  const included = await deposit.submit({ consent: selected, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(selected)) });
+  const vault = openLocalRootNoteVaultV1(value.rootId);
+  await vault.applyDeviceDepositInclusion(included.observation);
+  const quoteAccess = await reservation.access(), handle = await reservation.preparation({ access: quoteAccess,
+    signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(quoteAccess)), rootId: value.rootId, depositJobId: consent.jobId });
+  const before = rawClearRecord(rootHex), prepared = await vault.prepareDeviceReservationFromQuote(handle), stored = rawClearRecord(rootHex);
+  assert.equal(stored.revision, before.revision + 1); assert.deepEqual(stored.note, before.note);
+  assert.equal(stored.spend.phase, 'PREPARED'); assert.equal(stored.spend.signature, null);
+  assert.equal(stored.spend.change.opening.value, '380'); assert.equal(stored.spend.recovery.opening.value, '120');
+  assert.deepEqual(stored.spend.preparation.capsuleOptions, framing.capsuleOptions); assert.deepEqual(stored.spend.preparation.invoiceSignatures, [invoice]);
+  assert.equal(prepared.sourceCommitment, note.commitment); assert.equal(prepared.sourceNullifier, observation.nullifier);
+  assert.ok(calls.filter(row => row.method === 'write').every(row => store.get(row.name).length <= 2048));
+  vault.close(); const reopened = openLocalRootNoteVaultV1(value.rootId);
+  assert.equal((await reopened.readDeviceNote()).availableBalance, null);
+  const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, stored.revision);
+  assert.equal(JSON.parse(store.get(POINTER)).revision, stored.revision); reopened.close();
+  // An attacker may recompute ALL public hashes/manifest/pointer. A forged
+  // AES tag still fails; an authenticated record with an unknown field also
+  // fails the original strict state decoder instead of being normalized away.
+  for (const extra of [false, true]) {
+    const changed = structuredClone(stored); if (extra) changed.spend.preparation.unrecognized = '24'.repeat(32);
+    const forged = await writeClear(changed, !extra), e = JSON.parse(forged.raw), checksum = sha(Buffer.from(forged.raw)).toString('hex');
+    const chunks = Math.ceil(forged.raw.length / 1800);
+    for (let i = 0; i < chunks; i++) store.set('lianum.note.record.chunk.v1.' + checksum + '.' + i, forged.raw.slice(i * 1800, (i + 1) * 1800));
+    store.set(RECORD, JSON.stringify({ version: 2, profile: 'LIANUM_DEVICE_ENCRYPTED_CHUNKS_V1', rootId: e.rootId,
+      revision: e.revision, sha256: checksum, bytes: forged.raw.length, chunks }));
+    store.set(POINTER, JSON.stringify({ version: 1, rootId: e.rootId, revision: e.revision, recordSHA256: checksum, state: 'ACTIVE' }));
+    const beforeRejected = new Map(store), badVault = openLocalRootNoteVaultV1(value.rootId);
+    await assert.rejects(badVault.readDeviceNote()); assert.deepEqual(store, beforeRejected); badVault.close();
+  }
+  deposit.close(); reservation.close(); deviceKey.fill(0); control.fetch = null;
 });
