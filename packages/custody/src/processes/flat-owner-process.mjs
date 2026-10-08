@@ -380,8 +380,11 @@ export async function retainFlatOwnersForReopenV1(input){
  if(failure||errors.length)throw new AggregateError([...(failure?[failure]:[]),...errors],'FLAT_OWNER_CAPTURE_FAILED');
  return {retained:true,originalResourcesStopped:true};
 }
-export async function reopenFlatOwnersFromAuthorityV1(input){
- exactRecord(input,['runtime','system','deliveryObservers','attemptAuthority']);assert.ok(Array.isArray(input.deliveryObservers)&&input.deliveryObservers.length===2);
+export async function reopenFlatOwnersFromAuthorityV1(input){return reopenOriginalFlatOwnerPairV1(input,false);}
+/** Fixed EXIT-only continuation: no reconstructed GRAPH/delivery observer. */
+export async function reopenFlatOwnersForVaultExitV1(input){assert.equal(arguments.length,1);return reopenOriginalFlatOwnerPairV1(input,true);}
+async function reopenOriginalFlatOwnerPairV1(input,vaultExit){
+ exactRecord(input,vaultExit?['runtime','system','attemptAuthority']:['runtime','system','deliveryObservers','attemptAuthority']);if(vaultExit)assert.equal(originalWrappedRecoverySectionIdentityV1(input.attemptAuthority,'owners').profile,'EXTERNAL_DEFI_PRIVATE_RECOVERY_AUTHORITY_V1','EXTERNAL_EXIT_ORIGINAL_OWNER_ISSUER');else assert.ok(Array.isArray(input.deliveryObservers)&&input.deliveryObservers.length===2);
  assertWrappedPrivateLifetimeAttemptV1(input.runtime,originalWrappedRecoverySectionIdentityV1(input.attemptAuthority,'owners'));
  const saved=consumeOriginalWrappedRecoverySectionV1(input.attemptAuthority,'owners');exactRecord(saved,['schema','owners']);
  assert.equal(saved.schema,'EXTERNAL_ORIGINAL_FLAT_OWNER_PAIR_V1');assert.equal(saved.owners.length,2);const owners=[];
@@ -391,7 +394,7 @@ export async function reopenFlatOwnersFromAuthorityV1(input){
   assert.deepEqual(retained.privateState,row.state,'FLAT_OWNER_ORIGINAL_LIFETIME_CHANGED');
   exactRecord(row.state,['directory','password','checkpoint']);assert.ok(row.state.checkpoint,'FLAT_OWNER_ORIGINAL_CHECKPOINT_REQUIRED');
   const owner=await flatOwnerProcess({runtime:input.runtime,system:input.system,poolIndex,...row.state,create:false,
-    deliveryObserver:input.deliveryObservers[poolIndex],onCheckpoint:async()=>{}},true);owners.push(owner);
+    ...(vaultExit?{}:{deliveryObserver:input.deliveryObservers[poolIndex]}),onCheckpoint:async()=>{}},true);owners.push(owner);
  }return Object.freeze(owners);}catch(error){const r=await Promise.allSettled(owners.map(owner=>owner.close()));throw new AggregateError([error,...r.filter(x=>x.status==='rejected').map(x=>x.reason)],'FLAT_OWNER_REOPEN_FAILED');}
 }
 

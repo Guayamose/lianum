@@ -31,7 +31,7 @@ async function factory(input,expected,create){await assertOwnedLocalEvmV2(input.
  try{const keyPath=join(directory,'local-root.secret');if(create){const key=randomBytes(32),fd=await open(keyPath,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);try{await fd.writeFile(key);await fd.sync();}finally{key.fill(0);await fd.close();}await syncDirectory(directory);}const key=await privateRead(keyPath,32);assert.equal(key.length,32);
   try{const options={path:join(directory,'registry.vault'),password:key.toString('hex'),identity};store=create?await createClaimRecordStore(options,{profile:PROFILE,identity,parts:{}}):await openClaimRecordStore(options);}finally{key.fill(0);}
   const record=await store.read();recordValid(record,identity);if(!create){exactRecord(expected,['revision','commitment']);same(checkpoint(record),expected,'WRAPPED_LIFETIME_CAPTURE_CHECKPOINT_CHANGED');}
-  const registry=opaque(),s={runtime:input.runtime,identity,directory,store,record,release,closed:false,sealed:false,fault:false,pending:0,tail:Promise.resolve(),handles:new Map()};registries.set(registry,s);runtimes.set(input.runtime,s);return registry;
+  const registry=opaque(),s={runtime:input.runtime,identity,directory,store,record,release,closed:false,sealed:false,fault:false,pending:0,tail:Promise.resolve(),handles:new Map(),captured:null};registries.set(registry,s);runtimes.set(input.runtime,s);return registry;
  }catch(error){store?.close();try{await release();}catch(cleanup){throw new AggregateError([error,cleanup],'WRAPPED_LIFETIME_OPEN_CLEANUP_FAILED',{cause:error});}throw error;}}
 export function createWrappedPrivateLifetimeRegistryV1(input){assert.equal(arguments.length,1);return factory(input,null,true);}
 export function openWrappedPrivateLifetimeRegistryV1(input,expected){assert.equal(arguments.length,2);return factory(input,expected,false);}
@@ -48,7 +48,7 @@ export async function wrappedPrivateLifetimeRegistryCheckpointV1(registry){asser
 export async function closeWrappedPrivateLifetimeRegistryV1(registry){assert.equal(arguments.length,1);const s=registries.get(registry);assert.ok(s&&!s.pending);if(s.releaseError)throw s.releaseError;if(s.closed)return {closed:true,privateStateRetained:true};s.sealed=true;s.store.close();s.closed=true;try{await s.release();}catch(error){s.releaseError=error;throw error;}return {closed:true,privateStateRetained:true};}
 export async function retainWrappedPrivateLifetimeRegistryForReopenV1(runtime,token){assert.equal(arguments.length,2);const s=forRuntime(runtime);assert.equal(s.pending,0,'WRAPPED_LIFETIME_DURABLE_WRITE_PENDING');s.sealed=true;let releaseAttempted=false;
  try{const {retainOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1}=await import('./wrapped-recovery-authority-v1.mjs');const authority=originalWrappedRecoverySectionIdentityV1(token,'privateLifetime');for(const key of ['directory','runId','sourceSHA256','deadlineMs'])assert.equal(s.identity[key],authority[key],'WRAPPED_LIFETIME_ORIGINAL_ATTEMPT');
- same(await s.store.read(),s.record);const {profile,genesis,chainId,...input}=s.identity;await retainOriginalWrappedRecoverySectionV1(token,'privateLifetime',{schema:PROFILE,input,checkpoint:checkpoint(s.record)});s.store.close();s.closed=true;releaseAttempted=true;try{await s.release();}catch(error){s.releaseError=error;throw error;}return {retained:true,originalResourcesStopped:true};}
+ same(await s.store.read(),s.record);const {profile,genesis,chainId,...input}=s.identity;await retainOriginalWrappedRecoverySectionV1(token,'privateLifetime',{schema:PROFILE,input,checkpoint:checkpoint(s.record)});s.store.close();s.closed=true;releaseAttempted=true;try{await s.release();}catch(error){s.releaseError=error;throw error;}s.captured=Object.freeze({identity:copy(authority),checkpoint:checkpoint(s.record)});return {retained:true,originalResourcesStopped:true};}
  catch(error){s.fault=true;s.store.close();s.closed=true;if(!releaseAttempted){try{await s.release();}catch(cleanup){s.releaseError=cleanup;throw new AggregateError([error,cleanup],'WRAPPED_LIFETIME_CAPTURE_CLEANUP_FAILED',{cause:error});}}throw error;}}
 export async function reopenWrappedPrivateLifetimeRegistryFromAuthorityV1({runtime,attemptAuthority}){const {consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1}=await import('./wrapped-recovery-authority-v1.mjs');const authority=originalWrappedRecoverySectionIdentityV1(attemptAuthority,'privateLifetime'),saved=consumeOriginalWrappedRecoverySectionV1(attemptAuthority,'privateLifetime');exactRecord(saved,['schema','input','checkpoint']);assert.equal(saved.schema,PROFILE);for(const key of ['directory','runId','sourceSHA256','deadlineMs'])assert.equal(saved.input[key],authority[key]);return openWrappedPrivateLifetimeRegistryV1({runtime,...saved.input},saved.checkpoint);}
 
@@ -72,6 +72,20 @@ export function assertWrappedPrivateLifetimeAttemptV1(runtime,expected){
  assert.equal(s.identity.genesis,runtime.metadata.evmGenesis,'WRAPPED_LIFETIME_ORIGINAL_GENESIS');
  assert.equal(s.identity.chainId,runtime.metadata.chainId,'WRAPPED_LIFETIME_ORIGINAL_CHAIN');
  assert.equal(s.pending,0,'WRAPPED_LIFETIME_DURABLE_WRITE_PENDING');return true;
+}
+
+/** Receiver-last admission uses the original registry's completed capture,
+ * never an ordinarily closed registry or a serialized stopped descriptor. */
+export function assertStoppedWrappedPrivateLifetimeAttemptV1(runtime,expected){
+ assert.equal(arguments.length,2);exactRecord(expected,['identity','checkpoint']);exactRecord(expected.checkpoint,['revision','commitment']);
+ const s=runtimes.get(runtime);assert.ok(s&&s.closed&&s.sealed&&!s.fault&&!s.releaseError&&s.captured,'WRAPPED_LIFETIME_ORIGINAL_CAPTURED_REGISTRY_REQUIRED');
+ assert.equal(s.pending,0,'WRAPPED_LIFETIME_DURABLE_WRITE_PENDING');
+ same(s.captured.identity,expected.identity,'WRAPPED_LIFETIME_ORIGINAL_ATTEMPT');
+ same(s.captured.checkpoint,expected.checkpoint,'WRAPPED_LIFETIME_CAPTURE_CHECKPOINT_CHANGED');
+ same(checkpoint(s.record),expected.checkpoint,'WRAPPED_LIFETIME_CAPTURE_CHECKPOINT_CHANGED');
+ for(const key of ['directory','runId','sourceSHA256','deadlineMs'])assert.equal(s.identity[key],expected.identity[key],'WRAPPED_LIFETIME_ORIGINAL_ATTEMPT');
+ assert.equal(s.identity.genesis,runtime.metadata.evmGenesis,'WRAPPED_LIFETIME_ORIGINAL_GENESIS');
+ assert.equal(s.identity.chainId,runtime.metadata.chainId,'WRAPPED_LIFETIME_ORIGINAL_CHAIN');return true;
 }
 
 /** Public inventory completeness only; names do not expose private rows. */

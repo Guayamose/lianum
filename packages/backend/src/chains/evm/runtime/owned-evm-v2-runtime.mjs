@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { createHash, ECDH } from 'node:crypto';
 import { open, readFile, lstat } from 'node:fs/promises';
 import { assertOwnedRecoveryScratchV1, writeInitialNativeCredentialsV1, claimStoppedNativeRecoveryV1, writePrivateRuntimeRecoveryV1, readPrivateRuntimeRecoveryV1, sealStoppedNativeFilesV1, assertStoppedNativeFilesV1, cloneRuntimeRecoveryV1 } from '../../shared/runtime/owned-runtime-recovery-files-v1.mjs';
-import { consumeExternalDefiReceiverRepairV1, consumeWrappedRuntimeRecoveryV1, assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import { consumeExternalDefiReceiverRepairV1, consumeWrappedRuntimeRecoveryV1, assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, externalDefiReceiverCaptureIdentityV2, consumeExternalDefiReceiverRuntimeSectionV2 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { join } from 'node:path';
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
 import { linuxRuntimePins } from '../../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
@@ -103,6 +103,7 @@ export async function probeOwnedOsakaTransactionGasRejectionV1(runtime) {
   return probe();
 }
 const NATIVE_ECONOMIC_RUNTIME_V2=Symbol('NEW_NATIVE_ECONOMIC_RUNTIME_V2'),originalEconomicV2Runtimes=new WeakSet();
+const originalExternalDefiReceiverV2=new WeakSet(),originalExternalDefiReceiverCapturesV2=new WeakMap();
 const originalEvmRecoveryCapturesV1 = new WeakMap(),originalEvmRetentionArmsV1=new WeakMap(),originalEvmEconomicFencesV1=new WeakMap();
 export async function armOwnedEvmRecoveryRetentionV1(runtime){assert.equal(arguments.length,1);assert.ok(ownedRuntimes.has(runtime)||ownedNativeValueFamily.has(runtime),'EVM_RETENTION_ORIGINAL_RUNTIME');const arm=originalEvmRetentionArmsV1.get(runtime);assert.ok(arm,'EVM_RETENTION_FIXED_FAMILY');return arm();}
 export async function captureOwnedEvmRecoveryV1(runtime) {
@@ -129,6 +130,14 @@ export async function reopenOwnedNativeEconomicReceiverV1(token){
   const record=consumeNativeEconomicRecoverySectionV1(token,'receiver');
   assert.ok(['OWNED_FIXED_EVM_CAPTURE_V1','OWNED_FIXED_EVM_CAPTURE_V2'].includes(record.schema),'EVM_ECONOMIC_FIXED_CAPTURE_SCHEMA');
   return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,record.schema==='OWNED_FIXED_EVM_CAPTURE_V2'?NATIVE_ECONOMIC_RUNTIME_V2:true);
+}
+/** Only the finite External5 issuer can reconstitute this same V2 receiver.
+ * A legacy/native economic token or a serialized record cannot select it. */
+export async function reopenOwnedExternalDefiReceiverV2(token){
+  assert.equal(arguments.length,1);const record=consumeExternalDefiReceiverRuntimeSectionV2(token);
+  assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(record.family,'receiver');
+  const runtime=await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,NATIVE_ECONOMIC_RUNTIME_V2);
+  originalExternalDefiReceiverV2.add(runtime);return runtime;
 }
 export async function reopenOwnedNativeEconomicGraphRuntimeV1(token){
   assert.equal(arguments.length,1);
@@ -434,6 +443,26 @@ export async function createOwnedRecoverableGraphNativeV1(){assert.equal(argumen
  * no server signer/seed adoption and no conversion of an already funded node. */
 export async function createOwnedNativeEconomicReceiverV2(){assert.equal(arguments.length,0);return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,null,NATIVE_ECONOMIC_RUNTIME_V2);}
 export async function createOwnedNativeEconomicGraphRuntimeV2(){assert.equal(arguments.length,0);return createFixedOwnedLocalEvm(LOCAL_NATIVE_VALUE_PROCESS_PROFILE,false,null,NATIVE_ECONOMIC_RUNTIME_V2);}
+/** New External5 lifetimes only. The five original AEAD keys/genesis are
+ * retained before this object is returned and before its first CREATE/send. */
+export async function createOwnedExternalDefiReceiverV2(){
+  assert.equal(arguments.length,0);const runtime=await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,null,NATIVE_ECONOMIC_RUNTIME_V2);
+  originalExternalDefiReceiverV2.add(runtime);
+  try{await armOwnedEvmRecoveryRetentionV1(runtime);return runtime;}
+  catch(error){try{await runtime.close();}catch(cleanup){throw new AggregateError([error,cleanup],'EXTERNAL_RECEIVER_INITIAL_RETENTION_FAILED',{cause:error});}throw error;}
+}
+export function assertOwnedExternalDefiReceiverV2(runtime){
+  assert.equal(arguments.length,1);assert.ok(originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_ORIGINAL_V2_REQUIRED');
+  const state=originalExternalDefiReceiverCapturesV2.get(runtime);assert.ok(state,'EXTERNAL_RECEIVER_ORIGINAL_V2_REQUIRED');state.preflight();
+}
+export function captureOwnedExternalDefiReceiverV2(runtime,token){
+  assert.equal(arguments.length,2);assert.ok(originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_ORIGINAL_V2_REQUIRED');
+  return originalExternalDefiReceiverCapturesV2.get(runtime).capture(token);
+}
+export async function abortOwnedExternalDefiReceiverCaptureV2(runtime,token){
+  assert.equal(arguments.length,2);assert.ok(originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_ORIGINAL_V2_REQUIRED');
+  return originalExternalDefiReceiverCapturesV2.get(runtime).abort(token);
+}
 export function isOwnedNativeEconomicRuntimeV2(runtime){assert.equal(arguments.length,1);return originalEconomicV2Runtimes.has(runtime);}
 async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance = false, recovery = null, recoveryAdmitted = false, preopenRepair = null) {
   assert.ok(!poolGenerationAcceptance || processProfile === LOCAL_EVM_PROFILE, 'POOL_GENERATION_NATIVE_PROFILE_INCOMPATIBLE');
@@ -1427,6 +1456,20 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         assert.deepEqual(identity,economicRecoveryFence,'EVM_ECONOMIC_ORIGINAL_CAPTURE_TOKEN');recoveryCapturing=true;await close();
         return {closed:true,recoveryIncomplete:true};}
     });
+    if(economicV2&&!nativeValueOnly){let originalCaptureToken=null;
+      originalExternalDefiReceiverCapturesV2.set(runtime,{
+        preflight(){assertAlive();assert.deepEqual(runtimePin,NATIVE_ECONOMIC_ANVIL_PIN_V2);
+          assert.ok(economicRecoveryFence===null&&!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'EXTERNAL_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');},
+        capture(token){const identity=externalDefiReceiverCaptureIdentityV2(token);assertAlive();
+          assert.deepEqual(runtimePin,NATIVE_ECONOMIC_ANVIL_PIN_V2);
+          assert.ok(originalCaptureToken===null&&economicRecoveryFence===null&&!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'EXTERNAL_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');
+          originalCaptureToken=token;economicRecoveryFence=cloneRuntimeRecoveryV1(identity);recoveryRetained=true;
+          return recoveryCapture();},
+        async abort(token){assert.equal(token,originalCaptureToken,'EXTERNAL_RECEIVER_ORIGINAL_CAPTURE_TOKEN');
+          // Cleanup uses this exact retained write token even after issuer fault.
+          recoveryCapturing=true;await close();return {closed:true,recoveryIncomplete:true};}
+      });
+    }
     if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmRetentionArmsV1.set(runtime,()=>{assertAlive();assert.equal(processGeneration,0,'EVM_RETENTION_ORIGINAL_GENERATION');assert.ok(initialPrivateRecord&&!busy&&transactions.length===0,'EVM_RETENTION_BEFORE_NATIVE_EFFECTS');recoveryRetained=true;return cloneRuntimeRecoveryV1({schema:'OWNED_NATIVE_INITIAL_RETENTION_V1',family:recoveryFamily,cwd,processGeneration,initialPrivateRecord});});
     if(economicV2)originalEconomicV2Runtimes.add(runtime);
     if(observedClock)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive});
@@ -1630,14 +1673,14 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
  * mutation/dispatch/reconcile is fenced synchronously, and close belongs to its
  * issuer until genuine dump+transaction/history retention and owned stop finish. */
 export function assertOwnedNativeEconomicRuntimeRecoverableV1(runtime){
- assert.equal(arguments.length,1);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');privateState.preflight();
+ assert.equal(arguments.length,1);assert.ok(!originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_DISTINCT_ISSUER_REQUIRED');const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');privateState.preflight();
 }
 export function fenceOwnedNativeEconomicRuntimeV1(runtime,authority){
- assert.equal(arguments.length,2);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');privateState.fence(authority);
+ assert.equal(arguments.length,2);assert.ok(!originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_DISTINCT_ISSUER_REQUIRED');const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');privateState.fence(authority);
 }
 export async function captureOwnedNativeEconomicRuntimeV1(runtime,token){
- assert.equal(arguments.length,2);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');return privateState.capture(token);
+ assert.equal(arguments.length,2);assert.ok(!originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_DISTINCT_ISSUER_REQUIRED');const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');return privateState.capture(token);
 }
 export async function abortOwnedNativeEconomicRuntimeV1(runtime,token){
- assert.equal(arguments.length,2);const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');return privateState.abort(token);
+ assert.equal(arguments.length,2);assert.ok(!originalExternalDefiReceiverV2.has(runtime),'EXTERNAL_RECEIVER_DISTINCT_ISSUER_REQUIRED');const privateState=originalEvmEconomicFencesV1.get(runtime);assert.ok(privateState,'EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED');return privateState.abort(token);
 }

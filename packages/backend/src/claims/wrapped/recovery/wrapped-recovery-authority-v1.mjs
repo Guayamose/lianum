@@ -238,7 +238,7 @@ export function originalWrappedRecoverySectionIdentityV1(token,section){
  return Object.freeze(clone(entry.s.identity));
 }
 export function consumeOriginalWrappedRecoverySectionV1(token,section){assert.equal(arguments.length,2);const r=reads.get(token);assert.ok(r&&r.section===section&&!r.used&&r.operation===r.s.operation,'WRAPPED_RECOVERY_ORIGINAL_OPEN_TOKEN');r.used=true;assert.equal(r.s.closed,false);assert.equal(r.s.fault,false);assert.ok(Date.now()<authorityReopenDeadline(r.s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');return clone(r.data);}
-export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.notEqual(r?.s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
+export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.notEqual(r?.s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');assert.notEqual(r?.data?.schema,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2','EXTERNAL_RECEIVER_DISTINCT_REOPEN_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
 async function fixedReopen(authority,section,work,stop){
  const s=state(authority);s.operation=opaque();let token,result,returned=false;
  try{token=await issueWrappedRecoverySectionV1(s,section);const r=reads.get(token);result=await work(token);returned=true;assert.equal(r.used,true,'WRAPPED_RECOVERY_OPEN_TOKEN_UNUSED');await mutate(s,old=>{const row=old.sections[section];assert.equal(row.state,'OPENING');assert.deepEqual(row.claim,r.claim);row.state='OPENED';return old;});return result;}
@@ -274,6 +274,47 @@ export async function closeWrappedRecoveryAuthorityV1(authority){assert.equal(ar
  * Registry retention is not effect authorization. Reopen is strictly ordered. */
 export function createExternalDefiRecoveryAuthorityV1(input){assert.equal(arguments.length,1);return authorityFactory(input,null,true,false,false,true);}
 export function openExternalDefiRecoveryAuthorityV1(input,checkpoint){assert.equal(arguments.length,2);return authorityFactory(input,checkpoint,false,false,false,true);}
+/** Finite original External5 receiver producer. The original V2 runtime
+ * brand, not a path/record/options, selects these custody and reopen hooks. */
+export function externalDefiReceiverCaptureIdentityV2(token){
+ assert.equal(arguments.length,1);const entry=writes.get(token);
+ assert.ok(entry&&entry.section==='receiver'&&!entry.used,'EXTERNAL_RECEIVER_ORIGINAL_CAPTURE_TOKEN');
+ const identity=originalWrappedRecoverySectionIdentityV1(token,'receiver');
+ assert.equal(identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
+ assert.equal(entry.s.creating,true);assert.equal(entry.s.record.data.phase,'CAPTURING');return identity;
+}
+export function consumeExternalDefiReceiverRuntimeSectionV2(token){
+ assert.equal(arguments.length,1);const identity=originalWrappedRecoverySectionIdentityV1(token,'receiver');
+ assert.equal(identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
+ const saved=consumeOriginalWrappedRecoverySectionV1(token,'receiver');
+ exactRecord(saved,['schema','sourceSHA256','record']);assert.equal(saved.schema,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2');
+ assert.equal(saved.sourceSHA256,identity.sourceSHA256,'EXTERNAL_RECEIVER_ORIGINAL_SOURCE');
+ assert.equal(saved.record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(saved.record.family,'receiver');return saved.record;
+}
+export async function retainExternalDefiReceiverRuntimeV2(authority,runtime){
+ assert.equal(arguments.length,2);const s=state(authority);assert.equal(s.identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
+ assert.equal(capturedRuntimeOwners.has(runtime),false,'WRAPPED_RECOVERY_RUNTIME_ALREADY_ASSIGNED');
+ const m=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');m.assertOwnedExternalDefiReceiverV2(runtime);
+ const registry=await import('./wrapped-private-lifetime-registry-v1.mjs'),current=state(authority),lifetime=current.record.data.sections.privateLifetime;
+ assert.equal(lifetime?.state,'CAPTURED','EXTERNAL_RECEIVER_PRIVATE_LIFETIME_CAPTURE_REQUIRED');
+ exactRecord(lifetime.data,['schema','input','checkpoint']);assert.equal(lifetime.data.schema,'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1');
+ const {profile,...attempt}=current.identity;assert.deepEqual(lifetime.data.input,attempt,'EXTERNAL_RECEIVER_ORIGINAL_LIFETIME_ATTEMPT');
+ registry.assertStoppedWrappedPrivateLifetimeAttemptV1(runtime,{identity:current.identity,checkpoint:lifetime.data.checkpoint});
+ capturedRuntimeOwners.set(runtime,authority);
+ return fixedCapture(authority,'receiver',async token=>{
+  let entered=false;
+  try{const work=m.captureOwnedExternalDefiReceiverV2(runtime,token);entered=true;const record=await work;
+   assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(record.family,'receiver');
+   assert.equal(record.terminal.ownedProcessStopped,true,'EXTERNAL_RECEIVER_ORIGINAL_STOP_REQUIRED');assert.equal(record.terminal.forced,false,'EXTERNAL_RECEIVER_GRACEFUL_STOP_REQUIRED');await assertStoppedNativeFilesV1(record.cwd,record.files);
+   await retainOriginalWrappedRecoverySectionV1(token,'receiver',{schema:'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2',sourceSHA256:externalDefiReceiverCaptureIdentityV2(token).sourceSHA256,record});
+   return {retained:true,originalResourcesStopped:true};
+  }catch(error){if(entered){try{await m.abortOwnedExternalDefiReceiverCaptureV2(runtime,token);}catch(cleanup){throw new AggregateError([error,cleanup],'EXTERNAL_RECEIVER_CAPTURE_AND_STOP_FAILED',{cause:error});}}throw error;}
+ });
+}
+export async function reopenExternalDefiReceiverRuntimeV2(authority){
+ assert.equal(arguments.length,1);assert.equal(state(authority).identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
+ return fixedReopen(authority,'receiver',async token=>{const m=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');return m.reopenOwnedExternalDefiReceiverV2(token);},value=>value.close());
+}
 function externalAuthority(authority){assert.ok(externalIdentity(state(authority).identity),'EXTERNAL_RECOVERY_PROFILE_REQUIRED');}
 export async function retainExternalDefiSystemRecoveryV1(authority,input){
  externalAuthority(authority);exactRecord(input,['runtime','bootstrap']);const registry=await import('./wrapped-private-lifetime-registry-v1.mjs');registry.assertWrappedPrivateLifetimeAttemptV1(input.runtime,state(authority).identity);return fixedCapture(authority,'system',async token=>{
@@ -1199,6 +1240,17 @@ export async function retainNativeEconomicBootstrapV1(authority,bootstrap){
  try{return await retainNativeEconomicFixedSection(authority,input,'bootstrap');}
  catch(error){s.fault=true;const failures=await abortNativeEconomicFixedCapture(s,input,['bootstrap']);
    if(failures.length)throw new AggregateError([error,...failures],'NATIVE_BOOTSTRAP_CAPTURE_AND_CLEANUP_FAILED',{cause:error});throw error;}
+}
+
+/** The retained EXIT-only owner has no reconstructed GRAPH observer. This
+ * fixed opener omits that option; its original saved producer validates scope. */
+export async function reopenExternalDefiVaultExitOwnersRecoveryV1(authority,input){
+ assert.equal(arguments.length,2);assert.equal(state(authority).identity.profile,EXTERNAL_PROFILE,'EXTERNAL_VAULT_EXIT_ORIGINAL_ISSUER');
+ exactRecord(input,['runtime','system']);return fixedReopen(authority,'owners',async token=>{
+  const module=await import('../../../../../custody/src/processes/flat-owner-process.mjs');
+  return module.reopenFlatOwnersForVaultExitV1({...input,attemptAuthority:token});
+ },async owners=>{const results=await Promise.allSettled(owners.map(owner=>owner.close()));
+  const failures=results.filter(row=>row.status==='rejected');if(failures.length)throw new AggregateError(failures.map(row=>row.reason),'EXTERNAL_VAULT_EXIT_OWNER_CLEANUP_FAILED');});
 }
 
 /** Finite ordered EXIT continuation. No producer/state/factory callbacks,
