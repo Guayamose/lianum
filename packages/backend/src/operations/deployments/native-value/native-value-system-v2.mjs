@@ -11,7 +11,7 @@ import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohor
 import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '../../../../../engine/src/evidence/native-quorum.mjs';
 import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '../../../execution/encoding/commitments.mjs';
 import { buildNativeValueDeploymentPlan } from './native-value-deployment-plan-v2.mjs';
-import { NATIVE_VALUE_LEDGER_ROLES, NATIVE_VALUE_VERIFIER_ORDER as FLAT_VERIFIER_ORDER, loadNativeValueDeploymentArtifacts } from './native-value-deployment-artifacts-v2.mjs';
+import { NATIVE_VALUE_LEDGER_ROLES, NATIVE_VALUE_VERIFIER_ORDER as FLAT_VERIFIER_ORDER, loadNativeValueDeploymentArtifacts, loadNativeValueDevDeploymentArtifactsV5 } from './native-value-deployment-artifacts-v2.mjs';
 import { assertNativeValueOperatorBootstrap, provisionNativeValueOperators, finishNativeValueOperators } from '../../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import { consumeNativeValueOperatorBootstrapRequest } from '../../operators/native-value/native-value-operators-v4.mjs';
 import { verifyNativeValueConstructorStorage } from './native-value-deployment-checks-v2.mjs';
@@ -147,9 +147,21 @@ function rawWords(raw, count) {
  * No receipt observer, source override, claims bootstrap or authority flag exists.
  * Native-value execution is not backing; this path exposes no CI/CO authority. */
 export async function deployNativeValueSystem(input) {
-  exactRecord(input, ['runtime','options']); const { runtime, options } = input;
-  // All evidence is checked before ownership, allocation or the first send.
+  exactRecord(input, ['runtime','options']);
   const loadedBundle = await loadNativeValueDeploymentArtifacts();
+  return deployFixedNativeValueSystem(input, loadedBundle);
+}
+/** Separate development publication, same genuine private deployment brand.
+ * Caller options have no release/path/bundle/loader/assertion callback. */
+export async function deployNativeValueDevSystemV5(input) {
+  assert.equal(arguments.length, 1, 'NATIVE_VALUE_DEV_DEPLOY_NO_CALLER_OVERRIDE');
+  exactRecord(input, ['runtime','options']);
+  const loadedBundle = await loadNativeValueDevDeploymentArtifactsV5();
+  return deployFixedNativeValueSystem(input, loadedBundle);
+}
+async function deployFixedNativeValueSystem(input, loadedBundle) {
+  const { runtime, options } = input;
+  // Every fixed artifact fence completes before ownership/allocation/first send.
   await assertLocalEvm(runtime);
   assert.ok(!activeDeployments.has(runtime), 'NATIVE_VALUE_DEPLOY_CONCURRENT_BOOTSTRAP');
   const configuration = checkedOptions(runtime, options), sender = address(runtime.accounts[0]);
