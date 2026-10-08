@@ -304,6 +304,163 @@ def proof_checks(rows, note_keys, device_deposit=False):
     return proofs, checks
 
 
+def _public_equal(left, right):
+    # Exact JSON value equality, including boolean/integer distinctions. No raw
+    # receipt is normalized, rewritten or used to grant a proving capability.
+    return json.dumps(left, sort_keys=True, allow_nan=False) == json.dumps(right, sort_keys=True, allow_nan=False)
+
+
+_EXECUTION_SETTINGS = {"ipaAccumulation": False, "oracleHashType": "keccak", "disableZk": False, "optimizedSolidityVerifier": False}
+_EXECUTION_LIMITS = {"availableRAM": 2684354560, "freeDisk": 5368709120, "workerRSS": 3221225472,
+    "sampleMilliseconds": 250, "phaseTimeoutMilliseconds": 600000, "killGraceMilliseconds": 5000,
+    "outputBytes": 1048576, "jobBytes": 2097152, "threads": 1, "maximumDyadicGates": 2097152, "provingCRSPoints": 2097152}
+_I84_ORIGINAL = {
+    "sourceVersion": "4a6503d4b139e20e4d672ca39eb5d5f1f75497555ba6d55a7d6c424dcbb5d92e",
+    "keySHA256": "c343da4850c47cc443dd017676661fd71b9864b792b3702ef6af8f2d53609d5e",
+    "keyManifestSHA256": "36c4e838f8cdc9f7483b16057bb754f54990d9aba5ffc0ca9c90e06dee510414",
+    "compiledManifestSHA256": "f5be21e21c153d8167b90f78cd6b546813014d7d66a20f70925fa2192140e155",
+    "artifactSHA256": "fa23b3b8867c0418834d3acd4eb70cf10aca558434fe0a19c84f59d05e5b614c",
+    "bytecodeSHA256": "cdfa8e3f470b002b9833c12cbd2821752b32d95f75dea131cfbb92f3ccaf4d0e"}
+_NODE_ORIGINAL = {
+    "keySHA256": "7db1eb6975fad4fda0ebac6b7e9ad3861604f4eb8d1231b9c2ff8ccf661d5fe4",
+    "keyManifestSHA256": "95a561fdf1c92187407daede21b490673f572ddf5ca0337c4cf00606bef20b96",
+    "compiledManifestSHA256": "29084da7f9d90365578b32a87e54b9e4ce165ae7e3701b803df250db738c4004",
+    "artifactSHA256": "6c2d09943e6b138bb67b8133f33331adf08263dc12210b2d1a62d78c56fce38e",
+    "bytecodeSHA256": "9e4f613e46a682115b18b268cb637f9b6d1ca2eea03e9a0acc6068dcd2c6d29f"}
+_EXECUTION_GRAPH = {"dependency": ("dependency", 42), "ready": ("local", 50), "node": ("local", 32),
+    "settlement": ("assembler", 138), "recovery": ("recovery", 41)}
+
+
+def _execution_backend_receipt(relation, manifest, worker, resources):
+    """Strict public framing of I84/N Native12; never reuse the U profile."""
+    native = worker.get("nativeBackendExecution")
+    if native is None:
+        if "nativeBackendExecution" in worker:
+            return False
+        if relation == "admission_native_value_v2":
+            return type(worker.get("threads")) is int and worker["threads"] == 1 and worker.get("maximumPages") == 65536 \
+                and manifest.get("maximumPages") == 65536 and "independentVerification" not in worker \
+                and "wasmThreadExecution" not in worker and _public_equal(worker.get("limits"), _EXECUTION_LIMITS) \
+                and _public_equal(resources.get("limits"), _EXECUTION_LIMITS)
+        threads = worker.get("threads")
+        if type(threads) is not int or threads not in ((1, 4) if relation == "node" else (4,)):
+            return False
+        pages = 32768 if relation == "node" or worker.get("mode") == "prove" else 65536
+        return worker.get("maximumPages") == pages and "independentVerification" not in worker \
+            and _public_equal(worker.get("limits"), {**_EXECUTION_LIMITS, "threads": threads}) \
+            and _public_equal(resources.get("limits"), worker.get("limits")) \
+            and ("wasmThreadExecution" not in worker if threads == 1 else _public_equal(worker.get("wasmThreadExecution"), {
+                "threads": 4, "sharedMemory": True, "oneOwnedProcess": True, "originalPreparedKeyRequired": True}))
+    if relation not in ("admission_native_value_v2", "node") or not isinstance(native, dict):
+        return False
+    i84 = relation == "admission_native_value_v2"
+    pages = 65536 if i84 else 32768
+    fixed = {"profile": "LIANUM_ORIGINAL_I84_V5_NATIVE_UNIX_SOCKET_V1" if i84 else "LIANUM_ORIGINAL_N_NATIVE_UNIX_SOCKET_V1",
+        "backend": "NativeUnixSocket", "threads": 12, "bbVersion": "5.2.0",
+        "binarySHA256": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
+        "originalPreparedKeyRequired": True, "oneEphemeralJob": True, "memoryScope": "COORDINATOR_PLUS_NATIVE_CHILD",
+        "rssLimitBytes": 3221225472, "outputByteAccounting": "RAW_CAPTURE_PLUS_OFFICIAL_LOGGER_UPPER_BOUND",
+        "outputStreamsClosed": True, "socketClosed": True, "socketRemoved": True}
+    child, closed = record(native.get("childIdentity")), record(native.get("childClose"))
+    verification = {"backend": "Wasm", "threads": 1, "maximumPages": pages,
+        "originalPreparedKeyRequired": True, "verifierCRSOnly": True, "backendDestroyed": True}
+    if not i84:
+        verification["nativeProducerClosedBeforeVerification"] = True
+    peak, output = resources.get("peakWorkerRSS"), native.get("outputBytes")
+    return set(native) == set(fixed) | {"childIdentity", "childClose", "outputBytes"} \
+        and _public_equal({key: native.get(key) for key in fixed}, fixed) \
+        and set(child) == {"pid", "ppid", "pgrp", "session", "startTimeTicks"} | ({"uid"} if i84 else set()) \
+        and all(type(child.get(key)) is int and 1 < child[key] <= 9007199254740991 for key in ("pid", "ppid", "pgrp", "session")) \
+        and isinstance(child.get("startTimeTicks"), str) and re.fullmatch(r"[0-9]+", child["startTimeTicks"]) is not None \
+        and (not i84 or type(child.get("uid")) is int and child["uid"] == os.getuid()) \
+        and set(closed) == {"code", "signal"} and (_public_equal(closed, {"code": 0, "signal": None}) \
+            or _public_equal(closed, {"code": None, "signal": "SIGTERM"})) \
+        and type(output) is int and 0 <= output <= 1048576 and type(peak) is int and 0 <= peak <= 3221225472 \
+        and _public_equal(resources.get("nativeBackendExecution"), native) \
+        and resources.get("nativeMemoryScope") == "COORDINATOR_PLUS_NATIVE_CHILD" and resources.get("nativeChildrenGone") is True \
+        and isinstance(resources.get("nativeChildIdentities"), list) and any(_public_equal({key: record(value).get(key) for key in child}, child)
+            for value in resources["nativeChildIdentities"]) \
+        and type(worker.get("threads")) is int and worker["threads"] == 12 \
+        and "maximumPages" in worker and worker["maximumPages"] is None and worker.get("preparedMaximumPages") == pages \
+        and "wasmThreadExecution" not in worker and _public_equal(worker.get("independentVerification"), verification) \
+        and _public_equal(worker.get("limits"), {**_EXECUTION_LIMITS, "threads": 12}) \
+        and _public_equal(resources.get("limits"), worker.get("limits")) \
+        and worker.get("hostLimitsChanged") is False and resources.get("hostLimitsChanged") is False \
+        and (not i84 or manifest.get("maximumPages", "missing") is None and manifest.get("preparedMaximumPages") == 65536
+            and type(manifest.get("threads")) is int and manifest["threads"] == 12 and manifest.get("executionBackend") == "NativeUnixSocket")
+
+
+def _execution_raw_proof_receipt(row):
+    """Reread the original fixed attempt; hashes and retained JSON must both join."""
+    e, relation = record(row.get("evidence")), row.get("relation")
+    run_id, job_id = e.get("runId"), e.get("jobId")
+    if not all(isinstance(value, str) and UUID.fullmatch(value) is not None for value in (run_id, job_id)):
+        return False
+    m, w, r = (record(e.get(name)) for name in ("manifest", "result", "resources"))
+    if relation == "admission_native_value_v2":
+        local = (".local/proof-workers-native-value-dev-live-v5",) if "nativeBackendExecution" in w else (
+            ".local/proof-workers-native-value-dev-live-v5", ".local/proof-workers-native-value-live-v2")
+        paths = []
+        for directory in local:
+            candidate = FLAT / directory / "attempts" / run_id
+            try:
+                private_evidence(candidate / "proof-manifest.json")
+                paths.append(candidate)
+            except FileNotFoundError:
+                pass  # Exact absence only; unreadable/unsafe originals reject.
+        if len(paths) != 1:
+            return False
+        path = paths[0]
+    else:
+        path = FLAT / ".local/proof-workers/attempts" / run_id
+    for name, field, retained in (("proof-manifest.json", "manifestSHA256", m), ("result.json", "resultSHA256", w), ("resources.json", "resourcesSHA256", r)):
+        raw = private_evidence(path / name)
+        if hashlib.sha256(raw).hexdigest() != e.get(field) or not _public_equal(json.loads(raw), retained):
+            return False
+    proof, inputs, pins = (private_evidence(path / name) for name in ("proof.bin", "public-inputs.json", "runtime-pins.json"))
+    proof_sha, inputs_sha, pins_sha = (hashlib.sha256(raw).hexdigest() for raw in (proof, inputs, pins))
+    if not (0 < len(proof) <= 1048576 and len(proof) % 32 == 0 and m.get("proofBytes") == len(proof)
+        and proof_sha == row.get("proofSHA256") == m.get("proofSHA256") == w.get("proofSHA256")
+        and inputs_sha == row.get("publicInputsSHA256") == m.get("publicInputsSHA256")
+        and all(v.get("runtimePinsSHA256") == pins_sha for v in (m, w, r))
+        and (relation != "admission_native_value_v2" or e.get("runtimePinsSHA256") == pins_sha)
+        and all(v.get("runId") == run_id and v.get("jobId") == job_id and v.get("relation") == relation for v in (m, w, r))
+        and m.get("selfVerified") is True and w.get("selfVerified") is True and w.get("phase") == "completed"
+        and r.get("phase") == "completed" and type(r.get("exitCode")) is int and r["exitCode"] == 0 and r.get("signal", "missing") is None
+        and r.get("failure", "missing") is None and r.get("failures") == [] and r.get("lockPreserved") is False
+        and w.get("keyRecomputed") is False and w.get("proofGenerated") is True
+        and w.get("hostLimitsChanged") is False and r.get("hostLimitsChanged") is False
+        and all(field not in w for field in ("errorCode", "cleanupErrorCode", "finalPinErrorCode"))
+        and _public_equal(m.get("settings"), _EXECUTION_SETTINGS) and _public_equal(w.get("settings"), _EXECUTION_SETTINGS)
+        and _execution_backend_receipt(relation, m, w, r)):
+        return False
+    if relation == "admission_native_value_v2":
+        return m.get("format") == "NV2_SCOPED_PUBLIC_PROOF_V1" and w.get("format") == "NV2_SCOPED_PROOF_RESULT_V1" \
+            and r.get("format") == "NV2_SCOPED_PROOF_RESOURCES_V1" \
+            and all(v.get("profile") == "LIANUM_DYNAMIC_NATIVE_VALUE_ADMISSION_V2" for v in (m, w, r)) \
+            and all(v.get("mode") == "prove-dyadic21" for v in (w, r)) and m.get("role") == w.get("role") == "local" \
+            and (m.get("publicWords"), m.get("backendPublicWords"), m.get("publicInputOffset")) == (84, 92, 5) \
+            and row.get("publicWords") == 84 and isinstance(json.loads(inputs), list) and len(json.loads(inputs)) == 84 \
+            and all(m.get(key) == value for key, value in _I84_ORIGINAL.items()) \
+            and all(w.get(key) == _I84_ORIGINAL[key] for key in ("sourceVersion", "keySHA256", "keyManifestSHA256")) \
+            and e.get("keySHA256") == _I84_ORIGINAL["keySHA256"] and e.get("programSHA256") == _I84_ORIGINAL["artifactSHA256"] \
+            and w.get("keyGenerated") is False and w.get("backendDestroyed") is True and w.get("witnessPersisted") is False
+    if relation not in _EXECUTION_GRAPH:
+        return False
+    role, words = _EXECUTION_GRAPH[relation]
+    return m.get("format") == "FLAT_WALLET_PUBLIC_PROOF_V1" and w.get("format") == "FLAT_WALLET_WORKER_ATTEMPT_V1" \
+        and r.get("format") == "FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1" \
+        and all(v.get("profile") == "LIANUM_PAEG_P2_V1" for v in (m, w, r)) \
+        and w.get("mode") in ("prove", "prove-dyadic21") and r.get("mode") == w.get("mode") \
+        and m.get("role") == w.get("role") == role and m.get("publicWords") == w.get("publicWords") == row.get("publicWords") == words \
+        and isinstance(json.loads(inputs), list) and len(json.loads(inputs)) == words \
+        and m.get("target") == w.get("target") == "evm" and w.get("publicInputsSHA256") == inputs_sha \
+        and m.get("keySHA256") == w.get("keySHA256") == e.get("keySHA256") and digest(m.get("keySHA256")) \
+        and m.get("keyManifestSHA256") == w.get("keyManifestSHA256") and digest(m.get("keyManifestSHA256")) \
+        and m.get("sourceVersion") == w.get("sourceVersion") and digest(m.get("sourceVersion")) \
+        and (relation != "node" or all(m.get(key) == value and w.get(key) == value for key, value in _NODE_ORIGINAL.items()))
+
+
 def execution_proof_checks(rows, note_keys):
     """Only raw public original proof receipts; this reader emits no authority."""
     global DEVICE_EXECUTION
@@ -337,35 +494,9 @@ def execution_proof_checks(rows, note_keys):
                     and original.get("exit") == {"code": 0, "signal": None} and row.get("amountAtomic") == ("100" if DEVICE_RECOVERY and row is proofs[-1] else "400") \
                     and e.get("keySHA256") == note_keys.get("withdraw_balance")
             else:
-                run_id = e.get("runId")
-                if not isinstance(run_id, str) or UUID.fullmatch(run_id) is None:
-                    raise ValueError("DEVICE_NATIVE_RUN")
-                local = ".local/proof-workers-native-value-live-v2" if relation == "admission_native_value_v2" else ".local/proof-workers"
-                path = FLAT / local / "attempts" / run_id
-                m, w, r = (record(e.get(name)) for name in ("manifest", "result", "resources"))
-                ok = all(hashlib.sha256(private_evidence(path / name)).hexdigest() == e.get(field) for name, field in (
-                    ("proof-manifest.json", "manifestSHA256"), ("result.json", "resultSHA256"), ("resources.json", "resourcesSHA256"))) \
-                    and hashlib.sha256(private_evidence(path / "proof.bin")).hexdigest() == row.get("proofSHA256") \
-                    and hashlib.sha256(private_evidence(path / "public-inputs.json")).hexdigest() == row.get("publicInputsSHA256") \
-                    and all(v.get("runId") == run_id and v.get("jobId") == e.get("jobId") and v.get("relation") == relation for v in (m, w, r)) \
-                    and m.get("selfVerified") is True and w.get("selfVerified") is True and w.get("phase") == "completed" \
-                    and r.get("phase") == "completed" and r.get("exitCode") == 0 and r.get("signal", "missing") is None \
-                    and r.get("failure", "missing") is None and r.get("failures") == [] and r.get("lockPreserved") is False
-                if relation == "admission_native_value_v2":
-                    ok = ok and m.get("format") == "NV2_SCOPED_PUBLIC_PROOF_V1" and w.get("format") == "NV2_SCOPED_PROOF_RESULT_V1" \
-                        and r.get("format") == "NV2_SCOPED_PROOF_RESOURCES_V1" and w.get("threads") == 1 and w.get("maximumPages") == 65536 \
-                        and w.get("keyGenerated") is False and w.get("keyRecomputed") is False and w.get("backendDestroyed") is True \
-                        and hashlib.sha256(private_evidence(path / "runtime-pins.json")).hexdigest() == e.get("runtimePinsSHA256") \
-                        and all(v.get("runtimePinsSHA256") == e.get("runtimePinsSHA256") for v in (m, w, r)) \
-                        and m.get("keySHA256") == e.get("keySHA256") and w.get("keySHA256") == e.get("keySHA256")
-                else:
-                    ok = ok and m.get("format") == "FLAT_WALLET_PUBLIC_PROOF_V1" and w.get("format") == "FLAT_WALLET_WORKER_ATTEMPT_V1" \
-                        and r.get("format") == "FLAT_WALLET_EXTERNAL_RESOURCE_REPORT_V1" and w.get("threads") == 4 \
-                        and record(w.get("limits")).get("threads") == 4 and w.get("limits") == r.get("limits") \
-                        and w.get("keyRecomputed") is False and all(v.get("runtimePinsSHA256") == w.get("runtimePinsSHA256") for v in (m, r)) \
-                        and w.get("wasmThreadExecution") == {"threads": 4, "sharedMemory": True, "oneOwnedProcess": True, "originalPreparedKeyRequired": True}
+                ok = _execution_raw_proof_receipt(row)
             raw_checks.append(ok)
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError, TypeError, RecursionError):
             raw_checks.append(False)
     checks["newOriginalReceiptsRawJoined"] = len(raw_checks) == (6 if DEVICE_RECOVERY else 9) and all(raw_checks)
     checks["distinctOriginalProofBytes"] = typed and len(proofs) == (9 if DEVICE_RECOVERY else 12) and len({row.get("proofSHA256") for row in proofs}) == (9 if DEVICE_RECOVERY else 12)
