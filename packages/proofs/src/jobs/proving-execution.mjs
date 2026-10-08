@@ -44,6 +44,7 @@ export function executionSources(spec, mode) {
   const original = originalExecutionSources(spec, mode);
   // The imported policy itself is captured by the original before/after checks.
   const extra = ['proof-workers/proving-execution.mjs','proof-workers/authorization-native-execution-v1.mjs',
+    'proof-workers/standard-proof-resources-v1.mjs',
     'integration/native-flow-owned-files-v1.mjs','integration/native-flow-owned-rss-v1.mjs'].map(path=>executionRecord(join(ROOT,path)));
   if (usesNativeAuthorizationV1(spec,mode)) {
     for (const [path,expected] of AUTHORIZATION_NATIVE_PINS_V1) {

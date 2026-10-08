@@ -12,6 +12,7 @@ import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regula
   resources, resourceFailure, verifyAPI, verifyVendor, hash, jsonBytes,
   errorCode, trustedParent } from '../tooling/tooling.mjs';
 import { executionSources, limitsForMode } from './proving-execution.mjs';
+import {standardProofResourcesV1,proofResourceMonitorErrorCodeV1} from './standard-proof-resources-v1.mjs';
 import {usesNativeAuthorizationV1,nativeAuthorizationResourcesV1,assertNativeAuthorizationReceiptV1} from './authorization-native-execution-v1.mjs';
 
 function dataRecord(value, names) {
@@ -99,7 +100,7 @@ async function supervise(spec, mode, runId, privatePayload = null) {
   function sample() {
     if (closed) return;
     try {
-      const current = nativeAuthorization ? nativeAuthorizationResourcesV1(child?.pid,nativeHistory) : resources(child?.pid);
+      const current = nativeAuthorization ? nativeAuthorizationResourcesV1(child?.pid,nativeHistory) : standardProofResourcesV1(child);
       if(nativeAuthorization){report.nativeMemoryScope=current.memoryScope;report.nativeChildIdentities=current.nativeChildIdentities;}
       report.samples++; report.latestResources = current;
       report.minimumAvailableRAM = Math.min(report.minimumAvailableRAM, current.availableRAM);
@@ -108,7 +109,7 @@ async function supervise(spec, mode, runId, privatePayload = null) {
       const reason = resourceFailure(current);
       if (reason) { report.failedResourceSample ??= current; stop(reason, { sample: current }); }
       else save();
-    } catch { stop('PW_RESOURCE_MONITOR_FAILED'); }
+    } catch(error) { stop('PW_RESOURCE_MONITOR_FAILED', { monitorErrorCode: proofResourceMonitorErrorCodeV1(error) }); }
   }
   try {
     operation(mode); ensureDirectory(LOCAL);
