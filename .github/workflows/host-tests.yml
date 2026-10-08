@@ -33,6 +33,8 @@ jobs:
           python3 scripts/development/test_btc_sol_lab_summary.py
           python3 scripts/development/test_btc_sol_lab_lifecycle.py
           python3 scripts/development/test_native_value_ledger.py
+          python3 scripts/development/test_empty_audit_lab_lifecycle.py
+          python3 scripts/development/test_empty_audit_lab_summary.py
       - name: Run the default host selection
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
@@ -72,3 +74,6 @@ jobs:
           packages/backend/tests/operations/payouts/claim-authorization-lifecycle-v4.test.mjs
           packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs
           tests/integration/wallet/native/native-value-dev-release-v5.test.mjs
+          tests/integration/claims/metrics/native-claim-empty-audit-policy-v1.test.mjs
+          tests/integration/wallet/native/paired-native-note-http-loss-v2.test.mjs
+          tests/integration/wallet/native/paired-native-note-policy-v2.test.mjs
