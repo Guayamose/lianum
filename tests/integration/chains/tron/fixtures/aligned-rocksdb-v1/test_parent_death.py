@@ -87,6 +87,45 @@ finally:os.close(fd)
 (directory/'accepted-framing.json').write_text(json.dumps({'pid':os.getpid(),'grantAndEOFObserved':True}))
 '''
 
+TERMINAL_EXECUTABLE_PROBE = r'''import importlib.util,json,os,sys
+from pathlib import Path
+source,directory=Path(sys.argv[1]),Path(sys.argv[2])
+spec=importlib.util.spec_from_file_location('probe_terminal_executable',source)
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+inventory=module.load_owned_processes().LedgerOwnedProcesses();inventory.activate()
+inventory.constrain_wait_deadline(module.time.monotonic()+5)
+child=None
+try:
+    child=inventory.spawn([str(module.PYTHON),'-c',
+        "import time,sys; from pathlib import Path; end=time.monotonic()+3\nwhile not Path('exit-request').exists() and time.monotonic()<end:time.sleep(.005)\nsys.exit(0 if Path('exit-request').exists() else 124)"],
+        cwd=directory,env={'LANG':'C.UTF-8'})
+    sampled=next(row for row in inventory.scan() if row['pid']==child.pid)
+    assert inventory.records[child.pid]['pidfd'] is not None and child.poll() is None
+    original_reader=module.process_executable
+    def missing(_pid):raise FileNotFoundError(2,'synthetic disappearing executable while genuine child is alive')
+    module.process_executable=missing
+    try:module.checked_compiler_executable(inventory,sampled)
+    except RuntimeError as error:assert str(error)=='TRON_ALIGNED_COMPILER_EXECUTABLE_DISAPPEARED_WHILE_LIVE'
+    else:raise AssertionError('Live disappearance accepted')
+    module.process_executable=original_reader
+    (directory/'exit-request').touch(exist_ok=False)
+    assert child.wait(timeout=2)==0
+    try:original_reader(child.pid)
+    except FileNotFoundError:pass
+    else:raise AssertionError('Old executable read did not reproduce /proc exit race')
+    assert module.checked_compiler_executable(inventory,sampled) is None
+    assert inventory.records[child.pid]['gone'] and not inventory.unsafe
+    assert inventory.finish()
+    assert not Path('/proc',str(child.pid)).exists()
+    print(json.dumps({'exitCode':child.returncode,'oldReadRejected':True,'terminalReadConfirmed':True,
+                      'liveDisappearanceRejected':True,'originalChildAbsent':True,'cleanupConfirmed':True}))
+finally:
+    if child is not None and child.poll() is None:
+        inventory.signal_retained(module.signal.SIGTERM);child.wait(timeout=2)
+    if inventory.active:inventory.finish()
+    if child is not None:child.stdout.close();child.stderr.close()
+'''
+
 
 def alive(row):
     base = Path('/proc', str(row['pid']))
@@ -104,6 +143,21 @@ def alive(row):
 
 
 class KernelParentDeath(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == 'linux' and os.uname().machine == 'x86_64', 'Linux original pidfd probe')
+    def test_exit_between_original_scan_and_executable_lookup_is_confirmed_by_original_popen_pidfd(self):
+        with tempfile.TemporaryDirectory(prefix='tron-aligned-terminal-exe-') as temporary:
+            directory = Path(temporary); directory.chmod(0o700)
+            parent = subprocess.Popen([sys.executable, '-B', '-c', TERMINAL_EXECUTABLE_PROBE, str(HERE / 'build.py'), str(directory)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                stdout, stderr = parent.communicate(timeout=8)
+                self.assertEqual(parent.returncode, 0, stderr.decode())
+                self.assertEqual(json.loads(stdout), {'exitCode': 0, 'oldReadRejected': True, 'terminalReadConfirmed': True,
+                    'liveDisappearanceRejected': True, 'originalChildAbsent': True, 'cleanupConfirmed': True})
+            finally:
+                if parent.poll() is None: parent.kill(); parent.wait(timeout=2)
+                parent.stdout.close(); parent.stderr.close()
+
     @unittest.skipUnless(sys.platform == 'linux' and os.uname().machine == 'x86_64', 'Linux x64 prctl/seccomp probe')
     def test_original_pdeathsig_and_real_failed_birth_capture_cannot_authorize_a_compiler(self):
         ready = None
@@ -164,7 +218,7 @@ class KernelParentDeath(unittest.TestCase):
                     self.assertTrue(compiler['popenCreated']); self.assertFalse(compiler['startupGranted'])
                     self.assertFalse(compiler['ownedChildStopped'])  # Birth uncertainty retains rejection/lock.
                     self.assertEqual(value['originalPopenExitCode'], 125); self.assertTrue(value['originalPopenAbsent'])
-                    startup_rejection = (directory / '.internal/runtime/omnichain-product/.local/owned-tron-native-value-v1/reviewed-aligned-rocksdb-v1/compile-private.log').read_text().strip()
+                    startup_rejection = (directory / '.internal/runtime/omnichain-product/.local/owned-tron-native-value-v1/reviewed-aligned-rocksdb-v2/compile-private.log').read_text().strip()
                     # With no writer ever connected after reader open, Linux
                     # may report readiness only at the original2 s deadline.
                     self.assertIn(startup_rejection, ('TRON_ALIGNED_COMPILER_STARTUP_EOF', 'TRON_ALIGNED_COMPILER_STARTUP_DEADLINE'))

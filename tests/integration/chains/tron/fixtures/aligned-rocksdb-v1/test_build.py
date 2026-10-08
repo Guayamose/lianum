@@ -18,6 +18,49 @@ def load(name):
 
 
 class CandidateMetadata(unittest.TestCase):
+    def test_missing_executable_requires_original_exit_pidfd_and_unchanged_retained_birth(self):
+        module = load('build')
+        original = {'pid': 2147483647, 'ppid': os.getpid(), 'pgrp': 2147483647, 'session': 2147483647,
+                    'startTimeTicks': '1234', 'uid': os.getuid(), 'uids': [os.getuid()] * 4}
+        def fixture(exit_code=0, gone=True, unsafe=False, unknown=False):
+            child = type('SyntheticPopenMetadata', (), {'pid': original['pid'], 'poll': lambda _self: exit_code})()
+            retained = {'original': original, 'origin': 'ORIGINAL_POPEN_PREEXEC_PIPE', 'pidfd': 44, 'gone': False}
+            inventory = type('SyntheticInventoryMetadata', (), {})()
+            inventory.child, inventory.records, inventory.unsafe = child, {child.pid: retained}, unsafe
+            inventory.unknown = {123: 'unknown'} if unknown else {}
+            def scan():
+                retained['gone'] = gone
+                return [] if gone else [original]
+            inventory.scan = scan
+            return inventory
+        missing = FileNotFoundError(2, 'synthetic missing /proc/exe')
+        with patch.object(module, 'process_executable', side_effect=missing), \
+             patch.object(module.select, 'select', return_value=([44], [], [])):
+            self.assertIsNone(module.checked_compiler_executable(fixture(), original))
+            for changed in ({'uids': [os.getuid(), os.getuid()+1, os.getuid(), os.getuid()]},
+                            {'startTimeTicks': '1235'}):
+                with self.subTest(sampleChanged=changed), self.assertRaisesRegex(RuntimeError, 'SAMPLED_IDENTITY_CHANGED'):
+                    module.checked_compiler_executable(fixture(), {**original, **changed})
+            with self.assertRaisesRegex(RuntimeError, 'DISAPPEARED_WHILE_LIVE'):
+                module.checked_compiler_executable(fixture(exit_code=None), original)
+            for kwargs in ({'gone': False}, {'unknown': True}):
+                with self.subTest(terminalUnconfirmed=kwargs), self.assertRaisesRegex(RuntimeError, 'TERMINAL_INVENTORY_UNCONFIRMED'):
+                    module.checked_compiler_executable(fixture(**kwargs), original)
+            with self.assertRaisesRegex(RuntimeError, 'RETAINED_PIDFD_REQUIRED'):
+                module.checked_compiler_executable(fixture(unsafe=True), original)
+        with patch.object(module, 'process_executable', side_effect=missing), \
+             patch.object(module.select, 'select', return_value=([], [], [])):
+            with self.assertRaisesRegex(RuntimeError, 'TERMINAL_PIDFD_UNCONFIRMED'):
+                module.checked_compiler_executable(fixture(), original)
+        inventory = fixture(); inventory.records[original['pid']]['pidfd'] = None
+        with self.assertRaisesRegex(RuntimeError, 'RETAINED_PIDFD_REQUIRED'):
+            module.checked_compiler_executable(inventory, original)
+        with patch.object(module, 'process_executable', return_value=Path('/usr/bin/false')):
+            with self.assertRaisesRegex(RuntimeError, 'EXECUTABLE_CHANGED'):
+                module.checked_compiler_executable(fixture(exit_code=None), original)
+        # These synthetic rows exercise only the data predicate. The separate
+        # OS regression supplies the actual original Popen and retained pidfd.
+
     def test_exact_two_source_changes_and_unchanged_original(self):
         module = load('build')
         original = module.regular(module.original_path()); candidate = module.regular(module.SOURCE)
