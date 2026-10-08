@@ -11,6 +11,8 @@ import { NATIVE_VALUE_LIVE_V2_SPEC, NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,
 import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
 import { assertNativeValueDevLiveSourcePinsV5 } from '../metadata/native-value-dev-live-v5-artifacts.mjs';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
+import {nativeI84ExecutionSourcesV1} from '../runtime/native-value-dev-live-v5-native-execution.mjs';
+import {i84PublicCRSCachePinV1} from '../runtime/native-value-dev-live-v5-public-crs.mjs';
 export const NATIVE_VALUE_LIVE_V2_LOCAL=join(ROOT,'.local/proof-workers-native-value-dev-live-v5');
 export const GLOBAL_PROOF_LOCK = join(LOCAL,'active.lock');
 export const NV2_WORKER = join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs');
@@ -30,7 +32,7 @@ export async function runtimePins(){
  const helpers=await import(resourceModuleURL);
  return {profile:'LIANUM_DYNAMIC_NATIVE_VALUE_ADMISSION_V2',consumer:'NATIVE_VALUE_DEV_V5',
   sourceVersion:NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,keySHA256:NATIVE_VALUE_LIVE_V2_KEY_SHA256,
-  currentPublication:consumer,api:verifyAPI(),vendor:verifyVendor(),toolchain:helpers.verifyToolchain(),crs:helpers.verifyCRS()};
+  currentPublication:consumer,nativeExecutionSources:nativeI84ExecutionSourcesV1(),publicProvingCRSCache:i84PublicCRSCachePinV1(),api:verifyAPI(),vendor:verifyVendor(),toolchain:helpers.verifyToolchain(),crs:helpers.verifyCRS()};
 }
 let receivedOnce=false;
 export function receiveNativeValueLiveV2Job(jobId,abi=null){

@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import {assertDeviceOwnerOutputBalanceReadsV1} from './device-owner-execution-native-checks-v1.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import {NATIVE_VALUE_LIVE_V2_SPEC} from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
+import {assertI84NativeReceiptV1} from '../../../../packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {assertDeviceReservationResultV1,DEVICE_RESERVATION_PROFILE_V1,DEVICE_RESERVATION_RESULT_V1} from './device-owner-reservation-policy-v1.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
 export const DEVICE_EXECUTION_PROFILE_V1='device-owner-execution-v1',DEVICE_EXECUTION_RESULT_V1='LIANUM_DEVICE_OWNER_EXECUTION_RESULT_V1';
@@ -33,7 +35,9 @@ export function assertDeviceExecutionResultV1(r){assert.equal(arguments.length,1
   assert.equal(report.relation,'admission_native_value_v2');assert.equal(report.runtimePinsSHA256,e.runtimePinsSHA256);}
  assert.equal(e.manifest.proofSHA256,i.proofSHA256);assert.equal(e.manifest.publicInputsSHA256,i.publicInputsSHA256);
  assert.equal(e.manifest.publicWords,84);assert.equal(e.manifest.backendPublicWords,92);assert.equal(e.manifest.publicInputOffset,5);
- assert.equal(e.result.maximumPages,65536);assert.equal(e.result.threads,1);assert.equal(e.result.keyRecomputed,false);assert.equal(e.result.keyGenerated,false);
+ if(e.result.nativeBackendExecution)assertI84NativeReceiptV1(NATIVE_VALUE_LIVE_V2_SPEC,e.result,e.resources);
+ else{assert.equal(e.result.maximumPages,65536);assert.equal(e.result.threads,1);}
+ assert.equal(e.result.keyRecomputed,false);assert.equal(e.result.keyGenerated,false);
  assert.equal(e.result.backendDestroyed,true);assert.equal(e.result.selfVerified,true);assert.equal(e.result.witnessPersisted,false);
  assert.equal(e.result.phase,'completed');assert.equal(e.resources.phase,'completed');assert.equal(e.resources.failure,null);assert.deepEqual(e.resources.failures,[]);
  assert.equal(e.resources.exitCode,0);assert.equal(e.resources.signal,null);assert.equal(e.resources.lockPreserved,false);

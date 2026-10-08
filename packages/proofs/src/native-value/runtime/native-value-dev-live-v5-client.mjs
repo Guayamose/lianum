@@ -13,6 +13,7 @@ import { loadNativeValueDevLiveArtifactsV5 } from '../metadata/native-value-dev-
 import { regular, hash, assertID } from '../../tooling/tooling.mjs';
 import { cloneInput, frozenInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import {I84_NATIVE_LIMITS_V1,assertI84NativeReceiptV1} from './native-value-dev-live-v5-native-execution.mjs';
 
 const owned = new WeakMap();
 /** Timing evidence is descriptive, never a circuit scalar. The owner custody
@@ -130,9 +131,11 @@ export function createNativeValueDevLiveProofClientV5() {
         assert.equal(manifest.compiledManifestSHA256, artifacts.compiledManifestSHA256);
         assert.equal(manifest.bytecodeSHA256, artifacts.bytecodeSHA256);
         assert.equal(manifest.publicWords, 84); assert.equal(manifest.backendPublicWords, 92);
-        assert.equal(manifest.publicInputOffset, 5); assert.equal(manifest.maximumPages, 65536);
+        assert.equal(manifest.publicInputOffset, 5); if(result.nativeBackendExecution){assert.equal(manifest.maximumPages,null);assert.equal(manifest.preparedMaximumPages,65536);assert.equal(manifest.executionBackend,'NativeUnixSocket');assert.equal(manifest.threads,12);}else assert.equal(manifest.maximumPages,65536);
         assert.deepEqual(manifest.settings, SETTINGS);assert.deepEqual(result.settings, SETTINGS);
-        assert.equal(result.maximumPages, 65536); assert.equal(result.threads, 1); assert.equal(result.hostLimitsChanged, false);
+        if(result.nativeBackendExecution)assertI84NativeReceiptV1(spec,result,resources);
+        else{assert.equal(result.maximumPages,65536);assert.equal(result.threads,1);}
+        assert.equal(result.hostLimitsChanged,false);
         const runtimePinsSHA256 = hash(regular(join(directory, 'runtime-pins.json')));
         for (const report of [manifest, result, resources]) assert.equal(report.runtimePinsSHA256, runtimePinsSHA256);
         assert.equal(proof.length, manifest.proofBytes); assert.ok(proof.length > 0 && proof.length % 32 === 0 && proof.length <= LIMITS.outputBytes);
@@ -142,7 +145,8 @@ export function createNativeValueDevLiveProofClientV5() {
         assert.equal(result.witnessPersisted, false); assert.equal(result.proofGenerated, true);
         assert.equal(resources.lockPreserved, false); assert.deepEqual(resources.failures, []);
         assert.equal(resources.hostLimitsChanged, false); assert.equal(result.backendDestroyed, true);
-        assert.deepEqual(resources.limits, LIMITS); assert.deepEqual(result.limits, LIMITS);
+        const executionLimits=result.nativeBackendExecution?I84_NATIVE_LIMITS_V1:LIMITS;
+        assert.deepEqual(resources.limits,executionLimits);assert.deepEqual(result.limits,executionLimits);
         assert.equal(manifest.runId, runId); assert.equal(result.role, 'local');
         await loadNativeValueDevLiveArtifactsV5();
         assert.equal(hash(proof), manifest.proofSHA256, 'NV2_CLIENT_PROOF_HASH');
@@ -156,6 +160,7 @@ export function createNativeValueDevLiveProofClientV5() {
             publicInputOffset:manifest.publicInputOffset,sourceVersion:manifest.sourceVersion,keyManifestSHA256:manifest.keyManifestSHA256,
             programSHA256:manifest.artifactSHA256,runtimePinsSHA256,
             resultSHA256:hash(regular(join(directory,'result.json'))),resourcesSHA256:hash(regular(join(directory,'resources.json'))),
+            ...(result.nativeBackendExecution?{nativeBackendExecution:result.nativeBackendExecution,independentVerification:result.independentVerification}:{}),
             selfVerified:true,backendDestroyed:true,workerExitCode:resources.exitCode,workerSignal:resources.signal,lockPreserved:resources.lockPreserved,
             metricUnits: 'milliseconds', metrics: proofMetricsForTransport(result.metrics) } });
       } catch (error) {

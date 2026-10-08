@@ -12,6 +12,9 @@ import { NATIVE_VALUE_LIVE_V2_LOCAL, GLOBAL_PROOF_LOCK, NV2_WORKER, NV2_ROLE_PRO
 import { loadNativeValueDevLiveArtifactsV5 } from '../metadata/native-value-dev-live-v5-artifacts.mjs';
 import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
+import {I84_NATIVE_LIMITS_V1,nativeI84ResourcesV1,assertI84NativeReceiptV1} from '../runtime/native-value-dev-live-v5-native-execution.mjs';
+import {nativeProcStatV1} from '../../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import {proofResourceMonitorErrorCodeV1} from '../../jobs/standard-proof-resources-v1.mjs';
 export async function runNativeValueLiveV2Proof(raw){
  assert.equal(realpathSync(process.argv[1]),NV2_ROLE_PROCESS,'NV2_JOB_FIXED_ROLE_PARENT');assert.deepEqual(process.argv.slice(2),[NATIVE_VALUE_LIVE_V2_SPEC.name]);
  assert.deepEqual(process.execArgv,[]);assert.ok(!process.env.NODE_OPTIONS&&!process.env.NODE_PATH);
@@ -19,13 +22,14 @@ export async function runNativeValueLiveV2Proof(raw){
  assert.equal(request.relation,NATIVE_VALUE_LIVE_V2_SPEC.name);assert.equal(request.role,'local');assertID(request.jobId);
  await loadNativeValueDevLiveArtifactsV5();
  const began=performance.now(),runId=randomUUID(),attempt=outputDirectory(join(NATIVE_VALUE_LIVE_V2_LOCAL,'attempts',runId));
- const report={format:'NV2_SCOPED_PROOF_RESOURCES_V1',profile:'LIANUM_DYNAMIC_NATIVE_VALUE_ADMISSION_V2',relation:NATIVE_VALUE_LIVE_V2_SPEC.name,mode:'prove-dyadic21',runId,jobId:request.jobId,phase:'preflight',limits:LIMITS,hostLimitsChanged:false,
+ const report={format:'NV2_SCOPED_PROOF_RESOURCES_V1',profile:'LIANUM_DYNAMIC_NATIVE_VALUE_ADMISSION_V2',relation:NATIVE_VALUE_LIVE_V2_SPEC.name,mode:'prove-dyadic21',runId,jobId:request.jobId,phase:'preflight',limits:I84_NATIVE_LIMITS_V1,hostLimitsChanged:false,
   failures:[],failure:null,samples:0,peakWorkerRSS:0,minimumAvailableRAM:Number.MAX_SAFE_INTEGER,minimumFreeDisk:Number.MAX_SAFE_INTEGER,outputBytes:0,rawOutputRetained:false};
+ const nativeHistory=new Map();
  const save=()=>replace(join(attempt,'resources.json'),report);
  let child,interval,timeout,killTimer,closed=false,stopping=false,lockOwned=false,resolveClosed,payload;
  const completion=new Promise(resolve=>{resolveClosed=resolve;});
  const stop=code=>{if(stopping||closed)return;stopping=true;report.failure??=code;report.failures.push(code);save();if(child?.pid){child.kill('SIGTERM');killTimer=setTimeout(()=>{if(!closed)child.kill('SIGKILL');},LIMITS.killGraceMilliseconds);}};
- const sample=()=>{if(closed)return;try{const current=resources(child?.pid);report.samples++;report.latestResources=current;report.peakWorkerRSS=Math.max(report.peakWorkerRSS,current.workerRSS);report.minimumAvailableRAM=Math.min(report.minimumAvailableRAM,current.availableRAM);report.minimumFreeDisk=Math.min(report.minimumFreeDisk,current.freeDisk);const failure=resourceFailure(current);if(failure){report.failedResourceSample=current;stop(failure);}save();}catch{stop('NV2_JOB_RESOURCE_MONITOR_FAILED');}};
+ const sample=()=>{if(closed)return;try{const current=nativeI84ResourcesV1(child,nativeHistory);report.nativeMemoryScope=current.memoryScope;report.nativeChildIdentities=current.nativeChildIdentities;report.samples++;report.latestResources=current;report.peakWorkerRSS=Math.max(report.peakWorkerRSS,current.workerRSS);report.minimumAvailableRAM=Math.min(report.minimumAvailableRAM,current.availableRAM);report.minimumFreeDisk=Math.min(report.minimumFreeDisk,current.freeDisk);const failure=resourceFailure(current);if(failure){report.failedResourceSample=current;stop(failure);}save();}catch(error){report.monitorErrorCode=proofResourceMonitorErrorCodeV1(error);stop('NV2_JOB_RESOURCE_MONITOR_FAILED');}};
  const terminate=()=>stop('NV2_JOB_OWNER_STOPPED'),onExit=()=>{if(child?.pid&&!closed)child.kill('SIGKILL');};
  try{
   save();assert.equal(resourceFailure(resources()),null,'NV2_JOB_INITIAL_RESOURCE_FLOOR');
@@ -45,6 +49,13 @@ export async function runNativeValueLiveV2Proof(raw){
   process.once('SIGTERM',terminate);process.once('SIGINT',terminate);process.once('exit',onExit);
   interval=setInterval(sample,LIMITS.sampleMilliseconds);const remaining=LIMITS.phaseTimeoutMilliseconds-(performance.now()-began);assert.ok(remaining>0,'NV2_JOB_PREFLIGHT_TIMEOUT');timeout=setTimeout(()=>stop('NV2_JOB_TOTAL_TIMEOUT'),remaining);
   await completion;const result=readJSON(join(attempt,'result.json'));assert.equal(sent,true);assert.equal(result.phase,'completed');assert.equal(result.runId,runId);assert.equal(result.jobId,request.jobId);
+  report.nativeBackendExecution=result.nativeBackendExecution;
+  const finalNative=nativeI84ResourcesV1(child,nativeHistory);report.finalNativeResources=finalNative;
+  report.peakWorkerRSS=Math.max(report.peakWorkerRSS,finalNative.workerRSS);
+  assert.equal(resourceFailure(finalNative),null,'NV2_NATIVE_FINAL_RESOURCE_FLOOR');
+  report.nativeMemoryScope=finalNative.memoryScope;report.nativeChildIdentities=finalNative.nativeChildIdentities;
+  report.nativeChildrenGone=finalNative.liveNativeBackends===0&&finalNative.nativeChildIdentities.every(row=>nativeProcStatV1(row.pid)===null);
+  assertI84NativeReceiptV1(NATIVE_VALUE_LIVE_V2_SPEC,result,report);
   assert.deepEqual(await runtimePins(),pins,'NV2_JOB_RUNTIME_CHANGED');assert.deepEqual(report.failures,[]);assert.equal(resourceFailure(resources()),null,'NV2_JOB_FINAL_RESOURCE_FLOOR');report.phase='completed';
  }catch(error){report.phase='failed';report.failure??=String(error.message).match(/\b(?:NV2|NATIVE_VALUE|PW)_[A-Z0-9_]+\b/)?.[0]??'NV2_JOB_FAILED';if(child?.pid&&!closed){stop('NV2_JOB_SUPERVISOR_FAILED');await completion;}}
  finally{
