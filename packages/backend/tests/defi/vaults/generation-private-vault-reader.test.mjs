@@ -31,7 +31,16 @@ mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault
   }
 } } });
 mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: { assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME') } });
-mock.module('../ops/deploy-system.mjs', { exports: { assertOwnedFlatSystem: (runtime, system) => assert.equal(bySystem.get(system)?.runtime, runtime, 'MOCK_OWNED_SYSTEM') } });
+mock.module('../ops/deploy-system.mjs', { exports: {
+  assertOwnedFlatSystem: (runtime, system) => assert.equal(bySystem.get(system)?.runtime, runtime, 'MOCK_OWNED_SYSTEM'),
+  describeOwnedFlatPoolRegistry() { throw Error('HOST_UNEXPECTED_REAL_REGISTRY_READ'); },
+  deployFlatSystem() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
+  deployFlatAppendOnlySystem() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
+  appendFlatPoolSuccessor() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
+  flatRecoveryViewDataV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
+  captureOwnedFlatSystemRecoveryV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
+  reopenOwnedFlatSystemRecoveryV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
+} });
 mock.module('../global-state/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
   const world = byAccount.get(account); assert.ok(world && world.runtime === expected.runtime && world.system === expected.system
     && expected.poolIndex === 1, 'MOCK_OWNED_ACCOUNT');
@@ -46,6 +55,10 @@ mock.module('./owned-backed-vault.mjs', { exports: {
 const portfolios = new WeakMap(), policies = new WeakMap(), keeperBrands = new WeakMap();
 let keeperCreations = 0;
 mock.module('../global-state/flat-portfolio-authority.mjs', { exports: {
+  bindFlatPortfolioChildRequest() { throw Error('HOST_UNEXPECTED_WRAPPED_PORTFOLIO_ROUTE'); },
+  projectFlatPortfolioOutcome() { throw Error('HOST_UNEXPECTED_WRAPPED_PORTFOLIO_ROUTE'); },
+  createFlatPortfolioAuthority() { throw Error('HOST_UNEXPECTED_REAL_PORTFOLIO_CREATION'); },
+  claimFlatPortfolioJournalAuthority() { throw Error('HOST_UNEXPECTED_REAL_PORTFOLIO_CREATION'); },
   assertOwnedFlatPortfolio(runtime, portfolio) { assert.equal(portfolios.get(portfolio)?.runtime, runtime, 'SYNTHETIC_PORTFOLIO_BRAND'); },
   describeFlatPortfolioJournalAuthority(runtime, portfolio) { assert.equal(portfolios.get(portfolio)?.runtime, runtime); return portfolios.get(portfolio); },
   assertOwnedFlatPortfolioAccount(portfolio, account) { assert.ok(portfolios.get(portfolio)?.accounts.some(row => row.account === account)); },
@@ -159,7 +172,7 @@ const { createFlatJournalGeneration, createFlatJournalCatalogue } = await import
 const { createFlatManualGraphCatalogueSession } = await import('../../../src/api/accounts/flat-manual-graph-session.mjs');
 const { createGenerationPrivateVaultExit, generationPrivateVaultExitActionTarget } = await import('../../../src/defi/withdrawals/generation-private-vault-exit.mjs');
 const { ownedPrivateVaultExitBinding } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
-mock.module('../api/native-claim-session.mjs', { exports: { assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
+mock.module('../api/native-claim-session.mjs', { exports: { assertWalletClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, walletClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); }, assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
 const { startWalletApplication } = await import('../../../../../apps/wallet/src/server/server.mjs');
 const { createWalletApplicationClient } = await import('../../../src/api/wallet/wallet-application-client.mjs');
 async function generation(w, n, includeUnderlying = true) {
@@ -170,7 +183,11 @@ async function generation(w, n, includeUnderlying = true) {
   const view = () => ({ version: 1, profile: 'OWNED_FLAT_PRIVATE_PORTFOLIO_V1', status: 'LIVE', coherent: true, observed: clone(observation),
     assets: config.registry.map(a => ({ version: 1, status: 'LIVE', asset: { assetId: a.assetId, symbol: a.symbol, decimals: a.decimals },
       observed: clone(observation), balances: { available: '100', reserved: '0', recovery: '0', locked: '0' },
-      backing: { held: '100', liabilities: '100', surplus: '0', deficit: '0' }, requests: [] })),
+      backing: { held: '100', liabilities: '100', surplus: '0', deficit: '0' },
+      // The synthetic original account retains this confirmed EXIT. Its owner
+      // projection must report that same original request, as the real producer
+      // does, instead of forcing the catalogue to add an unresolved placeholder.
+      requests: a.assetId === reg.assetId ? [{ requestId: w.requestId, kind: 'EXIT', state: 'CONFIRMED', disposition: 'APPLIED' }] : [] })),
     capabilities: { coordinatorRestart: true, keeperRestart: false, crossAssetAtomicConversion: false, privateDeFiComposability: false, fullWalletAcceptance: false } });
   const portfolio = Object.freeze({ config, registry: config.registry, async ownerView() {
     if (w.unavailable) throw Error('SYNTHETIC_PORTFOLIO_UNAVAILABLE');
@@ -228,8 +245,9 @@ test('actual loopback GET and shared SDK accept genuine generation producer with
   // owner reads: both wire payloads valid, but the estimate must be unknown.
   old.advanceOnRead = old.ownerReads + 2;
   assert.equal(await sdk.refresh(), true); state = sdk.getState(); view = projectWalletState(state.data, state);
-  assert.equal(state.data.defi.positions.positions[0].status, 'LIVE');
-  assert.notEqual(state.data.portfolio.generations[0].portfolio.observed.blockHash, state.data.defi.positions.positions[0].observed.blockHash);
+  assert.equal(state.data.defi.positions.version, 2);
+  assert.equal(state.data.defi.positions.positions[0].ownership.status, 'LIVE');
+  assert.notEqual(state.data.portfolio.generations[0].portfolio.observed.blockHash, state.data.defi.positions.positions[0].ownership.observed.blockHash);
   assert.equal(view.positions[0].estimate, null); assert.equal(view.positions[0].status, 'STALE');
   assert.equal(await sdk.refresh(), true); state = sdk.getState(); assert.equal(projectWalletState(state.data, state).positions[0].estimate, '33');
   // A failed successor observation and unreadable original child journal are
@@ -247,12 +265,14 @@ test('actual loopback GET and shared SDK accept genuine generation producer with
   }
 });
 
-test('actual original producer without registered underlying remains accepted but unavailable to the shared reader', async t => {
+test('actual V2 producer without registered underlying preserves ownership and leaves valuation unavailable', async t => {
   const f = await joined(1, false);
   const app = await startWalletApplication({ accountSession: f.session, defiExit: { runtime: f.runtime, service: f.service }, actionAccessMode: 'exact-only' });
   t.after(async () => { await app.close(); await f.session.close(); });
   const sdk = createWalletApplicationClient({ origin: app.origin, ownerToken: app.ownerAccess.token });
   assert.equal(await sdk.refresh(), true); const state = sdk.getState(), view = projectWalletState(state.data, state);
-  assert.equal(view.positions[0].status, 'UNAVAILABLE'); assert.equal(view.positions[0].underlyingAssetId, null);
+  assert.equal(view.positions[0].status, 'PARTIAL'); assert.equal(view.positions[0].underlyingAssetId, null);
+  assert.equal(view.positions[0].ownershipStatus, 'LIVE'); assert.equal(view.positions[0].shares, '100');
+  assert.equal(view.positions[0].valuationStatus, 'UNAVAILABLE');
   assert.equal(view.positions[0].estimate, null); assert.equal(f.worlds[0].sends, 0); assert.equal(f.worlds[0].preparations, 0);
 });

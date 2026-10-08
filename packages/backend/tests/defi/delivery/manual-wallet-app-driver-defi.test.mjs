@@ -26,7 +26,16 @@ mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault
   }
 } } });
 mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: { assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME') } });
-mock.module('../ops/deploy-system.mjs', { exports: { assertOwnedFlatSystem: (runtime, system) => assert.equal(bySystem.get(system)?.runtime, runtime, 'MOCK_OWNED_SYSTEM') } });
+mock.module('../ops/deploy-system.mjs', { exports: {
+  assertOwnedFlatSystem: (runtime, system) => assert.equal(bySystem.get(system)?.runtime, runtime, 'MOCK_OWNED_SYSTEM'),
+  describeOwnedFlatPoolRegistry() { throw Error('HOST_UNEXPECTED_REAL_REGISTRY_READ'); },
+  deployFlatSystem() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
+  deployFlatAppendOnlySystem() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
+  appendFlatPoolSuccessor() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
+  flatRecoveryViewDataV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
+  captureOwnedFlatSystemRecoveryV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
+  reopenOwnedFlatSystemRecoveryV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
+} });
 mock.module('../global-state/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
   const world = byAccount.get(account); assert.ok(world && world.runtime === expected.runtime && world.system === expected.system
     && expected.poolIndex === 1, 'MOCK_OWNED_ACCOUNT');
@@ -41,6 +50,10 @@ mock.module('./owned-backed-vault.mjs', { exports: {
 const portfolios = new WeakMap(), policies = new WeakMap(), keeperBrands = new WeakMap();
 let keeperCreations = 0;
 mock.module('../global-state/flat-portfolio-authority.mjs', { exports: {
+  bindFlatPortfolioChildRequest() { throw Error('HOST_UNEXPECTED_WRAPPED_PORTFOLIO_ROUTE'); },
+  projectFlatPortfolioOutcome() { throw Error('HOST_UNEXPECTED_WRAPPED_PORTFOLIO_ROUTE'); },
+  createFlatPortfolioAuthority() { throw Error('HOST_UNEXPECTED_REAL_PORTFOLIO_CREATION'); },
+  claimFlatPortfolioJournalAuthority() { throw Error('HOST_UNEXPECTED_REAL_PORTFOLIO_CREATION'); },
   assertOwnedFlatPortfolio(runtime, portfolio) { assert.equal(portfolios.get(portfolio)?.runtime, runtime, 'SYNTHETIC_PORTFOLIO_BRAND'); },
   describeFlatPortfolioJournalAuthority(runtime, portfolio) { assert.equal(portfolios.get(portfolio)?.runtime, runtime); return portfolios.get(portfolio); },
   assertOwnedFlatPortfolioAccount(portfolio, account) { assert.ok(portfolios.get(portfolio)?.accounts.some(row => row.account === account)); },
@@ -153,7 +166,7 @@ const { createFlatJournalGeneration, createFlatJournalCatalogue } = await import
 const { createFlatManualGraphCatalogueSession } = await import('../../../src/api/accounts/flat-manual-graph-session.mjs');
 const { createGenerationPrivateVaultExit, generationPrivateVaultExitActionTarget } = await import('../../../src/defi/withdrawals/generation-private-vault-exit.mjs');
 const { ownedPrivateVaultExitBinding } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
-mock.module('../api/native-claim-session.mjs', { exports: { assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
+mock.module('../api/native-claim-session.mjs', { exports: { assertWalletClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, walletClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); }, assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
 const { startWalletApplication } = await import('../../../../../apps/wallet/src/server/server.mjs');
 const { createWalletApplicationClient } = await import('../../../src/api/wallet/wallet-application-client.mjs');
 async function generation(w, n, includeUnderlying = true) {
