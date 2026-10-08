@@ -42,6 +42,10 @@ jobs:
       - name: Install mobile dependencies
         working-directory: apps/mobile
         run: npm ci --ignore-scripts
+      - name: Install native scheduling fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y cmake ninja-build build-essential
       - name: Verify native client contracts and types
         working-directory: apps/mobile
         run: |

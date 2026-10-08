@@ -27,6 +27,7 @@ jobs:
           python3 scripts/development/verify_layout.py --tracked-delivery
           python3 scripts/development/test_workspace.py
           python3 scripts/development/test_doctor.py
+          python3 scripts/development/test_lab_cancellation.py
       - name: Run the default host selection
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
@@ -40,11 +41,15 @@ jobs:
           tests/integration/wallet/manual/manual-wallet-position-checks.test.mjs
           tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs
           tests/integration/wallet/manual/manual-wallet-recovery-policy.test.mjs
+          tests/integration/wallet/manual/manual-wallet-browser-policy.test.mjs
+          tests/integration/wallet/manual/wallet-browser-process-observation.test.mjs
           tests/integration/defi/private-metamorpho-flow-policy.test.mjs
           tests/integration/defi/private-metamorpho-proof-evidence.test.mjs
           tests/integration/claims/development
           tests/integration/chains/tron/tron-candidate-lifetime.test.mjs
           tests/integration/chains/tron/tron-candidate-log-capture.test.mjs
+          tests/integration/chains/tron/tron-candidate-disk-log-capture.test.mjs
+          tests/integration/defi/entry/development-defi-entry-policy.test.mjs
           packages/proofs/tests/native-ingress/native-claims-parent-death.test.mjs
           packages/backend/tests/defi/delivery/manual-wallet-app-driver-defi.test.mjs
           packages/backend/tests/defi/vaults/generation-private-vault-reader.test.mjs
