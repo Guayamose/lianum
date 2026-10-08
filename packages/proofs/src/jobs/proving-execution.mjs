@@ -8,12 +8,15 @@ import { executionSources as originalExecutionSources, assertSuccessfulAttempt,
 // One owned process and one private job. Every resource threshold and the
 // original compile/key/verification limits retain their exact values.
 export const PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 4 });
-// The original authorization relation alone uses eight fixed WASM threads.
-// This is a runtime implementation choice, never a request/profile option.
+// Retained authorization proofs use the original eight-thread limits.
+// This historical execution profile never becomes a request/profile option.
 export const AUTHORIZATION_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 8 });
+// Sixteen is the next fixed authorization execution only. Retained eight-thread
+// receipts keep their original limits; no request chooses either variant.
+export const AUTHORIZATION_SIXTEEN_PROVING_LIMITS = Object.freeze({ ...LIMITS, threads: 16 });
 export function limitsForMode(spec, mode) {
   if (operation(mode) !== 'prove') return LIMITS;
-  return spec.name === 'authorization' ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
+  return spec.name === 'authorization' ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : PROVING_LIMITS;
 }
 
 // Runtime pins stay outside the original API/circuit/key identity and the
@@ -52,8 +55,9 @@ export function executionSources(spec, mode) {
 export function assertSuccessfulProvingAttempt(spec, runId) {
   const directory = attemptPath(runId);
   const result = JSON.parse(regular(join(directory, 'result.json')));
-  const provingLimits = result.threads === AUTHORIZATION_PROVING_LIMITS.threads
-    && spec.name === 'authorization' ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
+  const provingLimits = spec.name === 'authorization' && result.threads === AUTHORIZATION_SIXTEEN_PROVING_LIMITS.threads
+    ? AUTHORIZATION_SIXTEEN_PROVING_LIMITS : spec.name === 'authorization' && result.threads === AUTHORIZATION_PROVING_LIMITS.threads
+      ? AUTHORIZATION_PROVING_LIMITS : PROVING_LIMITS;
   if (result.threads !== provingLimits.threads) {
     assert.equal(result.threads, LIMITS.threads, 'PW_PRIOR_FIXED_THREADS');
     // Preserve the original validator and exact limits for retained proofs.
