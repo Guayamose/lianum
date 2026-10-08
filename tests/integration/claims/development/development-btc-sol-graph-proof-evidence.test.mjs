@@ -134,3 +134,37 @@ test('authorization twelve retains the prepared key and exact SAB/source/RSS joi
     v=>{v.resources.peakWorkerRSS=AUTHORIZATION_TWELVE_PROVING_LIMITS.workerRSS+1;},
   ]) {const rejected=twelveThreadReceipt('authorization');mutate(rejected);assert.throws(()=>assertBtcSolGraphProofReceipts(rejected));}
 });
+
+
+test('native authorization joins actual child closure and combined RSS while retaining exact original key/settings/source receipts',async()=>{
+  const {AUTHORIZATION_NATIVE_PROFILE_V1,AUTHORIZATION_NATIVE_BINARY_SHA256_V1}=await import('../../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs');
+  const nativeReceipt=()=>{
+    const value=fourThreadReceipt(receipt('authorization'));
+    value.result.threads=12;value.result.limits=value.resources.limits=AUTHORIZATION_TWELVE_PROVING_LIMITS;
+    delete value.result.wasmThreadExecution;
+    const childIdentity={pid:303,ppid:202,pgrp:101,session:101,startTimeTicks:'12345'};
+    value.result.nativeBackendExecution={profile:AUTHORIZATION_NATIVE_PROFILE_V1,backend:'NativeUnixSocket',threads:12,
+      bbVersion:'5.2.0',binarySHA256:AUTHORIZATION_NATIVE_BINARY_SHA256_V1,originalPreparedKeyRequired:true,
+      oneEphemeralJob:true,memoryScope:'COORDINATOR_PLUS_NATIVE_CHILD',rssLimitBytes:LIMITS.workerRSS,
+      childIdentity,childClose:{code:null,signal:'SIGTERM'},outputBytes:32,
+      outputByteAccounting:'RAW_CAPTURE_PLUS_OFFICIAL_LOGGER_UPPER_BOUND',outputStreamsClosed:true,socketClosed:true,socketRemoved:true};
+    Object.assign(value.resources,{nativeBackendExecution:structuredClone(value.result.nativeBackendExecution),
+      nativeMemoryScope:'COORDINATOR_PLUS_NATIVE_CHILD',nativeChildIdentities:[structuredClone(childIdentity)],nativeChildrenGone:true});
+    return value;
+  };
+  const original=nativeReceipt(),key=original.manifest.keySHA256;
+  assert.equal(assertBtcSolGraphProofReceipts(original).keySHA256,key);
+  for(const mutate of [
+    v=>{v.result.nativeBackendExecution.childClose={code:null,signal:null};v.resources.nativeBackendExecution=structuredClone(v.result.nativeBackendExecution);},
+    v=>{v.resources.nativeChildIdentities[0].startTimeTicks='54321';},
+    v=>{v.resources.nativeChildrenGone=false;},v=>{v.resources.peakWorkerRSS=LIMITS.workerRSS+1;},
+    v=>{v.result.nativeBackendExecution.outputStreamsClosed=false;v.resources.nativeBackendExecution=structuredClone(v.result.nativeBackendExecution);},
+    v=>{v.result.nativeBackendExecution.binarySHA256='0'.repeat(64);v.resources.nativeBackendExecution=structuredClone(v.result.nativeBackendExecution);},
+    v=>{v.result.wasmThreadExecution={threads:12,sharedMemory:true,oneOwnedProcess:true,originalPreparedKeyRequired:true};},
+    v=>{v.result.keyRecomputed=true;},v=>{v.resources.runtimePinsSHA256='0'.repeat(64);},
+  ]){const value=nativeReceipt();mutate(value);assert.throws(()=>assertBtcSolGraphProofReceipts(value));}
+  const other=nativeReceipt();other.relation=other.result.relation=other.manifest.relation=other.resources.relation='reservation';
+  other.result.role=other.manifest.role=CATALOG.reservation.role;
+  other.result.publicWords=other.manifest.publicWords=CATALOG.reservation.publicWords;
+  assert.throws(()=>assertBtcSolGraphProofReceipts(other),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
+});

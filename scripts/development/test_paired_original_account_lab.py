@@ -5,6 +5,7 @@ Synthetic closure metadata establishes no original economic observation.
 Every fixture is closed with this test's separate causal Popen capability.
 """
 import importlib.util
+from copy import deepcopy
 import json
 import os
 from pathlib import Path
@@ -231,6 +232,46 @@ class StartupTests(unittest.TestCase):
         self.assertTrue(value["admissionRetained"])
         self.assertEqual(value["failure"], "PAIRED_CLI_SUPERVISOR_CAPTURE_UNCONFIRMED")
         self.lock.seek(0); self.assertEqual(json.load(self.lock)["launchId"], value["launchId"])
+
+
+class PublicProofBackendReceiptTests(unittest.TestCase):
+    """Synthetic public framing only: no Child, native process or proof authority."""
+    def native(self):
+        limits = {"availableRAM": 2684354560, "freeDisk": 5368709120, "workerRSS": 3221225472,
+            "sampleMilliseconds": 250, "phaseTimeoutMilliseconds": 600000, "killGraceMilliseconds": 5000,
+            "outputBytes": 1048576, "jobBytes": 2097152, "threads": 12, "maximumDyadicGates": 2097152, "provingCRSPoints": 2097152}
+        child = {"pid": 303, "ppid": 202, "pgrp": 101, "session": 101, "startTimeTicks": "12345"}
+        native = {"profile": "LIANUM_ORIGINAL_U_NATIVE_UNIX_SOCKET_V1", "backend": "NativeUnixSocket", "threads": 12,
+            "bbVersion": "5.2.0", "binarySHA256": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
+            "originalPreparedKeyRequired": True, "oneEphemeralJob": True, "memoryScope": "COORDINATOR_PLUS_NATIVE_CHILD",
+            "rssLimitBytes": 3221225472, "outputByteAccounting": "RAW_CAPTURE_PLUS_OFFICIAL_LOGGER_UPPER_BOUND",
+            "outputStreamsClosed": True, "socketClosed": True, "socketRemoved": True,
+            "childIdentity": child, "childClose": {"code": None, "signal": "SIGTERM"}, "outputBytes": 128}
+        m = {"keyManifestSHA256": "a" * 64}
+        w = {"nativeBackendExecution": native, "threads": 12, "limits": limits, "hostLimitsChanged": False, **m}
+        r = {"nativeBackendExecution": deepcopy(native), "nativeMemoryScope": "COORDINATOR_PLUS_NATIVE_CHILD",
+            "nativeChildIdentities": [deepcopy(child)], "nativeChildrenGone": True, "peakWorkerRSS": 3221225472,
+            "limits": deepcopy(limits), "lockPreserved": False, "hostLimitsChanged": False}
+        return m, w, r
+
+    def test_native_U_requires_real_close_sampled_identity_and_combined_rss_then_retains_wasm_U12_S4(self):
+        m, w, r = self.native()
+        self.assertTrue(lab._reservation_backend_execution("authorization", m, w, r, 12))
+        self.assertFalse(lab._reservation_backend_execution("reservation", m, w, r, 4))
+        for mutate in [lambda _m, _w, r: r.update(peakWorkerRSS=3221225473),
+            lambda _m, _w, r: r.update(nativeChildrenGone=False),
+            lambda _m, _w, r: r["nativeChildIdentities"][0].update(startTimeTicks="54321"),
+            lambda _m, w, r: (w["nativeBackendExecution"].update(childClose={"code": None, "signal": None}), r.update(nativeBackendExecution=deepcopy(w["nativeBackendExecution"]))),
+            lambda m, _w, _r: m.update(keyManifestSHA256="0" * 64),
+            lambda _m, w, r: (w["nativeBackendExecution"].update(socketClosed=1), r.update(nativeBackendExecution=deepcopy(w["nativeBackendExecution"]))),
+            lambda _m, w, _r: w.update(wasmThreadExecution={"threads": 12})]:
+            m, w, r = self.native(); mutate(m, w, r)
+            self.assertFalse(lab._reservation_backend_execution("authorization", m, w, r, 12))
+        for relation, threads in [("authorization", 12), ("reservation", 4)]:
+            old = {"wasmThreadExecution": {"threads": threads, "sharedMemory": True, "oneOwnedProcess": True, "originalPreparedKeyRequired": True}}
+            self.assertTrue(lab._reservation_backend_execution(relation, {}, old, {}, threads))
+            old["wasmThreadExecution"]["threads"] = 8
+            self.assertFalse(lab._reservation_backend_execution(relation, {}, old, {}, threads))
 
 
 if __name__ == "__main__":

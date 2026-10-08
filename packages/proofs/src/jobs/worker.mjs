@@ -13,12 +13,13 @@ import { argumentsFor, authenticateSupervisor, attemptPath, regular, hash, jsonB
   claimOperation, publishArtifact, artifactPointer, loadCompiled, loadStats, loadPrepared, compiledPins,
   assertID, assertHash } from '../tooling/tooling.mjs';
 import { executionSources, limitsForMode, assertSuccessfulProvingAttempt } from './proving-execution.mjs';
+import { usesNativeAuthorizationV1, initializeNativeAuthorizationV1, assertNativeAuthorizationCurrentV1, destroyNativeAuthorizationV1 } from './authorization-native-execution-v1.mjs';
 
 // Libraries cannot place witnesses or provider tuples in operational logs.
 for (const name of ['log', 'info', 'debug', 'warn', 'error', 'trace']) console[name] = () => {};
 globalThis.fetch = async () => { throw Error('PW_OFFLINE_REQUIRED'); };
 const { spec, mode, runId } = argumentsFor(true), op = operation(mode);
-const taskLimits = limitsForMode(spec, mode);
+const taskLimits = limitsForMode(spec, mode), nativeAuthorization=usesNativeAuthorizationV1(spec,mode);
 const supervisor = authenticateSupervisor(spec, mode, runId), attempt = attemptPath(runId);
 assert.ok(existsSync(attempt), 'PW_SUPERVISOR_ATTEMPT_REQUIRED');
 const initialPins = JSON.parse(regular(join(attempt, 'runtime-pins.json')));
@@ -101,8 +102,9 @@ function parentDisconnected() {
   report.phase = 'failed'; report.errorCode = 'PW_PARENT_CONTROL_CHANNEL_CLOSED';
   report.completedAt = new Date().toISOString();
   try { save(); } finally {
-    // This worker owns only WASM threads, never chain processes. Exit reclaims
-    // the private witness even if its parent was SIGKILLed and cannot clean up.
+    // The original group supervisor retains the fixed BB child as well as
+    // this coordinator. BB's pinned parent-death handling is a backstop;
+    // successful native publication still requires actual Child.close.
     process.exit(1);
   }
 }
@@ -120,6 +122,7 @@ async function initialized(component, action) {
   try { return await action(); } finally { entry.milliseconds += performance.now() - began; }
 }
 function freezeCheck() {
+  if (nativeAuthorization && api) assertNativeAuthorizationCurrentV1(api);
   assert.deepEqual(executionSources(spec, mode), initialPins.executionSources, 'PW_RUNTIME_CHANGED_DURING_TASK');
   assert.deepEqual(verifyAPI(), initialPins.api, 'PW_API_CHANGED_DURING_TASK');
   assert.deepEqual(verifyVendor(), initialPins.vendor, 'PW_VENDOR_CHANGED_DURING_TASK');
@@ -139,7 +142,11 @@ async function initialize(bb, maximumPages = MEMORY.standard, verifierOnly = fal
   assert.ok([MEMORY.standard, MEMORY.dyadic21].includes(maximumPages), 'PW_FIXED_MEMORY_PROFILE');
   report.maximumPages = maximumPages;
   await measured('initializationMilliseconds', async () => {
-    phase('initializing-wasm');
+    phase(nativeAuthorization ? 'initializing-native-bb' : 'initializing-wasm');
+    if (nativeAuthorization) {
+      assert.equal(verifierOnly,false,'PW_NATIVE_PROVE_ONLY');
+      api=await initialized('backend',()=>initializeNativeAuthorizationV1(bb));return;
+    }
     api = await initialized('backend', () => bb.Barretenberg.new({ backend: bb.BackendType.Wasm, threads: taskLimits.threads, skipSrsInit: true,
       // A fixed sink prevents child C++ logs becoming raw private output.
       ...(op === 'prove' ? { logger: () => {} } : {}),
@@ -172,7 +179,9 @@ async function provingCRS() {
 }
 async function destroy() {
   if (!api) return;
-  const owned = api; api = undefined; phase('destroying-wasm'); await owned.destroy();
+  const owned = api; api = undefined; phase(nativeAuthorization ? 'destroying-native-bb' : 'destroying-wasm');
+  if(nativeAuthorization)report.nativeBackendExecution=await destroyNativeAuthorizationV1(owned);
+  else await owned.destroy();
 }
 const circuit = (compiled, key = new Uint8Array()) => ({ name: spec.name,
   bytecode: gunzipSync(compiled.compressed), verificationKey: key });
@@ -398,7 +407,8 @@ try {
 } finally {
   compressedWitness?.fill(0); rawWitness?.fill(0); job = undefined;
   if (api) {
-    try { const owned = api; api = undefined; await owned.destroy(); }
+    try { const owned = api; api = undefined;
+      if(nativeAuthorization)report.nativeBackendExecution=await destroyNativeAuthorizationV1(owned);else await owned.destroy(); }
     catch (error) { report.phase = 'failed'; report.cleanupErrorCode = errorCode(error); process.exitCode = 1; }
   }
   try { freezeCheck(); } catch (error) { report.phase = 'failed'; report.finalPinErrorCode = errorCode(error); process.exitCode = 1; }

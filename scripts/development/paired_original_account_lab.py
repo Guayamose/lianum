@@ -372,6 +372,43 @@ def execution_proof_checks(rows, note_keys):
     return proofs, checks
 
 
+def _reservation_backend_execution(relation, manifest, worker, resources, threads):
+    """Public framing only; raw bytes/key/proof joins remain in the original reader.
+
+    Historic WASM U12/S4 stays exact. Only U12 can use the fixed native backend,
+    with the original Child.close, sampled identity and combined RSS receipt.
+    """
+    if "nativeBackendExecution" not in worker:
+        return worker.get("wasmThreadExecution") == {"threads": threads, "sharedMemory": True,
+            "oneOwnedProcess": True, "originalPreparedKeyRequired": True}
+    native = record(worker.get("nativeBackendExecution"))
+    fixed = {"profile": "LIANUM_ORIGINAL_U_NATIVE_UNIX_SOCKET_V1", "backend": "NativeUnixSocket", "threads": 12,
+        "bbVersion": "5.2.0", "binarySHA256": "5a1c1ccd835e257217880936f837847fd74c8d5993497527f070fb2308f9145b",
+        "originalPreparedKeyRequired": True, "oneEphemeralJob": True, "memoryScope": "COORDINATOR_PLUS_NATIVE_CHILD",
+        "rssLimitBytes": 3221225472, "outputByteAccounting": "RAW_CAPTURE_PLUS_OFFICIAL_LOGGER_UPPER_BOUND",
+        "outputStreamsClosed": True, "socketClosed": True, "socketRemoved": True}
+    limits = {"availableRAM": 2684354560, "freeDisk": 5368709120, "workerRSS": 3221225472,
+        "sampleMilliseconds": 250, "phaseTimeoutMilliseconds": 600000, "killGraceMilliseconds": 5000,
+        "outputBytes": 1048576, "jobBytes": 2097152, "threads": 12, "maximumDyadicGates": 2097152, "provingCRSPoints": 2097152}
+    child, closed = record(native.get("childIdentity")), record(native.get("childClose"))
+    output, peak = native.get("outputBytes"), resources.get("peakWorkerRSS")
+    return relation == "authorization" and threads == 12 and worker.get("threads") == 12 \
+        and "wasmThreadExecution" not in worker and set(native) == set(fixed) | {"childIdentity", "childClose", "outputBytes"} \
+        and all((native.get(k) is v if type(v) is bool else native.get(k) == v) for k, v in fixed.items()) \
+        and set(child) == {"pid", "ppid", "pgrp", "session", "startTimeTicks"} \
+        and all(type(child.get(k)) is int and child[k] > 1 for k in ("pid", "ppid", "pgrp", "session")) \
+        and isinstance(child.get("startTimeTicks"), str) and re.fullmatch(r"[0-9]+", child["startTimeTicks"]) is not None \
+        and set(closed) == {"code", "signal"} and ((type(closed.get("code")) is int and closed["code"] == 0 and closed.get("signal") is None) \
+            or (closed.get("code") is None and closed.get("signal") == "SIGTERM")) \
+        and type(output) is int and 0 <= output <= 1048576 and type(peak) is int and 0 <= peak <= 3221225472 \
+        and json.dumps(resources.get("nativeBackendExecution"), sort_keys=True) == json.dumps(native, sort_keys=True) \
+        and resources.get("nativeMemoryScope") == "COORDINATOR_PLUS_NATIVE_CHILD" and resources.get("nativeChildrenGone") is True \
+        and isinstance(resources.get("nativeChildIdentities"), list) and any(all(record(v).get(k) == value for k, value in child.items()) \
+            for v in resources["nativeChildIdentities"]) and worker.get("limits") == limits and resources.get("limits") == limits \
+        and resources.get("lockPreserved") is False and resources.get("hostLimitsChanged") is False and worker.get("hostLimitsChanged") is False \
+        and digest(worker.get("keyManifestSHA256")) and manifest.get("keyManifestSHA256") == worker["keyManifestSHA256"]
+
+
 def reservation_proof_checks(rows, note_keys):
     typed = isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("evidence"), dict) for row in rows)
     proofs = rows if typed else []
@@ -411,7 +448,7 @@ def reservation_proof_checks(rows, note_keys):
             and w.get("phase") == "completed" and r.get("phase") == "completed"
             and r.get("failure") is None and r.get("failures") == [] and r.get("exitCode") == 0 and r.get("signal", "missing") is None
             and w.get("threads") == threads and record(w.get("limits")).get("threads") == threads and w.get("limits") == r.get("limits")
-            and w.get("wasmThreadExecution") == {"threads": threads, "sharedMemory": True, "oneOwnedProcess": True, "originalPreparedKeyRequired": True}
+            and _reservation_backend_execution(relation, m, w, r, threads)
             and all(v.get("runtimePinsSHA256") == w.get("runtimePinsSHA256") for v in (m, r)) and digest(w.get("runtimePinsSHA256"))
             and w.get("keyRecomputed") is False and w.get("keySHA256") == m.get("keySHA256")
             and e.get("keySHA256") == m.get("keySHA256") and digest(m.get("keySHA256"))

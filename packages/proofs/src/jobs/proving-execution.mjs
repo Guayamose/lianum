@@ -1,5 +1,6 @@
 /** Fixed proving execution only. No circuit/VK identity, witness or authority. */
 import assert from 'node:assert/strict';
+import { usesNativeAuthorizationV1, AUTHORIZATION_NATIVE_PINS_V1, assertNativeAuthorizationReceiptV1 } from './authorization-native-execution-v1.mjs';
 import { join, relative, sep } from 'node:path';
 import { ROOT, GOLDEN, EXPERIMENT, PROFILE, LIMITS, operation } from '../catalog.mjs';
 import { executionSources as originalExecutionSources, assertSuccessfulAttempt,
@@ -42,7 +43,14 @@ function executionRecord(path) {
 export function executionSources(spec, mode) {
   const original = originalExecutionSources(spec, mode);
   // The imported policy itself is captured by the original before/after checks.
-  const extra = [executionRecord(join(ROOT, 'proof-workers/proving-execution.mjs'))];
+  const extra = ['proof-workers/proving-execution.mjs','proof-workers/authorization-native-execution-v1.mjs',
+    'integration/native-flow-owned-files-v1.mjs','integration/native-flow-owned-rss-v1.mjs'].map(path=>executionRecord(join(ROOT,path)));
+  if (usesNativeAuthorizationV1(spec,mode)) {
+    for (const [path,expected] of AUTHORIZATION_NATIVE_PINS_V1) {
+      const record=executionRecord(join(EXPERIMENT,'node_modules',path));
+      assert.equal(record.sha256,expected,'PW_NATIVE_OFFICIAL_PIN');extra.push(record);
+    }
+  }
   if (operation(mode) === 'prove') {
     for (const [path, expected] of WASM_THREAD_RUNTIME_PINS) {
       const record = executionRecord(join(EXPERIMENT, 'node_modules', path));
@@ -79,7 +87,8 @@ export function assertSuccessfulProvingAttempt(spec, runId) {
   assert.equal(resource.exitCode, 0, 'PW_PRIOR_EXIT');
   assert.equal(resource.failure ?? null, null, 'PW_PRIOR_RESOURCE_FAILURE');
   assert.deepEqual(resource.failures, [], 'PW_PRIOR_SUPERVISOR_FAILURES');
-  assert.deepEqual(result.wasmThreadExecution, { threads: provingLimits.threads, sharedMemory: true,
+  if (result.nativeBackendExecution !== undefined) assertNativeAuthorizationReceiptV1(spec,result,resource);
+  else assert.deepEqual(result.wasmThreadExecution, { threads: provingLimits.threads, sharedMemory: true,
     oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'PW_PRIOR_PROVING_THREADS');
   return result;
 }

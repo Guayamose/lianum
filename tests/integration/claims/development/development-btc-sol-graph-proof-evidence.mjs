@@ -1,3 +1,4 @@
+import {assertNativeAuthorizationReceiptV1} from '../../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs';
 /** Public receipt joins for the seven fixed original graph relations and
  * the genuine recipient W39 telemetry. No proof/custody authority is issued. */
 import assert from 'node:assert/strict';
@@ -35,7 +36,8 @@ export function assertBtcSolGraphProofReceipts(input) {
   if (result.threads !== undefined) assert.equal(result.threads, proofLimits.threads, 'DEVELOPMENT_CLAIM_FIXED_THREADS');
   assert.deepEqual(result.limits, proofLimits); assert.deepEqual(resources.limits, proofLimits);
   if (proofLimits !== LIMITS) {
-    assert.deepEqual(result.wasmThreadExecution, { threads: proofLimits.threads, sharedMemory: true,
+    if(result.nativeBackendExecution!==undefined)assertNativeAuthorizationReceiptV1({name:relation},result,resources);
+    else assert.deepEqual(result.wasmThreadExecution, { threads: proofLimits.threads, sharedMemory: true,
       oneOwnedProcess: true, originalPreparedKeyRequired: true }, 'DEVELOPMENT_CLAIM_ACTUAL_THREAD_EXECUTION');
     // Join the same immutable runtime-source receipt captured by the original
     // worker, proof manifest and external guard. No caller can select sources.

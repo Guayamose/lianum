@@ -157,3 +157,26 @@ test('shared original supervisor still enforces one heavy backend and unchanged 
   assert.equal(nativeResourceFailure({ ...sample, ...nativeProofProcessResources([main, role, backend, { ...backend, pid: 4 }]) }), 'NATIVE_MULTIPLE_HEAVY_PROOF_WORKERS');
   assert.equal(nativeResourceFailure({ ...sample, ...nativeProofProcessResources([main, role, { ...backend, rssBytes: 3221225473 }]) }), 'NATIVE_PROOF_WORKER_RSS_LIMIT');
 });
+
+
+test('fixed native U coordinator and its authentic BB child consume one heavy slot and one combined 3GiB budget',async()=>{
+  const {classifyAuthorizationNativeProcessV1,AUTHORIZATION_NATIVE_BINARY_V1}=await import('../../src/jobs/authorization-native-execution-v1.mjs');
+  const {nativeProofProcessResources,nativeResourceFailure,nativeWalletUnfundedProcessFailure}=await import('../../../../tests/integration/native/native-flow-supervisor.mjs');
+  const argv=[process.execPath,join(ROOT,'proof-workers/worker.mjs'),'authorization','prove',runId];
+  const parent={pid:202,argv},childArgv=[AUTHORIZATION_NATIVE_BINARY_V1,'msgpack','run','--input','/tmp/bb-202-0-0.sock'];
+  const coordinator={pid:202,ppid:101,state:'S',rssBytes:128,...classifyAuthorizationNativeProcessV1(argv,process.execPath,null)};
+  const backend={pid:303,ppid:202,state:'S',rssBytes:3221225472-128,...classifyAuthorizationNativeProcessV1(childArgv,AUTHORIZATION_NATIVE_BINARY_V1,parent)};
+  assert.equal(coordinator.proofWorker,false);assert.equal(backend.proofWorker,true);
+  assert.equal(classifyAuthorizationNativeProcessV1(['/other-child'],'/other-child',{pid:303,argv:childArgv}).proofWorker,true);
+  assert.equal(classifyAuthorizationNativeProcessV1(argv,'/other-executable',null),null);
+  for(const changed of [ {...parent,argv:[...argv.slice(0,2),'reservation',...argv.slice(3)]}, {...parent,pid:999} ])
+    assert.throws(()=>classifyAuthorizationNativeProcessV1(childArgv,AUTHORIZATION_NATIVE_BINARY_V1,changed));
+  assert.throws(()=>classifyAuthorizationNativeProcessV1([...childArgv,'--other'],AUTHORIZATION_NATIVE_BINARY_V1,parent));
+  const host={availableRAMBytes:2684354560,freeDiskBytes:5368709120,mainWorkerRSSBytes:1,supervisorRSSBytes:1};
+  assert.equal(nativeResourceFailure({...host,...nativeProofProcessResources([coordinator,backend])}),null);
+  assert.equal(nativeResourceFailure({...host,...nativeProofProcessResources([coordinator,{...backend,rssBytes:backend.rssBytes+1}])}),'NATIVE_PROOF_WORKER_RSS_LIMIT');
+  assert.equal(nativeResourceFailure({...host,...nativeProofProcessResources([coordinator,{...backend,rssBytes:64},{...backend,pid:304,rssBytes:64}])}),'NATIVE_MULTIPLE_HEAVY_PROOF_WORKERS');
+  assert.equal(nativeResourceFailure({...host,...nativeProofProcessResources([coordinator,{...backend,state:'Z',liveThreadCount:1,rssBytes:backend.rssBytes+1}])}),'NATIVE_PROOF_WORKER_RSS_LIMIT');
+  for(const rows of[[coordinator],[backend],[coordinator,backend]])
+    assert.equal(nativeWalletUnfundedProcessFailure(rows),'NATIVE_WALLET_UNFUNDED_PROOF_FORBIDDEN');
+});
