@@ -9,7 +9,7 @@ import * as originalExits from './private-vault-exit.mjs';
 import { assertOwnedFlatJournalCatalogue, assertOwnedFlatJournalCatalogueAccount }
   from '../../accounts/storage/flat-journal-catalogue.mjs';
 import { assertFlatManualGraphCatalogueSession } from '../../api/accounts/flat-manual-graph-session.mjs';
-import { isOwnedMetaMorphoVault } from '../vaults/owned-metamorpho-vault.mjs';
+import { isOwnedOfficialStaticVaultV1 } from '../vaults/owned-metamorpho-vault.mjs';
 import { projectPrivateVaultPosition } from '../vaults/private-vault-position.mjs';
 
 export const GENERATION_VAULT_POSITION_PROFILE = 'OWNED_GENERATION_PRIVATE_VAULT_POSITIONS_V1';
@@ -115,7 +115,7 @@ export function createGenerationPrivateVaultExit(input) {
   }
   async function readOriginalPositionVault(entry, portfolioView) {
     genuine(entry);
-    if (!isOwnedMetaMorphoVault(entry.original.vault)) return entry.original.vault.observe();
+    if (!isOwnedOfficialStaticVaultV1(entry.original.vault)) return entry.original.vault.observe();
     const share = portfolioView.assets.find(value => value.asset.assetId === entry.shareAssetId);
     const asset = entry.membership.portfolio.registry.find(value => value.assetId === entry.shareAssetId);
     need(share?.status === 'LIVE' && asset, 'ORIGINAL_SHARE_POSITION_UNAVAILABLE');
