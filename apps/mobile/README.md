@@ -27,6 +27,13 @@ económicamente pendientes. Las escrituras se serializan en el realm de JS y
 comprueban readback de SecureStore; esto no demuestra CAS entre procesos ni
 protección nativa frente a rollback.
 
+El consentimiento usa una revisión privada en memoria, vinculada a la pantalla
+y su generación. Cancelar, editar, refrescar o salir de primer plano la invalida,
+incluido un callback antiguo de la alerta. Vuelve a comprobar origen, identidad,
+términos, capacidades recientes y caducidad tras biometría y tras almacenamiento;
+consume la revisión antes de iniciar el POST. Si la revisión cambia durante la
+retención, conserva el permiso original pendiente y evita ese envío.
+
 ## Desarrollo
 
 Desde la raíz del repositorio, con el Node local:
