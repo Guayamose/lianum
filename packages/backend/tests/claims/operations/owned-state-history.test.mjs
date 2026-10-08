@@ -12,7 +12,7 @@ const h = text => createHash('sha256').update('mocked claim history/' + text).di
 const w = value => p(BigInt(value).toString(16).padStart(64, '0'));
 const abi = values => '0x' + values.map(value => w(value).slice(2)).join('');
 const code = '0x6000', codeHash = evmRuntimeCodeHash(code), ZERO = '0'.repeat(64);
-let runtime, claims, current, historicalAssertions = 0;
+let runtime, claims, current, controls, historicalAssertions = 0;
 mock.module(new URL('../ops/deploy-native-claims.mjs', import.meta.url).href, { exports: {
   assertOwnedNativeClaimSystem(r, c) { assert.equal(r, runtime); assert.equal(c, claims); },
 } });
@@ -33,13 +33,14 @@ mock.module(new URL('../paeg/flat-system-state.mjs', import.meta.url).href, { ex
       originals.set(flat, historical); return flat;
     };
     return { read: async () => read(false), readHistorical: async () => read(true),
-      async assertCurrent(flat) { assert.equal(originals.get(flat), false); assert.equal(flat.header.hash, current.hash); },
+      async assertCurrent(flat) { controls.flatCurrentChecks++; assert.equal(originals.get(flat), false); assert.equal(flat.header.hash, current.hash); },
       async assertCanonical(flat) { assert.ok(originals.has(flat)); historicalAssertions++; } };
   },
 } });
 const { createOwnedClaimObserver } = await import('../../../src/claims/operations/owned-state.mjs');
 
 function fixture() {
+  controls = { codeReads: 0, codeHook: null, flatCurrentChecks: 0, changedCode: false };
   const config = Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([key, type]) => [key,
     type === 'address' ? h(key).slice(0, 40) : type === 'u256' ? '31337' : type === 'u8' ? '2'
       : type === 'u64' ? '7' : type === 'field32' ? '01' + h(key).slice(2) : h(key)]));
@@ -57,7 +58,9 @@ function fixture() {
   current = { number: '0x1', hash: p(h('head1')), timestamp: '0x64' };
   runtime = { metadata: { chainId: '31337' },
     async block(tag) { return tag === '0x0' ? { number: '0x0', hash: p(config.evmGenesis), timestamp: '0x0' } : { ...current }; },
-    async assertCanonical(header) { return header; }, async code() { return code; } };
+    async assertCanonical(header) { return header; }, async code() {
+      controls.codeReads++; await controls.codeHook?.(); return controls.changedCode ? '0x6001' : code;
+    } };
   const gateway = facade('gateway', config.gateway, {
     'claimConfiguration()': abi(CLAIM_CONFIG_SCHEMA.map(([key, type]) => type.startsWith('u') ? config[key] : p(config[key]))),
     'verifierConfiguration()': abi(pins.flatMap(pin => [p(pin.address), p(pin.codeHash), p(pin.sourceCommitment), p(pin.keyCommitment)])),
@@ -99,4 +102,64 @@ test('a same-height historical observation never grants current signing or reser
   await observer.assertCanonical(historical);
   await assert.rejects(observer.assertCurrent(live), /HEAD_CHANGED/);
   assert.ok(historicalAssertions > 0);
+});
+
+function barrier() {
+  let resolve;
+  const promise = new Promise(yes => { resolve = yes; });
+  return { promise, resolve };
+}
+function pinCodeCount() {
+  return new Set([claims.authority, ...claims.gateways, ...claims.wrappers,
+    ...Object.values(claims.verifiers), ...Object.values(claims.libraries)].map(record => record.address)).size;
+}
+
+test('overlapping original current views share only pending public pins and keep each pool/head check', async () => {
+  fixture(); const observer = await createOwnedClaimObserver({ runtime, claims });
+  const views = await Promise.all([observer.read(), observer.read(), observer.read()]);
+  const entered = barrier(), release = barrier(), count = pinCodeCount();
+  const before = { code: controls.codeReads, flat: controls.flatCurrentChecks };
+  controls.codeHook = async () => {
+    if (controls.codeReads === before.code + count) entered.resolve();
+    await release.promise;
+  };
+  const after = [], calls = views.map((view, index) => observer.assertCurrent(view).then(() => after.push(index)));
+  await entered.promise;
+  assert.equal(controls.codeReads - before.code, count);
+  assert.equal(controls.flatCurrentChecks - before.flat, views.length);
+  assert.deepEqual(after, []);
+  await assert.rejects(observer.assertCurrent(structuredClone(views[0])), /OWN_VIEW_REQUIRED/);
+  assert.equal(controls.codeReads - before.code, count);
+  release.resolve(); await Promise.all(calls);
+  assert.deepEqual(after.sort(), [0, 1, 2]);
+  // A completed successful check cannot authorize a later phase after a pin changes.
+  controls.codeHook = null; controls.changedCode = true;
+  await assert.rejects(observer.assertCurrent(views[0]), /CLAIM_STATE_CODE_CHANGED/);
+  assert.equal(controls.codeReads - before.code, 2 * count);
+});
+
+test('a same-height head change never joins the old pending pins or masks stale views', async () => {
+  fixture(); const observer = await createOwnedClaimObserver({ runtime, claims });
+  const oldView = await observer.read(), release = barrier(), oldEntered = barrier(), bothEntered = barrier();
+  const before = controls.codeReads, count = pinCodeCount();
+  controls.codeHook = async () => {
+    if (controls.codeReads === before + count) oldEntered.resolve();
+    if (controls.codeReads === before + 2 * count) bothEntered.resolve();
+    await release.promise;
+  };
+  const oldChecks = Promise.allSettled([observer.assertCurrent(oldView), observer.assertCurrent(oldView)]);
+  await oldEntered.promise;
+  current = { number: current.number, hash: p(h('head-replaced')), timestamp: '0x65' };
+  const freshReading = observer.read();
+  await bothEntered.promise;
+  assert.equal(controls.codeReads - before, 2 * count);
+  release.resolve();
+  const fresh = await freshReading, rejected = await oldChecks;
+  assert.ok(rejected.every(row => row.status === 'rejected' && /HEAD_CHANGED/.test(row.reason.message)));
+  controls.codeHook = null;
+  const settledReads = controls.codeReads;
+  await assert.rejects(observer.assertCurrent(oldView), /HEAD_CHANGED/);
+  assert.equal(controls.codeReads, settledReads);
+  await observer.assertCurrent(fresh);
+  assert.equal(controls.codeReads - settledReads, count);
 });

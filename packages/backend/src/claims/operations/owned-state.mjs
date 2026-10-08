@@ -342,12 +342,27 @@ export async function createOwnedClaimObserver(input) {
   for (const key of ['configs', 'wrappers', 'policies', 'nativeRuntimes'])
     assert.equal(claims[key].length, claims.gateways.length, 'CLAIM_STATE_BINDING_COUNT');
   const readers = await Promise.all(claims.gateways.map((_, poolIndex) => createFlatSystemStateReader({ runtime, system: claims.flatSystem, poolIndex })));
-  const issued = new WeakMap();
+  const issued = new WeakMap(), currentPinChecks = new Map();
+  async function assertCurrentPins(header) {
+    // Public immutable-block deployment pins only. The original view ownership,
+    // per-view pool checks and canonical head fences remain with every caller;
+    // no native inventory, signer round or completed result is shared.
+    const key = [header.number, header.hash, header.timestamp].join(':');
+    let pending = currentPinChecks.get(key);
+    if (!pending) {
+      pending = Promise.resolve().then(() => assertPins(runtime, claims, header)).finally(() => {
+        if (currentPinChecks.get(key) === pending) currentPinChecks.delete(key);
+      });
+      currentPinChecks.set(key, pending);
+    }
+    return pending;
+  }
   async function readView(historical, blockNumber) {
     assertOwnedNativeClaimSystem(runtime, claims); await assertLocalEvm(runtime);
     const flats = await Promise.all(readers.map(reader => historical ? reader.readHistorical(blockNumber) : reader.read())), header = flats[0].header;
     flats.forEach(flat => sameHead(header, flat.header));
-    await assertPins(runtime, claims, header);
+    if (historical) await assertPins(runtime, claims, header);
+    else await assertCurrentPins(header);
     const gateways = await Promise.all(flats.map((flat, i) => readGateway(claims, i, flat)));
     flats.forEach(flat => assert.equal(flat.state.stateSequence, flats[0].state.stateSequence, 'CLAIM_STATE_HUB_SEQUENCE'));
     await runtime.assertCanonical(header);
@@ -375,7 +390,7 @@ export async function createOwnedClaimObserver(input) {
       assert.equal(issued.get(view).historical, false, 'CLAIM_STATE_HISTORICAL_NOT_CURRENT');
       const { header, flats } = issued.get(view);
       await assertLocalEvm(runtime); await runtime.assertCanonical(header); sameHead(header, await runtime.block());
-      await Promise.all([assertPins(runtime, claims, header), ...readers.map((reader, i) => reader.assertCurrent(flats[i]))]);
+      await Promise.all([assertCurrentPins(header), ...readers.map((reader, i) => reader.assertCurrent(flats[i]))]);
       sameHead(header, await runtime.block());
     },
     async assertCanonical(view) {
