@@ -234,7 +234,7 @@ async function main() {
       assert.equal(deliveredState.accounting.pools[1].publicState.backedAmount, SHARES);
       assert.equal(deliveredState.accounting.pools[1].publicState.actualAssetBalance, SHARES);
       assert.equal(deliveredState.accounting.pools[0].hubState.spentTagCount, '0');
-      assert.equal(deliveredState.accounting.pools[0].receiptLeaves.length, 0);
+      assert.equal(deliveredState.accounting.pools[0].hubState.receiptCount, '0', 'UNISWAP_F_NO_ADMISSION_RECEIPTS');
     }
     await stage('failure-only-original-cutoff-recovery');
     if (await runtime.time() < BigInt(graphCutoff)) await runtime.advanceTo(graphCutoff);
