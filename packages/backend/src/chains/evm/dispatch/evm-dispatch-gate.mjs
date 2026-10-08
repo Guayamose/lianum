@@ -9,9 +9,9 @@ import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mj
 import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE } from '../runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedFlatSystem } from '../../../operations/deployments/system/deploy-system.mjs';
-import { assertOwnedEvmVaultRouter } from '../../../operations/deployments/defi/deploy-evm-vault-router.mjs';
-import { assertOwnedEvmVaultDeliveryObserver, assertOwnedEvmVaultDeliveryFacts } from '../vault/evm-vault-delivery-observer.mjs';
-import { encodeEvmVaultDeliveryCall } from '../vault/evm-vault-delivery.mjs';
+import { assertOwnedEvmGraphDeliveryRouterV1, assertOwnedEvmGraphDeliveryObserverV1,
+  assertOwnedEvmGraphDeliveryFactsV1, assertOwnedEvmGraphDeliveryDescriptorV1 } from './owned-evm-graph-delivery-v1.mjs';
+import { encodeEvmGraphDeliveryCallV1 } from './evm-graph-delivery-codec-v1.mjs';
 import { validateEvmDeliveryWire } from './evm-facts-binding.mjs';
 import { createNativeDispatchGate, normalizeNativeDispatchBinding } from '../../shared/dispatch/native-dispatch-gate.mjs';
 
@@ -39,11 +39,11 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
   const binding = normalizeNativeDispatchBinding(configuration.binding), native = binding.native;
   assert.equal(native.family, '3', 'EVM_DISPATCH_FAMILY');
   await assertOwnedLocalEvmV2(runtime); assertOwnedFlatSystem(runtime, system);
-  assertOwnedEvmVaultRouter(runtime, system, router);
+  assertOwnedEvmGraphDeliveryRouterV1(runtime, system, router, observer);
   const observerBinding = { runtime, system, poolIndex: router.destinationPoolIndex };
-  assertOwnedEvmVaultDeliveryObserver(observer, observerBinding);
+  assertOwnedEvmGraphDeliveryObserverV1(observer, observerBinding);
   assert.ok([runtime, router, observer].every(Object.isFrozen), 'EVM_DISPATCH_IMMUTABLE_CAPABILITIES');
-  equal(router.identity, native.descriptor.identity); equal(observer.identity, router.identity);
+  assertOwnedEvmGraphDeliveryDescriptorV1(runtime, system, router, observer, native.descriptor);
   assert.equal(binding.pool, system.pools[router.sourcePoolIndex].address.slice(2), 'EVM_DISPATCH_SOURCE_POOL');
   equal(binding.domain, system.pools[router.sourcePoolIndex].domain);
   equal(binding.registry, system.registry);
@@ -52,7 +52,7 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
   assert.equal(observer.binding.destinationEndpoint, native.destinationEndpoint);
   const intent = frozenInput({ descriptor: native.descriptor,
     receiptKeyCommitment: binding.quote.action.receiptKeyCommitment, proof: native.depositProof });
-  const calldata = encodeEvmVaultDeliveryCall(intent), calldataSHA256 = sha(Buffer.from(calldata.slice(2), 'hex'));
+  const calldata = encodeEvmGraphDeliveryCallV1(intent), calldataSHA256 = sha(Buffer.from(calldata.slice(2), 'hex'));
   const transaction = frozenInput({ from: '0x' + native.sourceEndpoint, to: '0x' + native.destinationEndpoint,
     data: calldata, gas: '0x' + BigInt(LOCAL_EVM_PROFILE.maxGas).toString(16), value: '0x0' });
   const dispatch = runtime.dispatch.bind(runtime), checkPrepared = observer.assertPrepared.bind(observer);
@@ -60,7 +60,7 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
   let active = false, closed = false;
   const assertOwned = () => {
     assert.equal(closed, false, 'EVM_DISPATCH_CLOSED'); assertOwnedFlatSystem(runtime, system);
-    assertOwnedEvmVaultRouter(runtime, system, router); assertOwnedEvmVaultDeliveryObserver(observer, observerBinding);
+    assertOwnedEvmGraphDeliveryRouterV1(runtime, system, router, observer); assertOwnedEvmGraphDeliveryObserverV1(observer, observerBinding);
   };
   const nativeAdapter = Object.freeze({ binding: native,
     async transfer(request, callbacks) {
@@ -95,7 +95,7 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
       if (status.status !== 'observed') { assert.equal(status.nativeWire, null); return frozenInput(status); }
       // Successful delivery is established only by the actual branded reader's
       // full canonical execution facts, never a receipt status or data flag.
-      const facts = await observeFacts(original); assertOwnedEvmVaultDeliveryFacts(facts, { observer });
+      const facts = await observeFacts(original); assertOwnedEvmGraphDeliveryFactsV1(facts, { observer });
       assert.equal(facts.status, 'observed'); assert.equal(facts.genesis, native.genesis); assert.equal(facts.asset, native.asset);
       equal(facts.intent, intent);
       const decoded = validateEvmDeliveryWire(facts.nativeWire, intent);
@@ -112,3 +112,5 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
     close() { assert.equal(active, false, 'EVM_DISPATCH_BUSY'); gate.close(); closed = true; },
   });
 }
+
+export const createOwnedEvmGraphDispatchGateV1 = createOwnedEvmVaultDispatchGate;

@@ -47,10 +47,10 @@ export async function createFlatOwnerObserver(options) {
   const deliveryObserver = hasDelivery ? options.deliveryObserver : null;
   let assertDeliveryObserver = null;
   if (hasDelivery) {
-    const legacy=await import('../../../backend/src/chains/evm/vault/evm-vault-delivery-observer.mjs');
+    const legacy=await import('../../../backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs');
     try {
-      legacy.assertOwnedEvmVaultDeliveryObserver(deliveryObserver,{runtime,system,poolIndex});
-      assertDeliveryObserver=legacy.assertOwnedEvmVaultDeliveryObserver;
+      legacy.assertOwnedEvmGraphDeliveryObserverV1(deliveryObserver,{runtime,system,poolIndex});
+      assertDeliveryObserver=legacy.assertOwnedEvmGraphDeliveryObserverV1;
     } catch {
       const external=await import('../../../backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs');
       external.assertOwnedPrivateExternalIncomingObserverV1(deliveryObserver,{runtime,system,poolIndex});

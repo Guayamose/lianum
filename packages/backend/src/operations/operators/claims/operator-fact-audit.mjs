@@ -11,6 +11,7 @@ import { validateNativeFacts, validateNativeClaimFacts, validateBitcoinBinding, 
   from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
 import { validateClaimSolanaBindingTransaction } from '../../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { validateEvmDeliveryWire } from '../../../chains/evm/dispatch/evm-facts-binding.mjs';
+import { evmGraphDeliveryTermsV1 } from '../../../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
 
 const ZERO = '0'.repeat(64);
 const ENTRY_FIELDS = ['request', 'nativeWire', 'intent', 'facts', 'maximumEvidenceUntil',
@@ -57,7 +58,7 @@ function binding(nativeWire, intent, facts, request, codec) {
     'wireBindingKind', 'wireBindingPosition', 'wireKeyCommitment'])
     assert.equal(wire[name], facts[name], 'FACT_WIRE_BINDING_' + name);
   if (evm) {
-    const identity = intent.descriptor.identity;
+    const identity = evmGraphDeliveryTermsV1(intent.descriptor).identity;
     assert.equal(identity.genesisHash, facts.genesis, 'EVM_DESCRIPTOR_GENESIS');
     assert.equal(identity.shareIdentity, facts.asset, 'EVM_DESCRIPTOR_ASSET');
     assert.equal(identity.ledgerNamespace, facts.ledgerNamespace, 'EVM_DESCRIPTOR_NAMESPACE');

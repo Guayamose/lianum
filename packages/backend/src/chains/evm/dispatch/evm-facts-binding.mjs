@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { exactRecord } from '../../../execution/encoding/commitments.mjs';
 import { decodeCanonicalEvmTransaction } from '../runtime/owned-evm-v2-runtime.mjs';
-import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment }
-  from '../vault/evm-vault-delivery.mjs';
+import { encodeEvmGraphDeliveryCallV1, evmGraphDeliveryDescriptorCommitmentV1, evmGraphDeliveryTermsV1 }
+  from './evm-graph-delivery-codec-v1.mjs';
 
 const ZERO = '0'.repeat(64);
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -29,10 +29,10 @@ export function evmFundingEndpointCommitment(input) {
  * nonce/gas/fees are authenticated by the standard decoder; execution and the
  * original prepared transaction remain the branded reader's responsibility. */
 export function validateEvmDeliveryWire(nativeWire, intent) {
-  const calldata = encodeEvmVaultDeliveryCall(intent);
+  const calldata = encodeEvmGraphDeliveryCallV1(intent);
   assert.ok(typeof nativeWire === 'string' && nativeWire.length > 0 && nativeWire.length <= 262144
     && /^(?:[0-9a-f]{2})+$/.test(nativeWire), 'EVM_FACTS_SIGNED_WIRE');
-  const signed = decodeCanonicalEvmTransaction('0x' + nativeWire), { identity, route } = intent.descriptor;
+  const signed = decodeCanonicalEvmTransaction('0x' + nativeWire), { identity, route } = evmGraphDeliveryTermsV1(intent.descriptor);
   assert.equal(signed.chainId, identity.chainId, 'EVM_FACTS_CHAIN_ID');
   assert.equal(signed.from, '0x' + identity.solver, 'EVM_FACTS_SOLVER');
   assert.equal(signed.to, '0x' + identity.router, 'EVM_FACTS_ROUTER');
@@ -46,5 +46,5 @@ export function validateEvmDeliveryWire(nativeWire, intent) {
     wireKeyCommitment: intent.receiptKeyCommitment, sourceEndpoint: identity.solver,
     destinationEndpoint: identity.router, sourceCommitment: evmFundingEndpointCommitment({
       genesis: identity.genesisHash, asset: identity.shareIdentity, address: identity.solver }),
-    destinationCommitment: evmVaultDeliveryDescriptorCommitment(intent.descriptor), amount: route.shareAmount });
+    destinationCommitment: evmGraphDeliveryDescriptorCommitmentV1(intent.descriptor), amount: route.shareAmount });
 }

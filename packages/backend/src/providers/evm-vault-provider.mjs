@@ -15,10 +15,12 @@ import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIden
   nativeDeliveryRiskCommitment, nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
   from '../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import { evmFundingEndpointCommitment } from '../chains/evm/dispatch/evm-facts-binding.mjs';
-import { validateEvmVaultDeliveryDescriptor, evmVaultDeliveryDescriptorCommitment,
-  encodeEvmVaultDeliveryCall, decodeEvmVaultDepositStatement } from '../chains/evm/vault/evm-vault-delivery.mjs';
-import { assertOwnedEvmVaultRouter } from '../operations/deployments/defi/deploy-evm-vault-router.mjs';
-import { assertOwnedEvmVaultDeliveryObserver } from '../chains/evm/vault/evm-vault-delivery-observer.mjs';
+import { validateEvmGraphDeliveryDescriptorV1, evmGraphDeliveryDescriptorCommitmentV1,
+  encodeEvmGraphDeliveryCallV1, evmGraphDeliveryTermsV1, isMetaMorphoGraphDescriptorV1 } from '../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
+import { decodeEvmVaultDepositStatement } from '../chains/evm/vault/evm-vault-delivery.mjs';
+import { assertOwnedEvmGraphDeliveryRouterV1, assertOwnedEvmGraphDeliveryObserverV1,
+  assertOwnedEvmGraphDeliveryDescriptorV1 } from '../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
+import { isOwnedMetaMorphoGraphDeliveryObserverV1 } from '../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { createOwnedEvmVaultDispatchGate } from '../chains/evm/dispatch/evm-dispatch-gate.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
   from '../../../engine/src/evidence/native-quorum.mjs';
@@ -35,6 +37,7 @@ import { createPinnedVerifier } from '../../../proofs/src/verification/pinned-ve
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 
 export const OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_EVM_VAULT_PROVIDER_V1';
+export const OWNED_FLAT_METAMORPHO_PROVIDER_PROFILE_V1 = 'OWNED_OFFICIAL_FLAT_METAMORPHO_PROVIDER_V1';
 const ownedProviders = new WeakMap();
 export function assertOwnedFlatEvmVaultProvider(provider, expected) {
   const retained = ownedProviders.get(provider);
@@ -114,13 +117,24 @@ async function withPinnedHash(work) {
  * invoice before bindQuote; the clause string by itself is never acceptance.
  */
 export async function createOwnedFlatEvmVaultProvider(input) {
+  return createOwnedFlatEvmDeliveryProvider(input, false);
+}
+/** Original official MetaMorpho only; uses the same quote, journal and P/R gate. */
+export async function createOwnedFlatMetaMorphoProviderV1(input) {
+  return createOwnedFlatEvmDeliveryProvider(input, true);
+}
+async function createOwnedFlatEvmDeliveryProvider(input, officialMetaMorpho) {
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'router', 'observer', 'operatorQuorum', 'rule', 'rulePath',
     'descriptor', 'depositProof', 'terms', 'acceptedLossClause', 'directory', 'password']);
   const { runtime, system, router, observer, operatorQuorum } = input;
   const poolIndex = index(input.poolIndex);
   const terms = copy(input.terms), rule = copy(input.rule), rulePath = copy(input.rulePath);
   const descriptor = copy(input.descriptor), depositProof = input.depositProof;
-  validateEvmVaultDeliveryDescriptor(descriptor);
+  validateEvmGraphDeliveryDescriptorV1(descriptor);
+  assert.equal(isMetaMorphoGraphDescriptorV1(descriptor), officialMetaMorpho, 'FLAT_PROVIDER_FIXED_DESCRIPTOR_VARIANT');
+  assert.equal(isOwnedMetaMorphoGraphDeliveryObserverV1(observer), officialMetaMorpho, 'FLAT_PROVIDER_FIXED_OBSERVER_VARIANT');
+  const descriptorTerms = evmGraphDeliveryTermsV1(descriptor),
+    profile = officialMetaMorpho ? OWNED_FLAT_METAMORPHO_PROVIDER_PROFILE_V1 : OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE;
   assert.ok(typeof depositProof === 'string' && /^(?:[0-9a-f]{2})+$/.exec(depositProof)?.[0] === depositProof
     && depositProof.length <= 131072, 'FLAT_PROVIDER_ORIGINAL_D27_PROOF');
   const directory = input.directory;
@@ -133,15 +147,15 @@ export async function createOwnedFlatEvmVaultProvider(input) {
   assert.ok(typeof password === 'string' && password.length > 0 && Buffer.byteLength(password) <= 1024, 'FLAT_PROVIDER_PASSWORD');
   nativeRuleCommitment(rule);
   assert.equal(rule.family, '3', 'FLAT_PROVIDER_EVM_FAMILY');
-  await assertOwnedLocalEvmV2(runtime); assertOwnedFlatSystem(runtime, system); assertOwnedEvmVaultRouter(runtime, system, router);
+  await assertOwnedLocalEvmV2(runtime); assertOwnedFlatSystem(runtime, system); assertOwnedEvmGraphDeliveryRouterV1(runtime, system, router, observer);
   assert.equal(poolIndex, router.sourcePoolIndex, 'FLAT_PROVIDER_ROUTER_SOURCE_POOL');
   const recipientIndex = index(router.destinationPoolIndex);
   const observerBinding = { runtime, system, poolIndex: recipientIndex };
-  assertOwnedEvmVaultDeliveryObserver(observer, observerBinding);
+  assertOwnedEvmGraphDeliveryObserverV1(observer, observerBinding);
   const quorumBinding = { runtime, system, nativeRuntime: observer, family: '3' };
   assertOwnedFlatOperatorQuorum(operatorQuorum, quorumBinding);
   assert.ok([runtime, router, observer].every(Object.isFrozen), 'FLAT_PROVIDER_IMMUTABLE_RUNTIME');
-  equal(descriptor.identity, router.identity); equal(observer.identity, router.identity);
+  assertOwnedEvmGraphDeliveryDescriptorV1(runtime, system, router, observer, descriptor);
   const pool = system.pools[poolIndex], domain = copy(validateStruct('domain', pool.domain));
   for (const name of ['scope', 'policy', 'asset']) assert.equal(terms[name], domain[name], 'FLAT_PROVIDER_POOL_TERMS');
   equal([domain.scope, domain.policy, domain.asset], [bare(pool.scope), bare(pool.policy), bare(pool.assetIdentity)]);
@@ -156,21 +170,21 @@ export async function createOwnedFlatEvmVaultProvider(input) {
   fixedArray(rulePath.siblings, 3); rulePath.siblings.forEach(value => bytes32(value));
   assert.equal(nativeAdmissionRuleRoot(rule, rulePath), registry.rulesRoot, 'FLAT_PROVIDER_RULE_MEMBERSHIP');
   const native = freeze({ family: '3', genesis: rule.genesis, asset: rule.asset,
-    sourceEndpoint: descriptor.identity.solver, destinationEndpoint: descriptor.identity.router,
+    sourceEndpoint: descriptorTerms.identity.solver, destinationEndpoint: descriptorTerms.identity.router,
     changeEndpoint: null, descriptor, depositProof });
-  assert.equal(rule.genesis, descriptor.identity.genesisHash, 'FLAT_PROVIDER_EVM_GENESIS');
-  assert.equal(rule.asset, descriptor.identity.shareIdentity, 'FLAT_PROVIDER_EVM_ASSET');
-  assert.equal(domain.asset, descriptor.identity.assetIdentity, 'FLAT_PROVIDER_EVM_SOURCE_ASSET');
-  assert.equal(domain.ledgerNamespace, descriptor.identity.ledgerNamespace, 'FLAT_PROVIDER_EVM_NAMESPACE');
-  // q is the delivered BLTV amount. a is the separately committed solver PALT
-  // input; B is the original recipient-owned PALT payout in its signed invoice.
-  assert.equal(terms.amount, descriptor.route.shareAmount, 'FLAT_PROVIDER_EXACT_SHARES');
+  assert.equal(rule.genesis, descriptorTerms.identity.genesisHash, 'FLAT_PROVIDER_EVM_GENESIS');
+  assert.equal(rule.asset, descriptorTerms.identity.shareIdentity, 'FLAT_PROVIDER_EVM_ASSET');
+  assert.equal(domain.asset, descriptorTerms.identity.assetIdentity, 'FLAT_PROVIDER_EVM_SOURCE_ASSET');
+  assert.equal(domain.ledgerNamespace, descriptorTerms.identity.ledgerNamespace, 'FLAT_PROVIDER_EVM_NAMESPACE');
+  // q is the delivered share amount. Solver underlying liquidity is advanced
+  // publicly; B is reimbursed from the original private reservation invoice.
+  assert.equal(terms.amount, descriptorTerms.route.shareAmount, 'FLAT_PROVIDER_EXACT_SHARES');
   for (const name of ['executionFrom', 'executionUntil'])
-    assert.equal(terms[name], descriptor.route[name], 'FLAT_PROVIDER_EXACT_WINDOW');
+    assert.equal(terms[name], descriptorTerms.route[name], 'FLAT_PROVIDER_EXACT_WINDOW');
   const sourceCommitment = evmFundingEndpointCommitment({ genesis: rule.genesis, asset: rule.asset,
-    address: native.sourceEndpoint }), destinationCommitment = evmVaultDeliveryDescriptorCommitment(descriptor);
+    address: native.sourceEndpoint }), destinationCommitment = evmGraphDeliveryDescriptorCommitmentV1(descriptor);
   assert.notEqual(sourceCommitment, destinationCommitment, 'FLAT_PROVIDER_SELF_PAYMENT');
-  const bootstrap = freeze({ profile: OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE, pool: bare(pool.address, 20),
+  const bootstrap = freeze({ profile, pool: bare(pool.address, 20),
     poolIndex, recipientIndex, domain, registry, rule, rulePath, native, terms,
     acceptedLossClause: input.acceptedLossClause, chainDomain: nativeAdmissionChainDomain(rule),
     evidencePolicy: nativeRuleCommitment(rule), sourceCommitment, destinationCommitment,
@@ -224,7 +238,7 @@ export async function createOwnedFlatEvmVaultProvider(input) {
     bindingFor(quote);
     // Freeze the original owner's proof as part of the full call, without
     // adding proof bytes or K to the descriptor's semantic commitment.
-    encodeEvmVaultDeliveryCall({ descriptor, receiptKeyCommitment: quote.action.receiptKeyCommitment, proof: depositProof });
+    encodeEvmGraphDeliveryCallV1({ descriptor, receiptKeyCommitment: quote.action.receiptKeyCommitment, proof: depositProof });
     return quote;
   }
   const store = Object.freeze({ async load() { await unchanged(); return copy(record.data.dispatch); },
@@ -267,7 +281,7 @@ export async function createOwnedFlatEvmVaultProvider(input) {
   async function serial(work) {
     live(); assert.ok(!busy, 'FLAT_PROVIDER_BUSY'); busy = true;
     try { await unchanged(); await assertOwnedLocalEvmV2(runtime); assertOwnedFlatSystem(runtime, system);
-      assertOwnedEvmVaultRouter(runtime, system, router); assertOwnedEvmVaultDeliveryObserver(observer, observerBinding);
+      assertOwnedEvmGraphDeliveryRouterV1(runtime, system, router, observer); assertOwnedEvmGraphDeliveryObserverV1(observer, observerBinding);
       assertOwnedFlatOperatorQuorum(operatorQuorum, quorumBinding); return await work(); }
     finally { busy = false; }
   }
@@ -310,7 +324,7 @@ export async function createOwnedFlatEvmVaultProvider(input) {
       return operation('execute', ownedRequest);
     } },
     reconcile: { value() { assert.equal(arguments.length, 0, 'FLAT_PROVIDER_RECONCILE_FIELDS'); return operation('reconcile'); } },
-    report: { value() { return freeze({ profile: OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE, closed, persistenceUncertain: poisoned,
+    report: { value() { return freeze({ profile, closed, persistenceUncertain: poisoned,
       quoteBound: Boolean(record?.data.quote), phase: record?.data.dispatch?.state.journal?.phase ?? (record?.data.quote ? 'BOUND' : 'OFFERED'),
       providerSigningStarted: Boolean(record?.data.providerSigning),
       assurance: 'COMMON_TRUSTED_HOST_SYNTHETIC_CUSTODY_NOT_INDEPENDENT_OPERATORS' }); } },
@@ -323,13 +337,23 @@ export async function createOwnedFlatEvmVaultProvider(input) {
     family: rule.family, recipientIndex, assertLive: live,
     manualReview() {
       live(); assert.ok(record.data.quote && record.data.dispatch, 'FLAT_PROVIDER_QUOTE_REQUIRED');
-      const d = bootstrap.native.descriptor, target = decodeEvmVaultDepositStatement(d.publicInputs);
+      const original = bootstrap.native.descriptor, d = evmGraphDeliveryTermsV1(original), target = decodeEvmVaultDepositStatement(d.publicInputs);
+      if (officialMetaMorpho) return freeze({ routeProfile: 'REGISTERED_LOCAL_EVM_METAMORPHO_V1', family: '3',
+        protocolKind: original.plan.protocolKind, chainId: d.identity.chainId, genesis: d.identity.genesisHash,
+        router: d.identity.router, vault: d.identity.vault, solver: d.identity.solver,
+        sourcePool: bootstrap.pool, targetPool: d.identity.targetPool,
+        sourceAssetIdentity: d.identity.assetIdentity, targetAssetIdentity: d.identity.shareIdentity,
+        targetCommitment: target.output, descriptorCommitment: evmGraphDeliveryDescriptorCommitmentV1(original),
+        solverMaximumUnderlyingAmount: d.route.assetAmount, deliveredShares: d.route.shareAmount,
+        executionFrom: d.route.executionFrom, executionUntil: d.route.executionUntil, settleBefore: terms.settleBefore,
+        payoutCommitment: record.data.quote.payoutCommitment, deliveryRiskCommitment: record.data.quote.action.deliveryRiskCommitment,
+        deliveryLossClause: bootstrap.acceptedLossClause, protocolAmountsPublic: true, publicNetwork: false });
       return freeze({ routeProfile: 'REGISTERED_LOCAL_EVM_VAULT_V1', family: '3',
         chainId: d.identity.chainId, genesis: d.identity.genesisHash,
         router: d.identity.router, vault: d.identity.vault, solver: d.identity.solver,
         sourcePool: bootstrap.pool, targetPool: d.identity.targetPool,
         sourceAssetIdentity: d.identity.assetIdentity, targetAssetIdentity: d.identity.shareIdentity,
-        targetCommitment: target.output, descriptorCommitment: evmVaultDeliveryDescriptorCommitment(d),
+        targetCommitment: target.output, descriptorCommitment: evmGraphDeliveryDescriptorCommitmentV1(original),
         solverUnderlyingAmount: d.route.assetAmount, deliveredShares: d.route.shareAmount,
         executionFrom: d.route.executionFrom, executionUntil: d.route.executionUntil,
         settleBefore: terms.settleBefore, payoutCommitment: record.data.quote.payoutCommitment,

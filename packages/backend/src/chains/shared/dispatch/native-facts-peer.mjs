@@ -12,6 +12,7 @@ import { FACTS_SCHEMA, validateNativeFacts, encodeNativeFacts, nativeFactsDigest
   validateSolanaBindingTransaction } from './native-receipt-binding.mjs';
 import { validateClaimSolanaBindingTransaction } from '../../solana/runtime/owned-solana-nonce-binding.mjs';
 import { validateEvmDeliveryWire, evmFundingEndpointCommitment } from '../../evm/dispatch/evm-facts-binding.mjs';
+import { evmGraphDeliveryTermsV1 } from '../../evm/dispatch/evm-graph-delivery-codec-v1.mjs';
 
 export const FACTS_QUORUM_PROFILE = 'LIANUM_NATIVE_QUORUM_3_OF_4_SECP256K1_V2';
 export const FACTS_INVENTORY_SCHEMA = 'LIANUM_FLAT_FACTS_PEER_INVENTORY_V1';
@@ -268,7 +269,7 @@ function deriveFacts(result, request, config, at, codec) {
     : request.family === '2' ? result.intent.recipientPublicKey : wire.destinationEndpoint;
   need(source === route.sourceEndpoint && destination === route.destinationEndpoint, 'OWNED_ENDPOINTS');
   if (request.family === '3') {
-    const identity = result.intent.descriptor.identity;
+    const identity = evmGraphDeliveryTermsV1(result.intent.descriptor).identity;
     need(identity.genesisHash === rule.genesis && identity.shareIdentity === rule.asset
       && identity.ledgerNamespace === policy.ledgerNamespace, 'EVM_DESCRIPTOR_DOMAIN');
   }

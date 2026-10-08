@@ -12,8 +12,8 @@ import { signature as lowSignature } from '../../../../../engine/src/notes/priva
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { decodeCanonicalEvmTransaction } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import { assertOwnedEvmVaultDeliveryObserver, assertOwnedEvmVaultDeliveryFacts }
-  from '../../../chains/evm/vault/evm-vault-delivery-observer.mjs';
+import { assertOwnedEvmGraphDeliveryObserverV1, assertOwnedEvmGraphDeliveryFactsV1 }
+  from '../../../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
 import { nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import { checkpointAuthorizationFrame, checkpointAuthorizationDigest, assertCheckpointAuthorizationValid,
   revocationFrame, revocationMessage, assertRevocationAuthorizationValid, nativeHubSignatureToAbi,
@@ -105,7 +105,7 @@ function assertNativeCapabilities(binding) {
   for (const family of binding.families) {
     if (family === '1') assertOwnedBitcoinRuntime(binding.bitcoin);
     else if (family === '2') assertOwnedSolanaRuntime(binding.solana);
-    else assertOwnedEvmVaultDeliveryObserver(binding.evmDelivery, {
+    else assertOwnedEvmGraphDeliveryObserverV1(binding.evmDelivery, {
       runtime: binding.runtime, system: binding.system, poolIndex: binding.evmPoolIndex });
   }
 }
@@ -496,7 +496,7 @@ function createFlatOperator(input, custody, recovered = null) {
           const binding = copy(property.value);
           exactRecord(binding, ['poolIndex', 'recipientIndex', 'genesis', 'asset', 'sourceEndpoint', 'destinationEndpoint']);
           evmPoolIndex = poolIndex(binding.poolIndex);
-          assertOwnedEvmVaultDeliveryObserver(evmDelivery, { runtime, system, poolIndex: evmPoolIndex });
+          assertOwnedEvmGraphDeliveryObserverV1(evmDelivery, { runtime, system, poolIndex: evmPoolIndex });
           assert.equal(binding.recipientIndex, String(evmPoolIndex), 'FLAT_OPERATOR_EVM_RECIPIENT');
           const rule = rules.find(rule => rule.family === '3');
           assert.equal(binding.genesis, rule.genesis, 'FLAT_OPERATOR_EVM_GENESIS');
@@ -528,7 +528,7 @@ function createFlatOperator(input, custody, recovered = null) {
             assert.equal(request.family, '3', 'FLAT_OPERATOR_EVM_FAMILY');
             assert.equal(request.recipientIndex, evmDelivery.binding.recipientIndex, 'FLAT_OPERATOR_EVM_RECIPIENT');
             bytes32(request.nativeId, true);
-            assertOwnedEvmVaultDeliveryObserver(evmDelivery, { runtime, system, poolIndex: evmPoolIndex });
+            assertOwnedEvmGraphDeliveryObserverV1(evmDelivery, { runtime, system, poolIndex: evmPoolIndex });
             const signed = await runtime.signedTransaction(prefix(request.nativeId));
             let decoded;
             try {
@@ -539,7 +539,7 @@ function createFlatOperator(input, custody, recovered = null) {
             } catch { return { status: 'adverse', reason: 'EVM_ORIGINAL_SIGNED_WIRE_CHANGED' }; }
             const actual = await evmDelivery.observeFacts({ transactionHash: request.nativeId,
               calldataSHA256: sha(Buffer.from(decoded.data.slice(2), 'hex')) });
-            assertOwnedEvmVaultDeliveryFacts(actual, { observer: evmDelivery });
+            assertOwnedEvmGraphDeliveryFactsV1(actual, { observer: evmDelivery });
             const observed = copy(actual);
             if (observed.status !== 'observed') {
               exactRecord(observed, ['status', 'reason']);

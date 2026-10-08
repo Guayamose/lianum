@@ -19,8 +19,8 @@ import { receiptKeyCommitment, nativeRuleCommitment, nativeCustodyCommitment, na
   validateSolanaBindingTransaction, assertMemoProgramAccount } from './native-receipt-binding.mjs';
 import { assertFlatNativeHealth } from '../health/native-health.mjs';
 import { evmFundingEndpointCommitment, validateEvmDeliveryWire } from '../../evm/dispatch/evm-facts-binding.mjs';
-import { validateEvmVaultDeliveryDescriptor, evmVaultDeliveryDescriptorCommitment,
-  encodeEvmVaultDeliveryCall } from '../../evm/vault/evm-vault-delivery.mjs';
+import { validateEvmGraphDeliveryDescriptorV1, evmGraphDeliveryDescriptorCommitmentV1,
+  encodeEvmGraphDeliveryCallV1, evmGraphDeliveryTermsV1 } from '../../evm/dispatch/evm-graph-delivery-codec-v1.mjs';
 import { assertSignedEvmTransaction, encodeCanonicalEvmUnsignedTransaction, LOCAL_EVM_PROFILE } from '../../evm/runtime/owned-evm-v2-runtime.mjs';
 import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIdentity,
@@ -122,8 +122,8 @@ export function normalizeNativeDispatchBinding(raw) {
   for (const name of ['family', 'genesis', 'asset']) assert.equal(native[name], value.rule[name], 'DISPATCH_NATIVE_DOMAIN');
   let source, destination;
   if (evm) {
-    validateEvmVaultDeliveryDescriptor(native.descriptor);
-    const identity = native.descriptor.identity;
+    validateEvmGraphDeliveryDescriptorV1(native.descriptor);
+    const identity = evmGraphDeliveryTermsV1(native.descriptor).identity;
     assert.equal(identity.genesisHash, native.genesis, 'DISPATCH_EVM_GENESIS');
     assert.equal(identity.shareIdentity, native.asset, 'DISPATCH_EVM_ASSET');
     assert.equal(identity.assetIdentity, value.domain.asset, 'DISPATCH_EVM_SOURCE_ASSET');
@@ -133,7 +133,7 @@ export function normalizeNativeDispatchBinding(raw) {
     assert.equal(native.changeEndpoint, null, 'DISPATCH_EVM_CHANGE_PADDING');
     wireHex(native.depositProof, 131072);
     source = evmFundingEndpointCommitment({ genesis: native.genesis, asset: native.asset, address: native.sourceEndpoint });
-    destination = evmVaultDeliveryDescriptorCommitment(native.descriptor);
+    destination = evmGraphDeliveryDescriptorCommitmentV1(native.descriptor);
   } else {
     source = endpoint(native.family, native.genesis, native.asset, native.sourceEndpoint);
     destination = endpoint(native.family, native.genesis, native.asset, native.destinationEndpoint);
@@ -153,9 +153,9 @@ export function normalizeNativeDispatchBinding(raw) {
   assert.equal(quoted.custodyCommitment, nativeCustodyCommitment({ family: native.family, genesis: native.genesis,
     asset: native.asset, sourceCommitment: source, destinationCommitment: destination }), 'DISPATCH_CUSTODY');
   if (evm) {
-    assert.equal(quoted.amount, native.descriptor.route.shareAmount, 'DISPATCH_EVM_EXACT_SHARES');
+    assert.equal(quoted.amount, evmGraphDeliveryTermsV1(native.descriptor).route.shareAmount, 'DISPATCH_EVM_EXACT_SHARES');
     for (const name of ['executionFrom', 'executionUntil'])
-      assert.equal(quoted[name], native.descriptor.route[name], 'DISPATCH_EVM_EXACT_WINDOW');
+      assert.equal(quoted[name], evmGraphDeliveryTermsV1(native.descriptor).route[name], 'DISPATCH_EVM_EXACT_WINDOW');
     inputUint(quoted.amount, 64);
   } else assert.ok(inputUint(quoted.amount, 128) <= (native.family === '1' ? 1_000_000_000n : BigInt(Number.MAX_SAFE_INTEGER)),
     'DISPATCH_NATIVE_AMOUNT');
@@ -320,14 +320,14 @@ export function assertNativeDispatchPrepared(rawBinding, dispatchIntent, raw) {
     const tx = value.transaction;
     exactRecord(tx, ['chainId', 'from', 'to', 'nonce', 'gasPrice', 'gas', 'value', 'data']);
     for (const name of ['chainId', 'nonce', 'gasPrice', 'gas', 'value']) inputUint(tx[name], 256);
-    assert.equal(tx.chainId, native.descriptor.identity.chainId, 'DISPATCH_EVM_CHAIN_ID');
+    assert.equal(tx.chainId, evmGraphDeliveryTermsV1(native.descriptor).identity.chainId, 'DISPATCH_EVM_CHAIN_ID');
     assert.equal(prefixedHex(tx.from, 20), native.sourceEndpoint, 'DISPATCH_EVM_SOURCE');
     assert.equal(prefixedHex(tx.to, 20), native.destinationEndpoint, 'DISPATCH_EVM_ROUTER');
     assert.equal(tx.value, '0', 'DISPATCH_EVM_NATIVE_VALUE');
     assert.equal(tx.gasPrice, '1000000000', 'DISPATCH_EVM_GAS_PRICE');
     assert.ok(BigInt(tx.gas) > 0n && BigInt(tx.gas) <= BigInt(LOCAL_EVM_PROFILE.maxGas), 'DISPATCH_EVM_GAS_LIMIT');
-    assert.equal(dispatchIntent.action.amount, native.descriptor.route.shareAmount, 'DISPATCH_EVM_EXACT_SHARES');
-    assert.equal(tx.data, encodeEvmVaultDeliveryCall({ descriptor: native.descriptor,
+    assert.equal(dispatchIntent.action.amount, evmGraphDeliveryTermsV1(native.descriptor).route.shareAmount, 'DISPATCH_EVM_EXACT_SHARES');
+    assert.equal(tx.data, encodeEvmGraphDeliveryCallV1({ descriptor: native.descriptor,
       receiptKeyCommitment: dispatchIntent.action.receiptKeyCommitment, proof: native.depositProof }), 'DISPATCH_EVM_FULL_CALLDATA');
     assert.equal(value.unsignedWire, encodeCanonicalEvmUnsignedTransaction(tx), 'DISPATCH_EVM_UNSIGNED_WIRE');
     exactRecord(value.funds, ['balanceWei', 'estimatedGas', 'targetCodeHash']);
