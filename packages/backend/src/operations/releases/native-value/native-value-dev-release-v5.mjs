@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "b7994e8bb31c6bb2064dd71bc967a079b81ba81a442ed94a50f26335350b0eb8",
+  "hostSourceClosureSHA256": "738fa585cc0c31055b392a9b378dc3f4f3be907b6f9916858193ed1d07fce848",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -282,7 +282,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "development-tooling/paired_original_account_lab.py",
-      "sha256": "9a3788081e8a75b22473b8424abff53ff154da398372e6ca96c238975e1f5cac"
+      "sha256": "de2a12498be36be6effe972aecfe1875752fbb5d3337c7497661e5fd260835b6"
     },
     {
       "path": "development-tooling/workspace.py",
