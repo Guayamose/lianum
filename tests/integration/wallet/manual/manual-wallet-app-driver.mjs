@@ -252,13 +252,24 @@ export function createManualWalletAppDriver(app, { deadlineMs }) {
     },
     async defi(method, body) {
       assert.ok(['prepare', 'execute', 'reconcile', 'reopen'].includes(method));
+      const retainedIds = method === 'reopen'
+        ? (await state()).defi.snapshot.operations.map(row => row.requestId).sort() : null;
       const prepared = await reviewed(actionName('defi', method), body), outcome = await prepared.confirm();
       const value = await state();
       if (method === 'reopen') {
         assert.equal(outcome.phase, 'REOPENED');
+        assert.equal(value.defi.snapshot.version, 1);
+        assert.equal(value.defi.snapshot.profile, 'OWNED_PRIVATE_VAULT_EXIT_V1');
+        assert.deepEqual(value.defi.snapshot.operations.map(row => row.requestId).sort(), retainedIds,
+          'MANUAL_ACCEPTANCE_REOPEN_MUST_RETAIN_ORIGINAL_REQUESTS');
         const projection = value.defi.snapshot.generationProjection;
-        assert.ok(projection.generations.every(row => row.status === 'AVAILABLE' && Array.isArray(row.requestIds)));
-        return { reopened: true, originalIdentitiesRetained: true, keeperRestart: false, generationProjection: projection };
+        if (projection !== undefined) {
+          assert.equal(projection.version, 1);
+          assert.equal(projection.profile, 'OWNED_GENERATION_PRIVATE_VAULT_EXITS_V1');
+          assert.ok(projection.generations.every(row => row.status === 'AVAILABLE' && Array.isArray(row.requestIds)));
+        }
+        return { reopened: true, originalIdentitiesRetained: true, keeperRestart: false,
+          requestIds: retainedIds, ...(projection === undefined ? {} : { generationProjection: projection }) };
       }
       const originals = value.defi.snapshot.operations.filter(row => row.requestId === body.requestId);
       assert.equal(originals.length, 1, 'MANUAL_ACCEPTANCE_ORIGINAL_REDEMPTION_REQUIRED');

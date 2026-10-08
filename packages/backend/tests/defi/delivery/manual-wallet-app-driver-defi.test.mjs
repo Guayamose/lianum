@@ -238,6 +238,23 @@ test('new fixed acceptance driver uses SDK and exact grants for original generat
  for (const action of ['defiPrepare','defiExecute','defiReconcile','defiReopen'])
    assert.ok(driver.evidence().some(row => row.action === action && row.check === 'USED_EXACT_GRANT_REJECTED'));
 });
+test('a single original DeFi service reopens without inventing a generation projection or repeating redemption', async t => {
+ const f = await joined(1), w = f.worlds[0];
+ const app = await startWalletApplication({ accountSession: f.session,
+   defiExit: { runtime: f.runtime, service: w.service }, actionAccessMode: 'exact-only' });
+ t.after(async () => { await app.close(); await f.session.close(); });
+ const driver = createManualWalletAppDriver(app, { deadlineMs: Date.now() + 20_000 });
+ assert.equal((await driver.defi('prepare', w.prepare)).phase, 'READY_TO_REDEEM');
+ assert.equal((await driver.defi('execute', { requestId: w.requestId })).phase, 'REDEEMED');
+ const reopened = await driver.defi('reopen', {});
+ assert.equal(reopened.reopened, true);
+ assert.deepEqual(reopened.requestIds, [w.requestId]);
+ assert.equal(Object.hasOwn(reopened, 'generationProjection'), false);
+ assert.equal((await driver.defi('reconcile', { requestId: w.requestId })).phase, 'REDEEMED');
+ await driver.duplicateDefiExecute(w.requestId);
+ assert.equal(w.sends, 1); assert.equal(w.preparations, 1);
+ assert.ok(driver.evidence().some(row => row.action === 'defiReopen' && row.check === 'USED_EXACT_GRANT_REJECTED'));
+});
 test('lost original DeFi send remains one original UNKNOWN send, never an SDK automatic resend', async t => {
  const f = await joined(1), w = f.worlds[0];
  const app = await startWalletApplication({ accountSession: f.session, defiExit: { runtime: f.runtime, service: f.service }, actionAccessMode: 'exact-only' });
