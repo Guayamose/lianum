@@ -6,7 +6,7 @@ import { validNativeNoteReview } from '../features/claims/native-note-review.mjs
 import { EXACT_BROWSER_ACTIONS, exactBrowserReview, exactBrowserAccess } from '../features/accounts/exact-action-browser-review.mjs';
 import { HANDOFF_PROFILE, handoffDescriptor, manualReviewRequest, sameHandoff, handoffData, validateManualHandoffMetadata } from '../features/accounts/manual-action-handoff.mjs';
 import { validateGenerationDefiRead, projectGenerationDefiRead } from '../features/defi/generation-defi-contract.mjs';
-import { GENERATION_PORTFOLIO_PROFILE, validateFlatOwnerReadPayload, ownerPortfolioAssetRows, ownerPortfolioGenerations } from '../features/portfolio/owner-portfolio-contract.mjs';
+import { GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SPL_USDC_UNITS_V1, validateFlatOwnerReadPayload, ownerPortfolioAssetRows, ownerPortfolioGenerations } from '../features/portfolio/owner-portfolio-contract.mjs';
 /** Browser-only presentation and fixed-route transport. No authority, keys or persistence. */
 export const WALLET_PROFILE = 'ACTIVE_FLAT_WALLET_APP_V1';
 export const ACTIONS = Object.freeze({
@@ -416,23 +416,33 @@ export function accountReviewDetails(context) {
 /** Configuration from the authenticated session, never a portfolio asset lookup or a custody observation. */
 export function originalNativeIdentity(nativeClaims) {
   const value = nativeClaims?.identity;
-  if (!record(value) || Object.keys(value).sort().join(',') !== [...nativeIdentityKeys].sort().join(',')
+  const spl = record(value) && (Object.hasOwn(value, 'nativeAssetKind') || Object.hasOwn(value, 'mint'));
+  const identityKeys = spl ? [...nativeIdentityKeys, 'nativeAssetKind', 'mint'] : nativeIdentityKeys;
+  if (!record(value) || Object.keys(value).sort().join(',') !== [...identityKeys].sort().join(',')
     || value.version !== 1 || ![NATIVE_IDENTITY_PROFILE, WRAPPED_CLAIM_IDENTITY_PROFILE].includes(value.profile) || !validId(value.accountId)
     || value.observation !== 'ORIGINAL_BOUND_CONFIGURATION_ONLY'
     || !['claimDomain', 'nativeGenesis', 'nativeAsset', 'wrapperAssetIdentity'].every(key => digest(value[key]))
     || value.nativeAsset === value.wrapperAssetIdentity) return null;
-  const family = value.nativeFamily === '1' ? ['cBTC', 'BTC', 8, 'satoshi']
+  if (spl && (value.profile !== NATIVE_IDENTITY_PROFILE || value.nativeFamily !== '2'
+    || value.nativeAssetKind !== ORIGINAL_SPL_USDC_UNITS_V1.nativeAssetKind
+    || value.mint !== ORIGINAL_SPL_USDC_UNITS_V1.mint)) return null;
+  const family = spl ? ['cUSDC', 'USDC', 6, 'micro-USDC']
+    : value.nativeFamily === '1' ? ['cBTC', 'BTC', 8, 'satoshi']
     : value.nativeFamily === '2' ? ['cSOL', 'SOL', 9, 'lamport'] : null;
   if (!family || ['claimSymbol', 'nativeSymbol', 'decimals', 'atomicUnit'].some((key, index) => value[key] !== family[index])) return null;
   for (const key of ['deposits', 'tickets']) if (Array.isArray(nativeClaims.owner?.[key])
     && nativeClaims.owner[key].some(row => !record(row) || row.claimDomain !== value.claimDomain)) return null;
-  return Object.fromEntries(nativeIdentityKeys.map(key => [key, value[key]]));
+  return Object.fromEntries(identityKeys.map(key => [key, value[key]]));
 }
-const sameNativeIdentity = (a, b) => a !== null && b !== null && nativeIdentityKeys.every(key => a[key] === b[key]);
+const sameNativeIdentity = (a, b) => a !== null && b !== null
+  && [...nativeIdentityKeys, 'nativeAssetKind', 'mint'].every(key => a[key] === b[key]);
 export function nativeIdentityDetails(identity) {
   if (!identity) return [['Identidad de la sesión', 'No disponible; no se infiere del portafolio']];
   return [['Activo vinculado', `${identity.claimSymbol} / ${identity.nativeSymbol}`],
-    ['Unidad atómica', `${identity.atomicUnit} · ${identity.decimals} decimales`], ['Cuenta original', identity.accountId],
+    ['Unidad atómica', `${identity.atomicUnit} · ${identity.decimals} decimales`],
+    ...(identity.nativeAssetKind === ORIGINAL_SPL_USDC_UNITS_V1.nativeAssetKind ? [
+      ['Mint SPL vinculado', identity.mint], ['Comisión separada', 'SOL · lamport · 9 decimales; no forma parte del principal USDC'],
+    ] : []), ['Cuenta original', identity.accountId],
     ['Dominio completo', identity.claimDomain], ['Génesis nativo', identity.nativeGenesis],
     ['Identidad nativa', identity.nativeAsset], ['Identidad wrapper (no assetId)', identity.wrapperAssetIdentity],
     ['Observación', 'Solo configuración original; no acredita custodia actual ni saldo gastable']];
@@ -443,7 +453,10 @@ export function nativeAmountDetails(action, body, nativeClaims) {
   const value = (amount, symbol) => atomic(amount) === null ? 'No disponible; no equivale a cero'
     : `${amount} ${identity.atomicUnit} · ${displayUnits(amount, identity.decimals)} ${symbol} (exacto)`;
   if (action === 'redeem') return [['Importe del claim', value(body.amount, identity.claimSymbol)],
-    ['Comisión máxima nativa', value(body.maxFee, identity.nativeSymbol)]];
+    ['Comisión máxima nativa', identity.nativeAssetKind === ORIGINAL_SPL_USDC_UNITS_V1.nativeAssetKind
+      ? atomic(body.maxFee) === null ? 'No disponible; no equivale a cero'
+        : `${body.maxFee} lamport · ${displayUnits(body.maxFee, 9)} SOL (exacto)`
+      : value(body.maxFee, identity.nativeSymbol)]];
   if (action === 'deposit' || action === 'refund') {
     const intent = Array.isArray(nativeClaims.owner?.deposits) ? nativeClaims.owner.deposits.find(row => row.intentId === body.intentId) : null;
     return [['Importe del intent original', value(intent?.amount, identity.nativeSymbol)]];
@@ -597,13 +610,20 @@ export function projectWalletState(value, { stale = false, reading = false, send
       backing: item.backing ?? null };
   });
   const lookup = id => assets.find(asset => asset.id === id);
-  const nativeClaims = componentPortfolios.flatMap(part => rows(part.nativeClaims)).filter(item => item.kind === 'CUSTODIAL_NATIVE_CLAIM').map(item => ({
-    assetId: text(item.assetId, ''), nativeSymbol: text(item.nativeSymbol, 'Nativo'),
-    symbol: lookup(item.assetId)?.symbol ?? 'Claim', amount: atomic(item.availablePrivateClaims),
-    custody: stale || portfolioStale ? 'STALE' : text(item.custodyObservation),
-    nativeSelfCustody: false, underlyingSpendable: false,
-    diagnostic: text(item.custodyDiagnostic?.code, ''),
-  }));
+  const nativeClaims = componentPortfolios.flatMap(part => rows(part.nativeClaims)).filter(item => item.kind === 'CUSTODIAL_NATIVE_CLAIM').map(item => {
+    const asset = lookup(item.assetId), typed = ['nativeAssetKind', 'decimals', 'atomicUnit', 'mint'].some(key => Object.hasOwn(item, key));
+    const spl = typed && ['nativeAssetKind', 'decimals', 'atomicUnit', 'mint', 'nativeSymbol']
+      .every(key => item[key] === ORIGINAL_SPL_USDC_UNITS_V1[key]) && asset?.symbol === 'CUSDC' && asset?.decimals === 6;
+    const valid = !typed || spl, amount = valid ? atomic(item.availablePrivateClaims) : null;
+    return { assetId: text(item.assetId, ''), nativeSymbol: valid ? text(item.nativeSymbol, 'Nativo') : 'Nativo',
+      symbol: asset?.symbol ?? 'Claim', amount,
+      custody: !valid ? 'UNAVAILABLE' : stale || portfolioStale ? 'STALE' : text(item.custodyObservation),
+      ...(spl ? { nativeAssetKind: item.nativeAssetKind, mint: item.mint, decimals: 6,
+        atomicUnit: item.atomicUnit, display: displayUnits(amount, 6) } : {}),
+      nativeSelfCustody: false, underlyingSpendable: false,
+      diagnostic: valid ? text(item.custodyDiagnostic?.code, '') : 'CLAIM_PORTFOLIO_ASSET_METADATA_UNAVAILABLE',
+    };
+  });
   const positions = componentPortfolios.flatMap(part => rows(part.positions)).filter(item => item.kind === 'ERC4626_SHARE').map(item => {
     const safe = item.underlyingSpendable === false;
     const current = safe && item.status === 'LIVE' && !stale && !portfolioStale && portfolio.status === 'LIVE' && portfolio.coherent === true;

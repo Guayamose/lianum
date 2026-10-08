@@ -3,6 +3,12 @@
  * Browser and Node consume JSON transport payloads, never live capabilities. */
 const INVALID = 'FLAT_ACCOUNT_OWNER_CLIENT_RESPONSE_INVALID';
 const PORTFOLIO = 'OWNED_FLAT_PRIVATE_PORTFOLIO_V1';
+/** Fixed presentation of the original owned SPL custody asset. These labels
+ * authenticate no mint, chain state, custody, private credit or spend authority. */
+export const ORIGINAL_SPL_USDC_UNITS_V1 = Object.freeze({ nativeAssetKind: 'SOLANA_SPL_USDC',
+  mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', claimSymbol: 'cUSDC',
+  nativeSymbol: 'USDC', decimals: 6, atomicUnit: 'micro-USDC' });
+const splPositionFields = ['nativeAssetKind', 'decimals', 'atomicUnit', 'mint'];
 const labels = /^(?:FLAT|CLAIM|NATIVE_CLAIM|COMBINED_OPERATOR|OPERATOR_NATIVE|SOLANA|BITCOIN|LOCAL_EVM|ROLE_CLIENT|PW|VAULT|NATIVE|COMMITMENT)_[A-Z0-9_]{1,100}$/;
 const limitations = Object.freeze({ source: 'HOST_REPORTED', chainVerifiedByClient: false,
   proofsVerifiedByClient: false, nativeSelfCustodyEstablished: false, crossAssetTotalsProvided: false });
@@ -73,10 +79,15 @@ function nativeClaims(value, portfolio) {
   const ids = new Set();
   for (const row of value) {
     record(row, ['kind', 'assetId', 'nativeSymbol', 'nativeGenesis', 'availablePrivateClaims', 'custodyObservation',
-      'nativeSelfCustody', 'underlyingSpendable', 'redemption', 'independentOperators', 'assurance'], ['custodyDiagnostic']);
+      'nativeSelfCustody', 'underlyingSpendable', 'redemption', 'independentOperators', 'assurance'], ['custodyDiagnostic', ...splPositionFields]);
     digest(row.assetId); digest(row.nativeGenesis); need(!ids.has(row.assetId)); ids.add(row.assetId);
     const asset = portfolio.assets.find(asset => asset.asset.assetId === row.assetId); need(asset);
-    need(row.kind === 'CUSTODIAL_NATIVE_CLAIM' && ['BTC', 'SOL'].includes(row.nativeSymbol));
+    need(row.kind === 'CUSTODIAL_NATIVE_CLAIM');
+    if (splPositionFields.some(key => Object.hasOwn(row, key))) {
+      need(splPositionFields.every(key => Object.hasOwn(row, key) && row[key] === ORIGINAL_SPL_USDC_UNITS_V1[key]));
+      need(row.nativeSymbol === ORIGINAL_SPL_USDC_UNITS_V1.nativeSymbol
+        && asset.asset.symbol === 'CUSDC' && asset.asset.decimals === ORIGINAL_SPL_USDC_UNITS_V1.decimals);
+    } else need(['BTC', 'SOL'].includes(row.nativeSymbol));
     need(row.nativeSelfCustody === false && row.underlyingSpendable === false && row.independentOperators === false);
     need(row.redemption === 'EXPLICIT_BURN_TICKET_AND_ORIGINAL_NATIVE_DELIVERY');
     need(row.assurance === 'LOCAL_THREE_OF_FOUR_OBSERVATIONS_WITH_COMMON_HOST_AND_NATIVE_CUSTODIAN_TRUST');

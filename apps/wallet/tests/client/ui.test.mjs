@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { validateFlatOwnerReadPayload, GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SPL_USDC_UNITS_V1 } from '../../src/client/features/portfolio/owner-portfolio-contract.mjs';
 import { ACTIONS, DEFI_ACTIONS, ACCOUNT_ACTIONS, DEFI_PROFILE, WALLET_PROFILE, atomic, displayUnits, validateWalletState, projectWalletState,
   buildActionBody, actionReview, createWalletClient, NATIVE_IDENTITY_PROFILE, originalNativeIdentity,
   nativeIdentityDetails, nativeAmountDetails, accountAssetChoices, accountActionContext, accountReviewDetails } from '../../src/client/state/view-model.mjs';
@@ -811,4 +812,107 @@ test('transfer UI renders retained statuses with safe full-identity text and no 
   assert.match(renderer, /IMPORTE DE LA TRANSACCIÓN ORIGINAL/); assert.match(renderer, /transfer\.networkId/);
   assert.match(renderer, /transfer\.nativeId/); assert.match(renderer, /transfer\.from/); assert.match(renderer, /transfer\.to/);
   assert.doesNotMatch(renderer, /innerHTML|fetch\(|client\.confirm|client\.review|setInterval|currentFinalityVerified: true/);
+});
+
+/** HOST parsed-data transport only. No native validator, deposit, swap,
+ * principal mint, proof, custody check or signing is simulated as acceptance. */
+function splUsdcWallet() {
+  const observed = { blockNumber: '42', blockHash: 'e'.repeat(64), timestamp: '1000', observedAt: 1000 };
+  const btc = asset({ asset: { assetId: 'a'.repeat(64), symbol: 'CBTC', decimals: 8 },
+    balances: { available: '80000', reserved: '0', recovery: '0', locked: '0' },
+    backing: { held: '80000', liabilities: '80000', surplus: '0', deficit: '0' } });
+  const usdc = asset({ asset: { assetId: 'b'.repeat(64), symbol: 'CUSDC', decimals: 6 },
+    balances: { available: '9007199254740993', reserved: '0', recovery: '0', locked: '0' },
+    backing: { held: '9007199254740993', liabilities: '9007199254740993', surplus: '0', deficit: '0' } });
+  const custody = (row, nativeSymbol) => ({ kind: 'CUSTODIAL_NATIVE_CLAIM', assetId: row.asset.assetId, nativeSymbol,
+    nativeGenesis: '6'.repeat(64), availablePrivateClaims: row.balances.available, custodyObservation: 'CURRENT_QUORUM',
+    nativeSelfCustody: false, underlyingSpendable: false, redemption: 'EXPLICIT_BURN_TICKET_AND_ORIGINAL_NATIVE_DELIVERY',
+    independentOperators: false, assurance: 'LOCAL_THREE_OF_FOUR_OBSERVATIONS_WITH_COMMON_HOST_AND_NATIVE_CUSTODIAN_TRUST' });
+  const component = (row, position) => ({ version: 1, profile: 'OWNED_FLAT_PRIVATE_PORTFOLIO_V1', status: 'LIVE', coherent: true,
+    observed: structuredClone(observed), assets: [row], nativeClaims: [position], capabilities: { coordinatorRestart: true,
+      keeperRestart: false, crossAssetAtomicConversion: false, privateDeFiComposability: false, fullWalletAcceptance: false } });
+  const splPosition = { ...custody(usdc, 'USDC'), nativeAssetKind: 'SOLANA_SPL_USDC', decimals: 6, atomicUnit: 'micro-USDC',
+    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' };
+  const generations = [component(btc, custody(btc, 'BTC')), component(usdc, splPosition)].map((portfolio, index) => ({
+    generationId: String(index + 1).repeat(64), routes: [{ assetId: portfolio.assets[0].asset.assetId,
+      pool: String(index + 3).repeat(40), domainCommitment: String(index + 4).repeat(64) }], portfolio, errorCode: null }));
+  const portfolio = { version: 2, profile: GENERATION_PORTFOLIO_PROFILE, status: 'LIVE', coherent: true, observed,
+    generations, capabilities: { coordinatorRestart: true, keeperRestart: false, nodeRestart: false,
+      privateBalancesAggregated: false, implicitNoteMigration: false, fullWalletAcceptance: false } };
+  const identity = { ...solIdentity(), claimSymbol: 'cUSDC', nativeSymbol: 'USDC', decimals: 6, atomicUnit: 'micro-USDC',
+    nativeAssetKind: splPosition.nativeAssetKind, mint: splPosition.mint };
+  return fixture({ portfolio, nativeClaims: { ...fixture().nativeClaims, identity } });
+}
+
+test('SPL USDC owner wallet preserves exact distinct principal, SOL fees and original UNKNOWN reconciliation', async () => {
+  const value = splUsdcWallet(), before = structuredClone(value);
+  assert.equal(ORIGINAL_SPL_USDC_UNITS_V1.mint, value.nativeClaims.identity.mint);
+  validateFlatOwnerReadPayload(value.portfolio); validateWalletState(value);
+  const view = projectWalletState(value);
+  assert.deepEqual(view.assets.map(row => [row.symbol, row.decimals, row.balances.available]),
+    [['CBTC', 8, '80000'], ['CUSDC', 6, '9007199254740993']]);
+  const spl = view.nativeClaims.find(row => row.nativeSymbol === 'USDC');
+  assert.equal(spl.amount, '9007199254740993'); assert.equal(spl.display, '9007199254.740993');
+  assert.equal(spl.mint, value.nativeClaims.identity.mint); assert.equal(spl.custody, 'CURRENT_QUORUM');
+  assert.equal(spl.underlyingSpendable, false); assert.equal(spl.nativeSelfCustody, false);
+  assert.equal(Object.hasOwn(view, 'totalBalance'), false);
+  const body = { requestId: 'original_usdc_redemption_01', amount: '9007199254740993', maxFee: '5000' };
+  const details = nativeAmountDetails('redeem', body, value.nativeClaims);
+  assert.deepEqual(details, [['Importe del claim', '9007199254740993 micro-USDC · 9007199254.740993 cUSDC (exacto)'],
+    ['Comisión máxima nativa', '5000 lamport · 0.000005 SOL (exacto)']]);
+  assert.match(nativeIdentityDetails(view.nativeIdentity).flat().join(' '), /Mint SPL vinculado.*EPjF.*Comisión separada.*SOL/);
+  let current = value; const calls = [];
+  const client = makeClient(async (path, options) => {
+    calls.push({ path, method: options.method, body: options.body });
+    if (options.method === 'GET') return reply(current);
+    throw Error('HOST_LOST_ORIGINAL_REPLY');
+  });
+  assert.equal(await client.refresh(), true); assert.equal(client.can('redeem'), true);
+  const review = client.review('redeem', body);
+  assert.deepEqual(review.nativeIdentity, value.nativeClaims.identity); assert.deepEqual(review.nativeAmounts, details);
+  assert.equal(await client.confirm(), false); assert.equal(client.getState().outcome.state, 'UNKNOWN');
+  assert.equal(calls.filter(row => row.method === 'POST').length, 1);
+  assert.equal(calls.at(-1).path, '/api/wallet/native/redeem'); assert.deepEqual(JSON.parse(calls.at(-1).body), body);
+  assert.equal(client.can('redeem'), false); assert.equal(await client.confirm(), false);
+  current = structuredClone(value);
+  current.nativeClaims.snapshot.requests = [{ requestId: body.requestId, action: 'redeem', state: 'RECONCILIATION_REQUIRED', errorCode: null }];
+  assert.equal(await client.refresh(), true); assert.equal(client.can('reconcile'), true);
+  assert.deepEqual(client.review('reconcile', { requestId: body.requestId }).body, { requestId: body.requestId });
+  assert.equal(calls.filter(row => row.method === 'POST').length, 1, 'NO_AUTOMATIC_REPLACEMENT_OR_REPLAY');
+  assert.deepEqual(value, before, 'PARSED_PRESENTATION_NEVER_MUTATES_ORIGINAL_FUNDS_OR_STATE');
+});
+
+test('SPL USDC wallet rejects mint/unit/relabel and partial schemas while retaining unavailable custody as unknown', async () => {
+  const original = splUsdcWallet(), row = value => value.portfolio.generations[1].portfolio.nativeClaims[0];
+  for (const mutate of [
+    value => { row(value).mint = 'So11111111111111111111111111111111111111112'; },
+    value => { row(value).decimals = 9; }, value => { row(value).atomicUnit = 'lamport'; },
+    value => { delete row(value).nativeAssetKind; },
+    value => { value.portfolio.generations[1].portfolio.assets[0].asset.symbol = 'CSOL'; },
+  ]) {
+    const value = structuredClone(original); mutate(value);
+    assert.throws(() => validateFlatOwnerReadPayload(value.portfolio), /RESPONSE_INVALID/);
+    assert.throws(() => validateWalletState(value), /RESPONSE_INVALID/);
+    const projection = projectWalletState(value).nativeClaims.find(item => item.assetId === 'b'.repeat(64));
+    assert.equal(projection.amount, null); assert.equal(projection.custody, 'UNAVAILABLE');
+  }
+  for (const identity of [
+    { ...original.nativeClaims.identity, mint: 'So11111111111111111111111111111111111111112' },
+    { ...original.nativeClaims.identity, nativeFamily: '1' }, { ...original.nativeClaims.identity, decimals: 9 },
+    { ...original.nativeClaims.identity, profile: 'ORIGINAL_WRAPPED_CLAIM_SESSION_IDENTITY_V1' },
+    { ...original.nativeClaims.identity, atomicUnit: 'lamport' },
+    (({ mint, ...value }) => value)(original.nativeClaims.identity),
+    { ...original.nativeClaims.identity, callerEndpoint: 'https://caller.invalid' },
+  ]) assert.equal(originalNativeIdentity({ identity }), null);
+  const unavailable = structuredClone(original); row(unavailable).custodyObservation = 'UNAVAILABLE';
+  row(unavailable).custodyDiagnostic = { code: 'CLAIM_PORTFOLIO_CUSTODY_UNAVAILABLE', causeCode: null, causeCodes: [] };
+  validateWalletState(unavailable); const claim = projectWalletState(unavailable).nativeClaims.find(item => item.nativeSymbol === 'USDC');
+  assert.equal(claim.amount, row(unavailable).availablePrivateClaims, 'NOTE_OWNERSHIP_REMAINS_SEPARATE_FROM_CUSTODY');
+  assert.equal(claim.custody, 'UNAVAILABLE'); assert.equal(claim.underlyingSpendable, false);
+  assert.equal(projectWalletState(unavailable, { stale: true }).nativeClaims[1].custody, 'STALE');
+  const noIdentity = structuredClone(original); noIdentity.nativeClaims.identity = null;
+  const client = makeClient(async () => reply(noIdentity)); await client.refresh();
+  assert.equal(client.can('redeem'), false); assert.equal(client.can('reconcile'), true);
+  assert.deepEqual(originalNativeIdentity(fixture().nativeClaims), nativeIdentity());
+  assert.deepEqual(originalNativeIdentity({ identity: solIdentity() }), solIdentity());
 });

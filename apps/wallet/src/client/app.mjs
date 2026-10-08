@@ -136,7 +136,9 @@ function renderNative(state, view) {
     const card = node('article', 'native-card'); const head = node('div', 'card-heading');
     head.append(node('h3', '', `${claim.nativeSymbol} · claim custodial`), badge(claim.custody)); card.append(head);
     card.append(node('p', 'small', `Wrapper privado: ${claim.symbol}`));
-    exactAmount(card, claim.amount, 'unidades atómicas de claim privado');
+    exactAmount(card, claim.amount, claim.atomicUnit ? `${claim.atomicUnit} · ${claim.decimals} decimales de claim privado` : 'unidades atómicas de claim privado',
+      claim.display === undefined || claim.display === null ? null : `${claim.display} ${claim.symbol}`);
+    if (claim.mint) card.append(node('p', 'small mono', `Mint SPL: ${claim.mint}`));
     card.append(node('p', 'footnote', 'Sin autocustodia nativa · subyacente no gastable desde aquí'));
     if (claim.diagnostic) card.append(node('p', 'inline-warning mono', claim.diagnostic)); cards.append(card);
   }
