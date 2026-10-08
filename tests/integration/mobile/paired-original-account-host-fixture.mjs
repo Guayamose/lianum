@@ -77,7 +77,7 @@ export function device() {
     return bytes.toString('hex');
   } };
 }
-export async function fixture(t, { execute = true, kind = 'TOP_UP', role = kind === 'EXIT' ? 'source' : null } = {}) {
+export async function fixture(t, { execute = true, kind = 'TOP_UP', role = kind === 'EXIT' ? 'source' : null, nativeExecution = null } = {}) {
   assert.ok(kind === 'TOP_UP' || kind === 'EXIT');
   assert.ok(!execute || kind === 'TOP_UP', 'HOST_EXIT_EXECUTION_FORBIDDEN');
   const ownerKind = kind === 'TOP_UP' ? 'deposit' : 'withdraw_' + role;
@@ -114,7 +114,7 @@ export async function fixture(t, { execute = true, kind = 'TOP_UP', role = kind 
   owner: { async bindSubmission() { return { dispatchAllowed: true }; } } };
   worlds.set(world.runtime, world); systems.set(world.system, world); owners.set(world.owner, world);
   const account = await createNativeValueAccountAuthority({ runtime: world.runtime, system: world.system, poolIndex: 0,
-    owner: world.owner, nativeExecution: null, accountId: 'original_mobile_host_account', journalId: 'original_mobile_host_journal' });
+    owner: world.owner, nativeExecution, accountId: 'original_mobile_host_account', journalId: 'original_mobile_host_journal' });
   const body = { requestId: 'original_mobile_host_request', kind, ownerOperationRef: h('original request'), assetId: account.assetId };
   if (kind === 'TOP_UP') await account.ownerActions.registerTopUp(body.ownerOperationRef);
   else await account.ownerActions.registerExit(body.ownerOperationRef, role);

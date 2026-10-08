@@ -141,6 +141,13 @@ export function consumeDeviceOwnerExecutionInstallationV1(bridge,account){assert
   row.installationConsumed=true;return{reservationBridge:row.reservationBridge,nativeExecution:row.nativeExecution,providers:row.providers,descriptor:row.descriptor};}
 export function deviceOwnerExecutionBridgeActorV1(bridge){assert.equal(arguments.length,1);assert.ok(!types.isProxy(bridge));
   const row=bridges.get(bridge);assert.ok(row,'DEVICE_EXECUTION_ORIGINAL_BRIDGE');row.original();return row.actor;}
+/** Transport composition authenticates the SAME retained U/S bridge. This
+ * reveals no executor/providers and cannot issue an economic authorization. */
+export function assertDeviceOwnerExecutionTransportBindingsV1(bridge,reservationBridge){
+  assert.equal(arguments.length,2);assert.ok(!types.isProxy(bridge)&&!types.isProxy(reservationBridge));
+  const row=bridges.get(bridge);assert.ok(row&&row.reservationBridge===reservationBridge,'DEVICE_EXECUTION_TRANSPORT_BRIDGE_CHANGED');
+  row.original();assert.equal(deviceOwnerReservationBridgeActorV1(reservationBridge),row.actor,'DEVICE_EXECUTION_TRANSPORT_ACTOR_CHANGED');
+}
 export function consumeDeviceOwnerExecutionAuthorizationV1(bridge,cap,account){assert.equal(arguments.length,3);
   assertDeviceOwnerExecutionBridgeV1(bridge,account);assert.ok(!types.isProxy(cap));const row=admissions.get(cap);
   assert.ok(row&&!row.consumed&&row.bridge===bridge&&row.account===account,'DEVICE_EXECUTION_ORIGINAL_ADMISSION');row.consumed=true;return row;}

@@ -10,7 +10,7 @@ import { types } from 'node:util';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
 import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {deviceOwnerExecutionBridgeActorV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
@@ -135,6 +135,28 @@ export async function createPairedDeviceExecutionTlsServerV1(input){
   const host=names.includes('host')?input.host:'127.0.0.1';if(!['127.0.0.1','0.0.0.0'].includes(host))fail('MOBILE_ORIGINAL_TLS_CONFIGURATION');
   const descriptor=pairedOriginalAccountActorDescriptorV2(actor),tls=tlsMaterial(input.tls,descriptor);
   try{return await startOriginalTransport(actor,tls,host,null,input.reservationBridge,input.bridge);}finally{tls.privateKey.fill(0);}
+}
+/** One long-lived local service for the app's existing D26/U/S/native/W39
+ * clients. Only ORIGINAL same-account bridges installed before S are accepted.
+ * This fixed composition uses the existing dispatcher/budgets/TLS/consents;
+ * no SQL executor, bridge ID, handler callback or remote bootstrap exists. */
+export async function createPairedDeviceAccountTlsServerV1(input) {
+  if (arguments.length !== 1) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const names = input && !types.isProxy(input) && Object.hasOwn(input, 'host')
+    ? ['depositBridge', 'reservationBridge', 'executionBridge', 'tls', 'host']
+    : ['depositBridge', 'reservationBridge', 'executionBridge', 'tls'];
+  exactInput(input, names);
+  const actor = deviceOwnerDepositBridgeActorV1(input.depositBridge);
+  if (actor !== deviceOwnerReservationBridgeActorV1(input.reservationBridge)
+    || actor !== deviceOwnerExecutionBridgeActorV1(input.executionBridge))
+    fail('MOBILE_ORIGINAL_EXECUTION_ACTOR_CHANGED');
+  assertDeviceOwnerExecutionTransportBindingsV1(input.executionBridge, input.reservationBridge);
+  const host = names.includes('host') ? input.host : '127.0.0.1';
+  if (!['127.0.0.1', '0.0.0.0'].includes(host)) fail('MOBILE_ORIGINAL_TLS_CONFIGURATION');
+  const descriptor = pairedOriginalAccountActorDescriptorV2(actor), tls = tlsMaterial(input.tls, descriptor);
+  try { return await startOriginalTransport(actor, tls, host,
+    input.depositBridge, input.reservationBridge, input.executionBridge); }
+  finally { tls.privateKey.fill(0); }
 }
 /** Retire only an ORIGINAL D26 TLS listener for its fixed U/S continuation.
  * Its private retained lease follows the same actor; it never grants an account,
@@ -290,12 +312,33 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
   const address = server.address(), url = tls ? descriptor.origin : 'http://127.0.0.1:' + address.port;
   const owned = { actor, deposit: tls !== null && bridge !== null && reservationBridge === null && executionBridge === null,
     handoff: false, transferred: false, closed: () => closed, running: () => running.size, retire: closeTransport };
+  const composed = bridge !== null && reservationBridge !== null && executionBridge !== null;
+  let composedClose;
   const transport = Object.freeze({ url,
     /** Invalidates controller consents, closes only owned listener/sockets, and
      * preserves admitted original work. Its owner must await the original
      * session separately; this transport never cancels custody or native work. */
     close() {
       if (arguments.length !== 0) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+      if (composed) {
+        // Fence this listener synchronously. Already-started requests retain
+        // their original admission/work; neither HTTP close nor SQL may cancel
+        // or retry them. The original workers supply their existing deadlines.
+        if (!composedClose) {
+          const pending = [...running];
+          const network = closeTransport(); network.catch(() => {});
+          composedClose = (async () => {
+            const outcomes = await Promise.allSettled(pending);
+            bridge.close(); reservationBridge.close(); executionBridge.close();
+            actor.close(); depositContinuations.delete(actor);
+            const report = await network;
+            return Object.freeze({ ...report, originalDiagnosticsInFlight: running.size,
+              originalWorkSettled: running.size === 0,
+              originalRequestsRejected: outcomes.filter(row => row.status === 'rejected').length });
+          })();
+        }
+        return composedClose;
+      }
       if (!owned.transferred) { actor.close(); depositContinuations.delete(actor); }
       return closeTransport();
     },
