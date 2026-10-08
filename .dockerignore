@@ -9,6 +9,8 @@ apps/platform/*
 !apps/platform/package-lock.json
 !apps/platform/src
 !apps/platform/src/**
+!apps/platform/migrations
+!apps/platform/migrations/001_mobile_authorizations.sql
 !packages
 packages/*
 !packages/mobile-protocol

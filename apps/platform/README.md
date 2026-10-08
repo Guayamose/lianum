@@ -13,6 +13,8 @@ integración pendiente, con validación de propietario, keeper y operaciones.
 | --- | --- |
 | `src/server.mjs` | HTTP, esquema, desafío, firma, disponibilidad y entrada única |
 | `src/authorization-store.mjs` | Consumo y respuesta duraderos en PostgreSQL |
+| `src/schema-migrations.mjs` | Versiones, checksums, lock y validación de esquema |
+| `src/migrate.mjs` y `migrations/` | Comando explícito y SQL fijo; sin efectos económicos |
 | `src/run.mjs` | Arranque sin hooks económicos, pool acotado y cierre |
 | `src/database-pool.mjs` | Pool con plazos de espera y errores de transporte propios acotados |
 | `tests/server.test.mjs` | Validación HTTP/criptográfica con persistencia de prueba |
@@ -41,6 +43,10 @@ Si tu configuración Docker tiene helpers de registros privados que requieren
 sesión, usa un directorio independiente con `config.json` igual a
 `{"auths":{}}`, y `docker --config RUTA build ...`. El script local utiliza esa
 configuración independiente automáticamente; no modifica tus credenciales.
+
+Compose espera la salud SQL, ejecuta la migración en un contenedor separado y
+arranca la API sólo después de su éxito. El arranque normal verifica el esquema;
+no crea tablas. Las instrucciones y límites están en [migrations/README.md](migrations/README.md).
 
 La API se publica en `http://127.0.0.1:8080`. Puedes elegir otro puerto mediante
 `LIANUM_LOCAL_PORT`. PostgreSQL y API tienen límites de 256 MiB y una CPU cada
@@ -126,9 +132,9 @@ resuelve el estado económico ni habilita repetir la acción original.
 ./dev npm --prefix apps/platform run test:docker
 ```
 
-`test` ejecuta 18 pruebas host y omite explícitamente el grupo SQL real.
+`test` ejecuta 22 pruebas host y omite explícitamente el grupo SQL real.
 `test:postgres` crea PostgreSQL 17 oficial por digest, con 256 MiB, puerto
-loopback aleatorio y volumen exclusivo. Ejecuta 9 casos y su grupo (10 PASS):
+loopback aleatorio y volumen exclusivo. Ejecuta 18 casos y su grupo (19 PASS):
 JSONB, carreras de mismo/nuevo desafío, separación propietario/acción,
 términos inmutables, reinicio real de PostgreSQL/proceso HTTP y crashes antes y
 después de un contador de efecto SQL. También mantiene el proceso HTTP y su Pool de producción vivos
@@ -139,9 +145,14 @@ Una prueba retiene los bytes de respuesta de un COMMIT real: comprueba el plazo
 del cliente, UNKNOWN conservado y ausencia de dispatch. Otra consulta un permiso
 caducado mediante la API y el cliente móvil reales, y demuestra que desafíos,
 consumos y contador de efecto SQL no cambian.
+Los casos de migraciones usan bases exclusivas dentro del mismo contenedor y
+comprueban esquema nuevo, adopción legacy, concurrencia, historial inválido,
+índices únicos incompatibles, rollback, lock ocupado, COMMIT sin respuesta y
+terminación del CLI. Estas comprobaciones han pasado sobre PostgreSQL real;
+las pruebas de host de bytes o del protocolo TCP cubren ámbitos distintos.
 
-`test:docker` comprueba la imagen ya construida, usuario 1000, esquema SQL real,
-liveness 200, readiness 503 y ausencia de balances inventados. Limpia sólo sus
+`test:docker` comprueba la imagen ya construida, su migración explícita separada,
+usuario 1000, esquema SQL real, liveness 200, readiness 503 y ausencia de balances inventados. Limpia sólo sus
 contenedores y volúmenes. Los informes ignorados se escriben en
 `.internal/dev/reports/platform-postgres.json` y `platform-docker.json`.
 
@@ -150,8 +161,7 @@ contenedores y volúmenes. Los informes ignorados se escriben en
 Falta el bridge entre identidad móvil y cuenta/keeper originales; la firma de
 este permiso no sustituye validación de propiedad ni autoridad de pruebas.
 Faltan estado privado reconciliado, contratos reales con los workers, límites
-persistentes de admisión/abuso, política de retención del registro y migraciones
-SQL versionadas (el bootstrap actual crea el esquema). La entrada pública y el
+persistentes de admisión/abuso y política de retención del registro. La entrada pública y el
 worker no se habilitan por defecto en Terraform.
 
 El registro almacena identidad pública estable y términos del permiso, que

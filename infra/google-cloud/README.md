@@ -69,6 +69,10 @@ requieren revisión con la imagen real antes de habilitarlos.
    metadatos vacíos: no incluye contraseña, secret_version ni sql_user.
    Para `pg`, el URL puede expresar el socket como parámetro `host` URL-encoded;
    codifica también usuario/contraseña. No guardes ese valor en tfvars/estado.
+   Preparar por separado el comando de migración revisado de `apps/platform`
+   antes de arrancar la API: el proceso normal verifica versión/checksums y
+   nunca crea tablas. La ejecución local de ese comando no configura un job
+   ni aplica cambios en Cloud.
 5. Integrar y probar el bridge móvil → cuenta/keeper → backend → workers, con
    respuesta perdida/reinicio, estado final y privacidad real. Construir,
    verificar y publicar las imágenes reales por digest. Los flags `verified`
