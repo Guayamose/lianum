@@ -7,7 +7,8 @@ const owned = new WeakSet();
 mock.module('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs', {
   exports: { assertLocalEvm: async runtime => assert.ok(owned.has(runtime), 'SYNTHETIC_ORIGINAL_RUNTIME_REQUIRED') },
 });
-const { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools } = await import('./evm-vault-terminal-checks.mjs');
+const { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools,
+  EVM_UNISWAP_RECOVERY_RESULT, assertEvmUniswapRecoveryResult } = await import('./evm-vault-terminal-checks.mjs');
 const h = n => '0x' + n.repeat(64), address = n => '0x' + n.repeat(40), clone = structuredClone;
 const sender = address('1'), recipient = address('2'), pool = address('3'), nullifier = h('4');
 function fixture(reason = 'ASSET_INSUFFICIENT_BACKING', backing = '0') {
@@ -133,4 +134,66 @@ test('rejected payout replay preserves Uniswap reserves, liquidity and price as 
     const changed = clone(input); mutate(changed.after.accounting.uniswap);
     assert.throws(() => assertEvmVaultPayoutReplay(changed));
   }
+});
+
+// Public host metadata only. This fixture does not claim a proof or swap run.
+function recoveryFixture() {
+  const finalPools = [{ backedAmount: '0', actualAssetBalance: '0', liveReservations: 0 },
+    { backedAmount: '0', actualAssetBalance: '0', liveReservations: 0 }];
+  const result = { format: EVM_UNISWAP_RECOVERY_RESULT, phase: 'completed', success: true,
+    protocolProfile: 'OFFICIAL_UNISWAP_V3_V1', cleanup: { closedEvm: true },
+    expectedInterruptionCode: 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY', failedStage: 'native-delivered-0',
+    actualAdmissionFailureCode: 'FLAT_ACCOUNT_OPERATION_FAILED',
+    originalFailedAdmission: { action: 'execute', requestId: 'private_vault_graph', state: 'FAILED',
+      sequence: 4, errorCode: 'FLAT_ACCOUNT_OPERATION_FAILED' },
+    proofs: ['deposit_balance', 'deposit_intent', 'authorization', 'reservation', 'dependency', 'ready',
+      'recovery', 'withdraw_balance', 'withdraw_balance', 'withdraw_balance'].map(relation => ({ relation,
+      proofSHA256: '1'.repeat(64), publicInputsSHA256: '2'.repeat(64) })), nativeEffects: { evmVault: 1 },
+    originalFRecovery: { actualFProofAccepted: true, ownersAbsentAtIssuance: true, repeatedRecoveryNoEffect: true,
+      duplicateExecuteNoEffect: true, originalSwapNotResubmitted: true, swapAccountingUnchanged: true,
+      originalRequestId: 'private_vault_graph', disposition: 'RECOVERED', publicInputCount: 41, admittedReceipts: 0,
+      cutoff: '8200', publicInputCutoff: '8200', solverPayoutCommitmentIncluded: false },
+    economics: { sourceDepositAtomic: '5000000', reservedAtomic: '1200', changeAtomic: '4998800', maximumInputAtomic: '2000',
+      deliveredOutputAtomic: '1000', solverPayoutAtomic: '0', actualInputAtomic: '1004', solverBalanceBeforeDelivery: '20000000',
+      solverBalanceAfterDelivery: '19998996', solverFinalBalance: '19998996', swapIrreversible: true, targetKeepsOriginalOutput: true },
+    recoveryBalances: { source: { available: '5000000', reserved: '0', recovery: '1200', locked: '0' },
+      target: { available: '1000', reserved: '0', recovery: '0', locked: '0' },
+      sourceRefundAtomic: '1200', sourceChangeAtomic: '4998800', sourceTotalAvailableAtomic: '5000000' },
+    originalPrivateExits: { sourceRefundAtomic: '1200', sourceChangeAtomic: '4998800', sourceTotalExitedAtomic: '5000000',
+      targetOutputExitedAtomic: '1000', duplicateNoEffect: true },
+    failureRecovery: { originalCutoff: '8200', ownerAbsentAtIssuance: true, originalFailurePreserved: true,
+      sourceRefundAndChangeExited: '5000000', originalDeliveredOutputExited: '1000', solverUnderlyingLoss: '1004',
+      solverPayoutIssued: false, nativeVaultEffects: 1, finalPools }, finalPools,
+  };
+  for (const field of ['localOnly', 'fakeFundsOnly', 'sourceUnchanged', 'sourceFundingConfirmed',
+    'controlledPostDeliveryInterruption', 'expectedInterruptionPreserved', 'targetOwnerExitedBeforeDelivery',
+    'partialDeliveryRecoveryAcceptance', 'privateUniswapTimeoutRecoveryAcceptance',
+    'sourcePrivateReservationEstablished', 'privateOutputExitEstablished', 'duplicateNoEffect']) result[field] = true;
+  for (const field of ['publicNetwork', 'privateUniswapGraphAcceptance', 'privateVaultGraphAcceptance',
+    'keeperRestart', 'nodeRestart', 'systemicPrivacyAcceptance', 'independentOperators',
+    'performanceTargetAchieved', 'fullWalletAcceptance']) result[field] = false;
+  return result;
+}
+
+test('original Uniswap F metadata joins source refund/change, irreversible target EXIT and actual uncompensated solver loss', () => {
+  const value = assertEvmUniswapRecoveryResult(recoveryFixture());
+  assert.equal(value.actualFRecoveryAcceptance, true); assert.equal(value.happyPathTCompleted, false);
+  assert.equal(value.solverPayoutIssued, false); assert.equal(value.fullWalletAcceptance, false);
+});
+
+test('Uniswap F rejects extra source credit, payout, renewed cutoff, omitted loss and a duplicate swap or T proof', () => {
+  for (const mutate of [
+    result => { result.recoveryBalances.source.available = '5001200'; },
+    result => { result.economics.solverPayoutAtomic = '1200'; },
+    result => { result.economics.solverFinalBalance = '20000000'; },
+    result => { result.economics.actualInputAtomic = '0'; },
+    result => { result.originalFRecovery.publicInputCutoff = '8201'; },
+    result => { result.originalFRecovery.ownersAbsentAtIssuance = false; },
+    result => { result.originalFRecovery.admittedReceipts = 1; },
+    result => { result.originalFRecovery.solverPayoutCommitmentIncluded = true; },
+    result => { result.nativeEffects.evmVault = 2; },
+    result => { result.originalPrivateExits.targetOutputExitedAtomic = '0'; },
+    result => { result.proofs[6].relation = 'settlement'; },
+    result => { result.privateUniswapGraphAcceptance = true; },
+  ]) { const result = recoveryFixture(); mutate(result); assert.throws(() => assertEvmUniswapRecoveryResult(result)); }
 });

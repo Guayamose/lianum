@@ -129,3 +129,74 @@ export function assertEvmVaultTerminalPools(states) {
   return Object.freeze({ fundedObligations: '0', conservativeOutputCapacity: Object.freeze([3, 0]),
     paddingSpendable: false, capacityReclaimed: false, repeatedWalletRolloverAccepted: false });
 }
+
+/** Fixed original Uniswap F postconditions only. These checks confer no new
+ * proof/native authority and cannot relabel the successful T conversion. */
+export const EVM_UNISWAP_RECOVERY_RESULT = 'FLAT_WALLET_PRIVATE_UNISWAP_TIMEOUT_RECOVERY_RESULT_V1';
+export function assertEvmUniswapRecoveryResult(result) {
+  assert.equal(result.format, EVM_UNISWAP_RECOVERY_RESULT);
+  assert.equal(result.phase, 'completed'); assert.equal(result.success, true);
+  assert.equal(result.protocolProfile, 'OFFICIAL_UNISWAP_V3_V1');
+  for (const field of ['localOnly', 'fakeFundsOnly', 'sourceUnchanged', 'sourceFundingConfirmed',
+    'controlledPostDeliveryInterruption', 'expectedInterruptionPreserved', 'targetOwnerExitedBeforeDelivery',
+    'partialDeliveryRecoveryAcceptance', 'privateUniswapTimeoutRecoveryAcceptance',
+    'sourcePrivateReservationEstablished', 'privateOutputExitEstablished', 'duplicateNoEffect'])
+    assert.equal(result[field], true, field);
+  for (const field of ['publicNetwork', 'privateUniswapGraphAcceptance', 'privateVaultGraphAcceptance',
+    'keeperRestart', 'nodeRestart', 'systemicPrivacyAcceptance', 'independentOperators',
+    'performanceTargetAchieved', 'fullWalletAcceptance']) assert.equal(result[field], false, field);
+  assert.equal(result.cleanup.closedEvm, true);
+  assert.equal(result.expectedInterruptionCode, 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY');
+  assert.equal(result.failedStage, 'native-delivered-0');
+  assert.equal(result.actualAdmissionFailureCode, 'FLAT_ACCOUNT_OPERATION_FAILED');
+  const failed = result.originalFailedAdmission;
+  assert.equal(failed.action, 'execute'); assert.equal(failed.requestId, 'private_vault_graph');
+  assert.equal(failed.state, 'FAILED'); assert.equal(failed.errorCode, result.actualAdmissionFailureCode);
+  assert.ok(Number.isSafeInteger(failed.sequence) && failed.sequence > 0);
+  assert.deepEqual(result.proofs.map(row => row.relation), ['deposit_balance', 'deposit_intent', 'authorization',
+    'reservation', 'dependency', 'ready', 'recovery', 'withdraw_balance', 'withdraw_balance', 'withdraw_balance']);
+  for (const proof of result.proofs) {
+    assert.ok(match(proof.proofSHA256, /^[0-9a-f]{64}$/));
+    assert.ok(match(proof.publicInputsSHA256, /^[0-9a-f]{64}$/));
+  }
+  assert.equal(result.nativeEffects.evmVault, 1);
+  const recovery = result.originalFRecovery;
+  for (const field of ['actualFProofAccepted', 'ownersAbsentAtIssuance', 'repeatedRecoveryNoEffect',
+    'duplicateExecuteNoEffect', 'originalSwapNotResubmitted', 'swapAccountingUnchanged'])
+    assert.equal(recovery[field], true, field);
+  assert.equal(recovery.originalRequestId, 'private_vault_graph'); assert.equal(recovery.disposition, 'RECOVERED');
+  assert.equal(recovery.publicInputCount, 41); assert.equal(recovery.admittedReceipts, 0);
+  assert.equal(integer(recovery.cutoff), integer(recovery.publicInputCutoff));
+  assert.equal(recovery.solverPayoutCommitmentIncluded, false);
+  const economics = result.economics;
+  assert.equal(economics.sourceDepositAtomic, '5000000'); assert.equal(economics.reservedAtomic, '1200');
+  assert.equal(economics.changeAtomic, '4998800'); assert.equal(economics.maximumInputAtomic, '2000');
+  assert.equal(economics.deliveredOutputAtomic, '1000'); assert.equal(economics.solverPayoutAtomic, '0');
+  const spent = integer(economics.actualInputAtomic);
+  assert.ok(spent > 0n && spent <= integer(economics.maximumInputAtomic), 'UNISWAP_F_BOUNDED_ACTUAL_LOSS');
+  assert.equal(integer(economics.solverBalanceBeforeDelivery) - integer(economics.solverBalanceAfterDelivery), spent);
+  assert.equal(economics.solverFinalBalance, economics.solverBalanceAfterDelivery, 'UNISWAP_F_NO_SOLVER_COMPENSATION');
+  assert.equal(economics.swapIrreversible, true); assert.equal(economics.targetKeepsOriginalOutput, true);
+  // F refund is a provenance subset of SOURCE, never SOURCE plus another1200.
+  assert.deepEqual(result.recoveryBalances, {
+    source: { available: '5000000', reserved: '0', recovery: '1200', locked: '0' },
+    target: { available: '1000', reserved: '0', recovery: '0', locked: '0' },
+    sourceRefundAtomic: '1200', sourceChangeAtomic: '4998800', sourceTotalAvailableAtomic: '5000000',
+  });
+  assert.deepEqual(result.originalPrivateExits, { sourceRefundAtomic: '1200', sourceChangeAtomic: '4998800',
+    sourceTotalExitedAtomic: '5000000', targetOutputExitedAtomic: '1000', duplicateNoEffect: true });
+  assert.equal(result.failureRecovery.originalCutoff, recovery.cutoff);
+  for (const field of ['ownerAbsentAtIssuance', 'originalFailurePreserved']) assert.equal(result.failureRecovery[field], true);
+  assert.equal(result.failureRecovery.sourceRefundAndChangeExited, '5000000');
+  assert.equal(result.failureRecovery.originalDeliveredOutputExited, '1000');
+  assert.equal(result.failureRecovery.solverUnderlyingLoss, economics.actualInputAtomic);
+  assert.equal(result.failureRecovery.solverPayoutIssued, false); assert.equal(result.failureRecovery.nativeVaultEffects, 1);
+  assert.equal(result.finalPools.length, 2);
+  for (const pool of result.finalPools) {
+    assert.equal(pool.backedAmount, '0'); assert.equal(pool.actualAssetBalance, '0'); assert.equal(pool.liveReservations, 0);
+  }
+  assert.deepEqual(result.failureRecovery.finalPools, result.finalPools);
+  return Object.freeze({ scope: 'ORIGINAL_PRIVATE_UNISWAP_F_AFTER_ONE_IRREVERSIBLE_DELIVERY',
+    actualFRecoveryAcceptance: true, privateOutputExitAcceptance: true, solverPayoutIssued: false,
+    happyPathTCompleted: false, arbitraryDeFiAcceptance: false, fullWalletAcceptance: false });
+}

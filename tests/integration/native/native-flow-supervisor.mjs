@@ -63,6 +63,7 @@ import { ROOT, GOLDEN, LOCAL as PROOF_LOCAL, LIMITS as PROOF_LIMITS } from '../.
 import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS,
   PRIVATE_PROOF_WORKER_RSS_LIMIT } from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import { nativeFlowSourcePins, accountRecoverySourcePins, assetPortfolioSourcePins, evmVaultSourcePins } from '../runners/source-pins.mjs';
+import { EVM_UNISWAP_RECOVERY_RESULT, assertEvmUniswapRecoveryResult } from '../chains/evm/evm-vault-terminal-checks.mjs';
 import { manualWalletSourcePins } from '../wallet/manual/manual-wallet-source-pins.mjs';
 import { manualWalletBrowserSourcePins } from '../wallet/manual/manual-wallet-browser-source-pins.mjs';
 import { MANUAL_WALLET_BROWSER_FORMAT, assertManualWalletBrowserResult } from '../wallet/manual/manual-wallet-browser-policy.mjs';
@@ -411,6 +412,18 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: aavePrivateGraphSourcePinsV1,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
+  evmUniswapRecovery: Object.freeze({
+    entry: join(ROOT, 'integration/run-evm-uniswap-recovery-flow.mjs'),
+    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    local: join(ROOT, '.local/evm-uniswap-recovery-flow'),
+    resultFormat: EVM_UNISWAP_RECOVERY_RESULT,
+    resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
+    lockFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_LOCK_V1',
+    attemptFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_EVM_UNISWAP_ORIGINAL_F_RECOVERY',
+    sourcePins: evmVaultSourcePins,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
   nativeFlow: Object.freeze({
     entry: join(ROOT, 'integration/run-native-flow.mjs'),
     worker: join(ROOT, 'integration/native-flow.mjs'),
@@ -656,6 +669,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.developmentNativeClaims) scoped = assertDevelopmentNativeClaimResult(result);
   if (profile === FLOW_PROFILES.nativeClaimEmptyAuditMetrics) scoped = assertEmptyAuditResult(result);
   if (profile === FLOW_PROFILES.privateMetaMorpho) scoped = assertPrivateMetaMorphoResult(result);
+  if (profile === FLOW_PROFILES.evmUniswapRecovery) scoped = assertEvmUniswapRecoveryResult(result);
   if (profile === FLOW_PROFILES.developmentDefiEntry) scoped = assertDevelopmentDefiEntryResult(result);
   if (profile === FLOW_PROFILES.manualWalletRecovery) scoped = assertManualWalletRecoveryResult(result);
   if (profile === FLOW_PROFILES.nativeClaimLoadedV3) scoped = validateClaimLoadedV3Result(result);
@@ -866,6 +880,10 @@ export async function runEvmAaveSupervisorV1() {
 export async function runEvmUniswapSupervisor() {
   assert.equal(arguments.length, 0, 'EVM_UNISWAP_NO_SUPERVISOR_OPTIONS');
   return runFixedFlowSupervisor(FLOW_PROFILES.evmUniswap);
+}
+export async function runEvmUniswapRecoverySupervisor() {
+  assert.equal(arguments.length, 0, 'EVM_UNISWAP_RECOVERY_NO_SUPERVISOR_OPTIONS');
+  return runFixedFlowSupervisor(FLOW_PROFILES.evmUniswapRecovery);
 }
 export async function runNativeClaimSupervisor() {
   assert.equal(arguments.length, 0, 'NATIVE_CLAIM_NO_SUPERVISOR_OPTIONS');

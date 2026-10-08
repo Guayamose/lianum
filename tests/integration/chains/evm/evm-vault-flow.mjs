@@ -19,7 +19,8 @@ import { createOwnedEvmVaultFixture, prepareEvmVaultFixtureGraph } from '../../f
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { evmVaultSourcePins } from '../../runners/source-pins.mjs';
 import { NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';
-import { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools } from './evm-vault-terminal-checks.mjs';
+import { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools,
+  EVM_UNISWAP_RECOVERY_RESULT, assertEvmUniswapRecoveryResult } from './evm-vault-terminal-checks.mjs';
 import { loadBackedAssetDeploymentArtifacts } from '../../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs';
 import { createFlatNativeExecution } from '../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
@@ -40,6 +41,8 @@ const SCENARIOS = Object.freeze({
   'integration/run-evm-vault-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_METAMORPHO_V1', local: '.local/evm-vault-flow' }),
   'integration/run-evm-aave-flow.mjs': Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/evm-aave-flow-v1'}),
   'integration/run-evm-uniswap-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1', local: '.local/evm-uniswap-flow' }),
+  'integration/run-evm-uniswap-recovery-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1',
+    local: '.local/evm-uniswap-recovery-flow', recovery: true }),
 });
 const safeCode = error => {
   const value = error?.code ?? error?.message ?? '';
@@ -58,7 +61,9 @@ async function main() {
   const parentEntry = realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1]));
   const scenario = Object.entries(SCENARIOS).find(([entry]) => parentEntry === join(ROOT, entry))?.[1];
   assert.ok(scenario, 'EVM_VAULT_FIXED_ORIGINAL_SUPERVISOR');
-  const PROTOCOL_PROFILE = scenario.protocol, AAVE = PROTOCOL_PROFILE === 'OFFICIAL_AAVE_STATIC_V1', UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1';
+  const PROTOCOL_PROFILE = scenario.protocol, AAVE = PROTOCOL_PROFILE === 'OFFICIAL_AAVE_STATIC_V1',
+    UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1', RECOVERY = scenario.recovery === true;
+  assert.ok(!RECOVERY || UNISWAP, 'EVM_UNISWAP_F_FIXED_PROTOCOL_ONLY');
   const SOURCE = '5000000', SHARES = UNISWAP ? '1000' : AAVE ? '1000000' : '1000000000000000000',
     INPUT = UNISWAP ? '2000' : AAVE ? '1100000' : '1000000', PAYOUT = UNISWAP ? '1200' : '1200000',
     CHANGE = String(BigInt(SOURCE) - BigInt(PAYOUT));
@@ -72,14 +77,14 @@ async function main() {
   mkdirSync(proofDirectory, { mode: 0o700 });
   const began = performance.now();
   const result = {
-    format: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1', runId: lock.runId,
+    format: RECOVERY ? EVM_UNISWAP_RECOVERY_RESULT : 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
     supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: AAVE ? aavePrivateGraphSourcePinsV1() : evmVaultSourcePins(),
     stages: [], proofs: [], transactions: [], accountRequests: [], nativeEffects: { evmVault: 0 },
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
     protocolProfile: PROTOCOL_PROFILE, privateVaultGraphAcceptance: false, privateUniswapGraphAcceptance: false, privateAaveGraphAcceptance: false,
-    partialDeliveryRecoveryAcceptance: false,
+    partialDeliveryRecoveryAcceptance: false, privateUniswapTimeoutRecoveryAcceptance: false,
     systemicPrivacyAcceptance: false, independentOperators: false,
     realClockFinalityAcceptance: false, performanceTargetAchieved: false, fullWalletAcceptance: false,
     disclosure: [
@@ -90,6 +95,8 @@ async function main() {
       'The router action, amounts, K, protocol and destination pool remain public. Common-host observers/keeper are trusted.',
       'Two encrypted owner children and a disposable account coordinator restart; the original authority and EVM survive.',
       'This exercises one registered EVM action under the generic relation; arbitrary DeFi and seven-chain acceptance remain unproved.',
+      ...(RECOVERY ? ['Controlled interruption after the one completed swap/D27 delivery, before I/N/T; no physical network outage is claimed.',
+        'F refunds the original source reserve at its signed cutoff. The swap is irreversible: target owns the delivered note; solver loses its actual input and receives no payout.'] : []),
     ],
   };
   const save = () => writeFixturePrivate(join(directory, 'result.json'), result);
@@ -100,7 +107,7 @@ async function main() {
   }
   let fixture, execution, portfolio, keeper, session, http, walletApp, appDriver, vaultActor, vaultExit, legacy, manualSession, privateView;
   let solverBalanceBeforeDelivery, solverBalanceAfterDelivery;
-  let graphRef, graphCutoff;
+  let graphRef, graphCutoff, solverPayoutCommitment, reserveNullifier;
   const graphId = 'private_vault_graph';
   let closed = false, interrupted = false;
   const accounts = [], ownerPreparations = [];
@@ -203,16 +210,62 @@ async function main() {
   async function recoverOriginalFailedDelivery() {
     if (!fixture || !execution || !graphRef || !graphCutoff) return;
     const state = execution.snapshot(graphRef);
-    if (state.outcome !== null || !state.nativeExposure.some(item => item.status === 'DELIVERED')) return;
+    if (state.outcome !== null || !state.nativeExposure.some(item => item.status === 'DELIVERED')) return false;
+    if (RECOVERY) {
+      assert.equal(result.controlledPostDeliveryInterruption, true);
+      assert.deepEqual(state.nativeExposure, [{ slot: 0, family: '3', status: 'DELIVERED' }]);
+      assert.equal(state.admittedReceipts, 0, 'UNISWAP_F_NO_I_OR_N');
+      assert.equal(fixture.sourceOwner.report().available, false);
+      assert.equal(fixture.targetOwner.report().available, false);
+    }
     const { runtime, sourceOwner, targetOwner, capabilities } = fixture;
     const originals = runtime.transactions.filter(entry => entry.signed && entry.receipt?.status === '0x1');
     assert.equal(originals.length, 1, 'EVM_VAULT_RECOVERY_EXACT_ORIGINAL');
     const original = originals[0], ownerAbsentAtRecovery = !sourceOwner.report().available;
+    const replayState = () => readEvmVaultReplayState({ runtime, readers: fixture.readers,
+      protocolFixture: fixture.officialProtocol, capabilities, sender: fixture.system.sender,
+      holders: [...runtime.accounts, ...fixture.system.pools.map(pool => pool.address),
+        fixture.router.address, fixture.officialProtocol.pool.address, fixture.officialProtocol.swapRouter.address] });
+    const deliveredState = RECOVERY ? await replayState() : null;
+    if (RECOVERY) {
+      solverBalanceAfterDelivery = await capabilities[0].balance(fixture.solver);
+      assert.equal(await capabilities[0].allowance(fixture.solver, fixture.router.address), 0n);
+      assert.equal(deliveredState.accounting.pools[0].publicState.backedAmount, SOURCE);
+      assert.equal(deliveredState.accounting.pools[1].publicState.backedAmount, SHARES);
+      assert.equal(deliveredState.accounting.pools[1].publicState.actualAssetBalance, SHARES);
+      assert.equal(deliveredState.accounting.pools[0].hubState.spentTagCount, '0');
+      assert.equal(deliveredState.accounting.pools[0].receiptLeaves.length, 0);
+    }
     await stage('failure-only-original-cutoff-recovery');
     if (await runtime.time() < BigInt(graphCutoff)) await runtime.advanceTo(graphCutoff);
     const recovered = await appAccount('recover', { requestId: graphId });
     assert.equal(row(recovered, graphId).state, 'CONFIRMED', 'EVM_VAULT_FAILURE_RECOVERY_UNRESOLVED');
     assert.equal(execution.snapshot(graphRef).outcome, 'RECOVERED', 'EVM_VAULT_FAILURE_NOT_RECOVERED');
+    if (RECOVERY) {
+      assert.equal(sourceOwner.report().available, false, 'UNISWAP_F_OWNER_KEY_ABSENT');
+      assert.equal(targetOwner.report().available, false, 'UNISWAP_F_TARGET_KEY_ABSENT');
+      const proofs = result.proofs.filter(row => row.relation === 'recovery');
+      assert.equal(proofs.length, 1, 'UNISWAP_F_SINGLE_ORIGINAL_PROOF');
+      const inputs = JSON.parse(readFileSync(join(proofDirectory, proofs[0].file + '.inputs.json'), 'utf8'));
+      assert.equal(inputs.length, 41); assert.equal(BigInt(inputs[40]), BigInt(graphCutoff), 'UNISWAP_F_CUTOFF_UNCHANGED');
+      const recoveredState = await replayState();
+      assert.deepEqual(recoveredState.accounting.uniswap, deliveredState.accounting.uniswap, 'UNISWAP_F_CANNOT_UNDO_SWAP');
+      assert.deepEqual(recoveredState.accounting.tokens, deliveredState.accounting.tokens, 'UNISWAP_F_TOKEN_ACCOUNTING_CHANGED');
+      assert.equal(recoveredState.accounting.pools[0].nullifiers.includes('0x' + reserveNullifier), true);
+      assert.equal(recoveredState.accounting.pools[0].commitments.includes('0x' + solverPayoutCommitment), false, 'UNISWAP_F_NO_SOLVER_PAYOUT');
+      const proofCount = result.proofs.length, transactionCount = runtime.transactions.length;
+      await appAccount('recover', { requestId: graphId });
+      await appAccount('reconcile', { requestId: graphId });
+      await request('execute', { requestId: graphId });
+      assert.equal(result.proofs.length, proofCount, 'UNISWAP_F_REPROVED');
+      assert.equal(runtime.transactions.length, transactionCount, 'UNISWAP_F_RESENT');
+      assert.deepEqual(await replayState(), recoveredState, 'UNISWAP_F_DUPLICATE_ACCOUNTING_CHANGED');
+      result.originalFRecovery = { actualFProofAccepted: true, originalRequestId: graphId, disposition: 'RECOVERED',
+        cutoff: graphCutoff, publicInputCount: inputs.length, publicInputCutoff: BigInt(inputs[40]).toString(),
+        ownersAbsentAtIssuance: true, admittedReceipts: 0, repeatedRecoveryNoEffect: true,
+        duplicateExecuteNoEffect: true, originalSwapNotResubmitted: true, swapAccountingUnchanged: true,
+        solverPayoutCommitmentIncluded: false };
+    }
     if (!sourceOwner.report().available) await sourceOwner.restart();
     if (!targetOwner.report().available) await targetOwner.restart();
     const credit = await accounts[0].ownerActions.recoveryCreditRequest(graphRef);
@@ -224,6 +277,14 @@ async function main() {
     assert.equal((await targetOwner.owner.reconcileDepositIntent(deliveryCredit)).stage, 'CONFIRMED');
     const restored = await ownerView();
     assert.deepEqual(restored.assets.map(asset => asset.balances.available), [SOURCE, SHARES]);
+    if (RECOVERY) {
+      assert.equal(restored.status, 'LIVE'); assert.equal(restored.coherent, true);
+      assert.deepEqual(restored.assets[0].balances, { available: SOURCE, reserved: '0', recovery: PAYOUT, locked: '0' });
+      assert.deepEqual(restored.assets[1].balances, { available: SHARES, reserved: '0', recovery: '0', locked: '0' });
+      assert.equal(restored.assets[0].requests.find(row => row.requestId === graphId)?.disposition, 'RECOVERED');
+      result.recoveryBalances = { source: restored.assets[0].balances, target: restored.assets[1].balances,
+        sourceRefundAtomic: PAYOUT, sourceChangeAtomic: CHANGE, sourceTotalAvailableAtomic: SOURCE };
+    }
     await exitOwnerNote(0, sourceOwner, 'recovery', 'failure_exit_recovery');
     await exitOwnerNote(0, sourceOwner, 'change', 'failure_exit_change');
     await exitOwnerNote(1, targetOwner, 'source', 'failure_exit_target');
@@ -232,6 +293,7 @@ async function main() {
     const spent = solverBalanceBeforeDelivery - solverAfter;
     assert.ok(spent > 0n && spent <= BigInt(INPUT), 'EVM_VAULT_RECOVERY_ORIGINAL_SPEND');
     if (!UNISWAP && !AAVE) assert.equal(spent, BigInt(INPUT));
+    if (RECOVERY) assert.equal(solverAfter, solverBalanceAfterDelivery, 'UNISWAP_F_SOLVER_MUST_BEAR_ACTUAL_LOSS');
     assert.equal(await capabilities[1].balance(fixture.targetExitRecipient), BigInt(SHARES));
     const finalPools = [];
     for (const reader of fixture.readers) {
@@ -244,7 +306,23 @@ async function main() {
       sourceRefundAndChangeExited: SOURCE, originalDeliveredOutputExited: SHARES, solverPayoutIssued: false,
       solverUnderlyingLoss: String(spent), nativeVaultEffects: 1, finalPools, originalFailurePreserved: true };
     result.partialDeliveryRecoveryAcceptance = true;
-    await audit();
+    if (RECOVERY) {
+      const final = await ownerView();
+      assert.equal(final.status, 'LIVE'); assert.equal(final.coherent, true);
+      assert.deepEqual(final.assets.map(row => row.balances.available), ['0', '0']);
+      result.finalPools = finalPools;
+      result.originalPrivateExits = { sourceRefundAtomic: PAYOUT, sourceChangeAtomic: CHANGE,
+        sourceTotalExitedAtomic: SOURCE, targetOutputExitedAtomic: SHARES, duplicateNoEffect: true };
+      result.economics = { sourceDepositAtomic: SOURCE, reservedAtomic: PAYOUT, changeAtomic: CHANGE,
+        maximumInputAtomic: INPUT, actualInputAtomic: String(spent), deliveredOutputAtomic: SHARES,
+        solverBalanceBeforeDelivery: String(solverBalanceBeforeDelivery),
+        solverBalanceAfterDelivery: String(solverBalanceAfterDelivery), solverFinalBalance: String(solverAfter),
+        solverPayoutAtomic: '0', swapIrreversible: true, targetKeepsOriginalOutput: true };
+      result.sourcePrivateReservationEstablished = true; result.privateOutputExitEstablished = true;
+      result.duplicateNoEffect = true; result.originalExactConsent = appDriver.evidence();
+      result.privateUniswapTimeoutRecoveryAcceptance = true;
+    }
+    await audit(); return true;
   }
 
   try {
@@ -254,7 +332,16 @@ async function main() {
     const assetArtifacts = loadBackedAssetDeploymentArtifacts().artifacts;
     execution = await createFlatNativeExecution({ runtime, system, poolIndex: 0,
       bitcoin: null, solana: null, evmDelivery, quorum }, {
-      onProof: retainProof, onPrivateAudit: audit, onStage: value => stage(value.stage) });
+      onProof: retainProof, onPrivateAudit: audit, onStage: async value => {
+        await stage(value.stage);
+        if (RECOVERY && value.stage === 'native-delivered-0') {
+          assert.equal(result.controlledPostDeliveryInterruption, undefined, 'UNISWAP_F_INTERRUPT_ONCE');
+          result.controlledPostDeliveryInterruption = true;
+          result.expectedInterruptionCode = 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY'; save();
+          throw Object.assign(new Error('UNISWAP_F_CONTROLLED_AFTER_DELIVERY'),
+            { code: 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY' });
+        }
+      } });
     for (const [poolIndex, owner] of [sourceOwner, targetOwner].entries())
       accounts.push(await createFlatAccountAuthority({ runtime, system, poolIndex, owner,
         nativeExecution: poolIndex === 0 ? execution : null,
@@ -313,6 +400,8 @@ async function main() {
       assetAmount: INPUT, shareAmount: SHARES, payoutAmount: PAYOUT, cutoff: graphCutoff,
     }, retainProof);
     graphRef = freshFixtureId();
+    reserveNullifier = graph.prepared.rolePackets.recovery.recovery.value.reserveNullifier;
+    solverPayoutCommitment = graph.prepared.rolePackets.local[0].local.value.payoutCommitment;
     await accounts[0].ownerActions.registerGraph({ ownerOperationRef: graphRef,
       prepared: graph.prepared, providers: graph.providers });
     const approval = await accounts[0].ownerActions.approveManualEvmGraph({ requestId: graphId, ownerOperationRef: graphRef });
@@ -522,20 +611,40 @@ async function main() {
       try { result.lastObservedPools.push((await reader.read()).ledger.publicState); } catch {}
     }
     await audit().catch(() => {});
-    try { if(!AAVE) await recoverOriginalFailedDelivery(); }
+    if (RECOVERY && result.controlledPostDeliveryInterruption === true) {
+      const failed = (await appState()).account.snapshot.admissions.filter(row =>
+        row.action === 'execute' && row.requestId === graphId && row.state === 'FAILED');
+      assert.equal(failed.length, 1, 'UNISWAP_F_ORIGINAL_FAILED_ADMISSION');
+      assert.equal(failed[0].errorCode, result.errorCode);
+      result.originalFailedAdmission = structuredClone(failed[0]);
+    }
+    let recovered = false;
+    try { if (!AAVE) recovered = await recoverOriginalFailedDelivery(); }
     catch (recoveryError) {
       result.failureRecoveryError = safeCode(recoveryError);
       writeFixturePrivate(join(privateDirectory, 'failure-recovery-error.json'), {
         message: String(recoveryError.message), stack: String(recoveryError.stack) });
     }
-    // A fallback never upgrades the failed requested success path.
-    result.phase = 'failed'; result.success = false; save();
+    // Only the separate fixed F scenario accepts its exact controlled failure.
+    // No arbitrary failure or happy-path fallback can acquire this acceptance.
+    const expected = RECOVERY && recovered === true && result.controlledPostDeliveryInterruption === true
+      && result.expectedInterruptionCode === 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY'
+      && result.failedStage === 'native-delivered-0' && result.errorCode === 'FLAT_ACCOUNT_OPERATION_FAILED';
+    if (expected) { result.actualAdmissionFailureCode = result.errorCode; result.expectedInterruptionPreserved = true;
+      delete result.errorCode; result.phase = 'completed'; result.success = true; }
+    else { result.phase = 'failed'; result.success = false; }
+    save();
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.closedEvm !== true) { result.success = false; result.phase = 'failed'; }
     try { assert.deepEqual(AAVE?aavePrivateGraphSourcePinsV1():evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
-    result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began; save();
+    result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began;
+    if (RECOVERY && result.success) {
+      try { assertEvmUniswapRecoveryResult(result); }
+      catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); }
+    }
+    save();
     if (!result.success) process.exitCode = 1;
   }
 }
