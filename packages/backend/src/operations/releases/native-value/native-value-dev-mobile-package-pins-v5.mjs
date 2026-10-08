@@ -1,0 +1,209 @@
+/** Public dependencies captured from the existing exact official npm lock and
+ * installed JavaScript bytes. No package download or arbitrary bare import.
+ * This table grants no authority; the producer/loader re-read all raw pins. */
+export const NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 = Object.freeze({
+  "packageLockSHA256": "e7f2ddb2e141e8c5a026dca04cdd2c68dcdc0700c93364b0b64b3d446887e447",
+  "mobilePackageSHA256": "3832c74467f8ad2225dc10bac23d895b9ef017c03a5c0d59d3631ba4239f0998",
+  "localProtocolPackageSHA256": "57b39de1a212291ddbbb670c034f8139e0ccf8540c886c1b11479fc7ad0d8bf8",
+  "packages": [
+    {
+      "version": "2.4.0",
+      "resolved": "https://registry.npmjs.org/@noble/curves/-/curves-2.4.0.tgz",
+      "integrity": "sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==",
+      "name": "@noble/curves"
+    },
+    {
+      "version": "2.4.0",
+      "resolved": "https://registry.npmjs.org/@noble/hashes/-/hashes-2.4.0.tgz",
+      "integrity": "sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==",
+      "name": "@noble/hashes"
+    }
+  ],
+  "rawFiles": [
+    {
+      "path": "mobile-app/node_modules/@noble/curves/LICENSE",
+      "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/bls.js",
+      "sha256": "9bc37d55fbf294ef99d944950eb58ab5b0330e27aa9dacf73f557a7b88e8930f"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/curve.js",
+      "sha256": "dbaeee3b41ff47efb76b78e14170fe4dda7c7ecdc387c402f16c5118e0bac356"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/der.js",
+      "sha256": "7f80d698611b131368ecf732b8740bb97f72cd42fef77c4b0bb923e2e2d44159"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/edwards.js",
+      "sha256": "f24a9c221a549a8fff259eb8f245ab0dc17679b13c532c3970d91acc4df9fffd"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/fft.js",
+      "sha256": "a4b2ff7ca33f4acc85d61f0e83ec3303c3f6b38ecc19b20d0f6462d820e518cf"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/frost.js",
+      "sha256": "9a95f1fdf7e17b9d93a16049db675ee2967ed2a04cf59b1bd981d4662acbedf5"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/hash-to-curve.js",
+      "sha256": "e3c97e7d0827b728b14e3311ed11d8e386d8a70d8fc77e0b9fd2a3090f19d955"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/modular.js",
+      "sha256": "9ced3aa10598277a735e54f7b61d88e929d565da884ba5385f9006ebb3b6aab2"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/montgomery.js",
+      "sha256": "cdafa8816dad5a24475ec51952c5f71fdd5d1b46880ab982694c4f8ff605fc46"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/oprf.js",
+      "sha256": "2ca36b3e4930092db1f91559410e86975816c036e248067bc65a8055aa1c504c"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/poseidon.js",
+      "sha256": "ef05eaf0372d4441abfdcacd31b9a7bea801656b55819cdf0ff0995aa0c885fb"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/tower.js",
+      "sha256": "6e9f7273af53c06f8124c33b89d0d70d7d46e95effbf46d242e580e9c5aa8137"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/abstract/weierstrass.js",
+      "sha256": "d007e949c0d5b912e8c54132983219c8ff8f69bda058a70563b5cc7a8783331c"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/bls12-381.js",
+      "sha256": "eab0e80c31087656d0a0c2024906418e59ab6e2f02c9e5395406602c25351276"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/bn254.js",
+      "sha256": "d49bd6594b30d11c949eff8a3de54a46e2ca3ae93c964b576c6c0b51c80a6785"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/ed25519.js",
+      "sha256": "e13f6c50c36feb0d18bf7986d5f881bcefb5f1f5b16de3cc5ee7693254c7a0b5"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/ed448.js",
+      "sha256": "a56f9673b2b207bdc196654c2116bfae6c9782464d3d53274a015e0e0a7ed75c"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/index.js",
+      "sha256": "522bba9559e747647426316ac2b9df593243c4d54cd6852c54206f4124a8f7b9"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/misc.js",
+      "sha256": "2db54e6ade644c4c1371903b7c88e2b77093fd3b1012d42b0a18258d1c09096d"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/nist.js",
+      "sha256": "0a692b98e22c56c0354f78eb1759cfbf6aec89eafc78cd2984a4f2e8428081e6"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/package.json",
+      "sha256": "63d976a6ee72f2dcdc81e6c8bf907edff54eb20e8423218578fbfaf29cff96e6"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/secp256k1.js",
+      "sha256": "b4e7383e0de5064cd200d22f21890bc8730ddaf987b1e989e5e24bbfaae5cf1f"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/utils.js",
+      "sha256": "be9ff86aef76419376e4d66cf01a134f3117f1f8dd62d81f1b79100145503367"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/curves/webcrypto.js",
+      "sha256": "715197e17767f7f448eb4131151205e18ee0a261d76340cf4863805e15737f0e"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/LICENSE",
+      "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/_blake.js",
+      "sha256": "cabbff61d1f373bac45594ad758df7c42e176464ddbb94b44f5533fa977a4f56"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/_md.js",
+      "sha256": "60cf3010fda89e3e4d3f0e7ff1ce249e9c467f34b4fd41b6fd6101d9f69be763"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/_u64.js",
+      "sha256": "b09da8c07fe8187c07649494cdb7cd0bcf13df90b506a9473d19e4d5f8c2e102"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/argon2.js",
+      "sha256": "f39753324bdf2f484150731d24b1d71236f26bf10bedd594f7d190fcdfdefdc9"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/blake1.js",
+      "sha256": "da1d08b4d0702ad4f185a796df8fce3fec2855de53b02190eba3bd8555677b5c"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/blake2.js",
+      "sha256": "03f00237bcc0b4d822a80f7c0ac22e42632c48e246c3b6da584e6452186e32f0"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/blake3.js",
+      "sha256": "bc25a8f6c50acabf3781c44ec55cb364b00f6f3f4349d841813a1057a8af2f20"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/eskdf.js",
+      "sha256": "7ded32d320b0d1d71c59a4a3b493722a13c9c6a66de83f19f8a382b29af7a2f6"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/hkdf.js",
+      "sha256": "ccb942a8008f974018965eeb1e33b8f4739bf767c6f95f2ceb06f5873a302f67"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/hmac.js",
+      "sha256": "fec9f8f3aeda785ea2de91cc4c059d54ef98196261c026c43f48341007ae52c9"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/index.js",
+      "sha256": "b0d908a44e09a1b7c27a43d7b9036a6147a7a32db758bb64d9a668ea5c72d1af"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/legacy.js",
+      "sha256": "690553a41af2fdd1e32ff6b534ba8508e95f1861c09c2d62fe762b6b501e09be"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/package.json",
+      "sha256": "3e361734f5269de162fa362483d7f45dee7efb533ec217157945338f7591baaf"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/pbkdf2.js",
+      "sha256": "62b75b5465a89af052a80bdebe7e0383ba01648b12f64877ce285a2e9896c713"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/scrypt.js",
+      "sha256": "a38a020620776fa5c57c00f151bdc1033c192827c9d841996daaf29122ea82c1"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/sha2.js",
+      "sha256": "471746bba6ec4c6238ca41358d1d3b40b6ff31cf3363f0b4d550c649c1a8e83b"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/sha3-addons.js",
+      "sha256": "e979866a213955afba24c105966bc42afa5d1377d77fe1017dea29a958fddcb7"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/sha3.js",
+      "sha256": "9a81e1edb24eae27b335533220167609cfb58008c5690e140ce478acdc669f32"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/utils.js",
+      "sha256": "037ad49adb78168b6b699598fd33f85f7877456b1d28b4d032e2a1a16807947c"
+    },
+    {
+      "path": "mobile-app/node_modules/@noble/hashes/webcrypto.js",
+      "sha256": "83f476a634233b999ce6e6cd67dc03e64f07b8d5a826e67ad4a50c940d9ce7ee"
+    }
+  ]
+});
+export const NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 = '23f1f2a7c669a204854068190c40b602d87dd6f7902690c3c26a3839de99f254';
