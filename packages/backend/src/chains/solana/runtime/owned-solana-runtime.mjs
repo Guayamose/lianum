@@ -66,7 +66,7 @@ import { ownedCustodyRoute, assertOwnedCustodyIntent, ownedCustodyFeeAudit, crea
 import { sendOwnedSolanaTransaction } from '../transfers/owned-solana-send.mjs';
 import { readOwnedSolanaSocketInodes } from './owned-solana-socket-inodes.mjs';
 import {assertJupiterPublicFixtureSourceReviewV1,assertJupiterPublicSwapSourceReviewV1,loadJupiterOfficialMaterialV1} from '../../../operations/deployments/defi/jupiter-official-material-v1.mjs';
-import {jupiterPublicBankGenesisV1,validateJupiterPublicBankAccountsV1,JUPITER_BANK_CLOCK_V1} from './jupiter-orca-bank-state-v1.mjs';
+import {jupiterPublicBankGenesisV1,validateJupiterPublicBankAccountsV1,jupiterExplicitTokenProgramV1,JUPITER_TOKEN_PROGRAMDATA_V1,JUPITER_BANK_RENT_V1,JUPITER_BANK_CLOCK_V1} from './jupiter-orca-bank-state-v1.mjs';
 import {JUPITER_ORCA_V1,quoteJupiterOrcaSolUsdcV1,encodeJupiterOrcaFixtureMessageV1,validateJupiterOrcaFixtureTransactionV1,decodeJupiterSplTokenAccountV1} from '../dispatch/jupiter-orca-route-codec-v1.mjs';
 import {validateJupiterOrcaSwapObservationV1} from '../observations/jupiter-orca-swap-observation-v1.mjs';
 export const SOLANA_CUSTODY_PROFILE = 'OWNED_FLAT_SOLANA_CUSTODY_V1';
@@ -662,9 +662,15 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       jupiterCurrentRows=jupiterGenesisRows;
       jupiterGenesisFiles=[];
       for(const [index,row] of jupiterGenesisRows.entries()){
+        if(row.address===JUPITER_ORCA_V1.tokenProgram){
+          const raw=jupiterExplicitTokenProgramV1(jupiterMaterial).elf,path=join(cwd,'jupiter-original-token-program.so');
+          const file=await open(path,'wx',0o600);try{await file.writeFile(raw);await file.sync();}finally{await file.close();}
+          jupiterGenesisFiles.push({address:row.address,path,inputSHA256:digest(raw)});
+          custodyGenesisArguments.push('--bpf-program',row.address,path);continue;
+        }
         const path=join(cwd,'jupiter-public-account-'+index+'.json'),raw=Buffer.from(JSON.stringify(row.json));
         const file=await open(path,'wx',0o600);try{await file.writeFile(raw);await file.sync();}finally{await file.close();}
-        jupiterGenesisFiles.push({address:row.address,path,jsonSHA256:digest(raw)});
+        jupiterGenesisFiles.push({address:row.address,path,inputSHA256:digest(raw)});
         custodyGenesisArguments.push('--account',row.address,path);
       }
       const directory=await open(cwd,'r');try{await directory.sync();}finally{await directory.close();}
@@ -1600,12 +1606,12 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         const current=jupiterPublicBankGenesisV1(loadJupiterOfficialMaterialV1(),keys.solver.address,keys.jupiterSource.address,keys.jupiterDestination.address);
         assert.deepEqual(current.map(row=>({address:row.address,dataSHA256:row.dataSHA256,owner:row.owner,lamports:row.lamports,executable:row.executable})),
           jupiterGenesisRows.map(row=>({address:row.address,dataSHA256:row.dataSHA256,owner:row.owner,lamports:row.lamports,executable:row.executable})));
-        for(const row of jupiterGenesisFiles)requireCondition(digest(await readFile(row.path))===row.jsonSHA256,'JUPITER_BANK_GENESIS_FILE_CHANGED');
+        for(const row of jupiterGenesisFiles)requireCondition(digest(await readFile(row.path))===row.inputSHA256,'JUPITER_BANK_GENESIS_FILE_CHANGED');
         const minimum=await read('getSlot',[{commitment:'finalized'}]);safeInteger(minimum,'JUPITER_BANK_FINALIZED_SLOT');
-        const response=await read('getMultipleAccounts',[[...jupiterGenesisRows.map(row=>row.address),JUPITER_BANK_CLOCK_V1],
+        const response=await read('getMultipleAccounts',[[...jupiterGenesisRows.map(row=>row.address),JUPITER_BANK_CLOCK_V1,JUPITER_TOKEN_PROGRAMDATA_V1,JUPITER_BANK_RENT_V1],
           {commitment:'finalized',minContextSlot:minimum,encoding:'base64'}]);
         requireCondition(contextSlot(response)>=BigInt(minimum),'JUPITER_BANK_CONTEXT_ROLLBACK');
-        const observed=validateJupiterPublicBankAccountsV1(jupiterCurrentRows,response),slot=Number(observed.slot);
+        const observed=validateJupiterPublicBankAccountsV1(jupiterCurrentRows,response,jupiterExplicitTokenProgramV1(loadJupiterOfficialMaterialV1())),slot=Number(observed.slot);
         const blockOptions={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0};
         const block=await read('getBlock',[slot,blockOptions]);
         requireCondition(block&&Number.isSafeInteger(block.parentSlot)&&block.parentSlot<slot,'JUPITER_BANK_CANONICAL_BLOCK');
