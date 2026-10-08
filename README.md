@@ -9,25 +9,36 @@ admitida con consentimientos firmados. Su SDK completó un recorrido económico
 con dos pruebas genuinas y propietarios originales en Linux, con saldo privado
 500→0. Falta cerrar ese recorrido desde la custodia raíz React Native y un
 dispositivo. La custodia raíz, backup/restauración y firmas locales D26/D27
-están implementados, con trece checks móviles y tipos correctos; Poseidon2
+están implementados, con diecinueve checks móviles de custodia y TSC correcto; Poseidon2
 BigInt pasó seis vectores contra BB oficial. Las notas preparadas siguen
 UNISSUED: financiación/PAEG desde esa custodia y comprobación física pendientes.
+El puente nuevo solicita una firma PROVE_D26 para una sola apertura y otra
+FUND_D26 para el envío original. El perfil `03953f4a` quedó aceptado con una
+prueba real, financiación única de 500 y respuesta perdida recuperada por
+observación. El alcance es Node/TLS con clave propia: el nuevo APK, SecureStore
+y la comprobación física del dispositivo siguen pendientes.
 [Protocolo y límites V2](docs/ORIGINAL-ACCOUNT-V2.md).
 
 El APK Android autónomo actualizado está **aceptado** sin Metro, con
 JavaScript/Hermes y firma Android Debug: 42.169.935 bytes y pico RSS de grupo
 2.339.147.776 bytes bajo el mismo límite de 3 GiB, con doce joins originales del
 source map. Incluye raíz local, notas, backup y firmas D26/D27; financiación/PAEG
-móvil y comprobación física quedan pendientes.
+móvil y comprobación física quedan pendientes. El APK nuevo con el puente D26
+todavía no está compilado ni aceptado.
 [Artefacto y comandos móviles](apps/mobile/README.md).
 
 Los siete objetivos y seis requisitos de [la visión](PROJECT-VISION.md)
 siguen vigentes. Uniswap tiene aceptación local genuina desde reserva privada
-con PAEG, swap, liquidación, EXIT y repetición sin pago duplicado. MetaMorpho
-conserva sus rechazos del driver pese a completar pruebas y redención real;
-F DeFi y los demás protocolos siguen pendientes. Tron V5 quedó rechazado con
+con PAEG, swap, liquidación, EXIT y repetición sin pago duplicado. Aave también
+completó su recorrido privado original con quince pruebas, rendimiento y
+redención reales, compilación genuina y fuentes verificadas. MetaMorpho conserva
+sus rechazos del driver pese a completar pruebas y redención real. Uniswap F
+también quedó aceptado con diez pruebas: recuperación original tras un swap
+irreversible, salida privada del destino conservada y pérdida del solver declarada.
+Morpho, Jupiter y la privacidad sistémica siguen pendientes. Tron V5 quedó rechazado con
 financiación y cinco pruebas genuinas, sin entrega nativa. U8 midió prove
-28,520 s bajo el guard de 3 GiB; todavía supera el objetivo de pruebas <20 s.
+28,520 s bajo el guard de 3 GiB; U12 en F10 midió 25,541 s. U16 conservó su
+rechazo por RSS; el objetivo de pruebas <20 s sigue pendiente.
 [Estado funcional y pendientes](STATUS.md).
 
 ```text

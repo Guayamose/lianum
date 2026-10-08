@@ -19,8 +19,8 @@ locales se acotan al recorrido, financiación y modelo comprobados.
 | 1. Wallet unificada para siete redes | 60–65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas locales implementados; APK actualizado aceptado sin Metro con el guard de 3 GiB. Falta aceptar el recorrido económico desde esa custodia/dispositivo y completar las siete redes. |
 | 2. Privacidad por defecto | 40–50% | Criptografía existente conservada; sin aumento sistémico demostrado. Faltan garantías frente a correlación y colusión. |
 | 3. PAEG genérico | 65–70% | BTC/SOL y Uniswap desde reserva privada aceptados con el mismo núcleo y relaciones. Meta completo sigue rechazado; continúan los cuatro slots y la privacidad de topología por cerrar. |
-| 4. Liquidación y recuperación económica | 65–70% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta conserva rechazo del driver. Faltan F DeFi, pérdida de keeper/nodos/custodia y fallos combinados. |
-| 5. DeFi privado real | 45–55% | Uniswap desde reserva privada aceptado: PAEG, swap, T, EXIT y replay sin efecto duplicado. Meta completo sigue rechazado y F DeFi pendiente; faltan Aave, Morpho y Jupiter y mayor cobertura de posiciones. |
+| 4. Liquidación y recuperación económica | 65–70% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta conserva rechazo del driver. Uniswap F también aceptado; faltan mayor cobertura DeFi, pérdida de keeper/nodos/custodia y fallos combinados. |
+| 5. DeFi privado real | 45–55% | Uniswap desde reserva privada aceptado: PAEG, swap, T, EXIT y replay sin efecto duplicado. Aave privado también aceptado; Uniswap F aceptado y Meta completo sigue rechazado; faltan Morpho, Jupiter y mayor cobertura de posiciones. |
 | 6. Estado privado global | 60–65% | Journals y reconciliación originales; SDK vinculado aceptado con saldo privado 500→0. Faltan coherencia completa entre redes/posiciones y recuperación desde custodia móvil real. |
 | 7. Redes heterogéneas en profundidad | 55–60% | BTC/SOL combinado aceptado localmente. El payout de custodia SOL sigue rechazado. El factory Tron nativo está aceptado localmente, con crédito/GRAPH pendientes; faltan Base, Arbitrum y BNB propios. |
 | 8. Agente autónomo personal | Fuera del alcance | Lo implementa Rafa sobre las interfaces generales del producto. |
@@ -85,17 +85,28 @@ Linux: el saldo privado pasa de 500 a 0. Esto acredita esa integración económi
 y su estado original. Sigue pendiente realizarla desde la custodia raíz React
 Native y un dispositivo; el APK y el ensayo Linux no cierran esa parte del
 objetivo. La custodia raíz, backup/restauración y firmas locales D26/D27 tienen
-implementación, trece pruebas móviles enfocadas y tipos correctos. La firma
+implementación, diecinueve pruebas móviles de custodia enfocadas y TSC correcto. La firma
 consume la revisión local exacta, caduca en 15 segundos y guarda el intento
 cifrado antes de emitirla; la nota sigue UNISSUED y no se envía a la red. El
 Poseidon2 BigInt portable pasó seis vectores contra Barretenberg 5.2.0. Estos
 checks no acreditan SecureStore/biometría/Hermes en dispositivo ni financiación
 y PAEG desde esa custodia. Un backup viejo u otro dispositivo puede carecer
-del intento local: siguen pendientes la unicidad global y el antirollback. [Cuenta original V2](docs/ORIGINAL-ACCOUNT-V2.md).
+del intento local: siguen pendientes la unicidad global y el antirollback.
+El puente de depósito del dispositivo ya une una firma PROVE_D26 para revelar
+una apertura al worker original con una segunda firma FUND_D26 para un único
+envío durable. Conserva el trabajo original cuando se pierde la respuesta y
+consulta su misma inclusión; no revela raíz ni clave privada de nota y no
+acredita privacidad frente al host de esa apertura. Su perfil fijo `03953f4a` quedó aceptado en 56,914 s con una prueba D26 real,
+financiación única de 500, respuesta perdida, observaciones repetidas y rechazos
+de duplicados. Se ejecutó en Node/TLS con clave propia; no acredita custodia
+física, SecureStore ni operación React Native. Fuentes y cierre intactos, seis
+PIDs ausentes y sin señales. El último APK aceptado
+precede este puente: compilar la versión nueva y verificar custodia/operación
+en dispositivo siguen pendientes. [Cuenta original V2](docs/ORIGINAL-ACCOUNT-V2.md).
 
 MetaMorpho y Uniswap ya tienen entrada financiada por reserva privada,
 autorización y estado común, observación del protocolo original, respaldo,
-quorum, liquidación/recuperación y EXIT mediante el núcleo PAEG existente.
+quorum, liquidación T y EXIT mediante el núcleo PAEG existente.
 El intento Meta `2f5683bc-6719-4282-94fb-eea19d1c0025` conserva quince pruebas
 genuinas y EXIT/redención real, pero quedó **rechazado** al reabrir el driver.
 Tras la corrección `a135359`, el nuevo `d35d8dfa-0e56-49c4-bc18-4455d7346e43`
@@ -111,8 +122,24 @@ original, liquidación T, EXIT de las notas de origen y destino, pago al solver
 y repetición sin efecto nativo duplicado después de restart/EXIT. Fuentes
 intactas y los 35 procesos originales ausentes, sin señales. El SHA-256 del
 reporte es `ccba9697450435d24801fba9dd9b6cca1884031432667e3dee4ae8bc15ceaf23`.
-Esta aceptación local no completa Aave/Morpho/Jupiter, F DeFi, privacidad
-sistémica ni infraestructura independiente de operadores.
+El recorrido original Aave
+`2014f34a-3710-476f-ab2b-989b79ff934a` quedó **aceptado**: quince pruebas reales
+con los doce verificadores originales, entrada privada, rendimiento real del
+protocolo, redención real y replay con el nullifier gastado. El bootstrap usa
+compilación genuina de las fuentes oficiales y el wrapper revisado, con pins
+verificados; no emite saldo privado a partir de una cotización. El supervisor
+completó en 532,079 s; el pico de las pruebas fue 3.129.430.016 bytes bajo el
+mismo límite de 3 GiB. Las fuentes y el cierre fueron correctos, sin señales,
+con los 34 procesos originales ausentes y lock liberado. El SHA-256 del resultado
+es `3271387aebdb21718f092d91ca0114553423dad9a7ef5350178078024d3b83a3`.
+Uniswap F `c3a3b888-b95a-40da-85c2-296de4cb1658` quedó **aceptado** con diez
+pruebas reales en 418,573 s: entrega swap irreversible, recuperación F original
+del origen, conservación de la salida privada del destino y ningún pago T al
+solver. La pérdida de entrega corresponde al solver según la cláusula original;
+el swap no se revierte. Fuentes/cierre/lock correctos, 23 PIDs ausentes y sin
+señales. Resultado SHA-256 `a4eade8414850b9e8e99042c91617001b7311b973a31a54e6f5ea9e5ecebbcac`.
+Estas aceptaciones locales no completan Morpho/Jupiter, la cobertura F DeFi, privacidad sistémica, rendimiento objetivo
+ni infraestructura independiente de operadores.
 Los ciclos DeFi aceptados anteriormente partían de financiación pública y
 emitían una nota privada: no se presentan como prueba de entrada privada.
 [Alcance de redes y DeFi](packages/backend/docs/LOCAL-ACCEPTANCE.md).
@@ -166,7 +193,12 @@ CRS completo, memoria compartida y guard de 3 GiB. En el nuevo Tron U8 completó
 prove en **28,520 s**, verificación propia en **17,513 ms** y total en **31,856 s**;
 el pico de pruebas fue **3.112.554.496 bytes**, bajo 3 GiB. La prueba U es
 genuina, pero el recorrido completo quedó rechazado sin entrega nativa y
-el objetivo de pruebas <20 s todavía no se cumple.
+el objetivo de pruebas <20 s todavía no se cumple. El F10 aceptado utilizó U12:
+prove **25,541 s**, verificación **15,162 ms**, total **28,102 s**, pico de proof
+**3.188.391.936 bytes**, todavía bajo 3 GiB. U16 `b3bcc678` fue rechazado por
+RSS de **3.244.568.576 bytes** y el preflight `95900` no inició worker. Esos
+rechazos se conservan; no se eliminó ningún claim de job. Los umbrales originales
+y la meta <20 s siguen vigentes.
 
 La publicación V5 `915d7d6` usada en aquel corte Uniswap conserva un linaje
 explícito de desarrollo. Su

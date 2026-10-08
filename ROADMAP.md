@@ -8,18 +8,24 @@ resultados están en [STATUS.md](STATUS.md).
 
 ## Avance comprobado y próximo cierre
 
-Corte del 8 de octubre de 2026 con la aceptación privada original de Uniswap.
+Corte del 8 de octubre de 2026 con las aceptaciones privadas originales de
+Uniswap y Aave.
 Mantener los siete objetivos y seis requisitos de la visión, con los rangos
 orientativos de STATUS sin recalcularlos por pruebas, módulos o commits.
 
 - **Wallet y estado:** APK autónomo actualizado aceptado sin Metro, con
   custodia/firma nuevas, doce joins originales y pico RSS de grupo de
   2.339.147.776 bytes bajo el mismo límite de 3 GiB. La raíz, backup/restauración
-  y firmas locales D26/D27 tienen trece pruebas móviles y tipos correctos;
+  y firmas locales D26/D27 tienen diecinueve pruebas móviles de custodia y TSC correcto;
   Poseidon2 BigInt pasó seis vectores contra BB oficial. El SDK vinculado pasó
   dos pruebas genuinas, owners Linux y saldo privado 500→0. Cerrar financiación
   y PAEG desde la raíz React Native, recuperación y recorrido en dispositivo,
   además de las siete redes; los checks locales no cierran ese ciclo económico.
+  El puente con firmas separadas PROVE_D26/FUND_D26 y su perfil fijo de una prueba
+  quedaron aceptados en el perfil Node/TLS `03953f4a`: una prueba real,
+  financiación única de 500 y respuesta perdida observada sin reenvío. No
+  acredita SecureStore ni custodia física; la compilación APK nueva sigue
+  pendiente. El último APK aceptado precede este puente.
 - **Privacidad y generalidad:** preservar las garantías y el núcleo PAEG al
   añadir las entradas privadas DeFi. Resolver el modelo de observadores y
   colusiones y la privacidad de topología; los cuatro slots y un único host
@@ -30,7 +36,12 @@ orientativos de STATUS sin recalcularlos por pruebas, módulos o commits.
   reapertura/dedup pasaron, sin repetir ni reclasificar los ensayos originales.
   Uniswap `f485446e` está aceptado con quince pruebas genuinas: reserva privada,
   PAEG, swap, T, EXIT de origen/destino, pago al solver y replay sin efecto
-  duplicado. Cerrar Meta completo y F DeFi, y ampliar posiciones/protocolos;
+  duplicado. Aave `2014f34a` quedó aceptado con quince pruebas reales, rendimiento,
+  redención y replay, tras compilación genuina y verificación de fuentes/pins
+  con los doce verificadores originales. Su cierre conservó los 34 procesos
+  ausentes, sin señales. Uniswap F `c3a3b888` está aceptado con diez pruebas
+  genuinas en 418,573 s: swap irreversible, F original, salida privada conservada
+  y pérdida del solver sin pago T. Cerrar Meta completo y ampliar F/posiciones/protocolos;
   ninguna de estas aceptaciones locales cierra el objetivo 5 completo.
 - **Redes heterogéneas:** conservar la composición BTC/SOL aceptada. El round
   trip `f9c90308` tuvo siete pruebas y auditoría caducada durante `BEGIN_PAYOUT`,
@@ -53,7 +64,10 @@ orientativos de STATUS sin recalcularlos por pruebas, módulos o commits.
   La variante fija U8 conserva los originales y el mismo guard: el nuevo Tron
   midió prove 28,520 s, verificación propia 17,513 ms y total 31,856 s; pico de
   pruebas 3.112.554.496 bytes bajo 3 GiB. Su recorrido completo quedó rechazado
-  antes de entrega nativa y prove aún supera 20 s. Mejorar su coste y medir su
+  antes de entrega nativa y prove aún supera 20 s. F10 aceptado midió U12:
+  prove 25,541 s, verificación 15,162 ms, total 28,102 s y pico 3.188.391.936 bytes.
+  U16 `b3bcc678` permanece rechazado por RSS 3.244.568.576 bytes; el preflight
+  `95900` no inició worker y ningún claim de job se eliminó. Mejorar su coste y medir su
   generalidad; los objetivos en caliente
   <30/<20/<5 s y la revisión criptográfica independiente siguen pendientes.
 
@@ -123,13 +137,18 @@ durante la recuperación del estado privado.
 
 Integrar acciones y posiciones de protocolos reales mediante el mismo PAEG,
 con respaldo, conservación, autorización y recuperación. Completar entrada
-privada, posición, acción, salida y redención en Uniswap y MetaMorpho; ampliar
-Aave, Morpho y Jupiter conforme a las interfaces generales.
+privada, posición, acción, salida y redención en los protocolos originales
+mediante las interfaces generales; ampliar las acciones de Aave y cerrar
+MetaMorpho, Morpho y Jupiter conservando esos mismos criterios.
 
 Uniswap ya tiene un recorrido aceptado desde reserva privada, con autorización,
-estado común, respaldo, quorum, liquidación T y EXIT de ambas notas. MetaMorpho
-llegó a redención real pero conserva el rechazo del driver; completar su
-aceptación y F DeFi. Los ciclos públicos anteriores siguen acreditando entrada
+estado común, respaldo, quorum, liquidación T y EXIT de ambas notas. Aave tiene
+aceptación original de quince pruebas con rendimiento y redención reales,
+compilación genuina y fuentes/pins íntegros. MetaMorpho llegó a redención real
+pero conserva el rechazo del driver; completar su aceptación y ampliar F DeFi.
+Uniswap F ya tiene aceptación genuina de diez pruebas, con entrega irreversible,
+recuperación original del origen, salida privada del destino conservada y pérdida
+del solver declarada sin T. Los ciclos públicos anteriores siguen acreditando entrada
 pública a una nota privada y no se reclasifican como entrada privada. Una posición
 observada, cotización o canje público no basta para emitir saldo privado gastable.
 
