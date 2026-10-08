@@ -24,14 +24,25 @@ case "$task_command" in
       './dev lab btc-sol    Factura privada CBTC, entrega SOL y dos redenciones BTC originales' \
       './dev lab claims     Ingreso y redención privada de claims BTC/SOL en un laboratorio nuevo' \
       './dev lab metamorpho Nota privada de shares, EXIT y redención oficial en un laboratorio nuevo' \
-      './dev lab defi       Entrada privada D27 de Uniswap/MetaMorpho y EXIT original' \
+      './dev lab defi       Entrada pública Uniswap/MetaMorpho, nota privada D27 y EXIT' \
       './dev lab osaka      Despliegues originales y una transferencia pública local con gas limitado' \
+      './dev lab mobile-original Lectura/reconcile V2 de TOP_UP y EXIT originales mediante cliente Node pareado' \
+      './dev lab mobile-original-ledger Compilación nueva del ledger nativo V5 con watchdog fijo' \
       './dev artifacts      Inventariar los artefactos históricos de encoding' \
       './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
       './dev npm [args]     Ejecutar npm con el Node local' \
       '' \
       'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
   lab)
+    if [ "${1:-}" = "mobile-original-ledger" ]; then
+      shift
+      python3 -B "$task_helpers/workspace.py" --quiet
+      exec python3 -B "$task_helpers/native_value_ledger.py" "$@"
+    fi
+    if [ "${1:-}" = "mobile-original" ]; then
+      shift
+      exec python3 -B "$task_helpers/paired_original_account_lab.py" "$@"
+    fi
     if [ "${1:-}" = "audit-base" ]; then
       shift
       exec python3 "$task_helpers/empty_audit_lab.py" "$@"

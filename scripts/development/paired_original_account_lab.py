@@ -1,0 +1,425 @@
+"""Fixed local Node-client acceptance of two original account notes.
+
+No note custody on a phone, TLS, private portfolio or economic API is enabled.
+The private summary joins the closed original supervisor/worker evidence only.
+"""
+import ctypes
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import stat
+import subprocess
+import sys
+import time
+import uuid
+from workspace import ROOT, DEV, RUNTIME, build
+from osaka_lab import capture_child_identity, private_evidence
+
+NODE = DEV / "toolchains/node-v24.19.0-linux-x64/bin/node"
+FLAT = RUNTIME / "omnichain-flat-profile/flat-wallet"
+ENTRY = FLAT / "integration/run-paired-native-note-v2.mjs"
+DIRECTORY = FLAT / ".local/paired-native-note-v2"
+PROFILE = "paired-native-note-v2"
+RESULT_FORMAT = "LIANUM_PAIRED_NATIVE_NOTE_RESULT_V2"
+RESOURCES_FORMAT = "LIANUM_PAIRED_NATIVE_NOTE_RESOURCES_V2"
+CLEAN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
+SHA = re.compile(r"[0-9a-f]{64}")
+SCOPE_FALSE = ("publicNetwork", "nativeGraphAcceptance", "nativeProcessRestartEstablished",
+    "keeperLossRecoveryEstablished", "mobileNoteCustodyEstablished", "tlsEstablished",
+    "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished",
+    "independentInfrastructureEstablished", "fullWalletAcceptance")
+active = None
+active_identity = None
+active_pidfd = None
+interrupted = False
+pending_signal = None
+CLEANUP_SECONDS = 15
+START_PIPE_ENV = "LIANUM_PAIRED_ORIGINAL_START_FD_V2"
+
+
+def record(value):
+    return value if isinstance(value, dict) else {}
+
+
+def digest(value):
+    return isinstance(value, str) and SHA.fullmatch(value) is not None
+
+
+def signal_original(signum):
+    # The original Popen capability alone is insufficient after a changed birth,
+    # owner or parent. Signal only the retained pidfd joined before/after opening.
+    if active is None or active.poll() is not None:
+        return
+    current = capture_child_identity(active)
+    if active_identity is None or active_pidfd is None:
+        return  # Startup handler records pending signal; main delivers after capture.
+    if current != active_identity:
+        raise RuntimeError("PAIRED_CLI_SUPERVISOR_SIGNAL_IDENTITY_CHANGED")
+    status = Path(f"/proc/{active.pid}/status").read_text()
+    match = re.search(r"^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$", status, re.M)
+    if not match or any(int(value) != os.getuid() for value in match.groups()):
+        raise RuntimeError("PAIRED_CLI_SUPERVISOR_SIGNAL_UID_CHANGED")
+    signal.pidfd_send_signal(active_pidfd, signum, None, 0)
+
+
+def forward_signal(signum, _frame):
+    global interrupted, pending_signal
+    interrupted, pending_signal = True, signum
+    # Do no /proc I/O or signalling in a handler during Popen/capture. The
+    # causal child is either still behind its start pipe, or the main loop
+    # forwards this latched signal through its already authenticated pidfd.
+
+
+def _lock_record(lock, value):
+    lock.seek(0)
+    lock.write(json.dumps(value, separators=(",", ":")) + "\n")
+    lock.truncate(); lock.flush(); os.fsync(lock.fileno())
+
+
+def _original_cleanup_receipt(attempt, child, captured):
+    """Closure only, including rejected attempts; never economic acceptance."""
+    if captured is None or child.poll() is None or attempt.parent != DIRECTORY or attempt.resolve() != attempt:
+        return False
+    resources = json.loads(private_evidence(attempt / "resources.json"))
+    identity = record(resources.get("supervisorIdentity"))
+    if resources.get("format") != RESOURCES_FORMAT or resources.get("supervisorPID") != child.pid:
+        return False
+    if any(identity.get(key) != value for key, value in captured.items()):
+        return False
+    if resources.get("ownedGroupCleanupConfirmed") is not True or resources.get("lockReleased") is not True:
+        return False
+    if resources.get("workerSpawned") is False:
+        return resources.get("workerPID") is None
+    return resources.get("workerSpawned") is True and resources.get("workerExitObserved") is True \
+        and resources.get("workerCloseObserved") is True
+
+
+def _run_original_supervisor(lock):
+    """Private fixed launch seam. All paths/argv are module literals, not input.
+
+    A private inherited pipe keeps the reviewed entry before any worker or
+    native operation until this parent has retained and rechecked its pidfd.
+    Closing the pipe without the one-byte grant cancels startup. A startup
+    failure has no fallback signal by PID and keeps the admission marker.
+    """
+    global active, active_identity, active_pidfd
+    launch_id = str(uuid.uuid4())
+    state = {"format": "LIANUM_PAIRED_ORIGINAL_CLI_LIFECYCLE_V2", "launchId": launch_id,
+        "phase": "admitted", "wrapperPID": os.getpid(), "supervisorPID": None,
+        "supervisorIdentity": None, "startupGrantDelivered": False, "originalSupervisorExitCode": None,
+        "originalSupervisorExited": False, "originalCleanupConfirmed": False, "admissionRetained": True,
+        "failure": None, "failurePhase": None, "exceptionClass": None,
+        "cleanupErrors": [], "cleanupDeadlineSeconds": CLEANUP_SECONDS}
+    # This file remains nonempty across SIGKILL/exception and blocks relaunch
+    # under the same flock. Kernel flock itself ends when its wrapper exits.
+    _lock_record(lock, state)
+    previous = set(DIRECTORY.glob("attempt-*"))
+    grant_reader = grant_writer = None
+    child = None
+    cleanup_deadline = None
+    signal_sent = False
+    seen = None
+    phase = "before-spawn"
+    def fail(code):
+        nonlocal cleanup_deadline
+        if state["failure"] is None:
+            state["failure"] = code
+            state["failurePhase"] = phase
+        if cleanup_deadline is None:
+            cleanup_deadline = time.monotonic() + CLEANUP_SECONDS
+    def close_grant():
+        nonlocal grant_reader, grant_writer
+        for name, fd in (("reader", grant_reader), ("writer", grant_writer)):
+            if fd is not None:
+                try: os.close(fd)
+                except OSError: state["cleanupErrors"].append("PAIRED_CLI_START_PIPE_CLOSE_FAILED")
+            if name == "reader": grant_reader = None
+            else: grant_writer = None
+    owner_pid = os.getpid()
+    def guard_parent():
+        if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != owner_pid:
+            os._exit(125)
+    try:
+        if interrupted:
+            fail("PAIRED_CLI_INTERRUPTED_BEFORE_SPAWN")
+        else:
+            phase = "create-start-pipe"
+            grant_reader, grant_writer = os.pipe2(os.O_CLOEXEC)
+            # Popen assignment and every subsequent startup step share this
+            # try/finally; no fd, child or admission leaves through a gap.
+            phase = "popen"
+            child = subprocess.Popen([str(NODE), str(ENTRY)], cwd=FLAT,
+                env={**CLEAN_ENV, START_PIPE_ENV: str(grant_reader)},
+                pass_fds=(grant_reader,), preexec_fn=guard_parent)
+            active = child
+            state["supervisorPID"] = child.pid
+            os.close(grant_reader); grant_reader = None
+            phase = "capture"
+            active_identity = capture_child_identity(child)
+            state["supervisorIdentity"] = active_identity
+            if active_identity is None:
+                fail("PAIRED_CLI_SUPERVISOR_CAPTURE_UNCONFIRMED")
+            elif child.poll() is not None:
+                fail("PAIRED_CLI_SUPERVISOR_EXITED_DURING_CAPTURE")
+            else:
+                phase = "pidfd-open"
+                active_pidfd = os.pidfd_open(child.pid, 0)
+                phase = "pidfd-recheck"
+                if capture_child_identity(child) != active_identity:
+                    fail("PAIRED_CLI_SUPERVISOR_IDENTITY_CHANGED")
+                else:
+                    # Reuse the signalling predicate without sending a signal:
+                    # both captures already checked inode owner and parent;
+                    # the four UID fields must also remain this user's.
+                    phase = "uid-recheck"
+                    status = Path(f"/proc/{child.pid}/status").read_text()
+                    match = re.search(r"^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$", status, re.M)
+                    if not match or any(int(value) != os.getuid() for value in match.groups()):
+                        fail("PAIRED_CLI_SUPERVISOR_UID_CHANGED")
+                    elif capture_child_identity(child) != active_identity:
+                        fail("PAIRED_CLI_SUPERVISOR_IDENTITY_CHANGED")
+            state["supervisorIdentity"] = active_identity
+            if interrupted:
+                fail("PAIRED_CLI_INTERRUPTED_DURING_STARTUP")
+            if state["failure"] is None:
+                phase = "startup-grant"
+                if os.write(grant_writer, b"G") != 1:
+                    fail("PAIRED_CLI_START_GRANT_FAILED")
+                else: state["startupGrantDelivered"] = True
+            close_grant()
+            _lock_record(lock, state)
+            phase = "observation"
+            while child.poll() is None:
+                if interrupted:
+                    fail("PAIRED_CLI_INTERRUPTED")
+                if state["failure"] is not None:
+                    if state["startupGrantDelivered"] and not signal_sent:
+                        signal_original(pending_signal or signal.SIGTERM); signal_sent = True
+                    if time.monotonic() >= cleanup_deadline:
+                        break
+                try:
+                    own_lock = json.loads(private_evidence(DIRECTORY / "active.lock"))
+                    attempt = FLAT / own_lock["attempt"]
+                    if own_lock.get("pid") == child.pid and attempt.parent == DIRECTORY and attempt.resolve() == attempt:
+                        result = json.loads(private_evidence(attempt / "result.json"))
+                        rows = record(result).get("proofs")
+                        current = (record(result).get("phase"), len(rows) if isinstance(rows, list) else None)
+                        if current != seen:
+                            print(json.dumps({"stage": current[0], "realProofs": current[1]}), flush=True); seen = current
+                except (OSError, KeyError, ValueError, TypeError, RecursionError):
+                    pass
+                time.sleep(0.1)
+    except Exception as error:
+        name = type(error).__name__
+        state["exceptionClass"] = name if name in {"ValueError", "TypeError", "RuntimeError", "OSError",
+            "PermissionError", "FileNotFoundError", "ProcessLookupError", "IndexError", "OverflowError"} else "UnexpectedException"
+        fail("PAIRED_CLI_STARTUP_OR_OBSERVATION_EXCEPTION")
+    finally:
+        # EOF cancels an ungranted startup. For an admitted worker the original
+        # supervisor owns cleanup; one authenticated TERM requests that cleanup.
+        close_grant()
+        if child is not None:
+            if child.poll() is None:
+                fail("PAIRED_CLI_SUPERVISOR_EXIT_UNCONFIRMED")
+                if state["startupGrantDelivered"] and not signal_sent:
+                    try: signal_original(pending_signal or signal.SIGTERM); signal_sent = True
+                    except Exception: state["cleanupErrors"].append("PAIRED_CLI_ORIGINAL_SIGNAL_UNCONFIRMED")
+                while child.poll() is None and time.monotonic() < cleanup_deadline:
+                    time.sleep(min(0.02, max(0, cleanup_deadline - time.monotonic())))
+            state["originalSupervisorExited"] = child.poll() is not None
+            state["originalSupervisorExitCode"] = child.returncode
+        else:
+            state["originalSupervisorExited"] = True  # Popen did not return a child.
+        attempts = set(DIRECTORY.glob("attempt-*")) - previous
+        attempt = attempts.pop() if len(attempts) == 1 else None
+        if child is None:
+            state["originalCleanupConfirmed"] = True
+        elif attempt is not None:
+            try: state["originalCleanupConfirmed"] = _original_cleanup_receipt(attempt, child, active_identity)
+            except Exception: state["cleanupErrors"].append("PAIRED_CLI_ORIGINAL_CLEANUP_RECEIPT_UNAVAILABLE")
+        state["admissionRetained"] = not state["originalCleanupConfirmed"]
+        state["phase"] = "closed" if state["originalCleanupConfirmed"] else "closure-unconfirmed"
+        state["kernelFlockRetainedBeyondWrapper"] = False
+        receipt_path = DEV / "reports/paired-original-account-cli-v2" / (launch_id + ".json")
+        receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        with receipt_path.open("x", encoding="utf8") as stream:
+            os.chmod(receipt_path, 0o600)
+            stream.write(json.dumps(state, indent=2) + "\n"); stream.flush(); os.fsync(stream.fileno())
+        if state["originalCleanupConfirmed"]:
+            lock.seek(0); lock.truncate(); lock.flush(); os.fsync(lock.fileno())
+        else: _lock_record(lock, state)
+        if active_pidfd is not None:
+            os.close(active_pidfd); active_pidfd = None
+        # Keep the causal Popen while this function publishes its closure. Its
+        # identity is never re-created from a dead numeric PID.
+        active = None; active_identity = None
+    if child is None or state["failure"] is not None or not state["originalCleanupConfirmed"]:
+        raise RuntimeError(state["failure"] or "PAIRED_CLI_ORIGINAL_CLEANUP_UNCONFIRMED")
+    if attempt is None:
+        raise RuntimeError("PAIRED_CLI_SINGLE_NEW_ATTEMPT_REQUIRED")
+    return attempt, child.pid, child.returncode, state["supervisorIdentity"]
+
+
+def proof_checks(rows, note_keys):
+    typed = isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("evidence"), dict) for row in rows)
+    proofs = rows if typed else []
+    expected = [("deposit_balance", 26), ("withdraw_balance", 39)]
+    checks = {"proofRowsTyped": typed,
+        "twoOriginalNoteRelations": typed and len(proofs) == 2 and [(row.get("relation"), row.get("publicWords")) for row in proofs] == expected,
+        "twoFreshOriginalProofAttempts": typed and len(proofs) == 2 and all(isinstance(row["evidence"].get("id"), str)
+            and UUID.fullmatch(row["evidence"]["id"]) for row in proofs)
+            and len({row["evidence"].get("id") for row in proofs}) == 2,
+        "twoDistinctOriginalProofBytes": typed and len(proofs) == 2 and len({row.get("proofSHA256") for row in proofs}) == 2
+            and all(digest(row.get("proofSHA256")) and digest(row.get("publicInputsSHA256")) and row.get("amountAtomic") == "500" for row in proofs),
+        "twoCompletedGenuineProofReceipts": typed and len(proofs) == 2 and all(
+            row["evidence"].get("classification") == "ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY"
+            and row["evidence"].get("mode") == row.get("relation") and row["evidence"].get("operation") == "prove"
+            and row["evidence"].get("purpose") == "owner" and row["evidence"].get("phase") == "completed"
+            and row["evidence"].get("acceptedResult") is True and row["evidence"].get("resourceReceiptCompleted") is True
+            and row["evidence"].get("zeroKnowledgeEnabled") is True and digest(row["evidence"].get("telemetrySHA256"))
+            and row["evidence"].get("exit") == {"code": 0, "signal": None}
+            and record(row["evidence"].get("worker")).get("verified") is True
+            and record(row["evidence"].get("worker")).get("zeroKnowledgeEnabled") is True
+            and record(row["evidence"].get("worker")).get("proofSHA256") == row.get("proofSHA256")
+            and record(row["evidence"].get("worker")).get("publicInputsSHA256") == row.get("publicInputsSHA256")
+            and record(row["evidence"].get("worker")).get("publicInputCount") == row.get("publicWords")
+            and digest(row["evidence"].get("keySHA256")) and row["evidence"]["keySHA256"] == note_keys.get(row.get("relation"))
+            and record(row["evidence"].get("worker")).get("keySHA256") == row["evidence"]["keySHA256"] for row in proofs)}
+    return proofs, checks
+
+
+def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
+    if attempt.parent != DIRECTORY or attempt.resolve() != attempt or not attempt.is_dir():
+        raise SystemExit("Paired original lab produced no single new original attempt")
+    documents, original_bytes, read_failures = {}, {}, []
+    for name in ("result", "resources", "source-pins"):
+        try:
+            value_bytes = private_evidence(attempt / (name + ".json"))
+            value = json.loads(value_bytes)
+            if not isinstance(value, dict):
+                raise ValueError("EVIDENCE_OBJECT_REQUIRED")
+            original_bytes[name] = value_bytes
+            documents[name] = value
+        except (OSError, ValueError, TypeError, RecursionError):
+            read_failures.append(name)
+            documents[name] = {}
+    result, resources, sources = (documents[name] for name in ("result", "resources", "source-pins"))
+    result_bytes = original_bytes.get("result", b"")
+    resources_bytes = original_bytes.get("resources", b"")
+    source_sha = hashlib.sha256(original_bytes["source-pins"]).hexdigest() if "source-pins" in original_bytes else None
+    worker_result = record(resources.get("workerResult"))
+    supervisor_identity, worker_identity = (record(resources.get(key)) for key in ("supervisorIdentity", "workerIdentity"))
+    worker_pid = resources.get("workerPID")
+    supervisor = {"supervisorPID": supervisor_pid, "workerPID": worker_pid}
+    run_id = result.get("runId")
+    receipt_checks = {
+        "originalEvidenceRead": not read_failures, "cliNotInterrupted": not interrupted,
+        "supervisorExitZero": type(supervisor_code) is int and supervisor_code == 0,
+        "resultFormat": result.get("format") == RESULT_FORMAT,
+        "resourcesFormat": resources.get("format") == RESOURCES_FORMAT,
+        "runIdentity": isinstance(run_id, str) and UUID.fullmatch(run_id) is not None and attempt.name == "attempt-" + run_id
+            and resources.get("runId") == run_id and worker_result.get("runId") == run_id,
+        "supervisorIdentity": type(supervisor_pid) is int and supervisor_pid > 1 and resources.get("supervisorPID") == supervisor_pid
+            and supervisor_identity.get("pid") == supervisor_pid and supervisor_identity.get("ppid") == os.getpid()
+            and result.get("supervisor") == supervisor and worker_result.get("supervisor") == supervisor
+            and isinstance(captured_identity, dict) and set(captured_identity) == {"pid", "ppid", "pgrp", "session", "startTimeTicks"}
+            and all(supervisor_identity.get(key) == value for key, value in captured_identity.items()),
+        "workerIdentity": type(worker_pid) is int and worker_pid > 1 and worker_identity.get("pid") == worker_pid
+            and worker_identity.get("ppid") == supervisor_pid and worker_identity.get("pgrp") == worker_pid
+            and worker_identity.get("session") == worker_pid and resources.get("ownedProcessGroup") == worker_pid,
+        "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
+            for value in (supervisor_identity, worker_identity)),
+        "resultCompleted": result.get("phase") == "completed" and result.get("success") is True
+            and result.get("pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
+        "resourcesCompleted": resources.get("phase") == "completed" and "failure" in resources and resources["failure"] is None
+            and resources.get("failures") == [],
+        "originalResultJoined": worker_result.get("format") == RESULT_FORMAT and worker_result.get("phase") == "completed"
+            and worker_result.get("success") is True and worker_result.get("path") == str((attempt / "result.json").relative_to(FLAT))
+            and worker_result.get("bytes") == len(result_bytes) and worker_result.get("sha256") == hashlib.sha256(result_bytes).hexdigest(),
+        "sourceJoined": result.get("sourceUnchanged") is True and resources.get("sourceClosureUnchanged") is True
+            and source_sha is not None and resources.get("sourcePinsSHA256") == source_sha
+            and result.get("sourcePins") == sources and resources.get("sourcePins") == sources,
+        "localScope": all(value.get("localOnly") is True and value.get("fakeFundsOnly") is True and value.get("publicNetwork") is False
+            for value in (result, resources, worker_result)),
+        "fixedPairedScope": result.get("profile") == PROFILE and result.get("nativeExecution", "missing") is None
+            and result.get("nativeDeliveryCount") == 0 and all(result.get(key) is False for key in SCOPE_FALSE)
+            and worker_result.get("pairedOriginalAccountNodeAcceptance") is True
+            and all(worker_result.get(key) is False for key in ("mobileNoteCustodyEstablished", "tlsEstablished",
+                "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished", "fullWalletAcceptance")),
+        "originalCleanup": resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
+            and resources.get("lockReleased") is True and resources.get("withinTotalDeadline") is True
+            and all(record(value.get("cleanup")).get(key) is True for value in (result, worker_result) for key in ("closedEvm", "closedNativeEvm"))
+            and record(result.get("cleanup")).get("errors") == [],
+        "workerExitZero": all(resources.get(key) is True for key in ("workerSpawned", "workerExitObserved", "workerCloseObserved"))
+            and all(type(record(resources.get(key)).get("code")) is int and record(resources.get(key)).get("code") == 0
+                and "signal" in record(resources.get(key)) and record(resources[key])["signal"] is None for key in ("workerExit", "workerClose")),
+    }
+    proofs, proof_receipts = proof_checks(result.get("proofs"), record(record(result.get("artifacts")).get("noteKeys")))
+    receipt_checks.update(proof_receipts)
+    listeners = record(result.get("cleanup")).get("mobileListeners")
+    receipt_checks["pairedListenersClosed"] = isinstance(listeners, list) and len(listeners) == 2 and all(
+        record(row).get("closed") is True and record(row).get("listenerClosed") is True
+        and record(row).get("ownedSocketsRemaining") == 0 and record(row).get("originalDiagnosticsInFlight") == 0 for row in listeners)
+    accepted = all(receipt_checks.values())
+    summary = {"format": "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+        "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
+        "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
+        "pairedOriginalAccountNodeAcceptance": accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
+        "proofHashes": [{key: row.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")} for row in proofs],
+        "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
+        "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
+        "sourcePinsSHA256": source_sha, "failure": resources.get("failure"), "workerFailure": result.get("errorCode"),
+        "ownedGroupCleanupConfirmed": resources.get("ownedGroupCleanupConfirmed"), "resourceSummary": resources.get("resourceSummary"),
+        "economics": result.get("economics"), **{key: False for key in SCOPE_FALSE},
+        "limitations": ["Two original local EVM notes with fake funds and Linux original owner custody only.",
+            "Node runs the exact mobile V2 API, lease, protocol and Noble signatures through an explicit paired loopback translation.",
+            "This establishes neither TLS, React/device execution, biometric signing, private portfolio nor note custody on a phone.",
+            "Only the original owner child restarts; keeper/backend/node loss recovery, native graph delivery and public finality are excluded."]}
+    path = DEV / "reports/paired-original-account-lab-v2.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(summary, indent=2) + "\n")
+    temporary.chmod(0o600); temporary.replace(path)
+    print(json.dumps({"summary": str(path.relative_to(ROOT)), "accepted": accepted, "runId": run_id,
+        "realProofCount": summary["realProofCount"]}), flush=True)
+    if not accepted:
+        raise SystemExit("Paired original lab evidence rejected; original reports preserved")
+
+
+def main():
+    global active, active_identity, active_pidfd
+    if len(sys.argv) != 1:
+        raise SystemExit("Usage: ./dev lab mobile-original")
+    if sys.platform != "linux" or Path.cwd().resolve() != ROOT:
+        raise SystemExit("Run the fixed paired original lab from the project root in Linux/WSL")
+    if Path(__file__).resolve() != ROOT / "scripts/development/paired_original_account_lab.py" or Path(sys.argv[0]).resolve() != Path(__file__).resolve():
+        raise SystemExit("Fixed canonical paired original launcher required")
+    build(quiet=True)
+    DEV.mkdir(parents=True, exist_ok=True)
+    fd = os.open(DEV / "paired-original-account-lab-v2.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "r+") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit("Another paired original lab is active")
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(signum, forward_signal)
+        info = os.fstat(lock.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise SystemExit("Private original launcher lock required")
+        lock.seek(0)
+        if lock.read(16 * 1024 + 1).strip():
+            raise SystemExit("Original launcher admission retained; closure must be audited before relaunch")
+        attempt, supervisor_pid, code, captured_identity = _run_original_supervisor(lock)
+        retain_summary(attempt, supervisor_pid, code, captured_identity)
+        if code or interrupted:
+            raise SystemExit(code if code > 0 else 2)
+
+
+if __name__ == "__main__":
+    main()
