@@ -26,7 +26,7 @@ PROJECT = next((p for p in HERE.parents if (p / 'scripts/layout.json').is_file()
 if PROJECT is None:
     PROJECT = next(p for p in HERE.parents if p.name == '.internal').parent
 RUNTIME = PROJECT / '.internal/runtime/omnichain-product/.local/owned-tron-native-value-v1'
-DESTINATION = RUNTIME / 'reviewed-first-error-private-v3'
+DESTINATION = RUNTIME / 'reviewed-first-error-private-v4'
 LOCK_DIRECTORY = RUNTIME / 'candidate-acceptance'
 SOURCE = HERE / 'source/OwnedTronNativeDriver.java'
 ORIGINAL = PROJECT / 'packages/chains/drivers/owned-tron-native-value/OwnedTronNativeDriver.java'
@@ -164,7 +164,7 @@ def inputs():
 
 
 def assert_owned_destination(path):
-    need(path == DESTINATION and path.name == 'reviewed-first-error-private-v3' and path.parent == RUNTIME, 'TRON_ALIGNED_FIXED_NAMESPACE')
+    need(path == DESTINATION and path.name == 'reviewed-first-error-private-v4' and path.parent == RUNTIME, 'TRON_ALIGNED_FIXED_NAMESPACE')
     info = path.lstat()
     need(path.resolve(strict=True) == path and not path.is_symlink() and stat.S_ISDIR(info.st_mode)
          and info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700, 'TRON_ALIGNED_OWNED_NAMESPACE')
@@ -211,7 +211,7 @@ def process_executable(pid):
     return Path('/proc', str(pid), 'exe').resolve(strict=True)
 
 
-def checked_compiler_executable(inventory, sampled):
+def checked_compiler_executable(inventory, sampled, deadline):
     # The original scan may precede kernel exit by a few microseconds. Missing
     # /proc/exe is terminal only for our already-retained original Popen/pidfd.
     child = inventory.child
@@ -228,10 +228,27 @@ def checked_compiler_executable(inventory, sampled):
     try:
         executable = process_executable(child.pid)
     except FileNotFoundError:
-        need(child.poll() is not None, 'TRON_ALIGNED_COMPILER_EXECUTABLE_DISAPPEARED_WHILE_LIVE')
-        need(select.select([retained['pidfd']], [], [], 0)[0] == [retained['pidfd']],
+        # exec disappears before waitpid becomes observable at the kernel exit
+        # boundary. Only the retained original pidfd may authorize waiting for
+        # the same Popen; missing exe alone never establishes termination.
+        need(not interrupted, 'TRON_ALIGNED_OWNER_INTERRUPTED')
+        remaining = deadline - time.monotonic()
+        need(remaining > 0, 'TRON_ALIGNED_COMPILER_DEADLINE')
+        boundary = min(deadline, time.monotonic() + min(0.020, remaining))
+        need(select.select([retained['pidfd']], [], [], max(0, boundary - time.monotonic()))[0] == [retained['pidfd']],
              'TRON_ALIGNED_COMPILER_TERMINAL_PIDFD_UNCONFIRMED')
+        need(not interrupted, 'TRON_ALIGNED_OWNER_INTERRUPTED')
+        remaining = min(deadline, boundary) - time.monotonic()
+        need(remaining > 0, 'TRON_ALIGNED_COMPILER_DEADLINE')
+        try:
+            exit_code = child.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            raise RuntimeError('TRON_ALIGNED_COMPILER_EXECUTABLE_DISAPPEARED_WHILE_LIVE') from None
+        need(exit_code is not None and child.poll() == exit_code,
+             'TRON_ALIGNED_COMPILER_EXECUTABLE_DISAPPEARED_WHILE_LIVE')
+        need(time.monotonic() < deadline and not interrupted, 'TRON_ALIGNED_COMPILER_DEADLINE')
         live = inventory.scan()
+        need(time.monotonic() < deadline and not interrupted, 'TRON_ALIGNED_COMPILER_DEADLINE')
         need(not live and not inventory.unsafe and not inventory.unknown and retained['gone'] is True,
              'TRON_ALIGNED_COMPILER_TERMINAL_INVENTORY_UNCONFIRMED')
         return None
@@ -431,7 +448,7 @@ def compile_owned(report):
             live = inventory.scan()
             need(not inventory.unsafe and all(value['pid'] == active.pid for value in live), 'TRON_ALIGNED_COMPILER_IDENTITY_CHANGED')
             for value in live:
-                executable = checked_compiler_executable(inventory, value)
+                executable = checked_compiler_executable(inventory, value, began + DEADLINE_SECONDS)
                 if executable == RUNTIME / 'jdk8/bin/javac': row['compilerExecutableObserved'] = True
             rss = sum(value['rssBytes'] for value in live)
             need(rss <= RSS_LIMIT, 'TRON_ALIGNED_COMPILER_RSS_LIMIT')
