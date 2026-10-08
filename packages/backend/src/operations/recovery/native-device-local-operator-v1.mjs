@@ -3,10 +3,11 @@
  * plus one explicitly paired public device key; never a note/root, account DTO,
  * SQL executor, signer, proof or callback. Local values are not mainnet assets. */
 import assert from 'node:assert/strict';
-import { randomBytes, createPublicKey } from 'node:crypto';
-import { mkdir, mkdtemp, lstat, realpath } from 'node:fs/promises';
-import { join } from 'node:path';
-import { ROOT } from '../../../../proofs/src/catalog.mjs';
+import { randomBytes, createPublicKey, createHash } from 'node:crypto';
+import { constants } from 'node:fs';
+import { mkdir, mkdtemp, lstat, realpath, open } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { ROOT, FLAT } from '../../../../proofs/src/catalog.mjs';
 import { Vault } from '../../../../engine/src/crypto/vault.mjs';
 import { normalizeMobileOrigin } from '../../../../mobile-protocol/src/authorization.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
@@ -33,9 +34,37 @@ const local = join(ROOT, '.local/original-device-local-operator-v1');
 const requiredSources = Object.freeze([
   'wallet-platform/modules/ops/native-device-local-operator-v1.mjs',
   'wallet-platform/modules/ops/native-device-local-provider-v1.mjs',
-  'workspace-module/apps/platform/src/original-device-local-operator-v1.mjs',
-  'workspace-module/apps/platform/src/run-original-device-local-v1.mjs',
 ]);
+// These exact current product callers are consumers outside the original
+// compiler allowlist. Their literals live in this V5-authenticated backend;
+// no caller path/hash or expanded release-contract root is admitted.
+const reviewedCallers = Object.freeze([
+  Object.freeze({ path: 'apps/platform/src/original-device-local-operator-v1.mjs', bytes: 1974, sha256: '29c3b6e2c986e8732f9b257902bd5ff01b78ac30f63243acbedde39dc1216369' }),
+  Object.freeze({ path: 'apps/platform/src/run-original-device-local-v1.mjs', bytes: 4176, sha256: 'cef994efd2d7d57ca3c7ff5b5ca6b7a07ef685bc65c42552cd4533ec8a57b25b' }),
+ ]);
+async function assertReviewedLocalProductCallers() {
+  const directory = resolve(FLAT, '../../..');
+  assert.equal(await realpath(directory), directory, 'NATIVE_DEVICE_PRODUCT_CALLER_ROOT_ALIAS');
+  for (const row of reviewedCallers) {
+    let path = directory;
+    for (const part of row.path.split('/')) {
+      path = join(path, part);
+      assert.equal((await lstat(path)).isSymbolicLink(), false, 'NATIVE_DEVICE_PRODUCT_CALLER_ALIAS');
+    }
+    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const before = await handle.stat();
+      assert.ok(before.isFile() && before.nlink === 1 && before.size === row.bytes,
+        'NATIVE_DEVICE_PRODUCT_CALLER_PHYSICAL_PIN');
+      const bytes = await handle.readFile(), after = await handle.stat(), named = await lstat(path);
+      for (const field of ['dev', 'ino', 'uid', 'mode', 'nlink', 'size', 'mtimeMs', 'ctimeMs'])
+        assert.ok(before[field] === after[field] && before[field] === named[field], 'NATIVE_DEVICE_PRODUCT_CALLER_CHANGED');
+      assert.equal(named.isSymbolicLink(), false);
+      assert.equal(bytes.length, row.bytes, 'NATIVE_DEVICE_PRODUCT_CALLER_PHYSICAL_PIN');
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), row.sha256, 'NATIVE_DEVICE_PRODUCT_CALLER_RAW_PIN');
+    } finally { await handle.close(); }
+  }
+}
 export function originalNativeDeviceLocalConfigurationPathV1() {
   assert.equal(arguments.length, 0); return join(local, 'operator.json');
 }
@@ -92,6 +121,7 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
   assert.ok(NATIVE_VALUE_DEV_RELEASE_V5 !== null && requiredSources.every(path =>
     NATIVE_VALUE_DEV_RELEASE_V5.sourceFiles.some(row => row.path === path)), 'NATIVE_DEVICE_PRODUCT_SOURCE_REVIEW_REQUIRED');
   await loadNativeValueDevDeploymentArtifactsV5(); // all physical source/artifact pins before allocation/spawn
+  await assertReviewedLocalProductCallers(); // exact callers before either runtime or credential allocation
   let runtime, nativeRuntime, bootstrap, system, owner, nativeExecution, account, joined, provider, installed, closing, ownerPassword, checkpoint;
   function close() {
     assert.equal(arguments.length, 0); return closing ??= (async () => {

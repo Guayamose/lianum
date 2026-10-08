@@ -21,8 +21,7 @@ const FIXED=Object.freeze(['golden/src/paeg/note-deposit-native-worker-v1.mjs','
  'proof-workers/native-value-dev-live-v5-tooling.mjs','wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs',
  'integration/run-native-wallet-tron-dev-v5.mjs','integration/native-wallet-tron-dev-v5.mjs',
  'integration/native-wallet-tron-dev-policy-v5.mjs','integration/native-wallet-tron-dev-source-pins-v5.mjs',
- 'wallet-platform/modules/ops/native-device-local-operator-v1.mjs','wallet-platform/modules/ops/native-device-local-provider-v1.mjs',
- 'workspace-module/apps/platform/src/original-device-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-device-local-v1.mjs']);
+ 'wallet-platform/modules/ops/native-device-local-operator-v1.mjs','wallet-platform/modules/ops/native-device-local-provider-v1.mjs']);
 const excluded=join(ROOT,'wallet-platform/modules/ops/native-value-dev-release-v5.mjs');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function pathFor(name){
@@ -32,7 +31,8 @@ function pathFor(name){
 function label(path){
  if(path.startsWith(ROOT+sep))return relative(ROOT,path).split(sep).join('/');
  const selected=roots.find(([,root])=>path.startsWith(root+sep));assert.ok(selected,'NV5_FINANCIAL_LOCAL_SOURCE');
- return selected[0]+relative(selected[1],path).split(sep).join('/');
+ const name=selected[0]+relative(selected[1],path).split(sep).join('/');
+ return name;
 }
 function bytes(path){
  const name=label(path),selected=roots.find(([prefix])=>name.startsWith(prefix));let current=selected?.[1]??ROOT;
