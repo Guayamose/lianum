@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "0cc5b8176f9bcfcaed5fb7b861d37a4717c0a4720c34664c98f685d1f433f600",
+  "hostSourceClosureSHA256": "bd7791b20eba43131f0e81d63b88ea6e100b76bad203483d1479f2b0f845a9c7",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -870,7 +870,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "da3d8d716ce40173ef8ec032d418b762caed4f287fa26c3142f0c5fcdceb29ec"
+      "sha256": "630a22fdea945d7dd9774aaa5b150ea04d3296cad57100e5e23546c4e85dfe10"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -891,6 +891,14 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "integration/native-spl-claim-token-compilation-source-pins-v1.mjs",
       "sha256": "ab250167de222cedde08b80919d1123941bf50adf970ff0f24e3b0be19681a3b"
+    },
+    {
+      "path": "integration/native-spl-claim-v1-compilation-policy.mjs",
+      "sha256": "6a1434a067620394f3ef81485dccd1ad36dfa271a1e8dc3cc133bc83614e2806"
+    },
+    {
+      "path": "integration/native-spl-claim-v1-compilation-source-pins.mjs",
+      "sha256": "0379699a7f538939c5c2d75e1d1dbc44f01e58298b77bb7b9bf96c6daca8229f"
     },
     {
       "path": "integration/native-spl-compilation-material-v1.mjs",
@@ -958,7 +966,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/paired-native-note-flow-v2.mjs",
-      "sha256": "5062df9fca5ab0679d465ed21374158fb83c7989106781952efbe81df43707ab"
+      "sha256": "256e1d564f6cccf91a6805cc255b1268838d33e97e9a2c50324b3eeab6f9e61c"
     },
     {
       "path": "integration/paired-native-note-policy-v2.mjs",
@@ -2575,6 +2583,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "wallet-platform/modules/ops/native-spl-claim-token-compilation-v1.mjs",
       "sha256": "ffb72aa24f637e7b5304ff1e6117d5aba8b9c1aefe58cfe1940ee826d615ff5f"
+    },
+    {
+      "path": "wallet-platform/modules/ops/native-spl-claim-v1-compilation.mjs",
+      "sha256": "3581fb0fe8266b2088ddb96067e272c7708e3b4fc35ddcd2d004e28113808fce"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-checkpoint-v4.mjs",
