@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "bd7791b20eba43131f0e81d63b88ea6e100b76bad203483d1479f2b0f845a9c7",
+  "hostSourceClosureSHA256": "d06bfba41f310a526b7417e4900d3f20cb23804c5c4ce3252a11fc5888049090",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -694,15 +694,15 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-execution-native-checks-v1.mjs",
-      "sha256": "ccc9755fd776387d8abbb3e4fe09a93daabfcdb71edf74dd5fe363b5cfcd677b"
+      "sha256": "4d743da99a01390d6673aed8b9eb5232a68832af195bb49ae7b5b928a56bd30e"
     },
     {
       "path": "integration/device-owner-execution-original-continuation-v1.mjs",
-      "sha256": "9bd3f1de2d13eb360d075d561d6ba3a18ce5dbb19e960f8de43fdb31f80ed2d8"
+      "sha256": "32dd795aed401a8a42bb9e131503a8d1b3f0c3b49c980fbd4f16461204fd7d10"
     },
     {
       "path": "integration/device-owner-execution-policy-v1.mjs",
-      "sha256": "e8df83140ae72faa7e3600b4e340702429cf4bc52926c60cd89042bf32cbff56"
+      "sha256": "845b7dce487c2b97de0054ea7d86825c2ca5a249d9dbee9c3065f807047788c9"
     },
     {
       "path": "integration/device-owner-execution-source-pins-v1.mjs",
@@ -710,7 +710,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-recovery-policy-v1.mjs",
-      "sha256": "eddbf55ff001358c3fbfa8745c0a85f3200a15ba0f2a928ae4c18e0d604cb820"
+      "sha256": "01501cb2f84d6169fcc88235eae0901b90cffbb544120a7fababac395550a663"
     },
     {
       "path": "integration/device-owner-recovery-source-pins-v1.mjs",
@@ -718,7 +718,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-reservation-host-vault-v1.mjs",
-      "sha256": "6f00ad66875bbc2bea0ab9c105dbf7add250814c35b7b2ac58ee98f32347fff7"
+      "sha256": "486aa82c836345e2f22d170fe38dc4e5137a8db6f5fb65d9ace456f65d5e261c"
     },
     {
       "path": "integration/device-owner-reservation-original-continuation-v1.mjs",
@@ -734,7 +734,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-reservation-source-pins-v1.mjs",
-      "sha256": "517403fd988f1ddb456aef8a302f543af3eb3f5f38c147c5b54cf8944c882a12"
+      "sha256": "8e7e260816abdd0f9e47275b063ab38f9464f56a717bf893680cd86504080451"
     },
     {
       "path": "integration/evm-vault-flow.mjs",
@@ -870,7 +870,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "630a22fdea945d7dd9774aaa5b150ea04d3296cad57100e5e23546c4e85dfe10"
+      "sha256": "b23ef196153e5a367597df1e5c7875ee2dea496613d4116edd43d45acc1514ee"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -894,7 +894,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-spl-claim-v1-compilation-policy.mjs",
-      "sha256": "6a1434a067620394f3ef81485dccd1ad36dfa271a1e8dc3cc133bc83614e2806"
+      "sha256": "092af26b32e6b535ca8011f029cde0864cae780cb1459042051ce26c122e44ee"
     },
     {
       "path": "integration/native-spl-claim-v1-compilation-source-pins.mjs",
@@ -1306,7 +1306,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "mobile-app/src/api/original-account-api-v2.mjs",
-      "sha256": "1bafec1af40a8bda715dadcd7b913ed2d4981eb77684ed5a6ca1a3fa81cdf416"
+      "sha256": "52a05130d4facdf3d4a99882709fa4fbab381fedb233683ba4b8a50040256093"
     },
     {
       "path": "mobile-app/src/custody/original-account-lease-v2.mjs",
@@ -1366,7 +1366,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "mobile-core/native-value-owner-observer-v2.mjs",
-      "sha256": "71b01b266aab0a42904ba91d91f22f51f8c787b4301768422035d2c26b9ed684"
+      "sha256": "c9e17d5ba4e49cdc894334ea27305231781f72431e4cc94f1b79347c71ad97a4"
     },
     {
       "path": "mobile-core/native-value-owner-process-v2.mjs",
@@ -1431,6 +1431,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "mobile-protocol/src/device-exit-consent-v1.mjs",
       "sha256": "1890b18030436f0f6f7d236b1450f68edc85a310dd875cfeced05eebb85b9a25"
+    },
+    {
+      "path": "mobile-protocol/src/device-output-balance-v1.mjs",
+      "sha256": "0a31fe63ea6232a968caed81628d674ebf17d7362018f84d2ff0c6a44a875f4e"
     },
     {
       "path": "mobile-protocol/src/device-reservation-consent-v1.mjs",
@@ -1558,7 +1562,15 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/native-value-dev-live-v5-client.mjs",
-      "sha256": "e07d92ad3314d0fe89e06935aa7df2d04d8b63f51406e170b4a765127b4a8f51"
+      "sha256": "9b9ac44e8cd9107477290b2618b42ba65f5c9b88ecadd6e05c96b95feb89a3f9"
+    },
+    {
+      "path": "proof-workers/native-value-dev-live-v5-native-execution.mjs",
+      "sha256": "8b1af46a09aa95a531e16aec6f266d54398a31d0c037f3d0665f3b7a7c8a73cd"
+    },
+    {
+      "path": "proof-workers/native-value-dev-live-v5-public-crs.mjs",
+      "sha256": "3b076ba7c82e8198db65bd05c5d7ff2af2ec40c9aba48e3167b87cd71371a501"
     },
     {
       "path": "proof-workers/native-value-dev-live-v5-role-process.mjs",
@@ -1566,15 +1578,15 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/native-value-dev-live-v5-run-bounded.mjs",
-      "sha256": "6d445cad7035f7bb69359d08aadfbd6afd4e46e109a8f5aa9696c8a383ff8744"
+      "sha256": "aa0fca1d585e7d36d0b5253f2e3f1b3d26cbed5fd6239a129d4605673dc0ed5e"
     },
     {
       "path": "proof-workers/native-value-dev-live-v5-tooling.mjs",
-      "sha256": "1521a0e790c4b57c986a9b09758c3358a69bd0995ae322256dd0dba73ca8b706"
+      "sha256": "37bbfc9838ffaed3e74cf387aee2bc84343e58d7b0408de343e536d82ce6460b"
     },
     {
       "path": "proof-workers/native-value-dev-live-v5-worker.mjs",
-      "sha256": "df308a63454cc77e36f325add64389d22007f6d435055afb74295ad19834daac"
+      "sha256": "5918467fc42e354439c663fbe2633b0673c7018e3b5e6c46395efbc8a95ed9e7"
     },
     {
       "path": "proof-workers/native-value-live-v2-artifacts.mjs",
@@ -1622,7 +1634,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/proving-execution.mjs",
-      "sha256": "e003569d8d3b4f417f1d4eab727542b862ded4534c5f77f72ce7719431e16353"
+      "sha256": "4f6bb82e46de5efd0f89af6d3b05f245f4b76382b915406072c2cf195672880d"
     },
     {
       "path": "proof-workers/role-client.mjs",
@@ -1634,7 +1646,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/run-bounded.mjs",
-      "sha256": "24e4210b5768a9cb28adcccaeafb3636de72ef00ac0a582adc5679d34ba90f8b"
+      "sha256": "69a0f2966b6712ba4b2b513a97cf2d923c3d741ed32ff9ab7d36e9144da87fa1"
     },
     {
       "path": "proof-workers/scoped-proof-tools.mjs",
@@ -1643,6 +1655,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "proof-workers/solidity-compiler.mjs",
       "sha256": "3983cdab7a9e7b2068604eb860b14daa6e319806f978a0545cd626666aec3935"
+    },
+    {
+      "path": "proof-workers/standard-proof-resources-v1.mjs",
+      "sha256": "20b0fe2f474cf997f8089c8249b74a9b62bf5cfee5aa6d1e7ed27058a8231676"
     },
     {
       "path": "proof-workers/tooling.mjs",
@@ -2082,7 +2098,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs",
-      "sha256": "5976dc7834c0135f2345b4f835ef1eb0d3f8fa14c94421ee352551b65bea5309"
+      "sha256": "fa8c5634ea5e141fb81d6ed76216edce3726a546015d0f70dd93445cff9d2d0c"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-native-custody.mjs",
@@ -2241,12 +2257,16 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "ddca6c2e900a9502045c05b93038de7a85cd00fd48f634fe303557b7869e7f89"
     },
     {
+      "path": "wallet-platform/modules/global-state/device-d26-observation-recovery-v1.mjs",
+      "sha256": "70f187e21b0acab5d6b88867d4c839921966bd385cb8390bf93b03d7c4ce8a97"
+    },
+    {
       "path": "wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs",
       "sha256": "907dff1b7558d11a95ceec1b106939ae4845a58dbcd6d4fbfbb812d237702156"
     },
     {
       "path": "wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs",
-      "sha256": "cd1e5eaa91b38fa04cdfcc75a97df4c280eb321d9b1ee6136865e376586198c1"
+      "sha256": "a6166492184cc376b928fa17e70f93237427ce1b0870d942bc81de35297e8fda"
     },
     {
       "path": "wallet-platform/modules/global-state/device-owner-reservation-bridge-v1.mjs",
@@ -2290,7 +2310,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/native-value-account-authority-v2.mjs",
-      "sha256": "703142a2e1495ad015009c5ca56ed223479db4ebdd89f2d0367a45d1da4a3d6e"
+      "sha256": "20412630a866e038cab50ccb3dfdd8e762733da5ded52f86f37e88c2cdd73494"
     },
     {
       "path": "wallet-platform/modules/global-state/wrapped-wallet-account-authority-v1.mjs",
@@ -2306,7 +2326,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/mobile/paired-original-account-http-v2.mjs",
-      "sha256": "af65e41304c304a333172503b985da8ac8cc87fe2aa4937e58185aadf5a98780"
+      "sha256": "ac3301374b3ce07c21f9ab64799a96990c5b015f29db3c3a3a689919fadf9641"
     },
     {
       "path": "wallet-platform/modules/native-claims/abi.mjs",
@@ -2490,7 +2510,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs",
-      "sha256": "c4b57a27f07eae523762678b3b4e08451288c0f8f8bf72026ba05cc87de68292"
+      "sha256": "c04118907d26418ce3218c846eed8fcc50aa5ce3db0429322fe695f975b1d58e"
     },
     {
       "path": "wallet-platform/modules/ops/aave-v3-development-compilation-v1.mjs",
@@ -2586,7 +2606,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-spl-claim-v1-compilation.mjs",
-      "sha256": "3581fb0fe8266b2088ddb96067e272c7708e3b4fc35ddcd2d004e28113808fce"
+      "sha256": "ddfa53d205f3c11d96f822a449ff514b8bd2761756e0e58c4ced21a11e1cd979"
+    },
+    {
+      "path": "wallet-platform/modules/ops/native-spl-claim-v1-program-provenance.mjs",
+      "sha256": "b07cf363de35c7f0862e49adc7f09fbdf1790336bfc45b1dbae865e70ad41d14"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-checkpoint-v4.mjs",
@@ -2674,7 +2698,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-value-system-v2.mjs",
-      "sha256": "ed90553470666cd19c133e87116eacd181e1be8141e4c1ca505175283a0674be"
+      "sha256": "729704a91264fedc9e3c3ccd41e32637f56472b8335e0bce2a43847bdcfafe2a"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-wallet-binding-v2.mjs",
@@ -2862,7 +2886,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-system-state-v2.mjs",
-      "sha256": "410ac52abad574dd42dd027472bfd7cd355a15652c4b367ef2b16ed833ea0348"
+      "sha256": "f6b0a56d03238ef1b1e424173e2dfe272125b78b025091e90f7d9e691c356487"
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-terminal-observer-v2.mjs",
