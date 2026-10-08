@@ -123,8 +123,8 @@ mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: {
 } });
 const bridge = await import('../../../src/operations/operators/claims/combined-native-operators.mjs');
 const { createCombinedLocalNativeOperator } = bridge;
-const { createFlatOperatorQuorum, assertOwnedFlatOperatorQuorum, createScopedFlatOperator, createLocalFlatOperator } = await import('../../../src/operations/operators/claims/native-operators.mjs');
-const { createClaimOperatorQuorum, openClaimOriginalAuthorizationLeaseV4, consumeClaimOperatorKeyLeaseV4, assertOwnedClaimOperatorQuorum, createScopedClaimOperator, createLocalClaimOperator, claimOperatorPrivateAuditMetrics } = await import('../../../src/claims/operations/operators.mjs');
+const { createFlatOperatorQuorum, assertOwnedFlatOperatorQuorum, createScopedFlatOperator, createLocalFlatOperator, graphOperatorPrivateAuditActivity } = await import('../../../src/operations/operators/claims/native-operators.mjs');
+const { createClaimOperatorQuorum, openClaimOriginalAuthorizationLeaseV4, consumeClaimOperatorKeyLeaseV4, assertOwnedClaimOperatorQuorum, createScopedClaimOperator, createLocalClaimOperator, claimOperatorPrivateAuditMetrics, claimOperatorPrivateAuditActivity } = await import('../../../src/claims/operations/operators.mjs');
 
 function fixture(t, { family = '2', sameNode = true, standalone = false } = {}) {
   const id = ++serial, pairs = [0, 1, 2, 3].map(signerIndex => standalone
@@ -1140,4 +1140,82 @@ test('diagnostic sampling overhead stays inside the unchanged original audit gua
   assert.equal(attesterKeyUses, keys);
   assert.equal(f.controls.nativeReadBusy, false);
   for (const index of [0, 1, 2]) assert.equal(f.claimStore(index).data.authorizations.length, 0);
+});
+
+
+test('private activity getter retains original brands and rejects copied/proxy/extra-argument capabilities', async t => {
+  t.mock.method(performance, 'now', () => 0);
+  const f = fixture(t);
+  await f.bind();
+  for (const [getter, capability, prefix] of [
+    [claimOperatorPrivateAuditActivity, f.pairs[0].claim, 'CLAIM'],
+    [graphOperatorPrivateAuditActivity, f.pairs[0].graph, 'GRAPH'],
+  ]) {
+    const row = getter(capability);
+    assert.equal(Object.isFrozen(row), true);
+    assert.equal(row.totalKeyInvocationsMeasured, false);
+    assert.equal(row.authorizationCount, 0);
+    assert.equal(row.factCount, 0);
+    assert.throws(() => getter({ ...capability }), new RegExp(prefix + '_PRIVATE_AUDIT_ACTIVITY_ORIGINAL_OPERATOR_REQUIRED'));
+    let traps = 0;
+    const proxy = new Proxy(capability, { get() { traps++; throw new Error('caller trap'); } });
+    assert.throws(() => getter(proxy), new RegExp(prefix + '_PRIVATE_AUDIT_ACTIVITY_ORIGINAL_OPERATOR_REQUIRED'));
+    assert.equal(traps, 0);
+    assert.throws(() => getter(capability, {}), new RegExp(prefix + '_PRIVATE_AUDIT_ACTIVITY_NO_OPTIONS'));
+    assert.equal(JSON.stringify(row).includes(capability.publicKey.x), false);
+    assert.equal(JSON.stringify(row).includes(capability.publicKey.y), false);
+  }
+});
+
+test('private post-close activity keeps branch and custody flags separate without retaining authority', async t => {
+  t.mock.method(performance, 'now', () => 0);
+  const f = fixture(t);
+  await f.bind();
+  const pair = f.pairs[0];
+  const beforeClaim = claimOperatorPrivateAuditActivity(pair.claim);
+  const beforeGraph = graphOperatorPrivateAuditActivity(pair.graph);
+  pair.claim.close();
+  for (const [getter, capability, before] of [
+    [claimOperatorPrivateAuditActivity, pair.claim, beforeClaim],
+    [graphOperatorPrivateAuditActivity, pair.graph, beforeGraph],
+  ]) {
+    const after = getter(capability);
+    assert.equal(after.branchClosed, true);
+    assert.equal(after.custodyClosed, true);
+    assert.equal(after.branchPoisoned, false);
+    assert.equal(after.custodyPoisoned, false);
+    assert.equal(Object.hasOwn(after, 'closed'), false);
+    assert.equal(Object.hasOwn(after, 'poisoned'), false);
+    assert.equal(after.keyUseEpoch, before.keyUseEpoch);
+    assert.equal(after.authorizationCount, before.authorizationCount);
+    assert.equal(after.factCount, before.factCount);
+  }
+  await assert.rejects(pair.claim.audit(), /CLOSED_OR_POISONED/);
+  await assert.rejects(pair.graph.audit(), /CLOSED_OR_POISONED/);
+});
+
+
+test('six original empty audit facades preserve scope-specific epochs and original persisted histories', async t => {
+  t.mock.method(performance, 'now', () => 0);
+  const f = fixture(t);
+  await f.bind(4);
+  const capture = () => ({
+    claim: f.pairs.map(pair => claimOperatorPrivateAuditActivity(pair.claim)),
+    graph: f.pairs.map(pair => graphOperatorPrivateAuditActivity(pair.graph)),
+  });
+  const before = capture(), keys = attesterKeyUses;
+  for (const pair of f.pairs.slice(0, 3)) await pair.claim.audit();
+  for (const pair of f.pairs.slice(0, 3)) await pair.graph.audit();
+  const after = capture();
+  assert.deepEqual(after, before);
+  assert.equal(attesterKeyUses, keys, 'host fixture observes genuine fixed signer invocations only');
+  for (const branch of ['claim', 'graph']) for (const row of after[branch]) {
+    assert.equal(row.keyUseEpoch, 0);
+    assert.equal(row.authorizationCount, 0);
+    assert.equal(row.signedAuthorizationCount, 0);
+    assert.equal(row.factCount, 0);
+    assert.equal(row.signedFactCount, 0);
+    assert.equal(row.busy, false);
+    assert.equal(row.totalKeyInvocationsMeasured, false);
+  }
 });

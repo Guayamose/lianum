@@ -74,6 +74,15 @@ function assertReconciledCoverage(report) {
   }
 }
 
+/** Private original-journal activity. The retained epoch is scope-specific;
+ * this does not count all legacy or ephemeral key invocations. */
+export function claimOperatorPrivateAuditActivity(capability) {
+  assert.equal(arguments.length, 1, 'CLAIM_PRIVATE_AUDIT_ACTIVITY_NO_OPTIONS');
+  const state = operators.get(capability);
+  assert.ok(state, 'CLAIM_PRIVATE_AUDIT_ACTIVITY_ORIGINAL_OPERATOR_REQUIRED');
+  return state.privateAuditState();
+}
+
 export function createLocalClaimOperator(input) { return createClaimOperator(input, null); }
 
 /** Internal constructor: only the combined factory holds an original token. */
@@ -1498,7 +1507,22 @@ function createClaimOperator(input, custody) {
       await current();
     }, expectedHead),
   });
-  operators.set(operator, { privateAuditMetrics: privateMetricsReports, ready, assertV4Live, captureV4EvmFence, captureV4NativeState, nativeReadHandles: () => [...nativeReads.values()], supportsV4: Boolean(custody), get keyUseEpoch() { return keyUseEpoch; },
+  function privateAuditState() {
+    assert.ok(record, 'CLAIM_PRIVATE_AUDIT_STATE_REQUIRED');
+    const custodyState = custody ? combinedOperatorStatus(custody) : null;
+    const authorizations = record.data.authorizations;
+    const entries = Object.values(record.data.peers).flatMap(peer => peer.state.entries);
+    return freeze({ schema: 'CLAIM_PRIVATE_AUDIT_ACTIVITY_V1',
+      epochScope: 'ORIGINAL_CLAIM_V4_KEY_LEASES_ONLY', keyUseEpoch,
+      originalHistoriesMeasured: true, totalKeyInvocationsMeasured: false,
+      authorizationCount: authorizations.length,
+      signedAuthorizationCount: authorizations.filter(row => typeof row.signature === 'string').length,
+      factCount: entries.length, signedFactCount: entries.filter(row => typeof row.signature === 'string').length,
+      retainedBindingCount: record.data.bindings.length,
+      busy, branchClosed: closed, branchPoisoned: poisoned,
+      custodyClosed: custodyState?.closed ?? null, custodyPoisoned: custodyState?.poisoned ?? null });
+  }
+  operators.set(operator, { privateAuditState, privateAuditMetrics: privateMetricsReports, ready, assertV4Live, captureV4EvmFence, captureV4NativeState, nativeReadHandles: () => [...nativeReads.values()], supportsV4: Boolean(custody), get keyUseEpoch() { return keyUseEpoch; },
     poisonIfKeyUsed(epoch) { if (keyUseEpoch !== epoch) poison(); },
     assertV4ResultCurrent(result, evmFence, withNativeState = true) {
       const retained = v4OperationResults.get(result);

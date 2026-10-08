@@ -39,6 +39,7 @@ export const LOCAL_FLAT_OPERATOR_PROFILE = 'SAME_HOST_SYNTHETIC_ONE_KEY_FLAT_OPE
 export const FLAT_FACTS_VALIDATION_PROFILE = 'SAME_HOST_GRAPH_FACTS_FINAL_FRESH_ROUND_V2';
 const SCHEMA = 'LOCAL_FLAT_OPERATOR_INVENTORY_V3';
 const operators = new WeakMap(), quorums = new WeakMap(), anchors = new WeakSet();
+const privateAuditActivities = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const prefix = value => '0x' + value;
 const unprefix = value => { assert.match(value, /^0x[0-9a-f]{64}$/); return value.slice(2); };
@@ -119,6 +120,15 @@ function assertCurrentNativeContext(family, before, after) {
 
 /** Generates exactly one fresh synthetic secp256k1 key. No key import/export,
  * raw sign function, or sibling operators' private material is accepted. */
+/** Private original-journal activity. The retained epoch is scope-specific;
+ * this does not count all legacy or ephemeral key invocations. */
+export function graphOperatorPrivateAuditActivity(capability) {
+  assert.equal(arguments.length, 1, 'GRAPH_PRIVATE_AUDIT_ACTIVITY_NO_OPTIONS');
+  const capture = privateAuditActivities.get(capability);
+  assert.ok(capture, 'GRAPH_PRIVATE_AUDIT_ACTIVITY_ORIGINAL_OPERATOR_REQUIRED');
+  return capture();
+}
+
 export function createLocalFlatOperator(input) { return createFlatOperator(input, null); }
 
 /** Internal constructor: only the combined factory holds an original token. */
@@ -674,6 +684,21 @@ function createFlatOperator(input, custody, recovered = null) {
       await freshness();
     }),
   });
+  function privateAuditState() {
+    assert.ok(record, 'GRAPH_PRIVATE_AUDIT_STATE_REQUIRED');
+    const custodyState = custody ? combinedOperatorStatus(custody) : null;
+    const authorizations = record.data.authorizations;
+    const entries = Object.values(record.data.inventories).flatMap(inventory => inventory.state.entries);
+    return freeze({ schema: 'GRAPH_PRIVATE_AUDIT_ACTIVITY_V1',
+      epochScope: 'ORIGINAL_GRAPH_SIGNING_NOTIFICATIONS', keyUseEpoch,
+      originalHistoriesMeasured: true, totalKeyInvocationsMeasured: false,
+      authorizationCount: authorizations.length,
+      signedAuthorizationCount: authorizations.filter(row => typeof row.signature === 'string').length,
+      factCount: entries.length, signedFactCount: entries.filter(row => typeof row.signature === 'string').length,
+      busy, branchClosed: closed, branchPoisoned: poisoned,
+      custodyClosed: custodyState?.closed ?? null, custodyPoisoned: custodyState?.poisoned ?? null });
+  }
+  privateAuditActivities.set(operator, privateAuditState);
   operators.set(operator, {
     combined: Boolean(custody), bound: retained, certify,
     attachRetention(state){assert.ok(!custody&&!retention&&!busy);retention=state;},
