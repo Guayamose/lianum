@@ -1,0 +1,314 @@
+{
+  "classification": "VERIFIED_PUBLIC_ARTIFACT_INVENTORY_FOR_LOCAL_FUNDED_RESEARCH",
+  "runId": "2026-10-02T19-06-55-372Z",
+  "completedAt": "2026-10-02T19:15:07.397Z",
+  "createdAt": "2026-10-02T19:17:35.872Z",
+  "fullAcceptance": false,
+  "files": [
+    {
+      "file": "evidence/m15-notes-proof/reserve.vk",
+      "bytes": 1888,
+      "sha256": "a3b61b2cc812cd65705e713428ceaa6897e4dbfdce4653294aacf59899f5e1dc"
+    },
+    {
+      "file": "evidence/m15-notes-proof/reserve.sol",
+      "bytes": 103923,
+      "sha256": "3157ce281845716b2bb7fed4e4607836a2df9686829023fd815cecd342708b42"
+    },
+    {
+      "file": "evidence/m15-notes-proof/reserve.circuit.json",
+      "bytes": 188773,
+      "sha256": "e475938bf84e7d9f124f97948bea67fd4504a518188ff58a832ca83df0b0f1d8"
+    },
+    {
+      "file": "evidence/m15-notes-proof/reserve.nr",
+      "bytes": 19895,
+      "sha256": "c08bfd63453faff529c8cda734a81506807a73a052139d5491369db467e09112"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fulfill.vk",
+      "bytes": 1888,
+      "sha256": "7bf52c23494edc33161236dbf9b0e918ac858c8e2306adc695bbf91fc8145575"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fulfill.sol",
+      "bytes": 103925,
+      "sha256": "62bfe69d6a8ec611fbd1eaedb7114d429d34bdd571c3e27c446ca43ed30e5c32"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fulfill.circuit.json",
+      "bytes": 315403,
+      "sha256": "7ce3e77aaadb8a4dcfdaeec30d3afa699227427c526d214151f14c96a67cc522"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fulfill.nr",
+      "bytes": 28051,
+      "sha256": "5d30f3889576bcebac3cb769e97d8b893bc7ecd2c16511cd36d4854041edd8a5"
+    },
+    {
+      "file": "evidence/m15-notes-proof/refund.vk",
+      "bytes": 1888,
+      "sha256": "1e9773f693ab251fcb9c9bf24304db8fabf76b78eda76f5e2701970d8254f4d6"
+    },
+    {
+      "file": "evidence/m15-notes-proof/refund.sol",
+      "bytes": 103923,
+      "sha256": "25fd06517ce21331e57d620c3b02906fee60cd8b04820d740d579e5618143a68"
+    },
+    {
+      "file": "evidence/m15-notes-proof/refund.circuit.json",
+      "bytes": 239800,
+      "sha256": "c57d1d72a962f98190a4d5b1ed527d7619df904d4e20c6b300d692deb8e2639f"
+    },
+    {
+      "file": "evidence/m15-notes-proof/refund.nr",
+      "bytes": 18053,
+      "sha256": "78649def5b6760bf6b28c4cae29628b351fcbd8286ce86fe7817a42c0b6e2bf8"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw.vk",
+      "bytes": 1888,
+      "sha256": "92251b6321b418421cff35d5db33afb98d66e1a69918c581fdde67958555aa95"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw.sol",
+      "bytes": 103923,
+      "sha256": "1691a2958f1c0dfacfdc4ec721ad59635808389902750402d7ecfae94684b4b1"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw.circuit.json",
+      "bytes": 106957,
+      "sha256": "4b2ab79c9bd9bbef7a577d5f76d56ed2ad7f67641cc4e3e3b2eccf0ab24ec617"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw.nr",
+      "bytes": 5900,
+      "sha256": "f8284b1392cc75e7cd14f0aeaf11d94823d22f5a9c112937bf95d46cd93e6a38"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol_ready.vk",
+      "bytes": 1888,
+      "sha256": "21c664d6c59feb73d9edf3b46f08c14b476f8fbeb87880949fa900aaa819a26e"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol_ready.sol",
+      "bytes": 103923,
+      "sha256": "e835cae946c884b1e279f4cea5117e850fecbdaef058dcfc49f4f5bde8e5e635"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol_ready.circuit.json",
+      "bytes": 597971,
+      "sha256": "cd4d6a4c916e9b6e0f91053b15d06fd99010706a1dfc65048db3bf3aa934e588"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol_ready.nr",
+      "bytes": 18689,
+      "sha256": "198f0018e6ec2c75e69129c598bf84f79621fc27d68db29e8a3a31bba82f829b"
+    },
+    {
+      "file": "evidence/m15-notes-proof/btc_ready.vk",
+      "bytes": 1888,
+      "sha256": "ce7528eeac91e1e7d55889a5ab64a559e1c6a46409e24fa29c58ae923485fa1d"
+    },
+    {
+      "file": "evidence/m15-notes-proof/btc_ready.sol",
+      "bytes": 103925,
+      "sha256": "2d39483866aacd3dae610a487c9be92ede2e84dd8e98cb4b0d502b58ff71ead2"
+    },
+    {
+      "file": "evidence/m15-notes-proof/btc_ready.circuit.json",
+      "bytes": 985942,
+      "sha256": "0d4816791e53998ab23cb0a2abfcd58959be827be08bcff488ff4914eb934ab1"
+    },
+    {
+      "file": "evidence/m15-notes-proof/btc_ready.nr",
+      "bytes": 23788,
+      "sha256": "9ca9472a60c1a2f2ec8274ccf8681fa63f68197c91d42cbbde592526ddcfdf80"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fund-first.proof.bin",
+      "bytes": 9920,
+      "sha256": "29d4eb502adb504cb577de38727f8d5f42c6a8c08e97a00f7fcc24d9926475a0"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fund-first.public-inputs.json",
+      "bytes": 2347,
+      "sha256": "30550fef1c772249efacb1a0340d1a097434cb8299e8f65f6f0d1d78f7327969"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol-ready-0.proof.bin",
+      "bytes": 9920,
+      "sha256": "d06d3a2f58876eeb998a0ffb21e6c4138c5a33a6ff4e4370f999da84349bb836"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol-ready-0.public-inputs.json",
+      "bytes": 5452,
+      "sha256": "cc7a47d680f1a7edfb9dbf8a43e8ad1daec59f37d3dd52e3f97e2d51467cf8a0"
+    },
+    {
+      "file": "evidence/m15-notes-proof/btc-ready-0.proof.bin",
+      "bytes": 10304,
+      "sha256": "813a99318f6a6affd9c8051eb7679b8a6e4a17638d8810bb375fb6716523a237"
+    },
+    {
+      "file": "evidence/m15-notes-proof/btc-ready-0.public-inputs.json",
+      "bytes": 6073,
+      "sha256": "57e017fdb925eda16f6731bf7d2207957250fbd2590eb6277ff0b252d955f3f1"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fulfill-first.proof.bin",
+      "bytes": 10304,
+      "sha256": "ffd880aae988860381b4fe08225b3e8ed876372e597a99540dbf52ee9833ea98"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fulfill-first.public-inputs.json",
+      "bytes": 4486,
+      "sha256": "972a68cfd11f835646c70651387f6f8b5378159ba334fe29ec9fd55f574d9c18"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw-first-1.proof.bin",
+      "bytes": 9536,
+      "sha256": "f43cbc64d36a1c79bbf2321cbab2a0d9b1fcfea36cc485c1b79614f63517b626"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw-first-1.public-inputs.json",
+      "bytes": 2692,
+      "sha256": "2d297c84b8f247e38565bfd6b7097a723fcf22639c25f7b1e797d3d0ddbaa452"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw-first-2.proof.bin",
+      "bytes": 9536,
+      "sha256": "c27b1666f2e8b0db9847168b41aab4e49f5a462bbc3e57114ece0cfe12a25a3a"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw-first-2.public-inputs.json",
+      "bytes": 2692,
+      "sha256": "4c0a4c8d5c12b4771d2501d718dbb8372d98e0533989d88bc4e94f07d1079475"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fund-recovery.proof.bin",
+      "bytes": 9920,
+      "sha256": "d2a4dde16c68c162fdfd9a2cdda62cd22ce3ae5f382a18df3782a5d832ea7e14"
+    },
+    {
+      "file": "evidence/m15-notes-proof/fund-recovery.public-inputs.json",
+      "bytes": 2347,
+      "sha256": "10c37da886520b2c1b2695d8239f0f62e5095c832dd15b6afe36222804eaf2a2"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol-ready-3.proof.bin",
+      "bytes": 9920,
+      "sha256": "cfaab31db3808bf0f741f42fffebce0a3b362319620bb9be60960ecdc440f975"
+    },
+    {
+      "file": "evidence/m15-notes-proof/sol-ready-3.public-inputs.json",
+      "bytes": 5452,
+      "sha256": "7d784069515e75cacc1cc691f17535680b14cc9c9fcbddb04146335a5701a929"
+    },
+    {
+      "file": "evidence/m15-notes-proof/refund-prefix.proof.bin",
+      "bytes": 9920,
+      "sha256": "163ed007b0ec47b8cb16336668d32f01114ddfcc65d8b5c6711bc608998f259c"
+    },
+    {
+      "file": "evidence/m15-notes-proof/refund-prefix.public-inputs.json",
+      "bytes": 2830,
+      "sha256": "126314fa77a8d78fc177374b7f40fe12458a49e31e5612b42db6fdb064ce37e6"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw-recovery.proof.bin",
+      "bytes": 9536,
+      "sha256": "87854084cc4f89f620bb2d33e0c77bc22aadde12f6db10b86482b31e40e6b9b1"
+    },
+    {
+      "file": "evidence/m15-notes-proof/withdraw-recovery.public-inputs.json",
+      "bytes": 2692,
+      "sha256": "a22062a6f42c3318db2b6875fbac59499ec80a83671982135ba1fa31337c03a0"
+    }
+  ],
+  "sourceRecords": [
+    {
+      "file": "contracts/PrivateNativeNotePool.sol",
+      "bytes": 13860,
+      "sha256": "bba46ae01c0aa4154db3ffb3c96c69293e9d79e049d2a741a6262f52cdaa2d4d"
+    },
+    {
+      "file": "src/private-note-encoding.mjs",
+      "bytes": 8539,
+      "sha256": "6be2071779422589d73d898b29de5dda8f712fda6414f6c9932f0d24a40293f8"
+    },
+    {
+      "file": "src/private-note-tree.mjs",
+      "bytes": 10499,
+      "sha256": "e2ac35aa1d1f2a805feb55717fa3bd18308867f9d14940754fb52877f063eb57"
+    },
+    {
+      "file": "src/private-note-runtime.mjs",
+      "bytes": 21882,
+      "sha256": "e8f61857c6600cac51aa97c09b644e29a8a58537be52c1a284baff77a27aef3d"
+    },
+    {
+      "file": "scripts/integration-private-note-native.mjs",
+      "bytes": 23641,
+      "sha256": "400529bf4827537d1bcb1c64275b07fcff8264e77611d122d1e8462f3a5a502d"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/generate.mjs",
+      "bytes": 12394,
+      "sha256": "f547ed121d9c7618a915393642606a1c0947c6b7af93b5d04620a6552b315b88"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/compile.mjs",
+      "bytes": 2066,
+      "sha256": "3f566a3bd3f41b2d8e794dbd0e2392cfcaf06e1330ff39370e275752c78fb698"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/fetch-crs.mjs",
+      "bytes": 1762,
+      "sha256": "2c8f632e8f59ef0167cf92822e390d22d4c9e69fc82797d37d5f39edf50f6aba"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/fixtures.mjs",
+      "bytes": 5553,
+      "sha256": "9f572aadac940fe986a073ecf9e30d34e9b20591eb6644eb1ffcace3a5432f9e"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/witnesses.mjs",
+      "bytes": 4743,
+      "sha256": "ac95749c65acd418bad2d694a623c87055b5f3665c195201a40f21e54b3ea27d"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/prover.mjs",
+      "bytes": 3538,
+      "sha256": "78cf94990aa8b5d50d3b478ea7bf5cbd805bfe70901060003aa83728bb57c9e2"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/prepare.mjs",
+      "bytes": 746,
+      "sha256": "e09bafa4376dcba95b01cbf153d5780af196eeeedd39b6e5080033a0a37b6e96"
+    },
+    {
+      "file": "experiments/private-core-proof/native-notes/provenance.mjs",
+      "bytes": 2896,
+      "sha256": "9a631c5f6af679352fb0c7a3bdddeb12e467fe8a595498a9579bb2fb8180dd11"
+    },
+    {
+      "file": "docs/FUNDED-NOTE-AUTHORITY-015.md",
+      "bytes": 20332,
+      "sha256": "c4bb9145c787bb56567bfe1111619435befa558bebf4731c189a29ffad2fe148"
+    }
+  ],
+  "excluded": [
+    "Private witness/opening files and all private signing keys",
+    "CRS raw parameters, runtime binaries, caches and node_modules"
+  ],
+  "boundaries": [
+    "Observation-time trusted issuer certificates, no foreign consensus or later revocation",
+    "Owner/prover knows graph and may withhold fulfillment",
+    "Issuer keys/tags are disposable process lifetime, no restart recovery",
+    "Public funding, amounts, timing, roots, nullifiers and terminal output bundle remain linkable",
+    "One executor recognizes own output and terminal bundle plus opaque sibling artifacts; coalition native linkage untested",
+    "All fixture protocol keys created by common local operator; independent recipient key custody not demonstrated",
+    "Owned Anvil inclusion clock deliberately controlled; measured proving time is reported separately"
+  ]
+}

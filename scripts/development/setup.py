@@ -112,7 +112,8 @@ def restoration_rows():
     rows = [row for row in canonical["files"] if row["kind"] == "public-dependency"]
     recipes = ["public-proof-dependency-restoration.json", "stage-dependency-restoration.json",
                "retained-reader-dependency-restoration.json", "flat-lineage-restoration.json",
-               "i84-reader-restoration.json", "node-component-restoration.json"]
+               "i84-reader-restoration.json", "node-component-restoration.json",
+               "w39-original-restoration.json"]
     for name in recipes:
         data = json.loads((ROOT / "archive/restoration/recipes" / name).read_text())
         rows.extend(data["files"])
