@@ -100,6 +100,7 @@ class EvmSummary(unittest.TestCase):
         changes = [
             lambda r, s, p, m: r.update(phase="failed", success=False, errorCode="SYNTHETIC_WORKER_FAILED"),
             lambda r, s, p, m: s.update(phase="failed", failure="SYNTHETIC_RESOURCE_FAILED", failures=[{"code": "SYNTHETIC_RESOURCE_FAILED"}]),
+            lambda r, s, p, m: s.pop("failure"),
             lambda r, s, p, m: r.update(sourceUnchanged=False),
             lambda r, s, p, m: s.update(sourceClosureUnchanged=False),
             lambda r, s, p, m: p.update(local=[{"path": "tampered.mjs"}]),
@@ -108,10 +109,12 @@ class EvmSummary(unittest.TestCase):
             lambda r, s, p, m: r["supervisor"].update(workerPID=424244),
             lambda r, s, p, m: s["supervisorIdentity"].update(startTimeTicks="9999"),
             lambda r, s, p, m: setattr(m, "last_lab_supervisor_identity", None),
+            lambda r, s, p, m: setattr(m, "last_lab_supervisor_identity", {}),
             lambda r, s, p, m: s["workerIdentity"].update(ppid=424244),
             lambda r, s, p, m: s.update(ownedGroupCleanupConfirmed=False),
             lambda r, s, p, m: s.update(lockReleased=False),
             lambda r, s, p, m: s["workerExit"].update(signal="SIGTERM"),
+            lambda r, s, p, m: s["workerClose"].pop("signal"),
             lambda r, s, p, m: setattr(m, "tamper_result_hash", True),
             lambda r, s, p, m: r.update(walletBrowserEvmFlowCompleted=False, walletSdkEvmFlowCompleted=True),
         ]

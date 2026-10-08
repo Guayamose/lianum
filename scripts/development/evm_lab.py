@@ -156,6 +156,7 @@ def retain_summary(recovery=False, browser=False):
             and resources.get("supervisorPID") == last_lab_supervisor_pid and supervisor_identity.get("pid") == last_lab_supervisor_pid
             and supervisor_identity.get("ppid") == os.getpid() and result.get("supervisor") == supervisor and worker_result.get("supervisor") == supervisor
             and isinstance(last_lab_supervisor_identity, dict)
+            and set(last_lab_supervisor_identity) == {"pid", "ppid", "pgrp", "session", "startTimeTicks"}
             and all(supervisor_identity.get(key) == value for key, value in last_lab_supervisor_identity.items()),
         "workerIdentity": type(worker_pid) is int and worker_pid > 1 and worker_identity.get("pid") == worker_pid
             and worker_identity.get("ppid") == last_lab_supervisor_pid and worker_identity.get("pgrp") == worker_pid
@@ -163,7 +164,7 @@ def retain_summary(recovery=False, browser=False):
         "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
             for value in (supervisor_identity, worker_identity)),
         "resultCompleted": result.get("phase") == "completed" and result.get("success") is True and result.get(completion) is True,
-        "resourcesCompleted": resources.get("phase") == "completed" and resources.get("failure") is None and resources.get("failures") == [],
+        "resourcesCompleted": resources.get("phase") == "completed" and "failure" in resources and resources["failure"] is None and resources.get("failures") == [],
         "originalResultJoined": worker_result.get("format") == result_format and worker_result.get("phase") == "completed"
             and worker_result.get("success") is True and worker_result.get("path") == str((attempt / "result.json").relative_to(FLAT))
             and worker_result.get("bytes") == len(result_bytes) and worker_result.get("sha256") == hashlib.sha256(result_bytes).hexdigest(),
@@ -176,7 +177,8 @@ def retain_summary(recovery=False, browser=False):
             and resources.get("lockReleased") is True and resources.get("withinTotalDeadline") is True
             and record(result.get("cleanup")).get("closedEvm") is True and record(worker_result.get("cleanup")).get("closedEvm") is True,
         "workerExitZero": all(resources.get(key) is True for key in ("workerSpawned", "workerExitObserved", "workerCloseObserved"))
-            and all(type(record(resources.get(key)).get("code")) is int and record(resources.get(key)).get("code") == 0 and record(resources.get(key)).get("signal") is None
+            and all(type(record(resources.get(key)).get("code")) is int and record(resources.get(key)).get("code") == 0
+                and "signal" in record(resources.get(key)) and record(resources[key])["signal"] is None
                 for key in ("workerExit", "workerClose")),
     }
     accepted = all(receipt_checks.values())
