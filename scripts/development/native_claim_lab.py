@@ -1,7 +1,9 @@
 """Fresh fixed BTC/SOL claim acceptance; never resumes a historical attempt."""
+import ctypes
 import fcntl
 import hashlib
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -16,10 +18,12 @@ DIRECTORY = FLAT / ".local/development-native-claim-roundtrip-v1"
 CLEAN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
 active = None
 interrupted = False
+pending_signal = None
 
 def forward_signal(signum, _frame):
-    global interrupted
+    global interrupted, pending_signal
     interrupted = True
+    pending_signal = signum
     if active is not None and active.poll() is None:
         active.send_signal(signum)
 
@@ -28,7 +32,14 @@ def run(entry, observe=False):
     if interrupted:
         raise SystemExit(130)
     previous = set(DIRECTORY.glob("attempt-*")) if observe else set()
-    active = subprocess.Popen([str(NODE), str(entry)], cwd=FLAT, env=CLEAN_ENV)
+    owner_pid = os.getpid()
+    def guard_parent():
+        if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != owner_pid:
+            os._exit(125)
+    active = subprocess.Popen([str(NODE), str(entry)], cwd=FLAT, env=CLEAN_ENV, preexec_fn=guard_parent)
+    # A signal may arrive while Popen has not yet returned the owned child.
+    if interrupted and active.poll() is None:
+        active.send_signal(pending_signal or signal.SIGTERM)
     seen = None
     while active.poll() is None:
         if observe:
@@ -93,6 +104,8 @@ def retain_summary(attempt):
 def main():
     if len(sys.argv) != 1:
         raise SystemExit("Usage: ./dev lab claims")
+    if sys.platform != "linux":
+        raise SystemExit("The fixed native claims laboratory requires Linux/WSL")
     build(quiet=True)
     DEV.mkdir(parents=True, exist_ok=True)
     with (DEV / "native-claims-lab.lock").open("a") as lock:

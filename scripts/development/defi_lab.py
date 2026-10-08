@@ -21,10 +21,12 @@ RESULT_FORMAT = "LIANUM_PRIVATE_METAMORPHO_FLOW_RESULT_V1"
 RESOURCES_FORMAT = "LIANUM_PRIVATE_METAMORPHO_RESOURCES_V1"
 active = None
 interrupted = False
+pending_signal = None
 
 def forward_signal(signum, _frame):
-    global interrupted
+    global interrupted, pending_signal
     interrupted = True
+    pending_signal = signum
     if active is not None and active.poll() is None:
         active.send_signal(signum)
 
@@ -120,7 +122,12 @@ def main():
         def guard_parent():
             if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != owner_pid:
                 os._exit(125)
+        if interrupted:
+            raise SystemExit(130)
         active = subprocess.Popen([str(NODE), str(ENTRY)], cwd=FLAT, env=CLEAN_ENV, preexec_fn=guard_parent)
+        # A signal may arrive while Popen has not yet returned the owned child.
+        if interrupted and active.poll() is None:
+            active.send_signal(pending_signal or signal.SIGTERM)
         supervisor_pid, seen = active.pid, None
         while active.poll() is None:
             try:
