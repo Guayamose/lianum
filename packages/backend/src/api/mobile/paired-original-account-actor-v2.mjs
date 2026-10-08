@@ -279,11 +279,15 @@ export async function createPairedOriginalAccountActorV2(input) {
           custody: 'LINUX_ORIGINAL_OWNER_CUSTODY', mobileNoteCustody: false, completePortfolio: false }));
       } finally { busy = false; }
     },
+    async deviceDepositOriginalBinding() {
+      need(arguments.length === 0 && !busy && !closed, 'MOBILE_ORIGINAL_ACTOR_UNAVAILABLE'); busy = true;
+      try { const value = await binding('read'); live(); return value; } finally { busy = false; }
+    },
     close() { need(arguments.length === 0, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); closed = true;
       for (const row of [...accesses.values(), ...reviews.values(), ...stateAccesses.values(), ...stateReviews.values()]) row.consumed = true;
       return { closed: true, retainedOriginalSession: true, retainedOriginalCustody: true }; },
   });
-  actorBrands.set(actor, { live, descriptor: Object.freeze({ origin, pairingId, devicePublicKey }) });
+  actorBrands.set(actor, { account, live, descriptor: Object.freeze({ origin, pairingId, devicePublicKey }) });
   return actor;
 }
 
@@ -297,4 +301,14 @@ export function assertPairedOriginalAccountActorV2(actor) {
 export function pairedOriginalAccountActorDescriptorV2(actor) {
   need(arguments.length === 1, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
   assertPairedOriginalAccountActorV2(actor); return actorBrands.get(actor).descriptor;
+}
+
+/** Only original reference membership, never IDs or copied capabilities. */
+export function assertPairedOriginalAccountActorAccountV2(actor, account) {
+  need(arguments.length === 2, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');
+  assertPairedOriginalAccountActorV2(actor);
+  need(actorBrands.get(actor).account === account, 'MOBILE_ORIGINAL_ACTOR_ACCOUNT_CHANGED');
+}
+export function pairedOriginalAccountPublicFrameV2(value) {
+  need(arguments.length === 1, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); return frameData(value);
 }

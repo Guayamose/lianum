@@ -9,6 +9,7 @@ import { isIP } from 'node:net';
 import { types } from 'node:util';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
+import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 const listeners = new WeakSet();
 const BODY_LIMIT = 8192, REQUEST_MS = 5000, CLOSE_MS = 1000;
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -61,12 +62,16 @@ async function jsonBody(request) {
   if (typeof length !== 'string' || !/^(0|[1-9][0-9]{0,4})$/.test(length)
     || Number(length) < 2 || Number(length) > BODY_LIMIT) fail('HTTP_BODY_REJECTED');
   const parts = []; let bytes = 0;
-  for await (const part of request) {
-    bytes += part.length;
-    if (bytes > BODY_LIMIT || bytes > Number(length)) fail('HTTP_BODY_REJECTED'); parts.push(part);
-  }
-  if (bytes !== Number(length)) fail('HTTP_BODY_REJECTED');
-  try { return JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { fail('HTTP_BODY_REJECTED'); }
+  let owned;
+  try {
+    for await (const part of request) {
+      bytes += part.length; parts.push(part);
+      if (bytes > BODY_LIMIT || bytes > Number(length)) fail('HTTP_BODY_REJECTED');
+    }
+    if (bytes !== Number(length)) fail('HTTP_BODY_REJECTED');
+    owned = Buffer.concat(parts);
+    try { return JSON.parse(owned.toString('utf8')); } catch { fail('HTTP_BODY_REJECTED'); }
+  } finally { owned?.fill(0); for (const part of parts) part.fill(0); }
 }
 export async function createPairedOriginalAccountHttpServerV2(input) {
   if (arguments.length !== 1) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION'); exactInput(input);
@@ -88,7 +93,21 @@ export async function createPairedOriginalAccountTlsServerV2(input) {
   try { return await startOriginalTransport(input.actor, tls, host); }
   finally { tls.privateKey.fill(0); }
 }
-async function startOriginalTransport(actor, tls, host) {
+/** Explicit private operator installation: only a genuine fixed bridge supplies
+ * its original actor. Economic routes are TLS-only; old factories/state stay
+ * unchanged. Certificates are infrastructure, never custody note/root keys. */
+export async function createPairedDeviceDepositTlsServerV1(input) {
+  if (arguments.length !== 1) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const names = input && !types.isProxy(input) && Object.hasOwn(input, 'host')
+    ? ['bridge', 'tls', 'host'] : ['bridge', 'tls'];
+  exactInput(input, names); const actor = deviceOwnerDepositBridgeActorV1(input.bridge);
+  const host = names.includes('host') ? input.host : '127.0.0.1';
+  if (!['127.0.0.1', '0.0.0.0'].includes(host)) fail('MOBILE_ORIGINAL_TLS_CONFIGURATION');
+  const descriptor = pairedOriginalAccountActorDescriptorV2(actor), tls = tlsMaterial(input.tls, descriptor);
+  try { return await startOriginalTransport(actor, tls, host, input.bridge); }
+  finally { tls.privateKey.fill(0); }
+}
+async function startOriginalTransport(actor, tls, host, bridge = null) {
   assertPairedOriginalAccountActorV2(actor);
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
   if (listeners.has(actor)) fail('MOBILE_ORIGINAL_HTTP_ALREADY_BOUND'); listeners.add(actor);
@@ -103,6 +122,23 @@ async function startOriginalTransport(actor, tls, host) {
       }
       if (request.url === '/v2/mobile/original-account/state' && request.method === 'GET') {
         assertPairedOriginalAccountActorV2(actor); return state;
+      }
+      if (bridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-deposit/')) {
+        if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
+        const methods = { 'job-reviews': 'challengeJob', 'jobs': 'prove', 'funding-reviews': 'challengeFunding',
+          'fund': 'fund', 'observation-reviews': 'challengeObservation', 'observations': 'observe' };
+        const method = methods[request.url.slice('/v1/mobile/device-deposit/'.length)];
+        if (!method) fail('HTTP_NOT_FOUND');
+        const input = await jsonBody(request); if (closed) fail('HTTP_CLOSED');
+        // A proof job is retained by the original account even if this HTTP
+        // response is lost/times out. Its opening has no logs/journal storage.
+        try { return await bridge[method](input); }
+        finally {
+          // jsonBody owns these parsed vectors. Erase them only after the
+          // admitted original job finishes; HTTP loss never cancels its work.
+          if (method === 'prove' && input.witness && typeof input.witness === 'object')
+            for (const field of Object.values(input.witness)) if (Array.isArray(field)) field.fill(0);
+        }
       }
       if (request.method !== 'POST' || !['/v2/mobile/original-account/challenges',
         '/v2/mobile/original-account/reviews', '/v2/mobile/original-account/diagnostics',

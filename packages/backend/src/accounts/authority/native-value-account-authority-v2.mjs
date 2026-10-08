@@ -66,6 +66,28 @@ export function assertNativeValueAccountManualGraphExecution(capability) {
   manualGraphs.get(capability).checkRoute();
 }
 import { validateNativeValueManualReview, validateNativeValueManualRecords } from '../../../../custody/src/preparation/native-value-owner-manual-binding-v1.mjs';
+import { consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1 }
+  from './device-owner-deposit-bridge-v1.mjs';
+import { walletInputPublicWords, decodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, deviceDepositConsentMessageV1 }
+  from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { createHash } from 'node:crypto';
+import { nullifier } from '../../../../engine/src/notes/private-note-encoding.mjs';
+
+/** These seams expose no arbitrary executor/witness callback. The argument
+ * must be the capability emitted by a genuine bridge after its distinct
+ * signature has been authenticated and consumed. JSON never becomes a grant. */
+export async function runDeviceOwnerDepositAuthorizationV1(account, bridge, authorization) {
+  assert.equal(arguments.length, 3);
+  assertOwnedNativeValueAccountAuthority(account);
+  const original = consumeDeviceOwnerDepositAuthorizationV1(bridge, authorization, account);
+  return owned.get(account).deviceDeposit(original);
+}
+export async function readDeviceOwnerDepositStatusV1(account, bridge, jobId) {
+  assert.equal(arguments.length, 3); assertOwnedNativeValueAccountAuthority(account);
+  assertDeviceOwnerDepositBridgeV1(bridge, account);
+  reference(jobId); return owned.get(account).deviceDepositStatus(jobId);
+}
 
 const reference = value => assert.ok(typeof value === 'string' && value.length === 64
   && /^[0-9a-f]+$/.exec(value)?.[0] === value, 'FLAT_ACCOUNT_REFERENCE');
@@ -267,6 +289,160 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
   }
   const update = (ref, fields) => write(data => ({ ...data, operations: data.operations.map(value =>
     value.ownerOperationRef === ref ? { ...value, ...copy(fields) } : value) }));
+  // Device custody is a separate durable branch in the SAME original Vault.
+  // Linux note preparation/owner acknowledgement is never used for this note.
+  const deviceRows = () => record.data.deviceDeposits ?? [];
+  const deviceRow = id => { reference(id); const row = deviceRows().find(value => value.jobId === id);
+    assert.ok(row, 'DEVICE_DEPOSIT_ORIGINAL_JOB_REQUIRED'); return row; };
+  const deviceUpdate = (id, fields) => write(data => ({ ...data,
+    deviceDeposits: (data.deviceDeposits ?? []).map(row => row.jobId === id ? { ...row, ...copy(fields) } : row) }));
+  const byteSHA = bytes => createHash('sha256').update(bytes).digest('hex');
+  const devicePublic = row => ({ jobId: row.jobId, stage: row.stage,
+    consentFields: { statement: copy(row.consent.statement), rootId: row.consent.rootId,
+      noteRevision: row.consent.noteRevision, jobId: row.jobId, witnessSHA256: row.consent.witnessSHA256,
+      proofSHA256: row.proofSHA256, publicInputsSHA256: row.publicInputsSHA256 },
+    statement: copy(row.consent.statement), observation: copy(row.observation), errorCode: row.errorCode });
+  function deviceBinding(consent) {
+    assert.equal(consent.binding.accountIdentitySHA256, sha(accountIdentity), 'DEVICE_DEPOSIT_ACCOUNT_CHANGED');
+    assert.equal(consent.binding.originalAccountLifetime, config.lifetime, 'DEVICE_DEPOSIT_LIFETIME_CHANGED');
+    assert.equal(consent.binding.assetId, asset.assetId, 'DEVICE_DEPOSIT_ASSET_CHANGED');
+    for (const field of ['scope', 'policy', 'codeHash', 'assetIdentity'])
+      assert.equal(consent.poolTerms[field], asset[field], 'DEVICE_DEPOSIT_ASSET_CHANGED');
+    assert.equal(consent.poolTerms.domainCommitment, identity.domainCommitment, 'DEVICE_DEPOSIT_DOMAIN_CHANGED');
+    assert.equal(consent.statement.scope, asset.scope, 'DEVICE_DEPOSIT_SCOPE_CHANGED');
+    assert.equal(consent.statement.policy, asset.policy, 'DEVICE_DEPOSIT_POLICY_CHANGED');
+  }
+  async function deviceCurrent(consent, requireEpoch) {
+    await healthy(); continueWork(); deviceBinding(consent);
+    const view = await reader.read(); await reader.assertCurrent(view); continueWork();
+    if (requireEpoch) assert.equal(consent.statement.epoch, (BigInt(view.head.timestamp) / 600n).toString(),
+      'DEVICE_DEPOSIT_EPOCH_CHANGED');
+    return view;
+  }
+  async function observeDevice(row) {
+    assert.ok(row.submission?.dispatchLatched === true, 'DEVICE_DEPOSIT_ORIGINAL_SEND_REQUIRED');
+    const submission = row.submission;
+    const observation = await observer.readTransaction({ kind: 'deposit', identitySHA256,
+      transactionHash: submission.transactionHash, calldataSHA256: submission.calldataSHA256 });
+    if (observation === null) return { ...devicePublic(row), stage: 'FUNDING_UNKNOWN' };
+    // The original observer authenticates signed wire/nonce/sender, calldata,
+    // actual receipt, canonical historical delta, token movement and backing.
+    validateFlatAccountOwnerObservation({ identity, artifact: pool.artifact, submission,
+      authorization: null, observation });
+    const view = await deviceCurrent(row.consent, false), output = row.consent.statement.output;
+    const indices = view.ledger.commitments
+      .flatMap((leaf, index) => leaf === '0x' + output ? [index] : []);
+    assert.equal(indices.length, 1, 'DEVICE_DEPOSIT_ORIGINAL_OUTPUT_REQUIRED');
+    assert.ok(!view.ledger.nullifiers.includes('0x' + row.nullifier), 'DEVICE_DEPOSIT_NOTE_ALREADY_SPENT');
+    const originalPath = view.ledger.tree.path(indices[0]);
+    assert.equal(originalPath.leaf, '0x' + output, 'DEVICE_DEPOSIT_ORIGINAL_PATH_CHANGED');
+    // Original SHA tree/RPC digests are 0x-prefixed. The mobile frame uses
+    // bare bytes32; normalize only the public DTO, never the original ledger.
+    const path = { root: bare(originalPath.root), index: originalPath.index,
+      leaf: bare(originalPath.leaf), siblings: originalPath.siblings.map(bare) };
+    await reader.assertCurrent(view); continueWork();
+    const receipt = await runtime.receipt('0x' + observation.transaction.hash);
+    assert.ok(receipt, 'DEVICE_DEPOSIT_ORIGINAL_RECEIPT_REQUIRED'); await runtime.checkReceipt(receipt);
+    const observedAt = Date.now();
+    const retained = { version: 1, profile: 'ORIGINAL_DEVICE_D26_INCLUSION_V1', jobId: row.jobId,
+      rootId: row.consent.rootId, commitment: output, amount: row.consent.statement.amount,
+      assetId: asset.assetId, pool: asset.pool, scope: asset.scope, policy: asset.policy,
+      genesis: asset.genesis, domainCommitment: identity.domainCommitment,
+      proofSHA256: row.proofSHA256, publicInputsSHA256: row.publicInputsSHA256,
+      transactionHash: observation.transaction.hash, calldataSHA256: submission.calldataSHA256,
+      receiptBlockHash: observation.receipt.blockHash, head: copy(view.head), path: copy(path),
+      nullifier: row.nullifier, observedAt, expiresAt: observedAt + 15_000,
+      nativeEffectsEstablished: true, mobileKeyCustody: true, backendOpeningDisclosure: 'ONE_D26_OPENING',
+      mobileCanonicalRpcVerification: false };
+    // Canonical observer revalidation may return a fresh inclusion head/path;
+    // the exact historical transaction observation is permanently retained.
+    if (row.stage !== 'CONFIRMED') await deviceUpdate(row.jobId, { stage: 'CONFIRMED',
+      submission: { ...submission, transactionHash: observation.transaction.hash, observation }, observation: retained });
+    return { ...devicePublic(deviceRow(row.jobId)), observation: retained };
+  }
+  async function deviceDeposit({ action, consent, witness }) {
+    return exclusive(async () => {
+      deviceBinding(consent);
+      if (action === 'PROVE_D26') {
+        assert.ok(!wrapped && !deviceRows().some(row => row.jobId === consent.jobId
+          || row.consent.statement.output === consent.statement.output), 'DEVICE_DEPOSIT_ORIGINAL_JOB_ONLY');
+        assert.ok(deviceRows().length < 64, 'DEVICE_DEPOSIT_JOURNAL_CAPACITY');
+        const input = normalizeDeviceDepositWitnessV1(witness), bytes = deviceDepositWitnessBytesV1(input);
+        let prover;
+        try {
+          assert.equal(byteSHA(bytes), consent.witnessSHA256, 'DEVICE_DEPOSIT_WITNESS_CHANGED');
+          const publicInputs = walletInputPublicWords('deposit_balance', input);
+          const statement = decodeWalletPoolInputs('deposit_balance', publicInputs);
+          for (const field of ['scope', 'policy', 'output'])
+            assert.equal(statement[field].slice(2), consent.statement[field], 'DEVICE_DEPOSIT_STATEMENT_CHANGED');
+          for (const field of ['epoch', 'amount']) assert.equal(statement[field], consent.statement[field], 'DEVICE_DEPOSIT_STATEMENT_CHANGED');
+          await deviceCurrent(consent, true);
+          await write(data => ({ ...data, deviceDeposits: [...(data.deviceDeposits ?? []), {
+            jobId: consent.jobId, consent: copy(consent), stage: 'PROVING', proof: null,
+            proofSHA256: null, publicInputsSHA256: null, nullifier: null, submission: null, observation: null, errorCode: null }] }));
+          // No server note key/root or Linux ownerProof is involved. The fixed
+          // original worker validates exact ABI/pins/VK/ZK/resources and wipes
+          // its one input when the one fresh child exits.
+          prover = createProofProcess({ purpose: 'owner', modes: ['deposit_balance'] });
+          activeLegacy = prover;
+          const result = await prover.prove('deposit_balance', input, publicInputs, 'device-deposit-d26');
+          assert.equal(result.metrics.acceptedResult, true, 'DEVICE_DEPOSIT_PROOF_NOT_ACCEPTED');
+          const view = await deviceCurrent(consent, true), proof = transportProof(result);
+          assert.equal(await system.verify('deposit_balance', Buffer.from(proof.proof, 'hex'),
+            proof.publicInputs.map(word => '0x' + BigInt(word).toString(16).padStart(64, '0')), view.header.number), true,
+            'DEVICE_DEPOSIT_DEPLOYED_VERIFIER_REJECTED');
+          await reader.assertCurrent(view); continueWork();
+          await onProof({ label: 'device-deposit-d26', relation: 'deposit_balance', role: 'device-owner',
+            proof: { ...proof, metrics: result.metrics } });
+          await deviceUpdate(consent.jobId, { stage: 'PROVED', proof,
+            proofSHA256: byteSHA(Buffer.from(proof.proof, 'hex')), publicInputsSHA256: sha(proof.publicInputs),
+            nullifier: nullifier(Buffer.from(consent.statement.scope, 'hex'), Buffer.from(consent.statement.output, 'hex'),
+              Buffer.from(input.secret)).toString('hex') });
+          return devicePublic(deviceRow(consent.jobId));
+        } catch (error) {
+          if (!unavailable && deviceRows().some(row => row.jobId === consent.jobId))
+            await deviceUpdate(consent.jobId, { stage: 'FAILED', errorCode: /^[A-Z0-9_]{1,100}$/.test(error.code ?? '')
+              ? error.code : 'DEVICE_DEPOSIT_PROOF_REJECTED' });
+          throw error;
+        } finally {
+          bytes.fill(0); for (const value of Object.values(input)) if (Array.isArray(value)) value.fill(0);
+          if (prover) await prover.close(); activeLegacy = null;
+        }
+      }
+      const row = deviceRow(consent.jobId);
+      const fields = devicePublic(row).consentFields;
+      for (const field of ['rootId', 'noteRevision', 'witnessSHA256', 'proofSHA256', 'publicInputsSHA256'])
+        assert.equal(consent[field], fields[field], 'DEVICE_DEPOSIT_ORIGINAL_JOB_CHANGED');
+      assert.deepEqual(consent.statement, fields.statement, 'DEVICE_DEPOSIT_STATEMENT_CHANGED');
+      if (action === 'OBSERVE_D26') return { ...(await observeDevice(row)), authorizationSHA256: byteSHA(deviceDepositConsentMessageV1(consent)) };
+      assert.equal(action, 'FUND_D26'); assert.equal(row.stage, 'PROVED', 'DEVICE_DEPOSIT_RECONCILE_ORIGINAL_ONLY');
+      assert.equal(row.submission, null, 'DEVICE_DEPOSIT_RECONCILE_ORIGINAL_ONLY');
+      await tokenFundingReady(consent.statement.amount);
+      const view = await deviceCurrent(consent, true), capacity = view.ledger.publicState;
+      assert.ok(!view.ledger.commitments.includes('0x' + consent.statement.output), 'DEVICE_DEPOSIT_OUTPUT_PRESENT');
+      assert.ok(capacity.leaves + 1 + 4 * capacity.liveReservations <= 64
+        && capacity.spent + 5 * capacity.liveReservations + capacity.outputCapacity + 1 <= 64, 'DEVICE_DEPOSIT_HEADROOM');
+      const calldata = encodeFlatTransaction('depositBalance', row.proof);
+      const submission = { kind: 'deposit', calldata, calldataSHA256: flatAccountCalldataHash(calldata),
+        publicInputs: row.proof.publicInputs, statement: decodeWalletPoolInputs('deposit_balance', row.proof.publicInputs),
+        before: snapshotFromView(view), epoch: consent.statement.epoch, transactionHash: null,
+        dispatchLatched: true, ownerConfirmed: false, observation: null };
+      // Durable original latch FIRST. Any later exception/reply loss can only
+      // observe this same original wire. No owner.bindSubmission/adoption and
+      // no recovery callback can manufacture a replacement send.
+      await deviceUpdate(row.jobId, { stage: 'FUNDING_UNKNOWN', fundingConsent: copy(consent), submission });
+      try {
+        continueWork(); const receipt = await runtime.send('flat-account-device-deposit', { to: pool.address,
+          data: calldata, value: nativeAsset ? consent.statement.amount : '0' });
+        await deviceUpdate(row.jobId, { submission: { ...submission, transactionHash: bare(receipt.transactionHash) } });
+        return { ...(await observeDevice(deviceRow(row.jobId))), authorizationSHA256: byteSHA(deviceDepositConsentMessageV1(consent)) };
+      } catch (error) {
+        const hash = error.transactionRecord?.transactionHash;
+        if (hash && !unavailable) await deviceUpdate(row.jobId, { submission: { ...submission, transactionHash: bare(hash) } });
+        throw error;
+      }
+    });
+  }
   function request(value) {
     const bound = validateBoundRequest(value, config), entry = operation(bound.ownerOperationRef);
     if (wrapped) assert.equal(bound.kind, 'GRAPH', 'WRAPPED_WALLET_ORIGINAL_CLAIM_CONTROLLER_REQUIRED');
@@ -1215,6 +1391,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null) 
     },
   });
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable,
+    deviceDeposit,
+    deviceDepositStatus(id) { return exclusive(async () => { await healthy(); return devicePublic(deviceRow(id)); }); },
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,accountId,journalId,poolIndex};},
     fence(){assert.ok(wrapped&&!busy&&!closed&&!cancelled&&!unavailable&&!capturing,'WRAPPED_ACCOUNT_ORIGINAL_CAPTURE_REQUIRED');capturing=true;
       captureProviders=[...nativeProviderSets].map(([reference,rows])=>({reference,providers:rows.map(row=>({...row}))}));captureProviderBindings=captureProviders.map(({reference,providers})=>({reference,providers:providers.map(row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,custodyIdentitySHA256:sha(recoveryProviderReviewV1(row.custody,{runtime,system,poolIndex}))}))}));return captureProviders;},
