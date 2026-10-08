@@ -16,11 +16,11 @@ import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mj
 import { decodeDepositIntentInputs } from '../../../execution/account/preparation/deposit-intent.mjs';
 import { decodePrivateExternalDeliveryCall } from '../../../defi/delivery/private-external-delivery.mjs';
 import { evmRuntimeCodeHash } from '../contracts/evm-code-hash.mjs';
-import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
+import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1 } from '../dispatch/evm-graph-delivery-codec-v1.mjs';
 
 const owned = new WeakMap(), facts = new WeakMap();
-const META = 'METAMORPHO_V1_EXACT_SHARE_MINT', UNI = 'UNISWAP_V3_EXACT_OUTPUT_SINGLE';
+const META = 'METAMORPHO_V1_EXACT_SHARE_MINT', UNI = 'UNISWAP_V3_EXACT_OUTPUT_SINGLE', AAVE = 'AAVE_V3_STATIC_EXACT_SHARE_MINT';
 const detached = value => { const result = structuredClone(value);
   const freeze = item => { if (item && typeof item === 'object') {
     Object.values(item).forEach(freeze); Object.freeze(item); } return item; }; return freeze(result); };
@@ -40,6 +40,7 @@ function failure(error, authenticated) {
 }
 export const isOwnedMetaMorphoGraphDeliveryObserverV1 = value => owned.get(value)?.protocolKind === META;
 export const isOwnedUniswapGraphDeliveryObserverV1 = value => owned.get(value)?.protocolKind === UNI;
+export const isOwnedAaveStaticGraphDeliveryObserverV1 = value => owned.get(value)?.protocolKind === AAVE;
 export const isOwnedOfficialGraphDeliveryObserverV1 = value => owned.has(value);
 function assertOwnedOfficialObserver(observer, expected, protocolKind = null) {
   exactRecord(expected, ['runtime', 'system', 'poolIndex']);
@@ -52,6 +53,8 @@ function assertOwnedOfficialObserver(observer, expected, protocolKind = null) {
   assertOfficialProtocolFixture(state.runtime, state.protocolFixture);
 }
 export function assertOwnedMetaMorphoGraphDeliveryObserverV1(observer, expected) { assertOwnedOfficialObserver(observer, expected, META); }
+export function assertOwnedAaveStaticGraphDeliveryObserverV1(observer, expected) { assertOwnedOfficialObserver(observer, expected, AAVE); }
+export function assertOwnedAaveStaticGraphDeliveryFactsV1(value, { observer }) { assert.ok(isOwnedAaveStaticGraphDeliveryObserverV1(observer) && facts.get(value) === observer, 'AAVE_GRAPH_ORIGINAL_FACTS_REQUIRED'); }
 export function assertOwnedUniswapGraphDeliveryObserverV1(observer, expected) { assertOwnedOfficialObserver(observer, expected, UNI); }
 export function assertOwnedMetaMorphoGraphDeliveryFactsV1(value, { observer }) {
   assert.ok(isOwnedMetaMorphoGraphDeliveryObserverV1(observer) && facts.get(value) === observer, 'METAMORPHO_GRAPH_ORIGINAL_FACTS_REQUIRED');
@@ -70,6 +73,7 @@ function assertOwnedOfficialDescriptor(observer, router, descriptor, protocolKin
   assert.deepEqual(descriptor.plan.identity, router.identity, 'METAMORPHO_GRAPH_ORIGINAL_ROUTER_IDENTITY');
 }
 export function assertOwnedMetaMorphoGraphDescriptorV1(observer, router, descriptor) { assertOwnedOfficialDescriptor(observer, router, descriptor, META); }
+export function assertOwnedAaveStaticGraphDescriptorV1(observer, router, descriptor) { assertOwnedOfficialDescriptor(observer, router, descriptor, AAVE); }
 export function assertOwnedUniswapGraphDescriptorV1(observer, router, descriptor) { assertOwnedOfficialDescriptor(observer, router, descriptor, UNI); }
 function prepareOwnedOfficialDescriptor(input, protocolKind) {
   exactRecord(input, ['observer', 'router', 'route', 'ownerPublicInputs']);
@@ -81,6 +85,7 @@ function prepareOwnedOfficialDescriptor(input, protocolKind) {
   assertOwnedOfficialDescriptor(input.observer, input.router, descriptor, protocolKind); return descriptor;
 }
 export function prepareOwnedMetaMorphoGraphDescriptorV1(input) { return prepareOwnedOfficialDescriptor(input, META); }
+export function prepareOwnedAaveStaticGraphDescriptorV1(input) { return prepareOwnedOfficialDescriptor(input, AAVE); }
 export function prepareOwnedUniswapGraphDescriptorV1(input) { return prepareOwnedOfficialDescriptor(input, UNI); }
 export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
   assert.equal(arguments.length, 1); return createOwnedOfficialObserver(input, META);
@@ -88,15 +93,16 @@ export async function createOwnedMetaMorphoGraphDeliveryObserverV1(input) {
 export async function createOwnedUniswapGraphDeliveryObserverV1(input) {
   assert.equal(arguments.length, 1); return createOwnedOfficialObserver(input, UNI);
 }
+export async function createOwnedAaveStaticGraphDeliveryObserverV1(input) { assert.equal(arguments.length, 1); return createOwnedOfficialObserver(input, AAVE); }
 async function createOwnedOfficialObserver(input, protocolKind) {
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'router', 'protocolFixture']);
   const { runtime, system, poolIndex, router, protocolFixture: protocol } = input;
   await assertOwnedLocalEvmV2(runtime); assertOwnedFlatSystem(runtime, system);
   assertOwnedPrivateExternalRouterV1(router, { runtime, system, poolIndex }); assertOfficialProtocolFixture(runtime, protocol);
   assert.equal(router.protocolKind, protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
-  const uniswap = protocolKind === UNI, output = uniswap ? protocol.second : protocol.vault;
+  const aave = protocolKind === AAVE, uniswap = protocolKind === UNI, output = uniswap ? protocol.second : protocol.vault;
   const nativeProtocol = uniswap ? protocol.swapRouter : protocol.vault;
-  const profile = uniswap ? UNISWAP_GRAPH_DELIVERY_PROFILE_V1 : METAMORPHO_GRAPH_DELIVERY_PROFILE_V1;
+  const profile = uniswap ? UNISWAP_GRAPH_DELIVERY_PROFILE_V1 : aave ? AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1 : METAMORPHO_GRAPH_DELIVERY_PROFILE_V1;
   const id = router.identity, sourcePoolIndex = router.sourcePoolIndex, sourcePool = system.pools[sourcePoolIndex];
   assert.equal(id.inputAsset, bare(protocol.first.address)); assert.equal(id.outputAsset, bare(output.address));
   assert.equal(id.protocol, bare(nativeProtocol.address)); assert.equal(sourcePool.asset, protocol.first.address, 'METAMORPHO_GRAPH_SOURCE_ASSET');
@@ -139,6 +145,21 @@ async function createOwnedOfficialObserver(input, protocolKind) {
   }
   async function protocolAt(at, amount) {
     if (uniswap) return uniswapAt(at);
+    if (aave) {
+      await protocol.assertCurrent(at);
+      const rows = await Promise.all([
+        read(protocol.vault,'totalAssets',[],at), read(protocol.vault,'totalSupply',[],at),
+        read(protocol.vault,'previewMint',[amount],at), read(protocol.vault,'maxMint',[router.address],at),
+        read(protocol.vault,'balanceOf',['0x'+id.solver],at), read(protocol.vault,'balanceOf',[router.address],at),
+        read(protocol.vault,'rate',[],at), read(protocol.aToken,'scaledBalanceOf',[protocol.vault.address],at),
+        read(protocol.aToken,'scaledTotalSupply',[],at), read(protocol.aToken,'balanceOf',[protocol.vault.address],at),
+        read(protocol.first,'balanceOf',[protocol.aToken.address],at), read(protocol.first,'balanceOf',[protocol.vault.address],at),
+        read(protocol.stableDebt,'totalSupply',[],at), read(protocol.variableDebt,'totalSupply',[],at), read(protocol.first,'totalSupply',[],at),
+      ]);
+      return detached(Object.fromEntries(['totalAssets','totalShares','previewMint','maxMint','solverShares','routerShares',
+        'aaveRate','aaveScaled','aaveScaledTotal','aaveAssets','aaveUnderlying','vaultUnderlying','stableDebt','variableDebt','inputSupply']
+        .map((key,index)=>[key,rows[index][0].toString()])));
+    }
     for (const contract of [protocol.first, protocol.vault, protocol.blue])
       assert.equal(await runtime.code(contract.address, at), contract.code, 'METAMORPHO_GRAPH_PROTOCOL_CODE_CHANGED');
     assert.equal((await read(protocol.vault, 'asset', [], at))[0].toLowerCase(), protocol.first.address);
@@ -223,6 +244,18 @@ async function createOwnedOfficialObserver(input, protocolKind) {
       assert.equal(event.args.sqrtPriceX96.toString(), after.slot0[0], 'UNISWAP_GRAPH_SLOT0_CHANGED');
       assert.equal(event.args.tick.toString(), after.slot0[1], 'UNISWAP_GRAPH_SLOT0_CHANGED');
       for (const index of [3, 4, 5, 6]) assert.equal(after.slot0[index], before.slot0[index], 'UNISWAP_GRAPH_SLOT0_CHANGED');
+    } else if (aave) {
+      assert.equal(spent,BigInt(before.previewMint),'AAVE_GRAPH_ORIGINAL_PREVIEW'); assert.ok(shares<=BigInt(before.maxMint));
+      for (const key of ['aaveRate','stableDebt','variableDebt','inputSupply','solverShares','routerShares','vaultUnderlying'])
+        assert.equal(after[key],before[key],'AAVE_GRAPH_UNEXPECTED_PROTOCOL_EFFECT');
+      assert.equal(BigInt(after.totalShares)-BigInt(before.totalShares),shares,'AAVE_GRAPH_EXACT_STATIC_SHARES');
+      const ray=10n**27n, rate=BigInt(before.aaveRate), scaled=(spent*ray+rate/2n)/rate;
+      assert.equal(BigInt(after.aaveScaled)-BigInt(before.aaveScaled),scaled,'AAVE_GRAPH_ORIGINAL_SCALED_MINT');
+      assert.equal(BigInt(after.aaveScaledTotal)-BigInt(before.aaveScaledTotal),scaled,'AAVE_GRAPH_SCALED_TOTAL_MINT');
+      assert.equal(BigInt(after.aaveUnderlying)-BigInt(before.aaveUnderlying),spent,'AAVE_GRAPH_REAL_UNDERLYING_SUPPLY');
+      assert.equal(after.aaveAssets,after.totalAssets,'AAVE_GRAPH_WRAPPER_BACKING');
+      const delta=BigInt(after.totalAssets)-BigInt(before.totalAssets)-spent;
+      assert.ok(delta>=-1n&&delta<=1n,'AAVE_GRAPH_RAY_ROUNDING');
     } else {
       assert.equal(spent, BigInt(before.previewMint), 'METAMORPHO_GRAPH_OFFICIAL_PREVIEW'); assert.ok(shares <= BigInt(before.maxMint));
       assert.equal(BigInt(after.totalAssets), BigInt(before.totalAssets) + spent, 'METAMORPHO_GRAPH_PROTOCOL_ASSET_DELTA');
@@ -243,7 +276,7 @@ async function createOwnedOfficialObserver(input, protocolKind) {
   observer = Object.freeze({ identity: detached(id),
     binding: detached({ poolIndex, recipientIndex: String(poolIndex), genesis: context.genesisHash,
       asset: context.targetAssetIdentity, sourceEndpoint: id.solver, destinationEndpoint: id.router }),
-    classification: uniswap ? 'OWNED_LOCAL_OFFICIAL_UNISWAP_NOT_PUBLIC_CONSENSUS' : 'OWNED_LOCAL_OFFICIAL_METAMORPHO_NOT_PUBLIC_CONSENSUS',
+    classification: uniswap ? 'OWNED_LOCAL_OFFICIAL_UNISWAP_NOT_PUBLIC_CONSENSUS' : aave ? 'OWNED_LOCAL_OFFICIAL_AAVE_STATIC_NOT_PUBLIC_CONSENSUS' : 'OWNED_LOCAL_OFFICIAL_METAMORPHO_NOT_PUBLIC_CONSENSUS',
     // Return the existing arrival shape so owner custody validates its retained
     // D27 proof/opening without adding a second credit authority.
     async observe(query) { return (await inspect(query, {}))?.arrival ?? null; },

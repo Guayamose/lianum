@@ -10,6 +10,7 @@ import { preparePrivateExternalDelivery, encodePrivateExternalDelivery,
 
 export const METAMORPHO_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_METAMORPHO_GRAPH_DELIVERY_V1';
 export const UNISWAP_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_UNISWAP_V3_GRAPH_DELIVERY_V1';
+export const AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_AAVE_STATIC_GRAPH_DELIVERY_V1';
 const CONTEXT = ['genesisHash', 'ledgerNamespace', 'sourceLedgerNamespace',
   'sourceAssetIdentity', 'targetAssetIdentity', 'routerRuntimeCodeSHA256'];
 const freeze = value => { if (value && typeof value === 'object') {
@@ -25,7 +26,8 @@ export function isMetaMorphoGraphDescriptorV1(value) {
 export function isUniswapGraphDescriptorV1(value) {
   return Object.getOwnPropertyDescriptor(value ?? {}, 'profile')?.value === UNISWAP_GRAPH_DELIVERY_PROFILE_V1;
 }
-export const isExternalGraphDescriptorV1 = value => isMetaMorphoGraphDescriptorV1(value) || isUniswapGraphDescriptorV1(value);
+export function isAaveStaticGraphDescriptorV1(value) { return Object.getOwnPropertyDescriptor(value ?? {}, 'profile')?.value === AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1; }
+export const isExternalGraphDescriptorV1 = value => isMetaMorphoGraphDescriptorV1(value) || isUniswapGraphDescriptorV1(value) || isAaveStaticGraphDescriptorV1(value);
 export function validateEvmGraphDeliveryDescriptorV1(value) {
   if (!Object.hasOwn(value ?? {}, 'profile')) return validateEvmVaultDeliveryDescriptor(value);
   exactRecord(value, ['profile', 'context', 'plan']);
@@ -40,7 +42,7 @@ export function validateEvmGraphDeliveryDescriptorV1(value) {
     assert.equal(value.plan.fee, '3000', 'EVM_GRAPH_UNISWAP_FIXED_FEE');
     assert.notEqual(value.plan.identity.protocol, value.plan.identity.outputAsset, 'EVM_GRAPH_UNISWAP_DISTINCT_PROTOCOL');
   } else {
-    assert.equal(value.plan.protocolKind, 'METAMORPHO_V1_EXACT_SHARE_MINT', 'EVM_GRAPH_METAMORPHO_ONLY');
+    assert.equal(value.plan.protocolKind, isAaveStaticGraphDescriptorV1(value) ? 'AAVE_V3_STATIC_EXACT_SHARE_MINT' : 'METAMORPHO_V1_EXACT_SHARE_MINT', 'EVM_GRAPH_METAMORPHO_ONLY');
     assert.equal(value.plan.fee, null, 'EVM_GRAPH_METAMORPHO_FEE');
     assert.equal(value.plan.identity.protocol, value.plan.identity.outputAsset, 'EVM_GRAPH_ORIGINAL_SHARE_TOKEN');
   }
@@ -65,7 +67,8 @@ export function evmGraphDeliveryDescriptorCommitmentV1(descriptor) {
   if (!isExternalGraphDescriptorV1(descriptor)) return evmVaultDeliveryDescriptorCommitment(descriptor);
   const plan = preparePrivateExternalDelivery(descriptor.plan);
   const tag = isUniswapGraphDescriptorV1(descriptor)
-    ? 'LIANUM/PAEG/uniswap-v3-exact-output-single-delivery/1' : 'LIANUM/PAEG/metamorpho-exact-share-delivery/1';
+    ? 'LIANUM/PAEG/uniswap-v3-exact-output-single-delivery/1' : isAaveStaticGraphDescriptorV1(descriptor)
+      ? 'LIANUM/PAEG/aave-v3-static-exact-share-delivery/1' : 'LIANUM/PAEG/metamorpho-exact-share-delivery/1';
   const parts = [Buffer.from(tag),
     ...CONTEXT.map(key => Buffer.from(descriptor.context[key], 'hex')), Buffer.from(plan.descriptor, 'hex')];
   return sha(Buffer.concat(parts.flatMap(part => {
