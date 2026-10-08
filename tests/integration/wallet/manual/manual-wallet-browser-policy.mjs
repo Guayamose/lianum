@@ -97,25 +97,7 @@ export function assertManualWalletBrowserResult(result) {
   assert.ok(confirmations.filter(entry => entry.action === 'accountRecover').some(entry =>
     handoffs.some(review => review.reviewId === entry.reviewId && review.headAvailable === false)));
   assert.equal(new Set(confirmations.map(entry => entry.listenerId)).size, 2);
-  assert.equal(result.browserClosures.length, 2);
-  for (const closure of result.browserClosures) {
-    assert.equal(closure.browserOwnedCleanupConfirmed, true);
-    assert.equal(closure.guardPassed, true);
-    assert.equal(closure.sandboxedRendererObserved, true);
-    assert.deepEqual(closure.exit, { code: 0, signal: null });
-    assert.ok(closure.sandboxedRenderers.length > 0);
-    for (const renderer of closure.sandboxedRenderers) {
-      assert.equal(renderer.noNewPrivileges, 1); assert.equal(renderer.seccomp, 2);
-      assert.ok(Number.isSafeInteger(renderer.pid) && renderer.pid > 0);
-      assert.match(renderer.startTimeTicks, /^[0-9]+$/);
-      assert.ok(Array.isArray(renderer.uids) && renderer.uids.length === 4
-        && renderer.uids.every(uid => Number.isSafeInteger(uid) && uid === renderer.uids[0]));
-    }
-    assert.equal(closure.newChromeProcessesRemaining, 0);
-    assert.deepEqual(closure.outsideOwnedGroup, []);
-    assert.deepEqual(closure.signals, []);
-    assert.ok(closure.maximumOwnedBrowserRSSBytes > 0 && closure.maximumOwnedBrowserRSSBytes <= 1024 ** 3);
-  }
+  assertManualWalletBrowserClosures(result);
   assert.equal(result.originalExitReviewStateUnchanged, true);
   for (const row of handoffs) {
     assert.equal(row.visibleTermsVerified, true);
@@ -139,4 +121,27 @@ export function assertManualWalletBrowserResult(result) {
   }
   return { scope: 'MANUAL_BROWSER_EXACT_ONLY_ONE_GENERATION_EVM_VAULT', actualFRecoveryAcceptance: false,
     sameAssetRolloverAcceptance: false, v2PoolDeployment: false, fullWalletAcceptance: false };
+}
+
+/** Requires both original owned Chrome lifetimes; never substitutes SDK transport. */
+export function assertManualWalletBrowserClosures(result) {
+  assert.equal(result.browserClosures.length, 2);
+  for (const closure of result.browserClosures) {
+    assert.equal(closure.browserOwnedCleanupConfirmed, true);
+    assert.equal(closure.guardPassed, true);
+    assert.equal(closure.sandboxedRendererObserved, true);
+    assert.deepEqual(closure.exit, { code: 0, signal: null });
+    assert.ok(closure.sandboxedRenderers.length > 0);
+    for (const renderer of closure.sandboxedRenderers) {
+      assert.equal(renderer.noNewPrivileges, 1); assert.equal(renderer.seccomp, 2);
+      assert.ok(Number.isSafeInteger(renderer.pid) && renderer.pid > 0);
+      assert.match(renderer.startTimeTicks, /^[0-9]+$/);
+      assert.ok(Array.isArray(renderer.uids) && renderer.uids.length === 4
+        && renderer.uids.every(uid => Number.isSafeInteger(uid) && uid === renderer.uids[0]));
+    }
+    assert.equal(closure.newChromeProcessesRemaining, 0);
+    assert.deepEqual(closure.outsideOwnedGroup, []);
+    assert.deepEqual(closure.signals, []);
+    assert.ok(closure.maximumOwnedBrowserRSSBytes > 0 && closure.maximumOwnedBrowserRSSBytes <= 1024 ** 3);
+  }
 }

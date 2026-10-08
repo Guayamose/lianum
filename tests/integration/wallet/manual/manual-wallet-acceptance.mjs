@@ -37,6 +37,8 @@ import { createFlatManualGraphCatalogueSession } from '../../../../packages/back
 import { createGenerationPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs';
 import { MANUAL_WALLET_REAL_RUN_DISABLED, assertManualWalletResult } from './manual-wallet-acceptance-policy.mjs';
 import { MANUAL_WALLET_RECOVERY_FORMAT, assertManualWalletRecoveryResult } from './manual-wallet-recovery-policy.mjs';
+import { MANUAL_WALLET_BROWSER_RECOVERY_FORMAT, assertManualWalletBrowserRecoveryResult } from './manual-wallet-browser-recovery-policy.mjs';
+import { manualWalletBrowserRecoverySourcePins } from './manual-wallet-browser-recovery-source-pins.mjs';
 import { createOwnedBackedVault, assertOwnedBackedVaultReceipt } from '../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs';
 import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 
@@ -52,11 +54,12 @@ export async function runManualWalletAcceptance() {
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   assert.equal(process.argv.length, 2);
   const worker = realpathSync(process.argv[1]);
-  const timeoutRecovery = worker === join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs');
-  const browserMode = worker === join(ROOT, 'integration/manual-wallet-browser-acceptance.mjs');
+  const browserRecovery = worker === join(ROOT, 'integration/manual-wallet-browser-timeout-recovery.mjs');
+  const timeoutRecovery = browserRecovery || worker === join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs');
+  const browserMode = browserRecovery || worker === join(ROOT, 'integration/manual-wallet-browser-acceptance.mjs');
   assert.ok(timeoutRecovery || browserMode || worker === fileURLToPath(import.meta.url), 'MANUAL_WALLET_FIXED_WORKER_REQUIRED');
-  const flowName = browserMode ? 'manual-wallet-browser-acceptance' : timeoutRecovery ? 'manual-wallet-timeout-recovery' : 'manual-wallet-acceptance';
-  const captureSources = browserMode ? manualWalletBrowserSourcePins : manualWalletSourcePins;
+  const flowName = browserRecovery ? 'manual-wallet-browser-timeout-recovery' : browserMode ? 'manual-wallet-browser-acceptance' : timeoutRecovery ? 'manual-wallet-timeout-recovery' : 'manual-wallet-acceptance';
+  const captureSources = browserRecovery ? manualWalletBrowserRecoverySourcePins : browserMode ? manualWalletBrowserSourcePins : manualWalletSourcePins;
   assert.deepEqual(process.execArgv, []);
   assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
@@ -74,7 +77,7 @@ export async function runManualWalletAcceptance() {
   mkdirSync(proofDirectory, { mode: 0o700 });
   const began = performance.now();
   const result = {
-    format: browserMode ? MANUAL_WALLET_BROWSER_FORMAT : timeoutRecovery ? MANUAL_WALLET_RECOVERY_FORMAT : 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', runId: lock.runId,
+    format: browserRecovery ? MANUAL_WALLET_BROWSER_RECOVERY_FORMAT : browserMode ? MANUAL_WALLET_BROWSER_FORMAT : timeoutRecovery ? MANUAL_WALLET_RECOVERY_FORMAT : 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
     supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: captureSources(),
@@ -82,7 +85,7 @@ export async function runManualWalletAcceptance() {
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
     privateVaultGraphAcceptance: false, partialDeliveryRecoveryAcceptance: false,
     walletSdkEvmFlowCompleted: false, walletBrowserEvmFlowCompleted: false, browserClosures: [],
-    actualTimeoutFRecoveryAcceptance: false,
+    actualTimeoutFRecoveryAcceptance: false, walletBrowserTimeoutFRecoveryCompleted: false,
     systemicPrivacyAcceptance: false, independentOperators: false,
     realClockFinalityAcceptance: false, performanceTargetAchieved: false, fullWalletAcceptance: false,
     disclosure: [
@@ -331,7 +334,8 @@ export async function runManualWalletAcceptance() {
     // manufacture exit eligibility; retain original recovered/exposed balances.
     const restored = await ownerView();
     result.failureRecovery = { originalCutoff: graphCutoff, ownerAbsentAtIssuance: ownerAbsentAtRecovery,
-      recoveryThroughExactSDK: true, originalFailurePreserved: true, solverPayoutIssued: false,
+      recoveryThroughExactSDK: !browserMode, recoveryThroughExactBrowser: browserMode,
+      originalFailurePreserved: true, solverPayoutIssued: false,
       solverUnderlyingLoss: '100', nativeVaultEffects: 1, ownerExitsAttempted: false,
       remainingPrivateBalances: restored.assets.map(asset => ({ assetId: asset.asset.assetId, balances: asset.balances })),
       catalogueAdmissionsFenced: catalogue.status().admissionFault };
@@ -359,6 +363,7 @@ export async function runManualWalletAcceptance() {
       result.exactActionEvidenceAfterRestart = appDriver.evidence();
       result.manualConsentContractVerified = true;
       result.actualTimeoutFRecoveryAcceptance = true;
+      result.walletBrowserTimeoutFRecoveryCompleted = browserRecovery;
     }
     await audit();
     return true;
@@ -677,7 +682,8 @@ export async function runManualWalletAcceptance() {
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
     result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began; save();
     if (result.success) {
-      try { if (browserMode) assertManualWalletBrowserResult(result);
+      try { if (browserRecovery) assertManualWalletBrowserRecoveryResult(result);
+        else if (browserMode) assertManualWalletBrowserResult(result);
         else if (timeoutRecovery) assertManualWalletRecoveryResult(result); else assertManualWalletResult(result); }
       catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); save(); }
     }

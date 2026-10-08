@@ -20,12 +20,12 @@ class EvmSummary(unittest.TestCase):
         run_id = "11111111-1111-4111-8111-111111111111"
         supervisor_pid, worker_pid = 424242, 424243
         prefix = {"sdk": "FLAT_MANUAL_WALLET_ACCEPTANCE", "recovery": "FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY",
-            "browser": "FLAT_MANUAL_WALLET_BROWSER"}[profile]
+            "browser": "FLAT_MANUAL_WALLET_BROWSER", "browser-recovery": "FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY"}[profile]
         completion = {"sdk": "walletSdkEvmFlowCompleted", "recovery": "actualTimeoutFRecoveryAcceptance",
-            "browser": "walletBrowserEvmFlowCompleted"}[profile]
+            "browser": "walletBrowserEvmFlowCompleted", "browser-recovery": "walletBrowserTimeoutFRecoveryCompleted"}[profile]
         result_format = prefix + ("_ACCEPTANCE_RESULT_V1" if profile == "browser" else "_RESULT_V1")
         flow = {"sdk": "manual-wallet-acceptance", "recovery": "manual-wallet-timeout-recovery",
-            "browser": "manual-wallet-browser-acceptance"}[profile]
+            "browser": "manual-wallet-browser-acceptance", "browser-recovery": "manual-wallet-browser-timeout-recovery"}[profile]
         sources = {"format": "SYNTHETIC_EVM_SUMMARY_SOURCE_METADATA", "local": []}
         binding = {"supervisorPID": supervisor_pid, "workerPID": worker_pid}
         supervisor_identity = {"pid": supervisor_pid, "ppid": os.getpid(), "pgrp": os.getpgrp(),
@@ -71,18 +71,18 @@ class EvmSummary(unittest.TestCase):
             files_before = {path: path.read_bytes() for path in attempt.iterdir()}
             with redirect_stdout(io.StringIO()):
                 try:
-                    module.retain_summary(profile == "recovery", profile == "browser")
+                    module.retain_summary(profile in {"recovery", "browser-recovery"}, profile in {"browser", "browser-recovery"})
                     code = 0
                 except SystemExit as error:
                     code = error.code
-            filename = {"sdk": "evm-lab.json", "recovery": "evm-recovery-lab.json", "browser": "evm-browser-lab.json"}[profile]
+            filename = {"sdk": "evm-lab.json", "recovery": "evm-recovery-lab.json", "browser": "evm-browser-lab.json", "browser-recovery": "evm-browser-recovery-lab.json"}[profile]
             summary = json.loads((module.DEV / "reports" / filename).read_text())
             self.assertEqual({path: path.read_bytes() for path in attempt.iterdir()}, files_before,
                 "The original attempt must never be rewritten or reclassified")
             return code, summary
 
-    def test_three_profiles_accept_only_the_joined_completed_original_metadata(self):
-        for profile in ("sdk", "recovery", "browser"):
+    def test_four_profiles_accept_only_the_joined_completed_original_metadata(self):
+        for profile in ("sdk", "recovery", "browser", "browser-recovery"):
             with self.subTest(profile=profile):
                 code, summary = self.exercise(profile)
                 self.assertEqual(code, 0); self.assertTrue(summary["accepted"])
@@ -90,7 +90,7 @@ class EvmSummary(unittest.TestCase):
                 self.assertEqual(summary["supervisorExitCode"], 0)
 
     def test_nonzero_supervisor_is_rejected_even_when_all_receipts_claim_completion(self):
-        for profile in ("sdk", "recovery", "browser"):
+        for profile in ("sdk", "recovery", "browser", "browser-recovery"):
             with self.subTest(profile=profile):
                 code, summary = self.exercise(profile, exit_code=1)
                 self.assertEqual(code, 1); self.assertFalse(summary["accepted"])
@@ -128,6 +128,27 @@ class EvmSummary(unittest.TestCase):
                 code, summary = self.exercise("browser", missing=missing)
                 self.assertEqual(code, 1); self.assertFalse(summary["accepted"])
                 self.assertIn(missing, summary["evidenceReadFailures"])
+
+    def test_browser_f_requires_its_own_original_format_completion_and_joins(self):
+        changes = [
+            lambda r, s, p, m: r.update(walletBrowserTimeoutFRecoveryCompleted=False, actualTimeoutFRecoveryAcceptance=True),
+            lambda r, s, p, m: r.update(format="FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_RESULT_V1"),
+            lambda r, s, p, m: r.update(format="FLAT_MANUAL_WALLET_BROWSER_ACCEPTANCE_RESULT_V1"),
+            lambda r, s, p, m: s.update(format="FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_RESOURCES_V1"),
+            lambda r, s, p, m: s.update(resultAccepted=False),
+            lambda r, s, p, m: s.update(sourceClosureUnchanged=False),
+            lambda r, s, p, m: setattr(m, "tamper_result_hash", True),
+        ]
+        for index, change in enumerate(changes):
+            with self.subTest(index=index):
+                code, summary = self.exercise("browser-recovery", change)
+                self.assertEqual(code, 1); self.assertFalse(summary["accepted"])
+                self.assertEqual(summary["format"], "LIANUM_DEVELOPMENT_EVM_BROWSER_TIMEOUT_RECOVERY_V1")
+        code, summary = self.exercise("browser-recovery")
+        self.assertEqual(code, 0); self.assertTrue(summary["accepted"])
+        self.assertTrue(summary["walletBrowserTimeoutFRecoveryCompleted"])
+        self.assertFalse(summary["walletBrowserEvmFlowCompleted"])
+        self.assertIn("Scripted production DOM only", summary["limitations"][-1])
 
     def test_corrupt_proof_rows_preserve_failure_without_inventing_a_zero_count(self):
         for value in (None, {}, "corrupt", [None], [{"relation": 17}]):

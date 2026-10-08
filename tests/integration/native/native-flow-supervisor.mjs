@@ -54,6 +54,8 @@ import { nativeFlowSourcePins, accountRecoverySourcePins, assetPortfolioSourcePi
 import { manualWalletSourcePins } from '../wallet/manual/manual-wallet-source-pins.mjs';
 import { manualWalletBrowserSourcePins } from '../wallet/manual/manual-wallet-browser-source-pins.mjs';
 import { MANUAL_WALLET_BROWSER_FORMAT, assertManualWalletBrowserResult } from '../wallet/manual/manual-wallet-browser-policy.mjs';
+import { manualWalletBrowserRecoverySourcePins } from '../wallet/manual/manual-wallet-browser-recovery-source-pins.mjs';
+import { MANUAL_WALLET_BROWSER_RECOVERY_FORMAT, assertManualWalletBrowserRecoveryResult } from '../wallet/manual/manual-wallet-browser-recovery-policy.mjs';
 import { nativeClaimSourcePins } from '../claims/lifecycle/native-claim-source-pins.mjs';
 import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfundedHealthResult, unfundedHealthProcessFailure }
   from '../claims/health/native-claim-unfunded-health-policy.mjs';
@@ -273,6 +275,18 @@ const FLOW_PROFILES = Object.freeze({
     attemptFormat: 'FLAT_MANUAL_WALLET_BROWSER_ATTEMPT_V1',
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_SCRIPTED_DOM_EXACT_CATALOGUE_WALLET',
     sourcePins: manualWalletBrowserSourcePins,
+    cleanupKeys: Object.freeze(['closedEvm']),
+  }),
+  manualWalletBrowserRecovery: Object.freeze({
+    entry: join(ROOT, 'integration/run-manual-wallet-browser-timeout-recovery.mjs'),
+    worker: join(ROOT, 'integration/manual-wallet-browser-timeout-recovery.mjs'),
+    local: join(ROOT, '.local/manual-wallet-browser-timeout-recovery'),
+    resultFormat: MANUAL_WALLET_BROWSER_RECOVERY_FORMAT,
+    resourcesFormat: 'FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY_RESOURCES_V1',
+    lockFormat: 'FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY_LOCK_V1',
+    attemptFormat: 'FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY_ATTEMPT_V1',
+    classification: 'BOUNDED_LOCAL_FAKE_FUNDS_SCRIPTED_DOM_EXACT_ORIGINAL_TIMEOUT_F',
+    sourcePins: manualWalletBrowserRecoverySourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   manualWalletRecovery: Object.freeze({
@@ -559,6 +573,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.poolGenerationPhase2) scoped = assertPoolGenerationPhase2Result(result);
   if (profile === FLOW_PROFILES.manualWallet) scoped = assertManualWalletResult(result);
   if (profile === FLOW_PROFILES.manualWalletBrowser) scoped = assertManualWalletBrowserResult(result);
+  if (profile === FLOW_PROFILES.manualWalletBrowserRecovery) scoped = assertManualWalletBrowserRecoveryResult(result);
   if (profile === FLOW_PROFILES.developmentNativeClaims) scoped = assertDevelopmentNativeClaimResult(result);
   if (profile === FLOW_PROFILES.privateMetaMorpho) scoped = assertPrivateMetaMorphoResult(result);
   if (profile === FLOW_PROFILES.developmentDefiEntry) scoped = assertDevelopmentDefiEntryResult(result);
@@ -656,6 +671,11 @@ export async function runManualWalletBrowserSupervisor() {
   assert.equal(arguments.length, 0, 'MANUAL_BROWSER_NO_SUPERVISOR_OPTIONS');
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_BROWSER_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   return runFixedFlowSupervisor(FLOW_PROFILES.manualWalletBrowser);
+}
+export async function runManualWalletBrowserRecoverySupervisor() {
+  assert.equal(arguments.length, 0, 'MANUAL_BROWSER_RECOVERY_NO_SUPERVISOR_OPTIONS');
+  assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_BROWSER_RECOVERY_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
+  return runFixedFlowSupervisor(FLOW_PROFILES.manualWalletBrowserRecovery);
 }
 export async function runManualWalletRecoverySupervisor() {
   assert.equal(arguments.length, 0, 'MANUAL_WALLET_RECOVERY_NO_SUPERVISOR_OPTIONS');

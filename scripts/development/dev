@@ -19,7 +19,7 @@ case "$task_command" in
       './dev test [rutas]   Ejecutar pruebas; acepta las rutas de la estructura nueva' \
       './dev doctor         Verificar herramientas e integridad de la base original' \
       './dev evidence       Comprobar las evidencias públicas originales' \
-      './dev lab [prepare|run|recovery|browser]   Laboratorio EVM nuevo: SDK, DOM o recuperación F real' \
+      './dev lab [prepare|run|recovery|browser|browser-recovery]   Laboratorio EVM nuevo: SDK o DOM, feliz o F real' \
       './dev lab claims     Ingreso y redención privada de claims BTC/SOL en un laboratorio nuevo' \
       './dev lab metamorpho Nota privada de shares, EXIT y redención oficial en un laboratorio nuevo' \
       './dev lab defi       Entrada privada D27 de Uniswap/MetaMorpho y EXIT original' \

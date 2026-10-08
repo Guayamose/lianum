@@ -5,8 +5,9 @@ export const MANUAL_WALLET_RECOVERY_FORMAT = 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVER
 export const MANUAL_WALLET_RECOVERY_PROOFS = Object.freeze(['deposit_balance', 'deposit_intent', 'authorization',
   'reservation', 'dependency', 'ready', 'recovery']);
 
-export function assertManualWalletRecoveryResult(result) {
-  assert.equal(result.format, MANUAL_WALLET_RECOVERY_FORMAT);
+/** Original economic/journal/review facts shared by the two fixed F transports.
+ * Calling this alone does not establish SDK or browser acceptance. */
+export function assertManualWalletOriginalRecoveryFacts(result) {
   assert.equal(result.phase, 'completed'); assert.equal(result.success, true);
   for (const field of ['localOnly', 'fakeFundsOnly', 'sourceUnchanged', 'manualConsentContractVerified',
     'actualTimeoutFRecoveryAcceptance', 'controlledPostDeliveryInterruption', 'targetOwnerExitedBeforeDelivery',
@@ -29,7 +30,7 @@ export function assertManualWalletRecoveryResult(result) {
   assert.ok(Number.isSafeInteger(failed.sequence) && failed.sequence > 0);
   assert.equal(result.nativeEffects.evmVault, 1);
   const recovered = result.failureRecovery;
-  for (const field of ['ownerAbsentAtIssuance', 'recoveryThroughExactSDK', 'originalFailurePreserved',
+  for (const field of ['ownerAbsentAtIssuance', 'originalFailurePreserved',
     'catalogueAdmissionsFenced']) assert.equal(recovered[field], true, field);
   assert.equal(recovered.solverPayoutIssued, false); assert.equal(recovered.ownerExitsAttempted, false);
   assert.equal(recovered.nativeVaultEffects, 1); assert.equal(recovered.solverUnderlyingLoss, '100');
@@ -52,9 +53,6 @@ export function assertManualWalletRecoveryResult(result) {
   assert.equal(result.finalPools[0].backedAmount, '500');
   assert.equal(result.finalPools[1].backedAmount, '100');
   assert.equal(result.sourceFundingConfirmed, true);
-  assert.deepEqual(result.responseLoss, { requestId: 'vault_top_up', discardedActualAdmissionReply: true,
-    sdkReportedUnknown: true, executeHttpRequests: 1, originalJournalReconciled: true,
-    noAutomaticResubmit: true, actualNetworkOutage: false });
   assert.equal(result.originalGeneration.poolCount, 2);
   assert.equal(result.originalGeneration.bindingsUnchanged, true);
   assert.match(result.originalGeneration.generationId, /^[0-9a-f]{64}$/);
@@ -88,4 +86,17 @@ export function assertManualWalletRecoveryResult(result) {
   assert.ok(evidence.some(item => item.check === 'OLD_LISTENER_GRANT_REJECTED'));
   return { scope: 'MANUAL_EXACT_ONLY_ORIGINAL_TIMEOUT_F_AFTER_NATIVE_DELIVERY', actualFRecoveryAcceptance: true,
     happyPathCompleted: false, arbitraryDeFiAcceptance: false, fullWalletAcceptance: false };
+}
+
+export function assertManualWalletRecoveryResult(result) {
+  assert.equal(result.format, MANUAL_WALLET_RECOVERY_FORMAT);
+  const scope = assertManualWalletOriginalRecoveryFacts(result);
+  assert.equal(result.failureRecovery.recoveryThroughExactSDK, true);
+  assert.notEqual(result.failureRecovery.recoveryThroughExactBrowser, true);
+  assert.notEqual(result.walletBrowserTimeoutFRecoveryCompleted, true);
+  assert.notEqual(result.walletBrowserEvmFlowCompleted, true);
+  assert.deepEqual(result.responseLoss, { requestId: 'vault_top_up', discardedActualAdmissionReply: true,
+    sdkReportedUnknown: true, executeHttpRequests: 1, originalJournalReconciled: true,
+    noAutomaticResubmit: true, actualNetworkOutage: false });
+  return scope;
 }
