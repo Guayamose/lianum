@@ -33,13 +33,16 @@ y journal ante respuesta HTTP perdida y reinicio.
 
 El harness SDK usa HTTP y el modelo de revisión compartido de la wallet. El
 nuevo perfil `./dev lab browser` utiliza el DOM real y comprueba los términos
-originales y la casilla de consentimiento antes de cada acción. Su aceptación
-financiera de quince pruebas requiere una ejecución nueva. Completar
-la integración del escenario F ya aceptado con entrega parcial, ejecución
+originales y la casilla de consentimiento antes de cada acción. Su recorrido
+financiero de quince pruebas ya está aceptado en estado nuevo, incluidas tres
+salidas y redención, respuesta perdida y reemplazo de listener sobre el mismo
+journal. Completar la integración desde DOM del escenario F ya aceptado por
+SDK/HTTP con entrega parcial, ejecución
 original incierta y ausencia del owner, sin segundo envío o crédito. Publicar deltas privados, respaldo,
 entrega nativa y pérdida/obligación del solver por separado.
 
-Después comprobar la interfaz visible y conectarla a la misma sesión/cuenta.
+La comprobación visible ya usa la misma sesión/cuenta original. Ampliar a pérdida
+de keeper/nodo y después conectar la custodia móvil a ese mismo núcleo.
 
 ## 4. Redes y operaciones combinadas — parcial
 

@@ -11,7 +11,7 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 | --- | --- | --- |
 | 1. Base fiable | Importación separada por componentes, dos mocks corregidos, 244 pruebas habituales correctas, inventario de encoding y CI preparado desde una copia limpia. | No sustituye todas las integraciones ni los originales históricos ausentes. |
 | 2. Reconciliación nativa | `reconcile()` consulta el resultado terminal conservado antes de esperar al adaptador. Regresiones de adaptador bloqueado y validación terminal aprobadas. | La recuperación F local ya se aceptó con una entrega real en el paso 3. |
-| 3. Recorrido EVM | Build revisado nuevo, supervisor, SDK y HTTP reales; recuperación F real aceptada con siete pruebas. Perfil de navegador con consentimiento DOM y quince pruebas preparado y revisado. | Aceptar la nueva ejecución del navegador y sus salidas; conexión a móvil y recuperación tras pérdida de procesos. |
+| 3. Recorrido EVM | Recorrido completo desde el DOM real aceptado con quince pruebas: financiación, reserva, entrega, liquidación, tres salidas y redención. Respuesta perdida, reinicio de owners y reemplazo de listener comprobados. Recuperación F real aceptada por SDK/HTTP con siete pruebas. | Recuperación F desde DOM, conexión a móvil y recuperación tras pérdida de keeper/nodo. |
 | 4. Redes y operaciones combinadas | Bitcoin y Solana: ingreso y solver aceptados en Core/Agave nuevos. CI51 V3 y CO42 reconstruidos con sus VK originales. Tron produce consenso y un broadcast, pero su aceptación falla. | Payout con autoridad original, flujo privado BTC/Solana, finalidad/cierre Tron, aceptación propia de Base/Arbitrum/BNB y composición entre redes. |
 | 5. DeFi | Swap oficial Uniswap V3 y depósito/redención oficial MetaMorpho comprobados en Anvil. Puente privado con 20 regresiones; nota privada MetaMorpho, EXIT y redención con D26/W39 reales aceptados. Nuevo perfil D27/W39 por protocolo preparado. | Ejecutar y aceptar ese perfil; integrar PAEG/grafo, posiciones y recuperación ante pérdida de keeper/nodo. |
 | 6. Móvil y operación | Expo/React Native, consentimiento y outbox protegido; API/PostgreSQL con migraciones versionadas comprobadas; Docker local; Terraform validado sin cuenta GCP. | Bridge a cuentas/keeper y workers, saldo privado real, APK y aceptación física, recuperación móvil y operación de producción. |
@@ -44,7 +44,7 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 ## Evidencia y límites
 
 La selección habitual pasa con 244 resultados. Una copia con sólo fuentes
-versionadas y dependencias públicas pasa además 123 regresiones seleccionadas de
+versionadas y dependencias públicas pasa además 125 regresiones seleccionadas de
 DeFi, redes, navegador, HTTP y procesos de pruebas. La API pasa 22 casos host
 y 19 resultados con PostgreSQL real: carreras, JSONB, reinicio, respuesta
 perdida, crash, caída de SQL y migraciones concurrentes o interrumpidas.
@@ -70,6 +70,22 @@ concurrencia, rollback, timeout y respuesta COMMIT perdida. La imagen Docker
 actual realiza esa migración antes de la API y conserva el estado desconectado.
 Android usa un único pool Ninja para compilación y enlace de app y bibliotecas:
 la regresión real y el prebuild Expo verifican el límite; todavía no es un APK.
+
+El recorrido EVM desde navegador pasó en un laboratorio nuevo con quince pruebas
+genuinas y sus inputs originales verificados. La respuesta TOP_UP perdida dejó
+UNKNOWN y se concilió sin repetir el POST. El grafo se liquidó con ambos owners
+ausentes; después reiniciaron las custodias y se reemplazó el listener sobre el
+mismo journal. El permiso del listener anterior fue rechazado. Cambio 380,
+payout 120 y redención 100 PALT terminan con pools y vault sin respaldo pendiente.
+Ambos navegadores y todos los procesos propios cerraron correctamente.
+
+El intento aceptado duró 19 min 29 s; el pico del prover fue 3.033.706.496 bytes,
+por debajo del límite de 3 GiB. Es una medición local de ese recorrido, sin
+acreditar los objetivos en caliente. Los tres intentos DOM anteriores conservan
+su rechazo; el fallo intermitente de guard del tercero no se reprodujo y no se
+atribuye una causa ni una corrección. No hubo pérdida del proceso keeper/nodo ni
+custodia en dispositivo. [El informe del recorrido](docs/EVM-LAB.md) conserva
+identidad, hashes, alcance y comandos.
 
 El primer round trip privado BTC/Solana emitió ambas notas con cuatro pruebas
 D27/CI51, pero falló antes de EXIT/payout por lecturas paralelas incompatibles
