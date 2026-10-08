@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { Vault as RealVault } from '../../../../engine/src/crypto/vault.mjs';
 import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 const worlds = new WeakMap(), receipts = new WeakMap(), bySystem = new WeakMap(), byAccount = new WeakMap(), byVault = new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
@@ -25,7 +26,15 @@ mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault
     return result;
   }
 } } });
-mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: { assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME') } });
+mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: {
+  assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME'),
+  async assertLocalEvmDeploymentProfile(runtime) {
+    assert.equal(arguments.length, 1);
+    assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME');
+    assert.deepEqual(runtime.metadata.profile, LOCAL_EVM_PROFILE, 'HOST_FIXED_CANCUN_PROFILE');
+    return LOCAL_EVM_PROFILE;
+  },
+} });
 mock.module('../ops/deploy-system.mjs', { exports: {
   assertOwnedFlatSystem: (runtime, system) => assert.equal(bySystem.get(system)?.runtime, runtime, 'MOCK_OWNED_SYSTEM'),
   describeOwnedFlatPoolRegistry() { throw Error('HOST_UNEXPECTED_REAL_REGISTRY_READ'); },
@@ -106,7 +115,7 @@ async function fixture(options = {}) {
     blockHash: '0x' + blockHash, blockNumber: '0xb', input };
   world.receipt = { transactionHash: '0x' + transactionHash, to: '0x' + asset.pool, status: '0x1',
     blockHash: '0x' + blockHash, blockNumber: '0xb' };
-  world.runtime = { metadata: { scratchDirectory }, async transaction(hash) { assert.equal(hash, world.transaction.hash); return clone(world.transaction); },
+  world.runtime = { metadata: { scratchDirectory, profile: LOCAL_EVM_PROFILE }, async transaction(hash) { assert.equal(hash, world.transaction.hash); return clone(world.transaction); },
     async receipt() { return world.receipt && clone(world.receipt); }, async checkReceipt() { world.receiptChecks = (world.receiptChecks ?? 0) + 1; } };
   if (options.runtime) world.runtime = options.runtime;
   world.system = { sender: '0x' + address('system'), pools: [null, { address: '0x' + asset.pool,
