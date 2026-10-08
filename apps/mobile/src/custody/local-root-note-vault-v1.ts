@@ -16,8 +16,14 @@ import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, validateD
   type DeviceDepositConsentV1, type DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { readDeviceDepositInclusionV1 } from '../api/device-owner-deposit-api-v1';
 import { compileLocalFundedBalanceGraphV1, normalizeLocalFundedProposalV1, localFundedOwnerFrameV1,
-  localFundedAuthorizationWordsV1, localFundedSpendNullifierV1,
+  localFundedAuthorizationWordsV1, localFundedSpendNullifierV1, localFundedInvoiceFrameV1, localNativeTransferActionCommitmentV1,
   type LocalFundedProposalV1, type LocalFundedStatementV1 } from './funded-balance-owner-codec-v1.mjs';
+
+import { readDeviceReservationQuoteV1 } from '../api/device-owner-reservation-api-v1';
+import { normalizeDeviceReservationCapsuleOptionsV1, normalizeDeviceReservationWitnessV1,
+  deviceReservationWitnessBytesV1, wipeDeviceReservationWitnessV1, validateDeviceReservationConsentFreshV1,
+  type DeviceReservationCapsuleOptionsV1, type DeviceReservationWitnessV1, type DeviceReservationConsentV1 }
+  from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
@@ -88,13 +94,24 @@ type LocalSpendOpening = { privateKey: string | null; opening: LocalBalanceOpeni
 type DeviceSpend = { version: 1; phase: 'PREPARED' | 'SIGNED'; proposal: LocalFundedProposalV1;
   reservationNonce: string; reserveSecret: string; graphNonce: string; paddingSalts: string[];
   change: LocalSpendOpening; recovery: LocalSpendOpening; statement: LocalFundedStatementV1;
-  frameSHA256: string; signature: string | null };
+  frameSHA256: string; signature: string | null; preparation?: LocalEnvelopePreparation;
+  proofJob?: LocalReservationProofJob };
+type LocalEnvelopePreparation = { capsuleOptions: DeviceReservationCapsuleOptionsV1; joinBlinds: string[];
+  leafBlinds: string[]; invoiceSignatures: string[] };
+type LocalReservationProofJob = { jobId: string; quoteId: string; depositJobId: string; origin: string;
+  pairingId: string; devicePublicKey: string; witnessSHA256: string };
+export type LocalDeviceAuthorizationRequestV1 = Readonly<{ version: 1; rootId: string; jobId: string;
+  depositJobId: string; quoteId: string; witnessSHA256: string; statement: Readonly<LocalFundedStatementV1>;
+  custody: LocalDeviceReservationSignatureV1['custody']; expiresAt: number; close(): void }>;
+
 export type LocalDeviceReservationReviewV1 = Readonly<{ version: 1; rootId: string; revision: number;
   operationId: string; sourceCommitment: string; sourceNullifier: string; budget: string; changeAmount: string;
   recoveryAmount: string; graphCommitment: string; reserveCommitment: string; changeCommitment: string;
   recoveryCommitment: string; settleBefore: string; frameSHA256: string; expiresAt: number;
   actions: readonly Readonly<{ id: string; chainDomain: string; evidencePolicy: string; actionCommitment: string;
-    payoutCommitment: string; payoutAmount: string }>[] }>;
+    payoutCommitment: string; payoutAmount: string }>[];
+  nativeTransfers: readonly Readonly<{ chainDomain: string; signerIdentity: string; destinationCommitment: string; amount: string;
+    executionFrom: string; executionUntil: string; settleBefore: string }>[] }>;
 export type LocalDeviceReservationSignatureV1 = Readonly<{ version: 1; rootId: string; revision: number;
   statement: Readonly<LocalFundedStatementV1>; signature: string; intermediateWords: readonly string[];
   custody: Readonly<{ rootId: string; noteRevision: number; encryptedRecordSHA256: string; frameSHA256: string;
@@ -213,7 +230,9 @@ function compiledSpend(note: PreparedNote, spend: DeviceSpend) {
 }
 async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSpend> {
   const value = parsed(JSON.stringify(raw), ['version', 'phase', 'proposal', 'reservationNonce', 'reserveSecret',
-    'graphNonce', 'paddingSalts', 'change', 'recovery', 'statement', 'frameSHA256', 'signature'], MAX_CLEAR_BYTES);
+    'graphNonce', 'paddingSalts', 'change', 'recovery', 'statement', 'frameSHA256', 'signature',
+    ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'preparation') ? ['preparation'] : []),
+    ...(raw && typeof raw === 'object' && Object.hasOwn(raw, 'proofJob') ? ['proofJob'] : [])], MAX_CLEAR_BYTES);
   if (value.version !== 1 || !['PREPARED', 'SIGNED'].includes(String(value.phase))) bad();
   const proposal = normalizeLocalFundedProposalV1(value.proposal);
   if (!note.deviceJob?.assetIdentity || proposal.asset !== note.deviceJob.assetIdentity
@@ -242,6 +261,26 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
     change: await validate(value.change, String(BigInt(note.opening.value) - BigInt(proposal.budget))),
     recovery: await validate(value.recovery, proposal.budget), statement: value.statement as LocalFundedStatementV1,
     frameSHA256: hex(value.frameSHA256), signature: value.signature === null ? null : hex(value.signature, 64) };
+  if (Object.hasOwn(value, 'preparation')) {
+    const prep = parsed(JSON.stringify(value.preparation), ['capsuleOptions', 'joinBlinds', 'leafBlinds', 'invoiceSignatures'], MAX_CLEAR_BYTES);
+    const list = (raw: unknown, count: number, width = 32): string[] => {
+      if (!Array.isArray(raw) || raw.length !== count) bad(); return raw.map(item => hex(item, width)); };
+    spend.preparation = { capsuleOptions: normalizeDeviceReservationCapsuleOptionsV1(prep.capsuleOptions),
+      joinBlinds: list(prep.joinBlinds, 4), leafBlinds: list(prep.leafBlinds, 16),
+      invoiceSignatures: list(prep.invoiceSignatures, proposal.nodes.length, 64) };
+    validatePreparedInvoices(spend, note);
+  }
+  if (Object.hasOwn(value, 'proofJob')) {
+    if (!spend.preparation || spend.phase !== 'SIGNED' || !spend.signature) bad();
+    const job = parsed(JSON.stringify(value.proofJob), ['jobId', 'quoteId', 'depositJobId', 'origin', 'pairingId', 'devicePublicKey', 'witnessSHA256']);
+    if (typeof job.origin !== 'string' || job.origin !== note.deviceJob?.origin || job.pairingId !== note.deviceJob.pairingId
+      || job.depositJobId !== note.deviceJob.jobId) bad('MOBILE_LOCAL_ORIGINAL_DOMAIN_CHANGED');
+    spend.proofJob = { jobId: hex(job.jobId), quoteId: hex(job.quoteId), depositJobId: hex(job.depositJobId), origin: job.origin,
+      pairingId: hex(job.pairingId), devicePublicKey: hex(job.devicePublicKey, 65), witnessSHA256: hex(job.witnessSHA256) };
+    const request = reservationWitness(note, spend), bytes = deviceReservationWitnessBytesV1(request);
+    try { if (await digest(bytes) !== spend.proofJob.witnessSHA256) bad(); }
+    finally { bytes.fill(0); wipeDeviceReservationWitnessV1(request); }
+  }
   const compiled = compiledSpend(note, spend), frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
   try {
     if (JSON.stringify(compiled.authorizationStatement) !== JSON.stringify(value.statement)
@@ -250,6 +289,30 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
       localNoteHexBytesV1('04' + note.opening.x + note.opening.y, 65), { prehash: true, lowS: true })) bad();
   } finally { frame.fill(0); }
   return spend;
+}
+function validatePreparedInvoices(spend: DeviceSpend, note: PreparedNote) {
+  const preparation = spend.preparation; if (!preparation) bad('MOBILE_LOCAL_ORIGINAL_QUOTE_REQUIRED');
+  const compiled = compiledSpend(note, spend);
+  if (preparation.capsuleOptions.nodes.length !== compiled.ownerWitness.graph.nodes.length) bad();
+  for (let slot = 0; slot < compiled.ownerWitness.graph.nodes.length; slot++) {
+    const node = compiled.ownerWitness.graph.nodes[slot], action = preparation.capsuleOptions.nodes[slot];
+    if (action.id !== node.id || action.action.chainDomain !== node.chainDomain
+      || localNativeTransferActionCommitmentV1(action.action) !== node.actionCommitment
+      || action.action.settleBefore !== spend.proposal.settleBefore) bad('MOBILE_LOCAL_ORIGINAL_QUOTE_CHANGED');
+    const frame = localFundedInvoiceFrameV1(compiled.authorizationStatement, node, slot), payout = spend.proposal.nodes[slot].payout;
+    try { if (!secp256k1.verify(localNoteHexBytesV1(preparation.invoiceSignatures[slot], 64), frame,
+      localNoteHexBytesV1('04' + payout.x + payout.y, 65), { prehash: true, lowS: true })) bad('MOBILE_LOCAL_RECIPIENT_INVOICE_REQUIRED'); }
+    finally { frame.fill(0); }
+  }
+}
+function reservationWitness(note: PreparedNote, spend: DeviceSpend): DeviceReservationWitnessV1 {
+  if (!spend.preparation || !spend.signature || spend.phase !== 'SIGNED') bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
+  return normalizeDeviceReservationWitnessV1({ input: { ...spend.proposal, reservationNonce: spend.reservationNonce,
+    reserveSecret: spend.reserveSecret, graphNonce: spend.graphNonce, inputNote: { ...note.opening },
+    changeNote: { ...spend.change.opening }, recoveryNote: { ...spend.recovery.opening }, paddingSalts: [...spend.paddingSalts] },
+    ownerSignature: spend.signature, invoiceSignatures: [...spend.preparation.invoiceSignatures],
+    envelopePreparation: { capsuleOptions: spend.preparation.capsuleOptions, joinBlinds: [...spend.preparation.joinBlinds],
+      leafBlinds: [...spend.preparation.leafBlinds] } });
 }
 type RootOperationScope = { current(): void; writeStarted(): void };
 async function checked<T>(scope: Pick<RootOperationScope, 'current'>, work: () => Promise<T>): Promise<T> {
@@ -566,6 +629,13 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   const reviews = new WeakMap<LocalDepositReviewV1, LocalDepositChoiceV1>();
   const reservationReviews = new WeakMap<LocalDeviceReservationReviewV1, { createdAt: number; frameSHA256: string }>();
   let pendingReservation: LocalDeviceReservationReviewV1 | null = null;
+  const reservationSignatures = new WeakMap<LocalDeviceReservationSignatureV1, number>();
+  const authorizationRequests = new WeakMap<LocalDeviceAuthorizationRequestV1, { witness: DeviceReservationWitnessV1;
+    quote: object; consumed: boolean }>();
+  const outstandingAuthorizationWitnesses = new Set<DeviceReservationWitnessV1>();
+  const wipeAuthorization = (witness: DeviceReservationWitnessV1) => {
+    wipeDeviceReservationWitnessV1(witness); outstandingAuthorizationWitnesses.delete(witness); };
+
   let liveInclusion: object | null = null;
   const signatures = new WeakMap<LocalDepositSignatureV1, number>();
   const proofRequests = new WeakMap<LocalDeviceProofRequestV1, { witness: DeviceDepositWitnessV1; consumed: boolean }>();
@@ -665,8 +735,68 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       settleBefore: spend.statement.settleBefore, frameSHA256: spend.frameSHA256, expiresAt: createdAt + 15_000,
       actions: Object.freeze(compiled.ownerWitness.graph.nodes.map((node, slot) => Object.freeze({ id: node.id,
         chainDomain: node.chainDomain, evidencePolicy: node.evidencePolicy, actionCommitment: node.actionCommitment,
-        payoutCommitment: node.payoutCommitment, payoutAmount: compiled.ownerWitness.payouts[slot].value }))) });
+        payoutCommitment: node.payoutCommitment, payoutAmount: compiled.ownerWitness.payouts[slot].value }))),
+      nativeTransfers: Object.freeze((spend.preparation?.capsuleOptions.nodes ?? []).map(node => Object.freeze({
+        chainDomain: node.action.chainDomain, signerIdentity: node.action.signerIdentity,
+        destinationCommitment: node.action.destinationCommitment, amount: node.action.amount,
+        executionFrom: node.action.executionFrom, executionUntil: node.action.executionUntil, settleBefore: node.action.settleBefore }))) });
     reservationReviews.set(review, { createdAt, frameSHA256: spend.frameSHA256 }); pendingReservation = review; return review;
+  }
+  function prepareReservation(input: LocalFundedProposalV1, quoteHandle?: object): Promise<LocalDeviceReservationReviewV1> {
+      current(); discardReview(); const quote = quoteHandle ? readDeviceReservationQuoteV1(quoteHandle) : null;
+      const proposal = normalizeLocalFundedProposalV1(input);
+      return original('Preparar el gasto de ' + proposal.budget + ' unidades: guardar primero tu cambio y recuperación cifrados; todavía no reservar',
+        async (value, key, before, raw, root) => {
+          const { note, observation } = fundedSource(value);
+          if (proposal.scope !== note.scope || proposal.policy !== note.policy || proposal.asset !== note.deviceJob?.assetIdentity
+            || BigInt(proposal.budget) > BigInt(note.opening.value)
+            || BigInt(proposal.fundingNotBefore) > BigInt(observation.head.timestamp)
+            || BigInt(proposal.fundingValidUntil) <= BigInt(observation.head.timestamp)) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_TERMS');
+          if (quote && (quote.rootId !== value.rootId || quote.depositJobId !== note.deviceJob?.jobId
+            || quote.sourceCommitment !== note.commitment || quote.sourceNullifier !== observation.nullifier
+            || quote.poolTerms.domainCommitment !== note.deviceJob.domainCommitment
+            || JSON.stringify(normalizeLocalFundedProposalV1(quote.proposal)) !== JSON.stringify(proposal))) bad('MOBILE_LOCAL_ORIGINAL_QUOTE_CHANGED');
+          if (value.spend) {
+            if (JSON.stringify(value.spend.proposal) !== JSON.stringify(proposal)) bad('MOBILE_LOCAL_RESERVATION_INTENT_CONFLICT');
+            if (value.spend.proofJob) bad('MOBILE_LOCAL_RESERVATION_JOB_ALREADY_COMMITTED');
+            if (quote) {
+              if (!value.spend.preparation || JSON.stringify(value.spend.preparation.capsuleOptions) !== JSON.stringify(quote.capsuleOptions)
+                || JSON.stringify(value.spend.preparation.invoiceSignatures) !== JSON.stringify(quote.invoiceSignatures)) bad('MOBILE_LOCAL_ORIGINAL_QUOTE_CHANGED');
+              validatePreparedInvoices(value.spend, note); readDeviceReservationQuoteV1(quoteHandle!);
+            }
+            return reservationReview(value);
+          }
+          if (value.revision >= Number.MAX_SAFE_INTEGER) bad('MOBILE_LOCAL_NOTE_CAPACITY');
+          const random: Uint8Array[] = [];
+          try {
+            for (let index = 0; index < 7; index++) random.push(await randomWithinScope(scope));
+            if (random.some(bytes => bytes.every(byte => byte === 0))) bad('MOBILE_ENTROPY_FAILED');
+            const custody = {
+              reservationNonce: bytesToHex(random[0]), reserveSecret: bytesToHex(random[1]), graphNonce: bytesToHex(random[2]),
+              paddingSalts: random.slice(3).map(bytesToHex),
+              change: await spendOpening(String(BigInt(note.opening.value) - BigInt(proposal.budget))),
+              recovery: await spendOpening(proposal.budget) };
+            const compiled = compileLocalFundedBalanceGraphV1({ ...proposal, reservationNonce: custody.reservationNonce,
+              reserveSecret: custody.reserveSecret, graphNonce: custody.graphNonce, paddingSalts: custody.paddingSalts, inputNote: note.opening,
+              changeNote: custody.change.opening, recoveryNote: custody.recovery.opening });
+            const frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
+            let frameSHA256: string;
+            try { frameSHA256 = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
+            const spend: DeviceSpend = { version: 1, phase: 'PREPARED', proposal, ...custody,
+              statement: compiled.authorizationStatement, frameSHA256, signature: null };
+            if (quote) {
+              for (let index = 0; index < 20; index++) random.push(await randomWithinScope(scope));
+              if (random.slice(7).some(bytes => bytes.every(byte => byte === 0))) bad('MOBILE_ENTROPY_FAILED');
+              spend.preparation = { capsuleOptions: normalizeDeviceReservationCapsuleOptionsV1(quote.capsuleOptions),
+                invoiceSignatures: [...quote.invoiceSignatures], joinBlinds: random.slice(7, 11).map(bytesToHex),
+                leafBlinds: random.slice(11, 27).map(bytesToHex) };
+              validatePreparedInvoices(spend, note); readDeviceReservationQuoteV1(quoteHandle!); current();
+            }
+            const next: State = { ...value, revision: value.revision + 1, spend };
+            const readback = await persistSpend(next, key, before, raw, root);
+            fundedSource(readback); return reservationReview(readback);
+          } finally { for (const bytes of random) bytes.fill(0); }
+        });
   }
   return Object.freeze({
     readPreparedNote: () => original('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
@@ -923,7 +1053,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
             await writeCheckedScoped(scope, POINTER, nextPointer, DATA);
             liveInclusion = capability;
-            return { commitment: note.commitment, availableBalance: Date.now() < inclusion.expiresAt ? note.opening.value : null,
+            return { commitment: note.commitment, availableBalance: !value.spend && Date.now() < inclusion.expiresAt ? note.opening.value : null,
               nativeEffectsEstablished: true, observedHead: inclusion.head.hash };
           } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
         });
@@ -932,42 +1062,9 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
      * openings plus all original nonce/secret/terms before releasing review.
      * Authenticated device-source inclusion is mandatory. Raw proposal data
      * cannot supply a funded source, an opening or signing key. */
-    prepareDeviceReservation: (input: LocalFundedProposalV1): Promise<LocalDeviceReservationReviewV1> => {
-      current(); discardReview(); const proposal = normalizeLocalFundedProposalV1(input);
-      return original('Preparar el gasto de ' + proposal.budget + ' unidades: guardar primero tu cambio y recuperación cifrados; todavía no reservar',
-        async (value, key, before, raw, root) => {
-          const { note, observation } = fundedSource(value);
-          if (proposal.scope !== note.scope || proposal.policy !== note.policy || proposal.asset !== note.deviceJob?.assetIdentity
-            || BigInt(proposal.budget) > BigInt(note.opening.value)
-            || BigInt(proposal.fundingNotBefore) > BigInt(observation.head.timestamp)
-            || BigInt(proposal.fundingValidUntil) <= BigInt(observation.head.timestamp)) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_TERMS');
-          if (value.spend) {
-            if (JSON.stringify(value.spend.proposal) !== JSON.stringify(proposal)) bad('MOBILE_LOCAL_RESERVATION_INTENT_CONFLICT');
-            return reservationReview(value);
-          }
-          if (value.revision >= Number.MAX_SAFE_INTEGER) bad('MOBILE_LOCAL_NOTE_CAPACITY');
-          const random: Uint8Array[] = [];
-          try {
-            for (let index = 0; index < 7; index++) random.push(await randomWithinScope(scope));
-            if (random.some(bytes => bytes.every(byte => byte === 0))) bad('MOBILE_ENTROPY_FAILED');
-            const custody = {
-              reservationNonce: bytesToHex(random[0]), reserveSecret: bytesToHex(random[1]), graphNonce: bytesToHex(random[2]),
-              paddingSalts: random.slice(3).map(bytesToHex),
-              change: await spendOpening(String(BigInt(note.opening.value) - BigInt(proposal.budget))),
-              recovery: await spendOpening(proposal.budget) };
-            const compiled = compileLocalFundedBalanceGraphV1({ ...proposal, reservationNonce: custody.reservationNonce,
-              reserveSecret: custody.reserveSecret, graphNonce: custody.graphNonce, paddingSalts: custody.paddingSalts, inputNote: note.opening,
-              changeNote: custody.change.opening, recoveryNote: custody.recovery.opening });
-            const frame = localFundedOwnerFrameV1(compiled.authorizationStatement);
-            let frameSHA256: string;
-            try { frameSHA256 = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
-            const spend: DeviceSpend = { version: 1, phase: 'PREPARED', proposal, ...custody,
-              statement: compiled.authorizationStatement, frameSHA256, signature: null };
-            const next: State = { ...value, revision: value.revision + 1, spend };
-            const readback = await persistSpend(next, key, before, raw, root);
-            fundedSource(readback); return reservationReview(readback);
-          } finally { for (const bytes of random) bytes.fill(0); }
-        });
+    prepareDeviceReservation: (input: LocalFundedProposalV1): Promise<LocalDeviceReservationReviewV1> => prepareReservation(input),
+    prepareDeviceReservationFromQuote: (quoteHandle: object): Promise<LocalDeviceReservationReviewV1> => {
+      current(); const quote = readDeviceReservationQuoteV1(quoteHandle); return prepareReservation(quote.proposal, quoteHandle);
     },
     /** Consumes an exact local review before await. The source note key signs
      * only the original H4 authorization after all custody was reread. This
@@ -1008,7 +1105,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
               bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
             current(); fundedSource(value);
             if (Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_CHANGED');
-            return Object.freeze({ version: 1, rootId: value.rootId, revision: value.revision,
+            const signed: LocalDeviceReservationSignatureV1 = Object.freeze({ version: 1, rootId: value.rootId, revision: value.revision,
               statement: Object.freeze({ ...compiled.authorizationStatement,
                 outputs: Object.freeze([...compiled.authorizationStatement.outputs]) }), signature,
               intermediateWords: Object.freeze(localFundedAuthorizationWordsV1(compiled.authorizationStatement)),
@@ -1017,9 +1114,102 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
                 sourceNullifier: compiled.authorizationStatement.inputNullifier,
                 changeCommitment: compiled.authorizationStatement.changeCommitment,
                 recoveryCommitment: compiled.authorizationStatement.recoveryCommitment }) });
+            reservationSignatures.set(signed, review.expiresAt); return signed;
           } finally { sourceKey?.fill(0); frame.fill(0); }
         });
     },
-    close() { discardReview(); closed = true; liveInclusion = null; for (const witness of outstandingWitnesses) wipeWitness(witness); },
+    /** Commits one exact U job locally before its consent/POST. The same source,
+     * recipient acceptance, native preparation and all output custody are read
+     * back first. Closing/crashing this pending job requires explicit original
+     * observation; it never creates a fresh job or another authorization. */
+    createDeviceAuthorizationRequest: (signed: LocalDeviceReservationSignatureV1, quoteHandle: object): Promise<LocalDeviceAuthorizationRequestV1> => {
+      current(); const until = reservationSignatures.get(signed);
+      if (!until || Date.now() >= until || signed.rootId !== expectedRootId) bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
+      reservationSignatures.delete(signed);
+      const quote = readDeviceReservationQuoteV1(quoteHandle);
+      return original('Preparar una sola prueba U: revelar únicamente las aperturas de este grafo al worker original; raíz y claves permanecen aquí',
+        async (value, key, before, raw, root) => {
+          const { note, observation } = fundedSource(value), spend = value.spend;
+          if (!spend || spend.phase !== 'SIGNED' || !spend.preparation || spend.proofJob
+            || spend.signature !== signed.signature || value.revision !== signed.revision
+            || JSON.stringify(spend.statement) !== JSON.stringify(signed.statement)
+            || pointer(before).recordSHA256 !== signed.custody.encryptedRecordSHA256
+            || quote.rootId !== value.rootId || quote.depositJobId !== note.deviceJob?.jobId
+            || quote.sourceCommitment !== note.commitment || quote.sourceNullifier !== observation.nullifier
+            || quote.origin !== note.deviceJob.origin || quote.pairingId !== note.deviceJob.pairingId
+            || JSON.stringify(quote.proposal) !== JSON.stringify(spend.proposal)
+            || JSON.stringify(quote.capsuleOptions) !== JSON.stringify(spend.preparation.capsuleOptions)
+            || JSON.stringify(quote.invoiceSignatures) !== JSON.stringify(spend.preparation.invoiceSignatures)) bad('MOBILE_LOCAL_ORIGINAL_QUOTE_CHANGED');
+          validatePreparedInvoices(spend, note);
+          const witness = reservationWitness(note, spend), bytes = deviceReservationWitnessBytesV1(witness);
+          let witnessSHA256: string, jobEntropy: Uint8Array | null = null;
+          try {
+            witnessSHA256 = await checked(scope, () => digest(bytes)); current(); fundedSource(value);
+            readDeviceReservationQuoteV1(quoteHandle);
+            if (Date.now() >= until) bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
+            jobEntropy = await randomWithinScope(scope); if (jobEntropy.every(byte => byte === 0)) bad('MOBILE_ENTROPY_FAILED');
+            const proofJob: LocalReservationProofJob = { jobId: bytesToHex(jobEntropy), quoteId: quote.quoteId,
+              depositJobId: quote.depositJobId, origin: quote.origin, pairingId: quote.pairingId,
+              devicePublicKey: quote.devicePublicKey, witnessSHA256 };
+            const next: State = { ...value, revision: value.revision + 1, spend: { ...spend, proofJob } };
+            const readback = await persistSpend(next, key, before, raw, root); fundedSource(readback);
+            readDeviceReservationQuoteV1(quoteHandle);
+            if (Date.now() >= until) bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
+            const after = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA));
+            if (after === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
+            const p = pointer(after), createdAt = Date.now();
+            if (p.rootId !== next.rootId || p.revision !== next.revision) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            const request: LocalDeviceAuthorizationRequestV1 = Object.freeze({ version: 1, rootId: next.rootId,
+              jobId: proofJob.jobId, depositJobId: proofJob.depositJobId, quoteId: proofJob.quoteId, witnessSHA256,
+              statement: Object.freeze({ ...spend.statement, outputs: Object.freeze([...spend.statement.outputs]) }),
+              custody: Object.freeze({ ...signed.custody, noteRevision: next.revision, encryptedRecordSHA256: p.recordSHA256 }),
+              expiresAt: Math.min(until, quote.expiresAt, createdAt + 15_000),
+              close() { const retained = authorizationRequests.get(request); if (retained) { retained.consumed = true; wipeAuthorization(retained.witness); } },
+            });
+            authorizationRequests.set(request, { witness, quote: quoteHandle, consumed: false });
+            outstandingAuthorizationWitnesses.add(witness); return request;
+          } catch (cause) { wipeDeviceReservationWitnessV1(witness); throw cause; }
+          finally { bytes.fill(0); jobEntropy?.fill(0); }
+        });
+    },
+    /** Consumes the exact request once before awaiting protected access. The
+     * opening packet contains no encryption root or private signing key. */
+    bindDeviceAuthorizationRequest: (request: LocalDeviceAuthorizationRequestV1, rawConsent: DeviceReservationConsentV1): Promise<DeviceReservationWitnessV1> => {
+      current(); const retained = authorizationRequests.get(request);
+      if (!retained || retained.consumed || request.rootId !== expectedRootId || Date.now() >= request.expiresAt) bad('MOBILE_LOCAL_AUTHORIZATION_REQUEST_REQUIRED');
+      retained.consumed = true;
+      let consent: DeviceReservationConsentV1;
+      try { consent = validateDeviceReservationConsentFreshV1(rawConsent);
+        const quote = readDeviceReservationQuoteV1(retained.quote);
+        if (consent.action !== 'PROVE_U' || consent.jobId !== request.jobId || consent.quoteId !== request.quoteId
+          || consent.depositJobId !== request.depositJobId || consent.origin !== quote.origin
+          || consent.pairingId !== quote.pairingId || consent.devicePublicKey !== quote.devicePublicKey
+          || consent.witnessSHA256 !== request.witnessSHA256 || JSON.stringify(consent.statement) !== JSON.stringify(request.statement)
+          || JSON.stringify(consent.custody) !== JSON.stringify(request.custody)
+          || JSON.stringify(consent.poolTerms) !== JSON.stringify(quote.poolTerms)) bad('MOBILE_LOCAL_AUTHORIZATION_CONSENT_CHANGED');
+      } catch (cause) { wipeAuthorization(retained.witness); throw cause; }
+      return original('Confirmar la revelación acotada de esta única apertura U; nunca la raíz ni una clave privada',
+        async (value, _key, before) => {
+          try {
+            fundedSource(value); readDeviceReservationQuoteV1(retained.quote);
+            validateDeviceReservationConsentFreshV1(consent);
+            if (!value.spend?.proofJob || value.spend.proofJob.jobId !== request.jobId || value.revision !== request.custody.noteRevision
+              || pointer(before).recordSHA256 !== request.custody.encryptedRecordSHA256 || Date.now() >= request.expiresAt) bad('MOBILE_LOCAL_AUTHORIZATION_CONSENT_CHANGED');
+            const bytes = deviceReservationWitnessBytesV1(retained.witness);
+            try { if (await checked(scope, () => digest(bytes)) !== request.witnessSHA256) bad('MOBILE_LOCAL_AUTHORIZATION_CONSENT_CHANGED'); }
+            finally { bytes.fill(0); }
+            current(); fundedSource(value); validateDeviceReservationConsentFreshV1(consent);
+            if (Date.now() >= request.expiresAt) bad('MOBILE_LOCAL_AUTHORIZATION_CONSENT_CHANGED');
+            return retained.witness;
+          } catch (cause) { wipeAuthorization(retained.witness); throw cause; }
+        }).catch(cause => { wipeAuthorization(retained.witness); throw cause; });
+    },
+    readDeviceReservationIntent: () => original('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
+      async value => value.spend?.proofJob ? Object.freeze({ ...value.spend.proofJob, rootId: value.rootId,
+        operationId: value.spend.proposal.operationId, nativeEffectsEstablished: false as const }) : null),
+    close() { discardReview(); closed = true; liveInclusion = null;
+      for (const witness of outstandingWitnesses) wipeWitness(witness);
+      for (const witness of outstandingAuthorizationWitnesses) wipeAuthorization(witness); },
+
   });
 }

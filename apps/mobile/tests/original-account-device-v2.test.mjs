@@ -125,3 +125,24 @@ test('private account/pool balance has distinct protected consent domains; diagn
   await assert.rejects(signOriginalPrivateStateAccessV1({ ...f.access, action: 'reconcile' }, f.access.origin, f.access.pairingId), /PRIVATE_STATE_INVALID/);
   assert.equal(calls.filter(row => row.name === PRIVATE).length, before);
 });
+
+test('original U/S protected domains use the retained PoP key, refuse substitution/expiry and wipe all mutable signing buffers', async () => {
+  const { deviceReservationFixtureV1 } = await import('./helpers/device-reservation-fixture-v1.mjs');
+  const { deviceReservationConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs');
+  const { signDeviceReservationConsentV1 } = await import('../src/custody/key-store.ts');
+  fixture(); const f = deviceReservationFixtureV1(new Uint8Array(32).fill(11));
+  const signed = await signDeviceReservationConsentV1(f.consent, f.descriptor.origin, f.descriptor.pairingId);
+  assert.equal(verify('sha256', deviceReservationConsentMessageV1(f.consent), { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(signed, 'hex')), true);
+  assert.ok(privateBuffers.length === 1 && privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+  assert.match(calls.find(row => row.name === PRIVATE).options.authenticationPrompt, /aperturas.*worker U/);
+  assert.equal(store.get(PRIVATE), secret); const reads = calls.length;
+  await assert.rejects(signDeviceReservationConsentV1(f.consent, 'https://foreign.example', f.descriptor.pairingId), /REVIEW_CHANGED/);
+  assert.equal(calls.slice(reads).some(row => row.name === PRIVATE), false);
+  const time = mock.method(Date, 'now', () => 1000000);
+  try {
+    const slow = deviceReservationFixtureV1(new Uint8Array(32).fill(11));
+    control.slowRead = async () => time.mock.mockImplementation(() => 1015001);
+    await assert.rejects(signDeviceReservationConsentV1(slow.consent, slow.descriptor.origin, slow.descriptor.pairingId), /RESERVATION_INVALID/);
+    assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+  } finally { time.mock.restore(); control.slowRead = null; }
+});

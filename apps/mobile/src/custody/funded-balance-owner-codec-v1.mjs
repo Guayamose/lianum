@@ -172,3 +172,23 @@ export function compileLocalFundedBalanceGraphV1(input) {
       payouts: payoutNotes.map((note, slot) => ({ ...note, randomness: nodes[slot].payout.randomness })),
       paddingSalts: input.paddingSalts.map((salt, slot) => slot < nodes.length ? ZERO : salt), graph: preparedGraph.ownerWitness } };
 }
+
+/** Byte-identical native V2 action commitment from the original fixed quote.
+ * Does not authenticate delivery or grant dispatch. */
+function nativeAmount128(value) {
+  need(typeof value === 'string' && /^(0|[1-9][0-9]{0,38})$/.test(value));
+  let amount = BigInt(value); need(amount > 0n && amount < (1n << 128n));
+  const out = new Uint8Array(16);
+  for (let i = 15; i >= 0; i--) { out[i] = Number(amount & 255n); amount >>= 8n; }
+  return out;
+}
+export function localNativeTransferActionCommitmentV1(action) {
+  const fields = ['chainDomain','signerIdentity','sourceCommitment','destinationCommitment','amount','custodyKind',
+    'custodyCommitment','executionFrom','executionUntil','settleBefore','receiptKeyCommitment','receiptRho','deliveryRiskCommitment','actionSalt'];
+  exact(action, fields); need(action.custodyKind === 1);
+  need(BigInt(action.executionFrom) < BigInt(action.executionUntil) && BigInt(action.executionUntil) <= BigInt(action.settleBefore));
+  return digest('LIANUM/PAEG/native-transfer-action/2', [ascii('LIANUM_PAEG_NATIVE_4_V2'), ...fields.map(name =>
+    name === 'amount' ? nativeAmount128(action[name])
+      : name === 'custodyKind' ? localNoteUintBytesV1(String(action[name]), 1)
+        : ['executionFrom','executionUntil','settleBefore'].includes(name) ? uint(action[name]) : hash(action[name]))]);
+}

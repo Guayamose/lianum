@@ -50,3 +50,16 @@ test('portable preparation rejects changed conservation, cycles, duplicate payou
   assert.equal(normalizeLocalFundedProposalV1(proposal).budget, input.budget);
   assert.throws(() => normalizeLocalFundedProposalV1({ ...proposal, inputNote }), /ENCODING/);
 });
+
+test('portable native quote action matches the original H4 V2 bytes, including u128 native amounts and exact windows', async () => {
+  const { nativeTransferActionCommitment } = await import('../../../packages/engine/src/execution/native/dispatch/native-capsules.mjs');
+  const { localNativeTransferActionCommitmentV1 } = await import('../src/custody/funded-balance-owner-codec-v1.mjs');
+  const action = { chainDomain: hex(1), signerIdentity: hex(2), sourceCommitment: hex(3), destinationCommitment: hex(4),
+    amount: ((1n << 128n) - 1n).toString(), custodyKind: 1, custodyCommitment: hex(5), executionFrom: '0',
+    executionUntil: '600', settleBefore: '900', receiptKeyCommitment: hex(6), receiptRho: hex(7), deliveryRiskCommitment: hex(8), actionSalt: hex(9) };
+  assert.equal(localNativeTransferActionCommitmentV1(action), nativeTransferActionCommitment(action));
+  for (const changes of [{ amount: (1n << 128n).toString() }, { amount: '0' }, { executionUntil: '0' },
+    { custodyKind: 2 }, { actionSalt: '00'.repeat(32) }, { privateKey: hex(10) }]) {
+    assert.throws(() => localNativeTransferActionCommitmentV1({ ...action, ...changes }));
+  }
+});

@@ -1,3 +1,4 @@
+import type { DeviceReservationConsentV1, DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import type { DeviceDepositConsentV1, DeviceDepositStatementV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import type { OriginalPrivateStateObservationV1 } from '@lianum/mobile-protocol/original-account-v2';
 import type { OriginalAccountActionV2, OriginalAccountBindingV2, OriginalAccountAccessV2,
@@ -31,6 +32,14 @@ export function createOriginalAccountApiV2(options: {
 }): Readonly<{
   descriptor: OriginalAccountDescriptorV2;
   privateState: OriginalPrivateStateApiV1;
+  deviceReservation: Readonly<{
+    preparation(input: { access: OriginalAccountAccessV2; signature: string; depositJobId: string; rootId: string }): Promise<unknown>;
+    challengeJob(input: { access: OriginalAccountAccessV2; signature: string; depositJobId: string; quoteId: string;
+      custody: DeviceReservationCustodyV1; statement: DeviceReservationStatementV1;
+      witnessSHA256: string; jobId: string | null }): Promise<DeviceReservationConsentV1>;
+    challenge(action: 'RESERVE_S' | 'OBSERVE_S', input: { access: OriginalAccountAccessV2; signature: string; jobId: string }): Promise<DeviceReservationConsentV1>;
+    submit(input: { consent: DeviceReservationConsentV1; signature: string; witness?: DeviceReservationWitnessV1 }): Promise<unknown>;
+  }>;
   deviceDeposit: Readonly<{
     challengeJob(input: { access: OriginalAccountAccessV2; signature: string; statement: DeviceDepositStatementV1;
       rootId: string; noteRevision: number; witnessSHA256: string; jobId: string | null }): Promise<DeviceDepositConsentV1>;

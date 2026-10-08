@@ -203,3 +203,28 @@ test('private-state transport binds the original asset/lifetime and rejects stal
   const unknown = await unavailable.api.privateState.submit(unavailable.stateSignedReview);
   assert.equal(unknown.balances, null);
 });
+
+test('device U uses its exact consent domain and one fixed POST; a lost response never triggers a second proof or reservation', async () => {
+  const { deviceReservationFixtureV1 } = await import('./helpers/device-reservation-fixture-v1.mjs');
+  const { deviceReservationConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs');
+  const f = deviceReservationFixtureV1(key), calls = [];
+  const api = createOriginalAccountApiV2({ descriptor: f.descriptor, fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/job-reviews')) return new Response(JSON.stringify(f.consent), { headers: { 'content-type': 'application/json' } });
+    assert.ok(url.endsWith('/jobs')); throw new Error('SYNTHETIC_LOST_ADMITTED_RESPONSE');
+  } });
+  const accessSignature = signDeviceMessage(key, originalAccountAccessMessageV2(f.access));
+  const input = { access: f.access, signature: accessSignature, depositJobId: f.consent.depositJobId, quoteId: f.consent.quoteId,
+    custody: f.consent.custody, statement: f.consent.statement, witnessSHA256: f.consent.witnessSHA256, jobId: f.consent.jobId };
+  const consent = await api.deviceReservation.challengeJob(input);
+  const signature = signDeviceMessage(key, deviceReservationConsentMessageV1(consent));
+  await assert.rejects(api.deviceReservation.submit({ consent, signature, witness: f.witness }), /LOST_ADMITTED/);
+  assert.deepEqual(calls.map(row => row.url.split('/').at(-1)), ['job-reviews', 'jobs']);
+  const body = JSON.parse(calls[1].options.body);
+  assert.equal(body.consent.jobId, f.consent.jobId); assert.deepEqual(body.witness, f.witness);
+  assert.equal(JSON.stringify(body).includes('privateKey'), false); assert.equal(JSON.stringify(body).includes('rootHex'), false);
+  const before = calls.length;
+  await assert.rejects(api.deviceReservation.submit({ consent: { ...consent, origin: 'https://foreign.example' }, signature, witness: f.witness }), /REVIEW_CHANGED/);
+  await assert.rejects(api.deviceReservation.submit({ consent, signature, witness: { ...f.witness, privateKey: '11'.repeat(32) } }), /RESERVATION_INVALID/);
+  assert.equal(calls.length, before);
+});

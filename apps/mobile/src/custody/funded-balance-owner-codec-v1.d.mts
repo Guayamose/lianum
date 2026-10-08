@@ -28,3 +28,5 @@ export function compileLocalFundedBalanceGraphV1(input: LocalFundedInputV1): {
         dependsOn: string[]; payoutCommitment: string; index: number; dependencyIndexes: number[];
         dependencyMask: number; salt: string; commitment: string }[] } };
 };
+
+export function localNativeTransferActionCommitmentV1(action: import('../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs').DeviceReservationActionV1): string;

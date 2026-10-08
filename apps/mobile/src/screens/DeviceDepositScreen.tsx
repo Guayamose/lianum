@@ -3,22 +3,33 @@ import { AppState, Pressable, ScrollView, StyleSheet, Text, TextInput } from 're
 import { fetch as nativeFetch } from 'expo/fetch';
 import { createOriginalAccountApiV2 } from '../api/original-account-api-v2.mjs';
 import { createDeviceOwnerDepositApiV1 } from '../api/device-owner-deposit-api-v1';
+import { createDeviceOwnerReservationApiV1 } from '../api/device-owner-reservation-api-v1';
 import { readDevicePublicKey, signOriginalAccountAccessV2, signOriginalPrivateStateAccessV1,
-  signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1 } from '../custody/key-store';
-import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceProofRequestV1 }
+  signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1 } from '../custody/key-store';
+import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceProofRequestV1, type LocalDeviceAuthorizationRequestV1, type LocalDeviceReservationReviewV1 }
   from '../custody/local-root-note-vault-v1';
 import type { DeviceDepositConsentV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { wipeDeviceReservationWitnessV1, type DeviceReservationConsentV1, type DeviceReservationWitnessV1 }
+  from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+type ReservationClient = Awaited<ReturnType<typeof createDeviceOwnerReservationApiV1>>;
 type Client = Awaited<ReturnType<typeof createDeviceOwnerDepositApiV1>>;
 type Vault = ReturnType<typeof openLocalRootNoteVaultV1>;
 export default function DeviceDepositScreen() {
   const [origin, setOrigin] = useState(''), [pairingId, setPairingId] = useState('');
   const [note, setNote] = useState<Awaited<ReturnType<Vault['readDeviceNote']>>>(null);
+  const [ownerReview, setOwnerReview] = useState<LocalDeviceReservationReviewV1 | null>(null);
+  const [reservationConsent, setReservationConsent] = useState<DeviceReservationConsentV1 | null>(null);
+  const [reservationJob, setReservationJob] = useState<string | null>(null);
+  const reservationClient = useRef<ReservationClient | null>(null), quote = useRef<object | null>(null);
+  const authorizationRequest = useRef<LocalDeviceAuthorizationRequestV1 | null>(null);
   const [consent, setConsent] = useState<DeviceDepositConsentV1 | null>(null);
   const [approved, setApproved] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const client = useRef<Client | null>(null), vault = useRef<Vault | null>(null), request = useRef<LocalDeviceProofRequestV1 | null>(null);
   const busyRef = useRef(false), visible = useRef(true), epoch = useRef(0);
   function clear() {
-    epoch.current++; request.current?.close(); request.current = null; vault.current?.close(); vault.current = null;
+    epoch.current++; authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
+    reservationClient.current?.close(); reservationClient.current = null; setOwnerReview(null); setReservationConsent(null); setReservationJob(null);
+    request.current?.close(); request.current = null; vault.current?.close(); vault.current = null;
     client.current?.close(); client.current = null; setNote(null); setConsent(null); setApproved(false);
   }
   useEffect(() => {
@@ -29,6 +40,15 @@ export default function DeviceDepositScreen() {
     const timer = setTimeout(() => setNote(value => value ? { ...value, availableBalance: null, freshness: 'UNKNOWN' } : value),
       Math.max(0, (note.observation?.expiresAt ?? Date.now()) - Date.now())); return () => clearTimeout(timer);
   }, [note]);
+  useEffect(() => {
+    const expiry = ownerReview?.expiresAt ?? reservationConsent?.expiresAt;
+    if (!expiry) return;
+    const timer = setTimeout(() => {
+      authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
+      setOwnerReview(null); setReservationConsent(null); setApproved(false);
+    }, Math.max(0, expiry - Date.now()));
+    return () => clearTimeout(timer);
+  }, [ownerReview, reservationConsent]);
   const live = (held: number) => { if (!visible.current || held !== epoch.current) throw Error('MOBILE_DEVICE_DEPOSIT_REVOKED'); };
   async function run(work: (held: number) => Promise<void>) {
     if (busyRef.current || !visible.current) return; busyRef.current = true; setBusy(true); const held = epoch.current;
@@ -40,9 +60,13 @@ export default function DeviceDepositScreen() {
     const metadata = await inspectLocalRootNoteVaultV1(); live(held);
     if (!metadata.rootId || metadata.status !== 'ACTIVE') throw Error('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
     const publicKey = await readDevicePublicKey(); live(held); if (!publicKey) throw Error('MOBILE_KEY_REQUIRED');
-    const next = await createDeviceOwnerDepositApiV1({ origin, pairingId, devicePublicKey: publicKey }); live(held);
-    client.current = next; vault.current = openLocalRootNoteVaultV1(metadata.rootId);
+    const next = await createDeviceOwnerDepositApiV1({ origin, pairingId, devicePublicKey: publicKey });
+    try { live(held); } catch (error) { next.close(); throw error; }
+    const reservations = await createDeviceOwnerReservationApiV1(next.descriptor);
+    try { live(held); } catch (error) { next.close(); reservations.close(); throw error; }
+    client.current = next; reservationClient.current = reservations; vault.current = openLocalRootNoteVaultV1(metadata.rootId);
     const state = await vault.current.readDeviceNote(); live(held); if (!state) throw Error('MOBILE_LOCAL_NOTE_REQUIRED');
+    const intent = await vault.current.readDeviceReservationIntent(); live(held); setReservationJob(intent?.jobId ?? null);
     setNote(state); setMessage('Nota local vinculada. Preparar una prueba no financia ni transmite tu clave.');
   }
   async function access(held: number) {
@@ -51,6 +75,7 @@ export default function DeviceDepositScreen() {
     const signature = await signOriginalAccountAccessV2(challenge, origin, pairingId); live(held); return { access: challenge, signature };
   }
   async function prepare(held: number) {
+    setOwnerReview(null); setReservationConsent(null); setApproved(false);
     const api = client.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const diagnostics = createOriginalAccountApiV2({ descriptor: api.descriptor, fetchImpl: nativeFetch }).privateState;
     const challenge = await diagnostics.challenge(); live(held);
@@ -68,6 +93,7 @@ export default function DeviceDepositScreen() {
     setConsent(jobReview); setApproved(false); setMessage('Revisa la revelación acotada antes de generar D26.');
   }
   async function review(action: 'FUND_D26' | 'OBSERVE_D26', held: number) {
+    setOwnerReview(null); setReservationConsent(null); setApproved(false);
     const api = client.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const current = await custody.readDeviceNote(); live(held); if (!current?.job) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
     const authenticated = await access(held), value = await api.challenge(action, { ...authenticated, jobId: current.job.jobId }); live(held);
@@ -95,6 +121,71 @@ export default function DeviceDepositScreen() {
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { if (witness) for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0); }
   }
+  async function reservationAccess(held: number) {
+    const api = reservationClient.current; if (!api) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const challenge = await api.access(); live(held);
+    const signature = await signOriginalAccountAccessV2(challenge, origin, pairingId); live(held);
+    return { access: challenge, signature };
+  }
+  async function preparationU(held: number) {
+    setConsent(null); setReservationConsent(null); setOwnerReview(null); setApproved(false);
+    const api = reservationClient.current, custody = vault.current;
+    if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const current = await custody.readDeviceNote(); live(held);
+    if (!current?.job || current.status !== 'FUNDED' || current.availableBalance === null) throw Error('MOBILE_LOCAL_FRESH_FUNDED_SOURCE_REQUIRED');
+    const authenticated = await reservationAccess(held);
+    const handle = await api.preparation({ ...authenticated, depositJobId: current.job.jobId, rootId: current.rootId }); live(held);
+    // This same source can enter a retained reservation. Clear the earlier
+    // D26 free-balance display before any persistent preparation/await.
+    setNote({ ...current, availableBalance: null, freshness: 'UNKNOWN' });
+    const reviewed = await custody.prepareDeviceReservationFromQuote(handle); live(held);
+    const retained = await custody.readDeviceNote(); live(held);
+    if (retained?.availableBalance !== null) throw Error('MOBILE_LOCAL_RESERVATION_BALANCE_UNRESOLVED');
+    setNote(retained);
+    quote.current = handle; setOwnerReview(reviewed); setConsent(null); setReservationConsent(null); setApproved(false);
+    setMessage('Cambio y recuperación cifrados y releídos. Revisa el mismo grafo antes de firmar con tu clave de nota.');
+  }
+  async function reviewProofU(held: number) {
+    const api = reservationClient.current, custody = vault.current, review = ownerReview, handle = quote.current;
+    if (!api || !custody || !review || !handle || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
+    setOwnerReview(null); setApproved(false);
+    const signed = await custody.signDeviceReservation(review); live(held);
+    const pending = await custody.createDeviceAuthorizationRequest(signed, handle); live(held);
+    authorizationRequest.current?.close(); authorizationRequest.current = pending; setReservationJob(pending.jobId);
+    const authenticated = await reservationAccess(held);
+    const consent = await api.challengeJob({ ...authenticated, depositJobId: pending.depositJobId, quoteId: pending.quoteId,
+      jobId: pending.jobId, custody: pending.custody, statement: pending.statement, witnessSHA256: pending.witnessSHA256 }); live(held);
+    setReservationConsent(consent); setMessage('La intención U original está guardada; la prueba todavía no reserva ni ejecuta el grafo.');
+  }
+  async function reviewReservation(action: 'RESERVE_S' | 'OBSERVE_S', held: number) {
+    setConsent(null); setReservationConsent(null); setOwnerReview(null); setApproved(false);
+    const api = reservationClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const intent = await custody.readDeviceReservationIntent(); live(held); if (!intent) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
+    const authenticated = await reservationAccess(held);
+    const consent = await api.challenge(action, { ...authenticated, jobId: intent.jobId }); live(held);
+    setReservationJob(intent.jobId); setOwnerReview(null); setConsent(null); setReservationConsent(consent); setApproved(false);
+  }
+  async function submitReservation(held: number) {
+    const api = reservationClient.current, custody = vault.current, consent = reservationConsent;
+    if (!api || !custody || !consent || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
+    setReservationConsent(null); setApproved(false);
+    const signature = await signDeviceReservationConsentV1(consent, origin, pairingId); live(held);
+    let witness: DeviceReservationWitnessV1 | undefined;
+    try {
+      if (consent.action === 'PROVE_U') {
+        if (!authorizationRequest.current) throw Error('MOBILE_LOCAL_ORIGINAL_REQUEST_REQUIRED');
+        witness = await custody.bindDeviceAuthorizationRequest(authorizationRequest.current, consent); live(held);
+      }
+      const result = await api.submit({ consent, signature, ...(witness ? { witness } : {}) }); live(held);
+      setReservationJob(result.jobId); setMessage(result.stage === 'RESERVED'
+        ? 'Reserva S original confirmada; el grafo aún no está ejecutado. El cambio y la recuperación permanecen en la custodia local.'
+        : result.stage); const state = await custody.readDeviceNote(); live(held); setNote(state);
+    } catch (error) {
+      live(held); const notice = 'UNKNOWN: consulta la misma intención U/S. No repetir pruebas ni reservar de nuevo.';
+      setMessage(notice); throw new Error(notice, { cause: error });
+    } finally { if (witness) wipeDeviceReservationWitnessV1(witness);
+      authorizationRequest.current?.close(); authorizationRequest.current = null; }
+  }
   const edit = (update: (value: string) => void, value: string) => { clear(); update(value); };
   return <ScrollView contentContainerStyle={styles.body}>
     <Text style={styles.title}>Financiar tu nota local</Text>
@@ -111,6 +202,38 @@ export default function DeviceDepositScreen() {
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
         onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado esta acción exacta</Text></Pressable>
       <Pressable disabled={busy || !approved} onPress={() => void run(submit)}><Text style={styles.button}>Autorizar esta acción</Text></Pressable>
+    </>}
+    {note?.status === 'FUNDED' && <>
+      <Text style={styles.title}>Continuar con la misma nota</Text>
+      <Text style={styles.text}>El servidor original ofrece los términos firmados del grafo. No se adopta otra nota ni se envía una raíz o clave. U revela sólo las aperturas a su worker; S requiere otro consentimiento y una sola reserva. La ejecución y la salida del grafo aún no están habilitadas aquí.</Text>
+      <Pressable disabled={busy || note.availableBalance === null || reservationJob !== null} onPress={() => void run(preparationU)}><Text style={styles.button}>Leer términos originales y guardar cambio/recuperación</Text></Pressable>
+    </>}
+    {ownerReview && <>
+      <Text style={styles.text}>Operación {ownerReview.operationId}
+Fuente {ownerReview.sourceCommitment}
+Presupuesto {ownerReview.budget} · cambio {ownerReview.changeAmount} · recuperación {ownerReview.recoveryAmount}
+{ownerReview.actions.map(action => action.id + ' · ' + action.chainDomain + ' · pago ' + action.payoutAmount).join('\n')}
+Hasta {ownerReview.settleBefore}
+Frame {ownerReview.frameSHA256}</Text>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} Autorizo estos términos con la clave de mi nota</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(reviewProofU)}><Text style={styles.button}>Firmar grafo y revisar prueba U</Text></Pressable>
+    </>}
+    {reservationJob && <>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewReservation('RESERVE_S', held))}><Text style={styles.button}>Revisar reserva S original</Text></Pressable>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewReservation('OBSERVE_S', held))}><Text style={styles.button}>Consultar la misma intención U/S</Text></Pressable>
+    </>}
+    {reservationConsent && <>
+      <Text style={styles.text}>{reservationConsent.action}
+Trabajo {reservationConsent.jobId}
+Fuente {reservationConsent.statement.inputCommitment}
+Cambio {reservationConsent.statement.changeCommitment}
+Recuperación {reservationConsent.statement.recoveryCommitment}
+{reservationConsent.openingDisclosure ?? 'No revelar otras aperturas'}
+Esta firma nunca autoriza reenvíos automáticos.</Text>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado este consentimiento exacto</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(submitReservation)}><Text style={styles.button}>Autorizar únicamente esta acción U/S</Text></Pressable>
     </>}
     <Text style={styles.text}>{message}</Text><Pressable onPress={clear}><Text style={styles.button}>Cerrar y ocultar</Text></Pressable>
   </ScrollView>;

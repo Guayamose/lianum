@@ -10,6 +10,9 @@ import { normalizePrivateStateAccessV1, normalizePrivateStateReviewV1,
   validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1,
   normalizeDeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFreshV1,
+  normalizeDeviceReservationWitnessV1, wipeDeviceReservationWitnessV1 }
+  from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -43,7 +46,8 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     return validateOriginalAccountFreshV2(value);
   }
   async function request(path, payload, privateState = false) {
-    const target = original.origin + (privateState === 'device-deposit' ? '/v1/mobile/device-deposit/'
+    const target = original.origin + (privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
+      : privateState === 'device-deposit' ? '/v1/mobile/device-deposit/'
       : privateState ? '/v1/mobile/original-account/private-state/'
       : '/v2/mobile/original-account/') + path;
     const controller = new AbortController();
@@ -118,6 +122,53 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
   return Object.freeze({
     descriptor: original,
     privateState,
+    deviceReservation: Object.freeze({
+      async preparation(input) {
+        if (!exact(input, ['access', 'signature', 'depositJobId', 'rootId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION');
+        normalizeOriginalAccountSignatureV2(input.signature);
+        return await request('preparation-reviews', input, 'device-reservation');
+      },
+      async challengeJob(input) {
+        if (!exact(input, ['access', 'signature', 'depositJobId', 'quoteId', 'custody', 'statement', 'witnessSHA256', 'jobId'])) {
+          fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        }
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION');
+        normalizeOriginalAccountSignatureV2(input.signature);
+        const value = validateDeviceReservationConsentFreshV1(await request('job-reviews', input, 'device-reservation'));
+        if (value.action !== 'PROVE_U' || Object.keys(original).some(name => value[name] !== original[name])
+          || value.depositJobId !== input.depositJobId || value.quoteId !== input.quoteId
+          || value.witnessSHA256 !== input.witnessSHA256 || !same(value.statement, input.statement)
+          || !same(value.custody, input.custody) || input.jobId !== null && value.jobId !== input.jobId) fail('MOBILE_REVIEW_CHANGED');
+        return value;
+      },
+      async challenge(action, input) {
+        if (!['RESERVE_S', 'OBSERVE_S'].includes(action) || !exact(input, ['access', 'signature', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access = scope(normalizeOriginalAccountAccessV2(input.access));
+        if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION');
+        normalizeOriginalAccountSignatureV2(input.signature);
+        const value = validateDeviceReservationConsentFreshV1(await request(action === 'RESERVE_S'
+          ? 'reservation-reviews' : 'observation-reviews', input, 'device-reservation'));
+        if (value.action !== action || value.jobId !== input.jobId || Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        return value;
+      },
+      async submit(input) {
+        if (!exact(input, input?.consent?.action === 'PROVE_U' ? ['consent', 'signature', 'witness'] : ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const consent = validateDeviceReservationConsentFreshV1(normalizeDeviceReservationConsentV1(input.consent));
+        if (Object.keys(original).some(name => consent[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        const signature = normalizeOriginalAccountSignatureV2(input.signature); let witness;
+        try {
+          if (consent.action === 'PROVE_U') witness = normalizeDeviceReservationWitnessV1(input.witness);
+          // One request. A lost reply is UNKNOWN, never an automatic reproof,
+          // fresh quote, reservation or second native submission.
+          return await request(consent.action === 'PROVE_U' ? 'jobs'
+            : consent.action === 'RESERVE_S' ? 'reserve' : 'observations',
+            { consent, signature, ...(witness ? { witness } : {}) }, 'device-reservation');
+        } finally { if (witness) wipeDeviceReservationWitnessV1(witness); }
+      },
+    }),
     deviceDeposit: Object.freeze({
       async challengeJob(input) {
         if (!exact(input, ['access', 'signature', 'statement', 'rootId', 'noteRevision', 'witnessSHA256', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');

@@ -13,6 +13,9 @@ import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } fro
 import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 
+import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
 const PUBLIC_KEY = 'lianum.owner.public.v1';
 const privateOptions: SecureStore.SecureStoreOptions = {
@@ -177,4 +180,29 @@ export async function signDeviceDepositConsentV1(raw: Parameters<typeof validate
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
     current(); return signDeviceMessage(key, deviceDepositConsentMessageV1(value));
   } finally { key.fill(0); retained = null; }
+}
+
+/** Fixed U/S consent domains. The transport identity signs the original
+ * opening-disclosure/job statement; the distinct source note key signs H4.
+ * Neither protected key is serialized into a proof job. */
+export async function signDeviceReservationConsentV1(raw: Parameters<typeof validateDeviceReservationConsentFreshV1>[0],
+  expectedOrigin: string, expectedPairingId: string): Promise<string> {
+  await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
+  const value = validateDeviceReservationConsentFreshV1(raw);
+  const current = () => { validateDeviceReservationConsentFreshV1(value);
+    if (value.origin !== expectedOrigin || value.pairingId !== expectedPairingId || value.devicePublicKey !== publicKey)
+      throw new Error('MOBILE_REVIEW_CHANGED'); };
+  current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
+    authenticationPrompt: value.action === 'PROVE_U'
+      ? 'Revelar sólo las aperturas de este grafo al worker U; ninguna raíz ni clave privada'
+      : value.action === 'RESERVE_S' ? 'Reservar una sola vez esta nota; cambio y recuperación ya están cifrados'
+        : 'Consultar esta reserva original; no repetir la prueba ni el envío' });
+  if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
+  try {
+    if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
+    current(); message = deviceReservationConsentMessageV1(value);
+    return signDeviceMessage(key, message);
+  } finally { message?.fill(0); key.fill(0); retained = null; }
 }

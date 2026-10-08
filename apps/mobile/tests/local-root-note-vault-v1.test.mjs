@@ -86,7 +86,7 @@ mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
 // host test resolves only this exact edge to the same original TS bytes.
 const vaultModuleURL = new URL('../src/custody/local-root-note-vault-v1.ts', import.meta.url).href;
 const tsResolution = registerHooks({ resolve(specifier, context, nextResolve) {
-  if (context.parentURL === vaultModuleURL && specifier === '../api/device-owner-deposit-api-v1')
+  if (context.parentURL === vaultModuleURL && ['../api/device-owner-deposit-api-v1', '../api/device-owner-reservation-api-v1'].includes(specifier))
     return nextResolve(specifier + '.ts', context);
   return nextResolve(specifier, context);
 } });
@@ -137,7 +137,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['applyDeviceDepositInclusion', 'bindDeviceProofRequest', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit']);
+  assert.deepEqual(Object.keys(vault).sort(), ['applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -468,4 +468,14 @@ test('missing ciphertext chunk restores only from the exact authenticated backup
   const corrupt = new Map(store);
   await assert.rejects(restoreLocalRootNoteVaultBackupV1(fixture.backup), /STORAGE_CHANGED|BACKUP_CONFLICT/);
   assert.deepEqual(store, corrupt);
+});
+
+test('copied U request, quote or signature never releases openings or rewrites an original encrypted intent', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
+  await vault.prepareUnissuedBalanceNote(terms); const before = new Map(store);
+  assert.throws(() => vault.prepareDeviceReservationFromQuote({ quoteId: '1'.repeat(64) }), /RESPONSE_INVALID/);
+  assert.throws(() => vault.createDeviceAuthorizationRequest({ rootId: created.rootId, signature: '1'.repeat(128) }, {}), /SIGNATURE_REQUIRED/);
+  assert.throws(() => vault.bindDeviceAuthorizationRequest({ rootId: created.rootId, expiresAt: Date.now() + 15000 }, {}), /AUTHORIZATION_REQUEST_REQUIRED/);
+  assert.equal(await vault.readDeviceReservationIntent(), null); assert.deepEqual(store, before);
+  vault.close(); assert.throws(() => vault.bindDeviceAuthorizationRequest({}, {}), /CLOSED/);
 });
