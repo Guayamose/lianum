@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "1587ea87a8c5106e3893f2ad920cd742d2e3c71ad034c9ec17fb02239c94c0b7",
+  "hostSourceClosureSHA256": "525fdb82936511319e25298086d0c7c382fac02c0e640af66d5308115238820a",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -666,7 +666,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/evm-vault-terminal-checks.mjs",
-      "sha256": "ca53389d2613ab2ac69b72d854566cc4af7600f792eaf61b2445702aa354d1e5"
+      "sha256": "cf09bd9e4c496f3141150c838e92abfa2fd60b7ad16bfefe500ce20db77389b6"
     },
     {
       "path": "integration/evm-vault-wallet-app-driver.mjs",
@@ -782,7 +782,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "a4c2e724e9faa58c1316de8e0bce3fa559b5d3c90f3a71124a58791f99e24b9b"
+      "sha256": "8967e669ecd7045a22cc12a64cba1b787075f4e3f7a5d5b3617cf32e03328ef8"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -1470,7 +1470,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/proving-execution.mjs",
-      "sha256": "d03c5102fdab8083354c71a219cfc75c106cc45eb036d44b0f0dd44aebb96131"
+      "sha256": "2b6f7d9e7ba8e023266a53508dc96edfb011e308be800745e2f4ad558337c335"
     },
     {
       "path": "proof-workers/role-client.mjs",
@@ -1482,7 +1482,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/run-bounded.mjs",
-      "sha256": "fa829417482c2fbd76ec7aee0c007309017ab74c88c992a90744d9b0ba7e82ad"
+      "sha256": "c5acdf87414ac91986a4118da14e8c46c00a6fe6f38860ea9ecc82a2d9bd07b5"
     },
     {
       "path": "proof-workers/scoped-proof-tools.mjs",
@@ -1502,7 +1502,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/worker.mjs",
-      "sha256": "56aa9f428615800206bd0c45c2fd752cc4208534fca4e2ff58851dfc98387bc1"
+      "sha256": "0ec5f77d4de74c63ad03273c428a6a5c71c002618c1d1a5c0e7d926e02fe6a09"
     },
     {
       "path": "proof-workers/wrapped-claim-abi-reviewed-v2.json",
@@ -2037,12 +2037,16 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "642ba30e4db16eca8515ae27decb472baa47f7708594dd7607a8bde07285f220"
     },
     {
+      "path": "wallet-platform/modules/defi-adapters/morpho-vault-redemption-accounting-v1.mjs",
+      "sha256": "38b59ed7f72be87e893c7b9391364ad1739fc9ce71fd309516060540fbf8291b"
+    },
+    {
       "path": "wallet-platform/modules/defi-adapters/owned-backed-vault.mjs",
       "sha256": "611cc387da2fab8e1a79f74fe81c5712d515d7ee6d5a4f30fe1107fbfaa392e1"
     },
     {
       "path": "wallet-platform/modules/defi-adapters/owned-metamorpho-vault.mjs",
-      "sha256": "1f425ba5b0f017916b9644d830532024bd8714bfc4512dd627dcec8f809676b4"
+      "sha256": "c9c3b1401ae59b10911b1db50dd3bd736b0ef6d1de92518b53e9e0809f434000"
     },
     {
       "path": "wallet-platform/modules/defi-adapters/private-external-delivery.mjs",
@@ -3283,4 +3287,4 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "mobileNoteCustodyEstablished": false,
     "nativeGraphAcceptanceEstablished": false
   }
-});
+} );
