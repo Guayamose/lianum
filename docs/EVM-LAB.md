@@ -59,6 +59,14 @@ actual debe comprobar su uso realmente.
 
 ## Evidencia y límites
 
+La última ejecución SDK retuvo quince pruebas reales y llegó a las tres
+retiradas originales, pero fue rechazada al preparar la redención: el puente
+DeFi llamaba a una ruta heredada incompatible con el keeper manual. El fallo
+se corrigió y MetaMorpho ha validado el puente con D26/W39 reales. Todavía se
+requiere una ejecución EVM completa posterior a esa corrección; las pruebas
+anteriores se conservan como intentos rechazados, sin reutilizarlas como éxito.
+La recuperación F y la interacción visual también requieren su propia ejecución.
+
 El resultado resumido queda en `.internal/dev/reports/evm-lab.json`. Los hashes
 permiten relacionarlo con los resultados y mediciones originales de esta NUEVA
 ejecución. Las claves y journals privados quedan en directorios con permisos

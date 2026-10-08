@@ -34,6 +34,36 @@ host. Pendiente: recorrido completo de entrada privada, grafo, salida y redenci�
 con pruebas reales sobre estos protocolos; recuperación tras perder el proceso
 del keeper/nodo; composición DeFi entre redes.
 
+## MetaMorpho: nota privada y salida reales
+
+Desde la raíz: `./dev lab metamorpho`. El wrapper fija el directorio interno,
+Node y el supervisor; no requiere abrir las rutas de compatibilidad.
+
+**Aceptado en laboratorio nuevo**: un depósito público sintético de 1.000.000
+unidades de subyacente aporta 10^18 shares oficiales. D26 financia la nota
+privada; W39 confirma su EXIT original; el puente verifica esa retirada y
+redime oficialmente al mismo propietario público. Held, liabilities, supply y
+saldo privado terminan en cero; se restaura el subyacente inicial.
+
+La custodia se detiene y reinicia y el coordinador reabre el mismo journal.
+Descartar una respuesta ya completada y reabrir/reconciliar el puente no produce
+otra aprobación o redención. El adaptador del puente usa la observación original
+actual del keeper manual; siguen exigidos calldata, recibo, inclusión canónica,
+identidad y respaldo. Las 20 regresiones del puente pasan.
+
+El supervisor acepta las dos pruebas, sus recibos originales y fuentes sin
+cambios, con salida 0, procesos propios cerrados y scratch eliminado. Duración
+122 s; pico del grupo propio 1,864 GB. Resumen local
+`.internal/dev/reports/metamorpho-lab.json`, intento `6cd6b65d-7e39-4357-8f95-6bc6756ffb56`;
+resultado SHA256 `f8c7532d31444dafe929f892629a8136a85b2c4646419e800185f4f25767d45e`, recursos
+`48edda2248db093d458817c36e8a15153cde0fb6863dd88e5a52a85dd7bcd5af`.
+
+Esta prueba usa HTTP de la cuenta y el puente originales, sin navegador.
+La entrada a MetaMorpho es pública y la redención sigue siendo pública. No
+acredita conversión privada PAEG, pérdida de keeper/nodo, red pública ni
+wallet completa. La entrada privada original desde Uniswap/MetaMorpho sigue
+pendiente; las pruebas y claves del titular no se versionan.
+
 ## Revisión de aceptación Solana
 
 Se habilita exclusivamente el runner de aceptación del runtime local restaurado:

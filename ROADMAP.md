@@ -63,8 +63,10 @@ Ya se comprueban swap oficial Uniswap V3, depósito/redención oficial MetaMorph
 y controles atómicos de mínimo, plazo y replay. El puente exige retiro privado,
 cuenta, capability y backing originales.
 
-Completar financiación privada, acción, posición, EXIT y redención con pruebas
-reales. Reabrir tras pérdida de keeper/nodo conservando el primer envío. Ampliar
+MetaMorpho ya acepta nota privada en shares, EXIT y redención oficial con dos
+pruebas reales en estado nuevo. La fuente de shares de ese perfil es un depósito
+público explícito. Completar la entrada privada desde Uniswap/MetaMorpho, acción,
+posición y recuperación con las autoridades originales. Reabrir tras pérdida de keeper/nodo conservando el primer envío. Ampliar
 después Aave, Morpho y Jupiter; una posición pública no crea saldo privado.
 
 ## 6. Móvil y operación — fundamentos implementados
