@@ -57,6 +57,15 @@ fn memo_binding(sys:&AccountInfo,key:&[u8])->ProgramResult{
  need(m.data==expected)?;let b=load_instruction_at_checked(2,sys)?;need(b.program_id==COMPUTE&&b.accounts.is_empty()&&b.data==[2,128,26,6,0])?;
  need(load_instruction_at_checked(3,sys).is_err())
 }
+// Original claimTicketSecret + receiptKeyCommitment. Claim configuration fixes
+// ledgerNamespace == hubDomain; init commits that hub with all original keys.
+// operationId is covered by the original BEGIN backing/action digest. No payer
+// supplied K can replace this derivation or alter the original EVM action K=0.
+fn original_payout_key(c:&[u8],act:&[&[u8]])->Result<[u8;32],ProgramError>{
+ need(act.len()==11&&act[0]==[6]&&act[7].iter().all(|v|*v==0))?;nz(act[1])?;
+ let secret=digest(b"LIANUM/PAEG/native-claim-ticket-secret/1",&[&c[136..168],act[1]]);
+ Ok(digest(b"LIANUM/PAEG/receipt-key/2",&[&c[264..296],&secret]))
+}
 fn time_window(from:u64,until:u64)->ProgramResult{let now=Clock::get()?.unix_timestamp;need(now>=0&&from<until&&until-from<=30&&from<=now as u64&&(now as u64)<until)}
 fn transfer<'a>(vault:&AccountInfo<'a>,mint:&AccountInfo<'a>,dest:&AccountInfo<'a>,cfg:&AccountInfo<'a>,tp:&AccountInfo<'a>,c:&[u8],amount:u64)->ProgramResult{
  exact_key(tp,&spl_token::id())?;exact_key(mint,&USDC)?;
@@ -130,7 +139,7 @@ fn authorize(a:&[AccountInfo],d:&[u8])->ProgramResult{
 }
 fn deliver(a:&[AccountInfo],d:&[u8])->ProgramResult{
  need(a.len()==8&&d.len()==233)?;let[payer,cfg,vault,ticket,dest,tp,mint,ix]=a else{return Err(ProgramError::NotEnoughAccountKeys)};need(payer.is_signer&&cfg.is_writable&&vault.is_writable&&ticket.is_writable&&dest.is_writable)?;
- let c=config(cfg,vault)?;let action=&d[..201];let act=fields(action,&ACTION_WIDTHS)?;need(act[0]==[6]&&dest.key!=vault.key)?;memo_binding(ix,act[7])?;
+ let c=config(cfg,vault)?;let action=&d[..201];let act=fields(action,&ACTION_WIDTHS)?;need(act[0]==[6]&&dest.key!=vault.key)?;memo_binding(ix,&original_payout_key(&c,&act)?)?;
  exact_key_owner(ticket,&id())?;let t=ticket.try_borrow_data()?.to_vec();need(t.len()==TICKET_LEN&&&t[..8]==b"LNSPT001"&&t[8..40]==*cfg.key.as_ref()&&t[40..72]==*act[1]&&t[72..104]==action_digest(&c,action)?&&t[160]==0)?;
  let(key,_)=Pubkey::find_program_address(&[b"spl-payout",cfg.key.as_ref(),act[1]],&id());need(key==*ticket.key)?;time_window(be64(&t[104..112])?,be64(&t[112..120])?)?;
  let amount=be64(act[3])?;need(amount>0&&amount==be64(&t[120..128])?&&amount<=be64(&c[592..600])?)?;
@@ -145,6 +154,14 @@ pub fn process_instruction(program:&Pubkey,accounts:&[AccountInfo],data:&[u8])->
 }
 
 #[cfg(test)] mod reservation_tests {
+ #[test] fn payout_key_is_the_original_ticket_opening_not_an_action_override(){
+  let mut cfg=vec![0u8;CONFIG_LEN];cfg[136..168].fill(0x11);cfg[264..296].fill(0x22);
+  let mut action=vec![0u8;201];action[0]=6;action[1..33].fill(0x33);
+  let parsed=fields(&action,&ACTION_WIDTHS).unwrap();
+  assert_eq!(original_payout_key(&cfg,&parsed).unwrap(),[127,196,251,32,194,184,115,79,14,72,185,8,158,145,175,171,47,40,174,75,9,229,113,184,209,64,133,50,245,180,80,182]);
+  action[121..153].fill(1);let changed=fields(&action,&ACTION_WIDTHS).unwrap();assert!(original_payout_key(&cfg,&changed).is_err());
+ }
+
  use super::*;
  #[test] fn cannot_count_the_same_principal_for_two_tickets(){
   let first=reserve_principal(100,0,80,100).unwrap();assert_eq!(first,80);
