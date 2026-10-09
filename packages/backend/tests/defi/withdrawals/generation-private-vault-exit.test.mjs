@@ -8,6 +8,9 @@ import { request as tlsRequest } from 'node:https';
 import { createServer as createPortReservation } from 'node:net';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import {existsSync} from 'node:fs';
+import vm from 'node:vm';
+import {exactRecord} from '../../../src/execution/encoding/commitments.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bindGenericAccountRequest, genericAccountIdentity } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
 import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
@@ -515,4 +518,55 @@ test('fixed TLS device SDK reads original positions, denies Origin/domain/copies
   await assert.rejects(api.read(review, f.device.signature(review))); assert.equal(calls, afterLoss);
   assert.deepEqual(economicCounters(f), before); api.close();
   const closed = await server.close(); assert.equal(closed.ownedSocketsRemaining, 0); assert.equal(closed.originalReadsInFlight, 0);
+});
+
+// Actual private wallet port body; loader and OS-less read handle are explicit
+// inert lifecycle ports. Core READ cases above exercise original TLS/reader.
+async function originalWalletDevicePositionPortHostV1(loadOriginal) {
+  const canonical=new URL('../../../src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs',import.meta.url);
+  const translated=new URL('../global-state/external-defi-retained-vault-wallet-v1.mjs',import.meta.url);
+  const source=await readFile(existsSync(translated)?translated:canonical,'utf8');
+  const start=source.indexOf('function createOriginalDevicePositionPortV1(wallet) {'),end=source.indexOf('async function create(input,callbacks,aave,vaultNotes=false){',start);
+  assert.ok(start>=0&&end>start);let body=source.slice(start,end);
+  const importLiteral="await import('./retained-vault-device-position-service-v1.mjs')";
+  // The original translator rewrites that same fixed leaf into this module dir.
+  assert.equal(body.split(importLiteral).length,2);body=body.replace(importLiteral,'await loadOriginal()');
+  return vm.runInThisContext('(function({assert,exactRecord,loadOriginal}){'+body+'return createOriginalDevicePositionPortV1;})')({assert,exactRecord,loadOriginal});
+}
+test('original wallet owns one device READ installation and closes it before original wallet resources',async()=>{
+  const calls=[],wallet=Object.freeze({identity:'SYNTHETIC_INERT_WALLET_PORT'});
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const handle={close(){calls.push('read-close-fence');return gate;}};
+  const factory=await originalWalletDevicePositionPortHostV1(async()=>({installRetainedVaultDevicePositionServiceV1:async(original,input)=>{
+    assert.equal(original,wallet);assert.equal(Object.isFrozen(input),true);assert.equal(Object.isFrozen(input.tls),true);calls.push('install');return handle;
+  }}));
+  const port=factory(wallet);assert.equal(await port.install({origin:'https://localhost:54443',devicePublicKey:'synthetic-public',tls:{certificate:'synthetic-cert',privateKey:'synthetic-infrastructure-key'}}),handle);
+  assert.throws(()=>port.install({}),/INSTALL_ONCE/);const closing=port.close();assert.deepEqual(calls,['install','read-close-fence']);
+  assert.throws(()=>port.install({}),/INSTALL_ONCE/);release();assert.equal((await closing).retainedOriginalCustody,true);
+  assert.equal(port.close(),closing);assert.deepEqual(calls,['install','read-close-fence']);
+  const canonical=new URL('../../../src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs',import.meta.url),translated=new URL('../global-state/external-defi-retained-vault-wallet-v1.mjs',import.meta.url);
+  const source=await readFile(existsSync(translated)?translated:canonical,'utf8');
+  const from=source.indexOf(' const stop=async()=>{'),to=source.indexOf('\n try{',from);assert.ok(from>=0&&to>from);
+  const closeBody=source.slice(from,to);const events=[];
+  const originalPort=factory(wallet);await originalPort.install({origin:'https://localhost:54443',devicePublicKey:'synthetic-public',tls:{certificate:'synthetic-cert',privateKey:'synthetic-key'}});
+  const fence=originalPort.close.bind(originalPort);
+  const stop=vm.runInThisContext('(function({devicePositionPort,session,service,vault,catalogue,accounts,portfolio,closeRetainedFlatJournalCatalogueV1}){'+closeBody+'return stop;})')({
+    devicePositionPort:{close(){events.push('read-fence');return fence();}},session:{async idle(){events.push('session-idle');return{phase:'CLOSED'};},async close(){events.push('session-close');}},
+    service:{async close(){events.push('service-close');}},vault:{async close(){events.push('vault-close');}},catalogue:{},accounts:[{async close(){events.push('account-close');}}],portfolio:{close(){events.push('portfolio-close');}},closeRetainedFlatJournalCatalogueV1(){events.push('catalogue-close');},
+  });
+  assert.equal((await stop()).closed,true);assert.deepEqual(events,['read-fence','session-idle','session-close','service-close','vault-close','catalogue-close','account-close','portfolio-close']);
+});
+test('original wallet device READ fences and drains the same pending acquisition and preserves startup failure',async()=>{
+  const wallet={},events=[];let release;const gate=new Promise(resolve=>{release=resolve;});
+  const factory=await originalWalletDevicePositionPortHostV1(async()=>({installRetainedVaultDevicePositionServiceV1:async original=>{
+    assert.equal(original,wallet);events.push('acquisition-started');await gate;return{close(){events.push('handle-closed');return Promise.resolve({closed:true});}};
+  }}));
+  const port=factory(wallet),acquisition=port.install({origin:'https://localhost:54443',devicePublicKey:'synthetic-public',tls:{certificate:'synthetic-cert',privateKey:'synthetic-key'}});
+  await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(events,['acquisition-started']);
+  const rejected=assert.rejects(acquisition,/POSITION_CLOSED/),closing=port.close(),closed=assert.rejects(closing,/POSITION_CLOSED/);
+  assert.throws(()=>port.install({}),/INSTALL_ONCE/);release();await rejected;await closed;
+  assert.deepEqual(events,['acquisition-started','handle-closed','handle-closed']);
+  const primary=Error('SYNTHETIC_TLS_STARTUP_FAILURE');const failureFactory=await originalWalletDevicePositionPortHostV1(async()=>({installRetainedVaultDevicePositionServiceV1:async()=>{throw primary;}}));
+  const failed=failureFactory(wallet);await assert.rejects(failed.install({origin:'https://localhost:54443',devicePublicKey:'synthetic-public',tls:{certificate:'synthetic-cert',privateKey:'synthetic-key'}}),error=>error===primary);
+  await assert.rejects(failed.close(),error=>error===primary);assert.throws(()=>failed.install({}),/INSTALL_ONCE/);
 });
