@@ -12,6 +12,8 @@ import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protoc
 import {deviceReservationConsentMessageV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
 import {verifyPrivateNotePath} from '../../../../packages/engine/src/notes/private-note-tree.mjs';
+import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
+import {runNativeDeviceLiveArmedShortContinuationV1} from './native-device-live-armed-short-continuation-v1.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const verifyPath=p=>verifyPrivateNotePath({...p,root:'0x'+p.root,leaf:'0x'+p.leaf,siblings:p.siblings.map(x=>'0x'+x)});
 export async function runDeviceOwnerReservationContinuationV1(context){
@@ -30,7 +32,8 @@ export async function runDeviceOwnerReservationContinuationV1(context){
    if(!prepared.custody.report().leaseIssued)await prepared.custody.close();assert.equal(prepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;}}
  try{
   await stage('device-original-quote-U-change-and-recovery-custody');
-  prepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap});
+  if(context.deviceLiveArmed)await refreshOriginalNativeDeviceLocalObservedClockV1(context.liveClocks.clock);
+   prepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap});
   bridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
    nativePreparation:prepared.nativePreparation,invoiceSignatures:prepared.invoiceSignatures});
   const tls={certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')};
@@ -88,7 +91,8 @@ export async function runDeviceOwnerReservationContinuationV1(context){
    changeCommitment:pending.statement.changeCommitment,recoveryCommitment:pending.statement.recoveryCommitment,changeAmount:'400',recoveryAmount:'100',
    encryptedReadbackBeforeU:true,reopenedBeforeS:true,externalBackupEstablished:false};save();
   await stage('device-separate-original-S-reservation-consent');
-  const reserve=await api.challenge('RESERVE_S',{...await access(),jobId:prove.jobId}),reservationSubmission=signed(reserve);
+  if(context.deviceLiveArmed)await refreshOriginalNativeDeviceLocalObservedClockV1(context.liveClocks.clock);
+   const reserve=await api.challenge('RESERVE_S',{...await access(),jobId:prove.jobId}),reservationSubmission=signed(reserve);
   const beforeS=counts();let sReply=null,sUnknown=false;
   try{sReply=await api.submit(reservationSubmission);}catch(error){assert.match(error.message,/SERVICE_UNAVAILABLE/);sUnknown=true;}
   await awaitDeviceOwnerReservationOriginalWorkV1(bridge);active();
@@ -139,7 +143,7 @@ export async function runDeviceOwnerReservationContinuationV1(context){
    sourceSpent:true,linuxOwnerAvailableAtomic:'0',nativeDeliveryTransactions:0};
   result.deviceOwnerUSNodeAcceptance=true;save();
   if(executionMode){result.deviceReservationEconomics=structuredClone(result.economics);
-   continuation=await runDeviceOwnerExecutionContinuationV1({...context,vault,executionBridge,originalPrepared:prepared,originalTransport:server,reservationBridge:bridge});vault=continuation.vault;}
+   continuation=await (context.deviceLiveArmed?runNativeDeviceLiveArmedShortContinuationV1:runDeviceOwnerExecutionContinuationV1)({...context,vault,executionBridge,originalPrepared:prepared,originalTransport:server,reservationBridge:bridge});vault=continuation.vault;}
   return{server,close,afterExecutionClose:executionMode?closeProviders:null};
  }catch(error){if(server){const stopped=await server.close();assert.equal(stopped.closed,true);}await close();
   if(executionMode)context.deferDeviceProviderCleanup(closeProviders);throw error;}

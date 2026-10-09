@@ -17,6 +17,8 @@ import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {nativeValueOriginalRecoverySourceV1} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import {createNativeEconomicRecoveryAuthorityV1,createNativeEconomicNoteRecoveryAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {captureNativeValueEconomicRecoveryV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs';
+import {assertNativeLiveArmedRecoveryCaptureV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import {captureNativeValueLiveArmedRecoveryV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs';
 const MAXIMUM_IPC_BYTES=2*1024*1024;
 const originalBirth=pid=>{const bytes=readFileSync(`/proc/${pid}/stat`,'utf8'),fields=bytes.slice(bytes.lastIndexOf(')')+2).trim().split(/\s+/);
  assert.match(fields[19],/^[0-9]+$/);return{pid,ppid:Number(fields[1]),pgrp:Number(fields[2]),session:Number(fields[3]),startTimeTicks:fields[19]};};
@@ -58,7 +60,21 @@ async function captureOriginalSuccessor(context,nativeNote){
  const stoppedOriginals={receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),transport:oldTransport};
  return launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external:false});
 }
-async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external}){
+export async function captureAndLaunchNativeDeviceLiveArmedShortSuccessorV1(context){
+ assert.equal(arguments.length,1);assert.equal(context.deviceLiveArmed,true);context.active();assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'));
+ const {runtime,nativeRuntime,bootstrap,system,owner,account,nativeExecution,joined,actor,originalTransport,originalPrepared,economicLifetime,liveProducer,liveClocks,liveRecoveryAuthority}=context;
+ assert.equal(economicLifetime.captured,false);const admitted=assertNativeLiveArmedRecoveryCaptureV1(liveRecoveryAuthority),identity={...admitted};delete identity.profile;
+ assert.equal(identity.directory,context.privateDirectory);assert.equal(identity.runId,context.runId);const sourceSHA256=nativeValueOriginalRecoverySourceV1(runtime,system);assert.equal(identity.sourceSHA256,sourceSHA256);
+ const recipient=await originalPrepared.recipient.close();assert.equal(recipient.exited,true);assert.deepEqual(recipient.exit,{code:0,signal:null});context.result.cleanup.closedDeviceRecipient=true;
+ const listener=await context.originalWalletApplication.close();assert.equal(listener.listenerClosed,true);context.result.cleanup.closedWalletListener=true;
+ const before={process:originalBirth(process.pid),receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),proofCount:context.result.proofs.length,receiverWireCount:runtime.transactions.length,nativeWireCount:nativeRuntime.transactions.length};
+ const checkpoint=await captureNativeValueLiveArmedRecoveryV1(liveRecoveryAuthority,{runtime,nativeRuntime,bootstrap,system,providerCustody:originalPrepared.custody,owner,nativeExecution,account,session:joined.session,actor,transport:originalTransport,executionBridge:context.executionBridge,clock:liveClocks.clock,liveProducer});
+ economicLifetime.captured=true;const oldTransport=await originalTransport.close();assert.ok(oldTransport.closed&&oldTransport.ownedSocketsRemaining===0&&oldTransport.originalDiagnosticsInFlight===0);
+ for(const value of [runtime,nativeRuntime])assert.equal(value.processStatus().stopped,true);assert.equal(owner.report().childExited,true);assert.equal(originalPrepared.custody.report().closed,true);context.result.cleanup.closedDeviceProvider=true;
+ const stoppedOriginals={receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),transport:oldTransport};
+ return launchCapturedOriginalSuccessor(context,{WORKER:join(ROOT,'integration/native-device-live-armed-short-successor-v1.mjs'),identity,checkpoint,before,stoppedOriginals,sourceSHA256,liveArmed:true,external:false});
+}
+async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external,liveArmed=false}){
  const economicLifetime=external?context.externalLifetime:context.economicLifetime;
  const child=fork(WORKER,[],{execPath:process.execPath,execArgv:[],cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},
    serialization:'json',stdio:['ignore','inherit','inherit','ipc']});
@@ -72,7 +88,7 @@ async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoi
   catch(error){for(const p of pending.values())p.reject(error);pending.clear();if(child.connected)child.disconnect();}});
  function request(action,extra={}){context.active();assert.equal(closed,null);assert.equal(child.connected,true);
   const packet={sequence:++sequence,action,...extra};assert.ok(Buffer.byteLength(JSON.stringify(packet))<=8192);
-  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(packet.sequence);reject(Error('NATIVE_ECONOMIC_SUCCESSOR_ORIGINAL_DEADLINE'));if(child.connected)child.disconnect();},Math.max(1,identity.deadlineMs-Date.now()));
+  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(packet.sequence);reject(Error('NATIVE_ECONOMIC_SUCCESSOR_ORIGINAL_DEADLINE'));if(child.connected)child.disconnect();},Math.max(1,(liveArmed?Math.min(identity.deadlineMs,context.deadlineMs):identity.deadlineMs)-Date.now()));
    pending.set(packet.sequence,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});
    child.send(packet,error=>{if(error){const p=pending.get(packet.sequence);pending.delete(packet.sequence);p?.reject(error);}});});}
  async function close(){if(!closeReply){closeReply=(async()=>{let reply;try{if(!closed&&child.connected)reply=await request('CLOSE');}
@@ -85,7 +101,7 @@ async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoi
    assert.equal(reply.listenerClosed,true);assert.equal(reply.ownedSocketsRemaining,0);return{...reply,exit:observed,close:observed,originalChildProcessClosed:true};})();closeReply.catch(()=>{});}return closeReply;}
  economicLifetime.closeSuccessor=close;
  try{
-  const opened=await request('OPEN',{identity,checkpoint,...(external?{expected:context.expected}:{} )});firstBirth=external?externalBirth(child.pid):originalBirth(child.pid);
+  const opened=await request('OPEN',{identity,checkpoint,...(external?{expected:context.expected}:{} ),...(liveArmed?{controlDeadlineMs:context.deadlineMs}:{})});firstBirth=external?externalBirth(child.pid):originalBirth(child.pid);
   assert.equal(firstBirth.ppid,process.pid);assert.equal(firstBirth.pgrp,before.process.pgrp);assert.equal(firstBirth.session,before.process.session);
   assert.notEqual(firstBirth.pid,before.process.pid);assert.equal(opened.receipt.processId,child.pid);assert.equal(opened.receipt.originalProcessLifetimeDifferent,true);
   assert.equal(opened.receipt.originalSectionsStoppedBeforeCheckpoint,true);assert.equal(opened.receipt.issuerClosed,true);assert.equal(opened.receipt.sourceSHA256,sourceSHA256);
@@ -96,7 +112,7 @@ async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoi
   }
   assert.deepEqual(opened.descriptor,context.descriptor);assert.equal(opened.rootId,context.result.deviceCustody.sameRoot);
   assert.equal(opened.parentJobId,context.result.deviceReservation.jobId);assert.equal(opened.depositJobId,context.depositJobId);
-  const report={profile:'ORIGINAL_PLANNED_NATIVE_DEVICE_RESTART_V1',sourceSHA256,checkpoint,originalProcess:before.process,successorProcess:firstBirth,
+  const report={profile:liveArmed?'ORIGINAL_PLANNED_NATIVE_DEVICE_ARMED_SHORT_RESTART_V1':'ORIGINAL_PLANNED_NATIVE_DEVICE_RESTART_V1',sourceSHA256,checkpoint,originalProcess:before.process,successorProcess:firstBirth,
     originalSectionsStoppedBeforeReopen:true,parentDeviceVaultRetained:true,parentProcessExitEstablished:false,abruptCrashRecoveryEstablished:false,
     before,stoppedOriginals,receipt:opened.receipt,originalProofsBeforeRestart:context.result.proofs.length,oldDeliveryTransactions:before.nativeWireCount};
   context.result.deviceEconomicRestart=report;context.save();

@@ -52,6 +52,12 @@ import { DEVICE_RESERVATION_PROFILE_V1, DEVICE_RESERVATION_RESULT_V1, assertDevi
 import { deviceOwnerReservationSourcePinsV1 } from './device-owner-reservation-source-pins-v1.mjs';
 import { assertBtcSolGraphProofReceipts } from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
 import { runDeviceOwnerDepositOriginalStepV1, runDeviceOwnerReservationOriginalStepV1, runDeviceOwnerExecutionOriginalStepV1 } from './device-owner-deposit-original-step-v1.mjs';
+import {createNativeLiveArmedRecoveryAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import {nativeValueOriginalRecoverySourceV1} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
+import {createNativeLiveArmedNoteAccountForOriginalProofCaptureV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import {createOriginalNativeDeviceLiveArmedObservedClocksV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
+import {NATIVE_DEVICE_LIVE_ARMED_SHORT_PROFILE_V1,NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,assertNativeDeviceLiveArmedShortReleaseV1,assertNativeDeviceLiveArmedShortResultV1} from './native-device-live-armed-short-policy-v1.mjs';
+import {nativeDeviceLiveArmedShortSourcePinsV1} from './native-device-live-armed-short-source-pins-v1.mjs';
 const HERE = fileURLToPath(import.meta.url), bare = value => value.startsWith('0x') ? value.slice(2) : value;
 const hash = value => createHash('sha256').update(value).digest('hex');
 const proofBytes = value => typeof value === 'string' ? Buffer.from(value, 'hex') : Buffer.from(value);
@@ -74,11 +80,13 @@ export async function runDeviceOwnerExecutionFlowV1(){assert.equal(arguments.len
 export async function runDeviceOwnerRecoveryFlowV1(){assert.equal(arguments.length,0,'DEVICE_NATIVE_RECOVERY_FIXED_NO_OPTIONS');return runOriginalNoteFlowV2(true,true,true,true);}
 export async function runNativeDeviceEconomicRecoveryFlowV1(){assert.equal(arguments.length,0,'NATIVE_DEVICE_ECONOMIC_FIXED_NO_OPTIONS');return runOriginalNoteFlowV2(true,true,true,true,true);}
 export async function runNativeDeviceEconomicNoteRecoveryFlowV1(){assert.equal(arguments.length,0,'NATIVE_DEVICE_ECONOMIC_NOTE_FIXED_NO_OPTIONS');return runOriginalNoteFlowV2(true,true,true,true,true,true);}
-async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, deviceExecution=false,deviceRecovery=false,deviceEconomicRecovery=false,deviceEconomicNativeNotes=false) {
-  if(deviceEconomicNativeNotes){assert.ok(deviceEconomicRecovery&&deviceRecovery&&deviceExecution&&deviceReservation&&deviceDeposit);assertNativeDeviceEconomicNoteReleaseV1();}
+export async function runNativeDeviceLiveArmedShortFlowV1(){assert.equal(arguments.length,0,'NATIVE_LIVE_ARMED_SHORT_NO_OPTIONS');return runOriginalNoteFlowV2(true,true,true,false,true,true,true);}
+async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, deviceExecution=false,deviceRecovery=false,deviceEconomicRecovery=false,deviceEconomicNativeNotes=false,deviceLiveArmed=false) {
+  if(deviceLiveArmed){assert.ok(deviceEconomicNativeNotes&&deviceEconomicRecovery&&!deviceRecovery&&deviceExecution&&deviceReservation&&deviceDeposit);assertNativeDeviceLiveArmedShortReleaseV1();}
+  else if(deviceEconomicNativeNotes){assert.ok(deviceEconomicRecovery&&deviceRecovery&&deviceExecution&&deviceReservation&&deviceDeposit);assertNativeDeviceEconomicNoteReleaseV1();}
   else if(deviceEconomicRecovery)assertNativeDeviceEconomicReleaseV1();else if(deviceRecovery)assertDeviceRecoveryReleaseV1();else if(deviceExecution)assertDeviceExecutionReleaseV1();else if (deviceReservation) assertDeviceReservationReleaseV1(); else if (deviceDeposit) assertDeviceDepositReleaseV1(); else assertPairedNativeNoteReleaseV2();
-  const worker = deviceEconomicNativeNotes?join(ROOT,'integration/native-value-economic-note-recovery-flow-v1.mjs'):deviceEconomicRecovery?join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs'):deviceRecovery?join(ROOT,'integration/device-owner-recovery-flow-v1.mjs'):deviceExecution?join(ROOT,'integration/device-owner-execution-flow-v1.mjs'):deviceReservation ? join(ROOT, 'integration/device-owner-reservation-flow-v1.mjs') : deviceDeposit ? join(ROOT, 'integration/device-owner-deposit-flow-v1.mjs') : HERE;
-  const sourcePins = deviceEconomicNativeNotes?nativeDeviceEconomicNoteSourcePinsV1:deviceEconomicRecovery?nativeDeviceEconomicSourcePinsV1:deviceRecovery?deviceOwnerRecoverySourcePinsV1:deviceExecution?deviceOwnerExecutionSourcePinsV1:deviceReservation ? deviceOwnerReservationSourcePinsV1 : deviceDeposit ? deviceOwnerDepositSourcePinsV1 : pairedNativeNoteSourcePinsV2;
+  const worker = deviceLiveArmed?join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'):deviceEconomicNativeNotes?join(ROOT,'integration/native-value-economic-note-recovery-flow-v1.mjs'):deviceEconomicRecovery?join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs'):deviceRecovery?join(ROOT,'integration/device-owner-recovery-flow-v1.mjs'):deviceExecution?join(ROOT,'integration/device-owner-execution-flow-v1.mjs'):deviceReservation ? join(ROOT, 'integration/device-owner-reservation-flow-v1.mjs') : deviceDeposit ? join(ROOT, 'integration/device-owner-deposit-flow-v1.mjs') : HERE;
+  const sourcePins = deviceLiveArmed?nativeDeviceLiveArmedShortSourcePinsV1:deviceEconomicNativeNotes?nativeDeviceEconomicNoteSourcePinsV1:deviceEconomicRecovery?nativeDeviceEconomicSourcePinsV1:deviceRecovery?deviceOwnerRecoverySourcePinsV1:deviceExecution?deviceOwnerExecutionSourcePinsV1:deviceReservation ? deviceOwnerReservationSourcePinsV1 : deviceDeposit ? deviceOwnerDepositSourcePinsV1 : pairedNativeNoteSourcePinsV2;
   assert.equal(process.argv.length, 2); assert.deepEqual(process.execArgv, []);
   assert.equal(realpathSync(process.argv[1]), worker); assert.equal(realpathSync(process.cwd()), ROOT);
   assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
@@ -86,8 +94,8 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
   assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, deviceEconomicNativeNotes?'integration/run-native-value-economic-note-recovery-v1.mjs':deviceEconomicRecovery?'integration/run-native-value-economic-recovery-v1.mjs':deviceRecovery?'integration/run-device-owner-recovery-v1.mjs':deviceExecution?'integration/run-device-owner-execution-v1.mjs':deviceReservation ? 'integration/run-device-owner-reservation-v1.mjs' : deviceDeposit ? 'integration/run-device-owner-deposit-v1.mjs' : 'integration/run-paired-native-note-v2.mjs'));
-  const stem = deviceEconomicNativeNotes?NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1:deviceEconomicRecovery?NATIVE_DEVICE_ECONOMIC_PROFILE_V1:deviceRecovery?DEVICE_RECOVERY_PROFILE_V1:deviceExecution?DEVICE_EXECUTION_PROFILE_V1:deviceReservation ? DEVICE_RESERVATION_PROFILE_V1 : deviceDeposit ? DEVICE_DEPOSIT_PROFILE_V1 : PAIRED_NATIVE_NOTE_PROFILE_V2, lock = JSON.parse(readFileSync(join(ROOT, '.local', stem, 'active.lock')));
+    join(ROOT, deviceLiveArmed?'integration/run-native-value-live-armed-short-restart-v1.mjs':deviceEconomicNativeNotes?'integration/run-native-value-economic-note-recovery-v1.mjs':deviceEconomicRecovery?'integration/run-native-value-economic-recovery-v1.mjs':deviceRecovery?'integration/run-device-owner-recovery-v1.mjs':deviceExecution?'integration/run-device-owner-execution-v1.mjs':deviceReservation ? 'integration/run-device-owner-reservation-v1.mjs' : deviceDeposit ? 'integration/run-device-owner-deposit-v1.mjs' : 'integration/run-paired-native-note-v2.mjs'));
+  const stem = deviceLiveArmed?NATIVE_DEVICE_LIVE_ARMED_SHORT_PROFILE_V1:deviceEconomicNativeNotes?NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1:deviceEconomicRecovery?NATIVE_DEVICE_ECONOMIC_PROFILE_V1:deviceRecovery?DEVICE_RECOVERY_PROFILE_V1:deviceExecution?DEVICE_EXECUTION_PROFILE_V1:deviceReservation ? DEVICE_RESERVATION_PROFILE_V1 : deviceDeposit ? DEVICE_DEPOSIT_PROFILE_V1 : PAIRED_NATIVE_NOTE_PROFILE_V2, lock = JSON.parse(readFileSync(join(ROOT, '.local', stem, 'active.lock')));
   assert.equal(lock.pid, process.ppid); assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(lock.attempt, '.local/' + stem + '/attempt-' + lock.runId);
   const directory = join(ROOT, lock.attempt), privateDirectory = join(directory, 'private-audit'), proofDirectory = join(directory, 'public-proofs');
@@ -96,7 +104,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
   const began = performance.now(), deadlineMs = Date.parse(lock.startedAt)
     + NATIVE_FLOW_LIMITS.totalMilliseconds - NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds;
   let runtime, nativeRuntime, bootstrap, system, reader, otherReader, owner, account, joined, preparation, app, driver,
-    bundle, deviceKey, nativeExecution, closing, interrupted = false;
+    bundle, deviceKey, nativeExecution, liveClocks, liveRecoveryAuthority, closing, interrupted = false;
   const economicLifetime={captured:false,successorClosed:false,closeSuccessor:null,publicAudit:null};
   const pairs = [], checkpoints = [], retainedProofs = new Map(),deferredDeviceProviderCleanups=[]; let privateEvent = 0;
   let proofReady, proofRejected;
@@ -108,7 +116,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
       timer = setTimeout(() => reject(Error('DEVICE_DEPOSIT_ORIGINAL_DEADLINE')), Math.max(1, deadlineMs - Date.now()));
     })]); } finally { clearTimeout(timer); }
   };
-  const result = { format: deviceEconomicNativeNotes?NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1:deviceEconomicRecovery?NATIVE_DEVICE_ECONOMIC_RESULT_V1:deviceRecovery?DEVICE_RECOVERY_RESULT_V1:deviceExecution?DEVICE_EXECUTION_RESULT_V1:deviceReservation ? DEVICE_RESERVATION_RESULT_V1 : deviceDeposit ? DEVICE_DEPOSIT_RESULT_V1 : PAIRED_NATIVE_NOTE_RESULT_V2, profile: stem, runId: lock.runId,
+  const result = { format: deviceLiveArmed?NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1:deviceEconomicNativeNotes?NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1:deviceEconomicRecovery?NATIVE_DEVICE_ECONOMIC_RESULT_V1:deviceRecovery?DEVICE_RECOVERY_RESULT_V1:deviceExecution?DEVICE_EXECUTION_RESULT_V1:deviceReservation ? DEVICE_RESERVATION_RESULT_V1 : deviceDeposit ? DEVICE_DEPOSIT_RESULT_V1 : PAIRED_NATIVE_NOTE_RESULT_V2, profile: stem, runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false, interrupted: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false, nativeExecution:deviceExecution?'ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1':null, pairedOriginalAccountNodeAcceptance: false,
     nativeGraphAcceptance: false, nativeProcessRestartEstablished: false, keeperLossRecoveryEstablished: false,
@@ -144,6 +152,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
    'The parent survives solely with the same encrypted mobile vault and signing key. No abrupt-crash or physical-phone recovery claim.',
    'Recoverable runtime/issuer state is retained explicitly, never silently deleted or rebranded from a funded legacy runtime.');}
   if(deviceEconomicNativeNotes){result.nativeEconomicNoteProofsNodeAcceptance=false;result.disclosure.push('New fixed Native12 D26/W39 producers close their original BB child/socket/streams before independent Wasm1 verification of the same prepared keys and original programs.');}
+  if(deviceLiveArmed){result.nativeLiveArmedShortRestartNodeAcceptance=false;result.postCutoffRecoveryEstablished=false;result.disclosure=['Original D26/U/S and fresh device ARM before the unchanged eight-hour cutoff; no native execution or early F.','Ten original AEAD sections reopen once in a new causal process; parent retains the actual encrypted mobile vault and transport key.','Native12 D26 and original U/S proofs, observed clock and fresh signed SDK ARM read; no artificial clock advance or permission renewal.','Planned capture only; post-cutoff F, abrupt failure, parent exit, physical phone and full wallet remain unaccepted.'];}
   const save = () => writeFixturePrivate(join(directory, 'result.json'), result);
   const active = () => { assert.equal(interrupted, false, 'PAIRED_NOTE_INTERRUPTED');
     assert.ok(Date.now() < deadlineMs, 'PAIRED_NOTE_ORIGINAL_DEADLINE'); };
@@ -285,6 +294,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     return closing ??= (async () => {
       const safely = async (name, work) => { try { return await work(); }
         catch (error) { result.cleanup.errors.push({ name, code: safeCode(error) }); return null; } };
+      if(deviceLiveArmed&&economicLifetime.liveProducer&&!economicLifetime.captured)await safely('live-producer',()=>economicLifetime.liveProducer.close());
       if(economicLifetime.closeSuccessor&&!economicLifetime.successorClosed){const stopped=await safely('economic-successor',economicLifetime.closeSuccessor);result.cleanup.successor=stopped;economicLifetime.successorClosed=stopped?.originalBackendStopped===true;}
       for (const pair of pairs) {
         const stopped = await safely('mobile-listener', () => pair.server.close());
@@ -331,6 +341,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
         (await safely('synthetic-session-journal', () => removeOwnSyntheticState(journalDirectory)))?.removed === true;
       result.cleanup.syntheticAccountStateRemoved = result.cleanup.evm?.status?.scratchRemoved === true;
       if(deviceEconomicRecovery){result.cleanup.originalRecoveryStateRetained=true;result.cleanup.syntheticOwnerStateRemoved=false;result.cleanup.syntheticSessionJournalRemoved=false;}
+      if(deviceLiveArmed&&liveRecoveryAuthority&&!economicLifetime.captured)await safely('live-armed-authority',()=>closeNativeEconomicRecoveryAuthorityV1(liveRecoveryAuthority));
       deviceKey?.fill(0);
     })();
   }
@@ -349,7 +360,8 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     if (deviceReservation) result.artifacts.graphKeys = Object.fromEntries((deviceRecovery?['authorization','reservation','dependency','ready','recovery']:deviceExecution?['authorization','reservation','dependency','ready','node','settlement']:['authorization','reservation']).map(name=>[name,bundle.verifiers[name].lineage.keySHA256]));
     result.checks.genuineV5ArtifactsBeforeRuntime = true;
     await stage('two-original-runtime-bootstrap-and-native-note-account');
-    runtime = deviceEconomicRecovery?await createOwnedNativeEconomicReceiverV2():await createOwnedLocalEvmV2(); nativeRuntime = deviceEconomicRecovery?await createOwnedNativeEconomicGraphRuntimeV2():await createOwnedLocalEvmNativeValueV1();
+    if(deviceLiveArmed){liveClocks=await createOriginalNativeDeviceLiveArmedObservedClocksV1();runtime=liveClocks.runtime;nativeRuntime=liveClocks.nativeRuntime;}
+    else{runtime = deviceEconomicRecovery?await createOwnedNativeEconomicReceiverV2():await createOwnedLocalEvmV2(); nativeRuntime = deviceEconomicRecovery?await createOwnedNativeEconomicGraphRuntimeV2():await createOwnedLocalEvmNativeValueV1();}
     await assertOwnedLocalEvmV2(runtime); await assertOwnedLocalEvmNativeValueV1(nativeRuntime);
     assert.notEqual(runtime, nativeRuntime); assert.notEqual(runtime.metadata.processId, nativeRuntime.metadata.processId);
     assert.equal(runtime.metadata.chainId, '31337'); assert.equal(nativeRuntime.metadata.chainId, '1');
@@ -378,8 +390,9 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
         onPrivateAudit:async value=>{if(value.stage==='native-admitted')await retainDeviceAdmission(value);
           if(value.stage==='execution-first-failure'){const diagnostic=value.diagnostic;writeFixturePrivate(join(privateDirectory,'device-native-first-error.json'),
             {diagnostic,stack:String(value.originalError?.stack??'')});result.originalExecutionFailure={diagnostic,retainedState:value.retainedState};save();}}});}
-    account = await (deviceEconomicNativeNotes?createNativeEconomicNoteAccountAuthorityV1:createNativeValueAccountAuthority)({ runtime, system, poolIndex: 0, owner, nativeExecution: nativeExecution??null,
-      accountId: freshFixtureId(), journalId: freshFixtureId() }, { onProof, onPrivateAudit: async value => {
+    if(deviceLiveArmed)liveRecoveryAuthority=await createNativeLiveArmedRecoveryAuthorityV1({directory:privateDirectory,runId:lock.runId,sourceSHA256:nativeValueOriginalRecoverySourceV1(runtime,system)});
+    account = await (deviceLiveArmed?createNativeLiveArmedNoteAccountForOriginalProofCaptureV1:deviceEconomicNativeNotes?createNativeEconomicNoteAccountAuthorityV1:createNativeValueAccountAuthority)({ runtime, system, poolIndex: 0, owner, nativeExecution: nativeExecution??null,
+      accountId: freshFixtureId(), journalId: freshFixtureId(),...(deviceLiveArmed?{nativeRuntime,clock:liveClocks.clock,recoveryAuthority:liveRecoveryAuthority}:{}) }, { onProof, onPrivateAudit: async value => {
         // This callback runs inside the original authority single-flight gate.
         // Retain its own event; privateStatus is read only outside that gate.
         const event = Object.fromEntries(['reference', 'phase', 'receipt', 'stage', 'errorCode', 'errorCauseCodes', 'auditBudget']
@@ -534,7 +547,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     if (deviceDeposit) {
       const originalStep = deviceExecution?runDeviceOwnerExecutionOriginalStepV1:deviceReservation ? runDeviceOwnerReservationOriginalStepV1 : runDeviceOwnerDepositOriginalStepV1;
       await originalStep({ account, owner, runtime, nativeRuntime, bootstrap, system, reader, joined, result, pairs,
-        privateDirectory, stage, save, active, notePreparation, fromApp, appRoot, deviceKey, retainedProofs, nativeExecution,deviceExecution,deviceRecovery,deviceEconomicRecovery,deviceEconomicNativeNotes,
+        privateDirectory, stage, save, active, notePreparation, fromApp, appRoot, deviceKey, retainedProofs, nativeExecution,deviceExecution,deviceRecovery,deviceEconomicRecovery,deviceEconomicNativeNotes,deviceLiveArmed,liveClocks,liveRecoveryAuthority,
         economicLifetime,runId:lock.runId,deadlineMs,onProof,originalWalletApplication:app,
         deferDeviceProviderCleanup:work=>deferredDeviceProviderCleanups.push(work),proofRetained: waitOriginalProof });
       await audit(); result.success = true;
@@ -641,7 +654,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     result.finishedAt = new Date().toISOString(); result.elapsedMilliseconds = performance.now() - began;
     result.phase = result.success && !interrupted ? 'completed' : 'failed';
     if (result.success) try {
-      if(deviceEconomicNativeNotes){result.nativeEconomicNoteProofsNodeAcceptance=true;assertNativeDeviceEconomicNoteResultV1(result);}else if(deviceEconomicRecovery)assertNativeDeviceEconomicResultV1(result);else if(deviceRecovery)assertDeviceRecoveryResultV1(result);else if(deviceExecution)assertDeviceExecutionResultV1(result);else if (deviceReservation) assertDeviceReservationResultV1(result); else if (deviceDeposit) assertDeviceDepositResultV1(result); else assertPairedNativeNoteResultV2(result);
+      if(deviceLiveArmed)assertNativeDeviceLiveArmedShortResultV1(result);else if(deviceEconomicNativeNotes){result.nativeEconomicNoteProofsNodeAcceptance=true;assertNativeDeviceEconomicNoteResultV1(result);}else if(deviceEconomicRecovery)assertNativeDeviceEconomicResultV1(result);else if(deviceRecovery)assertDeviceRecoveryResultV1(result);else if(deviceExecution)assertDeviceExecutionResultV1(result);else if (deviceReservation) assertDeviceReservationResultV1(result); else if (deviceDeposit) assertDeviceDepositResultV1(result); else assertPairedNativeNoteResultV2(result);
     }
     catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); }
     save(); if (!result.success) process.exitCode = 1;

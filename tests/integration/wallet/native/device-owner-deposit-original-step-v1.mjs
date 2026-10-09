@@ -18,6 +18,7 @@ import { deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceD
 import { verifyPrivateNotePath } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import { nullifier } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
+import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
 import { runDeviceOwnerReservationContinuationV1 } from './device-owner-reservation-original-continuation-v1.mjs';
 import { openDeviceReservationHostVaultV1 } from './device-owner-reservation-host-vault-v1.mjs';
 import { assertDeviceReservationReleaseV1 } from './device-owner-reservation-policy-v1.mjs';
@@ -153,7 +154,8 @@ async function runOriginalStepV1(context, reservationMode) {
     if (!reservationMode) assert.ok(key);
     let publicKey = key ? devicePublicKey(key) : null;
     if (!reservationMode) assert.notEqual(publicKey, descriptor.devicePublicKey, 'DEVICE_NOTE_KEY_DISTINCT_FROM_TRANSPORT_KEY');
-    if (reservationMode) {
+    if(context.deviceLiveArmed){const heads=await refreshOriginalNativeDeviceLocalObservedClockV1(context.liveClocks.clock);result.deviceClockAlignment={receiverSecond:String(BigInt(heads.receiver.timestamp)),nativeSecond:String(BigInt(heads.native.timestamp)),nativeClockChanged:true,originalObservedClock:true};}
+    else if (reservationMode) {
       const nativeNow = await nativeRuntime.time(), now = await runtime.time(), aligned = nativeNow - 2n;
       assert.ok(now <= aligned, 'DEVICE_US_ORIGINAL_CLOCK_ALIGNMENT');
       if (now < aligned) await runtime.advanceTo(aligned.toString());

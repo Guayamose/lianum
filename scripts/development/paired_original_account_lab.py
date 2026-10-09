@@ -47,6 +47,7 @@ DEVICE_EXECUTION = False
 DEVICE_RECOVERY = False
 NATIVE_ECONOMIC_RECOVERY = False
 NATIVE_ECONOMIC_NOTE_RECOVERY = False
+LIVE_ARMED_SHORT = False
 
 
 def record(value):
@@ -302,7 +303,7 @@ def proof_checks(rows, note_keys, device_deposit=False):
             and record(row["evidence"].get("worker")).get("publicInputCount") == row.get("publicWords")
             and digest(row["evidence"].get("keySHA256")) and row["evidence"]["keySHA256"] == note_keys.get(row.get("relation"))
             and record(row["evidence"].get("worker")).get("keySHA256") == row["evidence"]["keySHA256"] for row in proofs)}
-    if NATIVE_ECONOMIC_NOTE_RECOVERY:
+    if NATIVE_ECONOMIC_NOTE_RECOVERY or LIVE_ARMED_SHORT:
         checks["nativeNoteRawReceipts"] = typed and len(proofs) == count and all(assert_native_economic_note_row(row, note_keys, FLAT) for row in proofs)
     if device_deposit:
         checks = {key.replace("two", "one", 1): value for key, value in checks.items()}
@@ -675,7 +676,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         "processBirthIdentities": all(isinstance(value.get("startTimeTicks"), str) and bool(re.fullmatch(r"[0-9]+", value["startTimeTicks"]))
             for value in (supervisor_identity, worker_identity)),
         "resultCompleted": result.get("phase") == "completed" and result.get("success") is True
-            and result.get("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
+            and result.get("nativeLiveArmedShortRestartNodeAcceptance" if LIVE_ARMED_SHORT else "deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True and result.get("interrupted") is False,
         "resourcesCompleted": resources.get("phase") == "completed" and "failure" in resources and resources["failure"] is None
             and resources.get("failures") == [],
         "originalResultJoined": worker_result.get("format") == RESULT_FORMAT and worker_result.get("phase") == "completed"
@@ -687,11 +688,11 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         "localScope": all(value.get("localOnly") is True and value.get("fakeFundsOnly") is True and value.get("publicNetwork") is False
             for value in (result, resources, worker_result)),
         "fixedPairedScope": result.get("profile") == PROFILE
-            and result.get("nativeExecution", "missing") == ("ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1" if DEVICE_EXECUTION else None)
+            and result.get("nativeExecution", "missing") == ("ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1" if DEVICE_EXECUTION or LIVE_ARMED_SHORT else None)
             and result.get("nativeDeliveryCount") == (1 if DEVICE_EXECUTION else 0)
             and result.get("nativeGraphAcceptance") is DEVICE_EXECUTION
-            and all(result.get(key) is False for key in SCOPE_FALSE if key != "nativeGraphAcceptance" and (not NATIVE_ECONOMIC_RECOVERY or key != "nativeProcessRestartEstablished"))
-            and worker_result.get("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
+            and all(result.get(key) is False for key in SCOPE_FALSE if key != "nativeGraphAcceptance" and (not (NATIVE_ECONOMIC_RECOVERY or LIVE_ARMED_SHORT) or key != "nativeProcessRestartEstablished"))
+            and worker_result.get("nativeLiveArmedShortRestartNodeAcceptance" if LIVE_ARMED_SHORT else "deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance") is True
             and all(worker_result.get(key) is False for key in ("mobileNoteCustodyEstablished", "tlsEstablished",
                 "reactRendererEstablished", "physicalPhoneEstablished", "mobilePortfolioEstablished", "fullWalletAcceptance")),
         "originalCleanup": resources.get("resultAccepted") is True and resources.get("ownedGroupCleanupConfirmed") is True
@@ -740,11 +741,46 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         receipt_checks["nativeNoteOriginalProofBytesJoined"] = len(note_bytes) == 3 and all(note_bytes)
     if NATIVE_ECONOMIC_NOTE_RECOVERY:
         receipt_checks["fixedNativeNoteProducer"] = result.get("nativeEconomicNoteProofsNodeAcceptance") is True and worker_result.get("nativeEconomicNoteProofsNodeAcceptance") is True
+    if LIVE_ARMED_SHORT:
+        arm = record(result.get("liveArmedRestart"))
+        restart, before, after = (record(arm.get(name)) for name in ("capture", "before", "after"))
+        successor = record(record(result.get("cleanup")).get("successor"))
+        old, new = (record(restart.get(name)) for name in ("originalProcess", "successorProcess"))
+        arm_before, arm_after = (record(arm.get(name)) for name in ("armBefore", "armAfter"))
+        receipt_checks["originalArmedShortRestart"] = result.get("nativeProcessRestartEstablished") is True \
+            and worker_result.get("nativeProcessRestartEstablished") is True and result.get("nativeDeliveryCount") == 0 \
+            and all(arm.get(k) is True for k in ("sameArm", "sameS", "sameDeviceVault", "freshSignedArmRead", "noEarlyF", "sameOriginalJournal", "sameProviderCustody", "originalSectionsStoppedBeforeReopen")) \
+            and arm_before.get("state") == arm_after.get("state") == "ARMED" \
+            and all(arm_before.get(k) == arm_after.get(k) for k in ("jobId", "settleBefore", "armSHA256", "terminalOutcome")) \
+            and digest(arm_before.get("armSHA256")) and arm_before.get("terminalOutcome") is None \
+            and type(new.get("pid")) is int and new.get("pid") != old.get("pid") and new.get("ppid") == old.get("pid") \
+            and restart.get("originalSectionsStoppedBeforeReopen") is True and restart.get("parentDeviceVaultRetained") is True \
+            and restart.get("abruptCrashRecoveryEstablished") is False and restart.get("parentProcessExitEstablished") is False \
+            and record(restart.get("before")).get("proofCount") == 3 and record(restart.get("before")).get("nativeWireCount") == 0 \
+            and before.get("counts") == after.get("counts") and record(after.get("counts")).get("native") == 0 \
+            and before.get("ledger") == after.get("ledger") and successor.get("originalBackendStopped") is True \
+            and successor.get("originalChildProcessClosed") is True and successor.get("processId") == new.get("pid") \
+            and successor.get("exit") == successor.get("close") == {"code": 0, "signal": None} \
+            and result.get("postCutoffRecoveryEstablished") is False
+        try:
+            row = proofs[0]
+            name = row.get("file")
+            if name != "001-deposit_balance":
+                raise ValueError("NATIVE_LIVE_ARMED_FIXED_D26_PROOF_FILE")
+            receipt_checks["nativeD26OriginalBytes"] = _native_note_original_proof_bytes(row, 0, "deposit_balance", private_evidence(attempt / "public-proofs" / (name + ".bin")), private_evidence(attempt / "public-proofs" / (name + ".inputs.json")))
+            cutoff = arm_before.get("settleBefore")
+            receipt_checks["originalEightHoursBeforeCutoff"] = isinstance(cutoff, str) and re.fullmatch(r"[1-9][0-9]{0,19}", cutoff) is not None \
+                and int(cutoff) - int(arm.get("preparationStartedSecond")) == 28800 \
+                and int(record(before.get("head")).get("timestamp")) < int(cutoff) \
+                and int(record(after.get("head")).get("timestamp")) < int(cutoff)
+        except (OSError, ValueError, TypeError, RecursionError, IndexError):
+            receipt_checks["nativeD26OriginalBytes"] = False
+            receipt_checks["originalEightHoursBeforeCutoff"] = False
     accepted = all(receipt_checks.values())
-    summary = {"format": "LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_NOTE_RECOVERY else "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_RECOVERY else "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+    summary = {"format": "LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LAB_V1" if LIVE_ARMED_SHORT else "LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_NOTE_RECOVERY else "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_RECOVERY else "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
         "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
         "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
-        ("deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
+        ("nativeLiveArmedShortRestartNodeAcceptance" if LIVE_ARMED_SHORT else "deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
         "proofHashes": [{key: row.get(key) for key in ("relation", "proofSHA256", "publicInputsSHA256")} for row in proofs],
         "resultSHA256": hashlib.sha256(result_bytes).hexdigest() if "result" in original_bytes else None,
         "resourcesSHA256": hashlib.sha256(resources_bytes).hexdigest() if "resources" in original_bytes else None,
@@ -788,7 +824,14 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
     if NATIVE_ECONOMIC_NOTE_RECOVERY:
         summary["nativeEconomicNoteProofsNodeAcceptance"] = accepted
         summary["limitations"].append("Fixed Native12 D26/W39 uses the original program/prepared VK, closes BB before independent Wasm1 verification; no legacy WASM receipt is reclassified.")
-    path = DEV / ("reports/native-device-economic-note-recovery-lab-v1.json" if NATIVE_ECONOMIC_NOTE_RECOVERY else "reports/native-device-economic-recovery-lab-v1.json" if NATIVE_ECONOMIC_RECOVERY else "reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
+    if LIVE_ARMED_SHORT:
+        summary["nativeLiveArmedShortRestartNodeAcceptance"] = accepted
+        summary["nativeProcessRestartEstablished"] = accepted
+        summary["plannedCaptureOnly"] = True
+        summary["postCutoffRecoveryEstablished"] = False
+        summary["liveArmedRestart"] = result.get("liveArmedRestart")
+        summary["limitations"] = ["Original device D26/U/S and fresh ARM; same encrypted mobile vault survives a planned original ten-section new-process reopen.", "Observed real local clock stays before the unchanged eight-hour cutoff; no early F, native delivery, W39 or clock advance.", "Node SDK/Vault/TLS execution only; no post-cutoff financial recovery, abrupt crash, parent exit, hardware phone, public network or full wallet acceptance."]
+    path = DEV / ("reports/native-device-live-armed-short-lab-v1.json" if LIVE_ARMED_SHORT else "reports/native-device-economic-note-recovery-lab-v1.json" if NATIVE_ECONOMIC_NOTE_RECOVERY else "reports/native-device-economic-recovery-lab-v1.json" if NATIVE_ECONOMIC_RECOVERY else "reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -800,10 +843,17 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
 
 
 def main():
-    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, NATIVE_ECONOMIC_RECOVERY, NATIVE_ECONOMIC_NOTE_RECOVERY, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
-    if sys.argv[1:] not in ([], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"], ["--native-economic-recovery"], ["--native-economic-note-recovery"]):
-        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-deposit|--device-reservation|--device-execution|--device-recovery|--native-economic-recovery|--native-economic-note-recovery]")
-    if sys.argv[1:] == ["--native-economic-note-recovery"]:
+    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, NATIVE_ECONOMIC_RECOVERY, NATIVE_ECONOMIC_NOTE_RECOVERY, LIVE_ARMED_SHORT, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
+    if sys.argv[1:] not in ([], ["--native-live-armed-short"], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"], ["--native-economic-recovery"], ["--native-economic-note-recovery"]):
+        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--native-live-armed-short|--device-deposit|--device-reservation|--device-execution|--device-recovery|--native-economic-recovery|--native-economic-note-recovery]")
+    if sys.argv[1:] == ["--native-live-armed-short"]:
+        LIVE_ARMED_SHORT = DEVICE_DEPOSIT = DEVICE_RESERVATION = True
+        ENTRY = FLAT / "integration/run-native-value-live-armed-short-restart-v1.mjs"
+        DIRECTORY = FLAT / ".local/native-value-live-armed-recovery-v1"
+        PROFILE = "native-value-live-armed-recovery-v1"
+        RESULT_FORMAT = "LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1"
+        RESOURCES_FORMAT = "LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESOURCES_V1"
+    elif sys.argv[1:] == ["--native-economic-note-recovery"]:
         DEVICE_DEPOSIT = DEVICE_RESERVATION = DEVICE_EXECUTION = DEVICE_RECOVERY = NATIVE_ECONOMIC_RECOVERY = NATIVE_ECONOMIC_NOTE_RECOVERY = True
         ENTRY = FLAT / "integration/run-native-value-economic-note-recovery-v1.mjs"
         DIRECTORY = FLAT / ".local/native-value-economic-note-recovery-v1"

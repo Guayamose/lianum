@@ -13,6 +13,7 @@ const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/dev
  ['flat/',FLAT],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
 const FIXED=Object.freeze(['golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
  'integration/run-native-value-economic-note-recovery-v1.mjs',
+ 'integration/run-native-value-live-armed-short-restart-v1.mjs','integration/native-value-live-armed-short-restart-flow-v1.mjs','integration/native-device-live-armed-short-successor-v1.mjs',
  'integration/run-evm-metamorpho-recovery-flow-v1.mjs',
  'integration/run-evm-metamorpho-exit-recovery-v1.mjs',
  'integration/run-evm-aave-exit-recovery-v1.mjs',
