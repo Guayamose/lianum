@@ -8,7 +8,7 @@ import { createInterface } from 'node:readline';
 import { performance } from 'node:perf_hooks';
 
 const PROFILE = 'OWNED_BSC_POSA_THREE_VALIDATORS_V1';
-const RECIPE_SHA256 = '1c657187193af82fb89c143518343159c12c61eb0b96488d6409619c0668862f';
+const RECIPE_SHA256 = '3b268f36b02bd0300a03a46fac5b121309c9ce3cf652c6b37f84e2f37e06e984';
 // Python's 90-second readiness already contains registrations. This outer
 // watchdog deliberately permits 30 + 3*15 + 90 + an explicit 15-second margin.
 const CONSTRUCTOR_MS = (30 + 3 * 15 + 90 + 15) * 1000;

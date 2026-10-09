@@ -224,6 +224,9 @@ def rpc(url,method,params):
  # The original native client reports missing finality with this fixed error.
  # Absence is pending only; readiness still requires actual finalized blocks.
  if method=='eth_getBlockByNumber' and params==['finalized',False] and value.get('id')==1 and 'result' not in value and value.get('error')=={'code':-32000,'message':'finalized block not found'}:return None
+ # Geth v1.7.8 returns this exact closed error while its receipt index is
+ # catching up. This is missing evidence, never a successful registration.
+ if method=='eth_getTransactionReceipt' and len(params)==1 and isinstance(params[0],str) and re.fullmatch('0x[0-9a-f]{64}',params[0]) and value.get('id')==1 and 'result' not in value and value.get('error')=={'code':-32000,'message':'transaction indexing is in progress','data':'transaction indexing is in progress'}:return None
  require(value.get('id')==1 and 'error' not in value and 'result' in value,"BSC_RPC_REJECTED")
  return value['result']
 def serve():
