@@ -4,6 +4,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { createHash } from 'node:crypto';
+import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from '../../../../src/operations/deployments/system/deployment-plan.mjs';
+import { canonicalClaimRecordDataV1 } from '../../../../src/claims/storage/segmented-record-store.mjs';
+import { genericAccountIdentity, immutable } from '../../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { poolRouteDigest, poolEconomicIdentity } from '../../../../src/accounts/storage/flat-pool-route-state.mjs';
 import { claimArtifactMethod } from '../../../../src/operations/deployments/claims/native-claim-deployment-plan.mjs';
 import { encodeClaimABI } from '../../../../src/claims/protocol/abi.mjs';
 import { evmFunctionSelector } from '../../../../src/chains/evm/contracts/evm-code-hash.mjs';
@@ -75,4 +80,84 @@ test('canonical tuple calls retain genuine nominal Solidity library selectors an
   assert.equal(claimArtifactMethod(data, nominal).selector, evmFunctionSelector(nominal));
   data.evm.methodIdentifiers[nominal] = evmFunctionSelector(canonical);
   assert.throws(() => claimArtifactMethod(data, canonical), /COMPILER_SELECTOR/);
+});
+
+
+// Actual reconstruction and route-policy producers. Loader artifacts, system,
+// accounts and readers are explicit HOST ports; no chain, deploy, claim or key.
+const admissionSource = source('../global-state/flat-pool-admission-policy.mjs');
+const recoveryFactory = () => compile(cut(flatSource, 'function flatRecoveryArtifactV1(', '\nexport function flatRecoveryViewDataV1')
+  + '; return flatRecoveryRouteIdentityV1;', {
+    assert, exactRecord, FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER,
+    sha: bytes => createHash('sha256').update(bytes).digest('hex'), viewFacade: flatFactory(),
+  });
+function originalPolicyFactory() {
+  const systems = new WeakMap(), accounts = new WeakMap();
+  const create = compile(admissionSource.slice(admissionSource.indexOf('export async function createFlatPoolAdmissionPolicy(')).replace('export async function', 'async function')
+    + '; return createFlatPoolAdmissionPolicy;', {
+      assert, exactRecord, immutable, genericAccountIdentity, poolRouteDigest, poolEconomicIdentity,
+      owned: new WeakMap(), bare: value => value.slice(2),
+      assertOwnedFlatSystem(runtime, system) { assert.equal(systems.get(system), runtime, 'HOST_ORIGINAL_SYSTEM'); },
+      assertOwnedFlatAccountAuthority(account, expected) { assert.deepEqual(accounts.get(account), expected, 'HOST_ORIGINAL_ACCOUNT'); },
+      async createFlatSystemStateReader() { return { read() { throw Error('HOST_MUST_NOT_READ_CHAIN'); } }; },
+    });
+  return async (runtime, system, account) => {
+    systems.set(system, runtime); accounts.set(account, { runtime, system, poolIndex: 0 });
+    return create({ runtime, system, accounts: [{ poolIndex: 0, account }], routeOrder: [account.config.registry[0].assetId] });
+  };
+}
+function originalRecoveryFixture() {
+  const word = n => BigInt(n).toString(16).padStart(64, '0'), address = n => '0x' + word(n).slice(-40);
+  const bundle = { ledger: { artifacts: {} }, provenance: {
+    classification: 'HOST_PUBLIC_LOADER_FIXTURE', ledgerAttempt: 'original-host',
+    source: { zVersion: 'original', aSHA256: word(1) }, key: { zManifest: word(2), aProgram: word(3) },
+  }, verifiers: {} }, verifiers = {};
+  for (const [i, [role]] of FLAT_VERIFIER_ORDER.entries()) {
+    const data = artifact(), lineage = { zSource: word(i + 4), aKey: { zVK: word(i + 20), aProgram: word(i + 40) } };
+    const contractName = 'HOSTVerifier' + i, file = 'host/' + role + '.sol';
+    bundle.verifiers[role] = { source: file, contracts: { [contractName]: data }, lineage };
+    verifiers[role] = { record: { address: address(i + 10), codeHash: '0x' + word(i + 30), source: file, contractName, lineage },
+      artifactSHA256: createHash('sha256').update(JSON.stringify(data)).digest('hex') };
+  }
+  const pool = { address: address(100), codeHash: '0x' + word(101), assetIdentity: '0x' + word(102), domain: word(103), domainCommitment: '0x' + word(104) };
+  const common = { pools: [pool], hub: { address: address(105), codeHash: '0x' + word(106) },
+    hubDomain: '0x' + word(107), ledgerNamespace: '0x' + word(108), registryCommitment: '0x' + word(109), verifierSetCommitment: '0x' + word(110) };
+  const account = { config: { accountId: 'HOST_original_account', journalId: 'HOST_original_journal', lifetime: word(111),
+    registry: [{ assetId: word(112), pool: pool.address.slice(2), assetIdentity: pool.assetIdentity.slice(2), chainId: '31337', genesis: word(113), kind: 'ERC20', token: address(114).slice(2), codeHash: word(115), decimals: 6 }] } };
+  return { bundle, captured: { system: { provenance: bundle.provenance }, verifiers }, common, account };
+}
+
+test('HOST original system route survives AEAD object reordering on new objects without adopting the saved route', async () => {
+  const { bundle, captured, common, account } = originalRecoveryFixture(), restore = recoveryFactory(), policyFor = originalPolicyFactory();
+  const runtime = {}, before = restore(runtime, bundle, captured), original = { ...common, ...before };
+  const route = (await policyFor(runtime, original, account)).identityForAsset(account.config.registry[0].assetId);
+  const saved = JSON.parse(canonicalClaimRecordDataV1(captured));
+  assert.notEqual(JSON.stringify(saved.system.provenance), JSON.stringify(bundle.provenance));
+  assert.notDeepEqual(Object.keys(saved.verifiers), FLAT_VERIFIER_ORDER.map(([role]) => role));
+  const naive = { ...common, provenance: saved.system.provenance,
+    verifiers: Object.fromEntries(Object.entries(saved.verifiers).map(([role, packed]) => [role, packed.record])) };
+  const naiveRoute = (await policyFor({}, naive, structuredClone(account))).identityForAsset(account.config.registry[0].assetId);
+  assert.notEqual(naiveRoute.sourceProvenanceSHA256, route.sourceProvenanceSHA256);
+  assert.notEqual(naiveRoute.keyLineageSHA256, route.keyLineageSHA256);
+  const successorRuntime = {}, identity = restore(successorRuntime, bundle, saved), successor = { ...common, ...identity };
+  const reopened = (await policyFor(successorRuntime, successor, structuredClone(account))).identityForAsset(account.config.registry[0].assetId);
+  assert.notEqual(successor, original); assert.notEqual(identity.verifiers, before.verifiers);
+  assert.equal(identity.provenance, bundle.provenance); assert.deepEqual(Object.keys(identity.verifiers), FLAT_VERIFIER_ORDER.map(([role]) => role));
+  for (const [role] of FLAT_VERIFIER_ORDER) assert.equal(identity.verifiers[role].lineage, bundle.verifiers[role].lineage);
+  assert.deepEqual(reopened, route, 'FLAT_CATALOGUE_ORIGINAL_ROUTE');
+});
+
+test('HOST original route reconstruction rejects changed source, lineage, role set and artifact before returning any system', () => {
+  const { bundle, captured } = originalRecoveryFixture(), restore = recoveryFactory();
+  const changes = [
+    value => { value.system.provenance.source.zVersion = 'changed'; },
+    value => { value.verifiers[FLAT_VERIFIER_ORDER[0][0]].record.lineage.aKey.zVK = '99'.repeat(32); },
+    value => { delete value.verifiers[FLAT_VERIFIER_ORDER[1][0]]; },
+    value => { value.verifiers.extra = value.verifiers[FLAT_VERIFIER_ORDER[0][0]]; },
+    value => { value.verifiers[FLAT_VERIFIER_ORDER[0][0]].artifactSHA256 = '99'.repeat(32); },
+  ];
+  for (const change of changes) {
+    const value = JSON.parse(canonicalClaimRecordDataV1(captured)); change(value);
+    assert.throws(() => restore({}, bundle, value));
+  }
 });

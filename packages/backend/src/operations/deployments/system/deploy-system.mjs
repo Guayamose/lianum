@@ -648,6 +648,22 @@ function flatRecoveryArtifactV1(bundle,packed){
  const artifact=candidates.find(a=>sha(Buffer.from(JSON.stringify(a)))===packed.artifactSHA256);assert.ok(artifact,'FLAT_RECOVERY_PINNED_ARTIFACT');return artifact;
 }
 
+
+// Reuse only the independently authenticated original loader's identity order.
+// AEAD canonicalization changes object insertion order, not source/key lineage.
+// Route hashes retain their existing definition and remain immutable on reopen.
+function flatRecoveryRouteIdentityV1(runtime,bundle,r){
+ assert.deepEqual(bundle.provenance,r.system.provenance,'ORIGINAL_FLAT_RECOVERY_PROVENANCE');
+ exactRecord(r.verifiers,FLAT_VERIFIER_ORDER.map(([role])=>role));
+ const verifiers={};
+ for(const [role]of FLAT_VERIFIER_ORDER){
+  const packed=r.verifiers[role],original=bundle.verifiers[role];
+  assert.deepEqual(original.lineage,packed.record.lineage,'ORIGINAL_FLAT_RECOVERY_KEY_LINEAGE');
+  verifiers[role]=viewFacade(runtime,{...packed.record,lineage:original.lineage},flatRecoveryArtifactV1(bundle,packed));
+ }
+ return {provenance:bundle.provenance,verifiers};
+}
+
 export function flatRecoveryViewDataV1(value){
  if(value===null||['string','number','boolean'].includes(typeof value))return value;
  if(Array.isArray(value))return value.map(flatRecoveryViewDataV1);
@@ -691,14 +707,14 @@ export async function reopenOwnedFlatSystemRecoveryV1(token){
  exactRecord(r,['schema','genesis','head','system','hub','pools','libraries','generatedLibraries','verifiers','assets','views']);assert.equal(r.schema,'ORIGINAL_FLAT_SYSTEM_RECOVERY_V1');
  await assertLocalEvm(runtime);assert.equal(runtime.metadata.evmGenesis,r.genesis);assert.equal(runtime.metadata.chainId,'31337');assert.equal(r.system.sender,runtime.accounts[0]);
  const head=await runtime.block();assert.deepEqual(head,r.head,'ORIGINAL_FLAT_RECOVERY_HEAD');
- const bundle=await loadFlatDeploymentArtifacts();assert.deepEqual(bundle.provenance,r.system.provenance);
+ const bundle=await loadFlatDeploymentArtifacts(),routeIdentity=flatRecoveryRouteIdentityV1(runtime,bundle,r);
  const restore=p=>viewFacade(runtime,p.record,flatRecoveryArtifactV1(bundle,p));
  const map=rows=>Object.fromEntries(Object.entries(rows).map(([key,p])=>[key,restore(p)]));
  const assets=[];for(const row of r.assets){const {createOwnedPoolAsset}=await import('../../../chains/shared/contracts/owned-pool-asset.mjs');assets.push(await createOwnedPoolAsset({runtime,kind:row.metadata.kind,symbol:row.metadata.symbol,decimals:row.metadata.decimals,deployment:row.deployment}));assert.deepEqual(assets.at(-1).metadata,row.metadata);}
  assert.equal(assets.length,2);assert.equal(r.pools.length,2);assert.equal(r.views.length,2);
- const hub=restore(r.hub),pools=r.pools.map((p,i)=>({...restore(p),assetCapability:assets[i],assetMetadata:assets[i].metadata})),libraries=map(r.libraries),generatedLibraries=map(r.generatedLibraries),verifiers=map(r.verifiers);
+ const hub=restore(r.hub),pools=r.pools.map((p,i)=>({...restore(p),assetCapability:assets[i],assetMetadata:assets[i].metadata})),libraries=map(r.libraries),generatedLibraries=map(r.generatedLibraries),verifiers=routeIdentity.verifiers;
  const common=pools.every(p=>p.asset===pools[0].asset&&p.assetCodeHash===pools[0].assetCodeHash)?pools[0]:null;
- const system={...structuredClone(r.system),hub,pools,libraries,generatedLibraries,verifiers,assetCapability:common?.assetCapability??null};
+ const system={...structuredClone(r.system),provenance:routeIdentity.provenance,hub,pools,libraries,generatedLibraries,verifiers,assetCapability:common?.assetCapability??null};
  const packed=[r.hub,...r.pools,...Object.values(r.libraries),...Object.values(r.generatedLibraries),...Object.values(r.verifiers)];
  assert.equal(packed.length,system.deployments.length,'ALL_ORIGINAL_DEPLOYMENTS');assert.equal(new Set(packed.map(p=>p.record.address)).size,packed.length);
  for(const p of packed){
