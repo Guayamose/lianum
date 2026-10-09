@@ -716,7 +716,18 @@ async function createController(input, beginAuditOnly) {
     const requests = { claimDomain: row.claimDomain, operationId: row.id, receiptSecret: row.secret, wireSalt: row.native.wireSalt, nativeId };
     const retained = [];
     // All four peers retain the private binding, including the spare peer.
-    for (const op of operators) retained.push(await op.retainSignedEffect(requests));
+    if (ingress && isOwnedSolanaSplCustodyV1(native)) {
+      // Each original peer retains into its own journal/CAS. No key, native
+      // inventory or sibling receipt participates in this operation. Drain all
+      // four before checking equality or beginning the reservation authority.
+      const outcomes = await Promise.allSettled(operators.map(op =>
+        Promise.resolve().then(() => op.retainSignedEffect(requests))));
+      const failed = outcomes.find(outcome => outcome.status === 'rejected');
+      if (failed) throw failed.reason;
+      retained.push(...outcomes.map(outcome => outcome.value));
+    } else {
+      for (const op of operators) retained.push(await op.retainSignedEffect(requests));
+    }
     retained.forEach(v => assert.deepEqual(v, retained[0], 'CLAIM_ALL_FOUR_BINDINGS_DISAGREE'));
     const fresh = await authorizationView(row.claimDomain), t = terms(fresh, { action: ingress ? A.RESERVE_INGRESS : A.RESERVE_PAYOUT,
       operationId: row.id, revision: binding.revision, amount: ingress ? row.packet.statement.amount : row.ticket.amount,

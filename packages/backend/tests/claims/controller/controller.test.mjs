@@ -1253,3 +1253,152 @@ test('original SPL ingress rejects changed stored bytes and repeated or early ca
   assert.equal(legacy.reservedPrepared(), legacy.row.native.prepared); assert.notEqual(legacy.reservedPrepared(), legacy.prepared);
   assert.equal(legacy.counts.reservations, 1); assert.equal(l.record.broadcastAttempts, 0);
 });
+
+
+// The original SPL reservation body and the original operator retention/serial
+// bodies run over four independent REAL AEAD/CAS sessions. Observer/ownership
+// ports are explicitly inert HOST ports; no native chain/key authority is made.
+function originalPeerRetentionBodies(source) {
+  const cut = (from, to) => {
+    const a = source.indexOf(from), b = source.indexOf(to, a);
+    assert.ok(a >= 0 && b > a); return source.slice(a, b);
+  };
+  const prefix = '    retainSignedEffect: { value: ', tail = '    } },\n';
+  const retention = cut(prefix, '    signFacts:'); assert.ok(retention.endsWith(tail));
+  return { reads: cut('  async function readVault()', '  async function jointCurrent()'),
+    original: cut('  function original(binding)', '  function findBinding(request)'),
+    serial: cut('  async function serial(work, expectedHead)', '  async function audit('),
+    retention: retention.slice(prefix.length, -tail.length) + '    }' };
+}
+
+async function fourOriginalPeerRetentionHost(mode) {
+  const source = await originalSplControllerSource();
+  const canonical = new URL('../../../src/claims/operations/operators.mjs', import.meta.url);
+  const translated = new URL('./operators.mjs', import.meta.url);
+  const bodies = originalPeerRetentionBodies(await readFile(existsSync(translated) ? translated : canonical, 'utf8'));
+  const { createClaimVaultSession } = await import('../../../src/claims/storage/vault-session.mjs');
+  const { exactRecord } = await import('../../../src/execution/encoding/commitments.mjs');
+  const { assertOwnedCustodyIntent } = await import('../../../src/chains/shared/runtime/owned-native-custody.mjs');
+  const f = originalSplIngressCallbacksFixture(source), directory = await mkdtemp(join(tmpdir(), 'claim-original-four-retention-'));
+  f.row.secret = hash('original peer retention HOST private receipt');
+  f.row.key = receiptKeyCommitment({ ledgerNamespace: f.prepared.intent.ledgerNamespace, secret: f.row.secret });
+  f.prepared.intent.wireKeyCommitment = f.row.key;
+  f.prepared.intent.receiptPublicKey = deriveNativeSplDepositV1({
+    config: base58Encode(Buffer.from(f.prepared.intent.configPublicKey, 'hex')), wireKeyCommitment: f.row.key }).endpoint;
+  f.prepared.unsignedWire = encodeNativeSplClaimUnsignedWireV1(f.prepared.intent);
+  f.row.native.prepared = cloneInput(f.prepared); f.row.status = 'UNKNOWN'; f.row.refundDestination = hash('HOST original refund'); f.row.route = null;
+  f.row.packet = { statement: { amount: f.prepared.intent.amount } };
+  const { signed, record } = f.signFixture(); record.recipientIndex = 0;
+  const originalWire = record.nativeWire;
+  f.native.roles = { depositor: { endpoint: f.prepared.intent.sourcePublicKey },
+    escrow: { endpoint: f.prepared.intent.recipientPublicKey }, recipient: { endpoint: hash('HOST other recipient') } };
+  const config = { nativeFamily: '2', gateway: hash('HOST gateway').slice(0, 40), nativeGenesis: f.prepared.genesis,
+    nativeAsset: hash('HOST SPL asset'), ledgerNamespace: f.prepared.intent.ledgerNamespace, refundMaxFee: '10000' };
+  const gateway = { intents: [{ id: f.row.id, state: '1', revision: '1', amount: f.prepared.intent.amount }] };
+  const head = { number: '1', hash: hash('HOST retained head'), timestamp: '10' };
+  const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+  const gates = Array.from({ length: 4 }, deferred), allEntered = deferred(), threeDrained = deferred();
+  const entered = [], drained = [], errors = [], actors = [], sessions = [], counts = { authorizations: 0, sends: 0, observerReads: 0, observerChecks: 0 };
+  const observer = { async read() { counts.observerReads++; return cloneInput({ head, gateways: [gateway] }); },
+    async assertCurrent(view) { counts.observerChecks++; assert.deepEqual(view.head, head); } };
+  const controllerVault = createClaimVaultSession({ path: join(directory, 'controller.vault'), password: 'HOST four-retention controller password' });
+  let controllerRecord = await controllerVault.create({ deposits: [cloneInput(f.row)] });
+  const stopBeforeAuthority = Error('HOST_AFTER_ALL_ORIGINAL_RETAINS');
+  let pending, completion, timeout;
+  try {
+    for (let index = 0; index < 4; index++) {
+      const session = createClaimVaultSession({ path: join(directory, 'claim-operator-' + index + '.v3'), password: 'HOST original distinct peer password/' + index });
+      sessions.push(session);
+      const initialRecord = await session.create({ bindings: [], nativePreparations: [] });
+      const vault = { read: () => session.read(), async update(revision, transform) {
+        entered.push(index); if (entered.length === 4) allEntered.resolve(); await gates[index].promise;
+        // The negative is the REAL session's original CAS guard, not an invented
+        // financial error; the actual operator save wrapper retains its cause.
+        return session.update(mode === 'failure' && [0, 2].includes(index) ? revision + 1 : revision, transform);
+      } };
+      const env = { assert, performance, observer, vault, initialRecord, exactRecord,
+        copy: cloneInput, freeze: frozenInput, createClaimReservationBinding, assertOwnedCustodyIntent,
+        isOwnedSolanaSplCustodyV1: value => value === f.native,
+        nativeId: (row, family) => family === '1' ? row.txid : row.nativeId,
+        nativeWire: (row, family) => family === '1' ? row.rawTransaction : row.nativeWire,
+        selected(domain) { assert.equal(domain, f.row.claimDomain); return { config, native: f.native, gateway }; },
+        equal: (a, b, message) => assert.deepEqual(a, b, message), bound: { configs: [config] } };
+      const actor = vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {\n' +
+        'let record=initialRecord,busy=false,closed=false,poisoned=false,activeView,activeFactsAnchor,cachedView,started,activeAuditMetrics;\n' +
+        'let operationGeneration=0,activeKeyUsed=false,auditMethod,auditRound,activeV4=null,activeV4Facts=null,keyUseEpoch=0;\n' +
+        'const custody=null,v4OperationResults=new WeakMap();\n' +
+        'const live=()=>assert.ok(!closed&&!poisoned),ready=live,poison=()=>{poisoned=true;};\n' +
+        'const enterMetrics=()=>null,leaveMetrics=()=>{},checkpointMetrics=()=>{},beginMetrics=()=>null,finishMetrics=()=>{};\n' +
+        bodies.reads + bodies.original + bodies.serial + '\nconst retain=' + bodies.retention + ';\n' +
+        'return {retain,snapshot:()=>structuredClone(record),busy:()=>busy,poisoned:()=>poisoned};\n})')(env);
+      actors.push(actor);
+    }
+    const operators = actors.map((actor, index) => ({ async retainSignedEffect(request) {
+      try { const result = await actor.retain(request); return mode === 'mismatch' && index === 3 ? { ...result, admissionN: hash('HOST changed peer result') } : result; }
+      catch (error) { errors[index] = error; throw error; }
+      finally { drained.push(index); if (drained.length === 3) threeDrained.resolve(); }
+    } }));
+    const start = source.indexOf('  async function reserveNative('), end = source.indexOf('  async function retainedUnsentIngress(', start);
+    assert.ok(start >= 0 && end > start);
+    const env = { assert, operators, copy: cloneInput, validateNativeSplClaimBindingTransactionV1, createClaimReservationBinding,
+      isOwnedSolanaSplCustodyV1: value => value === f.native,
+      selected: () => ({ native: f.native, config }), nativeIdOf: (row, family) => family === '1' ? row.txid : row.nativeId,
+      wireOf: (row, family) => family === '1' ? row.rawTransaction : row.nativeWire,
+      view: async () => ({ snapshot: { head }, gateway }), authorizationView: async () => ({ snapshot: { head }, gateway }),
+      async saveRow(collection, value) { assert.equal(collection, 'deposits'); assert.equal(value, f.row);
+        controllerRecord = await controllerVault.update(controllerRecord.revision, data => ({ ...data, deposits: [cloneInput(value)] }));
+        assert.deepEqual(await controllerVault.read(), controllerRecord);
+      }, terms: (state, raw) => raw, A: { RESERVE_INGRESS: '3', RESERVE_PAYOUT: '4' }, ZERO: zero,
+      claimRouteCommitment() { assert.fail('HOST no payout route'); },
+      async authorize(method) { assert.equal(method, 'reservation'); assert.equal(drained.length, 4);
+        assert.ok(actors.every(actor => !actor.busy())); counts.authorizations++; throw stopBeforeAuthority;
+      }, async evm() { counts.sends++; assert.fail('HOST no EVM or native send'); } };
+    const reserve = vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {\n' + source.slice(start, end) + '\nreturn reserveNative;\n})')(env);
+    if (mode === 'bad-wire') {
+      await assert.rejects(reserve(f.row, 'deposits', f.prepared, { nativeWire: 'AA==' }));
+      assert.deepEqual(entered, []); assert.equal(counts.authorizations, 0); return;
+    }
+    pending = reserve(f.row, 'deposits', f.prepared, signed);
+    let settled = false;
+    completion = pending.then(() => { settled = true; return null; }, error => { settled = true; return error; });
+    await Promise.race([allEntered.promise, new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('HOST_ALL_FOUR_ORIGINAL_PEERS_NOT_STARTED')), 3000); })]);
+    clearTimeout(timeout); timeout = undefined;
+    assert.deepEqual(entered.slice().sort(), [0, 1, 2, 3]); assert.ok(actors.every(actor => actor.busy()));
+    // A later-index read/write failure arrives first in wall time. None of the
+    // already-started actors may be abandoned or returned as authority.
+    for (const index of [2, 3, 1]) gates[index].resolve();
+    await Promise.race([threeDrained.promise, new Promise((_, reject) => { timeout = setTimeout(() => reject(Error('HOST_ORIGINAL_PEER_TAILS_NOT_DRAINED')), 3000); })]);
+    clearTimeout(timeout); timeout = undefined;
+    assert.equal(drained.length, 3); assert.equal(settled, false); assert.equal(counts.authorizations, 0);
+    gates[0].resolve(); const failure = await completion;
+    assert.equal(drained.length, 4); assert.ok(actors.every(actor => !actor.busy()));
+    assert.equal(record.nativeWire, originalWire); assert.equal(record.phase, 'SIGNED_NOT_BROADCAST'); assert.equal(record.broadcastAttempts, 0);
+    assert.equal(counts.sends, 0); assert.equal(counts.observerReads, 4); assert.equal(counts.observerChecks, mode === 'failure' ? 2 : 4);
+    if (mode === 'failure') {
+      assert.equal(failure, errors[0]); assert.notEqual(failure, errors[2]);
+      assert.match(failure.message, /CLAIM_OPERATOR_DURABLE_WRITE_UNCERTAIN/);
+      assert.ok(failure.cause); assert.equal(counts.authorizations, 0);
+      assert.ok(actors[0].poisoned() && actors[2].poisoned());
+    } else if (mode === 'mismatch') {
+      assert.match(failure.message, /CLAIM_ALL_FOUR_BINDINGS_DISAGREE/); assert.equal(counts.authorizations, 0);
+    } else {
+      assert.equal(failure, stopBeforeAuthority); assert.equal(counts.authorizations, 1);
+    }
+    for (let index = 0; index < 4; index++) {
+      const stored = await sessions[index].read(); assert.deepEqual(stored, actors[index].snapshot());
+      const expectedCount = mode === 'failure' && [0, 2].includes(index) ? 0 : 1;
+      assert.equal(stored.data.bindings.length, expectedCount);
+      if (expectedCount) { assert.equal(stored.data.bindings[0].nativeWire, originalWire);
+        assert.deepEqual(stored.data.bindings[0].intent, f.prepared.intent); }
+    }
+    assert.equal((await controllerVault.read()).data.deposits[0].native.status, 'SIGNED_UNRESERVED');
+    assert.equal((await controllerVault.read()).data.deposits[0].status, 'UNKNOWN');
+  } finally {
+    clearTimeout(timeout); for (const gate of gates) gate.resolve(); if (completion) await completion;
+    for (const session of sessions) session.close(); controllerVault.close(); await rm(directory, { recursive: true, force: true });
+  }
+}
+
+test('original SPL all-four binding retention drains independent AEAD peers before authority and preserves ordered failures', async () => {
+  for (const mode of ['success', 'failure', 'mismatch', 'bad-wire']) await fourOriginalPeerRetentionHost(mode);
+});
