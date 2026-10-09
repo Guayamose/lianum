@@ -398,35 +398,75 @@ async function sessionFactory(input, initial, creating, readOnly = false) {
       budget.contentBytes += bytes;
       check(budget.contentBytes <= LIMIT.logicalBytes, 'CLAIM_STORE_RECONSTRUCTION_BYTES');
     };
-    const reconstruct = async (id, depth = 0) => {
+    // One fixed reservation budget across the entire DFS, not eight buffers
+    // per depth. Every reserved ciphertext read retains the existing envelope
+    // bound; all admitted reads drain before the original ordered consumer.
+    const cipherReservationBytes = LIMIT.envelopeBytes + 1;
+    const cipherBudget = Math.min(LIMIT.logicalBytes, 8 * cipherReservationBytes);
+    let reservedCipherBytes = 0;
+    const cipherReservations = new Set();
+    const releaseCipher = outcome => {
+      if (cipherReservations.delete(outcome)) {
+        outcome.value = undefined; reservedCipherBytes -= cipherReservationBytes;
+      }
+    };
+    const readChildren = async (links, consume) => {
+      for (let start = 0; start < links.length;) {
+        const width = Math.min(links.length - start, 8,
+          Math.floor((cipherBudget - reservedCipherBytes) / cipherReservationBytes));
+        check(width > 0, 'CLAIM_STORE_RECONSTRUCTION_LIMIT');
+        // Reserve the complete trusted file maximum BEFORE any allocation/IO.
+        reservedCipherBytes += width * cipherReservationBytes;
+        let outcomes;
+        try {
+          outcomes = await freshScanReads(links.slice(start, start + width),
+            link => boundedRead(join(objectPath, `${link}.json`)));
+          for (const outcome of outcomes) cipherReservations.add(outcome);
+          for (let index = 0; index < width; index++)
+            await consume(links[start + index], outcomes[index], start + index);
+        } finally {
+          if (outcomes) for (const outcome of outcomes) releaseCipher(outcome);
+          else reservedCipherBytes -= width * cipherReservationBytes;
+        }
+        start += width;
+      }
+    };
+    const reconstruct = async (id, depth = 0, ciphertext = null) => {
       check(++budget.visits <= LIMIT.logicalNodes * 3 && depth <= LIMIT.depth * 2, 'CLAIM_STORE_RECONSTRUCTION_LIMIT');
-      const node = decrypt(await boundedRead(join(objectPath, `${id}.json`)), 'object', id);
+      let node;
+      try {
+        if (ciphertext && !ciphertext.ok) throw ciphertext.error;
+        node = decrypt(ciphertext ? ciphertext.value : await boundedRead(join(objectPath, `${id}.json`)), 'object', id);
+      } finally { if (ciphertext) releaseCipher(ciphertext); }
       check(identify('object', canonicalObject(node)) === id, 'CLAIM_STORE_OBJECT_CONTENT_ID'); objectLinks(node);
       if (node.kind === 'value') { content(canonicalJson(node.value).bytes); return node.value; }
       if (node.kind === 'array') {
         const result = [];
-        for (const link of node.items) result.push(await reconstruct(link, depth + 1));
+        await readChildren(node.items, async (link, ciphertext) => {
+          result.push(await reconstruct(link, depth + 1, ciphertext));
+        });
         return result;
       }
       if (node.kind === 'object') {
         const result = Object.create(null);
-        for (const [name, link] of node.entries) {
+        await readChildren(node.entries.map(entry => entry[1]), async (link, ciphertext, index) => {
+          const name = node.entries[index][0];
           content(Buffer.byteLength(JSON.stringify(name)));
-          result[name] = await reconstruct(link, depth + 1);
-        }
+          result[name] = await reconstruct(link, depth + 1, ciphertext);
+        });
         return result;
       }
       const result = node.kind === 'array-pages' ? [] : Object.create(null); let lastName;
-      for (const link of node.pages) {
+      await readChildren(node.pages, async (link, ciphertext) => {
         const expected = node.kind === 'array-pages' ? ['array', 'array-pages'] : ['object', 'object-pages'];
         check(expected.includes(nodes.get(link)?.kind), 'CLAIM_STORE_PAGE_KIND');
-        const page = await reconstruct(link, depth + 1);
+        const page = await reconstruct(link, depth + 1, ciphertext);
         if (Array.isArray(result)) for (const item of page) result.push(item);
         else for (const name of Object.keys(page).sort()) {
           check(lastName === undefined || lastName < name, 'CLAIM_STORE_PAGE_ORDER');
           result[name] = page[name]; lastName = name;
         }
-      }
+      });
       return result;
     };
     const data = await reconstruct(current.root), logical = canonicalJson(data);

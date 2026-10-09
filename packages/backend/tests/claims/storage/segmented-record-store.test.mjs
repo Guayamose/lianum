@@ -10,7 +10,7 @@ import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
 
 const named = module => Object.fromEntries(Object.entries(module).filter(([name]) => name !== 'default'));
 const secrets = new Set(), derivations = [], events = [];
-let injected, metadataProbe;
+let injected, metadataProbe, ciphertextProbe;
 function event(kind, path) {
   events.push({ kind, path: String(path) });
   if (injected && injected.kind === kind && injected.matches(String(path))) {
@@ -38,10 +38,29 @@ mock.module('node:fs/promises', { exports: { ...named(fs),
   async open(path, flags, mode) {
     event(`open:${flags}`, path);
     const handle = await fs.open(path, flags, mode);
-    return { read: handle.read.bind(handle), stat: handle.stat.bind(handle),
+    const probe = ciphertextProbe, name = String(path);
+    const object = probe && flags === 'r' && name.startsWith(probe.path + '/objects/');
+    const visit = object ? (probe.counts.get(name) ?? 0) + 1 : 0;
+    if (object) probe.counts.set(name, visit);
+    let active = false, rootMutation = false;
+    return { async read(...args) {
+        if (object && visit === 2 && name === probe.root && !rootMutation) {
+          rootMutation = true; await probe.mutateRoot?.();
+        }
+        if (object && visit > 1 && name !== probe.root && !active) {
+          active = true; probe.active++; probe.admitted++; probe.peak = Math.max(probe.peak, probe.active);
+          if (probe.admitted === 8) probe.started.resolve();
+          if (name === probe.fail) { probe.failed = true; throw probe.ioError; }
+          await probe.gate.promise;
+        }
+        return handle.read(...args);
+      }, stat: handle.stat.bind(handle),
       async writeFile(...args) { event('write', path); return handle.writeFile(...args); },
       async sync() { event('sync', path); return handle.sync(); },
-      async close() { event('close', path); return handle.close(); },
+      async close() {
+        event('close', path);
+        try { return await handle.close(); } finally { if (active) { active = false; probe.active--; } }
+      },
     };
   },
   async rename(from, to) { event('rename', to); await fs.rename(from, to); event('renamed', to); },
@@ -548,4 +567,59 @@ test('original bounded read follows FD growth through EOF or max+1 and wipes buf
     const before = await run({ initial: 'a'.repeat(129), maximum: 128 });
     assert.equal(before.error.code, 'CLAIM_STORE_FILE_SIZE'); assert.equal(before.allocations.length, 0); assert.equal(before.reads, 0);
   } finally { await fs.rm(directory, { recursive: true, force: true }); }
+});
+
+
+test('HOST original reconstruction overlaps only authenticated-parent ciphertext reads with one global bound and ordered drained rejection', async () => {
+  // Real encrypted store, actual DFS/AEAD/CAS/FD/lock. Only already-existing
+  // filesystem HOST ports delay reads or corrupt synthetic fixture ciphertext.
+  const data = Object.fromEntries(Array.from({ length: 12 }, (_, index) =>
+    [String(index).padStart(2, '0'), Array.from({ length: 20 }, (_, item) => index * 100 + item)]));
+  const f = await fixture(data);
+  const objectReads = () => events.filter(row => row.kind === 'open:r' && row.path.startsWith(f.options.path + '/objects/'));
+  const counts = rows => {
+    const result = new Map(); for (const row of rows) result.set(row.path, (result.get(row.path) ?? 0) + 1);
+    return [...result].sort(([a], [b]) => a.localeCompare(b));
+  };
+  try {
+    events.length = 0; const expected = await f.store.read(), baseline = objectReads();
+    const probe = { path: f.options.path, root: baseline[0].path, counts: new Map(), active: 0, admitted: 0, peak: 0,
+      started: Promise.withResolvers(), gate: Promise.withResolvers() };
+    ciphertextProbe = probe; events.length = 0; const beforeKDF = derivations.length;
+    let settled = false; const pending = f.store.read();
+    pending.then(() => { settled = true; }, () => { settled = true; });
+    await probe.started.promise;
+    assert.equal(settled, false); assert.equal(probe.active, 8); assert.equal(probe.peak, 8);
+    assert.ok((await fs.lstat(f.options.path + '.lock')).isFile());
+    assert.throws(() => f.store.close(), error => error.code === 'CLAIM_STORE_BUSY');
+    await assert.rejects(f.store.update(0, () => ({ replaced: true })), error => error.code === 'CLAIM_STORE_BUSY');
+    probe.gate.resolve(); assert.deepEqual(await pending, expected);
+    assert.equal(probe.active, 0); assert.equal(probe.peak, 8, 'nested DFS never starts another eight-read group above the global allowance');
+    assert.deepEqual(counts(objectReads()), counts(baseline), 'every original ciphertext is reread once at the same DFS visit count');
+    assert.equal(derivations.length, beforeKDF); assert.ok(!events.some(row => row.kind === 'rename'));
+    ciphertextProbe = null;
+    events.length = 0; assert.deepEqual(await f.store.read(), expected);
+    assert.deepEqual(counts(objectReads()), counts(baseline), 'no outcomes survive into the next original scan');
+  } finally { ciphertextProbe?.gate.resolve(); ciphertextProbe = null; await f.cleanup(); }
+
+  const bad = await fixture(Object.fromEntries(Array.from({ length: 12 }, (_, index) => [String(index).padStart(2, '0'), index])));
+  try {
+    events.length = 0; await bad.store.read();
+    const baseline = events.filter(row => row.kind === 'open:r' && row.path.startsWith(bad.options.path + '/objects/'));
+    const probe = { path: bad.options.path, root: baseline[0].path, counts: new Map(), active: 0, admitted: 0, peak: 0,
+      fail: baseline[3].path, ioError: Error('HOST_LATER_CIPHERTEXT_IO_FAILURE'),
+      started: Promise.withResolvers(), gate: Promise.withResolvers(),
+      // The complete graph walk has passed. Adverse fixture mutation before
+      // the fresh reconstruction read must beat a later sibling read failure.
+      mutateRoot: () => changeEnvelope(baseline[1].path, value => { value.tag = '00'.repeat(16); }) };
+    ciphertextProbe = probe; events.length = 0; let settled = false;
+    const pending = bad.store.read(); pending.then(() => { settled = true; }, () => { settled = true; });
+    await probe.started.promise; assert.equal(settled, false);
+    assert.ok((await fs.lstat(bad.options.path + '.lock')).isFile());
+    probe.gate.resolve(); await assert.rejects(pending, error => error.code === 'CLAIM_STORE_AUTHENTICATION');
+    assert.equal(probe.failed, true); assert.equal(probe.active, 0); assert.ok(probe.peak <= 8);
+    assert.ok(!events.some(row => row.kind === 'rename'));
+    await assert.rejects(fs.lstat(bad.options.path + '.lock'), error => error.code === 'ENOENT');
+    await assert.rejects(bad.store.read(), error => error.code === 'CLAIM_STORE_CLOSED_OR_UNCERTAIN');
+  } finally { ciphertextProbe?.gate.resolve(); ciphertextProbe = null; await bad.cleanup(); }
 });
