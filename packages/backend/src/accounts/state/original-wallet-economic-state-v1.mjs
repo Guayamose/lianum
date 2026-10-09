@@ -9,7 +9,7 @@ import {Vault} from '../../../../engine/src/crypto/vault.mjs';
 import {genericAccountIdentity, immutable, sha} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
 import {exactRecord, fixedArray} from '../../execution/encoding/commitments.mjs';
 import {assertOwnedFlatJournalCatalogue} from '../storage/flat-journal-catalogue.mjs';
-import {assertFlatManualGraphCatalogueSession} from '../../api/accounts/flat-manual-graph-session.mjs';
+import {assertFlatManualGraphCatalogueSession,assertNativeWalletEconomicSessionV1,assertWrappedWalletEconomicSessionV1,readOriginalSessionWalletEconomicSnapshotV1} from '../../api/accounts/flat-manual-graph-session.mjs';
 import {assertOwnedNativeValueAccountAuthority} from '../authority/native-value-account-authority-v2.mjs';
 import {assertOwnedWrappedWalletPortfolioV1} from '../portfolio/wrapped-wallet-portfolio-v1.mjs';
 import {generationPrivateVaultExitBinding, assertGenerationPrivateVaultExitSession} from '../../defi/withdrawals/generation-private-vault-exit.mjs';
@@ -47,7 +47,7 @@ function originalRows(source, assets, journals, checkpointSHA256, positions = nu
       return {...q, state, disposition: state === 'CONFIRMED' && q.state === 'CONFIRMED' ? q.disposition : null};
     });
     // Journal CONFIRMED alone never replaces the original owner observation.
-    const uncertain = requests.some(q => ['UNKNOWN', 'UNRESOLVED', 'SUBMITTING', 'RECOVERING', 'REAUTHORIZING', 'PREPARING'].includes(q.state));
+    const uncertain = requests.some(q => ['UNKNOWN', 'UNRESOLVED', 'SUBMITTING', 'RECOVERING', 'REAUTHORIZING', 'PREPARING', 'PREPARED'].includes(q.state));
     const staleRequest = requests.some(q => q.state === 'STALE');
     const state = changed || uncertain || item.status === 'UNAVAILABLE' ? 'UNKNOWN' : item.status === 'LIVE' && !staleRequest ? 'LIVE' : 'STALE';
     const reason = changed ? 'ORIGINAL_VIEW_CHANGED' : uncertain ? 'ORIGINAL_JOURNAL_UNKNOWN'
@@ -67,10 +67,21 @@ function originalRows(source, assets, journals, checkpointSHA256, positions = nu
     return row;
   });
 }
+function sessionObservationChanged(before,after) {
+  return before!==null&&(sha(before)!==sha(after)||!after.storageAvailable||after.observation!=='CURRENT'||after.busy||after.queued!==0);
+}
+function combineOriginalSessionJournal(journal,snapshot) {
+  if(snapshot===null)return journal;
+  const rows=[...journal];for(const request of snapshot.requests){const previous=rows.find(row=>row.requestId===request.requestId);
+    if(previous){need(previous.assetId===request.assetId&&previous.kind===request.kind,'ORIGINAL_REQUEST');previous.state=previous.state==='UNKNOWN'?'UNKNOWN':request.state;}
+    else rows.push({requestId:request.requestId,assetId:request.assetId,kind:request.kind,state:request.state});}
+  return rows;
+}
 function source(raw, kind) {
   need(!types.isProxy(raw), 'ORIGINAL_REQUIRED');
+  const paired=Object.hasOwn(raw,'session');
   exactRecord(raw, kind === 'FLAT_NOTE' ? ['runtime', 'catalogue', 'session', 'positions']
-    : kind === 'NATIVE_NOTE' ? ['runtime', 'system', 'account'] : ['runtime', 'portfolio']);
+    : kind === 'NATIVE_NOTE' ? ['runtime', 'system', 'account',...(paired?['session']:[])] : ['runtime', 'portfolio',...(paired?['session']:[])]);
   const {runtime} = raw; let roots, check, read, identity;
   if (kind === 'FLAT_NOTE') {
     const {catalogue, session, positions} = raw;
@@ -100,20 +111,24 @@ function source(raw, kind) {
     };
   } else if (kind === 'NATIVE_NOTE') {
     const {system, account} = raw;
-    check = () => assertOwnedNativeValueAccountAuthority(account, {runtime, system}); check();
+    check = () => {assertOwnedNativeValueAccountAuthority(account, {runtime, system});if(paired)assertNativeWalletEconomicSessionV1(raw.session,{runtime,system,account});}; check();
     identity = genericAccountIdentity(account.config);
     roots = account.registry.map(asset => ({generationId: null, asset, domainCommitment: null}));
-    read = async () => {check(); const before = await account.privateStatus(); const view = validateFlatOwnerReadPayload(await account.ownerView()).data;
-      const after = await account.privateStatus(); check();
+    read = async () => {check(); const sessionBefore=paired?await readOriginalSessionWalletEconomicSnapshotV1(raw.session):null;
+      const before = await account.privateStatus(); const view = validateFlatOwnerReadPayload(await account.ownerView()).data;
+      const after = await account.privateStatus();const sessionAfter=paired?await readOriginalSessionWalletEconomicSnapshotV1(raw.session):null; check();
       const journal = after.operations.filter(o => o.request).map(o => ({requestId: o.request.requestId, assetId: o.request.assetId,
         kind: o.request.kind, state: o.outcome === null ? 'UNKNOWN' : 'CONFIRMED'}));
-      return {assets: [view], journal, positions: null, revision: null, changed: sha(before) !== sha(after), checkpoint: after};};
+      const combined=combineOriginalSessionJournal(journal,sessionAfter);
+      return {assets: [view], journal:combined, positions: null, revision:sessionAfter?.revision??null, changed: sha(before) !== sha(after)||sessionObservationChanged(sessionBefore,sessionAfter), checkpoint:paired?{account:after,session:sessionAfter}:after};};
   } else {
-    const {portfolio} = raw; check = () => assertOwnedWrappedWalletPortfolioV1(runtime, portfolio); check();
+    const {portfolio} = raw; check = () => {assertOwnedWrappedWalletPortfolioV1(runtime, portfolio);if(paired)assertWrappedWalletEconomicSessionV1(raw.session,{runtime,portfolio});}; check();
     identity = genericAccountIdentity(portfolio.config);
     roots = portfolio.registry.map(asset => ({generationId: null, asset, domainCommitment: null}));
-    read = async () => {check(); const view = validateFlatOwnerReadPayload(await portfolio.ownerView()).data; check();
-      return {assets: view.assets, journal: [], positions: null, revision: null, changed: false, checkpoint: view.assets.map(a => ({assetId: a.asset.assetId, requests: a.requests}))};};
+    read = async () => {check();const before=paired?await readOriginalSessionWalletEconomicSnapshotV1(raw.session):null;const view = validateFlatOwnerReadPayload(await portfolio.ownerView()).data;
+      const after=paired?await readOriginalSessionWalletEconomicSnapshotV1(raw.session):null;check();
+      return {assets: view.assets, journal:combineOriginalSessionJournal([],after), positions: null, revision:after?.revision??null, changed:sessionObservationChanged(before,after),
+        checkpoint:paired?{assets:view.assets.map(a => ({assetId: a.asset.assetId, requests: a.requests})),session:after}:view.assets.map(a=>({assetId:a.asset.assetId,requests:a.requests}))};};
   }
   need(roots.length > 0 && roots.length <= 16, 'ROUTES');
   const id = sha({kind, identity, roots: roots.map(r => ({generationId: r.generationId, asset: r.asset, domainCommitment: r.domainCommitment}))});
@@ -156,8 +171,8 @@ async function economicState(input, checkpoint) {
     && parent.uid === process.getuid() && await realpath(dirname(path)) === dirname(path), 'PRIVATE_DIRECTORY');
   const directoryIdentity = {dev: parent.dev, ino: parent.ino};
   const vault = new Vault(path), lifetime = checkpoint?.lifetime ?? randomBytes(32).toString('hex');
-  let closed = false, busy = false, fault = false, work = null, pending = null, freshAt = null;
-  function live() {need(!closed, 'CLOSED');}
+  let closed = false, fenced = false, busy = false, fault = false, work = null, pending = null, freshAt = null;
+  function live() {need(!closed&&!fenced, 'CLOSED');}
   async function physical(required = true) {
     const p = await lstat(dirname(path)); need(p.isDirectory() && !p.isSymbolicLink() && p.dev === directoryIdentity.dev && p.ino === directoryIdentity.ino
       && p.uid === process.getuid() && (p.mode & 0o777) === 0o700 && await realpath(dirname(path)) === dirname(path), 'PRIVATE_DIRECTORY');
@@ -228,6 +243,10 @@ async function economicState(input, checkpoint) {
   const capability = Object.freeze({
     checkpoint() {assert.equal(arguments.length,0); live(); need(!busy && !fault && pending === null, 'CHECKPOINT_UNAVAILABLE');
       return immutable({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:record.revision,stateSHA256:sha(record.data)});},
+    capture() {assert.equal(arguments.length,0);live();fenced=true;freshAt=null;const active=work;
+      return (async()=>{try{if(active)await active;need(!closed&&!busy&&!fault&&pending===null,'CHECKPOINT_UNAVAILABLE');await healthy();
+        const checkpoint=immutable({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:record.revision,stateSHA256:sha(record.data)});
+        need(!closed,'CLOSED');return checkpoint;}finally{closed=true;password=null;}})();},
     observe() {assert.equal(arguments.length, 0); return run(observe);},
     async idle() {assert.equal(arguments.length,0); live(); const active=work; if(active)await active.catch(()=>{}); live(); need(!busy,'BUSY'); return {phase:fault?'UNKNOWN':'READY'};},
     snapshot() {assert.equal(arguments.length, 0); return run(async () => {try {await healthy();} catch {fault = true;} need(!closed, 'CLOSED'); return snapshot();});},

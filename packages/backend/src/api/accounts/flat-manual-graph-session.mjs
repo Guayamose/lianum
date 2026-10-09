@@ -229,7 +229,7 @@ async function nativeGraphSession(input, recovery) {
   const keeper = recovery
     ? await reopenDurableGenericAccountKeeperV1({ config: account.config, journal, authority: account.authority }, recovery.keeper)
     : await createDurableGenericAccountKeeperV1({ config: account.config, journal, authority: account.authority });
-  let session;
+  let session, state;
   const originalApproval = (action, value) => {
     const body = action === 'prepare' ? value : { requestId: value };
     const approval = flatManualGraphActionTarget(session, action, body) ?? flatManualNativeNoteActionTarget(session, action, body);
@@ -240,11 +240,12 @@ async function nativeGraphSession(input, recovery) {
     execute(value) { originalApproval('execute', value); return keeper.execute(value); },
     reconcile(value) { originalApproval('reconcile', value); return keeper.reconcile(value); },
     recover(value) { originalApproval('recover', value); return keeper.recover(value); },
-    snapshot: () => keeper.snapshot(), restartCoordinator: () => keeper.restartCoordinator(), close: () => keeper.close(),
+    snapshot: () => keeper.snapshot(), restartCoordinator: () => keeper.restartCoordinator(),
+    async close() { if(state?.economicAcquisition)await state.economicAcquisition.catch(()=>{});await state?.economicState?.close(); return keeper.close(); },
   });
   try { session = await createFlatAccountSession({ keeper: graphKeeper, ownerHandoff: { ownerView: () => account.ownerView() } }); }
   catch (error) { await keeper.close(); throw error; }
-  const graphs = new Map(), notes = new Map(); const state = { runtime, system, poolIndex, nativeAccount: account, graphs, notes,
+  const graphs = new Map(), notes = new Map(); state = { runtime, system, poolIndex, nativeAccount: account, graphs, notes, journal,
     durableKeeper: keeper, nativeCaptured: false, nativeFence: null, nativeIdentity: null, nativeRecord: null, nativeCapturePromise: null, nativeKeeperCaptureStarted: false, nativeStopped: false };
   sessions.set(session, state);
   const joined = Object.freeze({ session,
@@ -286,6 +287,7 @@ async function nativeGraphSession(input, recovery) {
       const snapshot = await session.snapshot();
       need(snapshot.storageAvailable && snapshot.observation === 'CURRENT' && snapshot.revision === recovery.journalRevision,
         'NATIVE_SESSION_ORIGINAL_JOURNAL_CHANGED');
+      if (Object.hasOwn(recovery,'economicState')) await sessionEconomicState(session, recovery.economicState);
     } catch (error) { await session.close(); throw error; }
   }
   return joined;
@@ -306,7 +308,7 @@ async function wrappedGraphSession(input,recovery){
   if(recovery){const original=await lifetimeRegistry.readWrappedPrivateLifetimePartV1(runtime,'wallet-graph-keeper',lifetimeIdentity);assert.deepEqual(original.privateState,{config:portfolio.config,journal,checkpoint:recovery.keeper.checkpoint,pendingCheckpoint:recovery.keeper.pendingCheckpoint,parentCheckpoint:recovery.keeper.parentCheckpoint},'WRAPPED_GRAPH_REGISTRY_CHECKPOINT_CHANGED');lifetimeHandle=original.handle;}
   else lifetimeHandle=await lifetimeRegistry.retainWrappedPrivateLifetimePartV1(runtime,'wallet-graph-keeper',lifetimeIdentity,{config:portfolio.config,journal,checkpoint:null,pendingCheckpoint:null,parentCheckpoint:null});
   const keeper = recovery?await reopenDurableGenericAccountKeeperV1({config:portfolio.config,journal,authority:portfolio.authority},recovery.keeper,lifetimeHandle):await createDurableGenericAccountKeeperV1({config:portfolio.config,journal,authority:portfolio.authority},lifetimeHandle);
-  let session;
+  let session, state;
   const check = (action, value) => need(flatManualGraphActionTarget(session, action,
     action === 'prepare' ? value : { requestId: value }), 'WALLET_ACCOUNT_GRAPH_FORBIDDEN');
   const originalKeeper = Object.freeze({
@@ -314,11 +316,12 @@ async function wrappedGraphSession(input,recovery){
     execute(value) { check('execute', value); return keeper.execute(value); },
     reconcile(value) { check('reconcile', value); return keeper.reconcile(value); },
     recover(value) { check('recover', value); return keeper.recover(value); },
-    snapshot: () => keeper.snapshot(), restartCoordinator: () => keeper.restartCoordinator(), close: () => keeper.close(),
+    snapshot: () => keeper.snapshot(), restartCoordinator: () => keeper.restartCoordinator(),
+    async close() { if(state?.economicAcquisition)await state.economicAcquisition.catch(()=>{});await state?.economicState?.close(); return keeper.close(); },
   });
   try { session = await createFlatAccountSession({ keeper: originalKeeper, ownerHandoff: { ownerView: () => portfolio.ownerView() } }); }
   catch (error) { await keeper.close(); throw error; }
-  const graphs = new Map(); sessions.set(session, { runtime, wrappedPortfolio: portfolio, graphs, durableKeeper:keeper, captured:false });
+  const graphs = new Map(); state = { runtime, wrappedPortfolio: portfolio, graphs, journal, durableKeeper:keeper, captured:false }; sessions.set(session, state);
   return Object.freeze({ session, bindManualGraph(approval) {
     const details = original(session, approval), requestId = details.body.requestId, old = graphs.get(requestId);
     need(!old || old === approval, 'FLAT_ACCOUNT_MANUAL_GRAPH_REBOUND'); need(old || graphs.size < 8, 'FLAT_ACCOUNT_MANUAL_GRAPH_CAPACITY');
@@ -326,6 +329,69 @@ async function wrappedGraphSession(input,recovery){
       need(original(session, value).body.ownerOperationRef !== details.body.ownerOperationRef, 'FLAT_ACCOUNT_MANUAL_GRAPH_REBOUND');
     graphs.set(requestId, approval); return structuredClone(details.body);
   } });
+}
+
+/** Private session memberships for read-only economic state. The references
+ * come from this original composition, never a caller account ID or route DTO. */
+export function assertNativeWalletEconomicSessionV1(session, expected) {
+  need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS'); exactRecord(expected, ['runtime','system','account']);
+  const state=sessions.get(session); need(state?.nativeAccount && state.durableKeeper && !state.nativeFence, 'NATIVE_SESSION_ORIGINAL_REQUIRED');
+  need(state.runtime===expected.runtime && state.system===expected.system && state.nativeAccount===expected.account, 'NATIVE_SESSION_ORIGINAL_MEMBERSHIP_REQUIRED');
+  assertOwnedNativeValueAccountAuthority(state.nativeAccount,{runtime:state.runtime,system:state.system,poolIndex:state.poolIndex});
+}
+export function assertWrappedWalletEconomicSessionV1(session, expected) {
+  need(arguments.length === 2, 'WRAPPED_SESSION_ARGUMENTS'); exactRecord(expected, ['runtime','portfolio']);
+  const state=sessions.get(session); need(state?.wrappedPortfolio && state.durableKeeper && !state.recoveryFence && !state.captured, 'WRAPPED_SESSION_ORIGINAL_REQUIRED');
+  need(state.runtime===expected.runtime && state.wrappedPortfolio===expected.portfolio, 'WRAPPED_SESSION_ORIGINAL_MEMBERSHIP_REQUIRED');
+  assertOwnedWrappedWalletPortfolioV1(state.runtime,state.wrappedPortfolio);
+}
+export async function readOriginalSessionWalletEconomicSnapshotV1(session) {
+  need(arguments.length === 1, 'WALLET_ECONOMIC_SESSION_ARGUMENTS'); const state=sessions.get(session);
+  if(state?.nativeAccount) assertNativeWalletEconomicSessionV1(session,{runtime:state.runtime,system:state.system,account:state.nativeAccount});
+  else {need(state?.wrappedPortfolio,'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');assertWrappedWalletEconomicSessionV1(session,{runtime:state.runtime,portfolio:state.wrappedPortfolio});}
+  const snapshot=await session.snapshot(), approvals=[...state.graphs.values(),...(state.notes?.values()??[])];
+  const requests=snapshot.requests.map(request=>{const matches=approvals.map(approval=>state.notes&&[...state.notes.values()].includes(approval)?originalNote(session,approval):original(session,approval))
+    .filter(details=>details.body.requestId===request.requestId);need(matches.length===1&&matches[0].body.kind===request.kind,'WALLET_ECONOMIC_ORIGINAL_REQUEST_REQUIRED');
+    return {...request,assetId:matches[0].body.assetId};});
+  return {...snapshot,requests};
+}
+function sessionEconomicInput(state,session,journal) {
+  return {catalogues:[],nativeAccounts:state.nativeAccount?[{runtime:state.runtime,system:state.system,account:state.nativeAccount,session}]:[],
+    wrappedPortfolios:state.wrappedPortfolio?[{runtime:state.runtime,portfolio:state.wrappedPortfolio,session}]:[],journal};
+}
+async function sessionEconomicState(session, retained) {
+  const state=sessions.get(session);need(state?.durableKeeper&&(state.nativeAccount||state.wrappedPortfolio)&&!state.economicInstallation,'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
+  const journal=Object.freeze({path:state.journal.path+'.economic-state.vault',password:state.journal.password});
+  if(retained){exactRecord(retained,['journal','checkpoint']);need(sha(retained.journal)===sha(journal),'WALLET_ECONOMIC_ORIGINAL_JOURNAL_REQUIRED');}
+  state.economicInstallation=true; // an ambiguous Vault create/open never permits a replacement
+  state.economicAcquisition=(async()=>{
+  const module=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');
+  const input=sessionEconomicInput(state,session,journal);
+  const capability=retained?await module.openOriginalWalletEconomicStateV1({...input,checkpoint:retained.checkpoint}):await module.createOriginalWalletEconomicStateV1(input);
+  try {module.assertOriginalWalletEconomicStateV1(capability);need(module.originalWalletEconomicStateBindingsV1(capability).some(row=>row.session===session),'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
+    state.economicState=capability;state.economicJournal=journal;return capability;
+  }catch(error){await capability.close();throw error;}
+  })();state.economicAcquisition.catch(()=>{});return state.economicAcquisition;
+}
+export async function createOriginalSessionWalletEconomicStateV1(session) {
+  need(arguments.length===1,'WALLET_ECONOMIC_SESSION_ARGUMENTS');const state=sessions.get(session);
+  if(state?.nativeAccount)assertNativeWalletEconomicSessionV1(session,{runtime:state.runtime,system:state.system,account:state.nativeAccount});
+  else {need(state?.wrappedPortfolio,'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');assertWrappedWalletEconomicSessionV1(session,{runtime:state.runtime,portfolio:state.wrappedPortfolio});}
+  return sessionEconomicState(session,null);
+}
+export function readOriginalSessionWalletEconomicStateV1(session) {
+  need(arguments.length===1,'WALLET_ECONOMIC_SESSION_ARGUMENTS');const state=sessions.get(session);need(state?.durableKeeper&&(state.nativeAccount||state.wrappedPortfolio),'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
+  return state.economicState??null;
+}
+function fenceSessionEconomicState(state) {
+  if(state.economicState)state.economicCapture=state.economicState.capture();
+  else if(state.economicAcquisition)state.economicCapture=(async()=>{const capability=await state.economicAcquisition;return capability.capture();})();
+  state.economicCapture?.catch(()=>{});
+}
+async function capturedSessionEconomicState(state) {
+  if(!state.economicState)return null;
+  need(state.economicCapture,'WALLET_ECONOMIC_ORIGINAL_CAPTURE_REQUIRED');
+  return {journal:{...state.economicJournal},checkpoint:await state.economicCapture};
 }
 
 /** Distinct original registry: used only to require the same exact handoff at
@@ -336,27 +402,30 @@ export function flatManualWrappedGraphActionTarget(session, action, input) {
 
 export async function captureWrappedWalletGraphSessionV1(session){
  const state=sessions.get(session);need(state?.wrappedPortfolio&&state.durableKeeper&&!state.captured,'WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');if(!state.recoveryFence)fenceWrappedWalletGraphSessionV1(session);state.captured=true;
- await state.recoveryFence;
+ const drained=await Promise.allSettled([state.recoveryFence,state.economicCapture??Promise.resolve(null)]);for(const outcome of drained)if(outcome.status==='rejected')throw outcome.reason;
  const {captureDurableGenericAccountKeeperV1}=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
- try{return {schema:'WRAPPED_ORIGINAL_GRAPH_SESSION_RECOVERY_V1',keeper:await captureDurableGenericAccountKeeperV1(state.durableKeeper),
-   reviews:state.recoveryReviews};}
+ try{const economicState=await capturedSessionEconomicState(state);return {schema:economicState?'WRAPPED_ORIGINAL_GRAPH_SESSION_ECONOMIC_RECOVERY_V1':'WRAPPED_ORIGINAL_GRAPH_SESSION_RECOVERY_V1',keeper:await captureDurableGenericAccountKeeperV1(state.durableKeeper),
+   reviews:state.recoveryReviews,...(economicState?{economicState}: {})};}
  catch(error){try{await state.durableKeeper.close();}catch(cleanup){throw new AggregateError([error,cleanup],'WRAPPED_GRAPH_CAPTURE_CLEANUP_FAILED',{cause:error});}throw error;}
 }
 export async function reopenWrappedWalletGraphSessionV1(token){
  const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
  const retained=consumeWrappedWalletRecoveryPartV1(token,'graph-keeper');exactRecord(retained,['input','record','approvals']);
- exactRecord(retained.record,['schema','keeper','reviews']);need(retained.record.schema==='WRAPPED_ORIGINAL_GRAPH_SESSION_RECOVERY_V1','WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');
+ const economic=retained.record.schema==='WRAPPED_ORIGINAL_GRAPH_SESSION_ECONOMIC_RECOVERY_V1';
+ exactRecord(retained.record,economic?['schema','keeper','reviews','economicState']:['schema','keeper','reviews']);need(economic||retained.record.schema==='WRAPPED_ORIGINAL_GRAPH_SESSION_RECOVERY_V1','WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');
+ if(economic)exactRecord(retained.record.economicState,['journal','checkpoint']);
  const joined=await wrappedGraphSession(retained.input,retained.record);
  try{
    const reviews=retained.approvals.map(approval=>{const details=wrappedWalletAccountManualGraphDetailsV1(approval);return {body:details.body,review:details.review};});
    need(JSON.stringify(reviews)===JSON.stringify(retained.record.reviews),'WALLET_ACCOUNT_ORIGINAL_REVIEWS_CHANGED');
-   for(const approval of retained.approvals)joined.bindManualGraph(approval);return joined;
+   for(const approval of retained.approvals)joined.bindManualGraph(approval);if(economic)await sessionEconomicState(joined.session,retained.record.economicState);return joined;
  }catch(error){await joined.session.close();throw error;}
 }
 
 export function fenceWrappedWalletGraphSessionV1(session){
  const state=sessions.get(session);need(state?.wrappedPortfolio&&state.durableKeeper&&!state.captured&&!state.recoveryFence,'WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');
  state.recoveryReviews=[...state.graphs.values()].map(approval=>{const details=original(session,approval);return {body:details.body,review:details.review};});
+ fenceSessionEconomicState(state);
  state.recoveryFence=session.quiesceForPrivateRecovery();state.recoveryFence.catch(()=>{});
 }
 
@@ -374,6 +443,7 @@ export function fenceOriginalNativeSessionEconomicRecoveryV1(session, authority)
   state.nativeReviews = [...state.notes.values()].map(approval => { const details = originalNote(session, approval);
     return structuredClone({ body: details.body, review: details.review }); });
   state.nativeIdentity = admitted;
+  fenceSessionEconomicState(state);
   state.nativeFence = session.quiesceForPrivateRecovery(); // closing fence runs before first await
   state.nativeFence.catch(() => {});
 }
@@ -383,15 +453,17 @@ export function captureOriginalNativeSessionEconomicRecoveryV1(session, token) {
   need(state?.nativeFence && !state.nativeCaptured, 'NATIVE_SESSION_ORIGINAL_CAPTURE_REQUIRED');
   need(sha(admitted) === sha(state.nativeIdentity), 'NATIVE_SESSION_CAPTURE_CHANGED'); state.nativeCaptured = true;
   state.nativeCapturePromise = (async () => {
-    const originalSnapshot = await state.nativeFence;
+    const drained=await Promise.allSettled([state.nativeFence,state.economicCapture??Promise.resolve(null)]);for(const outcome of drained)if(outcome.status==='rejected')throw outcome.reason;
+    const originalSnapshot = drained[0].value;
     need(!originalSnapshot.busy && originalSnapshot.queued === 0, 'NATIVE_SESSION_ORIGINAL_IDLE_REQUIRED');
     const { captureDurableGenericAccountKeeperV1 } = await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
     state.nativeKeeperCaptureStarted = true;
     const keeper = await captureDurableGenericAccountKeeperV1(state.durableKeeper); // closes actual worker/IPC before returning
     state.nativeStopped = true;
-    state.nativeRecord = { schema: 'ORIGINAL_NATIVE_SESSION_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+    const economicState=await capturedSessionEconomicState(state);
+    state.nativeRecord = { schema: economicState?'ORIGINAL_NATIVE_SESSION_WALLET_STATE_RECOVERY_V1':'ORIGINAL_NATIVE_SESSION_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
       poolIndex: state.poolIndex, accountIdentitySHA256: sha(genericAccountIdentity(state.nativeAccount.config)),
-      journalRevision: originalSnapshot.revision, keeper, notes: structuredClone(state.nativeReviews) };
+      journalRevision: originalSnapshot.revision, keeper, notes: structuredClone(state.nativeReviews),...(economicState?{economicState}: {}) };
     return structuredClone(state.nativeRecord);
   })(); state.nativeCapturePromise.catch(() => {}); return state.nativeCapturePromise;
 }
@@ -428,8 +500,10 @@ export async function reopenOriginalNativeSessionEconomicRecoveryV1(token, conte
   const admitted = nativeEconomicRecoverySectionIdentityV1(token, 'session');
   need(nativeValueOriginalRecoverySourceV1(contexts.runtime, contexts.system) === admitted.sourceSHA256, 'NATIVE_SESSION_SOURCE_CHANGED');
   const retained = consumeNativeEconomicRecoverySectionV1(token, 'session');
-  exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'accountIdentitySHA256', 'journalRevision', 'keeper', 'notes']);
-  need(retained.schema === 'ORIGINAL_NATIVE_SESSION_ECONOMIC_RECOVERY_V1' && retained.sourceSHA256 === admitted.sourceSHA256);
+  const economic=retained.schema==='ORIGINAL_NATIVE_SESSION_WALLET_STATE_RECOVERY_V1';
+  exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'accountIdentitySHA256', 'journalRevision', 'keeper', 'notes',...(economic?['economicState']:[])]);
+  need((economic||retained.schema === 'ORIGINAL_NATIVE_SESSION_ECONOMIC_RECOVERY_V1') && retained.sourceSHA256 === admitted.sourceSHA256);
+  if(economic)exactRecord(retained.economicState,['journal','checkpoint']);
   assertOwnedNativeValueAccountAuthority(contexts.account, { runtime: contexts.runtime, system: contexts.system,
     poolIndex: retained.poolIndex, owner: contexts.owner });
   need(sha(genericAccountIdentity(contexts.account.config)) === retained.accountIdentitySHA256, 'NATIVE_SESSION_ORIGINAL_ACCOUNT_CHANGED');
