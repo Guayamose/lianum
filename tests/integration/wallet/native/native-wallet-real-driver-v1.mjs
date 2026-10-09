@@ -37,7 +37,7 @@ import { createNativeValueSystemStateReader } from '../../../../packages/backend
 import { createNativeValueOwnerProcess } from '../../../../packages/custody/src/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueExecution } from '../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs';
 import { createNativeValueAccountAuthority } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
+import { createNativeValueManualGraphAccountSession,createOriginalSessionWalletEconomicStateV1,readOriginalSessionWalletEconomicStateV1 } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 import { FLAT_TRANSACTION_METHODS, encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { decodeStatement, joinReadiness } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
@@ -278,7 +278,7 @@ async function runFixed(unfundedOnly,tron=false) {
     for(const [name,resource] of [['closedEvm',runtime],[tron?'closedNativeTron':'closedNativeEvm',nativeRuntime]])if(resource){
       try{const stopped=await resource.close();if(tron&&resource===nativeRuntime){assert.equal(stopped.stopped,true);assert.equal(stopped.forced,false);assert.equal(stopped.exitCode,0);assert.equal(stopped.signal,null);result.cleanup.tronOriginal=stopped;}result.cleanup[name]=true;}catch(error){result.cleanup[name]=false;failures.push({name,code:privateFailureDiagnostic(error).code});}}
     if(tron&&failures.length===0){await close('synthetic-private-files',async()=>{
-     for(const name of ['owner','original-solver-payout.vault','original-account-journal.vault']){
+     for(const name of ['owner','original-solver-payout.vault','original-account-journal.vault','original-account-journal.vault.economic-state.vault']){
       const path=join(privateDirectory,name);assert.equal(realpathSync(path),path,'TRON_WALLET_PRIVATE_CLEANUP_ALIAS');const stat=lstatSync(path);
       assert.equal(stat.uid,process.getuid());assert.equal(stat.isSymbolicLink(),false);
       assert.ok(stat.isDirectory()?(stat.mode&0o7777)===0o700:(stat.mode&0o7777)===0o600,'TRON_WALLET_PRIVATE_CLEANUP_MODE');
@@ -291,7 +291,8 @@ async function runFixed(unfundedOnly,tron=false) {
     void auditCounts().catch(()=>{}).then(cleanup).catch(()=>{}).finally(()=>{result.phase='failed';result.success=false;
       result.errorCode='NATIVE_WALLET_INTERRUPTED_ORIGINAL_OUTCOME_UNKNOWN';save();process.exit(2);});};
   process.once('SIGTERM',stop);process.once('SIGINT',stop);
-  async function openListener(){app=await startWalletApplication({accountSession:joined.session,actionAccessMode:'exact-only',port:0});
+  async function openListener(){const economicState=readOriginalSessionWalletEconomicStateV1(joined.session)??await createOriginalSessionWalletEconomicStateV1(joined.session);
+    app=await startWalletApplication({accountSession:joined.session,economicState,actionAccessMode:'exact-only',port:0});
     driver=createManualWalletAppDriver(app,{deadlineMs});assert.equal(app.actionAccess,undefined);}
   async function health(phase,backed,reservations,inventoryCount){
     remaining(); assertOwnedNativeValueSystem(runtime,system);

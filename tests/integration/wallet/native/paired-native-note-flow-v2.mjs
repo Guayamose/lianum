@@ -31,7 +31,7 @@ import {assertNativeEconomicNoteTelemetryV1} from '../../../../packages/engine/s
 import {NATIVE_DEVICE_ECONOMIC_PROFILE_V1,NATIVE_DEVICE_ECONOMIC_RESULT_V1,assertNativeDeviceEconomicReleaseV1,assertNativeDeviceEconomicResultV1} from './native-device-economic-policy-v1.mjs';
 import {assertDeviceOwnerNativeInclusionV1} from './device-owner-execution-native-checks-v1.mjs';
 import { createNativeValueAccountAuthority, createNativeEconomicNoteAccountAuthorityV1, nativeValueAccountManualNoteDetails } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
+import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1, readOriginalSessionWalletEconomicStateV1 } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedOriginalAccountHttpServerV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, validateOriginalAccountFreshV2,
@@ -411,7 +411,8 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     assert.equal(account.features.nativeGraph,deviceExecution); preparation = await account.ownerActions.createManualPreparation();
     joined = await createNativeValueManualGraphAccountSession({ runtime, system, poolIndex: 0, account,
       journal: { path: join(journalDirectory, 'original-account-journal.vault'), password: freshFixtureId() } });
-    app = await startWalletApplication({ accountSession: joined.session, actionAccessMode: 'exact-only', port: 0 });
+    const economicState=readOriginalSessionWalletEconomicStateV1(joined.session)??await createOriginalSessionWalletEconomicStateV1(joined.session);
+    app = await startWalletApplication({ accountSession: joined.session, economicState, actionAccessMode: 'exact-only', port: 0 });
     driver = createManualWalletAppDriver(app, { deadlineMs }); result.checks.originalNativeFactoryAndBootstrap = true;
     const appRoot = realpathSync(resolve(FLAT, '../../../apps/mobile'));
     assert.equal(appRoot, resolve(FLAT, '../../../apps/mobile'), 'PAIRED_NOTE_FIXED_PHYSICAL_APP_ROOT');

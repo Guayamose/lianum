@@ -95,6 +95,7 @@ async function walletAcceptanceV1(input,recovery){
   const { createWrappedWalletManualGraphSessionV1,reopenWrappedWalletGraphSessionV1 } = await import('../../../../../packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs');
   const { createWrappedClaimSessionV1, wrappedClaimSessionControllerV1 } = await import('../../../../../packages/backend/src/api/claims/wrapped/wrapped-claim-session-v1.mjs');
   const { createWrappedWithdrawalSessionV1,reopenWrappedWithdrawalSessionFromRecoveryV1 } = await import('../../../../../packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs');
+  const {createOriginalSessionWalletEconomicStateV1,readOriginalSessionWalletEconomicStateV1}=await import('../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
   const { startWalletApplication } = await import('../../../../../apps/wallet/src/server/server.mjs');
   const { createManualWalletAppDriver } = await import('../../manual/manual-wallet-app-driver.mjs');
   const { createWalletApplicationClient } = await import('../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs');
@@ -138,7 +139,8 @@ async function walletAcceptanceV1(input,recovery){
     if(!recovery)await privateLifetime.retainInitialization({accounts:accounts.map(wrappedWalletAccountPrivateInitializationV1),executions:executions.map(wrappedWalletExecutionPrivateInitializationV1)});
     const prepared=recovery?structuredClone(recovery.record.prepared):await controller.prepare({handoff});
     claimSession=await createWrappedClaimSessionV1({controller,accountId:ids.claimAccountId,ownerIdentitySHA256:scope.identitySHA256,claimDomain:domain,caller:runtime.accounts[4]});
-    inspectWrappedInstallationSourcesV2();app=await startWalletApplication({accountSession:joined.session,nativeClaimSession:claimSession,wrappedWithdrawalSession:withdrawalSession,actionAccessMode:'exact-only',port:0});
+    const economicState=readOriginalSessionWalletEconomicStateV1(joined.session)??await createOriginalSessionWalletEconomicStateV1(joined.session);
+    inspectWrappedInstallationSourcesV2();app=await startWalletApplication({accountSession:joined.session,economicState,nativeClaimSession:claimSession,wrappedWithdrawalSession:withdrawalSession,actionAccessMode:'exact-only',port:0});
     driver=createManualWalletAppDriver(app,{deadlineMs});
     const initial=await driver.state();assert.ok(initial.account && initial.nativeClaims);
     const opening=assertWrappedOpeningStateV1(initial,accounts.map(account=>account.registry[0]));
