@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {randomBytes,createHash,createPublicKey,verify} from 'node:crypto';
 import {types} from 'node:util';
 import {mkdtemp,lstat,realpath,chmod} from 'node:fs/promises';
-import {join} from 'node:path';
+import {join,dirname} from 'node:path';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
 import {createProofProcess} from '../../../../engine/src/execution/proofs/proof-process.mjs';
 import {walletInputPublicWords,decodeWalletPoolInputs,balanceCommitment} from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
@@ -14,7 +14,7 @@ import {nullifier} from '../../../../engine/src/notes/private-note-encoding.mjs'
 import {verifyPrivateNotePath} from '../../../../engine/src/notes/private-note-tree.mjs';
 import {flatOwnerIdentity,ownerDigest} from '../../../../custody/src/signing/flat-owner-custody.mjs';
 import {createFlatOwnerObserver,assertOwnedFlatOwnerObserver} from '../../../../custody/src/observers/flat-owner-observer.mjs';
-import {assertOwnedLocalEvmV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {assertOwnedLocalEvmV2,assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertLocalEvm} from '../../chains/evm/runtime/local-evm-ownership.mjs';
 import {assertOwnedFlatSystem} from '../../operations/deployments/system/deploy-system.mjs';
 import {assertOwnedPoolAsset} from '../../chains/shared/contracts/owned-pool-asset.mjs';
@@ -22,6 +22,10 @@ import {createFlatSystemStateReader} from '../../execution/account/reconciliatio
 import {encodeFlatTransaction} from '../../execution/encoding/transaction-codec.mjs';
 import {flatAccountCalldataHash,validateFlatAccountOwnerObservation} from './flat-account-validation.mjs';
 import * as protocol from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {canonicalClaimRecordDataV1} from '../../claims/storage/segmented-record-store.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {assertDeviceExternalFlatRecoveryAuthorityV1,deviceExternalFlatAccountCaptureIdentityV1,retainOriginalWrappedRecoverySectionV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import {consumeOriginalDeviceExternalFlatAccountReopenV1} from '../recovery/device-external-flat-ordered-observation-recovery-v1.mjs';
 const sends=new WeakMap();
 const owned=new WeakMap(),claimedPools=new WeakMap(),bare=v=>v.slice(2),copy=v=>structuredClone(v),id=()=>randomBytes(32).toString('hex');
 const hash=v=>createHash('sha256').update(v).digest('hex'),jsonHash=v=>hash(Buffer.from(JSON.stringify(v)));
@@ -31,8 +35,20 @@ const exact=(raw,keys)=>{data(raw);return protocol.externalFlatExactV1(raw,keys)
 export function assertOriginalDeviceExternalFlatNoteAuthorityV1(account){need(arguments.length===1);const s=owned.get(account);need(s);s.live();return s.descriptor;}
 export function consumeOriginalDeviceExternalFlatSendV1(request,runtime){need(arguments.length===2);const r=sends.get(request);need(r&&r.runtime===runtime&&!r.opened,'DEVICE_EXTERNAL_FLAT_ORIGINAL_SEND');r.check();r.opened=true;return r.scope;}
 export function readOriginalDeviceExternalFlatProofReceiptsV1(account){need(arguments.length===1);const r=owned.get(account);need(r);r.live();return r.proofs.map(v=>copy(v));}
-export async function createOriginalDeviceExternalFlatNoteAuthorityV1(raw){
- need(arguments.length===1);need(!types.isProxy(raw),'DEVICE_EXTERNAL_FLAT_DATA');const input=protocol.externalFlatExactV1(raw,['runtime','system','poolIndex','origin','devicePublicKey']);need(!types.isProxy(input.runtime)&&!types.isProxy(input.system));
+export async function createOriginalDeviceExternalFlatNoteAuthorityV1(raw){need(arguments.length===1);return createAuthority(raw,null,null);}
+/** A distinct original producer armed before the pool receives its note. */
+export async function createOriginalRetainedDeviceExternalFlatNoteAuthorityV1(raw){
+ need(arguments.length===1);const q=protocol.externalFlatExactV1(raw,['runtime','system','poolIndex','origin','devicePublicKey','recoveryAuthority']);
+ assertOwnedDeviceExternalFlatReceiverV1(q.runtime);const authorityIdentity=assertDeviceExternalFlatRecoveryAuthorityV1(q.recoveryAuthority);assertWrappedPrivateLifetimeAttemptV1(q.runtime,authorityIdentity);
+ const {recoveryAuthority,...input}=q;return createAuthority(input,authorityIdentity,null);
+}
+export function assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1(account){need(arguments.length===1);const s=owned.get(account);need(s?.capture,'DEVICE_EXTERNAL_FLAT_RETAINED_ORIGINAL_REQUIRED');s.live();return s.descriptor;}
+export function assertOriginalRetainedDeviceExternalFlatNoteAuthorityContextV1(account,input){need(arguments.length===2);const s=owned.get(account);need(s?.capture,'DEVICE_EXTERNAL_FLAT_RETAINED_ORIGINAL_REQUIRED');s.live();const q=protocol.externalFlatExactV1(input,['runtime','system','recoveryAuthority']);need(s.runtime===q.runtime&&s.system===q.system,'DEVICE_EXTERNAL_FLAT_ORIGINAL_RETAINED_CONTEXT');assert.deepEqual(s.authorityIdentity,assertDeviceExternalFlatRecoveryAuthorityV1(q.recoveryAuthority));return s.descriptor;}
+
+export function captureOriginalRetainedDeviceExternalFlatNoteAuthorityV1(account,token){need(arguments.length===2);const s=owned.get(account);need(s?.capture,'DEVICE_EXTERNAL_FLAT_RETAINED_ORIGINAL_REQUIRED');return s.capture(token);}
+export async function reopenOriginalDeviceExternalFlatNoteAuthorityV1(token){need(arguments.length===1);const {input,saved,authorityIdentity}=consumeOriginalDeviceExternalFlatAccountReopenV1(token);return createAuthority(input,authorityIdentity,saved);}
+async function createAuthority(raw,authorityIdentity,restored){
+need(!types.isProxy(raw),'DEVICE_EXTERNAL_FLAT_DATA');const input=protocol.externalFlatExactV1(raw,['runtime','system','poolIndex','origin','devicePublicKey']);need(!types.isProxy(input.runtime)&&!types.isProxy(input.system));
  const {runtime,system,poolIndex}=input;need(poolIndex===0||poolIndex===1);await assertLocalEvm(runtime);assertOwnedLocalEvmV2(runtime);need(typeof runtime.dispatchOriginalDeviceExternalFlatNoteV1==='function','DEVICE_EXTERNAL_FLAT_DISPATCH_REQUIRED');assertOwnedFlatSystem(runtime,system);
  const pool=system.pools[poolIndex];assertOwnedPoolAsset(runtime,pool.assetCapability);const asset=pool.assetCapability.metadata;
  need(asset.kind==='ERC20'&&asset.decimals<=18,'DEVICE_EXTERNAL_FLAT_ERC20_REQUIRED');assert.deepEqual(pool.assetMetadata,asset);need(asset.address===pool.asset&&asset.codeHash===pool.assetCodeHash);
@@ -40,13 +56,18 @@ export async function createOriginalDeviceExternalFlatNoteAuthorityV1(raw){
  // second source account or adopt another root/journal after funding.
  let claims=claimedPools.get(system);if(!claims){claims=new Set();claimedPools.set(system,claims);}need(!claims.has(poolIndex),'DEVICE_EXTERNAL_FLAT_ALREADY_CREATED');claims.add(poolIndex);
  const identity=flatOwnerIdentity({pool:bare(pool.address),domain:pool.domain,domainCommitment:bare(pool.domainCommitment),assetBinding:{token:bare(asset.address),codeHash:bare(asset.codeHash)}}),identitySHA256=ownerDigest(identity);
- const descriptor=protocol.normalizeExternalFlatDescriptorV1({profile:protocol.DEVICE_EXTERNAL_FLAT_NOTE_V1,origin:input.origin,pairingId:id(),devicePublicKey:input.devicePublicKey,lifetime:id(),
+ const descriptor=protocol.normalizeExternalFlatDescriptorV1({profile:protocol.DEVICE_EXTERNAL_FLAT_NOTE_V1,origin:input.origin,pairingId:restored?.descriptor.pairingId??id(),devicePublicKey:input.devicePublicKey,lifetime:restored?.descriptor.lifetime??id(),
   poolTerms:{pool:bare(pool.address),poolCodeHash:bare(pool.codeHash),scope:identity.domain.scope,policy:identity.domain.policy,assetIdentity:identity.domain.asset,asset:bare(asset.address),assetCodeHash:bare(asset.codeHash),genesis:bare(runtime.metadata.evmGenesis),domainCommitment:identity.domainCommitment,hub:bare(system.hub.address),hubCodeHash:bare(system.hub.codeHash),hubDomain:identity.domain.hubDomain,ledgerNamespace:identity.domain.ledgerNamespace},assetMetadata:{kind:asset.kind,symbol:asset.symbol,decimals:asset.decimals}});
  const key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(descriptor.devicePublicKey.slice(2,66),'hex').toString('base64url'),y:Buffer.from(descriptor.devicePublicKey.slice(66),'hex').toString('base64url')}});
  const reader=await createFlatSystemStateReader({runtime,system,poolIndex}),observer=await createFlatOwnerObserver({runtime,system,poolIndex});
- const directory=await mkdtemp(join(runtime.metadata.scratchDirectory,'device-external-flat-note-'));await chmod(directory,0o700);
- const file=join(directory,'operations.vault'),vault=new Vault(file);let password=id(),record=await vault.create({schema:'ORIGINAL_DEVICE_EXTERNAL_FLAT_JOURNAL_V1',descriptor:copy(descriptor),identitySHA256,jobs:[]},password);
- let closed=false,poisoned=false,busy=false,work=null;const challenges=new Map(),quotes=new Map(),proofs=[];
+ if(restored){assert.deepEqual(descriptor,restored.descriptor,'DEVICE_EXTERNAL_FLAT_REOPENED_DESCRIPTOR');need(restored.identitySHA256===identitySHA256,'DEVICE_EXTERNAL_FLAT_REOPENED_IDENTITY');}
+ const directory=restored?restored.directory:await mkdtemp(join(runtime.metadata.scratchDirectory,'device-external-flat-note-'));if(!restored)await chmod(directory,0o700);
+ need(dirname(directory)===runtime.metadata.scratchDirectory&&directory.slice(dirname(directory).length+1).startsWith('device-external-flat-note-'),'DEVICE_EXTERNAL_FLAT_REOPENED_DIRECTORY');
+ const file=join(directory,'operations.vault'),vault=new Vault(file);let password=restored?restored.password:id(),record=restored?await vault.read(password):await vault.create({schema:'ORIGINAL_DEVICE_EXTERNAL_FLAT_JOURNAL_V1',descriptor:copy(descriptor),identitySHA256,jobs:[]},password);
+ if(restored){assert.deepEqual(record,restored.record,'DEVICE_EXTERNAL_FLAT_ORIGINAL_CHECKPOINT');exact(record.data,['schema','descriptor','identitySHA256','jobs']);need(record.data.schema==='ORIGINAL_DEVICE_EXTERNAL_FLAT_JOURNAL_V1');assert.deepEqual(record.data.descriptor,descriptor);need(record.data.identitySHA256===identitySHA256);}
+ const slot='device-external-flat-account-'+poolIndex,retentionIdentity={profile:'DEVICE_EXTERNAL_FLAT_ACCOUNT_LIFETIME_V1',poolIndex,identitySHA256,lifetime:descriptor.lifetime};
+ let retentionHandle=null;const initialCheckpoint=restored?restored.initialCheckpoint:{revision:record.revision,commitment:hash(canonicalClaimRecordDataV1(record))};
+ let closed=false,poisoned=false,busy=false,work=null;const challenges=new Map(),quotes=new Map(),proofs=restored?JSON.parse(restored.proofFrames):[];
  function live(){need(!closed&&!poisoned,'DEVICE_EXTERNAL_FLAT_UNAVAILABLE');assertOwnedFlatSystem(runtime,system);assertOwnedPoolAsset(runtime,pool.assetCapability);assertOwnedFlatOwnerObserver(observer,{runtime,system,poolIndex});}
  function admitted(){need(!poisoned,'DEVICE_EXTERNAL_FLAT_UNAVAILABLE');assertOwnedFlatSystem(runtime,system);assertOwnedPoolAsset(runtime,pool.assetCapability);}
  async function physical(){const [d,f]=await Promise.all([lstat(directory),lstat(file)]);need(d.isDirectory()&&d.uid===process.getuid()&&(d.mode&0o777)===0o700&&!d.isSymbolicLink()&&await realpath(directory)===directory,'DEVICE_EXTERNAL_FLAT_STORAGE');need(f.isFile()&&f.nlink===1&&f.uid===process.getuid()&&(f.mode&0o777)===0o600&&!f.isSymbolicLink()&&await realpath(file)===file,'DEVICE_EXTERNAL_FLAT_STORAGE');}
@@ -64,19 +85,19 @@ export async function createOriginalDeviceExternalFlatNoteAuthorityV1(raw){
  function run(fn){live();need(!busy,'DEVICE_EXTERNAL_FLAT_BUSY');busy=true;work=(async()=>{try{return await fn();}finally{busy=false;work=null;}})();return work;}
  function original(c,r){for(const k of ['jobId','depositJobId','rootId','noteRevision','recipient','witnessSHA256'])assert.deepEqual(c[k],r.consent[k],'DEVICE_EXTERNAL_FLAT_JOB_CHANGED');assert.deepEqual(c.statement,r.consent.statement,'DEVICE_EXTERNAL_FLAT_STATEMENT');assert.deepEqual(c.path,r.consent.path,'DEVICE_EXTERNAL_FLAT_PATH');need(c.proofSHA256===r.proofSHA256&&c.publicInputsSHA256===r.publicInputsSHA256,'DEVICE_EXTERNAL_FLAT_PROOF_CHANGED');}
  function unspent(v,r){need(v.ledger.commitments.filter(c=>c==='0x'+r.consent.statement.output).length===1&&!v.ledger.nullifiers.includes('0x'+r.nullifier),'DEVICE_EXTERNAL_FLAT_SOURCE_NOT_AVAILABLE');}
- async function observe(r){need(r.submission?.dispatchLatched===true,'DEVICE_EXTERNAL_FLAT_SEND_NOT_ADMITTED');const s=r.submission,o=await observer.readTransaction({kind:s.kind,identitySHA256,transactionHash:s.transactionHash,calldataSHA256:s.calldataSHA256});if(o===null)return publicRow(r);validateFlatAccountOwnerObservation({identity,artifact:pool.artifact,submission:s,authorization:null,observation:o});const v=await current();if(r.mode==='deposit_balance'){if(r.stage!=='CONFIRMED')unspent(v,r);}else need(v.ledger.nullifiers.includes('0x'+r.nullifier),'DEVICE_EXTERNAL_FLAT_SOURCE_NOT_SPENT');await reader.assertCurrent(v);admitted();
+ async function observe(r){need(r.submission?.dispatchLatched===true,'DEVICE_EXTERNAL_FLAT_SEND_NOT_ADMITTED');const s=r.submission;if(restored&&s.transactionHash===null)return publicRow(r);const o=await observer.readTransaction({kind:s.kind,identitySHA256,transactionHash:s.transactionHash,calldataSHA256:s.calldataSHA256});if(o===null)return publicRow(r);validateFlatAccountOwnerObservation({identity,artifact:pool.artifact,submission:s,authorization:null,observation:o});const v=await current();if(r.mode==='deposit_balance'){if(r.stage!=='CONFIRMED')unspent(v,r);}else need(v.ledger.nullifiers.includes('0x'+r.nullifier),'DEVICE_EXTERNAL_FLAT_SOURCE_NOT_SPENT');await reader.assertCurrent(v);admitted();
   const proofInputs=r.proof.publicInputs,confirmation={profile:descriptor.profile,jobId:r.jobId,depositJobId:r.consent.depositJobId,rootId:r.consent.rootId,commitment:r.mode==='deposit_balance'?r.consent.statement.output:r.consent.statement.commitment,amount:r.consent.statement.amount,recipient:r.consent.recipient,proofSHA256:r.proofSHA256,publicInputsSHA256:r.publicInputsSHA256,transactionHash:o.transaction.hash,calldataSHA256:s.calldataSHA256,receiptBlockHash:o.receipt.blockHash,observed:observed(v),status:'CONFIRMED',canonicalRpcVerifiedBy:'ORIGINAL_BACKEND_OBSERVER',mobileCanonicalRpcVerified:false};need(proofInputs.length===(r.mode==='deposit_balance'?26:39));
   if(r.stage!=='CONFIRMED')await update(r.jobId,{stage:'CONFIRMED',submission:{...s,transactionHash:o.transaction.hash,observation:o},observation:confirmation});return publicRow(row(r.jobId));}
  const account=Object.freeze({descriptor,
   challenge(){need(arguments.length===0);live();return issue({profile:descriptor.profile,action:'ACCESS',origin:descriptor.origin,pairingId:descriptor.pairingId,devicePublicKey:descriptor.devicePublicKey},true);},
   status(raw){need(arguments.length===1);return run(async()=>{const q=exact(raw,['access','signature']),grant=authenticate(q.access,q.signature,true);const v=await current();fresh(grant);const observedAt=Date.now();return protocol.normalizeExternalFlatStatusV1({descriptor:copy(descriptor),jobs:record.data.jobs.map(publicRow),observed:observed(v),observedAt,expiresAt:observedAt+15000});});},
-  review(raw){need(arguments.length===1);return run(async()=>{const q=exact(raw,['access','signature','draft']),grant=authenticate(q.access,q.signature,true),d=exact(q.draft,['action','jobId','rootId','noteRevision','recipient','statement','path','witnessSHA256']);const v=await current();fresh(grant);let fields;
+  review(raw){need(arguments.length===1);return run(async()=>{const q=exact(raw,['access','signature','draft']),grant=authenticate(q.access,q.signature,true),d=exact(q.draft,['action','jobId','rootId','noteRevision','recipient','statement','path','witnessSHA256']);if(restored)need(['OBSERVE_D26','OBSERVE_W39'].includes(d.action),'DEVICE_EXTERNAL_FLAT_REOPENED_OBSERVE_ONLY');const v=await current();fresh(grant);let fields;
    if(d.action==='PROVE_D26'){need(record.data.jobs.length===0&&d.jobId===null&&d.path===null,'DEVICE_EXTERNAL_FLAT_ONE_SOURCE');const statement=protocol.normalizeExternalFlatDepositStatementV1(d.statement);need(statement.scope===identity.domain.scope&&statement.policy===identity.domain.policy&&statement.epoch===(BigInt(v.head.timestamp)/600n).toString());need(!v.ledger.commitments.includes('0x'+statement.output),'DEVICE_EXTERNAL_FLAT_OUTPUT_PRESENT');const jobId=id();fields={...d,jobId,depositJobId:jobId,statement,path:null,proofSHA256:null,publicInputsSHA256:null};}
    else if(d.action==='QUOTE_W39'){const parent=row(d.jobId);need(parent.mode==='deposit_balance'&&parent.stage==='CONFIRMED'&&!record.data.jobs.some(r=>r.mode==='withdraw_balance'),'DEVICE_EXTERNAL_FLAT_SOURCE_ONLY');for(const k of ['rootId','noteRevision','recipient'])need(d[k]===parent.consent[k],'DEVICE_EXTERNAL_FLAT_PARENT_CHANGED');need(d.statement===null&&d.path===null&&d.witnessSHA256===null);unspent(v,parent);const path=v.ledger.tree.path(v.ledger.commitments.indexOf('0x'+parent.consent.statement.output)),publicPath={root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)};need(verifyPrivateNotePath(path));fields={...d,jobId:id(),depositJobId:parent.jobId,path:publicPath,statement:{scope:identity.domain.scope,policy:identity.domain.policy,epoch:(BigInt(v.head.timestamp)/600n).toString(),root:publicPath.root,nullifier:parent.nullifier,amount:parent.consent.statement.amount,recipient:parent.consent.recipient,commitment:parent.consent.statement.output},proofSHA256:null,publicInputsSHA256:null};}
    else if(d.action==='PROVE_W39'){need(!record.data.jobs.some(r=>r.mode==='withdraw_balance'),'DEVICE_EXTERNAL_FLAT_ONE_EXIT');const quote=quotes.get(d.jobId);need(quote&&!quote.consumed&&performance.now()<quote.deadline,'DEVICE_EXTERNAL_FLAT_ORIGINAL_QUOTE');fields={...copy(quote.value),...d,depositJobId:quote.value.depositJobId,proofSHA256:null,publicInputsSHA256:null};for(const k of ['rootId','noteRevision','recipient','statement','path'])assert.deepEqual(d[k],quote.value[k],'DEVICE_EXTERNAL_FLAT_QUOTE_CHANGED');}
    else{const r=row(d.jobId);need(['FUND_D26','OBSERVE_D26','WITHDRAW_W39','OBSERVE_W39'].includes(d.action)&&d.action.endsWith(r.mode==='deposit_balance'?'D26':'W39'),'DEVICE_EXTERNAL_FLAT_ACTION');for(const k of ['rootId','noteRevision','recipient','statement','path','witnessSHA256'])assert.deepEqual(d[k],r.consent[k],'DEVICE_EXTERNAL_FLAT_JOB_CHANGED');fields={...copy(r.consent),action:d.action,proofSHA256:r.proofSHA256,publicInputsSHA256:r.publicInputsSHA256};}
    return{consent:issue({...fields,profile:descriptor.profile,descriptor:copy(descriptor),observed:observed(v),openingDisclosure:d.action.startsWith('PROVE_')?protocol.DEVICE_EXTERNAL_FLAT_OPENING_V1:null})};});},
-  operate(raw){need(arguments.length===1);const q=exact(raw,['consent','signature','witness']);return run(async()=>{const grant=authenticate(q.consent,q.signature),c=grant.value;
+  operate(raw){need(arguments.length===1);const q=exact(raw,['consent','signature','witness']);return run(async()=>{const grant=authenticate(q.consent,q.signature),c=grant.value;if(restored)need(['OBSERVE_D26','OBSERVE_W39'].includes(c.action),'DEVICE_EXTERNAL_FLAT_REOPENED_OBSERVE_ONLY');
    if(c.action==='QUOTE_W39'){need(q.witness===null);const p=row(c.depositJobId);const v=await current(c,true);unspent(v,p);need(c.path.root===bare(v.ledger.tree.root));await reader.assertCurrent(v);fresh(grant);for(const[k,r]of quotes)if(r.consumed||r.deadline<=performance.now())quotes.delete(k);need(quotes.size<16,'DEVICE_EXTERNAL_FLAT_CAPACITY');quotes.set(c.jobId,{value:copy(c),deadline:grant.deadline,consumed:false});return{quote:copy(c)};}
    if(c.action.startsWith('PROVE_')){const mode=c.action==='PROVE_D26'?'deposit_balance':'withdraw_balance';if(mode==='withdraw_balance'){const quote=quotes.get(c.jobId);need(quote&&!quote.consumed&&performance.now()<quote.deadline,'DEVICE_EXTERNAL_FLAT_ORIGINAL_QUOTE');for(const k of ['depositJobId','rootId','noteRevision','recipient','statement','path'])assert.deepEqual(c[k],quote.value[k]);quote.consumed=true;}need(!record.data.jobs.some(r=>r.mode===mode),'DEVICE_EXTERNAL_FLAT_ONE_ORIGINAL_PROOF');const input=protocol.externalFlatWitnessV1(mode,q.witness),bytes=protocol.externalFlatWitnessBytesV1(mode,input);let prover,started=false;
     try{need(hash(bytes)===c.witnessSHA256,'DEVICE_EXTERNAL_FLAT_WITNESS_CHANGED');const words=walletInputPublicWords(mode,input),statement=decodeWalletPoolInputs(mode,words);for(const k of Object.keys(statement))need((['epoch','amount'].includes(k)?statement[k]:bare(statement[k]))===c.statement[k],'DEVICE_EXTERNAL_FLAT_INPUTS_CHANGED');const cm=balanceCommitment(identity.domain.scope,identity.domain.policy,{type:4,rho:Buffer.from(input.rho),x:Buffer.from(input.key_x),y:Buffer.from(input.key_y),value:input.amount,secret:Buffer.from(input.secret)}).toString('hex'),nf=nullifier(identity.domain.scope,cm,Buffer.from(input.secret)).toString('hex');need(cm===(mode==='deposit_balance'?c.statement.output:c.statement.commitment),'DEVICE_EXTERNAL_FLAT_PC23');
@@ -104,5 +125,35 @@ export async function createOriginalDeviceExternalFlatNoteAuthorityV1(raw){
   }).finally(()=>protocol.externalFlatWipeV1(q.witness));},
   close(){need(arguments.length===0);closed=true;for(const r of challenges.values())r.used=true;return(async()=>{if(work)await work.catch(()=>{});password=null;return{closed:true,inFlight:0,originalJobsRetained:true};})();},
  });
- owned.set(account,{descriptor,live,proofs});await physical();assert.deepEqual(await vault.read(password),record);return account;
+ function capture(token){
+  live();need(authorityIdentity&&!restored&&retentionHandle,'DEVICE_EXTERNAL_FLAT_ORIGINAL_RETAINED_CAPTURE');
+  const actual=deviceExternalFlatAccountCaptureIdentityV1(token);assert.deepEqual(actual,authorityIdentity,'DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_ATTEMPT');assertWrappedPrivateLifetimeAttemptV1(runtime,actual);
+  // Fence synchronously before the first await, then drain the same admitted
+  // operation. No consent, quote, witness or source signing key is retained.
+  closed=true;for(const r of challenges.values())r.used=true;quotes.clear();const admittedWork=work;
+  return(async()=>{try{if(admittedWork)await admittedWork.catch(()=>{});need(!poisoned&&!busy,'DEVICE_EXTERNAL_FLAT_CAPTURE_UNCERTAIN');await healthy();
+    // Public proof bytes have an exact hex representation in the ORIGINAL
+    // journal. Keep metrics as a JSON frame so their original floats survive
+    // the integer-only private registry codec without changing their values.
+    const framed=proofs.map(p=>{const r=record.data.jobs.find(j=>j.mode===p.relation);need(r?.proof,'DEVICE_EXTERNAL_FLAT_CAPTURE_PROOF_INVENTORY');need((typeof p.result.proof==='string'?p.result.proof:Buffer.from(p.result.proof).toString('hex'))===r.proof.proof,'DEVICE_EXTERNAL_FLAT_CAPTURE_PROOF_CHANGED');assert.deepEqual(p.result.publicInputs,r.proof.publicInputs);return{label:p.label,relation:p.relation,result:{...copy(p.result),proof:r.proof.proof}};});
+    const proofFrames=JSON.stringify(framed);need(Buffer.byteLength(proofFrames)<=2097152,'DEVICE_EXTERNAL_FLAT_CAPTURE_METADATA_BOUND');
+    const saved={schema:'DEVICE_EXTERNAL_FLAT_ACCOUNT_PRIVATE_RECOVERY_V1',directory,file,password,descriptor:copy(descriptor),identitySHA256,initialCheckpoint:copy(initialCheckpoint),record:copy(record),proofFrames,proofFramesSHA256:hash(Buffer.from(proofFrames))};
+    await updateWrappedPrivateLifetimePartV1(retentionHandle,saved);assertWrappedPrivateLifetimePartSealedV1(retentionHandle);await healthy();
+    await retainOriginalWrappedRecoverySectionV1(token,'deviceAccount',{schema:'DEVICE_EXTERNAL_FLAT_ACCOUNT_SECTION_V1',identity:copy(retentionIdentity),stateSHA256:hash(canonicalClaimRecordDataV1(saved)),checkpoint:{revision:record.revision,commitment:hash(canonicalClaimRecordDataV1(record))},observationOnly:true});
+    password=null;return{retained:true,originalResourcesStopped:true};
+   }catch(error){poisoned=true;password=null;throw error;}})();
+ }
+ owned.set(account,{descriptor,live,proofs,runtime,system,authorityIdentity,capture:authorityIdentity&&!restored?capture:null});await physical();assert.deepEqual(await vault.read(password),record);
+ if(authorityIdentity){assertWrappedPrivateLifetimeAttemptV1(runtime,authorityIdentity);
+  if(restored){const prior=await readWrappedPrivateLifetimePartV1(runtime,slot,retentionIdentity);assert.deepEqual(prior.privateState,restored,'DEVICE_EXTERNAL_FLAT_ORIGINAL_RETAINED_STATE');retentionHandle=prior.handle;}
+  else{const v=await current();need(v.ledger.commitments.length===0&&v.ledger.nullifiers.length===0&&v.ledger.publicState.liveReservations===0,'DEVICE_EXTERNAL_FLAT_RETAINED_BEFORE_FUNDING');await reader.assertCurrent(v);
+   retentionHandle=await retainWrappedPrivateLifetimePartV1(runtime,slot,retentionIdentity,{schema:'DEVICE_EXTERNAL_FLAT_ACCOUNT_PRIVATE_RECOVERY_V1',directory,file,password,descriptor:copy(descriptor),identitySHA256,initialCheckpoint:copy(initialCheckpoint),record:copy(record),proofFrames:'[]',proofFramesSHA256:hash(Buffer.from('[]'))});}
+  assertWrappedPrivateLifetimePartSealedV1(retentionHandle);
+ }
+ if(restored){
+  // Read-only original reconciliation precedes exposing the new listener.
+  // A missing signed hash stays UNKNOWN; no proof, signer or dispatch is used.
+  try{for(const r of [...record.data.jobs])if(r.submission?.dispatchLatched===true)await observe(r);await healthy();}catch(error){await account.close();throw error;}
+ }
+ return account;
 }

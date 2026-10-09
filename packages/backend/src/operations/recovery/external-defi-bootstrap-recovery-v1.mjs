@@ -110,3 +110,9 @@ export async function reopenExternalDefiVaultExitSystemFromAuthorityV1(input){
  const system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record:state.system},'system'));assertOwnedFlatSystem(runtime,system);assert.equal(system.hub.address,d.identity.hub);assert.deepEqual(await runtime.block(),state.system.head);await runtime.assertCanonical(state.system.head);
  return Object.freeze({runtime,system,graphRecoveryEstablished:false,close:async()=>({closed:true})});
 }
+
+/** Distinct original DeviceExternalFlat token, same full System opener. */
+export async function reopenOriginalDeviceExternalFlatSystemRecordV1(token){
+ assert.equal(arguments.length,1);const module=await import('../../accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs');const {runtime,record}=module.consumeOriginalDeviceExternalFlatSystemReopenV1(token);
+ const system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record},'system'));assertOwnedFlatSystem(runtime,system);return system;
+}

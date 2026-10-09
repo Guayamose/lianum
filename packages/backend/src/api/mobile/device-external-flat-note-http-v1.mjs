@@ -11,7 +11,7 @@ import {lstatSync,realpathSync} from 'node:fs';
 import {join,relative,resolve,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ROOT,FLAT,GOLDEN} from '../../../../proofs/src/catalog.mjs';
-import {assertOriginalDeviceExternalFlatNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
+import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 const listeners=new WeakSet(),diagnosticSlots=new WeakMap(),MAX_BODY=8192,MAX_REPLY=65536;
 const fail=()=>{throw Error('DEVICE_EXTERNAL_FLAT_TLS_CONFIGURATION');};
 const DIAGNOSTIC_TYPES=new Map([[AssertionError.prototype,'ASSERTION_ERROR'],[TypeError.prototype,'TYPE_ERROR'],[RangeError.prototype,'RANGE_ERROR'],[Error.prototype,'ERROR'],[AggregateError.prototype,'AGGREGATE_ERROR']]);
@@ -111,6 +111,11 @@ function reply(response,status,value){if(response.destroyed||response.writableEn
 async function body(request){if(request.headers['content-type']!=='application/json'||request.headers['content-encoding']!==undefined||request.headers['transfer-encoding']!==undefined)fail();
  const length=request.headers['content-length'];if(typeof length!=='string'||/^(0|[1-9][0-9]{0,4})$/.exec(length)?.[0]!==length||Number(length)<2||Number(length)>MAX_BODY)fail();
  const parts=[];let count=0,bytes;try{for await(const part of request){parts.push(part);count+=part.length;if(count>Number(length)||count>MAX_BODY)fail();}if(count!==Number(length))fail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));}finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}}
+const retainedListeners=new WeakMap();
+/** Private fixed ordered-capture seam. The public close still closes account. */
+export function quiesceOriginalRetainedDeviceExternalFlatTlsServerV1(listener,account){
+ if(arguments.length!==2||types.isProxy(listener)||types.isProxy(account))fail();const original=retainedListeners.get(listener);if(!original||original.account!==account)fail();assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1(account);return original.quiesce();
+}
 export async function createOriginalDeviceExternalFlatTlsServerV1(input){
  if(arguments.length!==1)fail();const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['account','tls','host']:['account','tls'];exact(input,keys);exact(input.tls,['certificate','privateKey']);
  const reader=input.account,descriptor=assertOriginalDeviceExternalFlatNoteAuthorityV1(reader),origin=new URL(descriptor.origin),host=input.host??'127.0.0.1',hostname=origin.hostname.replace(/^\[|\]$/g,'');
@@ -138,10 +143,12 @@ export async function createOriginalDeviceExternalFlatTlsServerV1(input){
  const track=socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));};server.on('connection',track);server.on('secureConnection',track);server.on('tlsClientError',(_error,socket)=>socket.destroy());
  try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(origin.port||443),host,()=>{server.off('error',reject);resolve();});});}
  catch(error){closed=true;const accountClose=reader.close();listeners.delete(reader);const ownedSockets=[...sockets],drain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));for(const socket of ownedSockets)socket.destroy();await Promise.all([accountClose,drain,new Promise(resolve=>server.close(()=>resolve()))]);throw error;}
- return Object.freeze({descriptor,url:descriptor.origin,
-  close(){if(arguments.length!==0)fail();if(closing)return closing;closed=true;const accountClose=reader.close();const admitted=[...running];
-   const ownedSockets=[...sockets],socketDrain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));const network=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));for(const socket of ownedSockets)socket.destroy();
-   closing=(async()=>{const results=await Promise.allSettled([...admitted,network,socketDrain]);await accountClose;if(results.slice(admitted.length).some(r=>r.status==='rejected')||sockets.size||running.size)throw Error('DEVICE_EXTERNAL_FLAT_TLS_CLOSE_UNCONFIRMED');listeners.delete(reader);
-    return{closed:true,ownedSocketsRemaining:0,originalOperationsInFlight:0,deviceNoteKeysRetainedOnDevice:true};})();return closing;},
+ let networkClosing;
+ function drainNetwork(){if(networkClosing)return networkClosing;const admitted=[...running],ownedSockets=[...sockets],socketDrain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));const network=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));for(const socket of ownedSockets)socket.destroy();
+  networkClosing=(async()=>{const results=await Promise.allSettled([...admitted,network,socketDrain]);return{results,admitted:admitted.length};})();return networkClosing;}
+ function stoppedNetwork(result){if(result.results.slice(result.admitted).some(r=>r.status==='rejected')||sockets.size||running.size)throw Error('DEVICE_EXTERNAL_FLAT_TLS_CLOSE_UNCONFIRMED');listeners.delete(reader);return{closed:true,ownedSocketsRemaining:0,originalOperationsInFlight:0,deviceNoteKeysRetainedOnDevice:true};}
+ const listener=Object.freeze({descriptor,url:descriptor.origin,
+  close(){if(arguments.length!==0)fail();if(closing)return closing;closed=true;const accountClose=reader.close(),network=drainNetwork();closing=(async()=>{const result=await network;await accountClose;return stoppedNetwork(result);})();return closing;},
  });
+ retainedListeners.set(listener,{account:reader,quiesce(){if(closing)fail();closed=true;const network=drainNetwork();return(async()=>stoppedNetwork(await network))();}});return listener;
 }
