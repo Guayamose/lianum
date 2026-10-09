@@ -1,3 +1,4 @@
+import {validateExternalFlatFreshV1,externalFlatPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import * as defiPositionReadProtocol from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
 import {validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import * as SecureStore from 'expo-secure-store';
@@ -305,4 +306,17 @@ async function signDeviceDefiPositionPermissionV1(raw: import('../../../../packa
   try { if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
     current(); frame = protocol.deviceDefiPositionPermissionMessageV1(value); return signDeviceMessage(key, frame);
   } finally { frame?.fill(0); key.fill(0); retained = null; }
+}
+
+/** Separate fixed external source-note domain, never NativeValue EXECUTE/F. */
+export async function signDeviceExternalFlatPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+ const value=validateExternalFlatFreshV1(raw);
+ await assertProtectedStorage();const publicKey=await readDevicePublicKey();
+ if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
+ const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatFreshV1(value);const subject=v.action==='ACCESS'?v:v.descriptor;
+ if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
+ const consent=check();const approved=await LocalAuthentication.authenticateAsync({promptMessage:consent.action==='ACCESS'?'Autorizar lectura de la nota ERC20':`${consent.action}: ${consent.statement.amount} unidades a ${consent.recipient}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);
+ if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);
+ try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');return signDeviceMessage(privateKey,externalFlatPermissionMessageV1(check()));}
+ finally{privateKey.fill(0);retained=null;}
 }
