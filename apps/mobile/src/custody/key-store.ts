@@ -1,3 +1,4 @@
+import {sealDeviceCustodyBackupV1,unsealDeviceCustodyBackupV1,DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1} from './sealed-custody-backup-v1.mjs';
 import {validateExternalFlatGraphOutputFreshV1,externalFlatGraphOutputPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {validateExternalFlatGraphFreshV1,externalFlatGraphPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {validateExternalFlatFreshV1,externalFlatPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
@@ -46,7 +47,14 @@ export async function readDevicePublicKey(): Promise<string | null> {
   if (value !== null && !/^04[0-9a-f]{128}$/.test(value)) throw new Error('MOBILE_PUBLIC_KEY_INVALID');
   return value;
 }
+let identityCustodyBusy = false;
+async function identityCustodyWork<T>(work: () => Promise<T>): Promise<T> {
+  if (identityCustodyBusy) throw Error('MOBILE_IDENTITY_CUSTODY_BUSY');
+  identityCustodyBusy = true;
+  try { return await work(); } finally { identityCustodyBusy = false; }
+}
 export async function createDeviceIdentity(): Promise<string> {
+ return identityCustodyWork(async () => {
   await assertProtectedStorage();
   const approval = await LocalAuthentication.authenticateAsync({
     promptMessage: 'Crear o recuperar tu identidad local de Lianum',
@@ -77,6 +85,7 @@ export async function createDeviceIdentity(): Promise<string> {
     await SecureStore.setItemAsync(PUBLIC_KEY, publicKey, publicOptions);
     return publicKey;
   } finally { privateKey?.fill(0); retained = null; }
+ });
 }
 export async function signReviewedChallenge(challenge: MobileChallenge, expectedOrigin: string,
   allowInsecureLocalhost = false): Promise<string> {
@@ -334,4 +343,75 @@ export async function signDeviceExternalFlatGraphPermissionV1(raw:unknown,expect
 /** Fixed GRAPH-output W39 role permission; the protected note root never leaves. */
 export async function signDeviceExternalFlatGraphOutputPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
  const value=validateExternalFlatGraphOutputFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphOutputFreshV1(value),subject=v.consent.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};const reviewed=check(),c=reviewed.consent,approved=await LocalAuthentication.authenticateAsync({promptMessage:`${c.action}: salida ${reviewed.noteRole}, ${c.statement.amount} unidades a ${c.recipient}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=externalFlatGraphOutputPermissionMessageV1(check());return signDeviceMessage(privateKey,frame);}finally{frame?.fill(0);privateKey.fill(0);retained=null;}
+}
+
+/** Explicit local identity backup. Returns ciphertext only, never a private key.
+ * Pairing descriptors are not changed; notes need their own matching snapshots. */
+export async function exportDeviceIdentityBackupV1(passphrase: string, expectedPublicKey: string, signal?: AbortSignal): Promise<string> {
+  if (arguments.length !== 2 && arguments.length !== 3) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+  identityBackupPublicKey(expectedPublicKey); const current = () => identityBackupCurrent(signal);
+  return identityCustodyWork(async () => {
+    let retained: string | null = null, privateKey: Uint8Array | undefined, clear: Uint8Array | undefined;
+    try {
+      current(); await assertProtectedStorage(); current();
+      const approval = await LocalAuthentication.authenticateAsync({promptMessage:'Crear una copia cifrada de tu misma identidad; guarda la copia y su contraseña fuera del dispositivo',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+      current(); if (!approval.success) throw Error('MOBILE_AUTHENTICATION_CANCELLED');
+      const originalPublic = await SecureStore.getItemAsync(PUBLIC_KEY, publicOptions); current();
+      if (originalPublic !== expectedPublicKey) throw Error('MOBILE_CUSTODY_BACKUP_BINDING');
+      retained = await SecureStore.getItemAsync(PRIVATE_KEY, privateOptions); current();
+      if (retained === null) throw Error('MOBILE_KEY_RECOVERY_REQUIRED');
+      privateKey = privateKeyFromHex(retained);
+      if (devicePublicKey(privateKey) !== expectedPublicKey) throw Error('MOBILE_CUSTODY_BACKUP_BINDING');
+      clear = new TextEncoder().encode(JSON.stringify({profile:'DEVICE_IDENTITY_PRIVATE_SNAPSHOT_V1',devicePublicKey:expectedPublicKey,privateKeyHex:bytesToHex(privateKey)}));
+      const sealed = await sealDeviceCustodyBackupV1(clear,passphrase,{profile:'DEVICE_IDENTITY_CUSTODY_V1',devicePublicKey:expectedPublicKey,routeSHA256:null},signal); current();
+      if (await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions) !== retained) throw Error('MOBILE_CUSTODY_BACKUP_STORAGE_CHANGED'); current();
+      if (await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions) !== originalPublic) throw Error('MOBILE_CUSTODY_BACKUP_STORAGE_CHANGED'); current();
+      return sealed;
+    } finally {clear?.fill(0);privateKey?.fill(0);retained=null;passphrase='';}
+  });
+}
+function identityBackupCurrent(signal?: AbortSignal) { if (signal?.aborted) throw Error('MOBILE_CUSTODY_BACKUP_CANCELLED'); }
+function identityBackupPublicKey(value: string) { if (typeof value !== 'string' || /^04[0-9a-f]{128}$/.exec(value)?.[0] !== value) throw Error('MOBILE_CUSTODY_BACKUP_BINDING'); }
+function identityBackupSnapshot(clear: Uint8Array, expectedPublicKey: string): Uint8Array {
+  if (clear.length > 1024) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+  let text = new TextDecoder('utf-8',{fatal:true}).decode(clear), value: any;
+  try {value=JSON.parse(text);} finally {text='';}
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== 'devicePublicKey,privateKeyHex,profile'
+    || value.profile !== 'DEVICE_IDENTITY_PRIVATE_SNAPSHOT_V1' || value.devicePublicKey !== expectedPublicKey || typeof value.privateKeyHex !== 'string') throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+  let privateKey: Uint8Array | undefined;
+  try {privateKey=privateKeyFromHex(value.privateKeyHex); if(devicePublicKey(privateKey)!==expectedPublicKey) throw Error('MOBILE_CUSTODY_BACKUP_BINDING'); return privateKey;}
+  catch(error){privateKey?.fill(0);throw error;} finally {value.privateKeyHex=null;}
+}
+/** Restores only the same authenticated identity. Existing different identities
+ * are never overwritten; a partial write can only be retried with the same key.
+ * No pairing, note, SDK permission or economic state is created here. */
+export async function importDeviceIdentityBackupV1(sealedJSON: string, passphrase: string, expectedPublicKey: string, signal?: AbortSignal): Promise<{devicePublicKey:string;restored:true}> {
+  if (arguments.length !== 3 && arguments.length !== 4) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+  identityBackupPublicKey(expectedPublicKey);
+  if (typeof sealedJSON !== 'string' || sealedJSON.length > DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+  const current=()=>identityBackupCurrent(signal);
+  return identityCustodyWork(async () => {
+    let clear:Uint8Array|undefined,privateKey:Uint8Array|undefined,existingKey:Uint8Array|undefined;
+    let beforePrivate:string|null=null,imported:string|null=null;
+    try {
+      current();await assertProtectedStorage();current();
+      const approval=await LocalAuthentication.authenticateAsync({promptMessage:'Restaurar la misma identidad desde tu copia cifrada; no sustituir otra identidad existente',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+      current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
+      const beforePublic=await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions);current();
+      if(beforePublic!==null&&beforePublic!==expectedPublicKey)throw Error('MOBILE_CUSTODY_BACKUP_CONFLICT');
+      beforePrivate=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();
+      if(beforePrivate!==null){existingKey=privateKeyFromHex(beforePrivate);if(devicePublicKey(existingKey)!==expectedPublicKey)throw Error('MOBILE_CUSTODY_BACKUP_CONFLICT');}
+      clear=await unsealDeviceCustodyBackupV1(sealedJSON,passphrase,{profile:'DEVICE_IDENTITY_CUSTODY_V1',devicePublicKey:expectedPublicKey,routeSHA256:null},signal);current();
+      privateKey=identityBackupSnapshot(clear,expectedPublicKey);imported=bytesToHex(privateKey);
+      if(beforePrivate!==null&&beforePrivate!==imported)throw Error('MOBILE_CUSTODY_BACKUP_CONFLICT');
+      if(await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions)!==beforePrivate)throw Error('MOBILE_CUSTODY_BACKUP_STORAGE_CHANGED');current();
+      if(await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions)!==beforePublic)throw Error('MOBILE_CUSTODY_BACKUP_STORAGE_CHANGED');current();
+      if(beforePrivate===null){await SecureStore.setItemAsync(PRIVATE_KEY,imported,privateOptions);current();}
+      if(await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions)!==imported)throw Error('MOBILE_CUSTODY_BACKUP_WRITE_UNCERTAIN');current();
+      if(await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions)!==beforePublic)throw Error('MOBILE_CUSTODY_BACKUP_STORAGE_CHANGED');current();
+      if(beforePublic===null){await SecureStore.setItemAsync(PUBLIC_KEY,expectedPublicKey,publicOptions);current();}
+      if(await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions)!==expectedPublicKey||await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions)!==imported)throw Error('MOBILE_CUSTODY_BACKUP_WRITE_UNCERTAIN');current();
+      return {devicePublicKey:expectedPublicKey,restored:true as const};
+    } finally {clear?.fill(0);privateKey?.fill(0);existingKey?.fill(0);beforePrivate=null;imported=null;sealedJSON='';passphrase='';}
+  });
 }

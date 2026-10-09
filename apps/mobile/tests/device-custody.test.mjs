@@ -3,11 +3,12 @@
  * biometrics, hardware isolation, mobile fund recovery or native acceptance. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
 import { MOBILE_AUTHORIZATION_PROFILE, mobileReceiptMessage } from '@lianum/mobile-protocol';
 import * as signing from '../src/custody/signing.mjs';
 
-const store = new Map(), calls = [], privateBuffers = [];
-const control = { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null, discardPendingWrite: false };
+const store = new Map(), calls = [], privateBuffers = [], backupKeyInputs=[];
+const control = { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null, discardPendingWrite: false, discardIdentityWrite:false, afterBackupDecrypt:null };
 const PRIVATE = 'lianum.owner.secp256k1.v1', PUBLIC = 'lianum.owner.public.v1';
 mock.module('expo-secure-store', { exports: {
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
@@ -26,6 +27,7 @@ mock.module('expo-secure-store', { exports: {
     calls.push({ method: 'write', key, options });
     if (key === PRIVATE) { assert.equal(options.requireAuthentication, true); assert.equal(options.keychainAccessible, 6); }
     if (key.includes('pending') && control.discardPendingWrite) return;
+    if (key===PRIVATE&&control.discardIdentityWrite) return;
     store.set(key, value);
   },
 } });
@@ -38,18 +40,24 @@ mock.module('expo-local-authentication', { exports: {
   },
 } });
 mock.module('expo-crypto', { exports: {
-  async getRandomBytesAsync(length) { control.randomness++; assert.equal(length, 32); return new Uint8Array(32).fill(11); },
+  // Real AES-GCM and the production fixed scrypt are exercised here. Expo
+  // storage/biometrics/entropy remain explicit HOST ports, not phone acceptance.
+  AESEncryptionKey: {async import(bytes){backupKeyInputs.push(bytes);return{bytes:Uint8Array.from(bytes)};}},
+  AESSealedData: {fromCombined(value,config){assert.deepEqual(config,{ivLength:12,tagLength:16});return{bytes:Buffer.from(value,'base64')};}},
+  async aesEncryptAsync(clear,key,options){assert.equal(options.tagLength,16);assert.deepEqual(options.nonce,{length:12});const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key.bytes,iv);try{cipher.setAAD(options.additionalData);const value=Buffer.concat([iv,cipher.update(clear),cipher.final(),cipher.getAuthTag()]);return{async combined(encoding){assert.equal(encoding,'base64');return value.toString('base64');}};}finally{key.bytes.fill(0);}},
+  async aesDecryptAsync(sealed,key,options){assert.equal(options.output,'bytes');const b=sealed.bytes,d=createDecipheriv('aes-256-gcm',key.bytes,b.subarray(0,12));try{d.setAAD(options.additionalData);d.setAuthTag(b.subarray(b.length-16));const clear=new Uint8Array(Buffer.concat([d.update(b.subarray(12,-16)),d.final()]));control.afterBackupDecrypt?.();return clear;}finally{key.bytes.fill(0);}},
+  async getRandomBytesAsync(length) { control.randomness++; assert.equal(length, 32); return new Uint8Array(32).fill(10+control.randomness); },
 } });
 mock.module('react-native', { exports: { Platform: { OS: 'ios' } } });
 mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { exports: {
   ...signing,
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },
 } });
-const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge, signReviewedReceipt } = await import('../src/custody/key-store.ts');
+const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge, signReviewedReceipt,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1 } = await import('../src/custody/key-store.ts');
 const { retainPendingOperation, readPendingOperation, assertPendingOperationIdentity } = await import('../src/custody/pending-operations.ts');
 function reset() {
-  store.clear(); calls.length = 0; privateBuffers.length = 0;
-  Object.assign(control, { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null, discardPendingWrite: false });
+  store.clear(); calls.length = 0; privateBuffers.length = 0; backupKeyInputs.length=0;
+  Object.assign(control, { supported: true, approval: true, randomness: 0, invalidatePrivate: false, slowRead: null, discardPendingWrite: false,discardIdentityWrite:false,afterBackupDecrypt:null });
 }
 const challenge = ownerPublicKey => ({ version: 1, profile: MOBILE_AUTHORIZATION_PROFILE, origin: 'https://wallet.example',
   challengeId: 'a'.repeat(64), nonce: 'b'.repeat(64), expiresAt: Date.now() + 60_000, ownerPublicKey,
@@ -232,4 +240,34 @@ test('fresh protected receipt signing preserves an expired original and updates 
     await assert.rejects(signReviewedReceipt(review, execute.challenge.origin), /RECEIPT_EXPIRED/);
     assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
   } finally { time.mock.restore(); }
+});
+
+
+test('sealed identity backup restores the SAME PoP after total loss and rejects corruption, replacement and ambiguous writes', async()=>{
+  reset();const {sealDeviceCustodyBackupV1}=await import('../src/custody/sealed-custody-backup-v1.mjs');
+  const publicKey=await createDeviceIdentity(),originalPrivate=store.get(PRIVATE),review=challenge(publicKey),originalSignature=await signReviewedChallenge(review,review.origin);
+  const oversized=new Uint8Array(65537);Object.defineProperty(oversized,'length',{get(){throw Error('CALLER_LENGTH_GETTER');}});
+  await assert.rejects(sealDeviceCustodyBackupV1(oversized,'una contraseña original separada',{profile:'DEVICE_IDENTITY_CUSTODY_V1',devicePublicKey:publicKey,routeSHA256:null}),/BACKUP_INVALID/);
+  const password='una contraseña original separada',sealed=await exportDeviceIdentityBackupV1(password,publicKey);
+  assert.equal(sealed.includes(originalPrivate),false);assert.equal(sealed.includes('privateKeyHex'),false);assert.equal(sealed.includes('DEVICE_IDENTITY_PRIVATE_SNAPSHOT_V1'),false);
+  const envelope=JSON.parse(sealed);assert.equal(envelope.binding.devicePublicKey,publicKey);assert.equal(envelope.binding.routeSHA256,null);
+  assert.deepEqual({name:envelope.kdf.name,N:envelope.kdf.N,r:envelope.kdf.r,p:envelope.kdf.p},{name:'scrypt',N:32768,r:8,p:1});
+  store.clear();const writes=()=>calls.filter(c=>c.method==='write').length,before=writes();
+  await assert.rejects(importDeviceIdentityBackupV1(sealed,'otra contraseña equivocada',publicKey),/BACKUP_AUTHENTICATION/);assert.equal(writes(),before);assert.equal(store.size,0);
+  const corrupt=structuredClone(envelope);corrupt.sealed=(corrupt.sealed[0]==='A'?'B':'A')+corrupt.sealed.slice(1);
+  await assert.rejects(importDeviceIdentityBackupV1(JSON.stringify(corrupt),password,publicKey),/BACKUP_AUTHENTICATION/);assert.equal(writes(),before);
+  const weak=structuredClone(envelope);weak.kdf.N=2;await assert.rejects(importDeviceIdentityBackupV1(JSON.stringify(weak),password,publicKey),/BACKUP_INVALID/);assert.equal(writes(),before);
+  await assert.rejects(importDeviceIdentityBackupV1(sealed,password,signing.devicePublicKey(new Uint8Array(32).fill(12))),/BACKUP_BINDING/);assert.equal(writes(),before);
+  const restored=await importDeviceIdentityBackupV1(sealed,password,publicKey);assert.deepEqual(restored,{devicePublicKey:publicKey,restored:true});
+  assert.equal(store.get(PRIVATE),originalPrivate);assert.equal(await readDevicePublicKey(),publicKey);assert.equal(await signReviewedChallenge(review,review.origin),originalSignature);
+  assert.equal(control.randomness,2); // Only the original key and backup salt, never a replacement key.
+  const unchanged=writes();await importDeviceIdentityBackupV1(sealed,password,publicKey);assert.equal(writes(),unchanged);
+  const foreign=signing.devicePublicKey(new Uint8Array(32).fill(12));store.set(PRIVATE,'0c'.repeat(32));store.set(PUBLIC,foreign);
+  await assert.rejects(importDeviceIdentityBackupV1(sealed,password,publicKey),/BACKUP_CONFLICT/);assert.equal(store.get(PRIVATE),'0c'.repeat(32));assert.equal(store.get(PUBLIC),foreign);
+  store.clear();control.approval=false;await assert.rejects(importDeviceIdentityBackupV1(sealed,password,publicKey),/AUTHENTICATION_CANCELLED/);assert.equal(store.size,0);control.approval=true;
+  const controller=new AbortController();control.afterBackupDecrypt=()=>controller.abort();
+  await assert.rejects(importDeviceIdentityBackupV1(sealed,password,publicKey,controller.signal),/BACKUP_CANCELLED/);assert.equal(store.size,0);control.afterBackupDecrypt=null;
+  control.discardIdentityWrite=true;await assert.rejects(importDeviceIdentityBackupV1(sealed,password,publicKey),/BACKUP_WRITE_UNCERTAIN/);assert.equal(store.size,0);control.discardIdentityWrite=false;
+  store.set(PUBLIC,publicKey);await importDeviceIdentityBackupV1(sealed,password,publicKey);assert.equal(store.get(PRIVATE),originalPrivate);assert.equal(store.get(PUBLIC),publicKey);
+  assert.ok(privateBuffers.every(bytes=>bytes.every(b=>b===0)));assert.ok(backupKeyInputs.every(bytes=>bytes.every(b=>b===0)));
 });
