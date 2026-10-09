@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "b45da3fb3439ca327283acdb25a35e3d2d47882d0d9a6b101f34a5b8c08769b4",
+  "hostSourceClosureSHA256": "4bf5ce035a7090d2e5ab78fde631346988222a43e87400f03cd350661e1a6f8a",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -765,8 +765,16 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "8e7e260816abdd0f9e47275b063ab38f9464f56a717bf893680cd86504080451"
     },
     {
+      "path": "integration/evm-metamorpho-recovery-policy-v1.mjs",
+      "sha256": "9bea86babc43efd2c86c34d0e2acb1f2ddf1eeab7be86459b3a15aabe54e46ca"
+    },
+    {
+      "path": "integration/evm-metamorpho-recovery-source-pins-v1.mjs",
+      "sha256": "590a52fccaddb70031804825703a5906091be3899a84771134b0a5884d572700"
+    },
+    {
       "path": "integration/evm-vault-flow.mjs",
-      "sha256": "d9b6e53cf3ca31bd230ebb4c554add3c5f7e79c8735f56f3e02304804f6324c3"
+      "sha256": "db47e3586271aa9589a5d997a1dadbaaf598c9b877ebc2f84bd2bcce1a2ee34e"
     },
     {
       "path": "integration/evm-vault-terminal-checks.mjs",
@@ -966,7 +974,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "537b9735f06ee304c6ad621ad2b7d52a9255c8933094bedae63ac10076e11cbb"
+      "sha256": "4577ce9ceb0480abfb6a25b42f4f9a7e7d3734141c15ffb66fa969b860507f33"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -1127,6 +1135,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "integration/run-evm-metamorpho-exit-recovery-v1.mjs",
       "sha256": "4ca61eae5efda9a8d128f72bf42a29f3ff56fc8718916dedb0af463a6ce9b54d"
+    },
+    {
+      "path": "integration/run-evm-metamorpho-recovery-flow-v1.mjs",
+      "sha256": "445e3f85300e2ef417511fcefacdb78d45d09d989b001880674ab5b418f601c8"
     },
     {
       "path": "integration/run-evm-vault-flow.mjs",
@@ -2314,7 +2326,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs",
-      "sha256": "af934f595af44fa6d2282d8d14fab55b28d094685f807d5cdefd2df33a7b4859"
+      "sha256": "26a8f6d7261d555366834d3186e98376874b25b7ede146bff97c82675a173131"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-node-driver.mjs",
@@ -2886,7 +2898,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs",
-      "sha256": "1c789fbd025d25473a2c478c8f85bff5e7f798292e70f53a7970839c13f7d7ad"
+      "sha256": "71e20c3a86c8ba48006a1e25ba57dac354311341a3af2c414141defd478d0100"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-dev-mobile-package-pins-v5.mjs",
