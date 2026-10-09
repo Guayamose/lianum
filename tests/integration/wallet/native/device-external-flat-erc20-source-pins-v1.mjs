@@ -158,7 +158,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
-  "13f1f8612047b8c7dc2ad19fde67cacac2bdf006ca71553dff27207d7a1608de"
+  "c9ff91473b969311a153cb47486cba5d1597e539a620a58e06111cd981af1057"
  ],
  [
   "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
@@ -166,7 +166,15 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/key-store.ts",
-  "2384eab8774367ecc9a86587b595cdc88b013603c4002a90d97237e9ca10187e"
+  "bcdb5b7a22b0cae4f23acaaaaa7dc280d6d01565c3a8eff68757a894b68e15fa"
+ ],
+ [
+  "apps/mobile/src/custody/sealed-custody-backup-v1.d.mts",
+  "4c442ce6e78bcd55f5fffb2a0e82826d168322bb07e5dd2116de416fff608bc3"
+ ],
+ [
+  "apps/mobile/src/custody/sealed-custody-backup-v1.mjs",
+  "01182f30520b4fd04ac5eae24ea2cef319d87854065cc92aee9301d0f6ba3ff2"
  ],
  [
   "apps/mobile/src/custody/signing.mjs",
