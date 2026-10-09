@@ -7,8 +7,8 @@ import {join,resolve} from 'node:path';
 import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
 import {nativeValueDevFinancialSourcePinsV5} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
 const DEVELOPMENT=resolve(FLAT,'../../..');
-const RUNNER=Object.freeze(['integration/run-device-external-flat-erc20-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs']);
-const PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs']);
+const RUNNER=Object.freeze(['integration/run-device-external-flat-erc20-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs','integration/device-external-flat-ordered-restart-v1.mjs','integration/device-external-flat-ordered-successor-v1.mjs']);
+const PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-ordered-observation-service-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs']);
 // Final literal hashes are sealed with the producer/SDK READY dependencies.
 const MOBILE=Object.freeze([
  [
@@ -25,7 +25,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
-  "aceb398bf2580c863eb3dfebe830b535f56770350aece7580c65bd47f57a5a69"
+  "a0b77c626432a8f528ff69ac348ca90ef3981c3c2e9c45d797a3a5447158a008"
  ],
  [
   "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
@@ -41,15 +41,15 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "f690ad5b68bc562eff71772e2d406b8f2947b13532b70ec6df8839f083cc026f"
+  "b5a29168f4d1fb92566b05bce948295b24f40bbd230389d27f62490ca53cb5fe"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "23f39fe2ff6294ed86e3066c490141d16a7842e39febbf2eaee1686faeeab717"
+  "2e99b64732c6b381fbbe3958e1c846298ac56625b4353d0157bfee27fa94c86a"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-  "cb3953ed3755c163b7950760c31d9ce08d1ff16a19dcb2d77cf115c719f7b3b2"
+  "fae1eec789c17c0ba38bdd93b82cfe190b617216b006e5b3712510957d232423"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -94,6 +94,38 @@ const MOBILE=Object.freeze([
  [
   "packages/mobile-protocol/src/original-account-review-v2.mjs",
   "f23d26cfb8a0c7b6f06f9056efb638365420290946f29fc1515f7b3aec04ecfa"
+ ],
+ [
+  "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+  "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
+ ],
+ [
+  "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
+  "a391112217224decd24605edcde04c195cd6d687e1581e0cece89a1a7dd4ffe2"
+ ],
+ [
+  "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+  "69d72e446ffeb74281f57726490334ec97c1897a05b41ff5a7544a39f58f715a"
+ ],
+ [
+  "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+  "737c202049cadb74aa05a28cff4d9966464f17009511d05d81557f83a2970187"
+ ],
+ [
+  "packages/backend/src/operations/local/device-external-flat-ordered-local-operator-v1.mjs",
+  "686c8dd67e0a12edf3d572a938a6a06d6a4f5852941a977f422433537f1143f6"
+ ],
+ [
+  "packages/backend/src/operations/local/device-external-flat-ordered-observation-service-v1.mjs",
+  "cae4994f39667c26bc5e9b29b6aa0f329b8a7b9b0c52c456f1092cd26c7429bb"
+ ],
+ [
+  "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+  "24f7b116d682c6f3c9bda069d59e7dac114e08c7a6e1cf6ca28ffe872b0d7650"
+ ],
+ [
+  "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
+  "b58ed2a7144f337e475a0024bbc99cdcb2371379889a3a25eb2b590593ae8c82"
  ]
 ]);
 function pin(base,name,expected){assert.equal(realpathSync(base),base);let path=base;for(const part of name.split('/')){assert.ok(part&&part!=='.'&&part!=='..');path=join(path,part);assert.equal(lstatSync(path).isSymbolicLink(),false);}
@@ -102,4 +134,4 @@ function pin(base,name,expected){assert.equal(realpathSync(base),base);let path=
   for(const key of ['dev','ino','uid','nlink','size','mtimeMs','ctimeMs']){assert.equal(before[key],after[key]);assert.equal(before[key],named[key]);}assert.equal(bytes.length,before.size);
  }finally{closeSync(fd);}const sha256=createHash('sha256').update(bytes).digest('hex');if(expected!==undefined)assert.equal(sha256,expected,'DEVICE_EXTERNAL_FLAT_ORIGINAL_MOBILE_SOURCE');return{path:name,bytes:bytes.length,sha256};}
 export function deviceExternalFlatErc20SourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_EXTERNAL_FLAT_SOURCE_NO_OPTIONS');
- return{format:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:PRODUCERS.map(name=>pin(ROOT,name)),originalRunner:RUNNER.map(name=>pin(ROOT,name)),originalMobile:MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}
+ return{format:'LIANUM_DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:PRODUCERS.map(name=>pin(ROOT,name)),originalRunner:RUNNER.map(name=>pin(ROOT,name)),originalMobile:MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}

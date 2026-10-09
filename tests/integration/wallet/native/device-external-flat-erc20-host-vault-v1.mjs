@@ -13,6 +13,7 @@ import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {FLAT} from '../../../../packages/proofs/src/catalog.mjs';
 import {createOriginalDeviceExternalFlatNoteServiceV1} from '../../../../packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs';
+import {createOriginalRetainedDeviceExternalFlatNoteServiceV1,captureOriginalDeviceExternalFlatOrderedServiceV1} from '../../../../packages/backend/src/operations/local/device-external-flat-ordered-observation-service-v1.mjs';
 const DEVELOPMENT=resolve(FLAT,'../../..'),sha=b=>createHash('sha256').update(b).digest('hex');
 const PRIVATE_LABELS=new Set(['lianum.external-flat.root.v1','lianum.owner.secp256k1.v1']);
 const DATA_LABEL=/^(?:lianum\.external-flat\.(?:pointer|record)\.v1|lianum\.external-flat\.chunk\.v1\.[0-9a-f]{64}\.(?:[0-9]|10)|lianum\.owner\.public\.v1)$/;
@@ -48,9 +49,9 @@ export async function openDeviceExternalFlatErc20HostV1(privateDirectory){assert
   'react-native':`export{ExternalFlatHostPlatformV1 as Platform}from${JSON.stringify(own)};`};
  const aliases={'@lianum/mobile-protocol':pathToFileURL(join(DEVELOPMENT,'packages/mobile-protocol/src/authorization.mjs')).href,
   '@lianum/mobile-protocol/original-account-v2':pathToFileURL(join(DEVELOPMENT,'packages/mobile-protocol/src/original-account-review-v2.mjs')).href};
- let vault,identity,sdk,client,service,hook,closing,starting=null,reserve=null,origin,certificate,certificateSHA,dropAction=null;
+ let vault,identity,sdk,client,service,hook,closing,starting=null,reserve=null,origin,certificate,certificateSHA,dropAction=null,originalDescriptor,retained=false,captureWork=null,captureCompleted=false,observationInstalled=false;
  const sockets=new Set(),requestCounts={},drops=[],protocols=new Set();
- function close(){if(closing)return closing;state.closed=true;client?.close();const vaultStop=vault?vault.close():Promise.resolve(null),serviceStop=(async()=>{if(starting)await starting.catch(()=>{});return service?service.close():null;})();
+ function close(){if(closing)return closing;state.closed=true;client?.close();const vaultStop=vault?vault.close():Promise.resolve(null),serviceStop=(async()=>{if(starting)await starting.catch(()=>{});if(captureWork)await captureWork.catch(()=>{});return service?service.close():null;})();
   const owned=[...sockets],drain=Promise.all(owned.map(socket=>new Promise(resolve=>socket.once('close',resolve))));for(const socket of owned)socket.destroy();
   closing=(async()=>{try{const all=await Promise.allSettled([serviceStop,vaultStop,drain]);const errors=all.filter(v=>v.status==='rejected').map(v=>v.reason);if(errors.length)throw new AggregateError(errors,'DEVICE_EXTERNAL_FLAT_HOST_CLOSE');assert.equal(sockets.size,0);
     return{closed:true,ownedTlsSocketsRemaining:0,service:all[0].value,vault:all[1].value};
@@ -73,8 +74,18 @@ export async function openDeviceExternalFlatErc20HostV1(privateDirectory){assert
      else resolve(new Response(body,{status:response.statusCode,headers:response.headers}));}catch(error){reject(error);}finally{body?.fill(0);chunks.forEach(p=>p.fill(0));}});
    });request.once('error',reject);request.on('socket',socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));socket.once('secureConnect',()=>{try{assert.equal(socket.getProtocol(),'TLSv1.3');assert.equal(sha(socket.getPeerCertificate().raw),certificateSHA);protocols.add('TLSv1.3');}catch(error){request.destroy(error);}});});request.end(init.body);});};
   return Object.freeze({vault,devicePublicKey,origin,
-   start(runtime,system){assert.equal(arguments.length,2);live();assert.equal(starting,null);starting=(async()=>{service=await createOriginalDeviceExternalFlatNoteServiceV1({runtime,system,poolIndex:0,origin,devicePublicKey,tls:{certificate,privateKey:readFileSync(keyPath,'utf8')},host:'127.0.0.1'});if(state.closed){await service.close();throw Error('DEVICE_EXTERNAL_FLAT_HOST_CLOSED');}client=sdk.createDeviceExternalFlatNoteApiV1({descriptor:service.descriptor,fetchImpl:fetchFixed});return{account:service.account,descriptor:service.descriptor,client};})();return starting;},
-   sign(value){live();return identity.signDeviceExternalFlatPermissionV1(value,origin,service.descriptor.pairingId);},
+   start(runtime,system){assert.equal(arguments.length,2);live();assert.equal(starting,null);starting=(async()=>{service=await createOriginalDeviceExternalFlatNoteServiceV1({runtime,system,poolIndex:0,origin,devicePublicKey,tls:{certificate,privateKey:readFileSync(keyPath,'utf8')},host:'127.0.0.1'});if(state.closed){await service.close();throw Error('DEVICE_EXTERNAL_FLAT_HOST_CLOSED');}originalDescriptor=service.descriptor;client=sdk.createDeviceExternalFlatNoteApiV1({descriptor:originalDescriptor,fetchImpl:fetchFixed});return{account:service.account,descriptor:originalDescriptor,client};})();return starting;},
+   startRetained(runtime,system,registry,recoveryAuthority){assert.equal(arguments.length,4);live();assert.equal(starting,null);retained=true;
+    starting=(async()=>{service=await createOriginalRetainedDeviceExternalFlatNoteServiceV1({runtime,system,registry,recoveryAuthority,poolIndex:0,origin,devicePublicKey,tls:{certificate,privateKey:readFileSync(keyPath,'utf8')},host:'127.0.0.1'});
+     if(state.closed){await service.close();throw Error('DEVICE_EXTERNAL_FLAT_HOST_CLOSED');}originalDescriptor=service.descriptor;client=sdk.createDeviceExternalFlatNoteApiV1({descriptor:originalDescriptor,fetchImpl:fetchFixed});return{account:service.account,descriptor:originalDescriptor,client};})();return starting;},
+   captureRetained(){assert.equal(arguments.length,0);live();assert.ok(retained&&service&&!captureWork&&!closing);client.close();
+    // Original service fences its listener/account synchronously. Parent custody
+    // remains alive; only these original HTTP sockets and SDK are drained.
+    const capture=captureOriginalDeviceExternalFlatOrderedServiceV1(service),owned=[...sockets],drain=Promise.all(owned.map(socket=>new Promise(resolve=>socket.once('close',resolve))));for(const socket of owned)socket.destroy();
+    captureWork=(async()=>{const all=await Promise.allSettled([capture,drain]);const failure=all.find(row=>row.status==='rejected');if(failure)throw failure.reason;assert.equal(sockets.size,0);captureCompleted=true;return all[0].value;})();return captureWork;},
+   resumeOriginalObservation(descriptor){assert.equal(arguments.length,1);live();assert.ok(retained&&captureCompleted&&!observationInstalled&&!closing);assert.deepEqual(descriptor,originalDescriptor);observationInstalled=true;
+    client=sdk.createDeviceExternalFlatNoteApiV1({descriptor:originalDescriptor,fetchImpl:fetchFixed});return client;},
+   sign(value){live();assert.ok(originalDescriptor);return identity.signDeviceExternalFlatPermissionV1(value,origin,originalDescriptor.pairingId);},
    loseOriginalReply(action){live();assert.ok(['FUND_D26','WITHDRAW_W39'].includes(action));assert.equal(dropAction,null);assert.equal(drops.some(d=>d.action===action),false);dropAction=action;},
    async replayOriginalPermission(consent,signature){live();const response=await fetchFixed(origin+'/v1/mobile/external-flat/operations',{method:'POST',headers:{Accept:'application/json',Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({consent,signature,witness:null})});assert.equal(response.status,403);await response.body.cancel();return{rejected:true};},
    transport(){return{requests:{...requestCounts},drops:structuredClone(drops),tlsVersions:[...protocols]};},
