@@ -14391,6 +14391,13 @@
       "sha256": "351dfa771ddf6ccb09989d0342235881f03204c78accd147498941883cb7fe2d",
       "bytes": 139,
       "mode": "0644"
+    },
+    {
+      "source": "tests/integration/wallet/native/run-device-external-flat-source-graph-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/run-device-external-flat-source-graph-v1.mjs",
+      "sha256": "f276c0866e468d63e2defbe875437601856c4f2516a596c1d9f6af7b55582434",
+      "bytes": 144,
+      "mode": "0644"
     }
   ],
   "importSpellings": {
