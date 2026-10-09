@@ -25,7 +25,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
-  "8a2d0269dc4e3fccd9985895390351ee4e5a6510f3e113d1bdef9d8a0b39ae30"
+  "aceb398bf2580c863eb3dfebe830b535f56770350aece7580c65bd47f57a5a69"
  ],
  [
   "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
