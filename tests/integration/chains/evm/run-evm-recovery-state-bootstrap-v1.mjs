@@ -1,4 +1,4 @@
-/** Fixed official MetaMorpho bootstrap on the SAME original External5 receiver.
+/** Fixed MetaMorpho + original FlatSystem bootstrap on the SAME External5 receiver.
  * No private-note funding, owners, GRAPH, proof, issuer finalization or reopen. */
 import assert from 'node:assert/strict';
 import {constants} from 'node:fs';
@@ -14,9 +14,16 @@ import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegist
 import {createExternalDefiRecoveryAuthorityV1,closeWrappedRecoveryAuthorityV1,retainWrappedPrivateLifetimeRecoveryV1,retainExternalDefiReceiverRuntimeV2,wrappedRecoveryAuthorityStatusV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {readPrivateRuntimeRecoveryV1} from '../../../../packages/backend/src/chains/shared/runtime/owned-runtime-recovery-files-v1.mjs';
 import {createOfficialProtocolFixture,assertOfficialProtocolFixture,captureOfficialProtocolFixtureRecoveryV1} from '../../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
+import {derivePrivateAssetIdentity} from '../../../../packages/engine/src/notes/private-asset-runtime.mjs';
+import {nativeAdmissionRulesTree} from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+import {createOwnedPoolAsset} from '../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs';
+import {evmRuntimeCodeHash} from '../../../../packages/backend/src/chains/evm/contracts/evm-code-hash.mjs';
+import {createLocalFlatOperator} from '../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
+import {deployFlatSystem,assertOwnedFlatSystem} from '../../../../packages/backend/src/operations/deployments/system/deploy-system.mjs';
+import {freshFixtureId} from '../../fixtures/runners/owned-flat-fixture.mjs';
 import {ownedEvmRecoveryStateBoundFailureV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-recovery-state-bound-v1.mjs';
 
-const PROFILE='ORIGINAL_EXTERNAL5_METAMORPHO_BOOTSTRAP_CAPTURE_V1',MAX_CAPTURE=33554432;
+const PROFILE='ORIGINAL_EXTERNAL5_METAMORPHO_FLAT_SYSTEM_BOOTSTRAP_CAPTURE_V1',MAX_CAPTURE=33554432;
 const started=performance.now(),deadline=Date.now()+75000;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const active=()=>assert.ok(Date.now()<deadline,'EVM_BOOTSTRAP_CAPTURE_DEADLINE');
@@ -61,8 +68,8 @@ async function main(){
  const runId=randomUUID(),lockPath=join(local,'active.lock');let lock,runtime,registry,authority,primary,runtimeConstructionStarted=false;
  const result={schema:PROFILE,runId,phase:'STARTING',success:false,financialAcceptance:false,loadedMeta15Equivalence:false,
   issuerFinalized:false,issuerReopened:false,owners:0,proofs:0,userNoteFunding:0,graphDeliveries:0,originalFixtureFakeLiquiditySetup:false,sourceClosureUnchanged:false,
-  cleanup:{runtimeStopped:false,originalPIDAbsent:false,registryClosed:false,issuerClosed:false,lockReleased:false,errors:[]}};
- let directory,before;
+  cleanup:{operatorsClosed:false,runtimeStopped:false,originalPIDAbsent:false,registryClosed:false,issuerClosed:false,lockReleased:false,errors:[]}};
+ let directory,before;const operators=[];let operatorsStopped=false;
  try{
   lock=await open(lockPath,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   await lock.writeFile(JSON.stringify({profile:PROFILE,pid:process.pid,runId}));await lock.sync();
@@ -70,6 +77,7 @@ async function main(){
   before=source();const sourceSHA256=hash(JSON.stringify(before));result.sourceClosureSHA256=sourceSHA256;
   active();runtimeConstructionStarted=true;runtime=await createOwnedExternalDefiReceiverV2();active();
   const processId=runtime.metadata.processId;result.ownedProcessId=processId;
+  const initialHead=await runtime.block();result.observedHeadNumbers={beforeSetup:Number(BigInt(initialHead.number))};
   assert.equal(runtime.transactions.length,0);assert.equal(runtime.receipts.length,0);
   const identity={directory,runId,sourceSHA256,deadlineMs:deadline};
   // All three objects are genuine fixed constructors. The issuer and registry
@@ -81,15 +89,59 @@ async function main(){
   assertOfficialProtocolFixture(runtime,official);
   // Exact original producer checks the configured contracts at this same
   // canonical head. No copied fixture/record becomes an execution capability.
-  const setup=await captureOfficialProtocolFixtureRecoveryV1(runtime,official);active();
-  const setupTransactions=runtime.transactions.length,setupReceipts=runtime.receipts.length;
-  assert.ok(setupTransactions>0&&setupReceipts===setupTransactions,'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_RECEIPTS');
+  const protocolSetup=await captureOfficialProtocolFixtureRecoveryV1(runtime,official);active();
+  const protocolTransactions=runtime.transactions.length,protocolReceipts=runtime.receipts.length;
+  assert.ok(protocolTransactions>0&&protocolReceipts===protocolTransactions,'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_RECEIPTS');
   assert.ok(runtime.receipts.every(row=>row.receipt.status==='0x1'),'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_STATUS');
-  assert.ok(setup.records.every(row=>row.receipt.status==='0x1'),'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_CREATES');
+  assert.ok(protocolSetup.records.every(row=>row.receipt.status==='0x1'),'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_CREATES');
   result.originalFixtureFakeLiquiditySetup=true;
-  result.originalFixtureSetup={transactions:setupTransactions,receipts:setupReceipts,
-    directContractCreates:setup.records.length,configurationReadChecks:setup.reads.length,
+  result.originalFixtureSetup={transactions:protocolTransactions,receipts:protocolReceipts,
+    directContractCreates:protocolSetup.records.length,configurationReadChecks:protocolSetup.reads.length,
     canonicalHeadVerified:true,privateNoteFunding:false,financialAcceptance:false};
+  result.observedHeadNumbers.afterProtocol=Number(BigInt(protocolSetup.head.number));
+  result.phase='ORIGINAL_FLAT_SYSTEM_BOOTSTRAP_BEFORE_OWNERS';
+  // Exact constructor prefix from owned-evm-vault-fixture. The four original
+  // local operators supply only their public registry keys; no bind, facts,
+  // health certificate, owner preparation, GRAPH or proof is requested.
+  const capabilities=[];
+  for(const contract of [official.first,official.vault]){
+    const codeHash=evmRuntimeCodeHash(contract.code);
+    capabilities.push(await createOwnedPoolAsset({runtime,
+      deployment:{address:contract.address,transactionHash:contract.receipt.transactionHash,
+        expectedCode:contract.code,codeHash},symbol:(await official.read(contract,'symbol'))[0],
+      decimals:Number((await official.read(contract,'decimals'))[0]),kind:'ERC20'}));active();
+  }
+  const shareIdentity=derivePrivateAssetIdentity(runtime.metadata.chainId,
+    official.vault.address,evmRuntimeCodeHash(official.vault.code)).slice(2);
+  const rules=[{family:'3',genesis:runtime.metadata.evmGenesis.slice(2),asset:shareIdentity,
+    finalityKind:'3',minimumConfirmations:'1',maximumEvidenceLifetime:'86400',maximumClockSkew:'30'}];
+  const rulesTree=nativeAdmissionRulesTree(rules);
+  for(let signerIndex=0;signerIndex<4;signerIndex++)operators.push(createLocalFlatOperator({signerIndex}));
+  const system=await deployFlatSystem(runtime,{deploymentDomain:'0x'+freshFixtureId(),registryEpoch:'1',
+    rulesRoot:'0x'+rulesTree.root,attesterKeys:operators.map(operator=>operator.publicKey),
+    pools:capabilities.map(assetCapability=>({assetCapability,policy:'0x'+freshFixtureId(),
+      deploymentDomain:'0x'+freshFixtureId()}))});active();
+  assertOwnedFlatSystem(runtime,system);
+  assert.equal(Object.keys(system.verifiers).length,12,'EVM_VAULT_FIXTURE_TWELVE_VERIFIERS');
+  assert.ok(system.verifiers.deposit_intent,'EVM_VAULT_FIXTURE_D27_VERIFIER');
+  assert.equal(system.sender,runtime.accounts[0],'EVM_VAULT_FIXTURE_SOURCE_SENDER');
+  assert.equal(system.pools[1].domain.asset,shareIdentity,'EVM_VAULT_FIXTURE_SHARE_IDENTITY');
+  assert.equal(system.bootstrap.constructorStorageMatched,true);assert.equal(system.bootstrap.completeRuntimesMatched,true);
+  assert.equal(system.bootstrap.poolsUnfunded,true);
+  const setupTransactions=runtime.transactions.length,setupReceipts=runtime.receipts.length;
+  assert.equal(setupTransactions,setupReceipts,'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_SYSTEM_RECEIPTS');
+  assert.ok(runtime.receipts.every(row=>row.receipt.status==='0x1'),'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_SYSTEM_STATUS');
+  const captureHead=await runtime.block();await runtime.assertCanonical(captureHead);
+  assert.equal(captureHead.number,system.bootstrap.blockNumber);assert.equal(captureHead.hash,system.bootstrap.blockHash);
+  result.observedHeadNumbers.afterFlatSystem=Number(BigInt(captureHead.number));
+  result.originalFlatSystemSetup={transactions:setupTransactions-protocolTransactions,
+    receipts:setupReceipts-protocolReceipts,deployedContracts:system.deployments.length,
+    verifiers:Object.keys(system.verifiers).length,pools:system.pools.length,
+    generatedLibraries:Object.keys(system.generatedLibraries).length,registrationReceipts:system.registrationReceipts.length,
+    registryActors:operators.length,registryActorsBound:false,registryActorsSigned:false,
+    constructorStorageMatched:true,completeRuntimesMatched:true,poolsUnfunded:true,financialAcceptance:false};
+  for(const operator of operators){const status=operator.status();assert.equal(status.bound,false);assert.equal(status.certifiedInventoryCount,0);await operator.close();assert.equal(operator.status().closed,true);}
+  operatorsStopped=true;result.cleanup.operatorsClosed=true;
   result.phase='ORIGINAL_PRIVATE_LIFETIME_CAPTURE';await retainWrappedPrivateLifetimeRecoveryV1(authority,runtime);active();
   result.phase='ORIGINAL_RECEIVER_CAPTURE';await retainExternalDefiReceiverRuntimeV2(authority,runtime);active();
   const status=wrappedRecoveryAuthorityStatusV1(authority);
@@ -103,12 +155,14 @@ async function main(){
   const original=await readPrivateRuntimeRecoveryV1(runtime.metadata.scratchDirectory,terminal.privateRecord);
   assert.equal(original.schema,'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2');assert.equal(original.family,'receiver');
   assert.equal(original.transactions.length,setupTransactions);assert.equal(original.receipts.length,setupReceipts);assert.equal(original.accounts.length,5);
-  assert.deepEqual(original.head,setup.head,'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_HEAD');
+  assert.deepEqual(original.head,captureHead,'EVM_BOOTSTRAP_CAPTURE_ORIGINAL_HEAD');
+  result.observedHeadNumbers.atCapture=Number(BigInt(original.head.number));
   result.stateDump=descriptor(original.stateDump);assert.equal(result.stateDump.lowerHexEncoding,true);
   result.originalAccountCount=original.accounts.length;result.issuerSections={privateLifetime:'CAPTURED',receiver:'CAPTURED',system:'ABSENT',owners:'ABSENT',wallet:'ABSENT'};
-  original.stateDump=null;result.phase='ORIGINAL_BOOTSTRAP_CAPTURE_COMPLETED';result.success=true;
+  original.stateDump=null;result.phase='ORIGINAL_FLAT_SYSTEM_BOOTSTRAP_CAPTURE_COMPLETED';result.success=true;
  }catch(error){primary=error;result.failedStage=result.phase;result.errorCode=code(error);result.recoveryStateBoundDiagnostic=ownedEvmRecoveryStateBoundFailureV1(error);result.success=false;result.phase='FAILED';}
  finally{
+  if(!operatorsStopped){let allClosed=true;for(const operator of operators)try{await operator.close();}catch(error){allClosed=false;result.cleanup.errors.push(code(error));}operatorsStopped=allClosed;result.cleanup.operatorsClosed=allClosed;}
   for(const [field,close] of [['registryClosed',()=>registry?closeWrappedPrivateLifetimeRegistryV1(registry):undefined],['issuerClosed',()=>authority?closeWrappedRecoveryAuthorityV1(authority):undefined],['runtimeStopped',()=>runtime?.close()]]){
    try{await close();result.cleanup[field]=true;}catch(error){result.cleanup.errors.push(code(error));}
   }
