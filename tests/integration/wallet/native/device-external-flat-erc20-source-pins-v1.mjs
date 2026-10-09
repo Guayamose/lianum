@@ -11,9 +11,10 @@ const RUNNER=Object.freeze(['integration/run-device-external-flat-erc20-v1.mjs',
 const PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-ordered-observation-service-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs']);
 // Final literal hashes are sealed with the producer/SDK READY dependencies.
 const MOBILE=Object.freeze([
+ ["apps/mobile/src/api/device-private-proof-transit-v2.mjs","eef99ef4d53565004c8d03b809943bc3ace0b508b9a35e1d14e377c87e739542"],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
-  "b7ed153b86162aacb619b35a685d287d80078ba98639fec8c7de6c420aa1598b"
+  "1c0b7e1e1bf3060b73715a6156f37f3698f775249d036497c060e43dff801442"
  ],
  [
   "apps/mobile/src/custody/balance-note-codec-v1.mjs",
@@ -25,7 +26,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
-  "a0b77c626432a8f528ff69ac348ca90ef3981c3c2e9c45d797a3a5447158a008"
+  "5cc451e73d101c058cf94a5076ae8e0db865e19d58291c3e5cddbbd99bb938a5"
  ],
  [
   "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
@@ -33,7 +34,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/key-store.ts",
-  "95a171280083eb4a2eb648259f780607e0c29b3131651869f62370bcb16ef375"
+  "bcdb5b7a22b0cae4f23acaaaaa7dc280d6d01565c3a8eff68757a894b68e15fa"
  ],
  [
   "apps/mobile/src/custody/signing.mjs",
@@ -41,19 +42,19 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "b5a29168f4d1fb92566b05bce948295b24f40bbd230389d27f62490ca53cb5fe"
+  "1acb498ede7b2a7f8a799b7da54e8da6d8a4c62dae0ca49b129f7da1f9ce0adb"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "2e99b64732c6b381fbbe3958e1c846298ac56625b4353d0157bfee27fa94c86a"
+  "50129d328d30aeaf3c0b7812377554c93733c9d7008fd2eef807d26d54b910f1"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-  "fae1eec789c17c0ba38bdd93b82cfe190b617216b006e5b3712510957d232423"
+  "8a82ed4041c5a95c2ca42a7539959beecf95821f9c137253ce8d6da34981f0fe"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
-  "4b9db200f7abda5df4bba642fc9a2e9b6e2c8459787ff00ce37e9c4739451f52"
+  "f5c40c22e804555b0781246ac35c80ba5f0353a5647a4337758a86751a98de47"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
@@ -77,7 +78,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-  "0c96de4b183e341abb980e87b07a54cb80954a937a48e33b009b41a83538516b"
+  "b256c2083f2a5a24f0e0436012e6992256d6e40868fd53c68ed87b4f06c8f3e2"
  ],
  [
   "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
@@ -101,7 +102,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "a391112217224decd24605edcde04c195cd6d687e1581e0cece89a1a7dd4ffe2"
+  "631c10666a714084fde3c0f03c6020d5dcd655400c57abc1b976ce853b8f9cde"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
@@ -109,7 +110,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-  "737c202049cadb74aa05a28cff4d9966464f17009511d05d81557f83a2970187"
+  "d63e146a4ee187fdb46a7914926c7c20fdb68d794ae0a783c51b4bf3f10703f1"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-ordered-local-operator-v1.mjs",
@@ -121,11 +122,11 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "24f7b116d682c6f3c9bda069d59e7dac114e08c7a6e1cf6ca28ffe872b0d7650"
+  "caf087a59ffc0c231776a5301fb101da6e426ec3a1f562a3339afbd7eb79e0c6"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "b58ed2a7144f337e475a0024bbc99cdcb2371379889a3a25eb2b590593ae8c82"
+  "097fb2085931485642ed1ad6697f6b37783b384665257d1e3e02eed59c7864b2"
  ]
 ]);
 function pin(base,name,expected){assert.equal(realpathSync(base),base);let path=base;for(const part of name.split('/')){assert.ok(part&&part!=='.'&&part!=='..');path=join(path,part);assert.equal(lstatSync(path).isSymbolicLink(),false);}
@@ -140,13 +141,14 @@ export function deviceExternalFlatErc20SourcePinsV1(){assert.equal(arguments.len
 const GRAPH_RUNNER=Object.freeze(['integration/run-device-external-flat-source-graph-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs','integration/device-external-flat-ordered-restart-v1.mjs','integration/device-external-flat-ordered-successor-v1.mjs']);
 const GRAPH_PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/global-state/device-external-flat-source-graph-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs','wallet-platform/modules/paeg/flat-native-execution.mjs']);
 const GRAPH_MOBILE=Object.freeze([
+ ["apps/mobile/src/api/device-private-proof-transit-v2.mjs","eef99ef4d53565004c8d03b809943bc3ace0b508b9a35e1d14e377c87e739542"],
  [
   "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
   "e429d8e694a2b2d953c18e28baefb5b0a1d8396db41fc40c85128ca1ffb443b9"
  ],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
-  "64e165a9f43705fe083d73560e664cce3bb4e27d6df267ca88dca1f9d19394df"
+  "1c0b7e1e1bf3060b73715a6156f37f3698f775249d036497c060e43dff801442"
  ],
  [
   "apps/mobile/src/custody/balance-note-codec-v1.mjs",
@@ -182,7 +184,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "f6df3c750d82c797548145966faeac3b9a7f8d6efe309b5ff45171ae4ba3de12"
+  "3b071fca9f5c3edfe989bdd06d60119d970346794d3abc82105b0f1b41d3c131"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -194,7 +196,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "8dae48668b795e3bcd6809d2141e8f671b1c6fb7c6ac09b63ce0e5dff83d3bdf"
+  "1acb498ede7b2a7f8a799b7da54e8da6d8a4c62dae0ca49b129f7da1f9ce0adb"
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
@@ -206,7 +208,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "25c7c4a37e17d90f68bf12ab64714a9a0b5d2927c96b3182688bb03b3444657a"
+  "50129d328d30aeaf3c0b7812377554c93733c9d7008fd2eef807d26d54b910f1"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -218,7 +220,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-  "150d3f880e1e13ec9c4858465c252980bb4c834bd85e74482eb6c97aece690af"
+  "d63e146a4ee187fdb46a7914926c7c20fdb68d794ae0a783c51b4bf3f10703f1"
  ],
  [
   "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
@@ -226,7 +228,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "5b6a550f21fb88f72ecb3d0004e5bc579f8fd8ccbcdb022c4287eb04df6beae7"
+  "e6c61d1be28ce69d8334445c3a398453f03686652ce9b8aa9a22acee90027fdd"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -242,7 +244,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "453192a0cb1ea4f74ce10db2b21a2d2ccb63c0900f6ee6cfcb7659c6cd3466b6"
+  "66b6d9e6f3937a95e52adc516b107da4358a36fda952be36d19d0f8476e7c1b4"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
@@ -278,7 +280,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-  "13aeed7b94391535f2fa4b03f35a8539ad2fad0d689c4438e7ec07f39b42b4e6"
+  "b256c2083f2a5a24f0e0436012e6992256d6e40868fd53c68ed87b4f06c8f3e2"
  ],
  [
   "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
