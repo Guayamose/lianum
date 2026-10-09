@@ -63,11 +63,42 @@ function canonical(value){if(Array.isArray(value))return '['+value.map(canonical
  * The browser's framing validator does not claim to verify a server signature. */
 export function canonicalOwnerGraphTerms(value,wrapped,flat=false){need(value&&typeof value==='object','OWNER_GRAPH_RECORD');for(const key of ['envelope','fundingNotBefore','fundingValidUntil','executionUntil','settleBefore','graph'])need(Object.hasOwn(Object.getOwnPropertyDescriptor(value,key)??{},'value'),'OWNER_GRAPH_FIELDS');validateOwnerGraphStructure(value,wrapped,flat);return canonical({profile:'OWNER_PRIVATE_EXECUTION_GRAPH_TERMS_V1',envelope:value.envelope,fundingNotBefore:value.fundingNotBefore,fundingValidUntil:value.fundingValidUntil,executionUntil:value.executionUntil,settleBefore:value.settleBefore,legs:value.graph.legs,edges:value.graph.edges});}
 export function validateOwnerGraphReview(value){
- const wrapped=value&&Object.getOwnPropertyDescriptor(value,'profile')?.value===OWNER_GRAPH_PROFILES[1];fields(value,['version','profile','requestId','kind','ownerOperationRef','assetId','asset','graph','envelope','fundingNotBefore','fundingValidUntil','executionUntil','settleBefore','identitySHA256','sourceAmount','reservedAmount','changeAmount','changeRecipient','recoveryRecipient','originalAccountLifetime','observation','solverOwnLiquidity','settlementEstablished','recovery',...(wrapped?['wrappedBinding']:[])]);
+ const wrapped=value&&Object.getOwnPropertyDescriptor(value,'profile')?.value===OWNER_GRAPH_PROFILES[1];fields(value,['version','profile','requestId','kind','ownerOperationRef','assetId','asset','graph','envelope','fundingNotBefore','fundingValidUntil','executionUntil','settleBefore','identitySHA256','sourceAmount','reservedAmount','changeAmount','changeRecipient','recoveryRecipient','originalAccountLifetime','observation','solverOwnLiquidity','settlementEstablished','recovery',...(wrapped?['wrappedBinding']:[]),...(Object.hasOwn(value??{},'economicAllocation')?['economicAllocation']:[])]);
  need(value.version===2&&OWNER_GRAPH_PROFILES.includes(value.profile)&&value.kind==='GRAPH'&&typeof value.requestId==='string'&&/^[A-Za-z0-9_-]{8,100}$/.test(value.requestId),'OWNER_GRAPH_REVIEW_PROFILE');
  for(const k of ['ownerOperationRef','assetId','identitySHA256','originalAccountLifetime'])need(hash(value[k]),'OWNER_GRAPH_OWNER_BINDING');fields(value.asset,['assetId','symbol','decimals']);need(value.asset.assetId===value.assetId&&typeof value.asset.symbol==='string'&&/^[A-Z0-9]{2,12}$/.test(value.asset.symbol)&&Number.isInteger(value.asset.decimals)&&value.asset.decimals>=0&&value.asset.decimals<=18,'OWNER_GRAPH_ASSET');
  need(uint(value.sourceAmount)===uint(value.reservedAmount)+uint(value.changeAmount)&&BigInt(value.reservedAmount)>0n,'OWNER_GRAPH_CONSERVATION');for(const k of ['changeRecipient','recoveryRecipient'])need(typeof value[k]==='string'&&/^[0-9a-f]{40}$/.test(value[k]),'OWNER_GRAPH_RETURN_RECIPIENT');
  need(value.observation==='ORIGINAL_AUTHORIZED_TERMS_ONLY'&&value.solverOwnLiquidity===true&&value.settlementEstablished===false&&value.recovery==='PRIVATE_ORIGINAL_CUTOFF_ONLY','OWNER_GRAPH_ASSURANCE');
  if(wrapped){const b=value.wrappedBinding;fields(b,['profile','accountIdentitySHA256','runtimeIdentitySHA256','systemProfile','hub','claimAuthority','registryCommitment','claimDomain','processIdentitySHA256','processGeneration','head','economicIntentSHA256']);need(b.profile==='WRAPPED_WALLET_ORIGINAL_CONSENT_BINDING_V1'&&b.systemProfile==='LIANUM_OWNED_WRAPPED_CUSTODY_NATIVE_GRAPH_V1','OWNER_GRAPH_WRAPPED_PROFILE');for(const k of ['accountIdentitySHA256','runtimeIdentitySHA256','registryCommitment','claimDomain','processIdentitySHA256','economicIntentSHA256'])need(hash(b[k]),'OWNER_GRAPH_WRAPPED_HASH');need(addr(b.hub)&&addr(b.claimAuthority)&&Number.isSafeInteger(b.processGeneration)&&b.processGeneration>=1,'OWNER_GRAPH_WRAPPED_AUTHORITY');fields(b.head,['hash','number','timestamp']);need(hash(b.head.hash),'OWNER_GRAPH_HEAD');uint(b.head.number,64);uint(b.head.timestamp,64);}
- return validateOwnerGraphStructure(value,wrapped,value.profile===OWNER_GRAPH_PROFILES[2]);
+ validateOwnerGraphStructure(value,wrapped,value.profile===OWNER_GRAPH_PROFILES[2]);
+ if(Object.hasOwn(value,'economicAllocation')){const expected=flatDeFiEconomicAllocation(value);need(expected!==null,'OWNER_GRAPH_ECONOMIC_PROFILE');fields(value.economicAllocation,Object.keys(expected));fields(value.economicAllocation.protocolFee,Object.keys(expected.protocolFee));need(canonical(value.economicAllocation)===canonical(expected),'OWNER_GRAPH_ECONOMIC_ALLOCATION_CHANGED');}
+ return value;
+}
+
+/** Derived owner-only assignment of the original single DeFi invoice. This is
+ * neither a fee quote nor current solvency/wealth evidence. In particular, the
+ * D27 note may eventually be paid to the solver itself: input spent cannot be
+ * called a net wealth loss, and output shares cannot be summed with underlying.
+ * Multi-leg invoices retain their original framing until each private payout
+ * amount is available to this owner projection. No amount is inferred from a
+ * commitment or spread across executors. */
+function flatDeFiEconomicAllocation(value){
+ if(value.profile!==OWNER_GRAPH_PROFILES[2]||value.graph.legs.length!==1)return null;
+ const route=value.graph.legs[0].route;
+ if(route.deliveryLossClause!=='FULL_OWNER_REFUND_PROVIDER_LOSS_V1')return null;
+ if(!['REGISTERED_LOCAL_EVM_VAULT_V1','REGISTERED_LOCAL_EVM_METAMORPHO_V1','REGISTERED_LOCAL_EVM_AAVE_STATIC_V1','REGISTERED_LOCAL_EVM_UNISWAP_V3_V1'].includes(route.routeProfile))return null;
+ const maximum=route.solverMaximumInputAmount??route.solverMaximumUnderlyingAmount??route.solverUnderlyingAmount;
+ const reserved=uint(value.reservedAmount),input=uint(maximum);
+ return {profile:'ORIGINAL_SINGLE_DEFI_ECONOMIC_ALLOCATION_V1',sourceAssetIdentity:route.sourceAssetIdentity,
+  reservedAtomic:value.reservedAmount,solverMaximumInputAtomic:maximum,
+  solverInvoiceOnTAtomic:value.reservedAmount,solverInvoiceOnFAtomic:'0',ownerRecoveryOnFAtomic:value.reservedAmount,
+  minimumInputCashMarginOnTAtomic:String(reserved-input),
+  deliveryInputAndGasOnF:'ORIGINAL_SOLVER',externalOutputOnF:'ORIGINAL_D27_NOTE_REMAINS_FINAL',
+  protocolFee:{kind:route.routeProfile==='REGISTERED_LOCAL_EVM_UNISWAP_V3_V1'?'IN_ORIGINAL_INPUT_SPENT':'NO_SEPARATE_FEE_QUOTED',rateMillionths:route.routeProfile==='REGISTERED_LOCAL_EVM_UNISWAP_V3_V1'?route.fee:null},
+  nativeGasPayer:'ORIGINAL_SOLVER',nativeGasSeparatelyReimbursedByPrivateInvoice:false,
+  solvency:'ORIGINAL_DISPATCH_HEAD_ONLY_NO_FUTURE_INSURANCE',withdrawalFees:'NOT_QUOTED_BY_DELIVERY_INVOICE',
+  netSolverWealthLossEstablished:false,privateOutputsValuedAsSourceAtomic:false};
+}
+export function ownerFlatDeFiEconomicAllocationV1(value){
+ need(arguments.length===1,'OWNER_GRAPH_ECONOMIC_FIELDS');validateOwnerGraphReview(value);
+ const allocation=flatDeFiEconomicAllocation(value);return allocation===null?null:allocation;
 }

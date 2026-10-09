@@ -15,7 +15,7 @@ import { prepareOwnedMetaMorphoGraphDescriptorV1, assertOwnedMetaMorphoGraphDeli
   prepareOwnedUniswapGraphDescriptorV1, assertOwnedUniswapGraphDeliveryFactsV1 }
   from '../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 
-import { validateOwnerGraphReview, canonicalOwnerGraphTerms } from '../../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
+import { validateOwnerGraphReview, canonicalOwnerGraphTerms, ownerFlatDeFiEconomicAllocationV1 } from '../../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
 import { accountReviewDetails } from '../../../../../../apps/wallet/src/client/state/view-model.mjs';
 
 const h = n => n.toString(16).padStart(2, '0').repeat(32), a = n => n.toString(16).padStart(2, '0').repeat(20);
@@ -124,7 +124,7 @@ test('Uniswap owner consent distinguishes input cap and private output; copied o
     sourceAssetIdentity: descriptor.context.sourceAssetIdentity, targetAssetIdentity: descriptor.context.targetAssetIdentity,
     targetCommitment: h(12), descriptorCommitment: evmGraphDeliveryDescriptorCommitmentV1(descriptor),
     solverMaximumInputAmount: '2000', deliveredOutputAmount: '1000', executionFrom: '1000', executionUntil: '1100', settleBefore: '1200',
-    payoutCommitment: h(13), deliveryRiskCommitment: h(14), deliveryLossClause: 'EXPLICIT_HOST_TERMS_ONLY',
+    payoutCommitment: h(13), deliveryRiskCommitment: h(14), deliveryLossClause: 'FULL_OWNER_REFUND_PROVIDER_LOSS_V1',
     protocolAmountsPublic: true, publicNetwork: false };
   const review = { version: 2, profile: 'ORIGINAL_MANUAL_FLAT_GRAPH_REVIEW_V2', requestId: 'uniswap_host_only', kind: 'GRAPH',
     ownerOperationRef: h(15), assetId: h(16), asset: { assetId: h(16), symbol: 'PALT', decimals: 6 },
@@ -135,11 +135,25 @@ test('Uniswap owner consent distinguishes input cap and private output; copied o
     recoveryRecipient: a(9), originalAccountLifetime: h(22), observation: 'ORIGINAL_AUTHORIZED_TERMS_ONLY',
     solverOwnLiquidity: true, settlementEstablished: false, recovery: 'PRIVATE_ORIGINAL_CUTOFF_ONLY' };
   validateOwnerGraphReview(review);
+  review.economicAllocation=ownerFlatDeFiEconomicAllocationV1(review);
+  validateOwnerGraphReview(review);
+  assert.equal(review.economicAllocation.solverInvoiceOnTAtomic,'1200');
+  assert.equal(review.economicAllocation.solverInvoiceOnFAtomic,'0');
+  assert.equal(review.economicAllocation.ownerRecoveryOnFAtomic,'1200');
+  assert.equal(review.economicAllocation.minimumInputCashMarginOnTAtomic,'-800');
+  assert.deepEqual(review.economicAllocation.protocolFee,{kind:'IN_ORIGINAL_INPUT_SPENT',rateMillionths:'3000'});
+  assert.equal(review.economicAllocation.netSolverWealthLossEstablished,false);
+  assert.equal(review.economicAllocation.privateOutputsValuedAsSourceAtomic,false);
+  for(const mutate of [a=>a.solverInvoiceOnFAtomic='1200',a=>a.ownerRecoveryOnFAtomic='0',a=>a.minimumInputCashMarginOnTAtomic='200',a=>a.protocolFee.rateMillionths='500',a=>a.netSolverWealthLossEstablished=true]){
+    const changed=structuredClone(review);mutate(changed.economicAllocation);assert.throws(()=>validateOwnerGraphReview(changed),/ECONOMIC_ALLOCATION_CHANGED/);
+  }
   const canonical = canonicalOwnerGraphTerms(review, false, true);
   const rows = accountReviewDetails({ graph: review });
   assert.ok(rows.some(([key, value]) => key.includes('límite del solver') && value.includes('2000')));
   assert.ok(rows.some(([key, value]) => key.includes('token de salida privado') && value.includes('1000') && value.includes(identity.outputAsset)));
   assert.ok(rows.some(([key]) => key.includes('exposición')));
+  assert.ok(rows.some(([key,value])=>key==='Pago condicional al solver'&&value.includes('1200')&&value.includes('0 con recuperación F')));
+  assert.ok(rows.some(([key,value])=>key==='Riesgo económico del solver'&&value.includes('no demuestra una pérdida patrimonial neta')));
   const changed = structuredClone(review); changed.graph.legs[0].route.deliveredOutputAmount = '1001';
   assert.notEqual(canonicalOwnerGraphTerms(changed, false, true), canonical);
   for (const mutate of [r => r.fee = '500', r => r.protocolAmountsPublic = false, r => r.publicNetwork = true,

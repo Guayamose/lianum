@@ -302,6 +302,17 @@ export function accountReviewDetails(context) {
         ['Referencia original del titular', g.ownerOperationRef],
         ['Visibilidad de esta revisión', 'Grafo completo solo para el titular; cada ejecutor conserva su ámbito original'],
       ];
+      if(g.economicAllocation){
+        const a=g.economicAllocation;
+        rows.push(
+          ['Pago condicional al solver', `${a.solverInvoiceOnTAtomic} unidades atómicas del origen sólo con cumplimiento T; ${a.solverInvoiceOnFAtomic} con recuperación F`],
+          ['Recuperación y entrega finalizada', `${a.ownerRecoveryOnFAtomic} de reserva vuelve al titular con F; la nota D27 entregada conserva su dueño original`],
+          ['Margen de caja frente al máximo de entrada', `${a.minimumInputCashMarginOnTAtomic} unidades atómicas del origen antes del gas; el margen no es una comisión cotizada`],
+          ['Comisiones y gas', a.protocolFee.rateMillionths===null?'No hay una comisión del protocolo cotizada por separado. El solver paga gas nativo; la factura privada no lo reembolsa por separado.':'El coste de entrada ya incluye la comisión Uniswap de '+a.protocolFee.rateMillionths+' millonésimas; no se suma otra vez. El solver paga gas nativo.'],
+          ['Riesgo económico del solver', 'Con F el solver soporta el desembolso y el gas. Si recibe también la salida D27, esto no demuestra una pérdida patrimonial neta.'],
+          ['Alcance de solvencia', 'Saldo, allowance, gas y respaldo se comprueban en el head original antes del envío. No hay seguro ni garantía de liquidez futura; las retiradas tienen costes propios.'],
+        );
+      }
       for (const leg of g.graph.legs) {
         const route = leg.route, label = `Paso ${leg.slot + 1}`;
         const predecessors = g.graph.edges.filter(edge => edge.targetSlot === leg.slot)

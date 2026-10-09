@@ -1,4 +1,4 @@
-import {validateOwnerGraphReview} from '../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
+import {validateOwnerGraphReview,ownerFlatDeFiEconomicAllocationV1} from '../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
 /** Private account authority for the fixed local flat owner. One source, one
  * authorization, and its original exits; no balance rollover is implemented.
  * The generic account keeper/journal/coordinator are reused without changes. */
@@ -1035,11 +1035,13 @@ async function flatAccountAuthority(input,callbacks,durable) {
           'FLAT_ACCOUNT_MANUAL_GRAPH_TERMS_CHANGED');
         const body = immutable({ requestId: value.requestId, kind: 'GRAPH',
           ownerOperationRef: value.ownerOperationRef, assetId: asset.assetId });
-        const review = immutable({ version: route.graph ? 2 : 1, profile: route.graph ? 'ORIGINAL_MANUAL_FLAT_GRAPH_REVIEW_V2' : 'ORIGINAL_MANUAL_EVM_GRAPH_REVIEW_V1',
+        const originalReview = immutable({ version: route.graph ? 2 : 1, profile: route.graph ? 'ORIGINAL_MANUAL_FLAT_GRAPH_REVIEW_V2' : 'ORIGINAL_MANUAL_EVM_GRAPH_REVIEW_V1',
           ...body, asset: { assetId: asset.assetId, symbol: asset.symbol, decimals: asset.decimals },
           ...route, ...terms, originalAccountLifetime: config.lifetime,
           observation: 'ORIGINAL_AUTHORIZED_TERMS_ONLY', solverOwnLiquidity: true,
           settlementEstablished: false, recovery: 'PRIVATE_ORIGINAL_CUTOFF_ONLY' });
+        const economicAllocation = route.graph ? ownerFlatDeFiEconomicAllocationV1(originalReview) : null;
+        const review = economicAllocation === null ? originalReview : immutable({ ...originalReview, economicAllocation });
         if(route.graph)validateOwnerGraphReview(review);
         validateFlatManualGraphAdmissionTime(review, String(await runtime.time()));
         // One retained operation has one exact human handoff identity for this
