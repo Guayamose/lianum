@@ -8,6 +8,7 @@ import{join,resolve}from'node:path';
 import{tmpdir}from'node:os';
 import{fileURLToPath}from'node:url';
 import{spawn}from'node:child_process';
+import{runInNewContext}from'node:vm';
 const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/global-state/external-defi-receiver-runtime-v2.test.mjs');
 const authorityURL=new URL(generated?'../native-claims/wrapped-recovery-authority-v1.mjs':'../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',import.meta.url);
 const runtimeURL=new URL(generated?'../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url);
@@ -18,6 +19,7 @@ const walletURL=new URL(generated?'./external-defi-catalogue-recovery-v1.mjs':'.
 const fixedRoot=fileURLToPath(new URL('../../../',authorityURL));
 const runtimes=new WeakMap();let captures=0,aborts=0,authority;
 mock.module(runtimeURL,{exports:{
+ assertOwnedDeviceExternalFlatReceiverV1(){assert.fail('EXPLICIT_HOST_DEVICE_RECEIVER_PORT_UNUSED');},
  async assertOwnedLocalEvmV2(runtime){assert.equal(arguments.length,1);assert.ok(runtimes.has(runtime),'EXPLICIT_HOST_ORIGINAL_V2_REQUIRED');assert.equal(runtimes.get(runtime).fenced,false);},
  assertOwnedExternalDefiReceiverV2(runtime){assert.equal(arguments.length,1);assert.ok(runtimes.has(runtime),'EXPLICIT_HOST_ORIGINAL_V2_REQUIRED');assert.equal(runtimes.get(runtime).fenced,false);},
  captureOwnedExternalDefiReceiverV2(runtime,token){const state=runtimes.get(runtime);assert.ok(state&&!state.fenced);const identity=authority.externalDefiReceiverCaptureIdentityV2(token);
@@ -118,4 +120,54 @@ test('External5 V3 authenticated section keeps its fixed format in a new process
  await assert.rejects(authority.openExternalDefiRecoveryAuthorityV1(f.identity,checkpoint),/NEW_PROCESS_REQUIRED/);
  const result=await child({identity:f.identity,checkpoint,authorityURL:authorityURL.href,runtimeURL:runtimeURL.href,expectedSchema:'OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3'});
  assert.deepEqual({opens:result.opens,closed:result.closed,financialAcceptance:result.financialAcceptance},{opens:1,closed:1,financialAcceptance:false});assert.notEqual(result.pid,process.pid);
+});
+
+
+test('HOST ordered device receiver retains before effects and preserves its distinct original capture token',async()=>{
+ // Native/issuer ports below are explicit inert private brands. Exercise the
+ // production factory, public brand checks and synchronous core fence bodies;
+ // no native process, wallet, proof, keys, funding or financial acceptance.
+ const source=await readFile(runtimeURL,'utf8');
+ const between=(start,end)=>{const a=source.indexOf(start),b=source.indexOf(end,a);assert.ok(a>=0&&b>a);return source.slice(a,b);};
+ const definitions=between('const originalExternalDefiReceiverV2=new WeakSet(),','const originalEvmRecoveryCapturesV1 =');
+ const create=between('export async function createOwnedExternalDefiReceiverV2(){','export function isOwnedNativeEconomicRuntimeV2(').replace(/^export /gm,'');
+ const reopen=between('export async function reopenOwnedDeviceExternalFlatReceiverV1(token){','export async function reopenOwnedNativeEconomicGraphRuntimeV1(').replace(/^export /gm,'');
+ const fence=between('    if(deviceExternalFlatV1){let originalDeviceCaptureToken=null;','    if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmRetentionArmsV1.set(');
+ const native=source.slice(source.indexOf('export function assertOwnedNativeEconomicRuntimeRecoverableV1(runtime){')).replace(/^export /gm,'');
+ assert.ok(native.includes('DEVICE_EXTERNAL_FLAT_RECEIVER_DISTINCT_ISSUER_REQUIRED'));
+ const localProfile=Object.freeze({explicitInertHost:true}),nativePin=Object.freeze(['explicit-inert-host','ab'.repeat(32)]);
+ const events=[],instances=new WeakMap(),writes=new WeakMap(),reads=new WeakMap();let factoryCalls=0,retentionGate=null,retentionError=null,cleanupError=null,captureGate=null,captureError=null,bridge;
+ const identity=Object.freeze({profile:'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1',sourceSHA256:'cd'.repeat(32)});
+ const record=Object.freeze({schema:'OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3',family:'receiver',terminal:Object.freeze({ownedProcessStopped:true,forced:false}),explicitInertHost:true});
+ const captureIdentity=token=>{const saved=writes.get(token);assert.ok(saved&&!saved.fault,'HOST_ORIGINAL_DEVICE_WRITE_TOKEN');return saved.identity;};
+ const consume=token=>{const saved=reads.get(token);assert.ok(saved&&!saved.used,'HOST_ORIGINAL_DEVICE_OPEN_TOKEN');saved.used=true;return saved.record;};
+ const bind=runInNewContext('(make)=>{'+definitions+create+reopen+native+
+  ';return {symbol:DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1,install(runtime,state){let economicRecoveryFence=null,recoveryRetained=false,recoveryCapturing=false;const deviceExternalFlatV1=true,busy=false,recoveryRpcActive=0,nativeActiveReadsV4=0,runtimePin=NATIVE_ECONOMIC_ANVIL_PIN_V2;const assertAlive=()=>assert.equal(state.closed,false);const recoveryCapture=()=>{assert.equal(recoveryRetained,true);events.push("capture");state.fenced=true;return make.capture(runtime);};const close=()=>{assert.equal(recoveryCapturing,true);return runtime.close();};'+fence+'},create:createOwnedDeviceExternalFlatReceiverV1,assert:assertOwnedDeviceExternalFlatReceiverV1,capture:captureOwnedDeviceExternalFlatReceiverV1,abort:abortOwnedDeviceExternalFlatReceiverCaptureV1,reopen:reopenOwnedDeviceExternalFlatReceiverV1,external:assertOwnedExternalDefiReceiverV2,native:assertOwnedNativeEconomicRuntimeRecoverableV1,fenceNative:fenceOwnedNativeEconomicRuntimeV1,captureNative:captureOwnedNativeEconomicRuntimeV1,abortNative:abortOwnedNativeEconomicRuntimeV1};}',{
+  assert,events,EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:record.schema,LOCAL_EVM_PROFILE:localProfile,NATIVE_ECONOMIC_ANVIL_PIN_V2:nativePin,
+  originalEvmEconomicFencesV1:new WeakMap(),cloneRuntimeRecoveryV1:structuredClone,
+  deviceExternalFlatReceiverCaptureIdentityV1:captureIdentity,consumeDeviceExternalFlatReceiverRuntimeSectionV1:consume,
+  async createFixedOwnedLocalEvm(profile,generation,saved,selector){factoryCalls++;assert.equal(profile,localProfile);assert.equal(generation,false);assert.equal(selector,bridge.symbol);assert.ok(saved===null||saved===record);
+   const state={closed:false,fenced:false};const runtime=Object.freeze({async close(){events.push('close');state.closed=true;if(cleanupError)throw cleanupError;return{closed:true};}});instances.set(runtime,state);bridge.install(runtime,state);events.push(saved?'open-core':'new-core');return runtime;},
+  async armOwnedEvmRecoveryRetentionV1(runtime){assert.ok(instances.has(runtime));events.push('retain-before-effects');if(retentionGate)await retentionGate;if(retentionError)throw retentionError;return{retained:true,explicitInertHost:true};}
+ });
+ bridge=bind({capture:async runtime=>{assert.ok(instances.get(runtime).fenced);if(captureGate)await captureGate;if(captureError)throw captureError;return record;}});
+ let releaseRetention;retentionGate=new Promise(resolve=>{releaseRetention=resolve;});let returned=false;
+ const creation=bridge.create().then(runtime=>{returned=true;return runtime;});await new Promise(resolve=>setTimeout(resolve,0));
+ assert.deepEqual(events,['new-core','retain-before-effects']);assert.equal(returned,false);releaseRetention();const runtime=await creation;retentionGate=null;
+ assert.equal(bridge.assert(runtime),undefined);assert.throws(()=>bridge.assert({...runtime}),/ORIGINAL_REQUIRED/);assert.throws(()=>bridge.external(runtime),/EXTERNAL_RECEIVER_ORIGINAL/);assert.throws(()=>bridge.native(runtime),/DISTINCT_ISSUER/);
+ assert.throws(()=>bridge.fenceNative(runtime,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.captureNative(runtime,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.abortNative(runtime,{}),/DISTINCT_ISSUER/);
+ await assert.rejects(bridge.create({}),/0/);await assert.rejects(bridge.abort(runtime,null),/ORIGINAL_CAPTURE_TOKEN/);assert.equal(instances.get(runtime).closed,false);
+ const token=Object.freeze(Object.create(null));writes.set(token,{identity,fault:false});assert.throws(()=>bridge.capture(runtime,{...token}),/HOST_ORIGINAL_DEVICE_WRITE_TOKEN/);assert.throws(()=>bridge.capture({...runtime},token),/ORIGINAL_REQUIRED/);
+ let releaseCapture;captureGate=new Promise(resolve=>{releaseCapture=resolve;});captureError=new Error('HOST_ORIGINAL_CAPTURE_FAILURE');
+ const work=bridge.capture(runtime,token);assert.equal(instances.get(runtime).fenced,true);assert.throws(()=>bridge.assert(runtime),/QUIESCENCE/);assert.throws(()=>bridge.capture(runtime,token),/QUIESCENCE/);
+ await assert.rejects(bridge.abort(runtime,{...token}),/ORIGINAL_CAPTURE_TOKEN/);assert.equal(instances.get(runtime).closed,false);
+ writes.get(token).fault=true;releaseCapture();await assert.rejects(work,error=>error===captureError);const aborted=await bridge.abort(runtime,token);
+ assert.equal(aborted.closed,true);assert.equal(aborted.recoveryIncomplete,true);assert.equal(instances.get(runtime).closed,true);
+ captureGate=null;captureError=null;const readToken=Object.freeze(Object.create(null));reads.set(readToken,{record,used:false});
+ const before=factoryCalls;await assert.rejects(bridge.reopen({...readToken}),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);assert.equal(factoryCalls,before);
+ const recovered=await bridge.reopen(readToken);assert.equal(factoryCalls,before+1);assert.equal(bridge.assert(recovered),undefined);await assert.rejects(bridge.reopen(readToken),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);
+ const wrong=Object.freeze(Object.create(null));reads.set(wrong,{record:{...record,schema:'OWNED_FIXED_EVM_CAPTURE_V2'},used:false});await assert.rejects(bridge.reopen(wrong),/FIXED_V3/);assert.equal(factoryCalls,before+1);await assert.rejects(bridge.reopen(wrong),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);
+ await recovered.close();const originalRetentionError=new Error('HOST_RETENTION_FAILED'),originalCleanupError=new Error('HOST_CLEANUP_FAILED');retentionError=originalRetentionError;
+ await assert.rejects(bridge.create(),error=>error===originalRetentionError);cleanupError=originalCleanupError;
+ await assert.rejects(bridge.create(),error=>error.cause===originalRetentionError&&error.errors[0]===originalRetentionError&&error.errors[1]===originalCleanupError);
 });
