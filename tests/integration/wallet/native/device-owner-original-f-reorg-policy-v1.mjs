@@ -7,7 +7,7 @@ export function assertDeviceFReorgReleaseV1(){assert.equal(arguments.length,0);a
  {format:'REVIEWED_ORIGINAL_DEVICE_F_REORG_RELEASE_V1',profile:DEVICE_F_REORG_PROFILE_V1,scope:'EXACT_ORIGINAL_BEFORE_F_PARENT_ONLY',
  originalRelations:9,originalSignatureRetained:true,originalWireReemissions:1,localOnly:true,fakeFundsOnly:true,publicNetwork:false,phone:false},'DEVICE_F_REORG_RELEASE_NULL_OR_CHANGED');}
 export function assertDeviceFReorgResultV1(result){assert.equal(arguments.length,1);assert.equal(result.profile,DEVICE_F_REORG_PROFILE_V1);assert.equal(result.format,DEVICE_F_REORG_RESULT_V1);
- assertDeviceRecoveryResultV1({...result,profile:DEVICE_RECOVERY_PROFILE_V1,format:DEVICE_RECOVERY_RESULT_V1});
+ const recoveryScope=assertDeviceRecoveryResultV1({...result,profile:DEVICE_RECOVERY_PROFILE_V1,format:DEVICE_RECOVERY_RESULT_V1});
  const r=result.originalFReorg;assert.equal(r.format,'ORIGINAL_DEVICE_F_REORG_RECONFIRMATION_V1');assert.equal(r.scope,'EXACT_ORIGINAL_BEFORE_F_PARENT_ONLY');
  assert.equal(r.originalJobId,result.deviceNative.jobId);assert.equal(r.nativeBindingSHA256,result.deviceNative.nativeBindingSHA256);assert.equal(r.originalSHash,result.deviceReservation.observation.transactionHash);
  for(const k of ['sameWire','invalidatedBeforeReemission','deviceUnknownDurable','bothOutputsUnavailableWhileUnknown','snapshotConsumed'])assert.equal(r[k],true);
@@ -21,5 +21,4 @@ export function assertDeviceFReorgResultV1(result){assert.equal(arguments.length
  assert.equal(r.oldReceipt.blockHash,'0x'+r.oldTerminal.blockHash);assert.equal(r.newReceipt.blockHash,'0x'+r.newTerminal.blockHash);
  assert.equal(r.probe.reverted,true);assert.equal(r.probe.exactOriginalParent,true);assert.equal(r.probe.originalTransactionAbsent,true);
  assert.equal(BigInt(r.probe.beforeBlockNumber)+1n,BigInt(r.probe.oldBlockNumber));assert.equal(r.deeperReorgSupported,false);assert.equal(r.publicNetwork,false);
- return{originalDeviceFReorgNodeAcceptance:true,deviceOwnerNativeRecoveryNodeAcceptance:true,deviceOwnerUSNodeAcceptance:true,deviceOwnerD26NodeAcceptance:true,
- nativeGraphAcceptance:true,nativeDeliveryCount:1,fullWalletAcceptance:false,physicalPhoneEstablished:false};}
+ return{...recoveryScope,originalDeviceFReorgNodeAcceptance:true};}
