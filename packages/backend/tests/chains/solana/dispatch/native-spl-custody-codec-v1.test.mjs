@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import vm from 'node:vm';
+import {ROOT} from '../../../../../proofs/src/catalog.mjs';
+import {cloneInput,frozenInput} from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
 import {base58Encode,base58Decode} from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
 import {claimActionFrame,claimBackingFrame,CLAIM_ACTION_FIELDS,CLAIM_BACKING_FIELDS} from '../../../../src/claims/authorization/permits.mjs';
 import {NATIVE_SPL_CUSTODY_V1,NATIVE_SPL_CUSTODY_SOURCE_REVIEW_V1,NATIVE_SPL_CUSTODY_COMPILED_RELEASE_V1,nativeSplAssetCommitmentV1,encodeNativeSplAuthorizeV1,encodeNativeSplAuthorizeMessageV1,encodeNativeSplSwapMessageV1,decodeNativeSplInventoryV1} from '../../../../src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
@@ -44,4 +49,40 @@ test('observed live tickets sum to reserved principal and never become free prin
  assert.throws(()=>decodeNativeSplInventoryV1({...value,tickets:[]}),/SPL_COMPLETE_RESERVED_TICKET_PRINCIPAL/);
  assert.throws(()=>decodeNativeSplInventoryV1({...value,tickets:[...value.tickets,...value.tickets]}),/SPL_DUPLICATE_TICKET/);
  c.writeBigUInt64BE(101n,600);assert.throws(()=>decodeNativeSplInventoryV1({...value,configData:c.toString('hex')}),/SPL_AUTHORIZED_PRINCIPAL_OVERALLOCATED/);
+});
+
+
+// Source-extracted original getter and original single-send latch. Journal,
+// authority and send ports below are explicitly inert HOST fixtures, not grants.
+test('HOST SPL transfer inspection freezes only snapshots before original latch, preserves immutable output and forbids resend',async()=>{
+ const source=readFileSync(join(ROOT,'wallet-platform/modules/chain-adapters/owned-solana-spl-custody-v1.mjs'),'utf8');
+ const getterAt=source.indexOf('get transfers(){'),getterEnd=source.indexOf(',inventory,',getterAt);
+ const latchAt=source.indexOf(' async function latchAndSend('),latchEnd=source.indexOf(' async function infrastructureSend(',latchAt);
+ assert.ok(getterAt>=0&&getterEnd>getterAt&&latchAt>=0&&latchEnd>latchAt);
+ const instantiate=(body,ports)=>vm.runInThisContext('(function({'+Object.keys(ports).join(',')+'}){'+body+'\n})')(ports);
+ const original={nativeId:'HOST_original_id',nativeWire:'HOST_original_wire',signature:'HOST_original_signature',
+  transactionSHA256:'11'.repeat(32),route:'deposit',intent:{amount:'123',wireKeyCommitment:'22'.repeat(32)},
+  phase:'SIGNED_NOT_BROADCAST',broadcastAttempts:0};
+ const transfers=new Map([[original.nativeId,original]]);
+ const view=instantiate('return Object.freeze({'+source.slice(getterAt,getterEnd)+'});',{transfers,cloneInput,frozenInput});
+ const snapshot=view.transfers;assert.equal(Object.isFrozen(snapshot),true);assert.equal(Object.isFrozen(snapshot[0]),true);
+ assert.equal(Object.isFrozen(snapshot[0].intent),true);assert.notEqual(snapshot[0],original);assert.notEqual(snapshot[0].intent,original.intent);
+ assert.equal(Object.isFrozen(original),false);assert.equal(Object.isFrozen(original.intent),false);
+ assert.throws(()=>{snapshot[0].phase='BROADCAST';},TypeError);assert.throws(()=>{snapshot[0].intent.amount='999';},TypeError);
+ assert.equal(original.intent.amount,'123');assert.equal(original.phase,'SIGNED_NOT_BROADCAST');
+ const order=[],prepared=Object.freeze({profile:'HOST_original_preparation'});let sends=0,saveCount=0;
+ const ctx={async persistTransfer(record){assert.equal(record,original);assert.equal(Object.isFrozen(record),false);saveCount++;order.push('journal-'+record.phase);},
+  async sendOnce(wire){assert.equal(wire,original.nativeWire);assert.equal(original.phase,'BROADCAST_UNKNOWN');assert.equal(original.broadcastAttempts,1);sends++;order.push('send');return original.signature;}};
+ const latch=instantiate(source.slice(latchAt,latchEnd)+'; return latchAndSend;',{
+  assert,ctx,async persist(){order.push('state-'+view.transfers[0].phase);assert.equal(Object.isFrozen(original),false);},
+  live(){order.push('live');},activeBudget(value){assert.equal(value,prepared);order.push('budget');},
+ });
+ const authority={async beforeSend(value){assert.equal(value,prepared);assert.equal(view.transfers[0].phase,'BROADCAST_UNKNOWN');order.push('before');},
+  assertBeforeSend(value){assert.equal(value,prepared);order.push('guard');}};
+ await latch(original,authority,prepared);
+ assert.deepEqual(order,['journal-BROADCAST_UNKNOWN','state-BROADCAST_UNKNOWN','before','guard','budget','live','send','journal-BROADCAST','state-BROADCAST']);
+ assert.equal(sends,1);assert.equal(saveCount,2);assert.equal(original.phase,'BROADCAST');assert.equal(original.broadcastAttempts,1);
+ assert.equal(snapshot[0].phase,'SIGNED_NOT_BROADCAST');assert.equal(view.transfers[0].phase,'BROADCAST');
+ assert.notEqual(view.transfers[0],view.transfers[0]);
+ await assert.rejects(latch(original,authority,prepared));assert.equal(sends,1);assert.equal(saveCount,2);
 });
