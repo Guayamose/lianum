@@ -1,4 +1,4 @@
-import {nativeSourceRecoveryOriginalReferenceV1,nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+import {nativeSourceRecoveryOriginalReferenceV1,nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1,consumeOriginalNativeSourceActorCheckpointV1} from '../../operations/recovery/native-original-source-capsule-v1.mjs';
 /** Private same-realm bootstrap only. Public platform HTTP is not connected.
  * Holds original session/approval/owner references; no factories or callbacks.
  * Diagnostics and separately consented account/pool state use the same opaque
@@ -442,6 +442,18 @@ export function assertNativeActorSessionAccountMembershipV1(actor, expected) {
   need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); exact(expected, ['session', 'account']);
   const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); state.live();
   need(state.session === expected.session && state.account === expected.account, 'MOBILE_ORIGINAL_ACTOR_MEMBERSHIP_CHANGED');
+}
+
+/** Pending actor calls never restore a possibly used permission. Only the
+ * original capsule can request this read-only fold of its authenticated seed. */
+export function reconcileOriginalNativeActorSourceCheckpointV1(request){
+ need(arguments.length===1,'NATIVE_SOURCE_ACTOR_ARGUMENTS');const {identity,section}=consumeOriginalNativeSourceActorCheckpointV1(request);
+ exact(section,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);need(section.schema==='ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1'&&section.sourceSHA256===identity.sourceSHA256,'NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');need(section.ownedProcesses.length===0,'NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');
+ exact(section.candidate,['kind','method']);need(section.candidate.kind==='ACTOR_PERMISSION_OR_OBSERVATION'&&['challenge','openReview','submit','privateStateChallenge','openPrivateStateReview','readPrivateState','deviceDepositSignedReadBindingV1','deviceDepositOriginalBinding'].includes(section.candidate.method),'NATIVE_SOURCE_ACTOR_ORIGINAL_INTERRUPTION');
+ const seed=section.confirmed;exact(seed,['schema','origin','pairingId','devicePublicKey','initial','challenges']);need(seed.schema==='ORIGINAL_NATIVE_ACTOR_SOURCE_SEED_V1','NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');exact(seed.challenges,['accesses','reviews','stateAccesses','stateReviews']);
+ const challenges={},normalizers={accesses:normalizeOriginalAccountAccessV2,reviews:normalizeOriginalAccountReviewV2,stateAccesses:normalizeOriginalAccountAccessV2,stateReviews:normalizeOriginalAccountReviewV2};
+ for(const name of Object.keys(normalizers)){const seen=new Set(),rows=seed.challenges[name];need(Array.isArray(rows)&&rows.length<=4,'MOBILE_ORIGINAL_RECOVERED_CHALLENGES_INVALID');challenges[name]=rows.map(row=>{exact(row,['id','value','consumed']);const value=normalizers[name](frameData(row.value));need(row.id===value.challengeId&&!seen.has(row.id)&&typeof row.consumed==='boolean'&&value.origin===seed.origin&&value.pairingId===seed.pairingId&&value.devicePublicKey===seed.devicePublicKey,'MOBILE_ORIGINAL_RECOVERED_CHALLENGE_CHANGED');seen.add(row.id);return{id:row.id,value:structuredClone(row.value),consumed:true};});}
+ return{...section,confirmed:{...structuredClone(seed),challenges},candidate:null};
 }
 
 export async function retainOriginalNativeActorSourceV1(token,actor){need(arguments.length===2,'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');const state=actorBrands.get(actor);need(state,'NATIVE_SOURCE_ORIGINAL_ACTOR');return state.sourceRetain(token);}
