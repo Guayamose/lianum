@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "66f6bbb040f41847cc74eb8035aab35a24a681e325fff860bbbcbf56253e503e",
+  "hostSourceClosureSHA256": "9849498503189fb3c359c802ab368e3fe920cbc3a6f64e6d1300a64d3e2ced1e",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -669,6 +669,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "b1db7d353d6760f840ae44c30dc8e1b2f8cbfffd77625d5bf6d0c18ece6f9a69"
     },
     {
+      "path": "integration/claims/development/development-native-claim-bootstrap-first-error-v1.mjs",
+      "sha256": "6c9bf44b2815d068de16f0d9067f2313dd0852cc73f0d99f453e3c349c85a084"
+    },
+    {
       "path": "integration/claims/development/development-native-claim-policy.mjs",
       "sha256": "07b95fefd95773ddd3696fd03b43fa06e6f2af2b17bc5628b2731e10871db70f"
     },
@@ -762,7 +766,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/evm-vault-flow.mjs",
-      "sha256": "791fd676bf0456a3c6969e279e52367badd12504394677c4830d3db0934c7dd6"
+      "sha256": "7486eaccce537e91d238aad9c439a88356593b2627b6324ec814c9b44ee6a154"
     },
     {
       "path": "integration/evm-vault-terminal-checks.mjs",
@@ -786,7 +790,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/external-defi-vault-exit-policy-v1.mjs",
-      "sha256": "3df112dfe84fd0add8e9a6abb39ec48386e8de56b865cc59b28e821acec570c9"
+      "sha256": "69de3fc63c95b0c386765d2f0ea0489c917ac60b15e149890d14eff654d98bd4"
     },
     {
       "path": "integration/external-defi-vault-exit-process-scope-v1.mjs",
@@ -798,7 +802,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/external-defi-vault-exit-successor-v1.mjs",
-      "sha256": "16d21b68aebb08a49542b71dc8815fdcd5c1edfc2740679cd222fbd37355715b"
+      "sha256": "82c4aca067c8b5ca286e9adcb490d8119f465d286155351e0d14a5a6088cc34a"
     },
     {
       "path": "integration/jupiter-orca-public-swap-policy-v1.mjs",
@@ -906,7 +910,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-device-economic-launcher-v1.mjs",
-      "sha256": "976dbba4b96a0413f24a5bb9d4efb6bfb627e6c5fd266f3d7fce8c735c2395a2"
+      "sha256": "2ef0dc7a902632e8c715d9519dc8da7b4aafc45b4fadd66d6a83f6cf3ccf37c3"
     },
     {
       "path": "integration/native-device-economic-note-policy-v1.mjs",
@@ -1066,7 +1070,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/owned-native-claim-fixture.mjs",
-      "sha256": "233b63337db7879998ea70a0b3c65f1d02760910fa65c95e22ce2489dc198473"
+      "sha256": "b79409309003f0b3916b1308a44bacc5c78800201c63fb65465c847b67727208"
     },
     {
       "path": "integration/paired-native-note-flow-v2.mjs",
@@ -2426,11 +2430,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-catalogue-recovery-v1.mjs",
-      "sha256": "87620b2706660912d503148696c32884d9e71910e8d42b3cb592e69fe5e04a31"
+      "sha256": "1a4073ba8d41e81391bef7dffa788223d15f73a43251639f671f4dbad8a2f19b"
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-retained-vault-wallet-v1.mjs",
-      "sha256": "51244c446499d21e5b7ebfd7e039f84e4148e561ab8fefe5b0d9a71726123d2e"
+      "sha256": "496e0d1dd73a29eb7d71b1e1b5f227e0491ca854aca6bb7f6616f38025beaaa6"
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-wallet-recovery-v1.mjs",
@@ -2438,7 +2442,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "sha256": "53f6e77541514d9feff57236d93e0df9ebf2fc5edb0d826068209b4b6b67c0f2"
+      "sha256": "c32752ffdef7bba0d93dcd997aedd3347cc26c413d8b2417be63e3ed70f01ae5"
     },
     {
       "path": "wallet-platform/modules/global-state/flat-account-validation.mjs",
@@ -2446,7 +2450,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/flat-journal-catalogue.mjs",
-      "sha256": "569d7491d0cb443ce738e0a2b39daca810d615ad1e5aa9bc11781a22f7e49657"
+      "sha256": "e3cd4d5261d6d2eb5bc0e8bfa9951e5faac221a505314583ecd53de3b3894cdd"
     },
     {
       "path": "wallet-platform/modules/global-state/flat-manual-account-keeper.mjs",
