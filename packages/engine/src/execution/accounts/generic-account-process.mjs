@@ -1,6 +1,7 @@
 /** Fixed disposable account worker. No caller-selected process, environment,
  * runtime, graph or owner-custody credential crosses this bridge. */
-import {fork} from 'node:child_process';
+import {fork,ChildProcess} from 'node:child_process';
+import {readFile,lstat} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {isAbsolute} from 'node:path';
 import {canonical} from '../../crypto/privacy.mjs';
@@ -68,6 +69,25 @@ const allowedHostMethods = {
   recover: ['assertAuthority', 'proposeCheckpoint', 'retainCheckpoint', 'recover', 'observe'],
 };
 
+const originalCoordinatorProcesses=new WeakMap();
+async function originalCoordinatorIdentity(child) {
+  need(child instanceof ChildProcess&&Number.isSafeInteger(child.pid)&&child.pid>0,'JOURNAL_ORIGINAL_CHILD_REQUIRED');
+  const read=async()=>{const text=await readFile('/proc/'+child.pid+'/stat','utf8'),end=text.lastIndexOf(') '),first=text.indexOf(' ');
+    need(end>first&&text.slice(0,first)===String(child.pid),'JOURNAL_ORIGINAL_CHILD_IDENTITY');
+    const fields=text.slice(end+2).trim().split(/\s+/),info=await lstat('/proc/'+child.pid);
+    need(fields.length>=22&&/^[0-9]+$/.test(fields[19]),'JOURNAL_ORIGINAL_CHILD_IDENTITY');
+    const integer=raw=>{need(/^(0|[1-9][0-9]*)$/.test(raw),'JOURNAL_ORIGINAL_CHILD_IDENTITY');const n=Number(raw);need(Number.isSafeInteger(n),'JOURNAL_ORIGINAL_CHILD_IDENTITY');return n;};
+    need(info.isDirectory()&&info.uid===process.getuid(),'JOURNAL_ORIGINAL_CHILD_IDENTITY');
+    return {pid:child.pid,startTicks:fields[19],uid:info.uid,pgrp:integer(fields[2]),session:integer(fields[3])};};
+  const before=await read(),after=await read();same(before,after,'JOURNAL_ORIGINAL_CHILD_IDENTITY');return immutable(before);
+}
+/** Kernel identity from this exact original ChildProcess. No PID supplied by a
+ * caller or saved descriptor is accepted and no process authority is returned. */
+export async function readOriginalGenericAccountCoordinatorIdentityV1(coordinator) {
+  need(arguments.length===1,'JOURNAL_ORIGINAL_CHILD_ARGUMENTS');const state=originalCoordinatorProcesses.get(coordinator);
+  need(state&&state.live(),'JOURNAL_ORIGINAL_CHILD_REQUIRED');const actual=await originalCoordinatorIdentity(state.child);need(state.live(),'JOURNAL_ORIGINAL_CHILD_REQUIRED');
+  if(state.identity===null)state.identity=actual;else same(actual,state.identity,'JOURNAL_ORIGINAL_CHILD_IDENTITY');return actual;
+}
 export async function createGenericAccountCoordinatorProcess({config, journal, opening, host, afterHostOperation = async () => {}}) {
   config = validateGenericAccountConfig(config); journal = validateJournalCredentials(journal); opening = immutable(opening);
   const identity = genericAccountIdentity(config);
@@ -185,5 +205,6 @@ export async function createGenericAccountCoordinatorProcess({config, journal, o
   try { await ready; initial = await request('initialize', {config, journal, opening}); }
   catch (error) { stopWith(error); await close(); throw accountError(error); }
   finally { journal.password = null; }
-  return Object.freeze({initial, request, close, whenHostIdle, get available() {return !ended && !failure && !stopping;}});
+  const coordinator=Object.freeze({initial, request, close, whenHostIdle, get available() {return !ended && !failure && !stopping;}});
+  originalCoordinatorProcesses.set(coordinator,{child,identity:null,live:()=>!ended&&!failure&&!stopping&&child.exitCode===null&&child.signalCode===null});return coordinator;
 }

@@ -1,3 +1,7 @@
+import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
+  updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1, nativeSourceRecoveryOwnedProcessV1 }
+  from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+import { assertOriginalNativeAccountSourceV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 /** Private source-authenticated composition of the existing portfolio, mixed keeper
  * and FlatAccountSession. No new journal, graph schema or HTTP factory.
  * Use at initial trusted bootstrap, never migrate/replace a live keeper. */
@@ -236,11 +240,11 @@ async function nativeGraphSession(input, recovery) {
     need(approval, 'WALLET_ACCOUNT_GRAPH_FORBIDDEN');
   };
   const graphKeeper = Object.freeze({
-    prepare(value) { originalApproval('prepare', value); return keeper.prepare(value); },
-    execute(value) { originalApproval('execute', value); return keeper.execute(value); },
-    reconcile(value) { originalApproval('reconcile', value); return keeper.reconcile(value); },
-    recover(value) { originalApproval('recover', value); return keeper.recover(value); },
-    snapshot: () => keeper.snapshot(), restartCoordinator: () => keeper.restartCoordinator(),
+    prepare(value) { originalApproval('prepare', value); return originalSourceSessionWork(session,()=>keeper.prepare(value)); },
+    execute(value) { originalApproval('execute', value); return originalSourceSessionWork(session,()=>keeper.execute(value)); },
+    reconcile(value) { originalApproval('reconcile', value); return originalSourceSessionWork(session,()=>keeper.reconcile(value)); },
+    recover(value) { originalApproval('recover', value); return originalSourceSessionWork(session,()=>keeper.recover(value)); },
+    snapshot: () => keeper.snapshot(), restartCoordinator: () => {need(!state?.nativeSource,'NATIVE_SOURCE_LIVE_COORDINATOR_REPLACEMENT_FORBIDDEN');return keeper.restartCoordinator();},
     async close() { if(state?.economicAcquisition)await state.economicAcquisition.catch(()=>{});await state?.economicState?.close(); return keeper.close(); },
   });
   try { session = await createFlatAccountSession({ keeper: graphKeeper, ownerHandoff: { ownerView: () => account.ownerView() } }); }
@@ -277,7 +281,7 @@ async function nativeGraphSession(input, recovery) {
       assertOwnedNativeValueAccountAuthority(account, { runtime, system, poolIndex, owner: recovery.owner });
       // This original factory reads the SAME owner Vault and the recovered
       // account journal. It does not adopt a saved review as a capability.
-      const preparation = await account.ownerActions.restoreManualPreparation();
+      const preparation = recovery.source&&recovery.notes.length===0?null:await account.ownerActions.restoreManualPreparation();
       for (const retained of recovery.notes) {
         await preparation.reconcileOriginal({ requestId: retained.body.requestId });
         const approval = preparation.originalApproval(retained.body.requestId), details = nativeValueAccountManualNoteDetails(approval);
@@ -444,6 +448,7 @@ export function fenceOriginalNativeSessionEconomicRecoveryV1(session, authority)
   need(arguments.length === 2, 'NATIVE_SESSION_ARGUMENTS');
   const admitted = assertNativeEconomicRecoveryCaptureV1(authority), state = sessions.get(session);
   need(state?.nativeAccount && state.durableKeeper && !state.nativeFence, 'NATIVE_SESSION_ORIGINAL_REQUIRED');
+  need(!state.nativeSource,'NATIVE_SOURCE_SESSION_LEGACY_CAPTURE_DENIED');
   assertOwnedNativeValueAccountAuthority(state.nativeAccount, { runtime: state.runtime, system: state.system, poolIndex: state.poolIndex });
   need(nativeValueOriginalRecoverySourceV1(state.runtime, state.system) === admitted.sourceSHA256, 'NATIVE_SESSION_SOURCE_CHANGED');
   // Current mobile composition has only its original note consent. General
@@ -526,4 +531,120 @@ export function assertNativeSessionEconomicMembershipV1(session, expected) {
   need(state.runtime === expected.runtime && state.system === expected.system && state.nativeAccount === expected.account,
     'NATIVE_SESSION_ORIGINAL_MEMBERSHIP_REQUIRED');
   assertOwnedNativeValueAccountAuthority(expected.account, { runtime: expected.runtime, system: expected.system, poolIndex: state.poolIndex, owner: expected.owner });
+}
+
+/** SOURCE section metadata has no economic authority. Each retained approval is
+ * rebuilt later from the same original owner/account producer before use. */
+function originalSourceSessionState(session,keeper=null) {
+  const state=sessions.get(session);need(state?.nativeSource&&state.nativeAccount&&state.durableKeeper
+    &&!state.nativeFence&&!state.nativeCaptured,'NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED');
+  need(!state.nativeSource.fault,'NATIVE_SOURCE_SESSION_UNAVAILABLE');
+  if(keeper!==null)need(state.durableKeeper===keeper,'NATIVE_SOURCE_ORIGINAL_KEEPER_CHANGED');
+  assertOwnedNativeValueAccountAuthority(state.nativeAccount,{runtime:state.runtime,system:state.system,poolIndex:state.poolIndex,owner:state.nativeSource.owner});
+  assertOriginalNativeAccountSourceV1(state.nativeAccount,state.nativeSource.identity);
+  need(state.graphs.size===0,'NATIVE_SOURCE_GRAPH_RESTORATION_PRODUCER_REQUIRED');return state;
+}
+export function assertOriginalNativeSessionSourceKeeperV1(session,keeper) {
+  need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');originalSourceSessionState(session,keeper);
+}
+function sourceSessionPayload(state,snapshot) {
+  const checkpoint=snapshot.keeper.checkpoint;
+  need(checkpoint&&snapshot.keeper.config.accountId===state.nativeAccount.config.accountId,'NATIVE_SOURCE_ORIGINAL_KEEPER_CHANGED');
+  return {schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SEED_V1',sourceSHA256:state.nativeSource.identity.sourceSHA256,
+    poolIndex:state.poolIndex,accountIdentitySHA256:sha(genericAccountIdentity(state.nativeAccount.config)),
+    journalRevision:checkpoint.revision,keeper:structuredClone(snapshot.keeper),
+    notes:[...state.notes.values()].map(approval=>{const details=originalNote(state.nativeSource.session,approval);return structuredClone({body:details.body,review:details.review});})};
+}
+async function sourceOwnedCoordinatorProcesses(state,snapshot) {
+  need(Array.isArray(snapshot.ownedProcesses)&&snapshot.ownedProcesses.length===1,'NATIVE_SOURCE_ORIGINAL_COORDINATOR_REQUIRED');
+  const expected=snapshot.ownedProcesses[0],actual=await nativeSourceRecoveryOwnedProcessV1(state.nativeSource.token,'session',expected.pid);
+  need(sha(actual)===sha(expected),'NATIVE_SOURCE_ORIGINAL_COORDINATOR_IDENTITY_CHANGED');return [actual];
+}
+async function updateSourceSession(state,confirmed,ownedProcesses,candidate) {
+  const section={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',sourceSHA256:state.nativeSource.identity.sourceSHA256,
+    ownedProcesses:structuredClone(ownedProcesses),confirmed,candidate};
+  await updateOriginalNativeSourceSectionV1(state.nativeSource.handle,section);state.nativeSource.section=structuredClone(section);
+}
+export async function prepareOriginalNativeSessionKeeperSourceCheckpointV1(session,keeper) {
+  need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');const state=originalSourceSessionState(session,keeper);
+  const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const candidate=await module.readOriginalNativeSourceSessionKeeperCandidateV1(keeper,session);
+  exactRecord(candidate,['revision','stateSHA256']);need(Number.isSafeInteger(candidate.revision)&&candidate.revision>=0&&/^[0-9a-f]{64}$/.test(candidate.stateSHA256),'NATIVE_SOURCE_ORIGINAL_CHECKPOINT');
+  await updateSourceSession(state,state.nativeSource.section.confirmed,state.nativeSource.section.ownedProcesses,
+    {kind:'KEEPER_CAS',parentCheckpoint:structuredClone(candidate)});
+}
+export async function confirmOriginalNativeSessionKeeperSourceCheckpointV1(session,keeper) {
+  need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');const state=originalSourceSessionState(session,keeper);
+  const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const snapshot=await module.readOriginalNativeSourceSessionKeeperV1(keeper,session);
+  // The keeper itself supplies this exact snapshot from its original parent
+  // readback; the caller still must hold both of the original references.
+  exactRecord(snapshot,['keeper','ownedProcesses']);
+  const pending=state.nativeSource.section.candidate;
+  need(pending?.kind==='KEEPER_CAS','NATIVE_SOURCE_ORIGINAL_CHECKPOINT');
+  need(snapshot.keeper.parentCheckpoint.revision===pending.parentCheckpoint.revision
+    &&sha({checkpoint:snapshot.keeper.checkpoint,pendingCheckpoint:snapshot.keeper.pendingCheckpoint})===pending.parentCheckpoint.stateSHA256,
+    'NATIVE_SOURCE_ORIGINAL_CHECKPOINT_CHANGED');
+  await updateSourceSession(state,sourceSessionPayload(state,snapshot),await sourceOwnedCoordinatorProcesses(state,snapshot),
+    state.nativeSource.busy?{kind:'ADMITTED_KEEPER_OPERATION'}:null);
+}
+async function originalSourceSessionWork(session,work) {
+  const state=sessions.get(session);if(!state?.nativeSource)return work();
+  const source=state.nativeSource;originalSourceSessionState(session);need(!source.busy&&!source.fault,'NATIVE_SOURCE_SESSION_UNAVAILABLE');source.busy=true;
+  try {
+    await updateSourceSession(state,source.section.confirmed,source.section.ownedProcesses,{kind:'ADMITTED_KEEPER_OPERATION'});
+    const value=await work(),module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const snapshot=await module.readOriginalNativeSourceSessionKeeperV1(state.durableKeeper,session);
+    await updateSourceSession(state,sourceSessionPayload(state,snapshot),await sourceOwnedCoordinatorProcesses(state,snapshot),null);return value;
+  }catch(error){source.fault=true;throw error;}finally{source.busy=false;}
+}
+function originalSourceJoinedSession(joined) {
+  // SOURCE callers await this binding before funding; ordinary joined sessions
+  // keep their existing synchronous methods and no new persistence work.
+  return Object.freeze({session:joined.session,
+    async bindManualNote(approval){return originalSourceSessionWork(joined.session,()=>joined.bindManualNote(approval));},
+    bindManualGraph(){fail('NATIVE_SOURCE_GRAPH_RESTORATION_PRODUCER_REQUIRED');}});
+}
+/** Initial private composition has no effects until account, keeper and STATE6
+ * anchors are all retained. No replacement source can join this session. */
+export async function createOriginalNativeSourceGraphAccountSessionV1(token,input) {
+  need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');exactRecord(input,['runtime','system','poolIndex','account','journal','owner']);
+  const identity=nativeSourceRecoverySectionIdentityV1(token,'session');need(identity.profile==='NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1','NATIVE_SOURCE_ORIGINAL_PROFILE');
+  need(nativeValueOriginalRecoverySourceV1(input.runtime,input.system)===identity.sourceSHA256,'NATIVE_SOURCE_ORIGINAL_SOURCE_CHANGED');
+  assertOwnedNativeValueAccountAuthority(input.account,{runtime:input.runtime,system:input.system,poolIndex:input.poolIndex,owner:input.owner});
+  assertOriginalNativeAccountSourceV1(input.account,identity);
+  const {owner,...original}=input,joined=await nativeGraphSession(original,null),state=sessions.get(joined.session);
+  state.nativeSource={identity,owner,token,session:joined.session,handle:null,section:null,busy:false,fault:false};
+  try {
+    const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const snapshot=await module.readOriginalNativeSourceSessionKeeperV1(state.durableKeeper,joined.session);
+    const section={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',sourceSHA256:identity.sourceSHA256,
+      ownedProcesses:await sourceOwnedCoordinatorProcesses(state,snapshot),confirmed:sourceSessionPayload(state,snapshot),candidate:null};
+    state.nativeSource.handle=await retainOriginalNativeSourceSectionV1(token,'session',section);state.nativeSource.section=structuredClone(section);
+    await module.bindOriginalNativeSourceSessionKeeperV1(state.durableKeeper,joined.session);
+    await createOriginalSessionWalletEconomicStateV1(joined.session);return originalSourceJoinedSession(joined);
+  }catch(error){state.nativeSource.fault=true;try{await joined.session.close();}catch(cleanup){throw new AggregateError([error,cleanup],'NATIVE_SOURCE_SESSION_SETUP_CLOSE_FAILED',{cause:error});}throw error;}
+}
+export async function reopenOriginalNativeSessionSourceV1(token,contexts) {
+  need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');exactRecord(contexts,['runtime','system','account','owner']);
+  const identity=nativeSourceRecoverySectionIdentityV1(token,'session');need(identity.profile==='NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1','NATIVE_SOURCE_ORIGINAL_PROFILE');
+  need(nativeValueOriginalRecoverySourceV1(contexts.runtime,contexts.system)===identity.sourceSHA256,'NATIVE_SOURCE_ORIGINAL_SOURCE_CHANGED');
+  assertOriginalNativeAccountSourceV1(contexts.account,identity);
+  const section=consumeOriginalNativeSourceSectionV1(token,'session');exactRecord(section,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);
+  need(section.schema==='ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1'&&section.sourceSHA256===identity.sourceSHA256,'NATIVE_SOURCE_ORIGINAL_PROFILE');
+  need(section.candidate===null,'NATIVE_SOURCE_PENDING_ONLY_UNKNOWN');
+  const retained=section.confirmed;exactRecord(retained,['schema','sourceSHA256','poolIndex','accountIdentitySHA256','journalRevision','keeper','notes']);
+  need(retained.schema==='ORIGINAL_NATIVE_SOURCE_SESSION_SEED_V1'&&retained.sourceSHA256===identity.sourceSHA256,'NATIVE_SOURCE_ORIGINAL_PROFILE');
+  need(sha(genericAccountIdentity(contexts.account.config))===retained.accountIdentitySHA256,'NATIVE_SOURCE_ORIGINAL_ACCOUNT_CHANGED');
+  assertOwnedNativeValueAccountAuthority(contexts.account,{runtime:contexts.runtime,system:contexts.system,poolIndex:retained.poolIndex,owner:contexts.owner});
+  const handle=await resumeOriginalNativeSourceSectionV1(token,'session');
+  const joined=await nativeGraphSession({runtime:contexts.runtime,system:contexts.system,poolIndex:retained.poolIndex,account:contexts.account,journal:retained.keeper.journal},
+    {...retained,source:true,owner:contexts.owner}),state=sessions.get(joined.session);
+  state.nativeSource={identity,owner:contexts.owner,token,session:joined.session,handle,section:structuredClone(section),busy:false,fault:false};
+  try {
+    const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const snapshot=await module.bindOriginalNativeSourceSessionKeeperV1(state.durableKeeper,joined.session);
+    await updateSourceSession(state,sourceSessionPayload(state,snapshot),await sourceOwnedCoordinatorProcesses(state,snapshot),null);
+    await reopenOriginalSessionWalletEconomicStateAfterCrashV1(joined.session);return originalSourceJoinedSession(joined);
+  }catch(error){state.nativeSource.fault=true;try{await joined.session.close();}catch(cleanup){throw new AggregateError([error,cleanup],'NATIVE_SOURCE_SESSION_OPEN_CLOSE_FAILED',{cause:error});}throw error;}
 }

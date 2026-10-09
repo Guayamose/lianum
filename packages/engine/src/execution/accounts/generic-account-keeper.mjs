@@ -4,7 +4,7 @@ import {types} from 'node:util';
 import {open} from 'node:fs/promises';
 import {dirname} from 'node:path';
 import {genericAccountIdentity, immutable, need, same, sha, validateCheckpoint, validateGenericAccountConfig} from './generic-account-journal.mjs';
-import {createGenericAccountCoordinatorProcess, validateJournalCredentials} from './generic-account-process.mjs';
+import {createGenericAccountCoordinatorProcess, validateJournalCredentials, readOriginalGenericAccountCoordinatorIdentityV1} from './generic-account-process.mjs';
 
 function capabilities(value, fields) {
   need(value && !types.isProxy(value) && Object.getPrototypeOf(value) === Object.prototype && Reflect.ownKeys(value).length === fields.length && fields.every(k => Object.hasOwn(Object.getOwnPropertyDescriptor(value, k) ?? {}, 'value')), 'JOURNAL_KEEPER_FIELDS');
@@ -23,6 +23,17 @@ export async function reopenDurableGenericAccountKeeperV1(input,retained,lifetim
 export async function captureDurableGenericAccountKeeperV1(keeper) {
   const state=durableKeepers.get(keeper);need(state,'JOURNAL_ORIGINAL_KEEPER_REQUIRED');return state.capture();
 }
+/** Private SOURCE join validates both original references in the session's
+ * own WeakMap. Ordinary keepers retain their existing lifecycle and ABI. */
+export async function bindOriginalNativeSourceSessionKeeperV1(keeper,session) {
+  need(arguments.length===2,'JOURNAL_SOURCE_ARGUMENTS');const state=durableKeepers.get(keeper);need(state,'JOURNAL_ORIGINAL_KEEPER_REQUIRED');return state.bindSource(session);
+}
+export async function readOriginalNativeSourceSessionKeeperV1(keeper,session) {
+  need(arguments.length===2,'JOURNAL_SOURCE_ARGUMENTS');const state=durableKeepers.get(keeper);need(state,'JOURNAL_ORIGINAL_KEEPER_REQUIRED');return state.readSource(session);
+}
+export async function readOriginalNativeSourceSessionKeeperCandidateV1(keeper,session) {
+  need(arguments.length===2,'JOURNAL_SOURCE_ARGUMENTS');const state=durableKeepers.get(keeper);need(state,'JOURNAL_ORIGINAL_KEEPER_REQUIRED');return state.readSourceCandidate(session);
+}
 async function accountKeeper(input, options = {}, durable) {
   capabilities(input, ['config', 'journal', 'authority']);
   capabilities(options, Object.hasOwn(options, 'afterHostOperation') ? ['afterHostOperation'] : []);
@@ -31,7 +42,7 @@ async function accountKeeper(input, options = {}, durable) {
   const afterHostOperation = options.afterHostOperation ?? (async () => {});
   need(typeof afterHostOperation === 'function', 'JOURNAL_TEST_HOOK');
   const identity = genericAccountIdentity(config);
-  let worker, checkpoint = null, pendingCheckpoint = null, busy = false, closed = false, capturing=false, fault=false, parentStore=null,parentRecord=null;
+  let worker, checkpoint = null, pendingCheckpoint = null, busy = false, closed = false, capturing=false, fault=false, parentStore=null,parentRecord=null,sourceSession=null;
   if(durable){
     const {createClaimRecordStore,openClaimRecordStore}=await import('../../../../backend/src/claims/storage/segmented-record-store.mjs');
     const settings={path:journal.path+'.private-parent-v1',password:journal.password,identity:{profile:'WRAPPED_GRAPH_PARENT_CHECKPOINT_V1',identity}};
@@ -51,7 +62,12 @@ async function accountKeeper(input, options = {}, durable) {
   }
   async function persistCheckpoints(){
     if(!parentStore)return;
-    try{const next=await parentStore.update(parentRecord.revision,()=>({checkpoint,pendingCheckpoint}));const actual=await parentStore.read();same(actual,next,'JOURNAL_PARENT_READBACK');parentRecord=actual;if(durable.lifetimeHandle){const {updateWrappedPrivateLifetimePartV1}=await import('../../../../backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');await updateWrappedPrivateLifetimePartV1(durable.lifetimeHandle,{config,journal:{...journal},checkpoint,pendingCheckpoint,parentCheckpoint:{revision:actual.revision,commitment:actual.commitment}});}}
+    try{
+      if(sourceSession){const source=await import('../../../../backend/src/api/accounts/flat-manual-graph-session.mjs');
+        await source.prepareOriginalNativeSessionKeeperSourceCheckpointV1(sourceSession,keeper);}
+      const next=await parentStore.update(parentRecord.revision,()=>({checkpoint,pendingCheckpoint}));const actual=await parentStore.read();same(actual,next,'JOURNAL_PARENT_READBACK');parentRecord=actual;
+      if(sourceSession){const source=await import('../../../../backend/src/api/accounts/flat-manual-graph-session.mjs');
+        await source.confirmOriginalNativeSessionKeeperSourceCheckpointV1(sourceSession,keeper);}if(durable.lifetimeHandle){const {updateWrappedPrivateLifetimePartV1}=await import('../../../../backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');await updateWrappedPrivateLifetimePartV1(durable.lifetimeHandle,{config,journal:{...journal},checkpoint,pendingCheckpoint,parentCheckpoint:{revision:actual.revision,commitment:actual.commitment}});}}
     catch(error){fault=true;throw error;}
   }
   const host = {
@@ -76,6 +92,12 @@ async function accountKeeper(input, options = {}, durable) {
   const exclusive = async work => {need(!busy && !closed && !capturing && !fault, 'JOURNAL_COORDINATOR_UNAVAILABLE'); busy = true; try {return await work();} finally {busy = false;}};
   const start = create => createGenericAccountCoordinatorProcess({config, journal, host, afterHostOperation, opening: create ? {create: true} : {checkpoint, pendingCheckpoint}});
   try {worker = await start(durable?durable.create:true);} catch (error) {journal.password = null; parentStore?.close(); throw error;}
+  async function sourceSnapshot(){
+    need(durable&&parentStore&&!closed&&!fault&&!capturing,'JOURNAL_SOURCE_ORIGINAL_KEEPER_REQUIRED');
+    const actual=await parentStore.read();same(actual,parentRecord,'JOURNAL_PARENT_READBACK');
+    return immutable({keeper:{schema:'WRAPPED_DURABLE_GRAPH_KEEPER_V1',config,journal:{...journal},checkpoint,pendingCheckpoint,
+      parentCheckpoint:{revision:actual.revision,commitment:actual.commitment}},ownedProcesses:[await readOriginalGenericAccountCoordinatorIdentityV1(worker)]});
+  }
   const keeper=Object.freeze({
     prepare: request => exclusive(() => worker.request('prepare', request)),
     execute: requestId => exclusive(() => worker.request('execute', {requestId})),
@@ -97,7 +119,17 @@ async function accountKeeper(input, options = {}, durable) {
       return {closed: true};
     },
   });
-  if(durable)durableKeepers.set(keeper,{async capture(){
+  if(durable)durableKeepers.set(keeper,{
+    async bindSource(session){need(!sourceSession&&!busy&&!closed&&!capturing&&!fault,'JOURNAL_SOURCE_ORIGINAL_KEEPER_REQUIRED');
+      const source=await import('../../../../backend/src/api/accounts/flat-manual-graph-session.mjs');source.assertOriginalNativeSessionSourceKeeperV1(session,keeper);sourceSession=session;return sourceSnapshot();},
+    async readSource(session){need(!sourceSession||sourceSession===session,'JOURNAL_SOURCE_ORIGINAL_SESSION_CHANGED');
+      const source=await import('../../../../backend/src/api/accounts/flat-manual-graph-session.mjs');source.assertOriginalNativeSessionSourceKeeperV1(session,keeper);return sourceSnapshot();},
+    async readSourceCandidate(session){need(sourceSession===session&&busy&&!closed&&!fault&&!capturing,'JOURNAL_SOURCE_ORIGINAL_SESSION_CHANGED');
+      const source=await import('../../../../backend/src/api/accounts/flat-manual-graph-session.mjs');source.assertOriginalNativeSessionSourceKeeperV1(session,keeper);
+      const actual=await parentStore.read();same(actual,parentRecord,'JOURNAL_PARENT_READBACK');
+      return immutable({revision:parentRecord.revision+1,stateSHA256:sha({checkpoint,pendingCheckpoint})});},
+    async capture(){
+    need(sourceSession===null,'JOURNAL_SOURCE_LEGACY_CAPTURE_DENIED');
     need(!busy&&!closed&&!capturing&&!fault,'JOURNAL_COORDINATOR_UNAVAILABLE');capturing=true;
     let retained;
     try{

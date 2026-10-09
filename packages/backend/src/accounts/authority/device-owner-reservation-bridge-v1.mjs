@@ -112,7 +112,7 @@ export async function createDeviceOwnerReservationBridgeV1(input) {
       }finally{busy=false;}},
     async observe(input){assert.equal(arguments.length,1);return retainedWork(input,'OBSERVE_S');},
     close(){assert.equal(arguments.length,0);closed=true;pending.clear();return{closed:true,originalWorkRetained:true};},
-  });bridges.set(bridge,{account,actor,original,descriptor});return bridge;
+  });bridges.set(bridge,{account,actor,original,descriptor,nativePreparation,invoiceSignatures,live});return bridge;
 }
 export function assertDeviceOwnerReservationBridgeV1(bridge,account){assert.equal(arguments.length,2);
   assert.ok(!types.isProxy(bridge),'DEVICE_RESERVATION_ORIGINAL_BRIDGE');const row=bridges.get(bridge);
@@ -126,3 +126,12 @@ export function consumeDeviceOwnerReservationAuthorizationV1(bridge,cap,account)
 export async function awaitDeviceOwnerReservationOriginalWorkV1(bridge){assert.equal(arguments.length,1);
   assert.ok(!types.isProxy(bridge));const row=bridges.get(bridge);assert.ok(row?.completion,'DEVICE_RESERVATION_ORIGINAL_WORK');
   row.original();const original=row.completion;await original;row.original();}
+
+/** Private account installation reads the same preparation admitted by its
+ * original bridge. These data create no reservation, consent or provider key. */
+export function readDeviceOwnerReservationOriginalPreparationV1(bridge,account) {
+  assert.equal(arguments.length,2);assertDeviceOwnerReservationBridgeV1(bridge,account);
+  const row=bridges.get(bridge);row.live();
+  return Object.freeze({nativePreparation:validateGenericBalanceNativePreparation(row.nativePreparation),
+    invoiceSignatures:cloneInput(row.invoiceSignatures)});
+}

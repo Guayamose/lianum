@@ -1,3 +1,8 @@
+import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
+  updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 }
+  from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+import { assertOriginalNativeSourceObservedClockV1, refreshOriginalNativeSourceObservedClockV1 }
+  from '../../operations/recovery/native-original-source-observed-clock-v1.mjs';
 import {validateOwnerGraphReview} from '../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
 import { ownedNativeValueProviderCustodyReview as recoveryProviderReviewV1 } from '../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs';
 import { assertWrappedWalletAccountReleasedV1 } from '../../operations/releases/wrapped/wrapped-wallet-release-v1.mjs';
@@ -98,7 +103,7 @@ import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, deviceDep
   from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { createHash } from 'node:crypto';
 import { nullifier } from '../../../../engine/src/notes/private-note-encoding.mjs';
-import { consumeDeviceOwnerReservationAuthorizationV1,assertDeviceOwnerReservationBridgeV1 } from './device-owner-reservation-bridge-v1.mjs';
+import { consumeDeviceOwnerReservationAuthorizationV1,assertDeviceOwnerReservationBridgeV1,readDeviceOwnerReservationOriginalPreparationV1 } from './device-owner-reservation-bridge-v1.mjs';
 import { normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,deviceReservationConsentMessageV1,
   normalizeDeviceReservationCapsuleOptionsV1,wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage } from '../../../../engine/src/execution/graph/funded-graph.mjs';
@@ -123,6 +128,12 @@ export function createDeviceOwnerLiveRecoveryLeaseV1(account,bridge,clock,native
  const a=owned.get(account);assertOriginalNativeDeviceLocalObservedClockV1(clock,{runtime:a.runtime,nativeRuntime});
  const cap=Object.freeze(Object.create(null)),row={account,bridge,clock,nativeRuntime,closed:false,completion:null};
  a.installLiveRecovery(row);liveRecoveryLeases.set(cap,row);return cap;
+}
+export function createOriginalNativeSourceLiveRecoveryLeaseV1(account,bridge,clock,nativeRuntime) {
+  assert.equal(arguments.length,4);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);
+  const state=owned.get(account);state.sourceIdentity();assertOriginalNativeSourceObservedClockV1(clock,{runtime:state.runtime,nativeRuntime});
+  const cap=Object.freeze(Object.create(null)),row={account,bridge,clock,nativeRuntime,closed:false,completion:null};
+  state.installLiveRecovery(row);liveRecoveryLeases.set(cap,row);return cap;
 }
 export function closeDeviceOwnerLiveRecoveryLeaseV1(cap){assert.equal(arguments.length,1);const row=liveRecoveryLeases.get(cap);
  assert.ok(row,'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');row.closed=true;return row.completion??Promise.resolve();}
@@ -162,6 +173,18 @@ export function consumeOriginalNativeDeviceRecoveredInstallationV1(cap,account,a
  nativeDeviceRecoveredInstallations.delete(cap);return row.value;
 }
 
+const nativeDeviceSourceInstallations=new WeakMap();
+export async function retainOriginalNativeDeviceSourceInstallationV1(account,actor,providerCustody) {
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);const state=owned.get(account);state.sourceIdentity();
+  const module=await import('../../api/mobile/paired-original-account-actor-v2.mjs');module.assertPairedOriginalAccountActorAccountV2(actor,account);
+  const descriptor=module.pairedOriginalAccountActorDescriptorV2(actor),value=await state.nativeDeviceSourceInstallation(descriptor,providerCustody);
+  assertOwnedNativeValueAccountAuthority(account);module.assertPairedOriginalAccountActorAccountV2(actor,account);assert.deepEqual(module.pairedOriginalAccountActorDescriptorV2(actor),descriptor);
+  const cap=Object.freeze(Object.create(null));nativeDeviceSourceInstallations.set(cap,{account,actor,value});return cap;
+}
+export function consumeOriginalNativeDeviceSourceInstallationV1(cap,account,actor) {
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);const row=nativeDeviceSourceInstallations.get(cap);
+  assert.ok(row&&row.account===account&&row.actor===actor,'NATIVE_SOURCE_ORIGINAL_INSTALLATION');nativeDeviceSourceInstallations.delete(cap);return row.value;
+}
 export function readOriginalNativeLiveArmedClockCheckpointV1(account,runtime){assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);return owned.get(account).liveArmedClockCheckpoint(runtime);}
 const nativeDeviceLiveArmedInstallations=new WeakMap();
 export async function retainOriginalNativeDeviceLiveArmedInstallationV1(account,actor,providerCustody){
@@ -366,7 +389,26 @@ export async function createWrappedWalletAccountAuthorityV1(input) {
   wrappedOwnerAccounts.add(input.owner); // uncertain construction cannot create a replacement account/journal
   return createAccountAuthority(input, {}, true);
 }
-async function createAccountAuthority(input, callbacks, wrapped, recovery=null,nativeNote=false,liveArmedOriginal=null) {
+/** Separate SOURCE birth, before any account method is returned. The token,
+ * original clock and existing runtime/system/owner/executor are infrastructure
+ * capabilities, not fields from an HTTP request or a saved account DTO. */
+export function createOriginalNativeSourceNoteAccountAuthorityV1(token,input) {
+  assert.equal(arguments.length,2);return createOriginalNativeSourceAccount(token,input,{});
+}
+export function createOriginalNativeSourceNoteAccountForProofCaptureV1(token,input,callbacks) {
+  assert.equal(arguments.length,3);return createOriginalNativeSourceAccount(token,input,callbacks);
+}
+async function createOriginalNativeSourceAccount(token,input,callbacks) {
+  exactRecord(input,['runtime','system','poolIndex','owner','nativeExecution','accountId','journalId','clock','nativeRuntime']);
+  const {clock,nativeRuntime,...original}=input;
+  const identity=nativeSourceRecoverySectionIdentityV1(token,'account');
+  assert.equal(identity.profile,'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1');
+  assert.equal(nativeValueOriginalRecoverySourceV1(original.runtime,original.system),identity.sourceSHA256);
+  assert.notEqual(original.nativeExecution,null,'NATIVE_SOURCE_ORIGINAL_EXECUTOR_REQUIRED');
+  assertOriginalNativeSourceObservedClockV1(clock,{runtime:original.runtime,nativeRuntime});
+  return createAccountAuthority(original,callbacks,false,null,true,null,{token,identity,clock,nativeRuntime,handle:null});
+}
+async function createAccountAuthority(input, callbacks, wrapped, recovery=null,nativeNote=false,liveArmedOriginal=null,nativeSourceOriginal=null) {
   assert.ok(!nativeNote||!wrapped,'NATIVE_ECONOMIC_NOTE_ORIGINAL_NATIVE_ONLY');
   const wrappedExecution = wrapped ? await import('../../execution/wrapped/execution/wrapped-wallet-execution-v1.mjs') : null;
   const assertOwnedNativeValueWalletSystem = wrapped ? assertOwnedWrappedClaimWalletSystemV1 : nativeSystem;
@@ -433,13 +475,20 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   const reboundInstallations = new Set();
   let busy = false, unavailable = false, closed = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null, captureProviderBindings=null, activeLegacy = null, activeDeviceOwner = null;
   let idle = Promise.resolve(), releaseIdle, abortPromise, ownerViewTerminalObserver;
+  let sourceHandle=nativeSourceOriginal?.handle??null,sourceRecord=null,sourceOperation=false;
   const manualGraphApprovals = new Map(), nativeProviderSets = new Map(), nativeNoteApprovals = new Map();
   const deviceExecutionInstallations=new Map(),deviceExecutionProviders=new Map();
   const proofRunner = createFlatProofRunner({ onProof });
   const exclusive = async work => {
     assert.ok(!busy && !unavailable && !closed && !cancelled && !capturing, 'FLAT_ACCOUNT_UNAVAILABLE');
     busy = true; idle = new Promise(resolve => { releaseIdle = resolve; });
-    try { return await work(); } finally { busy = false; releaseIdle(); releaseIdle = null; }
+    try {
+      if(sourceHandle){sourceOperation=true;await updateSourceRecord({kind:'ADMITTED_OPERATION',revision:record.revision,checkpointSHA256:sha(record)});}
+      const value=await work();
+      if(sourceHandle){await healthy();await updateSourceRecord(null);sourceOperation=false;}
+      return value;
+    } catch(error) {if(sourceHandle)unavailable=true;throw error;}
+    finally { busy = false; releaseIdle(); releaseIdle = null; }
   };
   const continueWork = () => assert.ok(!cancelled && !closed, 'FLAT_ACCOUNT_CANCELLED');
   async function healthy() {
@@ -461,12 +510,51 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       await healthy();
       const changed=change(copy(record.data));for(const entry of changed.operations)if(entry.manualLifecycle)validateManualLifecycle(entry);
       if(wrapped)await retainLifetime({...lifetimeState,pendingUpdate:{revision:record.revision+1,dataSHA256:sha(changed)}});
+      if(sourceHandle)await updateSourceRecord({kind:'ACCOUNT_CAS',revision:record.revision+1,
+        checkpointSHA256:sha({revision:record.revision+1,data:changed})});
       const next = await vault.update(password, record.revision, () => changed);
       assert.equal(next.revision, record.revision + 1, 'FLAT_ACCOUNT_REVISION');
       assert.deepEqual(await vault.read(password), next, 'FLAT_ACCOUNT_READBACK');
       if(wrapped)await retainLifetime({...lifetimeState,checkpointSHA256:sha(next),pendingUpdate:null});
       record = next;
+      if(sourceHandle)await updateSourceRecord(sourceOperation
+        ?{kind:'ADMITTED_OPERATION',revision:record.revision,checkpointSHA256:sha(record)}:null);
     } catch (error) { unavailable = true; throw error; }
+  }
+  function originalSourceAccountRecord() {
+    assert.ok(nativeSourceOriginal&&!wrapped&&nativeNote,'NATIVE_SOURCE_ORIGINAL_ACCOUNT_REQUIRED');
+    assertOriginalNativeSourceObservedClockV1(nativeSourceOriginal.clock,{runtime,nativeRuntime:nativeSourceOriginal.nativeRuntime});
+    const binding=row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,
+      custodyIdentitySHA256:sha(nativeRecoveryProviderReviewV1(row.custody,{runtime,system,poolIndex}))});
+    return {schema:'ORIGINAL_NATIVE_SOURCE_NOTE_ACCOUNT_SEED_V1',sourceSHA256:nativeSourceOriginal.identity.sourceSHA256,
+      poolIndex,directory,password,accountId,journalId,checkpointSHA256:sha(record),identitySHA256,accountIdentity:copy(accountIdentity),
+      ownerIdentity:copy(nativeValueOwnerEconomicIdentityV1(owner,{runtime,system,poolIndex})),hasNativeExecution:nativeExecution!==null,
+      manualMode:manualKeeper!==null||nativeRecoveryManualMode,
+      providerBindings:{operations:[...nativeProviderSets].map(([reference,providers])=>({reference,providers:providers.map(binding)})),
+        installations:sourceInstallationBindings(binding)}};
+  }
+  function sourceInstallationPreparation(value) {
+    exactRecord(value,['nativePreparation','invoiceSignatures']);
+    const nativePreparation=validateGenericBalanceNativePreparation(value.nativePreparation);
+    for(const name of ['scope','policy','asset','hubDomain','registryCommitment'])
+      assert.equal(nativePreparation.config[name],identity.domain[name],'NATIVE_SOURCE_ORIGINAL_PREPARATION_DOMAIN_CHANGED');
+    assert.ok(Array.isArray(value.invoiceSignatures)&&value.invoiceSignatures.length===nativePreparation.nodes.length,
+      'NATIVE_SOURCE_ORIGINAL_INVOICES_CHANGED');
+    return {nativePreparation,invoiceSignatures:copy(value.invoiceSignatures)};
+  }
+  function sourceInstallationBindings(binding) {
+    const retained=new Map(recoveredInstallations.map(row=>[sha(row.descriptor),copy(row)]));
+    for(const row of deviceExecutionInstallations.values()) {
+      assert.ok(row.sourcePreparation,'NATIVE_SOURCE_ORIGINAL_INSTALLATION_PREPARATION_REQUIRED');
+      retained.set(sha(row.descriptor),{descriptor:copy(row.descriptor),providers:row.providers.map(binding),
+        preparation:sourceInstallationPreparation(row.sourcePreparation)});
+    }
+    return [...retained.values()];
+  }
+  async function updateSourceRecord(candidate) {
+    const next={schema:'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1',sourceSHA256:nativeSourceOriginal.identity.sourceSHA256,
+      ownedProcesses:[],confirmed:originalSourceAccountRecord(),candidate};
+    await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceRecord=copy(next);
   }
   function operation(ref) {
     reference(ref); const result = record.data.operations.find(value => value.ownerOperationRef === ref);
@@ -920,11 +1008,11 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     }
   }
   let liveRecovery=null;
-  function requireLiveRecovery(bridge){assert.ok(nativeNote&&(!recovery||recovery.liveArmed===true)&&!wrapped&&liveRecovery&&!liveRecovery.closed&&liveRecovery.bridge===bridge,
+  function requireLiveRecovery(bridge){assert.ok(nativeNote&&(!recovery||recovery.liveArmed===true||recovery.source===true)&&!wrapped&&liveRecovery&&!liveRecovery.closed&&liveRecovery.bridge===bridge,
     'DEVICE_LIVE_RECOVERY_ORIGINAL_INSTALLATION');return liveRecovery;}
   async function refreshLiveOperationClock(){
     if(liveRecovery===null)return;const lease=liveRecovery;requireLiveRecovery(lease.bridge);
-    await refreshOriginalNativeDeviceLocalObservedClockV1(lease.clock);
+    await (nativeSourceOriginal?refreshOriginalNativeSourceObservedClockV1:refreshOriginalNativeDeviceLocalObservedClockV1)(lease.clock);
     assert.equal(liveRecovery,lease,'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');requireLiveRecovery(lease.bridge);continueWork();
   }
   function armPublic(row){const arm=row.liveRecoveryArm;return{jobId:row.jobId,state:arm?.state??'ABSENT',settleBefore:row.nativeBinding.settleBefore,
@@ -953,7 +1041,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         lossClause:current.lossClause,errorCode:null}});
     }else{assert.equal(action,'DISARM_RECOVERY');assert.equal(row.liveRecoveryArm?.state,'ARMED','DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');
       assert.equal(row.nativeRecoveryLatched,false,'DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');
-      if(recovery?.liveArmed){await refreshLiveOperationClock();assert.ok(BigInt((await reader.read()).head.timestamp)<BigInt(row.nativeBinding.settleBefore),'DEVICE_LIVE_RECOVERY_DISARM_BEFORE_CUTOFF');}
+      if(recovery?.liveArmed||recovery?.source){await refreshLiveOperationClock();assert.ok(BigInt((await reader.read()).head.timestamp)<BigInt(row.nativeBinding.settleBefore),'DEVICE_LIVE_RECOVERY_DISARM_BEFORE_CUTOFF');}
       requireLiveRecovery(bridge);continueWork();validateDeviceRecoveryArmConsentFreshV1(consent);
       await reservationUpdate(row.jobId,{liveRecoveryArm:{...row.liveRecoveryArm,state:'DISARMED'}});}
     return{...armPublic(reservationRow(row.jobId)),authorizationSHA256:digest};
@@ -964,7 +1052,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     if(busy){const admitted=idle;await admitted;}
     return exclusive(async()=>{
       const lease=requireLiveRecovery(bridge);
-      assertOriginalNativeDeviceLiveArmedObservedClockV1(lease.clock,{runtime,nativeRuntime:lease.nativeRuntime});
+      (nativeSourceOriginal?assertOriginalNativeSourceObservedClockV1:assertOriginalNativeDeviceLiveArmedObservedClockV1)(lease.clock,{runtime,nativeRuntime:lease.nativeRuntime});
       await healthy();continueWork();deviceExecutionOriginal(bridge,reservationRow(id));
       // The original status read refreshes this clock. Do that before retaining
       // the logical head, then share the same exclusion with the original tick.
@@ -975,7 +1063,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       deviceExecutionOriginal(bridge,row);await deviceExecutionPublic(bridge,row);
       const arm=armPublic(row),ownerView=await privateOwnerView(),linuxSummary=await owner.ownerView.summary();
       await reader.assertCurrent(view);continueWork();assert.equal(requireLiveRecovery(bridge),lease);
-      assertOriginalNativeDeviceLiveArmedObservedClockV1(lease.clock,{runtime,nativeRuntime:lease.nativeRuntime});
+      (nativeSourceOriginal?assertOriginalNativeSourceObservedClockV1:assertOriginalNativeDeviceLiveArmedObservedClockV1)(lease.clock,{runtime,nativeRuntime:lease.nativeRuntime});
       return Object.freeze({sourceSHA256:nativeValueOriginalRecoverySourceV1(runtime,system),
         head:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},
         counts:{receiver:runtime.transactions.length,native:lease.nativeRuntime.transactions.length},
@@ -988,7 +1076,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     if(busy||closed||cancelled||unavailable||capturing)return{state:'BUSY'};
     if(!reservationRows().some(row=>['ARMED','FIRING','UNKNOWN'].includes(row.liveRecoveryArm?.state)))return{state:'IDLE'};
     return exclusive(async()=>{if(lease.closed)return{state:'CLOSED'};
-      await refreshOriginalNativeDeviceLocalObservedClockV1(lease.clock);if(lease.closed)return{state:'CLOSED'};
+      await (nativeSourceOriginal?refreshOriginalNativeSourceObservedClockV1:refreshOriginalNativeDeviceLocalObservedClockV1)(lease.clock);if(lease.closed)return{state:'CLOSED'};
       await healthy();if(lease.closed)return{state:'CLOSED'};
       for(const row of reservationRows()){
         const arm=row.liveRecoveryArm;if(!arm||!['ARMED','FIRING','UNKNOWN'].includes(arm.state))continue;
@@ -2170,11 +2258,18 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   });
   let recoveredDeviceInstallationIssued=false;
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable || (!wrapped && capturing),
+    async retainSource(){assert.ok(nativeSourceOriginal&&!sourceHandle&&!busy&&!unavailable&&!closed&&!capturing&&recovery===null);
+      await healthy();assert.equal(record.revision,0,'NATIVE_SOURCE_ACCOUNT_BEFORE_EFFECTS_REQUIRED');assert.equal(record.data.operations.length,0);
+      sourceRecord={schema:'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1',sourceSHA256:nativeSourceOriginal.identity.sourceSHA256,ownedProcesses:[],confirmed:originalSourceAccountRecord(),candidate:null};
+      sourceHandle=await retainOriginalNativeSourceSectionV1(nativeSourceOriginal.token,'account',sourceRecord);},
+    sourceIdentity(){assert.ok(nativeSourceOriginal&&!closed&&!unavailable);return nativeSourceOriginal.identity;},
     deviceDeposit, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
     async checkReorgPending(executor, ref, id) { await healthy(); assertReorgPending(executor, ref, id); },
-    installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true)&&nativeExecution!==null&&liveRecovery===null);
+    installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true||recovery.source===true)&&nativeExecution!==null&&liveRecovery===null);
       assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);
       if(liveArmedOriginal||recovery?.liveArmed)assertOriginalNativeDeviceLiveArmedObservedClockV1(row.clock,{runtime,nativeRuntime:liveArmedOriginal?.nativeRuntime??row.nativeRuntime});
+      if(nativeSourceOriginal){assert.equal(row.clock,nativeSourceOriginal.clock);assert.equal(row.nativeRuntime,nativeSourceOriginal.nativeRuntime);
+        assertOriginalNativeSourceObservedClockV1(row.clock,{runtime,nativeRuntime:row.nativeRuntime});}
       liveRecovery=row;},
     liveArmedCaptureOriginal(authority){const identity=assertNativeLiveArmedRecoveryCaptureV1(authority);
       assert.ok(liveArmedOriginal&&recovery===null&&liveArmedOriginal.authority===authority,'NATIVE_LIVE_ARMED_ORIGINAL_BEFORE_FUNDING');
@@ -2231,8 +2326,31 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         parentJobId:row.jobId,depositJobId:deposit.jobId,rootId:row.consent.custody.rootId});
     });},
 
-    nativeDeviceLiveArmedInstallation(descriptor,providerCustody){return exclusive(async()=>{
-      await healthy();assert.ok(recovery?.native&&recovery.liveArmed&&!wrapped&&nativeExecution!==null,'NATIVE_LIVE_ARMED_ORIGINAL_REOPEN_REQUIRED');
+    nativeDeviceLiveArmedInstallation(descriptor,providerCustody){return privateState.nativeDeviceObservedInstallation(descriptor,providerCustody,false);},
+    nativeDeviceSourceInstallation(descriptor,providerCustody){return exclusive(async()=>{
+      await healthy();assert.ok(nativeSourceOriginal&&recovery?.source,'NATIVE_SOURCE_ORIGINAL_REOPEN_REQUIRED');
+      assert.equal(recoveredDeviceInstallationIssued,false,'NATIVE_DEVICE_RECOVERY_INSTALLATION_ONCE');
+      const bindings=recoveredInstallations.filter(value=>sha(value.descriptor)===sha(descriptor));
+      assert.equal(bindings.length,1,'NATIVE_DEVICE_RECOVERY_ORIGINAL_PAIRING_REQUIRED');
+      const retained=bindings[0],preparation=sourceInstallationPreparation(retained.preparation);
+      const providers=retained.providers.map(value=>{assert.equal(value.slot,0);
+        assert.equal(sha(nativeRecoveryProviderReviewV1(providerCustody,{runtime,system,poolIndex})),value.custodyIdentitySHA256,
+          'NATIVE_DEVICE_RECOVERY_ORIGINAL_PROVIDER_CHANGED');
+        return Object.freeze({slot:0,custody:providerCustody,deliveryRiskSalt:value.deliveryRiskSalt});});
+      assert.equal(providers.length,1);
+      for(const quote of record.data.deviceReservationQuotes??[])if(sha(quote.descriptor)===sha(descriptor)){
+        assert.deepEqual(quote.preparation,preparation.nativePreparation,'DEVICE_RESERVATION_PREPARATION_CHANGED');
+        assert.deepEqual(quote.invoiceSignatures,preparation.invoiceSignatures,'DEVICE_RESERVATION_INVOICES_CHANGED');
+      }
+      const jobs=reservationRows().filter(row=>['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===descriptor[name]));
+      assert.ok(jobs.length<=1,'NATIVE_DEVICE_RECOVERY_FIXED_SINGLE_RESERVATION');
+      if(jobs[0]?.liveRecoveryArm)return {armed:true};
+      const view=await reader.read();await reader.assertCurrent(view);continueWork();
+      recoveredDeviceInstallationIssued=true;
+      return Object.freeze({...preparation,providers:Object.freeze(providers),descriptor:copy(descriptor),state:'ORIGINAL_PRE_ARM'});
+    }).then(value=>value.armed===true?privateState.nativeDeviceObservedInstallation(descriptor,providerCustody,true):value);},
+    nativeDeviceObservedInstallation(descriptor,providerCustody,source){return exclusive(async()=>{
+      await healthy();assert.ok(recovery?.native&&(source?recovery.source&&nativeSourceOriginal:recovery.liveArmed)&&!wrapped&&nativeExecution!==null,'NATIVE_LIVE_ARMED_ORIGINAL_REOPEN_REQUIRED');
       assert.equal(recoveredDeviceInstallationIssued,false,'NATIVE_DEVICE_RECOVERY_INSTALLATION_ONCE');
       const bindings=recoveredInstallations.filter(value=>sha(value.descriptor)===sha(descriptor));assert.equal(bindings.length,1,'NATIVE_DEVICE_RECOVERY_ORIGINAL_PAIRING_REQUIRED');
       const jobs=reservationRows().filter(row=>['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===descriptor[name]));
@@ -2289,6 +2407,18 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         }
         reboundInstallations.add(sha(retained.descriptor));
       }
+      if(nativeSourceOriginal) {
+        const originalPreparation=sourceInstallationPreparation(readDeviceOwnerReservationOriginalPreparationV1(installation.reservationBridge,capability));
+        if(recovery?.source) {
+          const retained=recoveredInstallations.filter(row=>sha(row.descriptor)===sha(installation.descriptor));
+          assert.equal(retained.length,1,'NATIVE_DEVICE_RECOVERY_ORIGINAL_PAIRING_REQUIRED');
+          assert.deepEqual(originalPreparation,sourceInstallationPreparation(retained[0].preparation),'NATIVE_SOURCE_ORIGINAL_INSTALLATION_CHANGED');
+          const actual=installation.providers.map(row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,
+            custodyIdentitySHA256:sha(nativeRecoveryProviderReviewV1(row.custody,{runtime,system,poolIndex}))}));
+          assert.deepEqual(actual,retained[0].providers,'NATIVE_ACCOUNT_ORIGINAL_PROVIDERS_CHANGED');
+        }
+        installation={...installation,sourcePreparation:originalPreparation};
+      }
       deviceExecutionInstallations.set(bridge,installation);deviceExecutionProviders.set(installation.reservationBridge,installation);
       return{installed:true,originalExecutor:true};});},
     deviceExecutionStatus(id,bridge){return exclusive(async()=>{await healthy();const row=reservationRow(id);deviceExecutionOriginal(bridge,row);
@@ -2320,6 +2450,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       }catch(error){unavailable=true;throw error;}
     },
     nativeFence(authority) {
+      assert.equal(nativeSourceOriginal,null,'NATIVE_SOURCE_ACCOUNT_LEGACY_CAPTURE_DENIED');
       const admitted = assertNativeEconomicRecoveryCaptureV1(authority);
       if(admitted.profile==='NATIVE_VALUE_LIVE_ARMED_RECOVERY_V1')privateState.liveArmedCaptureOriginal(authority);
       else assert.equal(liveArmedOriginal,null,'NATIVE_LIVE_ARMED_DISTINCT_CAPTURE');
@@ -2416,6 +2547,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     // IDs or signatures cannot recreate their WeakMap authority after restart.
     manualGraphApprovals.clear(); nativeNoteApprovals.clear();
   }
+  if(nativeSourceOriginal&&!recovery){try{await privateState.retainSource();}catch(error){unavailable=true;await proofRunner.close();closed=true;password=null;record=null;throw error;}}
   return capability;
 }
 
@@ -2519,4 +2651,39 @@ export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, conte
 export function nativeValueOriginalRecoverySourceV1FromAccount(account) {
   assert.equal(arguments.length, 1); assertOwnedNativeValueAccountAuthority(account);
   const state = owned.get(account); return nativeValueOriginalRecoverySourceV1(state.runtime, state.system);
+}
+
+/** Abrupt SOURCE opening is possible only after the capsule has proved every
+ * former process absent and all sections confirmed. Pending work stays UNKNOWN. */
+export async function reopenOriginalNativeAccountSourceV1(token,contexts) {
+  assert.equal(arguments.length,2);exactRecord(contexts,['runtime','system','owner','nativeExecution','providerCustody','clock','nativeRuntime']);
+  const identity=nativeSourceRecoverySectionIdentityV1(token,'account');assert.equal(identity.profile,'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1');
+  const {runtime,system,owner,nativeExecution,providerCustody,clock,nativeRuntime}=contexts;
+  assert.equal(nativeValueOriginalRecoverySourceV1(runtime,system),identity.sourceSHA256);
+  assertOriginalNativeSourceObservedClockV1(clock,{runtime,nativeRuntime});
+  const section=consumeOriginalNativeSourceSectionV1(token,'account');
+  exactRecord(section,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);
+  assert.equal(section.schema,'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1');assert.equal(section.sourceSHA256,identity.sourceSHA256);
+  assert.deepEqual(section.ownedProcesses,[]);assert.equal(section.candidate,null,'NATIVE_SOURCE_PENDING_ONLY_UNKNOWN');
+  const retained=section.confirmed;
+  exactRecord(retained,['schema','sourceSHA256','poolIndex','directory','password','accountId','journalId','checkpointSHA256',
+    'identitySHA256','accountIdentity','ownerIdentity','hasNativeExecution','manualMode','providerBindings']);
+  assert.equal(retained.schema,'ORIGINAL_NATIVE_SOURCE_NOTE_ACCOUNT_SEED_V1');assert.equal(retained.sourceSHA256,identity.sourceSHA256);
+  assert.equal(typeof retained.manualMode,'boolean');assert.equal(retained.hasNativeExecution,true);assert.notEqual(nativeExecution,null);
+  const actualOwner=nativeValueOwnerEconomicIdentityV1(owner,{runtime,system,poolIndex:retained.poolIndex});
+  for(const name of ['identitySHA256','processIdentitySHA256'])assert.equal(actualOwner[name],retained.ownerIdentity[name],'NATIVE_SOURCE_ORIGINAL_OWNER_CHANGED');
+  assert.ok(actualOwner.generation>retained.ownerIdentity.generation,'NATIVE_SOURCE_ORIGINAL_OWNER_SUCCESSOR_REQUIRED');
+  nativeExecutionAssert(nativeExecution,{runtime,system,poolIndex:retained.poolIndex});
+  exactRecord(retained.providerBindings,['operations','installations']);
+  const provider=row=>{exactRecord(row,['slot','deliveryRiskSalt','custodyIdentitySHA256']);assert.equal(row.slot,0);
+    assert.equal(sha(nativeRecoveryProviderReviewV1(providerCustody,{runtime,system,poolIndex:retained.poolIndex})),row.custodyIdentitySHA256,'NATIVE_SOURCE_ORIGINAL_PROVIDER_CHANGED');
+    return {slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,custody:providerCustody};};
+  const providers=retained.providerBindings.operations.map(row=>{exactRecord(row,['reference','providers']);return {reference:row.reference,providers:row.providers.map(provider)};});
+  for(const row of retained.providerBindings.installations){exactRecord(row,['descriptor','providers','preparation']);exactRecord(row.preparation,['nativePreparation','invoiceSignatures']);validateGenericBalanceNativePreparation(row.preparation.nativePreparation);row.providers.forEach(provider);}
+  const handle=await resumeOriginalNativeSourceSectionV1(token,'account');
+  return createAccountAuthority({runtime,system,poolIndex:retained.poolIndex,owner,nativeExecution,accountId:retained.accountId,journalId:retained.journalId},
+    {},false,{native:true,source:true,record:retained,providers},true,null,{token,identity,clock,nativeRuntime,handle});
+}
+export function assertOriginalNativeAccountSourceV1(account,identity) {
+  assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);assert.deepEqual(owned.get(account).sourceIdentity(),identity);
 }

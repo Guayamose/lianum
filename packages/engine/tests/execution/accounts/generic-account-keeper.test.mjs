@@ -1,13 +1,15 @@
 /** Actual disposable coordinator processes and encrypted journals, deliberately
  * mocked owner/chain authority. No native runtime, compiler, proof or download. */
-import test from 'node:test';
+import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
+import {pathToFileURL} from 'node:url';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {createGenericAccountKeeper} from '../../../src/execution/accounts/generic-account-keeper.mjs';
+import {createGenericAccountKeeper,createDurableGenericAccountKeeperV1,bindOriginalNativeSourceSessionKeeperV1,readOriginalNativeSourceSessionKeeperV1} from '../../../src/execution/accounts/generic-account-keeper.mjs';
 import {ACCOUNT_MAX_BYTES, decodeAccountMessage, encodeAccountMessage} from '../../../src/execution/accounts/generic-account-process.mjs';
-import {genericAccountIdentity, validateBoundRequest} from '../../../src/execution/accounts/generic-account-journal.mjs';
+import {genericAccountIdentity, validateBoundRequest, sha} from '../../../src/execution/accounts/generic-account-journal.mjs';
 import {Vault} from '../../../src/crypto/vault.mjs';
 
 const h = n => n.toString(16).padStart(64, '0');
@@ -222,4 +224,71 @@ test('account wire format is bounded, canonical JSON and clears consumed buffers
   assert.throws(() => encodeAccountMessage({data: 'x'.repeat(ACCOUNT_MAX_BYTES)}), {code: 'JOURNAL_MESSAGE_LIMIT'});
   assert.throws(() => decodeAccountMessage(Buffer.alloc(ACCOUNT_MAX_BYTES + 1)), {code: 'JOURNAL_MESSAGE_LIMIT'});
   assert.throws(() => encodeAccountMessage({execute() {}}));
+});
+
+
+test('HOST SOURCE original session retains keeper candidates before CAS and its real child checkpoint', async t => {
+  // These lower account/source memberships are explicitly synthetic. Keeper,
+  // child IPC, segmented parent, AEAD and SOURCE session hook bodies are real.
+  const directory=await mkdtemp(join(tmpdir(),'source-original-keeper-'));
+  const journal={path:join(directory,'journal.vault'),password:'synthetic-source-journal-secret'};
+  const sourcePassword='synthetic-source-capsule-secret',sourceVault=new Vault(join(directory,'section.vault'));
+  const canonicalGraph=join(process.cwd(),'packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+  const generatedGraph=new URL('../../../omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/flat-manual-graph-session.mjs',import.meta.url);
+  const graphURL=existsSync(generatedGraph)?generatedGraph:pathToFileURL(canonicalGraph);
+  const generatedKeeper=new URL('../../src/paeg/generic-account-keeper.mjs',import.meta.url);
+  const keeperURL=existsSync(generatedKeeper)?generatedKeeper:new URL('../../../src/execution/accounts/generic-account-keeper.mjs',import.meta.url);
+  const account={config},owner={},runtime={},system={},session=Object.freeze(Object.create(null));
+  const identity={profile:'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1',directory,runId:'synthetic_source_session',sourceSHA256:h(60),deadlineMs:Date.now()+60000};
+  const sessions=new WeakMap(),handle=Object.freeze(Object.create(null));let sectionRecord=null,updates=0,failAfterCandidate=false;
+  const need=(value,code)=>{if(!value)throw Object.assign(new Error(code),{code});};
+  const port=async(original,next)=>{assert.equal(original,handle);updates++;
+    const actual=await sourceVault.read(sourcePassword);assert.deepEqual(actual,sectionRecord);
+    const stored=await sourceVault.update(sourcePassword,actual.revision,()=>next);assert.deepEqual(await sourceVault.read(sourcePassword),stored);sectionRecord=stored;
+    if(failAfterCandidate&&next.candidate?.kind==='KEEPER_CAS')throw Object.assign(new Error('SYNTHETIC_SOURCE_REPLY_LOST'),{code:'SYNTHETIC_SOURCE_REPLY_LOST'});
+  };
+  const source=await readFile(canonicalGraph,'utf8');
+  const names=['originalSourceSessionState','assertOriginalNativeSessionSourceKeeperV1','sourceSessionPayload','updateSourceSession',
+    'prepareOriginalNativeSessionKeeperSourceCheckpointV1','confirmOriginalNativeSessionKeeperSourceCheckpointV1','originalSourceSessionWork','sourceOwnedCoordinatorProcesses'];
+  const body=names.map(name=>{const pattern=new RegExp('(?:export )?(?:async )?function '+name+'\\(');const match=pattern.exec(source);assert.ok(match);
+    const start=match.index,end=source.indexOf('\n}',start)+2;assert.ok(end>start);return source.slice(start,end).replace(/^export /,'');}).join('\n')
+    .replaceAll("'../../../../engine/src/execution/accounts/generic-account-keeper.mjs'",JSON.stringify(keeperURL.href));
+  const actual=Function('sessions','need','assertOwnedNativeValueAccountAuthority','assertOriginalNativeAccountSourceV1','sha','genericAccountIdentity','originalNote',
+    'updateOriginalNativeSourceSectionV1','exactRecord','nativeSourceRecoveryOwnedProcessV1',body+'\nreturn {assertOriginalNativeSessionSourceKeeperV1,prepareOriginalNativeSessionKeeperSourceCheckpointV1,confirmOriginalNativeSessionKeeperSourceCheckpointV1,originalSourceSessionWork};')
+    (sessions,need,(value,expected)=>{assert.equal(value,account);assert.equal(expected.owner,owner);},(value,binding)=>{assert.equal(value,account);assert.deepEqual(binding,identity);},
+      sha,genericAccountIdentity,()=>{throw Error('synthetic fixture has no note grants');},port,(value,fields)=>assert.deepEqual(Object.keys(value).sort(),[...fields].sort()),
+      async(token,part,pid)=>{assert.equal(token,handle);assert.equal(part,'session');const actual=await readOriginalNativeSourceSessionKeeperV1(keeper,session);assert.equal(actual.ownedProcesses[0].pid,pid);return actual.ownedProcesses[0];});
+  const mocked=mock.module(graphURL.href,{namedExports:actual});t.after(()=>mocked.restore());
+  const sourceRequest={...request,kind:'TOP_UP'};
+  let prepared=null,effects=0,keeper;
+  const authority={
+    async assertAuthority(value){assert.deepEqual(value,genericAccountIdentity(config));return{version:1,available:true,identity:value};},
+    async prepare(value){assert.ok(sectionRecord.data.candidate);prepared=value;return{version:1,state:'PREPARED',bindingSHA256:value.bindingSHA256,assetBindingSHA256:value.assetBindingSHA256};},
+    async execute(value){effects++;assert.deepEqual(value,prepared);assert.ok(sectionRecord.data.candidate);return{version:1,state:'CONFIRMED',bindingSHA256:value.bindingSHA256,assetBindingSHA256:value.assetBindingSHA256,outcomeId:h(80),disposition:'APPLIED',blockNumber:'20',blockHash:h(81)};},
+    async reconcile(){throw Error('no reconciliation admitted in fixture');},async recover(){throw Error('no recovery admitted in fixture');},
+    async observe({request:value,outcome,challenge}){return{version:1,status:'LIVE',bindingSHA256:value.bindingSHA256,assetBindingSHA256:value.assetBindingSHA256,
+      outcomeId:outcome.outcomeId,challenge,observedAt:Date.now(),blockNumber:'20',blockHash:h(81),canonicalOutcomeBlockHash:h(81),backing:{held:'10',liabilities:'10',surplus:'0',deficit:'0'}};},
+  };
+  t.after(async()=>{await keeper?.close().catch(()=>{});await rm(directory,{recursive:true,force:true});});
+  keeper=await createDurableGenericAccountKeeperV1({config,journal,authority});
+  const state={runtime,system,poolIndex:0,nativeAccount:account,durableKeeper:keeper,nativeFence:null,nativeCaptured:false,graphs:new Map(),notes:new Map(),
+    nativeSource:{identity,owner,session,handle,token:handle,section:null,busy:false,fault:false}};sessions.set(session,state);
+  const snapshot=await readOriginalNativeSourceSessionKeeperV1(keeper,session);
+  const seed={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SEED_V1',sourceSHA256:identity.sourceSHA256,poolIndex:0,accountIdentitySHA256:sha(genericAccountIdentity(config)),
+    journalRevision:snapshot.keeper.checkpoint.revision,keeper:snapshot.keeper,notes:[]};
+  const section={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',sourceSHA256:identity.sourceSHA256,ownedProcesses:snapshot.ownedProcesses,confirmed:seed,candidate:null};
+  sectionRecord=await sourceVault.create(section,sourcePassword);state.nativeSource.section=structuredClone(section);
+  await bindOriginalNativeSourceSessionKeeperV1(keeper,session);
+  assert.equal(snapshot.ownedProcesses.length,1);assert.deepEqual(Object.keys(snapshot.ownedProcesses[0]).sort(),['pgrp','pid','session','startTicks','uid']);
+  assert.equal(snapshot.ownedProcesses[0].uid,process.getuid());assert.ok(snapshot.ownedProcesses[0].pid!==process.pid);
+  await assert.rejects(readOriginalNativeSourceSessionKeeperV1(keeper,{}),{code:'NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED'});
+  const result=await actual.originalSourceSessionWork(session,()=>keeper.prepare(sourceRequest));assert.equal(result.state,'PREPARED');
+  assert.equal(sectionRecord.data.candidate,null);assert.ok(updates>=4);assert.equal(sectionRecord.data.confirmed.journalRevision,(await keeper.snapshot()).revision);
+  const current=await readOriginalNativeSourceSessionKeeperV1(keeper,session);assert.deepEqual(sectionRecord.data.confirmed.keeper,current.keeper);
+  failAfterCandidate=true;
+  await assert.rejects(actual.originalSourceSessionWork(session,()=>keeper.execute(sourceRequest.requestId)));
+  assert.equal(effects,0);assert.equal(state.nativeSource.fault,true);assert.equal(sectionRecord.data.candidate.kind,'KEEPER_CAS');
+  await assert.rejects(readOriginalNativeSourceSessionKeeperV1(keeper,session),{code:'NATIVE_SOURCE_SESSION_UNAVAILABLE'});
+  await assert.rejects(actual.originalSourceSessionWork(session,()=>keeper.execute(sourceRequest.requestId)),{code:'NATIVE_SOURCE_SESSION_UNAVAILABLE'});
+  assert.equal(effects,0);assert.deepEqual(await new Vault(journal.path).read(journal.password).then(value=>value.data.requests[0].state),'PREPARED');
 });
