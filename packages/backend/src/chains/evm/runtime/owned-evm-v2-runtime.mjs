@@ -1,3 +1,4 @@
+import {assertOwnedEvmRecoveryStateDumpV1} from './owned-evm-recovery-state-bound-v1.mjs';
 import {createNativeEconomicObservedLocalCustodyV2,createNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,checkNativeEconomicLocalCustodyV2,signNativeEconomicCustodyTransactionV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,captureNativeEconomicLocalCustodyV2,closeNativeEconomicLocalCustodyV2,NATIVE_ECONOMIC_ANVIL_PIN_V2} from './native-economic-local-custody-v2.mjs';
 import { shouldUseOwnedEvmStateFileV1, writeOwnedEvmStateFileV1, assertOwnedEvmStateFileV1 } from './owned-evm-state-file-v1.mjs';
 import { assertOwnedReceiverPreopenRepairV1, claimOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
@@ -1595,7 +1596,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       const head=await ownRead('eth_getBlockByNumber',['latest',false]),genesisHeader=await ownRead('eth_getBlockByNumber',['0x0',false]);
       assert.equal(genesisHeader.hash,genesisHash);assert.deepEqual((await ownRead('eth_accounts')).map(address),economicV2?[]:accounts);
       const accountState=[];for(const holder of accounts)accountState.push({address:holder,balance:await ownRead('eth_getBalance',[holder,'latest']),nonce:await ownRead('eth_getTransactionCount',[holder,'latest']),code:await ownRead('eth_getCode',[holder,'latest'])});
-      const stateDump=await ownRead('anvil_dumpState',[true]);assert.ok(typeof stateDump==='string'&&stateDump.length<=32*1024*1024&&/^0x(?:[0-9a-f]{2})+$/.test(stateDump),'EVM_RECOVERY_STATE_BOUND');
+      const stateDump=await ownRead('anvil_dumpState',[true]);assertOwnedEvmRecoveryStateDumpV1(stateDump);
       assert.deepEqual(await ownRead('eth_getBlockByNumber',['latest',false]),head,'EVM_RECOVERY_CAPTURE_HEAD_CHANGED');
       let mnemonic,retainedLocalCustody=null;
       if(economicV2){retainedLocalCustody=await captureNativeEconomicLocalCustodyV2(localCustody);assert.deepEqual(retainedLocalCustody.accounts,accounts);}

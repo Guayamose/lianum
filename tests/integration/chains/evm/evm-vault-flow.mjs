@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, realpathSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {ownedEvmRecoveryStateBoundFailureV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-recovery-state-bound-v1.mjs';
 import { createFlatManualGraphAccountSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
 import { createNativeRecipientProcess } from '../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
 import { createProofProcess } from '../../../../packages/engine/src/execution/proofs/proof-process.mjs';
@@ -681,6 +682,7 @@ async function main() {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = safeCode(error);
     if (!fixture && error.fixtureCleanup) result.cleanup = error.fixtureCleanup;
     writeFixturePrivate(join(privateDirectory, 'error.json'), { message: String(error.message), stack: String(error.stack),
+      recoveryStateBoundDiagnostic: ownedEvmRecoveryStateBoundFailureV1(error),
       cause: error.cause ? { message: String(error.cause.message), stack: String(error.cause.stack) } : null });
     result.lastObservedPools = [];
     for (const reader of fixture?.readers ?? []) {
