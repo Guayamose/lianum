@@ -7,6 +7,11 @@ import {assertOwnedNativeValueAccountAuthority,createDeviceOwnerLiveRecoveryLeas
  tickDeviceOwnerLiveRecoveryLeaseV1,closeDeviceOwnerLiveRecoveryLeaseV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {assertOriginalNativeDeviceLocalObservedClockV1} from './native-device-local-observed-clock-v1.mjs';
+const producers=new WeakMap();
+export function assertOriginalNativeDeviceLiveRecoveryProducerV1(producer,input){
+ assert.equal(arguments.length,2);exactRecord(input,['account','executionBridge','runtime','system','nativeRuntime','clock']);const state=producers.get(producer);
+ assert.ok(state&&!state.closed(),'DEVICE_LIVE_RECOVERY_ORIGINAL_PRODUCER');for(const key of Object.keys(input))assert.equal(input[key],state.input[key],'DEVICE_LIVE_RECOVERY_ORIGINAL_REFERENCES');
+}
 export function createOriginalNativeDeviceLiveRecoveryProducerV1(input){
  assert.equal(arguments.length,1);exactRecord(input,['account','executionBridge','runtime','system','nativeRuntime','clock']);
  const {account,executionBridge,runtime,system,nativeRuntime,clock}=input;
@@ -22,7 +27,7 @@ export function createOriginalNativeDeviceLiveRecoveryProducerV1(input){
  };
  timer=setTimeout(poll,1000); // owned referenced timer; no detached/unref work
  let closing;
- return Object.freeze({profile:'ORIGINAL_DEVICE_LIVE_CUTOFF_RECOVERY_V1',automaticFunding:false,automaticNativeDelivery:false,
+ const producer=Object.freeze({profile:'ORIGINAL_DEVICE_LIVE_CUTOFF_RECOVERY_V1',automaticFunding:false,automaticNativeDelivery:false,
    postCutoffRestartEstablished:false,
    status(){assert.equal(arguments.length,0);return Object.freeze({closed,lastCode});},
    close(){assert.equal(arguments.length,0);closed=true;if(timer)clearTimeout(timer);timer=null;
@@ -30,5 +35,5 @@ export function createOriginalNativeDeviceLiveRecoveryProducerV1(input){
      return closing??=(async()=>{const results=await Promise.allSettled([original,active].filter(Boolean));
        const failures=results.filter(row=>row.status==='rejected').map(row=>row.reason);if(failures.length)throw new AggregateError(failures,'DEVICE_LIVE_RECOVERY_CLOSE_UNCONFIRMED');
        return{closed:true,originalWorkSettled:true};})();},
- });
+ });producers.set(producer,{input:Object.freeze({...input}),closed:()=>closed});return producer;
 }

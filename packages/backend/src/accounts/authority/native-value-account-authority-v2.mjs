@@ -10,7 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Vault } from '../../../../engine/src/crypto/vault.mjs';
-import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
+import { assertNativeEconomicRecoveryCaptureV1, assertNativeLiveArmedRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
   from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { nativeValueOriginalRecoverySourceV1 } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { nativeValueOwnerEconomicIdentityV1 } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
@@ -96,12 +96,12 @@ import {captureNativeDeviceOriginalW39MetricsFrameV1,restoreNativeDeviceOriginal
   from './native-device-original-w39-metrics-frame-v1.mjs';
 
 import {deviceRecoveryArmConsentMessageV1,validateDeviceRecoveryArmConsentFreshV1} from '../../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
-import {assertOriginalNativeDeviceLocalObservedClockV1,refreshOriginalNativeDeviceLocalObservedClockV1} from '../../operations/recovery/native-device-local-observed-clock-v1.mjs';
+import {assertOriginalNativeDeviceLocalObservedClockV1,assertOriginalNativeDeviceLiveArmedObservedClockV1,captureOriginalNativeDeviceLiveArmedClockCheckpointV1,refreshOriginalNativeDeviceLocalObservedClockV1} from '../../operations/recovery/native-device-local-observed-clock-v1.mjs';
 const liveRecoveryLeases=new WeakMap();
 export function createDeviceOwnerLiveRecoveryLeaseV1(account,bridge,clock,nativeRuntime){
  assert.equal(arguments.length,4);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);
  const a=owned.get(account);assertOriginalNativeDeviceLocalObservedClockV1(clock,{runtime:a.runtime,nativeRuntime});
- const cap=Object.freeze(Object.create(null)),row={account,bridge,clock,closed:false,completion:null};
+ const cap=Object.freeze(Object.create(null)),row={account,bridge,clock,nativeRuntime,closed:false,completion:null};
  a.installLiveRecovery(row);liveRecoveryLeases.set(cap,row);return cap;
 }
 export function closeDeviceOwnerLiveRecoveryLeaseV1(cap){assert.equal(arguments.length,1);const row=liveRecoveryLeases.get(cap);
@@ -133,6 +133,20 @@ export function consumeOriginalNativeDeviceRecoveredInstallationV1(cap,account,a
  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
  const row=nativeDeviceRecoveredInstallations.get(cap);assert.ok(row&&row.account===account&&row.actor===actor,'NATIVE_DEVICE_RECOVERY_ORIGINAL_INSTALLATION');
  nativeDeviceRecoveredInstallations.delete(cap);return row.value;
+}
+
+export function readOriginalNativeLiveArmedClockCheckpointV1(account,runtime){assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);return owned.get(account).liveArmedClockCheckpoint(runtime);}
+const nativeDeviceLiveArmedInstallations=new WeakMap();
+export async function retainOriginalNativeDeviceLiveArmedInstallationV1(account,actor,providerCustody){
+ assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+ const module=await import('../../api/mobile/paired-original-account-actor-v2.mjs');module.assertPairedOriginalAccountActorAccountV2(actor,account);
+ const descriptor=module.pairedOriginalAccountActorDescriptorV2(actor),value=await owned.get(account).nativeDeviceLiveArmedInstallation(descriptor,providerCustody);
+ assertOwnedNativeValueAccountAuthority(account);module.assertPairedOriginalAccountActorAccountV2(actor,account);assert.deepEqual(module.pairedOriginalAccountActorDescriptorV2(actor),descriptor);
+ const cap=Object.freeze(Object.create(null));nativeDeviceLiveArmedInstallations.set(cap,{account,actor,value});return cap;
+}
+export function consumeOriginalNativeDeviceLiveArmedInstallationV1(cap,account,actor){
+ assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);const row=nativeDeviceLiveArmedInstallations.get(cap);
+ assert.ok(row&&row.account===account&&row.actor===actor,'NATIVE_LIVE_ARMED_ORIGINAL_INSTALLATION');nativeDeviceLiveArmedInstallations.delete(cap);return row.value;
 }
 
 /** Private successor evidence, emitted by the authentic reopened account.
@@ -295,6 +309,25 @@ export async function createNativeEconomicNoteAccountAuthorityV1(input,callbacks
   assert.ok(arguments.length===1||arguments.length===2,'NATIVE_ECONOMIC_NOTE_CONSTRUCTOR_ARITY');
   return createAccountAuthority(input,callbacks,false,null,true);
 }
+/** Original LIVE_ARMED producer, inseparable from its own issuer and clock
+ * before any D26 admission. No restored journal or account DTO enters. */
+export function createNativeLiveArmedNoteAccountAuthorityV1(input){assert.equal(arguments.length,1);return createNativeLiveArmedAccount(input,{});}
+export function createNativeLiveArmedNoteAccountForOriginalProofCaptureV1(input,callbacks){
+ assert.equal(arguments.length,2);exactRecord(callbacks,['onProof','onPrivateAudit']);
+ return createNativeLiveArmedAccount(input,callbacks);
+}
+async function createNativeLiveArmedAccount(input,callbacks){
+ exactRecord(input,['runtime','system','poolIndex','owner','nativeExecution','accountId','journalId','nativeRuntime','clock','recoveryAuthority']);
+ const {nativeRuntime,clock,recoveryAuthority,...original}=input;
+ const identity=assertNativeLiveArmedRecoveryCaptureV1(recoveryAuthority);
+ assert.equal(nativeValueOriginalRecoverySourceV1(original.runtime,original.system),identity.sourceSHA256);
+ assertOriginalNativeDeviceLiveArmedObservedClockV1(clock,{runtime:original.runtime,nativeRuntime});
+ return createAccountAuthority(original,callbacks,false,null,true,{authority:recoveryAuthority,identity,clock,nativeRuntime});
+}
+export function assertNativeLiveArmedAccountCaptureV1(account,authority){
+ assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);
+ return owned.get(account).liveArmedCaptureOriginal(authority);
+}
 export async function createWrappedWalletAccountAuthorityV1(input) {
   assertWrappedWalletAccountReleasedV1();
   assert.equal(arguments.length, 1, 'WRAPPED_WALLET_NO_OVERRIDES');
@@ -306,7 +339,7 @@ export async function createWrappedWalletAccountAuthorityV1(input) {
   wrappedOwnerAccounts.add(input.owner); // uncertain construction cannot create a replacement account/journal
   return createAccountAuthority(input, {}, true);
 }
-async function createAccountAuthority(input, callbacks, wrapped, recovery=null,nativeNote=false) {
+async function createAccountAuthority(input, callbacks, wrapped, recovery=null,nativeNote=false,liveArmedOriginal=null) {
   assert.ok(!nativeNote||!wrapped,'NATIVE_ECONOMIC_NOTE_ORIGINAL_NATIVE_ONLY');
   const wrappedExecution = wrapped ? await import('../../execution/wrapped/execution/wrapped-wallet-execution-v1.mjs') : null;
   const assertOwnedNativeValueWalletSystem = wrapped ? assertOwnedWrappedClaimWalletSystemV1 : nativeSystem;
@@ -813,7 +846,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     else await reservationUpdate(row.jobId,{nativeTerminal:terminal,nativeOutcome:result.outcome,nativeStage:result.outcome,nativeErrorCode:null});
   }
   let liveRecovery=null;
-  function requireLiveRecovery(bridge){assert.ok(nativeNote&&!recovery&&!wrapped&&liveRecovery&&!liveRecovery.closed&&liveRecovery.bridge===bridge,
+  function requireLiveRecovery(bridge){assert.ok(nativeNote&&(!recovery||recovery.liveArmed===true)&&!wrapped&&liveRecovery&&!liveRecovery.closed&&liveRecovery.bridge===bridge,
     'DEVICE_LIVE_RECOVERY_ORIGINAL_INSTALLATION');return liveRecovery;}
   async function refreshLiveOperationClock(){
     if(liveRecovery===null)return;const lease=liveRecovery;requireLiveRecovery(lease.bridge);
@@ -827,6 +860,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     assert.equal(e.nativeBindingSHA256,current.nativeBindingSHA256);assert.equal(e.reservationTransactionHash,current.reservation.observation.transactionHash);
     assert.equal(e.executionSnapshotSHA256,current.executionSnapshotSHA256);assert.equal(e.lossClause,current.lossClause);}
   async function armLiveRecovery(original){return exclusive(async()=>{await healthy();continueWork();const {bridge,consent,action}=original;
+    if(action==='ARM_RECOVERY')assert.equal(recovery,null,'DEVICE_LIVE_ARMED_NO_REARM_AFTER_RESTART');
     requireLiveRecovery(bridge);validateDeviceRecoveryArmConsentFreshV1(consent);assert.equal(action,consent.action);const row=reservationRow(consent.execution.reservation.jobId);
     const current=await deviceExecutionPublic(bridge,row);sameArm(row,consent,current);
     const digest=byteSHA(deviceRecoveryArmConsentMessageV1(consent));
@@ -844,7 +878,9 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         reservationTransactionHash:current.reservation.observation.transactionHash,settleBefore:row.nativeBinding.settleBefore,
         lossClause:current.lossClause,errorCode:null}});
     }else{assert.equal(action,'DISARM_RECOVERY');assert.equal(row.liveRecoveryArm?.state,'ARMED','DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');
-      assert.equal(row.nativeRecoveryLatched,false,'DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');requireLiveRecovery(bridge);continueWork();validateDeviceRecoveryArmConsentFreshV1(consent);
+      assert.equal(row.nativeRecoveryLatched,false,'DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');
+      if(recovery?.liveArmed){await refreshLiveOperationClock();assert.ok(BigInt((await reader.read()).head.timestamp)<BigInt(row.nativeBinding.settleBefore),'DEVICE_LIVE_RECOVERY_DISARM_BEFORE_CUTOFF');}
+      requireLiveRecovery(bridge);continueWork();validateDeviceRecoveryArmConsentFreshV1(consent);
       await reservationUpdate(row.jobId,{liveRecoveryArm:{...row.liveRecoveryArm,state:'DISARMED'}});}
     return{...armPublic(reservationRow(row.jobId)),authorizationSHA256:digest};
   });}
@@ -2031,9 +2067,28 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   let recoveredDeviceInstallationIssued=false;
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable || (!wrapped && capturing),
     deviceDeposit, deviceReservation,deviceExecution,
-    installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&!recovery&&nativeExecution!==null&&liveRecovery===null);
-      assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);liveRecovery=row;},
+    installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true)&&nativeExecution!==null&&liveRecovery===null);
+      assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);
+      if(liveArmedOriginal||recovery?.liveArmed)assertOriginalNativeDeviceLiveArmedObservedClockV1(row.clock,{runtime,nativeRuntime:liveArmedOriginal?.nativeRuntime??row.nativeRuntime});
+      liveRecovery=row;},
+    liveArmedCaptureOriginal(authority){const identity=assertNativeLiveArmedRecoveryCaptureV1(authority);
+      assert.ok(liveArmedOriginal&&recovery===null&&liveArmedOriginal.authority===authority,'NATIVE_LIVE_ARMED_ORIGINAL_BEFORE_FUNDING');
+      assert.deepEqual(identity,liveArmedOriginal.identity);
+      const rows=reservationRows();assert.equal(rows.length,1,'NATIVE_LIVE_ARMED_FIXED_RESERVATION');const row=rows[0],arm=row.liveRecoveryArm;
+      assert.ok(arm&&['ARMED','FIRING','UNKNOWN','RECOVERED'].includes(arm.state),'NATIVE_LIVE_ARMED_ORIGINAL_PERMISSION_REQUIRED');
+      assert.equal(row.stage,'RESERVED');
+      if(arm.state==='RECOVERED'){assert.equal(row.nativeOutcome,'RECOVERED');assert.ok(row.nativeTerminal&&row.nativeRecoveryLatched&&row.submission?.dispatchLatched,'NATIVE_DEVICE_RECOVERY_ORIGINAL_TERMINAL_LATCHES');
+        assert.equal(nativeExecution.snapshot(row.jobId).outcome,'RECOVERED');}
+      else{assert.equal(row.nativeOutcome,null);assert.equal(row.nativeTerminal,null);}
+      assert.match(arm.armSHA256,/^[0-9a-f]{64}$/);assert.equal(arm.settleBefore,row.nativeBinding.settleBefore);
+      assert.equal(arm.nativeBindingSHA256,sha(row.nativeBinding));
+      assert.equal(arm.reservationTransactionHash,row.observation.transactionHash);
+      assert.equal(arm.lossClause,'FULL_OWNER_REFUND_PROVIDER_LOSS_V1');
+      if(arm.state!=='ARMED')assert.equal(row.nativeRecoveryLatched,true,'NATIVE_LIVE_ARMED_UNKNOWN_ONLY_OBSERVE');
+      return Object.freeze({parentJobId:row.jobId,armSHA256:arm.armSHA256,settleBefore:arm.settleBefore,state:arm.state});
+    },
     tickLiveRecovery,armLiveRecovery,
+    liveArmedClockCheckpoint(expectedRuntime){assert.ok(recovery?.native&&recovery.liveArmed&&!wrapped);assert.equal(expectedRuntime,runtime);return recovery.record.observedClockSecond;},
     liveRecoveryTerms(bridge,id){return exclusive(async()=>{requireLiveRecovery(bridge);await healthy();const row=reservationRow(id);
       deviceExecutionOriginal(bridge,row);await deviceExecutionPublic(bridge,row);return armPublic(row);});},
     nativeDeviceRecoveredProofs(){return exclusive(async()=>{
@@ -2069,6 +2124,41 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       recoveredDeviceInstallationIssued=true;
       return Object.freeze({nativePreparation:preparation,invoiceSignatures:copy(quote.invoiceSignatures),providers:Object.freeze(providers),descriptor:copy(descriptor),
         parentJobId:row.jobId,depositJobId:deposit.jobId,rootId:row.consent.custody.rootId});
+    });},
+
+    nativeDeviceLiveArmedInstallation(descriptor,providerCustody){return exclusive(async()=>{
+      await healthy();assert.ok(recovery?.native&&recovery.liveArmed&&!wrapped&&nativeExecution!==null,'NATIVE_LIVE_ARMED_ORIGINAL_REOPEN_REQUIRED');
+      assert.equal(recoveredDeviceInstallationIssued,false,'NATIVE_DEVICE_RECOVERY_INSTALLATION_ONCE');
+      const bindings=recoveredInstallations.filter(value=>sha(value.descriptor)===sha(descriptor));assert.equal(bindings.length,1,'NATIVE_DEVICE_RECOVERY_ORIGINAL_PAIRING_REQUIRED');
+      const jobs=reservationRows().filter(row=>['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===descriptor[name]));
+      assert.equal(jobs.length,1,'NATIVE_DEVICE_RECOVERY_FIXED_SINGLE_RESERVATION');const row=jobs[0],arm=row.liveRecoveryArm,quote=originalQuote(row.consent.quoteId);
+      assert.equal(row.stage,'RESERVED');
+      assert.ok(arm&&['ARMED','FIRING','UNKNOWN','RECOVERED'].includes(arm.state),'NATIVE_LIVE_ARMED_ORIGINAL_PERMISSION_REQUIRED');
+      const recovered=arm.state==='RECOVERED';
+      if(recovered){assert.equal(row.nativeOutcome,'RECOVERED');assert.ok(row.nativeTerminal&&row.nativeRecoveryLatched&&row.submission?.dispatchLatched,'NATIVE_DEVICE_RECOVERY_ORIGINAL_TERMINAL_LATCHES');}
+      else{assert.equal(row.nativeOutcome,null);assert.equal(row.nativeTerminal,null);}
+      assert.match(arm.armSHA256,/^[0-9a-f]{64}$/);assert.equal(arm.settleBefore,row.nativeBinding.settleBefore);
+      assert.equal(arm.nativeBindingSHA256,sha(row.nativeBinding));assert.equal(arm.reservationTransactionHash,row.observation.transactionHash);
+      assert.equal(arm.lossClause,'FULL_OWNER_REFUND_PROVIDER_LOSS_V1');
+      if(arm.state!=='ARMED')assert.equal(row.nativeRecoveryLatched,true,'NATIVE_LIVE_ARMED_UNKNOWN_ONLY_OBSERVE');
+      assert.equal(nativeExecution.snapshot(row.jobId).outcome,recovered?'RECOVERED':null);assert.equal(sha(quote.descriptor),sha(descriptor));
+      const preparation=validateGenericBalanceNativePreparation(quote.preparation),deposit=reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,descriptor);
+      assert.equal(quote.depositJobId,deposit.jobId);assert.equal(quote.rootId,row.consent.custody.rootId);
+      assert.equal(row.consent.statement.inputCommitment,deposit.consent.statement.output);assert.equal(row.consent.statement.inputNullifier,deposit.nullifier);
+      for(const name of ['scope','policy','asset','hubDomain','registryCommitment'])assert.equal(preparation.config[name],identity.domain[name],'NATIVE_DEVICE_RECOVERY_ORIGINAL_DOMAIN_CHANGED');
+      assert.equal(byteSHA(Buffer.from(row.authorization.proof,'hex')),row.proofSHA256);assert.equal(sha(row.authorization.publicInputs),row.publicInputsSHA256);
+      assert.deepEqual(row.nativeBinding,flatAccountGraphBinding({authorization:row.authorization,rolePackets:row.rolePackets},identity));
+      const providers=bindings[0].providers.map(value=>{assert.equal(value.slot,0);
+        assert.equal(sha(nativeRecoveryProviderReviewV1(providerCustody,{runtime,system,poolIndex})),value.custodyIdentitySHA256,'NATIVE_DEVICE_RECOVERY_ORIGINAL_PROVIDER_CHANGED');
+        return Object.freeze({slot:0,custody:providerCustody,deliveryRiskSalt:value.deliveryRiskSalt});});assert.equal(providers.length,1);
+      await reservationObservation(row);
+      if(recovered){const receipt=await runtime.receipt('0x'+row.nativeTerminal.transactionHash);assert.ok(receipt);await runtime.checkReceipt(receipt);await runtime.assertCanonical(receipt);}
+      const view=await reader.read();assert.ok(view.ledger.nullifiers.includes('0x'+row.consent.statement.inputNullifier));
+      assert.equal(view.ledger.nullifiers.includes('0x'+row.nativeBinding.reserveNullifier),recovered,'NATIVE_LIVE_ARMED_TERMINAL_RECONCILE_REQUIRED');
+      assert.equal(await system.verify('authorization',Buffer.from(row.authorization.proof,'hex'),row.authorization.publicInputs.map(word=>'0x'+BigInt(word).toString(16).padStart(64,'0')),view.header.number),true,'NATIVE_DEVICE_RECOVERY_DEPLOYED_U_REJECTED');
+      await reader.assertCurrent(view);continueWork();recoveredDeviceInstallationIssued=true;
+      return Object.freeze({nativePreparation:preparation,invoiceSignatures:copy(quote.invoiceSignatures),providers:Object.freeze(providers),descriptor:copy(descriptor),
+        parentJobId:row.jobId,depositJobId:deposit.jobId,rootId:row.consent.custody.rootId,armSHA256:arm.armSHA256,settleBefore:arm.settleBefore,state:arm.state});
     });},
 
     deviceExit,deviceExitTerms(bridge,input){return exclusive(async()=>{await healthy();return exitTerms(bridge,input);});},
@@ -2126,6 +2216,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     },
     nativeFence(authority) {
       const admitted = assertNativeEconomicRecoveryCaptureV1(authority);
+      if(admitted.profile==='NATIVE_VALUE_LIVE_ARMED_RECOVERY_V1')privateState.liveArmedCaptureOriginal(authority);
+      else assert.equal(liveArmedOriginal,null,'NATIVE_LIVE_ARMED_DISTINCT_CAPTURE');
       assert.ok(!wrapped && !busy && !closed && !cancelled && !unavailable && !capturing, 'NATIVE_ACCOUNT_ORIGINAL_IDLE_REQUIRED');
       assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256, 'NATIVE_ACCOUNT_ORIGINAL_SOURCE_CHANGED');
       nativeCaptureOwnerIdentity = nativeValueOwnerEconomicIdentityV1(owner, { runtime, system, poolIndex });
@@ -2150,11 +2242,11 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       // Other sections may already be fenced: only this exact same encrypted
       // journal is read. No original economic capability is reconstructed.
       assert.deepEqual(await vault.read(password), record, 'FLAT_ACCOUNT_STORAGE_CHANGED');
-      nativeCaptureRecord = { schema: nativeNote?'ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1':'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
+      nativeCaptureRecord = { schema: liveArmedOriginal?'ORIGINAL_NATIVE_LIVE_ARMED_ACCOUNT_RECOVERY_V1':nativeNote?'ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1':'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
         poolIndex, directory, password, accountId, journalId, checkpointSHA256: sha(record),
         identitySHA256, accountIdentity: copy(accountIdentity), ownerIdentity: copy(nativeCaptureOwnerIdentity),
         hasNativeExecution: nativeExecution !== null, manualMode: manualKeeper !== null || nativeRecoveryManualMode,
-        providerBindings: copy(captureProviderBindings) };
+        providerBindings: copy(captureProviderBindings),...(liveArmedOriginal?{observedClockSecond:captureOriginalNativeDeviceLiveArmedClockCheckpointV1(liveArmedOriginal.clock)}:{}) };
       return copy(nativeCaptureRecord);
     },
     async nativeStop(token) {
@@ -2288,12 +2380,15 @@ export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, conte
   assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256);
   const retained = consumeNativeEconomicRecoverySectionV1(token, 'account');
   exactRecord(retained, ['schema', 'sourceSHA256', 'poolIndex', 'directory', 'password', 'accountId', 'journalId',
-    'checkpointSHA256', 'identitySHA256', 'accountIdentity', 'ownerIdentity', 'hasNativeExecution', 'manualMode', 'providerBindings']);
+    'checkpointSHA256', 'identitySHA256', 'accountIdentity', 'ownerIdentity', 'hasNativeExecution', 'manualMode', 'providerBindings',...(admitted.profile==='NATIVE_VALUE_LIVE_ARMED_RECOVERY_V1'?['observedClockSecond']:[])]);
   // Only the original one-use recovery issuer can supply this sealed section.
   // Its producer lineage is retained, never inferred from a caller DTO/option.
-  assert.ok(['ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1','ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1'].includes(retained.schema),
+  assert.ok(['ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1','ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1','ORIGINAL_NATIVE_LIVE_ARMED_ACCOUNT_RECOVERY_V1'].includes(retained.schema),
     'NATIVE_ACCOUNT_ORIGINAL_RECOVERY_PROFILE');
-  const nativeNote=retained.schema==='ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1';
+  const liveArmed=retained.schema==='ORIGINAL_NATIVE_LIVE_ARMED_ACCOUNT_RECOVERY_V1';
+  assert.equal(liveArmed,admitted.profile==='NATIVE_VALUE_LIVE_ARMED_RECOVERY_V1','NATIVE_LIVE_ARMED_DISTINCT_ACCOUNT_TOKEN');
+  if(liveArmed)assert.ok(typeof retained.observedClockSecond==='string'&&/^[1-9][0-9]{0,19}$/.test(retained.observedClockSecond),'NATIVE_LIVE_ARMED_ORIGINAL_CLOCK_CHECKPOINT');
+  const nativeNote=liveArmed||retained.schema==='ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1';
   assert.equal(retained.sourceSHA256, admitted.sourceSHA256);
   assert.equal(typeof retained.manualMode, 'boolean'); assert.equal(typeof retained.hasNativeExecution, 'boolean');
   const actualOwner = nativeValueOwnerEconomicIdentityV1(owner, { runtime, system, poolIndex: retained.poolIndex });
@@ -2311,7 +2406,7 @@ export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, conte
     exactRecord(installation, ['descriptor', 'providers']); installation.providers.forEach(provider);
   }
   return createAccountAuthority({ runtime, system, poolIndex: retained.poolIndex, owner, nativeExecution,
-    accountId: retained.accountId, journalId: retained.journalId }, {}, false, { native: true, record: retained, providers },nativeNote);
+    accountId: retained.accountId, journalId: retained.journalId }, {}, false, { native: true, liveArmed, record: retained, providers },nativeNote);
 }
 
 /** Fixed private actor producer: source is read only from an authentic live

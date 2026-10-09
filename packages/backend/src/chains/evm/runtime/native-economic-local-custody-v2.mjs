@@ -129,7 +129,15 @@ export async function assertNativeEconomicGenesisV2(pin){
  }finally{await file.close();}const named=await lstat(pin.path);for(const k of ['dev','ino','uid','size','mtimeMs','ctimeMs'])assert.equal(named[k],before[k]);
 }
 export async function reopenNativeEconomicLocalCustodyV2(input,retained){
- assert.equal(arguments.length,2);const state=config(input);assert.deepEqual(Object.keys(retained).sort(),['accounts','commitment','genesis','password','path','revision']);
+ assert.equal(arguments.length,2);return reopenOriginalNativeEconomicCustodyV2(config(input),retained);
+}
+/** Only the original runtime's one-use observed request can reopen its saved
+ * genesis. Manual configuration still rejects observed profiles. */
+export async function reopenNativeEconomicObservedLocalCustodyV2(token,retained){
+ assert.equal(arguments.length,2);return reopenOriginalNativeEconomicCustodyV2(config(consumeNativeEconomicObservedCustodyRequestV2(token),true),retained);
+}
+async function reopenOriginalNativeEconomicCustodyV2(state,retained){
+ assert.deepEqual(Object.keys(retained).sort(),['accounts','commitment','genesis','password','path','revision']);
  assert.equal(retained.path,join(state.cwd,'native-economic-keys-v2.vault'));assert.ok(typeof retained.password==='string'&&/^[0-9a-f]{64}$/.exec(retained.password)?.[0]===retained.password);assert.equal(retained.revision,0);
  assert.equal(retained.genesis.path,join(state.cwd,'native-economic-genesis-v2.json'));assert.ok(Array.isArray(retained.accounts)&&retained.accounts.length===5&&new Set(retained.accounts).size===5);
  state.password=retained.password;state.revision=retained.revision;state.commitment=retained.commitment;state.accounts=structuredClone(retained.accounts);state.genesis=structuredClone(retained.genesis);state.vault=new Vault(retained.path);state.closed=false;state.leases=new Set();
