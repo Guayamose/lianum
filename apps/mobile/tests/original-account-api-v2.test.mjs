@@ -221,6 +221,12 @@ test('private-state transport binds the original asset/lifetime and rejects stal
   assert.equal(f.calls.length,3);assert.equal(other.calls.length,1);assert.equal(Object.isFrozen(snapshot.rows[1]),true);
   const realNow=Date.now;t.mock.method(Date,'now',()=>realNow()+15001);snapshot=wallet.snapshot();assert.equal(snapshot.rows.every(row=>row.state==='STALE'&&row.available===null&&row.recovery===null),true);t.mock.restoreAll();
   wallet.clear();assert.equal(wallet.snapshot().rows.length,0);assert.equal(createPrivateWalletStateV1().snapshot().rows.length,0);
+  // An unavailable response has no live head to expire. The READ review must
+  // still be fresh after the original response stream has been received.
+  const late=stateFixture();Object.assign(late.value,{status:'UNAVAILABLE',observed:null,balances:null,backing:null});
+  const reply=new Response(JSON.stringify(late.value),{status:200,headers:{'content-type':'application/json; charset=utf-8'}}),reader=reply.body.getReader.bind(reply.body);
+  t.mock.method(reply.body,'getReader',()=>{t.mock.method(Date,'now',()=>late.review.expiresAt+1);return reader();});late.setResponse(reply);
+  await assert.rejects(late.api.privateState.submit(late.stateSignedReview),/ORIGINAL_EXPIRED/);t.mock.restoreAll();
 });
 
 test('device U uses its exact consent domain and one fixed POST; a lost response never triggers a second proof or reservation', async () => {

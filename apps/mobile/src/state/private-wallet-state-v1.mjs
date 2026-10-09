@@ -57,7 +57,11 @@ export function createPrivateWalletStateV1(){
      requests:[j,exit].filter(Boolean).map(r=>({requestId:r.jobId,kind:r.mode,state:r.stage,disposition:null})),
      custody:'DEVICE',observed:v.observed};
    });
-   retain(routeKey(['EXTERNAL',d.origin,d.pairingId,d.lifetime]),rows,()=>readDeviceExternalFlatStatusV1(raw));
+   // This is a frozen display projection, not a reusable SDK permission.
+   // Closing the originating screen may close its transport while this already
+   // consented reading remains visible until its ORIGINAL expiry.
+   const expiresAt=v.expiresAt,observedAt=v.observedAt;
+   retain(routeKey(['EXTERNAL',d.origin,d.pairingId,d.lifetime]),rows,()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
   },
   snapshot(){
    const rows=[];for(const source of sources.values()){

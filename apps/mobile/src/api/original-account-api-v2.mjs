@@ -134,6 +134,7 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
       const value = await request('observations', { review: privateStateReviewFrameV1(review), signature }, true);
       const observed = validatePrivateStateFreshV1(normalizePrivateStateObservationV1(value));
       if (!same(observed.binding, review.binding)) fail('MOBILE_REVIEW_CHANGED');
+      scope(review);
       privateStateObservations.set(observed, {descriptor:original,expiresAt:Math.min(review.expiresAt,
         observed.observed === null ? review.expiresAt : observed.observed.observedAt + 15000)});
       return observed;

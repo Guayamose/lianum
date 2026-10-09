@@ -109,6 +109,7 @@ export const externalFlatCapacityHostCryptoV1=Object.freeze({CryptoDigestAlgorit
 test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original encrypted storage limits',async t=>{
  const vaultURL=url('../../../../../apps/mobile/src/custody/device-external-flat-note-vault-v1.ts','../../../../../../../apps/mobile/src/custody/device-external-flat-note-vault-v1.ts').href;
  const sdkURL=url('../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs','../../../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs').href;
+ const positionSdkURL=url('../../../../../apps/mobile/src/api/device-defi-position-read-api-v1.mjs','../../../../../../../apps/mobile/src/api/device-defi-position-read-api-v1.mjs').href;
  const codecURL=url('../../../../../apps/mobile/src/custody/device-balance-withdrawal-codec-v1.mjs','../../../../../../../apps/mobile/src/custody/device-balance-withdrawal-codec-v1.mjs');
  const vaultSource=await readFile(new URL(vaultURL),'utf8'),legacyURL=vaultURL+'?host-legacy-storage',currentURL=vaultURL+'?host-shared-descriptor-storage';
  // Restore only the two exact original read/write expressions for the causal
@@ -121,7 +122,7 @@ test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original 
   'expo-local-authentication':`import{externalFlatCapacityHostAuthV1 as p}from${JSON.stringify(own)};export const{hasHardwareAsync,isEnrolledAsync,authenticateAsync}=p;`,
   'expo-crypto':`import{externalFlatCapacityHostCryptoV1 as p}from${JSON.stringify(own)};export const{CryptoDigestAlgorithm,AESEncryptionKey,AESSealedData,getRandomBytesAsync,digest,aesEncryptAsync,aesDecryptAsync}=p;`,
   'react-native':`export const Platform={OS:'android'};`};
- const parents=new Set([legacyURL,currentURL,sdkURL]);const hooks=registerHooks({resolve(specifier,context,next){if(parents.has(context.parentURL)&&Object.hasOwn(ports,specifier))return{url:'data:text/javascript,'+encodeURIComponent(ports[specifier]),shortCircuit:true};return next(specifier,context);},
+ const parents=new Set([legacyURL,currentURL,sdkURL,positionSdkURL]);const hooks=registerHooks({resolve(specifier,context,next){if(parents.has(context.parentURL)&&Object.hasOwn(ports,specifier))return{url:'data:text/javascript,'+encodeURIComponent(ports[specifier]),shortCircuit:true};return next(specifier,context);},
   load(where,context,next){if(where===legacyURL||where===currentURL)return{format:'module',source:stripTypeScriptTypes(where===legacyURL?legacySource:vaultSource,{mode:'strip'}),shortCircuit:true};return next(where,context);}});
  t.after(()=>{hooks.deregister();for(const bytes of capacityHeldKeys)bytes.fill(0);capacityHeldKeys.clear();capacityStore.clear();});
  const sdk=await import(sdkURL),codec=await import(codecURL),hex=n=>createHash('sha256').update('HOST_'+n).digest('hex'),transportKey=new Uint8Array(32);transportKey[31]=2;
@@ -174,7 +175,9 @@ test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original 
      const originalExit=jobs.get(row.jobId);jobs.set(row.jobId,{...originalExit,stage:'PROVED',observation:null});
      const regressionChallenge=await client.challenge(),regressed=await client.status(regressionChallenge,sig(regressionChallenge));await assert.rejects(restored.reconcileOriginalStatus(regressed));jobs.set(row.jobId,originalExit);
      assert.equal((await restored.summary()).jobs.every(r=>r.stage==='CONFIRMED'),true);
-    }finally{await restored.close();}continue;
+    }finally{await restored.close();}
+    const {createPrivateWalletStateV1}=await import(url('../../../../../apps/mobile/src/state/private-wallet-state-v1.mjs','../../../../../../../apps/mobile/src/state/private-wallet-state-v1.mjs'));const walletState=createPrivateWalletStateV1();await assert.rejects(async()=>walletState.acceptExternal(structuredClone(status)));walletState.acceptExternal(status);client.close();const displayed=walletState.snapshot();assert.equal(displayed.rows.length,1);assert.equal(displayed.rows[0].state,'LIVE');assert.equal(displayed.rows[0].noteAmount,'0');assert.equal(displayed.rows[0].available,null);assert.equal(displayed.aggregateBalance,null);
+    continue;
    }
    const prepared=await vault.prepareDeposit(descriptor,recipient,amount,originalObserved.timestamp);priorPreparedStore=new Map(capacityStore);sourceWitness=prepared.witness;await perform(await review(prepared.draft),sourceWitness);await perform(await review(await vault.draft('FUND_D26')));
    const toHex=a=>Buffer.from(a).toString('hex');opening={type:4,rho:toHex(sourceWitness.rho),x:toHex(sourceWitness.key_x),y:toHex(sourceWitness.key_y),value:amount,secret:toHex(sourceWitness.secret)};const leaf=(await vault.summary()).commitment,siblings=Array.from({length:6},(_,i)=>hex('sibling'+i));let root=leaf;
