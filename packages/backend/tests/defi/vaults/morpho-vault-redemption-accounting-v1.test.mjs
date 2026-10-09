@@ -21,6 +21,20 @@ test('Morpho position and actual loan-token release join the existing MetaMorpho
   assert.ok(Object.isFrozen(value));
   const liquid = trace(); liquid.after = structuredClone(liquid.before); liquid.after.vaultUnderlyingBalance = '0'; liquid.assets = '500';
   assert.equal(assertMorphoVaultRedemptionAccountingV1(liquid).marketAssetsReleased, '0');
+  const rounded = trace();
+  Object.assign(rounded.before.market, { totalSupplyAssets: '10', totalSupplyShares: '10000009' });
+  rounded.before.position.supplyShares = '10000009'; rounded.before.underlyingBalance = '10';
+  rounded.after = structuredClone(rounded.before);
+  Object.assign(rounded.after.market, { totalSupplyAssets: '9', totalSupplyShares: '9000008', lastUpdate: '1001' });
+  rounded.after.position.supplyShares = '9000008'; rounded.after.underlyingBalance = '9'; rounded.assets = '1';
+  assert.equal(assertMorphoVaultRedemptionAccountingV1(rounded).supplySharesConsumed, '1000001');
+  // Both position and market can agree on a wrong rounded delta: conservation
+  // alone must not let either floor rounding or an extra share through.
+  for (const remaining of ['9000009', '9000007']) {
+    const wrong = structuredClone(rounded);
+    wrong.after.market.totalSupplyShares = remaining; wrong.after.position.supplyShares = remaining;
+    assert.throws(() => assertMorphoVaultRedemptionAccountingV1(wrong), error => error.code === 'ERR_ASSERTION' && error.message.split('\n')[0] === 'MORPHO_REDEMPTION_ORIGINAL_SHARE_ROUNDING');
+  }
 });
 test('matching vault/redemption amounts cannot replace the original Morpho position, market shares, zero debt or token conservation', () => {
   for (const mutate of [

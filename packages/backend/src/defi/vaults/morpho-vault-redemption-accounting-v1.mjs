@@ -34,6 +34,12 @@ export function assertMorphoVaultRedemptionAccountingV1(input) {
   assert.ok(marketAssets >= 0n && marketShares >= 0n && positionShares >= 0n && vaultAssets >= 0n, 'MORPHO_REDEMPTION_NO_NEW_SUPPLY');
   assert.equal(integer(before.underlyingBalance) - integer(after.underlyingBalance), marketAssets, 'MORPHO_REDEMPTION_UNDERLYING_DELTA');
   assert.equal(marketShares, positionShares, 'MORPHO_REDEMPTION_POSITION_DELTA');
+  // Original MetaMorpho withdraws assets (shares=0); Morpho Blue uses
+  // SharesMathLib.toSharesUp with its original 1e6/1 virtual offsets.
+  const shareNumerator = marketAssets * (integer(before.market.totalSupplyShares) + 1_000_000n);
+  const shareDenominator = integer(before.market.totalSupplyAssets) + 1n;
+  const originalShares = (shareNumerator + shareDenominator - 1n) / shareDenominator;
+  assert.equal(marketShares, originalShares, 'MORPHO_REDEMPTION_ORIGINAL_SHARE_ROUNDING');
   assert.equal(marketAssets + vaultAssets, assets, 'MORPHO_REDEMPTION_EXACT_RELEASE');
   assert.equal(marketAssets === 0n, marketShares === 0n, 'MORPHO_REDEMPTION_SHARE_DELTA');
   return Object.freeze({ protocol: 'MORPHO_BLUE_VIA_METAMORPHO', assets: input.assets,
