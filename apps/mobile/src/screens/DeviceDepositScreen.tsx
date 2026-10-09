@@ -319,7 +319,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       if (result.terminal) { await custody.applyDeviceExecutionTerminal(result); live(held); }
       else if (value.action === 'RECONCILE_NATIVE') { await custody.applyDeviceExecutionObservation(result); live(held); }
       const state = await custody.readDeviceExecutionIntent(); live(held); setExecutionIntent(state); setExecutionStatus(result);
-      const updatedNote = await custody.readDeviceNote(); live(held); setNote(updatedNote);
+      const updatedNote = await custody.readDeviceNote(); live(held); await publishNote(updatedNote, held);
       setMessage(result.terminal ? 'Resultado original ' + result.outcome + ' guardado. Las aperturas de cambio y recuperación permanecen en esta custodia.' : result.stage);
     } catch (error) {
       live(held); const notice = 'UNKNOWN: reconciliar la ejecución original. No repetir ejecución, recuperación, reserva ni entrega.';
@@ -365,8 +365,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       const handle = await api.observe({ access, signature, ...subject }); live(held);
       await custody.applyDeviceOutputBalances(handle); live(held);
       const observation = await custody.readDeviceNote(); live(held);
-      if (observation && onObservation) { await onObservation(observation); live(held); }
-      setNote(observation);
+      await publishNote(observation, held);
       setMessage('Lectura original de estas dos notas. No se autoriza una prueba, ejecución ni retirada; la disponibilidad caduca y no se suman otros activos.');
     } catch (cause) {
       live(held);
@@ -430,7 +429,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       if (result.stage === 'CONFIRMED') { await custody.applyDeviceExitConfirmation(result); live(held); }
       setExitJob(result.jobId); setMessage(result.stage === 'CONFIRMED' ? 'Salida original confirmada y guardada. No se suma como saldo disponible local.' : result.stage);
       const retained = await custody.readDeviceExitIntent(exitRole); live(held); setExitIntent(retained);
-      const state = await custody.readDeviceNote(); live(held); setNote(state);
+      const state = await custody.readDeviceNote(); live(held); await publishNote(state, held);
     } catch (error) { live(held); const notice = 'UNKNOWN: consultar este mismo trabajo W39. Nunca repetir automáticamente la prueba o la retirada.';
       setMessage(notice); throw Error(notice, { cause: error });
     } finally { if (witness) wipeDeviceExitWitnessV1(witness); exitRequest.current?.close(); exitRequest.current = null; }
