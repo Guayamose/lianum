@@ -1,3 +1,5 @@
+import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../recovery/native-original-source-capsule-v1.mjs';
+import {assertOwnedNativeDurableSourceReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 /** Genuine-artifact-bound new native-value graph-only local bootstrap. This module never starts an EVM or owns its
  * lifecycle. Only a golden createLocalEvm capability can receive deployments.
  * Importing it loads no artifacts, compiler, prover, backend or runtime. */
@@ -474,7 +476,7 @@ async function restoreNativeSystemParts(runtime,capture){
 /** Only the fixed economic native issuer can retain/reopen this original brand.
  * D26 observation capability and public deployment records grant no economics. */
 export function fenceOriginalNativeSystemEconomicRecoveryV1(runtime,system,authority){
- assert.equal(arguments.length,3);const identity=assertNativeEconomicRecoveryCaptureV1(authority),entry=ownedSystems.get(system);
+ assert.equal(arguments.length,3);assert.equal(sourceSystems.has(system),false,'NATIVE_SOURCE_DISTINCT_SYSTEM_ISSUER');const identity=assertNativeEconomicRecoveryCaptureV1(authority),entry=ownedSystems.get(system);
  assert.ok(entry&&entry.runtime===runtime&&!entry.capturing&&!entry.closed,'NATIVE_VALUE_ORIGINAL_ECONOMIC_SYSTEM_REQUIRED');
  assertNativeBootstrapEconomicCaptureV1(entry.originalBootstrap,{runtime,system,authority});
  assert.equal(identity.sourceSHA256,entry.bundle.provenance.hostSourceClosureSHA256,'NATIVE_VALUE_ECONOMIC_CAPTURE_ORIGINAL_SOURCE');
@@ -505,6 +507,9 @@ export async function reopenOriginalNativeSystemEconomicRecoveryV1(token,input){
  assert.equal(capture.schema,'ORIGINAL_NATIVE_SYSTEM_ECONOMIC_RECOVERY_V1');
  assert.equal(capture.retainedHostSourceSHA256,identity.sourceSHA256,'NATIVE_VALUE_ECONOMIC_REOPEN_ORIGINAL_SOURCE');
  assert.equal(runtime.metadata.restoredOriginalState,true,'NATIVE_VALUE_ECONOMIC_RESTORED_RECEIVER_REQUIRED');
+ return restoreOriginalNativeEconomicSystem(runtime,bootstrap,capture,identity);
+}
+async function restoreOriginalNativeEconomicSystem(runtime,bootstrap,capture,identity){
  const {bundle,header,hub,pools,libraries,verifiers,generatedLibraries}=await restoreNativeSystemParts(runtime,capture);
  assert.equal(bundle.provenance.hostSourceClosureSHA256,identity.sourceSHA256,'NATIVE_VALUE_ECONOMIC_CURRENT_SOURCE_CHANGED');
  const metadata=assertNativeValueOperatorBootstrap(bootstrap);assert.deepEqual(metadata.attesterKeys,capture.metadata.registry.quorum.keys,'NATIVE_VALUE_ECONOMIC_MEMBER_KEYS');
@@ -560,4 +565,18 @@ async function verifyNativeEconomicOriginalStorage(runtime,hub,pools,plan,header
    await expect(hub,'domainPool(bytes32)',[projected.domainCommitment],[pool.address]);assertOwnedPoolAsset(runtime,pool.assetCapability);
  }
  await unchangedHead(runtime,header);
+}
+
+/** Immutable deployment source is authenticated before funding; reopening
+ * reconstructs its original facades and current readers, never deploys again. */
+const sourceSystems=new WeakMap();
+export async function retainOriginalNativeSystemSourceV1(token,system){
+ assert.equal(arguments.length,2);const identity=nativeSourceRecoverySectionIdentityV1(token,'system'),entry=ownedSystems.get(system);assert.ok(entry&&!entry.closed&&!entry.capturing&&!sourceSystems.has(system),'NATIVE_SOURCE_ORIGINAL_SYSTEM');assertOwnedNativeDurableSourceReceiverV1(entry.runtime);assertOwnedNativeValueSystem(entry.runtime,system);
+ assert.equal(entry.bundle.provenance.hostSourceClosureSHA256,identity.sourceSHA256);
+ const capture=await captureNativeSystemRecord(entry.runtime,system,()=>assertOwnedNativeValueSystem(entry.runtime,system),'ORIGINAL_NATIVE_SYSTEM_SOURCE_SEED_V1');capture.registrationReceipts=structuredClone(system.registrationReceipts);capture.deployments=system.deployments.map(observationRecord);
+ const wrapper={schema:'ORIGINAL_NATIVE_SYSTEM_DURABLE_SOURCE_V1',sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:capture,candidate:null};const handle=await retainOriginalNativeSourceSectionV1(token,'system',wrapper);sourceSystems.set(system,{handle,identity});return {retainedOriginalSource:true};
+}
+export async function reopenOriginalNativeSystemSourceV1(token,input){
+ assert.equal(arguments.length,2);exactRecord(input,['runtime','bootstrap']);assertOwnedNativeDurableSourceReceiverV1(input.runtime);const identity=nativeSourceRecoverySectionIdentityV1(token,'system'),wrapper=consumeOriginalNativeSourceSectionV1(token,'system');assert.equal(wrapper.schema,'ORIGINAL_NATIVE_SYSTEM_DURABLE_SOURCE_V1');assert.equal(wrapper.candidate,null);assert.equal(wrapper.sourceSHA256,identity.sourceSHA256);const capture=wrapper.confirmed;assert.equal(capture.schema,'ORIGINAL_NATIVE_SYSTEM_SOURCE_SEED_V1');assert.equal(capture.retainedHostSourceSHA256,identity.sourceSHA256);assert.equal(input.runtime.metadata.restoredOriginalState,true);
+ const system=await restoreOriginalNativeEconomicSystem(input.runtime,input.bootstrap,capture,identity),handle=resumeOriginalNativeSourceSectionV1(token,'system');await updateOriginalNativeSourceSectionV1(handle,wrapper);sourceSystems.set(system,{handle,identity});return system;
 }

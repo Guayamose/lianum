@@ -256,12 +256,12 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
         if (request.url.endsWith('/challenges')) {
           if (!value || Object.getPrototypeOf(value) !== Object.prototype || Reflect.ownKeys(value).length !== 0)
             fail('HTTP_BODY_REJECTED');
-          return { challenge: actor.privateStateChallenge() };
+          return { challenge: await actor.privateStateChallenge() };
         }
         if (request.url.endsWith('/reviews')) return { review: await actor.openPrivateStateReview(value) };
         return actor.readPrivateState(value);
       }
-      if (request.url.endsWith('/challenges')) return { challenge: actor.challenge(value) };
+      if (request.url.endsWith('/challenges')) return { challenge: await actor.challenge(value) };
       if (request.url.endsWith('/reviews')) return { review: await actor.openReview(value) };
       return actor.submit(value);
     })();
@@ -338,7 +338,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
           composedClose = (async () => {
             const outcomes = await Promise.allSettled(pending);
             bridge.close(); reservationBridge.close(); executionBridge.close();
-            actor.close(); depositContinuations.delete(actor);
+            await actor.close(); depositContinuations.delete(actor);
             const report = await network;
             return Object.freeze({ ...report, originalDiagnosticsInFlight: running.size,
               originalWorkSettled: running.size === 0,
@@ -347,7 +347,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
         }
         return composedClose;
       }
-      if (!owned.transferred) { actor.close(); depositContinuations.delete(actor); }
+      if (!owned.transferred) { const actorClose=actor.close(); depositContinuations.delete(actor);if(actorClose instanceof Promise)return actorClose.then(()=>closeTransport()); }
       return closeTransport();
     },
   });

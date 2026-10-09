@@ -1,3 +1,4 @@
+import {nativeSourceRecoveryOriginalReferenceV1,nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../operations/recovery/native-original-source-capsule-v1.mjs';
 /** Private same-realm bootstrap only. Public platform HTTP is not connected.
  * Holds original session/approval/owner references; no factories or callbacks.
  * Diagnostics and separately consented account/pool state use the same opaque
@@ -95,8 +96,10 @@ async function createOriginalActor(input, recovery) {
   };
   original();
   const pairingId = recovery?.pairingId ?? hex(), accesses = new Map(), reviews = new Map(), stateAccesses = new Map(), stateReviews = new Map();
-  let busy = false, closed = false, capturing = false, captureIdentity = null, captured = false;
-  function live() { need(!closed && !capturing, 'MOBILE_ORIGINAL_ACTOR_CLOSED'); original(); }
+  let busy = false, closed = false, capturing = false, captureIdentity = null, captured = false,sourceHandle=null,sourceWrapper=null,sourceBusy=false,sourceClosing=false,sourceWork=null,sourceFault=false;
+  function sourceSeed(){const rows=map=>[...map].map(([id,row])=>({id,value:structuredClone(row.value),consumed:row.consumed}));return {schema:'ORIGINAL_NATIVE_ACTOR_SOURCE_SEED_V1',origin,pairingId,devicePublicKey,initial:structuredClone({body:initial.body,review:initial.review}),challenges:{accesses:rows(accesses),reviews:rows(reviews),stateAccesses:rows(stateAccesses),stateReviews:rows(stateReviews)}};}
+  async function sourceCheckpoint(candidate){if(sourceHandle){const next={...sourceWrapper,confirmed:sourceSeed(),candidate};await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceWrapper=next;}}
+  function live() { need(!closed && !capturing && !sourceFault, 'MOBILE_ORIGINAL_ACTOR_CLOSED'); original(); }
   async function binding(action) {
     live();
     const journal = await session.snapshot(); live();
@@ -168,7 +171,7 @@ async function createOriginalActor(input, recovery) {
       'MOBILE_ORIGINAL_SIGNATURE_INVALID');
     retained.consumed = true; return value;
   }
-  const actor = Object.freeze({
+  let actor = Object.freeze({
     /** The generic nonce reveals no account or operation. The following signed
      * bootstrap permission is required before any private review is returned. */
     challenge(input) {
@@ -324,12 +327,22 @@ async function createOriginalActor(input, recovery) {
       }
     }
   }
+  const rawActor=actor;
+  function installSourceFacade(){
+    const entries=Object.entries(rawActor).map(([name,method])=>[name,name==='close'?function(){need(arguments.length===0,'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');sourceClosing=true;const pending=sourceWork;return (async()=>{if(pending)try{await pending;}catch{}return rawActor.close();})();}:async function(...args){
+      need(!sourceClosing&&!sourceFault&&!sourceBusy,'NATIVE_SOURCE_ACTOR_UNAVAILABLE');sourceBusy=true;
+      const work=(async()=>{await sourceCheckpoint({kind:'ACTOR_PERMISSION_OR_OBSERVATION',method:name});try{const result=await method(...args);await sourceCheckpoint(null);return result;}catch(error){sourceFault=true;throw error;}})();sourceWork=work;
+      try{return await work;}finally{sourceBusy=false;if(sourceWork===work)sourceWork=null;}
+    }]);actor=Object.freeze(Object.fromEntries(entries));actorBrands.set(actor,state);actorBrands.delete(rawActor);return actor;
+  }
   const state = { account, session, owner, live, descriptor: Object.freeze({ origin, pairingId, devicePublicKey }),
+    async sourceRetain(token){const identity=nativeSourceRecoverySectionIdentityV1(token,'actor');need(account===nativeSourceRecoveryOriginalReferenceV1(token,'actor','account')&&session===nativeSourceRecoveryOriginalReferenceV1(token,'actor','session')&&owner===nativeSourceRecoveryOriginalReferenceV1(token,'actor','owner'),'NATIVE_SOURCE_ACTOR_ORIGINAL_REFERENCES');live();need(!sourceHandle&&!busy,'NATIVE_SOURCE_ORIGINAL_ACTOR_IDLE');need(nativeValueOriginalRecoverySourceV1FromAccount(account)===identity.sourceSHA256);sourceWrapper={schema:'ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1',sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:sourceSeed(),candidate:null};sourceHandle=await retainOriginalNativeSourceSectionV1(token,'actor',sourceWrapper);return installSourceFacade();},
+    async sourceResume(token,wrapper){const identity=nativeSourceRecoverySectionIdentityV1(token,'actor');live();need(!sourceHandle&&!busy,'NATIVE_SOURCE_ORIGINAL_ACTOR_IDLE');need(nativeValueOriginalRecoverySourceV1FromAccount(account)===identity.sourceSHA256&&sha(sourceSeed())===sha(wrapper.confirmed),'NATIVE_SOURCE_ACTOR_SEED_CHANGED');sourceWrapper=structuredClone(wrapper);sourceHandle=resumeOriginalNativeSourceSectionV1(token,'actor');await sourceCheckpoint(null);return installSourceFacade();},
     fence(authority) {
       const admitted = assertNativeEconomicRecoveryCaptureV1(authority); original();
       const source = nativeValueOriginalRecoverySourceV1FromAccount(account);
       need(source === admitted.sourceSHA256, 'MOBILE_ORIGINAL_CAPTURE_SOURCE_CHANGED');
-      need(!busy && !closed && !capturing, 'MOBILE_ORIGINAL_CAPTURE_IDLE_REQUIRED');
+      need(!busy && !closed && !capturing && !sourceHandle, 'MOBILE_ORIGINAL_CAPTURE_IDLE_REQUIRED');
       captureIdentity = admitted; capturing = true;
     },
     capture(token) {
@@ -429,4 +442,10 @@ export function assertNativeActorSessionAccountMembershipV1(actor, expected) {
   need(arguments.length === 2 && !types.isProxy(actor), 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); exact(expected, ['session', 'account']);
   const state = actorBrands.get(actor); need(state, 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'); state.live();
   need(state.session === expected.session && state.account === expected.account, 'MOBILE_ORIGINAL_ACTOR_MEMBERSHIP_CHANGED');
+}
+
+export async function retainOriginalNativeActorSourceV1(token,actor){need(arguments.length===2,'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');const state=actorBrands.get(actor);need(state,'NATIVE_SOURCE_ORIGINAL_ACTOR');return state.sourceRetain(token);}
+export async function reopenOriginalNativeActorSourceV1(token,contexts){
+ need(arguments.length===2,'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');exact(contexts,['session','account','owner']);const identity=nativeSourceRecoverySectionIdentityV1(token,'actor'),wrapper=consumeOriginalNativeSourceSectionV1(token,'actor');exact(wrapper,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);need(wrapper.schema==='ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1'&&wrapper.candidate===null&&wrapper.sourceSHA256===identity.sourceSHA256,'NATIVE_SOURCE_ACTOR_PENDING');const seed=wrapper.confirmed;exact(seed,['schema','origin','pairingId','devicePublicKey','initial','challenges']);need(seed.schema==='ORIGINAL_NATIVE_ACTOR_SOURCE_SEED_V1'&&nativeValueOriginalRecoverySourceV1FromAccount(contexts.account)===identity.sourceSHA256,'NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');assertOwnedNativeValueAccountAuthority(contexts.account,{owner:contexts.owner});
+ const approval=flatManualNativeNoteActionTarget(contexts.session,'reconcile',{requestId:seed.initial.body.requestId});need(approval,'MOBILE_ORIGINAL_RECOVERED_SESSION_APPROVAL_REQUIRED');const actor=await createOriginalActor({session:contexts.session,approval,owner:contexts.owner,origin:seed.origin,devicePublicKey:seed.devicePublicKey},seed);try{return await actorBrands.get(actor).sourceResume(token,wrapper);}catch(error){actor.close();throw error;}
 }

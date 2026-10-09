@@ -1,3 +1,5 @@
+import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
+import {assertOwnedNativeDurableSourceReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {buildOwnerNativeGraphRoute} from '../../account/preparation/owner-native-graph-review-v1.mjs';
 import {createHash as recoveryHash} from 'node:crypto';
 import {canonical as recoveryCanonical} from '../../../../../engine/src/crypto/privacy.mjs';
@@ -158,15 +160,17 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     else lifetimeHandle=await lifetimeRegistry.retainWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,binding,lifetimeState);}
   async function retainLifetime(next){if(wrapped){await lifetimeRegistry.updateWrappedPrivateLifetimePartV1(lifetimeHandle,next);lifetimeState=copy(next);}}
   const providerSets = new Map(), admissionAdapters = new Map(), abis = {}, proofs = createFlatProofRunner({ onProof });
-  let nativeCaptureIdentity = null, nativeCaptureRecord = null;
+  let nativeCaptureIdentity = null, nativeCaptureRecord = null,sourceHandle=null,sourceIdentity=null,sourceWrapper=null,sourcePending=null;
+  function sourceSeed(){const selected=[...providerSets].map(([reference,rows])=>({reference,providers:rows.map(({custody,...row})=>({...copy(row),custodyIdentitySHA256:privateRecoveryDigest(nativeCustodyReview(custody,{runtime,system,poolIndex}))}))}));assert.ok(selected.flatMap(row=>row.providers).every(row=>row.slot===0),'NATIVE_SOURCE_FIXED_EXECUTOR_PROVIDER');assert.ok(admissionAdapters.size<=1,'NATIVE_SOURCE_FIXED_EXECUTOR_LEASE');return {schema:'ORIGINAL_NATIVE_EXECUTOR_SOURCE_SEED_V1',poolIndex,directory,password,checkpointSHA256:privateRecoveryDigest(record),providerBindings:selected,adapters:[...admissionAdapters].map(([key,value])=>({key,slot:value.slot}))};}
+  async function sourceCheckpoint(candidate){if(sourceHandle){const next={...sourceWrapper,confirmed:sourceSeed(),candidate};await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceWrapper=next;}}
   let closed = false, poisoned = false, busy = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null,captureProviderBindings=null, activeDone = Promise.resolve(), releaseActive;
   const live = () => assert.ok(!closed && !poisoned && !capturing, 'FLAT_EXECUTION_UNAVAILABLE');
   async function healthy() { live(); assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
     assert.equal(system.claimsEnabled,wrapped,'EXECUTION_EXACT_PROFILE_REQUIRED');assertOwnedNativeValueQuorum(quorum,{runtime,system});
     assert.deepEqual(await vault.read(password), record, 'FLAT_EXECUTION_STORAGE_CHANGED'); }
   async function write(change) {
-    try { await healthy();const changed=change(copy(record.data));if(wrapped)await retainLifetime({...lifetimeState,pendingUpdate:{revision:record.revision+1,dataSHA256:privateRecoveryDigest(changed)}});const next = await vault.update(password, record.revision, ()=>changed);
-      assert.deepEqual(await vault.read(password), next);if(wrapped)await retainLifetime({...lifetimeState,checkpointSHA256:privateRecoveryDigest(next),pendingUpdate:null});record = next; }
+    try { await healthy();const changed=change(copy(record.data));if(sourceHandle)await sourceCheckpoint({kind:'EXECUTOR_RECORD_CAS',revision:record.revision+1,dataSHA256:privateRecoveryDigest(changed)});if(wrapped)await retainLifetime({...lifetimeState,pendingUpdate:{revision:record.revision+1,dataSHA256:privateRecoveryDigest(changed)}});const next = await vault.update(password, record.revision, ()=>changed);
+      assert.deepEqual(await vault.read(password), next);if(wrapped)await retainLifetime({...lifetimeState,checkpointSHA256:privateRecoveryDigest(next),pendingUpdate:null});record = next;if(sourceHandle)await sourceCheckpoint(sourcePending); }
     catch (error) { poisoned = true; throw error; }
   }
   function operation(ref) { reference(ref); const item = record.data.operations.find(value => value.reference === ref);
@@ -177,7 +181,8 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     await update(ref, { stage: name }); await onStage({ reference: ref, stage: name }); }
   async function exclusive(work) { live(); assert.ok(!busy && !cancelled, 'FLAT_EXECUTION_BUSY'); busy = true;
     activeDone = new Promise(resolve => { releaseActive = resolve; });
-    try { await healthy(); return await work(); } finally { busy = false; releaseActive(); releaseActive = null; } }
+    try { if(sourceHandle){sourcePending={kind:'EXECUTOR_EXCLUSIVE',checkpointSHA256:privateRecoveryDigest(record)};await sourceCheckpoint(sourcePending);}await healthy();const result=await work();if(sourceHandle){await healthy();await sourceCheckpoint(null);sourcePending=null;}return result; }
+    catch(error){if(sourceHandle)poisoned=true;throw error;}finally { busy = false; releaseActive(); releaseActive = null; } }
   async function abi(name) { abis[name] ??= await loadFlatABI(name); return abis[name]; }
   async function prove(ref, name, job, label) { await stage(ref, 'prove-' + label); return proofs.prove(name, job, label); }
   async function send(ref, kind, target, calldata) {
@@ -516,6 +521,8 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       if(failures.length)throw new AggregateError(failures,'NV2_EXECUTION_CLEANUP_FAILED');return { closed: true }; },
   });
   owners.set(keeper, { runtime, system, poolIndex, live, wrapped, reconcileRecovery, rewindRecoveryProbe,
+    async sourceRetain(token){const identity=nativeSourceRecoverySectionIdentityV1(token,'executor');assert.ok(!wrapped&&!closed&&!poisoned&&!busy&&!cancelled&&!capturing&&!sourceHandle,'NATIVE_SOURCE_ORIGINAL_IDLE_EXECUTOR');assertOwnedNativeDurableSourceReceiverV1(runtime);assert.equal(nativeValueOriginalRecoverySourceV1(runtime,system),identity.sourceSHA256);await healthy();sourceIdentity=identity;sourceWrapper={schema:'ORIGINAL_NATIVE_EXECUTOR_DURABLE_SOURCE_V1',sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:sourceSeed(),candidate:null};sourceHandle=await retainOriginalNativeSourceSectionV1(token,'executor',sourceWrapper);return {retainedOriginalSource:true};},
+    async sourceResume(token,wrapper){const identity=nativeSourceRecoverySectionIdentityV1(token,'executor');assert.ok(!wrapped&&!closed&&!poisoned&&!busy&&!sourceHandle);assertOwnedNativeDurableSourceReceiverV1(runtime);await healthy();assert.equal(privateRecoveryDigest(sourceSeed()),privateRecoveryDigest(wrapper.confirmed),'NATIVE_SOURCE_EXECUTOR_SEED_CHANGED');sourceIdentity=identity;sourceWrapper=copy(wrapper);sourceHandle=resumeOriginalNativeSourceSectionV1(token,'executor');await sourceCheckpoint(null);},
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,poolIndex};},
     fence(){assert.ok(wrapped&&!closed&&!poisoned&&!busy&&!cancelled&&!capturing,'WRAPPED_EXECUTION_ORIGINAL_CAPTURE_REQUIRED');capturing=true;
       captureProviders=[...providerSets].map(([reference,rows])=>({reference,providers:rows.map(row=>({...row}))}));
@@ -529,7 +536,7 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     },
     nativeFence(authority) {
       const admitted = assertNativeEconomicRecoveryCaptureV1(authority);
-      assert.ok(!wrapped && !closed && !poisoned && !busy && !cancelled && !capturing, 'NATIVE_EXECUTION_ORIGINAL_IDLE_REQUIRED');
+      assert.ok(!wrapped && !closed && !poisoned && !busy && !cancelled && !capturing && !sourceHandle, 'NATIVE_EXECUTION_ORIGINAL_IDLE_REQUIRED');
       assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256, 'NATIVE_EXECUTION_ORIGINAL_SOURCE_CHANGED');
       // Review while these exact providers are live; a later provider fence
       // must not require reopening any old economic capability for capture.
@@ -658,6 +665,10 @@ export async function reopenOriginalNativeExecutionEconomicRecoveryV1(token, con
   nativeCustody(providerCustody, { runtime, system, poolIndex: retained.poolIndex });
   const profileCommitment = providerCustody.offer().evidencePolicy;
   assertNativeValueBootstrapNativeRuntime(bootstrap, { runtime, system, nativeRuntime, profileCommitment });
+  return restoreOriginalNativeExecution(retained,contexts);
+}
+async function restoreOriginalNativeExecution(retained,contexts){
+  const {runtime,system,providerCustody,dispatchLease}=contexts;
   const providers = retained.providerBindings.map(({ reference, providers }) => ({ reference,
     providers: providers.map(({ custodyIdentitySHA256, ...row }) => {
       assert.equal(row.slot, 0, 'NATIVE_EXECUTION_FIXED_ORIGINAL_PROVIDER_REQUIRED');
@@ -669,4 +680,10 @@ export async function reopenOriginalNativeExecutionEconomicRecoveryV1(token, con
     assert.ok(dispatchLease !== null, 'NATIVE_EXECUTION_ORIGINAL_LEASE_REQUIRED'); return { ...row, dispatchLease }; });
   return createExecution({ runtime, system, poolIndex: retained.poolIndex, quorum: system.quorum }, {}, false,
     { native: true, record: retained, providers, adapters });
+}
+
+export function retainOriginalNativeExecutorSourceV1(token,execution){assert.equal(arguments.length,2);const state=owners.get(execution);assert.ok(state&&!state.wrapped,'NATIVE_SOURCE_ORIGINAL_EXECUTOR');return state.sourceRetain(token);}
+export async function reopenOriginalNativeExecutorSourceV1(token,contexts){
+ assert.equal(arguments.length,2);exactRecord(contexts,['runtime','system','nativeRuntime','bootstrap','providerCustody','dispatchLease']);assertOwnedNativeDurableSourceReceiverV1(contexts.runtime);const identity=nativeSourceRecoverySectionIdentityV1(token,'executor'),wrapper=consumeOriginalNativeSourceSectionV1(token,'executor');assert.equal(wrapper.schema,'ORIGINAL_NATIVE_EXECUTOR_DURABLE_SOURCE_V1');assert.equal(wrapper.candidate,null);assert.equal(wrapper.sourceSHA256,identity.sourceSHA256);const retained=wrapper.confirmed;exactRecord(retained,['schema','poolIndex','directory','password','checkpointSHA256','providerBindings','adapters']);assert.equal(retained.schema,'ORIGINAL_NATIVE_EXECUTOR_SOURCE_SEED_V1');assert.equal(nativeValueOriginalRecoverySourceV1(contexts.runtime,contexts.system),identity.sourceSHA256);nativeCustody(contexts.providerCustody,{runtime:contexts.runtime,system:contexts.system,poolIndex:retained.poolIndex});
+ assertNativeValueBootstrapNativeRuntime(contexts.bootstrap,{runtime:contexts.runtime,system:contexts.system,nativeRuntime:contexts.nativeRuntime,profileCommitment:contexts.providerCustody.offer().evidencePolicy});const execution=await restoreOriginalNativeExecution(retained,contexts);try{await owners.get(execution).sourceResume(token,wrapper);return execution;}catch(error){try{await execution.close();}catch{}throw error;}
 }
