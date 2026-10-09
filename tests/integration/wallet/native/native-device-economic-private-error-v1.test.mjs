@@ -104,7 +104,7 @@ test('HOST original successor CLOSE keeps remote EOF and the same real ChildProc
  const source=readFileSync(new URL('./native-device-economic-launcher-v1.mjs',import.meta.url),'utf8');
  const start=source.indexOf(' const pending=new Map();'),end=source.indexOf(' economicLifetime.closeSuccessor=close;',start);
  assert.ok(start>=0&&end>start);
- const bind=runInNewContext('(child,context,identity)=>{'+source.slice(start,end)+';return {close};}',
+ const bind=runInNewContext('(child,context,identity)=>{const liveArmed=false;'+source.slice(start,end)+';return {close};}',
    {assert,Buffer,Error,setTimeout,clearTimeout,MAXIMUM_IPC_BYTES:2*1024*1024});
  const current=await spawn(),events=[];current.child.once('exit',()=>events.push('exit'));
  current.child.once('close',()=>events.push('close'));
@@ -261,4 +261,30 @@ test('HOST original legacy resource receipt uses actual completed report and sam
  for(const [field,invalid]of [['availableRAM',PRIVATE_RESOURCE_POLICY.floors.availableRAM-1],['freeDisk',PRIVATE_RESOURCE_POLICY.floors.freeDisk-1],['workerRSS',PRIVATE_RESOURCE_POLICY.proofWorkerRSSLimit+1],['workerRSS',-1],['workerRSS',NaN]])deny(p=>{p.evidence.resourceSamples[0][field]=invalid;});
  deny(p=>{p.evidence.phase='failed';});deny(p=>{p.evidence.acceptedResult=false;});deny(p=>{p.evidence.exit.signal='SIGTERM';});
  deny(p=>{p.evidence.worker.verified=false;});deny(p=>{p.evidence.worker.proofSHA256='dd'.repeat(32);});deny(p=>{p.retainedTelemetrySHA256='dd'.repeat(32);});deny(p=>{p.actualProofChildGone=false;});
+});
+
+test('HOST aggregate private diagnostics retain bounded primary/cleanup frames without payloads or accessors',()=>{
+ const primary=new AssertionError({actual:'PRIVATE-ACTUAL',expected:'PRIVATE-EXPECTED',operator:'strictEqual'});
+ primary.stack='AssertionError: PRIVATE-PRIMARY\n'+safeFrame;
+ const cleanup=new Error('PRIVATE-CLEANUP');cleanup.code='VAULT_LOCKED';cleanup.stack='Error: PRIVATE-CLEANUP\n'+safeFrame;
+ const aggregate=new AggregateError([primary,cleanup],'PRIVATE-AGGREGATE',{cause:primary});
+ aggregate.stack='AggregateError: PRIVATE-AGGREGATE\n'+safeFrame;
+ const value=diagnose(aggregate);assert.equal(value.errorType,'AGGREGATE_ERROR');
+ assert.equal(value.cause.errorCode,'ERR_ASSERTION');assert.equal(value.cause.frames.length,1);
+ assert.deepEqual(value.errors.map(row=>row.errorCode),['ERR_ASSERTION','VAULT_LOCKED']);
+ assert.equal(value.errors[1].frames.length,1);
+ for(const secret of ['PRIVATE-','actual','expected','operator','message'])assert.equal(JSON.stringify(value).includes(secret),false);
+ let calls=0;const hostile=new AggregateError([],'PRIVATE');
+ for(const key of ['cause','errors'])Object.defineProperty(hostile,key,{configurable:true,get(){calls++;throw Error('PRIVATE');}});
+ assert.equal(Object.hasOwn(diagnose(hostile),'errors'),false);assert.equal(calls,0);
+ const proxyErrors=new AggregateError([],'PRIVATE');proxyErrors.errors=new Proxy([],{get(){calls++;throw Error('PRIVATE');},getOwnPropertyDescriptor(){calls++;throw Error('PRIVATE');}});
+ assert.equal(Object.hasOwn(diagnose(proxyErrors),'errors'),false);assert.equal(calls,0);
+ const revoked=Proxy.revocable([],{});revoked.revoke();proxyErrors.errors=revoked.proxy;assert.equal(Object.hasOwn(diagnose(proxyErrors),'errors'),false);
+ const cyclic=new AggregateError([],'PRIVATE');cyclic.errors=[cyclic];cyclic.cause=cyclic;
+ assert.equal(diagnose(cyclic).nestedTruncated,true);assert.deepEqual(diagnose(cyclic).errors,[]);
+ let deep=cleanup;for(let i=0;i<10;i++)deep=new AggregateError([deep],'PRIVATE',{cause:deep});
+ let count=0,maxDepth=0;const walk=(row,depth=0)=>{count++;maxDepth=Math.max(maxDepth,depth);if(row.cause)walk(row.cause,depth+1);for(const child of row.errors??[])walk(child,depth+1);};
+ const bounded=diagnose(deep);walk(bounded);assert.ok(count<=16);assert.ok(maxDepth<=3);
+ assert.equal(JSON.stringify(bounded).includes('nestedTruncated'),true);
+ const wide=diagnose(new AggregateError(Array(100).fill(cleanup),'PRIVATE'));assert.equal(wide.errors.length,8);assert.equal(wide.nestedTruncated,true);
 });

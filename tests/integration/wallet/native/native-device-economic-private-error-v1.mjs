@@ -74,8 +74,7 @@ function location(raw,line,column){
   return Object.freeze({root:selected[0],path:name,line:Number(line),column:Number(column)});
  }catch{return null;}
 }
-export function privateNativeEconomicSuccessorFirstErrorV1(error){
- assert.equal(arguments.length,1,'NATIVE_ECONOMIC_FIRST_ERROR_ARITY');
+function metadata(error){
  const native=!!error&&typeof error==='object'&&!types.isProxy(error)&&types.isNativeError(error);
  const errorType=native?(TYPES.get(Object.getPrototypeOf(error))??'OTHER_NATIVE_ERROR'):'THROWN_VALUE';
  const supplied=own(error,'code'),label=native?own(error,'message'):undefined;
@@ -86,5 +85,36 @@ export function privateNativeEconomicSuccessorFirstErrorV1(error){
   const match=/^\s+at (?:[^()\r\n]* \()?((?:file:\/\/)?\/[^()\r\n?#]+\.mjs):([1-9][0-9]{0,8}):([1-9][0-9]{0,8})\)?$/.exec(row);
   if(!match)continue;const frame=location(match[1],match[2],match[3]);if(frame)frames.push(frame);if(frames.length===16)break;
  }
- return Object.freeze({format:'LIANUM_NATIVE_ECONOMIC_SUCCESSOR_FIRST_ERROR_PRIVATE_V1',errorType,errorCode,frames:Object.freeze(frames)});
+ return {format:'LIANUM_NATIVE_ECONOMIC_SUCCESSOR_FIRST_ERROR_PRIVATE_V1',errorType,errorCode,frames:Object.freeze(frames)};
+}
+// Private IPC only. Walk original data properties without messages, payloads,
+// accessors or Proxy traps; cycles and oversized trees remain explicitly bounded.
+export function privateNativeEconomicSuccessorFirstErrorV1(error){
+ assert.equal(arguments.length,1,'NATIVE_ECONOMIC_FIRST_ERROR_ARITY');
+ const ancestors=new Set();let nodes=0;
+ const native=value=>!!value&&typeof value==='object'&&!types.isProxy(value)&&types.isNativeError(value);
+ function visit(value,depth){
+  const result=metadata(value);nodes++;
+  if(!native(value))return Object.freeze(result);
+  const cause=own(value,'cause'),errors=result.errorType==='AGGREGATE_ERROR'?own(value,'errors'):undefined;
+  const array=!!errors&&typeof errors==='object'&&!types.isProxy(errors)&&Array.isArray(errors);
+  const length=array?own(errors,'length'):undefined;
+  const boundedArray=Number.isSafeInteger(length)&&length>=0;
+  if(depth>=3){if(native(cause)||boundedArray&&length>0)result.nestedTruncated=true;return Object.freeze(result);}
+  ancestors.add(value);
+  const child=item=>{
+   if(!native(item))return undefined;
+   if(ancestors.has(item)||nodes>=16){result.nestedTruncated=true;return undefined;}
+   return visit(item,depth+1);
+  };
+  try{
+   const retainedCause=child(cause);if(retainedCause)result.cause=retainedCause;
+   if(boundedArray){const retained=[];if(length>8)result.nestedTruncated=true;
+    for(let index=0;index<Math.min(length,8);index++){const retainedError=child(own(errors,String(index)));if(retainedError)retained.push(retainedError);}
+    result.errors=Object.freeze(retained);
+   }
+   return Object.freeze(result);
+  }finally{ancestors.delete(value);}
+ }
+ return visit(error,0);
 }
