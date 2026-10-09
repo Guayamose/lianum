@@ -19,7 +19,7 @@ import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../releases/native-value/native-val
 import { createNativeValueOwnerProcess } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueExecution, assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { createNativeEconomicNoteAccountAuthorityV1,createNativeLiveArmedNoteAccountAuthorityV1, assertOwnedNativeValueAccountAuthority } from '../../accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession } from '../../api/accounts/flat-manual-graph-session.mjs';
+import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
 import { createDeviceOwnerDepositBridgeV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createDeviceOwnerReservationBridgeV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
@@ -221,6 +221,10 @@ async function createLocalProduct(input,liveObserved,liveArmed=false) {
     const approval = preparation.originalApproval(requestId); assert.deepEqual(joined.bindManualNote(approval), body);
     await joined.session.prepare(body); // durable PREPARED scope; NEVER execute/prove/FUND
     if(liveObserved)await refreshOriginalNativeDeviceLocalObservedClockV1(clocks.clock);
+    // Same original session owns this encrypted observation state before any
+    // listener or capture. PREPARED remains UNKNOWN; this read admits no effect.
+    const economicState = await createOriginalSessionWalletEconomicStateV1(joined.session);
+    await economicState.observe();
     provider = await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
     if(!liveObserved) restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
       nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS

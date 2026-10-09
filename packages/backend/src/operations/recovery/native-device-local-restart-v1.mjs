@@ -14,6 +14,7 @@ import { assertOwnedNativeValueAccountAuthority } from '../../accounts/authority
 import { assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertOwnedNativeRecipientProcess } from '../../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
+import { readOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
 const local = join(ROOT, '.local/original-device-local-operator-v1');
 const requestPath = join(local, 'recovery-request.json'), checkpointPath = join(local, 'captured-checkpoint.json');
 const hex = value => typeof value === 'string' && /^[0-9a-f]{64}$/.exec(value)?.[0] === value;
@@ -231,6 +232,10 @@ export async function reopenOriginalNativeDeviceLocalOperatorV1(input) {
     originals = opened.originals;
     assert.equal(opened.receipt.processId, process.pid); assert.equal(opened.receipt.originalProcessLifetimeDifferent, true);
     assert.equal(opened.receipt.issuerClosed, true); assert.equal(opened.receipt.sourceSHA256, locator.identity.sourceSHA256);
+    // The session opener alone restores the authenticated state checkpoint.
+    // Legacy captures retain their original branch; never create state on OPEN.
+    const economicState = readOriginalSessionWalletEconomicStateV1(originals.session);
+    if (economicState !== null) await economicState.observe();
     const service = await import('./native-device-economic-service-v1.mjs');
     // Original private producer independently requires exact pairing, S and F,
     // provider identity, current nullifiers, canonical receipt and deployed U.

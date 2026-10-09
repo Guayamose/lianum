@@ -22,6 +22,7 @@ import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/device-
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {createPairedDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
+import {readOriginalSessionWalletEconomicStateV1} from '../../api/accounts/flat-manual-graph-session.mjs';
 const local=join(ROOT,'.local/original-device-live-armed-operator-v1'),locatorPath=join(local,'armed-checkpoint.json'),prepared=new WeakMap();
 const hex=value=>typeof value==='string'&&/^[0-9a-f]{64}$/.test(value);
 export function originalNativeDeviceLiveArmedConfigurationPathV1(){assert.equal(arguments.length,0);return join(local,'operator.json');}
@@ -96,6 +97,9 @@ export async function reopenOriginalNativeDeviceLiveArmedOperatorV1(input){
   if(errors.length)throw new AggregateError(errors,'NATIVE_LIVE_ARMED_OPEN_CLOSE_UNCONFIRMED');return Object.freeze({closed:true,originalResourcesStopped:true,retainedEncryptedJournals:true});})();}
  try{authority=await openNativeLiveArmedRecoveryAuthorityV1(locator.identity,locator.checkpoint);originals=await reopenNativeLiveArmedFromAuthorityV1(authority);
   clocks=reopenOriginalNativeDeviceLiveArmedObservedClocksV1(originals.account,{runtime:originals.runtime,nativeRuntime:originals.nativeRuntime});
+  // Reuse only the original session-restored checkpoint; legacy has none.
+  const economicState=readOriginalSessionWalletEconomicStateV1(originals.session);
+  if(economicState!==null)await economicState.observe();
   installed=await installOriginalNativeDeviceLiveArmedServiceV1(Object.fromEntries(['runtime','system','owner','account','nativeExecution','providerCustody','actor'].map(key=>[key,originals[key]])),selected.tls);assert.deepEqual(installed.descriptor,locator.descriptor);assert.equal(installed.parentJobId,locator.arm.parentJobId);assert.equal(installed.armSHA256,locator.arm.armSHA256);assert.equal(installed.settleBefore,locator.arm.settleBefore);
   if(installed.state!=='RECOVERED')producer=createOriginalNativeDeviceLiveRecoveryProducerV1({account:originals.account,executionBridge:installed.executionBridge,runtime:originals.runtime,system:originals.system,nativeRuntime:originals.nativeRuntime,clock:clocks.clock});
   return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_LIVE_ARMED_OPERATOR_V1',origin:installed.transport.url,descriptor:installed.descriptor,automaticFunding:false,automaticNativeDelivery:false,
