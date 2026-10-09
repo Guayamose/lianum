@@ -74,7 +74,8 @@ function publicSourceInputs() {
   for (const path of ['apps/mobile/App.tsx','apps/mobile/index.ts','apps/mobile/app.json',
     'apps/mobile/package.json','apps/mobile/package-lock.json','apps/mobile/metro.config.cjs',
     'apps/mobile/src','apps/mobile/scripts','apps/mobile/plugins','packages/mobile-protocol/package.json',
-    'packages/mobile-protocol/src']) retain(join(project, path));
+    'packages/mobile-protocol/src',
+    'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs']) retain(join(project, path));
   return sources.sort((a,b)=>a.path.localeCompare(b.path));
 }
 const save=()=>writeFileSync(join(reportDirectory,reportName),JSON.stringify(report,null,2)+'\n',{mode:0o600});
@@ -320,7 +321,8 @@ try {
       'packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs',
       'apps/mobile/src/screens/DefiPositionsScreen.tsx',
       'apps/mobile/src/api/device-defi-position-read-api-v1.mjs',
-      'packages/mobile-protocol/src/device-defi-position-read-v1.mjs');
+      'packages/mobile-protocol/src/device-defi-position-read-v1.mjs',
+      'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs');
     report.embeddedSourceJoins=required.map(path=>{
       const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length):path;
       const matches=sourceMap.sources.map((name,index)=>({name:name.replaceAll('\\','/'),index}))
