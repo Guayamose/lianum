@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "593fa50cb7fcf6b86c60fd15d0166117530496d9c4a56ac71b41c92e34006e21",
+  "hostSourceClosureSHA256": "8cf3a134099aa81e65c04c4afb0e8083889e3842dd4ba0d5a7f870c0b59cc4fb",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -710,11 +710,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-policy-v1.mjs",
-      "sha256": "d7e816651e8443d50ace6029809694e40b1d9bfe5fc19cbaaa820764ec02c503"
+      "sha256": "375165e29367b08724de96f72fa174325bbe5cf2a92fb0e4994049efe003d593"
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "372953cfcb3a141cdb204fb6fd33f04b5c4b027aa3aebc87b395c9a7755ebaac"
+      "sha256": "5aa70e2fb1ef17c0947a0c98779362055a8b1f45ce5113cd61215aebc5d9ae5e"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
@@ -2286,7 +2286,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs",
-      "sha256": "04d036335b2f62f88bac96bd9ad53575da7ffa5f228c27c4b77074fafdb9e9dd"
+      "sha256": "c5ffc78d4e1868bb19bce51c5d9345c2825a100ddb4390470a43cd62c214cc0e"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-external-defi-receiver-state-v3.mjs",
