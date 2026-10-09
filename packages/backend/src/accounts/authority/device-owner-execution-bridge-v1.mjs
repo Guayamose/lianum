@@ -171,7 +171,32 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
     observeExit(input){assert.equal(arguments.length,1);return exitWork(input,'OBSERVE_W39');},
     close(){assert.equal(arguments.length,0);closed=true;armPending.clear();pending.clear();exitPending.clear();exitQuotes.clear();return{closed:true,originalWorkRetained:true};}});
   bridges.set(bridge,{account,reservationBridge,nativeExecution,providers,actor,descriptor,original,
-    installationConsumed:false,get completion(){return completion;}});await installDeviceOwnerExecutionV1(account,bridge);return bridge;
+    installationConsumed:false,get completion(){return completion;},
+    async durableEffect(method,input){
+      exactRecord(input,['consent','signature']);live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+      try{
+        const action={execute:'EXECUTE_NATIVE',recover:'RECOVER_NATIVE',withdraw:'WITHDRAW_W39'}[method];
+        assert.ok(action,'DEVICE_EXECUTION_ORIGINAL_EFFECT');
+        const exit=method==='withdraw',validate=exit?validateDeviceExitConsentFreshV1:validateDeviceExecutionConsentFreshV1;
+        const message=exit?deviceExitConsentMessageV1:deviceExecutionConsentMessageV1;
+        const consent=validate(cloneInput(input.consent)),base=exit?consent:consent.reservation;
+        const row=(exit?exitPending:pending).get(base.challengeId);
+        assert.ok(row&&!row.consumed&&consent.action===action,'DEVICE_EXECUTION_ORIGINAL_CONSENT');
+        assert.deepEqual(consent,row.value,'DEVICE_EXECUTION_ORIGINAL_CONSENT');
+        assert.equal(verify('sha256',message(consent),{key,dsaEncoding:'ieee-p1363'},
+          Buffer.from(normalizeOriginalAccountSignatureV2(input.signature),'hex')),true,'DEVICE_EXECUTION_DEVICE_SIGNATURE');
+        assert.deepEqual(await actor.deviceDepositOriginalBinding(),base.binding,'DEVICE_EXECUTION_BINDING_CHANGED');live();validate(consent);
+        if(action==='EXECUTE_NATIVE'||exit)assert.ok(!admitted.has(base.jobId+':'+action),'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+        return consent;
+      }finally{busy=false;}
+    }
+  });await installDeviceOwnerExecutionV1(account,bridge);return bridge;
+}
+/** Verifies only an existing original native/W39 challenge before durable
+ * admission. Actual execution must authorize it again after the SQL fence. */
+export function assertDeviceOwnerExecutionDurableRequestV1(bridge,method,input){
+  assert.equal(arguments.length,3);deviceOwnerExecutionBridgeActorV1(bridge);
+  return bridges.get(bridge).durableEffect(method,input);
 }
 export function assertDeviceOwnerExecutionBridgeV1(bridge,account){assert.equal(arguments.length,2);assert.ok(!types.isProxy(bridge));
   const row=bridges.get(bridge);assert.ok(row&&row.account===account,'DEVICE_EXECUTION_ORIGINAL_BRIDGE');row.original();return row.descriptor;}

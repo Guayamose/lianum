@@ -8,7 +8,8 @@ import { originalAccountAccessMessageV2 } from '../../../packages/mobile-protoco
 import { normalizeDeviceDepositConsentV1, deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1 }
   from '../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 const { createPairedOriginalAccountActorV2 } = await createActorModule();
-const { createDeviceOwnerDepositBridgeV1, consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1 }
+const { createDeviceOwnerDepositBridgeV1, consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1,
+  assertDeviceOwnerDepositDurableRequestV1 }
   = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
 const { runDeviceOwnerDepositAuthorizationV1 } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const origin = 'https://device-deposit.example';
@@ -63,5 +64,15 @@ test('new domains cannot be replaced by read/reconcile signatures or privateKey/
   await assert.rejects(bridge.prove({ consent, signature: f.device.sign(originalAccountAccessMessageV2(actor.challenge({ action: 'read' }))),
     witness: {} }), /ORIGINAL_CONSENT/);
   bridge.close(); await assert.rejects(bridge.prove({ consent, signature: f.device.sign(deviceDepositConsentMessageV1(consent)), witness: {} }), /CLOSED/);
+  assert.equal(f.world.proofs, 0); assert.equal(f.world.sends, 0);
+});
+test('durable preflight rejects a forged pending FUND without consuming account, journal or original work', async t => {
+  const { f, actor, bridge } = await setup(t), before = await f.account.privateStatus();
+  const proof = await forgedConsent(actor, f), consent = normalizeDeviceDepositConsentV1({ ...proof,
+    action: 'FUND_D26', proofSHA256: '7'.repeat(64), publicInputsSHA256: '8'.repeat(64), openingDisclosure: null });
+  const input = { consent, signature: f.device.sign(deviceDepositConsentMessageV1(consent)) };
+  await assert.rejects(assertDeviceOwnerDepositDurableRequestV1(bridge, input), /ORIGINAL_CONSENT/);
+  assert.throws(() => assertDeviceOwnerDepositDurableRequestV1({ ...bridge }, input));
+  assert.deepEqual(await f.account.privateStatus(), before);
   assert.equal(f.world.proofs, 0); assert.equal(f.world.sends, 0);
 });

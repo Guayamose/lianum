@@ -97,7 +97,7 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
       openingDisclosure: action === 'PROVE_D26' ? 'ONE_D26_OPENING_TO_ORIGINAL_EPHEMERAL_WORKER' : null });
     pending.set(value.challengeId, { value, consumed: false }); return structuredClone(value);
   }
-  async function authorize(input, action) {
+  async function authorize(input, action, consume = true) {
     exact(input, action === 'PROVE_D26' ? ['consent', 'signature', 'witness'] : ['consent', 'signature']); live();
     const value = validateDeviceDepositConsentFreshV1(data(input.consent));
     const row = pending.get(value.challengeId);
@@ -115,6 +115,7 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
       try { assert.equal(sha(bytes), value.witnessSHA256, 'DEVICE_OWNER_BRIDGE_WITNESS_CHANGED'); }
       finally { bytes.fill(0); }
     }
+    if (!consume) return value; // read-only ORIGINAL pending consent validation
     row.consumed = true; const capability = opaque();
     admissions.set(capability, { bridge, account, action, consent: value, witness, consumed: false }); return capability;
   }
@@ -202,7 +203,18 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
     },
     close() { assert.equal(arguments.length, 0); closed = true; pending.clear(); return { closed: true, originalWorkRetained: true }; },
   });
-  bridges.set(bridge, { account, actor, original, descriptor }); return bridge;
+  bridges.set(bridge, { account, actor, original, descriptor,
+    async durableFunding(input) {
+      assert.ok(!busy, 'DEVICE_OWNER_BRIDGE_BUSY'); busy = true;
+      try { return await authorize(input, 'FUND_D26', false); } finally { busy = false; }
+    },
+  }); return bridge;
+}
+/** Validate a pending FUND signature before SQL consumes an admission. No
+ * challenge, permission, journal mutation, proof or send is created here. */
+export function assertDeviceOwnerDepositDurableRequestV1(bridge, input) {
+  assert.equal(arguments.length, 2); deviceOwnerDepositBridgeActorV1(bridge);
+  return bridges.get(bridge).durableFunding(input);
 }
 /** Private same-realm waiting seam, no endpoint, IDs, executor or authority
  * supplied by a caller. It waits for the retained original proof call only. */

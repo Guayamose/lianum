@@ -15,6 +15,8 @@ import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBin
 import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { assertOriginalDeviceDurableDispatchBindingsV1, runOriginalDeviceDurableDispatchV1 }
+  from './original-device-durable-dispatch-v1.mjs';
 const listeners = new WeakSet(), ownedTransports = new WeakMap(), depositContinuations = new WeakMap();
 const BODY_LIMIT = 8192, REQUEST_MS = 5000, CLOSE_MS = 1000;
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -159,6 +161,25 @@ export async function createPairedDeviceAccountTlsServerV1(input) {
     input.depositBridge, input.reservationBridge, input.executionBridge); }
   finally { tls.privateKey.fill(0); }
 }
+/** Explicit original-device SQL composition. SQL admission precedes only the
+ * existing signed effects; the same original bridges still verify their own
+ * pending consent, account state, owner and native execution capabilities. */
+export async function createPairedDurableDeviceAccountTlsServerV1(input) {
+  if (arguments.length !== 1) fail('MOBILE_ORIGINAL_HTTP_CONFIGURATION');
+  const names = input && !types.isProxy(input) && Object.hasOwn(input, 'host')
+    ? ['depositBridge', 'reservationBridge', 'executionBridge', 'dispatch', 'tls', 'host']
+    : ['depositBridge', 'reservationBridge', 'executionBridge', 'dispatch', 'tls'];
+  exactInput(input, names);
+  const actor = assertOriginalDeviceDurableDispatchBindingsV1(input.dispatch, {
+    depositBridge: input.depositBridge, reservationBridge: input.reservationBridge, executionBridge: input.executionBridge,
+  });
+  const host = names.includes('host') ? input.host : '127.0.0.1';
+  if (!['127.0.0.1', '0.0.0.0'].includes(host)) fail('MOBILE_ORIGINAL_TLS_CONFIGURATION');
+  const tls = tlsMaterial(input.tls, pairedOriginalAccountActorDescriptorV2(actor));
+  try { return await startOriginalTransport(actor, tls, host,
+    input.depositBridge, input.reservationBridge, input.executionBridge, input.dispatch); }
+  finally { tls.privateKey.fill(0); }
+}
 /** Retire only an ORIGINAL D26 TLS listener for its fixed U/S continuation.
  * Its private retained lease follows the same actor; it never grants an account,
  * bridge, handler or financial permission. Normal close still closes the actor. */
@@ -177,7 +198,7 @@ export async function handoffPairedDeviceDepositTlsServerV1(transport) {
   depositContinuations.set(owned.actor, owned); listeners.delete(owned.actor);
   return Object.freeze({ ...closed, actorRetainedForOriginalContinuation: true });
 }
-async function startOriginalTransport(actor, tls, host, bridge = null, reservationBridge = null, executionBridge = null) {
+async function startOriginalTransport(actor, tls, host, bridge = null, reservationBridge = null, executionBridge = null, dispatch = null) {
   assertPairedOriginalAccountActorV2(actor);
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
   const continuation = depositContinuations.get(actor);
@@ -206,7 +227,9 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
           'withdrawal-reviews':'challengeWithdrawal',withdraw:'withdraw','observation-reviews':'challengeExitObservation',observations:'observeExit'};
         const method=methods[request.url.slice('/v1/mobile/device-exit/'.length)];if(!method)fail('HTTP_NOT_FOUND');
         const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');
-        try{return await executionBridge[method](input);}finally{if(method==='proveExit')wipeDeviceExitWitnessV1(input.witness);}
+        try{return dispatch && method === 'withdraw'
+          ? await runOriginalDeviceDurableDispatchV1(dispatch, executionBridge, method, input)
+          : await executionBridge[method](input);}finally{if(method==='proveExit')wipeDeviceExitWitnessV1(input.witness);}
       }
       if(executionBridge!==null&&request.method==='POST'&&request.url.startsWith('/v1/mobile/device-execution/')){
         if(!tls||request.headers.origin!==descriptor.origin)fail('HTTP_ORIGIN_REJECTED');
@@ -214,7 +237,9 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
           reconcile:'reconcile','recovery-reviews':'challengeRecovery',recover:'recover','output-balances':'observeOutputBalances',
           'arm-reviews':'challengeRecoveryArm','disarm-reviews':'challengeRecoveryDisarm',arm:'armRecovery',disarm:'disarmRecovery','arm-status':'observeRecoveryArm'};
         const method=methods[request.url.slice('/v1/mobile/device-execution/'.length)];if(!method)fail('HTTP_NOT_FOUND');
-        const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');return executionBridge[method](input);
+        const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');
+        return dispatch && ['execute', 'recover'].includes(method)
+          ? runOriginalDeviceDurableDispatchV1(dispatch, executionBridge, method, input) : executionBridge[method](input);
       }
       if (reservationBridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-reservation/')) {
         if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
@@ -224,7 +249,9 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
         // Fixed capacity-four owner witness plus framed consent. Existing
         // diagnostic/D26 and other U/S routes retain their original 8KiB body bound.
         const input = await jsonBody(request, method === 'prove' ? 32768 : BODY_LIMIT); if (closed) fail('HTTP_CLOSED');
-        try { return await reservationBridge[method](input); }
+        try { return dispatch && method === 'reserve'
+          ? await runOriginalDeviceDurableDispatchV1(dispatch, reservationBridge, method, input)
+          : await reservationBridge[method](input); }
         finally { if (method === 'prove') wipeDeviceReservationWitnessV1(input.witness); }
       }
       if (bridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-deposit/')) {
@@ -236,7 +263,8 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
         const input = await jsonBody(request); if (closed) fail('HTTP_CLOSED');
         // A proof job is retained by the original account even if this HTTP
         // response is lost/times out. Its opening has no logs/journal storage.
-        try { return await bridge[method](input); }
+        try { return dispatch && method === 'fund'
+          ? await runOriginalDeviceDurableDispatchV1(dispatch, bridge, method, input) : await bridge[method](input); }
         finally {
           // jsonBody owns these parsed vectors. Erase them only after the
           // admitted original job finishes; HTTP loss never cancels its work.

@@ -62,7 +62,7 @@ test('fixed U/S framing signs all custody and witness bindings below4096 and rej
     observed:{blockNumber:'1',blockHash:h('block'),timestamp:'6000'},openingDisclosure:'ONE_FUNDED_OWNER_OPENING_TO_ORIGINAL_EPHEMERAL_WORKER'});
   // Run only the actual original private admission function on this HOST's
   // signed terms. Capture its owned normalization copy; minting a grant is forbidden.
-  const originalSource=createDeviceOwnerReservationBridgeV1.toString(),start=originalSource.indexOf('  async function authorize(input,action){'),
+  const originalSource=createDeviceOwnerReservationBridgeV1.toString(),start=originalSource.indexOf('  async function authorize(input,action,consume=true){'),
     end=originalSource.indexOf('  async function retainedWork',start);
   assert.ok(start>=0&&end>start,'HOST_ORIGINAL_ADMISSION_SOURCE_REQUIRED');
   const rejectedConsent=normalizeDeviceReservationConsentV1({...consent,witnessSHA256:h('different-witness')}),

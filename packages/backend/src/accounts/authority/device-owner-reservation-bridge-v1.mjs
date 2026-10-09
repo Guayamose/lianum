@@ -52,7 +52,7 @@ export async function createDeviceOwnerReservationBridgeV1(input) {
       observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},
       openingDisclosure:action==='PROVE_U'?DEVICE_RESERVATION_DISCLOSURE_V1:null});
     pending.set(value.challengeId,{value,consumed:false});return structuredClone(value);}
-  async function authorize(input,action){exactRecord(input,action==='PROVE_U'?['consent','signature','witness']:['consent','signature']);live();
+  async function authorize(input,action,consume=true){exactRecord(input,action==='PROVE_U'?['consent','signature','witness']:['consent','signature']);live();
     const consent=validateDeviceReservationConsentFreshV1(cloneInput(input.consent)),row=pending.get(consent.challengeId);
     assert.ok(row&&!row.consumed&&consent.action===action,'DEVICE_RESERVATION_ORIGINAL_CONSENT');
     assert.deepEqual(consent,row.value,'DEVICE_RESERVATION_ORIGINAL_CONSENT');
@@ -60,7 +60,7 @@ export async function createDeviceOwnerReservationBridgeV1(input) {
     assert.equal(verify('sha256',deviceReservationConsentMessageV1(consent),{key,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'hex')),true,
       'DEVICE_RESERVATION_DEVICE_SIGNATURE');
     assert.deepEqual(await actor.deviceDepositOriginalBinding(),consent.binding,'DEVICE_RESERVATION_BINDING_CHANGED');live();
-    validateDeviceReservationConsentFreshV1(consent);let witness=null;
+    validateDeviceReservationConsentFreshV1(consent);if(!consume)return consent;let witness=null;
     try{if(action==='PROVE_U'){witness=normalizeDeviceReservationWitnessV1(cloneInput(input.witness));const bytes=deviceReservationWitnessBytesV1(witness);
       try{assert.equal(sha(bytes),consent.witnessSHA256,'DEVICE_RESERVATION_WITNESS_CHANGED');}finally{bytes.fill(0);}}
       row.consumed=true;return grant({action,consent,witness});
@@ -113,7 +113,17 @@ export async function createDeviceOwnerReservationBridgeV1(input) {
       }finally{busy=false;}},
     async observe(input){assert.equal(arguments.length,1);return retainedWork(input,'OBSERVE_S');},
     close(){assert.equal(arguments.length,0);closed=true;pending.clear();return{closed:true,originalWorkRetained:true};},
-  });bridges.set(bridge,{account,actor,original,descriptor,nativePreparation,invoiceSignatures,live});return bridge;
+  });bridges.set(bridge,{account,actor,original,descriptor,nativePreparation,invoiceSignatures,live,
+    async durableReservation(input){assert.ok(!busy,'DEVICE_RESERVATION_BRIDGE_BUSY');busy=true;
+      try{const consent=await authorize(input,'RESERVE_S',false);
+        assert.ok(!acceptedWork.has(consent.jobId+':RESERVE_S'),'DEVICE_RESERVATION_ORIGINAL_WORK_ALREADY_ADMITTED');
+        return consent;}finally{busy=false;}}
+  });return bridge;
+}
+/** Read-only verification of the actual pending S consent; no grant minted. */
+export function assertDeviceOwnerReservationDurableRequestV1(bridge,input){
+  assert.equal(arguments.length,2);deviceOwnerReservationBridgeActorV1(bridge);
+  return bridges.get(bridge).durableReservation(input);
 }
 export function assertDeviceOwnerReservationBridgeV1(bridge,account){assert.equal(arguments.length,2);
   assert.ok(!types.isProxy(bridge),'DEVICE_RESERVATION_ORIGINAL_BRIDGE');const row=bridges.get(bridge);
