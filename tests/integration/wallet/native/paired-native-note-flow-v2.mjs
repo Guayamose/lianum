@@ -10,7 +10,7 @@ import { ROOT, FLAT, GOLDEN, LOCAL } from '../../../../packages/proofs/src/catal
 import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import { decodeWalletPoolInputs } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { createOwnedLocalEvmV2, createOwnedLocalEvmNativeValueV1, createOwnedNativeEconomicReceiverV2, createOwnedNativeEconomicGraphRuntimeV2,
-  assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1 } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+  assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, assertOwnedLocalEvmNativeValueRuntime } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOwnedLocalNativeValueOperatorBootstrap } from '../../../../packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import { deployNativeValueDevSystemV5, assertOwnedNativeValueSystem } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import { loadNativeValueDevDeploymentArtifactsV5, NATIVE_VALUE_VERIFIER_ORDER } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
@@ -367,7 +367,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     await stage('two-original-runtime-bootstrap-and-native-note-account');
     if(deviceLiveArmed){liveClocks=await createOriginalNativeDeviceLiveArmedObservedClocksV1();runtime=liveClocks.runtime;nativeRuntime=liveClocks.nativeRuntime;}
     else{runtime = deviceReorg?await createOwnedOriginalNativeFReorgReceiverV1():deviceEconomicRecovery?await createOwnedNativeEconomicReceiverV2():await createOwnedLocalEvmV2(); nativeRuntime = deviceReorg||deviceEconomicRecovery?await createOwnedNativeEconomicGraphRuntimeV2():await createOwnedLocalEvmNativeValueV1();}
-    await assertOwnedLocalEvmV2(runtime); await assertOwnedLocalEvmNativeValueV1(nativeRuntime);
+    await assertOwnedLocalEvmV2(runtime); await (deviceLiveArmed?assertOwnedLocalEvmNativeValueRuntime:assertOwnedLocalEvmNativeValueV1)(nativeRuntime);
     assert.notEqual(runtime, nativeRuntime); assert.notEqual(runtime.metadata.processId, nativeRuntime.metadata.processId);
     assert.equal(runtime.metadata.chainId, '31337'); assert.equal(nativeRuntime.metadata.chainId, '1');
     for (const key of ['send', 'dispatch', 'advanceTo']) assert.equal(Object.hasOwn(nativeRuntime, key), false);
