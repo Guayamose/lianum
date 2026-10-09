@@ -21,7 +21,7 @@ import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/device-
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {takeOriginalNativeProviderRecoveredLeaseV1} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
-import {retainOriginalNativeDeviceSourceInstallationV1,consumeOriginalNativeDeviceSourceInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {retainOriginalNativeDeviceSourceInstallationV1,consumeOriginalNativeDeviceSourceInstallationV1,readDeviceOwnerLiveArmedOriginalOwnerSnapshotV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createPairedDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
 import {prepareOriginalNativeSourceLocalProviderV1} from './native-device-local-provider-v1.mjs';
 import {normalizeOriginalNativeDeviceLocalConfigurationV1} from './native-device-local-restart-v1.mjs';
@@ -74,6 +74,15 @@ function lifetime(selected){
 function result(r,close,reopened){const service=Object.freeze({profile:'ORIGINAL_NATIVE_DURABLE_SOURCE_OPERATOR_V1',origin:r.transport.url,descriptor:pairedOriginalAccountActorDescriptorV2(r.actor),originalSourceGeneration:originalNativeSourceCapsuleStatusV1(r.authority).generation,reopenedOriginalSources:reopened,betweenOperationsOnly:true,halfMutationRecovery:false,localFakeValues:true,automaticFunding:false,automaticNativeDelivery:false,cloudAuthority:false,close});services.set(service,{r,close});return service;}
 /** Private fixed-runner join; copies and closed resources cannot obtain it. */
 export function readOriginalNativeSourceLocalContextV1(service){assert.equal(arguments.length,1);const state=services.get(service);assert.ok(state&&!state.r.closing&&state.r.transport,'NATIVE_SOURCE_ORIGINAL_LOCAL_SERVICE');assertOriginalNativeSourceCapsuleV1(state.r.authority);return Object.freeze(Object.fromEntries(['runtime','nativeRuntime','system','account','session','owner','nativeExecution','actor','authority'].map(name=>[name,state.r[name]])));}
+/** Private original compound owner audit; no caller bridge or observation DTO. */
+export async function readOriginalNativeSourceLocalArmedAuditV1(service,jobId){
+ assert.equal(arguments.length,2);const state=services.get(service);
+ assert.ok(state&&!state.r.closing&&state.r.transport,'NATIVE_SOURCE_ORIGINAL_LOCAL_SERVICE');
+ assertOriginalNativeSourceCapsuleV1(state.r.authority);
+ const audit=await readDeviceOwnerLiveArmedOriginalOwnerSnapshotV1(state.r.account,state.r.executionBridge,jobId);
+ assert.ok(services.get(service)===state&&!state.r.closing,'NATIVE_SOURCE_ORIGINAL_LOCAL_SERVICE');
+ assertOriginalNativeSourceCapsuleV1(state.r.authority);return audit;
+}
 export function readOriginalNativeSourceLocalOwnedProcessesV1(service){assert.equal(arguments.length,1);const context=readOriginalNativeSourceLocalContextV1(service);return readOriginalNativeSourceOwnedProcessesV1(context.authority);}
 export async function createOriginalNativeSourceLocalOperatorV1(input){
  assert.equal(arguments.length,1);const selected=normalizeOriginalNativeDeviceLocalConfigurationV1(input),{r,close}=lifetime(selected);await reviewed();
