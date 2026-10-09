@@ -14,7 +14,7 @@ import { localBalanceCommitmentMessageV1, localNoteHexBytesV1, localNoteUintByte
   type LocalBalanceOpeningV1 } from './balance-note-codec-v1.mjs';
 import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, validateDeviceDepositConsentFreshV1,
   type DeviceDepositConsentV1, type DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
-import { readDeviceDepositInclusionV1 } from '../api/device-owner-deposit-api-v1';
+import { readDeviceDepositInclusionV1, readDeviceDepositDisplayV1, type DeviceDepositInclusionV1 } from '../api/device-owner-deposit-api-v1';
 import { compileLocalFundedBalanceGraphV1, normalizeLocalFundedProposalV1, localFundedOwnerFrameV1,
   localFundedAuthorizationWordsV1, localFundedSpendNullifierV1, localFundedInvoiceFrameV1, localNativeTransferActionCommitmentV1,
   type LocalFundedProposalV1, type LocalFundedStatementV1 } from './funded-balance-owner-codec-v1.mjs';
@@ -37,14 +37,16 @@ import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-pro
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
 const RECORD = 'lianum.note.root.record.v1';
-type LocalOutputDisplayV1 = Readonly<{ original: DeviceOutputBalanceV1; outputs: readonly Readonly<{
+type LocalSourceDisplayV1 = Readonly<{kind:'SOURCE';rootId:string;revision:number;commitment:string;pool:string;scope:string;policy:string;
+  job:Readonly<DeviceJob>|null;amount:string;availableBalance:string|null;hasReservation:boolean;original:DeviceDepositInclusionV1|null}>;
+type LocalOutputDisplayV1 = Readonly<{ kind:'OUTPUTS'; original: DeviceOutputBalanceV1; outputs: readonly Readonly<{
   noteRole: 'change' | 'recovery'; amount: string; availableBalance: string | null; state: string;
   request: Readonly<{requestId: string; kind: string; state: string; disposition: null}> | null;
 }>[] }>;
-const localOutputDisplays = new WeakMap<object, { read(): LocalOutputDisplayV1 }>();
+const localOutputDisplays = new WeakMap<object, { read(): LocalOutputDisplayV1 | LocalSourceDisplayV1 }>();
 /** Only an original decrypted custody read can supply this projection. It
  * carries no opening, secret, signing permission or economic capability. */
-export function readLocalDeviceOutputDisplayV1(value: object): LocalOutputDisplayV1 {
+export function readLocalDeviceOutputDisplayV1(value: object): LocalOutputDisplayV1 | LocalSourceDisplayV1 {
   const row = localOutputDisplays.get(value); if (!row) throw Error('MOBILE_LOCAL_OUTPUT_DISPLAY_REQUIRED');
   return row.read();
 }
@@ -1194,7 +1196,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           assetIdentity: observation.poolTerms.assetIdentity, domainCommitment: observation.poolTerms.domainCommitment });
       });
     },
-    forgetDeviceOutputBalanceObservation() { current(); forgetOutputs(); },
+    forgetDeviceOutputBalanceObservation() { current(); forgetOutputs(); liveInclusion = null; },
     readDeviceNote: () => original('Consultar el estado de tu nota local y su envío original', async value => {
       const note = value.note; if (!note) return null;
       let observation = null;
@@ -1244,17 +1246,27 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             request: intent ? Object.freeze({ requestId: intent.jobId, kind: 'WITHDRAW_W39',
               state: intent.receipt ? 'CONFIRMED' : 'UNKNOWN', disposition: null }) : null });
         }));
-        const display = Object.freeze({ original, outputs });
+        const display = Object.freeze({ kind:'OUTPUTS' as const, original, outputs });
         localOutputDisplays.set(projection, { read() {
           if (generation !== outputDisplayGeneration || readDeviceOutputBalanceDisplayV1(handle) !== original)
             bad('MOBILE_LOCAL_OUTPUT_DISPLAY_CHANGED');
           return display;
         } });
+      } else {
+        const generation = outputDisplayGeneration, handle = fresh ? liveInclusion : null, original = fresh ? observation : null;
+        const display = Object.freeze({kind:'SOURCE' as const,rootId:value.rootId,revision:value.revision,commitment:note.commitment,
+          pool:note.pool,scope:note.scope,policy:note.policy,job:projection.job,amount:note.opening.value,
+          availableBalance:projection.availableBalance,hasReservation:!!value.spend,original});
+        localOutputDisplays.set(projection,{read(){
+          if(generation!==outputDisplayGeneration)bad('MOBILE_LOCAL_OUTPUT_DISPLAY_CHANGED');
+          if(handle&&readDeviceDepositDisplayV1(handle)!==original)bad('MOBILE_LOCAL_OUTPUT_DISPLAY_CHANGED');
+          return display;
+        }});
       }
       return projection;
     }),
     applyDeviceDepositInclusion: (capability: object) => {
-      current(); const inclusion = readDeviceDepositInclusionV1(capability);
+      current(); forgetOutputs(); const inclusion = readDeviceDepositInclusionV1(capability);
       return original('Guardar la inclusión original de esta misma nota; la apertura y la clave siguen aquí',
         async (value, key, before, raw, root) => {
           readDeviceDepositInclusionV1(capability); const note = value.note;

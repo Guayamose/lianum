@@ -110,3 +110,10 @@ export function readDeviceDepositInclusionV1(capability: object): DeviceDepositI
   const row = observations.get(capability); if (!row) bad(); row.live();
   if (Date.now() >= row.value.expiresAt) bad(); return row.value;
 }
+/** Read-only frozen projection after transport close, within the ORIGINAL
+ * inclusion expiry. It cannot be applied to custody or used to spend. */
+export function readDeviceDepositDisplayV1(capability: object): DeviceDepositInclusionV1 {
+  const row = observations.get(capability); if (!row) bad(); const now = Date.now();
+  if (!Number.isSafeInteger(now) || now < row.value.observedAt || now >= row.value.expiresAt) bad();
+  return row.value;
+}

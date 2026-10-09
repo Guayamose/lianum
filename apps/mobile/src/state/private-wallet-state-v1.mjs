@@ -69,7 +69,22 @@ export function createPrivateWalletStateV1(){
    const epoch=nativeEpoch;
    const {readLocalDeviceOutputDisplayV1}=await import('../custody/local-root-note-vault-v1.ts');
    if(epoch!==nativeEpoch)fail();
-   const display=readLocalDeviceOutputDisplayV1(raw),v=display.original,p=v.poolTerms;
+   const display=readLocalDeviceOutputDisplayV1(raw);
+   if(display.kind==='SOURCE'){
+    const v=display.original,j=display.job,route={component:'DEVICE_NATIVE_SOURCE',rootId:display.rootId,
+     noteRevision:display.revision,commitment:display.commitment,pool:display.pool,scope:display.scope,policy:display.policy,
+     ...(j?{origin:j.origin,pairingId:j.pairingId,depositJobId:j.jobId}:{}),
+     ...(j?.assetIdentity?{assetId:j.assetIdentity}:{}),
+     ...(j?.domainCommitment?{domain:j.domainCommitment}:{}),
+     ...(v?{ledgerAssetId:v.assetId,genesis:v.genesis}:{})};
+    retain(routeKey(['NATIVE',display.rootId]),[{route,label:'Nota fuente nativa',decimals:null,
+     state:v&&!display.hasReservation?'LIVE':'UNKNOWN',available:display.availableBalance,reserved:null,locked:null,recovery:null,
+     shares:null,valuation:null,noteAmount:display.hasReservation?null:display.amount,custody:'DEVICE',
+     observed:v?.head??null,requests:j?[{requestId:j.jobId,kind:'FUND_D26',
+      state:v&&!display.hasReservation?'CONFIRMED':'UNKNOWN',disposition:null}]:[]}],()=>readLocalDeviceOutputDisplayV1(raw));
+    return;
+   }
+   const v=display.original,p=v.poolTerms;
    const rows=display.outputs.map(output=>{
     const route={component:'DEVICE_NATIVE_NOTE',origin:v.origin,pairingId:v.pairingId,rootId:v.rootId,
      noteRevision:v.noteRevision,parentJobId:v.parentJobId,nativeBindingSHA256:v.nativeBindingSHA256,
@@ -84,11 +99,11 @@ export function createPrivateWalletStateV1(){
      requests:[{requestId:v.parentJobId,kind:'NATIVE_RESERVATION',state:v.nativeOutcome??'RESERVED',disposition:null},
       ...(output.request?[output.request]:[])]};
    });
-   retain(routeKey(['NATIVE',v.origin,v.pairingId,v.rootId]),rows,()=>readLocalDeviceOutputDisplayV1(raw));
+   retain(routeKey(['NATIVE',v.rootId]),rows,()=>readLocalDeviceOutputDisplayV1(raw));
   },
   invalidateNative(){
    nativeEpoch++;
-   for(const [key,source] of sources)if(source.rows.some(row=>row.route.component==='DEVICE_NATIVE_NOTE'))
+   for(const [key,source] of sources)if(source.rows.some(row=>['DEVICE_NATIVE_NOTE','DEVICE_NATIVE_SOURCE'].includes(row.route.component)))
     sources.set(key,{rows:source.rows.map(row=>freeze(opaqueRow(row,'UNKNOWN'))),check:()=>{}});
    revision++;
   },

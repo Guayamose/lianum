@@ -89,6 +89,9 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     return () => clearTimeout(timer);
   }, [ownerReview, reservationConsent, exitReview, exitConsent, executionConsent, recoveryArmReview]);
   const live = (held: number) => { if (!visible.current || held !== epoch.current) throw Error('MOBILE_DEVICE_DEPOSIT_REVOKED'); };
+  async function publishNote(value:Awaited<ReturnType<Vault['readDeviceNote']>>,held:number){
+    live(held);if(value&&onObservation){await onObservation(value);live(held);}setNote(value);
+  }
   async function run(work: (held: number) => Promise<void>) {
     if (busyRef.current || !visible.current) return; busyRef.current = true; setBusy(true); const held = epoch.current;
     try { await work(held); live(held); }
@@ -139,7 +142,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       setExecutionIntent(nativeIntent); setExitJob(pendingExit?.jobId ?? null); setExitIntent(pendingExit);
       if (pendingExit) setExitRecipient(pendingExit.statement.recipient);
       setConsent(null); setOwnerReview(null); setReservationConsent(null); setExitReview(null); setExitConsent(null); setApproved(false);
-      setNote(state); setMessage(sameOperation
+      await publishNote(state,held); setMessage(sameOperation
         ? 'Misma operación local reabierta. El saldo sigue desconocido hasta una consulta firmada fresca; no se ha probado, financiado, reservado, ejecutado ni retirado de nuevo.'
         : 'Nota local vinculada. Preparar una prueba no financia ni transmite tu clave.');
     } catch (error) {
@@ -184,6 +187,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const api = client.current, custody = vault.current, value = consent;
     if (!api || !custody || !value || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
     setConsent(null); setApproved(false); // consume UI choice synchronously before native/network await
+    custody.forgetDeviceOutputBalanceObservation();onInvalidate?.();setNote(null);
     const signature = await signDeviceDepositConsentV1(value, origin, pairingId); live(held);
     let witness: DeviceDepositWitnessV1 | undefined;
     try {
@@ -195,9 +199,9 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       // explicit funding/observation review is used next, never automatic replay.
       const result = await api.submit({ consent: value, signature, ...(witness ? { witness } : {}) }); live(held);
       if (result.observation) { await custody.applyDeviceDepositInclusion(result.observation); live(held); }
-      const state = await custody.readDeviceNote(); live(held); setNote(state); setMessage(result.state);
+      const state = await custody.readDeviceNote(); live(held); await publishNote(state,held); setMessage(result.state);
     } catch (error) {
-      live(held); const state = await custody.readDeviceNote(); live(held); setNote(state);
+      live(held); const state = await custody.readDeviceNote(); live(held); await publishNote(state,held);
       const notice = 'UNKNOWN: consulta explícitamente el trabajo/envío original. No hay reintento automático.';
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { if (witness) for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0); }
@@ -216,6 +220,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     if (!api || !deposit || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const current = await custody.readDeviceNote(); live(held);
     if (!current?.job || current.status !== 'FUNDED' || current.availableBalance === null) throw Error('MOBILE_LOCAL_FRESH_FUNDED_SOURCE_REQUIRED');
+    onInvalidate?.();
     const authenticated = await reservationAccess(held);
     const handle = await api.preparation({ ...authenticated, depositJobId: current.job.jobId, rootId: current.rootId }); live(held);
     // This same source can enter a retained reservation. Clear the earlier
@@ -234,7 +239,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const reviewed = await custody.prepareDeviceReservationFromQuote(handle); live(held);
     const retained = await custody.readDeviceNote(); live(held);
     if (retained?.availableBalance !== null) throw Error('MOBILE_LOCAL_RESERVATION_BALANCE_UNRESOLVED');
-    setNote(retained);
+    await publishNote(retained,held);
     quote.current = handle; setOwnerReview(reviewed); setConsent(null); setReservationConsent(null); setApproved(false);
     setMessage('Cambio y recuperación cifrados y releídos. Revisa el mismo grafo antes de firmar con tu clave de nota.');
   }
@@ -264,7 +269,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   async function submitReservation(held: number) {
     const api = reservationClient.current, custody = vault.current, consent = reservationConsent;
     if (!api || !custody || !consent || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
-    setReservationConsent(null); setApproved(false);
+    setReservationConsent(null); setApproved(false);onInvalidate?.();
     const signature = await signDeviceReservationConsentV1(consent, origin, pairingId); live(held);
     let witness: DeviceReservationWitnessV1 | undefined;
     try {
@@ -276,7 +281,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       if (result.stage === 'RESERVED') { await custody.applyDeviceReservationInclusion(result); live(held); }
       setReservationJob(result.jobId); setMessage(result.stage === 'RESERVED'
         ? 'Reserva S original confirmada y guardada con la misma nota. El cambio está incluido; su saldo libre requiere consulta del nullifier. La recuperación requiere F original. El grafo aún no está ejecutado.'
-        : result.stage); const state = await custody.readDeviceNote(); live(held); setNote(state);
+        : result.stage); const state = await custody.readDeviceNote(); live(held); await publishNote(state,held);
     } catch (error) {
       live(held); const notice = 'UNKNOWN: consulta la misma intención U/S. No repetir pruebas ni reservar de nuevo.';
       setMessage(notice); throw new Error(notice, { cause: error });

@@ -501,6 +501,7 @@ test('copied U request, quote or signature never releases openings or rewrites a
 // its own inclusion/quote handles; neither this fixture nor AES claims a chain
 // confirmation, original backend authority, hardware or economic acceptance.
 test('original vault persists output custody and binds fresh READ balance to local PC23/NF; expiry/reopen or coherent public hashes confer no availability', async t => {
+  const {createPrivateWalletStateV1}=await import('../src/state/private-wallet-state-v1.mjs'),global=createPrivateWalletStateV1();
   const realNow = Date.now; t.after(() => { Date.now = realNow; });
   const fixture = await completePrivateCustodyBackup(), rootHex = '09'.repeat(32), value = fixture.value;
   delete value.spend;
@@ -571,10 +572,19 @@ test('original vault persists output custody and binds fresh READ balance to loc
     signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(access)), jobId: consent.jobId });
   const included = await deposit.submit({ consent: selected, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(selected)) });
   const vault = openLocalRootNoteVaultV1(value.rootId);
+  const restoredSource=await vault.readDeviceNote();await global.acceptNative(restoredSource);
+  assert.equal(global.snapshot().rows[0].route.component,'DEVICE_NATIVE_SOURCE');
+  assert.equal(global.snapshot().rows[0].state,'UNKNOWN');
+  assert.equal(global.snapshot().rows[0].available,null,'restored FUNDED is not a current unspent NF observation');
+  await assert.rejects(global.acceptNative({...restoredSource}),/OUTPUT_DISPLAY_REQUIRED/);
   await vault.applyDeviceDepositInclusion(included.observation);
+  await global.acceptNative(await vault.readDeviceNote());
+  assert.equal(global.snapshot().rows[0].available,'500');
+  assert.equal(global.snapshot().rows[0].route.genesis,observation.genesis);
   // Simulate provider/quote setup crossing the monetary read's fixed 15s.
   // The quote is fresh; only the earlier D26 observation has expired.
   const freshAt = now + 15000; Date.now = () => freshAt;
+  assert.equal(global.snapshot().rows[0].state,'STALE');assert.equal(global.snapshot().rows[0].available,null);
   Object.assign(frames.access, { challengeId: '32'.repeat(32), nonce: '33'.repeat(32), expiresAt: freshAt + 60000 });
   quote.expiresAt = freshAt + 15000;
   const quoteAccess = await reservation.access(), handle = await reservation.preparation({ access: quoteAccess,
@@ -589,6 +599,8 @@ test('original vault persists output custody and binds fresh READ balance to loc
     signature: signDeviceMessage(deviceKey, originalAccountAccessMessageV2(freshAccess)), jobId: consent.jobId });
   const freshInclusion = await deposit.submit({ consent: freshConsent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(freshConsent)) });
   const refreshed = await vault.applyDeviceDepositInclusion(freshInclusion.observation);
+  await global.acceptNative(await vault.readDeviceNote());
+  assert.equal(global.snapshot().rows[0].available,'500');
   assert.equal(refreshed.availableBalance, '500'); assert.deepEqual(store, originalStore);
   assert.equal(calls.filter(row => row.method === 'write').length, writes, 'fresh same funding only refreshes the ephemeral handle');
   assert.deepEqual(httpPaths.slice(postsBefore), ['/v2/mobile/original-account/challenges',
@@ -640,6 +652,9 @@ test('original vault persists output custody and binds fresh READ balance to loc
   };
   const retainedS = await reservation.submit({ consent: sConsent, signature: signDeviceMessage(deviceKey, deviceReservationConsentMessageV1(sConsent)) });
   await vault.applyDeviceReservationInclusion(retainedS); request.close();
+  await global.acceptNative(await vault.readDeviceNote());
+  assert.equal(global.snapshot().rows.length,1);assert.equal(global.snapshot().rows[0].available,null);
+  assert.equal(global.snapshot().rows[0].noteAmount,null,'the retained source is not counted again after S');
   const balances = await createDeviceOwnerOutputBalanceApiV1(descriptor), subject = await vault.readDeviceOutputBalanceSubject();
   const local = rawClearRecord(rootHex), spend = local.spend;
   balanceBody = { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_OUTPUT_BALANCE_V1', ...descriptor, ...subject,
@@ -659,7 +674,6 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const fresh = await vault.readDeviceNote(); assert.equal(fresh.availableBalance, null);
   assert.equal(fresh.localReservation.changeAvailableBalance, '380'); assert.equal(fresh.localReservation.recoveryAvailableBalance, null);
   assert.equal(fresh.localReservation.recovery.state, 'LOCKED'); assert.equal(fresh.localReservation.assetIdentity, proposal.asset);
-  const {createPrivateWalletStateV1}=await import('../src/state/private-wallet-state-v1.mjs'),global=createPrivateWalletStateV1();
   await assert.rejects(global.acceptNative({...fresh}),/OUTPUT_DISPLAY_REQUIRED/);
   await assert.rejects(global.acceptNative(balance),/OUTPUT_DISPLAY_REQUIRED/);
   await global.acceptNative(fresh);
