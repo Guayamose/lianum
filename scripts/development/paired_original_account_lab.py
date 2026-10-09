@@ -518,6 +518,27 @@ def execution_proof_checks(rows, note_keys):
     return proofs, checks
 
 
+def _native_note_original_proof_bytes(row, index, relation, proof_bytes, input_bytes):
+    """Framing only for the original three D26/W39 byte joins, not authority.
+
+    The original JS normalizer returns BigInt(...).toString() decimal words;
+    its writer hashes JSON.stringify(publicInputs) bytes without conversion.
+    The independent raw telemetry reader still joins those exact same hashes.
+    """
+    if (index, relation) not in ((0, "deposit_balance"), (7, "withdraw_balance"), (8, "withdraw_balance")):
+        return False
+    if type(row) is not dict or row.get("relation") != relation or row.get("file") != str(index + 1).zfill(3) + "-" + relation:
+        return False
+    if type(proof_bytes) is not bytes or type(input_bytes) is not bytes:
+        return False
+    inputs = json.loads(input_bytes)
+    return hashlib.sha256(proof_bytes).hexdigest() == row.get("proofSHA256") \
+        and hashlib.sha256(input_bytes).hexdigest() == row.get("publicInputsSHA256") \
+        and type(inputs) is list and len(inputs) == (26 if index == 0 else 39) \
+        and all(type(value) is str and len(value) <= 78 and re.fullmatch(r"0|[1-9][0-9]*", value) is not None
+            and int(value) < 21888242871839275222246405745257275088548364400416034343698204186575808495617 for value in inputs)
+
+
 def _reservation_backend_execution(relation, manifest, worker, resources, threads):
     """Public framing only; raw bytes/key/proof joins remain in the original reader.
 
@@ -713,11 +734,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
                     raise ValueError("NATIVE_NOTE_FIXED_PROOF_FILE")
                 proof_bytes = private_evidence(attempt / "public-proofs" / (name + ".bin"))
                 input_bytes = private_evidence(attempt / "public-proofs" / (name + ".inputs.json"))
-                inputs = json.loads(input_bytes)
-                note_bytes.append(hashlib.sha256(proof_bytes).hexdigest() == row.get("proofSHA256")
-                    and hashlib.sha256(input_bytes).hexdigest() == row.get("publicInputsSHA256")
-                    and isinstance(inputs, list) and len(inputs) == (26 if index == 0 else 39)
-                    and all(isinstance(value, str) and re.fullmatch(r"0x[0-9a-f]{64}", value) for value in inputs))
+                note_bytes.append(_native_note_original_proof_bytes(row, index, relation, proof_bytes, input_bytes))
             except (OSError, ValueError, TypeError, RecursionError, IndexError):
                 note_bytes.append(False)
         receipt_checks["nativeNoteOriginalProofBytesJoined"] = len(note_bytes) == 3 and all(note_bytes)

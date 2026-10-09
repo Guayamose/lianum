@@ -5,6 +5,7 @@ Synthetic closure metadata establishes no original economic observation.
 Every fixture is closed with this test's separate causal Popen capability.
 """
 import importlib.util
+import hashlib
 from copy import deepcopy
 import json
 import os
@@ -272,6 +273,42 @@ class PublicProofBackendReceiptTests(unittest.TestCase):
             self.assertTrue(lab._reservation_backend_execution(relation, {}, old, {}, threads))
             old["wasmThreadExecution"]["threads"] = 8
             self.assertFalse(lab._reservation_backend_execution(relation, {}, old, {}, threads))
+
+
+class NativeNoteInputFrameTests(unittest.TestCase):
+    def test_original_decimal_PC23_frames_keep_raw_hashes_and_reject_other_encodings(self):
+        # Explicit synthetic public statement fixtures in the original PC23
+        # layouts. proof-worker.normalizePublicInputs returns these decimal
+        # strings; paired-native-note-flow-v2 hashes/writes their compact JSON.
+        # No generated proof, witness, node process or financial acceptance.
+        fixtures = ((0, "deposit_balance", ["0"] * 8 + ["1"] * 8 + ["2", "500"] + ["4294967295"] * 8),
+            (7, "withdraw_balance", ["0"] * 8 + ["1"] * 8 + ["2"] + ["3"] * 8 + ["4"] * 8 + ["400"] + ["5"] * 5),
+            (8, "withdraw_balance", ["0"] * 8 + ["1"] * 8 + ["2"] + ["3"] * 8 + ["4"] * 8 + ["100"] + ["5"] * 5))
+        proof_bytes = b"HOST_PUBLIC_FRAME_ONLY_NOT_A_GENERATED_PROOF"
+        field = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+        for index, relation, inputs in fixtures:
+            with self.subTest(index=index, relation=relation):
+                raw = json.dumps(inputs, separators=(",", ":")).encode()
+                before = bytes(raw)
+                row = {"relation": relation, "file": str(index + 1).zfill(3) + "-" + relation,
+                    "proofSHA256": hashlib.sha256(proof_bytes).hexdigest(), "publicInputsSHA256": hashlib.sha256(raw).hexdigest()}
+                self.assertTrue(lab._native_note_original_proof_bytes(row, index, relation, proof_bytes, raw))
+                self.assertEqual(raw, before)
+                self.assertFalse(all(isinstance(value, str) and lab.re.fullmatch(r"0x[0-9a-f]{64}", value) for value in inputs),
+                    "the previous hex-only final reader rejected actual producer encoding")
+                for value in ("0x" + "1" * 64, "01", "1\n", "-1", "+1", "1e0", "1.0", str(field), str(field + 1), "9" * 79, 1, True, None):
+                    changed = [value, *inputs[1:]]
+                    encoded = json.dumps(changed, separators=(",", ":")).encode()
+                    bound = {**row, "publicInputsSHA256": hashlib.sha256(encoded).hexdigest()}
+                    self.assertFalse(lab._native_note_original_proof_bytes(bound, index, relation, proof_bytes, encoded), repr(value))
+                for changed in (inputs[:-1], inputs + ["0"]):
+                    encoded = json.dumps(changed, separators=(",", ":")).encode()
+                    self.assertFalse(lab._native_note_original_proof_bytes({**row, "publicInputsSHA256": hashlib.sha256(encoded).hexdigest()},
+                        index, relation, proof_bytes, encoded))
+                self.assertFalse(lab._native_note_original_proof_bytes(row, index, relation, proof_bytes + b"x", raw))
+                self.assertFalse(lab._native_note_original_proof_bytes(row, index, relation, proof_bytes, raw + b" "))
+                self.assertFalse(lab._native_note_original_proof_bytes({**row, "file": "caller.inputs.json"}, index, relation, proof_bytes, raw))
+                self.assertFalse(lab._native_note_original_proof_bytes(row, 1, relation, proof_bytes, raw))
 
 
 if __name__ == "__main__":
