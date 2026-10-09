@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "82db84db5b049c1211878abf492bf46e8b1c3c23ad405a1160a1c86e099848d5",
+  "hostSourceClosureSHA256": "8fcde6584306018df9a259a23902a0c8937a9896bcefd72996e7077facd24226",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -2298,7 +2298,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-solana-spl-custody-v1.mjs",
-      "sha256": "59a52f1294c8e7419cf77690b8e8f8caee713e7a1565d6017b7efe0fe5ac54e7"
+      "sha256": "8f3353ceea88178ceb01a5203233e1d77ebe3854edec4cdf5e65d25a520d70f0"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-native-value-health-source-v4.mjs",
