@@ -17,6 +17,7 @@ import { normalizeDeviceExitConsentV1, validateDeviceExitConsentFreshV1, normali
   from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import { validateDeviceExecutionConsentFreshV1 }
   from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
+import {validateDeviceRecoveryArmConsentFreshV1,normalizeDeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -128,6 +129,22 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
   return Object.freeze({
     descriptor: original,
     privateState,
+    deviceRecoveryArm: Object.freeze({
+      async challenge(action,input){
+        if(!['ARM_RECOVERY','DISARM_RECOVERY'].includes(action)||!exact(input,['access','signature','jobId']))fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access=scope(normalizeOriginalAccountAccessV2(input.access));if(access.action!=='read')fail('MOBILE_ORIGINAL_ACTION');normalizeOriginalAccountSignatureV2(input.signature);
+        const value=validateDeviceRecoveryArmConsentFreshV1(await request(action==='ARM_RECOVERY'?'arm-reviews':'disarm-reviews',input,'device-execution'));
+        if(value.action!==action||value.execution.reservation.jobId!==input.jobId||Object.keys(original).some(name=>value.execution.reservation[name]!==original[name]))fail('MOBILE_REVIEW_CHANGED');return value;
+      },
+      async submit(input){if(!exact(input,['consent','signature']))fail('MOBILE_ORIGINAL_REQUEST_INVALID');const consent=validateDeviceRecoveryArmConsentFreshV1(input.consent);
+        if(Object.keys(original).some(name=>consent.execution.reservation[name]!==original[name]))fail('MOBILE_REVIEW_CHANGED');const signature=normalizeOriginalAccountSignatureV2(input.signature);
+        return normalizeDeviceRecoveryArmStatusV1(await request(consent.action==='ARM_RECOVERY'?'arm':'disarm',{consent,signature},'device-execution'));
+      },
+      async status(input){if(!exact(input,['access','signature','jobId']))fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+        const access=scope(normalizeOriginalAccountAccessV2(input.access));if(access.action!=='read')fail('MOBILE_ORIGINAL_ACTION');normalizeOriginalAccountSignatureV2(input.signature);
+        const value=normalizeDeviceRecoveryArmStatusV1(await request('arm-status',input,'device-execution'));if(value.jobId!==input.jobId)fail('MOBILE_REVIEW_CHANGED');return value;
+      },
+    }),
     deviceExecution: Object.freeze({
       async outputBalances(input) {
         if (!exact(input, ['access', 'signature', 'parentJobId', 'rootId', 'noteRevision', 'changeNullifier', 'recoveryNullifier'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');

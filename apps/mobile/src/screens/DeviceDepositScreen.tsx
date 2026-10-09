@@ -1,3 +1,4 @@
+import type {DeviceRecoveryArmConsentV1,DeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { fetch as nativeFetch } from 'expo/fetch';
@@ -11,12 +12,13 @@ import { createDeviceOwnerExitApiV1, readDeviceExitQuoteV1 } from '../api/device
 import { wipeDeviceExitWitnessV1, type DeviceExitConsentV1, type DeviceExitWitnessV1, type DeviceExitQuoteV1 }
   from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import { readDevicePublicKey, signOriginalAccountAccessV2, signOriginalPrivateStateAccessV1,
-  signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1, signDeviceExitConsentV1, signDeviceExecutionConsentV1 } from '../custody/key-store';
+  signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1, signDeviceExitConsentV1, signDeviceExecutionConsentV1, signDeviceRecoveryArmConsentV1 } from '../custody/key-store';
 import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceExitProofRequestV1, type LocalDeviceProofRequestV1, type LocalDeviceAuthorizationRequestV1, type LocalDeviceReservationReviewV1 }
   from '../custody/local-root-note-vault-v1';
 import type { DeviceDepositConsentV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1, type DeviceReservationConsentV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+const recoveryArmStateLabel=(state:DeviceRecoveryArmStatusV1['state'])=>({ABSENT:'sin activar',ARMED:'activada',DISARMED:'desactivada',FIRING:'recuperando',UNKNOWN:'desconocido',RECOVERED:'recuperada',FULFILLED:'completada'})[state];
 type ExecutionClient = Awaited<ReturnType<typeof createDeviceOwnerExecutionApiV1>>;
 type BalanceClient = Awaited<ReturnType<typeof createDeviceOwnerOutputBalanceApiV1>>;
 type ReservationClient = Awaited<ReturnType<typeof createDeviceOwnerReservationApiV1>>;
@@ -31,6 +33,7 @@ export default function DeviceDepositScreen() {
   const [reservationJob, setReservationJob] = useState<string | null>(null);
   const [executionConsent, setExecutionConsent] = useState<DeviceExecutionConsentV1 | null>(null);
   const [executionStatus, setExecutionStatus] = useState<DeviceExecutionStatusV1 | null>(null);
+  const [recoveryArmReview,setRecoveryArmReview]=useState<DeviceRecoveryArmConsentV1|null>(null),[recoveryArmStatus,setRecoveryArmStatus]=useState<DeviceRecoveryArmStatusV1|null>(null);
   const [executionIntent, setExecutionIntent] = useState<Awaited<ReturnType<Vault['readDeviceExecutionIntent']>>>(null);
   const executionClient = useRef<ExecutionClient | null>(null), nativeSigning = useRef<AbortController | null>(null);
   const balanceClient = useRef<BalanceClient | null>(null);
@@ -45,10 +48,10 @@ export default function DeviceDepositScreen() {
   const [approved, setApproved] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const client = useRef<Client | null>(null), vault = useRef<Vault | null>(null), request = useRef<LocalDeviceProofRequestV1 | null>(null);
   const busyRef = useRef(false), visible = useRef(true), epoch = useRef(0);
-  function clearNativeReview() { nativeSigning.current?.abort(); nativeSigning.current = null; setExecutionConsent(null); setExecutionStatus(null); setApproved(false); }
+  function clearNativeReview() { setRecoveryArmReview(null); nativeSigning.current?.abort(); nativeSigning.current = null; setExecutionConsent(null); setExecutionStatus(null); setApproved(false); }
   function clear() {
     balanceClient.current?.close(); balanceClient.current = null;
-    epoch.current++; executionClient.current?.close(); executionClient.current = null; clearNativeReview(); setExecutionIntent(null);
+    epoch.current++; executionClient.current?.close(); executionClient.current = null; clearNativeReview(); setExecutionIntent(null);setRecoveryArmStatus(null);
     exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
     exitClient.current?.close(); exitClient.current = null; setExitReview(null); setExitConsent(null); setExitJob(null); setExitIntent(null); authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
     reservationClient.current?.close(); reservationClient.current = null; setOwnerReview(null); setReservationConsent(null); setReservationJob(null);
@@ -75,7 +78,8 @@ export default function DeviceDepositScreen() {
     return () => clearTimeout(timer);
   }, [note]);
   useEffect(() => {
-    const expiry = ownerReview?.expiresAt ?? reservationConsent?.expiresAt ?? exitReview?.expiresAt ?? exitConsent?.expiresAt ?? executionConsent?.reservation.expiresAt;
+    const expiry = ownerReview?.expiresAt ?? reservationConsent?.expiresAt ?? exitReview?.expiresAt ?? exitConsent?.expiresAt
+      ?? executionConsent?.reservation.expiresAt ?? recoveryArmReview?.execution.reservation.expiresAt;
     if (!expiry) return;
     const timer = setTimeout(() => {
       authorizationRequest.current?.close(); authorizationRequest.current = null; quote.current = null;
@@ -83,7 +87,7 @@ export default function DeviceDepositScreen() {
       setOwnerReview(null); setReservationConsent(null); clearNativeReview(); setApproved(false);
     }, Math.max(0, expiry - Date.now()));
     return () => clearTimeout(timer);
-  }, [ownerReview, reservationConsent, exitReview, exitConsent, executionConsent]);
+  }, [ownerReview, reservationConsent, exitReview, exitConsent, executionConsent, recoveryArmReview]);
   const live = (held: number) => { if (!visible.current || held !== epoch.current) throw Error('MOBILE_DEVICE_DEPOSIT_REVOKED'); };
   async function run(work: (held: number) => Promise<void>) {
     if (busyRef.current || !visible.current) return; busyRef.current = true; setBusy(true); const held = epoch.current;
@@ -314,6 +318,30 @@ export default function DeviceDepositScreen() {
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { signing.abort(); if (nativeSigning.current === signing) nativeSigning.current = null; }
   }
+  async function reviewRecoveryArm(action:DeviceRecoveryArmConsentV1['action'],held:number){
+    const api=executionClient.current,custody=vault.current;if(!api||!custody)throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');clearNativeReview();
+    exitRequest.current?.close();exitRequest.current=null;exitQuote.current=null;
+    authorizationRequest.current?.close();authorizationRequest.current=null;request.current?.close();request.current=null;
+    setConsent(null);setOwnerReview(null);setReservationConsent(null);setExitReview(null);setExitConsent(null);
+    const parent=await custody.readDeviceReservationIntent();live(held);if(!parent)throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
+    const access=await api.access();live(held);const signature=await signOriginalAccountAccessV2(access,origin,pairingId);live(held);
+    const value=await api.challengeRecoveryArm(action,{access,signature,jobId:parent.jobId});live(held);setRecoveryArmReview(value);setApproved(false);
+    setMessage('Autoriza activar o desactivar la recuperación automática de esta reserva. Se conserva el plazo original y el servicio debe permanecer activo.');
+  }
+  async function submitRecoveryArm(held:number){
+    const api=executionClient.current,value=recoveryArmReview;if(!api||!value||!approved)throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
+    setRecoveryArmReview(null);setApproved(false);const signing=new AbortController();nativeSigning.current=signing;
+    try{const signature=await signDeviceRecoveryArmConsentV1(value,origin,pairingId,signing.signal);live(held);
+      const result=await api.submitRecoveryArm({consent:value,signature});live(held);setRecoveryArmStatus(result);setMessage(recoveryArmStateLabel(result.state));
+    }catch(error){live(held);setMessage('Respuesta desconocida: consulta el estado antes de volver a actuar.');throw error;
+    }finally{signing.abort();if(nativeSigning.current===signing)nativeSigning.current=null;}
+  }
+  async function observeRecoveryArm(held:number){
+    const api=executionClient.current,custody=vault.current;if(!api||!custody)throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
+    const parent=await custody.readDeviceReservationIntent();live(held);if(!parent)throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
+    const access=await api.access();live(held);const signature=await signOriginalAccountAccessV2(access,origin,pairingId);live(held);
+    const result=await api.observeRecoveryArm({access,signature,jobId:parent.jobId});live(held);setRecoveryArmStatus(result);setMessage(recoveryArmStateLabel(result.state));
+  }
   async function exitAccess(held: number) {
     const api = exitClient.current; if (!api) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
     const value = await api.access(); live(held);
@@ -472,6 +500,15 @@ Esta firma nunca autoriza reenvíos automáticos.</Text>
 Resultado retenido: {executionIntent.outcome ?? 'desconocido'}
 Intención de ejecución: {executionIntent.executeAttemptRetained ? 'guardada; consultar original' : 'sin intención local'}
 Intención de recuperación: {executionIntent.recoveryAttemptRetained ? 'guardada; consultar original' : 'sin intención local'}</Text>}
+      <Text style={styles.title}>Recuperación automática de la reserva</Text>
+      <Text style={styles.text}>Puedes activar la recuperación al vencer el plazo original. El servicio del operador debe permanecer activo. Ejecutar la reserva requiere su propio permiso.</Text>
+      <Pressable disabled={busy} onPress={()=>void run(held=>reviewRecoveryArm('ARM_RECOVERY',held))}><Text style={styles.button}>Revisar activación</Text></Pressable>
+      <Pressable disabled={busy} onPress={()=>void run(held=>reviewRecoveryArm('DISARM_RECOVERY',held))}><Text style={styles.button}>Revisar desactivación</Text></Pressable>
+      <Pressable disabled={busy} onPress={()=>void run(observeRecoveryArm)}><Text style={styles.button}>Consultar estado</Text></Pressable>
+      {recoveryArmStatus&&<Text style={styles.text}>Estado: {recoveryArmStateLabel(recoveryArmStatus.state)} · plazo original {recoveryArmStatus.settleBefore}</Text>}
+      {recoveryArmReview&&<><Text style={styles.text}>Acción {recoveryArmReview.action} · reserva {recoveryArmReview.execution.reservation.jobId} · plazo original {recoveryArmReview.settleBefore}</Text>
+        <Pressable disabled={busy} onPress={()=>setApproved(value=>!value)}><Text style={styles.button}>{approved?'Permiso revisado':'Revisar y consentir este permiso separado'}</Text></Pressable>
+        <Pressable disabled={busy||!approved} onPress={()=>void run(submitRecoveryArm)}><Text style={styles.button}>Firmar una vez este permiso</Text></Pressable></>}
       <Text style={styles.title}>Salida de la misma custodia</Text>
       <Text style={styles.text}>El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original. La prueba W39 revela una sola apertura al worker y requiere otra autorización para retirar. No hay adopción de notas por Linux ni reintentos automáticos.</Text>
       <Pressable disabled={busy} onPress={() => void run(selectExitRole)}>

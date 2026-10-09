@@ -1,9 +1,12 @@
+import {validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1,normalizeDeviceRecoveryArmStatusV1,type DeviceRecoveryArmConsentV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
 /** Fixed original native continuation. A response is original TLS provenance,
  * not independent chain verification or a substitute for backend WeakMaps. */
 import * as Crypto from 'expo-crypto';
 import { createOriginalAccountApiV2, type OriginalAccountDescriptorV2 } from './original-account-api-v2.mjs';
 import { validateDeviceExecutionConsentFreshV1, normalizeDeviceExecutionStatusV1, deviceExecutionConsentMessageV1, deviceExecutionSnapshotBytesV1,
   type DeviceExecutionConsentV1, type DeviceExecutionStatusV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
+const armReviews=new WeakMap<object,{live():void;value:DeviceRecoveryArmConsentV1;consumed:boolean}>();
 const reviews = new WeakMap<object, { live(): void; value: DeviceExecutionConsentV1; consumed: boolean }>();
 const terminals = new WeakMap<object, { live(): void; value: DeviceExecutionStatusV1; consent: DeviceExecutionConsentV1; expiresAt: number }>();
 function bad(): never { throw Error('MOBILE_DEVICE_EXECUTION_RESPONSE_INVALID'); }
@@ -31,6 +34,23 @@ export async function createDeviceOwnerExecutionApiV1(descriptor: OriginalAccoun
     async challenge(action: DeviceExecutionConsentV1['action'], input: Parameters<typeof original.deviceExecution.challenge>[1]) {
       live(); const value = validateDeviceExecutionConsentFreshV1(await original.deviceExecution.challenge(action, input)); live();
       reviews.set(value, { live, value, consumed: false }); return value;
+    },
+    async challengeRecoveryArm(action:DeviceRecoveryArmConsentV1['action'],input:Parameters<typeof original.deviceRecoveryArm.challenge>[1]){
+      live();const value=validateDeviceRecoveryArmConsentFreshV1(await original.deviceRecoveryArm.challenge(action,input));live();
+      armReviews.set(value,{live,value,consumed:false});return value;
+    },
+    async submitRecoveryArm(input:Parameters<typeof original.deviceRecoveryArm.submit>[0]){
+      live();const held=armReviews.get(input.consent);if(!held||held.consumed)bad();
+      held.live();const consent=validateDeviceRecoveryArmConsentFreshV1(held.value);if(!same(consent,input.consent))bad();held.consumed=true;
+      const value=normalizeDeviceRecoveryArmStatusV1(await original.deviceRecoveryArm.submit(input));live();
+      const frame=deviceRecoveryArmConsentMessageV1(consent);try{if(value.authorizationSHA256!==await sha(frame))bad();}finally{frame.fill(0);}
+      if(value.jobId!==consent.execution.reservation.jobId||value.settleBefore!==consent.settleBefore
+        ||value.state!==(consent.action==='ARM_RECOVERY'?'ARMED':'DISARMED'))bad();live();return value;
+    },
+    async observeRecoveryArm(input:Parameters<typeof original.deviceRecoveryArm.status>[0]){
+      live();const value=normalizeDeviceRecoveryArmStatusV1(await original.deviceRecoveryArm.status(input));live();
+      const frame=originalAccountAccessMessageV2(input.access);try{if(value.authorizationSHA256!==await sha(frame))bad();}finally{frame.fill(0);}
+      live();return value;
     },
     async submit(input: Parameters<typeof original.deviceExecution.submit>[0]) {
       live(); const retained = reviews.get(input.consent); if (!retained || retained.consumed) bad();

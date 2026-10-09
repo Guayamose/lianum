@@ -1,3 +1,4 @@
+import {validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Crypto from 'expo-crypto';
@@ -256,4 +257,20 @@ export async function signDeviceExecutionConsentV1(raw: Parameters<typeof valida
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
     current(); message = deviceExecutionConsentMessageV1(value); return signDeviceMessage(key, message);
   } finally { message?.fill(0); key.fill(0); retained = null; }
+}
+
+/** Arm is consumed now; no root/note key is revealed and the PoP signature is
+ * not reused as a fresh economic permission hours later. */
+export async function signDeviceRecoveryArmConsentV1(raw:Parameters<typeof validateDeviceRecoveryArmConsentFreshV1>[0],
+ expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+  await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
+  const value=validateDeviceRecoveryArmConsentFreshV1(raw),reservation=value.execution.reservation;
+  const current=()=>{if(signal?.aborted)throw Error('MOBILE_DEVICE_RECOVERY_ARM_REVOKED');validateDeviceRecoveryArmConsentFreshV1(value);
+    if(reservation.origin!==expectedOrigin||reservation.pairingId!==expectedPairingId||reservation.devicePublicKey!==publicKey)throw Error('MOBILE_REVIEW_CHANGED');};
+  current();let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,{...privateOptions,authenticationPrompt:value.action==='ARM_RECOVERY'
+    ?'Activar recuperación automática de esta reserva al plazo original; el servicio debe seguir activo':'Desactivar recuperación automática antes de que comience'});
+  if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|null=null;
+  try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+    current();frame=deviceRecoveryArmConsentMessageV1(value);return signDeviceMessage(key,frame);
+  }finally{frame?.fill(0);key.fill(0);retained=null;}
 }

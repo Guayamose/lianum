@@ -1,3 +1,4 @@
+import type {DeviceRecoveryArmConsentV1,DeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import type { DeviceExecutionConsentV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import type { DeviceExitConsentV1, DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import type { DeviceReservationConsentV1, DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
@@ -34,6 +35,11 @@ export function createOriginalAccountApiV2(options: {
 }): Readonly<{
   descriptor: OriginalAccountDescriptorV2;
   privateState: OriginalPrivateStateApiV1;
+  deviceRecoveryArm: Readonly<{
+    challenge(action:'ARM_RECOVERY'|'DISARM_RECOVERY',input:{access:OriginalAccountAccessV2;signature:string;jobId:string}):Promise<DeviceRecoveryArmConsentV1>;
+    submit(input:{consent:DeviceRecoveryArmConsentV1;signature:string}):Promise<DeviceRecoveryArmStatusV1>;
+    status(input:{access:OriginalAccountAccessV2;signature:string;jobId:string}):Promise<DeviceRecoveryArmStatusV1>;
+  }>;
   deviceExecution: Readonly<{
     outputBalances(input: { access: OriginalAccountAccessV2; signature: string; parentJobId: string; rootId: string;
       noteRevision: number; changeNullifier: string; recoveryNullifier: string }): Promise<unknown>;

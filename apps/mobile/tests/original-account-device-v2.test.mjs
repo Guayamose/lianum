@@ -174,3 +174,40 @@ test('native EXECUTE/reconcile/recovery domains keep the protected PoP identity,
   await assert.rejects(signDeviceExecutionConsentV1(consent, f.descriptor.origin, f.descriptor.pairingId, revoked.signal), /REVOKED/);
   assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0))); control.slowRead = null;
 });
+
+test('arming live F consumes a distinct fresh protected permission for the same S/cutoff; stale or revoked consent cannot arm', async () => {
+  const { deviceReservationFixtureV1 } = await import('./helpers/device-reservation-fixture-v1.mjs');
+  const { deviceExecutionConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs');
+  const { DEVICE_RECOVERY_ARM_V1, deviceRecoveryArmConsentMessageV1 } = await import('../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs');
+  const { signDeviceRecoveryArmConsentV1 } = await import('../src/custody/key-store.ts');
+  const consentFor = f => ({ version: 1, profile: DEVICE_RECOVERY_ARM_V1, action: 'ARM_RECOVERY', settleBefore: '900',
+    execution: { version: 1, profile: 'LIANUM_DEVICE_ORIGINAL_EXECUTION_V1', action: 'RECONCILE_NATIVE',
+      reservation: { ...f.consent, action: 'OBSERVE_S', proofSHA256: '21'.repeat(32), publicInputsSHA256: '22'.repeat(32), openingDisclosure: null },
+      nativeBindingSHA256: '23'.repeat(32), reservationTransactionHash: '24'.repeat(32), executionSnapshotSHA256: '25'.repeat(32),
+      lossClause: 'FULL_OWNER_REFUND_PROVIDER_LOSS_V1' } });
+  const valid = (message, signature) => verify('sha256', message, { key: pub, dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'hex'));
+  fixture(); const f = deviceReservationFixtureV1(new Uint8Array(32).fill(11)), consent = consentFor(f);
+  const signature = await signDeviceRecoveryArmConsentV1(consent, f.descriptor.origin, f.descriptor.pairingId);
+  const frame = deviceRecoveryArmConsentMessageV1(consent);
+  assert.ok(frame.length <= 4096); assert.equal(valid(frame, signature), true);
+  assert.equal(valid(deviceExecutionConsentMessageV1(consent.execution), signature), false);
+  assert.equal(valid(deviceRecoveryArmConsentMessageV1({ ...consent, action: 'DISARM_RECOVERY' }), signature), false);
+  assert.equal(valid(deviceRecoveryArmConsentMessageV1({ ...consent, settleBefore: '901' }), signature), false);
+  assert.equal(valid(deviceRecoveryArmConsentMessageV1({ ...consent, execution: { ...consent.execution, reservationTransactionHash: '26'.repeat(32) } }), signature), false);
+  assert.match(calls.find(row => row.name === PRIVATE).options.authenticationPrompt, /Activar recuperación automática.*plazo original/);
+  const before = calls.filter(row => row.name === PRIVATE).length;
+  await assert.rejects(signDeviceRecoveryArmConsentV1(consent, 'https://foreign.example', f.descriptor.pairingId), /REVIEW_CHANGED/);
+  await assert.rejects(signDeviceRecoveryArmConsentV1({ ...consent, execution: { ...consent.execution, action: 'RECOVER_NATIVE' } }, f.descriptor.origin, f.descriptor.pairingId), /RECOVERY_ARM_INVALID/);
+  assert.equal(calls.filter(row => row.name === PRIVATE).length, before);
+  const revoked = new AbortController(); control.slowRead = async () => revoked.abort();
+  await assert.rejects(signDeviceRecoveryArmConsentV1(consent, f.descriptor.origin, f.descriptor.pairingId, revoked.signal), /RECOVERY_ARM_REVOKED/);
+  control.slowRead = null; assert.ok(privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+  const time = mock.method(Date, 'now', () => 1000000);
+  try {
+    fixture(); const fresh = deviceReservationFixtureV1(new Uint8Array(32).fill(11));
+    control.slowRead = async () => time.mock.mockImplementation(() => 1015001);
+    await assert.rejects(signDeviceRecoveryArmConsentV1(consentFor(fresh), fresh.descriptor.origin, fresh.descriptor.pairingId), /RESERVATION_INVALID/);
+    assert.ok(privateBuffers.length === 1 && privateBuffers.every(bytes => bytes.every(byte => byte === 0)));
+    assert.equal(store.get(PRIVATE), secret);
+  } finally { time.mock.restore(); control.slowRead = null; }
+});
