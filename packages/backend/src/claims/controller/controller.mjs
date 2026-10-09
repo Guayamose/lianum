@@ -1202,9 +1202,19 @@ async function createController(input, beginAuditOnly) {
       row.route = await route(row.claimDomain, 'refund', row.packet.statement.amount, config.refundMaxFee, row.refundSalt);
       row.native = { status: 'ATTEMPT_STARTED', wireSalt: randomBytes(32).toString('hex'), prepared: null, nativeId: null, signed: null, binding: null };
       row.status = 'UNKNOWN'; await saveRow('deposits', row);
+      const originalSplIngress = isOwnedSolanaSplCustodyV1(native);
+      // The journal retains bytes; the original SPL adapter retains identity.
+      // This continuation stays local to the one transfer, never in the journal.
+      let splIngressPreparation = null, splIngressSigned = false;
       try {
         await adapter.transfer({ amount: row.packet.statement.amount, wireKeyCommitment: row.key }, {
           async beforeSign(prepared) {
+            if (originalSplIngress) {
+              assert.equal(splIngressPreparation, null, 'CLAIM_SPL_INGRESS_PREPARATION_ONCE');
+              splIngressPreparation = { prepared, captured: null, ready: false };
+              splIngressPreparation.captured = freeze(copy(prepared));
+              assert.equal(prepared.intent.wireKeyCommitment, row.key);
+            }
             const fresh = await authorizationView(row.claimDomain); assertOriginalIntent(row, fresh.gateway.intents.find(v => v.id === row.id));
             assert.equal(prepared.intent.wireKeyCommitment, row.key);
             const auditStarted = performance.now();
@@ -1215,9 +1225,24 @@ async function createController(input, beginAuditOnly) {
             assert.ok(performance.now() - auditStarted < 30_000, 'CLAIM_PRESIGN_AUDIT_TOO_OLD');
             await adapter.assertPrepared(prepared);
             live(); assert.ok(performance.now() - auditStarted < 30_000, 'CLAIM_PRESIGN_AUDIT_TOO_OLD');
-            if(isOwnedSolanaSplCustodyV1(native))return splIngressKey(row,prepared,authorization,auditStarted);
+            if (originalSplIngress) {
+              const token = splIngressKey(row, prepared, authorization, auditStarted);
+              assert.equal(prepared, splIngressPreparation.prepared);
+              assert.deepEqual(prepared, splIngressPreparation.captured);
+              splIngressPreparation.ready = true;
+              return token;
+            }
           },
-          async onSigned(signed) { return reserveNative(row, 'deposits', row.native.prepared, signed); },
+          async onSigned(signed) {
+            if (!originalSplIngress) return reserveNative(row, 'deposits', row.native.prepared, signed);
+            assert.equal(splIngressSigned, false, 'CLAIM_SPL_INGRESS_SIGNED_ONCE');
+            splIngressSigned = true;
+            assert.ok(splIngressPreparation?.ready, 'CLAIM_SPL_INGRESS_PREPARATION_REQUIRED');
+            const prepared = splIngressPreparation.prepared;
+            assert.deepEqual(prepared, splIngressPreparation.captured);
+            assert.deepEqual(row.native.prepared, splIngressPreparation.captured);
+            return reserveNative(row, 'deposits', prepared, signed);
+          },
           ...(native.nonceIngressProfile === 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3' ? {
             beforeBroadcast: prepared => authorizeIngressBroadcast(row, prepared, adapter),
               beforeSend: prepared => beforeIngressSend(row, prepared),

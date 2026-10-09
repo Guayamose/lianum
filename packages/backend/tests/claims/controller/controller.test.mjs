@@ -2,12 +2,14 @@
  * controller are exercised; no chain, compiler, proof or genuine brand is made. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import vm from 'node:vm';
 import { mkdtemp, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimTicketId, claimTicketSecret,
-  claimDestinationCommitment, nativeClaimEndpointCommitment, encodeClaimIngressInputs, encodeClaimDischargeInputs } from '../../../src/claims/protocol/framing.mjs';
+  claimDestinationCommitment, nativeClaimEndpointCommitment, encodeClaimIngressInputs, encodeClaimDischargeInputs, claimUint } from '../../../src/claims/protocol/framing.mjs';
 import { CLAIM_BACKING_FIELDS, claimFrame, claimHash, claimRouteCommitment } from '../../../src/claims/authorization/permits.mjs';
 import { encodeDepositIntentInputs } from '../../../src/execution/account/preparation/deposit-intent.mjs';
 import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
@@ -22,6 +24,10 @@ import { decryptJson } from '../../../../engine/src/crypto/privacy.mjs';
 import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '../../../../custody/src/signing/flat-owner-custody.mjs';
 import { fixture, hash, zero, poisonedOperators, poisonedQuorums,
   consumeNativeClaimOriginalKeyAuthorityV4 } from '../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs';
+import { base58Encode } from '../../../src/chains/solana/runtime/solana-base58.mjs';
+import { cloneInput, frozenInput } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
+import { NATIVE_SPL_CLAIM_INTENT_PROFILE_V1, deriveNativeSplDepositV1, encodeNativeSplClaimUnsignedWireV1,
+  validateNativeSplClaimBindingTransactionV1 } from '../../../src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 const p = v => '0x' + v;
 const { createNativeClaimController, createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   restartNativeClaimController, openNativeClaimControllerDispatch, openNativeClaimSolanaPayoutAuthority } = await import('../../../src/claims/controller/controller.mjs');
@@ -1103,4 +1109,147 @@ test('payout post-fsync refuses consumed reservation, revocation, expiring origi
       assert.equal(n.original.broadcastAttempts,fault==='expiry'?0:1);assert.equal(n.control.sends,0);assert.equal(n.control.authorizationCalls,1);
     } finally {await f.close();}
   }
+});
+
+// Execute the ACTUAL local ingress callbacks/key/send continuations. The
+// observation/quorum/native identity ports are explicit inert test scaffolding;
+// the SPL message codec and ed25519 verification below are the original code.
+// No validator, economic authority, principal transfer or native send is made.
+function originalSplIngressCallbacksFixture(source, { spl = true, holdPrepared = false } = {}) {
+  const cut = (from, to, text = source) => {
+    const start = text.indexOf(from), end = text.indexOf(to, start);
+    assert.ok(start >= 0 && end > start); return text.slice(start, end);
+  };
+  const sourceKey = generateKeyPairSync('ed25519');
+  const payer = Buffer.from(sourceKey.publicKey.export({ format: 'jwk' }).x, 'base64url').toString('hex');
+  const b32 = label => hash('SPL original callback HOST/' + label);
+  const configPublicKey = b32('config'), vaultPublicKey = b32('vault'), wireKeyCommitment = b32('key');
+  const intent = { profile: NATIVE_SPL_CLAIM_INTENT_PROFILE_V1, operation: 'deposit', payerPublicKey: payer,
+    sourcePublicKey: b32('refund'), recipientPublicKey: vaultPublicKey, recentBlockhash: b32('blockhash'),
+    configPublicKey, vaultPublicKey, claimDomain: b32('domain'), ledgerNamespace: b32('namespace'),
+    amount: '1000000', wireKeyCommitment,
+    receiptPublicKey: deriveNativeSplDepositV1({ config: base58Encode(Buffer.from(configPublicKey, 'hex')), wireKeyCommitment }).endpoint,
+    swapSourcePublicKey: b32('WSOL source'), refundPublicKey: b32('refund'), quotedOutput: '1100000' };
+  const prepared = { genesis: b32('genesis'), intent, unsignedWire: encodeNativeSplClaimUnsignedWireV1(intent),
+    funds: { principalUnit: 'SPL_USDC_BASE_UNIT', feeUnit: 'SOL_LAMPORT', feeLamports: '5000' } };
+  const originalBytes = cloneInput(prepared), counts = { saves: 0, reservations: 0, parserChecks: 0, fences: 0 };
+  const native = { close() {}, genesis: prepared.genesis, transfers: [] };
+  const row = { id: b32('intent'), claimDomain: intent.claimDomain, key: wireKeyCommitment,
+    native: { status: 'ATTEMPT_STARTED', wireSalt: b32('salt'), prepared: null } };
+  const snapshot = { head: { timestamp: '10' } }, authorization = { head: snapshot.head },
+    permit = { authorization: {}, message: { validFrom: '10', validUntil: '40' } }, confirmed = { snapshot };
+  const authorizationStarts = new WeakMap(); authorizationStarts.set(permit.authorization, performance.now());
+  const maps = { originalKeyAuthoritiesV4: new WeakMap(), splIngressSends: new WeakMap() };
+  let bridge, releasePrepared, reservedPrepared;
+  const waitPrepared = holdPrepared ? new Promise(resolve => { releasePrepared = resolve; }) : Promise.resolve();
+  const env = { assert, copy: cloneInput, freeze: frozenInput, claimUint, performance, row, native,
+    selected: () => ({ native }), runtime: { ingressSendState: { busy: false, uncertain: false } },
+    isOwnedSolanaSplCustodyV1: value => spl && value === native,
+    assertOwnedSolanaSplCustodyV1: value => assert.equal(value, native), authorizationStarts, ...maps,
+    live() {}, assertIngressKeeperLive() {},
+    async authorizationView() { return { snapshot, gateway: { intents: [{ id: row.id }] } }; },
+    assertOriginalIntent(value, original) { assert.equal(value, row); assert.equal(original.id, row.id); },
+    quorum: { async authorizeIngress(request) {
+      assert.equal(request.prepared, prepared); assert.equal(request.claimDomain, row.claimDomain);
+      assert.equal(request.intentId, row.id); assert.equal(request.wireSalt, row.native.wireSalt); return authorization;
+    } },
+    async saveRow(collection, value) { assert.equal(collection, 'deposits'); assert.equal(value, row); counts.saves++; },
+    async assertAuthorizationSnapshot(value, head) { assert.equal(value, snapshot); assert.equal(head, authorization.head); },
+    adapter: { async assertPrepared(value) { assert.equal(value, prepared); assert.deepEqual(value, originalBytes); await waitPrepared; } },
+    observer: { async assertCurrent(value) { assert.equal(value, snapshot); },
+      async assertUnrevoked(value, head) { assert.equal(value.claimDomain, row.claimDomain); assert.equal(head, snapshot); },
+      async readReservation() { return { consumed: false }; } },
+    assertCanonicalClaimReservation(binding, value) { assert.equal(binding, row.native.binding); return value; },
+    otherNativeStateFence(value) { assert.equal(value, native); return () => { counts.fences++; }; },
+    async reserveNative(value, collection, currentPrepared, signed) {
+      counts.reservations++; assert.equal(value, row); assert.equal(collection, 'deposits'); reservedPrepared = currentPrepared;
+      if (!spl) return 'LEGACY_INERT_RESERVATION';
+      const parsed = validateNativeSplClaimBindingTransactionV1(signed.nativeWire, currentPrepared.intent); counts.parserChecks++;
+      const record = native.transfers[0]; assert.equal(parsed.transactionSHA256, record.transactionSHA256);
+      assert.equal(parsed.signatureHex, record.nativeId); assert.equal(parsed.amount, originalBytes.intent.amount);
+      row.native.binding = { request: { nativeId: record.nativeId }, nativeWire: record.nativeWire,
+        transactionSHA256: record.transactionSHA256, claimDomain: row.claimDomain, nativeGid: b32('gid'), admissionN: b32('admission') };
+      row.native.status = 'RESERVED_BEFORE_BROADCAST'; return bridge.splIngressSend(row, currentPrepared, permit, confirmed);
+    },
+  };
+  const ingress = source.slice(source.indexOf('    ingress: request => serial('));
+  const locals = cut('      const originalSplIngress =', '      try {', ingress);
+  const callbacks = cut('          async beforeSign(prepared) {', "          ...(native.nonceIngressProfile", ingress);
+  const key = cut('  function splIngressKey(', '  // V1 ingress');
+  const send = cut('  async function splIngressSend(', '  async function serial(');
+  const keyConsumer = cut('export function consumeNativeClaimOriginalKeyAuthorityV4(', '// Only the genuine completed payout closure').replace(/^export /, '');
+  const sendConsumer = cut('export function openNativeSplClaimIngressSendV1(', 'const controllers =').replace(/^export /, '');
+  bridge = vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {\n' +
+    keyConsumer + sendConsumer + key + send + locals + '\nreturn { callbacks: {' + callbacks + '}, splIngressSend,\n' +
+    'consumeKey: consumeNativeClaimOriginalKeyAuthorityV4, openSend: openNativeSplClaimIngressSendV1 };\n})')(env);
+  function signFixture() {
+    const message = Buffer.from(prepared.unsignedWire, 'hex'), signature = sign(null, message, sourceKey.privateKey);
+    const nativeWire = Buffer.concat([Buffer.from([1]), signature, message]).toString('base64');
+    const parsed = validateNativeSplClaimBindingTransactionV1(nativeWire, prepared.intent);
+    const record = { nativeId: parsed.signatureHex, nativeWire, transactionSHA256: parsed.transactionSHA256,
+      route: 'deposit', intent: cloneInput(prepared.intent), phase: 'SIGNED_NOT_BROADCAST', broadcastAttempts: 0, externalSubmissionObserved: false };
+    native.transfers.push(record); return { signed: { nativeWire }, record };
+  }
+  async function beforeSign() {
+    const token = await bridge.callbacks.beforeSign(prepared);
+    if (spl) bridge.consumeKey(token, 'ingress', native.close, native.genesis, 'deposit', prepared);
+    assert.notEqual(row.native.prepared, prepared); assert.deepEqual(row.native.prepared, originalBytes); return token;
+  }
+  return { ...bridge, row, native, prepared, counts, beforeSign, signFixture, releasePrepared: () => releasePrepared?.(),
+    reservedPrepared: () => reservedPrepared };
+}
+
+async function originalSplControllerSource() {
+  // The two fixed layouts are canonical source and its original flat translator.
+  const canonical = new URL('../../../src/claims/controller/controller.mjs', import.meta.url);
+  const translated = new URL('./controller.mjs', import.meta.url);
+  return readFile(existsSync(translated) ? translated : canonical, 'utf8');
+}
+
+test('original SPL ingress callbacks preserve prepared identity through signed reservation and burn copied send tokens', async () => {
+  const source = await originalSplControllerSource(), f = originalSplIngressCallbacksFixture(source);
+  await f.beforeSign(); const { signed, record } = f.signFixture(), token = await f.callbacks.onSigned(signed);
+  assert.equal(f.reservedPrepared(), f.prepared); assert.equal(f.counts.reservations, 1); assert.equal(f.counts.parserChecks, 1);
+  const authority = f.openSend(token, f.native, f.prepared, record);
+  assert.throws(() => f.openSend(token, f.native, f.prepared, record), /CLAIM_SPL_ORIGINAL_INGRESS_SEND_REQUIRED/);
+  record.phase = 'BROADCAST_UNKNOWN'; record.broadcastAttempts = 1;
+  await authority.beforeSend(f.prepared); authority.assertBeforeSend(f.prepared);
+  assert.throws(() => authority.assertBeforeSend(f.prepared)); assert.equal(f.counts.fences, 1);
+  await assert.rejects(f.callbacks.onSigned(signed), /CLAIM_SPL_INGRESS_SIGNED_ONCE/);
+  assert.equal(f.counts.reservations, 1);
+  const copied = originalSplIngressCallbacksFixture(source); await copied.beforeSign(); const c = copied.signFixture();
+  const copyToken = await copied.callbacks.onSigned(c.signed);
+  assert.throws(() => copied.openSend(copyToken, copied.native, cloneInput(copied.prepared), c.record));
+  assert.throws(() => copied.openSend(copyToken, copied.native, copied.prepared, c.record), /CLAIM_SPL_ORIGINAL_INGRESS_SEND_REQUIRED/);
+  assert.equal(c.record.broadcastAttempts, 0);
+});
+
+test('original SPL ingress rejects changed stored bytes and repeated or early callbacks while legacy keeps its stored preparation', async () => {
+  const source = await originalSplControllerSource();
+  for (const changed of ['stored', 'original']) {
+    const f = originalSplIngressCallbacksFixture(source); await f.beforeSign(); const { signed, record } = f.signFixture();
+    (changed === 'stored' ? f.row.native.prepared : f.prepared).intent.amount = '999999';
+    await assert.rejects(f.callbacks.onSigned(signed));
+    await assert.rejects(f.callbacks.onSigned(signed), /CLAIM_SPL_INGRESS_SIGNED_ONCE/);
+    assert.equal(f.counts.reservations, 0); assert.equal(record.broadcastAttempts, 0);
+  }
+  const early = originalSplIngressCallbacksFixture(source, { holdPrepared: true });
+  const pending = early.callbacks.beforeSign(early.prepared);
+  await assert.rejects(early.callbacks.beforeSign(cloneInput(early.prepared)), /CLAIM_SPL_INGRESS_PREPARATION_ONCE/);
+  await assert.rejects(early.callbacks.onSigned({}), /CLAIM_SPL_INGRESS_PREPARATION_REQUIRED/);
+  early.releasePrepared(); await pending;
+  await assert.rejects(early.callbacks.onSigned({}), /CLAIM_SPL_INGRESS_SIGNED_ONCE/);
+  assert.equal(early.counts.reservations, 0); assert.equal(early.native.transfers.length, 0);
+  const parallel = originalSplIngressCallbacksFixture(source); await parallel.beforeSign(); const p = parallel.signFixture();
+  const results = await Promise.allSettled([parallel.callbacks.onSigned(p.signed), parallel.callbacks.onSigned(p.signed)]);
+  assert.deepEqual(results.map(value => value.status), ['fulfilled', 'rejected']); assert.equal(parallel.counts.reservations, 1);
+  assert.equal(p.record.broadcastAttempts, 0);
+  const wrongPath = originalSplIngressCallbacksFixture(source); wrongPath.prepared.intent.wireKeyCommitment = hash('another intent');
+  await assert.rejects(wrongPath.callbacks.beforeSign(wrongPath.prepared));
+  await assert.rejects(wrongPath.callbacks.beforeSign(wrongPath.prepared), /CLAIM_SPL_INGRESS_PREPARATION_ONCE/);
+  assert.equal(wrongPath.counts.saves, 0); assert.equal(wrongPath.counts.reservations, 0);
+  const legacy = originalSplIngressCallbacksFixture(source, { spl: false }); await legacy.beforeSign();
+  const l = legacy.signFixture(); assert.equal(await legacy.callbacks.onSigned(l.signed), 'LEGACY_INERT_RESERVATION');
+  assert.equal(legacy.reservedPrepared(), legacy.row.native.prepared); assert.notEqual(legacy.reservedPrepared(), legacy.prepared);
+  assert.equal(legacy.counts.reservations, 1); assert.equal(l.record.broadcastAttempts, 0);
 });
