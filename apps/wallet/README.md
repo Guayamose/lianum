@@ -12,6 +12,8 @@ Empieza por [app.mjs](src/client/app.mjs) para la interfaz o por
 cuentas, cartera, DeFi, reclamaciones y retiradas están en
 [src/client/features](src/client/features/).
 
+El recorrido de Uniswap y MetaMorpho está en la [guía de uso](docs/DEFI-USAGE.md).
+
 Desde la raíz del proyecto: `npm run dev`. `./dev test` ejecuta la selección
 verificada de pruebas del host. Las pruebas restantes en `tests/` incluyen
 recorridos históricos con dependencias o laboratorios propios.
