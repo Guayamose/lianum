@@ -18,6 +18,18 @@ export function createPrivateWalletStateV1(){
   if(new Set(copy.map(row=>row.key)).size!==copy.length)fail();
   sources.set(key,{rows:copy,check});revision++;
  }
+ function invalidateExternalRoute(raw,rootId){
+   const d=normalizeExternalFlatDescriptorV1(raw);externalFlatHexV1(rootId);
+   if(d.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1)fail();
+   const p=d.poolTerms;
+   for(const [key,source]of sources){
+    const matches=row=>{const r=row.route;return ['DEVICE_NOTE','DEVICE_GRAPH_NOTE','DEVICE_GRAPH_RESERVATION'].includes(r.component)&&r.rootId===rootId&&
+     r.origin===d.origin&&r.pairingId===d.pairingId&&r.lifetime===d.lifetime&&r.pool===p.pool&&
+     r.assetId===p.assetIdentity&&r.genesis===p.genesis&&r.scope===p.scope&&r.policy===p.policy&&r.domain===p.domainCommitment;};
+    if(source.rows.some(matches))sources.set(key,{rows:source.rows.map(row=>matches(row)?freeze(opaqueRow(row,'UNKNOWN')):row),check:source.check});
+   }
+   revision++;
+ }
  return Object.freeze({
   acceptAccount(raw){
    const v=readOriginalPrivateStateObservationV1(raw),b=v.binding,a=v.asset,d=originalPrivateStateObservationDescriptorV1(raw);
@@ -74,6 +86,7 @@ export function createPrivateWalletStateV1(){
    const {readDeviceExternalFlatGraphStatusV1}=await import('../api/device-external-flat-graph-api-v1.mjs');
    if(epoch!==externalGraphEpoch)fail();
    const v=readDeviceExternalFlatGraphStatusV1(raw),d=v.descriptor,p=d.poolTerms;
+   for(const job of v.jobs)if(job.graph.stage!=='SOURCE_CANCELLED')invalidateExternalRoute(d,job.reservation.consentFields.custody.rootId);
    const rows=v.jobs.flatMap(job=>{
     const r=job.reservation,c=r.consentFields,g=job.graph;
     const route={component:'DEVICE_GRAPH_RESERVATION',origin:d.origin,pairingId:d.pairingId,lifetime:d.lifetime,
@@ -89,11 +102,12 @@ export function createPrivateWalletStateV1(){
     const outputs=job.outputs.filter(n=>n.state!=='EMPTY').map(n=>{
      const live=['UNSPENT','SPENT','LOCKED'].includes(n.state),available=n.state==='UNSPENT'?n.available:null;
      return{route:{...route,component:'DEVICE_GRAPH_NOTE',noteRole:n.noteRole,commitment:n.commitment},
-      label:n.noteRole==='change'?'Cambio ERC20':'Recuperación ERC20',decimals:d.assetMetadata.decimals,
+      label:d.assetMetadata.symbol+(n.noteRole==='change'?' · Cambio':' · Recuperación'),decimals:d.assetMetadata.decimals,
       state:live?'LIVE':'UNKNOWN',available,reserved:null,locked:n.state==='LOCKED'?n.amount:null,
       recovery:n.noteRole==='recovery'?available:null,shares:null,valuation:null,
-      noteAmount:n.state==='UNISSUED'?null:n.amount,noteState:n.state,custody:'DEVICE',observed:v.observed,
-      requests:[{requestId:r.jobId,kind:'ERC20_GRAPH',state:g.stage,disposition:g.outcome}]};
+      noteAmount:['UNISSUED','SPENT','UNKNOWN'].includes(n.state)?null:n.amount,noteState:n.state,custody:'DEVICE',observed:v.observed,
+      requests:[{requestId:r.jobId,kind:'ERC20_GRAPH',state:g.stage,disposition:g.outcome},
+       ...v.withdrawals.filter(w=>w.noteRole===n.noteRole&&w.row.consentFields.depositJobId===r.jobId).map(w=>({requestId:w.row.jobId,kind:'ERC20_GRAPH_EXIT',state:w.row.stage,disposition:null}))]};
     });
     return[reservation,...outputs];
    });
@@ -101,18 +115,7 @@ export function createPrivateWalletStateV1(){
    retain(routeKey(['EXTERNAL_GRAPH',d.origin,d.pairingId,d.lifetime,p.pool,p.assetIdentity]),rows,
     ()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
   },
-  invalidateExternal(raw,rootId){
-   const d=normalizeExternalFlatDescriptorV1(raw);externalFlatHexV1(rootId);
-   if(d.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1)fail();
-   const p=d.poolTerms;
-   for(const [key,source]of sources){
-    const matches=row=>{const r=row.route;return ['DEVICE_NOTE','DEVICE_GRAPH_NOTE','DEVICE_GRAPH_RESERVATION'].includes(r.component)&&r.rootId===rootId&&
-     r.origin===d.origin&&r.pairingId===d.pairingId&&r.lifetime===d.lifetime&&r.pool===p.pool&&
-     r.assetId===p.assetIdentity&&r.genesis===p.genesis&&r.scope===p.scope&&r.policy===p.policy&&r.domain===p.domainCommitment;};
-    if(source.rows.some(matches))sources.set(key,{rows:source.rows.map(row=>matches(row)?freeze(opaqueRow(row,'UNKNOWN')):row),check:source.check});
-   }
-   revision++;
-  },
+  invalidateExternal(raw,rootId){invalidateExternalRoute(raw,rootId);},
   async acceptNative(raw){
    // Lazy loading keeps unrelated account/DeFi reads independent of native
    // custody. The getter rejects DTOs and cloned local projections.

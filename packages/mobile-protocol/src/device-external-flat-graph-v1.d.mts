@@ -13,3 +13,13 @@ export function validateExternalFlatGraphFreshV1(raw:unknown,now?:number):Extern
 export function externalFlatGraphPermissionMessageV1(raw:unknown):Uint8Array;
 export {normalizeExternalFlatAccessV1,normalizeExternalFlatSignatureV1} from './device-external-flat-note-v1.mjs';
 export {normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,wipeDeviceReservationWitnessV1} from './device-reservation-consent-v1.mjs';
+
+export const DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1:'DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_W39_V1';
+export type ExternalFlatGraphOutputRole='change'|'recovery';
+export type ExternalFlatGraphOutputDraft=Readonly<{profile:string;noteRole:ExternalFlatGraphOutputRole;draft:import('./device-external-flat-note-v1.mjs').ExternalFlatDraft}>;
+export type ExternalFlatGraphOutputConsent=Readonly<{profile:string;noteRole:ExternalFlatGraphOutputRole;consent:import('./device-external-flat-note-v1.mjs').ExternalFlatConsent}>;
+export function normalizeExternalFlatGraphOutputDraftV1(raw:unknown):ExternalFlatGraphOutputDraft;
+export function normalizeExternalFlatGraphOutputConsentV1(raw:unknown):ExternalFlatGraphOutputConsent;
+export function validateExternalFlatGraphOutputFreshV1(raw:unknown,now?:number):ExternalFlatGraphOutputConsent;
+export function externalFlatGraphOutputPermissionMessageV1(raw:unknown):Uint8Array;
+export function normalizeExternalFlatGraphOutputRowV1(raw:unknown):any;

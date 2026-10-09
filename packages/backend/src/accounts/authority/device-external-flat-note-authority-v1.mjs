@@ -1,3 +1,4 @@
+import {consumeOriginalDeviceExternalFlatGraphOutputSendV1} from './device-external-flat-source-graph-v1.mjs';
 /** Original DeviceExternalFlat: one device D26 source and its direct W39.
  * The original pool observer supplies authority; HTTP data cannot install one.
  * A durable send latch is irreversible. A lost response permits only the same
@@ -53,7 +54,7 @@ export async function releaseOriginalDeviceExternalFlatSourceGraphV1(account,bri
  need(arguments.length===3);const s=owned.get(account);need(s&&!s.share,'DEVICE_EXTERNAL_FLAT_SOURCE_REQUIRED');s.live();return s.releaseGraph(bridge,input);
 }
 
-export function consumeOriginalDeviceExternalFlatSendV1(request,runtime){need(arguments.length===2);const r=sends.get(request);need(r&&r.runtime===runtime&&!r.opened,'DEVICE_EXTERNAL_FLAT_ORIGINAL_SEND');r.check();r.opened=true;return r.scope;}
+export function consumeOriginalDeviceExternalFlatSendV1(request,runtime){need(arguments.length===2);const r=sends.get(request);if(!r)return consumeOriginalDeviceExternalFlatGraphOutputSendV1(request,runtime);need(r&&r.runtime===runtime&&!r.opened,'DEVICE_EXTERNAL_FLAT_ORIGINAL_SEND');r.check();r.opened=true;return r.scope;}
 export function readOriginalDeviceExternalFlatProofReceiptsV1(account){need(arguments.length===1);const r=owned.get(account);need(r);r.live();return r.proofs.map(v=>copy(v));}
 export async function createOriginalDeviceExternalFlatNoteAuthorityV1(raw){need(arguments.length===1);return createAuthority(raw,null,null);}
 /** Separate device-owned destination opening. Only the original router reader

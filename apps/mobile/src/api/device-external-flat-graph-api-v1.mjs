@@ -1,10 +1,11 @@
+import * as Note from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 /** Original device-source U/S + GRAPH TLS frames. Handles are minted only by
  * this fixed transport. Copies, expired quotes and closed sessions are denied. */
 import * as Crypto from 'expo-crypto';
 import * as P from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {normalizeExternalFlatDescriptorV1,externalFlatExactV1,externalFlatPermissionMessageV1,validateExternalFlatFreshV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {sha256} from '@noble/hashes/sha2.js';
-const rows=new WeakMap(),quotes=new WeakMap(),statuses=new WeakMap();
+const rows=new WeakMap(),quotes=new WeakMap(),statuses=new WeakMap(),outputQuotes=new WeakMap(),outputRows=new WeakMap();
 const fail=()=>{throw Error('MOBILE_EXTERNAL_GRAPH_RESPONSE_REJECTED');};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function snapshot(raw) {
@@ -42,7 +43,7 @@ function freshStatus(value) {
 
 export function createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl=globalThis.fetch}={}){
  const original=normalizeExternalFlatDescriptorV1(descriptor);if(original.profile!=='LIANUM_DEVICE_EXTERNAL_FLAT_SOURCE_NOTE_V1'||typeof fetchImpl!=='function')fail();
- let closed=false;const accesses=new WeakMap(),consents=new WeakMap(),controllers=new Set();
+ let closed=false;const accesses=new WeakMap(),consents=new WeakMap(),outputConsents=new WeakMap(),controllers=new Set();
  function live(){if(closed)fail();}
  function accessScope(v){live();validateExternalFlatFreshV1(v);for(const k of ['origin','pairingId','devicePublicKey'])if(v[k]!==original[k])fail();}
  function consentScope(v,fresh=true){live();if(!same(v.descriptor,original))fail();if(fresh)P.validateExternalFlatGraphFreshV1(v);}
@@ -96,6 +97,10 @@ export function createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl=globalT
    for(const path of [observed.changePath,observed.reservePath]){let root=path.leaf,index=path.index;for(const sibling of path.siblings){const frame=new Uint8Array(65);frame[0]=1;frame.set(Uint8Array.from((index&1?sibling+root:root+sibling).match(/../g),p=>parseInt(p,16)),1);try{root=Array.from(sha256(frame),x=>x.toString(16).padStart(2,'0')).join('');}finally{frame.fill(0);}index>>=1;}if(root!==path.root)fail();}}
   rows.set(v,{live,descriptor:original,status});return v;
  }
+ function outputScope(c,fresh=true){live();if(!same(c.consent.descriptor,original))fail();if(fresh)P.validateExternalFlatGraphOutputFreshV1(c);}
+ function verifyOutputPath(path){let root=path.leaf,index=path.index;for(const sibling of path.siblings){const frame=new Uint8Array(65);frame[0]=1;frame.set(Uint8Array.from((index&1?sibling+root:root+sibling).match(/../g),p=>parseInt(p,16)),1);try{root=Array.from(sha256(frame),x=>x.toString(16).padStart(2,'0')).join('');}finally{frame.fill(0);}index>>=1;}if(root!==path.root)fail();}
+ function outputRow(raw,consent=null,status=null){live();const v=P.normalizeExternalFlatGraphOutputRowV1(raw),r=v.row,c=r.consentFields;if(!same(r.descriptor,original))fail();verifyOutputPath(c.path);if(consent){if(consent.noteRole!==v.noteRole)fail();for(const k of ['jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256'])if(!same(c[k],consent.consent[k]))fail();if(consent.consent.action!=='PROVE_W39')for(const k of ['proofSHA256','publicInputsSHA256'])if(c[k]!==consent.consent[k])fail();}
+ if(r.observation!==null){const o=r.observation;if(BigInt(o.observed.timestamp)<BigInt(consent?.consent.observed.timestamp??'0')||BigInt(o.observed.blockNumber)<BigInt(consent?.consent.observed.blockNumber??'0'))fail();}outputRows.set(v,{live,descriptor:original,status});return v;}
  return Object.freeze({descriptor:original,
   async challenge(){if(arguments.length!==0)fail();const v=P.normalizeExternalFlatAccessV1(await post('challenges',{}));accessScope(v);accesses.set(v,{used:false});return v;},
   async preparation(access,signature,rawTerms){if(arguments.length!==3)fail();const e=accesses.get(access);if(!e||e.used)fail();accessScope(access);signature=P.normalizeExternalFlatSignatureV1(signature);
@@ -108,8 +113,11 @@ export function createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl=globalT
    try{if(consent.draft.action==='PROVE_U'){witness=P.normalizeDeviceReservationWitnessV1(rawWitness);bytes=P.deviceReservationWitnessBytesV1(witness);if(await digest(bytes)!==consent.draft.witnessSHA256)fail();}else if(rawWitness!==null)fail();
     consentScope(consent);e.used=true;const v=await post('operations',{consent,signature,witness},['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(consent.draft.action));live();return row(v,consent);
    }finally{bytes?.fill(0);P.wipeDeviceReservationWitnessV1(witness);}},
+  async outputQuote(access,signature,rawInput){if(arguments.length!==3)fail();const e=accesses.get(access);if(!e||e.used)fail();accessScope(access);signature=P.normalizeExternalFlatSignatureV1(signature);const input=externalFlatExactV1(snapshot(rawInput),['noteRole','recipient']);if(!['change','recovery'].includes(input.noteRole))fail();Note.externalFlatHexV1(input.recipient,40);e.used=true;const c=P.normalizeExternalFlatGraphOutputConsentV1(await post('output-quotes',{access,signature,input}));outputScope(c);if(c.noteRole!==input.noteRole||c.consent.recipient!==input.recipient||c.consent.action!=='QUOTE_W39')fail();verifyOutputPath(c.consent.path);outputQuotes.set(c,{live,descriptor:original});return c;},
+  async outputReview(access,signature,rawDraft){if(arguments.length!==3)fail();const e=accesses.get(access);if(!e||e.used)fail();accessScope(access);signature=P.normalizeExternalFlatSignatureV1(signature);const draft=P.normalizeExternalFlatGraphOutputDraftV1(snapshot(rawDraft));e.used=true;const c=P.normalizeExternalFlatGraphOutputConsentV1(await post('output-reviews',{access,signature,draft}));outputScope(c);if(c.noteRole!==draft.noteRole)fail();for(const k of Object.keys(draft.draft))if(!same(c.consent[k],draft.draft[k]))fail();verifyOutputPath(c.consent.path);outputConsents.set(c,{used:false});return c;},
+  async outputSubmit(consent,signature,rawWitness=null){if(arguments.length!==3)fail();const e=outputConsents.get(consent);if(!e||e.used)fail();outputScope(consent);signature=P.normalizeExternalFlatSignatureV1(signature);let witness=null,bytes;try{if(consent.consent.action==='PROVE_W39'){witness=Note.externalFlatWitnessV1('withdraw_balance',rawWitness);bytes=Note.externalFlatWitnessBytesV1('withdraw_balance',witness);if(await digest(bytes)!==consent.consent.witnessSHA256)fail();}else if(rawWitness!==null)fail();outputScope(consent);e.used=true;return outputRow(await post('output-operations',{consent,signature,witness},consent.consent.action==='PROVE_W39'),consent);}finally{bytes?.fill(0);Note.externalFlatWipeV1(witness);}},
   async status(access,signature){if(arguments.length!==2)fail();const e=accesses.get(access);if(!e||e.used)fail();accessScope(access);signature=P.normalizeExternalFlatSignatureV1(signature);e.used=true;
-   const parsed=P.normalizeExternalFlatGraphStatusV1(await post('status',{access,signature}));live();if(!same(parsed.descriptor,original))fail();freshStatus(parsed);const v=Object.freeze({...parsed,jobs:Object.freeze(parsed.jobs.map(r=>row(r,null,parsed)))});statuses.set(v,{live,descriptor:original});return v;},
+   const parsed=P.normalizeExternalFlatGraphStatusV1(await post('status',{access,signature}));live();if(!same(parsed.descriptor,original))fail();freshStatus(parsed);const v=Object.freeze({...parsed,jobs:Object.freeze(parsed.jobs.map(r=>row(r,null,parsed))),withdrawals:Object.freeze(parsed.withdrawals.map(r=>outputRow(r,null,parsed)))});statuses.set(v,{live,descriptor:original});return v;},
   close(){if(arguments.length!==0)fail();closed=true;for(const c of controllers)c.abort();return{closed:true};}
  });
 }
@@ -117,3 +125,6 @@ function freshQuote(v){const now=Date.now();if(!Number.isSafeInteger(now)||v.quo
 export function readDeviceExternalFlatGraphQuoteV1(v){const r=quotes.get(v);if(!r)fail();r.live();freshQuote(v);return v;}
 export function readDeviceExternalFlatGraphRowV1(v){const r=rows.get(v);if(!r)fail();r.live();if(r.status)freshStatus(r.status);return v;}
 export function readDeviceExternalFlatGraphStatusV1(v){const r=statuses.get(v);if(!r)fail();r.live();freshStatus(v);return v;}
+
+export function readDeviceExternalFlatGraphOutputQuoteV1(v){const r=outputQuotes.get(v);if(!r)fail();r.live();P.validateExternalFlatGraphOutputFreshV1(v);return v;}
+export function readDeviceExternalFlatGraphOutputRowV1(v){const r=outputRows.get(v);if(!r)fail();r.live();if(r.status)freshStatus(r.status);return v;}

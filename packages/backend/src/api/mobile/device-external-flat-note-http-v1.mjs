@@ -131,7 +131,7 @@ export async function createOriginalDeviceExternalFlatTlsServerV1(input){
   const work=(async()=>{if(closed)fail();current();if(request.socket.encrypted!==true||request.headers.host!==origin.host||request.headers.origin!==descriptor.origin||request.method!=='POST'||!Object.hasOwn(routes,request.url))fail();
    phase={challenge:'CHALLENGE',review:'REVIEW',operate:'OPERATE',status:'STATUS'}[routes[request.url]];
    const value=requestBody=await body(request);if(closed)fail();
-   const declared=routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
+   const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
    // Permission admission remains15s. Only waiting for the SAME original
    // finite worker result uses its unchanged900000ms operation bound.
    if(routes[request.url]==='operate'&&['PROVE_D26','PROVE_D27','PROVE_W39'].includes(value?.consent?.action))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);
@@ -168,17 +168,18 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
  const routes=Object.freeze({'/v1/mobile/external-flat/challenges':'challenge','/v1/mobile/external-flat/reviews':'review','/v1/mobile/external-flat/operations':'operate','/v1/mobile/external-flat/status':'status',
  '/v1/mobile/external-flat-share/challenges':'challenge','/v1/mobile/external-flat-share/reviews':'review','/v1/mobile/external-flat-share/operations':'operate','/v1/mobile/external-flat-share/status':'status',
- '/v1/mobile/external-flat/source-graph/challenges':'challenge','/v1/mobile/external-flat/source-graph/preparations':'preparation','/v1/mobile/external-flat/source-graph/reviews':'review','/v1/mobile/external-flat/source-graph/operations':'operate','/v1/mobile/external-flat/source-graph/status':'status'});
+ '/v1/mobile/external-flat/source-graph/challenges':'challenge','/v1/mobile/external-flat/source-graph/preparations':'preparation','/v1/mobile/external-flat/source-graph/reviews':'review','/v1/mobile/external-flat/source-graph/operations':'operate','/v1/mobile/external-flat/source-graph/status':'status','/v1/mobile/external-flat/source-graph/output-quotes':'outputQuote','/v1/mobile/external-flat/source-graph/output-reviews':'outputReview','/v1/mobile/external-flat/source-graph/output-operations':'outputOperate'});
  listeners.add(reader);listeners.add(target);diagnosticSlots.set(reader,{latest:null});
  try{server=createServer({cert:input.tls.certificate,key:privateKey,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
   let resetResponseTimeout,requestBody,phase='REQUEST',action=null;
   const work=(async()=>{if(closed)fail();current();if(request.socket.encrypted!==true||request.headers.host!==origin.host||request.headers.origin!==descriptor.origin||request.method!=='POST'||!Object.hasOwn(routes,request.url))fail();
    const graph=request.url.startsWith('/v1/mobile/external-flat/source-graph/'),selected=graph?workspace:request.url.startsWith('/v1/mobile/external-flat-share/')?target:reader;
-   phase={challenge:'CHALLENGE',preparation:'REVIEW',review:'REVIEW',operate:'OPERATE',status:'STATUS'}[routes[request.url]];
+   phase={challenge:'CHALLENGE',preparation:'REVIEW',review:'REVIEW',operate:'OPERATE',status:'STATUS',outputQuote:'REVIEW',outputReview:'REVIEW',outputOperate:'OPERATE'}[routes[request.url]];
    const value=requestBody=await body(request,graph?65536:MAX_BODY);if(closed)fail();
-   const declared=routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
+   const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
    // Permission admission remains15s. Only waiting for the SAME original
    // finite worker result uses its unchanged900000ms operation bound.
+   if(routes[request.url]==='outputOperate'&&value?.consent?.consent?.action==='PROVE_W39')resetResponseTimeout(900000);
    if(routes[request.url]==='operate'&&(!graph&&['PROVE_D26','PROVE_D27','PROVE_W39'].includes(value?.consent?.action)||graph&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(value?.consent?.draft?.action)))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);assertOriginalDeviceExternalFlatNoteAuthorityV1(target);assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});
    if(routes[request.url]==='challenge'){exact(value,[]);return selected.challenge();}return selected[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(()=>externalFlatWipeV1(requestBody?.witness));
   running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;

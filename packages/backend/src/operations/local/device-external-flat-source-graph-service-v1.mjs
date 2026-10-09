@@ -78,6 +78,9 @@ export async function createOriginalDeviceExternalFlatSourceGraphServiceV1(input
   preparation(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.preparation(raw);},
   review(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.review(raw);},
   operate(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.operate(raw);},
+  outputQuote(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.outputQuote(raw);},
+  outputReview(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.outputReview(raw);},
+  outputOperate(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.outputOperate(raw);},
   status(raw){assert.equal(arguments.length,1);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.status(raw);},
   close(){assert.equal(arguments.length,0);if(closeWork)return closeWork;closing=true;return closeWork=(async()=>{let first;const drain=async fn=>{try{await fn();}catch(e){first??=e;}};
    await drain(async()=>{if(s.bridge)await s.bridge.close();});await drain(async()=>{if(execution)await execution.close();});

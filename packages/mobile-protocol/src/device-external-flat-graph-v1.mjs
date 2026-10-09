@@ -1,3 +1,5 @@
+import * as Note from './device-external-flat-note-v1.mjs';
+import {normalizeDeviceExitStatementV1} from './device-exit-consent-v1.mjs';
 /** Device-signed U/S and GRAPH transport. These frames never grant an original
  * account, provider, runtime or proof capability. No signing key is a field. */
 import {externalFlatExactV1 as exact,externalFlatHexV1 as hex,externalFlatUintV1 as uint,normalizeExternalFlatDescriptorV1,
@@ -88,11 +90,25 @@ export function normalizeExternalFlatGraphRowV1(raw){
  return freeze(v);
 }
 export function normalizeExternalFlatGraphStatusV1(raw){
- const v=exact(raw,['profile','descriptor','jobs','observed','observedAt','expiresAt']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_V1);
+ const hasWithdrawals=Object.hasOwn(raw,'withdrawals');const v=exact(raw,['profile','descriptor','jobs','observed','observedAt','expiresAt',...(hasWithdrawals?['withdrawals']:[])]);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_V1);
  v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);v.observed=normalizeExternalFlatObservedV1(v.observed);integer(v.observedAt);integer(v.expiresAt);need(v.expiresAt===v.observedAt+15000);
  need(Array.isArray(v.jobs)&&Object.getPrototypeOf(v.jobs)===Array.prototype&&v.jobs.length<=1&&Reflect.ownKeys(v.jobs).length===v.jobs.length+1);
  v.jobs=Array.from({length:v.jobs.length},(_,i)=>{const p=Object.getOwnPropertyDescriptor(v.jobs,String(i));need(p?.enumerable&&Object.hasOwn(p,'value'));
-  const r=normalizeExternalFlatGraphRowV1(p.value);need(same(r.descriptor,v.descriptor));return r;});return freeze(v);
+  const r=normalizeExternalFlatGraphRowV1(p.value);need(same(r.descriptor,v.descriptor));return r;});v.withdrawals=hasWithdrawals?normalizeOutputRows(v.withdrawals,v):[];return freeze(v);
 }
 export {normalizeExternalFlatAccessV1,normalizeExternalFlatSignatureV1,normalizeDeviceReservationWitnessV1,
  deviceReservationWitnessBytesV1,wipeDeviceReservationWitnessV1};
+
+export const DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1='DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_W39_V1';
+const outputRole=v=>{need(v==='change'||v==='recovery');return v;};
+export function normalizeExternalFlatGraphOutputDraftV1(raw){
+ const v=exact(raw,['profile','noteRole','draft']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1);outputRole(v.noteRole);
+ const d=v.draft=exact(v.draft,['action','jobId','rootId','noteRevision','recipient','statement','path','witnessSHA256']);
+ need(['PROVE_W39','WITHDRAW_W39','OBSERVE_W39'].includes(d.action));['jobId','rootId','witnessSHA256'].forEach(k=>nonzero(d[k]));need(d.noteRevision===1);hex(d.recipient,40);need(d.recipient!=='0'.repeat(40));
+ d.statement=normalizeDeviceExitStatementV1(d.statement);d.path=Note.normalizeExternalFlatPathV1(d.path);need(d.statement.recipient===d.recipient&&d.path.root===d.statement.root&&d.path.leaf===d.statement.commitment);return freeze(v);
+}
+export function normalizeExternalFlatGraphOutputConsentV1(raw){const v=exact(raw,['profile','noteRole','consent']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1);outputRole(v.noteRole);v.consent=Note.normalizeExternalFlatConsentV1(v.consent);need(v.consent.descriptor.profile===Note.DEVICE_EXTERNAL_FLAT_NOTE_V1&&['QUOTE_W39','PROVE_W39','WITHDRAW_W39','OBSERVE_W39'].includes(v.consent.action)&&v.consent.noteRevision===1);return freeze(v);}
+export function validateExternalFlatGraphOutputFreshV1(raw,now=Date.now()){const v=normalizeExternalFlatGraphOutputConsentV1(raw);Note.validateExternalFlatFreshV1(v.consent,now);return v;}
+export function externalFlatGraphOutputPermissionMessageV1(raw){const v=normalizeExternalFlatGraphOutputConsentV1(raw),tag=new TextEncoder().encode('LIANUM/device-external-flat-graph-output/1/full-consent-sha256'),body=new TextEncoder().encode(permissionCanonicalV1(v));need(body.length<=8192);let digest;try{digest=sha256(body);const bytes=new Uint8Array(8+tag.length+32),view=new DataView(bytes.buffer);view.setUint32(0,tag.length,false);bytes.set(tag,4);view.setUint32(4+tag.length,32,false);bytes.set(digest,8+tag.length);return bytes;}finally{body.fill(0);digest?.fill(0);}}
+export function normalizeExternalFlatGraphOutputRowV1(raw){const v=exact(raw,['profile','noteRole','row']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1);outputRole(v.noteRole);v.row=Note.normalizeExternalFlatRowV1(v.row);need(v.row.mode==='withdraw_balance'&&v.row.profile===Note.DEVICE_EXTERNAL_FLAT_NOTE_V1&&v.row.consentFields.noteRevision===1);return freeze(v);}
+function normalizeOutputRows(raw,status){need(Array.isArray(raw)&&Object.getPrototypeOf(raw)===Array.prototype&&raw.length<=2&&Reflect.ownKeys(raw).length===raw.length+1);const out=Array.from({length:raw.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(raw,String(i));need(d?.enumerable&&Object.hasOwn(d,'value'));const v=normalizeExternalFlatGraphOutputRowV1(d.value),g=status.jobs[0];need(g&&same(v.row.descriptor,status.descriptor)&&v.row.consentFields.depositJobId===g.reservation.jobId&&v.row.consentFields.rootId===g.reservation.consentFields.custody.rootId&&v.row.consentFields.statement.commitment===g.reservation.statement[v.noteRole+'Commitment']);return v;});need(new Set(out.map(v=>v.noteRole)).size===out.length&&new Set(out.map(v=>v.row.jobId)).size===out.length);return out;}
