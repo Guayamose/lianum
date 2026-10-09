@@ -324,7 +324,8 @@ try {
       'packages/mobile-protocol/src/device-defi-position-read-v1.mjs',
       'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs');
     report.embeddedSourceJoins=required.map(path=>{
-      const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length):path;
+      const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length)
+        :path.startsWith('apps/wallet/')?path.slice('apps/'.length):path;
       const matches=sourceMap.sources.map((name,index)=>({name:name.replaceAll('\\','/'),index}))
         .filter(({name})=>name===path||name.endsWith('/'+path)||name===suffix||name.endsWith('/'+suffix));
       assert.equal(matches.length,1,'MOBILE_BUILD_ONE_ORIGINAL_SOURCE_IN_BUNDLE');
