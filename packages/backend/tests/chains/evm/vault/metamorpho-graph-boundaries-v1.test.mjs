@@ -2,9 +2,10 @@
  * acceptance. The fresh original graph flow still requires real acceptance. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   evmGraphDeliveryTermsV1, evmGraphDeliveryDescriptorCommitmentV1,
-  encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1 }
+  encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 }
   from '../../../../src/chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
 import { encodePrivateExternalDelivery } from '../../../../src/defi/delivery/private-external-delivery.mjs';
 import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment }
@@ -12,7 +13,7 @@ import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment }
 import { assertOwnedEvmGraphDeliveryObserverV1, assertOwnedEvmGraphDeliveryFactsV1,
   assertOwnedEvmGraphDeliveryDescriptorV1 } from '../../../../src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
 import { prepareOwnedMetaMorphoGraphDescriptorV1, assertOwnedMetaMorphoGraphDeliveryFactsV1,
-  prepareOwnedUniswapGraphDescriptorV1, assertOwnedUniswapGraphDeliveryFactsV1 }
+  prepareOwnedUniswapGraphDescriptorV1, assertOwnedUniswapGraphDeliveryFactsV1, readOriginalEvmGraphDeliveryEconomicFactsV1 }
   from '../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 
 import { validateOwnerGraphReview, canonicalOwnerGraphTerms, ownerFlatDeFiEconomicAllocationV1 } from '../../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
@@ -167,4 +168,50 @@ test('Uniswap owner consent distinguishes input cap and private output; copied o
   const fabricated = Object.freeze({ status: 'observed', intent: { descriptor, receiptKeyCommitment: h(13), proof: 'deadbeef' } });
   assert.throws(() => assertOwnedEvmGraphDeliveryFactsV1(fabricated, { observer }));
   assert.throws(() => assertOwnedUniswapGraphDeliveryFactsV1(fabricated, { observer }));
+  assert.throws(() => readOriginalEvmGraphDeliveryEconomicFactsV1(fabricated, observer), /ORIGINAL_ECONOMIC_FACTS/);
+});
+
+test('original delivery economics conserve token debit, native gas and output backing without inventing a net loss or fee', async () => {
+  const trace = { descriptor: uniswap(), transactionHash: h(40), blockHash: h(41), observedHeadHash: h(42),
+    solverInputBefore: '5000', solverInputAfter: '3300', inputSpent: '1700', outputDelivered: '1000',
+    gasUsed: '21000', gasPrice: '1000000000', nativeBalanceBefore: '1000000000000000000', nativeBalanceAfter: '999979000000000000',
+    targetBacking: { held: '1100', liabilities: '1000', surplus: '100' } };
+  const result = inspectEvmGraphDeliveryEconomicsV1(trace);
+  assert.equal(result.status, 'OBSERVED'); assert.equal(result.actualInputSpentAtomic, '1700'); assert.equal(result.unusedMaximumInputAtomic, '300');
+  assert.equal(result.nativeGasCostWei, '21000000000000'); assert.equal(result.deliveredOutputAtomic, '1000');
+  assert.equal(result.protocolFeeRateMillionths, '3000'); assert.equal(result.protocolFeeSeparatelyValuedAtomic, null);
+  assert.equal(result.protocolFeeAddedToInputSpent, false); assert.equal(result.netSolverWealthLossEstablished, false);
+  assert.equal(result.outputsValuedAsSourceAtomic, false); assert.equal(result.futureSolvencyEstablished, false);
+  for (const mutate of [t => t.solverInputAfter = '3301', t => t.inputSpent = '2001', t => t.nativeBalanceAfter = '999978999999999999',
+    t => t.outputDelivered = '999', t => t.targetBacking.held = '999', t => t.targetBacking.surplus = '101',
+    t => t.inputSpent = '01700', t => t.netSolverWealthLossEstablished = true]) {
+    const changed = structuredClone(trace); mutate(changed); assert.throws(() => inspectEvmGraphDeliveryEconomicsV1(changed));
+  }
+  assert.ok(Object.isFrozen(result) && Object.isFrozen(result.targetBacking));
+  // Actual observer tail; fixed inert RPC ports prove that a missing optional
+  // cost read does not hide or replace any original financial guard.
+  const observerURL = import.meta.url.includes('/modules/chain-adapters/')
+    ? new URL('./metamorpho-graph-delivery-observer-v1.mjs', import.meta.url)
+    : new URL('../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs', import.meta.url);
+  const source = await readFile(observerURL, 'utf8'), from = source.indexOf('    // Financial inclusion remains subject to the original guards below.');
+  assert.ok(from > 0); const to = source.indexOf('\n  }\n  observer =', from); assert.ok(to > from);
+  const ports = ['assert','bare','quantity','detached','inspectEvmGraphDeliveryEconomicsV1','query','descriptor','runtime','sourceReader','targetReader',
+    'wire','receipt','arrival','spent','amount','row','current','context','intent','header','beforeSource','afterSource'];
+  const tail = new Function(...ports, 'return (async()=>{' + source.slice(from, to) + '})();');
+  const checks = [], runtime = { async balance(){ throw Error('HOST_COST_RPC_UNAVAILABLE'); },
+    async checkReceipt(){ checks.push('receipt'); } }, sourceReader = { async assertCanonical(){ checks.push('source'); } },
+    targetReader = { async assertCurrent(){ checks.push('current'); } };
+  const call = () => tail(assert,value=>value.slice(2),value=>BigInt(value), value=>structuredClone(value), inspectEvmGraphDeliveryEconomicsV1,
+    {transactionHash:trace.transactionHash},trace.descriptor,runtime,sourceReader,targetReader,
+    {gas:'30000000',gasPrice:trace.gasPrice,from:'0x'+trace.descriptor.plan.identity.solver},
+    {gasUsed:'0x5208',effectiveGasPrice:'0x3b9aca00'},
+    {assetObservation:{before:{solverInput:trace.solverInputBefore},after:{solverInput:trace.solverInputAfter}}},
+    1700n,'1000',{prepared:{funds:{balanceWei:trace.nativeBalanceBefore}}},
+    {header:{hash:'0x'+trace.observedHeadHash},ledger:{publicState:{actualAssetBalance:'1100',backedAmount:'1000',surplus:'100'}}},
+    trace.descriptor.context,{}, {hash:'0x'+trace.blockHash,number:'0x1'}, {}, {});
+  assert.equal((await call()).economics.status,'UNKNOWN'); assert.deepEqual(checks,['receipt','source','source','current']);
+  runtime.balance=async()=>BigInt(trace.nativeBalanceAfter); checks.length=0;
+  assert.equal((await call()).economics.status,'OBSERVED'); assert.deepEqual(checks,['receipt','source','source','current']);
+  runtime.checkReceipt=async()=>{ throw Error('HOST_ORIGINAL_FINANCIAL_GUARD'); };
+  await assert.rejects(call(),/HOST_ORIGINAL_FINANCIAL_GUARD/);
 });

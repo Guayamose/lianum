@@ -17,9 +17,9 @@ import { decodeDepositIntentInputs } from '../../../execution/account/preparatio
 import { decodePrivateExternalDeliveryCall } from '../../../defi/delivery/private-external-delivery.mjs';
 import { evmRuntimeCodeHash } from '../contracts/evm-code-hash.mjs';
 import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
-  encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1 } from '../dispatch/evm-graph-delivery-codec-v1.mjs';
+  encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 } from '../dispatch/evm-graph-delivery-codec-v1.mjs';
 
-const owned = new WeakMap(), facts = new WeakMap();
+const owned = new WeakMap(), facts = new WeakMap(), economicFacts = new WeakMap();
 const META = 'METAMORPHO_V1_EXACT_SHARE_MINT', UNI = 'UNISWAP_V3_EXACT_OUTPUT_SINGLE', AAVE = 'AAVE_V3_STATIC_EXACT_SHARE_MINT';
 const detached = value => { const result = structuredClone(value);
   const freeze = item => { if (item && typeof item === 'object') {
@@ -61,6 +61,13 @@ export function assertOwnedMetaMorphoGraphDeliveryFactsV1(value, { observer }) {
 }
 export function assertOwnedUniswapGraphDeliveryFactsV1(value, { observer }) {
   assert.ok(isOwnedUniswapGraphDeliveryObserverV1(observer) && facts.get(value) === observer, 'UNISWAP_GRAPH_ORIGINAL_FACTS_REQUIRED');
+}
+/** Same original successful facts only. Copies, shaped data and unknown
+ * observations have no economic provenance; this getter grants no effect. */
+export function readOriginalEvmGraphDeliveryEconomicFactsV1(value, observer) {
+  assert.equal(arguments.length, 2, 'EVM_GRAPH_ECONOMIC_FIELDS');
+  assert.ok(owned.has(observer) && facts.get(value) === observer && value.status === 'observed', 'EVM_GRAPH_ORIGINAL_ECONOMIC_FACTS');
+  const result = economicFacts.get(value); assert.ok(result, 'EVM_GRAPH_ORIGINAL_ECONOMIC_FACTS'); return detached(result);
 }
 /** Both factories retain exact original object identities. The discriminator
  * below selects framing only after the private ownership map was checked. */
@@ -269,9 +276,31 @@ async function createOwnedOfficialObserver(input, protocolKind) {
       for (const index of [1, 2]) assert.equal(after.position[index], before.position[index]);
     }
     const current = await targetReader.read(); sameContext(await router.read(current.header.number));
+    // Financial inclusion remains subject to the original guards below. A missing
+    // optional native-cost read never reclassifies that canonical delivery.
+    let economics;
+    try {
+      const gasUsed = quantity(receipt.gasUsed);
+      assert.ok(gasUsed > 0n && gasUsed <= BigInt(wire.gas), 'METAMORPHO_GRAPH_ORIGINAL_GAS');
+      assert.equal(quantity(receipt.effectiveGasPrice).toString(), wire.gasPrice, 'METAMORPHO_GRAPH_ORIGINAL_GAS');
+      economics = inspectEvmGraphDeliveryEconomicsV1({ descriptor, transactionHash: query.transactionHash,
+        blockHash: bare(header.hash), observedHeadHash: bare(current.header.hash),
+        solverInputBefore: arrival.assetObservation.before.solverInput, solverInputAfter: arrival.assetObservation.after.solverInput,
+        inputSpent: spent.toString(), outputDelivered: amount, gasUsed: gasUsed.toString(), gasPrice: wire.gasPrice,
+        nativeBalanceBefore: row.prepared.funds.balanceWei, nativeBalanceAfter: String(await runtime.balance(wire.from, header.number)),
+        targetBacking: { held: current.ledger.publicState.actualAssetBalance, liabilities: current.ledger.publicState.backedAmount,
+          surplus: current.ledger.publicState.surplus } });
+    } catch {
+      economics = detached({ profile: 'ORIGINAL_EVM_DEFI_DELIVERY_ECONOMICS_V1', status: 'UNKNOWN',
+        transactionHash: query.transactionHash, blockHash: bare(header.hash), observedHeadHash: bare(current.header.hash),
+        sourceAssetIdentity: context.sourceAssetIdentity, targetAssetIdentity: context.targetAssetIdentity,
+        actualInputSpentAtomic: null, deliveredOutputAtomic: null, nativeGasCostWei: null, targetBacking: null,
+        errorCode: 'ORIGINAL_DELIVERY_COST_OBSERVATION_UNAVAILABLE', futureSolvencyEstablished: false,
+        netSolverWealthLossEstablished: false, outputsValuedAsSourceAtomic: false });
+    }
     await runtime.checkReceipt(receipt); await sourceReader.assertCanonical(beforeSource); await sourceReader.assertCanonical(afterSource);
     await targetReader.assertCurrent(current);
-    return { intent, arrival, wire, header, tip: current.header };
+    return { intent, arrival, wire, header, tip: current.header, economics };
   }
   observer = Object.freeze({ identity: detached(id),
     binding: detached({ poolIndex, recipientIndex: String(poolIndex), genesis: context.genesisHash,
@@ -342,6 +371,7 @@ async function createOwnedOfficialObserver(input, protocolKind) {
           blockHeight: quantity(observed.header.number).toString(), finalityKind: '3', confirmations: confirmations.toString(),
           nativeContext: { observedTipId: bare(observed.tip.hash), observedTipHeight: quantity(observed.tip.number).toString(),
             transactionSlot: '0', parentSlot: '0', observedSlot: '0' } });
+        economicFacts.set(result, observed.economics);
       } catch (error) { result = detached(failure(error, auth.authenticated)); }
       facts.set(result, observer); return result;
     },

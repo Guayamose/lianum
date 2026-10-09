@@ -46,6 +46,12 @@ const bare = value => { assert.ok(typeof value === 'string' && value.length === 
 const reference = value => bytes32(value, true);
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
 const detached = value => freeze(copy(value));
+const economicSnapshot = entry => entry.exposures.some(item => item.economicObservation)
+  ? { nativeEconomics: entry.exposures.filter(item => item.economicObservation).map(item => ({
+    slot: item.slot, delivery: item.economicObservation,
+    invoiceDisposition: entry.outcome === 'FULFILLED' ? 'ORIGINAL_T_PAYOUT_NOTE_ISSUED'
+      : entry.outcome === 'RECOVERED' ? 'NO_SOLVER_INVOICE_OWNER_RESERVE_RECOVERED' : 'ORIGINAL_OUTCOME_UNKNOWN',
+    externalDeliveryRolledBack: false, freshSpendableBalance: null })) } : {};
 const path = opening => ({ root: opening.root, index: opening.index, siblings: [...opening.siblings] });
 const shaPath = opening => ({ root: bare(opening.root), index: opening.index, siblings: opening.siblings.map(bare) });
 const shaLeafPath = opening => ({ leaf: bare(opening.leaf), index: opening.index, siblings: opening.siblings.map(bare) });
@@ -234,7 +240,8 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     // Family 3 reconciles the original signed EVM wire through its branded
     // vault observer. A receipt status or an extra caller callback is no grant.
     const observed = await selected.provider.reconcile(); assert.equal(observed.phase, 'OBSERVED', 'FLAT_EXECUTION_NATIVE_FINALITY');
-    await update(ref, { exposures: operation(ref).exposures.map(item => item.slot === selected.slot ? { ...item, status: 'DELIVERED' } : item) });
+    await update(ref, { exposures: operation(ref).exposures.map(item => item.slot === selected.slot ? { ...item, status: 'DELIVERED',
+      ...(observed.economicObservation ? { economicObservation: copy(observed.economicObservation) } : {}) } : item) });
     await onPrivateAudit({ reference: ref, stage: 'native-delivered', slot: selected.slot, delivery: observed });
     // A bounded acceptance harness may interrupt here. The durable exposure
     // is already present, and later execution cannot sign or send it again.
@@ -405,6 +412,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     snapshot(ref) { live(); const entry = operation(ref); return detached({ reference: ref, stage: entry.stage,
       outcome: entry.outcome, executionStarted: entry.executionStarted,
       nativeExposure: entry.exposures.map(({ slot, family, status }) => ({ slot, family, status })),
+      ...economicSnapshot(entry),
       admittedReceipts: entry.receipts.length, errorCode: entry.errorCode, errorCauseCodes: entry.errorCauseCodes ?? [],
       ...(entry.errorAuditBudget ? { errorAuditBudget: entry.errorAuditBudget } : {}),
       keeperRestart: false, nodeRestart: false, fullWalletAcceptance: false }); },
@@ -456,7 +464,7 @@ export async function reopenOriginalDeviceExternalFlatGraphExecutionV1(token){
   reconcile(ref){live();assert.ok(!busy,'FLAT_EXECUTION_BUSY');reference(ref);busy=true;active=(async()=>{await physical();await assertLocalEvm(runtime);assert.deepEqual(await vault.read(password),record,'FLAT_EXECUTION_STORAGE_CHANGED');await physical();const entry=record.data.operations.find(v=>v.reference===ref);assert.ok(entry,'FLAT_EXECUTION_ORIGINAL_PREPARATION_REQUIRED');let first;
    for(const kind of [...(entry.recoverySubmission?['recovery']:[]),...(entry.settlementSubmission?['settlement']:[])]){const submission=entry[kind==='recovery'?'recoverySubmission':'settlementSubmission'];if(submission.transactionHash===null){first??=Error('FLAT_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED');continue;}try{return await terminalObserver.observe({kind,submission:detached(submission),binding:detached(entry.binding),statement:detached(kind==='recovery'?entry.recoveryStatement:entry.settlementStatement)});}catch(error){first??=error;}}
    throw first??Error('FLAT_EXECUTION_PARTIAL_DELIVERY_REQUIRES_RECOVERY');})().finally(()=>{busy=false;active=null;});return active;},
-  snapshot(ref){live();reference(ref);const e=record.data.operations.find(v=>v.reference===ref);assert.ok(e);return detached({reference:ref,stage:e.stage,outcome:e.outcome,executionStarted:e.executionStarted,nativeExposure:e.exposures.map(({slot,family,status})=>({slot,family,status})),admittedReceipts:e.receipts.length,errorCode:e.errorCode,keeperRestart:true,nodeRestart:true,fullWalletAcceptance:false});},
+  snapshot(ref){live();reference(ref);const e=record.data.operations.find(v=>v.reference===ref);assert.ok(e);return detached({reference:ref,stage:e.stage,outcome:e.outcome,executionStarted:e.executionStarted,nativeExposure:e.exposures.map(({slot,family,status})=>({slot,family,status})),...economicSnapshot(e),admittedReceipts:e.receipts.length,errorCode:e.errorCode,keeperRestart:true,nodeRestart:true,fullWalletAcceptance:false});},
   async close(){closed=true;await active?.catch(()=>{});password=undefined;return{closed:true};}
  });owners.set(keeper,{runtime,system,poolIndex,live,manualReview:deny});return keeper;
 }

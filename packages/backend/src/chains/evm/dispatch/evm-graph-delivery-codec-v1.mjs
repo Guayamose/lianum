@@ -98,3 +98,44 @@ export function decodeEvmGraphDeliveryCallV1(calldata, descriptor) {
   assert.equal(encodeEvmGraphDeliveryCallV1(result), calldata, 'EVM_GRAPH_CANONICAL_CALLDATA');
   return copy(result);
 }
+
+/** Supplied-trace arithmetic only, never a delivery, price or solvency grant.
+ * The original observer supplies these values after verifying the same signed
+ * transaction, receipt, D27, protocol transition and canonical source/target.
+ * Keep source-token debits, output-token backing and native gas in their own
+ * units. No fee is added to inputSpent, no share NAV or net wealth is inferred. */
+export function inspectEvmGraphDeliveryEconomicsV1(input) {
+  exactRecord(input, ['descriptor', 'transactionHash', 'blockHash', 'observedHeadHash',
+    'solverInputBefore', 'solverInputAfter', 'inputSpent', 'outputDelivered',
+    'gasUsed', 'gasPrice', 'nativeBalanceBefore', 'nativeBalanceAfter', 'targetBacking']);
+  const descriptor = validateEvmGraphDeliveryDescriptorV1(input.descriptor);
+  assert.ok(isExternalGraphDescriptorV1(descriptor), 'EVM_GRAPH_ECONOMIC_OFFICIAL_DESCRIPTOR');
+  for (const key of ['transactionHash', 'blockHash', 'observedHeadHash']) bytes32(input[key], true);
+  const uint = (value, positive = false) => {
+    assert.ok(typeof value === 'string' && /^(0|[1-9][0-9]{0,77})$/.test(value), 'EVM_GRAPH_ECONOMIC_INTEGER');
+    const n = BigInt(value); assert.ok(n < (1n << 256n) && (!positive || n > 0n), 'EVM_GRAPH_ECONOMIC_INTEGER'); return n;
+  };
+  const before = uint(input.solverInputBefore), after = uint(input.solverInputAfter), spent = uint(input.inputSpent, true);
+  assert.equal(before - after, spent, 'EVM_GRAPH_ECONOMIC_INPUT_DELTA');
+  assert.ok(spent <= uint(descriptor.plan.route.maximumInput, true), 'EVM_GRAPH_ECONOMIC_INPUT_LIMIT');
+  assert.equal(input.outputDelivered, descriptor.plan.route.outputAmount, 'EVM_GRAPH_ECONOMIC_OUTPUT');
+  const gas = uint(input.gasUsed, true) * uint(input.gasPrice, true); uint(gas.toString());
+  assert.equal(uint(input.nativeBalanceBefore) - uint(input.nativeBalanceAfter), gas, 'EVM_GRAPH_ECONOMIC_GAS_DELTA');
+  exactRecord(input.targetBacking, ['held', 'liabilities', 'surplus']);
+  const held = uint(input.targetBacking.held), liabilities = uint(input.targetBacking.liabilities);
+  assert.ok(held >= liabilities, 'EVM_GRAPH_ECONOMIC_BACKING_DEFICIT');
+  assert.equal(held - liabilities, uint(input.targetBacking.surplus), 'EVM_GRAPH_ECONOMIC_BACKING_SURPLUS');
+  return copy({ profile: 'ORIGINAL_EVM_DEFI_DELIVERY_ECONOMICS_V1', status: 'OBSERVED', transactionHash: input.transactionHash,
+    blockHash: input.blockHash, observedHeadHash: input.observedHeadHash,
+    descriptorCommitment: evmGraphDeliveryDescriptorCommitmentV1(descriptor),
+    sourceAssetIdentity: descriptor.context.sourceAssetIdentity, targetAssetIdentity: descriptor.context.targetAssetIdentity,
+    maximumInputAtomic: descriptor.plan.route.maximumInput, actualInputSpentAtomic: input.inputSpent,
+    unusedMaximumInputAtomic: String(BigInt(descriptor.plan.route.maximumInput) - spent),
+    solverInputBeforeAtomic: input.solverInputBefore, solverInputAfterAtomic: input.solverInputAfter,
+    deliveredOutputAtomic: input.outputDelivered, nativeGasCostWei: gas.toString(), nativeGasPayer: descriptor.plan.identity.solver,
+    protocolFeeRateMillionths: isUniswapGraphDescriptorV1(descriptor) ? descriptor.plan.fee : null,
+    protocolFeeSeparatelyValuedAtomic: null, protocolFeeAddedToInputSpent: false,
+    targetBacking: { ...input.targetBacking, deficit: '0' },
+    scope: 'ORIGINAL_CANONICAL_DELIVERY_AND_OBSERVED_HEAD_ONLY',
+    futureSolvencyEstablished: false, netSolverWealthLossEstablished: false, outputsValuedAsSourceAtomic: false });
+}

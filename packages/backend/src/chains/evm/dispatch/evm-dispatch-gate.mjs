@@ -14,6 +14,8 @@ import { assertOwnedEvmGraphDeliveryRouterV1, assertOwnedEvmGraphDeliveryObserve
 import { encodeEvmGraphDeliveryCallV1 } from './evm-graph-delivery-codec-v1.mjs';
 import { validateEvmDeliveryWire } from './evm-facts-binding.mjs';
 import { createNativeDispatchGate, normalizeNativeDispatchBinding } from '../../shared/dispatch/native-dispatch-gate.mjs';
+import { isOwnedOfficialGraphDeliveryObserverV1, readOriginalEvmGraphDeliveryEconomicFactsV1 }
+  from '../vault/metamorpho-graph-delivery-observer-v1.mjs';
 
 const requests = new WeakMap();
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -57,7 +59,7 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
     data: calldata, gas: '0x' + BigInt(LOCAL_EVM_PROFILE.maxGas).toString(16), value: '0x0' });
   const dispatch = runtime.dispatch.bind(runtime), checkPrepared = observer.assertPrepared.bind(observer);
   const observeFacts = observer.observeFacts.bind(observer), observeDispatch = observer.observeDispatch.bind(observer);
-  let active = false, closed = false;
+  let active = false, closed = false, economicObservation = null;
   const assertOwned = () => {
     assert.equal(closed, false, 'EVM_DISPATCH_CLOSED'); assertOwnedFlatSystem(runtime, system);
     assertOwnedEvmGraphDeliveryRouterV1(runtime, system, router, observer); assertOwnedEvmGraphDeliveryObserverV1(observer, observerBinding);
@@ -100,6 +102,10 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
       equal(facts.intent, intent);
       const decoded = validateEvmDeliveryWire(facts.nativeWire, intent);
       assert.equal(decoded.nativeId, query.nativeId); assert.equal(status.nativeWire, facts.nativeWire);
+      if (isOwnedOfficialGraphDeliveryObserverV1(observer)) {
+        economicObservation = readOriginalEvmGraphDeliveryEconomicFactsV1(facts, observer);
+        assert.equal(economicObservation.transactionHash, query.nativeId, 'EVM_DISPATCH_ORIGINAL_ECONOMIC_WIRE');
+      }
       return frozenInput({ status: 'observed', nativeId: query.nativeId, nativeWire: facts.nativeWire });
     },
   });
@@ -107,7 +113,10 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
     nativeAdapter, stateReader, healthReader, store });
   return Object.freeze({
     execute(request) { assertOwned(); return gate.execute(request); },
-    reconcile() { assert.equal(arguments.length, 0, 'EVM_DISPATCH_RECONCILE_FIELDS'); assertOwned(); return gate.reconcile(); },
+    async reconcile() { assert.equal(arguments.length, 0, 'EVM_DISPATCH_RECONCILE_FIELDS'); assertOwned();
+      economicObservation = null; const result = await gate.reconcile();
+      return result.phase === 'OBSERVED' && economicObservation !== null
+        ? frozenInput({ ...result, economicObservation }) : result; },
     report() { return gate.report(); },
     close() { assert.equal(active, false, 'EVM_DISPATCH_BUSY'); gate.close(); closed = true; },
   });
