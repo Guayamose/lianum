@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "03762e514c8353a12f2c0b2ea25e82468fedc9d92151c0fee63176d967cc72c4",
+  "hostSourceClosureSHA256": "6edf7fa80dcaa1a532d30d334b33f325a2f0dc5261524288f3aff1f2b3240819",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -770,11 +770,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-reservation-original-continuation-v1.mjs",
-      "sha256": "2d9c5d85e512b4c219261d61adf70605374a7eacfc410cee952810c60bdae37e"
+      "sha256": "7e0f1efde4271aae89638fc32c3f4cac883acd11f34e616311b0e3060b77634f"
     },
     {
       "path": "integration/device-owner-reservation-original-preparation-v1.mjs",
-      "sha256": "7883b9900296d641fbd2ed4b7cc57cf002554b0d1d22ea01ff9e75eba2fbc8cd"
+      "sha256": "1bbfe5a30d01cb6cbe60c0699621e4b3a745da309465de7c75788881bf0c62b1"
     },
     {
       "path": "integration/device-owner-reservation-policy-v1.mjs",
@@ -1130,7 +1130,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/paired-native-note-flow-v2.mjs",
-      "sha256": "1090e02c261398dc349f4ff3a15ffea9c85ffc148ae672130e722f5c145c18cf"
+      "sha256": "3be08c8c9b53cc58e81d537480562480765dba00a35fb4db1e099226db5c979b"
     },
     {
       "path": "integration/paired-native-note-policy-v2.mjs",
@@ -2930,11 +2930,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-device-local-operator-v1.mjs",
-      "sha256": "b619a6ab8442f1137980f37d5441ed5835aa7be4cd5acd15b6d67b5662ff1a49"
+      "sha256": "0e760605720c4b9468a6cfc16c6be4a06e198ab17466ff37ecb20fddcc19ced3"
     },
     {
       "path": "wallet-platform/modules/ops/native-device-local-provider-v1.mjs",
-      "sha256": "bf23d710c1172ada5e6bd35386862fed0aee51157a2f80f232b8db8faecaba8d"
+      "sha256": "49a7fdfb20beece3b2a4e28ebe07e1ae180593c30447d0e3fe083b0d21393fa9"
     },
     {
       "path": "wallet-platform/modules/ops/native-device-local-restart-v1.mjs",
