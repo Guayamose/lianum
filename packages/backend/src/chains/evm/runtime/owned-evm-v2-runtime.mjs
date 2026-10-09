@@ -224,6 +224,12 @@ const EXTERNAL_DEFI_RECEIVER_RUNTIME_V3=Symbol('ORIGINAL_EXTERNAL_DEFI_RECEIVER_
 const originalExternalDefiReceiverV2=new WeakSet(),originalExternalDefiReceiverCapturesV2=new WeakMap();
 const DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1=Symbol('ORIGINAL_DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1');
 const originalDeviceExternalFlatReceiversV1=new WeakSet(),originalDeviceExternalFlatReceiverCapturesV1=new WeakMap();
+const originalNativeFReemittersV1 = new WeakMap();
+export async function reemitOwnedOriginalNativeRecoveryV1(runtime, token) {
+  assert.equal(arguments.length, 2); const original = originalNativeFReemittersV1.get(runtime);
+  assert.ok(originalEconomicV2Runtimes.has(runtime) && original, 'F_REORG_ORIGINAL_RECEIVER_REQUIRED');
+  return original(token);
+}
 const originalEvmRecoveryCapturesV1 = new WeakMap(),originalEvmRetentionArmsV1=new WeakMap(),originalEvmEconomicFencesV1=new WeakMap();
 export async function armOwnedEvmRecoveryRetentionV1(runtime){assert.equal(arguments.length,1);assert.ok(ownedRuntimes.has(runtime)||ownedNativeValueFamily.has(runtime),'EVM_RETENTION_ORIGINAL_RUNTIME');const arm=originalEvmRetentionArmsV1.get(runtime);assert.ok(arm,'EVM_RETENTION_FIXED_FAMILY');return arm();}
 export async function captureOwnedEvmRecoveryV1(runtime) {
@@ -1033,6 +1039,59 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         return cloned(confirmed);
       });
     };
+    // The token is minted only after both original journals have retained the
+    // same invalidation and one emission latch. No key/signature is requested.
+    const reemitOriginalRecovery = token => mutate(async () => {
+      const { consumeOriginalNativeRecoveryReorgWireV1 } = await import('../../../execution/native-value/execution/native-value-execution-v2.mjs');
+      const saved = consumeOriginalNativeRecoveryReorgWireV1(token, runtime);
+      try {
+      const originals = transactions.filter(item => item.label === 'flat-execution-recovery-' + saved.ref
+        && item.transactionHash === saved.transactionHash);
+      assert.equal(originals.length, 1, 'F_REORG_ORIGINAL_LOCAL_WIRE_REQUIRED'); const entry = originals[0];
+      assert.ok(entry.localSigned && entry.phase === 'mined' && entry.receipt.status === '0x1' && !entry.nativeFReorg,
+        'F_REORG_ORIGINAL_CONFIRMED_LOCAL_WIRE_REQUIRED');
+      assert.deepEqual(entry.receipt, saved.oldReceipt); assert.equal(entry.request.data, saved.calldata);
+      assert.equal(entry.request.to, saved.oldReceipt.to); assert.equal(entry.transactionHash, entry.localSigned.nativeId);
+      assert.equal(entry.localSigned.expected.data, saved.calldata); assert.equal(entry.localSigned.expected.from, entry.request.from);
+      assert.equal(entry.localSigned.expected.to, entry.request.to); assert.equal(entry.localSigned.expected.value, '0');
+      assert.equal(BigInt(entry.localSigned.expected.nonce), BigInt(entry.senderNonce));
+      const verified = assertSignedEvmTransaction(entry.localSigned.nativeWire, entry.localSigned.expected);
+      assert.equal(verified.nativeId, saved.transactionHash, 'F_REORG_ORIGINAL_SIGNATURE_HASH');
+      assert.equal(sha(Buffer.from(saved.calldata.slice(2), 'hex')), saved.calldataSHA256, 'F_REORG_ORIGINAL_CALLDATA_HASH');
+      await saved.revalidate(); saved.assertCurrent();
+      assert.deepEqual(await block(), saved.parent, 'F_REORG_EXACT_PARENT_REQUIRED'); await assertCanonical(saved.parent);
+      assert.equal(await transaction(saved.transactionHash), null, 'F_REORG_OLD_TRANSACTION_PRESENT');
+      assert.equal(await receipt(saved.transactionHash), null, 'F_REORG_OLD_RECEIPT_PRESENT');
+      assert.deepEqual(await rpc('eth_pendingTransactions'), [], 'F_REORG_FOREIGN_PENDING_TRANSACTION');
+      assert.equal(await rpc('eth_getTransactionCount', [entry.request.from, 'latest']), entry.senderNonce, 'F_REORG_ORIGINAL_NONCE_REQUIRED');
+      assert.equal(await rpc('eth_getTransactionCount', [entry.request.from, 'pending']), entry.senderNonce, 'F_REORG_ORIGINAL_PENDING_NONCE_REQUIRED');
+      // This authenticated rollback acknowledges the real original parent. It
+      // does not alter genesis, lifetime, F cutoff or observed wallclock.
+      lastTimestamp = BigInt(saved.parent.timestamp);
+      const inclusion = observedClock ? await nextObservedSecond() :
+        [lastTimestamp + 1n, BigInt(saved.includedHeader.timestamp) + 1n, BigInt(saved.settleBefore)].reduce((a,b)=>a>b?a:b);
+      assert.ok(inclusion >= BigInt(saved.settleBefore), 'F_REORG_ORIGINAL_CUTOFF_REQUIRED');
+      await saved.revalidate(); saved.assertCurrent();
+      assert.deepEqual(await block(), saved.parent, 'F_REORG_PARENT_CHANGED_BEFORE_SEND');
+      assert.equal(await rpc('eth_getTransactionCount', [entry.request.from, 'latest']), entry.senderNonce, 'F_REORG_ORIGINAL_NONCE_REQUIRED');
+      assert.equal(await rpc('eth_getTransactionCount', [entry.request.from, 'pending']), entry.senderNonce, 'F_REORG_ORIGINAL_PENDING_NONCE_REQUIRED');
+      assert.deepEqual(await rpc('eth_pendingTransactions'), [], 'F_REORG_FOREIGN_PENDING_TRANSACTION');
+      assert.equal(await transaction(saved.transactionHash), null, 'F_REORG_OLD_TRANSACTION_PRESENT');
+      assert.equal(await receipt(saved.transactionHash), null, 'F_REORG_OLD_RECEIPT_PRESENT');
+      saved.assertCurrent(); assertAlive();
+      entry.nativeFReorg = { schema: 'ORIGINAL_NATIVE_F_REEMISSION_V1', id: saved.id,
+        phase: 'OBSERVATION_PENDING', originalReceipt: cloned(entry.receipt), originalHeader: cloned(saved.includedHeader) };
+      try {
+        assert.equal(await rpc('eth_sendRawTransaction', [entry.localSigned.nativeWire]), saved.transactionHash, 'F_REORG_EXACT_WIRE_HASH');
+        await mineAt(inclusion); const included = await receipt(saved.transactionHash);
+        assert.ok(included && included.status === '0x1', 'F_REORG_ORIGINAL_REEMISSION_UNRESOLVED');
+        assert.equal(included.transactionHash, saved.transactionHash); await checkReceipt(included); await assertCanonical(included);
+        entry.receipt = included; entry.gasUsed = BigInt(included.gasUsed).toString();
+        entry.nativeFReorg.phase = 'RECONFIRMED'; entry.nativeFReorg.receipt = cloned(included);
+        return cloned(included);
+      } catch (error) { uncertainMutation = true; throw error; }
+      } catch (error) { uncertainMutation = true; throw error; }
+    });
     // The legacy public port has no scope argument; extra caller data cannot
     // install a signing callback or bypass the private request consumer.
     const send=(label,transaction,expectedStatus='0x1',expectedRevert)=>sendInternal(label,transaction,expectedStatus,expectedRevert,null);
@@ -1787,6 +1846,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       });
     }
     if(economicV2)originalEconomicV2Runtimes.add(runtime);
+    if(economicV2 && !nativeValueOnly && !receiverRecoveryV3) originalNativeFReemittersV1.set(runtime, reemitOriginalRecovery);
     if(observedClock&&!nativeValueOnly)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive,inclusionSecond:observedInclusionSecond});
     if(observedEconomicV2)observedEconomicRuntimeClocksV2.set(runtime,{family:recoveryFamily,refresh:refreshObservedClock,assertAlive,
       pendingFinality:()=>Boolean(observedFinalityV2&&!observedFinalityV2.completed)});

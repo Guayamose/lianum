@@ -23,7 +23,7 @@ import { genericAccountIdentity, validateGenericAccountConfig, validateBoundRequ
 import { assertOwnedNativeValueWalletSystem as nativeSystem } from '../../operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
 import { createNativeValueSystemStateReader as nativeReader } from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import { assertOwnedPoolAsset } from '../../chains/shared/contracts/owned-pool-asset.mjs';
-import { assertOwnedNativeValueExecution as nativeExecutionAssert, ownedNativeValueManualGraphReview as nativeGraphReview } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
+import { assertOwnedNativeValueExecution as nativeExecutionAssert, ownedNativeValueManualGraphReview as nativeGraphReview, reconcileOriginalDeviceNativeRecoveryV1 } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { createNativeValueTerminalObserver as nativeTerminal, decodeNativeValueTerminalCalldata } from '../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { decodeStatement } from '../../execution/encoding/statements.mjs';
@@ -49,6 +49,26 @@ import { assertOwnedWrappedClaimOwnerProcessV1 } from '../../../../custody/src/p
 import { createWrappedClaimOwnerObserverV1, assertOwnedWrappedClaimOwnerObserverV1 } from '../../../../custody/src/observers/wrapped-claim-owner-observer-v1.mjs';
 import { validateWrappedClaimOperationalRegistration } from '../../claims/ingress/operational-registration-v2.mjs';
 const wrappedOwnerAccounts = new WeakSet();
+export function originalDeviceNativeFReorgStateV1(account, executor, ref) {
+  assert.equal(arguments.length, 3); const state = owned.get(account);
+  assert.ok(state && !state.wrapped && !state.closed(), 'F_REORG_ORIGINAL_ACCOUNT_REQUIRED');
+  return state.reorgState(executor, ref);
+}
+export async function retainOriginalDeviceNativeFReorgV1(account, executor, ref, id, phase) {
+  assert.equal(arguments.length, 5); const state = owned.get(account);
+  assert.ok(state && !state.wrapped && !state.closed(), 'F_REORG_ORIGINAL_ACCOUNT_REQUIRED');
+  return state.retainReorg(executor, ref, id, phase);
+}
+export async function checkOriginalDeviceNativeFReorgPendingV1(account, executor, ref, id) {
+  assert.equal(arguments.length, 4); const state = owned.get(account);
+  assert.ok(state && !state.wrapped && !state.closed(), 'F_REORG_ORIGINAL_ACCOUNT_REQUIRED');
+  await state.checkReorgPending(executor, ref, id);
+}
+export function assertOriginalDeviceNativeFReorgPendingV1(account, executor, ref, id) {
+  assert.equal(arguments.length, 4); const state = owned.get(account);
+  assert.ok(state && !state.wrapped && !state.closed(), 'F_REORG_ORIGINAL_ACCOUNT_REQUIRED');
+  state.assertReorgPending(executor, ref, id);
+}
 const owned = new WeakMap(), manualGraphs = new WeakMap(), manualNotes = new WeakMap();
 export function nativeValueAccountManualNoteDetails(approval) {
   const retained = manualNotes.get(approval);
@@ -822,6 +842,43 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       executionSnapshotSHA256:sha(snapshot),stage:retained.nativeStage,outcome:retained.nativeOutcome,
       terminal:copy(retained.nativeTerminal),errorCode:retained.nativeErrorCode,lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'};
   }
+  let reorgAdmission = null;
+  function reorgState(executor, ref) {
+    continueWork(); assert.ok(busy && reorgAdmission?.ref === ref && reorgAdmission.executor === executor, 'F_REORG_ORIGINAL_RECONCILE_REQUIRED');
+    assert.equal(executor, nativeExecution); const row = reservationRow(ref);
+    deviceExecutionOriginal(reorgAdmission.bridge, row);
+    // EXECUTE_NATIVE is not an admission prerequisite for original F: the
+    // original retained ARM may fire after the cutoff without any EXECUTE.
+    assert.ok(row.nativeRecoveryLatched && row.submission?.dispatchLatched === true, 'F_REORG_ORIGINAL_F_LATCHES_REQUIRED');
+    assert.ok(row.observation && row.submission.observation, 'F_REORG_ORIGINAL_S_OBSERVATION_REQUIRED');
+    assert.equal(row.observation.profile, 'LIANUM_DEVICE_ORIGINAL_S_OBSERVATION_V1');
+    assert.equal(row.observation.transactionHash, row.submission.observation.transaction.hash, 'F_REORG_ORIGINAL_S_CHANGED');
+    if (row.liveRecoveryArm) {
+      assert.equal(row.liveRecoveryArm.nativeBindingSHA256, sha(row.nativeBinding), 'F_REORG_ORIGINAL_ARM_BINDING');
+      assert.equal(row.liveRecoveryArm.reservationTransactionHash, row.observation.transactionHash, 'F_REORG_ORIGINAL_ARM_S');
+      assert.equal(row.liveRecoveryArm.settleBefore, row.nativeBinding.settleBefore, 'F_REORG_ORIGINAL_ARM_CUTOFF');
+      assert.equal(row.liveRecoveryArm.lossClause, 'FULL_OWNER_REFUND_PROVIDER_LOSS_V1');
+    }
+    if (!row.nativeFReorg) assert.equal(row.nativeOutcome, 'RECOVERED');
+    return { terminal: copy(row.nativeFReorg?.originalTerminal ?? row.nativeTerminal), binding: copy(row.nativeBinding), phase: row.nativeFReorg?.phase ?? null };
+  }
+  async function retainReorg(executor, ref, id, phase) {
+    const original = reorgState(executor, ref); reference(id);
+    assert.ok(['REORG_INVALIDATED', 'OBSERVATION_PENDING', 'RECONFIRMED'].includes(phase));
+    const row = reservationRow(ref), old = row.nativeFReorg;
+    if (old) { assert.equal(old.id, id);
+      assert.ok(old.phase === phase || old.phase === 'REORG_INVALIDATED' && phase === 'OBSERVATION_PENDING'
+        || old.phase === 'OBSERVATION_PENDING' && phase === 'RECONFIRMED', 'F_REORG_PHASE_REGRESSION'); }
+    else assert.equal(phase, 'REORG_INVALIDATED');
+    if (old?.phase === 'RECONFIRMED') return;
+    await reservationUpdate(ref, { nativeTerminal: null, nativeOutcome: null, nativeStage: 'UNKNOWN', nativeErrorCode: null,
+      nativeFReorg: { schema: 'ORIGINAL_DEVICE_NATIVE_F_REORG_V1', id, phase, originalTerminal: original.terminal } });
+  }
+  function assertReorgPending(executor, ref, id) {
+    reorgState(executor, ref); const row = reservationRow(ref);
+    assert.equal(row.nativeFReorg.id, id); assert.equal(row.nativeFReorg.phase, 'OBSERVATION_PENDING');
+    assert.equal(row.nativeOutcome, null); assert.equal(row.nativeTerminal, null);
+  }
   async function retainDeviceTerminal(row,result){
     assert.ok(['FULFILLED','RECOVERED'].includes(result.outcome),'DEVICE_EXECUTION_ORIGINAL_TERMINAL_REQUIRED');
     const receipt=result.receipt;assert.ok(receipt,'DEVICE_EXECUTION_ORIGINAL_RECEIPT_REQUIRED');await runtime.checkReceipt(receipt);
@@ -843,7 +900,17 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       blockNumber:BigInt(receipt.blockNumber).toString(),calldataSHA256,outcome:result.outcome};
     const retained=reservationRow(row.jobId);
     if(retained.nativeTerminal!==null)assert.deepEqual(terminal,retained.nativeTerminal,'DEVICE_EXECUTION_TERMINAL_CHANGED');
-    else await reservationUpdate(row.jobId,{nativeTerminal:terminal,nativeOutcome:result.outcome,nativeStage:result.outcome,nativeErrorCode:null});
+    else {
+      let fields = {};
+      if (retained.nativeFReorg) {
+        reorgState(nativeExecution, row.jobId); const previous = retained.nativeFReorg.originalTerminal;
+        assert.equal(result.outcome, 'RECOVERED');
+        for (const key of ['transactionHash', 'calldataSHA256', 'outcome']) assert.equal(terminal[key], previous[key], 'F_REORG_ORIGINAL_TERMINAL_CHANGED');
+        assert.ok(['REORG_INVALIDATED','OBSERVATION_PENDING'].includes(retained.nativeFReorg.phase));
+        fields = { nativeFReorg: { ...retained.nativeFReorg, phase: 'RECONFIRMED', receipt: terminal } };
+      }
+      await reservationUpdate(row.jobId,{...fields,nativeTerminal:terminal,nativeOutcome:result.outcome,nativeStage:result.outcome,nativeErrorCode:null});
+    }
   }
   let liveRecovery=null;
   function requireLiveRecovery(bridge){assert.ok(nativeNote&&(!recovery||recovery.liveArmed===true)&&!wrapped&&liveRecovery&&!liveRecovery.closed&&liveRecovery.bridge===bridge,
@@ -936,7 +1003,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     assert.equal(consent.lossClause,current.lossClause,'DEVICE_EXECUTION_LOSS_CLAUSE_CHANGED');
     // Fresh heads precede new preparation/admission, never a prepared wire,
     // current-key guard or send. Reconcile drains the same pending continuation.
-    await refreshLiveOperationClock();
+    const reconcileRecovery = action === 'RECONCILE_NATIVE' && (row.nativeOutcome === 'RECOVERED' || row.nativeFReorg);
+    if (!reconcileRecovery) await refreshLiveOperationClock();
     let result;
     try{
       if(action==='EXECUTE_NATIVE'){
@@ -950,12 +1018,15 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         assert.ok(BigInt((await reader.read()).head.timestamp)>=BigInt(row.nativeBinding.settleBefore),'DEVICE_EXECUTION_RECOVERY_BEFORE_CUTOFF');
         await reservationUpdate(row.jobId,{nativeRecoveryLatched:true,nativeStage:'RECOVERING',nativeRecoveryConsent:copy(consent)});
         continueWork();result=await nativeExecution.recover(row.jobId);
-      }else{assert.equal(action,'RECONCILE_NATIVE');result=await nativeExecution.reconcile(row.jobId);}
-      await retainDeviceTerminal(reservationRow(row.jobId),result);
+      }else{assert.equal(action,'RECONCILE_NATIVE');
+        if (reconcileRecovery) { reorgAdmission = { executor: nativeExecution, ref: row.jobId, bridge };
+          result = await reconcileOriginalDeviceNativeRecoveryV1(nativeExecution, capability, row.jobId); }
+        else result=await nativeExecution.reconcile(row.jobId);}
+      if (result.outcome !== null) await retainDeviceTerminal(reservationRow(row.jobId),result);
       return {...await deviceExecutionPublic(bridge,reservationRow(row.jobId)),authorizationSHA256:byteSHA(deviceExecutionConsentMessageV1(consent))};
     }catch(error){if(!unavailable&&reservationRow(row.jobId).nativeOutcome===null){const diagnostic=privateFailureDiagnostic(error,'DEVICE_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED');
         try{await reservationUpdate(row.jobId,{nativeStage:'UNKNOWN',nativeErrorCode:diagnostic.code});}catch{}}
-      throw error;}
+      throw error;}finally{reorgAdmission=null;}
   });}
   const exitRows=()=>record.data.deviceExits??[];
   const exitRow=id=>{reference(id);const row=exitRows().find(value=>value.jobId===id);assert.ok(row,'DEVICE_EXIT_ORIGINAL_JOB_REQUIRED');return row;};
@@ -970,6 +1041,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     assert.equal(input.rootId,parent.consent.custody.rootId,'DEVICE_EXIT_ROOT_CHANGED');
     assert.ok(Number.isSafeInteger(input.noteRevision)&&input.noteRevision>=parent.consent.custody.noteRevision,'DEVICE_EXIT_CUSTODY_REVISION');
     assert.ok(['change','recovery'].includes(input.noteRole),'DEVICE_EXIT_ORIGINAL_NOTE_ROLE');
+    assert.ok(!parent.nativeFReorg || parent.nativeFReorg.phase === 'RECONFIRMED', 'F_REORG_OUTPUT_PENDING');
     const reserved=await reservationObservation(parent);assert.equal(reserved.stage,'RESERVED','DEVICE_EXIT_ORIGINAL_S_REQUIRED');
     if(input.noteRole==='recovery'){
       assert.equal(parent.nativeOutcome,'RECOVERED','DEVICE_EXIT_ORIGINAL_F_REQUIRED');assert.ok(parent.nativeTerminal,'DEVICE_EXIT_ORIGINAL_F_REQUIRED');
@@ -1013,7 +1085,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     function note(role,amount){
       assert.ok(amount>0n,'DEVICE_OUTPUT_POSITIVE_NOTE_REQUIRED');
       const commitment=parent.nativeBinding[role==='change'?'changeCommitment':'recoveryCommitment'],nullifier=input[role+'Nullifier'];
-      if(role==='recovery'&&parent.nativeOutcome!=='RECOVERED')return{noteRole:role,commitment,nullifier,amount:amount.toString(),state:'LOCKED',path:null};
+      if(parent.nativeFReorg && parent.nativeFReorg.phase !== 'RECONFIRMED' || role==='recovery'&&parent.nativeOutcome!=='RECOVERED')return{noteRole:role,commitment,nullifier,amount:amount.toString(),state:'LOCKED',path:null};
       const indices=view.ledger.commitments.flatMap((leaf,index)=>leaf==='0x'+commitment?[index]:[]);
       assert.equal(indices.length,1,'DEVICE_OUTPUT_ORIGINAL_NOTE_REQUIRED');const path=view.ledger.tree.path(indices[0]);
       assert.equal(verifyPrivateNotePath(path),true,'DEVICE_OUTPUT_ORIGINAL_PATH');
@@ -2066,7 +2138,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   });
   let recoveredDeviceInstallationIssued=false;
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable || (!wrapped && capturing),
-    deviceDeposit, deviceReservation,deviceExecution,
+    deviceDeposit, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
+    async checkReorgPending(executor, ref, id) { await healthy(); assertReorgPending(executor, ref, id); },
     installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true)&&nativeExecution!==null&&liveRecovery===null);
       assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);
       if(liveArmedOriginal||recovery?.liveArmed)assertOriginalNativeDeviceLiveArmedObservedClockV1(row.clock,{runtime,nativeRuntime:liveArmedOriginal?.nativeRuntime??row.nativeRuntime});

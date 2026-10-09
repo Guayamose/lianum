@@ -24,7 +24,7 @@ import { assertOwnedNativeValueProviderCustody as nativeCustody, ownedNativeValu
 import { createOwnedNativeValueProvider as nativeProvider } from '../../../chains/evm/dispatch/native-value-evm-dispatch-gate.mjs';
 import { createOwnedNativeValueGraphAdmission as nativeAdmission } from '../preparation/native-value-graph-admission-v2.mjs';
 import { createNativeValueSystemStateReader as nativeReader } from '../reconciliation/native-value-system-state-v2.mjs';
-import { createNativeValueTerminalObserver as nativeTerminal } from '../reconciliation/native-value-terminal-observer-v2.mjs';
+import { createNativeValueTerminalObserver as nativeTerminal, readOriginalNativeRecoveryCheckpointV1 } from '../reconciliation/native-value-terminal-observer-v2.mjs';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField } from '../../encoding/commitments.mjs';
 import { decodeStatement, joinReadiness, joinAdmission, joinSettlement } from '../../encoding/statements.mjs';
 import { buildDependencyInputs, buildReadyInputs } from '../../account/preparation/readiness-inputs.mjs';
@@ -50,6 +50,17 @@ import { createWrappedWalletStateReaderV1 } from '../../wrapped/reconciliation/w
 import { createWrappedWalletTerminalObserverV1 } from '../reconciliation/native-value-terminal-observer-v2.mjs';
 export const WRAPPED_WALLET_EXECUTION_PROFILE_V1 = 'OWNED_WRAPPED_WALLET_EXECUTION_KEEPER_V1';
 export const FLAT_EXECUTION_PROFILE = 'OWNED_NATIVE_VALUE_EXECUTION_KEEPER_V2';
+const originalFReorgWires = new WeakMap();
+export async function reconcileOriginalDeviceNativeRecoveryV1(execution, account, ref) {
+  assert.equal(arguments.length, 3); const state = owners.get(execution);
+  assert.ok(state && !state.wrapped, 'F_REORG_ORIGINAL_EXECUTOR_REQUIRED'); state.live();
+  return state.reconcileRecovery(account, ref);
+}
+export function consumeOriginalNativeRecoveryReorgWireV1(token, runtime) {
+  assert.equal(arguments.length, 2); const saved = originalFReorgWires.get(token);
+  assert.ok(saved && saved.runtime === runtime && !saved.used, 'F_REORG_ORIGINAL_WIRE_TOKEN_REQUIRED');
+  saved.assertCurrent(); saved.used = true; return saved;
+}
 const owners = new WeakMap(), ZERO = '0'.repeat(64), MAX_OPERATIONS = 8;
 const fresh = () => randomBytes(32).toString('hex');
 const copy = value => JSON.parse(canonical(value));
@@ -171,9 +182,74 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
   async function observedSubmission(ref, kind) {
     const entry = operation(ref), saved = entry[kind === 'recovery' ? 'recoverySubmission' : 'settlementSubmission'];
     assert.ok(saved, 'FLAT_EXECUTION_NO_TERMINAL_SUBMISSION');
-    return terminalObserver.observe({ kind, submission: detached(saved), binding: detached(entry.binding),
+    const observed = await terminalObserver.observe({ kind, submission: detached(saved), binding: detached(entry.binding),
       statement: detached(kind === 'recovery' ? entry.recoveryStatement : entry.settlementStatement) });
+    if (!wrapped && kind === 'recovery' && !entry.originalFCheckpoint)
+      await update(ref, { originalFCheckpoint: readOriginalNativeRecoveryCheckpointV1(terminalObserver, observed) });
+    return observed;
   }
+  async function reconcileRecovery(account, ref) { return exclusive(async () => {
+    assert.ok(!wrapped, 'F_REORG_NATIVE_ONLY');
+    const binding = await import('../../../accounts/authority/native-value-account-authority-v2.mjs');
+    const accountState = binding.originalDeviceNativeFReorgStateV1(account, keeper, ref);
+    const entry = operation(ref);
+    assert.ok(entry.recoverySubmission, 'F_REORG_ORIGINAL_CONFIRMED_F_REQUIRED');
+    // Legacy authenticated records may acquire a checkpoint only by a complete
+    // successful original historical observation while that F still exists.
+    if (!entry.originalFCheckpoint) return observedSubmission(ref, 'recovery');
+    assert.deepEqual(entry.originalFCheckpoint.query.binding, entry.binding);
+    assert.deepEqual(entry.originalFCheckpoint.query.statement, entry.recoveryStatement);
+    assert.deepEqual(entry.originalFCheckpoint.query.submission, entry.recoverySubmission);
+    const old = entry.originalFCheckpoint.receipt, hash = '0x' + entry.recoverySubmission.transactionHash;
+    assert.equal(old.transactionHash, hash);
+    assert.deepEqual(accountState.binding, entry.binding, 'F_REORG_ORIGINAL_ACCOUNT_BINDING');
+    assert.deepEqual(accountState.terminal, { transactionHash: entry.recoverySubmission.transactionHash, blockHash: bare(old.blockHash),
+      blockNumber: BigInt(old.blockNumber).toString(), calldataSHA256: entry.recoverySubmission.calldataSHA256, outcome: 'RECOVERED' },
+      'F_REORG_ORIGINAL_ACCOUNT_TERMINAL');
+    if (!entry.nativeFReorg) {
+      assert.equal(entry.outcome, 'RECOVERED');
+      const receipt = await runtime.receipt(hash);
+      if (receipt !== null) { await runtime.assertCanonical(receipt); return observedSubmission(ref, 'recovery'); }
+      // Missing RPC data alone never establishes a chain reorganization.
+      // Confirm the exact original parent and full before-F state first.
+      await terminalObserver.checkRecoveryReorg(entry.originalFCheckpoint);
+      const id = digest({ reference: ref, checkpoint: entry.originalFCheckpoint, binding: entry.binding });
+      await update(ref, { outcome: null, stage: 'UNKNOWN', nativeFReorg: { schema: 'ORIGINAL_NATIVE_F_REORG_V1', id,
+        phase: 'REORG_INVALIDATED', oldReceipt: old, oldOutcome: 'RECOVERED' } });
+      await binding.retainOriginalDeviceNativeFReorgV1(account, keeper, ref, id, 'REORG_INVALIDATED');
+      // A separate fresh RECONCILE must first observe this durable UNKNOWN.
+      // No reemission can hide the invalidation from the original mobile vault.
+      return detached({ outcome: null, originalFReorgInvalidated: true });
+    }
+    const pending = operation(ref).nativeFReorg;
+    if (pending.phase !== 'RECONFIRMED')
+      await binding.retainOriginalDeviceNativeFReorgV1(account, keeper, ref, pending.id, pending.phase);
+    if (pending.phase === 'REORG_INVALIDATED') {
+      const id = pending.id;
+      const checked = await terminalObserver.checkRecoveryReorg(entry.originalFCheckpoint);
+      await update(ref, { nativeFReorg: { ...operation(ref).nativeFReorg, phase: 'OBSERVATION_PENDING' } });
+      await binding.retainOriginalDeviceNativeFReorgV1(account, keeper, ref, id, 'OBSERVATION_PENDING');
+      await healthy(); const revision = record.revision;
+      const assertCurrent = () => { live(); assert.ok(busy && !cancelled);
+        assert.equal(record.revision, revision, 'F_REORG_EXECUTOR_CHANGED');
+        assert.equal(operation(ref).nativeFReorg.phase, 'OBSERVATION_PENDING');
+        assert.equal(operation(ref).nativeFReorg.id, id);
+        binding.assertOriginalDeviceNativeFReorgPendingV1(account, keeper, ref, id); };
+      const revalidate = async () => { await healthy();
+        await binding.checkOriginalDeviceNativeFReorgPendingV1(account, keeper, ref, id); assertCurrent(); };
+      const token = Object.freeze({}); originalFReorgWires.set(token, { runtime, account, ref, id, used: false, assertCurrent, revalidate,
+        parent: checked.parent, transactionHash: hash, calldata: entry.recoverySubmission.calldata,
+        calldataSHA256: entry.recoverySubmission.calldataSHA256, oldReceipt: old, includedHeader: entry.originalFCheckpoint.includedHeader, settleBefore: entry.binding.settleBefore });
+      try {
+        const { reemitOwnedOriginalNativeRecoveryV1 } = await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+        await reemitOwnedOriginalNativeRecoveryV1(runtime, token);
+      } finally { originalFReorgWires.delete(token); }
+    }
+    const observed = await observedSubmission(ref, 'recovery'), retained = operation(ref).nativeFReorg;
+    await update(ref, { outcome: 'RECOVERED', stage: 'RECOVERED', errorCode: null, nativeFReorg: { ...retained,
+      phase: 'RECONFIRMED', receipt: observed.receipt } });
+    return observed;
+  }); }
   async function checkpoint(ref) {
     await refreshNativeValueReceiverClock(runtime);
     const permit = await quorum.checkpoint({ poolIndex, requestId: fresh() }), message = permit.message;
@@ -401,7 +477,7 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       closed = true; password = undefined; providerSets.clear();admissionAdapters.clear();
       if(failures.length)throw new AggregateError(failures,'NV2_EXECUTION_CLEANUP_FAILED');return { closed: true }; },
   });
-  owners.set(keeper, { runtime, system, poolIndex, live, wrapped,
+  owners.set(keeper, { runtime, system, poolIndex, live, wrapped, reconcileRecovery,
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,poolIndex};},
     fence(){assert.ok(wrapped&&!closed&&!poisoned&&!busy&&!cancelled&&!capturing,'WRAPPED_EXECUTION_ORIGINAL_CAPTURE_REQUIRED');capturing=true;
       captureProviders=[...providerSets].map(([reference,rows])=>({reference,providers:rows.map(row=>({...row}))}));

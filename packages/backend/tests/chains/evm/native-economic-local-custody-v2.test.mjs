@@ -189,3 +189,110 @@ test('HOST live-armed observed runtime keeps its original pair and authenticated
   await assert.rejects(custodyPorts.reopenNativeEconomicObservedLocalCustodyV2(request(),retained),/GENESIS_CHANGED/);
  }finally{if(first)custodyPorts.closeNativeEconomicLocalCustodyV2(first);if(second)custodyPorts.closeNativeEconomicLocalCustodyV2(second);await rm(cwd,{recursive:true,force:true});}
 });
+
+// HOST only: original private methods, real Vault AEAD/CAS and real EIP155
+// signed bytes. RPC/history/proof acceptance below are explicit inert ports;
+// this test does not establish a chain reorg or economic proof acceptance.
+test('HOST original F reorg invalidates both AEAD journals before one exact retained-wire emission', async()=>{
+ const {fileURLToPath}=await import('node:url'),{canonical}=await import('../../../../engine/src/crypto/privacy.mjs');
+ const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
+ const moduleURL=(name,canonicalPath)=>new URL(generated?'../../'+name:canonicalPath,import.meta.url);
+ const runtimeSource=await readFile(moduleURL('chain-adapters/owned-evm-v2-runtime.mjs','../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),'utf8');
+ const executionSource=await readFile(moduleURL('paeg/native-value-execution-v2.mjs','../../../src/execution/native-value/execution/native-value-execution-v2.mjs'),'utf8');
+ const accountSource=await readFile(moduleURL('global-state/native-value-account-authority-v2.mjs','../../../src/accounts/authority/native-value-account-authority-v2.mjs'),'utf8');
+ const observerSource=await readFile(moduleURL('paeg/native-value-terminal-observer-v2.mjs','../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs'),'utf8');
+ const {encodeStatement,validateStatement}=await import(moduleURL('paeg/statements.mjs','../../../src/execution/encoding/statements.mjs'));
+ const {encodeFlatTransaction}=await import(moduleURL('paeg/transaction-codec.mjs','../../../src/execution/encoding/transaction-codec.mjs'));
+ const {decodeNativeValueTerminalCalldata}=await import(moduleURL('paeg/native-value-terminal-observer-v2.mjs','../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs'));
+ const {exactRecord}=await import(moduleURL('paeg/commitments.mjs','../../../src/execution/encoding/commitments.mjs'));
+ const {createHash}=await import('node:crypto');
+ const cut=(text,a,b)=>{const start=text.indexOf(a),end=text.indexOf(b,start);assert.ok(start>=0&&end>start);return text.slice(start,end);};
+ const compile=(body,ports)=>new Function(...Object.keys(ports),body)(...Object.values(ports));
+ const replaceImport=(text,name)=>{const hits=text.match(/await import\('[^']+'\)/g);assert.equal(hits?.length,1);return text.replace(hits[0],name);};
+ const cloned=x=>JSON.parse(canonical(x)),detached=x=>Object.freeze(cloned(x));
+ const sha=x=>createHash('sha256').update(canonical(x)).digest('hex'),dataHash=x=>createHash('sha256').update(Buffer.from(x.slice(2),'hex')).digest('hex');
+ const word=n=>BigInt(n).toString(16).padStart(64,'0'),bare=x=>x.slice(2),ref='a'.repeat(64),bridge=Object.freeze({}),pool={address:'0x'+'22'.repeat(20)};
+ const binding={domainCommitment:word(1),envelope:word(2),inputCommitment:word(3),inputNullifier:word(4),reserveCommitment:word(5),reserveNullifier:word(6),changeCommitment:word(7),recoveryCommitment:word(8),settleBefore:'100',authorizationPublicInputsSHA256:word(9)};
+ const statement={domainCommitment:word(1),authorizationRoot:word(10),poolRoot:word(11),reserveNullifier:word(6),recoveryCommitment:word(8),settleBefore:'100'};
+ const calldata=encodeFlatTransaction('recoverGeneric',{proof:'11'.repeat(32),publicInputs:encodeStatement('recovery',statement)});
+ const root=await mkdtemp(join(tmpdir(),'lianum-original-f-reorg-host-'));let custody;
+ try{
+  custody=await createNativeEconomicLocalCustodyV2({cwd:root,family:'receiver',profile:LOCAL_EVM_PROFILE});
+  const expected=Object.freeze({chainId:'31337',from:nativeEconomicLocalCustodyPublicV2(custody).accounts[0],to:pool.address,nonce:'3',gas:'1000000',gasPrice:'1000000000',value:'0',data:calldata});
+  const signed=await signNativeEconomicCustodyTransactionV2(custody,expected);assertSignedEvmTransaction(signed.nativeWire,expected);
+  let number=0;
+  async function fixture(mode='success'){
+   const dir=await mkdtemp(join(root,'case-')),accountVault=new Vault(join(dir,'account.vault')),executionVault=new Vault(join(dir,'execution.vault'));
+   const parent={number:'0x9',hash:'0x'+'33'.repeat(32),parentHash:'0x'+'44'.repeat(32),timestamp:'0x63',transactions:[]};
+   const includedHeader={number:'0xa',hash:'0x'+'55'.repeat(32),parentHash:parent.hash,timestamp:'0x64',transactions:[signed.nativeId]};
+   const oldReceipt={transactionHash:signed.nativeId,status:'0x1',to:pool.address,blockNumber:'0xa',blockHash:includedHeader.hash,transactionIndex:'0x0',gasUsed:'0x100'};
+   const before={header:parent,timestamp:'99',pools:[],authorization:[],unchangedHub:[]};
+   const submission={target:pool.address,calldata,calldataSHA256:dataHash(calldata),transactionHash:bare(signed.nativeId)};
+   const checkpoint={schema:'ORIGINAL_NATIVE_F_BEFORE_CHECKPOINT_V1',query:{kind:'recovery',submission,statement,binding},before,includedHeader,receipt:oldReceipt};
+   const terminal={transactionHash:bare(signed.nativeId),blockHash:bare(oldReceipt.blockHash),blockNumber:'10',calldataSHA256:dataHash(calldata),outcome:'RECOVERED'};
+   const originalSHash=word(12),sObservation={profile:'LIANUM_DEVICE_ORIGINAL_S_OBSERVATION_V1',transactionHash:originalSHash};
+   const accountInitial=await accountVault.create({operations:[],deviceReservations:[{jobId:ref,nativeBinding:binding,nativeRecoveryLatched:true,nativeLatched:mode!=='automatic',nativeOutcome:'RECOVERED',nativeTerminal:terminal,nativeStage:'RECOVERED',
+    observation:sObservation,submission:{dispatchLatched:mode!=='missingS',observation:{transaction:{hash:originalSHash}}},
+    ...(mode==='automatic'?{liveRecoveryArm:{state:'RECOVERED',armSHA256:word(13),nativeBindingSHA256:sha(binding),reservationTransactionHash:originalSHash,settleBefore:binding.settleBefore,lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}}:{})}]},'host-account');
+   const executionInitial=await executionVault.create({operations:[{reference:ref,binding,recoveryStatement:statement,recoverySubmission:submission,originalFCheckpoint:checkpoint,outcome:'RECOVERED',stage:'RECOVERED'}]},'host-execution');
+   let head=cloned(parent),currentReceipt=null,currentTx=null,pending=[],nextTime=null,sendCount=0,closed=false;
+   const runtime={get transactions(){return cloned([entry]);},async receipt(){return cloned(currentReceipt);},async transaction(){return cloned(currentTx);},async block(){return cloned(head);},async assertCanonical(h){assert.equal(h.hash??h.blockHash,head.hash);return cloned(head);},async checkReceipt(r){assert.deepEqual(r,currentReceipt);return r;}};
+   const checkSource=cut(observerSource,'    async checkRecoveryReorg(checkpoint) {','\n    },\n  });').replace('    async checkRecoveryReorg(checkpoint) {','async function checkRecoveryReorg(checkpoint) {')+'\n}';
+   const check=compile(checkSource+';return checkRecoveryReorg;',{assert,wrapped:false,exactRecord,decodeNativeValueTerminalCalldata,validateStatement,bindingOf:value=>assert.deepEqual(value,binding),dataHash,pool,prefix:x=>'0x'+x,runtime,
+    readAt:async()=>{if(mode==='state')return {...cloned(before),timestamp:'98'};return cloned(before);},reader:{async read(){return {header:cloned(head),ledger:{nullifiers:['0x'+binding.inputNullifier]}};},async assertCurrent(v){assert.deepEqual(v.header,head);}},detached});
+   const accountOwned=new WeakMap(),account=Object.freeze({case:++number});let keeper,accountPorts;
+   const accountCore=cut(accountSource,'  let reorgAdmission = null;','  async function retainDeviceTerminal(row,result){');
+   const accountWrite=cut(accountSource,'  async function write(change) {','  function operation(');
+   const accountRow=cut(accountSource,'  const reservationRows=()=>','  const reservationPublic=');
+   const terminalCore=cut(accountSource,'  async function retainDeviceTerminal(row,result){','  let liveRecovery=null;');
+   const wrappers=cut(accountSource,'export function originalDeviceNativeFReorgStateV1','const owned = new WeakMap()').replaceAll('export ','');
+   const makeAccount=compile('return async function(nativeExecution){let record=initial,unavailable=false,busy=true,closed=false,cancelled=false;const wrapped=false;let reorgAdmission={executor:nativeExecution,ref,bridge};'+accountCore.replace('  let reorgAdmission = null;','')+accountWrite+accountRow+terminalCore+
+    '\n'+wrappers+'\nconst state={wrapped:false,closed:()=>closed||unavailable,reorgState,retainReorg,assertReorgPending,async checkReorgPending(e,r,id){await healthy();assertReorgPending(e,r,id);}};owned.set(account,state);return{originalDeviceNativeFReorgStateV1,retainOriginalDeviceNativeFReorgV1,assertOriginalDeviceNativeFReorgPendingV1,checkOriginalDeviceNativeFReorgPendingV1,async finish(result){await retainDeviceTerminal(reservationRow(ref),result);},read:()=>copy(record),async healthy(){await healthy();}};};',
+    {assert,initial:accountInitial,ref,bridge,account,owned:accountOwned,copy:cloned,sha,byteSHA:dataHash,reference:x=>assert.match(x,/^[0-9a-f]{64}$/),vault:accountVault,password:'host-account',pool,system:{sender:expected.from},runtime,decodeNativeValueTerminalCalldata,flatAccountCalldataHash:dataHash,bare,
+     continueWork:()=>assert.equal(closed,false),deviceExecutionOriginal:(b,row)=>{assert.equal(b,bridge);assert.deepEqual(row.nativeBinding,binding);},validateManualLifecycle:()=>assert.fail('HOST_UNUSED_MANUAL'),retainLifetime:()=>assert.fail('HOST_UNUSED_WRAPPED'),
+     healthy:async()=>{assert.deepEqual(await accountVault.read('host-account'),accountPorts.read());}});
+   const wires=new WeakMap();
+   const consumeCore=cut(executionSource,'export function consumeOriginalNativeRecoveryReorgWireV1','const owners = new WeakMap()').replace('export ','');
+   const consume=compile(consumeCore+';return consumeOriginalNativeRecoveryReorgWireV1;',{assert,originalFReorgWires:wires});
+   const mutateCore=cut(runtimeSource,'    const mutate = async operation => {','    const mineAt =');
+   const mineCore=cut(runtimeSource,'    const mineAt = async timestamp => {','    const observedInclusionSecond=');
+   const emitCore=replaceImport(cut(runtimeSource,'    const reemitOriginalRecovery = token =>','    // The legacy public port'),'executorPorts');
+   const entry={label:'flat-execution-recovery-'+ref,request:{from:expected.from,to:expected.to,data:calldata,value:'0x0'},senderNonce:'0x3',phase:'mined',receipt:cloned(oldReceipt),transactionHash:signed.nativeId,localSigned:{...signed,expected}};
+   const emitted=compile('let busy=false,uncertainMutation=false,lastTimestamp=100n,ingressMutationEpoch=0n;const economicRecoveryFence=null,observedFinalityV2=null;'+mutateCore+mineCore+emitCore+';return {emit:reemitOriginalRecovery,read:()=>({busy,uncertainMutation})};',
+    {assert,cloned,runtime,executorPorts:{consumeOriginalNativeRecoveryReorgWireV1:consume},transactions:[entry],assertSignedEvmTransaction,sha:value=>createHash('sha256').update(value).digest('hex'),Buffer,observedClock:false,assertAlive:()=>assert.equal(closed,false),health:async()=>{},block:async()=>cloned(head),assertCanonical:runtime.assertCanonical,transaction:runtime.transaction,receipt:runtime.receipt,checkReceipt:runtime.checkReceipt,
+     rpc:async(method,args)=>{if(method==='eth_pendingTransactions')return cloned(pending);if(method==='eth_getTransactionCount')return mode==='nonce'?'0x4':'0x3';
+      if(method==='eth_sendRawTransaction'){const a=await accountVault.read('host-account'),e=await executionVault.read('host-execution');assert.equal(a.data.deviceReservations[0].nativeFReorg.phase,'OBSERVATION_PENDING');assert.equal(e.data.operations[0].nativeFReorg.phase,'OBSERVATION_PENDING');assert.equal(a.data.deviceReservations[0].nativeOutcome,null);assert.equal(e.data.operations[0].outcome,null);assert.equal(args[0],signed.nativeWire);sendCount++;if(mode==='unknown')throw new Error('HOST_RPC_UNCERTAIN');return signed.nativeId;}
+      if(method==='evm_setNextBlockTimestamp'){nextTime=args[0];return true;}if(method==='evm_mine'){head={...cloned(includedHeader),hash:'0x'+'66'.repeat(32),timestamp:'0x'+BigInt(nextTime).toString(16)};currentReceipt={...cloned(oldReceipt),blockHash:head.hash};currentTx={hash:signed.nativeId,from:expected.from,to:expected.to,input:calldata,value:'0x0',nonce:'0x3',blockHash:head.hash,blockNumber:head.number};return true;}assert.fail('HOST_UNEXPECTED_RPC');}});
+   // The first replacement is the account import, the second is the runtime
+   // import. Replace by exact literals rather than evaluating arbitrary paths.
+   const exBody=cut(executionSource,'  async function reconcileRecovery(account, ref) {','  async function checkpoint(ref) {');
+   const exImports=exBody.match(/await import\('[^']+'\)/g);assert.equal(exImports.length,2);
+   const ex=exBody.replace(exImports[0],'accountPorts').replace(exImports[1],'runtimePorts');
+   const exWrite=cut(executionSource,'  async function write(change) {','  async function stage(ref, name)');
+   const exExclusive=cut(executionSource,'  async function exclusive(work) {','  async function abi(name)');
+   const makeExecutor=compile('return async function(){let record=initial,poisoned=false,busy=false,cancelled=false,capturing=false,closed=false,activeDone=Promise.resolve(),releaseActive;const wrapped=false;const keeper=Object.freeze({});'+exWrite+exExclusive+ex+';return{keeper,read:()=>copy(record),run:()=>reconcileRecovery(account,ref)};};',
+    {assert,initial:executionInitial,account,ref,runtime,terminalObserver:{checkRecoveryReorg:check},bare,copy:cloned,detached,digest:sha,reference:x=>assert.match(x,/^[0-9a-f]{64}$/),vault:executionVault,password:'host-execution',retainLifetime:()=>assert.fail('HOST_UNUSED_WRAPPED'),privateRecoveryDigest:sha,
+     live:()=>assert.equal(closed,false),healthy:async()=>assert.deepEqual(await executionVault.read('host-execution'),keeper.read()),accountPorts:new Proxy({}, {get:(_,key)=>(...args)=>accountPorts[key](...args)}),runtimePorts:{reemitOwnedOriginalNativeRecoveryV1:(r,t)=>{assert.equal(r,runtime);return emitted.emit(t);}},originalFReorgWires:wires,
+     observedSubmission:async()=>{assert.ok(currentReceipt,'HOST_ORIGINAL_RECEIPT_UNAVAILABLE');return {receipt:cloned(currentReceipt),outcome:'RECOVERED',calldataSHA256:dataHash(calldata)};}});
+   keeper=await makeExecutor();accountPorts=await makeAccount(keeper.keeper);
+   return {account,accountPorts,keeper,runtime,emit:emitted.emit,read:()=>({sendCount,entry}),check,
+    tamperHead(){head={...head,hash:'0x'+'77'.repeat(32)};},async tamperAccount(){const value=await accountVault.read('host-account');await accountVault.update('host-account',value.revision,data=>({...data,extra:true}));}};
+  }
+  const good=await fixture();assert.throws(()=>good.accountPorts.originalDeviceNativeFReorgStateV1({...good.account},good.keeper.keeper,ref),/ORIGINAL_ACCOUNT/);assert.equal((await good.keeper.run()).originalFReorgInvalidated,true);assert.equal(good.read().sendCount,0);
+  assert.equal(good.accountPorts.read().data.deviceReservations[0].nativeOutcome,null);assert.equal(good.keeper.read().data.operations[0].outcome,null);
+  await assert.rejects(good.emit({}),/ORIGINAL_WIRE_TOKEN/);const result=await good.keeper.run();await good.accountPorts.finish(result);
+  assert.equal(good.read().sendCount,1);assert.equal(good.read().entry.localSigned.nativeWire,signed.nativeWire);assert.equal(good.accountPorts.read().data.deviceReservations[0].nativeFReorg.phase,'RECONFIRMED');
+  await good.keeper.run();assert.equal(good.read().sendCount,1);
+  const automatic=await fixture('automatic');assert.equal(automatic.accountPorts.read().data.deviceReservations[0].nativeLatched,false);
+  assert.equal((await automatic.keeper.run()).originalFReorgInvalidated,true);assert.equal(automatic.read().sendCount,0);
+  const automaticResult=await automatic.keeper.run();await automatic.accountPorts.finish(automaticResult);
+  assert.equal(automatic.read().sendCount,1);assert.equal(automatic.accountPorts.read().data.deviceReservations[0].nativeFReorg.phase,'RECONFIRMED');
+  assert.equal(automatic.accountPorts.read().data.deviceReservations[0].nativeLatched,false);
+  for(const mode of ['state','deeper','missingS']){const f=await fixture(mode);if(mode==='deeper')f.tamperHead();
+   await assert.rejects(f.keeper.run());assert.equal(f.read().sendCount,0);assert.equal(f.accountPorts.read().data.deviceReservations[0].nativeFReorg,undefined);
+   assert.equal(f.keeper.read().data.operations[0].nativeFReorg,undefined);}
+  for(const mode of ['nonce','unknown','tamper']){const f=await fixture(mode);await f.keeper.run();if(mode==='tamper')await f.tamperAccount();
+   await assert.rejects(f.keeper.run());assert.equal(f.read().sendCount,mode==='unknown'?1:0);assert.equal(f.accountPorts.read().data.deviceReservations[0].nativeOutcome,null);
+   if(mode==='unknown'){await assert.rejects(f.keeper.run(),/RECEIPT_UNAVAILABLE/);assert.equal(f.read().sendCount,1);}}
+ }finally{if(custody)closeNativeEconomicLocalCustodyV2(custody);await rm(root,{recursive:true,force:true});}
+});

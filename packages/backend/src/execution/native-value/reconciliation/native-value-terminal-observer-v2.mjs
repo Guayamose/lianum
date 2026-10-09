@@ -17,6 +17,12 @@ import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../encoding/
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
+const originalRecoveryObservations = new WeakMap();
+export function readOriginalNativeRecoveryCheckpointV1(observer, result) {
+  assert.equal(arguments.length, 2); const state = owned.get(observer), saved = originalRecoveryObservations.get(result);
+  assert.ok(state && !state.wrapped && saved?.observer === observer, 'F_REORG_ORIGINAL_OBSERVATION_REQUIRED');
+  return detached(saved.checkpoint);
+}
 const owned = new WeakMap(), ZERO_WORD = '0x' + ZERO, ZERO_ADDRESS = '0x' + '0'.repeat(40), MAX_BYTES = 1024 * 1024;
 const BINDING_FIELDS = ['domainCommitment', 'envelope', 'inputCommitment', 'inputNullifier', 'reserveCommitment',
   'reserveNullifier', 'changeCommitment', 'recoveryCommitment', 'settleBefore', 'authorizationPublicInputsSHA256'];
@@ -355,13 +361,50 @@ async function createTerminalObserver(options, wrapped) {
         assert.deepEqual(current.ledger[name].slice(0, historical[name].length), historical[name], 'FLAT_TERMINAL_LATEST_HISTORY_CHANGED');
       await runtime.checkReceipt(receipt); await runtime.assertCanonical(before.header); await runtime.assertCanonical(after.header);
       await reader.assertCurrent(current);
-      return detached({ receipt, outcome: kind === 'settlement' ? 'FULFILLED' : 'RECOVERED', calldataSHA256: submission.calldataSHA256,
+      const result = detached({ receipt, outcome: kind === 'settlement' ? 'FULFILLED' : 'RECOVERED', calldataSHA256: submission.calldataSHA256,
         confirmation: { ...delta, classification: 'OWNED_LOCAL_HISTORICAL_TERMINAL_TRANSITION_NOT_NATIVE_CONSENSUS',
           transactionHash: bare(receipt.transactionHash), blockHash: bare(receipt.blockHash), parentHash: bare(before.header.hash),
           blockNumber: BigInt(header.number).toString(), timestamp: after.timestamp, pool: pool.address,
           domainCommitment: binding.domainCommitment, assetMetadata: pool.assetMetadata,
           assetObservation: { before: before.pools[poolIndex].assetObservation, after: after.pools[poolIndex].assetObservation },
           reconciledHead: current.head } });
+      if (!wrapped && kind === 'recovery') originalRecoveryObservations.set(result, { observer, checkpoint: detached({
+        schema: 'ORIGINAL_NATIVE_F_BEFORE_CHECKPOINT_V1', query, before, includedHeader: header, receipt }) });
+      return result;
+    },
+    async checkRecoveryReorg(checkpoint) {
+      assert.ok(!wrapped, 'F_REORG_NATIVE_ONLY');
+      exactRecord(checkpoint, ['schema', 'query', 'before', 'includedHeader', 'receipt']);
+      assert.equal(checkpoint.schema, 'ORIGINAL_NATIVE_F_BEFORE_CHECKPOINT_V1');
+      const { query, before, includedHeader, receipt: old } = checkpoint;
+      exactRecord(query, ['kind', 'submission', 'statement', 'binding']);
+      assert.equal(query.kind, 'recovery'); bindingOf(query.binding);
+      const decoded = decodeNativeValueTerminalCalldata(query.submission.calldata);
+      assert.equal(decoded.kind, 'recovery');
+      assert.deepEqual(decoded.statement, validateStatement('recovery', query.statement));
+      assert.equal(query.submission.target, pool.address);
+      assert.equal(dataHash(query.submission.calldata), query.submission.calldataSHA256);
+      assert.equal(old.transactionHash, prefix(query.submission.transactionHash));
+      assert.equal(old.status, '0x1'); assert.equal(old.to, pool.address);
+      assert.equal(BigInt(old.blockNumber), BigInt(before.header.number) + 1n, 'F_REORG_EXACT_PARENT_REQUIRED');
+      assert.ok(BigInt(old.blockNumber) > 0n);
+      assert.equal(includedHeader.hash, old.blockHash); assert.equal(includedHeader.parentHash, before.header.hash);
+      assert.deepEqual(includedHeader.transactions, [old.transactionHash]);
+      assert.ok(BigInt(includedHeader.timestamp) >= BigInt(query.binding.settleBefore), 'F_REORG_ORIGINAL_CUTOFF_REQUIRED');
+      const head = await runtime.block();
+      assert.deepEqual(head, before.header, 'F_REORG_DEEPER_OR_LATER_HEAD_REJECTED');
+      await runtime.assertCanonical(before.header);
+      const [transaction, included] = await Promise.all([runtime.transaction(old.transactionHash), runtime.receipt(old.transactionHash)]);
+      assert.equal(transaction, null, 'F_REORG_OLD_TRANSACTION_PRESENT');
+      assert.equal(included, null, 'F_REORG_OLD_RECEIPT_PRESENT');
+      assert.deepEqual(await readAt(before.header.number), before, 'F_REORG_ORIGINAL_PARENT_STATE_CHANGED');
+      const current = await reader.read();
+      assert.deepEqual(current.header, before.header);
+      assert.ok(current.ledger.nullifiers.includes(prefix(query.binding.inputNullifier)), 'F_REORG_ORIGINAL_S_REQUIRED');
+      assert.ok(!current.ledger.nullifiers.includes(prefix(query.binding.reserveNullifier)), 'F_REORG_RESERVE_ALREADY_SPENT');
+      await reader.assertCurrent(current); await runtime.assertCanonical(before.header);
+      assert.deepEqual(await runtime.block(), head, 'F_REORG_HEAD_CHANGED');
+      return detached({ parent: head, transactionHash: old.transactionHash, calldataSHA256: query.submission.calldataSHA256 });
     },
   });
   owned.set(observer, { runtime, system, poolIndex, wrapped }); return observer;
