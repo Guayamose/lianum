@@ -154,3 +154,37 @@ test('private final-audit timing survives original failure and close without sam
       assert.equal(Object.hasOwn(again, forbidden), false);
   } finally { sampled.mock.restore(); await f.close(); }
 });
+
+// Actual controller/AEAD journal, with observed-time DATA on the existing inert
+// runtime port. Collection/audit durations are controlled, never measured here.
+test('observed original inclusion expiry rejects before key use without changing the old permit or head', async t => {
+  for (const expiresDuringAudit of [true, false]) {
+    const f = await fixture(), clock = { now: 0 };
+    const sampled = t.mock.method(performance, 'now', () => clock.now);
+    let observed = 10n, reads = 0, retainedAuthorization;
+    try {
+      const prepared = await f.controller.prepare({ handoff: f.handoff });
+      f.control.intentId = prepared.intentId;
+      f.options.runtime.testObservedInclusionSecond = () => { reads++; return observed; };
+      f.control.preparedHook = async () => {
+        clock.now = 25_500; observed = 35n;
+        retainedAuthorization = structuredClone(f.control.lastAuthorization);
+      };
+      f.control.finalAuditHook = async () => {
+        clock.now = 37_625; if (expiresDuringAudit) observed = 47n;
+      };
+      if (!expiresDuringAudit) f.control.afterBeforeSign = async () => { observed = 47n; };
+      await assert.rejects(f.controller.preposition({ intentId: prepared.intentId }), /CLAIM_EVM_ORIGINAL_WINDOW_EXPIRED/);
+      const journal = (await import('../../../src/claims/controller/controller-journal.mjs')).ownedClaimControllerJournal(f.keeper, f.runtime, f.options.claims);
+      assert.equal((await journal.read()).evm.at(-1).status, 'REJECTED_NO_KEY');
+      assert.equal(f.runtime.transactions.length, 0);
+      assert.equal(f.control.lastKeyToken === undefined, expiresDuringAudit);
+      assert.equal(f.control.backingCalls, 1); assert.equal(f.control.finalAudits, 1);
+      assert.equal(f.state.head.timestamp, '10');
+      assert.deepEqual(f.control.lastAuthorization, retainedAuthorization);
+      assert.equal(retainedAuthorization.authorization.permit.validFrom, '10');
+      assert.equal(retainedAuthorization.authorization.permit.validUntil, '40');
+      assert.ok(reads >= 2, 'original inclusion is checked again after the audit or at synchronous key consumption');
+    } finally { sampled.mock.restore(); await f.close(); }
+  }
+});

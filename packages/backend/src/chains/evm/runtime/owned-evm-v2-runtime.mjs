@@ -70,6 +70,14 @@ export async function refreshNativeValueReceiverClock(runtime){
   const clock=observedReceiverClocks.get(runtime);if(clock){clock.assertAlive();await clock.refresh();}
   return undefined;
 }
+/** A lower bound for this original receiver's next inclusion, not a permit.
+ * No caller time or RPC observation is accepted; legacy manual mining is null. */
+export function nativeValueReceiverInclusionSecondV1(runtime){
+  assert.equal(arguments.length,1,'LOCAL_OBSERVED_CLOCK_ARITY');
+  assert.ok(ownedRuntimes.has(runtime),'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED');
+  const clock=observedReceiverClocks.get(runtime);if(!clock)return null;
+  clock.assertAlive();return clock.inclusionSecond();
+}
 export function assertOwnedLocalEvmObservedClockV1(runtime){
   assert.equal(arguments.length,1,'LOCAL_OBSERVED_CLOCK_ARITY');const clock=observedReceiverClocks.get(runtime);
   assert.ok(clock&&ownedRuntimes.has(runtime),'LOCAL_OBSERVED_ORIGINAL_RECEIVER_REQUIRED');clock.assertAlive();return undefined;
@@ -807,6 +815,13 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       assert.equal(BigInt(after.number), BigInt(before.number) + 1n, 'LOCAL_EVM_UNCONTROLLED_MINING');
       assert.equal(BigInt(after.timestamp), timestamp, 'LOCAL_EVM_MINED_TIMESTAMP');
       lastTimestamp = timestamp; return after;
+    };
+    const observedInclusionSecond=()=>{
+      assertAlive();
+      const now=observedNativeValueReceiverSecond(lastTimestamp.toString(),String(Date.now()));
+      // Equality requires the next actual second, exactly as nextObservedSecond.
+      // This does not wait, mine, refresh an authorization or promise inclusion.
+      return now>lastTimestamp?now:lastTimestamp+1n;
     };
     // Fixed wait for a genuinely observed later second. Never infer approval
     // from elapsed time; this changes only the new synthetic ledger's block time.
@@ -1625,7 +1640,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     }
     if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmRetentionArmsV1.set(runtime,()=>{assertAlive();assert.equal(processGeneration,0,'EVM_RETENTION_ORIGINAL_GENERATION');assert.ok(initialPrivateRecord&&!busy&&transactions.length===0,'EVM_RETENTION_BEFORE_NATIVE_EFFECTS');recoveryRetained=true;return cloneRuntimeRecoveryV1({schema:'OWNED_NATIVE_INITIAL_RETENTION_V1',family:recoveryFamily,cwd,processGeneration,initialPrivateRecord});});
     if(economicV2)originalEconomicV2Runtimes.add(runtime);
-    if(observedClock&&!nativeValueOnly)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive});
+    if(observedClock&&!nativeValueOnly)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive,inclusionSecond:observedInclusionSecond});
     if(observedEconomicV2)observedEconomicRuntimeClocksV2.set(runtime,{family:recoveryFamily,refresh:refreshObservedClock,assertAlive,
       pendingFinality:()=>Boolean(observedFinalityV2&&!observedFinalityV2.completed)});
     if (nativeValueOnly) {

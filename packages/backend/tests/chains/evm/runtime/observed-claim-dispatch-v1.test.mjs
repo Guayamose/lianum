@@ -105,3 +105,32 @@ test('actual observed dispatch opens only original claim scopes and retains key,
   assert.equal(legacy.events.includes('observed-wait'),false);
   await assert.rejects(legacy.ports.dispatchObservedClaimV1(legacy.original),/LOCAL_OBSERVED_RECEIVER_CLAIM_ONLY/);
 });
+
+// Execute the actual private observation and public WeakMap consumer bodies,
+// using explicit inert identities. This creates no original runtime authority.
+test('original observed inclusion lower bound uses current time and rejects copies, rollback and closed lifetime', () => {
+  const ownedRuntimes = new WeakSet(), observedReceiverClocks = new WeakMap();
+  const runtime = {}, legacy = {}; ownedRuntimes.add(runtime); ownedRuntimes.add(legacy);
+  const state = { live: true, walltime: 100000, samples: 0 };
+  const assertAlive = () => assert.ok(state.live, 'HOST_ORIGINAL_LIFETIME_CLOSED');
+  const context = { assert, ownedRuntimes, observedReceiverClocks, observedNativeValueReceiverSecond,
+    assertAlive, lastTimestamp: 100n, Date: { now() { state.samples++; return state.walltime; } } };
+  const observation = section('    const observedInclusionSecond=()=>{', '    const nextObservedSecond=');
+  const consumer = section('export function nativeValueReceiverInclusionSecondV1(runtime){', 'export function assertOwnedLocalEvmObservedClockV1(runtime){').replace(/^export /, '');
+  const ports = vm.runInNewContext(observation + consumer + '\n({ observedInclusionSecond, nativeValueReceiverInclusionSecondV1 });', context);
+  observedReceiverClocks.set(runtime, { assertAlive, inclusionSecond: ports.observedInclusionSecond });
+  assert.equal(ports.nativeValueReceiverInclusionSecondV1(legacy), null); assert.equal(state.samples, 0);
+  assert.equal(ports.nativeValueReceiverInclusionSecondV1(runtime), 101n);
+  state.walltime = 105999; assert.equal(ports.nativeValueReceiverInclusionSecondV1(runtime), 105n);
+  let traps = 0;
+  const hostile = new Proxy(runtime, { get() { traps++; throw Error('PRIVATE_MESSAGE'); }, ownKeys() { traps++; return []; } });
+  const before = state.samples;
+  for (const forged of [{ ...runtime }, hostile])
+    assert.throws(() => ports.nativeValueReceiverInclusionSecondV1(forged), /OWNED_CAPABILITY_REQUIRED/);
+  assert.throws(() => ports.nativeValueReceiverInclusionSecondV1(runtime, '106'), /CLOCK_ARITY/);
+  assert.equal(traps, 0); assert.equal(state.samples, before);
+  state.walltime = 99999; assert.throws(() => ports.nativeValueReceiverInclusionSecondV1(runtime), /CLOCK_ROLLBACK/);
+  state.live = false; const closedSamples = state.samples;
+  assert.throws(() => ports.nativeValueReceiverInclusionSecondV1(runtime), /HOST_ORIGINAL_LIFETIME_CLOSED/);
+  assert.equal(state.samples, closedSamples);
+});

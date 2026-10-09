@@ -17,7 +17,7 @@ import { randomBytes } from 'node:crypto';
 import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '../../execution/encoding/commitments.mjs';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
-import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction, refreshNativeValueReceiverClock } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction, refreshNativeValueReceiverClock, nativeValueReceiverInclusionSecondV1 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../operations/owned-state.mjs';
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/operators.mjs';
 import * as claimOperators from '../operations/operators.mjs';
@@ -205,11 +205,14 @@ function executionWindows(method, args, original) {
   }
   return freeze(windows);
 }
-function assertExecutionWindows(windows, head) {
-  const now = claimUint(head.timestamp), inclusion = now + 1n; // owned runtime's unchanged manual-mining rule
+function assertExecutionWindows(windows, head, runtime) {
+  const now = claimUint(head.timestamp);
+  // The original observed receiver mines at actual wall time after slow work.
+  // Other owned runtimes retain their unchanged manual-mining rule.
+  const inclusion = nativeValueReceiverInclusionSecondV1(runtime) ?? now + 1n;
   for (const [rawFrom, rawUntil] of windows) {
     const from = claimUint(rawFrom), until = claimUint(rawUntil);
-    assert.ok(from < until && from <= now && now < until && inclusion < until, 'CLAIM_EVM_ORIGINAL_WINDOW_EXPIRED');
+    assert.ok(from < until && from <= now && now < until && inclusion >= now && inclusion < until, 'CLAIM_EVM_ORIGINAL_WINDOW_EXPIRED');
   }
 }
 function elapsedEvidence(start) {
@@ -605,7 +608,7 @@ async function createController(input, beginAuditOnly) {
             assert.deepEqual(copy(original.result), original.captured, 'CLAIM_EVM_ORIGINAL_AUTHORIZATION_CHANGED');
             assert.deepEqual(original.captured.head, snapshot.head, 'CLAIM_EVM_ORIGINAL_AUTHORIZATION_HEAD');
           }
-          assertExecutionWindows(windows, snapshot.head);
+          assertExecutionWindows(windows, snapshot.head, runtime);
         };
         assertBinding();
         const describeAudit = () => ({ profile: v4Original ? FINAL_AUDIT_PROFILE : 'CLAIM_EVM_ORIGINAL_CERTIFICATE_FINAL_AUDIT_V2',
