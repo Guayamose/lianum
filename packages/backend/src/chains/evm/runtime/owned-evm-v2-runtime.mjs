@@ -881,9 +881,10 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
             if(externalNoteScope){
               // Private original source-note producer only. All I/O needed to
               // prepare the signing lease precedes the last permission guard.
-              const lease=await prepareNativeEconomicCustodySigningV2(localCustody,expected);
+              const prepared=Object.freeze({transaction:Object.freeze(expected)});
+              const lease=await prepareNativeEconomicCustodySigningV2(localCustody,prepared);
               try{await externalNoteScope.beforeKey(expected);externalNoteScope.assertBeforeKey(expected);assertAlive();
-                signed=consumeNativeEconomicCustodySigningV2(lease);}
+                signed=consumeNativeEconomicCustodySigningV2(localCustody,lease,prepared);}
               finally{revokeNativeEconomicCustodySigningV2(lease);}
             }else signed=await signNativeEconomicCustodyTransactionV2(localCustody,expected);
             assertSignedEvmTransaction(signed.nativeWire,expected);entry.localSigned=cloned({...signed,expected});

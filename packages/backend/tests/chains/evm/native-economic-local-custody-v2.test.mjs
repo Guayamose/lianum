@@ -84,3 +84,45 @@ test('HOST close during a fresh ciphertext read cannot publish authenticated pub
   assert.throws(()=>nativeEconomicLocalCustodyPublicV2(custody),/NATIVE_ECONOMIC_ORIGINAL_CUSTODY/);
  }finally{if(custody)closeNativeEconomicLocalCustodyV2(custody);await rm(cwd,{recursive:true,force:true});}
 });
+
+
+test('HOST original external-note send branch uses the same frozen custody preparation after the final guard',async()=>{
+ const {fileURLToPath}=await import('node:url');
+ const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
+ const source=await readFile(new URL(generated?'../../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url),'utf8');
+ const start=source.indexOf('if(externalNoteScope){\n              // Private original source-note producer only.');
+ const end=source.indexOf('}else signed=await signNativeEconomicCustodyTransactionV2(localCustody,expected);',start);
+ assert.ok(start>=0&&end>start);
+ // Execute the actual source branch with real AEAD custody and real signing.
+ // Infrastructure guards below are explicit HOST ports, with no RPC/send.
+ const branch=source.slice(start,end)+'}';
+ const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+ const run=new AsyncFunction('expected','externalNoteScope','localCustody',
+  'prepareNativeEconomicCustodySigningV2','consumeNativeEconomicCustodySigningV2',
+  'revokeNativeEconomicCustodySigningV2','assertAlive','let signed;'+branch+';return signed;');
+ const cwd=await mkdtemp(join(tmpdir(),'lianum-external-flat-signing-host-'));let custody;
+ try{
+  custody=await createNativeEconomicLocalCustodyV2({cwd,family:'receiver',profile:LOCAL_EVM_PROFILE});
+  const view=nativeEconomicLocalCustodyPublicV2(custody),expected={...terms(view.accounts[0])},order=[];
+  // The old bare transaction is rejected by the original producer contract.
+  await assert.rejects(prepareNativeEconomicCustodySigningV2(custody,expected),/NATIVE_ECONOMIC_FIXED_PREPARATION/);
+  let samePrepared,sameLease;
+  const prepare=async function(c,p){assert.equal(arguments.length,2);assert.equal(c,custody);assert.equal(Object.isFrozen(p),true);assert.equal(Object.isFrozen(p.transaction),true);assert.equal(p.transaction,expected);samePrepared=p;
+   const lease=await prepareNativeEconomicCustodySigningV2(c,p);sameLease=lease;order.push('prepared');return lease;};
+  const consume=function(c,l,p){assert.equal(arguments.length,3);assert.equal(c,custody);assert.equal(l,sameLease);assert.equal(p,samePrepared);order.push('consume');return consumeNativeEconomicCustodySigningV2(c,l,p);};
+  const revoke=l=>{assert.equal(l,sameLease);order.push('revoke');revokeNativeEconomicCustodySigningV2(l);};
+  const scope={async beforeKey(tx){assert.equal(tx,expected);assert.equal(Object.isFrozen(tx),true);order.push('before-key');},assertBeforeKey(tx){assert.equal(tx,expected);order.push('guard');}};
+  const signed=await run(expected,scope,custody,prepare,consume,revoke,()=>order.push('alive'));
+  assertSignedEvmTransaction(signed.nativeWire,expected);assert.deepEqual(order,['prepared','before-key','guard','alive','consume','revoke']);
+  assert.throws(()=>consumeNativeEconomicCustodySigningV2(custody,sameLease,samePrepared),/ORIGINAL_SIGNING_LEASE/);
+  // A close in the final awaited guard revokes the actual private lease. The
+  // same finally cleanup drains it; no replacement key, signature or send.
+  let revoked=false,lateLease,latePrepared,consumes=0;
+  const late={async beforeKey(){closeNativeEconomicLocalCustodyV2(custody);},assertBeforeKey(){}};
+  await assert.rejects(run({...expected},late,custody,
+   async(c,p)=>{latePrepared=p;lateLease=await prepareNativeEconomicCustodySigningV2(c,p);return lateLease;},
+   function(c,l,p){consumes++;assert.equal(arguments.length,3);assert.equal(p,latePrepared);return consumeNativeEconomicCustodySigningV2(c,l,p);},
+   l=>{assert.equal(l,lateLease);revokeNativeEconomicCustodySigningV2(l);revoked=true;},()=>{}),/NATIVE_ECONOMIC_ORIGINAL_CUSTODY/);
+  assert.equal(consumes,1);assert.equal(revoked,true);assert.throws(()=>nativeEconomicLocalCustodyPublicV2(custody),/ORIGINAL_CUSTODY/);
+ }finally{if(custody)closeNativeEconomicLocalCustodyV2(custody);await rm(cwd,{recursive:true,force:true});}
+});
