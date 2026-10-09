@@ -477,3 +477,49 @@ await vault.close();vault=await mobile.createDeviceExternalFlatNoteVaultV1();ass
  assert.ok(capacityClear.some(v=>v.profile===P.DEVICE_EXTERNAL_FLAT_NOTE_V1));assert.ok(capacityClear.filter(v=>v.profile===P.DEVICE_EXTERNAL_FLAT_NOTE_V1||v.profile===P.DEVICE_EXTERNAL_FLAT_SHARE_V1).every(v=>v.bytes<=10000));assert.ok(capacityClear.filter(v=>v.profile==='LIANUM_SEALED_DEVICE_CUSTODY_BACKUP_V1').every(v=>v.bytes<=65536));const manifest=JSON.parse(capacityStore.get('lianum.external-flat.record.v1'));assert.ok(manifest.bytes<=16384&&manifest.chunks<=11);assert.ok([...capacityStore.values()].every(v=>v.length<=2048));client.close();assert.throws(()=>graphSdk.readDeviceExternalFlatGraphStatusV1(status));wallet.invalidateExternal(descriptor,sourceRow.consentFields.rootId);assert.equal(wallet.snapshot().rows.every(r=>r.state==='UNKNOWN'&&r.available===null),true);const originalNow=Date.now;try{Date.now=()=>exitedStatus.expiresAt+1;assert.equal(wallet.snapshot().rows.every(r=>r.state==='STALE'&&r.available===null&&r.noteAmount===null),true);}finally{Date.now=originalNow;}
  }finally{client?.close();sourceClient?.close();await vault?.close();P.externalFlatWipeV1(witness);P.externalFlatWipeV1(opening);k.fill(0);recipientKey.fill(0);}
 });
+
+
+test('HOST original graph capture uses its active original token while idle authority stays fenced',async()=>{
+ const {runInNewContext}=await import('node:vm');
+ const issuerText=await readFile(url('../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','../native-claims/wrapped-recovery-authority-v1.mjs'),'utf8'),
+  serviceText=await readFile(url('../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs','../operations/local/device-external-flat-source-graph-service-v1.mjs'),'utf8');
+ const cut=(text,start,end)=>{const a=text.indexOf(start),b=text.indexOf(end,a);assert.ok(a>=0&&b>a);return text.slice(a,b).replace(/^export /gm,'');};
+ const body=[
+  cut(issuerText,'function state(authority){','function checkpoint('),
+  cut(issuerText,'async function fixedCapture(authority,section,produce){','export async function retainWrappedRuntimeRecoveryV1'),
+  cut(issuerText,'function deviceExternalCaptureIdentity(token,section){','export function deviceExternalFlatReceiverCaptureIdentityV1'),
+  cut(issuerText,'export function assertDeviceExternalFlatAccountCaptureAuthorityV1','export function consumeDeviceExternalFlatReceiverRuntimeSectionV1'),
+  cut(serviceText,'export async function retainOriginalDeviceExternalFlatGraphServiceSectionV1','export async function retainOriginalDeviceExternalFlatGraphSystemV1')
+ ].join('\n');
+ const authorities=new WeakMap(),writes=new WeakMap(),services=new WeakMap(),authority=Object.freeze(Object.create(null)),other=Object.freeze(Object.create(null)),service=Object.freeze(Object.create(null));
+ const identity={profile:'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1',runId:'HOST_ORIGINAL_CAPTURE'},
+  s={identity,creating:true,closed:false,busy:false,fault:false,finalization:null,operation:null,record:{data:{phase:'CAPTURING',sections:{deviceAccount:null}}}};
+ authorities.set(authority,s);authorities.set(other,{...s,record:structuredClone(s.record)});
+ const runtime={},state={runtime,account:{},targetAccount:{},preparing:false,poisoned:false,recipient:null,provider:null,async persist(){}};
+ services.set(service,{retention:{authority},state,bridge:{},execution:{},workspaceIdentity:{}});
+ let originalToken=null,retains=0;
+ const tokenIdentity=(token,section)=>{const w=writes.get(token);assert.ok(w&&w.section===section&&!w.used&&w.s.operation===token);return structuredClone(w.s.identity);};
+ const lowerCapture=async(value,token)=>{tokenIdentity(token,'deviceAccount');return{explicitSyntheticLowerCapture:true};};
+ const api=runInNewContext('(()=>{'+body+';return {state,fixedCapture,assertDeviceExternalFlatAccountCaptureAuthorityV1,retainOriginalDeviceExternalFlatGraphServiceSectionV1};})()',{
+  assert,authorities,writes,services,structuredClone,opaque:()=>Object.freeze(Object.create(null)),clone:structuredClone,
+  DEVICE_EXTERNAL_FLAT_PROFILE:identity.profile,sectionsFor:()=>['deviceAccount'],originalWrappedRecoverySectionIdentityV1:tokenIdentity,
+  need:(ok,code)=>assert.ok(ok,code),assertWrappedPrivateLifetimeAttemptV1(actual,expected){assert.equal(actual,runtime);assert.deepEqual(expected,identity);},
+  captureOriginalDeviceExternalFlatSourceGraphV1:lowerCapture,captureOriginalDeviceExternalFlatGraphExecutionV1:lowerCapture,
+  captureOriginalDeviceExternalFlatGraphAccountV1:async(account,bridge,token)=>lowerCapture(account,token),
+  async readWrappedPrivateLifetimePartV1(){return{privateState:{candidate:null},handle:{}};},assertWrappedPrivateLifetimePartSealedV1(){},
+  sha:value=>h(JSON.stringify(value)),
+  async retainOriginalWrappedRecoverySectionV1(token,section,data){const w=writes.get(token);tokenIdentity(token,section);w.used=true;retains++;w.s.record.data.sections[section]={state:'RETAINED',data};},
+  async mutate(actual,transform){actual.record.data=transform(actual.record.data);},
+  wrappedRecoveryAuthorityStatusV1:()=>({captured:s.record.data.sections.deviceAccount?.state==='CAPTURED'})
+ });
+ const result=await api.fixedCapture(authority,'deviceAccount',async token=>{
+  originalToken=token;assert.throws(()=>api.state(authority),/WRAPPED_RECOVERY_ORIGINAL_IDLE_AUTHORITY/);
+  assert.throws(()=>api.assertDeviceExternalFlatAccountCaptureAuthorityV1(other,token),/DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_AUTHORITY/);
+  assert.throws(()=>api.assertDeviceExternalFlatAccountCaptureAuthorityV1(authority,{...token}),/DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_AUTHORITY/);
+  assert.deepEqual(api.assertDeviceExternalFlatAccountCaptureAuthorityV1(authority,token),identity);
+  return api.retainOriginalDeviceExternalFlatGraphServiceSectionV1(service,token);
+ });
+ assert.equal(result.captured,true);assert.equal(retains,1);assert.equal(api.state(authority),s);
+ assert.throws(()=>api.assertDeviceExternalFlatAccountCaptureAuthorityV1(authority,originalToken),/DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_AUTHORITY/);
+ s.closed=true;assert.throws(()=>api.state(authority),/WRAPPED_RECOVERY_ORIGINAL_IDLE_AUTHORITY/);
+});

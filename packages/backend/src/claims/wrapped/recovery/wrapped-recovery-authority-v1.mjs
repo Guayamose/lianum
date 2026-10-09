@@ -1329,6 +1329,13 @@ export function assertDeviceExternalFlatRecoveryAuthorityV1(authority){assert.eq
 function deviceExternalCaptureIdentity(token,section){const entry=writes.get(token);assert.ok(entry&&entry.section===section&&!entry.used,'DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_TOKEN');const identity=originalWrappedRecoverySectionIdentityV1(token,section);assert.equal(identity.profile,DEVICE_EXTERNAL_FLAT_PROFILE,'DEVICE_EXTERNAL_FLAT_DISTINCT_RECOVERY_TOKEN');assert.equal(entry.s.creating,true);assert.equal(entry.s.record.data.phase,'CAPTURING');return identity;}
 export function deviceExternalFlatReceiverCaptureIdentityV1(token){assert.equal(arguments.length,1);return deviceExternalCaptureIdentity(token,'receiver');}
 export function deviceExternalFlatAccountCaptureIdentityV1(token){assert.equal(arguments.length,1);return deviceExternalCaptureIdentity(token,'deviceAccount');}
+/** Only the current original account-capture token can inspect its busy issuer.
+ * The general idle-authority fence remains unchanged for every other caller. */
+export function assertDeviceExternalFlatAccountCaptureAuthorityV1(authority,token){
+ assert.equal(arguments.length,2);const s=authorities.get(authority),entry=writes.get(token);
+ assert.ok(s&&entry?.s===s&&s.operation===token&&!s.closed&&!s.busy&&!s.fault&&!s.finalization,'DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_AUTHORITY');
+ return deviceExternalCaptureIdentity(token,'deviceAccount');
+}
 export function consumeDeviceExternalFlatReceiverRuntimeSectionV1(token){
  assert.equal(arguments.length,1);const identity=originalWrappedRecoverySectionIdentityV1(token,'receiver');assert.equal(identity.profile,DEVICE_EXTERNAL_FLAT_PROFILE,'DEVICE_EXTERNAL_FLAT_DISTINCT_RECOVERY_TOKEN');
  const saved=consumeOriginalWrappedRecoverySectionV1(token,'receiver');exactRecord(saved,['schema','sourceSHA256','record']);assert.equal(saved.schema,'DEVICE_EXTERNAL_FLAT_RECEIVER_SECTION_V1');assert.equal(saved.sourceSHA256,identity.sourceSHA256,'DEVICE_EXTERNAL_FLAT_ORIGINAL_RECOVERY_SOURCE');assert.equal(saved.record.schema,EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3);assert.equal(saved.record.family,'receiver');return saved.record;
