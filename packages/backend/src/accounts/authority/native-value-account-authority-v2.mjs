@@ -83,22 +83,22 @@ export async function readOriginalNativeSourceProofReceiptsV1(account){
 }
 const sourceReceiptSHA=value=>createHash('sha256').update(value).digest('hex');
 function sourceProofReceiptFrame(relation,label,proof){
-  assert.ok(['deposit_balance','authorization','reservation'].includes(relation));
-  const transport=transportProof(proof);if(relation==='deposit_balance')assert.equal(transport.publicInputs.length,26);else decodeStatement(relation,transport.publicInputs);
+  assert.ok(['deposit_balance','authorization','reservation','withdraw_balance'].includes(relation));
+  const transport=transportProof(proof);if(relation==='deposit_balance')assert.equal(transport.publicInputs.length,26);else if(relation==='withdraw_balance'){assert.equal(transport.publicInputs.length,39);decodeWalletPoolInputs(relation,transport.publicInputs);}else decodeStatement(relation,transport.publicInputs);
   // These are the fixed prover's returned public metrics/evidence only. Do not
   // serialize its input, witness, job or callback envelope.
-  const evidence=relation==='deposit_balance'?proof.metrics:proof.evidence;
+  const evidence=['deposit_balance','withdraw_balance'].includes(relation)?proof.metrics:proof.evidence;
   assert.ok(evidence&&typeof evidence==='object');
   const json=JSON.stringify(evidence);assert.ok(Buffer.byteLength(json)<=1024*1024,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_BOUND');
   return {relation,label,json,sha256:sourceReceiptSHA(Buffer.from(json)),proofSHA256:sourceReceiptSHA(Buffer.from(transport.proof,'hex')),publicInputsSHA256:sha(transport.publicInputs)};
 }
 function restoreSourceProofReceipt(frame,proof){
   exactRecord(frame,['relation','label','json','sha256','proofSHA256','publicInputsSHA256']);
-  assert.ok(['deposit_balance','authorization','reservation'].includes(frame.relation));assert.equal(typeof frame.json,'string');
+  assert.ok(['deposit_balance','authorization','reservation','withdraw_balance'].includes(frame.relation));assert.equal(typeof frame.json,'string');
   assert.ok(Buffer.byteLength(frame.json)<=1024*1024,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_BOUND');assert.equal(sourceReceiptSHA(Buffer.from(frame.json)),frame.sha256);
   const transport=transportProof(proof);assert.equal(sourceReceiptSHA(Buffer.from(transport.proof,'hex')),frame.proofSHA256);assert.equal(sha(transport.publicInputs),frame.publicInputsSHA256);
   const evidence=JSON.parse(frame.json);assert.equal(JSON.stringify(evidence),frame.json);
-  return {label:frame.label,relation:frame.relation,proof:{...transport,...(frame.relation==='deposit_balance'?{metrics:evidence}:{evidence})}};
+  return {label:frame.label,relation:frame.relation,proof:{...transport,...(['deposit_balance','withdraw_balance'].includes(frame.relation)?{metrics:evidence}:{evidence})}};
 }
 
 export function nativeValueAccountManualNoteDetails(approval) {
@@ -1348,7 +1348,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
           view.header.number),true,'DEVICE_EXIT_DEPLOYED_VERIFIER_REJECTED');await reader.assertCurrent(view);continueWork();
         await onProof({label:'device-exit-w39',relation:'withdraw_balance',role:'device-owner',proof:{...proof,metrics:result.metrics}});
         await exitUpdate(consent.jobId,{stage:'PROVED',proof,proofSHA256:byteSHA(Buffer.from(proof.proof,'hex')),publicInputsSHA256:sha(proof.publicInputs),
-          ...(recovery?.native?{originalPublicProofMetricsFrame:captureNativeDeviceOriginalW39MetricsFrameV1(result.metrics,proof)}:{})});
+          ...(recovery?.native?{originalPublicProofMetricsFrame:captureNativeDeviceOriginalW39MetricsFrameV1(result.metrics,proof)}:{}),
+          ...(nativeSourceOriginal?{originalSourceExitReceipt:sourceProofReceiptFrame('withdraw_balance','device-exit-w39-'+consent.noteRole,{...proof,metrics:result.metrics})}:{})});
         return reply(exitPublic(exitRow(consent.jobId)));
       }catch(error){if(!unavailable&&exitRows().some(row=>row.jobId===consent.jobId))try{await exitUpdate(consent.jobId,{stage:'FAILED',
           errorCode:privateFailureDiagnostic(error,'DEVICE_EXIT_PROOF_REJECTED').code});}catch{}throw error;}
@@ -2342,7 +2343,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         if(row.originalSourceAuthorizationReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceAuthorizationReceipt,row.authorization));
         if(row.originalSourceReservationReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceReservationReceipt,row.originalSourceReservationProof));
       }
-      assert.ok(receipts.length<=3,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_COUNT');return receipts;
+      for(const row of exitRows())if(row.originalSourceExitReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceExitReceipt,row.proof));
+      assert.ok(receipts.length<=5,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_COUNT');return receipts;
     });},
     deviceDeposit, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
     async checkReorgPending(executor, ref, id) { await healthy(); assertReorgPending(executor, ref, id); },
