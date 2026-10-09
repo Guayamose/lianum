@@ -19,18 +19,21 @@ const h4 = (tag, parts) => createHash('sha256').update(Buffer.concat([Buffer.fro
   .flatMap(value => [uintBE(value.length, 4), value]))).digest('hex');
 const note = (key, value, tag) => ({ type: 4, rho: h(tag + ':rho'), x: hx(key.x), y: hx(key.y),
   value: String(value), secret: h(tag + ':secret') });
-const action = (slot, hubDomain = h('hub')) => ({ chainDomain: h('chain:' + slot), signerIdentity: h('signer:' + slot),
+const action = (slot, hubDomain = h('hub'), receiptSecret = h('nk:' + slot)) => ({ chainDomain: h('chain:' + slot), signerIdentity: h('signer:' + slot),
   sourceCommitment: h('source:' + slot), destinationCommitment: h('destination:' + slot),
   amount: String((1n << 80n) + BigInt(slot + 1)), custodyKind: 1, custodyCommitment: h('custody:' + slot),
   executionFrom: '1791000000', executionUntil: '1791000800', settleBefore: '1791000900',
-  receiptKeyCommitment: nativeReceiptKeyCommitment(hubDomain, h('nk:' + slot)), receiptRho: h('rho:' + slot),
+  receiptKeyCommitment: nativeReceiptKeyCommitment(hubDomain, receiptSecret), receiptRho: h('rho:' + slot),
   deliveryRiskCommitment: h('risk:' + slot), actionSalt: h('action-salt:' + slot) });
 
-function fixture(count = 4, shape = 'fan-in') {
+function fixture(count = 4, shape = 'fan-in', reuseReceiptSecret = false) {
   const hubDomain = h('hub'), registryCommitment = h('registry');
   const ownerKey = freshKey(), changeKey = freshKey(), recoveryKey = freshKey();
   const payoutKeys = Array.from({ length: count }, () => freshKey());
-  const nodes = Array.from({ length: count }, (_, i) => ({ id: `node-${i}`, action: action(i), receiptSpendSecret: h('nk:' + i) }));
+  const nodes = Array.from({ length: count }, (_, i) => {
+    const receiptSpendSecret = h('nk:' + (reuseReceiptSecret ? 0 : i));
+    return { id: `node-${i}`, action: action(i, hubDomain, receiptSpendSecret), receiptSpendSecret };
+  });
   const fundedInput = {
     scope: h('scope'), policy: h('policy'), asset: h('asset'), operationId: h('operation'), budget: String(count * 25),
     fundingNotBefore: '1791000000', fundingValidUntil: '1791000300', settleBefore: '1791000900',
@@ -60,6 +63,22 @@ function codecOnlyA0(signed) {
     proofFields: Array(458).fill('0'), vkFields: Array(115).fill('0') };
 }
 const digestFromWords = words => words.map(value => Number(value).toString(16).padStart(8, '0')).join('');
+
+test('distinct signed native nodes cannot give separate executors the same receipt spend capability', () => {
+  // The collision is in an otherwise original signed graph: each action binds
+  // its own terms and the reused secret's actual receipt-key commitment.
+  assert.throws(() => fixture(2, 'chain', true), /PAEG_CAPSULE_RECEIPT_SECRET_REUSED/);
+  const { input, prepared } = fixture(2, 'chain');
+  const first = prepared.nodeRole(0), second = prepared.nodeRole(1);
+  assert.notEqual(first.receiptSpendSecret, second.receiptSpendSecret);
+  assert.notEqual(first.localCapsule.receiptKeyCommitment, second.localCapsule.receiptKeyCommitment);
+  assert.equal(first.localCapsule.receiptKeyCommitment,
+    nativeReceiptKeyCommitment(input.hubDomain, first.receiptSpendSecret));
+  assert.equal(second.localCapsule.receiptKeyCommitment,
+    nativeReceiptKeyCommitment(input.hubDomain, second.receiptSpendSecret));
+  assert.equal(JSON.stringify(first).includes(second.receiptSpendSecret), false);
+  assert.equal(JSON.stringify(second).includes(first.receiptSpendSecret), false);
+});
 
 test('C129 exact public order and A0 139-word private conversion retain all four slots', () => {
   for (const count of [1, 2, 3, 4]) {
