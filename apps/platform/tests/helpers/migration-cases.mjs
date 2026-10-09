@@ -140,6 +140,14 @@ export async function runMigrationCases(t, admin, connectionString, { challenge,
     assert.deepEqual(await store.consume(originals[0], Date.now()), { duplicate: true, response: unknown(originals[0]) });
     assert.deepEqual(await redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[0].challengeId }),
       { profile: 'LIANUM_PLATFORM_LEGACY_REDACTION_V1', redacted: false, challenges: 0, authorizations: 0, operation: false });
+    const originalOpaque = first.challenges.find(row => row.challenge_id === originals[0].challengeId).challenge;
+    await pool.query('UPDATE public.mobile_challenges SET challenge=$2 WHERE challenge_id=$1',
+      [originals[0].challengeId, { ...originalOpaque, ownerPublicKey: originals[0].ownerPublicKey }]);
+    const malformedOpaque = await records(pool);
+    await assert.rejects(redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[0].challengeId }),
+      { code: 'PLATFORM_LEGACY_REDACTION_RECORD_INVALID' });
+    assert.deepEqual(await records(pool), malformedOpaque);
+    await pool.query('UPDATE public.mobile_challenges SET challenge=$2 WHERE challenge_id=$1', [originals[0].challengeId, originalOpaque]);
     const altered = challenge({ intent: { ...originals[0].intent, action: 'execute', amountAtomic: '101' } });
     await store.put(altered); await assert.rejects(store.consume(altered, Date.now()), { code: 'MOBILE_OPERATION_CONFLICT' });
     const stable = await records(pool);

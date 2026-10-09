@@ -30,6 +30,10 @@ export async function redactLegacyPlatformAuthorizationV1(pool, { privacyKey, ch
     const selected = (await client.query('SELECT challenge FROM public.mobile_challenges WHERE challenge_id=$1', [challengeId])).rows;
     need(selected.length === 1, 'PLATFORM_LEGACY_REDACTION_ORIGINAL_REQUIRED');
     if (selected[0].challenge?.format === PRIVATE_CHALLENGE) {
+      const record = selected[0].challenge;
+      need(Object.getPrototypeOf(record) === Object.prototype
+        && Object.keys(record).sort().join(',') === 'commitment,format'
+        && typeof record.commitment === 'string' && /^[0-9a-f]{64}$/.test(record.commitment));
       // A missing pin never adopts an arbitrary new key for redacted records.
       need(marker.length === 1, 'MOBILE_PRIVACY_KEY_MISMATCH');
       await client.query('COMMIT');
