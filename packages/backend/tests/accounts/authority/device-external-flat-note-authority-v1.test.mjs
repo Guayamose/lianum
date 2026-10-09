@@ -126,7 +126,7 @@ test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original 
  t.after(()=>{hooks.deregister();for(const bytes of capacityHeldKeys)bytes.fill(0);capacityHeldKeys.clear();capacityStore.clear();});
  const sdk=await import(sdkURL),codec=await import(codecURL),hex=n=>createHash('sha256').update('HOST_'+n).digest('hex'),transportKey=new Uint8Array(32);transportKey[31]=2;
  const descriptor=P.normalizeExternalFlatDescriptorV1({profile:P.DEVICE_EXTERNAL_FLAT_NOTE_V1,origin:'https://localhost:9443',pairingId:hex('pair'),devicePublicKey:devicePublicKey(transportKey),lifetime:hex('lifetime'),poolTerms:Object.fromEntries(['pool','poolCodeHash','scope','policy','assetIdentity','asset','assetCodeHash','genesis','domainCommitment','hub','hubCodeHash','hubDomain','ledgerNamespace'].map(k=>[k,hex(k).slice(0,['pool','asset','hub'].includes(k)?40:64)])),assetMetadata:{kind:'ERC20',symbol:'USDC',decimals:6}});
- const originalObserved={blockNumber:'20',blockHash:hex('observed'),timestamp:'1893456000'},recipient=hex('recipient').slice(0,40),amount='1000000';const measurements=[];let originalJobs=null,originalSummary=null,legacyLogicalBytes=0,effectCalls=0,proveCalls=0;
+ const originalObserved={blockNumber:'20',blockHash:hex('observed'),timestamp:'1893456000'},recipient=hex('recipient').slice(0,40),amount='1000000';const measurements=[];let originalJobs=null,originalSummary=null,priorPreparedStore=null,legacyLogicalBytes=0,effectCalls=0,proveCalls=0;
  for(const [where,legacy]of [[legacyURL,true],[currentURL,false]]){
   if(legacy)capacityStore.clear();capacityClear=[];const original=await import(where),vault=await original.createDeviceExternalFlatNoteVaultV1();let client,sourceWitness,exitWitness,opening,quotePath,quoteStatement;const jobs=new Map(legacy?[]:originalJobs);let ordinal=0;
   const sig=consent=>signDeviceMessage(transportKey,P.externalFlatPermissionMessageV1(consent));
@@ -156,9 +156,27 @@ test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original 
     const copied=structuredClone(capacityLastState),start=vaultSource.indexOf(' function decodedState('),end=vaultSource.indexOf(' const aad=',start);assert.ok(start>=0&&end>start);const decoded=new Function('P','need','STATE_CODEC',stripTypeScriptTypes(vaultSource.slice(start,end),{mode:'strip'})+';return decodedState;')(P,value=>assert.ok(value),'DEVICE_EXTERNAL_FLAT_SHARED_DESCRIPTOR_STATE_V1');
     assert.equal(decoded(structuredClone(copied)).jobs.length,2);const extra=structuredClone(copied);extra.jobs[0].descriptor=extra.descriptor;assert.throws(()=>decoded(extra));const missing=structuredClone(copied);delete missing.jobs[1].observation;assert.throws(()=>decoded(missing));const mutated=structuredClone(copied);mutated.jobs[0].consentFields.statement.scope=hex('wrongscope');assert.throws(()=>decoded(mutated));
     measurements.push({legacyClearBytes:legacyLogicalBytes,currentClearBytes:currentClear,envelopeBytes:manifest.bytes,chunks:manifest.chunks,clearLimit:10000,envelopeLimit:16384});P.externalFlatWipeV1(copied);P.externalFlatWipeV1(extra);P.externalFlatWipeV1(missing);P.externalFlatWipeV1(mutated);
-    await vault.close();const reopened=await original.createDeviceExternalFlatNoteVaultV1();try{const summary=await reopened.summary();assert.equal(summary.rootId,accepted.rootId);assert.equal(summary.commitment,accepted.commitment);assert.equal(summary.jobs.length,2);assert.equal(summary.jobs.every(r=>r.stage==='CONFIRMED'),true);assert.equal(summary.pending,null);}finally{await reopened.close();}continue;
+    await vault.close();const reopened=await original.createDeviceExternalFlatNoteVaultV1();try{const summary=await reopened.summary();assert.equal(summary.rootId,accepted.rootId);assert.equal(summary.commitment,accepted.commitment);assert.equal(summary.jobs.length,2);assert.equal(summary.jobs.every(r=>r.stage==='CONFIRMED'),true);assert.equal(summary.pending,null);}finally{await reopened.close();}
+    // Recover the actual earlier encrypted snapshot, taken before either
+    // local proof latch. The original SDK inventory is the sole new input.
+    capacityStore.clear();for(const [key,value]of priorPreparedStore)capacityStore.set(key,value);
+    const restored=await original.createDeviceExternalFlatNoteVaultV1();try{
+     assert.equal((await restored.summary()).jobs.length,0);
+     const challenge=await client.challenge(),fresh=await client.status(challenge,sig(challenge));
+     await assert.rejects(async()=>restored.reconcileOriginalStatus(structuredClone(fresh)));
+     const confirmedExit=jobs.get(row.jobId);jobs.set(row.jobId,{...confirmedExit,stage:'WITHDRAWAL_UNKNOWN',observation:null});
+     const uncertainChallenge=await client.challenge(),uncertain=await client.status(uncertainChallenge,sig(uncertainChallenge));
+     const pending=await restored.reconcileOriginalStatus(uncertain);assert.equal(pending.pending.action,'OBSERVE_W39');await assert.rejects(restored.draft('WITHDRAW_W39'));jobs.set(row.jobId,confirmedExit);
+     const reconciled=await restored.reconcileOriginalStatus(fresh);assert.equal(reconciled.rootId,accepted.rootId);assert.equal(reconciled.commitment,accepted.commitment);assert.equal(reconciled.jobs.length,2);assert.equal(reconciled.jobs.every(r=>r.stage==='CONFIRMED'),true);assert.equal(reconciled.pending,null);
+     await assert.rejects(restored.draft('FUND_D26'));await assert.rejects(restored.draft('WITHDRAW_W39'));
+     assert.equal(effectCalls,2);assert.equal(proveCalls,2);
+     // A fresh but regressed inventory cannot erase confirmed local state.
+     const originalExit=jobs.get(row.jobId);jobs.set(row.jobId,{...originalExit,stage:'PROVED',observation:null});
+     const regressionChallenge=await client.challenge(),regressed=await client.status(regressionChallenge,sig(regressionChallenge));await assert.rejects(restored.reconcileOriginalStatus(regressed));jobs.set(row.jobId,originalExit);
+     assert.equal((await restored.summary()).jobs.every(r=>r.stage==='CONFIRMED'),true);
+    }finally{await restored.close();}continue;
    }
-   const prepared=await vault.prepareDeposit(descriptor,recipient,amount,originalObserved.timestamp);sourceWitness=prepared.witness;await perform(await review(prepared.draft),sourceWitness);await perform(await review(await vault.draft('FUND_D26')));
+   const prepared=await vault.prepareDeposit(descriptor,recipient,amount,originalObserved.timestamp);priorPreparedStore=new Map(capacityStore);sourceWitness=prepared.witness;await perform(await review(prepared.draft),sourceWitness);await perform(await review(await vault.draft('FUND_D26')));
    const toHex=a=>Buffer.from(a).toString('hex');opening={type:4,rho:toHex(sourceWitness.rho),x:toHex(sourceWitness.key_x),y:toHex(sourceWitness.key_y),value:amount,secret:toHex(sourceWitness.secret)};const leaf=(await vault.summary()).commitment,siblings=Array.from({length:6},(_,i)=>hex('sibling'+i));let root=leaf;
    for(const sibling of siblings)root=createHash('sha256').update(Buffer.concat([Buffer.from([1]),Buffer.from(root,'hex'),Buffer.from(sibling,'hex')])).digest('hex');quotePath={root,index:0,leaf,siblings};quoteStatement=codec.localDeviceWithdrawalStatementV1({scope:descriptor.poolTerms.scope,policy:descriptor.poolTerms.policy,epoch:(BigInt(originalObserved.timestamp)/600n).toString(),opening,path:quotePath,recipient});
    const quoteConsent=await review(await vault.draft('QUOTE_W39')),quote=await client.submit(quoteConsent,sig(quoteConsent),null),exitPrepared=await vault.prepareWithdrawal(quote.quote);exitWitness=exitPrepared.witness;await perform(await review(exitPrepared.draft),exitWitness);

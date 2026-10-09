@@ -72,9 +72,8 @@ export default function ExternalTokenNoteScreen() {
  async function readStatus(selected:Connection,ticket:number) {
   const access=await selected.client.challenge();current(ticket,selected);
   const signature=await sign(selected,access,ticket);const value=await selected.client.status(access,signature);current(ticket,selected);
-  await selected.vault.acceptStatus(value);current(ticket,selected);
-  for(const row of value.jobs){await selected.vault.accept(row);current(ticket,selected);}
-  const local=await selected.vault.summary();current(ticket,selected);setSummary(local);setStatus(value);return value;
+  const local=await selected.vault.reconcileOriginalStatus(value);current(ticket,selected);
+  setSummary(local);setStatus(value);return value;
  }
  async function connect() {
   await closeConnection();const ticket=epoch.current;

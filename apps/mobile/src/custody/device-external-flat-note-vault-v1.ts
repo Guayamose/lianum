@@ -89,6 +89,44 @@ export async function createDeviceExternalFlatNoteVaultV1(){
    }finally{wipeState(s.value);}});},
   accept(raw:ExternalFlatRow){return run(async()=>{const r=readDeviceExternalFlatRowV1(raw),s=await read();try{const old=s.value.jobs.find((j:ExternalFlatRow)=>j.jobId===r.jobId);need(old&&same(old.descriptor,r.descriptor));for(const k of ['jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256'] as const)need(same(old.consentFields[k],r.consentFields[k]));if(old.consentFields.proofSHA256!==null)need(old.consentFields.proofSHA256===r.consentFields.proofSHA256&&old.consentFields.publicInputsSHA256===r.consentFields.publicInputsSHA256);const order=['PROVING','PROVED',old.mode==='deposit_balance'?'FUNDING_UNKNOWN':'WITHDRAWAL_UNKNOWN','CONFIRMED'];need(order.indexOf(r.stage)>=order.indexOf(old.stage));s.value.jobs=s.value.jobs.map((j:ExternalFlatRow)=>j.jobId===r.jobId?structuredClone(r):j);if(s.value.pending?.jobId===r.jobId&&(r.stage==='CONFIRMED'||r.stage==='PROVED'&&s.value.pending.action.startsWith('PROVE_')))s.value.pending=null;await write(s.value,s);return structuredClone(summaryOf(s.value));}finally{wipeState(s.value);}});},
   acceptStatus(raw:any){const status=readDeviceExternalFlatStatusV1(raw);return run(async()=>{const s=await read();try{if(s.value.descriptor!==null)need(same(status.descriptor,s.value.descriptor));need(status.jobs.length===s.value.jobs.length&&status.jobs.every((r:ExternalFlatRow)=>s.value.jobs.some((old:ExternalFlatRow)=>old.jobId===r.jobId)),'MOBILE_EXTERNAL_FLAT_ORIGINAL_JOBS');return status;}finally{wipeState(s.value);}});},
+  // A fresh original SDK inventory can reconcile an older LOCAL copy of the
+  // same root/note. This creates no permission and performs no proof or send.
+  reconcileOriginalStatus(raw:any){const status=readDeviceExternalFlatStatusV1(raw);return run(async()=>{const s=await read();try{
+    if(s.value.descriptor===null){need(status.jobs.length===0,'MOBILE_EXTERNAL_FLAT_ORIGINAL_JOBS');return structuredClone(summaryOf(s.value));}
+    need(same(status.descriptor,s.value.descriptor));const n=s.value.note;need(n!==null);
+    need(s.value.jobs.every((old:ExternalFlatRow)=>status.jobs.some((r:ExternalFlatRow)=>r.jobId===old.jobId)),'MOBILE_EXTERNAL_FLAT_ORIGINAL_JOBS');
+    const deposit=status.jobs.find((r:ExternalFlatRow)=>r.mode==='deposit_balance');
+    for(const r of status.jobs){
+      readDeviceExternalFlatRowV1(r);const c=r.consentFields;
+      need(c.rootId===rootId&&c.noteRevision===1&&c.recipient===n.recipient&&c.statement.amount===n.opening.value,'MOBILE_EXTERNAL_FLAT_ORIGINAL_JOBS');
+      if(r.mode==='deposit_balance')need(c.statement.output===n.commitment&&c.depositJobId===r.jobId);
+      else{need(deposit&&c.depositJobId===deposit.jobId);const expected=localDeviceWithdrawalStatementV1({scope:status.descriptor.poolTerms.scope,policy:status.descriptor.poolTerms.policy,epoch:c.statement.epoch,opening:n.opening,path:c.path!,recipient:n.recipient});need(same(expected,c.statement));}
+      const old=s.value.jobs.find((j:ExternalFlatRow)=>j.jobId===r.jobId);
+      if(old){
+        need(old.mode===r.mode&&same(old.descriptor,r.descriptor));
+        for(const key of ['jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256'] as const)need(same(old.consentFields[key],c[key]));
+        if(old.consentFields.proofSHA256!==null)need(old.consentFields.proofSHA256===c.proofSHA256&&old.consentFields.publicInputsSHA256===c.publicInputsSHA256);
+        const order=['PROVING','PROVED',r.mode==='deposit_balance'?'FUNDING_UNKNOWN':'WITHDRAWAL_UNKNOWN','CONFIRMED'];need(order.indexOf(r.stage)>=order.indexOf(old.stage),'MOBILE_EXTERNAL_FLAT_STORAGE_CHANGED');
+        if(old.observation!==null)need(same(old.observation,r.observation),'MOBILE_EXTERNAL_FLAT_STORAGE_CHANGED');
+      }
+      const prepared=s.value.prepared?.draft;
+      if(prepared&&(prepared.action==='PROVE_D26')===(r.mode==='deposit_balance')){
+        need(prepared.jobId===null||prepared.jobId===r.jobId);
+        for(const key of ['rootId','noteRevision','recipient','statement','path','witnessSHA256'] as const)need(same(prepared[key],c[key]));
+        s.value.prepared=null;
+      }
+    }
+    s.value.jobs=structuredClone(status.jobs);
+    const pending=s.value.pending;
+    if(pending){const row=status.jobs.find((r:ExternalFlatRow)=>r.jobId===pending.jobId);need(row);if(row!.stage==='CONFIRMED'||row!.stage==='PROVED'&&pending.action.startsWith('PROVE_'))s.value.pending=null;}
+    // An unknown/proving operation restored from an older snapshot remains
+    // observation-only, including a snapshot taken before its local latch.
+    const unresolved=status.jobs.find((r:ExternalFlatRow)=>['PROVING','FUNDING_UNKNOWN','WITHDRAWAL_UNKNOWN'].includes(r.stage));
+    if(unresolved)s.value.pending={jobId:unresolved.jobId,action:unresolved.mode==='deposit_balance'?'OBSERVE_D26':'OBSERVE_W39'};
+    // Recheck the SDK lease after queued storage/biometric work. A response
+    // which expired while this actor was waiting cannot become durable state.
+    readDeviceExternalFlatStatusV1(raw);state(s.value);await write(s.value,s);return structuredClone(summaryOf(s.value));
+  }finally{wipeState(s.value);}});},
   close(){closed=true;return(async()=>{if(active)await active.catch(()=>{});occupied=false;return{closed:true,storageAvailable:!poisoned,rootRetained:true};})();},
  });return vault;
 }
