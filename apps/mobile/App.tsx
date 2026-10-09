@@ -4,13 +4,15 @@ import WalletScreen from './src/screens/WalletScreen';
 import OriginalAccountScreen from './src/screens/OriginalAccountScreen';
 import LocalCustodyScreen from './src/screens/LocalCustodyScreen';
 import DeviceDepositScreen from './src/screens/DeviceDepositScreen';
+import DefiPositionsScreen from './src/screens/DefiPositionsScreen';
 export default function App() {
-  const [screen, setScreen] = useState<'wallet' | 'original' | 'custody' | 'deposit'>('wallet');
+  const [screen, setScreen] = useState<'wallet' | 'original' | 'custody' | 'deposit' | 'defi'>('wallet');
   return <View style={styles.app}><StatusBar barStyle="light-content" />
-    <View style={styles.tabs}>{([['wallet', 'Cartera'], ['original', 'Cuenta vinculada'], ['custody', 'Custodia local'], ['deposit', 'Financiar nota']] as const).map(([value, label]) =>
+    <View style={styles.tabs}>{([['wallet', 'Cartera'], ['original', 'Cuenta vinculada'], ['custody', 'Custodia local'], ['deposit', 'Financiar nota'], ['defi', 'Posiciones DeFi']] as const).map(([value, label]) =>
       <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: screen === value }}
         onPress={() => setScreen(value)} style={styles.tab}><Text style={[styles.label, screen === value && styles.selected]}>{label}</Text></Pressable>)}</View>
-    {screen === 'wallet' ? <WalletScreen /> : screen === 'original' ? <OriginalAccountScreen /> : screen === 'custody' ? <LocalCustodyScreen /> : <DeviceDepositScreen />}
+    {screen === 'wallet' ? <WalletScreen /> : screen === 'original' ? <OriginalAccountScreen /> : screen === 'custody' ? <LocalCustodyScreen /> : screen === 'deposit' ? <DeviceDepositScreen /> : <DefiPositionsScreen />}
+
   </View>;
 }
 const styles = StyleSheet.create({
