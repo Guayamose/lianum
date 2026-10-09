@@ -7,7 +7,8 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../deployments/native-value/native-value-wallet-binding-v2.mjs';
-import { assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, assertOwnedLocalEvmNativeValueRuntime, assertOwnedNativeEconomicObservedReceiverV2, assertOwnedNativeEconomicObservedGraphRuntimeV2 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertOriginalNativeDeviceLocalObservedClockV1 } from './native-device-local-observed-clock-v1.mjs';
 import { createOwnedNativeValueProviderCustody } from '../../providers/native-value-provider-v2.mjs';
 import { profileCommitment } from '../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { createNativeRecipientProcess } from '../../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
@@ -20,6 +21,23 @@ export async function prepareOriginalNativeDeviceLocalProviderV1(input) {
   const { runtime, system, nativeRuntime, bootstrap } = input;
   assertOwnedNativeValueWalletSystem(runtime, system); await assertOwnedLocalEvmV2(runtime);
   await assertOwnedLocalEvmNativeValueV1(nativeRuntime); assert.equal(nativeRuntime.metadata.chainId, '1');
+  return prepareFixedOriginalNativeDeviceLocalProvider({ runtime, system, nativeRuntime, bootstrap });
+}
+/** Distinct original observed producer. The private clock supplies membership,
+ * including the original LIVE_ARMED pair; metadata or a flag cannot select it. */
+export async function prepareOriginalNativeDeviceObservedLocalProviderV1(input) {
+  assert.equal(arguments.length, 1); exactRecord(input, ['runtime', 'system', 'nativeRuntime', 'bootstrap', 'clock']);
+  const { runtime, system, nativeRuntime, bootstrap, clock } = input;
+  assertOwnedNativeValueWalletSystem(runtime, system);
+  assertOriginalNativeDeviceLocalObservedClockV1(clock, { runtime, nativeRuntime });
+  assertOwnedNativeEconomicObservedReceiverV2(runtime); assertOwnedNativeEconomicObservedGraphRuntimeV2(nativeRuntime);
+  await assertOwnedLocalEvmV2(runtime); await assertOwnedLocalEvmNativeValueRuntime(nativeRuntime);
+  assertOriginalNativeDeviceLocalObservedClockV1(clock, { runtime, nativeRuntime });
+  assertOwnedNativeEconomicObservedReceiverV2(runtime); assertOwnedNativeEconomicObservedGraphRuntimeV2(nativeRuntime);
+  assert.equal(nativeRuntime.metadata.chainId, '1');
+  return prepareFixedOriginalNativeDeviceLocalProvider({ runtime, system, nativeRuntime, bootstrap });
+}
+async function prepareFixedOriginalNativeDeviceLocalProvider({ runtime, system, nativeRuntime, bootstrap }) {
   const domain = system.pools[0].domain, now = await runtime.time(), cutoff = now + 28800n, operationId = fresh();
   const directory = join(nativeRuntime.metadata.scratchDirectory, 'original-device-product-provider');
   mkdirSync(directory, { mode: 0o700 });

@@ -26,7 +26,7 @@ import { createDeviceOwnerReservationBridgeV1 } from '../../accounts/authority/d
 import { createDeviceOwnerExecutionBridgeV1 } from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { createPairedDeviceAccountTlsServerV1 } from '../../api/mobile/paired-original-account-http-v2.mjs';
-import { prepareOriginalNativeDeviceLocalProviderV1 } from './native-device-local-provider-v1.mjs';
+import { prepareOriginalNativeDeviceLocalProviderV1, prepareOriginalNativeDeviceObservedLocalProviderV1 } from './native-device-local-provider-v1.mjs';
 import { normalizeOriginalNativeDeviceLocalConfigurationV1, assertOriginalNativeDeviceLocalColdStartV1,
   prepareOriginalNativeDeviceLocalRestartV1, bindOriginalNativeDeviceLocalRestartV1, captureOriginalNativeDeviceLocalRestartV1,
   originalNativeDeviceLocalCaptureStateV1, closeOriginalNativeDeviceLocalRestartAuthorityV1, readOriginalNativeDeviceLocalCaptureRequestV1 }
@@ -225,7 +225,9 @@ async function createLocalProduct(input,liveObserved,liveArmed=false) {
     // listener or capture. PREPARED remains UNKNOWN; this read admits no effect.
     const economicState = await createOriginalSessionWalletEconomicStateV1(joined.session);
     await economicState.observe();
-    provider = await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
+    provider = liveObserved
+      ? await prepareOriginalNativeDeviceObservedLocalProviderV1({ runtime, system, nativeRuntime, bootstrap, clock: clocks.clock })
+      : await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
     if(!liveObserved) restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
       nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS
     installed = await installOriginalNativeDeviceLocalServiceV1({ runtime, system, owner, account, nativeExecution, session: joined.session,
