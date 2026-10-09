@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "7131b3ebc6b5cfb4397be920a85fa5fb07237bada182d79b206a87344ac0febc",
+  "hostSourceClosureSHA256": "66f6bbb040f41847cc74eb8035aab35a24a681e325fff860bbbcbf56253e503e",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -906,7 +906,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-device-economic-launcher-v1.mjs",
-      "sha256": "1227a8fcf3069e9cc014e1d484978a5b527accde0e9f8ecf886c283f65bd549c"
+      "sha256": "976dbba4b96a0413f24a5bb9d4efb6bfb627e6c5fd266f3d7fce8c735c2395a2"
     },
     {
       "path": "integration/native-device-economic-note-policy-v1.mjs",
@@ -926,7 +926,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-device-economic-original-continuation-v1.mjs",
-      "sha256": "89d83c36f772327f12b5458b054db1b57c0de807e7d5474472a3ef8cc7cdcd9e"
+      "sha256": "b8380445f8b5f5fdd0b170c39cb486e64a70f8ac801be3e5b572f98d713897d1"
     },
     {
       "path": "integration/native-device-economic-policy-v1.mjs",
