@@ -20,7 +20,7 @@ function fixture(){
  const row={jobId:'original-ref',nativeOutcome:null,nativeRecoveryLatched:false,nativeBinding:{settleBefore:'800'},
    liveRecoveryArm:{state:'ARMED',armSHA256:'armed-original-consent',nativeBindingSHA256:'original-U',reservationTransactionHash:'same-S',settleBefore:'800',lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}};
  const lease={closed:false,bridge:Object.freeze({})},calls={recover:0,reconcile:0,writes:0,refresh:0};let head='799',wait=null,readStarted=null,lose=false,wire=null;
- const context={assert,liveRecovery:lease,busy:false,closed:false,cancelled:false,unavailable:false,capturing:false,
+ const context={assert,nativeSourceOriginal:null,liveRecovery:lease,busy:false,closed:false,cancelled:false,unavailable:false,capturing:false,
    reservationRows:()=>[row],reservationRow:()=>row,exclusive:async f=>f(),healthy:async()=>{},
    refreshOriginalNativeDeviceLocalObservedClockV1:async()=>{calls.refresh++;},
    deviceExecutionOriginal:()=>{},deviceExecutionPublic:async()=>({nativeBindingSHA256:'original-U',reservation:{observation:{transactionHash:'same-S'}},lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}),
@@ -63,7 +63,7 @@ function armFixture(){
  const row={jobId:'same-original-job',nativeOutcome:null,nativeRecoveryLatched:false,nativeBinding:{settleBefore:'800'},liveRecoveryArm:null};
  const current={nativeBindingSHA256:'same-original-U',executionSnapshotSHA256:'same-original-snapshot',reservation:{observation:{transactionHash:'same-original-S'}},lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'};
  const calls={writes:0,refresh:0},state={head:'799',fresh:true,refreshHook:null};
- const context={assert,nativeNote:true,recovery:null,wrapped:false,liveRecovery:lease,exclusive:async f=>f(),healthy:async()=>{},continueWork(){},
+ const context={assert,nativeSourceOriginal:null,nativeNote:true,recovery:null,wrapped:false,liveRecovery:lease,exclusive:async f=>f(),healthy:async()=>{},continueWork(){},
   refreshOriginalNativeDeviceLocalObservedClockV1:async clock=>{assert.equal(clock,lease.clock);calls.refresh++;state.refreshHook?.();},
   validateDeviceRecoveryArmConsentFreshV1:()=>{assert.ok(state.fresh,'HOST_FRESH_CONSENT_REQUIRED');},
   reservationRow:id=>{assert.equal(id,row.jobId);return row;},deviceExecutionPublic:async(original,r)=>{assert.equal(original,bridge);assert.equal(r,row);return current;},
@@ -113,7 +113,7 @@ test('HOST original LIVE_ARMED account opens its same durable arm and due tick a
  const firstVault=new Vault(path);let record=await firstVault.create({rows:[row]},password);assert.deepEqual(await firstVault.read(password),record);
  const newborn=new Vault(path);record=await newborn.read(password);const restored=structuredClone(record.data.rows[0]),bridge=Object.freeze({}),lease={closed:false,bridge,clock:Object.freeze({})};
  let issued=false,head='799',lost=false,wire=null;const calls={recover:0,reconcile:0,proof:0,send:0,arm:0};
- const actual={assert,recovery:{native:true,liveArmed:true},wrapped:false,nativeNote:true,nativeExecution:null,
+ const actual={assert,nativeSourceOriginal:null,recovery:{native:true,liveArmed:true},wrapped:false,nativeNote:true,nativeExecution:null,
   exclusive:async work=>work(),healthy:async()=>{assert.deepEqual(await newborn.read(password),record);},
   recoveredInstallations:[{descriptor,providers:[{slot:0,custodyIdentitySHA256:digest({HOST:'original-custody'}),deliveryRiskSalt:hex('e')}]}],
   sha:digest,byteSHA:bytes=>createHash('sha256').update(bytes).digest('hex'),copy:structuredClone,
@@ -165,5 +165,81 @@ test('HOST original LIVE_ARMED account opens its same durable arm and due tick a
   const arm=Function('ctx','"use strict";const {'+Object.keys(actual).join(',')+'}=ctx;'+body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){')+';return armLiveRecovery;')(actual);
   await assert.rejects(arm({bridge,action:'ARM_RECOVERY',consent:{}}),/NO_REARM_AFTER_RESTART/);assert.equal(calls.arm,0);
   lease.closed=true;assert.deepEqual(await tick(lease),{state:'CLOSED'});assert.equal(calls.send,1);assert.equal(issued,true);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+
+test('HOST SOURCE reopened original note admits only next original steps and retains all once latches',async()=>{
+ // Account bodies and encrypted journal/CAS are real. Source membership,
+ // chain observation and executor ports are explicitly inert fixtures.
+ const directory=await mkdtemp(join(tmpdir(),'source-next-original-'));
+ const path=join(directory,'account.vault'),password='synthetic-source-original-journal',vault=new Vault(path);
+ const hex=n=>n.toString(16).padStart(64,'0'),domain={scope:hex(1),policy:hex(2),asset:hex(3),hubDomain:hex(4),registryCommitment:hex(5)};
+ const descriptor={origin:'https://localhost:24443',pairingId:hex(6),devicePublicKey:'04'+'12'.repeat(64)};
+ const bridge=Object.freeze({}),executionBridge=Object.freeze({}),custody=Object.freeze({}),clock=Object.freeze({}),runtime={},system={},nativeRuntime={};
+ const preparation={config:domain,nodes:[],slotSalts:[]},tuple={nativePreparation:preparation,invoiceSignatures:[]};
+ const providers=[{slot:0,custody,deliveryRiskSalt:hex(7)}],review={sameOriginalCustody:hex(8)};
+ const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+ const retained={descriptor,preparation:tuple,providers:[{slot:0,deliveryRiskSalt:hex(7),custodyIdentitySHA256:digest(review)}]};
+ const installation={descriptor,reservationBridge:bridge,sourcePreparation:tuple,providers};
+ let mode={native:true,source:true},allowSource=true,head='799',writes=0,prepared=0,sends=0,fresh=true;
+ let record=await vault.create({deviceDeposits:[{jobId:hex(9),stage:'CONFIRMED',consent:{rootId:hex(10),statement:{amount:'10',output:hex(19)}},nullifier:hex(21)}],deviceReservations:[],deviceReservationQuotes:[]},password);
+ const calls={fresh:0};
+ const statement={nativeBindingSHA256:hex(11),executionSnapshotSHA256:hex(12),reservation:{observation:{transactionHash:hex(13)}},lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'};
+ const row={jobId:hex(14),stage:'RESERVED',nativeOutcome:null,nativeRecoveryLatched:false,nativeLatched:false,nativeBinding:{settleBefore:'800'},liveRecoveryArm:null};
+ const ctx={assert,get record(){return record;},runtime,system,nativeRuntime,poolIndex:0,identity:{domain,domainCommitment:hex(20)},sha:digest,copy:structuredClone,
+  assertOriginalNativeSourceObservedClockV1(value,refs){assert.equal(allowSource,true,'HOST_ORIGINAL_SOURCE_BRAND');assert.equal(value,clock);assert.equal(refs.runtime,runtime);assert.equal(refs.nativeRuntime,nativeRuntime);},
+  nativeRecoveryProviderReviewV1(value){assert.equal(value,custody);return review;},
+  sourceInstallationPreparation(value){assert.deepEqual(value,tuple);return structuredClone(value);},
+  deviceExecutionProviders:new Map([[bridge,installation]]),deviceExecutionInstallations:new Map([[executionBridge,installation]]),recoveredInstallations:[retained],
+  exclusive:async work=>work(),healthy:async()=>{assert.deepEqual(await vault.read(password),record);},continueWork(){},wrapped:false,nativeNote:true,
+  reservationSubject(id,root,selected){assert.equal(id,hex(9));assert.equal(root,hex(10));for(const key of Object.keys(descriptor))assert.equal(selected[key],descriptor[key]);return record.data.deviceDeposits[0];},
+  accountIdentity:{sameOriginalAccount:hex(15)},config:{lifetime:hex(16)},asset:{scope:domain.scope,policy:domain.policy,codeHash:hex(17),assetIdentity:domain.asset,assetId:hex(18)},
+  observeDevice:async deposit=>{assert.equal(deposit.stage,'CONFIRMED');return{stage:'CONFIRMED'};},
+  reader:{read:async()=>({head:{timestamp:head},ledger:{}}),assertCurrent:async()=>{}},
+  validateGenericBalanceNativePreparation:value=>{assert.deepEqual(value,preparation);return structuredClone(value);},
+  genericBalanceNativeTerms:()=>({budget:'8',fundingNotBefore:'1',fundingValidUntil:'900'}),
+  normalizeDeviceReservationCapsuleOptionsV1:value=>structuredClone(value),randomBytes:()=>Buffer.alloc(32,0xab),
+  write:async change=>{record=await vault.update(password,record.revision,change);assert.deepEqual(await vault.read(password),record);writes++;},
+  reservationRows:()=>record.data.deviceReservations,reservationBinding:()=>{},reservationRow:()=>row,
+  originalQuote:()=>({depositJobId:hex(9),rootId:hex(10),descriptor,preparation,invoiceSignatures:[]}),
+  originalReservationConsent:()=>{},deviceReservationConsentMessageV1:JSON.stringify,deviceExecutionConsentMessageV1:JSON.stringify,byteSHA:digest,
+  deviceExecutionOriginal:()=>{},deviceExecutionPublic:async()=>statement,
+  reservationUpdate:async(id,fields)=>{assert.equal(id,row.jobId);record=await vault.update(password,record.revision,data=>({...data,lastTransition:structuredClone(fields)}));assert.deepEqual(await vault.read(password),record);Object.assign(row,structuredClone(fields));writes++;},
+  nativeExecution:{prepare:async()=>{prepared++;throw Error('HOST_ORIGINAL_PREPARE_REACHED');},execute:async()=>{sends++;return{outcome:null};}},
+  refreshOriginalNativeSourceObservedClockV1:async value=>{assert.equal(value,clock);},refreshOriginalNativeDeviceLocalObservedClockV1:async()=>{throw Error('legacy clock cannot run in SOURCE');},
+  liveRecovery:{bridge:executionBridge,clock,nativeRuntime,closed:false},
+  validateDeviceRecoveryArmConsentFreshV1(){calls.fresh++;assert.ok(fresh,'HOST_EXPIRED_OWNER_PERMISSION');},
+  deviceRecoveryArmConsentMessageV1:JSON.stringify,privateFailureDiagnostic:()=>({code:'HOST_UNCERTAIN'}),
+ };
+ try{
+  const installer=body('  function originalSourceContinuationInstallation(bridge) {','  async function updateSourceRecord(candidate)');
+  const reservation=body('  async function deviceReservation(original){','  function deviceExecutionOriginal(bridge,row){');
+  const execution=body('  async function deviceExecution(original){','  const exitRows=');
+  const arm=body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){');
+  const factory=Function('ctx','mode','sourceOriginal','"use strict";const {'+Object.keys(ctx).join(',')+'}=ctx;const recovery=mode,nativeSourceOriginal=sourceOriginal;let reorgAdmission=null;'+installer+arm+reservation+execution+';return{reservation:deviceReservation,execution:deviceExecution,arm:armLiveRecovery};');
+  const run=()=>factory(ctx,mode,{clock,nativeRuntime});
+  const request={bridge,action:'PREPARE_U',depositJobId:hex(9),rootId:hex(10),descriptor,nativePreparation:preparation,invoiceSignatures:[],binding:{accountIdentitySHA256:digest(ctx.accountIdentity),originalAccountLifetime:ctx.config.lifetime}};
+  mode={native:true};await assert.rejects(run().reservation(request),/OBSERVE_ORIGINAL_ONLY/);assert.equal(writes,0);
+  mode={native:true,source:true};allowSource=false;await assert.rejects(run().reservation(request),/HOST_ORIGINAL_SOURCE_BRAND/);assert.equal(writes,0);allowSource=true;
+  const quote=await run().reservation(request);assert.equal(quote.depositJobId,hex(9));assert.equal(writes,1);assert.deepEqual(record.data.deviceReservationQuotes[0].invoiceSignatures,tuple.invoiceSignatures);
+  const admitted={jobId:row.jobId,stage:'PROVING',consent:{custody:{sourceCommitment:hex(19)}}};
+  record=await vault.update(password,record.revision,data=>({...data,deviceReservations:[admitted]}));
+  const consent={...descriptor,jobId:row.jobId,depositJobId:hex(9),custody:{rootId:hex(10),sourceCommitment:hex(19)}};
+  await assert.rejects(run().reservation({bridge,action:'PROVE_U',consent}),/ALREADY_ADMITTED/);assert.equal(prepared,0);assert.equal(sends,0);
+  row.stage='RESERVATION_UNKNOWN';await assert.rejects(run().reservation({bridge,action:'RESERVE_S',consent}),/RECONCILE_ORIGINAL_ONLY/);assert.equal(prepared,0);
+  row.stage='PROVED';row.submission=null;row.nativeBinding=null;
+  await assert.rejects(run().reservation({bridge,action:'RESERVE_S',consent}),/HOST_ORIGINAL_PREPARE_REACHED/);assert.equal(prepared,1);assert.equal(sends,0);
+  row.stage='RESERVED';row.nativeBinding={settleBefore:'800'};
+  const execute={bridge:executionBridge,action:'EXECUTE_NATIVE',consent:{...statement,reservation:{jobId:row.jobId},reservationTransactionHash:statement.reservation.observation.transactionHash}};
+  await run().execution(execute);assert.equal(row.nativeLatched,true);assert.equal(sends,1);
+  await assert.rejects(run().execution(execute),/RECONCILE_ORIGINAL_ONLY/);assert.equal(sends,1);
+  row.nativeRecoveryLatched=true;await assert.rejects(run().execution({...execute,action:'RECOVER_NATIVE'}),/RECONCILE_ORIGINAL_ONLY/);assert.equal(sends,1);row.nativeRecoveryLatched=false;
+  const armConsent={action:'ARM_RECOVERY',settleBefore:'800',execution:{reservation:{jobId:row.jobId},nativeBindingSHA256:statement.nativeBindingSHA256,executionSnapshotSHA256:statement.executionSnapshotSHA256,reservationTransactionHash:statement.reservation.observation.transactionHash,lossClause:statement.lossClause}};
+  fresh=false;const before=writes;await assert.rejects(run().arm({bridge:executionBridge,action:'ARM_RECOVERY',consent:armConsent}),/EXPIRED_OWNER_PERMISSION/);assert.equal(writes,before);fresh=true;
+  await run().arm({bridge:executionBridge,action:'ARM_RECOVERY',consent:armConsent});assert.equal(row.liveRecoveryArm.state,'ARMED');
+  const count=writes;await assert.rejects(run().arm({bridge:executionBridge,action:'ARM_RECOVERY',consent:armConsent}),/NO_REARM_AFTER_RESTART/);assert.equal(writes,count);
+  row.liveRecoveryArm=null;head='800';await assert.rejects(run().arm({bridge:executionBridge,action:'ARM_RECOVERY',consent:armConsent}),/ARM_BEFORE_CUTOFF/);assert.equal(writes,count);
+  assert.equal(sends,1);assert.equal(record.data.deviceDeposits.length,1);assert.equal(record.data.deviceDeposits[0].stage,'CONFIRMED');
  }finally{await rm(directory,{recursive:true,force:true});}
 });

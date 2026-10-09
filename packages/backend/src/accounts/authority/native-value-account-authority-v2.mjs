@@ -551,6 +551,20 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     }
     return [...retained.values()];
   }
+  function originalSourceContinuationInstallation(bridge) {
+    assert.ok(nativeSourceOriginal&&recovery?.source,'NATIVE_SOURCE_ORIGINAL_REOPEN_REQUIRED');
+    assertOriginalNativeSourceObservedClockV1(nativeSourceOriginal.clock,{runtime,nativeRuntime:nativeSourceOriginal.nativeRuntime});
+    const installation=deviceExecutionProviders.get(bridge)??deviceExecutionInstallations.get(bridge);
+    assert.ok(installation?.sourcePreparation,'NATIVE_SOURCE_ORIGINAL_INSTALLATION_REQUIRED');
+    const retained=recoveredInstallations.filter(row=>sha(row.descriptor)===sha(installation.descriptor));
+    assert.equal(retained.length,1,'NATIVE_DEVICE_RECOVERY_ORIGINAL_PAIRING_REQUIRED');
+    assert.deepEqual(sourceInstallationPreparation(installation.sourcePreparation),sourceInstallationPreparation(retained[0].preparation),
+      'NATIVE_SOURCE_ORIGINAL_INSTALLATION_CHANGED');
+    const providers=installation.providers.map(row=>({slot:row.slot,deliveryRiskSalt:row.deliveryRiskSalt,
+      custodyIdentitySHA256:sha(nativeRecoveryProviderReviewV1(row.custody,{runtime,system,poolIndex}))}));
+    assert.deepEqual(providers,retained[0].providers,'NATIVE_ACCOUNT_ORIGINAL_PROVIDERS_CHANGED');
+    return installation;
+  }
   async function updateSourceRecord(candidate) {
     const next={schema:'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1',sourceSHA256:nativeSourceOriginal.identity.sourceSHA256,
       ownedProcesses:[],confirmed:originalSourceAccountRecord(),candidate};
@@ -791,7 +805,13 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   async function deviceReservation(original){return exclusive(async()=>{
     await healthy();continueWork();assert.ok(!wrapped,'DEVICE_RESERVATION_NATIVE_ACCOUNT_REQUIRED');
     const {action,consent}=original;
-    if(recovery?.native)assert.equal(action,'OBSERVE_S','NATIVE_DEVICE_RECOVERY_OBSERVE_ORIGINAL_ONLY');
+    if(recovery?.native&&action!=='OBSERVE_S') {
+      assert.ok(recovery.source&&nativeSourceOriginal,'NATIVE_DEVICE_RECOVERY_OBSERVE_ORIGINAL_ONLY');
+      assert.ok(['PREPARE_U','PROVE_U','RESERVE_S'].includes(action),'NATIVE_SOURCE_ORIGINAL_NEXT_ACTION_REQUIRED');
+      // New U/S admits only this already-funded original note and preparation.
+      // Existing PROVE/S latches below still reject any previously admitted job.
+      originalSourceContinuationInstallation(original.bridge);
+    }
     if(action==='PREPARE_U'){
       const deposit=reservationSubject(original.depositJobId,original.rootId,original.descriptor);
       assert.equal(original.binding.accountIdentitySHA256,sha(accountIdentity),'DEVICE_RESERVATION_ACCOUNT_CHANGED');
@@ -1022,12 +1042,16 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     assert.equal(e.nativeBindingSHA256,current.nativeBindingSHA256);assert.equal(e.reservationTransactionHash,current.reservation.observation.transactionHash);
     assert.equal(e.executionSnapshotSHA256,current.executionSnapshotSHA256);assert.equal(e.lossClause,current.lossClause);}
   async function armLiveRecovery(original){return exclusive(async()=>{await healthy();continueWork();const {bridge,consent,action}=original;
-    if(action==='ARM_RECOVERY')assert.equal(recovery,null,'DEVICE_LIVE_ARMED_NO_REARM_AFTER_RESTART');
+    if(action==='ARM_RECOVERY'&&recovery!==null) {
+      assert.ok(recovery.source&&nativeSourceOriginal,'DEVICE_LIVE_ARMED_NO_REARM_AFTER_RESTART');
+      originalSourceContinuationInstallation(bridge);
+    }
     requireLiveRecovery(bridge);validateDeviceRecoveryArmConsentFreshV1(consent);assert.equal(action,consent.action);const row=reservationRow(consent.execution.reservation.jobId);
     const current=await deviceExecutionPublic(bridge,row);sameArm(row,consent,current);
     const digest=byteSHA(deviceRecoveryArmConsentMessageV1(consent));
     if(action==='ARM_RECOVERY'){
       const previous=row.liveRecoveryArm??null;
+      if(recovery?.source)assert.equal(previous,null,'DEVICE_LIVE_ARMED_NO_REARM_AFTER_RESTART');
       assert.ok(previous===null||previous.state==='DISARMED','DEVICE_LIVE_RECOVERY_ALREADY_ARMED');
       if(previous){assert.equal(previous.nativeBindingSHA256,current.nativeBindingSHA256,'DEVICE_LIVE_RECOVERY_BINDING_CHANGED');
         assert.equal(previous.reservationTransactionHash,current.reservation.observation.transactionHash,'DEVICE_LIVE_RECOVERY_S_CHANGED');
@@ -1114,7 +1138,16 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   async function deviceExecution(original){return exclusive(async()=>{
     await healthy();continueWork();assert.ok(!wrapped,'DEVICE_EXECUTION_NATIVE_ONLY');
     const {bridge,consent,action}=original,row=reservationRow(consent.reservation.jobId);
-    if(recovery?.native)assert.equal(action,'RECONCILE_NATIVE','NATIVE_DEVICE_RECOVERY_RECONCILE_ORIGINAL_ONLY');
+    if(recovery?.native&&action!=='RECONCILE_NATIVE') {
+      assert.ok(recovery.source&&nativeSourceOriginal,'NATIVE_DEVICE_RECOVERY_RECONCILE_ORIGINAL_ONLY');
+      assert.ok(['EXECUTE_NATIVE','RECOVER_NATIVE'].includes(action),'NATIVE_SOURCE_ORIGINAL_NEXT_ACTION_REQUIRED');
+      originalSourceContinuationInstallation(bridge);
+      // Recovery after an unknown F remains observation-only. New work must
+      // have no prior corresponding durable admission or terminal outcome.
+      assert.equal(row.nativeOutcome,null,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+      assert.equal(row.nativeRecoveryLatched,false,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+      if(action==='EXECUTE_NATIVE')assert.equal(row.nativeLatched,false,'DEVICE_EXECUTION_RECONCILE_ORIGINAL_ONLY');
+    }
     deviceExecutionOriginal(bridge,row);originalReservationConsent(row,consent.reservation);
     const current=await deviceExecutionPublic(bridge,row);
     assert.equal(consent.nativeBindingSHA256,current.nativeBindingSHA256,'DEVICE_EXECUTION_BINDING_CHANGED');
