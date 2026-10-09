@@ -1,17 +1,33 @@
 /** Controlled-promise tests of the actual quorum factory's orchestration.
  * Actor/signature boundaries are synthetic here; the combined-operator suite
  * separately exercises original actors, full audits and the shared native queue.
- * No native node, proof, compiler, network, timing measurement or key is used. */
+ * The SPL-tail case below additionally executes the original actor persistence
+ * and signing bodies with real AEAD/CAS and host secp256k1 signatures. Its native
+ * audit, ecrecover and branded-custody boundaries are explicit inert HOST ports;
+ * no native node, proof, compiler, network or financial authority is created. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { generateKeyPairSync } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createClaimVaultSession } from '../../../src/claims/storage/vault-session.mjs';
+import { claimBackingFrame, claimIngressAuthorizationFrame, claimHash, assertClaimBackingQuorum }
+  from '../../../src/claims/authorization/permits.mjs';
+import { claimUint } from '../../../src/claims/protocol/framing.mjs';
+import { encodeFlatNativeHealth } from '../../../src/chains/shared/health/native-health.mjs';
+import { signature as lowSignature } from '../../../../engine/src/notes/private-note-encoding.mjs';
+import { nativeHubSignatureToAbi } from '../../../../engine/src/evidence/native-hub-messages.mjs';
+import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE }
+  from '../../../../engine/src/evidence/native-quorum.mjs';
 import { CLAIM_ACTIONS as A } from '../../../src/claims/authorization/permits.mjs';
 import { cloneInput, frozenInput } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
 
 const source = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('export function createClaimOperatorQuorum(input) {');
-const end = source.indexOf('\nexport function assertOwnedClaimOperatorQuorum', start);
+const end = source.indexOf('\n/** Original-brand private diagnostics,', start);
 assert.ok(start >= 0 && end > start);
 // Execute the production factory verbatim, not a copied scheduling algorithm.
 const factorySource = source.slice(start, end).replace(/^export /, '');
@@ -68,7 +84,7 @@ function fixture() {
   const factory = vm.runInThisContext('(function({ assert, exactRecord, fixedArray, operators, quorums, factsAnchors, '
     + 'A, freeze, copy, equal, claimFactsRequest, CLAIM_OPERATOR_PROFILE, CLAIM_QUORUM_COLLECTION_PROFILE, CLAIM_ORIGINAL_AUTHORIZATION_VALIDATION_PROFILE, CLAIM_AUTHORIZATION_LIFECYCLE_PROFILE, CLAIM_BITCOIN_PAYOUT_BROADCAST_PROFILE, bitcoinBroadcastAuthorizations, performance, Buffer, assertClaimBackingQuorum, '
     + 'createNativeQuorumHostVerifier, encodeFlatNativeHealth, claimIngressAuthorizationFrame, claimPayoutAuthorizationFrame, '
-    + 'claimPayoutBroadcastFrame, nonceIngressBroadcastFrame, claimBackingFrame }) { return (' + factorySource + '); })')({ assert,
+    + 'claimPayoutBroadcastFrame, nonceIngressBroadcastFrame, claimBackingFrame, claimDomainCommitment, isOwnedSolanaSplCustodyV1, assertOwnedSolanaSplCustodyV1 }) { return (' + factorySource + '); })')({ assert,
     exactRecord(value, names) { assert.deepEqual(Object.keys(value).sort(), Array.from(names).sort()); },
     fixedArray(value, length) { assert.ok(Array.isArray(value)); assert.equal(value.length, length); },
     A, operators: states, quorums, factsAnchors: anchors, freeze: frozenInput,
@@ -77,6 +93,8 @@ function fixture() {
       if (c.snapshotAdvance !== undefined) { c.time = c.snapshotAdvance; delete c.snapshotAdvance; }
       return result;
     },
+    claimDomainCommitment: config => config.claimDomain ?? null, isOwnedSolanaSplCustodyV1: () => false,
+    assertOwnedSolanaSplCustodyV1() { throw new Error('HOST_LEGACY_HAS_NO_SPL_CUSTODY'); },
     equal: assert.deepEqual, claimFactsRequest: cloneInput, CLAIM_OPERATOR_PROFILE: 'HOST_SCHEDULING_ONLY',
     CLAIM_QUORUM_COLLECTION_PROFILE: 'SAME_HOST_CLAIM_COMMON_HEAD_COLLECTION_V3',
     CLAIM_ORIGINAL_AUTHORIZATION_VALIDATION_PROFILE: 'CLAIM_ORIGINAL_AUTHORIZATION_VALIDATION_V1',
@@ -296,5 +314,185 @@ test('facts retain the first actual immutable certificate anchor, overlap only t
     if(fault==='head')c.currentHead.hash='ff'.repeat(32);
     if(fault==='closed')c.dead.add(0);
     final.resolve();await checked;
+  }
+});
+
+
+function actorPart(from, to) {
+  const a = source.indexOf(from), b = source.indexOf(to, a);
+  assert.ok(a >= 0 && b > a, 'HOST_ORIGINAL_ACTOR_SOURCE_REQUIRED');
+  return source.slice(a, b);
+}
+const originalSigningBodies = [
+  actorPart('  async function readVault()', '  async function save('),
+  actorPart('  async function save(', '  function withinAuditBudget('),
+  actorPart('  function withinAuditBudget(', '  async function jointCurrent()'),
+  actorPart('  async function serial(', '  async function audit('),
+  actorPart('  function assertOriginalAuthorization(', '  /** V4 is intentionally different'),
+  actorPart('  async function signed(', '  // Only the fixed backing/reservation'),
+  actorPart('  async function signedPair(', '  async function retainInventoryAudit('),
+].join('\n');
+
+async function splTailHost(t, { branded = true, copiedNative = false, claimDomainMatches = true, reservationAction = A.RESERVE_INGRESS } = {}) {
+  const directory = await mkdtemp(join(tmpdir(), 'original-spl-tail-host-'));
+  const keys = Array.from({ length: 4 }, () => generateKeyPairSync('ec', { namedCurve: 'secp256k1' }));
+  const registry = { profile: NATIVE_QUORUM_PROFILE, hubDomain: '11'.repeat(32), registryEpoch: '1', rulesRoot: '22'.repeat(32),
+    keys: keys.map(key => { const j = key.publicKey.export({ format: 'jwk' });
+      return { x: Buffer.from(j.x, 'base64url').toString('hex'), y: Buffer.from(j.y, 'base64url').toString('hex') }; }) };
+  const registryCommitment = nativeQuorumRegistryCommitment(registry);
+  const domain = '33'.repeat(32), head = { number: '60', hash: '44'.repeat(32), timestamp: '1000' };
+  const native = Object.freeze({ hostPort: 'INERT_SPL_CUSTODY_BOUNDARY' }), splBrands = new WeakSet();
+  if (branded) splBrands.add(native);
+  const c = { time: 0, closed: false, calls: [], keys: [0, 0, 0], saves: [0, 0, 0], aggregated: 0,
+    checks: [0, 0, 0], poisoned: new Set(), workGates: [0, 1, 2].map(deferred),
+    reached: [0, 1, 2].map(deferred), failures: new Map(), failSave: new Map(), expectedHeads: [],
+    sessions: [], actors: [], states: new WeakMap(), quorums: new WeakMap(), pending: [], returned: [] };
+  const issued = new WeakSet();
+  const observer = { async read() { const view = { head: clone(head), gateways: [{}] }; issued.add(view); return view; },
+    async assertCurrent(view) { assert.ok(issued.has(view), 'HOST_ORIGINAL_VIEW'); assert.deepEqual(view.head, head); } };
+  const binding = { observer, registry, configs: [{ registryCommitment, claimDomain: claimDomainMatches ? domain : '55'.repeat(32) }],
+    nativeRuntimes: [copiedNative ? Object.freeze({ ...native }) : native] };
+  const ingressMessage = { claimDomain: domain, intentId: '66'.repeat(32), revision: '1', claimSequence: '1', hubStateSequence: '1',
+    amount: '100', wireKeyCommitment: '77'.repeat(32), unsignedWireCommitment: '88'.repeat(32), maxFee: '10',
+    revocationState: '99'.repeat(32), inventoryCommitment: 'aa'.repeat(32), obligationsCommitment: 'bb'.repeat(32),
+    validFrom: '1000', validUntil: '1030' };
+  const backingMessage = { claimDomain: domain, custodyInventoryDomain: '66'.repeat(32), actionDigest: '77'.repeat(32),
+    expectedClaimSequence: '1', hubStateSequence: '1', revocationState: '00'.repeat(32), wrapperSupply: '0', pendingRedemptions: '0',
+    pendingRefunds: '0', heldUnissued: '0', unknownExposure: '0', nativePrincipalAvailable: '1000', feeReserveAvailable: '100',
+    reservedFeesAfter: '10', inventoryCommitment: 'aa'.repeat(32), obligationsCommitment: 'bb'.repeat(32), validFrom: '1000', validUntil: '1030' };
+  const field = '00'.repeat(31) + '01';
+  const healthMessage = { pool: '11'.repeat(20), domain: field, hubDomain: registry.hubDomain, registryCommitment,
+    evidenceState: field, receiptRoot: field, receiptCount: '0', spentTagDigest: '00'.repeat(32), spentTagCount: '0', spentTagSequence: '0',
+    revokedDigest: field, revokedCount: '0', revocationSequence: '0', stateSequence: '1', revocationOverflowDigest: '00'.repeat(32),
+    revocationOverflowCount: '0', halted: '0', validFrom: '1000', validUntil: '1030' };
+  t.after(async () => {
+    c.workGates.forEach(gate => gate.resolve()); await Promise.allSettled(c.pending);
+    for (const session of c.sessions) session.close(); await rm(directory, { recursive: true, force: true });
+  });
+  for (const index of [0, 1, 2]) {
+    const session = createClaimVaultSession({ path: join(directory, `operator-${index}.json`), password: `host-role-${index}` });
+    c.sessions.push(session); const initialRecord = await session.create({ authorizations: [] });
+    const vault = { read: () => session.read(), async update(revision, transform) {
+      c.saves[index]++; if (c.failSave.has(index)) throw c.failSave.get(index);
+      return session.update(revision, transform);
+    } };
+    const address = (index + 1).toString(16).padStart(40, '0');
+    // The RPC port only selects recovery-v for the real host signature. It is
+    // deliberately not an EVM, inventory observation or acceptance receipt.
+    const bound = { ...binding, runtime: { async call(request, block) {
+      assert.equal(request.to, '0x0000000000000000000000000000000000000001'); assert.equal(block, '0x3c');
+      return request.data.slice(66, 130) === 27n.toString(16).padStart(64, '0') ? '0x' + '00'.repeat(12) + address : '0x' + '00'.repeat(32);
+    } } };
+    const environment = { assert, Buffer, signerIndex: index, initialRecord, bound, vault, observer, address, key: keys[index],
+      performance: { now: () => c.time }, copy: cloneInput, freeze: frozenInput, equal: assert.deepEqual,
+      claimHash, claimUint, claimBackingFrame, encodeFlatNativeHealth, nativeHubSignatureToAbi, claimIngressAuthorizationFrame,
+      lowSignature(key, frame) { c.keys[index]++; return lowSignature(key, frame); }, c,
+    };
+    // These are the source's own serial, current, AEAD read/save, signed and
+    // fixed-pair bodies. Only reciprocal audit/metrics/lifetime lower ports are
+    // inert here; no combined-custody authority is manufactured by this test.
+    const actorFactory = vm.runInThisContext('(function({ ' + Object.keys(environment).join(', ') + ' }) {'
+      + 'let record=initialRecord,busy=false,poisoned=false,closed=false,operationGeneration=0,activeKeyUsed=false,activeView,cachedView,activeFactsAnchor,activeV4=null,activeV4Facts=null,started,auditMethod,auditRound,activeAuditMetrics; const custody=null;'
+      + 'function live(){assert.ok(!c.closed&&!closed&&!poisoned,"HOST_ACTOR_CLOSED_OR_POISONED");} function ready(){live();} function poison(){poisoned=true;c.poisoned.add(signerIndex);}'
+      + 'function beginMetrics(){return null;} function enterMetrics(){return null;} function leaveMetrics(){} function finishMetrics(){} function checkpointMetrics(){}'
+      + 'async function jointCurrent(){await current();c.checks[signerIndex]++;await current();}'
+      + originalSigningBodies
+      + 'return { invoke(method,expectedHead,original){return serial(async()=>{c.calls.push({index:signerIndex,method});c.expectedHeads.push({index:signerIndex,head:expectedHead});c.reached[signerIndex].resolve();await c.workGates[signerIndex].promise;if(c.failures.has(signerIndex))throw c.failures.get(signerIndex);'
+      + 'let result;if(method==="ingress")result=await signed("ingress",c.ingressMessage,claimIngressAuthorizationFrame(c.ingressMessage));else{const pair=await signedPair("reservation",c.backingMessage,c.healthMessage,original);result=freeze({...pair[0],healthCertificate:pair[1]});}'
+      + 'if(c.mutateResult&&signerIndex===2)result=c.mutateResult(copy(result));c.returned[signerIndex]=result;return result;},expectedHead);},status(){return copy(record);}};})')(environment);
+    const actor = Object.freeze({ signerIndex: index }); c.actors.push(actor);
+    c.states.set(actor, { ready() { assert.ok(!c.closed && !c.poisoned.has(index), 'HOST_ACTOR_CLOSED_OR_POISONED'); }, observer, bound: binding,
+      supportsV4: false, authorizeIngress: (request, expectedHead) => actorFactory.invoke('ingress', expectedHead),
+      backing: (request, reservation, expectedHead, original) => {
+        assert.equal(reservation, true); return actorFactory.invoke('reservation', expectedHead, original);
+      } });
+    c.actorStatus ??= []; c.actorStatus.push(() => actorFactory.status());
+  }
+  c.ingressMessage = ingressMessage; c.backingMessage = backingMessage; c.healthMessage = healthMessage;
+  const environment = { assert, Buffer, A, operators: c.states, quorums: c.quorums, factsAnchors: new WeakSet(),
+    exactRecord(value, names) { assert.deepEqual(Object.keys(value).sort(), Array.from(names).sort()); },
+    fixedArray(value, length) { assert.equal(value.length, length); }, freeze: frozenInput, copy: cloneInput, equal: assert.deepEqual,
+    performance: { now: () => c.time }, claimDomainCommitment: config => config.claimDomain,
+    isOwnedSolanaSplCustodyV1: value => splBrands.has(value), assertOwnedSolanaSplCustodyV1(value) { assert.ok(splBrands.has(value) && !c.closed, 'HOST_ORIGINAL_SPL_CUSTODY_REQUIRED'); },
+    CLAIM_OPERATOR_PROFILE: 'HOST_ORIGINAL_BODY_ONLY', CLAIM_QUORUM_COLLECTION_PROFILE: 'SAME_HOST_CLAIM_COMMON_HEAD_COLLECTION_V3',
+    CLAIM_ORIGINAL_AUTHORIZATION_VALIDATION_PROFILE: 'CLAIM_ORIGINAL_AUTHORIZATION_VALIDATION_V1',
+    CLAIM_AUTHORIZATION_LIFECYCLE_PROFILE: 'CLAIM_AUTHORIZATION_LIFECYCLE_V4',
+    CLAIM_BITCOIN_PAYOUT_BROADCAST_PROFILE: 'CLAIM_BITCOIN_PAYOUT_BROADCAST_V1', bitcoinBroadcastAuthorizations: new WeakMap(),
+    claimBackingFrame, claimIngressAuthorizationFrame, encodeFlatNativeHealth, claimFactsRequest: cloneInput,
+    assertClaimBackingQuorum(permit, config) { const result = assertClaimBackingQuorum(permit, config); c.aggregated++; return result; },
+    createNativeQuorumHostVerifier(config) { const verifier = createNativeQuorumHostVerifier(config); return {
+      assertQuorumForMessage(input) { const result = verifier.assertQuorumForMessage(input); c.aggregated++; return result; } }; },
+  };
+  c.quorum = vm.runInThisContext('(function({ ' + Object.keys(environment).join(', ') + ' }) {return (' + factorySource + ');})')(environment)({ operators: c.actors });
+  c.start = method => { const request = { claimDomain: domain, ...(method === 'reservation' ? { terms: { action: reservationAction } } : { prepared: { hostFixture: true } }) };
+    const operation = method === 'reservation' ? c.quorum.reservation(request) : c.quorum.authorizeIngress(request);
+    c.pending.push(operation); return operation; };
+  return c;
+}
+
+test('original SPL first-head quorum: real actor AEAD/signatures, independent tails, drain and unchanged authority gates', async t => {
+  for (const method of ['ingress', 'reservation']) {
+    const c = await splTailHost(t), operation = c.start(method); let settled = false;
+    operation.then(() => { settled = true; }, () => { settled = true; });
+    await c.reached[0].promise; assert.deepEqual(c.calls.map(x => x.index), [0]); assert.deepEqual(c.keys, [0, 0, 0]);
+    c.workGates[0].resolve(); await Promise.all([c.reached[1].promise, c.reached[2].promise]);
+    assert.deepEqual(c.calls.map(x => x.index), [0, 1, 2]);
+    assert.equal(c.keys[0], method === 'ingress' ? 1 : 2); assert.deepEqual(c.keys.slice(1), [0, 0]);
+    for (const entry of c.expectedHeads.slice(1)) assert.equal(entry.head, c.returned[0].head);
+    c.workGates[2].resolve(); await turn(); assert.equal(settled, false); assert.equal(c.aggregated, 0);
+    await assert.rejects(c.start(method), /CLAIM_QUORUM_BUSY/);
+    c.workGates[1].resolve(); const result = await operation;
+    assert.deepEqual(result.indexes, [0, 1, 2]); assert.deepEqual(c.keys, method === 'ingress' ? [1, 1, 1] : [2, 2, 2]);
+    for (const status of c.actorStatus) {
+      const record = status(); assert.equal(record.data.authorizations.length, method === 'ingress' ? 1 : 2);
+      assert.ok(record.data.authorizations.every(row => row.signature && row.abiSignature));
+    }
+    if (method === 'reservation') {
+      const saves = [...c.saves], keys = [...c.keys];
+      assert.throws(() => c.quorum.assertOriginalAuthorizationCurrent(clone(result)), /ORIGINAL_QUORUM_AUTHORIZATION_REQUIRED/);
+      await c.quorum.assertOriginalAuthorizationCurrent(result);
+      assert.deepEqual(c.saves, saves); assert.deepEqual(c.keys, keys); // validation creates no signature or journal row
+    }
+  }
+  {
+    const c = await splTailHost(t), failure = new Error('HOST_FIRST_ORIGINAL_FAILED'); c.failures.set(0, failure);
+    const operation = c.start('ingress'), rejected = assert.rejects(operation, error => error === failure);
+    await c.reached[0].promise; c.workGates[0].resolve(); await rejected;
+    assert.deepEqual(c.calls.map(x => x.index), [0]); assert.deepEqual(c.keys, [0, 0, 0]); assert.equal(c.aggregated, 0);
+  }
+  {
+    const c = await splTailHost(t), earlier = new Error('HOST_TAIL_ONE_CAS_FAILED'), later = new Error('HOST_TAIL_TWO_CAS_FAILED');
+    c.failSave.set(1, earlier); c.failSave.set(2, later); let settled = false;
+    const operation = c.start('reservation'); operation.then(() => { settled = true; }, () => { settled = true; });
+    const rejected = assert.rejects(operation, error => error.message === 'CLAIM_OPERATOR_DURABLE_WRITE_UNCERTAIN' && error.cause === earlier);
+    await c.reached[0].promise; c.workGates[0].resolve(); await Promise.all([c.reached[1].promise, c.reached[2].promise]);
+    c.workGates[2].resolve(); await turn(); assert.equal(settled, false); assert.equal(c.aggregated, 0);
+    c.workGates[1].resolve(); await rejected; assert.deepEqual([...c.poisoned].sort(), [1, 2]);
+    assert.deepEqual(c.keys, [2, 0, 0]); assert.equal(c.aggregated, 0);
+  }
+  for (const fault of ['head', 'message', 'signature', 'deadline', 'closed']) {
+    const c = await splTailHost(t); let operation = c.start('ingress');
+    const rejection = fault === 'head' ? /CLAIM_QUORUM_HEAD_CHANGED/ : fault === 'message' ? /CLAIM_QUORUM_INVENTORY_DISAGREES/
+      : fault === 'signature' ? /NATIVE_QUORUM_SIGNATURE_INVALID/ : fault === 'deadline' ? /CLAIM_OPERATOR_AUDIT_TOO_OLD/ : /CLOSED_OR_POISONED/;
+    const rejected = assert.rejects(operation, rejection);
+    await c.reached[0].promise; c.workGates[0].resolve(); await Promise.all([c.reached[1].promise, c.reached[2].promise]);
+    if (fault === 'head') c.mutateResult = result => ({ ...result, head: { ...result.head, hash: 'ff'.repeat(32) } });
+    if (fault === 'message') c.mutateResult = result => ({ ...result, message: { ...result.message, amount: '101' } });
+    if (fault === 'signature') c.mutateResult = result => ({ ...result, signature: c.returned[0].signature });
+    if (fault === 'deadline') c.time = 30_000;
+    if (fault === 'closed') c.closed = true;
+    c.workGates[1].resolve(); c.workGates[2].resolve(); await rejected;
+  }
+  for (const scope of [{ branded: false }, { copiedNative: true }, { claimDomainMatches: false }, { reservationAction: A.RESERVE_PAYOUT }]) {
+    const c = await splTailHost(t, scope), operation = c.start('reservation');
+    // RESERVE_PAYOUT already has the separate original common-head branch;
+    // it remains there and is not selected by the new private SPL predicate.
+    if (scope.reservationAction === A.RESERVE_PAYOUT) {
+      await Promise.all(c.reached.map(x => x.promise)); c.workGates.forEach(x => x.resolve()); await operation;
+    } else {
+      await c.reached[0].promise; c.workGates[0].resolve(); await c.reached[1].promise;
+      assert.deepEqual(c.calls.map(x => x.index), [0, 1]); c.workGates[1].resolve(); await c.reached[2].promise;
+      c.workGates[2].resolve(); await operation;
+    }
   }
 });

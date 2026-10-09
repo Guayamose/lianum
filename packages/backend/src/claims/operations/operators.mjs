@@ -1698,6 +1698,13 @@ export function createClaimOperatorQuorum(input) {
   assert.ok(chosen.every((op, i) => i === 0 || chosen[i - 1].signerIndex < op.signerIndex), 'CLAIM_OPERATOR_ORDER');
   const first = states[0].bound, originalAuthorizations = new WeakMap(); let busy = false;
   const same = () => states.forEach(state => { state.ready(); assert.equal(state.observer, states[0].observer, 'CLAIM_OPERATOR_DIFFERENT_OBSERVER'); });
+  const originalSplIngressTails = (method, request) => {
+    if (!(method === 'ingress' || method === 'reservation' && request.terms?.action === A.RESERVE_INGRESS)) return false;
+    const at = first.configs.findIndex(config => claimDomainCommitment(config) === request.claimDomain);
+    const native = at < 0 ? null : first.nativeRuntimes[at];
+    if (!isOwnedSolanaSplCustodyV1(native)) return false;
+    assertOwnedSolanaSplCustodyV1(native); return true;
+  };
   const usesV4 = (method, request) => states.every(state => state.supportsV4) && (
     ['payout', 'broadcast', 'bitcoinBroadcast'].includes(method)
     || method === 'health' && request.mode === 'debt'
@@ -1894,7 +1901,7 @@ export function createClaimOperatorQuorum(input) {
         // use only queued native reads. No actor depends on a sibling certificate.
         // Facts capture the same original head, then retain the first actual
         // certificate anchor before starting either dependent tail actor.
-        // Ingress presign/reservation ordering remains unchanged.
+        // Ingress presign/reservation retain their original first-signer head.
         // Capture only the shared canonical head through the original owned
         // observer, inside the unchanged whole-quorum budget. No first signer
         // supplies an audit/view to its peers; each reconstructs its own view.
@@ -1925,6 +1932,16 @@ export function createClaimOperatorQuorum(input) {
           if (failed) throw failed.reason;
           results.push(...settled.map(result => result.value));
           for (const result of results) equal(result.head, commonHead, 'CLAIM_QUORUM_HEAD_CHANGED');
+        } else if (originalSplIngressTails(method, request)) {
+          // The first original SPL signer remains the sole head producer. Each
+          // tail owns its journal/key and joins the unchanged native read FIFO.
+          // Drain both before inspecting errors, matching frames or returning a
+          // permit. BTC, nonce-SOL and payout retain their established order.
+          const settled = await Promise.allSettled([1, 2].map(index => Promise.resolve().then(() => invoke(index))));
+          const failed = settled.find(result => result.status === 'rejected');
+          if (failed) throw failed.reason;
+          results.push(...settled.map(result => result.value));
+          for (const result of results) equal(result.head, results[0].head, 'CLAIM_QUORUM_HEAD_CHANGED');
         } else {
           // Unrelated ingress presign/reservation keep their established order.
           for (const index of [1, 2]) results.push(await invoke(index));
