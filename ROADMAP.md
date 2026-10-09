@@ -9,8 +9,10 @@ resultados están en [STATUS.md](STATUS.md).
 ## Avance comprobado y próximo cierre
 
 El plan conserva los siete objetivos y los requisitos de la visión. STATUS
-explica los cierres funcionales y las estimaciones orientativas del corte;
-ninguna cifra es una medida ni sustituye la cobertura y los pendientes concretos.
+explica los cierres funcionales y enlaza el
+[cálculo por requisito](docs/PROGRESS-ASSESSMENT.md) de los siete porcentajes.
+Las cifras estiman cobertura funcional; no miden tiempo ni esfuerzo restante
+y no sustituyen los pendientes concretos.
 
 - **Wallet y estado:** EVM9 acepta D26/U/S, ejecución nativa, F, ambas W39 y
   cinco READ firmadas: diez secciones originales reabiertas en otro PID, una
