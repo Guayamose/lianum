@@ -9,6 +9,8 @@ import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
+import {types} from 'node:util';
+import {deflateRawSync,inflateRawSync} from 'node:zlib';
 const generated=fileURLToPath(import.meta.url).includes('/wallet-platform/modules/');
 const capsuleURL=new URL(generated?'../ops/native-original-source-capsule-v1.mjs':'../../../src/operations/recovery/native-original-source-capsule-v1.mjs',import.meta.url);
 const engineURL=new URL(generated?'../../../../../omnichain-product/src/vault.mjs':'../../../../engine/src/crypto/vault.mjs',import.meta.url);
@@ -21,7 +23,7 @@ async function capsule(root){
  const raw=await readFile(capsuleURL,'utf8');let source=raw.replace(/^import[\s\S]*?;[\r\n]+/gm,'').replace(/^export /gm,'');
  let imports=0;source=source.replace(/await import\('([^']+)'\)/g,(_full,path)=>{imports++;const key=path.includes('owned-evm-v2-runtime')?'runtimePort':path.includes('observed-clock')?'clockPort':path.includes('source-parts')?'partsPort':path.includes('account-authority')?'accountPort':path.includes('flat-manual-graph-session')?'sessionPort':null;assert.ok(key,'HOST_FIXED_IMPORT_PORT');return key;});assert.equal(imports,8,'HOST_SOURCE_IMPORT_CUT');
  const brands=new WeakMap(),resources={};let api;const handles={};
- async function retain(token,section,resource){const identity=api.nativeSourceRecoverySectionIdentityV1(token,section),value={schema:schemas[section],sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:{schema:'EXPLICIT_INERT_SOURCE_HOST_SECTION_V1',section,financialAcceptance:false},candidate:null};handles[section]=await api.retainOriginalNativeSourceSectionV1(token,section,value);resources[section]=resource;return resource;}
+ async function retain(token,section,resource){const identity=api.nativeSourceRecoverySectionIdentityV1(token,section),value={schema:schemas[section],sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:{schema:'EXPLICIT_INERT_SOURCE_HOST_SECTION_V1',section,financialAcceptance:false,...(section==='system'?{originalContracts:['a'.repeat(700000),'b'.repeat(700000)]}:{})},candidate:null};handles[section]=await api.retainOriginalNativeSourceSectionV1(token,section,value);resources[section]=resource;return resource;}
  const runtimePort={
   assertOwnedNativeDurableSourceRuntimeV1(runtime){assert.ok(brands.has(runtime),'EXPLICIT_INERT_HOST_SOURCE_RUNTIME');},
   async createOwnedNativeDurableSourceRuntimeV1(token){const request=api.consumeOriginalNativeSourceRuntimeRequestV1(token),admitted=api.originalNativeSourceRuntimeRequestIdentityV1(request),identity=admitted.identity,family=admitted.family;
@@ -39,8 +41,8 @@ async function capsule(root){
  const accountPort={createOriginalNativeSourceNoteAccountAuthorityV1:(token)=>retain(token,'account',Object.freeze({financialAcceptance:false}))};
  const sessionPort={async createOriginalNativeSourceGraphAccountSessionV1(token){const session=Object.freeze({financialAcceptance:false});await retain(token,'session',session);return{session};}};
  const clockPort={readOriginalNativeSourceClockReferencesV1:()=>({runtime:resources.receiver,nativeRuntime:resources.graphNative}),snapshotOriginalNativeSourceObservedClockV1:()=> '1'};
- const names=['assert','randomBytes','randomUUID','createHash','createHmac','createCipheriv','createDecipheriv','constants','mkdir','lstat','realpath','open','rename','unlink','readFile','join','resolve','ROOT','Vault','canonical','exactRecord','NATIVE_VALUE_DEV_RELEASE_V5','assertOwnedEvmRecoveryStateDumpV1','runtimePort','clockPort','partsPort','accountPort','sessionPort','HOST_HANDLES'];
- const values=[assert,randomBytes,randomUUID,createHash,createHmac,createCipheriv,createDecipheriv,constants,mkdir,lstat,realpath,open,rename,unlink,readFile,join,resolve,root,Vault,canonical,exactRecord,{hostSourceClosureSHA256:'ef'.repeat(32)},assertOwnedEvmRecoveryStateDumpV1,runtimePort,clockPort,partsPort,accountPort,sessionPort,handles];
+ const names=['assert','randomBytes','randomUUID','createHash','createHmac','createCipheriv','createDecipheriv','constants','mkdir','lstat','realpath','open','rename','unlink','readFile','join','resolve','ROOT','Vault','canonical','exactRecord','NATIVE_VALUE_DEV_RELEASE_V5','assertOwnedEvmRecoveryStateDumpV1','runtimePort','clockPort','partsPort','accountPort','sessionPort','HOST_HANDLES','types','deflateRawSync','inflateRawSync'];
+ const values=[assert,randomBytes,randomUUID,createHash,createHmac,createCipheriv,createDecipheriv,constants,mkdir,lstat,realpath,open,rename,unlink,readFile,join,resolve,root,Vault,canonical,exactRecord,{hostSourceClosureSHA256:'ef'.repeat(32)},assertOwnedEvmRecoveryStateDumpV1,runtimePort,clockPort,partsPort,accountPort,sessionPort,handles,types,deflateRawSync,inflateRawSync];
  const exports=[...raw.matchAll(/^export (?:async )?function (\w+)/gm)].map(match=>match[1]);api=new Function(...names,source+'\nreturn {'+exports.join(',')+",_hostSection(authority,name){return authorities.get(authority).record.data.sections[name]},_hostUpdate(authority,name,value){return updateOriginalNativeSourceSectionV1(HOST_HANDLES[name],value)},_hostTokenIdentity(authority,name){const h=handles.get(HOST_HANDLES[name]);return nativeSourceRecoverySectionIdentityV1(h.tokenState.token,name)}};")(...values);
  return{api,resources};
 }
@@ -67,6 +69,7 @@ if(process.argv[2]==='--source-capsule-child'){
   if(mode!=='confirmed'){assert.equal(status.phase,'UNKNOWN');assert.equal(status.pending,true);assert.equal(status.observationOnly,true);await assert.rejects(api.createOriginalNativeSourceClockPairV1(authority),/PENDING_UNKNOWN/);await assert.rejects(api.reopenOriginalNativeSourceReferenceV1(authority,'receiver',{}),/PENDING_UNKNOWN/);await api.closeOriginalNativeSourceCapsuleV1(authority);continue;}
   assert.equal(status.phase,'OPENING');assert.equal(status.generation,1);
   for(const section of Object.keys(schemas))await api.reopenOriginalNativeSourceReferenceV1(authority,section,{});
+  assert.deepEqual(api._hostSection(authority,'system').confirmed.originalContracts,['a'.repeat(700000),'b'.repeat(700000)]);
   await api.finishOriginalNativeSourceReopenV1(authority);assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).phase,'CONFIRMED');assert.equal(api._hostTokenIdentity(authority,'account').profile,'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1');
   const original=api._hostSection(authority,'account');await api._hostUpdate(authority,'account',original);assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).pending,false);assert.throws(()=>api.assertOriginalNativeSourceCapsuleV1({...authority}),/ORIGINAL_CAPSULE/);
   await api.closeOriginalNativeSourceCapsuleV1(authority);await assert.rejects(api.openOriginalNativeSourceCapsuleV1(),/OLD_PROCESS_PRESENT/);
