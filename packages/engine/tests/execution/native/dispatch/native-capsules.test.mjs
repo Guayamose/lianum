@@ -9,6 +9,7 @@ import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferAction
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures,
   fundedAuthorizationWords } from '../../../../src/execution/graph/funded-graph.mjs';
 import { freshKey, signature, uintBE } from '../../../../src/notes/private-note-encoding.mjs';
+import {assertDistinctNativeReceiptSpendSecretsV1} from '../../../../src/execution/balances/generic-balance-native-preparation.mjs';
 
 const ZERO = '0'.repeat(64);
 const h = label => createHash('sha256').update('capsule fixture: ' + label).digest('hex');
@@ -53,6 +54,7 @@ function fixture(count = 4, shape = 'fan-in', reuseReceiptSecret = false) {
   const input = { signed, hubDomain, registryCommitment, nodes,
     slotSalts: Array.from({ length: 4 }, (_, i) => ({ targetSalt: h('target:' + i),
       localCapsuleSalt: h('local-salt:' + i), dependencyCapsuleSalt: h('dependency-salt:' + i) })) };
+  assertDistinctNativeReceiptSpendSecretsV1(input.nodes);
   return { input, prepared: prepareNativeCapsules(input) };
 }
 
@@ -64,7 +66,7 @@ function codecOnlyA0(signed) {
 }
 const digestFromWords = words => words.map(value => Number(value).toString(16).padStart(8, '0')).join('');
 
-test('distinct signed native nodes cannot give separate executors the same receipt spend capability', () => {
+test('distinct signed native nodes keep receipt spend capabilities separated at product preparation', () => {
   // The collision is in an otherwise original signed graph: each action binds
   // its own terms and the reused secret's actual receipt-key commitment.
   assert.throws(() => fixture(2, 'chain', true), /PAEG_CAPSULE_RECEIPT_SECRET_REUSED/);

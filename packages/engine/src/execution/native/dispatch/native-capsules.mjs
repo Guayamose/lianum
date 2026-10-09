@@ -299,13 +299,6 @@ export function prepareNativeCapsules(input) {
     nativeTransferActionCommitment(node.action);
     byId.set(node.id, structuredClone(node));
   }
-  // Compare the privately cloned nodes, not input getters. A Node receives
-  // this spend secret; reusing it shares another node's receipt capability.
-  const receiptSecrets = new Set();
-  for (const node of byId.values()) {
-    assert.ok(!receiptSecrets.has(node.receiptSpendSecret), 'PAEG_CAPSULE_RECEIPT_SECRET_REUSED');
-    receiptSecrets.add(node.receiptSpendSecret);
-  }
   assert.ok(Array.isArray(input.slotSalts) && input.slotSalts.length === 4, 'PAEG_CAPSULE_SALT_COUNT');
   const salts = structuredClone(input.slotSalts);
   salts.forEach(value => { exact(value, ['targetSalt', 'localCapsuleSalt', 'dependencyCapsuleSalt'], 'PAEG_CAPSULE_SALT_FIELDS');

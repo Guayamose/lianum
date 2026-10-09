@@ -51,6 +51,17 @@ function count(value, minimum, maximum) {
   need(Array.isArray(value) && value.length >= minimum && value.length <= maximum, 'COUNT');
 }
 
+/** Product admission guard; the original compiler codec remains byte-identical.
+ * Inspect a private data copy before producing independently scoped packets. */
+export function assertDistinctNativeReceiptSpendSecretsV1(input) {
+  const nodes = copy(input); count(nodes, 1, 4); const secrets = new Set();
+  for (const node of nodes) {
+    nativeOwnerHash(node.receiptSpendSecret);
+    nativeOwnerNeed(!secrets.has(node.receiptSpendSecret), 'PAEG_CAPSULE_RECEIPT_SECRET_REUSED');
+    secrets.add(node.receiptSpendSecret);
+  }
+}
+
 /** Exact current capacity-four native configuration, with no deposit or Vault. */
 export function normalizeGenericBalanceNativeConfig(input) {
   const config = copy(input);
@@ -281,6 +292,7 @@ export function prepareGenericBalanceNativeCapsules(input) {
   same(unsigned, compiled, 'PAEG_BALANCE_NATIVE_FUNDED_BINDING');
   // The proven codec verifies every owner/recipient signature and all inactive
   // signature slots. Rebuilding above also binds the economic note openings.
+  assertDistinctNativeReceiptSpendSecretsV1(record.nodes);
   const capsules = prepareNativeCapsules({
     signed: { ...unsigned, signatures },
     hubDomain: record.config.hubDomain,

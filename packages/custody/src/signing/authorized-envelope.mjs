@@ -8,6 +8,7 @@ import { authorizationInputs, A0_HASH_FIELDS, A0_TIME_FIELDS }
 import { prepareNativeCapsules, localCapsuleToNoir, dependencyCapsuleToNoir, nativeActionToNoir, a0Context }
   from '../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { fundedAdmission } from '../../../engine/src/execution/graph/funded-graph.mjs';
+import {assertDistinctNativeReceiptSpendSecretsV1} from '../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
   structToNoir, digestBytes, digestWords, ZERO }
   from '../../../backend/src/execution/encoding/commitments.mjs';
@@ -96,6 +97,7 @@ export async function buildAuthorizedEnvelope(input, options) {
   plainData(input);
   const { signed, domain, capsuleOptions, joinBlinds, leafBlinds } = structuredClone(input);
   exactRecord(capsuleOptions, ['nodes', 'slotSalts']);
+  assertDistinctNativeReceiptSpendSecretsV1(capsuleOptions.nodes);
   validateStruct('domain', domain);
   assert.equal(domain.ledgerNamespace, domain.hubDomain, 'OWNER_INITIAL_LEDGER_NAMESPACE');
   fixedArray(joinBlinds, 4); fixedArray(leafBlinds, 16);

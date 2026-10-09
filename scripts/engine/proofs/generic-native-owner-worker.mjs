@@ -18,6 +18,7 @@ import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fund
 import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferActionCommitment,
   capsuleAuthorizationWords } from '../../../packages/engine/src/execution/native/dispatch/native-capsules.mjs';
 import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+import {assertDistinctNativeReceiptSpendSecretsV1} from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
 import { authorizationInputs } from '../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
 import { freshKey, signature } from '../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { walletNoteCommitment, walletDepositInput, walletInputPublicWords } from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
@@ -170,6 +171,7 @@ export async function runGenericNativeOwnerWorker() {
       signed = attachFundedSignatures(operation.compiled, { ownerSignature: hex(ownerSignature), invoiceSignatures: detached.invoiceSignatures });
       // This is the existing fixed facade: prepared native pins, existing CRS,
       // resource caps, fresh proof processes and independent verification apply.
+      assertDistinctNativeReceiptSpendSecretsV1(operation.nodes);
       prover = createProofProcess({ purpose: 'owner', modes: ['deposit_balance', 'authorization', 'capsule'] });
       depositInput = walletDepositInput({ scope: config.scope, policy: config.policy, epoch: config.epoch,
         note: { ...operation.source, privateKey: operation.sourceKey.privateKey, publicKey: operation.sourceKey.publicKey } });
