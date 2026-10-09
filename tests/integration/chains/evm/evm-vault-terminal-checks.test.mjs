@@ -9,6 +9,8 @@ mock.module('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs',
 });
 const { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools,
   EVM_UNISWAP_RECOVERY_RESULT, assertEvmUniswapRecoveryResult } = await import('./evm-vault-terminal-checks.mjs');
+const { EVM_METAMORPHO_RECOVERY_RESULT_V1, METAMORPHO_F_REVIEWED_RELEASE_V1, assertOriginalMetaMorphoFAccountingV1,
+  assertEvmMetaMorphoRecoveryResultV1, assertMetaMorphoFReleaseV1 } = await import('./evm-metamorpho-recovery-policy-v1.mjs');
 const h = n => '0x' + n.repeat(64), address = n => '0x' + n.repeat(40), clone = structuredClone;
 const sender = address('1'), recipient = address('2'), pool = address('3'), nullifier = h('4');
 function fixture(reason = 'ASSET_INSUFFICIENT_BACKING', backing = '0') {
@@ -196,4 +198,130 @@ test('Uniswap F rejects extra source credit, payout, renewed cutoff, omitted los
     result => { result.proofs[6].relation = 'settlement'; },
     result => { result.privateUniswapGraphAcceptance = true; },
   ]) { const result = recoveryFixture(); mutate(result); assert.throws(() => assertEvmUniswapRecoveryResult(result)); }
+});
+
+
+// Synthetic ports below run the same original current-head collector. No
+// owner, delivery-facts brand, proof, EVM effect or protocol fixture is issued.
+test('MetaMorpho F preserves original collected mint/market/position and target accounting while only the source reservation recovers', async () => {
+  const head = { hash: h('7'), number: '0xa', parentHash: h('6'), transactions: [h('5')] };
+  const reserveNullifier = h('8'), solverPayoutCommitment = h('9');
+  const state = index => ({ head: { hash: head.hash.slice(2) }, ledger: {
+    publicState: { backedAmount: index ? '1000000000000000000' : '5000000',
+      actualAssetBalance: index ? '1000000000000000000' : '5000000', liveReservations: index ? 0 : 1 },
+    commitments: [h(index ? 'b' : 'a')], nullifiers: [], roots: [h('c')] },
+    poolObservation: { rawState: 'original-state', rawHistory: 'original-history', rawBacking: 'original-backing' },
+    authorizationRoots: [h('d')], authorizationTree: { nodes: [h('e')] },
+    state: { spentTagCount: '0', receiptCount: '0', stateSequence: '5', reservedTagCapacity: index ? '0' : '4', totalReservedTagCapacity: '4' }, receiptLeaves: [], spentTags: [], revokedEntries: [],
+    checkpointCount: '1', checkpointTree: { nodes: [h('f')] }, evidenceHistory: {}, overflow: {}, capacity: { reservedByPool: ['4', '0'], totalReserved: '4' } });
+  const views = [state(0), state(1)]; let reads = 0, canonicalChecks = 0, sends = 0;
+  const runtime = { block: async () => clone(head), transactions: Array(20),
+    assertCanonical: async value => { canonicalChecks++; assert.deepEqual(value, head); },
+    balance: async (_holder, block) => { assert.equal(block, head.number); return 1000n; },
+    nonce: async (_sender, at) => { assert.equal(at, 'latest'); return 7n; },
+    send: () => { sends++; throw Error('NO_SEND'); } };
+  owned.add(runtime);
+  const readers = views.map(view => ({ read: async () => { reads++; return view; }, assertCurrent: async value => assert.equal(value, view) }));
+  const morpho = { protocol: address('a'), marketId: h('b'), positionOwner: address('c'),
+    market: { totalSupplyAssets: '1000000', totalSupplyShares: '1000000000000', totalBorrowAssets: '0',
+      totalBorrowShares: '0', lastUpdate: '1000', fee: '0' },
+    position: { supplyShares: '1000000000000', borrowShares: '0', collateral: '0' } };
+  const vault = { observe: async () => ({ identity: { vault: address('c'), asset: address('d'), genesisHash: h('e') },
+    snapshot: { blockHash: head.hash.slice(2), totalAssets: '1000000', totalShares: '1000000000000000000' },
+    balances: { snapshot: { blockHash: head.hash.slice(2) }, senderAssets: '0', senderShares: '0', allowance: '0', usedNonce: '1' }, morpho }) };
+  const assets = [0, 1].map(index => ({ metadata: { assetId: String(index + 1), decimals: index ? 18 : 6 },
+    read: async ({ holder, blockNumber }) => { assert.equal(blockNumber, head.number);
+      return { blockHash: head.hash, totalSupply: index ? '1000000000000000000' : '10000000',
+        balance: holder === pool ? (index ? '1000000000000000000' : '5000000') : '0' }; } }));
+  const args = { runtime, readers, vault, capabilities: assets, holders: [sender, recipient, pool], sender };
+  const delivered = await readEvmVaultReplayState(args);
+  // The source F ledger releases exactly four hub tags, exposed globally by
+  // both views. Mint and target-local state do not change; block/nonce changes
+  // remain outside the accounting invariant.
+  views[0].ledger.nullifiers.push(reserveNullifier); views[0].ledger.publicState.liveReservations = 0;
+  views[0].poolObservation.rawState = 'original-recovered-state';
+  for (const view of views) { view.state.stateSequence = '6'; view.state.reservedTagCapacity = '0';
+    view.state.totalReservedTagCapacity = '0'; view.capacity = { reservedByPool: ['0', '0'], totalReserved: '0' }; }
+  const recovered = await readEvmVaultReplayState(args);
+  const input = { delivered, recovered, reserveNullifier, solverPayoutCommitment };
+  const value = assertOriginalMetaMorphoFAccountingV1(input);
+  assert.equal(value.mintAccountingUnchanged, true); assert.equal(value.solverPayoutCommitmentIncluded, false);
+  assert.equal(reads, 4); assert.equal(canonicalChecks, 2); assert.equal(sends, 0);
+  for (const mutate of [
+    x => { x.recovered.accounting.vault.totalAssets = '999999'; },
+    x => { x.recovered.accounting.vault.totalShares = '0'; },
+    x => { x.recovered.accounting.vault.morpho.market.lastUpdate = '1001'; },
+    x => { x.recovered.accounting.vault.morpho.position.supplyShares = '0'; },
+    x => { x.recovered.accounting.vault.morpho.position.borrowShares = '1'; },
+    x => { x.recovered.accounting.vault.morpho.positionOwner = address('f'); },
+    x => { x.recovered.accounting.tokens[1].totalSupply = '0'; },
+    x => { x.recovered.accounting.pools[1].publicState.backedAmount = '0'; },
+    x => { x.recovered.accounting.pools[0].hubState.receiptCount = '1'; },
+    x => { x.recovered.accounting.pools[1].hubState.stateSequence = '5'; },
+    x => { x.recovered.accounting.pools[1].hubState.stateSequence = '7'; },
+    x => { x.recovered.accounting.pools[1].hubState.totalReservedTagCapacity = '4'; },
+    x => { x.recovered.accounting.pools[1].hubState.reservedTagCapacity = '4'; },
+    x => { x.recovered.accounting.pools[1].capacity.reservedByPool[1] = '4'; },
+    x => { x.recovered.accounting.pools[1].capacity.totalReserved = '4'; },
+    x => { x.recovered.accounting.pools[1].receiptLeaves.push(h('a')); },
+    x => { x.recovered.accounting.pools[0].nullifiers = []; },
+    x => { x.recovered.accounting.pools[0].commitments.push(solverPayoutCommitment); },
+    x => { x.recovered.accounting.uniswap = {}; },
+  ]) { const changed = clone(input); mutate(changed); assert.throws(() => assertOriginalMetaMorphoFAccountingV1(changed)); }
+  views[1].head.hash = h('0').slice(2); await assert.rejects(readEvmVaultReplayState(args), /READ_HEAD/);
+});
+
+function metaMorphoRecoveryFixture() {
+  const result = recoveryFixture();
+  result.format = EVM_METAMORPHO_RECOVERY_RESULT_V1; result.protocolProfile = 'OFFICIAL_METAMORPHO_V1';
+  result.expectedInterruptionCode = 'METAMORPHO_F_CONTROLLED_AFTER_DELIVERY';
+  result.privateMetaMorphoTimeoutRecoveryAcceptance = true; result.privateUniswapTimeoutRecoveryAcceptance = false;
+  result.privateAaveGraphAcceptance = false;
+  delete result.originalFRecovery.originalSwapNotResubmitted; delete result.originalFRecovery.swapAccountingUnchanged;
+  Object.assign(result.originalFRecovery, { originalMintNotResubmitted: true, mintAccountingUnchanged: true });
+  result.metaMorphoFAccounting = { originalObserverFactsAccepted: true, receiptStatus: '0x1', receiptSHA256: '3'.repeat(64),
+    D27ProofSHA256: result.proofs[1].proofSHA256, D27PublicInputsSHA256: result.proofs[1].publicInputsSHA256,
+    mintAccountingUnchangedAfterF: true, mintAccountingUnchangedAfterExits: true,
+    targetAccountingUnchangedAfterF: true, tokenAccountingUnchangedAfterF: true };
+  result.economics = { sourceDepositAtomic: '5000000', reservedAtomic: '1200000', changeAtomic: '3800000',
+    maximumInputAtomic: '1000000', actualInputAtomic: '1000000', deliveredOutputAtomic: '1000000000000000000',
+    solverPayoutAtomic: '0', solverBalanceBeforeDelivery: '20000000', solverBalanceAfterDelivery: '19000000',
+    solverFinalBalance: '19000000', mintIrreversible: true, targetKeepsOriginalOutput: true };
+  result.recoveryBalances = { source: { available: '5000000', reserved: '0', recovery: '1200000', locked: '0' },
+    target: { available: '1000000000000000000', reserved: '0', recovery: '0', locked: '0' },
+    sourceRefundAtomic: '1200000', sourceChangeAtomic: '3800000', sourceTotalAvailableAtomic: '5000000' };
+  result.originalPrivateExits = { sourceRefundAtomic: '1200000', sourceChangeAtomic: '3800000', sourceTotalExitedAtomic: '5000000',
+    targetOutputExitedAtomic: '1000000000000000000', duplicateNoEffect: true };
+  Object.assign(result.failureRecovery, { originalDeliveredOutputExited: '1000000000000000000', solverUnderlyingLoss: '1000000' });
+  return result;
+}
+
+test('finite MetaMorpho F metadata requires one irreversible original mint, original F plus three W39, and no solver payout or substitute Uni profile', () => {
+  assert.equal(METAMORPHO_F_REVIEWED_RELEASE_V1, 'SOURCE_REVIEWED_FIXED_LOCAL_METAMORPHO_F_V1');
+  assert.doesNotThrow(() => assertMetaMorphoFReleaseV1());
+  assert.throws(() => assertMetaMorphoFReleaseV1({ callerOption: true }));
+  const value = assertEvmMetaMorphoRecoveryResultV1(metaMorphoRecoveryFixture());
+  assert.equal(value.actualFRecoveryAcceptance, true); assert.equal(value.netSolverWealthLossEstablished, false);
+  assert.equal(value.happyPathTCompleted, false); assert.equal(value.fullWalletAcceptance, false);
+  assert.throws(() => assertEvmUniswapRecoveryResult(metaMorphoRecoveryFixture()));
+  assert.throws(() => assertEvmMetaMorphoRecoveryResultV1(recoveryFixture()));
+  for (const mutate of [
+    x => { x.metaMorphoFAccounting.originalObserverFactsAccepted = false; },
+    x => { x.metaMorphoFAccounting.receiptStatus = '0x0'; },
+    x => { x.metaMorphoFAccounting.D27ProofSHA256 = '4'.repeat(64); },
+    x => { x.metaMorphoFAccounting.mintAccountingUnchangedAfterExits = false; },
+    x => { x.recoveryBalances.source.available = '6200000'; },
+    x => { x.economics.solverPayoutAtomic = '1200000'; },
+    x => { x.economics.solverFinalBalance = '20000000'; },
+    x => { x.economics.actualInputAtomic = '1000001'; },
+    x => { x.originalFRecovery.publicInputCutoff = '8201'; },
+    x => { x.originalFRecovery.ownersAbsentAtIssuance = false; },
+    x => { x.originalFRecovery.admittedReceipts = 1; },
+    x => { x.originalFRecovery.solverPayoutCommitmentIncluded = true; },
+    x => { x.nativeEffects.evmVault = 2; },
+    x => { x.originalPrivateExits.targetOutputExitedAtomic = '0'; },
+    x => { x.proofs[6].relation = 'settlement'; },
+    x => { x.proofs.splice(6, 0, { relation: 'inclusion', proofSHA256: '1'.repeat(64), publicInputsSHA256: '2'.repeat(64) }); },
+    x => { x.privateVaultGraphAcceptance = true; },
+  ]) { const changed = metaMorphoRecoveryFixture(); mutate(changed); assert.throws(() => assertEvmMetaMorphoRecoveryResultV1(changed)); }
 });

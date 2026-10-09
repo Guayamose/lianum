@@ -42,11 +42,15 @@ import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-sour
 import {openOriginalRetainedVaultDeviceReadHostV1} from './retained-vault-device-position-host-v1.mjs';
 import {captureAndLaunchExternalDefiVaultExitSuccessorV1} from '../../wallet/native/native-device-economic-launcher-v1.mjs';
 import {assertExternalDefiVaultExitRecoveryResultV1} from './external-defi-vault-exit-policy-v1.mjs';
+import {EVM_METAMORPHO_RECOVERY_RESULT_V1,assertOriginalMetaMorphoFAccountingV1,assertEvmMetaMorphoRecoveryResultV1} from './evm-metamorpho-recovery-policy-v1.mjs';
+import {evmMetaMorphoRecoverySourcePinsV1} from './evm-metamorpho-recovery-source-pins-v1.mjs';
+import {assertOwnedMetaMorphoGraphDeliveryFactsV1} from '../../../../packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { aavePrivateGraphSourcePinsV1 } from './aave-private-graph-source-pins-v1.mjs';
 const bare = value => value.slice(2);
 // The fixed supervisor entries reuse this original worker. Neither accepts
 // an argv/environment selector or changes the proof/custody authority.
 const SCENARIOS = Object.freeze({
+  'integration/run-evm-metamorpho-recovery-flow-v1.mjs':Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/evm-metamorpho-recovery-v1',recovery:true,metaRecovery:true}),
   'integration/run-evm-metamorpho-exit-recovery-v1.mjs':Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
   'integration/run-evm-aave-exit-recovery-v1.mjs':Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
   'integration/run-evm-vault-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_METAMORPHO_V1', local: '.local/evm-vault-flow' }),
@@ -96,8 +100,8 @@ async function main() {
   const scenario = Object.entries(SCENARIOS).find(([entry]) => parentEntry === join(ROOT, entry))?.[1];
   assert.ok(scenario, 'EVM_VAULT_FIXED_ORIGINAL_SUPERVISOR');
   const PROTOCOL_PROFILE = scenario.protocol, AAVE = PROTOCOL_PROFILE === 'OFFICIAL_AAVE_STATIC_V1',
-    UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1', RECOVERY = scenario.recovery === true, RETAINED_EXIT=scenario.retainedExit===true;
-  assert.ok(!RECOVERY || UNISWAP, 'EVM_UNISWAP_F_FIXED_PROTOCOL_ONLY');
+    UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1', RECOVERY = scenario.recovery === true, RETAINED_EXIT=scenario.retainedExit===true, META_RECOVERY=scenario.metaRecovery===true;
+  assert.ok(!RECOVERY || UNISWAP || (META_RECOVERY && PROTOCOL_PROFILE==='OFFICIAL_METAMORPHO_V1' && !RETAINED_EXIT), 'EVM_UNISWAP_F_FIXED_PROTOCOL_ONLY');
   const SOURCE = '5000000', SHARES = UNISWAP ? '1000' : AAVE ? '1000000' : '1000000000000000000',
     INPUT = UNISWAP ? '2000' : AAVE ? '1100000' : '1000000', PAYOUT = UNISWAP ? '1200' : '1200000',
     CHANGE = String(BigInt(SOURCE) - BigInt(PAYOUT));
@@ -111,14 +115,15 @@ async function main() {
   mkdirSync(proofDirectory, { mode: 0o700 });
   const began = performance.now();
   const result = {
-    format: RECOVERY ? EVM_UNISWAP_RECOVERY_RESULT : 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1', runId: lock.runId,
+    format: META_RECOVERY ? EVM_METAMORPHO_RECOVERY_RESULT_V1 : RECOVERY ? EVM_UNISWAP_RECOVERY_RESULT : 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1', runId: lock.runId,
     startedAt: new Date().toISOString(), phase: 'starting', success: false,
     localOnly: true, fakeFundsOnly: true, publicNetwork: false,
-    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: RETAINED_EXIT?externalDefiVaultExitSourcePinsV1():AAVE ? aavePrivateGraphSourcePinsV1() : evmVaultSourcePins(),
+    supervisor: { supervisorPID: process.ppid, workerPID: process.pid }, sourcePins: META_RECOVERY?evmMetaMorphoRecoverySourcePinsV1():RETAINED_EXIT?externalDefiVaultExitSourcePinsV1():AAVE ? aavePrivateGraphSourcePinsV1() : evmVaultSourcePins(),
     stages: [], proofs: [], transactions: [], accountRequests: [], nativeEffects: { evmVault: 0 },
     cleanup: { closedEvm: false }, keeperRestart: false, nodeRestart: false,
     protocolProfile: PROTOCOL_PROFILE, privateVaultGraphAcceptance: false, privateUniswapGraphAcceptance: false, privateAaveGraphAcceptance: false,
     partialDeliveryRecoveryAcceptance: false, privateUniswapTimeoutRecoveryAcceptance: false,
+    ...(META_RECOVERY?{privateMetaMorphoTimeoutRecoveryAcceptance:false}:{}),
     systemicPrivacyAcceptance: false, independentOperators: false,
     realClockFinalityAcceptance: false, performanceTargetAchieved: false, fullWalletAcceptance: false,
     disclosure: [
@@ -129,7 +134,8 @@ async function main() {
       'The router action, amounts, K, protocol and destination pool remain public. Common-host observers/keeper are trusted.',
       RETAINED_EXIT?'Planned original closure after terminal graph/payout/EXIT/redemption; a new backend child opens the same five-section issuer and reconciles existing receipts. The audit parent remains alive; abrupt loss and GRAPH recovery are not established.':'Two encrypted owner children and a disposable account coordinator restart; the original authority and EVM survive.',
       'This exercises one registered EVM action under the generic relation; arbitrary DeFi and seven-chain acceptance remain unproved.',
-      ...(RECOVERY ? ['Controlled interruption after the one completed swap/D27 delivery, before I/N/T; no physical network outage is claimed.',
+      ...(META_RECOVERY ? ['Controlled interruption after the one original MetaMorpho mint/D27 delivery, before I/N/T; no physical network outage is claimed.',
+        'F uses the original signed cutoff. The mint remains irreversible; target exits the original shares. Solver spends its exact underlying and receives no payout. The original target EXIT recipient also equals the solver; no net wealth-loss claim is made.'] : RECOVERY ? ['Controlled interruption after the one completed swap/D27 delivery, before I/N/T; no physical network outage is claimed.',
         'F refunds the original source reserve at its signed cutoff. The swap is irreversible: target owns the delivered note; solver loses its actual input and receives no payout.'] : []),
     ],
   };
@@ -280,11 +286,22 @@ async function main() {
     const originals = runtime.transactions.filter(entry => entry.signed && entry.receipt?.status === '0x1');
     assert.equal(originals.length, 1, 'EVM_VAULT_RECOVERY_EXACT_ORIGINAL');
     const original = originals[0], ownerAbsentAtRecovery = !sourceOwner.report().available;
-    const replayState = () => readEvmVaultReplayState({ runtime, readers: fixture.readers,
+    const replayState = META_RECOVERY ? () => readEvmVaultReplayState({ runtime, readers: fixture.readers, vault:vaultActor,
+      capabilities, sender:fixture.system.sender, holders:[...runtime.accounts,...fixture.system.pools.map(pool=>pool.address),
+        fixture.router.address,fixture.officialProtocol.vault.address,fixture.officialProtocol.blue.address,vaultActor.metadata.routerAddress] })
+      : () => readEvmVaultReplayState({ runtime, readers: fixture.readers,
       protocolFixture: fixture.officialProtocol, capabilities, sender: fixture.system.sender,
       holders: [...runtime.accounts, ...fixture.system.pools.map(pool => pool.address),
         fixture.router.address, fixture.officialProtocol.pool.address, fixture.officialProtocol.swapRouter.address] });
     const deliveredState = RECOVERY ? await replayState() : null;
+    if(META_RECOVERY){
+      const query={transactionHash:bare(original.transactionHash),calldataSHA256:hash(Buffer.from(original.request.data.slice(2),'hex'))};
+      const facts=await fixture.evmDelivery.observeFacts(query);assertOwnedMetaMorphoGraphDeliveryFactsV1(facts,{observer:fixture.evmDelivery});
+      assert.equal(facts.status,'observed');assert.equal(facts.blockId,bare(original.receipt.blockHash));assert.equal(original.receipt.status,'0x1');
+      const d27=result.proofs.filter(row=>row.relation==='deposit_intent');assert.equal(d27.length,1);
+      result.metaMorphoFAccounting={originalObserverFactsAccepted:true,receiptStatus:original.receipt.status,receiptSHA256:hash(fixtureJSON(original.receipt)),
+        D27ProofSHA256:d27[0].proofSHA256,D27PublicInputsSHA256:d27[0].publicInputsSHA256};
+    }
     if (RECOVERY) {
       solverBalanceAfterDelivery = await capabilities[0].balance(fixture.solver);
       assert.equal(await capabilities[0].allowance(fixture.solver, fixture.router.address), 0n);
@@ -307,7 +324,12 @@ async function main() {
       const inputs = JSON.parse(readFileSync(join(proofDirectory, proofs[0].file + '.inputs.json'), 'utf8'));
       assert.equal(inputs.length, 41); assert.equal(BigInt(inputs[40]), BigInt(graphCutoff), 'UNISWAP_F_CUTOFF_UNCHANGED');
       const recoveredState = await replayState();
-      assert.deepEqual(recoveredState.accounting.uniswap, deliveredState.accounting.uniswap, 'UNISWAP_F_CANNOT_UNDO_SWAP');
+      if(META_RECOVERY){
+        const preserved=assertOriginalMetaMorphoFAccountingV1({delivered:deliveredState,recovered:recoveredState,
+          reserveNullifier:'0x'+reserveNullifier,solverPayoutCommitment:'0x'+solverPayoutCommitment});
+        Object.assign(result.metaMorphoFAccounting,{mintAccountingUnchangedAfterF:preserved.mintAccountingUnchanged,
+          targetAccountingUnchangedAfterF:preserved.targetAccountingUnchanged,tokenAccountingUnchangedAfterF:preserved.tokenAccountingUnchanged});
+      }else assert.deepEqual(recoveredState.accounting.uniswap, deliveredState.accounting.uniswap, 'UNISWAP_F_CANNOT_UNDO_SWAP');
       assert.deepEqual(recoveredState.accounting.tokens, deliveredState.accounting.tokens, 'UNISWAP_F_TOKEN_ACCOUNTING_CHANGED');
       assert.equal(recoveredState.accounting.pools[0].nullifiers.includes('0x' + reserveNullifier), true);
       assert.equal(recoveredState.accounting.pools[0].commitments.includes('0x' + solverPayoutCommitment), false, 'UNISWAP_F_NO_SOLVER_PAYOUT');
@@ -321,7 +343,7 @@ async function main() {
       result.originalFRecovery = { actualFProofAccepted: true, originalRequestId: graphId, disposition: 'RECOVERED',
         cutoff: graphCutoff, publicInputCount: inputs.length, publicInputCutoff: BigInt(inputs[40]).toString(),
         ownersAbsentAtIssuance: true, admittedReceipts: 0, repeatedRecoveryNoEffect: true,
-        duplicateExecuteNoEffect: true, originalSwapNotResubmitted: true, swapAccountingUnchanged: true,
+        duplicateExecuteNoEffect: true, ...(META_RECOVERY?{originalMintNotResubmitted:true,mintAccountingUnchanged:true}:{originalSwapNotResubmitted:true,swapAccountingUnchanged:true}),
         solverPayoutCommitmentIncluded: false };
     }
     if (!sourceOwner.report().available) await sourceOwner.restart();
@@ -375,10 +397,14 @@ async function main() {
         maximumInputAtomic: INPUT, actualInputAtomic: String(spent), deliveredOutputAtomic: SHARES,
         solverBalanceBeforeDelivery: String(solverBalanceBeforeDelivery),
         solverBalanceAfterDelivery: String(solverBalanceAfterDelivery), solverFinalBalance: String(solverAfter),
-        solverPayoutAtomic: '0', swapIrreversible: true, targetKeepsOriginalOutput: true };
+        solverPayoutAtomic: '0', ...(META_RECOVERY?{mintIrreversible:true}:{swapIrreversible:true}), targetKeepsOriginalOutput: true };
       result.sourcePrivateReservationEstablished = true; result.privateOutputExitEstablished = true;
       result.duplicateNoEffect = true; result.originalExactConsent = appDriver.evidence();
-      result.privateUniswapTimeoutRecoveryAcceptance = true;
+      if(META_RECOVERY){
+        const afterExits=await replayState();
+        for(const key of ['identity','totalAssets','totalShares','morpho'])assert.deepEqual(afterExits.accounting.vault[key],deliveredState.accounting.vault[key],'METAMORPHO_F_EXITS_CANNOT_UNDO_MINT');
+        result.metaMorphoFAccounting.mintAccountingUnchangedAfterExits=true;result.privateMetaMorphoTimeoutRecoveryAcceptance=true;
+      }else result.privateUniswapTimeoutRecoveryAcceptance = true;
     }
     await audit(); return true;
   }
@@ -395,9 +421,8 @@ async function main() {
         if (RECOVERY && value.stage === 'native-delivered-0') {
           assert.equal(result.controlledPostDeliveryInterruption, undefined, 'UNISWAP_F_INTERRUPT_ONCE');
           result.controlledPostDeliveryInterruption = true;
-          result.expectedInterruptionCode = 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY'; save();
-          throw Object.assign(new Error('UNISWAP_F_CONTROLLED_AFTER_DELIVERY'),
-            { code: 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY' });
+          result.expectedInterruptionCode = META_RECOVERY?'METAMORPHO_F_CONTROLLED_AFTER_DELIVERY':'UNISWAP_F_CONTROLLED_AFTER_DELIVERY'; save();
+          throw Object.assign(new Error(result.expectedInterruptionCode),{ code:result.expectedInterruptionCode });
         }
       } });
     for (const [poolIndex, owner] of [sourceOwner, targetOwner].entries())
@@ -727,7 +752,7 @@ async function main() {
     // Only the separate fixed F scenario accepts its exact controlled failure.
     // No arbitrary failure or happy-path fallback can acquire this acceptance.
     const expected = RECOVERY && recovered === true && result.controlledPostDeliveryInterruption === true
-      && result.expectedInterruptionCode === 'UNISWAP_F_CONTROLLED_AFTER_DELIVERY'
+      && result.expectedInterruptionCode === (META_RECOVERY?'METAMORPHO_F_CONTROLLED_AFTER_DELIVERY':'UNISWAP_F_CONTROLLED_AFTER_DELIVERY')
       && result.failedStage === 'native-delivered-0' && result.errorCode === 'FLAT_ACCOUNT_OPERATION_FAILED';
     if (expected) { result.actualAdmissionFailureCode = result.errorCode; result.expectedInterruptionPreserved = true;
       delete result.errorCode; result.phase = 'completed'; result.success = true; }
@@ -736,12 +761,12 @@ async function main() {
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.closedEvm !== true) { result.success = false; result.phase = 'failed'; }
-    try { assert.deepEqual(RETAINED_EXIT?externalDefiVaultExitSourcePinsV1():AAVE?aavePrivateGraphSourcePinsV1():evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
+    try { assert.deepEqual(META_RECOVERY?evmMetaMorphoRecoverySourcePinsV1():RETAINED_EXIT?externalDefiVaultExitSourcePinsV1():AAVE?aavePrivateGraphSourcePinsV1():evmVaultSourcePins(), result.sourcePins); result.sourceUnchanged = true; }
     catch { result.sourceUnchanged = false; result.success = false; result.phase = 'failed'; }
     result.finishedAt = new Date().toISOString(); result.milliseconds = performance.now() - began;
     if(RETAINED_EXIT&&result.success){try{assertExternalDefiVaultExitRecoveryResultV1(result);}catch(error){result.success=false;result.phase='failed';result.errorCode=safeCode(error);}}
     if (RECOVERY && result.success) {
-      try { assertEvmUniswapRecoveryResult(result); }
+      try { if(META_RECOVERY)assertEvmMetaMorphoRecoveryResultV1(result);else assertEvmUniswapRecoveryResult(result); }
       catch (error) { result.success = false; result.phase = 'failed'; result.errorCode = safeCode(error); }
     }
     save();
