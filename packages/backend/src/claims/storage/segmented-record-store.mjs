@@ -341,14 +341,51 @@ async function sessionFactory(input, initial, creating, readOnly = false) {
     // Only graph metadata lives for this call. Full reopen audits authenticate
     // retained history and orphans; ordinary reads visit the current root only.
     const objectNames = new Set(layout.objects);
+    // Ciphertext only from the original physical layout or an authenticated
+    // parent's links. One global eight-envelope reservation follows the DFS;
+    // neither authentication nor graph validation enters the read queue.
+    const verificationMaximum = Math.min(LIMIT.logicalBytes, 8 * (LIMIT.envelopeBytes + 1));
+    const verificationCiphertexts = new Map();
+    const releaseVerification = id => {
+      const outcome = verificationCiphertexts.get(id);
+      if (outcome) outcome.value = undefined;
+      verificationCiphertexts.delete(id);
+    };
+    const readVerifiedPaths = async (ids, consume) => {
+      for (let start = 0; start < ids.length;) {
+        const available = Math.floor(verificationMaximum / (LIMIT.envelopeBytes + 1)) - verificationCiphertexts.size;
+        const admitted = [], selected = new Set(); let end = start;
+        while (end < ids.length && end - start < 8) {
+          const id = ids[end];
+          const needed = !nodes.has(id) && !verificationCiphertexts.has(id)
+            && !selected.has(id) && objectNames.has(`${id}.json`);
+          if (needed && admitted.length === available) break;
+          if (needed) { admitted.push(id); selected.add(id); }
+          end++;
+        }
+        check(end > start, 'CLAIM_STORE_RECONSTRUCTION_LIMIT');
+        // Reserve every complete trusted envelope maximum before any IO.
+        for (const id of admitted) verificationCiphertexts.set(id, null);
+        try {
+          const outcomes = await freshScanReads(admitted, id => boundedRead(join(objectPath, `${id}.json`)));
+          for (let index = 0; index < admitted.length; index++) verificationCiphertexts.set(admitted[index], outcomes[index]);
+          for (let index = start; index < end; index++) await consume(ids[index]);
+        } finally { for (const id of admitted) releaseVerification(id); }
+        start = end;
+      }
+    };
     const loadNode = async id => {
       check(objectNames.has(`${id}.json`), 'CLAIM_STORE_MISSING_OR_CYCLIC_OBJECT');
-      const node = decrypt(await boundedRead(join(objectPath, `${id}.json`)), 'object', id);
+      const ciphertext = verificationCiphertexts.get(id); let node;
+      try {
+        if (ciphertext && !ciphertext.ok) throw ciphertext.error;
+        node = decrypt(ciphertext ? ciphertext.value : await boundedRead(join(objectPath, `${id}.json`)), 'object', id);
+      } finally { if (ciphertext) releaseVerification(id); }
       check(identify('object', canonicalObject(node)) === id, 'CLAIM_STORE_OBJECT_CONTENT_ID');
       nodes.set(id, { kind: node.kind, links: objectLinks(node) });
       return node;
     };
-    if (fullHistory) for (const name of layout.objects) await loadNode(name.slice(0, -5));
+    if (fullHistory) await readVerifiedPaths(layout.objects.map(name => name.slice(0, -5)), loadNode);
     // Fresh commit reads/authentication drain first. Every name, read error,
     // schema, predecessor and content ID is consumed in original revision order.
     const authenticated = await freshScanReads(layout.commits, async (name, revision) =>
@@ -375,7 +412,7 @@ async function sessionFactory(input, initial, creating, readOnly = false) {
       check(!visiting.has(id), 'CLAIM_STORE_MISSING_OR_CYCLIC_OBJECT');
       if (!nodes.has(id)) await loadNode(id);
       visiting.add(id);
-      for (const link of nodes.get(id).links) await walk(link, depth + 1);
+      await readVerifiedPaths(nodes.get(id).links, link => walk(link, depth + 1));
       visiting.delete(id); visited.add(id);
     };
     for (const commit of fullHistory ? chain : [current]) await walk(commit.root, 0);
