@@ -137,9 +137,9 @@ resuelve el estado económico ni habilita repetir la acción original.
 ./dev npm --prefix apps/platform run test:docker
 ```
 
-`test` ejecuta 22 pruebas host y omite explícitamente el grupo SQL real.
+`test` ejecuta pruebas host y omite explícitamente el grupo SQL real.
 `test:postgres` crea PostgreSQL 17 oficial por digest, con 256 MiB, puerto
-loopback aleatorio y volumen exclusivo. Ejecuta 18 casos y su grupo (19 PASS):
+loopback aleatorio y volumen exclusivo. Ejercita los casos de:
 JSONB, carreras de mismo/nuevo desafío, separación propietario/acción,
 términos inmutables, reinicio real de PostgreSQL/proceso HTTP y crashes antes y
 después de un contador de efecto SQL. También mantiene el proceso HTTP y su Pool de producción vivos
@@ -169,10 +169,35 @@ Faltan estado privado reconciliado, contratos reales con los workers, límites
 persistentes de admisión/abuso y política de retención del registro. La entrada pública y el
 worker no se habilitan por defecto en Terraform.
 
-El registro almacena identidad pública estable y términos del permiso, que
-incluyen importe y destino. Eso permite verificación de alcance, pero no
-satisface por sí solo la privacidad final. Hace falta revisar qué datos puede
-conocer cada frontera, permisos de lectura y retención antes de exponerla.
+Los nuevos registros SQL guardan commitments HMAC del challenge y de los
+términos, una identidad distinta por operación y estados de admisión sin el
+ID original. PostgreSQL no recibe en esos registros clave pública, importe,
+destino, activo, ruta o requestId; incluso la búsqueda legacy usa únicamente
+las claves originales opacas de autorización. La API sí recibe el mensaje
+firmado completo, y SQL sigue viendo caducidades, consumos y tiempos. La clave
+histórica de idempotencia se conserva: no se declara anonimato frente a quien
+conozca además el requestId y su propietario, ni frente a API/SQL en colusión.
+Las filas históricas en claro se conservan sin reescribirlas ni borrar UNKNOWN.
+No se promete eliminación retroactiva de esos datos.
+
+El servicio requiere `LIANUM_PLATFORM_PRIVACY_KEY` (64 caracteres hexadecimales)
+o `LIANUM_PLATFORM_PRIVACY_KEY_FILE` (archivo privado con esos bytes y newline),
+exactamente uno. Es un secreto de infraestructura independiente de la contraseña
+SQL y de las claves raíz móviles. El operador local lo crea una sola vez en
+`.local/platform/privacy-key`, modo 0600, y lo monta únicamente en la API.
+Debe conservarse y respaldarse por separado junto a la base: restaurar SQL
+requiere restaurar el mismo secreto. No se regenera para resolver UNKNOWN.
+Su pin persistido cierra readiness y rechaza escrituras si se pierde o cambia.
+La rotación no está implementada; cambiarlo exige una migración explícita y
+no permite empezar de cero sobre las operaciones previas.
+
+El formato del JSONB cambia a `LIANUM_PLATFORM_PRIVATE_CHALLENGE_V1` y
+`LIANUM_PLATFORM_PRIVATE_RESPONSE_V1`; el esquema SQL y sus checksums no
+cambian. El primer registro nuevo conserva el pin en una fila reservada de
+`mobile_operations`. Las lecturas legacy siguen sin modificar filas, y los
+términos se comparan entre acciones ya consumidas y bajo la misma clave de
+operación, manteniendo consumo antes del efecto y recuperación de recibos.
+Al adoptar esta versión hay que detener primero las instancias antiguas.
 Ni la verificación Node/JWK, ni los mocks de hardware móvil, ni estas pruebas
 SQL demuestran custodia física, financiación, ZK o efectos en una red real.
 

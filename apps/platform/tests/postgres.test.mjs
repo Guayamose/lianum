@@ -1,3 +1,4 @@
+import { TEST_PLATFORM_PRIVACY_KEY } from './helpers/privacy-key-v1.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomBytes, sign } from 'node:crypto';
@@ -78,12 +79,15 @@ test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: 
   t.after(async () => { if (pool) await pool.end(); });
   await runMigrationCases(t, pool, database.connectionString, { challenge, unknown, accepted });
   await migratePlatformDatabase(pool);
-  let store = await createPostgresAuthorizationStore(pool);
+  let store = await createPostgresAuthorizationStore(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
 
   await t.test('JSONB key reordering preserves canonical challenge binding; altered/expired/missing originals fail closed', async () => {
     const original = challenge(); await store.put(original);
     const retained = (await pool.query('SELECT challenge FROM mobile_challenges WHERE challenge_id=$1', [original.challengeId])).rows[0].challenge;
-    assert.notEqual(JSON.stringify(retained), JSON.stringify(original));
+    assert.equal(retained.format, 'LIANUM_PLATFORM_PRIVATE_CHALLENGE_V1');
+    assert.deepEqual(Object.keys(retained).sort(), ['commitment', 'format']);
+    for (const secret of [original.ownerPublicKey, original.intent.recipient, original.intent.assetId, original.intent.requestId])
+      assert.equal(JSON.stringify(retained).includes(secret), false);
     assert.equal((await store.consume(original, Date.now())).duplicate, false);
     const changed = challenge(); await store.put(changed);
     await assert.rejects(store.consume({ ...changed, nonce: 'ff'.repeat(32) }, Date.now()), { code: 'MOBILE_CHALLENGE_NOT_AVAILABLE' });
@@ -122,11 +126,29 @@ test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: 
     assert.equal(results.find(result => result.status === 'rejected').reason.code, 'MOBILE_OPERATION_CONFLICT');
   });
 
+  await t.test('SQL does not retain new owner/terms and a changed privacy key cannot split prior admissions', async () => {
+    const original = challenge(); await store.put(original); const admitted = await store.consume(original, Date.now());
+    const snapshot = await pool.query(`SELECT
+      (SELECT jsonb_agg(c) FROM mobile_challenges c) AS challenges,
+      (SELECT jsonb_agg(o) FROM mobile_operations o) AS operations,
+      (SELECT jsonb_agg(a) FROM mobile_authorizations a) AS authorizations`);
+    const encoded = JSON.stringify(snapshot.rows[0]);
+    for (const secret of [original.ownerPublicKey, original.intent.requestId, original.intent.recipient, original.intent.assetId])
+      assert.equal(encoded.includes(secret), false);
+    const replaced = await createPostgresAuthorizationStore(pool, { privacyKey: '7c'.repeat(32) });
+    await assert.rejects(replaced.ready(), { code: 'MOBILE_PRIVACY_KEY_MISMATCH' });
+    await assert.rejects(replaced.consume(original, Date.now()), { code: 'MOBILE_PRIVACY_KEY_MISMATCH' });
+    await assert.rejects(replaced.put(challenge()), { code: 'MOBILE_PRIVACY_KEY_MISMATCH' });
+    await assert.rejects(replaced.receipt(original), { code: 'MOBILE_PRIVACY_KEY_MISMATCH' });
+    assert.deepEqual(await store.receipt(original), unknown(original));
+    assert.deepEqual(await store.consume(original, Date.now()), { duplicate: true, response: admitted.response });
+  });
+
   await t.test('committed UNKNOWN and ACCEPTED survive pool/process reload and actual PostgreSQL restart', async () => {
     const pending = challenge(), complete = challenge(); await store.put(pending); await store.put(complete);
     await store.consume(pending, Date.now()); const admitted = await store.consume(complete, Date.now());
     await store.finish(admitted.key, accepted(complete)); await pool.end(); pool = null;
-    await database.restart(); pool = poolFor(database.connectionString); store = await createPostgresAuthorizationStore(pool);
+    await database.restart(); pool = poolFor(database.connectionString); store = await createPostgresAuthorizationStore(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
     assert.deepEqual(await store.consume(pending, Date.now()), { duplicate: true, response: unknown(pending) });
     assert.deepEqual(await store.consume(complete, Date.now()), { duplicate: true, response: accepted(complete) });
   });
@@ -136,7 +158,7 @@ test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: 
     const boundedPool = createPlatformPool(proxy.connectionString);
     let app, effects = 0;
     try {
-      const boundedStore = await createPostgresAuthorizationStore(boundedPool);
+      const boundedStore = await createPostgresAuthorizationStore(boundedPool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
       app = await startPlatformServer({ origin: 'https://wallet.example.test', store: boundedStore,
         executor: { capabilities: { prepare: true }, submit: async () => { effects++; return { admitted: true }; } } });
       const original = challenge(), authorization = signed(original);
@@ -150,7 +172,7 @@ test('real PostgreSQL durability, contention and mobile HTTP contract', { skip: 
       assert.equal(proxy.commitForwarded, true); assert.equal(effects, 0);
       assert.equal(boundedPool.idleCount, 0); assert.equal(boundedPool.totalCount, 0);
       const retained = await pool.query('SELECT response FROM mobile_authorizations WHERE authorization_key=$1', [authorizationKey(original)]);
-      assert.equal(retained.rows.length, 1); assert.deepEqual(retained.rows[0].response, unknown(original));
+      assert.equal(retained.rows.length, 1); assert.deepEqual(retained.rows[0].response, { format: 'LIANUM_PLATFORM_PRIVATE_RESPONSE_V1', status: 'UNKNOWN', operationState: 'UNKNOWN', retryAllowed: false });
       assert.deepEqual(await store.consume(original, Date.now()), { duplicate: true, response: unknown(original) });
       assert.equal((await pool.query('SELECT consumed FROM mobile_challenges WHERE challenge_id=$1', [original.challengeId])).rows[0].consumed, true);
     } finally { await app?.close(); await boundedPool.end(); await proxy.close(); }

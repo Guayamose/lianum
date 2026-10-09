@@ -1,6 +1,7 @@
 import { createPlatformPool } from './database-pool.mjs';
 import { createPostgresAuthorizationStore } from './authorization-store.mjs';
 import { startPlatformServer } from './server.mjs';
+import { readPlatformPrivacyKeyV1 } from './privacy-key-v1.mjs';
 const port=Number(process.env.PORT??8080);
 if(!Number.isInteger(port)||port<1||port>65535)throw new Error('PLATFORM_PORT_INVALID');
 const origin=process.env.LIANUM_PUBLIC_ORIGIN;
@@ -8,7 +9,7 @@ let store = null;
 if (process.env.DATABASE_URL) {
   const pool = createPlatformPool(process.env.DATABASE_URL);
   try {
-    store = await createPostgresAuthorizationStore(pool);
+    store = await createPostgresAuthorizationStore(pool, { privacyKey: readPlatformPrivacyKeyV1() });
     // Deployment/local init runs src/migrate.mjs separately. Normal startup
     // verifies the recorded schema and never creates or changes SQL tables.
     await store.ready();

@@ -1,3 +1,4 @@
+import { TEST_PLATFORM_PRIVACY_KEY } from './helpers/privacy-key-v1.mjs';
 /** A controlled PostgreSQL wire peer deliberately stops replying. This tests
  * the actual pg client and pool transport deadline; it is not a SQL fixture. */
 import assert from 'node:assert/strict';
@@ -66,7 +67,7 @@ test('established silent SQL transport times out and removes the exact pooled co
 });
 test('silent transaction is discarded instead of queueing ROLLBACK or recycling uncertain state', { timeout: 12_000 }, async t => {
   const f = await silentPeer(t);
-  const store = await createPostgresAuthorizationStore(f.pool), began = Date.now();
+  const store = await createPostgresAuthorizationStore(f.pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY }), began = Date.now();
   await assert.rejects(store.consume({ ownerPublicKey: 'public', intent: { requestId: 'original', action: 'execute' } }, Date.now()), /Query read timeout/);
   assert.ok(Date.now() - began >= 4500 && Date.now() - began < 10_000);
   assert.equal(f.pool.idleCount, 0);
@@ -85,7 +86,7 @@ test('an active transaction transport reset rejects without killing the owning p
     import { createPostgresAuthorizationStore } from ${JSON.stringify(new URL('../src/authorization-store.mjs', import.meta.url).href)};
     const pool = createPlatformPool(${JSON.stringify(f.connectionString)});
     try {
-      const store = await createPostgresAuthorizationStore(pool);
+      const store = await createPostgresAuthorizationStore(pool, { privacyKey: '6b'.repeat(32) });
       try {
         await store.consume({ ownerPublicKey: 'public', intent: { requestId: 'original', action: 'execute' } }, Date.now());
         throw Error('TRANSPORT_FAILURE_NOT_REJECTED');

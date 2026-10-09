@@ -1,3 +1,4 @@
+import { TEST_PLATFORM_PRIVACY_KEY } from './privacy-key-v1.mjs';
 /** Real PostgreSQL migration acceptance. Each case creates a fresh database in
  * this suite's exclusive container; no existing database or cloud is used. */
 import assert from 'node:assert/strict';
@@ -55,7 +56,7 @@ export async function runMigrationCases(t, admin, connectionString, { challenge,
 
   await t.test('fresh schema requires explicit migration; rerun preserves the version and application time', async childTest => {
     const { pool } = await database(childTest);
-    const store = await createPostgresAuthorizationStore(pool);
+    const store = await createPostgresAuthorizationStore(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
     await assert.rejects(store.ready(), { code: 'PLATFORM_MIGRATION_REQUIRED' });
     assert.equal((await pool.query("SELECT to_regclass('public.mobile_challenges') AS relation")).rows[0].relation, null);
     assert.deepEqual(await migratePlatformDatabase(pool), { version: 1, applied: [1] });
@@ -90,7 +91,7 @@ export async function runMigrationCases(t, admin, connectionString, { challenge,
     redirectedURL.searchParams.set('options', '-c search_path=decoy,public');
     const redirected = createPlatformPool(redirectedURL.toString());
     childTest.after(() => redirected.end());
-    const store = await createPostgresAuthorizationStore(redirected);
+    const store = await createPostgresAuthorizationStore(redirected, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
     assert.equal(await store.ready(), true);
     for (let index = 0; index < originals.length; index++) {
       const response = index ? accepted(originals[index]) : unknown(originals[index]);
@@ -101,6 +102,10 @@ export async function runMigrationCases(t, admin, connectionString, { challenge,
     const next = challenge(); await store.put(next); const admission = await store.consume(next, Date.now());
     await store.finish(admission.key, accepted(next));
     assert.deepEqual(await store.receipt(next), accepted(next));
+    const altered = challenge({ intent: { ...originals[0].intent, action: 'execute', amountAtomic: '101' } });
+    await store.put(altered);
+    await assert.rejects(store.consume(altered, Date.now()), { code: 'MOBILE_OPERATION_CONFLICT' });
+    assert.deepEqual(await store.receipt(originals[0]), unknown(originals[0]));
     for (const name of ['mobile_challenges', 'mobile_operations', 'mobile_authorizations'])
       assert.equal((await pool.query('SELECT count(*)::integer AS count FROM decoy.' + name)).rows[0].count, 0);
   });

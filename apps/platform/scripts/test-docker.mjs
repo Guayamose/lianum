@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
+import { TEST_PLATFORM_PRIVACY_KEY } from '../tests/helpers/privacy-key-v1.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { startTestPostgres, poolFor } from '../tests/helpers/postgres-container.mjs';
 
@@ -11,7 +12,7 @@ const root = new URL('../../../', import.meta.url).pathname;
 const database = await startTestPostgres();
 const pool = poolFor(database.connectionString);
 const docker = async args => (await command('docker', args, { timeout: 30_000,
-  env: { ...process.env, DATABASE_URL: database.containerConnectionString }, maxBuffer: 1024 * 1024 })).stdout.trim();
+  env: { ...process.env, DATABASE_URL: database.containerConnectionString, LIANUM_PLATFORM_PRIVACY_KEY: TEST_PLATFORM_PRIVACY_KEY }, maxBuffer: 1024 * 1024 })).stdout.trim();
 let id, migrationId;
 try {
   // Schema setup is an explicit one-shot command using the exact image under
@@ -27,7 +28,7 @@ try {
   id = await docker(['run', '--detach', '--name', 'lianum-platform-api-' + token,
     '--label', 'lianum.test.owner=' + token, '--memory', '256m', '--memory-swap', '256m',
     '--cpus', '1', '--pids-limit', '64', '--publish', '127.0.0.1::8080',
-    '--env', 'LIANUM_PUBLIC_ORIGIN=https://wallet.example.test', '--env', 'DATABASE_URL', '--pull', 'never', 'lianum-platform:local']);
+    '--env', 'LIANUM_PUBLIC_ORIGIN=https://wallet.example.test', '--env', 'DATABASE_URL', '--env', 'LIANUM_PLATFORM_PRIVACY_KEY', '--pull', 'never', 'lianum-platform:local']);
   const info = JSON.parse(await docker(['inspect', id]))[0];
   const port = Number(info.NetworkSettings.Ports['8080/tcp'][0].HostPort);
   const origin = `http://127.0.0.1:${port}`;

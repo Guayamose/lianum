@@ -39,7 +39,9 @@ services:
     pull_policy: never
     environment:
       LIANUM_PUBLIC_ORIGIN: https://wallet.local.test
+      LIANUM_PLATFORM_PRIVACY_KEY_FILE: /run/secrets/platform-privacy-key
       DATABASE_URL: postgresql://lianum:${LIANUM_LOCAL_DB_PASSWORD}@database:5432/lianum
+    secrets: [platform-privacy-key]
     ports:
       - 127.0.0.1:${LIANUM_LOCAL_PORT:-8080}:8080
     mem_limit: 256m
@@ -63,3 +65,7 @@ networks:
   edge: {}
 volumes:
   intake-data:
+
+secrets:
+  platform-privacy-key:
+    file: ${LIANUM_LOCAL_PRIVACY_KEY_FILE:?Use scripts/local.mjs to preserve the local privacy secret}
