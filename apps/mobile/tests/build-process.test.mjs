@@ -39,8 +39,16 @@ test('detached build daemon and its child retain authenticated ownership after l
     Object.defineProperty(owned.child,'pid',{value:other.child.pid});
     const stopped=owned.guard.signal('SIGTERM');assert.equal(stopped.sent,true);
     assert.deepEqual(stopped.individualPIDs.sort((a,b)=>a-b),[daemon,grandchild].sort((a,b)=>a-b));
+    const names=['pid','ppid','pgrp','session','uid','startTimeTicks'];
+    const expected=after.processes.filter(row=>[daemon,grandchild].includes(row.pid))
+      .map(row=>Object.fromEntries(names.map(key=>[key,row[key]]))).sort((a,b)=>a.pid-b.pid);
+    assert.deepEqual([...stopped.signalTargetIdentities].sort((a,b)=>a.pid-b.pid),expected);
+    assert.equal(Object.isFrozen(stopped.signalTargetIdentities),true);
+    assert.equal(stopped.signalTargetIdentities.every(Object.isFrozen),true);
+    const retained=JSON.stringify(stopped.signalTargetIdentities);
     for(let i=0;i<40&&owned.guard.snapshot().liveCount;i++)await new Promise(resolve=>setTimeout(resolve,25));
     assert.equal(owned.guard.snapshot().liveCount,0);
+    assert.equal(JSON.stringify(stopped.signalTargetIdentities),retained);
     const response=once(other.child,'message');other.child.send('ping');assert.equal((await response)[0],'alive');
   }finally{owned.guard.signal('SIGKILL');other.guard.signal('SIGKILL');await Promise.all([owned.closed,other.closed]);}
 });

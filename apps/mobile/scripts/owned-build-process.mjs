@@ -149,6 +149,11 @@ export function ownSpawnedBuildGroup(child,{allowDetachedDescendants=false}={}) 
         // Descendants precede the original launcher, with identity/UID checks
         // immediately before every signal (including reparented descendants).
         const targets=group.processes.filter(live).sort((a,b)=>Number(a.pid===pgid)-Number(b.pid===pgid));
+        // Retain the exact fresh owned snapshots already authenticated by
+        // snapshot()/the original per-target guards. No later PID lookup can
+        // reconstruct this birth identity once the process has disappeared.
+        const signalTargetIdentities=Object.freeze(targets.map(target=>Object.freeze(Object.fromEntries(
+          ['pid','ppid','pgrp','session','uid','startTimeTicks'].map(key=>[key,target[key]])))));
         for(const target of targets){
           at('SIGNAL_IDENTITY',target.pid);
           const current=nativeProcStatV1(target.pid);if(!current)continue;
@@ -158,7 +163,7 @@ export function ownSpawnedBuildGroup(child,{allowDetachedDescendants=false}={}) 
           assert.ok(same(current,nativeProcStatV1(target.pid)),'MOBILE_BUILD_SIGNAL_IDENTITY_CHANGED');
           try{process.kill(target.pid,signal);sent=true;}catch(error){if(error.code!=='ESRCH')throw error;}
         }
-        return {sent,gone:false,individualPIDs:targets.map(target=>target.pid)};
+        return {sent,gone:false,individualPIDs:targets.map(target=>target.pid),signalTargetIdentities};
       }
       const anchor=group.processes.find(stat=>live(stat)&&same(stat,identities.get(stat.pid)));
       assert.ok(anchor,'MOBILE_BUILD_SIGNAL_ANCHOR_UNCONFIRMED');
@@ -166,7 +171,9 @@ export function ownSpawnedBuildGroup(child,{allowDetachedDescendants=false}={}) 
       assert.ok(same(anchor,current)&&current.pgrp===pgid&&current.session===pgid,
         'MOBILE_BUILD_SIGNAL_IDENTITY_CHANGED');
       assert.ok(same(current,nativeProcStatV1(anchor.pid)),'MOBILE_BUILD_SIGNAL_IDENTITY_CHANGED');
-      process.kill(-pgid,signal);return {sent:true,gone:false};
+      const signalTargetIdentities=Object.freeze(group.processes.filter(live).map(target=>Object.freeze(Object.fromEntries(
+        ['pid','ppid','pgrp','session','uid','startTimeTicks'].map(key=>[key,target[key]])))));
+      process.kill(-pgid,signal);return {sent:true,gone:false,signalTargetIdentities};
     }catch(error){if(error.code==='ESRCH'){gone=true;return {sent:false,gone:true};}
       retainFailure(error);lost=true;return {sent:false,unconfirmed:true,code:String(error.message).match(/MOBILE_BUILD_[A-Z0-9_]+/)?.[0]??'MOBILE_BUILD_SIGNAL_UNCONFIRMED'};}
   }
