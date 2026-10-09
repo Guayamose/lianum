@@ -3,6 +3,7 @@
  * The keeper retains the password/checkpoint, and is trusted on the common OS.
  * This is process separation, not a hostile-host enclave or general keystore. */
 import assert from 'node:assert/strict';
+import { types } from 'node:util';
 import { fork } from 'node:child_process';
 import { lstat, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
@@ -28,7 +29,19 @@ const PROOF = ['depositWitness', 'withdrawalWitness', 'proveAuthorization', 'pro
 const plane = method => OWNER.includes(method) ? 'owner' : PROOF.includes(method) ? 'ownerProof'
   : method === 'selectRole' ? 'role' : ['privateSummary', 'preparationTerms', 'nativeNotePreparations', 'graphPreparationTerms'].includes(method) ? 'ownerView' : ['summary', 'close'].includes(method) ? 'lifecycle' : null;
 const ownedProcesses = new WeakMap();
-const code = error => /^(?:FLAT|NATIVE_VALUE)_[A-Z0-9_]+$/.test(error?.message ?? '') ? error.message : 'FLAT_OWNER_OPERATION_FAILED';
+const code = error => {
+  // Node adds comparison text after a labelled assertion's first line. Only
+  // that original closed label crosses IPC; never actual/expected or a stack.
+  if (error && !types.isProxy(error) && types.isNativeError(error)
+    && Object.getOwnPropertyDescriptor(error, 'code')?.value === 'ERR_ASSERTION') {
+    const message = Object.getOwnPropertyDescriptor(error, 'message')?.value;
+    if (typeof message === 'string') {
+      const first = message.slice(0, 128).split(/\r?\n/, 1)[0];
+      if (/^(?:FLAT|NATIVE_VALUE)_[A-Z0-9_]{1,100}$/.exec(first)?.[0] === first) return first;
+    }
+  }
+  return /^(?:FLAT|NATIVE_VALUE)_[A-Z0-9_]+$/.test(error?.message ?? '') ? error.message : 'FLAT_OWNER_OPERATION_FAILED';
+};
 const failure = text => Object.assign(new Error(text), { code: text });
 function bounded(value) { const clone = ownerCopy(value); assert.ok(JSON.stringify(clone).length <= LIMIT, 'FLAT_OWNER_IPC_LIMIT'); return clone; }
 function opaque(methods) {
