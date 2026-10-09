@@ -47,6 +47,7 @@ const assets = Object.freeze({ '/': ['index.html', 'text/html; charset=utf-8'],
   '/exact-action-browser-review.mjs': ['exact-action-browser-review.mjs', 'text/javascript; charset=utf-8'],
   '/view-model.mjs': ['view-model.mjs', 'text/javascript; charset=utf-8'],
   '/generation-defi-contract.mjs': ['generation-defi-contract.mjs', 'text/javascript; charset=utf-8'],
+  '/original-economic-state-v1.mjs': ['original-economic-state-v1.mjs', 'text/javascript; charset=utf-8'],
   '/owner-portfolio-contract.mjs': ['owner-portfolio-contract.mjs', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'] });
 const sensitiveHeaders = new Set(['host', 'origin', 'content-type', 'content-length', 'transfer-encoding',
@@ -60,8 +61,10 @@ function fields(value, names, required = []) {
   need(keys.every(key => names.includes(key)) && required.every(key => keys.includes(key)), 'WALLET_BOOTSTRAP_FIELDS');
   for (const key of keys) need(Object.hasOwn(Object.getOwnPropertyDescriptor(value, key), 'value'), 'WALLET_BOOTSTRAP_FIELDS');
 }
-function bindings(input) {
-  fields(input, ['accountSession', 'nativeClaimSession', 'wrappedWithdrawalSession', 'defiExit', 'networkConfig', 'transferObservers']);
+function bindings(input, economicModule = null) {
+  fields(input, ['accountSession', 'nativeClaimSession', 'wrappedWithdrawalSession', 'defiExit', 'networkConfig', 'transferObservers', 'economicState']);
+  const economicState = input.economicState ?? null;
+  if (economicState !== null) {need(economicModule !== null, 'WALLET_ECONOMIC_BOOTSTRAP_REQUIRED'); economicModule.assertOriginalWalletEconomicStateV1(economicState);}
   const accountSession = input.accountSession ?? null, nativeClaimSession = input.nativeClaimSession ?? null;
   const wrappedWithdrawalSession=input.wrappedWithdrawalSession??null;
   if(wrappedWithdrawalSession!==null)assertOwnedWrappedWithdrawalSessionV1(wrappedWithdrawalSession);
@@ -127,7 +130,12 @@ function bindings(input) {
     }
     if (entries.length) transferReads = Object.freeze(entries);
   }
-  return Object.freeze({ accountSession, nativeClaimSession, wrappedWithdrawalSession, nativeIdentity, defiExit, networkReads, transferReads });
+  if (economicState !== null) {
+    const originals = economicModule.originalWalletEconomicStateBindingsV1(economicState);
+    if (accountSession !== null) need(originals.some(r => r.session === accountSession), 'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
+    if (defiExit !== null) need(originals.some(r => r.positions === defiExit.service), 'WALLET_ECONOMIC_ORIGINAL_POSITIONS_REQUIRED');
+  }
+  return Object.freeze({ accountSession, nativeClaimSession, wrappedWithdrawalSession, nativeIdentity, defiExit, networkReads, transferReads, economicState });
 }
 function validToken(value, expected) {
   return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)
@@ -205,14 +213,18 @@ function capabilityView(snapshot, identity = null) {
 /** Original branded sessions only. No HTTP route can create, bind or select
  * accounts, owners, native destinations, RPC endpoints, executables or files. */
 export async function startWalletApplication(options = {}) {
-  fields(options, ['accountSession', 'nativeClaimSession', 'wrappedWithdrawalSession', 'defiExit', 'networkConfig', 'transferObservers', 'port', 'actionAccessMode']);
+  fields(options, ['accountSession', 'nativeClaimSession', 'wrappedWithdrawalSession', 'defiExit', 'networkConfig', 'transferObservers', 'port', 'actionAccessMode', 'economicState']);
+  // Retain the exact original capability before loading its private producer.
+  // Legacy sessions do not import or instantiate the optional economic realm.
+  options = {...options};
+  const economicModule = options.economicState == null ? null : await import('../../../../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs');
   const actionAccessMode = Object.hasOwn(options, 'actionAccessMode') ? options.actionAccessMode : 'manual';
   need(['manual', 'exact-only'].includes(actionAccessMode), 'WALLET_ACTION_ACCESS_MODE');
   const { port = 0 } = options;
   need(Number.isInteger(port) && port >= 0 && port <= 65535, 'WALLET_PORT');
   let bound = bindings({ accountSession: options.accountSession, nativeClaimSession: options.nativeClaimSession, wrappedWithdrawalSession:options.wrappedWithdrawalSession,
-    defiExit: options.defiExit, networkConfig: options.networkConfig, transferObservers: options.transferObservers });
-  const connected = value => Boolean(value.accountSession || value.nativeClaimSession || value.wrappedWithdrawalSession || value.defiExit || value.networkReads);
+    defiExit: options.defiExit, networkConfig: options.networkConfig, transferObservers: options.transferObservers, economicState: options.economicState }, economicModule);
+  const connected = value => Boolean(value.accountSession || value.nativeClaimSession || value.wrappedWithdrawalSession || value.defiExit || value.networkReads || value.economicState);
   let boundOnce = connected(bound), origin, host, closed = false, closePromise;
   let reading = false, admitting = false;
   const ownerToken = randomBytes(32).toString('hex');
@@ -352,6 +364,15 @@ export async function startWalletApplication(options = {}) {
           Object.assign(value.capabilities, { defiPrepare: true, defiRequote: true, defiExecute: true, defiReconcile: true, defiReopen: true });
         } catch (error) {
           value.errors.defi = publicCode(error); value.capabilities.defiReopen = true;
+        }
+      }
+      if (bound.economicState) {
+        // The existing owner-token/Origin gate precedes this private original
+        // capability. HTTP never chooses a source, journal or read callback.
+        try { value.economicState = await bound.economicState.observe(); }
+        catch {
+          try { value.economicState = await bound.economicState.snapshot(); } catch { value.economicState = null; }
+          value.errors.economicState = 'WALLET_ECONOMIC_OBSERVATION_UNAVAILABLE';
         }
       }
       // Optional handoff loss must not poison unrelated original read/recovery
@@ -559,7 +580,7 @@ export async function startWalletApplication(options = {}) {
     },
     bindSessions(input) {
       need(!closed && !boundOnce && !reading && !admitting, 'WALLET_BINDING_ALREADY_FIXED');
-      const next = bindings(input); need(connected(next), 'WALLET_ORIGINAL_SESSION_REQUIRED');
+      const next = bindings(input, economicModule); need(connected(next), 'WALLET_ORIGINAL_SESSION_REQUIRED');
       bound = next; boundOnce = true; return { bound: true };
     },
     close() {

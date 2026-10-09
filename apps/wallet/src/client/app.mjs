@@ -85,8 +85,12 @@ function renderPortfolio(state, view) {
     const footer = node('div', 'card-footer');
     footer.append(node('span', '', asset.observed?.blockNumber ? `Bloque ${asset.observed.blockNumber}` : 'Bloque no disponible'),
       node('span', '', `Decimales: ${Number.isInteger(asset.decimals) ? asset.decimals : 'no disponibles'}`)); card.append(footer);
+    if (asset.domain) card.append(node('p', 'small', `Dominio ${asset.domain.scope.slice(0,12)} · red ${asset.domain.chainId}`),
+      node('p', 'footnote', 'Disponible, reservado, recuperable y bloqueado pueden solaparse; no se suman.'));
     const detail = node('details', 'asset-detail'); detail.append(node('summary', '', 'Identidad y respaldo observado'));
     detail.append(node('p', 'mono', asset.id || 'Identidad no disponible'));
+    if (asset.domain) for (const [label, field] of [['Génesis','genesis'],['Pool','pool'],['Ámbito','scope'],['Política','policy'],['Identidad del activo','assetIdentity']])
+      detail.append(node('p','mono small', `${label}: ${asset.domain[field]}`));
     if (asset.generationId) {
       detail.append(node('p', 'mono small', `Generación: ${asset.generationId}`));
       detail.append(node('p', 'mono small', `Dominio original: ${asset.domainCommitment}`));
@@ -96,6 +100,7 @@ function renderPortfolio(state, view) {
       detail.append(node('p', 'muted small', `${title}: ${atomic(asset.backing?.[key]) ?? 'no disponible'} · unidades atómicas`));
     detail.append(node('p', 'footnote', 'El respaldo corresponde al activo, no a un saldo adicional del titular.')); card.append(detail); cards.append(card);
   }
+  if (view.economicState) cards.append(node('p', 'footnote', 'Vista privada guardada por activo y dominio. Las redes se observan por separado; no hay un total agregado. Las notas del dispositivo requieren sus permisos propios y no están incluidas en esta conexión.'));
   if (!view.assets.length) cards.append(empty('Portafolio no disponible. Abre la sesión original y consulta su estado; no se ha inferido ningún saldo.'));
   $('positions').hidden = !view.positions.length; $('position-cards').replaceChildren();
   for (const position of view.positions) {

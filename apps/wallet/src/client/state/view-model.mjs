@@ -1,3 +1,4 @@
+import {validateOriginalWalletEconomicStateV1, projectOriginalWalletEconomicStateV1, originalEconomicRouteKeyV1} from '../features/portfolio/original-economic-state-v1.mjs';
 import { validateOwnerGraphReview, OWNER_GRAPH_PROFILES } from '../features/accounts/owner-graph-review-v1.mjs';
 import {validatePublicTokenObservations,projectPublicTokenObservations} from '../features/portfolio/public-token-observations.mjs';
 import {WRAPPED_RESUME_ACTIONS,isWrappedResumeAction} from '../features/withdrawals/wrapped-withdrawal-resume-actions.mjs';
@@ -574,6 +575,8 @@ export function validateWalletState(value) {
     || !(item.balances === null || record(item.balances)
       && ['available', 'reserved', 'recovery', 'locked'].every(key => atomic(item.balances[key]) !== null))
     || !Array.isArray(item.requests))) throw new Error('WALLET_ASSET_CONTRACT');
+  if (value.economicState !== undefined && value.economicState !== null) validateOriginalWalletEconomicStateV1(value.economicState);
+  if (value.errors.economicState !== undefined && value.errors.economicState !== null && typeof value.errors.economicState !== 'string') throw Error('WALLET_ECONOMIC_STATE_CONTRACT');
   validatePublicTokenObservations(value.networks);
   for (const row of value.networks?.observations ?? []) {
     if (row.chain !== 'bitcoin') continue;
@@ -600,7 +603,7 @@ export function projectWalletState(value, { stale = false, reading = false, send
   const sourceAssets = ownerPortfolioAssetRows(portfolio);
   const generationRows = ownerPortfolioGenerations(portfolio);
   const componentPortfolios = generationRows.length ? generationRows.flatMap(row => row.portfolio ? [row.portfolio] : []) : [portfolio].filter(Boolean);
-  const assets = sourceAssets.map(item => {
+  let assets = sourceAssets.map(item => {
     const meta = item.asset ?? {}, itemStatus = status(item.status, stale || portfolioStale);
     const balances = Object.fromEntries(['available', 'reserved', 'recovery', 'locked'].map(key => [key,
       item.status === 'UNAVAILABLE' ? null : atomic(item.balances?.[key])]));
@@ -637,6 +640,22 @@ export function projectWalletState(value, { stale = false, reading = false, send
     stale: stale || reading || sending || value?.connection !== 'CONNECTED',
     portfolioStale: portfolioStale || Boolean(value?.errors.portfolio), defiStale: defiStale || Boolean(value?.errors.defi) });
   positions.push(...generationDefi.positions);
+  const economicState = value?.economicState ? projectOriginalWalletEconomicStateV1(value.economicState, {stale: stale || reading || sending || value.connection !== 'CONNECTED' || Boolean(value.errors.economicState)}) : null;
+  if (economicState) {
+    assets = economicState.rows.map(row => ({id: row.route.assetId, rowKey: originalEconomicRouteKeyV1(row.route),
+      generationId: row.route.generationId, pool: row.route.pool, domainCommitment: row.route.domainCommitment, domain: row.route,
+      symbol: row.asset.symbol, decimals: row.asset.decimals, status: row.state, observed: row.head,
+      balances: row.balances ?? {available: null, reserved: null, recovery: null, locked: null},
+      amounts: Object.fromEntries(['available','reserved','recovery','locked'].map(k => [k, displayUnits(row.balances?.[k] ?? null, row.asset.decimals)])), backing: row.backing}));
+    positions.splice(0, positions.length, ...economicState.rows.filter(r => r.position).map(row => ({
+      kind: 'ERC4626_SHARE', status: row.position.ownershipStatus, ownershipStatus: row.position.ownershipStatus, valuationStatus: row.position.valuationStatus,
+      generationId: row.route.generationId, shareAssetId: row.route.assetId, underlyingAssetId: row.position.underlyingAssetId,
+      shareSymbol: row.asset.symbol, underlyingSymbol: economicState.rows.find(r => r.route.sourceId === row.route.sourceId && r.route.generationId === row.route.generationId && r.route.assetId === row.position.underlyingAssetId)?.asset.symbol ?? 'Subyacente',
+      shares: row.position.shares, estimate: row.position.estimate, observed: row.position.head, vault: row.position.vault,
+      underlyingToken: row.position.underlyingToken, pool: row.route.pool, domainCommitment: row.route.domainCommitment,
+      ownershipBalances: row.balances, pendingRequests: row.state === 'UNKNOWN' ? null : row.requests.filter(q => q.state !== 'CONFIRMED'),
+      join: row.position.valuationStatus === 'LIVE' ? 'SAME_GENERATION_AND_HEAD' : 'UNKNOWN', underlyingSpendable: false})));
+  }
   const requests = [];
   for (const asset of sourceAssets) for (const row of rows(asset.requests)) requests.push({
     requestId: text(row.requestId, ''), source: text(asset.asset?.symbol, 'Portafolio'), native: false,
@@ -648,6 +667,9 @@ export function projectWalletState(value, { stale = false, reading = false, send
       action: text(row.action), state: stale || nativeStale ? 'STALE' : text(row.state),
       disposition: stale || nativeStale ? '' : text(row.result?.status, ''), errorCode: text(row.errorCode, '') });
   requests.push(...nativeRows.values());
+  if (economicState) requests.splice(0, requests.length, ...economicState.rows.flatMap(row => row.requests.map(q => ({
+    requestId: q.requestId, rowKey: originalEconomicRouteKeyV1(row.route), source: row.asset.symbol, native: row.component !== 'FLAT_NOTE',
+    action: q.kind, state: row.state === 'UNKNOWN' ? 'UNKNOWN' : q.state, disposition: q.disposition ?? '', errorCode: row.reason ?? ''}))));
   const transferHistory = stale || reading || sending || transfersStale || Boolean(value?.errors.transfers || value?.errors.account || value?.errors.nativeClaims) || accountStale || nativeStale
     || value?.connection !== 'CONNECTED'
     || Boolean(value?.account && (accountSnapshotFresh === false || !validAccountSnapshot(value.account.snapshot)
@@ -664,12 +686,12 @@ export function projectWalletState(value, { stale = false, reading = false, send
       source: 'retained-observation-metadata', freshness: 'not-revalidated', metadataOnly: true, currentFinalityVerified: false,
       creditEligible: false, privateSpendableAtomic: null, graphAdmissionEligible: false, deliveryVerified: false, recipientRetainedValueVerified: false };
   }) : [];
-  const assetsCoherent=Boolean(!stale&&!portfolioStale&&portfolio?.status==='LIVE'
+  const assetsCoherent=economicState ? economicState.rows.length > 0 && economicState.rows.every(r => r.state === 'LIVE') : Boolean(!stale&&!portfolioStale&&portfolio?.status==='LIVE'
     &&(Array.isArray(portfolio.assets)||portfolio.profile===GENERATION_PORTFOLIO_PROFILE?portfolio.coherent===true:portfolio.observed!=null));
   const positionsExpected=positions.length>0||generationDefi.generationMode;
   const positionOwnershipCoherent=!positionsExpected||positions.length>0&&positions.every(position=>(position.ownershipStatus??position.status)==='LIVE');
   const positionValuationCoherent=!positionsExpected||positions.length>0&&positions.every(position=>(position.valuationStatus??position.status)==='LIVE');
-  const journalsCoherent=!stale&&!reading&&!sending&&!accountStale&&!nativeStale&&!nativeIdentityMismatch
+  const journalsCoherent=(!economicState || economicState.storageAvailable && economicState.rows.every(r => r.state !== 'UNKNOWN'))&&!stale&&!reading&&!sending&&!accountStale&&!nativeStale&&!nativeIdentityMismatch
     &&!value?.errors.account&&!value?.errors.nativeClaims&&!value?.errors.wrappedWithdrawals
     &&(!value?.account||accountSnapshotFresh!==false&&journalReady(value.account.snapshot)&&value.account.snapshot.available===true&&value.account.snapshot.observation==='CURRENT')
     &&(!value?.nativeClaims||nativeSnapshotFresh!==false&&journalReady(value.nativeClaims.snapshot))
@@ -677,7 +699,7 @@ export function projectWalletState(value, { stale = false, reading = false, send
     &&(!generationDefi.generationMode||!generationDefi.journalsUnknown);
   const ownerStateCoherence={assets:assetsCoherent,positionOwnership:positionOwnershipCoherent,
     positionValuation:positionValuationCoherent,journals:journalsCoherent};
-  return { portfolioStatus: status(portfolio?.status, stale || portfolioStale),ownerStateCoherence,
+  return { portfolioStatus: economicState ? economicState.rows.every(r => r.state === 'LIVE') ? 'LIVE' : economicState.rows.some(r => r.state === 'LIVE') ? 'PARTIAL' : economicState.rows.some(r => r.state === 'STALE') ? 'STALE' : 'UNAVAILABLE' : status(portfolio?.status, stale || portfolioStale),ownerStateCoherence, economicState,
 
     coherent: Object.values(ownerStateCoherence).every(Boolean),
     generations: generationRows.map((row, index) => ({ generationId: row.generationId, ordinal: index + 1, status: status(row.portfolio?.status, stale || portfolioStale), errorCode: row.errorCode, routes: copy(row.routes) })),
@@ -719,7 +741,7 @@ export function projectWalletState(value, { stale = false, reading = false, send
       redeemedUnderlying: row.underlyingPrivateSpendable === false && row.underlyingLocation === 'EXTERNAL_OWNER_ADDRESS'
         ? atomic(row.redeemedUnderlying) : null, observation: text(row.observation),
       underlyingLocation: 'EXTERNAL_OWNER_ADDRESS', underlyingPrivateSpendable: false, redemptionPublic: true,
-      sendBlocked: row.sendBlocked !== false, keeperRestart: false })) }; 
+      sendBlocked: row.sendBlocked !== false, keeperRestart: false })) };
 }
 export function buildActionBody(action, input) {
   if (!Object.hasOwn(ALL_ACTIONS, action) || !record(input)
