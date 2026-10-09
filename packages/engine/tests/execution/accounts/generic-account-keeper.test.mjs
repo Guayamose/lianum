@@ -281,7 +281,7 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
   await bindOriginalNativeSourceSessionKeeperV1(keeper,session);
   assert.equal(snapshot.ownedProcesses.length,1);assert.deepEqual(Object.keys(snapshot.ownedProcesses[0]).sort(),['pgrp','pid','session','startTicks','uid']);
   assert.equal(snapshot.ownedProcesses[0].uid,process.getuid());assert.ok(snapshot.ownedProcesses[0].pid!==process.pid);
-  await assert.rejects(readOriginalNativeSourceSessionKeeperV1(keeper,{}),{code:'NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED'});
+  await assert.rejects(readOriginalNativeSourceSessionKeeperV1(keeper,{}),{code:'JOURNAL_SOURCE_ORIGINAL_SESSION_CHANGED'});
   const result=await actual.originalSourceSessionWork(session,()=>keeper.prepare(sourceRequest));assert.equal(result.state,'PREPARED');
   assert.equal(sectionRecord.data.candidate,null);assert.ok(updates>=4);assert.equal(sectionRecord.data.confirmed.journalRevision,(await keeper.snapshot()).revision);
   const current=await readOriginalNativeSourceSessionKeeperV1(keeper,session);assert.deepEqual(sectionRecord.data.confirmed.keeper,current.keeper);
