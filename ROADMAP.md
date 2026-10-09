@@ -193,8 +193,10 @@ reinicio, reorganizaciones y pérdida de keeper, nodos o custodia. Asignar
 explícitamente pérdidas, liquidez, comisiones y supuestos de solvencia.
 
 La reconciliación terminal y la recuperación F desde la wallet están aceptadas.
-Cerrar el payout Solana pendiente y ampliar los recorridos a los fallos de
-procesos aún no cubiertos. Conservar el primer envío y su identidad; un resultado
+El payout SOL nativo ya está cerrado en Claims9: ambos activos fueron redimidos,
+con un envío por transacción, nonces originales avanzados y pasivos finales cero.
+El crédito privado SPL USDC sigue pendiente y pertenece a un recorrido distinto.
+Ampliar los recorridos a los fallos de procesos aún no cubiertos. Conservar el primer envío y su identidad; un resultado
 incierto no autoriza otra firma o pago. Una entrega nativa finalizada se respeta
 durante la recuperación del estado privado.
 
