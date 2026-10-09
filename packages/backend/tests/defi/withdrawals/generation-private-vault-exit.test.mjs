@@ -3,11 +3,16 @@
  * encrypted journal and real W39 codec. No node, proof, compiler or send runs. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, createECDH, createPrivateKey, sign } from 'node:crypto';
+import { request as tlsRequest } from 'node:https';
+import { createServer as createPortReservation } from 'node:net';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bindGenericAccountRequest, genericAccountIdentity } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
-import { mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { Vault as RealVault } from '../../../../engine/src/crypto/vault.mjs';
 import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
@@ -48,7 +53,16 @@ mock.module('../ops/deploy-system.mjs', { exports: {
 mock.module('../global-state/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
   const world = byAccount.get(account); assert.ok(world && world.runtime === expected.runtime && world.system === expected.system
     && expected.poolIndex === 1, 'MOCK_OWNED_ACCOUNT');
-}, flatAccountManualGraphDetails() { throw Error('UNUSED_SYNTHETIC_GRAPH'); }, assertFlatAccountManualGraphExecution() { throw Error('UNUSED_SYNTHETIC_GRAPH'); } } });
+}, flatAccountManualGraphDetails() { throw Error('UNUSED_SYNTHETIC_GRAPH'); }, assertFlatAccountManualGraphExecution() { throw Error('UNUSED_SYNTHETIC_GRAPH'); },
+  // Linked by original catalogue recovery/retained constructors; READ never
+  // creates, captures or reopens an account. Fail closed if a test enters them.
+  retainedFlatAccountInventoryV1() { throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT'); },
+  assertRetainedExternalVaultNoteAccountV1() { throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT'); },
+  captureRetainedFlatAccountV1() { throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT'); },
+  reopenRetainedCatalogueFlatAccountV1() { throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT'); },
+  createRetainedFlatAccountAuthorityV1() { throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT'); },
+  createRetainedExternalVaultNoteAccountV1() { throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT'); },
+} });
 mock.module('./owned-backed-vault.mjs', { exports: {
   assertOwnedBackedVault(runtime, vault) { assert.equal(byVault.get(vault)?.runtime, runtime, 'MOCK_OWNED_VAULT'); },
   ownedBackedVaultBinding(runtime, vault) { assert.equal(byVault.get(vault)?.runtime, runtime); return structuredClone(byVault.get(vault).binding); },
@@ -68,9 +82,13 @@ mock.module('../global-state/flat-portfolio-authority.mjs', { exports: {
   assertOwnedFlatPortfolioAccount(portfolio, account) { assert.ok(portfolios.get(portfolio)?.accounts.some(row => row.account === account)); },
 } });
 mock.module('../global-state/flat-pool-admission-policy.mjs', { exports: {
+  createFlatPoolAdmissionPolicy() { throw Error('HOST_UNEXPECTED_RETAINED_ADMISSION'); },
   assertOwnedFlatPoolAdmissionPolicy(policy, info) { assert.equal(policies.get(policy), info); },
 } });
 mock.module('../global-state/flat-manual-portfolio-keeper.mjs', { exports: {
+  createRetainedFlatManualPortfolioKeeperV1() { throw Error('HOST_UNEXPECTED_RETAINED_KEEPER'); },
+  captureRetainedFlatManualPortfolioKeeperV1() { throw Error('HOST_UNEXPECTED_RETAINED_KEEPER'); },
+  reopenRetainedFlatManualPortfolioKeeperV1() { throw Error('HOST_UNEXPECTED_RETAINED_KEEPER'); },
   assertOwnedFlatManualPortfolioKeeper(keeper, expected) { assert.deepEqual(keeperBrands.get(keeper), expected); },
   async createFlatManualPortfolioKeeper({ runtime, portfolio }) {
     keeperCreations++;
@@ -189,7 +207,7 @@ async function generation(w, n, includeUnderlying = true) {
       backing: { held: '100', liabilities: '100', surplus: '0', deficit: '0' }, requests: [] })),
     capabilities: { coordinatorRestart: true, keeperRestart: false, crossAssetAtomicConversion: false, privateDeFiComposability: false, fullWalletAcceptance: false } });
   const portfolio = Object.freeze({ config, registry: config.registry, async ownerView() {
-    if (w.unavailable) throw Error('SYNTHETIC_PORTFOLIO_UNAVAILABLE'); return view(); } });
+    if (w.unavailable || w.positionOwnerUnavailable) throw Error('SYNTHETIC_PORTFOLIO_UNAVAILABLE'); return view(); } });
   w.account.assetId = w.asset.assetId;
   const info = { runtime: w.runtime, system: w.system, accounts: [{ account: w.account, poolIndex: 1 }], world: w };
   portfolios.set(portfolio, info);
@@ -365,4 +383,136 @@ test('without an original same-generation underlying registry capability no meta
   assert.equal(position.availableShares, null); assert.equal(position.estimatedRedeemableUnderlying, null);
   assert.equal(position.observed, null); assert.equal(Object.hasOwn(position, 'symbol'), false);
   assert.equal(Object.hasOwn(position, 'decimals'), false);
+});
+
+
+// READ DeFi uses the actual catalogue/session/private-exit/position producers
+// above and real secp256k1 signatures. Lower native observations remain HOST
+// ports; these cases do not claim node/proof/financial/phone acceptance.
+const defiPositionProtocol = await import('../../../../mobile-protocol/src/device-defi-position-read-v1.mjs');
+const { createPairedOriginalDefiPositionReaderV1, assertPairedOriginalDefiPositionReaderV1 } =
+  await import('../../../src/api/mobile/paired-original-defi-position-reader-v1.mjs');
+const { createPairedOriginalDefiPositionTlsServerV1 } =
+  await import('../../../src/api/mobile/paired-original-defi-position-http-v1.mjs');
+function defiDevice(byte = 1) {
+  const curve = createECDH('secp256k1'); curve.setPrivateKey(Buffer.alloc(32, byte)); const publicBytes = curve.getPublicKey(null, 'uncompressed');
+  const privateKey = createPrivateKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
+    x: publicBytes.subarray(1, 33).toString('base64url'), y: publicBytes.subarray(33).toString('base64url'),
+    d: Buffer.alloc(32, byte).toString('base64url') } });
+  const order = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+  return { publicKey: publicBytes.toString('hex'), signature(value) {
+    const bytes = sign('sha256', defiPositionProtocol.deviceDefiPositionPermissionMessageV1(value), { key: privateKey, dsaEncoding: 'ieee-p1363' });
+    const scalar = BigInt('0x' + bytes.subarray(32).toString('hex'));
+    if (scalar > order / 2n) Buffer.from((order - scalar).toString(16).padStart(64, '0'), 'hex').copy(bytes, 32);
+    return bytes.toString('hex');
+  } };
+}
+async function defiReadFixture(t, count = 1, origin = 'https://localhost:54443') {
+  const f = await joined(count), device = defiDevice();
+  for (const g of f.gens) g.observation.observedAt = Date.now();
+  const input = { runtime: f.runtime, catalogue: f.catalogue, session: f.session, service: f.service, origin, devicePublicKey: device.publicKey };
+  const reader = createPairedOriginalDefiPositionReaderV1(input);
+  t.after(async () => { reader.close(); await reader.idle(); await f.session.close(); for (const w of f.worlds) await rm(w.scratchDirectory, { recursive: true, force: true }); });
+  async function review() { const access = reader.challenge(); return reader.openReview({ access, signature: device.signature(access) }); }
+  return { ...f, device, input, reader, review };
+}
+const economicCounters = f => f.worlds.map(w => [w.sends, w.preparations, w.reconciliations, w.exitReconciliations]);
+
+test('device READ joins original catalogue/session/service and consumes its own domains without effects', async t => {
+  const f = await defiReadFixture(t, 2), before = economicCounters(f);
+  for (const name of ['catalogue', 'session', 'service'])
+    assert.throws(() => createPairedOriginalDefiPositionReaderV1({ ...f.input, [name]: { ...f.input[name] } }));
+  assert.throws(() => assertPairedOriginalDefiPositionReaderV1({ ...f.reader }));
+  const crossed = await defiReadFixture(t, 1);
+  assert.throws(() => createPairedOriginalDefiPositionReaderV1({ ...f.input, session: crossed.session }));
+  const access = f.reader.challenge();
+  assert.equal('targets' in access, false); assert.equal('requests' in access, false);
+  assert.equal(access.action, 'REQUEST_DEFI_POSITION_REVIEW');
+  await assert.rejects(f.reader.openReview({ access, signature: defiDevice(2).signature(access) }));
+  await assert.rejects(f.reader.openReview({ access: { ...access, profile: 'LIANUM_ORIGINAL_PRIVATE_STATE_ACCESS_V1' }, signature: f.device.signature(access) }));
+  const review = await f.reader.openReview({ access, signature: f.device.signature(access) });
+  assert.equal(review.targets.length, 2); assert.equal(review.action, 'READ_DEFI_POSITIONS');
+  await assert.rejects(f.reader.openReview({ access, signature: f.device.signature(access) }));
+  await assert.rejects(crossed.reader.read({ review, signature: f.device.signature(review) }));
+  const result = await f.reader.read({ review, signature: f.device.signature(review) });
+  assert.equal(result.custody, 'LINUX_ORIGINAL_OWNER_CUSTODY'); assert.equal(result.mobileNoteCustody, false); assert.equal(result.readOnly, true);
+  assert.equal(result.positions.privateBalancesAggregated, false); assert.equal(result.positions.underlyingPrivateSpendable, false);
+  assert.equal(result.positions.positions[0].ownership.balances.available, '100');
+  await assert.rejects(f.reader.read({ review, signature: f.device.signature(review) }));
+  assert.deepEqual(economicCounters(f), before);
+});
+
+test('device READ preserves UNKNOWN ownership and valuation, rejects stale or changed heads and expired consent', async t => {
+  const f = await defiReadFixture(t), before = economicCounters(f);
+  f.worlds[0].positionOwnerUnavailable = true;
+  let review = await f.review(), result = await f.reader.read({ review, signature: f.device.signature(review) });
+  assert.equal(result.positions.positions[0].ownership.status, 'UNAVAILABLE');
+  assert.equal(result.positions.positions[0].ownership.balances, null);
+  assert.equal(result.positions.positions[0].valuation.estimatedRedeemableUnderlying, null);
+  f.worlds[0].positionOwnerUnavailable = false;
+  f.worlds[0].vaultHead = h('different-valuation-head');
+  review = await f.review(); result = await f.reader.read({ review, signature: f.device.signature(review) });
+  assert.equal(result.positions.positions[0].ownership.balances.available, '100');
+  assert.equal(result.positions.positions[0].valuation.status, 'STALE');
+  assert.equal(result.positions.positions[0].valuation.estimatedRedeemableUnderlying, null);
+  delete f.worlds[0].vaultHead;
+  review = await f.review(); f.gens[0].observation.blockHash = h('new-owner-head');
+  await assert.rejects(f.reader.read({ review, signature: f.device.signature(review) }), /REVIEW_STALE/);
+  f.gens[0].observation.blockHash = h('quote-block'); f.gens[0].observation.observedAt = Date.now() - 15001;
+  await assert.rejects(f.review());
+  f.gens[0].observation.observedAt = Date.now(); review = await f.review();
+  const originalNow = Date.now; const stamp = originalNow(); Date.now = () => stamp + 15001;
+  try { await assert.rejects(f.reader.read({ review, signature: f.device.signature(review) })); }
+  finally { Date.now = originalNow; }
+  assert.deepEqual(economicCounters(f), before);
+});
+
+test('device READ closes synchronously and withholds a read already awaiting the original producer', async t => {
+  const f = await defiReadFixture(t), review = await f.review(), before = economicCounters(f);
+  const original = f.worlds[0].vault.observe; let release, entered;
+  const gate = new Promise(resolve => { release = resolve; }), waiting = new Promise(resolve => { entered = resolve; });
+  f.worlds[0].vault.observe = async function () { entered(); await gate; return original.call(this); };
+  const reading = f.reader.read({ review, signature: f.device.signature(review) });
+  await waiting; assert.equal(f.reader.close().retainedOriginalCustody, true);
+  assert.throws(() => f.reader.challenge(), /CLOSED/); release(); await assert.rejects(reading, /CLOSED/);
+  await f.reader.idle(); assert.deepEqual(economicCounters(f), before);
+});
+
+test('fixed TLS device SDK reads original positions, denies Origin/domain/copies and never retries a lost reply', async t => {
+  const port = createPortReservation(); await new Promise((resolve, reject) => { port.once('error', reject); port.listen(0, '127.0.0.1', resolve); });
+  const origin = 'https://localhost:' + port.address().port; await new Promise(resolve => port.close(resolve));
+  const directory = await mkdtemp(join(tmpdir(), 'lianum-defi-position-read-tls-')); t.after(() => rm(directory, { recursive: true, force: true }));
+  const certificatePath = join(directory, 'certificate.pem'), keyPath = join(directory, 'key.pem');
+  execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-sha256', '-days', '2', '-nodes', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost', '-addext', 'basicConstraints=critical,CA:FALSE', '-keyout', keyPath, '-out', certificatePath], { timeout: 5000, maxBuffer: 4096, stdio: 'ignore', env: { PATH: '/usr/bin:/bin', LANG: 'C' } });
+  const tls = { certificate: await readFile(certificatePath, 'utf8'), privateKey: await readFile(keyPath, 'utf8') };
+  const f = await defiReadFixture(t, 1, origin), server = await createPairedOriginalDefiPositionTlsServerV1({ reader: f.reader, tls });
+  t.after(() => server.close()); const before = economicCounters(f);
+  let calls = 0, discard = false;
+  async function fetchTls(url, init) {
+    calls++; const response = await new Promise((resolve, reject) => {
+      const req = tlsRequest(url, { family: 4, ca: tls.certificate, minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3', method: init.method,
+        headers: { ...init.headers, 'Content-Length': Buffer.byteLength(init.body) }, signal: init.signal }, res => {
+        const parts = []; res.on('data', chunk => parts.push(chunk)); res.once('error', reject); res.once('end', () => resolve(new Response(Buffer.concat(parts), { status: res.statusCode, headers: res.headers })));
+      }); req.once('error', reject); req.end(init.body);
+    });
+    if (discard) { discard = false; throw Error('SYNTHETIC_AFTER_ORIGINAL_READ_REPLY_LOSS'); } return response;
+  }
+  const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
+  const repository = filename.includes(marker) ? filename.slice(0, filename.lastIndexOf(marker)) : resolve(dirname(filename), '../../../../..');
+  const mobileRequire = createRequire(join(repository, 'apps/mobile/package.json'));
+  mock.module(mobileRequire.resolve('expo-crypto'), { exports: { CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+    async digest(algorithm, bytes) { assert.equal(algorithm, 'SHA-256'); const result = createHash('sha256').update(bytes).digest(); return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength); } } });
+  const { createDeviceDefiPositionReadApiV1 } = await import(pathToFileURL(join(repository, 'apps/mobile/src/api/device-defi-position-read-api-v1.mjs')));
+  const api = createDeviceDefiPositionReadApiV1({ descriptor: server.descriptor, fetchImpl: fetchTls }); t.after(() => api.close());
+  const denied = await fetchTls(origin + '/v1/mobile/defi-positions/challenges', { method: 'POST', headers: { Origin: 'https://other.invalid', 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(denied.status, 403); assert.deepEqual(await denied.json(), { error: 'REQUEST_REJECTED' });
+  let access = await api.challenge(); const originalCalls = calls;
+  await assert.rejects(api.openReview({ ...access }, f.device.signature(access))); assert.equal(calls, originalCalls);
+  let review = await api.openReview(access, f.device.signature(access)); const observation = await api.read(review, f.device.signature(review));
+  assert.equal(observation.positions.positions[0].ownership.balances.available, '100');
+  access = await api.challenge(); review = await api.openReview(access, f.device.signature(access)); discard = true;
+  await assert.rejects(api.read(review, f.device.signature(review))); const afterLoss = calls;
+  await assert.rejects(api.read(review, f.device.signature(review))); assert.equal(calls, afterLoss);
+  assert.deepEqual(economicCounters(f), before); api.close();
+  const closed = await server.close(); assert.equal(closed.ownedSocketsRemaining, 0); assert.equal(closed.originalReadsInFlight, 0);
 });

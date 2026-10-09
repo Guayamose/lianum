@@ -1,3 +1,4 @@
+import * as defiPositionReadProtocol from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
 import {validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -273,4 +274,35 @@ export async function signDeviceRecoveryArmConsentV1(raw:Parameters<typeof valid
   try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
     current();frame=deviceRecoveryArmConsentMessageV1(value);return signDeviceMessage(key,frame);
   }finally{frame?.fill(0);key.fill(0);retained=null;}
+}
+
+
+/** READ DeFi has two distinct protected domains. It discloses Linux-owned
+ * positions only; neither signature authorizes a note/economic operation. */
+export async function signDeviceDefiPositionAccessV1(raw: import('../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs').DeviceDefiPositionAccessV1,
+  expectedOrigin: string, expectedPairingId: string, signal?: AbortSignal): Promise<string> {
+  return signDeviceDefiPositionPermissionV1(raw, expectedOrigin, expectedPairingId, false, signal);
+}
+export async function signDeviceDefiPositionReadV1(raw: import('../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs').DeviceDefiPositionReadV1,
+  expectedOrigin: string, expectedPairingId: string, signal?: AbortSignal): Promise<string> {
+  return signDeviceDefiPositionPermissionV1(raw, expectedOrigin, expectedPairingId, true, signal);
+}
+async function signDeviceDefiPositionPermissionV1(raw: import('../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs').DeviceDefiPositionAccessV1 | import('../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs').DeviceDefiPositionReadV1,
+  expectedOrigin: string, expectedPairingId: string, read: boolean, signal?: AbortSignal): Promise<string> {
+  const protocol = defiPositionReadProtocol;
+  const value = read ? protocol.normalizeDeviceDefiPositionReadV1(raw) : protocol.normalizeDeviceDefiPositionAccessV1(raw);
+  const descriptor = protocol.normalizeDeviceDefiPositionDescriptorV1({ origin: expectedOrigin, pairingId: expectedPairingId, devicePublicKey: value.devicePublicKey });
+  const current = () => { if (signal?.aborted) throw Error('MOBILE_DEFI_POSITION_READ_REVOKED');
+    protocol.validateDeviceDefiPositionFreshV1(value);
+    if (Object.keys(descriptor).some(name => value[name as keyof typeof value] !== descriptor[name as keyof typeof descriptor])) throw Error('MOBILE_REVIEW_CHANGED'); };
+  current(); await assertProtectedStorage(); const publicKey = await readDevicePublicKey(); current();
+  if (publicKey === null || publicKey !== value.devicePublicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
+  let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
+    authenticationPrompt: read ? 'Leer estas posiciones DeFi custodiadas en el servicio; no retirar ni ejecutar'
+      : 'Revisar las posiciones DeFi de este servicio original; no autorizar operaciones' });
+  if (retained === null) throw Error('MOBILE_KEY_RECOVERY_REQUIRED');
+  const key = privateKeyFromHex(retained); let frame: Uint8Array | null = null;
+  try { if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
+    current(); frame = protocol.deviceDefiPositionPermissionMessageV1(value); return signDeviceMessage(key, frame);
+  } finally { frame?.fill(0); key.fill(0); retained = null; }
 }
