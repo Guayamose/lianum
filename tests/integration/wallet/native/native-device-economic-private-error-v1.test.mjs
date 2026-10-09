@@ -8,6 +8,7 @@ import {tmpdir} from 'node:os';
 import {fork} from 'node:child_process';
 import {once} from 'node:events';
 import {runInNewContext} from 'node:vm';
+import {types} from 'node:util';
 import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose} from './native-device-economic-private-error-v1.mjs';
@@ -180,4 +181,39 @@ test('HOST original TOP_UP cause precedes UNKNOWN persistence and fixed private 
   privateDirectory:'/fixed-private',writeFixturePrivate:()=>{throw Error('PRIVATE-STORAGE');}
  });
  assert.doesNotThrow(()=>failing({stage:'account-first-failure',originalError:first}));
+});
+
+
+test('HOST original mobile primary code precedes formatting and survives diagnostic storage failure',()=>{
+ const source=readFileSync(new URL('./device-external-flat-erc20-flow-v1.mjs',import.meta.url),'utf8');
+ const start=source.indexOf('const ORIGINAL_MOBILE_FAILURE_CODES_V1=new Set(['),end=source.indexOf('async function run(){',start);
+ assert.ok(start>=0&&end>start);const body=source.slice(start,end),events=[],outputs=[];
+ const bind=(writer,formatter=diagnose)=>runInNewContext('(()=>{'+body+';return {code:originalDeviceExternalFlatMobileFailureCodeV1,retain:retainOriginalDeviceExternalFlatFirstErrorV1};})()',{
+  types,privateNativeEconomicSuccessorFirstErrorV1:formatter,writeFixturePrivate:writer
+ });
+ const original=new Error('MOBILE_EXTERNAL_FLAT_BINDING');original.stack='Error: PRIVATE-PRIMARY\n'+safeFrame;
+ const capture=bind((path,value)=>{events.push('retained');outputs.push({path,value});},error=>{
+  assert.equal(error,original);events.push('formatter');
+  // Changing the error after the source-owned code was read cannot replace it.
+  Object.defineProperty(error,'message',{value:'PRIVATE-LATER',configurable:true});return diagnose(error);
+ });
+ capture.retain('/fixed-private/first-error-private.json',original);
+ assert.deepEqual(events,['formatter','retained']);assert.equal(outputs.length,1);
+ assert.equal(outputs[0].value.originalMobileErrorCode,'MOBILE_EXTERNAL_FLAT_BINDING');
+ assert.equal(outputs[0].value.errorType,'ERROR');assert.equal(outputs[0].value.errorCode,null);
+ for(const text of ['PRIVATE-PRIMARY','PRIVATE-LATER','message','actual','expected'])assert.equal(JSON.stringify(outputs[0].value).includes(text),false);
+ const helpers=bind(()=>{throw Error('PRIVATE-STORAGE');});
+ const first=new Error('MOBILE_EXTERNAL_FLAT_WRITE_UNCERTAIN');assert.doesNotThrow(()=>helpers.retain('/fixed-private/first-error-private.json',first));
+ assert.equal(first.message,'MOBILE_EXTERNAL_FLAT_WRITE_UNCERTAIN');
+ for(const value of [new Error('MOBILE_EXTERNAL_FLAT_BINDING\n'),new Error('MOBILE_EXTERNAL_FLAT_BINDING PRIVATE'),new Error('PRIVATE-UNKNOWN'),{message:'MOBILE_EXTERNAL_FLAT_BINDING'}])assert.equal(helpers.code(value),null);
+ let calls=0;const accessor=new Error('PRIVATE-MESSAGE');for(const key of ['code','message'])Object.defineProperty(accessor,key,{configurable:true,get(){calls++;throw Error('PRIVATE-ACCESSOR');}});
+ assert.equal(helpers.code(accessor),null);assert.equal(calls,0);
+ const proxy=new Proxy(first,{get(){calls++;throw Error('PRIVATE-PROXY');},getOwnPropertyDescriptor(){calls++;throw Error('PRIVATE-PROXY');}});
+ assert.equal(helpers.code(proxy),null);assert.equal(calls,0);
+ const explicit=new Error('PRIVATE-MESSAGE');explicit.code='MOBILE_EXTERNAL_FLAT_CAPACITY';assert.equal(helpers.code(explicit),'MOBILE_EXTERNAL_FLAT_CAPACITY');
+ const marker=" }catch(error){primary=error;",catchStart=source.indexOf(marker),catchEnd=source.indexOf('\n finally{',catchStart);
+ assert.ok(catchStart>=0&&catchEnd>catchStart);const caught=source.slice(catchStart,catchEnd);
+ assert.ok(caught.indexOf('retainOriginalDeviceExternalFlatFirstErrorV1')<caught.indexOf('readOriginalDeviceExternalFlatHttpFailureV1'));
+ assert.ok(caught.includes("join(privateDirectory,'first-error-private.json'),error"));
+ assert.ok(source.includes('if(primary)throw primary;return result;'));
 });

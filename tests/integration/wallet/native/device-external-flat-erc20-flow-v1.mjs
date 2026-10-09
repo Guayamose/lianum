@@ -2,6 +2,7 @@
  * Actual local runtime/proof/observer/TLS with original mobile custody/SDK;
  * no Linux note owner, S/GRAPH, callback grants or backend restart. */
 import assert from 'node:assert/strict';
+import {types} from 'node:util';
 import {createHash} from 'node:crypto';
 import {mkdirSync,readFileSync,writeFileSync,realpathSync,lstatSync,existsSync} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -29,6 +30,31 @@ import {deviceExternalFlatErc20SourcePinsV1} from './device-external-flat-erc20-
 import {DEVICE_EXTERNAL_FLAT_ERC20_PROFILE_V1,DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,assertDeviceExternalFlatErc20ReleaseV1,assertDeviceExternalFlatErc20ResultV1} from './device-external-flat-erc20-policy-v1.mjs';
 const sha=v=>createHash('sha256').update(v).digest('hex'),bare=v=>v.startsWith('0x')?v.slice(2):v;
 const validId=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(v)?.[0]===v;
+// Only closed original mobile Vault labels. This diagnostic grants no capability;
+// the TS throw remains the primary error even when metadata storage fails.
+const ORIGINAL_MOBILE_FAILURE_CODES_V1=new Set([
+ 'MOBILE_ENTROPY_FAILED','MOBILE_EXTERNAL_FLAT_ALREADY_OPEN','MOBILE_EXTERNAL_FLAT_BINDING',
+ 'MOBILE_EXTERNAL_FLAT_BUSY','MOBILE_EXTERNAL_FLAT_CAPACITY','MOBILE_EXTERNAL_FLAT_OBSERVE_ONLY',
+ 'MOBILE_EXTERNAL_FLAT_ORIGINAL_JOB','MOBILE_EXTERNAL_FLAT_ORIGINAL_JOBS',
+ 'MOBILE_EXTERNAL_FLAT_RECOVERY_REQUIRED','MOBILE_EXTERNAL_FLAT_STORAGE_CHANGED',
+ 'MOBILE_EXTERNAL_FLAT_UNAVAILABLE','MOBILE_EXTERNAL_FLAT_WRITE_UNCERTAIN'
+]);
+function originalDeviceExternalFlatMobileFailureCodeV1(error){
+ if(!error||typeof error!=='object'||types.isProxy(error)||!types.isNativeError(error))return null;
+ for(const key of ['code','message']){
+  const descriptor=Object.getOwnPropertyDescriptor(error,key);
+  if(descriptor&&Object.hasOwn(descriptor,'value')&&typeof descriptor.value==='string'
+   &&ORIGINAL_MOBILE_FAILURE_CODES_V1.has(descriptor.value))return descriptor.value;
+ }
+ return null;
+}
+function retainOriginalDeviceExternalFlatFirstErrorV1(path,error){
+ try{
+  const originalMobileErrorCode=originalDeviceExternalFlatMobileFailureCodeV1(error);
+  const first=privateNativeEconomicSuccessorFirstErrorV1(error);
+  writeFixturePrivate(path,{...first,originalMobileErrorCode});
+ }catch{}
+}
 async function run(){assertDeviceExternalFlatErc20ReleaseV1();assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.cwd()),ROOT);
  assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'));assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.LANG,'C.UTF-8');assert.equal(process.env.PATH,'/usr/bin:/bin');
  const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.equal(parent.length,2);assert.equal(parent[0],process.execPath);
@@ -94,7 +120,7 @@ async function run(){assertDeviceExternalFlatErc20ReleaseV1();assert.equal(proce
   result.deviceNote={amountAtomic:amount,commitment,deposit:depositObservation.row,withdrawal:withdrawalObservation.row,sourceOpeningUnchanged:true,transportKeyDifferentFromNoteKey:transportKeyDifferent,privateSigningKeyAbsentFromWitness:true,
    originalFinancialWireCount:runtime.transactions.length-setupTransactions,originalFinancialReceiptCount:runtime.receipts.length-setupReceipts,actualFundReplyDiscarded:true,actualExitReplyDiscarded:true,sameJobReconciliation:true,duplicateSdkRejectedBeforePost:true,duplicateOriginalPermissionRejected:true,noAutomaticRetry:true,canonicalReceiptsJoined:true,sourceNullifierSpent:true,poolUnfundedAfterExit:true,recipientDeltaExact:true,poolBackingAfterFund:funded.ledger.publicState.backedAmount,poolBackingAfterExit:final.ledger.publicState.backedAmount,recipientDeltaAtomic:(recipientAfter-recipientBefore).toString(),transport};
   result.mobileHost=host.evidence();result.sourceUnchanged=true;assert.deepEqual(deviceExternalFlatErc20SourcePinsV1(),sourcePins);result.originalDeviceExternalFlatNodeAcceptance=true;
- }catch(error){primary=error;result.phase='failed';result.errorCode='DEVICE_EXTERNAL_FLAT_FLOW_FAILED';try{writeFixturePrivate(join(privateDirectory,'first-error-private.json'),privateNativeEconomicSuccessorFirstErrorV1(error));}catch{}if(account)try{const failure=readOriginalDeviceExternalFlatHttpFailureV1(account);if(failure)writeFixturePrivate(join(privateDirectory,'account-first-error-private.json'),failure);}catch{}save();}
+ }catch(error){primary=error;result.phase='failed';result.errorCode='DEVICE_EXTERNAL_FLAT_FLOW_FAILED';retainOriginalDeviceExternalFlatFirstErrorV1(join(privateDirectory,'first-error-private.json'),error);if(account)try{const failure=readOriginalDeviceExternalFlatHttpFailureV1(account);if(failure)writeFixturePrivate(join(privateDirectory,'account-first-error-private.json'),failure);}catch{}save();}
  finally{const wipe=v=>{if(v&&typeof v==='object')for(const k of Object.keys(v)){if(v[k]&&typeof v[k]==='object')wipe(v[k]);v[k]=null;}};privateWitnesses.forEach(wipe);process.off('SIGTERM',onSignal);process.off('SIGINT',onSignal);const cleanup=async(name,fn)=>{try{const value=await fn();result.cleanup[name]=true;return value;}catch(error){result.cleanup[name]=false;result.cleanup.errors.push({phase:name,errorCode:'DEVICE_EXTERNAL_FLAT_CLEANUP_UNCONFIRMED'});primary??=error;return null;}};
   if(host){result.cleanup.host=await cleanup('closedMobileHost',()=>host.close());result.cleanup.service=result.cleanup.host?.service;result.cleanup.closedDeviceService=result.cleanup.service?.closed===true;result.cleanup.closedMobileVault=result.cleanup.host?.vault?.closed===true;}
   for(const op of operators)if(!op.status().closed)await cleanup('setupOperatorsClosed',()=>op.close());
@@ -103,7 +129,7 @@ async function run(){assertDeviceExternalFlatErc20ReleaseV1();assert.equal(proce
    try{assert.ok(closeReceipt&&originalRetention&&scratchBefore);assert.equal(status.scratchRemoved,false);assert.equal(realpathSync(originalScratch),originalScratch);const after=lstatSync(originalScratch);assert.ok(after.isDirectory()&&!after.isSymbolicLink()&&after.uid===process.getuid()&&(after.mode&0o777)===0o700);for(const k of ['dev','ino','uid','mode'])assert.equal(after[k],scratchBefore[k]);originalRecoveryScratchRetained=true;}catch(error){primary??=error;}
    result.cleanup.evm={closeReceipt,stop,status,originalPIDAbsent,originalRecoveryScratchRetained};if(!closeReceipt||!status.stopped||!status.exitObserved||!originalPIDAbsent||!originalRecoveryScratchRetained||stop?.stopped!==true||stop?.forced!==false){result.cleanup.closedEvm=false;primary??=Error('DEVICE_EXTERNAL_FLAT_RUNTIME_CLOSE_UNCONFIRMED');}}
   try{assert.deepEqual(deviceExternalFlatErc20SourcePinsV1(),sourcePins);result.sourceUnchanged=true;}catch(error){result.sourceUnchanged=false;primary??=error;}
-  result.interrupted=interrupted;result.finishedAt=new Date().toISOString();result.success=!primary&&!interrupted&&result.cleanup.errors.length===0;if(result.success){result.phase='completed';try{assertDeviceExternalFlatErc20ResultV1(result);}catch(error){primary=error;result.phase='failed';result.success=false;result.errorCode='DEVICE_EXTERNAL_FLAT_RESULT_REJECTED';try{writeFixturePrivate(join(privateDirectory,'first-error-private.json'),privateNativeEconomicSuccessorFirstErrorV1(error));}catch{}}}save();}
+  result.interrupted=interrupted;result.finishedAt=new Date().toISOString();result.success=!primary&&!interrupted&&result.cleanup.errors.length===0;if(result.success){result.phase='completed';try{assertDeviceExternalFlatErc20ResultV1(result);}catch(error){primary=error;result.phase='failed';result.success=false;result.errorCode='DEVICE_EXTERNAL_FLAT_RESULT_REJECTED';retainOriginalDeviceExternalFlatFirstErrorV1(join(privateDirectory,'first-error-private.json'),error);}}save();}
  if(primary)throw primary;return result;
 }
 try{await run();}catch{process.stdout.write(JSON.stringify({status:'DEVICE_EXTERNAL_FLAT_FLOW_FAILED'})+'\n');process.exitCode=1;}
