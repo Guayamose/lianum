@@ -1,5 +1,5 @@
 import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1} from '../custody/key-store';
-import {DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1} from '../custody/sealed-custody-backup-v1.mjs';
+import {DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1,DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_SERIALIZED_BYTES_V1} from '../custody/sealed-custody-backup-v1.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createLocalRootNoteOperationV1, inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1,
@@ -19,6 +19,8 @@ export default function LocalCustodyScreen() {
   const [prepared, setPrepared] = useState<LocalPreparedNoteSummaryV1 | null>(null);
   const [readback, setReadback] = useState(false);
   const [backup, setBackup] = useState(''), [backupInput, setBackupInput] = useState('');
+  const [backupPassword,setBackupPassword]=useState(''),[backupConfirmation,setBackupConfirmation]=useState(''),[backupRootId,setBackupRootId]=useState('');
+  const backupAbort=useRef<AbortController|null>(null);
   const [identityPublicKey,setIdentityPublicKey]=useState(''),[identityPassword,setIdentityPassword]=useState(''),[identityConfirmation,setIdentityConfirmation]=useState('');
   const [identityBackup,setIdentityBackup]=useState(''),[identityBackupInput,setIdentityBackupInput]=useState('');
   const identityAbort=useRef<AbortController|null>(null);
@@ -45,13 +47,14 @@ export default function LocalCustodyScreen() {
     epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null;
     identityAbort.current?.abort();identityAbort.current=null;
     setIdentityPassword('');setIdentityConfirmation('');setIdentityBackup('');setIdentityBackupInput('');setIdentityPublicKey('');
+    backupAbort.current?.abort();backupAbort.current=null;setBackupPassword('');setBackupConfirmation('');setBackupRootId('');
     setBackup(''); setBackupInput(''); setRootInput(''); setRevisionInput('');
     setPrepared(null); setReadback(false);
   }
   useEffect(() => {
     mounted.current = true;
     const listener = AppState.addEventListener('change', value => { if (value !== 'active') hide(); });
-    return () => { identityAbort.current?.abort();identityAbort.current=null; mounted.current = false; if (reviewTimer.current !== null) clearTimeout(reviewTimer.current); reviewRef.current = null; acceptedRef.current = false; epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null; listener.remove(); };
+    return () => { backupAbort.current?.abort();backupAbort.current=null;identityAbort.current?.abort();identityAbort.current=null; mounted.current = false; if (reviewTimer.current !== null) clearTimeout(reviewTimer.current); reviewRef.current = null; acceptedRef.current = false; epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null; listener.remove(); };
   }, []);
   async function run(work: (generation: number) => Promise<void>) {
     if (busyRef.current || AppState.currentState !== 'active') return;
@@ -113,19 +116,24 @@ export default function LocalCustodyScreen() {
   }
   async function exportBackup(generation: number) {
     discardDeposit();
+    let password=backupPassword;const confirmation=backupConfirmation;
+    setBackupPassword('');setBackupConfirmation('');setBackup('');
     if (!inspection?.rootId || inspection.status !== 'ACTIVE') return;
+    if(password!==confirmation)throw Error('MOBILE_CUSTODY_BACKUP_PASSWORD');
     vault.current?.close(); const capability = openLocalRootNoteVaultV1(inspection.rootId); vault.current = capability;
+    const controller=new AbortController();backupAbort.current=controller;
     try {
-      const value = await capability.exportBackup();
-      if (visible(generation)) { setBackup(value); setNotice('Copia secreta visible sólo aquí. Guárdala completa fuera del dispositivo y después ocúltala.'); }
-    } finally { capability.close(); if (vault.current === capability) vault.current = null; }
+      if(!visible(generation)){controller.abort();return;}
+      const value = await capability.exportBackup(password,controller.signal);
+      if (visible(generation)) { setBackup(value);setBackupRootId(inspection.rootId);setNotice('Copia cifrada lista. Guarda el JSON completo, el ID público de raíz y la contraseña fuera del dispositivo.'); }
+    } finally { password='';capability.close();if(backupAbort.current===controller)backupAbort.current=null;if (vault.current === capability) vault.current = null; }
   }
   function confirmExport() {
     const generation = epoch.current;
-    Alert.alert('Mostrar copia secreta de recuperación',
-      'La copia contiene la raíz HEX y el registro cifrado original. Quien la obtenga puede abrir las notas. Guárdala completa en un lugar seguro, fuera del teléfono; no la envíes al backend. No se copiará ni transmitirá automáticamente.', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Mostrar con biometría', onPress: () => { if (visible(generation)) void run(exportBackup); } },
+    Alert.alert('Crear copia cifrada de recuperación',
+      'La contraseña protege la raíz y el registro original. Guarda la copia completa, el ID público de raíz y la contraseña fuera del teléfono. No se transmite ni se copia automáticamente.', [
+        { text: 'Cancelar', style: 'cancel', onPress:()=>{setBackupPassword('');setBackupConfirmation('');} },
+        { text: 'Crear con biometría', onPress: () => { if (visible(generation)) void run(exportBackup); } },
       ]);
   }
   async function create(generation: number) {
@@ -138,14 +146,17 @@ export default function LocalCustodyScreen() {
     } finally { capability.close(); if (operation.current === capability) operation.current = null; }
   }
   async function restore(generation: number) {
-    let input = backupInput; setBackupInput('');
+    let input=backupInput,password=backupPassword;const expected=backupRootId;
+    setBackupInput('');setBackupPassword('');setBackupConfirmation('');setBackup('');
     const capability = createLocalRootNoteOperationV1(); operation.current = capability;
+    const controller=new AbortController();backupAbort.current=controller;
     try {
-      const result = await capability.restore(input);
+      if(!visible(generation)){controller.abort();return;}
+      const result = await capability.restore(input,password,expected===''?undefined:expected,controller.signal);
       if (!visible(generation)) return;
       setPrepared(result.note); setReadback(true); await refresh(generation);
-      if (visible(generation)) setNotice('Copia autenticada y registro original restaurado. Las notas preparadas conservan UNISSUED; no se ha establecido saldo.');
-    } finally { input = ''; capability.close(); if (operation.current === capability) operation.current = null; }
+      if (visible(generation)) setNotice('Copia autenticada y registro original restaurado. Consulta las operaciones originales; la copia no establece saldo ni renueva permisos.');
+    } finally { input='';password='';capability.close();if(backupAbort.current===controller)backupAbort.current=null;if (operation.current === capability) operation.current = null; }
   }
   async function recover(generation: number) {
     let root = rootInput; const revision = revisionInput;
@@ -257,14 +268,24 @@ export default function LocalCustodyScreen() {
       {signed && <Text selectable style={styles.value}>Resultado local (se oculta al caducar o salir): {JSON.stringify(signed)}</Text>}
     </View>
     <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
-      <Text style={styles.muted}>Guarda el JSON completo, incluida la raíz HEX y el registro cifrado. La clave por sí sola no recupera un registro perdido. Actualiza la copia si cambia la revisión. Este formato no es una frase BIP39.</Text>
-      <Button label="Mostrar copia con biometría" disabled={busy || inspection?.status !== 'ACTIVE'} onPress={confirmExport} />
-      {backup !== '' && <><Text selectable style={styles.secret}>{backup}</Text><Button label="Ocultar copia y cerrar lectura" onPress={hide} /></>}
+      <Text style={styles.muted}>La copia cifra tu raíz y el registro completo con tu contraseña. Guarda el JSON, el ID público de raíz y la contraseña fuera del dispositivo. Actualízala cuando cambie la revisión. No es una frase BIP39 ni demuestra saldo.</Text>
+      <Text style={styles.label}>Contraseña de la copia · al menos 12 caracteres</Text>
+      <TextInput accessibilityLabel="Contraseña de la copia cifrada de custodia local" style={styles.input} value={backupPassword}
+        onChangeText={setBackupPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
+      <Text style={styles.label}>Repite la contraseña para crear una copia</Text>
+      <TextInput accessibilityLabel="Confirmación de la contraseña de custodia local" style={styles.input} value={backupConfirmation}
+        onChangeText={setBackupConfirmation} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
+      <Button label="Crear copia cifrada con biometría" disabled={busy || inspection?.status !== 'ACTIVE' || backupPassword.length<12 || backupPassword!==backupConfirmation} onPress={confirmExport}/>
+      {backup !== '' && <><Text selectable style={styles.value}>ID público de raíz: {backupRootId}</Text><Text selectable style={styles.value}>{backup}</Text><Button label="Ocultar copia y cerrar lectura" onPress={hide}/></>}
+      <Text style={styles.label}>ID público de raíz original para restaurar</Text>
+      <TextInput accessibilityLabel="ID público original de raíz para restaurar custodia" style={styles.input} value={backupRootId}
+        onChangeText={setBackupRootId} editable={!busy} autoCapitalize="none" autoCorrect={false} maxLength={64}/>
       <Text style={styles.label}>Importar copia completa en este dispositivo</Text>
-      <TextInput accessibilityLabel="Copia secreta JSON de recuperación local" style={styles.input} value={backupInput}
-        onChangeText={setBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={99328} />
-      <Button label="Autenticar e importar copia con biometría" disabled={busy || backupInput.length === 0}
-        onPress={() => { void run(restore); }} />
+      <TextInput accessibilityLabel="Copia cifrada JSON de recuperación local" style={styles.input} value={backupInput}
+        onChangeText={setBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_SERIALIZED_BYTES_V1}/>
+      <Button label="Autenticar e importar copia con biometría" disabled={busy || backupInput.length===0} onPress={()=>{void run(restore);}}/>
+      <Text style={styles.muted}>También puedes importar una copia antigua completa. Su formato anterior carece de contraseña; mantenla privada y crea después una copia cifrada.</Text>
+      <Button label="Cancelar, ocultar datos y cerrar" onPress={hide}/>
     </View>
     <View style={styles.card}><Text style={styles.heading}>Identidad del dispositivo</Text>
       <Text style={styles.muted}>Esta copia cifrada recupera la misma identidad que autoriza tus operaciones. Guarda también las copias de tus notas; ninguna copia establece saldo por sí sola. No se envía ni se copia automáticamente.</Text>

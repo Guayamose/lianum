@@ -6,6 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Authentication from 'expo-local-authentication';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
+import { sealDeviceCustodyBackupV1, unsealDeviceCustodyBackupV1, DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_SERIALIZED_BYTES_V1 } from './sealed-custody-backup-v1.mjs';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { bytesToHex, privateKeyFromHex, signDeviceMessage } from './signing.mjs';
 import { normalizeLocalDepositChoiceV1, localUnissuedDepositStatementV1, localUnissuedDepositFrameV1,
@@ -498,7 +499,7 @@ export function createLocalRootNoteOperationV1() {
   const context = localRootOperationScope();
   return Object.freeze({
     create: () => context.run(() => createWithinScope(context.scope)),
-    restore: (backupJSON: string) => context.run(() => restoreWithinScope(context.scope, backupJSON)),
+    restore: (backupJSON: string, passphrase?: string, expectedRootId?: string, signal?: AbortSignal) => context.run(() => restoreWithinScope(context.scope, backupJSON, passphrase, expectedRootId, signal)),
     recover: (rootHex: string, expectedRevision: number) => context.run(() => recoverWithinScope(context.scope, rootHex, expectedRevision)),
     close: context.close,
   });
@@ -690,72 +691,91 @@ export function inspectLocalRootNoteVaultV1(): Promise<LocalRootNoteInspectionV1
 /** Restores only the authenticated ciphertext contained in the explicit local
  * backup. No network, identifier lookup, fresh note, key rotation or plaintext
  * witness is involved. An existing record may not be replaced or rolled back. */
-export function restoreLocalRootNoteVaultBackupV1(backupJSON: string) { return createLocalRootNoteOperationV1().restore(backupJSON); }
-async function restoreWithinScope(scope: RootOperationScope, backupJSON: string) {
-  return serial(async () => {
+export function restoreLocalRootNoteVaultBackupV1(backupJSON: string, passphrase?: string, expectedRootId?: string, signal?: AbortSignal) {
+  return createLocalRootNoteOperationV1().restore(backupJSON, passphrase, expectedRootId, signal);
+}
+async function restoreWithinScope(scope: RootOperationScope, backupJSON: string, passphrase?: string, expectedRootId?: string, signal?: AbortSignal) {
+  const originalScope = scope;
+  scope = { current() { originalScope.current(); if (signal?.aborted) bad('MOBILE_CUSTODY_BACKUP_CANCELLED'); },
+    writeStarted() { scope.current(); originalScope.writeStarted(); } };
+  let clear: Uint8Array | undefined;
+  try {
     scope.current();
-    const b = parsed(backupJSON, ['version', 'profile', 'rootHex', 'rootId', 'revision', 'recordSHA256', 'encryptedRecord'], MAX_ENVELOPE_BYTES + 1024);
-    if (b.version !== 1 || b.profile !== 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1'
-      || typeof b.encryptedRecord !== 'string') bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
-    const raw = b.encryptedRecord, e = envelope(raw), rootId = hex(b.rootId), revision = integer(b.revision);
-    if (e.rootId !== rootId || e.revision !== revision || await checked(scope, () => digest(encoded(e))) !== hex(b.recordSHA256))
+    if (typeof backupJSON !== 'string' || new TextEncoder().encode(backupJSON).length > DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_SERIALIZED_BYTES_V1)
       bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
-    const root = localNoteHexBytesV1(hex(b.rootHex));
-    let key: Crypto.AESEncryptionKey | null = null;
-    try {
-      await protectedConsent('Restaurar esta copia local exacta: contiene la raíz secreta y el registro cifrado', scope);
-      if (root.every(byte => byte === 0) || await checked(scope, () => rootIdentity(root)) !== rootId) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
-      const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
-      const value = await checked(scope, () => decrypted(activeKey, raw)); // Authenticate and validate the original opening before any write.
-      const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)),
-        originalPhysical = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)),
-        originalRoot = await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE));
-      let originalRecord: string | null, missingOriginalChunks = false;
-      try { originalRecord = await readStoredRecord(scope); }
-      catch (cause) {
-        if (!(cause instanceof Error) || cause.message !== 'MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED'
-          || originalPhysical === null) throw cause;
-        // Only fill missing chunks of this already authenticated EXACT backup.
-        // Never overwrite an existing different part, accept a changed manifest,
-        // re-encrypt/rotate a root, or roll back to another envelope/revision.
-        const m = parsed(originalPhysical, ['version', 'profile', 'rootId', 'revision', 'sha256', 'bytes', 'chunks']);
-        if (m.version !== 2 || m.profile !== CHUNK_PROFILE || m.rootId !== rootId || m.revision !== revision
-          || m.bytes !== raw.length || m.chunks !== Math.ceil(raw.length / CHUNK_BYTES)
-          || m.sha256 !== await checked(scope, () => digest(new TextEncoder().encode(raw)))) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
-        for (let index = 0; index < Number(m.chunks); index++) {
-          const part = await checked(scope, () => SecureStore.getItemAsync(chunkKey(String(m.sha256), index), DATA));
-          if (part !== null && part !== raw.slice(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES)) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
-        }
-        originalRecord = raw; missingOriginalChunks = true;
-      }
-      if (originalRoot !== null && originalRoot !== bytesToHex(root)
-        || originalRecord !== null && originalRecord !== raw) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
-      if (before !== null) {
-        const p = pointer(before);
-        if (p.rootId !== rootId || p.revision > revision || revision > p.revision + 1
-          || originalRecord === null && !(p.recordSHA256 === b.recordSHA256
-            || p.state === 'CREATING' && p.revision === 0 && revision === 0 && p.recordSHA256 === '0'.repeat(64)))
-          bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
-      } else if (originalRecord !== null || originalRoot !== null) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
-      if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-        || (missingOriginalChunks
-          ? await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== originalPhysical
-          : await readStoredRecord(scope) !== originalRecord)
-        || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
-      const target = { version: 1 as const, rootId, revision, recordSHA256: hex(b.recordSHA256), state: 'ACTIVE' as const };
+    let candidate: { profile?: unknown };
+    try { candidate = JSON.parse(backupJSON); } catch { bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID'); }
+    if (candidate?.profile === 'LIANUM_SEALED_DEVICE_CUSTODY_BACKUP_V1') {
+      const binding = { profile: 'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1' as const, rootId: hex(expectedRootId) };
+      await checked(scope, async () => { clear = await unsealDeviceCustodyBackupV1(backupJSON, passphrase!, binding, signal); });
+      backupJSON = new TextDecoder('utf-8', { fatal: true }).decode(clear!);
+    }
+    return await serial(async () => {
+      scope.current();
+      const b = parsed(backupJSON, ['version', 'profile', 'rootHex', 'rootId', 'revision', 'recordSHA256', 'encryptedRecord'], MAX_ENVELOPE_BYTES + 1024);
+      if (b.version !== 1 || b.profile !== 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1'
+        || typeof b.encryptedRecord !== 'string') bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
+      const raw = b.encryptedRecord, e = envelope(raw), rootId = hex(b.rootId), revision = integer(b.revision);
+      if (expectedRootId !== undefined && rootId !== hex(expectedRootId)) bad('MOBILE_CUSTODY_BACKUP_BINDING');
+      if (e.rootId !== rootId || e.revision !== revision || await checked(scope, () => digest(encoded(e))) !== hex(b.recordSHA256))
+        bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
+      const root = localNoteHexBytesV1(hex(b.rootHex));
+      let key: Crypto.AESEncryptionKey | null = null;
       try {
-        const retainedPointer = before ?? JSON.stringify({ ...target, state: 'CREATING' });
-        if (before === null) await writeCheckedScoped(scope, POINTER, retainedPointer, DATA);
-        if (originalRoot === null) await writeCheckedScoped(scope, ROOT, bytesToHex(root), PRIVATE);
-        if (originalRecord === null || missingOriginalChunks) await writeStoredRecord(scope, raw);
-        if (await readStoredRecord(scope) !== raw
-          || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)
-          || await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== retainedPointer) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
-        await writeCheckedScoped(scope, POINTER, JSON.stringify(target), DATA);
-        scope.current(); return Object.freeze({ rootId, revision, note: summary(value) });
-      } catch (cause) { throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
-    } finally { root.fill(0); key = null; }
-  });
+        await protectedConsent('Restaurar esta copia local exacta: contiene la raíz secreta y el registro cifrado', scope);
+        if (root.every(byte => byte === 0) || await checked(scope, () => rootIdentity(root)) !== rootId) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
+        const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
+        const value = await checked(scope, () => decrypted(activeKey, raw)); // Authenticate and validate the original opening before any write.
+        const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)),
+          originalPhysical = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)),
+          originalRoot = await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE));
+        let originalRecord: string | null, missingOriginalChunks = false;
+        try { originalRecord = await readStoredRecord(scope); }
+        catch (cause) {
+          if (!(cause instanceof Error) || cause.message !== 'MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED'
+            || originalPhysical === null) throw cause;
+          // Only fill missing chunks of this already authenticated EXACT backup.
+          // Never overwrite an existing different part, accept a changed manifest,
+          // re-encrypt/rotate a root, or roll back to another envelope/revision.
+          const m = parsed(originalPhysical, ['version', 'profile', 'rootId', 'revision', 'sha256', 'bytes', 'chunks']);
+          if (m.version !== 2 || m.profile !== CHUNK_PROFILE || m.rootId !== rootId || m.revision !== revision
+            || m.bytes !== raw.length || m.chunks !== Math.ceil(raw.length / CHUNK_BYTES)
+            || m.sha256 !== await checked(scope, () => digest(new TextEncoder().encode(raw)))) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+          for (let index = 0; index < Number(m.chunks); index++) {
+            const part = await checked(scope, () => SecureStore.getItemAsync(chunkKey(String(m.sha256), index), DATA));
+            if (part !== null && part !== raw.slice(index * CHUNK_BYTES, (index + 1) * CHUNK_BYTES)) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+          }
+          originalRecord = raw; missingOriginalChunks = true;
+        }
+        if (originalRoot !== null && originalRoot !== bytesToHex(root)
+          || originalRecord !== null && originalRecord !== raw) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+        if (before !== null) {
+          const p = pointer(before);
+          if (p.rootId !== rootId || p.revision > revision || revision > p.revision + 1
+            || originalRecord === null && !(p.recordSHA256 === b.recordSHA256
+              || p.state === 'CREATING' && p.revision === 0 && revision === 0 && p.recordSHA256 === '0'.repeat(64)))
+            bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+        } else if (originalRecord !== null || originalRoot !== null) bad('MOBILE_LOCAL_NOTE_BACKUP_CONFLICT');
+        if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+          || (missingOriginalChunks
+            ? await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== originalPhysical
+            : await readStoredRecord(scope) !== originalRecord)
+          || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+        const target = { version: 1 as const, rootId, revision, recordSHA256: hex(b.recordSHA256), state: 'ACTIVE' as const };
+        try {
+          const retainedPointer = before ?? JSON.stringify({ ...target, state: 'CREATING' });
+          if (before === null) await writeCheckedScoped(scope, POINTER, retainedPointer, DATA);
+          if (originalRoot === null) await writeCheckedScoped(scope, ROOT, bytesToHex(root), PRIVATE);
+          if (originalRecord === null || missingOriginalChunks) await writeStoredRecord(scope, raw);
+          if (await readStoredRecord(scope) !== raw
+            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)
+            || await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== retainedPointer) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+          await writeCheckedScoped(scope, POINTER, JSON.stringify(target), DATA);
+          scope.current(); return Object.freeze({ rootId, revision, note: summary(value) });
+        } catch (cause) { throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
+      } finally { root.fill(0); key = null; }
+    });
+  } finally { clear?.fill(0); backupJSON = ''; passphrase = ''; }
 }
 
 /** Opens a device-only capability. It is not an original account approval and
@@ -957,13 +977,29 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   }
   return Object.freeze({
     readPreparedNote: () => original('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
-    /** Explicit local recovery disclosure. Never invoked by HTTP or auto-copied.
-     * JS strings/native handles cannot be securely erased; the UI must revoke
-     * the capability and discard the returned string when hidden. */
-    exportBackup: () => original('Mostrar tu copia secreta de recuperación; guárdala fuera del dispositivo y no la envíes a un servicio',
-      async (value, _key, _before, raw, root) => JSON.stringify({ version: 1,
-        profile: 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1', rootHex: bytesToHex(root), rootId: value.rootId,
-        revision: value.revision, recordSHA256: await digest(encoded(envelope(raw))), encryptedRecord: raw })),
+    /** Only ciphertext leaves this capability. RootNote has its own rootId;
+     * no unrelated device PoP identity is required or invented for its backup. */
+    exportBackup(passphrase: string, signal?: AbortSignal) {
+      if (arguments.length < 1 || arguments.length > 2) bad('MOBILE_CUSTODY_BACKUP_PASSWORD');
+      return original('Crear una copia cifrada de tu custodia local con la contraseña elegida',
+        async (value, _key, before, raw, root) => {
+          let clear: Uint8Array | undefined;
+          try {
+            current(); if (signal?.aborted) bad('MOBILE_CUSTODY_BACKUP_CANCELLED');
+            clear = encoded({ version: 1, profile: 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1', rootHex: bytesToHex(root),
+              rootId: value.rootId, revision: value.revision,
+              recordSHA256: await checked(scope, () => digest(encoded(envelope(raw)))), encryptedRecord: raw });
+            const sealed = await checked(scope, () => sealDeviceCustodyBackupV1(clear!, passphrase,
+              { profile: 'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1', rootId: value.rootId }, signal));
+            if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
+              || await readStoredRecord(scope) !== raw
+              || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root))
+              bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            current(); if (signal?.aborted) bad('MOBILE_CUSTODY_BACKUP_CANCELLED');
+            return sealed;
+          } finally { clear?.fill(0); passphrase = ''; }
+        });
+    },
     /** Creates a real cryptographic opening with native random entropy, while
      * retaining UNISSUED. It neither issues a note nor signs a spend. */
     prepareUnissuedBalanceNote: (input: { scope: string; policy: string; pool: string; recipient: string; amount: string }) => {

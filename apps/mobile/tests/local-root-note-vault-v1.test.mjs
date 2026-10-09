@@ -107,6 +107,14 @@ const { createLocalRootNoteOperationV1, createLocalRootNoteVaultV1, importLocalR
   openLocalRootNoteVaultV1, inspectLocalRootNoteVaultV1,
   restoreLocalRootNoteVaultBackupV1 } = originalVault;
 const terms = { scope: '11'.repeat(32), policy: '22'.repeat(32), pool: '33'.repeat(20), recipient: '44'.repeat(20), amount: '500' };
+const BACKUP_PASSWORD = 'original native root recovery phrase';
+async function clearLegacyExport(vault) {
+  const sealed = await vault.exportBackup(BACKUP_PASSWORD);
+  const { unsealDeviceCustodyBackupV1 } = await import('../src/custody/sealed-custody-backup-v1.mjs');
+  const header = JSON.parse(sealed), clear = await unsealDeviceCustodyBackupV1(sealed, BACKUP_PASSWORD, header.binding);
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(clear); } finally { clear.fill(0); }
+}
+
 function reset() {
   for (const key of nativeKeys) key.fill(0); nativeKeys.length = 0;
   store.clear(); calls.length = 0; entropyBuffers.length = 0;
@@ -227,11 +235,11 @@ test('public inspection reads no root; explicit protected backup restores the sa
   assert.equal(observed.status, 'ACTIVE'); assert.equal(observed.revision, 1); assert.equal(observed.availableBalance, null);
   assert.equal(calls.slice(start).some(call => call.name === ROOT), false);
   control.consent = false; const before = new Map(store);
-  await assert.rejects(vault.exportBackup(), /AUTHENTICATION_CANCELLED/); assert.deepEqual(store, before);
+  await assert.rejects(vault.exportBackup(BACKUP_PASSWORD), /AUTHENTICATION_CANCELLED/); assert.deepEqual(store, before);
   control.consent = true;
-  const backup = await vault.exportBackup(), exported = JSON.parse(backup); vault.close();
+  const backup = await clearLegacyExport(vault), exported = JSON.parse(backup); vault.close();
   assert.equal(exported.rootHex, originalRoot); assert.equal(exported.encryptedRecord, originalRecord);
-  await assert.rejects(vault.exportBackup(), /CLOSED/);
+  await assert.rejects(vault.exportBackup(BACKUP_PASSWORD), /CLOSED/);
   store.clear(); const restored = await restoreLocalRootNoteVaultBackupV1(backup);
   assert.deepEqual(restored.note, prepared); assert.equal(store.get(ROOT), originalRoot); assert.equal(store.get(RECORD), originalRecord);
   assert.deepEqual(await openLocalRootNoteVaultV1(created.rootId).readPreparedNote(), prepared);
@@ -239,7 +247,7 @@ test('public inspection reads no root; explicit protected backup restores the sa
 });
 test('backup authentication rejects ciphertext tampering and foreign storage; interrupted import retains and resumes exact bytes', async () => {
   reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
-  const backup = await vault.exportBackup(); vault.close(); const original = JSON.parse(backup);
+  const backup = await clearLegacyExport(vault); vault.close(); const original = JSON.parse(backup);
   store.clear();
   const corrupted = structuredClone(original), e = JSON.parse(corrupted.encryptedRecord), bytes = Buffer.from(e.sealed, 'base64');
   bytes[13] ^= 1; e.sealed = bytes.toString('base64'); corrupted.encryptedRecord = JSON.stringify(e);
@@ -273,7 +281,7 @@ test('revoking local create during authentication rejects before entropy or any 
 });
 test('revocation during an original restore write retains its uncertain pointer and resumes only the same backup explicitly', async () => {
   reset(); const first = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(first.rootId);
-  const backup = await vault.exportBackup(), original = JSON.parse(backup); vault.close();
+  const backup = await clearLegacyExport(vault), original = JSON.parse(backup); vault.close();
   store.clear(); calls.length = 0;
   const operation = createLocalRootNoteOperationV1(); let enter, release;
   const entered = new Promise(resolve => { enter = resolve; }), resume = new Promise(resolve => { release = resolve; });
@@ -468,7 +476,7 @@ test('complete change/recovery custody is AEAD authenticated over bounded immuta
   assert.equal((await opened.readDeviceNote()).availableBalance, null);
   await assert.rejects(opened.prepareDeviceReservation(fixture.proposal), /FRESH_FUNDED_SOURCE_REQUIRED/);
   assert.throws(() => opened.signDeviceReservation({ rootId: fixture.created.rootId, expiresAt: Date.now() + 15000 }), /REVIEW_REQUIRED/);
-  assert.equal(await opened.exportBackup(), fixture.backup); opened.close();
+  assert.equal(await clearLegacyExport(opened), fixture.backup); opened.close();
   const pointerIndex = calls.findLastIndex(row => row.method === 'write' && row.name === POINTER);
   const chunkLast = calls.findLastIndex(row => row.method === 'write' && row.name.startsWith('lianum.note.record.chunk.'));
   assert.ok(chunkLast >= 0 && pointerIndex > chunkLast);
@@ -762,7 +770,7 @@ async function originalOutputCustodyCase(t, emptyChange = false) {
   assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='change').available,'380','closing transport preserves only this original unexpired display');
   assert.equal((await reopened.readDeviceNote()).availableBalance, null);
   assert.equal((await reopened.readDeviceNote()).localReservation.changeAvailableBalance, null);
-  const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, local.revision);
+  const readback = JSON.parse(await clearLegacyExport(reopened)); assert.equal(readback.revision, local.revision);
   assert.equal(JSON.parse(store.get(POINTER)).revision, local.revision); reopened.close();
   // HOST F reorg: the actual SDK emits provenance over explicit synthetic
   // status frames. No chain, signed financial wire or proof is manufactured.
@@ -984,4 +992,75 @@ test('output READ accepts only the original both-LOCKED reorg pair and rejects c
   assert.throws(() => readDeviceOutputBalanceV1(second), /RESPONSE_INVALID/);
   digestTampered = false; const third = await api.observe(input); api.close();
   assert.throws(() => readDeviceOutputBalanceV1(third), /CLIENT_CLOSED/); key.fill(0); control.fetch = null;
+});
+
+
+test('sealed native root backup hides the root and restores its original note after total storage loss', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId);
+  const note = await vault.prepareUnissuedBalanceNote(terms), original = new Map(store), rootHex = store.get(ROOT);
+  assert.throws(() => vault.exportBackup(), /BACKUP_PASSWORD/);
+  const sealed = await vault.exportBackup(BACKUP_PASSWORD), header = JSON.parse(sealed);
+  assert.equal(header.profile, 'LIANUM_SEALED_DEVICE_CUSTODY_BACKUP_V1');
+  assert.deepEqual(header.binding, { profile: 'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1', rootId: created.rootId });
+  assert.equal(Object.hasOwn(header, 'rootHex'), false); assert.equal(sealed.includes(rootHex), false);
+  vault.close(); store.clear();
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(sealed, 'another wrong recovery password', created.rootId), /BACKUP_AUTHENTICATION/);
+  assert.equal(store.size, 0);
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(sealed, BACKUP_PASSWORD, 'ff'.repeat(32)), /BACKUP_BINDING/);
+  assert.equal(store.size, 0);
+  const corrupted = JSON.parse(sealed); const bytes = Buffer.from(corrupted.sealed, 'base64'); bytes[13] ^= 1; corrupted.sealed = bytes.toString('base64');
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(JSON.stringify(corrupted), BACKUP_PASSWORD, created.rootId), /BACKUP_AUTHENTICATION/);
+  assert.equal(store.size, 0);
+  // A valid ciphertext header for A must not authorize a complete, authenticated
+  // original backup of B inside it. Bind the decrypted body before any write.
+  const foreignCreated = await importLocalRootNoteVaultV1('0c'.repeat(32));
+  const foreignVault = openLocalRootNoteVaultV1(foreignCreated.rootId);
+  await foreignVault.prepareUnissuedBalanceNote(terms);
+  const foreignClear = new TextEncoder().encode(await clearLegacyExport(foreignVault));
+  foreignVault.close(); store.clear();
+  const { sealDeviceCustodyBackupV1 } = await import('../src/custody/sealed-custody-backup-v1.mjs');
+  let foreignSealed;
+  try { foreignSealed = await sealDeviceCustodyBackupV1(foreignClear, BACKUP_PASSWORD, header.binding); }
+  finally { foreignClear.fill(0); }
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(foreignSealed, BACKUP_PASSWORD, created.rootId), /BACKUP_BINDING/);
+  assert.equal(store.size, 0);
+  const result = await restoreLocalRootNoteVaultBackupV1(sealed, BACKUP_PASSWORD, created.rootId);
+  assert.deepEqual(result.note, note); assert.deepEqual(store, original);
+  assert.equal((await inspectLocalRootNoteVaultV1()).availableBalance, null);
+  const reopened = openLocalRootNoteVaultV1(created.rootId);
+  assert.deepEqual(await reopened.readPreparedNote(), note); reopened.close();
+});
+
+test('sealed native root profile admits its full original record without widening identity or external caps', async () => {
+  reset();
+  const { sealDeviceCustodyBackupV1, unsealDeviceCustodyBackupV1, DEVICE_CUSTODY_BACKUP_MAX_CLEAR_BYTES_V1,
+    DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1, DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_CLEAR_BYTES_V1 } = await import('../src/custody/sealed-custody-backup-v1.mjs');
+  assert.equal(DEVICE_CUSTODY_BACKUP_MAX_CLEAR_BYTES_V1, 65536); assert.equal(DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1, 98304);
+  const clear = new Uint8Array(DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_CLEAR_BYTES_V1).fill(91);
+  const native = { profile: 'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1', rootId: '22'.repeat(32) };
+  const sealed = await sealDeviceCustodyBackupV1(clear, BACKUP_PASSWORD, native);
+  const readback = await unsealDeviceCustodyBackupV1(sealed, BACKUP_PASSWORD, native);
+  assert.deepEqual(readback, clear); readback.fill(0); clear.fill(0);
+  await assert.rejects(sealDeviceCustodyBackupV1(new Uint8Array(99329), BACKUP_PASSWORD, native), /BACKUP_INVALID/);
+  const publicKey = '04' + '11'.repeat(64);
+  for (const binding of [{ profile: 'DEVICE_IDENTITY_CUSTODY_V1', devicePublicKey: publicKey, routeSHA256: null },
+    { profile: 'DEVICE_EXTERNAL_FLAT_CUSTODY_V1', devicePublicKey: publicKey, routeSHA256: '33'.repeat(32) }]) {
+    await assert.rejects(sealDeviceCustodyBackupV1(new Uint8Array(65537), BACKUP_PASSWORD, binding), /BACKUP_INVALID/);
+    await assert.rejects(unsealDeviceCustodyBackupV1(sealed, BACKUP_PASSWORD, binding), /BACKUP_INVALID/);
+  }
+  await assert.rejects(sealDeviceCustodyBackupV1(new Uint8Array(1), BACKUP_PASSWORD, { ...native, devicePublicKey: publicKey }), /BACKUP_INVALID/);
+});
+
+test('sealed native root cancellation and foreign custody preserve the original storage without replacement', async () => {
+  reset(); const created = await createLocalRootNoteVaultV1(), vault = openLocalRootNoteVaultV1(created.rootId), original = new Map(store);
+  const controller = new AbortController(); control.pausedEncrypt = async () => controller.abort();
+  await assert.rejects(vault.exportBackup(BACKUP_PASSWORD, controller.signal), /BACKUP_CANCELLED/);
+  assert.deepEqual(store, original); control.pausedEncrypt = null;
+  const sealed = await vault.exportBackup(BACKUP_PASSWORD); vault.close(); store.clear();
+  const cancelled = new AbortController(); cancelled.abort();
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(sealed, BACKUP_PASSWORD, created.rootId, cancelled.signal), /BACKUP_CANCELLED/);
+  assert.equal(store.size, 0);
+  await importLocalRootNoteVaultV1('0c'.repeat(32)); const foreign = new Map(store);
+  await assert.rejects(restoreLocalRootNoteVaultBackupV1(sealed, BACKUP_PASSWORD, created.rootId), /BACKUP_CONFLICT/);
+  assert.deepEqual(store, foreign);
 });
