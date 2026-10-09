@@ -63,3 +63,30 @@ test('HOST DeviceExternalFlat original consent precedes effects; real journal la
  // Ciphertext exists and cannot be treated as a public source-note grant.
  assert.ok(scratch);P.externalFlatWipeV1(witness);key.fill(0);
 });
+
+
+test('HOST original TLS latest-error slot retains only bounded original metadata before the public mapper',async()=>{
+ const source=await readFile(url('../../../src/api/mobile/device-external-flat-note-http-v1.mjs','../mobile/device-external-flat-note-http-v1.mjs'),'utf8');
+ const roots=await import(url('../../../../proofs/src/catalog.mjs','../../../proof-workers/catalog.mjs'));
+ const diagnostic=await import(url('../../../src/execution/account/reconciliation/failure-diagnostics.mjs','../paeg/failure-diagnostics.mjs'));
+ const {types}=await import('node:util'),{AssertionError}=await import('node:assert'),fs=await import('node:fs'),path=await import('node:path');
+ const start=source.indexOf('const DIAGNOSTIC_TYPES='),end=source.indexOf('function exact(',start);assert.ok(start>=0&&end>start);
+ // Actual producer/getter bodies, explicit HOST slots only. No listener,
+ // account, protocol request or financial authority is fabricated here.
+ const factory=new Function('diagnosticSlots','types','privateFailureDiagnostic','fail','AssertionError','ROOT','FLAT','GOLDEN','join','relative','resolve','isAbsolute','fileURLToPath','realpathSync','lstatSync',source.slice(start,end).replace('export function readOriginal','function readOriginal')+';return{retainFailure,readOriginalDeviceExternalFlatHttpFailureV1};');
+ const slots=new WeakMap(),key=Object.freeze({}),copy=Object.freeze({});slots.set(key,{latest:null});
+ const body=factory(slots,types,diagnostic.privateFailureDiagnostic,()=>{throw Error('HOST_DIAGNOSTIC_DENIED');},AssertionError,roots.ROOT,roots.FLAT,roots.GOLDEN,path.join,path.relative,path.resolve,path.isAbsolute,fileURLToPath,fs.realpathSync,fs.lstatSync);
+ const error=Object.assign(Error('EXPLICIT_PRIVATE_HOST_MESSAGE_NEVER_OUTPUT'),{code:'NATIVE_ECONOMIC_FIXED_PREPARATION',privateKey:'HOST_PRIVATE_VALUE_NEVER_OUTPUT',actual:'HOST_ACTUAL_NEVER_OUTPUT',expected:'HOST_EXPECTED_NEVER_OUTPUT'});
+ const here=fileURLToPath(url('../../../src/api/mobile/device-external-flat-note-http-v1.mjs','../mobile/device-external-flat-note-http-v1.mjs'));error.stack='HOST\n at original ('+here+':31:9)';
+ const workMarker='return reader[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(';assert.equal(source.includes(workMarker),true);
+ let observed;try{await Promise.reject(error).catch(function(e){body.retainFailure(key,e,'OPERATE','FUND_D26');throw e;});}catch(e){observed=e;}assert.equal(observed,error);
+ const first=body.readOriginalDeviceExternalFlatHttpFailureV1(key);assert.deepEqual(Object.keys(first).sort(),['action','errorCode','errorType','format','frames','phase']);assert.equal(first.errorCode,'NATIVE_ECONOMIC_FIXED_PREPARATION');assert.equal(first.errorType,'ERROR');assert.equal(first.phase,'OPERATE');assert.equal(first.action,'FUND_D26');assert.equal(first.frames.length,1);
+ const encoded=JSON.stringify(first);for(const word of ['EXPLICIT_PRIVATE_HOST_MESSAGE','HOST_PRIVATE_VALUE','HOST_ACTUAL','HOST_EXPECTED'])assert.equal(encoded.includes(word),false);
+ first.errorCode='MUTATED_COPY';assert.equal(body.readOriginalDeviceExternalFlatHttpFailureV1(key).errorCode,'NATIVE_ECONOMIC_FIXED_PREPARATION');
+ // A permission-replay rejection is diagnostic only; the following original
+ // W39 failure replaces it so the fixed caller catch can retain its cause.
+ body.retainFailure(key,Error('DEVICE_EXTERNAL_FLAT_PERMISSION_CONSUMED'),'OPERATE','FUND_D26');body.retainFailure(key,Error('DEVICE_EXTERNAL_FLAT_WITHDRAW_GUARD'),'OPERATE','WITHDRAW_W39');const latest=body.readOriginalDeviceExternalFlatHttpFailureV1(key);assert.equal(latest.errorCode,'DEVICE_EXTERNAL_FLAT_WITHDRAW_GUARD');assert.equal(latest.action,'WITHDRAW_W39');assert.throws(()=>body.readOriginalDeviceExternalFlatHttpFailureV1(copy));
+ body.retainFailure(key,error,'OPERATE','PRIVATE_UNBOUNDED_ACTION');assert.deepEqual(body.readOriginalDeviceExternalFlatHttpFailureV1(key),latest);
+ const unknown=Object.freeze({});slots.set(unknown,{latest:null});let reads=0;const unsafe={get code(){reads++;throw Error('HOST_USER_GETTER');},get message(){reads++;throw Error('HOST_USER_GETTER');}};body.retainFailure(unknown,unsafe,'OPERATE',null);assert.equal(reads,0);assert.equal(body.readOriginalDeviceExternalFlatHttpFailureV1(unknown).errorType,'THROWN_VALUE');
+ const proxy=Object.freeze({});slots.set(proxy,{latest:null});body.retainFailure(proxy,new Proxy({}, {get(){reads++;throw Error('HOST_PROXY');},getOwnPropertyDescriptor(){reads++;throw Error('HOST_PROXY');}}),'OPERATE',null);assert.equal(reads,0);assert.equal(body.readOriginalDeviceExternalFlatHttpFailureV1(proxy).frames.length,0);
+});
