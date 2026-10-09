@@ -1,6 +1,6 @@
 # Estado actual
 
-Actualizado el 9 de octubre de 2026. Hay una base versionada y utilizable para
+Actualizado el 10 de octubre de 2026. Hay una base versionada y utilizable para
 desarrollo; todavía no está completada la wallet omnichain de la visión original.
 Los resultados distinguen código comprobado, laboratorio local y producto
 pendiente. Las entregas históricas permanecen en `archive/`.
@@ -69,6 +69,11 @@ comprobados en los ámbitos indicados; se conservan las notas por requisito.
 | Retirada admitida con respuesta original | `f8961f4`: espera el resultado del job admitido sin reutilizar el permiso; un HOST pasa en 2,765 s. GRAPH1159 recorrió la respuesta perdida de W39 y su conciliación. | Lease original de15 s y guards intactos; el recorrido completo sigue rechazado. |
 | Causa privada de apertura y cleanup | `b13eb68`: conserva tipos/códigos/frames anidados con límites y sin payloads; 8/8 HOST, 0,289 s. | La causa primaria del SOURCE rechazado anterior ya se descartó; no se reconstruye ni se acredita reapertura. |
 | Preparación BSC propia | `67424cf`: materiales, herramientas oficiales y 17 contratos preparados/compilados. | La comprobación RPC nativa terminó rechazada: sin finalidad, crédito privado ni wallet BSC aceptados. |
+| Claims privados en el estado común | `26beac3`: carteras originales y la misma sesión/keeper, unidades BTC/SPL separadas, HTTP de propietario y wallet; journal AES/CAS reabre STALE. Un HOST pasó en 5,961 s, incluyendo custodia desconocida y operaciones pendientes. | Consenso y custodia inferiores son puertos HOST explícitos; no acepta el ingreso SPL ni nuevas redes. |
+| Captura del backend GRAPH | `7d4164c`: exige el token activo de la misma autoridad sin relajar el guard de reposo general; un HOST pasó en 0,242 s. | Corrige el fallo observado en GRAPH `0b377a85…`; falta aceptar captura/reapertura integradas. |
+| Sesión original al reabrir SOURCE | `e50079e`: devuelve la sesión del contenedor original para recuperar la autorización y cerrar el recurso correcto; un HOST pasó en 0,074 s. | No modifica las fuentes fijadas de un realm anterior ni acredita recuperación económica completa. |
+| Testigo rechazado y capacidades de recibos | `97ddc90` limpia la copia normalizada rechazada; `d9e2aac` separa secretos en preparación, envelope y worker. HOST de aislamiento y ambos consumidores pasan en 0,108/0,164/0,181 s. | Se mantienen byte a byte las 45 fuentes originales W39; no implica anonimato ni aislamiento entre operadores. |
+| Sello actual de fuentes | `bfba59b`: productor original y verificación física de 833 fuentes y doce roles; cierre `9d9f2034…`. | Conserva los indicadores de aceptación financiera/custodia/GRAPH desactivados. |
 
 La privacidad HOST pasó 5/5 y Cloud 6/6 pruebas con proveedor simulado. Cloud
 continúa sólo local y la API V1 conserva readiness 503 sin puente económico.
@@ -97,6 +102,14 @@ repite la financiación por ese defecto de prueba ni se reclasifica el RAW.
 Todos los grupos financieros y locks están cerrados/liberados; no quedó una
 autoridad capturada para reabrir ese realm cerrado.
 
+GRAPH `0b377a85-3a0b-49c8-998f-d9a680fe8cde` recorrió las 14 pruebas,
+retiradas, respuesta perdida, replay HTTP403, restauración software de custodia
+y READ de ambas notas gastadas. Llegó al guardado de las cuatro secciones del
+backend y rechazó el primer guard de cuenta: pedía reposo mientras su token de
+captura original estaba activo. `7d4164c` comprueba ese token y su autoridad sin
+abrir la autoridad general durante captura. El RAW sigue rechazado, con fuentes
+intactas y grupo/lock cerrados; no alcanzó un checkpoint completo ni reapertura.
+
 SOURCE `9aced…` terminó **rechazado** con cero pruebas tras el nacimiento del
 backend de diez secciones. Su transporte manual omitía Content-Length y enviaba
 chunked, incompatible con el framing estricto del servidor original. `6951b88`
@@ -110,13 +123,19 @@ a framing ni a una espera de ocho horas. El cierre dirigido por identidad al
 launcher original utilizó SIGTERM tras el worker fallido; el supervisor confirmó
 cleanup del grupo, lock liberado y fuentes intactas. La interrupción conserva
 el rechazo, sin alterar el RAW. El realm financiado y su locator se mantienen
-para diagnóstico, sin nueva CREATE. El OPEN actual está bloqueado por la
-comprobación original de versión: el realm nació con `df901c6`/cierre `a5033d37…`,
-pero el release actual tiene cierre `5e821880…`. Hace falta restaurar los bytes
-del snapshot original verificado antes de OPEN; no se cambia el locator ni sus
-pins para forzarlo. Este bloqueo actual es distinto de la primaria ya descartada
-del primer intento de reapertura. El locator anterior `9aced…` también
-permanece byte a byte. Una invocación inicial por cwd falló antes de campaña.
+para diagnóstico, sin nueva CREATE. `e1595e7` reconstruye sólo fuentes públicas
+desde Git y verifica los 865 pins del nacimiento `df901c6`/cierre `a5033d37…`.
+El OPEN diagnóstico usó esos bytes en un namespace aislado conservando UID1000;
+superó la versión y alcanzó el actor. Rechazó el enlace porque la sección de
+sesión devolvía su contenedor en vez de la sesión original, impidiendo encontrar
+la autorización retenida y cerrar ese recurso. `e50079e` corrige el consumidor
+para nacimientos nuevos; no fuerza la versión del realm antiguo. La limpieza
+normal del diagnóstico falló y sus dos procesos restantes se terminaron por PID
+y nacimiento verificados; no se atribuye cierre normal al resultado. El locator
+y los pins se conservan. La clave y la raíz del antiguo padre no fueron
+persistidas y no permiten continuar su campaña original. La causa del nuevo
+OPEN no reconstruye la primaria descartada del primer intento. El locator
+anterior `9aced…` también permanece byte a byte.
 
 Evidencia actual: [APK e informe](.internal/dev/reports/mobile-android-standalone-local.json),
 [backup nativo](.internal/dev/reports/all-objectives-native-backup-causal-fixture-current-d79742ae-cd90-4c93-82ec-16f53e327739/host.log),

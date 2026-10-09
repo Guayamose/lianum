@@ -143,7 +143,7 @@ V1 conserva readiness 503 hasta disponer de un puente económico válido.
 
 [STATUS](STATUS.md#evidencia-funcional-y-límites-del-corte) conserva evidencia,
 medidas y rechazos originales. Las 45 dependencias de compilación siguen iguales.
-`a38b74d` conserva el sello actual de 833 fuentes y doce roles; `df901c6`
+`bfba59b` conserva el sello actual de 833 fuentes y doce roles; `df901c6`
 conserva el corte original de observación GRAPH y framing SOURCE;
 `a62ec91` conserva su publicación histórica de 819 módulos y doce roles.
 El recorrido ERC20 `da603751`, LIVE_ARMED corto y F reorg `b4329b70` están
@@ -188,9 +188,23 @@ conserva causas futuras sin secretos, con 8/8 HOST aprobados en 0,289 s.
 El cierre dirigido del launcher tras el fallo confirmó grupo/lock/fuentes;
 la interrupción no acepta el RAW. Se conserva el realm financiado, sin CREATE
 ni otro recorrido SOURCE largo sin causa. Su OPEN actual exige las fuentes
-originales `df901c6`/cierre `a5033d37…`, distinto del `5e821880…` actual; no se
-reescribe el locator, fase, claims ni pins. El bloqueo de versión es distinto
-de la primaria descartada. El fallo inicial de cwd fue precampaña.
+originales `df901c6`/cierre `a5033d37…`; `e1595e7` ya reconstruye y verifica
+sus 865 pins públicos sin cambiar locator ni pins. El OPEN aislado con el UID
+original alcanzó el actor y rechazó el contenedor devuelto en lugar de la sesión;
+`e50079e` corrige ese enlace y su cierre, con un HOST aprobado en 0,074 s.
+No acredita recuperación completa ni restaura la clave/raíz perdidas del antiguo
+padre. La causa primaria histórica descartada permanece desconocida.
+GRAPH `0b377a85…` completó las 14 pruebas y restauraciones de custodia y llegó
+al guardado del backend. Falló al exigir reposo durante su captura original;
+`7d4164c` valida la misma autoridad y token activo, con un HOST en 0,242 s.
+Su RAW sigue rechazado y queda pendiente captura/reapertura completas.
+`26beac3` conecta los claims originales BTC/SOL/SPL al estado común, HTTP y
+wallet, separa sus unidades y conserva UNKNOWN/STALE; un HOST de 5,961 s pasó
+con puertos inferiores sintéticos. No cierra el ingreso SPL ni otras redes.
+`97ddc90` limpia el testigo rechazado y `d9e2aac` separa secretos de recibos en
+los consumidores del producto manteniendo las 45 fuentes originales W39.
+`bfba59b` publica el candidato físico de 833 fuentes/doce roles, cierre
+`9d9f2034…`, sin activar indicadores de aceptación financiera.
 BSC `67424cf` prepara herramientas y 17 contratos, pero RPC nativo está rechazado,
 sin finalidad ni crédito/wallet. El APK actual conserva 85/36 y no necesita Metro.
 Los siete objetivos mantienen sus pendientes. El criterio 2.4 cambia de 0 a 25
