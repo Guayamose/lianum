@@ -5,6 +5,8 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { createTronPrivateLogCapture, TRON_PRIVATE_LOG_PREFIX_BYTES } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-private-log-capture-v1.mjs';
 import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
 import { OWNED_TRON_RUNTIME_RELEASE, startFixedOwnedTronDriver } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
@@ -267,4 +269,79 @@ test('each original command waits for the fresh eight-FD audit and preserves soc
   else {assert.equal(error,undefined);assert.deepEqual(events,['resources','write']);await actual.command('SOURCEBLOCK',['1']);assert.equal(reads,2*names.length);}
  }
  await run();await run({namedSocket:true,lateError:true});
+});
+
+
+// Explicit inert HOST ports for the actual stdout/stderr and command bodies.
+// No Java, process, runtime authority, native wire or financial receipt exists.
+async function originalTronProtocolHostV1({which='product',ready=true,timedOut=false}={}) {
+ const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const from=text.indexOf("  child.stderr.on('data', bytes =>"),to=text.indexOf('  const started = Date.now()',from);
+ const commandFrom=text.indexOf('  async function command(kind,'),commandTo=text.indexOf('  function close()',commandFrom);
+ assert.ok(from>=0&&to>from&&commandFrom>=0&&commandTo>commandFrom);
+ const profiles={candidate:Object.freeze({}),product:Object.freeze({}),firstError:Object.freeze({})};
+ const callbacks={},resolved=[],rejected=[],writes=[],audits=[],timers=[];
+ const context={assert,Buffer,rawStdout:createTronPrivateLogCapture(),stderr:createTronPrivateLogCapture(),
+  profile:profiles[which],PRODUCT:profiles.product,FIRST_ERROR_PRODUCT:profiles.firstError,
+  readySeen:ready,buffer:'',pending:undefined,failure:undefined,resolveReady:undefined,
+  async auditNative(){audits.push('fresh');},
+  fail(error){context.failure??=error;context.pending?.reject(error);context.pending=null;},
+  setTimeout(callback,milliseconds){assert.equal(milliseconds,10000);timers.push(milliseconds);
+   if(timedOut){queueMicrotask(callback);return 'HOST_ORIGINAL_TIMEOUT';}return setTimeout(callback,milliseconds);},
+  clearTimeout(timer){if(timer!=='HOST_ORIGINAL_TIMEOUT')clearTimeout(timer);},
+  child:{once(){},stdout:{on(event,fn){assert.equal(event,'data');callbacks.stdout=fn;}},
+   stderr:{on(event,fn){assert.equal(event,'data');callbacks.stderr=fn;}},
+   stdin:{write(line){assert.equal(audits.length,writes.length+1);writes.push(line);
+    if(!timedOut)callbacks.stdout(Buffer.from('{"error":"REJECTED_OR_UNKNOWN"}\n'));}}}};
+ const actual=vm.runInNewContext('(()=>{'+text.slice(from,to)+text.slice(commandFrom,commandTo)+';return command;})()',context);
+ return {context,callbacks,resolved,rejected,writes,audits,timers,command:actual,
+  reply(bytes){context.pending={resolve:value=>resolved.push(value),reject:error=>rejected.push(error)};callbacks.stdout(bytes);
+   if(context.failure===undefined)context.pending=undefined;},
+  snapshot:()=>context.rawStdout.snapshot()};
+}
+function fillOriginalTronProtocolPrefixV1(host) {
+ const frame=Buffer.from(JSON.stringify({kind:'HOST_CHECKED_REPLY',payload:'x'.repeat(2048)})+'\n');
+ const count=Math.floor(TRON_PRIVATE_LOG_PREFIX_BYTES/frame.length)+2;
+ for(let i=0;i<count;i++){host.reply(frame);if(i===0)assert.equal(host.snapshot().metadata.truncated,false);}
+ return {frame,count,bytes:count*frame.length};
+}
+
+test('product stdout retains the original one-MiB diagnostic prefix while every later reply keeps the actual protocol guards',async()=>{
+ for(const which of ['product','firstError']) {
+  const host=await originalTronProtocolHostV1({which}),sent=fillOriginalTronProtocolPrefixV1(host),snapshot=host.snapshot();
+  assert.equal(host.context.failure,undefined);assert.equal(host.resolved.length,sent.count);assert.equal(host.rejected.length,0);
+  for(const value of host.resolved){assert.equal(value.kind,'HOST_CHECKED_REPLY');assert.equal(value.payload,'x'.repeat(2048));}
+  assert.equal(snapshot.bytes.length,TRON_PRIVATE_LOG_PREFIX_BYTES);assert.equal(snapshot.metadata.retainedBytes,TRON_PRIVATE_LOG_PREFIX_BYTES);
+  assert.equal(snapshot.metadata.observedBytes,sent.bytes);assert.equal(snapshot.metadata.truncated,true);
+  const expected=Buffer.concat(Array(sent.count).fill(sent.frame)).subarray(0,TRON_PRIVATE_LOG_PREFIX_BYTES);
+  const hash=bytes=>createHash('sha256').update(bytes).digest('hex');assert.equal(hash(snapshot.bytes),hash(expected));
+ }
+ for(const [reply,code] of [[Buffer.from('{bad-json}\n'),'TRON_CANDIDATE_PROTOCOL_JSON'],
+  [Buffer.alloc(65537,0x78),'TRON_CANDIDATE_PROTOCOL_BOUND']]) {
+  const host=await originalTronProtocolHostV1();fillOriginalTronProtocolPrefixV1(host);host.reply(reply);
+  assert.equal(host.context.failure.message,code);assert.equal(host.rejected.at(-1),host.context.failure);
+  assert.equal(host.snapshot().bytes.length,TRON_PRIVATE_LOG_PREFIX_BYTES);
+ }
+ const unsolicited=await originalTronProtocolHostV1();fillOriginalTronProtocolPrefixV1(unsolicited);
+ unsolicited.callbacks.stdout(Buffer.from('{}\n'));assert.equal(unsolicited.context.failure.message,'TRON_CANDIDATE_UNSOLICITED_RESPONSE');
+ const unknown=await originalTronProtocolHostV1();fillOriginalTronProtocolPrefixV1(unknown);
+ await assert.rejects(unknown.command('HEALTH'),/TRON_CANDIDATE_DRIVER_REJECTED_OR_UNKNOWN/);
+ assert.equal(unknown.context.failure.message,'TRON_CANDIDATE_DRIVER_REJECTED_OR_UNKNOWN');assert.equal(unknown.writes.length,1);
+ await assert.rejects(unknown.command('HEALTH'));assert.equal(unknown.writes.length,1);assert.deepEqual(unknown.timers,[10000]);
+ const timed=await originalTronProtocolHostV1({timedOut:true});fillOriginalTronProtocolPrefixV1(timed);
+ await assert.rejects(timed.command('HEALTH'),/TRON_CANDIDATE_COMMAND_OUTCOME_UNKNOWN/);
+ assert.equal(timed.context.failure.message,'TRON_CANDIDATE_COMMAND_OUTCOME_UNKNOWN');assert.deepEqual(timed.timers,[10000]);
+});
+
+test('candidate, pre-ready product and stderr retain the original diagnostic-bound failure',async()=>{
+ for(const setup of [{which:'candidate'},{which:'product',ready:false},{which:'firstError',ready:false}]) {
+  const host=await originalTronProtocolHostV1(setup);fillOriginalTronProtocolPrefixV1(host);
+  assert.equal(host.context.failure.message,'TRON_CANDIDATE_PRIVATE_LOG_BOUND');
+  assert.equal(host.snapshot().bytes.length,TRON_PRIVATE_LOG_PREFIX_BYTES);assert.equal(host.snapshot().metadata.truncated,true);
+  await assert.rejects(host.command('HEALTH'));assert.equal(host.writes.length,0);assert.equal(host.audits.length,0);
+ }
+ const stderr=await originalTronProtocolHostV1();stderr.callbacks.stderr(Buffer.alloc(TRON_PRIVATE_LOG_PREFIX_BYTES+1,0x79));
+ assert.equal(stderr.context.failure.message,'TRON_CANDIDATE_PRIVATE_LOG_BOUND');
+ const retained=stderr.context.stderr.snapshot();assert.equal(retained.bytes.length,TRON_PRIVATE_LOG_PREFIX_BYTES);assert.equal(retained.metadata.observedBytes,TRON_PRIVATE_LOG_PREFIX_BYTES+1);
+ await assert.rejects(stderr.command('HEALTH'));assert.equal(stderr.writes.length,0);
 });

@@ -125,7 +125,11 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
   child.once('exit', () => { if (!closed) fail(Error('TRON_CANDIDATE_CHILD_EXITED')); });
   child.stderr.on('data', bytes => { if (stderr.append(bytes)) fail(Error('TRON_CANDIDATE_PRIVATE_LOG_BOUND')); });
   child.stdout.on('data', bytes => {
-    if (rawStdout.append(bytes)) return fail(Error('TRON_CANDIDATE_PRIVATE_LOG_BOUND'));
+    const truncated = rawStdout.append(bytes);
+    // Product stdout carries the checked protocol. Its diagnostic tee retains
+    // the same bounded prefix; truncation cannot replace protocol validation.
+    if (truncated && !(readySeen && (profile === PRODUCT || profile === FIRST_ERROR_PRODUCT)))
+      return fail(Error('TRON_CANDIDATE_PRIVATE_LOG_BOUND'));
     if (failure) return; // Keep the bounded diagnostic prefix; protocol work has already failed.
     buffer += bytes.toString('utf8'); if (buffer.length > 65536) return fail(Error('TRON_CANDIDATE_PROTOCOL_BOUND'));
     let index;
