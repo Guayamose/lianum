@@ -10,6 +10,8 @@ export type PrivateWalletStateActorV1=Readonly<{
  acceptAccount(value:OriginalPrivateStateObservationV1):void;
  acceptPositions(value:DeviceDefiPositionObservationV1):void;
  acceptExternal(value:ExternalFlatStatus):void;
+ acceptNative(value:object):Promise<void>;
+ invalidateNative():void;
  snapshot():PrivateWalletStateV1;
  clear():void;
 }>;

@@ -16,7 +16,7 @@ export default function App() {
     <View style={styles.tabs}>{([['state','Estado privado'],['wallet', 'Cartera'], ['original', 'Cuenta vinculada'], ['custody', 'Custodia local'], ['deposit', 'Financiar nota'], ['defi', 'Posiciones DeFi'], ['external', 'Nota ERC20']] as const).map(([value, label]) =>
       <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: screen === value }}
         onPress={() => setScreen(value)} style={styles.tab}><Text style={[styles.label, screen === value && styles.selected]}>{label}</Text></Pressable>)}</View>
-    {screen === 'state' ? <PrivateWalletStateScreen state={privateState} onOpen={setScreen}/> : screen === 'wallet' ? <WalletScreen /> : screen === 'original' ? <OriginalAccountScreen onObservation={privateState.acceptAccount}/> : screen === 'custody' ? <LocalCustodyScreen /> : screen === 'deposit' ? <DeviceDepositScreen /> : screen === 'defi' ? <DefiPositionsScreen onObservation={privateState.acceptPositions}/> : <ExternalTokenNoteScreen onObservation={privateState.acceptExternal}/>}
+    {screen === 'state' ? <PrivateWalletStateScreen state={privateState} onOpen={setScreen}/> : screen === 'wallet' ? <WalletScreen /> : screen === 'original' ? <OriginalAccountScreen onObservation={privateState.acceptAccount}/> : screen === 'custody' ? <LocalCustodyScreen /> : screen === 'deposit' ? <DeviceDepositScreen onObservation={privateState.acceptNative} onInvalidate={privateState.invalidateNative}/> : screen === 'defi' ? <DefiPositionsScreen onObservation={privateState.acceptPositions}/> : <ExternalTokenNoteScreen onObservation={privateState.acceptExternal}/>}
 
   </View>;
 }

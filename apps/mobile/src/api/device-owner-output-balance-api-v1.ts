@@ -5,7 +5,7 @@ import { createOriginalAccountApiV2, type OriginalAccountDescriptorV2 } from './
 import { normalizeOriginalAccountAccessV2, originalAccountAccessMessageV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { validateDeviceOutputBalanceFreshV1, type DeviceOutputBalanceV1, type DeviceOutputBalancePathV1 }
   from '../../../../packages/mobile-protocol/src/device-output-balance-v1.mjs';
-const observations = new WeakMap<object, { live(): void; value: DeviceOutputBalanceV1 }>();
+const observations = new WeakMap<object, { live(): void; displayLive(): void; value: DeviceOutputBalanceV1 }>();
 function bad(): never { throw Error('MOBILE_DEVICE_OUTPUT_BALANCE_RESPONSE_INVALID'); }
 async function sha(bytes: Uint8Array) {
   const owned = new Uint8Array(bytes.length); owned.set(bytes);
@@ -40,11 +40,17 @@ export async function createDeviceOwnerOutputBalanceApiV1(descriptor: OriginalAc
       if (value.recovery.path) await verifyPath(value.recovery.path);
       live(); if (generation !== attempt) bad(); validateDeviceOutputBalanceFreshV1(value);
       const handle = Object.freeze(Object.create(null));
-      observations.set(handle, { live() { live(); if (generation !== attempt) bad(); }, value }); return handle;
+      observations.set(handle, { live() { live(); if (generation !== attempt) bad(); },
+        displayLive() { if (generation !== attempt) bad(); validateDeviceOutputBalanceFreshV1(value); }, value }); return handle;
     },
     close() { closed = true; },
   });
 }
 export function readDeviceOutputBalanceV1(handle: object): DeviceOutputBalanceV1 {
   const row = observations.get(handle); if (!row) bad(); row.live(); validateDeviceOutputBalanceFreshV1(row.value); return row.value;
+}
+/** Already consented display only. Closing a transport cannot renew this
+ * response or use it for custody/withdrawal. A newer READ still revokes it. */
+export function readDeviceOutputBalanceDisplayV1(handle: object): DeviceOutputBalanceV1 {
+  const row = observations.get(handle); if (!row) bad(); row.displayLive(); return row.value;
 }

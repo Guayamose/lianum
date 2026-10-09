@@ -659,9 +659,21 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const fresh = await vault.readDeviceNote(); assert.equal(fresh.availableBalance, null);
   assert.equal(fresh.localReservation.changeAvailableBalance, '380'); assert.equal(fresh.localReservation.recoveryAvailableBalance, null);
   assert.equal(fresh.localReservation.recovery.state, 'LOCKED'); assert.equal(fresh.localReservation.assetIdentity, proposal.asset);
+  const {createPrivateWalletStateV1}=await import('../src/state/private-wallet-state-v1.mjs'),global=createPrivateWalletStateV1();
+  await assert.rejects(global.acceptNative({...fresh}),/OUTPUT_DISPLAY_REQUIRED/);
+  await assert.rejects(global.acceptNative(balance),/OUTPUT_DISPLAY_REQUIRED/);
+  await global.acceptNative(fresh);
+  assert.equal(global.snapshot().rows.length,2);
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='change').available,'380');
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='recovery').available,null);
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='recovery').locked,'120');
+  assert.equal(global.snapshot().aggregateBalance,null);
+  assert.equal(global.snapshot().rows[0].route.nativeBindingSHA256,balanceBody.nativeBindingSHA256);
+  assert.equal(new Set(global.snapshot().rows.map(row=>row.key)).size,2);
   // Even a TLS-provenance handle must match BOTH locally retained PC23 openings/NF.
   const originalAmount = balanceBody.change.amount; balanceBody.change.amount = '379';
   const wrongAmount = await readBalance(); await assert.rejects(vault.applyDeviceOutputBalances(wrongAmount), /OUTPUT_BALANCE_CHANGED/); balanceBody.change.amount = originalAmount;
+  assert.ok(global.snapshot().rows.every(row=>row.state==='STALE'&&row.available===null));
   assert.equal((await vault.readDeviceNote()).localReservation.changeAvailableBalance, null, 'a newer READ revokes the previous observation');
   const originalNF = balanceBody.change.nullifier; balanceBody.change.nullifier = '33'.repeat(32);
   await assert.rejects(readBalance(), /RESPONSE_INVALID/); balanceBody.change.nullifier = originalNF;
@@ -673,15 +685,29 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const recoveryTree = new PrivateNoteTree([Buffer.from(spend.statement.changeCommitment, 'hex'), Buffer.from(spend.statement.recoveryCommitment, 'hex')]);
   balanceBody.change.path = asPath(recoveryTree, 0); balanceBody.recovery.path = asPath(recoveryTree, 1); balanceBody.recovery.state = 'UNSPENT';
   await vault.applyDeviceOutputBalances(await readBalance());
-  assert.equal((await vault.readDeviceNote()).localReservation.recoveryAvailableBalance, '120');
+  const recoveredNote=await vault.readDeviceNote();
+  assert.equal(recoveredNote.localReservation.recoveryAvailableBalance, '120');
+  await global.acceptNative(recoveredNote);
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='recovery').available,'120');
+  global.invalidateNative();
+  assert.ok(global.snapshot().rows.every(row=>row.state==='UNKNOWN'&&row.available===null));
+  const pendingDisplay=global.acceptNative(recoveredNote);global.clear();
+  await assert.rejects(pendingDisplay,/MOBILE_PRIVATE_WALLET_STATE_REJECTED/);
+  assert.equal(global.snapshot().rows.length,0);
   balanceBody.change.state = 'SPENT'; await vault.applyDeviceOutputBalances(await readBalance());
   assert.equal((await vault.readDeviceNote()).localReservation.changeAvailableBalance, '0', 'zero requires the fresh spent NF response');
   balanceBody.change.state = 'UNSPENT'; await vault.applyDeviceOutputBalances(await readBalance());
+  const originalDisplay=await vault.readDeviceNote();await global.acceptNative(originalDisplay);
   const observedAt = Date.now(), clock = mock.method(Date, 'now', () => observedAt + 16000);
   try { const expired = await vault.readDeviceNote(); assert.equal(expired.localReservation.changeAvailableBalance, null);
+    assert.ok(global.snapshot().rows.every(row=>row.state==='STALE'&&row.available===null));
     assert.equal(expired.localReservation.change.freshness, 'UNKNOWN'); assert.equal(expired.localReservation.change.amount, '380'); }
   finally { clock.mock.restore(); }
+  vault.forgetDeviceOutputBalanceObservation();
+  assert.ok(global.snapshot().rows.every(row=>row.state==='STALE'&&row.available===null));
+  await vault.applyDeviceOutputBalances(await readBalance());await global.acceptNative(await vault.readDeviceNote());
   balances.close(); vault.close(); const reopened = openLocalRootNoteVaultV1(value.rootId);
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='change').available,'380','closing transport preserves only this original unexpired display');
   assert.equal((await reopened.readDeviceNote()).availableBalance, null);
   assert.equal((await reopened.readDeviceNote()).localReservation.changeAvailableBalance, null);
   const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, local.revision);

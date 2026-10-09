@@ -25,7 +25,7 @@ type ReservationClient = Awaited<ReturnType<typeof createDeviceOwnerReservationA
 type ExitClient = Awaited<ReturnType<typeof createDeviceOwnerExitApiV1>>;
 type Client = Awaited<ReturnType<typeof createDeviceOwnerDepositApiV1>>;
 type Vault = ReturnType<typeof openLocalRootNoteVaultV1>;
-export default function DeviceDepositScreen() {
+export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObservation?(value:object):Promise<void>;onInvalidate?():void}={}) {
   const [origin, setOrigin] = useState(''), [pairingId, setPairingId] = useState('');
   const [note, setNote] = useState<Awaited<ReturnType<Vault['readDeviceNote']>>>(null);
   const [ownerReview, setOwnerReview] = useState<LocalDeviceReservationReviewV1 | null>(null);
@@ -304,7 +304,7 @@ export default function DeviceDepositScreen() {
     const api = executionClient.current, custody = vault.current, value = executionConsent;
     if (!api || !custody || !value || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
     setExecutionConsent(null); setApproved(false); // choice consumed before storage/sign/network awaits
-    custody.forgetDeviceOutputBalanceObservation(); setNote(null);
+    custody.forgetDeviceOutputBalanceObservation(); onInvalidate?.(); setNote(null);
     const signing = new AbortController(); nativeSigning.current = signing;
     try {
       if (value.action !== 'RECONCILE_NATIVE') { await custody.retainDeviceExecutionIntent(value); live(held); }
@@ -352,14 +352,16 @@ export default function DeviceDepositScreen() {
   }
   async function observeOutputBalances(held: number) {
     const api = balanceClient.current, custody = vault.current; if (!api || !custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
-    custody.forgetDeviceOutputBalanceObservation(); setNote(await custody.readDeviceNote()); live(held);
+    custody.forgetDeviceOutputBalanceObservation(); onInvalidate?.(); setNote(await custody.readDeviceNote()); live(held);
     try {
       const subject = await custody.readDeviceOutputBalanceSubject(); live(held);
       const access = await api.access(); live(held);
       const signature = await signOriginalAccountAccessV2(access, origin, pairingId); live(held);
       const handle = await api.observe({ access, signature, ...subject }); live(held);
       await custody.applyDeviceOutputBalances(handle); live(held);
-      setNote(await custody.readDeviceNote()); live(held);
+      const observation = await custody.readDeviceNote(); live(held);
+      if (observation && onObservation) { await onObservation(observation); live(held); }
+      setNote(observation);
       setMessage('Lectura original de estas dos notas. No se autoriza una prueba, ejecución ni retirada; la disponibilidad caduca y no se suman otros activos.');
     } catch (cause) {
       live(held);
@@ -414,6 +416,7 @@ export default function DeviceDepositScreen() {
     const api = exitClient.current, custody = vault.current, value = exitConsent;
     if (!api || !custody || !value || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
     setExitConsent(null); setApproved(false);
+    custody.forgetDeviceOutputBalanceObservation(); onInvalidate?.(); setNote(null);
     const signature = await signDeviceExitConsentV1(value, origin, pairingId); live(held); let witness: DeviceExitWitnessV1 | undefined;
     try {
       if (value.action === 'PROVE_W39') { if (!exitRequest.current) throw Error('MOBILE_LOCAL_ORIGINAL_EXIT_REQUIRED');

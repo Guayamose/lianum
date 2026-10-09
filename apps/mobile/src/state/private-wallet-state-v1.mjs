@@ -9,7 +9,7 @@ const fail=()=>{throw Error('MOBILE_PRIVATE_WALLET_STATE_REJECTED');};
 const routeKey=route=>JSON.stringify(route);
 const opaqueRow=(row,state)=>({...row,state,available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null});
 export function createPrivateWalletStateV1(){
- const sources=new Map();let revision=0;
+ const sources=new Map();let revision=0,nativeEpoch=0;
  function retain(key,rows,check){
   if(!sources.has(key)&&sources.size>=24)fail();
   if(rows.length+[...sources.entries()].filter(([id])=>id!==key).reduce((n,[,s])=>n+s.rows.length,0)>64)fail();
@@ -63,6 +63,35 @@ export function createPrivateWalletStateV1(){
    const expiresAt=v.expiresAt,observedAt=v.observedAt;
    retain(routeKey(['EXTERNAL',d.origin,d.pairingId,d.lifetime]),rows,()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
   },
+  async acceptNative(raw){
+   // Lazy loading keeps unrelated account/DeFi reads independent of native
+   // custody. The getter rejects DTOs and cloned local projections.
+   const epoch=nativeEpoch;
+   const {readLocalDeviceOutputDisplayV1}=await import('../custody/local-root-note-vault-v1.ts');
+   if(epoch!==nativeEpoch)fail();
+   const display=readLocalDeviceOutputDisplayV1(raw),v=display.original,p=v.poolTerms;
+   const rows=display.outputs.map(output=>{
+    const route={component:'DEVICE_NATIVE_NOTE',origin:v.origin,pairingId:v.pairingId,rootId:v.rootId,
+     noteRevision:v.noteRevision,parentJobId:v.parentJobId,nativeBindingSHA256:v.nativeBindingSHA256,
+     assetId:p.assetIdentity,ledgerAssetId:v.assetId,pool:v.pool,scope:p.scope,policy:p.policy,domain:p.domainCommitment,
+     noteRole:output.noteRole,commitment:v[output.noteRole].commitment};
+    const pending=output.request?.state==='UNKNOWN';
+    return{route,label:output.noteRole==='change'?'Cambio nativo':'Recuperación nativa',decimals:null,
+     state:pending?'UNKNOWN':'LIVE',available:pending?null:output.availableBalance,reserved:null,
+     locked:pending?null:output.state==='LOCKED'?output.amount:null,
+     recovery:!pending&&output.noteRole==='recovery'?output.availableBalance:null,
+     shares:null,valuation:null,noteAmount:output.amount,custody:'DEVICE',observed:v.observed,
+     requests:[{requestId:v.parentJobId,kind:'NATIVE_RESERVATION',state:v.nativeOutcome??'RESERVED',disposition:null},
+      ...(output.request?[output.request]:[])]};
+   });
+   retain(routeKey(['NATIVE',v.origin,v.pairingId,v.rootId]),rows,()=>readLocalDeviceOutputDisplayV1(raw));
+  },
+  invalidateNative(){
+   nativeEpoch++;
+   for(const [key,source] of sources)if(source.rows.some(row=>row.route.component==='DEVICE_NATIVE_NOTE'))
+    sources.set(key,{rows:source.rows.map(row=>freeze(opaqueRow(row,'UNKNOWN'))),check:()=>{}});
+   revision++;
+  },
   snapshot(){
    const rows=[];for(const source of sources.values()){
     let fresh=true;try{source.check();}catch{fresh=false;}
@@ -70,6 +99,6 @@ export function createPrivateWalletStateV1(){
    }
    return freeze({version:1,revision,rows,aggregateBalance:null,completePortfolio:false,readOnly:true});
   },
-  clear(){sources.clear();revision++;},
+  clear(){sources.clear();revision++;nativeEpoch++;},
  });
 }

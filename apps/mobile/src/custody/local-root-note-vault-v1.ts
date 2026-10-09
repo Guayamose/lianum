@@ -31,11 +31,23 @@ import { localDeviceWithdrawalStatementV1, localDeviceWithdrawalFrameV1, localDe
 import { normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1, deviceExitWitnessBytesV1, validateDeviceExitConsentFreshV1,
   type DeviceExitConsentV1, type DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1, readDeviceExecutionObservationV1 } from '../api/device-owner-execution-api-v1';
-import { readDeviceOutputBalanceV1 } from '../api/device-owner-output-balance-api-v1';
+import { readDeviceOutputBalanceV1, readDeviceOutputBalanceDisplayV1 } from '../api/device-owner-output-balance-api-v1';
+import type { DeviceOutputBalanceV1 } from '../../../../packages/mobile-protocol/src/device-output-balance-v1.mjs';
 import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
 const RECORD = 'lianum.note.root.record.v1';
+type LocalOutputDisplayV1 = Readonly<{ original: DeviceOutputBalanceV1; outputs: readonly Readonly<{
+  noteRole: 'change' | 'recovery'; amount: string; availableBalance: string | null; state: string;
+  request: Readonly<{requestId: string; kind: string; state: string; disposition: null}> | null;
+}>[] }>;
+const localOutputDisplays = new WeakMap<object, { read(): LocalOutputDisplayV1 }>();
+/** Only an original decrypted custody read can supply this projection. It
+ * carries no opening, secret, signing permission or economic capability. */
+export function readLocalDeviceOutputDisplayV1(value: object): LocalOutputDisplayV1 {
+  const row = localOutputDisplays.get(value); if (!row) throw Error('MOBILE_LOCAL_OUTPUT_DISPLAY_REQUIRED');
+  return row.read();
+}
 const PRIVATE: SecureStore.SecureStoreOptions = { requireAuthentication: true,
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.note.root.authenticated.v1',
@@ -768,6 +780,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
 
   let liveInclusion: object | null = null;
   let liveOutputBalances: object | null = null;
+  let outputDisplayGeneration = 0;
+  const forgetOutputs = () => { liveOutputBalances = null; outputDisplayGeneration++; };
   const signatures = new WeakMap<LocalDepositSignatureV1, number>();
   const proofRequests = new WeakMap<LocalDeviceProofRequestV1, { witness: DeviceDepositWitnessV1; consumed: boolean }>();
   const outstandingWitnesses = new Set<DeviceDepositWitnessV1>();
@@ -808,7 +822,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   async function persistSpend(next: State, key: Crypto.AESEncryptionKey, before: string, raw: string, root: Uint8Array) {
     // Local mutations/withdrawal intent invalidate an earlier monetary read.
     // Freshness is ephemeral and is never restored from ciphertext or a DTO.
-    liveOutputBalances = null;
+    forgetOutputs();
     // Validate/reconstruct the exact candidate before encryption. The same
     // decoder gives nested fields a stable order without weakening readback.
     const candidateBytes = encoded(next);
@@ -1152,7 +1166,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         recoveryNullifier: localFundedSpendNullifierV1(note.scope, spend.statement.recoveryCommitment, spend.recovery.opening.secret) });
     }),
     applyDeviceOutputBalances: (handle: object) => {
-      current(); const observation = readDeviceOutputBalanceV1(handle);
+      current(); forgetOutputs(); const observation = readDeviceOutputBalanceV1(handle);
       return original('Guardar en memoria la lectura original de cambio/recuperación; no firmar, probar ni enviar', async value => {
         const note = value.note, spend = value.spend, job = spend?.proofJob;
         if (!note?.deviceJob || !note.funding || !spend?.reservation || !job || observation.rootId !== value.rootId
@@ -1180,7 +1194,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           assetIdentity: observation.poolTerms.assetIdentity, domainCommitment: observation.poolTerms.domainCommitment });
       });
     },
-    forgetDeviceOutputBalanceObservation() { current(); liveOutputBalances = null; },
+    forgetDeviceOutputBalanceObservation() { current(); forgetOutputs(); },
     readDeviceNote: () => original('Consultar el estado de tu nota local y su envío original', async value => {
       const note = value.note; if (!note) return null;
       let observation = null;
@@ -1204,7 +1218,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           observation: usable ? { headHash: outputObservation!.observed.blockHash, expiresAt: outputObservation!.expiresAt } : null,
           withdrawnAmount: confirmed ? intent!.statement.amount : null, withdrawalTransactionHash: intent?.receipt?.transactionHash ?? null });
       };
-      return Object.freeze({ rootId: value.rootId, revision: value.revision, commitment: note.commitment,
+      const projection = Object.freeze({ rootId: value.rootId, revision: value.revision, commitment: note.commitment,
         amount: note.opening.value, status: note.status, job: note.deviceJob ? Object.freeze({ ...note.deviceJob }) : null,
         observation: observation ? Object.freeze({ transactionHash: observation.transactionHash, assetId: observation.assetId,
           headHash: observation.head.hash, observedAt: observation.observedAt, expiresAt: observation.expiresAt }) : null,
@@ -1222,6 +1236,22 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           change: output('change'), recovery: output('recovery'),
           budget: value.spend.proposal.budget, changeAmount: value.spend.change.opening.value,
           recoveryAmount: value.spend.recovery.opening.value } : null });
+      if (outputObservation && liveOutputBalances && value.spend && projection.localReservation) {
+        const handle = liveOutputBalances, generation = outputDisplayGeneration, original = outputObservation;
+        const outputs = Object.freeze((['change', 'recovery'] as const).map(noteRole => {
+          const row = projection.localReservation![noteRole]!, intent = value.spend!.exits?.[noteRole];
+          return Object.freeze({ noteRole, amount: row.amount, availableBalance: row.availableBalance, state: row.state,
+            request: intent ? Object.freeze({ requestId: intent.jobId, kind: 'WITHDRAW_W39',
+              state: intent.receipt ? 'CONFIRMED' : 'UNKNOWN', disposition: null }) : null });
+        }));
+        const display = Object.freeze({ original, outputs });
+        localOutputDisplays.set(projection, { read() {
+          if (generation !== outputDisplayGeneration || readDeviceOutputBalanceDisplayV1(handle) !== original)
+            bad('MOBILE_LOCAL_OUTPUT_DISPLAY_CHANGED');
+          return display;
+        } });
+      }
+      return projection;
     }),
     applyDeviceDepositInclusion: (capability: object) => {
       current(); const inclusion = readDeviceDepositInclusionV1(capability);
@@ -1614,7 +1644,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
      * No status JSON or hash can grant economic authority. */
     applyDeviceExecutionObservation: (response: object) => {
       current(); const originalStatus = readDeviceExecutionObservationV1(response);
-      liveInclusion = null; liveOutputBalances = null;
+      liveInclusion = null; forgetOutputs();
       return original('Conservar la incertidumbre de la recuperación original antes de volver a observarla',
         async (value, key, before, raw, root) => {
           const actual = readDeviceExecutionObservationV1(response), {status, consent} = actual;
@@ -1638,7 +1668,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     applyDeviceExecutionTerminal: (response: object) => {
       current(); const observation = readDeviceExecutionTerminalV1(response);
       // A new original terminal revokes monetary freshness before storage/auth.
-      liveInclusion = null; liveOutputBalances = null;
+      liveInclusion = null; forgetOutputs();
       return original('Guardar el resultado original de esta ejecución; no cambiar claves, repetir entregas ni proyectar saldo libre',
         async (value, key, before, raw, root) => {
           const actual = readDeviceExecutionTerminalV1(response), status = actual.status, consent = actual.consent;
