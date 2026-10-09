@@ -2439,14 +2439,15 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       const jobs=reservationRows().filter(row=>['origin','pairingId','devicePublicKey'].every(name=>row.consent[name]===descriptor[name]));
       assert.equal(jobs.length,1,'NATIVE_DEVICE_RECOVERY_FIXED_SINGLE_RESERVATION');const row=jobs[0],arm=row.liveRecoveryArm,quote=originalQuote(row.consent.quoteId);
       assert.equal(row.stage,'RESERVED');
-      assert.ok(arm&&['ARMED','FIRING','UNKNOWN','RECOVERED'].includes(arm.state),'NATIVE_LIVE_ARMED_ORIGINAL_PERMISSION_REQUIRED');
+      assert.ok(arm&&(['ARMED','FIRING','UNKNOWN','RECOVERED'].includes(arm.state)||(source&&arm.state==='DISARMED')),'NATIVE_LIVE_ARMED_ORIGINAL_PERMISSION_REQUIRED');
       const recovered=arm.state==='RECOVERED';
       if(recovered){assert.equal(row.nativeOutcome,'RECOVERED');assert.ok(row.nativeTerminal&&row.nativeRecoveryLatched&&row.submission?.dispatchLatched,'NATIVE_DEVICE_RECOVERY_ORIGINAL_TERMINAL_LATCHES');}
       else{assert.equal(row.nativeOutcome,null);assert.equal(row.nativeTerminal,null);}
       assert.match(arm.armSHA256,/^[0-9a-f]{64}$/);assert.equal(arm.settleBefore,row.nativeBinding.settleBefore);
       assert.equal(arm.nativeBindingSHA256,sha(row.nativeBinding));assert.equal(arm.reservationTransactionHash,row.observation.transactionHash);
       assert.equal(arm.lossClause,'FULL_OWNER_REFUND_PROVIDER_LOSS_V1');
-      if(arm.state!=='ARMED')assert.equal(row.nativeRecoveryLatched,true,'NATIVE_LIVE_ARMED_UNKNOWN_ONLY_OBSERVE');
+      if(arm.state==='DISARMED')assert.equal(row.nativeRecoveryLatched,false,'NATIVE_SOURCE_ORIGINAL_DISARM_UNLATCHED');
+      else if(arm.state!=='ARMED')assert.equal(row.nativeRecoveryLatched,true,'NATIVE_LIVE_ARMED_UNKNOWN_ONLY_OBSERVE');
       assert.equal(nativeExecution.snapshot(row.jobId).outcome,recovered?'RECOVERED':null);assert.equal(sha(quote.descriptor),sha(descriptor));
       const preparation=validateGenericBalanceNativePreparation(quote.preparation),deposit=reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,descriptor);
       assert.equal(quote.depositJobId,deposit.jobId);assert.equal(quote.rootId,row.consent.custody.rootId);

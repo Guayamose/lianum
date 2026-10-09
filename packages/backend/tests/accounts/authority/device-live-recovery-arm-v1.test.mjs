@@ -128,7 +128,7 @@ test('original live operation refresh uses its pair even without ARM and rejects
 /** Actual pending-installation/tick bodies, a REAL encrypted Vault and explicitly
  * inert original ledger/proof ports. Due-head below is HOST DATA, never an
  * observed economic timestamp or financial/native acceptance. */
-test('HOST original LIVE_ARMED account opens its same durable arm and due tick admits one F without rearming',async()=>{
+test('HOST original LIVE_ARMED and SOURCE accounts reopen the same durable arm or revocation without rearming',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'original-live-armed-host-')),password='original-host-password-minimum',path=join(directory,'arm.vault');
  const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex'),hex=n=>n.repeat(64);
  const descriptor={origin:'https://host.invalid',pairingId:hex('1'),devicePublicKey:'04'+hex('2')+hex('3')};
@@ -177,6 +177,30 @@ test('HOST original LIVE_ARMED account opens its same durable arm and due tick a
   const disarmConsent={action:'DISARM_RECOVERY',settleBefore:'800',execution:{reservation:{jobId:disarmed.jobId},nativeBindingSHA256:current.nativeBindingSHA256,
    executionSnapshotSHA256:current.executionSnapshotSHA256,reservationTransactionHash:disarmed.observation.transactionHash,lossClause:current.lossClause}};
   await revoke({bridge,action:'DISARM_RECOVERY',consent:disarmConsent});assert.equal(disarmed.liveRecoveryArm.state,'DISARMED');assert.equal(disarmCalls.writes,1);assert.ok(disarmCalls.permission>0);
+  // The actual SOURCE installer rehydrates the original encrypted revocation;
+  // it issues neither a replacement ARM nor a recovery permission.
+  const sourceVault=new Vault(join(directory,'source-disarmed.vault'));
+  const sourceRecord=await sourceVault.create({rows:[disarmed]},password);
+  const sourceRow=structuredClone((await new Vault(join(directory,'source-disarmed.vault')).read(password)).data.rows[0]);
+  const sourcePreparation={nativePreparation:{config:domain},invoiceSignatures:['HOST-original-invoice']};
+  const sourceContext={...actual,record:sourceRecord,recovery:{native:true,source:true},nativeSourceOriginal:{clock:lease.clock},
+   healthy:async()=>assert.deepEqual(await sourceVault.read(password),sourceRecord),
+   recoveredInstallations:actual.recoveredInstallations.map(value=>({...value,preparation:sourcePreparation})),
+   sourceInstallationPreparation:value=>{assert.deepEqual(value,sourcePreparation);return structuredClone(value);},
+   reservationRows:()=>[sourceRow],reservationRow:()=>sourceRow};
+  const sourceFactory=Function('ctx','"use strict";const {'+Object.keys(sourceContext).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceSourceInstallation;');
+  const sourceOpen=sourceFactory(sourceContext),sameRevocation=await sourceOpen(descriptor,Object.freeze({}));
+  assert.equal(sameRevocation.state,'DISARMED');assert.equal(sameRevocation.armSHA256,sourceRow.liveRecoveryArm.armSHA256);
+  assert.equal(sameRevocation.settleBefore,'800');assert.equal(sameRevocation.parentJobId,row.jobId);
+  await assert.rejects(sourceOpen(descriptor,Object.freeze({})),/INSTALLATION_ONCE/);
+  const sourceTick=Function('ctx','"use strict";const {'+Object.keys(sourceContext).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(sourceContext);
+  assert.deepEqual(await sourceTick(lease),{state:'IDLE'});assert.equal(calls.send,0);assert.equal(calls.arm,0);
+  sourceRow.nativeRecoveryLatched=true;await assert.rejects(sourceFactory(sourceContext)(descriptor,Object.freeze({})),/DISARM_UNLATCHED/);sourceRow.nativeRecoveryLatched=false;
+  // LIVE_ARMED ordered capture still rejects a revoked permission.
+  const legacyContext={...sourceContext,recovery:{native:true,liveArmed:true},nativeSourceOriginal:null};
+  const legacyFactory=Function('ctx','"use strict";const {'+Object.keys(legacyContext).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceLiveArmedInstallation;');
+  await assert.rejects(legacyFactory(legacyContext)(descriptor,Object.freeze({})),/ORIGINAL_PERMISSION_REQUIRED/);
+  assert.deepEqual(await sourceVault.read(password),sourceRecord);
   disarmed.liveRecoveryArm.state='ARMED';head='800';await assert.rejects(revoke({bridge,action:'DISARM_RECOVERY',consent:disarmConsent}),/DISARM_BEFORE_CUTOFF/);assert.equal(disarmCalls.writes,1);head='799';
 
   const tick=Function('ctx','"use strict";const {'+Object.keys(actual).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(actual);
