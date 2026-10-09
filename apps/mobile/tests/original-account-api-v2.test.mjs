@@ -166,9 +166,10 @@ test('a quiet response stream expires even if its transport ignores abort or can
 });
 
 test('private-state transport binds the original asset/lifetime and rejects stale, inflated or substituted observations before display', async t => {
-  const stateFixture = (genesis='c1'.repeat(32)) => {
+  const stateFixture = (genesis='c1'.repeat(32),requestId='original_request_0051') => {
     const f = fixture();
     f.review.binding.asset.genesis=genesis;
+    f.review.binding.requestId=requestId;
     f.responses.set('challenges', { challenge: privateStateAccessFrameV1(f.access) });
     f.responses.set('reviews', { review: privateStateReviewFrameV1(f.review) });
     const value = { version: 1, profile: PRIVATE_STATE_OBSERVATION_V1, scope: PRIVATE_STATE_SCOPE_V1,
@@ -215,6 +216,8 @@ test('private-state transport binds the original asset/lifetime and rejects stal
   const other=stateFixture('c2'.repeat(32));other.value.request.state='CONFIRMED';other.value.request.disposition='APPLIED';
   const otherObserved=await other.api.privateState.submit(other.stateSignedReview);wallet.acceptAccount(otherObserved);
   snapshot=wallet.snapshot();assert.equal(snapshot.rows.length,2);assert.notEqual(snapshot.rows[0].key,snapshot.rows[1].key);assert.equal(snapshot.rows[1].available,'100');assert.equal(snapshot.rows[1].recovery,'40');assert.equal(snapshot.aggregateBalance,null);
+  const later=stateFixture('c1'.repeat(32),'original_request_0052');later.value.request.state='CONFIRMED';later.value.request.disposition='APPLIED';
+  wallet.acceptAccount(await later.api.privateState.submit(later.stateSignedReview));snapshot=wallet.snapshot();assert.equal(snapshot.rows.length,2);assert.equal(snapshot.rows[0].requests.length,2);assert.equal(snapshot.rows[0].state,'UNKNOWN');assert.equal(snapshot.rows[0].available,null);
   assert.equal(f.calls.length,3);assert.equal(other.calls.length,1);assert.equal(Object.isFrozen(snapshot.rows[1]),true);
   const realNow=Date.now;t.mock.method(Date,'now',()=>realNow()+15001);snapshot=wallet.snapshot();assert.equal(snapshot.rows.every(row=>row.state==='STALE'&&row.available===null&&row.recovery===null),true);t.mock.restoreAll();
   wallet.clear();assert.equal(wallet.snapshot().rows.length,0);assert.equal(createPrivateWalletStateV1().snapshot().rows.length,0);
