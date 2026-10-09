@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {observeNativeOwnedRSSV1} from './native-flow-owned-rss-v1.mjs';
-import {parseNativeProcStat} from './native-flow-owned-files-v1.mjs';
+import {parseNativeProcStat,nativeProcStatIntegerDiagnosticV1,isOriginalNativeProcStatMinusOneV1} from './native-flow-owned-files-v1.mjs';
 import {nativeExitedProcessClassification,nativeProofProcessResources,nativeResourceFailure,NATIVE_FLOW_LIMITS}
   from './native-flow-supervisor.mjs';
 const rawStat=(pid=42,state='R',ticks='100',session=42)=>{
@@ -72,4 +72,74 @@ test('persistent live unmeasured RSS, denied reads and task-set churn stay stron
   assert.throws(()=>observeNativeOwnedRSSV1(original,fixture({...taskFiles(),'/proc/42/task/42/status':denied})),error=>error===denied);
   const fs=fixture(taskFiles(),[['42'],['42','43']]);
   assert.throws(()=>observeNativeOwnedRSSV1(original,fs),/NATIVE_OWNED_RSS_UNAVAILABLE/);
+});
+
+test('HOST original proc-stat integer rejection retains only owned finite field/shape diagnostics without accepting or retrying',()=>{
+  // Only public inert procfs fixture strings. The parser/RSS consumer and
+  // original AssertionError are real; no PID, runtime, signal or budget exists.
+  for(const [index,field] of [[1,'PPID'],[2,'PGRP'],[3,'SESSION']]){
+    for(const [token,tokenShape] of [['-1','negative'],['not_decimal','nonDecimal'],['9007199254740992','unsafeInteger']]){
+      const fields=Array(22).fill('0');fields[0]='R';fields[1]='1';fields[2]='42';fields[3]='42';fields[19]='100';fields[index]=token;
+      const text=`42 (host fixture) ${fields.join(' ')}\n`;
+      let originalFailure;
+      assert.throws(()=>parseNativeProcStat(42,text),error=>{
+        originalFailure=error;assert.equal(error.code,'ERR_ASSERTION');assert.equal(error.message,'NATIVE_RESOURCE_INTEGER');return true;
+      });
+      const diagnostic=nativeProcStatIntegerDiagnosticV1(originalFailure);
+      assert.deepEqual(diagnostic,{field,tokenShape,originalIntegerFailure:true,identityMinusOne:token==='-1'&&field!=='PPID'});assert.ok(Object.isFrozen(diagnostic));
+      assert.equal(isOriginalNativeProcStatMinusOneV1(originalFailure),token==='-1'&&field!=='PPID');
+      assert.deepEqual(Object.keys(diagnostic).sort(),['field','identityMinusOne','originalIntegerFailure','tokenShape']);
+      assert.equal(JSON.stringify(diagnostic).includes(token),false);
+      assert.equal(nativeProcStatIntegerDiagnosticV1(originalFailure),diagnostic);
+      assert.equal(nativeProcStatIntegerDiagnosticV1(Object.assign(new Error('NATIVE_RESOURCE_INTEGER'),{code:'ERR_ASSERTION'})),null);
+      assert.equal(nativeProcStatIntegerDiagnosticV1({...originalFailure}),null);
+      assert.equal(nativeProcStatIntegerDiagnosticV1(Object.create(originalFailure)),null);
+      const proxy=new Proxy(originalFailure,{get(){throw Error('HOST_PROXY_MUST_NOT_READ');}});
+      assert.equal(nativeProcStatIntegerDiagnosticV1(proxy),null);
+      assert.equal(isOriginalNativeProcStatMinusOneV1(proxy),false);
+      const fs=fixture({'/proc/42/stat':text});let measuredFailure;
+      assert.throws(()=>observeNativeOwnedRSSV1(original,fs),error=>{measuredFailure=error;return error.message==='NATIVE_RESOURCE_INTEGER';});
+      assert.deepEqual(nativeProcStatIntegerDiagnosticV1(measuredFailure),diagnostic);
+      assert.equal(fs.counts.get('/proc/42/stat'),token==='-1'&&field!=='PPID'?4:1);assert.equal(fs.counts.get('/proc/42/status')??0,0);
+    }
+  }
+  assert.equal(nativeProcStatIntegerDiagnosticV1({field:'SESSION',tokenShape:'negative',originalIntegerFailure:true}),null);
+  assert.equal(nativeProcStatIntegerDiagnosticV1(null),null);
+  // Missing fields fail the unchanged enclosing format guard first: no fake
+  // numeric metadata is attached to an unrelated original rejection.
+  let malformed;assert.throws(()=>parseNativeProcStat(42,'42 (host fixture) R 1 42\n'),error=>{malformed=error;return error.message==='NATIVE_PROC_STAT_FIELDS';});
+  assert.equal(nativeProcStatIntegerDiagnosticV1(malformed),null);
+  assert.deepEqual(parseNativeProcStat(42,rawStat()),original);
+});
+
+test('HOST original RSS rereads only branded exact minus-one identities with a total bound and full original identity checks',()=>{
+  // Same real parser and RSS observer; only filesystem contents are inert.
+  const partial=field=>{
+    const fields=Array(22).fill('0');fields[0]='R';fields[1]='1';fields[2]='42';fields[3]='42';fields[19]='100';fields[field]='-1';
+    return `42 (host fixture) ${fields.join(' ')}\n`;
+  };
+  for(const field of [2,3]){
+    const fs=fixture({'/proc/42/stat':[partial(field),partial(field),partial(field),rawStat()],'/proc/42/status':status(42,1234)});
+    const measured=observeNativeOwnedRSSV1(original,fs);
+    assert.deepEqual(measured.stat,original);assert.equal(measured.rssBytes,1234*1024);assert.equal(measured.rssSource,'VmRSS');
+    assert.equal(fs.counts.get('/proc/42/stat'),5);assert.equal(fs.counts.get('/proc/42/status'),1);
+    const persistent=fixture({'/proc/42/stat':partial(field)});
+    assert.throws(()=>observeNativeOwnedRSSV1(original,persistent),/NATIVE_RESOURCE_INTEGER/);assert.equal(persistent.counts.get('/proc/42/stat'),4);
+  }
+  for(const changed of [rawStat(42,'R','999'),rawStat(42,'R','100',99),rawStat().replace(' R 1 42 42 ',' R 1 0 42 ')]){
+    const fs=fixture({'/proc/42/stat':[partial(2),changed],'/proc/42/status':status(42,1234)});
+    assert.throws(()=>observeNativeOwnedRSSV1(original,fs),/NATIVE_MEASURED_PROCESS_CHANGED/);assert.equal(fs.counts.get('/proc/42/status')??0,0);
+  }
+  const malformed=fixture({'/proc/42/stat':[partial(2),'42 (host fixture) R 1 42\n']});
+  let first;assert.throws(()=>observeNativeOwnedRSSV1(original,malformed),error=>{first=error;return error.message==='NATIVE_RESOURCE_INTEGER';});
+  assert.deepEqual(nativeProcStatIntegerDiagnosticV1(first),{field:'PGRP',tokenShape:'negative',originalIntegerFailure:true,identityMinusOne:true});
+  assert.equal(malformed.counts.get('/proc/42/stat'),2);
+  const ppid=fixture({'/proc/42/stat':partial(1)});assert.throws(()=>observeNativeOwnedRSSV1(original,ppid),/NATIVE_RESOURCE_INTEGER/);assert.equal(ppid.counts.get('/proc/42/stat'),1);
+  const wrongNegative=fixture({'/proc/42/stat':partial(2).replace(' R 1 -1 42 ',' R 1 -2 42 ')});
+  assert.throws(()=>observeNativeOwnedRSSV1(original,wrongNegative),/NATIVE_RESOURCE_INTEGER/);assert.equal(wrongNegative.counts.get('/proc/42/stat'),1);
+  const absentOriginal=fixture({'/proc/42/stat':[partial(2),absent()]});assert.equal(observeNativeOwnedRSSV1(original,absentOriginal),null);assert.equal(absentOriginal.counts.get('/proc/42/stat'),2);
+  // A successful early read does not renew the three-reread allowance before
+  // the later same-observation read. A valid literal zero still fails identity.
+  const exhausted=fixture({'/proc/42/stat':[partial(2),partial(2),partial(2),rawStat(),partial(3)],'/proc/42/status':status(42,1234)});
+  assert.throws(()=>observeNativeOwnedRSSV1(original,exhausted),/NATIVE_RESOURCE_INTEGER/);assert.equal(exhausted.counts.get('/proc/42/stat'),5);
 });

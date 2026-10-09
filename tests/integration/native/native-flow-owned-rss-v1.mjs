@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
-import {parseNativeProcStat} from './native-flow-owned-files-v1.mjs';
+import {parseNativeProcStat,isOriginalNativeProcStatMinusOneV1} from './native-flow-owned-files-v1.mjs';
 const missing=error=>['ENOENT','ESRCH'].includes(error.code);
 const live=stat=>!/[ZX]/.test(stat.state);
 const integer=value=>{assert.ok(Number.isSafeInteger(value)&&value>=0,'NATIVE_RESOURCE_INTEGER');return value;};
@@ -26,7 +26,22 @@ export function observeNativeOwnedRSSV1(expected,fs){
   const base=`/proc/${pid}`;
   const read=path=>{try{return fs.readFileSync(path,'utf8');}catch(error){if(missing(error))return null;throw error;}};
   const stat=(id,path)=>{const text=read(path);return text===null?null:parseNativeProcStat(id,text);};
-  const leader=()=>{const current=stat(pid,base+'/stat');return current===null?null:checked(expected,current);};
+  let identityRereads=0;
+  const leader=()=>{
+    let originalFailure;
+    for(;;){
+      let current;
+      try{current=stat(pid,base+'/stat');}
+      catch(error){
+        if(!isOriginalNativeProcStatMinusOneV1(error))throw originalFailure??error;
+        originalFailure??=error;
+        // Three immediate rereads TOTAL for this observation. A sentinel never
+        // changes identity, becomes zero, supplies RSS or proves PID absence.
+        if(identityRereads>=3)throw originalFailure;identityRereads++;continue;
+      }
+      return current===null?null:checked(expected,current);
+    }
+  };
   let maximum=0;
   // Fixed immediate rereads; no timer, sleep, cached result or deadline renewal.
   for(let attempt=0;attempt<3;attempt++){

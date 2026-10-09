@@ -57,7 +57,7 @@ import { privateMetaMorphoSourcePins } from '../defi/private-metamorpho-source-p
 import { PRIVATE_METAMORPHO_FLOW_RESULT, assertPrivateMetaMorphoResult } from '../defi/private-metamorpho-flow-policy.mjs';
 import {types as coldErrorTypesV1} from 'node:util';
 import {assertWrappedColdCycleReleaseV1,writeWrappedColdStageGrantV1,assertWrappedColdBoundaryV1,wrappedColdSourceIdentityV1} from '../wallet/wrapped/flows/wrapped-wallet-cold-cycle-v1.mjs';
-import { parseNativeProcStat, nativeProcStatV1 as procStat, readNativeFlowRegularV1 as readRegular } from './native-flow-owned-files-v1.mjs';
+import { parseNativeProcStat, nativeProcStatV1 as procStat, readNativeFlowRegularV1 as readRegular, nativeProcStatIntegerDiagnosticV1 } from './native-flow-owned-files-v1.mjs';
 export { parseNativeProcStat } from './native-flow-owned-files-v1.mjs';
 import { nativeOwnedRSSV1 } from './native-flow-owned-rss-v1.mjs';
 import { classifyBeginPayoutAuditProofProcessV1, beginPayoutAuditProcessFailureV1 } from '../../../packages/proofs/src/jobs/native-flow-proof-scope-v1.mjs';
@@ -1478,6 +1478,7 @@ async function runFixedFlowSupervisor(profile) {
       if (childClosed && sample.ownedGroupLiveCount === 0 && (!coldCycle||groupGone)) resolveCompletion();
     } catch (error) {
       stop('NATIVE_RESOURCE_MONITOR_FAILURE', { errorCode: publicErrorCode(error), classification: publicFailureCode(error),
+        ...(nativeProcStatIntegerDiagnosticV1(error) ? { procStatIntegerDiagnostic: nativeProcStatIntegerDiagnosticV1(error) } : {}),
         stackFrames: typeof error?.stack === 'string' ? error.stack.split('\n')
           .filter(line => /^\s+at /.test(line)).slice(0, 12) : [] });
     }
