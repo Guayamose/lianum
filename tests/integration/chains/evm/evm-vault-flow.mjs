@@ -39,6 +39,7 @@ import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/de
 
 import {createRetainedMetaMorphoNoteExitWalletV1,createRetainedAaveNoteExitWalletV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-source-pins-v1.mjs';
+import {openOriginalRetainedVaultDeviceReadHostV1} from './retained-vault-device-position-host-v1.mjs';
 import {captureAndLaunchExternalDefiVaultExitSuccessorV1} from '../../wallet/native/native-device-economic-launcher-v1.mjs';
 import {assertExternalDefiVaultExitRecoveryResultV1} from './external-defi-vault-exit-policy-v1.mjs';
 import { aavePrivateGraphSourcePinsV1 } from './aave-private-graph-source-pins-v1.mjs';
@@ -139,7 +140,7 @@ async function main() {
     save(); process.stdout.write(JSON.stringify({ stage: name }) + '\n');
   }
   let fixture, execution, portfolio, keeper, session, http, walletApp, appDriver, vaultActor, vaultExit, legacy, manualSession, privateView;
-  let retainedExitWallet,externalSuccessor,retainedExitCaptured=false;
+  let retainedExitWallet,externalSuccessor,devicePositionReadHost,retainedExitCaptured=false;
   let solverBalanceBeforeDelivery, solverBalanceAfterDelivery;
   let graphRef, graphCutoff, solverPayoutCommitment, reserveNullifier;
   const graphId = 'private_vault_graph';
@@ -170,6 +171,9 @@ async function main() {
   async function cleanup() {
     if (closed) return; closed = true;
     if(externalSuccessor){try{const status=await externalSuccessor.close();result.cleanup.closedSuccessor=status.originalChildProcessClosed===true;result.externalVaultBackendRecovery.successorClosure=status;}catch(error){result.cleanup.closedSuccessor=false;result.success=false;result.phase='failed';result.cleanup.successorError=safeCode(error);}}
+    // Revoke device READ and drain its ORIGINAL listener before any wallet,
+    // session, catalogue, keeper or runtime resource can close or be captured.
+    if(devicePositionReadHost){try{result.cleanup.devicePositionRead=await devicePositionReadHost.close();devicePositionReadHost=null;}catch(error){result.cleanup.devicePositionReadError=safeCode(error);result.success=false;result.phase='failed';}}
     if (walletApp) await walletApp.close().catch(() => {});
     await Promise.allSettled([...accounts.map(account => account.abort()), execution?.abort(), legacy?.close()].filter(Boolean));
     if (http) await http.close().catch(() => {});
@@ -202,6 +206,14 @@ async function main() {
   }
   const appState = () => appDriver.state();
   const appDefi = (action, body) => appDriver.defi(action, body);
+  async function readOriginalDevicePositions(phase,expectedShares) {
+    assert.equal(RETAINED_EXIT,true);assert.ok(devicePositionReadHost);
+    const before={wires:fixture.runtime.transactions.length,proofs:result.proofs.length,accountRequests:result.accountRequests.length};
+    const observed=await devicePositionReadHost.read(phase,expectedShares);
+    const after={wires:fixture.runtime.transactions.length,proofs:result.proofs.length,accountRequests:result.accountRequests.length};
+    assert.deepEqual(after,before,'EXTERNAL_DEVICE_READ_NO_NEW_EFFECT');
+    result.deviceDefiPositionRead.observations.push({...observed,originalEffectCounts:before,noNewFinancialEffect:true});save();
+  }
   async function appAccount(action, body) {
     const { snapshot, ...observation } = await appDriver.account(action, body);
     result.accountRequests.push({ via: 'WALLET_APP_HTTP', ...observation }); save(); return snapshot;
@@ -402,6 +414,11 @@ async function main() {
     if (!UNISWAP) {
       if(RETAINED_EXIT){retainedExitWallet=await(AAVE?createRetainedAaveNoteExitWalletV1:createRetainedMetaMorphoNoteExitWalletV1)({runtime,system,owners:[sourceOwner,targetOwner],protocolFixture:officialProtocol},{onProof:retainProof});vaultActor=retainedExitWallet.vault;vaultExit=retainedExitWallet.exit;
         result.externalVaultBackendRecovery={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',variant:AAVE?'AAVE_STATIC':'METAMORPHO',bornBeforeFunding:true,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false};
+        // Actual SDK/TLS/reader over the same original realm. Only the device
+        // secp signer, Expo digest adapter and TLS certificate are HOST ports.
+        devicePositionReadHost=await openOriginalRetainedVaultDeviceReadHostV1(retainedExitWallet,privateDirectory);
+        result.deviceDefiPositionRead={profile:'ORIGINAL_RETAINED_VAULT_DEVICE_POSITION_READ_V1',bornBeforeFunding:true,observations:[],closedBeforeOriginalCapture:false,linuxOriginalCustody:true,mobileNoteCustody:false,phoneOrExpoHardwareAccepted:false};
+        result.disclosure.push('Device READ uses the original mobile SDK, fixed TLS and original Linux catalogue/session; its signing key, Expo digest and TLS certificate are explicit HOST infrastructure. No mobile note custody, biometrics or physical phone acceptance is established.');
       }else{vaultActor = await (AAVE ? createOwnedAaveStaticVaultV1 : createOwnedMetaMorphoVault)({ runtime, protocolFixture: officialProtocol });
       vaultExit = await createOwnedPrivateVaultExit({ runtime, system, poolIndex: 1, account: accounts[1], vault: vaultActor });}
       privateView = createPrivateVaultPortfolioView({ runtime, portfolio, vault: vaultActor,
@@ -553,6 +570,7 @@ async function main() {
       http=await startFlatAccountHttp({session,port:0});walletApp=await startWalletApplication({accountSession:session,defiExit:{runtime,service:retainedExitWallet.exit},actionAccessMode:'exact-only',port:0});
       appDriver=createManualWalletAppDriver(walletApp,{deadlineMs:Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds});
     }
+    if(RETAINED_EXIT)await readOriginalDevicePositions('after-mint',SHARES);
     await stage(UNISWAP ? 'exit-source-change-and-original-target-output' : 'exit-source-change-and-original-target-shares');
     await exitOwnerNote(0, sourceOwner, 'change', 'vault_exit_0');
     await exitOwnerNote(1, targetOwner, 'source', 'vault_exit_1');
@@ -645,6 +663,7 @@ async function main() {
       result.manualPrivateOutputExit = { outputAssetId: accounts[1].assetId, outputAmount: SHARES,
         originalExitBound: true, duplicateNoEffect: true };
     }
+    if(RETAINED_EXIT)await readOriginalDevicePositions('after-redemption','0');
     result.finalPools = [];
     for (const reader of readers) {
       const value = (await reader.read()).ledger.publicState;
@@ -664,6 +683,8 @@ async function main() {
     if (!UNISWAP) result.privateExitsAndUnderlyingRedemption = true;
     result.duplicateNoEffect = true;
     if(RETAINED_EXIT){
+      const closedRead=await devicePositionReadHost.close();assert.equal(closedRead.closed,true);assert.equal(closedRead.ownedTlsSocketsRemaining,0);devicePositionReadHost=null;
+      result.deviceDefiPositionRead.closedBeforeOriginalCapture=true;result.deviceDefiPositionRead.closure=closedRead;save();
       await stage('planned-terminal-vault-catalogue-capture-and-new-backend');
       const closedApp=await walletApp.close();assert.equal(closedApp.listenerClosed,true);walletApp=null;
       // Dispose only the original, already terminal graph resources. Their

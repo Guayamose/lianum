@@ -22,6 +22,18 @@ export function assertExternalDefiVaultExitRecoveryResultV1(result){
  for(const key of ['localOnly','fakeFundsOnly','sourceUnchanged','sourceFundingConfirmed','sourcePrivateReservationEstablished','privatePAEGConversionEstablished','originalNotesRecoveredOnce','ownerPrivateExitsAccepted','solverPayoutRecoveredAndExitedOnce','privateOutputExitEstablished','privateExitsAndUnderlyingRedemption','duplicateNoEffect'])assert.equal(result[key],true);
  for(const key of ['publicNetwork','systemicPrivacyAcceptance','independentOperators','realClockFinalityAcceptance','performanceTargetAchieved','fullWalletAcceptance'])assert.equal(result[key],false);
  assert.deepEqual(result.proofs.map(row=>row.relation),AAVE_PRIVATE_GRAPH_RELATIONS_V1);assert.equal(new Set(result.proofs.map(row=>row.proofSHA256)).size,15);assert.equal(result.nativeEffects.evmVault,1);
+ // This fixed caller also exercises device READ over the same original
+ // catalogue before capture. It grants no phone or mobile note custody claim.
+ const read=result.deviceDefiPositionRead;assert.equal(read.profile,'ORIGINAL_RETAINED_VAULT_DEVICE_POSITION_READ_V1');
+ for(const key of ['bornBeforeFunding','closedBeforeOriginalCapture','linuxOriginalCustody'])assert.equal(read[key],true,'EXTERNAL_DEVICE_READ_JOIN');
+ for(const key of ['mobileNoteCustody','phoneOrExpoHardwareAccepted'])assert.equal(read[key],false,'EXTERNAL_DEVICE_READ_SCOPE');
+ assert.deepEqual(read.observations.map(row=>row.phase),['after-mint','after-redemption']);
+ assert.deepEqual(read.observations.map(row=>row.originalEffectCounts.proofs),[12,15],'EXTERNAL_DEVICE_READ_ORIGINAL_PROOFS');
+ for(const row of read.observations){for(const key of ['originalTargetsAndAmountsJoined','originalHeadJoined','readOnly','linuxOriginalCustody','twoOwnFreshConsents','noNewFinancialEffect'])assert.equal(row[key],true,'EXTERNAL_DEVICE_READ_JOIN');
+  for(const key of ['mobileNoteCustody','phoneOrExpoHardwareAccepted'])assert.equal(row[key],false,'EXTERNAL_DEVICE_READ_SCOPE');digest(row.responseSHA256);
+  for(const key of ['wires','proofs','accountRequests'])assert.ok(Number.isSafeInteger(row.originalEffectCounts[key])&&row.originalEffectCounts[key]>=0);
+  assert.equal(row.sdkSources.length,4);for(const source of row.sdkSources){assert.equal(typeof source.path,'string');digest(source.sha256);}}
+ assert.equal(read.closure.closed,true);assert.equal(read.closure.ownedTlsSocketsRemaining,0);assert.equal(read.closure.retainedOriginalCustody,true);
  const r=result.externalVaultBackendRecovery;assert.equal(r.profile,'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1');assert.equal(r.variant,result.protocolProfile==='OFFICIAL_AAVE_STATIC_V1'?'AAVE_STATIC':'METAMORPHO');
  for(const key of ['bornBeforeFunding','originalSectionsStoppedBeforeReopen','newBackendPID'])assert.equal(r[key],true);
  for(const key of ['originalGraphRecoveryEstablished','abruptCrashRecoveryEstablished','parentProcessExitEstablished'])assert.equal(r[key],false);
