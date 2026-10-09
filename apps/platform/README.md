@@ -203,3 +203,24 @@ SQL demuestran custodia física, financiación, ZK o efectos en una red real.
 
 Para Google Cloud, consultar `infra/google-cloud/README.md`. No hay proyecto
 seleccionado ni despliegue realizado.
+
+## Redactar almacenamiento legacy de forma explícita
+
+El bootstrap no convierte automáticamente las filas históricas. El comando
+`./dev node apps/platform/src/redact-legacy.mjs` usa el `DATABASE_URL` y la misma
+clave de privacidad existentes. Exige `LIANUM_PLATFORM_LEGACY_CHALLENGE_ID` con
+el ID hexadecimal de un challenge original guardado; convierte exclusivamente
+su grupo propietario/request, hasta 256 challenges, en una transacción bajo
+los locks originales. No recibe claves raíz, firmas ni términos por argumentos.
+
+Valida primero esquema, clave fijada, desafíos originales, asociaciones y
+términos inmutables. Conserva IDs de autorización y challenge, consumo, caducidad
+y estados UNKNOWN/ADMITTED/REJECTED. Reemplaza la identidad plaintext del índice
+de operación por el mismo HMAC actual; si ya existe, une ese índice redundante
+sólo después de comprobar los términos. No borra challenges ni crea permisos.
+La salida contiene sólo estados y contadores. Ante COMMIT sin respuesta, consulta
+el mismo original y vuelve a este mismo comando: no hay reenvío económico.
+
+Esto reduce los datos visibles en las filas vivas seleccionadas. Backups, WAL,
+logs históricos y grupos aún no convertidos conservan su retención previa; la
+API sigue viendo los términos y no se declara anonimato frente a la cadena o RPC.

@@ -10,6 +10,7 @@ import { createPostgresAuthorizationStore, authorizationKey, operationTerms } fr
 import { migratePlatformDatabase, assertPlatformSchema, PLATFORM_MIGRATIONS,
   PLATFORM_MIGRATION_LOCK_KEY } from '../../src/schema-migrations.mjs';
 import { startCommitReplyProxy } from './commit-reply-proxy.mjs';
+import { redactLegacyPlatformAuthorizationV1 } from '../../src/legacy-authorization-redaction-v1.mjs';
 
 // Literal schema from the bootstrap before versioning, deliberately separate
 // from the new SQL file so legacy adoption exercises a pre-existing database.
@@ -108,6 +109,70 @@ export async function runMigrationCases(t, admin, connectionString, { challenge,
     assert.deepEqual(await store.receipt(originals[0]), unknown(originals[0]));
     for (const name of ['mobile_challenges', 'mobile_operations', 'mobile_authorizations'])
       assert.equal((await pool.query('SELECT count(*)::integer AS count FROM decoy.' + name)).rows[0].count, 0);
+  });
+
+  await t.test('explicit legacy redaction preserves original UNKNOWN/ADMITTED and immutable action keys without disclosing terms', async childTest => {
+    const { pool } = await database(childTest);
+    const originals = await seedLegacy(pool);
+    await migratePlatformDatabase(pool);
+    const store = await createPostgresAuthorizationStore(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
+    // Current intake may already have its HMAC index beside the old raw one.
+    // Merge that duplicate only when both preserve the same original terms.
+    const sameTerms = challenge({ intent: { ...originals[0].intent, action: 'execute' } });
+    await store.put(sameTerms); await store.consume(sameTerms, Date.now());
+    const before = await records(pool), history = (await pool.query('SELECT * FROM public.platform_schema_migrations')).rows;
+    const result = await redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[0].challengeId });
+    assert.deepEqual(result, { profile: 'LIANUM_PLATFORM_LEGACY_REDACTION_V1', redacted: true, challenges: 1, authorizations: 2, operation: true });
+    const first = await records(pool);
+    for (const prior of before.challenges) {
+      const retained = first.challenges.find(row => row.challenge_id === prior.challenge_id);
+      assert.equal(retained.expires_at, prior.expires_at); assert.equal(retained.consumed, prior.consumed);
+      assert.equal(retained.challenge_id, prior.challenge_id);
+    }
+    for (const prior of before.authorizations) {
+      const retained = first.authorizations.find(row => row.authorization_key === prior.authorization_key);
+      assert.equal(retained.challenge_id, prior.challenge_id); assert.equal(retained.response.status, prior.response.status);
+      assert.equal(retained.response.operationState, prior.response.operationState); assert.equal(retained.response.retryAllowed, false);
+    }
+    assert.deepEqual(first.challenges.find(row => row.challenge_id === originals[1].challengeId).challenge, originals[1]);
+    assert.deepEqual(await store.receipt(originals[0]), unknown(originals[0]));
+    assert.deepEqual(await store.consume(sameTerms, Date.now()), { duplicate: true, response: unknown(sameTerms) });
+    assert.deepEqual(await store.consume(originals[0], Date.now()), { duplicate: true, response: unknown(originals[0]) });
+    assert.deepEqual(await redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[0].challengeId }),
+      { profile: 'LIANUM_PLATFORM_LEGACY_REDACTION_V1', redacted: false, challenges: 0, authorizations: 0, operation: false });
+    const altered = challenge({ intent: { ...originals[0].intent, action: 'execute', amountAtomic: '101' } });
+    await store.put(altered); await assert.rejects(store.consume(altered, Date.now()), { code: 'MOBILE_OPERATION_CONFLICT' });
+    const stable = await records(pool);
+    await assert.rejects(redactLegacyPlatformAuthorizationV1(pool, { privacyKey: '7c'.repeat(32), challengeId: originals[1].challengeId }), { code: 'MOBILE_PRIVACY_KEY_MISMATCH' });
+    assert.deepEqual(await records(pool), stable);
+    await pool.query('UPDATE public.mobile_operations SET terms_hash=$3 WHERE owner_key=$1 AND request_id=$2',
+      [originals[1].ownerPublicKey, originals[1].intent.requestId, '00'.repeat(32)]);
+    const corrupted = await records(pool);
+    await assert.rejects(redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[1].challengeId }), { code: 'PLATFORM_LEGACY_REDACTION_TERMS_UNAVAILABLE' });
+    assert.deepEqual(await records(pool), corrupted);
+    await pool.query('UPDATE public.mobile_operations SET terms_hash=$3 WHERE owner_key=$1 AND request_id=$2',
+      [originals[1].ownerPublicKey, originals[1].intent.requestId, operationTerms(originals[1])]);
+    await redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[1].challengeId });
+    assert.deepEqual(await store.receipt(originals[1]), accepted(originals[1]));
+    assert.deepEqual(await store.consume(originals[1], Date.now()), { duplicate: true, response: accepted(originals[1]) });
+    const redacted = JSON.stringify(await records(pool));
+    for (const original of originals) for (const privateValue of [original.ownerPublicKey, original.intent.requestId, original.intent.recipient, original.intent.assetId])
+      assert.equal(redacted.includes(privateValue), false);
+    assert.deepEqual((await pool.query('SELECT * FROM public.platform_schema_migrations')).rows, history);
+  });
+
+  await t.test('explicit legacy redaction with missing COMMIT reply remains duplicate UNKNOWN on its same original key', async childTest => {
+    const { pool, connectionString: originalURL } = await database(childTest);
+    const originals = await seedLegacy(pool); await migratePlatformDatabase(pool);
+    const proxy = await startCommitReplyProxy(originalURL), bounded = createPlatformPool(proxy.connectionString);
+    try {
+      await assert.rejects(redactLegacyPlatformAuthorizationV1(bounded, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[0].challengeId }), /Query read timeout/);
+      assert.equal(proxy.commitForwarded, true); assert.equal(bounded.totalCount, 0); assert.equal(bounded.idleCount, 0);
+      const store = await createPostgresAuthorizationStore(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY });
+      assert.deepEqual(await store.receipt(originals[0]), unknown(originals[0]));
+      assert.deepEqual(await store.consume(originals[0], Date.now()), { duplicate: true, response: unknown(originals[0]) });
+      assert.equal((await redactLegacyPlatformAuthorizationV1(pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY, challengeId: originals[0].challengeId })).redacted, false);
+    } finally { await bounded.end(); await proxy.close(); }
   });
 
   await t.test('changed checksum, unknown future version and missing history fail without rewriting records', async childTest => {

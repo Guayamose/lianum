@@ -35,8 +35,8 @@ export function createPrivateAuthorizationRecordCodecV1(privacyKey) {
     challenge(challenge) { return { format: CHALLENGE, commitment: mac('challenge', challenge) }; },
     matchesChallenge(record, challenge) {
       if (record?.format === CHALLENGE) return exact(record, ['format', 'commitment']) && equal(record.commitment, mac('challenge', challenge));
-      // Historical challenges stay byte-for-byte in their original rows. New
-      // records never use this format and no migration deletes consumed rows.
+      // Historical rows remain readable until an explicit storage-only redaction.
+      // New records never use this format; consumed challenges are not deleted.
       return record?.profile === 'LIANUM_MOBILE_AUTHORIZATION_V1' && equal(legacyDigest(record), legacyDigest(challenge));
     },
     terms(challenge) { return mac('terms', termsOf(challenge)); },
