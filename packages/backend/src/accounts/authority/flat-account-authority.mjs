@@ -118,6 +118,47 @@ export function assertOwnedFlatAccountAuthority(capability, expected) {
  * proof factory, asset registry, source note, or transaction sender. */
 export async function createFlatAccountAuthority(input, callbacks = {}) { return flatAccountAuthority(input,callbacks,null); }
 export async function createRetainedFlatAccountAuthorityV1(input,callbacks={}) {return flatAccountAuthority(input,callbacks,{create:true});}
+const EXTERNAL_VAULT_NOTE_PROFILE_V1='EXTERNAL_RETAINED_FLAT_VAULT_NOTES_V1';
+/** Fixed before-effects note authority. The graph has its separate original
+ * account; this one keeps TOP_UP and EXIT on the same owner/account/journal. */
+export async function createRetainedExternalVaultNoteAccountV1(input,callbacks={}) {
+  assert.ok(arguments.length===1||arguments.length===2);
+  exactRecord(input,['runtime','system','poolIndex','owner','nativeExecution','accountId','journalId']);
+  input=Object.freeze({...input});
+  const {assertOwnedExternalDefiReceiverV2}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+  assertOwnedExternalDefiReceiverV2(input.runtime);
+  assert.equal(input.nativeExecution,null,'EXTERNAL_VAULT_NOTE_GRAPH_FORBIDDEN');
+  assert.ok(input.poolIndex===0||input.poolIndex===1);
+  assert.equal(input.accountId,'retained_vault_note_asset_'+input.poolIndex);
+  assert.equal(input.journalId,'retained_vault_note_asset_journal_'+input.poolIndex);
+  assertOwnedFlatOwnerProcess(input.owner,{runtime:input.runtime,system:input.system,poolIndex:input.poolIndex});
+  const preparations=await input.owner.ownerView.manualPreparations();validateFlatManualRecords(preparations);
+  assert.equal(preparations.records.length,0,'EXTERNAL_VAULT_NOTE_BEFORE_PREPARATION_REQUIRED');
+  return flatAccountAuthority(input,callbacks,{create:true,vaultNotes:true});
+}
+function validateRetainedVaultNoteOperations(operations,poolIndex,config,terminal=false) {
+  assert.ok(Array.isArray(operations)&&operations.length<=(poolIndex===0?2:1),'EXTERNAL_VAULT_NOTE_OPERATIONS');
+  const seen=new Set();
+  for(const entry of operations){
+    const topUp=poolIndex===0&&entry.kind==='TOP_UP';
+    assert.ok(topUp||(entry.kind==='EXIT'&&entry.role===(poolIndex===0?'change':'source')),'EXTERNAL_VAULT_NOTE_KIND');
+    assert.equal(entry.ownerKind,topUp?'deposit':'withdraw_'+entry.role);if(topUp)assert.equal(entry.role,null);
+    assert.ok(!seen.has(entry.kind),'EXTERNAL_VAULT_NOTE_DUPLICATE_KIND');seen.add(entry.kind);
+    const requestId=topUp?'vault_top_up':'vault_exit_'+poolIndex;
+    if(entry.request!==null){const request=validateBoundRequest(entry.request,config);assert.equal(request.requestId,requestId);assert.equal(request.kind,entry.kind);assert.equal(request.ownerOperationRef,entry.ownerOperationRef);}
+    if(terminal){assert.ok(entry.request&&entry.submission&&entry.terminal&&entry.outcome,'EXTERNAL_VAULT_NOTE_ORIGINAL_TERMINAL_REQUIRED');assert.equal(entry.stage,'CONFIRMED');assert.equal(entry.manualLifecycle?.state,'CONFIRMED');validateOutcome(entry.outcome,entry.request);}
+  }
+  if(terminal){assert.equal(operations.length,poolIndex===0?2:1);assert.deepEqual(operations.map(entry=>entry.request.requestId),poolIndex===0?['vault_top_up','vault_exit_0']:['vault_exit_1']);}
+}
+function retainedAccountReopenMode(saved,manualKeeper) {
+  if(Object.hasOwn(saved,'schema')){
+    exactRecord(saved,['schema','identity','state','accountId','journalId','poolIndex','config']);
+    assert.equal(saved.schema,EXTERNAL_VAULT_NOTE_PROFILE_V1,'EXTERNAL_VAULT_NOTE_ORIGINAL_SCHEMA');
+    assert.equal(saved.identity.profile,EXTERNAL_VAULT_NOTE_PROFILE_V1,'EXTERNAL_VAULT_NOTE_ORIGINAL_IDENTITY');
+    return {saved,manualKeeper,vaultNotes:true};
+  }
+  return manualKeeper===undefined?{saved}:{saved,manualKeeper};
+}
 async function flatAccountAuthority(input,callbacks,durable) {
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'owner', 'nativeExecution', 'accountId', 'journalId']);
   exactRecord(callbacks, Object.keys(callbacks));
@@ -146,7 +187,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
   const directory = durable?.saved?durable.saved.state.directory:await mkdtemp(join(runtime.metadata.scratchDirectory, 'flat-account-authority-'));
   const vault = new Vault(join(directory, 'operations.vault'));
   let password = durable?.saved?durable.saved.state.password:'synthetic-' + randomBytes(32).toString('hex');
-  const lifetimeIdentity={profile:'EXTERNAL_FLAT_ACCOUNT_LIFETIME_V1',accountIdentity,identitySHA256,poolIndex};
+  const lifetimeIdentity={profile:durable?.vaultNotes?EXTERNAL_VAULT_NOTE_PROFILE_V1:'EXTERNAL_FLAT_ACCOUNT_LIFETIME_V1',accountIdentity,identitySHA256,poolIndex};
   let lifetimeHandle=null,lifetimeRegistry=null;
   if(durable){lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
     if(durable.saved){assert.deepEqual(durable.saved.identity,lifetimeIdentity,'FLAT_ACCOUNT_ORIGINAL_IDENTITY_CHANGED');
@@ -160,7 +201,8 @@ async function flatAccountAuthority(input,callbacks,durable) {
   assert.deepEqual(await vault.read(password),record,'FLAT_ACCOUNT_INITIAL_READBACK');
   if(durable?.saved){assert.equal(sha(record),durable.saved.state.checkpointSHA256,'FLAT_ACCOUNT_ORIGINAL_CHECKPOINT_CHANGED');
     assert.equal(record.data.identitySHA256,identitySHA256);assert.deepEqual(record.data.accountIdentity,accountIdentity);
-    assert.ok(record.data.operations.every(row=>row.kind==='EXIT'),'FLAT_DURABLE_EXIT_ONLY');}
+    if(durable.vaultNotes)validateRetainedVaultNoteOperations(record.data.operations,poolIndex,config,true);
+    else assert.ok(record.data.operations.every(row=>row.kind==='EXIT'),'FLAT_DURABLE_EXIT_ONLY');}
   const lifetimeState=()=>({directory,password,checkpointSHA256:sha(record),pendingUpdate:null});
   if(durable&&!durable.saved)await lifetimeRegistry.updateWrappedPrivateLifetimePartV1(lifetimeHandle,lifetimeState());
   let busy = false, unavailable = false, closed = false, cancelled = false, activeLegacy = null, capturing = false;
@@ -190,7 +232,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
       await healthy();
       if(durable)await lifetimeRegistry.updateWrappedPrivateLifetimePartV1(lifetimeHandle,{...lifetimeState(),pendingUpdate:{revision:record.revision+1}});
       const next = await vault.update(password, record.revision, data => {
-        const changed = change(copy(data)); if(durable)assert.ok(changed.operations.every(row=>row.kind==='EXIT'),'FLAT_DURABLE_EXIT_ONLY'); for (const entry of changed.operations) if (entry.manualLifecycle) validateManualLifecycle(entry); return changed;
+        const changed = change(copy(data)); if(durable?.vaultNotes)validateRetainedVaultNoteOperations(changed.operations,poolIndex,config);else if(durable)assert.ok(changed.operations.every(row=>row.kind==='EXIT'),'FLAT_DURABLE_EXIT_ONLY'); for (const entry of changed.operations) if (entry.manualLifecycle) validateManualLifecycle(entry); return changed;
       });
       assert.equal(next.revision, record.revision + 1, 'FLAT_ACCOUNT_REVISION');
       assert.deepEqual(await vault.read(password), next, 'FLAT_ACCOUNT_READBACK');
@@ -1051,12 +1093,12 @@ async function flatAccountAuthority(input,callbacks,durable) {
     },
   });
   owned.set(capability, { runtime, system, poolIndex, owner, closed: () => closed || cancelled || unavailable || capturing,
-    durable:!!durable,
+    durable:!!durable,vaultNotes:durable?.vaultNotes===true,
     async inventory(){assert.ok(durable&&!capturing&&!busy);await healthy();return {poolIndex,identitySHA256,accountIdentity,checkpointSHA256:sha(record)};},
     async capture(){assert.ok(durable&&!busy&&!capturing&&!closed&&!cancelled&&!unavailable,'FLAT_ACCOUNT_CAPTURE_UNAVAILABLE');capturing=true;
-      await healthy();assert.ok(record.data.operations.every(row=>row.kind==='EXIT'),'FLAT_DURABLE_EXIT_ONLY');
+      await healthy();if(durable.vaultNotes)validateRetainedVaultNoteOperations(record.data.operations,poolIndex,config,true);else assert.ok(record.data.operations.every(row=>row.kind==='EXIT'),'FLAT_DURABLE_EXIT_ONLY');
       lifetimeRegistry.assertWrappedPrivateLifetimePartSealedV1(lifetimeHandle);
-      const retained={identity:lifetimeIdentity,state:lifetimeState(),accountId,journalId,poolIndex,config};
+      const retained={...(durable.vaultNotes?{schema:EXTERNAL_VAULT_NOTE_PROFILE_V1}:{}),identity:lifetimeIdentity,state:lifetimeState(),accountId,journalId,poolIndex,config};
       await proofRunner.close();closed=true;password=null;record=null;return retained;}
   });
   return capability;
@@ -1065,7 +1107,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
 export async function captureRetainedFlatAccountV1(account){const s=owned.get(account);assert.ok(s?.durable,'FLAT_ACCOUNT_ORIGINAL_DURABLE_REQUIRED');return s.capture();}
 export async function reopenRetainedFlatAccountV1(token){
  const {consumeExternalDefiAccountReopenV1}=await import('../recovery/external-defi-wallet-recovery-v1.mjs');
- const {input,saved,callbacks}=consumeExternalDefiAccountReopenV1(token);return flatAccountAuthority(input,callbacks, {saved});
+ const {input,saved,callbacks}=consumeExternalDefiAccountReopenV1(token);return flatAccountAuthority(input,callbacks,retainedAccountReopenMode(saved));
 }
 
 export async function retainedFlatAccountInventoryV1(account){const s=owned.get(account);assert.ok(s?.durable);return immutable(await s.inventory());}
@@ -1074,5 +1116,11 @@ export async function retainedFlatAccountInventoryV1(account){const s=owned.get(
 export async function reopenRetainedCatalogueFlatAccountV1(token){
  assert.equal(arguments.length,1);const {consumeExternalDefiCatalogueAccountReopenV1}=await import('../recovery/external-defi-catalogue-recovery-v1.mjs');
  const {input,saved,callbacks,manualKeeper}=consumeExternalDefiCatalogueAccountReopenV1(token);
- return flatAccountAuthority(input,callbacks,{saved,manualKeeper});
+ return flatAccountAuthority(input,callbacks,retainedAccountReopenMode(saved,manualKeeper));
+}
+
+/** Exact private producer brand, never a captured inventory or account DTO. */
+export function assertRetainedExternalVaultNoteAccountV1(account,expected){
+ assert.equal(arguments.length,2);assertOwnedFlatAccountAuthority(account,expected);
+ const state=owned.get(account);assert.equal(state.vaultNotes,true,'EXTERNAL_VAULT_NOTE_ORIGINAL_ACCOUNT_REQUIRED');
 }

@@ -12,7 +12,7 @@ export function assertExternalVaultExitRecoveryAuditV1(row){
  for(const name of ['bornBeforeFunding','originalSectionsStoppedBeforeReopen','newBackendPID','newOriginalCatalogue','newOriginalVault','newOriginalExitService','sameOriginalReceipt','originalExitRequestIdsRetained','originalCatalogueRequestIdsRetained'])assert.equal(row[name],true,'EXTERNAL_VAULT_REOPEN_JOIN');
  for(const name of ['originalGraphRecoveryEstablished','abruptCrashRecoveryEstablished','parentProcessExitEstablished'])assert.equal(row[name],false,'EXTERNAL_VAULT_REOPEN_SCOPE');
  assert.ok(['METAMORPHO','AAVE_STATIC'].includes(row.variant));assert.ok(Number.isSafeInteger(row.actualWireCountBefore)&&row.actualWireCountBefore>0);assert.equal(row.actualWireCountAfter,row.actualWireCountBefore,'EXTERNAL_VAULT_DUPLICATE_WIRE');
- assert.deepEqual(row.catalogueRequestIds,['vault_exit_0','vault_exit_1']);assert.deepEqual(row.exitRequestIds,['vault_exit_1']);assert.deepEqual(row.catalogueStates,['CONFIRMED','CONFIRMED']);assert.equal(row.exitPhase,'REDEEMED');
+ assert.deepEqual(row.catalogueRequestIds,['vault_top_up','vault_exit_0','vault_exit_1']);assert.deepEqual(row.exitRequestIds,['vault_exit_1']);assert.deepEqual(row.catalogueStates,['CONFIRMED','CONFIRMED','CONFIRMED']);assert.equal(row.exitPhase,'REDEEMED');
  for(const name of ['catalogueIdentitySHA256','receiptSHA256','redemptionReferenceSHA256','exitIdentitySHA256'])digest(row[name]);
  return{retainedOriginalVaultExitRecovery:true,privateGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false};
 }

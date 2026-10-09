@@ -291,3 +291,29 @@ test('observing one already-admitted original never clears another unresolved or
   assert.equal(adapter.getState().phase, 'UNKNOWN'); assert.equal(adapter.cancelReview(), false);
   await assert.rejects(adapter.review(exit({ requestId: 'third_original_01', role: 'change' })), /UNAVAILABLE/);
 });
+
+
+test('one original note account prepares TOP_UP then its change EXIT and read-only restore preserves both bindings', async () => {
+  // Synthetic original ports only: this proves owner/account binding reuse,
+  // not a deposit, graph transition, balance, withdrawal or financial receipt.
+  const w = fixture(), bridge = await createFlatOwnerManualPreparation(w.input);
+  const depositReview = await bridge.review(topup({requestId:'vault_top_up'}));
+  const deposit = await bridge.confirm();
+  assert.deepEqual(deposit, depositReview.request);
+  const changeReview = await bridge.review(exit({requestId:'vault_exit_0',role:'change'}));
+  assert.equal(changeReview.accountIdentitySHA256, depositReview.accountIdentitySHA256);
+  assert.equal(changeReview.ownerIdentitySHA256, depositReview.ownerIdentitySHA256);
+  assert.equal(changeReview.request.assetId, depositReview.request.assetId);
+  assert.deepEqual(await bridge.confirm(), changeReview.request);
+  assert.deepEqual(effects(w).map(row=>[row.name,row.kind]), [['prepare','deposit'],['register','TOP_UP'],['prepare','withdraw_change'],['register','EXIT']]);
+  await assert.rejects(createFlatOwnerManualPreparation(w.input), /ALREADY_BOUND/);
+  const count = effects(w).length;
+  const restored = await restoreFlatOwnerManualPreparation(w.input);
+  assert.equal(typeof restored.review,'undefined');assert.equal(typeof restored.confirm,'undefined');
+  assert.equal((await restored.reconcileOriginal({requestId:'vault_exit_0'})).status,'HANDOFF_READY');
+  assert.deepEqual(restored.getState().attempts.map(row=>row.request.requestId),['vault_top_up','vault_exit_0']);
+  assert.equal(effects(w).length,count);
+  w.records[0].review.accountIdentitySHA256=h('e');
+  await assert.rejects(restoreFlatOwnerManualPreparation(w.input), /ORIGINAL_IDENTITY/);
+  assert.equal(effects(w).length,count);
+});

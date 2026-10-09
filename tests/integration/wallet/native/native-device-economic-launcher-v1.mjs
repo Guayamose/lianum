@@ -109,11 +109,12 @@ const externalBirth=pid=>{const value=originalBirth(pid),status=readFileSync(`/p
 export async function captureAndLaunchExternalDefiVaultExitSuccessorV1(context){
  assert.equal(arguments.length,1);assert.equal(context.externalDefiVaultExitRecovery,true);assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/evm-vault-flow.mjs'));context.active();
  const wallet=retainedExternalVaultWalletContextV1(context.wallet),life=externalVaultExitLifetimeContextV1(context.fixture.recoveryLifetime);
+ assert.equal(wallet.vaultNotes,true,'EXTERNAL_VAULT_ORIGINAL_NOTE_LIFECYCLE_REQUIRED');
  assert.equal(wallet.runtime,life.runtime);assert.equal(wallet.runtime,context.fixture.runtime);assert.equal(wallet.system,context.fixture.system);assert.equal(wallet.protocolFixture,context.fixture.officialProtocol);assert.equal(wallet.owners[0],context.fixture.sourceOwner);assert.equal(wallet.owners[1],context.fixture.targetOwner);assert.equal(context.privateDirectory,life.identity.directory);
  const sourceSHA256=hash(JSON.stringify(externalDefiVaultExitSourcePinsV1()));assert.equal(sourceSHA256,life.identity.sourceSHA256);
  const receipt=await wallet.service.originalReceipt('vault_exit_1'),exit=retainedOwnedPrivateVaultExitContextV1(wallet.service);
  assert.equal(ownedPrivateVaultExitBinding(wallet.runtime,wallet.service).vault,wallet.vault);
- const snapshot=await wallet.catalogue.keeper.snapshot();assert.deepEqual(snapshot.requests.map(row=>row.requestId),['vault_exit_0','vault_exit_1']);assert.deepEqual(snapshot.requests.map(row=>row.state),['CONFIRMED','CONFIRMED']);
+ const snapshot=await wallet.catalogue.keeper.snapshot();assert.deepEqual(snapshot.requests.map(row=>row.requestId),['vault_top_up','vault_exit_0','vault_exit_1']);assert.deepEqual(snapshot.requests.map(row=>row.state),['CONFIRMED','CONFIRMED','CONFIRMED']);
  const before={process:externalBirth(process.pid),receiver:wallet.runtime.processStatus(),owners:wallet.owners.map(owner=>owner.report()),receiverWireCount:wallet.runtime.transactions.length};
  const expected={variant:wallet.variant,actualWireCountBefore:before.receiverWireCount,catalogueIdentitySHA256:canonicalJournalSHA(wallet.catalogue.status()),receiptSHA256:canonicalJournalSHA(receipt),redemptionReferenceSHA256:canonicalJournalSHA(receipt.reference),exitIdentitySHA256:canonicalJournalSHA(exit.identity)};
  // Each fixed writer owns/fences its originals; credentials never enter IPC.

@@ -43,12 +43,15 @@ export async function reopenExternalDefiCatalogueFromRecoveryV1(input,callbacks=
  return reopenCatalogueV1({runtime,system,owners},retained.saved,callbacks);
 }
 async function reopenCatalogueV1({runtime,system,owners},saved,callbacks={}){
- exactRecord(saved,['schema','identity','journal','checkpoint','record','generations']);assert.equal(saved.schema,'EXTERNAL_FLAT_CATALOGUE_RECOVERY_V1');
+ exactRecord(saved,['schema','identity','journal','checkpoint','record','generations']);
+ const vaultNotes=saved.schema==='EXTERNAL_FLAT_VAULT_NOTE_CATALOGUE_RECOVERY_V1';
+ if(vaultNotes){assert.equal(saved.identity.profile,'EXTERNAL_VAULT_NOTE_CATALOGUE_LIFETIME_V1');assert.equal(saved.record.data.profile,'EXTERNAL_RETAINED_VAULT_NOTE_CATALOGUE_V1');assert.equal(saved.generations.length,1);}
+ else assert.equal(saved.schema,'EXTERNAL_FLAT_CATALOGUE_RECOVERY_V1');
  assert.equal(saved.identity.genesis,runtime.metadata.evmGenesis);assert.ok(Array.isArray(saved.generations)&&saved.generations.length>=1&&saved.generations.length<=8);
  const generations=[],resources=[],pools=new Set(),members=[];
  try{
   for(const row of saved.generations){exactRecord(row,['descriptor','config','keeper','accounts','routeOrder']);const accounts=[];
-   for(const member of row.accounts){exactRecord(member,['poolIndex','account']);const poolIndex=member.poolIndex;assert.ok((poolIndex===0||poolIndex===1)&&!pools.has(poolIndex),'EXTERNAL_CATALOGUE_ORIGINAL_POOL_REQUIRED');pools.add(poolIndex);
+   for(const member of row.accounts){exactRecord(member,['poolIndex','account']);if(vaultNotes)assert.equal(member.account.schema,'EXTERNAL_RETAINED_FLAT_VAULT_NOTES_V1');else assert.equal(Object.hasOwn(member.account,'schema'),false);const poolIndex=member.poolIndex;assert.ok((poolIndex===0||poolIndex===1)&&!pools.has(poolIndex),'EXTERNAL_CATALOGUE_ORIGINAL_POOL_REQUIRED');pools.add(poolIndex);
     const account=await issue('account',{input:{runtime,system,poolIndex,owner:owners[poolIndex],nativeExecution:null,accountId:member.account.accountId,journalId:member.account.journalId},saved:member.account,callbacks,manualKeeper:row.keeper},reopenRetainedCatalogueFlatAccountV1);
     resources.push(account);assert.deepEqual(account.config,member.account.config);accounts.push({poolIndex,account});members.push({poolIndex,account,generationId:row.descriptor.generationId});
    }

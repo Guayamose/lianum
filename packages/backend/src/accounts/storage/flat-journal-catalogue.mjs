@@ -12,13 +12,14 @@ import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedFlatPortfolio, describeFlatPortfolioJournalAuthority } from '../authority/flat-portfolio-authority.mjs';
 import { assertOwnedFlatPoolAdmissionPolicy } from '../authority/flat-pool-admission-policy.mjs';
 import { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper, createRetainedFlatManualPortfolioKeeperV1, captureRetainedFlatManualPortfolioKeeperV1 } from '../portfolio/flat-manual-portfolio-keeper.mjs';
-import { retainedFlatAccountInventoryV1 } from '../authority/flat-account-authority.mjs';
+import { retainedFlatAccountInventoryV1,assertRetainedExternalVaultNoteAccountV1 } from '../authority/flat-account-authority.mjs';
 import { consumeExternalDefiCatalogueGenerationReopenV1 as consumeGenerationToken } from '../recovery/external-defi-catalogue-recovery-v1.mjs';
 import { projectCatalogueOwnerRequests } from '../portfolio/catalogue-owner-requests.mjs';
 
 import { retainWrappedPrivateLifetimePartV1, readWrappedPrivateLifetimePartV1, updateWrappedPrivateLifetimePartV1, assertWrappedPrivateLifetimePartSealedV1 } from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 
 const PROFILE = 'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2';
+const NOTE_PROFILE='EXTERNAL_RETAINED_VAULT_NOTE_CATALOGUE_V1',NOTE_RECOVERY='EXTERNAL_FLAT_VAULT_NOTE_CATALOGUE_RECOVERY_V1';
 const generations = new WeakMap(), catalogues = new WeakMap(), catalogueClaims = new WeakSet();
 const fail = text => Object.assign(new Error('FLAT_CATALOGUE_' + text), { code: 'FLAT_CATALOGUE_' + text });
 const requireTrue = (condition, text) => { if (!condition) throw fail(text); };
@@ -86,9 +87,34 @@ export async function closeUnattachedFlatJournalGeneration(capability, { runtime
  * whole-keeper/node recreation is deliberately not offered. */
 export async function createFlatJournalCatalogue(input) { return catalogueFactory(input,null); }
 export async function createRetainedFlatJournalCatalogueV1(input) { assert.equal(arguments.length,1); return catalogueFactory(input,{create:true}); }
+/** Fixed note catalogue: original TOP_UP plus both EXITs, born before funding. */
+export async function createRetainedExternalVaultNoteCatalogueV1(input){
+ assert.equal(arguments.length,1);return catalogueFactory(input,{create:true,vaultNotes:true});
+}
+function validateRetainedVaultCatalogueBinding(request,members){
+ const matches=members.filter(member=>member.account.assetId===request.assetId);
+ requireTrue(matches.length===1,'ORIGINAL_NOTE_ACCOUNT_REQUIRED');const pool=matches[0].poolIndex;
+ requireTrue((pool===0&&request.kind==='TOP_UP'&&request.requestId==='vault_top_up')
+   ||(request.kind==='EXIT'&&request.requestId==='vault_exit_'+pool),'ORIGINAL_NOTE_BINDING_REQUIRED');
+}
+function retainedCatalogueReopenMode(saved,generations){
+ if(saved.schema===NOTE_RECOVERY){
+  assert.equal(saved.identity.profile,'EXTERNAL_VAULT_NOTE_CATALOGUE_LIFETIME_V1');
+  assert.equal(saved.record.data.profile,NOTE_PROFILE);
+  return {saved,generations,vaultNotes:true};
+ }
+ assert.equal(saved.schema,'EXTERNAL_FLAT_CATALOGUE_RECOVERY_V1');return {saved,generations};
+}
 async function catalogueFactory(input,durable) {
   exactRecord(input, ['runtime', 'initialGeneration', 'journal']);
   const { runtime, initialGeneration } = input, initial = originalGeneration(initialGeneration, runtime);
+  const catalogueProfile=durable?.vaultNotes?NOTE_PROFILE:PROFILE;
+  if(durable?.vaultNotes){
+    requireTrue(initial.accounts.length===2,'ORIGINAL_NOTE_ACCOUNT_COUNT');
+    requireTrue(new Set(initial.accounts.map(member=>member.poolIndex)).size===2,'ORIGINAL_NOTE_POOL_COUNT');
+    for(const member of initial.accounts){requireTrue(member.poolIndex===0||member.poolIndex===1,'ORIGINAL_NOTE_POOL_REQUIRED');
+      assertRetainedExternalVaultNoteAccountV1(member.account,{runtime,poolIndex:member.poolIndex});}
+  }
   requireTrue(!initial.attached && !catalogueClaims.has(initialGeneration), 'GENERATION_ALREADY_ATTACHED');
   const credentials = validateJournalCredentials(input.journal), path = resolve(credentials.path);
   async function originalPrivatePath(file=true){
@@ -113,12 +139,12 @@ async function catalogueFactory(input,durable) {
     requireTrue(route, 'ADMISSION_ROUTE_REQUIRED'); return [route.economicIdentitySHA256, assetId];
   }));
   const vault = new Vault(path); let password = credentials.password;
-  let record = durable?.saved ? await vault.read(password) : await vault.create({ version: 2, profile: PROFILE,
-    catalogueId: sha({ profile: PROFILE, initial: initial.identity }),
+  let record = durable?.saved ? await vault.read(password) : await vault.create({ version: 2, profile: catalogueProfile,
+    catalogueId: sha({ profile: catalogueProfile, initial: initial.identity }),
     generations: [descriptor(initial)], current, bindings: [], events: [] }, password);
   if(durable)await originalPrivatePath();
   assert.deepEqual(await vault.read(password), record, 'FLAT_CATALOGUE_INITIAL_READBACK');
-  const lifetimeIdentity={profile:'EXTERNAL_FLAT_CATALOGUE_LIFETIME_V1',catalogueId:record.data.catalogueId,genesis:runtime.metadata.evmGenesis};
+  const lifetimeIdentity={profile:durable?.vaultNotes?'EXTERNAL_VAULT_NOTE_CATALOGUE_LIFETIME_V1':'EXTERNAL_FLAT_CATALOGUE_LIFETIME_V1',catalogueId:record.data.catalogueId,genesis:runtime.metadata.evmGenesis};
   const mark=value=>({revision:value.revision,stateSHA256:sha(value.data)});
   const lifetimeState=checkpoint=>({journal:{path,password},checkpoint});
   let lifetimeHandle=null;
@@ -145,7 +171,8 @@ async function catalogueFactory(input,durable) {
     for(const entry of record.data.bindings){const generation=byId.get(entry.generationId);requireTrue(generation,'ORIGINAL_GENERATION_REQUIRED');
       validateBoundRequest(entry.boundRequest,generation.config);
       assert.deepEqual(bindGenericAccountRequest(entry.request,generation.config),entry.boundRequest,'FLAT_CATALOGUE_ORIGINAL_REQUEST');
-      requireTrue(entry.request.kind==='EXIT'&&!bindings.has(entry.request.requestId)&&!references.has(entry.request.ownerOperationRef),'ORIGINAL_EXIT_BINDING_REQUIRED');
+      if(durable.vaultNotes)validateRetainedVaultCatalogueBinding(entry.request,generation.accounts);else requireTrue(entry.request.kind==='EXIT','ORIGINAL_EXIT_BINDING_REQUIRED');
+      requireTrue(!bindings.has(entry.request.requestId)&&!references.has(entry.request.ownerOperationRef),'ORIGINAL_EXIT_BINDING_REQUIRED');
       bindings.set(entry.request.requestId,immutable(entry));references.set(entry.request.ownerOperationRef,entry.request.requestId);
     }
   }
@@ -226,6 +253,7 @@ async function catalogueFactory(input,durable) {
   async function reserveBinding(raw, expectedGenerationId = null, ownerReviewSHA256 = null) {
       // Capture/validate complete opaque handoff before any async boundary.
       const input = immutable(raw); exactRecord(input, ['requestId', 'kind', 'assetId', 'ownerOperationRef']);
+      if(durable?.vaultNotes)validateRetainedVaultCatalogueBinding(input,[...byId.values()].flatMap(generation=>generation.accounts));
       const prior = bindings.get(input.requestId);
       if (prior) {
         assert.deepEqual(input, prior.request, 'FLAT_CATALOGUE_REQUEST_ID_REUSE');
@@ -533,7 +561,12 @@ async function catalogueFactory(input,durable) {
           const inventory=await retainedFlatAccountInventoryV1(member.account);
           requireTrue(inventory.poolIndex===member.poolIndex,'ORIGINAL_RETAINED_ACCOUNT_REQUIRED');
         }
-        requireTrue(record.data.bindings.every(entry=>entry.request.kind==='EXIT'),'DURABLE_EXIT_ONLY');
+        if(durable.vaultNotes){
+          requireTrue(byId.size===1,'ORIGINAL_NOTE_GENERATION_REQUIRED');
+          const members=[...byId.values()].flatMap(generation=>generation.accounts);
+          for(const entry of record.data.bindings)validateRetainedVaultCatalogueBinding(entry.request,members);
+          assert.deepEqual(record.data.bindings.map(entry=>entry.request.requestId),['vault_top_up','vault_exit_0','vault_exit_1'],'FLAT_CATALOGUE_ORIGINAL_NOTE_TERMINALS');
+        }else requireTrue(record.data.bindings.every(entry=>entry.request.kind==='EXIT'),'DURABLE_EXIT_ONLY');
         const retained=[];
         for(const generation of byId.values()){
           requireTrue(generation.retained,'RETAINED_GENERATION_REQUIRED');
@@ -543,7 +576,7 @@ async function catalogueFactory(input,durable) {
             routeOrder:generation.routes.map(route=>route.assetId)});
         }
         closed=true;
-        const saved={schema:'EXTERNAL_FLAT_CATALOGUE_RECOVERY_V1',identity:lifetimeIdentity,journal:{path,password},checkpoint:mark(record),record:structuredClone(record),generations:retained};
+        const saved={schema:durable.vaultNotes?NOTE_RECOVERY:'EXTERNAL_FLAT_CATALOGUE_RECOVERY_V1',identity:lifetimeIdentity,journal:{path,password},checkpoint:mark(record),record:structuredClone(record),generations:retained};
         password=null;return saved;
       }catch(error){storageFault=true;closed=true;password=null;
         const errors=[];for(const generation of byId.values())for(const resource of [generation.keeper,...generation.accounts.map(row=>row.account)])try{await resource.close();}catch(cleanup){errors.push(cleanup);}
@@ -561,7 +594,7 @@ export async function captureRetainedFlatJournalCatalogueV1(catalogue){
 export async function reopenRetainedFlatJournalCatalogueV1(token){
  assert.equal(arguments.length,1);const {consumeExternalDefiCatalogueReopenV1}=await import('../recovery/external-defi-catalogue-recovery-v1.mjs');
  const {input,saved,generations:restored}=consumeExternalDefiCatalogueReopenV1(token);
- return catalogueFactory(input,{saved,generations:restored});
+ return catalogueFactory(input,retainedCatalogueReopenMode(saved,restored));
 }
 export function reopenRetainedFlatJournalGenerationV1(token){
  assert.equal(arguments.length,1);const {runtime,portfolio,poolAdmissions,keeper,saved}=consumeGenerationToken(token);

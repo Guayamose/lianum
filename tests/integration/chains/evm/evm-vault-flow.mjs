@@ -34,7 +34,7 @@ import { createOwnedMetaMorphoVault, createOwnedAaveStaticVaultV1, assertOwnedMe
 import { createPrivateVaultPortfolioView } from '../../../../packages/backend/src/defi/vaults/private-vault-position.mjs';
 import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 
-import {createRetainedMetaMorphoExitWalletV1,createRetainedAaveExitWalletV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
+import {createRetainedMetaMorphoNoteExitWalletV1,createRetainedAaveNoteExitWalletV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-source-pins-v1.mjs';
 import {captureAndLaunchExternalDefiVaultExitSuccessorV1} from '../../wallet/native/native-device-economic-launcher-v1.mjs';
 import {assertExternalDefiVaultExitRecoveryResultV1} from './external-defi-vault-exit-policy-v1.mjs';
@@ -357,12 +357,14 @@ async function main() {
         nativeExecution: poolIndex === 0 ? execution : null,
         accountId: 'vault_asset_' + poolIndex, journalId: 'vault_asset_journal_' + poolIndex }, {
         onProof: retainProof, onPrivateAudit: audit, onStage: value => stage('account-' + poolIndex + '-' + value.stage) }));
-    for (const account of accounts) ownerPreparations.push(await account.ownerActions.createManualPreparation());
+    // Retained profiles bind note preparation only to their original note
+    // catalogue below. These separate accounts keep the private GRAPH path.
+    if(!RETAINED_EXIT)for (const account of accounts) ownerPreparations.push(await account.ownerActions.createManualPreparation());
     portfolio = createFlatPortfolioAuthority({ runtime, system,
       accounts: accounts.map((account, poolIndex) => ({ poolIndex, account })),
       accountId: 'private_vault_account', journalId: 'private_vault_journal' });
     if (!UNISWAP) {
-      if(RETAINED_EXIT){retainedExitWallet=await(AAVE?createRetainedAaveExitWalletV1:createRetainedMetaMorphoExitWalletV1)({runtime,system,owners:[sourceOwner,targetOwner],protocolFixture:officialProtocol},{onProof:retainProof});vaultActor=retainedExitWallet.vault;vaultExit=retainedExitWallet.exit;
+      if(RETAINED_EXIT){retainedExitWallet=await(AAVE?createRetainedAaveNoteExitWalletV1:createRetainedMetaMorphoNoteExitWalletV1)({runtime,system,owners:[sourceOwner,targetOwner],protocolFixture:officialProtocol},{onProof:retainProof});vaultActor=retainedExitWallet.vault;vaultExit=retainedExitWallet.exit;
         result.externalVaultBackendRecovery={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',variant:AAVE?'AAVE_STATIC':'METAMORPHO',bornBeforeFunding:true,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false};
       }else{vaultActor = await (AAVE ? createOwnedAaveStaticVaultV1 : createOwnedMetaMorphoVault)({ runtime, protocolFixture: officialProtocol });
       vaultExit = await createOwnedPrivateVaultExit({ runtime, system, poolIndex: 1, account: accounts[1], vault: vaultActor });}
@@ -373,7 +375,7 @@ async function main() {
       journal: { path: join(privateDirectory, 'portfolio.vault'), password: freshFixtureId() } });
     session = manualSession.session;
     http = await startFlatAccountHttp({ session, port: 0 });
-    walletApp = await startWalletApplication({ accountSession: session,
+    walletApp = await startWalletApplication({ accountSession: RETAINED_EXIT?retainedExitWallet.session:session,
       ...(UNISWAP||RETAINED_EXIT ? {} : { defiExit: { runtime, service: vaultExit } }), actionAccessMode: 'exact-only', port: 0 });
     appDriver = createManualWalletAppDriver(walletApp, {
       deadlineMs: Date.parse(lock.startedAt) + NATIVE_FLOW_LIMITS.totalMilliseconds - NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds });
@@ -387,10 +389,10 @@ async function main() {
       data: nativeStaticCalldata(assetArtifacts.token, method, args) });
     assert.ok(await capabilities[0].balance(solver) >= BigInt(INPUT) + BigInt(SOURCE));
     assert.equal(await capabilities[0].allowance(solver, router.address), BigInt(INPUT));
-    const fundingReview = await ownerPreparations[0].review({ requestId: 'vault_top_up', kind: 'TOP_UP',
-      amount: SOURCE, exitRecipient: bare(runtime.accounts[3]) });
+    const fundingRequest={requestId:'vault_top_up',kind:'TOP_UP',amount:SOURCE,exitRecipient:bare(runtime.accounts[3])};
+    const fundingReview=RETAINED_EXIT?await retainedExitWallet.catalogue.reviewOwnerPreparation({assetId:retainedExitWallet.accounts[0].assetId,request:fundingRequest}):await ownerPreparations[0].review(fundingRequest);
     assert.equal(fundingReview.amount, SOURCE);
-    const fundingBody = await ownerPreparations[0].confirm(); assert.equal(fundingBody.requestId, 'vault_top_up');
+    const fundingBody=RETAINED_EXIT?await retainedExitWallet.catalogue.confirmOwnerPreparation():await ownerPreparations[0].confirm();assert.equal(fundingBody.requestId,'vault_top_up');
     await appAccount('prepare', fundingBody);
     if(AAVE) {
       const lost=await appDriver.executeAccountWithLostReply({requestId:'vault_top_up'});
@@ -407,6 +409,11 @@ async function main() {
     assert.equal((await ownerView()).assets[0].balances.available, SOURCE);
 
     await stage(UNISWAP ? 'preposition-target-note-and-one-generic-uniswap-action' : 'preposition-target-note-and-one-generic-vault-action');
+    if(RETAINED_EXIT){
+      const listener=await walletApp.close();assert.equal(listener.listenerClosed,true);walletApp=null;
+      walletApp=await startWalletApplication({accountSession:session,actionAccessMode:'exact-only',port:0});
+      appDriver=createManualWalletAppDriver(walletApp,{deadlineMs:Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds});
+    }
     graphCutoff = String((await runtime.time()) + 7200n);
     const graph = await prepareEvmVaultFixtureGraph(fixture, privateDirectory, {
       assetAmount: INPUT, shareAmount: SHARES, payoutAmount: PAYOUT, cutoff: graphCutoff,
