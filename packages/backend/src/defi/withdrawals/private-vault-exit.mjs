@@ -373,7 +373,7 @@ async function privateVaultExit(input,retained) {
         if (pending && next.revision === pending.revision)
           assert.deepEqual(next, pending, 'PRIVATE_VAULT_EXIT_ORIGINAL_JOURNAL_REQUIRED');
         else assert.deepEqual(next, record, 'PRIVATE_VAULT_EXIT_ORIGINAL_JOURNAL_REQUIRED');
-        if(lifetime)await lifetime.check(next);await vault.reopen(); record = next; pending = null; poisoned = false;
+        if(lifetime)await lifetime.reconcile(next);await vault.reopen(); record = next; pending = null; poisoned = false;
         return detached({ reopened: true, originalIdentitiesRetained: true, keeperRestart: false,
           requestIds: record.data.operations.map(row => row.exit.requestId) });
       } catch (error) { poisoned = true; throw error; } finally { busy = false; }

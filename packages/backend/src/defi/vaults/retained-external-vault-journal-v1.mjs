@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {lstat,realpath} from 'node:fs/promises';
 import {dirname,resolve,sep} from 'node:path';
 import {canonical} from '../../../../engine/src/crypto/privacy.mjs';
+import {Vault} from '../../../../engine/src/crypto/vault.mjs';
 import {exactRecord} from '../../execution/encoding/commitments.mjs';
 import {retainWrappedPrivateLifetimeIndexedPartV1,readWrappedPrivateLifetimeIndexedPartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 const sha=value=>createHash('sha256').update(canonical(value)).digest('hex');
@@ -25,6 +26,23 @@ async function journal(runtime,family,identity,credentials,record,saved){
  assertWrappedPrivateLifetimePartSealedV1(handle);
  return Object.freeze({
   async check(current){await assertOriginalExternalVaultJournalV1(runtime,credentials.path);assert.deepEqual(mark(current),state.checkpoint,'EXTERNAL_VAULT_ORIGINAL_CHECKPOINT');assert.equal(state.pending,null);assertWrappedPrivateLifetimePartSealedV1(handle);},
+  async reconcile(current){
+   assert.equal(arguments.length,1);await assertOriginalExternalVaultJournalV1(runtime,credentials.path);
+   const store=new Vault(credentials.path);assert.deepEqual(await store.read(credentials.password),current,'EXTERNAL_VAULT_ORIGINAL_PHYSICAL_RECORD');
+   const retained=await readWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity);
+   assert.equal(retained.handle,handle,'EXTERNAL_VAULT_ORIGINAL_PART_HANDLE');assert.deepEqual(retained.privateState,state,'EXTERNAL_VAULT_ORIGINAL_CHECKPOINT');assertWrappedPrivateLifetimePartSealedV1(handle);
+   const observed=mark(current);
+   if(state.pending!==null){
+    assert.equal(state.pending.revision,state.checkpoint.revision+1,'EXTERNAL_VAULT_ORIGINAL_PENDING');
+    assert.deepEqual(observed,observed.revision===state.pending.revision?state.pending:state.checkpoint,'EXTERNAL_VAULT_ORIGINAL_CHECKPOINT');
+    // The owning caller has already compared the complete AEAD record with
+    // its original checkpoint/candidate. This acknowledges only that boundary.
+    state.checkpoint=observed;state.pending=null;await updateWrappedPrivateLifetimePartV1(handle,state);
+    const acknowledged=await readWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity);
+    assert.equal(acknowledged.handle,handle,'EXTERNAL_VAULT_ORIGINAL_PART_HANDLE');assert.deepEqual(acknowledged.privateState,state,'EXTERNAL_VAULT_ORIGINAL_CHECKPOINT');assertWrappedPrivateLifetimePartSealedV1(handle);
+   }else assert.deepEqual(observed,state.checkpoint,'EXTERNAL_VAULT_ORIGINAL_CHECKPOINT');
+   assert.deepEqual(await store.read(credentials.password),current,'EXTERNAL_VAULT_ORIGINAL_PHYSICAL_RECORD');await assertOriginalExternalVaultJournalV1(runtime,credentials.path);
+  },
   async before(current,next){assert.deepEqual(mark(current),state.checkpoint);assert.equal(state.pending,null);state.pending=mark(next);await updateWrappedPrivateLifetimePartV1(handle,state);},
   async acknowledged(current){assert.deepEqual(mark(current),state.pending);state.checkpoint=state.pending;state.pending=null;await updateWrappedPrivateLifetimePartV1(handle,state);},
   async capture(current){await this.check(current);return structuredClone(state);},

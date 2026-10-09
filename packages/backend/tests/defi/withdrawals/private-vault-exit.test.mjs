@@ -322,12 +322,24 @@ test('changed original source or action during manual pause is refused before an
 });
 
 test('lost durable readback retains the exact pending checkpoint and blocks send until explicit reopen/reconcile', async () => {
-  const w = await fixture(); await w.service.prepare(w.prepare); failReadback = true;
-  await assert.rejects(w.service.execute(requestId), /LOST_DURABLE_READBACK/); assert.equal(w.sends, 0);
-  await assert.rejects(w.service.snapshot(), /STORAGE_UNAVAILABLE/);
-  await w.service.reopen(); assert.equal((await w.service.snapshot()).operations[0].phase, 'REDEMPTION_UNRESOLVED');
-  assert.equal((await w.service.reconcile(requestId)).phase, 'READY_TO_REDEEM');
-  await w.service.execute(requestId); assert.equal(w.sends, 1);
+  for(const retained of [false,true]) {
+    const w = await fixture({retained,metamorpho:retained}); await w.service.prepare(w.prepare); failReadback = true;
+    await assert.rejects(w.service.execute(requestId), /LOST_DURABLE_READBACK/); assert.equal(w.sends, 0);
+    await assert.rejects(w.service.snapshot(), /STORAGE_UNAVAILABLE/);
+    const part=retained?[...retainedParts.values()].find(row=>row.runtime===w.runtime):null;
+    if(part)assert.notEqual(part.privateState.pending,null);
+    await w.service.reopen(); assert.equal((await w.service.snapshot()).operations[0].phase, 'REDEMPTION_UNRESOLVED');
+    if(part)assert.equal(part.privateState.pending,null);
+    assert.equal((await w.service.reconcile(requestId)).phase, 'READY_TO_REDEEM');
+    await w.service.execute(requestId);await w.service.execute(requestId);assert.equal(w.sends, 1);
+    if(retained)await captureRetainedOwnedPrivateVaultExitV1(w.service);
+  }
+  const changed=await fixture({retained:true,metamorpho:true});await changed.service.prepare(changed.prepare);failReadback=true;
+  await assert.rejects(changed.service.execute(requestId),/LOST_DURABLE_READBACK/);
+  const part=[...retainedParts.values()].find(row=>row.runtime===changed.runtime),credentials=part.privateState.credentials;
+  const vault=new RealVault(credentials.path),candidate=await vault.read(credentials.password);
+  await vault.update(credentials.password,candidate.revision,data=>data);
+  await assert.rejects(changed.service.reopen(),/ORIGINAL_JOURNAL_REQUIRED/);assert.notEqual(part.privateState.pending,null);assert.equal(changed.sends,0);
 });
 
 test('invalid new quote does not bind an unusable workflow or overwrite a usable original quote', async () => {

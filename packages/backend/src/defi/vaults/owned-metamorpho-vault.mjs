@@ -320,7 +320,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
     async reopen() {if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_VAULT_CLOSED'); assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try {
       await assertFixture(); const next = await store.read(password);
       assert.deepEqual(next, pending && next.revision === pending.revision ? pending : record, 'METAMORPHO_ORIGINAL_CHECKPOINT');
-      if(lifetime)await lifetime.check(next);record = next; pending = null; poisoned = false;
+      if(lifetime)await lifetime.reconcile(next);record = next; pending = null; poisoned = false;
       return { reopened: true, processRestartSupported: false, references: record.data.operations.map(row => row.reference) };
     } catch (error) { poisoned = true; throw error; } finally { busy = false; } },
     ...(retained?{close(){assert.ok(!busy&&!pending,'EXTERNAL_VAULT_BUSY');closed=true;password=null;return {closed:true};}}:{}),
