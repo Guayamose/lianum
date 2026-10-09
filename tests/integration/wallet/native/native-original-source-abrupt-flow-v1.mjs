@@ -72,7 +72,7 @@ async function run(){
   configuration={origin,devicePublicKey:signing.devicePublicKey(deviceKey),tls:{certificate,privateKey:readFileSync(keyPath,'utf8')}};
   backend=backendStart();const born=await backend.call('START',{mode:'CREATE',configuration});result.birth=born;result.artifacts={noteKeys:{deposit_balance:born.initial.artifactKeys.deposit_balance},graphKeys:{authorization:born.initial.artifactKeys.authorization,reservation:born.initial.artifactKeys.reservation}};
   host=await openDeviceReservationHostVaultV1({appRoot:resolve(FLAT,'../../../apps/mobile'),directory:join(privateDirectory,'mobile-ciphertext'),fetch});
-  rootId=await host.original.createLocalRootNoteVaultV1();vault=host.original.openLocalRootNoteVaultV1(rootId);
+  const createdRoot=await host.original.createLocalRootNoteVaultV1();rootId=createdRoot.rootId;vault=host.original.openLocalRootNoteVaultV1(rootId);
   mobileState=(await fromApp('state/private-wallet-state-v1.mjs')).createPrivateWalletStateV1();
   const economicBirth=await backend.call('STATE_CACHE');assert.equal(economicBirth.value.storageAvailable,true);
   dapi=await host.deposit.createDeviceOwnerDepositApiV1(born.initial.descriptor);const sign=message=>signing.signDeviceMessage(deviceKey,message);
