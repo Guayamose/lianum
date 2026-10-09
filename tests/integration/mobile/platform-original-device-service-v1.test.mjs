@@ -15,6 +15,11 @@ import { createGenericBalanceNativePreparation } from '../../../packages/engine/
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
   from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 const executors = new WeakMap(), providers = new WeakMap();
+async function deniedNativeFunctions(path, code) {
+  const source = await readFile(new URL(path, import.meta.url), 'utf8');
+  return Object.fromEntries([...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g)]
+    .map(([, name]) => [name, () => { throw Error(code); }]));
+}
 function syntheticOriginal(table, capability, expected, code) {
   const row = table.get(capability); assert.ok(row, code);
   if (!row.binding) row.binding = Object.freeze({ ...expected });
@@ -23,6 +28,7 @@ function syntheticOriginal(table, capability, expected, code) {
 // The doubles are installed before importing the original account realm.
 // Only capabilities explicitly created by this file exist in these WeakMaps.
 mock.module('../paeg/native-value-execution-v2.mjs', { exports: {
+  ...await deniedNativeFunctions('../paeg/native-value-execution-v2.mjs', 'HOST_NATIVE_EXECUTION_FORBIDDEN'),
   FLAT_EXECUTION_PROFILE: 'OWNED_NATIVE_VALUE_EXECUTION_KEEPER_V2',
   WRAPPED_WALLET_EXECUTION_PROFILE_V1: 'OWNED_WRAPPED_WALLET_EXECUTION_KEEPER_V1',
   // Preserve linkage of the original wrapped facade, while every construction,
@@ -31,13 +37,20 @@ mock.module('../paeg/native-value-execution-v2.mjs', { exports: {
     'assertOwnedWrappedWalletExecutionV1', 'ownedWrappedWalletManualGraphReviewV1',
     'captureWrappedWalletExecutionForReopenV1', 'stopCapturedWrappedWalletExecutionV1',
     'reopenWrappedWalletExecutionFromRecoveryV1', 'wrappedWalletExecutionPrivateInitializationV1',
-    'fenceWrappedWalletExecutionRecoveryV1'].map(name => [name, () => { throw Error('HOST_NATIVE_EXECUTION_FORBIDDEN'); }])),
+    'fenceWrappedWalletExecutionRecoveryV1', 'reconcileOriginalDeviceNativeRecoveryV1',
+    'fenceOriginalNativeExecutionEconomicRecoveryV1', 'captureOriginalNativeExecutionEconomicRecoveryV1',
+    'stopCapturedNativeExecutionEconomicRecoveryV1', 'abortNativeExecutionEconomicRecoveryV1',
+    'reopenOriginalNativeExecutionEconomicRecoveryV1', 'retainOriginalNativeExecutorSourceV1',
+    'reopenOriginalNativeExecutorSourceV1', 'consumeOriginalNativeFReorgProbeV1',
+    'rewindOriginalNativeFReorgProbeV1', 'consumeOriginalNativeRecoveryReorgWireV1']
+    .map(name => [name, () => { throw Error('HOST_NATIVE_EXECUTION_FORBIDDEN'); }])),
   assertOwnedNativeValueExecution(capability, expected) {
     syntheticOriginal(executors, capability, expected, 'SYNTHETIC_HOST_EXECUTOR_ORIGINAL');
   },
   ownedNativeValueManualGraphReview() { throw Error('HOST_NATIVE_GRAPH_FORBIDDEN'); },
 } });
 mock.module('../chain-adapters/native-value-dispatch-owner-v2.mjs', { exports: {
+  ...await deniedNativeFunctions('../chain-adapters/native-value-dispatch-owner-v2.mjs', 'HOST_NATIVE_PROVIDER_FORBIDDEN'),
   // Transitive original dispatch imports still link their fixed closed-gate
   // metadata. This fixture never opens a dispatch lease or creates a signer.
   NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS: Object.freeze([
@@ -59,7 +72,7 @@ const { createDeviceOwnerDepositBridgeV1 } = await import('../../../packages/bac
 const { createDeviceOwnerReservationBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
 const { createDeviceOwnerExecutionBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs');
 const {createPairedDeviceDepositTlsServerV1,createPairedDeviceAccountTlsServerV1,handoffPairedDeviceDepositTlsServerV1}=await import('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
-const { installOriginalNativeDeviceLocalServiceV1 } = await import('../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs');
+const { installOriginalNativeDeviceLocalServiceV1, installOriginalNativeDeviceDurableLocalServiceV1 } = await import('../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs');
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
 assert.ok(filename.includes(marker), 'HOST_TEST_REQUIRES_GENERATED_WORKSPACE');
 const root = filename.slice(0, filename.lastIndexOf(marker));
@@ -276,6 +289,31 @@ test('local product installation requires original owner/account/executor/provid
   assert.equal(observed.status, 200); assert.equal(observed.body.binding.requestState, 'PREPARED');
   assert.equal(a.f.world.proofs, 0); assert.equal(a.f.world.sends, 0);
   const closed = await installed.transport.close(); assert.equal(closed.closed, true);
+  assert.equal(closed.originalWorkSettled, true); assert.equal(closed.ownedSocketsRemaining, 0);
+  assert.throws(() => assertPairedOriginalAccountActorV2(installed.actor), /ACTOR_CLOSED/);
+});
+
+test('durable original installation joins the same actor and bridges to real SQL without funding at startup', { timeout: 20000 }, async t => {
+  const c = await setup(t, false, true);
+  const { startTestPostgres, poolFor } = await import(pathToFileURL(join(root, 'apps/platform/tests/helpers/postgres-container.mjs')));
+  const { migrateOriginalDeviceDispatchSchemaV1 } = await import(pathToFileURL(join(root, 'apps/platform/src/original-device-schema-v1.mjs')));
+  const pg = await startTestPostgres(), pool = poolFor(pg.connectionString);
+  let installed;
+  t.after(async () => { await installed?.transport.close(); installed?.dispatch.close(); await pool.end(); await pg.close(); });
+  await migrateOriginalDeviceDispatchSchemaV1(pool);
+  const input = { ...c.operatorInput, pool, privacyKey: '51'.repeat(32) };
+  await assert.rejects(installOriginalNativeDeviceDurableLocalServiceV1({ ...input, account: { ...input.account } }));
+  await assert.rejects(installOriginalNativeDeviceDurableLocalServiceV1({ ...input, nativeExecution: { ...input.nativeExecution } }));
+  const before = await c.f.session.snapshot(); await c.release();
+  installed = await installOriginalNativeDeviceDurableLocalServiceV1(input);
+  assert.equal(installed.descriptor.origin, input.configuration.origin);
+  assert.equal(installed.descriptor.devicePublicKey, c.f.device.publicKey);
+  assert.deepEqual(await c.f.session.snapshot(), before);
+  assert.equal((await c.direct('/v2/mobile/original-account/state')).status, 200);
+  assert.deepEqual(await c.direct('/v1/mobile/device-deposit/fund', {}), { status: 403, body: { error: 'REQUEST_REJECTED' } });
+  assert.equal((await pool.query('SELECT count(*)::integer AS n FROM public.original_device_dispatch_v1')).rows[0].n, 0);
+  assert.equal(c.f.world.proofs, 0); assert.equal(c.f.world.sends, 0);
+  const closed = await installed.transport.close(); installed.dispatch.close();
   assert.equal(closed.originalWorkSettled, true); assert.equal(closed.ownedSocketsRemaining, 0);
   assert.throws(() => assertPairedOriginalAccountActorV2(installed.actor), /ACTOR_CLOSED/);
 });

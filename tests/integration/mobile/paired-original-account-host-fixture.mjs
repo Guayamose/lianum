@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mock } from 'node:test';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { derivePrivateAssetIdentity } from '../../../packages/engine/src/notes/private-asset-runtime.mjs';
@@ -14,6 +14,14 @@ import { encodeWalletPoolInputs } from '../../../packages/engine/src/wallet/note
 const h = value => createHash('sha256').update('MOBILE HOST SYNTHETIC ' + value).digest('hex');
 const worlds = new WeakMap(), systems = new WeakMap(), owners = new WeakMap(), observers = new WeakMap(), assets = new WeakMap();
 const owned = runtime => { const world = worlds.get(runtime); assert.ok(world, 'SYNTHETIC_RUNTIME_ORIGINAL'); return world; };
+// Transitive recovery APIs must link, but this substrate never executes a
+// native process or recovery constructor. Read only names, then deny every
+// function except the explicit synthetic ports below.
+async function deniedNativeFunctions(path, code) {
+  const source = await readFile(new URL(path, import.meta.url), 'utf8');
+  return Object.fromEntries([...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g)]
+    .map(([, name]) => [name, () => { throw Error(code); }]));
+}
 mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: {
   assertLocalEvm: async runtime => owned(runtime),
   assertLocalEvmDeploymentProfile() { throw Error('HOST_DEPLOYMENT_FORBIDDEN'); },
@@ -22,6 +30,7 @@ mock.module('../ops/native-value-wallet-binding-v2.mjs', { exports: {
   assertOwnedNativeValueWalletSystem(runtime, system) { assert.equal(systems.get(system), owned(runtime), 'SYNTHETIC_SYSTEM_ORIGINAL'); },
 } });
 mock.module('../../../mobile-core/native-value-owner-process-v2.mjs', { exports: {
+  ...await deniedNativeFunctions('../../../mobile-core/native-value-owner-process-v2.mjs', 'HOST_NATIVE_OWNER_PROCESS_FORBIDDEN'),
   createNativeValueOwnerProcess() { throw Error('HOST_NATIVE_OWNER_PROCESS_FORBIDDEN'); },
   nativeValueOwnerEconomicIdentityV1(owner, expected) {
     const world = owners.get(owner); assert.ok(world && !world.closed, 'SYNTHETIC_OWNER_ORIGINAL');
@@ -63,6 +72,7 @@ mock.module('../chain-adapters/owned-pool-asset.mjs', { exports: {
   assertOwnedPoolAsset(runtime, asset) { assert.equal(assets.get(asset), owned(runtime)); },
 } });
 mock.module('../../../../../omnichain-product/src/paeg/proof-process.mjs', { exports: {
+  ...await deniedNativeFunctions('../../../../../omnichain-product/src/paeg/proof-process.mjs', 'HOST_NATIVE_NOTE_PROOF_PROCESS_FORBIDDEN'),
   createNativeEconomicNoteProofProcessV1() { throw Error('HOST_NATIVE_NOTE_PROOF_PROCESS_FORBIDDEN'); },
   createProofProcess() { return Object.freeze({
     async prove(_mode, _inputs, publicInputs) { return { proof: 'ab'.repeat(32), publicInputs: [...publicInputs], metrics: { acceptedResult: true, SYNTHETIC_HOST_ONLY: true } }; },

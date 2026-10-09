@@ -161,10 +161,48 @@ usuario 1000, esquema SQL real, liveness 200, readiness 503 y ausencia de balanc
 contenedores y volúmenes. Los informes ignorados se escriben en
 `.internal/dev/reports/platform-postgres.json` y `platform-docker.json`.
 
+## Admisión durable de operaciones originales
+
+La entrada separada `src/run-original-device-durable-local-v1.mjs` crea un
+laboratorio nativo nuevo con las mismas cuentas, keeper, custodia y puentes
+originales. Añade una barrera SQL antes de financiar D26, reservar S, ejecutar,
+recuperar y retirar W39. Cada puente verifica primero su desafío original sin
+consumirlo y vuelve a autorizarlo después de COMMIT; las firmas y los plazos
+económicos conservan sus dominios originales.
+
+Con la configuración privada de emparejamiento/TLS del operador local ya
+preparada, `DATABASE_URL` y el secreto de infraestructura configurados:
+
+```sh
+./dev node apps/platform/src/migrate-original-device-v1.mjs
+./dev node --max-old-space-size=384 apps/platform/src/run-original-device-durable-local-v1.mjs
+```
+
+La migración es explícita, fija y separada del historial de admisión V1. SQL
+conserva sólo HMAC de operación, consentimiento y términos, junto con
+`UNKNOWN` o `RETURNED`. `RETURNED` indica que terminó la llamada; la liquidación
+y el saldo siguen dependiendo de la observación original. Una respuesta
+perdida de COMMIT no habilita un envío; la conexión incierta se descarta y la
+misma operación permanece bloqueada incluso con otro desafío. Cambiar el
+secreto de infraestructura se rechaza.
+
+El móvil usa sus rutas y permisos originales. La nueva entrada no adopta
+cuentas antiguas ni admite captura/reapertura de proceso; ese contrato sigue
+pendiente para este perfil. El operador que ya dispone de los tres puentes
+originales puede usar `startPlatformOriginalDeviceDurableServiceV1` en su
+arranque privado. Estas entradas requieren el backend generado; la imagen de
+admisión V1 y el despliegue de Cloud aún conservan su disponibilidad anterior.
+
+Validación del registro sobre PostgreSQL real: firma inválida y desafío no
+emitido no ocupan una operación, duplicados no repiten efectos, una respuesta
+de COMMIT perdida conserva UNKNOWN y los registros no incluyen términos ni
+identidad en claro. Los puertos económicos de esa prueba son dobles HOST;
+la aceptación nativa y el arranque completo de la nueva entrada son distintos.
+
 ## Integración y producción pendientes
 
-Falta el bridge entre identidad móvil y cuenta/keeper originales; la firma de
-este permiso no sustituye validación de propiedad ni autoridad de pruebas.
+La admisión pública V1 aún necesita su unión económica; la firma de
+ese permiso no sustituye validación de propiedad ni autoridad de pruebas.
 Faltan estado privado reconciliado, contratos reales con los workers, límites
 persistentes de admisión/abuso y política de retención del registro. La entrada pública y el
 worker no se habilitan por defecto en Terraform.

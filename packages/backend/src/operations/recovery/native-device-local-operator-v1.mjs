@@ -25,7 +25,8 @@ import { createDeviceOwnerDepositBridgeV1 } from '../../accounts/authority/devic
 import { createDeviceOwnerReservationBridgeV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import { createDeviceOwnerExecutionBridgeV1 } from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
-import { createPairedDeviceAccountTlsServerV1 } from '../../api/mobile/paired-original-account-http-v2.mjs';
+import { createPairedDeviceAccountTlsServerV1, createPairedDurableDeviceAccountTlsServerV1 } from '../../api/mobile/paired-original-account-http-v2.mjs';
+import { createOriginalDeviceDurableDispatchV1 } from '../../api/mobile/original-device-durable-dispatch-v1.mjs';
 import { prepareOriginalNativeDeviceLocalProviderV1, prepareOriginalNativeDeviceObservedLocalProviderV1 } from './native-device-local-provider-v1.mjs';
 import { normalizeOriginalNativeDeviceLocalConfigurationV1, assertOriginalNativeDeviceLocalColdStartV1,
   prepareOriginalNativeDeviceLocalRestartV1, bindOriginalNativeDeviceLocalRestartV1, captureOriginalNativeDeviceLocalRestartV1,
@@ -46,12 +47,16 @@ const requiredSources = Object.freeze([
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
-  Object.freeze({path:'apps/platform/src/run-original-device-live-armed-v1.mjs',bytes:4784,sha256:'47f77fa07ee1ee45bcf6265a54d0dfc7472a26b50e2eaa70ca5ba1cc19bd6f5f'}),
-  Object.freeze({ path: 'apps/platform/src/original-device-local-operator-v1.mjs', bytes: 3896, sha256: 'd0acc9c6ffec161491eec660f9289fa479edcd741fd79eb64dc916a47ab2cae7' }),
-  Object.freeze({ path: 'apps/platform/src/run-original-device-local-v1.mjs', bytes: 208, sha256: 'b46e992f973d8dde44f217b1739308e43a0ee03f5bffda5b7c2ccffe49d0c422' }),
-  Object.freeze({ path: 'apps/platform/src/original-device-local-caller-v1.mjs', bytes: 6536, sha256: 'f06485b03451f6c2444a237470affe14f5ab9e9722770221bfdc0d0dff7c0e86' }),
-  Object.freeze({ path: 'apps/platform/src/run-original-device-local-reopen-v1.mjs', bytes: 238, sha256: 'cfd3176249afa1b3369f89f4056f1dd28fc9c89e2fe8296147367b8c4a1c2b10' }),
-  Object.freeze({ path: 'apps/platform/src/run-original-device-live-recovery-v1.mjs', bytes: 256, sha256: '6f88ae522b6a56ec98f0a4b5b19d902396c9b05d71ca730b59e60e5a6b9c0faa' }),
+  Object.freeze({"path":"apps/platform/src/run-original-device-live-armed-v1.mjs","bytes":4784,"sha256":"47f77fa07ee1ee45bcf6265a54d0dfc7472a26b50e2eaa70ca5ba1cc19bd6f5f"}),
+  Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":4723,"sha256":"634dde47c535e6dc8c8675f4f60bb8c5810c209ab929cd6155740b706d33c74e"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-local-v1.mjs","bytes":208,"sha256":"b46e992f973d8dde44f217b1739308e43a0ee03f5bffda5b7c2ccffe49d0c422"}),
+  Object.freeze({"path":"apps/platform/src/original-device-local-caller-v1.mjs","bytes":7461,"sha256":"64d8e74211d8b109b812068a7bbb6ad22b385688431d779ec1ceb9d585396fa7"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-local-reopen-v1.mjs","bytes":238,"sha256":"cfd3176249afa1b3369f89f4056f1dd28fc9c89e2fe8296147367b8c4a1c2b10"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-live-recovery-v1.mjs","bytes":256,"sha256":"6f88ae522b6a56ec98f0a4b5b19d902396c9b05d71ca730b59e60e5a6b9c0faa"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-durable-local-v1.mjs","bytes":236,"sha256":"bf5617909a7646ad6b8ff95875a700fafd4b9fcca6f8cd234535c17f40567693"}),
+  Object.freeze({"path":"apps/platform/src/original-device-schema-v1.mjs","bytes":5173,"sha256":"e88ab9c4b9faeff24b4ac1b118f9b78546edbb15d6429784f713c314a643e20a"}),
+  Object.freeze({"path":"apps/platform/src/database-pool.mjs","bytes":1058,"sha256":"3f5362721b6b5dab4f6b4a038663a2523c6fe2fa376d6f3fbc2ffb3f55aa3062"}),
+  Object.freeze({"path":"apps/platform/src/privacy-key-v1.mjs","bytes":1698,"sha256":"6ded05ce522dda4b60bdb40d5cb287c4d1a5614a1c9715308bd8b89722c66de7"}),
 ]);
 async function assertReviewedLocalProductCallers() {
   const directory = resolve(FLAT, '../../..');
@@ -85,14 +90,22 @@ const configuration = normalizeOriginalNativeDeviceLocalConfigurationV1;
  * PREPARED session approval before any route is installed. No operation runs. */
 export async function installOriginalNativeDeviceLocalServiceV1(input) {
   assert.equal(arguments.length, 1);
-  exactRecord(input, ['runtime', 'system', 'owner', 'account', 'nativeExecution', 'session', 'approval', 'provider', 'configuration']);
+  return installOriginalNativeDeviceService(input, false);
+}
+export async function installOriginalNativeDeviceDurableLocalServiceV1(input) {
+  assert.equal(arguments.length, 1);
+  return installOriginalNativeDeviceService(input, true);
+}
+async function installOriginalNativeDeviceService(input, durable) {
+  exactRecord(input, ['runtime', 'system', 'owner', 'account', 'nativeExecution', 'session', 'approval', 'provider', 'configuration',
+    ...(durable ? ['pool', 'privacyKey'] : [])]);
   const { runtime, system, owner, account, nativeExecution, session, approval, provider } = input;
   const selected = configuration(input.configuration);
   assertOwnedNativeValueAccountAuthority(account, { runtime, system, poolIndex: 0, owner });
   assertOwnedNativeValueExecution(nativeExecution, { runtime, system, poolIndex: 0 });
   exactRecord(provider, ['nativePreparation', 'invoiceSignatures', 'custody', 'recipient', 'deliveryRiskSalt']);
   assertOwnedNativeValueProviderCustody(provider.custody, { runtime, system, poolIndex: 0 });
-  let actor, depositBridge, reservationBridge, executionBridge, transport;
+  let actor, depositBridge, reservationBridge, executionBridge, transport, dispatch;
   try {
     actor = await createPairedOriginalAccountActorV2({ session, approval, owner,
       origin: selected.origin, devicePublicKey: selected.devicePublicKey });
@@ -102,12 +115,15 @@ export async function installOriginalNativeDeviceLocalServiceV1(input) {
       nativePreparation: provider.nativePreparation, invoiceSignatures: provider.invoiceSignatures });
     executionBridge = await createDeviceOwnerExecutionBridgeV1({ account, reservationBridge, nativeExecution,
       providers: [{ slot: 0, custody: provider.custody, deliveryRiskSalt: provider.deliveryRiskSalt }], runtime, system, poolIndex: 0 });
-    transport = await createPairedDeviceAccountTlsServerV1({ depositBridge, reservationBridge, executionBridge, tls: selected.tls });
+    if (durable) dispatch = await createOriginalDeviceDurableDispatchV1({ depositBridge, reservationBridge,
+      executionBridge, pool: input.pool, privacyKey: input.privacyKey });
+    transport = await (durable ? createPairedDurableDeviceAccountTlsServerV1 : createPairedDeviceAccountTlsServerV1)({
+      depositBridge, reservationBridge, executionBridge, tls: selected.tls, ...(durable ? { dispatch } : {}) });
     return Object.freeze({ transport, actor, depositBridge, reservationBridge, executionBridge,
-      descriptor: pairedOriginalAccountActorDescriptorV2(actor) });
+      descriptor: pairedOriginalAccountActorDescriptorV2(actor), ...(durable ? { dispatch } : {}) });
   } catch (error) {
     const failures = [];
-    for (const resource of [transport, executionBridge, reservationBridge, depositBridge, actor])
+    for (const resource of [transport, dispatch, executionBridge, reservationBridge, depositBridge, actor])
       try { await resource?.close(); } catch (failure) { failures.push(failure); }
     if (failures.length) throw new AggregateError([error, ...failures], 'NATIVE_DEVICE_PRODUCT_INSTALL_CLEANUP_UNCONFIRMED', { cause: error });
     throw error;
@@ -124,12 +140,19 @@ export async function assertOriginalNativeDeviceLocalSourceReviewV1() {
 }
 /** Fixed original NativeNote constructor, before any D26 admission. */
 export function createOriginalNativeDeviceLocalOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,false);}
+/** Separate fixed new realm: SQL only fences original device effects. It
+ * cannot adopt an old account and has no ordered-capture/reopen contract. */
+export function createOriginalNativeDeviceDurableLocalOperatorV1(input){
+  assert.equal(arguments.length,1);exactRecord(input,['origin','devicePublicKey','tls','pool','privacyKey']);
+  return createLocalProduct({origin:input.origin,devicePublicKey:input.devicePublicKey,tls:input.tls},false,false,
+    {pool:input.pool,privacyKey:input.privacyKey});
+}
 /** Separate original observed realm for live cutoff recovery. It never
  * selects/relabels the old realm or claims post-cutoff Native10 restoration. */
 export function createOriginalNativeDeviceLiveRecoveryOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,true);}
 export function createOriginalNativeDeviceLiveArmedRecoveryOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,true,true);}
-async function createLocalProduct(input,liveObserved,liveArmed=false) {
-  assert.ok(arguments.length===2||arguments.length===3); const selected = configuration(input); // detach before first await
+async function createLocalProduct(input,liveObserved,liveArmed=false,durable=null) {
+  assert.ok(arguments.length>=2&&arguments.length<=4); const selected = configuration(input); // detach before first await
   const restartDeadlineMs = Date.now() + 90 * 60 * 1000 - 15000;
   await assertOriginalNativeDeviceLocalSourceReviewV1();
   if(!liveArmed)await assertOriginalNativeDeviceLocalColdStartV1();
@@ -154,6 +177,7 @@ async function createLocalProduct(input,liveObserved,liveArmed=false) {
     if (liveProducer) await stop('live-recovery', () => liveStop, r => r.closed && r.originalWorkSettled);
     if (installed) await stop('transport', () => transportStop, r => r.closed === true
       && r.originalWorkSettled === true && r.ownedSocketsRemaining === 0);
+    if (installed?.dispatch) await stop('durableAdmission', async () => { installed.dispatch.close(); return { closed: true }; }, r => r.closed);
     if (account && (!restart || (liveArmed?originalNativeDeviceLiveArmedCaptureStateV1(restart):originalNativeDeviceLocalCaptureStateV1(restart)).phase === 'OPEN')) await stop('accountAbort', () => account.abort(), r => r.cancelled === true);
     if (joined) await stop('session', () => joined.session.close(), r => r.phase === 'CLOSED');
     if (account) await stop('account', () => account.close(), r => r.closed === true);
@@ -228,12 +252,13 @@ async function createLocalProduct(input,liveObserved,liveArmed=false) {
     provider = liveObserved
       ? await prepareOriginalNativeDeviceObservedLocalProviderV1({ runtime, system, nativeRuntime, bootstrap, clock: clocks.clock })
       : await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
-    if(!liveObserved) restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
+    if(!liveObserved&&!durable) restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
       nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS
-    installed = await installOriginalNativeDeviceLocalServiceV1({ runtime, system, owner, account, nativeExecution, session: joined.session,
-      approval, provider, configuration: selected });
-    if(!liveObserved)bindOriginalNativeDeviceLocalRestartV1(restart, installed);
-    else liveProducer=createOriginalNativeDeviceLiveRecoveryProducerV1({account,executionBridge:installed.executionBridge,runtime,system,nativeRuntime,clock:clocks.clock});
+    installed = await (durable?installOriginalNativeDeviceDurableLocalServiceV1:installOriginalNativeDeviceLocalServiceV1)({
+      runtime, system, owner, account, nativeExecution, session: joined.session, approval, provider, configuration: selected,
+      ...(durable?durable:{}) });
+    if(!liveObserved&&!durable)bindOriginalNativeDeviceLocalRestartV1(restart, installed);
+    else if(liveObserved)liveProducer=createOriginalNativeDeviceLiveRecoveryProducerV1({account,executionBridge:installed.executionBridge,runtime,system,nativeRuntime,clock:clocks.clock});
     if(liveArmed)bindOriginalNativeDeviceLiveArmedRestartV1(restart,{runtime,nativeRuntime,bootstrap,system,owner,nativeExecution,account,session:joined.session,provider,installed,liveProducer,clocks});
     let captureRequest;
     function capture() {
@@ -244,6 +269,9 @@ async function createLocalProduct(input,liveObserved,liveArmed=false) {
       localFakeValues:true,automaticFunding:false,automaticNativeDelivery:false,originalArmRetainedForNewProcess:true,abruptCrashRecoveryEstablished:false,cloudAuthority:false,capture,close});
     if(liveObserved)return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_LIVE_RECOVERY_OPERATOR_V1',origin:installed.transport.url,descriptor:installed.descriptor,
       localFakeValues:true,automaticFunding:false,automaticNativeDelivery:false,postCutoffRestartEstablished:false,cloudAuthority:false,close});
+    if(durable)return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1',origin:installed.transport.url,
+      descriptor:installed.descriptor,localFakeValues:true,automaticFunding:false,durableOriginalAdmission:true,
+      newProcessRecoveryEstablished:false,cloudAuthority:false,close});
     return Object.freeze({ profile: ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
       descriptor: installed.descriptor, localFakeValues: true, automaticFunding: false,
       cloudAuthority: false, capture, close });
