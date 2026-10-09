@@ -1,4 +1,4 @@
-"""Private fixed current-generation V8 W39 task data, no caller selectors/paths/commands/receipts.
+"""Private fixed current-generation V9 W39 task data, no caller selectors/paths/commands/receipts.
 
 The shared ledger watchdog owns process/resource/lock/cleanup invariants.
 This module does not execute a task or publish a release.
@@ -11,10 +11,10 @@ _Task = namedtuple("_Task", "wrapper entry output reports schema lock_mode exec_
 _W39 = _Task(
     wrapper=ROOT / "scripts/development/native_value_w39.py",
     entry=_FLAT / "scripts/prepare-development-native-value-w39-v5.mjs",
-    output=_FLAT / ".local/development-native-value-w39/v8",
-    reports=DEV / "reports/native-value-dev-w39-build-v8",
-    schema="LIANUM_NEW_PC15_W39_RESOURCE_RECEIPT_V8",
-    lock_mode="NEW_PC15_W39_GENERATION_V8",
+    output=_FLAT / ".local/development-native-value-w39/v9",
+    reports=DEV / "reports/native-value-dev-w39-build-v9",
+    schema="LIANUM_NEW_PC15_W39_RESOURCE_RECEIPT_V9",
+    lock_mode="NEW_PC15_W39_GENERATION_V9",
     exec_args=("--max-old-space-size=384",),
     output_names=("program.json", "key.vk", "withdraw_output.sol", "compiled.json",
                   "generation.json", "compilation.json", "source-pins.json", "receipt.json"),

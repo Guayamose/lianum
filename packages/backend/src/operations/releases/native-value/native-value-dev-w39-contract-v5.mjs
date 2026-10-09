@@ -7,8 +7,8 @@ import { cloneInput, frozenInput } from '../../../execution/account/preparation/
 import { NATIVE_VALUE_RELEASE } from './native-value-wallet-release-v4.mjs';
 import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
 // V5 export names remain the fixed deployment API; this is a new physical generation.
-// Historical v5/v6/v7 raw files/receipts are retained and cannot satisfy this V8 descriptor.
-export const W39_DEV_DIRECTORY_V5 = '.local/development-native-value-w39/v8';
+// Historical v5/v6/v7/v8 raw files/receipts are retained and cannot satisfy this V9 descriptor.
+export const W39_DEV_DIRECTORY_V5 = '.local/development-native-value-w39/v9';
 export const W39_DEV_KIND_V5 = 'NEW_PC15_W39_GENERATION_WITH_EXACT_PUBLIC_COMPONENT_IDENTITIES';
 export const W39_DEV_FILES_V5 = Object.freeze(['program.json','key.vk','withdraw_output.sol',
   'compiled.json','generation.json','compilation.json','source-pins.json','receipt.json']);
@@ -64,7 +64,7 @@ export function validateW39DevDescriptorV5(input) {
 export function validateW39DevGenerationV5(input) {
   assert.equal(arguments.length,1,'W39_DEV_GENERATION_NO_OPTIONS');const value=cloneInput(input);
   exactRecord(value,['schema','kind','phase','role','programSHA256','originalProgramSHA256','sourceSHA256','nargoSHA256','abiSHA256','compressedACIRSHA256','keySHA256','keyBytes','keyHashField','soliditySHA256','solidityBytes','backendPublicWords','publicOffset','publicWords','stats','settings','toolchain','crs','maximumPages','threads','keyRecomputedNow','sameComputedKeyPassedToGenerator','proofGenerated']);
-  assert.equal(value.schema,'LIANUM_NEW_PC15_W39_GENERATION_V8');assert.equal(value.kind,W39_DEV_KIND_V5);assert.equal(value.phase,'completed');assert.equal(value.role,'withdraw');
+  assert.equal(value.schema,'LIANUM_NEW_PC15_W39_GENERATION_V9');assert.equal(value.kind,W39_DEV_KIND_V5);assert.equal(value.phase,'completed');assert.equal(value.role,'withdraw');
   assert.match(value.programSHA256,/^[0-9a-f]{64}$/);
   for(const [field,expected] of Object.entries({originalProgramSHA256:W39_DEV_SOURCE_V5.programSHA256,sourceSHA256:W39_DEV_SOURCE_V5.noirSHA256,nargoSHA256:W39_DEV_SOURCE_V5.nargoSHA256,abiSHA256:W39_DEV_SOURCE_V5.abiSHA256,compressedACIRSHA256:W39_DEV_SOURCE_V5.compressedACIRSHA256,keySHA256:W39_DEV_SOURCE_V5.keySHA256,soliditySHA256:W39_DEV_SOURCE_V5.soliditySHA256}))assert.equal(value[field],expected,'W39_DEV_COMPONENT_CHANGED');
   assert.equal(value.keyBytes,1888);assert.equal(value.solidityBytes,103923);
@@ -81,7 +81,7 @@ export function validateW39DevGenerationV5(input) {
 export function validateW39DevReceiptV5(input,descriptor) {
   assert.equal(arguments.length,2,'W39_DEV_RECEIPT_NO_OPTIONS');const value=cloneInput(input),pins=validateW39DevDescriptorV5(descriptor);
   exactRecord(value,['schema','kind','phase','role','files','historicalMissing','historicalArtifactRecovered','componentIdentitiesUnchanged','counters','sourceClosureSHA256','sourceClosureUnchanged','backendDestroyed','proofGenerated','nativeNodesStarted','proofAcceptanceEstablished']);
-  assert.equal(value.schema,'LIANUM_NEW_PC15_W39_BUILD_V8');assert.equal(value.kind,W39_DEV_KIND_V5);assert.equal(value.phase,'completed');assert.equal(value.role,'withdraw');
+  assert.equal(value.schema,'LIANUM_NEW_PC15_W39_BUILD_V9');assert.equal(value.kind,W39_DEV_KIND_V5);assert.equal(value.phase,'completed');assert.equal(value.role,'withdraw');
   assert.deepEqual(value.files,Object.fromEntries(W39_DEV_FILES_V5.filter(name=>name!=='receipt.json').map(name=>[name,pins.files[name]])),'W39_DEV_BUILD_RAW_JOIN');
   assert.deepEqual(value.historicalMissing,W39_DEV_HISTORICAL_MISSING_V5);assert.equal(value.historicalArtifactRecovered,false);assert.equal(value.componentIdentitiesUnchanged,true);
   assert.deepEqual(value.counters,W39_DEV_COUNTERS_V5);assert.match(value.sourceClosureSHA256,/^[0-9a-f]{64}$/);
@@ -92,7 +92,7 @@ export function validateW39DevReceiptV5(input,descriptor) {
 export function validateW39DevCompilationReceiptV5(input) {
   assert.equal(arguments.length,1,'W39_DEV_SOLC_RECEIPT_NO_OPTIONS');const value=cloneInput(input);
   exactRecord(value,['schema','phase','compiler','sourceSHA256','compiledSHA256','settingsSHA256','sourceASTSHA256','artifactsSHA256','originalCompiledSHA256','sameSourceAST','sameArtifacts']);
-  assert.equal(value.schema,'LIANUM_NEW_PC15_W39_SOLC_V8');assert.equal(value.phase,'completed');assert.deepEqual(value.compiler,GENERIC_COMPILER_PIN);
+  assert.equal(value.schema,'LIANUM_NEW_PC15_W39_SOLC_V9');assert.equal(value.phase,'completed');assert.deepEqual(value.compiler,GENERIC_COMPILER_PIN);
   assert.equal(value.sourceSHA256,W39_DEV_SOURCE_V5.soliditySHA256);assert.equal(value.originalCompiledSHA256,W39_DEV_SOURCE_V5.compiledSHA256);
   for(const name of ['compiledSHA256','settingsSHA256','sourceASTSHA256','artifactsSHA256'])assert.match(value[name],/^[0-9a-f]{64}$/);
   assert.equal(value.sameSourceAST,true);assert.equal(value.sameArtifacts,true);return frozenInput(value);
