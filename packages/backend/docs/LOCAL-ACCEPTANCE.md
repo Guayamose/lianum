@@ -179,6 +179,42 @@ de claims de BTC/SOL y sus autoridades requieren también declarar sus supuestos
 de custodia; no equivalen a autocustodia nativa por disponer de una nota privada.
 
 
+## BSC nativo: herramientas preparadas, finalidad pendiente
+
+La receta independiente `scripts/development/owned_bsc_posa_v1.py` utiliza el
+cliente BSC/Parlia 1.7.8 fijado y tres validadores/BLS del paquete público original.
+Para preparar una copia nueva desde la raíz:
+
+```sh
+python3 scripts/development/owned_bsc_posa_v1.py --fetch-material
+python3 scripts/development/owned_bsc_posa_v1.py --prepare-tools
+python3 scripts/development/owned_bsc_posa_v1.py --prepare
+```
+
+El material y las herramientas aisladas se conservan en
+`.local/dependencies/bsc-posav1/`. La preparación ya publicada se conserva y
+los comandos de creación rechazan sobrescribirla. El fetch, las herramientas
+y la compilación de los **17 contratos originales de genesis** pasaron. El
+seed BLS conserva los bytecodes y deriva su almacenamiento del layout compilado.
+Estos resultados acreditan preparación; no acreditan consenso ni finalidad.
+
+El módulo canónico `scripts/development/owned-bsc-posa-v1.mjs` se importa
+directamente desde Node; no utiliza un mapping nuevo de `scripts/layout.json`.
+Su constructor `createOwnedBscPoSAClusterV1()` exige cero argumentos, crea un
+realm propio antes de aceptar transacciones y sólo devuelve la capacidad tras
+observar finalidad nativa en los tres clientes y las recepciones originales de
+StakeHub. `readOwnedBscFinalizedHeadV1(runtime)` exige esa capacidad original;
+`runtime.close()` cierra sólo sus procesos originales y conserva el realm.
+El presupuesto de finalidad permanece en 90 segundos. Las claves son fixtures
+públicos de laboratorio y la cadena local usa 714; no es una wallet BNB pública.
+
+El último nacimiento nativo, `94ed8807-4347-4d0d-a38d-858ca7e4ddae`, fue
+**rechazado con `BSC_RPC_REJECTED`**. No aceptó finalidad; el error RPC concreto
+no quedó retenido. Los resultados históricos rechazados permanecen intactos.
+Siguen pendientes la finalidad BSC acreditada, la integración de wallet y crédito
+privado BSC, la red pública y los operadores independientes. La factory EVM
+sintética con chainId 56 conserva su alcance anterior y no prueba estos requisitos.
+
 ## Bitcoin: aceptación nueva de ingreso y solver
 
 ```sh
