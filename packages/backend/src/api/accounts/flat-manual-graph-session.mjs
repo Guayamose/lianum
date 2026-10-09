@@ -359,7 +359,7 @@ function sessionEconomicInput(state,session,journal) {
   return {catalogues:[],nativeAccounts:state.nativeAccount?[{runtime:state.runtime,system:state.system,account:state.nativeAccount,session}]:[],
     wrappedPortfolios:state.wrappedPortfolio?[{runtime:state.runtime,portfolio:state.wrappedPortfolio,session}]:[],journal};
 }
-async function sessionEconomicState(session, retained) {
+async function sessionEconomicState(session, retained, afterCrash = false) {
   const state=sessions.get(session);need(state?.durableKeeper&&(state.nativeAccount||state.wrappedPortfolio)&&!state.economicInstallation,'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
   const journal=Object.freeze({path:state.journal.path+'.economic-state.vault',password:state.journal.password});
   if(retained){exactRecord(retained,['journal','checkpoint']);need(sha(retained.journal)===sha(journal),'WALLET_ECONOMIC_ORIGINAL_JOURNAL_REQUIRED');}
@@ -367,8 +367,9 @@ async function sessionEconomicState(session, retained) {
   state.economicAcquisition=(async()=>{
   const module=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');
   const input=sessionEconomicInput(state,session,journal);
-  const capability=retained?await module.openOriginalWalletEconomicStateV1({...input,checkpoint:retained.checkpoint}):await module.createOriginalWalletEconomicStateV1(input);
-  try {module.assertOriginalWalletEconomicStateV1(capability);need(module.originalWalletEconomicStateBindingsV1(capability).some(row=>row.session===session),'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
+  const capability=afterCrash?await module.reopenOriginalWalletEconomicStateAfterCrashV1({...input,journal:{path:journal.path}})
+    :retained?await module.openOriginalWalletEconomicStateV1({...input,checkpoint:retained.checkpoint}):await module.createOriginalWalletEconomicStateV1(input);
+  try {module.assertOriginalWalletEconomicStateV1(capability);module.assertOriginalWalletEconomicStateJournalV1(capability,journal);need(module.originalWalletEconomicStateBindingsV1(capability).some(row=>row.session===session),'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');
     state.economicState=capability;state.economicJournal=journal;return capability;
   }catch(error){await capability.close();throw error;}
   })();state.economicAcquisition.catch(()=>{});return state.economicAcquisition;
@@ -378,6 +379,14 @@ export async function createOriginalSessionWalletEconomicStateV1(session) {
   if(state?.nativeAccount)assertNativeWalletEconomicSessionV1(session,{runtime:state.runtime,system:state.system,account:state.nativeAccount});
   else {need(state?.wrappedPortfolio,'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');assertWrappedWalletEconomicSessionV1(session,{runtime:state.runtime,portfolio:state.wrappedPortfolio});}
   return sessionEconomicState(session,null);
+}
+/** PRIVATE: the source session must already have its original authority and
+ * keeper restored. The anchor never reconstructs either from a journal ID. */
+export async function reopenOriginalSessionWalletEconomicStateAfterCrashV1(session) {
+  need(arguments.length===1,'WALLET_ECONOMIC_SESSION_ARGUMENTS');const state=sessions.get(session);
+  if(state?.nativeAccount)assertNativeWalletEconomicSessionV1(session,{runtime:state.runtime,system:state.system,account:state.nativeAccount});
+  else{need(state?.wrappedPortfolio,'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');assertWrappedWalletEconomicSessionV1(session,{runtime:state.runtime,portfolio:state.wrappedPortfolio});}
+  return sessionEconomicState(session,null,true);
 }
 export function readOriginalSessionWalletEconomicStateV1(session) {
   need(arguments.length===1,'WALLET_ECONOMIC_SESSION_ARGUMENTS');const state=sessions.get(session);need(state?.durableKeeper&&(state.nativeAccount||state.wrappedPortfolio),'WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED');

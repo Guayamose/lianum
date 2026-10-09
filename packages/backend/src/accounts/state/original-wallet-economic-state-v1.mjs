@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {types} from 'node:util';
-import {lstat, realpath} from 'node:fs/promises';
+import {lstat, realpath, mkdir, open, readFile, readlink, unlink} from 'node:fs/promises';
+import {constants} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
 import {genericAccountIdentity, immutable, sha} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
@@ -142,21 +143,153 @@ export function originalWalletEconomicStateBindingsV1(capability) {
   assert.equal(arguments.length, 1); assertOriginalWalletEconomicStateV1(capability);
   return Object.freeze(owned.get(capability).sources.filter(s => s.session).map(s => Object.freeze({session: s.session, positions: s.positions})));
 }
+/** Private equality check only: this does not return a journal password or
+ * issue authority from a route/digest. The capability must still be original. */
+export function assertOriginalWalletEconomicStateJournalV1(capability,journal) {
+  assert.equal(arguments.length,2);assertOriginalWalletEconomicStateV1(capability);exactRecord(journal,['path','password']);
+  need(typeof journal.path==='string'&&typeof journal.password==='string','ORIGINAL_JOURNAL_REQUIRED');
+  need(owned.get(capability).journalSHA256===sha({path:resolve(journal.path),password:journal.password}),'ORIGINAL_JOURNAL_REQUIRED');
+}
 /** PRIVATE installation over references already emitted by original factories.
  * The password belongs only to this observation Vault, never an owner Vault. */
 export async function createOriginalWalletEconomicStateV1(input) {
   assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal']);
   return economicState(input, null);
 }
+function economicCheckpoint(value) {
+  exactRecord(value, ['version', 'profile', 'lifetime', 'sourceSetSHA256', 'revision', 'stateSHA256']);
+  need(value.version === 1 && value.profile === ORIGINAL_ECONOMIC_STATE_V1 && Number.isSafeInteger(value.revision) && value.revision >= 0
+    && ['lifetime','sourceSetSHA256','stateSHA256'].every(k => typeof value[k] === 'string' && /^[0-9a-f]{64}$/.exec(value[k])?.[0] === value[k]), 'CHECKPOINT');
+  return immutable(value);
+}
 export async function openOriginalWalletEconomicStateV1(input) {
   assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal', 'checkpoint']);
-  exactRecord(input.checkpoint, ['version', 'profile', 'lifetime', 'sourceSetSHA256', 'revision', 'stateSHA256']);
-  const checkpoint = immutable(input.checkpoint);
-  need(checkpoint.version === 1 && checkpoint.profile === ORIGINAL_ECONOMIC_STATE_V1 && Number.isSafeInteger(checkpoint.revision) && checkpoint.revision >= 0
-    && ['lifetime','sourceSetSHA256','stateSHA256'].every(k => typeof checkpoint[k] === 'string' && /^[0-9a-f]{64}$/.exec(checkpoint[k])?.[0] === checkpoint[k]), 'CHECKPOINT');
-  return economicState(input, checkpoint);
+  return economicState(input, economicCheckpoint(input.checkpoint));
 }
-async function economicState(input, checkpoint) {
+/** Local recovery of observations over ALREADY restored original sources. The
+ * private anchor supplies this observation journal's credentials, never owner
+ * keys, source capabilities, consents or permission to retry an economic job. */
+export async function reopenOriginalWalletEconomicStateAfterCrashV1(input) {
+  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal']);
+  exactRecord(input.journal, ['path']);
+  return economicState(input, null, true);
+}
+const ANCHOR_PROFILE = 'ORIGINAL_WALLET_ECONOMIC_LOCAL_ANCHOR_V1';
+async function localWriterIdentity() {
+  need(process.platform === 'linux', 'LOCAL_RECOVERY_PLATFORM');
+  const text = await readFile('/proc/self/stat', 'utf8'), tail = text.slice(text.lastIndexOf(')') + 2).trim().split(/\s+/);
+  need(/^[0-9]+$/.test(tail[19]), 'LOCAL_WRITER_IDENTITY');
+  const bootId = (await readFile('/proc/sys/kernel/random/boot_id', 'utf8')).trim(), pidNamespace = await readlink('/proc/self/ns/pid');
+  need(/^[0-9a-f-]{36}$/.test(bootId) && /^pid:\[[0-9]+\]$/.test(pidNamespace), 'LOCAL_WRITER_IDENTITY');
+  return {pid: process.pid, startTicks: tail[19], bootId, pidNamespace};
+}
+async function originalWriterStopped(prior, current) {
+  exactRecord(prior, ['pid','startTicks','bootId','pidNamespace']);
+  need(Number.isSafeInteger(prior.pid) && prior.pid > 0 && /^[0-9]+$/.test(prior.startTicks)
+    && /^[0-9a-f-]{36}$/.test(prior.bootId) && /^pid:\[[0-9]+\]$/.test(prior.pidNamespace), 'LOCAL_WRITER_IDENTITY');
+  if (prior.bootId !== current.bootId) return true;
+  need(prior.pidNamespace === current.pidNamespace, 'LOCAL_WRITER_NAMESPACE_CHANGED');
+  let text;
+  try {text = await readFile('/proc/' + prior.pid + '/stat', 'utf8');}
+  catch (error) {if (error.code === 'ENOENT' || error.code === 'ESRCH') return true; throw error;}
+  const tail = text.slice(text.lastIndexOf(')') + 2).trim().split(/\s+/);
+  need(/^[0-9]+$/.test(tail[19]), 'LOCAL_WRITER_IDENTITY');
+  return tail[19] !== prior.startTicks;
+}
+async function privateAnchorFile(path, maximum) {
+  const named = await lstat(path); need(named.isFile() && !named.isSymbolicLink() && named.nlink === 1 && named.uid === process.getuid()
+    && (named.mode & 0o777) === 0o600 && await realpath(path) === path, 'ANCHOR_PRIVATE_FILE');
+  const fd = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW); let bytes;
+  try {
+    const before = await fd.stat(); need(before.isFile() && before.dev === named.dev && before.ino === named.ino && before.size <= maximum, 'ANCHOR_PRIVATE_FILE');
+    bytes = Buffer.alloc(maximum + 1); let offset = 0;
+    while (offset < bytes.length) {const result = await fd.read(bytes, offset, bytes.length - offset, offset); if (result.bytesRead === 0) break; offset += result.bytesRead;}
+    need(offset <= maximum, 'ANCHOR_PRIVATE_FILE'); const after = await fd.stat(), final = await lstat(path);
+    need(after.dev === before.dev && after.ino === before.ino && after.size === before.size && after.mtimeMs === before.mtimeMs
+      && final.dev === before.dev && final.ino === before.ino && final.size === offset && final.uid === process.getuid() && final.nlink === 1
+      && (final.mode & 0o777) === 0o600 && after.uid === final.uid && after.nlink === 1 && (after.mode & 0o777) === 0o600, 'ANCHOR_PRIVATE_FILE');
+    return {bytes: Buffer.from(bytes.subarray(0, offset)), dev: before.dev, ino: before.ino};
+  } finally {bytes?.fill(0); await fd.close();}
+}
+async function syncAnchorDirectory(path) {const fd = await open(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW); try {await fd.sync();} finally {await fd.close();}}
+/** Infrastructure-only single writer: every process identity is observed from
+ * the local kernel. A stale lease is reclaimed only after its ORIGINAL writer
+ * is absent/replaced; no stale Vault lock or temporary file is adopted/removed. */
+async function claimAnchorWriter(path, sourceSetSHA256, allowStopped) {
+  const processIdentity = await localWriterIdentity();
+  const value = {version: 1, sourceSetSHA256, process: processIdentity, token: randomBytes(32).toString('hex')};
+  const claim = () => open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  let fd;
+  try {fd = await claim();} catch (error) {
+    if (error.code !== 'EEXIST' || !allowStopped) throw error;
+    const prior = await privateAnchorFile(path, 1024); let old;
+    try {old = JSON.parse(prior.bytes.toString('utf8'));} finally {prior.bytes.fill(0);}
+    exactRecord(old, ['version','sourceSetSHA256','process','token']);
+    need(old.version === 1 && old.sourceSetSHA256 === sourceSetSHA256 && /^[0-9a-f]{64}$/.test(old.token), 'ANCHOR_WRITER_REQUIRED');
+    need(await originalWriterStopped(old.process, processIdentity), 'ANCHOR_WRITER_STILL_LIVE');
+    const current = await lstat(path); need(current.dev === prior.dev && current.ino === prior.ino, 'ANCHOR_WRITER_CHANGED');
+    await unlink(path); await syncAnchorDirectory(dirname(path)); fd = await claim();
+  }
+  try {await fd.writeFile(JSON.stringify(value), 'utf8'); await fd.sync();} finally {await fd.close();}
+  await syncAnchorDirectory(dirname(path)); let released = false;
+  return async () => {
+    if (released) return; const actual = await privateAnchorFile(path, 1024); let row;
+    try {row = JSON.parse(actual.bytes.toString('utf8'));} finally {actual.bytes.fill(0);}
+    assert.deepEqual(row, value, 'ORIGINAL_ECONOMIC_STATE_ANCHOR_WRITER_CHANGED');
+    const current = await lstat(path); need(current.dev === actual.dev && current.ino === actual.ino, 'ANCHOR_WRITER_CHANGED');
+    await unlink(path); await syncAnchorDirectory(dirname(path)); released = true;
+  };
+}
+async function localEconomicAnchor(journal, sourceSet, lifetime, initial, opening) {
+  const directory = journal.path + '.original-state-anchor-v1', sourceSetSHA256 = sha(sourceSet);
+  if (!opening) await mkdir(directory, {mode: 0o700});
+  const metadata = await lstat(directory); need(metadata.isDirectory() && !metadata.isSymbolicLink() && metadata.uid === process.getuid()
+    && (metadata.mode & 0o777) === 0o700 && await realpath(directory) === directory, 'ANCHOR_PRIVATE_DIRECTORY');
+  const location = {path: journal.path, directoryDevice: String(metadata.dev), directoryInode: String(metadata.ino)};
+  const physical = async () => {const actual = await lstat(directory); need(actual.dev === metadata.dev && actual.ino === metadata.ino && actual.isDirectory()
+    && !actual.isSymbolicLink() && actual.uid === process.getuid() && (actual.mode & 0o777) === 0o700 && await realpath(directory) === directory, 'ANCHOR_PRIVATE_DIRECTORY');};
+  const keyPath = directory + '/local-observation-root.secret';
+  if (!opening) {const bytes = randomBytes(32), fd = await open(keyPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    try {await fd.writeFile(bytes); await fd.sync();} finally {bytes.fill(0); await fd.close();} await syncAnchorDirectory(directory);}
+  const key = await privateAnchorFile(keyPath, 32); let password;
+  try {need(key.bytes.length === 32, 'ANCHOR_LOCAL_KEY'); password = key.bytes.toString('hex');} finally {key.bytes.fill(0);}
+  const release = await claimAnchorWriter(directory + '/writer.lock', sourceSetSHA256, opening);
+  const vault = new Vault(directory + '/anchor.vault'); let record;
+  const checkpoint = value => economicCheckpoint({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256,revision:value.revision,stateSHA256:sha(value.data)});
+  const readAnchor=async()=>{const physicalFile=await privateAnchorFile(vault.path,2*1024*1024);physicalFile.bytes.fill(0);return vault.read(password);};
+  const validate = value => {
+    exactRecord(value.data, ['version','profile','location','lifetime','sources','journal','confirmed','candidate']);
+    const data = value.data; need(data.version === 1 && data.profile === ANCHOR_PROFILE, 'ANCHOR_REQUIRED');
+    assert.deepEqual(data.location, location, 'ORIGINAL_ECONOMIC_STATE_ANCHOR_LOCATION_CHANGED');
+    assert.deepEqual(data.sources, sourceSet, 'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED'); exactRecord(data.journal, ['path','password']);
+    need(data.journal.path === journal.path && typeof data.journal.password === 'string' && data.journal.password.length >= 16, 'ANCHOR_ORIGINAL_JOURNAL');
+    need(typeof data.lifetime === 'string' && /^[0-9a-f]{64}$/.test(data.lifetime), 'ANCHOR_REQUIRED');
+    for (const k of ['confirmed','candidate']) if(data[k] !== null) {economicCheckpoint(data[k]);need(data[k].lifetime === data.lifetime && data[k].sourceSetSHA256 === sourceSetSHA256, 'ANCHOR_CHECKPOINT');}
+    need(data.confirmed !== null || data.candidate !== null, 'ANCHOR_CHECKPOINT');
+    if(data.candidate !== null) need(data.candidate.revision === (data.confirmed === null ? 0 : data.confirmed.revision + 1), 'ANCHOR_CHECKPOINT_SEQUENCE');
+    return data;
+  };
+  try {
+    await physical();
+    record = opening ? await readAnchor() : await vault.create({version:1,profile:ANCHOR_PROFILE,location,lifetime,sources:sourceSet,
+      journal:{...journal},confirmed:null,candidate:checkpoint({revision:0,data:initial})}, password);
+    validate(record); await physical(); assert.deepEqual(await readAnchor(), record);
+  } catch (error) {try {await release();} finally {password=null;} throw error;}
+  const healthy = async () => {await physical();
+    assert.deepEqual(await readAnchor(), record, 'ORIGINAL_ECONOMIC_STATE_ANCHOR_CHECKPOINT_CHANGED'); await physical();};
+  const mutate = async transform => {await healthy(); const next = await vault.update(password, record.revision, transform); validate(next);
+    await physical(); assert.deepEqual(await readAnchor(), next); record = next;};
+  let closing = null;
+  return {
+    data: () => immutable(record.data), healthy,
+    async prepare(before, next) {assert.deepEqual(record.data.confirmed, before, 'ORIGINAL_ECONOMIC_STATE_ANCHOR_CHECKPOINT_CHANGED');
+      need(record.data.candidate === null, 'ANCHOR_CANDIDATE_PENDING'); await mutate(data=>({...data,candidate:next}));},
+    async settle(actual) {const data=record.data; need(sha(actual)===sha(data.confirmed)||sha(actual)===sha(data.candidate), 'ANCHOR_CHECKPOINT_REQUIRED');
+      if(data.candidate!==null)await mutate(row=>({...row,confirmed:actual,candidate:null}));},
+    close() {return closing ??= (async()=>{try {await release();} finally {password=null;}})();},
+  };
+}
+async function economicState(input, checkpoint, afterCrash = false) {
   const sources = [];
   for (const [key, kind] of [['catalogues', 'FLAT_NOTE'], ['nativeAccounts', 'NATIVE_NOTE'], ['wrappedPortfolios', 'WRAPPED_CLAIM']]) {
     need(Array.isArray(input[key]) && input[key].length <= 8, 'SOURCE_COUNT'); fixedArray(input[key], input[key].length);
@@ -164,13 +297,14 @@ async function economicState(input, checkpoint) {
   }
   need(sources.length > 0 && sources.length <= 24 && sources.reduce((n,s) => n + s.routes.length,0) <= 64
     && new Set(sources.map(s => s.id)).size === sources.length, 'ORIGINAL_SOURCES');
-  exactRecord(input.journal, ['path', 'password']);
-  const path = resolve(input.journal.path); let password = input.journal.password;
-  need(typeof password === 'string' && password.length >= 16, 'JOURNAL_PASSWORD');
+  exactRecord(input.journal, afterCrash ? ['path'] : ['path', 'password']);
+  need(typeof input.journal.path === 'string', 'ORIGINAL_JOURNAL_PATH');
+  const path=resolve(input.journal.path);if(afterCrash)need(path===input.journal.path,'ORIGINAL_JOURNAL_PATH'); let password = afterCrash ? null : input.journal.password;
+  if (!afterCrash) need(typeof password === 'string' && password.length >= 16, 'JOURNAL_PASSWORD');
   const parent = await lstat(dirname(path)); need(parent.isDirectory() && !parent.isSymbolicLink() && (parent.mode & 0o777) === 0o700
     && parent.uid === process.getuid() && await realpath(dirname(path)) === dirname(path), 'PRIVATE_DIRECTORY');
   const directoryIdentity = {dev: parent.dev, ino: parent.ino};
-  const vault = new Vault(path), lifetime = checkpoint?.lifetime ?? randomBytes(32).toString('hex');
+  const vault = new Vault(path); let lifetime = checkpoint?.lifetime ?? randomBytes(32).toString('hex'), anchor = null;
   let closed = false, fenced = false, busy = false, fault = false, work = null, pending = null, freshAt = null;
   function live() {need(!closed&&!fenced, 'CLOSED');}
   async function physical(required = true) {
@@ -182,26 +316,45 @@ async function economicState(input, checkpoint) {
   const capabilities = {readOnly: true, privateBalancesAggregated: false, underlyingCredit: false, deviceRootsIncluded: false, crossNetworkAtomicState: false};
   const checkpoints = sources.map(s => ({sourceId: s.id, stateSHA256: sha({sourceId: s.id, state: 'UNKNOWN'}), journalRevision: null}));
   const sourceSet = immutable(sources.map(sourceMetadata));
+  const makeCheckpoint = value => economicCheckpoint({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:value.revision,stateSHA256:sha(value.data)});
   let record;
-  if (checkpoint === null) record = await vault.create({version: 1, profile: ORIGINAL_ECONOMIC_STATE_V1, lifetime, sources: sourceSet,
-    rows: sources.flatMap(s => unknown(s, 'ORIGINAL_SOURCE_UNAVAILABLE', checkpoints.find(c => c.sourceId === s.id).stateSHA256)), checkpoints}, password);
-  else {
-    need(checkpoint.sourceSetSHA256 === sha(sourceSet), 'ORIGINAL_SOURCE_SET_REQUIRED'); await physical();
-    record = await vault.read(password); await physical();
-    exactRecord(record.data, ['version','profile','lifetime','sources','rows','checkpoints']);
-    need(record.revision === checkpoint.revision && sha(record.data) === checkpoint.stateSHA256 && record.data.lifetime === lifetime
-      && record.data.version === 1 && record.data.profile === ORIGINAL_ECONOMIC_STATE_V1, 'ORIGINAL_CHECKPOINT_REQUIRED');
-    assert.deepEqual(record.data.sources, sourceSet, 'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED');
-    const keys = sources.flatMap(s => s.routes.map(r => sha(r.route))).sort();
-    assert.deepEqual(record.data.rows.map(r => sha(r.route)).sort(), keys, 'ORIGINAL_ECONOMIC_STATE_ROUTES_CHANGED');
-    need(new Set(record.data.checkpoints.map(c => c.sourceId)).size === sources.length
-      && sources.every(s => record.data.checkpoints.some(c => c.sourceId === s.id)), 'ORIGINAL_CHECKPOINT_REQUIRED');
-    const liveCount = record.data.rows.filter(r => r.state === 'LIVE').length;
-    validateOriginalWalletEconomicStateV1({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,status:liveCount === record.data.rows.length && liveCount > 0 ? 'LIVE' : liveCount > 0 ? 'PARTIAL' : record.data.rows.some(r => r.state === 'STALE') ? 'STALE' : 'UNKNOWN',
-      revision:record.revision,storageAvailable:true,observedAt:null,rows:record.data.rows,checkpoints:record.data.checkpoints,capabilities});
-  }
-  await physical(); assert.deepEqual(await vault.read(password), record);
-  async function healthy() {try {await physical(); assert.deepEqual(await vault.read(password), record, 'ORIGINAL_ECONOMIC_STATE_CHECKPOINT_CHANGED'); await physical();}
+  try {
+    const initial = {version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sources:sourceSet,
+      rows:sources.flatMap(s=>unknown(s,'ORIGINAL_SOURCE_UNAVAILABLE',checkpoints.find(c=>c.sourceId===s.id).stateSHA256)),checkpoints};
+    if(checkpoint===null&&!afterCrash) {
+      // Preserve the old duplicate-create rejection; never adopt an old file.
+      try {await lstat(path); const error=Error('ORIGINAL_ECONOMIC_STATE_JOURNAL_EXISTS'); error.code='VAULT_EXISTS'; throw error;} catch(error) {if(error.code!=='ENOENT')throw error;}
+      anchor=await localEconomicAnchor({path,password},sourceSet,lifetime,initial,false);
+      record=await vault.create(initial,password);await physical();assert.deepEqual(await vault.read(password),record);await anchor.settle(makeCheckpoint(record));
+    } else {
+      if(!afterCrash)need(checkpoint.sourceSetSHA256===sha(sourceSet),'ORIGINAL_SOURCE_SET_REQUIRED');
+      // Legacy ordered captures remain exact. A missing anchor is accepted only
+      // for that OLD checkpoint-bearing contract, never for crash recovery.
+      let hasAnchor=true;try{await lstat(path+'.original-state-anchor-v1');}catch(error){if(error.code==='ENOENT')hasAnchor=false;else throw error;}
+      if(afterCrash||hasAnchor) {
+        anchor=await localEconomicAnchor({path,...(afterCrash?{}:{password})},sourceSet,lifetime,null,true);
+        const data=anchor.data();if(!afterCrash)assert.deepEqual(data.journal,{path,password},'ORIGINAL_ECONOMIC_STATE_ANCHOR_CREDENTIALS_CHANGED');
+        password=data.journal.password;lifetime=data.lifetime;
+      }
+      if(afterCrash) {try {await lstat(vault.lockPath);need(false,'ANCHOR_STATE_VAULT_LOCKED');}catch(error){if(error.code!=='ENOENT')throw error;}}
+      await physical();record=await vault.read(password);await physical();
+      exactRecord(record.data,['version','profile','lifetime','sources','rows','checkpoints']);
+      const actual=makeCheckpoint(record);
+      if(afterCrash) {const data=anchor.data();need(sha(actual)===sha(data.confirmed)||sha(actual)===sha(data.candidate),'ANCHOR_CHECKPOINT_REQUIRED');await anchor.settle(actual);checkpoint=actual;}
+      need(record.revision===checkpoint.revision&&sha(record.data)===checkpoint.stateSHA256&&record.data.lifetime===lifetime
+        &&record.data.version===1&&record.data.profile===ORIGINAL_ECONOMIC_STATE_V1,'ORIGINAL_CHECKPOINT_REQUIRED');
+      if(anchor&&!afterCrash)assert.deepEqual(anchor.data().confirmed,checkpoint,'ORIGINAL_ECONOMIC_STATE_ANCHOR_CHECKPOINT_CHANGED');
+      assert.deepEqual(record.data.sources,sourceSet,'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED');
+      const keys=sources.flatMap(s=>s.routes.map(r=>sha(r.route))).sort();
+      assert.deepEqual(record.data.rows.map(r=>sha(r.route)).sort(),keys,'ORIGINAL_ECONOMIC_STATE_ROUTES_CHANGED');
+      need(new Set(record.data.checkpoints.map(c=>c.sourceId)).size===sources.length&&sources.every(s=>record.data.checkpoints.some(c=>c.sourceId===s.id)),'ORIGINAL_CHECKPOINT_REQUIRED');
+      const liveCount=record.data.rows.filter(r=>r.state==='LIVE').length;
+      validateOriginalWalletEconomicStateV1({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,status:liveCount===record.data.rows.length&&liveCount>0?'LIVE':liveCount>0?'PARTIAL':record.data.rows.some(r=>r.state==='STALE')?'STALE':'UNKNOWN',
+        revision:record.revision,storageAvailable:true,observedAt:null,rows:record.data.rows,checkpoints:record.data.checkpoints,capabilities});
+    }
+    await physical();assert.deepEqual(await vault.read(password),record);
+  } catch(error) {try {await anchor?.close();} finally {password=null;} throw error;}
+  async function healthy() {try {await anchor?.healthy(); await physical(); assert.deepEqual(await vault.read(password), record, 'ORIGINAL_ECONOMIC_STATE_CHECKPOINT_CHANGED'); await physical();}
     catch(error){fault=true;freshAt=null;throw error;}}
   function snapshot() {
     const unavailable = new Set(); for (const s of sources) try {s.check();} catch {unavailable.add(s.id);}
@@ -221,8 +374,9 @@ async function economicState(input, checkpoint) {
     const nextData = {...record.data, rows, checkpoints: nextCheckpoints};
     if (sha(nextData) === sha(record.data)) return;
     pending = {revision: record.revision + 1, data: immutable(nextData)};
-    try {const next = await vault.update(password, record.revision, () => pending.data); assert.deepEqual(next, pending);
-      await physical(); assert.deepEqual(await vault.read(password), next); record = next; pending = null;
+    try {await anchor?.prepare(makeCheckpoint(record),makeCheckpoint(pending));
+      const next = await vault.update(password, record.revision, () => pending.data); assert.deepEqual(next, pending);
+      await physical(); assert.deepEqual(await vault.read(password), next); await anchor?.settle(makeCheckpoint(next)); record = next; pending = null;
     } catch (error) {fault = true; freshAt = null; throw error;}
   }
   async function observe() {
@@ -246,21 +400,22 @@ async function economicState(input, checkpoint) {
     capture() {assert.equal(arguments.length,0);live();fenced=true;freshAt=null;const active=work;
       return (async()=>{try{if(active)await active;need(!closed&&!busy&&!fault&&pending===null,'CHECKPOINT_UNAVAILABLE');await healthy();
         const checkpoint=immutable({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:record.revision,stateSHA256:sha(record.data)});
-        need(!closed,'CLOSED');return checkpoint;}finally{closed=true;password=null;}})();},
+        need(!closed,'CLOSED');return checkpoint;}finally{closed=true;try{await anchor?.close();}finally{password=null;}}})();},
     observe() {assert.equal(arguments.length, 0); return run(observe);},
     async idle() {assert.equal(arguments.length,0); live(); const active=work; if(active)await active.catch(()=>{}); live(); need(!busy,'BUSY'); return {phase:fault?'UNKNOWN':'READY'};},
     snapshot() {assert.equal(arguments.length, 0); return run(async () => {try {await healthy();} catch {fault = true;} need(!closed, 'CLOSED'); return snapshot();});},
     reconcile() {assert.equal(arguments.length, 0); return run(async () => {
       await physical(); const actual = await vault.read(password); await physical();
       need(sha(actual) === sha(record) || pending !== null && sha(actual) === sha(pending), 'ORIGINAL_CHECKPOINT_REQUIRED');
-      record = actual; pending = null; fault = false; freshAt = null;
+      await anchor?.settle(makeCheckpoint(actual)); record = actual; pending = null; fault = false; freshAt = null;
       // Only fresh observations of the same originals clear UNKNOWN. No account
       // reconcile/prepare/execute call, replacement reader or resend is made.
       return observe();
     });},
     close() {assert.equal(arguments.length, 0); closed = true; freshAt = null; const active = work;
-      return (async () => {if (active) await active.catch(() => {}); password = null; return {closed: true, originalResourcesRetained: true};})();},
+      return (async () => {if (active) await active.catch(() => {}); try {await anchor?.close();} finally {password=null;} return {closed: true, originalResourcesRetained: true};})();},
     toJSON() {throw Error('ORIGINAL_ECONOMIC_STATE_NOT_SERIALIZABLE');},
   });
-  sources.forEach(s => s.check()); owned.set(capability, {live, sources}); return capability;
+  try {sources.forEach(s=>s.check()); owned.set(capability,{live,sources,journalSHA256:sha({path,password})}); return capability;}
+  catch(error) {try {await anchor?.close();} finally {password=null;} throw error;}
 }
