@@ -4,7 +4,7 @@
 import {readOriginalPrivateStateObservationV1,originalPrivateStateObservationDescriptorV1} from '../api/original-account-api-v2.mjs';
 import {readDeviceDefiPositionObservationV1} from '../api/device-defi-position-read-api-v1.mjs';
 import {readDeviceExternalFlatStatusV1} from '../api/device-external-flat-note-api-v1.mjs';
-import {normalizeExternalFlatDescriptorV1,externalFlatHexV1,DEVICE_EXTERNAL_FLAT_NOTE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {normalizeExternalFlatDescriptorV1,externalFlatHexV1,DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
 const fail=()=>{throw Error('MOBILE_PRIVATE_WALLET_STATE_REJECTED');};
 const routeKey=route=>JSON.stringify(route);
@@ -20,10 +20,10 @@ export function createPrivateWalletStateV1(){
  }
  function invalidateExternalRoute(raw,rootId){
    const d=normalizeExternalFlatDescriptorV1(raw);externalFlatHexV1(rootId);
-   if(d.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1)fail();
+   if(![DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1].includes(d.profile))fail();
    const p=d.poolTerms;
    for(const [key,source]of sources){
-    const matches=row=>{const r=row.route;return ['DEVICE_NOTE','DEVICE_GRAPH_NOTE','DEVICE_GRAPH_RESERVATION'].includes(r.component)&&r.rootId===rootId&&
+    const matches=row=>{const r=row.route;return (d.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?r.component==='DEVICE_SHARE_NOTE':['DEVICE_NOTE','DEVICE_GRAPH_NOTE','DEVICE_GRAPH_RESERVATION'].includes(r.component))&&r.rootId===rootId&&
      r.origin===d.origin&&r.pairingId===d.pairingId&&r.lifetime===d.lifetime&&r.pool===p.pool&&
      r.assetId===p.assetIdentity&&r.genesis===p.genesis&&r.scope===p.scope&&r.policy===p.policy&&r.domain===p.domainCommitment;};
     if(source.rows.some(matches))sources.set(key,{rows:source.rows.map(row=>matches(row)?freeze(opaqueRow(row,'UNKNOWN')):row),check:source.check});

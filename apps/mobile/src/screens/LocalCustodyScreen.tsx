@@ -1,3 +1,5 @@
+import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1} from '../custody/key-store';
+import {DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1} from '../custody/sealed-custody-backup-v1.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createLocalRootNoteOperationV1, inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1,
@@ -17,6 +19,9 @@ export default function LocalCustodyScreen() {
   const [prepared, setPrepared] = useState<LocalPreparedNoteSummaryV1 | null>(null);
   const [readback, setReadback] = useState(false);
   const [backup, setBackup] = useState(''), [backupInput, setBackupInput] = useState('');
+  const [identityPublicKey,setIdentityPublicKey]=useState(''),[identityPassword,setIdentityPassword]=useState(''),[identityConfirmation,setIdentityConfirmation]=useState('');
+  const [identityBackup,setIdentityBackup]=useState(''),[identityBackupInput,setIdentityBackupInput]=useState('');
+  const identityAbort=useRef<AbortController|null>(null);
   const [rootInput, setRootInput] = useState(''), [revisionInput, setRevisionInput] = useState('');
   const [noteForm, setNoteForm] = useState(emptyNote);
   const [relation, setRelation] = useState<'D26' | 'D27'>('D26');
@@ -38,13 +43,15 @@ export default function LocalCustodyScreen() {
   function hide() {
     discardDeposit(); setNoteForm(emptyNote); setEpochInput(''); setFromInput(''); setUntilInput('');
     epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null;
+    identityAbort.current?.abort();identityAbort.current=null;
+    setIdentityPassword('');setIdentityConfirmation('');setIdentityBackup('');setIdentityBackupInput('');setIdentityPublicKey('');
     setBackup(''); setBackupInput(''); setRootInput(''); setRevisionInput('');
     setPrepared(null); setReadback(false);
   }
   useEffect(() => {
     mounted.current = true;
     const listener = AppState.addEventListener('change', value => { if (value !== 'active') hide(); });
-    return () => { mounted.current = false; if (reviewTimer.current !== null) clearTimeout(reviewTimer.current); reviewRef.current = null; acceptedRef.current = false; epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null; listener.remove(); };
+    return () => { identityAbort.current?.abort();identityAbort.current=null; mounted.current = false; if (reviewTimer.current !== null) clearTimeout(reviewTimer.current); reviewRef.current = null; acceptedRef.current = false; epoch.current++; operation.current?.close(); operation.current = null; vault.current?.close(); vault.current = null; listener.remove(); };
   }, []);
   async function run(work: (generation: number) => Promise<void>) {
     if (busyRef.current || AppState.currentState !== 'active') return;
@@ -54,6 +61,8 @@ export default function LocalCustodyScreen() {
       if (visible(generation)) {
         const code = error instanceof Error ? error.message : '';
         setNotice(code.includes('AUTHENTICATION_CANCELLED') ? 'Operación cancelada. No se muestra ningún secreto.'
+          : code.includes('BACKUP_PASSWORD') ? 'Usa una contraseña de al menos 12 caracteres y conserva la misma para recuperar la copia.'
+          : code.includes('BACKUP_AUTHENTICATION') || code.includes('BACKUP_BINDING') ? 'La copia, la contraseña o la identidad esperada no coinciden. No se sustituyó otra identidad.'
           : code.includes('ALREADY_EXISTS') || code.includes('BACKUP_CONFLICT')
             ? 'Existe una custodia o registro distinto. Se conserva sin sustituirlo.'
             : code.includes('WRITE_UNCERTAIN')
@@ -62,6 +71,28 @@ export default function LocalCustodyScreen() {
       }
     } finally { busyRef.current = false; if (mounted.current) setBusy(false); }
   }
+  async function readIdentity(generation:number){const value=await readDevicePublicKey();if(!visible(generation))return;setIdentityPublicKey(value??'');setNotice(value?'Identidad original consultada. Guarda esta clave pública con tu copia cifrada.':'No hay identidad local disponible. Una copia de notas no reemplaza la identidad que las autoriza.');}
+  async function identityExport(generation:number){
+    let password=identityPassword;const expected=identityPublicKey,confirmation=identityConfirmation;
+    setIdentityPassword('');setIdentityConfirmation('');setIdentityBackup('');
+    if(password!==confirmation)throw Error('MOBILE_CUSTODY_BACKUP_PASSWORD');
+    const controller=new AbortController();identityAbort.current=controller;
+    try{if(!visible(generation)){controller.abort();return;}const value=await exportDeviceIdentityBackupV1(password,expected,controller.signal);
+      if(visible(generation)){setIdentityBackup(value);setNotice('Copia cifrada de la misma identidad lista. Guarda el JSON completo y la contraseña fuera del dispositivo; conserva también las copias de tus notas.');}
+    }finally{password='';if(identityAbort.current===controller)identityAbort.current=null;}
+  }
+  function confirmIdentityExport(){const generation=epoch.current;Alert.alert('Crear copia cifrada de identidad','Guardarás la misma identidad con la contraseña elegida. Esta copia no incluye las notas ni se envía a ningún servicio. Conserva la copia y la contraseña en un lugar seguro fuera del teléfono.',[
+    {text:'Cancelar',style:'cancel'},{text:'Crear con biometría',onPress:()=>{if(visible(generation))void run(identityExport);}},]);}
+  async function identityImport(generation:number){
+    let input=identityBackupInput,password=identityPassword;const expected=identityPublicKey;
+    setIdentityBackupInput('');setIdentityPassword('');setIdentityConfirmation('');setIdentityBackup('');
+    const controller=new AbortController();identityAbort.current=controller;
+    try{if(!visible(generation)){controller.abort();return;}const result=await importDeviceIdentityBackupV1(input,password,expected,controller.signal);
+      if(visible(generation)){setIdentityPublicKey(result.devicePublicKey);setNotice('La misma identidad ha sido restaurada. No se crearon notas ni saldo. Recupera sus copias y consulta las operaciones originales antes de actuar.');}
+    }finally{input='';password='';if(identityAbort.current===controller)identityAbort.current=null;}
+  }
+  function confirmIdentityImport(){const generation=epoch.current;Alert.alert('Restaurar la misma identidad','La clave pública esperada debe ser la que guardaste al emparejar el dispositivo. Se autenticará la copia cifrada y se conservará cualquier identidad distinta ya presente.',[
+    {text:'Cancelar',style:'cancel'},{text:'Restaurar con biometría',onPress:()=>{if(visible(generation))void run(identityImport);}},]);}
   async function refresh(generation: number) {
     const state = await inspectLocalRootNoteVaultV1();
     if (!visible(generation)) return;
@@ -234,6 +265,21 @@ export default function LocalCustodyScreen() {
         onChangeText={setBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={99328} />
       <Button label="Autenticar e importar copia con biometría" disabled={busy || backupInput.length === 0}
         onPress={() => { void run(restore); }} />
+    </View>
+    <View style={styles.card}><Text style={styles.heading}>Identidad del dispositivo</Text>
+      <Text style={styles.muted}>Esta copia cifrada recupera la misma identidad que autoriza tus operaciones. Guarda también las copias de tus notas; ninguna copia establece saldo por sí sola. No se envía ni se copia automáticamente.</Text>
+      <Button label="Consultar mi identidad actual" disabled={busy} onPress={()=>{void run(readIdentity);}}/>
+      <Text style={styles.label}>Clave pública original guardada al emparejar</Text>
+      <TextInput accessibilityLabel="Clave pública original de la identidad" style={styles.input} value={identityPublicKey} onChangeText={setIdentityPublicKey} editable={!busy} autoCapitalize="none" autoCorrect={false} maxLength={130}/>
+      <Text style={styles.label}>Contraseña de la copia · al menos 12 caracteres</Text>
+      <TextInput accessibilityLabel="Contraseña de la copia cifrada de identidad" style={styles.input} value={identityPassword} onChangeText={setIdentityPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
+      <Text style={styles.label}>Repite la contraseña para crear una copia</Text>
+      <TextInput accessibilityLabel="Confirmación de contraseña para crear la copia" style={styles.input} value={identityConfirmation} onChangeText={setIdentityConfirmation} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
+      <Button label="Crear copia cifrada con biometría" disabled={busy||identityPublicKey.length!==130||identityPassword.length<12||identityPassword!==identityConfirmation} onPress={confirmIdentityExport}/>
+      {identityBackup!==''&&<><Text selectable style={styles.value}>{identityBackup}</Text><Button label="Ocultar copia y cerrar" onPress={hide}/></>}
+      <Text style={styles.label}>Importar el JSON cifrado completo</Text>
+      <TextInput accessibilityLabel="Copia cifrada JSON de identidad para restaurar" style={styles.input} value={identityBackupInput} onChangeText={setIdentityBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1}/>
+      <Button label="Restaurar identidad original con biometría" disabled={busy||identityPublicKey.length!==130||identityPassword.length<12||identityBackupInput.length===0} onPress={confirmIdentityImport}/>
     </View>
     <View style={styles.card}><Text style={styles.heading}>Recuperar una escritura interrumpida</Text>
       <Text style={styles.muted}>Usa la raíz HEX original y la revisión del ciphertext que conservas. No reemplaza un registro existente por otro ni vuelve a generar notas.</Text>

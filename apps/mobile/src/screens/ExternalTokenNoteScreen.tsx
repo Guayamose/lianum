@@ -1,8 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {fetch as expoFetch} from 'expo/fetch';
-import {readDevicePublicKey,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1} from '../custody/key-store';
-import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1} from '../custody/device-external-flat-note-vault-v1';
+import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1} from '../custody/key-store';
+import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1,restoreDeviceExternalFlatNoteBackupV1} from '../custody/device-external-flat-note-vault-v1';
 import type {DeviceExternalFlatSummary,DeviceExternalFlatPrepared} from '../custody/device-external-flat-note-vault-v1';
 import {createDeviceExternalFlatNoteApiV1,readDeviceExternalFlatQuoteV1} from '../api/device-external-flat-note-api-v1.mjs';
 import {createDeviceExternalFlatGraphApiV1} from '../api/device-external-flat-graph-api-v1.mjs';
@@ -53,6 +53,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const [graphOutputReview,setGraphOutputReview]=useState<GraphOutputConsent|null>(null);
  const [graphAssetAmount,setGraphAssetAmount]=useState(''),[graphShareAmount,setGraphShareAmount]=useState(''),[graphPayoutAmount,setGraphPayoutAmount]=useState(''),[graphValidFrom,setGraphValidFrom]=useState(''),[graphSettleBefore,setGraphSettleBefore]=useState('');
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Introduce la conexión privada entregada por tu operador.');
+ const [recoveryPassword,setRecoveryPassword]=useState(''),[recoveryInput,setRecoveryInput]=useState(''),[recoveryCopy,setRecoveryCopy]=useState('');
+ const [custodyRoute,setCustodyRoute]=useState<'LEGACY'|'ROUTED'>('LEGACY');
  const mounted=useRef(true),busyRef=useRef(false),epoch=useRef(0),connection=useRef<Connection|null>(null);
  const acquiring=useRef<Promise<Vault>|null>(null),closing=useRef<Promise<unknown>|null>(null),signing=useRef<AbortController|null>(null);
  const graphReviewRef=useRef<GraphReview|null>(null),graphPreparedRef=useRef<GraphPrepared|null>(null);
@@ -65,8 +67,9 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   externalFlatWipeV1(reviewRef.current?.witness);externalFlatWipeV1(preparedRef.current?.witness);externalFlatWipeV1(activeWitness.current);activeWitness.current=null;
   reviewRef.current=null;preparedRef.current=null;if(mounted.current)setReview(null);
  }
+ function hideRecovery(){setRecoveryPassword('');setRecoveryInput('');setRecoveryCopy('');}
  function closeConnection() {
-  epoch.current++;clearReview();const selected=connection.current;connection.current=null;
+  epoch.current++;clearReview();if(mounted.current)hideRecovery();const selected=connection.current;connection.current=null;
   selected?.graphClient?.close();selected?.client.close();const acquisition=acquiring.current;acquiring.current=null;
   const previous=closing.current;
   const drain=Promise.allSettled([previous,selected?.vault.close(),acquisition?.then(v=>v.close())]);closing.current=drain;
@@ -87,9 +90,9 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  useEffect(()=>{if(!graphOutputReview)return;const selected=graphOutputReviewRef.current,timer=setTimeout(()=>{if(mounted.current&&graphOutputReviewRef.current===selected){clearReview();setNotice('Permiso de retirada caducado. Solicita otra revisión de la misma salida.');}},Math.max(0,graphOutputReview.consent.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphOutputReview]);
  useEffect(()=>{if(!status)return;const value=status,timer=setTimeout(()=>{if(mounted.current)setStatus(current=>current===value?null:current);},Math.max(0,status.expiresAt-Date.now()));return()=>clearTimeout(timer);},[status]);
  useEffect(()=>{if(!graphStatus)return;const value=graphStatus,timer=setTimeout(()=>{if(mounted.current)setGraphStatus((current:GraphStatus|null)=>current===value?null:current);},Math.max(0,graphStatus.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphStatus]);
- async function run(work:()=>Promise<void>) {
+ async function run(work:()=>Promise<void>,failureNotice='No se ha confirmado el resultado. Vuelve a conectar y consulta la misma operación; no repitas el envío.') {
   if(busyRef.current||AppState.currentState!=='active')return;busyRef.current=true;setBusy(true);
-  try{await work();}catch{closeConnection();if(mounted.current)setNotice('No se ha confirmado el resultado. Vuelve a conectar y consulta la misma operación; no repitas el envío.');}
+  try{await work();}catch{closeConnection();if(mounted.current)setNotice(failureNotice);}
   finally{busyRef.current=false;if(mounted.current)setBusy(false);}
  }
  async function sign(selected:Connection,value:ExternalFlatConsent|Awaited<ReturnType<Client['challenge']>>,ticket:number) {
@@ -189,7 +192,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
   if(key===null||key!==descriptor.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');
   const client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:expoFetch});
-  const acquisition=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?createDeviceExternalFlatRoutedNoteVaultV1(descriptor):createDeviceExternalFlatNoteVaultV1();acquiring.current=acquisition;let vault:Vault;
+  const acquisition=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1||custodyRoute==='ROUTED'?createDeviceExternalFlatRoutedNoteVaultV1(descriptor):createDeviceExternalFlatNoteVaultV1();acquiring.current=acquisition;let vault:Vault;
   try{vault=await acquisition;}catch(error){client.close();throw error;}
   if(acquiring.current!==acquisition||!mounted.current||epoch.current!==ticket||AppState.currentState!=='active'){
    client.close();await vault.close();return;
@@ -201,6 +204,40 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   setSummary(local);setConnected(true);setRecipient(local.recipient===null?'':'0x'+local.recipient);setAmount(local.amount??'');
   if(local.graph!==null)await readGraphStatus(selected,ticket);else await readStatus(selected,ticket);setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
  }
+ async function exportRecovery(){
+  const selected=requireConnection();clearReview();const ticket=epoch.current,controller=new AbortController();signing.current=controller;
+  let password=recoveryPassword;setRecoveryPassword('');setRecoveryCopy('');
+  try{
+   const note=await selected.vault.exportBackup(password,selected.descriptor.devicePublicKey,controller.signal);current(ticket,selected);
+   const identity=await exportDeviceIdentityBackupV1(password,selected.descriptor.devicePublicKey,controller.signal);current(ticket,selected);
+   const copy=JSON.stringify({format:'LIANUM_DEVICE_NOTE_RECOVERY_PACKAGE_V1',descriptor:selected.descriptor,identityBackup:JSON.parse(identity),noteBackup:JSON.parse(note)});
+   if(copy.length>196608)throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+   setRecoveryCopy(copy);setNotice('Copia cifrada de tu identidad, esta nota y sus operaciones. Guárdala fuera del dispositivo junto con tu contraseña. Actualízala al cambiar las operaciones.');
+  }finally{password='';if(signing.current===controller)signing.current=null;}
+ }
+ async function restoreRecovery(){
+  let input=recoveryInput,password=recoveryPassword;setRecoveryInput('');setRecoveryPassword('');
+  const drain=closeConnection(),ticket=epoch.current;await drain;
+  if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active'){input='';password='';return;}
+  const controller=new AbortController();signing.current=controller;
+  try{
+   if(input.length===0||input.length>196608)throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+   const descriptor=normalizeExternalFlatDescriptorV1(JSON.parse(descriptorText)),packet=JSON.parse(input);
+   if(!packet||Array.isArray(packet)||Object.keys(packet).sort().join(',')!=='descriptor,format,identityBackup,noteBackup'||packet.format!=='LIANUM_DEVICE_NOTE_RECOVERY_PACKAGE_V1'||JSON.stringify(normalizeExternalFlatDescriptorV1(packet.descriptor))!==JSON.stringify(descriptor))throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+   await importDeviceIdentityBackupV1(JSON.stringify(packet.identityBackup),password,descriptor.devicePublicKey,controller.signal);
+   if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
+   const acquisition=restoreDeviceExternalFlatNoteBackupV1(JSON.stringify(packet.noteBackup),password,descriptor.devicePublicKey,descriptor,controller.signal);acquiring.current=acquisition;
+   const vault=await acquisition;
+   try{
+    if(acquiring.current!==acquisition||!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
+    const local=await vault.summary();
+    if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
+    onSourcePending?.(descriptor,local.rootId);setCustodyRoute(local.custodyRoute);setSummary(null);setStatus(null);setGraphStatus(null);setNotice('Custodia recuperada con la misma identidad y operaciones. Conecta y consulta su estado original antes de continuar.');
+   }finally{await vault.close();if(acquiring.current===acquisition)acquiring.current=null;}
+  }finally{input='';password='';if(signing.current===controller)signing.current=null;}
+ }
+ function confirmRecoveryExport(){if(busyRef.current)return;Alert.alert('Guardar una copia de recuperación','La copia contiene tu identidad y las claves de esta nota protegidas por la contraseña indicada. Guárdala completa fuera del dispositivo.',[{text:'Cancelar',style:'cancel'},{text:'Crear con biometría',onPress:()=>{void run(exportRecovery,'No se ha creado la copia. Comprueba la contraseña y vuelve a abrir la custodia.');}}],{cancelable:false});}
+ function confirmRecoveryRestore(){if(busyRef.current)return;Alert.alert('Recuperar esta custodia','Se recuperarán la misma identidad, nota y operaciones de esta conexión. Después debes consultar su estado original; la recuperación no mueve fondos.',[{text:'Cancelar',style:'cancel'},{text:'Recuperar con biometría',onPress:()=>{void run(restoreRecovery,'No se ha confirmado la recuperación. Comprueba la copia, la contraseña y la conexión original.');}}],{cancelable:false});}
  async function makeReview(selected:Connection,draft:ExternalFlatDraft,ticket:number,witness:unknown|null) {
   const access=await selected.client.challenge();current(ticket,selected);
   const signature=await sign(selected,access,ticket);const consent=await selected.client.review(access,signature,draft);current(ticket,selected);
@@ -270,6 +307,10 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    <Text style={styles.label}>Descriptor entregado por tu operador</Text>
    <TextInput accessibilityLabel="Descriptor privado de la nota ERC20" multiline style={[styles.input,styles.descriptor]} value={descriptorText} autoCapitalize="none" autoCorrect={false} editable={!busy}
     onChangeText={text=>{closeConnection();setDescriptorText(text);setSummary(null);}}/>
+   <Text style={styles.label}>Nota que quieres abrir</Text>
+   <Text style={styles.muted}>La nota inicial conserva su almacén. Para otro activo, red o conexión, selecciona otra nota. Las participaciones se guardan siempre en su propia conexión.</Text>
+   <Button label={(custodyRoute==='LEGACY'?'✓ ':'')+'Nota inicial'} disabled={busy} onPress={()=>{closeConnection();setCustodyRoute('LEGACY');setSummary(null);}}/>
+   <Button label={(custodyRoute==='ROUTED'?'✓ ':'')+'Otra nota por activo y conexión'} disabled={busy} onPress={()=>{closeConnection();setCustodyRoute('ROUTED');setSummary(null);}}/>
    <Button label="Conectar y consultar la nota" disabled={busy} onPress={()=>{void run(connect);}}/>
    <Text style={styles.muted}>{connected?'Conexión comprobada':'Sin conexión comprobada'}</Text>
   </View>
@@ -335,6 +376,14 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    {connected&&deposit?.stage==='CONFIRMED'&&!withdrawal&&!uncertain&&(graph===null||graphRow?.graph.stage==='SOURCE_CANCELLED')&&!status?.graphClaimed&&<Button label="Preparar retirada completa" disabled={busy} onPress={()=>confirmPreparation(true)}/>}
    {connected&&withdrawal?.stage==='PROVED'&&!uncertain&&<Button label="Revisar retirada" disabled={busy} onPress={()=>{void run(()=>requestAction('WITHDRAW_W39'));}}/>}
    {connected&&withdrawal?.stage==='WITHDRAWAL_UNKNOWN'&&<Button label="Consultar retirada pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_W39'));}}/>}
+  </View>
+  <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
+   <Text style={styles.muted}>Recupera tu identidad, esta nota, su cambio y recuperación, y las operaciones guardadas. Conserva la conexión original y una copia actualizada fuera del dispositivo.</Text>
+   <TextInput accessibilityLabel="Contraseña de la copia cifrada" style={styles.input} value={recoveryPassword} onChangeText={setRecoveryPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024} editable={!busy} placeholder="Contraseña de al menos 12 caracteres" placeholderTextColor="#9fb7bd"/>
+   <Button label="Crear copia cifrada" disabled={busy||!connected||recoveryPassword.length<12} onPress={confirmRecoveryExport}/>
+   {recoveryCopy!==''&&<><Text selectable style={styles.value}>{recoveryCopy}</Text><Button label="Ocultar copia" disabled={busy} onPress={hideRecovery}/></>}
+   <TextInput accessibilityLabel="Copia cifrada de recuperación de la nota" style={[styles.input,styles.descriptor]} value={recoveryInput} onChangeText={setRecoveryInput} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={196608} editable={!busy} placeholder="Pega tu copia cifrada" placeholderTextColor="#9fb7bd"/>
+   <Button label="Recuperar custodia desde la copia" disabled={busy||recoveryInput.length===0||recoveryPassword.length<12||descriptorText.length===0} onPress={confirmRecoveryRestore}/>
   </View>
   {busy&&<ActivityIndicator accessibilityLabel="Procesando operación ERC20" color="#9de3be"/>}<Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>
  </ScrollView></SafeAreaView>;
