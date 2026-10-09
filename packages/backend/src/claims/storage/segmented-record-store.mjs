@@ -154,6 +154,23 @@ function validateHeader(header) {
 }
 const revisionName = revision => `${String(revision).padStart(10, '0')}.json`;
 
+// Fresh independent filesystem reads only, inside one original locked scan.
+// All eight workers drain before an error escapes; results retain input order.
+// No read cache persists across calls and no writes enter this queue.
+async function freshScanReads(items, work) {
+  const results = new Array(items.length); let cursor = 0;
+  const worker = async () => {
+    for (;;) {
+      const index = cursor++; if (index >= items.length) return;
+      try { results[index] = { ok: true, value: await work(items[index], index) }; }
+      catch (error) { results[index] = { ok: false, error }; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, items.length) }, worker));
+  return results; // The original consumer validates/errors in original item order.
+}
+
+
 async function sessionFactory(input, initial, creating, readOnly = false) {
   const selected = options(input);
   // Capture caller-owned data before the first asynchronous boundary.
@@ -294,14 +311,16 @@ async function sessionFactory(input, initial, creating, readOnly = false) {
     check(objects.length <= LIMIT.retainedObjects && commits.length <= LIMIT.retainedCommits, 'CLAIM_STORE_RETAINED_COUNT');
     check(objects.every(name => /^[0-9a-f]{64}\.json$/.test(name) || TEMP_NAME.test(name)), 'CLAIM_STORE_UNKNOWN_OBJECT_FILE');
     check(commits.every(name => COMMIT_NAME.test(name) || TEMP_NAME.test(name)), 'CLAIM_STORE_UNKNOWN_COMMIT_FILE');
+    const files = [[path, rootNames.filter(name => !['objects', 'commits'].includes(name))], [objectPath, objects], [commitPath, commits]]
+      .flatMap(([base, names]) => names.map(name => join(base, name)));
+    const metadata = await freshScanReads(files, file => lstat(file));
     let retainedBytes = 0;
-    for (const [base, names] of [[path, rootNames.filter(name => !['objects', 'commits'].includes(name))], [objectPath, objects], [commitPath, commits]]) {
-      for (const name of names) {
-        const stat = await lstat(join(base, name));
-        check(stat.isFile() && !stat.isSymbolicLink() && stat.size <= LIMIT.envelopeBytes, 'CLAIM_STORE_UNSAFE_RETAINED_FILE');
-        retainedBytes += stat.size;
-        check(retainedBytes <= LIMIT.retainedFileBytes, 'CLAIM_STORE_RETAINED_BYTES');
-      }
+    for (const item of metadata) {
+      if (!item.ok) throw item.error;
+      const stat = item.value;
+      check(stat.isFile() && !stat.isSymbolicLink() && stat.size <= LIMIT.envelopeBytes, 'CLAIM_STORE_UNSAFE_RETAINED_FILE');
+      retainedBytes += stat.size;
+      check(retainedBytes <= LIMIT.retainedFileBytes, 'CLAIM_STORE_RETAINED_BYTES');
     }
     return { objects: objects.filter(name => !TEMP_NAME.test(name)), commits: commits.filter(name => !TEMP_NAME.test(name)).sort(),
       objectEntries: objects.length, commitEntries: commits.length, rootEntries: rootNames.length, retainedBytes };
@@ -321,11 +340,16 @@ async function sessionFactory(input, initial, creating, readOnly = false) {
       return node;
     };
     if (fullHistory) for (const name of layout.objects) await loadNode(name.slice(0, -5));
+    // Fresh commit reads/authentication drain first. Every name, read error,
+    // schema, predecessor and content ID is consumed in original revision order.
+    const authenticated = await freshScanReads(layout.commits, async (name, revision) =>
+      decrypt(await boundedRead(join(commitPath, name)), 'commit', String(revision)));
     let previous = null, current;
     const chain = [];
-    for (let revision = 0; revision < layout.commits.length; revision++) {
+    for (let revision = 0; revision < authenticated.length; revision++) {
       check(layout.commits[revision] === revisionName(revision), 'CLAIM_STORE_COMMIT_GAP');
-      const value = decrypt(await boundedRead(join(commitPath, layout.commits[revision])), 'commit', String(revision));
+      const item = authenticated[revision]; if (!item.ok) throw item.error;
+      const value = item.value;
       exact(value, ['revision', 'previous', 'root', 'commitment', 'logicalBytes', 'logicalNodes'], 'COMMIT');
       check(value.revision === revision && value.previous === previous && hex(value.root) && hex(value.commitment)
         && Number.isSafeInteger(value.logicalBytes) && value.logicalBytes > 0 && value.logicalBytes <= LIMIT.logicalBytes

@@ -9,7 +9,7 @@ import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
 
 const named = module => Object.fromEntries(Object.entries(module).filter(([name]) => name !== 'default'));
 const secrets = new Set(), derivations = [], events = [];
-let injected;
+let injected, metadataProbe;
 function event(kind, path) {
   events.push({ kind, path: String(path) });
   if (injected && injected.kind === kind && injected.matches(String(path))) {
@@ -22,6 +22,18 @@ mock.module('node:crypto', { exports: { ...named(crypto),
   createCipheriv(algorithm, key, ...rest) { secrets.add(key); return crypto.createCipheriv(algorithm, key, ...rest); },
 } });
 mock.module('node:fs/promises', { exports: { ...named(fs),
+  async lstat(path, ...args) {
+    event('lstat', path);
+    const probe = metadataProbe, name = String(path);
+    if (!probe || !name.startsWith(probe.path + '/') || !name.includes('/objects/') && !name.includes('/commits/'))
+      return fs.lstat(path, ...args);
+    probe.active++; probe.calls++; probe.peak = Math.max(probe.peak, probe.active);
+    if (probe.active === 8) probe.started.resolve();
+    try {
+      if (probe.fail === name) { probe.fail = null; throw Error('HOST_METADATA_READ_FAILURE'); }
+      await probe.gate.promise; return await fs.lstat(path, ...args);
+    } finally { probe.active--; }
+  },
   async open(path, flags, mode) {
     event(`open:${flags}`, path);
     const handle = await fs.open(path, flags, mode);
@@ -352,4 +364,112 @@ test('recovery marker repair preflights retained ciphertext bytes before writing
     assert.ok(!events.some(item => item.kind === 'rename' && (item.path.endsWith('/HEAD') || item.path.endsWith('/ACK'))));
     assert.deepEqual(await fs.readFile(join(f.options.path, 'HEAD')), head); assert.deepEqual(await fs.readFile(join(f.options.path, 'ACK')), ack);
   } finally { await f.cleanup(); }
+});
+
+
+// Exercise the real encrypted store and original CAS/lock/readback path. The
+// ports delay only metadata IO; no state, plaintext, key or clock is fabricated.
+test('fresh bounded scan IO preserves complete ciphertext reads, commitments and original CAS', async () => {
+  const f = await fixture({ n: 0, retained: 'same-original-body' }); let other;
+  try {
+    for (let n = 1; n <= 9; n++) await f.store.update(n - 1, data => ({ ...data, n }));
+    const expected = await f.store.read();
+    const probe = { path: f.options.path, active: 0, calls: 0, peak: 0,
+      started: Promise.withResolvers(), gate: Promise.withResolvers() }; metadataProbe = probe;
+    const pending = f.store.read(); await probe.started.promise;
+    assert.equal(probe.active, 8); assert.equal(probe.peak, 8);
+    assert.ok((await fs.lstat(f.options.path + '.lock')).isFile(), 'original cooperative lock remains held while IO is pending');
+    probe.gate.resolve(); assert.deepEqual(await pending, expected); assert.equal(probe.active, 0);
+    const firstCalls = probe.calls; assert.ok(firstCalls > 8);
+    events.length = 0; assert.deepEqual(await f.store.read(), expected);
+    assert.equal(probe.calls, firstCalls * 2, 'every layout entry is read fresh again');
+    assert.equal(probe.peak, 8);
+    const commitReads = events.filter(row => row.kind === 'open:r' && row.path.includes('/commits/') && row.path.endsWith('.json'));
+    assert.equal(commitReads.length, 10, 'all original revisions are freshly authenticated');
+    metadataProbe = null;
+    other = await openClaimRecordStore(f.options);
+    const next = await other.update(9, data => ({ ...data, n: 10 }));
+    await assert.rejects(f.store.update(9, () => ({ n: 999 })), error => error.code === 'VAULT_CONFLICT');
+    assert.deepEqual(await f.store.read(), next); assert.notEqual(next.commitment, expected.commitment);
+    other.close(); other = null;
+    // Genuine ciphertext tampering after a successful scan remains adverse;
+    // the prior authenticated record/commitment never becomes a read cache.
+    const commit = join(f.options.path, 'commits', '0000000010.json');
+    await changeEnvelope(commit, value => { value.tag = '00'.repeat(16); });
+    await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_AUTHENTICATION');
+    await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_CLOSED_OR_UNCERTAIN');
+  } finally { metadataProbe = null; other?.close(); await f.cleanup(); }
+});
+
+test('failed fresh scan drains admitted IO before releasing the original lock and poisons reads', async () => {
+  const f = await fixture({ n: 0, body: 'synthetic original' });
+  try {
+    for (let n = 1; n <= 3; n++) await f.store.update(n - 1, data => ({ ...data, n }));
+    const files = await objectFiles(f);
+    const probe = { path: f.options.path, active: 0, calls: 0, peak: 0,
+      fail: join(f.options.path, 'objects', files[0]), started: Promise.withResolvers(), gate: Promise.withResolvers() };
+    metadataProbe = probe; events.length = 0;
+    let settled = false;
+    const pending = f.store.read(); pending.then(() => { settled = true; }, () => { settled = true; });
+    await probe.started.promise;
+    assert.equal(settled, false); assert.equal(probe.active, 8); assert.equal(probe.peak, 8);
+    assert.ok((await fs.lstat(f.options.path + '.lock')).isFile());
+    probe.gate.resolve(); await assert.rejects(pending, /HOST_METADATA_READ_FAILURE/);
+    assert.equal(probe.active, 0); assert.equal(probe.peak, 8);
+    await assert.rejects(fs.lstat(f.options.path + '.lock'), error => error.code === 'ENOENT');
+    assert.ok(!events.some(row => row.kind === 'rename'), 'a failed read never writes state or markers');
+    await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_CLOSED_OR_UNCERTAIN');
+  } finally { metadataProbe = null; await f.cleanup(); }
+});
+
+
+// Deliberately corrupt only public synthetic fixture storage. Authenticated
+// schema/predecessor rejection must precede a later independent read failure.
+async function corruptFirstCommitPrevious(f) {
+  const header = JSON.parse(await fs.readFile(join(f.options.path, 'header.json'), 'utf8'));
+  const path = join(f.options.path, 'commits', '0000000000.json');
+  const envelope = JSON.parse(await fs.readFile(path, 'utf8'));
+  const master = crypto.scryptSync(f.options.password, Buffer.from(header.kdf.salt, 'hex'), 32,
+    { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+  const key = crypto.createHmac('sha256', master).update('LIANUM_CLAIM_RECORD_STORE_V3/aes-256-gcm').digest(); master.fill(0);
+  const aad = () => Buffer.from(canonical({ header, identity: canonical(f.options.identity), kind: envelope.kind, id: envelope.id, iv: envelope.iv }));
+  let partial, plaintext, rewritten;
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(envelope.iv, 'hex'), { authTagLength: 16 });
+    decipher.setAAD(aad()); decipher.setAuthTag(Buffer.from(envelope.tag, 'hex'));
+    partial = decipher.update(Buffer.from(envelope.ciphertext, 'base64url')); plaintext = Buffer.concat([partial, decipher.final()]);
+    const commit = JSON.parse(plaintext.toString('utf8')); commit.previous = '00'.repeat(32);
+    rewritten = Buffer.from(canonical(commit)); envelope.iv = crypto.randomBytes(12).toString('hex');
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, Buffer.from(envelope.iv, 'hex'), { authTagLength: 16 }); cipher.setAAD(aad());
+    envelope.ciphertext = Buffer.concat([cipher.update(rewritten), cipher.final()]).toString('base64url'); envelope.tag = cipher.getAuthTag().toString('hex');
+    await fs.writeFile(path, JSON.stringify(envelope));
+  } finally { key.fill(0); partial?.fill(0); plaintext?.fill(0); rewritten?.fill(0); }
+}
+test('fresh scan reports the first original validation failure after draining later IO errors', async t => {
+  await t.test('earlier authenticated predecessor mismatch precedes later commit read failure', async () => {
+    const f = await fixture({ n: 0 });
+    try {
+      await f.store.update(0, () => ({ n: 1 })); await corruptFirstCommitPrevious(f);
+      injected = { kind: 'open:r', matches: path => path.endsWith('/commits/0000000001.json') };
+      await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_COMMIT_CHAIN');
+      assert.equal(injected, undefined, 'later read was admitted and drained before rejection');
+      await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_CLOSED_OR_UNCERTAIN');
+    } finally { await f.cleanup(); }
+  });
+  await t.test('earlier retained byte overflow precedes later metadata read failure', async () => {
+    const f = await fixture({ n: 0 });
+    try {
+      // Sparse inert orphan temps exercise only original retained-byte checks;
+      // they are never interpreted as ciphertext, state or recovery artifacts.
+      const objects = join(f.options.path, 'objects');
+      for (let index = 0; index < LIMIT.retainedFileBytes / LIMIT.envelopeBytes; index++) {
+        const path = join(objects, `orphan.tmp-${index.toString(16).padStart(32, '0')}`);
+        await fs.writeFile(path, ''); await fs.truncate(path, LIMIT.envelopeBytes);
+      }
+      injected = { kind: 'lstat', matches: path => path.endsWith('/commits/0000000000.json') };
+      await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_RETAINED_BYTES');
+      assert.equal(injected, undefined, 'later metadata read was drained without replacing the earlier cause');
+      await assert.rejects(f.store.read(), error => error.code === 'CLAIM_STORE_CLOSED_OR_UNCERTAIN');
+    } finally { await f.cleanup(); }
+  });
 });
