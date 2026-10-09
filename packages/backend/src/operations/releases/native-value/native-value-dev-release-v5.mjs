@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "3359d73c011cca9b8f478341208693bc2a062a85636fbb856d710f96b8d0810a",
+  "hostSourceClosureSHA256": "c4ffa34b89bf606744e849c12b5ff8ef03024b6c2743a856ece9a8493fc3a371",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -710,11 +710,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-policy-v1.mjs",
-      "sha256": "6ef63a6b1b34081493dfdfaaf065865a94a6e8529f72e5b6370275ee833bc1f6"
+      "sha256": "ed6d0581243083bfcb501d0400fc6a0d8eea6344f7181886f6d50d917723839c"
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "70a17d879a34cbd5d76eaf0a18c0ee56d0bdd22bf6712c33de3f5456478f2d00"
+      "sha256": "14e2311a0b3a5ce18732388e796a97ca91306d77e2c2990da9f4d6c7b60ad8f6"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
@@ -2982,7 +2982,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs",
-      "sha256": "56982f4db437cd036a8d48e4cbd76b3128184f4e21ddac5d6ec2c46b75af9946"
+      "sha256": "9013b431705cc286c2479a0154c40820406ec82e36fb5cd6a4233155c02224a0"
     },
     {
       "path": "wallet-platform/modules/ops/native-original-source-observed-clock-v1.mjs",
@@ -3034,7 +3034,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-value-deployment-artifacts-v2.mjs",
-      "sha256": "5a3806b7a1dfe8b73ab3a0a85dd88205e71639adaecf6e72078a97d9a90e463a"
+      "sha256": "918cb04205a194fdd9d3f5fad63e9f0ffe2d64144f62af5009be5b571e543297"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-deployment-checks-v2.mjs",
@@ -3054,7 +3054,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-value-dev-producer-v5.mjs",
-      "sha256": "815a5889633cd4e3dd3f178a75540e6eb95f5ecf6126b8b673cc6f43df3b4ba0"
+      "sha256": "71c9ea9ac80b74c92366e4f6f466ee21b1cd365a6b67cfd64ab983d3331b6881"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-dev-release-contract-v5.mjs",
