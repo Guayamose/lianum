@@ -142,7 +142,7 @@ const GRAPH_PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/devic
 const GRAPH_MOBILE=Object.freeze([
  [
   "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
-  "9c10e08d60d8c4e62f352416047fa254e300e0ebd4183d7a40a1ba4835f66b96"
+  "e429d8e694a2b2d953c18e28baefb5b0a1d8396db41fc40c85128ca1ffb443b9"
  ],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
@@ -206,7 +206,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "1bf91ed1f367eeabfeb09e6726c250cc6892beac8f48a56bde7035680b6af535"
+  "25c7c4a37e17d90f68bf12ab64714a9a0b5d2927c96b3182688bb03b3444657a"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
