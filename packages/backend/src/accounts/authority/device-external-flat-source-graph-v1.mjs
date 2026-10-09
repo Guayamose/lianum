@@ -4,7 +4,7 @@
  * Account and graph CAS latches precede work and each possible native effect. */
 import assert from 'node:assert/strict';
 import {randomBytes,createHash,createPublicKey,verify} from 'node:crypto';
-import {types} from 'node:util';
+import {types,isDeepStrictEqual} from 'node:util';
 import {mkdtemp,chmod,lstat,realpath} from 'node:fs/promises';
 import {join} from 'node:path';
 import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
@@ -154,8 +154,8 @@ async function create(raw,authorityIdentity=null,restored=null){
  }
  function publicRow(authorizationSHA256,view=null){const j=job();return P.normalizeExternalFlatGraphRowV1({profile:P.DEVICE_EXTERNAL_FLAT_GRAPH_V1,descriptor:copy(descriptor),reservation:{jobId:j.jobId,stage:j.stage,consentFields:fields(j),statement:copy(j.statement),observation:copy(j.observation),errorCode:j.errorCode,authorizationSHA256},graph:copy(j.graph),outputs:view?outputRows(view):[]});}
  function sameJob(d){const j=job();for(const k of ['depositJobId','rootId','quoteId','jobId','custody','statement','witnessSHA256','proofSHA256','publicInputsSHA256'])assert.deepEqual(d[k],j[k],'DEVICE_EXTERNAL_GRAPH_JOB_CHANGED');return j;}
- async function observeS(authorizationSHA256){const j=job();need(j.submission?.dispatchLatched,'DEVICE_EXTERNAL_GRAPH_SEND_NOT_ADMITTED');const s=j.submission;if(restored&&s.transactionHash===null)return publicRow(authorizationSHA256);
-  const o=await observer.readTransaction({kind:'reservation',identitySHA256,transactionHash:s.transactionHash,calldataSHA256:s.calldataSHA256});if(o===null)return publicRow(authorizationSHA256);
+ async function observeS(authorizationSHA256,requireOriginal=false){const j=job();need(j.submission?.dispatchLatched,'DEVICE_EXTERNAL_GRAPH_SEND_NOT_ADMITTED');const s=j.submission;if(restored&&s.transactionHash===null){need(!requireOriginal,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_S_UNAVAILABLE');return publicRow(authorizationSHA256);}
+  const o=await observer.readTransaction({kind:'reservation',identitySHA256,transactionHash:s.transactionHash,calldataSHA256:s.calldataSHA256});if(o===null){need(!requireOriginal,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_S_UNAVAILABLE');return publicRow(authorizationSHA256);}
   validateFlatAccountOwnerObservation({identity,artifact:pool.artifact,submission:s,authorization:decodeStatement('authorization',j.authorization.publicInputs),observation:o});
   const v=await current();need(v.ledger.nullifiers.includes('0x'+j.statement.inputNullifier),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_SPEND');
   const pathFor=cm=>{const matches=v.ledger.commitments.flatMap((x,i)=>x==='0x'+cm?[i]:[]);need(matches.length===1,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_OUTPUT');const p=v.ledger.tree.path(matches[0]);return{root:bare(p.root),index:p.index,leaf:bare(p.leaf),siblings:p.siblings.map(bare)};};
@@ -163,7 +163,15 @@ async function create(raw,authorityIdentity=null,restored=null){
   const confirmation={profile:'LIANUM_DEVICE_ORIGINAL_S_OBSERVATION_V1',transactionHash:o.transaction.hash,blockHash:o.receipt.blockHash,blockNumber:BigInt(block.number).toString(),timestamp:o.after.timestamp,
    sourceCommitment:j.statement.inputCommitment,sourceNullifier:j.statement.inputNullifier,changeCommitment:j.statement.changeCommitment,reserveCommitment:j.statement.reserveCommitment,
    domainCommitment:actual.domainCommitment,envelope:actual.envelope,admissionTag:actual.admissionTag,currentHead:observed(v),changePath:pathFor(j.statement.changeCommitment),reservePath:pathFor(j.statement.reserveCommitment)};
-  if(j.observation===null)await update({stage:'RESERVED',errorCode:null,observation:confirmation,submission:{...s,observation:o}});await reader.assertCurrent(v);return publicRow(authorizationSHA256);
+  if(j.observation!==null){
+   const immutable=({currentHead,changePath,reservePath,...value})=>value;
+   assert.deepEqual(immutable(confirmation),immutable(j.observation),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_S_CHANGED');
+   need(BigInt(confirmation.currentHead.blockNumber)>=BigInt(j.observation.currentHead.blockNumber)&&BigInt(confirmation.currentHead.timestamp)>=BigInt(j.observation.currentHead.timestamp),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_HEAD_REGRESSED');
+   if(confirmation.currentHead.blockNumber===j.observation.currentHead.blockNumber)assert.equal(confirmation.currentHead.blockHash,j.observation.currentHead.blockHash,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_HEAD_CHANGED');
+  }
+  await reader.assertCurrent(v);
+  if(!isDeepStrictEqual(j.observation,confirmation))await update({stage:'RESERVED',errorCode:null,observation:confirmation,submission:{...s,observation:o}});
+  await reader.assertCurrent(v);return publicRow(authorizationSHA256);
  }
  async function proveU(c,witness,authorizationSHA256){
   need(record.data.job===null,'DEVICE_EXTERNAL_GRAPH_SOURCE_ALREADY_ADMITTED');const q=record.data.quote;need(q,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_QUOTE');
@@ -222,6 +230,10 @@ async function create(raw,authorityIdentity=null,restored=null){
   const terminal=await execution[action==='EXECUTE_GRAPH'?'execute':action==='RECOVER_GRAPH'?'recover':'reconcile'](j.jobId);
   need(terminal&&['FULFILLED','RECOVERED'].includes(terminal.outcome),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_TERMINAL');
   const t={outcome:terminal.outcome,transactionHash:terminal.confirmation.transactionHash,calldataSHA256:terminal.calldataSHA256,blockHash:terminal.confirmation.blockHash,blockNumber:terminal.confirmation.blockNumber};
+  // The original S receipt stays immutable; its current head and paths must
+  // be read again after T/F before returning a response to a newer consent.
+  await observeS(authorizationSHA256,true);const refreshed=job().observation;
+  need(refreshed!==null&&BigInt(refreshed.currentHead.blockNumber)>=BigInt(t.blockNumber),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_TERMINAL_HEAD');
   await update({graph:{stage:t.outcome,outcome:t.outcome,terminal:t},errorCode:null});return publicRow(authorizationSHA256);
  }
 
