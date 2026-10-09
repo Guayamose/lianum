@@ -198,7 +198,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "c1e44c00b5361b30d3c23b3f948e98fc769c9f6e0f6f97ce90590304f96bbe9c"
+  "12837db6f0d6c081f8d61c5a97a6c8b5a15be0a8cb4248f803a7ef05d6ffd47c"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -222,7 +222,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
-  "63d32749b3ad45bd2f33f4ddbc27bf8fdb81fc6f4654ffe8add0d01247d09de6"
+  "4faba10a6839ff2fc027cb647ef08fa9f3604fc7146cf44eaa3e5151a9538e25"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
