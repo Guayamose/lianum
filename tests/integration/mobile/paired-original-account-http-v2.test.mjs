@@ -114,6 +114,35 @@ async function post(server, path, body, selectedOrigin = origin) {
     method: 'POST', headers: { 'content-type': 'application/json', origin: selectedOrigin }, body: JSON.stringify(body) });
   return { status: response.status, body: await response.json() };
 }
+// Exercise SOURCE's actual bounded transport closure without importing its
+// financial run()/birth. The original actor/server/SDK above remain unmocked.
+test('SOURCE first original SDK access uses explicit UTF-8 framing over exact TLS', async t => {
+  const c = await tlsSetup(t, { execute: false });
+  const source = await readFile(join(root,
+    'tests/integration/wallet/native/native-original-source-abrupt-flow-v1.mjs'), 'utf8');
+  const start = source.indexOf(' const fetch=async(target,options)=>');
+  const end = source.indexOf('\n const fromApp=', start);
+  assert.ok(start >= 0 && end > start, 'HOST_SOURCE_FETCH_CLOSURE_REQUIRED');
+  const transport = { posts: {}, tlsVersion: null }, frames = [];
+  const request = (target, options, receive) => {
+    frames.push(options.headers);
+    return httpsRequest(target, options, receive);
+  };
+  const direct = new Function('assert', 'httpsRequest', 'active', 'origin', 'certificate', 'transport',
+    source.slice(start, end) + '\nreturn fetch;')(assert, request, () => {},
+    c.descriptor.origin, c.material.certificate, transport);
+  const api = createOriginalAccountApiV2({ descriptor: c.descriptor, fetchImpl: direct });
+  const access = await api.challenge('read');
+  assert.equal(access.pairingId, c.descriptor.pairingId); assert.equal(access.action, 'read');
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0]['Content-Length'], Buffer.byteLength(JSON.stringify({ action: 'read' }), 'utf8'));
+  assert.equal(frames[0]['Content-Type'], 'application/json');
+  assert.equal(frames[0].Origin, c.descriptor.origin);
+  assert.equal(Object.keys(frames[0]).some(key => key.toLowerCase() === 'transfer-encoding'), false);
+  assert.equal(transport.posts['/v2/mobile/original-account/challenges'], 1);
+  assert.equal(transport.tlsVersion, 'TLSv1.3');
+  assert.equal(c.f.world.sends, 0); assert.equal(c.f.world.proofs, 0);
+});
 test('private HTTP bootstrap rejects unbranded/copied/Proxy actors; state and unsigned requests reveal no original terms', async t => {
   const c = await setup(t, { execute: false });
   let touched = 0;
