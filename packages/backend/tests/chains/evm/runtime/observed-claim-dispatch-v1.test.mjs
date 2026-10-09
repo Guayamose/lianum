@@ -29,7 +29,7 @@ function fixture(observedClock,{wrongKey=false,expired=false}={}) {
     assertOwnedEvmDispatchRequest(request,boundRuntime){const row=generic.get(request);assert.ok(row&&row.runtime===boundRuntime,'HOST_GENERIC_SCOPE_REQUIRED');return row.callbacks;}}};
   const context={assert:{...assert, // Explicit host/VM metadata bridge; production validators unchanged.
       deepEqual:(a,b,message)=>assert.deepEqual(structuredClone(a),structuredClone(b),message)},
-    Buffer,modules,observedClock,economicRecoveryFence:null,economicV2:false,nativeValueOnly:false,
+    Buffer,modules,observedClock,observedEconomicV2:false,economicRecoveryFence:null,economicV2:false,nativeValueOnly:false,
     runtime,localCustody:null,performance:{now:()=>state.now},Date:{now:()=>state.walltime},
     observedNativeValueReceiverSecond,usedDispatches:new WeakSet(),transactions:[],receipts:[],
     genesisHash:'0x'+'f'.repeat(64),lastTimestamp:100n,uncertainMutation:false,uncertainSignedHash:null,

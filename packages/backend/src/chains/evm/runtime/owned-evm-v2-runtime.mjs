@@ -1,4 +1,4 @@
-import {createNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,checkNativeEconomicLocalCustodyV2,signNativeEconomicCustodyTransactionV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,captureNativeEconomicLocalCustodyV2,closeNativeEconomicLocalCustodyV2,NATIVE_ECONOMIC_ANVIL_PIN_V2} from './native-economic-local-custody-v2.mjs';
+import {createNativeEconomicObservedLocalCustodyV2,createNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,checkNativeEconomicLocalCustodyV2,signNativeEconomicCustodyTransactionV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,captureNativeEconomicLocalCustodyV2,closeNativeEconomicLocalCustodyV2,NATIVE_ECONOMIC_ANVIL_PIN_V2} from './native-economic-local-custody-v2.mjs';
 import { shouldUseOwnedEvmStateFileV1, writeOwnedEvmStateFileV1, assertOwnedEvmStateFileV1 } from './owned-evm-state-file-v1.mjs';
 import { assertOwnedReceiverPreopenRepairV1, claimOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
 export { assertOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
@@ -90,6 +90,57 @@ const nativeProcessProfiles = new Map([
   [LOCAL_NATIVE_VALUE_ARBITRUM_PROCESS_PROFILE, Object.freeze({ profile: OWNED_EVM_NATIVE_VALUE_ARBITRUM_PROFILE_V1, normalize: normalizeOwnedEvmNativeValueArbitrumIntent, network: 'Arbitrum', client: 'Nitro execution, derivation and finality' })],
   [LOCAL_NATIVE_VALUE_BNB_PROCESS_PROFILE, Object.freeze({ profile: OWNED_EVM_NATIVE_VALUE_BNB_PROFILE_V1, normalize: normalizeOwnedEvmNativeValueBnbIntent, network: 'BNB', client: 'BSC execution and validator consensus/finality' })],
 ]);
+// A distinct live profile. It cannot be captured/reopened through Native10.
+// Original delivery scopes remain available; only this profile separates its
+// already-authorized broadcast from observed-time finality continuation.
+const LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2=Object.freeze({...LOCAL_EVM_PROFILE,
+  name:'LOCAL_NATIVE_ECONOMIC_OBSERVED_RECEIVER_V2',genesisTimestamp:null});
+const LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2=Object.freeze({...LOCAL_NATIVE_VALUE_PROCESS_PROFILE,
+  name:'LOCAL_NATIVE_ECONOMIC_OBSERVED_GRAPH_V2',genesisTimestamp:null});
+nativeProcessProfiles.set(LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2,nativeProcessProfiles.get(LOCAL_NATIVE_VALUE_PROCESS_PROFILE));
+const NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2=Symbol('ORIGINAL_NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2');
+const observedEconomicCustodyRequestsV2=new WeakMap(),observedEconomicRuntimeClocksV2=new WeakMap();
+// Only the two fixed runtime factories below mint this private one-use request.
+export function consumeNativeEconomicObservedCustodyRequestV2(token){
+  assert.equal(arguments.length,1,'ECONOMIC_OBSERVED_CUSTODY_ARITY');
+  const input=observedEconomicCustodyRequestsV2.get(token);
+  assert.ok(input,'ECONOMIC_OBSERVED_ORIGINAL_CUSTODY_REQUEST');observedEconomicCustodyRequestsV2.delete(token);return input;
+}
+export async function createOwnedNativeEconomicObservedReceiverV2(){
+  assert.equal(arguments.length,0,'ECONOMIC_OBSERVED_FIXED_CONSTRUCTOR');
+  return createFixedOwnedLocalEvm(LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2,false,null,NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2);
+}
+export async function createOwnedNativeEconomicObservedGraphRuntimeV2(){
+  assert.equal(arguments.length,0,'ECONOMIC_OBSERVED_FIXED_CONSTRUCTOR');
+  return createFixedOwnedLocalEvm(LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2,false,null,NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2);
+}
+/** The receiver/native continuation join is issued here, before any effects.
+ * No public bind operation can attach an unrelated chain or caller callback. */
+export async function createOwnedNativeEconomicObservedClockPairV2(){
+  assert.equal(arguments.length,0,'ECONOMIC_OBSERVED_FIXED_CONSTRUCTOR');let receiver,native;
+  try{
+    receiver=await createOwnedNativeEconomicObservedReceiverV2();native=await createOwnedNativeEconomicObservedGraphRuntimeV2();
+    assertOwnedNativeEconomicObservedReceiverV2(receiver);assertOwnedNativeEconomicObservedGraphRuntimeV2(native);
+    const receiverClock=observedEconomicRuntimeClocksV2.get(receiver),nativeClock=observedEconomicRuntimeClocksV2.get(native);
+    assert.equal(receiverClock.pairedNative,undefined,'ECONOMIC_OBSERVED_PAIR_ALREADY_BOUND');receiverClock.pairedNative=nativeClock;
+    return Object.freeze({runtime:receiver,nativeRuntime:native});
+  }catch(error){
+    const failures=[];for(const resource of [native,receiver])if(resource)try{await resource.close({removeScratch:false});}catch(cleanup){failures.push(cleanup);}
+    if(failures.length)throw new AggregateError([error,...failures],'ECONOMIC_OBSERVED_PAIR_STARTUP_CLEANUP_FAILED',{cause:error});throw error;
+  }
+}
+export function assertOwnedNativeEconomicObservedReceiverV2(runtime){
+  assert.equal(arguments.length,1,'ECONOMIC_OBSERVED_CLOCK_ARITY');const clock=observedEconomicRuntimeClocksV2.get(runtime);
+  assert.ok(clock?.family==='receiver'&&ownedRuntimes.has(runtime)&&originalEconomicV2Runtimes.has(runtime),'ECONOMIC_OBSERVED_ORIGINAL_RECEIVER');clock.assertAlive();
+}
+export function assertOwnedNativeEconomicObservedGraphRuntimeV2(runtime){
+  assert.equal(arguments.length,1,'ECONOMIC_OBSERVED_CLOCK_ARITY');const clock=observedEconomicRuntimeClocksV2.get(runtime);
+  assert.ok(clock?.family==='graphNative'&&ownedNativeValueFamily.has(runtime)&&originalEconomicV2Runtimes.has(runtime),'ECONOMIC_OBSERVED_ORIGINAL_GRAPH');clock.assertAlive();
+}
+export async function refreshOwnedNativeEconomicObservedGraphClockV2(runtime){
+  assert.equal(arguments.length,1,'ECONOMIC_OBSERVED_CLOCK_ARITY');assertOwnedNativeEconomicObservedGraphRuntimeV2(runtime);
+  await observedEconomicRuntimeClocksV2.get(runtime).refresh();assertOwnedNativeEconomicObservedGraphRuntimeV2(runtime);
+}
 const ownedRuntimes = new WeakSet(), ownedNativeValueRuntimes = new WeakSet(), ownedNativeValueFamily = new WeakMap();
 const ownedRuntimeGasLimits = new WeakMap(), ownedOsakaGasProbes = new WeakMap();
 const nativeSourceOpeners = new WeakMap(), nativeRuntimeLiveness = new WeakMap(), nativeAuditStatesV4 = new WeakMap(), wrappedGraphOperationsV4 = new WeakMap();
@@ -467,15 +518,16 @@ export function isOwnedNativeEconomicRuntimeV2(runtime){assert.equal(arguments.l
 async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance = false, recovery = null, recoveryAdmitted = false, preopenRepair = null) {
   assert.ok(!poolGenerationAcceptance || processProfile === LOCAL_EVM_PROFILE, 'POOL_GENERATION_NATIVE_PROFILE_INCOMPATIBLE');
   const nativeDescriptor = nativeProcessProfiles.get(processProfile);
-  const observedClock=processProfile===LOCAL_OBSERVED_RECEIVER_PROFILE_V1;
+  const observedEconomicV2=recoveryAdmitted===NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2;
+  const observedClock=processProfile===LOCAL_OBSERVED_RECEIVER_PROFILE_V1||processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2;
   const osaka=processProfile===LOCAL_OSAKA_EVM_PROFILE_V1;
   assert.ok(processProfile === LOCAL_EVM_PROFILE || nativeDescriptor || observedClock || osaka, 'LOCAL_EVM_PRIVATE_FIXED_PROFILE');
   const nativeValueOnly = Boolean(nativeDescriptor), nativeValueProfile = nativeDescriptor?.profile;
   const chainQuantity = hex(processProfile.chainId);
 
   assert.equal(process.platform, 'linux', 'LOCAL_EVM_LINUX_ONLY');
-  assert.ok(!recoveryAdmitted||(!poolGenerationAcceptance&&!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE)),'EVM_PRIVATE_INPUT_FIXED_PROFILE');
-  const economicV2=recoveryAdmitted===NATIVE_ECONOMIC_RUNTIME_V2;
+  assert.ok(!recoveryAdmitted||(!poolGenerationAcceptance&&(observedEconomicV2?recovery===null&&(processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2):!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE))),'EVM_PRIVATE_INPUT_FIXED_PROFILE');
+  const economicV2=recoveryAdmitted===NATIVE_ECONOMIC_RUNTIME_V2||observedEconomicV2;
   const runtimePin=economicV2?NATIVE_ECONOMIC_ANVIL_PIN_V2:recoveryAdmitted?recoveryAnvilPinV1:linuxRuntimePins.anvil;
   const binary = await pinnedBinary(...runtimePin);
   const recoveryFamily=nativeValueOnly?'graphNative':'receiver',recoveryPrefix=economicV2?(nativeValueOnly?'flat-economic-native-v2-':'flat-economic-receiver-v2-'):(nativeValueOnly?'flat-owned-evm-native-value-v1-':'flat-owned-evm-v2-');
@@ -496,6 +548,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   assert.ok(Number.isSafeInteger(processGeneration)&&processGeneration>=0&&processGeneration<16,'EVM_RECOVERY_GENERATION_BOUND');
   let handle, exitEvent = null, spawnError = null, closed = false, removed = false;
   let busy = false, uncertainMutation = false, uncertainSignedHash = null, accounts, genesisHash, lastTimestamp;
+  let observedFinalityV2=null,observedNativeAttemptV2=null;
   // Read-only epoch for exact-original native ingress send permission. Every
   // owned EVM mutation/reconciliation claims it before its first await.
   let ingressMutationEpoch = 0n;
@@ -546,6 +599,9 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         assert.ok(exitEvent || spawnError || handle.child.exitCode !== null || handle.child.signalCode !== null, 'LOCAL_EVM_EXIT_NOT_OBSERVED');
         lifecycle.push({ event: 'stopped-owned-process', ...result, ...processStatus() });
       }
+      // Stop cancels original reads/waits first; drain that same continuation
+      // before removing scratch, without inferring success or sending again.
+      if(observedFinalityV2?.work)await observedFinalityV2.work;
     })();
     await closePromise;
     if (removeScratch && !removed && !recoveryRetained) {
@@ -558,13 +614,21 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     const port = await unusedLoopbackPort();
     const walletConfigPath=join(cwd,'anvil-private-config.json');
     if(!restored&&!economicV2){const privateFile=await open(walletConfigPath,'wx',0o600);await privateFile.close();}
+    let observedEconomicGenesisTimestamp=null;
+    if(observedEconomicV2)observedEconomicGenesisTimestamp=Number(observedNativeValueReceiverSecond('0',String(Date.now())));
     if(economicV2){
-      localCustody=restored?await reopenNativeEconomicLocalCustodyV2({cwd,family:recoveryFamily,profile:processProfile},recovery.localCustody):await createNativeEconomicLocalCustodyV2({cwd,family:recoveryFamily,profile:processProfile});
+      if(observedEconomicV2){
+        const token=Object.freeze(Object.create(null));
+        observedEconomicCustodyRequestsV2.set(token,Object.freeze({cwd,family:recoveryFamily,
+          profile:Object.freeze({...processProfile,genesisTimestamp:observedEconomicGenesisTimestamp})}));
+        try{localCustody=await createNativeEconomicObservedLocalCustodyV2(token);}
+        finally{observedEconomicCustodyRequestsV2.delete(token);}
+      }else localCustody=restored?await reopenNativeEconomicLocalCustodyV2({cwd,family:recoveryFamily,profile:processProfile},recovery.localCustody):await createNativeEconomicLocalCustodyV2({cwd,family:recoveryFamily,profile:processProfile});
       localCustodyPublic=nativeEconomicLocalCustodyPublicV2(localCustody);
       if(restored){assert.deepEqual(localCustodyPublic.accounts,restored.accounts,'EVM_ECONOMIC_RETAINED_KEYS');assert.equal(localCustodyPublic.commitment,restored.localCustodyCommitment,'EVM_ECONOMIC_RETAINED_CUSTODY_COMMITMENT');}
       initialPrivateRecord={schema:'OWNED_NATIVE_AEAD_INITIAL_RETENTION_V2',custodyCommitment:localCustodyPublic.commitment,genesis:localCustodyPublic.genesis};
     }
-    const genesisTimestamp=observedClock?Number(observedNativeValueReceiverSecond('0',String(Date.now()))):processProfile.genesisTimestamp;
+    const genesisTimestamp=observedEconomicV2?observedEconomicGenesisTimestamp:observedClock?Number(observedNativeValueReceiverSecond('0',String(Date.now()))):processProfile.genesisTimestamp;
     let mnemonicArgs=['--mnemonic-random','12'];
     if(restored&&!economicV2){
       assert.ok(typeof restored.mnemonic==='string'&&/^[a-z]+(?: [a-z]+){11}$/.test(restored.mnemonic),'EVM_RECOVERY_PRIVATE_MNEMONIC');
@@ -728,6 +792,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     const mutate = async operation => {
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION');
+      assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
       assert.ok(!uncertainMutation, 'LOCAL_EVM_UNCERTAIN_MUTATION_REQUIRES_RECONCILIATION');
       busy = true; ingressMutationEpoch++; try { await health(); return await operation(); } finally { busy = false; }
     };
@@ -747,17 +812,34 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     // from elapsed time; this changes only the new synthetic ledger's block time.
     const nextObservedSecond=async()=>{
       assert.ok(observedClock,'LOCAL_OBSERVED_CLOCK_ONLY');
-      let now=observedNativeValueReceiverSecond(lastTimestamp.toString(),String(Date.now()));
-      while(now===lastTimestamp){await new Promise(resolve=>setTimeout(resolve,25));assertAlive();
+      // New live economic waits alone have a fixed monotonic outer budget.
+      // The legacy observed/manual profiles retain their original behavior.
+      const started=observedEconomicV2?performance.now():null;
+      const waitGuard=()=>{if(observedEconomicV2){assertAlive();const elapsed=performance.now()-started;
+        assert.ok(Number.isFinite(elapsed)&&elapsed>=0&&elapsed<120000,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_TIMEOUT');}};
+      waitGuard();let now=observedNativeValueReceiverSecond(lastTimestamp.toString(),String(Date.now()));
+      while(now===lastTimestamp){await new Promise(resolve=>setTimeout(resolve,25));assertAlive();waitGuard();
         now=observedNativeValueReceiverSecond(lastTimestamp.toString(),String(Date.now()));}
-      return now;
+      waitGuard();return now;
     };
-    const refreshObservedClock=()=>mutate(async()=>{
+    const refreshObservedClock=async()=>{
+      const paired=observedEconomicV2&&!nativeValueOnly?observedEconomicRuntimeClocksV2.get(runtime)?.pairedNative:null;
+      // The original zero-option pair factory alone can install this join.
+      // Drain its SAME already-submitted operation before the graph adapter's
+      // unchanged full-facts observation; neither classification nor a DTO does.
+      if(paired?.pendingFinality()){await paired.refresh();assertAlive();}
+      // Waiting is not a new send permit. The original private continuation
+      // owns this same chain until its exact signed transaction is finalized.
+      if(observedEconomicV2&&nativeValueOnly&&observedFinalityV2&&!observedFinalityV2.completed){
+        await observedFinalityV2.work;assertAlive();
+        assert.ok(observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_UNRESOLVED');
+      }
+      return mutate(async()=>{
       const now=observedNativeValueReceiverSecond(lastTimestamp.toString(),String(Date.now()));
       if(now===lastTimestamp)return;
       try{await mineAt(now);lifecycle.push({event:'observed-wallclock-refresh',timestamp:now.toString(),intentWindowsChanged:false});}
       catch(error){uncertainMutation=true;throw error;}
-    });
+    });};
     const send = async (label, transaction, expectedStatus = '0x1', expectedRevert) => {
       assert.equal(typeof label, 'string', 'LOCAL_EVM_TRANSACTION_LABEL');
       assert.ok(['0x0', '0x1'].includes(expectedStatus), 'LOCAL_EVM_EXPECTED_STATUS');
@@ -861,7 +943,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     // Both retain the same original preparation, final authority and wire path.
     const dispatchOriginal = async (scopedRequest, observedClaim) => {
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
-      assert.equal(observedClock,observedClaim,'LOCAL_EVM_FIXED_DISPATCH_CLOCK');
+      assert.equal(observedClock&&!observedEconomicV2,observedClaim,'LOCAL_EVM_FIXED_DISPATCH_CLOCK');
       // Fixed literal import avoids the runtime/gate/wire-codec module cycle.
       // It completes before preparation; no import/RPC is inserted after the
       // final beforeSign check and the actual sign-only RPC.
@@ -951,7 +1033,10 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
           entry.phase = 'broadcast-result-unknown';
           const hash = await rpc('eth_sendRawTransaction', [entry.signed.nativeWire]);
           assert.equal(hash, entry.transactionHash, 'EVM_BROADCAST_HASH_CHANGED');
-          entry.phase = 'broadcast'; await mineAt(observedClaim ? await nextObservedSecond() : lastTimestamp + 1n);
+          entry.phase = 'broadcast';
+          const includedSecond=observedClaim||observedEconomicV2?await nextObservedSecond():lastTimestamp+1n;
+          if(observedEconomicV2)entry.originalObservedInclusionSecond=includedSecond.toString();
+          await mineAt(includedSecond);
           const mined = await receipt(entry.transactionHash);
           assert.ok(mined, 'LOCAL_EVM_RECEIPT_MISSING_AFTER_MINE');
           const header = await assertCanonical(mined);
@@ -983,7 +1068,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     };
 
     const dispatch = async scopedRequest => {
-      assert.equal(observedClock,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
+      assert.equal(observedClock&&!observedEconomicV2,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
       return dispatchOriginal(scopedRequest,false);
     };
     // The observed receiver exposes only the original native-claim capability.
@@ -1014,11 +1099,14 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       assert.equal(transactions.find(row=>row.transactionHash===entry.transactionHash),entry,'NATIVE_VALUE_FINALITY_ORIGINAL_RECORD_REQUIRED');
       assert.equal(entry.phase,'mined');assert.equal(entry.receipt.status,'0x1');assert.equal(entry.finalityConfirmation,undefined,'NATIVE_VALUE_FINALITY_NO_RETRY');
       const original=cloned({prepared:entry.prepared,signed:entry.signed,receipt:entry.receipt,transactionHash:entry.transactionHash,gasUsed:entry.gasUsed});
-      const started=performance.now(),required=64,headers=[];
+      let started=performance.now();const required=64,headers=[];
       const progress=entry.finalityConfirmation={phase:'confirming',requiredEmptyBlocks:required,confirmedEmptyBlocks:0,
         includedNumber:BigInt(original.receipt.blockNumber).toString(),includedTimestamp:null,tipNumber:null,tipTimestamp:null,finalizedNumber:null};
       entry.phase='mined-finality-pending';
       const guard=()=>{assertAlive();assert.ok(busy&&!uncertainMutation,'NATIVE_VALUE_FINALITY_ORIGINAL_MUTATION_REQUIRED');
+        if(observedEconomicV2){const budget=assertOriginalObservedNativeWaitBudgetV2();
+          assert.equal(budget.entry,entry,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_ENTRY');
+          assert.equal(observedFinalityV2?.waitBudget,budget,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_IDENTITY');}
         assert.ok(performance.now()-started<30000,'NATIVE_VALUE_ORIGINAL_FINALITY_TIMEOUT');
         assert.deepEqual({prepared:entry.prepared,signed:entry.signed,receipt:entry.receipt,transactionHash:entry.transactionHash,gasUsed:entry.gasUsed},original,
           'NATIVE_VALUE_FINALITY_ORIGINAL_BYTES_CHANGED');};
@@ -1039,6 +1127,14 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         let finalized=await finalizedAt(tip);progress.finalizedNumber=BigInt(finalized.number).toString();
         assert.ok(BigInt(finalized.number)<BigInt(included.number),'NATIVE_VALUE_FINALITY_INITIAL_TAG_CHANGED');
         for(let count=0;count<required;count++){
+          if(observedEconomicV2){
+            // No send authority is consulted, retained or renewed here. Wait
+            // outside the audit, then perform a NEW bounded current audit of
+            // this original entry before its next real empty descendant.
+            assert.equal(observedFinalityV2?.entry,entry,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_ENTRY');
+            await waitOriginalObservedNativeSecondV2(lastTimestamp+1n);
+            started=performance.now();await health();guard();
+          }
           guard();assert.deepEqual(await block(),tip,'NATIVE_VALUE_FINALITY_TIP_CHANGED');
           const next=await mineAt(lastTimestamp+1n);guard();
           assert.equal(BigInt(next.number),BigInt(tip.number)+1n,'NATIVE_VALUE_FINALITY_CONTIGUOUS_HEIGHT');
@@ -1068,6 +1164,47 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       } catch(cause){progress.phase='failed';entry.phase='mined-finality-unconfirmed';uncertainMutation=true;
         throw new Error('NATIVE_VALUE_ORIGINAL_FINALITY_UNAVAILABLE',{cause});}
     }
+    // Private memory only: never journal fractional monotonic clock values or
+    // let a caller, audit, refresh or continuation replace this attempt budget.
+    function assertOriginalObservedNativeWaitBudgetV2(){
+      assert.ok(observedEconomicV2&&nativeValueOnly,'ECONOMIC_OBSERVED_NATIVE_CLOCK_REQUIRED');
+      const budget=observedNativeAttemptV2;assert.ok(budget,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_REQUIRED');
+      const elapsed=performance.now()-budget.started;
+      assert.ok(Number.isFinite(elapsed)&&elapsed>=0&&elapsed<120000,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_TIMEOUT');
+      return budget;
+    }
+    async function waitOriginalObservedNativeSecondV2(target){
+      assert.ok(observedEconomicV2&&nativeValueOnly,'ECONOMIC_OBSERVED_NATIVE_CLOCK_REQUIRED');
+      assert.equal(target,lastTimestamp+1n,'ECONOMIC_OBSERVED_ORIGINAL_NEXT_SECOND');
+      for(;;){
+        assertAlive();assertOriginalObservedNativeWaitBudgetV2();
+        const now=observedNativeValueReceiverSecond(lastTimestamp.toString(),String(Date.now()));
+        assertOriginalObservedNativeWaitBudgetV2();if(now>=target)return;
+        await new Promise(resolve=>setTimeout(resolve,25));assertAlive();assertOriginalObservedNativeWaitBudgetV2();
+      }
+    }
+    function beginOriginalObservedNativeFinalityV2(entry){
+      assert.ok(observedEconomicV2&&nativeValueOnly&&busy&&!uncertainMutation,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_ISSUER');
+      assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
+      assert.equal(transactions.find(row=>row===entry),entry);assert.equal(entry.phase,'mined');assert.equal(entry.receipt.status,'0x1');
+      const prepared=entry.prepared,signed=entry.signed,waitBudget=assertOriginalObservedNativeWaitBudgetV2();
+      assert.equal(waitBudget.entry,entry,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_ENTRY');
+      const state={entry,prepared,signed,waitBudget,completed:false,failure:null,work:null};observedFinalityV2=state;
+      entry.phase='mined-finality-pending';
+      // The current dispatch mutation releases before this new continuation
+      // claims the same chain. Its promise is retained before returning identity.
+      state.work=new Promise(resolve=>setImmediate(resolve)).then(async()=>{
+        assertAlive();assert.equal(observedFinalityV2,state);assert.equal(busy,false,'LOCAL_EVM_CONCURRENT_MUTATION');
+        assert.equal(assertOriginalObservedNativeWaitBudgetV2(),waitBudget,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_IDENTITY');
+        assert.equal(entry.prepared,prepared);assert.equal(entry.signed,signed);
+        busy=true;ingressMutationEpoch++;entry.phase='mined';
+        try{await confirmOriginalNativeValueFinality(entry);state.completed=true;}
+        finally{busy=false;}
+      }).catch(error=>{
+        state.failure=error;entry.phase='mined-finality-unconfirmed';uncertainMutation=true;
+        if(entry.finalityConfirmation)entry.finalityConfirmation.phase='failed';
+      });
+    }
     const dispatchNativeValueV1 = async scopedRequest => {
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.ok(ownedNativeValueFamily.has(runtime), 'OWNED_NATIVE_VALUE_ORIGINAL_RUNTIME_REQUIRED');
@@ -1095,6 +1232,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         let keyUsePossible = false, outcomeKnown = false, entry, localSigningLease=null, operationV4 = null, phaseV4 = null;
         const originalMutationV4 = ingressMutationEpoch;
         const nativeStartedV4 = performance.now();
+        if(observedEconomicV2)observedNativeAttemptV2={started:nativeStartedV4,entry:null};
         const terminalV4 = authority => {
           const now = performance.now();
           for (const [name, started] of [['AUTHORITY', authority.auditStarted], ['NATIVE', authority.nativeAuditStarted]]) {
@@ -1157,6 +1295,8 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
               maximumFeeWei: maximumFeeWei.toString(), estimatedFeeWei: (estimate * gasPrice).toString(), ...audit } });
           entry = { label: 'gated test-only owned EVM native value V1', request: tx, senderNonce: pending,
             prepared, phase: 'native-value-preparation-not-yet-durable' };
+          if(observedEconomicV2){const budget=assertOriginalObservedNativeWaitBudgetV2();
+            assert.equal(budget.entry,null,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_NO_REBIND');budget.entry=entry;Object.freeze(budget);}
           transactions.push(entry);
           // Retain original nonce, unsigned wire, Action/K/P/R digests and lease
           // before key use. No durable allocation permits a replacement send.
@@ -1181,6 +1321,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
             terminalV4(wrapped.consumeWrappedGraphDispatchAuthorityV4(authority, 'native-key', operationV4, runtime, prepared, null));
           } else assert.equal(await beforeSign(prepared), undefined, 'OWNED_NATIVE_VALUE_FINAL_GUARD_ASSERT_ONLY');
           if(economicV2)assertAlive();
+          if(observedEconomicV2)assert.equal(assertOriginalObservedNativeWaitBudgetV2().entry,entry,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_ENTRY');
           keyUsePossible = true; entry.phase = 'signing-outcome-unknown';
           const raw = economicV2?consumeNativeEconomicCustodySigningV2(localCustody,localSigningLease,prepared).nativeWire:await rpc('eth_signTransaction', [signingRequest]);
           const verified = assertSignedEvmTransaction(raw, prepared.transaction);
@@ -1200,10 +1341,13 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
             assert.equal(original.nativeId, entry.signed.nativeId); assert.equal(original.transactionSHA256, entry.signed.transactionSHA256);
             terminalV4(wrapped.consumeWrappedGraphDispatchAuthorityV4(authority, 'send', operationV4, runtime, prepared, entry.signed));
           } else assert.equal(await beforeSend(), undefined, 'OWNED_NATIVE_VALUE_SEND_GUARD_ASSERT_ONLY');
+          if(observedEconomicV2)assert.equal(assertOriginalObservedNativeWaitBudgetV2().entry,entry,'ECONOMIC_OBSERVED_ORIGINAL_WAIT_ENTRY');
           entry.phase = 'broadcast-result-unknown';
           const hash = await rpc('eth_sendRawTransaction', [entry.signed.nativeWire]);
           assert.equal(hash, entry.transactionHash, 'OWNED_NATIVE_VALUE_BROADCAST_HASH_CHANGED');
-          entry.phase = 'broadcast'; await mineAt(lastTimestamp + 1n);
+          entry.phase = 'broadcast';
+          if(observedEconomicV2)await waitOriginalObservedNativeSecondV2(lastTimestamp+1n);
+          await mineAt(lastTimestamp + 1n);
           const mined = await receipt(entry.transactionHash);
           assert.ok(mined, 'LOCAL_EVM_RECEIPT_MISSING_AFTER_MINE');
           const header = await assertCanonical(mined);
@@ -1211,7 +1355,8 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
           entry.receipt = mined; entry.gasUsed = BigInt(mined.gasUsed).toString();
           entry.phase = mined.status === '0x1' ? 'mined' : 'mined-reverted'; receipts.push(entry); outcomeKnown = true;
           assert.equal(mined.status, '0x1', 'OWNED_NATIVE_VALUE_REVERTED');
-          await confirmOriginalNativeValueFinality(entry);
+          if(observedEconomicV2)beginOriginalObservedNativeFinalityV2(entry);
+          else await confirmOriginalNativeValueFinality(entry);
           // Receipt success reports only execution of the exact top-level
           // value transaction. It cannot prove recipient retention/key control.
           return cloned({ nativeId: entry.transactionHash, transactionSHA256: entry.signed.transactionSHA256 });
@@ -1222,6 +1367,10 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
             if (entry) { entry.uncertaintyCause = uncertainSignedHash ? 'original-signed-broadcast' : 'unrecoverable-signing-or-mining';
               entry.phase = 'uncertain-no-resend'; }
           } else if (!keyUsePossible && entry) entry.phase = 'pre-sign-rejected';
+          else if(observedEconomicV2&&keyUsePossible&&outcomeKnown&&entry){
+            uncertainMutation=true;entry.phase='mined-finality-unconfirmed';
+            if(entry.finalityConfirmation)entry.finalityConfirmation.phase='failed';
+          }
           if (entry && error instanceof Error && Object.isExtensible(error)) {
             try { Object.defineProperty(error, 'transactionRecord', { value: cloned(entry), enumerable: true }); } catch {}
           }
@@ -1301,6 +1450,8 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       assert.deepEqual(header.transactions, [hash], 'OWNED_NATIVE_VALUE_ORIGINAL_INCLUDED_BLOCK');
       assert.deepEqual(await transaction(hash), observed, 'OWNED_NATIVE_VALUE_TRANSACTION_CHANGED');
       await checkReceipt(included);
+      if(observedEconomicV2&&included.status==='0x1'&&entry.finalityConfirmation?.phase!=='completed')
+        return cloned({status:observedFinalityV2?.entry===entry&&observedFinalityV2.failure?'unknown':'pending',nativeId,nativeWire:null});
       return cloned({ status: included.status === '0x1' ? 'observed' : 'adverse', nativeId,
         nativeWire: included.status === '0x1' ? original.nativeWire : null });
     };
@@ -1311,6 +1462,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     const reconcileSignedTransaction = async hash => {
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
       assert.match(hash, /^0x[0-9a-f]{64}$/);
+      assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION'); busy = true; ingressMutationEpoch++;
       try {
         await health();
@@ -1333,7 +1485,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         assert.deepEqual(current, header, 'EVM_RECONCILE_UNCONTROLLED_HEAD');
         assert.deepEqual(header.transactions, [hash], 'EVM_RECONCILE_ONE_TRANSACTION');
         assert.equal(BigInt(header.number), BigInt(entry.prepared.head.number) + 1n, 'EVM_RECONCILE_BLOCK_NUMBER');
-        assert.equal(BigInt(header.timestamp), BigInt(entry.prepared.head.timestamp) + 1n, 'EVM_RECONCILE_BLOCK_TIME');
+        assert.equal(BigInt(header.timestamp), observedEconomicV2?BigInt(entry.originalObservedInclusionSecond):BigInt(entry.prepared.head.timestamp)+1n, 'EVM_RECONCILE_BLOCK_TIME');
         for (const tag of ['latest', 'pending']) assert.equal(BigInt(await rpc('eth_getTransactionCount', [entry.request.from, tag])),
           BigInt(entry.prepared.transaction.nonce) + 1n, 'EVM_RECONCILE_NONCE');
         const reconciliation = cloned({ transactionHash: hash, transactionSHA256: original.transactionSHA256,
@@ -1360,7 +1512,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       assertCanonical: logicalReadV4(assertCanonical), receipt: logicalReadV4(receipt),
       transaction: logicalReadV4(transaction), checkReceipt: logicalReadV4(checkReceipt),
       ...(nativeValueOnly ? { dispatchNativeValueV1, assertNativeValuePreparedCurrent: logicalReadV4(assertNativeValuePreparedCurrent),
-        observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
+        observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedEconomicV2?{send,refreshObservedClock,dispatch}:observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
       signedTransaction: logicalReadV4(signedTransaction), reconcileSignedTransaction,
       call: (transaction, tag = 'latest') => rpc('eth_call', [request(transaction, false), blockTag(tag)]),
       balance: async (holder, tag = 'latest') => BigInt(await rpc('eth_getBalance', [address(holder), blockTag(tag)])),
@@ -1408,6 +1560,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       },
       metadata: Object.freeze({ version: nativeValueOnly ? OWNED_LOCAL_EVM_NATIVE_VALUE_V1 : OWNED_LOCAL_EVM_V2,
         classification: nativeValueOnly ? nativeValueProfile.classification : observedClock?'OWNED_LOCAL_OBSERVED_CLOCK_RECEIVER_V1':'OWNED_LOCAL_EVM_ONLY', profile: observedClock?Object.freeze({...processProfile,genesisTimestamp}):processProfile,
+        ...(observedEconomicV2?{clockMode:'ORIGINAL_OBSERVED_WALLCLOCK_SECONDS_V2',nativeSendAuthorityMilliseconds:30000,observedFinalityWaitRenewsSendAuthority:false,restartRecoveryEstablished:false}:{}),
         chainId: String(processProfile.chainId), evmGenesis: genesisHash, freshSyntheticWallets: !restored, recoveryProcessGeneration:processGeneration, restoredOriginalState:Boolean(restored),
         ...(nativeValueOnly ? { fixtureAssurance: Object.freeze({ executionClient: 'PINNED_LOCAL_ANVIL_CANCUN',
           publicNetwork: false, publicConsensusOrFinalityVerified: false, productionClientAcceptance: 'UNVERIFIED',
@@ -1472,7 +1625,9 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     }
     if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmRetentionArmsV1.set(runtime,()=>{assertAlive();assert.equal(processGeneration,0,'EVM_RETENTION_ORIGINAL_GENERATION');assert.ok(initialPrivateRecord&&!busy&&transactions.length===0,'EVM_RETENTION_BEFORE_NATIVE_EFFECTS');recoveryRetained=true;return cloneRuntimeRecoveryV1({schema:'OWNED_NATIVE_INITIAL_RETENTION_V1',family:recoveryFamily,cwd,processGeneration,initialPrivateRecord});});
     if(economicV2)originalEconomicV2Runtimes.add(runtime);
-    if(observedClock)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive});
+    if(observedClock&&!nativeValueOnly)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive});
+    if(observedEconomicV2)observedEconomicRuntimeClocksV2.set(runtime,{family:recoveryFamily,refresh:refreshObservedClock,assertAlive,
+      pendingFinality:()=>Boolean(observedFinalityV2&&!observedFinalityV2.completed)});
     if (nativeValueOnly) {
       // Live original object identity is authoritative; this commitment only
       // records a process/scratch/observed-network/session identity for audit.

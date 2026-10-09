@@ -8,17 +8,22 @@ import {open,lstat,realpath} from 'node:fs/promises';
 import {join} from 'node:path';
 import {Vault} from '../../../../../engine/src/crypto/vault.mjs';
 import {canonical} from '../../../../../engine/src/crypto/privacy.mjs';
+import {consumeNativeEconomicObservedCustodyRequestV2} from './owned-evm-v2-runtime.mjs';
 import {nativeEconomicLocalAddressV2,prepareNativeEconomicLocalSignerV2,consumeNativeEconomicLocalSignerV2,revokeNativeEconomicLocalSignerV2} from './native-economic-local-signing-v2.mjs';
 export const NATIVE_ECONOMIC_ANVIL_PIN_V2=Object.freeze(['foundry-v1.8.4/anvil','be5129d636ea18440d43908536f13ba6578859b695f2ca33f1f09a00aa9dc176']);
 const slots=new WeakMap(),signingLeases=new WeakMap(),hash=value=>createHash('sha256').update(canonical(value)).digest('hex');
 const schema='NATIVE_ECONOMIC_LOCAL_KEYS_V2';
 const quantity=n=>'0x'+BigInt(n).toString(16);
-function config(input){
+function config(input,observedOriginal=false){
  assert.ok(input&&Object.getPrototypeOf(input)===Object.prototype);assert.deepEqual(Reflect.ownKeys(input).sort(),['cwd','family','profile']);
  const {cwd,family,profile}=input;assert.ok(family==='receiver'||family==='graphNative');
  assert.deepEqual(Object.keys(profile).sort(),['accountBalanceWei','accountCount','chainId','genesisTimestamp','hardfork','manualMining','maxGas','name','publicNetwork'].sort());
  assert.equal(profile.accountCount,5);assert.equal(profile.hardfork,'cancun');assert.equal(profile.maxGas,30000000);assert.equal(profile.accountBalanceWei,'10000000000000000000');
- assert.equal(profile.chainId,family==='receiver'?31337:1);assert.equal(profile.genesisTimestamp,family==='receiver'?1900000210:1900000310);
+ assert.equal(profile.chainId,family==='receiver'?31337:1);
+ if(observedOriginal){
+  assert.equal(profile.name,family==='receiver'?'LOCAL_NATIVE_ECONOMIC_OBSERVED_RECEIVER_V2':'LOCAL_NATIVE_ECONOMIC_OBSERVED_GRAPH_V2');
+  assert.ok(Number.isSafeInteger(profile.genesisTimestamp)&&profile.genesisTimestamp>0&&profile.genesisTimestamp<=Math.floor(Date.now()/1000),'ECONOMIC_OBSERVED_ORIGINAL_GENESIS_TIME');
+ }else assert.equal(profile.genesisTimestamp,family==='receiver'?1900000210:1900000310);
  assert.equal(profile.publicNetwork,false);assert.equal(profile.manualMining,true);return {cwd,family,profile:structuredClone(profile)};
 }
 async function privateDirectory(cwd){assert.equal(await realpath(cwd),cwd);const st=await lstat(cwd);assert.ok(st.isDirectory()&&!st.isSymbolicLink()&&(st.mode&0o777)===0o700&&st.uid===process.getuid());}
@@ -91,7 +96,15 @@ async function check(state){
 function original(custody){const state=slots.get(custody);assert.ok(state&&!state.closed&&!state.poisoned,'NATIVE_ECONOMIC_ORIGINAL_CUSTODY');return state;}
 function capability(state){const cap=Object.freeze(Object.create(null));slots.set(cap,state);return cap;}
 export async function createNativeEconomicLocalCustodyV2(input){
- assert.equal(arguments.length,1);const state=config(input);await privateDirectory(state.cwd);
+ assert.equal(arguments.length,1);return createOriginalNativeEconomicCustodyV2(config(input));
+}
+/** Private one-use request from the two new fixed observed runtime factories.
+ * A copied configuration cannot select an observed genesis or acquire signers. */
+export async function createNativeEconomicObservedLocalCustodyV2(token){
+ assert.equal(arguments.length,1);return createOriginalNativeEconomicCustodyV2(config(consumeNativeEconomicObservedCustodyRequestV2(token),true));
+}
+async function createOriginalNativeEconomicCustodyV2(state){
+ await privateDirectory(state.cwd);
  const accounts=[],privateKeys=[];state.password=randomBytes(32).toString('hex');state.vault=new Vault(join(state.cwd,'native-economic-keys-v2.vault'));
  try{
   for(let i=0;i<5;i++){const key=randomBytes(32);try{accounts.push(await nativeEconomicLocalAddressV2(key));privateKeys.push(key.toString('hex'));}finally{key.fill(0);}}
