@@ -215,3 +215,56 @@ test('the original runtime fresh journal scan overlaps eight independent reads a
  }
  await run();await run({fail:true});
 });
+
+test('fresh original process metadata drains four independent reads between unchanged birth observations',async()=>{
+ const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const helper=text.slice(text.indexOf('async function freshTronOriginalProcessReadsV1('),text.indexOf('async function hostResources('));
+ const body=text.slice(text.indexOf('async function proc(pid)'),text.indexOf('function assertTronAlignedRocksDbStartupIdentity('));
+ assert.ok(helper.includes('function originalTronProcessReadV1(')&&body.includes('async function alignedProc('));
+ async function run({badUID=false,lateError=false,changedBirth=false}={}){
+  const pid=2147483000,base='/proc/'+pid,calls=[];let active=0,maximum=0,statReads=0;
+  const later=Object.assign(Error('HOST_LATE_LINK_FAILURE'),{code:'EACCES'});
+  function stat(){const fields=Array(26).fill('0');Object.assign(fields,{0:'S',1:String(process.pid),2:String(process.pid),3:String(process.pid),19:changedBirth&&statReads===3?'101':'100',21:'20'});return pid+' (java) '+fields.join(' ');}
+  async function delayed(path,value){calls.push(path);active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setImmediate(resolve));active--;return value;}
+  const context={assert,process,absent:error=>['ENOENT','ESRCH'].includes(error.code),
+   async readFile(path){if(path===base+'/stat'){statReads++;return delayed(path,stat());}
+    assert.equal(path,base+'/status');return delayed(path,badUID?'Name:\tjava\n':'Uid:\t'+Array(4).fill(process.getuid()).join('\t')+'\n');},
+   lstat:path=>delayed(path,{uid:process.getuid()}),async readlink(path){const value=await delayed(path,'/fixed/jdk8/bin/java');if(lateError)throw later;return value;}};
+  const actual=vm.runInNewContext('(()=>{'+helper+body+';return alignedProc;})()',context);
+  let row,error;try{row=await actual(pid);}catch(value){error=value;}
+  assert.equal(active,0);assert.equal(maximum,4);assert.equal(calls.filter(path=>path===base+'/exe').length,1);
+  return {row,error,later,statReads};
+ }
+ const valid=await run();assert.equal(valid.row.start,'100');assert.deepEqual(Array.from(valid.row.uids),Array(4).fill(process.getuid()));assert.equal(valid.statReads,3);
+ const first=await run({badUID:true,lateError:true});assert.match(first.error.message,/STARTUP_UID4_REQUIRED/);assert.notEqual(first.error,first.later);assert.equal(first.statReads,2);
+ const changed=await run({changedBirth:true});assert.match(changed.error.message,/STARTUP_BIRTH_CHANGED/);
+});
+
+test('each original command waits for the fresh eight-FD audit and preserves socket, missing-FD and first-error guards',async()=>{
+ const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const helper=text.slice(text.indexOf('async function freshTronOriginalProcessReadsV1('),text.indexOf('async function hostResources('));
+ const audit=text.slice(text.indexOf('  async function auditNative()'),text.indexOf('  let interval;',text.indexOf('  async function auditNative()')));
+ const command=text.slice(text.indexOf('  async function command(kind,'),text.indexOf('  function close()',text.indexOf('  async function command(kind,')));
+ assert.ok(audit.includes('const descriptors=')&&command.includes('await auditNative()'));
+ async function run({namedSocket=false,lateError=false}={}){
+  const pid=2147483000,names=Array.from({length:12},(_,i)=>String(i)),events=[];let active=0,maximum=0,reads=0,writes=0;
+  const later=Object.assign(Error('HOST_LATE_FD_FAILURE'),{code:'EACCES'}),gone=Object.assign(Error('HOST_FD_CLOSED'),{code:'ENOENT'});
+  const context={assert,process,Buffer,join,RUNTIME:'/fixed/runtime',directory:'/fixed/private',signal:{aborted:false},hostGuard:null,
+   failure:null,exit:null,readySeen:true,pending:undefined,started:Date.now(),profile:{milliseconds:5400000},sampled:false,
+   setTimeout,clearTimeout,absent:error=>['ENOENT','ESRCH'].includes(error.code),
+   identity:async()=>({executable:'/fixed/runtime/jdk8/bin/java'}),
+   async readFile(path){if(path.endsWith('/status'))return 'NoNewPrivs:\t1\nSeccomp:\t2\n';
+    assert.ok(path.endsWith('/net/unix'));return 'Num RefCount Protocol Flags Type St Inode Path\n000: 2 0 0 0001 03 1234'+(namedSocket?' /HOST_NAMED_SOCKET':'')+'\n';},
+   readdir:async path=>{assert.equal(path,'/proc/'+pid+'/fd');return names;},
+   async readlink(path){const name=path.split('/').at(-1);reads++;active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setImmediate(resolve));active--;
+    if(name==='3')throw gone;if(lateError&&name==='8')throw later;return name==='0'?'socket:[1234]':'/HOST_REGULAR_FD';},
+   hostResources:async()=>{assert.equal(active,0);events.push('resources');},fail(error){context.failure??=error;},
+   child:{pid,stdin:{write(line){assert.equal(active,0);assert.equal(reads,(++writes)*names.length);assert.equal(context.sampled,true);events.push('write');context.pending.resolve({ok:true});}}}};
+  const actual=vm.runInNewContext('(()=>{'+helper+audit+command+';return {auditNative,command};})()',context);context.auditNative=actual.auditNative;
+  let error;try{await actual.command('SOURCEBLOCK',['1']);}catch(value){error=value;}
+  assert.equal(active,0);assert.equal(maximum,8);assert.equal(reads,names.length);
+  if(namedSocket){assert.match(error.message,/NAMED_SOCKET_FOUND/);assert.notEqual(error,later);assert.deepEqual(events,[]);}
+  else {assert.equal(error,undefined);assert.deepEqual(events,['resources','write']);await actual.command('SOURCEBLOCK',['1']);assert.equal(reads,2*names.length);}
+ }
+ await run();await run({namedSocket:true,lateError:true});
+});

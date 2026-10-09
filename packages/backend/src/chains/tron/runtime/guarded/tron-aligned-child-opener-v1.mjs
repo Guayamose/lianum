@@ -43,9 +43,19 @@ async function assertOwnedTronPrivateDirectory(directory) {
   assert.ok(stat.isDirectory() && !stat.isSymbolicLink() && stat.uid === process.getuid() && (stat.mode & 0o7777) === 0o700,
     'TRON_PRODUCT_PRIVATE_DIRECTORY');
 }
+// Fresh independent /proc/filesystem reads only, with a private fixed cap.
+// Every job drains before original-order validation or failure; no sampled
+// identity, FD, socket, resource or prior successful audit is reused.
+async function freshTronOriginalProcessReadsV1(reads){
+  const outcomes=new Array(reads.length);let next=0;
+  async function worker(){while(next<reads.length){const i=next++;try{outcomes[i]={ok:true,value:await reads[i]()};}catch(error){outcomes[i]={ok:false,error};}}}
+  await Promise.allSettled(Array.from({length:Math.min(8,reads.length)},()=>worker()));return outcomes;
+}
+function originalTronProcessReadV1(outcome){if(!outcome.ok)throw outcome.error;return outcome.value;}
 async function hostResources() {
-  const available = /^MemAvailable:\s+([0-9]+) kB$/m.exec(await readFile('/proc/meminfo', 'utf8'));
-  assert.ok(available, 'TRON_CANDIDATE_MEMAVAILABLE_UNREADABLE'); const disk = await statfs(projectRoot, { bigint: true });
+  const reads=await freshTronOriginalProcessReadsV1([()=>readFile('/proc/meminfo','utf8'),()=>statfs(projectRoot,{bigint:true})]);
+  const available = /^MemAvailable:\s+([0-9]+) kB$/m.exec(originalTronProcessReadV1(reads[0]));
+  assert.ok(available, 'TRON_CANDIDATE_MEMAVAILABLE_UNREADABLE'); const disk = originalTronProcessReadV1(reads[1]);
   const sample = { availableRAM: Number(available[1]) * 1024, freeDisk: Number(disk.bavail * disk.bsize) };
   assert.ok(sample.availableRAM >= PRIVATE_RESOURCE_FLOORS.availableRAM, 'TRON_CANDIDATE_MEMAVAILABLE_FLOOR');
   assert.ok(sample.freeDisk >= PRIVATE_RESOURCE_FLOORS.freeDisk, 'TRON_CANDIDATE_DISK_FLOOR'); return sample;
@@ -65,12 +75,13 @@ async function proc(pid) {
 async function alignedProc(pid) {
   const first = await proc(pid); if (first === null) return null;
   const base = '/proc/' + pid;
-  const text = await readFile(base + '/stat', 'utf8'), fields = text.slice(text.lastIndexOf(') ') + 2).split(/\s+/);
-  const status = await readFile(base + '/status', 'utf8');
+  const reads=await freshTronOriginalProcessReadsV1([()=>readFile(base+'/stat','utf8'),()=>readFile(base+'/status','utf8'),()=>lstat(base),()=>readlink(base+'/exe')]);
+  const text = originalTronProcessReadV1(reads[0]), fields = text.slice(text.lastIndexOf(') ') + 2).split(/\s+/);
+  const status = originalTronProcessReadV1(reads[1]);
   const uids = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(status);
   assert.ok(uids, 'TRON_ALIGNED_STARTUP_UID4_REQUIRED');
   const row = { ...first, group: Number(fields[2]), session: Number(fields[3]),
-    uid: (await lstat(base)).uid, uids: uids.slice(1).map(Number), executable: await readlink(base + '/exe') };
+    uid: originalTronProcessReadV1(reads[2]).uid, uids: uids.slice(1).map(Number), executable: originalTronProcessReadV1(reads[3]) };
   const after = await proc(pid);
   assert.ok(after && after.start === first.start && after.parent === first.parent, 'TRON_ALIGNED_STARTUP_BIRTH_CHANGED');
   assert.equal(fields[19], first.start); assert.equal(Number(fields[1]), first.parent);
@@ -172,8 +183,12 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
     if (row.executable === join(RUNTIME, 'jdk8/bin/java')) {
       const unix = (await readFile('/proc/' + child.pid + '/net/unix', 'utf8')).trim().split('\n').slice(1)
         .map(line => line.trim().split(/\s+/));
-      for (const name of await readdir('/proc/' + child.pid + '/fd')) {
-        let descriptor; try { descriptor = await readlink('/proc/' + child.pid + '/fd/' + name); } catch (error) { if (absent(error)) continue; throw error; }
+      const names=await readdir('/proc/'+child.pid+'/fd');
+      const descriptors=await freshTronOriginalProcessReadsV1(names.map(name=>async()=>{
+        try{return await readlink('/proc/'+child.pid+'/fd/'+name);}catch(error){if(absent(error))return null;throw error;}
+      }));
+      for(let i=0;i<names.length;i++){
+        const descriptor=originalTronProcessReadV1(descriptors[i]);if(descriptor===null)continue;
         const socket = /^socket:\[([0-9]+)\]$/.exec(descriptor);
         if (!socket) continue;
         // JDK8 FileDispatcher owns an anonymous AF_UNIX pair. The filter
