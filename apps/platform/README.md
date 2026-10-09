@@ -1,5 +1,10 @@
 # API móvil y base de operación
 
+La [entrada de cuenta nativa y recuperación local](docs/NATIVE-RECOVERY.md)
+conserva sus fuentes antes de financiar y permite reabrirlas desde disco.
+Es una entrada separada del arranque API/SQL descrito aquí; su aceptación
+integrada de caída abrupta y recuperación autónoma sigue pendiente.
+
 Esta aplicación contiene la frontera HTTP para permisos móviles y su registro
 PostgreSQL. La réplica local arranca y permite consultar disponibilidad. El
 adaptador económico está **sin vincular** en `src/run.mjs`: no genera notas,
