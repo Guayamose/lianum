@@ -4,10 +4,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {constants} from 'node:fs';
-import {mkdtemp,writeFile,readFile,open,lstat,realpath,unlink,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,open,lstat,realpath,unlink,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
+import {createHash,randomUUID} from 'node:crypto';
+import {types} from 'node:util';
 import {EventEmitter} from 'node:events';
 import {FLAT} from '../../../../proofs/src/catalog.mjs';
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
@@ -18,8 +20,8 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve
 test('HOST original local ERC20 entry retains startup acquisition; cancels publication and drains owned originals, or preserves uncertain lock',{timeout:10000},async t=>{
   const directory=await mkdtemp(join(tmpdir(),'device-external-entry-'));t.after(()=>rm(directory,{recursive:true,force:true}));
   const backend=await readFile(backendURL,'utf8'),caller=await readFile(appURL,'utf8');
-  const marker='export async function createOriginalDeviceExternalFlatLocalOperatorV1(input){';assert.equal(backend.split(marker).length,2);
-  const constructor=backend.slice(backend.indexOf(marker)).replace('export async function','async function');
+  const marker='export function createOriginalDeviceExternalFlatLocalOperatorV1(input){';assert.equal(backend.split(marker).length,2);
+  const constructor=backend.slice(backend.indexOf(marker)).replaceAll('export function','function');
   const privateDirectory=backend.slice(backend.indexOf('async function physicalDirectory(path){'),backend.indexOf('async function sourceReview(){'));
   const runtimeFactoryGate=deferred(),runtimeStarted=deferred(),tlsCloseGate=deferred(),tlsCloseStarted=deferred();
   const events=[];const allowances=new Map();let currentOperatorBindings=0,bindFailure=false,missingStopReceipt=false,tlsClosing=false;
@@ -33,8 +35,10 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
     async read(contract,method){return[method==='symbol'?'USDC':6];},async send(contract,method,args){assert.equal(method,'approve');assert.equal(contract,this.first);assert.equal(events.includes('account-created'),true);assert.equal(events.includes('target-created'),true);assert.equal(events.includes('tls-created'),true);assert.equal(args[1],500n);allowances.set(args[0],args[1]);events.push('exact-approve');}};
   let originalAccount;
   const ports={assert,constants,open,lstat:async path=>path==='/proc/2147483646'?Promise.reject(Object.assign(Error('EXPLICIT_INERT_PID_ABSENT'),{code:'ENOENT'})):lstat(path),realpath,unlink,join,local:directory,process,
+    FLAT:directory,randomUUID,createHash,mkdir,NATIVE_VALUE_DEV_RELEASE_V5:{hostSourceClosureSHA256:'06'.repeat(32)},
+    createWrappedPrivateLifetimeRegistryV1:async()=>{events.push('registry-created');return Object.freeze({});},createDeviceExternalFlatRecoveryAuthorityV1:async()=>{events.push('issuer-created');return Object.freeze({});},closeWrappedPrivateLifetimeRegistryV1:async()=>{events.push('registry-close');return{closed:true};},closeDeviceExternalFlatRecoveryAuthorityV1:async()=>{events.push('issuer-close');return{closed:true};},
     configuration:input=>structuredClone(input),sourceReview:async()=>{events.push('source-review');},fresh:()=>'06'.repeat(32),bare:v=>v.slice(2),
-    createOwnedNativeEconomicReceiverV2:async()=>{currentOperatorBindings=0;events.push('runtime-start');runtimeStarted.resolve();await runtimeFactoryGate.promise;return inertRuntime;},
+    createOwnedDeviceExternalFlatReceiverV1:async()=>{currentOperatorBindings=0;events.push('runtime-start');runtimeStarted.resolve();await runtimeFactoryGate.promise;return inertRuntime;},
     createOfficialProtocolFixture:async runtime=>{assert.equal(runtime,inertRuntime);events.push('official-setup');return official;},assertOfficialProtocolFixture:()=>{},
     createOwnedPoolAsset:async()=>asset,evmRuntimeCodeHash:()=>'0x'+'07'.repeat(32),derivePrivateAssetIdentity:()=>'0x'+'08'.repeat(32),nativeAdmissionRulesTree:()=>({root:'09'.repeat(32),paths:[{}]}),
     createLocalFlatOperator:({signerIndex})=>{let closed=false;return{publicKey:'actor'+signerIndex,status:()=>({bound:false,certifiedInventoryCount:0,closed}),async bind(input){assert.equal(input.runtime,inertRuntime);currentOperatorBindings++;events.push('operator-bound');},async close(){closed=true;events.push('operator-close');}};},
@@ -42,7 +46,7 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
     createOriginalDeviceExternalFlatNoteAuthorityV1:async input=>{assert.equal(input.devicePublicKey,'04'+'12'.repeat(64));assert.equal(allowances.size,0);events.push('account-created');originalAccount={async close(){events.push('account-close');return{closed:true,inFlight:0};}};return originalAccount;},
     createOwnedPrivateExternalRouterV1:async()=>({address:'0x'+'13'.repeat(20)}),createOwnedMetaMorphoGraphDeliveryObserverV1:async()=>Object.freeze({}),createFlatOperatorQuorum:input=>{assert.equal(input.operators.length,3);return Object.freeze({});},
     createOriginalDeviceExternalFlatShareNoteAuthorityV1:async input=>{assert.equal(input.poolIndex,1);assert.equal(allowances.size,0);events.push('target-created');return{async close(){events.push('target-close');return{closed:true,inFlight:0};}};},
-    createOriginalDeviceExternalFlatSourceGraphServiceV1:async input=>{assert.equal(input.account,originalAccount);assert.equal(allowances.size,0);assert.equal(currentOperatorBindings,4);events.push('tls-created');if(bindFailure)throw Error('EXPLICIT_INERT_BIND_FAILURE');return{descriptor:{profile:'EXPLICIT_INERT_HOST_DESCRIPTOR'},targetDescriptor:{profile:'EXPLICIT_INERT_HOST_SHARE_DESCRIPTOR'},url:config.origin,
+    createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1:async input=>{assert.equal(input.account,originalAccount);assert.equal(events.includes('registry-created'),true);assert.equal(events.includes('issuer-created'),true);assert.equal(input.protocols,official);assert.equal(allowances.size,0);assert.equal(currentOperatorBindings,4);events.push('tls-created');if(bindFailure)throw Error('EXPLICIT_INERT_BIND_FAILURE');return{descriptor:{profile:'EXPLICIT_INERT_HOST_DESCRIPTOR'},targetDescriptor:{profile:'EXPLICIT_INERT_HOST_SHARE_DESCRIPTOR'},url:config.origin,
       async close(){events.push('tls-close');tlsClosing=true;tlsCloseStarted.resolve();await tlsCloseGate.promise;return{closed:true,ownedSocketsRemaining:0,originalOperationsInFlight:0};}};},
   };
   const create=await new AsyncFunction(...Object.keys(ports),privateDirectory+constructor+'\nreturn createOriginalDeviceExternalFlatLocalOperatorV1;')(...Object.values(ports));
@@ -70,4 +74,36 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   await assert.rejects(create(config),error=>error instanceof AggregateError&&error.message==='DEVICE_EXTERNAL_LOCAL_START_CLEANUP_UNCONFIRMED');
   assert.equal((await lstat(join(directory,'active.lock'))).isFile(),true);
   assert.equal(events.includes('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY'),false);
+});
+
+test('HOST original Graph backend stores exact encrypted checkpoints and denies pending, substituted or copied recovery parts',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'device-external-graph-checkpoint-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const serviceURL=new URL(generated?'../operations/local/device-external-flat-source-graph-service-v1.mjs':'../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs',import.meta.url),source=await readFile(serviceURL,'utf8');
+ const vaultURL=new URL(generated?'../../../../../omnichain-product/src/vault.mjs':'../../../../engine/src/crypto/vault.mjs',import.meta.url),{Vault}=await import(vaultURL);
+ const storageURL=new URL(generated?'../native-claims/segmented-record-store.mjs':'../../../src/claims/storage/segmented-record-store.mjs',import.meta.url),{canonicalClaimRecordDataV1}=await import(storageURL);
+ const sha=v=>createHash('sha256').update(canonicalClaimRecordDataV1(v)).digest('hex'),password='07'.repeat(32),vault=new Vault(join(directory,'part.vault'));
+ const confirmed={schema:'EXPLICIT_INERT_ORIGINAL_GRAPH_SEED',jobId:'01'.repeat(32),claim:{jobId:'01'.repeat(32)},submission:{dispatchLatched:true,transactionHash:null},withdrawals:[]};
+ let record=await vault.create({schema:'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1',confirmed,candidate:null},password),reads=0;
+ const runtime=Object.freeze({}),handle=Object.freeze({}),identity={lifetime:'02'.repeat(32)},descriptor={slot:'wallet-graph-keeper-0',identity,stateSHA256:sha(record.data)};
+ const checkedStart=source.indexOf('async function checkedPart('),checkedEnd=source.indexOf('function originalFile(',checkedStart);assert.ok(checkedStart>=0&&checkedEnd>checkedStart);
+ const partStart=source.indexOf('function part('),partEnd=source.indexOf('const workspaces=',partStart);assert.ok(partStart>=0&&partEnd>partStart);
+ const need=(v,c)=>assert.ok(v,c),exact=(v,keys)=>{assert.deepEqual(Object.keys(v).sort(),[...keys].sort());return v;};
+ const ports={assert,types,need,exact,sha,readWrappedPrivateLifetimePartV1:async(r,name,id)=>{assert.equal(r,runtime);assert.equal(name,descriptor.slot);assert.deepEqual(id,identity);reads++;return{privateState:(await vault.read(password)).data,handle};},assertWrappedPrivateLifetimePartSealedV1:h=>assert.equal(h,handle)};
+ const body=source.slice(checkedStart,checkedEnd)+source.slice(partStart,partEnd).replace('export function','function');
+ const api=await new AsyncFunction(...Object.keys(ports),'const recoveryParts=new WeakMap();'+body+';return{checkedPart,part,consume:consumeOriginalDeviceExternalFlatGraphRecoveryPartV1};')(...Object.values(ports));
+ assert.deepEqual(await api.checkedPart(runtime,descriptor,'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1'),confirmed);assert.equal(reads,1);
+ const token=api.part('bridge',{confirmed});assert.deepEqual(api.consume(token,'bridge'),{confirmed});assert.throws(()=>api.consume(token,'bridge'));assert.throws(()=>api.consume(Object.freeze({}),'bridge'));
+ const other=api.part('execution',{confirmed});assert.throws(()=>api.consume(other,'bridge'));assert.deepEqual(api.consume(other,'execution'),{confirmed});
+ const graphURL=new URL(generated?'device-external-flat-source-graph-v1.mjs':'../../../src/accounts/authority/device-external-flat-source-graph-v1.mjs',import.meta.url),graphSource=await readFile(graphURL,'utf8');
+ const saveStart=graphSource.indexOf(' async function save(change){'),saveEnd=graphSource.indexOf(' const update=',saveStart);assert.ok(saveStart>=0&&saveEnd>saveStart);
+ let failOriginalCAS=false;const events=[];
+ class FaultVault extends Vault{async update(...args){events.push('original-cas');assert.notEqual((await vault.read(password)).data.candidate,null);if(failOriginalCAS)throw Object.assign(Error('EXPLICIT_INERT_CAS_FAILURE'),{code:'EIO'});return super.update(...args);}}
+ const operationVault=new FaultVault(join(directory,'operations.vault'));let operation=await operationVault.create({jobId:confirmed.jobId,dispatchLatched:false},password);
+ const writerPorts={initial:operation,assert,copy:structuredClone,password,vault:operationVault,physical:async()=>{},persistRecord:async(candidate,current)=>{events.push(candidate?'candidate':'confirmed');record=await vault.update(password,record.revision,d=>({...d,confirmed:structuredClone(current.data),candidate:candidate??null}));assert.deepEqual(await vault.read(password),record);}};
+ const writer=await new AsyncFunction(...Object.keys(writerPorts),'let record=initial,poisoned=false;async function healthy(){assert.deepEqual(await vault.read(password),record);}async function persist(candidate=null){return persistRecord(candidate,record);}'+graphSource.slice(saveStart,saveEnd)+';return{save,current:()=>record,poisoned:()=>poisoned};')(...Object.values(writerPorts));
+ await writer.save(d=>({...d,dispatchLatched:true}));operation=writer.current();assert.deepEqual(events,['candidate','original-cas','confirmed']);assert.equal(record.data.candidate,null);assert.equal(record.data.confirmed.dispatchLatched,true);
+ failOriginalCAS=true;await assert.rejects(writer.save(d=>({...d,secondAdmission:true})),{code:'EIO'});assert.equal(writer.poisoned(),true);assert.equal((await operationVault.read(password)).data.secondAdmission,undefined);const pending={...descriptor,stateSHA256:sha(record.data)};
+ await assert.rejects(api.checkedPart(runtime,pending,'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1'),/DEVICE_EXTERNAL_GRAPH_PENDING_REOPEN_DENIED/);
+ await assert.rejects(api.checkedPart(runtime,descriptor,'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1'),/DEVICE_EXTERNAL_GRAPH_ORIGINAL_PRIVATE_CHECKPOINT/);
+ assert.equal((await vault.read(password)).data.confirmed.dispatchLatched,true);assert.equal((await vault.read(password)).data.candidate.data.secondAdmission,true);
 });

@@ -116,3 +116,9 @@ export async function reopenOriginalDeviceExternalFlatSystemRecordV1(token){
  assert.equal(arguments.length,1);const module=await import('../../accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs');const {runtime,record}=module.consumeOriginalDeviceExternalFlatSystemReopenV1(token);
  const system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record},'system'));assertOwnedFlatSystem(runtime,system);return system;
 }
+
+export async function reopenOriginalDeviceExternalFlatGraphSystemRecordV1(token){
+ assert.equal(arguments.length,1);const module=await import('../../accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs');const {runtime,record,graph}=module.consumeOriginalDeviceExternalFlatSystemReopenV1(token);assert.ok(graph,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_SYSTEM_TOKEN');
+ const protocols=await reopenOfficialProtocolFixtureRecoveryV1(part({runtime,record:graph.protocols},'protocols')),system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record},'system'));assertOwnedFlatSystem(runtime,system);
+ const router=await reopenOwnedPrivateExternalRouterRecoveryV1(part({runtime,record:graph.router,system,protocols},'router'));assertOwnedPrivateExternalRouterV1(router,{runtime,system,poolIndex:1});assert.equal(router.protocolKind,'METAMORPHO_V1_EXACT_SHARE_MINT');const {createOwnedMetaMorphoGraphDeliveryObserverV1}=await import('../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs');const deliveryObserver=await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,protocolFixture:protocols});return Object.freeze({system,protocols,router,deliveryObserver});
+}

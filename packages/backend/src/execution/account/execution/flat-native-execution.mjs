@@ -7,9 +7,11 @@ import {buildOwnerNativeGraphRoute} from '../preparation/owner-native-graph-revi
  */
 import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp,lstat,realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { types } from 'node:util';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {assertDeviceExternalFlatRecoveryAuthorityV1,deviceExternalFlatAccountCaptureIdentityV1} from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
 import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
@@ -152,9 +154,14 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
   const live = () => assert.ok(!closed && !poisoned, 'FLAT_EXECUTION_UNAVAILABLE');
   async function healthy() { live(); assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
     assert.deepEqual(await vault.read(password), record, 'FLAT_EXECUTION_STORAGE_CHANGED'); }
+  let retainedHandle=null,retainedIdentity=null;
+  const privateSeed=()=>({schema:'DEVICE_EXTERNAL_FLAT_EXECUTION_PRIVATE_V1',directory,password,record:copy(record)});
+  async function retained(candidate=null){if(retainedHandle)await updateWrappedPrivateLifetimePartV1(retainedHandle,{schema:'DEVICE_EXTERNAL_FLAT_EXECUTION_DURABLE_V1',confirmed:privateSeed(),candidate});}
+  async function retainGraph(authority){live();assert.equal(retainedHandle,null);assert.equal(record.data.operations.length,0,'FLAT_EXECUTION_RETAIN_BEFORE_ADMISSION');const identity=assertDeviceExternalFlatRecoveryAuthorityV1(authority);assertWrappedPrivateLifetimeAttemptV1(runtime,identity);await healthy();retainedIdentity={profile:'DEVICE_EXTERNAL_FLAT_EXECUTION_LIFETIME_V1',poolIndex,pool:pool.address,domainCommitment:pool.domainCommitment};retainedHandle=await retainWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,retainedIdentity,{schema:'DEVICE_EXTERNAL_FLAT_EXECUTION_DURABLE_V1',confirmed:privateSeed(),candidate:null});assertWrappedPrivateLifetimePartSealedV1(retainedHandle);return{slot:'wallet-execution-'+poolIndex,identity:copy(retainedIdentity)};}
+  async function captureGraph(token){const identity=deviceExternalFlatAccountCaptureIdentityV1(token);assertWrappedPrivateLifetimeAttemptV1(runtime,identity);assert.ok(retainedHandle,'FLAT_EXECUTION_ORIGINAL_RETAINED');await keeper.abort();await proofs.close();assert.equal(busy,false);await healthy();await retained();const saved=await readWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,retainedIdentity);assert.equal(saved.privateState.candidate,null);const out={slot:'wallet-execution-'+poolIndex,identity:copy(retainedIdentity),stateSHA256:digest(saved.privateState)};closed=true;password=undefined;providerSets.clear();return out;}
   async function write(change) {
-    try { await healthy(); const next = await vault.update(password, record.revision, old => change(copy(old)));
-      assert.deepEqual(await vault.read(password), next); record = next; }
+    try { await healthy(); const nextData=change(copy(record.data));await retained({revision:record.revision+1,data:nextData});const next = await vault.update(password, record.revision, () => nextData);
+      assert.deepEqual(await vault.read(password), next); record = next;await retained(); }
     catch (error) { poisoned = true; throw error; }
   }
   function operation(ref) { reference(ref); const item = record.data.operations.find(value => value.reference === ref);
@@ -404,7 +411,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     async abort() { cancelled = true; await proofs.abort(); await activeDone; return { aborted: true }; },
     async close() { await keeper.abort(); await proofs.close(); closed = true; password = undefined; providerSets.clear(); return { closed: true }; },
   });
-  owners.set(keeper, { runtime, system, poolIndex, live,
+  owners.set(keeper, { runtime, system, poolIndex, live,retainGraph,captureGraph,
     manualReview(ref) {
       live(); assert.ok(!cancelled, 'FLAT_EXECUTION_CANCELLED');
       const entry = operation(ref), selected = providerSets.get(ref), packets = entry.prepared.rolePackets;
@@ -433,4 +440,23 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
         fundingNotBefore: packets.reservation.funding.value.fundingNotBefore,
         fundingValidUntil: packets.reservation.funding.value.fundingValidUntil });
     } }); return keeper;
+}
+
+/** These functions require the original issuer/section token and keeper brand.
+ * The reopened object deliberately owns no provider, quorum, proof or sender. */
+export function retainOriginalDeviceExternalFlatGraphExecutionV1(keeper,authority){assert.equal(arguments.length,2);const s=owners.get(keeper);assert.ok(s?.retainGraph,'FLAT_EXECUTION_ORIGINAL_RETAINED');return s.retainGraph(authority);}
+export function captureOriginalDeviceExternalFlatGraphExecutionV1(keeper,token){assert.equal(arguments.length,2);const s=owners.get(keeper);assert.ok(s?.captureGraph,'FLAT_EXECUTION_ORIGINAL_RETAINED');return s.captureGraph(token);}
+export async function reopenOriginalDeviceExternalFlatGraphExecutionV1(token){
+ assert.equal(arguments.length,1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../../operations/local/device-external-flat-source-graph-service-v1.mjs');const {runtime,system,poolIndex,saved}=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'execution');assertOwnedFlatSystem(runtime,system);await assertLocalEvm(runtime);const pool=system.pools[poolIndex];
+ const vault=new Vault(join(saved.directory,'operations.vault'));let password=saved.password,record=await vault.read(password),closed=false,busy=false,active=null;assert.deepEqual(record,saved.record,'FLAT_EXECUTION_ORIGINAL_GRAPH_CHECKPOINT');assert.equal(record.data.profile,FLAT_EXECUTION_PROFILE);assert.equal(record.data.pool,pool.address);assert.equal(record.data.domainCommitment,pool.domainCommitment);
+ const terminalObserver=await createFlatTerminalObserver({runtime,system,poolIndex});const live=()=>{assert.ok(!closed,'FLAT_EXECUTION_UNAVAILABLE');assertOwnedFlatSystem(runtime,system);};
+ async function physical(){for(const [path,directory]of [[saved.directory,true],[join(saved.directory,'operations.vault'),false]]){const stat=await lstat(path);assert.ok(!stat.isSymbolicLink()&&(directory?stat.isDirectory():stat.isFile()&&stat.nlink===1)&&stat.uid===process.getuid()&&(stat.mode&0o777)===(directory?0o700:0o600),'FLAT_EXECUTION_ORIGINAL_STORAGE');assert.equal(await realpath(path),path,'FLAT_EXECUTION_ORIGINAL_STORAGE');}}await physical();
+ const deny=()=>{live();assert.fail('FLAT_EXECUTION_GRAPH_REOPENED_OBSERVE_ONLY');};
+ const keeper=Object.freeze({prepare:deny,execute:deny,recover:deny,
+  reconcile(ref){live();assert.ok(!busy,'FLAT_EXECUTION_BUSY');reference(ref);busy=true;active=(async()=>{await physical();await assertLocalEvm(runtime);assert.deepEqual(await vault.read(password),record,'FLAT_EXECUTION_STORAGE_CHANGED');await physical();const entry=record.data.operations.find(v=>v.reference===ref);assert.ok(entry,'FLAT_EXECUTION_ORIGINAL_PREPARATION_REQUIRED');let first;
+   for(const kind of [...(entry.recoverySubmission?['recovery']:[]),...(entry.settlementSubmission?['settlement']:[])]){const submission=entry[kind==='recovery'?'recoverySubmission':'settlementSubmission'];if(submission.transactionHash===null){first??=Error('FLAT_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED');continue;}try{return await terminalObserver.observe({kind,submission:detached(submission),binding:detached(entry.binding),statement:detached(kind==='recovery'?entry.recoveryStatement:entry.settlementStatement)});}catch(error){first??=error;}}
+   throw first??Error('FLAT_EXECUTION_PARTIAL_DELIVERY_REQUIRES_RECOVERY');})().finally(()=>{busy=false;active=null;});return active;},
+  snapshot(ref){live();reference(ref);const e=record.data.operations.find(v=>v.reference===ref);assert.ok(e);return detached({reference:ref,stage:e.stage,outcome:e.outcome,executionStarted:e.executionStarted,nativeExposure:e.exposures.map(({slot,family,status})=>({slot,family,status})),admittedReceipts:e.receipts.length,errorCode:e.errorCode,keeperRestart:true,nodeRestart:true,fullWalletAcceptance:false});},
+  async close(){closed=true;await active?.catch(()=>{});password=undefined;return{closed:true};}
+ });owners.set(keeper,{runtime,system,poolIndex,live,manualReview:deny});return keeper;
 }

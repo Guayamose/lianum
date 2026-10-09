@@ -111,7 +111,7 @@ function reply(response,status,value){if(response.destroyed||response.writableEn
 async function body(request,maximum=MAX_BODY){if(maximum!==MAX_BODY&&maximum!==65536)fail();if(request.headers['content-type']!=='application/json'||request.headers['content-encoding']!==undefined||request.headers['transfer-encoding']!==undefined)fail();
  const length=request.headers['content-length'];if(typeof length!=='string'||/^(0|[1-9][0-9]{0,5})$/.exec(length)?.[0]!==length||Number(length)<2||Number(length)>maximum)fail();
  const parts=[];let count=0,bytes;try{for await(const part of request){parts.push(part);count+=part.length;if(count>Number(length)||count>maximum)fail();}if(count!==Number(length))fail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));}finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}}
-const retainedListeners=new WeakMap();
+const retainedListeners=new WeakMap(),graphListeners=new WeakMap();
 /** Private fixed ordered-capture seam. The public close still closes account. */
 export function quiesceOriginalRetainedDeviceExternalFlatTlsServerV1(listener,account){
  if(arguments.length!==2||types.isProxy(listener)||types.isProxy(account))fail();const original=retainedListeners.get(listener);if(!original||original.account!==account)fail();assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1(account);return original.quiesce();
@@ -197,5 +197,8 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
  const listener=Object.freeze({descriptor,url:descriptor.origin,
   close(){if(arguments.length!==0)fail();if(closing)return closing;closed=true;const accountClose=workspace.close(),network=drainNetwork();closing=(async()=>{const result=await network;await accountClose;return stoppedNetwork(result);})();return closing;},
  });
+ graphListeners.set(listener,{workspace,quiesce(){if(closing)fail();closed=true;const network=drainNetwork();return(async()=>stoppedNetwork(await network))();}});
  return listener;
 }
+
+export function quiesceOriginalDeviceExternalFlatGraphTlsServerV1(listener,workspace){if(arguments.length!==2||types.isProxy(listener)||types.isProxy(workspace))fail();const s=graphListeners.get(listener);if(!s||s.workspace!==workspace)fail();return s.quiesce();}
