@@ -163,3 +163,93 @@ test('HOST original native audit avoids key-order-only AEAD commits and keeps ev
   assert.equal(control.observations, 6); assert.equal(control.commits, 2);
   assert.equal((await store.read()).revision, durable.revision + 2);
 });
+
+
+/** The actual certify/unchanged/save bodies over the real encrypted journal.
+ * Observation, facts encoding and serial entry are explicit inert ports here;
+ * the retained fixture certificate conveys no signature/native authority. */
+test('HOST original retained native certification persists only a changed observation', async t => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { createHash } = await import('node:crypto');
+  const { isDeepStrictEqual } = await import('node:util');
+  const moduleURL = (canonical, mapped) => {
+    const candidate = new URL(canonical, import.meta.url);
+    try { readFileSync(candidate); return candidate; }
+    catch (error) { assert.equal(error.code, 'ENOENT'); const fallback = new URL(mapped, import.meta.url); readFileSync(fallback); return fallback; }
+  };
+  const storeModule = await import(moduleURL('../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
+  const readiness = await import(moduleURL('../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
+  const commitments = await import(moduleURL('../../../src/execution/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
+  const inventory = readFileSync(moduleURL('../../../src/operations/operators/native-value/native-value-inventory-v4.mjs', './native-value-inventory-v4.mjs'), 'utf8');
+  const watermarkLine = inventory.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
+  assert.equal(watermarkLine.length, 1);
+  const watermark = Function(watermarkLine[0].replace('export ', '') + '\nreturn nativeValueWatermark;')();
+  const unchangedAt = source.indexOf('  async function unchanged() {'), saveEnd = source.indexOf('  async function current() {', unchangedAt);
+  const certifyAt = source.indexOf('  async function certify('), certifyEnd = source.indexOf('  const operator = ', certifyAt);
+  assert.ok(unchangedAt >= 0 && saveEnd > unchangedAt && certifyAt >= 0 && certifyEnd > certifyAt);
+  const bodies = source.slice(unchangedAt, saveEnd) + source.slice(certifyAt, certifyEnd);
+  const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+  const nativeId = 'b'.repeat(64), profile = 'd'.repeat(64), blockId = 'a'.repeat(64);
+  const facts = { nativeGid: 'c'.repeat(64), finalizedBlockId: blockId, finalizedBlockHeight: '5' };
+  const factBytes = Buffer.from(JSON.stringify(facts));
+  const retained = { digest: hash(factBytes), fixture: 'INERT_PREVALIDATED_CERTIFICATE' };
+  const initial = { lastClock: '1000', inventories: [{ profileCommitment: profile, entries: [{
+    original: { nativeId, facts }, watermark: watermark(facts), status: 'live', reason: null, lastCheckedAt: '1000',
+    pending: null, history: [retained],
+  }] }], authorizations: [], checkpoints: [] };
+  const directory = await mkdtemp(join(tmpdir(), 'native-certification-state-host-'));
+  const store = await storeModule.createClaimRecordStore({ path: join(directory, 'journal'), password: 'HOST retained certification password',
+    identity: { purpose: 'INERT_NATIVE_CERTIFICATION_STATE_HOST' } }, initial);
+  t.after(async () => { store.close(); await rm(directory, { recursive: true, force: true }); });
+  const durable = await store.read();
+  const control = { reads: 0, commits: 0, currents: 0, observations: 0, validations: 0, coverages: 0,
+    keys: 0, poisoned: false, sourceStatus: 'live', journalFailure: null, phase: null };
+  let live;
+  const resources = { store: {
+    async load() { control.reads++; if (control.journalFailure) throw control.journalFailure;
+      const row = await store.read(); return { revision: String(row.revision), state: row.data }; },
+    async commit(input) { control.commits++; const row = await store.update(Number(input.expectedRevision), prior => {
+      assert.deepEqual(prior, live.read().state); return input.nextState;
+    }); return { revision: String(row.revision), state: row.data }; },
+  } };
+  const ports = { assert, isDeepStrictEqual, copy: readiness.cloneInput, freeze: readiness.frozenInput,
+    equal: (a, b) => assert.deepEqual(a, b), exactRecord: commitments.exactRecord, bytes32: commitments.bytes32, inputUint: readiness.inputUint,
+    bound: { resources, binding: { profiles: [{ profile: { inert: true } }] }, policies: [Object.freeze({ inert: true })] },
+    active: { view: { head: { timestamp: '1000' } }, timing: {} }, record: { revision: String(durable.revision), state: durable.data },
+    validateNativeValueOperatorInventory(state) { control.validations++;
+      assert.deepEqual(Object.keys(state).sort(), ['authorizations', 'checkpoints', 'inventories', 'lastClock']); return state; },
+    nativeValueWatermark: watermark, profileCommitment: () => profile, encodeFacts: () => factBytes, sha256: hash,
+    pool: value => assert.equal(value, 0), serial: async (_pool, work) => work(),
+    owned() { assert.equal(control.poisoned, false); }, poison() { control.poisoned = true; },
+    timedStore: async (_kind, work) => work(), timingPhase: value => { control.phase = value; },
+    current: async () => { control.currents++; },
+    coverage: async () => { control.coverages++; control.currents++; await live.checkJournal(); },
+    observe: async () => { control.observations++; return {
+      status: control.sourceStatus, reason: control.sourceStatus === 'live' ? null : 'INERT_SOURCE_UNAVAILABLE',
+      sourceFailureCode: null, original: { nativeId, facts },
+    }; },
+    keySign() { control.keys++; throw Error('HOST_UNEXPECTED_NEW_KEY_USE'); },
+    assertNativeValueSignature() { throw Error('HOST_UNEXPECTED_NEW_SIGNATURE'); },
+    factsSchema() { throw Error('HOST_UNEXPECTED_NEW_CERTIFICATE'); }, signerIndex: 0,
+  };
+  const names = Object.keys(ports);
+  live = Function(...names, bodies + '\nreturn {certify, checkJournal:unchanged, read:()=>record};')(...names.map(name => ports[name]));
+  const request = { poolIndex: 0, profileCommitment: profile, nativeId };
+  assert.deepEqual(await live.certify(request), retained);
+  assert.deepEqual(await live.certify(request), retained);
+  assert.equal(control.commits, 0); assert.equal((await store.read()).revision, durable.revision);
+  assert.equal(control.observations, 2); assert.equal(control.coverages, 4); assert.equal(control.validations, 2);
+  assert.equal(control.reads, 6); assert.equal(control.keys, 0);
+  // A fresh adverse result still goes through the original CAS/readback before
+  // the original unavailable error; no certificate is returned and no key used.
+  control.sourceStatus = 'unknown';
+  await assert.rejects(live.certify(request), /NATIVE_VALUE_NEW_ORIGINAL_UNAVAILABLE/);
+  assert.equal(control.commits, 1); assert.equal((await store.read()).revision, durable.revision + 1);
+  assert.equal(live.read().state.inventories[0].entries[0].status, 'unknown'); assert.equal(control.keys, 0);
+  // Equal-state handling never caches a physical journal read or masks failure.
+  const original = Error('HOST_FRESH_JOURNAL_UNAVAILABLE'); control.journalFailure = original;
+  await assert.rejects(live.certify(request), error => error.message === 'NATIVE_VALUE_JOURNAL_UNAVAILABLE_OR_CHANGED' && error.cause === original);
+  assert.equal(control.observations, 3); assert.equal(control.poisoned, true); assert.equal(control.keys, 0);
+});

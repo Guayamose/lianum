@@ -133,6 +133,10 @@ function createNativeOperator(raw,recovery=null) {
   async function save(next) {
     try {
       owned(); await unchanged(); const state = validateNativeValueOperatorInventory(next, bound.binding);
+      // A new revision is unnecessary when fresh validation leaves the whole
+      // retained state unchanged. Liveness, physical reads and validation above
+      // retain their original order and failure/poison semantics.
+      if (isDeepStrictEqual(state, record.state)) return;
       const result = await timedStore('commit', () => bound.resources.store.commit(freeze({ expectedRevision: record.revision, nextState: copy(state) })));
       exactRecord(result, ['revision', 'state']); assert.equal(inputUint(result.revision), BigInt(record.revision) + 1n); equal(result.state, state);
       equal(await timedStore('load', () => bound.resources.store.load()), result); record = copy(result);
