@@ -23,8 +23,9 @@ async function privateConfiguration(path){
     return JSON.parse(bytes.subarray(0,count).toString('utf8'));
   }finally{bytes?.fill(0);await handle.close();}
 }
-async function publishDescriptor(path,value){
-  const handle=await open(join(dirname(path),'paired-descriptor.json'),constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
+async function publishDescriptor(path,value,name){
+  assert.ok(name==='paired-descriptor.json'||name==='paired-share-descriptor.json','DEVICE_EXTERNAL_LOCAL_FIXED_DESCRIPTOR_FILE');
+  const handle=await open(join(dirname(path),name),constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   try{await handle.writeFile(JSON.stringify(value)+'\n');await handle.sync();}finally{await handle.close();}
   const parent=await open(dirname(path),constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);
   try{await parent.sync();}finally{await parent.close();}
@@ -53,7 +54,7 @@ async function run(){
     acquisition=original.createOriginalDeviceExternalFlatLocalOperatorV1(config);acquisition.catch(()=>{});
     config.tls=null;service=await acquisition;
     if(closeRequested)await close();
-    else{await publishDescriptor(path,service.descriptor);if(closeRequested)await close();else process.stdout.write('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY\n');}
+    else{await publishDescriptor(path,service.descriptor,'paired-descriptor.json');if(!closeRequested)await publishDescriptor(path,service.targetDescriptor,'paired-share-descriptor.json');if(closeRequested)await close();else process.stdout.write('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY\n');}
   }catch{
     process.exitCode=1;
     try{await close();}catch{process.stderr.write('DEVICE_EXTERNAL_LOCAL_CLOSE_UNCONFIRMED\n');}

@@ -1,3 +1,4 @@
+import {validateExternalFlatGraphFreshV1,externalFlatGraphPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {validateExternalFlatFreshV1,externalFlatPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import * as defiPositionReadProtocol from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
 import {validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
@@ -319,4 +320,12 @@ export async function signDeviceExternalFlatPermissionV1(raw:unknown,expectedOri
  if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);
  try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');return signDeviceMessage(privateKey,externalFlatPermissionMessageV1(check()));}
  finally{privateKey.fill(0);retained=null;}
+}
+
+/** Fixed device SOURCE graph domain; opens only this device permission key. */
+export async function signDeviceExternalFlatGraphPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+ const value=validateExternalFlatGraphFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
+ const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphFreshV1(value),subject=v.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
+ const consent=check(),approved=await LocalAuthentication.authenticateAsync({promptMessage:`${consent.draft.action}: presupuesto ${consent.draft.statement.budget ?? 'del grafo'}; vencimiento ${consent.draft.statement.settleBefore}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
+ try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=externalFlatGraphPermissionMessageV1(check());return signDeviceMessage(privateKey,frame);}finally{frame?.fill(0);privateKey.fill(0);retained=null;}
 }

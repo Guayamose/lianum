@@ -1,0 +1,15 @@
+import type {ExternalFlatDescriptor} from './device-external-flat-note-v1.mjs';
+export const DEVICE_EXTERNAL_FLAT_GRAPH_V1:'DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_V1';
+export const EXTERNAL_FLAT_GRAPH_ACTIONS_V1:readonly string[];
+export type ExternalFlatGraphAction='PROVE_U'|'RESERVE_S'|'OBSERVE_S'|'EXECUTE_GRAPH'|'RECONCILE_GRAPH'|'RECOVER_GRAPH'|'CANCEL_GRAPH';
+export type ExternalFlatGraphDraft=Readonly<{action:ExternalFlatGraphAction;depositJobId:string;rootId:string;quoteId:string;jobId:string;custody:any;statement:any;witnessSHA256:string;proofSHA256:string|null;publicInputsSHA256:string|null}>;
+export type ExternalFlatGraphConsent=Readonly<{profile:string;descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;draft:ExternalFlatGraphDraft;observed:any;openingDisclosure:string|null}>;
+export function normalizeExternalFlatGraphQuoteV1(raw:unknown):any;
+export function normalizeExternalFlatGraphDraftV1(raw:unknown):ExternalFlatGraphDraft;
+export function normalizeExternalFlatGraphConsentV1(raw:unknown):ExternalFlatGraphConsent;
+export function normalizeExternalFlatGraphRowV1(raw:unknown):any;
+export function normalizeExternalFlatGraphStatusV1(raw:unknown):any;
+export function validateExternalFlatGraphFreshV1(raw:unknown,now?:number):ExternalFlatGraphConsent;
+export function externalFlatGraphPermissionMessageV1(raw:unknown):Uint8Array;
+export {normalizeExternalFlatAccessV1,normalizeExternalFlatSignatureV1} from './device-external-flat-note-v1.mjs';
+export {normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,wipeDeviceReservationWitnessV1} from './device-reservation-consent-v1.mjs';

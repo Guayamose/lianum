@@ -17,16 +17,18 @@ import {createOwnedNativeEconomicReceiverV2} from '../../chains/evm/runtime/owne
 import {createOwnedPoolAsset} from '../../chains/shared/contracts/owned-pool-asset.mjs';
 import {evmRuntimeCodeHash} from '../../chains/evm/contracts/evm-code-hash.mjs';
 import {createOfficialProtocolFixture,assertOfficialProtocolFixture} from '../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
-import {createLocalFlatOperator} from '../operators/claims/native-operators.mjs';
+import {createLocalFlatOperator,createFlatOperatorQuorum} from '../operators/claims/native-operators.mjs';
 import {deployFlatSystem,assertOwnedFlatSystem} from '../deployments/system/deploy-system.mjs';
-import {createOriginalDeviceExternalFlatNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
-import {createOriginalDeviceExternalFlatTlsServerV1} from '../../api/mobile/device-external-flat-note-http-v1.mjs';
+import {createOriginalDeviceExternalFlatNoteAuthorityV1,createOriginalDeviceExternalFlatShareNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
+import {createOriginalDeviceExternalFlatSourceGraphServiceV1} from './device-external-flat-source-graph-service-v1.mjs';
+import {createOwnedPrivateExternalRouterV1} from '../deployments/defi/deploy-private-external-router-v1.mjs';
+import {createOwnedMetaMorphoGraphDeliveryObserverV1} from '../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {loadNativeValueDevDeploymentArtifactsV5} from '../deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 
 const local=join(ROOT,'.local/original-device-external-flat-local-v1');
 const fresh=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
-const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:4284,sha256:'c87d1cdb84863a637bbc86f95e26d9b8033aeab3bd0fb62ba463d75bf6684793'});
+const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:4530,sha256:'469a9074b96cbcee98f43299a7dfb09519c225165dd73e738fe16a32b24d8763'});
 function exact(value,names){
   assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype
     &&Reflect.ownKeys(value).length===names.length&&names.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable&&Object.hasOwn(d,'value');}),'DEVICE_EXTERNAL_LOCAL_CONFIGURATION');
@@ -70,7 +72,7 @@ export async function createOriginalDeviceExternalFlatLocalOperatorV1(input){
   await sourceReview();await physicalDirectory(local);
   const lockPath=join(local,'active.lock'),lock=await open(lockPath,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   let lockBefore;try{lockBefore=await lock.stat();}catch(error){await lock.close();throw error;}
-  let runtime,account,listener,closing,runtimeStarted=false,accountStarted=false;
+  let runtime,account,targetAccount,listener,closing,runtimeStarted=false,accountStarted=false,targetStarted=false;
   const operators=[];
   async function releaseLock(){
     const named=await lstat(lockPath),current=await lock.stat();
@@ -84,6 +86,7 @@ export async function createOriginalDeviceExternalFlatLocalOperatorV1(input){
       // TLS closes admission and account permissions synchronously, then drains
       // exactly the work already owned by those original objects.
       if(listener)await stop(async()=>{const result=await listener.close();assert.ok(result.closed&&result.ownedSocketsRemaining===0&&result.originalOperationsInFlight===0,'DEVICE_EXTERNAL_LOCAL_TLS_CLOSE_UNCONFIRMED');});
+      if(targetAccount)await stop(async()=>{const result=await targetAccount.close();assert.ok(result.closed&&result.inFlight===0,'DEVICE_EXTERNAL_LOCAL_ACCOUNT_CLOSE_UNCONFIRMED');});
       if(account)await stop(async()=>{const result=await account.close();assert.ok(result.closed&&result.inFlight===0,'DEVICE_EXTERNAL_LOCAL_ACCOUNT_CLOSE_UNCONFIRMED');});
       for(const operator of operators)await stop(async()=>{await operator.close();assert.equal(operator.status().closed,true);});
       if(runtime)await stop(async()=>{
@@ -95,7 +98,7 @@ export async function createOriginalDeviceExternalFlatLocalOperatorV1(input){
         try{await lstat('/proc/'+receipt[0].pid);assert.fail('DEVICE_EXTERNAL_LOCAL_RUNTIME_STILL_PRESENT');}
         catch(error){if(error.code!=='ENOENT')throw error;}
       });
-      if(runtimeStarted&&!runtime||accountStarted&&!account)failures.push(Error('DEVICE_EXTERNAL_LOCAL_ACQUISITION_UNCONFIRMED'));
+      if(runtimeStarted&&!runtime||accountStarted&&!account||targetStarted&&!targetAccount)failures.push(Error('DEVICE_EXTERNAL_LOCAL_ACQUISITION_UNCONFIRMED'));
       selected.tls=null;
       if(failures.length){await lock.close();throw new AggregateError(failures,'DEVICE_EXTERNAL_LOCAL_CLOSE_UNCONFIRMED');}
       await releaseLock();return Object.freeze({closed:true,originalResourcesStopped:true,originalScratchRetained:true,automaticFunding:false});
@@ -111,21 +114,31 @@ export async function createOriginalDeviceExternalFlatLocalOperatorV1(input){
       symbol:(await official.read(contract,'symbol'))[0],decimals:Number((await official.read(contract,'decimals'))[0]),kind:'ERC20'}));
     assert.ok(capabilities[0].metadata.symbol==='USDC'&&capabilities[0].metadata.decimals===6,'DEVICE_EXTERNAL_LOCAL_FIXED_USDC');
     const shareIdentity=derivePrivateAssetIdentity(runtime.metadata.chainId,official.vault.address,evmRuntimeCodeHash(official.vault.code)).slice(2);
-    const rules=nativeAdmissionRulesTree([{family:'3',genesis:bare(runtime.metadata.evmGenesis),asset:shareIdentity,finalityKind:'3',minimumConfirmations:'1',maximumEvidenceLifetime:'86400',maximumClockSkew:'30'}]);
+    const rule={family:'3',genesis:bare(runtime.metadata.evmGenesis),asset:shareIdentity,finalityKind:'3',minimumConfirmations:'1',maximumEvidenceLifetime:'86400',maximumClockSkew:'30'},rules=nativeAdmissionRulesTree([rule]);
     for(let signerIndex=0;signerIndex<4;signerIndex++)operators.push(createLocalFlatOperator({signerIndex}));
     const system=await deployFlatSystem(runtime,{deploymentDomain:'0x'+fresh(),registryEpoch:'1',rulesRoot:'0x'+rules.root,
       attesterKeys:operators.map(operator=>operator.publicKey),pools:capabilities.map(assetCapability=>({assetCapability,policy:'0x'+fresh(),deploymentDomain:'0x'+fresh()}))});
     assertOwnedFlatSystem(runtime,system);assert.equal(system.bootstrap.poolsUnfunded,true);assert.equal(system.bootstrap.constructorStorageMatched,true);
     assert.equal(system.bootstrap.completeRuntimesMatched,true);assert.equal(Object.keys(system.verifiers).length,12);
-    for(const operator of operators){assert.equal(operator.status().bound,false);assert.equal(operator.status().certifiedInventoryCount,0);await operator.close();assert.equal(operator.status().closed,true);}
+    const router=await createOwnedPrivateExternalRouterV1({runtime,system,poolIndex:1,protocolFixture:official,protocolKind:'METAMORPHO_V1_EXACT_SHARE_MINT'});
+    const deliveryObserver=await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,protocolFixture:official});
+    for(const operator of operators)await operator.bind({runtime,system,bitcoin:null,solana:null,evmDelivery:deliveryObserver,rules:[rule],rulePaths:rules.paths});
+    const quorum=createFlatOperatorQuorum({operators:operators.slice(0,3)});
     accountStarted=true;account=await createOriginalDeviceExternalFlatNoteAuthorityV1({runtime,system,poolIndex:0,origin:selected.origin,devicePublicKey:selected.devicePublicKey});
+    targetStarted=true;targetAccount=await createOriginalDeviceExternalFlatShareNoteAuthorityV1({runtime,system,poolIndex:1,deliveryObserver,origin:selected.origin,devicePublicKey:selected.devicePublicKey});
+    // The SAME original realm exposes source, target and GRAPH namespaces.
+    // No Linux source or target note owner is created. Both device custodians
+    // and the actual graph keeper exist before any external token funding.
+    listener=await createOriginalDeviceExternalFlatSourceGraphServiceV1({account,targetAccount,runtime,system,quorum,router,deliveryObserver,rule,rulePath:rules.paths[0],maximumSolverInput:selected.depositAmountAtomic,tls:selected.tls,host:'0.0.0.0'});
     const pool=system.pools[0],asset=pool.assetCapability,amount=BigInt(selected.depositAmountAtomic);
     const before=await runtime.block();assert.equal(await asset.allowance(system.sender,pool.address,before.number),0n,'DEVICE_EXTERNAL_LOCAL_ALLOWANCE_NOT_FRESH');
     assert.ok(await asset.balance(system.sender,before.number)>=amount,'DEVICE_EXTERNAL_LOCAL_FAKE_BALANCE');
     await official.send(official.first,'approve',[pool.address,amount]); // explicit infrastructure preparation only
     const after=await runtime.block();assert.equal(await asset.allowance(system.sender,pool.address,after.number),amount,'DEVICE_EXTERNAL_LOCAL_EXACT_ALLOWANCE');
-    listener=await createOriginalDeviceExternalFlatTlsServerV1({account,tls:selected.tls,host:'0.0.0.0'});
-    return Object.freeze({descriptor:listener.descriptor,url:listener.url,localFakeValues:true,automaticFunding:false,
+    assert.equal(await asset.allowance(system.sender,router.address,after.number),0n,'DEVICE_EXTERNAL_LOCAL_ALLOWANCE_NOT_FRESH');
+    await official.send(official.first,'approve',[router.address,amount]);
+    const graphApproval=await runtime.block();assert.equal(await asset.allowance(system.sender,router.address,graphApproval.number),amount,'DEVICE_EXTERNAL_LOCAL_EXACT_ALLOWANCE');
+    return Object.freeze({descriptor:listener.descriptor,targetDescriptor:listener.targetDescriptor,url:listener.url,localFakeValues:true,automaticFunding:false,
       originalScratchRetained:true,newProcessRecoveryEstablished:false,close});
   }catch(error){
     try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'DEVICE_EXTERNAL_LOCAL_START_CLEANUP_UNCONFIRMED',{cause:error});}

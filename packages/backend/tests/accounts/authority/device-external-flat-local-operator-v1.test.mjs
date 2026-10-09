@@ -22,25 +22,27 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   const constructor=backend.slice(backend.indexOf(marker)).replace('export async function','async function');
   const privateDirectory=backend.slice(backend.indexOf('async function physicalDirectory(path){'),backend.indexOf('async function sourceReview(){'));
   const runtimeFactoryGate=deferred(),runtimeStarted=deferred(),tlsCloseGate=deferred(),tlsCloseStarted=deferred();
-  const events=[];let allowance=0n,bindFailure=false,missingStopReceipt=false,tlsClosing=false;
+  const events=[];const allowances=new Map();let currentOperatorBindings=0,bindFailure=false,missingStopReceipt=false,tlsClosing=false;
   const inertRuntime={metadata:{chainId:'31337',evmGenesis:'0x'+'01'.repeat(32)},lifecycle:[],async block(){return{number:'1'};},
     async close(options){assert.deepEqual(options,{removeScratch:false});events.push('runtime-close');
       if(!missingStopReceipt)this.lifecycle.push({event:'stopped-owned-process',stopped:true,forced:false,pid:2147483646,scratchRemoved:false});
       return{stopped:true}; // deliberately insufficient without the original lifecycle receipt
     }};
-  const asset={metadata:{symbol:'USDC',decimals:6},async allowance(){return allowance;},async balance(){return 1000n;}};
+  const asset={metadata:{symbol:'USDC',decimals:6},async allowance(_,target){return allowances.get(target)??0n;},async balance(){return 1000n;}};
   const official={first:{address:'0x'+'02'.repeat(20),receipt:{transactionHash:'0x'+'03'.repeat(32)},code:'0x12'},vault:{address:'0x'+'04'.repeat(20),receipt:{transactionHash:'0x'+'05'.repeat(32)},code:'0x34'},
-    async read(contract,method){return[method==='symbol'?'USDC':6];},async send(contract,method,args){assert.equal(method,'approve');assert.equal(contract,this.first);assert.equal(events.includes('account-created'),true);assert.equal(events.includes('tls-created'),false);assert.equal(args[1],500n);allowance=args[1];events.push('exact-approve');}};
+    async read(contract,method){return[method==='symbol'?'USDC':6];},async send(contract,method,args){assert.equal(method,'approve');assert.equal(contract,this.first);assert.equal(events.includes('account-created'),true);assert.equal(events.includes('target-created'),true);assert.equal(events.includes('tls-created'),true);assert.equal(args[1],500n);allowances.set(args[0],args[1]);events.push('exact-approve');}};
   let originalAccount;
   const ports={assert,constants,open,lstat:async path=>path==='/proc/2147483646'?Promise.reject(Object.assign(Error('EXPLICIT_INERT_PID_ABSENT'),{code:'ENOENT'})):lstat(path),realpath,unlink,join,local:directory,process,
     configuration:input=>structuredClone(input),sourceReview:async()=>{events.push('source-review');},fresh:()=>'06'.repeat(32),bare:v=>v.slice(2),
-    createOwnedNativeEconomicReceiverV2:async()=>{events.push('runtime-start');runtimeStarted.resolve();await runtimeFactoryGate.promise;return inertRuntime;},
+    createOwnedNativeEconomicReceiverV2:async()=>{currentOperatorBindings=0;events.push('runtime-start');runtimeStarted.resolve();await runtimeFactoryGate.promise;return inertRuntime;},
     createOfficialProtocolFixture:async runtime=>{assert.equal(runtime,inertRuntime);events.push('official-setup');return official;},assertOfficialProtocolFixture:()=>{},
     createOwnedPoolAsset:async()=>asset,evmRuntimeCodeHash:()=>'0x'+'07'.repeat(32),derivePrivateAssetIdentity:()=>'0x'+'08'.repeat(32),nativeAdmissionRulesTree:()=>({root:'09'.repeat(32)}),
-    createLocalFlatOperator:({signerIndex})=>{let closed=false;return{publicKey:'actor'+signerIndex,status:()=>({bound:false,certifiedInventoryCount:0,closed}),async close(){closed=true;}};},
+    createLocalFlatOperator:({signerIndex})=>{let closed=false;return{publicKey:'actor'+signerIndex,status:()=>({bound:false,certifiedInventoryCount:0,closed}),async bind(input){assert.equal(input.runtime,inertRuntime);currentOperatorBindings++;events.push('operator-bound');},async close(){closed=true;events.push('operator-close');}};},
     deployFlatSystem:async(runtime,input)=>{assert.equal(runtime,inertRuntime);return{sender:'0x'+'10'.repeat(20),pools:[{address:'0x'+'11'.repeat(20),assetCapability:asset}],bootstrap:{poolsUnfunded:true,constructorStorageMatched:true,completeRuntimesMatched:true},verifiers:Object.fromEntries(Array.from({length:12},(_,i)=>[i,{}]))};},assertOwnedFlatSystem:()=>{},
-    createOriginalDeviceExternalFlatNoteAuthorityV1:async input=>{assert.equal(input.devicePublicKey,'04'+'12'.repeat(64));assert.equal(allowance,0n);events.push('account-created');originalAccount={async close(){events.push('account-close');return{closed:true,inFlight:0};}};return originalAccount;},
-    createOriginalDeviceExternalFlatTlsServerV1:async input=>{assert.equal(input.account,originalAccount);assert.equal(allowance,500n);events.push('tls-created');if(bindFailure)throw Error('EXPLICIT_INERT_BIND_FAILURE');return{descriptor:{profile:'EXPLICIT_INERT_HOST_DESCRIPTOR'},url:input.origin,
+    createOriginalDeviceExternalFlatNoteAuthorityV1:async input=>{assert.equal(input.devicePublicKey,'04'+'12'.repeat(64));assert.equal(allowances.size,0);events.push('account-created');originalAccount={async close(){events.push('account-close');return{closed:true,inFlight:0};}};return originalAccount;},
+    createOwnedPrivateExternalRouterV1:async()=>({address:'0x'+'13'.repeat(20)}),createOwnedMetaMorphoGraphDeliveryObserverV1:async()=>Object.freeze({}),createFlatOperatorQuorum:input=>{assert.equal(input.operators.length,3);return Object.freeze({});},
+    createOriginalDeviceExternalFlatShareNoteAuthorityV1:async input=>{assert.equal(input.poolIndex,1);assert.equal(allowances.size,0);events.push('target-created');return{async close(){events.push('target-close');return{closed:true,inFlight:0};}};},
+    createOriginalDeviceExternalFlatSourceGraphServiceV1:async input=>{assert.equal(input.account,originalAccount);assert.equal(allowances.size,0);assert.equal(currentOperatorBindings,4);events.push('tls-created');if(bindFailure)throw Error('EXPLICIT_INERT_BIND_FAILURE');return{descriptor:{profile:'EXPLICIT_INERT_HOST_DESCRIPTOR'},targetDescriptor:{profile:'EXPLICIT_INERT_HOST_SHARE_DESCRIPTOR'},url:config.origin,
       async close(){events.push('tls-close');tlsClosing=true;tlsCloseStarted.resolve();await tlsCloseGate.promise;return{closed:true,ownedSocketsRemaining:0,originalOperationsInFlight:0};}};},
   };
   const create=await new AsyncFunction(...Object.keys(ports),privateDirectory+constructor+'\nreturn createOriginalDeviceExternalFlatLocalOperatorV1;')(...Object.values(ports));
@@ -59,12 +61,12 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   assert.equal(events.includes('runtime-close'),false); // runtime remains until TLS owns no work/socket
   assert.equal(events.includes('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY'),false);tlsCloseGate.resolve();await running;
   assert.equal(events.filter(v=>v==='runtime-start').length,1);assert.equal(events.filter(v=>v==='runtime-close').length,1);
-  assert.equal(events.indexOf('account-created')<events.indexOf('exact-approve'),true);assert.equal(events.indexOf('exact-approve')<events.indexOf('tls-created'),true);
+  assert.equal(events.indexOf('account-created')<events.indexOf('exact-approve'),true);assert.equal(events.indexOf('tls-created')<events.indexOf('exact-approve'),true);assert.equal(events.filter(v=>v==='exact-approve').length,2);assert.equal(events.indexOf('tls-close')<events.indexOf('target-close'),true);assert.equal(events.indexOf('target-close')<events.indexOf('account-close'),true);
   assert.equal(events.indexOf('tls-close')<events.indexOf('runtime-close'),true);assert.equal(fakeProcess.exitCode,undefined);
   await assert.rejects(lstat(join(directory,'paired-descriptor.json')),{code:'ENOENT'});await assert.rejects(lstat(join(directory,'active.lock')),{code:'ENOENT'});
   // Failure before listener publication still closes the actual acquired
   // account/runtime and never treats close()'s status as a stop receipt.
-  bindFailure=true;missingStopReceipt=true;allowance=0n;inertRuntime.lifecycle=[];
+  bindFailure=true;missingStopReceipt=true;allowances.clear();inertRuntime.lifecycle=[];
   await assert.rejects(create(config),error=>error instanceof AggregateError&&error.message==='DEVICE_EXTERNAL_LOCAL_START_CLEANUP_UNCONFIRMED');
   assert.equal((await lstat(join(directory,'active.lock'))).isFile(),true);
   assert.equal(events.includes('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY'),false);
