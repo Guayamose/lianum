@@ -134,3 +134,50 @@ test('HOST original parent tail retains safe failure before waiting for the same
    writeFixturePrivate:()=>{throw Error('PRIVATE-STORAGE');},close(){},successor:{async close(){}}});
  await assert.rejects(failedStorage(failure),error=>error===failure);
 });
+
+
+test('HOST original TOP_UP cause precedes UNKNOWN persistence and fixed private retention never grants an effect',async()=>{
+ const mappedAuthority=join(ROOT,'wallet-platform/modules/global-state/native-value-account-authority-v2.mjs');
+ const authorityPath=existsSync(mappedAuthority)?mappedAuthority:join(ROOT,'../backend/src/accounts/authority/native-value-account-authority-v2.mjs');
+ const authority=readFileSync(authorityPath,'utf8');
+ const unresolvedStart=authority.indexOf('  async function unresolved(ref, error) {'),unresolvedEnd=authority.indexOf('\n  /** Read the already retained original outcome',unresolvedStart);
+ const executeStart=authority.indexOf('  async function originalGraphExecute(value) {'),executeEnd=authority.indexOf('\n  async function originalGraphReconcile',executeStart);
+ assert.ok(unresolvedStart>=0&&unresolvedEnd>unresolvedStart&&executeStart>=0&&executeEnd>executeStart);
+ const first=new TypeError('PRIVATE-ORIGINAL');first.stack='TypeError: PRIVATE-ORIGINAL\n'+safeFrame;
+ const later=new Error('PRIVATE-JOURNAL');
+ async function run({callbackFails=false,writeFails=false,unavailable=false}={}){
+  const events=[],captured=[];const entry={request:{},outcome:null,stage:'READY'},bound={kind:'TOP_UP',ownerOperationRef:'fixed-host-reference'};
+  const execute=runInNewContext('(()=>{'+authority.slice(unresolvedStart,unresolvedEnd)+authority.slice(executeStart,executeEnd)+';return originalGraphExecute;})()',{
+   assert,unavailable,privateFailureDiagnostic,healthy:async()=>{},request:()=>({entry,bound}),operation:()=>entry,
+   async update(ref,value){events.push(value.stage);if(value.stage==='UNKNOWN'&&writeFails)throw later;},
+   async onStage(){},async executeNote(){events.push('original-note');throw first;},
+   async executeGraph(){throw Error('HOST_GRAPH_FORBIDDEN');},async confirmTerminal(){throw Error('HOST_TERMINAL_FORBIDDEN');},
+   async reconcileOriginal(){throw Error('HOST_RECONCILE_FORBIDDEN');},
+   async onPrivateAudit(event){events.push(event.stage);if(event.stage==='account-first-failure'){
+    assert.equal(event.originalError,first);captured.push(event);if(callbackFails)throw Error('PRIVATE-DIAGNOSTIC');}}
+  });
+  await assert.rejects(execute({}),error=>error===(writeFails&&!unavailable?later:first));
+  assert.equal(captured.length,1);assert.equal(captured[0].diagnostic.code,'FLAT_ACCOUNT_ORIGINAL_OUTCOME_UNRESOLVED');
+  assert.ok(events.indexOf('account-first-failure')>events.indexOf('original-note'));
+  if(!unavailable)assert.ok(events.indexOf('account-first-failure')<events.indexOf('UNKNOWN'));
+  else assert.equal(events.includes('UNKNOWN'),false);
+ }
+ await run();await run({callbackFails:true});await run({writeFails:true});await run({unavailable:true});
+
+ const driver=readFileSync(new URL('./native-wallet-real-driver-v1.mjs',import.meta.url),'utf8');
+ const start=driver.indexOf('  function retainAccountFailure(event){'),end=driver.indexOf('  async function retainProof',start);assert.ok(start>=0&&end>start);
+ const outputs=[],capture=runInNewContext('(()=>{'+driver.slice(start,end)+';return retainAccountFailure;})()',{
+  Object,firstAccountErrorRetained:false,privateNativeEconomicSuccessorFirstErrorV1:diagnose,privateFailureDiagnostic,join,
+  privateDirectory:'/fixed-private',writeFixturePrivate:(path,value)=>{outputs.push({path,value});}
+ });
+ capture({stage:'owner-transition',receipt:{private:'PRIVATE-RECEIPT'}});assert.equal(outputs.length,0);
+ capture({stage:'account-first-failure',originalError:first});capture({stage:'account-first-failure',originalError:later});
+ assert.equal(outputs.length,1);assert.equal(outputs[0].path,'/fixed-private/account-first-error-private.json');
+ assert.equal(outputs[0].value.errorType,'TYPE_ERROR');assert.equal(outputs[0].value.frames.length,1);
+ for(const value of['PRIVATE-ORIGINAL','PRIVATE-JOURNAL','PRIVATE-RECEIPT','reference','message','actual','expected','wire'])assert.equal(JSON.stringify(outputs[0].value).includes(value),false);
+ const failing=runInNewContext('(()=>{'+driver.slice(start,end)+';return retainAccountFailure;})()',{
+  Object,firstAccountErrorRetained:false,privateNativeEconomicSuccessorFirstErrorV1:diagnose,privateFailureDiagnostic,join,
+  privateDirectory:'/fixed-private',writeFixturePrivate:()=>{throw Error('PRIVATE-STORAGE');}
+ });
+ assert.doesNotThrow(()=>failing({stage:'account-first-failure',originalError:first}));
+});

@@ -4,6 +4,7 @@ import { decodeTronNativeTransferWire } from '../../../../packages/backend/src/c
 import { describeOwnedLocalTronNativeValueSource } from '../../../../packages/backend/src/chains/tron/health/owned-tron-native-value-health-source-v4.mjs';
 import { loadNativeValueDevLiveArtifactsV5 } from '../../../../packages/proofs/src/native-value/metadata/native-value-dev-live-v5-artifacts.mjs';
 import { nativeWalletTronDevSourcePinsV5 } from './native-wallet-tron-dev-source-pins-v5.mjs';
+import { privateNativeEconomicSuccessorFirstErrorV1 } from './native-device-economic-private-error-v1.mjs';
 import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, NATIVE_WALLET_TRON_DEV_RESULT_V5 } from './native-wallet-tron-dev-policy-v5.mjs';
 /** Fixed one-profile genuine native-value wallet acceptance. Import is inert.
  * This is an explicitly scripted fake-value local acceptance, never a wallet
@@ -95,7 +96,7 @@ async function runFixed(unfundedOnly,tron=false) {
       'Owner and recipient processes reopen original encrypted state. Original keeper and nodes survive; no lifetime or window is renewed.',
       'Failure preserves the exact attempt. No automatic reproof, redispatch, reauthorization or new fixture retry.']};
   let runtime,nativeRuntime,bootstrap,system,reader,owner,execution,account,joined,preparation,app,driver,custody,recipient,recipientBoot,legacy;
-  let closed=false,interrupted=false,graphRef,graphPrepared,ownerScope,preflightIdentity;
+  let closed=false,interrupted=false,graphRef,graphPrepared,ownerScope,preflightIdentity,firstAccountErrorRetained=false;
   const proofsByLabel=new Map(),handoffs=new Map();
   function nativeAudit(){assert.ok(tron&&nativeRuntime);return readOwnedLocalTronNativeValueAuditStateV4(nativeRuntime);}
   function nativeTransactionCount(){if(!nativeRuntime)return 0;if(!tron)return nativeRuntime.transactions.length;
@@ -140,6 +141,17 @@ async function runFixed(unfundedOnly,tron=false) {
   }
   const remaining=()=>{const n=deadlineMs-Date.now();assert.ok(n>0,'NATIVE_WALLET_ORIGINAL_DEADLINE');return n;};
   async function stage(name){remaining();result.phase=name;result.stages.push({name,at:new Date().toISOString()});save();process.stdout.write(JSON.stringify({stage:name})+'\n');}
+  function retainAccountFailure(event){
+    if(event.stage!=='account-first-failure'||firstAccountErrorRetained||!Object.hasOwn(event,'originalError'))return;
+    firstAccountErrorRetained=true;
+    try {
+      // Reuse the reviewed native-V8 formatter: only closed source codes and
+      // physical owned source locations. No reference, message, wire or state.
+      const first=privateNativeEconomicSuccessorFirstErrorV1(event.originalError);
+      const diagnostic=privateFailureDiagnostic(event.originalError,'FLAT_ACCOUNT_ORIGINAL_OUTCOME_UNRESOLVED');
+      writeFixturePrivate(join(privateDirectory,'account-first-error-private.json'),{...first,diagnostic});
+    }catch{ /* Preserve the first cause and original cleanup on storage failure. */ }
+  }
   async function retainProof({label,relation,proof}) {
     assert.ok(!proofsByLabel.has(label),'NATIVE_WALLET_DUPLICATE_PROOF_ROLE');
     const payload=typeof proof.proof==='string'?Buffer.from(proof.proof,'hex'):Buffer.from(proof.proof),inputs=fixtureJSON(proof.publicInputs);
@@ -410,7 +422,7 @@ assert.equal(runtime.metadata.chainId,'31337');assert.equal(nativeRuntime.metada
     ownerScope=await owner.publicView.summary();
     execution=await createNativeValueExecution({runtime,system,poolIndex:0,quorum:system.quorum},{onProof:retainProof,onStage:checkOriginalNativeFixtureInclusion,onPrivateAudit:retainExecutionFailure});
     account=await createNativeValueAccountAuthority({runtime,system,poolIndex:0,owner,nativeExecution:execution,
-      accountId:freshFixtureId(),journalId:freshFixtureId()},{onProof:retainProof,onStage:async detail=>{
+      accountId:freshFixtureId(),journalId:freshFixtureId()},{onProof:retainProof,onPrivateAudit:retainAccountFailure,onStage:async detail=>{
         if(detail.stage==='OWNER_SUSPENDED_BEFORE_NATIVE'){
           assert.equal(detail.reference,graphRef);assert.equal(owner.report().available,false);
           await health('reserved-before-native',NATIVE_WALLET_ECONOMICS_V1.sourceDepositAtomic,1,0);

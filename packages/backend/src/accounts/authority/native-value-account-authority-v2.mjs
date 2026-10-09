@@ -1377,8 +1377,13 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     return confirmTerminal(bound, result);
   }
   async function unresolved(ref, error) {
+    const diagnostic = privateFailureDiagnostic(error, 'FLAT_ACCOUNT_ORIGINAL_OUTCOME_UNRESOLVED');
+    // Preserve the first original cause before an uncertain journal write or
+    // the public keeper/HTTP mapper can replace it. This private callback grants
+    // no consent, key use, reconciliation, retry or replacement operation.
+    try { await onPrivateAudit({ reference: ref, stage: 'account-first-failure', originalError: error, diagnostic }); }
+    catch { /* Diagnostic storage must not replace the original outcome. */ }
     if (!unavailable && operation(ref).outcome === null) {
-      const diagnostic = privateFailureDiagnostic(error, 'FLAT_ACCOUNT_ORIGINAL_OUTCOME_UNRESOLVED');
       await update(ref, { stage: 'UNKNOWN',
         ...(operation(ref).manualLifecycle ? { manualLifecycle: { ...operation(ref).manualLifecycle, state: 'UNKNOWN',
           history: [...operation(ref).manualLifecycle.history, { state: 'UNKNOWN', generation: operation(ref).manualLifecycle.generation, evidence: null }] } } : {}),
