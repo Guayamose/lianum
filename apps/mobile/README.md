@@ -1,17 +1,37 @@
 # Wallet móvil
 
-Aplicación **nativa React Native/Expo para Android e iOS**, con pantallas propias,
-custodia local y autorizaciones manuales acotadas. No carga la wallet web en una
-WebView. Esta entrega establece el cliente y su frontera de seguridad; todavía
-no completa los recorridos económicos del keeper histórico.
+Aplicación **nativa React Native/Expo para Android e iOS**, con custodia local,
+consentimientos por acción y conexiones HTTPS explícitas. Los recorridos
+financieros originales están aceptados en laboratorio Node/TLS; el uso
+financiero en teléfono y las siete redes completas siguen pendientes.
 
-La pestaña **Custodia local** permite crear una raíz protegida por biometría,
-preparar una nota cifrada, respaldar/restaurar esa misma preparación y firmar
-los términos originales D26 o D27. El respaldo contiene la raíz: su custodia
-corresponde al usuario. Las revisiones caducan en 15 segundos y se revocan al
-editar, ocultar la pantalla o pasar a segundo plano. La nota permanece
-`UNISSUED`: una firma local todavía no constituye financiación ni saldo disponible.
-El enlace con prueba, depósito e inclusión canónica está en construcción.
+La app abre **Estado privado**. Reúne sólo lecturas autorizadas de las cuentas,
+notas y posiciones conectadas, separadas por activo, dominio, raíz y generación.
+No suma redes ni convierte una participación o su valoración en saldo gastable.
+UNKNOWN, STALE, un servicio no conectado y una lectura caducada muestran
+**No disponible**, conservando las operaciones pendientes.
+
+- **Cuenta vinculada:** consultar o reconciliar una petición original; leer el
+  saldo de una cuenta y pool con un permiso de lectura específico.
+- **Financiar nota:** conservar la misma nota fuente D26, reservarla y consultar
+  por separado los outputs de cambio y recuperación; ejecutar, reconciliar o
+  retirar con sus permisos originales. La recuperación automática se activa
+  o desactiva con consentimiento fresco y conserva el plazo económico original.
+- **Nota ERC20:** crear la nota propia antes de financiar, depositar y retirar
+  la fuente íntegra con D26/W39. Una respuesta perdida se observa sobre el
+  mismo trabajo, sin reenvío automático.
+- **Posiciones DeFi:** revelar y leer posiciones del backend vinculado con dos
+  permisos propios. Esta consulta no adopta su custodia ni autoriza gasto móvil.
+- **Custodia local:** preparar y respaldar la raíz cifrada. Una preparación
+  local `UNISSUED` o una firma todavía no representan fondos ni saldo.
+- **Cartera:** conserva el outbox de admisiones legado descrito más abajo;
+  su aceptación HTTP/SQL se presenta separada del estado financiero original.
+
+La raíz y las claves de nota permanecen locales. El usuario protege su respaldo;
+la apertura consentida llega al worker original para la prueba. Editar, ocultar
+la pantalla o pasar a segundo plano revoca los permisos pendientes y la frescura
+visible. El APK actualizado está compilado y archivado con el contrato de ambos
+outputs bloqueados. La instalación y operación física quedan para el final.
 
 ## Estructura
 
@@ -23,12 +43,18 @@ El enlace con prueba, depósito e inclusión canónica está en construcción.
   nativas simuladas explícitamente.
 - `../../packages/mobile-protocol/`: contrato público compartido con el servidor.
 
+## Outbox de admisión legado
+
+La pestaña Cartera y el outbox V1/V2 pertenecen a la ruta de admisión histórica.
+Sus permisos SQL no conceden custodia ni sustituyen las rutas originales
+Cuenta vinculada, Financiar nota, Nota ERC20 o Posiciones DeFi.
+
 El outbox V2 conserva el primer permiso, los términos económicos originales y
 un permiso por acción. La respuesta de admisión de cada permiso se muestra por
 separado: `execute: UNKNOWN` sigue pendiente aunque `reconcile` o `recover`
 obtengan `REJECTED`. Ninguna respuesta HTTP cierra el estado económico ni libera
 el registro para otra operación. Hace falta una observación financiera original,
-que el bridge pendiente todavía no ofrece. No se generan permisos de reemplazo
+que esta ruta de admisión legada no ofrece. No se generan permisos de reemplazo
 ni reenvíos automáticos de una acción ya retenida.
 
 Los registros V1 se leen sin inventar historial perdido y se conservan como
@@ -57,6 +83,83 @@ operación protegida. La revisión se consume antes del POST de lectura. Un 404,
 timeout o respuesta perdida conserva el outbox pendiente; una lectura tardía no
 rebaja un permiso ACCEPTED a UNKNOWN. Leer ACCEPTED sólo confirma admisión del
 permiso: el estado económico sigue UNRESOLVED y no libera la operación.
+
+## Notas nativas y recuperación
+
+La fuente D26 y los outputs de cambio y recuperación conservan su raíz, trabajo,
+reserva y destinatario originales. Un importe guardado es información local;
+el disponible exige lectura original fresca, inclusión y nullifier no gastado.
+La recuperación permanece bloqueada antes de F y del plazo original.
+
+Si una observación F pierde su bloque, la app guarda UNKNOWN y revoca el saldo
+antes de consultar otra vez. Sólo reconciliación del mismo F puede volver a
+instalar su resultado; no envía un nuevo permiso de recuperación ni libera la
+operación por una respuesta HTTP. El recorrido `b4329b70` quedó aceptado con
+nueve pruebas originales: UNKNOWN durable, ambos outputs bloqueados, reapertura
+del Vault y segunda reconciliación del mismo F antes de ambas W39. Conserva
+una única reemisión del wire original, sin nueva firma nativa, permiso económico
+ni prueba de recuperación. El alcance es el padre original exacto de F; no se
+supone saldo cero ni se reenvía automáticamente.
+
+El servicio LIVE_ARMED aceptó conservar la misma reserva, autorización armada,
+Vault, journal y provider en un reinicio ordenado. Su variante corta usa tres
+pruebas D26/U/S y una READ firmada nueva, sin F antes del cutoff; no acredita
+F autónomo después de ocho horas, pérdida abrupta ni teléfono. Véase [cuenta original](../../docs/ORIGINAL-ACCOUNT-V2.md)
+y [entrada nativa local](../platform/docs/ORIGINAL-LOCAL-DEVICE-OPERATOR.md).
+
+## Consultar posiciones DeFi
+
+En **Posiciones DeFi**, introduce el origen HTTPS y el ID de vinculación
+entregados por el operador del servicio original. La vinculación usa tu clave
+protegida actual y un descriptor propio de posiciones; no reutiliza el permiso
+ni descriptor de saldo de notas nativas.
+
+1. Conecta y autoriza **Mostrar posiciones con biometría** para revelar los
+   targets de esa cartera.
+2. Revisa vault, activo, red e identidad y autoriza **Leer posiciones con biometría**.
+3. Solicita una nueva consulta al caducar; no se firman ni reenvían permisos
+   automáticamente. Cancelar, editar o salir de primer plano revoca la revisión.
+
+Son dos permisos específicos y frescos de 15 segundos. La pantalla presenta
+cantidades exactas por activo, con disponibles, reservadas y bloqueadas
+separadas; datos UNKNOWN, caducados o fallidos muestran **No disponible**.
+La estimación del subyacente no es saldo gastable ni garantía de liquidez.
+Esta vista no prepara ni transmite TOP_UP, GRAPH, EXIT o redenciones. Las
+acciones de estas posiciones y shares requieren sus propias cuentas y notas
+del dispositivo creadas antes de financiar; las posiciones Linux no se convierten
+en autoridad de gasto móvil. La nota ERC20 fuente tiene una pestaña separada. La salida de notas nativas usa su bridge original
+separado.
+
+La custodia de estas posiciones permanece en el backend Linux original.
+El servicio exige su mismo catálogo, sesión y cabeza; no adopta cuentas mediante
+IDs o snapshots. Pasaron cuatro HOST de TLS/SDK/procedencia, dos de instalación
+y cierre del servicio y TSC móvil. Meta y Aave aceptaron dos lecturas del SDK original por protocolo
+después de mint y redención, conservando las mismas quince pruebas y sin nuevo
+efecto por consultar. Cerraron READ antes de capturar cinco secciones originales
+y reabrieron cada backend retenido en otro PID con la misma identidad/receipt y sin
+envío nuevo. El catálogo conserva el cierre de nuevas admisiones.
+
+El firmante secp256k1, digest Expo y certificado del caller son infraestructura
+HOST explícita: no acreditan biometría ni teléfono. Recuperación de GRAPH, caída
+abrupta y salida del padre siguen fuera de este recorrido aceptado.
+
+## Nota ERC20 propia
+
+En **Nota ERC20**, conecta el descriptor privado entregado por el operador del
+[servicio local original](../platform/docs/DEVICE-ERC20-LOCAL.md). La raíz y la
+clave de nota permanecen en la app. Fija el destinatario de retirada antes de
+preparar el depósito y usa el mismo importe en unidades atómicas que preparó
+el operador. Prueba, financiación y retirada requieren permisos separados.
+
+Una operación retenida o una respuesta perdida se consulta sobre el mismo
+trabajo; no se vuelve a financiar o retirar. UNKNOWN y datos no disponibles
+no son cero. La retirada usa la nota fuente íntegra; esta pantalla no convierte
+las posiciones custodiadas por Linux en notas del dispositivo. Backend, SDK,
+Vault y pantalla están conectados. El recorrido Node/TLS `da603751` aceptó
+D26/W39, dos envíos originales y respuestas perdidas reconciliadas en los mismos
+trabajos, sin duplicados. Capturó cuatro secciones y reabrió el backend en otro
+PID sólo para observar, sin nuevas pruebas o envíos; siete procesos cerrados y
+fuentes intactas. Teléfono, pérdida abrupta y operación pública siguen pendientes.
 
 ## Desarrollo
 
@@ -125,72 +228,28 @@ El constructor original ensambla `app-release.apk` con la firma Android Debug
 existente. Funciona sin Metro; conserva las dos arquitecturas, lint y el límite
 de 3 GiB. Para esta variante el JVM principal usa heap 768 MiB y metaspace
 384 MiB, SerialGC y dos procesadores activos, verificados en los argumentos
-reales de Gradle. El informe une el bundle Hermes empaquetado con doce fuentes
-actuales, incluidas la custodia y las firmas locales, y verifica firma V2 y cierre.
+reales de Gradle. El corte `d07f578f` comprobó 36 joins del bundle y 79 inputs,
+incluidos el validador puro de posiciones y la nueva nota ERC20.
 
-El intento `5f2e0774-27db-40c4-936b-aa17bea29422` completó la compilación con
-**42 169 935 bytes** y SHA-256
-`a258a8346f25a124818c2a8eea51d6c78306e307493edd16b2a3e25dd1617596`. La copia estable está en:
+El APK `d07f578f-c20d-47a0-a4ec-037686caea1f` está compilado y archivado
+para su corte: **42 643 195 bytes**, SHA-256
+`689b8eaadf695f921e598ff4a138f29668cc4250c0280132dcfb22a743345c5e`.
+Sus 79 inputs fueron iguales antes/después y completó 36 joins, con Hermes y
+firma Debug/V2 comprobados, sin Metro. Diez procesos propios ausentes y cero
+señales en el informe original; archivo fuerte con informe y origen retenidos.
+No acredita teléfono, SecureStore, biometría ni operación financiera física.
+Incluye el protocolo/SDK corregido para ambos outputs bloqueados durante
+una reorganización. El APK anterior `e19ad1eb` conserva su aceptación histórica.
+[APK del corte](../../.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/app-release.apk) ·
+[informe original](../../.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/report.json) ·
+[origen](../../.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/origin.json).
 
-```text
-.local/mobile/artifacts/android-standalone-5f2e0774-27db-40c4-936b-aa17bea29422/lianum-wallet-local.apk
-```
-
-Incluye Hermes 98; funciona sin Metro. Las 42 fuentes capturadas conservaron
-sus bytes y los ocho procesos registrados cerraron sin señales efectivas. El
-pico RSS fue **2 339 147 776 bytes**, dentro del límite original de 3 GiB. El
-intento anterior `4c121601…` conserva su rechazo por exceder ese límite en
-3,02 MiB; no se ha cambiado su resultado. La instalación y comprobación en
-teléfono quedan para el final, según la decisión de Rafa. La firma sigue siendo
-de desarrollo local; este APK no cierra el recorrido financiero desde el móvil.
-
-El build del commit `141b0ef54a78dfe8f32818c51067bf761ff3cb4c` pasó en 6 min 19 s,
-con 308 tareas Gradle. Se conserva el APK verificado en:
-
-```text
-.local/mobile/artifacts/android-debug-bdfa2078-166b-45bf-8d43-d175536cb173/lianum-wallet-debug.apk
-```
-
-Su tamaño es **102 729 139 bytes** y su SHA-256:
-
-```text
-dc5645cc9a989784a2bf8fe3ced1cdaaae2e2ff29d5b3d61a4de109ebdb3f71e
-```
-
-`aapt2` confirma `org.lianum.wallet`, versión `0.1.0`, SDK mínimo 24, objetivo 36,
-ABI `arm64-v8a` y `x86_64`, `debuggable=true` y `allowBackup=false`.
-`apksigner verify` acepta la firma APK v2 con certificado **Android Debug**.
-El APK carga el código de la aplicación mediante Metro. La variante debug
-incluye transporte claro para desarrollo; el cliente sigue exigiendo HTTPS
-salvo la excepción local explícita descrita más abajo.
-
-Las capturas antes y después coinciden en las **35 fuentes fijadas** y en el
-Node 24.19.0, JDK principal y SDK. El build usó JDK Ubuntu 21.0.12.1 y un worker
-Temurin 17.0.20.1 resuelto en la caché Gradle propia; también se conservaron
-versiones y hashes de ambos binarios Java. El pico RSS total fue
-**3 069 050 880 bytes**, dentro del límite de 3 GiB; quedaron al menos
-14 077 702 144 bytes de RAM disponibles. Los procesos propios cerraron,
-el lock se retiró y no fue necesario enviar señales.
-
-Los cuatro `build.ninja` de app y Expo Modules Core, en ambas ABI, asignan sus
-130 tareas de compilación/enlace al pool compartido de tamaño uno. Los probes
-temporales LTO de CMake 3.22 no heredan ese pool; no se ha medido su concurrencia.
-Todos sus procesos siguen dentro del mismo guard de memoria.
-
-Los logs, manifiesto, firma, capturas y archivos Ninja originales están en
-`.internal/dev/reports/mobile-android-debug-attempt-bdfa2078-166b-45bf-8d43-d175536cb173/`.
-El primer intento rechazado por memoria también permanece conservado.
-La instalación y la biometría física se comprobarán al final, por indicación
-del usuario. Esta entrega conserva su firma debug y no se ha publicado como release.
-
-El límite usa los argumentos CMake
-[`CMAKE_JOB_POOLS`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOLS.html),
-[`CMAKE_JOB_POOL_COMPILE`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOL_COMPILE.html)
-y [`CMAKE_JOB_POOL_LINK`](https://cmake.org/cmake/help/v3.22/variable/CMAKE_JOB_POOL_LINK.html).
-La regresión ejecuta Ninja directamente con `-j8`: una fixture sin pools muestra
-concurrencia y la misma fixture con este pool sólo admite un compilador o linker
-a la vez. `CMAKE_BUILD_PARALLEL_LEVEL` por sí solo limita `cmake --build`; AGP
-también puede invocar Ninja directamente. No se modifican AGP ni cachés ajenas.
+Los builds anteriores son históricos y conservan sus informes originales.
+`6adc78c0` tiene preservación limitada: el productor no retuvo la identidad
+original de un target de señal; se verificó su PID numérico ausente sin inventar
+cierre por identidad. `de2c963f`, `9935515d` y `1d3fdfd9` pertenecen a fuentes
+previas. Ninguno acredita el conjunto móvil final; un rechazo original permanece
+rechazado. Los archivos están en `.internal/dev/reports/mobile-android-standalone-local/`.
 
 Copia `.env.example` a `.env` y configura `EXPO_PUBLIC_API_ORIGIN` con el origen
 HTTPS del servicio. Esa configuración es pública y se incorpora al bundle: no
@@ -217,22 +276,19 @@ privacidad de sistema: faltan credenciales/accesos acotados por rol y la adaptac
 de los grafos privados, incluidos sus metadatos. Esta base no acredita el objetivo
 de privacidad por defecto del producto.
 
-El estado inicial presenta el saldo como **no disponible**. `ACCEPTED/ADMITTED`
-sólo indica admisión de autorización: no significa fondos reservados, prueba
-aceptada, operación ejecutada ni liquidación. Una respuesta perdida queda
-`UNKNOWN` con su ID original, sin reenvíos automáticos.
+Estado privado empieza sin cantidades disponibles y sólo incorpora lecturas
+frescas firmadas de fuentes conectadas. Cantidades guardadas y receipts de
+financiación se muestran con su alcance; no prueban por sí solos que una nota
+siga sin gastar. El Vault retiene la misma raíz, intención y trabajo antes de un
+POST; una respuesta perdida se consulta, sin reenviar automáticamente.
 
-La operación firmada se guarda con protección biométrica **antes** del POST.
-Después de un reinicio, «Recuperar operación guardada» carga su ID y prepara una
-reconciliación explícita; no repite el POST anterior. Esta primera versión mantiene
-una sola operación activa y bloquea reemplazarla hasta una integración que pueda
-establecer su finalización. La API de disponibilidad todavía no proporciona ese
-estado económico.
-
-Faltan el enlace con un keeper real que acepte la autoridad del dispositivo, la
-preparación local de notas/testigos privados, el estado privado autenticado,
-la finalización y recuperación de fondos, y la migración de dispositivo. Un
-backend sin executor real permanece desconectado y con capacidades cerradas.
+Las rutas originales de notas y posiciones tienen backend/SDK/Vault conectados
+y aceptaciones locales descritas arriba. El APK actualizado está compilado.
+Faltan uso financiero en teléfono, migración y recuperación ante pérdida abrupta,
+custodia multinota de
+shares propia del dispositivo y completar las siete redes. El executor API/SQL
+legado sigue cerrado; su disponibilidad no acredita el estado económico de las
+nuevas rutas originales.
 
 ## Custodia y comprobaciones
 

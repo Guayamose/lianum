@@ -1,113 +1,111 @@
-# Cuenta original vinculada: protocolo móvil V2
+# Cuenta original vinculada y notas del dispositivo
 
-El cliente puede revisar una petición TOP_UP o EXIT que ya está admitida en la
-cuenta original. Ofrece dos acciones: consultar su registro y reconciliar una
-petición ya iniciada. La reconciliación puede actualizar acknowledgements y
-checkpoints originales. Sus respuestas describen el registro de la petición;
-el saldo privado y el resultado económico permanecen sin verificar.
+La app usa conexiones privadas explícitas y permisos específicos para cada
+cuenta, activo, pool y acción. Un descriptor fija la vinculación; no permite
+adoptar una cuenta ni concede custodia. El servicio exige las referencias
+originales de sesión, actor, cuenta y bridges emitidas antes de financiar.
 
-## Dónde está cada parte
+## Qué permite cada pantalla
 
-- `packages/mobile-protocol/src/original-account-review-v2.*`: frames, dominios
-  de firma y tipos públicos. El subpath `@lianum/mobile-protocol/original-account-v2`
-  mantiene el contrato V1 existente separado.
-- `packages/backend/src/api/mobile/`: controlador del original y su listener
-  HTTP privado, ligado a una única referencia genuina de actor.
-- `apps/mobile/src/custody/original-account-lease-v2.*`: consentimientos
-  revocables; `key-store.ts` usa la identidad protegida existente.
-- `apps/mobile/src/api/original-account-api-v2.*`: transporte y validación de
-  respuestas, con lectura incremental limitada a 16 KiB y espera de 15 s.
-- `apps/mobile/src/screens/OriginalAccountScreen.tsx`: pestaña «Cuenta vinculada».
+**Cuenta vinculada** tiene dos recorridos distintos. Consultar o reconciliar
+una petición lee su registro original; CONFIRMED del coordinador no demuestra
+por sí solo saldo. **Leer saldo privado** usa dos firmas propias: la primera
+revela la cuenta/pool y la segunda autoriza su lectura fresca. Disponible,
+reservado, bloqueado y recuperación se muestran por separado. UNKNOWN, STALE
+o caducidad dejan las cantidades no disponibles; nunca se presentan como cero.
 
-## Vinculación local explícita
+**Financiar nota** usa el Vault cifrado del dispositivo y los bridges originales
+D26, U/S y ejecución/W39. La preparación nace con la raíz, clave, destinatario
+y dominio exactos. La app consulta el D26 original antes de preparar una
+reserva y conserva sus mismos trabajos al reconectar. Gastar la fuente mediante
+S no acredita automáticamente sus outputs: cambio y recuperación requieren
+sus propias observaciones de inclusión, nullifier y resultado original.
+La salida W39 conserva la reserva y el rol elegidos; recuperar sigue bloqueado
+antes del plazo económico y del F original.
 
-El operador necesita conservar en el mismo proceso las referencias originales
-de `session`, `approval` y `owner`, emitidas por las factorías originales. Un ID,
-un JSON o una clave pública no permiten reconstruir esas referencias. El
-bootstrap rechaza copias, Proxies, callbacks y otra aprobación/sesión, aunque
-tengan los mismos campos. Un fallo inicial antes de emitir un actor permite
-volver a intentar la vinculación; un actor ya emitido conserva exclusividad.
+Una intención retenida, respuesta perdida o reorg de F queda UNKNOWN. El Vault
+revoca el saldo y conserva la misma transacción/trabajo antes de otra consulta.
+La reconciliación del mismo original decide el resultado; no renueva permisos,
+crea otra prueba ni reenvía automáticamente. La recuperación automática se arma
+o desarma con un permiso nuevo de 15 segundos ligado a la misma reserva. El
+plazo de ocho horas permanece intacto; el servicio debe mantenerse activo.
+El perfil LIVE_ARMED aceptó conservar la misma reserva y autorización armada,
+Vault móvil, journal y provider tras cerrar diez secciones y reabrir en otro PID.
+El recorrido corto `b923b217` usa tres pruebas D26/U/S y una nueva READ firmada,
+sin F antes del cutoff. No acredita F autónomo después de ocho horas, pérdida
+abrupta ni teléfono. F reorg `b4329b70` quedó aceptado con nueve pruebas:
+el primer RECONCILE guardó UNKNOWN y ambos outputs bloqueados; el Vault se
+reabrió y el segundo confirmó el mismo F antes de ambas W39. Se reemitió una
+vez el wire original, sin nueva firma nativa, permiso económico ni prueba de
+recuperación. El alcance es el padre original exacto de F. UNKNOWN conserva
+la misma intención y nunca autoriza repetir el envío por sí solo.
 
-El siguiente fragmento se ejecuta dentro de ese proceso, después de admitir la
-petición mediante el flujo original. Sus variables representan originales ya
-retenidos; no es un comando para crear una cuenta desde datos serializados:
+**Nota ERC20** usa una custodia distinta y propia del dispositivo, creada antes
+de financiar. Conserva una fuente D26 y su salida íntegra W39, con permisos de
+prueba, financiación, retirada y observación separados. No fabrica una reserva S
+ni convierte las posiciones Linux en notas propias. El recorrido Node/TLS
+`da603751` aceptó dos pruebas, dos envíos/receipts y respuestas perdidas
+reconciliadas sobre los mismos trabajos. Capturó cuatro secciones originales y
+reabrió el backend en otro PID sólo para observar, sin nuevos efectos.
 
-```js
-import { createPairedOriginalAccountActorV2,
-  pairedOriginalAccountActorDescriptorV2 } from './paired-original-account-actor-v2.mjs';
-import { createPairedOriginalAccountHttpServerV2 } from './paired-original-account-http-v2.mjs';
+**Posiciones DeFi** exige dos permisos de lectura separados del saldo nativo.
+El catálogo, sesión, generación, vault y cabeza son originales. Su custodia
+permanece en Linux; shares y valoración del subyacente no se convierten en
+saldo móvil gastable. MetaMorpho y Aave aceptaron estas lecturas tras mint y
+redención y reapertura ordenada del backend retenido sin nuevos envíos.
 
-const actor = await createPairedOriginalAccountActorV2({
-  session: originalSession,
-  approval: originalApproval,
-  owner: originalOwner,
-  origin: 'https://cuenta.example.test',
-  devicePublicKey: publicKeyFromTheDevice,
-});
-const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
-const listener = await createPairedOriginalAccountHttpServerV2({ actor });
-```
+**Estado privado** reúne estas respuestas ya autenticadas por sus SDK y los
+outputs originales del Vault móvil. Conserva identidad completa por activo,
+dominio, raíz y generación; no crea un permiso global ni un total entre redes.
+Reabrir un checkpoint no lo vuelve fresco: hace falta observar de nuevo cada
+fuente. Caducidad, cierre, segundo plano o fallo revocan la frescura; los pending
+se conservan y las fuentes no instaladas permanecen desconocidas.
 
-El operador entrega `descriptor` por su canal de vinculación. La pantalla
-solicita su origen HTTPS y `pairingId`, y usa la clave pública que corresponde a
-la identidad local existente. El descriptor sólo selecciona y fija términos:
-cada acceso privado necesita una firma válida del dispositivo vinculado.
+## Vinculación y consentimiento
 
-El listener escucha únicamente en `127.0.0.1` y un puerto nuevo. Para utilizarlo
-desde el móvil hace falta routing/TLS que exponga exactamente el origen firmado
-y conserve el header `Origin`. Esa conexión HTTPS aún debe configurarse y
-comprobarse. El bootstrap público de `apps/platform` sigue desconectado y no
-crea estos actores. No hay lookup remoto de cuentas ni adopción por IDs.
+El operador entrega origen HTTPS y pairingId por un canal explícito. La app
+usa la clave protegida actual; ni IDs, JSON, callbacks ni claves públicas
+reconstruyen referencias originales. Los productores económicos y bridges
+nacen antes de los efectos. El listener TLS comparte la misma cuenta y actor;
+certificados TLS son infraestructura, nunca claves raíz de nota.
 
-## Recorrido de consentimiento
+La revisión fija cuenta, activo, dominio, pool, destinatario, importe, trabajo,
+head y caducidad. Cancelar, editar, cambiar de pantalla o salir de primer plano
+la revoca. Se comprueba otra vez tras la lectura protegida de la clave y el
+almacenamiento; el permiso se consume antes del POST. Prueba y espera de su
+respuesta tienen un presupuesto propio y no extienden el permiso de financiación.
+Una respuesta perdida se consulta sobre la intención original.
 
-1. «Comprobar vinculación» consulta sólo disponibilidad del protocolo. El GET
-   no revela cuenta, petición, descriptor ni términos privados.
-2. «Solicitar revisión» obtiene un nonce genérico. La primera confirmación
-   biométrica firma `LIANUM_ORIGINAL_ACCOUNT_ACCESS_V2` y permite revelar los
-   términos de la cuenta vinculada.
-3. La pantalla muestra la petición original, activo, red, importe, destino,
-   estado y transacción ya iniciada. La segunda confirmación firma
-   `LIANUM_ORIGINAL_ACCOUNT_REVIEW_V2`, incluyendo lifetime, generación,
-   referencias, digests y revisión del journal.
-4. El actor vuelve a leer y comprobar el original antes de consultar o admitir
-   su reconciliación. La respuesta mantiene `privatePortfolio:null`,
-   `economicObservation:null` y los indicadores de custodia/efectos móviles
-   falsos. CONFIRMED del coordinator puede ser un resultado terminal conservado.
+Las entradas locales explícitas son [servicio nativo](../apps/platform/docs/ORIGINAL-LOCAL-DEVICE-OPERATOR.md)
+y [nota ERC20](../apps/platform/docs/DEVICE-ERC20-LOCAL.md). Preparan los
+originales en el mismo realm y publican el descriptor para el operador. No
+financian ni prueban una nota al arrancar. La entrada ERC20 prepara una allowance
+exacta del laboratorio; el importe introducido en la app debe coincidir.
+No hay lookup/adopción remota por IDs. El executor API/SQL legado permanece
+cerrado hasta disponer de la autoridad económica original de cada job.
 
-Cancelar, cambiar origen/vinculación/acción, salir de primer plano o cambiar de
-pantalla revoca la revisión. La clave pública y la caducidad se comprueban
-después de acceder a la clave protegida; los buffers mutables de esa clave se
-limpian. Cada permiso se consume antes del POST. Una respuesta perdida conserva
-la incertidumbre y no permite repetir un callback antiguo. El outbox económico
-V1/V2 existente permanece pendiente; este diagnóstico no lo cierra.
+## Alcance y evidencia
 
-El cliente usa [el fetch con streams de Expo 57](https://docs.expo.dev/versions/v57.0.0/sdk/expo/),
-con límite incremental de bytes incluso sin Content-Length o con uno falso.
-El corte del cliente cancela sólo su respuesta HTTP. El servidor limita body y
-headers a 8 KiB, cuatro conexiones, 2 s para headers y 5 s para respuesta.
-Cerrar el listener invalida sus consentimientos y confirma cero sockets propios
-en 1 s; conserva el trabajo original ya admitido. El operador debe esperar y
-cerrar su session/custodia por separado.
+EVM9 aceptó D26/U/S, entrega nativa, F, ambas W39 y cinco READ firmadas, con
+Vault móvil original y diez secciones reabiertas en otro PID. El padre conservó
+su Vault y clave; fue captura ordenada. Meta/Aave aceptaron quince pruebas y
+dos READ por protocolo con cinco secciones originales y mismo receipt/reference.
+ERC20 `da603751` aceptó la nota propia y su reapertura ordenada de observación.
+Los resultados y límites están en [STATUS](../STATUS.md).
 
-## Verificación y alcance
+Estos recorridos usan SDK, TLS, Vault y procesos originales. El firmante y los
+puertos nativos de los HOST están declarados como infraestructura de laboratorio;
+no acreditan biometría, SecureStore físico ni operación financiera en teléfono.
+Caída abrupta, salida del padre, infraestructura independiente, redes públicas
+y wallet completa siguen pendientes. Los rechazos originales se conservan.
 
-Las pruebas host usan las factorías, approvals, WeakMaps, session, keeper y
-journals originales. Runtime nativo, IPC del owner y bytes de prueba del
-fixture están identificados como dobles. Las firmas Noble y HTTP loopback son
-reales. Los casos de lifecycle ejecutan los métodos exactos seleccionados por
-AST de TypeScript; no representan un renderer React ni un teléfono.
+El APK `d07f578f` está compilado y archivado para su corte:
+79 inputs iguales, 36 joins, Hermes y firma Debug/V2 comprobados, sin Metro.
+Diez procesos propios ausentes y cero señales en el informe original. Incluye
+el contrato de ambos outputs bloqueados. Instalación y operación física quedan
+para el final. Véase [uso y artefacto móvil](../apps/mobile/README.md).
 
-El árbol canónico pasa 85 checks host, typescript y exportación Hermes Android/iOS.
-Los bundles se exportaron con un único worker Metro. El laboratorio pareado
-añade 64 checks canónicos de metadatos, pérdida de respuesta, pipe de arranque
-y rutas I84, además de diez casos Python del CLI. Su entrada preparada es
-`./dev lab mobile-original`; la publicación V5 sigue cerrada por los cinco
-[originales W39 pendientes](RECOVERY-INPUTS.md). El ledger V5 nuevo ya tiene una
-compilación real aceptada en su namespace propio; el preparador rechaza
-sobrescribirla. Todavía no hay aceptación financiera móvil genuina.
-Los checks host no acreditan
-fondos, pruebas Noir, TLS, biometría física, notas en teléfono ni
-cartera móvil completa. La prueba física queda para el final, según la decisión
-del usuario. El APK debug anterior requiere Metro; los cambios JS revisados se
-sirven desde el código actual cuando se inicia ese servidor.
+El outbox V1/V2 de la pestaña Cartera conserva admisiones HTTP/SQL históricas.
+Leer ACCEPTED confirma admisión, no saldo ni cierre financiero. Esta ruta queda
+separada de las nuevas conexiones originales de cuenta, nota nativa, nota ERC20
+y posiciones; sus registros se mantienen pendientes sin reenvío automático.

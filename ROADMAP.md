@@ -8,73 +8,138 @@ resultados están en [STATUS.md](STATUS.md).
 
 ## Avance comprobado y próximo cierre
 
-Corte del 8 de octubre de 2026 con las aceptaciones privadas originales de
-Uniswap y Aave.
-Mantener los siete objetivos y seis requisitos de la visión, con los rangos
-orientativos de STATUS sin recalcularlos por pruebas, módulos o commits.
+El plan conserva los siete objetivos y los requisitos de la visión. STATUS
+explica los cierres funcionales y las estimaciones orientativas del corte;
+ninguna cifra es una medida ni sustituye la cobertura y los pendientes concretos.
 
-- **Wallet y estado:** APK autónomo actualizado aceptado sin Metro, con
-  custodia/firma nuevas, doce joins originales y pico RSS de grupo de
-  2.339.147.776 bytes bajo el mismo límite de 3 GiB. La raíz, backup/restauración
-  y firmas locales D26/D27 tienen diecinueve pruebas móviles de custodia y TSC correcto;
-  Poseidon2 BigInt pasó seis vectores contra BB oficial. El SDK vinculado pasó
-  dos pruebas genuinas, owners Linux y saldo privado 500→0. Cerrar financiación
-  y PAEG desde la raíz React Native, recuperación y recorrido en dispositivo,
-  además de las siete redes; los checks locales no cierran ese ciclo económico.
-  El puente con firmas separadas PROVE_D26/FUND_D26 y su perfil fijo de una prueba
-  quedaron aceptados en el perfil Node/TLS `03953f4a`: una prueba real,
-  financiación única de 500 y respuesta perdida observada sin reenvío. No
-  acredita SecureStore ni custodia física; la compilación APK nueva sigue
-  pendiente. El último APK aceptado precede este puente.
-- **Privacidad y generalidad:** preservar las garantías y el núcleo PAEG al
-  añadir las entradas privadas DeFi. Resolver el modelo de observadores y
-  colusiones y la privacidad de topología; los cuatro slots y un único host
-  siguen siendo límites explícitos.
-- **DeFi y liquidación:** los intentos Meta `2f5683bc` y `d35d8dfa` llegaron a
-  quince pruebas/EXIT/redención real, pero conservan sus rechazos del driver.
-  Las correcciones `a135359` y `4dc79b8` están aplicadas; los checks enfocados de
-  reapertura/dedup pasaron, sin repetir ni reclasificar los ensayos originales.
-  Uniswap `f485446e` está aceptado con quince pruebas genuinas: reserva privada,
-  PAEG, swap, T, EXIT de origen/destino, pago al solver y replay sin efecto
-  duplicado. Aave `2014f34a` quedó aceptado con quince pruebas reales, rendimiento,
-  redención y replay, tras compilación genuina y verificación de fuentes/pins
-  con los doce verificadores originales. Su cierre conservó los 34 procesos
-  ausentes, sin señales. Uniswap F `c3a3b888` está aceptado con diez pruebas
-  genuinas en 418,573 s: swap irreversible, F original, salida privada conservada
-  y pérdida del solver sin pago T. Cerrar Meta completo y ampliar F/posiciones/protocolos;
-  ninguna de estas aceptaciones locales cierra el objetivo 5 completo.
-- **Redes heterogéneas:** conservar la composición BTC/SOL aceptada. El round
-  trip `f9c90308` tuvo siete pruebas y auditoría caducada durante `BEGIN_PAYOUT`,
-  sin envío de payout SOL; cerrar su resultado original sin firmar o pagar otra
-  vez. Tron `attempt-3RVzzq` pasó las 12 comprobaciones nativas originales con
-  JNI/RocksDB y cierre ordenado; el rechazo previo `EACCES` se conserva. El
-  recorrido wallet V5 `a7e3da95` quedó rechazado con financiación real y cinco
-  pruebas D26/U/S/P/R, sin I84 ni entrega nativa, por escritura original incierta
-  durante preparación del proveedor; conserva el bloqueo de sustitución.
-  Los nodos quedaron cerrados. El rechazo previo por
-  publicación generada desfasada se conserva y el build la actualizó manteniendo
-  los guards. Cerrar el recorrido con estado privado y GRAPH. Base, Arbitrum
-  y BNB siguen pendientes con sus stacks y finalidad propios.
-- **Rendimiento:** conservar los 2²¹ puntos, G2, VK y verificaciones originales.
-  El cache público redujo la llamada API de inicialización de 27,017 a 0,612 s y
-  ya intervino en pruebas genuinas verificadas: el nuevo Meta midió
-  inicialización 1,063–1,311 s y prove del owner-envelope 87,310 s. Los cuatro
-  hilos fijos ya se usaron en Uniswap con la misma VK y guard de RAM:
-  pico 3.046.023.168 bytes bajo 3 GiB, prove U 37,369 s y verificación 17,262 ms.
-  La variante fija U8 conserva los originales y el mismo guard: el nuevo Tron
-  midió prove 28,520 s, verificación propia 17,513 ms y total 31,856 s; pico de
-  pruebas 3.112.554.496 bytes bajo 3 GiB. Su recorrido completo quedó rechazado
-  antes de entrega nativa y prove aún supera 20 s. F10 aceptado midió U12:
-  prove 25,541 s, verificación 15,162 ms, total 28,102 s y pico 3.188.391.936 bytes.
-  U16 `b3bcc678` permanece rechazado por RSS 3.244.568.576 bytes; el preflight
-  `95900` no inició worker y ningún claim de job se eliminó. Mejorar su coste y medir su
-  generalidad; los objetivos en caliente
-  <30/<20/<5 s y la revisión criptográfica independiente siguen pendientes.
+- **Wallet y estado:** EVM9 acepta D26/U/S, ejecución nativa, F, ambas W39 y
+  cinco READ firmadas: diez secciones originales reabiertas en otro PID, una
+  entrega y disponible final cero, sin efecto duplicado. La captura es ordenada
+  y el Vault móvil permanece en el padre. Caída abrupta, teléfono y red pública
+  siguen pendientes. La app conserva la operación cifrada y vuelve a observar
+  el D26 original antes de preparar. Desconocido no significa cero.
+- **Posiciones móviles:** pestaña, SDK y TLS implementados sobre catálogo,
+  sesión y vault originales, con dos permisos propios y UNKNOWN/STALE/null.
+  Pasaron cuatro HOST, dos de instalación/cierre y TSC. Meta y Aave aceptaron lecturas
+  tras mint y redención, con las mismas quince pruebas y cierre antes de captura.
+  Reabrieron cinco secciones por backend en otro PID sin envío nuevo. Custodia Linux;
+  teléfono, caída abrupta y recuperación de GRAPH pendientes.
+- **Entrada local y recuperación:** NativeEconomicNote y executor nacen antes
+  de D26, con proveedores y tres bridges originales, sin financiación automática.
+  La entrada manual reabre desde F ya confirmado. La entrada observada activa
+  o desactiva recuperación con permiso fresco y conserva UNKNOWN sin reenviar.
+  HOST/TSC pasaron; falta aceptar la recuperación autónoma con servicio activo
+  tras ocho horas. No ampliar cutoff, guards de 30 s ni autoridad de 90 minutos;
+  la espera exterior conserva un único presupuesto monotónico de 120 s.
+  El perfil LIVE_ARMED nuevo conserva su permiso armado y diez secciones
+  originales con issuer propio de nueve horas; fuente y HOST del bridge pasaron.
+  La variante corta `b923b217` aceptó tres pruebas D26/U/S→ARM→nuevo PID:
+  misma reserva, autorización armada, Vault, journal y provider, diez secciones
+  originales y nueva READ firmada, sin F antes del cutoff. Veinte procesos
+  cerrados, fuentes/cleanup/lock confirmados, sin señales. No acredita F autónomo
+  después de ocho horas, pérdida abrupta ni teléfono.
+  F reorg `b4329b70` aceptó nueve pruebas, UNKNOWN durable, ambos outputs
+  bloqueados, reapertura del Vault y la segunda reconciliación del mismo F.
+  Conservó una única reemisión del wire original y ambas W39 sin doble pago.
+  Sus 25 procesos cerraron, con fuentes/cleanup/lock confirmados y sin señales.
+  La reorganización se acota al padre original exacto de F; los rechazos
+  anteriores permanecen conservados.
+- **Nota ERC20 propia del dispositivo:** el recorrido `da603751` está aceptado:
+  D26/W39 originales, dos pruebas, dos envíos/receipts y backing 500→0, con
+  respuestas perdidas reconciliadas en los mismos trabajos y sin duplicados.
+  Reabrió cuatro secciones originales en otro PID para observar los mismos
+  trabajos/nota sin nuevo efecto. Siete procesos cerrados, fuentes y cleanup
+  confirmados, sin señales. No acredita teléfono ni caída abrupta. La entrada
+  local crea la cuenta antes de aprobación exacta y TLS, sin financiar ni
+  probar automáticamente; captura/reapertura tiene un productor propio.
+- **Android:** APK `d07f578f` compilado y archivado para su corte:
+  79 inputs iguales y 36 joins, Hermes y firma Debug/V2 comprobados, sin Metro.
+  Diez procesos propios ausentes y cero señales en el informe original.
+  Incluye el contrato de ambos outputs bloqueados. Instalación y uso físico
+  quedan para el final. Los cortes anteriores siguen históricos;
+  `6adc78c0` mantiene su preservación limitada.
+- **DeFi y liquidación:** Uniswap15, Aave15, Meta15 ordinario y Uniswap F10
+  conservan aceptación original. Aave lee shares/previewRedeem/maxRedeem del
+  mismo bloque. Meta19 acepta quince relaciones, EXIT/redención, dos READ y
+  reapertura del backend retenido en otro PID: mismas identidades/receipt,
+  cinco secciones originales y envíos 79→79. No acepta recuperación del backend retenido
+  ante pérdida abrupta ni salida del padre. Aave retenido acepta el mismo ámbito con envíos
+  93→93, quince pruebas y dos READ. GRAPH conserva
+  su autoridad y TOP_UP→EXIT la preparación original creada antes de financiar.
+  MetaMorpho F1 acepta diez pruebas: mint irreversible, recuperación original
+  y tres W39, sin efecto duplicado. Contabilidad Morpho conservada y ambos
+  pools cerrados. Es un recorrido local con cutoff controlado; el destinatario
+  original de shares es el solver, sin pérdida neta de riqueza acreditada.
+- **Redes heterogéneas:** BTC/SOL combinado y Claims9 están aceptados en sus
+  perfiles locales. Claims9 completó ocho pruebas y confirmó el cierre de
+  205 procesos, sin señales; Claims8 conserva su raw rechazado. Jupiter tiene swap
+  público y materiales oficiales. SPL29 pasó la autorización antes de clave
+  en 22,493 s y auditó en 7,272 s bajo el mismo guard de 30 s, pero conserva
+  rechazo tras trece pruebas por preparación caducada antes del envío. El cambio
+  de firmantes se recorrió; UNKNOWN y su intento retenido no acreditan RPC,
+  observación ni finalidad. Sus 109 procesos están ausentes, sin señales.
+  No hay ingreso privado destino ni SPL20 completo aceptados. Tron tiene fábrica
+  y entregas observadas, pero wallet/GRAPH siguen pendientes: Tron13 rechazó
+  su auditoría completa a 35,152 s bajo el plazo original de 30 s, con una entrega
+  observada. No hay otro cambio causal de Tron pendiente de aceptación.
+  Base, Arbitrum y BNB requieren stacks/finalidad propios.
+- **Privacidad y rendimiento:** el historial exige READ del mismo propietario
+  y Origin exacto. Faltan privacidad sistémica/topología y operadores independientes.
+  U, I84 y D26 midieron 13,174 s, 7,750 s y 1,331 s de prove/verificación,
+  respectivamente, con sus ACIR/VK originales; son fases individuales. El
+  almacén pasó 53 HOST y SPL29 midió auditoría final de 7,272 s; ningún HOST ni
+  fase parcial acepta rendimiento global o permite renovar plazos.
 
-Preparar Google Cloud sólo localmente y comprobar el teléfono al final, según
-la decisión vigente. Priorizar cierres funcionales y comprobar lo afectado;
-conservar los rechazos originales y repetir recorridos cuando un cambio o fallo
-lo justifique. Ninguna aceptación local cierra por sí sola un objetivo completo.
+La unión de estado original ya está conectada al backend y a la wallet, con
+Vault/CAS y checkpoint capturado en la sección original del wallet. Reabre
+STALE hasta observación y distingue dominio, importe disponible, reserva,
+UNKNOWN y valoración. El consumidor móvil reúne sólo respuestas autenticadas
+con permisos separados, sin permiso ni total global. HOST y TSC pasaron;
+native/wrapped ya se instalan en sus arranques reales y conservan el checkpoint
+en la sección original; HOST pasó (11.870 ms). El ancla ahora nace antes de
+financiar y conserva las credenciales y checkpoints confirmado/pendiente con
+AEAD/CAS/readback. Pasó el caso de sesión/Vault real (26.313,361 ms):
+respuesta perdida, candidato no escrito y revisión ajena rechazada. Su opener
+requiere las mismas fuentes ya restauradas. Conectar y aceptar la restauración
+abrupta de esas fuentes sigue siendo el trabajo activo.
+La actividad BTC/SOL original ya se muestra y Conciliar usa su ruta original.
+El journal compara la estructura sin falsos cambios por orden JSON; conserva
+los mismos bindings, checkpoints, comprobaciones frescas y permisos.
+
+Próximos cierres funcionales:
+
+1. Cerrar los puntos originales **4 y 6**: persistir antes de financiar las
+   fuentes, credenciales y checkpoints originales; reabrir runtime, cuenta y
+   keeper tras una caída sin renovar permisos ni duplicar efectos. Si un envío
+   quedó incierto, conservar UNKNOWN y bloquear gasto hasta su conciliación.
+2. Aceptar F automático con reloj real y servicio activo tras ocho horas;
+   ampliar recuperación a fallos combinados y posiciones DeFi.
+3. Continuar los demás objetivos: ingreso privado SPL, Tron wallet/GRAPH,
+   siete redes, acciones DeFi y privacidad/independencia de la visión.
+4. Comprobar el teléfono al final según la decisión del usuario. El APK
+   actualizado ya está compilado. Cloud permanece preparado sólo localmente;
+   la réplica API/SQL conserva readiness 503 hasta unir cada job con su cuenta
+   y consentimiento económicos originales.
+
+[STATUS](STATUS.md#evidencia-funcional-y-límites-del-corte) conserva evidencia,
+medidas y rechazos originales. Las 45 dependencias de compilación siguen iguales;
+la publicación `a62ec91` conserva 819 módulos y doce roles con build cerrado.
+El recorrido ERC20 `da603751`, LIVE_ARMED corto y F reorg `b4329b70` están
+aceptados en sus ámbitos originales. Meta y Aave aceptaron su
+ámbito original de quince pruebas, dos READ y backend retenido en otro PID por protocolo;
+no aceptan recuperación del backend retenido ante pérdida abrupta, salida del
+padre ni teléfono.
+MetaMorpho F1 acepta su perfil local original de diez pruebas y tres W39;
+no acepta recuperación autónoma con reloj real ni pérdida neta del solver.
+SPL29 conserva rechazo tras trece pruebas por preparación caducada antes del
+envío, sin observación ni finalidad. Tron13 rechazó la auditoría completa bajo
+su plazo original. No hay crédito privado SPL destino ni
+wallet/GRAPH Tron aceptados. Los rechazos previos se conservan.
+<!-- META_AAVE_ACCEPTED_SCOPE_ONLY: GRAPH/abrupt/parent/phone siguen pendientes. -->
+<!-- PENDING_SPL20: actualizar sólo con cierre original. -->
+<!-- PENDING_TRON13: actualizar sólo con cierre original. -->
+<!-- PENDING_LIVE_F: HOST/TSC no acreditan el recorrido autónomo de ocho horas. -->
+<!-- HISTORICAL_APK_6ADC_LIMITED: compiled76/34; newAPKrequiredByFunctionalVaultFix. -->
 
 ## 1. Wallet unificada para siete redes
 
@@ -138,14 +203,24 @@ durante la recuperación del estado privado.
 Integrar acciones y posiciones de protocolos reales mediante el mismo PAEG,
 con respaldo, conservación, autorización y recuperación. Completar entrada
 privada, posición, acción, salida y redención en los protocolos originales
-mediante las interfaces generales; ampliar las acciones de Aave y cerrar
-MetaMorpho, Morpho y Jupiter conservando esos mismos criterios.
+mediante las interfaces generales; ampliar las acciones de Aave/MetaMorpho y
+cerrar Morpho y Jupiter conservando esos mismos criterios.
 
 Uniswap ya tiene un recorrido aceptado desde reserva privada, con autorización,
 estado común, respaldo, quorum, liquidación T y EXIT de ambas notas. Aave tiene
 aceptación original de quince pruebas con rendimiento y redención reales,
-compilación genuina y fuentes/pins íntegros. MetaMorpho llegó a redención real
-pero conserva el rechazo del driver; completar su aceptación y ampliar F DeFi.
+compilación genuina y fuentes/pins íntegros. Su valoración generacional usa
+previewRedeem/maxRedeem de la bóveda Static original en el mismo bloque, sin
+inferir liquidez disponible. MetaMorpho conserva su aceptación ordinaria de
+quince pruebas con keeper superviviente. Meta19 acepta además cierre de cinco
+secciones originales y reapertura del backend retenido en otro PID tras EXIT y
+redención, con dos READ móviles y sin nuevo envío. Conserva la misma referencia,
+receipt e identidad de EXIT, y el catálogo reabre sin nuevas admisiones. GRAPH
+recovery, caída abrupta, salida del padre y teléfono siguen pendientes. Aave
+retenido aceptó por separado el mismo ámbito: quince pruebas, dos READ, cinco
+secciones originales reabiertas y envíos 93→93. Las lecturas mantienen
+custodia del backend y no crean crédito por valoración. Los rechazos anteriores
+se conservan en STATUS; ampliar F y posiciones DeFi.
 Uniswap F ya tiene aceptación genuina de diez pruebas, con entrega irreversible,
 recuperación original del origen, salida privada del destino conservada y pérdida
 del solver declarada sin T. Los ciclos públicos anteriores siguen acreditando entrada
@@ -161,8 +236,27 @@ reserva o envío. No sumar unidades incompatibles ni convertir desconocido en
 cero o disponible.
 
 Conectar el estado autenticado de la cuenta original al cliente móvil y a los
-módulos del backend. Los registros SQL de permisos no sustituyen el estado
-económico del ledger. Completar recuperación y coherencia durante las
+módulos del backend. El siguiente corte es deviceFlat: notas ERC20 y shares
+propias del dispositivo, preparadas antes de TOP_UP. La consulta de posiciones
+Linux conserva su custodia y no adopta esas cuentas. Este corte necesita seis
+enlaces conectados, antes de exponer acciones financieras:
+
+1. Vault móvil multinota, con fuente ERC20 y share separadas por activo, dominio
+   y pool; ambas aperturas nacen antes de financiar.
+2. Solicitud D27 acotada desde la intención original móvil, con consentimiento,
+   nonce y CAS propios; raíz y claves permanecen en el dispositivo.
+3. Autoridad y actor deviceFlat originales del mismo realm, con preparación
+   TOP_UP/U y destino D27; ningún ID o shape adopta el owner Linux.
+4. Admisión de la share contra entrega y recibo originales, cabeza fresca,
+   inclusión PC23, nullifier no gastado y respaldo del mismo activo.
+5. W39 de fuente/share desde su apertura móvil y registro original, sin
+   reutilizar los roles de la reserva nativa.
+6. Wallet, TLS y SDK conectados al productor privado antes de efectos,
+   conservando consentimiento explícito, UNKNOWN y cierre de recursos.
+
+Las preparaciones y los consumidores originales deben unirse en cada corte;
+no se habilitan endpoints sin autoridad económica. Los registros SQL de permisos
+no sustituyen el ledger. Completar recuperación y coherencia durante las
 operaciones de las siete redes y las posiciones DeFi.
 
 ## 7. Modelos heterogéneos y siete redes en profundidad
