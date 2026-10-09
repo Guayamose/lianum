@@ -151,11 +151,13 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
       assert.deepEqual(row.uids, Array(4).fill(process.getuid()), 'TRON_ALIGNED_LIVE_UID4_CHANGED');
 
     assert.equal(row.start, original.start, 'TRON_CANDIDATE_PID_REPLACED'); assert.equal(row.parent, process.pid, 'TRON_CANDIDATE_CHILD_REPARENTED');
-    const executable = await readlink('/proc/' + child.pid + '/exe');
+    const executableReads = readySeen && (profile === PRODUCT || profile === FIRST_ERROR_PRODUCT)
+      ? await freshTronOriginalProcessReadsV1([()=>readlink('/proc/'+child.pid+'/exe'),()=>readFile('/proc/'+child.pid+'/cmdline')]) : null;
+    const executable = executableReads ? originalTronProcessReadV1(executableReads[0]) : await readlink('/proc/' + child.pid + '/exe');
 
       if (executable === join(RUNTIME, 'jdk8/bin/java')) {
         assert.equal(alignedGrantSent, true, 'TRON_ALIGNED_JAVA_BEFORE_ORIGINAL_GRANT');
-        const observedArgv = (await readFile('/proc/' + child.pid + '/cmdline')).toString('utf8').split('\0').filter(Boolean);
+        const observedArgv = (executableReads ? originalTronProcessReadV1(executableReads[1]) : await readFile('/proc/' + child.pid + '/cmdline')).toString('utf8').split('\0').filter(Boolean);
         const expectedArgv = [join(RUNTIME, 'jdk8/bin/java'), '-Xms256m', '-Xmx1536m', '-XX:ActiveProcessorCount=2', '-Djava.net.preferIPv4Stack=true',
           '-Djava.io.tmpdir=' + join(directory, 'jni-tmp'), '-cp',
           join(directory, 'reviewed-new-driver-classes') + ':' + join(directory, 'reviewed-original-classes') + ':' + join(RUNTIME, 'FullNode-offline.jar'), 'OwnedTronNativeDriver'];
@@ -178,16 +180,21 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
     if (signal.aborted) throw signal.reason;
     if (hostGuard && Date.now()-lastHostGuard >= 250) { hostGuard.assertActive(); lastHostGuard=Date.now(); }
     assert.ok(!failure && !exit, 'TRON_CANDIDATE_ORIGINAL_LIVE_CHILD'); const row = await identity();
-    const status = await readFile('/proc/' + child.pid + '/status', 'utf8');
+    // All reads are fresh after identity. Drain before the original ordered
+    // checks; the resource outcome is consumed only after every FD/socket.
+    const nativeReads = readySeen && (profile === PRODUCT || profile === FIRST_ERROR_PRODUCT) && row.executable === join(RUNTIME, 'jdk8/bin/java')
+      ? await freshTronOriginalProcessReadsV1([()=>readFile('/proc/'+child.pid+'/status','utf8'),()=>readFile('/proc/'+child.pid+'/net/unix','utf8'),
+        ()=>readdir('/proc/'+child.pid+'/fd'),()=>hostResources()]) : null;
+    const status = nativeReads ? originalTronProcessReadV1(nativeReads[0]) : await readFile('/proc/' + child.pid + '/status', 'utf8');
     // The same original PID hashes its fixed binaries in Python before arming
     // the filter. Java must never run during that unarmed startup interval.
     if (row.executable === join(RUNTIME, 'jdk8/bin/java')) {
       assert.match(status, /^NoNewPrivs:\s+1$/m); assert.match(status, /^Seccomp:\s+2$/m);
     } else assert.equal(readySeen, false, 'TRON_CANDIDATE_UNGUARDED_JAVA');
     if (row.executable === join(RUNTIME, 'jdk8/bin/java')) {
-      const unix = (await readFile('/proc/' + child.pid + '/net/unix', 'utf8')).trim().split('\n').slice(1)
+      const unix = (nativeReads ? originalTronProcessReadV1(nativeReads[1]) : await readFile('/proc/' + child.pid + '/net/unix', 'utf8')).trim().split('\n').slice(1)
         .map(line => line.trim().split(/\s+/));
-      const names=await readdir('/proc/'+child.pid+'/fd');
+      const names=nativeReads ? originalTronProcessReadV1(nativeReads[2]) : await readdir('/proc/'+child.pid+'/fd');
       const descriptors=await freshTronOriginalProcessReadsV1(names.map(name=>async()=>{
         try{return await readlink('/proc/'+child.pid+'/fd/'+name);}catch(error){if(absent(error))return null;throw error;}
       }));
@@ -202,7 +209,8 @@ async function startAlignedChild(directory, audit, signal, profile, hostGuard) {
         assert.equal(entries[0].length, 7, 'TRON_CANDIDATE_NAMED_SOCKET_FOUND');
       }
     }
-    await hostResources(); assert.ok(Date.now() - started < profile.milliseconds, 'TRON_PRODUCT_FIXED_FUNCTIONAL_DEADLINE'); sampled = true;
+    if (nativeReads) originalTronProcessReadV1(nativeReads[3]); else await hostResources();
+    assert.ok(Date.now() - started < profile.milliseconds, 'TRON_PRODUCT_FIXED_FUNCTIONAL_DEADLINE'); sampled = true;
   }
   let interval;
   function beginPolling() {
