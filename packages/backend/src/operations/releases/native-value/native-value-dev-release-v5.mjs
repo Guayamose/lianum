@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "4b8173e209891bfa4cd655ae83da8aae08c0d459f5a6db46c38edd51662f127b",
+  "hostSourceClosureSHA256": "69664b46b2f5be6327af661a5ab07830a2cdbc51974d59dafac3749d8ea8f7b0",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -766,7 +766,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/evm-vault-flow.mjs",
-      "sha256": "bede3b1e56ca8bb34a57e801536241c4cda040f6e191bad58bbd9d72b240f09d"
+      "sha256": "d9b6e53cf3ca31bd230ebb4c554add3c5f7e79c8735f56f3e02304804f6324c3"
     },
     {
       "path": "integration/evm-vault-terminal-checks.mjs",
@@ -790,7 +790,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/external-defi-vault-exit-policy-v1.mjs",
-      "sha256": "69de3fc63c95b0c386765d2f0ea0489c917ac60b15e149890d14eff654d98bd4"
+      "sha256": "035a963fdac40cf91baff265db6a7198422fd1261238ff4c69a6b95f051867f7"
     },
     {
       "path": "integration/external-defi-vault-exit-process-scope-v1.mjs",
@@ -1115,6 +1115,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "integration/prepare-native-claim-graph.mjs",
       "sha256": "181a4efd4fea6c3873a1026a6fefecb96fa42fe1679c100268989cf6d285e2cd"
+    },
+    {
+      "path": "integration/retained-vault-device-position-host-v1.mjs",
+      "sha256": "ceafd5ee692504a186925a2b4903e10dd03458df6b714a067d8b5dd6666c2c08"
     },
     {
       "path": "integration/run-evm-aave-exit-recovery-v1.mjs",
@@ -1543,6 +1547,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "mobile-protocol/src/authorization.mjs",
       "sha256": "5f5667d70df7140ca2236ada629302c7b2d1a5b6ce9649bdd93ffff3146d7eff"
+    },
+    {
+      "path": "mobile-protocol/src/device-defi-position-read-v1.mjs",
+      "sha256": "d4e08b72fa0ffd53d8354c6f938b0fb7e3085b2ce10463237289c4e4a2638d54"
     },
     {
       "path": "mobile-protocol/src/device-deposit-consent-v1.mjs",
@@ -2078,7 +2086,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs",
-      "sha256": "4b5a88a0fdc940772c3076e51e7832edb415ba745601c481abd5edbb12a65464"
+      "sha256": "a7ce3053b328a3e5e180b68210ee0ba16d90286aaed31bcd354abaa12e0acb9c"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/guarded/tron-aligned-native-audit-v1.mjs",
@@ -2250,11 +2258,15 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-state-file-v1.mjs",
-      "sha256": "72f5d6588955f2d2e63c0e94cfa38e4c48cc3bbdbb3699113694aee1fbd3adab"
+      "sha256": "ee874b2867738c512a9cf77fd0ed0680e49cc7ea19bd67c364d6a36a4fe39e69"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs",
-      "sha256": "6205b6363ee8ee16fac80d5ff2cd39d79b7d3c74ef17310dba63ccca77ecca33"
+      "sha256": "30db390b806181c3b0d766fd86d68d6df68e5cef6511d7d60e177e79f7f0b642"
+    },
+    {
+      "path": "wallet-platform/modules/chain-adapters/owned-external-defi-receiver-state-v3.mjs",
+      "sha256": "a3ec750f4a93a71e2156f240ce75de36c98afac79f21f417cb2e7ec4bb42cfe0"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-native-custody.mjs",
@@ -2446,7 +2458,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-retained-vault-wallet-v1.mjs",
-      "sha256": "496e0d1dd73a29eb7d71b1e1b5f227e0491ca854aca6bb7f6616f38025beaaa6"
+      "sha256": "aaba7c7d9434f5ad68305593d38783d4cc7840ac043285e0bf39390bc520aab7"
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-wallet-recovery-v1.mjs",
@@ -2493,6 +2505,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "61576028b0875b3711e8a09715fbb5d8675217e1f91d5d05194303add7b7128d"
     },
     {
+      "path": "wallet-platform/modules/global-state/retained-vault-device-position-service-v1.mjs",
+      "sha256": "09c879ba5d61672a0de275e8dc3a7053dcb21363147fa169a03581c8b130da38"
+    },
+    {
       "path": "wallet-platform/modules/global-state/wrapped-wallet-account-authority-v1.mjs",
       "sha256": "d9cc4383277baa03849bb5e9a7d3e2d38299c95fba4e28fe82d44b08b4258028"
     },
@@ -2507,6 +2523,14 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     {
       "path": "wallet-platform/modules/mobile/paired-original-account-http-v2.mjs",
       "sha256": "faef6051404c8d38d0a247d3f16cfc50f73ef3d312377cec8593e58e8d5ad446"
+    },
+    {
+      "path": "wallet-platform/modules/mobile/paired-original-defi-position-http-v1.mjs",
+      "sha256": "beeaa8c6f49c4f5c406cdf8b323873150c4107ee1133d46d590da551d7068d3e"
+    },
+    {
+      "path": "wallet-platform/modules/mobile/paired-original-defi-position-reader-v1.mjs",
+      "sha256": "25da16e5ffb1dac8689e19b360e3d05929585975247f6ba848d20e3a7036841e"
     },
     {
       "path": "wallet-platform/modules/native-claims/abi.mjs",
@@ -2542,7 +2566,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/native-claims/controller.mjs",
-      "sha256": "6089714b8ff216c70ed4bc683b8adf4f9b367088cabdc8c92a7578d548c23674"
+      "sha256": "e3805687b2456d7a17dad16bbcfd1b3fd5d31fb5845061ba04a0af03a1365306"
     },
     {
       "path": "wallet-platform/modules/native-claims/current-custody-audit-v2.mjs",
@@ -2698,7 +2722,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs",
-      "sha256": "bff3ee0e22e7fa165137307f9e1fdd68a93895020473504576ae4449335a1044"
+      "sha256": "ea3006b9eb87ff7ab87f1d3db8f30f3d708ebf1d33e064a1de746d4cb538189b"
     },
     {
       "path": "wallet-platform/modules/ops/aave-v3-development-compilation-v1.mjs",
