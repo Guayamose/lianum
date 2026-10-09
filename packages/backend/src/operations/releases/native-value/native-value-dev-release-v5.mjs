@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "541bb7a26d34870bd89b04a8dbfaf016d85deb7a566c49d5b3a91c16fe50ad63",
+  "hostSourceClosureSHA256": "8748f6713ee24ee331eb4a20a9137e8c43f293177ae66145d4a8b7aafa4161d3",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -766,7 +766,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/evm-vault-flow.mjs",
-      "sha256": "9bc8949ee0618ee087d81b889a5e6c9b89adffc716953253241e2f089fe4f331"
+      "sha256": "bede3b1e56ca8bb34a57e801536241c4cda040f6e191bad58bbd9d72b240f09d"
     },
     {
       "path": "integration/evm-vault-terminal-checks.mjs",
@@ -1026,7 +1026,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-wallet-real-driver-v1.mjs",
-      "sha256": "3566f27a48022c6f8c4de38c08190f461b5a2ed7dd3e862004cc307950780172"
+      "sha256": "961967e701ef116ece9c1890cb7fbb32eabea3aee4198779fc4a16c3089e7272"
     },
     {
       "path": "integration/native-wallet-real-evidence-v1.mjs",
@@ -2245,12 +2245,16 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "9a58691ec5141132838a6298f60bc0498e9e3d96de7c1d3a9d1b314c5bf103af"
     },
     {
+      "path": "wallet-platform/modules/chain-adapters/owned-evm-recovery-state-bound-v1.mjs",
+      "sha256": "33c55e7ce187ab13904fb04c6a3198f68d491fcc2bf6370331579ea591f197f4"
+    },
+    {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-state-file-v1.mjs",
       "sha256": "72f5d6588955f2d2e63c0e94cfa38e4c48cc3bbdbb3699113694aee1fbd3adab"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs",
-      "sha256": "2902575a6cde0f525d18cd72e53dc226bfb5ea21a999b1b417863f658311d5e2"
+      "sha256": "6205b6363ee8ee16fac80d5ff2cd39d79b7d3c74ef17310dba63ccca77ecca33"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-native-custody.mjs",
@@ -2486,7 +2490,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/native-value-account-authority-v2.mjs",
-      "sha256": "01eced2ca53e92838466f8502b4aeaf71eee3c772e6c4c4a929b8e4b72e850f2"
+      "sha256": "61576028b0875b3711e8a09715fbb5d8675217e1f91d5d05194303add7b7128d"
     },
     {
       "path": "wallet-platform/modules/global-state/wrapped-wallet-account-authority-v1.mjs",
