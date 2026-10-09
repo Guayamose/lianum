@@ -3,9 +3,10 @@ import { assertBeginPayoutAuditRoleProcessV1 } from './native-flow-proof-scope-v
  * One job enters, one public result leaves; no witness/key store or RPC access.
  * The owner role belongs in the owner's execution boundary, not a coordinator. */
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import { relation } from '../catalog.mjs';
 import {preparePrivateProofJobV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+import {deriveOriginalDeviceDepositIntentJobV2} from './private-device-proof-input-v2.mjs';
 import { runBoundedProof } from './run-bounded.mjs';
 
 assert.equal(process.argv.length, 3, 'PW_ROLE_FIXED_ARGUMENTS');
@@ -16,13 +17,14 @@ assert.ok(process.connected, 'PW_ROLE_PRIVATE_IPC_CLOSED');
 const spec = relation(process.argv[2]);
 assertBeginPayoutAuditRoleProcessV1(spec.name);
 const jobId = randomUUID();
-let received, finished = false;
+let received, privateDeviceDerivation=null, finished = false;
 const parentDisconnected = () => {
   if (!finished) process.kill(process.pid, 'SIGTERM');
 };
 process.once('disconnect', parentDisconnected);
 try {
   received = await preparePrivateProofJobV1({ relation: spec.name, role: spec.role, jobId });
+  privateDeviceDerivation=deriveOriginalDeviceDepositIntentJobV2(received,spec);
   // Keep the control channel until completion: an abruptly lost owner
   // terminates this role and its bounded child instead of orphaning a prover.
   // U's compiled, measured domain is 2^21; this fixed process profile does not
@@ -33,7 +35,7 @@ try {
   wipePrivateProofInputsV1(received?.inputs); received = undefined;
   if (result.phase !== 'completed') process.exitCode = 1;
   finished = true;
-  process.stdout.write(JSON.stringify(result) + '\n');
+  process.stdout.write(JSON.stringify(privateDeviceDerivation?{...result,privateDeviceDerivation}:result) + '\n');
 } catch {
   // Do not echo received values or a library's private assertion diagnostics.
   wipePrivateProofInputsV1(received?.inputs); received = undefined; process.exitCode = 1;

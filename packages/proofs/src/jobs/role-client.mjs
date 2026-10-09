@@ -19,7 +19,7 @@ import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,privateProofBin
 const MODES = Object.freeze({ owner: ['authorization', 'deposit_intent'], reservation: ['reservation'],
   dependency: ['dependency'], local: ['ready', 'admission', 'node'], assembler: ['settlement'], recovery: ['recovery'],
   claim_ingress: ['native_claim_ingress', 'native_claim_ingress_v3'], claim_discharge: ['native_claim_discharge'] });
-const owned = new WeakMap();
+const owned = new WeakMap(), privateDeviceResults = new WeakMap();
 /** Timing evidence is descriptive, never a circuit scalar. The owner custody
  * transport deliberately allows only integer JSON numbers. Preserve measured
  * fractional milliseconds as decimal strings instead of relaxing that rule
@@ -41,8 +41,8 @@ export function assertRoleProofClient(client, role) {
 }
 export function createRoleProofClient(role) {
   assert.ok(typeof role === 'string' && Object.hasOwn(MODES, role), 'ROLE_CLIENT_FIXED_ROLE');
-  const state = { role, closed: false, busy: false, active: null };
-  async function prove(raw, originalConsent = null) {
+  const state = { role, closed: false, busy: false, active: null, prepared: null };
+  async function prove(raw, originalConsent = null, preparation = null) {
     assertRoleProofClient(client, role); assert.equal(state.busy, false, 'ROLE_CLIENT_BUSY');
     const request = cloneInput(raw);
     let spec, expected;
@@ -56,7 +56,7 @@ export function createRoleProofClient(role) {
     } catch (error) { wipePrivateProofInputsV1(request.inputs); throw error; }
     state.busy = true;
     let child, timer, killTimer, closed = false, jobId = null, sent = false, failure = null;
-    let stdout = '', outputBytes = 0, authorization = null;
+    let stdout = '', outputBytes = 0, authorization = null, readySeen = false;
     const stop = code => {
       failure ??= code;
       if (child?.pid && !closed) {
@@ -83,8 +83,30 @@ export function createRoleProofClient(role) {
           assert.equal(message.type, nativeV3 ? 'flat-proof-input-ready' : 'flat-private-proof-input-ready', 'ROLE_CLIENT_READY_MESSAGE');
           assert.equal(message.relation, spec.name, 'ROLE_CLIENT_READY_RELATION');
           assert.equal(message.role, spec.role, 'ROLE_CLIENT_READY_SCOPE');
-          assert.equal(sent, false, 'ROLE_CLIENT_ONE_HANDOFF');
-          jobId = assertID(message.jobId); sent = true;
+          assert.equal(readySeen, false, 'ROLE_CLIENT_ONE_READY'); readySeen = true;
+          jobId = assertID(message.jobId);
+          if (preparation) {
+            assert.equal(spec.name,'deposit_intent','ROLE_CLIENT_PRIVATE_RELATION');
+            preparation.ready=frozenInput(cloneInput(message));
+            preparation.send=(packet,binding)=>{
+              assert.equal(sent,false,'ROLE_CLIENT_ONE_HANDOFF');
+              assert.equal(state.prepared,preparation,'ROLE_CLIENT_PRIVATE_PREPARATION');
+              exactRecord(packet,['type','profile','relation','role','jobId','recipientPublicKey','senderPublicKey',
+                'authorization','publicInputsSHA256','salt','iv','tag','ciphertext']);
+              assert.equal(packet.type,'flat-private-proof-inputs','ROLE_CLIENT_PRIVATE_PACKET');
+              for(const name of ['profile','relation','role','jobId','recipientPublicKey'])
+                assert.equal(packet[name],message[name],'ROLE_CLIENT_PRIVATE_RECIPIENT');
+              authorization=privateProofAuthorizationBindingV1(binding);
+              assert.deepEqual(packet.authorization,authorization,'ROLE_CLIENT_PRIVATE_CONSENT');
+              assert.equal(packet.publicInputsSHA256,hash(Buffer.from(JSON.stringify(expected))),'ROLE_CLIENT_PRIVATE_PUBLIC');
+              assert.ok(typeof packet.ciphertext==='string'&&packet.ciphertext.length<=16384,'ROLE_CLIENT_PRIVATE_BOUND');
+              sent=true;clearTimeout(preparation.waitTimer);
+              child.send(cloneInput(packet),error=>{if(error)stop('ROLE_CLIENT_IPC_FAILED');});
+            };
+            preparation.waitTimer=setTimeout(()=>stop('ROLE_CLIENT_PRIVATE_PERMISSION_WAIT_EXPIRED'),15000);
+            preparation.resolveReady(preparation.ready);return;
+          }
+          assert.equal(sent, false, 'ROLE_CLIENT_ONE_HANDOFF'); sent = true;
           authorization = originalConsent ?? privateProofAuthorizationBindingV1({ kind: 'SCOPED_JOB_V1', jobId,
             consentSHA256: hash(Buffer.from(JSON.stringify({relation:spec.name,role:spec.role,jobId,expectedPublicInputs:expected}))),
             witnessSHA256: hash(Buffer.from(JSON.stringify(request.inputs))) });
@@ -144,16 +166,29 @@ export function createRoleProofClient(role) {
       assert.equal(hash(inputBytes), manifest.publicInputsSHA256, 'ROLE_CLIENT_PUBLIC_HASH');
       assert.deepEqual(inputs, expected, 'ROLE_CLIENT_PUBLIC_BINDING');
       assert.equal(manifest.selfVerified, true, 'ROLE_CLIENT_SELF_VERIFIED');
-      return frozenInput({ proof: proof.toString('hex'), publicInputs: inputs,
+      const output = frozenInput({ proof: proof.toString('hex'), publicInputs: inputs,
         evidence: { relation: spec.name, role, runId, jobId, proofSHA256: manifest.proofSHA256,
           keySHA256: manifest.keySHA256, manifestSHA256: hash(regular(join(directory, 'proof-manifest.json'))),
           metricUnits: 'milliseconds', metrics: proofMetricsForTransport(result.metrics) } });
+      if (preparation) {
+        const derived = cloneInput(status.privateDeviceDerivation);
+        exactRecord(derived, ['profile','jobId','commitment','nullifier','consentSHA256','witnessSHA256']);
+        assert.equal(derived.profile, 'ORIGINAL_DEVICE_D27_PRIVATE_DERIVATION_V2', 'ROLE_CLIENT_PRIVATE_DERIVATION');
+        assert.equal(derived.jobId, authorization.jobId, 'ROLE_CLIENT_PRIVATE_DERIVATION_JOB');
+        for (const name of ['commitment','nullifier','consentSHA256','witnessSHA256'])
+          assert.match(derived[name], /^[0-9a-f]{64}$/, 'ROLE_CLIENT_PRIVATE_DERIVATION_DATA');
+        assert.equal(derived.consentSHA256, authorization.consentSHA256, 'ROLE_CLIENT_PRIVATE_DERIVATION_CONSENT');
+        assert.equal(derived.witnessSHA256, authorization.witnessSHA256, 'ROLE_CLIENT_PRIVATE_DERIVATION_WITNESS');
+        privateDeviceResults.set(output, {client,derived:frozenInput(derived)});
+      }
+      return output;
     } catch (error) {
+      preparation?.rejectReady(Error('ROLE_CLIENT_PRIVATE_PREPARATION_FAILED'));
       // Keep the exact durable worker attempt/claim. Do not resubmit or guess
       // success after an uncertain child outcome; only public errors leave.
       throw Object.assign(new Error(failure ?? 'ROLE_CLIENT_PROOF_INCOMPLETE'), { jobId, cause: error });
     } finally {
-      clearTimeout(timer); clearTimeout(killTimer); wipePrivateProofInputsV1(request.inputs); request.inputs = undefined;
+      clearTimeout(timer); clearTimeout(killTimer); clearTimeout(preparation?.waitTimer); wipePrivateProofInputsV1(request.inputs); request.inputs = undefined;
       if (child?.pid && !closed) child.kill('SIGTERM');
       for (const stream of child?.stdio ?? []) stream?.destroy();
       state.active = null; state.busy = false;
@@ -161,6 +196,31 @@ export function createRoleProofClient(role) {
   }
   const client = Object.freeze({
     prove(raw) { return prove(raw); },
+    async preparePrivateDeviceDepositIntentV2(expectedPublicInputs) {
+      assert.equal(arguments.length, 1, 'ROLE_CLIENT_PRIVATE_ARITY');
+      assertRoleProofClient(client, 'owner'); assert.equal(state.busy,false,'ROLE_CLIENT_BUSY');
+      assert.equal(state.prepared,null,'ROLE_CLIENT_PRIVATE_ONE_PREPARATION');
+      const expected = publicWords(relation('deposit_intent'), cloneInput(expectedPublicInputs));
+      const preparation = {ready:null,send:null,waitTimer:null,run:null,resolveReady:null,rejectReady:null};
+      const readyPromise = new Promise((resolve,reject) => {preparation.resolveReady=resolve;preparation.rejectReady=reject;});
+      state.prepared=preparation;
+      preparation.run=prove({relation:'deposit_intent',inputs:null,expectedPublicInputs:expected},null,preparation);
+      preparation.run.catch(()=>{});return readyPromise;
+    },
+    async proveEncryptedDeviceDepositIntentV2(packet,binding) {
+      assert.equal(arguments.length,2,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,'owner');
+      const preparation=state.prepared;assert.ok(preparation?.ready&&preparation.send,'ROLE_CLIENT_PRIVATE_PREPARATION');
+      const value=privateProofAuthorizationBindingV1(binding);
+      assert.equal(value.kind,'ORIGINAL_CONSENT_V1','ROLE_CLIENT_ORIGINAL_CONSENT');
+      const send=preparation.send;preparation.send=null;send(packet,value);return preparation.run;
+    },
+    async closePrivateDeviceDepositIntentV2() {
+      assert.equal(arguments.length,0,'ROLE_CLIENT_PRIVATE_ARITY');
+      const preparation=state.prepared;assert.ok(preparation,'ROLE_CLIENT_PRIVATE_PREPARATION');
+      if(state.busy)state.active?.stop('ROLE_CLIENT_OWNER_STOPPED');
+      await preparation.run.catch(()=>{});assert.equal(state.busy,false,'ROLE_CLIENT_CLOSE_WHILE_BUSY');state.closed=true;
+      return{closed:true,inFlight:0};
+    },
     proveForOriginalConsentV1(raw, binding) {
       assert.equal(arguments.length, 2, 'ROLE_CLIENT_CONSENT_ARITY');
       const value = privateProofAuthorizationBindingV1(binding);
@@ -171,4 +231,11 @@ export function createRoleProofClient(role) {
     stop() { state.active?.stop('ROLE_CLIENT_OWNER_STOPPED'); },
   });
   owned.set(client, state); return client;
+}
+
+/** SAME original client/child only. A JSON derivation cannot install CM/NF. */
+export function readOriginalDeviceDepositIntentDerivationV2(client,result) {
+  assert.equal(arguments.length,2,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,'owner');
+  const state=privateDeviceResults.get(result);assert.ok(state&&state.client===client,'ROLE_CLIENT_PRIVATE_RESULT');
+  return state.derived;
 }

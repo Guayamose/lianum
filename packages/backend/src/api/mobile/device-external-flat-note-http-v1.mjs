@@ -11,7 +11,7 @@ import {lstatSync,realpathSync} from 'node:fs';
 import {join,relative,resolve,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ROOT,FLAT,GOLDEN} from '../../../../proofs/src/catalog.mjs';
-import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
+import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1,isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 const listeners=new WeakSet(),diagnosticSlots=new WeakMap(),MAX_BODY=8192,MAX_REPLY=65536;
 const fail=()=>{throw Error('DEVICE_EXTERNAL_FLAT_TLS_CONFIGURATION');};
 const DIAGNOSTIC_TYPES=new Map([[AssertionError.prototype,'ASSERTION_ERROR'],[TypeError.prototype,'TYPE_ERROR'],[RangeError.prototype,'RANGE_ERROR'],[Error.prototype,'ERROR'],[AggregateError.prototype,'AGGREGATE_ERROR']]);
@@ -108,7 +108,7 @@ export function readOriginalDeviceExternalFlatHttpFailureV1(account){
 function exact(v,keys){if(!v||types.isProxy(v)||Object.getPrototypeOf(v)!==Object.prototype||Reflect.ownKeys(v).length!==keys.length||!keys.every(k=>Object.hasOwn(Object.getOwnPropertyDescriptor(v,k)??{},'value')))fail();}
 function reply(response,status,value){if(response.destroyed||response.writableEnded)return;let bytes=Buffer.from(JSON.stringify(value));if(bytes.length>MAX_REPLY){status=403;bytes=Buffer.from('{"error":"REQUEST_REJECTED"}');}
  response.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':bytes.length,'cache-control':'no-store','connection':'close','x-content-type-options':'nosniff'});response.end(bytes);}
-async function body(request,maximum=MAX_BODY){if(maximum!==MAX_BODY&&maximum!==65536)fail();if(request.headers['content-type']!=='application/json'||request.headers['content-encoding']!==undefined||request.headers['transfer-encoding']!==undefined)fail();
+async function body(request,maximum=MAX_BODY){if(maximum!==MAX_BODY&&maximum!==16384&&maximum!==65536)fail();if(request.headers['content-type']!=='application/json'||request.headers['content-encoding']!==undefined||request.headers['transfer-encoding']!==undefined)fail();
  const length=request.headers['content-length'];if(typeof length!=='string'||/^(0|[1-9][0-9]{0,5})$/.exec(length)?.[0]!==length||Number(length)<2||Number(length)>maximum)fail();
  const parts=[];let count=0,bytes;try{for await(const part of request){parts.push(part);count+=part.length;if(count>Number(length)||count>maximum)fail();}if(count!==Number(length))fail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));}finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}}
 const retainedListeners=new WeakMap(),graphListeners=new WeakMap();
@@ -124,13 +124,13 @@ export async function createOriginalDeviceExternalFlatTlsServerV1(input){
  const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())fail();};current();
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
  const prefix=descriptor.profile==='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1'?'/v1/mobile/external-flat-share':'/v1/mobile/external-flat';
- const routes=Object.freeze({[prefix+'/challenges']:'challenge',[prefix+'/reviews']:'review',[prefix+'/operations']:'operate',[prefix+'/status']:'status'});
+ const routes=Object.freeze({[prefix+'/challenges']:'challenge',[prefix+'/reviews']:'review',[prefix+'/operations']:'operate',[prefix+'/status']:'status',...(isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2(reader)?{[prefix+'/private-operations']:'operate'}:{})});
  listeners.add(reader);diagnosticSlots.set(reader,{latest:null});
  try{server=createServer({cert:input.tls.certificate,key:privateKey,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
   let resetResponseTimeout,requestBody,phase='REQUEST',action=null;
   const work=(async()=>{if(closed)fail();current();if(request.socket.encrypted!==true||request.headers.host!==origin.host||request.headers.origin!==descriptor.origin||request.method!=='POST'||!Object.hasOwn(routes,request.url))fail();
    phase={challenge:'CHALLENGE',review:'REVIEW',operate:'OPERATE',status:'STATUS'}[routes[request.url]];
-   const value=requestBody=await body(request);if(closed)fail();
+   const value=requestBody=await body(request,request.url===prefix+'/private-operations'?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
    // Permission admission remains15s. Only waiting for the SAME original
    // finite worker result uses its unchanged900000ms operation bound.
@@ -167,7 +167,7 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
  const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())fail();};current();
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
  const routes=Object.freeze({'/v1/mobile/external-flat/challenges':'challenge','/v1/mobile/external-flat/reviews':'review','/v1/mobile/external-flat/operations':'operate','/v1/mobile/external-flat/status':'status',
- '/v1/mobile/external-flat-share/challenges':'challenge','/v1/mobile/external-flat-share/reviews':'review','/v1/mobile/external-flat-share/operations':'operate','/v1/mobile/external-flat-share/status':'status',
+ '/v1/mobile/external-flat-share/challenges':'challenge','/v1/mobile/external-flat-share/reviews':'review','/v1/mobile/external-flat-share/operations':'operate','/v1/mobile/external-flat-share/status':'status',...(isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2(target)?{'/v1/mobile/external-flat-share/private-operations':'operate'}:{}),
  '/v1/mobile/external-flat/source-graph/challenges':'challenge','/v1/mobile/external-flat/source-graph/preparations':'preparation','/v1/mobile/external-flat/source-graph/reviews':'review','/v1/mobile/external-flat/source-graph/operations':'operate','/v1/mobile/external-flat/source-graph/status':'status','/v1/mobile/external-flat/source-graph/output-quotes':'outputQuote','/v1/mobile/external-flat/source-graph/output-reviews':'outputReview','/v1/mobile/external-flat/source-graph/output-operations':'outputOperate'});
  listeners.add(reader);listeners.add(target);diagnosticSlots.set(reader,{latest:null});
  try{server=createServer({cert:input.tls.certificate,key:privateKey,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
@@ -175,7 +175,7 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
   const work=(async()=>{if(closed)fail();current();if(request.socket.encrypted!==true||request.headers.host!==origin.host||request.headers.origin!==descriptor.origin||request.method!=='POST'||!Object.hasOwn(routes,request.url))fail();
    const graph=request.url.startsWith('/v1/mobile/external-flat/source-graph/'),selected=graph?workspace:request.url.startsWith('/v1/mobile/external-flat-share/')?target:reader;
    phase={challenge:'CHALLENGE',preparation:'REVIEW',review:'REVIEW',operate:'OPERATE',status:'STATUS',outputQuote:'REVIEW',outputReview:'REVIEW',outputOperate:'OPERATE'}[routes[request.url]];
-   const value=requestBody=await body(request,graph?65536:MAX_BODY);if(closed)fail();
+   const value=requestBody=await body(request,graph?65536:request.url==='/v1/mobile/external-flat-share/private-operations'?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
    // Permission admission remains15s. Only waiting for the SAME original
    // finite worker result uses its unchanged900000ms operation bound.

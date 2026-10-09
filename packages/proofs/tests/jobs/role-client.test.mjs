@@ -149,3 +149,75 @@ test('original private proof transit encrypts two actual IPC hops and burns corr
   const sourceURL=existsSync(sourceCanonical)?sourceCanonical:new URL('./proving-execution.mjs',import.meta.url);
   assert.equal(readFileSync(sourceURL,'utf8').includes("'proof-workers/private-proof-transit-v1.mjs'"),true);
 });
+
+test('HOST private D27 SDK sends only recipient ciphertext and original recipient validates signed witness and CM/NF', {timeout:20000}, async t => {
+  // Actual SDK/protocol/X25519/HKDF/recipient/derivation, with an explicit
+  // Node AES oracle for Expo. This response fixture issues no economic proof.
+  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+  const sdkURL=physical('../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs','../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs'),cryptoURL=new URL('./device-private-proof-transit-v2.mjs',sdkURL);
+  const {registerHooks}=await import('node:module');
+  const oracle=`import{createHash,randomBytes,createCipheriv}from'node:crypto';
+    export const CryptoDigestAlgorithm={SHA256:'SHA256'};
+    export const getRandomBytesAsync=async n=>new Uint8Array(randomBytes(n));
+    export const digest=async(_,b)=>new Uint8Array(createHash('sha256').update(new Uint8Array(b)).digest()).buffer;
+    export const AESEncryptionKey={import:async b=>({bytes:new Uint8Array(b)})};
+    export const aesEncryptAsync=async(b,k,o)=>{const cipher=createCipheriv('aes-256-gcm',k.bytes,o.nonce.bytes);cipher.setAAD(o.additionalData);
+      const encrypted=Buffer.concat([cipher.update(b),cipher.final()]),all=Buffer.concat([Buffer.from(o.nonce.bytes),encrypted,cipher.getAuthTag()]);
+      k.bytes.fill(0);encrypted.fill(0);return{combined:async encoding=>{const result=all.toString(encoding);all.fill(0);return result;}};};`;
+  const hook=registerHooks({resolve(specifier,context,next){if(specifier==='expo-crypto'&&[sdkURL.href,cryptoURL.href].includes(context.parentURL))return{url:'data:text/javascript,'+encodeURIComponent(oracle),shortCircuit:true};return next(specifier,context);}});t.after(()=>hook.deregister());
+  const P=await import(physical('../../../mobile-protocol/src/device-external-flat-note-v1.mjs','../../../mobile-protocol/src/device-external-flat-note-v1.mjs'));
+  const {deriveOriginalDeviceDepositIntentJobV2}=await import(physical('../../src/jobs/private-device-proof-input-v2.mjs','./private-device-proof-input-v2.mjs'));
+  const {sealOriginalDeviceDepositIntentWitnessV2}=await import(cryptoURL),sdk=await import(sdkURL);
+  const {freshKey,signature,nullifier}=await import(physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'));
+  const {balanceCommitment}=await import(physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs'));
+  const {depositIntentWitness,depositIntentFrame}=await import(physical('../../../backend/src/execution/account/preparation/deposit-intent.mjs','../wallet-platform/modules/paeg/deposit-intent.mjs'));
+  const h=bytes=>createHash('sha256').update(bytes).digest('hex'),device=freshKey(),owner=freshKey();
+  const descriptor=P.normalizeExternalFlatDescriptorV1({profile:P.DEVICE_EXTERNAL_FLAT_SHARE_V1,origin:'https://localhost:9443',pairingId:h('private-pair'),devicePublicKey:'04'+device.x.toString('hex')+device.y.toString('hex'),lifetime:h('private-life'),
+    poolTerms:Object.fromEntries(['pool','poolCodeHash','scope','policy','assetIdentity','asset','assetCodeHash','genesis','domainCommitment','hub','hubCodeHash','hubDomain','ledgerNamespace'].map(k=>[k,h('private-'+k).slice(0,['pool','asset','hub'].includes(k)?40:64)])),assetMetadata:{kind:'ERC20',symbol:'SHARE',decimals:6}});
+  const note={type:4,rho:h('private-rho'),x:owner.x.toString('hex'),y:owner.y.toString('hex'),value:'20',secret:h('private-secret')};
+  const statement={scope:descriptor.poolTerms.scope,policy:descriptor.poolTerms.policy,validFrom:'6000',validUntil:'9000',amount:note.value,output:balanceCommitment(descriptor.poolTerms.scope,descriptor.poolTerms.policy,note).toString('hex')};
+  const prepared=depositIntentWitness({statement,note,signature:signature(owner,depositIntentFrame(statement)).toString('hex')}),witness=structuredClone(prepared.inputs);
+  const witnessBytes=P.externalFlatWitnessBytesV1('deposit_intent',witness),witnessSHA256=h(witnessBytes);witnessBytes.fill(0);
+  const makeConsent=ready=>{const c={profile:descriptor.profile,action:'PROVE_D27',descriptor,challengeId:h('private-challenge'),nonce:h('private-nonce'),expiresAt:Date.now()+15000,
+    jobId:h('private-device-job'),depositJobId:h('private-device-job'),rootId:h('private-root'),noteRevision:1,recipient:'90'.repeat(20),statement,path:null,witnessSHA256,proofSHA256:null,publicInputsSHA256:null,
+    observed:{blockNumber:'1',blockHash:h('private-head'),timestamp:'6000'},openingDisclosure:P.DEVICE_EXTERNAL_FLAT_OPENING_V1,
+    privateProof:{profile:P.DEVICE_EXTERNAL_FLAT_PRIVATE_D27_V2,recipient:ready,transcriptSHA256:'1'.repeat(64)}};
+    c.privateProof.transcriptSHA256=h(P.externalFlatPrivateProofTranscriptBytesV2(c));return P.normalizeExternalFlatConsentV1(c);};
+  const recipient=createPrivateProofRecipientV1({relation:'deposit_intent',role:'owner',jobId:'private-recipient-job'}),consent=makeConsent(readPrivateProofRecipientV1(recipient));
+  const signatures=new WeakMap(),signatureFor=c=>{let v=signatures.get(c);if(!v){v=signature(device,P.externalFlatPermissionMessageV1(c)).toString('hex');signatures.set(c,v);}return v;};
+  let posts=0,derivation,wirePacket;const response=value=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
+  const client=sdk.createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:async(target,init)=>{
+    const request=JSON.parse(init.body),action=new URL(target).pathname.split('/').at(-1);
+    if(action==='challenges')return response({profile:descriptor.profile,action:'ACCESS',origin:descriptor.origin,pairingId:descriptor.pairingId,devicePublicKey:descriptor.devicePublicKey,challengeId:h('private-access'),nonce:h('private-access-nonce'),expiresAt:Date.now()+15000});
+    if(action==='reviews'){assert.deepEqual(request.draft.statement,statement);return response({consent});}
+    assert.equal(action,'private-operations');posts++;wirePacket=structuredClone(request.witness);
+    for(const key of ['"rho"','"key_x"','"key_y"','"secret"','"inputs"'])assert.equal(init.body.includes(key),false,'HOST_PRIVATE_D27_NO_CLEAR_WITNESS');
+    assert.equal(init.body.includes(note.secret),false);assert.equal(init.body.includes(note.rho),false);assert.equal(request.signature,signatureFor(consent));
+    const opened=openPrivateProofJobV1(recipient,request.witness);derivation=deriveOriginalDeviceDepositIntentJobV2(opened,{name:'deposit_intent'});
+    assert.deepEqual(opened.inputs,prepared.inputs);wipePrivateProofInputsV1(opened.inputs);
+    const fields=Object.fromEntries(['jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256'].map(k=>[k,consent[k]]));
+    return response({profile:descriptor.profile,descriptor,jobId:consent.jobId,mode:'deposit_intent',stage:'PROVED',consentFields:{...fields,proofSHA256:h('inert-proof-port'),publicInputsSHA256:h(JSON.stringify(prepared.publicInputs))},observation:null,errorCode:null});
+  }});
+  try{
+    const access=await client.challenge(),draft={action:'PROVE_D27',jobId:null,rootId:consent.rootId,noteRevision:1,recipient:consent.recipient,statement,path:null,witnessSHA256};
+    const reviewed=await client.review(access,signatureFor(access),draft),signed=signatureFor(reviewed);signatures.set(consent,signed);
+    const row=await client.submit(reviewed,signed,witness);assert.equal(sdk.readDeviceExternalFlatRowV1(row),row);assert.throws(()=>sdk.readDeviceExternalFlatRowV1(structuredClone(row)));
+    assert.equal(posts,1);await assert.rejects(client.submit(reviewed,signed,witness));assert.equal(posts,1);
+    assert.deepEqual(derivation,{profile:'ORIGINAL_DEVICE_D27_PRIVATE_DERIVATION_V2',jobId:consent.jobId,commitment:statement.output,nullifier:nullifier(statement.scope,statement.output,note.secret).toString('hex'),consentSHA256:h(P.externalFlatPermissionMessageV1(consent)),witnessSHA256});
+    assert.throws(()=>openPrivateProofJobV1(recipient,wirePacket),/ONE_HANDOFF/);
+    assert.throws(()=>deriveOriginalDeviceDepositIntentJobV2({inputs:{profile:'DEVICE_D27_PRIVATE_WITNESS_INPUT_V2',consent,signature:signed,witness}},{name:'deposit_intent'}));
+    for(const alter of [c=>c.privateProof.transcriptSHA256=h('foreign-transcript'),c=>c.privateProof.recipient.jobId='foreign-recipient-job']){const changed=structuredClone(consent);alter(changed);await assert.rejects(sealOriginalDeviceDepositIntentWitnessV2(changed,signed,witness));}
+    const other=createPrivateProofRecipientV1({relation:'deposit_intent',role:'owner',jobId:'private-recipient-job'});assert.throws(()=>openPrivateProofJobV1(other,wirePacket),/INVALID_ENCRYPTED_JOB/);
+    const corruptRecipient=createPrivateProofRecipientV1({relation:'deposit_intent',role:'owner',jobId:'private-corrupt-job'}),corruptConsent=makeConsent(readPrivateProofRecipientV1(corruptRecipient));
+    const packet=await sealOriginalDeviceDepositIntentWitnessV2(corruptConsent,signatureFor(corruptConsent),witness),copy=structuredClone(packet);copy.tag=Buffer.alloc(16).toString('base64');
+    assert.throws(()=>openPrivateProofJobV1(corruptRecipient,copy),/INVALID_ENCRYPTED_JOB/);assert.throws(()=>openPrivateProofJobV1(corruptRecipient,packet),/ONE_HANDOFF/);
+    // An encrypted packet is not permission: the original recipient also
+    // verifies the registered device PoP before deriving circuit inputs.
+    const badSignerRecipient=createPrivateProofRecipientV1({relation:'deposit_intent',role:'owner',jobId:'private-wrong-signer'}),badSignerConsent=makeConsent(readPrivateProofRecipientV1(badSignerRecipient));
+    const wrongSignature=signature(owner,P.externalFlatPermissionMessageV1(badSignerConsent)).toString('hex');
+    const wrongPacket=await sealOriginalDeviceDepositIntentWitnessV2(badSignerConsent,wrongSignature,witness),wrongOpened=openPrivateProofJobV1(badSignerRecipient,wrongPacket);
+    try{assert.throws(()=>deriveOriginalDeviceDepositIntentJobV2(wrongOpened,{name:'deposit_intent'}),/PW_PRIVATE_D27_DEVICE_SIGNATURE/);}
+    finally{wipePrivateProofInputsV1(wrongOpened.inputs);}
+    client.close();assert.throws(()=>sdk.readDeviceExternalFlatRowV1(row));
+  }finally{client.close();P.externalFlatWipeV1(witness);wipePrivateProofInputsV1(note);}
+});

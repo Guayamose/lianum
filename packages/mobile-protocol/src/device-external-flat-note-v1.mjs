@@ -7,6 +7,7 @@ import {normalizeDeviceExitWitnessV1,normalizeDeviceExitStatementV1} from './dev
 export const DEVICE_EXTERNAL_FLAT_NOTE_V1='LIANUM_DEVICE_EXTERNAL_FLAT_SOURCE_NOTE_V1';
 export const DEVICE_EXTERNAL_FLAT_SHARE_V1='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1';
 const profile=v=>v===DEVICE_EXTERNAL_FLAT_NOTE_V1||v===DEVICE_EXTERNAL_FLAT_SHARE_V1;
+export const DEVICE_EXTERNAL_FLAT_PRIVATE_D27_V2='ORIGINAL_DEVICE_D27_PRIVATE_TRANSIT_V2';
 export const DEVICE_EXTERNAL_FLAT_OPENING_V1='ONE_ORIGINAL_OPENING_TO_FIXED_EPHEMERAL_WORKER';
 const fail=()=>{throw Error('DEVICE_EXTERNAL_FLAT_DATA');};
 export function externalFlatExactV1(raw,names){if(!raw||Object.getPrototypeOf(raw)!==Object.prototype||Reflect.ownKeys(raw).length!==names.length)fail();
@@ -30,10 +31,11 @@ export function normalizeExternalFlatAccessV1(raw){const v=externalFlatExactV1(r
 export function normalizeExternalFlatDepositStatementV1(raw){const v=externalFlatExactV1(raw,['scope','policy','epoch','amount','output']);for(const k of ['scope','policy','output'])nonzero(v[k]);externalFlatUintV1(v.epoch);externalFlatUintV1(v.amount);if(BigInt(v.amount)<=0n)fail();return frozen(v);}
 export function normalizeExternalFlatIntentStatementV1(raw){const v=externalFlatExactV1(raw,['scope','policy','validFrom','validUntil','amount','output']);for(const k of ['scope','policy','output'])nonzero(v[k]);for(const k of ['validFrom','validUntil','amount'])externalFlatUintV1(v[k]);if(BigInt(v.validFrom)>=BigInt(v.validUntil)||BigInt(v.amount)<=0n)fail();return frozen(v);}
 export function normalizeExternalFlatPathV1(raw){const v=externalFlatExactV1(raw,['root','index','leaf','siblings']);externalFlatHexV1(v.root);nonzero(v.leaf);integer(v.index);if(v.index>=64||!Array.isArray(v.siblings)||Object.getPrototypeOf(v.siblings)!==Array.prototype||v.siblings.length!==6||Reflect.ownKeys(v.siblings).length!==7)fail();v.siblings=Array.from({length:6},(_,i)=>{const d=Object.getOwnPropertyDescriptor(v.siblings,String(i));if(!d?.enumerable||!Object.hasOwn(d,'value'))fail();return externalFlatHexV1(d.value);});return frozen(v);}
-export function normalizeExternalFlatConsentV1(raw){const v=externalFlatExactV1(raw,['profile','action','descriptor','challengeId','nonce','expiresAt','jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256','proofSHA256','publicInputsSHA256','observed','openingDisclosure']);
+export function normalizeExternalFlatConsentV1(raw){const privateField=raw&&typeof raw==='object'?Object.getOwnPropertyDescriptor(raw,'privateProof'):null;if(privateField&&!Object.hasOwn(privateField,'value'))fail();const v=externalFlatExactV1(raw,['profile','action','descriptor','challengeId','nonce','expiresAt','jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256','proofSHA256','publicInputsSHA256','observed','openingDisclosure',...(privateField?['privateProof']:[])]);
  if(!profile(v.profile)||!['PROVE_D26','FUND_D26','OBSERVE_D26','PROVE_D27','OBSERVE_D27','QUOTE_W39','PROVE_W39','WITHDRAW_W39','OBSERVE_W39'].includes(v.action))fail();
  v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);for(const k of ['challengeId','nonce','jobId','depositJobId','rootId'])nonzero(v[k]);integer(v.expiresAt);integer(v.noteRevision);externalFlatHexV1(v.recipient,40);if(v.recipient==='0'.repeat(40)||v.recipient===v.descriptor.poolTerms.pool)fail();
  const intent=v.action.endsWith('D27'),deposit=v.action.endsWith('D26')||intent;
+ if(privateField){if(v.action!=='PROVE_D27')fail();v.privateProof=normalizeExternalFlatPrivateProofV2(v.privateProof);}
  if(v.profile!==v.descriptor.profile||intent&&v.profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||v.action.endsWith('D26')&&v.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1)fail();
  v.statement=intent?normalizeExternalFlatIntentStatementV1(v.statement):deposit?normalizeExternalFlatDepositStatementV1(v.statement):normalizeDeviceExitStatementV1(v.statement);
  if(v.statement.scope!==v.descriptor.poolTerms.scope||v.statement.policy!==v.descriptor.poolTerms.policy)fail();
@@ -53,7 +55,7 @@ export function validateExternalFlatFreshV1(raw,now=Date.now()){const v=accessFr
 /** A closed canonical JSON vocabulary inside a length-prefixed NEW domain.
  * No NativeValue permission or arbitrary message can be signed by this API. */
 export function externalFlatPermissionMessageV1(raw){const v=accessFrame(raw)?normalizeExternalFlatAccessV1(raw):normalizeExternalFlatConsentV1(raw),text=JSON.stringify(v);
- const domain=new TextEncoder().encode(v.profile+'/permission/1'),body=new TextEncoder().encode(text);if(body.length>8192)fail();const out=new Uint8Array(8+domain.length+body.length),view=new DataView(out.buffer);view.setUint32(0,domain.length);out.set(domain,4);view.setUint32(4+domain.length,body.length);out.set(body,8+domain.length);return out;}
+ const domain=new TextEncoder().encode(v.profile+(v.privateProof?'/permission/2':'/permission/1')),body=new TextEncoder().encode(text);if(body.length>8192)fail();const out=new Uint8Array(8+domain.length+body.length),view=new DataView(out.buffer);view.setUint32(0,domain.length);out.set(domain,4);view.setUint32(4+domain.length,body.length);out.set(body,8+domain.length);return out;}
 export function externalFlatWitnessV1(mode,raw){if(mode==='deposit_balance')return normalizeDeviceDepositWitnessV1(raw);if(mode==='withdraw_balance')return normalizeDeviceExitWitnessV1(raw);if(mode==='deposit_intent'){
  const v=externalFlatExactV1(raw,['scope','policy','valid_from','valid_until','amount','output','rho','key_x','key_y','secret','signature']);
  externalFlatUintV1(v.valid_from);externalFlatUintV1(v.valid_until);if(BigInt(v.valid_from)>=BigInt(v.valid_until))fail();
@@ -82,3 +84,15 @@ export function normalizeExternalFlatStatusV1(raw){const descriptorField=raw&&ty
  if(!share){if(n.state==='UNISSUED'&&parent||!parent&&n.state!=='UNISSUED'||n.state==='SPENT'&&parent?.stage!=='CONFIRMED')fail();if(n.state==='LIVE'&&(s.graphClaimed===true||s.jobs.some(r=>r.mode==='withdraw_balance'&&r.stage!=='CONFIRMED')))fail();}
  if(n.state==='LIVE'){if(parent?.stage!=='CONFIRMED'||n.available!==parent.consentFields.statement.amount)fail();externalFlatUintV1(n.available);const b=n.backing=externalFlatExactV1(n.backing,['held','liabilities','surplus','deficit']);Object.values(b).forEach(externalFlatUintV1);if(BigInt(b.held)<BigInt(b.liabilities)||b.deficit!=='0'||BigInt(b.surplus)!==BigInt(b.held)-BigInt(b.liabilities)||BigInt(n.available)>BigInt(b.held))fail();}
  else if(n.available!==null||n.backing!==null)fail();}return frozen(s);}
+
+/** V2 key transcript is signed with the same original device PoP. */
+export function normalizeExternalFlatPrivateProofV2(raw){const p=externalFlatExactV1(raw,['profile','recipient','transcriptSHA256']);
+ if(p.profile!==DEVICE_EXTERNAL_FLAT_PRIVATE_D27_V2)fail();nonzero(p.transcriptSHA256);
+ const r=p.recipient=externalFlatExactV1(p.recipient,['type','profile','relation','role','jobId','recipientPublicKey']);
+ if(r.type!=='flat-private-proof-input-ready'||r.profile!=='ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1'||r.relation!=='deposit_intent'||r.role!=='owner'||typeof r.jobId!=='string'||/^[a-z0-9-]{8,100}$/.exec(r.jobId)?.[0]!==r.jobId)fail();
+ if(typeof r.recipientPublicKey!=='string'||/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/.exec(r.recipientPublicKey)?.[0]!==r.recipientPublicKey)fail();return frozen(p);}
+export function externalFlatPrivateProofTranscriptBytesV2(raw){const c=normalizeExternalFlatConsentV1(raw);if(!c.privateProof)fail();
+ return new TextEncoder().encode(JSON.stringify({profile:DEVICE_EXTERNAL_FLAT_PRIVATE_D27_V2,recipient:c.privateProof.recipient,
+  deviceJobId:c.jobId,descriptor:c.descriptor,rootId:c.rootId,noteRevision:c.noteRevision,recipientAddress:c.recipient,
+  statement:c.statement,witnessSHA256:c.witnessSHA256,challengeId:c.challengeId,nonce:c.nonce,expiresAt:c.expiresAt}));}
+export function externalFlatIntentPublicInputsV2(raw){const s=normalizeExternalFlatIntentStatementV1(raw),words=v=>Array.from({length:8},(_,i)=>BigInt('0x'+v.slice(i*8,i*8+8)).toString());return frozen([...words(s.scope),...words(s.policy),s.validFrom,s.validUntil,s.amount,...words(s.output)]);}

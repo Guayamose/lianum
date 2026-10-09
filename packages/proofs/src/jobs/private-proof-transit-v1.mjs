@@ -8,7 +8,7 @@ import { generateKeyPairSync, createPublicKey, diffieHellman, hkdfSync,
 
 export const PRIVATE_PROOF_TRANSIT_V1 = 'ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1';
 const MAX_CLEAR = 2 * 1024 * 1024, MAX_CIPHER = 4 * Math.ceil(MAX_CLEAR / 3);
-const recipients = new WeakMap();
+const recipients = new WeakMap(), openedRecipients = new WeakMap();
 let intakeUsed = false;
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const hex = value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
@@ -178,7 +178,7 @@ export function openPrivateProofJobV1(handle, message) {
       'PRIVATE_PROOF_PUBLIC_BINDING');
     // The pinned ABI validator remains the only circuit-input validator.
     const validated = cloneData(result);
-    return { ...validated, authorization };
+    const opened = { ...validated, authorization }; openedRecipients.set(opened, s.ready); return opened;
   } catch {
     throw Error('PRIVATE_PROOF_INVALID_ENCRYPTED_JOB');
   } finally {
@@ -223,4 +223,10 @@ export function preparePrivateProofJobV1(input) {
       if (error) finish(Error('PRIVATE_PROOF_READY_SEND_FAILED'));
     });
   });
+}
+
+/** Same authenticated intake object only; copying parsed inputs loses it. */
+export function readOriginalPrivateProofRecipientV1(opened) {
+  assert.equal(arguments.length,1,'PRIVATE_PROOF_ARITY');
+  const value=openedRecipients.get(opened);assert.ok(value,'PRIVATE_PROOF_ORIGINAL_RECIPIENT');return value;
 }

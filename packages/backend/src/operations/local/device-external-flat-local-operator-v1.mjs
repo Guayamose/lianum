@@ -19,7 +19,7 @@ import {evmRuntimeCodeHash} from '../../chains/evm/contracts/evm-code-hash.mjs';
 import {createOfficialProtocolFixture,assertOfficialProtocolFixture} from '../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import {createLocalFlatOperator,createFlatOperatorQuorum} from '../operators/claims/native-operators.mjs';
 import {deployFlatSystem,assertOwnedFlatSystem} from '../deployments/system/deploy-system.mjs';
-import {createOriginalDeviceExternalFlatNoteAuthorityV1,createOriginalDeviceExternalFlatShareNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
+import {createOriginalDeviceExternalFlatNoteAuthorityV1,createOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 import {createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1,createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1,captureOriginalDeviceExternalFlatGraphServiceV1,reopenOriginalDeviceExternalFlatGraphServiceV1} from './device-external-flat-source-graph-service-v1.mjs';
 import {createOwnedPrivateExternalRouterV1,createOwnedPrivateMorphoBluePositionRouterV1} from '../deployments/defi/deploy-private-external-router-v1.mjs';
 import {createOwnedMetaMorphoGraphDeliveryObserverV1,createOwnedMorphoBluePositionGraphDeliveryObserverV1} from '../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
@@ -135,7 +135,7 @@ async function localOperator(input,reopening,originalBlue=false){const local=ori
     for(const operator of operators)await operator.bind({runtime,system,bitcoin:null,solana:null,evmDelivery:deliveryObserver,rules:[rule],rulePaths:rules.paths});
     const quorum=createFlatOperatorQuorum({operators:operators.slice(0,3)});
     accountStarted=true;account=await createOriginalDeviceExternalFlatNoteAuthorityV1({runtime,system,poolIndex:0,origin:selected.origin,devicePublicKey:selected.devicePublicKey});
-    targetStarted=true;targetAccount=await createOriginalDeviceExternalFlatShareNoteAuthorityV1({runtime,system,poolIndex:1,deliveryObserver,origin:selected.origin,devicePublicKey:selected.devicePublicKey});
+    targetStarted=true;targetAccount=await createOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2({runtime,system,poolIndex:1,deliveryObserver,origin:selected.origin,devicePublicKey:selected.devicePublicKey});
     // The SAME original realm exposes source, target and GRAPH namespaces.
     // No Linux source or target note owner is created. Both device custodians
     // and the actual graph keeper exist before any external token funding.
