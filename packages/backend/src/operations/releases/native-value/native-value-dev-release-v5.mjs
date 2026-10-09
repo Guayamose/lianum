@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "032585d3c6e68703179872603fe8f3cb9464977cc90bd3c68d660e3fcce58914",
+  "hostSourceClosureSHA256": "10afc03ff3e0ef0d17ec92e10c55bb796e54d3a4ccec31a2c09cae21f6aace73",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -2010,7 +2010,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-app/public/owner-graph-review-v1.mjs",
-      "sha256": "1b27a475437bef00598b3148118d8a792defcd6c5f7dc9d9a75bed5422c1b8c5"
+      "sha256": "c8598b6a3491f94b68472ecf25805e0cc8ead650521a03491b5627cda9038e5d"
     },
     {
       "path": "wallet-app/public/owner-portfolio-contract.mjs",
@@ -2022,7 +2022,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-app/public/view-model.mjs",
-      "sha256": "b90afdf986e1a45ac99358b06b0e28733f3f85692ff7d6ae001e99dd756ef2b4"
+      "sha256": "4f8a28e12b609a20bf1f6d3712b5f58893c87a2190c7943d99d16508e5e52d5a"
     },
     {
       "path": "wallet-app/public/wrapped-resume-browser.mjs",
@@ -2582,7 +2582,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "sha256": "c32752ffdef7bba0d93dcd997aedd3347cc26c413d8b2417be63e3ed70f01ae5"
+      "sha256": "6a43ee08e251e39b9748c239ee7600b417014719776591bde6d320dc350f1ab1"
     },
     {
       "path": "wallet-platform/modules/global-state/flat-account-validation.mjs",
@@ -3118,7 +3118,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-value-operators-v4.mjs",
-      "sha256": "b89ddf7833ec31b23da56bf3dbb64171d7b80ea2f1a2b39ce9627e4f5f90cd20"
+      "sha256": "84c26168257f6a717b29e50add65aead727a7039ea50b8cc76e8738cc3303e5e"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-registry-v2.mjs",
