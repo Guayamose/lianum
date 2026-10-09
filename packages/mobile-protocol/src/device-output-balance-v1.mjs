@@ -12,8 +12,10 @@ function path(raw){const value=exact(raw,['root','index','leaf','siblings']);hex
     &&Object.getPrototypeOf(value.siblings)===Array.prototype&&value.siblings.length===6&&Reflect.ownKeys(value.siblings).length===7);
   value.siblings=Array.from({length:6},(_,i)=>{const row=Object.getOwnPropertyDescriptor(value.siblings,String(i));need(row?.enumerable&&Object.hasOwn(row,'value'));return hex(row.value);});return value;}
 function note(raw,role){const value=exact(raw,['noteRole','commitment','nullifier','amount','state','path']);need(value.noteRole===role);
-  hex(value.commitment);hex(value.nullifier);u64(value.amount);need(BigInt(value.amount)>0n&&value.commitment!=='0'.repeat(64)&&value.nullifier!=='0'.repeat(64));
+  hex(value.commitment);hex(value.nullifier);u64(value.amount);need((BigInt(value.amount)>0n||role==='change'&&value.amount==='0')&&value.commitment!=='0'.repeat(64)&&value.nullifier!=='0'.repeat(64));
   need(['UNSPENT','SPENT','LOCKED'].includes(value.state));
+  // Zero change is the included empty marker, never a withdrawn PC23 note.
+  if(value.amount==='0')need(value.state!=='SPENT');
   if(value.state==='LOCKED')need(value.path===null);else{value.path=path(value.path);need(value.path.leaf===value.commitment);}return value;}
 const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
 export function normalizeDeviceOutputBalanceV1(raw){const value=exact(raw,['version','profile','origin','pairingId','devicePublicKey','parentJobId','rootId',

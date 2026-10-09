@@ -14,7 +14,29 @@ async function actualSource(){
  throw Error('HOST_ORIGINAL_ACCOUNT_SOURCE_REQUIRED');
 }
 const source=await actualSource();
+const {PrivateNoteTree,verifyPrivateNotePath}=await import('../../../../engine/src/notes/private-note-tree.mjs');
 function body(start,end){const a=source.indexOf(start),b=source.indexOf(end,a+start.length);assert.ok(a>=0&&b>a);return source.slice(a,b);}
+test('original output read preserves the included empty-change marker for a full-budget S',async()=>{
+ const h=n=>n.toString(16).padStart(64,'0'),rootId=h(1),ref=h(2),scope=h(3),sourceNF=h(4),change=h(5),recovery=h(6),changeNF=h(7),recoveryNF=h(8);
+ const tree=new PrivateNoteTree([Buffer.from(change,'hex')]);let spent=false;
+ const parent={jobId:ref,consent:{custody:{rootId,noteRevision:1},statement:{inputNullifier:sourceNF}},
+  nativeOutcome:null,nativeTerminal:null,nativeBinding:{changeCommitment:change,recoveryCommitment:recovery},quoteId:h(9)};
+ const view={ledger:{commitments:['0x'+change],nullifiers:['0x'+sourceNF],tree},head:{number:'1',hash:h(10),timestamp:'1'}};
+ const ctx={assert,exactRecord:(v,keys)=>assert.deepEqual(Object.keys(v).sort(),[...keys].sort()),reference:v=>assert.match(v,/^[0-9a-f]{64}$/),
+  reservationRow:id=>{assert.equal(id,ref);return parent;},deviceExecutionOriginal:()=>({descriptor:{}}),reservationObservation:async()=>({stage:'RESERVED',observation:{transactionHash:h(11)}}),
+  originalQuote:()=>({preparation:{}}),reservationSubject:()=>({consent:{statement:{amount:'500'}}}),
+  genericBalanceNativeTerms:()=>({budget:'500'}),validateGenericBalanceNativePreparation:v=>v,
+  reader:{read:async()=>{view.ledger.nullifiers=spent?['0x'+sourceNF,'0x'+changeNF]:['0x'+sourceNF];return view;},assertCurrent:async v=>assert.equal(v,view)},
+  identity:{pool:'12'.repeat(20),domainCommitment:h(13)},asset:{assetId:h(14),scope,policy:h(15),codeHash:h(16),assetIdentity:h(17)},
+  verifyPrivateNotePath,bare:v=>v.startsWith('0x')?v.slice(2):v,sha:v=>createHash('sha256').update(JSON.stringify(v)).digest('hex'),continueWork(){}};
+ const read=Function('ctx','"use strict";const {'+Object.keys(ctx).join(',')+'}=ctx;'+body('  async function outputBalance(bridge,input){','  function exitBinding(consent,bridge){')+';return outputBalance;')(ctx);
+ const input={parentJobId:ref,rootId,noteRevision:1,changeNullifier:changeNF,recoveryNullifier:recoveryNF};
+ const result=await read({},input);
+ assert.equal(result.change.amount,'0');assert.equal(result.change.state,'UNSPENT');assert.equal(result.change.path.leaf,change);
+ assert.equal(result.recovery.amount,'500');assert.equal(result.recovery.state,'LOCKED');assert.equal(result.recovery.path,null);
+ assert.equal(result.sourceNullifierSpent,true);
+ spent=true;await assert.rejects(read({},input),/EMPTY_CHANGE_SPENT/);
+});
 const tickSource=body('  async function tickLiveRecovery(lease){','  async function deviceExecution(original)');
 function fixture(){
  const row={jobId:'original-ref',nativeOutcome:null,nativeRecoveryLatched:false,nativeBinding:{settleBefore:'800'},

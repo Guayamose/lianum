@@ -500,7 +500,7 @@ test('copied U request, quote or signature never releases openings or rewrites a
 // HOST HTTP framing is deliberately synthetic. The actual mobile API issues
 // its own inclusion/quote handles; neither this fixture nor AES claims a chain
 // confirmation, original backend authority, hardware or economic acceptance.
-test('original vault persists output custody and binds fresh READ balance to local PC23/NF; expiry/reopen or coherent public hashes confer no availability', async t => {
+async function originalOutputCustodyCase(t, emptyChange = false) {
   const {createPrivateWalletStateV1}=await import('../src/state/private-wallet-state-v1.mjs'),global=createPrivateWalletStateV1();
   const realNow = Date.now; t.after(() => { Date.now = realNow; });
   const fixture = await completePrivateCustodyBackup(), rootHex = '09'.repeat(32), value = fixture.value;
@@ -533,7 +533,15 @@ test('original vault persists output custody and binds fresh READ balance to loc
   Object.assign(frames.access, descriptor); Object.assign(frames.review.binding.asset, { pool: note.pool });
   frames.review.binding.assetId = note.funding.assetId;
   const proposal = { ...framing.proposal, scope: note.scope, policy: note.policy, asset: note.deviceJob.assetIdentity };
-  const compiled = compileFundedGraph({ ...framing.witness.input, ...proposal, inputNote: note.opening });
+  if (emptyChange) {
+    proposal.budget = note.opening.value;
+    proposal.nodes = structuredClone(proposal.nodes);
+    proposal.nodes[0].payout.value = proposal.budget;
+  }
+  const changeAmount = String(BigInt(note.opening.value) - BigInt(proposal.budget));
+  const compiled = compileFundedGraph({ ...framing.witness.input, ...proposal, inputNote: note.opening,
+    changeNote: emptyChange ? { type: 4, rho: '0'.repeat(64), x: '0'.repeat(64), y: '0'.repeat(64), value: '0', secret: '0'.repeat(64) } : framing.witness.input.changeNote,
+    recoveryNote: { ...framing.witness.input.recoveryNote, value: proposal.budget } });
   const invoice = signDeviceMessage(Buffer.from('4'.padStart(64, '0'), 'hex'), payoutInvoiceMessage(compiled.authorizationStatement, compiled.ownerWitness.graph.nodes[0], 0));
   const poolTerms = { scope: note.scope, policy: note.policy, codeHash: '15'.repeat(32), assetIdentity: proposal.asset, domainCommitment: note.deviceJob.domainCommitment };
   const tree = new PrivateNoteTree([Buffer.from(note.commitment, 'hex')]), path = tree.path(0), now = Date.now();
@@ -620,7 +628,7 @@ test('original vault persists output custody and binds fresh READ balance to loc
   const before = rawClearRecord(rootHex), prepared = await vault.prepareDeviceReservationFromQuote(handle), stored = rawClearRecord(rootHex);
   assert.equal(stored.revision, before.revision + 1); assert.deepEqual(stored.note, before.note);
   assert.equal(stored.spend.phase, 'PREPARED'); assert.equal(stored.spend.signature, null);
-  assert.equal(stored.spend.change.opening.value, '380'); assert.equal(stored.spend.recovery.opening.value, '120');
+  assert.equal(stored.spend.change.opening.value, changeAmount); assert.equal(stored.spend.recovery.opening.value, proposal.budget);
   assert.deepEqual(stored.spend.preparation.capsuleOptions, framing.capsuleOptions); assert.deepEqual(stored.spend.preparation.invoiceSignatures, [invoice]);
   assert.equal(prepared.sourceCommitment, note.commitment); assert.equal(prepared.sourceNullifier, observation.nullifier);
   assert.ok(calls.filter(row => row.method === 'write').every(row => store.get(row.name).length <= 2048));
@@ -672,18 +680,48 @@ test('original vault persists output custody and binds fresh READ balance to loc
   assert.throws(() => vault.applyDeviceOutputBalances({ ...balance }), /RESPONSE_INVALID/);
   await vault.applyDeviceOutputBalances(balance); assert.deepEqual(store, beforeRead, 'READ creates no encrypted/economic job or write');
   const fresh = await vault.readDeviceNote(); assert.equal(fresh.availableBalance, null);
-  assert.equal(fresh.localReservation.changeAvailableBalance, '380'); assert.equal(fresh.localReservation.recoveryAvailableBalance, null);
+  assert.equal(fresh.localReservation.changeAvailableBalance, changeAmount); assert.equal(fresh.localReservation.recoveryAvailableBalance, null);
   assert.equal(fresh.localReservation.recovery.state, 'LOCKED'); assert.equal(fresh.localReservation.assetIdentity, proposal.asset);
   await assert.rejects(global.acceptNative({...fresh}),/OUTPUT_DISPLAY_REQUIRED/);
   await assert.rejects(global.acceptNative(balance),/OUTPUT_DISPLAY_REQUIRED/);
   await global.acceptNative(fresh);
   assert.equal(global.snapshot().rows.length,2);
-  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='change').available,'380');
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='change').available,changeAmount);
   assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='recovery').available,null);
-  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='recovery').locked,'120');
+  assert.equal(global.snapshot().rows.find(row=>row.route.noteRole==='recovery').locked,proposal.budget);
   assert.equal(global.snapshot().aggregateBalance,null);
   assert.equal(global.snapshot().rows[0].route.nativeBindingSHA256,balanceBody.nativeBindingSHA256);
   assert.equal(new Set(global.snapshot().rows.map(row=>row.key)).size,2);
+  if (emptyChange) {
+    assert.equal(spend.change.privateKey, null);
+    assert.equal(spend.change.opening.secret, '0'.repeat(64));
+    assert.throws(() => localBalanceCommitmentMessageV1(note.scope, note.policy, spend.change.opening), /NOTE_ENCODING_INVALID/,
+      'empty change has no PC23 note opening');
+    await assert.rejects(vault.readDeviceExitSubject('change', '01'.repeat(20)), /ORIGINAL_RESERVATION_REQUIRED/);
+    balanceBody.change.amount = '1';
+    await assert.rejects(vault.applyDeviceOutputBalances(await readBalance()), /OUTPUT_BALANCE_CHANGED/);
+    balanceBody.change.amount = '0'; balanceBody.change.state = 'SPENT';
+    await assert.rejects(readBalance(), /OUTPUT_BALANCE_INVALID/);
+    balanceBody.change.state = 'UNSPENT';
+    balanceBody.recovery.amount = '0'; await assert.rejects(readBalance(), /OUTPUT_BALANCE_INVALID/);
+    balanceBody.recovery.amount = proposal.budget;
+    const recoveryTree = new PrivateNoteTree([Buffer.from(spend.statement.changeCommitment, 'hex'), Buffer.from(spend.statement.recoveryCommitment, 'hex')]);
+    balanceBody.nativeOutcome = 'RECOVERED'; balanceBody.change.path = asPath(recoveryTree, 0);
+    balanceBody.recovery.path = asPath(recoveryTree, 1); balanceBody.recovery.state = 'UNSPENT';
+    await vault.applyDeviceOutputBalances(await readBalance());
+    const recovered = await vault.readDeviceNote();
+    assert.equal(recovered.localReservation.changeAvailableBalance, '0');
+    assert.equal(recovered.localReservation.recoveryAvailableBalance, '500');
+    await global.acceptNative(recovered);
+    assert.equal(global.snapshot().rows.find(row => row.route.noteRole === 'change').available, '0');
+    assert.equal(global.snapshot().rows.find(row => row.route.noteRole === 'recovery').available, '500');
+    assert.deepEqual(store, beforeRead, 'empty-change READ creates no job, credit or storage write');
+    balances.close(); vault.close(); const reopened = openLocalRootNoteVaultV1(value.rootId);
+    assert.equal((await reopened.readDeviceNote()).localReservation.changeAvailableBalance, null);
+    assert.equal((await reopened.readDeviceNote()).localReservation.recoveryAvailableBalance, null);
+    reopened.close(); global.clear(); deposit.close(); reservation.close(); deviceKey.fill(0); control.fetch = null;
+    return;
+  }
   // Even a TLS-provenance handle must match BOTH locally retained PC23 openings/NF.
   const originalAmount = balanceBody.change.amount; balanceBody.change.amount = '379';
   const wrongAmount = await readBalance(); await assert.rejects(vault.applyDeviceOutputBalances(wrongAmount), /OUTPUT_BALANCE_CHANGED/); balanceBody.change.amount = originalAmount;
@@ -865,7 +903,11 @@ test('original vault persists output custody and binds fresh READ balance to loc
     await assert.rejects(badVault.readDeviceNote()); assert.deepEqual(store, beforeRejected); badVault.close();
   }
   deposit.close(); reservation.close(); deviceKey.fill(0); control.fetch = null;
-});
+}
+test('original vault persists output custody and binds fresh READ balance to local PC23/NF; expiry/reopen or coherent public hashes confer no availability',
+  t => originalOutputCustodyCase(t));
+test('full-budget reservation reads the original empty-change marker and recovery without enabling a zero withdrawal',
+  t => originalOutputCustodyCase(t, true));
 
 // These fixed TLS responses are explicit HOST framing, never original monetary
 // acceptance. They exercise the client's signed READ/path/lifetime boundaries.

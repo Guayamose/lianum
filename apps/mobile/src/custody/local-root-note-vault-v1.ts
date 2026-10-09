@@ -1184,8 +1184,15 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           || spend.execution.terminal && spend.execution.terminal.outcome !== observation.nativeOutcome)) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
         for (const role of ['change', 'recovery'] as const) {
           const output = observation[role], opening = spend[role].opening;
-          const frame = localBalanceCommitmentMessageV1(note.scope, note.policy, opening); let commitment: string;
-          try { commitment = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
+          let commitment: string;
+          if (role === 'change' && opening.value === '0') {
+            // The original funded relation commits empty change with its own
+            // domain-separated marker, rather than a PC23 note opening.
+            commitment = compiledSpend(note, spend).authorizationStatement.changeCommitment;
+          } else {
+            const frame = localBalanceCommitmentMessageV1(note.scope, note.policy, opening);
+            try { commitment = await checked(scope, () => digest(frame)); } finally { frame.fill(0); }
+          }
           if (output.commitment !== commitment || output.commitment !== spend.statement[role === 'change' ? 'changeCommitment' : 'recoveryCommitment']
             || output.nullifier !== localFundedSpendNullifierV1(note.scope, commitment, opening.secret)
             || BigInt(output.amount) !== BigInt(opening.value)) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');

@@ -1271,12 +1271,15 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       view=await reader.read();
     assert.ok(view.ledger.nullifiers.includes('0x'+sourceNullifier),'DEVICE_OUTPUT_ORIGINAL_SOURCE_SPEND_REQUIRED');
     function note(role,amount){
-      assert.ok(amount>0n,'DEVICE_OUTPUT_POSITIVE_NOTE_REQUIRED');
+      // Full-budget S inserts the original empty-change marker. It has an
+      // inclusion path, but no positive note or withdrawal authority.
+      assert.ok(amount>0n||role==='change'&&amount===0n,'DEVICE_OUTPUT_POSITIVE_NOTE_REQUIRED');
       const commitment=parent.nativeBinding[role==='change'?'changeCommitment':'recoveryCommitment'],nullifier=input[role+'Nullifier'];
       if(parent.nativeFReorg && parent.nativeFReorg.phase !== 'RECONFIRMED' || role==='recovery'&&parent.nativeOutcome!=='RECOVERED')return{noteRole:role,commitment,nullifier,amount:amount.toString(),state:'LOCKED',path:null};
       const indices=view.ledger.commitments.flatMap((leaf,index)=>leaf==='0x'+commitment?[index]:[]);
       assert.equal(indices.length,1,'DEVICE_OUTPUT_ORIGINAL_NOTE_REQUIRED');const path=view.ledger.tree.path(indices[0]);
       assert.equal(verifyPrivateNotePath(path),true,'DEVICE_OUTPUT_ORIGINAL_PATH');
+      if(amount===0n)assert.ok(!view.ledger.nullifiers.includes('0x'+nullifier),'DEVICE_OUTPUT_EMPTY_CHANGE_SPENT');
       return{noteRole:role,commitment,nullifier,amount:amount.toString(),state:view.ledger.nullifiers.includes('0x'+nullifier)?'SPENT':'UNSPENT',
         path:{root:bare(path.root),index:path.index,leaf:bare(path.leaf),siblings:path.siblings.map(bare)}};
     }
