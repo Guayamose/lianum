@@ -1,5 +1,6 @@
 /** Internal one-task process. Its actual parent, sources and IPC are authenticated. */
 import assert from 'node:assert/strict';
+import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -303,15 +304,19 @@ async function prove() {
   phase('receiving-scoped-job');
   await measured('jobPreparationMilliseconds', async () => {
     const adapter = await import(pathToFileURL(join(ROOT, 'proof-workers/trusted-jobs.mjs')));
-    assert.equal(typeof adapter.prepareJob, 'function', 'PW_TRUSTED_PREPARE_JOB');
     // Adapter installs one message listener synchronously, then awaits exactly
     // one matching bounded message. No private payload is written to disk.
     assert.equal(typeof adapter.validateJobAgainstABI, 'function', 'PW_TRUSTED_ABI_VALIDATOR');
-    const pending = adapter.prepareJob({ relation: spec.name, role: spec.role, jobId });
+    const pending = preparePrivateProofJobV1({ relation: spec.name, role: spec.role, jobId });
     assert.equal(process.listenerCount('message'), 1, 'PW_ONE_JOB_LISTENER');
     const received = await pending;
-    job = validateJob(spec, compiled.program, adapter.validateJobAgainstABI(compiled.program.abi,
-      received.inputs, received.expectedPublicInputs, spec.name));
+    let normalized;
+    try {
+      report.privateTransitBindingSHA256 = privateProofBindingSHA256V1(received.authorization);
+      normalized = adapter.validateJobAgainstABI(compiled.program.abi,
+        received.inputs, received.expectedPublicInputs, spec.name);
+      job = validateJob(spec, compiled.program, normalized);
+    } finally { wipePrivateProofInputsV1(normalized?.inputs); wipePrivateProofInputsV1(received.inputs); }
     assert.equal(process.listenerCount('message'), 0, 'PW_JOB_LISTENER_REMOVED');
     // Retain the liveness channel, but accept no second private message.
     process.once('message', parentDisconnected);
@@ -321,7 +326,7 @@ async function prove() {
   ({ witness: compressedWitness } = await measured('witnessMilliseconds', () => new Noir(compiled.program).execute(job.inputs)));
   // Drop all structured private inputs before proof publication. JS strings
   // cannot be guaranteed erased; this fresh worker exits after one task.
-  const expected = job.expectedPublicInputs; job.inputs = undefined; job = undefined;
+  const expected = job.expectedPublicInputs; wipePrivateProofInputsV1(job.inputs); job.inputs = undefined; job = undefined;
   phase('proving'); let proof, rawInputs;
   await measured('proofMilliseconds', async () => {
     rawWitness = gunzipSync(compressedWitness);
@@ -345,7 +350,7 @@ async function prove() {
   assert.equal((await loadPrepared(context, compiled, crsBefore)).manifestSHA256, prepared.manifestSHA256, 'PW_KEY_CHANGED_DURING_PROOF');
   freezeCheck(); await destroy();
   const artifactId = randomUUID(), manifest = { ...manifestBase('FLAT_WALLET_PUBLIC_PROOF_V1', artifactId),
-    jobId, role: spec.role, ...compiledPins(compiled), target: 'evm', settings: SETTINGS,
+    jobId, role: spec.role, privateTransitBindingSHA256:report.privateTransitBindingSHA256, ...compiledPins(compiled), target: 'evm', settings: SETTINGS,
     keyManifestSHA256: prepared.manifestSHA256, keySHA256: hash(prepared.key),
     proofSHA256: hash(proof), proofBytes: proof.length, publicInputsSHA256: hash(jsonBytes(words)),
     publicWords: spec.publicWords, selfVerified: true, runtimePinsSHA256: hash(jsonBytes(initialPins)),
@@ -441,7 +446,7 @@ try {
 } catch (error) {
   report.phase = 'failed'; report.errorCode = errorCode(error); process.exitCode = 1;
 } finally {
-  compressedWitness?.fill(0); rawWitness?.fill(0); job = undefined;
+  compressedWitness?.fill(0); rawWitness?.fill(0); wipePrivateProofInputsV1(job?.inputs); job = undefined;
   if (api) {
     try { const owned = api; api = undefined;
       if(reservationNativeActive){reservationNativeActive=false;report.nativeBackendExecution=await destroyNativeReservationV1(owned);}

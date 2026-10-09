@@ -7,6 +7,7 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { types } from 'node:util';
+import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import { ROOT, LOCAL, PROFILE, LIMITS, DISCLOSURE, relation, operation } from '../catalog.mjs';
 import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regular, replaceJSON,
   resources, resourceFailure, verifyAPI, verifyVendor, hash, jsonBytes,
@@ -58,7 +59,7 @@ function transportClone(value) {
  * profile is one of two fixed process configurations, never a numeric limit.
  * jobId is a UUID generated once by the role process; ambiguity blocks reuse. */
 export async function runBoundedProof(request) {
-  dataRecord(request, ['relation', 'role', 'jobId', 'profile', 'inputs', 'expectedPublicInputs']);
+  dataRecord(request, ['relation', 'role', 'jobId', 'profile', 'inputs', 'expectedPublicInputs', 'authorization']);
   const spec = relation(request.relation);
   assert.equal(request.role, spec.role, 'PW_ROLE_SCOPE'); assertID(request.jobId);
   assert.ok(['standard', 'dyadic21'].includes(request.profile), 'PW_FIXED_PROOF_PROFILE');
@@ -67,11 +68,12 @@ export async function runBoundedProof(request) {
   const parent = trustedParent(spec);
   assert.equal(realpathSync(resolve(process.argv[1])), parent.script, 'PW_PINNED_ROLE_PROCESS');
   assert.deepEqual(process.argv.slice(2), parent.arguments, 'PW_PINNED_ROLE_ARGUMENTS');
+  const authorization = privateProofAuthorizationBindingV1(request.authorization);
   let payload = transportClone({ type: 'flat-proof-inputs', relation: spec.name, role: spec.role,
-    jobId: request.jobId, inputs: request.inputs, expectedPublicInputs: request.expectedPublicInputs });
+    jobId: request.jobId, inputs: request.inputs, expectedPublicInputs: request.expectedPublicInputs, authorization });
   const mode = request.profile === 'dyadic21' ? 'prove-dyadic21' : 'prove';
   try { return await supervise(spec, mode, randomUUID(), payload); }
-  finally { payload = undefined; }
+  finally { wipePrivateProofInputsV1(payload?.inputs); payload = undefined; }
 }
 async function supervise(spec, mode, runId, privatePayload = null) {
   const began = performance.now(), attempt = attemptPath(runId), lockPath = join(LOCAL, 'active.lock');
@@ -159,15 +161,17 @@ async function supervise(spec, mode, runId, privatePayload = null) {
       if (privatePayload) {
         child.on('message', message => {
           try {
-            dataRecord(message, ['type', 'relation', 'role', 'jobId']);
-            assert.equal(message.type, 'flat-proof-input-ready', 'PW_IPC_READY_TYPE');
+            dataRecord(message, ['type', 'profile', 'relation', 'role', 'jobId', 'recipientPublicKey']);
+            assert.equal(message.type, 'flat-private-proof-input-ready', 'PW_IPC_READY_TYPE');
             assert.equal(message.relation, spec.name, 'PW_IPC_RELATION');
             assert.equal(message.role, spec.role, 'PW_IPC_ROLE');
             assert.equal(message.jobId, privatePayload?.jobId, 'PW_IPC_JOB');
             assert.equal(sent, false, 'PW_SINGLE_IPC_JOB');
             sent = true;
-            child.send(privatePayload, error => { if (error) stop('PW_PRIVATE_IPC_SEND_FAILED'); });
-            privatePayload = undefined;
+            const packet = sealPrivateProofJobV1(message, {inputs:privatePayload.inputs,
+              expectedPublicInputs:privatePayload.expectedPublicInputs,authorization:privatePayload.authorization});
+            child.send(packet, error => { if (error) stop('PW_PRIVATE_IPC_SEND_FAILED'); });
+            wipePrivateProofInputsV1(privatePayload.inputs); privatePayload = undefined;
           } catch { stop('PW_PRIVATE_IPC_PROTOCOL_FAILED'); }
         });
       }
@@ -213,7 +217,7 @@ async function supervise(spec, mode, runId, privatePayload = null) {
     if (termHandler) process.removeListener('SIGTERM', termHandler);
     if (intHandler) process.removeListener('SIGINT', intHandler);
     for (const stream of child?.stdio ?? []) stream?.destroy();
-    privatePayload = undefined;
+    wipePrivateProofInputsV1(privatePayload?.inputs); privatePayload = undefined;
     if (report) {
       report.phase = failure === null && report.exitCode === 0 ? 'completed' : 'failed';
       report.elapsedMilliseconds = performance.now() - began; report.completedAt = new Date().toISOString();

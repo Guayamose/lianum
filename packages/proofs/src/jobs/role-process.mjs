@@ -5,7 +5,7 @@ import { assertBeginPayoutAuditRoleProcessV1 } from './native-flow-proof-scope-v
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { relation } from '../catalog.mjs';
-import { prepareJob } from './trusted-jobs.mjs';
+import {preparePrivateProofJobV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import { runBoundedProof } from './run-bounded.mjs';
 
 assert.equal(process.argv.length, 3, 'PW_ROLE_FIXED_ARGUMENTS');
@@ -22,27 +22,28 @@ const parentDisconnected = () => {
 };
 process.once('disconnect', parentDisconnected);
 try {
-  received = await prepareJob({ relation: spec.name, role: spec.role, jobId });
+  received = await preparePrivateProofJobV1({ relation: spec.name, role: spec.role, jobId });
   // Keep the control channel until completion: an abruptly lost owner
   // terminates this role and its bounded child instead of orphaning a prover.
   // U's compiled, measured domain is 2^21; this fixed process profile does not
   // change a host setting. No caller can choose a numeric memory/thread limit.
   const result = await runBoundedProof({ relation: spec.name, role: spec.role, jobId,
     profile: spec.name === 'authorization' ? 'dyadic21' : 'standard',
-    inputs: received.inputs, expectedPublicInputs: received.expectedPublicInputs });
-  received = undefined;
+    inputs: received.inputs, expectedPublicInputs: received.expectedPublicInputs, authorization: received.authorization });
+  wipePrivateProofInputsV1(received?.inputs); received = undefined;
   if (result.phase !== 'completed') process.exitCode = 1;
   finished = true;
   process.stdout.write(JSON.stringify(result) + '\n');
 } catch {
   // Do not echo received values or a library's private assertion diagnostics.
-  received = undefined; process.exitCode = 1;
+  wipePrivateProofInputsV1(received?.inputs); received = undefined; process.exitCode = 1;
   finished = true;
   process.stdout.write(JSON.stringify({ relation: spec.name, role: spec.role,
     jobId, phase: 'failed', errorCode: 'PW_ROLE_JOB_FAILED' }) + '\n');
 }
 
 finally {
+  wipePrivateProofInputsV1(received?.inputs); received = undefined;
   finished = true;
   process.removeListener('disconnect', parentDisconnected);
   if (process.connected) process.disconnect();

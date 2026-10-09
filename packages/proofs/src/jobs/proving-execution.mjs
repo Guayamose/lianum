@@ -48,7 +48,7 @@ function executionRecord(path) {
 export function executionSources(spec, mode) {
   const original = originalExecutionSources(spec, mode);
   // The imported policy itself is captured by the original before/after checks.
-  const extra = ['proof-workers/proving-execution.mjs','proof-workers/authorization-native-execution-v1.mjs',
+  const extra = ['proof-workers/private-proof-transit-v1.mjs','proof-workers/proving-execution.mjs','proof-workers/authorization-native-execution-v1.mjs',
     'proof-workers/node-native-execution-v1.mjs','proof-workers/reservation-native-execution-v1.mjs',
     'proof-workers/standard-proof-resources-v1.mjs',
     'integration/native-flow-owned-files-v1.mjs','integration/native-flow-owned-rss-v1.mjs'].map(path=>executionRecord(join(ROOT,path)));
