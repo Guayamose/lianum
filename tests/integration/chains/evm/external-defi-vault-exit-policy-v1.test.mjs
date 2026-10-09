@@ -81,3 +81,25 @@ test('HOST actual owner-view helper joins only the original catalogue generation
   assert.throws(()=>check(view,{...status,generations:[]},original));
   assert.throws(()=>check(view,{...status,generations:[...status.generations,status.generations[0]]},original));
 });
+
+
+test('HOST original retained fixture keeps the late-created lifetime accessor without changing legacy',()=>{
+  // Execute the actual original fixture object-construction block only.
+  // The opaque marker is an inert HOST value, never a lifetime/issuer authority.
+  const source=readFileSync(join(ROOT,'integration/owned-evm-vault-fixture.mjs'),'utf8');
+  const start=source.indexOf('  const fixture = {'),end=source.indexOf("  try {\n    await onStage('start-owned-local-evm-v2');",start);assert.ok(start>=0&&end>start);
+  const construct=new Function('retained',`
+    let recoveryLifetime,runtime,assets,officialProtocol,system,router,evmDelivery,quorum,sourceOwner,targetOwner,rulesTree,cleanupPromise;
+    const capabilities=[],operators=[],readers=[],recipients=[],recipientBoots=[],providers=[],rules=[],callbacks={},official=false,officialMetaMorpho=false,officialAave=false;
+    ${source.slice(start,end)}
+    return {fixture,publish(value){recoveryLifetime=value;}};
+  `);
+  const retained=construct(true),legacy=construct(false),marker=Object.freeze(Object.create(null));
+  const descriptor=Object.getOwnPropertyDescriptor(retained.fixture,'recoveryLifetime');
+  assert.equal(typeof descriptor.get,'function');assert.equal(Object.hasOwn(descriptor,'value'),false);
+  assert.equal(retained.fixture.recoveryLifetime,undefined);
+  retained.publish(marker);assert.equal(retained.fixture.recoveryLifetime,marker);
+  assert.throws(()=>Object.defineProperty(retained.fixture,'recoveryLifetime',{value:Object.freeze({})}));
+  assert.equal(Object.hasOwn(legacy.fixture,'recoveryLifetime'),false);legacy.publish(marker);
+  assert.equal(Object.hasOwn(legacy.fixture,'recoveryLifetime'),false);
+});

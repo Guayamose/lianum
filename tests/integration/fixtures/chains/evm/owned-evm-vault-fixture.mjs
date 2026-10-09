@@ -73,7 +73,7 @@ async function vaultFixture(directory,callbacks,retained) {
   const capabilities = [], operators = [], readers = [], recipients = [], recipientBoots = [], providers = [], rules = [];
   const fixture = {
     get runtime() { return runtime; },
-    ...(retained?{get recoveryLifetime(){return recoveryLifetime;}}:{}), get assets() { return assets; }, get system() { return system; },
+    get assets() { return assets; }, get system() { return system; },
     get officialProtocol() { return officialProtocol; },
     get protocolProfile() { return callbacks.protocolProfile ?? 'LEGACY_VAULT'; },
     get solver() { return official ? runtime.accounts[0] : runtime.accounts[1]; },
@@ -103,6 +103,9 @@ async function vaultFixture(directory,callbacks,retained) {
       return cleanupPromise;
     },
   };
+  // Keep the original late-created capability by reference; object spread
+  // would snapshot undefined before its before-CREATE producer completes.
+  if(retained)Object.defineProperty(fixture,'recoveryLifetime',{enumerable:true,get(){return recoveryLifetime;}});
   try {
     await onStage('start-owned-local-evm-v2');
     runtime = await(retained?createOwnedExternalDefiReceiverV2:createOwnedLocalEvmV2)();
