@@ -179,7 +179,7 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
    // Permission admission remains15s. Only waiting for the SAME original
    // finite worker result uses its unchanged900000ms operation bound.
-   if(routes[request.url]==='outputOperate'&&value?.consent?.consent?.action==='PROVE_W39')resetResponseTimeout(900000);
+   if(routes[request.url]==='outputOperate'&&['PROVE_W39','WITHDRAW_W39'].includes(value?.consent?.consent?.action))resetResponseTimeout(900000);
    if(routes[request.url]==='operate'&&(!graph&&['PROVE_D26','PROVE_D27','PROVE_W39'].includes(value?.consent?.action)||graph&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(value?.consent?.draft?.action)))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);assertOriginalDeviceExternalFlatNoteAuthorityV1(target);assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});
    if(routes[request.url]==='challenge'){exact(value,[]);return selected.challenge();}return selected[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(()=>externalFlatWipeV1(requestBody?.witness));
   running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;
