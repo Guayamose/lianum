@@ -4,13 +4,15 @@ import type {ExternalFlatStatus} from '../../../../packages/mobile-protocol/src/
 export type PrivateWalletRowV1=Readonly<{key:string;route:Readonly<Record<string,string|number>>;label:string;decimals:number|null;
  state:'LIVE'|'STALE'|'UNKNOWN';available:string|null;reserved:string|null;locked:string|null;recovery:string|null;shares:string|null;
  valuation:Readonly<{amount:string;assetId:string|null;token:string;spendable:false}>|null;noteAmount:string|null;
- noteState?:'UNISSUED'|'LIVE'|'SPENT'|'UNKNOWN';
+ noteState?:'UNISSUED'|'LIVE'|'UNSPENT'|'LOCKED'|'SPENT'|'UNKNOWN';
  requests:readonly Readonly<{requestId:string;kind:string;state:string;disposition:string|null}>[];custody:'BACKEND'|'DEVICE';observed:unknown}>;
 export type PrivateWalletStateV1=Readonly<{version:1;revision:number;rows:readonly PrivateWalletRowV1[];aggregateBalance:null;completePortfolio:false;readOnly:true}>;
 export type PrivateWalletStateActorV1=Readonly<{
  acceptAccount(value:OriginalPrivateStateObservationV1):void;
  acceptPositions(value:DeviceDefiPositionObservationV1):void;
  acceptExternal(value:ExternalFlatStatus):void;
+ acceptExternalGraph(value:object):Promise<void>;
+ invalidateExternal(value:import('../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs').ExternalFlatDescriptor,rootId:string):void;
  acceptNative(value:object):Promise<void>;
  invalidateNative():void;
  snapshot():PrivateWalletStateV1;

@@ -4,12 +4,13 @@
 import {readOriginalPrivateStateObservationV1,originalPrivateStateObservationDescriptorV1} from '../api/original-account-api-v2.mjs';
 import {readDeviceDefiPositionObservationV1} from '../api/device-defi-position-read-api-v1.mjs';
 import {readDeviceExternalFlatStatusV1} from '../api/device-external-flat-note-api-v1.mjs';
+import {normalizeExternalFlatDescriptorV1,externalFlatHexV1,DEVICE_EXTERNAL_FLAT_NOTE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
 const fail=()=>{throw Error('MOBILE_PRIVATE_WALLET_STATE_REJECTED');};
 const routeKey=route=>JSON.stringify(route);
 const opaqueRow=(row,state)=>({...row,state,available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null});
 export function createPrivateWalletStateV1(){
- const sources=new Map();let revision=0,nativeEpoch=0;
+ const sources=new Map();let revision=0,nativeEpoch=0,externalGraphEpoch=0;
  function retain(key,rows,check){
   if(!sources.has(key)&&sources.size>=24)fail();
   if(rows.length+[...sources.entries()].filter(([id])=>id!==key).reduce((n,[,s])=>n+s.rows.length,0)>64)fail();
@@ -68,6 +69,50 @@ export function createPrivateWalletStateV1(){
    const expiresAt=v.expiresAt,observedAt=v.observedAt;
    retain(routeKey(['EXTERNAL',d.origin,d.pairingId,d.lifetime,p.pool,p.assetIdentity,d.profile]),rows,()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
   },
+  async acceptExternalGraph(raw){
+   const epoch=externalGraphEpoch;
+   const {readDeviceExternalFlatGraphStatusV1}=await import('../api/device-external-flat-graph-api-v1.mjs');
+   if(epoch!==externalGraphEpoch)fail();
+   const v=readDeviceExternalFlatGraphStatusV1(raw),d=v.descriptor,p=d.poolTerms;
+   const rows=v.jobs.flatMap(job=>{
+    const r=job.reservation,c=r.consentFields,g=job.graph;
+    const route={component:'DEVICE_GRAPH_RESERVATION',origin:d.origin,pairingId:d.pairingId,lifetime:d.lifetime,
+     rootId:c.custody.rootId,noteRevision:c.custody.noteRevision,parentJobId:r.jobId,
+     assetId:p.assetIdentity,genesis:p.genesis,pool:p.pool,scope:p.scope,policy:p.policy,domain:p.domainCommitment};
+    // The signed statement commits to quantities; it does not reveal them.
+    // A terminal receipt also cannot prove that an output remains unspent.
+    const reservation={route,label:d.assetMetadata.symbol+' · Reserva',decimals:d.assetMetadata.decimals,
+     state:g.outcome===null?'UNKNOWN':'LIVE',available:null,reserved:null,locked:null,recovery:null,
+     shares:null,valuation:null,noteAmount:null,custody:'DEVICE',observed:v.observed,
+     requests:[{requestId:r.jobId,kind:'ERC20_RESERVATION',state:r.stage,disposition:null},
+      {requestId:r.jobId,kind:'ERC20_GRAPH',state:g.stage,disposition:g.outcome}]};
+    const outputs=job.outputs.filter(n=>n.state!=='EMPTY').map(n=>{
+     const live=['UNSPENT','SPENT','LOCKED'].includes(n.state),available=n.state==='UNSPENT'?n.available:null;
+     return{route:{...route,component:'DEVICE_GRAPH_NOTE',noteRole:n.noteRole,commitment:n.commitment},
+      label:n.noteRole==='change'?'Cambio ERC20':'Recuperación ERC20',decimals:d.assetMetadata.decimals,
+      state:live?'LIVE':'UNKNOWN',available,reserved:null,locked:n.state==='LOCKED'?n.amount:null,
+      recovery:n.noteRole==='recovery'?available:null,shares:null,valuation:null,
+      noteAmount:n.state==='UNISSUED'?null:n.amount,noteState:n.state,custody:'DEVICE',observed:v.observed,
+      requests:[{requestId:r.jobId,kind:'ERC20_GRAPH',state:g.stage,disposition:g.outcome}]};
+    });
+    return[reservation,...outputs];
+   });
+   const {observedAt,expiresAt}=v;
+   retain(routeKey(['EXTERNAL_GRAPH',d.origin,d.pairingId,d.lifetime,p.pool,p.assetIdentity]),rows,
+    ()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
+  },
+  invalidateExternal(raw,rootId){
+   const d=normalizeExternalFlatDescriptorV1(raw);externalFlatHexV1(rootId);
+   if(d.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1)fail();
+   const p=d.poolTerms;
+   for(const [key,source]of sources){
+    const matches=row=>{const r=row.route;return ['DEVICE_NOTE','DEVICE_GRAPH_NOTE','DEVICE_GRAPH_RESERVATION'].includes(r.component)&&r.rootId===rootId&&
+     r.origin===d.origin&&r.pairingId===d.pairingId&&r.lifetime===d.lifetime&&r.pool===p.pool&&
+     r.assetId===p.assetIdentity&&r.genesis===p.genesis&&r.scope===p.scope&&r.policy===p.policy&&r.domain===p.domainCommitment;};
+    if(source.rows.some(matches))sources.set(key,{rows:source.rows.map(row=>matches(row)?freeze(opaqueRow(row,'UNKNOWN')):row),check:source.check});
+   }
+   revision++;
+  },
   async acceptNative(raw){
    // Lazy loading keeps unrelated account/DeFi reads independent of native
    // custody. The getter rejects DTOs and cloned local projections.
@@ -119,6 +164,6 @@ export function createPrivateWalletStateV1(){
    }
    return freeze({version:1,revision,rows,aggregateBalance:null,completePortfolio:false,readOnly:true});
   },
-  clear(){sources.clear();revision++;nativeEpoch++;},
+  clear(){sources.clear();revision++;nativeEpoch++;externalGraphEpoch++;},
  });
 }
