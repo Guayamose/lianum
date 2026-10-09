@@ -7477,6 +7477,13 @@
       "source": "packages/backend/src/chains/shared/health/native-health.mjs"
     },
     {
+      "source": "packages/backend/tests/chains/shared/runtime/native-original-source-process-v1.test.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/native-original-source-process-v1.test.mjs",
+      "sha256": "76055a9ab1316f3c7d1b49a6f9c40a3539d938d459543e58f9f6ee1475932ff9",
+      "bytes": 5680,
+      "mode": "0644"
+    },
+    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/native-receipt-binding.mjs",
       "sha256": "97b94b2a2102a76c0078d7d548fc793dbfdebf66b70bdc2b48f73b9c5bf5500e",
       "bytes": 24894,
@@ -9105,6 +9112,13 @@
       "source": "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs",
       "sha256": "5e1a845fd778215c6651e189f718c922cc1c5d1ed7f87b9dd90b6155cdc91826",
       "bytes": 4033,
+      "mode": "0644"
+    },
+    {
+      "source": "packages/backend/src/operations/recovery/native-original-source-process-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-process-v1.mjs",
+      "sha256": "fa91726719fe8930ea5bdb60c3e8214d33dd2bffbdde2b70ba165f468b1d09de",
+      "bytes": 6299,
       "mode": "0644"
     },
     {
@@ -17162,6 +17176,9 @@
       "../../api/accounts/flat-manual-graph-session.mjs": "../api/flat-manual-graph-session.mjs",
       "../../api/mobile/paired-original-account-actor-v2.mjs": "../mobile/paired-original-account-actor-v2.mjs"
     },
+    "packages/backend/src/operations/recovery/native-original-source-process-v1.mjs": {
+      "../../../../engine/src/chains/shared/runtime-harness.mjs": "../../../../../omnichain-product/src/chains/runtime-harness.mjs"
+    },
     "packages/backend/src/operations/recovery/native-value-checkpoint-v4.mjs": {
       "../../../../engine/src/evidence/native-hub-messages.mjs": "../../../../../omnichain-product/src/evidence/native-hub-messages.mjs",
       "../../execution/encoding/commitments.mjs": "../paeg/commitments.mjs",
@@ -17484,6 +17501,10 @@
     "packages/backend/tests/chains/shared/portfolio/portfolio-registry.test.mjs": {
       "../../../../src/chains/shared/portfolio/portfolio-registry.mjs": "./portfolio-registry.mjs",
       "../../../../src/chains/evm/observations/evm-observation-adapter.mjs": "./evm-observation-adapter.mjs"
+    },
+    "packages/backend/tests/chains/shared/runtime/native-original-source-process-v1.test.mjs": {
+      "../../../../../engine/src/chains/shared/runtime-harness.mjs": "../../../../../omnichain-product/src/chains/runtime-harness.mjs",
+      "../../../../src/operations/recovery/native-original-source-process-v1.mjs": "../ops/native-original-source-process-v1.mjs"
     },
     "packages/backend/tests/chains/shared/runtime/owned-native-custody.test.mjs": {
       "../../../../src/chains/shared/runtime/owned-native-custody.mjs": "./owned-native-custody.mjs",

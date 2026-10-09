@@ -1,3 +1,4 @@
+import {startOriginalNativeSourceProcessV1} from '../../../operations/recovery/native-original-source-process-v1.mjs';
 import {consumeOriginalNativeSourceRuntimeRequestV1,originalNativeSourceRuntimeRequestIdentityV1,readOriginalNativeSourceRuntimeSeedV1,retainOriginalNativeSourceRuntimeSeedV1,resumeOriginalNativeSourceRuntimeSeedV1,originalNativeSourceRuntimeOwnedProcessV1,readOriginalNativeSourceRuntimeStateV1,attachOriginalNativeSourceRuntimeV1,beginOriginalNativeSourceMutationV1,confirmOriginalNativeSourceMutationV1,confirmOriginalNativeSourceBirthV1,updateOriginalNativeSourceSectionV1} from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
 import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,assertOwnedExternalDefiStateDumpV3,assertOwnedExternalDefiPrivateRecordV3} from './owned-external-defi-receiver-state-v3.mjs';
 import {assertOwnedEvmRecoveryStateDumpV1} from './owned-evm-recovery-state-bound-v1.mjs';
@@ -810,7 +811,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       mnemonicArgs=['--mnemonic-file',mnemonicPath];
     }
     if(restored&&(economicV2||shouldUseOwnedEvmStateFileV1(restored.stateDump)))stateFilePin=receiverRecoveryV3?await writeOwnedExternalDefiStateFileV3({cwd,suffix:recoverySuffix,stateDump:restored.stateDump}):await writeOwnedEvmStateFileV1({cwd,suffix:recoverySuffix,stateDump:restored.stateDump});
-    handle = startOwnProcess(binary, [
+    const originalProcessArguments = [
       '--host', '127.0.0.1', '--port', String(port), '--chain-id', String(processProfile.chainId),
       '--hardfork', processProfile.hardfork, '--timestamp', String(genesisTimestamp),
       // Official Anvil rejects --init together with --load-state. A V2
@@ -820,7 +821,9 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       '--quiet', '--no-cors', '--no-mining', '--gas-limit', String(osaka ? processProfile.blockGas : processProfile.maxGas),
       ...(osaka ? ['--enable-tx-gas-limit'] : []),
       ...(stateFilePin&&!economicV2?['--load-state',stateFilePin.path]:[]),
-    ], cwd);
+    ];
+    handle = sourceDurableV1 ? await startOriginalNativeSourceProcessV1(binary, originalProcessArguments, cwd)
+      : startOwnProcess(binary, originalProcessArguments, cwd);
     handle.child.once('exit', (code, signal) => { exitEvent = { code, signal }; nativeSourceLifetime.abort(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
     handle.child.once('error', error => { spawnError = error; nativeSourceLifetime.abort(error); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
     if(sourceDurableV1){sourceWrapper.ownedProcesses=[await originalNativeSourceRuntimeOwnedProcessV1(sourceRequest,handle.child.pid)];await updateOriginalNativeSourceSectionV1(sourceHandle,sourceWrapper);}
