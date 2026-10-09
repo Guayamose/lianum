@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, lstatSync, statfsSync
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { ownSpawnedBuildGroup } from './owned-build-process.mjs';
+import { ownSpawnedBuildGroup,buildProcessFailureDiagnosticV1 } from './owned-build-process.mjs';
 import { nativeProcStatV1 } from '../../../tests/integration/native/native-flow-owned-files-v1.mjs';
 import nativeBuildLimits from '../plugins/with-native-build-limits.cjs';
 
@@ -163,14 +163,17 @@ async function run(command,args,cwd,captureOutput=false) {
   const stop=code=>{failure??=code;report.failure??=code;stopGroup();killTimer??=setTimeout(()=>stopGroup('SIGKILL'),5000);};
   const monitor=setInterval(()=>{
     if(!ownedGroup)return;
+    let monitorPhase='GROUP_SNAPSHOT';
     try{
       const group=ownedGroup.snapshot(),rss=group.rssBytes;
+      monitorPhase='JVM_ARGUMENTS';
       captureJVMProcesses(group);
       if (rss > report.peakProcessGroupRSS) report.peakProcessSnapshot = group.processes;
       report.peakProcessGroupRSS=Math.max(report.peakProcessGroupRSS,rss);
-      const memory=available();report.minimumAvailableRAM=Math.min(report.minimumAvailableRAM,memory);save();
+      monitorPhase='ENVIRONMENT_MEMORY';const memory=available();report.minimumAvailableRAM=Math.min(report.minimumAvailableRAM,memory);monitorPhase='REPORT_WRITE';save();
+      monitorPhase='RESOURCE_LIMITS';
       if(rss>3*GiB||memory<2.5*GiB)stop(rss>3*GiB?'MOBILE_BUILD_PROCESS_GROUP_MEMORY_LIMIT':'MOBILE_BUILD_AVAILABLE_RAM_FLOOR');
-    }catch(error){report.monitorFailure??=String(error.message).match(/MOBILE_BUILD_[A-Z0-9_]+/)?.[0]??'MOBILE_BUILD_RESOURCE_MONITOR_FAILED';
+    }catch(error){report.monitorFirstFailure??=ownedGroup.firstFailure()??buildProcessFailureDiagnosticV1(error,monitorPhase);report.monitorFailure??=String(error.message).match(/MOBILE_BUILD_[A-Z0-9_]+/)?.[0]??'MOBILE_BUILD_RESOURCE_MONITOR_FAILED';
       stop('MOBILE_BUILD_RESOURCE_MONITOR_FAILED');}
   },250);
   const timeout=setTimeout(()=>{failure='MOBILE_BUILD_TIMEOUT';stopGroup();killTimer??=setTimeout(()=>stopGroup('SIGKILL'),5000);},30*60*1000);

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import test from 'node:test';
+import {readFileSync,readdirSync} from 'node:fs';
+import {types} from 'node:util';
+import {runInNewContext} from 'node:vm';
 import { ownSpawnedBuildGroup } from '../scripts/owned-build-process.mjs';
 const linux={skip:process.platform!=='linux',timeout:10000};
 async function child(script='process.on("message",()=>process.send("alive"));setInterval(()=>{},1000);',options={}) {
@@ -52,4 +55,50 @@ test('cleanup retains process identity continuity when the original leader exits
     for(let i=0;i<20&&owned.guard.snapshot().liveCount;i++)await new Promise(resolve=>setTimeout(resolve,25));
     assert.equal(owned.guard.snapshot().liveCount,0);
   }finally{owned.guard.signal('SIGKILL');await owned.closed;}
+});
+
+// Explicit FS fault ports around original source bodies; the ChildProcess,
+// /proc parser, enrolment, failure/lost latch and cleanup events are real.
+test('original build monitor retains its first finite FS or parser cause before losing ownership',linux,async()=>{
+  const guardian=readFileSync(new URL('../scripts/owned-build-process.mjs',import.meta.url),'utf8');
+  const proc=readFileSync(new URL('../../../tests/integration/native/native-flow-owned-files-v1.mjs',import.meta.url),'utf8');
+  const plain=source=>source.replace(/^import[\s\S]*?;\n/gm,'').replace(/^export /gm,'');
+  for(const kind of ['FS','PARSER']){
+    const owned=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});
+    const closed=once(owned,'close');await once(owned,'spawn');
+    let injecting=false,reads=0;
+    const originalError=Object.assign(new Error('PRIVATE-MESSAGE-MUST-NOT-ESCAPE'),{code:'EIO'});
+    const environment={assert,ChildProcess:owned.constructor,types,process,readdirSync,
+      readFileSync(path,...options){
+        if(injecting&&path===`/proc/${owned.pid}/stat`){reads++;if(kind==='FS')throw originalError;return '';}
+        return readFileSync(path,...options);
+      }};
+    const api=runInNewContext(plain(proc)+'\n'+plain(guardian)+'\n({ownSpawnedBuildGroup,buildProcessFailureDiagnosticV1})',environment);
+    try{
+      const guard=api.ownSpawnedBuildGroup(owned,{allowDetachedDescendants:true});
+      assert.equal(guard.firstFailure(),null);injecting=true;
+      let primary;try{guard.snapshot();}catch(error){primary=error;}
+      assert.ok(primary);if(kind==='FS')assert.equal(primary,originalError);
+      const first=guard.firstFailure();assert.equal(first.format,'LIANUM_MOBILE_BUILD_FIRST_FAILURE_V1');
+      assert.equal(first.phase,'PROCESS_TABLE_STAT');assert.equal(first.ownedPID,owned.pid);
+      assert.equal(first.code,kind==='FS'?'EIO':'NATIVE_PROC_STAT');assert.equal(reads,1);
+      assert.deepEqual(Object.keys(first).sort(),['code','format','ownedPID','phase']);assert.equal(Object.isFrozen(first),true);
+      assert.throws(()=>guard.snapshot(),error=>{
+        assert.equal(api.buildProcessFailureDiagnosticV1(error,'GROUP_SNAPSHOT').code,'MOBILE_BUILD_GROUP_OWNERSHIP_LOST');return true;
+      });
+      assert.equal(guard.firstFailure(),first);
+      const stopped=guard.signal('SIGTERM');assert.equal(stopped.sent,false);assert.equal(stopped.unconfirmed,true);
+      assert.equal(guard.firstFailure(),first);assert.equal(JSON.stringify(first).includes('PRIVATE'),false);
+      let traps=0;const opaque=new Proxy(new Error('PRIVATE'),{get(){traps++;throw Error('PRIVATE');},getOwnPropertyDescriptor(){traps++;throw Error('PRIVATE');}});
+      assert.equal(api.buildProcessFailureDiagnosticV1(opaque,'REPORT_WRITE').code,'OPAQUE');assert.equal(traps,0);
+      const getterError=new Error();Object.defineProperty(getterError,'message',{get(){traps++;throw Error('PRIVATE');}});
+      Object.defineProperty(getterError,'code',{get(){traps++;throw Error('PRIVATE');}});
+      assert.equal(api.buildProcessFailureDiagnosticV1(getterError,'REPORT_WRITE').code,'OPAQUE');assert.equal(traps,0);
+      assert.equal(api.buildProcessFailureDiagnosticV1(originalError,'PRIVATE-UNRECOGNIZED-PHASE').phase,'UNKNOWN');
+    }finally{
+      // The guard correctly denies signals after lost. This inert fixture uses
+      // its actual unmutated ChildProcess and mandatory close event to clean up.
+      injecting=false;owned.kill('SIGTERM');await closed;
+    }
+  }
 });
