@@ -10,7 +10,7 @@ import {runDeviceOwnerExecutionContinuationV1} from './device-owner-execution-or
 import {createPairedDeviceAccountTlsServerV1,createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import {deviceReservationConsentMessageV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
-import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
+import {prepareDeviceOwnerReservationOriginalV1,prepareDeviceOwnerLiveArmedReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
 import {verifyPrivateNotePath} from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
 import {runNativeDeviceLiveArmedShortContinuationV1} from './native-device-live-armed-short-continuation-v1.mjs';
@@ -33,7 +33,7 @@ export async function runDeviceOwnerReservationContinuationV1(context){
  try{
   await stage('device-original-quote-U-change-and-recovery-custody');
   if(context.deviceLiveArmed)await refreshOriginalNativeDeviceLocalObservedClockV1(context.liveClocks.clock);
-   prepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap});
+   prepared=await (context.deviceLiveArmed?prepareDeviceOwnerLiveArmedReservationOriginalV1:prepareDeviceOwnerReservationOriginalV1)({runtime,system,nativeRuntime,bootstrap});
   bridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
    nativePreparation:prepared.nativePreparation,invoiceSignatures:prepared.invoiceSignatures});
   const tls={certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')};

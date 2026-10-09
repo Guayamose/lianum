@@ -8,7 +8,7 @@ import {mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {exactRecord} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
 import {assertOwnedNativeValueWalletSystem} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
-import {assertOwnedLocalEvmNativeValueV1,assertOwnedLocalEvmV2} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {assertOwnedLocalEvmNativeValueV1,assertOwnedLocalEvmNativeValueRuntime,assertOwnedLocalEvmV2,readOwnedNativeLiveArmedObservedClockPairV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {createOwnedNativeValueProviderCustody} from '../../../../packages/backend/src/providers/native-value-provider-v2.mjs';
 import {profileCommitment} from '../../../../packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs';
 import {createNativeRecipientProcess} from '../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
@@ -17,10 +17,20 @@ import {createGenericBalanceNativePreparation} from '../../../../packages/engine
 import {NATIVE_ADMISSION_LOSS_CLAUSE} from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
 const fresh=()=>randomBytes(32).toString('hex');
 export async function prepareDeviceOwnerReservationOriginalV1(input){
+  assert.equal(arguments.length,1);return prepareOriginalReservation(input,false);
+}
+/** Fixed LIVE_ARMED producer: only the original paired observed runtimes admit
+ * this branch. A caller flag, metadata or copied runtime supplies no authority. */
+export async function prepareDeviceOwnerLiveArmedReservationOriginalV1(input){
   assert.equal(arguments.length,1);exactRecord(input,['runtime','system','nativeRuntime','bootstrap']);
+  readOwnedNativeLiveArmedObservedClockPairV1(input.runtime,input.nativeRuntime);
+  return prepareOriginalReservation(input,true);
+}
+async function prepareOriginalReservation(input,liveArmed){
+  exactRecord(input,['runtime','system','nativeRuntime','bootstrap']);
   const {runtime,system,nativeRuntime,bootstrap}=input;
   assertOwnedNativeValueWalletSystem(runtime,system);await assertOwnedLocalEvmV2(runtime);
-  await assertOwnedLocalEvmNativeValueV1(nativeRuntime);assert.equal(nativeRuntime.metadata.chainId,'1');
+  await (liveArmed?assertOwnedLocalEvmNativeValueRuntime:assertOwnedLocalEvmNativeValueV1)(nativeRuntime);assert.equal(nativeRuntime.metadata.chainId,'1');
   const domain=system.pools[0].domain,now=await runtime.time(),cutoff=now+28800n,operationId=fresh();
   // The original bootstrap aligns its observed receiver clock BEFORE calling
   // this seam. Windows are created once and cannot be renewed by a READ retry.
