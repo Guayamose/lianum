@@ -10,10 +10,12 @@ import {nativeProcStatV1} from '../../native/native-flow-owned-files-v1.mjs';
 import {assertOwnedDeviceExternalFlatReceiverV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 const WORKER=join(ROOT,'integration/device-external-flat-ordered-successor-v1.mjs');
 const birth=pid=>{const value=nativeProcStatV1(pid);assert.ok(value);const match=/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(readFileSync('/proc/'+pid+'/status','utf8'));assert.ok(match);return{...value,uid:match.slice(1).map(Number)};};
-export async function captureAndLaunchOriginalDeviceExternalFlatObservationV1(context){
- assert.equal(arguments.length,1);assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'));
+export function captureAndLaunchOriginalDeviceExternalFlatObservationV1(context){assert.equal(arguments.length,1);return captureAndLaunch(context,false);}
+export function captureAndLaunchOriginalDeviceExternalFlatGraphObservationV1(context){assert.equal(arguments.length,1);return captureAndLaunch(context,true);}
+async function captureAndLaunch(context,graph){assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'));
+ const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.deepEqual(parent,[process.execPath,join(ROOT,'integration/'+(graph?'run-device-external-flat-source-graph-v1.mjs':'run-device-external-flat-erc20-v1.mjs'))]);
  context.active();assertOwnedDeviceExternalFlatReceiverV1(context.runtime);const originalProcess=birth(process.pid);
- const originalReceiver=context.runtime.processStatus(),capture=await context.host.captureRetained();
+ const originalReceiver=context.runtime.processStatus(),capture=await(graph?context.host.captureGraphRetained():context.host.captureRetained());
  assert.equal(capture.profile,'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1');assert.equal(capture.originalResourcesStopped,true);assert.equal(capture.observationContinuationOnly,true);
  const stopped=context.runtime.processStatus();assert.equal(stopped.stopped,true);assert.equal(stopped.exitObserved,true);assert.equal(stopped.exitCode,0);assert.equal(stopped.signal,null);assert.equal(nativeProcStatV1(stopped.pid),null);
  const child=fork(WORKER,[],{execPath:process.execPath,execArgv:[],cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},serialization:'json',stdio:['ignore','inherit','inherit','ipc']});
@@ -32,7 +34,7 @@ export async function captureAndLaunchOriginalDeviceExternalFlatObservationV1(co
   return{...reply,exit:observed,close:observed,originalChildProcessClosed:true};})();
  context.lifetime.closeSuccessor=close;
  try{const opened=await request('OPEN',{identity:context.identity,checkpoint:capture.checkpoint,expected:context.expected});const successorProcess=birth(child.pid);assert.equal(successorProcess.ppid,process.pid);assert.equal(successorProcess.pgrp,originalProcess.pgrp);assert.equal(successorProcess.session,originalProcess.session);assert.notEqual(successorProcess.pid,originalProcess.pid);assert.deepEqual(successorProcess.uid,originalProcess.uid);
-  assert.deepEqual(opened.descriptor,context.descriptor);assert.equal(opened.observationOnly,true);assert.equal(opened.processId,child.pid);assert.equal(opened.sourceSHA256,context.identity.sourceSHA256);assert.equal(opened.wireCount,context.expected.wireCount);assert.equal(opened.receiptCount,context.expected.receiptCount);
-  return Object.freeze({descriptor:opened.descriptor,processId:child.pid,audit:()=>request('AUDIT'),close,report:{profile:capture.profile,checkpoint:capture.checkpoint,originalProcess,successorProcess,originalReceiver,stoppedOriginalReceiver:stopped,originalSectionsStoppedBeforeReopen:true,observationOnly:true,parentDeviceVaultRetained:true,parentProcessExitEstablished:false,abruptCrashRecoveryEstablished:false,sourceSHA256:context.identity.sourceSHA256}});
+  assert.deepEqual(opened.descriptor,context.descriptor);if(graph)assert.deepEqual(opened.targetDescriptor,context.targetDescriptor);assert.equal(opened.observationOnly,true);assert.equal(opened.processId,child.pid);assert.equal(opened.sourceSHA256,context.identity.sourceSHA256);assert.equal(opened.wireCount,context.expected.wireCount);assert.equal(opened.receiptCount,context.expected.receiptCount);
+  return Object.freeze({descriptor:opened.descriptor,...(graph?{targetDescriptor:opened.targetDescriptor}:{}),processId:child.pid,audit:()=>request('AUDIT'),close,report:{profile:capture.profile,checkpoint:capture.checkpoint,originalProcess,successorProcess,originalReceiver,stoppedOriginalReceiver:stopped,originalSectionsStoppedBeforeReopen:true,observationOnly:true,parentDeviceVaultRetained:true,parentProcessExitEstablished:false,abruptCrashRecoveryEstablished:false,sourceSHA256:context.identity.sourceSHA256}});
  }catch(error){if(child.connected)child.disconnect();try{await completion;}catch{}throw error;}
 }
