@@ -77,10 +77,38 @@ function positions(value, portfolio) {
   }
   uniqueRows(value.positions, portfolio);
 }
+/** Historical native gas charges only. These parsed values grant no balance
+ * and never convert native wei to private shares or underlying-token units. */
+export function validateOriginalVaultExitNativeCostsV1(value) {
+  record(value,['profile','complete','charges','totalObservedNativeGasWei','costUnit','payer','historicalOnly',
+    'currentNativeBalance','gasDeductedFromRedeemedUnderlying','netWealthLossEstablished']);
+  need(value.profile==='ORIGINAL_PRIVATE_VAULT_EXIT_NATIVE_COSTS_V1'&&typeof value.complete==='boolean'
+    &&value.costUnit==='NATIVE_WEI'&&value.payer==='ORIGINAL_TRANSACTION_SENDER'&&value.historicalOnly===true
+    &&value.currentNativeBalance===null&&value.gasDeductedFromRedeemedUnderlying===false&&value.netWealthLossEstablished===false);
+  array(value.charges,1,3);let known=0,total=0n;const kinds=new Set();
+  for(const charge of value.charges) {
+    record(charge,['kind','status','nativeGasCostWei','receiptStatus']);
+    need(['W39','APPROVAL','REDEMPTION'].includes(charge.kind)&&!kinds.has(charge.kind));kinds.add(charge.kind);
+    need(['OBSERVED','UNKNOWN'].includes(charge.status));
+    if(charge.status==='OBSERVED') {
+      decimal(charge.nativeGasCostWei,256,true);need(['APPLIED','REVERTED'].includes(charge.receiptStatus));
+      known++;total+=BigInt(charge.nativeGasCostWei);
+    } else need(charge.nativeGasCostWei===null&&charge.receiptStatus===null);
+  }
+  need(value.charges[0].kind==='W39');
+  if(known){decimal(value.totalObservedNativeGasWei,256,true);need(BigInt(value.totalObservedNativeGasWei)===total);}
+  else need(value.totalObservedNativeGasWei===null);
+  if(value.complete)need(kinds.has('REDEMPTION')&&known===value.charges.length&&value.charges.every(charge=>charge.receiptStatus==='APPLIED'));
+  return value;
+}
+export function projectOriginalVaultExitNativeCostsV1(value) {
+  try {validateOriginalVaultExitNativeCostsV1(value);return structuredClone(value);} catch{return null;}
+}
 function operation(row) {
   record(row, ['version', 'profile', 'requestId', 'shareAssetId', 'underlyingToken', 'phase', 'shares', 'minimumUnderlying',
     'redeemedUnderlying', 'deadline', 'observation', 'underlyingLocation', 'underlyingPrivateSpendable', 'redemptionPublic',
-    'sendBlocked', 'assurance', 'keeperRestart']);
+    'sendBlocked', 'assurance', 'keeperRestart',...(Object.hasOwn(row,'nativeCosts')?['nativeCosts']:[])]);
+  if(Object.hasOwn(row,'nativeCosts')){validateOriginalVaultExitNativeCostsV1(row.nativeCosts);if(row.nativeCosts.complete)need(row.phase==='REDEEMED');}
   need(row.version === 1 && row.profile === EXIT); requestId(row.requestId); digest(row.shareAssetId); address(row.underlyingToken);
   need(['BINDING_REDEMPTION', 'READY_TO_REDEEM', 'REDEMPTION_UNRESOLVED', 'REQUOTING_REDEMPTION', 'REDEEMED', 'REVERTED'].includes(row.phase));
   decimal(row.shares, 128, true); decimal(row.minimumUnderlying, 128, true); decimal(row.deadline, 64, true);

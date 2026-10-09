@@ -40,3 +40,18 @@ export function assertMorphoVaultRedemptionAccountingV1(input) {
     marketAssetsReleased: marketAssets.toString(), supplySharesConsumed: positionShares.toString(),
     vaultAssetsReleased: vaultAssets.toString(), privateBalanceCredited: false, directMorphoPrivateSupplyEstablished: false });
 }
+
+/** Supplied original receipt arithmetic only. The caller separately owns and
+ * verifies the exact canonical transaction; this result grants no balance. */
+export function inspectOriginalEvmExitNativeGasV1(input) {
+  exactRecord(input,['transactionHash','blockHash','blockNumber','payer','receiptStatus','gasUsed','gasPriceWei','gasLimit','nativeValue']);
+  for(const key of ['transactionHash','blockHash'])assert.ok(/^[0-9a-f]{64}$/.test(input[key])&&input[key]!=='0'.repeat(64),'EXIT_GAS_IDENTITY');
+  assert.ok(/^[0-9a-f]{40}$/.test(input.payer)&&input.payer!=='0'.repeat(40),'EXIT_GAS_PAYER');
+  const height=integer(input.blockNumber),used=integer(input.gasUsed),price=integer(input.gasPriceWei),limit=integer(input.gasLimit);
+  assert.ok(height>0n&&used>0n&&price>0n&&used<=limit,'EXIT_GAS_QUANTITY');
+  assert.equal(input.nativeValue,'0','EXIT_GAS_ZERO_VALUE');assert.ok(['APPLIED','REVERTED'].includes(input.receiptStatus),'EXIT_GAS_STATUS');
+  const cost=used*price;integer(cost.toString());
+  return Object.freeze({profile:'ORIGINAL_EVM_EXIT_NATIVE_GAS_V1',status:'OBSERVED',transactionHash:input.transactionHash,
+    blockHash:input.blockHash,blockNumber:input.blockNumber,payer:input.payer,receiptStatus:input.receiptStatus,
+    gasUsed:input.gasUsed,gasPriceWei:input.gasPriceWei,nativeGasCostWei:cost.toString(),unit:'NATIVE_WEI',balanceGranted:false});
+}

@@ -2,7 +2,7 @@
  * signer, compiler or private credit; the original adapter supplies real reads. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertMorphoVaultRedemptionAccountingV1 } from '../../../src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs';
+import { assertMorphoVaultRedemptionAccountingV1, inspectOriginalEvmExitNativeGasV1 } from '../../../src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs';
 function trace() {
   const before = { protocol: '0x' + '11'.repeat(20), marketId: '0x' + '22'.repeat(32), positionOwner: '0x' + '33'.repeat(20),
     market: { totalSupplyAssets: '1000000', totalSupplyShares: '1000000000000', totalBorrowAssets: '0', totalBorrowShares: '0', lastUpdate: '1000', fee: '0' },
@@ -32,4 +32,15 @@ test('matching vault/redemption amounts cannot replace the original Morpho posit
     x => { x.after.market.fee = '1'; }, x => { x.after.assetTotalSupply = '10000001'; },
     x => { x.after.vaultUnderlyingBalance = '1'; }, x => { x.assets = '0600500'; },
   ]) { const input = trace(); mutate(input); assert.throws(() => assertMorphoVaultRedemptionAccountingV1(input)); }
+});
+
+test('original EXIT native gas is separate from released token amounts, including a reverted original receipt',()=>{
+  const trace={transactionHash:'11'.repeat(32),blockHash:'22'.repeat(32),blockNumber:'7',payer:'33'.repeat(20),
+    receiptStatus:'APPLIED',gasUsed:'21000',gasPriceWei:'1000000000',gasLimit:'30000000',nativeValue:'0'};
+  const observed=inspectOriginalEvmExitNativeGasV1(trace);
+  assert.equal(observed.nativeGasCostWei,'21000000000000');assert.equal(observed.unit,'NATIVE_WEI');assert.equal(observed.balanceGranted,false);
+  assert.equal(inspectOriginalEvmExitNativeGasV1({...trace,receiptStatus:'REVERTED'}).nativeGasCostWei,observed.nativeGasCostWei);
+  for(const changes of [{gasUsed:'30000001'},{gasUsed:'0'},{gasPriceWei:'00'},{nativeValue:'1'},{payer:'0'.repeat(40)},
+    {blockNumber:'0'},{receiptStatus:'UNKNOWN'},{gasPriceWei:String(1n<<255n)}])assert.throws(()=>inspectOriginalEvmExitNativeGasV1({...trace,...changes}));
+  assert.ok(Object.isFrozen(observed));
 });

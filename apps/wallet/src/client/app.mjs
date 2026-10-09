@@ -437,6 +437,12 @@ function renderExtensions(state, view) {
       node('p', 'small', `Deadline original: ${operation.deadline ?? 'no disponible'} · timestamp de la cadena`),
       node('p', 'small', `Subyacente redimido retenido: ${operation.redeemedUnderlying ?? 'no disponible'} unidades atómicas · dirección externa del titular`),
       node('p', 'footnote', `Observación: ${operation.observation}. Redención pública; underlyingPrivateSpendable: false. ${operation.sendBlocked ? 'Envío bloqueado.' : 'El servidor vuelve a validar antes de enviar.'}`));
+    if(operation.nativeCosts) {
+      const cost=operation.nativeCosts;
+      row.append(node('p','small',`Gas nativo observado: ${cost.totalObservedNativeGasWei??'desconocido'} wei · ${cost.complete?'retirada y redención completas':'cargos pendientes o desconocidos'}`));
+      for(const charge of cost.charges)row.append(node('p','small',`${({W39:'Retirada privada',APPROVAL:'Aprobación de participaciones',REDEMPTION:'Redención de participaciones'})[charge.kind]}: ${charge.nativeGasCostWei??'desconocido'} wei · ${charge.status==='OBSERVED'?'recibo original':'sin coste acreditado'}`));
+      row.append(node('p','footnote','Costes históricos pagados por el emisor de cada transacción. Se mantienen separados del subyacente redimido y del saldo nativo actual.'));
+    }
     const actions = node('div', 'form-actions');
     for (const [action, label] of [['defiReconcile', 'Conciliar original'], ['defiExecute', 'Revisar ejecución'], ['defiRequote', 'Revisar cotización']]) {
       const button = node('button', 'button small', label); button.type = 'button';

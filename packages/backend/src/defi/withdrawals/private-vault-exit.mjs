@@ -16,7 +16,7 @@ import { assertOwnedFlatAccountAuthority } from '../../accounts/authority/flat-a
 import { prepareVaultAction } from '../vaults/backed-vault.mjs';
 import { assertOwnedBackedVault, assertOwnedBackedVaultReceipt, ownedBackedVaultBinding } from '../vaults/owned-backed-vault.mjs';
 import { isOwnedOfficialStaticVaultV1, assertOwnedMetaMorphoVault, ownedMetaMorphoVaultBinding,
-  assertOwnedMetaMorphoReceipt } from '../vaults/owned-metamorpho-vault.mjs';
+  assertOwnedMetaMorphoReceipt, readOriginalOfficialVaultNativeCostsV1 } from '../vaults/owned-metamorpho-vault.mjs';
 
 // Both branches require original private bootstrap capabilities. Official
 // MetaMorpho uses its own preview/liquidity checks, never the test vault formula.
@@ -27,6 +27,7 @@ const vaultBinding = (runtime, vault) => isOwnedOfficialStaticVaultV1(vault)
 const assertReceipt = (vault, receipt) => isOwnedOfficialStaticVaultV1(vault)
   ? assertOwnedMetaMorphoReceipt(vault, receipt) : assertOwnedBackedVaultReceipt(vault, receipt);
 
+import { inspectOriginalEvmExitNativeGasV1 } from '../vaults/morpho-vault-redemption-accounting-v1.mjs';
 import {createRetainedPrivateVaultExitJournalV1,openRetainedPrivateVaultExitJournalV1} from '../vaults/retained-external-vault-journal-v1.mjs';
 const recoveries=new WeakMap();
 export const PRIVATE_VAULT_EXIT_PROFILE = 'OWNED_PRIVATE_VAULT_EXIT_V1';
@@ -173,10 +174,21 @@ async function privateVaultExit(input,retained) {
     assert.equal(statement.recipient, '0x' + binding.sender, 'PRIVATE_VAULT_EXIT_RECIPIENT');
     uint(statement.amount);
     await runtime.checkReceipt(receipt);
+    let nativeGas;
+    try {
+      assert.equal(BigInt(receipt.effectiveGasPrice),BigInt(transaction.gasPrice));
+      nativeGas=inspectOriginalEvmExitNativeGasV1({transactionHash:terminal.transactionHash,blockHash:terminal.blockHash,
+        blockNumber:terminal.blockNumber,payer:system.sender.slice(2),receiptStatus:'APPLIED',gasUsed:BigInt(receipt.gasUsed).toString(),
+        gasPriceWei:BigInt(transaction.gasPrice).toString(),gasLimit:BigInt(transaction.gas).toString(),nativeValue:BigInt(transaction.value).toString()});
+    } catch { nativeGas={profile:'ORIGINAL_EVM_EXIT_NATIVE_GAS_V1',status:'UNKNOWN',payer:system.sender.slice(2),nativeGasCostWei:null}; }
     return detached({ requestId: id, ownerOperationRef: entry.ownerOperationRef, assetId: asset.assetId,
       transactionHash: terminal.transactionHash, calldataSHA256: terminal.calldataSHA256, blockHash: terminal.blockHash,
       blockNumber: terminal.blockNumber, nullifier: statement.nullifier.slice(2), shares: statement.amount,
-      recipient: binding.sender });
+      recipient: binding.sender, nativeGas });
+  }
+  function sameExit(actual,original) {
+    const {nativeGas:_a,...a}=actual,{nativeGas:_b,...b}=original;
+    assert.deepEqual(a,b,'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
   }
   async function validateNewQuote(exit, intent) {
     const observed = await vault.observe();
@@ -191,6 +203,13 @@ async function privateVaultExit(input,retained) {
       owner: binding.sender, receiver: binding.sender, amount: exit.shares, minimumOutput: intent.minimumOutput,
       deadline: intent.deadline, nonce: intent.reference, quote: observed.snapshot });
   }
+  function publicNativeCosts(value) {
+    return {profile:value.profile,complete:value.complete,
+      charges:value.charges.map(({kind,status,nativeGasCostWei,receiptStatus})=>({kind,status,nativeGasCostWei,receiptStatus})),
+      totalObservedNativeGasWei:value.totalObservedNativeGasWei,costUnit:value.costUnit,payer:value.payer,
+      historicalOnly:value.historicalOnly,currentNativeBalance:value.currentNativeBalance,
+      gasDeductedFromRedeemedUnderlying:value.gasDeductedFromRedeemedUnderlying,netWealthLossEstablished:value.netWealthLossEstablished};
+  }
   function view(row, freshObservation = false) {
     return detached({ version: 1, profile: PRIVATE_VAULT_EXIT_PROFILE, requestId: row.exit.requestId,
       shareAssetId: asset.assetId, underlyingToken: binding.identity.asset, phase: row.phase,
@@ -199,7 +218,8 @@ async function privateVaultExit(input,retained) {
       observation: freshObservation ? 'ORIGINAL_RECONCILIATION' : 'PERSISTED_LAST_OBSERVATION',
       underlyingLocation: 'EXTERNAL_OWNER_ADDRESS', underlyingPrivateSpendable: false,
       redemptionPublic: true, sendBlocked: row.sendBlocked,
-      assurance: 'TRUSTED_OWNED_LOCAL_RPC_AND_ORIGINAL_ACCOUNT_EXIT', keeperRestart: false });
+      assurance: 'TRUSTED_OWNED_LOCAL_RPC_AND_ORIGINAL_ACCOUNT_EXIT', keeperRestart: false,
+      ...(row.nativeCosts?{nativeCosts:publicNativeCosts(row.nativeCosts)}:{}) });
   }
   function checkAction(row, result) {
     assert.equal(result.reference, row.intent.reference, 'PRIVATE_VAULT_EXIT_REDEMPTION_REBOUND');
@@ -208,7 +228,7 @@ async function privateVaultExit(input,retained) {
       assert.equal(result.action[key], row.intent[key], 'PRIVATE_VAULT_EXIT_REDEMPTION_REBOUND');
     for (const key of ['sender', 'owner', 'receiver']) assert.equal(result.action[key], binding.sender, 'PRIVATE_VAULT_EXIT_RECIPIENT');
   }
-  async function accept(id, result) {
+  async function accept(id, result, sourceGas = null) {
     const row = find(id); checkAction(row, result);
     const phase = ({ PREPARED: 'READY_TO_REDEEM', OBSERVED: 'REDEEMED', REVERTED: 'REVERTED',
       EXECUTION_UNRESOLVED: 'REDEMPTION_UNRESOLVED' })[result.phase];
@@ -220,12 +240,40 @@ async function privateVaultExit(input,retained) {
       redeemedUnderlying = result.execution.confirmation.assets;
       assert.ok(uint(redeemedUnderlying) >= BigInt(row.intent.minimumOutput), 'PRIVATE_VAULT_EXIT_MINIMUM');
     }
-    await update(id, { phase, redeemedUnderlying, sendBlocked: result.sendBlocked });
+    const transactions=new Set();
+    // Provenance stays private. A missing or contradictory cost observation
+    // becomes UNKNOWN without changing the original financial inclusion.
+    const charge=(kind,value)=>{
+      try {
+        assert.equal(value?.status,'OBSERVED');
+        for(const key of ['transactionHash','blockHash'])assert.ok(typeof value[key]==='string'&&/^[0-9a-f]{64}$/.exec(value[key])?.[0]===value[key]&&value[key]!=='0'.repeat(64));
+        assert.ok(typeof value.payer==='string'&&/^[0-9a-f]{40}$/.exec(value.payer)?.[0]===value.payer&&value.payer!=='0'.repeat(40));
+        uint(value.nativeGasCostWei,256);uint(value.blockNumber,256);
+        assert.ok(['APPLIED','REVERTED'].includes(value.receiptStatus)&&!transactions.has(value.transactionHash));
+        transactions.add(value.transactionHash);
+        return {kind,status:'OBSERVED',payer:value.payer,nativeGasCostWei:value.nativeGasCostWei,
+          transactionHash:value.transactionHash,blockHash:value.blockHash,blockNumber:value.blockNumber,receiptStatus:value.receiptStatus};
+      } catch {return {kind,status:'UNKNOWN',payer:null,nativeGasCostWei:null,transactionHash:null,blockHash:null,blockNumber:null,receiptStatus:null};}
+    };
+    const charges=[charge('W39',sourceGas??row.exit.nativeGas)];
+    let complete=false;
+    if(isOwnedOfficialStaticVaultV1(vault)) {
+      const costs=readOriginalOfficialVaultNativeCostsV1(vault,result);
+      if(costs.approvalRequired)charges.push(charge('APPROVAL',costs.approval));
+      charges.push(charge('REDEMPTION',costs.redemption));
+      complete=phase==='REDEEMED'&&charges.every(value=>value.status==='OBSERVED');
+    }
+    const known=charges.filter(value=>value.status==='OBSERVED');
+    const nativeCosts={profile:'ORIGINAL_PRIVATE_VAULT_EXIT_NATIVE_COSTS_V1',complete,charges,
+      totalObservedNativeGasWei:known.length?known.reduce((sum,value)=>sum+BigInt(value.nativeGasCostWei),0n).toString():null,
+      costUnit:'NATIVE_WEI',payer:'ORIGINAL_TRANSACTION_SENDER',historicalOnly:true,currentNativeBalance:null,
+      gasDeductedFromRedeemedUnderlying:false,netWealthLossEstablished:false};
+    await update(id, { phase, redeemedUnderlying, sendBlocked: result.sendBlocked, nativeCosts });
     return view(find(id), true);
   }
   async function reconcile(id) {
-    const row = find(id); assert.deepEqual(await originalExit(id), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
-    const result=await accept(id, await vault.reconcile(row.intent.reference));if(['READY_TO_REDEEM','REDEEMED','REVERTED'].includes(result.phase)&&!result.sendBlocked)requiresReconciliation.delete(id);return result;
+    const row = find(id), source=await originalExit(id); sameExit(source,row.exit);
+    const result=await accept(id, await vault.reconcile(row.intent.reference), source.nativeGas);if(['READY_TO_REDEEM','REDEEMED','REVERTED'].includes(result.phase)&&!result.sendBlocked)requiresReconciliation.delete(id);return result;
   }
   const service = Object.freeze({
     async prepare(input) {
@@ -236,7 +284,7 @@ async function privateVaultExit(input,retained) {
         const exit = await originalExit(intent.requestId);
         let row = record.data.operations.find(row => row.exit.requestId === intent.requestId);
         if (row) {
-          assert.deepEqual(row.exit, exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
+          sameExit(row.exit,exit);
           for (const key of ['minimumOutput', 'deadline']) assert.equal(row.intent[key], intent[key], 'PRIVATE_VAULT_EXIT_INTENT_REBOUND');
           if (row.phase !== 'BINDING_REDEMPTION') return view(row);
         } else {
@@ -265,7 +313,7 @@ async function privateVaultExit(input,retained) {
       const intent = copy(input); requestId(intent.requestId); uint(intent.minimumOutput); uint(intent.deadline, 64);
       return exclusive(async () => {
         assert.ok(!requiresReconciliation.has(intent.requestId),'EXTERNAL_EXIT_RECONCILE_REQUIRED');let row = find(intent.requestId);
-        assert.deepEqual(await originalExit(intent.requestId), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
+        sameExit(await originalExit(intent.requestId),row.exit);
         assert.ok(['READY_TO_REDEEM', 'REQUOTING_REDEMPTION'].includes(row.phase), 'PRIVATE_VAULT_EXIT_REQUOTE_UNSUBMITTED_ONLY');
         if (row.phase === 'REQUOTING_REDEMPTION') {
           for (const key of ['minimumOutput', 'deadline'])
@@ -289,7 +337,7 @@ async function privateVaultExit(input,retained) {
     async execute(id) {
       assert.equal(arguments.length, 1); requestId(id);
       return exclusive(async () => {
-        assert.ok(!requiresReconciliation.has(id),'EXTERNAL_EXIT_RECONCILE_REQUIRED');const row = find(id); assert.deepEqual(await originalExit(id), row.exit, 'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');
+        assert.ok(!requiresReconciliation.has(id),'EXTERNAL_EXIT_RECONCILE_REQUIRED');const row = find(id); sameExit(await originalExit(id),row.exit);
         if (['REDEEMED', 'REVERTED'].includes(row.phase)) return reconcile(id);
         assert.equal(row.phase, 'READY_TO_REDEEM', 'PRIVATE_VAULT_EXIT_RECONCILE_REQUIRED');
         assert.equal(row.sendBlocked, false, 'PRIVATE_VAULT_EXIT_SEND_BLOCKED');
@@ -333,5 +381,5 @@ async function privateVaultExit(input,retained) {
   });
   bindings.set(service, Object.freeze({ runtime, system, poolIndex, account, vault,
     shareAssetId: asset.assetId, binding: detached(binding) }));
-  owned.set(service, runtime);if(retained)recoveries.set(service,{context(){assert.ok(!closed&&!capturing);return Object.freeze({runtime,system,poolIndex,account,vault,identity});},async capture(){assert.ok(!busy&&!closed&&!capturing&&!poisoned&&!pending,'EXTERNAL_EXIT_CAPTURE_IDLE');capturing=true;busy=true;try{await healthy();for(const row of record.data.operations)assert.deepEqual(await originalExit(row.exit.requestId),row.exit,'PRIVATE_VAULT_EXIT_SOURCE_CHANGED');const saved={schema:'EXTERNAL_ORIGINAL_PRIVATE_VAULT_EXIT_V1',directory,identity:copy(identity),record:copy(record),lifetime:await lifetime.capture(record)};closed=true;password=null;return saved;}catch(error){poisoned=true;closed=true;password=null;throw error;}finally{busy=false;}}});return service;
+  owned.set(service, runtime);if(retained)recoveries.set(service,{context(){assert.ok(!closed&&!capturing);return Object.freeze({runtime,system,poolIndex,account,vault,identity});},async capture(){assert.ok(!busy&&!closed&&!capturing&&!poisoned&&!pending,'EXTERNAL_EXIT_CAPTURE_IDLE');capturing=true;busy=true;try{await healthy();for(const row of record.data.operations)sameExit(await originalExit(row.exit.requestId),row.exit);const saved={schema:'EXTERNAL_ORIGINAL_PRIVATE_VAULT_EXIT_V1',directory,identity:copy(identity),record:copy(record),lifetime:await lifetime.capture(record)};closed=true;password=null;return saved;}catch(error){poisoned=true;closed=true;password=null;throw error;}finally{busy=false;}}});return service;
 }

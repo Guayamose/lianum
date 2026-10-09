@@ -18,11 +18,11 @@ import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOfficialAaveFixtureV1, officialAaveFixtureCompilationV1 } from '../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import { expectedAaveRuntimeCodeV1 } from '../../operations/deployments/defi/aave-v3-runtime-code-v1.mjs';
 import { assertAaveStaticRedemptionAccountingV1 } from './aave-static-redemption-accounting-v1.mjs';
-import { assertMorphoVaultRedemptionAccountingV1 } from './morpho-vault-redemption-accounting-v1.mjs';
+import { assertMorphoVaultRedemptionAccountingV1, inspectOriginalEvmExitNativeGasV1 } from './morpho-vault-redemption-accounting-v1.mjs';
 
 const recoveries = new WeakMap();
 import {createRetainedOfficialVaultJournalV1,openRetainedOfficialVaultJournalV1} from './retained-external-vault-journal-v1.mjs';
-const variants = new WeakMap(), owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap();
+const variants = new WeakMap(), owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap(), nativeCosts = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const clone = value => JSON.parse(canonical(value));
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
@@ -42,6 +42,10 @@ export function assertOwnedMetaMorphoVault(runtime, value) {
 }
 export function ownedMetaMorphoVaultBinding(runtime, value) { assertOwnedMetaMorphoVault(runtime, value); return bindings.get(value); }
 export function assertOwnedMetaMorphoReceipt(value, receipt) { assert.equal(receipts.get(receipt), value, 'METAMORPHO_ORIGINAL_RECEIPT'); }
+export function readOriginalOfficialVaultNativeCostsV1(value, result) {
+  assert.equal(arguments.length,2);assert.ok(owned.has(value)&&nativeCosts.get(result)?.adapter===value,'ORIGINAL_VAULT_NATIVE_COSTS');
+  return detached(nativeCosts.get(result).costs);
+}
 
 function compileExit() {
   const source = readFileSync(join(ROOT, 'contracts/defi/BoundedMetaMorphoExit.sol'), 'utf8');
@@ -185,6 +189,8 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
     const row = find(ref), result = detached({ reference: ref, action: row.action, phase: row.phase, execution: row.execution,
       sendBlocked: record.data.sendBlocked, privateSpendable: false, assurance: aave?'ORIGINAL_LOCAL_AAVE_STATIC_PUBLIC_REDEMPTION':'ORIGINAL_LOCAL_METAMORPHO_PUBLIC_REDEMPTION',
       processRestartSupported: false });
+    nativeCosts.set(result,{adapter,costs:{approvalRequired:row.approval!==null,
+      approval:row.approval?.nativeGas??null,redemption:row.execution?.nativeGas??null}});
     if (freshObservation && row.phase === 'OBSERVED') receipts.set(result, adapter); return result;
   }
   async function reconcileSend(ref, kind) {
@@ -233,8 +239,17 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
         confirmation = { shares: shares.toString(), assets: assets.toString(), transactionHash: bare(hash), ...(aave?{aaveRedemption:protocolRedemption}:{morphoRedemption:protocolRedemption}), privateSpendable: false }; phase = 'OBSERVED';
       }
     }
-    await update(ref, { [kind]: { ...submission, transactionHash: bare(hash), receipt: clone(receipt), confirmation },
-      phase, ...(kind === 'execution' ? { execution: { ...submission, transactionHash: bare(hash), receipt: clone(receipt), confirmation } } : {}) });
+    let nativeGas;
+    try {
+      assert.equal(quantity(transaction.gas),quantity(submission.request.gas));
+      assert.equal(quantity(receipt.effectiveGasPrice),quantity(transaction.gasPrice));
+      nativeGas=inspectOriginalEvmExitNativeGasV1({transactionHash:bare(hash),blockHash:bare(header.hash),
+        blockNumber:quantity(header.number).toString(),payer:bare(sender),receiptStatus:receipt.status==='0x1'?'APPLIED':'REVERTED',
+        gasUsed:quantity(receipt.gasUsed).toString(),gasPriceWei:quantity(transaction.gasPrice).toString(),
+        gasLimit:quantity(transaction.gas).toString(),nativeValue:quantity(transaction.value).toString()});
+    } catch { nativeGas={profile:'ORIGINAL_EVM_EXIT_NATIVE_GAS_V1',status:'UNKNOWN',payer:bare(sender),nativeGasCostWei:null}; }
+    await update(ref, { [kind]: { ...submission, transactionHash: bare(hash), receipt: clone(receipt), confirmation, nativeGas },
+      phase, ...(kind === 'execution' ? { execution: { ...submission, transactionHash: bare(hash), receipt: clone(receipt), confirmation, nativeGas } } : {}) });
     return kind === 'execution' && phase === 'OBSERVED';
   }
   async function submit(ref, kind, request, before) {

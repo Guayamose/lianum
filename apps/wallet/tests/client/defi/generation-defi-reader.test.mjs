@@ -321,3 +321,27 @@ test('positions and journals bind the original generation/share tuple rather tha
   const view = projectWalletState(validateWalletState(data)); assert.equal(view.positions.length, 2);
   assert.equal(view.positions[1].status, 'LIVE'); assert.equal(view.positions[1].shareAssetId, hex(3));
 });
+
+test('original EXIT gas charges survive stale display as historical native wei without altering any private asset',()=>{
+  const data=fixture(),row={...operation(),phase:'REDEEMED',redeemedUnderlying:'100'};
+  const charges=['W39','APPROVAL','REDEMPTION'].map(kind=>({kind,status:'OBSERVED',nativeGasCostWei:'21000000000000',receiptStatus:'APPLIED'}));
+  row.nativeCosts={profile:'ORIGINAL_PRIVATE_VAULT_EXIT_NATIVE_COSTS_V1',complete:true,charges,totalObservedNativeGasWei:'63000000000000',
+    costUnit:'NATIVE_WEI',payer:'ORIGINAL_TRANSACTION_SENDER',historicalOnly:true,currentNativeBalance:null,
+    gasDeductedFromRedeemedUnderlying:false,netWealthLossEstablished:false};
+  data.defi.snapshot.operations=[row];firstJournal(data).requestIds=[row.requestId];const original=copy(data.portfolio);
+  const view=projectWalletState(validateWalletState(data),{defiStale:true});
+  assert.equal(view.defiOperations[0].phase,'STALE');assert.equal(view.defiOperations[0].nativeCosts.totalObservedNativeGasWei,'63000000000000');
+  assert.equal(view.defiOperations[0].redeemedUnderlying,'100');assert.deepEqual(data.portfolio,original);
+  for(const mutate of [x=>x.nativeCosts.currentNativeBalance='1',x=>x.nativeCosts.gasDeductedFromRedeemedUnderlying=true,
+    x=>x.nativeCosts.netWealthLossEstablished=true,x=>x.nativeCosts.totalObservedNativeGasWei='1',
+    x=>x.nativeCosts.charges[1].kind=x.nativeCosts.charges[0].kind]) {
+    const bad=copy(data);mutate(bad.defi.snapshot.operations[0]);assert.throws(()=>validateWalletState(bad));
+  }
+  for(const key of ['payer','transactionHash','blockHash','blockNumber']) {
+    const leaked=copy(data);leaked.defi.snapshot.operations[0].nativeCosts.charges[0][key]=key==='payer'?address(99):hex(700);
+    assert.throws(()=>validateWalletState(leaked));
+  }
+  const partial=copy(data),cost=partial.defi.snapshot.operations[0].nativeCosts;cost.complete=false;
+  Object.assign(cost.charges[2],{status:'UNKNOWN',nativeGasCostWei:null,receiptStatus:null});
+  cost.totalObservedNativeGasWei='42000000000000';assert.equal(projectWalletState(validateWalletState(partial)).defiOperations[0].nativeCosts.charges[2].nativeGasCostWei,null);
+});

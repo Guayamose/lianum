@@ -11,7 +11,7 @@ import { Vault as RealVault } from '../../../../engine/src/crypto/vault.mjs';
 import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
 const worlds = new WeakMap(), receipts = new WeakMap();
-const metamorphoWorlds = new WeakMap();
+const metamorphoWorlds = new WeakMap(),nativeOutputs=new WeakMap();
 const retainedParts=new Map(),exitReopenTokens=new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
@@ -43,6 +43,7 @@ mock.module('./owned-metamorpho-vault.mjs', { exports: {
   assertOwnedMetaMorphoVault(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime, 'MOCK_ORIGINAL_METAMORPHO'); },
   ownedMetaMorphoVaultBinding(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime); return clone(metamorphoWorlds.get(vault).binding); },
   assertOwnedMetaMorphoReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_METAMORPHO_RECEIPT'); },
+  readOriginalOfficialVaultNativeCostsV1(vault,result){const value=nativeOutputs.get(result);assert.ok(metamorphoWorlds.has(vault)&&value?.vault===vault,'HOST_ORIGINAL_NATIVE_COSTS');return structuredClone(value.costs);},
 } });
 mock.module('../native-claims/wrapped-private-lifetime-registry-v1.mjs',{exports:{
  async retainWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity,privateState){assert.equal(family,'wallet-vault-exit');const handle={};retainedParts.set(handle,{runtime,identity:clone(identity),privateState:clone(privateState)});return handle;},
@@ -77,9 +78,9 @@ async function fixture(options = {}) {
     submission: { dispatchLatched: true, transactionHash, calldataSHA256 },
     terminal: { transactionHash, blockHash, blockNumber: '11', calldataSHA256 }, outcome };
   world.transaction = { hash: '0x' + transactionHash, to: '0x' + asset.pool, from: '0x' + address('system'),
-    blockHash: '0x' + blockHash, blockNumber: '0xb', input };
+    blockHash: '0x' + blockHash, blockNumber: '0xb', input,gas:'0x1c9c380',gasPrice:'0x3b9aca00',value:'0x0' };
   world.receipt = { transactionHash: '0x' + transactionHash, to: '0x' + asset.pool, status: '0x1',
-    blockHash: '0x' + blockHash, blockNumber: '0xb' };
+    blockHash: '0x' + blockHash, blockNumber: '0xb',gasUsed:'0x5208',effectiveGasPrice:'0x3b9aca00' };
   world.runtime = { metadata: { scratchDirectory }, async transaction(hash) { assert.equal(hash, world.transaction.hash); return clone(world.transaction); },
     async receipt() { return world.receipt && clone(world.receipt); }, async checkReceipt() { world.receiptChecks = (world.receiptChecks ?? 0) + 1; } };
   world.system = { sender: '0x' + address('system'), pools: [null, { address: '0x' + asset.pool,
@@ -97,6 +98,11 @@ async function fixture(options = {}) {
     const result = { reference: row.reference, action: clone(row.action), phase: row.phase,
       execution: row.phase === 'OBSERVED' ? { confirmation: { shares: row.action.amount, assets: '100' } } : null,
       sendBlocked: world.blockSend };
+    const charge=kind=>({profile:'ORIGINAL_EVM_EXIT_NATIVE_GAS_V1',status:'OBSERVED',transactionHash:h('gas-'+kind),
+      blockHash:h('gas-block-'+kind),blockNumber:kind==='approval'?'12':'13',payer:world.binding.sender,receiptStatus:'APPLIED',
+      gasUsed:'21000',gasPriceWei:'1000000000',nativeGasCostWei:'21000000000000',unit:'NATIVE_WEI',balanceGranted:false});
+    nativeOutputs.set(result,{vault:world.vault,costs:{approvalRequired:true,approval:row.phase==='OBSERVED'?charge('approval'):null,
+      redemption:row.phase==='OBSERVED'?charge('redemption'):null}});
     if (fresh && row.phase === 'OBSERVED' && !world.fakeReceipt) receipts.set(result, world.vault);
     return result;
   }
@@ -158,6 +164,8 @@ test('original share EXIT becomes one manual public redemption with exact units 
   assert.equal(result.phase, 'REDEEMED'); assert.equal(result.redeemedUnderlying, '100'); assert.equal(w.sends, 1);
   assert.equal(result.observation, 'ORIGINAL_RECONCILIATION'); assert.equal(result.redemptionPublic, true);
   assert.ok(!JSON.stringify(result).includes(w.entry.ownerOperationRef)); assert.ok(!JSON.stringify(result).includes(w.entry.terminal.transactionHash));
+  for(const charge of result.nativeCosts.charges)assert.deepEqual(Object.keys(charge).sort(),['kind','nativeGasCostWei','receiptStatus','status']);
+  for(const hidden of [address('system'),w.entry.terminal.blockHash,w.entry.terminal.calldataSHA256])assert.ok(!JSON.stringify(result).includes(hidden));
   assert.ok(Object.isFrozen(result)); assert.equal((await w.service.snapshot()).operations[0].observation, 'PERSISTED_LAST_OBSERVATION');
   const audit = await w.service.originalReceipt(requestId); assert.equal(receipts.get(audit), w.vault);
 });
@@ -363,6 +371,17 @@ test('official MetaMorpho branch joins the same original private EXIT, uses offi
   assert.equal(completed.underlyingPrivateSpendable, false);
   await w.service.execute(requestId); assert.equal(w.sends, 1);
   assert.equal(receipts.get(await w.service.originalReceipt(requestId)), w.vault);
+  const costs=(await w.service.snapshot()).operations[0].nativeCosts;
+  assert.deepEqual(costs.charges.map(value=>value.kind),['W39','APPROVAL','REDEMPTION']);
+  assert.equal(costs.totalObservedNativeGasWei,'63000000000000');assert.equal(costs.complete,true);
+  assert.equal(costs.currentNativeBalance,null);assert.equal(costs.gasDeductedFromRedeemedUnderlying,false);
+  delete w.receipt.gasUsed;
+  const unknown=await w.service.reconcile(requestId);assert.equal(unknown.phase,'REDEEMED');assert.equal(w.sends,1);
+  assert.equal(unknown.nativeCosts.complete,false);assert.equal(unknown.nativeCosts.charges[0].status,'UNKNOWN');
+  assert.equal(unknown.nativeCosts.totalObservedNativeGasWei,'42000000000000');
+  w.receipt.gasUsed='0x5208';const known=await w.service.reconcile(requestId);
+  assert.equal(known.nativeCosts.complete,true);assert.equal(known.nativeCosts.totalObservedNativeGasWei,'63000000000000');assert.equal(w.sends,1);
+
 });
 
 test('MetaMorpho join refuses stale backing, invalid manual quote and copied receipt without binding or completion', async () => {
@@ -383,11 +402,17 @@ function reopenHostExit(w,saved){
 }
 test('HOST retained official EXIT reopens a new object after lost reply and reconciles the same operation without another send',async()=>{
  const w=await fixture({metamorpho:true,retained:true});await w.service.prepare(w.prepare);w.loseSendReply=true;await assert.rejects(w.service.execute(requestId),/LOST_SEND_REPLY/);assert.equal(w.sends,1);
+ delete w.receipt.gasUsed;
  const saved=await captureRetainedOwnedPrivateVaultExitV1(w.service),token=reopenHostExit(w,saved);await assert.rejects(w.service.execute(requestId),/CLOSED/);
+ const privateCharge=saved.record.data.operations[0].nativeCosts.charges[0];assert.equal(privateCharge.transactionHash,w.entry.terminal.transactionHash);assert.equal(privateCharge.payer,address('system'));
  await assert.rejects(reopenRetainedOwnedPrivateVaultExitV1({...token}),/ORIGINAL_EXIT_TOKEN/);const opened=await reopenRetainedOwnedPrivateVaultExitV1(token);assert.notEqual(opened,w.service);
  await assert.rejects(reopenRetainedOwnedPrivateVaultExitV1(token),/ORIGINAL_EXIT_TOKEN/);await assert.rejects(opened.execute(requestId),/RECONCILE_REQUIRED/);
  const reconciled=await opened.reconcile(requestId);assert.equal(reconciled.phase,'REDEEMED');assert.equal(reconciled.redeemedUnderlying,'100');await opened.execute(requestId);assert.equal(w.sends,1);assert.equal(w.preparations,1);
- assert.equal(reconciled.requestId,saved.record.data.operations[0].exit.requestId);assert.equal(reconciled.underlyingPrivateSpendable,false);await opened.close();
+ assert.equal(reconciled.requestId,saved.record.data.operations[0].exit.requestId);assert.equal(reconciled.underlyingPrivateSpendable,false);
+ assert.equal(reconciled.nativeCosts.charges[0].status,'UNKNOWN');assert.ok(!JSON.stringify(reconciled).includes(privateCharge.transactionHash));await opened.close();
+ const changed=await fixture({metamorpho:true,retained:true});await changed.service.prepare(changed.prepare);
+ changed.entry.ownerOperationRef=h('changed-owner-operation');changed.entry.request.ownerOperationRef=changed.entry.ownerOperationRef;
+ await assert.rejects(captureRetainedOwnedPrivateVaultExitV1(changed.service),/PRIVATE_VAULT_EXIT_SOURCE_CHANGED/);assert.equal(changed.sends,0);
 });
 test('HOST retained official EXIT refuses a newer journal revision and an unresolved observation without manufacturing permission',async()=>{
  const w=await fixture({metamorpho:true,retained:true});await w.service.prepare(w.prepare);const saved=await captureRetainedOwnedPrivateVaultExitV1(w.service);const original=await readFile(saved.lifetime.credentials.path);

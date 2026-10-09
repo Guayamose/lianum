@@ -6,7 +6,7 @@ import { WRAPPED_WITHDRAWAL_ACTIONS, isWrappedWithdrawalAction, validateWrappedW
 import { validNativeNoteReview } from '../features/claims/native-note-review.mjs';
 import { EXACT_BROWSER_ACTIONS, exactBrowserReview, exactBrowserAccess } from '../features/accounts/exact-action-browser-review.mjs';
 import { HANDOFF_PROFILE, handoffDescriptor, manualReviewRequest, sameHandoff, handoffData, validateManualHandoffMetadata } from '../features/accounts/manual-action-handoff.mjs';
-import { validateGenerationDefiRead, projectGenerationDefiRead } from '../features/defi/generation-defi-contract.mjs';
+import { validateGenerationDefiRead, projectGenerationDefiRead, projectOriginalVaultExitNativeCostsV1 } from '../features/defi/generation-defi-contract.mjs';
 import { GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SPL_USDC_UNITS_V1, validateFlatOwnerReadPayload, ownerPortfolioAssetRows, ownerPortfolioGenerations } from '../features/portfolio/owner-portfolio-contract.mjs';
 /** Browser-only presentation and fixed-route transport. No authority, keys or persistence. */
 export const WALLET_PROFILE = 'ACTIVE_FLAT_WALLET_APP_V1';
@@ -754,7 +754,8 @@ export function projectWalletState(value, { stale = false, reading = false, send
       redeemedUnderlying: row.underlyingPrivateSpendable === false && row.underlyingLocation === 'EXTERNAL_OWNER_ADDRESS'
         ? atomic(row.redeemedUnderlying) : null, observation: text(row.observation),
       underlyingLocation: 'EXTERNAL_OWNER_ADDRESS', underlyingPrivateSpendable: false, redemptionPublic: true,
-      sendBlocked: row.sendBlocked !== false, keeperRestart: false })) };
+      sendBlocked: row.sendBlocked !== false, keeperRestart: false,
+      nativeCosts: projectOriginalVaultExitNativeCostsV1(row.nativeCosts) })) };
 }
 export function buildActionBody(action, input) {
   if (!Object.hasOwn(ALL_ACTIONS, action) || !record(input)
