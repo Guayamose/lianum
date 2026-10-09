@@ -366,7 +366,7 @@ async function runOriginalNoteFlowV2(deviceDeposit, deviceReservation = false, d
     result.checks.genuineV5ArtifactsBeforeRuntime = true;
     await stage('two-original-runtime-bootstrap-and-native-note-account');
     if(deviceLiveArmed){liveClocks=await createOriginalNativeDeviceLiveArmedObservedClocksV1();runtime=liveClocks.runtime;nativeRuntime=liveClocks.nativeRuntime;}
-    else{runtime = deviceReorg?await createOwnedOriginalNativeFReorgReceiverV1():deviceEconomicRecovery?await createOwnedNativeEconomicReceiverV2():await createOwnedLocalEvmV2(); nativeRuntime = deviceReorg||deviceEconomicRecovery?await createOwnedNativeEconomicGraphRuntimeV2():await createOwnedLocalEvmNativeValueV1();}
+    else{runtime = deviceReorg?await createOwnedOriginalNativeFReorgReceiverV1():deviceEconomicRecovery?await createOwnedNativeEconomicReceiverV2():await createOwnedLocalEvmV2(); nativeRuntime = deviceEconomicRecovery?await createOwnedNativeEconomicGraphRuntimeV2():await createOwnedLocalEvmNativeValueV1();}
     await assertOwnedLocalEvmV2(runtime); await (deviceLiveArmed?assertOwnedLocalEvmNativeValueRuntime:assertOwnedLocalEvmNativeValueV1)(nativeRuntime);
     assert.notEqual(runtime, nativeRuntime); assert.notEqual(runtime.metadata.processId, nativeRuntime.metadata.processId);
     assert.equal(runtime.metadata.chainId, '31337'); assert.equal(nativeRuntime.metadata.chainId, '1');
