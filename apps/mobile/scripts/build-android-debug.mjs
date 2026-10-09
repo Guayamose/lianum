@@ -316,7 +316,11 @@ try {
       'packages/mobile-protocol/src/device-execution-consent-v1.mjs',
       'packages/mobile-protocol/src/device-exit-consent-v1.mjs',
       'packages/mobile-protocol/src/device-output-balance-v1.mjs'];
-    if(!verificationOnly)required.push('packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs');
+    if(!verificationOnly)required.push(
+      'packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs',
+      'apps/mobile/src/screens/DefiPositionsScreen.tsx',
+      'apps/mobile/src/api/device-defi-position-read-api-v1.mjs',
+      'packages/mobile-protocol/src/device-defi-position-read-v1.mjs');
     report.embeddedSourceJoins=required.map(path=>{
       const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length):path;
       const matches=sourceMap.sources.map((name,index)=>({name:name.replaceAll('\\','/'),index}))
