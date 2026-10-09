@@ -666,10 +666,12 @@ export function projectWalletState(value, { stale = false, reading = false, send
     if (validId(row.requestId)) nativeRows.set(row.requestId, { requestId: row.requestId, source: 'Claim nativo', native: true,
       action: text(row.action), state: stale || nativeStale ? 'STALE' : text(row.state),
       disposition: stale || nativeStale ? '' : text(row.result?.status, ''), errorCode: text(row.errorCode, '') });
-  requests.push(...nativeRows.values());
   if (economicState) requests.splice(0, requests.length, ...economicState.rows.flatMap(row => row.requests.map(q => ({
-    requestId: q.requestId, rowKey: originalEconomicRouteKeyV1(row.route), source: row.asset.symbol, native: row.component !== 'FLAT_NOTE',
+    requestId: q.requestId, rowKey: originalEconomicRouteKeyV1(row.route), source: row.asset.symbol, native: false,
     action: q.kind, state: row.state === 'UNKNOWN' ? 'UNKNOWN' : q.state, disposition: q.disposition ?? '', errorCode: row.reason ?? ''}))));
+  // Native-claim jobs belong to their original session, outside note/portfolio
+  // routes. Preserve their own deduplication and native reconcile destination.
+  requests.push(...nativeRows.values());
   const transferHistory = stale || reading || sending || transfersStale || Boolean(value?.errors.transfers || value?.errors.account || value?.errors.nativeClaims) || accountStale || nativeStale
     || value?.connection !== 'CONNECTED'
     || Boolean(value?.account && (accountSnapshotFresh === false || !validAccountSnapshot(value.account.snapshot)

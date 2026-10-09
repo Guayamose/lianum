@@ -916,3 +916,38 @@ test('SPL USDC wallet rejects mint/unit/relabel and partial schemas while retain
   assert.deepEqual(originalNativeIdentity(fixture().nativeClaims), nativeIdentity());
   assert.deepEqual(originalNativeIdentity({ identity: solIdentity() }), solIdentity());
 });
+
+// Explicit inert display frames: no custody, balance credit or economic method.
+test('HOST wallet activity keeps native claims beside original economic state', () => {
+  const sourceId = '1'.repeat(64), checkpointSHA256 = '2'.repeat(64), assetId = 'd'.repeat(64);
+  const original = fixture({portfolio: asset({requests: [{requestId,kind:'GRAPH',state:'CONFIRMED',disposition:'FULFILLED'}],
+    nativeClaims: [{kind:'CUSTODIAL_NATIVE_CLAIM',assetId,nativeSymbol:'BTC',availablePrivateClaims:'100',custodyObservation:'UNAVAILABLE'}]}),
+    nativeClaims: {identity:nativeIdentity(),snapshot:{phase:'READY',storageAvailable:true,busy:false,queued:0,
+      observation:'DURABLE_JOURNAL_ONLY',requests:[{requestId,action:'redeem',state:'UNKNOWN'}]},
+      owner:{deposits:[],tickets:[],requests:[{requestId,action:'redeem',state:'UNKNOWN',errorCode:'NATIVE_CLAIM_OUTCOME_UNRESOLVED'}]}},
+    economicState:{version:1,profile:'ORIGINAL_PRIVATE_WALLET_ECONOMIC_STATE_V1',lifetime:'3'.repeat(64),status:'LIVE',
+      revision:1,storageAvailable:true,observedAt:Date.now(),rows:[{
+        route:{sourceId,generationId:null,assetId,chainId:'31337',genesis:'4'.repeat(64),pool:'5'.repeat(40),
+          scope:'6'.repeat(64),policy:'7'.repeat(64),assetIdentity:'8'.repeat(64),domainCommitment:null},
+        asset:{kind:'ERC20',symbol:'CLBTC',decimals:8},component:'WRAPPED_CLAIM',state:'LIVE',reason:null,
+        head:{blockNumber:'42',blockHash:'e'.repeat(64),timestamp:'1000'},balances:{available:'10',reserved:'0',recovery:'0',locked:'0'},
+        backing:{held:'10',liabilities:'10',surplus:'0',deficit:'0'},requests:[{requestId,kind:'GRAPH',state:'CONFIRMED',disposition:'FULFILLED'}],
+        position:null,checkpointSHA256}],checkpoints:[{sourceId,stateSHA256:checkpointSHA256,journalRevision:1}],
+      capabilities:{readOnly:true,privateBalancesAggregated:false,underlyingCredit:false,deviceRootsIncluded:false,crossNetworkAtomicState:false}}});
+  const projected = projectWalletState(validateWalletState(original));
+  assert.equal(projected.requests.length,2); // native snapshot/owner same ID stays one; old portfolio copy is replaced.
+  const note = projected.requests.find(row=>row.source==='CLBTC'), claim = projected.requests.find(row=>row.source==='Claim nativo');
+  assert.equal(note.requestId,requestId);assert.equal(note.action,'GRAPH');assert.equal(note.disposition,'FULFILLED');
+  assert.equal(note.native,false);assert.equal(typeof note.rowKey,'string'); // No native-claim reconcile button on this route.
+  assert.equal(claim.requestId,requestId);assert.equal(claim.native,true);assert.equal(claim.state,'UNKNOWN');
+  assert.equal(claim.errorCode,'NATIVE_CLAIM_OUTCOME_UNRESOLVED');assert.equal(claim.disposition,'');
+  assert.equal(projected.nativeClaims.length,1);assert.equal(projected.nativeClaims[0].amount,'100');
+  assert.equal(projected.nativeClaims[0].nativeSelfCustody,false);assert.equal(projected.nativeClaims[0].underlyingSpendable,false);
+  assert.equal(projected.assets[0].balances.available,'10'); // The custodial reading is never added to a note balance.
+  original.nativeClaims.owner.requests[0]={requestId,action:'redeem',state:'SUCCEEDED',result:{status:'DISCHARGED'}};
+  const final = projectWalletState(validateWalletState(original));assert.equal(final.requests.length,2);
+  assert.equal(final.requests.find(row=>row.native).disposition,'DISCHARGED');
+  const stale = projectWalletState(validateWalletState(original),{nativeStale:true});
+  assert.equal(stale.requests.find(row=>row.native).state,'STALE');assert.equal(stale.requests.find(row=>row.native).disposition,'');
+  assert.equal(stale.requests.find(row=>!row.native).disposition,'FULFILLED');
+});
