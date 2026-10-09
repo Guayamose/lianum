@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "8cf3a134099aa81e65c04c4afb0e8083889e3842dd4ba0d5a7f870c0b59cc4fb",
+  "hostSourceClosureSHA256": "dc3845f651310a038592f5a9749cd7af7f5d320b1f3ec9101e9db0556fbdf6b8",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -714,7 +714,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "5aa70e2fb1ef17c0947a0c98779362055a8b1f45ce5113cd61215aebc5d9ae5e"
+      "sha256": "6b28502b06ef8564c9eca7bc1ed0e33d7937372172002b7986402689dca39190"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
@@ -2545,6 +2545,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "0d0af64e1d70f5678f7d1ee90b67604526fe9f2ecb0683d2a61f441f7724f098"
     },
     {
+      "path": "wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs",
+      "sha256": "13f502094b9e483f27a977b141086481a3d34ec6a3cd47abd6cbb357207cfc2a"
+    },
+    {
       "path": "wallet-platform/modules/mobile/paired-original-account-actor-v2.mjs",
       "sha256": "a552d443323ffbf540f2d9d55e21e7798a12810a18f93bbed44cea51b74f27b6"
     },
@@ -2753,6 +2757,10 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
       "sha256": "ea3006b9eb87ff7ab87f1d3db8f30f3d708ebf1d33e064a1de746d4cb538189b"
     },
     {
+      "path": "wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs",
+      "sha256": "83aeb3ed8911578679c0ab0947956b1d135c7166342b9cce535a7a90dd438f05"
+    },
+    {
       "path": "wallet-platform/modules/ops/aave-v3-development-compilation-v1.mjs",
       "sha256": "82659b1536100114d93cdf5f6b0a0627064356064ed252890555a1965c6bd5f5"
     },
@@ -2914,7 +2922,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs",
-      "sha256": "71e20c3a86c8ba48006a1e25ba57dac354311341a3af2c414141defd478d0100"
+      "sha256": "12ee47bcc5437da086e224de5e4efabc03752d6fbeaa5cd0afab8b324740d480"
     },
     {
       "path": "wallet-platform/modules/ops/native-value-dev-mobile-package-pins-v5.mjs",
