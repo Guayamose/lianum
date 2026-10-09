@@ -10,7 +10,9 @@ pendiente. Las entregas históricas permanecen en `archive/`.
 Los objetivos son los de [PROJECT-VISION.md](PROJECT-VISION.md). Las seis tareas
 pedidas para avanzar eran un orden de ejecución; no sustituyen estos puntos.
 Las cifras se recalcularon el 9 de octubre sobre el código de `22a0069` y sus
-resultados conservados. Cada objetivo tiene cinco requisitos de igual peso;
+resultados conservados. Este turno conserva los 35 criterios y su cálculo;
+revisa sólo la nota 2.4 de 0 a 25 por la protección parcial del observador SQL.
+Las otras 34 notas permanecen iguales. Cada objetivo tiene cinco requisitos de igual peso;
 la media de sus notas 0/25/50/75/100 produce la estimación de cobertura funcional.
 El [desglose por requisito](docs/PROGRESS-ASSESSMENT.md) explica la implementación,
 evidencia, límites y cálculo de cada cifra. El código conectado pendiente de
@@ -23,7 +25,7 @@ sistémica sigue sin acreditarse; las aceptaciones locales conservan su alcance.
 | Punto original | Estimación recalculada | Avance comprobado y pendiente principal |
 | --- | --- | --- |
 | 1. Wallet unificada para siete redes | 65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. APK85/36 actualizado y compilado sin Metro con el contrato de salidas bloqueadas; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
-| 2. Privacidad por defecto | 40% | El historial de cuentas exige READ autenticado del propietario y Origin exacto. La criptografía se conserva; faltan garantías sistémicas frente a correlación y colusión. |
+| 2. Privacidad por defecto | 45% | READ autenticado, copia RootNote cifrada y SQL con HMAC por propietario/request que cambia el seudónimo entre solicitudes; redacción legacy integrada sin renovar permisos. El criterio 2.4 sube a 25 sólo por protección parcial de nuevas copias SQL sin clave API. Cadena/RPC/red, tiempos, rutas, colusión con API, copias antiguas y authKey histórico siguen pendientes. |
 | 3. PAEG genérico | 70% | BTC/SOL, Uniswap, Aave y Meta desde reserva privada aceptados con el mismo núcleo y relaciones; continúan los cuatro slots y la privacidad de topología por cerrar. |
 | 4. Liquidación y recuperación económica | 70% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. El timeout del keeper se comprobó con reloj controlado y el cutoff original, sin esperar ocho horas. Quedan mayor cobertura DeFi, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |
 | 5. DeFi privado real | 70% | Uniswap desde reserva privada aceptado: PAEG, swap, T, EXIT y replay sin efecto duplicado. Aave y Meta15 privados también aceptados; Meta y Aave aceptan backend retenido en otro PID y dos READ cada uno; Uniswap F y MetaMorpho F1 aceptados en sus perfiles controlados; faltan más acciones Morpho, crédito privado Jupiter y mayor cobertura de posiciones. |
@@ -48,29 +50,84 @@ shares requieren sus productores originales antes de financiar. La nota fuente
 ERC20 del dispositivo ya tiene ese productor y un recorrido local aceptado;
 la autoridad de shares/posiciones DeFi propias sigue pendiente.
 
-## Cierres funcionales de recuperación y estado
+## Avance funcional de este turno
 
-Corte del 9 de octubre, plazo de 30 minutos: los puntos 4 y 6 **siguen sin
-cerrarse**. Se implementaron la copia cifrada de identidad y custodia, la
-confirmación de copia antes de U/D27, el saldo original disponible/SPENT, los
-checkpoints SOURCE y la reapertura ordenada de GRAPH para observación. Los tres
-HOST SOURCE y las comprobaciones móviles focales pasan. El APK contiene 85
-fuentes y 36 uniones comprobadas con el bundle, y funciona sin Metro.
+Los siete objetivos continúan activos. Estos cambios están implementados y
+comprobados en los ámbitos indicados; se conservan las notas por requisito.
 
-El recorrido SOURCE llegó por primera vez al nacimiento completo del backend,
-pero se rechazó antes de D26: el lector confundía `{ rootId, note }` con el
-identificador. El lector está corregido. También quedaron corregidos el tamaño
-del journal y la creación del actor antes de que terminase `prepare()`. No se
-aceptan todavía D26 → caída → U/S → ARM → caída ni GRAPH14 con restauración de
-custodia y reapertura del backend. Los originales de los intentos rechazados
-se conservan y sus procesos y locks están cerrados. El teléfono queda para el
-final y no se exige ninguna espera real de ocho horas.
+| Función entregada | Código y evidencia | Límite vigente |
+| --- | --- | --- |
+| Copia recuperable de RootNote sin mostrar la raíz | `d880d18`: contraseña, ciphertext, binding rootId y cancelación; 8/8 focales de custodia y saldos en 4,436 s, copia de identidad y tipos aprobados. | Los puertos HOST no acreditan hardware; la prueba física queda para el final. |
+| Estado común después de ejecución y W39 | `0dbdeed`: publica la lectura original del vault; conserva invalidación previa, UNKNOWN y revocación. Incluido en el APK actual. | No crea disponibilidad sin READ original ni acepta el GRAPH pendiente. |
+| Privacidad de intake SQL nuevo y legacy | HMAC por operación y clave estable separada; `afbd9c3` convierte un grupo legacy explícito y `3ed9157` rechaza una marca privada con datos visibles. Los dos casos PostgreSQL focales pasan en 7,25 s, incluido COMMIT perdido. | API, backups/WAL y otros grupos conservan sus exposiciones; no implica anonimato del sistema. |
+| Costes observados de salida DeFi | `b8ab225`: la wallet presenta gas histórico en NATIVE_WEI sin identificadores de operación; conserva importes y mínimos originales. | No convierte gas en shares ni acredita solvencia o pérdida neta completa. |
+| Recuperación del journal retenido | `3a0aaeb`: reabre el candidato original tras perder readback, conserva la misma operación y reconcilia sin otro envío; 6/6 HOST focales de EXIT/privacidad/reapertura en 9,95 s. | No sustituye la aceptación financiera SOURCE/GRAPH ni demuestra caída abrupta del producto completo. |
+| APK Android actual | SHA256 `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`, 42.841.007 bytes, 85 inputs iguales antes/después, 36 uniones con bundle y sin Metro. | Instalación, biometría y operación física pendientes al final. |
+| Transacción conservada tras respuesta perdida | `a7b5434`: guarda la identidad del envío original en el journal; 23/23 HOST pasan en 0,915 s. | No acredita por sí solo el reinicio financiero completo ni autoriza otro envío. |
+| Observación original de GRAPH fresca | `c2a9e06`: al conciliar T observa el original S; un HOST SDK/Vault pasa en 2,68 s. | GRAPH completo nuevo aún pendiente de cierre. |
+| Primer permiso SOURCE por TLS | `6951b88`: framing UTF-8 explícito; primer challenge del SDK original sobre HTTPS pasa en 2,73 s. SOURCE nuevo recorrió D26 y la primera caída17. | Falló la reapertura avanzada; no acredita las dos caídas ni el recorrido completo. |
+| Retirada admitida con respuesta original | `f8961f4`: espera el resultado del job admitido sin reutilizar el permiso; un HOST pasa en 2,765 s. GRAPH1159 recorrió la respuesta perdida de W39 y su conciliación. | Lease original de15 s y guards intactos; el recorrido completo sigue rechazado. |
+| Causa privada de apertura y cleanup | `b13eb68`: conserva tipos/códigos/frames anidados con límites y sin payloads; 8/8 HOST, 0,289 s. | La causa primaria del SOURCE rechazado anterior ya se descartó; no se reconstruye ni se acredita reapertura. |
+| Preparación BSC propia | `67424cf`: materiales, herramientas oficiales y 17 contratos preparados/compilados. | La comprobación RPC nativa terminó rechazada: sin finalidad, crédito privado ni wallet BSC aceptados. |
 
-Evidencia del APK: `.internal/dev/reports/mobile-android-standalone-local.json`
-(SHA256 `f37890a80b3558175553af199faee5f3e0d784b0e20b56930e9773c4bc8ae8a3`).
-HOST SOURCE: `.internal/dev/reports/original-source-large-aead-body-and-recovery-host-12876931-65d2-4752-8b75-433d03935822/host.log`.
-Último lector SOURCE rechazado: `attempt-c3f5e405-efb1-4335-b442-3f64650fae5e`.
+La privacidad HOST pasó 5/5 y Cloud 6/6 pruebas con proveedor simulado. Cloud
+continúa sólo local y la API V1 conserva readiness 503 sin puente económico.
+La suite SQL completa anterior dio 20/22: falló el caso previo de lock de
+migración y su prueba padre. El último corte ejecutó exclusivamente los dos
+casos legacy; no repitió esa suite ni amplió ningún timeout.
 
+GRAPH14 `edea8e13-4154-471e-8a1f-a7d062002478` terminó **rechazado al conciliar**
+tras 12/14 pruebas, con cleanup/lock confirmados. El
+backend tenía T cumplido, pero devolvía la cabeza antigua de S y el SDK rechazaba
+la respuesta por falta de frescura; no fue un rechazo esperado de replay.
+`c2a9e06` corrige esa observación conservando el guard del SDK. El siguiente GRAPH
+`f7acea63…` terminó **rechazado** con 14 pruebas: superó RECONCILE_GRAPH,
+la W39 de shares y la prueba W39 de cambio, pero falló después en la aserción
+de respuesta perdida del envío de cambio. No alcanzó restauración ni reapertura
+del backend. Sus fuentes permanecen intactas, cleanup sin errores y lock
+liberado; no acepta el recorrido completo. `f8961f4` corrige la espera del
+resultado original de retirada admitida; el permiso de15 s y sus guards quedan
+intactos. GRAPH `1159c12e…` terminó **rechazado** con 14 pruebas: recorrió
+respuesta perdida de W39, restauración software de SOURCE/SHARE/PoP y READ
+original de ambas notas gastadas confirmadas, sin otra prueba ni envío financiero.
+Falló después al comparar un contador anterior al replay HTTP403 esperado,
+antes de capturar las cuatro secciones originales; no alcanzó reapertura del
+backend. `56f8212` corrige sólo ese contador y pasa un HOST en 2,621 s. No se
+repite la financiación por ese defecto de prueba ni se reclasifica el RAW.
+Todos los grupos financieros y locks están cerrados/liberados; no quedó una
+autoridad capturada para reabrir ese realm cerrado.
+
+SOURCE `9aced…` terminó **rechazado** con cero pruebas tras el nacimiento del
+backend de diez secciones. Su transporte manual omitía Content-Length y enviaba
+chunked, incompatible con el framing estricto del servidor original. `6951b88`
+lo corrige y pasa el primer challenge TLS/SDK. SOURCE nuevo
+`fcb65559-2a28-4aca-b02a-6305fe686d31` terminó **rechazado** con una prueba D26: financiación y
+primera salida abrupta 17 recorridas, pero falló la reapertura avanzada del mismo
+SOURCE. Su causa primaria se había descartado al sanear AggregateError, y no
+es recuperable de esos errores guardados. El journal autenticado tiene diez
+secciones, sin candidatos CAS ni mutaciones pendientes; no se atribuye el fallo
+a framing ni a una espera de ocho horas. El cierre dirigido por identidad al
+launcher original utilizó SIGTERM tras el worker fallido; el supervisor confirmó
+cleanup del grupo, lock liberado y fuentes intactas. La interrupción conserva
+el rechazo, sin alterar el RAW. El realm financiado y su locator se mantienen
+para diagnóstico, sin nueva CREATE. El OPEN actual está bloqueado por la
+comprobación original de versión: el realm nació con `df901c6`/cierre `a5033d37…`,
+pero el release actual tiene cierre `5e821880…`. Hace falta restaurar los bytes
+del snapshot original verificado antes de OPEN; no se cambia el locator ni sus
+pins para forzarlo. Este bloqueo actual es distinto de la primaria ya descartada
+del primer intento de reapertura. El locator anterior `9aced…` también
+permanece byte a byte. Una invocación inicial por cwd falló antes de campaña.
+
+Evidencia actual: [APK e informe](.internal/dev/reports/mobile-android-standalone-local.json),
+[backup nativo](.internal/dev/reports/all-objectives-native-backup-causal-fixture-current-d79742ae-cd90-4c93-82ec-16f53e327739/host.log),
+[SQL focal](.internal/dev/drafts/all-objectives-legacy-redaction-focal-v1/RESULT.json) y
+[EXIT retenido](.internal/dev/reports/all-objectives-defi-exit-privacy-and-source-focal-90cd3e90-bc0a-422d-99b4-f59f24417107/host.log),
+[journal original](.internal/dev/reports/all-objectives-flat-execution-regression-37a6a646-4abe-4e79-a42a-4ce2936b0164/host.log),
+[GRAPH fresco](.internal/dev/reports/all-objectives-original-graph-fresh-S-fixture-00001dc7-7a76-4d08-8b56-ea8ef22b72d7/host.log) y
+[primer acceso SOURCE](.internal/dev/reports/all-objectives-source-first-access-TLS-original-fixture-a6721023-1f0c-4643-89b7-673c3089be99/host.log),
+[espera de retirada](.internal/dev/reports/all-objectives-graph-output-withdraw-result-wait-focal-5b0c02fa-77ac-4f8d-8e7d-ab3bbd045978/host.log) y
+[causas privadas](.internal/dev/reports/all-objectives-source-private-diagnostics-original-close-fixture-7d1992ab-4854-446e-b09f-9cd9477dd06f/host.log) y
+[contador de replay HTTP](.internal/dev/reports/all-objectives-graph-original-explicit-replay-counter-focal-124ca4b5-44e8-438f-ae76-37c4bed115b3/host.log).
 
 - **Conservar y recuperar la misma operación:** EVM9 acepta F y ambas W39 con
   diez secciones originales reabiertas en otro PID. LIVE_ARMED acepta D26/U/S,
@@ -206,7 +263,7 @@ y abrir TLS. No genera claves del usuario ni prueba o financia la nota al arranc
 Su HOST de adquisición, cancelación y cierre pasó (110,679 ms; `1fd5ae0`);
 la captura/reapertura usa una entrada separada y los productores originales.
 
-**Android.** El APK `d07f578f` está compilado y archivado para su corte: 42.643.195 bytes, 79 inputs iguales antes/después y 36 joins,
+**Android histórico.** El APK `d07f578f` está compilado y archivado para su corte: 42.643.195 bytes, 79 inputs iguales antes/después y 36 joins,
 Hermes y firma Android Debug/V2 comprobados, sin Metro. Diez procesos propios
 están ausentes; el informe original conserva cero señales y el archivo fuerte
 incluye su origen. No acredita instalación, biometría, SecureStore ni operación
@@ -215,7 +272,7 @@ ambos outputs bloqueados durante una reorganización. El APK anterior `e19ad1eb`
 conserva su aceptación histórica.
 Los APK previos conservan su alcance histórico; `6adc78c0`
 permanece como preservación limitada, sin reclasificación.
-[APK final](.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/app-release.apk) ·
+[APK archivado de ese corte](.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/app-release.apk) ·
 [informe original](.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/report.json) ·
 [origen](.internal/dev/reports/mobile-android-standalone-local/attempt-d07f578f-c20d-47a0-a4ec-037686caea1f/origin.json) ·
 [uso móvil](apps/mobile/README.md).

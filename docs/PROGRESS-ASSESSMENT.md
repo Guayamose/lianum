@@ -2,7 +2,10 @@
 
 Recalculada el 9 de octubre de 2026 sobre el código de `22a0069` y los resultados
 conservados. La referencia es [PROJECT-VISION](../PROJECT-VISION.md); no se
-modifican sus objetivos, arquitectura ni exclusiones.
+modifican sus objetivos, arquitectura ni exclusiones. Este turno actualiza
+la evidencia funcional hasta `56f8212`, `b13eb68`/`f8961f4` y BSC `67424cf`, conservando
+los 35 criterios y el método de cálculo. Sólo la nota del criterio 2.4 cambia
+de 0 a 25 por protección parcial del observador SQL; las otras 34 no cambian.
 
 Esta es una **estimación de cobertura funcional**, con un cálculo reproducible.
 Las notas de cobertura siguen siendo juicios técnicos; no son medidas de tiempo,
@@ -41,7 +44,7 @@ sesión. Los commits y la cantidad de pruebas no añaden puntos por sí mismos.
 | Punto original | Notas de los cinco requisitos | Estimación actual |
 | --- | --- | ---: |
 | 1. Wallet unificada para siete redes | 75 / 25 / 75 / 75 / 75 | 65% |
-| 2. Privacidad por defecto | 75 / 75 / 25 / 0 / 25 | 40% |
+| 2. Privacidad por defecto | 75 / 75 / 25 / 25 / 25 | 45% |
 | 3. PAEG genérico | 75 / 75 / 75 / 50 / 75 | 70% |
 | 4. Liquidación y recuperación económica | 75 / 75 / 75 / 75 / 50 | 70% |
 | 5. Composición DeFi privada real | 75 / 50 / 75 / 75 / 75 | 70% |
@@ -63,14 +66,14 @@ cumplirse. Ninguno de los siete está completo.
 | Custodia local, consentimiento y copia recuperable | 75 | [Identidad y firmas](../apps/mobile/src/custody/key-store.ts), [copia cifrada](../apps/mobile/src/custody/sealed-custody-backup-v1.mjs) y [Vault de notas](../apps/mobile/src/custody/device-external-flat-note-vault-v1.ts). Pruebas focales acreditan la misma identidad restaurada y las restricciones de gasto. APK actualizado, sin Metro. | Uso nativo físico al final, según la decisión de Rafa, y recuperación integrada de todos los tipos de custodia. Los puertos nativos de HOST no son hardware real. |
 | Saldo, conciliación y continuidad de la misma cuenta/operación | 75 | EVM9 y ERC20 aceptan reapertura ordenada en otro PID, mismos trabajos y ausencia de efectos nuevos. El saldo usa lecturas originales. | Recuperación abrupta SOURCE y GRAPH completo; continuidad equivalente para todas las redes. |
 
-## 2. Privacidad por defecto — 40%
+## 2. Privacidad por defecto — 45%
 
 | Requisito | Nota | Código y cobertura actual | Falta para completar el requisito |
 | --- | ---: | --- | --- |
 | Proteger el estado de notas, saldos y posiciones | 75 | [Pool privado](../contracts/wallet/PrivateFlatAssetNotePool.sol), relaciones ZK y [lectura privada](../packages/backend/src/api/mobile/paired-original-defi-position-reader-v1.mjs). Hay notas privadas y READ propio en recorridos locales. | Protección en todo el alcance y frente a los observadores definidos; los importes públicos permiten correlación. |
 | Restringir revelación, custodiar claves y cifrar almacenamiento/transporte | 75 | [Firmas locales](../apps/mobile/src/custody/key-store.ts), permisos separados, TLS y [copias AES-GCM](../apps/mobile/src/custody/sealed-custody-backup-v1.mjs). La clave raíz no se entrega a la API. | Fronteras reales entre operadores y transporte/borrado de testigos en Cloud; los workers y su host ven sus testigos consentidos. |
 | Ocultar direcciones, estrategias, rutas y topología | 25 | [Framing y compromisos](../packages/crypto/src/framing.mjs) y paquetes por rol proporcionan partes de la protección. | La API ve identidad estable, importes y destinos; falta demostrar ocultación de rutas y topología bajo el modelo completo. |
-| Evitar correlaciones por importe, tiempo, financiación, retirada, RPC y actividad entre redes | 0 | [Fronteras actuales](PRIVACY-AND-OPERATIONS.md) declaran estas exposiciones. No se encontró un mecanismo integrado que resuelva este requisito. | Diseñar e integrar protección efectiva de esos metadatos, con consentimiento y fallo explícitos. TLS y quitar logs no resuelven la correlación. |
+| Evitar correlaciones por importe, tiempo, financiación, retirada, RPC y actividad entre redes | 25 | [Codec SQL privado](../apps/platform/src/private-authorization-record-v1.mjs) enlazado al store: HMAC propietario+requestId produce seudónimos distintos entre solicitudes; términos y challenges se guardan como HMAC bajo clave API independiente. [Redacción legacy](../apps/platform/src/legacy-authorization-redaction-v1.mjs) integrada conserva IDs, permisos consumidos e idempotencia; dos casos PostgreSQL reales pasan, incluido COMMIT perdido. Protección parcial de nuevas copias/grupos redactados ante observador SQL sin esa clave. | Cadena, RPC, red, tiempos, colusión con API y copias antiguas siguen expuestos. AuthKey histórico permanece estable y puede correlacionarse si se conocen propietario/request. La API ve los términos; otros grupos y WAL/backups antiguos no se borran. No acredita anonimato sistémico. |
 | Definir observadores/colusiones y aplicar privacidad por defecto | 25 | [Modelo operativo documentado](PRIVACY-AND-OPERATIONS.md), límites por rol y permisos; [worker](../packages/proofs/src/jobs/worker.mjs) evita logs de testigos. | Completar el modelo y comprobar sus garantías entre API, worker, RPC, cadena, almacenamiento, red y dispositivo. |
 
 ## 3. PAEG genérico — 70%
@@ -114,9 +117,9 @@ implementación, pero aún no añade un escenario económico completado.
 | Requisito | Nota | Código y cobertura actual | Falta para completar el requisito |
 | --- | ---: | --- | --- |
 | Identificar por activo/dominio notas, posiciones, reservas y operaciones | 75 | [Modelo de backend](../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs) y [modelo móvil](../apps/mobile/src/state/private-wallet-state-v1.mjs) incluyen fuente, generación, activo, red, génesis, pool y dominio. | Todos los productores de las siete redes y las posiciones restantes. |
-| Reunir originales y conciliar su efecto en backend/wallet/app | 75 | [Proyección web](../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs), estado móvil y backend consumen las capacidades originales; EVM9 aceptó cinco READ y Meta/Aave dos por protocolo. La fuente ERC20 comprueba nota, nullifier y respaldo. | GRAPH del dispositivo completo y extensión a todas las fuentes. La unión de lecturas no crea una autorización global. |
+| Reunir originales y conciliar su efecto en backend/wallet/app | 75 | [Proyección web](../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs), estado móvil y backend consumen las capacidades originales; EVM9 aceptó cinco READ y Meta/Aave dos por protocolo. La fuente ERC20 comprueba nota, nullifier y respaldo. GRAPH1159 recorrió W39 con respuesta perdida, restores software SOURCE/SHARE/PoP y READ de ambas notas gastadas confirmadas, sin efecto nuevo. | GRAPH completo sigue rechazado y no alcanzó captura/reapertura del backend; extensión a todas las fuentes. La unión de lecturas no crea una autorización global. |
 | Conservar estado y credenciales durables y recuperables | 75 | Backend con Vault/CAS/ancla; [SOURCE cifrado](../packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs) con dos cuerpos y confirmado/candidato; copia cifrada de identidad y notas. HOST reales de AES/CAS pasan y hay reaperturas ordenadas aceptadas. | Continuidad integrada de esas fuentes durante las caídas abruptas, almacenamiento completo de cada tipo de custodia y operación Cloud real. |
-| Recuperarse de reinicios conciliando la misma operación sin duplicar créditos/envíos | 75 | EVM9, ERC20 y backends Meta/Aave aceptan reinicio ordenado en otro PID y observación del mismo efecto sin nuevo pago. SOURCE abrupt y GRAPH están conectados, pero sus recorridos actuales no están aceptados. | SOURCE con dos caídas, GRAPH con pérdida/restauración de custodia, reapertura y fallos combinados. El opener del estado necesita fuentes originales restauradas. |
+| Recuperarse de reinicios conciliando la misma operación sin duplicar créditos/envíos | 75 | EVM9, ERC20 y backends Meta/Aave aceptan reinicio ordenado en otro PID y observación del mismo efecto sin nuevo pago. GRAPH1159 recorrió restauración software de custodia y READ SPENT confirmado, sin otra prueba/envío; SOURCE recorrió D26 y primera salida17, pero falló OPEN. Ambos RAW permanecen rechazados. | SOURCE con dos caídas y reapertura causal; GRAPH con captura original/reapertura del backend y fallos combinados. Su realm cerrado carece de autoridad capturada para reabrir. El opener necesita fuentes originales restauradas. |
 | Tratar STALE/UNKNOWN/valoración correctamente, sin sumar unidades incompatibles ni inventar disponible | 100 | Validadores comunes rechazan saldos conocidos cuando falta observación; las vistas muestran No disponible, separan posición/valoración y activo/dominio. El modelo móvil fija `aggregateBalance:null` y `readOnly:true`; la proyección web impide crédito por valoración. | Conservar estas mismas reglas en cada nueva integración. Esta nota cierra las reglas del modelo compartido; no acredita los productores aún ausentes ni la restauración económica completa. |
 
 El 100 de la última fila corresponde a esas reglas de representación, no al
@@ -148,27 +151,115 @@ Se contrastaron los resultados originales EVM9 `f36e603b`, LIVE_ARMED
 Aave `4fbd29a9`: completados en sus ámbitos locales, con restricciones
 explícitas. Los ámbitos y enlaces permanecen en [STATUS](../STATUS.md).
 
-El último SOURCE `c3f5e405` está rechazado: completó el nacimiento del backend,
-pero no generó pruebas financieras antes de D26. El identificador del lector
-se corrigió en `22042f6`, sin un recorrido completo aprobado posterior.
-GRAPH `d6cd7992` sigue rechazado antes de completar el grafo. La corrección del
-retainer y la integración de reapertura no cambian ese resultado.
+SOURCE `9aced…` terminó rechazado después del nacimiento completo del backend
+(diez secciones), con cero pruebas: su transporte manual omitía Content-Length y
+enviaba chunked, rechazado por el framing estricto del servidor original.
+`6951b88` corrige ese transporte y acredita el primer challenge TLS/SDK focal;
+SOURCE nuevo `fcb65559-2a28-4aca-b02a-6305fe686d31` terminó rechazado con una
+prueba D26 después de financiar y de la primera salida 17. Falló la apertura
+avanzada del mismo SOURCE; la causa primaria había sido descartada del agregado
+y no puede recuperarse de esos errores guardados. La lectura autenticada
+conserva diez secciones sin candidatos CAS ni mutaciones nativas pendientes.
+El cierre dirigido del launcher original mediante SIGTERM tras el worker fallido
+confirmó cleanup de grupo, lock liberado y fuentes intactas; la interrupción no
+acepta el RAW ni se atribuye a framing/espera de ocho horas. El realm financiado y locator
+permanecen para diagnóstico, sin nueva CREATE. OPEN actual rechaza la versión:
+realm original `df901c6`/cierre `a5033d37…` frente al release `5e821880…` actual.
+Se requieren los bytes originales del snapshot y sus pins antes de OPEN, sin
+reescribir el locator, fase o claims. Este bloqueo presente no explica ni
+reconstruye la primaria anterior descartada. `9aced…` se conserva byte a byte.
+El fallo inicial de cwd fue precampaña. GRAPH14
+`edea8e13-4154-471e-8a1f-a7d062002478` terminó rechazado al conciliar tras
+12/14 pruebas, con cleanup/lock confirmados: T estaba cumplido,
+pero el backend devolvía la cabeza antigua de S y el SDK rechazaba su frescura.
+No fue un rechazo esperado de replay. `c2a9e06` observa S otra vez conservando
+el guard original. GRAPH `f7acea63…` terminó rechazado con 14 pruebas; superó
+RECONCILE_GRAPH, W39 de shares y la prueba W39 de cambio, pero falló después
+en la aserción de respuesta perdida al enviar changeW39. No alcanzó restauración
+ni reapertura del backend; fuentes intactas, cero errores de cleanup y lock
+liberado. `f8961f4` corrige la espera del resultado original de retirada admitida,
+con lease 15 s y guards intactos; un HOST pasa en 2,765 s. GRAPH `1159c12e…`
+terminó rechazado con 14 pruebas. Recorrió respuesta perdida W39, restauración
+software SOURCE/SHARE/PoP y READ original de ambas notas gastadas confirmadas,
+sin otra prueba ni envío financiero. Después falló un contador anterior al
+replay HTTP403 esperado; `56f8212` corrige sólo ese contador, con un HOST
+aprobado en 2,621 s. No alcanzó captura de cuatro secciones ni reapertura del
+backend. No quedó autoridad capturada para reabrir el realm cerrado; todos los
+grupos financieros y locks quedaron cerrados/liberados. No se repite financiación
+por un contador y el RAW conserva su rechazo. `b13eb68` conserva causas privadas para aperturas
+futuras sin payloads, con 8/8 HOST aprobados en 0,289 s; no reconstruye la
+primaria ya descartada. Estas regresiones no reclasifican los recorridos ni
+cambian las notas económicas.
 
 Los informes conservados y comprobados para los subrequisitos actuales son:
 
 - SOURCE, AES/CAS y checkpoints: tres pruebas focales aprobadas, cero fallos.
   `.internal/dev/reports/original-source-large-aead-body-and-recovery-host-12876931-65d2-4752-8b75-433d03935822/host.log`.
-- Copia móvil actual y restricciones de restauración: una prueba focal aprobada.
-  `.internal/dev/reports/original-mobile-prepared-copy-final-invalidation-host-40b6f7bf-0f96-49b1-aa39-c2207bc67538/host.log`.
+- Copia RootNote cifrada, restore/binding/cancelación y saldos originales:
+  ocho pruebas focales aprobadas en 4,436 s, copia de identidad y tipos aprobados.
+  `.internal/dev/reports/all-objectives-native-backup-causal-fixture-current-d79742ae-cd90-4c93-82ec-16f53e327739/host.log`.
+- Privacidad SQL nueva: cinco HOST aprobados. Legacy y registro marcado privado
+  corrupto: dos casos originales PostgreSQL aprobados en 7,25 s, incluyendo
+  COMMIT perdido. La suite completa anterior conserva 20/22 y el fallo previo
+  de lock de migración; este corte no la repitió.
+  `.internal/dev/drafts/all-objectives-legacy-redaction-focal-v1/RESULT.json`.
+- Costes, privacidad y reapertura de EXIT retenido: seis HOST focales aprobados
+  en 9,95 s.
+  `.internal/dev/reports/all-objectives-defi-exit-privacy-and-source-focal-90cd3e90-bc0a-422d-99b4-f59f24417107/host.log`.
+- Cloud: seis pruebas de plan con proveedor simulado; sin proyecto ni despliegue.
+  `.internal/dev/reports/all-objectives-cloud-privacy-mock-plan-current-991b4840-e35b-4172-b1e5-07af3124d177/host.log`.
 - Retención/reapertura GRAPH con CAS: una prueba focal aprobada.
   `.internal/dev/reports/original-graph-ordered-backend-cas-host-8e24882e-a281-4e83-8dec-406b2ac9d7f8/host.log`.
-- APK actual: compilación completada, 85 fuentes iguales antes/después, 36
-  uniones con el bundle y sin Metro. Instalación física pendiente.
+- Identidad del envío retenida tras respuesta perdida (`a7b5434`): 23/23 HOST,
+  0,915 s, journal y reconciliación originales sin otro envío.
+  `.internal/dev/reports/all-objectives-flat-execution-regression-37a6a646-4abe-4e79-a42a-4ce2936b0164/host.log`.
+- Observación original de S después de T (`c2a9e06`): un HOST SDK/Vault aprobado
+  en 2,68 s; se conserva la exigencia de frescura del SDK.
+  `.internal/dev/reports/all-objectives-original-graph-fresh-S-fixture-00001dc7-7a76-4d08-8b56-ea8ef22b72d7/host.log`.
+- Primer challenge SOURCE por HTTPS (`6951b88`): un HOST aprobado en 2,73 s,
+  UTF-8/Content-Length explícitos, origen exacto y TLS1.3.
+  `.internal/dev/reports/all-objectives-source-first-access-TLS-original-fixture-a6721023-1f0c-4643-89b7-673c3089be99/host.log`.
+- Resultado original de retirada admitida (`f8961f4`): un HOST aprobado en
+  2,765 s; lease 15 s y revocación originales intactos, sin reutilizar el permiso.
+  `.internal/dev/reports/all-objectives-graph-output-withdraw-result-wait-focal-5b0c02fa-77ac-4f8d-8e7d-ab3bbd045978/host.log`.
+- Contador original del replay HTTP (`56f8212`): un HOST aprobado en 2,621 s;
+  corrige el conteo antes/después del rechazo HTTP403 sin cambiar ningún wire.
+  `.internal/dev/reports/all-objectives-graph-original-explicit-replay-counter-focal-124ca4b5-44e8-438f-ae76-37c4bed115b3/host.log`.
+- Causas privadas de AggregateError (`b13eb68`): ocho HOST aprobados en 0,289 s;
+  tipos/códigos/frames con límites, sin mensajes ni valores de comparación.
+  `.internal/dev/reports/all-objectives-source-private-diagnostics-original-close-fixture-7d1992ab-4854-446e-b09f-9cd9477dd06f/host.log`.
+- BSC (`67424cf`): materiales/herramientas oficiales y 17 contratos preparados.
+  Su comprobación RPC nativa está rechazada; no acredita finalidad, crédito
+  privado ni wallet. Este resultado conserva el requisito de stack propio.
+- APK actual: `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`, 42.841.007 bytes,
+  85 fuentes iguales antes/después, 36 uniones con el bundle y sin Metro.
+  Incluye los cambios móviles `d880d18`/`0dbdeed`; instalación física pendiente.
   `.internal/dev/reports/mobile-android-standalone-local.json`.
 
 No se ejecutaron nuevas pruebas largas ni se esperó el cutoff real para
 recalcular estas notas. La prueba del teléfono se mantiene para el final según
 la decisión de Rafa.
+
+## Efecto de las funciones entregadas sobre los criterios
+
+| Cambio real | Criterios existentes que avanzan | Cobertura que sigue pendiente |
+| --- | --- | --- |
+| Backup RootNote cifrado y raíz conservada (`d880d18`) | Custodia/copia del punto 1; almacenamiento/revelación del 2; credenciales recuperables del 6. | Recuperación integrada de todas las custodias y ámbito original restante; HOST no acredita hardware. |
+| Publicación de lectura original tras ejecución/W39 (`0dbdeed`) | Experiencia, recorrido y saldo del 1; conciliación y representación del 6. | Recorrido económico completo SOURCE/GRAPH y productores de las demás redes. |
+| HMAC SQL, redacción legacy y guard de datos visibles (`afbd9c3`/`3ed9157`) | Almacenamiento/revelación del 2; el criterio 2.4 pasa de 0 a 25 por protección parcial del observador SQL sin clave API; continuidad de UNKNOWN del 6. | Otros grupos y retenciones históricas, authKey conocido, API, cadena/RPC/red y tiempos siguen expuestos. |
+| Costes observados sin identificadores (`b8ab225`) | Costes económicos del 4; salidas DeFi del 5 y representación del 6. | No acredita solvencia, beneficio/pérdida neta ni rendimiento económico completo. |
+| Reapertura del candidato original tras readback perdido (`3a0aaeb`) | Respuesta perdida del 4; salida DeFi del 5; continuidad del 6. | Caídas y recuperación económica completas SOURCE/GRAPH siguen sin aceptación. |
+| Journal original tras respuesta perdida (`a7b5434`) | Entregas parciales del 4; continuidad y conciliación del 6. | No sustituye la aceptación económica de las caídas abruptas. |
+| Observación fresca, respuesta perdida y restores GRAPH (`c2a9e06`/`f8961f4`/`56f8212`) | Recorrido del1, liquidación del4 y conciliación del6:14 pruebas, W39 y restores software con READ SPENT confirmados recorridos en RAW1159. | RAW completo rechazado; no captura/reapertura del backend. El contador corregido no acredita nuevo envío ni una aceptación nueva. |
+| Primer permiso y caída SOURCE (`6951b88`/`b13eb68`) | Primer challenge TLS, financiación D26 y primera salida17 recorridos; causa privada futura conservada. | OPEN falló; primaria descartada y bloqueo posterior por versión son distintos. Se conserva el realm financiado sin forzar permisos/pins. |
+| Materiales, herramientas y 17 contratos BSC (`67424cf`) | Implementación de redes de los puntos 1 y 7. | RPC nativo rechazado; sin finalidad, crédito privado ni wallet aceptados. |
+
+El único umbral revisado es el criterio 2.4: de 0 a 25 por el mecanismo SQL
+conectado y comprobado, con seudónimos distintos por request y HMAC de términos
+y challenges bajo clave independiente. El punto 2 pasa de 40 a 45. No protege
+tiempos/cadena/RPC/red, la colusión con API ni copias anteriores; su alcance
+sigue parcial. Las otras 34 notas y seis porcentajes se mantienen. Las reglas
+STALE/UNKNOWN/valoración del punto 6 conservan su 100, sin extenderlo al objetivo entero.
 
 ## Arquitectura y requisitos transversales
 

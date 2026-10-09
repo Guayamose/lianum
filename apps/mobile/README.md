@@ -228,10 +228,27 @@ El constructor original ensambla `app-release.apk` con la firma Android Debug
 existente. Funciona sin Metro; conserva las dos arquitecturas, lint y el límite
 de 3 GiB. Para esta variante el JVM principal usa heap 768 MiB y metaspace
 384 MiB, SerialGC y dos procesadores activos, verificados en los argumentos
-reales de Gradle. El corte `d07f578f` comprobó 36 joins del bundle y 79 inputs,
+reales de Gradle. El APK actual `b52d49a6-9cd4-4230-9591-8d9afa7346e6`
+comprobó 85 inputs iguales antes/después y 36 joins del bundle: **42.841.007 bytes**,
+SHA-256 `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`,
+con JavaScript/Hermes incluidos y sin Metro. Incluye copia RootNote cifrada,
+publicación de saldo original tras ejecución/W39 y espera del resultado
+en los dos SDK de retirada admitida, conservando permisos y guards originales.
+[APK actual archivado](../../.internal/dev/reports/mobile-android-standalone-local/attempt-b52d49a6-9cd4-4230-9591-8d9afa7346e6/app-release.apk) ·
+[informe original](../../.internal/dev/reports/mobile-android-standalone-local/attempt-b52d49a6-9cd4-4230-9591-8d9afa7346e6/report.json).
+La copia local está en `apps/mobile/android/app/build/outputs/apk/release/app-release.apk`.
+GRAPH `1159c12e…` recorrió 14 pruebas, respuesta perdida de W39, restores
+software SOURCE/SHARE/PoP y READ de notas gastadas confirmadas sin nuevos
+efectos financieros. Su RAW terminó rechazado por un contador del replay HTTP403;
+`56f8212` lo corrige con una regresión focal, sin repetir financiación. No se
+alcanzó la captura original de cuatro secciones ni la reapertura del backend.
+Esta compilación no cambia el alcance Node/TLS de los recorridos descritos ni
+acredita hardware; el uso físico queda para el final.
+
+El corte histórico `d07f578f` comprobó 36 joins del bundle y 79 inputs,
 incluidos el validador puro de posiciones y la nueva nota ERC20.
 
-El APK `d07f578f-c20d-47a0-a4ec-037686caea1f` está compilado y archivado
+El APK histórico `d07f578f-c20d-47a0-a4ec-037686caea1f` está compilado y archivado
 para su corte: **42 643 195 bytes**, SHA-256
 `689b8eaadf695f921e598ff4a138f29668cc4250c0280132dcfb22a743345c5e`.
 Sus 79 inputs fueron iguales antes/después y completó 36 joins, con Hermes y

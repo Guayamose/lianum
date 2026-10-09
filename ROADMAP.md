@@ -56,12 +56,13 @@ y no sustituyen los pendientes concretos.
   confirmados, sin señales. No acredita teléfono ni caída abrupta. La entrada
   local crea la cuenta antes de aprobación exacta y TLS, sin financiar ni
   probar automáticamente; captura/reapertura tiene un productor propio.
-- **Android:** APK `d07f578f` compilado y archivado para su corte:
-  79 inputs iguales y 36 joins, Hermes y firma Debug/V2 comprobados, sin Metro.
-  Diez procesos propios ausentes y cero señales en el informe original.
-  Incluye el contrato de ambos outputs bloqueados. Instalación y uso físico
-  quedan para el final. Los cortes anteriores siguen históricos;
-  `6adc78c0` mantiene su preservación limitada.
+- **Android actual:** APK
+  `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`,
+  de 42.841.007 bytes,
+  85 inputs iguales, 36 uniones con el bundle y sin Metro. Incluye la copia
+  RootNote cifrada y la actualización del estado común después de ejecución/W39.
+  Instalación y uso físico quedan para el final. `e25d752e`, `d07f578f`, `e19ad1eb` y
+  `6adc78c0` conservan sus ámbitos históricos; no son el APK actual.
 - **DeFi y liquidación:** Uniswap15, Aave15, Meta15 ordinario y Uniswap F10
   conservan aceptación original. Aave lee shares/previewRedeem/maxRedeem del
   mismo bloque. Meta19 acepta quince relaciones, EXIT/redención, dos READ y
@@ -110,24 +111,41 @@ La actividad BTC/SOL original ya se muestra y Conciliar usa su ruta original.
 El journal compara la estructura sin falsos cambios por orden JSON; conserva
 los mismos bindings, checkpoints, comprobaciones frescas y permisos.
 
-Próximos cierres funcionales:
+Próximos cierres funcionales de los siete objetivos originales:
 
-1. Cerrar los puntos originales **4 y 6**: persistir antes de financiar las
-   fuentes, credenciales y checkpoints originales; reabrir runtime, cuenta y
-   keeper tras una caída sin renovar permisos ni duplicar efectos. Si un envío
-   quedó incierto, conservar UNKNOWN y bloquear gasto hasta su conciliación.
-2. Ampliar recuperación a fallos combinados y posiciones DeFi, comprobando
-   los timeouts con reloj controlado y los efectos originales sin esperas largas.
-3. Continuar los demás objetivos: ingreso privado SPL, Tron wallet/GRAPH,
-   siete redes, acciones DeFi y privacidad/independencia de la visión.
-4. Comprobar el teléfono al final según la decisión del usuario. El APK
-   actualizado ya está compilado. Cloud permanece preparado sólo localmente;
-   la réplica API/SQL conserva readiness 503 hasta unir cada job con su cuenta
-   y consentimiento económicos originales.
+1. **Wallet unificada:** completar SOURCE y GRAPH del dispositivo con las
+   autoridades originales y extender financiación, gasto, salida y recuperación
+   a las siete redes. Probar el teléfono al final.
+2. **Privacidad por defecto:** extender la protección SQL/backup a las fronteras
+   API/worker/RPC y resolver exposición de direcciones, rutas, topología y
+   correlaciones bajo el modelo de observadores, sin atribuir anonimato a TLS.
+3. **PAEG genérico:** cerrar el nuevo GRAPH14 sobre la observación original
+   corregida, reutilizando el mismo núcleo, ABI y verificadores; ampliar
+   combinaciones dentro del perfil original.
+4. **Liquidación y recuperación:** resolver SOURCE/GRAPH sobre el mismo journal,
+   permiso y envío; completar fallos combinados y contabilidad económica de
+   costes/pérdidas. UNKNOWN sigue bloqueado hasta conciliación, sin renovación
+   automática de permisos ni esperas reales de ocho horas.
+5. **DeFi privado:** cerrar el GRAPH de shares bajo custodia del dispositivo,
+   salidas y recuperación originales; ampliar acciones Morpho y crédito privado
+   SPL/Jupiter. Los costes observados no sustituyen solvencia ni finalidad.
+6. **Estado privado global:** aceptar restauración económica SOURCE y GRAPH,
+   publicar nuevas lecturas originales después de reabrir y completar productores
+   restantes. Unir API/SQL sólo a cuentas y consentimientos económicos originales
+   emitidos antes del job; ADMITTED nunca equivale a pago.
+7. **Redes heterogéneas:** acreditar finalidad nativa y recorrido privado BSC
+   sobre las herramientas y 17 contratos ya preparados; completar stacks
+   Base/Arbitrum y los pendientes Tron/SVM/BTC; conservar sus garantías de
+   finalidad distintas en el contrato común de observación y recuperación.
+
+Cloud permanece preparado sólo localmente, sin proyecto ni despliegue; la API
+V1 conserva readiness 503 hasta disponer de un puente económico válido.
 
 [STATUS](STATUS.md#evidencia-funcional-y-límites-del-corte) conserva evidencia,
-medidas y rechazos originales. Las 45 dependencias de compilación siguen iguales;
-la publicación `a62ec91` conserva 819 módulos y doce roles con build cerrado.
+medidas y rechazos originales. Las 45 dependencias de compilación siguen iguales.
+`a38b74d` conserva el sello actual de 833 fuentes y doce roles; `df901c6`
+conserva el corte original de observación GRAPH y framing SOURCE;
+`a62ec91` conserva su publicación histórica de 819 módulos y doce roles.
 El recorrido ERC20 `da603751`, LIVE_ARMED corto y F reorg `b4329b70` están
 aceptados en sus ámbitos originales. Meta y Aave aceptaron su
 ámbito original de quince pruebas, dos READ y backend retenido en otro PID por protocolo;
@@ -145,9 +163,40 @@ wallet/GRAPH Tron aceptados. Los rechazos previos se conservan.
 <!-- CONTROLLED_CUTOFF: causal HOST accepted; unchanged28800s; no real8h required. -->
 <!-- HISTORICAL_APK_6ADC_LIMITED: compiled76/34; newAPKrequiredByFunctionalVaultFix. -->
 
-Corte del 9 de octubre: SOURCE y GRAPH están conectados y sus correcciones
-quedaron en commits separados. El APK85/36 ya está compilado; faltan las
-aceptaciones reales SOURCE de dos caídas y GRAPH14 antes de cerrar 4 y 6.
+Actualización del turno: backup RootNote cifrado (`d880d18`), estado común
+tras ejecución/W39 (`0dbdeed`), costes de salida privados (`b8ab225`), reapertura
+del candidato retenido (`3a0aaeb`) y redacción SQL/guard (`afbd9c3`/`3ed9157`)
+están entregados con sus pruebas focales. `a7b5434` conserva la identidad del
+envío original tras respuesta perdida: 23/23 HOST, 0,915 s. GRAPH14 `edea8e13…`
+rechazó tras 12/14: T ya cumplido, pero cabeza S antigua rechazada por el SDK.
+`c2a9e06` lo corrige con un HOST aprobado en 2,68 s. `f7acea63…` terminó
+rechazado con 14 pruebas; pasó RECONCILE_GRAPH y shares W39, pero falló la
+aserción de respuesta perdida al enviar changeW39. No alcanzó restauración ni
+reapertura del backend; fuentes intactas, cleanup/lock confirmados. `f8961f4`
+corrige la espera del resultado admitido con un HOST aprobado en 2,765 s, sin
+cambiar el lease 15 s ni reutilizar permisos. GRAPH `1159c12e…` terminó
+rechazado con 14 pruebas: respuesta perdida W39, restores SOURCE/SHARE/PoP y
+READ de notas gastadas confirmadas pasaron, sin nuevos efectos financieros.
+Falló un contador anterior al replay HTTP403, corregido por `56f8212` con un
+HOST aprobado en 2,621 s. No alcanzó captura de las cuatro secciones originales
+ni reapertura del backend; no existe autoridad retenida para reabrir ese realm.
+No se repite financiación por un contador ni se reclasifica el RAW. SOURCE `9aced…` rechazó antes de probar por framing; `6951b88`
+lo corrigió con primer challenge TLS/SDK aprobado en 2,73 s. SOURCE `fcb65559…`
+rechazó con una prueba D26 después de financiar y de la primera salida 17,
+al reabrir el mismo SOURCE. La primaria se descartó en el sanitizador; `b13eb68`
+conserva causas futuras sin secretos, con 8/8 HOST aprobados en 0,289 s.
+El cierre dirigido del launcher tras el fallo confirmó grupo/lock/fuentes;
+la interrupción no acepta el RAW. Se conserva el realm financiado, sin CREATE
+ni otro recorrido SOURCE largo sin causa. Su OPEN actual exige las fuentes
+originales `df901c6`/cierre `a5033d37…`, distinto del `5e821880…` actual; no se
+reescribe el locator, fase, claims ni pins. El bloqueo de versión es distinto
+de la primaria descartada. El fallo inicial de cwd fue precampaña.
+BSC `67424cf` prepara herramientas y 17 contratos, pero RPC nativo está rechazado,
+sin finalidad ni crédito/wallet. El APK actual conserva 85/36 y no necesita Metro.
+Los siete objetivos mantienen sus pendientes. El criterio 2.4 cambia de 0 a 25
+por seudónimos SQL distintos por request y HMAC de términos/challenges:
+protección parcial sin clave API, sin anonimato de cadena/RPC/tiempos ni copias
+antiguas. El punto 2 pasa a 45%; las otras 34 notas y seis porcentajes no cambian.
 
 ## 1. Wallet unificada para siete redes
 
