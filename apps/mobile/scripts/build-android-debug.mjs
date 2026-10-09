@@ -325,7 +325,11 @@ try {
       'apps/mobile/src/screens/DefiPositionsScreen.tsx',
       'apps/mobile/src/api/device-defi-position-read-api-v1.mjs',
       'packages/mobile-protocol/src/device-defi-position-read-v1.mjs',
-      'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs');
+      'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs',
+      'packages/mobile-protocol/src/device-external-flat-note-v1.mjs',
+      'apps/mobile/src/api/device-external-flat-note-api-v1.mjs',
+      'apps/mobile/src/screens/ExternalTokenNoteScreen.tsx',
+      'apps/mobile/src/custody/device-external-flat-note-vault-v1.ts');
     report.embeddedSourceJoins=required.map(path=>{
       const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length)
         :path.startsWith('apps/wallet/')?path.slice('apps/'.length):path;
