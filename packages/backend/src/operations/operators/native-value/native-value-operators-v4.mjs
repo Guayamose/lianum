@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { privateFailureDiagnostic } from '../../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { retainNativeValueOriginalAuditTimingV1 } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
-import { types } from 'node:util';
+import { types, isDeepStrictEqual } from 'node:util';
 import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
 import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
@@ -238,7 +238,7 @@ function createNativeOperator(raw,recovery=null) {
       if (authorization.signature === null && authorization.digest !== allowedPending)
         blockers.push({ reason: 'NATIVE_VALUE_UNFINISHED_CHECKPOINT_INTENT' });
 
-    if (JSON.stringify(next) !== JSON.stringify(record.state)) await save(next);
+    if (!isDeepStrictEqual(next, record.state)) await save(next);
     await current(); await unchanged();
     return freeze({ head: copy(active.view.head), inventoryCount: String(observations.length), observations, blockers });
   }
