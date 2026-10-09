@@ -7,6 +7,11 @@ import {join,relative,resolve,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ROOT,FLAT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
 const CODE=/^(?:ERR|FLAT|CLAIM|NATIVE_CLAIM|COMBINED_OPERATOR|OPERATOR_NATIVE|SOLANA|BITCOIN|LOCAL_EVM|ROLE_CLIENT|PW|VAULT|NATIVE|COMMITMENT)_[A-Z0-9_]{1,100}$/;
+// These exact SDK labels carry no response, permission or comparison values.
+// Accept no arbitrary message, even if it resembles a diagnostic code.
+const MOBILE_CODES=new Set(['MOBILE_ORIGINAL_EXPIRED','MOBILE_REVIEW_CHANGED',
+ 'MOBILE_ORIGINAL_RESPONSE_INVALID','MOBILE_SERVICE_UNAVAILABLE',
+ 'MOBILE_ORIGINAL_STREAM_REQUIRED','MOBILE_RESPONSE_ORIGIN']);
 const TYPES=new Map([[AssertionError.prototype,'ASSERTION_ERROR'],[TypeError.prototype,'TYPE_ERROR'],[RangeError.prototype,'RANGE_ERROR'],[Error.prototype,'ERROR'],[AggregateError.prototype,'AGGREGATE_ERROR']]);
 const ROOTS=Object.freeze([['flat-wallet',ROOT],['golden',GOLDEN],['mobile-protocol',join(FLAT,'mobile-protocol')]]);
 // Node24 V8 exposes stack through an intrinsic getter even after assignment.
@@ -73,7 +78,9 @@ export function privateNativeEconomicSuccessorFirstErrorV1(error){
  assert.equal(arguments.length,1,'NATIVE_ECONOMIC_FIRST_ERROR_ARITY');
  const native=!!error&&typeof error==='object'&&!types.isProxy(error)&&types.isNativeError(error);
  const errorType=native?(TYPES.get(Object.getPrototypeOf(error))??'OTHER_NATIVE_ERROR'):'THROWN_VALUE';
- const supplied=own(error,'code'),errorCode=typeof supplied==='string'&&CODE.exec(supplied)?.[0]===supplied?supplied:null;
+ const supplied=own(error,'code'),label=native?own(error,'message'):undefined;
+ const errorCode=typeof supplied==='string'&&CODE.exec(supplied)?.[0]===supplied?supplied:
+  MOBILE_CODES.has(label)?label:null;
  const stack=native?stackText(error):undefined,frames=[];
  if(typeof stack==='string')for(const row of stack.slice(0,65536).split('\n').slice(1,257)){
   const match=/^\s+at (?:[^()\r\n]* \()?((?:file:\/\/)?\/[^()\r\n?#]+\.mjs):([1-9][0-9]{0,8}):([1-9][0-9]{0,8})\)?$/.exec(row);

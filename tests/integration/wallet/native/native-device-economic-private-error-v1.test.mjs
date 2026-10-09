@@ -28,6 +28,11 @@ test('HOST first-error metadata excludes messages/values and bounds existing sou
  const json=JSON.stringify(value);for(const secret of['PRIVATE-ACTUAL','PRIVATE-EXPECTED','PRIVATE-MESSAGE','witness','actual','expected','operator','message','original (','/tmp/'])assert.equal(json.includes(secret),false);
  const injected=new Error('PRIVATE');injected.code='ERR_ASSERTION\n';injected.stack='Error: PRIVATE\n'+safeFrame.replace(':41:7', '?private=VALUE:41:7');
  assert.equal(diagnose(injected).errorCode,null);assert.deepEqual(diagnose(injected).frames,[]);
+ for(const label of ['MOBILE_ORIGINAL_EXPIRED','MOBILE_REVIEW_CHANGED','MOBILE_ORIGINAL_RESPONSE_INVALID',
+  'MOBILE_SERVICE_UNAVAILABLE','MOBILE_ORIGINAL_STREAM_REQUIRED','MOBILE_RESPONSE_ORIGIN'])
+  assert.equal(diagnose(new Error(label)).errorCode,label);
+ for(const label of ['MOBILE_PRIVATE_VALUE','MOBILE_ORIGINAL_EXPIRED PRIVATE','MOBILE_SERVICE_UNAVAILABLE\n'])
+  assert.equal(diagnose(new Error(label)).errorCode,null);
  let accesses=0;const userStack=new Error('PRIVATE-STACK');
  Object.defineProperty(userStack,'stack',{configurable:true,get(){accesses++;return 'Error: PRIVATE\n'+safeFrame;}});
  assert.deepEqual(diagnose(userStack).frames,[]);assert.equal(accesses,0);
