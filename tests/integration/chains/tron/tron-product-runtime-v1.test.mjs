@@ -431,3 +431,75 @@ test('product command drains fresh status, unix, FD-list and resource reads with
  const resourceFailure=await run({resourceError:true});assert.equal(resourceFailure.error,resourceFailure.resourceFailure);assert.equal(resourceFailure.finishedInitial,5);assert.equal(resourceFailure.fdReads,12);assert.equal(resourceFailure.writes,0);
  const cancelled=await run({aborted:true});assert.equal(cancelled.error,cancelled.abortReason);assert.equal(cancelled.identities,0);assert.equal(cancelled.finishedInitial,0);assert.equal(cancelled.writes,0);
 });
+
+
+// Actual private readExact bodies and real small owned FDs only. This is not
+// a native process, key, packet, observation or financial timing experiment.
+test('HOST original Tron journal fresh read authenticates bounded real FDs with unchanged async ABI and exact errors',async t=>{
+ const fs=await import('node:fs/promises'),sync=await import('node:fs'),{tmpdir}=await import('node:os');
+ const source=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs'),'utf8');
+ const from=source.indexOf(' async function readExact(name,expected)'),to=source.indexOf(' async function retain(',from);
+ assert.ok(from>=0&&to>from);const actualSource=source.slice(from,to).trim();
+ // Exact before-body retained from current c639a169 source, not a mirror of
+ // the new implementation. It is only the baseline in this SAME-file HOST.
+ const originalSource=String.raw`async function readExact(name,expected){live();const path=join(driver.directory,name);assert.equal(await realpath(path),path);
+  const stat=await lstat(path);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&(stat.mode&0o777)===0o600,'OWNED_TRON_JOURNAL_FILE');
+  const f=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);try{assert.deepEqual(JSON.parse(await f.readFile('utf8')),expected,'OWNED_TRON_JOURNAL_CHANGED');}finally{await f.close();}}`;
+ const directory=await fs.mkdtemp(join(tmpdir(),'tron-original-journal-read-'));await fs.chmod(directory,0o700);
+ const name='event-000.json',path=join(directory,name),expected={kind:'HOST_ORIGINAL',sequence:'0',data:'á🙂'.repeat(12)};
+ const encoded=JSON.stringify(expected),originalBytes=Buffer.byteLength(encoded,'utf8');
+ const originalError=Object.assign(Error('HOST_ORIGINAL_FD_READ_ERROR'),{code:'EIO'}),closedError=Error('HOST_ORIGINAL_OWNER_CLOSED');
+ let active=0,peak=0,openCount=0,closeCount=0,liveCount=0,live=true,fdStats=0,readCount=0,ioError=false,grow=false,shrink=false,wrongUID=false,wrongMode=false;
+ const buffers=[];
+ async function reset(){await fs.rm(path,{force:true});await fs.writeFile(path,encoded,{mode:0o600});
+  ioError=grow=shrink=wrongUID=wrongMode=false;fdStats=readCount=0;live=true;buffers.length=0;}
+ const environment={assert,process,JSON,join,constants:sync.constants,driver:{directory},live(){liveCount++;if(!live)throw closedError;},
+  Buffer:{byteLength:Buffer.byteLength,alloc(size){assert.equal(size,originalBytes+1);const bytes=Buffer.alloc(size);buffers.push(bytes);return bytes;}},
+  realpath:fs.realpath,lstat:fs.lstat,
+  async open(file,flags){assert.equal(file,path);assert.equal(flags,sync.constants.O_RDONLY|sync.constants.O_NOFOLLOW);const fd=await fs.open(file,flags);
+   active++;peak=Math.max(peak,active);openCount++;return {readFile:encoding=>fd.readFile(encoding),async close(){try{await fd.close();}finally{active--;closeCount++;}}};},
+  realpathSync:sync.realpathSync,lstatSync:sync.lstatSync,
+  openSync(file,flags){assert.equal(file,path);assert.equal(flags,sync.constants.O_RDONLY|sync.constants.O_NOFOLLOW);const fd=sync.openSync(file,flags);
+   active++;peak=Math.max(peak,active);openCount++;return fd;},
+  fstatSync(fd,options){assert.equal(options.bigint,true);fdStats++;const stat=sync.fstatSync(fd,options);
+   if(fdStats===1){if(grow)sync.appendFileSync(path,' ');if(shrink)sync.truncateSync(path,originalBytes-1);}
+   if(wrongUID)return Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{uid:stat.uid+1n});
+   if(wrongMode)return Object.assign(Object.create(Object.getPrototypeOf(stat)),stat,{mode:stat.mode^0o400n});return stat;},
+  readSync(fd,bytes,offset,length,position){readCount++;assert.ok(offset+length<=originalBytes+1);if(ioError)throw originalError;
+   return sync.readSync(fd,bytes,offset,length,position);},
+  closeSync(fd){try{return sync.closeSync(fd);}finally{active--;closeCount++;}}};
+ const before=vm.runInNewContext('('+originalSource+')',environment),after=vm.runInNewContext('('+actualSource+')',environment);
+ try{
+  await reset();const beforeOpen=openCount,beforeClose=closeCount,beforeStarted=performance.now();
+  for(let i=0;i<8;i++)await before(name,expected);const beforeMilliseconds=performance.now()-beforeStarted;
+  assert.equal(openCount-beforeOpen,8);assert.equal(closeCount-beforeClose,8);assert.equal(active,0);
+  const afterOpen=openCount,afterClose=closeCount,afterStarted=performance.now();
+  for(let i=0;i<8;i++)await after(name,expected);const afterMilliseconds=performance.now()-afterStarted;
+  assert.equal(openCount-afterOpen,8);assert.equal(closeCount-afterClose,8);assert.equal(active,0);assert.equal(fdStats,16);assert.equal(peak,1);
+  assert.ok(buffers.every(bytes=>bytes.length===originalBytes+1&&bytes.every(byte=>byte===0)));
+  t.diagnostic(JSON.stringify({profile:'HOST_ORIGINAL_JOURNAL_READ_ONLY',iterations:8,originalExpectedBytes:originalBytes,
+   beforeMilliseconds,afterMilliseconds,freshOpenCount:16,freshCloseCount:16,peakFD:peak}));
+  // Every next read is fresh; a same-length content change still fails the
+  // original JSON comparison, without granting or calling any native effect.
+  await reset();await fs.writeFile(path,encoded.replace('HOST_ORIGINAL','HOST_MUTATION'));
+  const valueFailureOpen=openCount;await assert.rejects(after(name,expected),/OWNED_TRON_JOURNAL_CHANGED/);
+  assert.equal(openCount,valueFailureOpen+1);assert.equal(active,0);assert.ok(buffers.every(bytes=>bytes.every(byte=>byte===0)));
+  for(const adverse of ['grow','shrink','large','uid','mode','io']){
+   await reset();if(adverse==='grow')grow=true;if(adverse==='shrink')shrink=true;if(adverse==='uid')wrongUID=true;
+   if(adverse==='mode')wrongMode=true;if(adverse==='io')ioError=true;if(adverse==='large')await fs.appendFile(path,' '.repeat(4096));
+   const opened=openCount,closed=closeCount;
+   if(adverse==='io')await assert.rejects(after(name,expected),error=>error===originalError);
+   else await assert.rejects(after(name,expected),adverse==='uid'||adverse==='mode'?/OWNED_TRON_JOURNAL_FILE/:/OWNED_TRON_JOURNAL_CHANGED/);
+   assert.equal(openCount,opened+1);assert.equal(closeCount,closed+1);assert.equal(active,0);
+   assert.ok(buffers.every(bytes=>bytes.length===originalBytes+1&&bytes.every(byte=>byte===0)));
+   if(adverse==='large')assert.equal(buffers.length,0);
+  }
+  await reset();await fs.chmod(path,0o644);const beforeModeOpen=openCount;
+  await assert.rejects(after(name,expected),/OWNED_TRON_JOURNAL_FILE/);assert.equal(openCount,beforeModeOpen);assert.equal(active,0);
+  await reset();const target=join(directory,'other.json');await fs.writeFile(target,encoded,{mode:0o600});await fs.rm(path);await fs.symlink(target,path);
+  const beforeLinkOpen=openCount;await assert.rejects(after(name,expected));assert.equal(openCount,beforeLinkOpen);assert.equal(active,0);
+  await reset();live=false;const beforeClosedOpen=openCount,result=after(name,expected);
+  assert.equal(typeof result.then,'function');await assert.rejects(result,error=>error===closedError);assert.equal(openCount,beforeClosedOpen);assert.equal(active,0);
+  assert.ok(liveCount>=16);
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});

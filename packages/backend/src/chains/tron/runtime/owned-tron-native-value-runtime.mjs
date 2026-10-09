@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { retainNativeValueOriginalDispatchTimingV1 } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
-import { open,readFile,lstat,realpath } from 'node:fs/promises';
-import { constants } from 'node:fs';
+import { open } from 'node:fs/promises';
+import { constants,realpathSync,lstatSync,openSync,fstatSync,readSync,closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { startFixedOwnedTronDriver,inspectOwnedTronRuntimePrerequisites } from '../transfers/owned-tron-node-driver.mjs';
 import { assertOwnedNativeValueTronDispatchRequest } from '../dispatch/native-value-tron-dispatch-gate.mjs';
@@ -41,9 +41,24 @@ export async function createOwnedLocalTronNativeValueV1(){assert.equal(arguments
    adverseHistory:Boolean(state?.adverse),entry,journal});}
 
  function live(){assert.ok(!closed,'OWNED_TRON_CLOSED');driver.assertAlive();}
- async function readExact(name,expected){live();const path=join(driver.directory,name);assert.equal(await realpath(path),path);
-  const stat=await lstat(path);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&(stat.mode&0o777)===0o600,'OWNED_TRON_JOURNAL_FILE');
-  const f=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);try{assert.deepEqual(JSON.parse(await f.readFile('utf8')),expected,'OWNED_TRON_JOURNAL_CHANGED');}finally{await f.close();}}
+ async function readExact(name,expected){live();const path=join(driver.directory,name);assert.equal(realpathSync(path),path);
+  const stat=lstatSync(path);assert.ok(stat.isFile()&&!stat.isSymbolicLink()&&(stat.mode&0o777)===0o600&&stat.uid===process.getuid(),'OWNED_TRON_JOURNAL_FILE');
+  const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;
+  try{
+   // The private retain producer below writes EXACTLY these UTF8 bytes. This
+   // bound comes from the same original expected object, never caller options,
+   // a global cap, cached content or a successful prior scan.
+   const length=Buffer.byteLength(JSON.stringify(expected),'utf8'),size=BigInt(length),uid=BigInt(process.getuid());
+   const before=fstatSync(fd,{bigint:true});
+   assert.ok(before.isFile()&&before.uid===uid&&(before.mode&0o777n)===0o600n,'OWNED_TRON_JOURNAL_FILE');
+   assert.equal(before.size,size,'OWNED_TRON_JOURNAL_CHANGED');
+   bytes=Buffer.alloc(length+1);let offset=0;
+   while(offset<bytes.length){const count=readSync(fd,bytes,offset,bytes.length-offset,null);if(count===0)break;offset+=count;}
+   const after=fstatSync(fd,{bigint:true});
+   assert.ok(after.isFile()&&after.uid===uid&&(after.mode&0o777n)===0o600n,'OWNED_TRON_JOURNAL_FILE');
+   assert.equal(after.size,size,'OWNED_TRON_JOURNAL_CHANGED');assert.equal(offset,length,'OWNED_TRON_JOURNAL_CHANGED');
+   assert.deepEqual(JSON.parse(bytes.subarray(0,offset).toString('utf8')),expected,'OWNED_TRON_JOURNAL_CHANGED');
+  }finally{bytes?.fill(0);closeSync(fd);}}
  async function retain(name,value){live();const path=join(driver.directory,name);let f;try{f=await open(path,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   await f.writeFile(JSON.stringify(value));await f.sync();await f.close();f=null;const d=await open(driver.directory,constants.O_RDONLY|constants.O_DIRECTORY);try{await d.sync();}finally{await d.close();}await readExact(name,value);
  }catch(error){latched=true;throw new Error('OWNED_TRON_RETENTION_UNKNOWN_NO_REPLACEMENT',{cause:error});}finally{await f?.close();}}
