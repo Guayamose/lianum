@@ -14349,6 +14349,48 @@
       "bytes": 158,
       "mode": "0644",
       "source": "scripts/compilers/engine/solidity-js/package.json"
+    },
+    {
+      "source": "tests/integration/wallet/native/native-original-source-abrupt-backend-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/native-original-source-abrupt-backend-v1.mjs",
+      "sha256": "3c06fff0d1cbdfb331c7174f9a3064a1eaf78608f9172497d30430aea0d499d4",
+      "bytes": 6919,
+      "mode": "0644"
+    },
+    {
+      "source": "tests/integration/wallet/native/native-original-source-abrupt-flow-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/native-original-source-abrupt-flow-v1.mjs",
+      "sha256": "f7fca47ba61bf0f4135d07cc7955f867845d31f76b30a9c5ddb5bb9b0d14ef03",
+      "bytes": 23620,
+      "mode": "0644"
+    },
+    {
+      "source": "tests/integration/wallet/native/native-original-source-abrupt-policy-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/native-original-source-abrupt-policy-v1.mjs",
+      "sha256": "bb6d28702492d933001b3ce4f2a69e4340595fdae42695a7af2ef42fb631e9e5",
+      "bytes": 6171,
+      "mode": "0644"
+    },
+    {
+      "source": "tests/integration/wallet/native/native-original-source-abrupt-process-scope-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/native-original-source-abrupt-process-scope-v1.mjs",
+      "sha256": "56968b24f3f6bf0a636f25240947cc72d170999bc9d6c17f47e39bd5dbf13cd1",
+      "bytes": 4119,
+      "mode": "0644"
+    },
+    {
+      "source": "tests/integration/wallet/native/native-original-source-abrupt-source-pins-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/native-original-source-abrupt-source-pins-v1.mjs",
+      "sha256": "1908a9b72793138e4c774538aa8c4adb61c33c70dbbb81e2769d9935cec41ba1",
+      "bytes": 2616,
+      "mode": "0644"
+    },
+    {
+      "source": "tests/integration/wallet/native/run-native-original-source-abrupt-v1.mjs",
+      "path": "omnichain-flat-profile/flat-wallet/integration/run-native-original-source-abrupt-v1.mjs",
+      "sha256": "351dfa771ddf6ccb09989d0342235881f03204c78accd147498941883cb7fe2d",
+      "bytes": 139,
+      "mode": "0644"
     }
   ],
   "importSpellings": {
@@ -22133,7 +22175,82 @@
       "../runners/source-pins.mjs": "./source-pins.mjs",
       "../wallet/manual/manual-wallet-source-pins.mjs": "./manual-wallet-source-pins.mjs",
       "../claims/lifecycle/native-claim-source-pins.mjs": "./native-claim-source-pins.mjs",
-      "../claims/health/native-claim-unfunded-health-policy.mjs": "./native-claim-unfunded-health-policy.mjs"
+      "../claims/health/native-claim-unfunded-health-policy.mjs": "./native-claim-unfunded-health-policy.mjs",
+      "../wallet/native/native-original-source-abrupt-policy-v1.mjs": "./native-original-source-abrupt-policy-v1.mjs",
+      "../wallet/native/native-original-source-abrupt-source-pins-v1.mjs": "./native-original-source-abrupt-source-pins-v1.mjs",
+      "../wallet/native/native-original-source-abrupt-process-scope-v1.mjs": "./native-original-source-abrupt-process-scope-v1.mjs",
+      "../wallet/native/device-external-flat-erc20-source-pins-v1.mjs": "./device-external-flat-erc20-source-pins-v1.mjs",
+      "../wallet/native/device-external-flat-erc20-policy-v1.mjs": "./device-external-flat-erc20-policy-v1.mjs",
+      "../chains/evm/external-defi-vault-exit-process-scope-v1.mjs": "./external-defi-vault-exit-process-scope-v1.mjs",
+      "../chains/evm/external-defi-vault-exit-source-pins-v1.mjs": "./external-defi-vault-exit-source-pins-v1.mjs",
+      "../chains/evm/external-defi-vault-exit-policy-v1.mjs": "./external-defi-vault-exit-policy-v1.mjs",
+      "../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs": "../../../omnichain-product/src/paeg/note-native-execution-v1.mjs",
+      "../chains/evm/native-spl-claim-validation-compilation-source-pins-v1.mjs": "./native-spl-claim-validation-compilation-source-pins-v1.mjs",
+      "../chains/evm/native-spl-claim-validation-compilation-policy-v1.mjs": "./native-spl-claim-validation-compilation-policy-v1.mjs",
+      "../claims/development/development-btc-spl-jupiter-source-pins-v1.mjs": "./claims/development/development-btc-spl-jupiter-source-pins-v1.mjs",
+      "../claims/development/development-btc-spl-jupiter-policy-v1.mjs": "./claims/development/development-btc-spl-jupiter-policy-v1.mjs",
+      "../chains/evm/native-spl-claim-v1-compilation-source-pins.mjs": "./native-spl-claim-v1-compilation-source-pins.mjs",
+      "../chains/evm/native-spl-claim-v1-compilation-policy.mjs": "./native-spl-claim-v1-compilation-policy.mjs",
+      "../chains/evm/native-spl-claim-token-compilation-source-pins-v1.mjs": "./native-spl-claim-token-compilation-source-pins-v1.mjs",
+      "../chains/evm/native-spl-claim-token-compilation-policy-v1.mjs": "./native-spl-claim-token-compilation-policy-v1.mjs",
+      "../../../packages/proofs/src/jobs/reservation-native-execution-v1.mjs": "../proof-workers/reservation-native-execution-v1.mjs",
+      "../../../packages/proofs/src/jobs/node-native-execution-v1.mjs": "../proof-workers/node-native-execution-v1.mjs",
+      "../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs": "../proof-workers/authorization-native-execution-v1.mjs",
+      "../../../packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs": "../proof-workers/native-value-dev-live-v5-native-execution.mjs",
+      "../chains/solana/native-spl-compilation-source-pins-v1.mjs": "./native-spl-compilation-source-pins-v1.mjs",
+      "../chains/solana/native-spl-compilation-policy-v1.mjs": "./native-spl-compilation-policy-v1.mjs",
+      "../chains/solana/jupiter-orca-public-swap-source-pins-v1.mjs": "./jupiter-orca-public-swap-source-pins-v1.mjs",
+      "../chains/solana/jupiter-orca-public-swap-policy-v1.mjs": "./jupiter-orca-public-swap-policy-v1.mjs",
+      "../../../packages/backend/src/operations/deployments/defi/jupiter-official-material-v1.mjs": "../wallet-platform/modules/ops/jupiter-official-material-v1.mjs",
+      "../chains/evm/aave-compilation-source-pins-v1.mjs": "./aave-compilation-source-pins-v1.mjs",
+      "../chains/evm/aave-compilation-policy-v1.mjs": "./aave-compilation-policy-v1.mjs",
+      "../chains/evm/aave-private-graph-source-pins-v1.mjs": "./aave-private-graph-source-pins-v1.mjs",
+      "../chains/evm/aave-private-graph-policy-v1.mjs": "./aave-private-graph-policy-v1.mjs",
+      "../../../packages/backend/tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs": "../wallet-platform/modules/ops/official-aave-fixture-v1.mjs",
+      "../wallet/native/native-wallet-tron-dev-source-pins-v5.mjs": "./native-wallet-tron-dev-source-pins-v5.mjs",
+      "../wallet/native/native-wallet-tron-dev-policy-v5.mjs": "./native-wallet-tron-dev-policy-v5.mjs",
+      "../wallet/native/paired-native-note-source-pins-v2.mjs": "./paired-native-note-source-pins-v2.mjs",
+      "../wallet/native/device-owner-deposit-source-pins-v1.mjs": "./device-owner-deposit-source-pins-v1.mjs",
+      "../wallet/native/device-owner-deposit-policy-v1.mjs": "./device-owner-deposit-policy-v1.mjs",
+      "../wallet/native/native-device-economic-note-source-pins-v1.mjs": "./native-device-economic-note-source-pins-v1.mjs",
+      "../wallet/native/native-device-economic-note-process-scope-v1.mjs": "./native-device-economic-note-process-scope-v1.mjs",
+      "../wallet/native/native-device-economic-note-policy-v1.mjs": "./native-device-economic-note-policy-v1.mjs",
+      "../wallet/native/native-device-economic-source-pins-v1.mjs": "./native-device-economic-source-pins-v1.mjs",
+      "../wallet/native/native-device-economic-process-scope-v1.mjs": "./native-device-economic-process-scope-v1.mjs",
+      "../wallet/native/native-device-economic-policy-v1.mjs": "./native-device-economic-policy-v1.mjs",
+      "../wallet/native/device-owner-recovery-source-pins-v1.mjs": "./device-owner-recovery-source-pins-v1.mjs",
+      "../wallet/native/device-owner-recovery-policy-v1.mjs": "./device-owner-recovery-policy-v1.mjs",
+      "../wallet/native/device-owner-execution-source-pins-v1.mjs": "./device-owner-execution-source-pins-v1.mjs",
+      "../wallet/native/device-owner-execution-policy-v1.mjs": "./device-owner-execution-policy-v1.mjs",
+      "../wallet/native/device-owner-reservation-source-pins-v1.mjs": "./device-owner-reservation-source-pins-v1.mjs",
+      "../wallet/native/device-owner-reservation-policy-v1.mjs": "./device-owner-reservation-policy-v1.mjs",
+      "../wallet/native/paired-native-note-policy-v2.mjs": "./paired-native-note-policy-v2.mjs",
+      "../claims/metrics/native-claim-empty-audit-source-pins-v1.mjs": "./claims/metrics/native-claim-empty-audit-source-pins-v1.mjs",
+      "../claims/metrics/native-claim-empty-audit-policy-v1.mjs": "./claims/metrics/native-claim-empty-audit-policy-v1.mjs",
+      "../claims/development/development-btc-sol-graph-source-pins.mjs": "./claims/development/development-btc-sol-graph-source-pins.mjs",
+      "../claims/development/development-btc-sol-graph-policy.mjs": "./claims/development/development-btc-sol-graph-policy.mjs",
+      "../evm/osaka/development-osaka-smoke-source-pins.mjs": "./evm/osaka/development-osaka-smoke-source-pins.mjs",
+      "../evm/osaka/development-osaka-smoke-policy.mjs": "./evm/osaka/development-osaka-smoke-policy.mjs",
+      "../defi/entry/development-defi-entry-source-pins.mjs": "./defi/entry/development-defi-entry-source-pins.mjs",
+      "../defi/entry/development-defi-entry-policy.mjs": "./defi/entry/development-defi-entry-policy.mjs",
+      "../claims/development/development-native-claim-source-pins.mjs": "./claims/development/development-native-claim-source-pins.mjs",
+      "../claims/development/development-native-claim-policy.mjs": "./claims/development/development-native-claim-policy.mjs",
+      "../defi/private-metamorpho-source-pins.mjs": "./defi/private-metamorpho-source-pins.mjs",
+      "../defi/private-metamorpho-flow-policy.mjs": "./defi/private-metamorpho-flow-policy.mjs",
+      "./native-flow-owned-rss-v1.mjs": "./native-flow-owned-rss-v1.mjs",
+      "../wallet/manual/manual-wallet-recovery-policy.mjs": "./manual-wallet-recovery-policy.mjs",
+      "../chains/evm/evm-metamorpho-recovery-policy-v1.mjs": "./evm-metamorpho-recovery-policy-v1.mjs",
+      "../chains/evm/evm-metamorpho-recovery-source-pins-v1.mjs": "./evm-metamorpho-recovery-source-pins-v1.mjs",
+      "../chains/evm/evm-vault-terminal-checks.mjs": "./evm-vault-terminal-checks.mjs",
+      "../wallet/manual/manual-wallet-browser-source-pins.mjs": "./manual-wallet-browser-source-pins.mjs",
+      "../wallet/manual/manual-wallet-browser-policy.mjs": "./manual-wallet-browser-policy.mjs",
+      "../wallet/manual/manual-wallet-browser-recovery-source-pins.mjs": "./manual-wallet-browser-recovery-source-pins.mjs",
+      "../wallet/manual/manual-wallet-browser-recovery-policy.mjs": "./manual-wallet-browser-recovery-policy.mjs",
+      "../wallet/native/native-device-live-armed-short-policy-v1.mjs": "./native-device-live-armed-short-policy-v1.mjs",
+      "../wallet/native/native-device-live-armed-short-source-pins-v1.mjs": "./native-device-live-armed-short-source-pins-v1.mjs",
+      "../wallet/native/native-device-live-armed-short-process-scope-v1.mjs": "./native-device-live-armed-short-process-scope-v1.mjs",
+      "../wallet/native/device-owner-original-f-reorg-policy-v1.mjs": "./device-owner-original-f-reorg-policy-v1.mjs",
+      "../wallet/native/device-owner-original-f-reorg-source-pins-v1.mjs": "./device-owner-original-f-reorg-source-pins-v1.mjs"
     },
     "tests/integration/native/native-flow.mjs": {
       "../../../packages/engine/src/execution/local/local-evm.mjs": "../../../omnichain-product/src/paeg/local-evm.mjs",
@@ -22551,6 +22668,45 @@
       "../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs": "../../../omnichain-product/src/private-wallet-note-encoding.mjs",
       "../../native/native-wallet-real-evidence-v1.mjs": "./native-wallet-real-evidence-v1.mjs",
       "../../../../../packages/backend/src/execution/encoding/commitments.mjs": "../wallet-platform/modules/paeg/commitments.mjs"
+    },
+    "tests/integration/wallet/native/native-original-source-abrupt-backend-v1.mjs": {
+      "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
+      "../../../../packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs": "../wallet-platform/modules/ops/native-original-source-capsule-v1.mjs",
+      "../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs": "../wallet-platform/modules/global-state/native-value-account-authority-v2.mjs",
+      "../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs": "../wallet-platform/modules/paeg/native-value-system-state-v2.mjs",
+      "../../native/native-flow-owned-files-v1.mjs": "./native-flow-owned-files-v1.mjs",
+      "./native-device-economic-private-error-v1.mjs": "./native-device-economic-private-error-v1.mjs"
+    },
+    "tests/integration/wallet/native/native-original-source-abrupt-flow-v1.mjs": {
+      "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
+      "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs",
+      "../../native/native-flow-owned-files-v1.mjs": "./native-flow-owned-files-v1.mjs",
+      "../../fixtures/runners/owned-flat-fixture.mjs": "./owned-flat-fixture.mjs",
+      "../../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs": "../../../omnichain-product/src/paeg/note-native-execution-v1.mjs",
+      "../../claims/development/development-btc-sol-graph-proof-evidence.mjs": "./claims/development/development-btc-sol-graph-proof-evidence.mjs",
+      "../../../../packages/mobile-protocol/src/original-account-review-v2.mjs": "../../../mobile-protocol/src/original-account-review-v2.mjs",
+      "../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs": "../../../mobile-protocol/src/device-deposit-consent-v1.mjs",
+      "../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs": "../../../mobile-protocol/src/device-reservation-consent-v1.mjs",
+      "../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs": "../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
+      "./device-owner-reservation-host-vault-v1.mjs": "./device-owner-reservation-host-vault-v1.mjs",
+      "./native-device-economic-private-error-v1.mjs": "./native-device-economic-private-error-v1.mjs",
+      "./native-original-source-abrupt-source-pins-v1.mjs": "./native-original-source-abrupt-source-pins-v1.mjs",
+      "./native-original-source-abrupt-policy-v1.mjs": "./native-original-source-abrupt-policy-v1.mjs"
+    },
+    "tests/integration/wallet/native/native-original-source-abrupt-policy-v1.mjs": {
+      "../../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs": "../../../omnichain-product/src/paeg/note-native-execution-v1.mjs",
+      "../../claims/development/development-btc-sol-graph-proof-evidence.mjs": "./claims/development/development-btc-sol-graph-proof-evidence.mjs"
+    },
+    "tests/integration/wallet/native/native-original-source-abrupt-process-scope-v1.mjs": {
+      "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
+      "./native-device-live-armed-short-process-scope-v1.mjs": "./native-device-live-armed-short-process-scope-v1.mjs"
+    },
+    "tests/integration/wallet/native/native-original-source-abrupt-source-pins-v1.mjs": {
+      "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
+      "../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs": "../wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs"
+    },
+    "tests/integration/wallet/native/run-native-original-source-abrupt-v1.mjs": {
+      "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs"
     }
   },
   "sourceRoots": [

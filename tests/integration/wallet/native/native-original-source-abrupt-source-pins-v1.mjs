@@ -1,0 +1,16 @@
+/** Physical before/after closure of this fixed acceptance and mobile code. */
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {lstatSync,readFileSync,realpathSync} from 'node:fs';
+import {join,resolve} from 'node:path';
+import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
+import {nativeValueDevFinancialSourcePinsV5} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
+const project=resolve(FLAT,'../../..');
+const integration=Object.freeze(['run-native-original-source-abrupt-v1.mjs','native-original-source-abrupt-flow-v1.mjs','native-original-source-abrupt-backend-v1.mjs','native-original-source-abrupt-policy-v1.mjs','native-original-source-abrupt-source-pins-v1.mjs','native-original-source-abrupt-process-scope-v1.mjs']);
+const mobile=Object.freeze(['custody/signing.mjs','custody/local-root-note-vault-v1.ts','custody/balance-note-codec-v1.mjs','custody/unissued-deposit-terms-v1.mjs','custody/funded-balance-owner-codec-v1.mjs','custody/device-balance-withdrawal-codec-v1.mjs','custody/owner-commitment-codec-v1.mjs','custody/poseidon2-bn254-v1.mjs','custody/original-account-lease-v2.mjs','custody/receipt-lease.mjs','custody/review-lease.mjs','custody/key-store.ts','api/original-account-api-v2.mjs','api/device-owner-deposit-api-v1.ts','api/device-owner-reservation-api-v1.ts','api/device-owner-execution-api-v1.ts','api/device-owner-exit-api-v1.ts','api/device-owner-output-balance-api-v1.ts']);
+function pin(path,label){assert.equal(realpathSync(path),path,'NATIVE_SOURCE_ACCEPTANCE_SOURCE_ALIAS');const before=lstatSync(path);assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.size>0&&before.size<=1048576);
+ const bytes=readFileSync(path),after=lstatSync(path);for(const k of ['dev','ino','size','mtimeMs','ctimeMs'])assert.equal(before[k],after[k]);assert.equal(bytes.length,before.size);return{path:label,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')};}
+export function nativeSourceAbruptSourcePinsV1(){assert.equal(arguments.length,0);return{format:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),
+ runner:integration.map(name=>pin(join(ROOT,'integration',name),'integration/'+name)),
+ mobile:mobile.map(name=>pin(join(project,'apps/mobile/src',name),'mobile-app/src/'+name)),
+ launcher:['native_original_source_abrupt_lab_v1.py','paired_original_account_lab.py','native_economic_note_receipts.py','osaka_lab.py','workspace.py'].map(name=>pin(join(project,'scripts/development',name),'development-tooling/'+name))};}

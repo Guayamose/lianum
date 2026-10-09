@@ -1,3 +1,6 @@
+import {NATIVE_SOURCE_ABRUPT_RESULT_V1,assertNativeSourceAbruptReleaseV1,assertNativeSourceAbruptResultV1} from '../wallet/native/native-original-source-abrupt-policy-v1.mjs';
+import {nativeSourceAbruptSourcePinsV1} from '../wallet/native/native-original-source-abrupt-source-pins-v1.mjs';
+import {classifyNativeSourceAbruptProcessV1,assertNativeSourceAbruptPreflightV1} from '../wallet/native/native-original-source-abrupt-process-scope-v1.mjs';
 import {deviceExternalFlatErc20SourcePinsV1} from '../wallet/native/device-external-flat-erc20-source-pins-v1.mjs';
 import {DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,assertDeviceExternalFlatErc20ReleaseV1,assertDeviceExternalFlatErc20ResultV1,classifyDeviceExternalFlatErc20ProcessV1} from '../wallet/native/device-external-flat-erc20-policy-v1.mjs';
 import {classifyExternalDefiVaultExitProcessV1,externalDefiVaultExitProcessFailureV1} from '../chains/evm/external-defi-vault-exit-process-scope-v1.mjs';
@@ -123,6 +126,7 @@ import {classifyNativeLiveArmedShortProcessV1,assertNativeLiveArmedShortRecovera
 import {DEVICE_F_REORG_RESULT_V1,assertDeviceFReorgReleaseV1,assertDeviceFReorgResultV1} from '../wallet/native/device-owner-original-f-reorg-policy-v1.mjs';
 import {deviceOwnerFReorgSourcePinsV1} from '../wallet/native/device-owner-original-f-reorg-source-pins-v1.mjs';
 const FLOW_PROFILES = Object.freeze({
+  nativeSourceAbruptV1:Object.freeze({entry:join(ROOT,'integration/run-native-original-source-abrupt-v1.mjs'),worker:join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'),local:join(ROOT,'.local/native-original-source-abrupt-v1'),resultFormat:NATIVE_SOURCE_ABRUPT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_HARD_BACKEND_EXIT_SAME_SOURCE_NEW_PID_U_S_FIRST_ARM_BEFORE_EIGHT_HOURS_NOT_F_OR_PHONE',sourcePins:nativeSourceAbruptSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution','closedBackend'])}),
   deviceOwnerFReorgV1:Object.freeze({entry:join(ROOT,'integration/run-device-owner-original-f-reorg-v1.mjs'),worker:join(ROOT,'integration/device-owner-original-f-reorg-flow-v1.mjs'),local:join(ROOT,'.local/device-owner-original-f-reorg-v1'),resultFormat:DEVICE_F_REORG_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_F_EXACT_PARENT_REORG_SAME_RETAINED_WIRE_RECONFIRMATION_LOCAL_NOT_PHONE_OR_DEEP_REORG',sourcePins:deviceOwnerFReorgSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
   nativeDeviceLiveArmedShortV1:Object.freeze({entry:join(ROOT,'integration/run-native-value-live-armed-short-restart-v1.mjs'),worker:join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'),local:join(ROOT,'.local/native-value-live-armed-recovery-v1'),resultFormat:NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_U_S_FRESH_ARM_PLANNED_NEW_PROCESS_BEFORE_EIGHT_HOUR_CUTOFF_NOT_F_OR_PHONE',sourcePins:nativeDeviceLiveArmedShortSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
   deviceExternalFlatErc20V1:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-erc20-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-external-flat-ordered-observation-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_EXTERNAL_FLAT_D26_W39_ORDERED_NEW_PID_OBSERVATION_NOT_PHONE_OR_ABRUPT_CRASH',sourcePins:deviceExternalFlatErc20SourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed','originalBackendCaptured','closedSuccessor'])}),
@@ -718,7 +722,7 @@ export function nativeExitedProcessClassification(process, established) {
 export function nativeProofProcessResources(processes) {
   const active = processes.filter(live);
   const protectedProofProcesses = active.filter(item => item.proofWorker
-    || item.role === 'economic-note-native-coordinator' || item.role === 'device-external-flat-observation-successor' || item.role === 'native-economic-successor-role' || item.role === 'flat-reservation-native-coordinator' || item.role === 'flat-node-native-coordinator' || item.role === 'native-value-dev-live-v5-native-coordinator' || item.role === 'flat-authorization-native-coordinator' || item.role === 'wrapped-claim-proof-role' || item.role === 'native-ingress-v3-proof-role' || item.role === 'native-value-live-v2-proof-role' || item.role === 'native-value-dev-live-v5-proof-role');
+    || item.role === 'native-source-original-backend' || item.role === 'economic-note-native-coordinator' || item.role === 'device-external-flat-observation-successor' || item.role === 'native-economic-successor-role' || item.role === 'flat-reservation-native-coordinator' || item.role === 'flat-node-native-coordinator' || item.role === 'native-value-dev-live-v5-native-coordinator' || item.role === 'flat-authorization-native-coordinator' || item.role === 'wrapped-claim-proof-role' || item.role === 'native-ingress-v3-proof-role' || item.role === 'native-value-live-v2-proof-role' || item.role === 'native-value-dev-live-v5-proof-role');
   // A native U uses one original Node coordinator plus its sole BB child.
   // They share the same 3GiB ceiling; splitting PIDs never enlarges it.
   const nativeUCombinedRSS = active.filter(item => item.role === 'flat-authorization-native-coordinator').map(parent =>
@@ -796,6 +800,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if(profile===FLOW_PROFILES.nativeSourceAbruptV1)scoped=assertNativeSourceAbruptResultV1(result);
   if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1)scoped=assertDeviceExternalFlatErc20ResultV1(result);
   if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1)scoped=assertExternalDefiVaultExitRecoveryResultV1(result);
   if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) scoped = assertJupiterOrcaPublicSwapResultV1(result);
@@ -932,6 +937,34 @@ export async function runPairedNativeNoteSupervisorV2() {
   await consumePairedNativeNoteStartPipeV2();
   assertPairedNativeNoteLauncherV2();
   return runFixedFlowSupervisor(FLOW_PROFILES.pairedNativeNoteV2);
+}
+
+function assertNativeSourceAbruptLauncherV1(){
+  const parentPID = process.ppid, before = procStat(parentPID);
+  assert.ok(before && live(before), 'NATIVE_SOURCE_ORIGINAL_LAUNCHER_UNAVAILABLE');
+  assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'NATIVE_SOURCE_LAUNCHER_UID');
+  const status = readFileSync(`/proc/${parentPID}/status`, 'utf8');
+  const uids = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(status);
+  assert.ok(uids && uids.slice(1).every(value => Number(value) === process.getuid()), 'NATIVE_SOURCE_LAUNCHER_UID');
+  const project = resolve(ROOT, '../../../..'), cwd = realpathSync(`/proc/${parentPID}/cwd`);
+  assert.equal(cwd, project, 'NATIVE_SOURCE_LAUNCHER_CWD');
+  const argv = readFileSync(`/proc/${parentPID}/cmdline`, 'utf8').split('\0').filter(Boolean);
+  assert.equal(argv.length,3,'NATIVE_SOURCE_FIXED_LAUNCHER_ARGV');
+  assert.equal(argv[1], '-B', 'NATIVE_SOURCE_LAUNCHER_ARGV');
+  assert.match(basename(argv[0]), /^python3(?:\.\d+)?$/, 'NATIVE_SOURCE_LAUNCHER_ARGV');
+  assert.equal(realpathSync(resolve(cwd, argv[2])), join(project, 'scripts/development/native_original_source_abrupt_lab_v1.py'),
+    'NATIVE_SOURCE_FIXED_LAUNCHER');
+  const after = procStat(parentPID);
+  assert.ok(after && live(after) && sameIdentity(before, after) && before.ppid === after.ppid
+    && before.pgrp === after.pgrp && before.session === after.session, 'NATIVE_SOURCE_LAUNCHER_IDENTITY_CHANGED');
+  assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'NATIVE_SOURCE_LAUNCHER_UID');
+  const finalUids = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(readFileSync(`/proc/${parentPID}/status`, 'utf8'));
+  assert.ok(finalUids && finalUids.slice(1).every(value => Number(value) === process.getuid()), 'NATIVE_SOURCE_LAUNCHER_UID');
+}
+export async function runNativeOriginalSourceAbruptSupervisorV1(){
+ assert.equal(arguments.length,0,'NATIVE_SOURCE_NO_SUPERVISOR_OPTIONS');assertNativeSourceAbruptReleaseV1();
+ assertNativeSourceAbruptLauncherV1();await consumePairedNativeNoteStartPipeV2();assertNativeSourceAbruptLauncherV1();
+ await assertNativeSourceAbruptPreflightV1();return runFixedFlowSupervisor(FLOW_PROFILES.nativeSourceAbruptV1);
 }
 
 export async function runNativeDeviceLiveArmedShortSupervisorV1(){
@@ -1223,6 +1256,7 @@ async function runFixedFlowSupervisor(profile) {
     const nativeStat=procStat(pid),nativeParent=nativeStat?procStat(nativeStat.ppid):null;
     if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1){const scoped=classifyDeviceExternalFlatErc20ProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const scoped=classifyExternalDefiVaultExitProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
+    if(profile===FLOW_PROFILES.nativeSourceAbruptV1){const scoped=classifyNativeSourceAbruptProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,startTimeTicks:nativeParent.startTimeTicks,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1){const scoped=classifyNativeLiveArmedShortProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1){const scoped=classifyNativeEconomicNoteRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
       nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
@@ -1461,6 +1495,7 @@ async function runFixedFlowSupervisor(profile) {
       if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const forbidden=externalDefiVaultExitProcessFailureV1([...history.values()]);if(forbidden)stop(forbidden,{},sample);}
       if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1||profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         stop('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED',{},sample);
+      if(profile===FLOW_PROFILES.nativeSourceAbruptV1&&[...history.values()].some(row=>row.role==='native-source-unexpected-process'))stop('NATIVE_SOURCE_FIXED_PROCESS_REQUIRED',{},sample);
       if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1&&[...history.values()].some(row=>row.role==='device-external-flat-unexpected-process'))stop('DEVICE_EXTERNAL_FLAT_FIXED_PROCESS_REQUIRED',{},sample);
       if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) {
         const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
@@ -1559,6 +1594,7 @@ async function runFixedFlowSupervisor(profile) {
       if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const forbidden=externalDefiVaultExitProcessFailureV1([...history.values()]);if(forbidden)fail(forbidden);}
       if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1||profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         fail('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED');
+      if(profile===FLOW_PROFILES.nativeSourceAbruptV1&&[...history.values()].some(row=>row.role==='native-source-unexpected-process'))fail('NATIVE_SOURCE_FIXED_PROCESS_REQUIRED');
       if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1&&[...history.values()].some(row=>row.role==='device-external-flat-unexpected-process'))fail('DEVICE_EXTERNAL_FLAT_FIXED_PROCESS_REQUIRED');
       if (!workerSpawned) fail('NATIVE_WORKER_NOT_STARTED');
       else if (!childExited || !childClosed) fail('NATIVE_WORKER_EXIT_OR_CLOSE_NOT_OBSERVED');
