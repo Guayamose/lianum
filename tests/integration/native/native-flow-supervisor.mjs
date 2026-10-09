@@ -1,3 +1,5 @@
+import {deviceExternalFlatErc20SourcePinsV1} from '../wallet/native/device-external-flat-erc20-source-pins-v1.mjs';
+import {DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,assertDeviceExternalFlatErc20ReleaseV1,assertDeviceExternalFlatErc20ResultV1,classifyDeviceExternalFlatErc20ProcessV1} from '../wallet/native/device-external-flat-erc20-policy-v1.mjs';
 import {classifyExternalDefiVaultExitProcessV1,externalDefiVaultExitProcessFailureV1} from '../chains/evm/external-defi-vault-exit-process-scope-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from '../chains/evm/external-defi-vault-exit-source-pins-v1.mjs';
 import {assertExternalVaultExitRecoveryReleaseV1,assertExternalDefiVaultExitRecoveryResultV1} from '../chains/evm/external-defi-vault-exit-policy-v1.mjs';
@@ -116,6 +118,7 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 // Private, fixed catalog: neither public entry accepts a profile or options.
 // Paths, result formats, source roots and budgets cannot come from a request.
 const FLOW_PROFILES = Object.freeze({
+  deviceExternalFlatErc20V1:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-erc20-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-external-flat-erc20-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_EXTERNAL_FLAT_SOURCE_NOTE_D26_W39_LOCAL_NODE_NOT_PHONE_OR_GRAPH',sourcePins:deviceExternalFlatErc20SourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
   evmAaveExitRecoveryV1:Object.freeze({entry:join(ROOT,'integration/run-evm-aave-exit-recovery-v1.mjs'),worker:join(ROOT,'integration/evm-vault-flow.mjs'),local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
 
   evmMetaMorphoExitRecoveryV1:Object.freeze({entry:join(ROOT,'integration/run-evm-metamorpho-exit-recovery-v1.mjs'),worker:join(ROOT,'integration/evm-vault-flow.mjs'),local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
@@ -786,6 +789,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1)scoped=assertDeviceExternalFlatErc20ResultV1(result);
   if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1)scoped=assertExternalDefiVaultExitRecoveryResultV1(result);
   if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) scoped = assertJupiterOrcaPublicSwapResultV1(result);
   if (profile === FLOW_PROFILES.nativeSplClaimV1CompilationOnly) scoped = assertNativeSplClaimV1CompilationResult(result);
@@ -1197,6 +1201,7 @@ async function runFixedFlowSupervisor(profile) {
     if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const p=classifyNativeSplClaimV1Preparation(argv);if(p)return p;}
     const script = argv[1];
     const nativeStat=procStat(pid),nativeParent=nativeStat?procStat(nativeStat.ppid):null;
+    if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1){const scoped=classifyDeviceExternalFlatErc20ProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const scoped=classifyExternalDefiVaultExitProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1){const scoped=classifyNativeEconomicNoteRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
       nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
@@ -1435,6 +1440,7 @@ async function runFixedFlowSupervisor(profile) {
       if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const forbidden=externalDefiVaultExitProcessFailureV1([...history.values()]);if(forbidden)stop(forbidden,{},sample);}
       if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         stop('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED',{},sample);
+      if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1&&[...history.values()].some(row=>row.role==='device-external-flat-unexpected-process'))stop('DEVICE_EXTERNAL_FLAT_FIXED_PROCESS_REQUIRED',{},sample);
       if (profile === FLOW_PROFILES.jupiterOrcaPublicSwapV1) {
         const forbidden = jupiterOrcaSwapProcessFailureV1([...history.values()]);
         if(forbidden)stop(forbidden,{},sample);
@@ -1532,6 +1538,7 @@ async function runFixedFlowSupervisor(profile) {
       if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const forbidden=externalDefiVaultExitProcessFailureV1([...history.values()]);if(forbidden)fail(forbidden);}
       if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         fail('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED');
+      if(profile===FLOW_PROFILES.deviceExternalFlatErc20V1&&[...history.values()].some(row=>row.role==='device-external-flat-unexpected-process'))fail('DEVICE_EXTERNAL_FLAT_FIXED_PROCESS_REQUIRED');
       if (!workerSpawned) fail('NATIVE_WORKER_NOT_STARTED');
       else if (!childExited || !childClosed) fail('NATIVE_WORKER_EXIT_OR_CLOSE_NOT_OBSERVED');
       if (profile === FLOW_PROFILES.wrappedWalletFixedPreflight || profile === FLOW_PROFILES.wrappedDeploymentOnly) {
@@ -1782,3 +1789,5 @@ async function runFixedFlowSupervisor(profile) {
 
 export function runEvmMetaMorphoExitRecoverySupervisorV1(){assert.equal(arguments.length,0);assertExternalVaultExitRecoveryReleaseV1();return runFixedFlowSupervisor(FLOW_PROFILES.evmMetaMorphoExitRecoveryV1);}
 export function runEvmAaveExitRecoverySupervisorV1(){assert.equal(arguments.length,0);assertExternalVaultExitRecoveryReleaseV1();return runFixedFlowSupervisor(FLOW_PROFILES.evmAaveExitRecoveryV1);}
+
+export async function runDeviceExternalFlatErc20SupervisorV1(){assert.equal(arguments.length,0);assertDeviceExternalFlatErc20ReleaseV1();await assertNativeEconomicRecoverableAnvilV1();return runFixedFlowSupervisor(FLOW_PROFILES.deviceExternalFlatErc20V1);}
