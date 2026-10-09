@@ -133,6 +133,13 @@ export function tickDeviceOwnerLiveRecoveryLeaseV1(cap){assert.equal(arguments.l
 }
 export function readDeviceOwnerRecoveryArmTermsV1(account,bridge,id){assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
  return owned.get(account).liveRecoveryTerms(bridge,id);}
+/** Private finite logical read. Only the same account/bridge and its original
+ * LIVE_ARMED clock can hold the account lock across all owner/head observations. */
+export function readDeviceOwnerLiveArmedOriginalOwnerSnapshotV1(account,bridge,id){
+  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+  assertDeviceOwnerExecutionBridgeV1(bridge,account);reference(id);
+  return owned.get(account).liveArmedOwnerSnapshot(bridge,id);
+}
 export function runDeviceOwnerRecoveryArmAuthorizationV1(account,bridge,cap){assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
  return owned.get(account).armLiveRecovery(consumeDeviceOwnerExecutionAuthorizationV1(bridge,cap,account));}
 
@@ -951,6 +958,31 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       await reservationUpdate(row.jobId,{liveRecoveryArm:{...row.liveRecoveryArm,state:'DISARMED'}});}
     return{...armPublic(reservationRow(row.jobId)),authorizationSHA256:digest};
   });}
+  async function liveArmedOwnerSnapshot(bridge,id){
+    // Drain only work already admitted by this exact account. No new admission,
+    // timer cancellation, clock freeze, observer retry or permission is issued.
+    if(busy){const admitted=idle;await admitted;}
+    return exclusive(async()=>{
+      const lease=requireLiveRecovery(bridge);
+      assertOriginalNativeDeviceLiveArmedObservedClockV1(lease.clock,{runtime,nativeRuntime:lease.nativeRuntime});
+      await healthy();continueWork();deviceExecutionOriginal(bridge,reservationRow(id));
+      // The original status read refreshes this clock. Do that before retaining
+      // the logical head, then share the same exclusion with the original tick.
+      await refreshLiveOperationClock();assert.equal(requireLiveRecovery(bridge),lease);
+      const view=await reader.read();await reader.assertCurrent(view);
+      const status=await deviceExecutionPublic(bridge,reservationRow(id));
+      requireLiveRecovery(bridge);await healthy();const row=reservationRow(id);
+      deviceExecutionOriginal(bridge,row);await deviceExecutionPublic(bridge,row);
+      const arm=armPublic(row),ownerView=await privateOwnerView(),linuxSummary=await owner.ownerView.summary();
+      await reader.assertCurrent(view);continueWork();assert.equal(requireLiveRecovery(bridge),lease);
+      assertOriginalNativeDeviceLiveArmedObservedClockV1(lease.clock,{runtime,nativeRuntime:lease.nativeRuntime});
+      return Object.freeze({sourceSHA256:nativeValueOriginalRecoverySourceV1(runtime,system),
+        head:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},
+        counts:{receiver:runtime.transactions.length,native:lease.nativeRuntime.transactions.length},
+        ledger:{publicState:view.ledger.publicState,commitments:view.ledger.commitments,nullifiers:view.ledger.nullifiers},
+        status,arm,ownerView,linuxSummary});
+    });
+  }
   async function tickLiveRecovery(lease){
     assert.equal(lease,liveRecovery,'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');if(lease.closed)return{state:'CLOSED'};
     if(busy||closed||cancelled||unavailable||capturing)return{state:'BUSY'};
@@ -2160,7 +2192,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       if(arm.state!=='ARMED')assert.equal(row.nativeRecoveryLatched,true,'NATIVE_LIVE_ARMED_UNKNOWN_ONLY_OBSERVE');
       return Object.freeze({parentJobId:row.jobId,armSHA256:arm.armSHA256,settleBefore:arm.settleBefore,state:arm.state});
     },
-    tickLiveRecovery,armLiveRecovery,
+    tickLiveRecovery,armLiveRecovery,liveArmedOwnerSnapshot,
     liveArmedClockCheckpoint(expectedRuntime){assert.ok(recovery?.native&&recovery.liveArmed&&!wrapped);assert.equal(expectedRuntime,runtime);return recovery.record.observedClockSecond;},
     liveRecoveryTerms(bridge,id){return exclusive(async()=>{requireLiveRecovery(bridge);await healthy();const row=reservationRow(id);
       deviceExecutionOriginal(bridge,row);await deviceExecutionPublic(bridge,row);return armPublic(row);});},
