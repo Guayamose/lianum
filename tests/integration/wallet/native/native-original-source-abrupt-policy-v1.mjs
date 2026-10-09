@@ -1,4 +1,4 @@
-/** Fixed original mobile SOURCE continuation after one unclosed backend exit. */
+/** Fixed original mobile SOURCE continuation after two unclosed backend exits, with the same durable ARM. */
 import assert from 'node:assert/strict';
 import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1} from '../../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
@@ -8,7 +8,7 @@ const sourceReview='SOURCE_REVIEWED_ORIGINAL_SOURCE_ABRUPT_V1';
 export function assertNativeSourceAbruptReleaseV1(){assert.equal(arguments.length,0);assert.equal(sourceReview,'SOURCE_REVIEWED_ORIGINAL_SOURCE_ABRUPT_V1','NATIVE_SOURCE_ABRUPT_RELEASE_NOT_REVIEWED');}
 export function assertNativeSourceAbruptResultV1(r){
  assert.equal(arguments.length,1);assert.equal(r.format,NATIVE_SOURCE_ABRUPT_RESULT_V1);assert.equal(r.profile,NATIVE_SOURCE_ABRUPT_PROFILE_V1);
- for(const k of ['success','sourceUnchanged','sourceAbruptRestartNodeAcceptance','nativeProcessRestartEstablished','localOnly','fakeFundsOnly'])assert.equal(r[k],true,k);
+ for(const k of ['success','sourceUnchanged','sourceAbruptRestartNodeAcceptance','sourceArmedAbruptRestartEstablished','nativeProcessRestartEstablished','localOnly','fakeFundsOnly'])assert.equal(r[k],true,k);
  for(const k of ['interrupted','publicNetwork','nativeGraphAcceptance','keeperLossRecoveryEstablished','mobileNoteCustodyEstablished','tlsEstablished','reactRendererEstablished','physicalPhoneEstablished','mobilePortfolioEstablished','independentInfrastructureEstablished','fullWalletAcceptance','postCutoffRecoveryEstablished'])assert.equal(r[k],false,k);
  assert.equal(r.phase,'completed');assert.equal(r.nativeDeliveryCount,0);assert.equal(r.nativeExecution,'ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1');
  assert.deepEqual(r.proofs.map(p=>[p.relation,p.publicWords]),[['deposit_balance',26],['authorization',16],['reservation',58]]);assert.equal(new Set(r.proofs.map(p=>p.proofSHA256)).size,3);
@@ -30,10 +30,21 @@ export function assertNativeSourceAbruptResultV1(r){
  assert.equal(a.final.arm.jobId,r.reservation.jobId);assert.equal(a.final.arm.settleBefore,r.reservation.statement.settleBefore);assert.equal(a.final.arm.terminalOutcome,null);assert.equal(a.final.status.outcome,null);
  assert.ok(BigInt(a.final.head.timestamp)<BigInt(a.final.arm.settleBefore));assert.equal(a.final.counts.native,b.counts.native);assert.equal(a.final.counts.receiver,b.counts.receiver+2);
  assert.equal(a.final.ownerView.balances.available,'0');assert.equal(a.final.linuxSummary.notes.source.status,'UNISSUED');
+ const ac=r.armedCrash,ao=r.armedReopen.initial,ar=r.armedObservation;
+ assert.deepEqual(ac.exit,{code:17,signal:null});assert.equal(ac.intendedExitCode,17);
+ for(const k of ['orderedCaptureCalled','originalCloseCalled','signalDeliveryObserved'])assert.equal(ac[k],false,k);
+ for(const k of ['allOriginalProcessesAbsent','parentVaultRetained'])assert.equal(ac[k],true,k);assert.equal(ac.configuredKernelParentDeathSignal,'SIGTERM');
+ assert.equal(ac.before.process.pid,o.process.pid);assert.notEqual(ao.process.pid,o.process.pid);assert.notEqual(ao.process.pid,b.process.pid);assert.ok(ao.sourceGeneration>o.sourceGeneration);
+ assert.deepEqual(ao.descriptor,o.descriptor);assert.deepEqual(ao.snapshot.ledger,ac.before.snapshot.ledger);assert.deepEqual(ao.snapshot.counts,ac.before.snapshot.counts);
+ for(const point of [ac.before,ao]){assert.equal(point.capsule.phase,'CONFIRMED');assert.equal(point.capsule.pending,false);assert.equal(point.snapshot.arm.armSHA256,a.permission.armSHA256);assert.equal(point.snapshot.arm.state,'ARMED');assert.equal(point.snapshot.arm.settleBefore,a.permission.settleBefore);assert.equal(point.snapshot.status.outcome,null);assert.ok(BigInt(point.snapshot.head.timestamp)<BigInt(point.snapshot.arm.settleBefore));}
+ assert.equal(ar.originalPermissionRetained,true);assert.equal(ar.noNewProofKeyOrSend,true);assert.equal(ar.arm.armSHA256,a.permission.armSHA256);assert.equal(ar.arm.state,'ARMED');
+ assert.equal(ar.final.arm.armSHA256,a.permission.armSHA256);assert.deepEqual(ar.final.ledger,a.final.ledger);assert.deepEqual(ar.final.counts,a.final.counts);assert.ok(BigInt(ar.final.head.timestamp)<BigInt(ar.final.arm.settleBefore));
+ assert.equal(ar.outputs.nativeOutcome,null);assert.equal(ar.outputs.parentJobId,r.reservation.jobId);assert.equal(ar.outputs.reservationTransactionHash,r.reservation.observation.transactionHash);
+ assert.deepEqual([ar.outputs.change.amount,ar.outputs.change.state,ar.outputs.recovery.amount,ar.outputs.recovery.state],['400','UNSPENT','100','LOCKED']);
  assert.deepEqual(r.economics,{amountAtomic:'500',changeAtomic:'400',recoveryAtomic:'100',receiverFinancialWires:2,nativeDeliveryWires:0,poolBackedAtomic:'500'});
  assert.equal(r.tlsVersion,'TLSv1.3');assert.equal(r.mobileCustody.nodeAesGcm,true);assert.equal(r.mobileCustody.nodeCryptographicEntropy,true);assert.equal(r.mobileCustody.ciphertextPersisted,true);
  for(const k of ['rootPersistedToFile','secureStoreHardware','biometricHardware'])assert.equal(r.mobileCustody[k],false,k);
  assert.deepEqual(r.cleanup.errors,[]);for(const k of ['closedEvm','closedNativeEvm','closedNativeExecution','closedBackend','closedMobileVault','closedMobileHost'])assert.equal(r.cleanup[k],true,k);
  assert.equal(r.cleanup.backend.report.closed,true);assert.equal(r.cleanup.backend.report.originalResourcesStopped,true);
- return{sourceAbruptRestartNodeAcceptance:true,nativeProcessRestartEstablished:true,nativeDeliveryCount:0,nativeGraphAcceptance:false,keeperLossRecoveryEstablished:false,mobileNoteCustodyEstablished:false,tlsEstablished:false,reactRendererEstablished:false,physicalPhoneEstablished:false,mobilePortfolioEstablished:false,independentInfrastructureEstablished:false,fullWalletAcceptance:false,postCutoffRecoveryEstablished:false};
+ return{sourceAbruptRestartNodeAcceptance:true,sourceArmedAbruptRestartEstablished:true,nativeProcessRestartEstablished:true,nativeDeliveryCount:0,nativeGraphAcceptance:false,keeperLossRecoveryEstablished:false,mobileNoteCustodyEstablished:false,tlsEstablished:false,reactRendererEstablished:false,physicalPhoneEstablished:false,mobilePortfolioEstablished:false,independentInfrastructureEstablished:false,fullWalletAcceptance:false,postCutoffRecoveryEstablished:false};
 }

@@ -31,11 +31,17 @@ async function basic(){const c=context(),reader=await createNativeValueSystemSta
   counts:{receiver:c.runtime.transactions.length,native:c.nativeRuntime.transactions.length},
   ledger:{publicState:view.ledger.publicState,commitments:view.ledger.commitments,nullifiers:view.ledger.nullifiers},
   linuxSourceStatus:linux.notes.source.status,linuxAvailable:ownerView.balances.available};}
+async function armedPoint(jobId){
+ const value=await readOriginalNativeSourceLocalArmedAuditV1(service,jobId),c=context(),capsule=originalNativeSourceCapsuleStatusV1(c.authority);
+ assert.equal(capsule.phase,'CONFIRMED');assert.equal(capsule.pending,false);assert.equal(value.arm.state,'ARMED');assert.equal(value.arm.jobId,jobId);
+ assert.equal(value.status.outcome,null);assert.equal(value.counts.native,0);assert.ok(BigInt(value.head.timestamp)<BigInt(value.arm.settleBefore));
+ return{process:nativeProcStatV1(process.pid),descriptor:service.descriptor,sourceGeneration:service.originalSourceGeneration,capsule,snapshot:value};
+}
 async function dispatch(message){exact(message,['id','method','payload']);assert.ok(Number.isSafeInteger(message.id)&&message.id>0);assert.ok(!closed&&!closing);
  const {id,method,payload}=message;
- if(method==='START'){assert.equal(started,false);exact(payload,['mode','configuration']);assert.ok(['CREATE','OPEN'].includes(payload.mode));started=true;
+ if(method==='START'){assert.equal(started,false);exact(payload,payload.mode==='OPEN_ARMED'?['mode','configuration','jobId']:['mode','configuration']);assert.ok(['CREATE','OPEN','OPEN_ARMED'].includes(payload.mode));started=true;
   service=await(payload.mode==='CREATE'?createOriginalNativeSourceLocalOperatorV1:reopenOriginalNativeSourceLocalOperatorV1)(payload.configuration);
-  assert.equal(service.profile,'ORIGINAL_NATIVE_DURABLE_SOURCE_OPERATOR_V1');assert.ok(service.descriptor);const initial=await basic();
+  assert.equal(service.profile,'ORIGINAL_NATIVE_DURABLE_SOURCE_OPERATOR_V1');assert.ok(service.descriptor);const initial=payload.mode==='OPEN_ARMED'?await armedPoint(payload.jobId):await basic();
   return send({id,ok:true,value:{initial,ownedProcesses:await readOriginalNativeSourceLocalOwnedProcessesV1(service)}});}
  assert.ok(started&&service);
  if(method==='RECEIPTS'){exact(payload,['count']);assert.ok([1,2,3].includes(payload.count));
@@ -49,6 +55,9 @@ async function dispatch(message){exact(message,['id','method','payload']);assert
   const ownedProcesses=await readOriginalNativeSourceLocalOwnedProcessesV1(service);assert.equal(originalNativeSourceCapsuleStatusV1(context().authority).pending,false);
   await send({id,ok:true,value:{before:value,ownedProcesses,orderedCaptureCalled:false,originalCloseCalled:false,intendedExitCode:17}});
   process.exit(17);}
+ if(method==='EXIT17_ARM'){exact(payload,['jobId']);const before=await armedPoint(payload.jobId),ownedProcesses=readOriginalNativeSourceLocalOwnedProcessesV1(service);
+  assert.equal(before.snapshot.ledger.publicState.backedAmount,'500');assert.equal(before.snapshot.ownerView.balances.available,'0');assert.equal(before.snapshot.linuxSummary.notes.source.status,'UNISSUED');
+  await send({id,ok:true,value:{before,ownedProcesses,orderedCaptureCalled:false,originalCloseCalled:false,intendedExitCode:17}});process.exit(17);}
  if(method==='CLOSE'){exact(payload,[]);const ownedProcesses=await readOriginalNativeSourceLocalOwnedProcessesV1(service);closing=true;
   const report=await service.close();assert.equal(report.closed,true);assert.equal(report.originalResourcesStopped,true);
   for(const birth of ownedProcesses)if(birth.pid!==process.pid)assert.equal(nativeProcStatV1(birth.pid),null,'NATIVE_SOURCE_ORIGINAL_CLOSE_PROCESS_PRESENT');closed=true;

@@ -1,5 +1,5 @@
 /** Genuine SOURCE product: one mobile D26, abrupt backend exit, the SAME
- * capsule in a new PID, then original unadmitted U/S and first fresh ARM. */
+ * capsule in a new PID, then original unadmitted U/S, first fresh ARM and a second abrupt reopen. */
 import assert from 'node:assert/strict';
 import {spawn,execFileSync} from 'node:child_process';
 import {createHash,randomBytes} from 'node:crypto';
@@ -36,17 +36,17 @@ async function run(){
  const sources=nativeSourceAbruptSourcePinsV1(),earlierNotes=new Set(existsSync(join(GOLDEN,'evidence/paeg-proof-attempts'))?readdirSync(join(GOLDEN,'evidence/paeg-proof-attempts')):[]),earlierGraph=new Set(existsSync(join(LOCAL,'attempts'))?readdirSync(join(LOCAL,'attempts')):[]);
  const result={format:NATIVE_SOURCE_ABRUPT_RESULT_V1,profile:NATIVE_SOURCE_ABRUPT_PROFILE_V1,runId:lock.runId,phase:'starting',success:false,interrupted:false,sourceUnchanged:false,
   supervisor:{supervisorPID:process.ppid,workerPID:process.pid},sourcePins:sources,localOnly:true,fakeFundsOnly:true,publicNetwork:false,
-  nativeExecution:'ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1',nativeDeliveryCount:0,nativeGraphAcceptance:false,sourceAbruptRestartNodeAcceptance:false,
+  nativeExecution:'ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1',nativeDeliveryCount:0,nativeGraphAcceptance:false,sourceAbruptRestartNodeAcceptance:false,sourceArmedAbruptRestartEstablished:false,
   nativeProcessRestartEstablished:false,keeperLossRecoveryEstablished:false,mobileNoteCustodyEstablished:false,tlsEstablished:false,reactRendererEstablished:false,
   physicalPhoneEstablished:false,mobilePortfolioEstablished:false,independentInfrastructureEstablished:false,fullWalletAcceptance:false,postCutoffRecoveryEstablished:false,
-  proofs:[],stages:[],cleanup:{errors:[]},disclosure:['Actual same-host product SOURCE confirmed between operations; one abrupt backend exit17 without close/capture.',
+  proofs:[],stages:[],cleanup:{errors:[]},disclosure:['Actual same-host product SOURCE confirmed between operations; two abrupt backend exits17 without close/capture, after D26 and after ARM.',
   'Same original mobile SDK/Vault execute in Node using real TLS1.3/AES-GCM/RNG. Device key and note root remain only in the surviving parent. No phone/hardware/renderer claim.',
   'Original kernel guardian is configured SIGTERM for Anvil parent death; absence is physically verified. Delivery is not inferred from absent PIDs.',
   'Three original D26/U/S proofs and two financial wires; first fresh ARM uses the original eight-hour cutoff. No F before cutoff or proof of post-cutoff restart is claimed.']};
  const save=()=>writeFixturePrivate(join(directory,'result.json'),result),active=()=>{assert.equal(result.interrupted,false);assert.ok(Date.now()<deadline,'NATIVE_SOURCE_ACCEPTANCE_TOTAL_DEADLINE');};
  const stage=async name=>{active();result.phase=name;result.stages.push({name,at:new Date().toISOString()});save();process.stdout.write(JSON.stringify({stage:name})+'\n');};
  const signals=()=>{result.interrupted=true;};process.on('SIGTERM',signals);process.on('SIGINT',signals);
- let backend=null,host=null,vault=null,deviceKey=null,dapi=null,rapi=null,eapi=null,rootId=null,primary=null,localRequest=null,witness=null,configuration=null;
+ let backend=null,host=null,vault=null,deviceKey=null,dapi=null,rapi=null,eapi=null,rootId=null,primary=null,outputApi=null,localRequest=null,witness=null,configuration=null;
  const children=[];
  function backendStart(){active();const child=spawn(process.execPath,[childScript],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},serialization:'json',stdio:['ignore','ignore','ignore','ipc']});
   const requests=new Map();let next=0,ended=false,startError=null;const closed=new Promise(resolve=>child.once('close',(code,signal)=>{ended=true;for(const row of requests.values()){clearTimeout(row.timer);row.reject(Error('NATIVE_SOURCE_BACKEND_CLOSED'));}requests.clear();resolve({code,signal});}));
@@ -116,11 +116,41 @@ async function run(){
   const readArm=await eapi.observeRecoveryArm({...await access(eapi),jobId:u.jobId});assert.equal(readArm.armSHA256,armed.armSHA256);const final=await backend.call('ARM_AUDIT',{jobId:u.jobId});assert.equal(final.arm.armSHA256,armed.armSHA256);
   assert.equal(final.counts.receiver,born.initial.counts.receiver+2);assert.equal(final.counts.native,born.initial.counts.native);assert.equal(final.ledger.publicState.actualAssetBalance,'500');assert.equal(final.ledger.publicState.backedAmount,'500');
   assert.ok(final.ledger.nullifiers.includes('0x'+originalD26.nullifier));assert.ok(final.ledger.commitments.includes('0x'+u.statement.changeCommitment));assert.equal(final.ownerView.balances.available,'0');assert.equal(final.linuxSummary.notes.source.status,'UNISSUED');
-  result.arm={permission:armed,read:readArm,final,firstFreshPermission:true,noEarlyF:true};result.economics={amountAtomic:'500',changeAtomic:'400',recoveryAtomic:'100',receiverFinancialWires:2,nativeDeliveryWires:0,poolBackedAtomic:'500'};
+  result.arm={permission:armed,read:readArm,final,firstFreshPermission:true,noEarlyF:true};
+  outputApi=await host.outputBalance.createDeviceOwnerOutputBalanceApiV1(reopened.initial.descriptor);
+  const readOutputs=async()=>{const subject=await vault.readDeviceOutputBalanceSubject(),handle=await outputApi.observe({...await access(outputApi),...subject});
+   await vault.applyDeviceOutputBalances(handle);const value=host.outputBalance.readDeviceOutputBalanceV1(handle),note=await vault.readDeviceNote();
+   assert.equal(value.change.amount,'400');assert.equal(value.change.state,'UNSPENT');assert.equal(value.recovery.amount,'100');assert.equal(value.recovery.state,'LOCKED');
+   assert.equal(note.localReservation.change.availableBalance,'400');assert.equal(note.localReservation.recovery.availableBalance,null);return{value,note};};
+  const beforeOutputs=await readOutputs(),armedVaultBefore=await vault.readDeviceNote(),armedWrites=host.evidence().writes;
+  await stage('confirmed-original-ARM-abrupt-backend-exit17-without-rearm-or-capture');
+  const armedCrash=await backend.call('EXIT17_ARM',{jobId:u.jobId}),armedExit=await backend.closed;assert.deepEqual(armedExit,{code:17,signal:null});await allAbsent(armedCrash.ownedProcesses);
+  result.armedCrash={...armedCrash,exit:armedExit,allOriginalProcessesAbsent:true,parentVaultRetained:true,configuredKernelParentDeathSignal:'SIGTERM',signalDeliveryObserved:false};
+  assert.equal(armedCrash.before.snapshot.arm.armSHA256,armed.armSHA256);assert.deepEqual(armedCrash.before.snapshot.ledger,final.ledger);
+  dapi.close();rapi.close();eapi.close();outputApi.close();vault.forgetDeviceOutputBalanceObservation();
+  await stage('third-original-backend-PID-resumes-the-SAME-ARM-without-fresh-permission');backend=backendStart();
+  const armedReopen=await backend.call('START',{mode:'OPEN_ARMED',configuration,jobId:u.jobId});
+  assert.notEqual(armedReopen.initial.process.pid,born.initial.process.pid);assert.notEqual(armedReopen.initial.process.pid,reopened.initial.process.pid);
+  assert.deepEqual(armedReopen.initial.descriptor,reopened.initial.descriptor);assert.ok(armedReopen.initial.sourceGeneration>reopened.initial.sourceGeneration);
+  assert.deepEqual(armedReopen.initial.snapshot.ledger,armedCrash.before.snapshot.ledger);assert.deepEqual(armedReopen.initial.snapshot.counts,armedCrash.before.snapshot.counts);
+  assert.equal(armedReopen.initial.snapshot.arm.armSHA256,armed.armSHA256);assert.equal(armedReopen.initial.snapshot.arm.state,'ARMED');
+  assert.equal(host.evidence().writes,armedWrites);const retainedNote=await vault.readDeviceNote();
+  assert.equal(retainedNote.revision,armedVaultBefore.revision);assert.deepEqual(retainedNote.localReservation.transactionHash,armedVaultBefore.localReservation.transactionHash);
+  result.armedReopen=armedReopen;const originalSReceipt=(await backend.call('RECEIPTS',{count:3}))[0];
+  assert.equal(originalSReceipt.label,result.proofs[2].label);assert.equal(sha(Buffer.from(originalSReceipt.proof.proof,'hex')),result.proofs[2].proofSHA256);assert.equal(sha(Buffer.from(JSON.stringify(originalSReceipt.proof.publicInputs))),result.proofs[2].publicInputsSHA256);
+  eapi=await host.execution.createDeviceOwnerExecutionApiV1(armedReopen.initial.descriptor);
+  const resumedArm=await eapi.observeRecoveryArm({...await access(eapi),jobId:u.jobId});assert.equal(resumedArm.state,'ARMED');assert.equal(resumedArm.armSHA256,armed.armSHA256);
+  await assert.rejects(eapi.challengeRecoveryArm('ARM_RECOVERY',{...await access(eapi),jobId:u.jobId}));
+  outputApi=await host.outputBalance.createDeviceOwnerOutputBalanceApiV1(armedReopen.initial.descriptor);const afterOutputs=await readOutputs();
+  for(const role of ['change','recovery'])for(const k of ['amount','state','commitment','nullifier'])assert.equal(afterOutputs.value[role][k],beforeOutputs.value[role][k]);
+  const resumedFinal=await backend.call('ARM_AUDIT',{jobId:u.jobId});assert.equal(resumedFinal.arm.armSHA256,armed.armSHA256);assert.deepEqual(resumedFinal.ledger,final.ledger);assert.deepEqual(resumedFinal.counts,final.counts);
+  result.armedObservation={arm:resumedArm,outputs:afterOutputs.value,final:resumedFinal,originalPermissionRetained:true,noNewProofKeyOrSend:true};
+  result.sourceArmedAbruptRestartEstablished=true;assert.equal(result.proofs.length,3);
+  result.economics={amountAtomic:'500',changeAtomic:'400',recoveryAtomic:'100',receiverFinancialWires:2,nativeDeliveryWires:0,poolBackedAtomic:'500'};
   result.mobileCustody=host.evidence();assert.equal(result.mobileCustody.rootPersistedToFile,false);assert.equal(transport.tlsVersion,'TLSv1.3');result.tlsVersion=transport.tlsVersion;
   result.sourceAbruptRestartNodeAcceptance=true;result.nativeProcessRestartEstablished=true;
  }catch(error){primary=error;writeFixturePrivate(join(privateDirectory,'first-error-private.json'),privateNativeEconomicSuccessorFirstErrorV1(error));result.phase='failed';save();}
- finally{localRequest?.close();if(witness){for(const v of Object.values(witness))if(Array.isArray(v))v.fill(0);}dapi?.close();rapi?.close();eapi?.close();
+ finally{localRequest?.close();if(witness){for(const v of Object.values(witness))if(Array.isArray(v))v.fill(0);}dapi?.close();rapi?.close();eapi?.close();outputApi?.close();
   try{if(backend&&nativeProcStatV1(backend.child.pid)!==null){const stopped=await backend.call('CLOSE');const exit=await backend.closed;assert.deepEqual(exit,{code:0,signal:null});await allAbsent(stopped.ownedProcesses,true);result.cleanup.backend=stopped;result.cleanup.closedEvm=true;result.cleanup.closedNativeEvm=true;result.cleanup.closedNativeExecution=true;result.cleanup.closedBackend=true;}}catch(error){primary??=error;result.cleanup.errors.push('NATIVE_SOURCE_ORIGINAL_BACKEND_CLOSE_UNCONFIRMED');if(backend?.child.connected)backend.child.disconnect();}
   vault?.close();result.cleanup.closedMobileVault=true;deviceKey?.fill(0);configuration=null;if(host){result.mobileCustody??=host.evidence();host.close();result.cleanup.closedMobileHost=true;}
   for(const c of children)if(nativeProcStatV1(c.child.pid)!==null)result.cleanup.errors.push('NATIVE_SOURCE_BACKEND_PID_PRESENT');
