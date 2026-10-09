@@ -14,7 +14,7 @@ import { NATIVE_VALUE_DEV_SCHEMA_V5, NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-wallet-host-source-pins-v4.mjs';
 import { NATIVE_VALUE_RELEASE } from '../../../../packages/backend/src/operations/releases/native-value/native-value-wallet-release-v4.mjs';
 import * as artifactModule from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
-import { loadNativeValueDevDeploymentArtifactsV5, inspectRetainedNativeValueArtifactsForDevV5,
+import { loadNativeValueDevDeploymentArtifactsV5, inspectRetainedNativeValueArtifactsForDevV5, inspectReviewedRetainedNativeValueArtifactsForDevV5,
   assertNativeValueArtifactBundle } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 import { deployNativeValueDevSystemV5 } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import { inspectNativeValueDevReleaseV5Candidate } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-producer-v5.mjs';
@@ -129,6 +129,7 @@ test('explicit null publication fixture rejects in the genuine loader/deploy bef
 test('producer and artifact inspection are fixed no-argument APIs and no copied data establishes a brand', async () => {
   await assert.rejects(inspectNativeValueDevReleaseV5Candidate({path:'/tmp/caller'}), /NO_OPTIONS/);
   await assert.rejects(inspectRetainedNativeValueArtifactsForDevV5({manifest:metadataFixture()}), /NO_OPTIONS/);
+  await assert.rejects(inspectReviewedRetainedNativeValueArtifactsForDevV5({manifest:metadataFixture()}), /NO_OPTIONS/);
   assert.throws(() => assertNativeValueArtifactBundle({artifactBundleIssued:true,retained:metadataFixture().retained}), /FIXED_ARTIFACT_BUNDLE_REQUIRED/);
 });
 test('historical record digest and three historical wallet gates remain unchanged', () => {

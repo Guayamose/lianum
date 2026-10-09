@@ -8,11 +8,16 @@ import { NATIVE_VALUE_DEV_SCHEMA_V5, NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_
   NATIVE_VALUE_DEV_RETAINED_SHA256_V5, NATIVE_VALUE_DEV_W39_ADAPTER_SHA256_V5,
   nativeValueDevDigestV5, nativeValueDevRetainedMetadataV5, validateNativeValueDevReleaseV5 }
   from './native-value-dev-release-contract-v5.mjs';
-import { inspectRetainedNativeValueArtifactsForDevV5 } from '../../deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import { inspectRetainedNativeValueArtifactsForDevV5, inspectReviewedRetainedNativeValueArtifactsForDevV5 } from '../../deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import { NATIVE_VALUE_DEV_RELEASE_V5 } from './native-value-dev-release-v5.mjs';
+import { W39_DEV_DIRECTORY_V5 } from './native-value-dev-w39-contract-v5.mjs';
 export async function inspectNativeValueDevReleaseV5Candidate() {
   assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_PRODUCER_NO_OPTIONS');
   const sourceFiles = nativeValueDevHostSourcePinsV5(), retained = nativeValueDevRetainedMetadataV5();
-  const inspection = await inspectRetainedNativeValueArtifactsForDevV5();
+  const currentW39Published = NATIVE_VALUE_DEV_RELEASE_V5 !== null
+    && NATIVE_VALUE_DEV_RELEASE_V5?.producedW39?.files?.['receipt.json']?.path === W39_DEV_DIRECTORY_V5 + '/receipt.json';
+  if (currentW39Published) validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5);
+  const inspection = await (currentW39Published ? inspectReviewedRetainedNativeValueArtifactsForDevV5 : inspectRetainedNativeValueArtifactsForDevV5)();
   assert.equal(inspection.retainedMetadataSHA256, NATIVE_VALUE_DEV_RETAINED_SHA256_V5);
   assert.equal(inspection.historicalReleaseSHA256, NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5);
   assert.deepEqual(nativeValueDevHostSourcePinsV5(), sourceFiles, 'NATIVE_VALUE_DEV_PRODUCER_SOURCE_CHANGED');

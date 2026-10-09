@@ -357,6 +357,22 @@ export async function inspectRetainedNativeValueArtifactsForDevV5() {
     compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
     toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
 }
+/** Successor review data for the already published current W39 build. The
+ * existing consumer authenticates its eight raw files, unchanged compiler
+ * inputs and original receipts. Current host pins are captured by the producer;
+ * this inspection neither issues a bundle nor rewrites build provenance. */
+export async function inspectReviewedRetainedNativeValueArtifactsForDevV5() {
+  assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_REVIEWED_INSPECTION_NO_OPTIONS');
+  assert.ok(NATIVE_VALUE_DEV_RELEASE_V5 !== null, 'NATIVE_VALUE_DEV_REVIEWED_PUBLICATION_REQUIRED');
+  validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5);
+  const loaded = await inspectFixedRetainedNativeValueArtifactsV5();
+  return frozenInput({ historicalReleaseSHA256: NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5,
+    retainedMetadataSHA256: NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
+    producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor,
+    verifierRoles: Object.keys(loaded.verifiers), artifactBundleIssued: false,
+    compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
+    toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
+}
 /** New fixed publication only. Default null stops before toolchain/files/runtime.
  * No manifest, expected pin, bundle or callback is accepted from the caller. */
 export async function loadNativeValueDevDeploymentArtifactsV5() {
