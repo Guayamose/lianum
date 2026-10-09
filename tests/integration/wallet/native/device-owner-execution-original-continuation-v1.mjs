@@ -11,6 +11,7 @@ import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/sr
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {runNativeDeviceEconomicOriginalContinuationV1} from './native-device-economic-original-continuation-v1.mjs';
 import {assertDeviceFinalOriginalReceiptTreeV1} from './device-owner-execution-native-checks-v1.mjs';
+import {runOriginalDeviceFReorgStepV1} from './device-owner-original-f-reorg-step-v1.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),bare=value=>value.startsWith('0x')?value.slice(2):value;
 export async function runDeviceOwnerExecutionContinuationV1(context){
  const {account,owner,runtime,nativeRuntime,system,reader,result,stage,save,active,descriptor,deviceKey,host,
@@ -126,8 +127,8 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
    const reply=await nativeApi.submit(signed(consent));assert.equal(reply.stage,terminalOutcome);assert.equal(reply.outcome,terminalOutcome);
    assert.equal(reply.executionSnapshot.admittedReceipts,1);assert.equal(reply.executionSnapshot.executionStarted,true);
    assert.deepEqual(reply.executionSnapshot.nativeExposure,[{slot:0,family:'3',status:'ADMITTED'}]);return reply;};
-  const observed=await reconcile(),terminal=observed.terminal;
-  const receipt=await runtime.receipt('0x'+terminal.transactionHash);await runtime.checkReceipt(receipt);await runtime.assertCanonical(receipt);assert.equal(receipt.status,'0x1');
+  let observed=await reconcile(),terminal=observed.terminal;
+  let receipt=await runtime.receipt('0x'+terminal.transactionHash);await runtime.checkReceipt(receipt);await runtime.assertCanonical(receipt);assert.equal(receipt.status,'0x1');
   const wire=runtime.transactions.filter(row=>row.transactionHash===receipt.transactionHash);assert.equal(wire.length,1);
   assert.equal(wire[0].request.to,system.pools[0].address);assert.equal(wire[0].request.data.slice(2,10),FLAT_TRANSACTION_METHODS[recovery?'recoverGeneric':'fulfillGeneric'].selector);
   assert.equal(sha(Buffer.from(wire[0].request.data.slice(2),'hex')),terminal.calldataSHA256);
@@ -140,6 +141,8 @@ export async function runDeviceOwnerExecutionContinuationV1(context){
   assert.ok(host.evidence().writes>beforeApply.writes);
   vault.close();vault=host.original.openLocalRootNoteVaultV1(rootId);
   assert.equal((await vault.readDeviceExecutionIntent()).transactionHash,terminal.transactionHash);
+  if(context.deviceReorg){const checked=await runOriginalDeviceFReorgStepV1({...context,vault,nativeApi,outputApi,access,signed,jobId,observed,receipt});
+   vault=checked.vault;observed=checked.observed;terminal=checked.terminal;receipt=checked.receipt;}
   const beforeRepeat=counts(),localWrites=host.evidence().writes,repeated=await reconcile();
   await vault.applyDeviceExecutionTerminal(repeated);assert.deepEqual(counts(),beforeRepeat);assert.equal(host.evidence().writes,localWrites);
   assert.deepEqual(repeated.terminal,terminal);

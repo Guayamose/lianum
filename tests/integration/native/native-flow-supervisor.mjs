@@ -120,7 +120,10 @@ import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfund
 import {NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,assertNativeDeviceLiveArmedShortReleaseV1,assertNativeDeviceLiveArmedShortResultV1} from '../wallet/native/native-device-live-armed-short-policy-v1.mjs';
 import {nativeDeviceLiveArmedShortSourcePinsV1} from '../wallet/native/native-device-live-armed-short-source-pins-v1.mjs';
 import {classifyNativeLiveArmedShortProcessV1,assertNativeLiveArmedShortRecoverableAnvilV1} from '../wallet/native/native-device-live-armed-short-process-scope-v1.mjs';
+import {DEVICE_F_REORG_RESULT_V1,assertDeviceFReorgReleaseV1,assertDeviceFReorgResultV1} from '../wallet/native/device-owner-original-f-reorg-policy-v1.mjs';
+import {deviceOwnerFReorgSourcePinsV1} from '../wallet/native/device-owner-original-f-reorg-source-pins-v1.mjs';
 const FLOW_PROFILES = Object.freeze({
+  deviceOwnerFReorgV1:Object.freeze({entry:join(ROOT,'integration/run-device-owner-original-f-reorg-v1.mjs'),worker:join(ROOT,'integration/device-owner-original-f-reorg-flow-v1.mjs'),local:join(ROOT,'.local/device-owner-original-f-reorg-v1'),resultFormat:DEVICE_F_REORG_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_F_EXACT_PARENT_REORG_SAME_RETAINED_WIRE_RECONFIRMATION_LOCAL_NOT_PHONE_OR_DEEP_REORG',sourcePins:deviceOwnerFReorgSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
   nativeDeviceLiveArmedShortV1:Object.freeze({entry:join(ROOT,'integration/run-native-value-live-armed-short-restart-v1.mjs'),worker:join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'),local:join(ROOT,'.local/native-value-live-armed-recovery-v1'),resultFormat:NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_U_S_FRESH_ARM_PLANNED_NEW_PROCESS_BEFORE_EIGHT_HOUR_CUTOFF_NOT_F_OR_PHONE',sourcePins:nativeDeviceLiveArmedShortSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
   deviceExternalFlatErc20V1:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-erc20-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-external-flat-ordered-observation-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_EXTERNAL_FLAT_D26_W39_ORDERED_NEW_PID_OBSERVATION_NOT_PHONE_OR_ABRUPT_CRASH',sourcePins:deviceExternalFlatErc20SourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed','originalBackendCaptured','closedSuccessor'])}),
   evmAaveExitRecoveryV1:Object.freeze({entry:join(ROOT,'integration/run-evm-aave-exit-recovery-v1.mjs'),worker:join(ROOT,'integration/evm-vault-flow.mjs'),local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
@@ -806,6 +809,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if(profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1)scoped=assertNativeDeviceLiveArmedShortResultV1(result);
   if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)scoped=assertNativeDeviceEconomicNoteResultV1(result);
   if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1)scoped=assertNativeDeviceEconomicResultV1(result);
+  if(profile===FLOW_PROFILES.deviceOwnerFReorgV1)scoped=assertDeviceFReorgResultV1(result);
   if(profile===FLOW_PROFILES.deviceOwnerRecoveryV1)scoped=assertDeviceRecoveryResultV1(result);
   if(profile===FLOW_PROFILES.deviceOwnerExecutionV1)scoped=assertDeviceExecutionResultV1(result);
   if (profile === FLOW_PROFILES.deviceOwnerReservationV1) scoped = assertDeviceReservationResultV1(result);
@@ -897,7 +901,7 @@ export async function runNativeWalletRealPreflightSupervisor() {
 /** The new profile's Python capsule represents the actual fixed launcher,
  * never a caller copy or an entry invoked directly by another host. Existing
  * enumerated profiles and their process predicates remain untouched. */
-function assertPairedNativeNoteLauncherV2(deviceDeposit = false, deviceReservation = false, deviceExecution=false,deviceRecovery=false,deviceEconomicRecovery=false,deviceEconomicNativeNotes=false,deviceLiveArmed=false) {
+function assertPairedNativeNoteLauncherV2(deviceDeposit = false, deviceReservation = false, deviceExecution=false,deviceRecovery=false,deviceEconomicRecovery=false,deviceEconomicNativeNotes=false,deviceLiveArmed=false,deviceReorg=false) {
   const parentPID = process.ppid, before = procStat(parentPID);
   assert.ok(before && live(before), 'PAIRED_NOTE_ORIGINAL_LAUNCHER_UNAVAILABLE');
   assert.equal(lstatSync(`/proc/${parentPID}/stat`).uid, process.getuid(), 'PAIRED_NOTE_LAUNCHER_UID');
@@ -908,7 +912,7 @@ function assertPairedNativeNoteLauncherV2(deviceDeposit = false, deviceReservati
   assert.equal(cwd, project, 'PAIRED_NOTE_LAUNCHER_CWD');
   const argv = readFileSync(`/proc/${parentPID}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(argv.length, deviceDeposit ? 4 : 3, 'PAIRED_NOTE_LAUNCHER_ARGV');
-  if (deviceDeposit) assert.equal(argv[3], deviceLiveArmed?'--native-live-armed-short':deviceEconomicNativeNotes?'--native-economic-note-recovery':deviceEconomicRecovery?'--native-economic-recovery':deviceRecovery?'--device-recovery':deviceExecution?'--device-execution':deviceReservation ? '--device-reservation' : '--device-deposit', 'DEVICE_DEPOSIT_FIXED_LAUNCHER_ARGV');
+  if (deviceDeposit) assert.equal(argv[3], deviceReorg?'--device-f-reorg':deviceLiveArmed?'--native-live-armed-short':deviceEconomicNativeNotes?'--native-economic-note-recovery':deviceEconomicRecovery?'--native-economic-recovery':deviceRecovery?'--device-recovery':deviceExecution?'--device-execution':deviceReservation ? '--device-reservation' : '--device-deposit', 'DEVICE_DEPOSIT_FIXED_LAUNCHER_ARGV');
   assert.equal(argv[1], '-B', 'PAIRED_NOTE_LAUNCHER_ARGV');
   assert.match(basename(argv[0]), /^python3(?:\.\d+)?$/, 'PAIRED_NOTE_LAUNCHER_ARGV');
   assert.equal(realpathSync(resolve(cwd, argv[2])), join(project, 'scripts/development/paired_original_account_lab.py'),
@@ -947,6 +951,12 @@ export async function runNativeDeviceEconomicRecoverySupervisorV1(){
   assertPairedNativeNoteLauncherV2(true,true,true,true,true);await consumePairedNativeNoteStartPipeV2();assertPairedNativeNoteLauncherV2(true,true,true,true,true);
   await assertNativeEconomicRecoverableAnvilV1();
   return runFixedFlowSupervisor(FLOW_PROFILES.nativeDeviceEconomicRecoveryV1);
+}
+
+export async function runDeviceOwnerFReorgSupervisorV1(){
+  assert.equal(arguments.length,0,'DEVICE_F_REORG_NO_SUPERVISOR_OPTIONS');assertDeviceFReorgReleaseV1();
+  assertPairedNativeNoteLauncherV2(true,true,true,true,false,false,false,true);await consumePairedNativeNoteStartPipeV2();assertPairedNativeNoteLauncherV2(true,true,true,true,false,false,false,true);
+  return runFixedFlowSupervisor(FLOW_PROFILES.deviceOwnerFReorgV1);
 }
 
 export async function runDeviceOwnerRecoverySupervisorV1(){

@@ -48,6 +48,7 @@ DEVICE_RECOVERY = False
 NATIVE_ECONOMIC_RECOVERY = False
 NATIVE_ECONOMIC_NOTE_RECOVERY = False
 LIVE_ARMED_SHORT = False
+DEVICE_F_REORG = False
 
 
 def record(value):
@@ -776,8 +777,21 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         except (OSError, ValueError, TypeError, RecursionError, IndexError):
             receipt_checks["nativeD26OriginalBytes"] = False
             receipt_checks["originalEightHoursBeforeCutoff"] = False
+    if DEVICE_F_REORG:
+        reorg = record(result.get("originalFReorg"))
+        old, new = (record(reorg.get(k)) for k in ("oldTerminal", "newTerminal"))
+        receipt_checks["originalExactParentFReconfirmed"] = worker_result.get("originalDeviceFReorgNodeAcceptance") is True \
+            and reorg.get("scope") == "EXACT_ORIGINAL_BEFORE_F_PARENT_ONLY" \
+            and all(reorg.get(k) is True for k in ("sameWire", "invalidatedBeforeReemission", "deviceUnknownDurable", "bothOutputsUnavailableWhileUnknown", "snapshotConsumed")) \
+            and all(reorg.get(k) == 1 for k in ("uniqueOriginalTransactionCount", "originalEmissionCount", "reemissionCount")) \
+            and all(reorg.get(k) == 0 for k in ("newEconomicPermissions", "newNativeTransactionSignatures", "newProofs")) \
+            and reorg.get("freshReconcilePermissions") == 2 and reorg.get("countsBefore") == reorg.get("countsAfter") \
+            and all(old.get(k) == new.get(k) for k in ("transactionHash", "calldataSHA256", "outcome")) \
+            and old.get("outcome") == "RECOVERED" and old.get("blockHash") != new.get("blockHash") \
+            and old.get("blockNumber") == new.get("blockNumber") and new == record(record(result.get("deviceNative")).get("terminal")) \
+            and reorg.get("deeperReorgSupported") is False and reorg.get("publicNetwork") is False
     accepted = all(receipt_checks.values())
-    summary = {"format": "LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LAB_V1" if LIVE_ARMED_SHORT else "LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_NOTE_RECOVERY else "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_RECOVERY else "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
+    summary = {"format": "LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_LAB_V1" if DEVICE_F_REORG else "LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LAB_V1" if LIVE_ARMED_SHORT else "LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_NOTE_RECOVERY else "LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_LAB_V1" if NATIVE_ECONOMIC_RECOVERY else "LIANUM_DEVICE_OWNER_RECOVERY_LAB_V1" if DEVICE_RECOVERY else "LIANUM_DEVICE_OWNER_EXECUTION_LAB_V1" if DEVICE_EXECUTION else "LIANUM_DEVICE_OWNER_RESERVATION_LAB_V1" if DEVICE_RESERVATION else "LIANUM_DEVICE_OWNER_DEPOSIT_LAB_V1" if DEVICE_DEPOSIT else "LIANUM_PAIRED_ORIGINAL_ACCOUNT_LAB_V2", "accepted": accepted, "runId": run_id,
         "attempt": str(attempt.relative_to(ROOT)), "receiptChecks": receipt_checks, "supervisorExitCode": supervisor_code,
         "evidenceReadFailures": read_failures, "localOnly": True, "fakeFundsOnly": True, "publicNetwork": False,
         ("nativeLiveArmedShortRestartNodeAcceptance" if LIVE_ARMED_SHORT else "deviceOwnerNativeRecoveryNodeAcceptance" if DEVICE_RECOVERY else "deviceOwnerNativeNodeAcceptance" if DEVICE_EXECUTION else "deviceOwnerUSNodeAcceptance" if DEVICE_RESERVATION else "deviceOwnerD26NodeAcceptance" if DEVICE_DEPOSIT else "pairedOriginalAccountNodeAcceptance"): accepted, "realProofCount": len(proofs) if proof_receipts["proofRowsTyped"] else None,
@@ -812,6 +826,9 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
             "Recovery100 is part of reserved100 and total original owner refund500; provider bears delivered native1M plus actual gas, with no T/payout.",
             "Exact encrypted mobile vault/API runs in Node; no physical SecureStore/Hermes/biometrics/phone or independent mobile canonical RPC.",
             "Original jobs/wires stay latched after HTTP loss; no owner-offline/full restart/public-chain/Cloud acceptance."]
+    if DEVICE_F_REORG:
+        summary["originalDeviceFReorgNodeAcceptance"] = accepted
+        summary["limitations"].append("Controlled original node rollback only to the exact parent immediately before confirmed F; same retained signed wire reemitted once after two durable invalidation latches. No deeper reorg/public-network recovery claim.")
     if NATIVE_ECONOMIC_RECOVERY:
         summary["nativeDeviceEconomicRestartNodeAcceptance"] = accepted
         summary["nativeProcessRestartEstablished"] = accepted
@@ -831,7 +848,7 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
         summary["postCutoffRecoveryEstablished"] = False
         summary["liveArmedRestart"] = result.get("liveArmedRestart")
         summary["limitations"] = ["Original device D26/U/S and fresh ARM; same encrypted mobile vault survives a planned original ten-section new-process reopen.", "Observed real local clock stays before the unchanged eight-hour cutoff; no early F, native delivery, W39 or clock advance.", "Node SDK/Vault/TLS execution only; no post-cutoff financial recovery, abrupt crash, parent exit, hardware phone, public network or full wallet acceptance."]
-    path = DEV / ("reports/native-device-live-armed-short-lab-v1.json" if LIVE_ARMED_SHORT else "reports/native-device-economic-note-recovery-lab-v1.json" if NATIVE_ECONOMIC_NOTE_RECOVERY else "reports/native-device-economic-recovery-lab-v1.json" if NATIVE_ECONOMIC_RECOVERY else "reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
+    path = DEV / ("reports/device-owner-original-f-reorg-lab-v1.json" if DEVICE_F_REORG else "reports/native-device-live-armed-short-lab-v1.json" if LIVE_ARMED_SHORT else "reports/native-device-economic-note-recovery-lab-v1.json" if NATIVE_ECONOMIC_NOTE_RECOVERY else "reports/native-device-economic-recovery-lab-v1.json" if NATIVE_ECONOMIC_RECOVERY else "reports/device-owner-recovery-lab-v1.json" if DEVICE_RECOVERY else "reports/device-owner-execution-lab-v1.json" if DEVICE_EXECUTION else "reports/device-owner-reservation-lab-v1.json" if DEVICE_RESERVATION else "reports/device-owner-deposit-lab-v1.json" if DEVICE_DEPOSIT else "reports/paired-original-account-lab-v2.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(summary, indent=2) + "\n")
@@ -843,10 +860,17 @@ def retain_summary(attempt, supervisor_pid, supervisor_code, captured_identity):
 
 
 def main():
-    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, NATIVE_ECONOMIC_RECOVERY, NATIVE_ECONOMIC_NOTE_RECOVERY, LIVE_ARMED_SHORT, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
-    if sys.argv[1:] not in ([], ["--native-live-armed-short"], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"], ["--native-economic-recovery"], ["--native-economic-note-recovery"]):
-        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--native-live-armed-short|--device-deposit|--device-reservation|--device-execution|--device-recovery|--native-economic-recovery|--native-economic-note-recovery]")
-    if sys.argv[1:] == ["--native-live-armed-short"]:
+    global active, active_identity, active_pidfd, DEVICE_DEPOSIT, DEVICE_RESERVATION, DEVICE_EXECUTION, DEVICE_RECOVERY, NATIVE_ECONOMIC_RECOVERY, NATIVE_ECONOMIC_NOTE_RECOVERY, LIVE_ARMED_SHORT, DEVICE_F_REORG, ENTRY, DIRECTORY, PROFILE, RESULT_FORMAT, RESOURCES_FORMAT
+    if sys.argv[1:] not in ([], ["--device-f-reorg"], ["--native-live-armed-short"], ["--device-deposit"], ["--device-reservation"], ["--device-execution"], ["--device-recovery"], ["--native-economic-recovery"], ["--native-economic-note-recovery"]):
+        raise SystemExit("Usage: python3 -B scripts/development/paired_original_account_lab.py [--device-f-reorg|--native-live-armed-short|--device-deposit|--device-reservation|--device-execution|--device-recovery|--native-economic-recovery|--native-economic-note-recovery]")
+    if sys.argv[1:] == ["--device-f-reorg"]:
+        DEVICE_F_REORG = DEVICE_DEPOSIT = DEVICE_RESERVATION = DEVICE_EXECUTION = DEVICE_RECOVERY = True
+        ENTRY = FLAT / "integration/run-device-owner-original-f-reorg-v1.mjs"
+        DIRECTORY = FLAT / ".local/device-owner-original-f-reorg-v1"
+        PROFILE = "device-owner-original-f-reorg-v1"
+        RESULT_FORMAT = "LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESULT_V1"
+        RESOURCES_FORMAT = "LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESOURCES_V1"
+    elif sys.argv[1:] == ["--native-live-armed-short"]:
         LIVE_ARMED_SHORT = DEVICE_DEPOSIT = DEVICE_RESERVATION = True
         ENTRY = FLAT / "integration/run-native-value-live-armed-short-restart-v1.mjs"
         DIRECTORY = FLAT / ".local/native-value-live-armed-recovery-v1"
