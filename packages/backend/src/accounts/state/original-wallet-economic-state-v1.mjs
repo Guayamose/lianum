@@ -18,6 +18,11 @@ import {validateFlatOwnerReadPayload} from '../../../../../apps/wallet/src/clien
 import {validatePositionStateEnvelope, samePositionHead} from '../../../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
 import {ORIGINAL_ECONOMIC_STATE_V1, ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS, validateOriginalWalletEconomicStateV1}
   from '../../../../../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs';
+
+import {readOriginalNativeClaimPortfolioViewV1} from '../../claims/operations/portfolio-view.mjs';
+import {originalNativeClaimAssetUnitsV1} from '../../claims/operations/native-claim-asset-units-v1.mjs';
+import {claimDomainCommitment} from '../../claims/protocol/framing.mjs';
+import {assertOriginalNativeClaimEconomicSessionV1,readOriginalNativeClaimEconomicSnapshotV1} from '../../api/accounts/flat-account-session.mjs';
 const owned = new WeakMap();
 const need = (ok, code) => assert.ok(ok, 'ORIGINAL_ECONOMIC_STATE_' + code);
 const head = observed => observed ? Object.fromEntries(['blockNumber', 'blockHash', 'timestamp'].map(k => [k, observed[k]])) : null;
@@ -95,6 +100,7 @@ function source(raw, kind) {
   need(!types.isProxy(raw), 'ORIGINAL_REQUIRED');
   const paired=Object.hasOwn(raw,'session');
   exactRecord(raw, kind === 'FLAT_NOTE' ? ['runtime', 'catalogue', 'session', 'positions']
+    : kind === 'NATIVE_CLAIM' ? ['runtime', 'view', 'session']
     : kind === 'NATIVE_NOTE' ? ['runtime', 'system', 'account',...(paired?['session']:[])] : ['runtime', 'portfolio',...(paired?['session']:[])]);
   const {runtime} = raw; let roots, check, read, identity, flat = null;
   if (kind === 'FLAT_NOTE') {
@@ -122,6 +128,25 @@ function source(raw, kind) {
       return {assets, journal, positions: p, revision: after.revision, changed,
         checkpoint: {journal: after, bindings, storageFault: status.storageFault, uncertainWrite: status.uncertainWrite}};
     };
+  } else if (kind === 'NATIVE_CLAIM') {
+    const {view, session} = raw, expected = Object.freeze({runtime, view});
+    const original = readOriginalNativeClaimPortfolioViewV1(view, runtime), {claims, portfolio} = original;
+    check = () => {readOriginalNativeClaimPortfolioViewV1(view, runtime); assertOriginalNativeClaimEconomicSessionV1(session, expected);}; check();
+    roots = claims.configs.map(config => {const matches = portfolio.registry.filter(a => a.token === config.wrapper && a.pool === config.pool && a.scope === config.scope && a.policy === config.policy);
+      need(matches.length === 1, 'ORIGINAL_ROUTE'); const asset=matches[0], units=originalNativeClaimAssetUnitsV1(runtime,claims,config);
+      need(asset.decimals===units.decimals&&asset.symbol===units.claimSymbol.toUpperCase(),'ORIGINAL_CLAIM_UNITS');
+      return {generationId:null,asset,domainCommitment:claimDomainCommitment(config)};});
+    identity = sha({portfolio:genericAccountIdentity(portfolio.config), domains:roots.map(r=>r.domainCommitment)});
+    read = async () => {check(); const before=await readOriginalNativeClaimEconomicSnapshotV1(session,expected);
+      const observed=validateFlatOwnerReadPayload(await session.ownerView()).data;
+      const after=await readOriginalNativeClaimEconomicSnapshotV1(session,expected); check();
+      need(Array.isArray(observed.nativeClaims)&&observed.nativeClaims.length===roots.length,'ORIGINAL_CLAIM_OBSERVATION');
+      const assets=roots.map(({asset})=>{const matches=observed.assets.filter(a=>a.asset.assetId===asset.assetId), custody=observed.nativeClaims.filter(a=>a.assetId===asset.assetId);
+        need(matches.length===1&&custody.length===1&&custody[0].nativeSelfCustody===false&&custody[0].underlyingSpendable===false,'ORIGINAL_CLAIM_OBSERVATION');
+        return custody[0].custodyObservation==='CURRENT_QUORUM'?matches[0]:{...matches[0],status:'UNAVAILABLE',balances:null,backing:null};});
+      need(after.requests.every(q=>roots.some(r=>r.asset.assetId===q.assetId)),'ORIGINAL_REQUEST');
+      return {assets,journal:after.requests,positions:null,revision:after.revision,changed:sessionObservationChanged(before,after),
+        checkpoint:{session:after,claims:observed.nativeClaims,requests:assets.map(a=>({assetId:a.asset.assetId,requests:a.requests}))}};};
   } else if (kind === 'NATIVE_NOTE') {
     const {system, account} = raw;
     check = () => {assertOwnedNativeValueAccountAuthority(account, {runtime, system});if(paired)assertNativeWalletEconomicSessionV1(raw.session,{runtime,system,account});}; check();
@@ -193,7 +218,7 @@ export function assertOriginalWalletEconomicStateJournalV1(capability,journal) {
 /** PRIVATE installation over references already emitted by original factories.
  * The password belongs only to this observation Vault, never an owner Vault. */
 export async function createOriginalWalletEconomicStateV1(input) {
-  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal']);
+  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal', ...(Object.hasOwn(input,'claimPortfolios')?['claimPortfolios']:[])]);
   return economicState(input, null);
 }
 function economicCheckpoint(value) {
@@ -203,14 +228,14 @@ function economicCheckpoint(value) {
   return immutable(value);
 }
 export async function openOriginalWalletEconomicStateV1(input) {
-  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal', 'checkpoint']);
+  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal', 'checkpoint', ...(Object.hasOwn(input,'claimPortfolios')?['claimPortfolios']:[])]);
   return economicState(input, economicCheckpoint(input.checkpoint));
 }
 /** Local recovery of observations over ALREADY restored original sources. The
  * private anchor supplies this observation journal's credentials, never owner
  * keys, source capabilities, consents or permission to retry an economic job. */
 export async function reopenOriginalWalletEconomicStateAfterCrashV1(input) {
-  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal']);
+  assert.equal(arguments.length, 1); exactRecord(input, ['catalogues', 'nativeAccounts', 'wrappedPortfolios', 'journal', ...(Object.hasOwn(input,'claimPortfolios')?['claimPortfolios']:[])]);
   exactRecord(input.journal, ['path']);
   return economicState(input, null, true);
 }
@@ -340,6 +365,8 @@ async function economicState(input, checkpoint, afterCrash = false) {
     need(Array.isArray(input[key]) && input[key].length <= 8, 'SOURCE_COUNT'); fixedArray(input[key], input[key].length);
     input[key].forEach(value => sources.push(source(value, kind)));
   }
+  if(Object.hasOwn(input,'claimPortfolios')) {need(Array.isArray(input.claimPortfolios)&&input.claimPortfolios.length<=8,'SOURCE_COUNT'); fixedArray(input.claimPortfolios,input.claimPortfolios.length);
+    input.claimPortfolios.forEach(value=>sources.push(source(value,'NATIVE_CLAIM')));}
   need(sources.length > 0 && sources.length <= 24 && sources.reduce((n,s) => n + s.routes.length,0) <= 64
     && new Set(sources.map(s => s.id)).size === sources.length, 'ORIGINAL_SOURCES');
   exactRecord(input.journal, afterCrash ? ['path'] : ['path', 'password']);

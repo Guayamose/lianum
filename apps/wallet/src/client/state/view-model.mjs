@@ -653,6 +653,16 @@ export function projectWalletState(value, { stale = false, reading = false, send
   positions.push(...generationDefi.positions);
   const economicState = value?.economicState ? projectOriginalWalletEconomicStateV1(value.economicState, {stale: stale || reading || sending || value.connection !== 'CONNECTED' || Boolean(value.errors.economicState)}) : null;
   if (economicState) {
+    // The common original claim source owns availability. A prepared/unknown
+    // job must not leave the legacy custody card advertising its old balance.
+    // Ambiguous routes are kept unavailable rather than summed or guessed.
+    for (const claim of nativeClaims) {
+      const matches=economicState.rows.filter(row=>row.component==='NATIVE_CLAIM'&&row.route.assetId===claim.assetId);
+      if(matches.length){const row=matches.length===1?matches[0]:null;
+        claim.amount=row?.state==='LIVE'?row.balances.available:null;
+        claim.custody=row?.state==='LIVE'?'CURRENT_QUORUM':row?.state==='STALE'?'STALE':'UNAVAILABLE';
+        if(Object.hasOwn(claim,'display'))claim.display=displayUnits(claim.amount,claim.decimals);}
+    }
     assets = economicState.rows.map(row => ({id: row.route.assetId, rowKey: originalEconomicRouteKeyV1(row.route),
       generationId: row.route.generationId, pool: row.route.pool, domainCommitment: row.route.domainCommitment, domain: row.route,
       symbol: row.asset.symbol, decimals: row.asset.decimals, status: row.state, observed: row.head,

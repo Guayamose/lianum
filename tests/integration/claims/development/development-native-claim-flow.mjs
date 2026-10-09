@@ -31,6 +31,7 @@ import { decodeDepositIntentInputs } from '../../../../packages/backend/src/exec
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
 import { createNativeClaimPortfolioView } from '../../../../packages/backend/src/claims/operations/portfolio-view.mjs';
+import {createOriginalWalletEconomicStateV1} from '../../../../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs';
 import { createGenericAccountKeeper } from '../../../../packages/engine/src/execution/accounts/generic-account-keeper.mjs';
 import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
 import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
@@ -386,7 +387,14 @@ export async function runDevelopmentNativeClaimAcceptance() {
       accountId: 'fresh_private_native_claims', journalId: 'fresh_private_native_claim_journal' });
     accountKeeper = await createGenericAccountKeeper({ config: portfolio.config, journal: { path: join(privateDirectory, 'account.vault'), password: freshFixtureId() }, authority: portfolio.authority });
     const portfolioView = createNativeClaimPortfolioView({ runtime, claims, observer: fixture.observer, quorum: fixture.quorum, portfolio });
-    session = await createFlatAccountSession({ keeper: accountKeeper, ownerHandoff: { ownerView: portfolioView } }); http = await startFlatAccountHttp({ session, port: 0 });
+    session = await createFlatAccountSession({ keeper: accountKeeper, ownerHandoff: { ownerView: portfolioView } });
+    const economicState=await createOriginalWalletEconomicStateV1({catalogues:[],nativeAccounts:[],wrappedPortfolios:[],
+      claimPortfolios:[{runtime,view:portfolioView,session}],journal:{path:join(privateDirectory,'native-claim-observations.vault'),password:freshFixtureId()}}); http = await startFlatAccountHttp({ session, port: 0, economicState });
+    const originalEconomicResponse=await fetch(http.origin+'/api/flat-account/economic-state',{headers:{Origin:http.origin,'x-flat-owner-token':http.ownerAccess.token}});
+    assert.equal(originalEconomicResponse.status,200);const originalEconomic=await originalEconomicResponse.json();
+    assert.equal(originalEconomic.capabilities.underlyingCredit,false);
+    assert.deepEqual(originalEconomic.rows.map(row=>row.asset.symbol),portfolio.registry.map(asset=>asset.symbol));
+    assert.ok(originalEconomic.rows.every(row=>row.component==='NATIVE_CLAIM'));
     const funded = await ownerView(); assert.equal(funded.status, 'LIVE'); assert.equal(funded.coherent, true);
     assert.deepEqual(funded.assets.map(asset => asset.balances.available), amounts);
     const restartCount = runtime.transactions.length; await accountRequest('restart');

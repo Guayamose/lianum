@@ -1,10 +1,27 @@
 /** Local presentation boundary over one already-created, surviving keeper.
  * Admissions below are volatile UI state, never a second account journal. */
 import { types } from 'node:util';
+import {assertOriginalGenericAccountKeeperV1} from '../../../../engine/src/execution/accounts/generic-account-keeper.mjs';
+import {readOriginalNativeClaimPortfolioViewV1} from '../../claims/operations/portfolio-view.mjs';
 
 export const FLAT_ACCOUNT_API_PROFILE = 'LOCAL_FLAT_ACCOUNT_API_V1';
 export const FLAT_ACCOUNT_ADMISSION_LIMIT = 32;
 const sessions = new WeakSet();
+const originalClaimSessions = new WeakMap();
+export function assertOriginalNativeClaimEconomicSessionV1(session, expected) {
+  need(arguments.length === 2, 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  record(expected, ['runtime', 'view'], 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  assertFlatAccountSession(session); const original = originalClaimSessions.get(session);
+  need(original && original.ownerView() === expected.view, 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  const view=readOriginalNativeClaimPortfolioViewV1(expected.view, expected.runtime); original.live();
+  assertOriginalGenericAccountKeeperV1(original.keeper(),{config:view.portfolio.config,authority:view.portfolio.authority});
+}
+export async function readOriginalNativeClaimEconomicSnapshotV1(session, expected) {
+  need(arguments.length === 2, 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  assertOriginalNativeClaimEconomicSessionV1(session, expected);
+  const result = await originalClaimSessions.get(session).snapshot();
+  assertOriginalNativeClaimEconomicSessionV1(session, expected); return result;
+}
 const actions = new Set(['prepare', 'execute', 'reconcile', 'recover', 'restartCoordinator', 'close']);
 const states = new Set(['PREPARING', 'PREPARED', 'SUBMITTING', 'UNKNOWN', 'RECOVERING', 'CONFIRMED']);
 const kinds = new Set(['TOP_UP', 'GRAPH', 'EXIT']);
@@ -234,6 +251,18 @@ export async function createFlatAccountSession(input) {
     },
   });
   sessions.add(session);
+  originalClaimSessions.set(session, {keeper:()=>keeper,ownerView: () => ownerHandoff?.ownerView,
+    live() {need(keeper && ownerHandoff && !closed && !closing, 'FLAT_ACCOUNT_KEEPER_UNAVAILABLE');},
+    async snapshot() {
+      const original = keeper; need(original && !closed && !closing, 'FLAT_ACCOUNT_KEEPER_UNAVAILABLE');
+      const snapshot = await original.snapshot();
+      need(keeper === original && !closed && !closing, 'FLAT_ACCOUNT_KEEPER_UNAVAILABLE');
+      publicJournal(snapshot);
+      return copy({revision: snapshot.revision, storageAvailable: snapshot.storageAvailable,
+        requests: snapshot.requests.map(q => {need(hex(q.assetId), 'FLAT_ACCOUNT_SNAPSHOT_INVALID');
+          return {requestId:q.requestId, assetId:q.assetId, kind:q.kind, state:q.state};}),
+        busy:running, queued:pending - Number(running), observation:available && !pending ? 'CURRENT' : 'STALE'});
+    }});
   await observe();
   return session;
 }

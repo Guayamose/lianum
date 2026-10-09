@@ -45,7 +45,7 @@ export function validateOriginalWalletEconomicStateV1(value) {
     need(sources.get(r.route.sourceId)?.stateSHA256 === r.checkpointSHA256);
     exact(r.asset, ['kind', 'symbol', 'decimals']); need(['NATIVE', 'ERC20'].includes(r.asset.kind)
       && match(r.asset.symbol, /^[A-Z0-9]{2,12}$/) && Number.isInteger(r.asset.decimals) && r.asset.decimals >= 0 && r.asset.decimals <= 18);
-    need(['FLAT_NOTE', 'NATIVE_NOTE', 'WRAPPED_CLAIM'].includes(r.component) && ['LIVE', 'STALE', 'UNKNOWN'].includes(r.state)
+    need(['FLAT_NOTE', 'NATIVE_NOTE', 'WRAPPED_CLAIM', 'NATIVE_CLAIM'].includes(r.component) && ['LIVE', 'STALE', 'UNKNOWN'].includes(r.state)
       && [null, 'ORIGINAL_SOURCE_UNAVAILABLE', 'ORIGINAL_JOURNAL_UNKNOWN', 'ORIGINAL_HEAD_STALE', 'ORIGINAL_VIEW_CHANGED', 'ORIGINAL_STATE_STORAGE_UNAVAILABLE'].includes(r.reason));
     if (r.state === 'LIVE') {
       need(r.reason === null); head(r.head); amounts(r.balances, ['available', 'reserved', 'recovery', 'locked']);

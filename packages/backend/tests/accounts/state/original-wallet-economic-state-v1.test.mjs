@@ -11,8 +11,8 @@ import {request} from 'node:http';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
 import {sha, genericAccountIdentity} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
 import {exactRecord} from '../../../src/execution/encoding/commitments.mjs';
-import {createFlatAccountSession} from '../../../src/api/accounts/flat-account-session.mjs';
-import {projectPrivatePositionStateV2} from '../../../src/defi/positions/private-position-state-v2.mjs';
+let createFlatAccountSession;
+import {ORIGINAL_SPL_USDC_UNITS_V1} from '../../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
 import {validateOriginalWalletEconomicStateV1, projectOriginalWalletEconomicStateV1, originalEconomicRouteKeyV1}
   from '../../../../../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs';
 import {validateWalletState, projectWalletState} from '../../../../../apps/wallet/src/client/state/view-model.mjs';
@@ -21,6 +21,19 @@ const moduleURL = (raw, flat) => new URL(mapped ? flat : raw, import.meta.url);
 const catalogues = new WeakMap(), natives = new WeakMap(), pairs = new WeakMap(), positions = new WeakMap(), wrapped = new WeakMap();
 let economicSessionHelpers;
 const no = () => {throw Error('SYNTHETIC_LOWER_PORT_REJECTED');};
+// Only the lower claim/runtime/keeper memberships are synthetic ports. The
+// view issuer/body, real account session, Vault AES/CAS and owner HTTP are real.
+let claimViewFunctions;
+const claimOriginals=new WeakMap(), claimKeeperOriginals=new WeakMap();
+mock.module(moduleURL('../../../src/claims/operations/portfolio-view.mjs','../../native-claims/portfolio-view.mjs'),{namedExports:{
+ readOriginalNativeClaimPortfolioViewV1(...args){return claimViewFunctions.readOriginalNativeClaimPortfolioViewV1(...args);},
+}});
+mock.module(moduleURL('../../../src/claims/operations/native-claim-asset-units-v1.mjs','../../native-claims/native-claim-asset-units-v1.mjs'),{namedExports:{
+ originalNativeClaimAssetUnitsV1(runtime,claims,config){const original=claimOriginals.get(claims);assert.ok(original&&original.runtime===runtime&&claims.configs.includes(config));return original.units.get(config);},
+}});
+mock.module(moduleURL('../../../../engine/src/execution/accounts/generic-account-keeper.mjs','../../../../../../omnichain-product/src/paeg/generic-account-keeper.mjs'),{namedExports:{
+ assertOriginalGenericAccountKeeperV1(keeper,expected){const original=claimKeeperOriginals.get(keeper);assert.ok(original&&original.authority===expected.authority);assert.deepEqual(original.config,expected.config);},
+}});
 mock.module(moduleURL('../../../src/accounts/storage/flat-journal-catalogue.mjs', '../../global-state/flat-journal-catalogue.mjs'), {namedExports: {
   assertOwnedFlatJournalCatalogue(value, expected) {if (catalogues.get(value)?.runtime !== expected.runtime) no();},
   assertOwnedFlatJournalCatalogueAccount() {no();},
@@ -46,6 +59,10 @@ mock.module(moduleURL('../../../src/defi/withdrawals/generation-private-vault-ex
   assertGenerationPrivateVaultExitSession(runtime, service, session) {const p = positions.get(service); if (!p || p.runtime !== runtime || p.session !== session) no();},
   generationPrivateVaultExitActionTarget() {return null;},
 }});
+// Register all lower HOST ports before loading the DeFi ownership graph,
+// which can otherwise cache the real claim issuer in the session module.
+const {projectPrivatePositionStateV2}=await import('../../../src/defi/positions/private-position-state-v2.mjs');
+({createFlatAccountSession}=await import('../../../src/api/accounts/flat-account-session.mjs'));
 const {createOriginalWalletEconomicStateV1, openOriginalWalletEconomicStateV1, reopenOriginalWalletEconomicStateAfterCrashV1, assertOriginalWalletEconomicStateV1,assertOriginalWalletEconomicStateJournalV1,originalWalletEconomicStateBindingsV1} = await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');
 const {startWalletApplication} = await import('../../../../../apps/wallet/src/server/server.mjs');
 const h = v => createHash('sha256').update(v).digest('hex');
@@ -335,4 +352,55 @@ test('HOST original catalogue append preserves old routes and reopens the same e
   const finalCheckpoint=state.checkpoint();await state.close();
   altered='replacement';await assert.rejects(openOriginalWalletEconomicStateV1({...input,checkpoint:finalCheckpoint}),/ORIGINAL_ROUTES_CHANGED|ORIGINAL_SOURCE_SET_REQUIRED/);
   altered=null;state=await openOriginalWalletEconomicStateV1({...input,checkpoint:finalCheckpoint});assert.equal((await state.observe()).status,'LIVE');
+});
+
+
+test('original native claim portfolio joins common state with BTC/SPL units, same session and fail-closed custody',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'original-native-claim-union-'));await chmod(directory,0o700);
+ let state,transport,session,app,healthReads=0,phase='CONFIRMED',splReady=true;
+ t.after(async()=>{try{await app?.close();await transport?.close();await state?.close();await session?.close();}finally{await rm(directory,{recursive:true,force:true});}});
+ const runtime={},btc={...asset(h('claim-btc'),'first'),symbol:'CBTC',decimals:8},spl={...asset(h('claim-usdc'),'second'),symbol:'CUSDC',decimals:6},authority=Object.freeze({});
+ const {CLAIM_CONFIG_SCHEMA,claimDomainCommitment}=await import(moduleURL('../../../src/claims/protocol/framing.mjs','../../native-claims/framing.mjs'));
+ const configs=[btc,spl].map((a,i)=>{const config=Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([name,type])=>[name,type.startsWith('u')?'1':type==='address'?h(name+i).slice(0,40):type==='field32'?'0'.repeat(63)+'1':h(name+i)]));
+  return{...config,evmChainId:a.chainId,evmGenesis:a.genesis,wrapper:a.token,pool:a.pool,scope:a.scope,policy:a.policy,nativeFamily:String(i+1),ledgerNamespace:config.hubDomain};});
+ const domains=configs.map(claimDomainCommitment);
+ const claims={configs},observer=Object.freeze({}),quorum={async health({claimDomain}){healthReads++;if(!splReady&&claimDomain===domains[1])throw Error('HOST_CUSTODY_UNKNOWN');return{head:{hash:h('block-10'),number:'10',timestamp:'1000'}};}},
+  config={accountId:'host_private_claims',journalId:'host_private_claim_journal',lifetime:h('claim-lifetime'),registry:[btc,spl]};
+ const units=new Map([[configs[0],{claimSymbol:'cBTC',nativeSymbol:'BTC',decimals:8,atomicUnit:'satoshi'}],
+  [configs[1],{claimSymbol:'cUSDC',nativeSymbol:'USDC',decimals:6,atomicUnit:'micro-USDC',nativeAssetKind:'SOLANA_SPL_USDC',mint:ORIGINAL_SPL_USDC_UNITS_V1.mint}]]);
+ const portfolio={config,registry:[btc,spl],authority,async ownerView(){const assets=[{...view(btc,10,'80000'),asset:{assetId:btc.assetId,symbol:'CBTC',decimals:8}},
+  {...view(spl,10,'1000000'),asset:{assetId:spl.assetId,symbol:'CUSDC',decimals:6}}];
+  assets[0].requests=[{requestId:'claim_original_topup',kind:'TOP_UP',state:phase==='CONFIRMED'?'CONFIRMED':'UNRESOLVED',disposition:phase==='CONFIRMED'?'APPLIED':null}];
+  return{version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:assets[0].observed,assets,
+   capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}};}};
+ claimOriginals.set(claims,{runtime,portfolio,units});
+ // Execute the actual producer and issuer in this realm; only underlying
+ // ownership/consensus assertions below are explicitly synthetic boundaries.
+ const text=await readFile(moduleURL('../../../src/claims/operations/portfolio-view.mjs','../../native-claims/portfolio-view.mjs'),'utf8');
+ const body=text.replace(/^import .*;$/gm,'').replace(/^export /gm,'');
+ const actualObserver={async read(){return{head:{hash:h('block-10')}};},async assertCurrent(){}};
+ // Replace only this lower reference in a second actual issuer instantiation.
+ const actualBody=body;
+ claimViewFunctions=Function('assert','exactRecord','privateFailureDiagnostic','assertOwnedFlatPortfolio','assertOwnedNativeClaimSystem','assertOwnedClaimObserver','ownedClaimObserverBindings','assertOwnedClaimOperatorQuorum','originalNativeClaimAssetUnitsV1','claimDomainCommitment',actualBody+
+  ';return{createNativeClaimPortfolioView,readOriginalNativeClaimPortfolioViewV1};')(assert,exactRecord,()=>({code:'CLAIM_PORTFOLIO_CUSTODY_UNAVAILABLE',causeCode:null,causeCodes:[]}),
+  (r,p)=>assert.ok(r===runtime&&p===portfolio),(r,c)=>assert.ok(r===runtime&&c===claims),o=>assert.equal(o,actualObserver),()=>({system:claims}),
+  (q,o)=>assert.ok(q===quorum&&o===actualObserver),(r,c,x)=>{assert.ok(r===runtime&&c===claims);return units.get(x);},claimDomainCommitment);
+ const ownerView=claimViewFunctions.createNativeClaimPortfolioView({runtime,claims,observer:actualObserver,quorum,portfolio});
+ const keeper={async snapshot(){return{version:1,revision:phase==='CONFIRMED'?2:1,storageAvailable:true,requests:[{requestId:'claim_original_topup',assetId:btc.assetId,kind:'TOP_UP',state:phase,errorCode:null}]};},
+  async close(){},async prepare(){no();},async execute(){no();},async reconcile(){no();},async recover(){no();},async restartCoordinator(){no();}};
+ claimKeeperOriginals.set(keeper,{config,authority});session=await createFlatAccountSession({keeper,ownerHandoff:{ownerView}});
+ const input={catalogues:[],nativeAccounts:[],wrappedPortfolios:[],claimPortfolios:[{runtime,view:ownerView,session}],journal:{path:join(directory,'claims.vault'),password:'original-observation-claim-password'}};
+ const readsBefore=healthReads;await assert.rejects(createOriginalWalletEconomicStateV1({...input,claimPortfolios:[{runtime,view:async()=>ownerView(),session}]}));assert.equal(healthReads,readsBefore);
+ const foreignSession=await createFlatAccountSession({keeper:{...keeper},ownerHandoff:{ownerView}});await assert.rejects(createOriginalWalletEconomicStateV1({...input,claimPortfolios:[{runtime,view:ownerView,session:foreignSession}]}));await foreignSession.close();
+ state=await createOriginalWalletEconomicStateV1(input);let value=await state.observe();assert.equal(value.status,'LIVE');assert.deepEqual(value.rows.map(r=>[r.asset.symbol,r.asset.decimals,r.component]),[['CBTC',8,'NATIVE_CLAIM'],['CUSDC',6,'NATIVE_CLAIM']]);
+ assert.deepEqual(value.rows.map(r=>r.route.domainCommitment),domains);assert.equal(value.capabilities.underlyingCredit,false);
+ const {startFlatAccountHttp}=await import('../../../src/api/accounts/flat-account-http.mjs');transport=await startFlatAccountHttp({session,port:0,economicState:state});
+ const requestState=token=>fetch(transport.origin+'/api/flat-account/economic-state',{headers:{Origin:transport.origin,'x-flat-owner-token':token}});
+ const beforeDenied=healthReads;assert.equal((await requestState('0'.repeat(64))).status,403);assert.equal(healthReads,beforeDenied);
+ const response=await requestState(transport.ownerAccess.token);assert.equal(response.status,200);assert.equal(validateOriginalWalletEconomicStateV1(await response.json()).rows.length,2);
+ phase='PREPARED';value=await state.observe();assert.equal(value.rows[0].state,'UNKNOWN');assert.equal(value.rows[0].balances,null);assert.equal(value.rows[1].state,'LIVE');
+ app=await startWalletApplication({accountSession:session,economicState:state,actionAccessMode:'exact-only'});
+ const rendered=projectWalletState(validateWalletState((await http(app)).body));assert.equal(rendered.nativeClaims[0].amount,null);assert.equal(rendered.nativeClaims[0].custody,'UNAVAILABLE');assert.equal(rendered.nativeClaims[1].amount,'1000000');await app.close();app=null;
+ phase='CONFIRMED';splReady=false;value=await state.observe();assert.equal(value.rows[0].state,'LIVE');assert.equal(value.rows[1].state,'UNKNOWN');assert.equal(value.rows[1].balances,null);
+ splReady=true;await state.observe();const checkpoint=state.checkpoint();await state.close();state=await openOriginalWalletEconomicStateV1({...input,checkpoint});assert.equal((await state.snapshot()).rows[0].state,'STALE');assert.equal((await state.observe()).rows[1].balances.available,'1000000');
 });

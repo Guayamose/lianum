@@ -9,7 +9,12 @@ import {createGenericAccountCoordinatorProcess, validateJournalCredentials, read
 function capabilities(value, fields) {
   need(value && !types.isProxy(value) && Object.getPrototypeOf(value) === Object.prototype && Reflect.ownKeys(value).length === fields.length && fields.every(k => Object.hasOwn(Object.getOwnPropertyDescriptor(value, k) ?? {}, 'value')), 'JOURNAL_KEEPER_FIELDS');
 }
-const durableKeepers = new WeakMap();
+const durableKeepers = new WeakMap(), originalKeepers = new WeakMap();
+export function assertOriginalGenericAccountKeeperV1(keeper, expected) {
+  need(arguments.length===2,'JOURNAL_ORIGINAL_KEEPER_REQUIRED'); capabilities(expected,['config','authority']);
+  const original=originalKeepers.get(keeper); need(original&&original.authority===expected.authority,'JOURNAL_ORIGINAL_KEEPER_REQUIRED');
+  same(original.config,validateGenericAccountConfig(expected.config),'JOURNAL_ORIGINAL_CONFIG_CHANGED'); original.live();
+}
 export async function createGenericAccountKeeper(input, options = {}) { return accountKeeper(input,options,null); }
 export async function createDurableGenericAccountKeeperV1(input,lifetimeHandle=null) { return accountKeeper(input,{}, {create:true,lifetimeHandle}); }
 export async function reopenDurableGenericAccountKeeperV1(input,retained,lifetimeHandle=null) {
@@ -141,5 +146,6 @@ async function accountKeeper(input, options = {}, durable) {
     try{await worker.close();}finally{closed=true;journal.password=null;parentStore.close();}
     return immutable(retained);
   }});
+  originalKeepers.set(keeper,{config,authority,live(){need(!closed&&!capturing&&!fault,'JOURNAL_COORDINATOR_UNAVAILABLE');}});
   return keeper;
 }

@@ -58,11 +58,14 @@ async function body(request) {
  * are returned only to this caller, never from an HTTP endpoint or a log. */
 export async function startFlatAccountHttp(options) {
   if (!options || types.isProxy(options) || Object.getPrototypeOf(options) !== Object.prototype
-    || Reflect.ownKeys(options).some(key => !['session', 'port'].includes(key))
+    || Reflect.ownKeys(options).some(key => !['session', 'port', 'economicState'].includes(key))
     || !Object.hasOwn(Object.getOwnPropertyDescriptor(options, 'session') ?? {}, 'value')
-    || Object.hasOwn(options, 'port') && !Object.hasOwn(Object.getOwnPropertyDescriptor(options, 'port') ?? {}, 'value'))
+    || ['port','economicState'].some(key=>Object.hasOwn(options,key)&&!Object.hasOwn(Object.getOwnPropertyDescriptor(options,key)??{},'value')))
     fail('FLAT_ACCOUNT_HTTP_BOOTSTRAP_FIELDS');
-  const { session, port = 0 } = options;
+  const { session, port = 0, economicState = null } = options;
+  if(economicState!==null){const module=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');
+    module.assertOriginalWalletEconomicStateV1(economicState);
+    if(!module.originalWalletEconomicStateBindingsV1(economicState).some(value=>value.session===session))fail('FLAT_ACCOUNT_ORIGINAL_ECONOMIC_SESSION_REQUIRED');}
   assertFlatAccountSession(session);
   if (!Number.isInteger(port) || port < 0 || port > 65535) fail('FLAT_ACCOUNT_PORT');
   const mutationToken = randomBytes(32).toString('hex'), ownerToken = randomBytes(32).toString('hex');
@@ -97,6 +100,12 @@ export async function startFlatAccountHttp(options) {
         if (request.headers.origin !== origin || !validToken(request.headers['x-flat-owner-token'], ownerToken))
           return send(403, { error: 'FLAT_ACCOUNT_OWNER_ACCESS_REQUIRED' });
         return send(200, await session.snapshot());
+      }
+      if (request.method === 'GET' && request.url === `${prefix}/economic-state`) {
+        if (request.headers.origin !== origin || !validToken(request.headers['x-flat-owner-token'], ownerToken))
+          return send(403, {error:'FLAT_ACCOUNT_OWNER_ACCESS_REQUIRED'});
+        if(economicState===null)return send(404,{error:'FLAT_ACCOUNT_ECONOMIC_STATE_UNAVAILABLE'});
+        return send(200,await economicState.observe());
       }
       if (request.method === 'GET' && request.url === `${prefix}/owner`) {
         if (request.headers.origin !== origin || !validToken(request.headers['x-flat-owner-token'], ownerToken))
@@ -140,7 +149,8 @@ export async function startFlatAccountHttp(options) {
           server.close(error => error ? reject(error) : resolve());
           server.closeAllConnections();
         });
-        return session.close();
+        let failure; try{await economicState?.close();}catch(error){failure=error;}
+        const result=await session.close();if(failure)throw failure;return result;
       })();
     },
   });

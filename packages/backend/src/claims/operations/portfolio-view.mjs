@@ -9,6 +9,13 @@ import { assertOwnedClaimObserver, ownedClaimObserverBindings } from './owned-st
 import { assertOwnedClaimOperatorQuorum } from './operators.mjs';
 import {originalNativeClaimAssetUnitsV1} from './native-claim-asset-units-v1.mjs';
 import { claimDomainCommitment } from '../protocol/framing.mjs';
+const originalViews = new WeakMap();
+export function readOriginalNativeClaimPortfolioViewV1(view, runtime) {
+  assert.equal(arguments.length, 2); const original = originalViews.get(view);
+  assert.ok(original && original.runtime === runtime, 'CLAIM_PORTFOLIO_ORIGINAL_VIEW_REQUIRED');
+  original.check(); return Object.freeze({runtime, claims: original.claims, portfolio: original.portfolio});
+}
+
 
 function custodyFailureDiagnostic(error, fallback) {
   let diagnostic;
@@ -48,7 +55,10 @@ export function createNativeClaimPortfolioView(input) {
       && asset.pool === config.pool && asset.scope === config.scope && asset.policy === config.policy);
     assert.equal(matches.length, 1, 'CLAIM_PORTFOLIO_REGISTERED_WRAPPER'); return matches[0];
   });
-  return async function ownerView() {
+  const check = () => {assertOwnedNativeClaimSystem(runtime, claims); assertOwnedFlatPortfolio(runtime, portfolio);
+    assertOwnedClaimObserver(observer); assertOwnedClaimOperatorQuorum(quorum, observer);
+    assert.equal(ownedClaimObserverBindings(observer).system, claims, 'CLAIM_PORTFOLIO_SYSTEM');};
+  const ownerView = async function ownerView() {
     assertOwnedNativeClaimSystem(runtime, claims); assertOwnedFlatPortfolio(runtime, portfolio);
     assertOwnedClaimOperatorQuorum(quorum, observer);
     const view = await portfolio.ownerView();
@@ -78,6 +88,7 @@ export function createNativeClaimPortfolioView(input) {
       const position = projectNativeClaimPosition(asset, config, ready,originalNativeClaimAssetUnitsV1(runtime,claims,config));
       positions.push(diagnostic ? Object.freeze({ ...position, custodyDiagnostic: diagnostic }) : position);
     }
-    return { ...view, nativeClaims: positions };
+    check(); return { ...view, nativeClaims: positions };
   };
+  originalViews.set(ownerView, {runtime, claims, portfolio, check}); return ownerView;
 }
