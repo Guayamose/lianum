@@ -114,8 +114,11 @@ export async function createOriginalNativeSourceLocalOperatorV1(input){
  assert.equal(arguments.length,1);const selected=normalizeOriginalNativeDeviceLocalConfigurationV1(input),{r,close}=lifetime(selected);await reviewed();
  try{r.authority=await createOriginalNativeSourceCapsuleV1();const identity=assertOriginalNativeSourceCapsuleV1(r.authority);
  r.clocks=await createOriginalNativeSourceObservedClocksV1(r.authority);r.runtime=r.clocks.runtime;r.nativeRuntime=r.clocks.nativeRuntime;
- r.bootstrap=await createOwnedLocalNativeValueOperatorBootstrap({nativeRuntimes:[r.nativeRuntime]});await retainOriginalNativeSourceReferenceV1(r.authority,'bootstrap',r.bootstrap);
- r.system=await deployNativeValueDevSystemV5({runtime:r.runtime,options:{deploymentDomain:'0x'+fresh(),registryEpoch:'1',bootstrap:r.bootstrap,pools:[0,1].map(()=>({policy:'0x'+fresh(),deploymentDomain:'0x'+fresh()}))}});await retainOriginalNativeSourceReferenceV1(r.authority,'system',r.system);
+ r.bootstrap=await createOwnedLocalNativeValueOperatorBootstrap({nativeRuntimes:[r.nativeRuntime]});
+ r.system=await deployNativeValueDevSystemV5({runtime:r.runtime,options:{deploymentDomain:'0x'+fresh(),registryEpoch:'1',bootstrap:r.bootstrap,pools:[0,1].map(()=>({policy:'0x'+fresh(),deploymentDomain:'0x'+fresh()}))}});
+ // Retain the original signer inventory only after deployment has bound its
+ // runtime/system and finished all four stores, before funding any note.
+ await retainOriginalNativeSourceReferenceV1(r.authority,'bootstrap',r.bootstrap);await retainOriginalNativeSourceReferenceV1(r.authority,'system',r.system);
  const ownerDirectory=join(identity.directory,'owner');await mkdir(ownerDirectory,{mode:0o700});const ownerPassword=fresh(),checkpointVault=new Vault(join(ownerDirectory,'operator-checkpoint.vault'));let checkpoint=null;
  r.owner=await createNativeValueOwnerProcess({runtime:r.runtime,system:r.system,poolIndex:0,directory:ownerDirectory,password:ownerPassword,create:true,checkpoint:null,onCheckpoint:async value=>{if(checkpoint)assert.deepEqual(await checkpointVault.read(ownerPassword),checkpoint);const next=checkpoint?await checkpointVault.update(ownerPassword,checkpoint.revision,()=>({checkpoint:value})):await checkpointVault.create({checkpoint:value},ownerPassword);assert.deepEqual(await checkpointVault.read(ownerPassword),next);checkpoint=next;}});await retainOriginalNativeSourceReferenceV1(r.authority,'owner',r.owner);
  r.nativeExecution=await createNativeValueExecution({runtime:r.runtime,system:r.system,poolIndex:0,quorum:r.system.quorum},executionEvidence(r));await retainOriginalNativeSourceReferenceV1(r.authority,'executor',r.nativeExecution);
