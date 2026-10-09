@@ -35,6 +35,7 @@ const relative=mapped?{
  admission:'../../../../../engine/src/execution/native/dispatch/native-admission.mjs',
  vault:'../../../../../engine/src/crypto/vault.mjs',
 };
+relative.source=mapped?'../ops/native-original-source-capsule-v1.mjs':'../../../../src/operations/recovery/native-original-source-capsule-v1.mjs';
 const urls=Object.fromEntries(Object.entries(relative).map(([key,path])=>[key,new URL(path,import.meta.url).href]));
 const fixedRoot=fileURLToPath(new URL('../../../',urls.authority));
 
@@ -44,6 +45,32 @@ async function setup(urls){
  const {mock}=await import('node:test'),assert=(await import('node:assert/strict')).default;
  const {createHash,createPublicKey,verify}=await import('node:crypto');
  const h=v=>createHash('sha256').update('INERT provider recovery HOST:'+v).digest('hex'),copy=v=>structuredClone(v);
+ // Explicit inert SOURCE issuer ports: the provider and Vault/CAS/signature
+ // bodies remain actual; no capsule, process recovery or financial authority
+ // is established by these HOST tokens.
+ const sourceTokens=new WeakMap(),sourceHandles=new WeakMap();
+ function sourceToken(data=null){const token=Object.freeze(Object.create(null));sourceTokens.set(token,{data,consumed:false,handle:null});return token;}
+ const sourceWrites=[];
+ const unusedSourceRuntime=()=>{throw Error('HOST_SOURCE_RUNTIME_PORT_NOT_USED');};
+ mock.module(urls.source,{exports:{
+  consumeOriginalNativeSourceRuntimeRequestV1:unusedSourceRuntime,
+  originalNativeSourceRuntimeRequestIdentityV1:unusedSourceRuntime,
+  readOriginalNativeSourceRuntimeSeedV1:unusedSourceRuntime,
+  retainOriginalNativeSourceRuntimeSeedV1:unusedSourceRuntime,
+  resumeOriginalNativeSourceRuntimeSeedV1:unusedSourceRuntime,
+  originalNativeSourceRuntimeOwnedProcessV1:unusedSourceRuntime,
+  readOriginalNativeSourceRuntimeStateV1:unusedSourceRuntime,
+  attachOriginalNativeSourceRuntimeV1:unusedSourceRuntime,
+  beginOriginalNativeSourceMutationV1:unusedSourceRuntime,
+  confirmOriginalNativeSourceMutationV1:unusedSourceRuntime,
+  confirmOriginalNativeSourceBirthV1:unusedSourceRuntime,
+  nativeSourceRecoverySectionIdentityV1(token,section){assert.equal(section,'provider');assert.ok(sourceTokens.has(token),'HOST_ORIGINAL_SOURCE_TOKEN');return {profile:'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1',directory:'EXPLICIT_INERT_HOST',runId:'EXPLICIT_INERT_HOST',sourceSHA256:h('source'),deadlineMs:Date.now()+60000};},
+  async nativeSourceRecoveryOwnedProcessV1(token,section,pid){assert.ok(sourceTokens.has(token));assert.equal(section,'provider');assert.equal(pid,process.pid);return {pid,startTicks:'1',uid:process.getuid(),pgrp:pid,session:pid};},
+  async retainOriginalNativeSourceSectionV1(token,section,data){assert.equal(section,'provider');const state=sourceTokens.get(token);assert.ok(state&&!state.handle);const handle=Object.freeze(Object.create(null));state.handle=handle;state.data=copy(data);sourceHandles.set(handle,state);sourceWrites.push(copy(data));return handle;},
+  async updateOriginalNativeSourceSectionV1(handle,data){const state=sourceHandles.get(handle);assert.ok(state);state.data=copy(data);sourceWrites.push(copy(data));},
+  consumeOriginalNativeSourceSectionV1(token,section){assert.equal(section,'provider');const state=sourceTokens.get(token);assert.ok(state&&!state.consumed);state.consumed=true;return copy(state.data);},
+  resumeOriginalNativeSourceSectionV1(token,section){assert.equal(section,'provider');const state=sourceTokens.get(token);assert.ok(state?.consumed);const handle=Object.freeze(Object.create(null));sourceHandles.set(handle,state);return handle;},
+ }});
  const originalRuntime=await import(urls.runtime);
  const systems=new WeakMap(),native=new WeakMap(),recipients=new WeakSet(),bindRequests=new WeakMap();
  const original=(runtime,system)=>assert.equal(systems.get(system)?.runtime,runtime,'HOST_ORIGINAL_ECONOMIC_SYSTEM');
@@ -92,7 +119,7 @@ async function setup(urls){
   assert.equal(verify('sha256',admission.nativeDispatchStatementFrame(statement),{key:pub,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'hex')),true);
   return f.resources.store.commit({expectedRevision:record.revision,nextState:{...record.state,events:[...record.state.events,{kind:'INERT_UNKNOWN',data:{...pending,phase:'UNKNOWN',dispatchSignature:signature,sendStarted:true}}]}});
  }
- return {h,create,contexts,open,signedUnknown,provider,authority,Vault,closeSystem(c){systems.delete(c.system);}};
+ return {h,create,contexts,open,signedUnknown,provider,authority,Vault,sourceToken,sourceWrites,sourceSnapshot(token){return copy(sourceTokens.get(token).data);},closeSystem(c){systems.delete(c.system);}};
 }
 const host=await setup(urls);
 async function fixture(t,release=false){
@@ -187,4 +214,29 @@ test('provider key intent burns before authentication and rejects lifetime closu
  assert.throws(()=>f.resources.close(),/CLOSE_BUSY/);host.closeSystem(f);resume();
  await assert.rejects(signing,/NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE/);
  assert.equal(f.custody.report().persistenceUncertain,true);assert.equal(f.control.reads,0);
+});
+
+// One causal case exercises the same provider seed and both original CAS paths.
+// Native transport, lower issuer and economic system are inert ports above.
+test('HOST SOURCE provider retains original key and lease, and leaves candidate after lost CAS reply',async t=>{
+ const f=await fixture(t),token=host.sourceToken();t.after(()=>f.resources.close());
+ await assert.rejects(host.provider.retainOriginalNativeSourceProviderV1(Object.freeze({}),f.custody),/HOST_ORIGINAL_SOURCE_TOKEN/);
+ const retained=await host.provider.retainOriginalNativeSourceProviderV1(token,f.custody);assert.equal(retained.originalResourcesStopped,false);
+ let source=host.sourceSnapshot(token);assert.equal(source.candidate,null);assert.equal(source.confirmed.lease.opened,true);assert.equal(source.confirmed.lease.keyStarted,false);
+ assert.deepEqual(source.confirmed.record.data.publicKey,f.key);
+ await host.signedUnknown(f);source=host.sourceSnapshot(token);
+ assert.equal(source.candidate,null);assert.equal(source.confirmed.lease.keyStarted,true);
+ const before=await f.resources.store.load(),confirmed=structuredClone(source.confirmed),update=host.Vault.prototype.update;
+ const firstError=Error('EXPLICIT_HOST_LOST_PROVIDER_CAS_REPLY');let injected=false;
+ host.Vault.prototype.update=async function(password,revision,transform){
+  if(!injected&&this.path===join(f.nativeDirectory,'native-value-provider.vault')){injected=true;await update.call(this,password,revision,transform);throw firstError;}
+  return update.call(this,password,revision,transform);
+ };
+ try{await assert.rejects(f.resources.store.commit({expectedRevision:before.revision,nextState:{...before.state,events:[...before.state.events,{kind:'INERT_UNKNOWN',data:{...before.state.events.at(-1).data}}]}}),/CUSTODY_WRITE_UNCERTAIN/);}
+ finally{host.Vault.prototype.update=update;}
+ source=host.sourceSnapshot(token);assert.deepEqual(source.confirmed,confirmed);assert.equal(source.candidate.kind,'PROVIDER_VAULT_CAS');
+ assert.equal(source.candidate.record.revision,confirmed.record.revision+1);assert.equal(f.custody.report().persistenceUncertain,true);
+ const reader=host.sourceToken(source);
+ await assert.rejects(host.provider.reopenOriginalNativeSourceProviderV1(reader,{runtime:f.runtime,system:f.system,nativeRuntime:f.nativeRuntime,bootstrap:f.bootstrap}),/NATIVE_SOURCE_PROVIDER_PENDING/);
+ assert.ok(host.sourceWrites.some(row=>row.candidate!==null));assert.equal(f.control.reads,0);
 });

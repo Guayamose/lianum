@@ -79,6 +79,7 @@ function inventoryFailure(blockers){
   failure.causeCodes=Object.freeze(codes);return failure;
 }
 const pool = n => { assert.ok(Number.isSafeInteger(n) && !Object.is(n, -0) && n >= 0 && n < 2, 'NATIVE_VALUE_POOL_INDEX'); return n; };
+import { nativeSourceRecoverySectionIdentityV1 } from '../../recovery/native-original-source-capsule-v1.mjs';
 const signerSlot = n => { assert.ok(Number.isSafeInteger(n) && !Object.is(n, -0) && n >= 0 && n < 4, 'NATIVE_VALUE_SIGNER_INDEX'); return n; };
 const word = n => BigInt(n).toString(16).padStart(64, '0');
 const b32 = n => '0x' + n;
@@ -106,7 +107,7 @@ function createNativeOperator(raw,recovery=null) {
   const publicKey = freeze({ x: Buffer.from(jwk.x, 'base64url').toString('hex'), y: Buffer.from(jwk.y, 'base64url').toString('hex') });
   const signerAddress = '0x' + publicKeccak256(Buffer.from(publicKey.x + publicKey.y, 'hex')).subarray(12).toString('hex');
   if(recovery)equal(publicKey,recovery.publicKey);
-  let bound, record, busy = false, poisoned = false, closed = false, bindAttempted = false, uses = recovery?.uses??0;
+  let bound, record, busy = false, poisoned = false, closed = false, bindAttempted = false, uses = recovery?.uses??0, sourceIdentity=null;
   let capturing=false,captured=false,captureToken;
   let active, keyUsed = false, reservation = null;
   function live() { assert.ok(!closed && !poisoned && !capturing, 'NATIVE_VALUE_OPERATOR_CLOSED_OR_POISONED'); }
@@ -418,8 +419,15 @@ function createNativeOperator(raw,recovery=null) {
     close() { assert.ok(!capturing||closed,'NATIVE_VALUE_OPERATOR_CAPTURE_OWNS_LIFETIME');assert.ok(!busy && reservation === null, 'NATIVE_VALUE_OPERATOR_BUSY');closed = true;key = recovery = undefined; },
   });
   operators.set(operator, {
+    sourceSnapshot(token) {
+      const admitted=nativeSourceRecoverySectionIdentityV1(token,'bootstrap');owned();
+      assert.ok(bound&&record&&key,'NATIVE_VALUE_SOURCE_OPERATOR_ORIGINAL_REQUIRED');
+      if(sourceIdentity)equal(admitted,sourceIdentity);else sourceIdentity=copy(admitted);
+      return {schema:'ORIGINAL_NATIVE_OPERATOR_ECONOMIC_RECOVERY_V1',signerIndex,publicKey:copy(publicKey),
+        privateKeyPem:key.privateKey.export({format:'pem',type:'pkcs8'}).toString(),uses,record:copy(record),binding:copy(bound.binding)};
+    },
     recoveryIdle(){owned();assert.ok(bound&&record&&!busy&&reservation===null&&!keyUsed,'NATIVE_VALUE_OPERATOR_RECOVERY_NOT_IDLE');},
-    fence(authority){assertNativeEconomicRecoveryCaptureV1(authority);owned();assert.ok(bound&&record&&!busy&&reservation===null&&!keyUsed,'NATIVE_VALUE_OPERATOR_RECOVERY_NOT_IDLE');capturing=true;},
+    fence(authority){assertNativeEconomicRecoveryCaptureV1(authority);owned();assert.equal(sourceIdentity,null,'NATIVE_SOURCE_OPERATOR_LEGACY_CAPTURE_DENIED');assert.ok(bound&&record&&!busy&&reservation===null&&!keyUsed,'NATIVE_VALUE_OPERATOR_RECOVERY_NOT_IDLE');capturing=true;},
     capture(token){nativeEconomicRecoverySectionIdentityV1(token,'bootstrap');assert.ok(capturing&&!closed&&!poisoned&&!busy&&reservation===null&&!captured,'NATIVE_VALUE_OPERATOR_RECOVERY_FENCE_REQUIRED');
       captured=true;captureToken=token;return {schema:'ORIGINAL_NATIVE_OPERATOR_ECONOMIC_RECOVERY_V1',signerIndex,publicKey:copy(publicKey),
         privateKeyPem:key.privateKey.export({format:'pem',type:'pkcs8'}).toString(),uses,record:copy(record),binding:copy(bound.binding)};},
@@ -540,4 +548,11 @@ export function abortNativeOperatorEconomicRecoveryV1(operator,token){assert.equ
 export async function reopenOriginalNativeOperatorEconomicRecoveryV1(token){
  assert.equal(arguments.length,1);const {consumeNativeBootstrapOperatorRecoveryV1}=await import('./native-value-local-operator-bootstrap-v4.mjs');
  const retained=consumeNativeBootstrapOperatorRecoveryV1(token);return createNativeOperator({signerIndex:retained.signerIndex},retained);
+}
+
+/** Only a SOURCE bootstrap token admits this original private signer snapshot.
+ * Busy records are inspected only by the same bootstrap CAS barrier; no key,
+ * signer or record is returned from an operator's public interface. */
+export function snapshotOriginalNativeOperatorSourceV1(operator,token) {
+  assert.equal(arguments.length,2);return nativeRecoveryOperator(operator).sourceSnapshot(token);
 }

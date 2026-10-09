@@ -12,7 +12,7 @@ import { cloneInput, frozenInput } from '../../../execution/account/preparation/
 import { createLocalNativeValueOperator, createNativeValueOperatorQuorum, assertNativeOperatorEconomicRecoveryIdleV1,
   fenceOriginalNativeOperatorEconomicRecoveryV1, captureOriginalNativeOperatorEconomicRecoveryV1,
   stopCapturedNativeOperatorEconomicRecoveryV1, abortNativeOperatorEconomicRecoveryV1,
-  reopenOriginalNativeOperatorEconomicRecoveryV1 } from './native-value-operators-v4.mjs';
+  reopenOriginalNativeOperatorEconomicRecoveryV1, snapshotOriginalNativeOperatorSourceV1 } from './native-value-operators-v4.mjs';
 import { createClaimRecordStore, openClaimRecordStore, canonicalClaimRecordDataV1 } from '../../../claims/storage/segmented-record-store.mjs';
 import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1,
   consumeNativeEconomicRecoverySectionV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
@@ -30,6 +30,7 @@ import { isOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmNativeValueRuntim
 import { describeOwnedLocalEvmNativeValueSource, createOwnedLocalEvmNativeValueHealthSource }
   from '../../../chains/evm/health/owned-evm-native-value-health-source-v4.mjs';
 import { NATIVE_QUORUM_PROFILE } from '../../../../../engine/src/evidence/native-quorum.mjs';
+import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../recovery/native-original-source-capsule-v1.mjs';
 export const NATIVE_VALUE_LOCAL_BOOTSTRAP_PROFILE = 'OWNED_LOCAL_FULL_HISTORY_NATIVE_VALUE_BOOTSTRAP_V4';
 const owns=new WeakMap(),claimedNativeRuntimes=new WeakSet(),pendingNativeRuntimes=new WeakSet(),copy=cloneInput,freeze=frozenInput;
 const operatorRecoveryTokens=new WeakMap();
@@ -150,7 +151,7 @@ async function createFixedLocalNativeValueBootstrap(raw,wallclock,recovery=null)
   if(recovery)try{assert.deepEqual(metadata,recovery.metadata,'NATIVE_VALUE_RECOVERY_REGISTERED_SOURCES_OR_KEYS_CHANGED');}catch(error){operators.forEach(operator=>operator.close());throw error;}
   const state={operators,entries,metadata,originals:new Map(),stores:[],storeCredentials:[],resources:null,system:null,runtime:null,
     bindingComplete:false,used:false,closed:false,poisoned:false,capturing:false,captured:false,captureToken:null,captureIdentity:null,
-    activeResources:0,recovery,registry:null};
+    activeResources:0,recovery,registry:null,sourceHandle:null,sourceToken:null,sourceData:null,sourceQueue:Promise.resolve(),sourceOperations:0,sourceSnapshotBusy:false};
   try{if(recovery){
     assert.ok(Array.isArray(recovery.originals)&&recovery.originals.length<=64,'NATIVE_VALUE_RECOVERY_ORIGINAL_COUNT');
     for(const row of recovery.originals){exactRecord(row,['key','original']);assert.equal(typeof row.key,'string');
@@ -164,15 +165,22 @@ async function createFixedLocalNativeValueBootstrap(raw,wallclock,recovery=null)
   const live=()=>{assert.ok(!state.closed&&!state.poisoned&&!state.capturing,'NATIVE_VALUE_BOOTSTRAP_NOT_LIVE');for(const e of entries)assert.equal(e.assertLive(),undefined,'NATIVE_VALUE_SYNCHRONOUS_NATIVE_LIVENESS');};
   const bootstrap=Object.freeze({metadata,
     retainOriginal(input) {
-      live();const request=copy(input);exactRecord(request,['profileCommitment','original']);bytes32(request.profileCommitment,true);
+      live();assert.equal(state.sourceSnapshotBusy,false,'NATIVE_SOURCE_BOOTSTRAP_SNAPSHOT_BUSY');const request=copy(input);exactRecord(request,['profileCommitment','original']);bytes32(request.profileCommitment,true);
       const entry=entries.find(e=>profileCommitment(e.profile)===request.profileCommitment);assert.ok(entry,'NATIVE_VALUE_BOOTSTRAP_PROFILE');
       const binding=entry.profile.schema===PROFILE_SCHEMA?bindOriginalEvmGraphTransfer(request.original,{chain:CHAINS[entry.profile.chainId][0],genesisHash:'0x'+entry.profile.genesis}):Tron.bindOriginalTronGraphTransfer(request.original,entry.profile.genesis);
       const key=originalKey(request.profileCommitment,binding.identity.nativeId),prior=state.originals.get(key);
       if(prior)assert.deepEqual(prior,request.original,'NATIVE_VALUE_BOOTSTRAP_ORIGINAL_IMMUTABLE');
-      else {assert.ok([...state.originals.keys()].filter(k=>k.startsWith(request.profileCommitment+':')).length<64,'NATIVE_VALUE_BOOTSTRAP_ORIGINAL_LIMIT');state.originals.set(key,freeze(request.original));}
+      else {assert.ok([...state.originals.keys()].filter(k=>k.startsWith(request.profileCommitment+':')).length<64,'NATIVE_VALUE_BOOTSTRAP_ORIGINAL_LIMIT');
+        if(state.sourceHandle)return serializeBootstrapSource(state,async()=>{
+          live();const duplicate=state.originals.get(key);if(duplicate){assert.deepEqual(duplicate,request.original,'NATIVE_VALUE_BOOTSTRAP_ORIGINAL_IMMUTABLE');return freeze({profileCommitment:request.profileCommitment,nativeId:binding.identity.nativeId,authorityGranted:false});}
+          await setBootstrapSourceCandidate(state,{kind:'ORIGINAL_WIRE',key,original:copy(request.original)});
+          state.originals.set(key,freeze(request.original));await confirmBootstrapSource(state);
+          live();return freeze({profileCommitment:request.profileCommitment,nativeId:binding.identity.nativeId,authorityGranted:false});
+        });
+        state.originals.set(key,freeze(request.original));}
       live();return freeze({profileCommitment:request.profileCommitment,nativeId:binding.identity.nativeId,authorityGranted:false});
     },
-    close(){assert.ok(!state.capturing||state.closed,'NATIVE_VALUE_BOOTSTRAP_CAPTURE_OWNS_LIFETIME');assert.equal(state.activeResources,0,'NATIVE_VALUE_BOOTSTRAP_RESOURCES_BUSY');assert.ok(operators.every(o=>!o.status().busy&&!o.status().reserved),'NATIVE_VALUE_BOOTSTRAP_BUSY');state.closed=true;operators.forEach(o=>o.close());state.stores.forEach(s=>s.close());state.storeCredentials=[];state.recovery=null;},
+    close(){assert.equal(state.sourceSnapshotBusy,false,'NATIVE_SOURCE_BOOTSTRAP_SNAPSHOT_BUSY');assert.equal(state.sourceOperations,0,'NATIVE_SOURCE_BOOTSTRAP_UPDATE_BUSY');assert.ok(!state.capturing||state.closed,'NATIVE_VALUE_BOOTSTRAP_CAPTURE_OWNS_LIFETIME');assert.equal(state.activeResources,0,'NATIVE_VALUE_BOOTSTRAP_RESOURCES_BUSY');assert.ok(operators.every(o=>!o.status().busy&&!o.status().reserved),'NATIVE_VALUE_BOOTSTRAP_BUSY');state.closed=true;operators.forEach(o=>o.close());state.stores.forEach(s=>s.close());state.storeCredentials=[];state.recovery=null;},
   });state.live=live;owns.set(bootstrap,state);live();return bootstrap;
 }
 export function assertNativeValueOperatorBootstrap(bootstrap) {const s=owns.get(bootstrap);assert.ok(s,'NATIVE_VALUE_ORIGINAL_LOCAL_BOOTSTRAP_REQUIRED');s.live();return s.metadata;}
@@ -189,7 +197,7 @@ export async function provisionNativeValueOperators(bootstrap,{runtime,registry,
   if(s.recovery)assert.deepEqual(registry,s.recovery.registry,'NATIVE_VALUE_RECOVERY_DEPLOYED_REGISTRY_CHANGED');
   s.registry=freeze(copy(registry));
   const live=()=>{assertNativeValueOperatorBootstrap(bootstrap);};
-  const tracked=async work=>{live();s.activeResources++;try{return await work();}finally{s.activeResources--;}};
+  const tracked=async work=>{live();assert.equal(s.sourceSnapshotBusy,false,'NATIVE_SOURCE_BOOTSTRAP_SNAPSHOT_BUSY');s.activeResources++;try{return await work();}finally{s.activeResources--;}};
   try {
     const root=join(ROOT,'.local/native-value-v4/operator-journals');let directory;
     if(!s.recovery){await mkdir(root,{recursive:true,mode:0o700});directory=await mkdtemp(join(root,'session-'));live();}
@@ -211,8 +219,14 @@ export async function provisionNativeValueOperators(bootstrap,{runtime,registry,
       const load=()=>tracked(async()=>{const r=await store.read();validateNativeValueOperatorInventory(r.data,binding);live();return {revision:String(r.revision),state:r.data};});
       resources.push(Object.freeze({assertLive:live,store:Object.freeze({load,commit(raw){return tracked(async()=>{
         try{live();const input=copy(raw);exactRecord(input,['expectedRevision','nextState']);const old=await load();assert.equal(old.revision,input.expectedRevision,'NATIVE_VALUE_BOOTSTRAP_CAS');
-          validateNativeValueOperatorInventory(input.nextState,binding);const r=await store.update(Number(input.expectedRevision),prior=>{assert.deepEqual(prior,old.state);return input.nextState;});
-          const result={revision:String(r.revision),state:r.data};assert.deepEqual(await load(),result,'NATIVE_VALUE_BOOTSTRAP_DURABLE_READBACK');live();return freeze(result);
+          validateNativeValueOperatorInventory(input.nextState,binding);
+          const persist=async()=>{
+            live();if(s.sourceHandle)await setBootstrapSourceCandidate(s,{kind:'OPERATOR_STORE_CAS',signerIndex:i,record:{revision:(BigInt(old.revision)+1n).toString(),state:copy(input.nextState)}});
+            const r=await store.update(Number(input.expectedRevision),prior=>{assert.deepEqual(prior,old.state);return input.nextState;});
+            const result={revision:String(r.revision),state:r.data};assert.deepEqual(await load(),result,'NATIVE_VALUE_BOOTSTRAP_DURABLE_READBACK');live();
+            if(s.sourceHandle)await confirmBootstrapSource(s,i,r);return freeze(result);
+          };
+          return s.sourceHandle?await serializeBootstrapSource(s,persist):await persist();
         }catch(cause){s.poisoned=true;throw new Error('NATIVE_VALUE_BOOTSTRAP_DURABLE_UNCERTAIN',{cause});}
       });}}),readerFor(raw){return tracked(async()=>{
         live();exactRecord(raw,['history','profileCommitment','nativeId','retained','currentRegistry']);
@@ -259,6 +273,7 @@ export function consumeNativeBootstrapOperatorRecoveryV1(token){
 export function fenceOriginalNativeBootstrapEconomicRecoveryV1(bootstrap,authority){
   assert.equal(arguments.length,2);const identity=assertNativeEconomicRecoveryCaptureV1(authority);
   assertNativeValueOperatorBootstrap(bootstrap);const s=owns.get(bootstrap);
+  assert.ok(!s.sourceHandle&&!s.sourceSnapshotBusy,'NATIVE_SOURCE_BOOTSTRAP_LEGACY_CAPTURE_DENIED');
   assert.ok(s.bindingComplete&&s.runtime&&s.system&&!s.capturing&&s.activeResources===0,'NATIVE_VALUE_BOOTSTRAP_RECOVERY_NOT_IDLE');
   assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(s.runtime,s.system),'NATIVE_VALUE_BOOTSTRAP_ORIGINAL_RECOVERY_SOURCE');
   assert.equal(s.entries.length,1);assert.equal(s.entries[0].profile.schema,PROFILE_SCHEMA,'NATIVE_VALUE_RECOVERY_FIXED_EVM_PROFILE');
@@ -308,4 +323,56 @@ export function assertNativeBootstrapEconomicCaptureV1(bootstrap,input){
  assert.equal(arguments.length,2);exactRecord(input,['runtime','system','authority']);const identity=assertNativeEconomicRecoveryCaptureV1(input.authority),s=owns.get(bootstrap);
  assert.ok(s&&s.capturing&&!s.closed&&!s.poisoned&&s.runtime===input.runtime&&s.system===input.system&&s.bindingComplete,'NATIVE_VALUE_BOOTSTRAP_ORIGINAL_CAPTURE_BINDING');
  assert.deepEqual(s.captureIdentity,identity,'NATIVE_VALUE_BOOTSTRAP_CAPTURE_AUTHORITY');return undefined;
+}
+
+const BOOTSTRAP_SOURCE_SCHEMA='ORIGINAL_NATIVE_BOOTSTRAP_DURABLE_SOURCE_V1';
+function serializeBootstrapSource(state,work) {
+  state.sourceOperations++;const pending=state.sourceQueue.then(()=>{state.live();return work();}).catch(error=>{state.poisoned=true;throw error;}).finally(()=>{state.sourceOperations--;});state.sourceQueue=pending.catch(()=>{});return pending;
+}
+async function setBootstrapSourceCandidate(state,candidate) {
+  assert.equal(state.sourceData.candidate,null,'NATIVE_SOURCE_BOOTSTRAP_PENDING');
+  const next={...state.sourceData,candidate:copy(candidate)};
+  await updateOriginalNativeSourceSectionV1(state.sourceHandle,next);state.sourceData=next;
+}
+function bootstrapSourceConfirmed(state,stores) {
+  const signers=state.operators.map(operator=>snapshotOriginalNativeOperatorSourceV1(operator,state.sourceToken));
+  for(let i=0;i<4;i++)signers[i].record=copy(stores[i].record);
+  const bindingFrames=signers.map(signer=>captureNativeValueEconomicBindingFrameV1(signer.binding,signer.record.state.bindingDigest));
+  return {schema:'ORIGINAL_NATIVE_BOOTSTRAP_ECONOMIC_BINDING_RECOVERY_V2',metadata:copy(state.metadata),registry:copy(state.registry),signers,stores:copy(stores),bindingFrames,
+    originals:[...state.originals].map(([key,original])=>({key,original:copy(original)}))};
+}
+async function confirmBootstrapSource(state,index=null,snapshot=null) {
+  const stores=copy(state.sourceData.confirmed.stores);
+  if(index!==null)stores[index]={options:copy(state.storeCredentials[index]),checkpoint:checkpoint(snapshot),record:{revision:String(snapshot.revision),state:copy(snapshot.data)}};
+  const next={...state.sourceData,confirmed:bootstrapSourceConfirmed(state,stores),candidate:null};
+  canonicalClaimRecordDataV1(next);await updateOriginalNativeSourceSectionV1(state.sourceHandle,next);state.sourceData=next;
+}
+/** SOURCE is retained while this original bootstrap remains live, before funds.
+ * The separate capsule owns its single-use writer and every later CAS barrier. */
+export async function retainOriginalNativeSourceBootstrapV1(token,bootstrap) {
+  assert.equal(arguments.length,2);const identity=nativeSourceRecoverySectionIdentityV1(token,'bootstrap');
+  assertNativeValueOperatorBootstrap(bootstrap);const state=owns.get(bootstrap);
+  assert.ok(state.bindingComplete&&state.runtime&&state.system&&!state.sourceHandle&&!state.sourceSnapshotBusy&&state.activeResources===0,'NATIVE_SOURCE_BOOTSTRAP_NOT_IDLE');
+  assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(state.runtime,state.system));
+  assert.equal(state.entries.length,1);assert.equal(state.entries[0].profile.schema,PROFILE_SCHEMA);state.operators.forEach(operator=>assertNativeOperatorEconomicRecoveryIdleV1(operator));
+  state.sourceSnapshotBusy=true;state.sourceToken=token;
+  try {
+    const stores=[];for(let i=0;i<4;i++){const snapshot=await state.stores[i].read(),signer=snapshotOriginalNativeOperatorSourceV1(state.operators[i],token);
+      const record={revision:String(snapshot.revision),state:snapshot.data};assert.deepEqual(record,signer.record);validateNativeValueOperatorInventory(snapshot.data,signer.binding);
+      stores.push({options:copy(state.storeCredentials[i]),checkpoint:checkpoint(snapshot),record});}
+    const data={schema:BOOTSTRAP_SOURCE_SCHEMA,sourceSHA256:identity.sourceSHA256,ownedProcesses:[await nativeSourceRecoveryOwnedProcessV1(token,'bootstrap',process.pid)],confirmed:bootstrapSourceConfirmed(state,stores),candidate:null};
+    canonicalClaimRecordDataV1(data);state.live();assert.equal(state.activeResources,0);state.sourceHandle=await retainOriginalNativeSourceSectionV1(token,'bootstrap',data);state.live();state.sourceData=data;
+    return {retained:true,originalResourcesStopped:false};
+  }catch(error){state.poisoned=true;throw error;}finally{state.sourceSnapshotBusy=false;}
+}
+export async function reopenOriginalNativeSourceBootstrapV1(token,contexts) {
+  assert.equal(arguments.length,2);exactRecord(contexts,['runtime','nativeRuntime']);const identity=nativeSourceRecoverySectionIdentityV1(token,'bootstrap');
+  const data=consumeOriginalNativeSourceSectionV1(token,'bootstrap');exactRecord(data,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);
+  assert.equal(data.schema,BOOTSTRAP_SOURCE_SCHEMA);assert.equal(data.sourceSHA256,identity.sourceSHA256);assert.equal(data.candidate,null,'NATIVE_SOURCE_BOOTSTRAP_PENDING');
+  assert.equal(isOwnedLocalEvmNativeValueRuntime(contexts.nativeRuntime),true);assert.equal(contexts.nativeRuntime.metadata.restoredOriginalState,true);
+  const bootstrap=await createFixedLocalNativeValueBootstrap({nativeRuntimes:[contexts.nativeRuntime]},false,data.confirmed),state=owns.get(bootstrap);
+  try{state.sourceToken=token;state.sourceHandle=await resumeOriginalNativeSourceSectionV1(token,'bootstrap');
+    state.sourceData={...copy(data),ownedProcesses:[await nativeSourceRecoveryOwnedProcessV1(token,'bootstrap',process.pid)]};
+    await updateOriginalNativeSourceSectionV1(state.sourceHandle,state.sourceData);return bootstrap;
+  }catch(error){bootstrap.close();throw error;}
 }

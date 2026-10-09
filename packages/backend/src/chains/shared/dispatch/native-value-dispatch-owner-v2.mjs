@@ -33,6 +33,7 @@ import { normalizeNativeValueDispatchBinding,bindNativeValueDispatchRequest,equa
 import { createNativeValueDispatchJournal,readNativeValueDispatchJournal,assertNativeValueRetainedIntent } from './native-value-dispatch-journal-v2.mjs';
 import { loadPinned,resourceModuleURL } from '../../../../../proofs/src/tooling/tooling.mjs';
 import { assertNativeProviderRecoveryAuthorityV1,retainNativeProviderRecoveryV1,nativeProviderRecoverySectionIdentityV1,consumeNativeProviderRecoverySectionV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
+import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
 const leases=new WeakMap(),custodies=new WeakMap(),copy=cloneInput,freeze=frozenInput;
 export const NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS=Object.freeze(['NEW_NATIVE_VALUE_SYSTEM_RELEASE_ARTIFACTS_ABSENT','ACTUAL_LOCAL_NATIVE_PROVIDER_INTEGRATION_UNEXECUTED','ACTUAL_TRON_NATIVE_AND_DISPATCH_ACCEPTANCE_UNEXECUTED']);
 const SCHEMA='OWNED_NATIVE_VALUE_PROVIDER_CUSTODY_V2';
@@ -55,7 +56,7 @@ export async function openNativeValueDispatchLease(lease,expected,request) {
  assert.ok(r,'NATIVE_VALUE_ORIGINAL_DISPATCH_LEASE_REQUIRED');for(const k of Object.keys(expected))assert.equal(r[k],expected[k],'NATIVE_VALUE_LEASE_OWNER_BINDING');
  const {consumeNativeValueProviderBindRequest}=await import('../../evm/dispatch/native-value-evm-dispatch-gate.mjs');
  consumeNativeValueProviderBindRequest(request,{...expected,lease});
- r.resources.assertLive();assert.equal(r.opened,false,'NATIVE_VALUE_LEASE_ALREADY_OPENED');r.opened=true;return r.resources;
+ r.resources.assertLive();assert.equal(r.opened,false,'NATIVE_VALUE_LEASE_ALREADY_OPENED');if(r.openSource)return r.openSource();r.opened=true;return r.resources;
 }
 async function privateDirectory(nativeRuntime,directory){assert.ok(typeof directory==='string'&&isAbsolute(directory)&&resolve(directory)===directory&&!directory.includes('\0'),'NATIVE_VALUE_PRIVATE_DIRECTORY');
  const root=nativeRuntime.metadata.scratchDirectory;assert.ok(isAbsolute(root)&&resolve(root)===root);const suffix=relative(root,directory);
@@ -100,11 +101,12 @@ async function createProviderCustody(input,recovery=null){
  else key=freshKey();
  let closed=false,poisoned=false,busy=false,lease=null,backend,backendPending,capturing=false,captureStarted=false,captured=false,captureToken,
    activeResourceOperations=0,recoveredLeaseTaken=false,closePrivatePromise,captureIdentity,authenticatedCiphertext;
+ let sourceHandle=null,sourceToken=null,sourceData=null,sourceSnapshotBusy=false;
  const recovered=Boolean(recovery),recoveredLeasePresent=Boolean(recovery?.lease);
  let privateInput=copy(Object.fromEntries(['poolIndex','profileCommitment','recipientEndpoint','terms','acceptedLossClause','directory','password'].map(k=>[k,input[k]])));
  const nativeIdentity={family:evm?'3':'4',genesis:p.genesis,chainId:evm?p.chainId:null,solver:native.solverEndpoint,recipient:native.recipientEndpoint};
  const receiverIdentity={genesis:runtime.metadata.evmGenesis,chainId:runtime.metadata.chainId,hub:system.hub.address,pool:pool.address};
- async function resourceTask(work){live();activeResourceOperations++;try{return await work();}finally{activeResourceOperations--;}}
+ async function resourceTask(work){live();assert.equal(sourceSnapshotBusy,false,'NATIVE_SOURCE_PROVIDER_SNAPSHOT_BUSY');activeResourceOperations++;try{return await work();}finally{activeResourceOperations--;}}
  const publicKey=freeze({x:key.x.toString('hex'),y:key.y.toString('hex')}),source=evm?evmFundingEndpointCommitment({genesis:p.genesis,asset:p.asset,address:native.solverEndpoint.slice(2)}):tronGraphEndpoint(p.genesis,p.asset,native.solverEndpoint),destination=evm?evmFundingEndpointCommitment({genesis:p.genesis,asset:p.asset,address:native.recipientEndpoint.slice(2)}):tronGraphEndpoint(p.genesis,p.asset,native.recipientEndpoint);
  const actionTemplate=freeze({chainDomain:chainDomain(p),signerIdentity:nativeProviderIdentity(publicKey),sourceCommitment:source,destinationCommitment:destination,amount:terms.amount,custodyKind:1,
    custodyCommitment:evm?nativeCustodyCommitment({family:'3',genesis:p.genesis,asset:p.asset,sourceCommitment:source,destinationCommitment:destination}):tronGraphCustody({genesis:p.genesis,asset:p.asset,sourceCommitment:source,destinationCommitment:destination}),
@@ -146,7 +148,11 @@ async function createProviderCustody(input,recovery=null){
   authenticatedCiphertext=after;return actual;
  }
  async function unchanged(){live();try{const actual=await ciphertext();live();assert.ok(authenticatedCiphertext,'NATIVE_VALUE_PROVIDER_AUTHENTICATED_CIPHERTEXT_REQUIRED');equal(actual,authenticatedCiphertext);}catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_ORIGINAL_CUSTODY_UNAVAILABLE',{cause});}}
- async function save(next){await unchanged();try{const saved=await vault.update(password,record.revision,()=>copy(next));live();await authenticate(saved,{replace:true});live();record=saved;}catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_CUSTODY_WRITE_UNCERTAIN',{cause});}}
+ async function save(next){await unchanged();try{
+  if(sourceHandle)await sourceCandidate({kind:'PROVIDER_VAULT_CAS',record:{revision:record.revision+1,data:copy(next)}});
+  const saved=await vault.update(password,record.revision,()=>copy(next));live();await authenticate(saved,{replace:true});live();record=saved;
+  if(sourceHandle)await sourceConfirm();
+ }catch(cause){poisoned=true;throw new Error('NATIVE_VALUE_PROVIDER_CUSTODY_WRITE_UNCERTAIN',{cause});}}
  async function hashFields(fields){live();if(!backendPending)backendPending=(async()=>{const helpers=await import(resourceModuleURL);assert.equal(helpers.verifyToolchain().barretenberg,'5.2.0');const bb=await loadPinned('@aztec/bb.js');
    backend=await bb.Barretenberg.new({backend:bb.BackendType.Wasm,threads:1,skipSrsInit:true,memory:{initial:37,maximum:32768}});return backend;})();
    const h=await backendPending;live();assert.ok(Array.isArray(fields)&&fields.length>0&&fields.length<=137);const inputs=fields.map(v=>{assert.ok(typeof v==='bigint'&&v>=0n&&v<FIELD_MODULUS);return Buffer.from(v.toString(16).padStart(64,'0'),'hex');});
@@ -183,7 +189,27 @@ async function createProviderCustody(input,recovery=null){
         return bootstrap.retainOriginal({profileCommitment:binding.profileCommitment,original:{nativeWire:raw.signed.nativeWire,
           expected:{nativeId:raw.signed.nativeId,chainId:t.chainId,genesisHash:'0x'+p.genesis,from:t.from,to:t.to,value:t.value,nonce:t.nonce,type:'0',gas:t.gas,
             fees:{gasPrice:t.gasPrice},wireKeyCommitment:binding.quote.action.receiptKeyCommitment}}});});},close:closeOwner});
-    leases.set(scoped,{runtime,system,poolIndex,resources,opened:false,originalOpened:recoveryLease?.opened??false,keyStarted:()=>keyStarted});lease=scoped;return scoped;
+    leases.set(scoped,{runtime,system,poolIndex,resources,opened:false,originalOpened:recoveryLease?.opened??false,keyStarted:()=>keyStarted,
+      async openSource(){
+        const state=leases.get(scoped);live();assert.equal(state.opened,false);
+        if(sourceHandle){state.opened=true;try{await sourceCandidate({kind:'PROVIDER_LEASE_OPEN',lease:{opened:true,keyStarted:state.keyStarted()}});live();await sourceConfirm();return resources;}
+          catch(error){poisoned=true;throw error;}}
+        state.opened=true;return resources;
+      }});lease=scoped;return scoped;
+ }
+ function sourceConfirmed(){
+  const state=lease?leases.get(lease):null;
+  const dispatch=record.data.dispatch?readNativeValueDispatchJournal(normalizeNativeValueDispatchBinding({...base,quote:record.data.quote}),record.data.dispatch.state):null;
+  const leaseState=state?{opened:state.opened,keyStarted:state.keyStarted()||dispatch?.providerKeyStarted===true}
+    :record.data.approvedIntent?{opened:false,keyStarted:dispatch?.providerKeyStarted===true}:null;
+  return {schema:'ORIGINAL_NATIVE_PROVIDER_ECONOMIC_RECOVERY_V1',sourceSHA256:sourceData.sourceSHA256,input:copy(privateInput),record:copy(record),nativeIdentity:copy(nativeIdentity),receiverIdentity:copy(receiverIdentity),lease:leaseState};
+ }
+ async function sourceCandidate(candidate){
+  assert.equal(sourceData.candidate,null,'NATIVE_SOURCE_PROVIDER_PENDING');const next={...sourceData,candidate:copy(candidate)};
+  await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceData=next;
+ }
+ async function sourceConfirm(){
+  const next={...sourceData,confirmed:sourceConfirmed(),candidate:null};await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceData=next;
  }
  const custody=Object.freeze({
   offer(){live();return freeze(copy({providerKey:publicKey,signerIdentity:actionTemplate.signerIdentity,actionTemplate,evidencePolicy:base.profileCommitment,acceptedLossClause:NATIVE_ADMISSION_LOSS_CLAUSE}));},
@@ -210,8 +236,24 @@ async function createProviderCustody(input,recovery=null){
     leases.delete(lease);lease=null;}return closePrivate();},
   report(){return freeze({profile:SCHEMA,closed,persistenceUncertain:poisoned,quoteBound:Boolean(record?.data.quote),leaseIssued:lease!==null,creditEligible:false});},
   toJSON(){throw new Error('NATIVE_VALUE_PROVIDER_CUSTODY_NOT_SERIALIZABLE');},
- });custodies.set(custody,{runtime,system,poolIndex,live,
- fence(authority){live();assert.equal(evm,true,'NATIVE_PROVIDER_EVM_RECOVERY_ONLY');
+ });custodies.set(custody,{runtime,system,poolIndex,live,abortSource:closePrivate,
+ async sourceRetain(token){
+  const identity=nativeSourceRecoverySectionIdentityV1(token,'provider');live();assert.equal(evm,true,'NATIVE_SOURCE_PROVIDER_EVM_ONLY');
+  assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system));
+  assert.ok(!sourceHandle&&!sourceSnapshotBusy&&!busy&&activeResourceOperations===0,'NATIVE_SOURCE_PROVIDER_NOT_IDLE');
+  sourceSnapshotBusy=true;busy=true;sourceToken=token;sourceData={schema:'ORIGINAL_NATIVE_PROVIDER_DURABLE_SOURCE_V1',sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:null,candidate:null};
+  try{await authenticate(record);await nativeLive();const owned=await nativeSourceRecoveryOwnedProcessV1(token,'provider',process.pid);
+    const next={...sourceData,ownedProcesses:[owned],confirmed:sourceConfirmed()};sourceHandle=await retainOriginalNativeSourceSectionV1(token,'provider',next);sourceData=next;
+    return {retained:true,originalResourcesStopped:false};
+  }catch(error){poisoned=true;throw error;}finally{sourceSnapshotBusy=false;busy=false;}
+ },
+ async sourceResume(token,data){
+  live();assert.ok(!sourceHandle&&!sourceSnapshotBusy&&!busy&&activeResourceOperations===0,'NATIVE_SOURCE_PROVIDER_NOT_IDLE');
+  sourceToken=token;sourceData=copy(data);sourceHandle=await resumeOriginalNativeSourceSectionV1(token,'provider');
+  const owned=await nativeSourceRecoveryOwnedProcessV1(token,'provider',process.pid);
+  sourceData={...sourceData,ownedProcesses:[owned]};await sourceConfirm();
+ },
+ fence(authority){live();assert.ok(!sourceHandle&&!sourceSnapshotBusy,'NATIVE_SOURCE_PROVIDER_LEGACY_CAPTURE_DENIED');assert.equal(evm,true,'NATIVE_PROVIDER_EVM_RECOVERY_ONLY');
    const identity=assertNativeProviderRecoveryAuthorityV1(authority);
    assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system),'NATIVE_PROVIDER_CAPTURE_ORIGINAL_SOURCE');
    assert.ok(!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_BUSY');captureIdentity=copy(identity);capturing=true;},
@@ -281,4 +323,17 @@ export function takeOriginalNativeProviderRecoveredLeaseV1(custody){
 /** Synchronous fence used by the fixed joint native coordinator before await. */
 export function fenceOriginalNativeProviderEconomicRecoveryV1(custody,authority){
  assert.equal(arguments.length,2);const owned=custodies.get(custody);assert.ok(owned,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');owned.fence(authority);
+}
+
+export function retainOriginalNativeSourceProviderV1(token,custody){
+ assert.equal(arguments.length,2);const state=custodies.get(custody);assert.ok(state,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');return state.sourceRetain(token);
+}
+export async function reopenOriginalNativeSourceProviderV1(token,contexts){
+ assert.equal(arguments.length,2);exactRecord(contexts,['runtime','system','nativeRuntime','bootstrap']);const identity=nativeSourceRecoverySectionIdentityV1(token,'provider');
+ const data=consumeOriginalNativeSourceSectionV1(token,'provider');exactRecord(data,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);
+ assert.equal(data.schema,'ORIGINAL_NATIVE_PROVIDER_DURABLE_SOURCE_V1');assert.equal(data.sourceSHA256,identity.sourceSHA256);assert.equal(data.candidate,null,'NATIVE_SOURCE_PROVIDER_PENDING');
+ const retained=data.confirmed;exactRecord(retained,['schema','sourceSHA256','input','record','nativeIdentity','receiverIdentity','lease']);
+ assert.equal(retained.schema,'ORIGINAL_NATIVE_PROVIDER_ECONOMIC_RECOVERY_V1');assert.equal(retained.sourceSHA256,identity.sourceSHA256);assert.equal(retained.nativeIdentity.family,'3');
+ const custody=await createProviderCustody({...retained.input,...contexts},retained);
+ try{await custodies.get(custody).sourceResume(token,data);return custody;}catch(error){await custodies.get(custody).abortSource();throw error;}
 }

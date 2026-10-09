@@ -9,6 +9,7 @@ import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../deployments/native-value/native-value-wallet-binding-v2.mjs';
 import { assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, assertOwnedLocalEvmNativeValueRuntime, assertOwnedNativeEconomicObservedReceiverV2, assertOwnedNativeEconomicObservedGraphRuntimeV2 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOriginalNativeDeviceLocalObservedClockV1 } from './native-device-local-observed-clock-v1.mjs';
+import { assertOriginalNativeSourceObservedClockV1 } from './native-original-source-observed-clock-v1.mjs';
 import { createOwnedNativeValueProviderCustody } from '../../providers/native-value-provider-v2.mjs';
 import { profileCommitment } from '../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { createNativeRecipientProcess } from '../../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
@@ -35,6 +36,18 @@ export async function prepareOriginalNativeDeviceObservedLocalProviderV1(input) 
   assertOriginalNativeDeviceLocalObservedClockV1(clock, { runtime, nativeRuntime });
   assertOwnedNativeEconomicObservedReceiverV2(runtime); assertOwnedNativeEconomicObservedGraphRuntimeV2(nativeRuntime);
   assert.equal(nativeRuntime.metadata.chainId, '1');
+  return prepareFixedOriginalNativeDeviceLocalProvider({ runtime, system, nativeRuntime, bootstrap });
+}
+/** SOURCE birth has its own original clock membership. It cannot select or
+ * adopt a legacy pair through metadata; terms still originate before funds. */
+export async function prepareOriginalNativeSourceLocalProviderV1(input) {
+  assert.equal(arguments.length, 1); exactRecord(input, ['runtime', 'system', 'nativeRuntime', 'bootstrap', 'clock']);
+  const { runtime, system, nativeRuntime, bootstrap, clock } = input;
+  assertOwnedNativeValueWalletSystem(runtime, system);
+  assertOriginalNativeSourceObservedClockV1(clock, { runtime, nativeRuntime });
+  await assertOwnedLocalEvmV2(runtime); await assertOwnedLocalEvmNativeValueRuntime(nativeRuntime);
+  assertOriginalNativeSourceObservedClockV1(clock, { runtime, nativeRuntime });
+  assertOwnedNativeValueWalletSystem(runtime, system); assert.equal(nativeRuntime.metadata.chainId, '1');
   return prepareFixedOriginalNativeDeviceLocalProvider({ runtime, system, nativeRuntime, bootstrap });
 }
 async function prepareFixedOriginalNativeDeviceLocalProvider({ runtime, system, nativeRuntime, bootstrap }) {

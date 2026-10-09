@@ -4,9 +4,11 @@
  * This is process separation, not a hostile-host enclave or general keystore. */
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
+import { constants } from 'node:fs';
+import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../../backend/src/operations/recovery/native-original-source-capsule-v1.mjs';
 import { fork } from 'node:child_process';
-import { lstat, readFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { lstat, readFile, open, realpath } from 'node:fs/promises';
+import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, createHash } from 'node:crypto';
 import { Vault } from '../../../engine/src/crypto/vault.mjs';
@@ -169,6 +171,7 @@ async function createOriginalOwnerProcess(input, recovery = null) {
   let password = input.password, checkpoint = ownerCopy(input.checkpoint), child = null, pending = null,
     generation = recovery?.generation ?? 0, closed = false, lifecycle = false, hostBusy = false;
   let capturing = false, captureStarted = false, captureIdentity = null, captured = null, captureStopping = false;
+  let sourceHandle=null,sourceToken=null,sourceData=null,sourceSnapshotBusy=false;
   const parentVault = new Vault(join(directory, 'native-owner-parent-checkpoint.vault'));
   let parentRecord = recovery ? await parentVault.read(password) : null;
   if (recovery) {
@@ -204,8 +207,10 @@ async function createOriginalOwnerProcess(input, recovery = null) {
     checkpoint = ownerCopy(next);
     if (parentRecord !== null) {
       assert.deepEqual(await parentVault.read(password), parentRecord, 'NATIVE_OWNER_PARENT_STORAGE_CHANGED');
+      if(sourceHandle)await sourceCandidate({kind:'OWNER_CHECKPOINT_CAS',checkpoint:ownerCopy(next),parentRevision:parentRecord.revision+1});
       const retained = await parentVault.update(password, parentRecord.revision, data => ({ ...data, checkpoint: ownerCopy(next) }));
       assert.deepEqual(await parentVault.read(password), retained, 'NATIVE_OWNER_PARENT_STORAGE_CHANGED'); parentRecord = retained;
+      if(sourceHandle)await sourceConfirm();
     }
     await onCheckpoint(frozen(ownerCopy(next)));
     return { retained: true };
@@ -293,7 +298,7 @@ async function createOriginalOwnerProcess(input, recovery = null) {
   }
   async function request(method, value = null) {
     if (!captureStopping) assertOwnedNativeValueWalletSystem(runtime, system);
-    assert.ok(!closed && (!capturing || (captureStopping && method === 'close')) && ready && !failed && !pending && !hostBusy, 'FLAT_OWNER_BUSY_OR_UNAVAILABLE');
+    assert.ok(!sourceSnapshotBusy && !closed && (!capturing || (captureStopping && method === 'close')) && ready && !failed && !pending && !hostBusy, 'FLAT_OWNER_BUSY_OR_UNAVAILABLE');
     const normalized = bounded(value); assert.ok(plane(method));
     const id = nextId++; const result = new Promise((resolve, rejectRequest) => {
       pending = { id, method, input: normalized, resolve, reject: rejectRequest,
@@ -328,11 +333,11 @@ async function createOriginalOwnerProcess(input, recovery = null) {
     report: () => ({ profile: 'OWNED_NATIVE_VALUE_OWNER_PROCESS_V2', custodyProfile: NATIVE_VALUE_OWNER_PROFILE, generation, closed, available: ready && !failed && !capturing,
       childExited: !child || child.exitCode !== null || child.signalCode !== null, exit: ownerCopy(lastExit),
       childRestart: true, keeperRestart: false }),
-    suspend: async () => { assert.ok(!capturing && !lifecycle && !closed && !pending && !hostBusy, 'FLAT_OWNER_LIFECYCLE_BUSY'); lifecycle = true;
+    suspend: async () => { assert.ok(!sourceSnapshotBusy && !capturing && !lifecycle && !closed && !pending && !hostBusy, 'FLAT_OWNER_LIFECYCLE_BUSY'); lifecycle = true;
       try { await stopChild(); return { suspended: true, childExited: true }; } finally { lifecycle = false; } },
-    restart: async () => { assert.ok(!capturing && !lifecycle && !closed && !pending && !hostBusy, 'FLAT_OWNER_LIFECYCLE_BUSY'); lifecycle = true;
-      try { await stopChild(); await start(false); return { available: true, generation }; } finally { lifecycle = false; } },
-    close: async () => { assert.ok((!capturing || closed) && !lifecycle && !pending && !hostBusy, 'FLAT_OWNER_LIFECYCLE_BUSY'); lifecycle = true;
+    restart: async () => { assert.ok(!sourceSnapshotBusy && !capturing && !lifecycle && !closed && !pending && !hostBusy, 'FLAT_OWNER_LIFECYCLE_BUSY'); lifecycle = true;
+      try { assert.equal(sourceHandle,null,'NATIVE_SOURCE_OWNER_LIVE_RESTART_DENIED');await stopChild();await start(false);return { available: true, generation }; } finally { lifecycle = false; } },
+    close: async () => { assert.ok(!sourceSnapshotBusy && (!capturing || closed) && !lifecycle && !pending && !hostBusy, 'FLAT_OWNER_LIFECYCLE_BUSY'); lifecycle = true;
       try { if (!closed) await stopChild(); closed = true; password = null; return { closed: true, childExited: true }; } finally { lifecycle = false; } },
   });
   async function encryptedOwnerHash() {
@@ -342,10 +347,50 @@ async function createOriginalOwnerProcess(input, recovery = null) {
     try { assert.equal(bytes.length, info.size); return createHash('sha256').update(bytes).digest('hex'); }
     finally { bytes.fill(0); }
   }
+  async function sourceSnapshot() {
+    assert.ok(!closed&&!capturing&&!failed&&ready&&checkpoint!==null&&password,'NATIVE_SOURCE_OWNER_NOT_LIVE');
+    assertOwnedNativeValueWalletSystem(runtime,system);
+    const owned=await nativeSourceRecoveryOwnedProcessV1(sourceToken,'owner',child.pid);
+    const ownerVaultSHA256=await sourceOwnerCiphertextHash(join(directory,'native-value-owner-v2.vault'));
+    assert.deepEqual(await parentVault.read(password),parentRecord,'NATIVE_OWNER_PARENT_STORAGE_CHANGED');
+    assert.deepEqual(parentRecord.data.checkpoint,checkpoint);
+    assert.deepEqual(await nativeSourceRecoveryOwnedProcessV1(sourceToken,'owner',child.pid),owned,'NATIVE_SOURCE_OWNER_PROCESS_CHANGED');
+    return {schema:'ORIGINAL_NATIVE_OWNER_ECONOMIC_RECOVERY_V1',sourceSHA256:sourceData.sourceSHA256,poolIndex,directory,password,processIdentitySHA256,generation,
+      identitySHA256:ownerDigest(identity),checkpoint:ownerCopy(checkpoint),parentCheckpointSHA256:ownerDigest(parentRecord),ownerVaultSHA256,owned};
+  }
+  async function sourceCandidate(candidate) {
+    assert.equal(sourceData.candidate,null,'NATIVE_SOURCE_OWNER_PENDING');
+    const next={...sourceData,candidate:ownerCopy(candidate)};
+    await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceData=next;
+  }
+  async function sourceConfirm() {
+    const value=await sourceSnapshot(),{owned,...confirmed}=value;
+    const next={...sourceData,ownedProcesses:[owned],confirmed,candidate:null};
+    await updateOriginalNativeSourceSectionV1(sourceHandle,next);sourceData=next;
+  }
   const privateState = { runtime, system, poolIndex, closed: () => closed || capturing,
+    async sourceRetain(token) {
+      const admitted=nativeSourceRecoverySectionIdentityV1(token,'owner');
+      assert.equal(nativeValueOriginalRecoverySourceV1(runtime,system),admitted.sourceSHA256);
+      assert.ok(!sourceHandle&&!sourceSnapshotBusy&&!closed&&!capturing&&!lifecycle&&!pending&&!hostBusy&&ready&&!failed&&checkpoint!==null,'NATIVE_SOURCE_OWNER_NOT_IDLE');
+      sourceSnapshotBusy=true;sourceToken=token;sourceData={schema:'ORIGINAL_NATIVE_OWNER_DURABLE_SOURCE_V1',sourceSHA256:admitted.sourceSHA256,ownedProcesses:[],confirmed:null,candidate:null};
+      try {
+        if(parentRecord===null)parentRecord=await parentVault.create({version:1,identitySHA256:ownerDigest(identity),processIdentitySHA256,checkpoint:ownerCopy(checkpoint)},password);
+        const value=await sourceSnapshot(),{owned,...confirmed}=value;
+        const next={...sourceData,ownedProcesses:[owned],confirmed};
+        sourceHandle=await retainOriginalNativeSourceSectionV1(token,'owner',next);sourceData=next;
+        return {retained:true,originalResourcesStopped:false};
+      }catch(error){failed??=failure('NATIVE_VALUE_OWNER_SOURCE_UNCERTAIN');throw error;}finally{sourceSnapshotBusy=false;}
+    },
+    async sourceResume(token,data) {
+      assert.ok(!sourceHandle&&!sourceSnapshotBusy&&!closed&&!capturing&&!pending&&!hostBusy,'NATIVE_SOURCE_OWNER_NOT_IDLE');
+      sourceToken=token;sourceData=ownerCopy(data);sourceHandle=await resumeOriginalNativeSourceSectionV1(token,'owner');
+      await sourceConfirm();
+    },
     identity() { assert.ok(!closed && !capturing); return frozen({ identitySHA256: ownerDigest(identity), processIdentitySHA256, generation }); },
     fence(authority) {
       const admitted = assertNativeEconomicRecoveryCaptureV1(authority);
+      assert.ok(!sourceHandle&&!sourceSnapshotBusy,'NATIVE_SOURCE_OWNER_LEGACY_CAPTURE_DENIED');
       assertOwnedNativeValueWalletSystem(runtime, system);
       assert.equal(nativeValueOriginalRecoverySourceV1(runtime, system), admitted.sourceSHA256, 'NATIVE_OWNER_ORIGINAL_SOURCE_CHANGED');
       assert.ok(!closed && !capturing && !lifecycle && !pending && !hostBusy && ready && !failed, 'NATIVE_OWNER_CAPTURE_IDLE_REQUIRED');
@@ -437,3 +482,34 @@ export async function reopenOriginalNativeOwnerEconomicRecoveryV1(token, context
 
 if (process.argv[1] && resolve(process.argv[1]) === FILE && process.argv[2] === '--native-value-owner-child-v2')
   await childMain();
+
+async function sourceOwnerCiphertextHash(path) {
+  const directory=dirname(path),parent=await lstat(directory);
+  assert.ok(parent.isDirectory()&&!parent.isSymbolicLink()&&(parent.mode&0o777)===0o700&&parent.uid===process.getuid()&&await realpath(directory)===directory,'NATIVE_SOURCE_OWNER_DIRECTORY');
+  const named=await lstat(path);assert.ok(named.isFile()&&!named.isSymbolicLink()&&named.nlink===1&&named.uid===process.getuid()&&(named.mode&0o777)===0o600&&named.size>0&&named.size<=LIMIT,'NATIVE_SOURCE_OWNER_FILE');
+  const fd=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;
+  try{const before=await fd.stat();for(const key of ['dev','ino','uid','mode','nlink','size'])assert.equal(before[key],named[key]);
+    bytes=Buffer.alloc(before.size+1);let offset=0;while(offset<bytes.length){const result=await fd.read(bytes,offset,bytes.length-offset,offset);if(!result.bytesRead)break;offset+=result.bytesRead;}
+    assert.equal(offset,before.size);const after=await fd.stat(),final=await lstat(path);
+    for(const key of ['dev','ino','uid','mode','nlink','size','mtimeMs','ctimeMs']){assert.equal(after[key],before[key]);assert.equal(final[key],before[key]);}
+    assert.equal(await realpath(path),path);const actualParent=await lstat(directory);assert.equal(actualParent.dev,parent.dev);assert.equal(actualParent.ino,parent.ino);
+    return createHash('sha256').update(bytes.subarray(0,offset)).digest('hex');
+  }finally{bytes?.fill(0);await fd.close();}
+}
+export function retainOriginalNativeSourceOwnerV1(token,owner) {
+  assert.equal(arguments.length,2);const state=ownedProcesses.get(owner);assert.ok(state,'NATIVE_SOURCE_OWNER_ORIGINAL_REQUIRED');return state.sourceRetain(token);
+}
+export async function reopenOriginalNativeSourceOwnerV1(token,contexts) {
+  assert.equal(arguments.length,2);exactRecord(contexts,['runtime','system']);const admitted=nativeSourceRecoverySectionIdentityV1(token,'owner');
+  assert.equal(nativeValueOriginalRecoverySourceV1(contexts.runtime,contexts.system),admitted.sourceSHA256);
+  const data=consumeOriginalNativeSourceSectionV1(token,'owner');exactRecord(data,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);
+  assert.equal(data.schema,'ORIGINAL_NATIVE_OWNER_DURABLE_SOURCE_V1');assert.equal(data.sourceSHA256,admitted.sourceSHA256);assert.equal(data.candidate,null,'NATIVE_SOURCE_OWNER_PENDING');
+  const retained=data.confirmed;exactRecord(retained,['schema','sourceSHA256','poolIndex','directory','password','processIdentitySHA256','generation','identitySHA256','checkpoint','parentCheckpointSHA256','ownerVaultSHA256']);
+  assert.equal(retained.schema,'ORIGINAL_NATIVE_OWNER_ECONOMIC_RECOVERY_V1');assert.equal(retained.sourceSHA256,admitted.sourceSHA256);
+  assert.equal(retained.checkpoint.pending,null,'NATIVE_SOURCE_OWNER_CHECKPOINT_PENDING');
+  assert.ok(Number.isSafeInteger(retained.generation)&&retained.generation>0&&retained.generation<Number.MAX_SAFE_INTEGER);assert.match(retained.processIdentitySHA256,/^[0-9a-f]{64}$/);
+  assert.equal(await sourceOwnerCiphertextHash(join(retained.directory,'native-value-owner-v2.vault')),retained.ownerVaultSHA256,'NATIVE_OWNER_ORIGINAL_VAULT_CHANGED');
+  const owner=await createOriginalOwnerProcess({...contexts,poolIndex:retained.poolIndex,directory:retained.directory,password:retained.password,create:false,checkpoint:retained.checkpoint,onCheckpoint:async()=>{}},retained);
+  try{assert.equal(nativeValueOwnerEconomicIdentityV1(owner,{...contexts,poolIndex:retained.poolIndex}).identitySHA256,retained.identitySHA256);await ownedProcesses.get(owner).sourceResume(token,data);return owner;}
+  catch(error){await owner.close();throw error;}
+}
