@@ -19,9 +19,25 @@ const reviewURL=new URL(generated?'../../../../../mobile-protocol/src/original-a
 const engineURL=new URL(generated?'../../../../../omnichain-product/src/vault.mjs':'../../../../engine/src/crypto/vault.mjs',import.meta.url);
 const privacyURL=new URL(generated?'../../../../../omnichain-product/src/privacy.mjs':'../../../../engine/src/crypto/privacy.mjs',import.meta.url);
 const encodingURL=new URL(generated?'../paeg/commitments.mjs':'../../../src/execution/encoding/commitments.mjs',import.meta.url);
+const partsURL=new URL(generated?'../ops/native-original-source-parts-v1.mjs':'../../../src/operations/recovery/native-original-source-parts-v1.mjs',import.meta.url);
 const boundURL=new URL(generated?'../chain-adapters/owned-evm-recovery-state-bound-v1.mjs':'../../../src/chains/evm/runtime/owned-evm-recovery-state-bound-v1.mjs',import.meta.url);
 const [{Vault},{canonical},{exactRecord},{assertOwnedEvmRecoveryStateDumpV1},{normalizeOriginalAccountAccessV2,normalizeOriginalAccountReviewV2}]=await Promise.all([import(engineURL),import(privacyURL),import(encodingURL),import(boundURL),import(reviewURL)]);
 const schemas={receiver:'ORIGINAL_NATIVE_SOURCE_RUNTIME_V1',graphNative:'ORIGINAL_NATIVE_SOURCE_RUNTIME_V1',bootstrap:'ORIGINAL_NATIVE_BOOTSTRAP_DURABLE_SOURCE_V1',system:'ORIGINAL_NATIVE_SYSTEM_DURABLE_SOURCE_V1',provider:'ORIGINAL_NATIVE_PROVIDER_DURABLE_SOURCE_V1',owner:'ORIGINAL_NATIVE_OWNER_DURABLE_SOURCE_V1',executor:'ORIGINAL_NATIVE_EXECUTOR_DURABLE_SOURCE_V1',account:'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1',session:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',actor:'ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1'};
+if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE fixed session consumer preserves the original session for actor binding and shutdown',async()=>{
+ const raw=await readFile(partsURL,'utf8'),start=raw.indexOf('function refs(');assert.ok(start>=0);
+ const originals=new Map(['receiver','system','account','owner','session'].map(name=>[name,Object.freeze({explicitSyntheticLowerOriginal:name})])),token=Object.freeze({});let sessionCloses=0,actorCalls=0;
+ const session=Object.freeze({async close(){sessionCloses++;return{phase:'CLOSED'};}});originals.set('session',session);
+ const joined=Object.freeze({session,async bindManualNote(){throw Error('HOST_NO_NEW_AUTHORIZATION');}});
+ const consumer=Function('assert','exactRecord','nativeSourceRecoveryOriginalReferenceV1','reopenOriginalNativeSessionSourceV1','reopenOriginalNativeActorSourceV1',raw.slice(start).replace(/^export /gm,'')+';return reopenFixedOriginalNativeSourcePartV1;')(
+  assert,exactRecord,(actual,section,name)=>{assert.equal(actual,token);assert.ok(['session','actor'].includes(section));return originals.get(name);},
+  async(actual,contexts)=>{assert.equal(actual,token);assert.equal(contexts.owner,originals.get('owner'));return joined;},
+  async(actual,contexts)=>{assert.equal(actual,token);assert.equal(contexts.session,session);actorCalls++;return{explicitSyntheticActor:true};});
+ const contexts={runtime:originals.get('receiver'),system:originals.get('system'),account:originals.get('account'),owner:originals.get('owner')};
+ const recovered=await consumer(token,'session',contexts);assert.equal(recovered,session);assert.notEqual(recovered,joined);
+ await consumer(token,'actor',{session:recovered,account:contexts.account,owner:contexts.owner});assert.equal(actorCalls,1);
+ await assert.rejects(consumer(token,'actor',{session:{...recovered},account:contexts.account,owner:contexts.owner}),/NATIVE_SOURCE_ORIGINAL_CONTEXT_REFERENCE/);assert.equal(actorCalls,1);
+ assert.equal((await recovered.close()).phase,'CLOSED');assert.equal(sessionCloses,1);
+});
 async function capsule(root,options={}){
  const raw=await readFile(capsuleURL,'utf8');let source=raw.replace(/^import[\s\S]*?;[\r\n]+/gm,'').replace(/^export /gm,'');
  let imports=0;source=source.replace(/await import\('([^']+)'\)/g,(_full,path)=>{imports++;const key=path.includes('owned-evm-v2-runtime')?'runtimePort':path.includes('observed-clock')?'clockPort':path.includes('source-parts')?'partsPort':path.includes('account-authority')?'accountPort':path.includes('paired-original-account-actor')?'actorPort':path.includes('flat-manual-graph-session')?'sessionPort':null;assert.ok(key,'HOST_FIXED_IMPORT_PORT');return key;});assert.equal(imports,10,'HOST_SOURCE_IMPORT_CUT');

@@ -24,7 +24,7 @@ export async function reopenFixedOriginalNativeSourcePartV1(token,section,contex
  case 'owner':refs(token,section,contexts,['runtime','system']);return reopenOriginalNativeSourceOwnerV1(token,contexts);
  case 'executor':refs(token,section,contexts,['runtime','system','nativeRuntime','bootstrap','providerCustody','dispatchLease']);return reopenOriginalNativeExecutorSourceV1(token,contexts);
  case 'account':refs(token,section,contexts,['runtime','system','owner','nativeExecution','providerCustody','clock','nativeRuntime']);return reopenOriginalNativeAccountSourceV1(token,contexts);
- case 'session':refs(token,section,contexts,['runtime','system','account','owner']);return reopenOriginalNativeSessionSourceV1(token,contexts);
+ case 'session':{refs(token,section,contexts,['runtime','system','account','owner']);const joined=await reopenOriginalNativeSessionSourceV1(token,contexts);return joined.session;}
  case 'actor':refs(token,section,contexts,['session','account','owner']);return reopenOriginalNativeActorSourceV1(token,contexts);
  default:assert.fail('NATIVE_SOURCE_FIXED_PART_CONSUMER');}
 }
