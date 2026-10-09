@@ -64,14 +64,14 @@ export function createPrivateWalletStateV1(){
      noteRevision:c.noteRevision,assetId:p.assetIdentity,genesis:p.genesis,pool:p.pool,scope:p.scope,policy:p.policy,domain:p.domainCommitment};
     // A funding receipt is not a fresh unspent-nullifier observation. Show the
     // original note amount separately; never manufacture available balance.
-    const uncertain=!share&&v.graphClaimed===true||[j,exit].filter(Boolean).some(r=>['PROVING','FUNDING_UNKNOWN','DELIVERY_UNKNOWN','WITHDRAWAL_UNKNOWN'].includes(r.stage));
-    const currentShare=share&&!uncertain&&v.note.state==='LIVE';
+    const uncertain=!share&&v.graphClaimed===true&&v.note?.state!=='SPENT'||[j,exit].filter(Boolean).some(r=>['PROVING','FUNDING_UNKNOWN','DELIVERY_UNKNOWN','WITHDRAWAL_UNKNOWN'].includes(r.stage));
+    const currentNote=!uncertain&&v.note?.state==='LIVE';
     return{route,label:d.assetMetadata.symbol,decimals:d.assetMetadata.decimals,
-     state:uncertain||share&&!['LIVE','SPENT'].includes(v.note.state)?'UNKNOWN':'LIVE',
-     available:currentShare?v.note.available:null,reserved:null,locked:null,recovery:null,
-     shares:currentShare?v.note.available:null,valuation:null,
-     ...(share?{noteState:v.note.state}:{}),
-     noteAmount:!share&&v.graphClaimed===true?null:exit?.stage==='CONFIRMED'?'0':j.stage==='CONFIRMED'?c.statement.amount:null,
+     state:uncertain||v.note&&!['LIVE','SPENT'].includes(v.note.state)?'UNKNOWN':'LIVE',
+     available:currentNote?v.note.available:null,reserved:null,locked:null,recovery:null,
+     shares:share&&currentNote?v.note.available:null,valuation:null,
+     ...(v.note?{noteState:v.note.state}:{}),
+     noteAmount:!share&&(v.graphClaimed===true||v.note?.state==='SPENT')?null:exit?.stage==='CONFIRMED'?'0':j.stage==='CONFIRMED'?c.statement.amount:null,
      requests:[j,exit].filter(Boolean).map(r=>({requestId:r.jobId,kind:r.mode,state:r.stage,disposition:null})),
      custody:'DEVICE',observed:v.observed};
    });
