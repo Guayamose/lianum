@@ -44,15 +44,20 @@ export function createPrivateWalletStateV1(){
   },
   acceptExternal(raw){
    const v=readDeviceExternalFlatStatusV1(raw),d=v.descriptor,p=d.poolTerms;
-   const rows=v.jobs.filter(j=>j.mode==='deposit_balance').map(j=>{
+   const share=d.profile==='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1';
+   const rows=v.jobs.filter(j=>j.mode===(share?'deposit_intent':'deposit_balance')).map(j=>{
     const c=j.consentFields,exit=v.jobs.find(r=>r.mode==='withdraw_balance'&&r.consentFields.depositJobId===j.jobId);
-    const route={component:'DEVICE_NOTE',origin:d.origin,pairingId:d.pairingId,lifetime:d.lifetime,rootId:c.rootId,
+    const route={component:share?'DEVICE_SHARE_NOTE':'DEVICE_NOTE',origin:d.origin,pairingId:d.pairingId,lifetime:d.lifetime,rootId:c.rootId,
      noteRevision:c.noteRevision,assetId:p.assetIdentity,genesis:p.genesis,pool:p.pool,scope:p.scope,policy:p.policy,domain:p.domainCommitment};
     // A funding receipt is not a fresh unspent-nullifier observation. Show the
     // original note amount separately; never manufacture available balance.
-    const uncertain=[j,exit].filter(Boolean).some(r=>['PROVING','FUNDING_UNKNOWN','WITHDRAWAL_UNKNOWN'].includes(r.stage));
-    return{route,label:d.assetMetadata.symbol,decimals:d.assetMetadata.decimals,state:uncertain?'UNKNOWN':'LIVE',
-     available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,
+    const uncertain=[j,exit].filter(Boolean).some(r=>['PROVING','FUNDING_UNKNOWN','DELIVERY_UNKNOWN','WITHDRAWAL_UNKNOWN'].includes(r.stage));
+    const currentShare=share&&!uncertain&&v.note.state==='LIVE';
+    return{route,label:d.assetMetadata.symbol,decimals:d.assetMetadata.decimals,
+     state:uncertain||share&&!['LIVE','SPENT'].includes(v.note.state)?'UNKNOWN':'LIVE',
+     available:currentShare?v.note.available:null,reserved:null,locked:null,recovery:null,
+     shares:currentShare?v.note.available:null,valuation:null,
+     ...(share?{noteState:v.note.state}:{}),
      noteAmount:exit?.stage==='CONFIRMED'?'0':j.stage==='CONFIRMED'?c.statement.amount:null,
      requests:[j,exit].filter(Boolean).map(r=>({requestId:r.jobId,kind:r.mode,state:r.stage,disposition:null})),
      custody:'DEVICE',observed:v.observed};
@@ -61,7 +66,7 @@ export function createPrivateWalletStateV1(){
    // Closing the originating screen may close its transport while this already
    // consented reading remains visible until its ORIGINAL expiry.
    const expiresAt=v.expiresAt,observedAt=v.observedAt;
-   retain(routeKey(['EXTERNAL',d.origin,d.pairingId,d.lifetime]),rows,()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
+   retain(routeKey(['EXTERNAL',d.origin,d.pairingId,d.lifetime,p.pool,p.assetIdentity,d.profile]),rows,()=>{const now=Date.now();if(!Number.isSafeInteger(now)||now<observedAt||now>=expiresAt)fail();});
   },
   async acceptNative(raw){
    // Lazy loading keeps unrelated account/DeFi reads independent of native
