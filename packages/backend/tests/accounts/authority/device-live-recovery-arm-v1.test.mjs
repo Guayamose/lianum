@@ -7,6 +7,11 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
+import {createCommitmentCodec,SCHEMAS} from '../../../src/execution/encoding/commitments.mjs';
+import {FIELD_MODULUS} from '../../../src/execution/encoding/statements.mjs';
+import {recoveryWitness} from '../../../src/execution/account/preparation/funding-inputs.mjs';
+import {encodeFlatTransaction} from '../../../src/execution/encoding/transaction-codec.mjs';
+import {decodeNativeValueTerminalCalldata} from '../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 async function actualSource(){
  for(const url of [new URL('../../../src/accounts/authority/native-value-account-authority-v2.mjs',import.meta.url),
    new URL('./native-value-account-authority-v2.mjs',import.meta.url)])
@@ -264,4 +269,79 @@ test('HOST SOURCE reopened original note admits only next original steps and ret
   row.liveRecoveryArm=null;head='800';await assert.rejects(run().arm({bridge:executionBridge,action:'ARM_RECOVERY',consent:armConsent}),/ARM_BEFORE_CUTOFF/);assert.equal(writes,count);
   assert.equal(sends,1);assert.equal(record.data.deviceDeposits.length,1);assert.equal(record.data.deviceDeposits[0].stage,'CONFIRMED');
  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+
+/** Controlled HOST clock only: ORIGINAL eight-hour terms are born once and
+ * never changed. Actual ticker/keeper/send/reconcile bodies and real AEAD CAS
+ * run here. Hash, proof, native RPC and canonical observation ports are explicit
+ * inert fixtures; this is no native proof, live-clock or financial acceptance. */
+test('HOST original eight-hour cutoff admits one durable F and lost reply reconciles without reproof or resend',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'original-eight-hour-cutoff-host-')),password='original-cutoff-host-password-minimum';
+ let executorSource;
+ for(const url of [new URL('../../../src/execution/native-value/execution/native-value-execution-v2.mjs',import.meta.url),new URL('../paeg/native-value-execution-v2.mjs',import.meta.url)]){
+  try{executorSource=await readFile(url,'utf8');break;}catch(error){if(error.code!=='ENOENT')throw error;}
+ }
+ assert.ok(executorSource,'HOST_ORIGINAL_NATIVE_EXECUTOR_SOURCE_REQUIRED');
+ const slice=(start,end)=>{const a=executorSource.indexOf(start),b=executorSource.indexOf(end,a+start.length);assert.ok(a>=0&&b>a);return executorSource.slice(a,b);};
+ const recoverSource=slice('    async recover(ref) {','    snapshot(ref)'),reconcileSource=slice('    async reconcile(ref) {','    async recover(ref) {');
+ const sendSource=slice('  async function send(ref, kind, target, calldata) {','  async function observedSubmission(ref, kind) {');
+ const probe=sendSource.match(/await import\('[^']*\/owned-evm-v2-runtime\.mjs'\)/)?.[0];
+ assert.ok(probe);assert.equal(sendSource.split(probe).length-1,1);
+ const observationSource=slice('  async function observedSubmission(ref, kind) {','  function originalProbeToken');
+ const hash=value=>createHash('sha256').update('controlled original cutoff '+value).digest('hex'),prefix=value=>'0x'+value,bare=value=>value.startsWith('0x')?value.slice(2):value;
+ const testHash=async values=>(BigInt('0x'+hash(values.map(String).join(',')))%FIELD_MODULUS).toString(16).padStart(64,'0');
+ const codec=createCommitmentCodec({hashFields:testHash}),started=1200n,cutoff=(started+28800n).toString();
+ const domain=Object.fromEntries(SCHEMAS.domain.map(([key])=>[key,hash(key)])),domainCommitment=await codec.domainCommitment(domain);
+ const core={context:hash('context'),reserveCommitment:hash('reserve'),reserveNullifier:hash('reserve-nullifier'),settleBefore:cutoff},recovery={reserveCommitment:core.reserveCommitment,reserveNullifier:core.reserveNullifier,recoveryCommitment:hash('recovery'),settleBefore:cutoff};
+ const originals=[['core',core,0],['recovery',recovery,2]],leaves=Array.from({length:16},(_,i)=>'00'+hash('occupied-'+i).slice(2)),openings={};
+ for(const[k,value,index]of originals){const blind=hash(k+'-blind'),leaf=await codec[k+'Leaf'](domainCommitment,value,blind);leaves[index]=leaf;openings[k]={value,blind,leaf};}
+ const envelope=await codec.buildTree(domainCommitment,1,leaves);for(const[k,,index]of originals)Object.assign(openings[k],envelope.opening(index));
+ const packet={domainCommitment,envelope:envelope.root,domain,...openings},originalPacket=JSON.stringify(packet);
+ const authorization=await codec.buildTree(domainCommitment,0,[await codec.authorizationLeaf(domainCommitment,envelope.root)]),noteTree=new PrivateNoteTree([Buffer.from(core.reserveCommitment,'hex')]);
+ const ref=hash('original-job'),sHash=hash('original-S'),bindingHash=hash('original-binding'),binding={inputNullifier:hash('source-nullifier'),reserveNullifier:core.reserveNullifier,reserveCommitment:core.reserveCommitment,settleBefore:cutoff,envelope:envelope.root};
+ async function runCase(lostReply){
+  const tag=lostReply?'lost':'confirmed',accountVault=new Vault(join(directory,tag+'-account.vault')),executorVault=new Vault(join(directory,tag+'-executor.vault'));
+  let row={jobId:ref,nativeBinding:binding,nativeOutcome:null,nativeRecoveryLatched:false,nativeLatched:false,
+   liveRecoveryArm:{state:'ARMED',armSHA256:hash('unchanged-original-ARM'),nativeBindingSHA256:bindingHash,reservationTransactionHash:sHash,settleBefore:cutoff,lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}};
+  let accountRecord=await accountVault.create({row},password),entry={reference:ref,binding,prepared:{rolePackets:{recovery:packet}},recoverySubmission:null,settlementSubmission:null,recoveryStatement:null,originalFCheckpoint:null,outcome:null,stage:'PREPARED',receipts:[],exposures:[]};
+  let executorRecord=await executorVault.create({entry},password),head=(BigInt(cutoff)-1n).toString(),observations=0,lose=lostReply;
+  const calls={proof:0,send:0,refresh:0,reconcile:0,accountWrites:0,executorWrites:0},wire=[],observed=new WeakMap();
+  const view=()=>({head:{timestamp:head},ledger:{nullifiers:[prefix(binding.inputNullifier)],commitments:[prefix(core.reserveCommitment)],tree:noteTree},authorizationTree:{path:index=>authorization.opening(index)}});
+  async function update(id,fields){assert.equal(id,ref);assert.deepEqual(await executorVault.read(password),executorRecord);const next=await executorVault.update(password,executorRecord.revision,()=>({entry:{...entry,...structuredClone(fields)}}));assert.deepEqual(await executorVault.read(password),next);executorRecord=next;entry=structuredClone(next.data.entry);calls.executorWrites++;}
+  const runtime={send:async(label,request)=>{assert.equal(row.nativeRecoveryLatched,true);assert.equal(row.liveRecoveryArm.state,'FIRING');assert.equal(entry.recoverySubmission.transactionHash,null);assert.deepEqual(await accountVault.read(password),accountRecord);assert.deepEqual(await executorVault.read(password),executorRecord);
+   calls.send++;assert.equal(calls.send,1);wire.push({label,request:structuredClone(request),transactionHash:prefix(hash('one-F-'+tag))});return{transactionHash:wire[0].transactionHash};}};
+  const terminalObserver={observe:async query=>{observations++;assert.equal(query.kind,'recovery');assert.equal(query.submission.transactionHash,bare(wire[0].transactionHash));assert.equal(query.submission.calldata,wire[0].request.data);assert.equal(query.binding.settleBefore,cutoff);
+   const decoded=decodeNativeValueTerminalCalldata(query.submission.calldata);assert.equal(decoded.kind,'recovery');assert.deepEqual(decoded.statement,query.statement);assert.equal(decoded.statement.settleBefore,cutoff);assert.equal(decoded.statement.recoveryCommitment,recovery.recoveryCommitment);
+   if(lose){lose=false;throw Error('HOST_ORIGINAL_F_REPLY_LOST');}const value={outcome:'RECOVERED',receipt:{transactionHash:wire[0].transactionHash}};observed.set(value,{sameOriginalWire:true});return value;}};
+  const ctx={assert,runtime,wrapped:false,pool:{address:prefix(hash('pool').slice(0,40))},prefix,bare,operation:id=>{assert.equal(id,ref);return entry;},update,
+   exclusive:async work=>{assert.deepEqual(await executorVault.read(password),executorRecord);return work();},refreshNativeValueReceiverClock:async value=>{assert.equal(value,runtime);calls.refresh++;},
+   reader:{read:async()=>view(),authorizationPath:async(v,e)=>{assert.equal(e,envelope.root);assert.equal(v.head.timestamp,head);return{root:authorization.root,index:0};}},
+   withFlatHash:work=>work(testHash),recoveryWitness,
+   fieldLeafPath:v=>({leaf:v.leaf,index:v.index,siblings:[...v.siblings]}),shaLeafPath:v=>({leaf:bare(v.leaf),index:v.index,siblings:v.siblings.map(bare)}),
+   notePath:(v,commitment)=>{assert.equal(commitment,core.reserveCommitment);return noteTree.path(0);},
+   prove:async(id,relation,job,label)=>{assert.equal(id,ref);assert.equal(relation,'recovery');assert.equal(label,'original-timeout-recovery');assert.equal(job.statement.settleBefore,cutoff);calls.proof++;assert.equal(job.publicInputs.length,41);return{proof:'11'.repeat(32),publicInputs:job.publicInputs};},
+   encodeFlatTransaction,stage:async()=>{},onStage:async()=>{},dataHash:data=>createHash('sha256').update(Buffer.from(data.slice(2),'hex')).digest('hex'),detached:structuredClone,
+   terminalObserver,readOriginalNativeRecoveryCheckpointV1:(o,v)=>{assert.equal(o,terminalObserver);assert.ok(observed.has(v));return{HOST:'original-observation-port',transactionHash:v.receipt.transactionHash};},
+   HOST_RUNTIME_PROBE:{isOwnedOriginalNativeFReorgReceiverV1:()=>false},originalProbeToken:()=>{throw Error('HOST_REORG_NOT_SELECTED');},originalFReorgProbeTokensV1:new WeakMap(),admissionAdapters:new Map(),receiptPath:()=>{throw Error('HOST_NATIVE_ADMISSION_NOT_SELECTED');}};
+  const keeper=Function('ctx','"use strict";const {'+Object.keys(ctx).join(',')+'}=ctx;'+sendSource.replace(probe,'HOST_RUNTIME_PROBE')+observationSource+';return {'+recoverSource+reconcileSource+'};')(ctx);
+  const originalReconcile=keeper.reconcile;keeper.reconcile=async id=>{calls.reconcile++;return originalReconcile(id);};
+  const lease={closed:false,bridge:Object.freeze({}),clock:Object.freeze({})},accountCtx={assert,nativeSourceOriginal:null,liveRecovery:lease,busy:false,closed:false,cancelled:false,unavailable:false,capturing:false,
+   exclusive:async work=>{assert.deepEqual(await accountVault.read(password),accountRecord);return work();},healthy:async()=>{assert.deepEqual(await accountVault.read(password),accountRecord);},reservationRows:()=>[row],reservationRow:id=>{assert.equal(id,ref);return row;},
+   refreshOriginalNativeDeviceLocalObservedClockV1:async value=>assert.equal(value,lease.clock),deviceExecutionOriginal:()=>{},deviceExecutionPublic:async()=>({nativeBindingSHA256:bindingHash,reservation:{observation:{transactionHash:sHash}},lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'}),
+   reader:{read:async()=>view(),assertCurrent:async v=>assert.equal(v.head.timestamp,head)},
+   reservationUpdate:async(id,fields)=>{assert.equal(id,ref);const next=await accountVault.update(password,accountRecord.revision,()=>({row:{...row,...structuredClone(fields)}}));assert.deepEqual(await accountVault.read(password),next);accountRecord=next;row=structuredClone(next.data.row);calls.accountWrites++;},
+   nativeExecution:keeper,retainDeviceTerminal:async(current,value)=>{assert.equal(current,row);row.nativeOutcome=value.outcome;},privateFailureDiagnostic:()=>({code:'HOST_ORIGINAL_F_REPLY_LOST'})};
+  const tick=Function('ctx','"use strict";const {'+Object.keys(accountCtx).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(accountCtx);
+  await assert.rejects(keeper.recover(ref),/RECOVERY_BEFORE_CUTOFF/);await tick(lease);assert.equal(calls.proof,0);assert.equal(calls.send,0);assert.equal(calls.accountWrites,0);assert.equal(calls.executorWrites,0);
+  head=cutoff;
+  if(lostReply){await assert.rejects(tick(lease),/HOST_ORIGINAL_F_REPLY_LOST/);assert.equal(row.liveRecoveryArm.state,'UNKNOWN');assert.equal(row.nativeRecoveryLatched,true);assert.equal(entry.recoverySubmission.transactionHash,bare(wire[0].transactionHash));}
+  else{await tick(lease);assert.equal(row.liveRecoveryArm.state,'RECOVERED');}
+  if(lostReply)await tick(lease);
+  assert.equal(row.liveRecoveryArm.state,'RECOVERED');assert.equal(row.nativeLatched,false);assert.equal(calls.proof,1);assert.equal(calls.send,1);assert.equal(row.liveRecoveryArm.armSHA256,hash('unchanged-original-ARM'));
+  const writes=calls.executorWrites;await keeper.recover(ref);assert.equal(calls.executorWrites,writes);await tick(lease);assert.equal(calls.proof,1);assert.equal(calls.send,1);assert.equal(calls.reconcile,lostReply?1:0);
+  assert.deepEqual(await accountVault.read(password),accountRecord);assert.deepEqual(await executorVault.read(password),executorRecord);assert.equal(JSON.stringify(packet),originalPacket);assert.equal(BigInt(cutoff)-started,28800n);
+  assert.ok(observations>=2);lease.closed=true;assert.deepEqual(await tick(lease),{state:'CLOSED'});
+ }
+ try{await runCase(false);await runCase(true);}finally{await rm(directory,{recursive:true,force:true});}
 });
