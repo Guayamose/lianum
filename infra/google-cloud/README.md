@@ -30,7 +30,7 @@ real de Google. La réplica Docker y PostgreSQL real se prueban separadamente en
 | Control | Recurso | Condición |
 | --- | --- | --- |
 | `enable_foundation=false` | APIs, Artifact Registry, cuentas API/proof, SQL y metadatos del secreto | Proyecto existente elegido y futuro plan revisado |
-| `enable_api=false` | Cloud Run API | Foundation, imagen por digest revisada, bridge económico probado, origen HTTPS y versión numérica de secreto existente |
+| `enable_api=false` | Cloud Run API | Foundation, imagen por digest revisada, bridge económico probado, origen HTTPS y versiones numéricas de secretos SQL y privacidad existentes |
 | `allow_public_api=false` | Invocación allUsers | API habilitada y revisión de admisión/abuso; la autenticación IAM móvil no está implementada |
 | `enable_proof_jobs=false` | Cloud Run Jobs independientes | Map de imágenes reales por digest, comandos/args y recursos verificados; no hay imagen inventada por defecto |
 
@@ -49,8 +49,11 @@ Cloud Run monta su socket `/cloudsql/PROJECT:REGION:INSTANCE`; el conector
 cifra el trayecto remoto. Para una topología de IP privada hace falta definir
 VPC/egress por separado; esta configuración no pretende hacerlo ya.
 
-La cuenta API tiene `roles/cloudsql.client` y acceso únicamente al secreto de
-DATABASE_URL. La cuenta proof es distinta y no recibe la credencial SQL ni
+La cuenta API tiene `roles/cloudsql.client` y acceso únicamente a los secretos
+DATABASE_URL y `LIANUM_PLATFORM_PRIVACY_KEY`, en versiones numéricas fijadas.
+El segundo es una clave HMAC de infraestructura para registros privados del
+intake; no es una clave raíz móvil. Se conserva por separado junto a los
+respaldos SQL; cambiarlo sin migración cierra el servicio y no resuelve UNKNOWN. La cuenta proof es distinta y no recibe esos secretos ni
 claves de usuarios. Los jobs tienen una tarea, paralelismo uno, timeout acotado
 y `max_retries=0`. No tienen scheduler, token de ejecución automática ni caller
 con jobs.run. Los contratos de entradas/salidas privadas del worker y su IAM
@@ -65,8 +68,12 @@ requieren revisión con la imagen real antes de habilitarlos.
 3. Aplicar foundation sólo cuando se autorice expresamente trabajar en Cloud.
    SQL y otros recursos generan costes; todos siguen apagados hoy.
 4. Crear fuera de Terraform el usuario SQL de aplicación y sus permisos para
-   el esquema, y una versión del secreto DATABASE_URL. El módulo sólo crea
-   metadatos vacíos: no incluye contraseña, secret_version ni sql_user.
+   el esquema, una versión del secreto DATABASE_URL y otra del secreto separado
+   de privacidad (32 bytes aleatorios como 64 caracteres hexadecimales). El módulo sólo crea
+   metadatos vacíos: no incluye contraseñas, claves, secret_version ni sql_user.
+   Fijar `database_secret_version` y `privacy_secret_version`; guardar el mismo
+   secreto de privacidad con los respaldos de intake y nunca regenerarlo para
+   recuperar una autorización consumida.
    Para `pg`, el URL puede expresar el socket como parámetro `host` URL-encoded;
    codifica también usuario/contraseña. No guardes ese valor en tfvars/estado.
    Preparar por separado el comando de migración revisado de `apps/platform`

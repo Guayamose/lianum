@@ -13,3 +13,6 @@ output "proof_job_names" {
 output "deployment_enabled" {
   value = { foundation = var.enable_foundation, api = var.enable_api, proof_jobs = var.enable_proof_jobs }
 }
+output "privacy_secret_name" {
+  value = try(google_secret_manager_secret.privacy_key[0].secret_id, null)
+}

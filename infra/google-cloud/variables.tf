@@ -53,6 +53,11 @@ variable "database_secret_version" {
   type        = string
   default     = ""
 }
+variable "privacy_secret_version" {
+  description = "Existing numbered version of the separate platform privacy HMAC key. Preserve the same key with SQL backups; do not regenerate it on UNKNOWN or put its contents in Terraform/state."
+  type        = string
+  default     = ""
+}
 variable "allow_public_api" {
   description = "Explicitly grant allUsers invocation only after mobile signature boundary, admission limits and abuse controls are reviewed."
   type        = bool

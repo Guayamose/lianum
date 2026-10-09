@@ -33,6 +33,10 @@ resource "terraform_data" "deployment_gates" {
       error_message = "Provision a numbered DATABASE_URL secret version outside Terraform before enabling API."
     }
     precondition {
+      condition     = !var.enable_api || can(regex("^[1-9][0-9]*$", var.privacy_secret_version))
+      error_message = "Provision and preserve a numbered privacy key secret outside Terraform before enabling API."
+    }
+    precondition {
       condition     = !var.enable_proof_jobs || (var.enable_foundation && length(var.proof_jobs) > 0)
       error_message = "Proof jobs need foundation and at least one real verified worker image."
     }
@@ -134,6 +138,26 @@ resource "google_secret_manager_secret_iam_member" "api_database" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.api[0].email}"
 }
+# This infrastructure key protects intake records; it is not mobile custody
+# and is not delivered to proof workers. Secret values stay outside tfstate.
+resource "google_secret_manager_secret" "privacy_key" {
+  count               = local.enabled ? 1 : 0
+  project             = var.project_id
+  secret_id           = "${var.name}-platform-privacy-key"
+  deletion_protection = true
+  labels              = local.labels
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.required]
+}
+resource "google_secret_manager_secret_iam_member" "api_privacy_key" {
+  count     = local.enabled ? 1 : 0
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.privacy_key[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.api[0].email}"
+}
 resource "google_project_iam_member" "api_sql" {
   count   = local.enabled ? 1 : 0
   project = var.project_id
@@ -181,6 +205,15 @@ resource "google_cloud_run_v2_service" "api" {
           }
         }
       }
+      env {
+        name = "LIANUM_PLATFORM_PRIVACY_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.privacy_key[0].secret_id
+            version = var.privacy_secret_version
+          }
+        }
+      }
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
@@ -215,7 +248,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
     }
   }
-  depends_on = [terraform_data.deployment_gates, google_secret_manager_secret_iam_member.api_database, google_project_iam_member.api_sql]
+  depends_on = [terraform_data.deployment_gates, google_secret_manager_secret_iam_member.api_database, google_secret_manager_secret_iam_member.api_privacy_key, google_project_iam_member.api_sql]
 }
 resource "google_cloud_run_v2_service_iam_member" "public" {
   count    = var.enable_api && var.allow_public_api ? 1 : 0

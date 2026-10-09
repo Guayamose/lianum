@@ -34,6 +34,15 @@ run "proof_jobs_require_actual_workers" {
 }
 run "reviewed_api_uses_readiness_and_isolated_credentials" {
   command = plan
+  # IAM uses the generated email; make that one computed provider output known
+  # during the mocked plan without applying resources or replacing policy.
+  override_resource {
+    target          = google_service_account.api[0]
+    override_during = plan
+    values = {
+      email = "lianum-api@lianum-test-project.iam.gserviceaccount.com"
+    }
+  }
   variables {
     project_id                = "lianum-test-project"
     enable_foundation         = true
@@ -43,6 +52,7 @@ run "reviewed_api_uses_readiness_and_isolated_credentials" {
     economic_adapter_verified = true
     public_origin             = "https://wallet.example.test"
     database_secret_version   = "1"
+    privacy_secret_version    = "2"
   }
   assert {
     condition     = google_cloud_run_v2_service.api[0].template[0].containers[0].ports[0].container_port == 8080 && google_cloud_run_v2_service.api[0].template[0].containers[0].readiness_probe[0].http_get[0].path == "/health/ready"
@@ -55,6 +65,10 @@ run "reviewed_api_uses_readiness_and_isolated_credentials" {
   assert {
     condition     = one([for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env : env if env.name == "DATABASE_URL"]).value_source[0].secret_key_ref[0].version == "1" && google_project_iam_member.api_sql[0].role == "roles/cloudsql.client"
     error_message = "API database credential must come from a pinned secret version with scoped SQL client IAM."
+  }
+  assert {
+    condition     = one([for env in google_cloud_run_v2_service.api[0].template[0].containers[0].env : env if env.name == "LIANUM_PLATFORM_PRIVACY_KEY"]).value_source[0].secret_key_ref[0].version == "2" && google_secret_manager_secret_iam_member.api_privacy_key[0].member == "serviceAccount:${google_service_account.api[0].email}"
+    error_message = "Platform privacy key must use its own pinned secret and API-only IAM."
   }
 }
 run "proof_workers_are_separate_bounded_and_do_not_auto_retry" {
