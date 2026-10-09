@@ -30,7 +30,7 @@ import { localDeviceWithdrawalStatementV1, localDeviceWithdrawalFrameV1, localDe
   type LocalDeviceWithdrawalStatementV1, type LocalDeviceWithdrawalPathV1 } from './device-balance-withdrawal-codec-v1.mjs';
 import { normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1, deviceExitWitnessBytesV1, validateDeviceExitConsentFreshV1,
   type DeviceExitConsentV1, type DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
-import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1 } from '../api/device-owner-execution-api-v1';
+import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1, readDeviceExecutionObservationV1 } from '../api/device-owner-execution-api-v1';
 import { readDeviceOutputBalanceV1 } from '../api/device-owner-output-balance-api-v1';
 import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const ROOT = 'lianum.note.root.encryption.v1';
@@ -106,9 +106,11 @@ type DeviceSpend = { version: 1; phase: 'PREPARED' | 'SIGNED'; proposal: LocalFu
   proofJob?: LocalReservationProofJob; reservation?: LocalReservationReceipt; execution?: LocalNativeExecutionV1;
   exits?: Partial<Record<DeviceExitRoleV1, LocalExitIntentV1>> };
 type LocalNativeAttemptV1 = { consentSHA256: string; executionSnapshotSHA256: string };
+type LocalNativeTerminalV1 = { transactionHash: string; blockHash: string; blockNumber: string; calldataSHA256: string; outcome: 'FULFILLED' | 'RECOVERED' };
 type LocalNativeExecutionV1 = { version: 1; jobId: string; nativeBindingSHA256: string; reservationTransactionHash: string;
   execute?: LocalNativeAttemptV1; recovery?: LocalNativeAttemptV1;
-  terminal?: { transactionHash: string; blockHash: string; blockNumber: string; calldataSHA256: string; outcome: 'FULFILLED' | 'RECOVERED' } };
+  terminal?: LocalNativeTerminalV1; reorganizations?: LocalNativeTerminalV1[];
+  reorganizationPending?: {state: 'OBSERVATION_PENDING'; authorizationSHA256: string; executionSnapshotSHA256: string} };
 type DeviceExitRoleV1 = 'change' | 'recovery';
 type LocalExitIntentV1 = { version: 1; phase: 'PREPARED' | 'SIGNED'; parentJobId: string; nativeBindingSHA256: string;
   quoteId: string; jobId: string; origin: string; pairingId: string; devicePublicKey: string; rootId: string;
@@ -325,7 +327,7 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
     if (!spend.reservation || !spend.proofJob || !value.execution || typeof value.execution !== 'object') bad();
     const source = value.execution;
     const e = parsed(JSON.stringify(source), ['version', 'jobId', 'nativeBindingSHA256', 'reservationTransactionHash',
-      ...['execute', 'recovery', 'terminal'].filter(name => Object.hasOwn(source, name))], MAX_CLEAR_BYTES);
+      ...['execute', 'recovery', 'terminal', 'reorganizations', 'reorganizationPending'].filter(name => Object.hasOwn(source, name))], MAX_CLEAR_BYTES);
     if (e.version !== 1 || e.jobId !== spend.proofJob.jobId || e.reservationTransactionHash !== spend.reservation.transactionHash
       || !['execute', 'recovery', 'terminal'].some(name => Object.hasOwn(e, name))) bad();
     const execution: LocalNativeExecutionV1 = { version: 1, jobId: hex(e.jobId), nativeBindingSHA256: hex(e.nativeBindingSHA256),
@@ -340,6 +342,27 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
       localNoteUintBytesV1(terminal.blockNumber);
       execution.terminal = { transactionHash: hex(terminal.transactionHash), blockHash: hex(terminal.blockHash), blockNumber: terminal.blockNumber,
         calldataSHA256: hex(terminal.calldataSHA256), outcome: terminal.outcome === 'FULFILLED' ? 'FULFILLED' : 'RECOVERED' };
+    }
+    if (Object.hasOwn(e, 'reorganizations')) {
+      if (!execution.terminal || execution.terminal.outcome !== 'RECOVERED' || !Array.isArray(e.reorganizations)
+        || e.reorganizations.length < 1 || e.reorganizations.length > 16) bad();
+      const blocks = new Set<string>([execution.terminal.blockHash]);
+      execution.reorganizations = [];
+      for (const original of e.reorganizations) {
+        const row = parsed(JSON.stringify(original), ['transactionHash', 'blockHash', 'blockNumber', 'calldataSHA256', 'outcome']);
+        if (row.outcome !== 'RECOVERED' || row.transactionHash !== execution.terminal.transactionHash
+          || row.calldataSHA256 !== execution.terminal.calldataSHA256 || typeof row.blockNumber !== 'string') bad();
+        localNoteUintBytesV1(row.blockNumber);
+        const blockHash = hex(row.blockHash); if (blocks.has(blockHash)) bad(); blocks.add(blockHash);
+        execution.reorganizations.push({ transactionHash: hex(row.transactionHash), blockHash, blockNumber: row.blockNumber,
+          calldataSHA256: hex(row.calldataSHA256), outcome: 'RECOVERED' });
+      }
+    }
+    if (Object.hasOwn(e, 'reorganizationPending')) {
+      const pending = parsed(JSON.stringify(e.reorganizationPending), ['state','authorizationSHA256','executionSnapshotSHA256']);
+      if (pending.state !== 'OBSERVATION_PENDING' || execution.terminal?.outcome !== 'RECOVERED') bad();
+      execution.reorganizationPending = {state:'OBSERVATION_PENDING', authorizationSHA256:hex(pending.authorizationSHA256),
+        executionSnapshotSHA256:hex(pending.executionSnapshotSHA256)};
     }
     spend.execution = execution;
   }
@@ -1140,6 +1163,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           || observation.poolTerms.assetIdentity !== note.deviceJob.assetIdentity || observation.poolTerms.domainCommitment !== note.deviceJob.domainCommitment
           || observation.reservationTransactionHash !== spend.reservation.transactionHash
           || observation.sourceNullifier !== spend.statement.inputNullifier) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_REQUIRED');
+        if (spend.execution?.reorganizationPending) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
         if (spend.execution && (spend.execution.nativeBindingSHA256 !== observation.nativeBindingSHA256
           || spend.execution.terminal && spend.execution.terminal.outcome !== observation.nativeOutcome)) bad('MOBILE_LOCAL_ORIGINAL_OUTPUT_BALANCE_CHANGED');
         for (const role of ['change', 'recovery'] as const) {
@@ -1583,11 +1607,38 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     readDeviceExecutionIntent: () => original('Consultar la intención nativa original; no ejecutar ni recuperar de nuevo', async value => {
       const row = value.spend?.execution; return row ? Object.freeze({ jobId: row.jobId, rootId: value.rootId,
         nativeBindingSHA256: row.nativeBindingSHA256, reservationTransactionHash: row.reservationTransactionHash,
-        executeAttemptRetained: !!row.execute, recoveryAttemptRetained: !!row.recovery, outcome: row.terminal?.outcome ?? null,
+        executeAttemptRetained: !!row.execute, recoveryAttemptRetained: !!row.recovery, outcome: row.reorganizationPending ? null : row.terminal?.outcome ?? null,
         transactionHash: row.terminal?.transactionHash ?? null, availableBalance: null, independentCanonicalRpc: false }) : null;
     }),
+    /** Retain only uncertainty reported by the same original SDK reconciliation.
+     * No status JSON or hash can grant economic authority. */
+    applyDeviceExecutionObservation: (response: object) => {
+      current(); const originalStatus = readDeviceExecutionObservationV1(response);
+      liveInclusion = null; liveOutputBalances = null;
+      return original('Conservar la incertidumbre de la recuperación original antes de volver a observarla',
+        async (value, key, before, raw, root) => {
+          const actual = readDeviceExecutionObservationV1(response), {status, consent} = actual;
+          const spend = value.spend, row = spend?.execution;
+          if (actual.status !== originalStatus.status || consent.action !== 'RECONCILE_NATIVE'
+            || status.jobId !== spend?.proofJob?.jobId || row && (status.nativeBindingSHA256 !== row.nativeBindingSHA256
+            || consent.reservationTransactionHash !== row.reservationTransactionHash)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_REQUIRED');
+          if (status.terminal !== null || status.outcome !== null) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_REQUIRED');
+          // Initial executions remain covered by their existing intent. Only a
+          // previously confirmed F needs an invalidation record on this device.
+          if (row?.terminal?.outcome === 'RECOVERED' && status.stage === 'UNKNOWN' && !row.reorganizationPending) {
+            const execution: LocalNativeExecutionV1 = {...row, reorganizationPending:{state:'OBSERVATION_PENDING',
+              authorizationSHA256:status.authorizationSHA256,executionSnapshotSHA256:status.executionSnapshotSHA256}};
+            readDeviceExecutionObservationV1(response);
+            await persistSpend({...value,revision:value.revision+1,spend:{...spend,execution}},key,before,raw,root);
+          }
+          readDeviceExecutionObservationV1(response); current();
+          return Object.freeze({jobId:status.jobId,outcome:null,availableBalance:null,originalOnly:true});
+        });
+    },
     applyDeviceExecutionTerminal: (response: object) => {
       current(); const observation = readDeviceExecutionTerminalV1(response);
+      // A new original terminal revokes monetary freshness before storage/auth.
+      liveInclusion = null; liveOutputBalances = null;
       return original('Guardar el resultado original de esta ejecución; no cambiar claves, repetir entregas ni proyectar saldo libre',
         async (value, key, before, raw, root) => {
           const actual = readDeviceExecutionTerminalV1(response), status = actual.status, consent = actual.consent;
@@ -1609,10 +1660,24 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             || previous.reservationTransactionHash !== consent.reservationTransactionHash)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
           const receipt = { transactionHash: terminal.transactionHash, blockHash: terminal.blockHash, blockNumber: terminal.blockNumber,
             calldataSHA256: terminal.calldataSHA256, outcome: terminal.outcome };
-          if (previous?.terminal && JSON.stringify(previous.terminal) !== JSON.stringify(receipt)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
-          if (!previous?.terminal) {
+          if (previous?.reorganizationPending && consent.action !== 'RECONCILE_NATIVE') bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
+          const changed = previous?.terminal && JSON.stringify(previous.terminal) !== JSON.stringify(receipt);
+          let reorganizations = previous?.reorganizations;
+          if (changed) {
+            const prior = previous.terminal!;
+            // Only the original F wire may be observed in a new canonical block.
+            // SDK provenance is not independent RPC verification or new consent.
+            if (!previous.reorganizationPending || consent.action !== 'RECONCILE_NATIVE' || prior.outcome !== 'RECOVERED' || receipt.outcome !== 'RECOVERED'
+              || prior.transactionHash !== receipt.transactionHash || prior.calldataSHA256 !== receipt.calldataSHA256
+              || prior.blockHash === receipt.blockHash || (reorganizations?.length ?? 0) >= 16
+              || reorganizations?.some(row => row.blockHash === receipt.blockHash)) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED');
+            reorganizations = [...(reorganizations ?? []), { ...prior }];
+          }
+          if (!previous?.terminal || changed || previous.reorganizationPending) {
             const execution: LocalNativeExecutionV1 = { ...previous, version: 1, jobId: job.jobId,
-              nativeBindingSHA256: status.nativeBindingSHA256, reservationTransactionHash: consent.reservationTransactionHash, terminal: receipt };
+              nativeBindingSHA256: status.nativeBindingSHA256, reservationTransactionHash: consent.reservationTransactionHash,
+              terminal: receipt, ...(reorganizations ? { reorganizations } : {}) };
+            delete execution.reorganizationPending;
             readDeviceExecutionTerminalV1(response); await persistSpend({ ...value, revision: value.revision + 1, spend: { ...spend, execution } }, key, before, raw, root);
           }
           readDeviceExecutionTerminalV1(response); current(); liveInclusion = null;

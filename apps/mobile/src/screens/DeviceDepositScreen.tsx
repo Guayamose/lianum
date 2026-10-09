@@ -304,6 +304,7 @@ export default function DeviceDepositScreen() {
     const api = executionClient.current, custody = vault.current, value = executionConsent;
     if (!api || !custody || !value || !approved) throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
     setExecutionConsent(null); setApproved(false); // choice consumed before storage/sign/network awaits
+    custody.forgetDeviceOutputBalanceObservation(); setNote(null);
     const signing = new AbortController(); nativeSigning.current = signing;
     try {
       if (value.action !== 'RECONCILE_NATIVE') { await custody.retainDeviceExecutionIntent(value); live(held); }
@@ -311,7 +312,9 @@ export default function DeviceDepositScreen() {
       const signature = await signDeviceExecutionConsentV1(value, origin, pairingId, signing.signal); live(held);
       const result = await api.submit({ consent: value, signature }); live(held);
       if (result.terminal) { await custody.applyDeviceExecutionTerminal(result); live(held); }
+      else if (value.action === 'RECONCILE_NATIVE') { await custody.applyDeviceExecutionObservation(result); live(held); }
       const state = await custody.readDeviceExecutionIntent(); live(held); setExecutionIntent(state); setExecutionStatus(result);
+      const updatedNote = await custody.readDeviceNote(); live(held); setNote(updatedNote);
       setMessage(result.terminal ? 'Resultado original ' + result.outcome + ' guardado. Las aperturas de cambio y recuperación permanecen en esta custodia.' : result.stage);
     } catch (error) {
       live(held); const notice = 'UNKNOWN: reconciliar la ejecución original. No repetir ejecución, recuperación, reserva ni entrega.';

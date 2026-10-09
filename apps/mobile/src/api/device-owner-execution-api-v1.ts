@@ -9,6 +9,7 @@ import { validateDeviceExecutionConsentFreshV1, normalizeDeviceExecutionStatusV1
 const armReviews=new WeakMap<object,{live():void;value:DeviceRecoveryArmConsentV1;consumed:boolean}>();
 const reviews = new WeakMap<object, { live(): void; value: DeviceExecutionConsentV1; consumed: boolean }>();
 const terminals = new WeakMap<object, { live(): void; value: DeviceExecutionStatusV1; consent: DeviceExecutionConsentV1; expiresAt: number }>();
+const observations = new WeakMap<object, { live(): void; value: DeviceExecutionStatusV1; consent: DeviceExecutionConsentV1; expiresAt: number }>();
 function bad(): never { throw Error('MOBILE_DEVICE_EXECUTION_RESPONSE_INVALID'); }
 // Values have already passed the protocol's bounded exact-field normalizer.
 // This is the original journal canonical JSON (sorted keys), without Node APIs.
@@ -74,6 +75,7 @@ export async function createDeviceOwnerExecutionApiV1(descriptor: OriginalAccoun
           || consent.action === 'RECOVER_NATIVE' && value.outcome !== 'RECOVERED') bad();
         terminals.set(value, { live, value, consent, expiresAt: Math.min(consent.reservation.expiresAt, Date.now() + 15_000) });
       }
+      observations.set(value, {live, value, consent, expiresAt: Math.min(consent.reservation.expiresAt, Date.now() + 15_000)});
       return value;
     },
     close() { closed = true; },
@@ -86,4 +88,9 @@ export function readDeviceExecutionReviewV1(value: object) {
 export function readDeviceExecutionTerminalV1(response: object) {
   const row = terminals.get(response); if (!row) bad(); row.live(); if (Date.now() >= row.expiresAt) bad();
   return Object.freeze({ status: row.value, consent: row.consent, expiresAt: row.expiresAt, mobileCanonicalRpcVerification: false as const });
+}
+
+export function readDeviceExecutionObservationV1(response: object) {
+  const row = observations.get(response); if (!row) bad(); row.live(); if (Date.now() >= row.expiresAt) bad();
+  return Object.freeze({status: row.value, consent: row.consent, expiresAt: row.expiresAt, mobileCanonicalRpcVerification: false as const});
 }

@@ -147,7 +147,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
+  assert.deepEqual(Object.keys(vault).sort(), ['readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionObservation', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -686,6 +686,94 @@ test('original vault persists output custody and binds fresh READ balance to loc
   assert.equal((await reopened.readDeviceNote()).localReservation.changeAvailableBalance, null);
   const readback = JSON.parse(await reopened.exportBackup()); assert.equal(readback.revision, local.revision);
   assert.equal(JSON.parse(store.get(POINTER)).revision, local.revision); reopened.close();
+  // HOST F reorg: the actual SDK emits provenance over explicit synthetic
+  // status frames. No chain, signed financial wire or proof is manufactured.
+  const { createDeviceOwnerExecutionApiV1 } = await import('../src/api/device-owner-execution-api-v1.ts');
+  const { deviceExecutionConsentMessageV1, deviceExecutionSnapshotBytesV1 } = await import('../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs');
+  const executionFetch = control.fetch, executionApi = await createDeviceOwnerExecutionApiV1(descriptor);
+  let executionReview, executionReceipt, executionUnknown = false, reviewOrdinal = 80;
+  control.fetch = async (target, options) => {
+    if (!new URL(target).pathname.startsWith('/v1/mobile/device-execution/')) return executionFetch(target, options);
+    const input = JSON.parse(options.body);
+    const body = target.endsWith('-reviews') ? executionReview : {
+      jobId: request.jobId, reservation: Object.fromEntries(Object.entries(sStatus).filter(([name]) => name !== 'authorizationSHA256')),
+      nativeBindingSHA256: '32'.repeat(32),
+      executionSnapshot: { reference: request.jobId, stage: executionUnknown ? 'UNKNOWN' : executionReceipt.outcome, outcome: executionUnknown ? null : executionReceipt.outcome,
+        executionStarted: true, nativeExposure: [], admittedReceipts: 0, errorCode: null, errorCauseCodes: [],
+        keeperRestart: false, nodeRestart: false, fullWalletAcceptance: false, claimsEnabled: false },
+      executionSnapshotSHA256: null, stage: executionUnknown ? 'UNKNOWN' : executionReceipt.outcome, outcome: executionUnknown ? null : executionReceipt.outcome,
+      terminal: executionUnknown ? null : executionReceipt, errorCode: executionUnknown ? 'ORIGINAL_F_BLOCK_UNKNOWN' : null, lossClause: 'FULL_OWNER_REFUND_PROVIDER_LOSS_V1',
+      authorizationSHA256: sha(deviceExecutionConsentMessageV1(input.consent)).toString('hex')
+    };
+    if (!target.endsWith('-reviews')) body.executionSnapshotSHA256 = sha(deviceExecutionSnapshotBytesV1(body.executionSnapshot)).toString('hex');
+    const response = new Response(JSON.stringify(body), {status:200,headers:{'content-type':'application/json'}});
+    Object.defineProperty(response,'url',{value:target}); return response;
+  };
+  async function originalFResponse(receipt, action = 'RECONCILE_NATIVE', unknown = false) {
+    executionReceipt = receipt; executionUnknown = unknown;
+    const access = await executionApi.access();
+    executionReview = {version:1,profile:'LIANUM_DEVICE_ORIGINAL_EXECUTION_V1',action,
+      reservation:{...sConsent,challengeId:(++reviewOrdinal).toString(16).padStart(64,'0'),nonce:(++reviewOrdinal).toString(16).padStart(64,'0'),
+        expiresAt:Date.now()+15000},nativeBindingSHA256:'32'.repeat(32),reservationTransactionHash:sStatus.observation.transactionHash,
+      executionSnapshotSHA256:'79'.repeat(32),lossClause:'FULL_OWNER_REFUND_PROVIDER_LOSS_V1'};
+    const review = await executionApi.challenge(action,{access,signature:signDeviceMessage(deviceKey,originalAccountAccessMessageV2(access)),jobId:request.jobId});
+    return executionApi.submit({consent:review,signature:signDeviceMessage(deviceKey,deviceExecutionConsentMessageV1(review))});
+  }
+  const sameF = {transactionHash:'76'.repeat(32),blockHash:'77'.repeat(32),blockNumber:'2',calldataSHA256:'78'.repeat(32),outcome:'RECOVERED'};
+  let reorgVault = openLocalRootNoteVaultV1(value.rootId);
+  const firstF = await originalFResponse(sameF);
+  assert.throws(()=>reorgVault.applyDeviceExecutionTerminal({...firstF}),/RESPONSE_INVALID/);
+  await reorgVault.applyDeviceExecutionTerminal(firstF);
+  const firstRetained = rawClearRecord(rootHex);
+  await reorgVault.applyDeviceExecutionTerminal(await originalFResponse(sameF));
+  assert.equal(rawClearRecord(rootHex).revision,firstRetained.revision,'same original terminal cannot add a credit or journal write');
+  const reconfirmedF = {...sameF,blockHash:'80'.repeat(32),blockNumber:'3'};
+  await assert.rejects(reorgVault.applyDeviceExecutionTerminal(await originalFResponse(reconfirmedF)),/MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED/);
+  assert.equal(rawClearRecord(rootHex).revision,firstRetained.revision);
+  const unknownF = await originalFResponse(sameF,'RECONCILE_NATIVE',true);
+  assert.throws(()=>reorgVault.applyDeviceExecutionObservation({...unknownF}),/RESPONSE_INVALID/);
+  await reorgVault.applyDeviceExecutionObservation(unknownF);
+  const pendingF = rawClearRecord(rootHex);
+  assert.deepEqual(pendingF.spend.execution.terminal,sameF);
+  assert.equal(pendingF.spend.execution.reorganizationPending.state,'OBSERVATION_PENDING');
+  assert.equal((await reorgVault.readDeviceExecutionIntent()).outcome,null);
+  reorgVault.close(); reorgVault = openLocalRootNoteVaultV1(value.rootId);
+  assert.equal((await reorgVault.readDeviceExecutionIntent()).outcome,null,'pending survives authenticated reopening');
+  assert.equal((await reorgVault.readDeviceNote()).localReservation.recoveryAvailableBalance,null);
+  await reorgVault.applyDeviceExecutionTerminal(await originalFResponse(reconfirmedF));
+  const confirmed = rawClearRecord(rootHex);
+  assert.equal(confirmed.revision,firstRetained.revision+2);
+  assert.equal(Object.hasOwn(confirmed.spend.execution,'reorganizationPending'),false);
+  assert.deepEqual(confirmed.spend.execution.terminal,reconfirmedF);
+  assert.deepEqual(confirmed.spend.execution.reorganizations,[sameF]);
+  assert.deepEqual(confirmed.note,firstRetained.note);
+  assert.deepEqual(confirmed.spend.change,firstRetained.spend.change);
+  assert.deepEqual(confirmed.spend.recovery,firstRetained.spend.recovery);
+  assert.equal((await reorgVault.readDeviceExecutionIntent()).availableBalance,null);
+  await reorgVault.applyDeviceExecutionObservation(await originalFResponse(reconfirmedF,'RECONCILE_NATIVE',true));
+  for (const [receipt,action] of [
+    [sameF,'RECONCILE_NATIVE'],
+    [reconfirmedF,'RECOVER_NATIVE'],
+    [{...reconfirmedF,transactionHash:'81'.repeat(32),blockHash:'82'.repeat(32)},'RECONCILE_NATIVE'],
+    [{...reconfirmedF,calldataSHA256:'83'.repeat(32),blockHash:'82'.repeat(32)},'RECONCILE_NATIVE'],
+    [{...reconfirmedF,outcome:'FULFILLED',blockHash:'82'.repeat(32)},'RECONCILE_NATIVE'],
+    [{...reconfirmedF,blockHash:'82'.repeat(32)},'RECOVER_NATIVE'],
+  ]) {
+    const before = new Map(store), response = await originalFResponse(receipt,action);
+    await assert.rejects(reorgVault.applyDeviceExecutionTerminal(response),/MOBILE_LOCAL_ORIGINAL_EXECUTION_CHANGED/);
+    assert.deepEqual(store,before);
+  }
+  await reorgVault.applyDeviceExecutionTerminal(await originalFResponse(reconfirmedF));
+  assert.deepEqual(rawClearRecord(rootHex).spend.execution.reorganizations,[sameF]);
+  reorgVault.close();
+  const reopenedF = openLocalRootNoteVaultV1(value.rootId);
+  assert.equal((await reopenedF.readDeviceExecutionIntent()).transactionHash,sameF.transactionHash);
+  assert.deepEqual(rawClearRecord(rootHex).spend.execution.reorganizations,[sameF]);
+  assert.equal((await reopenedF.readDeviceNote()).localReservation.recoveryAvailableBalance,null);
+  const closedResponse = await originalFResponse({...reconfirmedF,blockHash:'84'.repeat(32)});
+  executionApi.close(); assert.throws(()=>reopenedF.applyDeviceExecutionTerminal(closedResponse),/CLIENT_CLOSED/);
+  reopenedF.close(); control.fetch = executionFetch;
+  store.clear(); await restoreLocalRootNoteVaultBackupV1((await writeClear(local)).backup);
   // Authenticated synthetic HOST W39 custody uses the ORIGINAL frame, key,
   // signature and witness decoder. No chain withdrawal is credited by this test.
   const withdrawal = await import('../src/custody/device-balance-withdrawal-codec-v1.mjs');
