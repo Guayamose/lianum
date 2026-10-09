@@ -13,6 +13,7 @@ import { types } from 'node:util';
 import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
 import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
+import { isOwnedLocalEvmV2, refreshNativeValueReceiverClock } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { nativeAdmissionRuleCommitment, nativeAdmissionRuleRoot } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import { assertOwnedFlatSystem } from '../../../operations/deployments/system/deploy-system.mjs';
 import { assertOwnedFlatOperatorQuorum, ownedFlatOperatorQuorumBindings } from '../../../operations/operators/claims/native-operators.mjs';
@@ -252,6 +253,10 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
       admissionFrom: opening.validFrom, admissionUntil: opening.validUntil }, { hashFields, abi: admissionABI }));
     joinAdmission(pJob.statement, rJob.statement, iJob.statement);
     const admission = await prove(ref, 'admission', iJob, 'leg-' + selected.slot + '-admission');
+    // The observed receiver can remain on the pre-proof checkpoint. Refresh
+    // its original head before a NEW health audit; no signed window is changed.
+    // Golden legacy ownership is already checked by healthy(), outside V2.
+    if (isOwnedLocalEvmV2(runtime)) await refreshNativeValueReceiverClock(runtime);
     const permit = await quorum.health({ poolIndex });
     await runtime.send('flat-execution-admission-' + ref + '-' + selected.slot, { to: system.hub.address,
       data: encodeFlatTransaction('admit', { pool: pool.address, dependency, readiness, admission, ...healthFields(permit) }) });
@@ -333,6 +338,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
           completions: completionOpenings, ...period }, { hashFields, abi: settlementABI }));
         joinSettlement(statements, job.statement);
         const settlement = await prove(ref, 'settlement', job, 'global-fulfillment');
+        if (isOwnedLocalEvmV2(runtime)) await refreshNativeValueReceiverClock(runtime);
         const permit = await quorum.health({ poolIndex });
         await update(ref, { settlementStatement: job.statement });
         await stage(ref, 'submit-global-fulfillment');

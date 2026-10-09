@@ -16,6 +16,14 @@ import { createCommitmentCodec, SCHEMAS, ZERO } from '../../../../src/execution/
 import { FIELD_MODULUS, encodeStatement, RELATIONS } from '../../../../src/execution/encoding/statements.mjs';
 import { FLAT_TRANSACTION_METHODS } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import * as actualReadiness from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
+import * as actualEvmRuntime from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import * as actualEvmOwnership from '../../../../src/chains/evm/runtime/local-evm-ownership.mjs';
+import * as actualDeploySystem from '../../../../src/operations/deployments/system/deploy-system.mjs';
+import * as actualOperators from '../../../../src/operations/operators/claims/native-operators.mjs';
+import * as actualNativeProvider from '../../../../src/providers/native-provider.mjs';
+import * as actualEvmProvider from '../../../../src/providers/evm-vault-provider.mjs';
+import * as actualSystemState from '../../../../src/execution/account/reconciliation/flat-system-state.mjs';
+import * as actualTerminalObserver from '../../../../src/execution/account/reconciliation/flat-terminal-observer.mjs';
 
 const h = value => createHash('sha256').update('flat execution host: ' + value).digest('hex');
 const field = value => '00' + h(value).slice(2), p = value => '0x' + value;
@@ -24,6 +32,7 @@ const testHash = async values => (BigInt('0x' + h(values.map(String).join(',')))
 const brands = { runtimes: new WeakSet(), systems: new WeakMap(), quorums: new WeakMap(),
   nativeProviders: new WeakMap(), evmProviders: new WeakMap() };
 const stores = new Map(), fixtures = new Map();
+const runtimeFixtures = new WeakMap();
 const fFor = domain => fixtures.get(domain);
 const checkedSystem = (runtime, system) => assert.ok(brands.runtimes.has(runtime)
   && brands.systems.get(system) === runtime, 'TEST_OWNED_SYSTEM');
@@ -38,11 +47,27 @@ function checkedProvider(map, provider, expected) {
   checkedQuorum(binding.operatorQuorum, binding);
 }
 const mod = path => new URL(path, import.meta.url).href;
-mock.module(mod('../chain-adapters/local-evm-ownership.mjs'), { exports: {
+mock.module(mod('../chain-adapters/local-evm-ownership.mjs'), { exports: { ...actualEvmOwnership,
   async assertLocalEvm(runtime) { assert.ok(brands.runtimes.has(runtime), 'TEST_OWNED_RUNTIME'); },
 } });
-mock.module(mod('../ops/deploy-system.mjs'), { exports: { assertOwnedFlatSystem: checkedSystem } });
-mock.module(mod('../ops/native-operators.mjs'), { exports: {
+// Synthetic original receiver: no RPC, caller timestamp or new capability.
+mock.module(mod('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { ...actualEvmRuntime,
+  isOwnedLocalEvmV2(runtime) {
+    // Same explicit synthetic origin as assertLocalEvm above; only the new
+    // observed fixture carries V2. Golden is authentic at its separate port.
+    return brands.runtimes.has(runtime) && runtimeFixtures.get(runtime)?.observedClock === true;
+  },
+  async refreshNativeValueReceiverClock(runtime) {
+    assert.equal(arguments.length, 1); assert.ok(brands.runtimes.has(runtime), 'TEST_OWNED_RUNTIME');
+    const f = runtimeFixtures.get(runtime);
+    assert.equal(f.observedClock, true, 'HOST_GOLDEN_IS_NOT_V2_RECEIVER');
+    f.clockEvents.push('refresh');
+    if (f.refreshError) throw f.refreshError;
+    f.view.head.timestamp = String(f.wallSecond);
+  },
+} });
+mock.module(mod('../ops/deploy-system.mjs'), { exports: { ...actualDeploySystem, assertOwnedFlatSystem: checkedSystem } });
+mock.module(mod('../ops/native-operators.mjs'), { exports: { ...actualOperators,
   ownedFlatOperatorQuorumBindings(quorum, expected) {
     const b = checkedQuorum(quorum, expected);
     return Object.freeze({ families: Object.freeze([...b.families]), bitcoin: b.bitcoin, solana: b.solana, evmDelivery: b.evmDelivery });
@@ -53,10 +78,10 @@ mock.module(mod('../ops/native-operators.mjs'), { exports: {
     assert.ok(input.nativeRuntime, 'TEST_REGISTERED_CAPABILITY'); b.checks.push(input.family); return quorum;
   },
 } });
-mock.module(mod('../solvers/native-provider.mjs'), { exports: {
+mock.module(mod('../solvers/native-provider.mjs'), { exports: { ...actualNativeProvider,
   assertOwnedFlatNativeProvider: (provider, expected) => checkedProvider(brands.nativeProviders, provider, expected),
 } });
-mock.module(mod('../solvers/evm-vault-provider.mjs'), { exports: {
+mock.module(mod('../solvers/evm-vault-provider.mjs'), { exports: { ...actualEvmProvider,
   assertOwnedFlatEvmVaultProvider: (provider, expected) => checkedProvider(brands.evmProviders, provider, expected),
 } });
 mock.module(mod('../../../../../omnichain-product/src/vault.mjs'), { exports: { Vault: class {
@@ -70,7 +95,7 @@ mock.module(mod('../../../../../omnichain-product/src/vault.mjs'), { exports: { 
     fFor(entry.record.data.domainCommitment.slice(2)).writes.push(copy(entry.record)); return copy(entry.record);
   }
 } } });
-mock.module(mod('./flat-system-state.mjs'), { exports: {
+mock.module(mod('./flat-system-state.mjs'), { exports: { ...actualSystemState,
   async createFlatSystemStateReader({ runtime, system, poolIndex }) {
     checkedSystem(runtime, system); const f = fFor(system.pools[poolIndex].domainCommitment.slice(2));
     return Object.freeze({ async read() { return f.view; }, async authorizationPath(view, envelope) {
@@ -80,7 +105,7 @@ mock.module(mod('./flat-system-state.mjs'), { exports: {
     } });
   },
 } });
-mock.module(mod('./flat-terminal-observer.mjs'), { exports: {
+mock.module(mod('./flat-terminal-observer.mjs'), { exports: { ...actualTerminalObserver,
   async createFlatTerminalObserver({ runtime, system, poolIndex }) {
     checkedSystem(runtime, system); const f = fFor(system.pools[poolIndex].domainCommitment.slice(2));
     return Object.freeze({ async observe(query) {
@@ -136,7 +161,11 @@ mock.module(mod('./completion-inputs.mjs'), { exports: {
 mock.module(mod('../../../proof-workers/scoped-proof-tools.mjs'), { exports: {
   withFlatHash: work => work(testHash), loadFlatABI: async name => ({ synthetic: name }),
   createFlatProofRunner() { return Object.freeze({ async prove(name, job) {
-    fFor(job.statement.domainCommitment).proofs.push(name);
+    const f = fFor(job.statement.domainCommitment); f.proofs.push(name);
+    // Model CPU-only proof work while the owned receiver head stays unmoved.
+    if (f.observedClock && (name === 'admission' || name === 'settlement')) {
+      f.wallSecond += 45; f.clockEvents.push('proof:' + name);
+    }
     return { proof: '11'.repeat(32), publicInputs: [...encodeStatement(name, job.statement)] };
   }, async abort() {}, async close() {} }); },
 } });
@@ -181,7 +210,7 @@ async function preparedFixture(families) {
 
 async function fixture(t, families = ['3']) {
   const base = await preparedFixture(families), directory = await mkdtemp(join(tmpdir(), 'flat-keeper-host-'));
-  const f = { ...base, writes: [], jobs: [], proofs: [], sent: [], terminals: [], facts: [], executions: [], reconciliations: 0, finality: [] };
+  const f = { ...base, writes: [], jobs: [], proofs: [], sent: [], terminals: [], facts: [], executions: [], reconciliations: 0, finality: [], clockEvents: [], healthCalls: 0, wallSecond: 1100 };
   fixtures.set(base.d, f);
   t.after(async () => { await f.keeper?.close(); fixtures.delete(base.d); await rm(directory, { recursive: true, force: true }); });
   const packets = base.prepared.rolePackets, commitments = [p(packets.reservation.funding.value.inputCommitment),
@@ -195,11 +224,18 @@ async function fixture(t, families = ['3']) {
     revokedEntries: Array(64).fill(ZERO), state: { revokedDigest: ZERO, revokedCount: '0', revocationSequence: '0' },
     stateOpening: {}, evidenceState: {} };
   f.runtime = Object.freeze({ metadata: { scratchDirectory: directory }, async send(label, request) {
+    if (f.observedClock && (request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector))
+      || request.data.startsWith(p(FLAT_TRANSACTION_METHODS.fulfillGeneric.selector)))) {
+      f.clockEvents.push(request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector)) ? 'send:admission' : 'send:settlement');
+      const includedSecond = BigInt(f.wallSecond + 1), message = f.lastHealth;
+      assert.ok(BigInt(message.validFrom) <= includedSecond && includedSecond < BigInt(message.validUntil), 'HOST_ORIGINAL_OUTSIDE_WINDOW');
+      f.view.head.timestamp = String(includedSecond);
+    }
     const receipt = { transactionHash: p(h('send-' + f.sent.length)) }; f.sent.push({ label, request: copy(request), receipt });
     if (request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector))) f.view.receiptLeaves.push(field('admitted-receipt'));
     return receipt;
   } });
-  brands.runtimes.add(f.runtime);
+  brands.runtimes.add(f.runtime); runtimeFixtures.set(f.runtime, f);
   f.system = Object.freeze({ pools: [0, 1].map(index => ({ address: p(h('pool-' + index).slice(0, 40)),
     domain: base.domain, domainCommitment: p(base.d) })), registry: { rulesRoot: base.ruleTree.root }, hub: { address: p(h('hub').slice(0, 40)) } });
   brands.systems.set(f.system, f.runtime);
@@ -212,7 +248,14 @@ async function fixture(t, families = ['3']) {
       if (f.checkpointError) throw f.checkpointError;
       return { message: { expectedPoolSequence: '0', expectedHubStateSequence: '0', requestId: p(requestId), validUntil: '1900' }, abiSignatures };
     },
-    async health() { return { message: { validFrom: '1100', validUntil: '1900' }, abiSignatures }; },
+    async health() {
+      f.healthCalls++;
+      if (!f.observedClock) return { message: { validFrom: '1100', validUntil: '1900' }, abiSignatures };
+      f.clockEvents.push('health');
+      const from = f.view.head.timestamp;
+      f.lastHealth = { validFrom: from, validUntil: String(BigInt(from) + 30n) };
+      return { message: f.lastHealth, abiSignatures };
+    },
     async facts(request) { f.facts.push(copy(request)); return { certificates: [{ facts: { nativeGid: h('gid'),
       observation: { evidenceFrom: '1100', evidenceUntil: '1800' } } }] }; },
   });
@@ -364,4 +407,55 @@ test('EVM reconciliation failure preserves original broadcast and blocks facts a
   assert.deepEqual(f.keeper.snapshot(f.ref).nativeExposure, [{ slot: 0, family: '3', status: 'BROADCAST' }]);
   assert.equal(f.facts.length, 0); assert.equal(f.terminals.length, 0);
   await assert.rejects(f.keeper.execute(f.ref), /RECONCILE_OR_RECOVER_ORIGINAL/); assert.equal(f.executions.length, 1);
+});
+
+// Actual keeper orchestration; proof/math/state/capability origins above remain
+// explicitly synthetic. These cases establish ordering only, not acceptance.
+test('observed receiver refresh precedes NEW health after I84 and N/T without renewing proof or permit windows', async t => {
+  const f = await fixture(t, ['2']); f.observedClock = true;
+  f.keeper = await createFlatNativeExecution(f.input);
+  await f.keeper.prepare(f.ref, f.prepared, f.providers);
+  assert.deepEqual(await f.keeper.execute(f.ref), { outcome: 'FULFILLED', original: true });
+  assert.deepEqual(f.clockEvents, ['proof:admission', 'refresh', 'health', 'send:admission',
+    'proof:settlement', 'refresh', 'health', 'send:settlement']);
+  assert.equal(f.healthCalls, 2); assert.equal(f.executions.length, 1);
+  const admission = f.jobs.find(value => value.name === 'admission').input;
+  assert.equal(admission.admissionFrom, '1100'); assert.equal(admission.admissionUntil, '1800');
+  assert.equal(f.prepared.rolePackets.local[0].action.executionUntil, '1900');
+  assert.equal(f.prepared.rolePackets.reservation.core.value.settleBefore, '2000');
+  assert.deepEqual(f.proofs, ['dependency', 'ready', 'admission', 'node', 'node', 'node', 'node', 'settlement']);
+  const sends = f.sent.length; await f.keeper.execute(f.ref);
+  assert.equal(f.sent.length, sends); assert.equal(f.executions.length, 1); assert.equal(f.healthCalls, 2);
+});
+
+test('failed original clock producer stops before health/admit and preserves delivered uncertainty without resend', async t => {
+  const f = await fixture(t, ['2']); f.observedClock = true;
+  f.refreshError = new Error('HOST_ORIGINAL_RECEIVER_REFRESH_FAILED');
+  f.keeper = await createFlatNativeExecution(f.input); await f.keeper.prepare(f.ref, f.prepared, f.providers);
+  await assert.rejects(f.keeper.execute(f.ref), error => error === f.refreshError);
+  assert.deepEqual(f.clockEvents, ['proof:admission', 'refresh']); assert.equal(f.healthCalls, 0);
+  assert.equal(f.sent.filter(row => row.request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector))).length, 0);
+  const snapshot = f.keeper.snapshot(f.ref);
+  assert.equal(snapshot.outcome, null); assert.equal(snapshot.admittedReceipts, 0);
+  assert.deepEqual(snapshot.nativeExposure, [{ slot: 0, family: '2', status: 'DELIVERED' }]);
+  const sends = f.sent.length;
+  await assert.rejects(f.keeper.execute(f.ref), /FLAT_EXECUTION_RECONCILE_OR_RECOVER_ORIGINAL/);
+  assert.equal(f.sent.length, sends); assert.equal(f.executions.length, 1); assert.equal(f.healthCalls, 0);
+});
+
+
+test('owned Golden legacy keeper reaches health and original sends without invoking the V2 refresh producer', async t => {
+  // Original local ownership is mocked explicitly, but its Golden identity is
+  // separate from the V2 port. No real runtime, key or economic grant exists.
+  const f = await fixture(t, ['2']);
+  assert.equal(f.observedClock, undefined);
+  f.keeper = await createFlatNativeExecution(f.input);
+  await f.keeper.prepare(f.ref, f.prepared, f.providers);
+  assert.deepEqual(await f.keeper.execute(f.ref), { outcome: 'FULFILLED', original: true });
+  assert.equal(f.healthCalls, 2); assert.deepEqual(f.clockEvents, []);
+  assert.equal(f.sent.filter(row => row.request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector))).length, 1);
+  assert.equal(f.sent.filter(row => row.request.data.startsWith(p(FLAT_TRANSACTION_METHODS.fulfillGeneric.selector))).length, 1);
+  assert.equal(f.executions.length, 1);
+  const sends = f.sent.length; await f.keeper.execute(f.ref);
+  assert.equal(f.sent.length, sends); assert.equal(f.healthCalls, 2); assert.equal(f.executions.length, 1);
 });
