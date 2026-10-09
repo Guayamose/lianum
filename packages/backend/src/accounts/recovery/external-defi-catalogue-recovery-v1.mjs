@@ -98,14 +98,16 @@ export async function retainExternalDefiVaultCatalogueForReopenV1(input,attemptA
  const {assertOwnedFlatJournalCatalogueAccount}=await import('../storage/flat-journal-catalogue.mjs');
  const contexts=services.map(service=>{const context=exits.retainedOwnedPrivateVaultExitContextV1(service);assert.equal(context.runtime,runtime);const member=assertOwnedFlatJournalCatalogueAccount(catalogue,context.account);const vault=vaults.retainedOwnedOfficialStaticVaultContextV1(context.vault);assert.equal(vault.runtime,runtime);return {service,context,member,vault};});
  assert.equal(new Set(contexts.map(row=>row.context.account)).size,contexts.length);assert.equal(new Set(contexts.map(row=>row.context.vault)).size,contexts.length);
- const records=[],fixtures=[],fixtureIndexes=new Map();let failure;
+ const {captureOriginalRetainedVaultEconomicStateV1}=await import('./external-defi-retained-vault-wallet-v1.mjs');
+ const records=[],fixtures=[],fixtureIndexes=new Map();let failure,economic;
  try{
+  economic=await captureOriginalRetainedVaultEconomicStateV1(catalogue);
   for(const row of contexts){let fixtureIndex=fixtureIndexes.get(row.vault.fixture);if(fixtureIndex===undefined){fixtureIndex=fixtures.length;fixtureIndexes.set(row.vault.fixture,fixtureIndex);const module=row.vault.variant==='AAVE_STATIC'?await import('../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs'):await import('../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs');const record=await (row.vault.variant==='AAVE_STATIC'?module.captureOfficialAaveFixtureRecoveryV1:module.captureOfficialProtocolFixtureRecoveryV1)(runtime,row.vault.fixture);fixtures.push({variant:row.vault.variant,record});}
    const exit=await exits.captureRetainedOwnedPrivateVaultExitV1(row.service),vault=await vaults.captureRetainedOwnedOfficialStaticVaultV1(row.context.vault);
    records.push({generationId:row.member.generationId,poolIndex:row.context.poolIndex,account:structuredClone(row.context.account.config),fixtureIndex,vault,exit});
   }
   const saved=await captureCatalogueV1(catalogue);
-  await retainOriginalWrappedRecoverySectionV1(attemptAuthority,'wallet',{schema:'EXTERNAL_ORIGINAL_CATALOGUE_VAULT_WALLET_V1',sourceSHA256:original.sourceSHA256,saved,fixtures,services:records});
+  await retainOriginalWrappedRecoverySectionV1(attemptAuthority,'wallet',{schema:economic===null?'EXTERNAL_ORIGINAL_CATALOGUE_VAULT_WALLET_V1':'EXTERNAL_ORIGINAL_CATALOGUE_VAULT_ECONOMIC_WALLET_V1',sourceSHA256:original.sourceSHA256,saved,fixtures,services:records,...(economic===null?{}:{economic})});
  }catch(error){failure=error;}
  if(failure){try{const {closeRetainedFlatJournalCatalogueV1}=await import('../storage/flat-journal-catalogue.mjs');await closeResources([{close:()=>closeRetainedFlatJournalCatalogueV1(catalogue)},...contexts.flatMap(row=>[row.context.vault,row.service])]);}catch(cleanup){throw new AggregateError([failure,cleanup],'EXTERNAL_VAULT_CAPTURE_CLEANUP_FAILED',{cause:failure});}throw failure;}
  return {retained:true,originalResourcesStopped:true};
@@ -113,7 +115,7 @@ export async function retainExternalDefiVaultCatalogueForReopenV1(input,attemptA
 export async function reopenExternalDefiVaultCatalogueFromRecoveryV1(input){
  assert.equal(arguments.length,1);exactRecord(input,['runtime','system','owners','attemptAuthority']);const {runtime,system,owners,attemptAuthority}=input;
  const original=originalWrappedRecoverySectionIdentityV1(attemptAuthority,'wallet');assertWrappedPrivateLifetimeAttemptV1(runtime,original);assertOwnedFlatSystem(runtime,system);assert.ok(Array.isArray(owners)&&owners.length===2&&owners[0]!==owners[1]);owners.forEach((owner,poolIndex)=>assertOwnedFlatOwnerProcess(owner,{runtime,system,poolIndex}));
- const r=consumeOriginalWrappedRecoverySectionV1(attemptAuthority,'wallet');exactRecord(r,['schema','sourceSHA256','saved','fixtures','services']);assert.equal(r.schema,'EXTERNAL_ORIGINAL_CATALOGUE_VAULT_WALLET_V1');assert.equal(r.sourceSHA256,original.sourceSHA256);assert.ok(Array.isArray(r.services)&&r.services.length>=1&&r.services.length<=2);assert.ok(Array.isArray(r.fixtures)&&r.fixtures.length>=1&&r.fixtures.length<=r.services.length);
+ const r=consumeOriginalWrappedRecoverySectionV1(attemptAuthority,'wallet');const withEconomic=r.schema==='EXTERNAL_ORIGINAL_CATALOGUE_VAULT_ECONOMIC_WALLET_V1';exactRecord(r,withEconomic?['schema','sourceSHA256','saved','fixtures','services','economic']:['schema','sourceSHA256','saved','fixtures','services']);if(!withEconomic)assert.equal(r.schema,'EXTERNAL_ORIGINAL_CATALOGUE_VAULT_WALLET_V1');assert.equal(r.sourceSHA256,original.sourceSHA256);assert.ok(Array.isArray(r.services)&&r.services.length>=1&&r.services.length<=2);assert.ok(Array.isArray(r.fixtures)&&r.fixtures.length>=1&&r.fixtures.length<=r.services.length);
  const resources=[],fixtures=[],services=[];let catalogue;
  try{
   for(const row of r.fixtures){exactRecord(row,['variant','record']);assert.ok(['METAMORPHO','AAVE_STATIC'].includes(row.variant));const module=row.variant==='AAVE_STATIC'?await import('../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs'):await import('../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs');fixtures.push(await issue('protocol-fixture',{runtime,record:row.record},row.variant==='AAVE_STATIC'?module.reopenOfficialAaveFixtureRecoveryV1:module.reopenOfficialProtocolVaultFixtureRecoveryV1));}
@@ -126,6 +128,14 @@ export async function reopenExternalDefiVaultCatalogueFromRecoveryV1(input){
    const service=await issue('vault-exit',{input:{runtime,system,poolIndex:row.poolIndex,account,vault},saved:row.exit},exits.reopenRetainedOwnedPrivateVaultExitV1);resources.push(service);services.push(service);
    for(const operation of row.exit.record.data.operations)await service.reconcile(operation.exit.requestId);
   }
-  const exit=createGenerationPrivateVaultExit({runtime,catalogue,services});return Object.freeze({catalogue,services:Object.freeze(services),exit,close:()=>closeResources(resources)});
+  const exit=createGenerationPrivateVaultExit({runtime,catalogue,services});let session=null,economicState=null;
+  if(withEconomic){
+   exactRecord(r.economic,['version','profile','journal','checkpoint']);assert.equal(r.economic.version,1);assert.equal(r.economic.profile,'ORIGINAL_PRIVATE_WALLET_ECONOMIC_STATE_V1');exactRecord(r.economic.journal,['path','password']);
+   const {createFlatManualGraphCatalogueSession}=await import('../../api/accounts/flat-manual-graph-session.mjs');
+   session=(await createFlatManualGraphCatalogueSession({runtime,catalogue})).session;resources.push({close:async()=>{if((await session.idle()).phase!=='CLOSED')await session.quiesceForPrivateRecovery();return session.close();}});
+   const {openOriginalWalletEconomicStateV1}=await import('../state/original-wallet-economic-state-v1.mjs');
+   economicState=await openOriginalWalletEconomicStateV1({catalogues:[{runtime,catalogue,session,positions:exit}],nativeAccounts:[],wrappedPortfolios:[],journal:r.economic.journal,checkpoint:r.economic.checkpoint});resources.push(economicState);r.economic.journal.password=null;
+  }
+  return Object.freeze({catalogue,services:Object.freeze(services),exit,...(withEconomic?{session,economicState,economicStateOriginalCheckpoint:r.economic.checkpoint}:{}),close:()=>closeResources(resources)});
  }catch(error){try{await closeResources(resources);}catch(cleanup){throw new AggregateError([error,cleanup],'EXTERNAL_VAULT_REOPEN_FAILED',{cause:error});}throw error;}
 }

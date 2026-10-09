@@ -454,6 +454,7 @@ async function main() {
     session = manualSession.session;
     http = await startFlatAccountHttp({ session, port: 0 });
     walletApp = await startWalletApplication({ accountSession: RETAINED_EXIT?retainedExitWallet.session:session,
+      ...(RETAINED_EXIT?{economicState:retainedExitWallet.economicState}:{}),
       ...(UNISWAP||RETAINED_EXIT ? {} : { defiExit: { runtime, service: vaultExit } }), actionAccessMode: 'exact-only', port: 0 });
     appDriver = createManualWalletAppDriver(walletApp, {
       deadlineMs: Date.parse(lock.startedAt) + NATIVE_FLOW_LIMITS.totalMilliseconds - NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds });
@@ -592,7 +593,7 @@ async function main() {
       const listener=await walletApp.close();assert.equal(listener.listenerClosed,true);await http.close();walletApp=null;http=null;
       portfolio.close();portfolio=retainedExitWallet.portfolio;session=retainedExitWallet.session;
       privateView=createPrivateVaultPortfolioView({runtime:fixture.runtime,portfolio,vault:vaultActor,shareAssetId:retainedExitWallet.accounts[1].assetId,underlyingAssetId:retainedExitWallet.accounts[0].assetId});
-      http=await startFlatAccountHttp({session,port:0});walletApp=await startWalletApplication({accountSession:session,defiExit:{runtime,service:retainedExitWallet.exit},actionAccessMode:'exact-only',port:0});
+      http=await startFlatAccountHttp({session,port:0});walletApp=await startWalletApplication({accountSession:session,defiExit:{runtime,service:retainedExitWallet.exit},economicState:retainedExitWallet.economicState,actionAccessMode:'exact-only',port:0});
       appDriver=createManualWalletAppDriver(walletApp,{deadlineMs:Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds});
     }
     if(RETAINED_EXIT)await readOriginalDevicePositions('after-mint',SHARES);
@@ -712,6 +713,9 @@ async function main() {
       result.deviceDefiPositionRead.closedBeforeOriginalCapture=true;result.deviceDefiPositionRead.closure=closedRead;save();
       await stage('planned-terminal-vault-catalogue-capture-and-new-backend');
       const closedApp=await walletApp.close();assert.equal(closedApp.listenerClosed,true);walletApp=null;
+      assert.equal((await retainedExitWallet.economicState.idle()).phase,'READY');
+      const economicCheckpoint=retainedExitWallet.economicState.checkpoint();
+      result.originalEconomicState={profile:economicCheckpoint.profile,checkpointSHA256:economicCheckpoint.stateSHA256,revision:economicCheckpoint.revision,checkpointRetainedByOriginalWallet:true,readOnly:true};
       // Dispose only the original, already terminal graph resources. Their
       // permissions are deliberately absent from the new EXIT-only backend.
       await execution.close();for(const account of accounts)await account.close();
@@ -719,7 +723,7 @@ async function main() {
       const firstReceipt=await retainedExitWallet.service.originalReceipt('vault_exit_1');
       const quiesced=await session.quiesceForPrivateRecovery();assert.equal(quiesced.phase,'CLOSED');await http.close();http=null;
       externalSuccessor=await captureAndLaunchExternalDefiVaultExitSuccessorV1({externalDefiVaultExitRecovery:true,wallet:retainedExitWallet,fixture,privateDirectory,result,active(){assert.equal(interrupted,false);assert.ok(Date.now()<Date.parse(lock.startedAt)+NATIVE_FLOW_LIMITS.totalMilliseconds-NATIVE_FLOW_LIMITS.cleanupReserveMilliseconds);},save});
-      retainedExitCaptured=true;
+      retainedExitCaptured=true;assert.throws(()=>retainedExitWallet.economicState.checkpoint());result.originalEconomicState.closedBeforeCapture=true;
       const observed=await externalSuccessor.audit();assert.equal(observed.sameOriginalReceipt,true);assert.equal(observed.actualWireCountBefore,observed.actualWireCountAfter);assert.equal(observed.originalExitRequestIdsRetained,true);assert.equal(observed.originalCatalogueRequestIdsRetained,true);
       result.externalVaultBackendRecovery={...result.externalVaultBackendRecovery,...externalSuccessor.report,audit:observed,originalRedemptionReceiptSHA256:canonicalJournalSHA(firstReceipt)};
     }
