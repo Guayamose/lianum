@@ -65,6 +65,16 @@ export function validateTronExecutionContext(raw, signed, inclusion, parent, ref
     nextBlockSlotTimeMs: nextSlot.toString(), permissionCheck: 'independent-threshold-check-on-trusted-historical-prestate',
     taposCheck: 'exact-recent-canonical-reference-under-registered-source', expirationCheck: 'parent-window-and-pinned-fork-rule' });
 }
+// Only already-known original heights enter this fixed read queue. All fresh
+// requests drain before their outcomes are validated in original order. It is
+// never used for selection, dependent parent traversal, replay, keys or sends.
+async function readOriginalKnownTronHeadersV4(headers,read){
+  const outcomes=new Array(headers.length);let next=0;
+  async function worker(){while(next<headers.length){const i=next++;try{outcomes[i]={ok:true,value:await read(headers[i])};}catch(error){outcomes[i]={ok:false,error};}}}
+  await Promise.allSettled(Array.from({length:Math.min(4,headers.length)},()=>worker()));
+  return outcomes;
+}
+function originalTronHeaderReadV4(outcome){if(!outcome.ok)throw outcome.error;return outcome.value;}
 /** Private V4 selection from fresh canonical reads, never a cached certificate.
  * Receiver time is issued by the original round/history token below. The live
  * solid tip may advance while that immutable common receiver round is audited.
@@ -92,8 +102,10 @@ async function readReceiverAnchoredTronSolidV4(readLatest,readBlock,at,profile,p
   }
   // Every previously traversed header is independently fetched again, including
   // the actual latest solid tip. No old source observation supplies its truth.
-  for(const header of headers){
-    const current=normalizeTronBlock(await readBlock(header.height),header.height==='0');
+  const rechecks=await readOriginalKnownTronHeadersV4(headers,
+    async header=>normalizeTronBlock(await readBlock(header.height),header.height==='0'));
+  for(let i=0;i<headers.length;i++){
+    const header=headers[i],current=originalTronHeaderReadV4(rechecks[i]);
     need(same(header,current),'TRON_GRAPH_ANCESTRY_CHANGED');
   }
   checkFreshBlock(selected.header,at,{maxBlockAgeMs:Number(profile.maximumBlockAgeMs),maxFutureSkewMs:Number(profile.maximumClockSkewMs)});
@@ -209,7 +221,8 @@ export function createOwnedTronNativeValueHealthSource(raw) {
           const last = await observeOriginal();
           for (const k of ['inclusion', 'receipt', 'block', 'solidified']) need(same(first[k], last[k]), 'TRON_GRAPH_ORIGINAL_OR_SOLIDIFIED_CHANGED');
           // Recheck every header read for TAPOS/finality, not just the endpoint.
-          for (const old of ancestry) need(same(await atBlock(old.height), old), 'TRON_GRAPH_ANCESTRY_CHANGED');
+          const rechecks=await readOriginalKnownTronHeadersV4(ancestry,old=>atBlock(old.height));
+          for(let i=0;i<ancestry.length;i++)need(same(originalTronHeaderReadV4(rechecks[i]),ancestry[i]),'TRON_GRAPH_ANCESTRY_CHANGED');
           need(await assertCurrent(startRegistry) === undefined, 'TRON_GRAPH_CURRENT_ASSERTION'); live();
           need(same(startRegistry, await registry()), 'TRON_GRAPH_CURRENT_REGISTRY_CHANGED');
           const at = safeMilliseconds(now()); checkFreshBlock(solid, at, freshness);

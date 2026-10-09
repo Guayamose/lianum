@@ -31,6 +31,12 @@ const operators = new WeakMap(), quorums = new WeakMap(), sourceOwners = new Wea
 // quorum round. Every settled check is discarded; inventories, store reads,
 // native observations, certificates and key/send rounds remain independent.
 const roundCurrentChecks = new WeakMap();
+// Numeric diagnostics follow the SAME original whole round across certify and
+// final coverage. These private counters cannot reset or authorize its timer.
+const roundAuditTimings = new WeakMap();
+function newOriginalAuditTimingV4(){return {profile:'NATIVE_VALUE_ORIGINAL_AUDIT_TIMING_V1',operation:'audit',phase:'initial',
+  currentMilliseconds:0,storeMilliseconds:0,nativeSourceMilliseconds:0,
+  currentChecks:0,storeLoads:0,storeCommits:0,nativeSourceObservations:0,nativeReadCount:0};}
 async function assertRoundCurrent(shared, reader, view) {
   if (shared === null) return reader.assertCurrent(view);
   assert.ok(rounds.has(shared) && shared.view === view, 'NATIVE_VALUE_PRIVATE_CURRENT_ROUND_REQUIRED');
@@ -245,12 +251,13 @@ function createNativeOperator(raw,recovery=null) {
     assert.ok(reservation === null || shared?.token === reservation, 'NATIVE_VALUE_OPERATOR_QUORUM_RESERVED');
     busy = true; keyUsed = false;
     try {
-      await unchanged(); if (shared !== null) assert.ok(rounds.has(shared), 'NATIVE_VALUE_PRIVATE_ROUND_REQUIRED');
+      const preflightStarted=performance.now();await unchanged(); if (shared !== null) assert.ok(rounds.has(shared), 'NATIVE_VALUE_PRIVATE_ROUND_REQUIRED');
       const started = shared?.started ?? performance.now();
       const view = shared?.view ?? await bound.readers[poolIndex].read();
-      active = { view, started, shared, timing: { profile: 'NATIVE_VALUE_ORIGINAL_AUDIT_TIMING_V1', operation: 'audit', phase: 'initial',
-        currentMilliseconds: 0, storeMilliseconds: 0, nativeSourceMilliseconds: 0,
-        currentChecks: 0, storeLoads: 0, storeCommits: 0, nativeSourceObservations: 0, nativeReadCount: 0 } };
+      const timing=shared===null?newOriginalAuditTimingV4():roundAuditTimings.get(shared)?.get(operator);
+      assert.ok(timing,'NATIVE_VALUE_ORIGINAL_AUDIT_ROUND_REQUIRED');
+      if(shared!==null){timing.storeLoads++;timing.storeMilliseconds+=performance.now()-preflightStarted;}
+      timing.operation='audit';timing.phase='initial';active={view,started,shared,timing};
       assert.equal(view.poolIndex, poolIndex); await current();
       const result = await work(view); await current(); await unchanged(); await current(); return result;
     } catch (cause) {
@@ -445,9 +452,10 @@ export function createNativeValueOperatorQuorum(raw) {
     let shared;
     try {
       binding(); for (const state of states) { state.reserve(token); reserved.push(state); }
-      const started = performance.now(), view = await first.readers[input.poolIndex].read();
+      const started = performance.now(), view = await first.readers[input.poolIndex].read(), headReadMilliseconds=performance.now()-started;
       shared = Object.freeze({ view, started, token }); rounds.add(shared);
       roundCurrentChecks.set(shared, { reader: first.readers[input.poolIndex], view, pending: null });
+      roundAuditTimings.set(shared,new Map(chosen.map(operator=>{const timing=newOriginalAuditTimingV4();timing.currentMilliseconds=headReadMilliseconds;return [operator,timing];})));
       const results = await drained(states.map(state => () => state[kind](input, shared))); budget(started); binding();
       // Final fresh independently reobserved inventories after all signatures
       // have persisted. A failure poisons every key used by this whole round.
@@ -481,7 +489,7 @@ export function createNativeValueOperatorQuorum(raw) {
       assert.ok(BigInt(interval.evidenceFrom) <= BigInt(view.head.timestamp) && BigInt(view.head.timestamp) < BigInt(interval.evidenceUntil), 'NATIVE_VALUE_FACTS_EXPIRED');
       return freeze({ certificates: results, collected, head: copy(view.head), audits });
     } catch (cause) { states.forEach((state, i) => state.poisonIfUsed(counts[i])); throw cause; }
-    finally { if (shared) { roundCurrentChecks.delete(shared); rounds.delete(shared); } for (const state of reserved) state.release(token); busy = false; }
+    finally { if (shared) { roundCurrentChecks.delete(shared);roundAuditTimings.delete(shared); rounds.delete(shared); } for (const state of reserved) state.release(token); busy = false; }
   }
   const quorum = Object.freeze({ health: request => run('health', request), certify: request => run('certify', request), checkpoint: request => run('checkpoint', request),
     signerIndexes: freeze(chosen.map(op => op.signerIndex)) });

@@ -193,3 +193,25 @@ test('safe first-error derivative uses only genuine v4 build material and retain
  assert.equal(prerequisites.totalMilliseconds,OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1);
  assert.equal(OWNED_TRON_RUNTIME_RELEASE,null);
 });
+
+test('the original runtime fresh journal scan overlaps eight independent reads and drains before original-order failure',async()=>{
+ const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs'),'utf8');
+ const begin=text.indexOf(' async function unchanged()'),end=text.indexOf(' async function append(',begin);
+ assert.ok(begin>=0&&end>begin);const code=text.slice(begin,end);
+ const journal={binding:{id:'HOST_BINDING'},events:Array.from({length:12},(_,i)=>({sequence:i}))};
+ const entry={prepared:{id:'HOST_PREPARED'},signed:{id:'HOST_SIGNED'}};
+ const names=['original-binding.json',...journal.events.map((_,i)=>'event-'+String(i).padStart(3,'0')+'.json'),'original-prepared.json','original-signed.json'];
+ const first=Error('HOST_ORIGINAL_CHANGED'),later=Error('HOST_LATER_READ_FAILURE');
+ async function run({fail=false}={}){
+  const calls=[];let active=0,maximum=0,closed=false;
+  const actual=vm.runInNewContext('('+code.trim()+')',{live(){assert.equal(closed,false);},journal,entry,
+   async readExact(name,expected){assert.ok(expected);calls.push(name);active++;maximum=Math.max(maximum,active);
+    await new Promise(resolve=>setImmediate(resolve));active--;
+    if(fail&&name===names[0])throw first;if(fail&&name===names[10])throw later;}});
+  let error;try{await actual();}catch(value){error=value;}
+  assert.equal(active,0);assert.deepEqual(calls,names);assert.equal(maximum,8);
+  if(fail){assert.equal(error,first);closed=true;await assert.rejects(actual());assert.equal(calls.length,names.length);}
+  else {assert.equal(error,undefined);await actual();assert.deepEqual(calls,[...names,...names]);}
+ }
+ await run();await run({fail:true});
+});

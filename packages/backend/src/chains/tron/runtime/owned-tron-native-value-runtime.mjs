@@ -47,8 +47,18 @@ export async function createOwnedLocalTronNativeValueV1(){assert.equal(arguments
  async function retain(name,value){live();const path=join(driver.directory,name);let f;try{f=await open(path,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   await f.writeFile(JSON.stringify(value));await f.sync();await f.close();f=null;const d=await open(driver.directory,constants.O_RDONLY|constants.O_DIRECTORY);try{await d.sync();}finally{await d.close();}await readExact(name,value);
  }catch(error){latched=true;throw new Error('OWNED_TRON_RETENTION_UNKNOWN_NO_REPLACEMENT',{cause:error});}finally{await f?.close();}}
- async function unchanged(){live();if(journal)await readExact('original-binding.json',journal.binding);if(journal)for(let i=0;i<journal.events.length;i++)await readExact('event-'+String(i).padStart(3,'0')+'.json',journal.events[i]);
-  if(entry?.prepared)await readExact('original-prepared.json',entry.prepared);if(entry?.signed)await readExact('original-signed.json',entry.signed);}
+ async function unchanged(){live();const reads=[];
+  if(journal)reads.push(['original-binding.json',journal.binding]);
+  if(journal)for(let i=0;i<journal.events.length;i++)reads.push(['event-'+String(i).padStart(3,'0')+'.json',journal.events[i]]);
+  if(entry?.prepared)reads.push(['original-prepared.json',entry.prepared]);if(entry?.signed)reads.push(['original-signed.json',entry.signed]);
+  // Each scan still opens and authenticates EVERY original file. Only these
+  // independent reads overlap; all work drains before the first original-order
+  // error escapes. No write, cached content or native command enters the queue.
+  const outcomes=new Array(reads.length);let next=0;
+  async function worker(){while(next<reads.length){const i=next++;try{await readExact(...reads[i]);outcomes[i]={ok:true};}catch(error){outcomes[i]={ok:false,error};}}}
+  await Promise.allSettled(Array.from({length:Math.min(8,reads.length)},()=>worker()));
+  for(const result of outcomes)if(!result.ok)throw result.error;
+ }
  async function append(kind,data){const next=appendTronEvent(journal,kind,data);await unchanged();const e=next.events.at(-1);await retain('event-'+e.sequence.padStart(3,'0')+'.json',e);journal=next;}
  async function current(raw){const originalAuditStartedV4=performance.now();live();assert.ok(entry&&entry.prepared===raw&&entry.active,'OWNED_TRON_ORIGINAL_PREPARATION_REQUIRED');
   await unchanged();const began=performance.now(),snapshot=await driver.current(entry.preparationId);driver.assertAlive();

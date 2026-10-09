@@ -13,9 +13,9 @@ import {need,checkFreshBlock} from '../../../../src/chains/shared/portfolio/port
 
 const url=new URL('../../../../src/chains/tron/health/tron-native-value-health-source-v4.mjs',import.meta.url);
 const source=readFileSync(existsSync(url)?url:join(ROOT,'wallet-platform/modules/chain-adapters/tron-native-value-health-source-v4.mjs'),'utf8');
-const begin=source.indexOf('async function readReceiverAnchoredTronSolidV4('),end=source.indexOf('function retained(',begin);
+const begin=source.indexOf('async function readOriginalKnownTronHeadersV4('),end=source.indexOf('function retained(',begin);
 assert.ok(begin>=0&&end>begin);
-const readAtReceiver=new Script('('+source.slice(begin,end)+')').runInContext(createContext({normalizeTronBlock,need,checkFreshBlock,same:isDeepStrictEqual}));
+const readAtReceiver=new Script('(()=>{'+source.slice(begin,end)+';return readReceiverAnchoredTronSolidV4;})()').runInContext(createContext({normalizeTronBlock,need,checkFreshBlock,same:isDeepStrictEqual}));
 const at=1_900_000_000_000;
 const profile={maximumAncestry:'32',maximumClockSkewMs:'5000',maximumBlockAgeMs:'15000',maximumQueryMs:'10000'};
 const id=height=>BigInt(height).toString(16).padStart(16,'0')+createHash('sha256').update('public-header-'+height).digest('hex').slice(16);
@@ -36,6 +36,32 @@ test('fresh native tips advancing beyond the frozen receiver clock are re-read t
   assert.equal(calls[0],'latest:14');assert.ok(calls.includes('14')&&calls.includes('13')&&calls.includes('10'));
   checkFreshBlock(normalizeTronBlock(second.raw),at,{maxFutureSkewMs:5000,maxBlockAgeMs:15000});
   assert.deepEqual(Object.keys(second).sort(),['latest','raw']);
+});
+
+test('fresh known-header rechecks overlap at most four reads, drain and preserve the first original validation failure',async()=>{
+  async function run({changed=false,laterError=false}={}){
+    const blocks=headers(),counts=new Map(),calls=[];let active=0,maximum=0;
+    const later=Error('HOST_LATER_READ_FAILURE');
+    try{
+      const result=await readAtReceiver(async()=>structuredClone(blocks.get('14')),async height=>{
+        const count=(counts.get(height)??0)+1;counts.set(height,count);calls.push(height);
+        // First pass descends; only the known-header second pass can overlap.
+        const recheck=height==='14'||count===2;
+        if(recheck){active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setImmediate(resolve));active--;}
+        if(laterError&&height==='12'&&count===2)throw later;
+        const value=structuredClone(blocks.get(height));
+        if(changed&&height==='14')value.block_header.raw_data.parentHash='c'.repeat(64);
+        return value;
+      },at,profile,null);
+      return {result,calls,active,maximum};
+    }catch(error){return {error,calls,active,maximum,later};}
+  }
+  const valid=await run();assert.equal(valid.result.latest.height,'14');assert.equal(valid.maximum,4);assert.equal(valid.active,0);
+  assert.equal(valid.calls.length,9); // Four dependent parents + five fresh rechecks.
+  const adverse=await run({changed:true,laterError:true});
+  assert.match(adverse.error.message,/TRON_GRAPH_ANCESTRY_CHANGED/);assert.notEqual(adverse.error,adverse.later);
+  assert.equal(adverse.active,0);assert.equal(adverse.calls.length,valid.calls.length);
+  const unavailable=await run({laterError:true});assert.equal(unavailable.error,unavailable.later);assert.equal(unavailable.active,0);
 });
 
 test('latest regression, changed branches, nonmonotone time, missing paths, far future and stale selected heads all reject',async()=>{

@@ -99,3 +99,34 @@ test('original native audit timings survive the same failure chain without DTOs 
   }
   assert.equal(JSON.stringify(nativeValueFailureDiagnostic(wrapped)).includes('SYNTHETIC_PRIVATE'), false);
 });
+
+test('original quorum timing spans certify and final fresh coverage without renewing the thirty-second start',async()=>{
+  const {readFileSync,existsSync}=await import('node:fs');
+  const {join}=await import('node:path');const {Script,createContext}=await import('node:vm');
+  const {ROOT}=await import('../../../../../proofs/src/catalog.mjs');
+  const file=new URL('../../../../src/operations/operators/native-value/native-value-operators-v4.mjs',import.meta.url);
+  const source=readFileSync(existsSync(file)?file:join(ROOT,'wallet-platform/modules/ops/native-value-operators-v4.mjs'),'utf8');
+  const from=source.indexOf('  async function serial(poolIndex,'),to=source.indexOf('  function keySign(',from);
+  assert.ok(from>=0&&to>from);const code=source.slice(from,to),operator=Object.freeze({}),token=Object.freeze({});
+  const view={poolIndex:0},shared=Object.freeze({view,started:0,token}),rounds=new WeakSet([shared]);
+  const aggregate={profile:'NATIVE_VALUE_ORIGINAL_AUDIT_TIMING_V1',operation:'audit',phase:'initial',
+    currentMilliseconds:100,storeMilliseconds:0,nativeSourceMilliseconds:0,currentChecks:0,storeLoads:0,storeCommits:0,nativeSourceObservations:0,nativeReadCount:0};
+  const roundAuditTimings=new WeakMap([[shared,new Map([[operator,aggregate]])]]);let now=100,retained;
+  const context=createContext({assert,operator,rounds,roundAuditTimings,busy:false,keyUsed:false,active:undefined,reservation:token,
+    performance:{now:()=>now},bound:{system:Object.freeze({})},owned(){},pool(){},
+    async unchanged(){now+=10;},async current(){const active=context.active;active.timing.currentChecks++;now+=1;context.budget(active.started);},
+    newOriginalAuditTimingV4(){throw Error('HOST_SHARED_ORIGINAL_ONLY');},poison(){},
+    retainNativeValueOriginalAuditTimingV1(error,value){retained={error,value:structuredClone(value)};}});
+  const actual=new Script('('+code.trim()+')').runInContext(context);
+  const budgetFrom=source.indexOf('function budget(started)'),budgetTo=source.indexOf('/** Creates only',budgetFrom);
+  assert.ok(budgetFrom>=0&&budgetTo>budgetFrom);context.budget=new Script('('+source.slice(budgetFrom,budgetTo).trim()+')').runInContext(context);
+  await actual(0,async()=>{const t=context.active.timing;t.operation='certify';t.storeLoads+=2;t.storeCommits++;t.storeMilliseconds+=5000;
+    t.nativeSourceObservations+=3;t.nativeReadCount+=384;t.nativeSourceMilliseconds+=21000;now=26310;},shared);
+  await assert.rejects(actual(0,async()=>{const t=context.active.timing;t.operation='coverage';t.storeLoads+=3;t.storeCommits++;t.storeMilliseconds+=2715;
+    t.nativeSourceObservations++;t.nativeReadCount+=128;t.nativeSourceMilliseconds+=6136;now=35240;},shared),/NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE/);
+  assert.equal(retained.error.message,'NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE');assert.equal(retained.value.operation,'coverage');assert.equal(retained.value.phase,'initial');
+  assert.equal(retained.value.elapsedMilliseconds,35241);assert.equal(retained.value.limitMilliseconds,30000);
+  assert.equal(retained.value.nativeSourceObservations,4);assert.equal(retained.value.nativeReadCount,512);
+  assert.equal(retained.value.nativeSourceMilliseconds,27136);assert.ok(retained.value.storeMilliseconds>=7715);
+  assert.equal(shared.started,0);assert.equal(context.busy,false);assert.equal(context.active,undefined);
+});
