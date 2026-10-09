@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "391b034f08df99e43acf18a6164a38514d0367585ecd89445e4a8cfbd1505a2a",
+  "hostSourceClosureSHA256": "e1c3a69f572db9cdffda58ebbce0caf51187ecff703def72a9447c52d428921b",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -958,15 +958,15 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-owned-files-v1.mjs",
-      "sha256": "052159dd8d12740d119379a509cfc9df6a07d1c4043674b0e79cedbfff96ce65"
+      "sha256": "eaacfa7ce5643fe50069532cb51e2682d144226825167487c61a02fa1722a96f"
     },
     {
       "path": "integration/native-flow-owned-rss-v1.mjs",
-      "sha256": "ad72d980288557e4ad9212a41978b5799407e1bf7363f20777c11a785e67aa73"
+      "sha256": "998385e4ccee0e1e801fab96ed48281d9e322e68430db69c4c9faca6b70b0cba"
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "df3535886f81fadd16dc6a4d87bacf6fe6272c0cb6f036b8894e99fd9edd4da7"
+      "sha256": "537b9735f06ee304c6ad621ad2b7d52a9255c8933094bedae63ac10076e11cbb"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
