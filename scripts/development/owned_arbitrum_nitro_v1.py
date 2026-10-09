@@ -411,7 +411,8 @@ class OriginalCluster:
 
     def ids(self):
         result = run(['/usr/bin/docker', 'container', 'ls', '-aq', '--filter',
-                      'label=com.docker.compose.project=' + self.project], self.realm, self.log).decode().split()
+                      'label=com.docker.compose.project=' + self.project, '--filter',
+                      'label=com.docker.compose.oneoff=False'], self.realm, self.log).decode().split()
         require(len(result) <= 32 and all(re.fullmatch(r'[0-9a-f]{12,64}', item) for item in result),
                 'ARBITRUM_ORIGINAL_CONTAINER_BOUND')
         return result

@@ -31,6 +31,26 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
             with self.assertRaisesRegex(module.ClosedError, '^ARBITRUM_ORIGINAL_DIRECTORY$'):
                 module.directory(link)
 
+    def test_enumeration_excludes_original_ephemeral_compose_jobs(self):
+        path = Path(__file__).with_name('owned_arbitrum_nitro_v1.py')
+        spec = importlib.util.spec_from_file_location('original_nitro_enumeration', path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        runtime = module.OriginalCluster.__new__(module.OriginalCluster)
+        runtime.project = 'lianum-nitro-' + '3' * 32
+        runtime.realm = Path.cwd()
+        runtime.log = io.BytesIO()
+        calls = []
+        def inspect_ids(command, _cwd, _log):
+            calls.append(command)
+            # Docker's label-filter port is synthetic, never a runtime birth.
+            self.assertEqual(command[-2:], ['--filter', 'label=com.docker.compose.oneoff=False'])
+            return ('a' * 64 + '\n').encode()
+        module.run = inspect_ids
+        self.assertEqual(runtime.ids(), ['a' * 64])
+        self.assertEqual(calls[0][4:6], ['--filter',
+            'label=com.docker.compose.project=' + runtime.project])
+
     def test_birth_waits_for_real_pid_and_close_denies_unretained_id(self):
         path = Path(__file__).with_name('owned_arbitrum_nitro_v1.py')
         spec = importlib.util.spec_from_file_location('original_nitro_lifecycle', path)
