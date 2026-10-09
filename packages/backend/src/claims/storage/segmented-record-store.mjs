@@ -110,9 +110,18 @@ async function boundedRead(path, maximum = LIMIT.envelopeBytes) {
   try {
     const stat = await handle.stat();
     check(stat.isFile() && stat.size <= maximum, 'CLAIM_STORE_FILE_SIZE');
-    const buffer = Buffer.alloc(maximum + 1); let offset = 0;
+    // FD size selects allocation only, never the trusted read limit or EOF.
+    // Tiny encrypted cells need not allocate/wipe the whole 2 MiB envelope
+    // bound. A concurrent grow still reads/probes through the original max+1.
+    let buffer = Buffer.alloc(Math.min(maximum + 1, Math.max(4096, stat.size + 1))), offset = 0;
     try {
-      while (offset < buffer.length) {
+      while (offset < maximum + 1) {
+        if (offset === buffer.length) {
+          const larger = Buffer.alloc(Math.min(maximum + 1, buffer.length * 2));
+          try { buffer.copy(larger, 0, 0, offset); }
+          catch (error) { larger.fill(0); throw error; }
+          buffer.fill(0); buffer = larger;
+        }
         const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
         if (!bytesRead) break;
         offset += bytesRead;
