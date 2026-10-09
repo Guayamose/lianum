@@ -142,7 +142,7 @@ const GRAPH_PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/devic
 const GRAPH_MOBILE=Object.freeze([
  [
   "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
-  "cc1e5e52fe4f122f276cd8a644c3882467a0226a7f54afad9d21c3d5c334b3d1"
+  "9c10e08d60d8c4e62f352416047fa254e300e0ebd4183d7a40a1ba4835f66b96"
  ],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
@@ -158,7 +158,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
-  "3b849834854c32c4d03506a3ca86042843c32ba2eb289323aa62eedb1f8cd746"
+  "13f1f8612047b8c7dc2ad19fde67cacac2bdf006ca71553dff27207d7a1608de"
  ],
  [
   "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
@@ -166,7 +166,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/mobile/src/custody/key-store.ts",
-  "cc1c2be18a6df2885ae3a8f7d342a32bb73ea0506893d42f8fe698ca21e0bc62"
+  "2384eab8774367ecc9a86587b595cdc88b013603c4002a90d97237e9ca10187e"
  ],
  [
   "apps/mobile/src/custody/signing.mjs",
@@ -186,11 +186,11 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "11618b0d1f4ed48fefc7c6f009d6aab86738fa1209cc687df2a175188c070d07"
+  "fb9c8cb7c4446a5f103ee6084207884f3974dedb8214b8c38d46609b1e2e32c5"
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "1b3fa40154f512bb419b0965d522ee1f1062882a188f94b7445b731d2a583f6c"
+  "81df1756b97e5f6eb5d2e9a7774d365bab1ea089aad663eb012b73d73eada57d"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -198,7 +198,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "2ab2c21c53aa8b01e10ab5c0631139c228e8d57358dce4bff2f72566fff44c85"
+  "c78f864f6f220097af104616ad585ea5f5eb0f95ee25107001d76400b685cd90"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -230,7 +230,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "5a116ae35960d707289319b476562a8837c4b7b351223f6497d65648b271568c"
+  "e6d400535f479685045c74bb49761cbea642217b668a146c03bd554db5002b20"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
@@ -262,7 +262,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-  "bd8d80cefe6d62f5df47301cc67a532237ddd074426a7fa059801a9ca33ff24c"
+  "ba760b3f61d028b8be96000fab04511e947e5900aaf2b4882e4761818e184331"
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
