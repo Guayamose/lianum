@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "c71e5921ddffbcde319ebb2210d8d810c032f9560a0347a3515e4910c2867757",
+  "hostSourceClosureSHA256": "7131b3ebc6b5cfb4397be920a85fa5fb07237bada182d79b206a87344ac0febc",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -282,7 +282,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "development-tooling/paired_original_account_lab.py",
-      "sha256": "a4b9d3219486cfc95aa5561f13ff925db9a8a7c733f13c5ddd5c1989ce8033b0"
+      "sha256": "a2cf420fe9b7021be848d545c7da1b30b10d0c47398756d455afe24b0e792f7f"
     },
     {
       "path": "development-tooling/workspace.py",
@@ -3062,7 +3062,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/paeg/flat-native-execution.mjs",
-      "sha256": "fa6ac046d27453817072afaee519ce69d1326e6311c3be007a69d90270c3bd5b"
+      "sha256": "bb2ad544e88f125b1daef9d29380e24fe4cc734a8ba3942fe9eae9e83f122ebf"
     },
     {
       "path": "wallet-platform/modules/paeg/flat-pure-math-cache.mjs",
