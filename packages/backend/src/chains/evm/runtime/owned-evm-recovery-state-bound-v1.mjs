@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {types} from 'node:util';
 
-const MAX_CAPTURE_CHARACTERS=32*1024*1024;
+const MAX_CAPTURE_CHARACTERS=32*1024*1024,MAX_DECODED_JSON_BYTES=128*1024*1024;
 const failures=new WeakMap();
 function describe(value){
  const type=value===null?'NULL':typeof value==='string'?'STRING':typeof value==='undefined'?'UNDEFINED'
@@ -23,9 +23,32 @@ function describe(value){
    if(!(code>=48&&code<=57||code>=97&&code<=102)){lowerHexEncoding=false;break;}
   }
  }
+ // Inspect fixed header/footer bytes only, even when the original cap failed.
+ // ISIZE is an untrusted uint32 hint (modulo 2^32), not decoded size or evidence.
+ // No gzip decoding, state retention, full-data validation or authority occurs.
+ let gzipHeaderMagicAndMethod=null,gzipHeaderFlags=null,gzipHeaderReservedBitsClear=null,
+  gzipFooterISizeHintBytes=null,gzipFooterISizeHintWithinDecodedBound=null;
+ if(string&&hexPrefix&&positiveEvenByteLength&&length>=2+2*(10+8)){
+  const header=value.slice(2,10),footer=value.slice(-8);
+  const exactByteWords=word=>/^[0-9a-f]{8}$/.exec(word)?.[0]===word;
+  if(exactByteWords(header)){
+   gzipHeaderMagicAndMethod=header.slice(0,6)==='1f8b08';
+   if(gzipHeaderMagicAndMethod){
+    gzipHeaderFlags=Number.parseInt(header.slice(6),16);
+    gzipHeaderReservedBitsClear=(gzipHeaderFlags&0xe0)===0;
+    if(gzipHeaderReservedBitsClear&&exactByteWords(footer)){
+     gzipFooterISizeHintBytes=0;
+     for(let index=0;index<4;index++)gzipFooterISizeHintBytes+=Number.parseInt(footer.slice(index*2,index*2+2),16)*2**(8*index);
+     gzipFooterISizeHintWithinDecodedBound=gzipFooterISizeHintBytes<=MAX_DECODED_JSON_BYTES;
+    }
+   }
+  }
+ }
  return Object.freeze({schema:'OWNED_EVM_RECOVERY_STATE_BOUND_DIAGNOSTIC_V1',type,
   characterLength:length,maximumCharacters:MAX_CAPTURE_CHARACTERS,withinCharacterBound,
-  hexPrefix,positiveEvenByteLength,lowerHexEncoding});
+  hexPrefix,positiveEvenByteLength,lowerHexEncoding,gzipHeaderMagicAndMethod,gzipHeaderFlags,
+  gzipHeaderReservedBitsClear,gzipFooterISizeHintBytes,gzipFooterISizeHintWithinDecodedBound,
+  gzipFooterHintOnly:true,gzipFooterHintAuthenticated:false,gzipFooterISizeHintModulo2Pow32:true});
 }
 export function assertOwnedEvmRecoveryStateDumpV1(value){
  assert.equal(arguments.length,1);
