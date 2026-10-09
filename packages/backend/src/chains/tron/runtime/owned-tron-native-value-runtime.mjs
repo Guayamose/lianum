@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
+import { retainNativeValueOriginalDispatchTimingV1 } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import { open,readFile,lstat,realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
@@ -89,7 +90,14 @@ export async function createOwnedLocalTronNativeValueV1(){assert.equal(arguments
      return clone({family:'TRON',profileCommitment:binding.profileCommitment,lifetimeId:lifetimeIdV4,phase:phaseV4,prepared,signed:entry.signed??null,
       nativeAuditStarted:observed.started,physicalState:auditStateV4()});
     }});};
-   try{await retain('original-binding.json',binding);const raw=await driver.prepare(intent.amountSun,intent.wireKeyCommitment);exact(raw,['preparationId','snapshot','timestampMs','unsignedWire']);hex(raw.preparationId,32,true);
+   const dispatchTiming={profile:'NATIVE_VALUE_ORIGINAL_DISPATCH_TIMING_V1',phase:'prepare',
+    preparationMilliseconds:0,beforeKeyMilliseconds:0,signatureMilliseconds:0,retentionMilliseconds:0,
+    beforeSendMilliseconds:0,broadcastMilliseconds:0,elapsedMilliseconds:0,limitMilliseconds:30000};
+   let dispatchTimingStarted=null,dispatchIntervalStarted=null;
+   const beginInterval=phase=>{dispatchTiming.phase=phase;dispatchIntervalStarted=performance.now();};
+   const finishInterval=field=>{dispatchTiming[field]=Math.max(0,performance.now()-dispatchIntervalStarted);dispatchIntervalStarted=null;};
+   try{await retain('original-binding.json',binding);dispatchTimingStarted=performance.now();beginInterval('prepare');
+    const raw=await driver.prepare(intent.amountSun,intent.wireKeyCommitment);finishInterval('preparationMilliseconds');beginInterval('before-key');exact(raw,['preparationId','snapshot','timestampMs','unsignedWire']);hex(raw.preparationId,32,true);
     entry.preparationId=raw.preparationId;const prepared=prepareOwnedTronNative({binding,intent,snapshot:raw.snapshot,nowMs:raw.timestampMs});assert.equal(raw.unsignedWire,prepared.unsignedWire,'OWNED_TRON_DRIVER_ORIGINAL_ENCODING');
     entry.prepared=prepared;await retain('original-prepared.json',prepared);await append('PREPARED',prepared);await append('KEY_PENDING',null);
     await driver.armKey(entry.preparationId);await current(prepared);cause='native-key';
@@ -98,23 +106,36 @@ export async function createOwnedLocalTronNativeValueV1(){assert.equal(arguments
     if(wrappedV4){phaseV4='native-key';issueOperationV4();const authority=await scope.beforeSign(prepared,operationV4);
      terminalV4(WrappedGraphV4.consumeWrappedGraphDispatchAuthorityV4(authority,'native-key',operationV4,runtime,prepared,null));
     }else assert.equal(await scope.beforeSign(prepared),undefined,'OWNED_TRON_ASSERT_ONLY');
+    finishInterval('beforeKeyMilliseconds');beginInterval('sign');
     const signed=await driver.sign(entry.preparationId,prepared.unsignedWire);
+    finishInterval('signatureMilliseconds');beginInterval('retain');
     exact(signed,['nativeWire','nativeId','transactionSHA256']);assert.deepEqual(bindOwnedTronSigned(prepared.transaction,signed.nativeWire),signed);
     cause='persistence';entry.signed=clone(signed);await retain('original-signed.json',signed);await append('SIGNED',signed);
     cause='provider-retention';if(wrappedV4)phaseV4='provider-key';assert.equal(await (wrappedV4?scope.onSigned(clone(signed),operationV4):scope.onSigned(clone(signed))),undefined,'OWNED_TRON_ASSERT_ONLY');
     // Genuine original gate durably retains its exact provider signature; no
     // caller-provided digest or promise can create this acknowledgement.
     await append('PROVIDER_RETAINED',null);await append('SEND_PENDING',null);
+    finishInterval('retentionMilliseconds');beginInterval('before-send');
     await driver.armSend(entry.preparationId);await current(prepared);cause='original-broadcast';
     // Independent fresh full health is required again, never cached from key.
     if(wrappedV4){phaseV4='send';const authority=await scope.beforeSend(operationV4);
      assert.deepEqual(bindOwnedTronSigned(prepared.transaction,signed.nativeWire),signed);
      terminalV4(WrappedGraphV4.consumeWrappedGraphDispatchAuthorityV4(authority,'send',operationV4,runtime,prepared,entry.signed));
     }else assert.equal(await scope.beforeSend(),undefined,'OWNED_TRON_ASSERT_ONLY');
+    finishInterval('beforeSendMilliseconds');beginInterval('broadcast');
     const result=await driver.broadcast(entry.preparationId,signed.nativeId,signed.transactionSHA256);
+    finishInterval('broadcastMilliseconds');dispatchTiming.phase='complete';
     exact(result,['nativeId','accepted']);assert.equal(result.nativeId,signed.nativeId);assert.equal(result.accepted,true,'OWNED_TRON_NATIVE_REJECTED');
     await append('BROADCAST',{nativeId:signed.nativeId});return clone({nativeId:signed.nativeId,transactionSHA256:signed.transactionSHA256});
-   }catch(error){latched=true;if(journal.events.length){try{await append('UNKNOWN',{cause});}catch{}}throw error;}finally{if(operationV4)wrappedGraphOperationsV4.delete(operationV4);entry.active=false;busy=false;}
+   }catch(error){
+    if(dispatchTimingStarted!==null){
+     const field={'prepare':'preparationMilliseconds','before-key':'beforeKeyMilliseconds','sign':'signatureMilliseconds',
+      'retain':'retentionMilliseconds','before-send':'beforeSendMilliseconds','broadcast':'broadcastMilliseconds'}[dispatchTiming.phase];
+     if(field&&dispatchIntervalStarted!==null)finishInterval(field);
+     dispatchTiming.elapsedMilliseconds=Math.max(0,performance.now()-dispatchTimingStarted);
+     retainNativeValueOriginalDispatchTimingV1(error,dispatchTiming);
+    }
+    latched=true;if(journal.events.length){try{await append('UNKNOWN',{cause});}catch{}}throw error;}finally{if(operationV4)wrappedGraphOperationsV4.delete(operationV4);entry.active=false;busy=false;}
   },
   async observeNativeValueOriginal(query){assert.equal(busy,false,'OWNED_TRON_BUSY');busy=true;mutationGenerationV4++;try{return await auditReadV4(()=>observe(query));}finally{busy=false;}},
   report(){return clone({profile:OWNED_TRON_NATIVE_VALUE_PROFILE,closed,latched,phase:journal?readTronJournal(journal).phase:'EMPTY',originalOnly:true,publicNetwork:false,creditEligible:false});},

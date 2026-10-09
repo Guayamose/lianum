@@ -52,6 +52,38 @@ function originalAuditTiming(error) {
   }
   return null;
 }
+const originalDispatchTimings = new WeakMap();
+const dispatchTimingPhases = new Set(['prepare', 'before-key', 'sign', 'retain', 'before-send', 'broadcast', 'complete']);
+const dispatchTimingNumbers = ['preparationMilliseconds', 'beforeKeyMilliseconds', 'signatureMilliseconds',
+  'retentionMilliseconds', 'beforeSendMilliseconds', 'broadcastMilliseconds', 'elapsedMilliseconds'];
+// Disjoint private intervals measured by the original runtime. They describe
+// an error, never authorize a key, broadcast, retry, or longer preparation.
+export function retainNativeValueOriginalDispatchTimingV1(error, value) {
+  if (!object(error) || originalDispatchTimings.has(error) || !object(value)
+    || Object.getPrototypeOf(value) !== Object.prototype) return;
+  const fields = ['profile', 'phase', ...dispatchTimingNumbers, 'limitMilliseconds'];
+  const descriptors = Object.getOwnPropertyDescriptors(value), keys = Reflect.ownKeys(descriptors);
+  if (keys.length !== fields.length || !keys.every(key => fields.includes(key)
+    && descriptors[key].enumerable && Object.hasOwn(descriptors[key], 'value'))) return;
+  const data = key => descriptors[key].value;
+  if (data('profile') !== 'NATIVE_VALUE_ORIGINAL_DISPATCH_TIMING_V1'
+    || !dispatchTimingPhases.has(data('phase')) || data('limitMilliseconds') !== 30_000) return;
+  const saved = { profile: data('profile'), phase: data('phase'), limitMilliseconds: 30_000 };
+  for (const key of dispatchTimingNumbers) {
+    const n = data(key);
+    if (typeof n !== 'number' || !Number.isFinite(n) || Object.is(n, -0) || n < 0 || n > 3_600_000) return;
+    saved[key] = Math.floor(n);
+  }
+  originalDispatchTimings.set(error, Object.freeze(saved));
+}
+function originalDispatchTiming(error) {
+  const seen = new Set();
+  for (let i = 0; i < 4 && object(error) && !seen.has(error); i++) {
+    seen.add(error); const value = originalDispatchTimings.get(error); if (value) return value;
+    error = Object.getOwnPropertyDescriptor(error, 'cause')?.value;
+  }
+  return null;
+}
 const classes = new Map([[AssertionError.prototype, 'ASSERTION_ERROR'],
   [TypeError.prototype, 'TYPE_ERROR'], [RangeError.prototype, 'RANGE_ERROR'],
   [Error.prototype, 'ERROR']]);
@@ -76,9 +108,10 @@ export function retainNativeValueSecondaryFailure(error, phase, secondary) {
   }
 }
 export function nativeValueFailureDiagnostic(error) {
-  const safe = object(error), secondary = safe ? secondaryFailures.get(error) : null, timing = originalAuditTiming(error);
+  const safe = object(error), secondary = safe ? secondaryFailures.get(error) : null, timing = originalAuditTiming(error), dispatchTiming = originalDispatchTiming(error);
   return Object.freeze({ ...boundedDiagnostic(error),
     phase: safe ? retainedPhases.get(error) ?? 'unlocated' : 'unlocated',
     ...(secondary ? { secondaryFailures: secondary } : {}),
-    ...(timing ? { nativeAuditTiming: timing } : {}) });
+    ...(timing ? { nativeAuditTiming: timing } : {}),
+    ...(dispatchTiming ? { nativeDispatchTiming: dispatchTiming } : {}) });
 }
