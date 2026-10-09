@@ -43,17 +43,41 @@ function sourceJSON(value){
  };return visit(value,0);
 }
 const dataCopy=value=>JSON.parse(sourceJSON(value));
-function encodeJournal(data){const clear=Buffer.from(sourceJSON(data));let packed;try{
- packed=deflateRawSync(clear);const encoded={schema:JOURNAL_CODEC,encoding:'DEFLATE_RAW',clearBytes:clear.length,clearSHA256:hash(clear),packed:packed.toString('base64')};
- canonical(encoded);return encoded;
- }finally{clear.fill(0);packed?.fill(0);}}
+// Only the small confirmed index is stored in the generic Vault. The body
+// stays under the original private SOURCE bound, in two fixed AEAD slots.
+const JOURNAL_BODY='ORIGINAL_NATIVE_SOURCE_PRIVATE_JOURNAL_BODY_V1';
+const JOURNAL_BODY_MAGIC=Buffer.from('LIANUM_NATIVE_SOURCE_JOURNAL_BODY_V1\0');
+const JOURNAL_BODY_OVERHEAD=JOURNAL_BODY_MAGIC.length+12+16;
+function journalBodyKey(password){assert.ok(hex(password),'NATIVE_SOURCE_JOURNAL_ORIGINAL_KEY');const secret=Buffer.from(password,'hex');
+ try{return createHmac('sha256',secret).update('LIANUM_NATIVE_SOURCE_JOURNAL_BODY_V1').digest();}finally{secret.fill(0);}}
+function journalBodyAAD(identity,index){const {schema,encoding,path,revision,bytes,clearBytes,clearSHA256,packedBytes}=index;
+ return Buffer.from(canonical({identity,schema,encoding,path,revision,bytes,clearBytes,clearSHA256,packedBytes}));}
+function validateJournalBodyIndex(index,revision){exactRecord(index,['schema','encoding','path','revision','bytes','sha256','clearBytes','clearSHA256','packedBytes']);
+ assert.ok(index.schema===JOURNAL_BODY&&index.encoding==='DEFLATE_RAW'&&['source-body-0.aead','source-body-1.aead'].includes(index.path),'NATIVE_SOURCE_JOURNAL_BODY_INDEX');
+ assert.ok(Number.isSafeInteger(index.revision)&&index.revision>=0&&index.revision===revision,'NATIVE_SOURCE_JOURNAL_BODY_REVISION');
+ assert.ok(Number.isSafeInteger(index.bytes)&&index.bytes>JOURNAL_BODY_OVERHEAD&&index.bytes<=MAX_RECORD&&hex(index.sha256)&&Number.isSafeInteger(index.clearBytes)&&index.clearBytes>0&&index.clearBytes<=MAX_RECORD&&hex(index.clearSHA256)&&Number.isSafeInteger(index.packedBytes)&&index.packedBytes===index.bytes-JOURNAL_BODY_OVERHEAD,'NATIVE_SOURCE_JOURNAL_BODY_BOUND');canonical(index);}
 function decodeJournal(data){if(data?.schema===SCHEMA)return data;exactRecord(data,['schema','encoding','clearBytes','clearSHA256','packed']);
  assert.ok(data.schema===JOURNAL_CODEC&&data.encoding==='DEFLATE_RAW'&&Number.isSafeInteger(data.clearBytes)&&data.clearBytes>0&&data.clearBytes<=MAX_RECORD&&hex(data.clearSHA256)&&typeof data.packed==='string'&&data.packed.length<=1024*1024,'NATIVE_SOURCE_JOURNAL_CODEC');
  const packed=Buffer.from(data.packed,'base64');let clear;try{assert.equal(packed.toString('base64'),data.packed,'NATIVE_SOURCE_JOURNAL_CODEC');clear=inflateRawSync(packed,{maxOutputLength:data.clearBytes});assert.ok(clear.length===data.clearBytes&&hash(clear)===data.clearSHA256,'NATIVE_SOURCE_JOURNAL_CLEAR_PIN');
   const value=JSON.parse(clear.toString('utf8'));assert.equal(sourceJSON(value),clear.toString('utf8'),'NATIVE_SOURCE_JOURNAL_CANONICAL');return value;
  }finally{packed.fill(0);clear?.fill(0);}}
-const decodeRecord=record=>({...record,data:decodeJournal(record.data)});
-const readJournal=async(vault,password)=>decodeRecord(await vault.read(password));
+async function decodeRecord(record,identity,password){if(record.data?.schema!==JOURNAL_BODY)return {...record,data:decodeJournal(record.data)};
+ validateIdentity(identity);const index=record.data;validateJournalBodyIndex(index,record.revision);const bytes=await readPrivate(join(identity.directory,index.path),MAX_RECORD);let key,packed,clear;
+ try{assert.equal(bytes.length,index.bytes,'NATIVE_SOURCE_JOURNAL_BODY_BYTES');assert.equal(hash(bytes),index.sha256,'NATIVE_SOURCE_JOURNAL_BODY_BYTES');
+  assert.ok(bytes.subarray(0,JOURNAL_BODY_MAGIC.length).equals(JOURNAL_BODY_MAGIC),'NATIVE_SOURCE_JOURNAL_BODY_FRAME');key=journalBodyKey(password);
+  const decipher=createDecipheriv('aes-256-gcm',key,bytes.subarray(JOURNAL_BODY_MAGIC.length,JOURNAL_BODY_MAGIC.length+12));decipher.setAAD(journalBodyAAD(identity,index));decipher.setAuthTag(bytes.subarray(JOURNAL_BODY_MAGIC.length+12,JOURNAL_BODY_OVERHEAD));
+  packed=Buffer.concat([decipher.update(bytes.subarray(JOURNAL_BODY_OVERHEAD)),decipher.final()]);assert.equal(packed.length,index.packedBytes,'NATIVE_SOURCE_JOURNAL_BODY_BOUND');
+  clear=inflateRawSync(packed,{maxOutputLength:index.clearBytes});assert.ok(clear.length===index.clearBytes&&hash(clear)===index.clearSHA256,'NATIVE_SOURCE_JOURNAL_CLEAR_PIN');
+  const value=JSON.parse(clear.toString('utf8'));assert.equal(sourceJSON(value),clear.toString('utf8'),'NATIVE_SOURCE_JOURNAL_CANONICAL');assert.deepEqual(value.identity,identity,'NATIVE_SOURCE_JOURNAL_BODY_IDENTITY');return {...record,data:value};
+ }finally{bytes.fill(0);key?.fill(0);packed?.fill(0);clear?.fill(0);}}
+const readJournal=async(vault,password,identity)=>decodeRecord(await vault.read(password),identity,password);
+async function encodeJournal(data,identity,password,revision,previous){validateIdentity(identity);const clear=Buffer.from(sourceJSON(data));let packed,key,iv,ciphertext,bytes;
+ try{assert.deepEqual(data.identity,identity,'NATIVE_SOURCE_JOURNAL_BODY_IDENTITY');packed=deflateRawSync(clear);assert.ok(packed.length>0&&packed.length<=MAX_RECORD-JOURNAL_BODY_OVERHEAD,'NATIVE_SOURCE_JOURNAL_BODY_BOUND');
+  const path=previous?.schema===JOURNAL_BODY&&previous.path==='source-body-0.aead'?'source-body-1.aead':'source-body-0.aead';
+  const index={schema:JOURNAL_BODY,encoding:'DEFLATE_RAW',path,revision,bytes:packed.length+JOURNAL_BODY_OVERHEAD,sha256:null,clearBytes:clear.length,clearSHA256:hash(clear),packedBytes:packed.length};
+  key=journalBodyKey(password);iv=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(journalBodyAAD(identity,index));ciphertext=Buffer.concat([cipher.update(packed),cipher.final()]);bytes=Buffer.concat([JOURNAL_BODY_MAGIC,iv,cipher.getAuthTag(),ciphertext]);index.sha256=hash(bytes);validateJournalBodyIndex(index,revision);
+  await replace(join(identity.directory,path),bytes);const prepared=await decodeRecord({revision,data:index},identity,password);assert.deepEqual(prepared.data,data,'NATIVE_SOURCE_JOURNAL_BODY_READBACK');return index;
+ }finally{clear.fill(0);packed?.fill(0);key?.fill(0);iv?.fill(0);ciphertext?.fill(0);bytes?.fill(0);}}
 const STATE_MAGIC=Buffer.from('LIANUM_NATIVE_SOURCE_STATE_V1\0');
 const STATE_OVERHEAD=STATE_MAGIC.length+12+16;
 function stateKey(s,family,generation){const secret=Buffer.from(s.password,'hex');try{return createHmac('sha256',secret).update('LIANUM_NATIVE_SOURCE_STATE_V1/'+family+'/'+generation).digest();}finally{secret.fill(0);}}
@@ -114,8 +138,11 @@ async function reconcileCheckpoints(s){const before=copy(s.record.data),native={
  if(Object.keys(native).length||account||actor)await update(s,data=>{assert.deepEqual(data,before,'NATIVE_SOURCE_ORIGINAL_CHECKPOINT_CHANGED');for(const name of Object.keys(native))data.native[name]=native[name];if(account)data.sections.account=dataCopy(account);if(actor)data.sections.actor=dataCopy(actor);return data;});}
 function original(authority,allowUnknown=false){const s=authorities.get(authority);assert.ok(s&&!s.closed&&!s.fault,'NATIVE_SOURCE_ORIGINAL_CAPSULE');assert.ok(allowUnknown||s.record.data.phase!=='UNKNOWN','NATIVE_SOURCE_PENDING_UNKNOWN');assert.ok(Date.now()<s.identity.deadlineMs,'NATIVE_SOURCE_ORIGINAL_DEADLINE');return s;}
 async function update(s,change){const operation=s.tail.then(async()=>{assert.ok(!s.closed&&!s.fault,'NATIVE_SOURCE_UNAVAILABLE');await privateDirectory(s.identity.directory);
- const current=await readJournal(s.vault,s.password);validate(current,s.identity);assert.deepEqual(current,s.record,'NATIVE_SOURCE_CHECKPOINT_CHANGED');
- const next=decodeRecord(await s.vault.update(s.password,current.revision,data=>{const originalData=decodeJournal(data);assert.deepEqual(originalData,current.data,'NATIVE_SOURCE_CHECKPOINT_CHANGED');return encodeJournal(change(copy(originalData)));}));validate(next,s.identity);const actual=await readJournal(s.vault,s.password);assert.deepEqual(actual,next,'NATIVE_SOURCE_CHECKPOINT_READBACK');s.record=next;return next;
+ const stored=await s.vault.read(s.password),current=await decodeRecord(stored,s.identity,s.password);validate(current,s.identity);assert.deepEqual(current,s.record,'NATIVE_SOURCE_CHECKPOINT_CHANGED');
+ const changed=change(copy(current.data));validate({revision:current.revision+1,data:changed},s.identity);
+ const index=await encodeJournal(changed,s.identity,s.password,current.revision+1,stored.data);
+ const published=await s.vault.update(s.password,current.revision,data=>{assert.deepEqual(data,stored.data,'NATIVE_SOURCE_CHECKPOINT_CHANGED');return index;});
+ const next=await decodeRecord(published,s.identity,s.password);validate(next,s.identity);const actual=await readJournal(s.vault,s.password,s.identity);assert.deepEqual(actual,next,'NATIVE_SOURCE_CHECKPOINT_READBACK');s.record=next;return next;
  });s.tail=operation.catch(()=>{});try{return await operation;}catch(e){s.fault=true;throw e;}}
 function uncertain(data){return FAMILIES.some(name=>data.native[name]?.pending!==null&&data.native[name]!==null)||SECTIONS.some(name=>data.sections[name]?.candidate!==null&&data.sections[name]!==null);}
 async function clearOriginalSourceVaultLock(s){const path=s.vault.lockPath;let bytes;try{bytes=await readPrivate(path,2048);}catch(e){if(e.code==='ENOENT')return;throw e;}
@@ -139,7 +166,8 @@ export async function createOriginalNativeSourceCapsuleV1(){assert.equal(argumen
  try{await lstat(LOCATOR);assert.fail('NATIVE_SOURCE_EXISTING_ORIGINAL_REALM');}catch(e){if(e.code!=='ENOENT')throw e;}
  const identity={profile:ORIGINAL_NATIVE_SOURCE_PROFILE_V1,directory:join(BASE,'realms','realm-'+randomUUID()),runId:null,sourceSHA256:NATIVE_VALUE_DEV_RELEASE_V5.hostSourceClosureSHA256,deadlineMs:Date.now()+9*60*60*1000};identity.runId=identity.directory.slice(identity.directory.lastIndexOf('realm-')+6);validateIdentity(identity);await mkdir(identity.directory,{mode:0o700});await privateDirectory(identity.directory);
  const key=randomBytes(32);let s;try{await exclusive(join(identity.directory,'source.secret'),key);const password=key.toString('hex'),vault=new Vault(join(identity.directory,'source.vault')),creator=await processIdentity(process.pid);
- const record=decodeRecord(await vault.create(encodeJournal({schema:SCHEMA,identity,phase:'SEEDING',generation:0,creator,clockSecond:'0',sections:Object.fromEntries(SECTIONS.map(k=>[k,null])),native:{receiver:null,graphNative:null}}),password));validate(record,identity);assert.deepEqual(await readJournal(vault,password),record);
+ const initial={schema:SCHEMA,identity,phase:'SEEDING',generation:0,creator,clockSecond:'0',sections:Object.fromEntries(SECTIONS.map(k=>[k,null])),native:{receiver:null,graphNative:null}};
+ const index=await encodeJournal(initial,identity,password,0,null),record=await decodeRecord(await vault.create(index,password),identity,password);validate(record,identity);assert.deepEqual(await readJournal(vault,password,identity),record);
  s={identity,vault,password,record,tail:Promise.resolve(),closed:false,fault:false,opening:false,opened:new Set(),references:new Map(),release:null};await acquire(s,true);await exclusive(LOCATOR,Buffer.from(JSON.stringify({schema:SCHEMA,identity})));const authority=opaque();authorities.set(authority,s);return authority;
  }catch(e){if(s?.release)await s.release();throw e;}finally{key.fill(0);}}
 export function assertOriginalNativeSourceCapsuleV1(authority){assert.equal(arguments.length,1);return Object.freeze(copy(original(authority).identity));}
@@ -147,7 +175,7 @@ export function originalNativeSourceCapsuleStatusV1(authority){assert.equal(argu
 /** Private owned-process evidence for the fixed outer supervisor, never a PID selector. */
 export function readOriginalNativeSourceOwnedProcessesV1(authority){assert.equal(arguments.length,1);const s=original(authority,true);return Object.freeze([s.record.data.creator,...SECTIONS.flatMap(name=>s.record.data.sections[name]?.ownedProcesses??[])].map(value=>Object.freeze(copy(value))));}
 export async function openOriginalNativeSourceCapsuleV1(){assert.equal(arguments.length,0);const bytes=await readPrivate(LOCATOR,16384);let locator;try{locator=JSON.parse(bytes.toString('utf8'));}finally{bytes.fill(0);}exactRecord(locator,['schema','identity']);assert.equal(locator.schema,SCHEMA);const identity=locator.identity;validateIdentity(identity);assert.equal(identity.sourceSHA256,NATIVE_VALUE_DEV_RELEASE_V5.hostSourceClosureSHA256,'NATIVE_SOURCE_ORIGINAL_CLOSURE');assert.ok(Date.now()<identity.deadlineMs,'NATIVE_SOURCE_ORIGINAL_DEADLINE');await privateDirectory(identity.directory);
- const key=await readPrivate(join(identity.directory,'source.secret'),32);let password;try{assert.equal(key.length,32);password=key.toString('hex');}finally{key.fill(0);}const vault=new Vault(join(identity.directory,'source.vault')),record=await readJournal(vault,password);validate(record,identity);
+ const key=await readPrivate(join(identity.directory,'source.secret'),32);let password;try{assert.equal(key.length,32);password=key.toString('hex');}finally{key.fill(0);}const vault=new Vault(join(identity.directory,'source.vault')),record=await readJournal(vault,password,identity);validate(record,identity);
  assert.ok(['CONFIRMED','OPENING'].includes(record.data.phase),'NATIVE_SOURCE_CONFIRMED_POINT_REQUIRED');const processes=[record.data.creator,...SECTIONS.flatMap(k=>record.data.sections[k]?.ownedProcesses??[])];for(const p of processes)await absent(p);
  const authority=opaque(),s={identity,vault,password,record,tail:Promise.resolve(),closed:false,fault:false,opening:true,opened:new Set(),references:new Map(),release:null};authorities.set(authority,s);
  if(uncertain(record.data)&&!resumableCheckpoints(record.data)){s.record={...record,data:{...record.data,phase:'UNKNOWN'}};return authority;}
