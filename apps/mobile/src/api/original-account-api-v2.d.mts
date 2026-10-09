@@ -8,6 +8,8 @@ import type { OriginalAccountActionV2, OriginalAccountBindingV2, OriginalAccount
   OriginalAccountReviewV2, OriginalAccountAccessAuthorizationV2, OriginalAccountReviewAuthorizationV2 }
   from '@lianum/mobile-protocol/original-account-v2';
 export type OriginalAccountDescriptorV2 = Readonly<{ origin: string; pairingId: string; devicePublicKey: string }>;
+export function readOriginalPrivateStateObservationV1(value:OriginalPrivateStateObservationV1):OriginalPrivateStateObservationV1;
+export function originalPrivateStateObservationDescriptorV1(value:OriginalPrivateStateObservationV1):OriginalAccountDescriptorV2;
 export type OriginalAccountServiceV2 = Readonly<{
   version: 2; profile: 'PAIRED_ORIGINAL_ACCOUNT_SERVICE_V2'; connection: 'PAIRED';
   privatePortfolio: null; economicObservation: null; noteCustodyOnDevice: false; nativeEffectsEstablished: false;

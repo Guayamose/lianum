@@ -2,6 +2,7 @@
  * original account authority. Real paired HTTP has a separate integration. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {registerHooks} from 'node:module';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
   from '@lianum/mobile-protocol/original-account-v2';
 import { createOriginalAccountApiV2, normalizeOriginalAccountServiceV2 } from '../src/api/original-account-api-v2.mjs';
@@ -164,9 +165,10 @@ test('a quiet response stream expires even if its transport ignores abort or can
   assert.equal(cancelled, 1); assert.equal(f.calls.length, 1); assert.equal(f.calls[0].options.signal.aborted, true);
 });
 
-test('private-state transport binds the original asset/lifetime and rejects stale, inflated or substituted observations before display', async () => {
-  const stateFixture = () => {
+test('private-state transport binds the original asset/lifetime and rejects stale, inflated or substituted observations before display', async t => {
+  const stateFixture = (genesis='c1'.repeat(32)) => {
     const f = fixture();
+    f.review.binding.asset.genesis=genesis;
     f.responses.set('challenges', { challenge: privateStateAccessFrameV1(f.access) });
     f.responses.set('reviews', { review: privateStateReviewFrameV1(f.review) });
     const value = { version: 1, profile: PRIVATE_STATE_OBSERVATION_V1, scope: PRIVATE_STATE_SCOPE_V1,
@@ -202,6 +204,20 @@ test('private-state transport binds the original asset/lifetime and rejects stal
   Object.assign(unavailable.value, { status: 'UNAVAILABLE', observed: null, balances: null, backing: null });
   const unknown = await unavailable.api.privateState.submit(unavailable.stateSignedReview);
   assert.equal(unknown.balances, null);
+  // Execute the real mobile union and SDK; the explicit fetch fixture grants
+  // no economic account. Expo crypto is unreachable in these account-only
+  // cases and is fenced instead of fabricating DeFi hashing or SDK authority.
+  const hooks=registerHooks({resolve(specifier,context,next){if(specifier==='expo-crypto')return{url:'data:text/javascript,export%20function%20digest()%7Bthrow%20Error(%22HOST_UNREACHABLE_CRYPTO%22)%3B%7D',shortCircuit:true};return next(specifier,context);}});
+  t.after(()=>hooks.deregister());
+  const {createPrivateWalletStateV1}=await import('../src/state/private-wallet-state-v1.mjs'),wallet=createPrivateWalletStateV1();
+  assert.throws(()=>wallet.acceptAccount(structuredClone(observed)));assert.throws(()=>wallet.acceptPositions({}));assert.throws(()=>wallet.acceptExternal({}));
+  wallet.acceptAccount(observed);let snapshot=wallet.snapshot();assert.equal(snapshot.rows.length,1);assert.equal(snapshot.rows[0].state,'UNKNOWN');assert.equal(snapshot.rows[0].available,null);
+  const other=stateFixture('c2'.repeat(32));other.value.request.state='CONFIRMED';other.value.request.disposition='APPLIED';
+  const otherObserved=await other.api.privateState.submit(other.stateSignedReview);wallet.acceptAccount(otherObserved);
+  snapshot=wallet.snapshot();assert.equal(snapshot.rows.length,2);assert.notEqual(snapshot.rows[0].key,snapshot.rows[1].key);assert.equal(snapshot.rows[1].available,'100');assert.equal(snapshot.rows[1].recovery,'40');assert.equal(snapshot.aggregateBalance,null);
+  assert.equal(f.calls.length,3);assert.equal(other.calls.length,1);assert.equal(Object.isFrozen(snapshot.rows[1]),true);
+  const realNow=Date.now;t.mock.method(Date,'now',()=>realNow()+15001);snapshot=wallet.snapshot();assert.equal(snapshot.rows.every(row=>row.state==='STALE'&&row.available===null&&row.recovery===null),true);t.mock.restoreAll();
+  wallet.clear();assert.equal(wallet.snapshot().rows.length,0);assert.equal(createPrivateWalletStateV1().snapshot().rows.length,0);
 });
 
 test('device U uses its exact consent domain and one fixed POST; a lost response never triggers a second proof or reservation', async () => {

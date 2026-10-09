@@ -21,6 +21,17 @@ import {validateDeviceRecoveryArmConsentFreshV1,normalizeDeviceRecoveryArmStatus
 const MAX_RESPONSE = 16 * 1024;
 const fail = code => { throw new Error(code); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const privateStateObservations = new WeakMap();
+/** Read handle issued only after the original SDK verified a signed review.
+ * Copies and persisted frames cannot manufacture a new live observation. */
+export function readOriginalPrivateStateObservationV1(value) {
+  const entry = privateStateObservations.get(value);
+  if (!entry || Date.now() >= entry.expiresAt) fail('MOBILE_PRIVATE_STATE_INVALID');
+  return validatePrivateStateFreshV1(value);
+}
+export function originalPrivateStateObservationDescriptorV1(value) {
+  readOriginalPrivateStateObservationV1(value);return privateStateObservations.get(value).descriptor;
+}
 function exact(value, names) {
   if (!value || Object.getPrototypeOf(value) !== Object.prototype) return false;
   const keys = Reflect.ownKeys(value);
@@ -123,6 +134,8 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
       const value = await request('observations', { review: privateStateReviewFrameV1(review), signature }, true);
       const observed = validatePrivateStateFreshV1(normalizePrivateStateObservationV1(value));
       if (!same(observed.binding, review.binding)) fail('MOBILE_REVIEW_CHANGED');
+      privateStateObservations.set(observed, {descriptor:original,expiresAt:Math.min(review.expiresAt,
+        observed.observed === null ? review.expiresAt : observed.observed.observedAt + 15000)});
       return observed;
     },
   });

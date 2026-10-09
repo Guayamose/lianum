@@ -27,7 +27,7 @@ function amountText(amount:string|null,descriptor:ExternalFlatDescriptor|null) {
 }
 const actionText:Record<ExternalFlatAction,string>={PROVE_D26:'Generar prueba de financiación',FUND_D26:'Financiar esta nota',OBSERVE_D26:'Consultar esta financiación',QUOTE_W39:'Preparar la retirada completa',PROVE_W39:'Generar prueba de retirada',WITHDRAW_W39:'Retirar esta nota',OBSERVE_W39:'Consultar esta retirada'};
 const stageText:Record<string,string>={PROVING:'Prueba pendiente de consultar',PROVED:'Prueba disponible',FUNDING_UNKNOWN:'Financiación pendiente de confirmar',WITHDRAWAL_UNKNOWN:'Retirada pendiente de confirmar',CONFIRMED:'Confirmada'};
-export default function ExternalTokenNoteScreen() {
+export default function ExternalTokenNoteScreen({onObservation}:{onObservation?(value:ExternalFlatStatus):void}={}) {
  const [descriptorText,setDescriptorText]=useState(''),[recipient,setRecipient]=useState(''),[amount,setAmount]=useState('');
  const [connected,setConnected]=useState(false),[summary,setSummary]=useState<DeviceExternalFlatSummary|null>(null);
  const [review,setReview]=useState<ExternalFlatConsent|null>(null),[status,setStatus]=useState<ExternalFlatStatus|null>(null);
@@ -73,7 +73,7 @@ export default function ExternalTokenNoteScreen() {
   const access=await selected.client.challenge();current(ticket,selected);
   const signature=await sign(selected,access,ticket);const value=await selected.client.status(access,signature);current(ticket,selected);
   const local=await selected.vault.reconcileOriginalStatus(value);current(ticket,selected);
-  setSummary(local);setStatus(value);return value;
+  setSummary(local);setStatus(value);onObservation?.(value);return value;
  }
  async function connect() {
   await closeConnection();const ticket=epoch.current;

@@ -7,6 +7,11 @@ import {normalizeDeviceDefiPositionDescriptorV1,normalizeDeviceDefiPositionAcces
  from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
 const fail=()=>{throw Error('MOBILE_DEFI_POSITION_READ_REJECTED');};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const observations=new WeakMap();
+export function readDeviceDefiPositionObservationV1(value){
+ const expiresAt=observations.get(value);if(expiresAt===undefined||Date.now()>=expiresAt)fail();
+ validateDeviceDefiPositionHeadsFreshV1(value.positions);return value;
+}
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 export function createDeviceDefiPositionReadApiV1({descriptor,fetchImpl=globalThis.fetch}={}){
  const original=normalizeDeviceDefiPositionDescriptorV1(descriptor);if(typeof fetchImpl!=='function')fail();let closed=false;
@@ -32,7 +37,7 @@ export function createDeviceDefiPositionReadApiV1({descriptor,fetchImpl=globalTh
   async read(review,signature){if(arguments.length!==2)fail();const row=reviews.get(review);if(!row||row.consumed)fail();scope(review);signature=normalizeDeviceDefiPositionSignatureV1(signature);row.consumed=true;
    const v=normalizeDeviceDefiPositionObservationV1(await post('observations',{review,signature}));scope(review);if(Object.keys(original).some(k=>v[k]!==original[k])||v.reviewId!==review.challengeId||v.observationSHA256!==review.observationSHA256||!same(deviceDefiPositionTargetsV1(v.positions),review.targets))fail();
    validateDeviceDefiPositionHeadsFreshV1(v.positions);const digest=hex(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256,deviceDefiPositionStateBytesV1(v.positions))));scope(review);
-   if(digest!==v.observationSHA256)fail();return v;},
+   if(digest!==v.observationSHA256)fail();observations.set(v,review.expiresAt);return v;},
   close(){if(arguments.length!==0)fail();closed=true;for(const controller of controllers)controller.abort();return{closed:true};},
  });
 }

@@ -19,7 +19,7 @@ function fresh(head:DeviceDefiPositionHeadV1|null,now:number) {
   return head!==null&&head.observedAt<=now&&now-head.observedAt<=15000;
 }
 const units=(value:string|null)=>value===null?'No disponible':value;
-export default function DefiPositionsScreen() {
+export default function DefiPositionsScreen({onObservation}:{onObservation?(value:DeviceDefiPositionObservationV1):void}={}) {
   const [origin,setOrigin]=useState(''),[pairingId,setPairingId]=useState('');
   const [devicePublicKey,setDevicePublicKey]=useState<string|null>(null),[connected,setConnected]=useState(false);
   const [access,setAccess]=useState<DeviceDefiPositionAccessV1|null>(null),[review,setReview]=useState<DeviceDefiPositionReadV1|null>(null);
@@ -94,6 +94,7 @@ export default function DefiPositionsScreen() {
       const expiry=Math.min(value.expiresAt,...heads.map(head=>head.observedAt+15000));
       if(expiry<=Date.now())throw Error('MOBILE_DEFI_POSITION_STALE');
       setObservation(next);setReadExpiresAt(expiry);
+      onObservation?.(next);
       setNotice(next.positions.positions.some(row=>row.ownership.status!=='LIVE')
         ?'Hay posiciones sin una lectura vigente. Sus importes aparecen como no disponibles.'
         :'Posiciones comprobadas en la cabeza indicada. Esta consulta no mueve fondos.');

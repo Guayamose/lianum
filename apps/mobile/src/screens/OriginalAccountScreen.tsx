@@ -23,7 +23,7 @@ function Fields({ values }: { values: Record<string, string | number> }) {
   return <>{Object.entries(values).map(([label, value]) => <View key={label}>
     <Text style={styles.label}>{label}</Text><Text selectable style={styles.value}>{value}</Text></View>)}</>;
 }
-export default function OriginalAccountScreen() {
+export default function OriginalAccountScreen({onObservation}:{onObservation?(value:OriginalPrivateStateObservationV1):void}={}) {
   const [origin, setOrigin] = useState(''), [pairingId, setPairingId] = useState('');
   const [devicePublicKey, setDevicePublicKey] = useState<string | null>(null);
   const [action, setAction] = useState<OriginalAccountActionV2>('read');
@@ -119,6 +119,7 @@ export default function OriginalAccountScreen() {
       });
       if (!mounted.current || AppState.currentState !== 'active') return;
       setPrivateState(observed);
+      onObservation?.(observed);
       setNotice(observed.status === 'LIVE' ? 'Saldo comprobado para la cuenta y el pool, en el bloque indicado.'
         : 'No hay una observación vigente. No se muestra un saldo anterior ni un cero supuesto.');
     } else {
