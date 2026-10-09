@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "8fcde6584306018df9a259a23902a0c8937a9896bcefd72996e7077facd24226",
+  "hostSourceClosureSHA256": "391b034f08df99e43acf18a6164a38514d0367585ecd89445e4a8cfbd1505a2a",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -790,7 +790,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/external-defi-vault-exit-policy-v1.mjs",
-      "sha256": "035a963fdac40cf91baff265db6a7198422fd1261238ff4c69a6b95f051867f7"
+      "sha256": "174820d8ff38285c88ce1490b698ef50c234ac872d363e1ad0c2a0b49055dfe8"
     },
     {
       "path": "integration/external-defi-vault-exit-process-scope-v1.mjs",
@@ -802,7 +802,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/external-defi-vault-exit-successor-v1.mjs",
-      "sha256": "82c4aca067c8b5ca286e9adcb490d8119f465d286155351e0d14a5a6088cc34a"
+      "sha256": "50b4a57f5845ae3e62ad3c31bc2c5b44be17d160369d067dfdf8b246a7a95deb"
     },
     {
       "path": "integration/jupiter-orca-public-swap-policy-v1.mjs",
@@ -910,7 +910,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-device-economic-launcher-v1.mjs",
-      "sha256": "2ef0dc7a902632e8c715d9519dc8da7b4aafc45b4fadd66d6a83f6cf3ccf37c3"
+      "sha256": "1aeb1497c22ca146cf7f9bced4183d5913826c83ad54e20670de585ab3139e3d"
     },
     {
       "path": "integration/native-device-economic-note-policy-v1.mjs",
