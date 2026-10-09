@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "c4ffa34b89bf606744e849c12b5ff8ef03024b6c2743a856ece9a8493fc3a371",
+  "hostSourceClosureSHA256": "fccc7bef3f15b4d2f7873b50e8fa17db645bb7ad38adcc629c6e02c279779fab",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -714,7 +714,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "14e2311a0b3a5ce18732388e796a97ca91306d77e2c2990da9f4d6c7b60ad8f6"
+      "sha256": "28003d8e192a8b45f1686638417b2774820a1571787c8a4d2cdc098716bd58e7"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
@@ -1658,7 +1658,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "mobile-protocol/src/device-external-flat-note-v1.mjs",
-      "sha256": "96d98d85397cb1ddb37ed6f6a9a3442e0960f17a45c479eb64d82df81f81e7e5"
+      "sha256": "79f0ec03d8ca0b5a3ced5ec0c25309c4bd952b96acbb37267d3c49e75aae0aa5"
     },
     {
       "path": "mobile-protocol/src/device-output-balance-v1.mjs",
@@ -2546,7 +2546,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs",
-      "sha256": "9c5332cbefb45deca611818e3de230acfe28c238d352444a67f29076928a8c30"
+      "sha256": "25ff7c0a0ef6c9070cef9b0b741d3df21615a4d2f3894a9c0c83ae590dec8910"
     },
     {
       "path": "wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -2978,7 +2978,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-original-source-capsule-v1.mjs",
-      "sha256": "ab112c5fe21b9a6c521d19ce0dc60a537d94f0289a3de92b270a2b491b18f330"
+      "sha256": "8ff1ba19a6fb7786551c0295fa5cb622be122a94d504c11559283927e6facb5b"
     },
     {
       "path": "wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs",
