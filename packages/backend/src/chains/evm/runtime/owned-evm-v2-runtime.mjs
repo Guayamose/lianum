@@ -224,6 +224,25 @@ const EXTERNAL_DEFI_RECEIVER_RUNTIME_V3=Symbol('ORIGINAL_EXTERNAL_DEFI_RECEIVER_
 const originalExternalDefiReceiverV2=new WeakSet(),originalExternalDefiReceiverCapturesV2=new WeakMap();
 const DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1=Symbol('ORIGINAL_DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1');
 const originalDeviceExternalFlatReceiversV1=new WeakSet(),originalDeviceExternalFlatReceiverCapturesV1=new WeakMap();
+// Only this zero-option original fixture may hold one before-F native snapshot.
+// The snapshot is a controlled-node probe, never financial recovery authority.
+const originalNativeFProbeMarksV1 = new WeakSet(), originalNativeFProbePortsV1 = new WeakMap();
+export async function createOwnedOriginalNativeFReorgReceiverV1() {
+  assert.equal(arguments.length, 0, 'F_REORG_PROBE_FIXED_CONSTRUCTOR');
+  const runtime = await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE, false, null, NATIVE_ECONOMIC_RUNTIME_V2);
+  assert.ok(originalNativeFProbePortsV1.has(runtime), 'F_REORG_PROBE_ORIGINAL_RUNTIME'); originalNativeFProbeMarksV1.add(runtime); return runtime;
+}
+export function isOwnedOriginalNativeFReorgReceiverV1(runtime) {
+  assert.equal(arguments.length, 1); return originalNativeFProbeMarksV1.has(runtime);
+}
+export async function retainOwnedOriginalFReorgProbeV1(runtime, token) {
+  assert.equal(arguments.length, 2); assert.ok(originalNativeFProbeMarksV1.has(runtime), 'F_REORG_PROBE_ORIGINAL_RUNTIME');
+  return originalNativeFProbePortsV1.get(runtime).retain(token);
+}
+export async function rewindOwnedOriginalFReorgProbeV1(runtime, token) {
+  assert.equal(arguments.length, 2); assert.ok(originalNativeFProbeMarksV1.has(runtime), 'F_REORG_PROBE_ORIGINAL_RUNTIME');
+  return originalNativeFProbePortsV1.get(runtime).rewind(token);
+}
 const originalNativeFReemittersV1 = new WeakMap();
 export async function reemitOwnedOriginalNativeRecoveryV1(runtime, token) {
   assert.equal(arguments.length, 2); const original = originalNativeFReemittersV1.get(runtime);
@@ -1039,6 +1058,53 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         return cloned(confirmed);
       });
     };
+    let originalFProbe = null;
+    const retainOriginalFProbe = token => mutate(async () => {
+      assert.ok(originalNativeFProbeMarksV1.has(runtime) && originalFProbe === null, 'F_REORG_PROBE_BEFORE_ORIGINAL_F_ONLY');
+      const { consumeOriginalNativeFReorgProbeV1 } = await import('../../../execution/native-value/execution/native-value-execution-v2.mjs');
+      const saved = consumeOriginalNativeFReorgProbeV1(token, runtime, 'BEFORE_F');
+      await saved.revalidate(); saved.assertCurrent();
+      const parent = await block(); await assertCanonical(parent);
+      assert.ok(BigInt(parent.timestamp) >= BigInt(saved.settleBefore), 'F_REORG_PROBE_ORIGINAL_CUTOFF');
+      assert.deepEqual(await rpc('eth_pendingTransactions'), [], 'F_REORG_PROBE_FOREIGN_PENDING');
+      assert.equal(transactions.some(entry => entry.label === 'flat-execution-recovery-' + saved.ref), false, 'F_REORG_PROBE_ORIGINAL_F_ONLY');
+      const snapshot = await rpc('evm_snapshot');
+      assert.ok(typeof snapshot === 'string' && snapshot.length <= 128 && /^0x[0-9a-f]+$/.exec(snapshot)?.[0] === snapshot, 'F_REORG_PROBE_NATIVE_SNAPSHOT');
+      await saved.revalidate(); saved.assertCurrent(); assertAlive(); assert.deepEqual(await block(), parent);
+      originalFProbe = { ref: saved.ref, parent: cloned(parent), snapshot, used: false };
+      return Object.freeze({ retained: true, beforeBlockNumber: BigInt(parent.number).toString() });
+    });
+    const rewindOriginalFProbe = token => mutate(async () => {
+      assert.ok(originalNativeFProbeMarksV1.has(runtime) && originalFProbe && !originalFProbe.used, 'F_REORG_PROBE_ORIGINAL_SNAPSHOT_REQUIRED');
+      const { consumeOriginalNativeFReorgProbeV1 } = await import('../../../execution/native-value/execution/native-value-execution-v2.mjs');
+      const saved = consumeOriginalNativeFReorgProbeV1(token, runtime, 'REWIND_CONFIRMED_F');
+      assert.equal(saved.ref, originalFProbe.ref); assert.deepEqual(saved.checkpoint.before.header, originalFProbe.parent);
+      const old = saved.checkpoint.receipt, originals = transactions.filter(entry => entry.label === 'flat-execution-recovery-' + saved.ref);
+      assert.equal(originals.length, 1); const entry = originals[0];
+      assert.ok(entry.localSigned && entry.phase === 'mined' && !entry.nativeFReorg);
+      assert.deepEqual(entry.receipt, old); assert.equal(entry.transactionHash, entry.localSigned.nativeId);
+      assert.equal(entry.request.data, saved.checkpoint.query.submission.calldata);
+      assert.equal(assertSignedEvmTransaction(entry.localSigned.nativeWire, entry.localSigned.expected).nativeId, old.transactionHash);
+      await saved.revalidate(); saved.assertCurrent();
+      assert.deepEqual(await block(), saved.checkpoint.includedHeader, 'F_REORG_PROBE_NO_LATER_HISTORY');
+      assert.deepEqual(await receipt(old.transactionHash), old); await assertCanonical(old);
+      assert.deepEqual((await transaction(old.transactionHash)).blockHash, old.blockHash);
+      assert.deepEqual(saved.checkpoint.includedHeader.transactions, [old.transactionHash]);
+      assert.equal(BigInt(old.blockNumber), BigInt(originalFProbe.parent.number) + 1n);
+      assert.deepEqual(await rpc('eth_pendingTransactions'), [], 'F_REORG_PROBE_FOREIGN_PENDING');
+      await saved.revalidate(); saved.assertCurrent(); assertAlive();
+      // Burn before the original node mutation. No retry if the RPC is uncertain.
+      originalFProbe.used = true;
+      try {
+        assert.equal(await rpc('evm_revert', [originalFProbe.snapshot]), true, 'F_REORG_PROBE_ORIGINAL_REVERT');
+        assert.deepEqual(await block(), originalFProbe.parent, 'F_REORG_PROBE_EXACT_ORIGINAL_PARENT');
+        await assertCanonical(originalFProbe.parent);
+        assert.equal(await receipt(old.transactionHash), null); assert.equal(await transaction(old.transactionHash), null);
+        await saved.revalidate(); saved.assertCurrent(); assertAlive();
+        return Object.freeze({ reverted: true, exactOriginalParent: true, originalTransactionAbsent: true,
+          beforeBlockNumber: BigInt(originalFProbe.parent.number).toString(), oldBlockNumber: BigInt(old.blockNumber).toString() });
+      } catch (error) { uncertainMutation = true; throw error; }
+    });
     // The token is minted only after both original journals have retained the
     // same invalidation and one emission latch. No key/signature is requested.
     const reemitOriginalRecovery = token => mutate(async () => {
@@ -1847,6 +1913,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     }
     if(economicV2)originalEconomicV2Runtimes.add(runtime);
     if(economicV2 && !nativeValueOnly && !receiverRecoveryV3) originalNativeFReemittersV1.set(runtime, reemitOriginalRecovery);
+    if(economicV2 && !nativeValueOnly && !receiverRecoveryV3) originalNativeFProbePortsV1.set(runtime, { retain: retainOriginalFProbe, rewind: rewindOriginalFProbe });
     if(observedClock&&!nativeValueOnly)observedReceiverClocks.set(runtime,{refresh:refreshObservedClock,assertAlive,inclusionSecond:observedInclusionSecond});
     if(observedEconomicV2)observedEconomicRuntimeClocksV2.set(runtime,{family:recoveryFamily,refresh:refreshObservedClock,assertAlive,
       pendingFinality:()=>Boolean(observedFinalityV2&&!observedFinalityV2.completed)});

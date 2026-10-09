@@ -50,6 +50,16 @@ import { createWrappedWalletStateReaderV1 } from '../../wrapped/reconciliation/w
 import { createWrappedWalletTerminalObserverV1 } from '../reconciliation/native-value-terminal-observer-v2.mjs';
 export const WRAPPED_WALLET_EXECUTION_PROFILE_V1 = 'OWNED_WRAPPED_WALLET_EXECUTION_KEEPER_V1';
 export const FLAT_EXECUTION_PROFILE = 'OWNED_NATIVE_VALUE_EXECUTION_KEEPER_V2';
+const originalFReorgProbeTokensV1 = new WeakMap();
+export function consumeOriginalNativeFReorgProbeV1(token, runtime, phase) {
+  assert.equal(arguments.length, 3); const saved = originalFReorgProbeTokensV1.get(token);
+  assert.ok(saved && saved.runtime === runtime && saved.phase === phase && !saved.used, 'F_REORG_PROBE_ORIGINAL_EXECUTOR_TOKEN');
+  saved.assertCurrent(); saved.used = true; return saved;
+}
+export async function rewindOriginalNativeFReorgProbeV1(execution, ref) {
+  assert.equal(arguments.length, 2); const original = owners.get(execution);
+  assert.ok(original && !original.wrapped, 'F_REORG_PROBE_ORIGINAL_EXECUTOR'); original.live(); return original.rewindRecoveryProbe(ref);
+}
 const originalFReorgWires = new WeakMap();
 export async function reconcileOriginalDeviceNativeRecoveryV1(execution, account, ref) {
   assert.equal(arguments.length, 3); const state = owners.get(execution);
@@ -175,6 +185,14 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     assert.equal(entry[key], null, 'FLAT_EXECUTION_NO_RESEND');
     const submission = { target, calldata, calldataSHA256: dataHash(calldata), transactionHash: null };
     await update(ref, { [key]: submission });
+    if (!wrapped && kind === 'recovery') {
+      const probe = await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+      if (probe.isOwnedOriginalNativeFReorgReceiverV1(runtime)) {
+        const token = originalProbeToken(ref, 'BEFORE_F');
+        try { await probe.retainOwnedOriginalFReorgProbeV1(runtime, token); }
+        finally { originalFReorgProbeTokensV1.delete(token); }
+      }
+    }
     const receipt = await runtime.send('flat-execution-' + kind + '-' + ref, { to: target, data: calldata });
     await update(ref, { [key]: { ...submission, transactionHash: bare(receipt.transactionHash) } });
     return receipt;
@@ -188,6 +206,26 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       await update(ref, { originalFCheckpoint: readOriginalNativeRecoveryCheckpointV1(terminalObserver, observed) });
     return observed;
   }
+  function originalProbeToken(ref, phase) {
+    const entry = operation(ref); assert.ok(busy && !wrapped && entry.recoverySubmission, 'F_REORG_PROBE_ORIGINAL_OPERATION');
+    const revision = record.revision;
+    const assertCurrent = () => { live(); assert.ok(busy && !cancelled); assert.equal(record.revision, revision); };
+    const revalidate = async () => { await healthy(); assertCurrent(); };
+    const token = Object.freeze({}); originalFReorgProbeTokensV1.set(token, { runtime, ref, phase, used: false,
+      settleBefore: entry.binding.settleBefore, checkpoint: entry.originalFCheckpoint, assertCurrent, revalidate }); return token;
+  }
+  async function rewindRecoveryProbe(ref) { return exclusive(async () => {
+    const entry = operation(ref); assert.equal(entry.outcome, 'RECOVERED'); assert.equal(entry.nativeFReorg, undefined);
+    assert.ok(entry.originalFCheckpoint && entry.recoverySubmission?.transactionHash, 'F_REORG_PROBE_ORIGINAL_CONFIRMED_F');
+    assert.deepEqual(entry.originalFCheckpoint.query.binding, entry.binding);
+    assert.deepEqual(entry.originalFCheckpoint.query.statement, entry.recoveryStatement);
+    assert.deepEqual(entry.originalFCheckpoint.query.submission, entry.recoverySubmission);
+    await observedSubmission(ref, 'recovery');
+    const { rewindOwnedOriginalFReorgProbeV1 } = await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+    const token = originalProbeToken(ref, 'REWIND_CONFIRMED_F');
+    try { return await rewindOwnedOriginalFReorgProbeV1(runtime, token); }
+    finally { originalFReorgProbeTokensV1.delete(token); }
+  }); }
   async function reconcileRecovery(account, ref) { return exclusive(async () => {
     assert.ok(!wrapped, 'F_REORG_NATIVE_ONLY');
     const binding = await import('../../../accounts/authority/native-value-account-authority-v2.mjs');
@@ -477,7 +515,7 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       closed = true; password = undefined; providerSets.clear();admissionAdapters.clear();
       if(failures.length)throw new AggregateError(failures,'NV2_EXECUTION_CLEANUP_FAILED');return { closed: true }; },
   });
-  owners.set(keeper, { runtime, system, poolIndex, live, wrapped, reconcileRecovery,
+  owners.set(keeper, { runtime, system, poolIndex, live, wrapped, reconcileRecovery, rewindRecoveryProbe,
     initialization(){assert.ok(wrapped&&!closed&&!capturing);return {directory,password,poolIndex};},
     fence(){assert.ok(wrapped&&!closed&&!poisoned&&!busy&&!cancelled&&!capturing,'WRAPPED_EXECUTION_ORIGINAL_CAPTURE_REQUIRED');capturing=true;
       captureProviders=[...providerSets].map(([reference,rows])=>({reference,providers:rows.map(row=>({...row}))}));
