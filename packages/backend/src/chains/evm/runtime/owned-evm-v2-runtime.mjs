@@ -860,7 +860,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       try{await mineAt(now);lifecycle.push({event:'observed-wallclock-refresh',timestamp:now.toString(),intentWindowsChanged:false});}
       catch(error){uncertainMutation=true;throw error;}
     });};
-    const send = async (label, transaction, expectedStatus = '0x1', expectedRevert) => {
+    const sendInternal = async (label, transaction, expectedStatus = '0x1', expectedRevert, externalNoteScope = null) => {
       assert.equal(typeof label, 'string', 'LOCAL_EVM_TRANSACTION_LABEL');
       assert.ok(['0x0', '0x1'].includes(expectedStatus), 'LOCAL_EVM_EXPECTED_STATUS');
       const tx = request(transaction, true);
@@ -877,9 +877,19 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
             assert.equal(nonce,entry.senderNonce,'EVM_ECONOMIC_SETUP_NONCE_CHANGED');
             assert.equal(await rpc('eth_getTransactionCount',[tx.from,'latest']),nonce,'EVM_ECONOMIC_SETUP_EXCLUSIVE_NONCE');
             const expected={chainId:String(processProfile.chainId),from:tx.from,to:tx.to??null,nonce:BigInt(nonce).toString(),gas:BigInt(tx.gas).toString(),gasPrice:BigInt(gasPrice).toString(),value:BigInt(tx.value??'0x0').toString(),data:tx.data??'0x'};
-            const signed=await signNativeEconomicCustodyTransactionV2(localCustody,expected);
+            let signed;
+            if(externalNoteScope){
+              // Private original source-note producer only. All I/O needed to
+              // prepare the signing lease precedes the last permission guard.
+              const lease=await prepareNativeEconomicCustodySigningV2(localCustody,expected);
+              try{await externalNoteScope.beforeKey(expected);externalNoteScope.assertBeforeKey(expected);assertAlive();
+                signed=consumeNativeEconomicCustodySigningV2(lease);}
+              finally{revokeNativeEconomicCustodySigningV2(lease);}
+            }else signed=await signNativeEconomicCustodyTransactionV2(localCustody,expected);
             assertSignedEvmTransaction(signed.nativeWire,expected);entry.localSigned=cloned({...signed,expected});
             entry.transactionHash=signed.nativeId;
+            if(externalNoteScope){await externalNoteScope.onSigned(signed,expected);
+              await externalNoteScope.beforeBroadcast(expected);externalNoteScope.assertBeforeBroadcast(expected);assertAlive();}
             // Exact signed bytes and nonce are retained before the one broadcast.
             assert.equal(await rpc('eth_sendRawTransaction',[signed.nativeWire]),signed.nativeId,'EVM_ECONOMIC_SETUP_TRANSACTION_HASH');
           }else entry.transactionHash = await rpc('eth_sendTransaction', [tx]);
@@ -930,6 +940,18 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         }
         return cloned(confirmed);
       });
+    };
+    // The legacy public port has no scope argument; extra caller data cannot
+    // install a signing callback or bypass the private request consumer.
+    const send=(label,transaction,expectedStatus='0x1',expectedRevert)=>sendInternal(label,transaction,expectedStatus,expectedRevert,null);
+    const dispatchOriginalDeviceExternalFlatNoteV1=async scopedRequest=>{
+      assert.equal(economicV2,true,'DEVICE_EXTERNAL_FLAT_ORIGINAL_ECONOMIC_RUNTIME');
+      assertAlive();
+      // Fixed literal consumer; copied scopes and callbacks cannot issue this
+      // WeakMap capability. Complete this import before preparing any key.
+      const {consumeOriginalDeviceExternalFlatSendV1}=await import('../../../accounts/authority/device-external-flat-note-authority-v1.mjs');
+      const scope=consumeOriginalDeviceExternalFlatSendV1(scopedRequest,runtime);
+      return sendInternal('device-external-flat-original-source-note',scope.transaction,'0x1',undefined,scope);
     };
     const advanceTo = timestamp => mutate(async () => {
       assert.equal(observedClock,false,'LOCAL_OBSERVED_CLOCK_NO_CALLER_TIME');
@@ -1531,6 +1553,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       accounts, health: logicalReadV4(health), processStatus, block: logicalReadV4(block),
       assertCanonical: logicalReadV4(assertCanonical), receipt: logicalReadV4(receipt),
       transaction: logicalReadV4(transaction), checkReceipt: logicalReadV4(checkReceipt),
+      ...(economicV2?{dispatchOriginalDeviceExternalFlatNoteV1}:{}),
       ...(nativeValueOnly ? { dispatchNativeValueV1, assertNativeValuePreparedCurrent: logicalReadV4(assertNativeValuePreparedCurrent),
         observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedEconomicV2?{send,refreshObservedClock,dispatch}:observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
       signedTransaction: logicalReadV4(signedTransaction), reconcileSignedTransaction,
