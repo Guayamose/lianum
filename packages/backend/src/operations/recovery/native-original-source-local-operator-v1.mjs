@@ -3,6 +3,7 @@
  * exposes UNKNOWN only and emits no source/economic capabilities. */
 import assert from 'node:assert/strict';
 import {randomBytes,createHash} from 'node:crypto';
+import {nativeValueFailureDiagnostic} from '../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import {constants} from 'node:fs';
 import {mkdir,lstat,realpath,open} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
@@ -46,6 +47,31 @@ async function bridges(resources,preparation){
  reservationBridge=await createDeviceOwnerReservationBridgeV1({...original,nativePreparation:preparation.nativePreparation,invoiceSignatures:preparation.invoiceSignatures});
  executionBridge=await createDeviceOwnerExecutionBridgeV1({account,reservationBridge,nativeExecution,providers:preparation.providers,runtime,system,poolIndex:0});
  return{depositBridge,reservationBridge,executionBridge};}catch(error){for(const bridge of [executionBridge,reservationBridge,depositBridge])try{await bridge?.close();}catch{}throw error;}
+}
+// These callbacks belong to this producer before any funding. They retain only
+// original public proof/evidence frames and finite private failure diagnostics;
+// neither getter emits a source token, witness or economic authority.
+function executionEvidence(r){
+ r.executionProofFrames=[];r.executionFailures=[];
+ return{onProof:async value=>{exactRecord(value,['label','relation','proof']);
+  if(value.relation!=='recovery')return;
+  assert.equal(value.label,'original-timeout-recovery','NATIVE_SOURCE_ORIGINAL_EXECUTION_PROOF');
+  const frame=JSON.stringify(value);assert.ok(Buffer.byteLength(frame)<=1048576&&r.executionProofFrames.length<8,'NATIVE_SOURCE_ORIGINAL_EXECUTION_EVIDENCE_BOUND');
+  assert.equal(r.executionProofFrames.some(row=>row.frame===frame),false,'NATIVE_SOURCE_ORIGINAL_EXECUTION_PROOF_DUPLICATE');
+  r.executionProofFrames.push(Object.freeze({frame,sha256:createHash('sha256').update(frame).digest('hex')}));},
+ onPrivateAudit:async value=>{if(value?.stage!=='execution-first-failure')return;
+  const original=Object.getOwnPropertyDescriptor(value,'originalError');if(!original||!Object.hasOwn(original,'value'))return;
+  if(r.executionFailures.length<8)r.executionFailures.push(nativeValueFailureDiagnostic(original.value));}};
+}
+export async function readOriginalNativeSourceLocalExecutionProofsV1(service){
+ assert.equal(arguments.length,1);const state=services.get(service);assert.ok(state&&!state.r.closing,'NATIVE_SOURCE_ORIGINAL_LOCAL_SERVICE');
+ await state.r.account.privateStatus();assert.ok(services.get(service)===state&&!state.r.closing,'NATIVE_SOURCE_ORIGINAL_LOCAL_SERVICE');
+ assertOriginalNativeSourceCapsuleV1(state.r.authority);
+ return Object.freeze((state.r.executionProofFrames??[]).map(row=>{assert.equal(createHash('sha256').update(row.frame).digest('hex'),row.sha256,'NATIVE_SOURCE_ORIGINAL_EXECUTION_EVIDENCE_FRAME');return Object.freeze(JSON.parse(row.frame));}));
+}
+export function readOriginalNativeSourceLocalExecutionFailuresV1(service){
+ assert.equal(arguments.length,1);const state=services.get(service);assert.ok(state,'NATIVE_SOURCE_ORIGINAL_LOCAL_SERVICE');
+ return Object.freeze((state.r.executionFailures??[]).map(value=>Object.freeze(JSON.parse(JSON.stringify(value)))));
 }
 function lifetime(selected){
  const r={closing:false};let closing=null;
@@ -92,7 +118,7 @@ export async function createOriginalNativeSourceLocalOperatorV1(input){
  r.system=await deployNativeValueDevSystemV5({runtime:r.runtime,options:{deploymentDomain:'0x'+fresh(),registryEpoch:'1',bootstrap:r.bootstrap,pools:[0,1].map(()=>({policy:'0x'+fresh(),deploymentDomain:'0x'+fresh()}))}});await retainOriginalNativeSourceReferenceV1(r.authority,'system',r.system);
  const ownerDirectory=join(identity.directory,'owner');await mkdir(ownerDirectory,{mode:0o700});const ownerPassword=fresh(),checkpointVault=new Vault(join(ownerDirectory,'operator-checkpoint.vault'));let checkpoint=null;
  r.owner=await createNativeValueOwnerProcess({runtime:r.runtime,system:r.system,poolIndex:0,directory:ownerDirectory,password:ownerPassword,create:true,checkpoint:null,onCheckpoint:async value=>{if(checkpoint)assert.deepEqual(await checkpointVault.read(ownerPassword),checkpoint);const next=checkpoint?await checkpointVault.update(ownerPassword,checkpoint.revision,()=>({checkpoint:value})):await checkpointVault.create({checkpoint:value},ownerPassword);assert.deepEqual(await checkpointVault.read(ownerPassword),next);checkpoint=next;}});await retainOriginalNativeSourceReferenceV1(r.authority,'owner',r.owner);
- r.nativeExecution=await createNativeValueExecution({runtime:r.runtime,system:r.system,poolIndex:0,quorum:r.system.quorum});await retainOriginalNativeSourceReferenceV1(r.authority,'executor',r.nativeExecution);
+ r.nativeExecution=await createNativeValueExecution({runtime:r.runtime,system:r.system,poolIndex:0,quorum:r.system.quorum},executionEvidence(r));await retainOriginalNativeSourceReferenceV1(r.authority,'executor',r.nativeExecution);
  const provider=await prepareOriginalNativeSourceLocalProviderV1({runtime:r.runtime,system:r.system,nativeRuntime:r.nativeRuntime,bootstrap:r.bootstrap,clock:r.clocks.clock});r.providerCustody=provider.custody;r.recipient=provider.recipient;await retainOriginalNativeSourceReferenceV1(r.authority,'provider',r.providerCustody);
  r.account=await createOriginalNativeSourceAccountV1(r.authority,{runtime:r.runtime,system:r.system,poolIndex:0,owner:r.owner,nativeExecution:r.nativeExecution,accountId:fresh(),journalId:fresh(),clock:r.clocks.clock,nativeRuntime:r.nativeRuntime});
  const joined=await createOriginalNativeSourceSessionV1(r.authority,{runtime:r.runtime,system:r.system,poolIndex:0,account:r.account,journal:{path:join(identity.directory,'account-session.vault'),password:fresh()},owner:r.owner});r.session=joined.session;
