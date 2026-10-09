@@ -22,7 +22,7 @@ class ProducedW39Task(unittest.TestCase):
         task=tasks.fixed_w39_task()
         self.assertEqual(task.exec_args,("--max-old-space-size=384",))
         self.assertEqual(task.entry.name,"prepare-development-native-value-w39-v5.mjs")
-        self.assertEqual(task.output.name,"v5");self.assertEqual(task.output.parent.name,"development-native-value-w39")
+        self.assertEqual(task.output.name,"v6");self.assertEqual(task.output.parent.name,"development-native-value-w39")
         self.assertEqual(len(task.output_names),8)
         with self.assertRaises(AttributeError):task.entry=Path("/caller/entry")
         with self.assertRaises(TypeError):tasks.fixed_w39_task("caller")
@@ -48,10 +48,10 @@ class ProducedW39Task(unittest.TestCase):
             root=Path(temporary);dev=root/"dev";flat=root/"runtime";dev.mkdir();flat.mkdir()
             script=root/"scripts/development/native_value_ledger.py";script.parent.mkdir(parents=True);script.write_text("# own host selector")
             wrapper=script.with_name("native_value_w39.py");wrapper.write_text("# own host selector")
-            output=flat/".local/development-native-value-w39/v5"
+            output=flat/".local/development-native-value-w39/v6"
             names=tasks.fixed_w39_task().output_names
             fixture=flat/"owned-fixture.py"
-            fixture.write_text("from pathlib import Path\np=Path('.local/development-native-value-w39/v5');p.mkdir(parents=True)\n"+"\n".join("(p/"+repr(name)+").write_text('{}')" for name in names if not(omit_receipt and name=='receipt.json'))+"\n")
+            fixture.write_text("from pathlib import Path\np=Path('.local/development-native-value-w39/v6');p.mkdir(parents=True)\n"+"\n".join("(p/"+repr(name)+").write_text('{}')" for name in names if not(omit_receipt and name=='receipt.json'))+"\n")
             task=tasks.fixed_w39_task()._replace(wrapper=wrapper,entry=fixture,output=output,reports=dev/"reports",exec_args=())
             cwd=Path.cwd()
             try:
@@ -70,7 +70,7 @@ class ProducedW39Task(unittest.TestCase):
 
     def test_own_host_child_requires_all_eight_new_w39_files_and_retains_w39_schema(self):
         status,report=self.exercise()
-        self.assertEqual(status,0);self.assertEqual(report['schema'],'LIANUM_NEW_PC15_W39_RESOURCE_RECEIPT_V5')
+        self.assertEqual(status,0);self.assertEqual(report['schema'],'LIANUM_NEW_PC15_W39_RESOURCE_RECEIPT_V6')
         self.assertTrue(all(name in report for name in tasks.fixed_w39_task().output_names))
 
     def test_own_host_child_missing_new_w39_receipt_is_failed_without_retry(self):

@@ -66,7 +66,7 @@ test('consumer keeps the original semantic validator and rejects substituted ori
   // A deliberately corrupt component is stopped by the unchanged original
   // validator. This is a negative host check, not a fabricated valid build.
   const basis = w39DevOriginalBasisV5();
-  const generation = { schema: 'LIANUM_NEW_PC15_W39_GENERATION_V5', kind: W39_DEV_KIND_V5, phase: 'completed', role: 'withdraw',
+  const generation = { schema: 'LIANUM_NEW_PC15_W39_GENERATION_V6', kind: W39_DEV_KIND_V5, phase: 'completed', role: 'withdraw',
     programSHA256: '01'.repeat(32), originalProgramSHA256: W39_DEV_SOURCE_V5.programSHA256, sourceSHA256: W39_DEV_SOURCE_V5.noirSHA256,
     nargoSHA256: W39_DEV_SOURCE_V5.nargoSHA256, abiSHA256: W39_DEV_SOURCE_V5.abiSHA256, compressedACIRSHA256: W39_DEV_SOURCE_V5.compressedACIRSHA256,
     keySHA256: W39_DEV_SOURCE_V5.keySHA256, keyBytes: 1888, keyHashField: '1', soliditySHA256: W39_DEV_SOURCE_V5.soliditySHA256,

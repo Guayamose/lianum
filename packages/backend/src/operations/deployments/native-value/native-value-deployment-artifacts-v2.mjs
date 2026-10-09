@@ -25,6 +25,7 @@ import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nati
   NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5, validateNativeValueDevProducedLedgerDescriptorV5, validateNativeValueDevLedgerReceiptV5 }
   from '../../releases/native-value/native-value-dev-release-contract-v5.mjs';
 import { inspectProducedW39ConsumerArtifactsV5 as inspectProducedW39ArtifactsV5 } from './native-value-dev-w39-consumer-artifacts-v5.mjs';
+import { inspectProducedW39ArtifactsV5 as inspectCurrentW39CompilerArtifactsV5 } from './native-value-dev-w39-artifacts-v5.mjs';
 const issued = new WeakSet();
 const ADMISSION_PREPARED_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/native-value-verifier-preparation';
 const ADMISSION_COMPILE_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/generic-native-admission-compile';
@@ -325,26 +326,31 @@ function retainedRawFilesUnchanged(release, producedLedger) {
       'NATIVE_VALUE_DEV_LEDGER_SOURCE_CHANGED');
   inspectOriginalW39Adapter(); inspectNativeValueAdmissionReaderPins();
 }
-async function inspectFixedRetainedNativeValueArtifactsV5() {
+async function inspectFixedRetainedNativeValueArtifactsV5(compilerEvidenceOnly = false) {
+  // The fixed candidate producer can inspect a newly completed compilation before
+  // its reviewed publication. Financial loading always requires the published
+  // raw descriptor and its unchanged current dependency/receipt joins.
+  assert.equal(typeof compilerEvidenceOnly, 'boolean');
+  const inspectW39 = compilerEvidenceOnly ? inspectCurrentW39CompilerArtifactsV5 : inspectProducedW39ArtifactsV5;
   const retained = nativeValueDevRetainedMetadataV5();
   assert.deepEqual(verifyToolchain(), retained.toolchain, 'NATIVE_VALUE_DEV_TOOLCHAIN');
   assert.deepEqual(verifyCRS(), retained.crs, 'NATIVE_VALUE_DEV_CRS');
   const producedLedger = inspectProducedNativeValueLedgerV5();
-  const producedW39 = inspectProducedW39ArtifactsV5();
+  const producedW39 = inspectW39();
   const loaded = await loadRetainedNativeValueArtifacts(retained, producedLedger, producedW39);
   retainedRawFilesUnchanged(retained, producedLedger);
   assert.deepEqual(nativeValueDevRetainedMetadataV5(), retained, 'NATIVE_VALUE_DEV_ORIGINAL_RECORD_CHANGED');
   assert.deepEqual(verifyToolchain(), retained.toolchain, 'NATIVE_VALUE_DEV_TOOLCHAIN_CHANGED');
   assert.deepEqual(verifyCRS(), retained.crs, 'NATIVE_VALUE_DEV_CRS_CHANGED');
   assert.deepEqual(inspectProducedNativeValueLedgerV5(),producedLedger,'NATIVE_VALUE_DEV_PRODUCED_LEDGER_CHANGED');
-  assert.deepEqual(inspectProducedW39ArtifactsV5().descriptor,producedW39.descriptor,'NATIVE_VALUE_DEV_W39_CHANGED_AFTER_ASYNC_READ');
+  assert.deepEqual(inspectW39().descriptor,producedW39.descriptor,'NATIVE_VALUE_DEV_W39_CHANGED_AFTER_ASYNC_READ');
   return { retained, producedLedger, producedW39, ...loaded };
 }
 /** Read-only producer evidence. No caller input and, crucially, no issued.add:
  * copied inspection records can never satisfy assertNativeValueArtifactBundle. */
 export async function inspectRetainedNativeValueArtifactsForDevV5() {
   assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_INSPECTION_NO_OPTIONS');
-  const loaded = await inspectFixedRetainedNativeValueArtifactsV5();
+  const loaded = await inspectFixedRetainedNativeValueArtifactsV5(true);
   return frozenInput({ historicalReleaseSHA256: NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5,
     retainedMetadataSHA256: NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
     producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor, verifierRoles: Object.keys(loaded.verifiers), artifactBundleIssued: false,
