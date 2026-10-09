@@ -31,6 +31,8 @@ import { normalizeOriginalNativeDeviceLocalConfigurationV1, assertOriginalNative
   prepareOriginalNativeDeviceLocalRestartV1, bindOriginalNativeDeviceLocalRestartV1, captureOriginalNativeDeviceLocalRestartV1,
   originalNativeDeviceLocalCaptureStateV1, closeOriginalNativeDeviceLocalRestartAuthorityV1, readOriginalNativeDeviceLocalCaptureRequestV1 }
   from './native-device-local-restart-v1.mjs';
+import {createOriginalNativeDeviceLocalObservedClocksV1,refreshOriginalNativeDeviceLocalObservedClockV1} from './native-device-local-observed-clock-v1.mjs';
+import {createOriginalNativeDeviceLiveRecoveryProducerV1} from './native-device-local-live-recovery-v1.mjs';
 const fresh = () => randomBytes(32).toString('hex');
 export const ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1 = 'ORIGINAL_NATIVE_DEVICE_LOCAL_OPERATOR_V1';
 const local = join(ROOT, '.local/original-device-local-operator-v1');
@@ -43,10 +45,11 @@ const requiredSources = Object.freeze([
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
-  Object.freeze({ path: 'apps/platform/src/original-device-local-operator-v1.mjs', bytes: 3034, sha256: 'c4bca82704673d0f54da0da6acb152f617cdbd6225fa6aa8a779c111b4fc5100' }),
+  Object.freeze({ path: 'apps/platform/src/original-device-local-operator-v1.mjs', bytes: 3896, sha256: 'd0acc9c6ffec161491eec660f9289fa479edcd741fd79eb64dc916a47ab2cae7' }),
   Object.freeze({ path: 'apps/platform/src/run-original-device-local-v1.mjs', bytes: 208, sha256: 'b46e992f973d8dde44f217b1739308e43a0ee03f5bffda5b7c2ccffe49d0c422' }),
-  Object.freeze({ path: 'apps/platform/src/original-device-local-caller-v1.mjs', bytes: 6137, sha256: '4e264a3a0cd0378a6bfcbf14e81dbc1516e5271105a70dde97e679debee640b0' }),
+  Object.freeze({ path: 'apps/platform/src/original-device-local-caller-v1.mjs', bytes: 6536, sha256: 'f06485b03451f6c2444a237470affe14f5ab9e9722770221bfdc0d0dff7c0e86' }),
   Object.freeze({ path: 'apps/platform/src/run-original-device-local-reopen-v1.mjs', bytes: 238, sha256: 'cfd3176249afa1b3369f89f4056f1dd28fc9c89e2fe8296147367b8c4a1c2b10' }),
+  Object.freeze({ path: 'apps/platform/src/run-original-device-live-recovery-v1.mjs', bytes: 256, sha256: '6f88ae522b6a56ec98f0a4b5b19d902396c9b05d71ca730b59e60e5a6b9c0faa' }),
 ]);
 async function assertReviewedLocalProductCallers() {
   const directory = resolve(FLAT, '../../..');
@@ -118,11 +121,16 @@ export async function assertOriginalNativeDeviceLocalSourceReviewV1() {
   await assertReviewedLocalProductCallers();
 }
 /** Fixed original NativeNote constructor, before any D26 admission. */
-export async function createOriginalNativeDeviceLocalOperatorV1(input) {
-  assert.equal(arguments.length, 1); const selected = configuration(input); // detach before first await
+export function createOriginalNativeDeviceLocalOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,false);}
+/** Separate original observed realm for live cutoff recovery. It never
+ * selects/relabels the old realm or claims post-cutoff Native10 restoration. */
+export function createOriginalNativeDeviceLiveRecoveryOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,true);}
+async function createLocalProduct(input,liveObserved) {
+  assert.equal(arguments.length, 2); const selected = configuration(input); // detach before first await
   const restartDeadlineMs = Date.now() + 90 * 60 * 1000 - 15000;
   await assertOriginalNativeDeviceLocalSourceReviewV1();
   await assertOriginalNativeDeviceLocalColdStartV1();
+  let clocks, liveProducer;
   let runtime, nativeRuntime, bootstrap, system, owner, nativeExecution, account, joined, provider, installed, closing, ownerPassword, checkpoint, restart;
   function close() {
     assert.equal(arguments.length, 0); return closing ??= (async () => {
@@ -137,8 +145,11 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
       try { const result = await work(); assert.ok(check(result), 'NATIVE_DEVICE_PRODUCT_CLOSE_UNCONFIRMED'); stopped[name] = true; }
       catch (error) { stopped[name] = false; failures.push(error); }
     };
-    // Listener fences new admissions and drains SAME admitted work first.
-    if (installed) await stop('transport', () => installed.transport.close(), r => r.closed === true
+    // Both admission fences run in this stack before awaiting either drain.
+    const liveStop=liveProducer?.close(),transportStop=installed?.transport.close();
+    liveStop?.catch(()=>{});transportStop?.catch(()=>{});
+    if (liveProducer) await stop('live-recovery', () => liveStop, r => r.closed && r.originalWorkSettled);
+    if (installed) await stop('transport', () => transportStop, r => r.closed === true
       && r.originalWorkSettled === true && r.ownedSocketsRemaining === 0);
     if (account && (!restart || originalNativeDeviceLocalCaptureStateV1(restart).phase === 'OPEN')) await stop('accountAbort', () => account.abort(), r => r.cancelled === true);
     if (joined) await stop('session', () => joined.session.close(), r => r.phase === 'CLOSED');
@@ -151,6 +162,7 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
     }
     if (owner) await stop('owner', () => owner.close(), r => r.closed === true && r.childExited === true);
     if (bootstrap) await stop('bootstrap', async () => { bootstrap.close(); return { closed: true }; }, r => r.closed === true);
+    if(clocks) await stop('observed-clocks',()=>clocks.close(),r=>r.closed===true);
     for (const [name, resource] of [['receiver', runtime], ['nativeRuntime', nativeRuntime]]) if (resource)
       await stop(name, () => resource.close({ removeScratch: false }), r => r.stopped === true && resource.lifecycle.filter(row => row.event === 'stopped-owned-process').length === 1
         && resource.lifecycle.find(row => row.event === 'stopped-owned-process').forced === false);
@@ -163,17 +175,20 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
   })();
   }
   try {
-    runtime = await createOwnedNativeEconomicReceiverV2(); nativeRuntime = await createOwnedNativeEconomicGraphRuntimeV2();
+    if(liveObserved){clocks=await createOriginalNativeDeviceLocalObservedClocksV1();runtime=clocks.runtime;nativeRuntime=clocks.nativeRuntime;}
+    else{runtime = await createOwnedNativeEconomicReceiverV2(); nativeRuntime = await createOwnedNativeEconomicGraphRuntimeV2();}
     bootstrap = await createOwnedLocalNativeValueOperatorBootstrap({ nativeRuntimes: [nativeRuntime] });
     system = await deployNativeValueDevSystemV5({ runtime, options: { deploymentDomain: '0x' + fresh(), registryEpoch: '1', bootstrap,
       pools: [0, 1].map(() => ({ policy: '0x' + fresh(), deploymentDomain: '0x' + fresh() })) } });
     const nativeNow = await nativeRuntime.time(), receiverNow = await runtime.time();
+    if(!liveObserved){
     const receiverInitial = nativeNow + 1n - 3n;
     assert.ok(receiverNow <= receiverInitial, 'NATIVE_DEVICE_PRODUCT_INITIAL_CLOCK_ALIGNMENT');
     assert.ok((nativeNow - receiverInitial) * 1000n <= BigInt(bootstrap.metadata.adapterProfiles[0].profile.maximumClockSkewMs));
     assert.equal(nativeRuntime.transactions.length, 0);
     if (receiverNow < receiverInitial) await runtime.advanceTo(String(receiverInitial));
     assert.equal(await runtime.time(), receiverInitial); assert.equal(await nativeRuntime.time(), nativeNow);
+    }
     await mkdir(local, { recursive: true, mode: 0o700 });
     const localInfo = await lstat(local);
     assert.ok(localInfo.isDirectory() && !localInfo.isSymbolicLink() && localInfo.uid === process.getuid()
@@ -200,17 +215,21 @@ export async function createOriginalNativeDeviceLocalOperatorV1(input) {
     const body = await preparation.confirm(); assert.deepEqual(body, reviewed.request);
     const approval = preparation.originalApproval(requestId); assert.deepEqual(joined.bindManualNote(approval), body);
     await joined.session.prepare(body); // durable PREPARED scope; NEVER execute/prove/FUND
+    if(liveObserved)await refreshOriginalNativeDeviceLocalObservedClockV1(clocks.clock);
     provider = await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
-    restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
+    if(!liveObserved) restart = await prepareOriginalNativeDeviceLocalRestartV1({ runtime, nativeRuntime, bootstrap, system, owner,
       nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS
     installed = await installOriginalNativeDeviceLocalServiceV1({ runtime, system, owner, account, nativeExecution, session: joined.session,
       approval, provider, configuration: selected });
-    bindOriginalNativeDeviceLocalRestartV1(restart, installed);
+    if(!liveObserved)bindOriginalNativeDeviceLocalRestartV1(restart, installed);
+    else liveProducer=createOriginalNativeDeviceLiveRecoveryProducerV1({account,executionBridge:installed.executionBridge,runtime,system,nativeRuntime,clock:clocks.clock});
     let captureRequest;
     function capture() {
       assert.equal(arguments.length, 0);
       return captureRequest ??= captureOriginalNativeDeviceLocalRestartV1(restart, readOriginalNativeDeviceLocalCaptureRequestV1());
     }
+    if(liveObserved)return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_LIVE_RECOVERY_OPERATOR_V1',origin:installed.transport.url,descriptor:installed.descriptor,
+      localFakeValues:true,automaticFunding:false,automaticNativeDelivery:false,postCutoffRestartEstablished:false,cloudAuthority:false,close});
     return Object.freeze({ profile: ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
       descriptor: installed.descriptor, localFakeValues: true, automaticFunding: false,
       cloudAuthority: false, capture, close });

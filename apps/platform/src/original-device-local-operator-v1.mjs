@@ -38,3 +38,14 @@ export async function reopenPlatformOriginalDeviceLocalOperatorV1(input) {
   const module = await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-restart-v1.mjs', import.meta.url));
   return module.reopenOriginalNativeDeviceLocalOperatorV1(selected);
 }
+
+/** Separate full native observed realm with separately armed F; no mode in config. */
+export async function startPlatformOriginalDeviceLiveRecoveryOperatorV1(input){
+  if(arguments.length!==1)throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
+  exact(input,['origin','devicePublicKey','tls']);exact(input.tls,['certificate','privateKey']);
+  const selected={origin:input.origin,devicePublicKey:input.devicePublicKey,tls:{certificate:input.tls.certificate,privateKey:input.tls.privateKey}};
+  for(const value of [selected.origin,selected.devicePublicKey,selected.tls.certificate,selected.tls.privateKey])
+    if(typeof value!=='string')throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_CONFIGURATION');
+  const {createOriginalNativeDeviceLiveRecoveryOperatorV1}=await import(original);
+  return createOriginalNativeDeviceLiveRecoveryOperatorV1(selected);
+}

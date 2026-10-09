@@ -1,11 +1,11 @@
-/** Two separately fixed operator entries share infrastructure IO and shutdown.
+/** Separately fixed operator entries share infrastructure IO and shutdown.
  * No backend/realm selector or operation appears in argv, HTTP or config. */
 import assert from 'node:assert/strict';
 import { constants } from 'node:fs';
 import { open, lstat, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startPlatformOriginalDeviceLocalOperatorV1, reopenPlatformOriginalDeviceLocalOperatorV1,
+import { startPlatformOriginalDeviceLocalOperatorV1, reopenPlatformOriginalDeviceLocalOperatorV1,startPlatformOriginalDeviceLiveRecoveryOperatorV1,
   platformOriginalDeviceLocalConfigurationPathV1 } from './original-device-local-operator-v1.mjs';
 async function privateFile(path, maximum) {
   const directory = dirname(path), dir = await lstat(directory);
@@ -44,8 +44,9 @@ export function runPlatformOriginalDeviceLocalCallerV1() {
 export function runPlatformRecoveredDeviceLocalCallerV1() {
   assert.equal(arguments.length, 0); return run(true);
 }
-async function run(reopened) {
-  const entry = fileURLToPath(new URL(reopened ? './run-original-device-local-reopen-v1.mjs' : './run-original-device-local-v1.mjs', import.meta.url));
+export function runPlatformOriginalDeviceLiveRecoveryCallerV1(){assert.equal(arguments.length,0);return run(false,true);}
+async function run(reopened,liveObserved=false) {
+  const entry = fileURLToPath(new URL(liveObserved?'./run-original-device-live-recovery-v1.mjs':reopened ? './run-original-device-local-reopen-v1.mjs' : './run-original-device-local-v1.mjs', import.meta.url));
   assert.equal(process.execPath, fileURLToPath(new URL('../../../.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node', import.meta.url)), 'PLATFORM_ORIGINAL_LOCAL_PINNED_NODE');
   assert.equal(process.argv.length, 2, 'PLATFORM_ORIGINAL_LOCAL_FIXED_ENTRY'); assert.equal(process.argv[1], entry);
   assert.equal(await realpath(entry), entry);
@@ -59,7 +60,7 @@ async function run(reopened) {
       if (!service) return;
       if (captureRequested) {
         try {
-          assert.equal(reopened, false, 'PLATFORM_ORIGINAL_LOCAL_REOPEN_ONE_USE');
+          assert.equal(reopened, false, 'PLATFORM_ORIGINAL_LOCAL_REOPEN_ONE_USE');assert.equal(liveObserved,false,'PLATFORM_LIVE_F_NO_POST_CUTOFF_CAPTURE');
           const result = await service.capture(); // reads fixed selector synchronously, then fences originals
           assert.ok(result.closed && result.originalResourcesStopped && result.plannedCaptureForNewProcess);
           process.stdout.write('ORIGINAL_LOCAL_DEVICE_ORDERED_CAPTURE_READY\n'); return;
@@ -75,11 +76,11 @@ async function run(reopened) {
   }
   const normal = () => { void close().catch(() => { process.stderr.write('PLATFORM_ORIGINAL_LOCAL_CLOSE_UNCONFIRMED\n'); process.exitCode = 1; }); };
   const capture = () => { if (!closeRequested) captureRequested = true; normal(); };
-  process.once('SIGINT', normal); process.once('SIGTERM', normal); process.once('SIGUSR2', capture);
+  process.once('SIGINT', normal); process.once('SIGTERM', normal); if(!liveObserved)process.once('SIGUSR2', capture);
   try {
     const path = await platformOriginalDeviceLocalConfigurationPathV1(), config = await privateFile(path, 32768);
     if (!closeRequested) {
-      acquisition = (reopened ? reopenPlatformOriginalDeviceLocalOperatorV1 : startPlatformOriginalDeviceLocalOperatorV1)(config);
+      acquisition = (liveObserved?startPlatformOriginalDeviceLiveRecoveryOperatorV1:reopened ? reopenPlatformOriginalDeviceLocalOperatorV1 : startPlatformOriginalDeviceLocalOperatorV1)(config);
       acquisition.catch(() => {}); config.tls = null; service = await acquisition;
       if (closeRequested) await close();
       else {
