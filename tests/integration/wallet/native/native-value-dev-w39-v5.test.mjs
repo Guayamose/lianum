@@ -10,9 +10,9 @@ import { assertNativeValueArtifactBundle, loadNativeValueDevDeploymentArtifactsV
 import { GENERIC_COMPILER_PIN } from '../../../../packages/engine/src/execution/local/local-deployment.mjs';
 const hash='01'.repeat(32);
 function descriptor(){return {kind:W39_DEV_KIND_V5,role:'withdraw',files:Object.fromEntries(W39_DEV_FILES_V5.map(name=>[name,{path:W39_DEV_DIRECTORY_V5+'/'+name,sha256:hash}])),historicalPin:w39DevOriginalBasisV5().pin,historicalMissing:W39_DEV_HISTORICAL_MISSING_V5,historicalArtifactRecovered:false,proofAcceptanceEstablished:false};}
-function generation(){const basis=w39DevOriginalBasisV5();return {schema:'LIANUM_NEW_PC15_W39_GENERATION_V6',kind:W39_DEV_KIND_V5,phase:'completed',role:'withdraw',programSHA256:hash,originalProgramSHA256:W39_DEV_SOURCE_V5.programSHA256,sourceSHA256:W39_DEV_SOURCE_V5.noirSHA256,nargoSHA256:W39_DEV_SOURCE_V5.nargoSHA256,abiSHA256:W39_DEV_SOURCE_V5.abiSHA256,compressedACIRSHA256:W39_DEV_SOURCE_V5.compressedACIRSHA256,keySHA256:W39_DEV_SOURCE_V5.keySHA256,keyBytes:1888,keyHashField:'1',soliditySHA256:W39_DEV_SOURCE_V5.soliditySHA256,solidityBytes:103923,backendPublicWords:47,publicOffset:5,publicWords:39,stats:{numGates:1,numGatesDyadic:262144,numAcirOpcodes:1},settings:W39_DEV_SETTINGS_V5,toolchain:basis.toolchain,crs:basis.crs,maximumPages:32768,threads:1,keyRecomputedNow:true,sameComputedKeyPassedToGenerator:true,proofGenerated:false};}
-function receipt(){return {schema:'LIANUM_NEW_PC15_W39_BUILD_V6',kind:W39_DEV_KIND_V5,phase:'completed',role:'withdraw',files:Object.fromEntries(W39_DEV_FILES_V5.filter(n=>n!=='receipt.json').map(name=>[name,{path:W39_DEV_DIRECTORY_V5+'/'+name,sha256:hash}])),historicalMissing:W39_DEV_HISTORICAL_MISSING_V5,historicalArtifactRecovered:false,componentIdentitiesUnchanged:true,counters:W39_DEV_COUNTERS_V5,sourceClosureSHA256:hash,sourceClosureUnchanged:true,backendDestroyed:true,proofGenerated:false,nativeNodesStarted:false,proofAcceptanceEstablished:false};}
-function compilation(){return {schema:'LIANUM_NEW_PC15_W39_SOLC_V6',phase:'completed',compiler:GENERIC_COMPILER_PIN,sourceSHA256:W39_DEV_SOURCE_V5.soliditySHA256,compiledSHA256:hash,settingsSHA256:hash,sourceASTSHA256:hash,artifactsSHA256:hash,originalCompiledSHA256:W39_DEV_SOURCE_V5.compiledSHA256,sameSourceAST:true,sameArtifacts:true};}
+function generation(){const basis=w39DevOriginalBasisV5();return {schema:'LIANUM_NEW_PC15_W39_GENERATION_V7',kind:W39_DEV_KIND_V5,phase:'completed',role:'withdraw',programSHA256:hash,originalProgramSHA256:W39_DEV_SOURCE_V5.programSHA256,sourceSHA256:W39_DEV_SOURCE_V5.noirSHA256,nargoSHA256:W39_DEV_SOURCE_V5.nargoSHA256,abiSHA256:W39_DEV_SOURCE_V5.abiSHA256,compressedACIRSHA256:W39_DEV_SOURCE_V5.compressedACIRSHA256,keySHA256:W39_DEV_SOURCE_V5.keySHA256,keyBytes:1888,keyHashField:'1',soliditySHA256:W39_DEV_SOURCE_V5.soliditySHA256,solidityBytes:103923,backendPublicWords:47,publicOffset:5,publicWords:39,stats:{numGates:1,numGatesDyadic:262144,numAcirOpcodes:1},settings:W39_DEV_SETTINGS_V5,toolchain:basis.toolchain,crs:basis.crs,maximumPages:32768,threads:1,keyRecomputedNow:true,sameComputedKeyPassedToGenerator:true,proofGenerated:false};}
+function receipt(){return {schema:'LIANUM_NEW_PC15_W39_BUILD_V7',kind:W39_DEV_KIND_V5,phase:'completed',role:'withdraw',files:Object.fromEntries(W39_DEV_FILES_V5.filter(n=>n!=='receipt.json').map(name=>[name,{path:W39_DEV_DIRECTORY_V5+'/'+name,sha256:hash}])),historicalMissing:W39_DEV_HISTORICAL_MISSING_V5,historicalArtifactRecovered:false,componentIdentitiesUnchanged:true,counters:W39_DEV_COUNTERS_V5,sourceClosureSHA256:hash,sourceClosureUnchanged:true,backendDestroyed:true,proofGenerated:false,nativeNodesStarted:false,proofAcceptanceEstablished:false};}
+function compilation(){return {schema:'LIANUM_NEW_PC15_W39_SOLC_V7',phase:'completed',compiler:GENERIC_COMPILER_PIN,sourceSHA256:W39_DEV_SOURCE_V5.soliditySHA256,compiledSHA256:hash,settingsSHA256:hash,sourceASTSHA256:hash,artifactsSHA256:hash,originalCompiledSHA256:W39_DEV_SOURCE_V5.compiledSHA256,sameSourceAST:true,sameArtifacts:true};}
 test('pure produced-PC15 descriptor and receipts are metadata, never an original artifact brand',()=>{
   for(const row of [validateW39DevDescriptorV5(descriptor()),validateW39DevGenerationV5(generation()),validateW39DevReceiptV5(receipt(),descriptor()),validateW39DevCompilationReceiptV5(compilation())]){
     assert.ok(Object.isFrozen(row));assert.throws(()=>assertNativeValueArtifactBundle(row),/FIXED_ARTIFACT_BUNDLE_REQUIRED/);assert.throws(()=>assertNativeValueArtifactBundle(structuredClone(row)),/FIXED_ARTIFACT_BUNDLE_REQUIRED/);
@@ -56,14 +56,16 @@ test('the fixed V5 loader cannot accept a caller-produced descriptor before file
  await assert.rejects(loadNativeValueDevDeploymentArtifactsV5(descriptor()),/NO_CALLER_OVERRIDE/);
 });
 
-test('fixed current W39 V6 generation preserves the historical namespace and rejects V5 receipts',()=>{
-  assert.equal(W39_DEV_DIRECTORY_V5,'.local/development-native-value-w39/v6');
-  const oldDescriptor=structuredClone(descriptor());
-  for(const file of Object.values(oldDescriptor.files))file.path=file.path.replace('/v6/','/v5/');
-  assert.throws(()=>validateW39DevDescriptorV5(oldDescriptor),/FIXED_RAW_PATH/);
-  for(const [make,validate,schema]of [[generation,validateW39DevGenerationV5,'LIANUM_NEW_PC15_W39_GENERATION_V5'],
-    [compilation,validateW39DevCompilationReceiptV5,'LIANUM_NEW_PC15_W39_SOLC_V5']]){
-    const old=make();old.schema=schema;assert.throws(()=>validate(old));
+test('fixed current W39 V7 generation preserves historical namespaces and rejects V5/V6 receipts',()=>{
+  assert.equal(W39_DEV_DIRECTORY_V5,'.local/development-native-value-w39/v7');
+  for(const version of [5,6]){
+    const oldDescriptor=structuredClone(descriptor());
+    for(const file of Object.values(oldDescriptor.files))file.path=file.path.replace('/v7/','/v'+version+'/');
+    assert.throws(()=>validateW39DevDescriptorV5(oldDescriptor),/FIXED_RAW_PATH/);
+    for(const [make,validate,schema]of [[generation,validateW39DevGenerationV5,'LIANUM_NEW_PC15_W39_GENERATION_V'+version],
+      [compilation,validateW39DevCompilationReceiptV5,'LIANUM_NEW_PC15_W39_SOLC_V'+version]]){
+      const old=make();old.schema=schema;assert.throws(()=>validate(old));
+    }
+    const old=receipt();old.schema='LIANUM_NEW_PC15_W39_BUILD_V'+version;assert.throws(()=>validateW39DevReceiptV5(old,descriptor()));
   }
-  const old=receipt();old.schema='LIANUM_NEW_PC15_W39_BUILD_V5';assert.throws(()=>validateW39DevReceiptV5(old,descriptor()));
 });
