@@ -75,6 +75,32 @@ export function assertOriginalDeviceNativeFReorgPendingV1(account, executor, ref
   state.assertReorgPending(executor, ref, id);
 }
 const owned = new WeakMap(), manualGraphs = new WeakMap(), manualNotes = new WeakMap();
+/** Public proof receipts retained only by the original SOURCE producer. They
+ * authenticate evidence continuity, never a proof job or economic permission. */
+export async function readOriginalNativeSourceProofReceiptsV1(account){
+  assert.equal(arguments.length,1);assertOwnedNativeValueAccountAuthority(account);
+  const state=owned.get(account);state.sourceIdentity();return state.sourceProofReceipts();
+}
+const sourceReceiptSHA=value=>createHash('sha256').update(value).digest('hex');
+function sourceProofReceiptFrame(relation,label,proof){
+  assert.ok(['deposit_balance','authorization','reservation'].includes(relation));
+  const transport=transportProof(proof);if(relation==='deposit_balance')assert.equal(transport.publicInputs.length,26);else decodeStatement(relation,transport.publicInputs);
+  // These are the fixed prover's returned public metrics/evidence only. Do not
+  // serialize its input, witness, job or callback envelope.
+  const evidence=relation==='deposit_balance'?proof.metrics:proof.evidence;
+  assert.ok(evidence&&typeof evidence==='object');
+  const json=JSON.stringify(evidence);assert.ok(Buffer.byteLength(json)<=1024*1024,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_BOUND');
+  return {relation,label,json,sha256:sourceReceiptSHA(Buffer.from(json)),proofSHA256:sourceReceiptSHA(Buffer.from(transport.proof,'hex')),publicInputsSHA256:sha(transport.publicInputs)};
+}
+function restoreSourceProofReceipt(frame,proof){
+  exactRecord(frame,['relation','label','json','sha256','proofSHA256','publicInputsSHA256']);
+  assert.ok(['deposit_balance','authorization','reservation'].includes(frame.relation));assert.equal(typeof frame.json,'string');
+  assert.ok(Buffer.byteLength(frame.json)<=1024*1024,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_BOUND');assert.equal(sourceReceiptSHA(Buffer.from(frame.json)),frame.sha256);
+  const transport=transportProof(proof);assert.equal(sourceReceiptSHA(Buffer.from(transport.proof,'hex')),frame.proofSHA256);assert.equal(sha(transport.publicInputs),frame.publicInputsSHA256);
+  const evidence=JSON.parse(frame.json);assert.equal(JSON.stringify(evidence),frame.json);
+  return {label:frame.label,relation:frame.relation,proof:{...transport,...(frame.relation==='deposit_balance'?{metrics:evidence}:{evidence})}};
+}
+
 export function nativeValueAccountManualNoteDetails(approval) {
   const retained = manualNotes.get(approval);
   assert.ok(retained, 'NATIVE_VALUE_MANUAL_NOTE_ORIGINAL_REQUIRED');
@@ -478,7 +504,14 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   let sourceHandle=nativeSourceOriginal?.handle??null,sourceRecord=null,sourceOperation=false;
   const manualGraphApprovals = new Map(), nativeProviderSets = new Map(), nativeNoteApprovals = new Map();
   const deviceExecutionInstallations=new Map(),deviceExecutionProviders=new Map();
-  const proofRunner = createFlatProofRunner({ onProof });
+  const proofRunner = createFlatProofRunner({onProof:async event=>{
+    if(nativeSourceOriginal&&event.label==='device-reservation-s'){
+      const rows=reservationRows();assert.equal(rows.length,1);assert.equal(rows[0].stage,'RESERVING');
+      await reservationUpdate(rows[0].jobId,{originalSourceReservationProof:transportProof(event.proof),
+        originalSourceReservationReceipt:sourceProofReceiptFrame(event.relation,event.label,event.proof)});
+    }
+    await onProof(event);
+  }});
   const exclusive = async work => {
     assert.ok(!busy && !unavailable && !closed && !cancelled && !capturing, 'FLAT_ACCOUNT_UNAVAILABLE');
     busy = true; idle = new Promise(resolve => { releaseIdle = resolve; });
@@ -684,6 +717,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
           await onProof({ label: 'device-deposit-d26', relation: 'deposit_balance', role: 'device-owner',
             proof: { ...proof, metrics: result.metrics } });
           await deviceUpdate(consent.jobId, { stage: 'PROVED', proof,
+            ...(nativeSourceOriginal?{originalSourceProofReceipt:sourceProofReceiptFrame('deposit_balance','device-deposit-d26',{...proof,metrics:result.metrics})}:{}),
             proofSHA256: byteSHA(Buffer.from(proof.proof, 'hex')), publicInputsSHA256: sha(proof.publicInputs),
             nullifier: nullifier(Buffer.from(consent.statement.scope, 'hex'), Buffer.from(consent.statement.output, 'hex'),
               Buffer.from(input.secret)).toString('hex') });
@@ -886,7 +920,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
           .map(word=>'0x'+BigInt(word).toString(16).padStart(64,'0')),view.header.number),true,'DEVICE_RESERVATION_DEPLOYED_U_REJECTED');
         flatAccountGraphBinding({authorization,rolePackets},identity);await reader.assertCurrent(view);continueWork();
         await onProof({label:'device-reservation-u',relation:'authorization',role:'device-owner',proof:result});
-        await reservationUpdate(consent.jobId,{stage:'PROVED',authorization,rolePackets,proofSHA256:byteSHA(Buffer.from(authorization.proof,'hex')),
+        await reservationUpdate(consent.jobId,{stage:'PROVED',authorization,rolePackets,
+          ...(nativeSourceOriginal?{originalSourceAuthorizationReceipt:sourceProofReceiptFrame('authorization','device-reservation-u',result)}:{}),proofSHA256:byteSHA(Buffer.from(authorization.proof,'hex')),
           publicInputsSHA256:sha(authorization.publicInputs)});
         await onPrivateAudit({reference:consent.jobId,phase:'device-reservation-proof-retained',stage:'PROVED'});
         return reply(reservationPublic(reservationRow(consent.jobId)));
@@ -2296,6 +2331,16 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       sourceRecord={schema:'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1',sourceSHA256:nativeSourceOriginal.identity.sourceSHA256,ownedProcesses:[],confirmed:originalSourceAccountRecord(),candidate:null};
       sourceHandle=await retainOriginalNativeSourceSectionV1(nativeSourceOriginal.token,'account',sourceRecord);},
     sourceIdentity(){assert.ok(nativeSourceOriginal&&!closed&&!unavailable);return nativeSourceOriginal.identity;},
+    async sourceProofReceipts(){const originalWork=idle;await originalWork;return exclusive(async()=>{
+      await healthy();assert.ok(nativeSourceOriginal,'NATIVE_SOURCE_ORIGINAL_ACCOUNT_REQUIRED');
+      const receipts=[];
+      for(const row of deviceRows())if(row.originalSourceProofReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceProofReceipt,row.proof));
+      for(const row of reservationRows()){
+        if(row.originalSourceAuthorizationReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceAuthorizationReceipt,row.authorization));
+        if(row.originalSourceReservationReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceReservationReceipt,row.originalSourceReservationProof));
+      }
+      assert.ok(receipts.length<=3,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_COUNT');return receipts;
+    });},
     deviceDeposit, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
     async checkReorgPending(executor, ref, id) { await healthy(); assertReorgPending(executor, ref, id); },
     installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true||recovery.source===true)&&nativeExecution!==null&&liveRecovery===null);
