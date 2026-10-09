@@ -3,6 +3,10 @@ import {test} from 'node:test';
 import assert,{AssertionError} from 'node:assert';
 import {readFileSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {fork} from 'node:child_process';
+import {once} from 'node:events';
 import {runInNewContext} from 'node:vm';
 import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
@@ -59,4 +63,74 @@ test('HOST actual worker catch retains first metadata before generic mapping and
   privateNativeEconomicSuccessorFirstErrorV1:diagnose,privateFailureDiagnostic,
   writeFixturePrivate:(path)=>{if(path.endsWith('/successor-first-error-private.json'))throw Error('private storage unavailable');}});
  assert.doesNotThrow(()=>failing(first));
+});
+
+test('HOST original successor CLOSE keeps remote EOF and the same real ChildProcess close',async t=>{
+ // Inert IPC child only: no account, issuer, RPC, signing, SDK or proof. The
+ // actual private launcher control body drives this same ChildProcess.
+ const directory=await mkdtemp(join(tmpdir(),'lianum-successor-close-eof-'));
+ const entry=join(directory,'inert-control.mjs'),children=[];
+ await writeFile(entry,`process.on('message',packet=>{
+   if(packet.action!=='CLOSE'){process.exitCode=1;process.disconnect();return;}
+   process.send({sequence:packet.sequence,ok:true,value:{closed:true,originalBackendStopped:true,
+     listenerClosed:true,ownedSocketsRemaining:0,processId:process.pid}},error=>{
+       if(error){process.exitCode=1;return;}
+       // Deterministic reply-before-EOF ordering; no product deadline changes.
+       setTimeout(()=>{if(process.connected)process.disconnect();},25);
+     });
+ });`,{mode:0o600});
+ const spawn=async()=>{const child=fork(entry,[],{execArgv:['--max-old-space-size=64'],cwd:directory,
+   env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','inherit','inherit','ipc']});
+   const exited=once(child,'exit');children.push({child,exited});await once(child,'spawn');return{child,exited};};
+ t.after(async()=>{for(const{child,exited}of children){if(child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');
+   if(child.connected)child.disconnect();await exited;assert.throws(()=>process.kill(child.pid,0),{code:'ESRCH'});}
+   await rm(directory,{recursive:true,force:true});});
+ // Reproduce the original Node24 IPC close-count loss with a real child.
+ const old=await spawn();let oldCloseObserved=false;
+ old.child.once('close',()=>{oldCloseObserved=true;});
+ const reply=once(old.child,'message');old.child.send({sequence:1,action:'CLOSE'});
+ assert.equal((await reply)[0].ok,true);old.child.disconnect();
+ assert.deepEqual(await old.exited,[0,null]);
+ await new Promise(resolve=>setTimeout(resolve,50));assert.equal(oldCloseObserved,false);
+ assert.throws(()=>process.kill(old.child.pid,0),{code:'ESRCH'});
+
+ const source=readFileSync(new URL('./native-device-economic-launcher-v1.mjs',import.meta.url),'utf8');
+ const start=source.indexOf(' const pending=new Map();'),end=source.indexOf(' economicLifetime.closeSuccessor=close;',start);
+ assert.ok(start>=0&&end>start);
+ const bind=runInNewContext('(child,context,identity)=>{'+source.slice(start,end)+';return {close};}',
+   {assert,Buffer,Error,setTimeout,clearTimeout,MAXIMUM_IPC_BYTES:2*1024*1024});
+ const current=await spawn(),events=[];current.child.once('exit',()=>events.push('exit'));
+ current.child.once('close',()=>events.push('close'));
+ const lifetime=bind(current.child,{active(){}},{deadlineMs:Date.now()+5000});
+ const stopped=await lifetime.close();assert.deepEqual(await current.exited,[0,null]);
+ assert.equal(stopped.processId,current.child.pid);assert.equal(stopped.originalChildProcessClosed,true);
+ assert.equal(stopped.originalBackendStopped,true);assert.equal(stopped.closed,true);
+ assert.deepEqual({...stopped.exit},{code:0,signal:null});assert.deepEqual({...stopped.close},{code:0,signal:null});
+ assert.deepEqual(events,['exit','close']);assert.throws(()=>process.kill(current.child.pid,0),{code:'ESRCH'});
+ assert.equal(await lifetime.close(),stopped);
+});
+
+test('HOST original parent tail retains safe failure before waiting for the same cleanup',async()=>{
+ const source=readFileSync(new URL('./native-device-economic-original-continuation-v1.mjs',import.meta.url),'utf8');
+ const marker=' }catch(error){',start=source.lastIndexOf(marker)+marker.length,end=source.indexOf('throw error;}',start)+'throw error;'.length;
+ assert.ok(start>=marker.length&&end>start);const body=source.slice(start,end),events=[],outputs=[];
+ let release;const pending=new Promise(resolve=>{release=resolve;});
+ const failure=new AssertionError({actual:'PRIVATE-ACTUAL',expected:'PRIVATE-EXPECTED',operator:'strictEqual'});
+ failure.stack='AssertionError: PRIVATE-MESSAGE\n'+safeFrame;
+ const run=runInNewContext('(async(error)=>{'+body+'})',{join,
+   context:{privateDirectory:'/fixed-private',result:{cleanup:{errors:[]}}},
+   privateNativeEconomicSuccessorFirstErrorV1:diagnose,privateFailureDiagnostic,
+   writeFixturePrivate:(path,value)=>{events.push('retained');outputs.push({path,value});},
+   close:()=>events.push('local-fenced'),successor:{close:()=>{events.push('owned-cleanup');return pending;}}});
+ const work=run(failure);let settled=false;work.catch(()=>{settled=true;});
+ assert.deepEqual(events,['retained','local-fenced','owned-cleanup']);assert.equal(settled,false);
+ assert.equal(outputs[0].path,'/fixed-private/parent-tail-first-error-private.json');
+ assert.equal(outputs[0].value.errorCode,'ERR_ASSERTION');assert.equal(outputs[0].value.frames.length,1);
+ for(const text of['PRIVATE-ACTUAL','PRIVATE-EXPECTED','PRIVATE-MESSAGE','actual','expected','operator','message'])assert.equal(JSON.stringify(outputs[0].value).includes(text),false);
+ release();await assert.rejects(work,error=>error===failure);
+ const failedStorage=runInNewContext('(async(error)=>{'+body+'})',{join,
+   context:{privateDirectory:'/fixed-private',result:{cleanup:{errors:[]}}},
+   privateNativeEconomicSuccessorFirstErrorV1:diagnose,privateFailureDiagnostic,
+   writeFixturePrivate:()=>{throw Error('PRIVATE-STORAGE');},close(){},successor:{async close(){}}});
+ await assert.rejects(failedStorage(failure),error=>error===failure);
 });

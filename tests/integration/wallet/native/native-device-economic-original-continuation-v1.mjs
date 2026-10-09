@@ -9,6 +9,9 @@ import {deviceExecutionConsentMessageV1} from '../../../../packages/mobile-proto
 import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
+import {join} from 'node:path';
+import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';
+import {privateNativeEconomicSuccessorFirstErrorV1} from './native-device-economic-private-error-v1.mjs';
 import {captureAndLaunchNativeDeviceEconomicSuccessorV1,captureAndLaunchNativeDeviceNoteEconomicSuccessorV1} from './native-device-economic-launcher-v1.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),bare=s=>s.startsWith('0x')?s.slice(2):s;
 export async function runNativeDeviceEconomicOriginalContinuationV1(context){
@@ -156,5 +159,10 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
   result.deviceEconomicRestart.sameOriginalSAndF=true;result.deviceEconomicRestart.successorClosed=true;result.deviceEconomicRestart.freshSignedReconciliationAfterReopen=true;
   result.deviceOwnerNativeRecoveryNodeAcceptance=true;result.nativeProcessRestartEstablished=true;result.keeperLossRecoveryEstablished=false;
   result.nativeDeliveryCount=1;result.nativeGraphAcceptance=true;result.nativeDeviceEconomicRestartNodeAcceptance=true;save();return{vault,close};
- }catch(error){close();if(successor)await successor.close().catch(cleanup=>{context.result.cleanup.errors.push({name:'economic-successor',code:privateFailureDiagnostic(cleanup,'NATIVE_ECONOMIC_SUCCESSOR_CLEANUP_FAILED').code});});throw error;}
+ }catch(error){
+  // Preserve the original parent failure BEFORE waiting for owned cleanup.
+  // This existing parser retains only error enums and fixed source locations.
+  try{writeFixturePrivate(join(context.privateDirectory,'parent-tail-first-error-private.json'),privateNativeEconomicSuccessorFirstErrorV1(error));}
+  catch{/* Diagnostic storage cannot replace the original error or its cleanup. */}
+  close();if(successor)await successor.close().catch(cleanup=>{context.result.cleanup.errors.push({name:'economic-successor',code:privateFailureDiagnostic(cleanup,'NATIVE_ECONOMIC_SUCCESSOR_CLEANUP_FAILED').code});});throw error;}
 }

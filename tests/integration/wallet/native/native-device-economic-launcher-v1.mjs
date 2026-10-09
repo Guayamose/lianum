@@ -75,7 +75,10 @@ async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoi
    pending.set(packet.sequence,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});
    child.send(packet,error=>{if(error){const p=pending.get(packet.sequence);pending.delete(packet.sequence);p?.reject(error);}});});}
  async function close(){if(!closeReply){closeReply=(async()=>{let reply;try{if(!closed&&child.connected)reply=await request('CLOSE');}
-   finally{if(child.connected)child.disconnect();}
+   catch(error){if(child.connected)child.disconnect();throw error;}
+   // The original child disconnects AFTER its send callback. A local parent
+   // disconnect can suppress Node24's IPC EOF close count, leaving the same
+   // ChildProcess.close Promise unsettled despite its real process exit.
    const observed=await completion;assert.deepEqual(observed,{code:0,signal:null});assert.deepEqual(exitEvent,observed);
    assert.equal(reply?.closed,true);assert.equal(reply.originalBackendStopped,true);assert.equal(reply.processId,child.pid);
    assert.equal(reply.listenerClosed,true);assert.equal(reply.ownedSocketsRemaining,0);return{...reply,exit:observed,close:observed,originalChildProcessClosed:true};})();closeReply.catch(()=>{});}return closeReply;}
