@@ -10,12 +10,14 @@ import {assertOwnedNativeValueExecution} from '../../execution/native-value/exec
 import {assertOwnedNativeValueProviderCustody} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import {assertDeviceOwnerReservationBridgeV1,deviceOwnerReservationBridgeActorV1} from './device-owner-reservation-bridge-v1.mjs';
 import {installDeviceOwnerExecutionV1,readDeviceOwnerExecutionStatusV1,runDeviceOwnerExecutionAuthorizationV1,
-  assertOwnedNativeValueAccountAuthority,prepareDeviceOwnerExitV1,readDeviceOwnerExitStatusV1,runDeviceOwnerExitAuthorizationV1,readDeviceOwnerOutputBalanceV1}
+  assertOwnedNativeValueAccountAuthority,prepareDeviceOwnerExitV1,readDeviceOwnerExitStatusV1,runDeviceOwnerExitAuthorizationV1,readDeviceOwnerOutputBalanceV1,readDeviceOwnerRecoveryArmTermsV1,runDeviceOwnerRecoveryArmAuthorizationV1}
   from './native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {normalizeOriginalAccountSignatureV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
 import {DEVICE_EXECUTION_CONSENT_V1,normalizeDeviceExecutionConsentV1,validateDeviceExecutionConsentFreshV1,
   deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
+import {DEVICE_RECOVERY_ARM_V1,normalizeDeviceRecoveryArmConsentV1,validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1,normalizeDeviceRecoveryArmStatusV1}
+  from '../../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import {DEVICE_RESERVATION_CONSENT_V1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {originalAccountAccessMessageV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
 import {DEVICE_OUTPUT_BALANCE_V1,normalizeDeviceOutputBalanceV1} from '../../../../mobile-protocol/src/device-output-balance-v1.mjs';
@@ -38,7 +40,7 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
   const key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',
     x:Buffer.from(descriptor.devicePublicKey.slice(2,66),'hex').toString('base64url'),
     y:Buffer.from(descriptor.devicePublicKey.slice(66),'hex').toString('base64url')}});
-  let closed=false,busy=false,completion;const pending=new Map(),admitted=new Map(),exitQuotes=new Map(),exitPending=new Map(),exitSources=new Set();
+  let closed=false,busy=false,completion;const armPending=new Map(),pending=new Map(),admitted=new Map(),exitQuotes=new Map(),exitPending=new Map(),exitSources=new Set();
   const live=()=>{assert.ok(!closed,'DEVICE_EXECUTION_BRIDGE_CLOSED');original();};
   const grant=value=>{const cap=Object.freeze(Object.defineProperty(Object.create(null),'toJSON',{
     value(){throw Error('DEVICE_EXECUTION_NOT_SERIALIZABLE');}}));admissions.set(cap,{bridge,account,...value,consumed:false});return cap;};
@@ -99,11 +101,39 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
       return await runDeviceOwnerExitAuthorizationV1(account,bridge,grant({action,consent,witness}));
     }catch(error){failure=error;throw error;}finally{wipeDeviceExitWitnessV1(witness);busy=false;
       if(retained){if(failure)retained.reject(failure);else retained.resolve();}}}
+  async function armChallenge(input,action){
+    const execution=await challenge(input,'RECONCILE_NATIVE');pending.delete(execution.reservation.challengeId);live();
+    const terms=await readDeviceOwnerRecoveryArmTermsV1(account,bridge,input.jobId);live();
+    for(const[id,row]of armPending)if(row.consumed||row.value.execution.reservation.expiresAt<=Date.now())armPending.delete(id);
+    assert.ok(armPending.size<4,'DEVICE_LIVE_RECOVERY_CHALLENGE_CAPACITY');
+    const value=normalizeDeviceRecoveryArmConsentV1({version:1,profile:DEVICE_RECOVERY_ARM_V1,action,execution,settleBefore:terms.settleBefore});
+    validateDeviceRecoveryArmConsentFreshV1(value);deviceRecoveryArmConsentMessageV1(value);
+    armPending.set(execution.reservation.challengeId,{value,consumed:false});return cloneInput(value);
+  }
+  async function armWork(input,action){exactRecord(input,['consent','signature']);live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+    let retained,failure;try{const consent=validateDeviceRecoveryArmConsentFreshV1(cloneInput(input.consent));
+      const row=armPending.get(consent.execution.reservation.challengeId);assert.ok(row&&!row.consumed&&consent.action===action,'DEVICE_LIVE_RECOVERY_ORIGINAL_CONSENT');
+      assert.deepEqual(consent,row.value);assert.equal(verify('sha256',deviceRecoveryArmConsentMessageV1(consent),{key,dsaEncoding:'ieee-p1363'},
+        Buffer.from(normalizeOriginalAccountSignatureV2(input.signature),'hex')),true,'DEVICE_LIVE_RECOVERY_DEVICE_SIGNATURE');
+      assert.deepEqual(await actor.deviceDepositOriginalBinding(),consent.execution.reservation.binding,'DEVICE_LIVE_RECOVERY_BINDING_CHANGED');
+      live();validateDeviceRecoveryArmConsentFreshV1(consent);row.consumed=true;
+      retained=Promise.withResolvers();retained.promise.catch(()=>{});completion=retained.promise;
+      return normalizeDeviceRecoveryArmStatusV1(await runDeviceOwnerRecoveryArmAuthorizationV1(account,bridge,grant({action,consent})));
+    }catch(error){failure=error;throw error;}finally{busy=false;if(retained){if(failure)retained.reject(failure);else retained.resolve();}}
+  }
   const bridge=Object.freeze({challengeExecution(input){assert.equal(arguments.length,1);return challenge(input,'EXECUTE_NATIVE');},
     execute(input){assert.equal(arguments.length,1);return work(input,'EXECUTE_NATIVE');},
     challengeReconciliation(input){assert.equal(arguments.length,1);return challenge(input,'RECONCILE_NATIVE');},
     reconcile(input){assert.equal(arguments.length,1);return work(input,'RECONCILE_NATIVE');},
     challengeRecovery(input){assert.equal(arguments.length,1);return challenge(input,'RECOVER_NATIVE');},
+    challengeRecoveryArm(input){assert.equal(arguments.length,1);return armChallenge(input,'ARM_RECOVERY');},
+    challengeRecoveryDisarm(input){assert.equal(arguments.length,1);return armChallenge(input,'DISARM_RECOVERY');},
+    armRecovery(input){assert.equal(arguments.length,1);return armWork(input,'ARM_RECOVERY');},
+    disarmRecovery(input){assert.equal(arguments.length,1);return armWork(input,'DISARM_RECOVERY');},
+    async observeRecoveryArm(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','jobId']);live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+      try{const access=await exitRead(input),terms=await readDeviceOwnerRecoveryArmTermsV1(account,bridge,input.jobId);live();
+        assert.ok(input.access.expiresAt>Date.now(),'DEVICE_LIVE_RECOVERY_READ_EXPIRED');
+        return normalizeDeviceRecoveryArmStatusV1({...terms,authorizationSHA256:access.authorizationSHA256});}finally{busy=false;}},
     recover(input){assert.equal(arguments.length,1);return work(input,'RECOVER_NATIVE');},
     async observeOutputBalances(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','parentJobId','rootId','noteRevision','changeNullifier','recoveryNullifier']);
       live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
@@ -139,7 +169,7 @@ export async function createDeviceOwnerExecutionBridgeV1(input){
     withdraw(input){assert.equal(arguments.length,1);return exitWork(input,'WITHDRAW_W39');},
     challengeExitObservation(input){assert.equal(arguments.length,1);return challengeExit(input,'OBSERVE_W39');},
     observeExit(input){assert.equal(arguments.length,1);return exitWork(input,'OBSERVE_W39');},
-    close(){assert.equal(arguments.length,0);closed=true;pending.clear();exitPending.clear();exitQuotes.clear();return{closed:true,originalWorkRetained:true};}});
+    close(){assert.equal(arguments.length,0);closed=true;armPending.clear();pending.clear();exitPending.clear();exitQuotes.clear();return{closed:true,originalWorkRetained:true};}});
   bridges.set(bridge,{account,reservationBridge,nativeExecution,providers,actor,descriptor,original,
     installationConsumed:false,get completion(){return completion;}});await installDeviceOwnerExecutionV1(account,bridge);return bridge;
 }

@@ -95,6 +95,27 @@ import {verifyPrivateNotePath} from '../../../../engine/src/notes/private-note-t
 import {captureNativeDeviceOriginalW39MetricsFrameV1,restoreNativeDeviceOriginalW39MetricsFrameV1}
   from './native-device-original-w39-metrics-frame-v1.mjs';
 
+import {deviceRecoveryArmConsentMessageV1,validateDeviceRecoveryArmConsentFreshV1} from '../../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
+import {assertOriginalNativeDeviceLocalObservedClockV1,refreshOriginalNativeDeviceLocalObservedClockV1} from '../../operations/recovery/native-device-local-observed-clock-v1.mjs';
+const liveRecoveryLeases=new WeakMap();
+export function createDeviceOwnerLiveRecoveryLeaseV1(account,bridge,clock,nativeRuntime){
+ assert.equal(arguments.length,4);assertOwnedNativeValueAccountAuthority(account);assertDeviceOwnerExecutionBridgeV1(bridge,account);
+ const a=owned.get(account);assertOriginalNativeDeviceLocalObservedClockV1(clock,{runtime:a.runtime,nativeRuntime});
+ const cap=Object.freeze(Object.create(null)),row={account,bridge,clock,closed:false,completion:null};
+ a.installLiveRecovery(row);liveRecoveryLeases.set(cap,row);return cap;
+}
+export function closeDeviceOwnerLiveRecoveryLeaseV1(cap){assert.equal(arguments.length,1);const row=liveRecoveryLeases.get(cap);
+ assert.ok(row,'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');row.closed=true;return row.completion??Promise.resolve();}
+export function tickDeviceOwnerLiveRecoveryLeaseV1(cap){assert.equal(arguments.length,1);const row=liveRecoveryLeases.get(cap);
+ assert.ok(row&&!row.closed,'DEVICE_LIVE_RECOVERY_CLOSED');if(row.completion)return row.completion;
+ const task=owned.get(row.account).tickLiveRecovery(row);row.completion=task;
+ task.finally(()=>{if(row.completion===task)row.completion=null;}).catch(()=>{});return task;
+}
+export function readDeviceOwnerRecoveryArmTermsV1(account,bridge,id){assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+ return owned.get(account).liveRecoveryTerms(bridge,id);}
+export function runDeviceOwnerRecoveryArmAuthorizationV1(account,bridge,cap){assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
+ return owned.get(account).armLiveRecovery(consumeDeviceOwnerExecutionAuthorizationV1(bridge,cap,account));}
+
 // Private original producer: a recovered journal can reinstall only its own
 // paired pipeline. Neither HTTP IDs nor a prepared JSON object issue this mark.
 const nativeDeviceRecoveredInstallations=new WeakMap();
@@ -627,6 +648,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       const deposit=reservationSubject(original.depositJobId,original.rootId,original.descriptor);
       assert.equal(original.binding.accountIdentitySHA256,sha(accountIdentity),'DEVICE_RESERVATION_ACCOUNT_CHANGED');
       assert.equal(original.binding.originalAccountLifetime,config.lifetime,'DEVICE_RESERVATION_LIFETIME_CHANGED');
+      await refreshLiveOperationClock();
       await observeDevice(deposit);const view=await reader.read();await reader.assertCurrent(view);
       const preparation=validateGenericBalanceNativePreparation(original.nativePreparation),nativeConfig=preparation.config;
       for(const name of ['scope','policy','asset','hubDomain','registryCommitment'])
@@ -710,6 +732,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     if(action==='OBSERVE_S')return reply(await reservationObservation(row));
     assert.equal(action,'RESERVE_S');assert.equal(row.stage,'PROVED','DEVICE_RESERVATION_RECONCILE_ORIGINAL_ONLY');
     assert.equal(row.submission,null,'DEVICE_RESERVATION_RECONCILE_ORIGINAL_ONLY');
+    await refreshLiveOperationClock();
     const deposit=reservationSubject(consent.depositJobId,consent.custody.rootId,consent);await observeDevice(deposit);
     // Bind these exact U packets to the account's original executor BEFORE S.
     // An already-spent historical U/S job cannot acquire a new dispatch route.
@@ -789,6 +812,82 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     if(retained.nativeTerminal!==null)assert.deepEqual(terminal,retained.nativeTerminal,'DEVICE_EXECUTION_TERMINAL_CHANGED');
     else await reservationUpdate(row.jobId,{nativeTerminal:terminal,nativeOutcome:result.outcome,nativeStage:result.outcome,nativeErrorCode:null});
   }
+  let liveRecovery=null;
+  function requireLiveRecovery(bridge){assert.ok(nativeNote&&!recovery&&!wrapped&&liveRecovery&&!liveRecovery.closed&&liveRecovery.bridge===bridge,
+    'DEVICE_LIVE_RECOVERY_ORIGINAL_INSTALLATION');return liveRecovery;}
+  async function refreshLiveOperationClock(){
+    if(liveRecovery===null)return;const lease=liveRecovery;requireLiveRecovery(lease.bridge);
+    await refreshOriginalNativeDeviceLocalObservedClockV1(lease.clock);
+    assert.equal(liveRecovery,lease,'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');requireLiveRecovery(lease.bridge);continueWork();
+  }
+  function armPublic(row){const arm=row.liveRecoveryArm;return{jobId:row.jobId,state:arm?.state??'ABSENT',settleBefore:row.nativeBinding.settleBefore,
+    armSHA256:arm?.armSHA256??null,terminalOutcome:row.nativeOutcome??null};}
+  function sameArm(row,consent,current){const e=consent.execution;originalReservationConsent(row,e.reservation);
+    assert.equal(consent.settleBefore,row.nativeBinding.settleBefore,'DEVICE_LIVE_RECOVERY_CUTOFF_CHANGED');
+    assert.equal(e.nativeBindingSHA256,current.nativeBindingSHA256);assert.equal(e.reservationTransactionHash,current.reservation.observation.transactionHash);
+    assert.equal(e.executionSnapshotSHA256,current.executionSnapshotSHA256);assert.equal(e.lossClause,current.lossClause);}
+  async function armLiveRecovery(original){return exclusive(async()=>{await healthy();continueWork();const {bridge,consent,action}=original;
+    requireLiveRecovery(bridge);validateDeviceRecoveryArmConsentFreshV1(consent);assert.equal(action,consent.action);const row=reservationRow(consent.execution.reservation.jobId);
+    const current=await deviceExecutionPublic(bridge,row);sameArm(row,consent,current);
+    const digest=byteSHA(deviceRecoveryArmConsentMessageV1(consent));
+    if(action==='ARM_RECOVERY'){
+      const previous=row.liveRecoveryArm??null;
+      assert.ok(previous===null||previous.state==='DISARMED','DEVICE_LIVE_RECOVERY_ALREADY_ARMED');
+      if(previous){assert.equal(previous.nativeBindingSHA256,current.nativeBindingSHA256,'DEVICE_LIVE_RECOVERY_BINDING_CHANGED');
+        assert.equal(previous.reservationTransactionHash,current.reservation.observation.transactionHash,'DEVICE_LIVE_RECOVERY_S_CHANGED');
+        assert.equal(previous.settleBefore,row.nativeBinding.settleBefore);assert.equal(previous.lossClause,current.lossClause);}
+      assert.equal(row.nativeOutcome,null,'DEVICE_LIVE_RECOVERY_TERMINAL');assert.equal(row.nativeRecoveryLatched,false,'DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');
+      await refreshLiveOperationClock();
+      assert.ok(BigInt((await reader.read()).head.timestamp)<BigInt(row.nativeBinding.settleBefore),'DEVICE_LIVE_RECOVERY_ARM_BEFORE_CUTOFF');
+      requireLiveRecovery(bridge);continueWork();validateDeviceRecoveryArmConsentFreshV1(consent);
+      await reservationUpdate(row.jobId,{liveRecoveryArm:{state:'ARMED',armSHA256:digest,nativeBindingSHA256:current.nativeBindingSHA256,
+        reservationTransactionHash:current.reservation.observation.transactionHash,settleBefore:row.nativeBinding.settleBefore,
+        lossClause:current.lossClause,errorCode:null}});
+    }else{assert.equal(action,'DISARM_RECOVERY');assert.equal(row.liveRecoveryArm?.state,'ARMED','DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');
+      assert.equal(row.nativeRecoveryLatched,false,'DEVICE_LIVE_RECOVERY_ORIGINAL_ONLY');requireLiveRecovery(bridge);continueWork();validateDeviceRecoveryArmConsentFreshV1(consent);
+      await reservationUpdate(row.jobId,{liveRecoveryArm:{...row.liveRecoveryArm,state:'DISARMED'}});}
+    return{...armPublic(reservationRow(row.jobId)),authorizationSHA256:digest};
+  });}
+  async function tickLiveRecovery(lease){
+    assert.equal(lease,liveRecovery,'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');if(lease.closed)return{state:'CLOSED'};
+    if(busy||closed||cancelled||unavailable||capturing)return{state:'BUSY'};
+    if(!reservationRows().some(row=>['ARMED','FIRING','UNKNOWN'].includes(row.liveRecoveryArm?.state)))return{state:'IDLE'};
+    return exclusive(async()=>{if(lease.closed)return{state:'CLOSED'};
+      await refreshOriginalNativeDeviceLocalObservedClockV1(lease.clock);if(lease.closed)return{state:'CLOSED'};
+      await healthy();if(lease.closed)return{state:'CLOSED'};
+      for(const row of reservationRows()){
+        const arm=row.liveRecoveryArm;if(!arm||!['ARMED','FIRING','UNKNOWN'].includes(arm.state))continue;
+        deviceExecutionOriginal(lease.bridge,row);const current=await deviceExecutionPublic(lease.bridge,row);
+        assert.equal(arm.nativeBindingSHA256,current.nativeBindingSHA256,'DEVICE_LIVE_RECOVERY_BINDING_CHANGED');
+        assert.equal(arm.reservationTransactionHash,current.reservation.observation.transactionHash,'DEVICE_LIVE_RECOVERY_S_CHANGED');
+        assert.equal(arm.settleBefore,row.nativeBinding.settleBefore);assert.equal(arm.lossClause,current.lossClause);
+        const updateArm=fields=>reservationUpdate(row.jobId,{liveRecoveryArm:{...reservationRow(row.jobId).liveRecoveryArm,...fields}});
+        if(row.nativeOutcome!==null){await updateArm({state:row.nativeOutcome});continue;}
+        if(lease.closed)return{state:'CLOSED'};
+        if(arm.state==='ARMED'&&!row.nativeRecoveryLatched){
+          const view=await reader.read();await reader.assertCurrent(view);
+          if(BigInt(view.head.timestamp)<BigInt(arm.settleBefore))continue;
+          if(lease.closed)return{state:'CLOSED'};
+          // Admission is latched durably BEFORE the original proof/send work.
+          // Once admitted, close drains this same work; it never starts a replacement.
+          await reservationUpdate(row.jobId,{liveRecoveryArm:{...arm,state:'FIRING'},nativeRecoveryLatched:true,nativeStage:'RECOVERING'});
+          try{const result=await nativeExecution.recover(row.jobId);await retainDeviceTerminal(reservationRow(row.jobId),result);
+            await updateArm({state:result.outcome,errorCode:null});}
+          catch(error){const diagnostic=privateFailureDiagnostic(error,'DEVICE_LIVE_RECOVERY_OUTCOME_UNRESOLVED');
+            await reservationUpdate(row.jobId,{nativeStage:'UNKNOWN',nativeErrorCode:diagnostic.code});
+            await updateArm({state:'UNKNOWN',errorCode:diagnostic.code});throw error;}
+        }else{
+          // Lost reply, previous manual F or interrupted admitted work: ONLY
+          // reconcile the original latches/wire. No proof/send retry on this path.
+          try{const result=await nativeExecution.reconcile(row.jobId);await retainDeviceTerminal(reservationRow(row.jobId),result);
+            await updateArm({state:result.outcome,errorCode:null});}
+          catch(error){await updateArm({state:'UNKNOWN',errorCode:privateFailureDiagnostic(error,'DEVICE_LIVE_RECOVERY_OUTCOME_UNRESOLVED').code});throw error;}
+        }
+      }
+      return{state:'IDLE'};
+    });
+  }
+
   async function deviceExecution(original){return exclusive(async()=>{
     await healthy();continueWork();assert.ok(!wrapped,'DEVICE_EXECUTION_NATIVE_ONLY');
     const {bridge,consent,action}=original,row=reservationRow(consent.reservation.jobId);
@@ -799,6 +898,9 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     assert.equal(consent.reservationTransactionHash,current.reservation.observation.transactionHash,'DEVICE_EXECUTION_RESERVATION_CHANGED');
     assert.equal(consent.executionSnapshotSHA256,current.executionSnapshotSHA256,'DEVICE_EXECUTION_STATE_CHANGED');
     assert.equal(consent.lossClause,current.lossClause,'DEVICE_EXECUTION_LOSS_CLAUSE_CHANGED');
+    // Fresh heads precede new preparation/admission, never a prepared wire,
+    // current-key guard or send. Reconcile drains the same pending continuation.
+    await refreshLiveOperationClock();
     let result;
     try{
       if(action==='EXECUTE_NATIVE'){
@@ -1924,6 +2026,11 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   let recoveredDeviceInstallationIssued=false;
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable || (!wrapped && capturing),
     deviceDeposit, deviceReservation,deviceExecution,
+    installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&!recovery&&nativeExecution!==null&&liveRecovery===null);
+      assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);liveRecovery=row;},
+    tickLiveRecovery,armLiveRecovery,
+    liveRecoveryTerms(bridge,id){return exclusive(async()=>{requireLiveRecovery(bridge);await healthy();const row=reservationRow(id);
+      deviceExecutionOriginal(bridge,row);await deviceExecutionPublic(bridge,row);return armPublic(row);});},
     nativeDeviceRecoveredProofs(){return exclusive(async()=>{
       await healthy();assert.ok(recovery?.native&&!wrapped&&recoveredDeviceInstallationIssued,'NATIVE_DEVICE_RECOVERY_ORIGINAL_INSTALLATION_REQUIRED');
       const rows=exitRows();assert.ok(rows.length<=2,'NATIVE_DEVICE_RECOVERY_FIXED_EXIT_COUNT');
@@ -1984,7 +2091,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       }
       deviceExecutionInstallations.set(bridge,installation);deviceExecutionProviders.set(installation.reservationBridge,installation);
       return{installed:true,originalExecutor:true};});},
-    deviceExecutionStatus(id,bridge){return exclusive(async()=>{await healthy();return deviceExecutionPublic(bridge,reservationRow(id));});},
+    deviceExecutionStatus(id,bridge){return exclusive(async()=>{await healthy();const row=reservationRow(id);deviceExecutionOriginal(bridge,row);
+      await refreshLiveOperationClock();return deviceExecutionPublic(bridge,row);});},
     deviceReservationStatus(id,descriptor) { return exclusive(async()=>{await healthy();const row=reservationRow(id);
       reservationSubject(row.consent.depositJobId,row.consent.custody.rootId,descriptor);return reservationPublic(row);}); },
     deviceDepositStatus(id) { return exclusive(async () => { await healthy(); return devicePublic(deviceRow(id)); }); },
