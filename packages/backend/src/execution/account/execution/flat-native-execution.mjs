@@ -186,7 +186,31 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     assert.equal(entry[key], null, 'FLAT_EXECUTION_NO_RESEND');
     const submission = { target, calldata, calldataSHA256: dataHash(calldata), transactionHash: null };
     await update(ref, { [key]: submission });
-    const receipt = await runtime.send('flat-execution-' + kind + '-' + ref, { to: target, data: calldata });
+    const label = 'flat-execution-' + kind + '-' + ref;
+    const before = runtime.transactions;
+    const originalCount = Array.isArray(before) ? before.length : null;
+    let receipt;
+    try { receipt = await runtime.send(label, { to: target, data: calldata }); }
+    catch (error) {
+      // The owned runtime retains a signed hash before broadcasting. A lost
+      // reply (or a rejected receipt) must not discard that original identity.
+      // Only this call's unique journal entry qualifies; an exception's DTO,
+      // another sender/nonce/request, or an ambiguous journal cannot supply it.
+      const journal = runtime.transactions;
+      if (originalCount !== null && Array.isArray(journal)) {
+        const originals = journal.slice(originalCount).filter(value => value.label === label);
+        if (originals.length === 1) {
+          const original = originals[0], request = original.request;
+          if (request?.from === system.sender && request.to === target && request.data === calldata
+            && BigInt(request.value ?? '0x0') === 0n
+            && typeof original.transactionHash === 'string' && /^0x[0-9a-f]{64}$/.test(original.transactionHash))
+            await update(ref, { [key]: { ...submission, transactionHash: bare(original.transactionHash) } });
+        }
+      }
+      // Retaining an ID does not confirm its effect. Reconciliation still
+      // requires the original owned transaction and canonical terminal checks.
+      throw error;
+    }
     await update(ref, { [key]: { ...submission, transactionHash: bare(receipt.transactionHash) } });
     return receipt;
   }

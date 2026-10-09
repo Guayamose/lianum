@@ -110,6 +110,7 @@ mock.module(mod('./flat-terminal-observer.mjs'), { exports: { ...actualTerminalO
     checkedSystem(runtime, system); const f = fFor(system.pools[poolIndex].domainCommitment.slice(2));
     return Object.freeze({ async observe(query) {
       f.terminals.push(copy(query)); assert.equal(query.submission.target, system.pools[poolIndex].address);
+      assert.ok(query.submission.transactionHash, 'HOST_ORIGINAL_TERMINAL_ID_UNRESOLVED');
       assert.ok(f.sent.some(item => item.receipt.transactionHash === p(query.submission.transactionHash)
         && item.request.data === query.submission.calldata));
       assert.equal(query.statement.reserveNullifier, f.prepared.rolePackets.recovery.recovery.value.reserveNullifier);
@@ -210,7 +211,7 @@ async function preparedFixture(families) {
 
 async function fixture(t, families = ['3']) {
   const base = await preparedFixture(families), directory = await mkdtemp(join(tmpdir(), 'flat-keeper-host-'));
-  const f = { ...base, writes: [], jobs: [], proofs: [], sent: [], terminals: [], facts: [], executions: [], reconciliations: 0, finality: [], clockEvents: [], healthCalls: 0, wallSecond: 1100 };
+  const f = { ...base, writes: [], jobs: [], proofs: [], sent: [], transactions: [], terminals: [], facts: [], executions: [], reconciliations: 0, finality: [], clockEvents: [], healthCalls: 0, wallSecond: 1100 };
   fixtures.set(base.d, f);
   t.after(async () => { await f.keeper?.close(); fixtures.delete(base.d); await rm(directory, { recursive: true, force: true }); });
   const packets = base.prepared.rolePackets, commitments = [p(packets.reservation.funding.value.inputCommitment),
@@ -223,7 +224,7 @@ async function fixture(t, families = ['3']) {
     receiptLeaves: [], receiptTree: { path: index => ({ root: field('receipt-root'), index, siblings: Array(6).fill(ZERO) }) },
     revokedEntries: Array(64).fill(ZERO), state: { revokedDigest: ZERO, revokedCount: '0', revocationSequence: '0' },
     stateOpening: {}, evidenceState: {} };
-  f.runtime = Object.freeze({ metadata: { scratchDirectory: directory }, async send(label, request) {
+  f.runtime = Object.freeze({ metadata: { scratchDirectory: directory }, get transactions() { return copy(f.transactions); }, async send(label, request) {
     if (f.observedClock && (request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector))
       || request.data.startsWith(p(FLAT_TRANSACTION_METHODS.fulfillGeneric.selector)))) {
       f.clockEvents.push(request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector)) ? 'send:admission' : 'send:settlement');
@@ -232,11 +233,22 @@ async function fixture(t, families = ['3']) {
       f.view.head.timestamp = String(includedSecond);
     }
     const receipt = { transactionHash: p(h('send-' + f.sent.length)) }; f.sent.push({ label, request: copy(request), receipt });
+    const original = { label, request: { from: f.system.sender, value: '0x0', ...copy(request) },
+      senderNonce: '0x' + f.transactions.length.toString(16), transactionHash: receipt.transactionHash, phase: 'mined' };
+    f.transactions.push(original);
     if (request.data.startsWith(p(FLAT_TRANSACTION_METHODS.admit.selector))) f.view.receiptLeaves.push(field('admitted-receipt'));
+    if (label.startsWith('flat-execution-' + f.loseTerminalKind + '-')) {
+      f.mutateLostJournal?.(original);
+      throw Object.assign(new Error('HOST_ORIGINAL_TERMINAL_REPLY_LOST'), {
+        // Deliberately unrelated: production must obtain its ID from the
+        // unique original runtime journal, rather than this error attachment.
+        transactionRecord: { transactionHash: p(h('unrelated-error-record')) },
+      });
+    }
     return receipt;
   } });
   brands.runtimes.add(f.runtime); runtimeFixtures.set(f.runtime, f);
-  f.system = Object.freeze({ pools: [0, 1].map(index => ({ address: p(h('pool-' + index).slice(0, 40)),
+  f.system = Object.freeze({ sender: p(h('original-sender').slice(0, 40)), pools: [0, 1].map(index => ({ address: p(h('pool-' + index).slice(0, 40)),
     domain: base.domain, domainCommitment: p(base.d) })), registry: { rulesRoot: base.ruleTree.root }, hub: { address: p(h('hub').slice(0, 40)) } });
   brands.systems.set(f.system, f.runtime);
   f.bitcoin = families.includes('1') ? Object.freeze({ async confirm(id) { f.finality.push(['1', id]); } }) : null;
@@ -377,6 +389,46 @@ test('uncertain EVM exposure cannot resend; original cutoff F works after quorum
   const recovery = f.terminals.at(-1); assert.equal(recovery.statement.recoveryCommitment, f.prepared.rolePackets.recovery.recovery.value.recoveryCommitment);
   const sends = f.sent.length; await f.keeper.recover(f.ref); await f.keeper.reconcile(f.ref);
   assert.equal(f.sent.length, sends); assert.equal(f.keeper.snapshot(f.ref).outcome, 'RECOVERED');
+});
+
+test('HOST lost terminal send reply retains only its owned original hash and reconciles without resend or reproof', async t => {
+  for (const kind of ['settlement', 'recovery']) await t.test(kind, async t => {
+    const f = await fixture(t); f.keeper = await createFlatNativeExecution(f.input);
+    await f.keeper.prepare(f.ref, f.prepared, f.providers); f.loseTerminalKind = kind;
+    if (kind === 'recovery') f.view.head.timestamp = '2000';
+    await assert.rejects(kind === 'recovery' ? f.keeper.recover(f.ref) : f.keeper.execute(f.ref), /HOST_ORIGINAL_TERMINAL_REPLY_LOST/);
+    const original = f.transactions.find(value => value.label === 'flat-execution-' + kind + '-' + f.ref);
+    const saved = f.writes.at(-1).data.operations[0][kind + 'Submission'];
+    assert.equal(saved.transactionHash, original.transactionHash.slice(2));
+    assert.equal(f.keeper.snapshot(f.ref).outcome, null);
+    const counts = { sends: f.sent.length, proofs: f.proofs.length, native: f.executions.length };
+    const expected = { outcome: kind === 'recovery' ? 'RECOVERED' : 'FULFILLED', original: true };
+    assert.deepEqual(await f.keeper.reconcile(f.ref), expected);
+    assert.deepEqual(await f.keeper.reconcile(f.ref), expected);
+    assert.deepEqual({ sends: f.sent.length, proofs: f.proofs.length, native: f.executions.length }, counts);
+  });
+});
+
+test('HOST lost terminal reply rejects unrelated or ambiguous journal identities and remains uncertain', async t => {
+  for (const change of ['sender', 'target', 'calldata', 'value', 'duplicate', 'missing-hash']) await t.test(change, async t => {
+    const f = await fixture(t); f.keeper = await createFlatNativeExecution(f.input);
+    await f.keeper.prepare(f.ref, f.prepared, f.providers); f.loseTerminalKind = 'recovery'; f.view.head.timestamp = '2000';
+    f.mutateLostJournal = original => {
+      if (change === 'sender') original.request.from = p(h('different-sender').slice(0, 40));
+      if (change === 'target') original.request.to = p(h('different-target').slice(0, 40));
+      if (change === 'calldata') original.request.data = '0x12345678';
+      if (change === 'value') original.request.value = '0x1';
+      if (change === 'duplicate') f.transactions.push(copy(original));
+      if (change === 'missing-hash') delete original.transactionHash;
+    };
+    await assert.rejects(f.keeper.recover(f.ref), /HOST_ORIGINAL_TERMINAL_REPLY_LOST/);
+    assert.equal(f.writes.at(-1).data.operations[0].recoverySubmission.transactionHash, null);
+    const sends = f.sent.length, proofs = f.proofs.length;
+    await assert.rejects(f.keeper.reconcile(f.ref), /HOST_ORIGINAL_TERMINAL_ID_UNRESOLVED/);
+    await assert.rejects(f.keeper.recover(f.ref), /HOST_ORIGINAL_TERMINAL_ID_UNRESOLVED/);
+    assert.equal(f.keeper.snapshot(f.ref).outcome, null);
+    assert.equal(f.sent.length, sends); assert.equal(f.proofs.length, proofs);
+  });
 });
 
 test('checkpoint failure retains bounded underlying protocol causes before any native exposure', async t => {
