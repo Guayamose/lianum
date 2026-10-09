@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {fetch as expoFetch} from 'expo/fetch';
-import {readDevicePublicKey,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1} from '../custody/key-store';
+import {readDevicePublicKey,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1} from '../custody/key-store';
 import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1} from '../custody/device-external-flat-note-vault-v1';
 import type {DeviceExternalFlatSummary,DeviceExternalFlatPrepared} from '../custody/device-external-flat-note-vault-v1';
 import {createDeviceExternalFlatNoteApiV1,readDeviceExternalFlatQuoteV1} from '../api/device-external-flat-note-api-v1.mjs';
@@ -17,6 +17,12 @@ type GraphConsent=Parameters<GraphClient['submit']>[0];
 type GraphStatus=Awaited<ReturnType<GraphClient['status']>>;
 type GraphAction=GraphConsent['draft']['action'];
 type GraphPrepared=Awaited<ReturnType<Vault['prepareSourceGraph']>>;
+type GraphOutputRole='change'|'recovery';
+type GraphOutputAction='WITHDRAW_W39'|'OBSERVE_W39';
+type GraphOutputConsent=Parameters<GraphClient['outputSubmit']>[0];
+type GraphOutputPrepared=Awaited<ReturnType<Vault['prepareGraphOutputWithdrawal']>>;
+type GraphOutputReview={consent:GraphOutputConsent;witness:unknown|null};
+type GraphOutputView={noteRole:GraphOutputRole;amount:string;state:string;available:string|null};
 type Connection={client:Client;graphClient:GraphClient|null;noteClosed:boolean;vault:Vault;descriptor:ExternalFlatDescriptor};
 type GraphReview={consent:GraphConsent;witness:unknown|null};
 type Review={consent:ExternalFlatConsent;witness:unknown|null};
@@ -36,20 +42,25 @@ function amountText(amount:string|null,descriptor:ExternalFlatDescriptor|null) {
 const actionText:Record<ExternalFlatAction,string>={PROVE_D26:'Generar prueba de financiación',FUND_D26:'Financiar esta nota',OBSERVE_D26:'Consultar esta financiación',PROVE_D27:'Autorizar recepción de participación',OBSERVE_D27:'Consultar recepción de participación',QUOTE_W39:'Preparar la retirada completa',PROVE_W39:'Generar prueba de retirada',WITHDRAW_W39:'Retirar esta nota',OBSERVE_W39:'Consultar esta retirada'};
 const stageText:Record<string,string>={PROVING:'Prueba pendiente de consultar',PROVED:'Prueba disponible',FUNDING_UNKNOWN:'Financiación pendiente de confirmar',DELIVERY_UNKNOWN:'Participación pendiente de confirmar',WITHDRAWAL_UNKNOWN:'Retirada pendiente de confirmar',CONFIRMED:'Confirmada',RESERVING:'Registro de reserva en curso',RESERVATION_UNKNOWN:'Reserva pendiente de confirmar',RESERVED:'Reserva confirmada',FAILED:'Prueba no completada'};
 const graphActionText:Record<GraphAction,string>={PROVE_U:'Preparar la reserva privada',RESERVE_S:'Registrar la reserva',OBSERVE_S:'Consultar la reserva',EXECUTE_GRAPH:'Ejecutar la conversión',RECONCILE_GRAPH:'Consultar la conversión',RECOVER_GRAPH:'Recuperar la reserva vencida',CANCEL_GRAPH:'Liberar una reserva no enviada'};
+const graphOutputRoleText:Record<GraphOutputRole,string>={change:'Cambio',recovery:'Recuperación'};
+const graphOutputStateText:Record<string,string>={EMPTY:'Sin nota',UNISSUED:'No emitida',UNSPENT:'Disponible',LOCKED:'Bloqueada hasta resolución',SPENT:'Retirada',UNKNOWN:'Pendiente de confirmar'};
 const graphStageText:Record<string,string>={PREPARED:'Preparada',EXECUTION_UNKNOWN:'Ejecución pendiente de confirmar',RECOVERY_UNKNOWN:'Recuperación pendiente de confirmar',FULFILLED:'Conversión confirmada',RECOVERED:'Reserva recuperada',SOURCE_CANCELLED:'Reserva no enviada liberada'};
 export default function ExternalTokenNoteScreen({onObservation,onGraphObservation,onSourcePending}:{onObservation?(value:ExternalFlatStatus):void;onGraphObservation?(value:GraphStatus):void|Promise<void>;onSourcePending?(descriptor:ExternalFlatDescriptor,rootId:string):void}={}) {
  const [descriptorText,setDescriptorText]=useState(''),[recipient,setRecipient]=useState(''),[amount,setAmount]=useState(''),[validUntil,setValidUntil]=useState('');
  const [connected,setConnected]=useState(false),[summary,setSummary]=useState<DeviceExternalFlatSummary|null>(null);
  const [review,setReview]=useState<ExternalFlatConsent|null>(null),[status,setStatus]=useState<ExternalFlatStatus|null>(null);
  const [graphReview,setGraphReview]=useState<GraphConsent|null>(null),[graphStatus,setGraphStatus]=useState<GraphStatus|null>(null);
+ const [graphOutputReview,setGraphOutputReview]=useState<GraphOutputConsent|null>(null);
  const [graphAssetAmount,setGraphAssetAmount]=useState(''),[graphShareAmount,setGraphShareAmount]=useState(''),[graphPayoutAmount,setGraphPayoutAmount]=useState(''),[graphValidFrom,setGraphValidFrom]=useState(''),[graphSettleBefore,setGraphSettleBefore]=useState('');
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Introduce la conexión privada entregada por tu operador.');
  const mounted=useRef(true),busyRef=useRef(false),epoch=useRef(0),connection=useRef<Connection|null>(null);
  const acquiring=useRef<Promise<Vault>|null>(null),closing=useRef<Promise<unknown>|null>(null),signing=useRef<AbortController|null>(null);
  const graphReviewRef=useRef<GraphReview|null>(null),graphPreparedRef=useRef<GraphPrepared|null>(null);
+ const graphOutputReviewRef=useRef<GraphOutputReview|null>(null),graphOutputPreparedRef=useRef<GraphOutputPrepared|null>(null);
  const reviewRef=useRef<Review|null>(null),preparedRef=useRef<DeviceExternalFlatPrepared|null>(null),activeWitness=useRef<unknown|null>(null);
  function clearReview() {
   signing.current?.abort();signing.current=null;
+  externalFlatWipeV1(graphOutputReviewRef.current?.witness);externalFlatWipeV1(graphOutputPreparedRef.current?.witness);graphOutputReviewRef.current=null;graphOutputPreparedRef.current=null;if(mounted.current)setGraphOutputReview(null);
   wipeDeviceReservationWitnessV1(graphReviewRef.current?.witness);wipeDeviceReservationWitnessV1(graphPreparedRef.current?.witness);graphReviewRef.current=null;graphPreparedRef.current=null;if(mounted.current)setGraphReview(null);
   externalFlatWipeV1(reviewRef.current?.witness);externalFlatWipeV1(preparedRef.current?.witness);externalFlatWipeV1(activeWitness.current);activeWitness.current=null;
   reviewRef.current=null;preparedRef.current=null;if(mounted.current)setReview(null);
@@ -73,6 +84,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   clearReview();setNotice('Permiso caducado. Solicita una nueva revisión de la operación.');
  }},Math.max(0,review.expiresAt-Date.now()));return()=>clearTimeout(timer);},[review]);
  useEffect(()=>{if(!graphReview)return;const selected=graphReviewRef.current,timer=setTimeout(()=>{if(mounted.current&&graphReviewRef.current===selected){clearReview();setNotice('Permiso de reserva caducado. Solicita otra revisión de la misma operación.');}},Math.max(0,graphReview.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphReview]);
+ useEffect(()=>{if(!graphOutputReview)return;const selected=graphOutputReviewRef.current,timer=setTimeout(()=>{if(mounted.current&&graphOutputReviewRef.current===selected){clearReview();setNotice('Permiso de retirada caducado. Solicita otra revisión de la misma salida.');}},Math.max(0,graphOutputReview.consent.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphOutputReview]);
  useEffect(()=>{if(!status)return;const value=status,timer=setTimeout(()=>{if(mounted.current)setStatus(current=>current===value?null:current);},Math.max(0,status.expiresAt-Date.now()));return()=>clearTimeout(timer);},[status]);
  useEffect(()=>{if(!graphStatus)return;const value=graphStatus,timer=setTimeout(()=>{if(mounted.current)setGraphStatus((current:GraphStatus|null)=>current===value?null:current);},Math.max(0,graphStatus.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphStatus]);
  async function run(work:()=>Promise<void>) {
@@ -133,6 +145,40 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    setNotice(row.graph.stage==='SOURCE_CANCELLED'?'La reserva no enviada quedó liberada. La retirada original está disponible tras su nueva consulta.':row.graph.outcome==='FULFILLED'?'Conversión confirmada. Consulta la participación en su conexión privada.':row.graph.outcome==='RECOVERED'?'Reserva recuperada. Su nota de recuperación conserva la clave en este dispositivo.':'Operación de reserva guardada. Consulta el mismo resultado antes de continuar.');
   }finally{wipeDeviceReservationWitnessV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
  }
+ async function makeGraphOutputReview(selected:Connection,draft:GraphOutputPrepared['draft'],ticket:number,witness:unknown|null){
+  const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
+  const consent=await client.outputReview(access,signature,draft);current(ticket,selected);graphOutputReviewRef.current={consent,witness};graphOutputPreparedRef.current=null;setGraphOutputReview(consent);setNotice('Comprueba la salida, el importe completo y la dirección fijada antes de autorizar.');
+ }
+ async function prepareGraphOutput(noteRole:GraphOutputRole){
+  const selected=requireConnection();clearReview();const ticket=epoch.current,fresh=await readGraphStatus(selected,ticket);
+  const output=fresh.jobs[0]?.outputs.find((value:GraphOutputView)=>value.noteRole===noteRole);if(!output||output.state!=='UNSPENT'||output.available===null)throw Error('MOBILE_EXTERNAL_FLAT_OUTPUT_NOT_AVAILABLE');
+  const local=await selected.vault.summary();current(ticket,selected);if(local.recipient===null)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');
+  const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
+  const quote=await client.outputQuote(access,signature,{noteRole,recipient:local.recipient});current(ticket,selected);
+  const prepared=await selected.vault.prepareGraphOutputWithdrawal(quote);graphOutputPreparedRef.current=prepared;current(ticket,selected);
+  const next=await selected.vault.summary();current(ticket,selected);setSummary(next);await makeGraphOutputReview(selected,prepared.draft,ticket,prepared.witness);
+ }
+ async function requestGraphOutput(noteRole:GraphOutputRole,action:GraphOutputAction){
+  const selected=requireConnection();clearReview();const ticket=epoch.current,draft=await selected.vault.graphOutputDraft(noteRole,action);current(ticket,selected);await makeGraphOutputReview(selected,draft,ticket,null);
+ }
+ async function signGraphOutput(selected:Connection,value:GraphOutputConsent,ticket:number){
+  current(ticket,selected);const controller=new AbortController();signing.current=controller;
+  try{const signature=await signDeviceExternalFlatGraphOutputPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}
+  finally{if(signing.current===controller)signing.current=null;}
+ }
+ async function submitGraphOutput(value:GraphOutputReview){
+  const selected=requireConnection();if(graphOutputReviewRef.current!==value)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');const ticket=epoch.current;current(ticket,selected);validateExternalFlatFreshV1(value.consent.consent);
+  graphOutputReviewRef.current=null;activeWitness.current=value.witness;setGraphOutputReview(null);
+  try{const signature=await signGraphOutput(selected,value.consent,ticket);onSourcePending?.(selected.descriptor,value.consent.consent.rootId);await selected.vault.latchGraphOutput(value.consent);current(ticket,selected);
+   selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
+   const row=await requireGraph(selected).outputSubmit(value.consent,signature,value.witness);current(ticket,selected);const next=await selected.vault.acceptGraphOutput(row);current(ticket,selected);setSummary(next);
+   await readGraphStatus(selected,ticket);setNotice(row.row.stage==='CONFIRMED'?'Retirada de la salida confirmada en su dirección fijada.':row.row.stage==='PROVED'?'Prueba de retirada guardada. Revisa el envío de esta misma salida.':'Retirada pendiente. Consulta esta misma operación antes de continuar.');
+  }finally{externalFlatWipeV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
+ }
+ function confirmGraphOutputReview(){const value=graphOutputReviewRef.current;if(!value||busyRef.current)return;const consent=value.consent.consent;Alert.alert(consent.action==='PROVE_W39'?'Probar retirada del '+graphOutputRoleText[value.consent.noteRole].toLowerCase():consent.action==='WITHDRAW_W39'?'Retirar el '+graphOutputRoleText[value.consent.noteRole].toLowerCase():'Consultar la misma retirada',consent.action==='PROVE_W39'
+  ?'La apertura de esta salida se enviará al trabajador temporal para probar su retirada completa. La dirección fijada se conserva; el envío requiere otra autorización.'
+  :'Autoriza sólo la operación y la dirección mostradas. Si falta la respuesta, consulta la misma retirada antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitGraphOutput(value));}}],{cancelable:false});}
+ function confirmGraphOutputPreparation(noteRole:GraphOutputRole){if(busyRef.current)return;Alert.alert('Preparar retirada del '+graphOutputRoleText[noteRole].toLowerCase(),'Se comprobará el estado original de esta salida y su importe completo. Conserva su propia apertura y la dirección de retirada fijada al crear la nota.',[{text:'Cancelar',style:'cancel'},{text:'Continuar',onPress:()=>{void run(()=>prepareGraphOutput(noteRole));}}],{cancelable:false});}
  function confirmGraphReview(){const value=graphReviewRef.current;if(!value||busyRef.current)return;Alert.alert(graphActionText[value.consent.draft.action],value.consent.draft.action==='PROVE_U'
   ?'La apertura de esta nota se enviará al trabajador temporal para probar la reserva. El cambio y la recuperación conservan sus claves en este dispositivo. Cada envío posterior requiere otra autorización.'
   :'Autoriza sólo la operación y el plazo mostrados. Si falta la respuesta, consulta la misma operación antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitGraph(value));}}],{cancelable:false});}
@@ -214,7 +260,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  }
  const deposit=summary?.jobs.find(row=>row.mode!=='withdraw_balance'),withdrawal=summary?.jobs.find(row=>row.mode==='withdraw_balance');
  const graph=summary?.graph??null,graphRow=graph?.row??null,graphPending=graph?.pending??null;
- const available=summary?.storageAvailable===true,uncertain=(summary?.pending!==null&&summary?.pending!==undefined)||graphPending!==null;
+ const outputPending=graph?.withdrawalPending??[],available=summary?.storageAvailable===true,uncertain=(summary?.pending!==null&&summary?.pending!==undefined)||graphPending!==null||outputPending.length>0;
  const share=connection.current?.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1;
  const canPrepare=connected&&available&&!uncertain&&!deposit;
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -250,6 +296,22 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    {graphRow?.reservation.stage==='RESERVED'&&graphRow.graph.stage==='PREPARED'&&!graphPending&&<Button label="Revisar ejecución de la conversión" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('EXECUTE_GRAPH'));}}/>}
    {graphRow&&(['EXECUTION_UNKNOWN','RECOVERY_UNKNOWN'].includes(graphRow.graph.stage)||graphPending)&&<Button label="Conciliar la misma conversión" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RECONCILE_GRAPH'));}}/>}
    {graphRow?.reservation.stage==='RESERVED'&&graphRow.graph.stage==='PREPARED'&&!graphPending&&graphStatus&&graphStatus.expiresAt>Date.now()&&BigInt(graphStatus.observed.timestamp)>=BigInt(graphRow.reservation.statement.settleBefore)&&<Button label="Revisar recuperación de reserva vencida" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RECOVER_GRAPH'));}}/>}
+  </View>}
+  {connected&&!share&&graph!==null&&(['change','recovery'] as const).map(noteRole=>{
+   const fresh=graphStatus&&graphStatus.expiresAt>Date.now()?graphStatus:null,output=fresh?.jobs[0]?.outputs.find((value:GraphOutputView)=>value.noteRole===noteRole);
+   const withdrawal=graph.withdrawals.find(value=>value.noteRole===noteRole),pendingEntry=outputPending.find(value=>value.noteRole===noteRole),pending=Boolean(pendingEntry);
+   return <View key={noteRole} style={styles.card}><Text style={styles.heading}>Salida de {graphOutputRoleText[noteRole].toLowerCase()}</Text>
+    <Fields values={{Estado:output?graphOutputStateText[output.state]??output.state:'No disponible','Importe original':amountText(noteRole==='change'?graph.changeAmount:graph.recoveryAmount,summary?.descriptor??null),'Disponible para retirar':amountText(output?.available??null,summary?.descriptor??null),'Dirección fijada':summary?.recipient?'0x'+summary.recipient:'No disponible',Retirada:withdrawal?stageText[withdrawal.row.stage]??withdrawal.row.stage:'No preparada','Resultado pendiente':pending?'Consultar la misma retirada':'Ninguno retenido'}}/>
+    <Button label={'Consultar salida de '+graphOutputRoleText[noteRole].toLowerCase()} disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readGraphStatus(selected,epoch.current);setNotice('Estado de las salidas consultado sin repetir envíos.');});}}/>
+    {output?.state==='UNSPENT'&&output.available!==null&&!withdrawal&&!pending&&<Button label={'Preparar retirada del '+graphOutputRoleText[noteRole].toLowerCase()} disabled={busy||!available} onPress={()=>confirmGraphOutputPreparation(noteRole)}/>}
+    {withdrawal?.row.stage==='PROVED'&&!pending&&<Button label={'Revisar retirada del '+graphOutputRoleText[noteRole].toLowerCase()} disabled={busy||!available} onPress={()=>{void run(()=>requestGraphOutput(noteRole,'WITHDRAW_W39'));}}/>}
+    {(pendingEntry&&pendingEntry.action!=='PROVE_W39'||withdrawal?.row.stage==='WITHDRAWAL_UNKNOWN')&&<Button label="Consultar la misma retirada pendiente" disabled={busy} onPress={()=>{void run(()=>requestGraphOutput(noteRole,'OBSERVE_W39'));}}/>}
+    {output&&['LOCKED','UNKNOWN'].includes(output.state)&&<Text style={styles.muted}>Esta salida no tiene un importe disponible confirmado. Consultar conserva las operaciones originales.</Text>}
+   </View>;
+  })}
+  {graphOutputReview&&<View style={styles.card}><Text style={styles.heading}>{graphOutputReview.consent.action==='PROVE_W39'?'Generar prueba de retirada':graphOutputReview.consent.action==='WITHDRAW_W39'?'Retirar esta salida':'Consultar esta retirada'}</Text>
+   <Fields values={{Salida:graphOutputRoleText[graphOutputReview.noteRole],Servicio:graphOutputReview.consent.descriptor.origin,Activo:'0x'+graphOutputReview.consent.descriptor.poolTerms.asset,Importe:amountText(graphOutputReview.consent.statement.amount,graphOutputReview.consent.descriptor),'Unidades atómicas':graphOutputReview.consent.statement.amount,'Dirección de retirada':'0x'+graphOutputReview.consent.recipient,'Operación original':graphOutputReview.consent.jobId}}/>
+   <Button label="Autorizar esta retirada" disabled={busy} onPress={confirmGraphOutputReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/>
   </View>}
   {graphReview&&<View style={styles.card}><Text style={styles.heading}>{graphActionText[graphReview.draft.action]}</Text><Fields values={{Servicio:graphReview.descriptor.origin,Activo:'0x'+graphReview.descriptor.poolTerms.asset,'Importe reservado':amountText(summary?.graph?.recoveryAmount??null,graphReview.descriptor),'Vencimiento original':graphReview.draft.statement.settleBefore,'Operación original':graphReview.draft.jobId}}/><Button label="Autorizar esta operación" disabled={busy} onPress={confirmGraphReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
   {review&&<View style={styles.card}><Text style={styles.heading}>{actionText[review.action]}</Text>
