@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assertExternalVaultExitRecoveryAuditV1} from './external-defi-vault-exit-policy-v1.mjs';
+import {assertExternalVaultExitRecoveryAuditV1,commitExternalVaultExitCatalogueTransitionV1,assertExternalVaultExitCatalogueTransitionV1} from './external-defi-vault-exit-policy-v1.mjs';
 test('HOST retained EXIT assessment rejects UNKNOWN, substituted receipt and second wire without granting recovery',()=>{
- const row={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',variant:'METAMORPHO',bornBeforeFunding:true,originalSectionsStoppedBeforeReopen:true,newBackendPID:true,newOriginalCatalogue:true,newOriginalVault:true,newOriginalExitService:true,sameOriginalReceipt:true,originalExitRequestIdsRetained:true,originalCatalogueRequestIdsRetained:true,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false,actualWireCountBefore:91,actualWireCountAfter:91,catalogueRequestIds:['vault_top_up','vault_exit_0','vault_exit_1'],exitRequestIds:['vault_exit_1'],catalogueStates:['CONFIRMED','CONFIRMED','CONFIRMED'],exitPhase:'REDEEMED',catalogueIdentitySHA256:'1'.repeat(64),receiptSHA256:'2'.repeat(64),redemptionReferenceSHA256:'3'.repeat(64),exitIdentitySHA256:'4'.repeat(64)};
+ const row={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',variant:'METAMORPHO',bornBeforeFunding:true,originalSectionsStoppedBeforeReopen:true,newBackendPID:true,newOriginalCatalogue:true,newOriginalVault:true,newOriginalExitService:true,sameOriginalReceipt:true,originalExitRequestIdsRetained:true,originalCatalogueRequestIdsRetained:true,originalCatalogueAdmissionFenceEstablished:true,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false,actualWireCountBefore:91,actualWireCountAfter:91,catalogueRequestIds:['vault_top_up','vault_exit_0','vault_exit_1'],exitRequestIds:['vault_exit_1'],catalogueStates:['CONFIRMED','CONFIRMED','CONFIRMED'],exitPhase:'REDEEMED',catalogueIdentitySHA256:'1'.repeat(64),catalogueRecoveredIdentitySHA256:'5'.repeat(64),receiptSHA256:'2'.repeat(64),redemptionReferenceSHA256:'3'.repeat(64),exitIdentitySHA256:'4'.repeat(64)};
  assert.equal(assertExternalVaultExitRecoveryAuditV1(row).retainedOriginalVaultExitRecovery,true);
- for(const change of [{exitPhase:'UNKNOWN'},{sameOriginalReceipt:false},{actualWireCountAfter:92},{catalogueStates:['CONFIRMED','UNKNOWN']},{catalogueRequestIds:['vault_exit_1']},{originalGraphRecoveryEstablished:true}])assert.throws(()=>assertExternalVaultExitRecoveryAuditV1({...structuredClone(row),...change}));
+ for(const change of [{exitPhase:'UNKNOWN'},{sameOriginalReceipt:false},{actualWireCountAfter:92},{catalogueStates:['CONFIRMED','UNKNOWN']},{catalogueRequestIds:['vault_exit_1']},{originalGraphRecoveryEstablished:true},{originalCatalogueAdmissionFenceEstablished:false},{catalogueRecoveredIdentitySHA256:'UNKNOWN'}])assert.throws(()=>assertExternalVaultExitRecoveryAuditV1({...structuredClone(row),...change}));
  // Metadata-only host port; this test creates no account, issuer, native receipt or financial authority.
 });
 
@@ -102,4 +102,55 @@ test('HOST original retained fixture keeps the late-created lifetime accessor wi
   assert.throws(()=>Object.defineProperty(retained.fixture,'recoveryLifetime',{value:Object.freeze({})}));
   assert.equal(Object.hasOwn(legacy.fixture,'recoveryLifetime'),false);legacy.publish(marker);
   assert.equal(Object.hasOwn(legacy.fixture,'recoveryLifetime'),false);
+});
+
+
+import {immutable,sha as canonicalJournalSHA,genericAccountIdentity} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+test('HOST original catalogue status commits only authenticated false-to-true admission fencing and rejects every other change',()=>{
+  // Run the actual catalogue factory's saved-state initialization, descriptor
+  // and status closure. Public synthetic data ports contain no issuer, vault,
+  // account capability, consent, native receipt or financial authority.
+  const source=readFileSync(join(ROOT,'wallet-platform/modules/global-state/flat-journal-catalogue.mjs'),'utf8');
+  const descriptorStart=source.indexOf('function descriptor(generation) {'),descriptorEnd=source.indexOf('/** Owns construction once.',descriptorStart);
+  const initializeStart=source.indexOf('  let busy = false, closed = false, storageFault = false, admissionFault = false, pendingWrite = null;'),initializeEnd=source.indexOf('  async function exclusive(work)',initializeStart);
+  const statusStart=source.indexOf('    status: () => immutable('),statusEnd=source.indexOf('\n  });',statusStart);
+  const bindingStart=source.indexOf('function validateRetainedVaultCatalogueBinding('),bindingEnd=source.indexOf('function retainedCatalogueReopenMode(',bindingStart);
+  assert.ok(descriptorStart>=0&&descriptorEnd>descriptorStart&&initializeStart>=0&&initializeEnd>initializeStart&&statusStart>=0&&statusEnd>statusStart&&bindingStart>=0&&bindingEnd>bindingStart);
+  const requireTrue=(value,code)=>assert.ok(value,code);
+  const descriptor=new Function('immutable',source.slice(descriptorStart,descriptorEnd)+';return descriptor;')(immutable);
+  const validateBinding=new Function('requireTrue',source.slice(bindingStart,bindingEnd)+';return validateRetainedVaultCatalogueBinding;')(requireTrue);
+  const construct=new Function('assert','immutable','descriptor','validateBoundRequest','bindGenericAccountRequest','validateRetainedVaultCatalogueBinding','requireTrue','byId','record','durable',`
+    const PROFILE='FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2';
+    ${source.slice(initializeStart,initializeEnd)}
+    // Explicit fixture of bindings already admitted/read back in the original
+    // live catalogue. The saved branch rebuilds its map via the actual code.
+    if(!durable?.saved)for(const entry of record.data.bindings)bindings.set(entry.request.requestId,immutable(entry));
+    return ${source.slice(statusStart+'    status: '.length,statusEnd).trim().replace(/,$/,'')};
+  `);
+  const asset=n=>({assetId:String(n).repeat(64),symbol:'PALT',decimals:6,pool:String(n+2).repeat(40),chainId:'31337',genesis:'3'.repeat(64),kind:'ERC20',scope:'4'.repeat(64),policy:'5'.repeat(64),token:String(n+4).repeat(40),codeHash:'7'.repeat(64),assetIdentity:'8'.repeat(64),custody:'ONCHAIN_NOTE_POOL',trust:'PINNED_LOCAL_CONTRACT_AND_TRUSTED_NATIVE_ISSUER'});
+  const config={accountId:'original_note_portfolio',journalId:'original_note_portfolio_journal',lifetime:'9'.repeat(64),registry:[asset(1),asset(2)]},identity=genericAccountIdentity(config),generationId=canonicalJournalSHA({profile:'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2',identity});
+  const routes=config.registry.map((asset,index)=>({assetId:asset.assetId,pool:asset.pool,domainCommitment:String(index+4).repeat(64),economicIdentitySHA256:String(index+6).repeat(64)}));
+  const generation={id:generationId,identity,config,routes,admissionAssets:config.registry.map(asset=>asset.assetId),accounts:config.registry.map((asset,poolIndex)=>({poolIndex,account:{assetId:asset.assetId}}))};
+  const entries=[['TOP_UP','vault_top_up',0,'a'],['EXIT','vault_exit_0',0,'b'],['EXIT','vault_exit_1',1,'c']].map(([kind,requestId,pool,ref])=>{
+    const request={kind,requestId,assetId:config.registry[pool].assetId,ownerOperationRef:ref.repeat(64)};
+    return {request,boundRequest:bindGenericAccountRequest(request,config),generationId};
+  });
+  const record={revision:3,data:{current:Object.fromEntries(routes.map(route=>[route.economicIdentitySHA256,route.assetId])),bindings:entries}};
+  const status=saved=>construct(assert,immutable,descriptor,validateBoundRequest,bindGenericAccountRequest,validateBinding,requireTrue,new Map([[generationId,structuredClone(generation)]]),structuredClone(record),saved?{saved:{},vaultNotes:true}:null)();
+  const before=status(false),after=status(true),commitment=commitExternalVaultExitCatalogueTransitionV1(before);
+  assert.equal(before.admissionFault,false);assert.equal(after.admissionFault,true);
+  assert.notEqual(canonicalJournalSHA(before),canonicalJournalSHA(after)); // Original whole-status comparison fails causally.
+  assert.deepEqual({...after,admissionFault:false},before);
+  assert.deepEqual(assertExternalVaultExitCatalogueTransitionV1(after,commitment),commitment);
+  assert.equal(commitment.beforeSHA256,canonicalJournalSHA(before));assert.equal(commitment.afterSHA256,canonicalJournalSHA(after));assert.ok(Object.isFrozen(commitment));
+  assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(before,commitment)); // false -> false
+  assert.throws(()=>commitExternalVaultExitCatalogueTransitionV1(after)); // true -> true cannot acquire a before commitment
+  const mutated=change=>{const value=structuredClone(after);change(value);assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(value,commitment));};
+  for(const change of [value=>value.profile='CALLER_PROFILE',value=>value.generations[0].generationId='d'.repeat(64),value=>value.generations[0].registry[0].decimals=9,value=>value.bindings[0].request.ownerOperationRef='e'.repeat(64),value=>value.bindings.pop(),value=>value.current[routes[0].economicIdentitySHA256]=config.registry[1].assetId,value=>value.pendingReview={state:'READY'},value=>value.pendingOwnerPreparation={state:'READY'},value=>value.pendingGenerationId='f'.repeat(64),value=>value.storageFault=true,value=>value.uncertainWrite=true,value=>value.keeperRestart=true,value=>value.originalBindingsRewritten=true,value=>value.counter=1,value=>{delete value.current;}])mutated(change);
+  assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(after,{...commitment,beforeSHA256:'f'.repeat(64)}));
+  assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(after,{...commitment,afterSHA256:'f'.repeat(64)}));
+  assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(after,{...commitment,extra:1}));
+  let reads=0;const getter=structuredClone(after);Object.defineProperty(getter,'bindings',{enumerable:true,get(){reads++;return [];}});
+  assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(getter,commitment));assert.equal(reads,0);
+  assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(new Proxy(after,{}),commitment));
 });

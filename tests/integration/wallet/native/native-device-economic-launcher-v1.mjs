@@ -3,6 +3,7 @@ import {retainedExternalVaultWalletContextV1} from '../../../../packages/backend
 import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 import {externalVaultExitLifetimeContextV1,markExternalVaultExitCapturedV1} from '../../chains/evm/external-defi-vault-exit-lifetime-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from '../../chains/evm/external-defi-vault-exit-source-pins-v1.mjs';
+import {commitExternalVaultExitCatalogueTransitionV1} from '../../chains/evm/external-defi-vault-exit-policy-v1.mjs';
 import {hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
 import {retainExternalDefiVaultCatalogueRecoveryV1,retainExternalDefiOwnersRecoveryV1,retainExternalDefiVaultExitSystemRecoveryV1,retainWrappedPrivateLifetimeRecoveryV1,retainExternalDefiReceiverRuntimeV2,finishWrappedRecoveryCaptureV1,closeWrappedRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 /** Fixed planned F capture and original successor. The caller is the PRIVATE
@@ -116,7 +117,8 @@ export async function captureAndLaunchExternalDefiVaultExitSuccessorV1(context){
  assert.equal(ownedPrivateVaultExitBinding(wallet.runtime,wallet.service).vault,wallet.vault);
  const snapshot=await wallet.catalogue.keeper.snapshot();assert.deepEqual(snapshot.requests.map(row=>row.requestId),['vault_top_up','vault_exit_0','vault_exit_1']);assert.deepEqual(snapshot.requests.map(row=>row.state),['CONFIRMED','CONFIRMED','CONFIRMED']);
  const before={process:externalBirth(process.pid),receiver:wallet.runtime.processStatus(),owners:wallet.owners.map(owner=>owner.report()),receiverWireCount:wallet.runtime.transactions.length};
- const expected={variant:wallet.variant,actualWireCountBefore:before.receiverWireCount,catalogueIdentitySHA256:canonicalJournalSHA(wallet.catalogue.status()),receiptSHA256:canonicalJournalSHA(receipt),redemptionReferenceSHA256:canonicalJournalSHA(receipt.reference),exitIdentitySHA256:canonicalJournalSHA(exit.identity)};
+ const catalogueTransition=commitExternalVaultExitCatalogueTransitionV1(wallet.catalogue.status());
+ const expected={variant:wallet.variant,actualWireCountBefore:before.receiverWireCount,catalogueIdentitySHA256:catalogueTransition.beforeSHA256,catalogueRecoveredIdentitySHA256:catalogueTransition.afterSHA256,receiptSHA256:canonicalJournalSHA(receipt),redemptionReferenceSHA256:canonicalJournalSHA(receipt.reference),exitIdentitySHA256:canonicalJournalSHA(exit.identity)};
  // Each fixed writer owns/fences its originals; credentials never enter IPC.
  // The receiver is last, after all original readers/owners have stopped.
  let checkpoint;

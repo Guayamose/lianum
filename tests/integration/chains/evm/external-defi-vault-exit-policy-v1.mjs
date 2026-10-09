@@ -2,18 +2,44 @@
  * These metadata joins grant no new proof, key, execution or consent authority. */
 import assert from 'node:assert/strict';
 import {assertAavePrivateGraphResultV1,AAVE_PRIVATE_GRAPH_RELATIONS_V1} from './aave-private-graph-policy-v1.mjs';
+import {sha as canonicalJournalSHA} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import {exactRecord} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
 // SOURCE REVIEW ONLY: enables the two fixed local genuine callers below.
 // It is neither an economic receipt nor GRAPH/abrupt-crash recovery acceptance.
 export const EXTERNAL_VAULT_EXIT_RECOVERY_RELEASE_V1=Object.freeze({profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',protocols:Object.freeze(['OFFICIAL_METAMORPHO_V1','OFFICIAL_AAVE_STATIC_V1']),localOnly:true,fakeFundsOnly:true,sourceReviewOnly:true,privateGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,publicNetwork:false});
 export function assertExternalVaultExitRecoveryReleaseV1(){assert.equal(arguments.length,0);const r=EXTERNAL_VAULT_EXIT_RECOVERY_RELEASE_V1;assert.ok(r,'EXTERNAL_VAULT_EXIT_SOURCE_REVIEW_REQUIRED');assert.deepEqual(r,{profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',protocols:['OFFICIAL_METAMORPHO_V1','OFFICIAL_AAVE_STATIC_V1'],localOnly:true,fakeFundsOnly:true,sourceReviewOnly:true,privateGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,publicNetwork:false});return r;}
 const digest=value=>assert.match(value,/^[0-9a-f]{64}$/);
+// The original catalogue intentionally fences fresh admission on authenticated
+// reopen. Commit every status field; only that mandatory false -> true change
+// has a second fixed preimage. These hashes grant no catalogue/keeper authority.
+function assertOriginalCatalogueTransitionStatusV1(status,admissionFault){
+ exactRecord(status,['profile','generations','current','bindings','storageFault','admissionFault','uncertainWrite','pendingGenerationId','pendingReview','pendingOwnerPreparation','keeperRestart','originalBindingsRewritten']);
+ assert.equal(status.profile,'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2');
+ assert.equal(status.admissionFault,admissionFault,'EXTERNAL_VAULT_ORIGINAL_ADMISSION_FENCE');
+ for(const name of ['storageFault','uncertainWrite','keeperRestart','originalBindingsRewritten'])assert.equal(status[name],false,'EXTERNAL_VAULT_ORIGINAL_CATALOGUE_UNCERTAIN');
+ for(const name of ['pendingGenerationId','pendingReview','pendingOwnerPreparation'])assert.equal(status[name],null,'EXTERNAL_VAULT_ORIGINAL_CATALOGUE_PENDING');
+ canonicalJournalSHA(status); // Original canonical data/type/complexity guards.
+}
+export function commitExternalVaultExitCatalogueTransitionV1(status){
+ assert.equal(arguments.length,1);assertOriginalCatalogueTransitionStatusV1(status,false);
+ return Object.freeze({beforeSHA256:canonicalJournalSHA(status),afterSHA256:canonicalJournalSHA({...status,admissionFault:true})});
+}
+export function assertExternalVaultExitCatalogueTransitionV1(status,commitment){
+ assert.equal(arguments.length,2);assertOriginalCatalogueTransitionStatusV1(status,true);
+ exactRecord(commitment,['beforeSHA256','afterSHA256']);
+ for(const name of ['beforeSHA256','afterSHA256']){assert.equal(typeof commitment[name],'string');assert.equal(commitment[name].length,64);digest(commitment[name]);}
+ assert.equal(canonicalJournalSHA(status),commitment.afterSHA256,'EXTERNAL_VAULT_ORIGINAL_CATALOGUE_AFTER');
+ assert.equal(canonicalJournalSHA({...status,admissionFault:false}),commitment.beforeSHA256,'EXTERNAL_VAULT_ORIGINAL_CATALOGUE_BEFORE');
+ return Object.freeze({beforeSHA256:commitment.beforeSHA256,afterSHA256:commitment.afterSHA256});
+}
+
 export function assertExternalVaultExitRecoveryAuditV1(row){
  assert.equal(arguments.length,1);assert.equal(row.profile,'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1');
- for(const name of ['bornBeforeFunding','originalSectionsStoppedBeforeReopen','newBackendPID','newOriginalCatalogue','newOriginalVault','newOriginalExitService','sameOriginalReceipt','originalExitRequestIdsRetained','originalCatalogueRequestIdsRetained'])assert.equal(row[name],true,'EXTERNAL_VAULT_REOPEN_JOIN');
+ for(const name of ['bornBeforeFunding','originalSectionsStoppedBeforeReopen','newBackendPID','newOriginalCatalogue','newOriginalVault','newOriginalExitService','sameOriginalReceipt','originalExitRequestIdsRetained','originalCatalogueRequestIdsRetained','originalCatalogueAdmissionFenceEstablished'])assert.equal(row[name],true,'EXTERNAL_VAULT_REOPEN_JOIN');
  for(const name of ['originalGraphRecoveryEstablished','abruptCrashRecoveryEstablished','parentProcessExitEstablished'])assert.equal(row[name],false,'EXTERNAL_VAULT_REOPEN_SCOPE');
  assert.ok(['METAMORPHO','AAVE_STATIC'].includes(row.variant));assert.ok(Number.isSafeInteger(row.actualWireCountBefore)&&row.actualWireCountBefore>0);assert.equal(row.actualWireCountAfter,row.actualWireCountBefore,'EXTERNAL_VAULT_DUPLICATE_WIRE');
  assert.deepEqual(row.catalogueRequestIds,['vault_top_up','vault_exit_0','vault_exit_1']);assert.deepEqual(row.exitRequestIds,['vault_exit_1']);assert.deepEqual(row.catalogueStates,['CONFIRMED','CONFIRMED','CONFIRMED']);assert.equal(row.exitPhase,'REDEEMED');
- for(const name of ['catalogueIdentitySHA256','receiptSHA256','redemptionReferenceSHA256','exitIdentitySHA256'])digest(row[name]);
+ for(const name of ['catalogueIdentitySHA256','catalogueRecoveredIdentitySHA256','receiptSHA256','redemptionReferenceSHA256','exitIdentitySHA256'])digest(row[name]);
  return{retainedOriginalVaultExitRecovery:true,privateGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false};
 }
 export function assertExternalDefiVaultExitRecoveryResultV1(result){
