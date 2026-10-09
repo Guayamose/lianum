@@ -329,7 +329,9 @@ try {
       'packages/mobile-protocol/src/device-external-flat-note-v1.mjs',
       'apps/mobile/src/api/device-external-flat-note-api-v1.mjs',
       'apps/mobile/src/screens/ExternalTokenNoteScreen.tsx',
-      'apps/mobile/src/custody/device-external-flat-note-vault-v1.ts');
+      'apps/mobile/src/custody/device-external-flat-note-vault-v1.ts',
+      'apps/mobile/src/state/private-wallet-state-v1.mjs',
+      'apps/mobile/src/screens/PrivateWalletStateScreen.tsx');
     report.embeddedSourceJoins=required.map(path=>{
       const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length)
         :path.startsWith('apps/wallet/')?path.slice('apps/'.length):path;
