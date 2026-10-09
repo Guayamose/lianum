@@ -45,7 +45,11 @@ export function normalizeExternalFlatConsentV1(raw){const v=externalFlatExactV1(
  if(['PROVE_D26','PROVE_W39','FUND_D26','WITHDRAW_W39','QUOTE_W39'].includes(v.action)&&v.statement.epoch!==(BigInt(v.observed.timestamp)/600n).toString())fail();
  if(v.action==='PROVE_D27'&&(BigInt(v.observed.timestamp)<BigInt(v.statement.validFrom)||BigInt(v.observed.timestamp)>=BigInt(v.statement.validUntil)))fail();return frozen(v);}
 function accessFrame(raw){const d=raw&&typeof raw==='object'?Object.getOwnPropertyDescriptor(raw,'action'):null;if(!d?.enumerable||!Object.hasOwn(d,'value'))fail();return d.value==='ACCESS';}
-export function validateExternalFlatFreshV1(raw,now=Date.now()){const v=accessFrame(raw)?normalizeExternalFlatAccessV1(raw):normalizeExternalFlatConsentV1(raw);integer(now);if(v.expiresAt<=now||v.expiresAt>now+15000)fail();return v;}
+// Error provenance only: no caller frame, timestamp or permission is retained.
+const freshFailures=new WeakMap();
+function failFresh(reason){const error=Error('DEVICE_EXTERNAL_FLAT_DATA');freshFailures.set(error,reason);throw error;}
+export function readExternalFlatFreshFailureV1(error){if(arguments.length!==1)fail();return freshFailures.get(error)??null;}
+export function validateExternalFlatFreshV1(raw,now=Date.now()){const v=accessFrame(raw)?normalizeExternalFlatAccessV1(raw):normalizeExternalFlatConsentV1(raw);integer(now);if(v.expiresAt<=now)failFresh('CLOCK_EXPIRED');if(v.expiresAt>now+15000)failFresh('CLOCK_FUTURE');return v;}
 /** A closed canonical JSON vocabulary inside a length-prefixed NEW domain.
  * No NativeValue permission or arbitrary message can be signed by this API. */
 export function externalFlatPermissionMessageV1(raw){const v=accessFrame(raw)?normalizeExternalFlatAccessV1(raw):normalizeExternalFlatConsentV1(raw),text=JSON.stringify(v);

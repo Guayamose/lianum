@@ -3,7 +3,7 @@
 import {createServer} from 'node:https';
 import {createPrivateKey,X509Certificate} from 'node:crypto';
 import {types} from 'node:util';
-import {externalFlatWipeV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatWipeV1,readExternalFlatFreshFailureV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {isIP} from 'node:net';
 import {privateFailureDiagnostic} from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import {AssertionError} from 'node:assert';
@@ -95,7 +95,7 @@ function retainFailure(account,error,phase,action){
   const original=privateFirstError(error),safe=!!error&&typeof error==='object'&&!types.isProxy(error);
   const supplied=safe?Object.getOwnPropertyDescriptor(error,'code')?.value:undefined,sourceLabel=safe&&types.isNativeError(error)?Object.getOwnPropertyDescriptor(error,'message')?.value:undefined;
   const diagnostic=privateFailureDiagnostic(error),closed=value=>typeof value==='string'&&DIAGNOSTIC_CODE.exec(value)?.[0]===value?value:null;
-  slot.latest=Object.freeze({format:'LIANUM_DEVICE_EXTERNAL_FLAT_HTTP_LATEST_ERROR_PRIVATE_V1',phase,action,errorType:original.errorType,errorCode:closed(supplied)??closed(sourceLabel)??closed(diagnostic.code)??null,frames:original.frames});
+  slot.latest=Object.freeze({format:'LIANUM_DEVICE_EXTERNAL_FLAT_HTTP_LATEST_ERROR_PRIVATE_V1',phase,action,errorType:original.errorType,errorCode:closed(supplied)??closed(sourceLabel)??closed(diagnostic.code)??null,clockFailure:readExternalFlatFreshFailureV1(error),frames:original.frames});
  }catch{ /* A diagnostic cannot replace or release the original failure. */ }
 }
 /** Private fixed-caller diagnostic only. The key is the SAME account accepted
