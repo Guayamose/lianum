@@ -36,7 +36,7 @@ async function run(){
  const sources=nativeSourceAbruptSourcePinsV1(),earlierNotes=new Set(existsSync(join(GOLDEN,'evidence/paeg-proof-attempts'))?readdirSync(join(GOLDEN,'evidence/paeg-proof-attempts')):[]),earlierGraph=new Set(existsSync(join(LOCAL,'attempts'))?readdirSync(join(LOCAL,'attempts')):[]);
  const result={format:NATIVE_SOURCE_ABRUPT_RESULT_V1,profile:NATIVE_SOURCE_ABRUPT_PROFILE_V1,runId:lock.runId,phase:'starting',success:false,interrupted:false,sourceUnchanged:false,
   supervisor:{supervisorPID:process.ppid,workerPID:process.pid},sourcePins:sources,localOnly:true,fakeFundsOnly:true,publicNetwork:false,
-  nativeExecution:'ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1',nativeDeliveryCount:0,nativeGraphAcceptance:false,sourceAbruptRestartNodeAcceptance:false,sourceArmedAbruptRestartEstablished:false,
+  nativeExecution:'ORIGINAL_DEVICE_NATIVE_EXECUTOR_V1',nativeDeliveryCount:0,nativeGraphAcceptance:false,sourceAbruptRestartNodeAcceptance:false,sourceArmedAbruptRestartEstablished:false,sourceEconomicStateAbruptRestartEstablished:false,sourceMobileStateCoherenceEstablished:false,
   nativeProcessRestartEstablished:false,keeperLossRecoveryEstablished:false,mobileNoteCustodyEstablished:false,tlsEstablished:false,reactRendererEstablished:false,
   physicalPhoneEstablished:false,mobilePortfolioEstablished:false,independentInfrastructureEstablished:false,fullWalletAcceptance:false,postCutoffRecoveryEstablished:false,
   proofs:[],stages:[],cleanup:{errors:[]},disclosure:['Actual same-host product SOURCE confirmed between operations; two abrupt backend exits17 without close/capture, after D26 and after ARM.',
@@ -46,7 +46,7 @@ async function run(){
  const save=()=>writeFixturePrivate(join(directory,'result.json'),result),active=()=>{assert.equal(result.interrupted,false);assert.ok(Date.now()<deadline,'NATIVE_SOURCE_ACCEPTANCE_TOTAL_DEADLINE');};
  const stage=async name=>{active();result.phase=name;result.stages.push({name,at:new Date().toISOString()});save();process.stdout.write(JSON.stringify({stage:name})+'\n');};
  const signals=()=>{result.interrupted=true;};process.on('SIGTERM',signals);process.on('SIGINT',signals);
- let backend=null,host=null,vault=null,deviceKey=null,dapi=null,rapi=null,eapi=null,rootId=null,primary=null,outputApi=null,localRequest=null,witness=null,configuration=null;
+ let backend=null,host=null,vault=null,deviceKey=null,dapi=null,rapi=null,eapi=null,rootId=null,primary=null,outputApi=null,localRequest=null,witness=null,configuration=null,mobileState=null;
  const children=[];
  function backendStart(){active();const child=spawn(process.execPath,[childScript],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},serialization:'json',stdio:['ignore','ignore','ignore','ipc']});
   const requests=new Map();let next=0,ended=false,startError=null;const closed=new Promise(resolve=>child.once('close',(code,signal)=>{ended=true;for(const row of requests.values()){clearTimeout(row.timer);row.reject(Error('NATIVE_SOURCE_BACKEND_CLOSED'));}requests.clear();resolve({code,signal});}));
@@ -73,6 +73,8 @@ async function run(){
   backend=backendStart();const born=await backend.call('START',{mode:'CREATE',configuration});result.birth=born;result.artifacts={noteKeys:{deposit_balance:born.initial.artifactKeys.deposit_balance},graphKeys:{authorization:born.initial.artifactKeys.authorization,reservation:born.initial.artifactKeys.reservation}};
   host=await openDeviceReservationHostVaultV1({appRoot:resolve(FLAT,'../../../apps/mobile'),directory:join(privateDirectory,'mobile-ciphertext'),fetch});
   rootId=await host.original.createLocalRootNoteVaultV1();vault=host.original.openLocalRootNoteVaultV1(rootId);
+  mobileState=(await fromApp('state/private-wallet-state-v1.mjs')).createPrivateWalletStateV1();
+  const economicBirth=await backend.call('STATE_CACHE');assert.equal(economicBirth.value.storageAvailable,true);
   dapi=await host.deposit.createDeviceOwnerDepositApiV1(born.initial.descriptor);const sign=message=>signing.signDeviceMessage(deviceKey,message);
   const access=async api=>{const value=await api.access();return{access:value,signature:sign(originalAccountAccessMessageV2(value))};};
   const submitOnce=async(api,value)=>{try{return{response:await api.submit(value),httpUnknown:false};}catch(error){assert.equal(error.message,'MOBILE_SERVICE_UNAVAILABLE');return{response:null,httpUnknown:true};}};
@@ -94,13 +96,20 @@ async function run(){
   await stage('original-device-D26-funding-one-wire');const fund=await dapi.challenge('FUND_D26',{...await access(dapi),jobId:consent.jobId});const funding=await submitOnce(dapi,{consent:fund,signature:sign(deviceDepositConsentMessageV1(fund))});await backend.call('RECEIPTS',{count:1});
   const observeD26=async()=>{const c=await dapi.challenge('OBSERVE_D26',{...await access(dapi),jobId:consent.jobId});const value=await dapi.submit({consent:c,signature:sign(deviceDepositConsentMessageV1(c))});assert.equal(value.state,'CONFIRMED');const observed=host.deposit.readDeviceDepositInclusionV1(value.observation);await vault.applyDeviceDepositInclusion(value.observation);return observed;};
   const originalD26=await observeD26();result.deposit={jobId:consent.jobId,commitment:prepared.commitment,observation:originalD26,proveHttpUnknown:d26Submit.httpUnknown,fundHttpUnknown:funding.httpUnknown};
-  assert.equal((await vault.readDeviceNote()).availableBalance,'500');const vaultBefore=await vault.readDeviceNote(),writesBefore=host.evidence().writes;
+  assert.equal((await vault.readDeviceNote()).availableBalance,'500');await mobileState.acceptNative(await vault.readDeviceNote());const sourceMobileBefore=mobileState.snapshot();
+  assert.equal(sourceMobileBefore.rows.length,1);assert.equal(sourceMobileBefore.rows[0].available,'500');assert.equal(sourceMobileBefore.aggregateBalance,null);
+  const economicD26Before=await backend.call('STATE_READ'),vaultBefore=await vault.readDeviceNote(),writesBefore=host.evidence().writes;
   await stage('confirmed-SOURCE-abrupt-backend-exit17-without-capture');const crash=await backend.call('EXIT17');const exit=await backend.closed;assert.deepEqual(exit,{code:17,signal:null});await allAbsent(crash.ownedProcesses);
   result.crash={...crash,exit,allOriginalProcessesAbsent:true,parentVaultRetained:true,configuredKernelParentDeathSignal:'SIGTERM',signalDeliveryObserved:false};dapi.close();
   await stage('new-PID-opens-SAME-original-SOURCE-capsule');backend=backendStart();const reopened=await backend.call('START',{mode:'OPEN',configuration});assert.notEqual(reopened.initial.process.pid,born.initial.process.pid);
   assert.deepEqual(reopened.initial.descriptor,born.initial.descriptor);assert.deepEqual(reopened.initial.ledger,crash.before.ledger);assert.deepEqual(reopened.initial.counts,crash.before.counts);assert.ok(reopened.initial.sourceGeneration>born.initial.sourceGeneration);
-  assert.deepEqual(await vault.readDeviceNote(),vaultBefore);assert.equal(host.evidence().writes,writesBefore);result.reopen=reopened;const restoredReceipts=await backend.call('RECEIPTS',{count:1});assert.equal(restoredReceipts[0].proof.proof,result.proofs[0]?readFileSync(join(proofDirectory,result.proofs[0].label+'.bin')).toString('hex'):'');retain(restoredReceipts);
+  const restoredD26Note=await vault.readDeviceNote();for(const field of ['rootId','revision','commitment','amount','status','job','localReservation'])assert.deepEqual(restoredD26Note[field],vaultBefore[field]);
+  assert.equal(restoredD26Note.availableBalance,null);assert.equal(host.evidence().writes,writesBefore);result.reopen=reopened;
+  const economicD26Open=await backend.call('STATE_CACHE');assert.deepEqual(economicD26Open.checkpoint,economicD26Before.checkpoint);
+  assert.equal(economicD26Open.value.observedAt,null);assert.ok(economicD26Open.value.rows.every(row=>row.state!=='LIVE'&&row.balances===null));const restoredReceipts=await backend.call('RECEIPTS',{count:1});assert.equal(restoredReceipts[0].proof.proof,result.proofs[0]?readFileSync(join(proofDirectory,result.proofs[0].label+'.bin')).toString('hex'):'');retain(restoredReceipts);
   dapi=await host.deposit.createDeviceOwnerDepositApiV1(reopened.initial.descriptor);const renewed=await observeD26();for(const k of ['jobId','commitment','nullifier','transactionHash'])assert.equal(renewed[k],originalD26[k]);
+  await mobileState.acceptNative(await vault.readDeviceNote());const sourceMobileAfter=mobileState.snapshot();assert.equal(sourceMobileAfter.rows[0].available,'500');
+  const economicD26Fresh=await backend.call('STATE_READ');
   await assert.rejects(dapi.challenge('FUND_D26',{...await access(dapi),jobId:consent.jobId}));assert.equal(result.proofs.length,1);
   rapi=await host.reservation.createDeviceOwnerReservationApiV1(reopened.initial.descriptor);await stage('same-funded-source-next-original-U');
   const quote=await rapi.preparation({...await access(rapi),depositJobId:consent.jobId,rootId});const review=await vault.prepareDeviceReservationFromQuote(quote);assert.equal(review.changeAmount,'400');assert.equal(review.recoveryAmount,'100');
@@ -121,13 +130,16 @@ async function run(){
   const readOutputs=async()=>{const subject=await vault.readDeviceOutputBalanceSubject(),handle=await outputApi.observe({...await access(outputApi),...subject});
    await vault.applyDeviceOutputBalances(handle);const value=host.outputBalance.readDeviceOutputBalanceV1(handle),note=await vault.readDeviceNote();
    assert.equal(value.change.amount,'400');assert.equal(value.change.state,'UNSPENT');assert.equal(value.recovery.amount,'100');assert.equal(value.recovery.state,'LOCKED');
-   assert.equal(note.localReservation.change.availableBalance,'400');assert.equal(note.localReservation.recovery.availableBalance,null);return{value,note};};
-  const beforeOutputs=await readOutputs(),armedVaultBefore=await vault.readDeviceNote(),armedWrites=host.evidence().writes;
+   assert.equal(note.localReservation.change.availableBalance,'400');assert.equal(note.localReservation.recovery.availableBalance,null);
+   await mobileState.acceptNative(note);const common=mobileState.snapshot();assert.equal(common.rows.length,2);assert.equal(common.aggregateBalance,null);assert.equal(common.completePortfolio,false);
+   assert.deepEqual(common.rows.map(row=>[row.route.noteRole,row.available,row.locked]),[['change','400',null],['recovery',null,'100']]);return{value,note,common};};
+  const beforeOutputs=await readOutputs(),economicArmBefore=await backend.call('STATE_READ'),armedVaultBefore=await vault.readDeviceNote(),armedWrites=host.evidence().writes;
   await stage('confirmed-original-ARM-abrupt-backend-exit17-without-rearm-or-capture');
   const armedCrash=await backend.call('EXIT17_ARM',{jobId:u.jobId}),armedExit=await backend.closed;assert.deepEqual(armedExit,{code:17,signal:null});await allAbsent(armedCrash.ownedProcesses);
   result.armedCrash={...armedCrash,exit:armedExit,allOriginalProcessesAbsent:true,parentVaultRetained:true,configuredKernelParentDeathSignal:'SIGTERM',signalDeliveryObserved:false};
   assert.equal(armedCrash.before.snapshot.arm.armSHA256,armed.armSHA256);assert.deepEqual(armedCrash.before.snapshot.ledger,final.ledger);
-  dapi.close();rapi.close();eapi.close();outputApi.close();vault.forgetDeviceOutputBalanceObservation();
+  dapi.close();rapi.close();eapi.close();outputApi.close();vault.forgetDeviceOutputBalanceObservation();const mobileInvalidated=mobileState.snapshot();
+  assert.ok(mobileInvalidated.rows.every(row=>row.available===null&&row.locked===null&&row.state==='STALE'));
   await stage('third-original-backend-PID-resumes-the-SAME-ARM-without-fresh-permission');backend=backendStart();
   const armedReopen=await backend.call('START',{mode:'OPEN_ARMED',configuration,jobId:u.jobId});
   assert.notEqual(armedReopen.initial.process.pid,born.initial.process.pid);assert.notEqual(armedReopen.initial.process.pid,reopened.initial.process.pid);
@@ -136,7 +148,9 @@ async function run(){
   assert.equal(armedReopen.initial.snapshot.arm.armSHA256,armed.armSHA256);assert.equal(armedReopen.initial.snapshot.arm.state,'ARMED');
   assert.equal(host.evidence().writes,armedWrites);const retainedNote=await vault.readDeviceNote();
   assert.equal(retainedNote.revision,armedVaultBefore.revision);assert.deepEqual(retainedNote.localReservation.transactionHash,armedVaultBefore.localReservation.transactionHash);
-  result.armedReopen=armedReopen;const originalSReceipt=(await backend.call('RECEIPTS',{count:3}))[0];
+  result.armedReopen=armedReopen;const economicArmOpen=await backend.call('STATE_CACHE');assert.deepEqual(economicArmOpen.checkpoint,economicArmBefore.checkpoint);
+  assert.equal(economicArmOpen.value.observedAt,null);assert.ok(economicArmOpen.value.rows.every(row=>row.state!=='LIVE'&&row.balances===null));
+  const originalSReceipt=(await backend.call('RECEIPTS',{count:3}))[0];
   assert.equal(originalSReceipt.label,result.proofs[2].label);assert.equal(sha(Buffer.from(originalSReceipt.proof.proof,'hex')),result.proofs[2].proofSHA256);assert.equal(sha(Buffer.from(JSON.stringify(originalSReceipt.proof.publicInputs))),result.proofs[2].publicInputsSHA256);
   eapi=await host.execution.createDeviceOwnerExecutionApiV1(armedReopen.initial.descriptor);
   const resumedArm=await eapi.observeRecoveryArm({...await access(eapi),jobId:u.jobId});assert.equal(resumedArm.state,'ARMED');assert.equal(resumedArm.armSHA256,armed.armSHA256);
@@ -145,6 +159,10 @@ async function run(){
   for(const role of ['change','recovery'])for(const k of ['amount','state','commitment','nullifier'])assert.equal(afterOutputs.value[role][k],beforeOutputs.value[role][k]);
   const resumedFinal=await backend.call('ARM_AUDIT',{jobId:u.jobId});assert.equal(resumedFinal.arm.armSHA256,armed.armSHA256);assert.deepEqual(resumedFinal.ledger,final.ledger);assert.deepEqual(resumedFinal.counts,final.counts);
   result.armedObservation={arm:resumedArm,outputs:afterOutputs.value,final:resumedFinal,originalPermissionRetained:true,noNewProofKeyOrSend:true};
+  const economicArmFresh=await backend.call('STATE_READ');
+  result.economicState={birth:economicBirth,d26:{before:economicD26Before,opened:economicD26Open,fresh:economicD26Fresh},armed:{before:economicArmBefore,opened:economicArmOpen,fresh:economicArmFresh},
+   mobile:{sourceBefore:sourceMobileBefore,sourceAfter:sourceMobileAfter,outputsBefore:beforeOutputs.common,invalidated:mobileInvalidated,outputsAfter:afterOutputs.common}};
+  result.sourceEconomicStateAbruptRestartEstablished=true;result.sourceMobileStateCoherenceEstablished=true;
   result.sourceArmedAbruptRestartEstablished=true;assert.equal(result.proofs.length,3);
   result.economics={amountAtomic:'500',changeAtomic:'400',recoveryAtomic:'100',receiverFinancialWires:2,nativeDeliveryWires:0,poolBackedAtomic:'500'};
   result.mobileCustody=host.evidence();assert.equal(result.mobileCustody.rootPersistedToFile,false);assert.equal(transport.tlsVersion,'TLSv1.3');result.tlsVersion=transport.tlsVersion;
@@ -152,7 +170,7 @@ async function run(){
  }catch(error){primary=error;writeFixturePrivate(join(privateDirectory,'first-error-private.json'),privateNativeEconomicSuccessorFirstErrorV1(error));result.phase='failed';save();}
  finally{localRequest?.close();if(witness){for(const v of Object.values(witness))if(Array.isArray(v))v.fill(0);}dapi?.close();rapi?.close();eapi?.close();outputApi?.close();
   try{if(backend&&nativeProcStatV1(backend.child.pid)!==null){const stopped=await backend.call('CLOSE');const exit=await backend.closed;assert.deepEqual(exit,{code:0,signal:null});await allAbsent(stopped.ownedProcesses,true);result.cleanup.backend=stopped;result.cleanup.closedEvm=true;result.cleanup.closedNativeEvm=true;result.cleanup.closedNativeExecution=true;result.cleanup.closedBackend=true;}}catch(error){primary??=error;result.cleanup.errors.push('NATIVE_SOURCE_ORIGINAL_BACKEND_CLOSE_UNCONFIRMED');if(backend?.child.connected)backend.child.disconnect();}
-  vault?.close();result.cleanup.closedMobileVault=true;deviceKey?.fill(0);configuration=null;if(host){result.mobileCustody??=host.evidence();host.close();result.cleanup.closedMobileHost=true;}
+  mobileState?.clear();vault?.close();result.cleanup.closedMobileVault=true;deviceKey?.fill(0);configuration=null;if(host){result.mobileCustody??=host.evidence();host.close();result.cleanup.closedMobileHost=true;}
   for(const c of children)if(nativeProcStatV1(c.child.pid)!==null)result.cleanup.errors.push('NATIVE_SOURCE_BACKEND_PID_PRESENT');
   try{assert.deepEqual(nativeSourceAbruptSourcePinsV1(),sources);result.sourceUnchanged=true;}catch(error){primary??=error;result.cleanup.errors.push('NATIVE_SOURCE_ACCEPTANCE_SOURCE_CHANGED');}
   process.off('SIGTERM',signals);process.off('SIGINT',signals);}

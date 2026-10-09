@@ -7,6 +7,8 @@ import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {createOriginalNativeSourceLocalOperatorV1,reopenOriginalNativeSourceLocalOperatorV1,
  readOriginalNativeSourceLocalContextV1,readOriginalNativeSourceLocalOwnedProcessesV1,
  readOriginalNativeSourceLocalArmedAuditV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-local-operator-v1.mjs';
+import {readOriginalSessionWalletEconomicStateV1} from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
+import {assertOriginalWalletEconomicStateV1,originalWalletEconomicStateBindingsV1} from '../../../../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs';
 import {originalNativeSourceCapsuleStatusV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs';
 import {readOriginalNativeSourceProofReceiptsV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
@@ -31,6 +33,14 @@ async function basic(){const c=context(),reader=await createNativeValueSystemSta
   counts:{receiver:c.runtime.transactions.length,native:c.nativeRuntime.transactions.length},
   ledger:{publicState:view.ledger.publicState,commitments:view.ledger.commitments,nullifiers:view.ledger.nullifiers},
   linuxSourceStatus:linux.notes.source.status,linuxAvailable:ownerView.balances.available};}
+async function economicPoint(observe){
+ const c=context(),cap=readOriginalSessionWalletEconomicStateV1(c.session);assertOriginalWalletEconomicStateV1(cap);
+ assert.ok(originalWalletEconomicStateBindingsV1(cap).some(row=>row.session===c.session),'NATIVE_SOURCE_ORIGINAL_STATE_SESSION');
+ const value=observe?await cap.observe():await cap.snapshot(),checkpoint=cap.checkpoint();
+ assert.equal(value.storageAvailable,true);assert.equal(value.lifetime,checkpoint.lifetime);assert.equal(value.revision,checkpoint.revision);
+ assert.equal(readOriginalSessionWalletEconomicStateV1(context().session),cap,'NATIVE_SOURCE_ORIGINAL_STATE_CHANGED');
+ return{value,checkpoint};
+}
 async function armedPoint(jobId){
  const value=await readOriginalNativeSourceLocalArmedAuditV1(service,jobId),c=context(),capsule=originalNativeSourceCapsuleStatusV1(c.authority);
  assert.equal(capsule.phase,'CONFIRMED');assert.equal(capsule.pending,false);assert.equal(value.arm.state,'ARMED');assert.equal(value.arm.jobId,jobId);
@@ -47,6 +57,7 @@ async function dispatch(message){exact(message,['id','method','payload']);assert
  if(method==='RECEIPTS'){exact(payload,['count']);assert.ok([1,2,3].includes(payload.count));
   const receipts=await readOriginalNativeSourceProofReceiptsV1(context().account);assert.equal(receipts.length,payload.count,'NATIVE_SOURCE_ORIGINAL_PROOF_COUNT');return send({id,ok:true,value:[receipts.at(-1)]});}
  if(method==='AUDIT'){exact(payload,[]);return send({id,ok:true,value:await basic()});}
+ if(method==='STATE_CACHE'||method==='STATE_READ'){exact(payload,[]);return send({id,ok:true,value:await economicPoint(method==='STATE_READ')});}
  if(method==='ARM_AUDIT'){exact(payload,['jobId']);const value=await readOriginalNativeSourceLocalArmedAuditV1(service,payload.jobId);
   assert.equal(value.arm.state,'ARMED');assert.equal(value.status.outcome,null);assert.equal(value.counts.native,0);assert.ok(BigInt(value.head.timestamp)<BigInt(value.arm.settleBefore));
   return send({id,ok:true,value});}

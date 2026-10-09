@@ -1,4 +1,4 @@
-"""Fixed actual PRODUCT SOURCE D26→exit17→new PID→U/S→first ARM.
+"""Fixed actual PRODUCT SOURCE D26→exit17→new PID→U/S→ARM→exit17→same ARM.
 
 Original supervisor admission/ownership/cleanup and raw proof readers are
 reused. This launcher accepts no profile, secret, PID or artifact selection.
@@ -59,7 +59,8 @@ def retain_summary(attempt, supervisor_pid, code, captured):
         "completedOriginals": r.get("success") is w.get("success") is True and r.get("phase") == s.get("phase") == w.get("phase") == "completed"
             and r.get("interrupted") is False and s.get("failure", "missing") is None and s.get("failures") == [],
         "sourceScope": r.get("profile") == PROFILE and r.get("sourceAbruptRestartNodeAcceptance") is w.get("sourceAbruptRestartNodeAcceptance") is True
-            and r.get("nativeProcessRestartEstablished") is w.get("nativeProcessRestartEstablished") is True
+            and all(r.get(k) is w.get(k) is True for k in ("nativeProcessRestartEstablished", "sourceArmedAbruptRestartEstablished",
+                "sourceEconomicStateAbruptRestartEstablished", "sourceMobileStateCoherenceEstablished"))
             and all(r.get(k) is w.get(k) is False for k in FALSE_SCOPE)
             and r.get("nativeDeliveryCount") == w.get("nativeDeliveryCount") == 0
             and all(v.get("localOnly") is v.get("fakeFundsOnly") is True and v.get("publicNetwork") is False for v in (r, s, w)),
@@ -79,10 +80,40 @@ def retain_summary(attempt, supervisor_pid, code, captured):
     checks["firstFreshArmNoF"] = arm.get("firstFreshPermission") is arm.get("noEarlyF") is True         and original.record(arm.get("permission")).get("state") == "ARMED"         and original.record(original.record(arm.get("final")).get("status")).get("outcome", "missing") is None
     checks["exactFinancialEffects"] = r.get("economics") == {"amountAtomic": "500", "changeAtomic": "400", "recoveryAtomic": "100",
         "receiverFinancialWires": 2, "nativeDeliveryWires": 0, "poolBackedAtomic": "500"}
+    armed_crash, armed_open, armed_observed = (original.record(r.get(k)) for k in ("armedCrash", "armedReopen", "armedObservation"))
+    armed_before = original.record(armed_crash.get("before")); third = original.record(armed_open.get("initial"))
+    before_arm, third_arm = (original.record(original.record(v.get("snapshot")).get("arm")) for v in (armed_before, third))
+    permission = original.record(arm.get("permission"))
+    checks["actualArmedAbruptExit"] = armed_crash.get("exit") == {"code": 17, "signal": None} and armed_crash.get("intendedExitCode") == 17 \
+        and armed_crash.get("orderedCaptureCalled") is armed_crash.get("originalCloseCalled") is armed_crash.get("signalDeliveryObserved") is False \
+        and armed_crash.get("allOriginalProcessesAbsent") is armed_crash.get("parentVaultRetained") is True \
+        and armed_crash.get("configuredKernelParentDeathSignal") == "SIGTERM"
+    checks["sameOriginalArmThirdPID"] = original.record(third.get("process")).get("pid") not in (original.record(old.get("process")).get("pid"), original.record(new.get("process")).get("pid")) \
+        and third.get("descriptor") == new.get("descriptor") and type(third.get("sourceGeneration")) is int and type(new.get("sourceGeneration")) is int and third["sourceGeneration"] > new["sourceGeneration"] \
+        and all(v.get("state") == "ARMED" and v.get("armSHA256") == permission.get("armSHA256") and v.get("settleBefore") == permission.get("settleBefore") for v in (before_arm, third_arm, original.record(armed_observed.get("arm")))) \
+        and armed_observed.get("originalPermissionRetained") is armed_observed.get("noNewProofKeyOrSend") is True
+    economic = original.record(r.get("economicState")); birth_state = original.record(economic.get("birth"))
+    birth_value, birth_checkpoint = (original.record(birth_state.get(k)) for k in ("value", "checkpoint"))
+    transitions = [original.record(economic.get(k)) for k in ("d26", "armed")]
+    checks["sameEconomicObservationJournal"] = type(birth_value.get("rows")) is list and len(birth_value["rows"]) > 0 and all(
+        original.record(v.get("opened")).get("checkpoint") == original.record(v.get("before")).get("checkpoint")
+        and all(original.record(original.record(v.get(stage)).get("value")).get("lifetime") == birth_value.get("lifetime")
+            and original.record(original.record(v.get(stage)).get("checkpoint")).get("sourceSetSHA256") == birth_checkpoint.get("sourceSetSHA256")
+            and original.record(original.record(v.get(stage)).get("value")).get("storageAvailable") is True for stage in ("before", "opened", "fresh"))
+        and original.record(original.record(v.get("opened")).get("value")).get("observedAt", "missing") is None
+        and all(row.get("state") != "LIVE" and row.get("balances", "missing") is None for row in original.record(original.record(v.get("opened")).get("value")).get("rows", [])) for v in transitions)
+    mobile = original.record(economic.get("mobile")); mobile_points = [original.record(mobile.get(k)) for k in ("sourceBefore", "sourceAfter", "outputsBefore", "invalidated", "outputsAfter")]
+    source_points = mobile_points[:2]; output_points = (mobile_points[2], mobile_points[4]); invalidated = mobile_points[3]
+    checks["originalMobileStateUnion"] = all(v.get("aggregateBalance", "missing") is None and v.get("completePortfolio") is False and v.get("readOnly") is True for v in mobile_points) \
+        and all(type(v.get("rows")) is list and len(v["rows"]) == 1 and v["rows"][0].get("available") == "500" and original.record(v["rows"][0].get("route")).get("component") == "DEVICE_NATIVE_SOURCE" for v in source_points) \
+        and all(type(v.get("rows")) is list and len(v["rows"]) == 2 and [(original.record(row.get("route")).get("noteRole"), row.get("available"), row.get("locked")) for row in v["rows"]] == [("change", "400", None), ("recovery", None, "100")] for v in output_points) \
+        and type(invalidated.get("rows")) is list and len(invalidated["rows"]) == 2 and all(row.get("state") == "STALE" and row.get("available", "missing") is row.get("locked", "missing") is None for row in invalidated["rows"])
     # Copy only finite checks and source/raw hashes; journal/witness/key data is
     # never emitted by this public terminal projection.
     summary = {"format": "LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_CLI_SUMMARY_V1", "runId": run_id,
-        "phase": "completed" if all(checks.values()) else "rejected", "scope": "ORIGINAL_MOBILE_SOURCE_CONFIRMED_D26_ABRUPT_NEW_PID_U_S_FIRST_ARM",
+        "phase": "completed" if all(checks.values()) else "rejected", "scope": "ORIGINAL_MOBILE_SOURCE_D26_AND_ARM_ABRUPT_SAME_JOURNAL_MOBILE_STATE",
+        "sourceArmedAbruptRestartEstablished": all(checks.values()), "sourceEconomicStateAbruptRestartEstablished": all(checks.values()),
+        "sourceMobileStateCoherenceEstablished": all(checks.values()),
         "realProofCount": len(proofs), "checks": checks, "failedChecks": [k for k, v in checks.items() if not v],
         "raw": {name: {"bytes": len(value), "sha256": hashlib.sha256(value).hexdigest()} for name, value in raw.items()},
         "configuredKernelParentDeathSignal": "SIGTERM", "kernelSignalDeliveryObserved": False,
