@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "e20afd988b961d3cf38b5f1f917d96f7756e1015d821ddce95f8e09ed1c9aa74",
+  "hostSourceClosureSHA256": "aca94a2fc5a9ffce6aae09b0b18e58b487c903b516347ead20a7e8cb5f99d7e6",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -2138,7 +2138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/native-economic-local-custody-v2.mjs",
-      "sha256": "85f4fb19730b11417c91cc627676ed39b42fa7955fe90d3d2b86cfd86b000565"
+      "sha256": "b4060e8682b33a4a2da4c81149cc191103f3131151d7f3a379e7f986c9b5ce30"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/native-economic-local-signing-v2.mjs",
@@ -2242,7 +2242,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs",
-      "sha256": "f15abc05c0d43f63a44f21155880c4ab059333a5ea436edcc471839aac4beb2c"
+      "sha256": "1ae4499211aad43c3cbf88ffa2cd3d366762b8782bf75a086f6abe2f50f09900"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-native-custody.mjs",
@@ -2290,7 +2290,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs",
-      "sha256": "33ed895d278edd5c61e5511889bb5e938ea6bcdad3dbabddfc0c80119e77f4b1"
+      "sha256": "ea16ed1ff77404c3179bfb1884b967fcade896581e4ebd207142af4a09c19d10"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-tron-node-driver.mjs",
@@ -2430,7 +2430,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-catalogue-recovery-v1.mjs",
-      "sha256": "1a4073ba8d41e81391bef7dffa788223d15f73a43251639f671f4dbad8a2f19b"
+      "sha256": "5575f6cb6536541bf5f3a5fb738e24fc159d682a6808d040c6863ea37d49f15a"
     },
     {
       "path": "wallet-platform/modules/global-state/external-defi-retained-vault-wallet-v1.mjs",
@@ -2530,7 +2530,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/native-claims/controller.mjs",
-      "sha256": "2d3bc55abf476af02d309e079ed96bf57467b28804ec107b4d9c71460ccebaf0"
+      "sha256": "c41e3f645df432656f689b4a0842a85b8336224c447d8ac7fa8d64a23a155ff4"
     },
     {
       "path": "wallet-platform/modules/native-claims/current-custody-audit-v2.mjs",
@@ -3098,7 +3098,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-failure-retention.mjs",
-      "sha256": "b242d8e0b17c71cfb489ac44e7061ffad28838f2d08de2c0a65d8a966eb29edd"
+      "sha256": "770b4e439eab5ca8943c951f759bcebbcb89d7e7a6e0d5e472b0fe69b663d1d2"
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-graph-admission-v2.mjs",
