@@ -1,3 +1,4 @@
+import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3} from '../../../chains/evm/runtime/owned-external-defi-receiver-state-v3.mjs';
 /** Private fixed-attempt recovery authority. This is encrypted retention and
  * exclusive reopen admission, never evidence that a native component reopened.
  * No credentials, records or signed wires belong in public result/export files.
@@ -238,7 +239,7 @@ export function originalWrappedRecoverySectionIdentityV1(token,section){
  return Object.freeze(clone(entry.s.identity));
 }
 export function consumeOriginalWrappedRecoverySectionV1(token,section){assert.equal(arguments.length,2);const r=reads.get(token);assert.ok(r&&r.section===section&&!r.used&&r.operation===r.s.operation,'WRAPPED_RECOVERY_ORIGINAL_OPEN_TOKEN');r.used=true;assert.equal(r.s.closed,false);assert.equal(r.s.fault,false);assert.ok(Date.now()<authorityReopenDeadline(r.s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');return clone(r.data);}
-export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.notEqual(r?.s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');assert.notEqual(r?.data?.schema,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2','EXTERNAL_RECEIVER_DISTINCT_REOPEN_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
+export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.notEqual(r?.s.identity.profile,NATIVE_ECONOMIC_PROFILE,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');assert.ok(![EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2'].includes(r?.data?.schema),'EXTERNAL_RECEIVER_DISTINCT_REOPEN_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
 async function fixedReopen(authority,section,work,stop){
  const s=state(authority);s.operation=opaque();let token,result,returned=false;
  try{token=await issueWrappedRecoverySectionV1(s,section);const r=reads.get(token);result=await work(token);returned=true;assert.equal(r.used,true,'WRAPPED_RECOVERY_OPEN_TOKEN_UNUSED');await mutate(s,old=>{const row=old.sections[section];assert.equal(row.state,'OPENING');assert.deepEqual(row.claim,r.claim);row.state='OPENED';return old;});return result;}
@@ -287,9 +288,9 @@ export function consumeExternalDefiReceiverRuntimeSectionV2(token){
  assert.equal(arguments.length,1);const identity=originalWrappedRecoverySectionIdentityV1(token,'receiver');
  assert.equal(identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
  const saved=consumeOriginalWrappedRecoverySectionV1(token,'receiver');
- exactRecord(saved,['schema','sourceSHA256','record']);assert.equal(saved.schema,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2');
+ exactRecord(saved,['schema','sourceSHA256','record']);assert.ok([EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2'].includes(saved.schema));
  assert.equal(saved.sourceSHA256,identity.sourceSHA256,'EXTERNAL_RECEIVER_ORIGINAL_SOURCE');
- assert.equal(saved.record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(saved.record.family,'receiver');return saved.record;
+ assert.equal(saved.record.schema,saved.schema===EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(saved.record.family,'receiver');return saved.record;
 }
 export async function retainExternalDefiReceiverRuntimeV2(authority,runtime){
  assert.equal(arguments.length,2);const s=state(authority);assert.equal(s.identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
@@ -304,9 +305,9 @@ export async function retainExternalDefiReceiverRuntimeV2(authority,runtime){
  return fixedCapture(authority,'receiver',async token=>{
   let entered=false;
   try{const work=m.captureOwnedExternalDefiReceiverV2(runtime,token);entered=true;const record=await work;
-   assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(record.family,'receiver');
+   assert.ok([EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,'OWNED_FIXED_EVM_CAPTURE_V2'].includes(record.schema));assert.equal(record.family,'receiver');
    assert.equal(record.terminal.ownedProcessStopped,true,'EXTERNAL_RECEIVER_ORIGINAL_STOP_REQUIRED');assert.equal(record.terminal.forced,false,'EXTERNAL_RECEIVER_GRACEFUL_STOP_REQUIRED');await assertStoppedNativeFilesV1(record.cwd,record.files);
-   await retainOriginalWrappedRecoverySectionV1(token,'receiver',{schema:'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2',sourceSHA256:externalDefiReceiverCaptureIdentityV2(token).sourceSHA256,record});
+   await retainOriginalWrappedRecoverySectionV1(token,'receiver',{schema:record.schema===EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3?EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3:'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2',sourceSHA256:externalDefiReceiverCaptureIdentityV2(token).sourceSHA256,record});
    return {retained:true,originalResourcesStopped:true};
   }catch(error){if(entered){try{await m.abortOwnedExternalDefiReceiverCaptureV2(runtime,token);}catch(cleanup){throw new AggregateError([error,cleanup],'EXTERNAL_RECEIVER_CAPTURE_AND_STOP_FAILED',{cause:error});}}throw error;}
  });

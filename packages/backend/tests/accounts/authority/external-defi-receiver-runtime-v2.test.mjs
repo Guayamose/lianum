@@ -31,12 +31,12 @@ mock.module(ownersURL,{exports:{retainFlatOwnersForReopenV1(input){return sectio
 mock.module(walletURL,{exports:{retainExternalDefiVaultCatalogueForReopenV1(input,token){return section(token,'wallet');}}});
 authority=await import(authorityURL);
 const registry=await import(registryURL);
-async function fixture(t,{forced=false}={}){
+async function fixture(t,{forced=false,v3=false}={}){
  const runId=randomUUID(),directory=join(fixedRoot,'.local/external-defi-owner-cycle-v1','attempt-'+runId,'private-audit');
  await mkdir(directory,{recursive:true,mode:0o700});
  const cwd=await mkdtemp(join(tmpdir(),'external-defi-inert-host-'));
  const identity={directory,runId,sourceSHA256:'ab'.repeat(32),deadlineMs:Date.now()+60000};
- const runtime=Object.freeze({metadata:Object.freeze({version:'OWNED_FLAT_LOCAL_EVM_V2',evmGenesis:'cd'.repeat(32),chainId:'31337'}),ingressSendState:Object.freeze({phase:'IDLE',financialAcceptance:false})}),record={schema:'OWNED_FIXED_EVM_CAPTURE_V2',family:'receiver',cwd,files:{files:[],totalBytes:0},terminal:{ownedProcessStopped:true,forced},localCustody:{schema:'EXPLICIT_INERT_HOST_CUSTODY',financialAcceptance:false}};
+ const runtime=Object.freeze({metadata:Object.freeze({version:'OWNED_FLAT_LOCAL_EVM_V2',evmGenesis:'cd'.repeat(32),chainId:'31337'}),ingressSendState:Object.freeze({phase:'IDLE',financialAcceptance:false})}),record={schema:v3?'OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3':'OWNED_FIXED_EVM_CAPTURE_V2',family:'receiver',cwd,files:{files:[],totalBytes:0},terminal:{ownedProcessStopped:true,forced},localCustody:{schema:'EXPLICIT_INERT_HOST_CUSTODY',financialAcceptance:false}};
  runtimes.set(runtime,{identity:{profile:'EXTERNAL_DEFI_PRIVATE_RECOVERY_AUTHORITY_V1',...identity},record,fenced:false,closed:false});
  const owner=await authority.createExternalDefiRecoveryAuthorityV1(identity);let privateRegistry;
  try{privateRegistry=await registry.createWrappedPrivateLifetimeRegistryV1({runtime,...identity});}
@@ -50,7 +50,7 @@ const input=JSON.parse(process.argv[1]);const issuer=await import(input.authorit
 mock.module(input.runtimeURL,{exports:{async reopenOwnedExternalDefiReceiverV2(token){
  assert.throws(()=>issuer.consumeWrappedRuntimeRecoveryV1(token,'receiver'),/EXTERNAL_RECEIVER_DISTINCT_REOPEN_REQUIRED/);
  assert.throws(()=>issuer.consumeExternalDefiReceiverRuntimeSectionV2({...token}),/ORIGINAL_SECTION_TOKEN/);
- const record=issuer.consumeExternalDefiReceiverRuntimeSectionV2(token);assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(record.localCustody.financialAcceptance,false);
+ const record=issuer.consumeExternalDefiReceiverRuntimeSectionV2(token);assert.equal(record.schema,input.expectedSchema??'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(record.localCustody.financialAcceptance,false);
  assert.throws(()=>issuer.consumeExternalDefiReceiverRuntimeSectionV2(token),/ORIGINAL_OPEN_TOKEN/);opens++;
  return{async close(){closed++;return{closed:true};}};
 }}});
@@ -105,4 +105,17 @@ test('an unconfirmed stop burns the capture and closes the same owned substitute
  await assert.rejects(authority.finishWrappedRecoveryCaptureV1(f.owner),/ORIGINAL_IDLE_AUTHORITY/);
  await authority.closeWrappedRecoveryAuthorityV1(f.owner);f.authorityClosed=true;
  await assert.rejects(readFile(join(f.identity.directory,'recovery/authority.active')),{code:'ENOENT'});
+});
+
+test('External5 V3 authenticated section keeps its fixed format in a new process and forbids generic or copied token reopen',async t=>{
+ const f=await fixture(t,{v3:true});
+ await authority.retainExternalDefiVaultCatalogueRecoveryV1(f.owner,{catalogue:Object.freeze({}),services:[]});
+ await authority.retainExternalDefiOwnersRecoveryV1(f.owner,{owners:[]});
+ await authority.retainExternalDefiVaultExitSystemRecoveryV1(f.owner,{runtime:f.runtime,system:Object.freeze({})});
+ await authority.retainWrappedPrivateLifetimeRecoveryV1(f.owner,f.runtime);
+ await authority.retainExternalDefiReceiverRuntimeV2(f.owner,f.runtime);
+ const checkpoint=await authority.finishWrappedRecoveryCaptureV1(f.owner);f.authorityClosed=true;
+ await assert.rejects(authority.openExternalDefiRecoveryAuthorityV1(f.identity,checkpoint),/NEW_PROCESS_REQUIRED/);
+ const result=await child({identity:f.identity,checkpoint,authorityURL:authorityURL.href,runtimeURL:runtimeURL.href,expectedSchema:'OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3'});
+ assert.deepEqual({opens:result.opens,closed:result.closed,financialAcceptance:result.financialAcceptance},{opens:1,closed:1,financialAcceptance:false});assert.notEqual(result.pid,process.pid);
 });

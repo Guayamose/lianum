@@ -1,3 +1,4 @@
+import {decodeOwnedExternalDefiStateV3} from './owned-external-defi-receiver-state-v3.mjs';
 /** Private file transport for an unchanged original Anvil recovery snapshot.
  * It changes neither server request limits nor chain data. The captured gzip
  * remains intact; the CLI receives its exact decoded JSON bytes in a0600 file.
@@ -52,11 +53,13 @@ export async function assertOwnedEvmStateFileV1(pin){
  for(const key of ['dev','ino','size','mtimeMs','ctimeMs'])assert.equal(named[key],before[key],'EVM_RECOVERY_PRIVATE_STATE_PATH_CHANGED');
  assert.equal(length,pin.bytes);assert.equal(hash.digest('hex'),pin.sha256,'EVM_RECOVERY_PRIVATE_STATE_CHANGED');
 }
-export async function writeOwnedEvmStateFileV1({cwd,suffix,stateDump}){
+export async function writeOwnedEvmStateFileV1(input){return writeDecodedStateFile(input,decodeOwnedEvmStateFileV1);}
+export async function writeOwnedExternalDefiStateFileV3(input){return writeDecodedStateFile(input,decodeOwnedExternalDefiStateV3);}
+async function writeDecodedStateFile({cwd,suffix,stateDump},decode){
  assert.ok(typeof suffix==='string'&&/^[1-9][0-9]?(?:-repair-[1-9][0-9]?)?$/.test(suffix),'EVM_RECOVERY_FILE_GENERATION');
  assert.equal(await realpath(cwd),cwd);const directory=await lstat(cwd);
  assert.ok(directory.isDirectory()&&!directory.isSymbolicLink()&&(directory.mode&0o777)===0o700,'EVM_RECOVERY_PRIVATE_STATE_DIRECTORY');
- const decoded=decodeOwnedEvmStateFileV1(stateDump),path=join(cwd,'reopen-state-'+suffix+'.json');
+ const decoded=decode(stateDump),path=join(cwd,'reopen-state-'+suffix+'.json');
  const file=await open(path,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
  try{await file.writeFile(decoded.bytes);await file.sync();}finally{await file.close();}
  const parent=await open(cwd,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);

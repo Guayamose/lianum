@@ -1,6 +1,7 @@
+import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,assertOwnedExternalDefiStateDumpV3,assertOwnedExternalDefiPrivateRecordV3} from './owned-external-defi-receiver-state-v3.mjs';
 import {assertOwnedEvmRecoveryStateDumpV1} from './owned-evm-recovery-state-bound-v1.mjs';
 import {createNativeEconomicObservedLocalCustodyV2,createNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,checkNativeEconomicLocalCustodyV2,signNativeEconomicCustodyTransactionV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,captureNativeEconomicLocalCustodyV2,closeNativeEconomicLocalCustodyV2,NATIVE_ECONOMIC_ANVIL_PIN_V2} from './native-economic-local-custody-v2.mjs';
-import { shouldUseOwnedEvmStateFileV1, writeOwnedEvmStateFileV1, assertOwnedEvmStateFileV1 } from './owned-evm-state-file-v1.mjs';
+import { shouldUseOwnedEvmStateFileV1, writeOwnedEvmStateFileV1, writeOwnedExternalDefiStateFileV3, assertOwnedEvmStateFileV1 } from './owned-evm-state-file-v1.mjs';
 import { assertOwnedReceiverPreopenRepairV1, claimOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
 export { assertOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
 import { observedNativeValueReceiverSecond } from '../../shared/health/native-value-observed-clock-v1.mjs';
@@ -163,6 +164,7 @@ export async function probeOwnedOsakaTransactionGasRejectionV1(runtime) {
   return probe();
 }
 const NATIVE_ECONOMIC_RUNTIME_V2=Symbol('NEW_NATIVE_ECONOMIC_RUNTIME_V2'),originalEconomicV2Runtimes=new WeakSet();
+const EXTERNAL_DEFI_RECEIVER_RUNTIME_V3=Symbol('ORIGINAL_EXTERNAL_DEFI_RECEIVER_RUNTIME_V3');
 const originalExternalDefiReceiverV2=new WeakSet(),originalExternalDefiReceiverCapturesV2=new WeakMap();
 const originalEvmRecoveryCapturesV1 = new WeakMap(),originalEvmRetentionArmsV1=new WeakMap(),originalEvmEconomicFencesV1=new WeakMap();
 export async function armOwnedEvmRecoveryRetentionV1(runtime){assert.equal(arguments.length,1);assert.ok(ownedRuntimes.has(runtime)||ownedNativeValueFamily.has(runtime),'EVM_RETENTION_ORIGINAL_RUNTIME');const arm=originalEvmRetentionArmsV1.get(runtime);assert.ok(arm,'EVM_RETENTION_FIXED_FAMILY');return arm();}
@@ -195,8 +197,8 @@ export async function reopenOwnedNativeEconomicReceiverV1(token){
  * A legacy/native economic token or a serialized record cannot select it. */
 export async function reopenOwnedExternalDefiReceiverV2(token){
   assert.equal(arguments.length,1);const record=consumeExternalDefiReceiverRuntimeSectionV2(token);
-  assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');assert.equal(record.family,'receiver');
-  const runtime=await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,NATIVE_ECONOMIC_RUNTIME_V2);
+  assert.ok([EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,'OWNED_FIXED_EVM_CAPTURE_V2'].includes(record.schema));assert.equal(record.family,'receiver');
+  const runtime=await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,record.schema===EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3?EXTERNAL_DEFI_RECEIVER_RUNTIME_V3:NATIVE_ECONOMIC_RUNTIME_V2);
   originalExternalDefiReceiverV2.add(runtime);return runtime;
 }
 export async function reopenOwnedNativeEconomicGraphRuntimeV1(token){
@@ -506,7 +508,7 @@ export async function createOwnedNativeEconomicGraphRuntimeV2(){assert.equal(arg
 /** New External5 lifetimes only. The five original AEAD keys/genesis are
  * retained before this object is returned and before its first CREATE/send. */
 export async function createOwnedExternalDefiReceiverV2(){
-  assert.equal(arguments.length,0);const runtime=await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,null,NATIVE_ECONOMIC_RUNTIME_V2);
+  assert.equal(arguments.length,0);const runtime=await createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,null,EXTERNAL_DEFI_RECEIVER_RUNTIME_V3);
   originalExternalDefiReceiverV2.add(runtime);
   try{await armOwnedEvmRecoveryRetentionV1(runtime);return runtime;}
   catch(error){try{await runtime.close();}catch(cleanup){throw new AggregateError([error,cleanup],'EXTERNAL_RECEIVER_INITIAL_RETENTION_FAILED',{cause:error});}throw error;}
@@ -527,6 +529,8 @@ export function isOwnedNativeEconomicRuntimeV2(runtime){assert.equal(arguments.l
 async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance = false, recovery = null, recoveryAdmitted = false, preopenRepair = null) {
   assert.ok(!poolGenerationAcceptance || processProfile === LOCAL_EVM_PROFILE, 'POOL_GENERATION_NATIVE_PROFILE_INCOMPATIBLE');
   const nativeDescriptor = nativeProcessProfiles.get(processProfile);
+  const externalDefiV3=recoveryAdmitted===EXTERNAL_DEFI_RECEIVER_RUNTIME_V3;
+  assert.ok(!externalDefiV3||processProfile===LOCAL_EVM_PROFILE&&!poolGenerationAcceptance&&!preopenRepair,'EXTERNAL_RECEIVER_V3_FIXED_FACTORY');
   const observedEconomicV2=recoveryAdmitted===NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2;
   const observedClock=processProfile===LOCAL_OBSERVED_RECEIVER_PROFILE_V1||processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2;
   const osaka=processProfile===LOCAL_OSAKA_EVM_PROFILE_V1;
@@ -536,7 +540,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
 
   assert.equal(process.platform, 'linux', 'LOCAL_EVM_LINUX_ONLY');
   assert.ok(!recoveryAdmitted||(!poolGenerationAcceptance&&(observedEconomicV2?recovery===null&&(processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2):!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE))),'EVM_PRIVATE_INPUT_FIXED_PROFILE');
-  const economicV2=recoveryAdmitted===NATIVE_ECONOMIC_RUNTIME_V2||observedEconomicV2;
+  const economicV2=recoveryAdmitted===NATIVE_ECONOMIC_RUNTIME_V2||observedEconomicV2||externalDefiV3;
   const runtimePin=economicV2?NATIVE_ECONOMIC_ANVIL_PIN_V2:recoveryAdmitted?recoveryAnvilPinV1:linuxRuntimePins.anvil;
   const binary = await pinnedBinary(...runtimePin);
   const recoveryFamily=nativeValueOnly?'graphNative':'receiver',recoveryPrefix=economicV2?(nativeValueOnly?'flat-economic-native-v2-':'flat-economic-receiver-v2-'):(nativeValueOnly?'flat-owned-evm-native-value-v1-':'flat-owned-evm-v2-');
@@ -544,9 +548,9 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   if(recovery){
     assert.ok(recoveryAdmitted===true||economicV2,'EVM_RECOVERY_PRIVATE_INPUT_ADMISSION_REQUIRED');
     assert.ok(!poolGenerationAcceptance&&!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE));
-    assert.equal(recovery.schema,economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(recovery.family,recoveryFamily);assert.equal(recovery.terminal.ownedProcessStopped,true);assert.equal(recovery.terminal.forced,false);
+    assert.equal(recovery.schema,externalDefiV3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(recovery.family,recoveryFamily);assert.equal(recovery.terminal.ownedProcessStopped,true);assert.equal(recovery.terminal.forced,false);
     await assertOwnedRecoveryScratchV1(recovery.cwd,recoveryPrefix);if(preopenRepair)await assertOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);
-    restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);assert.equal(restored.schema,economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1');assert.equal(restored.family,recoveryFamily);assert.equal(restored.cwd,recovery.cwd);assert.deepEqual(restored.runtimePin,runtimePin);assert.equal(restored.profile,processProfile.name);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(preopenRepair)await claimOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);
+    restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);assert.equal(restored.schema,externalDefiV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1');if(externalDefiV3)assertOwnedExternalDefiPrivateRecordV3(restored);assert.equal(restored.family,recoveryFamily);assert.equal(restored.cwd,recovery.cwd);assert.deepEqual(restored.runtimePin,runtimePin);assert.equal(restored.profile,processProfile.name);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(preopenRepair)await claimOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);
   }
   const cwd = restored?restored.cwd:await scratchDirectory(recoveryPrefix);
   let initialPrivateRecord=null,stateFilePin=null,localCustody=null,localCustodyPublic=null;
@@ -647,7 +651,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       const parent=await open(cwd,'r');try{await parent.sync();}finally{await parent.close();}
       mnemonicArgs=['--mnemonic-file',mnemonicPath];
     }
-    if(restored&&(economicV2||shouldUseOwnedEvmStateFileV1(restored.stateDump)))stateFilePin=await writeOwnedEvmStateFileV1({cwd,suffix:recoverySuffix,stateDump:restored.stateDump});
+    if(restored&&(economicV2||shouldUseOwnedEvmStateFileV1(restored.stateDump)))stateFilePin=externalDefiV3?await writeOwnedExternalDefiStateFileV3({cwd,suffix:recoverySuffix,stateDump:restored.stateDump}):await writeOwnedEvmStateFileV1({cwd,suffix:recoverySuffix,stateDump:restored.stateDump});
     handle = startOwnProcess(binary, [
       '--host', '127.0.0.1', '--port', String(port), '--chain-id', String(processProfile.chainId),
       '--hardfork', processProfile.hardfork, '--timestamp', String(genesisTimestamp),
@@ -1596,16 +1600,16 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       const head=await ownRead('eth_getBlockByNumber',['latest',false]),genesisHeader=await ownRead('eth_getBlockByNumber',['0x0',false]);
       assert.equal(genesisHeader.hash,genesisHash);assert.deepEqual((await ownRead('eth_accounts')).map(address),economicV2?[]:accounts);
       const accountState=[];for(const holder of accounts)accountState.push({address:holder,balance:await ownRead('eth_getBalance',[holder,'latest']),nonce:await ownRead('eth_getTransactionCount',[holder,'latest']),code:await ownRead('eth_getCode',[holder,'latest'])});
-      const stateDump=await ownRead('anvil_dumpState',[true]);assertOwnedEvmRecoveryStateDumpV1(stateDump);
+      const stateDump=await ownRead('anvil_dumpState',[true]);if(externalDefiV3)assertOwnedExternalDefiStateDumpV3(stateDump);else assertOwnedEvmRecoveryStateDumpV1(stateDump);
       assert.deepEqual(await ownRead('eth_getBlockByNumber',['latest',false]),head,'EVM_RECOVERY_CAPTURE_HEAD_CHANGED');
       let mnemonic,retainedLocalCustody=null;
       if(economicV2){retainedLocalCustody=await captureNativeEconomicLocalCustodyV2(localCustody);assert.deepEqual(retainedLocalCustody.accounts,accounts);}
       else {const st=await lstat(walletConfigPath);assert.ok(st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&st.size<16384);assert.equal(st.mode&0o777,0o600);
         const wallet=JSON.parse(await readFile(walletConfigPath,'utf8'));assert.deepEqual(wallet.available_accounts.map(address),accounts);mnemonic=wallet.wallet?.mnemonic;assert.ok(typeof mnemonic==='string'&&/^[a-z]+(?: [a-z]+){11}$/.test(mnemonic),'EVM_RECOVERY_PRIVATE_MNEMONIC');}
-      const state={schema:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1',family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,...(economicV2?{localCustodyCommitment:localCustodyPublic.commitment}:{mnemonic}),lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
-      assert.ok(state.transactions.length<=512&&state.receipts.length<=512);const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);
+      const state={schema:externalDefiV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1',family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,...(economicV2?{localCustodyCommitment:localCustodyPublic.commitment}:{mnemonic}),lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
+      assert.ok(state.transactions.length<=512&&state.receipts.length<=512);if(externalDefiV3)assertOwnedExternalDefiPrivateRecordV3(state);const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);
       await close();const stopped=lifecycle.findLast(row=>row.event==='stopped-owned-process');assert.ok(stopped?.stopped===true&&stopped.forced===false,'EVM_RECOVERY_REQUIRES_GRACEFUL_TERMINAL');
-      const files=await sealStoppedNativeFilesV1(cwd);const captured={schema:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1',family:recoveryFamily,cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:genesisHash};
+      const files=await sealStoppedNativeFilesV1(cwd);const captured={schema:externalDefiV3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1',family:recoveryFamily,cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:genesisHash};
       await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);
       // The password is returned solely into the economic issuer's AEAD section,
       // never written to either plaintext runtime snapshot/terminal JSON.
