@@ -18,10 +18,10 @@ las aceptaciones locales se acotan al recorrido, financiación y modelo comproba
 
 | Punto original | Estimación orientativa revisada | Avance comprobado y pendiente principal |
 | --- | --- | --- |
-| 1. Wallet unificada para siete redes | 65–70% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. APK79/36 actualizado, compilado y archivado con el contrato de salidas bloqueadas; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
+| 1. Wallet unificada para siete redes | 65–70% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. APK85/36 actualizado y compilado sin Metro con el contrato de salidas bloqueadas; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
 | 2. Privacidad por defecto | 40–50% | El historial de cuentas exige READ autenticado del propietario y Origin exacto. La criptografía se conserva; faltan garantías sistémicas frente a correlación y colusión. |
 | 3. PAEG genérico | 70–75% | BTC/SOL, Uniswap, Aave y Meta desde reserva privada aceptados con el mismo núcleo y relaciones; continúan los cuatro slots y la privacidad de topología por cerrar. |
-| 4. Liquidación y recuperación económica | 70–75% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. Faltan F autónomo tras ocho horas y mayor cobertura DeFi, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |
+| 4. Liquidación y recuperación económica | 70–75% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. El timeout del keeper se comprobó con reloj controlado y el cutoff original, sin esperar ocho horas. Quedan mayor cobertura DeFi, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |
 | 5. DeFi privado real | 60–65% | Uniswap desde reserva privada aceptado: PAEG, swap, T, EXIT y replay sin efecto duplicado. Aave y Meta15 privados también aceptados; Meta y Aave aceptan backend retenido en otro PID y dos READ cada uno; Uniswap F y MetaMorpho F1 aceptados en sus perfiles controlados; faltan más acciones Morpho, crédito privado Jupiter y mayor cobertura de posiciones. |
 | 6. Estado privado global | 65–70% | Journals y reconciliación originales; SDK vinculado aceptado con saldo privado 500→0. READ de cambio/recuperación y reapertura D26 implementadas; EVM9 aceptado con cinco lecturas firmadas, disponible final cero y reapertura ordenada. Dos READ por protocolo y reapertura Meta/Aave aceptadas. La unión privada por activo y dominio está conectada al backend/wallet y a las vistas móviles originales; persiste checkpoints cifrados y reabre STALE hasta nueva observación, sin crédito por valoración. HOST/CAS/TSC pasaron; native/wrapped ya se conectan a sus sesiones originales y capturan el mismo checkpoint cifrado. La actividad original BTC/SOL ya se muestra y Conciliar usa su ruta original; el journal compara estructura sin falsos cambios por orden JSON. El ancla nace antes de financiar y conserva credenciales y checkpoints confirmado/pendiente; su reapertura rechaza revisiones ajenas y permanece STALE/UNKNOWN. Falta conectar y aceptar la restauración de las fuentes ante caída abrupta. |
 | 7. Redes heterogéneas en profundidad | 60–65% | BTC/SOL combinado aceptado localmente. Claims9 aceptó el perfil local de ocho pruebas y su cierre original; Claims8 conserva su rechazo histórico. Factory Tron aceptado; una entrega V5 observada, con inventario y crédito/GRAPH pendientes. Jupiter tiene un swap público aceptado y SBF compilado oficialmente, sin aceptación del crédito privado completo; faltan Base, Arbitrum y BNB propios. |
@@ -46,6 +46,28 @@ la autoridad de shares/posiciones DeFi propias sigue pendiente.
 
 ## Cierres funcionales de recuperación y estado
 
+Corte del 9 de octubre, plazo de 30 minutos: los puntos 4 y 6 **siguen sin
+cerrarse**. Se implementaron la copia cifrada de identidad y custodia, la
+confirmación de copia antes de U/D27, el saldo original disponible/SPENT, los
+checkpoints SOURCE y la reapertura ordenada de GRAPH para observación. Los tres
+HOST SOURCE y las comprobaciones móviles focales pasan. El APK contiene 85
+fuentes y 36 uniones comprobadas con el bundle, y funciona sin Metro.
+
+El recorrido SOURCE llegó por primera vez al nacimiento completo del backend,
+pero se rechazó antes de D26: el lector confundía `{ rootId, note }` con el
+identificador. El lector está corregido. También quedaron corregidos el tamaño
+del journal y la creación del actor antes de que terminase `prepare()`. No se
+aceptan todavía D26 → caída → U/S → ARM → caída ni GRAPH14 con restauración de
+custodia y reapertura del backend. Los originales de los intentos rechazados
+se conservan y sus procesos y locks están cerrados. El teléfono queda para el
+final y no se exige ninguna espera real de ocho horas.
+
+Evidencia del APK: `.internal/dev/reports/mobile-android-standalone-local.json`
+(SHA256 `f37890a80b3558175553af199faee5f3e0d784b0e20b56930e9773c4bc8ae8a3`).
+HOST SOURCE: `.internal/dev/reports/original-source-large-aead-body-and-recovery-host-12876931-65d2-4752-8b75-433d03935822/host.log`.
+Último lector SOURCE rechazado: `attempt-c3f5e405-efb1-4335-b442-3f64650fae5e`.
+
+
 - **Conservar y recuperar la misma operación:** EVM9 acepta F y ambas W39 con
   diez secciones originales reabiertas en otro PID. LIVE_ARMED acepta D26/U/S,
   la misma reserva y autorización armada tras reinicio ordenado, con READ nueva
@@ -66,10 +88,16 @@ el pago. El APK actualizado incluye el contrato corregido. El ancla privada de
 observaciones conserva la escritura confirmada o su candidato original; reabre
 STALE/UNKNOWN hasta consultar otra vez las fuentes.
 
-El trabajo activo de los puntos 4 y 6 es conectar y aceptar la reapertura de las
-fuentes originales tras una caída abrupta. También siguen pendientes el F autónomo
-con reloj real después de ocho horas y la cobertura completa de las siete redes.
-El uso físico del teléfono queda para el final.
+El trabajo activo de los puntos 4 y 6 es aceptar la reapertura de las fuentes
+originales tras una caída abrupta y conectar autorización/reserva ERC20 con
+recepción y retirada de participaciones custodiadas por el dispositivo. La
+regresión de timeout ya pasó con reloj controlado sobre tick, recovery, envío y
+reconciliación originales: un efecto y observación del mismo envío tras respuesta
+perdida. Conserva el cutoff original de 28.800 s; utiliza puertos de prueba y no
+acredita una prueba criptográfica ni ejecución financiera adicionales. El usuario
+prohibió las esperas reales de ocho horas; no se usan como requisito de cierre.
+La cobertura completa de las siete redes sigue pendiente. El uso físico del
+teléfono queda para el final.
 
 ## Qué puedes ejecutar hoy
 

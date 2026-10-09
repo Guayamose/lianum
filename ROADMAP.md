@@ -28,9 +28,11 @@ ninguna cifra es una medida ni sustituye la cobertura y los pendientes concretos
   de D26, con proveedores y tres bridges originales, sin financiación automática.
   La entrada manual reabre desde F ya confirmado. La entrada observada activa
   o desactiva recuperación con permiso fresco y conserva UNKNOWN sin reenviar.
-  HOST/TSC pasaron; falta aceptar la recuperación autónoma con servicio activo
-  tras ocho horas. No ampliar cutoff, guards de 30 s ni autoridad de 90 minutos;
-  la espera exterior conserva un único presupuesto monotónico de 120 s.
+  HOST/TSC pasaron. La regresión de timeout ya ejecuta el tick, recovery,
+  envío y reconciliación originales con reloj controlado: antes del cutoff no
+  prueba ni envía; al alcanzarlo conserva un único efecto incluso con respuesta
+  perdida. El cutoff de 28.800 s permanece intacto. Por instrucción del usuario,
+  no se ejecutan ni se exigen esperas reales de ocho horas para este cierre.
   El perfil LIVE_ARMED nuevo conserva su permiso armado y diez secciones
   originales con issuer propio de nueve horas; fuente y HOST del bridge pasaron.
   La variante corta `b923b217` aceptó tres pruebas D26/U/S→ARM→nuevo PID:
@@ -112,8 +114,8 @@ Próximos cierres funcionales:
    fuentes, credenciales y checkpoints originales; reabrir runtime, cuenta y
    keeper tras una caída sin renovar permisos ni duplicar efectos. Si un envío
    quedó incierto, conservar UNKNOWN y bloquear gasto hasta su conciliación.
-2. Aceptar F automático con reloj real y servicio activo tras ocho horas;
-   ampliar recuperación a fallos combinados y posiciones DeFi.
+2. Ampliar recuperación a fallos combinados y posiciones DeFi, comprobando
+   los timeouts con reloj controlado y los efectos originales sin esperas largas.
 3. Continuar los demás objetivos: ingreso privado SPL, Tron wallet/GRAPH,
    siete redes, acciones DeFi y privacidad/independencia de la visión.
 4. Comprobar el teléfono al final según la decisión del usuario. El APK
@@ -138,8 +140,12 @@ wallet/GRAPH Tron aceptados. Los rechazos previos se conservan.
 <!-- META_AAVE_ACCEPTED_SCOPE_ONLY: GRAPH/abrupt/parent/phone siguen pendientes. -->
 <!-- PENDING_SPL20: actualizar sólo con cierre original. -->
 <!-- PENDING_TRON13: actualizar sólo con cierre original. -->
-<!-- PENDING_LIVE_F: HOST/TSC no acreditan el recorrido autónomo de ocho horas. -->
+<!-- CONTROLLED_CUTOFF: causal HOST accepted; unchanged28800s; no real8h required. -->
 <!-- HISTORICAL_APK_6ADC_LIMITED: compiled76/34; newAPKrequiredByFunctionalVaultFix. -->
+
+Corte del 9 de octubre: SOURCE y GRAPH están conectados y sus correcciones
+quedaron en commits separados. El APK85/36 ya está compilado; faltan las
+aceptaciones reales SOURCE de dos caídas y GRAPH14 antes de cerrar 4 y 6.
 
 ## 1. Wallet unificada para siete redes
 
