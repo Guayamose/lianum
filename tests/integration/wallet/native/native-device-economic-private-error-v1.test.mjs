@@ -10,6 +10,7 @@ import {once} from 'node:events';
 import {runInNewContext} from 'node:vm';
 import {types} from 'node:util';
 import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose} from './native-device-economic-private-error-v1.mjs';
 // The public catalog is an existing source under the fixed root in both layouts.
@@ -216,4 +217,43 @@ test('HOST original mobile primary code precedes formatting and survives diagnos
  assert.ok(caught.indexOf('retainOriginalDeviceExternalFlatFirstErrorV1')<caught.indexOf('readOriginalDeviceExternalFlatHttpFailureV1'));
  assert.ok(caught.includes("join(privateDirectory,'first-error-private.json'),error"));
  assert.ok(source.includes('if(primary)throw primary;return result;'));
+});
+
+
+test('HOST original legacy resource receipt uses actual completed report and samples without an invented flag',()=>{
+ // Public metadata only. Execute the actual parent completion and policy proof
+ // loop; no proof, runtime, account, witness, signing or acceptance is created.
+ const policy=readFileSync(new URL('./device-external-flat-erc20-policy-v1.mjs',import.meta.url),'utf8');
+ const a=policy.indexOf(" assert.deepEqual(result.proofs.map(p=>p.relation),"),b=policy.indexOf(" assert.equal(result.assetMetadata.kind,",a);assert.ok(a>=0&&b>a);
+ const check=runInNewContext('(result)=>{'+policy.slice(a,b)+'}',{assert,PRIVATE_RESOURCE_POLICY});
+ const generated=import.meta.url.endsWith('/integration/native-device-economic-private-error-v1.test.mjs');
+ const producerURL=new URL(generated?'../../../omnichain-product/src/paeg/proof-process.mjs':'../../../../packages/engine/src/execution/proofs/proof-process.mjs',import.meta.url);
+ const producer=readFileSync(producerURL,'utf8');
+ assert.equal(producer.includes('resourceReceiptCompleted'),false);
+ const c=producer.indexOf('    const finish = (exitCode, signal) => {'),z=producer.indexOf('\n    current = { done, stop };',c);assert.ok(c>=0&&z>c);
+ const originalFinishSource=producer.slice(c,z);assert.equal(originalFinishSource.split('import.meta.url').length-1,1);
+ const finishSource=originalFinishSource.replace('import.meta.url','HOST_MODULE_URL');
+ const key='aa'.repeat(32),receipt=(mode,label,index)=>{
+  const report={classification:'ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY',mode,operation:'prove',purpose:'owner',label,
+   phase:'awaiting-child-exit',acceptedResult:false,policy:structuredClone(PRIVATE_RESOURCE_POLICY),zeroKnowledgeEnabled:true,threads:1,maximumPages:32768,keySHA256:key,
+   resourceSamples:[{availableRAM:PRIVATE_RESOURCE_POLICY.floors.availableRAM,freeDisk:PRIVATE_RESOURCE_POLICY.floors.freeDisk,workerRSS:1024,parentRSS:1024}],
+   worker:{verified:true,zeroKnowledgeEnabled:true,threads:1,maximumPages:32768,keySHA256:key,proofSHA256:String(index+1).repeat(64),publicInputsSHA256:String(index+3).repeat(64)}};
+  let returned;const run=runInNewContext('(()=>{'+finishSource+';return finish;})()',{
+   HOST_MODULE_URL:producerURL.href,finished:false,failure:null,report,resultSeen:true,nativeNote:false,nativeProducer:false,
+   monitor:undefined,deadline:undefined,killTimer:undefined,payload:null,performance:{now:()=>2.5},began:0,
+   clearInterval(){},clearTimeout(){},persist(){},releaseLock(){},current:null,activeHostJob:null,lastReport:null,
+   child:{stdio:[]},result:{proof:'EXPLICIT_HOST_NO_PROOF',publicInputs:[]},structuredClone,
+   proofError:code=>Object.assign(Error(code),{code}),wipePrivate(){},resolveDone:value=>{returned=value;},rejectDone:error=>{throw error;}
+  });run(0,null);assert.ok(returned);assert.equal(Object.hasOwn(returned.metrics,'resourceReceiptCompleted'),false);
+  return{label,relation:mode,publicWords:index?39:26,amountAtomic:'500',proofSHA256:report.worker.proofSHA256,publicInputsSHA256:report.worker.publicInputsSHA256,
+   rawTelemetrySHA256:'cc'.repeat(32),retainedTelemetrySHA256:'cc'.repeat(32),actualProofChildGone:true,evidence:returned.metrics};
+ };
+ const value={proofs:[receipt('deposit_balance','device-external-flat-d26',0),receipt('withdraw_balance','device-external-flat-w39',1)],artifacts:{noteKeys:{deposit_balance:key,withdraw_balance:key}}};
+ assert.equal(check(value),undefined);
+ const deny=mutate=>{const row=structuredClone(value);mutate(row.proofs[0]);assert.throws(()=>check(row));};
+ for(const name of ['failureCode','telemetryWriteFailed','fallbackTelemetryWriteFailed'])deny(p=>{p.evidence[name]=name==='failureCode'?'PAEG_PROOF_RESOURCE_SAMPLE':true;});
+ deny(p=>{p.evidence.resourceSamples=[];p.evidence.resourceReceiptCompleted=true;});
+ for(const [field,invalid]of [['availableRAM',PRIVATE_RESOURCE_POLICY.floors.availableRAM-1],['freeDisk',PRIVATE_RESOURCE_POLICY.floors.freeDisk-1],['workerRSS',PRIVATE_RESOURCE_POLICY.proofWorkerRSSLimit+1],['workerRSS',-1],['workerRSS',NaN]])deny(p=>{p.evidence.resourceSamples[0][field]=invalid;});
+ deny(p=>{p.evidence.phase='failed';});deny(p=>{p.evidence.acceptedResult=false;});deny(p=>{p.evidence.exit.signal='SIGTERM';});
+ deny(p=>{p.evidence.worker.verified=false;});deny(p=>{p.evidence.worker.proofSHA256='dd'.repeat(32);});deny(p=>{p.retainedTelemetrySHA256='dd'.repeat(32);});deny(p=>{p.actualProofChildGone=false;});
 });

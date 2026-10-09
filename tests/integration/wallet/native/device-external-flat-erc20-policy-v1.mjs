@@ -30,7 +30,10 @@ export function assertDeviceExternalFlatErc20ResultV1(result){assert.equal(argum
  for(const k of ['publicNetwork','physicalPhoneEstablished','secureStoreHardwareEstablished','biometricHardwareEstablished','reactRendererEstablished','newBackendRecoveryEstablished','graphAcceptance','fullWalletAcceptance'])assert.equal(result[k],false,k);
  assert.deepEqual(result.proofs.map(p=>p.relation),['deposit_balance','withdraw_balance']);
  for(const [i,p]of result.proofs.entries()){assert.equal(p.label,i?'device-external-flat-w39':'device-external-flat-d26');assert.equal(p.publicWords,i?39:26);assert.equal(p.amountAtomic,'500');
-  const e=p.evidence;assert.deepEqual(e.policy,PRIVATE_RESOURCE_POLICY);assert.equal(e.phase,'completed');assert.equal(e.acceptedResult,true);assert.equal(e.resourceReceiptCompleted,true);assert.equal(e.zeroKnowledgeEnabled,true);
+  const e=p.evidence;assert.deepEqual(e.policy,PRIVATE_RESOURCE_POLICY);assert.equal(e.phase,'completed');assert.equal(e.acceptedResult,true);for(const name of ['failureCode','telemetryWriteFailed','fallbackTelemetryWriteFailed'])assert.equal(e[name],undefined);
+  assert.ok(Array.isArray(e.resourceSamples)&&e.resourceSamples.length>0);
+  for(const sample of e.resourceSamples){assert.ok(Number.isSafeInteger(sample.availableRAM)&&sample.availableRAM>=PRIVATE_RESOURCE_POLICY.floors.availableRAM);assert.ok(Number.isSafeInteger(sample.freeDisk)&&sample.freeDisk>=PRIVATE_RESOURCE_POLICY.floors.freeDisk);assert.ok(Number.isSafeInteger(sample.workerRSS)&&sample.workerRSS>=0&&sample.workerRSS<=PRIVATE_RESOURCE_POLICY.proofWorkerRSSLimit);}
+  assert.equal(e.zeroKnowledgeEnabled,true);
   assert.equal(e.threads,1);assert.equal(e.maximumPages,32768);assert.equal(e.worker.threads,1);assert.equal(e.worker.maximumPages,32768);assert.equal(e.worker.verified,true);assert.equal(e.worker.zeroKnowledgeEnabled,true);assert.deepEqual(e.exit,{code:0,signal:null});
   assert.equal(e.keySHA256,result.artifacts.noteKeys[p.relation]);assert.equal(e.worker.keySHA256,e.keySHA256);assert.equal(e.worker.proofSHA256,p.proofSHA256);assert.equal(e.worker.publicInputsSHA256,p.publicInputsSHA256);
   assert.equal(p.rawTelemetrySHA256,p.retainedTelemetrySHA256);assert.equal(p.actualProofChildGone,true);}
