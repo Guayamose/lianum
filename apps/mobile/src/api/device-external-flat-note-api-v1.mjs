@@ -1,7 +1,7 @@
 /** Fixed paired TLS transport. Local root/note keys never enter this API.
  * One original consent permits one POST; lost replies remain observation-only. */
 import * as Crypto from 'expo-crypto';
-import { normalizeExternalFlatDescriptorV1, normalizeExternalFlatAccessV1,
+import { DEVICE_EXTERNAL_FLAT_SHARE_V1, normalizeExternalFlatDescriptorV1, normalizeExternalFlatAccessV1,
   normalizeExternalFlatConsentV1, normalizeExternalFlatRowV1, normalizeExternalFlatStatusV1,
   normalizeExternalFlatSignatureV1, externalFlatExactV1, externalFlatWitnessV1,
   externalFlatWitnessBytesV1, externalFlatWipeV1, validateExternalFlatFreshV1 }
@@ -57,7 +57,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
     if (fresh) validateExternalFlatFreshV1(value);
   }
   async function post(path, payload, proofResponse = false) {
-    live(); const target = original.origin + '/v1/mobile/external-flat/' + path;
+    live(); const target = original.origin + (original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
     const body = JSON.stringify(payload);
     if (new TextEncoder().encode(body).byteLength > 8192) fail();
     const controller = new AbortController(); controllers.add(controller);
@@ -99,7 +99,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
     live(); const value = normalizeExternalFlatRowV1(raw);
     if (!same(value.descriptor, original)) fail();
     if (consent) {
-      const mode = consent.action.endsWith('D26') ? 'deposit_balance' : 'withdraw_balance';
+      const mode = consent.action.endsWith('D27') ? 'deposit_intent' : consent.action.endsWith('D26') ? 'deposit_balance' : 'withdraw_balance';
       if (value.jobId !== consent.jobId || value.mode !== mode) fail();
       for (const name of ['jobId', 'depositJobId', 'rootId', 'noteRevision', 'recipient', 'statement', 'path', 'witnessSHA256'])
         if (!same(value.consentFields[name], consent[name])) fail();
@@ -136,12 +136,12 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
       let witness = null, bytes;
       try {
         if (consent.action.startsWith('PROVE_')) {
-          witness = externalFlatWitnessV1(consent.action === 'PROVE_D26' ? 'deposit_balance' : 'withdraw_balance', rawWitness);
-          bytes = externalFlatWitnessBytesV1(consent.action === 'PROVE_D26' ? 'deposit_balance' : 'withdraw_balance', witness);
+          witness = externalFlatWitnessV1(consent.action === 'PROVE_D27' ? 'deposit_intent' : consent.action === 'PROVE_D26' ? 'deposit_balance' : 'withdraw_balance', rawWitness);
+          bytes = externalFlatWitnessBytesV1(consent.action === 'PROVE_D27' ? 'deposit_intent' : consent.action === 'PROVE_D26' ? 'deposit_balance' : 'withdraw_balance', witness);
           if (await digest(bytes) !== consent.witnessSHA256) fail();
         } else if (rawWitness !== null) fail();
         consentScope(consent); entry.consumed = true;
-        const response = await post('operations', { consent, signature, witness }, consent.action === 'PROVE_D26' || consent.action === 'PROVE_W39'); live();
+        const response = await post('operations', { consent, signature, witness }, consent.action === 'PROVE_D26' || consent.action === 'PROVE_D27' || consent.action === 'PROVE_W39'); live();
         if (consent.action === 'QUOTE_W39') {
           const value = normalizeExternalFlatConsentV1(externalFlatExactV1(response, ['quote']).quote);
           consentScope(value); if (!same(value, consent)) fail(); quotes.set(value, { live, descriptor: original });
