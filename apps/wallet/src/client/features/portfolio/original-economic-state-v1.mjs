@@ -39,7 +39,8 @@ export function validateOriginalWalletEconomicStateV1(value) {
   }
   list(value.rows, 64); const keys = new Set();
   for (const r of value.rows) {
-    exact(r, ['route', 'asset', 'component', 'state', 'reason', 'head', 'balances', 'backing', 'requests', 'position', 'checkpointSHA256']);
+    exact(r, ['route', 'asset', 'component', 'state', 'reason', 'head', 'balances', 'backing', 'requests', 'position', 'checkpointSHA256', ...(Object.hasOwn(r, 'observedAt') ? ['observedAt'] : [])]);
+    if (Object.hasOwn(r, 'observedAt')) need(r.observedAt === null || Number.isSafeInteger(r.observedAt) && r.observedAt >= 0);
     const key = originalEconomicRouteKeyV1(r.route); need(!keys.has(key)); keys.add(key);
     need(sources.get(r.route.sourceId)?.stateSHA256 === r.checkpointSHA256);
     exact(r.asset, ['kind', 'symbol', 'decimals']); need(['NATIVE', 'ERC20'].includes(r.asset.kind)
@@ -80,9 +81,12 @@ export function validateOriginalWalletEconomicStateV1(value) {
 }
 export function projectOriginalWalletEconomicStateV1(value, {stale = false, now = Date.now()} = {}) {
   validateOriginalWalletEconomicStateV1(value);
-  const expired = stale || value.observedAt === null || !Number.isSafeInteger(now) || now < value.observedAt
-    || now - value.observedAt > ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS;
   const rows = value.rows.map(row => {
+    // Old frames retain their original whole-frame expiry. New readings carry
+    // each original domain's time; a slower source cannot expire another row.
+    const observedAt = Object.hasOwn(row, 'observedAt') ? row.observedAt : value.observedAt;
+    const expired = stale || observedAt === null || !Number.isSafeInteger(now) || now < observedAt
+      || now - observedAt > ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS;
     if (!expired || row.state !== 'LIVE') return structuredClone(row);
     return {...structuredClone(row), state: 'STALE', reason: 'ORIGINAL_HEAD_STALE', head: null, balances: null, backing: null,
       position: row.position ? {...row.position, ownershipStatus: 'STALE', valuationStatus: 'STALE', shares: null, estimate: null, head: null} : null};

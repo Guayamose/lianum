@@ -25,7 +25,20 @@ const stateHash = value => sha(value);
 function route(sourceId, generationId, asset, domainCommitment) {
   return {sourceId, generationId, ...Object.fromEntries(['assetId', 'chainId', 'genesis', 'pool', 'scope', 'policy', 'assetIdentity'].map(k => [k, asset[k]])), domainCommitment};
 }
-const sourceMetadata = source => ({sourceId: source.id, kind: source.kind, routes: source.routes});
+const sourceMetadata = source => ({sourceId: source.id, kind: source.kind, routes: source.routes,
+  ...(source.generations === null ? {} : {generations: source.generations})});
+const catalogueGenerations = catalogue => immutable(catalogue.status().generations.map(g =>
+  ({generationId: g.generationId, identity: g.identity, registry: g.registry, routes: g.routes})));
+function catalogueRoots(generations) {
+  return generations.flatMap(g => g.registry.map(asset => {
+    const r = g.routes.find(r => r.assetId === asset.assetId); need(r && r.pool === asset.pool, 'ORIGINAL_ROUTE');
+    return {generationId: g.generationId, asset, domainCommitment: r.domainCommitment};
+  }));
+}
+function bindOriginalSourceSet(sources, saved) {
+  need(Array.isArray(saved) && saved.length === sources.length, 'ORIGINAL_SOURCE_SET_REQUIRED');
+  sources.forEach((source, i) => source.bind(saved[i]));
+}
 function unknown(source, reason, checkpointSHA256, previous = []) {
   return source.routes.map(({route, asset}) => ({route, asset, component: source.kind, state: 'UNKNOWN', reason,
     head: null, balances: null, backing: null, requests: previous.find(r => sha(r.route) === sha(route))?.requests.map(q => ({...q, state: 'UNKNOWN', disposition: null})) ?? [],
@@ -83,19 +96,18 @@ function source(raw, kind) {
   const paired=Object.hasOwn(raw,'session');
   exactRecord(raw, kind === 'FLAT_NOTE' ? ['runtime', 'catalogue', 'session', 'positions']
     : kind === 'NATIVE_NOTE' ? ['runtime', 'system', 'account',...(paired?['session']:[])] : ['runtime', 'portfolio',...(paired?['session']:[])]);
-  const {runtime} = raw; let roots, check, read, identity;
+  const {runtime} = raw; let roots, check, read, identity, flat = null;
   if (kind === 'FLAT_NOTE') {
     const {catalogue, session, positions} = raw;
     check = () => {assertOwnedFlatJournalCatalogue(catalogue, {runtime}); assertFlatManualGraphCatalogueSession(session, {runtime, catalogue});
       if (positions !== null) {need(generationPrivateVaultExitBinding(runtime, positions)?.catalogue === catalogue, 'ORIGINAL_POSITIONS'); assertGenerationPrivateVaultExitSession(runtime, positions, session);}};
-    check(); const generations = catalogue.status().generations;
-    roots = generations.flatMap(g => g.registry.map(asset => {
-      const r = g.routes.find(r => r.assetId === asset.assetId); need(r && r.pool === asset.pool, 'ORIGINAL_ROUTE');
-      return {generationId: g.generationId, asset, domainCommitment: r.domainCommitment};
-    }));
-    const identities = sha(generations.map(g => ({generationId: g.generationId, identity: g.identity, registry: g.registry, routes: g.routes})));
-    identity = identities; const branded = check;
-    check = () => {branded(); need(identities === sha(catalogue.status().generations.map(g => ({generationId: g.generationId, identity: g.identity, registry: g.registry, routes: g.routes}))), 'ORIGINAL_ROUTES_CHANGED');};
+    check(); flat = {catalogue, generations: catalogueGenerations(catalogue), includeIdentities: true};
+    roots = catalogueRoots(flat.generations); identity = sha(flat.generations); const branded = check;
+    check = () => {
+      branded(); const current = catalogueGenerations(catalogue);
+      need(current.length >= flat.generations.length, 'ORIGINAL_ROUTES_CHANGED');
+      assert.deepEqual(current.slice(0, flat.generations.length), flat.generations, 'ORIGINAL_ECONOMIC_STATE_ORIGINAL_ROUTES_CHANGED');
+    };
     read = async () => {
       check(); const before = await catalogue.keeper.snapshot();
       const view = validateFlatOwnerReadPayload(await catalogue.ownerView()).data;
@@ -132,9 +144,37 @@ function source(raw, kind) {
         checkpoint:paired?{assets:view.assets.map(a => ({assetId: a.asset.assetId, requests: a.requests})),session:after}:view.assets.map(a=>({assetId:a.asset.assetId,requests:a.requests}))};};
   }
   need(roots.length > 0 && roots.length <= 16, 'ROUTES');
-  const id = sha({kind, identity, roots: roots.map(r => ({generationId: r.generationId, asset: r.asset, domainCommitment: r.domainCommitment}))});
-  return Object.freeze({id, kind, check, read, session: raw.session ?? null, positions: raw.positions ?? null,
-    routes: immutable(roots.map(r => ({route: route(id, r.generationId, r.asset, r.domainCommitment), asset: {kind: r.asset.kind, symbol: r.asset.symbol, decimals: r.asset.decimals}})))});
+  const sourceId = (identity, roots) => sha({kind, identity,
+    roots: roots.map(r => ({generationId: r.generationId, asset: r.asset, domainCommitment: r.domainCommitment}))});
+  let id = sourceId(identity, roots);
+  const routes = () => immutable(roots.map(r => ({route: route(id, r.generationId, r.asset, r.domainCommitment),
+    asset: {kind: r.asset.kind, symbol: r.asset.symbol, decimals: r.asset.decimals}})));
+  const original = Object.freeze({get id() {return id;}, kind, check, read, session: raw.session ?? null, positions: raw.positions ?? null,
+    get routes() {return routes();}, get generations() {return flat?.includeIdentities ? flat.generations : null;},
+    refresh() {
+      check(); if (flat) {flat.generations = catalogueGenerations(flat.catalogue); roots = catalogueRoots(flat.generations);
+        flat.includeIdentities = true; need(roots.length > 0 && roots.length <= 16, 'ROUTES');}
+    },
+    // Only authenticated observation-journal/anchor metadata reaches this
+    // private binder. Every descriptor is independently rejoined to the SAME
+    // branded catalogue, including all pre-existing generation identities.
+    bind(saved) {
+      if (!flat) {assert.deepEqual(saved, sourceMetadata(original), 'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED'); return;}
+      exactRecord(saved, ['sourceId', 'kind', 'routes', ...(Object.hasOwn(saved, 'generations') ? ['generations'] : [])]);
+      need(saved.kind === kind && Array.isArray(saved.routes) && saved.routes.length > 0, 'ORIGINAL_SOURCE_SET_REQUIRED');
+      const current = catalogueGenerations(flat.catalogue), ids = [...new Set(saved.routes.map(r => r.route.generationId))];
+      need(ids.length > 0 && ids.length <= current.length && ids.every((value, i) => value === current[i].generationId), 'ORIGINAL_ROUTES_CHANGED');
+      const retained = current.slice(0, ids.length);
+      if (Object.hasOwn(saved, 'generations')) assert.deepEqual(saved.generations, retained, 'ORIGINAL_ECONOMIC_STATE_ORIGINAL_ROUTES_CHANGED');
+      // The source ID remains its birth identity. A later append never aliases
+      // old notes or changes row keys. Legacy multi-generation births stay valid.
+      need(retained.some((_, i) => sourceId(sha(retained.slice(0, i + 1)), catalogueRoots(retained.slice(0, i + 1))) === saved.sourceId), 'ORIGINAL_SOURCE_SET_REQUIRED');
+      const expected = catalogueRoots(retained).map(r => ({route: route(saved.sourceId, r.generationId, r.asset, r.domainCommitment),
+        asset: {kind: r.asset.kind, symbol: r.asset.symbol, decimals: r.asset.decimals}}));
+      assert.deepEqual(saved.routes, expected, 'ORIGINAL_ECONOMIC_STATE_ORIGINAL_ROUTES_CHANGED');
+      id = saved.sourceId; flat.generations = retained; roots = catalogueRoots(retained); flat.includeIdentities = Object.hasOwn(saved, 'generations'); check();
+    },
+  }); return original;
 }
 export function assertOriginalWalletEconomicStateV1(capability) {
   assert.equal(arguments.length, 1); const state = owned.get(capability); need(state, 'ORIGINAL_REQUIRED'); state.live();
@@ -240,8 +280,8 @@ async function claimAnchorWriter(path, sourceSetSHA256, allowStopped) {
     await unlink(path); await syncAnchorDirectory(dirname(path)); released = true;
   };
 }
-async function localEconomicAnchor(journal, sourceSet, lifetime, initial, opening) {
-  const directory = journal.path + '.original-state-anchor-v1', sourceSetSHA256 = sha(sourceSet);
+async function localEconomicAnchor(journal, sources, lifetime, initial, opening) {
+  const directory = journal.path + '.original-state-anchor-v1';
   if (!opening) await mkdir(directory, {mode: 0o700});
   const metadata = await lstat(directory); need(metadata.isDirectory() && !metadata.isSymbolicLink() && metadata.uid === process.getuid()
     && (metadata.mode & 0o777) === 0o700 && await realpath(directory) === directory, 'ANCHOR_PRIVATE_DIRECTORY');
@@ -253,10 +293,15 @@ async function localEconomicAnchor(journal, sourceSet, lifetime, initial, openin
     try {await fd.writeFile(bytes); await fd.sync();} finally {bytes.fill(0); await fd.close();} await syncAnchorDirectory(directory);}
   const key = await privateAnchorFile(keyPath, 32); let password;
   try {need(key.bytes.length === 32, 'ANCHOR_LOCAL_KEY'); password = key.bytes.toString('hex');} finally {key.bytes.fill(0);}
-  const release = await claimAnchorWriter(directory + '/writer.lock', sourceSetSHA256, opening);
   const vault = new Vault(directory + '/anchor.vault'); let record;
-  const checkpoint = value => economicCheckpoint({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256,revision:value.revision,stateSHA256:sha(value.data)});
   const readAnchor=async()=>{const physicalFile=await privateAnchorFile(vault.path,2*1024*1024);physicalFile.bytes.fill(0);return vault.read(password);};
+  if (opening) {record = await readAnchor(); bindOriginalSourceSet(sources, record.data.sources);}
+  const sourceSet = opening ? immutable(record.data.sources) : immutable(sources.map(sourceMetadata));
+  // The writer remains bound to these birth sources; appended generations are
+  // authenticated by the same original catalogue and the CAS checkpoint below.
+  const release = await claimAnchorWriter(directory + '/writer.lock', sha(sourceSet), opening);
+  const checkpoint = value => economicCheckpoint({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,
+    sourceSetSHA256:sha(value.data.sources),revision:value.revision,stateSHA256:sha(value.data)});
   const validate = value => {
     exactRecord(value.data, ['version','profile','location','lifetime','sources','journal','confirmed','candidate']);
     const data = value.data; need(data.version === 1 && data.profile === ANCHOR_PROFILE, 'ANCHOR_REQUIRED');
@@ -264,7 +309,7 @@ async function localEconomicAnchor(journal, sourceSet, lifetime, initial, openin
     assert.deepEqual(data.sources, sourceSet, 'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED'); exactRecord(data.journal, ['path','password']);
     need(data.journal.path === journal.path && typeof data.journal.password === 'string' && data.journal.password.length >= 16, 'ANCHOR_ORIGINAL_JOURNAL');
     need(typeof data.lifetime === 'string' && /^[0-9a-f]{64}$/.test(data.lifetime), 'ANCHOR_REQUIRED');
-    for (const k of ['confirmed','candidate']) if(data[k] !== null) {economicCheckpoint(data[k]);need(data[k].lifetime === data.lifetime && data[k].sourceSetSHA256 === sourceSetSHA256, 'ANCHOR_CHECKPOINT');}
+    for (const k of ['confirmed','candidate']) if(data[k] !== null) {economicCheckpoint(data[k]);need(data[k].lifetime === data.lifetime, 'ANCHOR_CHECKPOINT');}
     need(data.confirmed !== null || data.candidate !== null, 'ANCHOR_CHECKPOINT');
     if(data.candidate !== null) need(data.candidate.revision === (data.confirmed === null ? 0 : data.confirmed.revision + 1), 'ANCHOR_CHECKPOINT_SEQUENCE');
     return data;
@@ -306,6 +351,7 @@ async function economicState(input, checkpoint, afterCrash = false) {
   const directoryIdentity = {dev: parent.dev, ino: parent.ino};
   const vault = new Vault(path); let lifetime = checkpoint?.lifetime ?? randomBytes(32).toString('hex'), anchor = null;
   let closed = false, fenced = false, busy = false, fault = false, work = null, pending = null, freshAt = null;
+  let rowFreshness = new Map();
   function live() {need(!closed&&!fenced, 'CLOSED');}
   async function physical(required = true) {
     const p = await lstat(dirname(path)); need(p.isDirectory() && !p.isSymbolicLink() && p.dev === directoryIdentity.dev && p.ino === directoryIdentity.ino
@@ -316,7 +362,7 @@ async function economicState(input, checkpoint, afterCrash = false) {
   const capabilities = {readOnly: true, privateBalancesAggregated: false, underlyingCredit: false, deviceRootsIncluded: false, crossNetworkAtomicState: false};
   const checkpoints = sources.map(s => ({sourceId: s.id, stateSHA256: sha({sourceId: s.id, state: 'UNKNOWN'}), journalRevision: null}));
   const sourceSet = immutable(sources.map(sourceMetadata));
-  const makeCheckpoint = value => economicCheckpoint({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:value.revision,stateSHA256:sha(value.data)});
+  const makeCheckpoint = value => economicCheckpoint({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(value.data.sources),revision:value.revision,stateSHA256:sha(value.data)});
   let record;
   try {
     const initial = {version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sources:sourceSet,
@@ -324,15 +370,14 @@ async function economicState(input, checkpoint, afterCrash = false) {
     if(checkpoint===null&&!afterCrash) {
       // Preserve the old duplicate-create rejection; never adopt an old file.
       try {await lstat(path); const error=Error('ORIGINAL_ECONOMIC_STATE_JOURNAL_EXISTS'); error.code='VAULT_EXISTS'; throw error;} catch(error) {if(error.code!=='ENOENT')throw error;}
-      anchor=await localEconomicAnchor({path,password},sourceSet,lifetime,initial,false);
+      anchor=await localEconomicAnchor({path,password},sources,lifetime,initial,false);
       record=await vault.create(initial,password);await physical();assert.deepEqual(await vault.read(password),record);await anchor.settle(makeCheckpoint(record));
     } else {
-      if(!afterCrash)need(checkpoint.sourceSetSHA256===sha(sourceSet),'ORIGINAL_SOURCE_SET_REQUIRED');
       // Legacy ordered captures remain exact. A missing anchor is accepted only
       // for that OLD checkpoint-bearing contract, never for crash recovery.
       let hasAnchor=true;try{await lstat(path+'.original-state-anchor-v1');}catch(error){if(error.code==='ENOENT')hasAnchor=false;else throw error;}
       if(afterCrash||hasAnchor) {
-        anchor=await localEconomicAnchor({path,...(afterCrash?{}:{password})},sourceSet,lifetime,null,true);
+        anchor=await localEconomicAnchor({path,...(afterCrash?{}:{password})},sources,lifetime,null,true);
         const data=anchor.data();if(!afterCrash)assert.deepEqual(data.journal,{path,password},'ORIGINAL_ECONOMIC_STATE_ANCHOR_CREDENTIALS_CHANGED');
         password=data.journal.password;lifetime=data.lifetime;
       }
@@ -344,7 +389,9 @@ async function economicState(input, checkpoint, afterCrash = false) {
       need(record.revision===checkpoint.revision&&sha(record.data)===checkpoint.stateSHA256&&record.data.lifetime===lifetime
         &&record.data.version===1&&record.data.profile===ORIGINAL_ECONOMIC_STATE_V1,'ORIGINAL_CHECKPOINT_REQUIRED');
       if(anchor&&!afterCrash)assert.deepEqual(anchor.data().confirmed,checkpoint,'ORIGINAL_ECONOMIC_STATE_ANCHOR_CHECKPOINT_CHANGED');
-      assert.deepEqual(record.data.sources,sourceSet,'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED');
+      need(checkpoint.sourceSetSHA256===sha(record.data.sources),'ORIGINAL_SOURCE_SET_REQUIRED');
+      bindOriginalSourceSet(sources,record.data.sources);
+      assert.deepEqual(record.data.sources,immutable(sources.map(sourceMetadata)),'ORIGINAL_ECONOMIC_STATE_SOURCE_SET_CHANGED');
       const keys=sources.flatMap(s=>s.routes.map(r=>sha(r.route))).sort();
       assert.deepEqual(record.data.rows.map(r=>sha(r.route)).sort(),keys,'ORIGINAL_ECONOMIC_STATE_ROUTES_CHANGED');
       need(new Set(record.data.checkpoints.map(c=>c.sourceId)).size===sources.length&&sources.every(s=>record.data.checkpoints.some(c=>c.sourceId===s.id)),'ORIGINAL_CHECKPOINT_REQUIRED');
@@ -358,11 +405,13 @@ async function economicState(input, checkpoint, afterCrash = false) {
     catch(error){fault=true;freshAt=null;throw error;}}
   function snapshot() {
     const unavailable = new Set(); for (const s of sources) try {s.check();} catch {unavailable.add(s.id);}
-    const now = Date.now(), stale = freshAt === null || now < freshAt || now - freshAt > ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS;
+    const now = Date.now();
     const rows = record.data.rows.map(r => {
+      const observedAt = rowFreshness.get(sha(r.route)) ?? null;
+      const stale = freshAt === null || observedAt === null || now < observedAt || now - observedAt > ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS;
       const missing = unavailable.has(r.route.sourceId);
-      if (!fault && !missing && !(stale && r.state === 'LIVE')) return r;
-      return {...r, state: fault || missing ? 'UNKNOWN' : 'STALE', reason: fault ? 'ORIGINAL_STATE_STORAGE_UNAVAILABLE' : missing ? 'ORIGINAL_SOURCE_UNAVAILABLE' : 'ORIGINAL_HEAD_STALE', head: null, balances: null, backing: null,
+      if (!fault && !missing && !(stale && r.state === 'LIVE')) return {...r, observedAt};
+      return {...r, observedAt: null, state: fault || missing ? 'UNKNOWN' : 'STALE', reason: fault ? 'ORIGINAL_STATE_STORAGE_UNAVAILABLE' : missing ? 'ORIGINAL_SOURCE_UNAVAILABLE' : 'ORIGINAL_HEAD_STALE', head: null, balances: null, backing: null,
         position: r.position ? {...r.position, ownershipStatus: fault || missing ? 'UNKNOWN' : 'STALE', valuationStatus: fault || missing ? 'UNKNOWN' : 'STALE', shares: null, estimate: null, head: null} : null};
     });
     const liveCount = rows.filter(r => r.state === 'LIVE').length;
@@ -371,7 +420,9 @@ async function economicState(input, checkpoint, afterCrash = false) {
       revision: record.revision, storageAvailable: !fault, observedAt: freshAt, rows, checkpoints: record.data.checkpoints, capabilities}));
   }
   async function persist(rows, nextCheckpoints) {
-    const nextData = {...record.data, rows, checkpoints: nextCheckpoints};
+    const nextSources = immutable(sources.map(sourceMetadata));
+    need(nextSources.reduce((n, s) => n + s.routes.length, 0) <= 64, 'ROUTES');
+    const nextData = {...record.data, sources: nextSources, rows, checkpoints: nextCheckpoints};
     if (sha(nextData) === sha(record.data)) return;
     pending = {revision: record.revision + 1, data: immutable(nextData)};
     try {await anchor?.prepare(makeCheckpoint(record),makeCheckpoint(pending));
@@ -380,26 +431,26 @@ async function economicState(input, checkpoint, afterCrash = false) {
     } catch (error) {fault = true; freshAt = null; throw error;}
   }
   async function observe() {
-    need(!fault, 'STORAGE_UNAVAILABLE'); await healthy(); need(!closed, 'CLOSED'); const rows = [], checks = [], observedTimes = [];
+    need(!fault, 'STORAGE_UNAVAILABLE'); await healthy(); need(!closed, 'CLOSED'); const rows = [], checks = [], observedTimes = [], nextFreshness = new Map();
     for (const s of sources) {
       need(!closed, 'CLOSED'); let result;
-      try {result = await s.read(); need(!closed, 'CLOSED');}
+      try {s.refresh(); result = await s.read(); need(!closed, 'CLOSED');}
       catch {const checkpoint = sha({sourceId: s.id, state: 'UNKNOWN'}); checks.push({sourceId: s.id, stateSHA256: checkpoint, journalRevision: null});
         rows.push(...unknown(s, 'ORIGINAL_SOURCE_UNAVAILABLE', checkpoint, record.data.rows)); continue;}
       const checkpoint = stateHash(result.checkpoint); checks.push({sourceId: s.id, stateSHA256: checkpoint, journalRevision: result.revision});
       const sourceRows=originalRows(s, result.assets, result.journal, checkpoint, result.positions, result.changed);
-      rows.push(...sourceRows); for(const row of sourceRows.filter(r=>r.state==='LIVE')) {const item=result.assets.find(a=>a.asset.assetId===row.route.assetId&&(a.generationId??null)===row.route.generationId); observedTimes.push(item.observed.observedAt);}
+      rows.push(...sourceRows); for(const row of sourceRows.filter(r=>r.state==='LIVE')) {const item=result.assets.find(a=>a.asset.assetId===row.route.assetId&&(a.generationId??null)===row.route.generationId); observedTimes.push(item.observed.observedAt); nextFreshness.set(sha(row.route), item.observed.observedAt);}
     }
-    need(!closed, 'CLOSED'); await healthy(); await persist(rows, checks); need(!closed, 'CLOSED'); freshAt = observedTimes.length ? Math.min(...observedTimes) : Date.now(); return snapshot();
+    need(!closed, 'CLOSED'); await healthy(); await persist(rows, checks); need(!closed, 'CLOSED'); rowFreshness = nextFreshness; freshAt = observedTimes.length ? Math.min(...observedTimes) : Date.now(); return snapshot();
   }
   function run(fn) {live(); need(!busy, 'BUSY'); busy = true;
     work = (async () => {try {return await fn();} finally {busy = false; work = null;}})(); return work;}
   const capability = Object.freeze({
     checkpoint() {assert.equal(arguments.length,0); live(); need(!busy && !fault && pending === null, 'CHECKPOINT_UNAVAILABLE');
-      return immutable({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:record.revision,stateSHA256:sha(record.data)});},
+      return makeCheckpoint(record);},
     capture() {assert.equal(arguments.length,0);live();fenced=true;freshAt=null;const active=work;
       return (async()=>{try{if(active)await active;need(!closed&&!busy&&!fault&&pending===null,'CHECKPOINT_UNAVAILABLE');await healthy();
-        const checkpoint=immutable({version:1,profile:ORIGINAL_ECONOMIC_STATE_V1,lifetime,sourceSetSHA256:sha(sourceSet),revision:record.revision,stateSHA256:sha(record.data)});
+        const checkpoint=makeCheckpoint(record);
         need(!closed,'CLOSED');return checkpoint;}finally{closed=true;try{await anchor?.close();}finally{password=null;}}})();},
     observe() {assert.equal(arguments.length, 0); return run(observe);},
     async idle() {assert.equal(arguments.length,0); live(); const active=work; if(active)await active.catch(()=>{}); live(); need(!busy,'BUSY'); return {phase:fault?'UNKNOWN':'READY'};},

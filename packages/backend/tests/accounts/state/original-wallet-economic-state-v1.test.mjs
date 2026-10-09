@@ -66,7 +66,7 @@ test('original economic union keeps domains, original pending/position heads, CA
   t.after(async()=>{try{await state?.close();}finally{await rm(directory,{recursive:true,force:true});}});
   const runtime = {}, system = {}, a = asset(h('same-asset'), 'first'), b = asset(a.assetId, 'second'), underlying = {...asset(h('underlying'), 'first', '4'.repeat(40)), pool:'5'.repeat(40), assetIdentity:h('underlying-asset')}, generationId = h('generation');
   const config = {accountId: 'host_catalogue_account', journalId: 'host_catalogue_journal', lifetime: h('catalogue-lifetime'), registry: [a, underlying]};
-  let phase = null, amount = '10', unavailable = false, ownerConfirmed = true, valuationStale = false, gate = null, observedCalls = 0;
+  let phase = null, amount = '10', unavailable = false, ownerConfirmed = true, valuationStale = false, gate = null, observedCalls = 0, nativeObservedAt = null;
   const originalView = () => ({...view(a, 10, amount), requests: phase ? [{requestId: 'original_top_up_01', kind: 'TOP_UP', state: phase === 'CONFIRMED' && ownerConfirmed ? 'CONFIRMED' : 'UNRESOLVED', disposition: phase === 'CONFIRMED' && ownerConfirmed ? 'APPLIED' : null}] : []});
   const routes = [a, underlying].map(value => ({assetId:value.assetId,pool:value.pool,domainCommitment:h('domain-'+value.assetId)}));
   const originalPortfolio = () => {const one=originalView();return {version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:one.observed,
@@ -91,7 +91,7 @@ test('original economic union keeps domains, original pending/position heads, CA
       generations:[{generationId,shareAssetId:a.assetId,status:'AVAILABLE',requestIds:[],errorCode:null}]}};}};
   positions.set(positionService, {runtime, catalogue, session});
   const nativeAccount = {config: {accountId: 'host_native_account', journalId: 'host_native_journal', lifetime: h('native-lifetime'), registry: [b]}, registry: [b],
-    async privateStatus() {return {operations: []};}, async ownerView() {return view(b, 50, '7');}};
+    async privateStatus() {return {operations: []};}, async ownerView() {const value=view(b, 50, '7'); if(nativeObservedAt!==null)value.observed.observedAt=nativeObservedAt; return value;}};
   natives.set(nativeAccount, {runtime, system});
   const input = {catalogues: [{runtime, catalogue, session, positions: positionService}], nativeAccounts: [{runtime, system, account: nativeAccount}], wrappedPortfolios: [], journal: {path: join(directory, 'union.vault'), password: 'synthetic-observation-password'}};
   await assert.rejects(createOriginalWalletEconomicStateV1({...input, nativeAccounts: [{runtime, system, account: {...nativeAccount}}]}));
@@ -106,6 +106,19 @@ test('original economic union keeps domains, original pending/position heads, CA
   assert.equal((await state.observe()).revision, revision); assert.deepEqual(await readFile(input.journal.path), acknowledged);
   const expired = projectOriginalWalletEconomicStateV1(observed, {now: observed.observedAt + 30001});
   assert.equal(expired.rows[0].state, 'STALE'); assert.equal(expired.rows[0].balances, null); assert.equal(expired.rows[0].position.estimate, null);
+  // The original native source can be older than a freshly observed catalogue.
+  // Expiry must affect that domain alone, in BOTH producer and real consumer.
+  nativeObservedAt=Date.now()-31000;
+  observed=await state.observe();assert.equal(observed.status,'PARTIAL');
+  assert.equal(observed.rows[2].state,'STALE');assert.equal(observed.rows[2].balances,null);
+  assert.equal(observed.rows[0].state,'LIVE');assert.equal(observed.rows[0].balances.available,'10');assert.equal(observed.rows[0].position.estimate,'19');
+  const independentlyFresh=projectOriginalWalletEconomicStateV1(observed);
+  assert.equal(independentlyFresh.rows[0].state,'LIVE');assert.equal(independentlyFresh.rows[2].state,'STALE');
+  const later=projectOriginalWalletEconomicStateV1(observed,{now:observed.rows[0].observedAt+30001});
+  assert.equal(later.rows[0].state,'STALE');assert.equal(later.rows[0].balances,null);
+  const legacy=structuredClone(observed);for(const row of legacy.rows)delete row.observedAt;
+  assert.equal(projectOriginalWalletEconomicStateV1(legacy).rows[0].state,'STALE'); // old contract stays conservative
+  nativeObservedAt=null;observed=await state.observe();assert.equal(observed.status,'LIVE');
   const checkpoint = state.checkpoint(); await state.close();
   await assert.rejects(createOriginalWalletEconomicStateV1(input), e => e.code === 'VAULT_EXISTS');
   await assert.rejects(openOriginalWalletEconomicStateV1({...input, checkpoint: {...checkpoint, stateSHA256: h('wrong-checkpoint')}}), /ORIGINAL_CHECKPOINT_REQUIRED/);
@@ -257,4 +270,69 @@ test('HOST original native and wrapped sessions retain pending economic state an
     assert.equal(baseline.rows[0].requests[0].state,'UNKNOWN');
   }
   assert.equal(keeperCaptures,2);assert.equal(effects,0);
+});
+
+
+// The append method below is the original catalogue body. Catalogue/generation
+// membership and native admission readers remain explicit inert HOST ports;
+// both its catalogue writes and the observation union use real Vault/AES/CAS.
+test('HOST original catalogue append preserves old routes and reopens the same economic journal', async t => {
+  const directory=await mkdtemp(join(tmpdir(),'original-economic-append-host-'));await chmod(directory,0o700);
+  let state,session; t.after(async()=>{try{await state?.close();await session?.close();}finally{await rm(directory,{recursive:true,force:true});}});
+  const runtime={},a=asset(h('append-a'),'first'),b={...a,assetId:h('append-b'),pool:'2'.repeat(40),scope:h('append-b-scope')};
+  const common={economicIdentitySHA256:h('append-economic'),registryProfile:'LIANUM_FLAT_APPEND_ONLY_POOLS_V2',
+    genesis:a.genesis,chainId:a.chainId,hub:'6'.repeat(40),hubDomain:h('append-hub'),ledgerNamespace:h('append-ledger'),
+    registryCommitment:h('append-registry'),verifierSetCommitment:h('append-verifiers'),sourceProvenanceSHA256:h('append-provenance'),
+    keyLineageSHA256:h('append-lineage'),sourceManifestSHA256:h('append-source'),keyManifestSHA256:h('append-keys')};
+  const makeGeneration=(asset,predecessor)=>{const config={accountId:'host_append_'+asset.assetId.slice(0,16),journalId:'host_append_journal_'+asset.assetId.slice(0,16),lifetime:h('append-lifetime-'+asset.assetId),registry:[asset]};
+    const routes=[{...common,assetId:asset.assetId,pool:asset.pool,domainCommitment:h('append-domain-'+asset.assetId),predecessorPool:predecessor}];
+    return {id:h('append-generation-'+asset.assetId),identity:genericAccountIdentity(config),config,routes,admissionAssets:[asset.assetId],
+      retained:true,attached:false,journalPath:join(directory,asset.assetId+'.vault'),poolAdmissions:{async verifyFreshGeneration(){return routes.map(route=>({route}));}}};};
+  const first=makeGeneration(a,'0'.repeat(40)),next=makeGeneration(b,a.pool),capability=Object.freeze({}),generationBrands=new WeakMap([[capability,next]]);
+  first.attached=true;const byId=new Map([[first.id,first]]),byAsset=new Map([[a.assetId,first.id]]),catalogueClaims=new WeakSet();
+  const descriptor=g=>({generationId:g.id,identity:g.identity,registry:g.config.registry,routes:g.routes,admissionAssets:g.admissionAssets});
+  const catalogueVault=new Vault(join(directory,'catalogue.vault')),cataloguePassword='original-append-catalogue-password';
+  let catalogueRecord=await catalogueVault.create({generations:[descriptor(first)],current:{[common.economicIdentitySHA256]:a.assetId},bindings:[],events:[]},cataloguePassword);
+  const catalogueText=await readFile(moduleURL('../../../src/accounts/storage/flat-journal-catalogue.mjs','../../global-state/flat-journal-catalogue.mjs'),'utf8');
+  const begin=catalogueText.indexOf('    async appendGeneration(capability) {'),end=catalogueText.indexOf('    async reviewOwnerPreparation(',begin);
+  assert.ok(begin>0&&end>begin);const appendBody=catalogueText.slice(begin,end);
+  const requirement=(ok,code)=>assert.ok(ok,'HOST_ORIGINAL_APPEND_'+code);
+  const appender=Function('p',`const {runtime,byId,byAsset,path,assert,descriptor,catalogueClaims,write,originalGeneration,requireTrue}=p;
+    const durable=null;let pendingGeneration=null;const newAdmissionsHealthy=async()=>{};const exclusive=work=>work();
+    return Object.freeze({${appendBody}});`)({runtime,byId,byAsset,path:catalogueVault.path,assert,descriptor,catalogueClaims,requireTrue:requirement,
+      originalGeneration(cap,expected){requirement(expected===runtime&&generationBrands.has(cap),'ORIGINAL_GENERATION_REQUIRED');return generationBrands.get(cap);},
+      async write(transform){const before=catalogueRecord;assert.deepEqual(await catalogueVault.read(cataloguePassword),before);
+        const result=await catalogueVault.update(cataloguePassword,before.revision,transform);assert.deepEqual(await catalogueVault.read(cataloguePassword),result);catalogueRecord=result;}});
+  let altered=null;
+  const keeper={async snapshot(){return {version:1,revision:catalogueRecord.revision,storageAvailable:true,requests:[]};},async close(){},async prepare(){no();},async execute(){no();},async reconcile(){no();},async recover(){no();},async restartCoordinator(){no();}};
+  const catalogue={keeper,appendGeneration:appender.appendGeneration,
+    status(){let generations=structuredClone(catalogueRecord.data.generations);if(altered==='replacement')generations[0].identity.lifetime=h('replacement');
+      else if(altered==='removal')generations=generations.slice(1);else if(altered==='reordering')generations.reverse();return {generations,bindings:[],storageFault:false,uncertainWrite:false};},
+    async ownerView(){const generations=[...byId.values()].map(g=>{const observed=view(g.config.registry[0],g===first?10:20,g===first?'10':'3');return {generationId:g.id,routes:g.routes.map(({assetId,pool,domainCommitment})=>({assetId,pool,domainCommitment})),
+        portfolio:{version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:observed.observed,assets:[observed],
+          capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}},errorCode:null};});
+      const observed=generations.map(g=>g.portfolio.observed),coherent=observed.every(row=>['blockNumber','blockHash','timestamp'].every(key=>row[key]===observed[0][key]));
+      return {version:2,profile:'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2',status:coherent?'LIVE':'STALE',coherent,observed:coherent?observed[0]:null,generations,
+        capabilities:{coordinatorRestart:true,keeperRestart:false,nodeRestart:false,privateBalancesAggregated:false,implicitNoteMigration:false,fullWalletAcceptance:false}};}};
+  catalogues.set(catalogue,{runtime});session=await createFlatAccountSession({keeper,ownerHandoff:catalogue});pairs.set(session,{runtime,catalogue});
+  const input={catalogues:[{runtime,catalogue,session,positions:null}],nativeAccounts:[],wrappedPortfolios:[],journal:{path:join(directory,'economic.vault'),password:'original-append-observation-password'}};
+  state=await createOriginalWalletEconomicStateV1(input);let observation=await state.observe();const oldRoute=observation.rows[0].route,oldKey=originalEconomicRouteKeyV1(oldRoute),birth=state.checkpoint();
+  await catalogue.appendGeneration(capability);assert.equal(catalogueRecord.revision,1);
+  observation=await state.observe();assert.equal(observation.status,'LIVE');assert.equal(observation.rows.length,2);
+  assert.equal(originalEconomicRouteKeyV1(observation.rows[0].route),oldKey);assert.deepEqual(observation.rows[0].route,oldRoute);
+  assert.equal(observation.rows[0].balances.available,'10');assert.equal(observation.rows[1].balances.available,'3');
+  assert.equal(observation.rows[1].route.sourceId,oldRoute.sourceId);assert.notEqual(observation.rows[1].route.domainCommitment,oldRoute.domainCommitment);
+  const retainedRoute=observation.rows[1].route;const retained=state.checkpoint();assert.notEqual(retained.sourceSetSHA256,birth.sourceSetSHA256);await state.close();
+  await assert.rejects(openOriginalWalletEconomicStateV1({...input,checkpoint:birth}),/CHECKPOINT/);
+  state=await openOriginalWalletEconomicStateV1({...input,checkpoint:retained});observation=await state.snapshot();assert.equal(observation.status,'STALE');
+  observation=await state.observe();assert.equal(observation.status,'LIVE');assert.deepEqual(observation.rows[0].route,oldRoute);
+  assert.equal(observation.rows[1].route.generationId,next.id);assert.equal(state.checkpoint().lifetime,birth.lifetime);
+  await assert.rejects(catalogue.appendGeneration({...capability}),/ORIGINAL_GENERATION_REQUIRED/);
+  for(const mutation of ['replacement','removal','reordering']) {altered=mutation;observation=await state.observe();
+    assert.equal(observation.status,'UNKNOWN');assert.ok(observation.rows.every(r=>r.balances===null));
+    assert.deepEqual(observation.rows.map(r=>r.route),[oldRoute,retainedRoute]);
+    altered=null;observation=await state.observe();assert.equal(observation.status,'LIVE');assert.deepEqual(observation.rows[0].route,oldRoute);}
+  const finalCheckpoint=state.checkpoint();await state.close();
+  altered='replacement';await assert.rejects(openOriginalWalletEconomicStateV1({...input,checkpoint:finalCheckpoint}),/ORIGINAL_ROUTES_CHANGED|ORIGINAL_SOURCE_SET_REQUIRED/);
+  altered=null;state=await openOriginalWalletEconomicStateV1({...input,checkpoint:finalCheckpoint});assert.equal((await state.observe()).status,'LIVE');
 });
