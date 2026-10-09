@@ -17,6 +17,7 @@ import { createFlatOperatorQuorum } from '../../../../../packages/backend/src/op
 import { createFlatOwnerNativeClaimObserver } from '../../../../../packages/custody/src/observers/flat-owner-native-claim-observer.mjs';
 import { createFlatOwnerProcess } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
 import { freshFixtureId, writeFixturePrivate } from '../../runners/owned-flat-fixture.mjs';
+import {privateNativeClaimBootstrapFirstErrorV1} from '../../../claims/development/development-native-claim-bootstrap-first-error-v1.mjs';
 
 function privateDirectory(path) {
   const stat = lstatSync(path);
@@ -156,6 +157,9 @@ async function createFixture(directory, callbacks, withGraph, ingressV3 = false,
     }
     await onStage('owned-claim-account-ready'); return fixture;
   } catch (error) {
+    try { writeFixturePrivate(join(directory, 'bootstrap-first-error-private.json'),
+      privateNativeClaimBootstrapFirstErrorV1(error)); }
+    catch { /* Diagnostic storage cannot replace the original cause or close. */ }
     if (runtime) writeFixturePrivate(join(directory, 'failed-bootstrap.json'), {
       metadata: runtime.metadata, transactions: runtime.transactions, receipts: runtime.receipts });
     error.fixtureCleanup = await fixture.close(); throw error;
