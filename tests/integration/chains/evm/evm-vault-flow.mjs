@@ -27,8 +27,10 @@ import { createFlatNativeExecution } from '../../../../packages/backend/src/exec
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
+import {assertOwnedFlatJournalCatalogueAccount} from '../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
 import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
+import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
 import { createManualWalletAppDriver } from '../../wallet/manual/manual-wallet-app-driver.mjs';
 import { createOwnedMetaMorphoVault, createOwnedAaveStaticVaultV1, assertOwnedMetaMorphoReceipt } from '../../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
 import { createPrivateVaultPortfolioView } from '../../../../packages/backend/src/defi/vaults/private-vault-position.mjs';
@@ -56,6 +58,29 @@ const safeCode = error => {
   return typeof value === 'string' && /^[A-Z][A-Z0-9_]{2,160}$/.exec(value)?.[0] === value
     ? value : 'FLAT_EVM_VAULT_FLOW_FAILED';
 };
+
+/** Read-only join of the exact original note generation, never an aggregate
+ * or a selector of economic authority. Both inputs come from original views. */
+function assertOriginalRetainedVaultOwnerPortfolioV1(publicView,catalogueStatus,privateView){
+  assert.equal(arguments.length,3);
+  const decoded=validateFlatOwnerReadPayload(publicView);
+  assert.equal(decoded.payloadKind,'IMMUTABLE_JOURNAL_GENERATIONS');
+  assert.equal(catalogueStatus.profile,GENERATION_PORTFOLIO_PROFILE);
+  assert.equal(catalogueStatus.generations.length,1,'EVM_VAULT_ORIGINAL_GENERATION_REQUIRED');
+  const expected=catalogueStatus.generations[0];
+  assert.equal(decoded.data.generations.length,1,'EVM_VAULT_ORIGINAL_GENERATION_REQUIRED');
+  const frames=decoded.data.generations.filter(frame=>frame.generationId===expected.generationId);
+  assert.equal(frames.length,1,'EVM_VAULT_ORIGINAL_GENERATION_REQUIRED');const frame=frames[0];
+  assert.deepEqual(frame.routes,expected.routes.map(({assetId,pool,domainCommitment})=>({assetId,pool,domainCommitment})),'EVM_VAULT_ORIGINAL_ROUTES_REQUIRED');
+  assert.equal(frame.errorCode,null);assert.ok(frame.portfolio,'EVM_VAULT_ORIGINAL_PORTFOLIO_REQUIRED');
+  const nested=validateFlatOwnerReadPayload(frame.portfolio);assert.equal(nested.payloadKind,'REGISTERED_PORTFOLIO');
+  assert.deepEqual(nested.data.assets.map(row=>row.asset.assetId),expected.routes.map(route=>route.assetId),'EVM_VAULT_ORIGINAL_ASSETS_REQUIRED');
+  assert.deepEqual(nested.data.assets.map(row=>row.asset),privateView.assets.map(row=>row.asset),'EVM_VAULT_ORIGINAL_ASSETS_REQUIRED');
+  assert.equal(nested.data.status,'LIVE');assert.equal(nested.data.coherent,true);assert.equal(privateView.status,'LIVE');assert.equal(privateView.coherent,true);
+  for(const key of ['blockNumber','blockHash','timestamp'])assert.equal(nested.data.observed[key],privateView.observed[key],'EVM_VAULT_ORIGINAL_HEAD_REQUIRED');
+  assert.deepEqual(privateView.assets.map(row=>row.balances),nested.data.assets.map(row=>row.balances));
+  return privateView;
+}
 
 async function main() {
   assert.equal(process.argv.length, 2);
@@ -196,6 +221,16 @@ async function main() {
     // read separately through the branded portfolio/vault at the same head.
     if (UNISWAP) return value.portfolio;
     const original = await privateView();
+    if(RETAINED_EXIT&&value.portfolio.profile===GENERATION_PORTFOLIO_PROFILE){
+      const status=retainedExitWallet.catalogue.status();
+      assert.equal(status.generations.length,1,'EVM_VAULT_ORIGINAL_GENERATION_REQUIRED');
+      for(const account of retainedExitWallet.accounts){
+        const member=assertOwnedFlatJournalCatalogueAccount(retainedExitWallet.catalogue,account);
+        assert.equal(member.runtime,fixture.runtime);assert.equal(member.portfolio,retainedExitWallet.portfolio);
+        assert.equal(member.generationId,status.generations[0].generationId,'EVM_VAULT_ORIGINAL_GENERATION_REQUIRED');
+      }
+      return assertOriginalRetainedVaultOwnerPortfolioV1(value.portfolio,status,original);
+    }
     assert.deepEqual(original.assets.map(row => row.balances), value.portfolio.assets.map(row => row.balances));
     return original;
   }

@@ -56,3 +56,28 @@ test('HOST actual retained-note guard requires the original TOP_UP and EXIT term
   for(const change of [{kind:'GRAPH'},{requestId:'substitute_top_up'},{assetId:'f'.repeat(64)},{assetId:'e'.repeat(64)}])assert.throws(()=>bindingGuard({...records[0].request,...change},members));
   assert.throws(()=>bindingGuard(records[0].request,[...members,members[0]]));
 });
+
+
+import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
+test('HOST actual owner-view helper joins only the original catalogue generation and head without inventing balances',()=>{
+  // Explicit public metadata fixtures; no owner, journal, node, proof or financial authority.
+  const source=readFileSync(join(ROOT,'integration/evm-vault-flow.mjs'),'utf8');
+  const start=source.indexOf('function assertOriginalRetainedVaultOwnerPortfolioV1('),end=source.indexOf('async function main(',start);assert.ok(start>=0&&end>start);
+  const check=new Function('assert','validateFlatOwnerReadPayload','GENERATION_PORTFOLIO_PROFILE',source.slice(start,end)+';return assertOriginalRetainedVaultOwnerPortfolioV1;')(assert,validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE);
+  const hex=n=>String(n).repeat(64),address=n=>String(n).repeat(40),observed={observedAt:100,blockNumber:'4',blockHash:hex(3),timestamp:'1200'};
+  const assets=[1,2].map(n=>({version:1,status:'LIVE',asset:{assetId:hex(n),symbol:'PALT',decimals:6},observed:structuredClone(observed),balances:{available:n===1?'100':'0',reserved:'0',recovery:'0',locked:'0'},backing:{held:n===1?'100':'0',liabilities:n===1?'100':'0',surplus:'0',deficit:'0'},requests:[]}));
+  assets[0].requests=[{requestId:'vault_top_up',kind:'TOP_UP',state:'CONFIRMED',disposition:'APPLIED'}];
+  const portfolio={version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:structuredClone(observed),assets,capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}};
+  const routes=[1,2].map(n=>({assetId:hex(n),pool:address(n),domainCommitment:hex(n+3)})),generationId=hex(6);
+  const view={version:2,profile:GENERATION_PORTFOLIO_PROFILE,status:'LIVE',coherent:true,observed:structuredClone(observed),generations:[{generationId,routes,portfolio,errorCode:null}],capabilities:{coordinatorRestart:true,keeperRestart:false,nodeRestart:false,privateBalancesAggregated:false,implicitNoteMigration:false,fullWalletAcceptance:false}};
+  const status={profile:GENERATION_PORTFOLIO_PROFILE,generations:[{generationId,routes:structuredClone(routes)}]},original={...structuredClone(portfolio),positions:[]};
+  assert.equal(check(view,status,original),original);
+  for(const change of [p=>p.generations[0].generationId=hex(7),p=>p.generations.push(structuredClone(p.generations[0])),p=>p.generations[0].routes[0].pool=address(9),p=>{p.generations[0].portfolio=null;p.generations[0].errorCode='FLAT_CATALOGUE_GENERATION_VIEW_UNAVAILABLE';p.status='UNAVAILABLE';p.coherent=false;p.observed=null;},p=>p.profile='CALLER_SELECTED']){
+    const changed=structuredClone(view);change(changed);assert.throws(()=>check(changed,status,original));
+  }
+  for(const change of [p=>p.assets[0].asset.assetId=hex(8),p=>p.observed.blockHash=hex(9),p=>p.assets[0].balances.available='99',p=>p.status='STALE']){
+    const changed=structuredClone(original);change(changed);assert.throws(()=>check(view,status,changed));
+  }
+  assert.throws(()=>check(view,{...status,generations:[]},original));
+  assert.throws(()=>check(view,{...status,generations:[...status.generations,status.generations[0]]},original));
+});
