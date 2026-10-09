@@ -8,7 +8,8 @@ import { createInterface } from 'node:readline';
 import { performance } from 'node:perf_hooks';
 
 const PROFILE = 'OWNED_BSC_POSA_THREE_VALIDATORS_V1';
-const RECIPE_SHA256 = '3b268f36b02bd0300a03a46fac5b121309c9ce3cf652c6b37f84e2f37e06e984';
+const PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2';
+const RECIPE_SHA256 = '6119a618d350c5fd10d7e51e1d4166dc049e3796504c3353f9d2aaadda492e77';
 // Python's 90-second readiness already contains registrations. This outer
 // watchdog deliberately permits 30 + 3*15 + 90 + an explicit 15-second margin.
 const CONSTRUCTOR_MS = (30 + 3 * 15 + 90 + 15) * 1000;
@@ -123,7 +124,7 @@ async function shutdown(state) {
       catch (error) { drainError ||= error; }
       if (drainError) throw drainError;
       assert(result && (result.code === 0 || forced), 'BSC_ORIGINAL_BACKEND_CLOSE_UNCONFIRMED');
-      return Object.freeze({ profile: PROFILE, closed: true, originalBackendExitCode: result.code,
+      return Object.freeze({ profile: state.profile, closed: true, originalBackendExitCode: result.code,
         originalBackendSignal: result.signal, controlledShutdownSignalUsed: forced,
         originalNativeProcessesSignalled: nativeSignals, originalOutcomeUncertain: state.uncertain, nodeDataRetained: true });
     } finally { state.lines.close(); }
@@ -155,19 +156,18 @@ async function command(runtime, operation, input) {
 
 // This file is used by direct canonical import; scripts/development is outside
 // the frozen runtime mapper's sourceRoots. No layout or compiler pin changes.
-export async function createOwnedBscPoSAClusterV1() {
-  assert.equal(arguments.length, 0, 'BSC_NO_OPTIONS');
+async function createFixedOwnedBscPoSACluster(profile, nativeInitV2) {
   const root = repository(), recipe = join(root, 'scripts/development/owned_bsc_posa_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BSC_ORIGINAL_RECIPE_CHANGED');
-  const child = spawn('/usr/bin/python3', [recipe], { cwd: root, stdio: ['pipe','pipe','ignore'], env: { PATH:'/usr/bin:/bin', LANG:'C.UTF-8' } });
-  const state = { child, identity:null, validators:[], pending:new Map(), sequence:0, tail:Promise.resolve(), closed:false, failed:false, uncertain:false };
+  const child = spawn('/usr/bin/python3', [recipe, ...(nativeInitV2 ? ['--native-init-v2'] : [])], { cwd: root, stdio: ['pipe','pipe','ignore'], env: { PATH:'/usr/bin:/bin', LANG:'C.UTF-8' } });
+  const state = { child, profile, identity:null, validators:[], pending:new Map(), sequence:0, tail:Promise.resolve(), closed:false, failed:false, uncertain:false };
   let exitResolve; state.exited = new Promise(resolve => { exitResolve = resolve; });
   child.once('exit', (code,signal) => exitResolve({code,signal}));
   let readyResolve, readyReject;
   const ready = new Promise((resolve,reject) => { readyResolve=resolve; readyReject=reject; });
   state.lines = createInterface({input:child.stdout,crlfDelay:Infinity});
   function birth(value) {
-    assert.equal(value.profile,PROFILE); assert.deepEqual(value.originalParent,processIdentity(process.pid),'BSC_ORIGINAL_PARENT_CHANGED');
+    assert.equal(value.profile,profile); assert.deepEqual(value.originalParent,processIdentity(process.pid),'BSC_ORIGINAL_PARENT_CHANGED');
     assert(Array.isArray(value.ownedProcesses) && value.ownedProcesses.length>=1 && value.ownedProcesses.length<=3);
     const validators = value.ownedProcesses.map(identity => {
       assert.deepEqual(processIdentity(identity.pid),identity,'BSC_ORIGINAL_VALIDATOR_CHANGED');
@@ -198,26 +198,59 @@ export async function createOwnedBscPoSAClusterV1() {
     const original=await bounded(ready,CONSTRUCTOR_MS,'BSC_ORIGINAL_CONSTRUCTOR_TIMEOUT');
     assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'),RECIPE_SHA256,'BSC_ORIGINAL_RECIPE_CHANGED');sameProcess(child,state.identity);
     assert(!state.failed&&!state.closed,'BSC_ORIGINAL_RUNTIME_UNAVAILABLE');
-    const runtime=Object.freeze({profile:PROFILE,network:'bsc',chainId:714,scope:'owned-local',independentOperators:false,
+    const runtime=Object.freeze({profile,network:'bsc',chainId:714,scope:'owned-local',independentOperators:false,
       genesisSHA256:original.genesisSHA256,async close(){assert.equal(arguments.length,0,'BSC_NO_OPTIONS');return shutdown(state);}});
     owned.set(runtime,state);return runtime;
   }catch(error){fail(state,error,true);try{await shutdown(state);}catch{}throw error;}
 }
-export function assertOwnedBscPoSAClusterV1(runtime) {
-  assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY'); live(runtime); return runtime;
+export async function createOwnedBscPoSAClusterV1() {
+  assert.equal(arguments.length, 0, 'BSC_NO_OPTIONS');
+  return createFixedOwnedBscPoSACluster(PROFILE, false);
 }
-export async function readOwnedBscFinalizedHeadV1(runtime) {
+export async function createOwnedBscPoSAClusterV2() {
+  assert.equal(arguments.length, 0, 'BSC_NO_OPTIONS');
+  return createFixedOwnedBscPoSACluster(PROFILE_V2, true);
+}
+function runtimeProfile(runtime, profile) {
+  const state = live(runtime);
+  assert.equal(state.profile, profile, 'BSC_ORIGINAL_RUNTIME_PROFILE');
+  return runtime;
+}
+export function assertOwnedBscPoSAClusterV1(runtime) {
   assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY');
+  return runtimeProfile(runtime, PROFILE);
+}
+export function assertOwnedBscPoSAClusterV2(runtime) {
+  assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY');
+  return runtimeProfile(runtime, PROFILE_V2);
+}
+async function readFinalizedHead(runtime, profile) {
+  runtimeProfile(runtime, profile);
   const value = await command(runtime, 'finalized', null);
   assert(value.finality === 'bsc-native-finalized' && value.validatorCount === 3 && value.independentOperators === false);
   assert(/^\d+$/.test(value.blockNumber) && /^\d+$/.test(value.timestamp) && /^0x[0-9a-f]{64}$/.test(value.blockHash));
   return Object.freeze(value);
 }
-// The signed wire is consumed once by the original native node. An ambiguous
-// RPC outcome remains unresolved; this module has no re-sign or retry path.
-export async function sendOwnedBscSignedTransactionOnceV1(runtime, signedWire) {
-  assert.equal(arguments.length, 2, 'BSC_SIGNED_WIRE_ONLY');
+export async function readOwnedBscFinalizedHeadV1(runtime) {
+  assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY');
+  return readFinalizedHead(runtime, PROFILE);
+}
+export async function readOwnedBscFinalizedHeadV2(runtime) {
+  assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY');
+  return readFinalizedHead(runtime, PROFILE_V2);
+}
+// The same native anti-resend latch is used by both distinct generations.
+async function sendSignedTransactionOnce(runtime, signedWire, profile) {
+  runtimeProfile(runtime, profile);
   assert(typeof signedWire === 'string' && /^0x[0-9a-f]+$/.test(signedWire) && signedWire.length % 2 === 0 && signedWire.length <= 260000);
   const transactionHash = await command(runtime, 'broadcast', signedWire);
   assert(/^0x[0-9a-f]{64}$/.test(transactionHash)); return transactionHash;
+}
+export async function sendOwnedBscSignedTransactionOnceV1(runtime, signedWire) {
+  assert.equal(arguments.length, 2, 'BSC_SIGNED_WIRE_ONLY');
+  return sendSignedTransactionOnce(runtime, signedWire, PROFILE);
+}
+export async function sendOwnedBscSignedTransactionOnceV2(runtime, signedWire) {
+  assert.equal(arguments.length, 2, 'BSC_SIGNED_WIRE_ONLY');
+  return sendSignedTransactionOnce(runtime, signedWire, PROFILE_V2);
 }

@@ -32,6 +32,15 @@ URLS = {
  "node-deploy-292c25955807227b8f43e01bdc4ae57b3b884c0e.tar.gz": ("https://codeload.github.com/bnb-chain/node-deploy/tar.gz/292c25955807227b8f43e01bdc4ae57b3b884c0e", 110455),
  "bsc-genesis-contract-34618f607f8356cf147dde6a69fae150bd53d5bf.tar.gz": ("https://codeload.github.com/bnb-chain/bsc-genesis-contract/tar.gz/34618f607f8356cf147dde6a69fae150bd53d5bf", 476758),
 }
+
+PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2'
+PREPARED_V2 = DEPENDENCIES / 'prepared-native-init-v2'
+# Slots derive from the original compiled Solidity storageLayout (slot11,
+# struct22words, voteAddress+2) and its original long-bytes storage rule.
+NATIVE_V1_EXTRA_LAYOUT_SHA256 = 'e207cd18bf6545863c8eabbeb1d6f38e825ec9ee43c761efc67abd42ba04db79'
+NATIVE_V1_EXTRA_ARRAY_SLOT = '0x000000000000000000000000000000000000000000000000000000000000000b'
+NATIVE_V1_EXTRA_VOTE_SLOTS = (('0x0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dbb', '0xb772b7d5bf80a37f67fcf9771d15af70ca9af379c9d351c4f99c5e4c71ffc4b1', '0xb772b7d5bf80a37f67fcf9771d15af70ca9af379c9d351c4f99c5e4c71ffc4b2'), ('0x0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01dd1', '0x582718e8b17259ace13fd980fcf65095f9659131975c90605ca05bf63f7bf278', '0x582718e8b17259ace13fd980fcf65095f9659131975c90605ca05bf63f7bf279'), ('0x0175b7a638427703f0dbe7bb9bbf987a2551717b34e79f33b5b1008d1fa01de7', '0x55c621344261f546f8521b54ca8d6362be2e58f18920f47a0d1dc37b1300bb93', '0x55c621344261f546f8521b54ca8d6362be2e58f18920f47a0d1dc37b1300bb94'))
+
 PREPARATION_SECONDS = 900
 NATIVE_INITIALIZATION_SECONDS = 30
 NATIVE_INITIALIZATION_COMMAND_SECONDS = 15
@@ -229,11 +238,80 @@ def rpc(url,method,params):
  if method=='eth_getTransactionReceipt' and len(params)==1 and isinstance(params[0],str) and re.fullmatch('0x[0-9a-f]{64}',params[0]) and value.get('id')==1 and 'result' not in value and value.get('error')=={'code':-32000,'message':'transaction indexing is in progress','data':'transaction indexing is in progress'}:return None
  require(value.get('id')==1 and 'error' not in value and 'result' in value,"BSC_RPC_REJECTED")
  return value['result']
-def serve():
- require(PREPARED.exists(),"BSC_MATERIAL_NOT_PREPARED");private_directory(DEPENDENCIES);private_directory(PREPARED)
- receipt=json.loads(private_file(PREPARED/'receipt.json',16384));require(receipt['profile']==PROFILE and receipt['material']==PINS,"BSC_PREPARED_PROFILE")
- require(digest(private_file(PREPARED/'geth',128*1024*1024))==receipt['clientSHA256'] and digest(private_file(PREPARED/'genesis.json',1024*1024))==receipt['genesisSHA256'],"BSC_PREPARED_CHANGED")
- require(digest(private_file(PREPARED/'create-validator',128*1024*1024))==receipt['stakeHubRegistrarSHA256'],"BSC_REGISTRAR_CHANGED")
+
+def native_init_genesis_v2(original,receipt):
+ # Dev init() already appends all three ValidatorExtra rows and writes the
+ # original BLS packet. Preseeding three rows makes its post-init length six.
+ # Keep that original bytecode and let its native initializer own the writes.
+ require(receipt['profile']==PROFILE and receipt['material']==PINS and digest(original)==receipt['genesisSHA256'],"BSC_NATIVE_INIT_ORIGINAL_REQUIRED")
+ seed=receipt['nativeGenesis'];fixtures=receipt['validators']
+ require(seed['schema']=='BSC_NATIVE_BLS_GENESIS_SEED_V1' and seed['layoutSHA256']==NATIVE_V1_EXTRA_LAYOUT_SHA256 and seed['seededArraySlot']=='11' and seed['seededStructWords']==22 and seed['seededVoteMemberSlot']=='2' and seed['validatorFixtures']==fixtures and len(fixtures)==3,"BSC_NATIVE_INIT_LAYOUT_REQUIRED")
+ genesis=json.loads(original);address='0x'+'0'*36+'1000';contract=genesis['alloc'][address]
+ codes={key:digest(bytes.fromhex(row['code'].removeprefix('0x'))) for key,row in genesis['alloc'].items() if row.get('code')}
+ require(len(codes)==17 and codes==seed['allOriginalSystemCodeSHA256'] and codes[address]==seed['validatorContractSHA256'],"BSC_NATIVE_INIT_ORIGINAL_CODE_CHANGED")
+ expected={NATIVE_V1_EXTRA_ARRAY_SLOT:'0x'+(3).to_bytes(32,'big').hex()}
+ for fixture,slots in zip(fixtures,NATIVE_V1_EXTRA_VOTE_SLOTS):
+  require(re.fullmatch('[0-9a-f]{96}',fixture['blsPublicKey']),"BSC_NATIVE_INIT_ORIGINAL_VOTE_CHANGED")
+  vote=bytes.fromhex(fixture['blsPublicKey'])
+  expected[slots[0]]='0x'+(97).to_bytes(32,'big').hex()
+  expected[slots[1]]='0x'+vote[:32].hex();expected[slots[2]]='0x'+vote[32:].ljust(32,bytes(1)).hex()
+ require(len(expected)==10 and contract.get('storage')==expected,"BSC_NATIVE_INIT_ORIGINAL_STORAGE_CHANGED")
+ del contract['storage']
+ require(genesis['config']['parlia']==seed['epochUnchanged'] and genesis['config']['chainId']==714,"BSC_NATIVE_INIT_CONSENSUS_CHANGED")
+ return json.dumps(genesis,sort_keys=True,separators=(',',':')).encode()
+def prepare_native_init_v2():
+ # Independent output: never mutate the historical V1 prepared generation.
+ private_directory(DEPENDENCIES);private_directory(PREPARED)
+ require(not PREPARED_V2.exists(),"BSC_NATIVE_INIT_ALREADY_PREPARED")
+ originalReceipt=json.loads(private_file(PREPARED/'receipt.json',16384))
+ originalGenesis=private_file(PREPARED/'genesis.json',1024*1024)
+ corrected=native_init_genesis_v2(originalGenesis,originalReceipt)
+ require(digest(private_file(PREPARED/'geth',128*1024*1024))==originalReceipt['clientSHA256']==PINS['geth-v1.7.8-linux-amd64'],"BSC_PREPARED_CHANGED")
+ require(digest(private_file(PREPARED/'create-validator',128*1024*1024))==originalReceipt['stakeHubRegistrarSHA256'],"BSC_REGISTRAR_CHANGED")
+ staged=DEPENDENCIES/('.native-init-v2-build-'+str(uuid.uuid4()));directory(staged)
+ write(staged/'geth',private_file(PREPARED/'geth',128*1024*1024),0o700)
+ write(staged/'create-validator',private_file(PREPARED/'create-validator',128*1024*1024),0o700)
+ directory(staged/'keys');private_directory(PREPARED/'keys');copiedOriginal=[]
+ for name in ['password.txt']+[f'validator-nodekey{i}' for i in range(3)]:
+  source=PREPARED/'keys'/name;body=private_file(source,8192);write(staged/'keys'/name,body);copiedOriginal.append((source,staged/'keys'/name,8192))
+ for index in range(3):
+  for relative in [f'validator{index}/keystore',f'bls{index}/bls/keystore']:
+   source=PREPARED/'keys'/relative;private_directory(source)
+   entries=list(source.iterdir());require(len(entries)==1,"BSC_VALIDATOR_FILES")
+   target=staged/'keys'/relative;target.mkdir(mode=0o700,parents=True)
+   entry=entries[0];body=private_file(entry,8192);value=json.loads(body)
+   field='pubkey' if relative.startswith('bls') else 'address';expected=originalReceipt['validators'][index]['blsPublicKey'] if field=='pubkey' else originalReceipt['validators'][index]['address'][2:]
+   require(value.get(field,'').lower()==expected,"BSC_NATIVE_INIT_ORIGINAL_KEY_CHANGED")
+   write(target/entry.name,body);copiedOriginal.append((entry,target/entry.name,8192))
+  wallet=PREPARED/'keys'/f'bls{index}/bls/wallet/direct/accounts';private_directory(wallet)
+  entries=list(wallet.iterdir());require(len(entries)==1 and entries[0].name=='all-accounts.keystore.json',"BSC_NATIVE_INIT_ORIGINAL_WALLET_CHANGED")
+  target=staged/'keys'/f'bls{index}/bls/wallet/direct/accounts';target.mkdir(mode=0o700,parents=True)
+  body=private_file(entries[0],65536);write(target/entries[0].name,body);copiedOriginal.append((entries[0],target/entries[0].name,65536))
+ write(staged/'genesis.json',corrected)
+ receipt=dict(originalReceipt);receipt.update(profile=PROFILE_V2,genesisSHA256=digest(corrected),genesisBytes=len(corrected))
+ receipt['nativeInit']={'schema':'BSC_ORIGINAL_NATIVE_INIT_GENESIS_V2','parentGenesisSHA256':digest(originalGenesis),'removedOriginalExtraStorageWords':10,'originalNativeInitializerOwnsBLS':True,'runtimeFinalityEstablished':False}
+ write(staged/'receipt.json',json.dumps(receipt,sort_keys=True,separators=(',',':')).encode())
+ require(private_file(staged/'genesis.json',1024*1024)==corrected and json.loads(private_file(staged/'receipt.json',16384))==receipt,"BSC_NATIVE_INIT_READBACK")
+ for path in staged.rglob('*'):
+  if path.is_dir():sync_directory(path)
+ sync_directory(staged)
+ for source,target,cap in copiedOriginal:require(private_file(source,cap)==private_file(target,cap),"BSC_NATIVE_INIT_ORIGINAL_KEY_CHANGED")
+ require(digest(private_file(staged/'geth',128*1024*1024))==originalReceipt['clientSHA256'] and digest(private_file(staged/'create-validator',128*1024*1024))==originalReceipt['stakeHubRegistrarSHA256'],"BSC_NATIVE_INIT_BINARY_READBACK")
+ # Recheck the exact original generation before publication, including its
+ # public fixture credentials. No previous prepared output is overwritten.
+ require(private_file(PREPARED/'genesis.json',1024*1024)==originalGenesis and json.loads(private_file(PREPARED/'receipt.json',16384))==originalReceipt,"BSC_NATIVE_INIT_ORIGINAL_CHANGED")
+ os.rename(staged,PREPARED_V2);sync_directory(DEPENDENCIES)
+ print(json.dumps({'nativeInitializationPrepared':True,'profile':PROFILE_V2,'originalSystemContracts':17,'nativeFinalityEstablished':False}))
+
+def serve(prepared=PREPARED,profile=PROFILE):
+ require(prepared.exists(),"BSC_MATERIAL_NOT_PREPARED");private_directory(DEPENDENCIES);private_directory(prepared)
+ receipt=json.loads(private_file(prepared/'receipt.json',16384));require(receipt['profile']==profile and receipt['material']==PINS,"BSC_PREPARED_PROFILE")
+ require(digest(private_file(prepared/'geth',128*1024*1024))==receipt['clientSHA256'] and digest(private_file(prepared/'genesis.json',1024*1024))==receipt['genesisSHA256'],"BSC_PREPARED_CHANGED")
+ require(digest(private_file(prepared/'create-validator',128*1024*1024))==receipt['stakeHubRegistrarSHA256'],"BSC_REGISTRAR_CHANGED")
+ if profile==PROFILE_V2:
+  parentReceipt=json.loads(private_file(PREPARED/'receipt.json',16384));parentGenesis=private_file(PREPARED/'genesis.json',1024*1024)
+  require(receipt.get('nativeInit')=={'schema':'BSC_ORIGINAL_NATIVE_INIT_GENESIS_V2','parentGenesisSHA256':digest(parentGenesis),'removedOriginalExtraStorageWords':10,'originalNativeInitializerOwnsBLS':True,'runtimeFinalityEstablished':False} and private_file(prepared/'genesis.json',1024*1024)==native_init_genesis_v2(parentGenesis,parentReceipt),"BSC_NATIVE_INIT_GENERATION_CHANGED")
+  require(receipt['validators']==parentReceipt['validators'] and receipt['clientSHA256']==parentReceipt['clientSHA256'] and receipt['stakeHubRegistrarSHA256']==parentReceipt['stakeHubRegistrarSHA256'],"BSC_NATIVE_INIT_ORIGINAL_BINDING_CHANGED")
  private_directory(REALMS);realm=REALMS/str(uuid.uuid4());directory(realm)
  nodes=[];broadcasts=set()
  parent=identity(os.getppid());initializationDeadline=time.monotonic()+NATIVE_INITIALIZATION_SECONDS
@@ -247,21 +325,21 @@ def serve():
   write(config,b'[Eth]\nNetworkId = 714\nSyncMode = "full"\n[Eth.Miner]\nGasCeil = 35000000\nGasPrice = 1000000000\n[Node]\nIPCPath = "geth.ipc"\nInsecureUnlockAllowed = true\n[Node.P2P]\nMaxPeers = 8\nNoDiscovery = true\n')
   for i in range(3):
    d=realm/f'node{i}';directory(d);directory(d/'geth')
-   shutil.copytree(PREPARED/f'keys/validator{i}/keystore',d/'keystore');shutil.copytree(PREPARED/f'keys/bls{i}/bls',d/'bls')
+   shutil.copytree(prepared/f'keys/validator{i}/keystore',d/'keystore');shutil.copytree(prepared/f'keys/bls{i}/bls',d/'bls')
    for copied in d.rglob('*'):copied.chmod(0o700 if copied.is_dir() else 0o600)
-   write(d/'geth/nodekey',private_file(PREPARED/f'keys/validator-nodekey{i}',512))
-   write(d/'password.txt',private_file(PREPARED/'keys/password.txt',512))
-  binary=str(PREPARED/'geth');native_command([binary,'init-network','--init.dir',str(realm),'--init.size=3','--init.p2p-port',str(p2p),'--config',str(config),str(PREPARED/'genesis.json')],realm,realm/'init.private.log',initializationDeadline)
+   write(d/'geth/nodekey',private_file(prepared/f'keys/validator-nodekey{i}',512))
+   write(d/'password.txt',private_file(prepared/'keys/password.txt',512))
+  binary=str(prepared/'geth');native_command([binary,'init-network','--init.dir',str(realm),'--init.size=3','--init.p2p-port',str(p2p),'--config',str(config),str(prepared/'genesis.json')],realm,realm/'init.private.log',initializationDeadline)
   for i in range(3):
    d=realm/f'node{i}';cfg=d/'config.toml';require(cfg.exists(),"BSC_GENERATED_CONFIG")
    text=cfg.read_text();cfg.write_text('\n'.join(x for x in text.splitlines() if '"<nil>"' not in x)+'\n');cfg.chmod(0o600)
-   native_command([binary,'--datadir',str(d),'init','--state.scheme','path','--db.engine','pebble',str(PREPARED/'genesis.json')],realm,realm/'init.private.log',initializationDeadline)
+   native_command([binary,'--datadir',str(d),'init','--state.scheme','path','--db.engine','pebble',str(prepared/'genesis.json')],realm,realm/'init.private.log',initializationDeadline)
    http=port();args=[binary,'--config',str(cfg),'--datadir',str(d),'--nodekey',str(d/'geth/nodekey'),'--nodiscover','--nat','none','--ipcdisable','--http','--http.addr','127.0.0.1','--http.port',str(http),'--http.api','eth,net,web3','--http.vhosts','localhost,127.0.0.1','--allow-insecure-unlock','--mine','--vote','--unlock',receipt['validators'][i]['address'],'--miner.etherbase',receipt['validators'][i]['address'],'--password',str(d/'password.txt'),'--blspassword',str(d/'password.txt'),'--gcmode','archive','--syncmode','full']
    log=open(d/'node.private.log','xb');os.chmod(d/'node.private.log',0o600)
    process=subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
    owned=identity(process.pid);nodes.append((process,owned,f'http://127.0.0.1:{http}',log))
-   require(pathlib.Path(f'/proc/{process.pid}/exe').resolve()==PREPARED/'geth',"BSC_ORIGINAL_EXECUTABLE_CHANGED")
-   print(json.dumps({'ownedBirth':True,'profile':PROFILE,'originalParent':parent,'ownedProcesses':[identity for child,identity,url,file in nodes]}),flush=True)
+   require(pathlib.Path(f'/proc/{process.pid}/exe').resolve()==prepared/'geth',"BSC_ORIGINAL_EXECUTABLE_CHANGED")
+   print(json.dumps({'ownedBirth':True,'profile':profile,'originalParent':parent,'ownedProcesses':[identity for child,identity,url,file in nodes]}),flush=True)
   deadline=time.monotonic()+NATIVE_FINALITY_STARTUP_SECONDS
   # Official StakeHub registrations use only the public lab validator keys.
   # Each exact fixture transaction is admitted once before the runtime exists.
@@ -275,7 +353,7 @@ def serve():
   registrationHashes=[]
   for index in range(3):
    parent_alive();log=realm/f'register{index}.private.log'
-   native_command([str(PREPARED/'create-validator'),'--consensus-key-dir',str(PREPARED/f'keys/validator{index}'),'--vote-key-dir',str(PREPARED/f'keys/bls{index}'),'--password-path',str(PREPARED/'keys/password.txt'),'--amount','20001','--validator-desc',f'Val{index}','--rpc-url',nodes[0][2]],realm,log,deadline)
+   native_command([str(prepared/'create-validator'),'--consensus-key-dir',str(prepared/f'keys/validator{index}'),'--vote-key-dir',str(prepared/f'keys/bls{index}'),'--password-path',str(prepared/'keys/password.txt'),'--amount','20001','--validator-desc',f'Val{index}','--rpc-url',nodes[0][2]],realm,log,deadline)
    matches=re.findall(rb'send createValidator\. Tx hash: (0x[0-9a-fA-F]{64})',private_file(log,16384))
    require(len(matches)==1,"BSC_STAKEHUB_TRANSACTION_UNRESOLVED");registrationHashes.append(matches[0].decode().lower())
   while True:
@@ -291,8 +369,8 @@ def serve():
      require(len({g['hash'] for g in genesis})==1,"BSC_GENESIS_CONFLICT");break
    except OSError:pass
    require(time.monotonic()<deadline,"BSC_FINALITY_STARTUP_TIMEOUT");time.sleep(.2)
-  require(digest(private_file(PREPARED/'geth',128*1024*1024))==receipt['clientSHA256'],"BSC_PREPARED_CHANGED")
-  print(json.dumps({'ready':True,'profile':PROFILE,'chainId':714,'genesisSHA256':receipt['genesisSHA256'],'ownedProcesses':[i for p,i,u,l in nodes],'originalParent':parent}),flush=True)
+  require(digest(private_file(prepared/'geth',128*1024*1024))==receipt['clientSHA256'],"BSC_PREPARED_CHANGED")
+  print(json.dumps({'ready':True,'profile':profile,'chainId':714,'genesisSHA256':receipt['genesisSHA256'],'ownedProcesses':[i for p,i,u,l in nodes],'originalParent':parent}),flush=True)
   for line in sys.stdin:
    require(len(line)<=262144,"BSC_COMMAND_BOUND");q=json.loads(line);require(set(q)=={'id','operation','input'} and isinstance(q['id'],int),"BSC_COMMAND_SHAPE")
    try:
@@ -331,10 +409,12 @@ def serve():
 
 if __name__=='__main__':
  try:
-  require(sys.argv[1:] in ([],['--prepare'],['--fetch-material'],['--prepare-tools']),"BSC_NO_OPTIONS")
+  require(sys.argv[1:] in ([],['--prepare'],['--fetch-material'],['--prepare-tools'],['--prepare-native-init-v2'],['--native-init-v2']),"BSC_NO_OPTIONS")
   if sys.argv[1:]==['--fetch-material']:fetch_material()
   elif sys.argv[1:]==['--prepare-tools']:prepare_tools()
   elif sys.argv[1:]==['--prepare']:prepare()
+  elif sys.argv[1:]==['--prepare-native-init-v2']:prepare_native_init_v2()
+  elif sys.argv[1:]==['--native-init-v2']:serve(PREPARED_V2,PROFILE_V2)
   else:serve()
  except Exception as e:
   code=str(e) if isinstance(e,RuntimeError) and re.fullmatch('BSC_[A-Z_]+',str(e)) else 'BSC_CONSTRUCTOR_FAILED'
