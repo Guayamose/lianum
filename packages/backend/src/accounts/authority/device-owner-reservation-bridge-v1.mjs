@@ -61,9 +61,10 @@ export async function createDeviceOwnerReservationBridgeV1(input) {
       'DEVICE_RESERVATION_DEVICE_SIGNATURE');
     assert.deepEqual(await actor.deviceDepositOriginalBinding(),consent.binding,'DEVICE_RESERVATION_BINDING_CHANGED');live();
     validateDeviceReservationConsentFreshV1(consent);let witness=null;
-    if(action==='PROVE_U'){witness=normalizeDeviceReservationWitnessV1(cloneInput(input.witness));const bytes=deviceReservationWitnessBytesV1(witness);
+    try{if(action==='PROVE_U'){witness=normalizeDeviceReservationWitnessV1(cloneInput(input.witness));const bytes=deviceReservationWitnessBytesV1(witness);
       try{assert.equal(sha(bytes),consent.witnessSHA256,'DEVICE_RESERVATION_WITNESS_CHANGED');}finally{bytes.fill(0);}}
-    row.consumed=true;return grant({action,consent,witness});}
+      row.consumed=true;return grant({action,consent,witness});
+    }catch(error){wipeDeviceReservationWitnessV1(witness);throw error;}}
   async function retainedWork(input,action){assert.ok(!busy,'DEVICE_RESERVATION_BRIDGE_BUSY');busy=true;
     let admission,completion,failure,failed=false;
     try{admission=await authorize(input,action);const consent=admissions.get(admission).consent,workKey=consent.jobId+':'+action;

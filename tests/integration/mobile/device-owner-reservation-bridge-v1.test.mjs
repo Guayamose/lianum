@@ -2,13 +2,17 @@
  * No proof, funding, native dispatch or mobile hardware acceptance. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {runInNewContext} from 'node:vm';
 import {createHash,createECDH,createPublicKey,verify} from 'node:crypto';
 import {fixture,createActorModule} from './paired-original-account-host-fixture.mjs';
 import {originalAccountAccessMessageV2} from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import {createGenericBalanceNativePreparation,genericBalanceNativeTerms} from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
 import {compileFundedGraph} from '../../../packages/engine/src/execution/graph/funded-graph.mjs';
 import {normalizeDeviceReservationConsentV1,deviceReservationConsentMessageV1,normalizeDeviceReservationWitnessV1,
-  deviceReservationWitnessBytesV1,normalizeDeviceReservationStatusV1} from '../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+  deviceReservationWitnessBytesV1,normalizeDeviceReservationStatusV1,validateDeviceReservationConsentFreshV1,
+  wipeDeviceReservationWitnessV1} from '../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {normalizeOriginalAccountSignatureV2} from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+import {exactRecord} from '../../../packages/backend/src/execution/encoding/commitments.mjs';
 const {createPairedOriginalAccountActorV2}=await createActorModule();
 const {createDeviceOwnerReservationBridgeV1,assertDeviceOwnerReservationBridgeV1,consumeDeviceOwnerReservationAuthorizationV1}
   =await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
@@ -56,6 +60,29 @@ test('fixed U/S framing signs all custody and witness bindings below4096 and rej
     poolTerms:{scope:asset.scope,policy:asset.policy,codeHash:asset.codeHash,assetIdentity:asset.assetIdentity,domainCommitment:f.world.identity.domainCommitment},
     depositJobId:h('depositjob'),quoteId:h('quote'),jobId:h('job'),custody,statement,witnessSHA256,proofSHA256:null,publicInputsSHA256:null,
     observed:{blockNumber:'1',blockHash:h('block'),timestamp:'6000'},openingDisclosure:'ONE_FUNDED_OWNER_OPENING_TO_ORIGINAL_EPHEMERAL_WORKER'});
+  // Run only the actual original private admission function on this HOST's
+  // signed terms. Capture its owned normalization copy; minting a grant is forbidden.
+  const originalSource=createDeviceOwnerReservationBridgeV1.toString(),start=originalSource.indexOf('  async function authorize(input,action){'),
+    end=originalSource.indexOf('  async function retainedWork',start);
+  assert.ok(start>=0&&end>start,'HOST_ORIGINAL_ADMISSION_SOURCE_REQUIRED');
+  const rejectedConsent=normalizeDeviceReservationConsentV1({...consent,witnessSHA256:h('different-witness')}),
+    pendingRow={value:rejectedConsent,consumed:false},beforeWitness=createHash('sha256').update(JSON.stringify(witness)).digest('hex');
+  let ownedWitness,grants=0;
+  const admission=runInNewContext('(()=>{'+originalSource.slice(start,end)+';return authorize;})()',{
+    assert,Buffer,verify,exactRecord,cloneInput:structuredClone,live(){},
+    validateDeviceReservationConsentFreshV1,normalizeOriginalAccountSignatureV2,
+    deviceReservationConsentMessageV1,deviceReservationWitnessBytesV1,wipeDeviceReservationWitnessV1,
+    normalizeDeviceReservationWitnessV1(raw){ownedWitness=normalizeDeviceReservationWitnessV1(raw);return ownedWitness;},
+    pending:new Map([[rejectedConsent.challengeId,pendingRow]]),
+    actor:{async deviceDepositOriginalBinding(){return review.binding;}},
+    key:createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(f.device.publicKey.slice(2,66),'hex').toString('base64url'),
+      y:Buffer.from(f.device.publicKey.slice(66),'hex').toString('base64url')}}),
+    sha:bytes=>createHash('sha256').update(bytes).digest('hex'),grant(){grants++;throw Error('HOST_GRANT_FORBIDDEN');}});
+  await assert.rejects(admission({consent:rejectedConsent,signature:f.device.sign(deviceReservationConsentMessageV1(rejectedConsent)),witness},'PROVE_U'),
+    /DEVICE_RESERVATION_WITNESS_CHANGED/);
+  assert.ok(ownedWitness&&Object.values(ownedWitness).every(value=>value===null),'HOST_REJECTED_PRIVATE_WITNESS_NOT_WIPED');
+  assert.equal(pendingRow.consumed,false);assert.equal(grants,0);
+  assert.equal(createHash('sha256').update(JSON.stringify(witness)).digest('hex'),beforeWitness);
   const frame=deviceReservationConsentMessageV1(consent);assert.ok(frame.length<=4096);
   const pub=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(f.device.publicKey.slice(2,66),'hex').toString('base64url'),
     y:Buffer.from(f.device.publicKey.slice(66),'hex').toString('base64url')}}),signed=f.device.sign(frame);
