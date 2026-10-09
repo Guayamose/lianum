@@ -36,7 +36,7 @@ export async function createDeviceOwnerOutputBalanceApiV1(descriptor: OriginalAc
       for (const name of ['parentJobId', 'rootId', 'noteRevision'] as const) if (value[name] !== input[name]) bad();
       if (value.change.nullifier !== input.changeNullifier || value.recovery.nullifier !== input.recoveryNullifier
         || value.expiresAt > access.expiresAt || value.expiresAt > Date.now() + 15_000) bad();
-      if (!value.change.path) bad(); await verifyPath(value.change.path);
+      if (value.change.path) await verifyPath(value.change.path);
       if (value.recovery.path) await verifyPath(value.recovery.path);
       live(); if (generation !== attempt) bad(); validateDeviceOutputBalanceFreshV1(value);
       const handle = Object.freeze(Object.create(null));

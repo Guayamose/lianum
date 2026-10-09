@@ -869,7 +869,7 @@ test('original vault persists output custody and binds fresh READ balance to loc
 
 // These fixed TLS responses are explicit HOST framing, never original monetary
 // acceptance. They exercise the client's signed READ/path/lifetime boundaries.
-test('output READ never installs a superseded response or a copied/closed handle; wrong authorization digest is rejected', async () => {
+test('output READ accepts only the original both-LOCKED reorg pair and rejects copied, superseded or closed handles', async () => {
   reset();
   const { createDeviceOwnerOutputBalanceApiV1, readDeviceOutputBalanceV1 } = await import('../src/api/device-owner-output-balance-api-v1.ts');
   const { originalAccountFramesV2 } = await import('./helpers/original-account-frames-v2.mjs');
@@ -890,10 +890,12 @@ test('output READ never installs a superseded response or a copied/closed handle
     recovery: { noteRole: 'recovery', commitment: hash(35), nullifier: input.recoveryNullifier, amount: '100', state: 'LOCKED', path: null },
     observed: { blockNumber: '1', blockHash: hash(36), timestamp: '1' }, expiresAt: Date.now() + 10000,
     authorizationSHA256: sha(originalAccountAccessMessageV2(frames.access)).toString('hex') };
+  const { normalizeDeviceOutputBalanceV1 } = await import('../../../packages/mobile-protocol/src/device-output-balance-v1.mjs');
+  let responseBody = base;
   let count = 0, digestTampered = false; const entered = Promise.withResolvers(), released = Promise.withResolvers();
   control.fetch = async (target, options) => {
     assert.ok(target.endsWith('/device-execution/output-balances'));
-    const body = structuredClone(base); if (digestTampered) body.authorizationSHA256 = hash(37);
+    const body = structuredClone(responseBody); if (digestTampered) body.authorizationSHA256 = hash(37);
     if (++count === 1) { entered.resolve(); await released.promise; }
     const response = new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
     Object.defineProperty(response, 'url', { value: target }); return response;
@@ -904,6 +906,38 @@ test('output READ never installs a superseded response or a copied/closed handle
   const second = await api.observe(input); released.resolve(); await firstRejected;
   assert.equal(readDeviceOutputBalanceV1(second).change.amount, '400');
   assert.throws(() => readDeviceOutputBalanceV1({ ...second }), /RESPONSE_INVALID/);
+  // These public HOST frames carry no financial authority. Exercise the real
+  // response decoder and SDK handle, including its original null-path branch.
+  const locked = structuredClone(base); locked.change.state = 'LOCKED'; locked.change.path = null;
+  const normalized = normalizeDeviceOutputBalanceV1(locked);
+  assert.equal(normalized.nativeOutcome, null);
+  for (const role of ['change', 'recovery']) {
+    assert.equal(normalized[role].state, 'LOCKED'); assert.equal(normalized[role].path, null);
+  }
+  responseBody = locked; const pending = await api.observe(input), pendingValue = readDeviceOutputBalanceV1(pending);
+  for (const role of ['change', 'recovery']) {
+    assert.equal(pendingValue[role].state, 'LOCKED'); assert.equal(pendingValue[role].path, null);
+  }
+  assert.equal(Object.isFrozen(pendingValue.change), true);
+  assert.throws(() => readDeviceOutputBalanceV1({ ...pending }), /RESPONSE_INVALID/);
+  const contradictions = [
+    value => { value.nativeOutcome = 'FULFILLED'; },
+    value => { value.nativeOutcome = 'RECOVERED'; },
+    value => { value.recovery.state = 'UNSPENT'; value.recovery.path = { ...base.change.path, leaf: value.recovery.commitment }; },
+    value => { value.change.path = structuredClone(base.change.path); },
+    value => { value.change.state = 'UNSPENT'; },
+    value => { value.sourceNullifierSpent = false; },
+    value => { value.recovery.nullifier = value.change.nullifier; },
+  ];
+  for (const mutate of contradictions) {
+    const contradictory = structuredClone(locked); mutate(contradictory);
+    assert.throws(() => normalizeDeviceOutputBalanceV1(contradictory), /MOBILE_DEVICE_OUTPUT_BALANCE_INVALID/);
+    responseBody = contradictory; await assert.rejects(api.observe(input), /MOBILE_DEVICE_OUTPUT_BALANCE_INVALID/);
+  }
+  // Every remaining path still uses the original cryptographic verification.
+  responseBody = structuredClone(base); responseBody.change.path.root = hash(37);
+  await assert.rejects(api.observe(input), /RESPONSE_INVALID/);
+  responseBody = base;
   digestTampered = true; await assert.rejects(api.observe(input), /RESPONSE_INVALID/);
   assert.throws(() => readDeviceOutputBalanceV1(second), /RESPONSE_INVALID/);
   digestTampered = false; const third = await api.observe(input); api.close();

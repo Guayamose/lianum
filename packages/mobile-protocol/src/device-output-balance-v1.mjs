@@ -13,7 +13,7 @@ function path(raw){const value=exact(raw,['root','index','leaf','siblings']);hex
   value.siblings=Array.from({length:6},(_,i)=>{const row=Object.getOwnPropertyDescriptor(value.siblings,String(i));need(row?.enumerable&&Object.hasOwn(row,'value'));return hex(row.value);});return value;}
 function note(raw,role){const value=exact(raw,['noteRole','commitment','nullifier','amount','state','path']);need(value.noteRole===role);
   hex(value.commitment);hex(value.nullifier);u64(value.amount);need(BigInt(value.amount)>0n&&value.commitment!=='0'.repeat(64)&&value.nullifier!=='0'.repeat(64));
-  need(['UNSPENT','SPENT','LOCKED'].includes(value.state));need(role==='recovery'||value.state!=='LOCKED');
+  need(['UNSPENT','SPENT','LOCKED'].includes(value.state));
   if(value.state==='LOCKED')need(value.path===null);else{value.path=path(value.path);need(value.path.leaf===value.commitment);}return value;}
 const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
 export function normalizeDeviceOutputBalanceV1(raw){const value=exact(raw,['version','profile','origin','pairingId','devicePublicKey','parentJobId','rootId',
@@ -30,6 +30,9 @@ export function normalizeDeviceOutputBalanceV1(raw){const value=exact(raw,['vers
   value.change=note(value.change,'change');value.recovery=note(value.recovery,'recovery');
   need(new Set([value.sourceNullifier,value.change.nullifier,value.recovery.nullifier]).size===3
     &&value.change.commitment!==value.recovery.commitment);
+  // An invalidated original F publishes no spendable path for either output.
+  need(value.change.state!=='LOCKED'||value.nativeOutcome===null&&value.recovery.state==='LOCKED'
+    &&value.change.path===null&&value.recovery.path===null);
   need((value.recovery.state==='LOCKED')===(value.nativeOutcome!=='RECOVERED'));
   if(value.recovery.path!==null)need(value.recovery.path.root===value.change.path.root);
   return freeze(value);}
