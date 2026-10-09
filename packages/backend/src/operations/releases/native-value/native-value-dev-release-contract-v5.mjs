@@ -31,6 +31,7 @@ export const NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5 = Object.freeze([
   'development-config/layout.json',
 ]);
 export const NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5 = Object.freeze([
+  'workspace-module/apps/platform/src/run-original-native-source-v1.mjs',
   'workspace-module/experiments/wallet/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs',
   'workspace-module/packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs',
   'workspace-module/packages/backend/src/claims/protocol/framing.mjs',
