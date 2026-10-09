@@ -20,17 +20,18 @@ import {createOfficialProtocolFixture,assertOfficialProtocolFixture} from '../..
 import {createLocalFlatOperator,createFlatOperatorQuorum} from '../operators/claims/native-operators.mjs';
 import {deployFlatSystem,assertOwnedFlatSystem} from '../deployments/system/deploy-system.mjs';
 import {createOriginalDeviceExternalFlatNoteAuthorityV1,createOriginalDeviceExternalFlatShareNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
-import {createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1,captureOriginalDeviceExternalFlatGraphServiceV1,reopenOriginalDeviceExternalFlatGraphServiceV1} from './device-external-flat-source-graph-service-v1.mjs';
-import {createOwnedPrivateExternalRouterV1} from '../deployments/defi/deploy-private-external-router-v1.mjs';
-import {createOwnedMetaMorphoGraphDeliveryObserverV1} from '../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
+import {createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1,createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1,captureOriginalDeviceExternalFlatGraphServiceV1,reopenOriginalDeviceExternalFlatGraphServiceV1} from './device-external-flat-source-graph-service-v1.mjs';
+import {createOwnedPrivateExternalRouterV1,createOwnedPrivateMorphoBluePositionRouterV1} from '../deployments/defi/deploy-private-external-router-v1.mjs';
+import {createOwnedMetaMorphoGraphDeliveryObserverV1,createOwnedMorphoBluePositionGraphDeliveryObserverV1} from '../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 import {createDeviceExternalFlatRecoveryAuthorityV1,openDeviceExternalFlatRecoveryAuthorityV1,closeDeviceExternalFlatRecoveryAuthorityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {loadNativeValueDevDeploymentArtifactsV5} from '../deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 
-const local=join(ROOT,'.local/original-device-external-flat-local-v1');
+import {createOwnedOriginalMorphoBluePositionV1} from '../deployments/defi/deploy-morpho-blue-position-v1.mjs';
+const legacyLocal=join(ROOT,'.local/original-device-external-flat-local-v1'),blueLocal=join(ROOT,'.local/original-device-morpho-blue-position-v1');
 const fresh=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
-const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:5076,sha256:'f6df3c750d82c797548145966faeac3b9a7f8d6efe309b5ff45171ae4ba3de12'});
+const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:5369,sha256:'3b071fca9f5c3edfe989bdd06d60119d970346794d3abc82105b0f1b41d3c131'});
 function exact(value,names){
   assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype
     &&Reflect.ownKeys(value).length===names.length&&names.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable&&Object.hasOwn(d,'value');}),'DEVICE_EXTERNAL_LOCAL_CONFIGURATION');
@@ -68,10 +69,12 @@ async function sourceReview(){
     assert.equal(createHash('sha256').update(bytes).digest('hex'),callerPin.sha256,'DEVICE_EXTERNAL_LOCAL_CALLER_PIN');
   }finally{await handle.close();}
 }
-export function originalDeviceExternalFlatLocalConfigurationPathV1(){assert.equal(arguments.length,0);return join(local,'operator.json');}
+export function originalDeviceExternalFlatLocalConfigurationPathV1(){assert.equal(arguments.length,0);return join(legacyLocal,'operator.json');}
 export function createOriginalDeviceExternalFlatLocalOperatorV1(input){assert.equal(arguments.length,1);return localOperator(input,false);}
 export function openOriginalDeviceExternalFlatLocalOperatorV1(input){assert.equal(arguments.length,1);return localOperator(input,true);}
-async function localOperator(input,reopening){const selected=configuration(input); // detach before the first await
+export function originalDeviceMorphoBluePositionLocalConfigurationPathV1(){assert.equal(arguments.length,0);return join(blueLocal,'operator.json');}
+export function createOriginalDeviceMorphoBluePositionLocalOperatorV1(input){assert.equal(arguments.length,1);return localOperator(input,false,true);}
+async function localOperator(input,reopening,originalBlue=false){const local=originalBlue?blueLocal:legacyLocal;const selected=configuration(input); // detach before the first await
   await sourceReview();await physicalDirectory(local);
   const lockPath=join(local,'active.lock'),lock=await open(lockPath,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   let lockBefore;try{lockBefore=await lock.stat();}catch(error){await lock.close();throw error;}
@@ -114,20 +117,21 @@ async function localOperator(input,reopening){const selected=configuration(input
     const runId=randomUUID(),directory=join(FLAT,'.local/device-external-flat-ordered-observation-v1','attempt-'+runId,'private-audit');await mkdir(directory,{recursive:true,mode:0o700});await physicalDirectory(directory);identity={directory,runId,sourceSHA256:sourceHash(),deadlineMs:Date.now()+90*60*1000};
     runtimeStarted=true;runtime=await createOwnedDeviceExternalFlatReceiverV1();registry=await createWrappedPrivateLifetimeRegistryV1({runtime,...identity});authority=await createDeviceExternalFlatRecoveryAuthorityV1(identity);
     const official=await createOfficialProtocolFixture(runtime);assertOfficialProtocolFixture(runtime,official);
+    const position=originalBlue?await createOwnedOriginalMorphoBluePositionV1({runtime,protocolFixture:official}):null,share=originalBlue?position.contract:official.vault;
     const capabilities=[];
-    for(const contract of [official.first,official.vault])capabilities.push(await createOwnedPoolAsset({runtime,
+    for(const contract of [official.first,share])capabilities.push(await createOwnedPoolAsset({runtime,
       deployment:{address:contract.address,transactionHash:contract.receipt.transactionHash,expectedCode:contract.code,codeHash:evmRuntimeCodeHash(contract.code)},
       symbol:(await official.read(contract,'symbol'))[0],decimals:Number((await official.read(contract,'decimals'))[0]),kind:'ERC20'}));
     assert.ok(capabilities[0].metadata.symbol==='USDC'&&capabilities[0].metadata.decimals===6,'DEVICE_EXTERNAL_LOCAL_FIXED_USDC');
-    const shareIdentity=derivePrivateAssetIdentity(runtime.metadata.chainId,official.vault.address,evmRuntimeCodeHash(official.vault.code)).slice(2);
+    const shareIdentity=derivePrivateAssetIdentity(runtime.metadata.chainId,share.address,evmRuntimeCodeHash(share.code)).slice(2);
     const rule={family:'3',genesis:bare(runtime.metadata.evmGenesis),asset:shareIdentity,finalityKind:'3',minimumConfirmations:'1',maximumEvidenceLifetime:'86400',maximumClockSkew:'30'},rules=nativeAdmissionRulesTree([rule]);
     for(let signerIndex=0;signerIndex<4;signerIndex++)operators.push(createLocalFlatOperator({signerIndex}));
     const system=await deployFlatSystem(runtime,{deploymentDomain:'0x'+fresh(),registryEpoch:'1',rulesRoot:'0x'+rules.root,
       attesterKeys:operators.map(operator=>operator.publicKey),pools:capabilities.map(assetCapability=>({assetCapability,policy:'0x'+fresh(),deploymentDomain:'0x'+fresh()}))});
     assertOwnedFlatSystem(runtime,system);assert.equal(system.bootstrap.poolsUnfunded,true);assert.equal(system.bootstrap.constructorStorageMatched,true);
     assert.equal(system.bootstrap.completeRuntimesMatched,true);assert.equal(Object.keys(system.verifiers).length,12);
-    const router=await createOwnedPrivateExternalRouterV1({runtime,system,poolIndex:1,protocolFixture:official,protocolKind:'METAMORPHO_V1_EXACT_SHARE_MINT'});
-    const deliveryObserver=await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,protocolFixture:official});
+    const router=originalBlue?await createOwnedPrivateMorphoBluePositionRouterV1({runtime,system,poolIndex:1,position}):await createOwnedPrivateExternalRouterV1({runtime,system,poolIndex:1,protocolFixture:official,protocolKind:'METAMORPHO_V1_EXACT_SHARE_MINT'});
+    const deliveryObserver=originalBlue?await createOwnedMorphoBluePositionGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,position}):await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,protocolFixture:official});
     for(const operator of operators)await operator.bind({runtime,system,bitcoin:null,solana:null,evmDelivery:deliveryObserver,rules:[rule],rulePaths:rules.paths});
     const quorum=createFlatOperatorQuorum({operators:operators.slice(0,3)});
     accountStarted=true;account=await createOriginalDeviceExternalFlatNoteAuthorityV1({runtime,system,poolIndex:0,origin:selected.origin,devicePublicKey:selected.devicePublicKey});
@@ -135,7 +139,7 @@ async function localOperator(input,reopening){const selected=configuration(input
     // The SAME original realm exposes source, target and GRAPH namespaces.
     // No Linux source or target note owner is created. Both device custodians
     // and the actual graph keeper exist before any external token funding.
-    listener=await createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1({account,targetAccount,runtime,system,registry,recoveryAuthority:authority,protocols:official,quorum,router,deliveryObserver,rule,rulePath:rules.paths[0],maximumSolverInput:selected.depositAmountAtomic,tls:selected.tls,host:'0.0.0.0'});
+    listener=await (originalBlue?createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1:createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1)({account,targetAccount,runtime,system,registry,recoveryAuthority:authority,protocols:official,quorum,router,deliveryObserver,rule,rulePath:rules.paths[0],maximumSolverInput:selected.depositAmountAtomic,tls:selected.tls,host:'0.0.0.0'});
     const pool=system.pools[0],asset=pool.assetCapability,amount=BigInt(selected.depositAmountAtomic);
     const before=await runtime.block();assert.equal(await asset.allowance(system.sender,pool.address,before.number),0n,'DEVICE_EXTERNAL_LOCAL_ALLOWANCE_NOT_FRESH');
     assert.ok(await asset.balance(system.sender,before.number)>=amount,'DEVICE_EXTERNAL_LOCAL_FAKE_BALANCE');
@@ -145,14 +149,14 @@ async function localOperator(input,reopening){const selected=configuration(input
     await official.send(official.first,'approve',[router.address,amount]);
     const graphApproval=await runtime.block();assert.equal(await asset.allowance(system.sender,router.address,graphApproval.number),amount,'DEVICE_EXTERNAL_LOCAL_EXACT_ALLOWANCE');
     return Object.freeze({descriptor:listener.descriptor,targetDescriptor:listener.targetDescriptor,url:listener.url,localFakeValues:true,automaticFunding:false,
-      originalScratchRetained:true,newProcessRecoveryEstablished:false,orderedCaptureAvailable:true,capture(){assert.equal(arguments.length,0);assert.ok(!closing&&!captureWork,'DEVICE_EXTERNAL_LOCAL_ORIGINAL_CAPTURE_ONLY');return captureWork=(async()=>{const result=await captureOriginalDeviceExternalFlatGraphServiceV1(listener);assert.ok(result.originalResourcesStopped&&result.observationOnly);await publishGraphRecovery({profile:result.profile,identity,checkpoint:result.checkpoint,descriptorSHA256:hashDescriptor(listener.descriptor),targetDescriptorSHA256:hashDescriptor(listener.targetDescriptor),configurationSHA256:configurationSHA(selected)});completedCapture=true;return result;})();},close});
+      originalScratchRetained:true,newProcessRecoveryEstablished:false,...(originalBlue?{profile:'MORPHO_BLUE_PRIVATE_SUPPLY_V1'}:{}),orderedCaptureAvailable:!originalBlue,capture(){assert.equal(arguments.length,0);assert.ok(!originalBlue,'BLUE_POSITION_TYPED_RECOVERY_NOT_INSTALLED');assert.ok(!closing&&!captureWork,'DEVICE_EXTERNAL_LOCAL_ORIGINAL_CAPTURE_ONLY');return captureWork=(async()=>{const result=await captureOriginalDeviceExternalFlatGraphServiceV1(listener);assert.ok(result.originalResourcesStopped&&result.observationOnly);await publishGraphRecovery({profile:result.profile,identity,checkpoint:result.checkpoint,descriptorSHA256:hashDescriptor(listener.descriptor),targetDescriptorSHA256:hashDescriptor(listener.targetDescriptor),configurationSHA256:configurationSHA(selected)});completedCapture=true;return result;})();},close});
   }catch(error){
     try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'DEVICE_EXTERNAL_LOCAL_START_CLEANUP_UNCONFIRMED',{cause:error});}
     throw error;
   }
 }
 
-const graphRecoveryPath=join(local,'graph-recovery.json');
+const graphRecoveryPath=join(legacyLocal,'graph-recovery.json');
 const hashDescriptor=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const configurationSHA=value=>hashDescriptor({origin:value.origin,devicePublicKey:value.devicePublicKey,depositAmountAtomic:value.depositAmountAtomic});
 const sourceHash=()=>{assert.match(NATIVE_VALUE_DEV_RELEASE_V5.hostSourceClosureSHA256,/^[0-9a-f]{64}$/);return NATIVE_VALUE_DEV_RELEASE_V5.hostSourceClosureSHA256;};

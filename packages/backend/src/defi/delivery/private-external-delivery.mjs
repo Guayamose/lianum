@@ -27,7 +27,7 @@ export function preparePrivateExternalDelivery(input){
   assert.ok(['100','500','3000','10000'].includes(input.fee));
   protocolBinding=sha(Buffer.from(sha('UNISWAP_V3_EXACT_OUTPUT_SINGLE')+word(input.fee),'hex'));
  }else{
-  assert.ok(['METAMORPHO_V1_EXACT_SHARE_MINT','AAVE_V3_STATIC_EXACT_SHARE_MINT'].includes(input.protocolKind));assert.equal(input.fee,null);assert.equal(id.protocol,id.outputAsset);
+  assert.ok(['METAMORPHO_V1_EXACT_SHARE_MINT','AAVE_V3_STATIC_EXACT_SHARE_MINT','MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY'].includes(input.protocolKind));assert.equal(input.fee,null);assert.equal(id.protocol,id.outputAsset);
   protocolBinding=sha(input.protocolKind);
  }
  const words=[sha('LIANUM/EXTERNAL/EXACT-OUTPUT/1'),word(id.chainId),...['router','solver','inputAsset','outputAsset','protocol','targetPool'].map(k=>address(id[k])),

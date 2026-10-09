@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
+import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, MORPHO_BLUE_POSITION_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   evmGraphDeliveryTermsV1, evmGraphDeliveryDescriptorCommitmentV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 }
   from '../../../../src/chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
@@ -12,7 +12,7 @@ import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment }
   from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
 import { assertOwnedEvmGraphDeliveryObserverV1, assertOwnedEvmGraphDeliveryFactsV1,
   assertOwnedEvmGraphDeliveryDescriptorV1 } from '../../../../src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
-import { prepareOwnedMetaMorphoGraphDescriptorV1, assertOwnedMetaMorphoGraphDeliveryFactsV1,
+import { prepareOwnedMetaMorphoGraphDescriptorV1, assertOwnedMetaMorphoGraphDeliveryFactsV1, prepareOwnedMorphoBluePositionGraphDescriptorV1,
   prepareOwnedUniswapGraphDescriptorV1, assertOwnedUniswapGraphDeliveryFactsV1, readOriginalEvmGraphDeliveryEconomicFactsV1 }
   from '../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 
@@ -214,4 +214,40 @@ test('original delivery economics conserve token debit, native gas and output ba
   assert.equal((await call()).economics.status,'OBSERVED'); assert.deepEqual(checks,['receipt','source','source','current']);
   runtime.checkReceipt=async()=>{ throw Error('HOST_ORIGINAL_FINANCIAL_GUARD'); };
   await assert.rejects(call(),/HOST_ORIGINAL_FINANCIAL_GUARD/);
+});
+
+
+// The new profile uses the unchanged D27/PAEG ABI, but cannot acquire the
+// historical MetaMorpho identity or fabricate its original position custody.
+test('original Blue position framing binds its distinct profile without granting custody to copies', () => {
+  const descriptor=official();descriptor.profile=MORPHO_BLUE_POSITION_GRAPH_DELIVERY_PROFILE_V1;
+  descriptor.plan.protocolKind='MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY';
+  const intent={descriptor,receiptKeyCommitment:h(13),proof:'deadbeef'};
+  const encoded=encodeEvmGraphDeliveryCallV1(intent);
+  assert.deepEqual(decodeEvmGraphDeliveryCallV1(encoded,descriptor),intent);
+  assert.notEqual(evmGraphDeliveryDescriptorCommitmentV1(descriptor),evmGraphDeliveryDescriptorCommitmentV1(official()));
+  const counterfeit=structuredClone(descriptor);counterfeit.profile=METAMORPHO_GRAPH_DELIVERY_PROFILE_V1;
+  assert.throws(()=>validateEvmGraphDeliveryDescriptorV1(counterfeit));
+  const observer=Object.freeze({identity:descriptor.plan.identity}),router=Object.freeze({identity:descriptor.plan.identity});
+  assert.throws(()=>prepareOwnedMorphoBluePositionGraphDescriptorV1({observer,router,route:descriptor.plan.route,ownerPublicInputs:descriptor.plan.ownerPublicInputs}));
+  assert.throws(()=>assertOwnedEvmGraphDeliveryObserverV1(observer,{runtime:{},system:{},poolIndex:1}));
+});
+
+test('actual Blue supply observer checks exact original share rounding and keeps NAV separate from input',async()=>{
+  const url=import.meta.url.includes('/chain-adapters/')
+    ?new URL('./metamorpho-graph-delivery-observer-v1.mjs',import.meta.url)
+    :new URL('../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs',import.meta.url);
+  const source=await readFile(url,'utf8'),begin='    } else if(blue) {',end='    } else {\n      assert.equal(spent, BigInt(before.previewMint)';
+  assert.equal(source.split(begin).length-1,1);const start=source.indexOf(begin)+begin.length,finish=source.indexOf(end,start);assert(finish>start);
+  const inspect=new Function('assert','before','after','spent','shares',source.slice(start,finish));
+  const before={totalAssets:'0',totalShares:'1000000',previewMint:'2',maxMint:'9000000',
+    market:['10','10000009','0','0','1','0'],position:['1000000','0','0'],morphoUnderlying:'10',vaultUnderlying:'0',solverShares:'0',routerShares:'0'};
+  const after={...structuredClone(before),totalAssets:'2',totalShares:'2000001',market:['12','11000010','0','0','1','0'],position:['2000001','0','0'],morphoUnderlying:'12'};
+  inspect(assert,before,after,2n,1000001n);
+  // Correlated wrong market/position balances still fail the original ceil.
+  const wrong=structuredClone(after);wrong.market[1]='11000009';wrong.position[0]=wrong.totalShares='2000000';
+  assert.throws(()=>inspect(assert,before,wrong,2n,1000000n));
+  const debt=structuredClone(after);debt.market[2]='1';assert.throws(()=>inspect(assert,before,debt,2n,1000001n));
+  const unbacked=structuredClone(after);unbacked.morphoUnderlying='11';assert.throws(()=>inspect(assert,before,unbacked,2n,1000001n));
+  const inventedNAV=structuredClone(after);inventedNAV.totalAssets='3';assert.throws(()=>inspect(assert,before,inventedNAV,2n,1000001n));
 });

@@ -14,6 +14,8 @@ import {assertOwnedPoolAsset} from '../../../chains/shared/contracts/owned-pool-
 import {exactRecord} from '../../../execution/encoding/commitments.mjs';
 import { officialAaveFixtureCompilationV1, assertOfficialAaveFixtureV1 } from '../../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import { expectedAaveRuntimeCodeV1 } from './aave-v3-runtime-code-v1.mjs';
+import { assertOwnedOriginalMorphoBluePositionV1, readOwnedOriginalMorphoBluePositionContextV1, readOwnedOriginalMorphoBluePositionCompilationV1 } from './deploy-morpho-blue-position-v1.mjs';
+const BLUE='MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY';
 const D=join(dirname(fileURLToPath(import.meta.url)),'../../artifacts/private-external-v1'),owned=new WeakMap();
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const bare=x=>{assert.ok(/^0x[0-9a-f]+$/.test(x));return x.slice(2);};
@@ -41,18 +43,26 @@ export function assertOwnedPrivateExternalRouterV1(router,input){
  return undefined;
 }
 export async function createOwnedPrivateExternalRouterV1(input){assert.equal(arguments.length,1);return buildOwnedPrivateExternalRouterV1(input,null);}
-async function buildOwnedPrivateExternalRouterV1(input,recovery){
+export async function createOwnedPrivateMorphoBluePositionRouterV1(input){
+ assert.equal(arguments.length,1);exactRecord(input,['runtime','system','poolIndex','position']);
+ assertOwnedOriginalMorphoBluePositionV1(input.runtime,input.position);
+ const {protocolFixture}=readOwnedOriginalMorphoBluePositionContextV1(input.runtime,input.position);
+ return buildOwnedPrivateExternalRouterV1({runtime:input.runtime,system:input.system,poolIndex:input.poolIndex,protocolFixture,protocolKind:BLUE},null,input.position);
+}
+async function buildOwnedPrivateExternalRouterV1(input,recovery,position=null){
  exactRecord(input,['runtime','system','poolIndex','protocolFixture','protocolKind']);
- const {runtime,system,poolIndex,protocolFixture:p,protocolKind}=input;
- await assertOwnedLocalEvmV2(runtime);assertOwnedFlatSystem(runtime,system);assertOfficialProtocolFixture(runtime,p);
+ const {runtime,system,poolIndex,protocolFixture:original,protocolKind}=input,blue=position!==null;
+ const p=blue?Object.freeze({...original,vault:position.contract}):original;
+ if(blue){assert.equal(protocolKind,BLUE);assert.equal(recovery,null,'BLUE_POSITION_LEGACY_RECOVERY_DENIED');assertOwnedOriginalMorphoBluePositionV1(runtime,position);}
+ await assertOwnedLocalEvmV2(runtime);assertOwnedFlatSystem(runtime,system);assertOfficialProtocolFixture(runtime,original);
  assert.equal(system.pools.length,2);assert.ok(poolIndex===0||poolIndex===1);
- assert.ok(['UNISWAP_V3_EXACT_OUTPUT_SINGLE','METAMORPHO_V1_EXACT_SHARE_MINT','AAVE_V3_STATIC_EXACT_SHARE_MINT'].includes(protocolKind));
+ assert.ok(blue || ['UNISWAP_V3_EXACT_OUTPUT_SINGLE','METAMORPHO_V1_EXACT_SHARE_MINT','AAVE_V3_STATIC_EXACT_SHARE_MINT'].includes(protocolKind));
  const aave=protocolKind==='AAVE_V3_STATIC_EXACT_SHARE_MINT'; if(aave)assertOfficialAaveFixtureV1(runtime,p);
  const uni=protocolKind==='UNISWAP_V3_EXACT_OUTPUT_SINGLE',output=uni?p.second:p.vault,protocol=uni?p.swapRouter:p.vault;
  const pool=system.pools[poolIndex],sourcePool=system.pools[1-poolIndex];assertOwnedPoolAsset(runtime,pool.assetCapability);
  assert.equal(pool.assetMetadata.address,output.address);assert.equal(pool.assetMetadata.kind,'ERC20');
- const parsed=aave?null:metadata(),build=aave?officialAaveFixtureCompilationV1(runtime,p):null;
- const name=uni?'PrivateUniswapV3Delivery':'PrivateMetaMorphoDelivery',artifact=aave?build.artifacts.PrivateAaveStaticDelivery:parsed.contracts['PrivateExternalDelivery.sol'][name];
+ const parsed=aave||blue?null:metadata(),build=blue?readOwnedOriginalMorphoBluePositionCompilationV1(runtime,position):aave?officialAaveFixtureCompilationV1(runtime,p):null;
+ const name=uni?'PrivateUniswapV3Delivery':'PrivateMetaMorphoDelivery',artifact=blue?build.artifacts.PrivateMorphoBluePositionDeliveryV1:aave?build.artifacts.PrivateAaveStaticDelivery:parsed.contracts['PrivateExternalDelivery.sol'][name];
  const vendorRaw=readFileSync(join(D,'protocol-fixture-artifact-pins.json'));assert.equal(sha(vendorRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');const vendor=JSON.parse(vendorRaw);
  for(const row of vendor.files.filter(x=>x.path.startsWith('abi-tools/')))assert.equal(sha(readFileSync(join(D,row.path))),row.sha256,'ABI_VENDOR_PIN');
  const require=createRequire(join(D,'abi-tools/package.json')),{Interface}=require('ethers'),iface=new Interface(artifact.abi),solver=runtime.accounts[0];
@@ -62,7 +72,7 @@ async function buildOwnedPrivateExternalRouterV1(input,recovery){
   protocol:bare(protocol.address).padStart(64,'0'),targetPool:bare(pool.address).padStart(64,'0'),inputCode:sha(Buffer.from(bare(p.first.code),'hex')),
   outputCode:sha(Buffer.from(bare(output.code),'hex')),protocolCode:sha(Buffer.from(bare(protocol.code),'hex')),poolCode:sha(Buffer.from(bare(poolCode),'hex')),
   scope:pool.domain.scope,policy:pool.domain.policy,...(uni?{fee:(3000).toString(16).padStart(64,'0')}:{})};
- const expected=aave?expectedAaveRuntimeCodeV1(artifact,build.sourceASTs,{},Object.fromEntries(Object.entries(values).map(([key,value])=>[key,'0x'+value]))):expectedRuntime(parsed,name,values);
+ const expected=aave||blue?expectedAaveRuntimeCodeV1(artifact,build.sourceASTs,{},Object.fromEntries(Object.entries(values).map(([key,value])=>[key,'0x'+value]))):expectedRuntime(parsed,name,values);
  const args=uni?[solver,p.first.address,output.address,protocol.address,pool.address,3000]:[solver,p.first.address,output.address,pool.address];
  const creation='0x'+artifact.evm.bytecode.object+iface.encodeDeploy(args).slice(2);
  const label='deploy owned external router '+protocolKind;
@@ -94,11 +104,11 @@ async function buildOwnedPrivateExternalRouterV1(input,recovery){
  }
  capability=Object.freeze({address,identity,protocolKind,fee:uni?'3000':null,destinationPoolIndex:poolIndex,sourcePoolIndex:1-poolIndex,
   artifact:freeze(artifact),context,routerRuntimeCodeSHA256:sha(Buffer.from(bare(expected),'hex')),creationTransactionHash:receipt.transactionHash,read});
- owned.set(capability,{runtime,system,poolIndex,receipt:structuredClone(receipt),protocolKind});await read(recovery?recovery.head.number:receipt.blockNumber);if(recovery)assert.deepEqual(capability.identity,recovery.identity);return capability;
+ owned.set(capability,{runtime,system,poolIndex,receipt:structuredClone(receipt),protocolKind,position});await read(recovery?recovery.head.number:receipt.blockNumber);if(recovery)assert.deepEqual(capability.identity,recovery.identity);return capability;
 }
 
 export async function captureOwnedPrivateExternalRouterRecoveryV1(router){
- assert.equal(arguments.length,1);const s=owned.get(router);assert.ok(s,'ORIGINAL_EXTERNAL_ROUTER');const head=await s.runtime.block();await router.read(head.number);
+ assert.equal(arguments.length,1);const s=owned.get(router);assert.ok(s,'ORIGINAL_EXTERNAL_ROUTER');assert.equal(s.position,null,'BLUE_POSITION_LEGACY_RECOVERY_DENIED');const head=await s.runtime.block();await router.read(head.number);
  return {schema:'ORIGINAL_EXTERNAL_ROUTER_RECOVERY_V1',protocolKind:s.protocolKind,poolIndex:s.poolIndex,genesis:s.runtime.metadata.evmGenesis,head:structuredClone(head),receipt:structuredClone(s.receipt),identity:structuredClone(router.identity)};
 }
 export async function reopenOwnedPrivateExternalRouterRecoveryV1(token){

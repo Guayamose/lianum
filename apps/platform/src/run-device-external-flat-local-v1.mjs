@@ -33,7 +33,7 @@ async function publishDescriptor(path,value,name){
 async function run(){
   const entry=fileURLToPath(import.meta.url);
   assert.equal(process.execPath,fileURLToPath(new URL('../../../.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node',import.meta.url)),'DEVICE_EXTERNAL_LOCAL_PINNED_NODE');
-  const reopening=process.argv.length===3&&process.argv[2]==='--open-observation';assert.deepEqual(process.argv,[process.execPath,entry,...(reopening?['--open-observation']:[])],'DEVICE_EXTERNAL_LOCAL_FIXED_ENTRY');
+  const reopening=process.argv.length===3&&process.argv[2]==='--open-observation',originalBlue=process.argv.length===3&&process.argv[2]==='--morpho-blue-position';assert.deepEqual(process.argv,[process.execPath,entry,...(reopening?['--open-observation']:originalBlue?['--morpho-blue-position']:[])],'DEVICE_EXTERNAL_LOCAL_FIXED_ENTRY');
   assert.equal(await realpath(entry),entry,'DEVICE_EXTERNAL_LOCAL_ENTRY_ALIAS');
   assert.deepEqual(process.execArgv,['--max-old-space-size=384'],'DEVICE_EXTERNAL_LOCAL_FIXED_HEAP');
   assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
@@ -46,12 +46,12 @@ async function run(){
     })();
   }
   const onSignal=()=>{void close().catch(()=>{process.exitCode=1;process.stderr.write('DEVICE_EXTERNAL_LOCAL_CLOSE_UNCONFIRMED\n');});};
-  process.once('SIGINT',onSignal);process.once('SIGTERM',onSignal);process.once('SIGUSR1',()=>{void(async()=>{closeRequested=true;if(acquisition)service=await acquisition;assert.ok(service&&!reopening,'DEVICE_EXTERNAL_LOCAL_ORIGINAL_CAPTURE_ONLY');await service.capture();await close();})().catch(()=>{process.exitCode=1;process.stderr.write('DEVICE_EXTERNAL_LOCAL_CAPTURE_OR_CLOSE_FAILED\n');});});
+  process.once('SIGINT',onSignal);process.once('SIGTERM',onSignal);process.once('SIGUSR1',()=>{void(async()=>{closeRequested=true;if(acquisition)service=await acquisition;assert.ok(service&&!reopening&&!originalBlue,'DEVICE_EXTERNAL_LOCAL_ORIGINAL_CAPTURE_ONLY');await service.capture();await close();})().catch(()=>{process.exitCode=1;process.stderr.write('DEVICE_EXTERNAL_LOCAL_CAPTURE_OR_CLOSE_FAILED\n');});});
   try{
     const original=await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs',import.meta.url));
-    const path=original.originalDeviceExternalFlatLocalConfigurationPathV1(),config=await privateConfiguration(path);
+    const path=(originalBlue?original.originalDeviceMorphoBluePositionLocalConfigurationPathV1:original.originalDeviceExternalFlatLocalConfigurationPathV1)(),config=await privateConfiguration(path);
     if(closeRequested){config.tls=null;return;}
-    acquisition=(reopening?original.openOriginalDeviceExternalFlatLocalOperatorV1:original.createOriginalDeviceExternalFlatLocalOperatorV1)(config);acquisition.catch(()=>{});
+    acquisition=(originalBlue?original.createOriginalDeviceMorphoBluePositionLocalOperatorV1:reopening?original.openOriginalDeviceExternalFlatLocalOperatorV1:original.createOriginalDeviceExternalFlatLocalOperatorV1)(config);acquisition.catch(()=>{});
     config.tls=null;service=await acquisition;
     if(closeRequested)await close();
     else{if(!reopening)await publishDescriptor(path,service.descriptor,'paired-descriptor.json');if(!closeRequested&&!reopening)await publishDescriptor(path,service.targetDescriptor,'paired-share-descriptor.json');if(closeRequested)await close();else process.stdout.write('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY\n');}

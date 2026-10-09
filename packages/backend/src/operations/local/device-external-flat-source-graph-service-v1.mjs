@@ -33,9 +33,9 @@ import {assertOwnedFlatSystem} from '../deployments/system/deploy-system.mjs';
 import {assertLocalEvm} from '../../chains/evm/runtime/local-evm-ownership.mjs';
 import {assertOwnedFlatOperatorQuorum} from '../operators/claims/native-operators.mjs';
 import {assertOwnedPrivateExternalRouterV1} from '../deployments/defi/deploy-private-external-router-v1.mjs';
-import {isOwnedMetaMorphoGraphDeliveryObserverV1,prepareOwnedMetaMorphoGraphDescriptorV1} from '../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
+import {isOwnedMetaMorphoGraphDeliveryObserverV1,prepareOwnedMetaMorphoGraphDescriptorV1,isOwnedMorphoBluePositionGraphDeliveryObserverV1,prepareOwnedMorphoBluePositionGraphDescriptorV1} from '../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import {assertOwnedEvmGraphDeliveryObserverV1} from '../../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
-import {createOwnedFlatMetaMorphoProviderV1} from '../../providers/evm-vault-provider.mjs';
+import {createOwnedFlatMetaMorphoProviderV1,createOwnedFlatMorphoBluePositionProviderV1} from '../../providers/evm-vault-provider.mjs';
 const recoveryParts=new WeakMap();
 const sha=v=>createHash('sha256').update(canonicalClaimRecordDataV1(v)).digest('hex');
 function part(kind,value){const token=Object.freeze(Object.create(null));recoveryParts.set(token,{kind,value});return token;}
@@ -60,11 +60,11 @@ export async function prepareOriginalDeviceExternalFlatGraphWorkspaceV1(workspac
   const {runtime,system,router,deliveryObserver,quorum,rule,rulePath,targetAccount}=s,now=await runtime.time(),cutoff=BigInt(q.settleBefore),until=cutoff-60n;
   need(BigInt(q.validFrom)<=now&&now+120n<cutoff&&until>BigInt(q.validFrom),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_WINDOW');
   const proof=await consumeOriginalDeviceExternalFlatShareProofV1(targetAccount,{runtime,system,poolIndex:1,deliveryObserver,shareAmount:q.shareAmount,validFrom:q.validFrom,validUntil:until.toString()});
-  const descriptor=prepareOwnedMetaMorphoGraphDescriptorV1({observer:deliveryObserver,router,route:{maximumInput:q.assetAmount,outputAmount:q.shareAmount,validFrom:q.validFrom,validUntil:until.toString()},ownerPublicInputs:[...proof.publicInputs]});
+  const descriptor=(s.originalBlue?prepareOwnedMorphoBluePositionGraphDescriptorV1:prepareOwnedMetaMorphoGraphDescriptorV1)({observer:deliveryObserver,router,route:{maximumInput:q.assetAmount,outputAmount:q.shareAmount,validFrom:q.validFrom,validUntil:until.toString()},ownerPublicInputs:[...proof.publicInputs]});
   await bindOriginalDeviceExternalFlatShareGraphV1(targetAccount,{runtime,system,router,deliveryObserver,descriptor});
   const directory=await mkdtemp(join(runtime.metadata.scratchDirectory,'device-external-graph-provider-'));await chmod(directory,0o700);const domain=system.pools[0].domain;
   s.providerPrivate={directory,password:fresh(),record:null};await s.persist({phase:'PROVIDER_BIRTH',terms:structuredClone(q)});
-  s.provider=await createOwnedFlatMetaMorphoProviderV1({runtime,system,poolIndex:0,router,observer:deliveryObserver,operatorQuorum:quorum,rule,rulePath,descriptor,depositProof:proof.proof,
+  s.provider=await (s.originalBlue?createOwnedFlatMorphoBluePositionProviderV1:createOwnedFlatMetaMorphoProviderV1)({runtime,system,poolIndex:0,router,observer:deliveryObserver,operatorQuorum:quorum,rule,rulePath,descriptor,depositProof:proof.proof,
    terms:{scope:domain.scope,policy:domain.policy,asset:domain.asset,amount:q.shareAmount,executionFrom:q.validFrom,executionUntil:until.toString(),settleBefore:q.settleBefore},acceptedLossClause:NATIVE_ADMISSION_LOSS_CLAUSE,directory,password:s.providerPrivate.password});
   const offer=s.provider.offer(),operationId=fresh(),expectedTerms={...Object.fromEntries(['scope','policy','asset','hubDomain','registryCommitment'].map(k=>[k,domain[k]])),operationId,slot:0,evidencePolicy:offer.evidencePolicy,value:q.payoutAmount,settleBefore:q.settleBefore,actionTemplate:offer.actionTemplate};
   const recipientDirectory=await mkdtemp(join(runtime.metadata.scratchDirectory,'device-external-graph-recipient-'));await chmod(recipientDirectory,0o700);
@@ -83,14 +83,15 @@ export async function prepareOriginalDeviceExternalFlatGraphWorkspaceV1(workspac
 }
 export function createOriginalDeviceExternalFlatSourceGraphServiceV1(input){assert.equal(arguments.length,1);return createService(input,null);}
 export function createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1(input){assert.equal(arguments.length,1);const q=exact(input,['account','targetAccount','runtime','system','quorum','router','deliveryObserver','rule','rulePath','maximumSolverInput','tls','host','recoveryAuthority','registry','protocols']);const {recoveryAuthority,registry,protocols,...ordinary}=q;return createService(ordinary,{authority:recoveryAuthority,registry,protocols});}
-async function createService(input,retention){
+export function createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1(input){assert.equal(arguments.length,1);const q=exact(input,['account','targetAccount','runtime','system','quorum','router','deliveryObserver','rule','rulePath','maximumSolverInput','tls','host','recoveryAuthority','registry','protocols']);const {recoveryAuthority,registry,protocols,...ordinary}=q;return createService(ordinary,{authority:recoveryAuthority,registry,protocols},true);}
+async function createService(input,retention,originalBlue=false){
 need(input&&!types.isProxy(input),'DEVICE_EXTERNAL_GRAPH_SERVICE');const v=exact(input,['account','targetAccount','runtime','system','quorum','router','deliveryObserver','rule','rulePath','maximumSolverInput','tls','host']);externalFlatUintV1(v.maximumSolverInput);need(BigInt(v.maximumSolverInput)>0n,'DEVICE_EXTERNAL_GRAPH_EXPLICIT_SOLVER_ALLOWANCE');
  await assertLocalEvm(v.runtime);assertOwnedFlatSystem(v.runtime,v.system);assertOwnedPrivateExternalRouterV1(v.router,{runtime:v.runtime,system:v.system,poolIndex:1});
- assertOwnedEvmGraphDeliveryObserverV1(v.deliveryObserver,{runtime:v.runtime,system:v.system,poolIndex:1});need(isOwnedMetaMorphoGraphDeliveryObserverV1(v.deliveryObserver),'DEVICE_EXTERNAL_GRAPH_FIXED_METAMORPHO');
+ assertOwnedEvmGraphDeliveryObserverV1(v.deliveryObserver,{runtime:v.runtime,system:v.system,poolIndex:1});need(originalBlue?isOwnedMorphoBluePositionGraphDeliveryObserverV1(v.deliveryObserver):isOwnedMetaMorphoGraphDeliveryObserverV1(v.deliveryObserver),'DEVICE_EXTERNAL_GRAPH_FIXED_PROTOCOL');
  assertOwnedFlatOperatorQuorum(v.quorum,{runtime:v.runtime,system:v.system,nativeRuntime:v.deliveryObserver,family:'3'});
  const descriptor=assertOriginalDeviceExternalFlatNoteAuthorityV1(v.account),targetDescriptor=assertOriginalDeviceExternalFlatShareNoteAuthorityV1(v.targetAccount,{runtime:v.runtime,system:v.system,poolIndex:1,deliveryObserver:v.deliveryObserver});
  assert.equal(descriptor.origin,targetDescriptor.origin);assert.equal(descriptor.devicePublicKey,targetDescriptor.devicePublicKey);
- let closed=false,closing=false,closeWork=null,listener,execution;const proofs=[],s={...v,descriptor,targetDescriptor,retention,providerPrivate:null,retentionHandle:null,bridge:null,prepared:null,terms:null,preparing:false,poisoned:false,provider:null,recipient:null,
+ let closed=false,closing=false,closeWork=null,listener,execution;const proofs=[],s={...v,descriptor,targetDescriptor,retention,originalBlue,providerPrivate:null,retentionHandle:null,bridge:null,prepared:null,terms:null,preparing:false,poisoned:false,provider:null,recipient:null,
   live(){need(!closed,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');assert.deepEqual(assertOriginalDeviceExternalFlatNoteAuthorityV1(v.account),descriptor);assert.deepEqual(assertOriginalDeviceExternalFlatShareNoteAuthorityV1(v.targetAccount,{runtime:v.runtime,system:v.system,poolIndex:1,deliveryObserver:v.deliveryObserver}),targetDescriptor);}};
  const workspace=Object.freeze({descriptor,targetDescriptor,
   challenge(){assert.equal(arguments.length,0);need(!closing,'DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED');return s.bridge.challenge();},
@@ -128,7 +129,7 @@ export function readOriginalDeviceExternalFlatSourceGraphServiceProofsV1(service
 /** Ordered original capture only. Interrupted/pending writers retain their
  * encrypted data, but cannot issue the old CAPTURED authority. */
 export function captureOriginalDeviceExternalFlatGraphServiceV1(service){
- assert.equal(arguments.length,1);const r=services.get(service);need(r?.retention&&!r.captureWork,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_RETAINED');r.live();
+ assert.equal(arguments.length,1);const r=services.get(service);need(r?.retention&&!r.captureWork,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_RETAINED');r.live();need(!r.state.originalBlue,'BLUE_POSITION_TYPED_RECOVERY_NOT_INSTALLED');
  const network=quiesceOriginalDeviceExternalFlatGraphTlsServerV1(r.listener,r.workspace);
  return r.captureWork=(async()=>{const stopped=await network;need(stopped.closed&&stopped.originalOperationsInFlight===0&&stopped.ownedSocketsRemaining===0,'DEVICE_EXTERNAL_GRAPH_TLS_CLOSE');
   await retainDeviceExternalFlatGraphRecoveryV1(r.retention.authority,service);await retainDeviceExternalFlatGraphSystemRecoveryV1(r.retention.authority,service);await retainDeviceExternalFlatLifetimeRecoveryV1(r.retention.authority,r.state.runtime);await retainDeviceExternalFlatReceiverRuntimeV1(r.retention.authority,r.state.runtime);const checkpoint=await finishDeviceExternalFlatRecoveryCaptureV1(r.retention.authority);return{profile:'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1',checkpoint,originalResourcesStopped:true,observationOnly:true,abruptRecoveryEstablished:false};})();
