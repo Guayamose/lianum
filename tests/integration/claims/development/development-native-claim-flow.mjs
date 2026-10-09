@@ -23,7 +23,8 @@ import { createRoleProofClient } from '../../../../packages/proofs/src/jobs/role
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
   from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
 import { createOwnedNativeClaimGraphV3Fixture,createOwnedNativeSplClaimGraphFixtureV1 } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';
-import { createDurableNativeClaimControllerKeeper, createNativeClaimController }
+import { createDurableNativeClaimControllerKeeper, createNativeClaimController,
+  nativeClaimControllerPrivateFinalAuditTimingV1 }
   from '../../../../packages/backend/src/claims/controller/controller.mjs';
 import { claimDomainCommitment } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
 import { decodeDepositIntentInputs } from '../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
@@ -240,6 +241,18 @@ export async function runDevelopmentNativeClaimAcceptance() {
       snapshot.claim.push(row); snapshot.graph.push(graph);
     }
     return snapshot;
+  }
+  function retainPrepositionFailureMetrics() {
+    if (!btcToSpl || !fixture?.operators || !controller
+      || !['original-native-ingress-and-private-issuance-0', 'original-native-ingress-and-private-issuance-1'].includes(result.failedStage)) return;
+    // Getter-only copies of already retained private samples. Never reenter
+    // current/audit/RPC/journal reads or replace the original operation error.
+    try {
+      const snapshot = loadedSolanaSnapshot();
+      const finalAudit = nativeClaimControllerPrivateFinalAuditTimingV1(controller);
+      writeFixturePrivate(join(privateDirectory, 'claim-preposition-private-metrics-v1.json'), {
+        schema: 'DEVELOPMENT_CLAIM_PREPOSITION_PRIVATE_METRICS_V1', snapshot, finalAudit });
+    } catch { /* Diagnostic loss never changes outcome or prevents cleanup. */ }
   }
   function retainLoadedSolanaMetrics(postIdle, requestId) {
     if (!loadedSolanaMetrics || loadedSolanaMetrics.after !== null) return;
@@ -481,6 +494,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
   } catch (error) {
     result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = code(error);
     if (error.fixtureCleanup) Object.assign(result.cleanup, error.fixtureCleanup);
+    retainPrepositionFailureMetrics();
     writeFixturePrivate(join(privateDirectory, 'error-private.json'), { message: String(error.message), stack: String(error.stack),
       cause: error.cause ? String(error.cause.stack ?? error.cause.message) : null,
       privateDiagnostic: privateFailureDiagnostic(error, 'NATIVE_CLAIM_OPERATION_FAILED') }); await audit().catch(() => {});

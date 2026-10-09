@@ -285,6 +285,14 @@ async function createController(input, beginAuditOnly) {
   if (beginAuditOwner) { beginAuditSystemsV1.set(claims, beginAuditOwner); beginAuditKeepersV1.set(keeper, beginAuditOwner); }
   const journal = ownedClaimControllerJournal(keeper, runtime, claims); journal.acquire();
   let busy = false, closed = false;
+  // One bounded diagnostic copy from the original audit producer. No journal,
+  // observer, key or clock is read by its private getter, including after close.
+  let privateFinalAuditTiming = null;
+  function retainFinalAuditTiming(evidence) {
+    privateFinalAuditTiming = freeze({ profile: evidence.profile, phase: evidence.phase,
+      originalAuthorizationAgeMilliseconds: evidence.originalAuthorizationAgeMilliseconds,
+      auditElapsedMilliseconds: evidence.auditElapsedMilliseconds, limitMilliseconds: evidence.limitMilliseconds });
+  }
   const authorizationStarts = new WeakMap(), authorizationOrigins = new WeakMap();
   const ingressFinalSendGuards = new WeakMap();
   async function authorize(method, request) {
@@ -616,7 +624,7 @@ async function createController(input, beginAuditOnly) {
             const elapsed = performance.now() - auditStarted;
             assert.ok(Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'CLAIM_EVM_FINAL_AUDIT_TOO_OLD');
           } });
-          finalAuditEvidence = describeAudit();
+          finalAuditEvidence = describeAudit(); retainFinalAuditTiming(finalAuditEvidence);
         }
         await updateEvm(id, { status: 'SIGNING_UNKNOWN', prepared: compactPrepared,
           ...(finalAuditEvidence ? { finalAudit: finalAuditEvidence } : {}) });
@@ -626,7 +634,7 @@ async function createController(input, beginAuditOnly) {
           // Complete persistence precedes this independent fresh all-signer
           // validation of the exact original signatures, head and bounds.
           lease = await originalLeaseV4(original.result, original.method);
-          finalAuditEvidence = describeAudit();
+          finalAuditEvidence = describeAudit(); retainFinalAuditTiming(finalAuditEvidence);
         }
         const keyToken = Object.freeze({ profile: 'CLAIM_ORIGINAL_EVM_KEY_AUTHORITY_V4' });
         originalKeyAuthoritiesV4.set(keyToken, { purpose: 'evm', runtimeClose: runtime.close,
@@ -637,6 +645,7 @@ async function createController(input, beginAuditOnly) {
               finalAuditEvidence = { ...finalAuditEvidence, phase: 'CONSUMED_BEFORE_KEY',
                 originalAuthorizationAgeMilliseconds: elapsedEvidence(started),
                 auditElapsedMilliseconds: elapsedEvidence(lease.auditStarted) };
+              retainFinalAuditTiming(finalAuditEvidence);
             } else assert.ok(performance.now() - started < 30_000, 'CLAIM_EVM_AUTHORIZATION_TOO_OLD');
             keyUsePermitted = true;
             return original ? lease.auditStarted : started;
@@ -1501,6 +1510,7 @@ async function createController(input, beginAuditOnly) {
     },
   });
   controllers.set(controller, { input: { ...input, operators, proofClients }, live,
+    privateFinalAuditTiming: () => privateFinalAuditTiming === null ? null : freeze(copy(privateFinalAuditTiming)),
     ...(beginAuditOwner ? { assertBeginAuditReceipt(receipt) {
       assert.ok(!closed && !busy, 'CLAIM_BEGIN_AUDIT_ORIGINAL_UNWOUND_CONTROLLER');
       beginAuditOwner.assertReceipt(receipt);
@@ -1512,6 +1522,15 @@ async function createController(input, beginAuditOnly) {
     } } : {}),
     restartPending: false, restartInterrupted: false, replacement: null });
   return controller;
+}
+
+/** Private original-brand numeric diagnostics only. Copies/proxies cannot
+ * select a journal, renew an authorization or recover financial authority. */
+export function nativeClaimControllerPrivateFinalAuditTimingV1(controller) {
+  assert.equal(arguments.length, 1, 'CLAIM_PRIVATE_FINAL_AUDIT_TIMING_NO_OPTIONS');
+  const original = controllers.get(controller);
+  assert.ok(original, 'CLAIM_PRIVATE_FINAL_AUDIT_TIMING_ORIGINAL_CONTROLLER_REQUIRED');
+  return original.privateFinalAuditTiming();
 }
 
 /** Private bootstrap/session capability access. Serialized lookalikes cannot

@@ -2,6 +2,10 @@
  * bounds and error handling; they do not measure native performance. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { createContext, runInContext } from 'node:vm';
+import { ROOT } from '../../../../proofs/src/catalog.mjs';
 
 let wall = 0;
 let user = 0;
@@ -117,4 +121,54 @@ test('unknown/proxy labels cannot execute caller traps or add arbitrary disclosu
   assert.equal(report.incomplete, true);
   assert.deepEqual(report.labels, []);
   assert.equal(JSON.stringify(report).includes('secret-address-or-amount'), false);
+});
+
+// Exercise the ORIGINAL fixed failure branch and private retention helper.
+// The explicit inert ports return samples from the actual metrics collector;
+// they confer no account, chain, proof or controller authority.
+test('original SPL failure retains numeric samples before cleanup; diagnostic storage loss preserves its cause', async () => {
+  let source;
+  try { source = readFileSync(join(ROOT, 'integration/claims/development/development-native-claim-flow.mjs'), 'utf8'); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    source = readFileSync(resolve(ROOT, '../../tests/integration/claims/development/development-native-claim-flow.mjs'), 'utf8');
+  }
+  const begin = source.indexOf('  function retainPrepositionFailureMetrics() {');
+  const end = source.indexOf('  function retainLoadedSolanaMetrics(', begin);
+  const marker = '  } catch (error) {\n    result.failedStage = result.phase;';
+  const caught = source.indexOf(marker), finished = source.indexOf('\n  } finally {\n    await cleanup();', caught);
+  assert.ok(begin >= 0 && end > begin && caught >= 0 && finished > caught);
+  const helper = source.slice(begin, end), body = source.slice(caught + '  } catch (error) {'.length, finished);
+  wall = 0; user = 0; system = 0;
+  const original = operation(), interval = metrics.enterClaimOperatorMetricsPhase(original.token, 'current', 'operation', 'whole-operation');
+  wall = 12.125; user = 80; system = 20; metrics.leaveClaimOperatorMetricsPhase(interval);
+  const report = complete(original), count = samples;
+  for (const diagnosticLoss of [false, true]) {
+    const events = [], retained = [], originalError = Object.assign(Error('TEST_ORIGINAL_PRIVATE_CAUSE'), { code: 'TEST_ORIGINAL_CAUSE' });
+    const context = createContext({ btcToSpl: true, fixture: { operators: [{}] }, controller: {},
+      result: { phase: 'original-native-ingress-and-private-issuance-1', cleanup: {} }, privateDirectory: '/explicit-inert-private', join,
+      loadedSolanaSnapshot() { events.push('getter'); return { incomplete: false, claim: [{ index: 0, metrics: { reports: [report] } }], graph: [] }; },
+      nativeClaimControllerPrivateFinalAuditTimingV1() { return { originalAuthorizationAgeMilliseconds: 37_625, auditElapsedMilliseconds: 12_125, limitMilliseconds: 30_000 }; },
+      writeFixturePrivate(path, value) {
+        events.push(path.endsWith('claim-preposition-private-metrics-v1.json') ? 'metrics' : 'error');
+        if (path.endsWith('claim-preposition-private-metrics-v1.json') && diagnosticLoss)
+          throw new Proxy({}, { get() { assert.fail('diagnostic failure must remain opaque'); } });
+        retained.push({ path, value });
+      }, code: error => error.code, privateFailureDiagnostic: error => ({ code: error.code }),
+      audit: async () => { events.push('audit'); }, cleanup: async () => { events.push('cleanup'); } });
+    runInContext(helper, context);
+    const fail = runInContext('(async function (error) {' + body + '\n})', context);
+    try { await fail(originalError); } finally { await context.cleanup(); }
+    assert.deepEqual(events, ['getter', 'metrics', 'error', 'audit', 'cleanup']);
+    assert.equal(context.result.errorCode, originalError.code);
+    const error = retained.find(row => row.path.endsWith('error-private.json'));
+    assert.equal(error.value.message, originalError.message, 'original error remains private and unaltered');
+    if (!diagnosticLoss) {
+      const evidence = retained.find(row => row.path.endsWith('claim-preposition-private-metrics-v1.json')).value;
+      assert.equal(evidence.snapshot.claim[0].metrics.reports[0], report);
+      assert.equal(JSON.stringify(evidence).includes('TEST_ORIGINAL_PRIVATE_CAUSE'), false);
+      assert.equal(evidence.snapshot.claim[0].metrics.reports[0].labels[0].wallMilliseconds, 12.125);
+    }
+  }
+  assert.equal(samples, count, 'retention only copies already finalized samples');
 });

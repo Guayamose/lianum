@@ -4,6 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, hash, installRetainedNoncePayout, trackLifecycle, addLifecycleMethod } from '../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs';
 
+const { nativeClaimControllerPrivateFinalAuditTimingV1 } = await import('../../../src/claims/controller/controller.mjs');
+
 test('new claim backing authorization starts from the refreshed observed receiver head', async () => {
   const f = await fixture();
   try {
@@ -115,4 +117,40 @@ test('post-proof original health authorization uses a fresh observed receiver he
 });
 test('post-proof original signed health expiry keeps its head and signatures; no refresh, key or native resend', async t => {
   await postProofDischarge(t, true);
+});
+
+// Real controller + existing real AEAD journal; native/proof ports stay inert.
+// This reproduces a 25.5s collection followed by a 12.125s original audit, not
+// a claim that those durations were measured by this host test.
+test('private final-audit timing survives original failure and close without sampling or reopening authority', async t => {
+  const f = await fixture(), clock = { now: 0 };
+  const sampled = t.mock.method(performance, 'now', () => clock.now);
+  try {
+    assert.equal(nativeClaimControllerPrivateFinalAuditTimingV1(f.controller), null);
+    const prepared = await f.controller.prepare({ handoff: f.handoff });
+    f.control.intentId = prepared.intentId; f.control.loseReply = true;
+    f.control.preparedHook = async () => { clock.now = 25_500; };
+    f.control.finalAuditHook = async () => { clock.now = 37_625; };
+    let original;
+    try { await f.controller.preposition({ intentId: prepared.intentId }); }
+    catch (error) { original = error; }
+    assert.match(original?.message ?? '', /TEST_LOST_EVM_REPLY/);
+    const evidence = nativeClaimControllerPrivateFinalAuditTimingV1(f.controller);
+    assert.deepEqual(evidence, { profile: 'CLAIM_EVM_ORIGINAL_CERTIFICATE_FINAL_AUDIT_V2', phase: 'CONSUMED_BEFORE_KEY',
+      originalAuthorizationAgeMilliseconds: 37_625, auditElapsedMilliseconds: 12_125, limitMilliseconds: 30_000 });
+    const before = sampled.mock.callCount(); clock.now = 100_000;
+    f.controller.close();
+    const again = nativeClaimControllerPrivateFinalAuditTimingV1(f.controller);
+    assert.deepEqual(again, evidence); assert.notEqual(again, evidence);
+    assert.equal(sampled.mock.callCount(), before, 'getter neither samples nor renews time');
+    assert.ok(Object.isFrozen(again)); assert.equal(f.control.dispatches, 1);
+    let traps = 0;
+    const hostile = new Proxy(f.controller, { get() { traps++; throw Error('PRIVATE_MESSAGE'); }, ownKeys() { traps++; return []; } });
+    assert.throws(() => nativeClaimControllerPrivateFinalAuditTimingV1(hostile), /ORIGINAL_CONTROLLER_REQUIRED/);
+    assert.throws(() => nativeClaimControllerPrivateFinalAuditTimingV1({ ...f.controller }), /ORIGINAL_CONTROLLER_REQUIRED/);
+    assert.throws(() => nativeClaimControllerPrivateFinalAuditTimingV1(f.controller, {}), /NO_OPTIONS/);
+    assert.equal(traps, 0);
+    for (const forbidden of ['request', 'requestId', 'operationId', 'prepared', 'signature', 'nativeWire', 'proof', 'snapshot'])
+      assert.equal(Object.hasOwn(again, forbidden), false);
+  } finally { sampled.mock.restore(); await f.close(); }
 });
