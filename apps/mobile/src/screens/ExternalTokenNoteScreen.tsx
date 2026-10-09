@@ -17,6 +17,8 @@ type GraphConsent=Parameters<GraphClient['submit']>[0];
 type GraphStatus=Awaited<ReturnType<GraphClient['status']>>;
 type GraphAction=GraphConsent['draft']['action'];
 type GraphPrepared=Awaited<ReturnType<Vault['prepareSourceGraph']>>;
+type RecoveryCheckpoint=Awaited<ReturnType<Vault['recoveryCheckpoint']>>;
+type RecoveryPreparation='SHARE'|'GRAPH';
 type GraphOutputRole='change'|'recovery';
 type GraphOutputAction='WITHDRAW_W39'|'OBSERVE_W39';
 type GraphOutputConsent=Parameters<GraphClient['outputSubmit']>[0];
@@ -54,13 +56,16 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const [graphAssetAmount,setGraphAssetAmount]=useState(''),[graphShareAmount,setGraphShareAmount]=useState(''),[graphPayoutAmount,setGraphPayoutAmount]=useState(''),[graphValidFrom,setGraphValidFrom]=useState(''),[graphSettleBefore,setGraphSettleBefore]=useState('');
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Introduce la conexión privada entregada por tu operador.');
  const [recoveryPassword,setRecoveryPassword]=useState(''),[recoveryInput,setRecoveryInput]=useState(''),[recoveryCopy,setRecoveryCopy]=useState('');
+ const [recoveryPreparation,setRecoveryPreparation]=useState<RecoveryPreparation|null>(null);
  const [custodyRoute,setCustodyRoute]=useState<'LEGACY'|'ROUTED'>('LEGACY');
  const mounted=useRef(true),busyRef=useRef(false),epoch=useRef(0),connection=useRef<Connection|null>(null);
  const acquiring=useRef<Promise<Vault>|null>(null),closing=useRef<Promise<unknown>|null>(null),signing=useRef<AbortController|null>(null);
  const graphReviewRef=useRef<GraphReview|null>(null),graphPreparedRef=useRef<GraphPrepared|null>(null);
  const graphOutputReviewRef=useRef<GraphOutputReview|null>(null),graphOutputPreparedRef=useRef<GraphOutputPrepared|null>(null);
  const reviewRef=useRef<Review|null>(null),preparedRef=useRef<DeviceExternalFlatPrepared|null>(null),activeWitness=useRef<unknown|null>(null);
+ const recoveryCut=useRef<{selected:Connection;kind:RecoveryPreparation;prepared:DeviceExternalFlatPrepared|GraphPrepared;checkpoint:RecoveryCheckpoint}|null>(null);
  function clearReview() {
+  recoveryCut.current=null;if(mounted.current)setRecoveryPreparation(null);
   signing.current?.abort();signing.current=null;
   externalFlatWipeV1(graphOutputReviewRef.current?.witness);externalFlatWipeV1(graphOutputPreparedRef.current?.witness);graphOutputReviewRef.current=null;graphOutputPreparedRef.current=null;if(mounted.current)setGraphOutputReview(null);
   wipeDeviceReservationWitnessV1(graphReviewRef.current?.witness);wipeDeviceReservationWitnessV1(graphPreparedRef.current?.witness);graphReviewRef.current=null;graphPreparedRef.current=null;if(mounted.current)setGraphReview(null);
@@ -117,7 +122,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function readGraphStatus(selected:Connection,ticket:number){
   const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
   const value=await client.status(access,signature);current(ticket,selected);const local=await selected.vault.acceptSourceGraphStatus(value);current(ticket,selected);
-  if(local.graph!==null&&local.graph.row?.graph.stage!=='SOURCE_CANCELLED'){selected.client.close();selected.noteClosed=true;setStatus(null);}
+  if(local.graph?.row&&local.graph.row.graph.stage!=='SOURCE_CANCELLED'){selected.client.close();selected.noteClosed=true;setStatus(null);}
   await onGraphObservation?.(value);current(ticket,selected);setSummary(local);setGraphStatus(value);
   if(local.graph?.row?.graph.stage==='SOURCE_CANCELLED')await readReleasedSource(selected,ticket);return value;
  }
@@ -135,13 +140,15 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
   const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:graphAssetAmount,shareAmount:graphShareAmount,payoutAmount:graphPayoutAmount,validFrom:graphValidFrom,settleBefore:graphSettleBefore});current(ticket,selected);
   const prepared=await selected.vault.prepareSourceGraph(quote);graphPreparedRef.current=prepared;current(ticket,selected);const next=await selected.vault.summary();current(ticket,selected);setSummary(next);
-  await makeGraphReview(selected,prepared.draft,ticket,prepared.witness);
+  setRecoveryPreparation('GRAPH');setNotice('Guarda una copia actualizada que incluya el cambio y la recuperación recién preparados. Después podrás revisar la autorización de la reserva.');
  }
  async function requestGraphAction(action:GraphAction){const selected=requireConnection();clearReview();const ticket=epoch.current,draft=await selected.vault.sourceGraphDraft(action);current(ticket,selected);await makeGraphReview(selected,draft,ticket,null);}
  async function submitGraph(value:GraphReview){
   const selected=requireConnection();if(graphReviewRef.current!==value)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');const ticket=epoch.current;current(ticket,selected);validateExternalFlatGraphFreshV1(value.consent);
   graphReviewRef.current=null;activeWitness.current=value.witness;setGraphReview(null);
-  try{const signature=await signGraph(selected,value.consent,ticket);onSourcePending?.(selected.descriptor,value.consent.draft.rootId);await selected.vault.latchSourceGraph(value.consent);current(ticket,selected);
+  try{if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket);
+   const signature=await signGraph(selected,value.consent,ticket);if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket);
+   onSourcePending?.(selected.descriptor,value.consent.draft.rootId);await selected.vault.latchSourceGraph(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
    selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
    const row=await requireGraph(selected).submit(value.consent,signature,value.witness);current(ticket,selected);const next=await selected.vault.acceptSourceGraph(row);current(ticket,selected);setSummary(next);
    if(row.graph.stage==='SOURCE_CANCELLED')await readReleasedSource(selected,ticket);
@@ -202,19 +209,42 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   const local=await vault.summary();current(ticket,selected);
   if(local.descriptor!==null&&JSON.stringify(local.descriptor)!==JSON.stringify(descriptor))throw Error('MOBILE_EXTERNAL_FLAT_BINDING_CHANGED');
   setSummary(local);setConnected(true);setRecipient(local.recipient===null?'':'0x'+local.recipient);setAmount(local.amount??'');
-  if(local.graph!==null)await readGraphStatus(selected,ticket);else await readStatus(selected,ticket);setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
+  if(local.graph!==null){if(local.recoveryFence.source)await readStatus(selected,ticket);await readGraphStatus(selected,ticket);}else await readStatus(selected,ticket);setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
  }
  async function exportRecovery(){
-  const selected=requireConnection();clearReview();const ticket=epoch.current,controller=new AbortController();signing.current=controller;
+  const selected=requireConnection(),sharePrepared=selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&preparedRef.current?.draft.action==='PROVE_D27'?preparedRef.current:null,graphPrepared=graphPreparedRef.current;
+  if(sharePrepared)preparedRef.current=null;graphPreparedRef.current=null;clearReview();preparedRef.current=sharePrepared;graphPreparedRef.current=graphPrepared;
+  const kind:RecoveryPreparation|null=graphPrepared?'GRAPH':sharePrepared?'SHARE':null,prepared=graphPrepared??sharePrepared;setRecoveryPreparation(kind);
+  const ticket=epoch.current,controller=new AbortController();signing.current=controller;
   let password=recoveryPassword;setRecoveryPassword('');setRecoveryCopy('');
   try{
+   const before=prepared?await selected.vault.recoveryCheckpoint():null;current(ticket,selected);
    const note=await selected.vault.exportBackup(password,selected.descriptor.devicePublicKey,controller.signal);current(ticket,selected);
    const identity=await exportDeviceIdentityBackupV1(password,selected.descriptor.devicePublicKey,controller.signal);current(ticket,selected);
    const copy=JSON.stringify({format:'LIANUM_DEVICE_NOTE_RECOVERY_PACKAGE_V1',descriptor:selected.descriptor,identityBackup:JSON.parse(identity),noteBackup:JSON.parse(note)});
    if(copy.length>196608)throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
-   setRecoveryCopy(copy);setNotice('Copia cifrada de tu identidad, esta nota y sus operaciones. Guárdala fuera del dispositivo junto con tu contraseña. Actualízala al cambiar las operaciones.');
+   if(prepared&&kind&&before){const after=await selected.vault.recoveryCheckpoint();current(ticket,selected);
+    if(!sameRecoveryCheckpoint(before,after)||(kind==='GRAPH'?graphPreparedRef.current:preparedRef.current)!==prepared)throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_CHANGED');
+    recoveryCut.current={selected,kind,prepared,checkpoint:after};
+   }
+   setRecoveryCopy(copy);setNotice(prepared?'Guarda esta copia completa y su contraseña fuera del dispositivo. Incluye las nuevas aperturas; una copia anterior no las recupera. Confirma que la has guardado para revisar la autorización.':'Copia cifrada de tu identidad, esta nota y sus operaciones actuales. Guárdala fuera del dispositivo junto con tu contraseña. Las aperturas creadas después requieren una copia nueva.');
   }finally{password='';if(signing.current===controller)signing.current=null;}
  }
+ function sameRecoveryCheckpoint(a:RecoveryCheckpoint,b:RecoveryCheckpoint){return a.rootId===b.rootId&&a.noteRevision===b.noteRevision&&a.descriptorSHA256===b.descriptorSHA256&&a.revision===b.revision&&a.recordSHA256===b.recordSHA256;}
+ async function verifyRecoveryCut(selected:Connection,kind:RecoveryPreparation,witness:unknown,ticket:number){
+  const cut=recoveryCut.current;if(!cut||cut.selected!==selected||cut.kind!==kind||cut.prepared.witness!==witness)throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_REQUIRED');
+  const checkpoint=await selected.vault.recoveryCheckpoint();current(ticket,selected);
+  if(recoveryCut.current!==cut||!sameRecoveryCheckpoint(cut.checkpoint,checkpoint))throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_CHANGED');
+ }
+ async function reviewBackedPreparation(){
+  const selected=requireConnection(),ticket=epoch.current,cut=recoveryCut.current;
+  if(!cut||cut.selected!==selected||(cut.kind==='GRAPH'?graphPreparedRef.current:preparedRef.current)!==cut.prepared)throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_REQUIRED');
+  await verifyRecoveryCut(selected,cut.kind,cut.prepared.witness,ticket);
+  if(cut.kind==='GRAPH'){const prepared=graphPreparedRef.current!;await makeGraphReview(selected,prepared.draft,ticket,prepared.witness);}
+  else{const prepared=preparedRef.current!;await makeReview(selected,prepared.draft,ticket,prepared.witness);}
+  setRecoveryPreparation(null);
+ }
+ function confirmBackedPreparation(){if(busyRef.current)return;Alert.alert('Confirmar copia guardada','Confirma que has guardado fuera del dispositivo esta copia completa y su contraseña. Se revisará una autorización nueva; todavía no se envía la operación.',[{text:'Cancelar',style:'cancel'},{text:'He guardado la copia',onPress:()=>{void run(reviewBackedPreparation);}}],{cancelable:false});}
  async function restoreRecovery(){
   let input=recoveryInput,password=recoveryPassword;setRecoveryInput('');setRecoveryPassword('');
   const drain=closeConnection(),ticket=epoch.current;await drain;
@@ -249,7 +279,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   const address=/^0x[0-9a-fA-F]{40}$/.exec(recipient)?.[0]===recipient?recipient.slice(2).toLowerCase():recipient;
   const prepared=await selected.vault.prepareDeposit(selected.descriptor,address,amount,value.observed.timestamp,selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?validUntil:undefined);preparedRef.current=prepared;current(ticket,selected);
   const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
-  await makeReview(selected,prepared.draft,ticket,prepared.witness);
+  if(selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1){setRecoveryPreparation('SHARE');setNotice('Guarda una copia actualizada de esta participación antes de autorizar su recepción. Después podrás revisar la autorización.');}
+  else await makeReview(selected,prepared.draft,ticket,prepared.witness);
  }
  async function requestAction(action:ExternalFlatAction) {
   const selected=requireConnection();clearReview();const ticket=epoch.current;
@@ -271,7 +302,9 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   // Remove the expiring review before the long proof wait. Permission freshness
   // is checked again by the protected signer, durable latch and fixed SDK.
   reviewRef.current=null;activeWitness.current=value.witness;setReview(null);
-  try{const signature=await sign(selected,value.consent,ticket);await selected.vault.latch(value.consent);current(ticket,selected);
+  try{if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket);
+   const signature=await sign(selected,value.consent,ticket);if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket);
+   await selected.vault.latch(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
    const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
    const row=await selected.client.submit(value.consent,signature,value.witness);current(ticket,selected);
    if('quote' in row)throw Error('MOBILE_EXTERNAL_FLAT_ROW_REQUIRED');
@@ -322,7 +355,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    <Button label={share?'Preparar recepción de participación':'Preparar prueba de financiación'} disabled={busy||!canPrepare} onPress={()=>confirmPreparation()}/>
   </View>}
   {connected&&!share&&deposit?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Conversión y reserva privadas</Text>
-   {graph===null&&!status?.graphClaimed&&<><Text style={styles.muted}>Autoriza primero la recepción en la conexión de participaciones. Usa aquí sus importes y el mismo inicio de plazo; la recuperación conserva una nota propia.</Text>
+   {(graph===null||graph.row===null&&graph.pending===null)&&!status?.graphClaimed&&<><Text style={styles.muted}>Autoriza primero la recepción en la conexión de participaciones. Usa aquí sus importes y el mismo inicio de plazo; la recuperación conserva una nota propia.</Text>
     <Text style={styles.label}>Activo que recibe la inversión, unidades atómicas</Text><TextInput accessibilityLabel="Importe invertido" style={styles.input} value={graphAssetAmount} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphAssetAmount}/>
     <Text style={styles.label}>Participaciones autorizadas, unidades atómicas</Text><TextInput accessibilityLabel="Participaciones autorizadas" style={styles.input} value={graphShareAmount} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphShareAmount}/>
     <Text style={styles.label}>Importe reservado, unidades atómicas</Text><TextInput accessibilityLabel="Importe reservado" style={styles.input} value={graphPayoutAmount} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphPayoutAmount}/>
@@ -378,10 +411,12 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    {connected&&withdrawal?.stage==='WITHDRAWAL_UNKNOWN'&&<Button label="Consultar retirada pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_W39'));}}/>}
   </View>
   <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
-   <Text style={styles.muted}>Recupera tu identidad, esta nota, su cambio y recuperación, y las operaciones guardadas. Conserva la conexión original y una copia actualizada fuera del dispositivo.</Text>
+   <Text style={styles.muted}>La copia recupera tu identidad y las aperturas y operaciones guardadas al crearla. Una copia anterior no recupera el cambio, la recuperación o las participaciones que prepares después. Guarda una copia nueva antes de autorizarlos.</Text>
+   {recoveryPreparation&&<Text style={styles.muted}>{recoveryPreparation==='GRAPH'?'El cambio y la recuperación ya están preparados.':'La participación ya está preparada.'} Crea la copia y guárdala antes de revisar la autorización.</Text>}
    <TextInput accessibilityLabel="Contraseña de la copia cifrada" style={styles.input} value={recoveryPassword} onChangeText={setRecoveryPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024} editable={!busy} placeholder="Contraseña de al menos 12 caracteres" placeholderTextColor="#9fb7bd"/>
    <Button label="Crear copia cifrada" disabled={busy||!connected||recoveryPassword.length<12} onPress={confirmRecoveryExport}/>
    {recoveryCopy!==''&&<><Text selectable style={styles.value}>{recoveryCopy}</Text><Button label="Ocultar copia" disabled={busy} onPress={hideRecovery}/></>}
+   {recoveryPreparation&&recoveryCopy!==''&&recoveryCut.current&&<Button label="He guardado la copia; revisar autorización" disabled={busy} onPress={confirmBackedPreparation}/>}
    <TextInput accessibilityLabel="Copia cifrada de recuperación de la nota" style={[styles.input,styles.descriptor]} value={recoveryInput} onChangeText={setRecoveryInput} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={196608} editable={!busy} placeholder="Pega tu copia cifrada" placeholderTextColor="#9fb7bd"/>
    <Button label="Recuperar custodia desde la copia" disabled={busy||recoveryInput.length===0||recoveryPassword.length<12||descriptorText.length===0} onPress={confirmRecoveryRestore}/>
   </View>
