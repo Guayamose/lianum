@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "d77454a0419fb0eac432596fd040088bd0b072b1c7ba181925bcedba35fe1612",
+  "hostSourceClosureSHA256": "8e178608f69ad800ec20555dfeaa898d9c43d9ff762c0f70d5a231adb8121bc4",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -2078,7 +2078,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs",
-      "sha256": "6c4d030ca5e06df1e562c344753f09261d61974d98c2f4e8b8b29aa18838f484"
+      "sha256": "5367e79620f25c0bfeb975fe2b636382d81c0d087442757ee87ca645030f8d37"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/guarded/tron-aligned-native-audit-v1.mjs",
@@ -2662,7 +2662,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/native-claims/segmented-record-store.mjs",
-      "sha256": "0ad14095bc4d48bbaa04dd91cf95283e36d208302b8dbb395ec967a6cf8e7602"
+      "sha256": "06ad55e7ce08980735fb186a17ac87c6d9ba17dca476ee8656bd946e0f453513"
     },
     {
       "path": "wallet-platform/modules/native-claims/vault-session.mjs",
