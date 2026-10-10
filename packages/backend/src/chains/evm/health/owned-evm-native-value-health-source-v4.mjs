@@ -79,7 +79,7 @@ async function rollupClients() {
     }
     assert(root!==parse(root).root,'OWNED_NATIVE_SOURCE_ORIGINAL_REPOSITORY_REQUIRED');root=realpathSync(root);
     const sourcePath=join(root,'scripts/development/owned-rollup-original-source-profile-v1.mjs');
-    const sourcePin='3f4a3c74d0282def8e61b042dad67688b2bf56e8e78b6e552d7a7aeed956d1a2';
+    const sourcePin='e957fe3620841726799158262012ccadf0d7530649cef1a152d0df016859397e';
     assert.equal(sha(readFileSync(sourcePath)),sourcePin,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_MODULE_CHANGED');
     const sourceModule=await import(pathToFileURL(sourcePath).href);
     assert.equal(sourceModule.readOriginalOwnedRollupSourceModuleV1(),sourcePin,'OWNED_NATIVE_SOURCE_LOADED_ROLLUP_MODULE_CHANGED');

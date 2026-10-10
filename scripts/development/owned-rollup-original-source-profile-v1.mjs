@@ -35,6 +35,7 @@ const mobileRuntimeFiles=Object.freeze([
  ...['native-recipient-process.mjs','native-recipient-custody.mjs','generic-balance-native-preparation.mjs','native-admission.mjs']
  .map(path=>['golden/src/paeg/'+path,'.internal/runtime/omnichain-product/src/paeg/'+path])]);
 const mobileArbitrum=Object.freeze({profile:'ORIGINAL_ARBITRUM42161_PRIVATE_NATIVE_MOBILE_V1',files:Object.freeze([...profiles.Arbitrum.files,...[{"path":"scripts/development/owned-arbitrum-private-native-mobile-v1.mjs","sha256":"0e96430c411730906fb335c144d470bc510db8988d4cd8f0d877454c4e422a62"},{"path":"apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs","sha256":"c71561d0d578db2adfa2a287cb5314f710e228eaf432e41eec239c2d9c20dd31"}]]),runtimeFiles:mobileRuntimeFiles});
+const mobileBase=Object.freeze({profile:'ORIGINAL_BASE8453_PRIVATE_NATIVE_MOBILE_V1',files:Object.freeze([...profiles.Base.files,...[{"path":"scripts/development/owned-base-private-native-mobile-v1.mjs","sha256":"1be7af607eaa411853e0972b5d3475f62f249a5299ab4eecbe9b729615133568"},{"path":"apps/platform/src/run-original-base-private-native-mobile-v1.mjs","sha256":"77a66a08de44f3d66ca16000a221ffa2a6c0f1e8f22905cbba8c0febbe9ca85b"}]]),runtimeFiles:mobileRuntimeFiles});
 function repository(){let current=dirname(fileURLToPath(import.meta.url));while(current!==parse(current).root){
  if(existsSync(join(current,'scripts/layout.json'))&&existsSync(join(current,'package.json'))
  &&JSON.parse(readFileSync(join(current,'package.json'),'utf8')).name==='lianum')return realpathSync(current);current=dirname(current);}
@@ -76,6 +77,8 @@ function birth(selected){const initial=capture(selected),token=Object.freeze(Obj
  slots.set(token,{selected,value:initial.value,sha256:initial.sha256,closed:false,poisoned:false});
  assertOriginalOwnedRollupSourceProfileV1(token);return token;}
 export function createOriginalBaseRollupSourceProfileV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(profiles.Base);}
+/** Separate fixed Base mobile composition, before custody/native CREATE. */
+export function createOriginalBaseNativeMobileSourceV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(mobileBase);}
 export function createOriginalArbitrumRollupSourceProfileV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(profiles.Arbitrum);}
 /** Separate fixed mobile composition, before custody/native CREATE. */
 export function createOriginalArbitrumNativeMobileSourceV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(mobileArbitrum);}
