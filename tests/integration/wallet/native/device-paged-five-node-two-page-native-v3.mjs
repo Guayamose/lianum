@@ -4,6 +4,9 @@
  * LOCAL_SYNTHETIC EVM/fake-clock scope; no phone/public-finality/8h claim. */
 import assert from 'node:assert/strict';
 import {createHash,randomBytes} from 'node:crypto';
+import {realpath} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {Graph} from '../../../../packages/proofs/src/tooling/original-paged-artifacts-v3.mjs';
 import {readOriginalPagedNativeExecutionContextV3} from '../../../../packages/backend/src/operations/local/funded-paged-native-operator-v3.mjs';
 import {prepareOriginalPagedNativeActionsV3,readOriginalPagedNativeAdmissionV3,readOriginalPagedNativeHealthV3} from '../../../../packages/backend/src/providers/funded-paged-native-provider-v3.mjs';
@@ -12,11 +15,15 @@ import {readOriginalFundedPagedGraphDeploymentV3} from '../../../../packages/eng
 import {nativeReceiptCommitment} from '../../../../packages/engine/src/execution/native/state/native-receipt.mjs';
 import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
 import * as C from '../../../../packages/mobile-protocol/src/device-paged-graph-v3.mjs';
-import {createDevicePagedOwnerApiV3,readDevicePagedStatusV3} from '../../../../apps/mobile/src/api/device-paged-owner-api-v3.mjs';
-import {createDevicePagedGraphApiV3,readDevicePagedGraphStatusV3} from '../../../../apps/mobile/src/api/device-paged-graph-api-v3.mjs';
-import {createDevicePagedGraphNoteVaultV3,restoreDevicePagedNoteBackupV3} from '../../../../apps/mobile/src/custody/device-paged-note-vault-v3.ts';
-import {signDevicePagedOwnerPermissionV3,signDevicePagedGraphPermissionV3,readDevicePublicKey} from '../../../../apps/mobile/src/custody/key-store.ts';
 import {assertOriginalPagedMobileHostV3,retainOriginalPagedMobileCustodyCopyV3,eraseOriginalPagedMobileCustodyNamespaceV3,readOriginalPagedMobileCustodyCopyV3} from './device-paged-mobile-host-v3.mjs';
+// The prepared flow shares the canonical original mobile SDK/Vault/PoP.
+// Only these two exact source layouts are accepted; no CWD/env/path selection.
+const flowModulePath=fileURLToPath(import.meta.url),canonicalProject=resolve(fileURLToPath(new URL('../../../../',import.meta.url))),preparedProject=resolve(fileURLToPath(new URL('../../../../../',import.meta.url)));
+const flowProject=flowModulePath===join(canonicalProject,'tests/integration/wallet/native/device-paged-five-node-two-page-native-v3.mjs')?canonicalProject:flowModulePath===join(preparedProject,'.internal/runtime/omnichain-flat-profile/flat-wallet/integration/device-paged-five-node-two-page-native-v3.mjs')?preparedProject:null;
+assert.ok(flowProject,'PAGED_FINANCIAL_FIXED_MOBILE_LAYOUT');assert.equal(await realpath(flowProject),flowProject,'PAGED_FINANCIAL_MOBILE_PROJECT_ALIAS');
+const mobileSources=Object.freeze({owner:'api/device-paged-owner-api-v3.mjs',graph:'api/device-paged-graph-api-v3.mjs',vault:'custody/device-paged-note-vault-v3.ts',key:'custody/key-store.ts'});
+async function originalMobileModule(role){assert.ok(Object.hasOwn(mobileSources,role));const path=join(flowProject,'apps/mobile/src',mobileSources[role]);assert.equal(await realpath(path),path,'PAGED_FINANCIAL_ORIGINAL_MOBILE_ALIAS');return import(pathToFileURL(path).href);}
+const {createDevicePagedOwnerApiV3,readDevicePagedStatusV3}=await originalMobileModule('owner'),{createDevicePagedGraphApiV3,readDevicePagedGraphStatusV3}=await originalMobileModule('graph'),{createDevicePagedGraphNoteVaultV3,restoreDevicePagedNoteBackupV3}=await originalMobileModule('vault'),{signDevicePagedOwnerPermissionV3,signDevicePagedGraphPermissionV3,readDevicePublicKey}=await originalMobileModule('key');
 const hash=x=>createHash('sha256').update(x).digest('hex'),hex=x=>'0x'+x,word=x=>'0x'+BigInt(x).toString(16).padStart(64,'0'),u64=x=>{const b=Buffer.alloc(8);b.writeBigUInt64BE(BigInt(x));return b;},Z='0'.repeat(64);
 const fixed=Object.freeze([{id:'n0',dependsOn:[]},{id:'n1',dependsOn:['n0']},{id:'n2',dependsOn:['n0']},{id:'n3',dependsOn:['n1','n2']},{id:'n4',dependsOn:['n3']}]);
 export async function runOriginalPagedFiveNodeTwoPageNativeV3(product,host){assert.equal(arguments.length,2);assertOriginalPagedMobileHostV3(host);const ctx=readOriginalPagedNativeExecutionContextV3(product),{runtime,system,account,provider,nativeRuntime,fetchImpl}=ctx,d=readOriginalFundedPagedGraphDeploymentV3(runtime,system),descriptor=product.descriptor;assert.equal(await readDevicePublicKey(),descriptor.devicePublicKey,'PAGED_FINANCIAL_SAME_DEVICE_POP');assert.equal(host.devicePublicKey,descriptor.devicePublicKey,'PAGED_FINANCIAL_SAME_HOST_POP');let vault=await createDevicePagedGraphNoteVaultV3(descriptor),note=createDevicePagedOwnerApiV3({descriptor,fetchImpl}),api=createDevicePagedGraphApiV3({descriptor,fetchImpl});const proofs=new Map(),dispatches=[],terminals=[],withdrawals=[],frontier=[],receipts=new Map(),packets=new Map();let status,last,custodyCopy=null;
