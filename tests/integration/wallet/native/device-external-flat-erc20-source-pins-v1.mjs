@@ -11,6 +11,9 @@ const RUNNER=Object.freeze(['integration/run-device-external-flat-erc20-v1.mjs',
 const PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-ordered-observation-service-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs']);
 // Final literal hashes are sealed with the producer/SDK READY dependencies.
 const MOBILE=Object.freeze([
+ ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
+ ["apps/mobile/src/custody/native-claim-pending-v1.d.mts","aac072b99da38b5dc4c9cc35e2d78dbf769dafa49d2af1e2dfff4d69ab72c4e5"],
+ ["apps/mobile/src/custody/native-claim-pending-store-v1.ts","31637425c41753788344bf426d75738fcf1f066d111c5767ac155a769eb57396"],
  ["packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs","2c77312400a750f813553904657e95fd5b0dd494b1c83aee170c70af70caedee"],
  ["packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs","9a9e503ff588ed7e9ffa69f91f24be127ba5b7e13d80d8712110aa728df1855b"],
  ["packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs","2ff20ab083ee7dcddb8a17afc9f44fb8fa00bd7863edd23b027fc24451c6e369"],
@@ -49,11 +52,11 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "b6918c4caef095639298ab28f2e480307a57b879da06fff3bf28184940c1afb2"
+  "8aaca05c46450553677e55fab9e4de0e1d5d0ed0e9b1afb4c74cd7d8384d2ac5"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "66c0d8c380e0c2e6a3e418050e90e9ab3da27f0b24c60c70fbe7d46cf343b777"
+  "9b4c022f6161a7760827c8e218f31cc0242b4a1b67344d33c84a48ad0225b2dc"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -109,11 +112,11 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "deb9a2c68d2fd0a5223397238abaf63f06daa883a87f655c694c12d563d7f523"
+  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
-  "98de0bcc51ccf5735b4e2ef9a7d7ee00c57cfdb246ec8f0a05392108fa1e261e"
+  "cf2e757ffe50ecb57e2a2a3dd259aaf45a3c732c3cb9f823a130a8f0f80f92c3"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
@@ -129,7 +132,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "234a5364483e995d30915ecce3f79b97e2ee6f5b9f54fd484ec7d5731191ce78"
+  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
@@ -148,6 +151,9 @@ export function deviceExternalFlatErc20SourcePinsV1(){assert.equal(arguments.len
 const GRAPH_RUNNER=Object.freeze(['integration/run-device-external-flat-source-graph-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs','integration/device-external-flat-ordered-restart-v1.mjs','integration/device-external-flat-ordered-successor-v1.mjs']);
 const GRAPH_PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/global-state/device-external-flat-source-graph-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs','wallet-platform/modules/paeg/flat-native-execution.mjs']);
 const GRAPH_MOBILE=Object.freeze([
+ ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
+ ["apps/mobile/src/custody/native-claim-pending-v1.d.mts","aac072b99da38b5dc4c9cc35e2d78dbf769dafa49d2af1e2dfff4d69ab72c4e5"],
+ ["apps/mobile/src/custody/native-claim-pending-store-v1.ts","31637425c41753788344bf426d75738fcf1f066d111c5767ac155a769eb57396"],
  ["packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs","2c77312400a750f813553904657e95fd5b0dd494b1c83aee170c70af70caedee"],
  ["packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs","9a9e503ff588ed7e9ffa69f91f24be127ba5b7e13d80d8712110aa728df1855b"],
  ["packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs","2ff20ab083ee7dcddb8a17afc9f44fb8fa00bd7863edd23b027fc24451c6e369"],
@@ -199,7 +205,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "1376d01292b0ac97f4a70f7a8983b156c7724cb738599f4c8c46b9dee0a9e34c"
+  "731880e8053a7235e4cc7659c3bfd53bb0a065cc2c360e73f1e8ad698bc41bbc"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -211,19 +217,19 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "b6918c4caef095639298ab28f2e480307a57b879da06fff3bf28184940c1afb2"
+  "8aaca05c46450553677e55fab9e4de0e1d5d0ed0e9b1afb4c74cd7d8384d2ac5"
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "7ee9b8e3f425e63a7503e40d2701636294c23770d5ff6974b37822830028d0b3"
+  "5fe45ee9ec141d08c60e85e210e82bbedeaa286d9d3f506bcfe3f6dff32baa66"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "deb9a2c68d2fd0a5223397238abaf63f06daa883a87f655c694c12d563d7f523"
+  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "66c0d8c380e0c2e6a3e418050e90e9ab3da27f0b24c60c70fbe7d46cf343b777"
+  "9b4c022f6161a7760827c8e218f31cc0242b4a1b67344d33c84a48ad0225b2dc"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -231,7 +237,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
-  "98de0bcc51ccf5735b4e2ef9a7d7ee00c57cfdb246ec8f0a05392108fa1e261e"
+  "cf2e757ffe50ecb57e2a2a3dd259aaf45a3c732c3cb9f823a130a8f0f80f92c3"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
@@ -243,7 +249,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "d315004e17bfaad885273195b336026ed932ddb452d340ce519bdb499362f3bb"
+  "aa6213bb2a2ef4c9854b81acfcea1d62adb7afbb7813a65ef47806577b911e74"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -259,11 +265,11 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "8ce228de5db11fd923d958b3501292fe27e1f61b12d2321e19650bc388b86a90"
+  "d25ce58e72ad8fc7304b67b3887f9e4b9dbf73aa46c71542c10d036067f1264d"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "234a5364483e995d30915ecce3f79b97e2ee6f5b9f54fd484ec7d5731191ce78"
+  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
@@ -320,6 +326,9 @@ export function deviceExternalFlatGraphSourcePinsV1(){assert.equal(arguments.len
 const BLUE_RUNNER=Object.freeze(["integration/run-device-morpho-blue-private-position-v1.mjs","integration/device-external-flat-erc20-flow-v1.mjs","integration/device-external-flat-erc20-host-vault-v1.mjs","integration/device-external-flat-erc20-policy-v1.mjs","integration/device-external-flat-erc20-source-pins-v1.mjs","integration/native-flow-supervisor.mjs","integration/device-external-flat-ordered-restart-v1.mjs","integration/device-external-flat-ordered-successor-v1.mjs"]);
 const BLUE_PRODUCERS=Object.freeze(["wallet-platform/modules/chain-adapters/metamorpho-graph-delivery-observer-v1.mjs","wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs","wallet-platform/modules/defi-adapters/device-morpho-blue-private-exit-v1.mjs","wallet-platform/modules/defi-adapters/morpho-vault-redemption-accounting-v1.mjs","wallet-platform/modules/defi-adapters/owned-metamorpho-vault.mjs","wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs","wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs","wallet-platform/modules/global-state/device-external-flat-source-graph-v1.mjs","wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs","wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs","wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-ordered-local-operator-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-ordered-observation-service-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs","wallet-platform/modules/ops/deploy-morpho-blue-position-v1.mjs","wallet-platform/modules/ops/deploy-private-external-router-v1.mjs","wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs","wallet-platform/modules/ops/morpho-blue-position-compilation-v1.mjs","wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs","wallet-platform/modules/paeg/flat-native-execution.mjs"]);
 const BLUE_MOBILE=Object.freeze([
+ ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
+ ["apps/mobile/src/custody/native-claim-pending-v1.d.mts","aac072b99da38b5dc4c9cc35e2d78dbf769dafa49d2af1e2dfff4d69ab72c4e5"],
+ ["apps/mobile/src/custody/native-claim-pending-store-v1.ts","31637425c41753788344bf426d75738fcf1f066d111c5767ac155a769eb57396"],
  ["packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs","2c77312400a750f813553904657e95fd5b0dd494b1c83aee170c70af70caedee"],
  ["packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs","9a9e503ff588ed7e9ffa69f91f24be127ba5b7e13d80d8712110aa728df1855b"],
  ["packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs","2ff20ab083ee7dcddb8a17afc9f44fb8fa00bd7863edd23b027fc24451c6e369"],
@@ -379,7 +388,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "1376d01292b0ac97f4a70f7a8983b156c7724cb738599f4c8c46b9dee0a9e34c"
+  "731880e8053a7235e4cc7659c3bfd53bb0a065cc2c360e73f1e8ad698bc41bbc"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -403,19 +412,19 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "b6918c4caef095639298ab28f2e480307a57b879da06fff3bf28184940c1afb2"
+  "8aaca05c46450553677e55fab9e4de0e1d5d0ed0e9b1afb4c74cd7d8384d2ac5"
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "7ee9b8e3f425e63a7503e40d2701636294c23770d5ff6974b37822830028d0b3"
+  "5fe45ee9ec141d08c60e85e210e82bbedeaa286d9d3f506bcfe3f6dff32baa66"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "deb9a2c68d2fd0a5223397238abaf63f06daa883a87f655c694c12d563d7f523"
+  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "66c0d8c380e0c2e6a3e418050e90e9ab3da27f0b24c60c70fbe7d46cf343b777"
+  "9b4c022f6161a7760827c8e218f31cc0242b4a1b67344d33c84a48ad0225b2dc"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -423,11 +432,11 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
-  "ee3354e394400f4c01dd771a82bc02beaeb8c460e05128fd556b8b3dea716e0d"
+  "290787a31c3ec35e3ca0bdda3fee1fe06f56f352f2287ea1d0e7d21ab68f957f"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
-  "98de0bcc51ccf5735b4e2ef9a7d7ee00c57cfdb246ec8f0a05392108fa1e261e"
+  "cf2e757ffe50ecb57e2a2a3dd259aaf45a3c732c3cb9f823a130a8f0f80f92c3"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
@@ -463,7 +472,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "d315004e17bfaad885273195b336026ed932ddb452d340ce519bdb499362f3bb"
+  "aa6213bb2a2ef4c9854b81acfcea1d62adb7afbb7813a65ef47806577b911e74"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -479,11 +488,11 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "8ce228de5db11fd923d958b3501292fe27e1f61b12d2321e19650bc388b86a90"
+  "d25ce58e72ad8fc7304b67b3887f9e4b9dbf73aa46c71542c10d036067f1264d"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "234a5364483e995d30915ecce3f79b97e2ee6f5b9f54fd484ec7d5731191ce78"
+  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
@@ -543,6 +552,9 @@ export function deviceMorphoBlueGraphSourcePinsV1(){assert.equal(arguments.lengt
 // Separate four-delivery source capsule. Root seals only these new literals;
 // old Graph/Blue capsules and every historical RAW remain unchanged.
 const META_FOUR_MOBILE=Object.freeze([
+ ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
+ ["apps/mobile/src/custody/native-claim-pending-v1.d.mts","aac072b99da38b5dc4c9cc35e2d78dbf769dafa49d2af1e2dfff4d69ab72c4e5"],
+ ["apps/mobile/src/custody/native-claim-pending-store-v1.ts","31637425c41753788344bf426d75738fcf1f066d111c5767ac155a769eb57396"],
  ["packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs","2c77312400a750f813553904657e95fd5b0dd494b1c83aee170c70af70caedee"],
  ["packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs","9a9e503ff588ed7e9ffa69f91f24be127ba5b7e13d80d8712110aa728df1855b"],
  ["packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs","2ff20ab083ee7dcddb8a17afc9f44fb8fa00bd7863edd23b027fc24451c6e369"],
@@ -594,7 +606,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "1376d01292b0ac97f4a70f7a8983b156c7724cb738599f4c8c46b9dee0a9e34c"
+  "731880e8053a7235e4cc7659c3bfd53bb0a065cc2c360e73f1e8ad698bc41bbc"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -606,19 +618,19 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-  "b6918c4caef095639298ab28f2e480307a57b879da06fff3bf28184940c1afb2"
+  "8aaca05c46450553677e55fab9e4de0e1d5d0ed0e9b1afb4c74cd7d8384d2ac5"
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "7ee9b8e3f425e63a7503e40d2701636294c23770d5ff6974b37822830028d0b3"
+  "5fe45ee9ec141d08c60e85e210e82bbedeaa286d9d3f506bcfe3f6dff32baa66"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "deb9a2c68d2fd0a5223397238abaf63f06daa883a87f655c694c12d563d7f523"
+  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
-  "66c0d8c380e0c2e6a3e418050e90e9ab3da27f0b24c60c70fbe7d46cf343b777"
+  "9b4c022f6161a7760827c8e218f31cc0242b4a1b67344d33c84a48ad0225b2dc"
  ],
  [
   "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -626,7 +638,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
-  "98de0bcc51ccf5735b4e2ef9a7d7ee00c57cfdb246ec8f0a05392108fa1e261e"
+  "cf2e757ffe50ecb57e2a2a3dd259aaf45a3c732c3cb9f823a130a8f0f80f92c3"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
@@ -638,7 +650,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "d315004e17bfaad885273195b336026ed932ddb452d340ce519bdb499362f3bb"
+  "aa6213bb2a2ef4c9854b81acfcea1d62adb7afbb7813a65ef47806577b911e74"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -654,11 +666,11 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "8ce228de5db11fd923d958b3501292fe27e1f61b12d2321e19650bc388b86a90"
+  "d25ce58e72ad8fc7304b67b3887f9e4b9dbf73aa46c71542c10d036067f1264d"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "234a5364483e995d30915ecce3f79b97e2ee6f5b9f54fd484ec7d5731191ce78"
+  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
