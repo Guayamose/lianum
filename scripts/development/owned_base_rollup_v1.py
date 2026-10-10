@@ -59,19 +59,27 @@ def private_read(path, maximum=8 * 1024 * 1024):
     path = Path(path)
     info = path.lstat()
     require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
-            and stat.S_IMODE(info.st_mode) == 0o600 and info.st_size <= maximum,
+            and stat.S_IMODE(info.st_mode) == 0o600 and info.st_nlink == 1
+            and 0 <= info.st_size <= maximum,
             'BASE_ORIGINAL_PRIVATE_FILE')
+    # Reading may update atime; identity and content metadata must stay exact.
+    def identity(value):
+        return (value.st_dev, value.st_ino, value.st_mode, value.st_nlink,
+                value.st_uid, value.st_gid, value.st_size,
+                value.st_mtime_ns, value.st_ctime_ns)
+    expected = identity(info)
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     try:
-        require(os.fstat(fd) == info, 'BASE_ORIGINAL_PRIVATE_FILE_CHANGED')
+        require(identity(os.fstat(fd)) == expected, 'BASE_ORIGINAL_PRIVATE_FILE_CHANGED')
         with os.fdopen(fd, 'rb', closefd=False) as handle:
             data = handle.read(maximum + 1)
-        require(len(data) <= maximum and os.fstat(fd) == info,
+        require(len(data) == info.st_size and len(data) <= maximum
+                and identity(os.fstat(fd)) == expected
+                and identity(path.lstat()) == expected,
                 'BASE_ORIGINAL_PRIVATE_FILE_CHANGED')
         return data
     finally:
         os.close(fd)
-
 
 def private_write(path, data):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)

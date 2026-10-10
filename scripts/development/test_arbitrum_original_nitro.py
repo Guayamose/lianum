@@ -8,9 +8,33 @@ import tarfile
 import tempfile
 import stat
 import unittest
+from unittest import mock
 
 
 class OriginalNitroNamespaceTest(unittest.TestCase):
+    def test_private_read_allows_access_time_but_rejects_mutation(self):
+        spec = importlib.util.spec_from_file_location('original_nitro_private_reader', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        with tempfile.TemporaryDirectory(prefix='original-private-read-') as value:
+            path = Path(value) / 'original.bin'
+            path.write_bytes(b'original-public-receipt')
+            path.chmod(0o600)
+            os.utime(path, ns=(0, path.stat().st_mtime_ns))
+            self.assertEqual(m.private_read(path), b'original-public-receipt')
+            original_fstat = os.fstat
+            calls = 0
+            def mutate_before_second_stat(fd):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    info = path.stat()
+                    os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 1))
+                return original_fstat(fd)
+            with mock.patch.object(m.os, 'fstat', mutate_before_second_stat):
+                with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_PRIVATE_FILE_CHANGED$'):
+                    m.private_read(path)
+
     def test_private_parent_birth_and_existing_mode_denial(self):
         path = Path(__file__).with_name('owned_arbitrum_nitro_v1.py')
         spec = importlib.util.spec_from_file_location('original_nitro_directory', path)

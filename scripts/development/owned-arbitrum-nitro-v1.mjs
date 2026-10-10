@@ -11,7 +11,7 @@ import { performance } from 'node:perf_hooks';
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1';
 const nativeValues = new WeakSet();
-const RECIPE_SHA256 = 'dab6f6776210b8e6b1175650d2bc2ea90863f06debd7023b6ee61bdbf4fc28b3';
+const RECIPE_SHA256 = '1306fbe770e1b1e00d2be1a876cccc69f8485f970c0e28522ef1d932fc1ad11c';
 const BIRTH_MS = 600_000 + 180_000 + 15_000;
 const IPC_MS = 30_000;
 const owned = new WeakMap();

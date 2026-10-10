@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 
 def module():
@@ -15,6 +16,27 @@ def module():
 
 
 class OriginalBaseLocalTest(unittest.TestCase):
+    def test_private_read_allows_access_time_but_rejects_mutation(self):
+        m = module()
+        with tempfile.TemporaryDirectory(prefix='original-private-read-') as value:
+            path = Path(value) / 'original.bin'
+            path.write_bytes(b'original-public-receipt')
+            path.chmod(0o600)
+            os.utime(path, ns=(0, path.stat().st_mtime_ns))
+            self.assertEqual(m.private_read(path), b'original-public-receipt')
+            original_fstat = os.fstat
+            calls = 0
+            def mutate_before_second_stat(fd):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    info = path.stat()
+                    os.utime(path, ns=(info.st_atime_ns, info.st_mtime_ns + 1))
+                return original_fstat(fd)
+            with mock.patch.object(m.os, 'fstat', mutate_before_second_stat):
+                with self.assertRaisesRegex(m.ClosedError, '^BASE_ORIGINAL_PRIVATE_FILE_CHANGED$'):
+                    m.private_read(path)
+
     def test_official_material_is_own_pos_and_bindings_stay_private(self):
         m = module()
         files = m.official_files(m.repository() / '.local/dependencies/base-original-v1/public' / f'base-{m.COMMIT}.tar.gz')

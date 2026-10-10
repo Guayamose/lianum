@@ -11,7 +11,7 @@ import { performance } from 'node:perf_hooks';
 const PROFILE = 'OWNED_BASE_NATIVE_ROLLUP_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1';
 const nativeValues = new WeakSet();
-const RECIPE_SHA256 = '613f2b3d28cba653ccabd6a395e283a247149d94388985b43a499b316e2a5d7a';
+const RECIPE_SHA256 = '6f4e84837101a4376ef18d33829f7cdaaeec101d3dc7da7e007c1154d548b275';
 const BIRTH_MS = 600_000 + 240_000 + 120_000 + 15_000;
 const IPC_MS = 30_000;
 const owned = new WeakMap();
