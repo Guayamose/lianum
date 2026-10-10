@@ -23,13 +23,16 @@ fuente con pérdida irreversible del proveedor más gas. El criterio 4.5 sube
 de 50 a 75 y el punto 4 de 70 a 75; los otros 34 criterios no cambian. Las
 notas quedan en 65/45/70/75/70/80/65 con el mismo método.
 
-El trabajo inmediato es cerrar Aave móvil, conectar la
-recuperación abrupta a SOURCE/GRAPH originales, admitir claims desde RootNote
-y compilar las relaciones paginadas genéricas con sus propios verificadores.
-Después se continúa con los productores pendientes de las siete redes,
-privacidad entre roles y la compilación móvil actualizada. Cloud sigue limitado
-a infraestructura local; teléfono al final. Las evidencias siguientes describen
-sus respectivos perfiles y cortes históricos.
+El trabajo inmediato es aceptar la recuperación abrupta de SOURCE/GRAPH,
+repetir Aave móvil tras la corrección de observación W39 y ejecutar la entrada
+y salida nativa desde RootNote propias. Ese código ya está conectado y sus
+comprobaciones focales pasan. Fold paginado ya compila y tiene clave propia;
+se completan las cuatro relaciones restantes, consumer y productor económico
+con el mismo núcleo antes de ampliar su custodia móvil. En paralelo continúan
+los productores pendientes de las siete redes y la continuidad de las mismas
+operaciones. Se compilará el APK una vez integrado el siguiente corte móvil.
+Cloud conserva el alcance local y el teléfono queda para el final. Las
+evidencias siguientes describen sus respectivos perfiles y cortes históricos.
 
 - **Wallet y estado:** EVM9 acepta D26/U/S, ejecución nativa, F, ambas W39 y
   cinco READ firmadas: diez secciones originales reabiertas en otro PID, una

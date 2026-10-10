@@ -25,31 +25,45 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición actual:** `c109885` publica 881 fuentes y doce roles. El
-  productor físico y las cápsulas actuales pasan (preflight V25), incluido el
-  consumidor de Base/Arbitrum/BSC. Las 45 fuentes originales W39 no cambian y los cuatro
-  indicadores de aceptación de la publicación siguen desactivados.
-- **Claims y diagnóstico:** `7af1207` conecta CI51 privado al mismo holder
-  Linux, con opening retenido en el child e intake cifrado; no acredita todavía
-  RootNote móvil ni el crédito Jupiter completo. `6ac8ed6` conserva la primera
-  causa privada de los cuatro CLI antes del cierre, sin payloads ni secretos.
-- **SOURCE confirmado:** `dc875ab` integra cuerpo cifrado, autoridad y estado
-  original completo para Meta simple/Uniswap. El HOST focal pasa (una prueba,
-  2.582 ms): corrupción y PID original vivo rechazados, actividad pendiente y
-  checkpoint confirmado separados. La caída financiera todavía no está aceptada;
-  la ventana broadcast→checkpoint y una segunda reapertura siguen pendientes.
-- **PAEG paginado privado V3:** preparación, relaciones, contratos y herramientas
-  están en cuatro commits (`c4777ba`–`7767750`), separados de los perfiles
-  originales. Cursor, modo y dependencias permanecen en el testigo privado;
-  el progreso usa compromisos cegados y un cierre global. Seis módulos pasan
-  sintaxis y cuatro HOST pasan (202 ms). La primera compilación Fold fue
-  rechazada; diagnóstico/corrección, VK propios y recorrido económico pendientes.
-  No se acredita privacidad sistémica ni se sustituyen las 45 fuentes originales.
-- **Aave móvil:** el intento `c5004783…` conserva su rechazo después de las
-  catorce pruebas al preparar redención. `961e8d2` corrige el plazo del driver
-  con la misma regla de la interfaz: timestamp observado más 180 segundos,
-  conservando el límite original del adaptador y el cutoff del GRAPH. El nuevo
-  intento `d2b593db…` está en ejecución; no se declara aceptado por adelantado.
+- **Composición actual:** `c3b5f05` publica 884 fuentes y doce roles. El
+  productor físico y las cápsulas actuales pasan (preflight V28), incluido el
+  consumidor de Base/Arbitrum/BSC y el cierre Cloud local de 147 archivos.
+  Las 45 fuentes originales W39 no cambian; los cuatro indicadores de
+  aceptación de la publicación siguen desactivados.
+- **RootNote y salida nativa móvil:** `ff8aaa0`/`4b14a3d`/`0822617` conectan
+  D27 y CI51 privados desde la custodia protegida del dispositivo. Las guardas
+  conservan términos originales y ACCESS antes y después de las esperas.
+  `e0b163d`/`8fbc9a2`/`5fc7349` añaden W39, redención y payout con journal
+  anterior al efecto y conciliación del mismo trabajo ante respuesta perdida.
+  El HOST focal original pasa (207 ms) y TypeScript móvil pasa. La nota es
+  DEVICE_ROOT_NOTE; el activo nativo sigue en BACKEND_LOCAL_QUORUM local.
+  Faltan el recorrido económico integrado y su continuidad tras caída.
+  `3a8b458` comparte el validador económico existente entre web y móvil,
+  conservando sus bytes y reglas; su HOST original pasa sin crear disponible.
+- **SOURCE confirmado y GRAPH:** `dc875ab`/`b3997cf`/`62cdd2c` conectan
+  cuerpo cifrado, autoridad, checkpoint y las catorce relaciones originales
+  a una caída abrupta del backend seguida de READ/RECONCILE en otro PID.
+  El intento `31a183f6…` falló en START con cero pruebas y conserva su rechazo;
+  sus procesos quedaron cerrados y el lock liberado. `a8babd9` conserva las
+  ubicaciones privadas de la causa del child y corrige CLOSE antes de adquirir
+  contexto; la regresión original pasa (249 ms). El siguiente intento está
+  en ejecución, sin aceptación adelantada. La ventana broadcast→checkpoint,
+  segunda reapertura y pérdida del padre/dispositivo siguen pendientes.
+- **PAEG paginado privado V3:** `ca5291e` incorpora árboles sparse Poseidon2
+  BN254 propios con el mismo encuadre en JS/Noir/Solidity. Los cinco HOST pasan;
+  Fold compila y genera su clave en el nuevo slot, dentro del límite original
+  de 3 GiB y del CRS original. Los RAW anteriores conservan sus rechazos.
+  Faltan las otras cuatro relaciones/claves, consumer y recorrido económico
+  del producto paginado. No se sustituyen las 45 fuentes originales ni se
+  acredita privacidad sistémica. Su productor OWNER está preparado en overlay,
+  pendiente de integración; la custodia móvil paginada sigue en desarrollo.
+- **Aave móvil:** `d2b593db…` terminó rechazado después de la redención real:
+  catorce pruebas y saldo de shares 100→0, pero falló la observación W39 tras
+  reabrir. `9883f3b` corrige esa lectura: devuelve una observación canónica
+  fresca separada del receipt confirmado, conservando los mismos checks,
+  job, prueba, nullifier y journal histórico. La regresión SDK/backend pasa;
+  falta repetir el recorrido financiero con esta corrección. `c5004783…`
+  conserva su rechazo anterior; el plazo original permanece sin cambios.
 - **APK:** la última compilación conservada es `e4b88b53…`, 43.077.407 bytes,
   109 inputs y 36 uniones, sin Metro. Es anterior a los cambios móviles recientes;
   falta recompilarla. La prueba física continúa prevista para el final.

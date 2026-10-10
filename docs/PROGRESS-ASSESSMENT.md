@@ -22,14 +22,21 @@ El usuario recupera las 500 unidades del activo fuente; el proveedor pierde
 firmados originales. Pool/backing/reservas quedan a cero sin duplicados.
 **4.5 pasa a 75 y el punto 4 a 75%; las otras 34 notas no cambian.**
 
-Código posterior integrado, sin cambio de estas notas: SOURCE confirmado
-`dc875ab` pasa su HOST AES/CAS original, pendiente de caída financiera real.
-PAEG paginado privado V3 (`c4777ba`–`7767750`) elimina los cursores y dependencias
-públicos del progreso mediante compromisos cegados; cuatro HOST y seis módulos
-pasan, pero su primera compilación Fold falló. No tiene VK ni recorrido económico
-aceptado. Aave móvil `c5004783…` conserva su rechazo; el driver usa ahora el plazo
-original de redención y el intento nuevo permanece pendiente. No se convierten
-esas implementaciones ni resultados pendientes en requisitos completos.
+Código posterior integrado, sin cambio de estas notas: RootNote móvil conecta
+D27/CI51/W39/redención/payout en commits separados; su HOST original y
+TypeScript pasan, pero falta el recorrido económico integrado. La custodia de
+la nota pertenece al dispositivo y el nativo continúa en quorum local.
+SOURCE/GRAPH incorpora checkpoint confirmado y caída abrupta; el primer
+START financiero falló con cero pruebas. La causa del child y CLOSE previo a
+contexto están corregidos con regresión original; el sucesor está en ejecución.
+La ventana broadcast→checkpoint y segunda reapertura siguen pendientes.
+PAEG paginado V3 tiene árboles sparse propios consistentes JS/Noir/Solidity;
+Fold compila y genera clave bajo los límites originales. Faltan cuatro claves,
+consumer, integración móvil y recorrido económico. Aave `d2b593db…` completó
+redención pero falló la lectura W39 tras reapertura; `9883f3b` corrige la
+observación fresca con regresión SDK/backend, pendiente de repetición
+financiera. Estos avances de código no se convierten en nuevos escenarios
+completos ni modifican los 35 criterios o los siete porcentajes.
 
 Esta es una **estimación de cobertura funcional**, con un cálculo reproducible.
 Las notas de cobertura siguen siendo juicios técnicos; no son medidas de tiempo,
