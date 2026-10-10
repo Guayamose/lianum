@@ -527,13 +527,14 @@ async function createDeviceRootClaimLocalOperator(config,profile){
     const {createOwnedLocalEvmV2,createOwnedDeviceExternalFlatReceiverV1,assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
     const {createOwnedCombinedBitcoinRuntime}=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
     const {createOwnedCombinedSolanaRuntime,createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');
-    const {createNativeClaimBootstrap,createOriginalRecentBlockhashNativeClaimBootstrapV4,preflightOriginalRecentBlockhashNativeClaimV4Artifacts,createNativeSplClaimIngressV1Bootstrap,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
+    const {createNativeClaimBootstrap,createOriginalRecentBlockhashNativeClaimBootstrapV4,preflightOriginalRecentBlockhashNativeClaimV4Artifacts,createNativeSplClaimIngressV1Bootstrap,preflightNativeSplClaimIngressV1Artifacts,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
     const {createOwnedClaimObserver}=await import('../../claims/operations/owned-state.mjs');
     const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
     const {createRoleProofClient}=await import('../../../../proofs/src/jobs/role-client.mjs');
     const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
     const {claimDomainCommitment}=await import('../../claims/protocol/framing.mjs');
     if(profile.endsWith('_EXIT_V3')&&family!=='SPL'){await preflightOriginalRecentBlockhashNativeClaimV4Artifacts();live();}
+    if(sourceSpl){await preflightNativeSplClaimIngressV1Artifacts();live();}
     runtime=await(sourceSpl||profile.endsWith('_EXIT_V3')?createOwnedDeviceExternalFlatReceiverV1():createOwnedLocalEvmV2());live();if(sourceSpl||profile.endsWith('_EXIT_V3'))assertOwnedDeviceExternalFlatReceiverV1(runtime);({custody:bitcoin,graph:graphBitcoin}=await createOwnedCombinedBitcoinRuntime());live();
     if(family==='SPL'){const {createOwnedCombinedSolanaSplRuntimeV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');({custody:solana,graph:graphSolana}=await createOwnedCombinedSolanaSplRuntimeV1());}
     else({custody:solana}=await(profile.endsWith('_EXIT_V3')?createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1:createOwnedCombinedSolanaRuntime)());live();

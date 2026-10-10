@@ -14,7 +14,8 @@ function pin(path){const before=lstatSync(path);assert.ok(before.isFile()&&!befo
 export function sourcePins(){assert.equal(arguments.length,0);return collectFixedSources('device-root-btc-original-note-exit-v3');}
 export function sourcePinsSol(){assert.equal(arguments.length,0);return collectFixedSources('device-root-sol-original-note-exit-v3');}
 export function sourcePinsSpl(){assert.equal(arguments.length,0);return collectFixedSources('device-root-spl-original-note-exit-v3');}
-function collectFixedSources(profile){const original=developmentNativeClaimSourcePins();const paths=new Set(['run-btc.mjs','run-sol.mjs','run-spl.mjs','flow.mjs','mobile-host.mjs','policy.mjs','source-pins.mjs'].map(n=>join(DRIVER,n)));
+export function sourcePinsSplSource(){assert.equal(arguments.length,0);return collectFixedSources('device-root-spl-source-original-note-exit-v4');}
+function collectFixedSources(profile){const original=developmentNativeClaimSourcePins();const paths=new Set(['run-btc.mjs','run-sol.mjs','run-spl.mjs',...(profile==='device-root-spl-source-original-note-exit-v4'?['run-spl-source.mjs']:[]),'flow.mjs','mobile-host.mjs','policy.mjs','source-pins.mjs'].map(n=>join(DRIVER,n)));
  for(const n of ['integration/device-owner-reservation-host-vault-v1.mjs','integration/native-device-economic-private-error-v1.mjs','wallet-platform/modules/api/native-claim-http.mjs'])paths.add(join(PROJECT,'.internal/runtime/omnichain-flat-profile/flat-wallet',n));
  for(const n of EXPLICIT)paths.add(join(MOBILE,'custody',n));paths.add(join(MOBILE,'api/native-claim-device-api-v1.mjs'));
  // These are finite before-fund SDK/Vault dependencies, not request-selected
