@@ -135,6 +135,9 @@ export async function prepareOriginalDeviceExternalFlatGraphWorkspaceV1(workspac
  need(input&&!types.isProxy(input),'DEVICE_EXTERNAL_GRAPH_TERMS');const q=exact(input,['assetAmount','shareAmount','payoutAmount','validFrom','settleBefore']);
  for(const key of Object.keys(q))externalFlatUintV1(q[key]);for(const key of ['assetAmount','shareAmount','payoutAmount'])need(BigInt(q[key])>0n,'DEVICE_EXTERNAL_GRAPH_TERMS');
  need(BigInt(q.assetAmount)<=BigInt(s.maximumSolverInput),'DEVICE_EXTERNAL_GRAPH_EXPLICIT_SOLVER_ALLOWANCE');
+ // The original single Meta/Uniswap delivery contract requires equality,
+ // not coverage. This quota was selected and approved before any funding.
+ if(!s.multi&&!s.originalAave&&!s.originalBlue)need(q.assetAmount===s.maximumSolverInput,'DEVICE_EXTERNAL_GRAPH_EXACT_SOLVER_ALLOWANCE');
  if(s.prepared){assert.deepEqual(q,s.terms,'DEVICE_EXTERNAL_GRAPH_TERMS_CHANGED');return s.prepared;}
  s.preparing=true;
  try{await s.persist({phase:'PREPARING',terms:structuredClone(q)});
