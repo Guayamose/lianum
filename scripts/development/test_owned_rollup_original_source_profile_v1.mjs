@@ -6,10 +6,10 @@ import {dirname,join,parse,relative,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {tmpdir} from 'node:os';
 function repository(){let path=dirname(fileURLToPath(import.meta.url));while(path!==parse(path).root){if(existsSync(join(path,'scripts/layout.json'))&&existsSync(join(path,'package.json'))&&JSON.parse(readFileSync(join(path,'package.json'),'utf8')).name==='lianum')return realpathSync(path);path=dirname(path);}throw new Error('HOST_ORIGINAL_REPOSITORY');}
-const repo=repository(),draft=join(repo,'.internal/dev/drafts/continuous-networks-v1/owned-rollup-original-source-profile-v1/canonical-overlay');
-const base=join(repo,'.internal/dev/drafts/continuous-networks-v1/base-original-native-value-dispatch-v1/canonical-overlay');
-const paired=join(repo,'.internal/dev/drafts/continuous-networks-v1/arbitrum-original-prague-blob-schedule-v1/canonical-overlay');
-function fixedCandidate(path){for(const root of [draft,base,paired,repo])if(existsSync(join(root,path)))return readFileSync(join(root,path));throw new Error('HOST_FIXED_CANDIDATE_REQUIRED');}
+const repo=repository();
+// Fixtures always use the versioned implementation, independently of local
+// agent drafts or whether the development history has been cleaned.
+function fixedCandidate(path){return readFileSync(join(repo,path));}
 const modulePath='scripts/development/owned-rollup-original-source-profile-v1.mjs';
 const publicationPath='.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-value-dev-release-v5.mjs';
 const bindings=[['golden/src/vault.mjs','.internal/runtime/omnichain-product/src/vault.mjs'],['golden/src/privacy.mjs','.internal/runtime/omnichain-product/src/privacy.mjs'],['golden/src/private-cohort-public-native.mjs','.internal/runtime/omnichain-product/src/private-cohort-public-native.mjs'],...['paeg/readiness-inputs.mjs','paeg/commitments.mjs','chain-adapters/native-economic-local-signing-v2.mjs','chain-adapters/owned-evm-v2-runtime.mjs','chain-adapters/owned-evm-native-value-profile.mjs','chain-adapters/native-value-evm-dispatch-gate.mjs'].map(path=>['wallet-platform/modules/'+path,'.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/'+path])];
