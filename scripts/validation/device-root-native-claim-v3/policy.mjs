@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 export const PROFILE='device-root-btc-original-note-exit-v3';
 export const RESULT='LIANUM_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_RESULT_V3';
-export const REVIEWED_RELEASE=null;
+export const REVIEWED_RELEASE=Object.freeze({schema:'REVIEWED_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_V3',profile:PROFILE,relations:Object.freeze(['deposit_intent','native_claim_ingress','withdraw_balance','native_claim_discharge']),sameRuntimeObservationOnlyRestart:true,localOnly:true,nativeCustody:'BACKEND_LOCAL_QUORUM',noteCustody:'DEVICE_ROOT_NOTE'});
 const hex=v=>assert.match(v,/^[0-9a-f]{64}$/),id=v=>assert.match(v,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 export function assertRelease(){assert.equal(arguments.length,0);assert.deepEqual(REVIEWED_RELEASE,{schema:'REVIEWED_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_V3',profile:PROFILE,relations:['deposit_intent','native_claim_ingress','withdraw_balance','native_claim_discharge'],sameRuntimeObservationOnlyRestart:true,localOnly:true,nativeCustody:'BACKEND_LOCAL_QUORUM',noteCustody:'DEVICE_ROOT_NOTE'},'DEVICE_ROOT_BTC_RELEASE_REQUIRED');}
 export function assertResult(v){
