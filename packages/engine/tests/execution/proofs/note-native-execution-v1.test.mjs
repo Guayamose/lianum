@@ -15,6 +15,8 @@ import {createContext,Script} from 'node:vm';
 import {NOTE_NATIVE_PROFILE_V1,NOTE_NATIVE_THREADS_V1,NOTE_NATIVE_BINARY_V1,NOTE_NATIVE_BINARY_SHA256_V1,
  NOTE_NATIVE_PINS_V1,NOTE_NATIVE_WORKERS_V1,NOTE_NATIVE_LINEAGE_V1,classifyNativeEconomicNoteProcessV1,assertNativeEconomicNoteTelemetryV1,
  assertNativeEconomicNoteReceiptV1} from '../../../src/execution/proofs/note-native-execution-v1.mjs';
+import {PRIVATE_NOTE_NATIVE_PROFILE_V1,assertNativePrivateEconomicNoteReceiptV3}
+ from '../../../../proofs/src/jobs/native-private-note-execution-v3.mjs';
 import {nativeProofProcessResources,nativeResourceFailure,nativeWalletUnfundedProcessFailure,NATIVE_FLOW_LIMITS}
  from '../../../../../tests/integration/native/native-flow-supervisor.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '../../../src/crypto/private-resource-policy.mjs';
@@ -233,4 +235,33 @@ test('original W39 metric frames survive encrypted account journal reopening wit
  assert.deepEqual(accountCopy(legacy),legacy);
  const historical=captureNativeDeviceOriginalW39MetricsFrameV1(legacy,proof);
  assert.deepEqual(restoreNativeDeviceOriginalW39MetricsFrameV1(historical,proof),legacy);
+ // Explicit HOST V3 public metadata, no witness/proof generation. The original
+ // encrypted worker has the same Native12 lineage but a distinct close profile.
+ const encrypted=structuredClone(metrics);
+ encrypted.worker.nativeBackendExecution.profile=PRIVATE_NOTE_NATIVE_PROFILE_V1;
+ encrypted.nativeBackendExecution.profile=PRIVATE_NOTE_NATIVE_PROFILE_V1;
+ encrypted.privateWorkerIntake={profile:'ORIGINAL_NATIVE_NOTE_PRIVATE_WORKER_INPUT_V3',recipientJobId:'host-v3-recipient',
+  originalConsentBound:true,jobId:'host-v3-w39-job',consentSHA256:digest('host-v3-consent'),witnessSHA256:digest('host-v3-witness')};
+ const {recipientJobId,...childIntake}=encrypted.privateWorkerIntake;encrypted.worker.privateWorkerIntake=childIntake;
+ assert.equal(assertNativePrivateEconomicNoteReceiptV3(mode,encrypted.worker,encrypted),true);
+ assert.throws(()=>assertNativeEconomicNoteReceiptV1(mode,encrypted.worker,encrypted),/PAEG_PROOF_NOTE_CLOSE_JOIN/,
+  'HOST_REPRO_V3_ORIGINAL_CLOSE_REJECTED_BY_LEGACY_VALIDATOR');
+ const privateFrame=captureNativeDeviceOriginalW39MetricsFrameV1(encrypted,proof);
+ const privateSaved=await vault.update(password,readback.revision,data=>({...data,deviceExits:[{stage:'PROVED',proof:accountCopy(proof),
+  originalPublicProofMetricsFrame:privateFrame}]}));
+ const privateReadback=await new Vault(path).read(password);assert.deepEqual(accountCopy(privateReadback),privateSaved);
+ assert.deepEqual(restoreNativeDeviceOriginalW39MetricsFrameV1(privateReadback.data.deviceExits[0].originalPublicProofMetricsFrame,proof),encrypted);
+ // Hashing a copied/altered DATA frame cannot merge intake, closure or proof.
+ for(const change of [value=>{value.worker.privateWorkerIntake.consentSHA256=digest('foreign-consent');},
+  value=>{value.worker.privateWorkerIntake.jobId='foreign-w39-job';},
+  value=>{value.privateWorkerIntake.originalConsentBound=false;},
+  value=>{delete value.worker.privateWorkerIntake;},
+  value=>{value.worker.nativeBackendExecution.profile=NOTE_NATIVE_PROFILE_V1;},
+  value=>{value.nativeBackendExecution.profile=NOTE_NATIVE_PROFILE_V1;},
+  value=>{value.worker.independentVerification.nativeProducerClosedBeforeVerification=false;}]){
+  const mixed=structuredClone(encrypted);change(mixed);const json=JSON.stringify(mixed);
+  assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1({...privateFrame,json,sha256:digest(json)},proof));
+ }
+ assert.throws(()=>restoreNativeDeviceOriginalW39MetricsFrameV1(privateFrame,{...proof,proof:'22'.repeat(32)}),/METRICS_PROOF_CHANGED/);
+ assert.deepEqual(restoreNativeDeviceOriginalW39MetricsFrameV1(frame,proof),metrics,'HOST_LEGACY_NATIVE12_FRAME_STILL_EXACT');
 });

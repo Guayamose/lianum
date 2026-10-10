@@ -8,6 +8,8 @@ import {types} from 'node:util';
 import {copy} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
 import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1}
   from '../../../../engine/src/execution/proofs/note-native-execution-v1.mjs';
+import {assertNativePrivateEconomicNoteReceiptV3,PRIVATE_NOTE_NATIVE_PROFILE_V1}
+  from '../../../../proofs/src/jobs/native-private-note-execution-v3.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '../../../../engine/src/crypto/private-resource-policy.mjs';
 import {LIMITS} from '../../../../proofs/src/catalog.mjs';
 const PROFILE='ORIGINAL_NATIVE_DEVICE_W39_PUBLIC_METRICS_FRAME_V1',MAX_BYTES=1024*1024;
@@ -64,12 +66,30 @@ function validateOriginal(metrics,proof){
     assert.ok(Number.isSafeInteger(sample.freeDisk)&&sample.freeDisk>=PRIVATE_RESOURCE_POLICY.floors.freeDisk);
     assert.ok(Number.isSafeInteger(sample.workerRSS)&&sample.workerRSS>=0&&sample.workerRSS<=LIMITS.workerRSS);
   }
+  const privateWorker=metrics.worker.nativeBackendExecution?.profile===PRIVATE_NOTE_NATIVE_PROFILE_V1;
+  if(privateWorker){
+    const intake=metrics.privateWorkerIntake,child=metrics.worker.privateWorkerIntake;
+    assert.ok(intake&&child,'NATIVE_DEVICE_W39_PRIVATE_INTAKE_REQUIRED');
+    assert.deepEqual(Object.keys(intake).sort(),['profile','recipientJobId','originalConsentBound','jobId','consentSHA256','witnessSHA256'].sort());
+    assert.deepEqual(Object.keys(child).sort(),['profile','originalConsentBound','jobId','consentSHA256','witnessSHA256'].sort());
+    assert.equal(intake.profile,'ORIGINAL_NATIVE_NOTE_PRIVATE_WORKER_INPUT_V3');assert.equal(intake.originalConsentBound,true);
+    for(const name of ['recipientJobId','jobId'])assert.ok(typeof intake[name]==='string'
+      &&/^[a-z0-9-]{8,100}$/.exec(intake[name])?.[0]===intake[name],'NATIVE_DEVICE_W39_PRIVATE_INTAKE_ENCODING');
+    for(const name of ['consentSHA256','witnessSHA256'])assert.ok(typeof intake[name]==='string'
+      &&/^[0-9a-f]{64}$/.exec(intake[name])?.[0]===intake[name],'NATIVE_DEVICE_W39_PRIVATE_INTAKE_ENCODING');
+    for(const name of ['profile','originalConsentBound','jobId','consentSHA256','witnessSHA256'])
+      assert.equal(child[name],intake[name],'NATIVE_DEVICE_W39_PRIVATE_INTAKE_CHANGED');
+  }else{
+    assert.equal(metrics.privateWorkerIntake,undefined,'NATIVE_DEVICE_W39_PRIVATE_PROFILE_MIXED');
+    assert.equal(metrics.worker.privateWorkerIntake,undefined,'NATIVE_DEVICE_W39_PRIVATE_PROFILE_MIXED');
+  }
   if(metrics.worker.nativeBackendExecution){
     assert.equal(metrics.lockPreserved,false);assert.equal(metrics.threads,12);
     assert.equal(metrics.maximumPages,null);assert.equal(metrics.preparedMaximumPages,32768);
-    // Reuse the released Native12 close→independent Wasm1 receipt validator.
+    // Reuse the matching released Native12 close→independent Wasm1 validator.
     // This frame hash is only DATA integrity, never the raw telemetry file hash.
-    assertNativeEconomicNoteReceiptV1('withdraw_balance',metrics.worker,metrics);
+    (privateWorker?assertNativePrivateEconomicNoteReceiptV3:assertNativeEconomicNoteReceiptV1)
+      ('withdraw_balance',metrics.worker,metrics);
   }else{
     // Historical Wasm rows remain historical; their numbers are never relabeled.
     assert.equal(metrics.threads,1);assert.equal(metrics.maximumPages,32768);
