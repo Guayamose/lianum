@@ -1,3 +1,4 @@
+import {assertOriginalDeviceExternalFlatGraphAccountBindingV1} from '../../accounts/authority/device-external-flat-source-graph-v1.mjs';
 /** Finite device ERC20 routes. TLS is infrastructure, never note custody.
  * The original account consumes each signed permission before effects. */
 import {createServer} from 'node:https';
@@ -115,6 +116,10 @@ const retainedListeners=new WeakMap(),graphListeners=new WeakMap();
 /** Private fixed ordered-capture seam. The public close still closes account. */
 export function quiesceOriginalRetainedDeviceExternalFlatTlsServerV1(listener,account){
  if(arguments.length!==2||types.isProxy(listener)||types.isProxy(account))fail();const original=retainedListeners.get(listener);if(!original||original.account!==account)fail();assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1(account);return original.quiesce();
+}
+/** Ordered multi-target network fence, bound to the SAME original bridge. */
+export function quiesceOriginalDeviceExternalFlatGraphTargetTlsServerV4(listener,account,bridge){
+ if(arguments.length!==3||types.isProxy(listener)||types.isProxy(account)||types.isProxy(bridge))fail();const s=retainedListeners.get(listener);if(!s||s.account!==account)fail();assertOriginalDeviceExternalFlatGraphAccountBindingV1(bridge,account);return s.quiesce();
 }
 export async function createOriginalDeviceExternalFlatTlsServerV1(input){
  if(arguments.length!==1)fail();const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['account','tls','host']:['account','tls'];exact(input,keys);exact(input.tls,['certificate','privateKey']);

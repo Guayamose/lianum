@@ -120,6 +120,11 @@ export async function reopenOriginalDeviceExternalFlatSystemRecordV1(token){
 export async function reopenOriginalDeviceExternalFlatGraphSystemRecordV1(token){
  assert.equal(arguments.length,1);const module=await import('../../accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs');const {runtime,record,graph}=module.consumeOriginalDeviceExternalFlatSystemReopenV1(token);assert.ok(graph,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_SYSTEM_TOKEN');
  const aave=graph.schema==='DEVICE_AAVE_STATIC_GRAPH_SYSTEM_PRIVATE_V1',protocolToken=part({runtime,record:graph.protocols},'protocols');const protocols=aave?await(await import('../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs')).reopenOriginalDeviceExternalFlatAaveProtocolV1(protocolToken):await reopenOfficialProtocolFixtureRecoveryV1(protocolToken),system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record},'system'));assertOwnedFlatSystem(runtime,system);
+ if(graph.schema==='DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_SYSTEM_PRIVATE_V4'){
+  const routers=[];for(const record of graph.routers){const router=await reopenOwnedPrivateExternalRouterRecoveryV1(part({runtime,record,system,protocols},'router'));assertOwnedPrivateExternalRouterV1(router,{runtime,system,poolIndex:1});assert.equal(router.protocolKind,'METAMORPHO_V1_EXACT_SHARE_MINT');routers.push(router);}
+  assert.ok(routers.length>=2&&routers.length<=4);assert.equal(new Set(routers.map(r=>r.address)).size,routers.length);
+  const {reopenOwnedMetaMorphoGraphDeliveryBatchV4}=await import('../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs');const deliveryObserver=await reopenOwnedMetaMorphoGraphDeliveryBatchV4(part({runtime,system,protocolFixture:protocols,routers},'meta-batch'));return Object.freeze({system,protocols,router:routers[0],routers:Object.freeze(routers),deliveryObserver});
+ }
  if(graph.schema==='DEVICE_MORPHO_BLUE_GRAPH_SYSTEM_PRIVATE_V1'){
   const {reopenOwnedOriginalMorphoBluePositionV1}=await import('../deployments/defi/deploy-morpho-blue-position-v1.mjs');
   const position=await reopenOwnedOriginalMorphoBluePositionV1(part({runtime,protocols,record:graph.position},'blue-position'));

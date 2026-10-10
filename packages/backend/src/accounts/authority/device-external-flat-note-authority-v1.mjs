@@ -108,6 +108,17 @@ export async function createOriginalDeviceExternalFlatPrivateShareBatchV4(raw){
   return Object.freeze(accounts);
  }catch(error){await Promise.allSettled(accounts.map(account=>account.close()));throw error;}
 }
+/** Private account-batch token originates only in the authenticated original
+ * graph section opener. Its fixed slot seeds cannot be passed as caller DATA. */
+export async function reopenOriginalDeviceExternalFlatGraphShareBatchV4(token){
+ need(arguments.length===1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../operations/local/device-external-flat-source-graph-service-v1.mjs');
+ const r=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'account-batch'),{runtime,system,deliveryObserver,seeds,routers}=r;
+ need(Array.isArray(seeds)&&seeds.length>=2&&seeds.length<=4&&Array.isArray(routers)&&routers.length===seeds.length,'DEVICE_EXTERNAL_FLAT_SHARE_BATCH');
+ assertOwnedFlatSystem(runtime,system);assertOwnedEvmGraphDeliveryObserverV1(deliveryObserver,{runtime,system,poolIndex:1});let claims=claimedPools.get(system);if(!claims){claims=new Set();claimedPools.set(system,claims);}need(!claims.has(1),'DEVICE_EXTERNAL_FLAT_ALREADY_CREATED');claims.add(1);
+ const birth=Object.freeze({runtime,system,deliveryObserver,count:seeds.length,restored:true});shareBatchClaims.set(system,birth);const accounts=[];
+ try{for(let slot=0;slot<seeds.length;slot++){const saved=seeds[slot],d=saved.descriptor,one=Object.freeze(Object.create(null));need(d.profile===protocol.DEVICE_EXTERNAL_FLAT_SHARE_V1,'DEVICE_EXTERNAL_FLAT_SHARE_BATCH');shareBatchBirths.set(one,{birth,slot,origin:d.origin,devicePublicKey:d.devicePublicKey});accounts.push(await createAuthority({runtime,system,poolIndex:1,origin:d.origin,devicePublicKey:d.devicePublicKey},null,saved,{deliveryObserver,router:routers[slot]},true,true,one));}return Object.freeze(accounts);}
+ catch(error){await Promise.allSettled(accounts.map(a=>a.close()));throw error;}
+}
 export function isOriginalDeviceExternalFlatPrivateNoteAuthorityV3(account){
  need(arguments.length===1);const s=owned.get(account);if(!s||s.privateWallet!==true)return false;s.live();return true;
 }
@@ -149,7 +160,7 @@ need(!types.isProxy(raw),'DEVICE_EXTERNAL_FLAT_DATA');const input=protocol.exter
  // One producer per original pool lifetime; an HTTP reconnect cannot create a
  // second source account or adopt another root/journal after funding.
  let claims=claimedPools.get(system);if(!claims){claims=new Set();claimedPools.set(system,claims);}
- if(shareBirth!==null){const slot=shareBatchBirths.get(shareBirth);need(slot&&Number.isInteger(slot.slot)&&slot.slot>=0&&slot.slot<slot.birth.count&&privateWallet&&share&&poolIndex===1&&slot.birth===shareBatchClaims.get(system)&&slot.birth.runtime===runtime&&slot.birth.system===system&&slot.birth.deliveryObserver===share.deliveryObserver&&slot.origin===input.origin&&slot.devicePublicKey===input.devicePublicKey&&claims.has(1),'DEVICE_EXTERNAL_FLAT_SHARE_BATCH_TOKEN');shareBatchBirths.delete(shareBirth);}
+ let originalBatchSlot=null;if(shareBirth!==null){const slot=shareBatchBirths.get(shareBirth);need(slot&&Number.isInteger(slot.slot)&&slot.slot>=0&&slot.slot<slot.birth.count&&privateWallet&&share&&poolIndex===1&&slot.birth===shareBatchClaims.get(system)&&slot.birth.runtime===runtime&&slot.birth.system===system&&slot.birth.deliveryObserver===share.deliveryObserver&&slot.origin===input.origin&&slot.devicePublicKey===input.devicePublicKey&&claims.has(1),'DEVICE_EXTERNAL_FLAT_SHARE_BATCH_TOKEN');need(Boolean(slot.birth.restored)===graphRestored&&Boolean(restored)===graphRestored,'DEVICE_EXTERNAL_FLAT_SHARE_BATCH_TOKEN');originalBatchSlot=slot.slot;shareBatchBirths.delete(shareBirth);}
  else{need(!claims.has(poolIndex),'DEVICE_EXTERNAL_FLAT_ALREADY_CREATED');claims.add(poolIndex);} 
  const identity=flatOwnerIdentity({pool:bare(pool.address),domain:pool.domain,domainCommitment:bare(pool.domainCommitment),assetBinding:{token:bare(asset.address),codeHash:bare(asset.codeHash)}}),identitySHA256=ownerDigest(identity);
  const descriptor=protocol.normalizeExternalFlatDescriptorV1({profile:share?protocol.DEVICE_EXTERNAL_FLAT_SHARE_V1:protocol.DEVICE_EXTERNAL_FLAT_NOTE_V1,origin:input.origin,pairingId:restored?.descriptor.pairingId??id(),devicePublicKey:input.devicePublicKey,lifetime:restored?.descriptor.lifetime??id(),
@@ -161,7 +172,7 @@ need(!types.isProxy(raw),'DEVICE_EXTERNAL_FLAT_DATA');const input=protocol.exter
  need(dirname(directory)===runtime.metadata.scratchDirectory&&directory.slice(dirname(directory).length+1).startsWith('device-external-flat-note-'),'DEVICE_EXTERNAL_FLAT_REOPENED_DIRECTORY');
  const file=join(directory,'operations.vault'),vault=new Vault(file);let password=restored?restored.password:id(),record=restored?await vault.read(password):await vault.create({schema:'ORIGINAL_DEVICE_EXTERNAL_FLAT_JOURNAL_V1',descriptor:copy(descriptor),identitySHA256,jobs:[]},password);
  if(restored){assert.deepEqual(record,restored.record,'DEVICE_EXTERNAL_FLAT_ORIGINAL_CHECKPOINT');exact(record.data,['schema','descriptor','identitySHA256','jobs',...(graphRestored&&Object.hasOwn(record.data,'graphClaim')?['graphClaim']:[])]);need(record.data.schema==='ORIGINAL_DEVICE_EXTERNAL_FLAT_JOURNAL_V1');assert.deepEqual(record.data.descriptor,descriptor);need(record.data.identitySHA256===identitySHA256);}
- const slot='device-external-flat-account-'+poolIndex,retentionIdentity={profile:'DEVICE_EXTERNAL_FLAT_ACCOUNT_LIFETIME_V1',poolIndex,identitySHA256,lifetime:descriptor.lifetime};
+ const slot=originalBatchSlot===null?'device-external-flat-account-'+poolIndex:'device-external-flat-account-multi-'+originalBatchSlot,retentionIdentity={profile:'DEVICE_EXTERNAL_FLAT_ACCOUNT_LIFETIME_V1',poolIndex,identitySHA256,lifetime:descriptor.lifetime};
  let retentionHandle=null;const initialCheckpoint=restored?restored.initialCheckpoint:{revision:record.revision,commitment:hash(canonicalClaimRecordDataV1(record))};
  let graphHandle=null,graphBridge=null,graphIdentity=null;let closed=false,poisoned=false,busy=false,work=null,shareGraph=graphRestored&&restored.shareGraph?Object.freeze({router:share.router,descriptor:copy(restored.shareGraph)}):null;const challenges=new Map(),quotes=new Map(),privatePreparations=new Map(),proofs=restored?JSON.parse(restored.proofFrames):[];
  function live(){need(!closed&&!poisoned,'DEVICE_EXTERNAL_FLAT_UNAVAILABLE');assertOwnedFlatSystem(runtime,system);assertOwnedPoolAsset(runtime,pool.assetCapability);assertOwnedFlatOwnerObserver(observer,{runtime,system,poolIndex});}

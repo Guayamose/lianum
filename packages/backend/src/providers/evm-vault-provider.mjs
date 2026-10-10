@@ -153,8 +153,18 @@ export async function activateOriginalDeviceMetaMorphoProviderSlotV4(token,input
  await privateDirectory(s.runtime,s.directory);equal(await s.vault.read(s.password),s.record);assert.ok(!s.used&&!s.closed,'FLAT_PROVIDER_ORIGINAL_SLOT');s.used=true;
  s.record=await s.vault.update(s.password,s.record.revision,data=>({...data,state:'ACTIVATING'}));equal(await s.vault.read(s.password),s.record);
  let provider;try{provider=await createOwnedFlatEvmDeliveryProvider({...input,directory:s.directory,password:s.password},'METAMORPHO',s.key);
-  s.record=await s.vault.update(s.password,s.record.revision,data=>({...data,state:'BOUND'}));equal(await s.vault.read(s.password),s.record);s.key=null;return provider;
+  s.record=await s.vault.update(s.password,s.record.revision,data=>({...data,state:'BOUND'}));equal(await s.vault.read(s.password),s.record);s.key=null;s.provider=provider;return provider;
  }catch(error){await provider?.close().catch(()=>{});s.key=null;throw error;}
+}
+/** Credential/checkpoint DATA from the same original slot only. The fixed
+ * workspace seals it in the existing private lifetime registry. It cannot
+ * create a provider and the observation opener never reactivates this key. */
+export async function snapshotOriginalDeviceMetaMorphoProviderSlotV4(token){
+ assert.equal(arguments.length,1);const s=providerSlotsV4.get(token);assert.ok(s&&!s.closed,'FLAT_PROVIDER_ORIGINAL_SLOT');
+ await privateDirectory(s.runtime,s.directory);const slotRecord=await s.vault.read(s.password);equal(slotRecord,s.record);assert.ok(['BORN','BOUND'].includes(slotRecord.data.state),'FLAT_PROVIDER_SLOT_UNCERTAIN');
+ let providerRecord=null;if(s.provider){assertOwnedFlatEvmVaultProvider(s.provider,{runtime:s.runtime,system:s.system,poolIndex:s.poolIndex,router:s.router,observer:s.observer});assert.equal(s.provider.report().persistenceUncertain,false,'FLAT_PROVIDER_SLOT_UNCERTAIN');const vault=new Vault(join(s.directory,'evm-vault-provider.vault'));providerRecord=await vault.read(s.password);equal(await vault.read(s.password),providerRecord);}
+ assert.equal(slotRecord.data.state==='BOUND',s.used&&s.provider!==undefined,'FLAT_PROVIDER_SLOT_UNCERTAIN');equal(await s.vault.read(s.password),slotRecord);await privateDirectory(s.runtime,s.directory);
+ return copy({schema:'ORIGINAL_DEVICE_META_PROVIDER_SLOT_CHECKPOINT_V4',slot:s.slot,directory:s.directory,password:s.password,router:s.router.address,slotRecord,providerRecord});
 }
 export function closeOriginalDeviceMetaMorphoProviderSlotV4(token){assert.equal(arguments.length,1);const s=providerSlotsV4.get(token);assert.ok(s,'FLAT_PROVIDER_ORIGINAL_SLOT');s.closed=true;s.key=null;s.password=null;return{closed:true};}
 
