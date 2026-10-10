@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
 import { assertLocalEvm } from '../chains/evm/runtime/local-evm-ownership.mjs';
 import { assertOwnedNativeRecipientProcess } from '../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
@@ -28,7 +28,7 @@ import { assertOwnedSolanaRuntime } from '../chains/solana/runtime/owned-solana-
 import { nativeRuleCommitment, nativeCustodyCommitment } from '../chains/shared/dispatch/native-receipt-binding.mjs';
 import { createNativeDispatchGate, createNativeDispatchJournal, normalizeNativeDispatchBinding }
   from '../chains/shared/dispatch/native-dispatch-gate.mjs';
-import { createPinnedVerifier } from '../../../proofs/src/verification/pinned-verifier.mjs';
+import { createPinnedVerifier } from '@lianum/proofs/verification';
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 
 export const OWNED_FLAT_NATIVE_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_NATIVE_PROVIDER_V1';

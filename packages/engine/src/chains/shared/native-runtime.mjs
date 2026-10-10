@@ -5,6 +5,7 @@ import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isCompatibilityModule, sourcePath } from '@lianum/environment';
 import { pinnedBinary, scratchDirectory, removeOwnScratch, unusedLoopbackPort, startOwnProcess, stopOwnProcess, ownedRuntimeRpc, sleep, projectRoot, isolatedRuntimeEnvironment } from './runtime-harness.mjs';
 
 const exec = promisify(execFile);
@@ -25,7 +26,10 @@ export const hex = value => '0x' + BigInt(value).toString(16);
 export const ZERO = '0x' + '00'.repeat(32);
 const envFor = isolatedRuntimeEnvironment;
 async function compile(binary, cwd, sourceName = 'contracts/LocalBitcoinDeliveryEscrow.sol', contractName = 'LocalBitcoinDeliveryEscrow') {
-  const content = await readFile(join(projectRoot, sourceName), 'utf8');
+  const source = isCompatibilityModule(import.meta.url)
+    ? join(projectRoot, sourceName)
+    : sourcePath(sourceName.replace(/^contracts\//, 'contracts/engine/'));
+  const content = await readFile(source, 'utf8');
   const input = { language: 'Solidity', sources: { [sourceName]: { content } }, settings: { evmVersion: 'cancun', optimizer: { enabled: true, runs: 200 }, viaIR: true, outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object', 'evm.deployedBytecode.object', 'evm.methodIdentifiers'] } } } };
   const result = await new Promise((done, reject) => {
     const child = spawn(binary, ['--standard-json'], { cwd, env: envFor(cwd), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });

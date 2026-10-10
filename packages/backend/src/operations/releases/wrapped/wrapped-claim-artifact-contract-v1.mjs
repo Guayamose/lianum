@@ -12,7 +12,7 @@ import { wrappedClaimRelationV1, validateWrappedClaimABIV1 } from '../../../../.
 import { WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1, WRAPPED_CLAIM_PROOF_RELEASE_V1,
   WRAPPED_CLAIM_DEPLOYMENT_RELEASE_V1, WRAPPED_CLAIM_FIXED_DRIVER_V1, WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1 } from './wrapped-claim-release-v1.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const batchBytes = readFileSync(new URL('../../../proof-workers/wrapped-claim-constraint-batches-v1.json', import.meta.url));
+const batchBytes = readFileSync(new URL('../../../../../proofs/src/wrapped-claims/metadata/wrapped-claim-constraint-batches-v1.json', import.meta.url));
 const batches = frozenInput(JSON.parse(batchBytes).batches);
 assert.deepEqual(batches.map(b => [b.id,b.cases.length]), [['nonce-core',30],['wrapped-registration',37],['discharge-compatibility',15]]);
 for (const b of batches) assert.equal(sha(JSON.stringify(b.cases.map(({name,relation,expected,publicWords}) => ({expected,name,publicWords,relation})))),b.caseInventorySHA256);

@@ -20,11 +20,16 @@ import { assertOwnedPrivateVaultExit as actualDefiAssertion }
   from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 import { WALLET_PROFILE, ACTIONS, DEFI_ACTIONS, validateWalletState, projectWalletState }
   from '../../src/client/state/view-model.mjs';
+const clientSourceURLs = {
+  'app.mjs': new URL('../../src/client/app.mjs', import.meta.url),
+  'view-model.mjs': new URL('../../src/client/state/view-model.mjs', import.meta.url),
+  'style.css': new URL('../../src/client/style.css', import.meta.url),
+};
 
 assert.equal(typeof mock.module, 'function', 'Run with --experimental-test-module-mocks');
 const syntheticNative = new WeakSet(), syntheticIdentities = new WeakMap(), syntheticDefi = new WeakMap();
 const error = code => Object.assign(new Error(code), { code });
-mock.module('../wallet-platform/modules/api/native-claim-session.mjs', { exports: {
+mock.module('../../../../packages/backend/src/api/claims/native-claim-session.mjs', { exports: {
   nativeClaimApiErrorCode,
   walletClaimSessionIdentity(value) {
     if (!syntheticNative.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED');
@@ -34,7 +39,7 @@ mock.module('../wallet-platform/modules/api/native-claim-session.mjs', { exports
     if (!syntheticNative.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED');
   },
 } });
-mock.module('../wallet-platform/modules/defi-adapters/private-vault-exit.mjs', { exports: {
+mock.module('../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs', { exports: {
   assertOwnedPrivateVaultExit(runtime, service) {
     if (!syntheticDefi.has(service) || syntheticDefi.get(service) !== runtime)
       throw error('PRIVATE_VAULT_EXIT_OWNED_CAPABILITY_REQUIRED');
@@ -281,7 +286,7 @@ test('real HTML/static assets and disconnected state form the same authenticated
     ['/view-model.mjs', 'view-model.mjs', 'text/javascript'], ['/style.css', 'style.css', 'text/css']]) {
     const response = await request(app, path); assert.equal(response.status, 200);
     assert.ok(response.headers['content-type'].startsWith(type));
-    assert.equal(response.text, await readFile(new URL('./public/' + name, import.meta.url), 'utf8'));
+    assert.equal(response.text, await readFile(clientSourceURLs[name], 'utf8'));
     assert.ok(!response.text.includes(app.ownerAccess.token) && !response.text.includes(app.actionAccess.token));
   }
   const response = await readState(app), value = validateWalletState(response.json);
@@ -569,7 +574,7 @@ test('real configured network transport pins local reads and freezes private boo
   assert.equal(response.status, 200); assert.equal(value.networks.privateSpendable, false);
   assert.equal(value.networks.observation, 'TRUSTED_RPC_NATIVE_HOLDINGS_ONLY');
   assert.deepEqual(value.networks.chains.map(row => row.chain),
-    ['ethereum', 'base', 'arbitrum', 'bnb', 'solana', 'bitcoin', 'tron']);
+    ['ethereum', 'base', 'arbitrum', 'bnb', 'bsc-local', 'solana', 'bitcoin', 'tron']);
   assert.deepEqual(value.networks.chains.filter(row => row.configured).map(row => row.chain), ['ethereum']);
   const observation = value.networks.observations[0];
   assert.equal(observation.status, 'fresh'); assert.equal(observation.balanceAtomic, '9007199254740993');
@@ -634,7 +639,7 @@ test('closing the listener is idempotent and retains original services and admit
 });
 
 test('default CLI source only opens the disconnected application and does not create nodes, proofs or funds', async () => {
-  const source = await readFile(new URL('./run.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../src/server/run.mjs', import.meta.url), 'utf8');
   assert.match(source, /startWalletApplication\(\)/); assert.match(source, /DISCONNECTED/);
   assert.match(source, /WALLET_CLI_NO_RUNTIME_OPTIONS/);
   assert.doesNotMatch(source, /createNativeClaimSession|createFlatAccountSession|createOwnedPrivateVaultExit|spawn\(|exec\(|fork\(|child_process|anvil|bitcoind|solana-test-validator/);

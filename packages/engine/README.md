@@ -15,3 +15,7 @@
 
 La aplicación actual sigue consumiendo módulos de este motor.
 Las carpetas presentes reflejan el código conservado de cada generación.
+
+Las entradas públicas de `@lianum/engine` están en
+[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
+para consumirlas y comprobar los límites entre componentes.

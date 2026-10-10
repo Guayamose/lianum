@@ -266,10 +266,14 @@ test('read failures reject redirects, excessive/encoded/broken/ambiguous data an
 });
 
 test('production bridge shares the wallet workflow and exposes only explicit manual resume', async () => {
-  const source = await readFile(new URL('./wallet-application-client.mjs', import.meta.url), 'utf8');
+  const sourceURL = new URL('../../../src/api/wallet/wallet-application-client.mjs', import.meta.url);
+  const source = await readFile(sourceURL, 'utf8');
   const module = await import('../../../src/api/wallet/wallet-application-client.mjs');
   assert.deepEqual(Object.keys(module).sort(), ['createWalletApplicationClient', 'submitWrappedWithdrawalResume']);
-  assert.match(source, /import \{ ALL_ACTIONS, buildActionBody, createWalletClient \} from '\.\.\/\.\.\/\.\.\/wallet-app\/public\/view-model\.mjs'/);
+  const sharedWorkflow = /import \{ ALL_ACTIONS, buildActionBody, createWalletClient \} from '([^']+)'/.exec(source);
+  assert.ok(sharedWorkflow, 'Bridge must import the shared wallet workflow');
+  assert.equal(new URL(sharedWorkflow[1], sourceURL).href,
+    new URL('../../../../../apps/wallet/src/client/state/view-model.mjs', import.meta.url).href);
   assert.doesNotMatch(source, /setInterval|localStorage|sessionStorage|console\.|process\.env|node:fs|fetch\(/);
   assert.equal((source.match(/httpRequest\(/g) ?? []).length, 1);
 });

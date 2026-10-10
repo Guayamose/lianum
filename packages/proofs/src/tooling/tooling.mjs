@@ -7,14 +7,19 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSy
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { types } from 'node:util';
+import { isCompatibilityModule, sourceURL } from '@lianum/environment';
 import { ROOT, FLAT, CANDIDATE, GOLDEN, EXPERIMENT, LOCAL, PROFILE, LIMITS, SETTINGS,
   NOIR_VERSION, MODES, CATALOG, NODE_PINS, TRUSTED_JOB_SOURCES, TRUSTED_PARENTS, relation, operation, pagesFor } from '../catalog.mjs';
 import { decodeStatement } from '../../../backend/src/execution/encoding/statements.mjs';
 export { hash, jsonBytes };
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const jsonBytes = value => JSON.stringify(value, null, 2) + '\n';
-export const resourceModuleURL = pathToFileURL(join(EXPERIMENT, 'wallet-notes/resources.mjs'));
-export const verifierCRSModuleURL = pathToFileURL(join(GOLDEN, 'src/private-verifier-crs.mjs'));
+export const resourceModuleURL = isCompatibilityModule(import.meta.url)
+  ? pathToFileURL(join(EXPERIMENT, 'wallet-notes/resources.mjs'))
+  : sourceURL('experiments/engine/private-core-proof/wallet-notes/resources.mjs');
+export const verifierCRSModuleURL = isCompatibilityModule(import.meta.url)
+  ? pathToFileURL(join(GOLDEN, 'src/private-verifier-crs.mjs'))
+  : sourceURL('packages/engine/src/crypto/private-verifier-crs.mjs');
 const requirePinned = createRequire(join(EXPERIMENT, 'package.json'));
 const VENDOR = join(CANDIDATE, 'vendor/poseidon');
 const VENDOR_COMMIT = 'e105cdd5c79c222860d53c5dfdb8fa8012b291c0';

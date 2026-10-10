@@ -16,43 +16,45 @@ import { FIELD_MODULUS, encodeStatement, RELATIONS } from '../../../../src/execu
 import { FLAT_TRANSACTION_METHODS } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import { validateFlatExecutionPreparation } from '../../../../src/execution/account/execution/flat-native-execution.mjs';
 import * as actualReadiness from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
+import { assertOwnedNativeDurableSourceReceiverV1, isOwnedOriginalNativeFReorgReceiverV1 } from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { readOriginalNativeRecoveryCheckpointV1 as readActualNativeRecoveryCheckpointV1 } from '../../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 const h = value => createHash('sha256').update('terminal-first host: ' + value).digest('hex');
 const field = value => '00' + h(value).slice(2), p = value => '0x' + value;
 const copy = value => structuredClone(value);
 const testHash = async values => (BigInt('0x' + h(values.map(String).join(','))) % FIELD_MODULUS).toString(16).padStart(64, '0');
 const states = new WeakMap(), stores = new Map(), fixtures = new Map();
+const hostTerminalResults = new WeakMap();
 const fFor = domain => fixtures.get(domain);
-// Module mock targets are relative to the generated compatibility runtime.
-const mod = path => new URL(path, import.meta.url).href;
-const mockModule = (path, exports) => mock.module(mod(path), { exports });
+// Mock the same canonical module objects imported by the keeper.
+const mockModule = (url, exports) => mock.module(url, { exports });
 const checkedSystem = (runtime, system) => assert.equal(states.get(runtime)?.system, system, 'TEST_ORIGINAL_SYSTEM');
 const checkedQuorum = (quorum, {runtime, system}) => {
   checkedSystem(runtime, system); assert.equal(quorum, states.get(runtime).quorum, 'TEST_ORIGINAL_QUORUM');
 };
-mockModule('../ops/wrapped-wallet-release-v1.mjs', { assertWrappedWalletAccountReleasedV1() {} });
+mockModule(new URL('../../../../src/operations/releases/wrapped/wrapped-wallet-release-v1.mjs', import.meta.url), { assertWrappedWalletAccountReleasedV1() {} });
 const unusedWrapped = () => { throw new Error('TEST_UNUSED_WRAPPED_BRANCH'); };
-mockModule('../ops/wrapped-claim-wallet-binding-v1.mjs', { assertOwnedWrappedClaimWalletSystemV1: unusedWrapped });
-mockModule('../ops/wrapped-claim-graph-operators-v1.mjs', { assertOwnedNativeValueQuorum: unusedWrapped });
-mockModule('../chain-adapters/wrapped-claim-dispatch-owner-v1.mjs', {
+mockModule(new URL('../../../../src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs', import.meta.url), { assertOwnedWrappedClaimWalletSystemV1: unusedWrapped });
+mockModule(new URL('../../../../src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs', import.meta.url), { assertOwnedNativeValueQuorum: unusedWrapped });
+mockModule(new URL('../../../../src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs', import.meta.url), {
   assertOwnedNativeValueProviderCustody: unusedWrapped, ownedNativeValueProviderCustodyReview: unusedWrapped,
 });
-mockModule('../chain-adapters/wrapped-claim-graph-dispatch-gate-v1.mjs', { createOwnedNativeValueProvider: unusedWrapped });
-mockModule('./wrapped-wallet-graph-admission-v1.mjs', { createOwnedWrappedWalletGraphAdmissionV1: unusedWrapped });
-mockModule('./wrapped-wallet-state-v1.mjs', { createWrappedWalletStateReaderV1: unusedWrapped });
-mockModule('../chain-adapters/owned-evm-v2-runtime.mjs', { async refreshNativeValueReceiverClock(runtime) {
+mockModule(new URL('../../../../src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs', import.meta.url), { createOwnedNativeValueProvider: unusedWrapped });
+mockModule(new URL('../../../../src/execution/wrapped/preparation/wrapped-wallet-graph-admission-v1.mjs', import.meta.url), { createOwnedWrappedWalletGraphAdmissionV1: unusedWrapped });
+mockModule(new URL('../../../../src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs', import.meta.url), { createWrappedWalletStateReaderV1: unusedWrapped });
+mockModule(new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs', import.meta.url), { assertOwnedNativeDurableSourceReceiverV1, isOwnedOriginalNativeFReorgReceiverV1, async refreshNativeValueReceiverClock(runtime) {
   assert.ok(states.has(runtime));
 } });
-mockModule('../chain-adapters/local-evm-ownership.mjs', { async assertLocalEvm(runtime) { assert.ok(states.has(runtime)); } });
-mockModule('../ops/native-value-system-v2.mjs', { assertOwnedNativeValueSystem: checkedSystem,
+mockModule(new URL('../../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url), { async assertLocalEvm(runtime) { assert.ok(states.has(runtime)); } });
+mockModule(new URL('../../../../src/operations/deployments/native-value/native-value-system-v2.mjs', import.meta.url), { assertOwnedNativeValueSystem: checkedSystem,
   nativeValueOriginalRecoverySourceV1(runtime, system) { checkedSystem(runtime, system); return h('economic source'); } });
-mockModule('../ops/native-value-operators-v4.mjs', { assertOwnedNativeValueQuorum: checkedQuorum });
-mockModule('../ops/native-value-local-operator-bootstrap-v4.mjs', { assertNativeValueBootstrapNativeRuntime(bootstrap, value) {
+mockModule(new URL('../../../../src/operations/operators/native-value/native-value-operators-v4.mjs', import.meta.url), { assertOwnedNativeValueQuorum: checkedQuorum });
+mockModule(new URL('../../../../src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs', import.meta.url), { assertNativeValueBootstrapNativeRuntime(bootstrap, value) {
   assert.deepEqual(Object.keys(value).sort(), ['nativeRuntime', 'profileCommitment', 'runtime', 'system']);
   checkedSystem(value.runtime, value.system); const f = states.get(value.runtime);
   assert.equal(bootstrap, f.bootstrap); assert.equal(value.nativeRuntime, f.nativeRuntime);
   assert.equal(value.profileCommitment, f.custody.offer().evidencePolicy);
 } });
-mockModule('../chain-adapters/native-value-dispatch-owner-v2.mjs', {
+mockModule(new URL('../../../../src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs', import.meta.url), {
   assertOwnedNativeValueProviderCustody(custody, {runtime, system}) {
     checkedSystem(runtime, system); assert.equal(custody, states.get(runtime).custody);
   },
@@ -60,17 +62,17 @@ mockModule('../chain-adapters/native-value-dispatch-owner-v2.mjs', {
     assert.equal(custody, states.get(runtime).custody); return copy(states.get(runtime).review);
   },
 });
-mockModule('../chain-adapters/native-value-evm-dispatch-gate.mjs', {
+mockModule(new URL('../../../../src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs', import.meta.url), {
   async createOwnedNativeValueProvider({runtime, dispatchLease}) {
     const f = states.get(runtime); assert.equal(dispatchLease, f.lease); f.providerCreates++; return f.provider;
   },
 });
-mockModule('./native-value-graph-admission-v2.mjs', {
+mockModule(new URL('../../../../src/execution/native-value/preparation/native-value-graph-admission-v2.mjs', import.meta.url), {
   async createOwnedNativeValueGraphAdmission({runtime, provider}) {
     const f = states.get(runtime); assert.equal(provider, f.provider); return f.adapter;
   },
 });
-mockModule('./native-value-system-state-v2.mjs', { async createNativeValueSystemStateReader({runtime, system}) {
+mockModule(new URL('../../../../src/execution/native-value/reconciliation/native-value-system-state-v2.mjs', import.meta.url), { async createNativeValueSystemStateReader({runtime, system}) {
   checkedSystem(runtime, system); const f = states.get(runtime);
   return { async read() { return f.view; }, async assertCurrent(view) { assert.equal(view, f.view); },
     async authorizationPath(view, envelope) {
@@ -79,10 +81,15 @@ mockModule('./native-value-system-state-v2.mjs', { async createNativeValueSystem
     },
   };
 } });
-mockModule('./native-value-terminal-observer-v2.mjs', {
+mockModule(new URL('../../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs', import.meta.url), {
+  readOriginalNativeRecoveryCheckpointV1(observer, result) {
+    const saved = hostTerminalResults.get(result);
+    assert.equal(saved?.observer, observer, 'HOST_TERMINAL_RESULT_REQUIRED');
+    return copy(saved.checkpoint);
+  },
   async createNativeValueTerminalObserver({runtime, system}) {
     checkedSystem(runtime, system); const f = states.get(runtime);
-    return { async observe(query) {
+    const observer = { async observe(query) {
       f.terminalReads.push(query.kind);
       if (f.terminalUnavailable) throw new Error('TEST_TERMINAL_UNAVAILABLE');
       if (f.terminalError) throw f.terminalError;
@@ -91,14 +98,20 @@ mockModule('./native-value-terminal-observer-v2.mjs', {
       assert.ok(sent, 'TEST_ORIGINAL_TERMINAL_REQUIRED');
       assert.equal(query.statement.reserveNullifier, f.prepared.rolePackets.recovery.recovery.value.reserveNullifier);
       if (query.submission.transactionHash !== null) assert.equal(query.submission.transactionHash, sent.receipt.transactionHash.slice(2));
-      return {outcome: query.kind === 'recovery' ? 'RECOVERED' : 'FULFILLED', original: true};
+      const result = {outcome: query.kind === 'recovery' ? 'RECOVERED' : 'FULFILLED', original: true};
+      // The real getter must reject our synthetic observer/result. Only this
+      // test port retains a HOST checkpoint, never a reorg-capable original.
+      assert.throws(() => readActualNativeRecoveryCheckpointV1(observer, result), /F_REORG_ORIGINAL_OBSERVATION_REQUIRED/);
+      hostTerminalResults.set(result, {observer, checkpoint: {schema: 'HOST_ONLY_RECOVERY_CHECKPOINT', query: copy(query)}});
+      return result;
     }};
+    return observer;
   },
   createWrappedWalletTerminalObserverV1() { throw new Error('TEST_UNUSED_WRAPPED_BRANCH'); },
 });
-mockModule('../../../proof-workers/native-value-live-v2-artifacts.mjs', { async loadNativeValueLiveArtifacts() {} });
-mockModule('./flat-native-execution.mjs', { validateFlatExecutionPreparation });
-mockModule('../../../../../omnichain-product/src/vault.mjs', { Vault: class {
+mockModule(new URL('../../../../../proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs', import.meta.url), { async loadNativeValueLiveArtifacts() {} });
+mockModule(new URL('../../../../src/execution/account/execution/flat-native-execution.mjs', import.meta.url), { validateFlatExecutionPreparation });
+mockModule(new URL('../../../../../engine/src/crypto/vault.mjs', import.meta.url), { Vault: class {
   constructor(path) { this.path = path; }
   async create(data, password) { const entry = {password, record: {revision: 0, data: copy(data)}};
     assert.ok(!stores.has(this.path)); stores.set(this.path, entry); return copy(entry.record); }
@@ -115,11 +128,11 @@ function statement(name, values = {}) {
 }
 const readyStatement = (input, name) => statement(name, {domainCommitment: input.packet.domainCommitment,
   authorizationRoot: input.authorization.root, checkpoint: h('checkpoint'), readyFrom: input.readyFrom, readyUntil: input.readyUntil});
-mockModule('./readiness-inputs.mjs', {...actualReadiness,
+mockModule(new URL('../../../../src/execution/account/preparation/readiness-inputs.mjs', import.meta.url), {...actualReadiness,
   async buildDependencyInputs(input) { return {statement: readyStatement(input, 'dependency')}; },
   async buildReadyInputs(input) { return {statement: readyStatement(input, 'ready'), admissionOpening: {fixture: true}}; },
 });
-mockModule('../../../proof-workers/scoped-proof-tools.mjs', {
+mockModule(new URL('../../../../../proofs/src/tooling/scoped-proof-tools.mjs', import.meta.url), {
   withFlatHash: work => work(testHash), loadFlatABI: async name => ({synthetic: name}),
   createFlatProofRunner() { return {async prove(name, job) {
     fFor(job.statement.domainCommitment).proofs.push(name);
@@ -133,7 +146,7 @@ const actualRecovery = await import('../../../../src/claims/wrapped/recovery/wra
 const hostAuthorities = new WeakSet(), hostTokens = new WeakMap();
 const hostIdentity = Object.freeze({ profile: 'NATIVE_VALUE_ECONOMIC_RECOVERY_V1', directory: '/HOST_ONLY',
   runId: '00000000-0000-4000-8000-000000000002', sourceSHA256: h('economic source'), deadlineMs: 1234567890000 });
-mockModule('../native-claims/wrapped-recovery-authority-v1.mjs', { ...actualRecovery,
+mockModule(new URL('../../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs', import.meta.url), { ...actualRecovery,
   assertNativeEconomicRecoveryCaptureV1(authority) { assert.ok(hostAuthorities.has(authority), 'HOST_ORIGINAL_ISSUER_REQUIRED'); return hostIdentity; },
   nativeEconomicRecoverySectionIdentityV1(token, section) { assert.equal(hostTokens.get(token)?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED'); return hostIdentity; },
   consumeNativeEconomicRecoverySectionV1(token, section) { const row = hostTokens.get(token); assert.equal(row?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED');

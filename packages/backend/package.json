@@ -1,0 +1,34 @@
+{
+  "name": "@lianum/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API, cuentas, ejecución, adaptadores de redes y DeFi",
+  "exports": {
+    "./accounts/session": "./src/api/accounts/flat-account-session.mjs",
+    "./accounts/http": "./src/api/accounts/flat-account-http.mjs",
+    "./accounts/manual-graph": "./src/api/accounts/flat-manual-graph-session.mjs",
+    "./claims/session": "./src/api/claims/native-claim-session.mjs",
+    "./withdrawals/session": "./src/api/withdrawals/wrapped-withdrawal-session-v1.mjs",
+    "./portfolio/erc20": "./src/chains/evm/portfolio/http-erc20-portfolio.mjs",
+    "./portfolio/http": "./src/chains/shared/portfolio/http-portfolio-registry.mjs",
+    "./portfolio/requests": "./src/chains/shared/portfolio/portfolio-registry.mjs",
+    "./transfers/evm": "./src/chains/evm/observations/evm-native-transfer-observer.mjs",
+    "./transfers/tron": "./src/chains/tron/observations/tron-native-transfer-observer.mjs",
+    "./defi/withdrawal": "./src/defi/withdrawals/private-vault-exit.mjs",
+    "./defi/generation-withdrawal": "./src/defi/withdrawals/generation-private-vault-exit.mjs",
+    "./encoding/statements": "./src/execution/encoding/statements.mjs",
+    "./encoding/commitments": "./src/execution/encoding/commitments.mjs",
+    "./storage/records": "./src/claims/storage/segmented-record-store.mjs"
+  },
+  "lianum": {
+    "status": "active"
+  },
+  "dependencies": {
+    "@lianum/engine": "file:../engine",
+    "@lianum/proofs": "file:../proofs",
+    "@lianum/custody": "file:../custody",
+    "@lianum/mobile-protocol": "file:../mobile-protocol",
+    "@lianum/components": "file:../components"
+  }
+}

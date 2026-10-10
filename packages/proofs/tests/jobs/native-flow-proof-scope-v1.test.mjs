@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import vm from 'node:vm';
 import { classifyBeginPayoutAuditProofProcessV1, beginPayoutAuditProcessFailureV1 } from '../../src/jobs/native-flow-proof-scope-v1.mjs';
 import { ROOT, GOLDEN } from '../../src/catalog.mjs';
-const source = readFileSync(new URL('./native-flow-proof-scope-v1.mjs', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../src/jobs/native-flow-proof-scope-v1.mjs', import.meta.url), 'utf8');
 const body = source.slice(source.indexOf('const ENTRY =')).replaceAll('export ', '');
 const profile = 'SOLANA_LOADED_BEGIN_PAYOUT_BACKING_AUDIT_STOP_V1', runId = '11111111-1111-4111-8111-111111111111';
 const STAGES = ['preposition-owner-native-claim-1', 'prove-and-issue-original-native-claim-1', 'exit-original-claim-note-and-redeem-native-1'];
@@ -120,14 +120,14 @@ test('supervisor retains bounded relation labels and rejects unexpected/missing/
 });
 
 test('the real launch sites call guard before spawn/fork and the child guard before execute; supervisor checks live and terminal histories', () => {
-  const role = readFileSync(new URL('./role-client.mjs', import.meta.url), 'utf8');
+  const role = readFileSync(new URL('../../src/jobs/role-client.mjs', import.meta.url), 'utf8');
   assert.ok(role.indexOf('assertBeginPayoutAuditRoleLaunchV1(role, spec.name);') < role.indexOf('child = spawn(process.execPath'));
-  const legacy = readFileSync(new URL('../../../omnichain-product/src/paeg/proof-process.mjs', import.meta.url), 'utf8');
+  const legacy = readFileSync(new URL('../../../engine/src/execution/proofs/proof-process.mjs', import.meta.url), 'utf8');
   assert.ok(legacy.indexOf('assertBeginPayoutAuditLegacyLaunchV1(purpose, operation, mode)') < legacy.indexOf('child = fork(workerFile'));
   assert.match(legacy, /fork\(workerFile, beginAuditProof \? \['withdraw_balance'\] : \[\]/);
-  const child = readFileSync(new URL('../../../omnichain-product/src/paeg/proof-worker.mjs', import.meta.url), 'utf8');
+  const child = readFileSync(new URL('../../../engine/src/execution/proofs/proof-worker.mjs', import.meta.url), 'utf8');
   assert.ok(child.indexOf('assertBeginPayoutAuditLegacyJobV1(request.purpose, request.operation, request.mode);') < child.indexOf('const result = await execute(request, phase);'));
-  const supervisor = readFileSync(new URL('../integration/native-flow-supervisor.mjs', import.meta.url), 'utf8');
+  const supervisor = readFileSync(new URL('../../../../tests/integration/native/native-flow-supervisor.mjs', import.meta.url), 'utf8');
   assert.match(supervisor, /beginPayoutAuditProcessFailureV1\(\[\.\.\.history\.values\(\)\]\)/);
   assert.match(supervisor, /beginPayoutAuditProcessFailureV1\(\[\.\.\.history\.values\(\)\], true\)/);
   assert.match(supervisor, /proofRelation: established\.proofRelation, proofOperation: established\.proofOperation/);

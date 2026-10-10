@@ -19,3 +19,7 @@ Entrada de cuentas:
 [flat-account-session.mjs](src/api/accounts/flat-account-session.mjs).
 Cliente de la aplicación:
 [wallet-application-client.mjs](src/api/wallet/wallet-application-client.mjs).
+
+Las entradas públicas de `@lianum/backend` están en
+[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
+para consumirlas y comprobar los límites entre componentes.

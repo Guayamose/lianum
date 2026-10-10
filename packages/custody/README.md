@@ -13,3 +13,7 @@
 
 Entrada: [flat-owner-process.mjs](src/processes/flat-owner-process.mjs).
 Este paquete contiene lógica de custodia; no es una aplicación móvil nativa.
+
+Las entradas públicas de `@lianum/custody` están en
+[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
+para consumirlas y comprobar los límites entre componentes.

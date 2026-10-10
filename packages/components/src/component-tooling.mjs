@@ -5,10 +5,11 @@ import { createRequire } from 'node:module';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync,
   renameSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
+import { isCompatibilityModule, legacyDataRoot, sourceURL } from '@lianum/environment';
 
-export const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
-export const GOLDEN = resolve(ROOT, '../omnichain-product');
+export const ROOT = legacyDataRoot('components');
+export const GOLDEN = legacyDataRoot('engine');
 export const EXPERIMENT = join(GOLDEN, 'experiments/private-core-proof');
 export const CIRCUIT = join(ROOT, 'circuits/node-component');
 export const LOCAL = join(ROOT, '.local/component');
@@ -27,8 +28,12 @@ export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export const jsonBytes = value => JSON.stringify(value, null, 2) + '\n';
 export const requirePinned = createRequire(join(EXPERIMENT, 'package.json'));
 export const loadPinned = name => import(pathToFileURL(requirePinned.resolve(name)));
-export const resourceModuleURL = pathToFileURL(join(EXPERIMENT, 'wallet-notes/resources.mjs'));
-export const verifierCRSModuleURL = pathToFileURL(join(GOLDEN, 'src/private-verifier-crs.mjs'));
+export const resourceModuleURL = isCompatibilityModule(import.meta.url)
+  ? pathToFileURL(join(EXPERIMENT, 'wallet-notes/resources.mjs'))
+  : sourceURL('experiments/engine/private-core-proof/wallet-notes/resources.mjs');
+export const verifierCRSModuleURL = isCompatibilityModule(import.meta.url)
+  ? pathToFileURL(join(GOLDEN, 'src/private-verifier-crs.mjs'))
+  : sourceURL('packages/engine/src/crypto/private-verifier-crs.mjs');
 
 export function modeFromArguments() {
   assert.equal(process.argv.length, 3, 'FLAT_FIXED_MODE_ONLY');

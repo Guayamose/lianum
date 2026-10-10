@@ -1,6 +1,6 @@
-import {createHttpErc20Portfolio} from '../../../../packages/backend/src/chains/evm/portfolio/http-erc20-portfolio.mjs';
+import {createHttpErc20Portfolio} from '@lianum/backend/portfolio/erc20';
 import {WRAPPED_RESUME_ACTIONS} from '../client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs';
-import { assertOwnedWrappedWithdrawalSessionV1 } from '../../../../packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs';
+import { assertOwnedWrappedWithdrawalSessionV1 } from '@lianum/backend/withdrawals/session';
 /** Private composition of existing wallet sessions. This server owns only its
  * listener, never wallet custody, root keys, native nodes or durable jobs. */
 import { createServer } from 'node:http';
@@ -11,16 +11,16 @@ import { publicCode } from './errors/public-errors.mjs';
 import { HANDOFF_PROFILE, handoffData, sameHandoff, manualReviewRequest } from '../client/features/accounts/manual-action-handoff.mjs';
 import { ALL_ACTIONS, accountActionContext } from '../client/state/view-model.mjs';
 import { createExactActionCapabilities, exactActionCapabilityBody, EXACT_ACTION_DEFAULT_TTL_MS } from './security/exact-action-capabilities.mjs';
-import { flatManualGraphReviews, flatManualGraphActionTarget, flatManualGraphHandoffBindings, flatManualNativeNoteReviews, flatManualNativeNoteActionTarget, flatManualWrappedGraphActionTarget } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
-import { assertFlatAccountSession, validateFlatAccountPrepare } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
-import { assertWalletClaimSession as assertNativeClaimSession, walletClaimSessionIdentity as nativeClaimSessionIdentity } from '../../../../packages/backend/src/api/claims/native-claim-session.mjs';
-import { createHttpPortfolioRegistry } from '../../../../packages/backend/src/chains/shared/portfolio/http-portfolio-registry.mjs';
-import { normalizePortfolioRequest } from '../../../../packages/backend/src/chains/shared/portfolio/portfolio-registry.mjs';
-import { assertTronNativeTransferObserver } from '../../../../packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs';
-import { assertEvmNativeTransferObserver } from '../../../../packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs';
-import { assertOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
+import { flatManualGraphReviews, flatManualGraphActionTarget, flatManualGraphHandoffBindings, flatManualNativeNoteReviews, flatManualNativeNoteActionTarget, flatManualWrappedGraphActionTarget } from '@lianum/backend/accounts/manual-graph';
+import { assertFlatAccountSession, validateFlatAccountPrepare } from '@lianum/backend/accounts/session';
+import { assertWalletClaimSession as assertNativeClaimSession, walletClaimSessionIdentity as nativeClaimSessionIdentity } from '@lianum/backend/claims/session';
+import { createHttpPortfolioRegistry } from '@lianum/backend/portfolio/http';
+import { normalizePortfolioRequest } from '@lianum/backend/portfolio/requests';
+import { assertTronNativeTransferObserver } from '@lianum/backend/transfers/tron';
+import { assertEvmNativeTransferObserver } from '@lianum/backend/transfers/evm';
+import { assertOwnedPrivateVaultExit } from '@lianum/backend/defi/withdrawal';
 import { generationPrivateVaultExitBinding, assertGenerationPrivateVaultExitSession, generationPrivateVaultExitActionTarget }
-  from '../../../../packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs';
+  from '@lianum/backend/defi/generation-withdrawal';
 
 const wrappedWithdrawalActions=Object.freeze({...Object.fromEntries(Object.values(WRAPPED_RESUME_ACTIONS).map(value=>[value.route,value.method])),'/api/wallet/wrapped-withdrawal/reapprove':'reapprove','/api/wallet/wrapped-withdrawal/cancel':'cancel','/api/wallet/wrapped-withdrawal/prepare':'prepare','/api/wallet/wrapped-withdrawal/execute':'execute','/api/wallet/wrapped-withdrawal/reconcile':'reconcile'});
 const BODY_LIMIT = 4096;
@@ -35,21 +35,33 @@ const accountKinds = new Set(['TOP_UP', 'EXIT']);
 const accountReconcileStates = new Set(['SUBMITTING', 'UNKNOWN', 'RECOVERING', 'CONFIRMED']);
 const defiActions = Object.freeze({ '/api/wallet/defi/prepare': 'prepare', '/api/wallet/defi/requote': 'requote',
   '/api/wallet/defi/execute': 'execute', '/api/wallet/defi/reconcile': 'reconcile', '/api/wallet/defi/reopen': 'reopen' });
-const assets = Object.freeze({ '/': ['index.html', 'text/html; charset=utf-8'],
-  '/app.mjs': ['app.mjs', 'text/javascript; charset=utf-8'],
-  '/owner-graph-review-v1.mjs': ['owner-graph-review-v1.mjs', 'text/javascript; charset=utf-8'], '/generation-position-state-v2.mjs': ['generation-position-state-v2.mjs', 'text/javascript; charset=utf-8'], '/public-token-observations.mjs': ['public-token-observations.mjs', 'text/javascript; charset=utf-8'],
-  '/wrapped-resume-browser.mjs': ['wrapped-resume-browser.mjs', 'text/javascript; charset=utf-8'],
-  '/wrapped-withdrawal-resume-actions.mjs': ['wrapped-withdrawal-resume-actions.mjs', 'text/javascript; charset=utf-8'],
-  '/wrapped-withdrawal-review.mjs': ['wrapped-withdrawal-review.mjs', 'text/javascript; charset=utf-8'],
-  '/native-note-review.mjs': ['native-note-review.mjs', 'text/javascript; charset=utf-8'],
-  '/manual-action-handoff.mjs': ['manual-action-handoff.mjs', 'text/javascript; charset=utf-8'],
-  '/manual-action-dom.mjs': ['manual-action-dom.mjs', 'text/javascript; charset=utf-8'],
-  '/exact-action-browser-review.mjs': ['exact-action-browser-review.mjs', 'text/javascript; charset=utf-8'],
-  '/view-model.mjs': ['view-model.mjs', 'text/javascript; charset=utf-8'],
-  '/generation-defi-contract.mjs': ['generation-defi-contract.mjs', 'text/javascript; charset=utf-8'],
-  '/original-economic-state-v1.mjs': ['original-economic-state-v1.mjs', 'text/javascript; charset=utf-8'],
-  '/owner-portfolio-contract.mjs': ['owner-portfolio-contract.mjs', 'text/javascript; charset=utf-8'],
-  '/style.css': ['style.css', 'text/css; charset=utf-8'] });
+const assets = { '/': [new URL('../client/index.html', import.meta.url), 'text/html; charset=utf-8'],
+  '/app.mjs': [new URL('../client/app.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/owner-graph-review-v1.mjs': [new URL('../client/features/accounts/owner-graph-review-v1.mjs', import.meta.url), 'text/javascript; charset=utf-8'], '/generation-position-state-v2.mjs': [new URL('../client/features/portfolio/generation-position-state-v2.mjs', import.meta.url), 'text/javascript; charset=utf-8'], '/public-token-observations.mjs': [new URL('../client/features/portfolio/public-token-observations.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/wrapped-resume-browser.mjs': [new URL('../client/features/withdrawals/wrapped-resume-browser.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/wrapped-withdrawal-resume-actions.mjs': [new URL('../client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/wrapped-withdrawal-review.mjs': [new URL('../client/features/withdrawals/wrapped-withdrawal-review.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/native-note-review.mjs': [new URL('../client/features/claims/native-note-review.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/manual-action-handoff.mjs': [new URL('../client/features/accounts/manual-action-handoff.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/manual-action-dom.mjs': [new URL('../client/features/accounts/manual-action-dom.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/exact-action-browser-review.mjs': [new URL('../client/features/accounts/exact-action-browser-review.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/view-model.mjs': [new URL('../client/state/view-model.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/generation-defi-contract.mjs': [new URL('../client/features/defi/generation-defi-contract.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/original-economic-state-v1.mjs': [new URL('../client/features/portfolio/original-economic-state-v1.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/owner-portfolio-contract.mjs': [new URL('../client/features/portfolio/owner-portfolio-contract.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/style.css': [new URL('../client/style.css', import.meta.url), 'text/css; charset=utf-8'] };
+// Expose the same explicit asset set at its canonical client paths.
+const clientRoot = new URL('../client/', import.meta.url);
+for (const [url, type] of Object.values(assets)) {
+  if (type.startsWith('text/html')) continue;
+  const pathname = '/' + url.pathname.slice(clientRoot.pathname.length);
+  if (!Object.hasOwn(assets, pathname)) assets[pathname] = [url, type];
+}
+// This shared, browser-safe projection is the sole client import outside client/.
+const economicProjection = [new URL('../../../../packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs', import.meta.url), 'text/javascript; charset=utf-8'];
+assets['/packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs'] = economicProjection;
+assets['/mobile-protocol/src/original-wallet-economic-state-v1.mjs'] = economicProjection;
+Object.freeze(assets);
 const sensitiveHeaders = new Set(['host', 'origin', 'content-type', 'content-length', 'transfer-encoding',
   'x-wallet-owner-token', 'x-wallet-action-token', 'sec-fetch-site']);
 const failure = code => Object.assign(new Error(code), { code });
@@ -401,8 +413,8 @@ export async function startWalletApplication(options = {}) {
           && (request.headers['content-length'] === undefined || request.headers['content-length'] === '0'), 'WALLET_GET_BODY_FORBIDDEN');
         if (Object.hasOwn(assets, request.url)) {
           const [file, contentType] = assets[request.url];
-          let bytes = await readFile(new URL('./public/' + file, import.meta.url), 'utf8');
-          if (file === 'index.html') bytes = bytes.replaceAll('__WALLET_OWNER_TOKEN__', ownerToken).replaceAll('__WALLET_ACTION_TOKEN__', actionToken ?? '').replaceAll('__WALLET_LISTENER_ID__', listenerId);
+          let bytes = await readFile(file, 'utf8');
+          if (file.pathname.endsWith('/index.html')) bytes = bytes.replaceAll('__WALLET_OWNER_TOKEN__', ownerToken).replaceAll('__WALLET_ACTION_TOKEN__', actionToken ?? '').replaceAll('__WALLET_LISTENER_ID__', listenerId);
           return send(200, bytes, contentType);
         }
         if (request.url === '/api/wallet/state') {

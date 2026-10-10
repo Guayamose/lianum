@@ -15,3 +15,7 @@
 
 Este paquete conserva una generación anterior del protocolo. Sus módulos y escenarios no equivalen a una segunda aplicación actual; algunos tienen dependencias históricas incompletas.
 Las carpetas presentes reflejan el código conservado de cada generación.
+
+Las entradas públicas de `@lianum/protocol` están en
+[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
+para consumirlas y comprobar los límites entre componentes.

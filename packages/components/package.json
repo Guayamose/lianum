@@ -1,0 +1,16 @@
+{
+  "name": "@lianum/components",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Contratos de framing y componentes de circuitos",
+  "exports": {
+    "./framing": "./src/framing.mjs"
+  },
+  "lianum": {
+    "status": "active"
+  },
+  "dependencies": {
+    "@lianum/environment": "file:../environment"
+  }
+}

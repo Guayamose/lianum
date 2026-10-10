@@ -14,7 +14,7 @@ const prefixes = ['WALLET', 'PRIVATE_VAULT_EXIT', 'BACKED_VAULT', 'NATIVE_CLAIM'
 // Exercise every literal in the explicit vocabulary through real own-data and
 // Node assertion producers, while testing intended public codes independently.
 test('every fixed contract code remains exact through each supported owned error shape', async () => {
-  const source = await readFile(new URL('./public-errors.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../src/server/errors/public-errors.mjs', import.meta.url), 'utf8');
   const list = source.slice(source.indexOf('const publicCodes = new Set(['), source.indexOf('\n]);'));
   const codes = [...list.matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(match => match[1]);
   assert.equal(codes.length, 225); assert.equal(new Set(codes).size, codes.length);
@@ -153,8 +153,12 @@ test('public and opaque failures preserve SDK UNKNOWN and require manual origina
 });
 
 test('server uses the private helper at every existing thrown-error boundary', async () => {
-  const server = await readFile(new URL('./server.mjs', import.meta.url), 'utf8');
-  assert.match(server, /import \{ publicCode \} from '\.\/public-errors\.mjs';/);
+  const serverURL = new URL('../../src/server/server.mjs', import.meta.url);
+  const server = await readFile(serverURL, 'utf8');
+  const importedHelper = /import \{ publicCode \} from '([^']+)';/.exec(server);
+  assert.ok(importedHelper, 'Server must import the shared public error formatter');
+  assert.equal(new URL(importedHelper[1], serverURL).href,
+    new URL('../../src/server/errors/public-errors.mjs', import.meta.url).href);
   assert.doesNotMatch(server, /function publicCode\(/);
   assert.equal([...server.matchAll(/publicCode\(error/g)].length, 5);
   assert.doesNotMatch(server.slice(server.indexOf('const assets ='), server.indexOf('const sensitiveHeaders')), /public-errors/);

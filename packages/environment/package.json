@@ -1,0 +1,9 @@
+{
+  "name": "@lianum/environment",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ubicaciones explícitas de fuentes y recursos locales del proyecto",
+  "exports": { ".": "./src/paths.mjs" },
+  "lianum": { "status": "active" }
+}

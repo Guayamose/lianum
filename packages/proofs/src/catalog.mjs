@@ -1,13 +1,16 @@
 /** Internal, fixed relation catalog. This module grants no proof or signing authority. */
 import assert from 'node:assert/strict';
 import { resolve, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { RELATIONS } from '../../backend/src/execution/encoding/statements.mjs';
+import { legacyDataRoot } from '@lianum/environment';
+import { RELATIONS } from '@lianum/backend/encoding/statements';
 
-export const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
+// These names identify retained artifacts and private job state. Source imports
+// resolve independently through package exports; moving this module does not
+// relocate original artifacts or manufacture a replacement custody lifetime.
+export const ROOT = legacyDataRoot('wallet');
 export const FLAT = resolve(ROOT, '..');
-export const CANDIDATE = join(FLAT, 'candidate-poseidon');
-export const GOLDEN = resolve(FLAT, '../omnichain-product');
+export const CANDIDATE = legacyDataRoot('crypto');
+export const GOLDEN = legacyDataRoot('engine');
 export const EXPERIMENT = join(GOLDEN, 'experiments/private-core-proof');
 export const LOCAL = join(ROOT, '.local/proof-workers');
 export const PROFILE = 'LIANUM_PAEG_P2_V1';

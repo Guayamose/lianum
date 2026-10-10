@@ -1,0 +1,19 @@
+{
+  "name": "@lianum/custody",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Custodia, firmas y consentimiento del propietario",
+  "exports": {
+    "./owner": "./src/signing/flat-owner-custody.mjs",
+    "./preparation": "./src/preparation/flat-owner-manual-preparation.mjs"
+  },
+  "lianum": {
+    "status": "active"
+  },
+  "dependencies": {
+    "@lianum/backend": "file:../backend",
+    "@lianum/engine": "file:../engine",
+    "@lianum/proofs": "file:../proofs"
+  }
+}

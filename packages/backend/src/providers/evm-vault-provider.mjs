@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { lstat, realpath, mkdtemp, chmod } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
 import { assertOwnedLocalEvmV2 } from '../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedNativeRecipientProcess } from '../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
@@ -34,7 +34,7 @@ import { cloneInput, frozenInput, inputUint } from '../execution/account/prepara
 import { nativeRuleCommitment, nativeCustodyCommitment } from '../chains/shared/dispatch/native-receipt-binding.mjs';
 import { createNativeDispatchJournal, normalizeNativeDispatchBinding }
   from '../chains/shared/dispatch/native-dispatch-gate.mjs';
-import { createPinnedVerifier } from '../../../proofs/src/verification/pinned-verifier.mjs';
+import { createPinnedVerifier } from '@lianum/proofs/verification';
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 
 export const OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_EVM_VAULT_PROVIDER_V1';

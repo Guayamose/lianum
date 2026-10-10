@@ -2,7 +2,7 @@
  * Native SHA ReceiptCM/K/tag remain separate and byte-identical. */
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
-import { SCHEMAS, receiptKeyCommitment, terminalReceiptTag } from '../../components/src/framing.mjs';
+import { SCHEMAS, receiptKeyCommitment, terminalReceiptTag } from '@lianum/components/framing';
 import { loadPinned, LIMITS } from './component-tooling.mjs';
 
 export { SCHEMAS, receiptKeyCommitment, terminalReceiptTag };

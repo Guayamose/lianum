@@ -22,8 +22,37 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def layout():
-    return json.loads(LAYOUT.read_text())
+def node_export(target):
+    """Resolve the explicit ESM conditions used by the pinned Node runtime."""
+    if isinstance(target, str):
+        return target
+    if isinstance(target, dict):
+        for condition, value in target.items():
+            if condition in {'node', 'import', 'default', 'node-addons'}:
+                resolved = node_export(value)
+                if resolved is not None:
+                    return resolved
+    return None
+
+
+def layout(project_root=None):
+    root = Path(project_root) if project_root is not None else ROOT
+    definition = root / 'scripts/layout.json' if project_root is not None else LAYOUT
+    config = json.loads(definition.read_text())
+    config['_workspaceRoot'] = str(root)
+    exports = {}
+    for manifest in (root / 'packages').glob('*/package.json'):
+        package = json.loads(manifest.read_text())
+        for key, target in package.get('exports', {}).items():
+            target = node_export(target)
+            if not isinstance(target, str) or not target.startswith('./'):
+                continue
+            if '..' in Path(target).parts or '*' in key or '*' in target:
+                raise ValueError(f'Unsupported workspace export: {manifest}: {key}')
+            name = package['name'] + (key[1:] if key != '.' else '')
+            exports[name] = (manifest.parent / target).relative_to(root).as_posix()
+    config['_workspaceExports'] = exports
+    return config
 
 
 def runtime_relative(raw, config=None):
@@ -69,6 +98,8 @@ def source_files(config):
             if not path.is_file():
                 raise RuntimeError(f"Expected a regular source file: {path}")
             relative = str(path.relative_to(ROOT))
+            if path.name in {'package.json', 'package-lock.json'} and relative not in known_sources:
+                continue
             target = runtime_relative(relative, config)
             if target is None and path.suffix == ".md":
                 continue

@@ -5,6 +5,11 @@ import { validateFlatOwnerReadPayload, GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SP
 import { ACTIONS, DEFI_ACTIONS, ACCOUNT_ACTIONS, DEFI_PROFILE, WALLET_PROFILE, atomic, displayUnits, validateWalletState, projectWalletState,
   buildActionBody, actionReview, createWalletClient, NATIVE_IDENTITY_PROFILE, originalNativeIdentity,
   nativeIdentityDetails, nativeAmountDetails, accountAssetChoices, accountActionContext, accountReviewDetails } from '../../src/client/state/view-model.mjs';
+const clientSourceURLs = {
+  'index.html': new URL('../../src/client/index.html', import.meta.url),
+  'app.mjs': new URL('../../src/client/app.mjs', import.meta.url),
+  'view-model.mjs': new URL('../../src/client/state/view-model.mjs', import.meta.url),
+};
 const ownerToken = 'a'.repeat(64), actionToken = 'b'.repeat(64), intentId = 'c'.repeat(64);
 const requestId = 'original_request_01';
 const nativeIdentity = (overrides = {}) => ({ version: 1, profile: NATIVE_IDENTITY_PROFILE, accountId: 'native_account_01',
@@ -178,7 +183,7 @@ test('missing bootstrap tokens never send, and missing action token leaves reads
   const readOnly = makeClient(fetchImpl, { actionToken: '' }); await readOnly.refresh(); assert.equal(calls, 1); assert.equal(readOnly.can('deposit'), false);
 });
 test('static app has isolated in-memory tokens, safe text rendering and no automatic action seams', async () => {
-  const [html, app, model] = await Promise.all(['index.html', 'app.mjs', 'view-model.mjs'].map(name => readFile(new URL(`./public/${name}`, import.meta.url), 'utf8')));
+  const [html, app, model] = await Promise.all(['index.html', 'app.mjs', 'view-model.mjs'].map(name => readFile(clientSourceURLs[name], 'utf8')));
   assert.match(html, /__WALLET_OWNER_TOKEN__/); assert.match(html, /__WALLET_ACTION_TOKEN__/); assert.match(html, /HOST_REPORTED/);
   assert.match(app, /element\?\.remove\(\)/); assert.match(app, /form\.addEventListener\('input', \(\) => client\.cancelReview\(\)\)/);
   for (const source of [app, model]) assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|document\.cookie|console\.|innerHTML|setInterval|sendBeacon/);
@@ -445,7 +450,7 @@ test('identity-independent reconciliation still requires all original freshness 
 });
 
 test('native forms and review render the same full identity and exact amount details using safe text nodes', async () => {
-  const app = await readFile(new URL('./public/app.mjs', import.meta.url), 'utf8');
+  const app = await readFile(clientSourceURLs['app.mjs'], 'utf8');
   assert.match(app, /binding\.dataset\.nativeBinding = 'true'/);
   assert.match(app, /nativeIdentityDetails\(identity\)/);
   assert.match(app, /nativeAmountDetails\(action, body, state\.data\.nativeClaims\)/);
@@ -623,7 +628,7 @@ test('account schema rejects duplicate journal IDs and malformed readiness witho
 });
 
 test('account UI labels queue-only results and keeps coordinator control private', async () => {
-  const [html, app] = await Promise.all(['index.html', 'app.mjs'].map(name => readFile(new URL(`./public/${name}`, import.meta.url), 'utf8')));
+  const [html, app] = await Promise.all(['index.html', 'app.mjs'].map(name => readFile(clientSourceURLs[name], 'utf8')));
   assert.match(html, /Cola local volátil/); assert.match(html, /Puede no ser duradera/);
   assert.match(app, /state\.outcome\.state === 'VOLATILE_QUEUE_ACCEPTANCE'/);
   assert.match(app, /accountReviewDetails\(state\.review\.accountContext\)/);
@@ -803,7 +808,7 @@ test('genuine observer status projection validates through host-only synthetic t
 });
 
 test('transfer UI renders retained statuses with safe full-identity text and no selector, action, polling or finality promotion', async () => {
-  const [html, app] = await Promise.all(['index.html', 'app.mjs'].map(name => readFile(new URL(`./public/${name}`, import.meta.url), 'utf8')));
+  const [html, app] = await Promise.all(['index.html', 'app.mjs'].map(name => readFile(clientSourceURLs[name], 'utf8')));
   const transferSectionHtml = html.slice(html.indexOf('<section id="transfers"'), html.indexOf('<section id="custody"'));
   assert.match(transferSectionHtml, /Metadatos retenidos/); assert.match(transferSectionHtml, /No acreditan entrega/);
   assert.doesNotMatch(transferSectionHtml, /<input|<select|<form|<button/);

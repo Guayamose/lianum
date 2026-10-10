@@ -15,5 +15,16 @@
     "doctor": "./dev doctor",
     "evidence": "./dev evidence",
     "test:browser": "LIANUM_BROWSER_REPORT_DIRECTORY=\"$PWD/.internal/dev/reports\" ./dev node apps/wallet/tests/browser/disconnected-browser.mjs"
-  }
+  },
+  "workspaces": [
+    "packages/backend",
+    "packages/custody",
+    "packages/proofs",
+    "packages/crypto",
+    "packages/components",
+    "packages/engine",
+    "packages/protocol",
+    "packages/mobile-protocol",
+    "packages/environment"
+  ]
 }

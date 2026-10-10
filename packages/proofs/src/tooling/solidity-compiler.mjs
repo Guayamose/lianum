@@ -3,12 +3,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync, realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { join, sep } from 'node:path';
 import { GENERIC_COMPILER_PIN } from '../../../engine/src/execution/local/local-deployment.mjs';
+import { legacyDataRoot } from '@lianum/environment';
 
-const flatRoot = fileURLToPath(new URL('../../', import.meta.url));
-const golden = realpathSync(join(flatRoot, '../omnichain-product'));
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
 export function compileSoliditySources(sourceMap, { profile = 'standard' } = {}) {
@@ -27,7 +25,7 @@ export function compileSoliditySources(sourceMap, { profile = 'standard' } = {})
     sources[name] = { content: record.content };
     records.push({ name, sha256: record.sha256, bytes: Buffer.byteLength(record.content) });
   }
-  const tools = realpathSync(join(golden, 'tools/solidity-js'));
+  const tools = realpathSync(join(legacyDataRoot('engine'), 'tools/solidity-js'));
   const lock = readFileSync(join(tools, 'package-lock.json'));
   assert.equal(sha(lock), GENERIC_COMPILER_PIN.lockSHA256, 'SOLIDITY_LOCK_PIN');
   const dependency = JSON.parse(lock).packages['node_modules/solc'];

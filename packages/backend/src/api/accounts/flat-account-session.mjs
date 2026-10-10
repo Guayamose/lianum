@@ -1,7 +1,7 @@
 /** Local presentation boundary over one already-created, surviving keeper.
  * Admissions below are volatile UI state, never a second account journal. */
 import { types } from 'node:util';
-import {assertOriginalGenericAccountKeeperV1} from '../../../../engine/src/execution/accounts/generic-account-keeper.mjs';
+import {assertOriginalGenericAccountKeeperV1} from '@lianum/engine/accounts/keeper';
 import {readOriginalNativeClaimPortfolioViewV1} from '../../claims/operations/portfolio-view.mjs';
 
 export const FLAT_ACCOUNT_API_PROFILE = 'LOCAL_FLAT_ACCOUNT_API_V1';

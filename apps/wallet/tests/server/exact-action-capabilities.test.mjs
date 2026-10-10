@@ -17,17 +17,17 @@ const identity = Object.freeze({ version: 1, profile: NATIVE_IDENTITY_PROFILE, a
   claimDomain: '1'.repeat(64), nativeFamily: '2', nativeGenesis: '2'.repeat(64), nativeAsset: '3'.repeat(64),
   wrapperAssetIdentity: '4'.repeat(64), claimSymbol: 'cSOL', nativeSymbol: 'SOL', decimals: 9,
   atomicUnit: 'lamport', observation: 'ORIGINAL_BOUND_CONFIGURATION_ONLY' });
-mock.module('../wallet-platform/modules/api/native-claim-session.mjs', { exports: {
+mock.module('../../../../packages/backend/src/api/claims/native-claim-session.mjs', { exports: {
   assertWalletClaimSession(value) { if (!nativeSet.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED'); },
   walletClaimSessionIdentity(value) { if (!nativeSet.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED'); return identity; },
   assertNativeClaimSession(value) { if (!nativeSet.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED'); },
   nativeClaimSessionIdentity(value) { if (!nativeSet.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED'); return identity; },
 } });
-mock.module('../wallet-platform/modules/api/flat-account-session.mjs', { exports: {
+mock.module('../../../../packages/backend/src/api/accounts/flat-account-session.mjs', { exports: {
   validateFlatAccountPrepare,
   assertFlatAccountSession(value) { if (!accountSet.has(value)) throw error('FLAT_ACCOUNT_ORIGINAL_SESSION_REQUIRED'); },
 } });
-mock.module('../wallet-platform/modules/defi-adapters/private-vault-exit.mjs', { exports: {
+mock.module('../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs', { exports: {
   assertOwnedPrivateVaultExit(runtime, service) { if (defiMap.get(service) !== runtime) throw error('PRIVATE_VAULT_EXIT_OWNED_CAPABILITY_REQUIRED'); },
 } });
 const { startWalletApplication } = await import('../../src/server/server.mjs');

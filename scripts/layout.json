@@ -4,6 +4,10 @@
   "delivery": "archive/delivery",
   "rules": [
     {
+      "source": "packages/environment/src/",
+      "runtime": "omnichain-product/src/environment/"
+    },
+    {
       "source": "archive/source-evidence/native-value-genuine-deployment-artifacts/w39-adapter/",
       "runtime": "drafts/native-value-genuine-deployment-artifacts/w39-adapter/"
     },
@@ -22738,7 +22742,8 @@
     "archive/legacy-client/",
     "archive/legacy-engine/",
     "archive/source-evidence/",
-    "packages/mobile-protocol/src"
+    "packages/mobile-protocol/src",
+    "packages/environment/src/"
   ],
   "organization": "domain-folders-with-separated-source-tests-and-docs"
 }

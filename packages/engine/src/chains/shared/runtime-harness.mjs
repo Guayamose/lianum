@@ -1,13 +1,15 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
-import { join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, sep } from 'node:path';
+import { legacyDataRoot } from '@lianum/environment';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
 
-export const projectRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+// Existing consumers use this name for retained binaries, scratch and evidence.
+// Keep that data location explicit when the module executes from packages/.
+export const projectRoot = legacyDataRoot('engine');
 const integrationRoot = join(projectRoot, '.local', 'integrations');
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
