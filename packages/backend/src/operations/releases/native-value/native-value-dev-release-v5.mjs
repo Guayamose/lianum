@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "d02eef39841f448c04c1e46bbdb24b95cf85224724fc34d542b55249e20a3af0",
+  "hostSourceClosureSHA256": "779c43bd6c087ac6ef3f635dc0dd4dedd743af07be7fad47aacdb194be0104a8",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -714,11 +714,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "2bc8ea618295f38ba9db85d3dead559e20dffe03120de52f5576bf9a62e4e09e"
+      "sha256": "d35c92e836c18a207cabcb0a70cae6d30dc25ad46159256e57c2f38c2be09e8c"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
-      "sha256": "0c5f770775012a60f1e25df740c976e15642776bee91c61d1291e67e6aef4b8a"
+      "sha256": "463c55b5915771698d3422aa4a09e04015bd717d145eb4df72970feee08b4005"
     },
     {
       "path": "integration/device-owner-deposit-policy-v1.mjs",
@@ -1674,7 +1674,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "mobile-protocol-workspace/src/device-external-flat-graph-v1.mjs",
-      "sha256": "a62eb204df1f63d642eddf1c6166798a4d4dbbd0a710ab776b297070b6e64430"
+      "sha256": "f1309ccd2621de6c1b160014eb3b4f9e40cb73cba653234d3bf12528bda56541"
     },
     {
       "path": "mobile-protocol-workspace/src/device-external-flat-note-v1.mjs",
@@ -1734,7 +1734,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "sha256": "a62eb204df1f63d642eddf1c6166798a4d4dbbd0a710ab776b297070b6e64430"
+      "sha256": "f1309ccd2621de6c1b160014eb3b4f9e40cb73cba653234d3bf12528bda56541"
     },
     {
       "path": "mobile-protocol/src/device-external-flat-note-v1.mjs",
@@ -2722,7 +2722,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/global-state/device-external-flat-source-graph-v1.mjs",
-      "sha256": "f795fd4ff3d8fc4242956f99fb3e5b365609305763565bb492d1d020424c4ef2"
+      "sha256": "4996684311e8aab2bc1e4caf2906b5d18f43fc5d2cfec3f4413061302f996a99"
     },
     {
       "path": "wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs",
