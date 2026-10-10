@@ -22,6 +22,15 @@ El usuario recupera las 500 unidades del activo fuente; el proveedor pierde
 firmados originales. Pool/backing/reservas quedan a cero sin duplicados.
 **4.5 pasa a 75 y el punto 4 a 75%; las otras 34 notas no cambian.**
 
+Código posterior integrado, sin cambio de estas notas: SOURCE confirmado
+`dc875ab` pasa su HOST AES/CAS original, pendiente de caída financiera real.
+PAEG paginado privado V3 (`c4777ba`–`7767750`) elimina los cursores y dependencias
+públicos del progreso mediante compromisos cegados; cuatro HOST y seis módulos
+pasan, pero su primera compilación Fold falló. No tiene VK ni recorrido económico
+aceptado. Aave móvil `c5004783…` conserva su rechazo; el driver usa ahora el plazo
+original de redención y el intento nuevo permanece pendiente. No se convierten
+esas implementaciones ni resultados pendientes en requisitos completos.
+
 Esta es una **estimación de cobertura funcional**, con un cálculo reproducible.
 Las notas de cobertura siguen siendo juicios técnicos; no son medidas de tiempo,
 esfuerzo restante, probabilidad de éxito ni preparación para producción. Se
