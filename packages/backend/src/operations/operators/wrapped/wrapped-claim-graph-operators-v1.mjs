@@ -5,6 +5,7 @@ import { assertCombinedClaimCoverageV4, assertCombinedClaimSourceCurrentV4, capt
  * boolean. Shares only an authenticated immutable receiver head with siblings.
  * Activation is impossible until native-value-system-v2 owns a real deployment. */
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
 import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
@@ -227,7 +228,7 @@ export function createScopedWrappedClaimGraphOperatorV1(raw, custody) {
       if (authorization.signature === null && authorization.digest !== allowedPending)
         blockers.push({ reason: 'NATIVE_VALUE_UNFINISHED_CHECKPOINT_INTENT' });
 
-    if (JSON.stringify(next) !== JSON.stringify(record.state)) await save(next);
+    if (!isDeepStrictEqual(next, record.state)) await save(next);
     await current(); await unchanged();
     return freeze({ head: copy(active.view.head), inventoryCount: String(observations.length), observations, blockers });
   }
