@@ -465,7 +465,9 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
       if (!kinds.length) {
         for(const [key,original] of admissionAdapters){
           if(!key.startsWith(ref+':')||operation(ref).receipts.some(r=>r.slot===original.slot))continue;
-          const result=await original.adapter.reconcile(),receipt={slot:original.slot,...result.receipt};
+          const result=await original.adapter.reconcile();
+          assert.ok(result.receipt,'FLAT_EXECUTION_PARTIAL_DELIVERY_REQUIRES_RECOVERY');
+          const receipt={slot:original.slot,...result.receipt};
           const view=await reader.read();receiptPath(view,receipt.leaf);
           await update(ref,{receipts:[...operation(ref).receipts,receipt],exposures:operation(ref).exposures.map(e=>e.slot===original.slot?{...e,status:'ADMITTED',nativeId:receipt.opening.globalEffectId}:e)});
         }

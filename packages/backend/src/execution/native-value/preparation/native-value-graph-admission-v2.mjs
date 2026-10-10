@@ -196,7 +196,17 @@ export async function createOwnedNativeValueGraphAdmission(input) {
         }
       });
     },
-    reconcile(){assert.equal(arguments.length,0);if(!record.data.submission&&originalRequest)return adapter.admit(originalRequest);return exclusive(observeOriginal);},
+    reconcile(){assert.equal(arguments.length,0);return exclusive(async()=>{
+      if(record.data.submission)return observeOriginal();
+      assert.ok(record.data.requestSHA256,'NV2_GRAPH_NO_ORIGINAL_DISPATCH');
+      // RECONCILE observes the sole retained native wire even after KEY/SEND
+      // authority expires. It must not re-enter admit(), certify I, prove or
+      // submit an admission. An observed delivery alone is no private credit.
+      const observed=await provider.reconcile();
+      assert.equal(observed.creditEligible,false);assert.equal(observed.privateSpendableAtomic,null);
+      await unchanged();return freeze(copy({classification:'ORIGINAL_NATIVE_DELIVERY_OBSERVATION_ONLY_NO_ADMISSION',
+        phase:observed.phase,creditEligible:false,privateSpendableAtomic:null}));
+    });},
     stop(){assert.equal(arguments.length,0);cancelled=true;proofClient?.stop();provider.stop();},
     snapshot(){live();return freeze({phase:record.data.phase,originalRequestBound:record.data.requestSHA256!==null,
       admissionSubmitted:record.data.submission!==null,creditEligible:false,privateSpendableAtomic:null});},

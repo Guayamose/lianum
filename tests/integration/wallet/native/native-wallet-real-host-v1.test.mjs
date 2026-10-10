@@ -3,6 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { Vault } from '../../../../packages/engine/src/crypto/vault.mjs';
 import { join } from 'node:path';
 import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
 import { encodeStatement } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
@@ -98,4 +101,50 @@ test('second real backend and native role RSS excess trip original guards',()=>{
   const sample={availableRAMBytes:2684354560,freeDiskBytes:5368709120,mainWorkerRSSBytes:1,maximumProofWorkerRSSBytes:1,supervisorRSSBytes:1,liveProofWorkers:2};
   assert.equal(nativeResourceFailure(sample),'NATIVE_MULTIPLE_HEAVY_PROOF_WORKERS');
   assert.equal(nativeResourceFailure({...sample,liveProofWorkers:1,maximumProofWorkerRSSBytes:3221225473}),'NATIVE_PROOF_WORKER_RSS_LIMIT');
+});
+
+
+test('original native delivery reconciliation observes expired retained wire without admission proof or resend', async () => {
+  // Actual reconcile/exclusive production bodies and real Vault AEAD/CAS.
+  // Native provider/receipt ports below are explicitly inert observations;
+  // no runtime brand, proof, signer, native delivery or credit is minted.
+  const source = readFileSync(join(ROOT, 'wallet-platform/modules/paeg/native-value-graph-admission-v2.mjs'), 'utf8');
+  const first = source.indexOf('    reconcile(){'), last = source.indexOf('    stop(){', first);
+  const a = source.indexOf('  async function exclusive(work){'), b = source.indexOf('  async function observeOriginal(){', a);
+  assert.ok(first >= 0 && last > first && a >= 0 && b > a);
+  const method = source.slice(first,last), exclusive = source.slice(a,b);
+  const executorSource = readFileSync(join(ROOT, 'wallet-platform/modules/paeg/native-value-execution-v2.mjs'), 'utf8');
+  const ea = executorSource.indexOf('          const result=await original.adapter.reconcile();');
+  const eb = executorSource.indexOf('          const receipt=',ea);
+  assert.ok(ea >= 0 && eb > ea);
+  const requireReceipt = new Function('assert','result',executorSource.slice(executorSource.indexOf('          assert.ok(result.receipt',ea),eb));
+  const directory = await mkdtemp(join(tmpdir(),'native-observe-only-host-')), password = 'HOST original retained native observation';
+  const vault = new Vault(join(directory,'original.vault'));
+  let record = await vault.create({schema:'HOST_ORIGINAL_ADMISSION',requestSHA256:'12'.repeat(32),phase:'NATIVE_OBSERVATION_PENDING',submission:null},password);
+  let closed = false, nativeReads = 0, admissions = 0, proves = 0, sends = 0, phase = 'UNKNOWN';
+  const before = {admissions,proves,sends}, preparedExpiresAt = Date.now()-1;
+  const actual = new Function('assert','record','live','unchanged','provider','observeOriginal','copy','freeze','adapter',
+    'let busy=false;'+exclusive+'return {'+method+'};')(assert,record,
+    ()=>assert.equal(closed,false,'HOST_ORIGINAL_CLOSED'),
+    async()=>assert.deepEqual(await vault.read(password),record,'HOST_ORIGINAL_JOURNAL_CHANGED'),
+    {async reconcile(){ assert.ok(preparedExpiresAt < Date.now()); nativeReads++;
+      return {phase,creditEligible:false,privateSpendableAtomic:null}; }},
+    async()=>{ admissions++;return {receipt:{leaf:'synthetic-original-retained-admission'}}; },
+    structuredClone,value=>Object.freeze(value),
+    {admit(){proves++;sends++;throw Error('HOST_RECONCILE_MUST_NOT_ADMIT');}});
+  try {
+    const unknown = await actual.reconcile(); assert.equal(unknown.phase,'UNKNOWN');
+    assert.equal(unknown.classification,'ORIGINAL_NATIVE_DELIVERY_OBSERVATION_ONLY_NO_ADMISSION');
+    assert.equal(unknown.creditEligible,false);assert.equal(unknown.privateSpendableAtomic,null);
+    assert.throws(()=>requireReceipt(assert,unknown),/PARTIAL_DELIVERY_REQUIRES_RECOVERY/);
+    phase='OBSERVED';const observed=await actual.reconcile();assert.equal(observed.phase,'OBSERVED');
+    assert.throws(()=>requireReceipt(assert,observed),/PARTIAL_DELIVERY_REQUIRES_RECOVERY/);
+    assert.equal(nativeReads,2);assert.deepEqual({admissions,proves,sends},before);
+    assert.deepEqual(await vault.read(password),record);
+    assert.throws(()=>actual.reconcile({}),/ERR_ASSERTION/);assert.equal(nativeReads,2);
+    closed=true;await assert.rejects(actual.reconcile(),/HOST_ORIGINAL_CLOSED/);closed=false;assert.equal(nativeReads,2);
+    await vault.update(password,record.revision,data=>({...data,phase:'FOREIGN_CHANGED'}));
+    await assert.rejects(actual.reconcile(),/HOST_ORIGINAL_JOURNAL_CHANGED/);assert.equal(nativeReads,2);
+    assert.deepEqual({admissions,proves,sends},before);
+  } finally { await rm(directory,{recursive:true,force:true}); }
 });
