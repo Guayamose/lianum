@@ -12,8 +12,9 @@ const WORKER=join(ROOT,'integration/device-external-flat-ordered-successor-v1.mj
 const birth=pid=>{const value=nativeProcStatV1(pid);assert.ok(value);const match=/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(readFileSync('/proc/'+pid+'/status','utf8'));assert.ok(match);return{...value,uid:match.slice(1).map(Number)};};
 export function captureAndLaunchOriginalDeviceExternalFlatObservationV1(context){assert.equal(arguments.length,1);return captureAndLaunch(context,false);}
 export function captureAndLaunchOriginalDeviceExternalFlatGraphObservationV1(context){assert.equal(arguments.length,1);return captureAndLaunch(context,true);}
-async function captureAndLaunch(context,graph){assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'));
- const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.deepEqual(parent,[process.execPath,join(ROOT,'integration/'+(graph?'run-device-external-flat-source-graph-v1.mjs':'run-device-external-flat-erc20-v1.mjs'))]);
+export function captureAndLaunchOriginalDeviceMorphoBlueGraphObservationV1(context){assert.equal(arguments.length,1);return captureAndLaunch(context,true,true);}
+async function captureAndLaunch(context,graph,blue=false){assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'));
+ const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.deepEqual(parent,[process.execPath,join(ROOT,'integration/'+(blue?'run-device-morpho-blue-private-position-v1.mjs':graph?'run-device-external-flat-source-graph-v1.mjs':'run-device-external-flat-erc20-v1.mjs'))]);
  context.active();assertOwnedDeviceExternalFlatReceiverV1(context.runtime);const originalProcess=birth(process.pid);
  const originalReceiver=context.runtime.processStatus(),capture=await(graph?context.host.captureGraphRetained():context.host.captureRetained());
  assert.equal(capture.profile,'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1');assert.equal(capture.originalResourcesStopped,true);assert.equal(capture.observationContinuationOnly,true);
