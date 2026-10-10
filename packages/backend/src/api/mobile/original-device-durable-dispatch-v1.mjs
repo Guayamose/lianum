@@ -40,6 +40,24 @@ const EFFECTS = Object.freeze({
   recover: ['execution', 'RECOVER_NATIVE', validateDeviceExecutionConsentFreshV1, deviceExecutionConsentMessageV1, value => value.reservation],
   withdraw: ['execution', 'WITHDRAW_W39', validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1, value => value],
 });
+/** Validate the operator's existing key marker BEFORE a one-use economic
+ * recovery issuer is opened. A missing/different SQL journal cannot consume
+ * the captured account merely by failing later during listener installation.
+ * This authenticates infrastructure only; it restores no bridge or outcome. */
+export async function assertOriginalDeviceDurableRecoveryInfrastructureV1(input){
+ if(arguments.length!==1)fail('DEVICE_DURABLE_CONFIGURATION');exact(input,['pool','privacyKey']);
+ const {pool,privacyKey}=input;
+ if(!pool||types.isProxy(pool)||typeof pool.connect!=='function'||typeof pool.query!=='function'
+  ||typeof privacyKey!=='string'||!/^[0-9a-f]{64}$/.test(privacyKey)||privacyKey==='0'.repeat(64))fail('DEVICE_DURABLE_CONFIGURATION');
+ const bytes=Buffer.from(privacyKey,'hex');
+ try{
+  const keyPin=createHmac('sha256',bytes).update('LIANUM_ORIGINAL_DEVICE_DISPATCH_V1\nkey-pin\n').update(KEY_ROW).digest('hex');
+  await pool.query('SELECT operation_key,consent_key,terms_hash,state FROM public.original_device_dispatch_v1 LIMIT 0');
+  const marker=await pool.query('SELECT value FROM public.original_device_dispatch_meta_v1 WHERE metadata_key=$1',[KEY_ROW]);
+  if(marker.rows.length!==1||marker.rows[0].value!==keyPin)fail('DEVICE_DURABLE_RECOVERY_JOURNAL_REQUIRED');
+  return Object.freeze({originalInfrastructureVerified:true,economicAuthorityRestored:false});
+ }finally{bytes.fill(0);}
+}
 export async function createOriginalDeviceDurableDispatchV1(input) {
   if (arguments.length !== 1) fail('DEVICE_DURABLE_CONFIGURATION');
   exact(input, ['depositBridge', 'reservationBridge', 'executionBridge', 'pool', 'privacyKey']);

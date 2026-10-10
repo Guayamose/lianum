@@ -15,7 +15,13 @@ import { assertOwnedNativeValueExecution } from '../../execution/native-value/ex
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertOwnedNativeRecipientProcess } from '../../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
 import { readOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
+import {assertOriginalDeviceDurableDispatchBindingsV1,assertOriginalDeviceDurableRecoveryInfrastructureV1} from '../../api/mobile/original-device-durable-dispatch-v1.mjs';
 const local = join(ROOT, '.local/original-device-local-operator-v1');
+const durableLocal = join(ROOT, '.local/original-device-durable-local-operator-v1');
+const selectLocal = durable => durable ? durableLocal : local;
+export function originalNativeDeviceDurableLocalConfigurationPathV1(){
+ assert.equal(arguments.length,0);return join(durableLocal,'operator.json');
+}
 const requestPath = join(local, 'recovery-request.json'), checkpointPath = join(local, 'captured-checkpoint.json');
 const hex = value => typeof value === 'string' && /^[0-9a-f]{64}$/.exec(value)?.[0] === value;
 const prepared = new WeakMap();
@@ -32,13 +38,13 @@ export function normalizeOriginalNativeDeviceLocalConfigurationV1(input) {
     && Buffer.byteLength(input.tls[name]) > 0 && Buffer.byteLength(input.tls[name]) <= 16384, 'NATIVE_DEVICE_PRODUCT_TLS');
   return { origin, devicePublicKey, tls: { certificate: input.tls.certificate, privateKey: input.tls.privateKey } };
 }
-async function privateDirectory() {
-  const stat = await lstat(local);
+async function privateDirectory(selectedLocal = local) {
+  const stat = await lstat(selectedLocal);
   assert.ok(stat.isDirectory() && !stat.isSymbolicLink() && stat.uid === process.getuid()
-    && (stat.mode & 0o077) === 0 && await realpath(local) === local, 'NATIVE_DEVICE_LOCAL_RESTART_PRIVATE_DIRECTORY');
+    && (stat.mode & 0o077) === 0 && await realpath(selectedLocal) === selectedLocal, 'NATIVE_DEVICE_LOCAL_RESTART_PRIVATE_DIRECTORY');
 }
-async function privateRead(path) {
-  await privateDirectory(); const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+async function privateRead(path, selectedLocal = local) {
+  await privateDirectory(selectedLocal); const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   let bytes;
   try {
     const before = await handle.stat();
@@ -52,23 +58,36 @@ async function privateRead(path) {
     return JSON.parse(bytes.subarray(0, read.bytesRead).toString('utf8'));
   } finally { bytes?.fill(0); await handle.close(); }
 }
-async function publish(value) {
-  await privateDirectory(); const bytes = Buffer.from(JSON.stringify(value) + '\n');
+async function publish(value, selectedLocal = local) {
+  const checkpointPath = join(selectedLocal,'captured-checkpoint.json');
+  await privateDirectory(selectedLocal); const bytes = Buffer.from(JSON.stringify(value) + '\n');
   assert.ok(bytes.length <= 16384);
   const handle = await open(checkpointPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
   try { await handle.writeFile(bytes); await handle.sync(); }
   finally { bytes.fill(0); await handle.close(); }
-  const directory = await open(local, constants.O_RDONLY | constants.O_DIRECTORY);
+  const directory = await open(selectedLocal, constants.O_RDONLY | constants.O_DIRECTORY);
   try { await directory.sync(); } finally { await directory.close(); }
-  assert.deepEqual(await privateRead(checkpointPath), value, 'NATIVE_DEVICE_LOCAL_RESTART_PUBLICATION_CHANGED');
+  assert.deepEqual(await privateRead(checkpointPath,selectedLocal), value, 'NATIVE_DEVICE_LOCAL_RESTART_PUBLICATION_CHANGED');
 }
-export async function assertOriginalNativeDeviceLocalColdStartV1() {
-  assert.equal(arguments.length, 0);
+export function assertOriginalNativeDeviceLocalColdStartV1(){
+ assert.equal(arguments.length,0);return assertColdStart(false);
+}
+export function assertOriginalNativeDeviceDurableLocalColdStartV1(){
+ assert.equal(arguments.length,0);return assertColdStart(true);
+}
+async function assertColdStart(durable) {
+  const checkpointPath = join(selectLocal(durable),'captured-checkpoint.json');
   try { await lstat(checkpointPath); } catch (error) { if (error.code === 'ENOENT') return; throw error; }
   throw Error('NATIVE_DEVICE_LOCAL_CAPTURE_EXISTS_USE_FIXED_REOPEN_ENTRY');
 }
-export function readOriginalNativeDeviceLocalCaptureRequestV1() {
-  assert.equal(arguments.length, 0); const directory = lstatSync(local);
+export function readOriginalNativeDeviceLocalCaptureRequestV1(){
+ assert.equal(arguments.length,0);return readCaptureRequest(false);
+}
+export function readOriginalNativeDeviceDurableLocalCaptureRequestV1(){
+ assert.equal(arguments.length,0);return readCaptureRequest(true);
+}
+function readCaptureRequest(durable) {
+ const local=selectLocal(durable),requestPath=join(local,'recovery-request.json');const directory = lstatSync(local);
   assert.ok(directory.isDirectory() && !directory.isSymbolicLink() && directory.uid === process.getuid()
     && (directory.mode & 0o077) === 0 && realpathSync(local) === local, 'NATIVE_DEVICE_LOCAL_RESTART_PRIVATE_DIRECTORY');
   const handle = openSync(requestPath, constants.O_RDONLY | constants.O_NOFOLLOW), bytes = Buffer.alloc(1025);
@@ -87,8 +106,13 @@ export function readOriginalNativeDeviceLocalCaptureRequestV1() {
 /** Prepare the issuer before serving TLS, so capture itself can fence every
  * original synchronously before its first await. The deadline starts at the
  * constructor entry and is kept verbatim across capture/open; READ cannot renew it. */
-export async function prepareOriginalNativeDeviceLocalRestartV1(input) {
-  assert.equal(arguments.length, 1);
+export function prepareOriginalNativeDeviceLocalRestartV1(input){
+ assert.equal(arguments.length,1);return prepareRestart(input,false);
+}
+export function prepareOriginalNativeDeviceDurableLocalRestartV1(input){
+ assert.equal(arguments.length,1);return prepareRestart(input,true);
+}
+async function prepareRestart(input,durable) {
   exactRecord(input, ['runtime', 'nativeRuntime', 'bootstrap', 'system', 'owner', 'nativeExecution', 'account', 'session', 'provider', 'deadlineMs']);
   const selected = { ...input }, { runtime, system, owner, nativeExecution, account } = selected;
   assert.ok(Number.isSafeInteger(selected.deadlineMs) && selected.deadlineMs > Date.now()
@@ -109,18 +133,34 @@ export async function prepareOriginalNativeDeviceLocalRestartV1(input) {
   const authority = await issuer.createNativeEconomicNoteRecoveryAuthorityV1(identity);
   const token = Object.freeze(Object.create(null));
   prepared.set(token, { selected, identity, authority, issuer, coordinator, installed: null,
-    phase: 'OPEN', capturePromise: null, selectedJob: null, authorityClose: null });
+    phase: 'OPEN', capturePromise: null, selectedJob: null, authorityClose: null, durable });
   return token;
 }
-export function bindOriginalNativeDeviceLocalRestartV1(token, installed) {
-  assert.equal(arguments.length, 2); const row = prepared.get(token);
+export function bindOriginalNativeDeviceLocalRestartV1(token,installed){
+ assert.equal(arguments.length,2);return bindRestart(token,installed,false);
+}
+export function bindOriginalNativeDeviceDurableLocalRestartV1(token,installed){
+ assert.equal(arguments.length,2);return bindRestart(token,installed,true);
+}
+function bindRestart(token,installed,durable) {
+ const row = prepared.get(token);
   assert.ok(row && row.phase === 'OPEN' && row.installed === null, 'NATIVE_DEVICE_LOCAL_RESTART_ORIGINAL');
-  exactRecord(installed, ['transport', 'actor', 'depositBridge', 'reservationBridge', 'executionBridge', 'descriptor']);
+  assert.equal(row.durable,durable,'NATIVE_DEVICE_LOCAL_RESTART_PROFILE_CHANGED');
+  exactRecord(installed, ['transport', 'actor', 'depositBridge', 'reservationBridge', 'executionBridge', 'descriptor',...(durable?['dispatch']:[])]);
+  if(durable)assert.equal(assertOriginalDeviceDurableDispatchBindingsV1(installed.dispatch,{
+   depositBridge:installed.depositBridge,reservationBridge:installed.reservationBridge,executionBridge:installed.executionBridge}),installed.actor);
   row.installed = installed;
 }
-export function captureOriginalNativeDeviceLocalRestartV1(token, parentJobId) {
-  assert.equal(arguments.length, 2); assert.ok(hex(parentJobId), 'NATIVE_DEVICE_LOCAL_RESTART_JOB');
+export function captureOriginalNativeDeviceLocalRestartV1(token,parentJobId){
+ assert.equal(arguments.length,2);return captureRestart(token,parentJobId,false);
+}
+export function captureOriginalNativeDeviceDurableLocalRestartV1(token,parentJobId){
+ assert.equal(arguments.length,2);return captureRestart(token,parentJobId,true);
+}
+function captureRestart(token,parentJobId,durable) {
+ assert.ok(hex(parentJobId), 'NATIVE_DEVICE_LOCAL_RESTART_JOB');
   const row = prepared.get(token); assert.ok(row?.installed, 'NATIVE_DEVICE_LOCAL_RESTART_ORIGINAL');
+  assert.equal(row.durable,durable,'NATIVE_DEVICE_LOCAL_RESTART_PROFILE_CHANGED');
   if (row.capturePromise) {
     assert.equal(parentJobId, row.selectedJob, 'NATIVE_DEVICE_LOCAL_RESTART_JOB_CHANGED'); return row.capturePromise;
   }
@@ -146,6 +186,7 @@ export function captureOriginalNativeDeviceLocalRestartV1(token, parentJobId) {
       const recipient = await input.provider.recipient.close();
       assert.equal(recipient.exited, true); assert.deepEqual(recipient.exit, { code: 0, signal: null });
       const checkpoint = await operation; issuerFinished = true; // original finish closes issuer/lease
+      row.installed.dispatch?.close(); // transport and all economic references already fenced/drained
       const transport = await row.installed.transport.close();
       assert.ok(transport.closed && transport.listenerClosed && transport.ownedSocketsRemaining === 0 && transport.originalDiagnosticsInFlight === 0);
       for (const runtime of [input.runtime, input.nativeRuntime]) {
@@ -154,9 +195,9 @@ export function captureOriginalNativeDeviceLocalRestartV1(token, parentJobId) {
       }
       assert.equal(input.owner.report().childExited, true); assert.equal(input.provider.custody.report().closed, true);
       row.phase = 'CAPTURED';
-      const value = { schema: 'ORIGINAL_LOCAL_NATIVE_NOTE_F_CAPTURE_V1', identity: { ...row.identity }, checkpoint: { ...checkpoint },
+      const value = { schema: durable?'ORIGINAL_DURABLE_LOCAL_NATIVE_NOTE_F_CAPTURE_V1':'ORIGINAL_LOCAL_NATIVE_NOTE_F_CAPTURE_V1', identity: { ...row.identity }, checkpoint: { ...checkpoint },
         descriptor: { ...row.installed.descriptor }, parentJobId, capturedProcessId: process.pid };
-      await publish(value); // exclusive durable locator AFTER actual closures
+      await publish(value,selectLocal(durable)); // exclusive durable locator AFTER actual closures
       return Object.freeze({ closed: true, originalResourcesStopped: true, retainedEncryptedJournals: true,
         plannedCaptureForNewProcess: true, abruptCrashRecoveryEstablished: false });
     } catch (error) {
@@ -182,10 +223,16 @@ export async function closeOriginalNativeDeviceLocalRestartAuthorityV1(token) {
   row.phase = 'CLOSED'; row.authorityClose ??= row.issuer.closeNativeEconomicRecoveryAuthorityV1(row.authority);
   await row.authorityClose;
 }
-export async function readOriginalNativeDeviceLocalRestartLocatorV1() {
-  assert.equal(arguments.length, 0); const value = await privateRead(checkpointPath);
+export function readOriginalNativeDeviceLocalRestartLocatorV1(){
+ assert.equal(arguments.length,0);return readLocator(false);
+}
+export function readOriginalNativeDeviceDurableLocalRestartLocatorV1(){
+ assert.equal(arguments.length,0);return readLocator(true);
+}
+async function readLocator(durable){
+ const local=selectLocal(durable),value=await privateRead(join(local,'captured-checkpoint.json'),local);
   exactRecord(value, ['schema', 'identity', 'checkpoint', 'descriptor', 'parentJobId', 'capturedProcessId']);
-  assert.equal(value.schema, 'ORIGINAL_LOCAL_NATIVE_NOTE_F_CAPTURE_V1');
+  assert.equal(value.schema, durable?'ORIGINAL_DURABLE_LOCAL_NATIVE_NOTE_F_CAPTURE_V1':'ORIGINAL_LOCAL_NATIVE_NOTE_F_CAPTURE_V1');
   exactRecord(value.identity, ['directory', 'runId', 'sourceSHA256', 'deadlineMs']); exactRecord(value.checkpoint, ['revision', 'commitment']);
   assert.ok(hex(value.parentJobId) && Number.isSafeInteger(value.capturedProcessId) && value.capturedProcessId > 0);
   assert.notEqual(value.capturedProcessId, process.pid, 'NATIVE_DEVICE_LOCAL_RESTART_NEW_PROCESS_REQUIRED');
@@ -194,13 +241,22 @@ export async function readOriginalNativeDeviceLocalRestartLocatorV1() {
 
 /** Reopening authenticates current physical V5/source callers before reading
  * the private locator or claiming any section. JSON carries no capability. */
-export async function reopenOriginalNativeDeviceLocalOperatorV1(input) {
-  assert.equal(arguments.length, 1); const selected = normalizeOriginalNativeDeviceLocalConfigurationV1(input);
+export function reopenOriginalNativeDeviceLocalOperatorV1(input){
+ assert.equal(arguments.length,1);return reopen(input,false);
+}
+export function reopenOriginalNativeDeviceDurableLocalOperatorV1(input){
+ assert.equal(arguments.length,1);return reopen(input,true);
+}
+async function reopen(input,durable) {
+ exactRecord(input,durable?['origin','devicePublicKey','tls','pool','privacyKey']:['origin','devicePublicKey','tls']);
+ const selected=normalizeOriginalNativeDeviceLocalConfigurationV1({origin:input.origin,devicePublicKey:input.devicePublicKey,tls:input.tls});
+ const infrastructure=durable?{pool:input.pool,privacyKey:input.privacyKey}:null;
   const product = await import('./native-device-local-operator-v1.mjs');
   await product.assertOriginalNativeDeviceLocalSourceReviewV1();
-  const locator = await readOriginalNativeDeviceLocalRestartLocatorV1();
+  const locator = await readLocator(durable);
   assert.equal(locator.descriptor.origin, selected.origin); assert.equal(locator.descriptor.devicePublicKey, selected.devicePublicKey);
   assert.ok(Date.now() < locator.identity.deadlineMs, 'NATIVE_DEVICE_LOCAL_RESTART_ORIGINAL_DEADLINE');
+  if(durable)await assertOriginalDeviceDurableRecoveryInfrastructureV1(infrastructure); // before consuming any original recovery section
   let originals, installed, closing;
   function close() {
     assert.equal(arguments.length, 0); return closing ??= (async () => {
@@ -208,6 +264,7 @@ export async function reopenOriginalNativeDeviceLocalOperatorV1(input) {
       async function stop(work, checked) { try { assert.ok(checked(await work()), 'NATIVE_DEVICE_LOCAL_REOPEN_CLOSE_UNCONFIRMED'); }
         catch (error) { failures.push(error); } }
       if (installed) await stop(() => installed.transport.close(), value => value.closed && value.originalWorkSettled && value.ownedSocketsRemaining === 0);
+      try{installed?.dispatch?.close();}catch(error){failures.push(error);}
       if (originals) {
         if (!installed) await stop(async () => { originals.actor.close(); return { closed: true }; }, value => value.closed === true);
         await stop(() => originals.account.abort(), value => value.cancelled === true);
@@ -239,13 +296,13 @@ export async function reopenOriginalNativeDeviceLocalOperatorV1(input) {
     const service = await import('./native-device-economic-service-v1.mjs');
     // Original private producer independently requires exact pairing, S and F,
     // provider identity, current nullifiers, canonical receipt and deployed U.
-    installed = await service.reinstallOriginalNativeDeviceEconomicServiceV1({ runtime: originals.runtime, system: originals.system,
+    installed = await(durable?service.reinstallOriginalNativeDeviceDurableEconomicServiceV1:service.reinstallOriginalNativeDeviceEconomicServiceV1)({ runtime: originals.runtime, system: originals.system,
       owner: originals.owner, account: originals.account, nativeExecution: originals.nativeExecution,
-      providerCustody: originals.providerCustody, actor: originals.actor, tls: selected.tls });
+      providerCustody: originals.providerCustody, actor: originals.actor, tls: selected.tls,...(durable?infrastructure:{}) });
     assert.deepEqual(installed.descriptor, locator.descriptor); assert.equal(installed.parentJobId, locator.parentJobId);
-    return Object.freeze({ profile: product.ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
+    return Object.freeze({ profile: durable?'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1':product.ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
       descriptor: installed.descriptor, localFakeValues: true, automaticFunding: false, cloudAuthority: false,
-      plannedOriginalFReopen: true, abruptCrashRecoveryEstablished: false, readReconcileWithdrawalOnly: true, close });
+      plannedOriginalFReopen: true, abruptCrashRecoveryEstablished: false, readReconcileWithdrawalOnly: true,...(durable?{durableOriginalAdmission:true}:{}), close });
   } catch (error) {
     try { await close(); } catch (cleanup) { throw new AggregateError([error, cleanup], 'NATIVE_DEVICE_LOCAL_REOPEN_AND_CLOSE_UNCONFIRMED', { cause: error }); }
     throw error;

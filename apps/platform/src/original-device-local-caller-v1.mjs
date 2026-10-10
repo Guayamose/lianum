@@ -6,7 +6,7 @@ import { open, lstat, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startPlatformOriginalDeviceLocalOperatorV1, reopenPlatformOriginalDeviceLocalOperatorV1,startPlatformOriginalDeviceLiveRecoveryOperatorV1,
-  platformOriginalDeviceLocalConfigurationPathV1,startPlatformOriginalDeviceDurableLocalOperatorV1 } from './original-device-local-operator-v1.mjs';
+  platformOriginalDeviceLocalConfigurationPathV1,startPlatformOriginalDeviceDurableLocalOperatorV1,platformOriginalDeviceDurableLocalConfigurationPathV1,reopenPlatformOriginalDeviceDurableLocalOperatorV1 } from './original-device-local-operator-v1.mjs';
 import { createPlatformPool } from './database-pool.mjs';
 import { readPlatformPrivacyKeyV1 } from './privacy-key-v1.mjs';
 import { assertOriginalDeviceDispatchSchemaV1 } from './original-device-schema-v1.mjs';
@@ -49,8 +49,9 @@ export function runPlatformRecoveredDeviceLocalCallerV1() {
 }
 export function runPlatformOriginalDeviceLiveRecoveryCallerV1(){assert.equal(arguments.length,0);return run(false,true);}
 export function runPlatformOriginalDeviceDurableLocalCallerV1(){assert.equal(arguments.length,0);return run(false,false,true);}
+export function runPlatformRecoveredDurableDeviceLocalCallerV1(){assert.equal(arguments.length,0);return run(true,false,true);}
 async function run(reopened,liveObserved=false,durable=false) {
-  const entry = fileURLToPath(new URL(durable?'./run-original-device-durable-local-v1.mjs':liveObserved?'./run-original-device-live-recovery-v1.mjs':reopened ? './run-original-device-local-reopen-v1.mjs' : './run-original-device-local-v1.mjs', import.meta.url));
+  const entry = fileURLToPath(new URL(durable?(reopened?'./run-original-device-durable-local-reopen-v1.mjs':'./run-original-device-durable-local-v1.mjs'):liveObserved?'./run-original-device-live-recovery-v1.mjs':reopened ? './run-original-device-local-reopen-v1.mjs' : './run-original-device-local-v1.mjs', import.meta.url));
   assert.equal(process.execPath, fileURLToPath(new URL('../../../.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node', import.meta.url)), 'PLATFORM_ORIGINAL_LOCAL_PINNED_NODE');
   assert.equal(process.argv.length, 2, 'PLATFORM_ORIGINAL_LOCAL_FIXED_ENTRY'); assert.equal(process.argv[1], entry);
   assert.equal(await realpath(entry), entry);
@@ -81,16 +82,16 @@ async function run(reopened,liveObserved=false,durable=false) {
   }
   const normal = () => { void close().catch(() => { process.stderr.write('PLATFORM_ORIGINAL_LOCAL_CLOSE_UNCONFIRMED\n'); process.exitCode = 1; }); };
   const capture = () => { if (!closeRequested) captureRequested = true; normal(); };
-  process.once('SIGINT', normal); process.once('SIGTERM', normal); if(!liveObserved&&!durable)process.once('SIGUSR2', capture);
+  process.once('SIGINT', normal); process.once('SIGTERM', normal); if(!liveObserved)process.once('SIGUSR2', capture);
   try {
-    const path = await platformOriginalDeviceLocalConfigurationPathV1(), config = await privateFile(path, 32768);
+    const path = await(durable?platformOriginalDeviceDurableLocalConfigurationPathV1:platformOriginalDeviceLocalConfigurationPathV1)(), config = await privateFile(path, 32768);
     if (!closeRequested) {
       if(durable){
         assert.ok(process.env.DATABASE_URL,'PLATFORM_ORIGINAL_SCHEMA_CONFIGURATION');
         pool=createPlatformPool(process.env.DATABASE_URL);await assertOriginalDeviceDispatchSchemaV1(pool);
       }
       if(closeRequested){await close();return;}
-      acquisition = (durable?startPlatformOriginalDeviceDurableLocalOperatorV1:liveObserved?startPlatformOriginalDeviceLiveRecoveryOperatorV1:reopened ? reopenPlatformOriginalDeviceLocalOperatorV1 : startPlatformOriginalDeviceLocalOperatorV1)({
+      acquisition = (durable?(reopened?reopenPlatformOriginalDeviceDurableLocalOperatorV1:startPlatformOriginalDeviceDurableLocalOperatorV1):liveObserved?startPlatformOriginalDeviceLiveRecoveryOperatorV1:reopened ? reopenPlatformOriginalDeviceLocalOperatorV1 : startPlatformOriginalDeviceLocalOperatorV1)({
         ...config,...(durable?{pool,privacyKey:readPlatformPrivacyKeyV1()}:{}),
       });
       acquisition.catch(() => {}); config.tls = null; service = await acquisition;

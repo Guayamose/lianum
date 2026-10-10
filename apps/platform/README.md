@@ -186,11 +186,32 @@ perdida de COMMIT no habilita un envío; la conexión incierta se descarta y la
 misma operación permanece bloqueada incluso con otro desafío. Cambiar el
 secreto de infraestructura se rechaza.
 
-El móvil usa sus rutas y permisos originales. La nueva entrada no adopta
-cuentas antiguas ni admite captura/reapertura de proceso; ese contrato sigue
-pendiente para este perfil. El operador que ya dispone de los tres puentes
-originales puede usar `startPlatformOriginalDeviceDurableServiceV1` en su
-arranque privado. Estas entradas requieren el backend generado; la imagen de
+El móvil usa sus rutas y permisos originales. Esta entrada crea su configuración
+y descriptor en `.local/original-device-durable-local-operator-v1`, una carpeta
+privada distinta del operador anterior. Su `operator.json` contiene los mismos
+campos de infraestructura `origin`, `devicePublicKey` y `tls`; no contiene cuentas,
+notas ni permisos restaurados.
+
+Después de una recuperación F confirmada por el executor original, el operador
+puede escribir `recovery-request.json` (modo 0600) con el único campo `parentJobId`
+y solicitar captura mediante SIGUSR2 al proceso propio. La captura cierra el
+listener y conserva las diez secciones económicas del issuer original mediante
+AEAD/CAS; publica el localizador sólo después de comprobar sus cierres. Otra
+entrada fija abre esa captura desde un proceso nuevo:
+
+```sh
+./dev node --max-old-space-size=384 apps/platform/src/run-original-device-durable-local-reopen-v1.mjs
+```
+
+La reapertura exige el mismo emparejamiento y la misma infraestructura SQL. Una
+clave incorrecta o un registro SQL ausente se rechazan antes de consumir el
+issuer económico. El listener restaurado permite lectura, reconciliación y
+retiro W39 con permisos nuevos; mantiene cerradas financiación y ejecución
+nuevas. Esta ruta es captura planificada tras F: no establece recuperación de
+un cierre abrupto. Falta ejercitar el recorrido nativo completo de este perfil.
+
+El operador que ya dispone de los tres puentes originales puede usar
+`startPlatformOriginalDeviceDurableServiceV1` en su arranque privado. Estas entradas requieren el backend generado; la imagen de
 admisión V1 y el despliegue de Cloud aún conservan su disponibilidad anterior.
 
 Validación del registro sobre PostgreSQL real: firma inválida y desafío no

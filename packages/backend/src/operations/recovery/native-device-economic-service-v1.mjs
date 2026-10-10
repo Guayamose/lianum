@@ -11,22 +11,31 @@ import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired
 import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
-import {createPairedDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
-export async function reinstallOriginalNativeDeviceEconomicServiceV1(input){
- assert.equal(arguments.length,1);exactRecord(input,['runtime','system','owner','account','nativeExecution','providerCustody','actor','tls']);
+import {createPairedDeviceAccountTlsServerV1,createPairedDurableDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
+import {createOriginalDeviceDurableDispatchV1} from '../../api/mobile/original-device-durable-dispatch-v1.mjs';
+export function reinstallOriginalNativeDeviceEconomicServiceV1(input){
+ assert.equal(arguments.length,1);return reinstall(input,false);
+}
+export function reinstallOriginalNativeDeviceDurableEconomicServiceV1(input){
+ assert.equal(arguments.length,1);return reinstall(input,true);
+}
+async function reinstall(input,durable){
+ exactRecord(input,['runtime','system','owner','account','nativeExecution','providerCustody','actor','tls',...(durable?['pool','privacyKey']:[])]);
  const {runtime,system,owner,account,nativeExecution,providerCustody,actor,tls}=input;
  assertOwnedNativeValueAccountAuthority(account,{runtime,system,poolIndex:0,owner});assertPairedOriginalAccountActorAccountV2(actor,account);
  const cap=await retainOriginalNativeDeviceRecoveredInstallationV1(account,actor,providerCustody),retained=consumeOriginalNativeDeviceRecoveredInstallationV1(cap,account,actor);
- let depositBridge,reservationBridge,executionBridge,transport;
+ let depositBridge,reservationBridge,executionBridge,transport,dispatch;
  try{
    depositBridge=await createDeviceOwnerDepositBridgeV1({actor,account,owner,runtime,system,poolIndex:0});
    reservationBridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
      nativePreparation:retained.nativePreparation,invoiceSignatures:retained.invoiceSignatures});
    executionBridge=await createDeviceOwnerExecutionBridgeV1({account,reservationBridge,nativeExecution,providers:retained.providers,runtime,system,poolIndex:0});
-   transport=await createPairedDeviceAccountTlsServerV1({depositBridge,reservationBridge,executionBridge,tls});
+   if(durable)dispatch=await createOriginalDeviceDurableDispatchV1({depositBridge,reservationBridge,executionBridge,pool:input.pool,privacyKey:input.privacyKey});
+   transport=await(durable?createPairedDurableDeviceAccountTlsServerV1:createPairedDeviceAccountTlsServerV1)({depositBridge,reservationBridge,executionBridge,tls,...(durable?{dispatch}:{})});
    return Object.freeze({transport,depositBridge,reservationBridge,executionBridge,descriptor:retained.descriptor,
-     parentJobId:retained.parentJobId,depositJobId:retained.depositJobId,rootId:retained.rootId});
+     parentJobId:retained.parentJobId,depositJobId:retained.depositJobId,rootId:retained.rootId,...(durable?{dispatch}:{})});
  }catch(error){const failures=[];if(transport)try{await transport.close();}catch(failure){failures.push(failure);}
+   try{dispatch?.close();}catch(failure){failures.push(failure);}
    for(const bridge of [executionBridge,reservationBridge,depositBridge])try{bridge?.close();}catch(failure){failures.push(failure);}
    if(failures.length)throw new AggregateError([error,...failures],'NATIVE_DEVICE_RECOVERY_SERVICE_CLEANUP_FAILED',{cause:error});throw error;}
 }

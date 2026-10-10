@@ -30,6 +30,18 @@ export async function startPlatformOriginalDeviceDurableLocalOperatorV1(input) {
   const { createOriginalNativeDeviceDurableLocalOperatorV1 } = await import(original);
   return createOriginalNativeDeviceDurableLocalOperatorV1(selected);
 }
+export async function platformOriginalDeviceDurableLocalConfigurationPathV1(){
+ if(arguments.length!==0)throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
+ const module=await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-restart-v1.mjs',import.meta.url));
+ return module.originalNativeDeviceDurableLocalConfigurationPathV1();
+}
+export async function reopenPlatformOriginalDeviceDurableLocalOperatorV1(input){
+ if(arguments.length!==1)throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
+ exact(input,['origin','devicePublicKey','tls','pool','privacyKey']);exact(input.tls,['certificate','privateKey']);
+ const selected={origin:input.origin,devicePublicKey:input.devicePublicKey,tls:{certificate:input.tls.certificate,privateKey:input.tls.privateKey},pool:input.pool,privacyKey:input.privacyKey};
+ const module=await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-restart-v1.mjs',import.meta.url));
+ return module.reopenOriginalNativeDeviceDurableLocalOperatorV1(selected);
+}
 export async function platformOriginalDeviceLocalConfigurationPathV1() {
   if (arguments.length !== 0) throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
   const { originalNativeDeviceLocalConfigurationPathV1 } = await import(original);

@@ -42,7 +42,7 @@ mock.module(new URL('global-state/device-owner-execution-bridge-v1.mjs', base), 
   assertDeviceOwnerExecutionTransportBindingsV1(value, reservation) { branded(value, execution); branded(reservation, bridge); },
   assertDeviceOwnerExecutionDurableRequestV1() { throw Error('HOST_EXECUTION_FORBIDDEN'); },
 } });
-const { createOriginalDeviceDurableDispatchV1, runOriginalDeviceDurableDispatchV1, assertOriginalDeviceDurableDispatchBindingsV1 }
+const { createOriginalDeviceDurableDispatchV1, runOriginalDeviceDurableDispatchV1, assertOriginalDeviceDurableDispatchBindingsV1, assertOriginalDeviceDurableRecoveryInfrastructureV1 }
   = await import(new URL('mobile/original-device-durable-dispatch-v1.mjs', base));
 const bridges = { depositBridge: deposit, reservationBridge: bridge, executionBridge: execution };
 const key = '51'.repeat(32), deviceKey = new Uint8Array(32).fill(11);
@@ -65,6 +65,10 @@ test('original effects are fenced by real SQL across duplicate consent, missing 
   t.after(() => journal.close());
   assert.equal(assertOriginalDeviceDurableDispatchBindingsV1(journal, bridges), actor);
   assert.throws(() => assertOriginalDeviceDurableDispatchBindingsV1({ ...journal }, bridges), { code: 'DEVICE_DURABLE_ORIGINAL_REQUIRED' });
+  // Missing original key metadata must fail before a one-use recovery issuer
+  // is opened. This preflight creates no row and grants no economic authority.
+  await assert.rejects(assertOriginalDeviceDurableRecoveryInfrastructureV1({pool,privacyKey:key}),{code:'DEVICE_DURABLE_RECOVERY_JOURNAL_REQUIRED'});
+  assert.equal((await pool.query('SELECT count(*)::integer AS n FROM public.original_device_dispatch_meta_v1')).rows[0].n,1); // schema marker only
   const accepted = request();
   const invalid = request(); invalid.signature = '01'.repeat(64);
   await assert.rejects(runOriginalDeviceDurableDispatchV1(journal, bridge, 'reserve', invalid));
@@ -96,6 +100,10 @@ test('original effects are fenced by real SQL across duplicate consent, missing 
   for (const privateValue of [fixture.descriptor.devicePublicKey, fixture.descriptor.pairingId,
     accepted.consent.binding.accountIdentitySHA256, accepted.consent.jobId, accepted.consent.statement.inputCommitment])
     assert.equal(stored.includes(privateValue), false);
+  const beforeRecovery=JSON.stringify(rows);
+  await assert.rejects(assertOriginalDeviceDurableRecoveryInfrastructureV1({pool,privacyKey:'52'.repeat(32)}),{code:'DEVICE_DURABLE_RECOVERY_JOURNAL_REQUIRED'});
+  assert.deepEqual(await assertOriginalDeviceDurableRecoveryInfrastructureV1({pool,privacyKey:key}),{originalInfrastructureVerified:true,economicAuthorityRestored:false});
+  assert.equal(JSON.stringify((await pool.query('SELECT * FROM public.original_device_dispatch_v1 ORDER BY state')).rows),beforeRecovery);
   assert.equal(effects, 1);
   journal.close(); await assert.rejects(runOriginalDeviceDurableDispatchV1(journal, bridge, 'reserve', request()), { code: 'DEVICE_DURABLE_CLOSED' });
 });
