@@ -2,3 +2,5 @@ export function createDevicePagedGraphApiV3(input:{descriptor:unknown;fetchImpl:
 export function readDevicePagedGraphConsentV3(raw:unknown):any;
 export function readDevicePagedGraphStatusV3(raw:unknown):any;
 export function readDevicePagedGraphReplyV3(raw:unknown):any;
+
+export function readDevicePagedGraphReplyConsentV3(raw:unknown):any;

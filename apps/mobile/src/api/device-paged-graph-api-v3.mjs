@@ -22,3 +22,6 @@ const same=(map,value)=>{const original=map.get(value);need(original&&clients.ha
 export function readDevicePagedGraphConsentV3(value){return C.validateDevicePagedGraphConsentFreshV3(same(consents,value));}
 export function readDevicePagedGraphStatusV3(value){return C.validateDevicePagedGraphPublicFreshV3(same(observations,value));}
 export function readDevicePagedGraphReplyV3(value){same(privateReplies,value);readDevicePagedGraphStatusV3(value.status);return value;}
+
+/** Same live SDK reply only; retained original consent is data, not a grant. */
+export function readDevicePagedGraphReplyConsentV3(value){need(arguments.length===1);readDevicePagedGraphReplyV3(value);return privateReplies.get(value).consent;}

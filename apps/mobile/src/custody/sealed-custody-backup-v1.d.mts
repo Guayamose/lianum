@@ -1,5 +1,5 @@
 export type DeviceCustodyBackupBindingV1 = Readonly<{
-  profile: 'DEVICE_IDENTITY_CUSTODY_V1' | 'DEVICE_EXTERNAL_FLAT_CUSTODY_V1';
+  profile: 'DEVICE_IDENTITY_CUSTODY_V1' | 'DEVICE_EXTERNAL_FLAT_CUSTODY_V1' | 'DEVICE_PAGED_NOTE_CUSTODY_V3';
   devicePublicKey: string;
   routeSHA256: string | null;
 }> | Readonly<{ profile: 'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1'; rootId: string }>;

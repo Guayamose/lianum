@@ -16,7 +16,7 @@ const CIPHER='AES-256-GCM';
 const encoder=new TextEncoder();
 const fail=(code='MOBILE_CUSTODY_BACKUP_INVALID')=>{throw Error(code);};
 const need=(ok,code)=>{if(!ok)fail(code);};
-/** @typedef {{profile:'DEVICE_IDENTITY_CUSTODY_V1'|'DEVICE_EXTERNAL_FLAT_CUSTODY_V1',devicePublicKey:string,routeSHA256:string|null}|{profile:'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1',rootId:string}} DeviceCustodyBackupBindingV1 */
+/** @typedef {{profile:'DEVICE_IDENTITY_CUSTODY_V1'|'DEVICE_EXTERNAL_FLAT_CUSTODY_V1'|'DEVICE_PAGED_NOTE_CUSTODY_V3',devicePublicKey:string,routeSHA256:string|null}|{profile:'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1',rootId:string}} DeviceCustodyBackupBindingV1 */
 function exact(raw,keys){
  need(raw!==null&&typeof raw==='object'&&!Array.isArray(raw)&&(Object.getPrototypeOf(raw)===Object.prototype||Object.getPrototypeOf(raw)===null));
  const ds=Object.getOwnPropertyDescriptors(raw),actual=Reflect.ownKeys(ds);need(actual.length===keys.length);
@@ -27,7 +27,7 @@ function binding(raw){
  const profile=raw!==null&&typeof raw==='object'?Object.getOwnPropertyDescriptor(raw,'profile'):null;
  if(profile&&Object.hasOwn(profile,'value')&&profile.value==='DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1'){const v=exact(raw,['profile','rootId']);need(typeof v.rootId==='string'&&/^[0-9a-f]{64}$/.exec(v.rootId)?.[0]===v.rootId);return Object.freeze({profile:v.profile,rootId:v.rootId});}
  const v=exact(raw,['profile','devicePublicKey','routeSHA256']);
- need(['DEVICE_IDENTITY_CUSTODY_V1','DEVICE_EXTERNAL_FLAT_CUSTODY_V1'].includes(v.profile));
+ need(['DEVICE_IDENTITY_CUSTODY_V1','DEVICE_EXTERNAL_FLAT_CUSTODY_V1','DEVICE_PAGED_NOTE_CUSTODY_V3'].includes(v.profile));
  need(typeof v.devicePublicKey==='string'&&/^04[0-9a-f]{128}$/.exec(v.devicePublicKey)?.[0]===v.devicePublicKey);
  need(v.profile==='DEVICE_IDENTITY_CUSTODY_V1'?v.routeSHA256===null:typeof v.routeSHA256==='string'&&/^[0-9a-f]{64}$/.exec(v.routeSHA256)?.[0]===v.routeSHA256);
  return Object.freeze({profile:v.profile,devicePublicKey:v.devicePublicKey,routeSHA256:v.routeSHA256});
