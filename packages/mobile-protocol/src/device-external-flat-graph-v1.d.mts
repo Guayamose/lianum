@@ -29,3 +29,6 @@ export function normalizeExternalFlatGraphPrivateProofV2(raw:unknown):any;
 export function externalFlatGraphPrivateTranscriptBytesV2(raw:unknown):Uint8Array;
 export function externalFlatGraphPrivateDigestV2(raw:unknown):string;
 export function validateExternalFlatGraphPrivateWitnessV2(consent:unknown,witness:unknown):ExternalFlatGraphConsent;
+
+export const DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1:string;
+export function normalizeExternalFlatGraphPreparationV1(raw:unknown):any;

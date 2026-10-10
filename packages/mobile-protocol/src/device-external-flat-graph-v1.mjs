@@ -24,6 +24,16 @@ export function normalizeExternalFlatGraphQuoteV1(raw){
  const d=v.descriptor.poolTerms;for(const [k,j]of [['scope','scope'],['policy','policy'],['codeHash','poolCodeHash'],['assetIdentity','assetIdentity'],['domainCommitment','domainCommitment']])need(v.quote.poolTerms[k]===d[j]);
  return freeze(v);
 }
+/** Preparation admission is not U/S authorization. Only a fresh original
+ * ACCESS reads this same retained attempt; no source opening is a field. */
+export const DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1='DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1';
+export function normalizeExternalFlatGraphPreparationV1(raw){
+ const v=exact(raw,['profile','descriptor','preparationId','terms','stage','observedAt','expiresAt']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1);
+ v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);nonzero(v.preparationId);
+ v.terms=exact(v.terms,['depositJobId','rootId','assetAmount','shareAmount','payoutAmount','validFrom','settleBefore']);nonzero(v.terms.depositJobId);nonzero(v.terms.rootId);
+ for(const k of ['assetAmount','shareAmount','payoutAmount','validFrom','settleBefore'])uint(v.terms[k]);for(const k of ['assetAmount','shareAmount','payoutAmount'])need(v.terms[k]!=='0');
+ need(BigInt(v.terms.validFrom)<BigInt(v.terms.settleBefore)&&['PREPARING','FAILED','UNKNOWN'].includes(v.stage));integer(v.observedAt);integer(v.expiresAt);need(v.expiresAt===v.observedAt+15000);return freeze(v);
+}
 export function normalizeExternalFlatGraphDraftV1(raw){
  const v=exact(raw,['action','depositJobId','rootId','quoteId','jobId','custody','statement','witnessSHA256','proofSHA256','publicInputsSHA256']);
  need(EXTERNAL_FLAT_GRAPH_ACTIONS_V1.includes(v.action));['depositJobId','rootId','quoteId','jobId','witnessSHA256'].forEach(k=>nonzero(v[k]));

@@ -7,7 +7,7 @@ import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBac
 import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1,restoreDeviceExternalFlatNoteBackupV1} from '../custody/device-external-flat-note-vault-v1';
 import type {DeviceExternalFlatSummary,DeviceExternalFlatPrepared} from '../custody/device-external-flat-note-vault-v1';
 import {createDeviceExternalFlatNoteApiV1,readDeviceExternalFlatQuoteV1} from '../api/device-external-flat-note-api-v1.mjs';
-import {createDeviceExternalFlatGraphApiV1,readDeviceExternalFlatGraphQuoteV1} from '../api/device-external-flat-graph-api-v1.mjs';
+import {createDeviceExternalFlatGraphApiV1,readDeviceExternalFlatGraphQuoteV1,readDeviceExternalFlatGraphPreparationV1} from '../api/device-external-flat-graph-api-v1.mjs';
 import {validateExternalFlatGraphFreshV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1,normalizeExternalFlatDescriptorV1,externalFlatExactV1,externalFlatUintV1,externalFlatWipeV1,validateExternalFlatFreshV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import type {ExternalFlatAction,ExternalFlatConsent,ExternalFlatDraft,ExternalFlatStatus,ExternalFlatDescriptor} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
@@ -90,6 +90,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const blueReviewRef=useRef<DeviceMorphoBlueConsentV1|null>(null);
  const [aaveStatus,setAaveStatus]=useState<DeviceAaveStaticStatusV1|null>(null),[aaveReview,setAaveReview]=useState<DeviceAaveStaticConsentV1|null>(null),[aaveMinimum,setAaveMinimum]=useState('');const aaveReviewRef=useRef<DeviceAaveStaticConsentV1|null>(null);
  const [graphOutputReview,setGraphOutputReview]=useState<GraphOutputConsent|null>(null);
+ const [graphPreparationPending,setGraphPreparationPending]=useState(false);
  const [graphAssetAmount,setGraphAssetAmount]=useState(''),[graphShareAmount,setGraphShareAmount]=useState(''),[graphPayoutAmount,setGraphPayoutAmount]=useState(''),[graphValidFrom,setGraphValidFrom]=useState(''),[graphSettleBefore,setGraphSettleBefore]=useState('');
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Introduce la conexión privada entregada por tu operador.');
  const [recoveryPassword,setRecoveryPassword]=useState(''),[recoveryInput,setRecoveryInput]=useState(''),[recoveryCopy,setRecoveryCopy]=useState('');
@@ -120,7 +121,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   selected?.aaveClient?.close();selected?.blueClient?.close();selected?.graphClient?.close();selected?.client.close();const acquisition=acquiring.current;acquiring.current=null;
   const previous=closing.current;
   const drain=Promise.allSettled([previous,selected?.vault.close(),acquisition?.then(v=>v.close())]);closing.current=drain;
-  if(mounted.current){setConnected(false);setStatus(null);setGraphStatus(null);setBlueStatus(null);setAaveStatus(null);}
+  if(mounted.current){setConnected(false);setStatus(null);setGraphStatus(null);setGraphPreparationPending(false);setBlueStatus(null);setAaveStatus(null);}
   void drain.then(()=>{if(closing.current===drain)closing.current=null;});return drain;
  }
  function current(ticket:number,selected:Connection) {
@@ -231,6 +232,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(aaveRef.current){const w=aaveWindowRef.current;if(!w||graphShareAmount!==w.amount||graphValidFrom!==w.validFrom||graphSettleBefore!==(BigInt(w.validUntil)+60n).toString())throw Error('MOBILE_AAVE_RECEPTION_REQUIRED');}
   if(uniswapRef.current){const w=uniswapWindowRef.current;if(!w||graphShareAmount!==w.amount||graphValidFrom!==w.validFrom||graphSettleBefore!==(BigInt(w.validUntil)+60n).toString())throw Error('MOBILE_UNISWAP_RECEPTION_REQUIRED');}
   const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:pairing?'400':graphAssetAmount,shareAmount:pairing?'400':graphShareAmount,payoutAmount:pairing?'400':graphPayoutAmount,validFrom:window?.validFrom??graphValidFrom,settleBefore:window?.settleBefore??graphSettleBefore});current(ticket,selected);
+  if(quote.profile==='DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1'){const pending=readDeviceExternalFlatGraphPreparationV1(quote);setGraphPreparationPending(true);if(pending.stage!=='PREPARING')throw Error('MOBILE_META_FOUR_PREPARATION_'+pending.stage);setNotice('La preparación de las cuatro recepciones está en curso. Consulta esta misma preparación; no se repetirán las autorizaciones de recepción.');return;}setGraphPreparationPending(false);
   if(pairing){const q=readDeviceExternalFlatGraphQuoteV1(quote).quote;if(q.proposal.nodes.length!==4||q.proposal.nodes.some((n:any,slot:number)=>n.id!==pairing.deliveries[slot].id||JSON.stringify(n.dependsOn)!==JSON.stringify(pairing.deliveries[slot].dependsOn)||n.payout.value!==pairing.deliveries[slot].payoutAmount))throw Error('MOBILE_META_FOUR_ORIGINAL_QUOTE_CHANGED');}
   const prepared=await selected.vault.prepareSourceGraph(quote);graphPreparedRef.current=prepared;current(ticket,selected);const next=await selected.vault.summary();current(ticket,selected);setSummary(next);
   setRecoveryPreparation('GRAPH');setNotice('Guarda una copia actualizada que incluya el cambio y la recuperación recién preparados. Después podrás revisar la autorización de la reserva.');
@@ -497,7 +499,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
     <Text style={styles.label}>Importe reservado, unidades atómicas</Text><TextInput accessibilityLabel="Importe reservado" style={styles.input} value={graphPayoutAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphPayoutAmount}/>
     <Text style={styles.label}>Inicio original de recepción, segundos Unix</Text><TextInput accessibilityLabel="Inicio original de recepción" style={styles.input} value={graphValidFrom} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphValidFrom}/>
     <Text style={styles.label}>Vencimiento de la reserva, segundos Unix</Text><TextInput accessibilityLabel="Vencimiento de la reserva" style={styles.input} value={graphSettleBefore} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphSettleBefore}/>
-    <Button label="Preparar reserva y conversión" disabled={busy||uncertain||!available||Boolean(withdrawal)} onPress={confirmGraphPreparation}/></>}
+    <Button label={graphPreparationPending?"Consultar preparación de las recepciones":"Preparar reserva y conversión"} disabled={busy||uncertain||!available||Boolean(withdrawal)} onPress={confirmGraphPreparation}/></>}
    <Fields values={{Reserva:graphRow?stageText[graphRow.reservation.stage]??graphRow.reservation.stage:'No disponible',Conversión:graphRow?graphStageText[graphRow.graph.stage]:'No disponible','Cambio retenido':amountText(graph?.changeAmount??null,summary?.descriptor??null),'Recuperación retenida':amountText(graph?.recoveryAmount??null,summary?.descriptor??null),'Resultado pendiente':graphPending?'Consultar la misma operación':'Ninguno retenido'}}/>
    <Button label="Consultar reserva y conversión" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readGraphStatus(selected,epoch.current);setNotice('Estado de la reserva consultado sin repetir envíos.');});}}/>
    {graphRow?.reservation.stage==='FAILED'&&graphRow.graph.stage!=='SOURCE_CANCELLED'&&<Button label="Liberar reserva que no se envió" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('CANCEL_GRAPH'));}}/>}

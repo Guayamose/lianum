@@ -7,3 +7,5 @@ export function readDeviceExternalFlatGraphStatusV1(value:object):any;
 
 export function readDeviceExternalFlatGraphOutputQuoteV1(value:object):any;
 export function readDeviceExternalFlatGraphOutputRowV1(value:object):any;
+
+export function readDeviceExternalFlatGraphPreparationV1(value:object):any;

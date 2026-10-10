@@ -5,7 +5,7 @@ import * as Crypto from 'expo-crypto';
 import * as P from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {normalizeExternalFlatDescriptorV1,externalFlatExactV1,externalFlatPermissionMessageV1,validateExternalFlatFreshV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {sha256} from '@noble/hashes/sha2.js';
-const rows=new WeakMap(),quotes=new WeakMap(),statuses=new WeakMap(),outputQuotes=new WeakMap(),outputRows=new WeakMap();
+const rows=new WeakMap(),quotes=new WeakMap(),preparations=new WeakMap(),statuses=new WeakMap(),outputQuotes=new WeakMap(),outputRows=new WeakMap();
 const fail=()=>{throw Error('MOBILE_EXTERNAL_GRAPH_RESPONSE_REJECTED');};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function snapshot(raw) {
@@ -105,7 +105,7 @@ export function createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl=globalT
   async challenge(){if(arguments.length!==0)fail();const v=P.normalizeExternalFlatAccessV1(await post('challenges',{}));accessScope(v);accesses.set(v,{used:false});return v;},
   async preparation(access,signature,rawTerms){if(arguments.length!==3)fail();const e=accesses.get(access);if(!e||e.used)fail();accessScope(access);signature=P.normalizeExternalFlatSignatureV1(signature);
    const terms=externalFlatExactV1(snapshot(rawTerms),['depositJobId','rootId','assetAmount','shareAmount','payoutAmount','validFrom','settleBefore']);e.used=true;
-   const v=P.normalizeExternalFlatGraphQuoteV1(await post('preparations',{access,signature,...terms}));live();if(!same(v.descriptor,original)||v.quote.depositJobId!==terms.depositJobId||v.quote.rootId!==terms.rootId)fail();
+   const parsed=await post('preparations',{access,signature,...terms});live();if(parsed?.profile===P.DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1){const v=P.normalizeExternalFlatGraphPreparationV1(parsed);if(!same(v.descriptor,original)||!same(v.terms,terms))fail();freshStatus(v);preparations.set(v,{live,descriptor:original});return v;}const v=P.normalizeExternalFlatGraphQuoteV1(parsed);if(!same(v.descriptor,original)||v.quote.depositJobId!==terms.depositJobId||v.quote.rootId!==terms.rootId)fail();
    if(v.quote.proposal.budget!==terms.payoutAmount||v.quote.proposal.settleBefore!==terms.settleBefore||v.quote.proposal.fundingNotBefore!==terms.validFrom)fail();freshQuote(v);quotes.set(v,{live,descriptor:original});return v;},
   async review(access,signature,rawDraft){if(arguments.length!==3)fail();const e=accesses.get(access);if(!e||e.used)fail();accessScope(access);signature=P.normalizeExternalFlatSignatureV1(signature);const draft=P.normalizeExternalFlatGraphDraftV1(snapshot(rawDraft));e.used=true;
    const v=P.normalizeExternalFlatGraphConsentV1(await post('reviews',{access,signature,draft}));consentScope(v);if(!same(v.draft,draft))fail();if(v.privateProof){const t=P.externalFlatGraphPrivateTranscriptBytesV2(v);try{if(await digest(t)!==v.privateProof.transcriptSHA256)fail();}finally{t.fill(0);}consentScope(v);}consents.set(v,{used:false});return v;},
@@ -128,3 +128,5 @@ export function readDeviceExternalFlatGraphStatusV1(v){const r=statuses.get(v);i
 
 export function readDeviceExternalFlatGraphOutputQuoteV1(v){const r=outputQuotes.get(v);if(!r)fail();r.live();P.validateExternalFlatGraphOutputFreshV1(v);return v;}
 export function readDeviceExternalFlatGraphOutputRowV1(v){const r=outputRows.get(v);if(!r)fail();r.live();if(r.status)freshStatus(r.status);return v;}
+
+export function readDeviceExternalFlatGraphPreparationV1(v){const r=preparations.get(v);if(!r)fail();r.live();freshStatus(v);return v;}
