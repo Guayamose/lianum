@@ -21,6 +21,21 @@ const runtimeFiles=Object.freeze([
  ...['paeg/readiness-inputs.mjs','paeg/commitments.mjs',
  'chain-adapters/native-economic-local-signing-v2.mjs','chain-adapters/owned-evm-v2-runtime.mjs',
  'chain-adapters/owned-evm-native-value-profile.mjs','chain-adapters/native-value-evm-dispatch-gate.mjs'].map(path=>['wallet-platform/modules/'+path,runtimeRoot+path])]);
+// Separate fixed mobile composition. No runtime, path, hash, callback or
+// selected mode is accepted from its caller. All direct dynamic imports below
+// must also be current authenticated publication members before native birth.
+const mobileRuntimeFiles=Object.freeze([
+ ...['ops/native-device-local-restart-v1.mjs','ops/native-value-local-operator-bootstrap-v4.mjs',
+ 'ops/native-value-system-v2.mjs','ops/native-value-deployment-artifacts-v2.mjs',
+ 'paeg/native-value-execution-v2.mjs','global-state/native-value-account-authority-v2.mjs',
+ 'api/flat-manual-graph-session.mjs','ops/native-device-local-operator-v1.mjs',
+ 'solvers/native-value-provider-v2.mjs','chain-adapters/generic-native-value-v2.mjs']
+ .map(path=>['wallet-platform/modules/'+path,runtimeRoot+path]),
+ ['mobile-core/native-value-owner-process-v2.mjs','.internal/runtime/omnichain-flat-profile/flat-wallet/mobile-core/native-value-owner-process-v2.mjs'],
+ ...['native-recipient-process.mjs','native-recipient-custody.mjs','generic-balance-native-preparation.mjs','native-admission.mjs']
+ .map(path=>['golden/src/paeg/'+path,'.internal/runtime/omnichain-product/src/paeg/'+path])]);
+const selectedMobile=Object.freeze({profile:'ORIGINAL_BSC714_PRIVATE_NATIVE_MOBILE_V3',
+ files:Object.freeze([...selected.files,...[{"path":"scripts/development/owned-bsc-private-native-mobile-v3.mjs","sha256":"cc88548cc5f08e1e02b1cfe366d2cf221fc346e71ff5a7e94ef9e1982c042cfa"},{"path":"apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs","sha256":"fbbe91b3180145e960cce9a7a76e5ce09be0af30fc27dc24979357698a8e88e0"}]]),runtimeFiles:mobileRuntimeFiles});
 function repository(){let current=dirname(fileURLToPath(import.meta.url));while(current!==parse(current).root){
  if(existsSync(join(current,'scripts/layout.json'))&&existsSync(join(current,'package.json'))
  &&JSON.parse(readFileSync(join(current,'package.json'),'utf8')).name==='lianum')return realpathSync(current);current=dirname(current);}
@@ -53,7 +68,7 @@ function publication(){const bytes=physical(publicationPath);try{const text=byte
  return {sha256:sha(bytes),rows};}finally{bytes.fill(0);}}
 function capture(selected){assert.equal(fileHash(modulePath),loadedSourceSHA256,'OWNED_BSC_SOURCE_LOADED_MODULE_CHANGED');
  const published=publication(),own=selected.files.map(row=>{assert.equal(fileHash(row.path),row.sha256,'OWNED_BSC_SOURCE_REVIEWED_FILE_CHANGED');return {...row};});
- const runtime=runtimeFiles.map(([path,physicalPath])=>{const expected=published.rows.get(path);assert(expected,'OWNED_BSC_SOURCE_ORIGINAL_RUNTIME_MEMBER_REQUIRED');
+ const runtime=[...runtimeFiles,...(selected.runtimeFiles??[])].map(([path,physicalPath])=>{const expected=published.rows.get(path);assert(expected,'OWNED_BSC_SOURCE_ORIGINAL_RUNTIME_MEMBER_REQUIRED');
  assert.equal(fileHash(physicalPath),expected,'OWNED_BSC_SOURCE_ORIGINAL_RUNTIME_CHANGED');return {path,physicalPath,sha256:expected};});
  assert.equal(publication().sha256,published.sha256,'OWNED_BSC_SOURCE_PUBLICATION_CHANGED');
  const value={schema:CAPSULE,profile:selected.profile,moduleSHA256:loadedSourceSHA256,publicationSHA256:published.sha256,ownFiles:own,runtimeFiles:runtime};
@@ -62,6 +77,8 @@ function birth(selected){const initial=capture(selected),token=Object.freeze(Obj
  slots.set(token,{selected,value:initial.value,sha256:initial.sha256,closed:false,poisoned:false});
  assertOriginalOwnedBscSourceProfileV3(token);return token;}
 export function createOriginalBscSourceProfileV3(){assert.equal(arguments.length,0,'OWNED_BSC_SOURCE_NO_OPTIONS');return birth(selected);}
+/** Original mobile source born before native/custody CREATE or funds. */
+export function createOriginalBscNativeMobileSourceV3(){assert.equal(arguments.length,0,'OWNED_BSC_SOURCE_NO_OPTIONS');return birth(selectedMobile);}
 export function assertOriginalOwnedBscSourceProfileV3(token){assert.equal(arguments.length,1,'OWNED_BSC_SOURCE_TOKEN_ARITY');
  const state=slots.get(token);assert(state&&!state.closed&&!state.poisoned,'OWNED_BSC_SOURCE_ORIGINAL_TOKEN_REQUIRED');
  try{const next=capture(state.selected);assert.equal(next.sha256,state.sha256,'OWNED_BSC_SOURCE_GENERATION_CHANGED');assert.deepEqual(next.value,state.value,'OWNED_BSC_SOURCE_GENERATION_CHANGED');}
