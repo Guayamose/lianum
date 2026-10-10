@@ -165,7 +165,7 @@ const GRAPH_MOBILE=Object.freeze([
  ["apps/mobile/src/api/device-private-proof-transit-v2.mjs","8fba8cf0d5605db77819f11dca14dc63483d29db4d64e5914861d3a0076871c5"],
  [
   "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
-  "2a26c24a244d3e6790b9b2d366ebfdd51a2709d072c5f37e2b2d1bdd453e665c"
+  "9a976e3d67808ddeb82f807246362d10fd2f2f86255c10c27b324d5ff750146c"
  ],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
@@ -221,7 +221,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "5fe45ee9ec141d08c60e85e210e82bbedeaa286d9d3f506bcfe3f6dff32baa66"
+  "f096480c21f574ae8a71050293eaa8b7e25ad216e4e198bedec6c64e3e1aebee"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -297,7 +297,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-  "a62eb204df1f63d642eddf1c6166798a4d4dbbd0a710ab776b297070b6e64430"
+  "f1309ccd2621de6c1b160014eb3b4f9e40cb73cba653234d3bf12528bda56541"
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
@@ -336,7 +336,7 @@ const BLUE_MOBILE=Object.freeze([
  ["packages/proofs/src/jobs/wallet-note-private-recipient-v3.mjs","2866331e7a759fbeae76e76df53bf46909379cbfa5d82a4109ce3514263d833b"],
  [
   "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
-  "2a26c24a244d3e6790b9b2d366ebfdd51a2709d072c5f37e2b2d1bdd453e665c"
+  "9a976e3d67808ddeb82f807246362d10fd2f2f86255c10c27b324d5ff750146c"
  ],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
@@ -416,7 +416,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "5fe45ee9ec141d08c60e85e210e82bbedeaa286d9d3f506bcfe3f6dff32baa66"
+  "f096480c21f574ae8a71050293eaa8b7e25ad216e4e198bedec6c64e3e1aebee"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -520,7 +520,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-  "a62eb204df1f63d642eddf1c6166798a4d4dbbd0a710ab776b297070b6e64430"
+  "f1309ccd2621de6c1b160014eb3b4f9e40cb73cba653234d3bf12528bda56541"
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
@@ -566,7 +566,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ["apps/mobile/src/api/device-private-proof-transit-v2.mjs","8fba8cf0d5605db77819f11dca14dc63483d29db4d64e5914861d3a0076871c5"],
  [
   "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
-  "2a26c24a244d3e6790b9b2d366ebfdd51a2709d072c5f37e2b2d1bdd453e665c"
+  "9a976e3d67808ddeb82f807246362d10fd2f2f86255c10c27b324d5ff750146c"
  ],
  [
   "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
@@ -622,7 +622,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "5fe45ee9ec141d08c60e85e210e82bbedeaa286d9d3f506bcfe3f6dff32baa66"
+  "f096480c21f574ae8a71050293eaa8b7e25ad216e4e198bedec6c64e3e1aebee"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -698,7 +698,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-  "a62eb204df1f63d642eddf1c6166798a4d4dbbd0a710ab776b297070b6e64430"
+  "f1309ccd2621de6c1b160014eb3b4f9e40cb73cba653234d3bf12528bda56541"
  ],
  [
   "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
