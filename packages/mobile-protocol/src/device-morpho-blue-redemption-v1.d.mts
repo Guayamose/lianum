@@ -1,0 +1,12 @@
+import type {ExternalFlatDescriptor,ExternalFlatObserved} from './device-external-flat-note-v1.mjs';
+export const DEVICE_MORPHO_BLUE_REDEMPTION_V1:'LIANUM_DEVICE_MORPHO_BLUE_REDEMPTION_V1';
+export type DeviceMorphoBlueAccessV1=Readonly<{profile:typeof DEVICE_MORPHO_BLUE_REDEMPTION_V1;action:'ACCESS_BLUE';descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number}>;
+export type DeviceMorphoBlueConsentV1=Readonly<{profile:typeof DEVICE_MORPHO_BLUE_REDEMPTION_V1;action:'REDEEM_BLUE'|'OBSERVE_BLUE';descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;withdrawalJobId:string;rootId:string;withdrawalTransactionHash:string;shares:string;minimumAssets:string;deadline:string;reference:string;position:string;underlying:string;recipient:string;observed:ExternalFlatObserved}>;
+export type DeviceMorphoBlueRowV1=Readonly<{profile:typeof DEVICE_MORPHO_BLUE_REDEMPTION_V1;descriptor:ExternalFlatDescriptor;withdrawalJobId:string;rootId:string;withdrawalTransactionHash:string;reference:string;shares:string;minimumAssets:string;deadline:string;position:string;underlying:string;recipient:string;stage:'PREPARED'|'REDEMPTION_UNKNOWN'|'REDEEMED'|'REVERTED';redeemedUnderlying:string|null;nativeGas:Readonly<{approvalWei:string|null;redemptionWei:string|null}>;observation:'PERSISTED_LAST_OBSERVATION'|'ORIGINAL_RECONCILIATION'}>;
+export type DeviceMorphoBlueStatusV1=Readonly<{profile:typeof DEVICE_MORPHO_BLUE_REDEMPTION_V1;descriptor:ExternalFlatDescriptor;observationOnly:boolean;operations:readonly DeviceMorphoBlueRowV1[];observedAt:number;expiresAt:number}>;
+export function normalizeDeviceMorphoBlueRedemptionAccessV1(raw:unknown):DeviceMorphoBlueAccessV1;
+export function normalizeDeviceMorphoBlueRedemptionConsentV1(raw:unknown):DeviceMorphoBlueConsentV1;
+export function validateDeviceMorphoBlueRedemptionFreshV1(raw:unknown,now?:number):DeviceMorphoBlueAccessV1|DeviceMorphoBlueConsentV1;
+export function deviceMorphoBlueRedemptionPermissionMessageV1(raw:unknown):Uint8Array;
+export function normalizeDeviceMorphoBlueRedemptionRowV1(raw:unknown):DeviceMorphoBlueRowV1;
+export function normalizeDeviceMorphoBlueRedemptionStatusV1(raw:unknown):DeviceMorphoBlueStatusV1;

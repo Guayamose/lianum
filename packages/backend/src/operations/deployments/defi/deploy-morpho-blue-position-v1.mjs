@@ -33,7 +33,27 @@ export function readOwnedOriginalMorphoBluePositionCompilationV1(runtime,positio
   return owned.get(position).build;
 }
 export async function createOwnedOriginalMorphoBluePositionV1(input) {
-  assert.equal(arguments.length,1); exactRecord(input,['runtime','protocolFixture']);
+  assert.equal(arguments.length,1); return buildOriginalBluePosition(input,null);
+}
+/** Only the existing original issuer's private System part may reopen this
+ * distinct position profile. No contract/address/receipt selected by a caller. */
+export async function reopenOwnedOriginalMorphoBluePositionV1(token) {
+  assert.equal(arguments.length,1);
+  const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+  const {runtime,protocols,record}=consumeExternalDefiBootstrapPartV1(token,'blue-position');
+  return buildOriginalBluePosition({runtime,protocolFixture:protocols},record);
+}
+export async function captureOwnedOriginalMorphoBluePositionV1(position) {
+  assert.equal(arguments.length,1); const s=owned.get(position);
+  assert.ok(s,'ORIGINAL_BLUE_POSITION_REQUIRED'); const view=await position.observe();
+  const head=await s.runtime.block(); assert.deepEqual({number:head.number,hash:head.hash,timestamp:head.timestamp},view.head,'ORIGINAL_BLUE_POSITION_CAPTURE_HEAD');await s.runtime.assertCanonical(head);
+  return copy({schema:'ORIGINAL_MORPHO_BLUE_POSITION_RECOVERY_V1',profile:PROFILE,
+    genesis:s.runtime.metadata.evmGenesis,head,receipt:position.contract.receipt,
+    address:position.contract.address,codeSHA256:sha(Buffer.from(position.contract.code.slice(2),'hex')),
+    compiler:s.build.compiler,inputSHA256:s.build.inputSHA256,sourceRecords:s.build.sourceRecords});
+}
+async function buildOriginalBluePosition(input,saved) {
+  exactRecord(input,['runtime','protocolFixture']);
   const {runtime,protocolFixture:p} = input;
   await assertOwnedLocalEvmV2(runtime); assertOfficialProtocolFixture(runtime,p);
   assert.equal(runtime.metadata.chainId,'31337','ORIGINAL_BLUE_LOCAL_PROFILE');
@@ -42,6 +62,15 @@ export async function createOwnedOriginalMorphoBluePositionV1(input) {
   const require = createRequire(join(directory,'abi-tools/package.json'));
   const {Interface,keccak256} = require('ethers'), build = compileOriginalMorphoBluePositionContractsV1();
   const artifact = build.artifacts.OriginalMorphoBluePositionV1, iface = new Interface(artifact.abi);
+  if(saved){
+    exactRecord(saved,['schema','profile','genesis','head','receipt','address','codeSHA256','compiler','inputSHA256','sourceRecords']);
+    assert.equal(saved.schema,'ORIGINAL_MORPHO_BLUE_POSITION_RECOVERY_V1');assert.equal(saved.profile,PROFILE);
+    assert.equal(saved.genesis,runtime.metadata.evmGenesis);assert.equal(saved.compiler,build.compiler);
+    assert.equal(saved.inputSHA256,build.inputSHA256,'ORIGINAL_BLUE_POSITION_SOURCE_CHANGED');
+    assert.deepEqual(saved.sourceRecords,build.sourceRecords,'ORIGINAL_BLUE_POSITION_SOURCE_CHANGED');
+    assert.deepEqual(await runtime.block(),saved.head,'ORIGINAL_BLUE_POSITION_REOPEN_HEAD');
+    await runtime.assertCanonical(saved.head);
+  }
   const read = async (contract,method,args,at) => contract.iface.decodeFunctionResult(method,
     await runtime.call({to:contract.address,data:contract.iface.encodeFunctionData(method,args)},at));
   const birth = await runtime.block(); await runtime.assertCanonical(birth);
@@ -56,13 +85,14 @@ export async function createOwnedOriginalMorphoBluePositionV1(input) {
   await runtime.assertCanonical(birth); assert.deepEqual(await runtime.block(),birth,'ORIGINAL_BLUE_BIRTH_HEAD');
   const creation = '0x'+artifact.evm.bytecode.object+iface.encodeDeploy([p.blue.address,p.first.address]).slice(2);
   const label = 'deploy original Morpho Blue private position v1';
-  const receipt = await runtime.send(label,{from:runtime.accounts[0],data:creation});
+  const receipt = saved?copy(saved.receipt):await runtime.send(label,{from:runtime.accounts[0],data:creation});
   await runtime.checkReceipt(receipt); await runtime.assertCanonical(receipt);
   const address = receipt.contractAddress.toLowerCase();
   const code = expectedAaveRuntimeCodeV1(artifact,build.sourceASTs,{}, {
     MORPHO:p.blue.address,loan:p.first.address,marketId:p.marketId,
     morphoCodeHash:keccak256(p.blue.code),assetCodeHash:keccak256(p.first.code),decimals:String(assetDecimals+6)});
   assert.equal(await runtime.code(address,receipt.blockNumber),code,'ORIGINAL_BLUE_POSITION_CODE');
+  if(saved){assert.equal(saved.address,address);assert.equal(saved.codeSHA256,sha(Buffer.from(code.slice(2),'hex')));}
   const contract = Object.freeze({address,iface,code,receipt:copy(receipt)});
   let capability;
   async function observe() {
@@ -92,5 +122,5 @@ export async function createOwnedOriginalMorphoBluePositionV1(input) {
   }
   capability = Object.freeze({profile:PROFILE,contract,asset:p.first.address,morpho:p.blue.address,marketId:p.marketId,
     compilation:copy({inputSHA256:build.inputSHA256,compiler:build.compiler,sourceRecords:build.sourceRecords}),observe});
-  owned.set(capability,{runtime,protocolFixture:p,build}); await observe(); return capability;
+  owned.set(capability,{runtime,protocolFixture:p,build}); await observe(); if(saved)assert.deepEqual(await runtime.block(),saved.head,'ORIGINAL_BLUE_POSITION_REOPEN_HEAD');return capability;
 }

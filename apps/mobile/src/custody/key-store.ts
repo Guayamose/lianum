@@ -1,3 +1,4 @@
+import * as blueRedemption from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
 import {sealDeviceCustodyBackupV1,unsealDeviceCustodyBackupV1,DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1} from './sealed-custody-backup-v1.mjs';
 import {validateExternalFlatGraphOutputFreshV1,externalFlatGraphOutputPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {validateExternalFlatGraphFreshV1,externalFlatGraphPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
@@ -414,4 +415,13 @@ export async function importDeviceIdentityBackupV1(sealedJSON: string, passphras
       return {devicePublicKey:expectedPublicKey,restored:true as const};
     } finally {clear?.fill(0);privateKey?.fill(0);existingKey?.fill(0);beforePrivate=null;imported=null;sealedJSON='';passphrase='';}
   });
+}
+
+/** Separate manual Blue redemption after the SAME original SHARE withdrawal. */
+export async function signDeviceMorphoBlueRedemptionPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+ const value=blueRedemption.validateDeviceMorphoBlueRedemptionFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
+ const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceMorphoBlueRedemptionFreshV1(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
+ const reviewed=check(),prompt=reviewed.action==='ACCESS_BLUE'?'Consultar la redención Blue original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
+ try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=blueRedemption.deviceMorphoBlueRedemptionPermissionMessageV1(check());return signDeviceMessage(key,frame);}finally{frame?.fill(0);key.fill(0);retained=null;}
 }

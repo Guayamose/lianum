@@ -18,8 +18,9 @@ import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOfficialAaveFixtureV1, officialAaveFixtureCompilationV1 } from '../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import { expectedAaveRuntimeCodeV1 } from '../../operations/deployments/defi/aave-v3-runtime-code-v1.mjs';
 import { assertAaveStaticRedemptionAccountingV1 } from './aave-static-redemption-accounting-v1.mjs';
-import { assertMorphoVaultRedemptionAccountingV1, inspectOriginalEvmExitNativeGasV1 } from './morpho-vault-redemption-accounting-v1.mjs';
+import { assertMorphoVaultRedemptionAccountingV1, assertMorphoBluePositionRedemptionAccountingV1, inspectOriginalEvmExitNativeGasV1 } from './morpho-vault-redemption-accounting-v1.mjs';
 
+import {assertOwnedOriginalMorphoBluePositionV1,readOwnedOriginalMorphoBluePositionContextV1} from '../../operations/deployments/defi/deploy-morpho-blue-position-v1.mjs';
 const recoveries = new WeakMap();
 import {createRetainedOfficialVaultJournalV1,openRetainedOfficialVaultJournalV1} from './retained-external-vault-journal-v1.mjs';
 const variants = new WeakMap(), owned = new WeakMap(), bindings = new WeakMap(), receipts = new WeakMap(), nativeCosts = new WeakMap();
@@ -36,6 +37,7 @@ const uint = (value, bits = 128) => { assert.ok(typeof value === 'string' && /^(
 function reference(value) { assert.match(value, /^[0-9a-f]{64}$/); assert.notEqual(value, '0'.repeat(64)); return value; }
 export const isOwnedMetaMorphoVault = value => owned.has(value) && variants.get(value) === 'METAMORPHO';
 export const isOwnedAaveStaticVaultV1 = value => owned.has(value) && variants.get(value) === 'AAVE_STATIC';
+export const isOwnedMorphoBluePositionVaultV1 = value => owned.has(value) && variants.get(value) === 'MORPHO_BLUE_POSITION';
 export const isOwnedOfficialStaticVaultV1 = value => owned.has(value);
 export function assertOwnedMetaMorphoVault(runtime, value) {
   assert.ok(owned.get(value) === runtime && owned.has(value), 'METAMORPHO_ORIGINAL_CAPABILITY');
@@ -77,10 +79,26 @@ export function createRetainedOwnedAaveStaticVaultV1(input){assert.equal(argumen
 export function captureRetainedOwnedOfficialStaticVaultV1(value){assert.equal(arguments.length,1);const state=recoveries.get(value);assert.ok(state,'EXTERNAL_VAULT_RETAINED_REQUIRED');return state.capture();}
 export function retainedOwnedOfficialStaticVaultContextV1(value){assert.equal(arguments.length,1);const state=recoveries.get(value);assert.ok(state,'EXTERNAL_VAULT_RETAINED_REQUIRED');return state.context();}
 export async function reopenRetainedOwnedOfficialStaticVaultV1(token){assert.equal(arguments.length,1);const {consumeExternalDefiOfficialVaultReopenV1}=await import('../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');const {input,saved}=consumeExternalDefiOfficialVaultReopenV1(token);assert.ok(['METAMORPHO','AAVE_STATIC'].includes(saved.variant));return createOwnedProtocolVaultV1(input,saved.variant,{saved});}
-async function createOwnedProtocolVaultV1(input, variant, retained = null) {
-  const aave = variant === 'AAVE_STATIC'; exactRecord(input, ['runtime', 'protocolFixture']);
-  const { runtime, protocolFixture: fixture } = input;
-  await assertOwnedLocalEvmV2(runtime); if(aave)assertOfficialAaveFixtureV1(runtime,fixture);else assertOfficialProtocolFixture(runtime, fixture);
+export function createRetainedOwnedMorphoBluePositionVaultV1(input){
+ assert.equal(arguments.length,1);exactRecord(input,['runtime','position']);assertOwnedOriginalMorphoBluePositionV1(input.runtime,input.position);
+ const {protocolFixture}=readOwnedOriginalMorphoBluePositionContextV1(input.runtime,input.position);
+ return createOwnedProtocolVaultV1({runtime:input.runtime,protocolFixture},'MORPHO_BLUE_POSITION',{saved:null},input.position);
+}
+export async function reopenRetainedOwnedMorphoBluePositionVaultV1(token){
+ assert.equal(arguments.length,1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../operations/local/device-external-flat-source-graph-service-v1.mjs');
+ const {runtime,position,saved}=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'blue-exit');
+ assert.equal(saved.variant,'MORPHO_BLUE_POSITION');assertOwnedOriginalMorphoBluePositionV1(runtime,position);
+ const {protocolFixture}=readOwnedOriginalMorphoBluePositionContextV1(runtime,position);
+ return createOwnedProtocolVaultV1({runtime,protocolFixture},'MORPHO_BLUE_POSITION',{saved},position);
+}
+async function createOwnedProtocolVaultV1(input, variant, retained = null, position = null) {
+  const aave = variant === 'AAVE_STATIC', blue = variant === 'MORPHO_BLUE_POSITION'; exactRecord(input, ['runtime', 'protocolFixture']);
+  const { runtime, protocolFixture: originalFixture } = input;
+  if(blue){assertOwnedOriginalMorphoBluePositionV1(runtime,position);assert.equal(readOwnedOriginalMorphoBluePositionContextV1(runtime,position).protocolFixture,originalFixture);}
+  const fixture=blue?Object.freeze({...originalFixture,vault:position.contract}):originalFixture;
+  const adapterProfile=blue?'OWNED_MORPHO_BLUE_POSITION_EXIT_V1':aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1';
+  const deploymentLabel=blue?'deploy-bounded-morpho-blue-position-exit':aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit';
+  await assertOwnedLocalEvmV2(runtime); if(aave)assertOfficialAaveFixtureV1(runtime,fixture);else assertOfficialProtocolFixture(runtime, originalFixture);
   assert.equal(runtime.metadata.chainId, '31337');
   const require = createRequire(join(ROOT, 'wallet-platform/artifacts/private-external-v1/abi-tools/package.json'));
   const originalBuild = aave ? officialAaveFixtureCompilationV1(runtime,fixture) : null;
@@ -88,23 +106,24 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
   const sender = runtime.accounts[0], vault = fixture.vault, asset = fixture.first;
   const creation = '0x' + build.artifact.evm.bytecode.object + iface.encodeDeploy([vault.address]).slice(2);
   if(retained?.saved){assert.equal(retained.saved.schema,'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1');assert.equal(retained.saved.variant,variant);assert.deepEqual(retained.saved.build,build);if(!aave)assert.equal(build.sourceSHA256,sha(readFileSync(join(ROOT,'contracts/defi/BoundedMetaMorphoExit.sol'),'utf8')));assert.match(build.compiler,/^0\.8\.37\+commit\.f401782d/);}
-  const deployment = retained?.saved ? retained.saved.deployment : await runtime.send(aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit', { from: sender, data: creation });
-  if(retained?.saved){const original=runtime.transactions.filter(row=>row.transactionHash===deployment.transactionHash);assert.equal(original.length,1);assert.equal(original[0].label,aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit');assert.equal(original[0].phase,'mined');assert.equal(original[0].request.from,sender);assert.equal(original[0].request.data,creation);assert.deepEqual(original[0].receipt,deployment);await runtime.checkReceipt(deployment);}
+  const deployment = retained?.saved ? retained.saved.deployment : await runtime.send(deploymentLabel, { from: sender, data: creation });
+  if(retained?.saved){const original=runtime.transactions.filter(row=>row.transactionHash===deployment.transactionHash);assert.equal(original.length,1);assert.equal(original[0].label,deploymentLabel);assert.equal(original[0].phase,'mined');assert.equal(original[0].request.from,sender);assert.equal(original[0].request.data,creation);assert.deepEqual(original[0].receipt,deployment);await runtime.checkReceipt(deployment);}
   await runtime.assertCanonical(deployment); const router = deployment.contractAddress.toLowerCase();
   const routerCode = aave ? expectedAaveRuntimeCodeV1(build.artifact,build.sourceASTs,{}, {vault:vault.address,asset:asset.address}) : expectedCode(build, vault.address, asset.address);
   assert.equal(await runtime.code(router, deployment.blockNumber), routerCode, 'METAMORPHO_EXIT_DEPLOYED_CODE');
-  const id = detached({ chainId: '31337', genesisHash: bare(runtime.metadata.evmGenesis), domain: sha((aave?'AAVE_STATIC_EXIT/':'METAMORPHO_EXIT/') + router),
+  const id = detached({ chainId: '31337', genesisHash: bare(runtime.metadata.evmGenesis), domain: sha((blue?'MORPHO_BLUE_POSITION_EXIT/':aave?'AAVE_STATIC_EXIT/':'METAMORPHO_EXIT/') + router),
     runtimeId: sha(runtime.metadata.scratchDirectory), asset: bare(asset.address), vault: bare(vault.address),
     assetCodeSHA256: sha(Buffer.from(bare(asset.code), 'hex')), vaultCodeSHA256: sha(Buffer.from(bare(vault.code), 'hex')) });
   const binding = detached({ identity: id, sender: bare(sender), receiver: bare(sender) });
-  const directory = retained?.saved ? retained.saved.directory : await mkdtemp(join(runtime.metadata.scratchDirectory, aave?'aave-static-exit-':'metamorpho-exit-'));
+  const directory = retained?.saved ? retained.saved.directory : await mkdtemp(join(runtime.metadata.scratchDirectory, blue?'morpho-blue-position-exit-':aave?'aave-static-exit-':'metamorpho-exit-'));
   const store = new Vault(join(directory, 'operations.vault'));let password=retained?.saved?retained.saved.lifetime.credentials.password:fresh();const keeper=retained?.saved?retained.saved.keeper:fresh();
-  let record = retained?.saved ? await store.read(password) : await store.create({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', identity: id, router, operations: [], sendBlocked: false }, password);
+  let record = retained?.saved ? await store.read(password) : await store.create({ profile: adapterProfile, identity: id, router, operations: [], sendBlocked: false }, password);
   const lifetimeIdentity={profile:'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_LIFETIME_V1',variant,binding};
-  if(retained?.saved){assert.deepEqual(binding,retained.saved.binding);assert.deepEqual(record,retained.saved.record);assert.equal(record.data.profile,aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1');assert.deepEqual(record.data.identity,id);assert.equal(record.data.router,router);}
+  if(retained?.saved){assert.deepEqual(binding,retained.saved.binding);assert.deepEqual(record,retained.saved.record);assert.equal(record.data.profile,adapterProfile);assert.deepEqual(record.data.identity,id);assert.equal(record.data.router,router);}
   const lifetime=retained?await (retained.saved?openRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record,retained.saved.lifetime):createRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record)):null;
-  let busy = false, poisoned = false, pending = null, adapter,closed=false,capturing=false;
-  const assertFixture = async () => { assertOfficialProtocolFixture(runtime, fixture); await assertOwnedLocalEvmV2(runtime); };
+  let busy = false, poisoned = false, pending = null, adapter,closed=false,capturing=false,blueRequest=null;
+  async function bluePermission(ref){if(!blue)return;const {assertOriginalBluePositionRedemptionRequestV1}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');assertOriginalBluePositionRedemptionRequestV1(blueRequest,adapter,ref);}
+  const assertFixture = async () => {if(blue)assertOwnedOriginalMorphoBluePositionV1(runtime,position);assertOfficialProtocolFixture(runtime, originalFixture);await assertOwnedLocalEvmV2(runtime);};
   async function healthy() { if(retained)assert.ok(!closed,'EXTERNAL_VAULT_CLOSED'); assert.ok(!poisoned, 'METAMORPHO_STORAGE_UNAVAILABLE'); await assertFixture();
     try { if(lifetime)await lifetime.check(record);assert.deepEqual(await store.read(password), record, 'METAMORPHO_JOURNAL_CHANGED'); } catch (error) { poisoned = true; throw error; } }
   async function exclusive(work) {if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_VAULT_CLOSED'); assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try { await healthy(); return await work(); } finally { busy = false; } }
@@ -159,6 +178,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
         .map((name, index) => [name, values[7][index].toString()])),
       position: Object.fromEntries(['supplyShares', 'borrowShares', 'collateral'].map((name, index) => [name, values[8][index].toString()])),
       underlyingBalance: values[9][0].toString(), vaultUnderlyingBalance: values[10][0].toString(), assetTotalSupply: values[11][0].toString() };
+    if(blue){assert.equal(position.contract.address,vault.address);assert.equal(morpho.position.supplyShares,shares.toString(),'BLUE_POSITION_EXACT_SHARE_BACKING');assert.equal(morpho.vaultUnderlyingBalance,'0','BLUE_POSITION_NO_IDLE_ASSET');const expected=shares*(BigInt(morpho.market.totalSupplyAssets)+1n)/(BigInt(morpho.market.totalSupplyShares)+1_000_000n);assert.equal(assets,expected,'BLUE_POSITION_ORIGINAL_NAV');}
     // Fixed original market has zero collateral, IRM, LLTV and debt; these are
     // read from the same canonical block, not inferred from a vault NAV.
     for (const name of ['totalBorrowAssets', 'totalBorrowShares', 'fee']) assert.equal(morpho.market[name], '0', 'METAMORPHO_ORIGINAL_MARKET');
@@ -187,7 +207,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
   }
   function output(ref, freshObservation = false) {
     const row = find(ref), result = detached({ reference: ref, action: row.action, phase: row.phase, execution: row.execution,
-      sendBlocked: record.data.sendBlocked, privateSpendable: false, assurance: aave?'ORIGINAL_LOCAL_AAVE_STATIC_PUBLIC_REDEMPTION':'ORIGINAL_LOCAL_METAMORPHO_PUBLIC_REDEMPTION',
+      sendBlocked: record.data.sendBlocked, privateSpendable: false, assurance: blue?'ORIGINAL_LOCAL_MORPHO_BLUE_POSITION_PUBLIC_REDEMPTION':aave?'ORIGINAL_LOCAL_AAVE_STATIC_PUBLIC_REDEMPTION':'ORIGINAL_LOCAL_METAMORPHO_PUBLIC_REDEMPTION',
       processRestartSupported: false });
     nativeCosts.set(result,{adapter,costs:{approvalRequired:row.approval!==null,
       approval:row.approval?.nativeGas??null,redemption:row.execution?.nativeGas??null}});
@@ -235,7 +255,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
         assert.equal(BigInt(after.balances.senderAssets) - BigInt(before.balances.senderAssets), assets, 'METAMORPHO_EXACT_ASSET_DELTA');
         assert.equal(before.balances.used, false); assert.equal(after.balances.used, true); assert.equal(after.balances.routerShares, before.balances.routerShares);
         assert.equal(BigInt(before.snapshot.totalShares) - BigInt(after.snapshot.totalShares), shares, 'METAMORPHO_SHARE_SUPPLY');
-        const protocolRedemption = aave?assertAaveStaticRedemptionAccountingV1({before:before.aave,after:after.aave,assets:assets.toString()}):assertMorphoVaultRedemptionAccountingV1({ before: before.morpho, after: after.morpho, assets: assets.toString() });
+        const protocolRedemption = aave?assertAaveStaticRedemptionAccountingV1({before:before.aave,after:after.aave,assets:assets.toString()}):blue?assertMorphoBluePositionRedemptionAccountingV1({before:before.morpho,after:after.morpho,shares:shares.toString(),assets:assets.toString()}):assertMorphoVaultRedemptionAccountingV1({ before: before.morpho, after: after.morpho, assets: assets.toString() });
         confirmation = { shares: shares.toString(), assets: assets.toString(), transactionHash: bare(hash), ...(aave?{aaveRedemption:protocolRedemption}:{morphoRedemption:protocolRedemption}), privateSpendable: false }; phase = 'OBSERVED';
       }
     }
@@ -254,11 +274,11 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
   }
   async function submit(ref, kind, request, before) {
     const row = find(ref); assert.equal(row[kind], null, 'METAMORPHO_NO_RESEND');
-    const submission = { label: 'metamorpho-exit-' + keeper + '-' + kind + '-' + ref, request,
+    const submission = { label: (blue?'morpho-blue-position-exit-':'metamorpho-exit-') + keeper + '-' + kind + '-' + ref, request,
       journalStart: runtime.transactions.length, senderNonce: (await runtime.nonce(sender)).toString(), before,
       transactionHash: null, receipt: null, confirmation: null };
-    await update(ref, { [kind]: submission, phase: 'EXECUTION_UNRESOLVED' });
-    try { await runtime.send(submission.label, request); }
+    await bluePermission(ref);await update(ref, { [kind]: submission, phase: 'EXECUTION_UNRESOLVED' });
+    try { await bluePermission(ref);await runtime.send(submission.label, request); }
     catch { await write(data => ({ ...data, sendBlocked: true })); }
     return reconcileSend(ref, kind);
   }
@@ -299,7 +319,8 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
       assert.ok((row.quoteHistory?.length ?? 0) < 8, 'METAMORPHO_REQUOTE_CAPACITY');
       await update(row.reference, { action, quoteHistory: [...(row.quoteHistory ?? []), row.action] }); return output(row.reference);
     }); },
-    async execute(ref) { return exclusive(async () => {
+    async execute(ref,originalRequest) { if(blue){assert.equal(arguments.length,2);const {assertOriginalBluePositionRedemptionRequestV1}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');assertOriginalBluePositionRedemptionRequestV1(originalRequest,adapter,ref);}return exclusive(async () => {
+      blueRequest=blue?originalRequest:null;try{
       let row = find(ref); if (row.execution) return output(ref, await reconcileSend(ref, 'execution'));
       assert.ok(row.phase === 'PREPARED' && !record.data.sendBlocked, 'METAMORPHO_RECONCILE_REQUIRED');
       assert.ok(record.data.operations.every(other => other.reference === ref || other.phase !== 'EXECUTION_UNRESOLVED'), 'METAMORPHO_OTHER_UNRESOLVED');
@@ -313,6 +334,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
       const freshObservation = await submit(ref, 'execution', { from: sender, to: router,
         data: iface.encodeFunctionData('redeem', [row.action.amount, row.action.minimumOutput, row.action.deadline, '0x' + ref]), gas: '0x1c9c380', value: '0x0' }, before);
       return output(ref, freshObservation);
+      }finally{blueRequest=null;}
     }); },
     async reconcile(ref) { return exclusive(async () => { const row = find(ref);
       const freshObservation = row.execution ? await reconcileSend(ref, 'execution') : row.approval ? await reconcileSend(ref, 'approval') : false;
@@ -324,10 +346,10 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null) {
       return { reopened: true, processRestartSupported: false, references: record.data.operations.map(row => row.reference) };
     } catch (error) { poisoned = true; throw error; } finally { busy = false; } },
     ...(retained?{close(){assert.ok(!busy&&!pending,'EXTERNAL_VAULT_BUSY');closed=true;password=null;return {closed:true};}}:{}),
-    metadata: detached({ profile: aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1', sourceSHA256: build.sourceSHA256, compiler: build.compiler,
+    metadata: detached({ profile: adapterProfile, sourceSHA256: build.sourceSHA256, compiler: build.compiler,
       publicRedemption: true, privateSpendable: false, underlyingAddress: asset.address, vaultAddress: vault.address, routerAddress: router }),
   });
   owned.set(adapter, runtime); variants.set(adapter,variant); bindings.set(adapter, binding);
-  if(retained){recoveries.set(adapter,{context(){assert.ok(!closed&&!capturing);return Object.freeze({runtime,fixture,variant,binding});},async capture(){assert.ok(!busy&&!closed&&!capturing&&!poisoned&&!pending,'EXTERNAL_VAULT_CAPTURE_IDLE');capturing=true;busy=true;try{await healthy();await observed();const saved={schema:'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1',variant,directory,keeper,binding:clone(binding),build:structuredClone(build),deployment:clone(deployment),record:clone(record),lifetime:await lifetime.capture(record)};closed=true;password=null;return saved;}catch(error){poisoned=true;closed=true;password=null;throw error;}finally{busy=false;}}});}
+  if(retained){recoveries.set(adapter,{context(){assert.ok(!closed&&!capturing);return Object.freeze({runtime,fixture:originalFixture,variant,binding,...(blue?{position}:{})});},async capture(){assert.ok(!busy&&!closed&&!capturing&&!poisoned&&!pending,'EXTERNAL_VAULT_CAPTURE_IDLE');capturing=true;busy=true;try{await healthy();await observed();const saved={schema:'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1',variant,directory,keeper,binding:clone(binding),build:structuredClone(build),deployment:clone(deployment),record:clone(record),lifetime:await lifetime.capture(record)};closed=true;password=null;return saved;}catch(error){poisoned=true;closed=true;password=null;throw error;}finally{busy=false;}}});}
   return adapter;
 }

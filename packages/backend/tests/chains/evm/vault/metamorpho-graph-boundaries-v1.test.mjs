@@ -1,3 +1,11 @@
+import {generateKeyPairSync,sign,createHash,createPublicKey,verify,randomBytes} from 'node:crypto';
+import {mkdtemp,chmod,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join,dirname} from 'node:path';
+import {types} from 'node:util';
+import {Vault} from '../../../../../engine/src/crypto/vault.mjs';
+import {canonicalClaimRecordDataV1} from '../../../../src/claims/storage/segmented-record-store.mjs';
+import {assertMorphoBluePositionRedemptionAccountingV1} from '../../../../src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs';
 /** Pure host boundaries only. No chain, compilation, prover or financial
  * acceptance. The fresh original graph flow still requires real acceptance. */
 import test from 'node:test';
@@ -250,4 +258,51 @@ test('actual Blue supply observer checks exact original share rounding and keeps
   const debt=structuredClone(after);debt.market[2]='1';assert.throws(()=>inspect(assert,before,debt,2n,1000001n));
   const unbacked=structuredClone(after);unbacked.morphoUnderlying='11';assert.throws(()=>inspect(assert,before,unbacked,2n,1000001n));
   const inventedNAV=structuredClone(after);inventedNAV.totalAssets='3';assert.throws(()=>inspect(assert,before,inventedNAV,2n,1000001n));
+});
+
+
+test('Blue shares-mode redemption preserves original floor rounding rather than Meta assets-mode rounding',()=>{
+ const before={protocol:'0x'+a(1),marketId:'0x'+h(1),positionOwner:'0x'+a(2),assetTotalSupply:'100',market:{totalSupplyAssets:'10',totalSupplyShares:'10000009',totalBorrowAssets:'0',totalBorrowShares:'0',lastUpdate:'1',fee:'0'},position:{supplyShares:'2000001',borrowShares:'0',collateral:'0'},underlyingBalance:'10',vaultUnderlyingBalance:'0'};
+ const after={...structuredClone(before),market:{...before.market,totalSupplyAssets:'9',totalSupplyShares:'9000008',lastUpdate:'2'},position:{...before.position,supplyShares:'1000000'},underlyingBalance:'9'};
+ const result=assertMorphoBluePositionRedemptionAccountingV1({before,after,shares:'1000001',assets:'1'});assert.equal(result.publicRedemption,true);assert.equal(result.privateBalanceCredited,false);
+ assert.throws(()=>assertMorphoBluePositionRedemptionAccountingV1({before,after,shares:'1000000',assets:'1'}));
+ const forged=structuredClone(after);forged.position.supplyShares='999999';assert.throws(()=>assertMorphoBluePositionRedemptionAccountingV1({before,after:forged,shares:'1000001',assets:'1'}));
+ const debt=structuredClone(after);debt.market.totalBorrowShares='1';assert.throws(()=>assertMorphoBluePositionRedemptionAccountingV1({before,after:debt,shares:'1000001',assets:'1'}));
+});
+
+test('actual device Blue redemption requires confirmed original SHARE W39 and one-use PoP before its durable native latch',async()=>{
+ const mapped=import.meta.url.includes('/modules/chain-adapters/');
+ const protocolURL=mapped?new URL('../../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs',import.meta.url):new URL('../../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs',import.meta.url);
+ const noteURL=mapped?new URL('../../../../../mobile-protocol/src/device-external-flat-note-v1.mjs',import.meta.url):new URL('../../../../../mobile-protocol/src/device-external-flat-note-v1.mjs',import.meta.url);
+ const P=await import(protocolURL),Note=await import(noteURL);
+ const backendURL=mapped?new URL('../defi-adapters/device-morpho-blue-private-exit-v1.mjs',import.meta.url):new URL('../../../../src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs',import.meta.url);
+ const original=await readFile(backendURL,'utf8');const body=original.replace(/^import .*?;$/gm,'').replace(/^export /gm,'');
+ assert.equal((original.match(/const owned=new WeakMap\(\),requests=new WeakMap\(\)/g)||[]).length,1);
+ const ports={assert,types,randomBytes,createHash,createPublicKey,verify,mkdtemp,chmod,join,dirname,Vault,canonicalClaimRecordDataV1,P,
+  externalFlatExactV1:Note.externalFlatExactV1,normalizeExternalFlatSignatureV1:Note.normalizeExternalFlatSignatureV1};
+ const directory=await mkdtemp(join(tmpdir(),'original-blue-private-exit-host-'));await chmod(directory,0o700);
+ const runtime={metadata:{scratchDirectory:directory}},system={},account={},position={contract:{address:'0x'+a(9)}};
+ const pair=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),jwk=pair.publicKey.export({format:'jwk'}),pub='04'+Buffer.from(jwk.x,'base64url').toString('hex')+Buffer.from(jwk.y,'base64url').toString('hex');
+ const descriptor={profile:Note.DEVICE_EXTERNAL_FLAT_SHARE_V1,origin:'https://127.0.0.1:5443',pairingId:h(70),devicePublicKey:pub,lifetime:h(71),poolTerms:{pool:a(8),poolCodeHash:h(1),scope:h(2),policy:h(3),assetIdentity:h(4),asset:a(9),assetCodeHash:h(5),genesis:h(6),domainCommitment:h(7),hub:a(7),hubCodeHash:h(8),hubDomain:h(9),ledgerNamespace:h(10)},assetMetadata:{kind:'ERC20',symbol:'OMB1',decimals:12}};
+ const binding={identity:{asset:a(3)},sender:a(4)},jobId=h(72),rootId=h(73),observed={blockNumber:'22',blockHash:h(74),timestamp:'1000'};
+ let confirmed=false,sends=0,subjectReads=0,adapterCalls=0,service;
+ const intent={reference:null,kind:'redeem',amount:'1000001',minimumOutput:'1',deadline:'1180'};
+ const result=()=>({phase:'OBSERVED',execution:{confirmation:{assets:'1'}},sendBlocked:false});
+ const adapter={async validateQuote(value){assert.equal(value.amount,intent.amount);assert.equal(value.minimumOutput,intent.minimumOutput);assert.equal(value.deadline,intent.deadline);return{};},async prepareOnce(value){intent.reference=value.reference;adapterCalls++;return{};},async execute(ref,request){loaded.assertOriginalBluePositionRedemptionRequestV1(request,adapter,ref);assert.equal(ref,intent.reference);sends++;return result();},async reconcile(ref){assert.equal(ref,intent.reference);return result();},async close(){return{closed:true};}};
+ ports.assertOwnedFlatSystem=(r,s)=>{assert.equal(r,runtime);assert.equal(s,system);};ports.assertOwnedOriginalMorphoBluePositionV1=(r,p)=>{assert.equal(r,runtime);assert.equal(p,position);};ports.assertOwnedMetaMorphoVault=(r,p)=>{assert.equal(r,runtime);assert.equal(p,adapter);};ports.isOwnedMorphoBluePositionVaultV1=p=>p===adapter;
+ ports.assertOriginalDeviceExternalFlatNoteAuthorityV1=a=>{assert.equal(a,account);return descriptor;};ports.ownedMetaMorphoVaultBinding=()=>binding;
+ // Explicitly inert lower native ports: no proof, runtime, funding or native
+ // financial acceptance is supplied by this HOST. The AES/CAS body is actual.
+ ports.readOriginalDeviceExternalFlatShareWithdrawalV1=async(a,q)=>{assert.equal(a,account);assert.equal(q.runtime,runtime);assert.equal(q.system,system);assert.equal(q.poolIndex,1);assert.equal(q.jobId,jobId);subjectReads++;assert.ok(confirmed,'HOST_ORIGINAL_SHARE_UNCONFIRMED');return{row:{mode:'withdraw_balance',stage:'CONFIRMED',consentFields:{rootId,recipient:binding.sender,statement:{commitment:h(75),amount:intent.amount}},observation:{status:'CONFIRMED',transactionHash:h(76),recipient:binding.sender,commitment:h(75),amount:intent.amount}},observed};};
+ ports.readOriginalOfficialVaultNativeCostsV1=(a,r)=>{assert.equal(a,adapter);assert.equal(r.phase,'OBSERVED');return{approval:null,redemption:null};};
+ ports.createRetainedPrivateVaultExitJournalV1=async(_r,_i,credentials,initial)=>{let checkpoint=structuredClone(initial),candidate=null;return{async check(current){assert.deepEqual(current,checkpoint);assert.equal(candidate,null);},async before(current,next){assert.deepEqual(current,checkpoint);assert.equal(candidate,null);candidate=structuredClone(next);},async acknowledged(next){assert.deepEqual(next,candidate);assert.deepEqual(await new Vault(credentials.path).read(credentials.password),next);checkpoint=structuredClone(next);candidate=null;}};};
+ ports.openRetainedPrivateVaultExitJournalV1=()=>{assert.fail('HOST_NO_REOPEN_AUTHORITY');};ports.captureRetainedOwnedOfficialStaticVaultV1=()=>{assert.fail('HOST_NO_CAPTURE_AUTHORITY');};
+ const loaded=new Function(...Object.keys(ports),body+'\nreturn {createOriginalDeviceMorphoBluePrivateExitV1,assertOriginalBluePositionRedemptionRequestV1};')(...Object.values(ports));
+ const signature=value=>{const frame=P.deviceMorphoBlueRedemptionPermissionMessageV1(value);try{assert.ok(frame.length<=4096);const bytes=sign('sha256',frame,{key:pair.privateKey,dsaEncoding:'ieee-p1363'});const order=BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141'),scalar=BigInt('0x'+bytes.subarray(32).toString('hex'));if(scalar>order/2n)Buffer.from((order-scalar).toString(16).padStart(64,'0'),'hex').copy(bytes,32);return bytes.toString('hex');}finally{frame.fill(0);}};
+ try{service=await loaded.createOriginalDeviceMorphoBluePrivateExitV1({runtime,system,account,position,adapter});const denied=service.challenge();await assert.rejects(service.review({access:denied,signature:signature(denied),draft:{action:'REDEEM_BLUE',withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}),/HOST_ORIGINAL_SHARE_UNCONFIRMED/);assert.equal(sends,0);assert.equal(adapterCalls,0);
+  confirmed=true;const access=service.challenge(),{consent}=await service.review({access,signature:signature(access),draft:{action:'REDEEM_BLUE',withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const altered={...consent,recipient:a(5)};await assert.rejects(service.operate({consent:altered,signature:signature(consent)}));assert.equal(sends,0);
+  const row=await service.operate({consent,signature:signature(consent)});assert.equal(row.stage,'REDEEMED');assert.equal(row.redeemedUnderlying,'1');assert.equal(sends,1);assert.equal(adapterCalls,1);
+  await assert.rejects(service.operate({consent,signature:signature(consent)}));assert.equal(sends,1);assert.throws(()=>loaded.assertOriginalBluePositionRedemptionRequestV1(Object.freeze(Object.create(null)),adapter,consent.reference));
+  const again=service.challenge(),status=await service.status({access:again,signature:signature(again)});assert.equal(status.operations.length,1);assert.equal(status.operations[0].withdrawalTransactionHash,consent.withdrawalTransactionHash);assert.equal(status.operations[0].stage,'REDEEMED');assert.equal(sends,1);assert.ok(subjectReads>=4);
+ }finally{if(service)await service.close();await rm(directory,{recursive:true,force:true});}
 });

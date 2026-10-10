@@ -1,7 +1,9 @@
+import {createDeviceMorphoBlueRedemptionApiV1} from '../api/device-morpho-blue-redemption-api-v1.mjs';
+import type {DeviceMorphoBlueConsentV1,DeviceMorphoBlueStatusV1} from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
 import {useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {fetch as expoFetch} from 'expo/fetch';
-import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1} from '../custody/key-store';
+import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1,signDeviceMorphoBlueRedemptionPermissionV1} from '../custody/key-store';
 import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1,restoreDeviceExternalFlatNoteBackupV1} from '../custody/device-external-flat-note-vault-v1';
 import type {DeviceExternalFlatSummary,DeviceExternalFlatPrepared} from '../custody/device-external-flat-note-vault-v1';
 import {createDeviceExternalFlatNoteApiV1,readDeviceExternalFlatQuoteV1} from '../api/device-external-flat-note-api-v1.mjs';
@@ -25,7 +27,8 @@ type GraphOutputConsent=Parameters<GraphClient['outputSubmit']>[0];
 type GraphOutputPrepared=Awaited<ReturnType<Vault['prepareGraphOutputWithdrawal']>>;
 type GraphOutputReview={consent:GraphOutputConsent;witness:unknown|null};
 type GraphOutputView={noteRole:GraphOutputRole;amount:string;state:string;available:string|null};
-type Connection={client:Client;graphClient:GraphClient|null;noteClosed:boolean;vault:Vault;descriptor:ExternalFlatDescriptor};
+type BlueClient=ReturnType<typeof createDeviceMorphoBlueRedemptionApiV1>;
+type Connection={blueClient:BlueClient|null;client:Client;graphClient:GraphClient|null;noteClosed:boolean;vault:Vault;descriptor:ExternalFlatDescriptor};
 type GraphReview={consent:GraphConsent;witness:unknown|null};
 type Review={consent:ExternalFlatConsent;witness:unknown|null};
 function Button({label,onPress,disabled=false}:{label:string;onPress():void;disabled?:boolean}) {
@@ -52,6 +55,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const [connected,setConnected]=useState(false),[summary,setSummary]=useState<DeviceExternalFlatSummary|null>(null);
  const [review,setReview]=useState<ExternalFlatConsent|null>(null),[status,setStatus]=useState<ExternalFlatStatus|null>(null);
  const [graphReview,setGraphReview]=useState<GraphConsent|null>(null),[graphStatus,setGraphStatus]=useState<GraphStatus|null>(null);
+ const [blueStatus,setBlueStatus]=useState<DeviceMorphoBlueStatusV1|null>(null),[blueReview,setBlueReview]=useState<DeviceMorphoBlueConsentV1|null>(null),[blueMinimum,setBlueMinimum]=useState('');
+ const blueReviewRef=useRef<DeviceMorphoBlueConsentV1|null>(null);
  const [graphOutputReview,setGraphOutputReview]=useState<GraphOutputConsent|null>(null);
  const [graphAssetAmount,setGraphAssetAmount]=useState(''),[graphShareAmount,setGraphShareAmount]=useState(''),[graphPayoutAmount,setGraphPayoutAmount]=useState(''),[graphValidFrom,setGraphValidFrom]=useState(''),[graphSettleBefore,setGraphSettleBefore]=useState('');
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Introduce la conexión privada entregada por tu operador.');
@@ -65,6 +70,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const reviewRef=useRef<Review|null>(null),preparedRef=useRef<DeviceExternalFlatPrepared|null>(null),activeWitness=useRef<unknown|null>(null);
  const recoveryCut=useRef<{selected:Connection;kind:RecoveryPreparation;prepared:DeviceExternalFlatPrepared|GraphPrepared;checkpoint:RecoveryCheckpoint}|null>(null);
  function clearReview() {
+  blueReviewRef.current=null;if(mounted.current)setBlueReview(null);
   recoveryCut.current=null;if(mounted.current)setRecoveryPreparation(null);
   signing.current?.abort();signing.current=null;
   externalFlatWipeV1(graphOutputReviewRef.current?.witness);externalFlatWipeV1(graphOutputPreparedRef.current?.witness);graphOutputReviewRef.current=null;graphOutputPreparedRef.current=null;if(mounted.current)setGraphOutputReview(null);
@@ -75,10 +81,10 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  function hideRecovery(){setRecoveryPassword('');setRecoveryInput('');setRecoveryCopy('');}
  function closeConnection() {
   epoch.current++;clearReview();if(mounted.current)hideRecovery();const selected=connection.current;connection.current=null;
-  selected?.graphClient?.close();selected?.client.close();const acquisition=acquiring.current;acquiring.current=null;
+  selected?.blueClient?.close();selected?.graphClient?.close();selected?.client.close();const acquisition=acquiring.current;acquiring.current=null;
   const previous=closing.current;
   const drain=Promise.allSettled([previous,selected?.vault.close(),acquisition?.then(v=>v.close())]);closing.current=drain;
-  if(mounted.current){setConnected(false);setStatus(null);setGraphStatus(null);}
+  if(mounted.current){setConnected(false);setStatus(null);setGraphStatus(null);setBlueStatus(null);}
   void drain.then(()=>{if(closing.current===drain)closing.current=null;});return drain;
  }
  function current(ticket:number,selected:Connection) {
@@ -93,6 +99,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  }},Math.max(0,review.expiresAt-Date.now()));return()=>clearTimeout(timer);},[review]);
  useEffect(()=>{if(!graphReview)return;const selected=graphReviewRef.current,timer=setTimeout(()=>{if(mounted.current&&graphReviewRef.current===selected){clearReview();setNotice('Permiso de reserva caducado. Solicita otra revisión de la misma operación.');}},Math.max(0,graphReview.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphReview]);
  useEffect(()=>{if(!graphOutputReview)return;const selected=graphOutputReviewRef.current,timer=setTimeout(()=>{if(mounted.current&&graphOutputReviewRef.current===selected){clearReview();setNotice('Permiso de retirada caducado. Solicita otra revisión de la misma salida.');}},Math.max(0,graphOutputReview.consent.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphOutputReview]);
+ useEffect(()=>{if(!blueReview)return;const value=blueReview,timer=setTimeout(()=>{if(mounted.current&&blueReviewRef.current===value){clearReview();setNotice('Permiso de redención caducado. Consulta el estado original antes de otra revisión.');}},Math.max(0,value.expiresAt-Date.now()));return()=>clearTimeout(timer);},[blueReview]);
+ useEffect(()=>{if(!blueStatus)return;const value=blueStatus,timer=setTimeout(()=>{if(mounted.current)setBlueStatus(current=>current===value?null:current);},Math.max(0,value.expiresAt-Date.now()));return()=>clearTimeout(timer);},[blueStatus]);
  useEffect(()=>{if(!status)return;const value=status,timer=setTimeout(()=>{if(mounted.current)setStatus(current=>current===value?null:current);},Math.max(0,status.expiresAt-Date.now()));return()=>clearTimeout(timer);},[status]);
  useEffect(()=>{if(!graphStatus)return;const value=graphStatus,timer=setTimeout(()=>{if(mounted.current)setGraphStatus((current:GraphStatus|null)=>current===value?null:current);},Math.max(0,graphStatus.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphStatus]);
  async function run(work:()=>Promise<void>,failureNotice='No se ha confirmado el resultado. Vuelve a conectar y consulta la misma operación; no repitas el envío.') {
@@ -193,6 +201,11 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   ?'La apertura de esta nota se enviará al trabajador temporal para probar la reserva. El cambio y la recuperación conservan sus claves en este dispositivo. Cada envío posterior requiere otra autorización.'
   :'Autoriza sólo la operación y el plazo mostrados. Si falta la respuesta, consulta la misma operación antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitGraph(value));}}],{cancelable:false});}
  function confirmGraphPreparation(){if(busyRef.current)return;Alert.alert('Preparar conversión privada','Debes haber autorizado la recepción de las participaciones en su conexión privada. Esta preparación usa esos importes y ese plazo originales; todavía no envía la reserva.',[{text:'Cancelar',style:'cancel'},{text:'Continuar',onPress:()=>{void run(prepareGraph);}}],{cancelable:false});}
+ async function blueSign(selected:Connection,value:Parameters<typeof signDeviceMorphoBlueRedemptionPermissionV1>[0],ticket:number){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceMorphoBlueRedemptionPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
+ async function readBlueStatus(selected:Connection,ticket:number){const client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),value=await client.status(access,signature);current(ticket,selected);setBlueStatus(value);return value;}
+ async function requestBlue(action:'REDEEM_BLUE'|'OBSERVE_BLUE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_BLUE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readBlueStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_BLUE'&&(blue.observationOnly||previous))throw Error('MOBILE_BLUE_OBSERVE_ONLY');if(action==='OBSERVE_BLUE'&&!previous)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),consent=await client.review(access,signature,{action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??blueMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()});current(ticket,selected);blueReviewRef.current=consent;setBlueReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');}
+ async function submitBlue(consent:DeviceMorphoBlueConsentV1){const selected=requireConnection(),client=selected.blueClient,ticket=epoch.current;if(!client||blueReviewRef.current!==consent)throw Error('MOBILE_BLUE_PERMISSION_CHANGED');const signature=await blueSign(selected,consent,ticket);current(ticket,selected);blueReviewRef.current=null;setBlueReview(null);setBlueStatus(null);await client.submit(consent,signature);current(ticket,selected);await readBlueStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
+ function confirmBlue(){const value=blueReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitBlue(value));}}],{cancelable:false});}
  async function connect() {
   await closeConnection();const ticket=epoch.current;
   const descriptor=normalizeExternalFlatDescriptorV1(JSON.parse(descriptorText)),key=await readDevicePublicKey();
@@ -205,11 +218,11 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    client.close();await vault.close();return;
   }
   let graphClient:GraphClient|null;try{graphClient=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?null:createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl:expoFetch});}catch(error){client.close();await vault.close();throw error;}
-  acquiring.current=null;const selected:Connection={client,graphClient,noteClosed:false,vault,descriptor};connection.current=selected;
+  acquiring.current=null;const selected:Connection={blueClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&descriptor.assetMetadata.symbol==='OMB1'?createDeviceMorphoBlueRedemptionApiV1({descriptor,fetchImpl:expoFetch}):null,client,graphClient,noteClosed:false,vault,descriptor};connection.current=selected;
   const local=await vault.summary();current(ticket,selected);
   if(local.descriptor!==null&&JSON.stringify(local.descriptor)!==JSON.stringify(descriptor))throw Error('MOBILE_EXTERNAL_FLAT_BINDING_CHANGED');
   setSummary(local);setConnected(true);setRecipient(local.recipient===null?'':'0x'+local.recipient);setAmount(local.amount??'');
-  if(local.graph!==null){if(local.recoveryFence.source)await readStatus(selected,ticket);await readGraphStatus(selected,ticket);}else await readStatus(selected,ticket);setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
+  if(local.graph!==null){if(local.recoveryFence.source)await readStatus(selected,ticket);await readGraphStatus(selected,ticket);}else await readStatus(selected,ticket);if(selected.blueClient)await readBlueStatus(selected,ticket);setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
  }
  async function exportRecovery(){
   const selected=requireConnection(),sharePrepared=selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&preparedRef.current?.draft.action==='PROVE_D27'?preparedRef.current:null,graphPrepared=graphPreparedRef.current;
@@ -410,6 +423,14 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    {connected&&withdrawal?.stage==='PROVED'&&!uncertain&&<Button label="Revisar retirada" disabled={busy} onPress={()=>{void run(()=>requestAction('WITHDRAW_W39'));}}/>}
    {connected&&withdrawal?.stage==='WITHDRAWAL_UNKNOWN'&&<Button label="Consultar retirada pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_W39'));}}/>}
   </View>
+  {connected&&connection.current?.blueClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Redención de participaciones Blue</Text>
+   <Text style={styles.muted}>La retirada original entrega participaciones en tu dirección fijada. Redimirlas es otra operación y entrega underlying público, sin crear un saldo privado.</Text>
+   <Fields values={{Estado:blueStatus&&blueStatus.expiresAt>Date.now()?blueStatus.operations[0]?.stage??'Sin redención admitida':'Consultar estado original','Underlying recibido, unidades atómicas':blueStatus&&blueStatus.expiresAt>Date.now()?blueStatus.operations[0]?.redeemedUnderlying??'No confirmado':'No disponible','Gas aprobación, wei':blueStatus?.operations[0]?.nativeGas.approvalWei??'No confirmado','Gas redención, wei':blueStatus?.operations[0]?.nativeGas.redemptionWei??'No confirmado'}}/>
+   <Button label="Consultar redención original" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readBlueStatus(selected,epoch.current);});}}/>
+   {blueStatus&&blueStatus.expiresAt>Date.now()&&!blueStatus.observationOnly&&blueStatus.operations.length===0&&<><TextInput accessibilityLabel="Mínimo de underlying Blue, unidades atómicas" style={styles.input} value={blueMinimum} onChangeText={setBlueMinimum} keyboardType="number-pad" editable={!busy} placeholder="Mínimo de underlying, unidades atómicas" placeholderTextColor="#9fb7bd"/><Button label="Revisar redención de estas participaciones" disabled={busy||blueMinimum===''} onPress={()=>{void run(()=>requestBlue('REDEEM_BLUE'));}}/></>}
+   {blueStatus?.operations.some(r=>r.stage==='REDEMPTION_UNKNOWN')&&<Button label="Revisar consulta de la misma redención" disabled={busy} onPress={()=>{void run(()=>requestBlue('OBSERVE_BLUE'));}}/>}
+  </View>}
+  {blueReview&&<View style={styles.card}><Text style={styles.heading}>{blueReview.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención'}</Text><Fields values={{Participaciones:blueReview.shares,'Mínimo underlying, unidades atómicas':blueReview.minimumAssets,'Dirección fijada':'0x'+blueReview.recipient,'Underlying':'0x'+blueReview.underlying,'Plazo original, segundos Unix':blueReview.deadline}}/><Button label="Autorizar esta operación" disabled={busy} onPress={confirmBlue}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
   <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
    <Text style={styles.muted}>La copia recupera tu identidad y las aperturas y operaciones guardadas al crearla. Una copia anterior no recupera el cambio, la recuperación o las participaciones que prepares después. Guarda una copia nueva antes de autorizarlos.</Text>
    {recoveryPreparation&&<Text style={styles.muted}>{recoveryPreparation==='GRAPH'?'El cambio y la recuperación ya están preparados.':'La participación ya está preparada.'} Crea la copia y guárdala antes de revisar la autorización.</Text>}

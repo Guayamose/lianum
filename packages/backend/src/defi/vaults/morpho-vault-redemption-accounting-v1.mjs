@@ -61,3 +61,21 @@ export function inspectOriginalEvmExitNativeGasV1(input) {
     blockHash:input.blockHash,blockNumber:input.blockNumber,payer:input.payer,receiptStatus:input.receiptStatus,
     gasUsed:input.gasUsed,gasPriceWei:input.gasPriceWei,nativeGasCostWei:cost.toString(),unit:'NATIVE_WEI',balanceGranted:false});
 }
+
+/** The NEW wrapper redeems an exact number of ORIGINAL Blue supply shares.
+ * Assets-mode MetaMorpho rounding is deliberately not used for this profile. */
+export function assertMorphoBluePositionRedemptionAccountingV1(input){
+ exactRecord(input,['before','after','shares','assets']);const {before,after}=input;observation(before);observation(after);
+ const shares=integer(input.shares),assets=integer(input.assets);assert.ok(shares>0n&&assets>0n,'BLUE_POSITION_REDEMPTION_POSITIVE');
+ for(const key of ['protocol','marketId','positionOwner','assetTotalSupply'])assert.equal(after[key],before[key],'BLUE_POSITION_REDEMPTION_BINDING');
+ assert.ok(integer(after.market.lastUpdate)>=integer(before.market.lastUpdate),'BLUE_POSITION_REDEMPTION_TIME');
+ assert.equal(before.vaultUnderlyingBalance,'0','BLUE_POSITION_REDEMPTION_IDLE');assert.equal(after.vaultUnderlyingBalance,'0','BLUE_POSITION_REDEMPTION_IDLE');
+ const originalAssets=shares*(integer(before.market.totalSupplyAssets)+1n)/(integer(before.market.totalSupplyShares)+1_000_000n);
+ assert.equal(assets,originalAssets,'BLUE_POSITION_REDEMPTION_ORIGINAL_ASSETS');
+ assert.equal(integer(before.market.totalSupplyAssets)-integer(after.market.totalSupplyAssets),assets,'BLUE_POSITION_REDEMPTION_MARKET_ASSETS');
+ assert.equal(integer(before.market.totalSupplyShares)-integer(after.market.totalSupplyShares),shares,'BLUE_POSITION_REDEMPTION_MARKET_SHARES');
+ assert.equal(integer(before.position.supplyShares)-integer(after.position.supplyShares),shares,'BLUE_POSITION_REDEMPTION_POSITION_SHARES');
+ assert.equal(integer(before.underlyingBalance)-integer(after.underlyingBalance),assets,'BLUE_POSITION_REDEMPTION_UNDERLYING');
+ return Object.freeze({protocol:'MORPHO_BLUE_ORIGINAL_PRIVATE_POSITION',shares:input.shares,assets:input.assets,
+  privateBalanceCredited:false,publicRedemption:true});
+}

@@ -1,0 +1,27 @@
+/** A separate manual PoP permission after the ORIGINAL SHARE W39. It cannot
+ * authorize D26/U/S/GRAPH, change the recipient, or restore an economic grant. */
+import {externalFlatExactV1 as exact,externalFlatHexV1 as hex,externalFlatUintV1 as uint,
+ normalizeExternalFlatDescriptorV1,normalizeExternalFlatObservedV1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from './device-external-flat-note-v1.mjs';
+export const DEVICE_MORPHO_BLUE_REDEMPTION_V1='LIANUM_DEVICE_MORPHO_BLUE_REDEMPTION_V1';
+const fail=()=>{throw Error('DEVICE_BLUE_REDEMPTION_DATA');},need=v=>{if(!v)fail();};
+function freeze(v){if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;}
+function nonzero(v,width=64){hex(v,width);need(v!=='0'.repeat(width));return v;}
+function integer(v){need(Number.isSafeInteger(v)&&v>=0&&!Object.is(v,-0));return v;}
+function canonical(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';}
+export function normalizeDeviceMorphoBlueRedemptionAccessV1(raw){const v=exact(raw,['profile','action','descriptor','challengeId','nonce','expiresAt']);
+ need(v.profile===DEVICE_MORPHO_BLUE_REDEMPTION_V1&&v.action==='ACCESS_BLUE');v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);need(v.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1);
+ nonzero(v.challengeId);nonzero(v.nonce);integer(v.expiresAt);return freeze(v);}
+export function normalizeDeviceMorphoBlueRedemptionConsentV1(raw){const v=exact(raw,['profile','action','descriptor','challengeId','nonce','expiresAt','withdrawalJobId','rootId','withdrawalTransactionHash','shares','minimumAssets','deadline','reference','position','underlying','recipient','observed']);
+ need(v.profile===DEVICE_MORPHO_BLUE_REDEMPTION_V1&&['REDEEM_BLUE','OBSERVE_BLUE'].includes(v.action));v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);need(v.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1);
+ for(const k of ['challengeId','nonce','withdrawalJobId','rootId','withdrawalTransactionHash','reference'])nonzero(v[k]);integer(v.expiresAt);
+ for(const k of ['shares','minimumAssets','deadline'])uint(v[k]);need(BigInt(v.shares)>0n&&BigInt(v.minimumAssets)>0n);for(const k of ['position','underlying','recipient'])nonzero(v[k],40);
+ need(v.position===v.descriptor.poolTerms.asset&&v.position!==v.underlying&&v.recipient!==v.descriptor.poolTerms.pool);v.observed=normalizeExternalFlatObservedV1(v.observed);return freeze(v);}
+export function validateDeviceMorphoBlueRedemptionFreshV1(raw,now=Date.now()){integer(now);const v=raw?.action==='ACCESS_BLUE'?normalizeDeviceMorphoBlueRedemptionAccessV1(raw):normalizeDeviceMorphoBlueRedemptionConsentV1(raw);need(v.expiresAt>now&&v.expiresAt<=now+15000);return v;}
+export function deviceMorphoBlueRedemptionPermissionMessageV1(raw){const v=raw?.action==='ACCESS_BLUE'?normalizeDeviceMorphoBlueRedemptionAccessV1(raw):normalizeDeviceMorphoBlueRedemptionConsentV1(raw);
+ const bytes=new TextEncoder().encode('LIANUM/device-morpho-blue-redemption/1/full-permission\n'+canonical(v));need(bytes.length<=4096);return bytes;}
+export function normalizeDeviceMorphoBlueRedemptionRowV1(raw){const v=exact(raw,['profile','descriptor','withdrawalJobId','rootId','withdrawalTransactionHash','reference','shares','minimumAssets','deadline','position','underlying','recipient','stage','redeemedUnderlying','nativeGas','observation']);
+ need(v.profile===DEVICE_MORPHO_BLUE_REDEMPTION_V1);v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);need(v.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1);
+ for(const k of ['withdrawalJobId','rootId','withdrawalTransactionHash','reference'])nonzero(v[k]);for(const k of ['shares','minimumAssets','deadline'])uint(v[k]);for(const k of ['position','underlying','recipient'])nonzero(v[k],40);need(BigInt(v.shares)>0n&&BigInt(v.minimumAssets)>0n&&v.position===v.descriptor.poolTerms.asset&&v.position!==v.underlying&&v.recipient!==v.descriptor.poolTerms.pool);
+ need(['PREPARED','REDEMPTION_UNKNOWN','REDEEMED','REVERTED'].includes(v.stage));if(v.redeemedUnderlying!==null)uint(v.redeemedUnderlying);need((v.stage==='REDEEMED')===(v.redeemedUnderlying!==null));if(v.redeemedUnderlying!==null)need(BigInt(v.redeemedUnderlying)>=BigInt(v.minimumAssets));
+ const costs=exact(v.nativeGas,['approvalWei','redemptionWei']);for(const value of Object.values(costs))if(value!==null){need(typeof value==='string'&&/^(0|[1-9][0-9]*)$/.test(value)&&value.length<=78&&BigInt(value)<1n<<256n);}v.nativeGas=costs;need(['PERSISTED_LAST_OBSERVATION','ORIGINAL_RECONCILIATION'].includes(v.observation));return freeze(v);}
+export function normalizeDeviceMorphoBlueRedemptionStatusV1(raw){const v=exact(raw,['profile','descriptor','observationOnly','operations','observedAt','expiresAt']);need(v.profile===DEVICE_MORPHO_BLUE_REDEMPTION_V1&&typeof v.observationOnly==='boolean');v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);need(v.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&Array.isArray(v.operations)&&v.operations.length<=32);v.operations=v.operations.map(normalizeDeviceMorphoBlueRedemptionRowV1);for(const r of v.operations)need(canonical(r.descriptor)===canonical(v.descriptor));integer(v.observedAt);integer(v.expiresAt);need(v.expiresAt===v.observedAt+15000);return freeze(v);}

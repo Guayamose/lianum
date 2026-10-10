@@ -53,7 +53,7 @@ async function buildOwnedPrivateExternalRouterV1(input,recovery,position=null){
  exactRecord(input,['runtime','system','poolIndex','protocolFixture','protocolKind']);
  const {runtime,system,poolIndex,protocolFixture:original,protocolKind}=input,blue=position!==null;
  const p=blue?Object.freeze({...original,vault:position.contract}):original;
- if(blue){assert.equal(protocolKind,BLUE);assert.equal(recovery,null,'BLUE_POSITION_LEGACY_RECOVERY_DENIED');assertOwnedOriginalMorphoBluePositionV1(runtime,position);}
+ if(blue){assert.equal(protocolKind,BLUE);if(recovery)assert.equal(recovery.schema,'ORIGINAL_MORPHO_BLUE_POSITION_ROUTER_RECOVERY_V1');assertOwnedOriginalMorphoBluePositionV1(runtime,position);}
  await assertOwnedLocalEvmV2(runtime);assertOwnedFlatSystem(runtime,system);assertOfficialProtocolFixture(runtime,original);
  assert.equal(system.pools.length,2);assert.ok(poolIndex===0||poolIndex===1);
  assert.ok(blue || ['UNISWAP_V3_EXACT_OUTPUT_SINGLE','METAMORPHO_V1_EXACT_SHARE_MINT','AAVE_V3_STATIC_EXACT_SHARE_MINT'].includes(protocolKind));
@@ -76,7 +76,7 @@ async function buildOwnedPrivateExternalRouterV1(input,recovery,position=null){
  const args=uni?[solver,p.first.address,output.address,protocol.address,pool.address,3000]:[solver,p.first.address,output.address,pool.address];
  const creation='0x'+artifact.evm.bytecode.object+iface.encodeDeploy(args).slice(2);
  const label='deploy owned external router '+protocolKind;
- let receipt;if(recovery){assert.equal(recovery.schema,'ORIGINAL_EXTERNAL_ROUTER_RECOVERY_V1');assert.equal(recovery.protocolKind,protocolKind);assert.equal(recovery.poolIndex,poolIndex);assert.equal(recovery.genesis,runtime.metadata.evmGenesis);assert.deepEqual(await runtime.block(),recovery.head);receipt=structuredClone(recovery.receipt);await runtime.checkReceipt(receipt);}else receipt=await runtime.send(label,{from:solver,data:creation});
+ let receipt;if(recovery){assert.equal(recovery.schema,blue?'ORIGINAL_MORPHO_BLUE_POSITION_ROUTER_RECOVERY_V1':'ORIGINAL_EXTERNAL_ROUTER_RECOVERY_V1');assert.equal(recovery.protocolKind,protocolKind);assert.equal(recovery.poolIndex,poolIndex);assert.equal(recovery.genesis,runtime.metadata.evmGenesis);assert.deepEqual(await runtime.block(),recovery.head);receipt=structuredClone(recovery.receipt);await runtime.checkReceipt(receipt);}else receipt=await runtime.send(label,{from:solver,data:creation});
  await runtime.assertCanonical(receipt);const address=receipt.contractAddress.toLowerCase();
  assert.equal(await runtime.code(address,receipt.blockNumber),expected,'FULL_EXTERNAL_RUNTIME_IMMUTABLES');
  const identity=freeze({chainId:runtime.metadata.chainId,router:bare(address),solver:bare(solver),inputAsset:bare(p.first.address),outputAsset:bare(output.address),
@@ -115,4 +115,24 @@ export async function reopenOwnedPrivateExternalRouterRecoveryV1(token){
  assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
  const {runtime,record,system,protocols}=consumeExternalDefiBootstrapPartV1(token,'router');
  return buildOwnedPrivateExternalRouterV1({runtime,system,poolIndex:record.poolIndex,protocolFixture:protocols,protocolKind:record.protocolKind},record);
+}
+
+/** Private position reference from the SAME original router; no public DTO can
+ * select a wrapper or turn the legacy MetaMorpho mark into Blue custody. */
+export function readOwnedPrivateMorphoBluePositionRouterV1(router,input){
+ assert.equal(arguments.length,2);assertOwnedPrivateExternalRouterV1(router,input);
+ const s=owned.get(router);assert.ok(s.position&&s.protocolKind===BLUE,'ORIGINAL_BLUE_ROUTER_REQUIRED');
+ assertOwnedOriginalMorphoBluePositionV1(s.runtime,s.position);return s.position;
+}
+export async function captureOwnedPrivateMorphoBluePositionRouterV1(router){
+ assert.equal(arguments.length,1);const s=owned.get(router);assert.ok(s?.position&&s.protocolKind===BLUE,'ORIGINAL_BLUE_ROUTER_REQUIRED');
+ assertOwnedOriginalMorphoBluePositionV1(s.runtime,s.position);const head=await s.runtime.block();await router.read(head.number);
+ return {schema:'ORIGINAL_MORPHO_BLUE_POSITION_ROUTER_RECOVERY_V1',protocolKind:BLUE,poolIndex:s.poolIndex,
+  genesis:s.runtime.metadata.evmGenesis,head:structuredClone(head),receipt:structuredClone(s.receipt),identity:structuredClone(router.identity)};
+}
+export async function reopenOwnedPrivateMorphoBluePositionRouterV1(token){
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+ const {runtime,record,system,protocols,position}=consumeExternalDefiBootstrapPartV1(token,'blue-router');
+ assertOwnedOriginalMorphoBluePositionV1(runtime,position);assert.equal(readOwnedOriginalMorphoBluePositionContextV1(runtime,position).protocolFixture,protocols);
+ return buildOwnedPrivateExternalRouterV1({runtime,system,poolIndex:record.poolIndex,protocolFixture:protocols,protocolKind:BLUE},record,position);
 }

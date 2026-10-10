@@ -120,5 +120,13 @@ export async function reopenOriginalDeviceExternalFlatSystemRecordV1(token){
 export async function reopenOriginalDeviceExternalFlatGraphSystemRecordV1(token){
  assert.equal(arguments.length,1);const module=await import('../../accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs');const {runtime,record,graph}=module.consumeOriginalDeviceExternalFlatSystemReopenV1(token);assert.ok(graph,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_SYSTEM_TOKEN');
  const protocols=await reopenOfficialProtocolFixtureRecoveryV1(part({runtime,record:graph.protocols},'protocols')),system=await reopenOwnedFlatSystemRecoveryV1(part({runtime,record},'system'));assertOwnedFlatSystem(runtime,system);
+ if(graph.schema==='DEVICE_MORPHO_BLUE_GRAPH_SYSTEM_PRIVATE_V1'){
+  const {reopenOwnedOriginalMorphoBluePositionV1}=await import('../deployments/defi/deploy-morpho-blue-position-v1.mjs');
+  const position=await reopenOwnedOriginalMorphoBluePositionV1(part({runtime,protocols,record:graph.position},'blue-position'));
+  const {reopenOwnedPrivateMorphoBluePositionRouterV1}=await import('../deployments/defi/deploy-private-external-router-v1.mjs');
+  const router=await reopenOwnedPrivateMorphoBluePositionRouterV1(part({runtime,record:graph.router,system,protocols,position},'blue-router'));assertOwnedPrivateExternalRouterV1(router,{runtime,system,poolIndex:1});assert.equal(router.protocolKind,'MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY');
+  const {createOwnedMorphoBluePositionGraphDeliveryObserverV1}=await import('../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs');const deliveryObserver=await createOwnedMorphoBluePositionGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,position});return Object.freeze({system,protocols,router,position,deliveryObserver});
+ }
+ assert.equal(graph.schema,'DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_PRIVATE_V1');
  const router=await reopenOwnedPrivateExternalRouterRecoveryV1(part({runtime,record:graph.router,system,protocols},'router'));assertOwnedPrivateExternalRouterV1(router,{runtime,system,poolIndex:1});assert.equal(router.protocolKind,'METAMORPHO_V1_EXACT_SHARE_MINT');const {createOwnedMetaMorphoGraphDeliveryObserverV1}=await import('../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs');const deliveryObserver=await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,protocolFixture:protocols});return Object.freeze({system,protocols,router,deliveryObserver});
 }

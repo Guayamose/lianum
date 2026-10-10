@@ -1,0 +1,5 @@
+import type {ExternalFlatDescriptor} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import type {DeviceMorphoBlueAccessV1,DeviceMorphoBlueConsentV1,DeviceMorphoBlueRowV1,DeviceMorphoBlueStatusV1} from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
+export function createDeviceMorphoBlueRedemptionApiV1(input:{descriptor:ExternalFlatDescriptor;fetchImpl?:typeof globalThis.fetch}):Readonly<{descriptor:ExternalFlatDescriptor;challenge():Promise<DeviceMorphoBlueAccessV1>;review(access:DeviceMorphoBlueAccessV1,signature:string,draft:{action:'REDEEM_BLUE'|'OBSERVE_BLUE';withdrawalJobId:string;minimumAssets:string;deadline:string}):Promise<DeviceMorphoBlueConsentV1>;submit(consent:DeviceMorphoBlueConsentV1,signature:string):Promise<DeviceMorphoBlueRowV1>;status(access:DeviceMorphoBlueAccessV1,signature:string):Promise<DeviceMorphoBlueStatusV1>;close():{closed:true}}>;
+export function readDeviceMorphoBlueRedemptionRowV1(value:DeviceMorphoBlueRowV1):DeviceMorphoBlueRowV1;
+export function readDeviceMorphoBlueRedemptionStatusV1(value:DeviceMorphoBlueStatusV1):DeviceMorphoBlueStatusV1;
