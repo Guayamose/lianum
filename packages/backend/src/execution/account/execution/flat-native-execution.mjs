@@ -6,6 +6,7 @@ import {buildOwnerNativeGraphRoute} from '../preparation/owner-native-graph-revi
  * Its survival and trusted local OS are explicit availability assumptions.
  */
 import assert from 'node:assert/strict';
+import {consumeOriginalDeviceGraphSourceRequestV2,beginOriginalDeviceGraphSourceActivityV2,endOriginalDeviceGraphSourceActivityV2} from '../../../operations/recovery/device-external-flat-original-source-v2.mjs';
 import { randomBytes, createHash } from 'node:crypto';
 import { mkdtemp,lstat,realpath } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -164,6 +165,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
   const privateSeed=()=>({schema:'DEVICE_EXTERNAL_FLAT_EXECUTION_PRIVATE_V1',directory,password,record:copy(record)});
   async function retained(candidate=null){if(retainedHandle)await updateWrappedPrivateLifetimePartV1(retainedHandle,{schema:'DEVICE_EXTERNAL_FLAT_EXECUTION_DURABLE_V1',confirmed:privateSeed(),candidate});}
   async function retainGraph(authority){live();assert.equal(retainedHandle,null);assert.equal(record.data.operations.length,0,'FLAT_EXECUTION_RETAIN_BEFORE_ADMISSION');const identity=assertDeviceExternalFlatRecoveryAuthorityV1(authority);assertWrappedPrivateLifetimeAttemptV1(runtime,identity);await healthy();retainedIdentity={profile:'DEVICE_EXTERNAL_FLAT_EXECUTION_LIFETIME_V1',poolIndex,pool:pool.address,domainCommitment:pool.domainCommitment};retainedHandle=await retainWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,retainedIdentity,{schema:'DEVICE_EXTERNAL_FLAT_EXECUTION_DURABLE_V1',confirmed:privateSeed(),candidate:null});assertWrappedPrivateLifetimePartSealedV1(retainedHandle);return{slot:'wallet-execution-'+poolIndex,identity:copy(retainedIdentity)};}
+  async function checkpointGraph(){live();assert.ok(retainedHandle);if(busy)return null;await healthy();const saved=await readWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,retainedIdentity);assertWrappedPrivateLifetimePartSealedV1(saved.handle);assert.equal(saved.privateState.candidate,null);assert.deepEqual(saved.privateState.confirmed,privateSeed(),'FLAT_EXECUTION_SOURCE_CHECKPOINT');return{slot:'wallet-execution-'+poolIndex,identity:copy(retainedIdentity),stateSHA256:digest(saved.privateState)};}
   async function captureGraph(token){const identity=deviceExternalFlatAccountCaptureIdentityV1(token);assertWrappedPrivateLifetimeAttemptV1(runtime,identity);assert.ok(retainedHandle,'FLAT_EXECUTION_ORIGINAL_RETAINED');await keeper.abort();await proofs.close();assert.equal(busy,false);await healthy();await retained();const saved=await readWrappedPrivateLifetimePartV1(runtime,'wallet-execution-'+poolIndex,retainedIdentity);assert.equal(saved.privateState.candidate,null);const out={slot:'wallet-execution-'+poolIndex,identity:copy(retainedIdentity),stateSHA256:digest(saved.privateState)};closed=true;password=undefined;providerSets.clear();return out;}
   async function write(change) {
     try { await healthy(); const nextData=change(copy(record.data));await retained({revision:record.revision+1,data:nextData});const next = await vault.update(password, record.revision, () => nextData);
@@ -178,7 +180,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     await update(ref, { stage: name }); await onStage({ reference: ref, stage: name }); }
   async function exclusive(work) { live(); assert.ok(!busy && !cancelled, 'FLAT_EXECUTION_BUSY'); busy = true;
     activeDone = new Promise(resolve => { releaseActive = resolve; });
-    try { await healthy(); return await work(); } finally { busy = false; releaseActive(); releaseActive = null; } }
+    let source=null,failed=false;try {source=await beginOriginalDeviceGraphSourceActivityV2(keeper);await healthy();return await work();}catch(error){failed=true;throw error;}finally {busy=false;releaseActive();releaseActive=null;if(source)try{await endOriginalDeviceGraphSourceActivityV2(source);}catch(error){if(!failed)throw error;}} }
   async function abi(name) { abis[name] ??= await loadFlatABI(name); return abis[name]; }
   async function prove(ref, name, job, label) { await stage(ref, 'prove-' + label); return proofs.prove(name, job, label); }
   async function send(ref, kind, target, calldata) {
@@ -443,7 +445,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
     async abort() { cancelled = true; await proofs.abort(); await activeDone; return { aborted: true }; },
     async close() { await keeper.abort(); await proofs.close(); closed = true; password = undefined; providerSets.clear(); return { closed: true }; },
   });
-  owners.set(keeper, { runtime, system, poolIndex, live,retainGraph,captureGraph,
+  owners.set(keeper, { runtime, system, poolIndex, live,retainGraph,captureGraph,checkpointGraph,
     manualReview(ref) {
       live(); assert.ok(!cancelled, 'FLAT_EXECUTION_CANCELLED');
       const entry = operation(ref), selected = providerSets.get(ref), packets = entry.prepared.rolePackets;
@@ -477,6 +479,7 @@ export async function createFlatNativeExecution(input, callbacks = {}) {
 /** These functions require the original issuer/section token and keeper brand.
  * The reopened object deliberately owns no provider, quorum, proof or sender. */
 export function retainOriginalDeviceExternalFlatGraphExecutionV1(keeper,authority){assert.equal(arguments.length,2);const s=owners.get(keeper);assert.ok(s?.retainGraph,'FLAT_EXECUTION_ORIGINAL_RETAINED');return s.retainGraph(authority);}
+export async function checkpointOriginalDeviceExternalFlatGraphExecutionSourceV2(keeper,token){assert.equal(arguments.length,2);consumeOriginalDeviceGraphSourceRequestV2(token,'execution-checkpoint',keeper);const s=owners.get(keeper);assert.ok(s?.checkpointGraph);return s.checkpointGraph();}
 export function captureOriginalDeviceExternalFlatGraphExecutionV1(keeper,token){assert.equal(arguments.length,2);const s=owners.get(keeper);assert.ok(s?.captureGraph,'FLAT_EXECUTION_ORIGINAL_RETAINED');return s.captureGraph(token);}
 export async function reopenOriginalDeviceExternalFlatGraphExecutionV1(token){
  assert.equal(arguments.length,1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../../operations/local/device-external-flat-source-graph-service-v1.mjs');const {runtime,system,poolIndex,saved}=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'execution');assertOwnedFlatSystem(runtime,system);await assertLocalEvm(runtime);const pool=system.pools[poolIndex];

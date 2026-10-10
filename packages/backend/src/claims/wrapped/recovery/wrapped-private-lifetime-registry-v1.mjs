@@ -2,6 +2,7 @@
  * remain local; their retention is not permission to replay, sign or reopen.
  * Only an authority-pinned ordered reopen may attach this registry anew. */
 import assert from 'node:assert/strict';
+import {originalDeviceGraphSourceSectionIdentityV2,consumeOriginalDeviceGraphSourceSectionV2} from '../../../operations/recovery/device-external-flat-original-source-v2.mjs';
 import {isDeepStrictEqual} from 'node:util';
 import {randomBytes} from 'node:crypto';
 import {constants} from 'node:fs';
@@ -106,4 +107,15 @@ export async function wrappedPrivateLifetimeRuntimeCheckpointV1(runtime){
 /** Fixed composition checks the SAME original registry/runtime refs. */
 export function assertWrappedPrivateLifetimeRegistryRuntimeV1(registry,runtime){
  assert.equal(arguments.length,2);const s=registries.get(registry);live(s);assert.equal(s.runtime,runtime,'WRAPPED_LIFETIME_ORIGINAL_RUNTIME');assert.equal(runtimes.get(runtime),s,'WRAPPED_LIFETIME_ORIGINAL_REGISTRY');return true;
+}
+
+/** SOURCE repairs only the old original parent's authenticated physical lease.
+ * The registry's exact AEAD checkpoint is verified before removing that lease;
+ * no caller-selected PID or latest checkpoint is admitted. */
+export async function reopenOriginalDeviceGraphSourceRegistryV2(runtime,token){
+ assert.equal(arguments.length,2);const authority=originalDeviceGraphSourceSectionIdentityV2(token,'privateLifetime'),saved=consumeOriginalDeviceGraphSourceSectionV2(token,'privateLifetime');exactRecord(saved,['input','checkpoint','creator']);exactRecord(saved.input,['directory','runId','sourceSHA256','deadlineMs']);for(const k of Object.keys(saved.input))assert.equal(saved.input[k],authority[k]);exactRecord(saved.creator,['pid','startTicks','uid','pgrp','session']);assert.equal(saved.creator.uid,process.getuid());assert.ok(Number.isSafeInteger(saved.creator.pid)&&saved.creator.pid>0);try{await lstat('/proc/'+saved.creator.pid);assert.fail('DEVICE_GRAPH_SOURCE_OLD_PARENT_PRESENT');}catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;}
+ const input={runtime,...saved.input},identity=inputIdentity(input),directory=join(input.directory,'private-lifetime-v1');await privateDirectory(directory);const key=await privateRead(join(directory,'local-root.secret'),32);let store;
+ try{assert.equal(key.length,32);store=await openClaimRecordStore({path:join(directory,'registry.vault'),password:key.toString('hex'),identity});const record=await store.read();recordValid(record,identity);same(checkpoint(record),saved.checkpoint,'WRAPPED_LIFETIME_CAPTURE_CHECKPOINT_CHANGED');}finally{key.fill(0);store?.close();}
+ const path=join(directory,'registry.active'),before=await lstat(path),bytes=await privateRead(path,1024);try{const lease=JSON.parse(bytes.toString());exactRecord(lease,['profile','runId','pid','nonce']);assert.equal(lease.profile,PROFILE);assert.equal(lease.runId,saved.input.runId);assert.equal(lease.pid,saved.creator.pid);assert.match(lease.nonce,/^[0-9a-f]{64}$/);const again=await lstat(path);for(const k of ['dev','ino','uid','mode','nlink','size','mtimeMs','ctimeMs'])assert.equal(before[k],again[k]);same(await privateRead(path,1024),bytes);await unlink(path);await syncDirectory(directory);}finally{bytes.fill(0);}
+ return openWrappedPrivateLifetimeRegistryV1(input,saved.checkpoint);
 }

@@ -13,6 +13,9 @@ import { observedNativeValueReceiverSecond } from '../../shared/health/native-va
  * fixed here. Only a newly spawned, pinned, loopback Anvil is usable.
  */
 import assert from 'node:assert/strict';
+import {exactRecord} from '../../../execution/encoding/commitments.mjs';
+import {consumeOriginalDeviceGraphSourceRequestV2,consumeOriginalDeviceGraphSourceSectionV2,originalDeviceGraphSourceSectionIdentityV2,beginOriginalDeviceGraphSourceActivityV2,endOriginalDeviceGraphSourceActivityV2} from '../../../operations/recovery/device-external-flat-original-source-v2.mjs';
+const DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2='DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2',originalDeviceGraphSourceReceiversV2=new WeakMap();
 import { createHash, ECDH } from 'node:crypto';
 import { open, readFile, lstat } from 'node:fs/promises';
 import { assertOwnedRecoveryScratchV1, writeInitialNativeCredentialsV1, claimStoppedNativeRecoveryV1, writePrivateRuntimeRecoveryV1, readPrivateRuntimeRecoveryV1, sealStoppedNativeFilesV1, assertStoppedNativeFilesV1, cloneRuntimeRecoveryV1 } from '../../shared/runtime/owned-runtime-recovery-files-v1.mjs';
@@ -648,6 +651,12 @@ export async function createOwnedDeviceExternalFlatReceiverV1(){
   try{await armOwnedEvmRecoveryRetentionV1(runtime);return runtime;}
   catch(error){try{await runtime.close();}catch(cleanup){throw new AggregateError([error,cleanup],'DEVICE_EXTERNAL_FLAT_RECEIVER_INITIAL_RETENTION_FAILED',{cause:error});}throw error;}
 }
+/** A distinct SOURCE birth uses the original five-key custody and guardian.
+ * Its sealed confirmed state may only reopen as an observation receiver. */
+export async function createOwnedDeviceExternalFlatSourceReceiverV2(){assert.equal(arguments.length,0);return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,null,DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2);}
+export function assertOwnedDeviceExternalFlatSourceReceiverV2(runtime){assert.equal(arguments.length,1);const s=originalDeviceGraphSourceReceiversV2.get(runtime);assert.ok(s,'DEVICE_GRAPH_SOURCE_ORIGINAL_RECEIVER');s.preflight();}
+export async function checkpointOwnedDeviceExternalFlatSourceReceiverV2(runtime,token){assert.equal(arguments.length,2);consumeOriginalDeviceGraphSourceRequestV2(token,'runtime-checkpoint',runtime);const s=originalDeviceGraphSourceReceiversV2.get(runtime);assert.ok(s&&!s.observationOnly,'DEVICE_GRAPH_SOURCE_ORIGINAL_RECEIVER');return s.snapshot();}
+export async function reopenOwnedDeviceExternalFlatSourceReceiverV2(token){assert.equal(arguments.length,1);originalDeviceGraphSourceSectionIdentityV2(token,'receiver');const seed=consumeOriginalDeviceGraphSourceSectionV2(token,'receiver');exactRecord(seed,['schema','state','localCustody']);assert.equal(seed.schema,'DEVICE_EXTERNAL_FLAT_SOURCE_RECEIVER_V2');assertOwnedExternalDefiPrivateRecordV3(seed.state);assert.equal(seed.state.family,'receiver');assert.equal(seed.state.uncertainMutation,false,'DEVICE_GRAPH_SOURCE_HALF_MUTATION');assert.equal(seed.state.uncertainSignedHash,null,'DEVICE_GRAPH_SOURCE_HALF_MUTATION');return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,seed,DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2);}
 export function assertOwnedDeviceExternalFlatReceiverV1(runtime){
   assert.equal(arguments.length,1);assert.ok(originalDeviceExternalFlatReceiversV1.has(runtime),'DEVICE_EXTERNAL_FLAT_RECEIVER_ORIGINAL_REQUIRED');
   const state=originalDeviceExternalFlatReceiverCapturesV1.get(runtime);assert.ok(state,'DEVICE_EXTERNAL_FLAT_RECEIVER_ORIGINAL_REQUIRED');state.preflight();
@@ -666,7 +675,9 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   const nativeDescriptor = nativeProcessProfiles.get(processProfile);
   const externalDefiV3=recoveryAdmitted===EXTERNAL_DEFI_RECEIVER_RUNTIME_V3;
   assert.ok(!externalDefiV3||processProfile===LOCAL_EVM_PROFILE&&!poolGenerationAcceptance&&!preopenRepair,'EXTERNAL_RECEIVER_V3_FIXED_FACTORY');
-  const deviceExternalFlatV1=recoveryAdmitted===DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1;
+  const deviceSourceV2=recoveryAdmitted===DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2;
+  const deviceSourceObservationOnly=deviceSourceV2&&recovery!==null;
+  const deviceExternalFlatV1=recoveryAdmitted===DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1||deviceSourceV2;
   assert.ok(!deviceExternalFlatV1||processProfile===LOCAL_EVM_PROFILE&&!poolGenerationAcceptance&&!preopenRepair,'DEVICE_EXTERNAL_FLAT_RECEIVER_FIXED_FACTORY');
   const receiverRecoveryV3=externalDefiV3||deviceExternalFlatV1;
   const liveArmedV1=recoveryAdmitted===NATIVE_LIVE_ARMED_OBSERVED_RUNTIME_V1;
@@ -697,6 +708,12 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       assert.equal(restored.uncertainMutation,false,'NATIVE_SOURCE_HALF_MUTATION');assert.equal(restored.uncertainSignedHash,null,'NATIVE_SOURCE_HALF_MUTATION');recovery={localCustody:saved.localCustody};sourceHandle=resumeOriginalNativeSourceRuntimeSeedV1(sourceRequest);
     }
   }
+  else if(deviceSourceObservationOnly){
+    assert.equal(recovery.schema,'DEVICE_EXTERNAL_FLAT_SOURCE_RECEIVER_V2');assertOwnedExternalDefiPrivateRecordV3(recovery.state);
+    restored=cloneRuntimeRecoveryV1(recovery.state);await assertOwnedRecoveryScratchV1(restored.cwd,recoveryPrefix);
+    assert.equal(restored.family,recoveryFamily);assert.equal(restored.profile,processProfile.name);assert.deepEqual(restored.runtimePin,runtimePin);
+    assert.equal(restored.uncertainMutation,false,'DEVICE_GRAPH_SOURCE_HALF_MUTATION');assert.equal(restored.uncertainSignedHash,null,'DEVICE_GRAPH_SOURCE_HALF_MUTATION');
+  }
   else if(recovery){
     assert.ok(recoveryAdmitted===true||economicV2,'EVM_RECOVERY_PRIVATE_INPUT_ADMISSION_REQUIRED');
     assert.ok(!poolGenerationAcceptance&&(liveArmedV1?observedEconomicV2:!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE)));
@@ -708,7 +725,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   let initialPrivateRecord=null,stateFilePin=null,localCustody=null,localCustodyPublic=null;
   const recoverySuffix=String(restored?restored.processGeneration+1:0)+(preopenRepair?'-repair-'+preopenRepair.repairOrdinal:'');
   let economicRecoveryFence=null;
-  let recoveryCapturing=false,recoveryRetained=Boolean(restored)||sourceDurableV1,recoveryRpcActive=0,recoveryCaptureResult=null,recoveryCapture=null;
+  let recoveryCapturing=false,recoveryRetained=Boolean(restored)||sourceDurableV1||deviceSourceV2,recoveryRpcActive=0,recoveryCaptureResult=null,recoveryCapture=null;
   const processGeneration=restored?restored.processGeneration+1:0;
   assert.ok(Number.isSafeInteger(processGeneration)&&processGeneration>=0&&processGeneration<16,'EVM_RECOVERY_GENERATION_BOUND');
   let handle, exitEvent = null, spawnError = null, closed = false, removed = false;
@@ -751,7 +768,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
   const close = async (options = {}) => {
     assert.deepEqual(Object.keys(options).filter(key => key !== 'removeScratch'), [], 'LOCAL_EVM_CLOSE_OPTIONS');
     assert.ok(!economicRecoveryFence||recoveryCapturing,'EVM_ECONOMIC_CAPTURE_OWNS_LIFETIME');
-    if(recoveryRetained&&!recoveryCapturing&&recoveryCapture){try{await recoveryCapture();return processStatus();}catch(error){recoveryCapturing=true;try{await close(options);}catch(cleanup){throw new AggregateError([error,cleanup],'EVM_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}}
+    if(!deviceSourceV2&&recoveryRetained&&!recoveryCapturing&&recoveryCapture){try{await recoveryCapture();return processStatus();}catch(error){recoveryCapturing=true;try{await close(options);}catch(cleanup){throw new AggregateError([error,cleanup],'EVM_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}}
     const removeScratch = options.removeScratch ?? false;
     assert.equal(typeof removeScratch, 'boolean', 'LOCAL_EVM_CLEANUP_BOOLEAN');
     if (!closePromise) closePromise = (async () => {
@@ -822,7 +839,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       ...(osaka ? ['--enable-tx-gas-limit'] : []),
       ...(stateFilePin&&!economicV2?['--load-state',stateFilePin.path]:[]),
     ];
-    handle = sourceDurableV1 ? await startOriginalNativeSourceProcessV1(binary, originalProcessArguments, cwd)
+    handle = sourceDurableV1||deviceSourceV2 ? await startOriginalNativeSourceProcessV1(binary, originalProcessArguments, cwd)
       : startOwnProcess(binary, originalProcessArguments, cwd);
     handle.child.once('exit', (code, signal) => { exitEvent = { code, signal }; nativeSourceLifetime.abort(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
     handle.child.once('error', error => { spawnError = error; nativeSourceLifetime.abort(error); readBatch?.close(new Error('LOCAL_EVM_PROCESS_NOT_RUNNING')); });
@@ -965,21 +982,22 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       return tx;
     };
     const mutate = async operation => {
-      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION');
       assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
       assert.ok(!uncertainMutation, 'LOCAL_EVM_UNCERTAIN_MUTATION_REQUIRES_RECONCILIATION');
-      busy = true; ingressMutationEpoch++; let sourceMutation=null;
+      busy = true; ingressMutationEpoch++; let sourceMutation=null,deviceSourceActivity=null,deviceSourceFailed=false;
       try {
         if(sourceDurableV1)sourceMutation=await beginOriginalNativeSourceMutationV1(runtime);
+        if(deviceSourceV2)deviceSourceActivity=await beginOriginalDeviceGraphSourceActivityV2(runtime);
         await health();const result=await operation();
         // Observed native finality continues after broadcast. Its same durable
         // pending marker remains until all real descendants and audits settle.
         if(sourceDurableV1&&observedFinalityV2&&!observedFinalityV2.completed){busy=false;await observedFinalityV2.work;busy=true;assert.ok(observedFinalityV2.completed&&!observedFinalityV2.failure,'NATIVE_SOURCE_ORIGINAL_FINALITY_PENDING');}
         if(sourceMutation)await confirmOriginalNativeSourceMutationV1(sourceMutation);
         return result;
-      } catch(error){if(sourceDurableV1)uncertainMutation=true;throw error;}
-      finally { busy = false; }
+      } catch(error){deviceSourceFailed=true;if(sourceDurableV1)uncertainMutation=true;throw error;}
+      finally { busy=false;if(deviceSourceActivity)try{await endOriginalDeviceGraphSourceActivityV2(deviceSourceActivity);}catch(error){if(!deviceSourceFailed)throw error;} }
     };
     const mineAt = async timestamp => {
       const before = await block();
@@ -1257,7 +1275,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
     // Only the two fixed wrappers below select the private clock branch.
     // Both retain the same original preparation, final authority and wire path.
     const dispatchOriginal = async (scopedRequest, observedClaim) => {
-      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
       assert.equal(observedClock&&!observedEconomicV2,observedClaim,'LOCAL_EVM_FIXED_DISPATCH_CLOCK');
       // Fixed literal import avoids the runtime/gate/wire-codec module cycle.
       // It completes before preparation; no import/RPC is inserted after the
@@ -1521,7 +1539,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       });
     }
     const dispatchNativeValueV1 = async scopedRequest => {
-      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
       assert.ok(ownedNativeValueFamily.has(runtime), 'OWNED_NATIVE_VALUE_ORIGINAL_RUNTIME_REQUIRED');
       // Fixed literal and original module identity. No public brand registration,
       // dynamically selected signer, general native send, or caller callbacks.
@@ -1776,7 +1794,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
      * from clearing deployment, time, missing-wire or unknown-key uncertainty. */
     const reconcileSignedTransaction = async hash => {
       assert.equal(sourceDurableV1,false,'NATIVE_SOURCE_HALF_MUTATION_UNKNOWN');
-      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');
+      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
       assert.match(hash, /^0x[0-9a-f]{64}$/);
       assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION'); busy = true; ingressMutationEpoch++;
@@ -2180,6 +2198,38 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       };
       originalDurableSourceRuntimesV1.set(runtime,{family:recoveryFamily,identity:sourceIdentity.identity,generation:processGeneration,assertAlive,snapshot});
       await attachOriginalNativeSourceRuntimeV1(sourceRequest,runtime);await confirmOriginalNativeSourceBirthV1(runtime);
+    }
+    if(deviceSourceV2){
+      const stateSnapshot=async()=>{
+        assertAlive();assert.ok(!busy&&!uncertainMutation&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'NATIVE_SOURCE_ORIGINAL_SNAPSHOT_QUIESCENCE');
+        assert.ok(!observedFinalityV2||observedFinalityV2.completed,'NATIVE_SOURCE_ORIGINAL_FINALITY_PENDING');
+        const ownRead=(method,params=[])=>{assertAlive();return ownedRuntimeRpc(endpoint,method,params,{timeoutMs:30000});};
+        assert.deepEqual(await ownRead('eth_pendingTransactions'),[],'NATIVE_SOURCE_PENDING_MEMPOOL');
+        const head=await ownRead('eth_getBlockByNumber',['latest',false]),genesisHeader=await ownRead('eth_getBlockByNumber',['0x0',false]);
+        assert.equal(genesisHeader.hash,genesisHash);assert.deepEqual((await ownRead('eth_accounts')).map(address),[]);
+        assert.equal(BigInt(head.timestamp),lastTimestamp,'NATIVE_SOURCE_ORIGINAL_CLOCK');
+        const accountState=[];for(const holder of accounts)accountState.push({address:holder,balance:await ownRead('eth_getBalance',[holder,'latest']),nonce:await ownRead('eth_getTransactionCount',[holder,'latest']),code:await ownRead('eth_getCode',[holder,'latest'])});
+        const stateDump=await ownRead('anvil_dumpState',[true]);assertOwnedExternalDefiStateDumpV3(stateDump);assert.deepEqual(await ownRead('eth_getBlockByNumber',['latest',false]),head,'NATIVE_SOURCE_SNAPSHOT_HEAD_CHANGED');
+        assert.deepEqual(await checkNativeEconomicLocalCustodyV2(localCustody),localCustodyPublic,'NATIVE_SOURCE_ORIGINAL_CUSTODY_CHANGED');assertAlive();
+        assert.ok(transactions.length<=512&&receipts.length<=512,'NATIVE_SOURCE_ORIGINAL_HISTORY_BOUND');
+        return {schema:EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,localCustodyCommitment:localCustodyPublic.commitment,lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
+      };
+      if(deviceSourceObservationOnly){
+        for(const row of transactions)if(row.transactionHash&&row.receipt){
+          const observed=await transaction(row.transactionHash);assert.ok(observed,'DEVICE_GRAPH_SOURCE_ORIGINAL_TRANSACTION_UNAVAILABLE');
+          // CREATE/setup uses the original local-custody wire rather than the
+          // delivery prepared wire. Verify both paths, including a null CREATE
+          // target; no transaction is rebuilt, signed or sent during this READ.
+          if(row.localSigned){const signed=row.localSigned,expected=signed.expected;assert.equal(assertSignedEvmTransaction(signed.nativeWire,expected).nativeId,row.transactionHash);assert.equal(signed.nativeId,row.transactionHash);
+            for(const name of ['chainId','nonce','gasPrice','gas','value'])assert.equal(BigInt(observed[name]).toString(),expected[name],'DEVICE_GRAPH_SOURCE_OBSERVED_'+name.toUpperCase());
+            assert.equal(observed.from.toLowerCase(),expected.from);assert.equal(observed.to===null?null:observed.to.toLowerCase(),expected.to);assert.equal(observed.input,expected.data);
+          }
+          assert.deepEqual(await receipt(row.transactionHash),row.receipt);assert.equal(observed.blockHash,row.receipt.blockHash);assert.equal(observed.blockNumber,row.receipt.blockNumber);
+        }
+        assert.deepEqual(await block(),restored.head);
+      }
+      originalDeviceExternalFlatReceiversV1.add(runtime);
+      originalDeviceGraphSourceReceiversV2.set(runtime,{observationOnly:deviceSourceObservationOnly,preflight(){assertAlive();assert.ok(!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'DEVICE_GRAPH_SOURCE_SNAPSHOT_QUIESCENCE');},async snapshot(){assert.ok(!deviceSourceObservationOnly);const state=await stateSnapshot();assertOwnedExternalDefiPrivateRecordV3(state);const retained=await captureNativeEconomicLocalCustodyV2(localCustody);assert.deepEqual(retained.accounts,state.accounts);assert.deepEqual(await block(),state.head);return{schema:'DEVICE_EXTERNAL_FLAT_SOURCE_RECEIVER_V2',state,localCustody:retained};}});
     }
     await health(); return runtime;
   } catch (error) {

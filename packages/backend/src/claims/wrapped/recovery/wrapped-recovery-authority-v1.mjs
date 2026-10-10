@@ -4,6 +4,7 @@ import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_SECTION_
  * No credentials, records or signed wires belong in public result/export files.
  */
 import assert from 'node:assert/strict';
+import {isOriginalDeviceGraphSourceSectionV2,originalDeviceGraphSourceSectionIdentityV2,consumeOriginalDeviceGraphSourceSectionV2} from '../../../operations/recovery/device-external-flat-original-source-v2.mjs';
 import { randomBytes, createHash, createHmac } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, realpath, mkdir, open, unlink, readFile } from 'node:fs/promises';
@@ -237,12 +238,12 @@ async function issueWrappedRecoverySectionV1(s,section){
  const token=opaque();reads.set(token,{s,section,operation:s.operation,data:clone(s.record.data.sections[section].data),claim,used:false});return token;
 }
 export function originalWrappedRecoverySectionIdentityV1(token,section){
- assert.equal(arguments.length,2);const w=writes.get(token),r=reads.get(token),entry=w??r;
+ assert.equal(arguments.length,2);if(isOriginalDeviceGraphSourceSectionV2(token))return originalDeviceGraphSourceSectionIdentityV2(token,section);const w=writes.get(token),r=reads.get(token),entry=w??r;
  assert.ok(entry&&entry.section===section&&!entry.s.closed&&!entry.s.fault,'WRAPPED_RECOVERY_ORIGINAL_SECTION_TOKEN');
  assert.ok(w?w.s.operation===token:r.operation===r.s.operation&&r.s.operation,'WRAPPED_RECOVERY_ORIGINAL_SECTION_TOKEN');
  return Object.freeze(clone(entry.s.identity));
 }
-export function consumeOriginalWrappedRecoverySectionV1(token,section){assert.equal(arguments.length,2);const r=reads.get(token);assert.ok(r&&r.section===section&&!r.used&&r.operation===r.s.operation,'WRAPPED_RECOVERY_ORIGINAL_OPEN_TOKEN');r.used=true;assert.equal(r.s.closed,false);assert.equal(r.s.fault,false);assert.ok(Date.now()<authorityReopenDeadline(r.s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');return clone(r.data);}
+export function consumeOriginalWrappedRecoverySectionV1(token,section){assert.equal(arguments.length,2);if(isOriginalDeviceGraphSourceSectionV2(token))return consumeOriginalDeviceGraphSourceSectionV2(token,section);const r=reads.get(token);assert.ok(r&&r.section===section&&!r.used&&r.operation===r.s.operation,'WRAPPED_RECOVERY_ORIGINAL_OPEN_TOKEN');r.used=true;assert.equal(r.s.closed,false);assert.equal(r.s.fault,false);assert.ok(Date.now()<authorityReopenDeadline(r.s),'WRAPPED_RECOVERY_ORIGINAL_DEADLINE');return clone(r.data);}
 export function consumeWrappedRuntimeRecoveryV1(token,family){assert.equal(arguments.length,2);assert.ok(ALL_RUNTIMES.includes(family));const r=reads.get(token);assert.notEqual(r?.s.identity.profile,DEVICE_EXTERNAL_FLAT_PROFILE,'DEVICE_EXTERNAL_FLAT_DISTINCT_RECOVERY_TOKEN');assert.notEqual(r?.s.identity.profile,NATIVE_D26_PROFILE,'NATIVE_D26_DISTINCT_RECOVERY_TOKEN');assert.equal(nativeEconomicIdentityProfile(r?.s.identity.profile),false,'NATIVE_ECONOMIC_DISTINCT_RECOVERY_TOKEN');assert.ok(r?.s.identity.profile!==EXTERNAL_REPAIR_PROFILE,'EXTERNAL_REPAIR_DEDICATED_RUNTIME_REQUIRED');assert.ok(![EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3,'EXTERNAL_ORIGINAL_RECEIVER_CAPTURE_V2'].includes(r?.data?.schema),'EXTERNAL_RECEIVER_DISTINCT_REOPEN_REQUIRED');return consumeOriginalWrappedRecoverySectionV1(token,family);}
 async function fixedReopen(authority,section,work,stop){
  const s=state(authority);s.operation=opaque();let token,result,returned=false;
