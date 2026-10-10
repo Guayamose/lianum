@@ -1,0 +1,5 @@
+/** Exact new PoP domain only; legacy arbitrary signer cap is unchanged. */
+import {secp256k1} from '@noble/curves/secp256k1.js';
+import {devicePublicKey,bytesToHex} from './signing.mjs';
+import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
+export function signDevicePagedConsentV3(key,raw){const c=P.validateDevicePagedConsentFreshV3(raw);if(devicePublicKey(key)!==c.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');let frame,signed;try{frame=P.devicePagedPermissionMessageV3(c);if(frame.length===0||frame.length>8192)throw Error('MOBILE_MESSAGE_INVALID');signed=secp256k1.sign(frame,key,{prehash:true,lowS:true});if(!secp256k1.verify(signed,frame,secp256k1.getPublicKey(key),{prehash:true,lowS:true}))throw Error('MOBILE_SIGNATURE_INVALID');P.validateDevicePagedConsentFreshV3(c);return bytesToHex(signed);}finally{frame?.fill(0);signed?.fill(0);}}
