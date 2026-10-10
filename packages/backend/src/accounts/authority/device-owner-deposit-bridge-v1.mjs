@@ -18,7 +18,7 @@ import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1, d
   normalizeDeviceDepositStatementV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1,
   DEVICE_DEPOSIT_CONSENT_V1 } from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
 import * as Private from '../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import {createOriginalNativePrivateDepositProofClientV2} from '../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
+import {createOriginalNativePrivateDepositProofClientV2,createOriginalNativePrivateDepositProofClientV3} from '../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
 const bridges = new WeakMap(), admissions = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const nonce = () => randomBytes(32).toString('hex');
@@ -62,8 +62,10 @@ export function createDeviceOwnerDepositBridgeV1(input){assert.equal(arguments.l
 /** Fixed private producer installed before funding, never selected by HTTP data. */
 export function createOriginalNativePrivateDepositBridgeV2(input){assert.equal(arguments.length,1);return createBridge(input,true);}
 export function isOriginalNativePrivateDepositBridgeV2(bridge){assert.equal(arguments.length,1);const s=bridges.get(bridge);assert.ok(s);s.original();return s.privateD26===true;}
-async function createBridge(input,privateD26) {
-  assert.equal(arguments.length, 2, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
+export async function createOriginalNativePrivateWorkerDepositBridgeV3(input){assert.equal(arguments.length,1);return createBridge(input,true,true);}
+export function isOriginalNativePrivateWorkerDepositBridgeV3(bridge){assert.equal(arguments.length,1);const s=bridges.get(bridge);assert.ok(s);s.original();return s.privateWorker===true;}
+async function createBridge(input,privateD26,privateWorker=false) {
+  assert.ok(arguments.length===2||arguments.length===3, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
   exact(input, ['actor', 'account', 'owner', 'runtime', 'system', 'poolIndex']);
   const { actor, account, owner, runtime, system, poolIndex } = input;
   const original = () => {
@@ -158,7 +160,7 @@ async function createBridge(input,privateD26) {
         else assert.deepEqual(issuedJobs.get(jobId), context, 'DEVICE_OWNER_BRIDGE_ORIGINAL_JOB_REQUIRED');
         if(!privateD26)return issue('PROVE_D26', bound, selected, view, { ...context, jobId, proofSHA256: null, publicInputsSHA256: null });
         assert.ok(!prepared.has(jobId)&&prepared.size<4,'DEVICE_OWNER_BRIDGE_PRIVATE_CAPACITY');
-        const client=createOriginalNativePrivateDepositProofClientV2(),own={client,consent:null,admitted:false,timer:null};prepared.set(jobId,own);
+        const client=(privateWorker?createOriginalNativePrivateDepositProofClientV3:createOriginalNativePrivateDepositProofClientV2)(),own={client,consent:null,admitted:false,timer:null};prepared.set(jobId,own);
         try{const words=[...statement.scope.match(/.{8}/g).map(x=>String(parseInt(x,16))),...statement.policy.match(/.{8}/g).map(x=>String(parseInt(x,16))),statement.epoch,statement.amount,...statement.output.match(/.{8}/g).map(x=>String(parseInt(x,16)))];
           const recipient=await client.prepare(words);live();await reader.assertCurrent(view);live();
           const value=issue('PROVE_D26',bound,selected,view,{...context,jobId,proofSHA256:null,publicInputsSHA256:null,privateProof:{profile:Private.DEVICE_NATIVE_PRIVATE_PROOF_V2,recipient,transcriptSHA256:'1'.repeat(64)}});own.consent=value;
@@ -233,7 +235,7 @@ async function createBridge(input,privateD26) {
       const stops=[...prepared.values()].filter(v=>!v.admitted).map(v=>{clearTimeout(v.timer);return v.client.close();});
       return Promise.all(stops).then(()=>({closed:true,originalWorkRetained:true})); },
   });
-  bridges.set(bridge, { account, actor, original, descriptor,privateD26,
+  bridges.set(bridge, { account, actor, original, descriptor,privateD26,privateWorker,
     async durableFunding(input) {
       assert.ok(!busy, 'DEVICE_OWNER_BRIDGE_BUSY'); busy = true;
       try { return await authorize(input, 'FUND_D26', false); } finally { busy = false; }

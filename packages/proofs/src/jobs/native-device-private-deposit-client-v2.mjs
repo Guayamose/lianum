@@ -36,16 +36,18 @@ export function normalizeOriginalNativePrivateDepositFailureV2(message){
 }
 
 export function readOriginalNativePrivateDepositDerivationV2(client,result){assert.equal(arguments.length,2,'PW_PRIVATE_WALLET_ARITY');const s=owned.get(client),r=results.get(result);assert.ok(s&&!s.closed&&r?.client===client,'PW_PRIVATE_WALLET_ORIGINAL_RESULT');return r.derivation;}
-export function createOriginalNativePrivateDepositProofClientV2(){
- assert.equal(arguments.length,0,'PW_PRIVATE_WALLET_ARITY');const mode='deposit_balance';
- const s={closed:false,prepared:false,sent:false,child:null,run:null,ready:null,binding:null,expected:null,stop:null,cancelWait:null};let readyResolve,readyReject;
+export function createOriginalNativePrivateDepositProofClientV2(){assert.equal(arguments.length,0,'PW_PRIVATE_WALLET_ARITY');return createFixedPrivateClient(false);}
+export function createOriginalNativePrivateDepositProofClientV3(){assert.equal(arguments.length,0,'PW_PRIVATE_WALLET_ARITY');return createFixedPrivateClient(true);}
+function createFixedPrivateClient(privateWorker){
+ assert.equal(arguments.length,1,'PW_PRIVATE_WALLET_ARITY');const mode='deposit_balance';
+ const s={privateWorker,closed:false,prepared:false,sent:false,child:null,run:null,ready:null,binding:null,expected:null,stop:null,cancelWait:null};let readyResolve,readyReject;
  const live=()=>assert.equal(s.closed,false,'PW_PRIVATE_WALLET_CLOSED');
  const client=Object.freeze({
   prepare(expected){assert.equal(arguments.length,1,'PW_PRIVATE_WALLET_ARITY');live();assert.equal(s.prepared,false,'PW_PRIVATE_WALLET_ONE_PREPARATION');
    assert.ok(Array.isArray(expected)&&expected.length===(mode==='deposit_balance'?26:39)&&expected.every(w=>typeof w==='string'&&/^(0|[1-9][0-9]{0,19})$/.test(w)&&BigInt(w)<(1n<<64n)),'PW_PRIVATE_WALLET_PUBLIC');
    s.prepared=true;s.expected=frozen([...expected]);const ready=new Promise((a,b)=>{readyResolve=a;readyReject=b;});
    s.run=(async()=>{let timer,waitTimer,killTimer,result=null,failure=null,privateDiagnostic=null,closed=false,bytes=0;
-    const child=s.child=fork(fileURLToPath(new URL('./native-device-private-deposit-recipient-v2.mjs',import.meta.url)),[],{execPath:process.execPath,execArgv:[],env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},serialization:'json',stdio:['ignore','pipe','pipe','ipc']});
+    const child=s.child=fork(fileURLToPath((privateWorker?new URL('./native-device-private-deposit-recipient-v3.mjs',import.meta.url):new URL('./native-device-private-deposit-recipient-v2.mjs',import.meta.url))),[],{execPath:process.execPath,execArgv:[],env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},serialization:'json',stdio:['ignore','pipe','pipe','ipc']});
     const completion=new Promise(resolve=>child.once('close',(code,signal)=>{closed=true;resolve({code,signal});}));
     s.stop=code=>{failure??=code;if(!closed){child.kill('SIGTERM');killTimer??=setTimeout(()=>{if(!closed)child.kill('SIGKILL');},5000);}};
     child.once('error',()=>s.stop('PW_PRIVATE_WALLET_SPAWN'));child.on('message',message=>{try{
@@ -56,8 +58,9 @@ export function createOriginalNativePrivateDepositProofClientV2(){
       s.ready=frozen(copy(message));s.cancelWait=()=>clearTimeout(waitTimer);waitTimer=setTimeout(()=>s.stop('PW_PRIVATE_WALLET_CONSENT_EXPIRED'),15000);readyResolve(s.ready);return;
      }
      if(message?.type==='original-native-private-deposit-failure-v2'){assert.equal(s.sent,true,'PW_PRIVATE_WALLET_FAILURE_BEFORE_HANDOFF');assert.equal(privateDiagnostic,null,'PW_PRIVATE_WALLET_ONE_FAILURE');assert.equal(result,null,'PW_PRIVATE_WALLET_ONE_RESULT');privateDiagnostic=normalizeOriginalNativePrivateDepositFailureV2(message);s.stop(privateDiagnostic.code);return;}
-     exact(message,['type','mode','recipientJobId','derivation','result']);assert.equal(message.type,'original-native-private-deposit-result-v2');assert.equal(message.mode,mode);assert.equal(s.sent,true);assert.equal(result,null,'PW_PRIVATE_WALLET_ONE_RESULT');assert.equal(message.recipientJobId,s.binding.jobId);
+     exact(message,['type','mode','recipientJobId','derivation','result']);assert.equal(message.type,privateWorker?'original-native-private-deposit-result-v3':'original-native-private-deposit-result-v2');assert.equal(message.mode,mode);assert.equal(s.sent,true);assert.equal(result,null,'PW_PRIVATE_WALLET_ONE_RESULT');assert.equal(message.recipientJobId,s.binding.jobId);
      const d=message.derivation;exact(d,['profile','mode','jobId','commitment','nullifier','consentSHA256','witnessSHA256']);assert.equal(d.profile,'ORIGINAL_NATIVE_DEVICE_D26_PRIVATE_DERIVATION_V2');assert.equal(d.mode,mode);assert.equal(d.jobId,s.binding.jobId);for(const k of ['commitment','nullifier','consentSHA256','witnessSHA256'])assert.match(d[k],/^[0-9a-f]{64}$/);assert.equal(d.consentSHA256,s.binding.consentSHA256);assert.equal(d.witnessSHA256,s.binding.witnessSHA256);
+     if(privateWorker){const intake=message.result.metrics?.privateWorkerIntake;assert.ok(intake&&intake.originalConsentBound===true&&intake.profile==='ORIGINAL_NATIVE_NOTE_PRIVATE_WORKER_INPUT_V3','PW_PRIVATE_WALLET_ENCRYPTED_WORKER');for(const key of ['jobId','consentSHA256','witnessSHA256'])assert.equal(intake[key],s.binding[key]);assert.equal(message.result.metrics.worker.nativeBackendExecution.profile,'LIANUM_ECONOMIC_D26_W39_PRIVATE_NATIVE_UNIX_SOCKET_V3');}
      assert.equal(message.result.metrics?.acceptedResult,true,'PW_PRIVATE_WALLET_RECEIPT');assert.match(message.result.proof,/^(?:[0-9a-f]{2})+$/);assert.deepEqual(message.result.publicInputs,s.expected,'PW_PRIVATE_WALLET_PUBLIC_BINDING');result=frozen(copy(message));
     }catch{s.stop('PW_PRIVATE_WALLET_INVALID_RESULT');}});
     for(const stream of [child.stdout,child.stderr])stream.on('data',part=>{bytes+=part.length;part.fill(0);if(bytes>1048576)s.stop('PW_PRIVATE_WALLET_OUTPUT_BOUND');});

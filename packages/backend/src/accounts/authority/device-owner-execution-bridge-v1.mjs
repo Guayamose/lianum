@@ -25,15 +25,17 @@ import {DEVICE_EXIT_CONSENT_V1,DEVICE_EXIT_DISCLOSURE_V1,normalizeDeviceExitCons
   deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1}
   from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import * as PrivateExit from '../../../../mobile-protocol/src/device-native-private-exit-v2.mjs';
-import {createOriginalNativePrivateExitProofClientV2} from '../../../../proofs/src/jobs/native-device-private-exit-client-v2.mjs';
+import {createOriginalNativePrivateExitProofClientV2,createOriginalNativePrivateExitProofClientV3} from '../../../../proofs/src/jobs/native-device-private-exit-client-v2.mjs';
 const bridges=new WeakMap(),admissions=new WeakMap(),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exitNormalize=PrivateExit.normalizeDeviceExitConsentEitherV2,exitFresh=PrivateExit.validateDeviceExitConsentEitherFreshV2,exitMessage=PrivateExit.deviceExitConsentEitherMessageV2;
 const nonce=()=>randomBytes(32).toString('hex');
 export function createDeviceOwnerExecutionBridgeV1(input){assert.equal(arguments.length,1);return createExecutionBridge(input,false);}
 export function createOriginalNativePrivateExecutionBridgeV2(input){assert.equal(arguments.length,1);return createExecutionBridge(input,true);}
 export function isOriginalNativePrivateExecutionBridgeV2(bridge){assert.equal(arguments.length,1);const r=bridges.get(bridge);if(!r)return false;r.original();return r.privateW39;}
-async function createExecutionBridge(input,privateW39){
-  assert.equal(arguments.length,2);exactRecord(input,['account','reservationBridge','nativeExecution','providers','runtime','system','poolIndex']);
+export async function createOriginalNativePrivateWorkerExecutionBridgeV3(input){assert.equal(arguments.length,1);return createExecutionBridge(input,true,true);}
+export function isOriginalNativePrivateWorkerExecutionBridgeV3(bridge){assert.equal(arguments.length,1);const s=bridges.get(bridge);assert.ok(s);s.original();return s.privateWorker===true;}
+async function createExecutionBridge(input,privateW39,privateWorker=false){
+  assert.ok(arguments.length===2||arguments.length===3);exactRecord(input,['account','reservationBridge','nativeExecution','providers','runtime','system','poolIndex']);
   const {account,reservationBridge,nativeExecution,runtime,system,poolIndex}=input;
   const original=()=>{assertOwnedNativeValueAccountAuthority(account,{runtime,system,poolIndex});
     assertDeviceOwnerReservationBridgeV1(reservationBridge,account);assertOwnedNativeValueExecution(nativeExecution,{runtime,system,poolIndex});};
@@ -82,7 +84,7 @@ async function createExecutionBridge(input,privateW39){
     live();return{binding,authorizationSHA256:sha(originalAccountAccessMessageV2(input.access))};}
   async function issueExit(action,binding,fields,view,path=null,authorizationExpiresAt=null){for(const[id,row]of exitPending)if(row.consumed||row.value.expiresAt<=Date.now()){exitPending.delete(id);if(!row.consumed)await row.client?.close();clearTimeout(row.timer);}
     assert.ok(exitPending.size<4,'DEVICE_EXIT_CHALLENGE_CAPACITY');
-    let client=null,recipient=null;try{if(privateW39&&action==='PROVE_W39'){assert.ok(path);client=createOriginalNativePrivateExitProofClientV2();recipient=await client.prepare([...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.scope.slice(i*8,i*8+8),16))),...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.policy.slice(i*8,i*8+8),16))),fields.statement.epoch,...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.root.slice(i*8,i*8+8),16))),...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.nullifier.slice(i*8,i*8+8),16))),fields.statement.amount,...Array.from({length:5},(_,i)=>String(parseInt(fields.statement.recipient.slice(i*8,i*8+8),16)))]);live();await reader.assertCurrent(view);}
+    let client=null,recipient=null;try{if(privateW39&&action==='PROVE_W39'){assert.ok(path);client=(privateWorker?createOriginalNativePrivateExitProofClientV3:createOriginalNativePrivateExitProofClientV2)();recipient=await client.prepare([...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.scope.slice(i*8,i*8+8),16))),...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.policy.slice(i*8,i*8+8),16))),fields.statement.epoch,...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.root.slice(i*8,i*8+8),16))),...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.nullifier.slice(i*8,i*8+8),16))),fields.statement.amount,...Array.from({length:5},(_,i)=>String(parseInt(fields.statement.recipient.slice(i*8,i*8+8),16)))]);live();await reader.assertCurrent(view);}
     if(privateW39)assert.ok(Number.isSafeInteger(authorizationExpiresAt)&&authorizationExpiresAt>Date.now(),'DEVICE_EXIT_ORIGINAL_AUTHORIZATION_EXPIRED');
     let raw={version:privateW39?2:1,profile:privateW39?PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_V2:DEVICE_EXIT_CONSENT_V1,action,...descriptor,challengeId:nonce(),nonce:nonce(),
       expiresAt:privateW39?Math.min(Date.now()+15000,authorizationExpiresAt):Date.now()+15000,binding,poolTerms:{scope:view.domain.scope,policy:view.domain.policy,codeHash:account.config.registry[0].codeHash,
@@ -179,7 +181,7 @@ async function createExecutionBridge(input,privateW39){
     challengeExitObservation(input){assert.equal(arguments.length,1);return challengeExit(input,'OBSERVE_W39');},
     observeExit(input){assert.equal(arguments.length,1);return exitWork(input,'OBSERVE_W39');},
     close(){assert.equal(arguments.length,0);closed=true;armPending.clear();pending.clear();const stops=[];for(const row of exitPending.values()){clearTimeout(row.timer);if(row.client&&!row.consumed)stops.push(row.client.close());}exitPending.clear();exitQuotes.clear();return privateW39?Promise.all(stops).then(()=>({closed:true,originalWorkRetained:true})):{closed:true,originalWorkRetained:true};}});
-  bridges.set(bridge,{privateW39,account,reservationBridge,nativeExecution,providers,actor,descriptor,original,
+  bridges.set(bridge,{privateW39,privateWorker,account,reservationBridge,nativeExecution,providers,actor,descriptor,original,
     installationConsumed:false,get completion(){return completion;},
     async durableEffect(method,input){
       exactRecord(input,['consent','signature']);live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
