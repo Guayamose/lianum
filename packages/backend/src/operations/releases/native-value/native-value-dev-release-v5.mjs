@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "5de8e3d95d98f6b7b162cd9f49fa16cbc0cb9d1f9e2c64785c9c8f7195b695f3",
+  "hostSourceClosureSHA256": "144c0b70bc284d7a056e937aa11179a2347c3b9c8485720933f29ac86f2e05cd",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -710,11 +710,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-policy-v1.mjs",
-      "sha256": "b744573d59e333a27c1b6bdf6f6303559146f4f1b3419bab8843d9b88d7bbe08"
+      "sha256": "23a38ab05d0b2e1f9961aa278361d6c9e51a6b1ebbdc843e7e516a25261b3a8f"
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "44c97c8b1ef18adf36a1fae0bb5ae293596e647f86b89b5effaa2794bbbfbf90"
+      "sha256": "99303751aa71050705d3533652fb200cdc7f9373aebdd98174bf78d386934496"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
@@ -1022,7 +1022,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-flow-supervisor.mjs",
-      "sha256": "89481f33ca20fef54a377051410751a843f1adc0fd71f14fcf99340d668feaa2"
+      "sha256": "f20ad87ba5bc223083785665a937c534cd24c051203d66883865dfff0cb9d66f"
     },
     {
       "path": "integration/native-ingress-v3-preflight-policy.mjs",
@@ -2050,11 +2050,11 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "proof-workers/role-process.mjs",
-      "sha256": "8d4972f6cfbf85a04d85db796a939242a46e898302b54683d8317cdb9ccf6fa2"
+      "sha256": "10e6b8b9ea6ad3625ecee155082aec126ba5661a05e76dcffa57f44aea47f0b7"
     },
     {
       "path": "proof-workers/run-bounded.mjs",
-      "sha256": "5b9e886e257b1ac555191453f582aec8e558bc32b9a53395d785cc21027e2305"
+      "sha256": "5f96e7e7e98201192327bd77bd3f6cc53b41aef9b2703f79ff6fe68d0304e5f6"
     },
     {
       "path": "proof-workers/scoped-proof-tools.mjs",
