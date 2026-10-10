@@ -14,11 +14,19 @@ case "$task_command" in
     printf '%s\n' \
       'Lianum — ejecutar desde la raíz del proyecto' \
       './dev start          Abrir la wallet local (Ctrl+C para cerrar)' \
-      './dev build          Preparar las rutas internas desde el código editable' \
+      './dev build          Preparar los paquetes para ejecutar las fuentes directamente' \
       './dev clean          Mostrar la limpieza local propuesta (sin borrar)' \
       './dev clean --apply  Compactar historial y retirar cachés/copias temporales' \
-      './dev check          Verificar estructura y compilación/arranque' \
-      './dev test [rutas]   Ejecutar pruebas; acepta las rutas de la estructura nueva' \
+      './dev check          Verificar módulos, rutas y pruebas rápidas del entorno' \
+      './dev test [rutas]   Ejecutar pruebas directamente desde las fuentes' \
+      './dev status         Estado rápido de herramientas y aplicaciones' \
+      './dev prepare [host|mobile|platform] Preparar dependencias explícitas' \
+      './dev workflows      Entradas actuales y comprobaciones por componente' \
+      './dev boundaries     Comprobar contratos públicos y dependencias' \
+      './dev sources [status|prepare|check] Preparar una generación de desarrollo' \
+      './dev test --changed Seleccionar pruebas según tus cambios' \
+      './dev build --legacy Preparar explícitamente la compatibilidad histórica' \
+      './dev legacy [start|node|test|check] Ejecutar comandos heredados' \
       './dev doctor         Verificar herramientas e integridad de la base original' \
       './dev evidence       Comprobar las evidencias públicas originales' \
       './dev lab [prepare|run|recovery|browser|browser-recovery]   Laboratorio EVM nuevo: SDK o DOM, feliz o F real' \
@@ -31,7 +39,7 @@ case "$task_command" in
       './dev lab mobile-original Lectura/reconcile V2 de TOP_UP y EXIT originales mediante cliente Node pareado' \
       './dev lab mobile-original-ledger Compilación nueva del ledger nativo V5 con watchdog fijo' \
       './dev artifacts      Inventariar los artefactos históricos de encoding' \
-      './dev node [args]    Ejecutar Node 24.19 y traducir rutas de código' \
+      './dev node [args]    Ejecutar Node 24.19 sobre los archivos que editas' \
       './dev npm [args]     Ejecutar npm con el Node local' \
       '' \
       'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
@@ -70,19 +78,46 @@ case "$task_command" in
       exec python3 "$task_helpers/native_claim_lab.py" "$@"
     fi
     exec python3 "$task_helpers/evm_lab.py" "$@" ;;
-  build) exec python3 "$task_helpers/workspace.py" "$@" ;;
+  build)
+    if [ "${1:-}" = "--legacy" ]; then shift; exec python3 -B "$task_helpers/workspace.py" "$@"; fi
+    exec python3 -B "$task_helpers/source_runtime.py" "$@" ;;
+  status) exec python3 -B "$task_helpers/workflow.py" status "$@" ;;
+  prepare) exec python3 -B "$task_helpers/workflow.py" prepare "$@" ;;
+  workflows) exec python3 -B "$task_helpers/workflow.py" catalog "$@" ;;
+  boundaries) exec python3 -B "$task_helpers/module_boundaries.py" "$@" ;;
+  sources) exec python3 -B "$task_helpers/source_generations.py" "$@" ;;
+  legacy)
+    task_legacy_command="${1:-help}"
+    if [ "$#" -gt 0 ]; then shift; fi
+    case "$task_legacy_command" in
+      build) exec python3 -B "$task_helpers/workspace.py" "$@" ;;
+      node) exec python3 -B "$task_helpers/run_node.py" --legacy "$@" ;;
+      test) exec python3 -B "$task_helpers/run_tests.py" --legacy "$@" ;;
+      start|wallet)
+        python3 -B "$task_helpers/workspace.py" --quiet
+        cd "$task_flat"
+        exec "$task_node_dir/node" wallet-app/run.mjs "$@" ;;
+      check)
+        python3 -B "$task_helpers/workspace.py"
+        python3 -B "$task_helpers/verify_layout.py"
+        exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
+      *) printf '%s\n' 'Uso: ./dev legacy [build|start|node|test|check]'; exit 2 ;;
+    esac ;;
   clean) exec python3 -B "$task_helpers/clean.py" "$@" ;;
   start|wallet)
-    python3 "$task_helpers/workspace.py" --quiet
-    cd "$task_flat"
-    exec "$task_node_dir/node" wallet-app/run.mjs "$@" ;;
+    python3 -B "$task_helpers/source_runtime.py" --quiet
+    cd "$task_root"
+    exec "$task_node_dir/node" apps/wallet/src/server/run.mjs "$@" ;;
   check)
-    python3 "$task_helpers/workspace.py"
-    python3 "$task_helpers/verify_layout.py"
-    python3 "$task_helpers/test_workspace.py"
-    python3 "$task_helpers/test_doctor.py"
-    exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
-  test) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/run_tests.py" "$@" ;;
+    python3 -B "$task_helpers/source_runtime.py"
+    python3 -B "$task_helpers/module_boundaries.py"
+    python3 -B "$task_helpers/test_source_runtime.py"
+    exec python3 -B "$task_helpers/run_tests.py" "$@" ;;
+  test)
+    if [ "${1:-}" = "--changed" ] || [ "${1:-}" = "--component" ]; then
+      exec python3 -B "$task_helpers/workflow.py" test "$@"
+    fi
+    exec python3 -B "$task_helpers/run_tests.py" "$@" ;;
   doctor) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/doctor.py" "$@" ;;
   artifacts) exec python3 "$task_helpers/artifacts.py" "$@" ;;
   smoke) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;

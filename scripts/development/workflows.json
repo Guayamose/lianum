@@ -1,0 +1,69 @@
+{
+  "schema": "LIANUM_DEVELOPMENT_WORKFLOWS_V1",
+  "components": {
+    "wallet": {
+      "watch": ["apps/wallet/"],
+      "tests": ["apps/wallet/tests/server/public-errors.test.mjs", "apps/wallet/tests/server/exact-action-capabilities.test.mjs", "apps/wallet/tests/client/ui.test.mjs"]
+    },
+    "backend": {
+      "watch": ["packages/backend/"],
+      "tests": ["packages/backend/tests/api/wallet/wallet-application-client.test.mjs", "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs", "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs"]
+    },
+    "custody": {
+      "watch": ["packages/custody/"],
+      "tests": ["packages/custody/tests/signing/authorized-envelope.test.mjs", "packages/custody/tests/preparation/flat-owner-preparation-terms.test.mjs"]
+    },
+    "engine": {
+      "watch": ["packages/engine/"],
+      "tests": ["packages/engine/tests/core/core.test.mjs", "packages/engine/tests/core/settlement.test.mjs"]
+    },
+    "protocol": {
+      "watch": ["packages/protocol/"],
+      "tests": ["packages/protocol/tests/native/native-hub-messages.test.mjs", "packages/protocol/tests/execution/proofs/proof-resource-policy.test.mjs"]
+    },
+    "proofs": {
+      "watch": ["packages/proofs/"],
+      "tests": ["packages/proofs/tests/jobs/standard-proof-resources-v1.test.mjs", "packages/proofs/tests/jobs/native-flow-proof-scope-v1.test.mjs", "packages/proofs/tests/jobs/native-device-private-deposit-diagnostic-v2.test.mjs"]
+    },
+    "crypto": {
+      "watch": ["packages/crypto/"],
+      "tests": ["packages/crypto/test/encoding.test.mjs"]
+    },
+    "components": {
+      "watch": ["packages/components/"],
+      "tests": ["packages/components/test/framing.test.mjs"]
+    },
+    "environment": {
+      "watch": ["packages/environment/"],
+      "tests": ["scripts/development/test_source_runtime.py"]
+    },
+    "contracts": {
+      "watch": ["contracts/"],
+      "tests": [],
+      "manual": "Seleccionar compilación y pruebas del contrato cambiado; el catálogo host no acredita bytecode ni despliegue. Consultar contracts/README.md."
+    },
+    "mobile": {
+      "watch": ["apps/mobile/", "packages/mobile-protocol/"],
+      "tests": ["apps/mobile/tests/authorization.test.mjs", "apps/mobile/tests/original-account-api-v2.test.mjs", "apps/mobile/tests/local-root-note-vault-v1.test.mjs"]
+    },
+    "platform": {
+      "watch": ["apps/platform/"],
+      "tests": ["apps/platform/tests/server.test.mjs", "apps/platform/tests/privacy-key-v1.test.mjs", "apps/platform/tests/schema-migrations.test.mjs"]
+    },
+    "tooling": {
+      "watch": ["dev", "scripts/development/", "scripts/layout.json", "scripts/module-boundaries.json", "package.json", "package-lock.json", ".github/workflows/"],
+      "tests": ["scripts/development/test_workflow.py", "scripts/development/test_source_runtime.py", "scripts/development/test_source_preparation.py", "scripts/development/test_module_boundaries.py", "scripts/development/test_source_generations.py", "scripts/development/test_workspace.py", "scripts/development/test_doctor.py"]
+    }
+  },
+  "entrypoints": [
+    {"id": "wallet", "level": "host", "entry": "apps/wallet/src/server/run.mjs", "command": "./dev start", "description": "Wallet web local; la disponibilidad económica depende del perfil conectado."},
+    {"id": "mobile", "level": "component", "entry": "apps/mobile/package.json", "command": "./dev npm --prefix apps/mobile start", "description": "Cliente Expo; necesita dependencias móviles y un development build."},
+    {"id": "platform", "level": "component", "entry": "apps/platform/src/run.mjs", "command": "./dev npm --prefix apps/platform start", "description": "API local; configurar PostgreSQL y custodia según apps/platform/README.md."},
+    {"id": "paired-http", "level": "integration", "entry": "tests/integration/mobile/paired-original-account-http-v2.test.mjs", "command": "./dev test tests/integration/mobile/paired-original-account-http-v2.test.mjs", "description": "Contrato HTTP pareado con fixtures; no aceptación económica."},
+    {"id": "postgres", "level": "integration", "entry": "apps/platform/scripts/test-postgres.mjs", "command": "./dev npm --prefix apps/platform run test:postgres", "description": "Persistencia PostgreSQL real en Docker, con base de datos de prueba."},
+    {"id": "evm", "level": "economic", "entry": "scripts/development/evm_lab.py", "command": "./dev lab run", "description": "Laboratorio EVM con identidades nuevas, redes y pruebas originales; requiere materiales públicos."},
+    {"id": "evm-recovery", "level": "economic", "entry": "scripts/development/evm_lab.py", "command": "./dev lab recovery", "description": "Recuperación EVM en laboratorio nuevo; ejecución explícita."},
+    {"id": "original-account", "level": "economic", "entry": "scripts/development/paired_original_account_lab.py", "command": "./dev lab mobile-original", "description": "Cuenta original V2 pareada: lectura y reconciliación; no equivale a cliente móvil completo."},
+    {"id": "defi", "level": "economic", "entry": "scripts/development/defi_entry_lab.py", "command": "./dev lab defi", "description": "Laboratorio Uniswap/MetaMorpho y salida según docs/DEVELOPMENT.md."}
+  ]
+}

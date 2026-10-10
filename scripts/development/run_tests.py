@@ -6,7 +6,8 @@ import re
 import subprocess
 import sys
 
-from workspace import RUNTIME, runtime_relative
+from workspace import RUNTIME, runtime_relative, build
+from source_runtime import prepare
 
 ROOT = Path(__file__).resolve().parents[2]
 FLAT = ROOT / ".internal/runtime/omnichain-flat-profile/flat-wallet"
@@ -27,7 +28,14 @@ DEFAULT_TESTS = [
 
 
 def main():
-    tests = sys.argv[1:] or DEFAULT_TESTS
+    arguments = sys.argv[1:]
+    legacy = bool(arguments and arguments[0] == '--legacy')
+    if legacy:
+        arguments = arguments[1:]
+        build(quiet=True)
+    else:
+        prepare(quiet=True)
+    tests = arguments or DEFAULT_TESTS
     executable_tests = []
     for test in tests:
         path = ROOT / test
@@ -36,21 +44,31 @@ def main():
             if not selected:
                 raise SystemExit(f"No test files in {test}")
             for file in selected:
+                if not legacy:
+                    executable_tests.append(str(file))
+                    continue
                 mapped = runtime_relative(str(file.relative_to(ROOT)))
                 if mapped is None:
                     raise SystemExit(f"Test file is outside the runtime map: {file}")
                 executable_tests.append(str(RUNTIME / mapped))
         else:
+            if not legacy:
+                if not path.is_file():
+                    raise SystemExit(f'Test source does not exist: {test}')
+                executable_tests.append(str(path))
+                continue
             relative = runtime_relative(test)
             # Keep runtime-relative paths accepted for archived commands.
             executable_tests.append(str(RUNTIME / relative) if relative else test)
     executable_tests = list(dict.fromkeys(executable_tests))
     result = subprocess.run([str(NODE), "--max-old-space-size=384", "--test-concurrency=1",
                              "--experimental-test-module-mocks", "--test",
-                             "--test-reporter=tap", *executable_tests], cwd=FLAT, text=True,
+                             "--test-reporter=tap", *executable_tests], cwd=FLAT if legacy else ROOT, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     REPORTS.mkdir(parents=True, exist_ok=True)
     report_name = "host-tests" if tests == DEFAULT_TESTS else "selected-host-tests"
+    if legacy:
+        report_name += '-legacy'
     (REPORTS / (report_name + ".log")).write_text(result.stdout)
     counts = {key: int(value) for key, value in re.findall(
         r"^# (tests|suites|pass|fail|cancelled|skipped|todo) (\d+)$", result.stdout, re.MULTILINE)}
@@ -59,6 +77,7 @@ def main():
               "exitCode": result.returncode, "testFiles": tests,
               "resolvedTestFiles": executable_tests, "counts": counts,
               "defaultSelection": tests == DEFAULT_TESTS,
+              "execution": "compatibility" if legacy else "editable-sources",
               "scope": "Selected existing host tests only; not native chain or original proof acceptance"}
     (REPORTS / (report_name + ".json")).write_text(json.dumps(report, indent=2) + "\n")
     sys.stdout.write(result.stdout)
