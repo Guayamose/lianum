@@ -123,8 +123,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/artifacts.mjs",
-      "bytes": 13421,
-      "sha256": "cf41034998e9a5e90e7c0b760fcf24f749a0acabd0916cba701aa1e2be114ee1"
+      "bytes": 16817,
+      "sha256": "73b90a14408b11680a5e18f297a61e12a462d24111baaaca2e3fddbbac3005cc"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/admission/Nargo.toml",
@@ -213,8 +213,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/run-bounded.mjs",
-      "bytes": 3266,
-      "sha256": "1c33f88ff7adcf757c373868c2251d23b3684e77163cea22af4bcd7084d2334a"
+      "bytes": 6043,
+      "sha256": "758a31afe3d942826b745a2536c261b0eb51a182c6ab25421db567380e06c18a"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/transcript.json",

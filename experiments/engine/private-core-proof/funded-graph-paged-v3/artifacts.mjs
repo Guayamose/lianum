@@ -2,7 +2,7 @@
  * acceptance follows from compilation. Existing artifacts are never replaced.
  * The fixed original toolchain/CRS/resource guards still bound this profile. */
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
+import {createHash,randomBytes} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {readFileSync,readdirSync,lstatSync,realpathSync,mkdirSync,writeFileSync,existsSync} from 'node:fs';
 import {join,relative,resolve,dirname} from 'node:path';
@@ -49,6 +49,47 @@ export function fundedPagedGraphSourceCommitmentV3(){return sha(JSON.stringify(f
 function mode(m){assert.ok(Object.hasOwn(PAEG_PAGED_WORDS_V3,m),'PAEG_PAGED_FIXED_MODE');return m;}
 function newFile(path,bytes){mkdirSync(resolve(path,'..'),{recursive:true,mode:0o700});writeFileSync(path,bytes,{flag:'wx',mode:0o600});}
 function publicWords(type){if(type.kind==='array')return type.length*publicWords(type.type);if(type.kind==='struct')return type.fields.reduce((n,f)=>n+publicWords(f.type),0);return 1;}
+// Compiler diagnostics contain source excerpts; retain them only in a bounded
+// private file. Public summaries contain codes and file/line frames, never text.
+const diagnosticByteLimit=32768;
+let firstCompilerDiagnostic=null;
+const compilerFrames=[];
+const boundedText=(value,max)=>{if(typeof value!=='string')return null;return Buffer.from(value.slice(0,max),'utf8').subarray(0,max).toString('utf8');};
+function diagnosticFrames(text){
+ const frames=[];if(typeof text!=='string')return frames;
+ const pattern=/((?:file:\/\/)?(?:\/[A-Za-z0-9._@%+-]+|[A-Za-z0-9._@%+-]+)(?:\/[A-Za-z0-9._@%+-]+)*\.(?:nr|mjs|cjs|js|toml)):(\d+)(?::(\d+))?/g;
+ for(const match of boundedText(text,16384).matchAll(pattern)){
+  let file=match[1];if(file.startsWith('file://')){try{file=fileURLToPath(file);}catch{continue;}}
+  if(file.startsWith('/')){if(!file.startsWith(project+'/'))continue;file=relative(project,file);}
+  if(file.length>240||file.split('/').includes('..'))continue;
+  const line=Number(match[2]),column=match[3]===undefined?null:Number(match[3]);
+  if(!Number.isSafeInteger(line)||line<1||line>10000000||(column!==null&&(!Number.isSafeInteger(column)||column<1||column>10000000)))continue;
+  if(!frames.some(f=>f.file===file&&f.line===line&&f.column===column))frames.push({file,line,column});
+  if(frames.length===6)break;
+ }
+ return frames;
+}
+function captureCompilerDiagnostic(message){
+ if(firstCompilerDiagnostic===null)firstCompilerDiagnostic=boundedText(message,4096);
+ for(const frame of diagnosticFrames(message)){if(!compilerFrames.some(f=>JSON.stringify(f)===JSON.stringify(frame))&&compilerFrames.length<6)compilerFrames.push(frame);}
+}
+export function retainFundedPagedGraphFailureV3(error,stage,m,childOutput=''){
+ const errorTypes=new Set(['Error','AssertionError','TypeError','SyntaxError','RangeError','CompileError']);
+ const type=e=>errorTypes.has(e?.name)?e.name:'Error';
+ const cause=error?.cause;
+ const code=/^PAEG_PAGED_[A-Z0-9_]{1,80}\b/.exec(error?.message??'')?.[0]??(type(cause)==='CompileError'?'PAEG_PAGED_NOIR_COMPILE_FAILED':'PAEG_PAGED_COMPILER_OR_KEY_FAILED');
+ const frames=[...compilerFrames];
+ for(const frame of [...diagnosticFrames(childOutput),...diagnosticFrames(error?.message),...diagnosticFrames(error?.stack)]){if(!frames.some(f=>JSON.stringify(f)===JSON.stringify(frame))&&frames.length<6)frames.push(frame);}
+ const diagnosticFile='error-'+process.pid+'-'+randomBytes(8).toString('hex')+'.json';
+ const record={profile:PAEG_PAGED_PROFILE_V3,stage,mode:m,code,errorType:type(error),causeType:cause?type(cause):null,frames,
+  firstCompilerDiagnostic,message:boundedText(error?.message,4096),stack:boundedText(error?.stack,8192),causeMessage:boundedText(cause?.message,4096),childOutput:boundedText(childOutput,4096),truncated:false};
+ let bytes=Buffer.from(JSON.stringify(record)+'\n');
+ if(bytes.length>diagnosticByteLimit){record.truncated=true;for(const key of ['firstCompilerDiagnostic','message','stack','causeMessage','childOutput'])record[key]=boundedText(record[key],512);bytes=Buffer.from(JSON.stringify(record)+'\n');}
+ assert.ok(bytes.length<=diagnosticByteLimit,'PAEG_PAGED_DIAGNOSTIC_BOUND');
+ newFile(join(PAEG_PAGED_ROOT_V3,'.local',diagnosticFile),bytes);
+ return Object.freeze({stage:'failed',code,errorType:record.errorType,frames,diagnosticFile,diagnosticSHA256:sha(bytes)});
+}
+
 export function loadFundedPagedGraphArtifactsV3(expectedManifestSHA256){
  assert.match(expectedManifestSHA256,/^[0-9a-f]{64}$/,'PAEG_PAGED_REVIEWED_MANIFEST_REQUIRED');
  const bytes=regular(join(PAEG_PAGED_ROOT_V3,'.local/manifest.json'));assert.equal(sha(bytes),expectedManifestSHA256,'PAEG_PAGED_MANIFEST_PIN');const manifest=JSON.parse(bytes);
@@ -71,7 +112,8 @@ export async function prepareFundedPagedGraphArtifactV3(stage,m){
   if(stage==='compile'){
    assert.equal(existsSync(compiled),false,'PAEG_PAGED_EXISTING_COMPILE_RETAINED');
    const compiler=await import(pathToFileURL(rootRequire.resolve('@noir-lang/noir_wasm')));
-   const {program}=await compiler.compile(compiler.createFileManager(join(PAEG_PAGED_ROOT_V3,'circuits',m)),undefined,()=>{});
+   firstCompilerDiagnostic=null;compilerFrames.length=0;
+   const {program}=await compiler.compile(compiler.createFileManager(join(PAEG_PAGED_ROOT_V3,'circuits',m)),undefined,captureCompilerDiagnostic,()=>{});
    assert.equal(program.abi.parameters.filter(p=>p.visibility==='public').reduce((n,p)=>n+publicWords(p.type),0),PAEG_PAGED_WORDS_V3[m],'PAEG_PAGED_ABI_WORDS');
    assert.match(program.noir_version,/^1\.0\.0-beta\.25\b/,'PAEG_PAGED_NOIR_VERSION');
    newFile(compiled,JSON.stringify(program));newFile(compiled+'.manifest.json',JSON.stringify({profile:PAEG_PAGED_PROFILE_V3,mode:m,programSHA256:sha(regular(compiled)),sourceCommitment:sha(JSON.stringify(sourcePins)),sources:sourcePins})+'\n');
@@ -96,5 +138,5 @@ export async function prepareFundedPagedGraphArtifactV3(stage,m){
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  assert.equal(process.argv.length,4,'PAEG_PAGED_FIXED_ARGUMENTS');const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);
  assert.equal(realpathSync('/proc/'+process.ppid+'/exe'),realpathSync(process.execPath),'PAEG_PAGED_OWNED_NODE_PARENT');assert.equal(resolve(parent[1]??''),join(PAEG_PAGED_ROOT_V3,'run-bounded.mjs'),'PAEG_PAGED_FIXED_SUPERVISOR');assert.deepEqual(parent.slice(2),process.argv.slice(2),'PAEG_PAGED_STAGE_BINDING');
- try{console.log(JSON.stringify(await prepareFundedPagedGraphArtifactV3(process.argv[2],process.argv[3])));}catch(error){console.log(JSON.stringify({stage:'failed',code:/^PAEG_PAGED_[A-Z0-9_]+/.exec(error.message??'')?.[0]??'PAEG_PAGED_COMPILER_OR_KEY_FAILED'}));process.exitCode=1;}
+ try{console.log(JSON.stringify(await prepareFundedPagedGraphArtifactV3(process.argv[2],process.argv[3])));}catch(error){console.log(JSON.stringify(retainFundedPagedGraphFailureV3(error,process.argv[2],process.argv[3])));process.exitCode=1;}
 }
