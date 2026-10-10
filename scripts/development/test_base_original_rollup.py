@@ -74,9 +74,36 @@ class OriginalBaseLocalTest(unittest.TestCase):
             self.assertEqual(fixed['services']['base-rpc']['ports'], [{'target': 8645,
                 'published': '0', 'host_ip': '127.0.0.1', 'protocol': 'tcp'}])
             self.assertTrue(all(x['restart'] == 'no' for x in fixed['services'].values()))
+            self.assertEqual(fixed['networks']['default']['driver'], 'bridge')
+            self.assertIs(fixed['networks']['default']['internal'], True)
+            self.assertNotIn('internal', original['networks']['default'])
             original['services']['l1-el']['volumes'][0]['source'] = '/tmp/foreign-source'
             with self.assertRaisesRegex(m.ClosedError, '^BASE_ORIGINAL_FOREIGN_MOUNT$'):
                 m.fixed_runtime_compose(original, images, 'lianum-base-' + '1' * 32, realm)
+
+    def test_private_peer_network_cannot_mix_public_egress_or_foreign_membership(self):
+        m = module()
+        project = 'lianum-base-' + '1' * 32
+        original = {'Id':'a' * 64, 'Name':project + '_default', 'Driver':'bridge',
+            'Internal':True, 'Scope':'local', 'Labels':{'com.docker.compose.project':project,
+            'com.docker.compose.network':'default'}}
+        self.assertEqual(m.original_private_network(original, project), original['Id'])
+        for field, value in [('Internal',False), ('Driver','host'), ('Name','foreign_default')]:
+            with self.subTest(field=field), self.assertRaisesRegex(m.ClosedError,
+                    '^BASE_ORIGINAL_PRIVATE_NETWORK_CHANGED$'):
+                m.original_private_network(dict(original, **{field:value}), project)
+        with tempfile.TemporaryDirectory(prefix='original-base-isolated-host-') as value:
+            realm = Path(value)
+            images = {name:'sha256:' + 'a' * 64 for name in m.SERVICES}
+            services = {name:{'volumes':[],'command':['original-fixed-command']} for name in m.SERVICES}
+            compose = {'services':services,'networks':{'default':{}}}
+            fixed = m.fixed_runtime_compose(compose, images, project, realm)
+            self.assertEqual([x['command'] for x in fixed['services'].values()],
+                             [x['command'] for x in compose['services'].values()])
+            self.assertEqual(m.FINALITY_MS, 240_000)
+            compose['services']['base-rpc']['networks'] = {'default':{},'public':{}}
+            with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_PRIVATE_NETWORK_REQUIRED$'):
+                m.fixed_runtime_compose(compose, images, project, realm)
 
     def test_finality_requires_same_original_beacon_and_derived_history(self):
         m = module()

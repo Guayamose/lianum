@@ -181,11 +181,21 @@ def fixed_runtime_compose(original, images, project, realm):
     require(re.fullmatch(r'lianum-base-[0-9a-f]{32}', project), 'BASE_ORIGINAL_PROJECT')
     require(set(value['services']) == set(SERVICES), 'BASE_ORIGINAL_COMPOSE_SERVICES')
     value['name'] = project
+    require(set(value.get('networks', {})) == {'default'}, 'BASE_ORIGINAL_PRIVATE_NETWORK_REQUIRED')
+    network = value['networks']['default']
+    require(network.get('driver') in (None, 'bridge') and not network.get('external', False),
+            'BASE_ORIGINAL_PRIVATE_NETWORK_REQUIRED')
+    # The official client adds public Base bootnodes for chain8453 even when
+    # local bootnodes are supplied. Keep the SAME local peers inside their own
+    # bridge before CREATE; host-only RPC ports and consensus checks stay exact.
+    network['driver'], network['internal'] = 'bridge', True
     for category in ('volumes', 'networks'):
         for name, resource in value.get(category, {}).items():
             require(not resource.get('external', False), 'BASE_ORIGINAL_EXTERNAL_RESOURCE')
             resource['name'] = project + '_' + name
     for name, service in value['services'].items():
+        require('network_mode' not in service and set(service.get('networks', {'default': {}})) == {'default'},
+                'BASE_ORIGINAL_PRIVATE_NETWORK_REQUIRED')
         service.pop('build', None)
         service.pop('pid', None)
         service.pop('container_name', None)
@@ -203,6 +213,16 @@ def fixed_runtime_compose(original, images, project, realm):
         value['services'][name]['ports'] = [{'target': target, 'published': '0',
                                            'host_ip': '127.0.0.1', 'protocol': 'tcp'}]
     return value
+
+
+def original_private_network(item, project):
+    require(isinstance(item, dict) and re.fullmatch(r'[0-9a-f]{64}', item.get('Id', ''))
+            and item.get('Name') == project + '_default' and item.get('Driver') == 'bridge'
+            and item.get('Internal') is True and item.get('Scope') == 'local'
+            and item.get('Labels', {}).get('com.docker.compose.project') == project
+            and item.get('Labels', {}).get('com.docker.compose.network') == 'default',
+            'BASE_ORIGINAL_PRIVATE_NETWORK_CHANGED')
+    return item['Id']
 
 
 def original_network_subnets(item):
@@ -372,7 +392,7 @@ def original_fee_oracle_call(params):
 class OriginalCluster:
     def __init__(self, root):
         self.root, self.closed, self.failed = root, False, False
-        self.admitted, self.containers = set(), {}
+        self.admitted, self.containers, self.network_id = set(), {}, None
         self.project = 'lianum-base-' + uuid.uuid4().hex
         self.realm = directory(root / '.local/owned-base-original-v1' / self.project)
         self.log = open(os.open(self.realm / 'native.private.log', os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb')
@@ -430,6 +450,9 @@ class OriginalCluster:
             self.enroll()
             if creation_error:
                 raise creation_error
+            networks = docker_json(['network', 'inspect', self.project + '_default'], self.realm, self.log)
+            require(len(networks) == 1, 'BASE_ORIGINAL_PRIVATE_NETWORK_CHANGED')
+            self.network_id = original_private_network(networks[0], self.project)
             self.launch = subprocess.Popen(['/usr/bin/docker', 'compose', '-p', self.project,
                 '-f', str(self.realm / 'fixed-compose.json'), 'up', '--wait', '--wait-timeout', str(INIT_MS // 1000),
                 *SERVICES], cwd=self.realm, env=self.env, stdout=self.log, stderr=self.log, start_new_session=True)
@@ -487,7 +510,9 @@ class OriginalCluster:
         return {'id': item['Id'], 'service': service, 'image': item['Image'],
                 'created': item['Created'], 'running': item['State']['Running'],
                 'pid': item['State']['Pid'], 'ports': item['NetworkSettings']['Ports'],
-                'oneoff': labels.get('com.docker.compose.oneoff', '').lower() == 'true'}
+                'oneoff': labels.get('com.docker.compose.oneoff', '').lower() == 'true',
+                'network_ids': {name: value['NetworkID']
+                    for name, value in item['NetworkSettings']['Networks'].items()}}
 
     def enroll(self):
         changed = False
@@ -528,10 +553,15 @@ class OriginalCluster:
 
     def healthy(self):
         require(not self.closed and not self.failed, 'BASE_ORIGINAL_RUNTIME_UNAVAILABLE')
+        networks = docker_json(['network', 'inspect', self.network_id], self.realm, self.log)
+        require(len(networks) == 1 and original_private_network(networks[0], self.project) == self.network_id,
+                'BASE_ORIGINAL_PRIVATE_NETWORK_CHANGED')
         for previous in self.containers.values():
             if previous['service'] not in LIVE_SERVICES or not previous['running']:
                 continue
             current = self.inspect(previous['id'])
+            require(current['network_ids'] == {self.project + '_default': self.network_id},
+                    'BASE_ORIGINAL_PRIVATE_NETWORK_CHANGED')
             require(previous.get('process') and current['running']
                     and process_identity(current['pid']) == previous['process']
                     and all(previous[key] == current[key] for key in ('id', 'service', 'image', 'created', 'pid')),
