@@ -511,6 +511,10 @@ class OriginalCluster:
 
     def enroll(self):
         changed = False
+        current = []
+        # Retain every original creator ID before a kernel check can fail on
+        # another node. These exact image/created/service records let finally
+        # drain a just-created node; close still denies any unretained ID.
         for identifier in self.ids():
             item = self.inspect(identifier)
             if item['oneoff']:
@@ -519,12 +523,15 @@ class OriginalCluster:
             if previous:
                 require(all(previous[key] == item[key] for key in ('id', 'service', 'image', 'created')),
                         'ARBITRUM_ORIGINAL_CONTAINER_CHANGED')
-                birth = previous.get('process')
-                if birth and item['running']:
-                    require(item['pid'] == birth['pid'] and process_identity(item['pid']) == birth,
-                            'ARBITRUM_ORIGINAL_NATIVE_CHANGED')
             else:
-                birth = None
+                self.containers[item['id']] = {**item, 'process': None}
+            current.append(item)
+        for item in current:
+            previous = self.containers[item['id']]
+            birth = previous.get('process')
+            if birth and item['running']:
+                require(item['pid'] == birth['pid'] and process_identity(item['pid']) == birth,
+                        'ARBITRUM_ORIGINAL_NATIVE_CHANGED')
             if not birth and item['service'] in LIVE_SERVICES and item['running'] and item['pid'] > 0:
                 birth = process_identity(item['pid'])
                 changed = True

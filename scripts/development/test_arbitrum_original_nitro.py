@@ -247,6 +247,51 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         self.assertEqual(stopped, [original['id']])
         self.assertNotIn(unknown['id'], stopped)
 
+    def test_creator_retains_new_id_before_other_native_identity_fails(self):
+        spec = importlib.util.spec_from_file_location('original_nitro_failure_retention', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        runtime = m.OriginalCluster.__new__(m.OriginalCluster)
+        runtime.project = 'lianum-nitro-' + '9' * 32
+        runtime.realm = Path.cwd()
+        runtime.log = io.BytesIO()
+        runtime.closed = False
+        original = {'id': 'a' * 64, 'service': 'sequencer', 'image': 'sha256:' + 'b' * 64,
+                    'created': '2026-10-10T00:00:00Z', 'running': True, 'pid': os.getpid(),
+                    'ports': {}, 'oneoff': False, 'process': m.process_identity(os.getpid())}
+        runtime.containers = {original['id']: dict(original)}
+        later = {'id': 'c' * 64, 'service': 'redis', 'image': 'sha256:' + 'd' * 64,
+                 'created': '2026-10-10T00:00:01Z', 'running': True, 'pid': os.getpid(),
+                 'ports': {}, 'oneoff': False}
+        # Docker inspection/stop ports are explicitly synthetic; the recorded
+        # first kernel identity is this real HOST process, with no native brand.
+        rows = {original['id']: dict(original, pid=os.getpid() + 999000), later['id']: dict(later)}
+        runtime.ids = lambda: list(rows)
+        runtime.inspect = lambda identifier: dict(rows[identifier])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_NATIVE_CHANGED$'):
+                runtime.enroll()
+        self.assertEqual(output.getvalue(), '')
+        retained = runtime.containers[later['id']]
+        self.assertEqual({key: retained[key] for key in ('id', 'service', 'image', 'created')},
+                         {key: later[key] for key in ('id', 'service', 'image', 'created')})
+        self.assertIsNone(retained['process'])
+        self.assertEqual(runtime.containers[original['id']]['process'], original['process'])
+        rows[original['id']].update(running=False, pid=0)
+        stopped = []
+        def stop(command, _cwd, _log, _seconds):
+            self.assertEqual(command[:5], ['/usr/bin/docker', 'container', 'stop', '--time', '10'])
+            stopped.extend(command[5:])
+            for identifier in command[5:]:
+                rows[identifier].update(running=False, pid=0)
+            return b''
+        m.run = stop
+        runtime.close()
+        self.assertEqual(stopped, [later['id']])
+        self.assertEqual(runtime.containers[later['id']]['process'], m.process_identity(os.getpid()))
+        self.assertEqual(runtime.containers[original['id']]['process'], original['process'])
+
     def test_official_pos_has_external_consensus_and_exclusive_resources(self):
         path = Path(__file__).with_name('owned_arbitrum_nitro_v1.py')
         spec = importlib.util.spec_from_file_location('original_nitro', path)

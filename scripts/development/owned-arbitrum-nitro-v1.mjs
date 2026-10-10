@@ -12,7 +12,7 @@ import { performance } from 'node:perf_hooks';
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1';
 const nativeValues = new WeakSet();
-const RECIPE_SHA256 = 'c4c447e5f08e99b14f286d1d78866ed4daca6222cc108b9d215d79d72a0b8ac7';
+const RECIPE_SHA256 = '3b8cc7a0117bb36f9c287b86b4ea2e0519d56dcbe9d5574dd657866ddaf7ea75';
 const CUSTODY_SHA256 = 'ad75dd12a46496e90859886b42aada2d2203698dce70fb252b6477a3e63ba10b';
 const BIRTH_MS = 600_000 + 180_000 + 15_000;
 const IPC_MS = 30_000;
