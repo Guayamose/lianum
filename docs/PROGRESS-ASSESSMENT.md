@@ -2,10 +2,11 @@
 
 Recalculada el 9 de octubre de 2026 sobre el código de `22a0069` y los resultados
 conservados. La referencia es [PROJECT-VISION](../PROJECT-VISION.md); no se
-modifican sus objetivos, arquitectura ni exclusiones. Este turno actualiza
-la evidencia funcional hasta `56f8212`, `b13eb68`/`f8961f4` y BSC `67424cf`, conservando
-los 35 criterios y el método de cálculo. Sólo la nota del criterio 2.4 cambia
-de 0 a 25 por protección parcial del observador SQL; las otras 34 no cambian.
+modifican sus objetivos, arquitectura ni exclusiones. La revisión anterior elevó 2.4 de 0 a 25 por protección parcial del observador
+SQL. El corte actual incorpora las fuentes de `7dd8135` y el resultado original
+NativeSQL9 `1e12d9d4…`: conserva los 35 criterios y su cálculo, eleva sólo 4.5
+de 50 a 75 por pérdida del proveedor y reembolso completo acreditados, y
+mantiene las otras 34 notas respecto a esa revisión anterior.
 
 Actualización de evidencia del 10 de octubre: Uniswap móvil
 `45a420b8-9dd9-4e83-b513-91c2c4c885a6` completó sus 14 relaciones originales,
@@ -13,10 +14,13 @@ ambas retiradas, respuesta perdida, restauración cifrada de custodia y
 observación ordenada del mismo backend en otro PID, sin otra prueba ni envío.
 Amplía el ámbito de 1.3/1.4/1.5, 5.3/5.5 y 6.2/6.4 ya valorados en 75;
 no cierra privacidad de ruta/topología, caída abrupta ni las siete redes.
-NativeSQL `7085c0fa…` acreditó captura, mismo F y saldo fresco pero no ambas W39;
-`4c50417a…` rechazó el arranque antes de financiar. Las correcciones del codec
-V3 y de los hashes revisados están implementadas; su recorrido financiero
-completo sigue pendiente. **Las 35 notas y los siete porcentajes no cambian.**
+NativeSQL `7085c0fa…` y `4c50417a…` conservan sus rechazos. Tras corregir
+el codec V3 y los hashes revisados, `1e12d9d4…` completó nueve pruebas: entrega
+nativa, F, captura de diez secciones, READ fresco en otro PID y ambas W39.
+El usuario recupera las 500 unidades del activo fuente; el proveedor pierde
+1.000.000 wei de principal más 23.800.000.000.000 wei de gas bajo términos
+firmados originales. Pool/backing/reservas quedan a cero sin duplicados.
+**4.5 pasa a 75 y el punto 4 a 75%; las otras 34 notas no cambian.**
 
 Esta es una **estimación de cobertura funcional**, con un cálculo reproducible.
 Las notas de cobertura siguen siendo juicios técnicos; no son medidas de tiempo,
@@ -57,7 +61,7 @@ sesión. Los commits y la cantidad de pruebas no añaden puntos por sí mismos.
 | 1. Wallet unificada para siete redes | 75 / 25 / 75 / 75 / 75 | 65% |
 | 2. Privacidad por defecto | 75 / 75 / 25 / 25 / 25 | 45% |
 | 3. PAEG genérico | 75 / 75 / 75 / 50 / 75 | 70% |
-| 4. Liquidación y recuperación económica | 75 / 75 / 75 / 75 / 50 | 70% |
+| 4. Liquidación y recuperación económica | 75 / 75 / 75 / 75 / 75 | 75% |
 | 5. Composición DeFi privada real | 75 / 50 / 75 / 75 / 75 | 70% |
 | 6. Estado privado global coherente | 75 / 75 / 75 / 75 / 100 | 80% |
 | 7. Modelos de redes heterogéneos | 50 / 75 / 75 / 75 / 50 | 65% |
@@ -97,7 +101,7 @@ cumplirse. Ninguno de los siete está completo.
 | Dar información mínima a cada ejecutor y ocultar el grafo completo | 50 | [Paquetes nativos](../packages/engine/src/execution/native/dispatch/native-capsules.mjs) y grafo definen paquetes/roles cerrados. Declaran no colusión y host común. | Acreditar la ocultación entre operadores independientes y ante correlación. Privacidad sistémica no aceptada. |
 | Reutilizar relaciones/verificadores/evidencia al combinar acciones y redes | 75 | [Catálogo de relaciones](../packages/proofs/src/catalog.mjs) y [ejecución común](../packages/backend/src/execution/account/execution/flat-native-execution.mjs). BTC/SOL y composiciones DeFi reutilizan el núcleo. | Generalidad fuera de las combinaciones comprobadas y del perfil de cuatro slots. No se acredita tamaño arbitrario. |
 
-## 4. Liquidación y recuperación económica — 70%
+## 4. Liquidación y recuperación económica — 75%
 
 | Requisito | Nota | Código y cobertura actual | Falta para completar el requisito |
 | --- | ---: | --- | --- |
@@ -105,7 +109,7 @@ cumplirse. Ninguno de los siete está completo.
 | Resolver timeout con plazo y autoridad originales | 75 | [Cuenta original](../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs) y [regresión del keeper](../packages/backend/tests/accounts/authority/device-live-recovery-arm-v1.test.mjs): reloj controlado, cutoff 28.800 s, un solo efecto, repetición y respuesta perdida sin nuevo envío. | Ampliar disponibilidad y lifetimes del producto. No se exige esperar ocho horas reales. |
 | Resolver entregas parciales, respuesta perdida, indisponibilidad y eventos adversos | 75 | [Reconciliación nativa](../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs). Uniswap F10, Meta F1, EVM9, LIVE_ARMED y F reorg aceptados en ámbitos concretos. | Pérdida abrupta de keeper/nodos/custodia, GRAPH completo, reorganizaciones más amplias y fallos combinados. |
 | Separar ledger, compromiso/aborto y resultado económico | 75 | Pool, ejecución común y cuenta mantienen incertidumbre y salidas bloqueadas. Meta F1 respeta la entrega externa irreversible al recuperar las notas. | Extender la separación a los fallos y combinaciones restantes. Recuperar una nota no revierte una transferencia finalizada. |
-| Asignar pérdidas, liquidez, comisiones y solvencia explícitamente | 50 | [Admisión nativa](../packages/engine/src/execution/native/dispatch/native-admission.mjs) y [proveedor EVM](../packages/backend/src/providers/evm-vault-provider.mjs): adelanto del solver, términos de pérdida y comisión. | Escenarios de insolvencia, liquidez y comisiones; pérdidas netas acreditadas. Meta F1 no demuestra por sí solo pérdida neta independiente del solver. |
+| Asignar pérdidas, liquidez, comisiones y solvencia explícitamente | 75 | [Admisión nativa](../packages/engine/src/execution/native/dispatch/native-admission.mjs) y [continuación original](../tests/integration/wallet/native/native-device-economic-original-continuation-v1.mjs): NativeSQL9 acredita términos firmados, entrega irreversible, pérdida del proveedor de principal más gas y reembolso íntegro del activo fuente mediante F y ambas W39, con backing/reservas cero. Las unidades de ambas redes permanecen separadas. | Generalizar activos y redes, insolvencia, liquidez adversa y costes de todos los pasos. Ámbito local prefundado, sin operadores independientes ni salida del payout del solver. Meta F1 conserva su alcance y no demuestra esa pérdida por sí solo. |
 
 El código nuevo de SOURCE y GRAPH está conectado. Su almacenamiento/captura
 tiene evidencia focal, pero su recuperación económica completa sigue pendiente.

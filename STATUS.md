@@ -14,14 +14,17 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   Reabrió cuatro secciones originales sin otra prueba ni envío; fuentes
   intactas, cleanup sin errores y lock liberado. Es el perfil local sobre TLS
   y custodia software del dispositivo; teléfono y caída abrupta quedan pendientes.
-- **Recuperación nativa con SQL:** el intento `7085c0fa…` acreditó captura de
-  diez secciones, reapertura del mismo F en otro PID y saldo fresco. No completó
-  W39: el codec de métricas trataba el recibo privado V3 como legacy V1.
-  `98575a2` corrige esa selección conservando la verificación original y tiene
-  regresión focal de Vault/CAS. El intento `4c50417a…` falló antes de financiar
-  por dos referencias de fuente antiguas; `89a22ac` las actualiza después de
-  revisar el cambio. Ambos resultados conservan su rechazo; el cierre financiero
-  completo sigue pendiente.
+- **Recuperación nativa con SQL aceptada:** `1e12d9d4-d156-41b6-af74-a5338855abed`
+  completó nueve pruebas y 21 etapas: entrega nativa única, F, captura de diez
+  secciones, reinicio del backend, READ fresco y ambas W39 con respuesta perdida
+  y conciliación del mismo trabajo. El usuario recupera 500 unidades del activo
+  fuente (400 de cambio y 100 de reserva); el proveedor conserva una pérdida de
+  1.000.000 wei de principal más 23.800.000.000.000 wei de gas en la red nativa,
+  bajo el consentimiento original de riesgo. No se suman esas unidades.
+  Pool y backing quedan a cero, sin reservas ni efectos duplicados; fuentes
+  intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
+  Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
+  `98575a2` y `89a22ac` permiten este nuevo recorrido.
 - **Composición actual:** `7dd8135` publica 880 fuentes y doce roles. El
   productor físico y las cápsulas actuales pasan, incluido el consumidor de
   Base/Arbitrum/BSC. Las 45 fuentes originales W39 no cambian y los cuatro
@@ -34,7 +37,8 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   109 inputs y 36 uniones, sin Metro. Es anterior a los cambios móviles recientes;
   falta recompilarla. La prueba física continúa prevista para el final.
 
-Las 35 notas permanecen iguales en este corte: **65 / 45 / 70 / 70 / 70 / 80 / 65**.
+El criterio **4.5 sube de 50 a 75**, y el punto 4 de 70 a 75. Las otras 34
+notas no cambian: **65 / 45 / 70 / 75 / 70 / 80 / 65**.
 Uniswap amplía el ámbito móvil acreditado de criterios que ya tenían 75;
 no completa por sí solo las siete redes, la privacidad sistémica o la
 recuperación abrupta. Los apartados históricos siguientes conservan la
@@ -45,9 +49,10 @@ evidencia de sus respectivos cortes, no sustituyen este estado actual.
 Los objetivos son los de [PROJECT-VISION.md](PROJECT-VISION.md). Las seis tareas
 pedidas para avanzar eran un orden de ejecución; no sustituyen estos puntos.
 Las cifras se recalcularon el 9 de octubre sobre el código de `22a0069` y sus
-resultados conservados. Este turno conserva los 35 criterios y su cálculo;
-revisa sólo la nota 2.4 de 0 a 25 por la protección parcial del observador SQL.
-Las otras 34 notas permanecen iguales. Cada objetivo tiene cinco requisitos de igual peso;
+resultados conservados. Se conservan los 35 criterios y su cálculo. La revisión anterior elevó 2.4
+de 0 a 25 por la protección parcial del observador SQL. Este corte eleva 4.5
+de 50 a 75 por la pérdida irreversible del proveedor y el reembolso completo
+acreditados en NativeSQL; las otras 34 notas conservan su valoración anterior. Cada objetivo tiene cinco requisitos de igual peso;
 la media de sus notas 0/25/50/75/100 produce la estimación de cobertura funcional.
 El [desglose por requisito](docs/PROGRESS-ASSESSMENT.md) explica la implementación,
 evidencia, límites y cálculo de cada cifra. El código conectado pendiente de
@@ -62,7 +67,7 @@ sistémica sigue sin acreditarse; las aceptaciones locales conservan su alcance.
 | 1. Wallet unificada para siete redes | 65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. Último APK109/36 compilado sin Metro; recompilación pendiente tras los cambios móviles recientes; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
 | 2. Privacidad por defecto | 45% | READ autenticado, copia RootNote cifrada y SQL con HMAC por propietario/request que cambia el seudónimo entre solicitudes; redacción legacy integrada sin renovar permisos. El criterio 2.4 sube a 25 sólo por protección parcial de nuevas copias SQL sin clave API. Cadena/RPC/red, tiempos, rutas, colusión con API, copias antiguas y authKey histórico siguen pendientes. |
 | 3. PAEG genérico | 70% | BTC/SOL, Uniswap, Aave y Meta desde reserva privada aceptados con el mismo núcleo y relaciones; continúan los cuatro slots y la privacidad de topología por cerrar. |
-| 4. Liquidación y recuperación económica | 70% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. El timeout del keeper se comprobó con reloj controlado y el cutoff original, sin esperar ocho horas. Quedan mayor cobertura DeFi, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |
+| 4. Liquidación y recuperación económica | 75% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. El timeout del keeper se comprobó con reloj controlado y el cutoff original, sin esperar ocho horas. NativeSQL9 acepta entrega irreversible, F, ambas W39, mismo backend/SQL en otro PID y pérdida del proveedor más gas bajo consentimiento explícito. Quedan generalidad, insolvencia, liquidez adversa, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |
 | 5. DeFi privado real | 70% | Uniswap desde reserva privada aceptado: PAEG, swap, T, EXIT y replay sin efecto duplicado. Aave y Meta15 privados también aceptados; Meta y Aave aceptan backend retenido en otro PID y dos READ cada uno; Uniswap F y MetaMorpho F1 aceptados en sus perfiles controlados; faltan más acciones Morpho, crédito privado Jupiter y mayor cobertura de posiciones. |
 | 6. Estado privado global | 80% | Journals y reconciliación originales; SDK vinculado aceptado con saldo privado 500→0. READ de cambio/recuperación y reapertura D26 implementadas; EVM9 aceptado con cinco lecturas firmadas, disponible final cero y reapertura ordenada. Dos READ por protocolo y reapertura Meta/Aave aceptadas. La unión privada por activo y dominio está conectada al backend/wallet y a las vistas móviles originales; persiste checkpoints cifrados y reabre STALE hasta nueva observación, sin crédito por valoración. HOST/CAS/TSC pasaron; native/wrapped ya se conectan a sus sesiones originales y capturan el mismo checkpoint cifrado. La actividad original BTC/SOL ya se muestra y Conciliar usa su ruta original; el journal compara estructura sin falsos cambios por orden JSON. El ancla nace antes de financiar y conserva credenciales y checkpoints confirmado/pendiente; su reapertura rechaza revisiones ajenas y permanece STALE/UNKNOWN. La restauración SOURCE y GRAPH ya está conectada y tiene pruebas focales de almacenamiento/custodia; falta aceptar su recuperación económica completa ante caída abrupta y pérdida de custodia. |
 | 7. Redes heterogéneas en profundidad | 65% | BTC/SOL combinado aceptado localmente. Claims9 aceptó el perfil local de ocho pruebas y su cierre original; Claims8 conserva su rechazo histórico. Factory Tron aceptado; una entrega V5 observada, con inventario y crédito/GRAPH pendientes. Jupiter tiene un swap público aceptado y SBF compilado oficialmente, sin aceptación del crédito privado completo; faltan Base, Arbitrum y BNB propios. |

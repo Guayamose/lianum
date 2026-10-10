@@ -17,11 +17,13 @@ y no sustituyen los pendientes concretos.
 El corte actual ya acepta Uniswap desde la custodia software propia del
 dispositivo: 14 relaciones, ambas retiradas, respuesta perdida, restauración
 cifrada de custodia y observación del mismo backend en otro PID sin efecto
-nuevo. La recuperación SQL llegó a captura de diez secciones, F y saldo fresco,
-pero falta aceptar ambas W39 tras corregir el codec privado V3. Las notas de
-los siete objetivos siguen en 65/45/70/70/70/80/65 con los mismos 35 criterios.
+nuevo. La recuperación SQL completó nueve pruebas: captura de diez secciones,
+mismo F y saldo fresco en otro PID, ambas W39 y reembolso completo del activo
+fuente con pérdida irreversible del proveedor más gas. El criterio 4.5 sube
+de 50 a 75 y el punto 4 de 70 a 75; los otros 34 criterios no cambian. Las
+notas quedan en 65/45/70/75/70/80/65 con el mismo método.
 
-El trabajo inmediato es cerrar ese recorrido SQL y Aave móvil, conectar la
+El trabajo inmediato es cerrar Aave móvil, conectar la
 recuperación abrupta a SOURCE/GRAPH originales, admitir claims desde RootNote
 y compilar las relaciones paginadas genéricas con sus propios verificadores.
 Después se continúa con los productores pendientes de las siete redes,
