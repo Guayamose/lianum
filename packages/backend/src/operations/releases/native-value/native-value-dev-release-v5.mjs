@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "fe7bb8902c20371b02da9cb9d8ecb795b461f486e5d00d0afc9a9aa83f896604",
+  "hostSourceClosureSHA256": "7637b902674122cc154f073479c2d1afd71911f1f42663c4d9568aa21958a560",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -718,7 +718,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
-      "sha256": "b924e9cfc5ab4ec6181259dcb1d4751502bb09e8c9774c1768b516309e880543"
+      "sha256": "7bdb1461fb25b3df6ee747a15611b312dd9326f878050322a3fcf6070fdeceb5"
     },
     {
       "path": "integration/device-owner-deposit-policy-v1.mjs",
