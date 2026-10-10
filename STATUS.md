@@ -25,11 +25,12 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición actual:** `c3b5f05` publica 884 fuentes y doce roles. El
-  productor físico y las cápsulas actuales pasan (preflight V28), incluido el
-  consumidor de Base/Arbitrum/BSC y el cierre Cloud local de 147 archivos.
-  Las 45 fuentes originales W39 no cambian; los cuatro indicadores de
-  aceptación de la publicación siguen desactivados.
+- **Composición:** `b9cf29f` conserva la última publicación comprobada de
+  884 fuentes y doce roles (preflight V30), incluido el consumidor de
+  Base/Arbitrum/BSC y Cloud local de 147 archivos. Los cambios posteriores
+  requieren una nueva publicación del productor físico antes de financiar
+  otro laboratorio. Las 45 fuentes originales W39 permanecen intactas;
+  los cuatro indicadores de aceptación de la publicación siguen desactivados.
 - **RootNote y salida nativa móvil:** `ff8aaa0`/`4b14a3d`/`0822617` conectan
   D27 y CI51 privados desde la custodia protegida del dispositivo. Las guardas
   conservan términos originales y ACCESS antes y después de las esperas.
@@ -38,25 +39,43 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   El HOST focal original pasa (207 ms) y TypeScript móvil pasa. La nota es
   DEVICE_ROOT_NOTE; el activo nativo sigue en BACKEND_LOCAL_QUORUM local.
   Faltan el recorrido económico integrado y su continuidad tras caída.
+  `d28c2d0`/`474e3f1` permiten observar la misma operación después de sustituir
+  el keeper original en el mismo runtime, con token privado y sin reenviar.
+  `4473729` completa el payout BTC local: confirma el wire original con las
+  seis confirmaciones vigentes y después realiza CO42, rechazando otro wire
+  o segundo broadcast. Sus HOST originales pasan; la ejecución económica
+  D27→CI51→W39→CO42 sigue pendiente.
   `3a8b458` comparte el validador económico existente entre web y móvil,
   conservando sus bytes y reglas; su HOST original pasa sin crear disponible.
-- **SOURCE confirmado y GRAPH:** `dc875ab`/`b3997cf`/`62cdd2c` conectan
-  cuerpo cifrado, autoridad, checkpoint y las catorce relaciones originales
-  a una caída abrupta del backend seguida de READ/RECONCILE en otro PID.
-  El intento `31a183f6…` falló en START con cero pruebas y conserva su rechazo;
-  sus procesos quedaron cerrados y el lock liberado. `a8babd9` conserva las
-  ubicaciones privadas de la causa del child y corrige CLOSE antes de adquirir
-  contexto; la regresión original pasa (249 ms). El siguiente intento está
-  en ejecución, sin aceptación adelantada. La ventana broadcast→checkpoint,
-  segunda reapertura y pérdida del padre/dispositivo siguen pendientes.
+- **SOURCE confirmado y GRAPH:** el intento V2 `f1f4e353…` terminó
+  rechazado tras una prueba D26, antes del latch de FUND y de su broadcast.
+  Los rechazos anteriores y sus cuerpos originales se conservan; no se
+  adoptan sus realms. `86c8bc9` evita que las lecturas consuman el permiso de
+  15 segundos al capturar el runtime completo. `9310d5f` añade el segundo
+  checkpoint de observación con AEAD/CAS. `03a602a` reserva un namespace V3
+  propio antes de CREATE/FUND, y `c58bc18` conecta las dos caídas y aperturas
+  al mismo recorrido de catorce relaciones, sin prueba ni envío nuevos al
+  observar. Las comprobaciones focales originales pasan; el recorrido
+  financiero V3 aún no se ha ejecutado. Broadcast→checkpoint y pérdida del
+  padre/dispositivo siguen pendientes.
 - **PAEG paginado privado V3:** `ca5291e` incorpora árboles sparse Poseidon2
   BN254 propios con el mismo encuadre en JS/Noir/Solidity. Los cinco HOST pasan;
-  Fold compila y genera su clave en el nuevo slot, dentro del límite original
-  de 3 GiB y del CRS original. Los RAW anteriores conservan sus rechazos.
-  Faltan las otras cuatro relaciones/claves, consumer y recorrido económico
-  del producto paginado. No se sustituyen las 45 fuentes originales ni se
-  acredita privacidad sistémica. Su productor OWNER está preparado en overlay,
-  pendiente de integración; la custodia móvil paginada sigue en desarrollo.
+  Las cinco relaciones R119/Fold66/T46/Admission85/W39 y sus claves propias
+  están compiladas dentro de 3 GiB y del CRS original. El consumer y los
+  cinco verificadores Solidity también compilan. `4f0dd2e` corrige un cast
+  Solidity: recompila los cinco programas completos, comprueba identidad
+  byte a byte y conserva las claves en una generación separada, sin tocar
+  los artefactos originales. `59263a4` conecta el depósito PC23 D26 original
+  y las bibliotecas reales de los cinco verificadores; el HOST original pasa.
+  Faltan el recorrido económico paginado y la composición móvil completa.
+  No se sustituyen las 45 fuentes originales ni se acredita privacidad
+  sistémica. `ba3dbbc`/`081622b` conectan D26/W39 desde la custodia protegida
+  móvil, con SDK, AEAD y journal propios. El HOST causal original pasa en
+  2,735 s y TypeScript pasa; la cadena, las pruebas ZK y los puertos Expo
+  inferiores son explícitamente inertes en ese HOST. Conserva la respuesta
+  original del SDK al actualizar el saldo y compara almacenamiento
+  estructuralmente, sin retirar los checks de readback/CAS. Faltan ejecución
+  económica, backup y reserva/admisión/acumulación/liquidación desde móvil.
 - **Aave móvil:** `d2b593db…` terminó rechazado después de la redención real:
   catorce pruebas y saldo de shares 100→0, pero falló la observación W39 tras
   reabrir. `9883f3b` corrige esa lectura: devuelve una observación canónica

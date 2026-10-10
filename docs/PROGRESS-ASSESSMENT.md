@@ -26,13 +26,24 @@ Código posterior integrado, sin cambio de estas notas: RootNote móvil conecta
 D27/CI51/W39/redención/payout en commits separados; su HOST original y
 TypeScript pasan, pero falta el recorrido económico integrado. La custodia de
 la nota pertenece al dispositivo y el nativo continúa en quorum local.
-SOURCE/GRAPH incorpora checkpoint confirmado y caída abrupta; el primer
-START financiero falló con cero pruebas. La causa del child y CLOSE previo a
-contexto están corregidos con regresión original; el sucesor está en ejecución.
-La ventana broadcast→checkpoint y segunda reapertura siguen pendientes.
-PAEG paginado V3 tiene árboles sparse propios consistentes JS/Noir/Solidity;
-Fold compila y genera clave bajo los límites originales. Faltan cuatro claves,
-consumer, integración móvil y recorrido económico. Aave `d2b593db…` completó
+SOURCE V2 `f1f4e353…` falló después de D26 y antes de financiar. Las lecturas
+ya conservan el permiso original de 15 segundos sin capturar todo el runtime.
+SOURCE/GRAPH V3 tiene nacimiento propio previo a CREATE/FUND y conecta dos
+caídas y aperturas del mismo checkpoint con AEAD/CAS. Sus HOST originales
+pasan; falta el recorrido financiero y la ventana broadcast→checkpoint.
+PAEG paginado V3 tiene árboles sparse consistentes JS/Noir/Solidity, las cinco
+claves propias y consumer/verificadores compilados bajo los límites originales.
+El cast Solidity corregido conserva identidad byte a byte de los cinco
+programas recompilados y almacena la generación separadamente. El productor
+OWNER, D26 original y enlaces de bibliotecas están integrados y su HOST pasa;
+faltan recorrido económico y composición móvil completa. El primer corte
+móvil D26/W39 ya pasa su HOST causal y TypeScript: conserva el saldo mediante
+la respuesta original del SDK y corrige la igualdad del almacenamiento sin
+retirar los checks de AEAD/CAS/readback. Sus puertos inferiores de cadena,
+pruebas ZK y Expo son explícitamente inertes; no acredita ejecución financiera.
+RootNote añade observación del mismo keeper sustituido y finalización local
+BTC con seis confirmaciones y el mismo wire; ambos HOST pasan, con el
+recorrido económico aún pendiente. Aave `d2b593db…` completó
 redención pero falló la lectura W39 tras reapertura; `9883f3b` corrige la
 observación fresca con regresión SDK/backend, pendiente de repetición
 financiera. Estos avances de código no se convierten en nuevos escenarios

@@ -23,12 +23,14 @@ fuente con pérdida irreversible del proveedor más gas. El criterio 4.5 sube
 de 50 a 75 y el punto 4 de 70 a 75; los otros 34 criterios no cambian. Las
 notas quedan en 65/45/70/75/70/80/65 con el mismo método.
 
-El trabajo inmediato es aceptar la recuperación abrupta de SOURCE/GRAPH,
-repetir Aave móvil tras la corrección de observación W39 y ejecutar la entrada
-y salida nativa desde RootNote propias. Ese código ya está conectado y sus
-comprobaciones focales pasan. Fold paginado ya compila y tiene clave propia;
-se completan las cuatro relaciones restantes, consumer y productor económico
-con el mismo núcleo antes de ampliar su custodia móvil. En paralelo continúan
+El trabajo inmediato es ejecutar SOURCE/GRAPH V3 con sus dos caídas y
+aperturas del mismo checkpoint, repetir Aave móvil tras la corrección de
+observación W39 y completar D27/CI51/W39/CO42 desde RootNote propias.
+Los cinco programas paginados y sus claves, consumer y verificadores ya
+compilan. El productor OWNER y su depósito original están integrados;
+la primera conexión móvil D26/W39 pasa su HOST causal y TypeScript. Se conecta reserva,
+admisión, acumulación de dependencias y liquidación desde esa custodia.
+Falta acreditar sus recorridos económicos con el mismo núcleo. En paralelo continúan
 los productores pendientes de las siete redes y la continuidad de las mismas
 operaciones. Se compilará el APK una vez integrado el siguiente corte móvil.
 Cloud conserva el alcance local y el teléfono queda para el final. Las
