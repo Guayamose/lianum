@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { assertOwnedLocalEvmV2, assertSignedEvmTransaction, LOCAL_EVM_PROFILE,
   encodeCanonicalEvmUnsignedTransaction } from '../runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedFlatSystem } from '../../../operations/deployments/system/deploy-system.mjs';
-import { assertOwnedPrivateExternalRouterV1 } from '../../../operations/deployments/defi/deploy-private-external-router-v1.mjs';
+import { createOwnedPrivateExternalRouterV1, assertOwnedPrivateExternalRouterV1 } from '../../../operations/deployments/defi/deploy-private-external-router-v1.mjs';
 import { assertOwnedOriginalMorphoBluePositionV1, readOwnedOriginalMorphoBluePositionContextV1 } from '../../../operations/deployments/defi/deploy-morpho-blue-position-v1.mjs';
 import { assertOfficialProtocolFixture } from '../../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { createPrivateExternalIncomingObserverV1, assertOwnedPrivateExternalIncomingObservationV1 }
@@ -20,7 +20,7 @@ import { evmRuntimeCodeHash } from '../contracts/evm-code-hash.mjs';
 import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1, MORPHO_BLUE_POSITION_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 } from '../dispatch/evm-graph-delivery-codec-v1.mjs';
 
-const owned = new WeakMap(), facts = new WeakMap(), economicFacts = new WeakMap();
+const owned = new WeakMap(), facts = new WeakMap(), economicFacts = new WeakMap(), batchesV4 = new WeakMap();
 const META = 'METAMORPHO_V1_EXACT_SHARE_MINT', UNI = 'UNISWAP_V3_EXACT_OUTPUT_SINGLE', AAVE = 'AAVE_V3_STATIC_EXACT_SHARE_MINT', BLUE = 'MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY';
 const detached = value => { const result = structuredClone(value);
   const freeze = item => { if (item && typeof item === 'object') {
@@ -50,6 +50,7 @@ function assertOwnedOfficialObserver(observer, expected, protocolKind = null) {
   if (protocolKind !== null) assert.equal(state.protocolKind, protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
   for (const key of ['runtime', 'system', 'poolIndex']) assert.equal(state[key], expected[key], 'METAMORPHO_GRAPH_ORIGINAL_BINDING');
   assertOwnedFlatSystem(state.runtime, state.system);
+  if(batchesV4.has(observer))for(const child of batchesV4.get(observer).children)assertOwnedOfficialObserver(child,expected,META);
   assertOwnedPrivateExternalRouterV1(state.router, expected);
   assert.equal(state.router.protocolKind, state.protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
   assertOfficialProtocolFixture(state.runtime, state.protocolFixture);
@@ -77,6 +78,7 @@ export function readOriginalEvmGraphDeliveryEconomicFactsV1(value, observer) {
 /** Both factories retain exact original object identities. The discriminator
  * below selects framing only after the private ownership map was checked. */
 function assertOwnedOfficialDescriptor(observer, router, descriptor, protocolKind = null) {
+  const batch=batchesV4.get(observer);if(batch){const child=batch.children.find(value=>owned.get(value).router===router);assert.ok(child,'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');return assertOwnedOfficialDescriptor(child,router,descriptor,protocolKind);}
   const state = owned.get(observer); assert.ok(state && state.router === router, 'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');
   assertOwnedOfficialObserver(observer, { runtime: state.runtime, system: state.system, poolIndex: state.poolIndex }, protocolKind);
   validateEvmGraphDeliveryDescriptorV1(descriptor);
@@ -90,6 +92,7 @@ export function assertOwnedMorphoBluePositionGraphDescriptorV1(observer,router,d
 export function assertOwnedUniswapGraphDescriptorV1(observer, router, descriptor) { assertOwnedOfficialDescriptor(observer, router, descriptor, UNI); }
 function prepareOwnedOfficialDescriptor(input, protocolKind) {
   exactRecord(input, ['observer', 'router', 'route', 'ownerPublicInputs']);
+  const batch=batchesV4.get(input.observer);if(batch){const child=batch.children.find(value=>owned.get(value).router===input.router);assert.ok(child,'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');return prepareOwnedOfficialDescriptor({...input,observer:child},protocolKind);}
   const state = owned.get(input.observer); assert.ok(state && state.router === input.router, 'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');
   assert.equal(state.protocolKind, protocolKind, 'EVM_GRAPH_ORIGINAL_PROTOCOL_VARIANT');
   const descriptor = detached({ profile: state.profile, context: state.context,
@@ -406,4 +409,29 @@ async function createOwnedOfficialObserver(input, protocolKind) {
     },
   });
   owned.set(observer, { runtime, system, poolIndex, router, protocolFixture: original,position, context, protocolKind, profile }); return observer;
+}
+
+/** A finite original multi-delivery reader. Each original router keeps its own
+ * exact approval and native inspection. No endpoint from a query is adopted. */
+export function isOwnedMetaMorphoGraphDeliveryBatchV4(observer){assert.equal(arguments.length,1);return batchesV4.has(observer);}
+export function readOriginalMetaMorphoGraphBatchRoutersV4(observer,expected){
+ assert.equal(arguments.length,2);assertOwnedMetaMorphoGraphDeliveryObserverV1(observer,expected);const batch=batchesV4.get(observer);assert.ok(batch,'METAMORPHO_GRAPH_ORIGINAL_BATCH');return Object.freeze(batch.children.map(child=>owned.get(child).router));
+}
+export function readOriginalMetaMorphoGraphBatchFactsBindingsV4(observer){
+ assert.equal(arguments.length,1);const batch=batchesV4.get(observer),state=owned.get(observer);assert.ok(batch&&state,'METAMORPHO_GRAPH_ORIGINAL_BATCH');assertOwnedMetaMorphoGraphDeliveryObserverV1(observer,{runtime:state.runtime,system:state.system,poolIndex:state.poolIndex});return detached(batch.children.map(child=>child.binding));
+}
+export async function createOwnedMetaMorphoGraphDeliveryBatchV4(input){
+ assert.equal(arguments.length,1);exactRecord(input,['runtime','system','poolIndex','protocolFixture','count']);const {runtime,system,poolIndex,protocolFixture,count}=input;
+ assert.ok(Number.isInteger(count)&&count>=2&&count<=4,'METAMORPHO_GRAPH_BATCH_COUNT');assert.equal(poolIndex,1);await assertOwnedLocalEvmV2(runtime);assertOwnedFlatSystem(runtime,system);assertOfficialProtocolFixture(runtime,protocolFixture);
+ const readers=[];for(const index of [0,1]){const reader=await createFlatSystemStateReader({runtime,system,poolIndex:index}),view=await reader.read();await reader.assertCurrent(view);assert.equal(view.ledger.commitments.length,0,'METAMORPHO_GRAPH_BATCH_BEFORE_FUNDING');assert.equal(view.ledger.nullifiers.length,0,'METAMORPHO_GRAPH_BATCH_BEFORE_FUNDING');readers.push(reader);}
+ const children=[];for(let slot=0;slot<count;slot++){const router=await createOwnedPrivateExternalRouterV1({runtime,system,poolIndex,protocolFixture,protocolKind:META});children.push(await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex,router,protocolFixture}));}
+ assert.equal(new Set(children.map(child=>child.identity.router)).size,count,'METAMORPHO_GRAPH_DISTINCT_ROUTERS');const first=owned.get(children[0]);for(const child of children){const value=owned.get(child);assert.equal(value.runtime,runtime);assert.equal(value.system,system);assert.equal(value.protocolFixture,protocolFixture);assert.deepEqual(value.context,first.context);}
+ for(const reader of readers){const view=await reader.read();await reader.assertCurrent(view);assert.equal(view.ledger.commitments.length,0,'METAMORPHO_GRAPH_BATCH_BEFORE_FUNDING');assert.equal(view.ledger.nullifiers.length,0,'METAMORPHO_GRAPH_BATCH_BEFORE_FUNDING');}
+ let observer;
+ const select=async query=>{exactRecord(query,['transactionHash','calldataSHA256']);bytes32(query.transactionHash,true);bytes32(query.calldataSHA256,true);const entries=runtime.transactions.filter(row=>row.transactionHash==='0x'+query.transactionHash);assert.equal(entries.length,1,'METAMORPHO_GRAPH_ORIGINAL_SIGNED_JOURNAL');const row=entries[0],signed=await runtime.signedTransaction(row.transactionHash);assert.deepEqual(signed,row.signed,'METAMORPHO_GRAPH_ORIGINAL_SIGNED_WIRE');const wire=assertSignedEvmTransaction(signed.nativeWire,row.prepared.transaction);assert.equal(wire.nativeId,row.transactionHash);assert.equal(sha(Buffer.from(wire.data.slice(2),'hex')),query.calldataSHA256,'METAMORPHO_GRAPH_ORIGINAL_CALLDATA');const child=children.find(value=>value.identity.router===bare(wire.to));assert.ok(child,'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');return child;};
+ observer=Object.freeze({identity:children[0].identity,binding:children[0].binding,classification:'OWNED_LOCAL_ORIGINAL_METAMORPHO_ROUTER_BATCH_NOT_PUBLIC_CONSENSUS',
+  async observe(query){return(await select(query)).observe(query);},
+  async assertPrepared(input){exactRecord(input,['intent','prepared']);const child=children.find(value=>value.identity.router===input.intent.descriptor.plan.identity.router);assert.ok(child,'METAMORPHO_GRAPH_ORIGINAL_ROUTER_REQUIRED');assertOwnedMetaMorphoGraphDescriptorV1(observer,owned.get(child).router,input.intent.descriptor);return child.assertPrepared(input);},
+  async observeFacts(query){let result;try{const child=await select(query),original=await child.observeFacts(query);assertOwnedMetaMorphoGraphDeliveryFactsV1(original,{observer:child});result=detached(original);if(result.status==='observed')economicFacts.set(result,readOriginalEvmGraphDeliveryEconomicFactsV1(original,child));}catch{result=detached({status:'unknown',reason:'METAMORPHO_GRAPH_BATCH_OBSERVATION_UNAVAILABLE'});}facts.set(result,observer);return result;}
+ });owned.set(observer,{...first});batchesV4.set(observer,{children:Object.freeze(children)});assertOwnedMetaMorphoGraphDeliveryObserverV1(observer,{runtime,system,poolIndex});return observer;
 }

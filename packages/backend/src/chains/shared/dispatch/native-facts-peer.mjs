@@ -13,6 +13,7 @@ import { FACTS_SCHEMA, validateNativeFacts, encodeNativeFacts, nativeFactsDigest
 import { validateNativeSplClaimBindingTransactionV1 } from '../../solana/dispatch/native-spl-custody-codec-v1.mjs';
 import { validateClaimSolanaBindingTransaction } from '../../solana/runtime/owned-solana-nonce-binding.mjs';
 import { validateEvmDeliveryWire, evmFundingEndpointCommitment } from '../../evm/dispatch/evm-facts-binding.mjs';
+import {readOriginalMetaMorphoGraphBatchFactsBindingsV4} from '../../evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { evmGraphDeliveryTermsV1 } from '../../evm/dispatch/evm-graph-delivery-codec-v1.mjs';
 
 export const FACTS_QUORUM_PROFILE = 'LIANUM_NATIVE_QUORUM_3_OF_4_SECP256K1_V2';
@@ -23,6 +24,8 @@ export const SPL_CLAIM_FACTS_INVENTORY_SCHEMA = 'LIANUM_FLAT_SPL_CLAIM_FACTS_PEE
 // or validation callback, and claim inventories cannot reopen as generic v1.
 const V1_CODEC = Object.freeze({ validate: validateNativeFacts, encode: encodeNativeFacts, digest: nativeFactsDigest,
   solana: validateSolanaBindingTransaction, inventorySchema: FACTS_INVENTORY_SCHEMA, claim: false });
+const META_BATCH_INVENTORY_V4='LIANUM_ORIGINAL_METAMORPHO_BATCH_FACTS_INVENTORY_V4';
+function originalMetaBatchCodec(observer){const bindings=readOriginalMetaMorphoGraphBatchFactsBindingsV4(observer);need(bindings.length>=2&&bindings.length<=4,'ORIGINAL_EVM_BATCH');return Object.freeze({...V1_CODEC,inventorySchema:META_BATCH_INVENTORY_V4,originalEvmBindings:bindings});}
 const CLAIM_CODEC = Object.freeze({ validate: validateNativeClaimFacts, encode: encodeNativeClaimFacts, digest: nativeClaimFactsDigest,
   solana: validateClaimSolanaBindingTransaction, inventorySchema: CLAIM_FACTS_INVENTORY_SCHEMA, claim: true });
 const SPL_CLAIM_CODEC = Object.freeze({validate:validateNativeClaimFacts,encode:encodeNativeClaimFacts,digest:nativeClaimFactsDigest,solana:validateNativeSplClaimBindingTransactionV1,inventorySchema:SPL_CLAIM_FACTS_INVENTORY_SCHEMA,claim:true,spl:true});
@@ -229,6 +232,7 @@ function publicConfiguration(input, codec) {
     for (const name of ['sourceEndpoint', 'destinationEndpoint']) endpoint(policy.rule.family, policy.rule.genesis, policy.rule.asset, recipient[name]);
     need(recipient.sourceEndpoint !== recipient.destinationEndpoint, 'ENDPOINTS'); return copy(recipient);
   });
+  if(codec.originalEvmBindings){need(policy.rule.family==='3'&&recipients.length===1,'ORIGINAL_EVM_BATCH');const primary=recipients[0],routes=codec.originalEvmBindings.map(binding=>{need(binding.recipientIndex===primary.recipientIndex&&binding.sourceEndpoint===primary.sourceEndpoint&&binding.genesis===policy.rule.genesis&&binding.asset===policy.rule.asset,'ORIGINAL_EVM_BATCH_DOMAIN');endpoint('3',policy.rule.genesis,policy.rule.asset,binding.destinationEndpoint);return copy({recipientIndex:binding.recipientIndex,sourceEndpoint:binding.sourceEndpoint,destinationEndpoint:binding.destinationEndpoint});});need(routes[0].destinationEndpoint===primary.destinationEndpoint&&new Set(routes.map(r=>r.destinationEndpoint)).size===routes.length,'ORIGINAL_EVM_BATCH_ROUTERS');return frozen({policy,signerIndex:input.signerIndex,publicKey,recipients,originalEvmRoutes:routes});}
   return frozen({ policy, signerIndex: input.signerIndex, publicKey, recipients });
 }
 function configurationDigest(config, codec) {
@@ -238,6 +242,7 @@ function configurationDigest(config, codec) {
  * restore it over an existing inventory, or use it to reset an issuer history.
  */
 export function createNativeFactsInventory(input) { return createFactsInventory(input, V1_CODEC); }
+export function createOriginalMetaMorphoBatchFactsInventoryV4(input,observer){need(arguments.length===2,'ORIGINAL_EVM_BATCH_ARGUMENTS');return createFactsInventory(input,originalMetaBatchCodec(observer));}
 export function createNativeClaimFactsInventory(input) { return createFactsInventory(input, CLAIM_CODEC); }
 export function createNativeSplClaimFactsInventory(input) { return createFactsInventory(input, SPL_CLAIM_CODEC); }
 function createFactsInventory(input, codec) {
@@ -263,7 +268,7 @@ function deriveFacts(result, request, config, at, codec) {
   need(result.status === 'observed', 'OBSERVATION_STATUS');
   const { policy } = config, { rule } = policy;
   need(result.genesis === rule.genesis && result.asset === rule.asset, 'OBSERVATION_DOMAIN');
-  const route = config.recipients.find(row => row.recipientIndex === request.recipientIndex);
+  const legacyRoute = config.recipients.find(row => row.recipientIndex === request.recipientIndex);
   const wire = request.family === '1' ? validateBitcoinBinding(result.nativeWire, result.intent)
     : request.family === '2' ? codec.solana(result.nativeWire, result.intent)
       : validateEvmDeliveryWire(result.nativeWire, result.intent);
@@ -274,7 +279,8 @@ function deriveFacts(result, request, config, at, codec) {
     : request.family === '2' ? result.intent.sourcePublicKey : wire.sourceEndpoint;
   const destination = request.family === '1' ? result.intent.recipientScript
     : request.family === '2' ? result.intent.recipientPublicKey : wire.destinationEndpoint;
-  need(source === route.sourceEndpoint && destination === route.destinationEndpoint, 'OWNED_ENDPOINTS');
+  const route=config.originalEvmRoutes?config.originalEvmRoutes.find(row=>row.recipientIndex===request.recipientIndex&&row.sourceEndpoint===source&&row.destinationEndpoint===destination):legacyRoute;
+  need(route&&source === route.sourceEndpoint && destination === route.destinationEndpoint, 'OWNED_ENDPOINTS');
   if (request.family === '3') {
     const identity = evmGraphDeliveryTermsV1(result.intent.descriptor).identity;
     need(identity.genesisHash === rule.genesis && identity.shareIdentity === rule.asset
@@ -353,6 +359,7 @@ function validateInventory(state, config, codec) {
  * reader, a generic sign method, root wallets or any private key material.
  */
 export async function createNativeFactsPeer(input) { return createFactsPeer(input, V1_CODEC); }
+export async function createOriginalMetaMorphoBatchFactsPeerV4(input,observer){need(arguments.length===2,'ORIGINAL_EVM_BATCH_ARGUMENTS');return createFactsPeer(input,originalMetaBatchCodec(observer));}
 export async function createNativeClaimFactsPeer(input) { return createFactsPeer(input, CLAIM_CODEC); }
 export async function createNativeSplClaimFactsPeer(input) { return createFactsPeer(input, SPL_CLAIM_CODEC); }
 async function createFactsPeer(input, codec) {

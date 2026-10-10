@@ -5,7 +5,7 @@ import { assertOwnedEvmVaultRouter } from '../../../operations/deployments/defi/
 import { assertOwnedPrivateExternalRouterV1 } from '../../../operations/deployments/defi/deploy-private-external-router-v1.mjs';
 import { assertOwnedEvmVaultDeliveryObserver, assertOwnedEvmVaultDeliveryFacts }
   from '../vault/evm-vault-delivery-observer.mjs';
-import { isOwnedMorphoBluePositionGraphDeliveryObserverV1, assertOwnedMorphoBluePositionGraphDeliveryObserverV1, assertOwnedMorphoBluePositionGraphDeliveryFactsV1, assertOwnedMorphoBluePositionGraphDescriptorV1, isOwnedOfficialGraphDeliveryObserverV1, isOwnedMetaMorphoGraphDeliveryObserverV1, assertOwnedMetaMorphoGraphDeliveryObserverV1,
+import { isOwnedMetaMorphoGraphDeliveryBatchV4,readOriginalMetaMorphoGraphBatchRoutersV4,isOwnedMorphoBluePositionGraphDeliveryObserverV1, assertOwnedMorphoBluePositionGraphDeliveryObserverV1, assertOwnedMorphoBluePositionGraphDeliveryFactsV1, assertOwnedMorphoBluePositionGraphDescriptorV1, isOwnedOfficialGraphDeliveryObserverV1, isOwnedMetaMorphoGraphDeliveryObserverV1, assertOwnedMetaMorphoGraphDeliveryObserverV1,
   assertOwnedMetaMorphoGraphDeliveryFactsV1, assertOwnedMetaMorphoGraphDescriptorV1,
   isOwnedAaveStaticGraphDeliveryObserverV1, assertOwnedAaveStaticGraphDeliveryObserverV1,
   assertOwnedAaveStaticGraphDeliveryFactsV1, assertOwnedAaveStaticGraphDescriptorV1,
@@ -37,6 +37,7 @@ export function assertOwnedEvmGraphDeliveryRouterV1(runtime, system, router, obs
     const expected = { runtime, system, poolIndex: router.destinationPoolIndex };
     assertOwnedEvmGraphDeliveryObserverV1(observer, expected);
     assertOwnedPrivateExternalRouterV1(router, expected);
+    if(isOwnedMetaMorphoGraphDeliveryBatchV4(observer))assert.ok(readOriginalMetaMorphoGraphBatchRoutersV4(observer,expected).includes(router),'EVM_GRAPH_ORIGINAL_BATCH_ROUTER');
     assert.equal(router.protocolKind, isOwnedMorphoBluePositionGraphDeliveryObserverV1(observer) ? 'MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY' : isOwnedUniswapGraphDeliveryObserverV1(observer)
       ? 'UNISWAP_V3_EXACT_OUTPUT_SINGLE' : isOwnedAaveStaticGraphDeliveryObserverV1(observer) ? 'AAVE_V3_STATIC_EXACT_SHARE_MINT' : 'METAMORPHO_V1_EXACT_SHARE_MINT', 'EVM_GRAPH_FIXED_PROTOCOL');
   } else assertOwnedEvmVaultRouter(runtime, system, router);
@@ -54,5 +55,6 @@ export function assertOwnedEvmGraphDeliveryDescriptorV1(runtime, system, router,
     assert.equal(isExternalGraphDescriptorV1(descriptor), false, 'EVM_GRAPH_ORIGINAL_VAULT_DESCRIPTOR');
     assert.deepEqual(evmGraphDeliveryTermsV1(descriptor).identity, router.identity, 'EVM_GRAPH_ORIGINAL_VAULT_IDENTITY');
   }
-  assert.deepEqual(observer.identity, router.identity, 'EVM_GRAPH_ORIGINAL_OBSERVER_ROUTER');
+  if(isOwnedMetaMorphoGraphDeliveryBatchV4(observer))assert.ok(readOriginalMetaMorphoGraphBatchRoutersV4(observer,{runtime,system,poolIndex:router.destinationPoolIndex}).includes(router),'EVM_GRAPH_ORIGINAL_BATCH_ROUTER');
+  else assert.deepEqual(observer.identity, router.identity, 'EVM_GRAPH_ORIGINAL_OBSERVER_ROUTER');
 }

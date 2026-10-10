@@ -12,6 +12,7 @@ import { signature as lowSignature } from '../../../../../engine/src/notes/priva
 import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { decodeCanonicalEvmTransaction } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {isOwnedMetaMorphoGraphDeliveryBatchV4} from '../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { assertOwnedEvmGraphDeliveryObserverV1, assertOwnedEvmGraphDeliveryFactsV1 }
   from '../../../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
 import { nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
@@ -24,7 +25,7 @@ import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/co
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
-import { createNativeFactsSigner, createNativeFactsPeer, createNativeFactsInventory,
+import { createOriginalMetaMorphoBatchFactsPeerV4,createOriginalMetaMorphoBatchFactsInventoryV4,createNativeFactsSigner, createNativeFactsPeer, createNativeFactsInventory,
   createNativeFactsCollector } from '../../../chains/shared/dispatch/native-facts-peer.mjs';
 import { nativeRuleCommitment, nativeFactsDigest, encodeNativeFacts, FACTS_SCHEMA } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
 import { encodeFlatNativeHealth, flatNativeHealthDigest, assertFlatNativeHealth } from '../../../chains/shared/health/native-health.mjs';
@@ -566,8 +567,8 @@ function createFlatOperator(input, custody, recovered = null) {
           // Construction validates the rule's exact SHA path against the
           // already authenticated registry. No collector/caller truth is used.
           collectors[family] = createNativeFactsCollector({ policy: policies[family], registry: system.registry, rulePath: paths[family], clock });
-          inventories[family] = { revision: '0', state: createNativeFactsInventory({ policy: policies[family],
-            signerIndex: String(signerIndex), publicKey, recipients: recipients[family] }) };
+          inventories[family] = { revision: '0', state: (family==='3'&&isOwnedMetaMorphoGraphDeliveryBatchV4(evmDelivery)?createOriginalMetaMorphoBatchFactsInventoryV4:createNativeFactsInventory)({ policy: policies[family],
+            signerIndex: String(signerIndex), publicKey, recipients: recipients[family] },...(family==='3'&&isOwnedMetaMorphoGraphDeliveryBatchV4(evmDelivery)?[evmDelivery]:[])) };
         }
         const binding = { hub: system.hub.address,
           hubDomain: system.hubDomain, registryCommitment: system.registryCommitment, ledgerNamespace: system.ledgerNamespace,
@@ -596,10 +597,10 @@ function createFlatOperator(input, custody, recovered = null) {
         }
         await retainCurrent();
         await assertVault(); peers = {};
-        for (const family of families) peers[family] = await createNativeFactsPeer({ policy: policies[family], signerIndex: String(signerIndex),
+        for (const family of families) peers[family] = await (family==='3'&&isOwnedMetaMorphoGraphDeliveryBatchV4(evmDelivery)?createOriginalMetaMorphoBatchFactsPeerV4:createNativeFactsPeer)({ policy: policies[family], signerIndex: String(signerIndex),
           recipients: recipients[family], signer: custody ? createCombinedFactsSigner(custody, 'graph', policies[family])
             : createNativeFactsSigner({ privateKey: key.privateKey, policy: policies[family] }),
-          reader: { observe: request => wrappedObservation(family, request) }, clock, store: store(family) });
+          reader: { observe: request => wrappedObservation(family, request) }, clock, store: store(family) },...(family==='3'&&isOwnedMetaMorphoGraphDeliveryBatchV4(evmDelivery)?[evmDelivery]:[]));
         await current(); currentViews[0] = activeView;
         return freeze({ profile: LOCAL_FLAT_OPERATOR_PROFILE, publicKey, signerIndex,
           registryCommitment: system.registryCommitment, inventoryPath });

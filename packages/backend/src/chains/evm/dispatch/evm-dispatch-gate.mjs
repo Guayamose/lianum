@@ -4,6 +4,7 @@
  * State, health, journal and dedicated provider signer are trusted bootstrap
  * capabilities held by the private provider, never public execute options. */
 import assert from 'node:assert/strict';
+import {isOwnedMetaMorphoGraphDeliveryBatchV4,readOriginalMetaMorphoGraphBatchFactsBindingsV4} from '../vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { createHash } from 'node:crypto';
 import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mjs';
 import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
@@ -51,7 +52,8 @@ export async function createOwnedEvmVaultDispatchGate(configuration) {
   equal(binding.registry, system.registry);
   assert.equal(observer.binding.genesis, native.genesis); assert.equal(observer.binding.asset, native.asset);
   assert.equal(observer.binding.sourceEndpoint, native.sourceEndpoint);
-  assert.equal(observer.binding.destinationEndpoint, native.destinationEndpoint);
+  if(isOwnedMetaMorphoGraphDeliveryBatchV4(observer))assert.ok(readOriginalMetaMorphoGraphBatchFactsBindingsV4(observer).some(binding=>binding.recipientIndex===String(router.destinationPoolIndex)&&binding.sourceEndpoint===native.sourceEndpoint&&binding.destinationEndpoint===native.destinationEndpoint),'EVM_GRAPH_ORIGINAL_BATCH_ENDPOINT');
+  else assert.equal(observer.binding.destinationEndpoint, native.destinationEndpoint);
   const intent = frozenInput({ descriptor: native.descriptor,
     receiptKeyCommitment: binding.quote.action.receiptKeyCommitment, proof: native.depositProof });
   const calldata = encodeEvmGraphDeliveryCallV1(intent), calldataSHA256 = sha(Buffer.from(calldata.slice(2), 'hex'));
