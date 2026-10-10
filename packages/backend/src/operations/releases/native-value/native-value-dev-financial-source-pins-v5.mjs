@@ -32,7 +32,13 @@ const FIXED=Object.freeze(['integration/run-device-uniswap-v3-private-note-v1.mj
  'wallet-platform/modules/ops/native-device-local-restart-v1.mjs',
  'wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs',
  'wallet-platform/modules/operations/local/device-external-flat-ordered-local-operator-v1.mjs']);
-const excluded=join(ROOT,'wallet-platform/modules/ops/native-value-dev-release-v5.mjs');
+// These prospective Paged catalogues themselves pin the published release.
+// Their original entries fix the anchors separately before CREATE/FUND; keeping
+// them in this release's data would require mutually self-hashing catalogues.
+// The original full walker and its compiler provenance remain unchanged.
+const excluded=new Set(['wallet-platform/modules/ops/native-value-dev-release-v5.mjs',
+ 'wallet-platform/modules/operations/local/funded-graph-paged-device-graph-source-v3.mjs',
+ 'wallet-platform/modules/operations/local/funded-paged-native-source-v3.mjs'].map(name=>join(ROOT,name)));
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function pathFor(name){
  assert.ok(typeof name==='string'&&name&&!name.startsWith('/')&&!name.split('/').some(v=>!v||v==='.'||v==='..'),'NV5_FINANCIAL_FIXED_PATH');
@@ -53,9 +59,9 @@ function bytes(path){
 }
 export function nativeValueDevFinancialSourcePinsV5(){
  assert.equal(arguments.length,0,'NV5_FINANCIAL_NO_OPTIONS');const original=nativeValueDevHostSourcePinsV5(),files=new Map(),visited=new Set();
- for(const row of original){const path=pathFor(row.path);assert.equal(sha(bytes(path)),row.sha256);assert.equal(files.has(path),false,'NV5_FINANCIAL_SOURCE_ALIAS');files.set(path,row);}
+ for(const row of original){const path=pathFor(row.path);assert.equal(sha(bytes(path)),row.sha256);if(excluded.has(path))continue;assert.equal(files.has(path),false,'NV5_FINANCIAL_SOURCE_ALIAS');files.set(path,row);}
  function visit(path){
-  if(path===excluded||visited.has(path))return;visited.add(path);const value=bytes(path),name=label(path),prior=files.get(path);
+  if(excluded.has(path)||visited.has(path))return;visited.add(path);const value=bytes(path),name=label(path),prior=files.get(path);
   if(prior)assert.equal(prior.sha256,sha(value),'NV5_FINANCIAL_BASE_SOURCE_CHANGED');else files.set(path,{path:name,sha256:sha(value)});
   if(!path.endsWith('.mjs'))return;const source=value.toString('utf8'),imports=new Set();
   for(const match of source.matchAll(/\b(?:import|export)\s+(?:[^;'"\n]*?\s+from\s*)?(['"])([^'"]+)\1/g))imports.add(match[2]);
