@@ -91,7 +91,7 @@ async function rollupClients() {
       Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-arbitrum-nitro-v1.mjs')).href),
         prefix:'ArbitrumNitro',chainId:'42161',profile:'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1'}),
       await (async()=>{const path=join(root,'scripts/development/owned-bsc-original-source-profile-v3.mjs');
-        const pin='148e387794056e19cd6b246c77942fa94bf15bd84906a7dc4172f05155808821';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
+        const pin='054f6d68865314cedec803d9dadb7353a71e0057c687fff0ee08228fd4e966aa';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
         const profile=await import(pathToFileURL(path).href);assert.equal(profile.readOriginalOwnedBscSourceModuleV3(),pin,'OWNED_NATIVE_SOURCE_LOADED_BSC_MODULE_CHANGED');profile.inspectOriginalBscSourcesV3();
         return Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-bsc-posa-v1.mjs')).href),prefix:'BscPoSA',chainId:'714',profile:'OWNED_BSC_POSA_NATIVE_VALUE_714_V3',bsc:true});})()]);
   })();return originalRollupClients;
