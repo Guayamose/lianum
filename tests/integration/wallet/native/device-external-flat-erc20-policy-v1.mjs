@@ -105,6 +105,6 @@ function assertOriginalGraphResult(result,blue){const shares=blue?'100000000':'1
 // A NEW before-birth profile. Root may enable only this exact reviewed literal.
 export const DEVICE_MORPHO_BLUE_GRAPH_PROFILE_V1='device-morpho-blue-private-position-v1';
 export const DEVICE_MORPHO_BLUE_GRAPH_RESULT_V1='LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_RESULT_V1';
-export const DEVICE_MORPHO_BLUE_GRAPH_RELEASE_V1=null;
+export const DEVICE_MORPHO_BLUE_GRAPH_RELEASE_V1=Object.freeze({format:'REVIEWED_ORIGINAL_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_RELEASE_V1',profile:DEVICE_MORPHO_BLUE_GRAPH_PROFILE_V1,localOnly:true,fakeFundsOnly:true,publicNetwork:false,physicalPhone:false,sourceAmountAtomic:'500',shareAmountAtomic:'100000000',underlyingAmountAtomic:'100',originalPrivatePosition:true,originalOrderedObservation:true});
 export function assertDeviceMorphoBlueGraphReleaseV1(){assert.equal(arguments.length,0);assert.deepEqual(DEVICE_MORPHO_BLUE_GRAPH_RELEASE_V1,{format:'REVIEWED_ORIGINAL_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_RELEASE_V1',profile:DEVICE_MORPHO_BLUE_GRAPH_PROFILE_V1,localOnly:true,fakeFundsOnly:true,publicNetwork:false,physicalPhone:false,sourceAmountAtomic:'500',shareAmountAtomic:'100000000',underlyingAmountAtomic:'100',originalPrivatePosition:true,originalOrderedObservation:true},'DEVICE_MORPHO_BLUE_RELEASE_PENDING');}
 export function classifyDeviceMorphoBlueGraphProcessV1(argv,executable,parent){assert.equal(arguments.length,3);return classifyDeviceExternalFlatGraphProcessV1(argv,executable,parent);}
