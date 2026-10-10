@@ -27,13 +27,13 @@ class Key{static async import(bytes){live();assert.equal(bytes.length,32);const 
 class Sealed{constructor(bytes){this.bytes=Buffer.from(bytes);}static fromCombined(raw,options){assert.deepEqual(options,{ivLength:12,tagLength:16});return new Sealed(Buffer.from(raw,'base64'));}
  async combined(encoding){assert.equal(encoding,'base64');return this.bytes.toString('base64');}}
 export const HostCrypto=Object.freeze({CryptoDigestAlgorithm:Object.freeze({SHA256:'SHA-256'}),AESEncryptionKey:Key,AESSealedData:Sealed,
- getRandomBytesAsync:async width=>{live();assert.equal(width,32);return Uint8Array.from(randomBytes(width));},
+ getRandomBytesAsync:async width=>{live();assert.ok(width===32||width===12);return Uint8Array.from(randomBytes(width));},
  digest:async(algorithm,bytes)=>{live();assert.equal(algorithm,'SHA-256');
   assert.ok(bytes instanceof ArrayBuffer||ArrayBuffer.isView(bytes));
   const raw=ArrayBuffer.isView(bytes)?Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength):Buffer.from(bytes);
   return Uint8Array.from(createHash('sha256').update(raw).digest()).buffer;},
- aesEncryptAsync:async(clear,key,options)=>{live();assert.deepEqual(options.nonce,{length:12});assert.equal(options.tagLength,16);
-  const nonce=randomBytes(12),cipher=createCipheriv('aes-256-gcm',keys.get(key),nonce);cipher.setAAD(Buffer.from(options.additionalData));
+ aesEncryptAsync:async(clear,key,options)=>{live();const explicit=Object.hasOwn(options.nonce,'bytes');if(explicit)assert.ok(options.nonce.bytes instanceof Uint8Array&&options.nonce.bytes.length===12);else assert.deepEqual(options.nonce,{length:12});assert.equal(options.tagLength,16);
+  const nonce=explicit?Buffer.from(options.nonce.bytes):randomBytes(12),cipher=createCipheriv('aes-256-gcm',keys.get(key),nonce);cipher.setAAD(Buffer.from(options.additionalData));
   return new Sealed(Buffer.concat([nonce,cipher.update(clear),cipher.final(),cipher.getAuthTag()]));},
  aesDecryptAsync:async(sealed,key,options)=>{live();assert.equal(options.output,'bytes');const b=sealed.bytes,d=createDecipheriv('aes-256-gcm',keys.get(key),b.subarray(0,12));
   d.setAAD(Buffer.from(options.additionalData));d.setAuthTag(b.subarray(-16));return Uint8Array.from(Buffer.concat([d.update(b.subarray(12,-16)),d.final()]));},

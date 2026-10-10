@@ -30,11 +30,11 @@ export async function captureAndLaunchNativeDeviceNoteEconomicSuccessorV1(contex
 }
 async function captureOriginalSuccessor(context,nativeNote){
  assert.equal(context.deviceEconomicRecovery,true);context.active();
- const WORKER=join(ROOT,context.deviceDurableSQL?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs');
+ const WORKER=join(ROOT,context.devicePrivateNative?'integration/run-native-value-private-durable-note-successor-v2.mjs':context.deviceDurableSQL?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs');
  const {runtime,nativeRuntime,bootstrap,system,owner,account,nativeExecution,joined,actor,originalTransport,originalPrepared,economicLifetime}=context;
- assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,context.deviceDurableSQL?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
+ assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,context.devicePrivateNative?'integration/native-value-private-durable-note-flow-v2.mjs':context.deviceDurableSQL?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
  const sourceSHA256=nativeValueOriginalRecoverySourceV1(runtime,system),identity={directory:context.privateDirectory,runId:context.runId,sourceSHA256,deadlineMs:context.deadlineMs};
- assert.equal(identity.directory,join(ROOT,context.deviceDurableSQL?'.local/native-value-durable-economic-note-recovery-v1':nativeNote?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
+ assert.equal(identity.directory,join(ROOT,context.devicePrivateNative?'.local/native-value-private-durable-note-recovery-v2':context.deviceDurableSQL?'.local/native-value-durable-economic-note-recovery-v1':nativeNote?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
  // The recipient child is an original invoice producer, not an issuer section.
  // Stop it explicitly before capture while preserving its original invoice.
  const recipient=await originalPrepared.recipient.close();assert.equal(recipient.exited,true);assert.deepEqual(recipient.exit,{code:0,signal:null});

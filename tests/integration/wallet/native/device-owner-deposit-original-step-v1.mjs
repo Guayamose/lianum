@@ -13,13 +13,13 @@ import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescripto
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedDeviceDepositTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import { originalAccountAccessMessageV2 } from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import { deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 }
-  from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 }
+  from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 import { verifyPrivateNotePath } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import { nullifier } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
-import {installOriginalNativeDeviceDurableLocalServiceV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs';
+import {installOriginalNativeDeviceDurableLocalServiceV1,installOriginalPrivateNativeNoteDurableServiceV2} from '../../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs';
 import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
 import { runDeviceOwnerReservationContinuationV1 } from './device-owner-reservation-original-continuation-v1.mjs';
 import { openDeviceReservationHostVaultV1 } from './device-owner-reservation-host-vault-v1.mjs';
@@ -37,6 +37,7 @@ function exactTlsFetch(descriptor, certificate, evidence) {
     assert.equal(new URL(target).origin, descriptor.origin);
     const path = new URL(target).pathname, headers = { ...options.headers };
     if (options.body !== undefined) headers['Content-Length'] = Buffer.byteLength(options.body);
+    if(evidence.privateNative&&['/v1/mobile/device-deposit/private-jobs','/v1/mobile/device-exit/private-jobs'].includes(path)){assert.ok(typeof options.body==='string'&&Buffer.byteLength(options.body)<=(path.includes('device-exit')?32768:16384));const packet=JSON.parse(options.body);assert.equal(packet.witness?.type,'flat-private-proof-inputs');assert.equal(packet.witness.profile,'ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1');assert.equal(typeof packet.witness.ciphertext,'string');assert.ok(packet.witness.ciphertext.length>0&&packet.witness.ciphertext.length<=16384);assert.equal(Object.hasOwn(packet.witness,'inputs'),false);for(const key of ['rho','secret','key_x','key_y','signature','siblings'])assert.equal(Object.hasOwn(packet.witness,key),false);evidence.privatePosts[path]=(evidence.privatePosts[path]??0)+1;}
     if (options.method === 'POST') evidence.posts[path] = (evidence.posts[path] ?? 0) + 1;
     const discardFund = evidence.dropFund && path === '/v1/mobile/device-deposit/fund';
     const discardU = evidence.dropU && path === '/v1/mobile/device-reservation/jobs';
@@ -119,9 +120,9 @@ async function runOriginalStepV1(context, reservationMode) {
     if(context.deviceDurableSQL){
       context.durablePrepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap:context.bootstrap});
       let durableProvidersClosing;context.deferDeviceProviderCleanup(()=>durableProvidersClosing??=(async()=>{if(context.economicLifetime.captured)return;const stopped=await context.durablePrepared.recipient.close();assert.equal(stopped.exited,true);assert.deepEqual(stopped.exit,{code:0,signal:null});result.cleanup.closedDeviceRecipient=true;if(!context.durablePrepared.custody.report().closed)await context.durablePrepared.custody.close();assert.equal(context.durablePrepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;})());
-      context.durableInstalled=await installOriginalNativeDeviceDurableLocalServiceV1({runtime,system,owner,account,nativeExecution:context.nativeExecution,session:joined.session,approval:preparation.approval,provider:context.durablePrepared,
+      context.durableInstalled=await(context.devicePrivateNative?installOriginalPrivateNativeNoteDurableServiceV2:installOriginalNativeDeviceDurableLocalServiceV1)({runtime,system,owner,account,nativeExecution:context.nativeExecution,session:joined.session,approval:preparation.approval,provider:context.durablePrepared,
         configuration:{origin,devicePublicKey:devicePublicKey(deviceKey),tls:{certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')}},pool:context.durableInfrastructure.pool,privacyKey:context.durableInfrastructure.privacyKey});
-      ({actor,depositBridge:bridge,transport:server}=context.durableInstalled);Object.assign(result.durableOriginalAdmission,{beforeD26:true,sameActor:true,sameThreeBridges:true});
+      ({actor,depositBridge:bridge,transport:server}=context.durableInstalled);Object.assign(result.durableOriginalAdmission,{beforeD26:true,sameActor:true,sameThreeBridges:true});if(context.devicePrivateNative)result.nativePrivateIntake={installedBeforeFunding:true,d26EncryptedHttp:false,d26PrivateConsent:false,w39ChangeEncryptedHttp:false,w39RecoveryEncryptedHttp:false,samePrivateJournalAfterReopen:false,originalNativeThreads:12,originalPermissionMs:15000,nativeRecipientToWorkerEncrypted:false,chainRpcAnonymityEstablished:false,operatorIndependenceEstablished:false};
     }else{
       actor = await createPairedOriginalAccountActorV2({ session: joined.session, approval: preparation.approval,owner,origin,devicePublicKey:devicePublicKey(deviceKey) });
       bridge = await createDeviceOwnerDepositBridgeV1({actor,account,owner,runtime,system,poolIndex:0});
@@ -139,7 +140,7 @@ async function runOriginalStepV1(context, reservationMode) {
       assert.equal(realpathSync(tlsDirectory), tlsDirectory); rmSync(tlsDirectory, { recursive: true });
       assert.equal(existsSync(tlsDirectory), false); result.cleanup.syntheticDeviceTlsMaterialRemoved = true;
     } }; pairs.push(ownedPair);
-    const transport = { posts: {}, responses: [], dropFund: false, fundReplyDiscarded: false };
+    const transport = { posts: {}, responses: [], dropFund: false, fundReplyDiscarded: false,...(context.devicePrivateNative?{privateNative:true,privatePosts:{}}:{}) };
     const fixedFetch = exactTlsFetch(descriptor, readFileSync(certificatePath, 'utf8'), transport);
     const api = createOriginalAccountApiV2({ descriptor, fetchImpl: fixedFetch });
     if (reservationMode) {
@@ -198,11 +199,12 @@ async function runOriginalStepV1(context, reservationMode) {
       assert.equal(sha(localBalanceCommitmentMessageV1(scope, policy, opening)), commitment);
       assert.equal(Object.hasOwn(witness, 'privateKey'), false); assert.equal(Object.hasOwn(witness, 'root'), false);
     }
+    if(context.devicePrivateNative){assert.equal(consent.version,2);assert.equal(consent.privateProof.profile,'ORIGINAL_NATIVE_DEVICE_D26_PRIVATE_TRANSIT_V2');assert.equal(consent.privateProof.recipient.relation,'deposit_balance');assert.equal(consent.privateProof.recipient.role,'owner');result.nativePrivateIntake.d26PrivateConsent=true;}
     const signedProof = { consent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent)), witness };
     await stage('device-original-D26-job-HTTP-UNKNOWN');
-    await assert.rejects(api.deviceDeposit.submit(signedProof), /SERVICE_UNAVAILABLE/);
-    const proofResponse = transport.responses.find(row => row.path.endsWith('/jobs'));
-    assert.equal(proofResponse.status, 504); assert.equal(transport.posts['/v1/mobile/device-deposit/jobs'], 1);
+    if(context.devicePrivateNative){try{const proved=await api.deviceDeposit.submit(signedProof);assert.equal(proved.jobId,consent.jobId);assert.equal(proved.stage,'PROVED');}catch(error){assert.match(error.message,/SERVICE_UNAVAILABLE/);}}else await assert.rejects(api.deviceDeposit.submit(signedProof), /SERVICE_UNAVAILABLE/);
+    const proofPath=context.devicePrivateNative?'/v1/mobile/device-deposit/private-jobs':'/v1/mobile/device-deposit/jobs',proofResponse = transport.responses.find(row => row.path===proofPath);
+    if(context.devicePrivateNative)assert.ok([200,504].includes(proofResponse.status));else assert.equal(proofResponse.status,504);assert.equal(transport.posts[proofPath],1);if(context.devicePrivateNative){assert.equal(transport.privatePosts[proofPath],1);result.nativePrivateIntake.d26EncryptedHttp=true;}
     // An explicit replay is a negative boundary, never an automatic retry.
     await assert.rejects(api.deviceDeposit.submit(signedProof));
     await proofRetained();
@@ -265,7 +267,7 @@ async function runOriginalStepV1(context, reservationMode) {
     result.deviceNote = { localCommitment: commitment, observation, receipt, originalSignedWireCount: transactions.length,
       linuxNoteStatus: linux.notes.source.status, linuxNoteObservedUnspent: linux.notes.source.observedUnspent,
       poolBacking: final.ledger.publicState, proofHttp: { status: proofResponse.status, posts: 1,
-        clientReportedUnknown: true, automaticRetry: false, explicitRejectedReplayPosts: transport.posts['/v1/mobile/device-deposit/jobs'] - 1 },
+        clientReportedUnknown: proofResponse.status===504, automaticRetry: false, explicitRejectedReplayPosts: transport.posts[proofPath] - 1 },
       fundHttp: { status: transport.fundHttpStatus, originalWorkCompleted: true, actualAdmissionReplyDiscarded: transport.fundReplyDiscarded, posts: 1,
         clientReportedUnknown: true, automaticRetry: false, explicitRejectedReplayPosts: transport.posts['/v1/mobile/device-deposit/fund'] - 1 },
       freshObservationSameOriginalWire: true, proveReplayRejected: true, fundReplayRejected: true,

@@ -106,6 +106,8 @@ export async function installOriginalNativeDeviceDurableLocalServiceV1(input) {
 /** Separate fixed private installation; no mode field enters configuration. */
 export function installOriginalPrivateNativeDeviceLocalServiceV2(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,false,true);}
 export function installOriginalPrivateNativeNoteServiceV2(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,false,true,true);}
+/** Separate fixed durable/private realm; dispatcher verifies original bridge brands. */
+export function installOriginalPrivateNativeNoteDurableServiceV2(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,true,true,true);}
 async function installOriginalNativeDeviceService(input,durable,privateD26=false,privateW39=false) {
   exactRecord(input, ['runtime', 'system', 'owner', 'account', 'nativeExecution', 'session', 'approval', 'provider', 'configuration',
     ...(durable ? ['pool', 'privacyKey'] : [])]);
@@ -164,6 +166,7 @@ export function createOriginalNativeDeviceLiveArmedRecoveryOperatorV1(input){ass
 /** New original producer fixes private intake BEFORE account admission/funds. */
 export function createOriginalPrivateNativeDeviceLocalOperatorV2(input){assert.equal(arguments.length,1);return createLocalProduct(input,false,false,null,true);}
 export function createOriginalPrivateNativeNoteOperatorV2(input){assert.equal(arguments.length,1);return createLocalProduct(input,false,false,null,true,true);}
+export function createOriginalPrivateNativeNoteDurableOperatorV2(input){assert.equal(arguments.length,1);exactRecord(input,['origin','devicePublicKey','tls','pool','privacyKey']);return createLocalProduct({origin:input.origin,devicePublicKey:input.devicePublicKey,tls:input.tls},false,false,{pool:input.pool,privacyKey:input.privacyKey},true,true);}
 async function createLocalProduct(input,liveObserved,liveArmed=false,durable=null,privateD26=false,privateW39=false) {
   assert.ok(arguments.length>=2&&arguments.length<=6); const selected = configuration(input); // detach before first await
   const restartDeadlineMs = Date.now() + 90 * 60 * 1000 - 15000;
@@ -267,7 +270,7 @@ async function createLocalProduct(input,liveObserved,liveArmed=false,durable=nul
       : await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
     if(!liveObserved) restart = await(durable?prepareOriginalNativeDeviceDurableLocalRestartV1:prepareOriginalNativeDeviceLocalRestartV1)({ runtime, nativeRuntime, bootstrap, system, owner,
       nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS
-    installed = await (privateW39?installOriginalPrivateNativeNoteServiceV2:privateD26?installOriginalPrivateNativeDeviceLocalServiceV2:durable?installOriginalNativeDeviceDurableLocalServiceV1:installOriginalNativeDeviceLocalServiceV1)({
+    installed = await (privateW39?(durable?installOriginalPrivateNativeNoteDurableServiceV2:installOriginalPrivateNativeNoteServiceV2):privateD26?installOriginalPrivateNativeDeviceLocalServiceV2:durable?installOriginalNativeDeviceDurableLocalServiceV1:installOriginalNativeDeviceLocalServiceV1)({
       runtime, system, owner, account, nativeExecution, session: joined.session, approval, provider, configuration: selected,
       ...(durable?durable:{}) });
     if(!liveObserved)(durable?bindOriginalNativeDeviceDurableLocalRestartV1:bindOriginalNativeDeviceLocalRestartV1)(restart, installed);
@@ -282,7 +285,7 @@ async function createLocalProduct(input,liveObserved,liveArmed=false,durable=nul
       localFakeValues:true,automaticFunding:false,automaticNativeDelivery:false,originalArmRetainedForNewProcess:true,abruptCrashRecoveryEstablished:false,cloudAuthority:false,capture,close});
     if(liveObserved)return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_LIVE_RECOVERY_OPERATOR_V1',origin:installed.transport.url,descriptor:installed.descriptor,
       localFakeValues:true,automaticFunding:false,automaticNativeDelivery:false,postCutoffRestartEstablished:false,cloudAuthority:false,close});
-    if(durable)return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1',origin:installed.transport.url,
+    if(durable)return Object.freeze({profile:privateW39?'ORIGINAL_NATIVE_DEVICE_PRIVATE_DURABLE_NOTE_OPERATOR_V2':'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1',origin:installed.transport.url,
       descriptor:installed.descriptor,localFakeValues:true,automaticFunding:false,durableOriginalAdmission:true,
       plannedOriginalFReopen:true,newProcessRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,cloudAuthority:false,capture,close});
     return Object.freeze({ profile:privateW39?'ORIGINAL_NATIVE_DEVICE_PRIVATE_NOTE_OPERATOR_V2':privateD26?'ORIGINAL_NATIVE_DEVICE_PRIVATE_DEPOSIT_OPERATOR_V2':ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,

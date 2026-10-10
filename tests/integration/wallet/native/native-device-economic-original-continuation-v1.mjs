@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
 import {deviceExecutionConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
-import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import {deviceExitConsentEitherMessageV2 as deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {join} from 'node:path';
@@ -107,13 +107,14 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
    await stage('new-process-original-'+noteRole+'-W39-same-device-opening');const subject=await vault.readDeviceExitSubject(noteRole,bare(context.runtime.accounts[3]));
    assert.equal(subject.parentJobId,jobId);assert.equal(subject.amount,amount);assert.equal(subject.commitment,result.deviceCustody[noteRole+'Commitment']);
    const quoteHandle=await exitApi.preparation({...await access(exitApi),...Object.fromEntries(['parentJobId','noteRole','rootId','noteRevision','nullifier','recipient'].map(name=>[name,subject[name]]))});
-   const quote=host.exit.readDeviceExitQuoteV1(quoteHandle);assert.equal(quote.nativeBindingSHA256,observed.nativeBindingSHA256);
+   const quote=host.exit.readDeviceExitQuoteV1(quoteHandle);assert.equal(quote.nativeBindingSHA256,observed.nativeBindingSHA256);if(context.devicePrivateNative){assert.equal(quote.version,2);assert.equal(quote.profile,'LIANUM_DEVICE_ORIGINAL_W39_QUOTE_PRIVATE_V2');result.nativePrivateIntake.samePrivateJournalAfterReopen=true;}
    pendingExit=await vault.createDeviceExitProofRequest(quoteHandle);const signedIntent=await vault.readDeviceExitIntent(noteRole);
    assert.equal(signedIntent.phase,'SIGNED');assert.equal(signedIntent.jobId,pendingExit.jobId);const beforeW39=host.evidence();assert.ok(beforeW39.maximumStoredValueBytes<=2048);
    const prove=await exitApi.challengeJob({...await access(exitApi),quoteId:pendingExit.quoteId,jobId:pendingExit.jobId,witnessSHA256:pendingExit.witnessSHA256});
+   if(context.devicePrivateNative){assert.equal(prove.version,2);assert.equal(prove.privateProof.profile,'ORIGINAL_NATIVE_DEVICE_W39_PRIVATE_TRANSIT_V2');assert.equal(prove.privateProof.recipient.relation,'withdraw_balance');assert.equal(prove.privateProof.recipient.role,'owner');assert.deepEqual(prove.privateProof.path,quote.path);}
    witness=await vault.bindDeviceExitProofRequest(pendingExit,prove);assert.equal(Object.hasOwn(witness,'privateKey'),false);assert.equal(Object.hasOwn(witness,'root'),true);
-   const proofSubmission={...exitSigned(prove),witness};await assert.rejects(exitApi.submit(proofSubmission),/SERVICE_UNAVAILABLE/);
-   const proofHttp=transport.responses.filter(row=>row.path==='/v1/mobile/device-exit/jobs');assert.equal(proofHttp.length,exits.length+1);assert.equal(proofHttp.at(-1).status,504);
+   const proofSubmission={...exitSigned(prove),witness};if(context.devicePrivateNative){try{const proved=await exitApi.submit(proofSubmission);assert.equal(proved.jobId,prove.jobId);assert.equal(proved.stage,'PROVED');}catch(error){assert.match(error.message,/SERVICE_UNAVAILABLE/);}}else await assert.rejects(exitApi.submit(proofSubmission),/SERVICE_UNAVAILABLE/);
+   const proofPath=context.devicePrivateNative?'/v1/mobile/device-exit/private-jobs':'/v1/mobile/device-exit/jobs',proofHttp=transport.responses.filter(row=>row.path===proofPath);if(context.devicePrivateNative){assert.equal(transport.privatePosts[proofPath],exits.length+1);result.nativePrivateIntake[noteRole==='change'?'w39ChangeEncryptedHttp':'w39RecoveryEncryptedHttp']=true;}assert.equal(proofHttp.length,exits.length+1);if(context.devicePrivateNative)assert.ok([200,504].includes(proofHttp.at(-1).status));else assert.equal(proofHttp.at(-1).status,504);
    await successor.wait();const proofAudit=await audit(),originalProof=proofAudit.exits.find(row=>row.status.jobId===prove.jobId);
    assert.ok(originalProof);await context.onProof({label:originalProof.label,relation:originalProof.relation,proof:originalProof.proof});
    assert.equal(result.proofs.length,8+exits.length);pendingExit.close();wipeDeviceExitWitnessV1(witness);witness=null;

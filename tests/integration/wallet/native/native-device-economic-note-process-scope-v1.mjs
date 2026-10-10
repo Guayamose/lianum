@@ -86,3 +86,23 @@ export function classifyNativeDurableNoteRestartProcessV1(argv,executable,parent
  if(parent&&(fixedNode(parent.argv,NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1)||fixedNode(parent.argv,NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1)))return unexpected();
  const selected=main?{...parent,argv:[process.execPath,NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1]}:next?{...parent,argv:[process.execPath,NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1]}:parent;
  return classifyNativeEconomicNoteRestartProcessV1(argv,executable,selected);}
+
+/** Separate private/durable profile labels use the actual physical argv and
+ * real parent. No argv alias or legacy process brand is manufactured. */
+export const NATIVE_PRIVATE_DURABLE_NOTE_MAIN_V2=join(ROOT,'integration/native-value-private-durable-note-flow-v2.mjs');
+export const NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2=join(ROOT,'integration/run-native-value-private-durable-note-successor-v2.mjs');
+const PRIVATE_NATIVE_RECIPIENTS_V2=Object.freeze([
+ join(ROOT,'proof-workers/native-device-private-deposit-recipient-v2.mjs'),
+ join(ROOT,'proof-workers/native-device-private-exit-recipient-v2.mjs')]);
+export function classifyNativePrivateDurableNoteRestartProcessV2(argv,executable,parent=null){
+ assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
+ const main=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_DURABLE_NOTE_MAIN_V2)),next=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2));
+ if(argv.includes(NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2))return executable===process.execPath&&main&&fixedNode(argv,NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2)?{role:'native-economic-successor-role',proofWorker:false}:unexpected();
+ const recipient=PRIVATE_NATIVE_RECIPIENTS_V2.find(path=>argv.includes(path));
+ if(recipient||argv.some(part=>typeof part==='string'&&PRIVATE_NATIVE_RECIPIENTS_V2.some(path=>basename(part)===basename(path))))
+  return recipient&&executable===process.execPath&&(main||next)&&fixedNode(argv,recipient)?{role:'native-private-note-recipient',proofWorker:false}:unexpected();
+ if(executable===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1||argv[0]===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1)
+  return executable===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1&&(main||next)&&originalAnvilArguments(argv,next)?{role:'evm-runtime',proofWorker:false}:unexpected();
+ if(basename(executable??'')==='anvil'||typeof argv[0]==='string'&&basename(argv[0])==='anvil')return unexpected();
+ return null;
+}

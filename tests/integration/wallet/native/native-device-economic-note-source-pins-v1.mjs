@@ -77,3 +77,35 @@ async function openDurableInfrastructure(reopened,expected){const read=readDurab
  }catch(error){await pool.end().catch(()=>{});throw error;}finally{read.value.databaseURL=null;read.value.privacyKey=null;}}
 export function openNativeDeviceDurableAcceptanceInfrastructureV1(){assert.equal(arguments.length,0);return openDurableInfrastructure(false,null);}
 export function reopenNativeDeviceDurableAcceptanceInfrastructureV1(expected){assert.equal(arguments.length,1);return openDurableInfrastructure(true,expected);}
+
+// Actual fixed producers, recipient processes and platform crypto for this new
+// profile are pinned before funding and again after the same ordered reopen.
+const PRIVATE_DURABLE_FIXED_V2=Object.freeze([
+ 'integration/native-device-private-durable-note-policy-v2.mjs',
+ 'integration/native-value-private-durable-note-flow-v2.mjs',
+ 'integration/run-native-value-private-durable-note-recovery-v2.mjs',
+ 'integration/run-native-value-private-durable-note-successor-v2.mjs',
+ 'integration/native-device-economic-original-continuation-v1.mjs',
+ 'integration/device-owner-reservation-host-vault-v1.mjs',
+ 'proof-workers/native-device-private-deposit-client-v2.mjs',
+ 'proof-workers/native-device-private-deposit-recipient-v2.mjs',
+ 'proof-workers/private-native-device-deposit-input-v2.mjs',
+ 'proof-workers/native-device-private-exit-client-v2.mjs',
+ 'proof-workers/native-device-private-exit-recipient-v2.mjs',
+ 'proof-workers/private-native-device-exit-input-v2.mjs',
+ 'proof-workers/private-proof-transit-v1.mjs',
+ 'wallet-platform/modules/global-state/native-value-account-authority-v2.mjs',
+ 'wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs',
+ 'wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs']);
+const PRIVATE_MOBILE_FIXED_V2=Object.freeze([
+ 'src/api/original-account-api-v2.mjs','src/api/native-private-deposit-transit-v2.mjs',
+ 'src/api/native-private-exit-transit-v2.mjs','src/api/native-private-crypto-provider-v2.ts',
+ 'src/custody/local-root-note-vault-v1.ts']);
+const PRIVATE_PROTOCOL_FIXED_V2=Object.freeze(['device-native-private-deposit-v2.mjs','device-native-private-exit-v2.mjs']);
+export function nativeDevicePrivateDurableNoteSourcePinsV2(){assert.equal(arguments.length,0);
+ const mobile=join(resolve(FLAT,'../../..'),'apps/mobile'),protocol=resolve(FLAT,'../mobile-protocol/src');
+ return{...nativeDeviceDurableEconomicNoteSourcePinsV1(),format:'LIANUM_NATIVE_PRIVATE_DURABLE_NOTE_SOURCE_CAPSULE_V2',
+  privateDurableRunner:PRIVATE_DURABLE_FIXED_V2.map(n=>durableSourcePin(n,join(ROOT,n))),
+  privateMobile:PRIVATE_MOBILE_FIXED_V2.map(n=>durableSourcePin('mobile-app/'+n,join(mobile,n))),
+  privateProtocol:PRIVATE_PROTOCOL_FIXED_V2.map(n=>durableSourcePin('mobile-protocol/src/'+n,join(protocol,n)))};
+}

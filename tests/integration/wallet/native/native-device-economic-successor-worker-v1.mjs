@@ -1,3 +1,5 @@
+import{isOriginalNativePrivateDepositBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import{isOriginalNativePrivateExecutionBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 /** Fixed causal successor of the ORIGINAL planned F recovery profile.
  * Only bounded private control IPC (OPEN/WAIT/AUDIT/CLOSE). Economic requests
  * use existing signed HTTPS routes. No device root/key enters this worker. */
@@ -21,22 +23,23 @@ let launched=false;
 export function runNativeDeviceEconomicSuccessorV1(){assert.equal(arguments.length,0);return runOriginalSuccessor(false);}
 export function runNativeDeviceNoteEconomicSuccessorV1(){assert.equal(arguments.length,0);return runOriginalSuccessor(true);}
 export function runNativeDeviceDurableNoteEconomicSuccessorV1(){assert.equal(arguments.length,0);return runOriginalSuccessor(true,true);}
-function runOriginalSuccessor(nativeNote,durable=false){
+export function runNativePrivateDurableNoteEconomicSuccessorV2(){assert.equal(arguments.length,0);return runOriginalSuccessor(true,true,true);}
+function runOriginalSuccessor(nativeNote,durable=false,privateNative=false){
 assert.equal(launched,false,'NATIVE_ECONOMIC_SUCCESSOR_SINGLE_ENTRY');launched=true;
-const HERE=join(ROOT,durable?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs'),MAXIMUM_IPC_BYTES=2*1024*1024;
+const HERE=join(ROOT,privateNative?'integration/run-native-value-private-durable-note-successor-v2.mjs':durable?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs'),MAXIMUM_IPC_BYTES=2*1024*1024;
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),HERE);assert.equal(realpathSync(process.cwd()),ROOT);
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
 assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');
 assert.equal(process.connected,true);assert.equal(typeof process.send,'function');
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);
 assert.equal(parent.length,2);assert.equal(parent[0],process.execPath);assert.equal(realpathSync(`/proc/${process.ppid}/exe`),process.execPath);
-assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,durable?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
+assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,privateNative?'integration/native-value-private-durable-note-flow-v2.mjs':durable?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
 let originals,service,identity,durableInfrastructure,sequence=0,opened=false,closing,deadline,acquisition,closeRequested=false,firstErrorRetained=false;
 const send=async value=>{assert.ok(Buffer.byteLength(JSON.stringify(value))<=MAXIMUM_IPC_BYTES,'NATIVE_ECONOMIC_SUCCESSOR_PUBLIC_IPC_LIMIT');
  await new Promise((done,reject)=>process.send(value,error=>error?reject(error):done()));};
 const privateTLS=name=>{const path=join(identity.directory,'device-tls',name);assert.equal(realpathSync(path),path);const before=lstatSync(path);
  assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.uid===process.getuid()&&(before.mode&0o077)===0);assert.ok(before.size<=65536);
- const bytes=readFileSync(path),after=lstatSync(path);for(const key of ['ino','dev','size','mtimeMs','ctimeMs'])assert.equal(before[key],after[key]);return bytes.toString('utf8');};
+ const bytes=readFileSync(path);try{const after=lstatSync(path);for(const key of ['ino','dev','size','mtimeMs','ctimeMs'])assert.equal(before[key],after[key]);return bytes.toString('utf8');}finally{bytes.fill(0);}};
 async function close(){closeRequested=true;if(closing)return closing;closing=(async()=>{clearTimeout(deadline);const failures=[],stopped={};
  if(acquisition)try{await acquisition;}catch{/* Acquisition retains its original error; cleanup still owns every acquired section. */}
  const stop=async(name,work)=>{try{stopped[name]=await work();}catch(error){failures.push(error);}};
@@ -65,6 +68,7 @@ async function handle(packet){assert.ok(Buffer.byteLength(JSON.stringify(packet)
        tls:{certificate:privateTLS('certificate.pem'),privateKey:privateTLS('key.pem')},...(durable?{pool:durableInfrastructure.pool,privacyKey:durableInfrastructure.privacyKey}:{})});return value;})();
    acquisition.catch(()=>{});const value=await acquisition;
    assert.ok(!closeRequested&&Date.now()<identity.deadlineMs,'NATIVE_ECONOMIC_SUCCESSOR_CLOSED_DURING_REOPEN');
+   if(privateNative){assert.equal(isOriginalNativePrivateDepositBridgeV2(service.depositBridge),true);assert.equal(isOriginalNativePrivateExecutionBridgeV2(service.executionBridge),true);}
    await send({sequence,ok:true,value:{receipt:value.receipt,descriptor:service.descriptor,parentJobId:service.parentJobId,depositJobId:service.depositJobId,rootId:service.rootId,...(durable?{durableInfrastructureVerifiedBeforeIssuerOpen:true,durableEffectRows:(await durableInfrastructure.snapshot()).length}:{})}});return;}
  assert.ok(service&&!closeRequested&&!closing&&Date.now()<identity.deadlineMs,'NATIVE_ECONOMIC_SUCCESSOR_ORIGINAL_LIVE');
  if(packet.action==='WAIT'){await awaitDeviceOwnerExecutionOriginalWorkV1(service.executionBridge);await send({sequence,ok:true,value:{originalWorkCompleted:true}});}
