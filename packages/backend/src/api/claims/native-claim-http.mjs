@@ -491,14 +491,14 @@ async function createDeviceRootClaimLocalOperator(config,profile){
   const secret=()=>randomBytes(32).toString('hex'),base=join(ROOT,'.local/device-root-native-claims-v2');
   await mkdir(base,{recursive:true,mode:0o700});const {lstat,realpath}=await import('node:fs/promises'),st=await lstat(base);
   if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==process.getuid()||(st.mode&0o777)!==0o700||await realpath(base)!==base)deviceHttpFail();
-  const directory=await mkdtemp(join(base,family.toLowerCase()+'-'));let runtime,bitcoin,solana,claims,keeper,controller,intake,server,economicState,closing,closed=false;
+  const directory=await mkdtemp(join(base,family.toLowerCase()+'-'));let runtime,bitcoin,solana,claims,keeper,controller,intake,server,economicState,economicJournal,closing,shutdownWork,restartWork,restarted=false,closed=false;
   const operators=[],proofClients={};const live=()=>{if(closed)throw Error('NATIVE_CLAIM_LOCAL_CLOSED');};
-  async function shutdown(){let first;const stop=async work=>{try{await work();}catch(e){first??=e;}};
+  function shutdown(){return shutdownWork??=(async()=>{let first;const stop=async work=>{try{await work();}catch(e){first??=e;}};
     if(server)await stop(()=>server.close());if(economicState)await stop(()=>economicState.close());if(intake)await stop(()=>intake.close());if(controller)await stop(async()=>controller.close());if(keeper)await stop(()=>keeper.close());
     for(const client of Object.values(proofClients))await stop(async()=>{client.stop();client.close();});for(const op of operators)await stop(()=>op.close());
     if(solana)await stop(()=>solana.close());if(bitcoin)await stop(()=>bitcoin.close());if(runtime)await stop(()=>runtime.close());
     if(first)throw first;return{closed:true,originalResourcesStopped:true};
-  }
+  })();}
   try{
     const {createOwnedLocalEvmV2,createOwnedDeviceExternalFlatReceiverV1,assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
     const {createOwnedCombinedBitcoinRuntime}=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
@@ -523,12 +523,22 @@ async function createDeviceRootClaimLocalOperator(config,profile){
     controller=await createNativeClaimController({runtime,claims,observer,operators,quorum,proofClients,keeper,ingressProverIdentity:secret()});
     const index=family==='BTC'?0:1;intake=await controller.bindDeviceRootClaimIntakeV2({claimDomain:claimDomainCommitment(claims.configs[index]),origin:config.origin,devicePublicKey:config.devicePublicKey});live();
     const {createOriginalWalletEconomicStateV1}=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');
-    economicState=await createOriginalWalletEconomicStateV1({catalogues:[],nativeAccounts:[],wrappedPortfolios:[],deviceRootClaimIntakes:[intake],journal:{path:join(directory,'economic-state.vault'),password:secret()}});live();
+    economicJournal={path:join(directory,'economic-state.vault'),password:secret()};economicState=await createOriginalWalletEconomicStateV1({catalogues:[],nativeAccounts:[],wrappedPortfolios:[],deviceRootClaimIntakes:[intake],journal:economicJournal});live();
     server=await startOriginalDeviceRootClaimTlsV2({intake,economicState,tls:config.tls,host:config.host});live();
     const now=await runtime.time(),originalWindow=Object.freeze({relation:'D27',validFrom:String(now),validUntil:String(now+86400n)});live();
     return Object.freeze({originalWindow,profile:'ORIGINAL_DEVICE_ROOT_'+family+'_CLAIM_LOCAL_PRODUCT_'+(profile.endsWith('_EXIT_V3')?'V3':'V2'),descriptor:intake.descriptor,origin:server.origin,
       custody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM',nativeSelfCustody:false,automaticFunding:false,independentOperators:false,
       async economicSnapshot(){if(arguments.length!==0)deviceHttpFail();live();await economicState.observe();live();return economicState.snapshot();},
-      close(){if(arguments.length!==0)deviceHttpFail();closed=true;return closing??=shutdown();}});
+      ...(profile.endsWith('_EXIT_V3')?{restartOriginalObservation(){if(arguments.length!==0)deviceHttpFail();live();if(restarted||restartWork)deviceHttpFail();restarted=true;
+        restartWork=(async()=>{try{
+          await server.close();live();const checkpoint=await economicState.capture();live();
+          const cm=await import('../../claims/controller/controller.mjs'),token=await cm.retainOriginalDeviceRootClaimObservationV3(intake);live();
+          const oldKeeperProcessId=keeper.status().keeperProcessId;controller=await cm.restartNativeClaimController(controller);live();const resumedKeeper=keeper.status();if(!Number.isSafeInteger(oldKeeperProcessId)||oldKeeperProcessId<=0||!Number.isSafeInteger(resumedKeeper.keeperProcessId)||resumedKeeper.keeperProcessId<=0||resumedKeeper.keeperProcessId===oldKeeperProcessId||resumedKeeper.uncertain)deviceHttpFail();intake=await cm.reopenOriginalDeviceRootClaimObservationV3(token,controller);live();
+          const states=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');economicState=await states.openOriginalWalletEconomicStateV1({catalogues:[],nativeAccounts:[],wrappedPortfolios:[],deviceRootClaimIntakes:[intake],journal:economicJournal,checkpoint});live();
+          server=await startOriginalDeviceRootClaimTlsV2({intake,economicState,tls:config.tls,host:config.host});live();
+          return Object.freeze({descriptor:intake.descriptor,observationOnly:true,sameOriginalRuntime:true,keeperChildRestarted:true,economicState:await economicState.snapshot()});
+        }catch(error){closed=true;try{await shutdown();}catch(cleanup){throw new AggregateError([error,cleanup],'CLAIM_DEVICE_ROOT_OBSERVATION_RESTART_AND_CLOSE_FAILED');}throw error;}})();return restartWork;
+      }}:{}),
+      close(){if(arguments.length!==0)deviceHttpFail();closed=true;return closing??=(async()=>{if(restartWork)await restartWork.catch(()=>{});return shutdown();})();}});
   }catch(error){closed=true;try{await shutdown();}catch{}throw error;}
 }

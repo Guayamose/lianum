@@ -238,6 +238,7 @@ export function createRoleProofClient(role) {
     async proveEncryptedDeviceRootClaimV2(packet,binding){
       assert.equal(arguments.length,2,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,role);const p=state.prepared;assert.ok(p?.deviceClaim===true&&p.ready&&p.send,'ROLE_CLIENT_DEVICE_CLAIM_PREPARATION');const v=privateProofAuthorizationBindingV1(binding);assert.equal(v.kind,'ORIGINAL_CONSENT_V1','ROLE_CLIENT_ORIGINAL_CONSENT');const send=p.send;p.send=null;send(packet,v);return p.run;
     },
+    async drainPrivateDeviceRootClaimObservationV3(){assert.equal(arguments.length,0,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,role);const p=state.prepared;assert.ok(p?.deviceClaim===true,'ROLE_CLIENT_DEVICE_CLAIM_PREPARATION');p.send=null;if(state.busy)state.active?.stop('ROLE_CLIENT_OWNER_STOPPED');await p.run.catch(()=>{});assert.equal(state.busy,false,'ROLE_CLIENT_CLOSE_WHILE_BUSY');return{closed:false,inFlight:0,originalPreparationBurned:true};},
     async closePrivateDeviceRootClaimV2(){assert.equal(arguments.length,0,'ROLE_CLIENT_PRIVATE_ARITY');const p=state.prepared;assert.ok(p?.deviceClaim===true,'ROLE_CLIENT_DEVICE_CLAIM_PREPARATION');state.closed=true;if(state.busy)state.active?.stop('ROLE_CLIENT_OWNER_STOPPED');await p.run.catch(()=>{});assert.equal(state.busy,false,'ROLE_CLIENT_CLOSE_WHILE_BUSY');return{closed:true,inFlight:0};},
     async preparePrivateDeviceDepositIntentV2(expectedPublicInputs) {
       assert.equal(arguments.length, 1, 'ROLE_CLIENT_PRIVATE_ARITY');
