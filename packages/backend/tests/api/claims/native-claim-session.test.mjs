@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '../../../src/claims/protocol/framing.mjs';
 import { createClaimRecordStore, openClaimRecordStore } from '../../../src/claims/storage/segmented-record-store.mjs';
-const bindings = new WeakMap(), journals = new WeakMap(), syntheticUnitBindings = new WeakMap();
+const bindings = new WeakMap(), journals = new WeakMap(), syntheticUnitBindings = new WeakMap(), syntheticSplRuntimes = new WeakSet();
 const url = path => new URL(path, import.meta.url).href;
 mock.module(url('../native-claims/controller.mjs'), { exports: {
   ownedNativeClaimControllerBindings(controller) { const value = bindings.get(controller); assert.ok(value, 'TEST_ORIGINAL_CONTROLLER'); return value; },
@@ -22,14 +22,19 @@ mock.module(url('../native-claims/controller-journal.mjs'), { exports: {
 mock.module(url('../native-claims/native-claim-asset-units-v1.mjs'), { exports: {
   originalNativeClaimAssetUnitsV1(runtime, claims, config) {
     assert.equal(arguments.length, 3); assert.equal(syntheticUnitBindings.get(claims), runtime);
-    assert.ok(claims.configs.includes(config)); assert.notEqual(claims.nativeSplCustodyProfile, true);
+    assert.ok(claims.configs.includes(config));
+    if (claims.nativeSplCustodyProfile === true && claims.configs.indexOf(config) === 1) {
+      assert.ok(syntheticSplRuntimes.has(claims.nativeRuntimes[1]), 'TEST_ORIGINAL_SPL_RUNTIME');
+      return Object.freeze({ claimSymbol: 'cUSDC', nativeSymbol: 'USDC', decimals: 6, atomicUnit: 'micro-USDC',
+        nativeAssetKind: 'SOLANA_SPL_USDC', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' });
+    }
     assert.ok(['1', '2'].includes(config.nativeFamily));
     return Object.freeze(config.nativeFamily === '1'
       ? { claimSymbol: 'cBTC', nativeSymbol: 'BTC', decimals: 8, atomicUnit: 'satoshi' }
       : { claimSymbol: 'cSOL', nativeSymbol: 'SOL', decimals: 9, atomicUnit: 'lamport' });
   },
 } });
-const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures, createPairedOriginalNativeClaimReaderV1, createPairedOriginalNativeClaimSpendingReaderV1, assertPairedOriginalNativeClaimReaderV1 } = await import('../../../src/api/claims/native-claim-session.mjs');
+const { createNativeClaimSession, createOriginalNativeSplClaimMobileSessionV1, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures, createPairedOriginalNativeClaimReaderV1, createPairedOriginalNativeClaimSpendingReaderV1, assertPairedOriginalNativeClaimReaderV1 } = await import('../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../src/api/claims/native-claim-http.mjs');
 const hash = value => createHash('sha256').update(value).digest('hex');
 function syntheticConfig(family = '2') {
@@ -73,14 +78,20 @@ test('explicit operator assertion codes survive ERR_ASSERTION without exporting 
   try { assert.equal('private actual value', 'private expected value'); } catch (value) { generated = value; }
   assert.equal(nativeClaimApiErrorCode(generated), 'NATIVE_CLAIM_OPERATION_FAILED');
 });
-async function fixture({ family = '2' } = {}) {
+async function fixture({ family = '2', spl = false } = {}) {
   const config = syntheticConfig(family), domain = claimDomainCommitment(config), claims = { configs: [config] };
+  const foreignConfig = spl ? syntheticConfig('1') : null;
+  if (spl) { claims.configs = [foreignConfig, config]; claims.nativeSplCustodyProfile = true; }
   const directory = await mkdtemp(join(tmpdir(), 'claim-api-'));
   const options = { path: join(directory, 'store.v3'), password: 'synthetic durable claim API password', identity: { role: 'synthetic-api-test' } };
   const initial = { profile: 'SYNTHETIC_API', deposits: [
     { id: intentId, claimDomain: domain, packet: { ownerIdentitySHA256: owner }, status: 'PREPARED' },
     { id: otherIntent, claimDomain: domain, packet: { ownerIdentitySHA256: '55'.repeat(32) }, status: 'PREPARED' },
   ], tickets: [], evm: [], apiAccounts: [], apiAdmissions: [] };
+  if (spl) {
+    initial.deposits.push({ id: 'aa'.repeat(32), claimDomain: claimDomainCommitment(foreignConfig), packet: { ownerIdentitySHA256: 'bb'.repeat(32) }, status: 'ISSUED' });
+    initial.evm.push({ id: 'cc'.repeat(32), domain: claimDomainCommitment(foreignConfig), status: 'SUCCEEDED' });
+  }
   let store = await createClaimRecordStore(options, initial), fault = false, interrupted = false, gate = null;
   let signing = 0, issuance = 0, restartCount = 0, reconciliations = 0, loseIssueReply = false, failRestart = false;
   let journalReads = 0, journalWrites = 0, nextReconcileError = null, burns = 0, nativeSends = 0, losePayoutReply = false;
@@ -112,7 +123,9 @@ async function fixture({ family = '2' } = {}) {
     async payout({ticketId}){await journal.update(data=>{const row=data.tickets.find(row=>row.id===ticketId);if(!row.nativeSent){nativeSends++;row.nativeSent=true;}row.status='DISCHARGED';return data;});if(losePayoutReply){losePayoutReply=false;throw Error('SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE');}return {ticketId,status:'DISCHARGED'};},
     async status() { const data = await journal.read(); return { deposits: data.deposits.map(projection), tickets:data.tickets.map(row=>({ticketId:row.id,status:row.status})) }; },
   };
-  claims.nativeRuntimes=[{roles:{recipient:{endpoint:family==='1'?'0014'+'88'.repeat(20):'88'.repeat(32)}}}];
+  const native = {roles:{recipient:{endpoint:family==='1'?'0014'+'88'.repeat(20):'88'.repeat(32)}},transfers:[]};
+  claims.nativeRuntimes = spl ? [{ roles: { recipient: { endpoint: '0014'+'99'.repeat(20) } }, transfers: [] }, native] : [native];
+  if (spl) syntheticSplRuntimes.add(native);
   const input = { controller, accountId: 'owner_account_01', ownerIdentitySHA256: owner, claimDomain: domain, caller: '0x' + '66'.repeat(20) };
   const runtime = { accounts: [input.caller, '0x' + '77'.repeat(20)] };
   syntheticUnitBindings.set(claims, runtime);
@@ -516,4 +529,76 @@ test('mobile redemption retains before-fund destination and fresh PoP in the sam
   restored.close();await restored.idle();await reopened.close();
   const late=await f.session({accountId:'late_spending_binding_01'});await assert.rejects(createPairedOriginalNativeClaimSpendingReaderV1({session:late,origin,devicePublicKey}),/BEFORE_EFFECTS_REQUIRED/);
  }finally{for(const value of readers)value.close();for(const value of readers)await value.idle();await f.close();}
+});
+
+
+test('original SPL mobile pairing follows confirmed BTC SOURCE without adopting a spent or uncertain SPL domain', async () => {
+  // Real encrypted store, original session/SDK/PoP; both native/controller
+  // effects are the inert ports above, not an SPL acceptance or clock fixture.
+  const f = await fixture({ spl: true }), keys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
+  const jwk = keys.publicKey.export({ format: 'jwk' }), devicePublicKey = '04'
+    + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');
+  const origin = 'https://127.0.0.1:9443', heldSessions = [], readers = [];
+  const mapped = import.meta.url.includes('/wallet-platform/modules/api/');
+  const { nativeClaimDevicePermissionMessageV1 } = await import(new URL(mapped
+    ? '../../../../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'
+    : '../../../../mobile-protocol/src/native-claim-device-v1.mjs', import.meta.url));
+  const { createNativeClaimDeviceApiV1 } = await import(new URL(mapped
+    ? '../../../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs'
+    : '../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs', import.meta.url));
+  function signature(permission) {
+    const frame = Buffer.from(nativeClaimDevicePermissionMessageV1(permission));
+    try { const bytes = sign('sha256', frame, { key: keys.privateKey, dsaEncoding: 'ieee-p1363' });
+      const order = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n, value = BigInt('0x' + bytes.subarray(32).toString('hex'));
+      if (value > order / 2n) Buffer.from((order - value).toString(16).padStart(64, '0'), 'hex').copy(bytes, 32);
+      return bytes.toString('hex');
+    } finally { frame.fill(0); }
+  }
+  async function sourceSession(change = {}) {
+    const session = await createOriginalNativeSplClaimMobileSessionV1({ ...f.input, ...change }); heldSessions.push(session); return session;
+  }
+  async function paired(session) {
+    const reader = await createPairedOriginalNativeClaimSpendingReaderV1({ session, origin, devicePublicKey }); readers.push(reader); return reader;
+  }
+  try {
+    const legacy = await f.session(); await assert.rejects(paired(legacy), /PAIRING_BEFORE_EFFECTS_REQUIRED/); await legacy.close();
+    const session = await sourceSession(), mobile = await paired(session), descriptor = assertPairedOriginalNativeClaimReaderV1(mobile);
+    assert.equal(descriptor.nativeAssetKind, 'SOLANA_SPL_USDC'); assert.equal(descriptor.claimSymbol, 'cUSDC');
+    assert.equal(descriptor.decimals, 6); assert.equal(descriptor.atomicUnit, 'micro-USDC'); assert.equal(descriptor.claimDomain, f.input.claimDomain);
+    assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 }); assert.deepEqual(f.redemptionStats(), { burns: 0, nativeSends: 0 });
+    let posts = 0;
+    const sdk = createNativeClaimDeviceApiV1({ descriptor, fetchImpl: async (target, options) => {
+      const value = JSON.parse(options.body); if (!target.endsWith('/challenges')) posts++;
+      const response = target.endsWith('/challenges') ? await mobile.challenge(value) : await mobile.operate(value);
+      return new Response(JSON.stringify(response), { status: 200, headers: { 'content-type': 'application/json' } });
+    } });
+    const read = await sdk.challenge('READ_CLAIM_JOURNAL', null), empty = await sdk.read(read, signature(read));
+    assert.equal(empty.descriptor.claimDomain, descriptor.claimDomain); assert.equal(empty.state.nativeSelfCustody, false);
+    await assert.rejects(mobile.challenge({ action: 'REDEEM_NATIVE_CLAIM', requestId: 'spl_mobile_redeem_01', amount: '1', maxFee: '1' }), /ORIGINAL_ISSUANCE_REQUIRED/);
+    await session.submit('deposit', { requestId: 'spl_mobile_fund_01', intentId }); await session.idle();
+    f.loseRedemptionReply(); const permission = await sdk.redemptionChallenge({ requestId: 'spl_mobile_redeem_01', amount: '1', maxFee: '1' });
+    const before = posts; await sdk.redeem(permission, signature(permission)); await mobile.idle();
+    await assert.rejects(sdk.redeem(permission, signature(permission))); assert.equal(posts, before + 1);
+    assert.deepEqual(f.redemptionStats(), { burns: 1, nativeSends: 1 });
+    sdk.close(); mobile.close(); await mobile.idle(); await session.close(); await f.reopenStore();
+    // The same pairing is restored even after its effect. A different account
+    // cannot mint a fresh before-fund binding from this latest journal.
+    const reopened = await sourceSession(), restored = await paired(reopened);
+    assert.deepEqual(assertPairedOriginalNativeClaimReaderV1(restored), descriptor);
+    const observe = await restored.challenge({ action: 'RECONCILE_CLAIM_REQUEST', requestId: 'spl_mobile_redeem_01' });
+    await restored.operate({ permission: observe, signature: signature(observe) }); await restored.idle();
+    assert.deepEqual(f.redemptionStats(), { burns: 1, nativeSends: 1 });
+    restored.close(); await restored.idle(); await reopened.close();
+    const late = await sourceSession({ accountId: 'late_spl_mobile_01' }); await assert.rejects(paired(late), /BEFORE_EFFECTS_REQUIRED/); await late.close();
+    const original = f.claims.nativeRuntimes[1]; f.claims.nativeRuntimes[1] = { ...original };
+    await assert.rejects(sourceSession({ accountId: 'forged_spl_mobile_01' }), /TEST_ORIGINAL_SPL_RUNTIME/); f.claims.nativeRuntimes[1] = original;
+  } finally { for (const reader of readers) reader.close(); for (const reader of readers) await reader.idle();
+    for (const session of heldSessions) await session.close(); await f.close(); }
+  const unknown = await fixture({ spl: true }); let session;
+  try {
+    await unknown.journal.update(data => { data.evm[0].status = 'UNKNOWN'; return data; });
+    session = await createOriginalNativeSplClaimMobileSessionV1(unknown.input);
+    await assert.rejects(createPairedOriginalNativeClaimSpendingReaderV1({ session, origin, devicePublicKey }), /BEFORE_EFFECTS_REQUIRED/);
+    assert.equal((await unknown.journal.read()).apiDevicePairings?.length ?? 0, 0); assert.deepEqual(unknown.stats(), { signing: 0, issuance: 0, restartCount: 0 });
+  } finally { await session?.close(); await unknown.close(); }
 });

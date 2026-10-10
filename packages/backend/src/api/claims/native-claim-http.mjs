@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { types } from 'node:util';
-import { assertNativeClaimSession, nativeClaimApiErrorCode, createNativeClaimSession, createPairedOriginalNativeClaimReaderV1, createPairedOriginalNativeClaimSpendingReaderV1, assertPairedOriginalNativeClaimReaderV1 } from './native-claim-session.mjs';
+import { assertNativeClaimSession, nativeClaimApiErrorCode, createNativeClaimSession, createOriginalNativeSplClaimMobileSessionV1, createPairedOriginalNativeClaimReaderV1, createPairedOriginalNativeClaimSpendingReaderV1, assertPairedOriginalNativeClaimReaderV1 } from './native-claim-session.mjs';
 
 export const NATIVE_CLAIM_BODY_LIMIT = 4096;
 const prefix = '/api/native-claims';
@@ -208,19 +208,29 @@ export async function createOriginalNativeClaimMobileServiceV1(input) {
 export async function createOriginalNativeClaimMobileSpendingServiceV1(input) {
   if (arguments.length !== 1) deviceHttpFail(); return createNativeClaimMobileService(input, true);
 }
-async function createNativeClaimMobileService(input, spending) {
-  if (arguments.length !== 2) deviceHttpFail();
+/** Same original private SPL session/TLS consumer, before SPL preposition.
+ * The SOURCE BTC domain may already be confirmed; no original SPL native key,
+ * EVM call, transfer or ticket may precede this fixed binding. */
+export async function createOriginalNativeSplClaimMobileSpendingServiceV1(input) {
+  if (arguments.length !== 1) deviceHttpFail(); return createNativeClaimMobileService(input, true, true);
+}
+async function createNativeClaimMobileService(input, spending, originalSplMobile = false) {
+  if (![2,3].includes(arguments.length)) deviceHttpFail();
   deviceHttpExact(input, ['controller','accountId','ownerIdentitySHA256','claimDomain','caller','origin','devicePublicKey','tls','host']);
+  if (originalSplMobile) {
+    deviceHttpExact(input.tls, ['certificate','privateKey']);
+    input = { ...input, tls: { certificate: input.tls.certificate, privateKey: input.tls.privateKey } };
+  }
   let session, reader, server;
   try {
-    session = await createNativeClaimSession({ controller: input.controller, accountId: input.accountId,
+    session = await (originalSplMobile ? createOriginalNativeSplClaimMobileSessionV1 : createNativeClaimSession)({ controller: input.controller, accountId: input.accountId,
       ownerIdentitySHA256: input.ownerIdentitySHA256, claimDomain: input.claimDomain, caller: input.caller });
     reader = await (spending ? createPairedOriginalNativeClaimSpendingReaderV1 : createPairedOriginalNativeClaimReaderV1)({ session, origin: input.origin, devicePublicKey: input.devicePublicKey });
     server = await startPairedNativeClaimTlsV1({ reader, tls: input.tls, host: input.host });
   } catch (error) { reader?.close(); await Promise.allSettled([reader?.idle(), session?.close()]); throw error; }
   let closing, closed = false;
   const service = Object.freeze({ descriptor: server.descriptor, origin: server.url,
-    profile: spending ? 'ORIGINAL_NATIVE_CLAIM_MOBILE_SPENDING_SERVICE_V1' : 'ORIGINAL_NATIVE_CLAIM_MOBILE_SERVICE_V1',
+    profile: originalSplMobile ? 'ORIGINAL_NATIVE_SPL_CLAIM_MOBILE_SPENDING_SERVICE_V1' : spending ? 'ORIGINAL_NATIVE_CLAIM_MOBILE_SPENDING_SERVICE_V1' : 'ORIGINAL_NATIVE_CLAIM_MOBILE_SERVICE_V1',
     close() { if (arguments.length !== 0) deviceHttpFail(); closed = true; return closing ??= (async () => {
       let first; try { await server.close(); } catch (error) { first = error; }
       try { await session.close(); } catch (error) { first ??= error; }
@@ -246,7 +256,7 @@ export async function originalClaimMobileLocalConfigurationPathV1() {
   if(arguments.length!==0)deviceHttpFail();const {ROOT}=await import('../../../../proofs/src/catalog.mjs');
   const {join}=await import('node:path');return join(ROOT,'.local/native-claim-mobile-v1/config.json');
 }
-async function createFixedClaimMobileLocalOperator(config,index) {
+function normalizedOriginalClaimMobileInfrastructure(config) {
   deviceHttpExact(config,['origin','devicePublicKey','tls','host']);
   // Validate infrastructure before any original node/owner/key is created.
   const origin=new URL(config.origin);if(origin.protocol!=='https:'||origin.origin!==config.origin||!['127.0.0.1','0.0.0.0'].includes(config.host))deviceHttpFail();
@@ -256,6 +266,31 @@ async function createFixedClaimMobileLocalOperator(config,index) {
     if(cert.ca||!cert.checkPrivateKey(key)||(isIP(hostname)?cert.checkIP(hostname)!==hostname:cert.checkHost(hostname,{subject:'never',wildcards:false})!==hostname)||Date.now()<cert.validFromDate.getTime()||Date.now()>=cert.validToDate.getTime())deviceHttpFail();
     createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(config.devicePublicKey.slice(2,66),'hex').toString('base64url'),y:Buffer.from(config.devicePublicKey.slice(66),'hex').toString('base64url')}});
   }catch{deviceHttpFail();}
+  return {origin:config.origin,devicePublicKey:config.devicePublicKey,
+    tls:{certificate:config.tls.certificate,privateKey:config.tls.privateKey},host:config.host};
+}
+/** Fixed physical SPL mobile infrastructure, read before original nodes/funds.
+ * This file supplies TLS/public PoP only, never a controller/domain or key grant. */
+export async function readOriginalNativeSplClaimMobileInfrastructureV1() {
+  if(arguments.length!==0)deviceHttpFail();
+  const [{ROOT},{join},{open,lstat,realpath},{constants}]=await Promise.all([
+    import('../../../../proofs/src/catalog.mjs'),import('node:path'),import('node:fs/promises'),import('node:fs')]);
+  const directory=join(ROOT,'.local/native-claim-mobile-v1'),path=join(directory,'spl-config.json');
+  const parent=await lstat(directory);if(!parent.isDirectory()||parent.isSymbolicLink()
+    ||parent.uid!==process.getuid()||(parent.mode&0o777)!==0o700||await realpath(directory)!==directory)deviceHttpFail();
+  const fd=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;
+  try{const before=await fd.stat();if(!before.isFile()||before.nlink!==1||before.uid!==process.getuid()
+    ||(before.mode&0o777)!==0o600||before.size<=0||before.size>32768)deviceHttpFail();
+    bytes=Buffer.alloc(32769);const count=(await fd.read(bytes,0,bytes.length,0)).bytesRead,
+      after=await fd.stat(),named=await lstat(path);
+    for(const key of ['dev','ino','uid','gid','mode','nlink','size','mtimeMs','ctimeMs'])
+      if(before[key]!==after[key]||before[key]!==named[key])deviceHttpFail();
+    if(named.isSymbolicLink()||count!==before.size)deviceHttpFail();
+    return normalizedOriginalClaimMobileInfrastructure(JSON.parse(bytes.subarray(0,count).toString('utf8')));
+  }finally{bytes?.fill(0);await fd.close();}
+}
+async function createFixedClaimMobileLocalOperator(config,index) {
+  config=normalizedOriginalClaimMobileInfrastructure(config);
   const [{ROOT},{mkdtemp,mkdir,open},{join},{randomBytes}]=await Promise.all([
     import('../../../../proofs/src/catalog.mjs'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
   const {createOwnedLocalEvmV2}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');

@@ -88,12 +88,33 @@ export function assertWalletClaimSession(value) { need(sessions.has(value), 'NAT
 export function walletClaimSessionIdentity(value) { assertWalletClaimSession(value); return identities.get(value); }
 export function wrappedClaimSessionControllerV1(value) { assertWrappedClaimSessionV1(value); return sessions.get(value)(); }
 export async function createNativeClaimSession(input) { return createClaimSession(input, false); }
+/** Distinct original SPL mobile birth. Its BTC SOURCE may already have settled;
+ * this capability still precedes every effect in the SAME private SPL domain.
+ * Neither caller metadata nor an existing legacy session selects this branch. */
+export async function createOriginalNativeSplClaimMobileSessionV1(input) {
+  need(arguments.length === 1, 'NATIVE_CLAIM_DEVICE_ARGUMENTS');
+  exactRecord(input, ['controller', 'accountId', 'ownerIdentitySHA256', 'claimDomain', 'caller']);
+  need(!types.isProxy(input) && Reflect.ownKeys(input).every(key =>
+    Object.hasOwn(Object.getOwnPropertyDescriptor(input, key) ?? {}, 'value')), 'NATIVE_CLAIM_DEVICE_INPUT');
+  const selected = Object.freeze({ ...input });
+  const original = nativeBindings(selected.controller), { runtime, claims } = original;
+  need(claims.nativeSplCustodyProfile === true && claims.configs.length === 2
+    && claimDomainCommitment(claims.configs[1]) === selected.claimDomain, 'NATIVE_CLAIM_DEVICE_ORIGINAL_SPL_DOMAIN');
+  // This original reader checks both the sealed deployment and the native SPL
+  // custody WeakSet. A serialized mint/domain or copied runtime grants nothing.
+  const units = originalNativeClaimAssetUnitsV1(runtime, claims, claims.configs[1]);
+  need(units.nativeAssetKind === 'SOLANA_SPL_USDC', 'NATIVE_CLAIM_DEVICE_ORIGINAL_SPL_DOMAIN');
+  const current = nativeBindings(selected.controller);
+  need(current.runtime === runtime && current.claims === claims && current.keeper === original.keeper,
+    'NATIVE_CLAIM_DEVICE_SOURCE_CHANGED');
+  return createClaimSession(selected, false, true);
+}
 export async function createWrappedClaimSessionV1(input) {
   need(arguments.length === 1, 'WRAPPED_WALLET_NO_OVERRIDES');
   const { assertWrappedWalletAccountReleasedV1 } = await import('../../operations/releases/wrapped/wrapped-wallet-release-v1.mjs');
   assertWrappedWalletAccountReleasedV1(); return createClaimSession(input, true);
 }
-async function createClaimSession(input, wrapped) {
+async function createClaimSession(input, wrapped, originalSplMobile = false) {
   // Fixed original module selection. There is no public adapter/journal/callback slot.
   const original = wrapped ? await import('../../claims/wrapped/controller/wrapped-controller-v1.mjs') : null;
   const journalModule = wrapped ? await import('../../claims/wrapped/controller/wrapped-controller-journal-v1.mjs') : null;
@@ -111,7 +132,24 @@ async function createClaimSession(input, wrapped) {
   const account = { accountId: input.accountId, ownerIdentitySHA256: input.ownerIdentitySHA256,
     claimDomain: input.claimDomain, caller: input.caller };
   const identity = originalIdentity(runtime,claims, account, wrapped);
+  if (originalSplMobile) need(!wrapped && identity.nativeAssetKind === 'SOLANA_SPL_USDC'
+    && claims.nativeSplCustodyProfile === true && claims.configs.indexOf(claims.configs.find(config =>
+      claimDomainCommitment(config) === account.claimDomain)) === 1, 'NATIVE_CLAIM_DEVICE_ORIGINAL_SPL_DOMAIN');
   const journal = ownedClaimControllerJournal(keeper, runtime, claims);
+  function beforeDeviceEffects(data) {
+    // Legacy BTC/SOL and legacy SPL admission retain the full original guard.
+    if (!originalSplMobile) return data.evm.length === 0;
+    const native = claims.nativeRuntimes[1], foreignDomain = claimDomainCommitment(claims.configs[0]);
+    const units = originalNativeClaimAssetUnitsV1(runtime, claims, claims.configs[1]);
+    need(units.nativeAssetKind === 'SOLANA_SPL_USDC' && units.mint === identity.mint,
+      'NATIVE_CLAIM_DEVICE_ORIGINAL_SPL_DOMAIN');
+    return native.transfers.length === 0 && data.evm.every(row => row.domain === foreignDomain
+      && ['SUCCEEDED', 'REVERTED', 'REJECTED_NO_KEY'].includes(row.status))
+      && data.deposits.every(row => row.claimDomain === account.claimDomain
+        || row.claimDomain === foreignDomain && ['ISSUED', 'REFUNDED'].includes(row.status))
+      && data.tickets.every(row => row.claimDomain === account.claimDomain
+        || row.claimDomain === foreignDomain && row.status === 'DISCHARGED');
+  }
   need(!leasedControllers.has(controller), 'NATIVE_CLAIM_CONTROLLER_SESSION_BUSY');
   leasedControllers.add(controller);
   let closed = false, closing = false, active = false, available = true, lastError = null;
@@ -401,7 +439,7 @@ async function createClaimSession(input, wrapped) {
           && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256);
         need(owned.length > 0 && owned.every(row => row.status === 'PREPARED' && row.native == null && row.route == null)
           && rows(current).length === 0 && current.tickets.every(row => row.claimDomain !== account.claimDomain)
-          && current.evm.length === 0, 'NATIVE_CLAIM_DEVICE_PAIRING_BEFORE_EFFECTS_REQUIRED');
+          && beforeDeviceEffects(current), 'NATIVE_CLAIM_DEVICE_PAIRING_BEFORE_EFFECTS_REQUIRED');
         const pairingId = randomBytes(32).toString('hex');
         const descriptor = { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_PAIRING_V1',
           origin: infrastructure.origin, pairingId, devicePublicKey: infrastructure.devicePublicKey,
@@ -411,6 +449,7 @@ async function createClaimSession(input, wrapped) {
           claimSymbol: identity.claimSymbol, nativeSymbol: identity.nativeSymbol, decimals: identity.decimals,
           atomicUnit: identity.atomicUnit, nativeAssetKind: identity.nativeAssetKind ?? null, mint: identity.mint ?? null };
         await journal.update(data => {
+          need(beforeDeviceEffects(data), 'NATIVE_CLAIM_DEVICE_PAIRING_BEFORE_EFFECTS_REQUIRED');
           data.apiDevicePairings ??= [];
           need(data.apiDevicePairings.length < 32 && !data.apiDevicePairings.some(row => row.accountScopeSHA256 === scope),
             'NATIVE_CLAIM_DEVICE_PAIRING_CONFLICT');
@@ -433,8 +472,9 @@ async function createClaimSession(input, wrapped) {
         const deposits = current.deposits.filter(row => row.claimDomain === account.claimDomain && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256);
         need(deposits.length > 0 && deposits.every(row => row.status === 'PREPARED' && row.native == null && row.route == null)
           && rows(current).length === 0 && current.tickets.every(row => row.claimDomain !== account.claimDomain)
-          && current.evm.length === 0, 'NATIVE_CLAIM_DEVICE_SPENDING_BEFORE_EFFECTS_REQUIRED');
+          && beforeDeviceEffects(current), 'NATIVE_CLAIM_DEVICE_SPENDING_BEFORE_EFFECTS_REQUIRED');
         await journal.update(data => {
+          need(beforeDeviceEffects(data), 'NATIVE_CLAIM_DEVICE_SPENDING_BEFORE_EFFECTS_REQUIRED');
           const actual = data.apiDevicePairings.find(row => row.accountScopeSHA256 === descriptor.accountScopeSHA256);
           assert.deepEqual(actual.descriptor, descriptor, 'NATIVE_CLAIM_DEVICE_PAIRING_REBOUND');
           need(!actual.redemptionBinding, 'NATIVE_CLAIM_DEVICE_SPENDING_ALREADY_BOUND'); actual.redemptionBinding = copy(binding); return data;

@@ -36,7 +36,7 @@ import { createGenericAccountKeeper } from '../../../../packages/engine/src/exec
 import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
 import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
 import { createNativeClaimSession, nativeClaimSessionController, nativeClaimSessionPrivateFailures } from '../../../../packages/backend/src/api/claims/native-claim-session.mjs';
-import { startNativeClaimHttp } from '../../../../packages/backend/src/api/claims/native-claim-http.mjs';
+import { startNativeClaimHttp, readOriginalNativeSplClaimMobileInfrastructureV1, createOriginalNativeSplClaimMobileSpendingServiceV1, readOriginalNativeClaimMobileServiceSessionV1 } from '../../../../packages/backend/src/api/claims/native-claim-http.mjs';
 import { checkClaimGraphV3Bootstrap, checkClaimGraphV3Inventory } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
@@ -74,6 +74,10 @@ export async function runDevelopmentNativeClaimAcceptance() {
   const lock = JSON.parse(readFileSync(join(ROOT, LOCAL_RUN, 'active.lock')));
   assert.equal(lock.pid, process.ppid); assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(lock.attempt, LOCAL_RUN + '/attempt-' + lock.runId);
+  // The fixed SPL caller publishes a usable original mobile endpoint. TLS/PoP
+  // infrastructure is normalized before native birth; there is no owner import.
+  const splMobileInfrastructure=btcToSpl?await readOriginalNativeSplClaimMobileInfrastructureV1():null;
+  let splMobileService=null;
   const directory = join(ROOT, lock.attempt), privateDirectory = join(directory, 'private-audit'), proofsDirectory = join(directory, 'public-proofs');
   mkdirSync(privateDirectory, { mode: 0o700 }); mkdirSync(proofsDirectory, { mode: 0o700 });
   const result = { format: btcToSpl?DEVELOPMENT_BTC_SPL_GRAPH_RESULT:btcToSol ? DEVELOPMENT_BTC_SOL_GRAPH_RESULT : DEVELOPMENT_NATIVE_CLAIM_RESULT,
@@ -169,6 +173,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       const close = async (name, work) => { try { await work(); return true; } catch (error) { result.cleanup.errors.push({ name, code: code(error) }); return false; } };
       for (const account of accounts) await close('abortAccountAuthority', () => account.abort());
       if (claimHttp) await close('claimHttp', () => claimHttp.close()); else if (claimSession) await close('claimSession', () => claimSession.close());
+      if (splMobileService) await close('splMobileService', () => splMobileService.close());
       if (http) await close('accountHttp', () => http.close()); else if (session) await close('accountSession', () => session.close());
       else if (accountKeeper) await close('accountKeeper', () => accountKeeper.close());
       for (const account of accounts) await close('accountAuthority', () => account.close());
@@ -338,6 +343,17 @@ export async function runDevelopmentNativeClaimAcceptance() {
       const statement = decodeDepositIntentInputs(proof.publicInputs), handoff = await owner.owner.createNativeClaimIngressHandoff({
         claimDomain: claimDomainCommitment(claims.configs[index]), ingressProverIdentity, statement }); handoffs[index] = handoff;
       const prepared = await controller.prepare({ handoff }); deposits[index] = prepared;
+      if(btcToSpl&&index===1){
+        assert.equal(splMobileService,null,'DEVELOPMENT_CLAIM_ORIGINAL_SPL_MOBILE_ONCE');
+        splMobileService=await createOriginalNativeSplClaimMobileSpendingServiceV1({controller,
+          accountId:'development_native_claim_1',ownerIdentitySHA256:handoff.select().ownerIdentitySHA256,
+          claimDomain:claimDomainCommitment(claims.configs[1]),caller:runtime.accounts[4],...splMobileInfrastructure});
+        fixture.resources.push(splMobileService);
+        assert.equal(fixture.solana.transfers.length,0,'DEVELOPMENT_CLAIM_SPL_PAIRING_BEFORE_NATIVE');
+        assert.equal(splMobileService.descriptor.nativeAssetKind,'SOLANA_SPL_USDC');
+        assert.equal(splMobileService.descriptor.claimDomain,claimDomainCommitment(claims.configs[1]));
+        writeFixturePrivate(join(privateDirectory,'paired-original-spl-claim.json'),splMobileService.descriptor);
+      }
       await controller.preposition({ intentId: prepared.intentId }); await owner.suspend();
       assert.equal(owner.report().available, false); assert.equal(owner.report().childExited, true);
       await controller.ingress({ intentId: prepared.intentId }); await confirmOriginal(prepared.intentId);
@@ -416,6 +432,10 @@ export async function runDevelopmentNativeClaimAcceptance() {
       result.spl={asset:'USDC',wrapper:'cUSDC',decimals:6,mint:SPL.mint,custodyProgram:SPL.program,assetCommitment:claims.configs[1].nativeAsset,custodyDomain:claims.configs[1].custodyInventoryDomain,principal:amounts[1],sourceLamports:'10000000',sourceOriginalNativeId:fixture.graphSolana.transfers[0].nativeId,sourceOriginalTransactionSHA256:fixture.graphSolana.transfers[0].transactionSHA256,depositNativeId:record.nativeId,depositTransactionSHA256:record.transactionSHA256,actualInputSpent:record.observation.actualInputSpent,actualOutputReceived:record.observation.actualOutputReceived,publicSurplusReturned:record.observation.surplusReturned,initialPrincipal:'0',distinctSolFeeReserve:true,originalV1VerifierKeySHA256:claims.verifiers.CI51.lineage.keySHA256};
       result.checks.originalSourceOnlyWrapped=true;result.checks.originalJupiterSwapCreditedOnce=true;result.checks.originalUsdcOwnerUpdated=true;await audit();
     }
+    // The controller grants one session lease at a time. Persist the before-
+    // ingress SPL pairing, then drain it while the BTC account redeems. The SPL
+    // endpoint is reopened from that exact pairing for its original redemption.
+    if(splMobileService) await splMobileService.close();
     for (const index of selectedAssets) {
       await stage('original-private-exit-and-native-redemption-' + index);
       const exitId = 'development_native_exit_' + index, exitRef = freshFixtureId();
@@ -425,8 +445,17 @@ export async function runDevelopmentNativeClaimAcceptance() {
       await accountRequest('prepare', { requestId: exitId, kind: 'EXIT', ownerOperationRef: exitRef, assetId: accounts[index].assetId });
       const exit = await accountRequest('execute', { requestId: exitId }); assert.equal(exit.requests.find(row => row.requestId === exitId)?.state, 'CONFIRMED');
       const duplicateExitCount = runtime.transactions.length; await accountRequest('execute', { requestId: exitId }); assert.equal(runtime.transactions.length, duplicateExitCount);
-      claimSession = await createNativeClaimSession({ controller, accountId: 'development_native_claim_' + index,
-        ownerIdentitySHA256: handoffs[index].select().ownerIdentitySHA256, claimDomain: claimDomainCommitment(claims.configs[index]), caller: runtime.accounts[index + 3] });
+      if(btcToSpl&&index===1){
+        const originalDescriptor=splMobileService.descriptor;
+        splMobileService=await createOriginalNativeSplClaimMobileSpendingServiceV1({controller,
+          accountId:'development_native_claim_1',ownerIdentitySHA256:handoffs[1].select().ownerIdentitySHA256,
+          claimDomain:claimDomainCommitment(claims.configs[1]),caller:runtime.accounts[4],...splMobileInfrastructure});
+        fixture.resources.push(splMobileService);
+        assert.deepEqual(splMobileService.descriptor,originalDescriptor,'DEVELOPMENT_CLAIM_SPL_PAIRING_REBOUND');
+      }
+      claimSession = btcToSpl&&index===1?readOriginalNativeClaimMobileServiceSessionV1(splMobileService)
+        :await createNativeClaimSession({ controller, accountId: 'development_native_claim_' + index,
+          ownerIdentitySHA256: handoffs[index].select().ownerIdentitySHA256, claimDomain: claimDomainCommitment(claims.configs[index]), caller: runtime.accounts[index + 3] });
       claimHttp = await startNativeClaimHttp({ session: claimSession, port: 0 });
       const redemption = { requestId: 'development_native_redemption_' + index, amount: exitAmount, maxFee: claims.configs[index].refundMaxFee };
       let reply = await claimRequest('redeem', redemption, index === 0), view = await claimOwnerView();
