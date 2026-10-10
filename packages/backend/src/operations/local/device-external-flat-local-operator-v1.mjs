@@ -32,7 +32,7 @@ import {createOwnedOriginalMorphoBluePositionV1} from '../deployments/defi/deplo
 const legacyLocal=join(ROOT,'.local/original-device-external-flat-local-v1'),blueLocal=join(ROOT,'.local/original-device-morpho-blue-position-v1');
 const multiFourLocal=join(ROOT,'.local/original-device-external-flat-meta-four-local-v1');
 const fresh=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
-const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:6100,sha256:'dc6296229e7849c1deea86355690cb746ef2223b3b5a1099e85107c500810d29'});
+const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:6349,sha256:'e4a8c31be98319633b4f7f1d9fd1dbc164ea5f343d12dc516b6eb26c58f185eb'});
 function exact(value,names){
   assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype
     &&Reflect.ownKeys(value).length===names.length&&names.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable&&Object.hasOwn(d,'value');}),'DEVICE_EXTERNAL_LOCAL_CONFIGURATION');

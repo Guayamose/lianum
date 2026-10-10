@@ -7,9 +7,9 @@ import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBac
 import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1,restoreDeviceExternalFlatNoteBackupV1} from '../custody/device-external-flat-note-vault-v1';
 import type {DeviceExternalFlatSummary,DeviceExternalFlatPrepared} from '../custody/device-external-flat-note-vault-v1';
 import {createDeviceExternalFlatNoteApiV1,readDeviceExternalFlatQuoteV1} from '../api/device-external-flat-note-api-v1.mjs';
-import {createDeviceExternalFlatGraphApiV1} from '../api/device-external-flat-graph-api-v1.mjs';
+import {createDeviceExternalFlatGraphApiV1,readDeviceExternalFlatGraphQuoteV1} from '../api/device-external-flat-graph-api-v1.mjs';
 import {validateExternalFlatGraphFreshV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
-import {DEVICE_EXTERNAL_FLAT_SHARE_V1,normalizeExternalFlatDescriptorV1,externalFlatWipeV1,validateExternalFlatFreshV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1,normalizeExternalFlatDescriptorV1,externalFlatExactV1,externalFlatUintV1,externalFlatWipeV1,validateExternalFlatFreshV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import type {ExternalFlatAction,ExternalFlatConsent,ExternalFlatDraft,ExternalFlatStatus,ExternalFlatDescriptor} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 
 type Client=ReturnType<typeof createDeviceExternalFlatNoteApiV1>;
@@ -31,6 +31,26 @@ type BlueClient=ReturnType<typeof createDeviceMorphoBlueRedemptionApiV1>;
 type Connection={blueClient:BlueClient|null;client:Client;graphClient:GraphClient|null;noteClosed:boolean;vault:Vault;descriptor:ExternalFlatDescriptor};
 type GraphReview={consent:GraphConsent;witness:unknown|null};
 type Review={consent:ExternalFlatConsent;witness:unknown|null};
+type MetaFourDelivery={id:string;dependsOn:string[];origin:string;maximumInput:string;shareAmount:string;payoutAmount:string};
+type MetaFourPairing={profile:'DEVICE_EXTERNAL_FLAT_META_FOUR_PAIRING_V1';source:ExternalFlatDescriptor;targets:ExternalFlatDescriptor[];deliveries:MetaFourDelivery[]};
+type MetaFourWindow={validFrom:string;validUntil:string;settleBefore:string};
+/** Public pairing DATA chooses a local connection. Only its original SDK can
+ * authenticate a response or authorize a proof; this package is no receipt. */
+function parseMetaFourPairing(text:string):MetaFourPairing{
+ if(typeof text!=='string'||text.length===0||text.length>32768)throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
+ const p=externalFlatExactV1(JSON.parse(text),['profile','source','targets','deliveries']);
+ if(p.profile!=='DEVICE_EXTERNAL_FLAT_META_FOUR_PAIRING_V1'||!Array.isArray(p.targets)||p.targets.length!==4||!Array.isArray(p.deliveries)||p.deliveries.length!==4)throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
+ const source=normalizeExternalFlatDescriptorV1(p.source),targets:ExternalFlatDescriptor[]=p.targets.map(normalizeExternalFlatDescriptorV1);
+ if(source.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1||targets[0].origin!==source.origin||new Set(targets.map(v=>v.origin)).size!==4||new Set([source,...targets].map(v=>v.pairingId)).size!==5)throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
+ const dependencies=[[],['device-external-share-0'],['device-external-share-0'],['device-external-share-1','device-external-share-2']];
+ const deliveries:MetaFourDelivery[]=p.deliveries.map((raw:unknown,slot:number)=>{
+  const d=externalFlatExactV1(raw,['id','dependsOn','origin','maximumInput','shareAmount','payoutAmount']),target=targets[slot];
+  if(target.profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||target.devicePublicKey!==source.devicePublicKey||JSON.stringify(target.poolTerms)!==JSON.stringify(targets[0].poolTerms)||JSON.stringify(target.assetMetadata)!==JSON.stringify(targets[0].assetMetadata)
+   ||['genesis','hub','hubCodeHash','hubDomain'].some(k=>target.poolTerms[k as keyof ExternalFlatDescriptor['poolTerms']]!==source.poolTerms[k as keyof ExternalFlatDescriptor['poolTerms']])
+   ||d.id!=='device-external-share-'+slot||d.origin!==target.origin||JSON.stringify(d.dependsOn)!==JSON.stringify(dependencies[slot])||['maximumInput','shareAmount','payoutAmount'].some(k=>d[k]!=='100'))throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
+  return {id:d.id,dependsOn:[...d.dependsOn],origin:d.origin,maximumInput:d.maximumInput,shareAmount:d.shareAmount,payoutAmount:d.payoutAmount};
+ });return {profile:p.profile,source,targets,deliveries};
+}
 function Button({label,onPress,disabled=false}:{label:string;onPress():void;disabled?:boolean}) {
  return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
   style={[styles.button,disabled&&styles.disabled]}><Text style={styles.buttonText}>{label}</Text></Pressable>;
@@ -63,6 +83,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const [recoveryPassword,setRecoveryPassword]=useState(''),[recoveryInput,setRecoveryInput]=useState(''),[recoveryCopy,setRecoveryCopy]=useState('');
  const [recoveryPreparation,setRecoveryPreparation]=useState<RecoveryPreparation|null>(null);
  const [custodyRoute,setCustodyRoute]=useState<'LEGACY'|'ROUTED'>('LEGACY');
+ const [metaFourText,setMetaFourText]=useState(''),[metaFour,setMetaFour]=useState<MetaFourPairing|null>(null),[metaFourWindow,setMetaFourWindow]=useState<MetaFourWindow|null>(null),[metaFourReads,setMetaFourReads]=useState<(ExternalFlatStatus|null)[]>([null,null,null,null]);
+ const metaFourRef=useRef<MetaFourPairing|null>(null),metaFourWindowRef=useRef<MetaFourWindow|null>(null);
  const mounted=useRef(true),busyRef=useRef(false),epoch=useRef(0),connection=useRef<Connection|null>(null);
  const acquiring=useRef<Promise<Vault>|null>(null),closing=useRef<Promise<unknown>|null>(null),signing=useRef<AbortController|null>(null);
  const graphReviewRef=useRef<GraphReview|null>(null),graphPreparedRef=useRef<GraphPrepared|null>(null);
@@ -91,8 +113,32 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(!mounted.current||AppState.currentState!=='active'||epoch.current!==ticket||connection.current!==selected)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
  }
  function requireConnection() {const selected=connection.current;if(!selected)throw Error('MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED');return selected;}
+ function clearMetaFour(){metaFourRef.current=null;metaFourWindowRef.current=null;setMetaFour(null);setMetaFourWindow(null);setMetaFourReads([null,null,null,null]);}
+ function metaFourSlot(descriptor:ExternalFlatDescriptor){return metaFourRef.current?.targets.findIndex(v=>JSON.stringify(v)===JSON.stringify(descriptor))??-1;}
+ function retainMetaFourWindow(window:MetaFourWindow){
+  externalFlatUintV1(window.validFrom);externalFlatUintV1(window.validUntil);externalFlatUintV1(window.settleBefore);
+  if(BigInt(window.validFrom)>=BigInt(window.validUntil)||BigInt(window.validUntil)+60n!==BigInt(window.settleBefore)||metaFourWindowRef.current&&JSON.stringify(metaFourWindowRef.current)!==JSON.stringify(window))throw Error('MOBILE_META_FOUR_WINDOW_CHANGED');
+  metaFourWindowRef.current=window;setMetaFourWindow(window);setGraphValidFrom(window.validFrom);setGraphSettleBefore(window.settleBefore);setValidUntil(window.validUntil);setGraphAssetAmount('400');setGraphShareAmount('400');setGraphPayoutAmount('400');
+ }
+ function recordMetaFourStatus(value:ExternalFlatStatus){
+  const slot=metaFourSlot(value.descriptor);if(slot<0)return;const intent=value.jobs.find(v=>v.mode==='deposit_intent');
+  if(intent){const s=intent.consentFields.statement;if(s.amount!=='100'||s.validFrom===undefined||s.validUntil===undefined)throw Error('MOBILE_META_FOUR_TARGET_CHANGED');retainMetaFourWindow({validFrom:s.validFrom,validUntil:s.validUntil,settleBefore:(BigInt(s.validUntil)+60n).toString()});}
+  setMetaFourReads(previous=>previous.map((v,i)=>i===slot?value:v));
+ }
+ function invalidateMetaFourStatus(descriptor:ExternalFlatDescriptor){const slot=metaFourSlot(descriptor);if(slot>=0)setMetaFourReads(previous=>previous.map((v,i)=>i===slot?null:v));}
+ async function loadMetaFour(){
+  const pairing=parseMetaFourPairing(metaFourText),ticket=epoch.current,key=await readDevicePublicKey();
+  if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
+  if(key!==pairing.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');
+  const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMetaFour();metaFourRef.current=pairing;setMetaFour(pairing);
+  setGraphAssetAmount('400');setGraphShareAmount('400');setGraphPayoutAmount('400');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(pairing.source));setSummary(null);await connect(JSON.stringify(pairing.source));
+ }
+ async function selectMetaFour(slot:number){
+  const pairing=metaFourRef.current;if(!pairing||!Number.isInteger(slot)||slot< -1||slot>3)throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
+  const descriptor=slot===-1?pairing.source:pairing.targets[slot],text=JSON.stringify(descriptor);setDescriptorText(text);setSummary(null);await connect(text);
+ }
  useEffect(()=>{mounted.current=true;const sub=AppState.addEventListener('change',value=>{if(value!=='active'){
-  closeConnection();setNotice('Conexión cerrada. La nota y las operaciones pendientes se conservan en el dispositivo.');
+  closeConnection();setMetaFourReads([null,null,null,null]);setNotice('Conexión cerrada. La nota y las operaciones pendientes se conservan en el dispositivo.');
  }});return()=>{mounted.current=false;closeConnection();sub.remove();};},[]);
  useEffect(()=>{if(!review)return;const selected=reviewRef.current,timer=setTimeout(()=>{if(mounted.current&&reviewRef.current===selected){
   clearReview();setNotice('Permiso caducado. Solicita una nueva revisión de la operación.');
@@ -103,6 +149,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  useEffect(()=>{if(!blueStatus)return;const value=blueStatus,timer=setTimeout(()=>{if(mounted.current)setBlueStatus(current=>current===value?null:current);},Math.max(0,value.expiresAt-Date.now()));return()=>clearTimeout(timer);},[blueStatus]);
  useEffect(()=>{if(!status)return;const value=status,timer=setTimeout(()=>{if(mounted.current)setStatus(current=>current===value?null:current);},Math.max(0,status.expiresAt-Date.now()));return()=>clearTimeout(timer);},[status]);
  useEffect(()=>{if(!graphStatus)return;const value=graphStatus,timer=setTimeout(()=>{if(mounted.current)setGraphStatus((current:GraphStatus|null)=>current===value?null:current);},Math.max(0,graphStatus.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphStatus]);
+ useEffect(()=>{const pending=metaFourReads.filter((v):v is ExternalFlatStatus=>v!==null&&v.expiresAt>Date.now());if(!pending.length)return;const timer=setTimeout(()=>{if(mounted.current)setMetaFourReads(previous=>previous.map(v=>v&&v.expiresAt>Date.now()?v:null));},Math.max(0,Math.min(...pending.map(v=>v.expiresAt))-Date.now()));return()=>clearTimeout(timer);},[metaFourReads]);
  async function run(work:()=>Promise<void>,failureNotice='No se ha confirmado el resultado. Vuelve a conectar y consulta la misma operación; no repitas el envío.') {
   if(busyRef.current||AppState.currentState!=='active')return;busyRef.current=true;setBusy(true);
   try{await work();}catch{closeConnection();if(mounted.current)setNotice(failureNotice);}
@@ -119,7 +166,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   const access=await selected.client.challenge();current(ticket,selected);
   const signature=await sign(selected,access,ticket);const value=await selected.client.status(access,signature);current(ticket,selected);
   const local=await selected.vault.reconcileOriginalStatus(value);current(ticket,selected);
-  setSummary(local);setStatus(value);onObservation?.(value);return value;
+  recordMetaFourStatus(value);setSummary(local);setStatus(value);onObservation?.(value);return value;
  }
  function requireGraph(selected:Connection){if(!selected.graphClient)throw Error('MOBILE_EXTERNAL_FLAT_GRAPH_SOURCE_REQUIRED');return selected.graphClient;}
  async function signGraph(selected:Connection,value:GraphConsent,ticket:number){
@@ -146,7 +193,9 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   const selected=requireConnection();clearReview();const ticket=epoch.current,value=await readStatus(selected,ticket);if(value.graphClaimed)throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_RESERVED');
   const local=await selected.vault.summary();current(ticket,selected);const deposit=local.jobs.find(row=>row.mode==='deposit_balance');if(!deposit||deposit.stage!=='CONFIRMED')throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_REQUIRED');
   const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
-  const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:graphAssetAmount,shareAmount:graphShareAmount,payoutAmount:graphPayoutAmount,validFrom:graphValidFrom,settleBefore:graphSettleBefore});current(ticket,selected);
+  const pairing=metaFourRef.current,window=metaFourWindowRef.current;if(pairing&&(JSON.stringify(selected.descriptor)!==JSON.stringify(pairing.source)||!window))throw Error('MOBILE_META_FOUR_WINDOW_REQUIRED');
+  const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:pairing?'400':graphAssetAmount,shareAmount:pairing?'400':graphShareAmount,payoutAmount:pairing?'400':graphPayoutAmount,validFrom:window?.validFrom??graphValidFrom,settleBefore:window?.settleBefore??graphSettleBefore});current(ticket,selected);
+  if(pairing){const q=readDeviceExternalFlatGraphQuoteV1(quote).quote;if(q.proposal.nodes.length!==4||q.proposal.nodes.some((n:any,slot:number)=>n.id!==pairing.deliveries[slot].id||JSON.stringify(n.dependsOn)!==JSON.stringify(pairing.deliveries[slot].dependsOn)||n.payout.value!==pairing.deliveries[slot].payoutAmount))throw Error('MOBILE_META_FOUR_ORIGINAL_QUOTE_CHANGED');}
   const prepared=await selected.vault.prepareSourceGraph(quote);graphPreparedRef.current=prepared;current(ticket,selected);const next=await selected.vault.summary();current(ticket,selected);setSummary(next);
   setRecoveryPreparation('GRAPH');setNotice('Guarda una copia actualizada que incluya el cambio y la recuperación recién preparados. Después podrás revisar la autorización de la reserva.');
  }
@@ -156,7 +205,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   graphReviewRef.current=null;activeWitness.current=value.witness;setGraphReview(null);
   try{if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket);
    const signature=await signGraph(selected,value.consent,ticket);if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket);
-   onSourcePending?.(selected.descriptor,value.consent.draft.rootId);await selected.vault.latchSourceGraph(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
+   if(metaFourRef.current)setMetaFourReads([null,null,null,null]);onSourcePending?.(selected.descriptor,value.consent.draft.rootId);await selected.vault.latchSourceGraph(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
    selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
    const row=await requireGraph(selected).submit(value.consent,signature,value.witness);current(ticket,selected);const next=await selected.vault.acceptSourceGraph(row);current(ticket,selected);setSummary(next);
    if(row.graph.stage==='SOURCE_CANCELLED')await readReleasedSource(selected,ticket);
@@ -206,9 +255,9 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function requestBlue(action:'REDEEM_BLUE'|'OBSERVE_BLUE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_BLUE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readBlueStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_BLUE'&&(blue.observationOnly||previous))throw Error('MOBILE_BLUE_OBSERVE_ONLY');if(action==='OBSERVE_BLUE'&&!previous)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),consent=await client.review(access,signature,{action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??blueMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()});current(ticket,selected);blueReviewRef.current=consent;setBlueReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');}
  async function submitBlue(consent:DeviceMorphoBlueConsentV1){const selected=requireConnection(),client=selected.blueClient,ticket=epoch.current;if(!client||blueReviewRef.current!==consent)throw Error('MOBILE_BLUE_PERMISSION_CHANGED');const signature=await blueSign(selected,consent,ticket);current(ticket,selected);blueReviewRef.current=null;setBlueReview(null);setBlueStatus(null);await client.submit(consent,signature);current(ticket,selected);await readBlueStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
  function confirmBlue(){const value=blueReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitBlue(value));}}],{cancelable:false});}
- async function connect() {
-  await closeConnection();const ticket=epoch.current;
-  const descriptor=normalizeExternalFlatDescriptorV1(JSON.parse(descriptorText)),key=await readDevicePublicKey();
+ async function connect(rawDescriptor:string=descriptorText) {
+  const drain=closeConnection(),ticket=epoch.current;await drain;if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
+  const descriptor=normalizeExternalFlatDescriptorV1(JSON.parse(rawDescriptor)),key=await readDevicePublicKey();
   if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
   if(key===null||key!==descriptor.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');
   const client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:expoFetch});
@@ -221,7 +270,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   acquiring.current=null;const selected:Connection={blueClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&descriptor.assetMetadata.symbol==='OMB1'?createDeviceMorphoBlueRedemptionApiV1({descriptor,fetchImpl:expoFetch}):null,client,graphClient,noteClosed:false,vault,descriptor};connection.current=selected;
   const local=await vault.summary();current(ticket,selected);
   if(local.descriptor!==null&&JSON.stringify(local.descriptor)!==JSON.stringify(descriptor))throw Error('MOBILE_EXTERNAL_FLAT_BINDING_CHANGED');
-  setSummary(local);setConnected(true);setRecipient(local.recipient===null?'':'0x'+local.recipient);setAmount(local.amount??'');
+  setSummary(local);setConnected(true);setRecipient(local.recipient===null?'':'0x'+local.recipient);setAmount(local.amount??(metaFourRef.current?(metaFourSlot(descriptor)>=0?'100':'500'):''));
+  if(metaFourRef.current)setValidUntil(metaFourWindowRef.current?.validUntil??'');
   if(local.graph!==null){if(local.recoveryFence.source)await readStatus(selected,ticket);await readGraphStatus(selected,ticket);}else await readStatus(selected,ticket);if(selected.blueClient)await readBlueStatus(selected,ticket);setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
  }
  async function exportRecovery(){
@@ -290,7 +340,13 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function prepareDeposit() {
   const selected=requireConnection();clearReview();const ticket=epoch.current,value=await readStatus(selected,ticket);
   const address=/^0x[0-9a-fA-F]{40}$/.exec(recipient)?.[0]===recipient?recipient.slice(2).toLowerCase():recipient;
-  const prepared=await selected.vault.prepareDeposit(selected.descriptor,address,amount,value.observed.timestamp,selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?validUntil:undefined);preparedRef.current=prepared;current(ticket,selected);
+  const slot=metaFourSlot(selected.descriptor),pairing=metaFourRef.current;
+  if(pairing&&slot<0&&JSON.stringify(selected.descriptor)!==JSON.stringify(pairing.source))throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
+  if(pairing&&amount!==(slot>=0?'100':'500'))throw Error('MOBILE_META_FOUR_TARGET_CHANGED');
+  if(slot>=0&&!metaFourWindowRef.current){const start=value.observed.timestamp;retainMetaFourWindow({validFrom:start,validUntil:(BigInt(start)+28740n).toString(),settleBefore:(BigInt(start)+28800n).toString()});}
+  const window=slot>=0?metaFourWindowRef.current:null;
+  if(window&&(BigInt(value.observed.timestamp)<BigInt(window.validFrom)||BigInt(value.observed.timestamp)>=BigInt(window.validUntil)))throw Error('MOBILE_META_FOUR_WINDOW_EXPIRED');
+  const prepared=await selected.vault.prepareDeposit(selected.descriptor,address,amount,window?.validFrom??value.observed.timestamp,selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?(window?.validUntil??validUntil):undefined);preparedRef.current=prepared;current(ticket,selected);
   const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
   if(selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1){setRecoveryPreparation('SHARE');setNotice('Guarda una copia actualizada de esta participación antes de autorizar su recepción. Después podrás revisar la autorización.');}
   else await makeReview(selected,prepared.draft,ticket,prepared.witness);
@@ -317,7 +373,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   reviewRef.current=null;activeWitness.current=value.witness;setReview(null);
   try{if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket);
    const signature=await sign(selected,value.consent,ticket);if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket);
-   await selected.vault.latch(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
+   invalidateMetaFourStatus(selected.descriptor);await selected.vault.latch(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
    const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
    const row=await selected.client.submit(value.consent,signature,value.witness);current(ticket,selected);
    if('quote' in row)throw Error('MOBILE_EXTERNAL_FLAT_ROW_REQUIRED');
@@ -351,8 +407,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   <Text style={styles.muted}>Guarda la clave de una nota en este dispositivo. El servicio conectado ejecuta únicamente la financiación o retirada que autorices.</Text>
   <View style={styles.card}><Text style={styles.heading}>Conexión privada</Text>
    <Text style={styles.label}>Descriptor entregado por tu operador</Text>
-   <TextInput accessibilityLabel="Descriptor privado de la nota ERC20" multiline style={[styles.input,styles.descriptor]} value={descriptorText} autoCapitalize="none" autoCorrect={false} editable={!busy}
-    onChangeText={text=>{closeConnection();setDescriptorText(text);setSummary(null);}}/>
+  <TextInput accessibilityLabel="Descriptor privado de la nota ERC20" multiline style={[styles.input,styles.descriptor]} value={descriptorText} autoCapitalize="none" autoCorrect={false} editable={!busy}
+    onChangeText={text=>{closeConnection();clearMetaFour();setDescriptorText(text);setSummary(null);}}/>
    <Text style={styles.label}>Nota que quieres abrir</Text>
    <Text style={styles.muted}>La nota inicial conserva su almacén. Para otro activo, red o conexión, selecciona otra nota. Las participaciones se guardan siempre en su propia conexión.</Text>
    <Button label={(custodyRoute==='LEGACY'?'✓ ':'')+'Nota inicial'} disabled={busy} onPress={()=>{closeConnection();setCustodyRoute('LEGACY');setSummary(null);}}/>
@@ -360,20 +416,34 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    <Button label="Conectar y consultar la nota" disabled={busy} onPress={()=>{void run(connect);}}/>
    <Text style={styles.muted}>{connected?'Conexión comprobada':'Sin conexión comprobada'}</Text>
   </View>
+  <View style={styles.card}><Text style={styles.heading}>Cuatro entregas MetaMorpho</Text>
+   <Text style={styles.muted}>Pega el archivo paired-meta-four.json del producto original. La fuente y cada participación conservan su propia conexión, apertura y autorización. La consulta de una nota no autoriza otra.</Text>
+   <TextInput accessibilityLabel="Paquete de cuatro vinculaciones MetaMorpho" multiline style={[styles.input,styles.descriptor]} value={metaFourText} autoCapitalize="none" autoCorrect={false} editable={!busy} onChangeText={text=>{closeConnection();clearMetaFour();setMetaFourText(text);setSummary(null);}}/>
+   <Button label="Abrir las cuatro vinculaciones originales" disabled={busy||metaFourText.length===0} onPress={()=>{void run(loadMetaFour,'No se ha abierto el paquete. Comprueba las cuatro conexiones originales y la identidad de este dispositivo.');}}/>
+   {metaFour&&<><Text style={styles.muted}>Fuente: 500 unidades. Cada entrega invierte 100, recibe 100 participaciones y reserva 100; la reserva total es 400. Revisa los decimales de cada activo. El grafo confirma sus términos en la preparación original.</Text>
+    <Fields values={{'Inicio común':metaFourWindow?.validFrom??'Se fija con la primera preparación original','Fin de recepción':metaFourWindow?.validUntil??'Pendiente de preparar','Vencimiento de reserva':metaFourWindow?.settleBefore??'Pendiente de preparar'}}/>
+    <Button label="Abrir fuente y reserva de las cuatro entregas" disabled={busy} onPress={()=>{void run(()=>selectMetaFour(-1));}}/>
+    {metaFour.targets.map((descriptor,slot)=>{const observed=metaFourReads[slot],fresh=observed&&observed.expiresAt>Date.now()?observed:null,intent=fresh?.jobs.find(v=>v.mode==='deposit_intent'),last=fresh?.jobs.find(v=>v.mode==='withdraw_balance'),delivery=metaFour.deliveries[slot];return <View key={descriptor.pairingId}>
+     <Fields values={{Entrega:String(slot+1),Servicio:descriptor.origin,Activo:descriptor.assetMetadata.symbol,'Depende de':delivery.dependsOn.length?delivery.dependsOn.map(id=>String(Number(id.slice('device-external-share-'.length))+1)).join(', '):'Ninguna entrega anterior','Recepción original':intent?stageText[intent.stage]??intent.stage:'Consultar esta conexión','Nota original':fresh?.note?.state??'No disponible','Disponible confirmado':amountText(fresh?.note?.available??null,descriptor),Retirada:last?stageText[last.stage]??last.stage:'No consultada'}}/>
+     <Button label={'Abrir y consultar participación '+(slot+1)} disabled={busy} onPress={()=>{void run(()=>selectMetaFour(slot));}}/>
+    </View>;})}
+    <Text style={styles.muted}>Prepara y autoriza cada recepción antes de volver a la fuente para U, S y la ejecución del mismo grafo. Cada resultado pendiente se consulta en su conexión. Los importes disponibles sólo proceden de consultas originales vigentes.</Text>
+   </>}
+  </View>
   {connected&&<View style={styles.card}><Text style={styles.heading}>Crear nota</Text>
    <Text style={styles.label}>Dirección de retirada</Text><TextInput accessibilityLabel="Dirección de retirada ERC20" style={styles.input} value={recipient} autoCapitalize="none" autoCorrect={false} editable={canPrepare&&summary?.recipient===null&&!busy} onChangeText={setRecipient}/>
-   <Text style={styles.label}>Importe en unidades atómicas</Text><TextInput accessibilityLabel="Importe ERC20 en unidades atómicas" style={styles.input} value={amount} keyboardType="number-pad" editable={canPrepare&&summary?.amount===null&&!busy} onChangeText={setAmount}/>
+   <Text style={styles.label}>Importe en unidades atómicas</Text><TextInput accessibilityLabel="Importe ERC20 en unidades atómicas" style={styles.input} value={amount} keyboardType="number-pad" editable={canPrepare&&summary?.amount===null&&!busy&&!metaFour} onChangeText={setAmount}/>
    <Text style={styles.muted}>{connection.current?.descriptor.assetMetadata.symbol} tiene {connection.current?.descriptor.assetMetadata.decimals} decimales. Comprueba el importe exacto antes de confirmar.</Text>
-   {share&&<><Text style={styles.label}>Fin del plazo de recepción (segundos Unix)</Text><TextInput accessibilityLabel="Fin del plazo de recepción" style={styles.input} value={validUntil} keyboardType="number-pad" editable={canPrepare&&!busy} onChangeText={setValidUntil}/><Text style={styles.muted}>El operador entrega las participaciones durante el plazo que autorices. La recepción conserva una clave propia en este dispositivo.</Text></>}
+   {share&&<><Text style={styles.label}>Fin del plazo de recepción (segundos Unix)</Text><TextInput accessibilityLabel="Fin del plazo de recepción" style={styles.input} value={validUntil} keyboardType="number-pad" editable={canPrepare&&!busy&&!metaFour} onChangeText={setValidUntil}/><Text style={styles.muted}>{metaFour?'Las cuatro recepciones conservan el mismo inicio y fin original. El inicio de la primera preparación procede de su consulta; las siguientes usan ese mismo plazo.':'El operador entrega las participaciones durante el plazo que autorices. La recepción conserva una clave propia en este dispositivo.'}</Text></>}
    <Button label={share?'Preparar recepción de participación':'Preparar prueba de financiación'} disabled={busy||!canPrepare} onPress={()=>confirmPreparation()}/>
   </View>}
   {connected&&!share&&deposit?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Conversión y reserva privadas</Text>
    {(graph===null||graph.row===null&&graph.pending===null)&&!status?.graphClaimed&&<><Text style={styles.muted}>Autoriza primero la recepción en la conexión de participaciones. Usa aquí sus importes y el mismo inicio de plazo; la recuperación conserva una nota propia.</Text>
-    <Text style={styles.label}>Activo que recibe la inversión, unidades atómicas</Text><TextInput accessibilityLabel="Importe invertido" style={styles.input} value={graphAssetAmount} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphAssetAmount}/>
-    <Text style={styles.label}>Participaciones autorizadas, unidades atómicas</Text><TextInput accessibilityLabel="Participaciones autorizadas" style={styles.input} value={graphShareAmount} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphShareAmount}/>
-    <Text style={styles.label}>Importe reservado, unidades atómicas</Text><TextInput accessibilityLabel="Importe reservado" style={styles.input} value={graphPayoutAmount} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphPayoutAmount}/>
-    <Text style={styles.label}>Inicio original de recepción, segundos Unix</Text><TextInput accessibilityLabel="Inicio original de recepción" style={styles.input} value={graphValidFrom} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphValidFrom}/>
-    <Text style={styles.label}>Vencimiento de la reserva, segundos Unix</Text><TextInput accessibilityLabel="Vencimiento de la reserva" style={styles.input} value={graphSettleBefore} keyboardType="number-pad" editable={!busy&&!uncertain} onChangeText={setGraphSettleBefore}/>
+    <Text style={styles.label}>Activo que recibe la inversión, unidades atómicas</Text><TextInput accessibilityLabel="Importe invertido" style={styles.input} value={graphAssetAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphAssetAmount}/>
+    <Text style={styles.label}>Participaciones autorizadas, unidades atómicas</Text><TextInput accessibilityLabel="Participaciones autorizadas" style={styles.input} value={graphShareAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphShareAmount}/>
+    <Text style={styles.label}>Importe reservado, unidades atómicas</Text><TextInput accessibilityLabel="Importe reservado" style={styles.input} value={graphPayoutAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphPayoutAmount}/>
+    <Text style={styles.label}>Inicio original de recepción, segundos Unix</Text><TextInput accessibilityLabel="Inicio original de recepción" style={styles.input} value={graphValidFrom} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphValidFrom}/>
+    <Text style={styles.label}>Vencimiento de la reserva, segundos Unix</Text><TextInput accessibilityLabel="Vencimiento de la reserva" style={styles.input} value={graphSettleBefore} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphSettleBefore}/>
     <Button label="Preparar reserva y conversión" disabled={busy||uncertain||!available||Boolean(withdrawal)} onPress={confirmGraphPreparation}/></>}
    <Fields values={{Reserva:graphRow?stageText[graphRow.reservation.stage]??graphRow.reservation.stage:'No disponible',Conversión:graphRow?graphStageText[graphRow.graph.stage]:'No disponible','Cambio retenido':amountText(graph?.changeAmount??null,summary?.descriptor??null),'Recuperación retenida':amountText(graph?.recoveryAmount??null,summary?.descriptor??null),'Resultado pendiente':graphPending?'Consultar la misma operación':'Ninguno retenido'}}/>
    <Button label="Consultar reserva y conversión" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readGraphStatus(selected,epoch.current);setNotice('Estado de la reserva consultado sin repetir envíos.');});}}/>

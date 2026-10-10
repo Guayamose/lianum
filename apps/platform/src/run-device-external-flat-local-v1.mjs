@@ -24,7 +24,7 @@ async function privateConfiguration(path){
   }finally{bytes?.fill(0);await handle.close();}
 }
 async function publishDescriptor(path,value,name){
-  assert.ok(name==='paired-descriptor.json'||name==='paired-share-descriptor.json'||['paired-share-slot-0.json','paired-share-slot-1.json','paired-share-slot-2.json','paired-share-slot-3.json'].includes(name),'DEVICE_EXTERNAL_LOCAL_FIXED_DESCRIPTOR_FILE');
+  assert.ok(name==='paired-descriptor.json'||name==='paired-share-descriptor.json'||name==='paired-meta-four.json'||['paired-share-slot-0.json','paired-share-slot-1.json','paired-share-slot-2.json','paired-share-slot-3.json'].includes(name),'DEVICE_EXTERNAL_LOCAL_FIXED_DESCRIPTOR_FILE');
   const handle=await open(join(dirname(path),name),constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   try{await handle.writeFile(JSON.stringify(value)+'\n');await handle.sync();}finally{await handle.close();}
   const parent=await open(dirname(path),constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);
@@ -54,7 +54,7 @@ async function run(){
     acquisition=(originalMultiFour?original.createOriginalDeviceMetaFourLocalOperatorV1:originalBlue?(reopening?original.openOriginalDeviceMorphoBluePositionLocalOperatorV1:original.createOriginalDeviceMorphoBluePositionLocalOperatorV1):reopening?original.openOriginalDeviceExternalFlatLocalOperatorV1:original.createOriginalDeviceExternalFlatLocalOperatorV1)(config);acquisition.catch(()=>{});
     config.tls=null;service=await acquisition;
     if(closeRequested)await close();
-    else{if(!reopening)await publishDescriptor(path,service.descriptor,'paired-descriptor.json');if(!closeRequested&&!reopening){if(originalMultiFour){assert.equal(service.targetDescriptors.length,4);for(let slot=0;slot<4&&!closeRequested;slot++)await publishDescriptor(path,service.targetDescriptors[slot],'paired-share-slot-'+slot+'.json');}else await publishDescriptor(path,service.targetDescriptor,'paired-share-descriptor.json');}if(closeRequested)await close();else process.stdout.write('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY\n');}
+    else{if(!reopening)await publishDescriptor(path,service.descriptor,'paired-descriptor.json');if(!closeRequested&&!reopening){if(originalMultiFour){assert.equal(service.targetDescriptors.length,4);for(let slot=0;slot<4&&!closeRequested;slot++)await publishDescriptor(path,service.targetDescriptors[slot],'paired-share-slot-'+slot+'.json');if(!closeRequested)await publishDescriptor(path,{profile:'DEVICE_EXTERNAL_FLAT_META_FOUR_PAIRING_V1',source:service.descriptor,targets:service.targetDescriptors,deliveries:service.deliveries},'paired-meta-four.json');}else await publishDescriptor(path,service.targetDescriptor,'paired-share-descriptor.json');}if(closeRequested)await close();else process.stdout.write('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY\n');}
   }catch{
     process.exitCode=1;
     try{await close();}catch{process.stderr.write('DEVICE_EXTERNAL_LOCAL_CLOSE_UNCONFIRMED\n');}
