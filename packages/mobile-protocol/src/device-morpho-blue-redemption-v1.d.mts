@@ -10,3 +10,15 @@ export function validateDeviceMorphoBlueRedemptionFreshV1(raw:unknown,now?:numbe
 export function deviceMorphoBlueRedemptionPermissionMessageV1(raw:unknown):Uint8Array;
 export function normalizeDeviceMorphoBlueRedemptionRowV1(raw:unknown):DeviceMorphoBlueRowV1;
 export function normalizeDeviceMorphoBlueRedemptionStatusV1(raw:unknown):DeviceMorphoBlueStatusV1;
+
+export const DEVICE_AAVE_STATIC_REDEMPTION_V1:'LIANUM_DEVICE_AAVE_STATIC_REDEMPTION_V1';
+export type DeviceAaveStaticAccessV1=Readonly<Omit<DeviceMorphoBlueAccessV1,'profile'|'action'>&{profile:typeof DEVICE_AAVE_STATIC_REDEMPTION_V1;action:'ACCESS_AAVE'}>;
+export type DeviceAaveStaticConsentV1=Readonly<Omit<DeviceMorphoBlueConsentV1,'profile'|'action'>&{profile:typeof DEVICE_AAVE_STATIC_REDEMPTION_V1;action:'REDEEM_AAVE'|'OBSERVE_AAVE'}>;
+export type DeviceAaveStaticRowV1=Readonly<Omit<DeviceMorphoBlueRowV1,'profile'>&{profile:typeof DEVICE_AAVE_STATIC_REDEMPTION_V1}>;
+export type DeviceAaveStaticStatusV1=Readonly<Omit<DeviceMorphoBlueStatusV1,'profile'|'operations'>&{profile:typeof DEVICE_AAVE_STATIC_REDEMPTION_V1;operations:readonly DeviceAaveStaticRowV1[]}>;
+export function normalizeDeviceAaveStaticRedemptionAccessV1(raw:unknown):DeviceAaveStaticAccessV1;
+export function normalizeDeviceAaveStaticRedemptionConsentV1(raw:unknown):DeviceAaveStaticConsentV1;
+export function validateDeviceAaveStaticRedemptionFreshV1(raw:unknown,now?:number):DeviceAaveStaticAccessV1|DeviceAaveStaticConsentV1;
+export function deviceAaveStaticRedemptionPermissionMessageV1(raw:unknown):Uint8Array;
+export function normalizeDeviceAaveStaticRedemptionRowV1(raw:unknown):DeviceAaveStaticRowV1;
+export function normalizeDeviceAaveStaticRedemptionStatusV1(raw:unknown):DeviceAaveStaticStatusV1;
