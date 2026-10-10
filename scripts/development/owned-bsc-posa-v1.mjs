@@ -9,7 +9,9 @@ import { performance } from 'node:perf_hooks';
 
 const PROFILE = 'OWNED_BSC_POSA_THREE_VALIDATORS_V1';
 const PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2';
-const RECIPE_SHA256 = '6119a618d350c5fd10d7e51e1d4166dc049e3796504c3353f9d2aaadda492e77';
+const PROFILE_V3 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V3';
+const GENESIS_V3_HELPER_SHA256 = '507a09485e2450dd0a52398c0c1007a80bf4cb621f71829529f1a26a9a9a0ebb';
+const RECIPE_SHA256 = 'f7eeafc500ff13e0a5c81e107b0443ce681f694d2a906b95e9812c9ed633b3e0';
 // Python's 90-second readiness already contains registrations. This outer
 // watchdog deliberately permits 30 + 3*15 + 90 + an explicit 15-second margin.
 const CONSTRUCTOR_MS = (30 + 3 * 15 + 90 + 15) * 1000;
@@ -159,7 +161,10 @@ async function command(runtime, operation, input) {
 async function createFixedOwnedBscPoSACluster(profile, nativeInitV2) {
   const root = repository(), recipe = join(root, 'scripts/development/owned_bsc_posa_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BSC_ORIGINAL_RECIPE_CHANGED');
-  const child = spawn('/usr/bin/python3', [recipe, ...(nativeInitV2 ? ['--native-init-v2'] : [])], { cwd: root, stdio: ['pipe','pipe','ignore'], env: { PATH:'/usr/bin:/bin', LANG:'C.UTF-8' } });
+  const helper = join(root, 'scripts/development/bsc_original_genesis_v3.py');
+  if (profile === PROFILE_V3) assert.equal(createHash('sha256').update(readFileSync(helper)).digest('hex'), GENESIS_V3_HELPER_SHA256, 'BSC_ORIGINAL_GENESIS_HELPER_CHANGED');
+  const args = nativeInitV2 === false ? [] : nativeInitV2 === true ? ['--native-init-v2'] : nativeInitV2 === 'NATIVE_INIT_V3' ? ['--native-init-v3'] : assert.fail('BSC_ORIGINAL_RUNTIME_PROFILE');
+  const child = spawn('/usr/bin/python3', [recipe, ...args], { cwd: root, stdio: ['pipe','pipe','ignore'], env: { PATH:'/usr/bin:/bin', LANG:'C.UTF-8' } });
   const state = { child, profile, identity:null, validators:[], pending:new Map(), sequence:0, tail:Promise.resolve(), closed:false, failed:false, uncertain:false };
   let exitResolve; state.exited = new Promise(resolve => { exitResolve = resolve; });
   child.once('exit', (code,signal) => exitResolve({code,signal}));
@@ -197,6 +202,7 @@ async function createFixedOwnedBscPoSACluster(profile, nativeInitV2) {
     state.identity=processIdentity(child.pid);
     const original=await bounded(ready,CONSTRUCTOR_MS,'BSC_ORIGINAL_CONSTRUCTOR_TIMEOUT');
     assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'),RECIPE_SHA256,'BSC_ORIGINAL_RECIPE_CHANGED');sameProcess(child,state.identity);
+    if (profile === PROFILE_V3) assert.equal(createHash('sha256').update(readFileSync(helper)).digest('hex'), GENESIS_V3_HELPER_SHA256, 'BSC_ORIGINAL_GENESIS_HELPER_CHANGED');
     assert(!state.failed&&!state.closed,'BSC_ORIGINAL_RUNTIME_UNAVAILABLE');
     const runtime=Object.freeze({profile,network:'bsc',chainId:714,scope:'owned-local',independentOperators:false,
       genesisSHA256:original.genesisSHA256,async close(){assert.equal(arguments.length,0,'BSC_NO_OPTIONS');return shutdown(state);}});
@@ -253,4 +259,23 @@ export async function sendOwnedBscSignedTransactionOnceV1(runtime, signedWire) {
 export async function sendOwnedBscSignedTransactionOnceV2(runtime, signedWire) {
   assert.equal(arguments.length, 2, 'BSC_SIGNED_WIRE_ONLY');
   return sendSignedTransactionOnce(runtime, signedWire, PROFILE_V2);
+}
+
+// A distinct original birth: its genesis already contains original validator
+// registrations. The native client still establishes actual finality itself.
+export async function createOwnedBscPoSAClusterV3() {
+  assert.equal(arguments.length, 0, 'BSC_NO_OPTIONS');
+  return createFixedOwnedBscPoSACluster(PROFILE_V3, 'NATIVE_INIT_V3');
+}
+export function assertOwnedBscPoSAClusterV3(runtime) {
+  assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY');
+  return runtimeProfile(runtime, PROFILE_V3);
+}
+export async function readOwnedBscFinalizedHeadV3(runtime) {
+  assert.equal(arguments.length, 1, 'BSC_RUNTIME_ONLY');
+  return readFinalizedHead(runtime, PROFILE_V3);
+}
+export async function sendOwnedBscSignedTransactionOnceV3(runtime, signedWire) {
+  assert.equal(arguments.length, 2, 'BSC_SIGNED_WIRE_ONLY');
+  return sendSignedTransactionOnce(runtime, signedWire, PROFILE_V3);
 }

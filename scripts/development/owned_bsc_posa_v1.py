@@ -35,6 +35,9 @@ URLS = {
 
 PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2'
 PREPARED_V2 = DEPENDENCIES / 'prepared-native-init-v2'
+PROFILE_V3 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V3'
+PREPARED_V3 = DEPENDENCIES / 'prepared-native-init-v3'
+GENESIS_V3_HELPER_SHA256 = '507a09485e2450dd0a52398c0c1007a80bf4cb621f71829529f1a26a9a9a0ebb'
 # Slots derive from the original compiled Solidity storageLayout (slot11,
 # struct22words, voteAddress+2) and its original long-bytes storage rule.
 NATIVE_V1_EXTRA_LAYOUT_SHA256 = 'e207cd18bf6545863c8eabbeb1d6f38e825ec9ee43c761efc67abd42ba04db79'
@@ -303,6 +306,73 @@ def prepare_native_init_v2():
  os.rename(staged,PREPARED_V2);sync_directory(DEPENDENCIES)
  print(json.dumps({'nativeInitializationPrepared':True,'profile':PROFILE_V2,'originalSystemContracts':17,'nativeFinalityEstablished':False}))
 
+def run_genesis_v3_preparation(args,cwd,log,deadline,env):
+ # Retain the real original producer before waiting. Its controlled signal
+ # handler closes the exact trace client and registrar before it exits.
+ with log.open('xb') as file:
+  os.chmod(log,0o600)
+  process=subprocess.Popen(args,cwd=cwd,stdin=subprocess.DEVNULL,stdout=file,stderr=file,env=env,start_new_session=True)
+  owned=identity(process.pid)
+  try:
+   remaining=deadline-time.monotonic();require(remaining>0,"BSC_PREPARATION_TIMEOUT")
+   try:code=process.wait(timeout=remaining)
+   except subprocess.TimeoutExpired:raise RuntimeError('BSC_PREPARATION_TIMEOUT')
+   require(code==0,"BSC_PREPARATION_COMMAND_FAILED")
+  finally:
+   if same_process(process,owned):
+    process.send_signal(signal.SIGTERM)
+    try:process.wait(timeout=30)
+    except subprocess.TimeoutExpired:raise RuntimeError('BSC_ORIGINAL_GENESIS_CLOSE_UNCONFIRMED')
+
+def prepare_native_init_v3():
+ # The original-client preparer owns every transition. This output remains
+ # provenance only; native finality is checked later by the separate ctor.
+ private_directory(DEPENDENCIES);private_directory(PREPARED_V2)
+ require(not PREPARED_V3.exists(),"BSC_NATIVE_INIT_ALREADY_PREPARED")
+ parentReceipt=json.loads(private_file(PREPARED_V2/'receipt.json',32768))
+ parentGenesis=private_file(PREPARED_V2/'genesis.json',1024*1024)
+ require(parentReceipt['profile']==PROFILE_V2 and parentReceipt['material']==PINS and digest(parentGenesis)==parentReceipt['genesisSHA256'],"BSC_NATIVE_INIT_ORIGINAL_REQUIRED")
+ helper=REPO/'scripts/development/bsc_original_genesis_v3.py'
+ require(digest(helper.read_bytes())==GENESIS_V3_HELPER_SHA256,"BSC_ORIGINAL_GENESIS_HELPER_CHANGED")
+ expectedCode=parentReceipt['nativeGenesis']['allOriginalSystemCodeSHA256']['0x'+'0'*36+'2002']
+ # Reuse a matching already compiled official generation and its private
+ # Poetry environment. No new compilation, source download or latest state.
+ candidates=[]
+ for work in sorted(DEPENDENCIES.glob('.bsc-build-*')):
+  artifact=work/'genesis/out/StakeHub.sol/StakeHub.json'
+  if artifact.exists():
+   private_directory(work);private_directory(work/'genesis')
+   value=json.loads(private_file(artifact,4*1024*1024))
+   if digest(bytes.fromhex(value['deployedBytecode']['object'].removeprefix('0x')))==expectedCode and (work/'genesis/.venv/bin/python').exists():candidates.append(work/'genesis')
+ require(candidates and POETRY.exists(),"BSC_ORIGINAL_GENESIS_ENVIRONMENT_REQUIRED")
+ gen=candidates[0];work=DEPENDENCIES/('.native-v3-build-'+str(uuid.uuid4()));directory(work)
+ deadline=time.monotonic()+300
+ env=dict(os.environ);env.update({'PATH':str(POETRY.parent)+':'+os.environ.get('PATH',''),'POETRY_VIRTUALENVS_IN_PROJECT':'true','POETRY_CACHE_DIR':str(TOOLS/'poetry-cache')})
+ run_genesis_v3_preparation([str(POETRY),'run','python',str(helper),str(work)],gen,work/'prepare.private.log',deadline,env)
+ body=private_file(work/'genesis.json',1024*1024);seed=json.loads(private_file(work/'native-seed.json',1024*1024))
+ require(seed['schema']=='BSC_ORIGINAL_NATIVE_EVM_GENESIS_SEED_V3' and seed['parentGenesisSHA256']==digest(parentGenesis) and seed['genesisSHA256']==digest(body) and seed['clientSHA256']==parentReceipt['clientSHA256'] and seed['registrarSHA256']==parentReceipt['stakeHubRegistrarSHA256'] and seed['initialElectionCount']==3 and seed['originalMaxElectedValidators']==45 and seed['legacyInitializersPersisted'] is False and seed['nativeHeaderUnchanged'] is True and seed['nativeBroadcasts']==0 and seed['nativeFinalityEstablished'] is False and seed['ownedNativeProcessAbsent'] is True and not pathlib.Path(f"/proc/{seed['originalDiagnosticProcess']['pid']}").exists(),"BSC_ORIGINAL_GENESIS_SEED_REQUIRED")
+ require(len(seed['originalCreditCodeSHA256'])==3 and len(seed['originalRegistrations'])==3 and sum(x['originalBlsVerified'] for x in seed['originalTraces'])==3 and sum(x['label'].endswith('_FIRST_BLOCK_INIT') for x in seed['originalTraces'])==7 and seed['originalTraces'][-1]['label']=='ORIGINAL_FIRST_DAILY_UPDATE',"BSC_ORIGINAL_GENESIS_TRACE_REQUIRED")
+ old=json.loads(parentGenesis);new=json.loads(body)
+ require({k:v for k,v in old.items() if k!='alloc'}=={k:v for k,v in new.items() if k!='alloc'},"BSC_NATIVE_INIT_CONSENSUS_CHANGED")
+ codes={k:digest(bytes.fromhex(v['code'].removeprefix('0x'))) for k,v in new['alloc'].items() if v.get('code')}
+ require(codes==dict(seed['originalSystemCodeSHA256'],**seed['originalCreditCodeSHA256']) and seed['originalSystemCodeSHA256']=={k.lower():v for k,v in parentReceipt['nativeGenesis']['allOriginalSystemCodeSHA256'].items()},"BSC_NATIVE_INIT_ORIGINAL_CODE_CHANGED")
+ staged=work/'prepared';directory(staged)
+ for name in ['geth','create-validator']:write(staged/name,private_file(PREPARED_V2/name,128*1024*1024),0o700)
+ directory(staged/'keys');copiedKeys=[]
+ for source in (PREPARED_V2/'keys').rglob('*'):
+  target=staged/source.relative_to(PREPARED_V2)
+  if source.is_dir():private_directory(source);target.mkdir(mode=0o700,parents=True,exist_ok=True)
+  else:
+   keyBody=private_file(source,65536);write(target,keyBody);copiedKeys.append((source,target,digest(keyBody)))
+ write(staged/'genesis.json',body);write(staged/'native-seed.json',private_file(work/'native-seed.json',1024*1024))
+ receipt=dict(parentReceipt);receipt.update({'profile':PROFILE_V3,'genesisSHA256':digest(body),'genesisBytes':len(body),'nativeInitV3':{'schema':seed['schema'],'parentGenesisSHA256':digest(parentGenesis),'seedSHA256':digest(private_file(staged/'native-seed.json',1024*1024)),'helperSHA256':GENESIS_V3_HELPER_SHA256,'originalGenesisRegistrations':3,'runtimeFinalityEstablished':False}})
+ write(staged/'receipt.json',json.dumps(receipt,sort_keys=True,separators=(',',':')).encode())
+ require(private_file(PREPARED_V2/'genesis.json',1024*1024)==parentGenesis and json.loads(private_file(PREPARED_V2/'receipt.json',32768))==parentReceipt and digest(helper.read_bytes())==GENESIS_V3_HELPER_SHA256,"BSC_NATIVE_INIT_ORIGINAL_CHANGED")
+ for name,expected in [('geth',receipt['clientSHA256']),('create-validator',receipt['stakeHubRegistrarSHA256'])]:require(digest(private_file(staged/name,128*1024*1024))==expected,"BSC_NATIVE_INIT_BINARY_READBACK")
+ for source,target,expected in copiedKeys:require(digest(private_file(source,65536))==digest(private_file(target,65536))==expected,"BSC_NATIVE_INIT_ORIGINAL_KEY_CHANGED")
+ sync_directory(staged);os.rename(staged,PREPARED_V3);sync_directory(DEPENDENCIES)
+ print(json.dumps({'nativeInitializationPrepared':True,'profile':PROFILE_V3,'originalSystemContracts':17,'originalStakeCreditProxies':3,'nativeFinalityEstablished':False}))
+
 def serve(prepared=PREPARED,profile=PROFILE):
  require(prepared.exists(),"BSC_MATERIAL_NOT_PREPARED");private_directory(DEPENDENCIES);private_directory(prepared)
  receipt=json.loads(private_file(prepared/'receipt.json',16384));require(receipt['profile']==profile and receipt['material']==PINS,"BSC_PREPARED_PROFILE")
@@ -311,6 +381,11 @@ def serve(prepared=PREPARED,profile=PROFILE):
  if profile==PROFILE_V2:
   parentReceipt=json.loads(private_file(PREPARED/'receipt.json',16384));parentGenesis=private_file(PREPARED/'genesis.json',1024*1024)
   require(receipt.get('nativeInit')=={'schema':'BSC_ORIGINAL_NATIVE_INIT_GENESIS_V2','parentGenesisSHA256':digest(parentGenesis),'removedOriginalExtraStorageWords':10,'originalNativeInitializerOwnsBLS':True,'runtimeFinalityEstablished':False} and private_file(prepared/'genesis.json',1024*1024)==native_init_genesis_v2(parentGenesis,parentReceipt),"BSC_NATIVE_INIT_GENERATION_CHANGED")
+  require(receipt['validators']==parentReceipt['validators'] and receipt['clientSHA256']==parentReceipt['clientSHA256'] and receipt['stakeHubRegistrarSHA256']==parentReceipt['stakeHubRegistrarSHA256'],"BSC_NATIVE_INIT_ORIGINAL_BINDING_CHANGED")
+ if profile==PROFILE_V3:
+  parentReceipt=json.loads(private_file(PREPARED_V2/'receipt.json',32768));parentGenesis=private_file(PREPARED_V2/'genesis.json',1024*1024)
+  v3=receipt['nativeInitV3'];seedBody=private_file(prepared/'native-seed.json',1024*1024);seed=json.loads(seedBody)
+  require(v3=={'schema':'BSC_ORIGINAL_NATIVE_EVM_GENESIS_SEED_V3','parentGenesisSHA256':digest(parentGenesis),'seedSHA256':digest(seedBody),'helperSHA256':GENESIS_V3_HELPER_SHA256,'originalGenesisRegistrations':3,'runtimeFinalityEstablished':False} and digest((REPO/'scripts/development/bsc_original_genesis_v3.py').read_bytes())==GENESIS_V3_HELPER_SHA256 and seed['genesisSHA256']==receipt['genesisSHA256'] and seed['parentGenesisSHA256']==digest(parentGenesis),"BSC_NATIVE_INIT_GENERATION_CHANGED")
   require(receipt['validators']==parentReceipt['validators'] and receipt['clientSHA256']==parentReceipt['clientSHA256'] and receipt['stakeHubRegistrarSHA256']==parentReceipt['stakeHubRegistrarSHA256'],"BSC_NATIVE_INIT_ORIGINAL_BINDING_CHANGED")
  private_directory(REALMS);realm=REALMS/str(uuid.uuid4());directory(realm)
  nodes=[];broadcasts=set()
@@ -351,7 +426,7 @@ def serve(prepared=PREPARED,profile=PROFILE):
    except OSError:pass
    require(time.monotonic()<deadline,"BSC_FINALITY_STARTUP_TIMEOUT");time.sleep(.2)
   registrationHashes=[]
-  for index in range(3):
+  for index in range(3) if profile!=PROFILE_V3 else []:
    parent_alive();log=realm/f'register{index}.private.log'
    native_command([str(prepared/'create-validator'),'--consensus-key-dir',str(prepared/f'keys/validator{index}'),'--vote-key-dir',str(prepared/f'keys/bls{index}'),'--password-path',str(prepared/'keys/password.txt'),'--amount','20001','--validator-desc',f'Val{index}','--rpc-url',nodes[0][2]],realm,log,deadline)
    matches=re.findall(rb'send createValidator\. Tx hash: (0x[0-9a-fA-F]{64})',private_file(log,16384))
@@ -363,6 +438,10 @@ def serve(prepared=PREPARED,profile=PROFILE):
     require(all(rpc(u,'eth_chainId',[])=='0x2ca' for p,i,u,l in nodes),"BSC_CHAIN_ID")
     blocks=[rpc(u,'eth_getBlockByNumber',['finalized',False]) for p,i,u,l in nodes]
     registrations=[rpc(nodes[0][2],'eth_getTransactionReceipt',[h]) for h in registrationHashes]
+    if profile==PROFILE_V3:
+     # Read all original native nodes. Never retransmit the three genesis
+     # registrations or treat a preparation receipt as chain finality.
+     require(all(rpc(u,'eth_call',[{'to':'0x'+'0'*36+'2002','data':seed['initialElectionCall']},'latest'])==seed['initialElectionResult'] for p,i,u,l in nodes),"BSC_NATIVE_INIT_ELECTION_CHANGED")
     require(all(r is None or r['status']=='0x1' for r in registrations),"BSC_STAKEHUB_TRANSACTION_FAILED")
     if all(b is not None and int(b['number'],16)>0 for b in blocks) and all(r is not None and int(r['blockNumber'],16)<=min(int(b['number'],16) for b in blocks) for r in registrations):
      genesis=[rpc(u,'eth_getBlockByNumber',['0x0',False]) for p,i,u,l in nodes]
@@ -409,12 +488,14 @@ def serve(prepared=PREPARED,profile=PROFILE):
 
 if __name__=='__main__':
  try:
-  require(sys.argv[1:] in ([],['--prepare'],['--fetch-material'],['--prepare-tools'],['--prepare-native-init-v2'],['--native-init-v2']),"BSC_NO_OPTIONS")
+  require(sys.argv[1:] in ([],['--prepare'],['--fetch-material'],['--prepare-tools'],['--prepare-native-init-v2'],['--native-init-v2'],['--prepare-native-init-v3'],['--native-init-v3']),"BSC_NO_OPTIONS")
   if sys.argv[1:]==['--fetch-material']:fetch_material()
   elif sys.argv[1:]==['--prepare-tools']:prepare_tools()
   elif sys.argv[1:]==['--prepare']:prepare()
   elif sys.argv[1:]==['--prepare-native-init-v2']:prepare_native_init_v2()
   elif sys.argv[1:]==['--native-init-v2']:serve(PREPARED_V2,PROFILE_V2)
+  elif sys.argv[1:]==['--prepare-native-init-v3']:prepare_native_init_v3()
+  elif sys.argv[1:]==['--native-init-v3']:serve(PREPARED_V3,PROFILE_V3)
   else:serve()
  except Exception as e:
   code=str(e) if isinstance(e,RuntimeError) and re.fullmatch('BSC_[A-Z_]+',str(e)) else 'BSC_CONSTRUCTOR_FAILED'

@@ -123,5 +123,67 @@ class OriginalNativeInitializationGenesisTest(unittest.TestCase):
             convert(original, wrong_layout)
 
 
+class OriginalNativeGenesisDiffTest(unittest.TestCase):
+    def test_original_diff_keeps_unchanged_fields_and_rejects_foreign_seed(self):
+        # Tracer replies here are explicitly synthetic. This case checks the
+        # source fold/guards, and does not establish native BLS or finality.
+        source = pathlib.Path(__file__).with_name("bsc_original_genesis_v3.py")
+        tree = ast.parse(source.read_text())
+        names = {"need", "sha", "fold_diff", "validate_seed"}
+        nodes = [node for node in tree.body if
+                 (isinstance(node, ast.FunctionDef) and node.name in names) or
+                 (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+                  and target.id in {"HEX", "ADDRESS"} for target in node.targets))]
+        class OriginalGuard:
+            @staticmethod
+            def require(value, code):
+                if not value:
+                    raise RuntimeError(code)
+        context = {"copy": copy, "re": re, "hashlib": hashlib, "bsc": OriginalGuard}
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), "exec"), context)
+        account = "0x" + "12" * 20
+        slot1, slot2 = "0x" + "11" * 32, "0x" + "22" * 32
+        old_word, new_word = "0x" + "00" * 31 + "01", "0x" + "00" * 31 + "02"
+        state = {account: {"balance": "0x20", "nonce": 1, "code": "0x6000",
+                           "storage": {slot1: old_word, slot2: old_word}}}
+        diff = {"pre": {account: {"balance": "0x20", "nonce": 1, "code": "0x6000",
+                                   "storage": {slot1: old_word, slot2: old_word}}},
+                "post": {account: {"nonce": 2, "storage": {slot1: new_word}}}}
+        result = context["fold_diff"](state, diff)
+        self.assertEqual(result[account], {"balance": "0x20", "nonce": 2, "code": "0x6000",
+                                           "storage": {slot1: new_word}})
+        self.assertEqual(state[account]["storage"][slot2], old_word)
+        foreign = copy.deepcopy(diff)
+        foreign["pre"][account]["storage"][slot1] = new_word
+        with self.assertRaisesRegex(RuntimeError, "^BSC_GENESIS_DIFF_PRESTATE_CHANGED$"):
+            context["fold_diff"](state, foreign)
+        destroyed = copy.deepcopy(diff)
+        destroyed["post"].clear()
+        with self.assertRaisesRegex(RuntimeError, "^BSC_GENESIS_ORIGINAL_ACCOUNT_DESTROYED$"):
+            context["fold_diff"](state, destroyed)
+        original = {"timestamp": "0x01", "config": {"chainId": 714}, "alloc": {}}
+        for index in range(17):
+            original["alloc"]["0x" + format(0x1000 + index, "040x")] = {"balance": "0x00", "code": "0x6000"}
+        original["alloc"][account] = {"balance": "0x30"}
+        codes = {key: context["sha"](bytes.fromhex(row["code"][2:])) for key, row in original["alloc"].items() if row.get("code")}
+        seeded = copy.deepcopy(original)
+        credits = {"0x" + format(0x9000 + i, "040x"): "0x6001" for i in range(3)}
+        seeded["alloc"][account]["balance"] = "0x00"
+        seeded["alloc"].update({key: {"code": code, "balance": "0x10"} for key, code in credits.items()})
+        context["validate_seed"](original, seeded, codes, credits)
+        for field, code in [("timestamp", "BSC_GENESIS_GENESIS_TERMS_CHANGED"),
+                            ("value", "BSC_GENESIS_GENESIS_NATIVE_VALUE_CREATED"),
+                            ("system", "BSC_GENESIS_ORIGINAL_SYSTEM_CODE_CHANGED")]:
+            changed = copy.deepcopy(seeded)
+            if field == "timestamp":
+                changed["timestamp"] = "0x02"
+            elif field == "value":
+                changed["alloc"][account]["balance"] = "0x01"
+            else:
+                changed["alloc"][next(iter(codes))]["code"] = "0x6002"
+            with self.assertRaisesRegex(RuntimeError, "^" + code + "$"):
+                context["validate_seed"](original, changed, codes, credits)
+
+
 if __name__ == "__main__":
     unittest.main()
