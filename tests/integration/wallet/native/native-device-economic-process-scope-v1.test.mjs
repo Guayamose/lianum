@@ -47,3 +47,11 @@ test('HOST durable Native10 process scope retains original vectors and rejects c
  const altered=anvil(true);altered[12]='5';assert.deepEqual(classify(altered,ANVIL,parent(next)),{role:'native-economic-unexpected-process',proofWorker:true});
  assert.deepEqual(classify([process.execPath,next,'--sql=other'],process.execPath,parent(main)),{role:'native-economic-unexpected-process',proofWorker:true});
 });
+
+test('HOST private U fixed generation rejects legacy parents and starts with a closed release gate',async()=>{
+ const p=await import('./native-device-economic-note-process-scope-v1.mjs'),c=p.classifyNativePrivateAuthorizedDurableNoteRestartProcessV2,main=p.NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2,next=p.NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2,expected={role:'native-economic-unexpected-process',proofWorker:true};
+ assert.deepEqual(c([process.execPath,next],process.execPath,parent(main)),{role:'native-economic-successor-role',proofWorker:false});assert.deepEqual(c(anvil(false),ANVIL,parent(main)),{role:'evm-runtime',proofWorker:false});assert.deepEqual(c(anvil(true),ANVIL,parent(next)),{role:'evm-runtime',proofWorker:false});
+ for(const old of[p.NATIVE_PRIVATE_DURABLE_NOTE_MAIN_V2,p.NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2,MAIN,NEXT])assert.deepEqual(c([process.execPath,next],process.execPath,parent(old)),expected);
+ assert.deepEqual(c([process.execPath,next,'--private-u'],process.execPath,parent(main)),expected);assert.deepEqual(c(anvil(false),ANVIL,parent(next)),expected);
+ const policy=await import('./native-device-private-authorized-durable-note-policy-v2.mjs');assert.equal(policy.NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_RELEASE_V2,null);assert.throws(()=>policy.assertNativePrivateAuthorizedDurableNoteReleaseV2(),{code:'ERR_ASSERTION'});
+});

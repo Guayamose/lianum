@@ -106,3 +106,22 @@ export function classifyNativePrivateDurableNoteRestartProcessV2(argv,executable
  if(basename(executable??'')==='anvil'||typeof argv[0]==='string'&&basename(argv[0])==='anvil')return unexpected();
  return null;
 }
+
+/** Exact private-U entry and parent, never legacy argv substitution. */
+export const NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2=join(ROOT,'integration/native-value-private-authorized-durable-note-flow-v2.mjs');
+export const NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2=join(ROOT,'integration/run-native-value-private-authorized-durable-note-successor-v2.mjs');
+const PRIVATE_AUTHORIZED_RECIPIENTS_V2=Object.freeze([
+ join(ROOT,'proof-workers/native-device-private-deposit-recipient-v2.mjs'),
+ join(ROOT,'proof-workers/native-device-private-exit-recipient-v2.mjs')]);
+export function classifyNativePrivateAuthorizedDurableNoteRestartProcessV2(argv,executable,parent=null){
+ assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
+ const main=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2)),next=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2));
+ if(argv.includes(NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2))return executable===process.execPath&&main&&fixedNode(argv,NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2)?{role:'native-economic-successor-role',proofWorker:false}:unexpected();
+ const recipient=PRIVATE_AUTHORIZED_RECIPIENTS_V2.find(path=>argv.includes(path));
+ if(recipient||argv.some(part=>typeof part==='string'&&PRIVATE_AUTHORIZED_RECIPIENTS_V2.some(path=>basename(part)===basename(path))))
+  return recipient&&executable===process.execPath&&(main||next)&&fixedNode(argv,recipient)?{role:'native-private-note-recipient',proofWorker:false}:unexpected();
+ if(executable===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1||argv[0]===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1)
+  return executable===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1&&(main||next)&&originalAnvilArguments(argv,next)?{role:'evm-runtime',proofWorker:false}:unexpected();
+ if(basename(executable??'')==='anvil'||typeof argv[0]==='string'&&basename(argv[0])==='anvil')return unexpected();
+ return null;
+}

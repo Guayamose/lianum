@@ -1,3 +1,4 @@
+import{deviceReservationConsentEitherMessageV2 as deviceReservationConsentMessageV1}from'../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 /** Fixed continuation of the SAME original funded D26 opening. No bootstrap,
  * Linux note adoption, arbitrary executor or proof worker is introduced. */
 import assert from 'node:assert/strict';
@@ -9,7 +10,7 @@ import {createDeviceOwnerExecutionBridgeV1} from '../../../../packages/backend/s
 import {runDeviceOwnerExecutionContinuationV1} from './device-owner-execution-original-continuation-v1.mjs';
 import {createPairedDeviceAccountTlsServerV1,createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {deviceReservationConsentMessageV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {prepareDeviceOwnerReservationOriginalV1,prepareDeviceOwnerLiveArmedReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
 import {verifyPrivateNotePath} from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
@@ -21,9 +22,9 @@ export async function runDeviceOwnerReservationContinuationV1(context){
   certificatePath,keyPath,transport,depositJobId,fromApp}=context;
  const executionMode=context.deviceExecution===true;
  let vault=context.vault,api,bridge,executionBridge,server,prepared,pending,witness,continuation,closed=false,providersClosed=false;
- const {signDeviceMessage}=await fromApp('custody/signing.mjs');
+ const {signDeviceMessage,signNativePrivateDeviceConsentV2}=await fromApp('custody/signing.mjs');
  const access=async()=>{active();const value=await api.access();return{access:value,signature:signDeviceMessage(deviceKey,originalAccountAccessMessageV2(value))};};
- const signed=consent=>({consent,signature:signDeviceMessage(deviceKey,deviceReservationConsentMessageV1(consent))});
+ const signed=consent=>({consent,signature:consent.version===2?signNativePrivateDeviceConsentV2(deviceKey,consent):signDeviceMessage(deviceKey,deviceReservationConsentMessageV1(consent))});
  const counts=()=>({proofs:result.proofs.length,receiver:runtime.transactions.length,native:nativeRuntime.transactions.length});
  async function close(){if(closed)return;closed=true;pending?.close();if(witness)wipeDeviceReservationWitnessV1(witness);api?.close();continuation?.close();vault?.close();executionBridge?.close();bridge?.close();
   if(!executionMode)await closeProviders();}
@@ -70,12 +71,14 @@ export async function runDeviceOwnerReservationContinuationV1(context){
   const durableBeforeU=host.evidence();assert.ok(durableBeforeU.ciphertextPersisted&&durableBeforeU.maximumStoredValueBytes<=2048);
   const prove=await api.challengeJob({...await access(),depositJobId,quoteId:pending.quoteId,jobId:pending.jobId,
    custody:pending.custody,statement:pending.statement,witnessSHA256:pending.witnessSHA256});
+  if(context.devicePrivateAuthorized){assert.equal(prove.version,2);assert.equal(prove.privateProof.profile,'ORIGINAL_NATIVE_DEVICE_U_PRIVATE_TRANSIT_V2');assert.equal(prove.privateProof.recipient.role,'owner');assert.equal(prove.privateProof.recipient.relation,'authorization');assert.equal(prove.privateProof.resultRecipient.role,'owner');assert.equal(prove.privateProof.resultRecipient.relation,'authorization');result.nativePrivateIntake.uPrivateConsent=true;result.nativePrivateIntake.uOriginalRecipient=true;}else assert.equal(prove.version,1);
   witness=await vault.bindDeviceAuthorizationRequest(pending,prove);assert.equal(Object.hasOwn(witness,'privateKey'),false);assert.equal(Object.hasOwn(witness,'root'),false);
   const proofSubmission={...signed(prove),witness};
   await stage('device-original-U-HTTP-UNKNOWN-same-admitted-job');
   transport.dropU = true;
   await assert.rejects(api.submit(proofSubmission),/SERVICE_UNAVAILABLE|DEVICE_US_U_REPLY_LOST/);
-  const proofResponse=transport.responses.find(row=>row.path==='/v1/mobile/device-reservation/jobs');assert.ok(proofResponse&&[200,504].includes(proofResponse.status));
+  const proofPath=context.devicePrivateAuthorized?'/v1/mobile/device-reservation/private-jobs':'/v1/mobile/device-reservation/jobs',proofResponse=transport.responses.find(row=>row.path===proofPath);assert.ok(proofResponse&&[200,504].includes(proofResponse.status));
+  if(context.devicePrivateAuthorized){assert.equal(transport.privatePosts[proofPath],1);assert.equal(transport.posts[proofPath],1);result.nativePrivateIntake.uEncryptedHttp=true;}
   // Reject a duplicate while the SAME admitted proof is still pending; this
   // must not overwrite its retained completion or start another worker.
   await assert.rejects(api.submit(proofSubmission));
