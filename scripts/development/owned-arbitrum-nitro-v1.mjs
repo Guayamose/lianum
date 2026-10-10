@@ -7,11 +7,13 @@ import { dirname, join, parse } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
+import {createOriginalArbitrumNativeValueCustodyV1,readOriginalArbitrumNativeValueCustodyPublicV1,bindOriginalArbitrumNativeValueCustodyV1,dispatchOriginalArbitrumNativeValueV1,assertOriginalArbitrumNativeValuePreparedCurrentV1,observeOriginalArbitrumNativeValueV1,closeOriginalArbitrumNativeValueCustodyV1} from './owned-arbitrum-native-value-dispatch-v1.mjs';
 
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1';
 const nativeValues = new WeakSet();
-const RECIPE_SHA256 = '1306fbe770e1b1e00d2be1a876cccc69f8485f970c0e28522ef1d932fc1ad11c';
+const RECIPE_SHA256 = '6f675f5e69d1064e0e08a96bcd807ca872332357f4e6ef51f7c5f95744f35b5a';
+const CUSTODY_SHA256 = 'ad75dd12a46496e90859886b42aada2d2203698dce70fb252b6477a3e63ba10b';
 const BIRTH_MS = 600_000 + 180_000 + 15_000;
 const IPC_MS = 30_000;
 const owned = new WeakMap();
@@ -167,7 +169,14 @@ async function command(runtime, operation, input) {
     });
     const value = await bounded(result, IPC_MS, 'ARBITRUM_ORIGINAL_OPERATION_UNCERTAIN');
     live(runtime); return value;
-  } catch (error) { fail(state, error, true); void shutdown(state).catch(() => {}); throw error; }
+  } catch (error) {
+    // A returned broadcast uncertainty is not a replacement send permit. Keep
+    // this healthy original native client available only for retained reads.
+    if(operation==='broadcast' && state.nativeValue && !state.failed && error.code==='ARBITRUM_ORIGINAL_OPERATION_UNCERTAIN'){
+      sameProcess(state);state.uncertain=true;throw error;
+    }
+    fail(state, error, true); void shutdown(state).catch(() => {}); throw error;
+  }
   finally { release(); }
 }
 
@@ -176,9 +185,14 @@ async function createFixedArbitrumNitroClusterV1(nativeValue) {
   const profile = nativeValue ? NATIVE_VALUE_PROFILE : PROFILE;
   const root = repository(), recipe = join(root, 'scripts/development/owned_arbitrum_nitro_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'ARBITRUM_ORIGINAL_RECIPE_CHANGED');
+  if(nativeValue)assert.equal(createHash('sha256').update(readFileSync(join(root,'scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs'))).digest('hex'),CUSTODY_SHA256,'ARBITRUM_ORIGINAL_CUSTODY_SOURCE_CHANGED');
+  // The fixed fixture key and original encrypted journal exist BEFORE CREATE
+  // or the pinned official setup funds its solver account. No retrofit.
+  const custody = nativeValue ? await createOriginalArbitrumNativeValueCustodyV1() : null;
+  const custodyPublic = custody ? readOriginalArbitrumNativeValueCustodyPublicV1(custody) : null;
   const child = spawn('/usr/bin/python3', [recipe, ...(nativeValue ? ['--native-value'] : [])], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'],
     env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' } });
-  const state = { child, profile, nativeValue, identity: null, pending: new Map(), containers: new Map(), project: null,
+  const state = { child, profile, nativeValue, custody, identity: null, pending: new Map(), containers: new Map(), project: null,
     sequence: 0, tail: Promise.resolve(), failed: false, closed: false, uncertain: false };
   let readyResolve, readyReject, exitResolve;
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
@@ -237,11 +251,35 @@ async function createFixedArbitrumNitroClusterV1(nativeValue) {
     await bounded(ready, BIRTH_MS, 'ARBITRUM_ORIGINAL_CONSTRUCTOR_TIMEOUT');
     sameProcess(state); assert(!state.failed && !state.closed, 'ARBITRUM_ORIGINAL_RUNTIME_UNAVAILABLE');
     assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'ARBITRUM_ORIGINAL_RECIPE_CHANGED');
+  if(nativeValue)assert.equal(createHash('sha256').update(readFileSync(join(root,'scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs'))).digest('hex'),CUSTODY_SHA256,'ARBITRUM_ORIGINAL_CUSTODY_SOURCE_CHANGED');
+    let metadata = null;
+    if(nativeValue){
+      // Private temporary view: no reference escapes before actual genesis and
+      // the same pre-birth custody are joined to the final immutable runtime.
+      const temporary=Object.freeze({profile});owned.set(temporary,state);nativeValues.add(temporary);
+      try{const identity=await readOwnedArbitrumNitroNativeValueIdentityV1(temporary);
+        metadata=Object.freeze({version:profile,classification:'OWNED_LOCAL_ORIGINAL_NITRO_NATIVE_VALUE_V1',
+          chainId:'42161',evmGenesis:'0x'+identity.genesis,parentGenesis:'0x'+identity.parentGenesis,
+          scratchDirectory:custodyPublic.scratchDirectory,publicNetwork:false,localLaboratorySigner:true,
+          independentOperators:false,rollupChallengeFinalityEstablished:false,deviceCustody:false});
+      }finally{owned.delete(temporary);nativeValues.delete(temporary);}
+    }
     const runtime = Object.freeze({ profile, network: 'arbitrum-nitro', chainId: nativeValue ? 42161 : 412346,
       parentChainId: 1337, scope: 'owned-local', independentOperators: false,
-      async close() { assert.equal(arguments.length, 0, 'ARBITRUM_NO_OPTIONS'); return shutdown(state); } });
-    owned.set(runtime, state); if(nativeValue) nativeValues.add(runtime); return runtime;
-  } catch (error) { fail(state, error, true); try { await shutdown(state); } catch {} throw error; }
+      ...(nativeValue?{metadata,accounts:Object.freeze([custodyPublic.address]),
+        dispatchNativeValueV1(request){assert.equal(arguments.length,1);return dispatchOriginalArbitrumNativeValueV1(custody,runtime,request);},
+        assertNativeValuePreparedCurrent(prepared){assert.equal(arguments.length,1);return assertOriginalArbitrumNativeValuePreparedCurrentV1(custody,runtime,prepared);},
+        observeNativeValueOriginal(query){assert.equal(arguments.length,1);return observeOriginalArbitrumNativeValueV1(custody,runtime,query);},
+        async time(){assert.equal(arguments.length,0);return BigInt((await readOwnedArbitrumNitroNativeValueRpcV1(runtime,'eth_getBlockByNumber',['latest',false])).timestamp);}
+      }:{}),
+      async close() { assert.equal(arguments.length, 0, 'ARBITRUM_NO_OPTIONS');let primary,custodyReceipt;
+        try{if(custody)custodyReceipt=await closeOriginalArbitrumNativeValueCustodyV1(custody);}catch(error){primary=error;}
+        const result=await shutdown(state);if(primary)throw primary;return custodyReceipt?Object.freeze({...result,
+          originalOutcomeUncertain:result.originalOutcomeUncertain||custodyReceipt.nativeKeyOutcomeUncertain,
+          originalPrivateCustodyClosed:custodyReceipt.closed}):result;
+      } });
+    owned.set(runtime, state); if(nativeValue){nativeValues.add(runtime);await bindOriginalArbitrumNativeValueCustodyV1(custody,runtime);}return runtime;
+  } catch (error) { fail(state, error, true);try{if(custody)await closeOriginalArbitrumNativeValueCustodyV1(custody);}catch{}try { await shutdown(state); } catch {} throw error; }
 }
 export function assertOwnedArbitrumNitroClusterV1(runtime) {
   assert.equal(arguments.length, 1, 'ARBITRUM_RUNTIME_ONLY'); live(runtime); return runtime;
@@ -284,4 +322,10 @@ export async function readOwnedArbitrumNitroNativeValueRpcV1(runtime,method,para
   assert.equal(arguments.length,3,'ARBITRUM_ORIGINAL_READ_ARITY'); assertOwnedArbitrumNitroNativeValueLiveV1(runtime);
   const input=originalReadInput(method,params);
   const value=await command(runtime,'read',input);assertOwnedArbitrumNitroNativeValueLiveV1(runtime);return value;
+}
+
+/** Fixed private pair check. No public key/journal/DTO can attach a custody to an already born client. */
+export function assertOwnedArbitrumNitroNativeValueCustodyV1(runtime,custody){
+ assert.equal(arguments.length,2,'ARBITRUM_ORIGINAL_CUSTODY_ARITY');assertOwnedArbitrumNitroNativeValueLiveV1(runtime);
+ assert.equal(live(runtime).custody,custody,'ARBITRUM_ORIGINAL_CUSTODY_PAIR');
 }

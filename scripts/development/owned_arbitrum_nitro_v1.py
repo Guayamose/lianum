@@ -521,8 +521,19 @@ class OriginalCluster:
         method, params = raw['method'], raw['params']
         require(method in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getBlockByHash',
                 'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBalance',
-                'eth_getCode', 'debug_traceTransaction'), 'ARBITRUM_ORIGINAL_READ_METHOD')
-        require((method == 'eth_chainId' and params == [])
+                'eth_getCode', 'debug_traceTransaction', 'eth_getTransactionCount',
+                'eth_gasPrice', 'eth_estimateGas'), 'ARBITRUM_ORIGINAL_READ_METHOD')
+        require((method in ('eth_chainId', 'eth_gasPrice') and params == [])
+                or (method == 'eth_getTransactionCount' and len(params) == 2
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{40}', params[0])
+                    and params[1] in ('latest', 'pending'))
+                or (method == 'eth_estimateGas' and len(params) == 2
+                    and type(params[0]) is dict and set(params[0]) == {'from','to','value','data','gas','gasPrice','nonce','chainId','type'}
+                    and all(type(params[0][key]) is str and re.fullmatch(r'0x[0-9a-f]{40}',params[0][key]) for key in ('from','to'))
+                    and type(params[0]['data']) is str and re.fullmatch(r'0x(?:[0-9a-f]{2}){70}',params[0]['data'])
+                    and all(type(params[0][key]) is str and re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]{0,63})',params[0][key]) for key in ('value','gas','gasPrice','nonce'))
+                    and params[0]['chainId'] == hex(CHAIN_ID) and params[0]['type'] == '0x0'
+                    and type(params[1]) is str and (params[1] == 'latest' or re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]{0,63})',params[1])))
                 or (method in ('eth_getTransactionByHash', 'eth_getTransactionReceipt') and len(params) == 1
                     and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0]))
                 or (method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and len(params) == 2
@@ -566,6 +577,7 @@ class OriginalCluster:
 
     def send_once(self, wire):
         self.healthy()
+        require(not getattr(self, 'dispatch_uncertain', False), 'ARBITRUM_ORIGINAL_UNKNOWN_NO_FRESH_SEND')
         require(isinstance(wire, str) and re.fullmatch(r'0x(?:[0-9a-f]{2}){1,65536}', wire),
                 'ARBITRUM_ORIGINAL_SIGNED_WIRE')
         key = digest(wire.encode())
@@ -580,7 +592,12 @@ class OriginalCluster:
             return {'profile': PROFILE, 'transactionHash': returned, 'admittedOnce': True,
                     'privateCreditEstablished': False}
         except BaseException:
-            self.failed = True
+            if NATIVE_VALUE:
+                # Original reads remain available, but no wire can be admitted
+                # again after an unknown native RPC result. No automatic retry.
+                self.dispatch_uncertain = True
+            else:
+                self.failed = True
             raise ClosedError('ARBITRUM_ORIGINAL_OPERATION_UNCERTAIN') from None
 
     def close(self):

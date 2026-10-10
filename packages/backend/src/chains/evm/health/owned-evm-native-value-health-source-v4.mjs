@@ -131,5 +131,5 @@ export async function openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime)
       original:frozenInput(transfer),currentRegistry:raw.currentRegistry,history:raw.history});
     assertLive();return observer;
   }
-  return Object.freeze({descriptors,assertLive,createSource});
+  return Object.freeze({descriptors,assertLive,assertCurrent,createSource});
 }

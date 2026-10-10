@@ -229,5 +229,44 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         self.assertEqual(len(calls),before)
 
 
+    def test_original_unknown_wire_blocks_all_fresh_broadcasts_and_keeps_original_reads(self):
+        spec=importlib.util.spec_from_file_location('original_nitro_once',Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+        m.NATIVE_VALUE=True;m.CHAIN_ID=42161
+        cluster=m.OriginalCluster.__new__(m.OriginalCluster)
+        cluster.l2='original-private-l2';cluster.admitted=set();cluster.failed=False
+        cluster.healthy=lambda:m.require(not cluster.failed,'ARBITRUM_ORIGINAL_RUNTIME_UNAVAILABLE')
+        genesis={'number':'0x0','hash':'0x'+'a'*64};cluster.l2_genesis=m.header(genesis)
+        calls=[]
+        def rpc(url,method,params):
+            self.assertEqual(url,cluster.l2);calls.append(method)
+            if method=='web3_sha3':return '0x'+'b'*64
+            if method=='eth_sendRawTransaction':raise m.ClosedError('HOST_ORIGINAL_REPLY_LOST')
+            if method=='eth_chainId':return hex(m.CHAIN_ID)
+            if method=='eth_getBlockByNumber':return dict(genesis)
+            if method=='eth_getTransactionCount':return '0x1'
+            if method=='eth_gasPrice':return '0x3b9aca00'
+            if method=='eth_estimateGas':return '0x7530'
+            self.fail('unexpected synthetic native RPC')
+        m.rpc=rpc
+        with self.assertRaisesRegex(m.ClosedError,'^ARBITRUM_ORIGINAL_OPERATION_UNCERTAIN$'):
+            cluster.send_once('0x01')
+        self.assertFalse(cluster.failed);self.assertTrue(cluster.dispatch_uncertain)
+        before=len(calls)
+        for wire in ('0x01','0x02'):
+            with self.assertRaisesRegex(m.ClosedError,'^ARBITRUM_ORIGINAL_UNKNOWN_NO_FRESH_SEND$'):
+                cluster.send_once(wire)
+        self.assertEqual(len(calls),before);self.assertEqual(calls.count('eth_sendRawTransaction'),1)
+        self.assertEqual(cluster.read_original({'method':'eth_getTransactionCount','params':['0x'+'c'*40,'pending']}),'0x1')
+        self.assertEqual(cluster.read_original({'method':'eth_gasPrice','params':[]}),'0x3b9aca00')
+        tx={'from':'0x'+'c'*40,'to':'0x'+'d'*40,'value':'0x1','data':'0x'+'00'*70,
+            'gas':'0x186a0','gasPrice':'0x3b9aca00','nonce':'0x0','chainId':hex(42161),'type':'0x0'}
+        self.assertEqual(cluster.read_original({'method':'eth_estimateGas','params':[tx,'latest']}),'0x7530')
+        before=len(calls)
+        with self.assertRaisesRegex(m.ClosedError,'^ARBITRUM_ORIGINAL_READ_PARAMS$'):
+            cluster.read_original({'method':'eth_estimateGas','params':[dict(tx,chainId='0x1'),'latest']})
+        self.assertEqual(len(calls),before)
+
+
 if __name__ == '__main__':
     unittest.main()

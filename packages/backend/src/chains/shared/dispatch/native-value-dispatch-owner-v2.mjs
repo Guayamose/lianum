@@ -34,6 +34,7 @@ import { createNativeValueDispatchJournal,readNativeValueDispatchJournal,assertN
 import { loadPinned,resourceModuleURL } from '../../../../../proofs/src/tooling/tooling.mjs';
 import { assertNativeProviderRecoveryAuthorityV1,retainNativeProviderRecoveryV1,nativeProviderRecoverySectionIdentityV1,consumeNativeProviderRecoverySectionV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
+import {openOriginalOwnedRollupNativeValueSourcesV1} from '../../evm/health/owned-evm-native-value-health-source-v4.mjs';
 const leases=new WeakMap(),custodies=new WeakMap(),copy=cloneInput,freeze=frozenInput;
 export const NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS=Object.freeze(['NEW_NATIVE_VALUE_SYSTEM_RELEASE_ARTIFACTS_ABSENT','ACTUAL_LOCAL_NATIVE_PROVIDER_INTEGRATION_UNEXECUTED','ACTUAL_TRON_NATIVE_AND_DISPATCH_ACCEPTANCE_UNEXECUTED']);
 const SCHEMA='OWNED_NATIVE_VALUE_PROVIDER_CUSTODY_V2';
@@ -76,7 +77,15 @@ async function createProviderCustody(input,recovery=null){
  const entry=system.adapterProfiles.find(e=>profileCommitment(e.profile)===providerProfileCommitment);assert.ok(entry,'NATIVE_VALUE_REGISTERED_NATIVE_PROFILE');
  const p=entry.profile,evm=p.schema===PROFILE_SCHEMA;assert.ok(evm||p.schema===TRON_SCHEMA,'NATIVE_VALUE_NATIVE_PROFILE_REQUIRED');
  const tronRuntimeModule=evm?null:await import('../../tron/runtime/owned-tron-native-value-runtime.mjs');
- const nativeLive=()=>evm?assertOwnedLocalEvmNativeValueRuntime(nativeRuntime):tronRuntimeModule.assertOwnedLocalTronNativeValueV1(nativeRuntime);
+ const ownRollup=evm?await openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime):null;
+ if(ownRollup){
+   // Actual new client WeakMap only. Base remains read-only until its distinct
+   // L1 fee/signing strategy exists; no fallback to an Anvil signer or mark.
+   assert.equal(nativeRuntime.profile,'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1','NATIVE_VALUE_ORIGINAL_ROLLUP_DISPATCH_NOT_IMPLEMENTED');
+   for(const method of ['dispatchNativeValueV1','assertNativeValuePreparedCurrent','observeNativeValueOriginal'])assert.equal(typeof nativeRuntime[method],'function','NATIVE_VALUE_ORIGINAL_ROLLUP_DISPATCH_REQUIRED');
+   assert.equal(recovery,null,'NATIVE_VALUE_ROLLUP_LEGACY_RECOVERY_DENIED');
+ }
+ const nativeLive=()=>evm?(ownRollup?ownRollup.assertCurrent():assertOwnedLocalEvmNativeValueRuntime(nativeRuntime)):tronRuntimeModule.assertOwnedLocalTronNativeValueV1(nativeRuntime);
  await nativeLive();assertNativeValueBootstrapNativeRuntime(bootstrap,{runtime,system,nativeRuntime,profileCommitment:providerProfileCommitment});
  if(evm){assert.equal(p.chainId,nativeRuntime.metadata.chainId);assert.equal('0x'+p.genesis,nativeRuntime.metadata.evmGenesis,'NATIVE_VALUE_ACTUAL_NATIVE_GENESIS');
    assert.equal(evmNativeTransferNetwork({chain:CHAINS[p.chainId][0],genesisHash:'0x'+p.genesis}).nativeAssetCommitment,p.asset);
@@ -238,6 +247,7 @@ async function createProviderCustody(input,recovery=null){
   toJSON(){throw new Error('NATIVE_VALUE_PROVIDER_CUSTODY_NOT_SERIALIZABLE');},
  });custodies.set(custody,{runtime,system,poolIndex,live,abortSource:closePrivate,
  async sourceRetain(token){
+  assert.equal(ownRollup,null,'NATIVE_VALUE_ROLLUP_LEGACY_SOURCE_DENIED');
   const identity=nativeSourceRecoverySectionIdentityV1(token,'provider');live();assert.equal(evm,true,'NATIVE_SOURCE_PROVIDER_EVM_ONLY');
   assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system));
   assert.ok(!sourceHandle&&!sourceSnapshotBusy&&!busy&&activeResourceOperations===0,'NATIVE_SOURCE_PROVIDER_NOT_IDLE');
@@ -253,7 +263,7 @@ async function createProviderCustody(input,recovery=null){
   const owned=await nativeSourceRecoveryOwnedProcessV1(token,'provider',process.pid);
   sourceData={...sourceData,ownedProcesses:[owned]};await sourceConfirm();
  },
- fence(authority){live();assert.ok(!sourceHandle&&!sourceSnapshotBusy,'NATIVE_SOURCE_PROVIDER_LEGACY_CAPTURE_DENIED');assert.equal(evm,true,'NATIVE_PROVIDER_EVM_RECOVERY_ONLY');
+ fence(authority){assert.equal(ownRollup,null,'NATIVE_VALUE_ROLLUP_LEGACY_CAPTURE_DENIED');live();assert.ok(!sourceHandle&&!sourceSnapshotBusy,'NATIVE_SOURCE_PROVIDER_LEGACY_CAPTURE_DENIED');assert.equal(evm,true,'NATIVE_PROVIDER_EVM_RECOVERY_ONLY');
    const identity=assertNativeProviderRecoveryAuthorityV1(authority);
    assert.equal(identity.sourceSHA256,nativeValueOriginalRecoverySourceV1(runtime,system),'NATIVE_PROVIDER_CAPTURE_ORIGINAL_SOURCE');
    assert.ok(!busy&&activeResourceOperations===0,'NATIVE_VALUE_PROVIDER_CAPTURE_BUSY');captureIdentity=copy(identity);capturing=true;},
