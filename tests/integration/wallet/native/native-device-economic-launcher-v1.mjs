@@ -30,11 +30,11 @@ export async function captureAndLaunchNativeDeviceNoteEconomicSuccessorV1(contex
 }
 async function captureOriginalSuccessor(context,nativeNote){
  assert.equal(context.deviceEconomicRecovery,true);context.active();
- const WORKER=join(ROOT,nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs');
+ const WORKER=join(ROOT,context.deviceDurableSQL?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs');
  const {runtime,nativeRuntime,bootstrap,system,owner,account,nativeExecution,joined,actor,originalTransport,originalPrepared,economicLifetime}=context;
- assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
+ assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,context.deviceDurableSQL?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
  const sourceSHA256=nativeValueOriginalRecoverySourceV1(runtime,system),identity={directory:context.privateDirectory,runId:context.runId,sourceSHA256,deadlineMs:context.deadlineMs};
- assert.equal(identity.directory,join(ROOT,nativeNote?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
+ assert.equal(identity.directory,join(ROOT,context.deviceDurableSQL?'.local/native-value-durable-economic-note-recovery-v1':nativeNote?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
  // The recipient child is an original invoice producer, not an issuer section.
  // Stop it explicitly before capture while preserving its original invoice.
  const recipient=await originalPrepared.recipient.close();assert.equal(recipient.exited,true);assert.deepEqual(recipient.exit,{code:0,signal:null});
@@ -42,6 +42,7 @@ async function captureOriginalSuccessor(context,nativeNote){
  if(context.originalWalletApplication){const closed=await context.originalWalletApplication.close();assert.equal(closed.listenerClosed,true);context.result.cleanup.closedWalletListener=true;}
  const before={process:originalBirth(process.pid),receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),proofCount:context.result.proofs.length,
    receiverWireCount:runtime.transactions.length,nativeWireCount:nativeRuntime.transactions.length};
+ if(context.deviceDurableSQL){economicLifetime.durableSqlBefore=await context.durableInfrastructure.snapshot();assert.equal(economicLifetime.durableSqlBefore.length,4);context.result.durableOriginalAdmission.beforeCaptureEffectRows=economicLifetime.durableSqlBefore.length;}
  const authority=await (nativeNote?createNativeEconomicNoteRecoveryAuthorityV1:createNativeEconomicRecoveryAuthorityV1)(identity);
  // This fixed coordinator fences every original before its first await and
  // returns only after all ten original sections are stopped, sealed and closed.
@@ -53,7 +54,7 @@ async function captureOriginalSuccessor(context,nativeNote){
    catch(cleanup){throw new AggregateError([error,cleanup],'NATIVE_ECONOMIC_CAPTURE_ISSUER_CLOSE_FAILED',{cause:error});}
    throw error;
  }
- economicLifetime.captured=true;const oldTransport=await originalTransport.close();
+ economicLifetime.captured=true;const oldTransport=await originalTransport.close();if(context.deviceDurableSQL)context.durableInstalled.dispatch.close();
  assert.equal(oldTransport.closed,true);assert.equal(oldTransport.ownedSocketsRemaining,0);assert.equal(oldTransport.originalDiagnosticsInFlight,0);
  assert.equal(runtime.processStatus().stopped,true);assert.equal(nativeRuntime.processStatus().stopped,true);assert.equal(owner.report().childExited,true);
  assert.equal(originalPrepared.custody.report().closed,true);context.result.cleanup.closedDeviceProvider=true;
@@ -101,7 +102,7 @@ async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoi
    assert.equal(reply.listenerClosed,true);assert.equal(reply.ownedSocketsRemaining,0);return{...reply,exit:observed,close:observed,originalChildProcessClosed:true};})();closeReply.catch(()=>{});}return closeReply;}
  economicLifetime.closeSuccessor=close;
  try{
-  const opened=await request('OPEN',{identity,checkpoint,...(external?{expected:context.expected}:{} ),...(liveArmed?{controlDeadlineMs:context.deadlineMs}:{})});firstBirth=external?externalBirth(child.pid):originalBirth(child.pid);
+  const opened=await request('OPEN',{identity,checkpoint,...(context.deviceDurableSQL?{sqlInfrastructureIdentity:context.durableInfrastructure.identity}:{}),...(external?{expected:context.expected}:{} ),...(liveArmed?{controlDeadlineMs:context.deadlineMs}:{})});firstBirth=external?externalBirth(child.pid):originalBirth(child.pid);
   assert.equal(firstBirth.ppid,process.pid);assert.equal(firstBirth.pgrp,before.process.pgrp);assert.equal(firstBirth.session,before.process.session);
   assert.notEqual(firstBirth.pid,before.process.pid);assert.equal(opened.receipt.processId,child.pid);assert.equal(opened.receipt.originalProcessLifetimeDifferent,true);
   assert.equal(opened.receipt.originalSectionsStoppedBeforeCheckpoint,true);assert.equal(opened.receipt.issuerClosed,true);assert.equal(opened.receipt.sourceSHA256,sourceSHA256);
@@ -110,6 +111,7 @@ async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoi
     const report={profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',sourceSHA256,checkpoint,originalProcess:before.process,successorProcess:firstBirth,originalSectionsStoppedBeforeReopen:true,newBackendPID:true,bornBeforeFunding:true,variant:context.expected.variant,originalGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,parentProcessExitEstablished:false,before,stoppedOriginals,receipt:opened.receipt};
     return Object.freeze({audit:()=>request('AUDIT'),close,processId:child.pid,report});
   }
+  if(context.deviceDurableSQL){assert.equal(opened.durableInfrastructureVerifiedBeforeIssuerOpen,true);assert.equal(opened.durableEffectRows,4);const after=await context.durableInfrastructure.snapshot();assert.deepEqual(after,economicLifetime.durableSqlBefore);Object.assign(context.result.durableOriginalAdmission,{afterReopenEffectRows:after.length,sameSqlRowsAcrossReopen:true,sameInfrastructureAfterReopen:true,originalSqlKeyVerifiedBeforeIssuerOpen:true});}
   assert.deepEqual(opened.descriptor,context.descriptor);assert.equal(opened.rootId,context.result.deviceCustody.sameRoot);
   assert.equal(opened.parentJobId,context.result.deviceReservation.jobId);assert.equal(opened.depositJobId,context.depositJobId);
   const report={profile:liveArmed?'ORIGINAL_PLANNED_NATIVE_DEVICE_ARMED_SHORT_RESTART_V1':'ORIGINAL_PLANNED_NATIVE_DEVICE_RESTART_V1',sourceSHA256,checkpoint,originalProcess:before.process,successorProcess:firstBirth,

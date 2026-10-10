@@ -34,9 +34,9 @@ import { assertNativeWalletTronDevReleaseV5, assertNativeWalletTronDevResultV5, 
 import { pairedNativeNoteSourcePinsV2 } from '../wallet/native/paired-native-note-source-pins-v2.mjs';
 import { deviceOwnerDepositSourcePinsV1 } from '../wallet/native/device-owner-deposit-source-pins-v1.mjs';
 import { DEVICE_DEPOSIT_RESULT_V1, assertDeviceDepositReleaseV1, assertDeviceDepositResultV1 } from '../wallet/native/device-owner-deposit-policy-v1.mjs';
-import {nativeDeviceEconomicNoteSourcePinsV1} from '../wallet/native/native-device-economic-note-source-pins-v1.mjs';
-import {assertNativeEconomicNoteRecoverableAnvilV1,classifyNativeEconomicNoteRestartProcessV1} from '../wallet/native/native-device-economic-note-process-scope-v1.mjs';
-import {NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1,assertNativeDeviceEconomicNoteReleaseV1,assertNativeDeviceEconomicNoteResultV1} from '../wallet/native/native-device-economic-note-policy-v1.mjs';
+import {nativeDeviceEconomicNoteSourcePinsV1,nativeDeviceDurableEconomicNoteSourcePinsV1} from '../wallet/native/native-device-economic-note-source-pins-v1.mjs';
+import {assertNativeEconomicNoteRecoverableAnvilV1,classifyNativeEconomicNoteRestartProcessV1,classifyNativeDurableNoteRestartProcessV1} from '../wallet/native/native-device-economic-note-process-scope-v1.mjs';
+import {NATIVE_DEVICE_DURABLE_NOTE_RESULT_V1,assertNativeDeviceDurableNoteReleaseV1,assertNativeDeviceDurableNoteResultV1,NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1,assertNativeDeviceEconomicNoteReleaseV1,assertNativeDeviceEconomicNoteResultV1} from '../wallet/native/native-device-economic-note-policy-v1.mjs';
 import {nativeDeviceEconomicSourcePinsV1} from '../wallet/native/native-device-economic-source-pins-v1.mjs';
 import {assertNativeEconomicRecoverableAnvilV1,classifyNativeEconomicRestartProcessV1} from '../wallet/native/native-device-economic-process-scope-v1.mjs';
 import {NATIVE_DEVICE_ECONOMIC_RESULT_V1,assertNativeDeviceEconomicReleaseV1,assertNativeDeviceEconomicResultV1} from '../wallet/native/native-device-economic-policy-v1.mjs';
@@ -157,6 +157,11 @@ const FLOW_PROFILES = Object.freeze({
     local:join(ROOT,'.local/evm-aave-compilation-only-v1'),resultFormat:AAVE_COMPILATION_RESULT_V1,
     resourcesFormat:'LIANUM_AAVE_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_AAVE_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_AAVE_COMPILATION_ATTEMPT_V1',
     classification:'NEW_OFFICIAL_AAVE_COMPILATION_ONLY_NOT_FINANCIAL_ACCEPTANCE',sourcePins:aaveCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset']),
+  }),
+  nativeDeviceDurableEconomicNoteV1:Object.freeze({
+    entry:join(ROOT,'integration/run-native-value-durable-economic-note-recovery-v1.mjs'),worker:join(ROOT,'integration/paired-native-note-flow-v2.mjs'),local:join(ROOT,'.local/native-value-durable-economic-note-recovery-v1'),
+    resultFormat:NATIVE_DEVICE_DURABLE_NOTE_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_ATTEMPT_V1',
+    classification:'ORIGINAL_SQL_ADMISSION_BEFORE_D26_NATIVE12_F_TEN_SECTION_ORDERED_REOPEN_NOT_ABRUPT',sourcePins:nativeDeviceDurableEconomicNoteSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
   nativeDeviceEconomicNoteRecoveryV1:Object.freeze({
     entry:join(ROOT,'integration/run-native-value-economic-note-recovery-v1.mjs'),worker:join(ROOT,'integration/native-value-economic-note-recovery-flow-v1.mjs'),
@@ -818,6 +823,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   if (profile === FLOW_PROFILES.evmAave) scoped = assertAavePrivateGraphResultV1(result);
   if (profile === FLOW_PROFILES.pairedNativeNoteV2) scoped = assertPairedNativeNoteResultV2(result);
   if(profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1)scoped=assertNativeDeviceLiveArmedShortResultV1(result);
+  if(profile===FLOW_PROFILES.nativeDeviceDurableEconomicNoteV1)scoped=assertNativeDeviceDurableNoteResultV1(result);
   if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1)scoped=assertNativeDeviceEconomicNoteResultV1(result);
   if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1)scoped=assertNativeDeviceEconomicResultV1(result);
   if(profile===FLOW_PROFILES.deviceOwnerFReorgV1)scoped=assertDeviceFReorgResultV1(result);
@@ -978,6 +984,8 @@ export async function runNativeDeviceLiveArmedShortSupervisorV1(){
   assertPairedNativeNoteLauncherV2(true,true,true,false,true,true,true);await consumePairedNativeNoteStartPipeV2();assertPairedNativeNoteLauncherV2(true,true,true,false,true,true,true);
   await assertNativeLiveArmedShortRecoverableAnvilV1();return runFixedFlowSupervisor(FLOW_PROFILES.nativeDeviceLiveArmedShortV1);
 }
+export async function runNativeDeviceDurableEconomicNoteSupervisorV1(){assert.equal(arguments.length,0);assertNativeDeviceDurableNoteReleaseV1();await assertNativeEconomicNoteRecoverableAnvilV1();return runFixedFlowSupervisor(FLOW_PROFILES.nativeDeviceDurableEconomicNoteV1);}
+
 export async function runNativeDeviceEconomicNoteRecoverySupervisorV1(){
   assert.equal(arguments.length,0,'NATIVE_DEVICE_ECONOMIC_NOTE_NO_SUPERVISOR_OPTIONS');assertNativeDeviceEconomicNoteReleaseV1();
   assertPairedNativeNoteLauncherV2(true,true,true,true,true,true);await consumePairedNativeNoteStartPipeV2();assertPairedNativeNoteLauncherV2(true,true,true,true,true,true);
@@ -1267,6 +1275,7 @@ async function runFixedFlowSupervisor(profile) {
     if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const scoped=classifyExternalDefiVaultExitProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeSourceAbruptV1){const scoped=classifyNativeSourceAbruptProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,startTimeTicks:nativeParent.startTimeTicks,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1){const scoped=classifyNativeLiveArmedShortProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
+    if(profile===FLOW_PROFILES.nativeDeviceDurableEconomicNoteV1){const scoped=classifyNativeDurableNoteRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1){const scoped=classifyNativeEconomicNoteRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
       nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1){const scoped=classifyNativeEconomicRestartProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),
@@ -1502,7 +1511,7 @@ async function runFixedFlowSupervisor(profile) {
       const reason = nativeResourceFailure(sample);
       if (reason) stop(reason, {}, sample);
       if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const forbidden=externalDefiVaultExitProcessFailureV1([...history.values()]);if(forbidden)stop(forbidden,{},sample);}
-      if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1||profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
+      if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1||profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1||profile===FLOW_PROFILES.nativeDeviceDurableEconomicNoteV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         stop('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED',{},sample);
       if(profile===FLOW_PROFILES.nativeSourceAbruptV1&&[...history.values()].some(row=>row.role==='native-source-unexpected-process'))stop('NATIVE_SOURCE_FIXED_PROCESS_REQUIRED',{},sample);
       if((profile===FLOW_PROFILES.deviceMetaFourGraphV1||profile===FLOW_PROFILES.deviceExternalFlatErc20V1||profile===FLOW_PROFILES.deviceExternalFlatGraphV1||profile===FLOW_PROFILES.deviceMorphoBlueGraphV1)&&[...history.values()].some(row=>row.role==='device-external-flat-unexpected-process'))stop('DEVICE_EXTERNAL_FLAT_FIXED_PROCESS_REQUIRED',{},sample);
@@ -1601,7 +1610,7 @@ async function runFixedFlowSupervisor(profile) {
         const reason = nativeResourceFailure(sample); if (reason) fail(reason, { sample });
       } catch (error) { fail('NATIVE_FINAL_RESOURCE_MEASUREMENT_FAILURE', { errorCode: publicErrorCode(error) }); }
       if(profile===FLOW_PROFILES.evmMetaMorphoExitRecoveryV1||profile===FLOW_PROFILES.evmAaveExitRecoveryV1){const forbidden=externalDefiVaultExitProcessFailureV1([...history.values()]);if(forbidden)fail(forbidden);}
-      if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1||profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
+      if((profile===FLOW_PROFILES.nativeDeviceEconomicRecoveryV1||profile===FLOW_PROFILES.nativeDeviceEconomicNoteRecoveryV1||profile===FLOW_PROFILES.nativeDeviceLiveArmedShortV1||profile===FLOW_PROFILES.nativeDeviceDurableEconomicNoteV1)&&[...history.values()].some(row=>row.role==='native-economic-unexpected-process'))
         fail('NATIVE_ECONOMIC_FIXED_PROCESS_REQUIRED');
       if(profile===FLOW_PROFILES.nativeSourceAbruptV1&&[...history.values()].some(row=>row.role==='native-source-unexpected-process'))fail('NATIVE_SOURCE_FIXED_PROCESS_REQUIRED');
       if((profile===FLOW_PROFILES.deviceMetaFourGraphV1||profile===FLOW_PROFILES.deviceExternalFlatErc20V1||profile===FLOW_PROFILES.deviceExternalFlatGraphV1||profile===FLOW_PROFILES.deviceMorphoBlueGraphV1)&&[...history.values()].some(row=>row.role==='device-external-flat-unexpected-process'))fail('DEVICE_EXTERNAL_FLAT_FIXED_PROCESS_REQUIRED');

@@ -78,8 +78,10 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
   const beforeApply=host.evidence(),applied=await vault.applyDeviceExecutionTerminal(observed);
   assert.equal(applied.outcome,'RECOVERED');assert.equal(applied.localOpeningsPreserved,true);assert.equal(applied.availableBalance,null);assert.ok(host.evidence().writes>beforeApply.writes);
   vault.close();vault=host.original.openLocalRootNoteVaultV1(rootId);assert.equal((await vault.readDeviceExecutionIntent()).transactionHash,terminal.transactionHash);
+  const sqlBeforeRepeat=context.deviceDurableSQL?await context.durableInfrastructure.snapshot():null;
   const beforeRepeat=counts(),writes=host.evidence().writes,repeated=await reconcile();await vault.applyDeviceExecutionTerminal(repeated);await audit();
   assert.deepEqual(counts(),beforeRepeat);assert.equal(host.evidence().writes,writes);assert.deepEqual(repeated.terminal,terminal);
+  if(context.deviceDurableSQL){const sqlAfterRepeat=await context.durableInfrastructure.snapshot();assert.deepEqual(sqlAfterRepeat,sqlBeforeRepeat);assert.equal(sqlAfterRepeat.length,4);context.result.durableOriginalAdmission.reconciliationNoSqlEffectRows=true;}
   // Recovered account's original effect gate rejects new execution/recovery;
   // no used consent is renewed and no old job/wire is retried after reopen.
   for(const action of['EXECUTE_NATIVE','RECOVER_NATIVE']){const posts=transport.posts[action==='EXECUTE_NATIVE'?'/v1/mobile/device-execution/execute':'/v1/mobile/device-execution/recover']??0;
@@ -154,6 +156,7 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
   result.economics={deviceAmountAtomic:'500',reserveAtomic:'100',changeWithdrawalAtomic:'400',recoveryWithdrawalAtomic:'100',fullOwnerRefundAtomic:'500',recoveryIsSubsetOfReserve:true,
    solverPayoutAtomic:'0',poolActualAtomic:'0',poolBackedAtomic:'0',liveReservations:0,nativeDeliveryAmountAtomic:'1000000',nativeDeliveryTransactions:1,
    nativeProviderPrincipalLossAtomic:'1000000',nativeProviderGasLossAtomic:String(nativeGas),sourceSpent:true,changeSpent:true,recoverySpent:true,linuxOwnerAvailableAtomic:'0',solverPayoutExitEstablished:false};
+  if(context.deviceDurableSQL){const rows=await context.durableInfrastructure.snapshot();assert.equal(rows.length,6);context.result.durableOriginalAdmission.newProcessObservationOnly=true;}
   const stopped=await successor.close();result.cleanup.successor=stopped;assert.equal(stopped.originalBackendStopped,true);context.economicLifetime.successorClosed=true;
   result.deviceEconomicRestart.originalProofsAfterRestart=result.proofs.length;result.deviceEconomicRestart.noPreCaptureReproof=true;
   result.deviceEconomicRestart.sameOriginalSAndF=true;result.deviceEconomicRestart.successorClosed=true;result.deviceEconomicRestart.freshSignedReconciliationAfterReopen=true;

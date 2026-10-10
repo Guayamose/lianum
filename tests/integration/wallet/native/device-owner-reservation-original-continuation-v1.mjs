@@ -33,13 +33,13 @@ export async function runDeviceOwnerReservationContinuationV1(context){
  try{
   await stage('device-original-quote-U-change-and-recovery-custody');
   if(context.deviceLiveArmed)await refreshOriginalNativeDeviceLocalObservedClockV1(context.liveClocks.clock);
-   prepared=await (context.deviceLiveArmed?prepareDeviceOwnerLiveArmedReservationOriginalV1:prepareDeviceOwnerReservationOriginalV1)({runtime,system,nativeRuntime,bootstrap});
-  bridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
+   prepared=context.deviceDurableSQL?context.durablePrepared:await (context.deviceLiveArmed?prepareDeviceOwnerLiveArmedReservationOriginalV1:prepareDeviceOwnerReservationOriginalV1)({runtime,system,nativeRuntime,bootstrap});
+  bridge=context.deviceDurableSQL?context.durableInstalled.reservationBridge:await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
    nativePreparation:prepared.nativePreparation,invoiceSignatures:prepared.invoiceSignatures});
   const tls={certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')};
-  if(executionMode){assert.ok(context.nativeExecution);executionBridge=await createDeviceOwnerExecutionBridgeV1({account,reservationBridge:bridge,
+  if(executionMode){assert.ok(context.nativeExecution);executionBridge=context.deviceDurableSQL?context.durableInstalled.executionBridge:await createDeviceOwnerExecutionBridgeV1({account,reservationBridge:bridge,
    nativeExecution:context.nativeExecution,providers:[{slot:0,custody:prepared.custody,deliveryRiskSalt:prepared.deliveryRiskSalt}],runtime,system,poolIndex:0});
-   server=context.deviceEconomicRecovery?await createPairedDeviceAccountTlsServerV1({depositBridge:context.originalDepositBridge,reservationBridge:bridge,executionBridge,tls})
+   server=context.deviceDurableSQL?context.durableInstalled.transport:context.deviceEconomicRecovery?await createPairedDeviceAccountTlsServerV1({depositBridge:context.originalDepositBridge,reservationBridge:bridge,executionBridge,tls})
      :await createPairedDeviceExecutionTlsServerV1({bridge:executionBridge,reservationBridge:bridge,tls});
   }else server=await createPairedDeviceReservationTlsServerV1({bridge,tls});
   api=await host.reservation.createDeviceOwnerReservationApiV1(descriptor);

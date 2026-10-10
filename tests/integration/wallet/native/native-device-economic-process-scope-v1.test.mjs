@@ -36,3 +36,14 @@ test('Native-note successor cannot reuse a legacy economic parent or Anvil vecto
  const altered=anvil(true);altered[12]='5';assert.deepEqual(notes(altered,ANVIL,parent(NOTE_NEXT)),{role:'native-economic-unexpected-process',proofWorker:true});
  assert.deepEqual(notes([...process.argv.slice(0,1),NOTE_NEXT,'--backend=Wasm'],process.execPath,parent(NOTE_MAIN)),{role:'native-economic-unexpected-process',proofWorker:true});
 });
+
+test('HOST durable Native10 process scope retains original vectors and rejects cross-profile successors',async()=>{
+ const p=await import('./native-device-economic-note-process-scope-v1.mjs'),classify=p.classifyNativeDurableNoteRestartProcessV1,main=p.NATIVE_DURABLE_NOTE_MAIN_V1,next=p.NATIVE_DURABLE_NOTE_NEXT_V1;
+ assert.deepEqual(classify([process.execPath,next],process.execPath,parent(main)),{role:'native-economic-successor-role',proofWorker:false});
+ assert.deepEqual(classify(anvil(false),ANVIL,parent(main)),{role:'evm-runtime',proofWorker:false});assert.deepEqual(classify(anvil(true),ANVIL,parent(next)),{role:'evm-runtime',proofWorker:false});
+ for(const old of[MAIN,NEXT,p.NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1,p.NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1])assert.deepEqual(classify([process.execPath,next],process.execPath,parent(old)),{role:'native-economic-unexpected-process',proofWorker:true});
+ assert.deepEqual(classify(anvil(false),ANVIL,parent(next)),{role:'native-economic-unexpected-process',proofWorker:true});
+ assert.deepEqual(classify(anvil(true),ANVIL,parent(main)),{role:'native-economic-unexpected-process',proofWorker:true});
+ const altered=anvil(true);altered[12]='5';assert.deepEqual(classify(altered,ANVIL,parent(next)),{role:'native-economic-unexpected-process',proofWorker:true});
+ assert.deepEqual(classify([process.execPath,next,'--sql=other'],process.execPath,parent(main)),{role:'native-economic-unexpected-process',proofWorker:true});
+});

@@ -19,6 +19,8 @@ import { verifyPrivateNotePath } from '../../../../packages/engine/src/notes/pri
 import { nullifier } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
+import {installOriginalNativeDeviceDurableLocalServiceV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs';
+import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
 import { runDeviceOwnerReservationContinuationV1 } from './device-owner-reservation-original-continuation-v1.mjs';
 import { openDeviceReservationHostVaultV1 } from './device-owner-reservation-host-vault-v1.mjs';
 import { assertDeviceReservationReleaseV1 } from './device-owner-reservation-policy-v1.mjs';
@@ -114,17 +116,23 @@ async function runOriginalStepV1(context, reservationMode) {
     // The original successor reads both files through its private-file guard.
     // OpenSSL otherwise leaves the certificate at the caller's public umask.
     chmodSync(certificatePath, 0o600); chmodSync(keyPath, 0o600);
-    actor = await createPairedOriginalAccountActorV2({ session: joined.session, approval: preparation.approval,
-      owner, origin, devicePublicKey: devicePublicKey(deviceKey) });
-    const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
-    bridge = await createDeviceOwnerDepositBridgeV1({ actor, account, owner, runtime, system, poolIndex: 0 });
-    server = await createPairedDeviceDepositTlsServerV1({ bridge,
-      tls: { certificate: readFileSync(certificatePath, 'utf8'), privateKey: readFileSync(keyPath, 'utf8') } });
+    if(context.deviceDurableSQL){
+      context.durablePrepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap:context.bootstrap});
+      let durableProvidersClosing;context.deferDeviceProviderCleanup(()=>durableProvidersClosing??=(async()=>{if(context.economicLifetime.captured)return;const stopped=await context.durablePrepared.recipient.close();assert.equal(stopped.exited,true);assert.deepEqual(stopped.exit,{code:0,signal:null});result.cleanup.closedDeviceRecipient=true;if(!context.durablePrepared.custody.report().closed)await context.durablePrepared.custody.close();assert.equal(context.durablePrepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;})());
+      context.durableInstalled=await installOriginalNativeDeviceDurableLocalServiceV1({runtime,system,owner,account,nativeExecution:context.nativeExecution,session:joined.session,approval:preparation.approval,provider:context.durablePrepared,
+        configuration:{origin,devicePublicKey:devicePublicKey(deviceKey),tls:{certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')}},pool:context.durableInfrastructure.pool,privacyKey:context.durableInfrastructure.privacyKey});
+      ({actor,depositBridge:bridge,transport:server}=context.durableInstalled);Object.assign(result.durableOriginalAdmission,{beforeD26:true,sameActor:true,sameThreeBridges:true});
+    }else{
+      actor = await createPairedOriginalAccountActorV2({ session: joined.session, approval: preparation.approval,owner,origin,devicePublicKey:devicePublicKey(deviceKey) });
+      bridge = await createDeviceOwnerDepositBridgeV1({actor,account,owner,runtime,system,poolIndex:0});
+      server=await createPairedDeviceDepositTlsServerV1({bridge,tls:{certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')}});
+    }
+    const descriptor=pairedOriginalAccountActorDescriptorV2(actor);
     const ownedPair = { actor, bridge, server, async afterExecutionClose(){await continuation?.afterExecutionClose?.();}, async afterClose() {
       await continuation?.close(); vault?.close(); deviceApi?.close(); host?.close();
       if(context.deviceEconomicRecovery&&!result.success){result.cleanup.deviceCiphertextRetainedAfterUncertainRestart=true;return;}
       if (host) result.cleanup.syntheticDeviceCiphertextRemoved = host.retire().removed;
-      bridge.close(); actor.close();
+      context.durableInstalled?.dispatch.close();bridge.close(); actor.close();
       const info = lstatSync(tlsDirectory);
       assert.equal(info.uid, process.getuid()); assert.equal(info.isDirectory(), true);
       assert.equal(info.isSymbolicLink(), false); assert.equal(info.mode & 0o077, 0);
@@ -271,8 +279,8 @@ async function runOriginalStepV1(context, reservationMode) {
     assert.equal(result.proofs.length, 1); result.deviceOwnerD26NodeAcceptance = true; save();
     if (reservationMode) {
       assert.equal((await vault.readDeviceNote()).availableBalance, '500');
-      const firstClosed = await handoffPairedDeviceDepositTlsServerV1(server); assert.equal(firstClosed.closed,true); assert.equal(firstClosed.ownedSocketsRemaining,0);
-      result.cleanup.mobileListeners.push(firstClosed); if(!context.deviceEconomicRecovery)bridge.close();
+      const firstClosed = context.deviceDurableSQL?null:await handoffPairedDeviceDepositTlsServerV1(server); if(firstClosed){assert.equal(firstClosed.closed,true);assert.equal(firstClosed.ownedSocketsRemaining,0);}
+      if(firstClosed)result.cleanup.mobileListeners.push(firstClosed); if(!context.deviceEconomicRecovery)bridge.close();
       continuation = await runDeviceOwnerReservationContinuationV1({ ...context, actor, descriptor, deviceApi, host, vault, api, certificatePath, keyPath, transport, fixedFetch, depositJobId: funding.jobId,originalDepositBridge:context.deviceEconomicRecovery?bridge:null,
         refreshOriginalDepositInclusion:context.deviceEconomicRecovery?observe:null });
       server = ownedPair.server = continuation.server;

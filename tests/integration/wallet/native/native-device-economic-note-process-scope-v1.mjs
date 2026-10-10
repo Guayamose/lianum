@@ -77,3 +77,12 @@ export async function assertNativeEconomicNoteRecoverableAnvilV1(){
   assert.equal(await realpath(path),path,'NATIVE_ECONOMIC_ANVIL_FIXED_PATH');
   return Object.freeze({path,sha256:NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1[1],bytes:before.size,executable:true});
 }
+
+export const NATIVE_DURABLE_NOTE_MAIN_V1=join(ROOT,'integration/paired-native-note-flow-v2.mjs');
+export const NATIVE_DURABLE_NOTE_NEXT_V1=join(ROOT,'integration/run-native-value-durable-economic-note-successor-v1.mjs');
+export function classifyNativeDurableNoteRestartProcessV1(argv,executable,parent=null){assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
+ const main=parent&&fixedNode(parent.argv,NATIVE_DURABLE_NOTE_MAIN_V1),next=parent&&fixedNode(parent.argv,NATIVE_DURABLE_NOTE_NEXT_V1);
+ if(argv.includes(NATIVE_DURABLE_NOTE_NEXT_V1))return executable===process.execPath&&main&&fixedNode(argv,NATIVE_DURABLE_NOTE_NEXT_V1)?{role:'native-economic-successor-role',proofWorker:false}:unexpected();
+ if(parent&&(fixedNode(parent.argv,NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1)||fixedNode(parent.argv,NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1)))return unexpected();
+ const selected=main?{...parent,argv:[process.execPath,NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1]}:next?{...parent,argv:[process.execPath,NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1]}:parent;
+ return classifyNativeEconomicNoteRestartProcessV1(argv,executable,selected);}

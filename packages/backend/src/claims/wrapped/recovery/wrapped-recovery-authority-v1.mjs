@@ -1130,7 +1130,8 @@ export function consumeNativeLiveArmedRecoverySectionV1(token,section){
 function nativeEconomicIdentity(input,nativeNotes=false){
  exactRecord(input,['directory','runId','sourceSHA256','deadlineMs']);
  assert.match(input.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
- assert.equal(input.directory,join(FIXED_WALLET_ROOT,nativeNotes?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+input.runId,'private-audit'),'NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY');
+ const allowedDirectories=nativeNotes?['.local/native-value-economic-note-recovery-v1','.local/native-value-durable-economic-note-recovery-v1']:['.local/native-value-economic-recovery-v1'];
+ assert.ok(allowedDirectories.some(name=>input.directory===join(FIXED_WALLET_ROOT,name,'attempt-'+input.runId,'private-audit')),'NATIVE_ECONOMIC_FIXED_PRIVATE_DIRECTORY');
  assert.ok(hex(input.sourceSHA256)&&Number.isSafeInteger(input.deadlineMs)&&input.deadlineMs>0,'NATIVE_ECONOMIC_RECOVERY_IDENTITY');
  return {profile:NATIVE_ECONOMIC_PROFILE,...input};
 }

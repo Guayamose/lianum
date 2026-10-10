@@ -108,3 +108,18 @@ export function assertNativeDeviceEconomicNoteResultV1(r){
   keeperLossRecoveryEstablished:false,nativeGraphAcceptance:true,nativeDeliveryCount:1,mobileNoteCustodyEstablished:false,tlsEstablished:false,reactRendererEstablished:false,
   mobilePortfolioEstablished:false,physicalPhoneEstablished:false,fullWalletAcceptance:false};
 }
+
+export const NATIVE_DEVICE_DURABLE_NOTE_PROFILE_V1='native-value-durable-economic-note-recovery-v1';
+export const NATIVE_DEVICE_DURABLE_NOTE_RESULT_V1='LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_RECOVERY_RESULT_V1';
+export const NATIVE_DEVICE_DURABLE_NOTE_RELEASE_V1=null;
+export function assertNativeDeviceDurableNoteReleaseV1(){assert.equal(arguments.length,0);assert.deepEqual(NATIVE_DEVICE_DURABLE_NOTE_RELEASE_V1,
+ {format:'REVIEWED_LOCAL_NATIVE_DURABLE_ECONOMIC_NOTE_RELEASE_V1',profile:NATIVE_DEVICE_DURABLE_NOTE_PROFILE_V1,
+  originalNative12:true,durableBeforeFunding:true,tenOriginalSections:true,captureAfter:'CANONICAL_F_LOST_REPLY_BEFORE_TERMINAL_APPLY',
+  sourceAmountAtomic:'500',originalConsentMilliseconds:15000,localOnly:true,fakeFundsOnly:true,publicNetwork:false,abruptCrash:false});}
+export function assertNativeDeviceDurableNoteResultV1(r){assert.equal(arguments.length,1);assert.equal(r.profile,NATIVE_DEVICE_DURABLE_NOTE_PROFILE_V1);assert.equal(r.format,NATIVE_DEVICE_DURABLE_NOTE_RESULT_V1);
+ const base=assertNativeDeviceEconomicNoteResultV1({...r,profile:NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1,format:NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1});
+ const d=r.durableOriginalAdmission;for(const k of ['beforeD26','sameActor','sameThreeBridges','sameInfrastructureAfterReopen','originalSqlKeyVerifiedBeforeIssuerOpen','sameSqlRowsAcrossReopen','reconciliationNoSqlEffectRows','originalTermsAndConsentTTL','newProcessObservationOnly','closedAdmissionAndPool'])assert.equal(d[k],true,k);
+ assert.equal(d.expectedOriginalEffects,6);assert.equal(d.beforeCaptureEffectRows,4);assert.equal(d.afterReopenEffectRows,4);assert.equal(d.finalEffectRows,6);
+ assert.ok(d.finalReturnedRows>=3&&d.finalReturnedRows<=6);assert.equal(d.finalUnknownRows+d.finalReturnedRows,6);
+ assert.equal(d.databaseMutationAuthority,false);assert.equal(r.abruptCrashRecoveryEstablished,false);
+ return{...base,durableOriginalAdmissionEstablished:true,abruptCrashRecoveryEstablished:false};}
