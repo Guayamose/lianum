@@ -586,3 +586,41 @@ test('HOST original Native note encrypted worker IPC preserves binding, burns co
  }
 });
 
+
+
+test('HOST Native V3 facade hands its original consent to the actual encrypted consumer before proof startup', {timeout:5000}, async t=>{
+ // The production facade runs unchanged. A fixed real IPC child stops after
+ // authenticated ABI intake; filesystem/resource ports are explicitly inert.
+ // No Native/BB/proof/receipt/effect is produced and no physical proof lock is used.
+ const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const facadeURL=physical('../../src/jobs/native-private-note-process-v3.mjs','./native-private-note-process-v3.mjs'),nativeURL=new URL('./native-private-note-execution-v3.mjs',facadeURL),transitURL=new URL('./private-proof-transit-v1.mjs',facadeURL);
+ const actualFS=await import('node:fs'),actualChild=await import('node:child_process'),native=await import(nativeURL),proof=await import(physical('../../../engine/src/execution/proofs/proof-worker.mjs','../../../omnichain-product/src/paeg/proof-worker.mjs'));
+ const {walletInputPublicWords,walletDepositInput}=await import(physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs'));
+ const {freshKey}=await import(physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'));
+ const owner=freshKey(),note={type:4,...owner,rho:Buffer.alloc(32,7),secret:Buffer.alloc(32,9),value:'20'},mode='deposit_balance',input=walletDepositInput({scope:'10'.repeat(32),policy:'20'.repeat(32),epoch:'10',note}),expected=walletInputPublicWords(mode,input),binding={kind:'ORIGINAL_CONSENT_V1',jobId:'host-native-private-facade',consentSHA256:'41'.repeat(32),witnessSHA256:createHash('sha256').update(JSON.stringify(input)).digest('hex')};
+ const hostLock='/tmp/lianum-paeg-proof-host.lock',virtualFD=2147483600,virtual=new Map(),identity={ino:17,dev:19};let lockOpen=false,consumerBound=false,output=0,child,drain,timer;
+ const exportsOf=module=>Object.fromEntries(Object.entries(module).filter(([key])=>key!=='default'));
+ t.mock.module('node:fs',{namedExports:{...exportsOf(actualFS),
+  openSync(path,...args){if(path===hostLock){assert.equal(lockOpen,false);assert.equal(args[0],'wx');assert.equal(args[1],0o600);lockOpen=true;return virtualFD;}return actualFS.openSync(path,...args);},
+  closeSync(fd){if(fd===virtualFD){lockOpen=false;return;}return actualFS.closeSync(fd);},
+  fstatSync(fd,...args){return fd===virtualFD?identity:actualFS.fstatSync(fd,...args);},
+  statSync(path,...args){return path===hostLock?identity:actualFS.statSync(path,...args);},
+  unlinkSync(path){if(path===hostLock){virtual.delete(path);return;}return actualFS.unlinkSync(path);},
+  mkdirSync(path,...args){if(path===proof.PROOF_PROJECT_ROOT+'/evidence/paeg-proof-attempts')return;return actualFS.mkdirSync(path,...args);},
+  writeFileSync(path,value,...args){if(path===virtualFD||typeof path==='string'&&(path.startsWith(proof.PROOF_PROJECT_ROOT+'/evidence/paeg-proof-attempts/')||path.startsWith('/tmp/lianum-paeg-proof-abort-'))){virtual.set(path,value);return;}return actualFS.writeFileSync(path,value,...args);},
+ }});
+ t.mock.module(nativeURL.href,{namedExports:{...exportsOf(native),nativePrivateEconomicNoteResourcesV3(){return{availableRAM:8*1024**3,freeDisk:16*1024**3,workerRSS:0,nativeChildIdentities:[],memoryScope:'EXPLICIT_INERT_HOST_NO_NATIVE_CHILD'};}}});
+ const script=`import assert from'node:assert/strict';import{preparePrivateProofJobV1,wipePrivateProofInputsV1}from${JSON.stringify(transitURL.href)};import{readOriginalNativePrivateNoteProverRequestV3}from${JSON.stringify(nativeURL.href)};import{encodeProofMessage}from${JSON.stringify(proof.PROOF_PROJECT_ROOT+'/src/paeg/proof-worker.mjs')};
+  let opened,admitted;try{opened=await preparePrivateProofJobV1({relation:'deposit_balance',role:'owner',jobId:'host-native-v3-facade-consumer'});admitted=readOriginalNativePrivateNoteProverRequestV3(opened,'deposit_balance');assert.deepEqual(admitted.binding,${JSON.stringify(binding)});assert.deepEqual(admitted.expected,${JSON.stringify(expected)});process.stdout.write('HOST_NATIVE_PRIVATE_FACADE_CONSUMER_BOUND\\n');const bytes=encodeProofMessage({event:'failure',code:'PAEG_PROOF_HOST_TEST_NO_PROOF'});await new Promise(resolve=>process.send(bytes,()=>{bytes.fill(0);resolve();}));}catch{process.exitCode=2;}finally{wipePrivateProofInputsV1(admitted?.input);wipePrivateProofInputsV1(opened?.inputs);if(process.connected)process.disconnect();}process.exit(process.exitCode??1);`;
+ t.mock.module('node:child_process',{namedExports:{...exportsOf(actualChild),fork(path,args,options){
+  assert.equal(path,native.PRIVATE_NOTE_NATIVE_WORKERS_V1.deposit_balance);assert.deepEqual(args,[]);assert.equal(options.serialization,'advanced');assert.deepEqual(options.execArgv,[]);
+  child=actualChild.spawn(process.execPath,['--input-type=module','-e',script],{env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe','ipc'],serialization:'advanced'});
+  drain=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);});child.stdout.on('data',bytes=>{output+=bytes.length;consumerBound=bytes.toString().trim()==='HOST_NATIVE_PRIVATE_FACADE_CONSUMER_BOUND';});return child;
+ }}});
+ let facade;
+ try{facade=(await import(facadeURL)).createOriginalPrivateNativeNoteProofProcessV3();
+  await Promise.race([assert.rejects(facade.prove(mode,input,expected,'host-private-facade',binding),{code:'PAEG_PROOF_HOST_TEST_NO_PROOF'}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('HOST_NATIVE_PRIVATE_FACADE_DEADLINE')),3500);})]);
+  assert.equal(consumerBound,true,'HOST_NATIVE_PRIVATE_FACADE_CONSUMER');assert.equal(output,Buffer.byteLength('HOST_NATIVE_PRIVATE_FACADE_CONSUMER_BOUND')+1);
+  const report=facade.report();assert.equal(report.acceptedResult,false);assert.equal(report.privateWorkerIntake.originalConsentBound,true);for(const key of ['jobId','consentSHA256','witnessSHA256'])assert.equal(report.privateWorkerIntake[key],binding[key]);assert.deepEqual(report.stages,[]);assert.equal(report.nativeChildrenGone,false);assert.equal(report.lockPreserved,true);assert.equal(existsSync('/proc/'+child.pid),false,'HOST_NATIVE_PRIVATE_FACADE_CHILD_ABSENT');
+ }finally{clearTimeout(timer);await facade?.close();if(child&&child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');if(child?.connected)child.disconnect();for(const stream of child?.stdio??[])stream?.destroy();await drain;virtual.clear();wipePrivateProofInputsV1(input);note.rho.fill(0);note.secret.fill(0);owner.privateKey=null;note.privateKey=null;}
+});
