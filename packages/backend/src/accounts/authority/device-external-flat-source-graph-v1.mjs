@@ -30,6 +30,7 @@ import {reservationWitness} from '../../execution/account/preparation/funding-in
 import {encodeFlatTransaction} from '../../execution/encoding/transaction-codec.mjs';
 import {createFlatSystemStateReader} from '../../execution/account/reconciliation/flat-system-state.mjs';
 import {assertOwnedFlatNativeExecution} from '../../execution/account/execution/flat-native-execution.mjs';
+import {assertOwnedFlatEvmVaultProvider} from '../../providers/evm-vault-provider.mjs';
 import {assertOwnedFlatSystem} from '../../operations/deployments/system/deploy-system.mjs';
 import {assertLocalEvm} from '../../chains/evm/runtime/local-evm-ownership.mjs';
 import {assertOwnedPoolAsset} from '../../chains/shared/contracts/owned-pool-asset.mjs';
@@ -39,7 +40,7 @@ import {assertOriginalDeviceExternalFlatNoteAuthorityV1,readOriginalDeviceExtern
 import {externalFlatExactV1,externalFlatPermissionMessageV1,validateExternalFlatFreshV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
 import * as P from '../../../../mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {normalizeDeviceReservationCapsuleOptionsV1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
-import {assertOriginalDeviceExternalFlatGraphWorkspaceV1,prepareOriginalDeviceExternalFlatGraphWorkspaceV1} from '../../operations/local/device-external-flat-source-graph-service-v1.mjs';
+import {assertOriginalDeviceExternalFlatGraphWorkspaceV1,prepareOriginalDeviceExternalFlatGraphWorkspaceV1,readOriginalDeviceExternalFlatMultiGraphBindingsV4,isOriginalDeviceExternalFlatMultiGraphWorkspaceV4} from '../../operations/local/device-external-flat-source-graph-service-v1.mjs';
 const outputSends=new WeakMap();
 export function consumeOriginalDeviceExternalFlatGraphOutputSendV1(request,runtime){assert.equal(arguments.length,2);need(!types.isProxy(request),'DEVICE_EXTERNAL_GRAPH_OUTPUT_ORIGINAL_SEND');const s=outputSends.get(request);need(s&&s.runtime===runtime&&!s.opened,'DEVICE_EXTERNAL_GRAPH_OUTPUT_ORIGINAL_SEND');s.check();s.opened=true;return s.scope;}
 const owned=new WeakMap(),claimed=new WeakSet(),copy=v=>JSON.parse(canonical(v)),hash=b=>createHash('sha256').update(b).digest('hex'),sha=v=>hash(Buffer.from(canonical(v))),id=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
@@ -71,11 +72,12 @@ export async function createOriginalDeviceExternalFlatSourceGraphV1(raw){
 /** Fixed private U producers, selected before preparation/funding. */
 export async function createOriginalDeviceExternalFlatPrivateSourceGraphV2(raw){assert.equal(arguments.length,1);return create(raw,null,null,true);}
 export async function createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2(raw){assert.equal(arguments.length,1);const q=exact(raw,['account','targetAccount','runtime','system','poolIndex','execution','workspace','recoveryAuthority']);const {recoveryAuthority,...input}=q;return create(input,assertDeviceExternalFlatRecoveryAuthorityV1(recoveryAuthority),null,true);}
-export function assertOriginalDeviceExternalFlatGraphAccountBindingV1(bridge,account){assert.equal(arguments.length,2);const s=owned.get(bridge);need(s&&(s.account===account||s.targetAccount===account),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_ACCOUNT');s.live();}
+export function assertOriginalDeviceExternalFlatGraphAccountBindingV1(bridge,account){assert.equal(arguments.length,2);const s=owned.get(bridge);need(s&&(s.account===account||s.targetAccounts.includes(account)),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_ACCOUNT');s.live();}
 export async function createOriginalRetainedDeviceExternalFlatSourceGraphV1(raw){assert.equal(arguments.length,1);const q=exact(raw,['account','targetAccount','runtime','system','poolIndex','execution','workspace','recoveryAuthority']);const {recoveryAuthority,...input}=q;return create(input,assertDeviceExternalFlatRecoveryAuthorityV1(recoveryAuthority));}
 export async function reopenOriginalDeviceExternalFlatSourceGraphV1(token){assert.equal(arguments.length,1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../operations/local/device-external-flat-source-graph-service-v1.mjs');const {input,saved}=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'bridge');return create(input,null,saved);}
 export function captureOriginalDeviceExternalFlatSourceGraphV1(bridge,token){assert.equal(arguments.length,2);const s=owned.get(bridge);need(s?.capture,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_RETAINED');return s.capture(token);}
-async function create(raw,authorityIdentity=null,restored=null,privateU=false){
+export async function createOriginalDeviceExternalFlatPrivateMultiSourceGraphV4(raw){assert.equal(arguments.length,1);return create(raw,null,null,true,true);}
+async function create(raw,authorityIdentity=null,restored=null,privateU=false,multi=false){
  const q=exact(raw,['account','targetAccount','runtime','system','poolIndex','execution','workspace']);
  const {account,runtime,system,poolIndex,execution}=q;assertOwnedFlatSystem(runtime,system);await assertLocalEvm(runtime);
  assertOwnedFlatNativeExecution(execution,{runtime,system,poolIndex});need(poolIndex===0,'DEVICE_EXTERNAL_GRAPH_SOURCE_POOL');
@@ -86,19 +88,23 @@ async function create(raw,authorityIdentity=null,restored=null,privateU=false){
  assert.equal(descriptor.poolTerms.pool,bare(pool.address));assert.equal(descriptor.poolTerms.domainCommitment,identity.domainCommitment);
  need(!claimed.has(account),'DEVICE_EXTERNAL_GRAPH_ONE_SOURCE_BRIDGE');claimed.add(account);
  assertOriginalDeviceExternalFlatGraphWorkspaceV1(q.workspace,{account,targetAccount:q.targetAccount});
- const workspace=q.workspace;
+ need(multi===isOriginalDeviceExternalFlatMultiGraphWorkspaceV4(q.workspace),'DEVICE_EXTERNAL_GRAPH_PROFILE_BINDING');
+ const workspace=q.workspace,deliveryBindings=multi?readOriginalDeviceExternalFlatMultiGraphBindingsV4(workspace,{account,targetAccount:q.targetAccount}):null,deliveryCount=deliveryBindings?.length??1;
  let preparation=null,invoiceSignatures=null,providers=null,proposal=null;
  function installPrepared(original){data(original.preparation);data(original.invoiceSignatures);
  preparation=validateGenericBalanceNativePreparation(original.preparation);invoiceSignatures=original.invoiceSignatures.map(P.normalizeExternalFlatSignatureV1);
  for(const k of ['scope','policy','asset','hubDomain','registryCommitment'])assert.equal(preparation.config[k],identity.domain[k],'DEVICE_EXTERNAL_GRAPH_PREPARATION_DOMAIN');
- need(preparation.nodes.length===1&&invoiceSignatures.length===1,'DEVICE_EXTERNAL_GRAPH_ONE_DELIVERY');
- need(!types.isProxy(original.providers)&&Array.isArray(original.providers)&&Object.getPrototypeOf(original.providers)===Array.prototype&&original.providers.length===1&&Reflect.ownKeys(original.providers).length===2,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');
- need(Object.getOwnPropertyDescriptor(original.providers,'0')?.enumerable&&Object.hasOwn(Object.getOwnPropertyDescriptor(original.providers,'0'),'value'),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');
- providers=original.providers.map(p=>{const v=exact(p,['slot','family','recipientIndex','rule','rulePath','deliveryRiskSalt','provider']);
-  need(v.slot===0&&v.family==='3'&&v.recipientIndex===1&&!types.isProxy(v.provider),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');
+ need(preparation.nodes.length===deliveryCount&&invoiceSignatures.length===deliveryCount,'DEVICE_EXTERNAL_GRAPH_ONE_DELIVERY');
+ if(multi)for(let slot=0;slot<deliveryCount;slot++){const b=deliveryBindings[slot],node=preparation.config.nodes[slot];need(node.id===b.id,'DEVICE_EXTERNAL_GRAPH_SLOT_BINDING');assert.deepEqual(node.dependsOn,b.dependsOn,'DEVICE_EXTERNAL_GRAPH_DAG_BINDING');assert.equal(node.actionTemplate.amount,b.shareAmount);assert.equal(node.recipientOffer.value,b.payoutAmount);}
+ need(!types.isProxy(original.providers)&&Array.isArray(original.providers)&&Object.getPrototypeOf(original.providers)===Array.prototype&&original.providers.length===deliveryCount&&Reflect.ownKeys(original.providers).length===deliveryCount+1,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');
+ for(let i=0;i<deliveryCount;i++)need(Object.getOwnPropertyDescriptor(original.providers,String(i))?.enumerable&&Object.hasOwn(Object.getOwnPropertyDescriptor(original.providers,String(i)),'value'),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');
+ need(new Set(original.providers.map(v=>v.provider)).size===deliveryCount,'DEVICE_EXTERNAL_GRAPH_DISTINCT_PROVIDERS');
+ providers=original.providers.map((p,slot)=>{const v=exact(p,['slot','family','recipientIndex','rule','rulePath','deliveryRiskSalt','provider']);
+  need(v.slot===slot&&v.family==='3'&&v.recipientIndex===1&&!types.isProxy(v.provider),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');
+  if(multi)assertOwnedFlatEvmVaultProvider(v.provider,{runtime,system,poolIndex,family:'3',recipientIndex:1});
   need(Object.isFrozen(v.provider),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER');const {provider,...fields}=v;data(fields);
-  assert.equal(v.deliveryRiskSalt,preparation.nodes[0].deliveryRiskSalt,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_RISK');
-  const template=provider.offer().actionTemplate;for(const [k,value]of Object.entries(preparation.config.nodes[0].actionTemplate))assert.deepEqual(template[k],value,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_OFFER');
+  assert.equal(v.deliveryRiskSalt,preparation.nodes[slot].deliveryRiskSalt,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_RISK');
+  const template=provider.offer().actionTemplate;for(const [k,value]of Object.entries(preparation.config.nodes[slot].actionTemplate))assert.deepEqual(template[k],value,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_OFFER');
   assert.equal(template.settleBefore,preparation.config.settleBefore,'DEVICE_EXTERNAL_GRAPH_ORIGINAL_OFFER');return Object.freeze({...copy(fields),provider});});
  proposal={scope:identity.domain.scope,policy:identity.domain.policy,asset:identity.domain.asset,...genericBalanceNativeTerms(preparation)};
  }
@@ -109,7 +115,7 @@ async function create(raw,authorityIdentity=null,restored=null,privateU=false){
  const privatePreparations=new Map(),privateOutputs=new Map();
  const challenges=new Map(),grants=new WeakMap(),outputQuotes=new Map(),outputGrants=new WeakMap(),proofs=restored?JSON.parse(restored.proofFrames):[];const proofRunner=createFlatProofRunner({onProof:async v=>{proofs.push(structuredClone(v));await persist();}});
  const key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(descriptor.devicePublicKey.slice(2,66),'hex').toString('base64url'),y:Buffer.from(descriptor.devicePublicKey.slice(66),'hex').toString('base64url')}});
- const state={account,targetAccount:q.targetAccount,descriptor,proofs,claim:null,claimAdmitting:false,release:null,releaseAdmitting:false,claimFresh:null,releaseFresh:null,live};
+ const state={account,targetAccount:q.targetAccount,targetAccounts:deliveryBindings?.map(v=>v.account)??[q.targetAccount],descriptor,proofs,claim:null,claimAdmitting:false,release:null,releaseAdmitting:false,claimFresh:null,releaseFresh:null,live};
  function live(){need(!closed&&!poisoned,'DEVICE_EXTERNAL_GRAPH_UNAVAILABLE');assert.deepEqual(assertOriginalDeviceExternalFlatNoteAuthorityV1(account),descriptor);
   assertOwnedFlatSystem(runtime,system);assertOwnedPoolAsset(runtime,pool.assetCapability);assertOwnedFlatNativeExecution(execution,{runtime,system,poolIndex});assertOwnedFlatOwnerObserver(observer,{runtime,system,poolIndex});}
  async function physical(){const [d,f]=await Promise.all([lstat(directory),lstat(file)]);need(d.isDirectory()&&!d.isSymbolicLink()&&d.uid===process.getuid()&&(d.mode&0o777)===0o700&&await realpath(directory)===directory,'DEVICE_EXTERNAL_GRAPH_STORAGE');need(f.isFile()&&!f.isSymbolicLink()&&f.nlink===1&&f.uid===process.getuid()&&(f.mode&0o777)===0o600&&await realpath(file)===file,'DEVICE_EXTERNAL_GRAPH_STORAGE');}

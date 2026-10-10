@@ -4,7 +4,8 @@
  * Vault and the common trusted OS retain their durability/rollback assumptions.
  */
 import assert from 'node:assert/strict';
-import { lstat, realpath } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { lstat, realpath, mkdtemp, chmod } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Vault } from '../../../engine/src/crypto/vault.mjs';
 import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
@@ -39,6 +40,7 @@ import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooli
 export const OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_EVM_VAULT_PROVIDER_V1';
 export const OWNED_FLAT_METAMORPHO_PROVIDER_PROFILE_V1 = 'OWNED_OFFICIAL_FLAT_METAMORPHO_PROVIDER_V1';
 export const OWNED_FLAT_UNISWAP_PROVIDER_PROFILE_V1 = 'OWNED_OFFICIAL_FLAT_UNISWAP_V3_PROVIDER_V1';
+const providerSlotsV4 = new WeakMap();
 const ownedProviders = new WeakMap();
 export function assertOwnedFlatEvmVaultProvider(provider, expected) {
   const retained = ownedProviders.get(provider);
@@ -129,7 +131,34 @@ export async function createOwnedFlatUniswapProviderV1(input) {
 }
 export async function createOwnedFlatAaveStaticProviderV1(input) { return createOwnedFlatEvmDeliveryProvider(input,'AAVE_STATIC'); }
 export async function createOwnedFlatMorphoBluePositionProviderV1(input) { assert.equal(arguments.length,1);return createOwnedFlatEvmDeliveryProvider(input,'MORPHO_BLUE_POSITION'); }
-async function createOwnedFlatEvmDeliveryProvider(input, variant) {
+
+/** Fixed original provider credential born before D26 funding. The opaque slot
+ * contains its own infra key; no caller signer or journal path is accepted. */
+export async function createOriginalDeviceMetaMorphoProviderSlotV4(input){
+ assert.equal(arguments.length,1);exactRecord(input,['runtime','system','poolIndex','router','observer','operatorQuorum','rule','rulePath','slot','maximumInput','shareAmount','payoutAmount']);
+ const {runtime,system,router,observer,operatorQuorum}=input;assert.equal(input.poolIndex,0);assert.ok(Number.isInteger(input.slot)&&input.slot>=0&&input.slot<4,'FLAT_PROVIDER_SLOT');
+ for(const k of ['maximumInput','shareAmount','payoutAmount'])assert.ok(inputUint(input[k])>0n,'FLAT_PROVIDER_SLOT_QUOTA');
+ await assertOwnedLocalEvmV2(runtime);assertOwnedFlatSystem(runtime,system);assertOwnedEvmGraphDeliveryRouterV1(runtime,system,router,observer);assertOwnedEvmGraphDeliveryObserverV1(observer,{runtime,system,poolIndex:1});assert.ok(isOwnedMetaMorphoGraphDeliveryObserverV1(observer),'FLAT_PROVIDER_FIXED_OBSERVER_VARIANT');assertOwnedFlatOperatorQuorum(operatorQuorum,{runtime,system,nativeRuntime:observer,family:'3'});
+ assert.equal(input.rule.family,'3');assert.equal(nativeAdmissionRuleRoot(input.rule,input.rulePath),system.registry.rulesRoot,'FLAT_PROVIDER_REGISTERED_RULE');
+ const reader=await createFlatSystemStateReader({runtime,system,poolIndex:0}),view=await reader.read();await reader.assertCurrent(view);assert.ok(view.ledger.commitments.length===0&&view.ledger.nullifiers.length===0,'FLAT_PROVIDER_SLOT_BEFORE_FUNDING');
+ const directory=await mkdtemp(join(runtime.metadata.scratchDirectory,'device-external-graph-provider-slot-'));await chmod(directory,0o700);await privateDirectory(runtime,directory);
+ const key=freshKey(),password=randomBytes(32).toString('hex'),vault=new Vault(join(directory,'provider-slot.vault')),data={schema:'ORIGINAL_DEVICE_META_PROVIDER_SLOT_V4',slot:input.slot,maximumInput:input.maximumInput,shareAmount:input.shareAmount,payoutAmount:input.payoutAmount,rule:copy(input.rule),rulePath:copy(input.rulePath),state:'BORN',providerKey:{x:key.x.toString('hex'),y:key.y.toString('hex')},privateKeyPem:key.privateKey.export({type:'pkcs8',format:'pem'})},record=await vault.create(data,password);equal(await vault.read(password),record);
+ const token=Object.freeze(Object.create(null));providerSlotsV4.set(token,{...input,rule:copy(input.rule),rulePath:copy(input.rulePath),directory,password,vault,record,key,used:false,closed:false});return token;
+}
+export async function activateOriginalDeviceMetaMorphoProviderSlotV4(token,input){
+ assert.equal(arguments.length,2);const s=providerSlotsV4.get(token);assert.ok(s&&!s.used&&!s.closed,'FLAT_PROVIDER_ORIGINAL_SLOT');
+ exactRecord(input,['runtime','system','poolIndex','router','observer','operatorQuorum','rule','rulePath','descriptor','depositProof','terms','acceptedLossClause']);
+ for(const k of ['runtime','system','poolIndex','router','observer','operatorQuorum'])assert.equal(input[k],s[k],'FLAT_PROVIDER_SLOT_BINDING');equal(input.rule,s.rule);equal(input.rulePath,s.rulePath);
+ const d=evmGraphDeliveryTermsV1(input.descriptor);assert.equal(d.route.assetAmount,s.maximumInput,'FLAT_PROVIDER_SLOT_QUOTA');assert.equal(d.route.shareAmount,s.shareAmount,'FLAT_PROVIDER_SLOT_QUOTA');assert.equal(input.terms.amount,s.shareAmount,'FLAT_PROVIDER_SLOT_QUOTA');
+ await privateDirectory(s.runtime,s.directory);equal(await s.vault.read(s.password),s.record);assert.ok(!s.used&&!s.closed,'FLAT_PROVIDER_ORIGINAL_SLOT');s.used=true;
+ s.record=await s.vault.update(s.password,s.record.revision,data=>({...data,state:'ACTIVATING'}));equal(await s.vault.read(s.password),s.record);
+ let provider;try{provider=await createOwnedFlatEvmDeliveryProvider({...input,directory:s.directory,password:s.password},'METAMORPHO',s.key);
+  s.record=await s.vault.update(s.password,s.record.revision,data=>({...data,state:'BOUND'}));equal(await s.vault.read(s.password),s.record);s.key=null;return provider;
+ }catch(error){await provider?.close().catch(()=>{});s.key=null;throw error;}
+}
+export function closeOriginalDeviceMetaMorphoProviderSlotV4(token){assert.equal(arguments.length,1);const s=providerSlotsV4.get(token);assert.ok(s,'FLAT_PROVIDER_ORIGINAL_SLOT');s.closed=true;s.key=null;s.password=null;return{closed:true};}
+
+async function createOwnedFlatEvmDeliveryProvider(input, variant,originalSlotKey=null) {
   const officialMetaMorpho = variant === 'METAMORPHO', officialUniswap = variant === 'UNISWAP', officialAave = variant === 'AAVE_STATIC', originalBlue=variant==='MORPHO_BLUE_POSITION';
   exactRecord(input, ['runtime', 'system', 'poolIndex', 'router', 'observer', 'operatorQuorum', 'rule', 'rulePath',
     'descriptor', 'depositProof', 'terms', 'acceptedLossClause', 'directory', 'password']);
@@ -210,7 +239,7 @@ async function createOwnedFlatEvmDeliveryProvider(input, variant) {
   assert.equal(initialView.domainCommitment, bare(pool.domainCommitment), 'FLAT_PROVIDER_CURRENT_DOMAIN');
   await stateReader.assertCurrent(initialView);
   const vault = new Vault(join(directory, 'evm-vault-provider.vault'));
-  let key = freshKey(), record, busy = false, closed = false, poisoned = false;
+  let key = originalSlotKey??freshKey(), record, busy = false, closed = false, poisoned = false;
   const providerKey = freeze({ x: key.x.toString('hex'), y: key.y.toString('hex') });
   const live = () => assert.ok(!closed && !poisoned, 'FLAT_PROVIDER_CLOSED_OR_POISONED');
   async function unchanged() {
