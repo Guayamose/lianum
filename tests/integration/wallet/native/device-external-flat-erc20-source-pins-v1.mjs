@@ -221,7 +221,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "dddb1bdddfec0c914dd1dfd742c5c227e0396d8e3397a65bf7a70f744327a465"
+  "879bdac3a6f5066754f70fb049ef866b5ae8eda55528e80069417cd5c9bbd1b5"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -416,7 +416,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "dddb1bdddfec0c914dd1dfd742c5c227e0396d8e3397a65bf7a70f744327a465"
+  "879bdac3a6f5066754f70fb049ef866b5ae8eda55528e80069417cd5c9bbd1b5"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
@@ -622,7 +622,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
-  "dddb1bdddfec0c914dd1dfd742c5c227e0396d8e3397a65bf7a70f744327a465"
+  "879bdac3a6f5066754f70fb049ef866b5ae8eda55528e80069417cd5c9bbd1b5"
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
