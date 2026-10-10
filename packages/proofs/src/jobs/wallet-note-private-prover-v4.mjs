@@ -18,6 +18,9 @@ import {sealPrivateProofJobV1,readOriginalPrivateProofRecipientV1,privateProofAu
 export const ORIGINAL_WALLET_PRIVATE_PROVER_V4='ORIGINAL_PC23_TWO_PRIVATE_IPC_V4';
 const worker=fileURLToPath(new URL('./wallet-note-private-worker-v4.mjs',import.meta.url));
 const telemetryDirectory=join(PROOF_PROJECT_ROOT,'evidence/paeg-proof-attempts'),hostLock='/tmp/lianum-paeg-proof-host.lock';
+const codePaths=Object.freeze({worker,parent:fileURLToPath(import.meta.url),originalWorker:join(PROOF_PROJECT_ROOT,'src/paeg/proof-worker.mjs'),
+ privateTransit:fileURLToPath(new URL('./private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:join(PROOF_PROJECT_ROOT,'src/private-resource-policy.mjs'),
+ originalProver:join(PROOF_PROJECT_ROOT,'experiments/private-core-proof/wallet-notes/prover.mjs')});
 const stages=new Set(['checking-pins','legacy-proof-and-self-verification']);
 const modes=new Set(['deposit_balance','withdraw_balance']),digest=b=>createHash('sha256').update(b).digest('hex');
 let active=null;
@@ -44,9 +47,7 @@ export function createOriginalWalletNotePrivateProverV4(original){
  need(arguments.length===1,'PAEG_PROOF_PRIVATE_CONFIG');const scope=readOriginalPrivateProofRecipientV1(original),mode=scope.relation;
  need(modes.has(mode)&&scope.role==='owner','PAEG_PROOF_PRIVATE_SCOPE');const authorization=privateProofAuthorizationBindingV1(original.authorization);need(authorization.kind==='ORIGINAL_CONSENT_V1','PAEG_PROOF_PRIVATE_BINDING');
  const expected=Object.freeze(normalizePublicInputs(mode,original.expectedPublicInputs)),loaded=loadProofProfile(mode);need(loaded.legacy===true&&loaded.target==='evm'&&loaded.maximumPages===32768,'PAEG_PROOF_PRIVATE_PROFILE');
- const binding=loaded.publicPins,policy=selectProofResourcePolicy(mode,binding),codePins={worker:filePin(worker),parent:filePin(fileURLToPath(import.meta.url)),originalWorker:filePin(fileURLToPath(new URL('../../../engine/src/execution/proofs/proof-worker.mjs',import.meta.url))),
-  privateTransit:filePin(fileURLToPath(new URL('./private-proof-transit-v1.mjs',import.meta.url))),resourcePolicy:filePin(fileURLToPath(new URL('../../../engine/src/crypto/private-resource-policy.mjs',import.meta.url))),
-  originalProver:filePin(fileURLToPath(new URL('../../../../experiments/engine/private-core-proof/wallet-notes/prover.mjs',import.meta.url)))};
+ const binding=loaded.publicPins,policy=selectProofResourcePolicy(mode,binding),codePins=Object.fromEntries(Object.entries(codePaths).map(([key,path])=>[key,filePin(path)]));
  let closed=false,used=false,current=null,lastReport=null;
  const facade=Object.freeze({
   prove(requestMode,input,publicInputs,label){need(arguments.length===4&&!closed&&!used&&!current&&!active,'PAEG_PROOF_PRIVATE_ONE_REQUEST');need(requestMode===mode&&input===original.inputs&&publicInputs===original.expectedPublicInputs,'PAEG_PROOF_PRIVATE_ORIGINAL_INPUT');
@@ -59,7 +60,7 @@ export function createOriginalWalletNotePrivateProverV4(original){
  });return facade;
  async function run(input,label){
   const currentLoaded=loadProofProfile(mode);assert.deepEqual(currentLoaded.publicPins,binding,'PAEG_PROOF_BOUND_PROFILE_CHANGED');
-  for(const[key,path]of Object.entries({worker,parent:fileURLToPath(import.meta.url),originalWorker:fileURLToPath(new URL('../../../engine/src/execution/proofs/proof-worker.mjs',import.meta.url)),privateTransit:fileURLToPath(new URL('./private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:fileURLToPath(new URL('../../../engine/src/crypto/private-resource-policy.mjs',import.meta.url)),originalProver:fileURLToPath(new URL('../../../../experiments/engine/private-core-proof/wallet-notes/prover.mjs',import.meta.url))}))filePin(path,codePins[key]);
+  for(const[key,path]of Object.entries(codePaths))filePin(path,codePins[key]);
   let normalized;try{normalized=normalizeProofWitness(currentLoaded.program,input);assertExpectedInputs(mode,publicInputsFromWitness(currentLoaded.program,normalized),expected);}catch(e){wipePrivate(normalized);throw e;}
   const id=randomUUID(),began=performance.now(),path=join(telemetryDirectory,id+'.json'),report={classification:'ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY',privateTransitProfile:ORIGINAL_WALLET_PRIVATE_PROVER_V4,id,mode,operation:'prove',purpose:'owner',label,
    startedAt:new Date().toISOString(),phase:'before-dispatch',...binding,policy,maximumPages:currentLoaded.maximumPages,threads:1,zeroKnowledgeEnabled:true,codePins,authorizationBindingSHA256:privateProofBindingSHA256V1(authorization),stages:[],resourceSamples:[],logs:{stdoutBytes:0,stderrBytes:0},acceptedResult:false};
