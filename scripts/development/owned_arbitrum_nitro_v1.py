@@ -217,6 +217,16 @@ def fixed_runtime_compose(original, images, project):
         service['ports'] = []
         service['volumes'] = [mount for mount in service.get('volumes', [])
                               if mount.get('source') != '/var/run/docker.sock']
+    # Prysm's official generator derives the execution header used in the SSZ
+    # state (genesis timestamp and fork times). Publish that SAME generated
+    # genesis before the original launcher runs geth init; an input-only file
+    # otherwise leaves Geth on a different genesis and forkchoice stays SYNCING.
+    genesis = value['services']['create_beacon_chain_genesis']['command']
+    require(type(genesis) is list
+            and genesis.count('--geth-genesis-json-in=/config/geth_genesis.json') == 1
+            and not any(flag.startswith('--geth-genesis-json-out') for flag in genesis),
+            'ARBITRUM_ORIGINAL_PAIRED_GENESIS_COMMAND_CHANGED')
+    genesis.append('--geth-genesis-json-out=/config/geth_genesis.json')
     geth = value['services']['geth']
     old = geth['command']
     # EngineAPI must be driven by the actual Prysm client, not SimulatedBeacon.

@@ -12,6 +12,33 @@ from unittest import mock
 
 
 class OriginalNitroNamespaceTest(unittest.TestCase):
+    def test_pos_genesis_publishes_same_original_execution_header_before_init(self):
+        spec = importlib.util.spec_from_file_location('original_nitro_paired_genesis', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        # Compose data is an explicitly synthetic public configuration port;
+        # no native process, clock, contract, key or accepted finality is made.
+        commands = ['testnet', 'generate-genesis', '--fork=deneb',
+                    '--num-validators=64', '--genesis-time-delay=15',
+                    '--output-ssz=/consensus/genesis.ssz',
+                    '--chain-config-file=/config/prysm.yaml',
+                    '--geth-genesis-json-in=/config/geth_genesis.json']
+        original = {'services': {name: {'image': 'upstream', 'command': []}
+                                    for name in m.SERVICES}, 'volumes': {}, 'networks': {}}
+        original['services']['create_beacon_chain_genesis']['command'] = commands
+        original['services']['geth']['command'] = ['--dev', '--dev.period=1', '--mine',
+             '--miner.etherbase=0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E', '--state.scheme=hash']
+        images = {name: 'sha256:' + 'a' * 64 for name in m.SERVICES}
+        fixed = m.fixed_runtime_compose(original, images, 'lianum-nitro-' + '3' * 32)
+        self.assertEqual(fixed['services']['create_beacon_chain_genesis']['command'],
+                         commands + ['--geth-genesis-json-out=/config/geth_genesis.json'])
+        self.assertEqual(original['services']['create_beacon_chain_genesis']['command'], commands)
+        self.assertEqual(fixed['services']['geth']['command'], ['--state.scheme=hash'])
+        altered = json.loads(json.dumps(original))
+        altered['services']['create_beacon_chain_genesis']['command'][-1] = '--geth-genesis-json-in=/foreign/genesis.json'
+        with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_PAIRED_GENESIS_COMMAND_CHANGED$'):
+            m.fixed_runtime_compose(altered, images, 'lianum-nitro-' + '3' * 32)
+
     def test_private_read_allows_access_time_but_rejects_mutation(self):
         spec = importlib.util.spec_from_file_location('original_nitro_private_reader', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
         m = importlib.util.module_from_spec(spec)
@@ -168,6 +195,8 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         source['services']['geth']['command'] = ['--dev', '--dev.period=1', '--mine',
             '--miner.etherbase=0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E',
             '--authrpc.jwtsecret=/config/jwt.hex', '--http', '--datadir=/datadir']
+        source['services']['create_beacon_chain_genesis']['command'] = [
+            'testnet', 'generate-genesis', '--geth-genesis-json-in=/config/geth_genesis.json']
         saved = json.loads(json.dumps(source))
         value = module.fixed_runtime_compose(source, images, project)
         self.assertEqual(source, saved)

@@ -12,7 +12,7 @@ import {createOriginalArbitrumNativeValueCustodyV1,readOriginalArbitrumNativeVal
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1';
 const nativeValues = new WeakSet();
-const RECIPE_SHA256 = '6f675f5e69d1064e0e08a96bcd807ca872332357f4e6ef51f7c5f95744f35b5a';
+const RECIPE_SHA256 = '2b7d9de5f58daf20fa29923464ca54c29768a46982448b94bf47d7468f9d131e';
 const CUSTODY_SHA256 = 'ad75dd12a46496e90859886b42aada2d2203698dce70fb252b6477a3e63ba10b';
 const BIRTH_MS = 600_000 + 180_000 + 15_000;
 const IPC_MS = 30_000;
