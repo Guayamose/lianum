@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "c5b45d0c6944e07722b3b9e6501db7350ae1adcdc4c9e83faac7f6e749bc2ca2",
+  "hostSourceClosureSHA256": "7da9428a47f4d4bd06b68a8a429872b5c9b4b00f956b7eff2fa1f9ee95162b94",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -2514,7 +2514,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-native-value-health-source-v4.mjs",
-      "sha256": "f7d10eb51d007ebb47a325ffab79e92050c313a37e96e4f476922503411e2b91"
+      "sha256": "8706da2fb66aa47f8bccaa5db9489d0953138778a9f982b2f63e72689dddead1"
     },
     {
       "path": "wallet-platform/modules/chain-adapters/owned-evm-native-value-profile.mjs",
