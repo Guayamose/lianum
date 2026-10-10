@@ -42,6 +42,7 @@ const validId=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 // Only closed original mobile Vault labels. This diagnostic grants no capability;
 // the TS throw remains the primary error even when metadata storage fails.
 const ORIGINAL_MOBILE_FAILURE_CODES_V1=new Set([
+ 'MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED','MOBILE_EXTERNAL_FLAT_REQUEST_TIMEOUT','MOBILE_EXTERNAL_FLAT_REQUEST_CLOSED','MOBILE_PRIVATE_D27_TRANSIT_REJECTED',
  'MOBILE_ENTROPY_FAILED','MOBILE_EXTERNAL_FLAT_ALREADY_OPEN','MOBILE_EXTERNAL_FLAT_BINDING',
  'MOBILE_EXTERNAL_FLAT_BUSY','MOBILE_EXTERNAL_FLAT_CAPACITY','MOBILE_EXTERNAL_FLAT_OBSERVE_ONLY',
  'MOBILE_EXTERNAL_FLAT_ORIGINAL_JOB','MOBILE_EXTERNAL_FLAT_ORIGINAL_JOBS',
@@ -62,6 +63,15 @@ function retainOriginalDeviceExternalFlatFirstErrorV1(path,error){
   const originalMobileErrorCode=originalDeviceExternalFlatMobileFailureCodeV1(error);
   const first=privateNativeEconomicSuccessorFirstErrorV1(error);
   writeFixturePrivate(path,{...first,originalMobileErrorCode});
+ }catch{}
+}
+/** Four SAME target accounts created by the fixed workspace. This records
+ * only the original HTTP producer's bounded diagnostic, never a witness,
+ * exception message, response body, journal, key or economic authority. */
+function retainOriginalMetaFourTargetHttpFailuresV1(path,targets){
+ try{if(!Array.isArray(targets)||targets.length!==4)return;const failures=[];
+  for(let slot=0;slot<4;slot++){const target=targets[slot];if(target?.slot!==slot)continue;try{const diagnostic=readOriginalDeviceExternalFlatHttpFailureV1(target.account);if(diagnostic!==null)failures.push({slot,diagnostic});}catch{}}
+  if(failures.length)writeFixturePrivate(path,{format:'LIANUM_DEVICE_META_FOUR_TARGET_HTTP_ERRORS_PRIVATE_V1',failures});
  }catch{}
 }
 async function run(){assertDeviceExternalFlatErc20ReleaseV1();assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.cwd()),ROOT);
@@ -443,7 +453,7 @@ async function runMetaFourGraph(){
   const audit=await successor.audit();for(const key of ['sameOriginalProofs','sameCanonicalFinancialReceipts','sameOriginalPoolHistory','noAdditionalProof','noAdditionalWire'])assert.equal(audit[key],true);assert.equal(audit.proofCount,20);assert.equal(audit.wireCount,expected.wireCount);assert.equal(audit.receiptCount,expected.receiptCount);assert.deepEqual(audit.head,expected.head);const reopenedSource=await host.vault.summary();for(const key of ['rootId','commitment','recipient'])assert.equal(reopenedSource[key],sameSource[key]);assert.equal(reopenedSource.pending,null);assert.deepEqual(reopenedSource.graph.withdrawalPending,[]);
   result.deviceMultiOrderedObservation={...successor.report,bornBeforeCreate:true,originalFourSectionsReopened:true,sameOriginalJobs:true,sameOriginalObservations:true,parentRootsAndNotesUnchanged:true,freshEconomicOperationDenied:true,noAdditionalProof:true,noAdditionalWire:true,proofCount:20,originalFinancialWireCount:economicWires.length,originalFinancialReceiptCount:economicWires.length,audit};result.cleanup.successor=await successor.close();assert.equal(result.cleanup.successor.originalChildProcessClosed,true);result.cleanup.closedSuccessor=true;result.multiOrderedBackendRecoveryEstablished=true;
   result.mobileHost=host.evidence();result.nativeDeliveryCount=4;result.originalDeviceMetaFourGraphEstablished=true;result.sourceUnchanged=true;assert.deepEqual(currentPins(),sourcePins);
- }catch(error){primary=error;result.phase='failed';result.errorCode='DEVICE_META_FOUR_GRAPH_FLOW_FAILED';retainOriginalDeviceExternalFlatFirstErrorV1(join(privateDirectory,'first-error-private.json'),error);if(started?.account)try{const failure=readOriginalDeviceExternalFlatHttpFailureV1(started.account);if(failure)writeFixturePrivate(join(privateDirectory,'account-first-error-private.json'),failure);}catch{}save();}
+ }catch(error){primary=error;result.phase='failed';result.errorCode='DEVICE_META_FOUR_GRAPH_FLOW_FAILED';retainOriginalDeviceExternalFlatFirstErrorV1(join(privateDirectory,'first-error-private.json'),error);retainOriginalMetaFourTargetHttpFailuresV1(join(privateDirectory,'target-http-errors-private.json'),started?.targets);if(started?.account)try{const failure=readOriginalDeviceExternalFlatHttpFailureV1(started.account);if(failure)writeFixturePrivate(join(privateDirectory,'account-first-error-private.json'),failure);}catch{}save();}
  finally{const wipe=v=>{if(v&&typeof v==='object')for(const k of Object.keys(v)){if(v[k]&&typeof v[k]==='object')wipe(v[k]);v[k]=null;}};privateWitnesses.forEach(wipe);process.off('SIGTERM',onSignal);process.off('SIGINT',onSignal);const cleanup=async(name,fn)=>{try{const value=await fn();result.cleanup[name]=true;return value;}catch(error){result.cleanup[name]=false;result.cleanup.errors.push({phase:name,errorCode:'DEVICE_META_FOUR_CLEANUP_UNCONFIRMED'});primary??=error;return null;}};
   if(lifetime.closeSuccessor&&!result.cleanup.closedSuccessor){const receipt=await cleanup('closedSuccessor',()=>lifetime.closeSuccessor());if(receipt)result.cleanup.successor=receipt;}
   if(host){result.cleanup.host=await cleanup('closedMobileHost',()=>host.close());result.cleanup.service=result.cleanup.host?.service;result.cleanup.closedDeviceService=result.cleanup.service?.closed===true;result.cleanup.closedMobileVault=result.cleanup.host?.vault?.closed===true&&result.cleanup.host?.vault?.targets?.length===4&&result.cleanup.host.vault.targets.every(r=>r?.closed===true);}
