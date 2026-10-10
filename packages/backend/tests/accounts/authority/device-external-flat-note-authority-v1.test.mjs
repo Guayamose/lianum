@@ -163,6 +163,13 @@ test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original 
    return new Response(JSON.stringify(reply),{status:200,headers:{'content-type':'application/json; charset=utf-8'}});
   };
   client=sdk.createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:fixtureFetch});const review=async draft=>{const access=await client.challenge();return client.review(access,sig(access),draft);};const perform=async(consent,witness=null)=>{await vault.latch(consent);const reply=await client.submit(consent,sig(consent),witness);if(reply.quote)return reply;await vault.accept(reply);return reply;};
+  // Run the actual SOURCE financial helper against this same original SDK and
+  // Vault. Lower chain/proof effects remain the explicit HOST fixtures above.
+  // A missing third submit argument must fail before any funding POST, exactly
+  // as the first V3 financial attempt did after its original D26 proof.
+  const sourceFlow=await readFile(url('../../../../../tests/integration/wallet/native/device-external-flat-erc20-flow-v1.mjs','../../../integration/device-external-flat-erc20-flow-v1.mjs'),'utf8'),sourceBoundary=sourceFlow.indexOf('async function runConfirmedSourceFinancialV2(){'),sourceStart=sourceFlow.indexOf('perform=async consent=>{',sourceBoundary),sourceEnd=sourceFlow.indexOf('return row;};',sourceStart)+'return row;}'.length;
+  assert.ok(sourceBoundary>0&&sourceStart>sourceBoundary&&sourceEnd>sourceStart);
+  const sourcePerform=new Function('host','client','return '+sourceFlow.slice(sourceStart+'perform='.length,sourceEnd))({sign:sig,vault},client);
   try{
    if(!legacy){
     // Open the actual prior ACTIVE legacy ciphertext with the SAME root and
@@ -195,7 +202,7 @@ test('HOST DeviceExternalFlat keeps both confirmed SDK jobs within the original 
     const {createPrivateWalletStateV1}=await import(url('../../../../../apps/mobile/src/state/private-wallet-state-v1.mjs','../../../../../../../apps/mobile/src/state/private-wallet-state-v1.mjs'));const walletState=createPrivateWalletStateV1();await assert.rejects(async()=>walletState.acceptExternal(structuredClone(status)));walletState.acceptExternal(status);client.close();const displayed=walletState.snapshot();assert.equal(displayed.rows.length,1);assert.equal(displayed.rows[0].state,'LIVE');assert.equal(displayed.rows[0].noteAmount,'0');assert.equal(displayed.rows[0].available,null);assert.equal(displayed.aggregateBalance,null);
     continue;
    }
-   const prepared=await vault.prepareDeposit(descriptor,recipient,amount,originalObserved.timestamp);priorPreparedStore=new Map(capacityStore);sourceWitness=prepared.witness;await perform(await review(prepared.draft),sourceWitness);await perform(await review(await vault.draft('FUND_D26')));
+   const prepared=await vault.prepareDeposit(descriptor,recipient,amount,originalObserved.timestamp);priorPreparedStore=new Map(capacityStore);sourceWitness=prepared.witness;await perform(await review(prepared.draft),sourceWitness);await sourcePerform(await review(await vault.draft('FUND_D26')));
    const toHex=a=>Buffer.from(a).toString('hex');opening={type:4,rho:toHex(sourceWitness.rho),x:toHex(sourceWitness.key_x),y:toHex(sourceWitness.key_y),value:amount,secret:toHex(sourceWitness.secret)};const leaf=(await vault.summary()).commitment,siblings=Array.from({length:6},(_,i)=>hex('sibling'+i));let root=leaf;
    for(const sibling of siblings)root=createHash('sha256').update(Buffer.concat([Buffer.from([1]),Buffer.from(root,'hex'),Buffer.from(sibling,'hex')])).digest('hex');quotePath={root,index:0,leaf,siblings};quoteStatement=codec.localDeviceWithdrawalStatementV1({scope:descriptor.poolTerms.scope,policy:descriptor.poolTerms.policy,epoch:(BigInt(originalObserved.timestamp)/600n).toString(),opening,path:quotePath,recipient});
    const quoteConsent=await review(await vault.draft('QUOTE_W39')),quote=await client.submit(quoteConsent,sig(quoteConsent),null),exitPrepared=await vault.prepareWithdrawal(quote.quote);exitWitness=exitPrepared.witness;await perform(await review(exitPrepared.draft),exitWitness);
