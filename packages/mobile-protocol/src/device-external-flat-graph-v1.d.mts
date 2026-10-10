@@ -3,7 +3,7 @@ export const DEVICE_EXTERNAL_FLAT_GRAPH_V1:'DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_V1
 export const EXTERNAL_FLAT_GRAPH_ACTIONS_V1:readonly string[];
 export type ExternalFlatGraphAction='PROVE_U'|'RESERVE_S'|'OBSERVE_S'|'EXECUTE_GRAPH'|'RECONCILE_GRAPH'|'RECOVER_GRAPH'|'CANCEL_GRAPH';
 export type ExternalFlatGraphDraft=Readonly<{action:ExternalFlatGraphAction;depositJobId:string;rootId:string;quoteId:string;jobId:string;custody:any;statement:any;witnessSHA256:string;proofSHA256:string|null;publicInputsSHA256:string|null}>;
-export type ExternalFlatGraphConsent=Readonly<{profile:string;descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;draft:ExternalFlatGraphDraft;observed:any;openingDisclosure:string|null}>;
+export type ExternalFlatGraphConsent=Readonly<{profile:string;descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;draft:ExternalFlatGraphDraft;observed:any;openingDisclosure:string|null;privateProof?:Readonly<{profile:string;recipient:any;resultRecipient:any;context:any;transcriptSHA256:string}>}>;
 export function normalizeExternalFlatGraphQuoteV1(raw:unknown):any;
 export function normalizeExternalFlatGraphDraftV1(raw:unknown):ExternalFlatGraphDraft;
 export function normalizeExternalFlatGraphConsentV1(raw:unknown):ExternalFlatGraphConsent;
@@ -23,3 +23,9 @@ export function normalizeExternalFlatGraphOutputConsentV1(raw:unknown):ExternalF
 export function validateExternalFlatGraphOutputFreshV1(raw:unknown,now?:number):ExternalFlatGraphOutputConsent;
 export function externalFlatGraphOutputPermissionMessageV1(raw:unknown):Uint8Array;
 export function normalizeExternalFlatGraphOutputRowV1(raw:unknown):any;
+
+export const DEVICE_EXTERNAL_FLAT_PRIVATE_U_V2:'ORIGINAL_DEVICE_GRAPH_U_PRIVATE_TRANSIT_V2';
+export function normalizeExternalFlatGraphPrivateProofV2(raw:unknown):any;
+export function externalFlatGraphPrivateTranscriptBytesV2(raw:unknown):Uint8Array;
+export function externalFlatGraphPrivateDigestV2(raw:unknown):string;
+export function validateExternalFlatGraphPrivateWitnessV2(consent:unknown,witness:unknown):ExternalFlatGraphConsent;

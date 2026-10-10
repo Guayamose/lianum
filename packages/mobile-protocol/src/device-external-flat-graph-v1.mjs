@@ -10,6 +10,7 @@ import {normalizeDeviceReservationStatementV1,normalizeDeviceReservationCustodyV
  normalizeDeviceReservationQuoteV1,normalizeDeviceReservationStatusV1,DEVICE_RESERVATION_DISCLOSURE_V1}
  from './device-reservation-consent-v1.mjs';
 export const DEVICE_EXTERNAL_FLAT_GRAPH_V1='DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_V1';
+export const DEVICE_EXTERNAL_FLAT_PRIVATE_U_V2='ORIGINAL_DEVICE_GRAPH_U_PRIVATE_TRANSIT_V2';
 export const EXTERNAL_FLAT_GRAPH_ACTIONS_V1=Object.freeze(['PROVE_U','RESERVE_S','OBSERVE_S','EXECUTE_GRAPH','RECONCILE_GRAPH','RECOVER_GRAPH','CANCEL_GRAPH']);
 const need=v=>{if(!v)throw Error('MOBILE_EXTERNAL_FLAT_GRAPH_INVALID');};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -34,11 +35,13 @@ export function normalizeExternalFlatGraphDraftV1(raw){
  return freeze(v);
 }
 export function normalizeExternalFlatGraphConsentV1(raw){
- const v=exact(raw,['profile','descriptor','challengeId','nonce','expiresAt','draft','observed','openingDisclosure']);
+ const privateField=raw&&typeof raw==='object'?Object.getOwnPropertyDescriptor(raw,'privateProof'):null;need(!privateField||Object.hasOwn(privateField,'value'));
+ const v=exact(raw,['profile','descriptor','challengeId','nonce','expiresAt','draft','observed','openingDisclosure',...(privateField?['privateProof']:[])]);
  need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_V1);v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);
  nonzero(v.challengeId);nonzero(v.nonce);need(v.challengeId!==v.nonce);integer(v.expiresAt);
  v.draft=normalizeExternalFlatGraphDraftV1(v.draft);v.observed=normalizeExternalFlatObservedV1(v.observed);
  need(v.draft.statement.scope===v.descriptor.poolTerms.scope&&v.draft.statement.policy===v.descriptor.poolTerms.policy&&v.draft.statement.asset===v.descriptor.poolTerms.assetIdentity);
+ if(privateField){need(v.draft.action==='PROVE_U');v.privateProof=normalizeExternalFlatGraphPrivateProofV2(v.privateProof);for(const [k,d]of [['scope','scope'],['policy','policy'],['asset','assetIdentity'],['hubDomain','hubDomain'],['ledgerNamespace','ledgerNamespace']])need(v.privateProof.context.domain[k]===v.descriptor.poolTerms[d]);}
  need(v.openingDisclosure===(v.draft.action==='PROVE_U'?DEVICE_RESERVATION_DISCLOSURE_V1:null));return freeze(v);
 }
 export function validateExternalFlatGraphFreshV1(raw,now=Date.now()){
@@ -59,7 +62,7 @@ function sha256(bytes){
 }
 function permissionCanonicalV1(value){if(value===null||typeof value!=="object")return JSON.stringify(value);if(Array.isArray(value))return '['+value.map(permissionCanonicalV1).join(',')+']';return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+permissionCanonicalV1(value[k])).join(',')+'}';}
 export function externalFlatGraphPermissionMessageV1(raw){
- const v=normalizeExternalFlatGraphConsentV1(raw),tag=new TextEncoder().encode('LIANUM/device-external-flat-graph/2/full-consent-sha256'),body=new TextEncoder().encode(permissionCanonicalV1(v));
+ const v=normalizeExternalFlatGraphConsentV1(raw),tag=new TextEncoder().encode(v.privateProof?'LIANUM/device-external-flat-graph/3/private-recipient-full-consent-sha256':'LIANUM/device-external-flat-graph/2/full-consent-sha256'),body=new TextEncoder().encode(permissionCanonicalV1(v));
  need(body.length<=8192);let digest;try{digest=sha256(body);const bytes=new Uint8Array(8+tag.length+digest.length),view=new DataView(bytes.buffer);view.setUint32(0,tag.length,false);bytes.set(tag,4);view.setUint32(4+tag.length,digest.length,false);bytes.set(digest,8+tag.length);return bytes;}finally{body.fill(0);digest?.fill(0);}
 }
 
@@ -112,3 +115,32 @@ export function validateExternalFlatGraphOutputFreshV1(raw,now=Date.now()){const
 export function externalFlatGraphOutputPermissionMessageV1(raw){const v=normalizeExternalFlatGraphOutputConsentV1(raw),tag=new TextEncoder().encode('LIANUM/device-external-flat-graph-output/1/full-consent-sha256'),body=new TextEncoder().encode(permissionCanonicalV1(v));need(body.length<=8192);let digest;try{digest=sha256(body);const bytes=new Uint8Array(8+tag.length+32),view=new DataView(bytes.buffer);view.setUint32(0,tag.length,false);bytes.set(tag,4);view.setUint32(4+tag.length,32,false);bytes.set(digest,8+tag.length);return bytes;}finally{body.fill(0);digest?.fill(0);}}
 export function normalizeExternalFlatGraphOutputRowV1(raw){const v=exact(raw,['profile','noteRole','row']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1);outputRole(v.noteRole);v.row=Note.normalizeExternalFlatRowV1(v.row);need(v.row.mode==='withdraw_balance'&&v.row.profile===Note.DEVICE_EXTERNAL_FLAT_NOTE_V1&&v.row.consentFields.noteRevision===1);return freeze(v);}
 function normalizeOutputRows(raw,status){need(Array.isArray(raw)&&Object.getPrototypeOf(raw)===Array.prototype&&raw.length<=2&&Reflect.ownKeys(raw).length===raw.length+1);const out=Array.from({length:raw.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(raw,String(i));need(d?.enumerable&&Object.hasOwn(d,'value'));const v=normalizeExternalFlatGraphOutputRowV1(d.value),g=status.jobs[0];need(g&&same(v.row.descriptor,status.descriptor)&&v.row.consentFields.depositJobId===g.reservation.jobId&&v.row.consentFields.rootId===g.reservation.consentFields.custody.rootId&&v.row.consentFields.statement.commitment===g.reservation.statement[v.noteRole+'Commitment']);return v;});need(new Set(out.map(v=>v.noteRole)).size===out.length&&new Set(out.map(v=>v.row.jobId)).size===out.length);return out;}
+
+/** Fixed V2 recipient and public context. Hashes bind the original preparation
+ * without publishing receipt spend secrets or note openings in consent. */
+export function normalizeExternalFlatGraphPrivateProofV2(raw){
+ const p=exact(raw,['profile','recipient','resultRecipient','context','transcriptSHA256']);need(p.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_U_V2);nonzero(p.transcriptSHA256);
+ const r=p.recipient=exact(p.recipient,['type','profile','relation','role','jobId','recipientPublicKey']);
+ need(r.type==='flat-private-proof-input-ready'&&r.profile==='ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1'&&r.relation==='authorization'&&r.role==='owner');
+ need(typeof r.jobId==='string'&&/^[a-z0-9-]{8,100}$/.exec(r.jobId)?.[0]===r.jobId);
+ need(typeof r.recipientPublicKey==='string'&&/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/.exec(r.recipientPublicKey)?.[0]===r.recipientPublicKey);
+ const t=p.resultRecipient=exact(p.resultRecipient,['type','profile','relation','role','jobId','recipientPublicKey']);for(const k of ['type','profile','relation','role','jobId'])need(t[k]===r[k]);need(typeof t.recipientPublicKey==='string'&&/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/.exec(t.recipientPublicKey)?.[0]===t.recipientPublicKey&&t.recipientPublicKey!==r.recipientPublicKey);
+ const c=p.context=exact(p.context,['domain','proposalSHA256','capsuleOptionsSHA256','invoiceSignaturesSHA256','sourceAmount']);
+ c.domain=exact(c.domain,['scope','policy','asset','hubDomain','registryCommitment','verifierSetCommitment','ledgerNamespace']);Object.values(c.domain).forEach(nonzero);need(c.domain.ledgerNamespace===c.domain.hubDomain);
+ ['proposalSHA256','capsuleOptionsSHA256','invoiceSignaturesSHA256'].forEach(k=>nonzero(c[k]));uint(c.sourceAmount);need(c.sourceAmount!=='0');return freeze(p);
+}
+export function externalFlatGraphPrivateTranscriptBytesV2(raw){
+ const c=normalizeExternalFlatGraphConsentV1(raw);need(c.privateProof);const p=c.privateProof;
+ return new TextEncoder().encode(permissionCanonicalV1({profile:p.profile,recipient:p.recipient,resultRecipient:p.resultRecipient,context:p.context,descriptor:c.descriptor,
+  draft:c.draft,observed:c.observed,challengeId:c.challengeId,nonce:c.nonce,expiresAt:c.expiresAt}));
+}
+export function externalFlatGraphPrivateDigestV2(raw){const body=new TextEncoder().encode(permissionCanonicalV1(raw));let digest;try{need(body.length<=8192);digest=sha256(body);return Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');}finally{body.fill(0);digest?.fill(0);}}
+export function validateExternalFlatGraphPrivateWitnessV2(rawConsent,rawWitness){
+ const c=validateExternalFlatGraphFreshV1(rawConsent);need(c.privateProof);const p=c.privateProof;
+ const transcript=externalFlatGraphPrivateTranscriptBytesV2(c);let digest,w;
+ try{digest=sha256(transcript);need(Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('')===p.transcriptSHA256);
+  w=normalizeDeviceReservationWitnessV1(rawWitness);const proposal=Object.fromEntries(['scope','policy','asset','operationId','budget','fundingNotBefore','fundingValidUntil','settleBefore','nodes'].map(k=>[k,w.input[k]]));
+  need(externalFlatGraphPrivateDigestV2(proposal)===p.context.proposalSHA256&&externalFlatGraphPrivateDigestV2(w.envelopePreparation.capsuleOptions)===p.context.capsuleOptionsSHA256&&externalFlatGraphPrivateDigestV2(w.invoiceSignatures)===p.context.invoiceSignaturesSHA256);
+  need(w.input.inputNote.value===p.context.sourceAmount);return c;
+ }finally{transcript.fill(0);digest?.fill(0);wipeDeviceReservationWitnessV1(w);}
+}

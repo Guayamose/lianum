@@ -15,7 +15,7 @@ import {assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/
 import {captureOfficialProtocolFixtureRecoveryV1} from '../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import {captureOwnedPrivateExternalRouterRecoveryV1} from '../deployments/defi/deploy-private-external-router-v1.mjs';
 import {retainOriginalDeviceExternalFlatGraphAccountV1,captureOriginalDeviceExternalFlatGraphAccountV1,reopenOriginalDeviceExternalFlatGraphAccountV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
-import {createOriginalRetainedDeviceExternalFlatSourceGraphV1,captureOriginalDeviceExternalFlatSourceGraphV1,reopenOriginalDeviceExternalFlatSourceGraphV1} from '../../accounts/authority/device-external-flat-source-graph-v1.mjs';
+import {createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2,captureOriginalDeviceExternalFlatSourceGraphV1,reopenOriginalDeviceExternalFlatSourceGraphV1} from '../../accounts/authority/device-external-flat-source-graph-v1.mjs';
 import {retainOriginalDeviceExternalFlatGraphExecutionV1,captureOriginalDeviceExternalFlatGraphExecutionV1,reopenOriginalDeviceExternalFlatGraphExecutionV1} from '../../execution/account/execution/flat-native-execution.mjs';
 import {quiesceOriginalDeviceExternalFlatGraphTlsServerV1} from '../../api/mobile/device-external-flat-note-http-v1.mjs';
 import {externalFlatExactV1,externalFlatUintV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
@@ -25,7 +25,7 @@ import {nativeRecipientInvoiceRequest} from '../../../../engine/src/execution/na
 import {NATIVE_ADMISSION_LOSS_CLAUSE} from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalDeviceExternalFlatShareNoteAuthorityV1,
  consumeOriginalDeviceExternalFlatShareProofV1,bindOriginalDeviceExternalFlatShareGraphV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
-import {createOriginalDeviceExternalFlatSourceGraphV1,assertOriginalDeviceExternalFlatSourceGraphV1,
+import {createOriginalDeviceExternalFlatPrivateSourceGraphV2,assertOriginalDeviceExternalFlatSourceGraphV1,
  readOriginalDeviceExternalFlatSourceGraphProofsV1} from '../../accounts/authority/device-external-flat-source-graph-v1.mjs';
 import {createFlatNativeExecution} from '../../execution/account/execution/flat-native-execution.mjs';
 import {createOriginalDeviceExternalFlatGraphTlsServerV1} from '../../api/mobile/device-external-flat-note-http-v1.mjs';
@@ -114,7 +114,7 @@ need(input&&!types.isProxy(input),'DEVICE_EXTERNAL_GRAPH_SERVICE');const v=exact
 
  try{execution=await createFlatNativeExecution({runtime:v.runtime,system:v.system,poolIndex:0,bitcoin:null,solana:null,quorum:v.quorum,evmDelivery:v.deliveryObserver},{onProof:async frame=>{proofs.push(structuredClone(frame));await s.persist();}});
   if(retention)await retainOriginalDeviceExternalFlatGraphExecutionV1(execution,retention.authority);
-  const bridgeInput={account:v.account,targetAccount:v.targetAccount,runtime:v.runtime,system:v.system,poolIndex:0,execution,workspace};s.bridge=retention?await createOriginalRetainedDeviceExternalFlatSourceGraphV1({...bridgeInput,recoveryAuthority:retention.authority}):await createOriginalDeviceExternalFlatSourceGraphV1(bridgeInput);
+  const bridgeInput={account:v.account,targetAccount:v.targetAccount,runtime:v.runtime,system:v.system,poolIndex:0,execution,workspace};s.bridge=retention?await createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2({...bridgeInput,recoveryAuthority:retention.authority}):await createOriginalDeviceExternalFlatPrivateSourceGraphV2(bridgeInput);
   if(retention){await retainOriginalDeviceExternalFlatGraphAccountV1(v.account,s.bridge,retention.authority);await retainOriginalDeviceExternalFlatGraphAccountV1(v.targetAccount,s.bridge,retention.authority);}
   listener=await createOriginalDeviceExternalFlatGraphTlsServerV1({account:v.account,targetAccount:v.targetAccount,workspace,tls:v.tls,host:v.host});
  }catch(error){await workspace.close().catch(()=>{});throw error;}
