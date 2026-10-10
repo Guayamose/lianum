@@ -19,9 +19,9 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
  const{result,host,descriptor,deviceKey,transport,stage,save,active,retainedProofs}=context;
  const jobId=result.deviceReservation.jobId,rootId=result.deviceCustody.sameRoot;
  let vault=context.vault,nativeApi,exitApi,outputApi,pendingExit,witness,successor,lastAudit,closed=false;
- const{signDeviceMessage}=await context.fromApp('custody/signing.mjs');
+ const{signDeviceMessage,signNativePrivateDeviceConsentV2}=await context.fromApp('custody/signing.mjs');
  const signed=consent=>({consent,signature:signDeviceMessage(deviceKey,deviceExecutionConsentMessageV1(consent))});
- const exitSigned=consent=>({consent,signature:signDeviceMessage(deviceKey,deviceExitConsentMessageV1(consent))});
+ const exitSigned=consent=>({consent,signature:consent.version===2?signNativePrivateDeviceConsentV2(deviceKey,consent):signDeviceMessage(deviceKey,deviceExitConsentMessageV1(consent))});
  const access=async api=>{active();const value=await api.access();return{access:value,signature:signDeviceMessage(deviceKey,originalAccountAccessMessageV2(value))};};
  const audit=async()=>{const value=await successor.audit();active();assert.equal(value.profile,'ORIGINAL_NATIVE_ECONOMIC_SUCCESSOR_PUBLIC_AUDIT_V1');
   assert.equal(value.processId,successor.processId);assert.equal(value.sourceSHA256,successor.report.sourceSHA256);

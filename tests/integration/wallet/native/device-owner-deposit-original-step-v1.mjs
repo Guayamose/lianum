@@ -95,7 +95,10 @@ async function runOriginalStepV1(context, reservationMode) {
   const { createOriginalAccountApiV2 } = await fromApp('api/original-account-api-v2.mjs');
   const { localBalanceCommitmentMessageV1 } = await fromApp('custody/balance-note-codec-v1.mjs');
   const { localUnissuedDepositFrameV1 } = await fromApp('custody/unissued-deposit-terms-v1.mjs');
-  const { privateKeyFromHex, devicePublicKey, signDeviceMessage } = await fromApp('custody/signing.mjs');
+  const { privateKeyFromHex, devicePublicKey, signDeviceMessage, signNativePrivateDeviceConsentV2 } = await fromApp('custody/signing.mjs');
+  const signDepositConsent = consent => consent.version === 2
+    ? signNativePrivateDeviceConsentV2(deviceKey, consent)
+    : signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent));
   const preparation = await notePreparation('TOP_UP', 'device_original_scope_v1');
   const linuxBefore = await owner.ownerView.summary();
   assert.equal(linuxBefore.notes.source.status, 'UNISSUED');
@@ -200,7 +203,7 @@ async function runOriginalStepV1(context, reservationMode) {
       assert.equal(Object.hasOwn(witness, 'privateKey'), false); assert.equal(Object.hasOwn(witness, 'root'), false);
     }
     if(context.devicePrivateNative){assert.equal(consent.version,2);assert.equal(consent.privateProof.profile,'ORIGINAL_NATIVE_DEVICE_D26_PRIVATE_TRANSIT_V2');assert.equal(consent.privateProof.recipient.relation,'deposit_balance');assert.equal(consent.privateProof.recipient.role,'owner');result.nativePrivateIntake.d26PrivateConsent=true;}
-    const signedProof = { consent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent)), witness };
+    const signedProof = { consent, signature: signDepositConsent(consent), witness };
     await stage('device-original-D26-job-HTTP-UNKNOWN');
     if(context.devicePrivateNative){try{const proved=await api.deviceDeposit.submit(signedProof);assert.equal(proved.jobId,consent.jobId);assert.equal(proved.stage,'PROVED');}catch(error){assert.match(error.message,/SERVICE_UNAVAILABLE/);}}else await assert.rejects(api.deviceDeposit.submit(signedProof), /SERVICE_UNAVAILABLE/);
     const proofPath=context.devicePrivateNative?'/v1/mobile/device-deposit/private-jobs':'/v1/mobile/device-deposit/jobs',proofResponse = transport.responses.find(row => row.path===proofPath);
@@ -212,7 +215,7 @@ async function runOriginalStepV1(context, reservationMode) {
     for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0); witness = null;
     await stage('device-second-consent-original-funding-reply-loss');
     const funding = await api.deviceDeposit.challenge('FUND_D26', { ...await access(), jobId: consent.jobId });
-    const signedFunding = { consent: funding, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(funding)) };
+    const signedFunding = { consent: funding, signature: signDepositConsent(funding) };
     transport.dropFund = true;
     await assert.rejects(api.deviceDeposit.submit(signedFunding), /FUND_REPLY_LOST_BEFORE_API|SERVICE_UNAVAILABLE/);
     result.deviceFundingHttp = { status: transport.fundHttpStatus ?? null, posts: transport.posts['/v1/mobile/device-deposit/fund'],
@@ -230,7 +233,7 @@ async function runOriginalStepV1(context, reservationMode) {
     await stage('device-explicit-original-inclusion-same-opening');
     const observe = async () => {
       const consent = await api.deviceDeposit.challenge('OBSERVE_D26', { ...await access(), jobId: funding.jobId });
-      const signed = { consent, signature: signDeviceMessage(deviceKey, deviceDepositConsentMessageV1(consent)) };
+      const signed = { consent, signature: signDepositConsent(consent) };
       let value;
       if (reservationMode) {
         const reply = await deviceApi.submit(signed); assert.equal(reply.state, 'CONFIRMED');
