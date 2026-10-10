@@ -80,19 +80,20 @@ async function createExecutionBridge(input,privateW39){
     }catch(error){failure=error;throw error;}finally{busy=false;if(retained){if(failure)retained.reject(failure);else retained.resolve();}}}
   async function exitRead(input){const binding=await actor.deviceDepositSignedReadBindingV1({challenge:cloneInput(input.access),signature:input.signature});
     live();return{binding,authorizationSHA256:sha(originalAccountAccessMessageV2(input.access))};}
-  async function issueExit(action,binding,fields,view,path=null){for(const[id,row]of exitPending)if(row.consumed||row.value.expiresAt<=Date.now()){exitPending.delete(id);if(!row.consumed)await row.client?.close();clearTimeout(row.timer);}
+  async function issueExit(action,binding,fields,view,path=null,authorizationExpiresAt=null){for(const[id,row]of exitPending)if(row.consumed||row.value.expiresAt<=Date.now()){exitPending.delete(id);if(!row.consumed)await row.client?.close();clearTimeout(row.timer);}
     assert.ok(exitPending.size<4,'DEVICE_EXIT_CHALLENGE_CAPACITY');
     let client=null,recipient=null;try{if(privateW39&&action==='PROVE_W39'){assert.ok(path);client=createOriginalNativePrivateExitProofClientV2();recipient=await client.prepare([...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.scope.slice(i*8,i*8+8),16))),...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.policy.slice(i*8,i*8+8),16))),fields.statement.epoch,...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.root.slice(i*8,i*8+8),16))),...Array.from({length:8},(_,i)=>String(parseInt(fields.statement.nullifier.slice(i*8,i*8+8),16))),fields.statement.amount,...Array.from({length:5},(_,i)=>String(parseInt(fields.statement.recipient.slice(i*8,i*8+8),16)))]);live();await reader.assertCurrent(view);}
+    if(privateW39)assert.ok(Number.isSafeInteger(authorizationExpiresAt)&&authorizationExpiresAt>Date.now(),'DEVICE_EXIT_ORIGINAL_AUTHORIZATION_EXPIRED');
     let raw={version:privateW39?2:1,profile:privateW39?PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_V2:DEVICE_EXIT_CONSENT_V1,action,...descriptor,challengeId:nonce(),nonce:nonce(),
-      expiresAt:Date.now()+15000,binding,poolTerms:{scope:view.domain.scope,policy:view.domain.policy,codeHash:account.config.registry[0].codeHash,
+      expiresAt:privateW39?Math.min(Date.now()+15000,authorizationExpiresAt):Date.now()+15000,binding,poolTerms:{scope:view.domain.scope,policy:view.domain.policy,codeHash:account.config.registry[0].codeHash,
       assetIdentity:view.domain.asset,domainCommitment:view.domainCommitment},...fields,observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},
       openingDisclosure:action==='PROVE_W39'?(privateW39?'ENCRYPTED_W39_OPENING_TO_ORIGINAL_NATIVE_RECIPIENT':DEVICE_EXIT_DISCLOSURE_V1):null};
     if(privateW39){raw.privateProof=recipient?{profile:PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2,recipient,path,transcriptSHA256:'0'.repeat(64)}:null;if(recipient)raw.privateProof.transcriptSHA256=sha(PrivateExit.nativePrivateExitTranscriptBytesV2(raw));}
     const value=exitNormalize(raw);exitMessage(value);exitFresh(value);const row={value,consumed:false,client,timer:null};if(client)row.timer=setTimeout(()=>{if(!row.consumed){exitPending.delete(value.challengeId);void client.close();}},15000);exitPending.set(value.challengeId,row);return cloneInput(value);
     }catch(error){await client?.close();throw error;}}
-  async function challengeExit(input,action){exactRecord(input,['access','signature','jobId']);live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
-    try{const {binding}=await exitRead(input),row=await readDeviceOwnerExitStatusV1(account,bridge,input.jobId),view=await reader.read();await reader.assertCurrent(view);
-      if(action==='WITHDRAW_W39')assert.equal(row.stage,'PROVED','DEVICE_EXIT_PROVED_REQUIRED');return await issueExit(action,binding,row.consentFields,view);
+  async function challengeExit(input,action){exactRecord(input,['access','signature','jobId']);const originalAccess=privateW39?cloneInput(input.access):input.access;live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
+    try{const {binding}=await exitRead(privateW39?{...input,access:originalAccess}:input),row=await readDeviceOwnerExitStatusV1(account,bridge,input.jobId),view=await reader.read();await reader.assertCurrent(view);
+      if(action==='WITHDRAW_W39')assert.equal(row.stage,'PROVED','DEVICE_EXIT_PROVED_REQUIRED');return await issueExit(action,binding,row.consentFields,view,null,privateW39?originalAccess.expiresAt:null);
     }finally{busy=false;}}
   async function exitWork(input,action){exactRecord(input,action==='PROVE_W39'?['consent','signature','witness']:['consent','signature']);
     live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;let retained,failure,witness,privateClient;
@@ -165,12 +166,12 @@ async function createExecutionBridge(input,privateW39){
         const quote={version:privateW39?2:1,profile:privateW39?'LIANUM_DEVICE_ORIGINAL_W39_QUOTE_PRIVATE_V2':'LIANUM_DEVICE_ORIGINAL_W39_QUOTE_V1',...descriptor,quoteId:old?.quoteId??nonce(),...terms,
           expiresAt:Math.min(input.access.expiresAt,Date.now()+15000)};exitQuotes.set(quote.quoteId,cloneInput(quote));
         return{quote,authorizationSHA256:access.authorizationSHA256};}finally{busy=false;}},
-    async challengeExitJob(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','quoteId','jobId','witnessSHA256']);
+    async challengeExitJob(input){assert.equal(arguments.length,1);exactRecord(input,['access','signature','quoteId','jobId','witnessSHA256']);const originalAccess=privateW39?cloneInput(input.access):input.access;
       live();assert.ok(!busy,'DEVICE_EXECUTION_BRIDGE_BUSY');busy=true;
-      try{const {binding}=await exitRead(input),quote=exitQuotes.get(input.quoteId);assert.ok(quote&&quote.expiresAt>Date.now(),'DEVICE_EXIT_ORIGINAL_QUOTE_REQUIRED');
+      try{const {binding}=await exitRead(privateW39?{...input,access:originalAccess}:input),quote=exitQuotes.get(input.quoteId);assert.ok(quote&&quote.expiresAt>Date.now(),'DEVICE_EXIT_ORIGINAL_QUOTE_REQUIRED');const originalExpiresAt=privateW39?Math.min(originalAccess.expiresAt,quote.expiresAt):null;
         if(privateW39){const terms=await prepareDeviceOwnerExitV1(account,bridge,Object.fromEntries(['parentJobId','noteRole','rootId','noteRevision'].map(n=>[n,quote[n]]).concat([['nullifier',quote.statement.nullifier],['recipient',quote.statement.recipient]])));for(const n of ['statement','path','nativeBindingSHA256'])assert.deepEqual(terms[n],quote[n],'DEVICE_EXIT_ORIGINAL_QUOTE_CHANGED');}const view=await reader.read();await reader.assertCurrent(view);return await issueExit('PROVE_W39',binding,{poolTerms:quote.poolTerms,
           ...Object.fromEntries(['parentJobId','nativeBindingSHA256','rootId','noteRevision','noteRole','statement'].map(name=>[name,quote[name]])),
-          quoteId:quote.quoteId,jobId:input.jobId,witnessSHA256:input.witnessSHA256,proofSHA256:null,publicInputsSHA256:null},view,quote.path);
+          quoteId:quote.quoteId,jobId:input.jobId,witnessSHA256:input.witnessSHA256,proofSHA256:null,publicInputsSHA256:null},view,quote.path,originalExpiresAt);
       }finally{busy=false;}},
     proveExit(input){assert.equal(arguments.length,1);return exitWork(input,'PROVE_W39');},
     challengeWithdrawal(input){assert.equal(arguments.length,1);return challengeExit(input,'WITHDRAW_W39');},
