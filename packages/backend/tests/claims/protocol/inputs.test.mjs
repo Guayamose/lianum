@@ -289,3 +289,51 @@ test('HOST device-root BTC original payout confirms SAME once-sent wire then com
  original.controller.privateNativeReceipt=async request=>{assert.deepEqual(request,{operationId:ticketId});calls.push('receipt');return{...receipt,transactionSHA256:calls.length>1?h('changed-wire'):receipt.transactionSHA256};};await assert.rejects(complete(original,ticketId,{status:'UNKNOWN'}),/PAYOUT_WIRE_CHANGED/);assert.deepEqual(calls,['receipt','confirm','receipt']);assert.equal(count,1);
  original.descriptor.claim.nativeFamily='2';calls.length=0;assert.deepEqual(await complete(original,ticketId,{status:'UNKNOWN'}),{status:'UNKNOWN'});assert.deepEqual(calls,[]);
 });
+
+
+test('HOST RootNote original CI51 selects recent-blockhash ingress before birth while payouts retain nonce authority',async()=>{
+ // Execute only the original selector, constructor guards, route selector and
+ // bootstrap profile guard. The factory port is explicitly inert; this test
+ // starts no chain, key, funding, proof, wire, or owned runtime capability.
+ const {readFile}=await import('node:fs/promises'),{existsSync}=await import('node:fs');
+ const original=(generated,canonical)=>{const candidate=new URL(generated,import.meta.url);return existsSync(candidate)?candidate:new URL(canonical,import.meta.url);};
+ const runtimeText=await readFile(original('../chain-adapters/owned-solana-runtime.mjs','../../../src/chains/solana/runtime/owned-solana-runtime.mjs'),'utf8');
+ const apiText=await readFile(original('../api/native-claim-http.mjs','../../../src/api/claims/native-claim-http.mjs'),'utf8');
+ const bootstrapText=await readFile(original('../ops/deploy-native-claims.mjs','../../../src/operations/deployments/claims/deploy-native-claims.mjs'),'utf8');
+ const requireCondition=(condition,code)=>assert.ok(condition,code),options=Object.freeze({profile:'HOST_INERT_ORIGINAL_OPTIONS'}),births=[];
+ const start=runtimeText.indexOf('export async function createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1()'),end=runtimeText.indexOf('const ownedJupiterPublicBanksV1=',start);assert.ok(start>0&&end>start);
+ const guardStart=runtimeText.indexOf("  requireCondition(typeof originalClaimIngress === 'boolean'"),guardEnd=runtimeText.indexOf('  const splMaterial=',guardStart);assert.ok(guardStart>0&&guardEnd>guardStart);
+ const routeStart=runtimeText.indexOf('    const usesNonce = selectedRoute =>'),routeEnd=runtimeText.indexOf('    function selectedNonce(',routeStart);assert.ok(routeStart>0&&routeEnd>routeStart);
+ const selectedProfile=Function('requireCondition','cohort','custody','combined','recovery','jupiterPublic','jupiterSpl','originalClaimIngress',runtimeText.slice(guardStart,guardEnd)+runtimeText.slice(routeStart,routeEnd)+'return usesNonce;');
+ const createOwnedSolanaRuntimeProfile=async(progress,actualOptions,cohort,custody=false,combined=false,recovery=null,jupiterPublic=false,jupiterSpl=false,originalClaimIngress=false)=>{
+  assert.equal(actualOptions,options);assert.equal(typeof progress,'function');
+  const usesNonce=selectedProfile(requireCondition,cohort,custody,combined,recovery,jupiterPublic,jupiterSpl,originalClaimIngress);
+  births.push({cohort,custody,combined,recovery,jupiterPublic,jupiterSpl,originalClaimIngress});return{usesNonce};
+ };
+ const create=Function('requireCondition','createOwnedSolanaRuntimeProfile','SOLANA_PRIVATE_COHORT_OPTIONS',runtimeText.slice(start,end).replace('export async function','async function')+'return createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1;')(requireCondition,createOwnedSolanaRuntimeProfile,options);
+ await assert.rejects(create({}),/FIXED_CONSTRUCTOR/);assert.equal(births.length,0);
+ const fresh=await create();assert.deepEqual(births,[{cohort:true,custody:true,combined:true,recovery:null,jupiterPublic:false,jupiterSpl:false,originalClaimIngress:true}]);
+ assert.equal(fresh.usesNonce({name:'deposit'}),false);for(const name of ['refund','redeem'])assert.equal(fresh.usesNonce({name}),true);assert.equal(fresh.usesNonce({name:null}),false);
+ const current=await createOwnedSolanaRuntimeProfile(async()=>{},options,true,true,true);assert.equal(current.usesNonce({name:'deposit'}),true);assert.equal(current.usesNonce({name:'redeem'}),true);
+ assert.throws(()=>selectedProfile(requireCondition,true,true,false,null,false,false,true),/FIXED_PROFILE/);assert.throws(()=>selectedProfile(requireCondition,true,true,true,{},false,false,true),/FIXED_PROFILE/);assert.throws(()=>selectedProfile(requireCondition,true,true,true,null,false,true,true),/FIXED_PROFILE/);
+ // Execute the exact factory selection used by the real RootNote product.
+ const factoryText=apiText.slice(apiText.indexOf('async function createDeviceRootClaimLocalOperator(config,profile){'));
+ const expression=/else\(\{custody:solana\}=await([^;]+)\);live\(\);/.exec(factoryText);assert.ok(expression);
+ const selected=Function('profile','createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1','createOwnedCombinedSolanaRuntime','return '+expression[1]+';');let legacyCalls=0;
+ const legacy=async()=>{legacyCalls++;return{};};for(const profile of ['BTC_EXIT_V3','SOL_EXIT_V3'])await selected(profile,create,legacy);assert.equal(legacyCalls,0);for(const profile of ['BTC','SOL'])await selected(profile,create,legacy);assert.equal(legacyCalls,2);
+ assert.match(factoryText,/family==='SPL'\)\{const \{createOwnedCombinedSolanaSplRuntimeV1\}/);
+ // Keep the original bootstrap refusal for every nonce ingress unchanged.
+ const bStart=bootstrapText.indexOf('  if (ingressV3&&!spl)'),bEnd=bootstrapText.indexOf('  assert.ok(!nativeRuntimes.every',bStart);
+ const endGuard=bEnd<0?bootstrapText.indexOf('  assert.ok(nativeRuntimes.every',bStart):bEnd;assert.ok(bStart>0&&endGuard>bStart);
+ const C=await import('../../../src/execution/encoding/commitments.mjs'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs');
+ const bootstrapGuard=Function('assert','exactRecord','SOLANA_NONCE_INGRESS_PROFILE','NATIVE_INGRESS_V3_PROFILE','nativeRuntimes','ingressV3','spl',bootstrapText.slice(bStart,endGuard));
+ const propertyStart=runtimeText.indexOf('...(custody ? { roles, inventory, syntheticPrefunding,'),propertyEnd=runtimeText.indexOf(' : {',runtimeText.indexOf('payoutFinalSendProfile: SOLANA_PAYOUT_FINAL_SEND_PROFILE',propertyStart));assert.ok(propertyStart>0&&propertyEnd>propertyStart);
+ const objectBody=runtimeText.slice(propertyStart+'...(custody ? '.length,propertyEnd);
+ const pins=R.frozenInput({depositor:{authorityPublicKey:h('depositor')},escrow:{authorityPublicKey:h('escrow')}}),surface=Function('roles','inventory','syntheticPrefunding','originalClaimIngress','nonceInfrastructureByAuthority','SOLANA_NONCE_INGRESS_PROFILE','SOLANA_PAYOUT_FINAL_SEND_PROFILE','frozenInput','return '+objectBody+';');
+ const originalSurface=surface({},()=>{},null,true,pins,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','OWNED_SOLANA_PAYOUT_AUTHORITY_LIFETIME_V2',R.frozenInput),v3Surface=surface({},()=>{},null,false,pins,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','OWNED_SOLANA_PAYOUT_AUTHORITY_LIFETIME_V2',R.frozenInput);
+ assert.equal(originalSurface.originalClaimIngressProfile,'OWNED_SOLANA_ORIGINAL_RECENT_BLOCKHASH_CLAIM_V1');assert.equal(originalSurface.payoutFinalSendProfile,v3Surface.payoutFinalSendProfile);assert.deepEqual(Object.keys(originalSurface.payoutNonceInfrastructureByAuthority),['escrow']);
+ assert.equal(Object.hasOwn(originalSurface,'nonceIngressProfile'),false);assert.equal(Object.hasOwn(originalSurface,'nonceInfrastructureByAuthority'),false);
+ bootstrapGuard(assert,C.exactRecord,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',[{},originalSurface],false,false);
+ assert.throws(()=>bootstrapGuard(assert,C.exactRecord,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',[{},v3Surface],false,false),/V3_RUNTIME_REQUIRES_NEW_BOOTSTRAP/);
+ bootstrapGuard(assert,C.exactRecord,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',[{},v3Surface],true,false);
+});

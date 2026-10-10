@@ -517,7 +517,7 @@ async function createDeviceRootClaimLocalOperator(config,profile){
   try{
     const {createOwnedLocalEvmV2,createOwnedDeviceExternalFlatReceiverV1,assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
     const {createOwnedCombinedBitcoinRuntime}=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
-    const {createOwnedCombinedSolanaRuntime}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');
+    const {createOwnedCombinedSolanaRuntime,createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');
     const {createNativeClaimBootstrap,createNativeSplClaimIngressV1Bootstrap,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
     const {createOwnedClaimObserver}=await import('../../claims/operations/owned-state.mjs');
     const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
@@ -526,7 +526,7 @@ async function createDeviceRootClaimLocalOperator(config,profile){
     const {claimDomainCommitment}=await import('../../claims/protocol/framing.mjs');
     runtime=await(profile.endsWith('_EXIT_V3')?createOwnedDeviceExternalFlatReceiverV1():createOwnedLocalEvmV2());live();if(profile.endsWith('_EXIT_V3'))assertOwnedDeviceExternalFlatReceiverV1(runtime);({custody:bitcoin}=await createOwnedCombinedBitcoinRuntime());live();
     if(family==='SPL'){const {createOwnedCombinedSolanaSplRuntimeV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');({custody:solana}=await createOwnedCombinedSolanaSplRuntimeV1());}
-    else({custody:solana}=await createOwnedCombinedSolanaRuntime());live();
+    else({custody:solana}=await(profile.endsWith('_EXIT_V3')?createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1:createOwnedCombinedSolanaRuntime)());live();
     const journalRoot=join(directory,'claim-keepers');await mkdir(journalRoot,{mode:0o700});
     const bootstrap=await(family==='SPL'?createNativeSplClaimIngressV1Bootstrap:createNativeClaimBootstrap)({runtime,nativeRuntimes:[bitcoin,solana],journalRoot});
     for(let signerIndex=0;signerIndex<4;signerIndex++)operators.push(createLocalClaimOperator({signerIndex}));

@@ -496,6 +496,13 @@ export async function createOwnedCombinedSolanaRuntime(progress = async () => {}
   requireCondition(arguments.length <= 1 && typeof progress === 'function', 'SOLANA_COMBINED_FIXED_CONSTRUCTOR');
   return createOwnedSolanaRuntimeProfile(progress, SOLANA_PRIVATE_COHORT_OPTIONS, true, true, true);
 }
+/** Fixed original CI51 ingress. The selection precedes the native birth;
+ * deposits use the existing recent-blockhash wire and all payout routes keep
+ * the original nonce authority. No caller can convert an existing runtime. */
+export async function createOwnedCombinedSolanaRecentBlockhashClaimRuntimeV1() {
+  requireCondition(arguments.length === 0, 'SOLANA_ORIGINAL_CLAIM_FIXED_CONSTRUCTOR');
+  return createOwnedSolanaRuntimeProfile(async()=>{}, SOLANA_PRIVATE_COHORT_OPTIONS, true, true, true, null, false, false, true);
+}
 const ownedJupiterPublicBanksV1=new WeakSet();
 export function assertOwnedJupiterPublicBankV1(bank){requireCondition(arguments.length===1&&ownedJupiterPublicBanksV1.has(bank),'ORIGINAL_JUPITER_PUBLIC_BANK_REQUIRED');}
 /** Source-reviewed fixed public bank. It does not expose native claim adapters. */
@@ -513,7 +520,10 @@ function restoreSolanaKeyV1(row,role){
  if(row.seedHex===null){requireCondition(['depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].includes(role),'SOLANA_RECOVERY_MISSING_SOURCE_KEY');return{seed:Buffer.alloc(32),publicBytes,address:row.address};}
  requireCondition(typeof row.seedHex==='string'&&/^[0-9a-f]{64}$/.test(row.seedHex),'SOLANA_RECOVERY_SEED');const seed=Buffer.from(row.seedHex,'hex'),key=createPrivateKey({key:Buffer.concat([PKCS8_ED25519,seed]),type:'pkcs8',format:'der'});assert.deepEqual(createPublicKey(key).export({type:'spki',format:'der'}).subarray(-32),publicBytes,'SOLANA_RECOVERY_KEY_PAIR');return{seed,publicBytes,address:row.address};
 }
-async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false,jupiterSpl=false) {
+async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false,jupiterSpl=false,originalClaimIngress=false) {
+  requireCondition(typeof originalClaimIngress === 'boolean'
+    && (!originalClaimIngress || (cohort && custody && combined && !recovery && !jupiterPublic && !jupiterSpl)),
+    'SOLANA_ORIGINAL_CLAIM_FIXED_PROFILE');
   requireCondition(!jupiterPublic||(!cohort&&!custody&&!combined&&!recovery),'JUPITER_BANK_FIXED_PROFILE');
   requireCondition(!jupiterSpl||(cohort&&custody&&combined&&!recovery&&!jupiterPublic),'SOLANA_SPL_FIXED_ORIGINAL_PROFILE');
   const splMaterial=jupiterSpl?loadOwnedNativeSplProducedProgramV1():null;
@@ -620,7 +630,8 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       depositor: Object.freeze({ payer: keys.depositorNonceBootstrapPayer, account: keys.depositorNonce }),
       escrow: Object.freeze({ payer: keys.nonceBootstrapPayer, account: keys.escrowNonce }),
     }) : null;
-    const usesNonce = selectedRoute => custody && ['deposit', 'refund', 'redeem'].includes(selectedRoute.name);
+    const usesNonce = selectedRoute => custody && ['deposit', 'refund', 'redeem'].includes(selectedRoute.name)
+      && (!originalClaimIngress || selectedRoute.name !== 'deposit');
     function selectedNonce(selectedRoute) {
       requireCondition(usesNonce(selectedRoute), 'SOLANA_NONCE_CUSTODY_ROUTE_REQUIRED');
       same(selectedRoute, custodyRoute(selectedRoute.name), 'SOLANA_NONCE_FIXED_ROUTE');
@@ -810,8 +821,9 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       const nonceBinding = { version: '2', advanceNonceInstruction: 0, transferInstruction: 1,
         memoInstruction: 2, memoProgram: structuredClone(MEMO_PROGRAM), wireBytes: 395,
         preparation: 'STABLE_CONFIRMED_CONTEXT_AND_FRESH_NONCE_AND_FUNDS' };
-      metadata.receiptBinding = { ...nonceBinding, routes: ['deposit', 'refund', 'redeem'] };
-      metadata.ingressReceiptBinding = { ...nonceBinding, routes: ['deposit'], authorityRole: 'depositor' };
+      metadata.receiptBinding = { ...(originalClaimIngress ? graphReceiptBinding : nonceBinding), routes: originalClaimIngress ? ['deposit'] : ['deposit', 'refund', 'redeem'] };
+      metadata.ingressReceiptBinding = { ...(originalClaimIngress ? graphReceiptBinding : nonceBinding), routes: ['deposit'], authorityRole: 'depositor' };
+      if (originalClaimIngress) metadata.claimIngressProfile = 'OWNED_SOLANA_ORIGINAL_RECENT_BLOCKHASH_CLAIM_V1';
       metadata.payoutReceiptBinding = { ...nonceBinding, routes: ['refund', 'redeem'], authorityRole: 'escrow' };
     }
     const journalDirectory = join(cwd, 'signed-native'); if(!restored)await mkdir(journalDirectory);
@@ -1627,7 +1639,9 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
           return frozenInput({ family: '2', genesis: base58Decode(genesis, 32).toString('hex'), asset: boundNativeAsset,
             nativeHead: { id: blockId, height: safeInteger(block.blockHeight, 'SOLANA_INVALID_BLOCK_HEIGHT').toString(), slot: String(slot) },
             accounts, escrow: accounts.find(account => account.role === 'escrow'), feeAudit,
-            signingUnresolved, syntheticPrefunding, nonceInfrastructureByAuthority: infrastructure, finality: 'finalized',
+            signingUnresolved, syntheticPrefunding,
+            ...(originalClaimIngress ? { payoutNonceInfrastructureByAuthority: { escrow: infrastructure.escrow } }
+              : { nonceInfrastructureByAuthority: infrastructure }), finality: 'finalized',
             assurance: 'OWNED_LOCAL_FINALIZED_INVENTORY_NOT_BACKING_ATTESTATION' });
         }
         fail('SOLANA_INVENTORY_CONTEXT_CHANGED');
@@ -1838,8 +1852,10 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         } });
       }
       const runtime = Object.freeze({ genesis, genesisHex: '0x' + base58Decode(genesis, 32).toString('hex'),
-        ...(custody ? { roles, inventory, syntheticPrefunding, nonceInfrastructureByAuthority,
-          nonceIngressProfile: SOLANA_NONCE_INGRESS_PROFILE,
+        ...(custody ? { roles, inventory, syntheticPrefunding,
+          ...(originalClaimIngress ? { originalClaimIngressProfile: 'OWNED_SOLANA_ORIGINAL_RECENT_BLOCKHASH_CLAIM_V1',
+            payoutNonceInfrastructureByAuthority: frozenInput({ escrow: nonceInfrastructureByAuthority.escrow }) }
+            : { nonceInfrastructureByAuthority, nonceIngressProfile: SOLANA_NONCE_INGRESS_PROFILE }),
           payoutFinalSendProfile: SOLANA_PAYOUT_FINAL_SEND_PROFILE } : {
           solver: graphSource.address, solverHex: '0x' + graphSource.publicBytes.toString('hex'),
           recipients: Object.freeze([...viewRecipients]), recipient: viewRecipients[0],
