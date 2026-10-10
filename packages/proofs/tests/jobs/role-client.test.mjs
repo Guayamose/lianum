@@ -624,3 +624,79 @@ test('HOST Native V3 facade hands its original consent to the actual encrypted c
   const report=facade.report();assert.equal(report.acceptedResult,false);assert.equal(report.privateWorkerIntake.originalConsentBound,true);for(const key of ['jobId','consentSHA256','witnessSHA256'])assert.equal(report.privateWorkerIntake[key],binding[key]);assert.deepEqual(report.stages,[]);assert.equal(report.nativeChildrenGone,false);assert.equal(report.lockPreserved,true);assert.equal(existsSync('/proc/'+child.pid),false,'HOST_NATIVE_PRIVATE_FACADE_CHILD_ABSENT');
  }finally{clearTimeout(timer);await facade?.close();if(child&&child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');if(child?.connected)child.disconnect();for(const stream of child?.stdio??[])stream?.destroy();await drain;virtual.clear();wipePrivateProofInputsV1(input);note.rho.fill(0);note.secret.fill(0);owner.privateKey=null;note.privateKey=null;}
 });
+
+test('HOST private U client releases its retained role packets on failure or drain and returns isolated snapshots', {timeout:5000}, async t=>{
+ // Actual client, recipient AEAD, schema/public-word validators and WeakMaps.
+ // The one-job process and artifact reads are explicit inert lower ports: no
+ // process PID, proof producer, filesystem receipt or economic acceptance.
+ const physical=(a,b)=>{const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
+ const roleURL=physical('../../src/jobs/role-client.mjs','./role-client.mjs'),transitURL=new URL('./private-proof-transit-v1.mjs',roleURL);
+ const toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('./native-flow-proof-scope-v1.mjs',roleURL);
+ const catalog=await import(physical('../../src/catalog.mjs','./catalog.mjs')),actualTransit=await import(transitURL),actualTooling=await import(toolingURL),actualScope=await import(scopeURL),actualChild=await import('node:child_process');
+ const {EventEmitter}=await import('node:events'),{PassThrough}=await import('node:stream');
+ const {encodeStatement}=await import(physical('../../../backend/src/execution/encoding/statements.mjs','../wallet-platform/modules/paeg/statements.mjs'));
+ const ownExports=module=>Object.fromEntries(Object.entries(module).filter(([name])=>name!=='default'));
+ const digest=bytes=>createHash('sha256').update(bytes).digest('hex'),processJobId='11111111-1111-4111-8111-111111111111',runId='22222222-2222-4222-8222-222222222222';
+ const statement={domainCommitment:'11'.repeat(32),envelope:'22'.repeat(32)},words=[...encodeStatement('authorization',statement)];
+ const binding={kind:'ORIGINAL_CONSENT_V1',jobId:'host-private-u-retention',consentSHA256:'33'.repeat(32),witnessSHA256:'44'.repeat(32)};
+ const observed=[],fixtures=[];let current;
+ t.mock.module(transitURL.href,{namedExports:{...ownExports(actualTransit),wipePrivateProofInputsV1(value){
+   if(value&&typeof value==='object'&&Object.hasOwn(value,'rolePackets')&&Object.hasOwn(value,'outputs'))observed.push(value);
+   return actualTransit.wipePrivateProofInputsV1(value);
+ }}});
+ t.mock.module(scopeURL.href,{namedExports:{...ownExports(actualScope),assertBeginPayoutAuditRoleLaunchV1(role,relation){assert.equal(role,'owner');assert.equal(relation,'authorization');return false;}}});
+ t.mock.module(toolingURL.href,{namedExports:{...ownExports(actualTooling),regular(path){
+   assert.ok(current,'HOST_PRIVATE_U_ACTIVE_PORT');const prefix=catalog.LOCAL+'/attempts/'+runId+'/';assert.ok(path.startsWith(prefix),'HOST_PRIVATE_U_FIXED_ARTIFACT_PORT');
+   const name=path.slice(prefix.length);assert.ok(Object.hasOwn(current.files,name),'HOST_PRIVATE_U_ARTIFACT_PORT');return Buffer.from(current.files[name]);
+ }}});
+ t.mock.module('node:child_process',{namedExports:{...ownExports(actualChild),spawn(binary,args,options){
+   assert.equal(binary,process.execPath);assert.deepEqual(args,[catalog.ROOT+'/proof-workers/role-process.mjs','authorization']);assert.equal(options.serialization,'json');
+   const fixture=current;assert.ok(fixture&&!fixture.spawned,'HOST_PRIVATE_U_ONE_PORT');fixture.spawned=true;
+   const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.stdio=[null,child.stdout,child.stderr];
+   const recipient=actualTransit.createPrivateProofRecipientV1({relation:'authorization',role:'owner',jobId:processJobId});fixture.recipient=recipient;
+   child.send=(packet,ack)=>{
+    let opened,derived;
+    try{opened=actualTransit.openPrivateProofJobV1(recipient,packet);assert.deepEqual(opened.authorization,binding);assert.equal(opened.expectedPublicInputs,null);assert.equal(opened.inputs.profile,'HOST_EXPLICIT_INERT_U_JOB');
+     const role=()=>({privateWitness:'HOST_PRIVATE_U_ROLE_PACKET',fields:['17','18']});
+     derived={profile:fixture.native?'ORIGINAL_NATIVE_DEVICE_U_PRIVATE_DERIVATION_V2':'ORIGINAL_DEVICE_U_PRIVATE_DERIVATION_V2',jobId:binding.jobId,sourceAmount:'32',publicStatement:structuredClone(statement),expectedPublicInputs:[...words],rolePackets:{reservation:role(),recovery:role(),assembler:role(),local:Array.from({length:4},role),dependency:Array.from({length:4},role)},outputs:{change:{amount:'7',opening:{secret:'HOST_PRIVATE_U_CHANGE'}},recovery:{amount:'25',opening:{secret:'HOST_PRIVATE_U_RECOVERY'}}},consentSHA256:binding.consentSHA256,witnessSHA256:binding.witnessSHA256};
+     if(fixture.malformed)derived.rolePackets.local.pop();
+     const sealed=actualTransit.sealPrivateProofJobV1(opened.inputs.resultRecipient,{inputs:derived,expectedPublicInputs:words,authorization:binding});assert.equal(JSON.stringify(sealed).includes('HOST_PRIVATE_U_ROLE_PACKET'),false);
+     const proof=Buffer.from('HOST_EXPLICIT_INERT_PUBLIC_PROOF'),inputBytes=Buffer.from(JSON.stringify(words));
+     const manifest={jobId:processJobId,role:'owner',relation:'authorization',privateTransitBindingSHA256:actualTransit.privateProofBindingSHA256V1(binding),proofSHA256:digest(proof),publicInputsSHA256:digest(inputBytes),keySHA256:'55'.repeat(32),selfVerified:!fixture.badReport};
+     const common={runId,jobId:processJobId,relation:'authorization',phase:'completed'};
+     fixture.files={'result.json':JSON.stringify({...common,metrics:Object.fromEntries(['initializationMilliseconds','jobPreparationMilliseconds','witnessMilliseconds','proofMilliseconds','verificationMilliseconds','totalMilliseconds','otherMilliseconds'].map(name=>[name,0]))}),'resources.json':JSON.stringify({...common,exitCode:0,signal:null,failure:null}),'proof-manifest.json':JSON.stringify(manifest),'proof.bin':proof,'public-inputs.json':inputBytes};
+     child.emit('message',{type:'flat-private-owner-result-v2',packet:sealed});
+     fixture.received=true;fixture.release=()=>{if(fixture.released)return;fixture.released=true;child.stdout.write(JSON.stringify({phase:'completed',relation:'authorization',mode:'prove',runId}));child.emit('close',0,null);};
+     if(!fixture.hold)setImmediate(fixture.release);ack?.(null);
+    }catch(error){ack?.(error);setImmediate(()=>child.emit('close',1,null));}
+    finally{actualTransit.wipePrivateProofInputsV1(derived);actualTransit.wipePrivateProofInputsV1(opened?.inputs);}
+   };
+   setImmediate(()=>child.emit('message',actualTransit.readPrivateProofRecipientV1(recipient)));return child;
+ }}});
+ const privateURL=new URL(roleURL);privateURL.search='host-private-u-retention';const role=await import(privateURL);
+ const start=async options=>{
+   const fixture={native:false,hold:false,malformed:false,badReport:false,...options};fixtures.push(fixture);current=fixture;
+   const client=role.createRoleProofClient('owner'),ready=await (fixture.native?client.preparePrivateNativeDeviceAuthorizationV2():client.preparePrivateDeviceAuthorizationV2());
+   const packet=actualTransit.sealPrivateProofJobV1(ready.recipient,{inputs:{profile:'HOST_EXPLICIT_INERT_U_JOB',resultRecipient:ready.resultRecipient},expectedPublicInputs:null,authorization:binding});
+   const run=fixture.native?client.proveEncryptedNativeDeviceAuthorizationV2(packet,binding):client.proveEncryptedDeviceAuthorizationV2(packet,binding);run.catch(()=>{});
+   return{client,fixture,run,read:result=>(fixture.native?role.readOriginalNativeDeviceAuthorizationDerivationV2:role.readOriginalDeviceAuthorizationDerivationV2)(client,result)};
+ };
+ const wiped=value=>{for(const item of Object.values(value))assert.equal(item,null,'HOST_PRIVATE_U_OWNED_REFERENCE_RELEASED');};
+ try{
+   for(const native of[false,true]){
+    const own=await start({native}),result=await own.run,snapshot=own.read(result),second=own.read(result);
+    assert.notEqual(snapshot,second);assert.notEqual(snapshot.rolePackets,second.rolePackets);assert.equal(Object.isFrozen(snapshot),true);assert.equal(snapshot.rolePackets.reservation.privateWitness,'HOST_PRIVATE_U_ROLE_PACKET');
+    assert.throws(()=>own.read(structuredClone(result)),/ROLE_CLIENT_PRIVATE_(?:NATIVE_)?RESULT/);const foreign=role.createRoleProofClient('owner');try{assert.throws(()=>role.readOriginalDeviceAuthorizationDerivationV2(foreign,result),/PRIVATE_RESULT/);}finally{foreign.close();}
+    if(native)assert.deepEqual(await own.client.closePrivateNativeDeviceAuthorizationV2(),{closed:true,inFlight:0});else own.client.close();
+    assert.throws(()=>own.read(result),/OWNED_REQUIRED/);assert.equal(snapshot.rolePackets.reservation.privateWitness,'HOST_PRIVATE_U_ROLE_PACKET','HOST_PRIVATE_U_ACCOUNT_SNAPSHOT_RETAINED');
+    for(const value of observed)wiped(value);
+   }
+   for(const failure of[{malformed:true},{native:true,badReport:true}]){
+    const own=await start(failure);await assert.rejects(own.run,/ROLE_CLIENT_/);own.client.close();for(const value of observed)wiped(value);
+   }
+   const own=await start({hold:true});assert.equal(own.fixture.received,true);
+   const closing=own.client.closePrivateDeviceAuthorizationV2();assert.throws(()=>role.assertRoleProofClient(own.client,'owner'),/OWNED_REQUIRED/);own.fixture.release();
+   await assert.rejects(own.run,/OWNER_STOPPED/);assert.deepEqual(await closing,{closed:true,inFlight:0});for(const value of observed)wiped(value);
+   assert.ok(observed.length>=10,'HOST_PRIVATE_U_VALIDATION_AND_RETAINED_COPIES');
+ }finally{for(const fixture of fixtures){fixture.release?.();if(fixture.recipient)actualTransit.closePrivateProofRecipientV1(fixture.recipient);actualTransit.wipePrivateProofInputsV1(fixture.files);}for(const value of observed)actualTransit.wipePrivateProofInputsV1(value);}
+});
