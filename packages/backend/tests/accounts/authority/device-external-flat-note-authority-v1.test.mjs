@@ -587,3 +587,14 @@ test('HOST device multi GRAPH binds two-to-four private targets and exact DAG in
  const branch=new Function('claimedPools','shareBatchBirths','shareBatchClaims','need','system','runtime','poolIndex','shareBirth','share','privateWallet','input',noteText.slice(start,end));
  const call=actual=>branch(claims,births,batches,need,originalSystem,originalRuntime,1,actual,{deliveryObserver:originalObserver},true,{origin:'https://localhost:9440',devicePublicKey:'HOST_FIXED_PUBLIC'});assert.throws(()=>call({...token}));call(token);assert.throws(()=>call(token));assert.throws(()=>call(null));
 });
+
+
+test('HOST fixed Meta four-target mobile transport keeps original namespace and origin fences',async()=>{
+ const text=await readFile(url('../../../../../tests/integration/wallet/native/device-external-flat-erc20-host-vault-v1.mjs','../../../integration/device-external-flat-erc20-host-vault-v1.mjs'),'utf8'),start=text.indexOf('const fetchFixed=async(target,init)=>{'),end=text.indexOf('   let parsed=',start);assert.ok(start>=0&&end>start);
+ const prefix=text.slice(start,end),compile=new Function('assert','live','allowedOrigins','origin','URL','Buffer',prefix+"return{origin:url.origin,path:url.pathname};};return fetchFixed;");
+ const origins=['https://localhost:19001','https://localhost:19002','https://localhost:19003','https://localhost:19004'],source=origins[0],allowed=new Set(origins),fetch=compile(assert,()=>{},allowed,source,URL,Buffer),init=origin=>({method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:'{}'});
+ for(const origin of origins){const observed=await fetch(origin+'/v1/mobile/external-flat-share/challenges',init(origin));assert.equal(observed.origin,origin);assert.equal(observed.path,'/v1/mobile/external-flat-share/challenges');}
+ for(const origin of origins.slice(1))for(const suffix of ['/v1/mobile/external-flat/challenges','/v1/mobile/external-flat/source-graph/challenges','/v1/mobile/external-flat/morpho-blue/challenges'])await assert.rejects(fetch(origin+suffix,init(origin)));
+ await assert.rejects(fetch('https://localhost:19005/v1/mobile/external-flat-share/challenges',init('https://localhost:19005')));await assert.rejects(fetch(origins[1]+'/v1/mobile/external-flat-share/challenges',init(source)));await assert.rejects(fetch(origins[1]+'/v1/mobile/external-flat-share/challenges?slot=2',init(origins[1])));
+ const legacy=compile(assert,()=>{},new Set([source]),source,URL,Buffer);await assert.rejects(legacy(origins[1]+'/v1/mobile/external-flat-share/challenges',init(origins[1])));assert.equal((await legacy(source+'/v1/mobile/external-flat/challenges',init(source))).origin,source);
+});

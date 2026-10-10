@@ -116,6 +116,11 @@ export async function createOriginalDeviceExternalFlatMultiGraphServiceV4(input)
   let closing;const result=Object.freeze({...service,profile:'DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_V4',targetDescriptors:Object.freeze(targets.map(a=>assertOriginalDeviceExternalFlatNoteAuthorityV1(a))),close(){return closing??=(async()=>{let first;for(const fn of [()=>service.close(),...listeners.map(l=>()=>l.close()),...targets.map(a=>()=>a.close())])try{await fn();}catch(error){first??=error;}if(first)throw first;return{closed:true,ownedSocketsRemaining:0,originalKeeperDrained:true};})();}});services.set(result,services.get(service));return result;
  }catch(error){await Promise.allSettled([...listeners.map(l=>l.close()),service?.close(),...targets.map(a=>a.close())]);throw error;}
 }
+/** Same live Multi factory only; fixed HOST/product composition gets original
+ * actor references, never credentials, records or a caller-selected factory. */
+export function readOriginalDeviceExternalFlatMultiGraphContextV4(service){
+ assert.equal(arguments.length,1);need(!types.isProxy(service),'DEVICE_EXTERNAL_GRAPH_ORIGINAL_MULTI_SERVICE');const r=services.get(service);need(r&&r.state?.multi&&service.profile==='DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_V4','DEVICE_EXTERNAL_GRAPH_ORIGINAL_MULTI_SERVICE');r.live();need(r.state.prepared===null&&!r.state.preparing&&!r.state.poisoned&&r.state.multiSlots.length===r.state.multi.length,'DEVICE_EXTERNAL_GRAPH_MULTI_BEFORE_PREPARATION');return Object.freeze({account:r.state.account,targetAccounts:Object.freeze(r.state.multi.map(d=>d.account)),providerSlotCount:r.state.multiSlots.length});
+}
 /** Called only by the SAME original bridge after it has consumed device ACCESS.
  * D27 public inputs and provider context are checked again by original factories. */
 export async function prepareOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,bridge,input){
