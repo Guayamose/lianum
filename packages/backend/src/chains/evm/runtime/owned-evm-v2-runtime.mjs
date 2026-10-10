@@ -90,6 +90,7 @@ export function assertOwnedLocalEvmObservedClockV1(runtime){
   assert.ok(clock&&ownedRuntimes.has(runtime),'LOCAL_OBSERVED_ORIGINAL_RECEIVER_REQUIRED');clock.assertAlive();return undefined;
 }
 // A separate fixed synthetic network, never a claim of Ethereum mainnet.
+const ownedPagedNativeRuntimesV3=new WeakSet();
 const LOCAL_NATIVE_VALUE_PROCESS_PROFILE = Object.freeze({ ...LOCAL_EVM_PROFILE,
   name: 'LOCAL_SYNTHETIC_EVM_CHAIN_ID_1', chainId: 1, genesisTimestamp: 1_900_000_310 });
 // Private descriptor identity is the selector, never a caller chain/profile.
@@ -586,6 +587,10 @@ export async function createOwnedLocalEvmNativeValueV1() {
   assert.equal(arguments.length, 0, 'OWNED_NATIVE_VALUE_FIXED_CONSTRUCTOR');
   return createFixedOwnedLocalEvm(LOCAL_NATIVE_VALUE_PROCESS_PROFILE);
 }
+/** New zero-options LOCAL_SYNTHETIC profile. The new Paged dispatch capability
+ * is available only on this original birth; no endpoint/runtime is adopted. */
+export async function createOwnedLocalPagedNativeEvmV3(){assert.equal(arguments.length,0,'PAGED_NATIVE_FIXED_BIRTH');const runtime=await createFixedOwnedLocalEvm(LOCAL_NATIVE_VALUE_PROCESS_PROFILE);ownedPagedNativeRuntimesV3.add(runtime);return runtime;}
+export function assertOwnedLocalPagedNativeEvmV3(runtime){assert.equal(arguments.length,1);assert.ok(ownedPagedNativeRuntimesV3.has(runtime),'PAGED_NATIVE_ORIGINAL_RUNTIME');assert.ok(ownedNativeValueRuntimes.has(runtime));return runtime;}
 /** Fixed synthetic Base wire fixture, not an OP Stack/op-geth runtime. */
 export async function createOwnedLocalEvmNativeValueBaseV1() {
   assert.equal(arguments.length, 0, 'OWNED_NATIVE_VALUE_FIXED_CONSTRUCTOR');
@@ -1400,6 +1405,28 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       });
     };
 
+    const dispatchOriginalPagedNativeV3=async scopedRequest=>{
+      assertOwnedLocalPagedNativeEvmV3(runtime);assert.equal(economicRecoveryFence,null);assert.equal(sourceDurableV1,false);assert.equal(economicV2,false);assert.equal(observedClock,false);
+      const {openOriginalPagedNativeDispatchV3}=await import('../dispatch/funded-paged-native-gate-v3.mjs');
+      const scope=openOriginalPagedNativeDispatchV3(scopedRequest,runtime),tx=cloned(request(scope.transaction,true));
+      assert.deepEqual(Object.keys(tx).sort(),['data','from','gas','to','value']);assert.ok(BigInt(tx.value)>0n&&BigInt(tx.value)<(1n<<128n));assert.ok(tx.to&&tx.from!==tx.to);assert.equal(tx.data,scope.memo);assert.equal(scope.chainId,String(processProfile.chainId));
+      return mutate(async()=>{let keyUsePossible=false,outcomeKnown=false,entry;try{
+        const head=await block();assert.equal(BigInt(head.timestamp),lastTimestamp);const pending=quantity(await rpc('eth_getTransactionCount',[tx.from,'pending']));assert.equal(await rpc('eth_getTransactionCount',[tx.from,'latest']),pending);
+        const gasPrice=1000000000n;assert.ok(BigInt(head.baseFeePerGas)<=gasPrice);const targetCode=await rpc('eth_getCode',[tx.to,head.number]);assert.equal(targetCode,'0x','PAGED_NATIVE_RECIPIENT_CODE_OR_DELEGATION');
+        const balanceWei=BigInt(await rpc('eth_getBalance',[tx.from,head.number])),recipientBalance=BigInt(await rpc('eth_getBalance',[tx.to,head.number]));assert.ok(balanceWei>=BigInt(tx.value)+BigInt(tx.gas)*gasPrice);
+        const txExact={chainId:scope.chainId,from:tx.from,to:tx.to,nonce:BigInt(pending).toString(),gasPrice:gasPrice.toString(),gas:BigInt(tx.gas).toString(),value:BigInt(tx.value).toString(),data:tx.data};const signingRequest=Object.freeze({...tx,nonce:pending,chainId:hex(processProfile.chainId),gasPrice:hex(gasPrice),type:'0x0'});
+        const estimate=BigInt(await rpc('eth_estimateGas',[signingRequest,head.number]));assert.ok(estimate>0n&&estimate<=BigInt(tx.gas));
+        const prepared=cloned({genesis:genesisHash,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},transaction:txExact,unsignedWire:'0x'+encodeRlp(unsignedFields(txExact)).toString('hex'),funds:{balanceWei:balanceWei.toString(),recipientBalanceWei:recipientBalance.toString(),estimatedGas:estimate.toString(),targetCodeHash:'0x'+keccak(Buffer.alloc(0)).toString('hex')}});
+        entry={label:'original Paged LOCAL_SYNTHETIC native delivery V3',request:tx,senderNonce:pending,prepared,phase:'prepared-before-final-guard'};transactions.push(entry);
+        const authority=await scope.beforeSign(prepared),auditStart=performance.now();assert.deepEqual(await block(),head);for(const tag of ['latest','pending'])assert.equal(await rpc('eth_getTransactionCount',[tx.from,tag]),pending);assert.equal(await rpc('eth_getCode',[tx.to,'latest']),targetCode);assert.equal(BigInt(await rpc('eth_getBalance',[tx.from,'latest'])),balanceWei);assert.equal(BigInt(await rpc('eth_getBalance',[tx.to,'latest'])),recipientBalance);assert.equal(BigInt(await rpc('eth_estimateGas',[signingRequest,'latest'])),estimate);assert.deepEqual(await block(),head);
+        await scope.finalCurrent(authority,prepared);scope.consumeBeforeKey(authority,prepared);assert.ok(performance.now()-auditStart<30000,'PAGED_NATIVE_AUDIT_TOO_OLD');assertAlive();keyUsePossible=true;entry.phase='signing-outcome-unknown';
+        const raw=await rpc('eth_signTransaction',[signingRequest]);const signed=assertSignedEvmTransaction(raw,prepared.transaction);assert.equal(signed.unsignedWire,prepared.unsignedWire);entry.signed=cloned({nativeWire:signed.nativeWire,nativeId:signed.nativeId,transactionSHA256:signed.transactionSHA256});entry.transactionHash=signed.nativeId;entry.phase='signed-not-yet-durable';await persistSigned(entry);entry.phase='native-signed-durable';await scope.onSigned(entry.signed,prepared);entry.phase='provider-signature-durable';await scope.beforeSend(entry.signed,prepared);entry.phase='broadcast-result-unknown';assert.equal(await rpc('eth_sendRawTransaction',[entry.signed.nativeWire]),entry.transactionHash);entry.phase='broadcast';await mineAt(lastTimestamp+1n);const included=await receipt(entry.transactionHash),header=await assertCanonical(included);assert.deepEqual(header.transactions,[entry.transactionHash]);assert.equal(included.status,'0x1');await checkReceipt(included);assert.equal(await rpc('eth_getCode',[tx.to,header.number]),'0x');assert.equal(BigInt(await rpc('eth_getBalance',[tx.to,header.number])),recipientBalance+BigInt(tx.value));entry.receipt=included;entry.gasUsed=BigInt(included.gasUsed).toString();entry.phase='mined';receipts.push(entry);outcomeKnown=true;
+        let tip=header;const finalityStart=performance.now();for(let i=0;i<64;i++){assert.ok(performance.now()-finalityStart<30000,'PAGED_NATIVE_FINALITY_ORIGINAL_TIMEOUT');assert.deepEqual(await block(),tip);const next=await mineAt(lastTimestamp+1n);assert.equal(next.parentHash,tip.hash);assert.equal(BigInt(next.number),BigInt(tip.number)+1n);assert.deepEqual(next.transactions,[]);tip=next;}
+        const finalized=await rpc('eth_getBlockByNumber',['finalized',false]);assert.deepEqual(finalized,header,'PAGED_NATIVE_ORIGINAL_FINALIZED_TAG');await checkReceipt(included);entry.pagedFinality=cloned({profile:'LOCAL_SYNTHETIC_PINNED_ANVIL_FINALIZED_64_V3',included:header,tip,finalized});return cloned({nativeId:entry.transactionHash,transactionSHA256:entry.signed.transactionSHA256});
+      }catch(error){if(keyUsePossible&&!entry?.pagedFinality){uncertainMutation=true;uncertainSignedHash=entry?.signed&&entry.phase==='broadcast-result-unknown'?entry.transactionHash:null;if(entry){entry.uncertaintyCause=uncertainSignedHash?'original-signed-broadcast':outcomeKnown?'paged-mined-finality-unconfirmed':'unrecoverable-signing-or-mining';entry.phase='uncertain-no-resend';}}else if(entry&&!keyUsePossible)entry.phase='pre-sign-rejected';throw error;}});
+    };
+    const readOriginalPagedNativeTransferV3=async hash=>{assertOwnedLocalPagedNativeEvmV3(runtime);await health();assert.match(hash,/^0x[0-9a-f]{64}$/);const entry=transactions.find(e=>e.transactionHash===hash&&e.label==='original Paged LOCAL_SYNTHETIC native delivery V3');assert.ok(entry?.pagedFinality&&entry.signed&&entry.receipt,'PAGED_NATIVE_ORIGINAL_FINALITY_REQUIRED');const durable=JSON.parse(await readFile(join(cwd,'signed-'+hash.slice(2)+'.json'),'utf8'));assert.deepEqual(durable,{schema:'OWNED_EVM_SIGNED_WIRE_V2',prepared:entry.prepared,signed:entry.signed});assertSignedEvmTransaction(entry.signed.nativeWire,entry.prepared.transaction);await checkReceipt(entry.receipt);const included=await assertCanonical(entry.receipt),tip=await block(),finalized=await rpc('eth_getBlockByNumber',['finalized',false]);assert.ok(BigInt(finalized.number)>=BigInt(included.number));assert.equal((await block(finalized.number)).hash,finalized.hash);assert.equal(await rpc('eth_getCode',[entry.request.to,tip.number]),'0x');assert.ok(BigInt(await rpc('eth_getBalance',[entry.request.to,tip.number]))>=BigInt(entry.prepared.funds.recipientBalanceWei)+BigInt(entry.request.value));return cloned({prepared:entry.prepared,signed:entry.signed,receipt:entry.receipt,included,tip,finalized,transaction:await transaction(hash)});};
+
     const dispatch = async scopedRequest => {
       assert.equal(observedClock&&!observedEconomicV2,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
       return dispatchOriginal(scopedRequest,false);
@@ -1849,6 +1876,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       ...(nativeValueOnly ? { dispatchNativeValueV1, assertNativeValuePreparedCurrent: logicalReadV4(assertNativeValuePreparedCurrent),
         observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedEconomicV2?{send,refreshObservedClock,dispatch}:observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
       signedTransaction: logicalReadV4(signedTransaction), reconcileSignedTransaction,
+      dispatchOriginalPagedNativeV3,readOriginalPagedNativeTransferV3,
       call: (transaction, tag = 'latest') => rpc('eth_call', [request(transaction, false), blockTag(tag)]),
       balance: async (holder, tag = 'latest') => BigInt(await rpc('eth_getBalance', [address(holder), blockTag(tag)])),
       code: (holder, tag = 'latest') => rpc('eth_getCode', [address(holder), blockTag(tag)]),
