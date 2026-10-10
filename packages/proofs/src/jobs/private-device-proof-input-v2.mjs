@@ -46,3 +46,43 @@ export function deriveOriginalDeviceDepositIntentJobV2(received,spec) {
     } finally {bytes?.fill(0);for(const value of Object.values(opening))value.fill(0);P.externalFlatWipeV1(witness);prepared=null;}
   return privateDeviceDerivation;
 }
+
+
+import * as ClaimDevice from '../../../mobile-protocol/src/native-claim-device-v1.mjs';
+import {claimReceiptSecret,claimRefundSalt} from '../../../backend/src/claims/protocol/framing.mjs';
+import {buildClaimIngressInputs} from '../../../backend/src/claims/protocol/inputs.mjs';
+import {withFlatHash} from '../tooling/scoped-proof-tools.mjs';
+/** Fixed original D27/CI51 derivation inside the existing owned recipient.
+ * A device permission binds the SAME domain and opening. Root/signing keys
+ * never enter; only that note opening is decrypted inside this process. */
+export async function deriveOriginalDeviceRootClaimJobV2(received,spec){
+ assert.equal(arguments.length,2,'PW_DEVICE_CLAIM_ARITY');const recipient=readOriginalPrivateProofRecipientV1(received);
+ if(received.inputs?.profile!=='DEVICE_ROOT_NATIVE_CLAIM_WITNESS_V2')return null;
+ const packet=P.externalFlatExactV1(received.inputs,['profile','consent','signature','witness','common']);
+ const c=ClaimDevice.validateDeviceRootClaimPermissionFreshV2(packet.consent),ingress=c.action==='PROVE_CI51';
+ assert.ok(ingress||c.action==='PROVE_D27','PW_DEVICE_CLAIM_ACTION');assert.equal(spec.name,ingress?'native_claim_ingress':'deposit_intent','PW_DEVICE_CLAIM_RELATION');assert.deepEqual(c.recipient,recipient,'PW_DEVICE_CLAIM_RECIPIENT');
+ const hash=b=>createHash('sha256').update(b).digest('hex'),message=ClaimDevice.deviceRootClaimPermissionMessageV2(c);
+ const pub=c.descriptor.claim.devicePublicKey,key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(pub.slice(2,66),'hex').toString('base64url'),y:Buffer.from(pub.slice(66),'hex').toString('base64url')}});
+ let witness,bytes,built,commonBytes;const owned={};
+ try{
+ assert.equal(verify('sha256',message,{key,dsaEncoding:'ieee-p1363'},Buffer.from(ClaimDevice.normalizeNativeClaimDeviceSignatureV1(packet.signature),'hex')),true,'PW_DEVICE_CLAIM_DEVICE_SIGNATURE');
+ assert.deepEqual(received.authorization,{kind:'ORIGINAL_CONSENT_V1',jobId:c.jobId,consentSHA256:hash(message),witnessSHA256:c.witnessSHA256},'PW_DEVICE_CLAIM_BINDING');
+  if(ingress){
+   witness=P.externalFlatExactV1(packet.witness,['rho','x','y','value','noteSecret']);for(const k of ['rho','x','y','noteSecret'])P.externalFlatHexV1(witness[k]);P.externalFlatUintV1(witness.value);
+   bytes=ClaimDevice.deviceRootClaimDataBytesV2(witness);assert.equal(hash(bytes),c.witnessSHA256,'PW_DEVICE_CLAIM_WITNESS_HASH');
+   commonBytes=ClaimDevice.deviceRootClaimDataBytesV2(packet.common);assert.equal(hash(commonBytes),c.commonSHA256,'PW_DEVICE_CLAIM_COMMON_HASH');
+   P.externalFlatExactV1(packet.common,['config','domain','registry','rule','rulePath','certificates','currentRevocation']);
+   assert.equal(packet.common.config.scope,c.descriptor.scope,'PW_DEVICE_CLAIM_SCOPE');assert.equal(packet.common.config.policy,c.descriptor.policy,'PW_DEVICE_CLAIM_POLICY');
+   built=await withFlatHash(hashFields=>buildClaimIngressInputs({...packet.common,noteOpening:witness},{hashFields}));
+   assert.deepEqual(built.statement,c.statement,'PW_DEVICE_CLAIM_ORIGINAL_CI51');
+  }else{
+   assert.equal(packet.common,null,'PW_DEVICE_CLAIM_D27_COMMON');witness=P.externalFlatWitnessV1('deposit_intent',packet.witness);bytes=P.externalFlatWitnessBytesV1('deposit_intent',witness);assert.equal(hash(bytes),c.witnessSHA256,'PW_DEVICE_CLAIM_WITNESS_HASH');
+   for(const k of ['rho','key_x','key_y','secret','signature'])owned[k]=Buffer.from(witness[k]);
+   built=depositIntentWitness({statement:c.statement,note:{type:4,rho:owned.rho.toString('hex'),x:owned.key_x.toString('hex'),y:owned.key_y.toString('hex'),value:witness.amount,secret:owned.secret.toString('hex')},signature:owned.signature.toString('hex')});
+  }
+  ClaimDevice.validateDeviceRootClaimPermissionFreshV2(c);assert.deepEqual(built.publicInputs,received.expectedPublicInputs,'PW_DEVICE_CLAIM_PUBLIC');
+  const output=c.statement[ingress?'outputQ':'output'],derived={profile:'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_DERIVATION_V2',action:c.action,jobId:c.jobId,commitment:output,claimDomain:c.descriptor.claim.claimDomain,consentSHA256:received.authorization.consentSHA256,witnessSHA256:c.witnessSHA256,commonSHA256:c.commonSHA256};
+  if(!ingress){const noteSecret=owned.secret.toString('hex'),binding={claimDomain:derived.claimDomain,noteSecret,outputQ:output};derived.receiptBinding={secret:claimReceiptSecret(binding),refundSalt:claimRefundSalt(binding)};derived.nullifier=nullifier(c.descriptor.scope,output,owned.secret).toString('hex');}
+  const inputs=structuredClone(built.inputs);wipePrivateProofInputsV1(received.inputs);received.inputs=inputs;return derived;
+ }finally{message.fill(0);bytes?.fill(0);commonBytes?.fill(0);for(const v of Object.values(owned))v.fill(0);wipePrivateProofInputsV1(witness);built=null;}
+}

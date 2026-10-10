@@ -20,7 +20,7 @@ import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,privateProofBin
 const MODES = Object.freeze({ owner: ['authorization', 'deposit_intent'], reservation: ['reservation'],
   dependency: ['dependency'], local: ['ready', 'admission', 'node'], assembler: ['settlement'], recovery: ['recovery'],
   claim_ingress: ['native_claim_ingress', 'native_claim_ingress_v3'], claim_discharge: ['native_claim_discharge'] });
-const owned = new WeakMap(), privateDeviceResults = new WeakMap(),privateGraphResults=new WeakMap(),privateNativeGraphResults=new WeakMap();
+const owned = new WeakMap(), privateDeviceResults = new WeakMap(),privateClaimResults=new WeakMap(),privateGraphResults=new WeakMap(),privateNativeGraphResults=new WeakMap();
 // Role packets stay mutable only in the private client closure so that the
 // original cleanup can release their references after its admitted work drains.
 // Readers receive their own snapshots; those belong to the receiving account.
@@ -197,7 +197,13 @@ export function createRoleProofClient(role) {
           keySHA256: manifest.keySHA256, manifestSHA256: hash(regular(join(directory, 'proof-manifest.json'))),
           metricUnits: 'milliseconds', metrics: proofMetricsForTransport(result.metrics) } });
       if(preparation?.kind==='authorization')(preparation.native?privateNativeGraphResults:privateGraphResults).set(output,{client,derived:preparation.derived});
-      else if (preparation?.kind==='deposit_intent') {
+      else if(preparation?.deviceClaim===true){
+        const d=cloneInput(status.privateDeviceDerivation),ingress=spec.name==='native_claim_ingress';exactRecord(d,['profile','action','jobId','commitment','claimDomain','consentSHA256','witnessSHA256','commonSHA256',...(ingress?[]:['receiptBinding','nullifier'])]);
+        assert.equal(d.profile,'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_DERIVATION_V2','ROLE_CLIENT_DEVICE_CLAIM_RESULT');assert.equal(d.action,ingress?'PROVE_CI51':'PROVE_D27','ROLE_CLIENT_DEVICE_CLAIM_ACTION');assert.equal(d.jobId,authorization.jobId,'ROLE_CLIENT_DEVICE_CLAIM_JOB');
+        for(const k of ['commitment','claimDomain','consentSHA256','witnessSHA256'])assert.match(d[k],/^[0-9a-f]{64}$/,'ROLE_CLIENT_DEVICE_CLAIM_DATA');assert.equal(d.consentSHA256,authorization.consentSHA256,'ROLE_CLIENT_DEVICE_CLAIM_CONSENT');assert.equal(d.witnessSHA256,authorization.witnessSHA256,'ROLE_CLIENT_DEVICE_CLAIM_WITNESS');
+        if(ingress)assert.match(d.commonSHA256,/^[0-9a-f]{64}$/,'ROLE_CLIENT_DEVICE_CLAIM_DATA');else{assert.equal(d.commonSHA256,null);exactRecord(d.receiptBinding,['secret','refundSalt']);for(const v of [d.nullifier,...Object.values(d.receiptBinding)])assert.match(v,/^[0-9a-f]{64}$/,'ROLE_CLIENT_DEVICE_CLAIM_DATA');}
+        privateClaimResults.set(output,{client,derived:frozenInput(d)});
+      }else if (preparation?.kind==='deposit_intent') {
         const derived = cloneInput(status.privateDeviceDerivation);
         exactRecord(derived, ['profile','jobId','commitment','nullifier','consentSHA256','witnessSHA256']);
         assert.equal(derived.profile, 'ORIGINAL_DEVICE_D27_PRIVATE_DERIVATION_V2', 'ROLE_CLIENT_PRIVATE_DERIVATION');
@@ -224,6 +230,15 @@ export function createRoleProofClient(role) {
   }
   const client = Object.freeze({
     prove(raw) { return prove(raw); },
+    async preparePrivateDeviceRootClaimV2(expectedPublicInputs) {
+      assert.equal(arguments.length,1,'ROLE_CLIENT_PRIVATE_ARITY');assert.ok(['owner','claim_ingress'].includes(role),'ROLE_CLIENT_DEVICE_CLAIM_ROLE');assertRoleProofClient(client,role);assert.equal(state.busy,false,'ROLE_CLIENT_BUSY');assert.equal(state.prepared,null,'ROLE_CLIENT_PRIVATE_ONE_PREPARATION');
+      const kind=role==='owner'?'deposit_intent':'native_claim_ingress',expected=publicWords(relation(kind),cloneInput(expectedPublicInputs));
+      const p={kind,deviceClaim:true,ready:null,send:null,waitTimer:null,run:null,resolveReady:null,rejectReady:null},ready=new Promise((resolve,reject)=>{p.resolveReady=resolve;p.rejectReady=reject;});state.prepared=p;p.run=prove({relation:kind,inputs:null,expectedPublicInputs:expected},null,p);p.run.catch(()=>{});return ready;
+    },
+    async proveEncryptedDeviceRootClaimV2(packet,binding){
+      assert.equal(arguments.length,2,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,role);const p=state.prepared;assert.ok(p?.deviceClaim===true&&p.ready&&p.send,'ROLE_CLIENT_DEVICE_CLAIM_PREPARATION');const v=privateProofAuthorizationBindingV1(binding);assert.equal(v.kind,'ORIGINAL_CONSENT_V1','ROLE_CLIENT_ORIGINAL_CONSENT');const send=p.send;p.send=null;send(packet,v);return p.run;
+    },
+    async closePrivateDeviceRootClaimV2(){assert.equal(arguments.length,0,'ROLE_CLIENT_PRIVATE_ARITY');const p=state.prepared;assert.ok(p?.deviceClaim===true,'ROLE_CLIENT_DEVICE_CLAIM_PREPARATION');state.closed=true;if(state.busy)state.active?.stop('ROLE_CLIENT_OWNER_STOPPED');await p.run.catch(()=>{});assert.equal(state.busy,false,'ROLE_CLIENT_CLOSE_WHILE_BUSY');return{closed:true,inFlight:0};},
     async preparePrivateDeviceDepositIntentV2(expectedPublicInputs) {
       assert.equal(arguments.length, 1, 'ROLE_CLIENT_PRIVATE_ARITY');
       assertRoleProofClient(client, 'owner'); assert.equal(state.busy,false,'ROLE_CLIENT_BUSY');
@@ -316,3 +331,7 @@ export function readOriginalDeviceAuthorizationDerivationV2(client,result){asser
 
 /** Private Native U results are capabilities of the SAME original owner client. */
 export function readOriginalNativeDeviceAuthorizationDerivationV2(client,result){assert.equal(arguments.length,2);assertRoleProofClient(client,'owner');const row=privateNativeGraphResults.get(result);assert.ok(row?.client===client,'ROLE_CLIENT_PRIVATE_NATIVE_RESULT');return frozenInput(cloneInput(row.derived));}
+
+
+/** Actual fixed recipient result only; serialized proof/derivation copies fail. */
+export function readOriginalDeviceRootClaimDerivationV2(client,result){assert.equal(arguments.length,2,'ROLE_CLIENT_PRIVATE_ARITY');const row=privateClaimResults.get(result);assert.ok(row?.client===client,'ROLE_CLIENT_DEVICE_CLAIM_RESULT');return frozenInput(cloneInput(row.derived));}

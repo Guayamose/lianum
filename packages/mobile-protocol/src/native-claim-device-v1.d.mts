@@ -24,3 +24,18 @@ export const NATIVE_CLAIM_DEVICE_REDEEM_ADMISSION_V1:string;
 export function normalizeNativeClaimDeviceRedemptionBindingV1(raw:unknown,descriptor:NativeClaimDeviceDescriptorV1):NativeClaimDeviceRedemptionBindingV1;
 export function normalizeNativeClaimDeviceRedeemPermissionV1(raw:unknown):NativeClaimDeviceRedeemPermissionV1;
 export function normalizeNativeClaimDeviceRedeemAdmissionV1(raw:unknown):NativeClaimDeviceRedeemAdmissionV1;
+
+export const DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2:'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2';
+export const DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2:'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2';
+export const DEVICE_ROOT_NATIVE_CLAIM_HANDOFF_V2:'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_HANDOFF_V2';
+export type DeviceRootClaimDescriptorV2=Readonly<{profile:typeof DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2;claim:NativeClaimDeviceDescriptorV1;pool:string;scope:string;policy:string;recipient:string;noteCustody:'DEVICE_ROOT_NOTE';nativeCustody:'BACKEND_LOCAL_QUORUM'}>;
+export type DeviceRootClaimStatementV2=Readonly<{scope:string;policy:string;validFrom:string;validUntil:string;amount:string;output:string}>;
+export type DeviceRootClaimIngressStatementV2=Readonly<{claimDomain:string;outputQ:string;admissionN:string;refundDestination:string;admissionRevocationState:string;ingressReceiptLeaf:string;amountQ:string;evidenceFrom:string;evidenceUntil:string}>;
+export type DeviceRootClaimPermissionV2=Readonly<{version:2;profile:typeof DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2;action:'ACCESS'|'READ'|'PROVE_D27'|'FUND_NATIVE_CLAIM'|'PROVE_CI51'|'ISSUE_CLAIM';descriptor:DeviceRootClaimDescriptorV2;rootId:string|null;noteRevision:number|null;challengeId:string;nonce:string;expiresAt:number;jobId:string|null;statement:DeviceRootClaimStatementV2|DeviceRootClaimIngressStatementV2|null;witnessSHA256:string|null;commonSHA256:string|null;recipient:Readonly<{type:string;profile:string;relation:string;role:string;jobId:string;recipientPublicKey:string}>|null}>;
+export function normalizeDeviceRootClaimDescriptorV2(raw:unknown):DeviceRootClaimDescriptorV2;
+export function normalizeDeviceRootClaimStatementV2(raw:unknown,ingress?:boolean):DeviceRootClaimStatementV2|DeviceRootClaimIngressStatementV2;
+export function normalizeDeviceRootClaimPermissionV2(raw:unknown):DeviceRootClaimPermissionV2;
+export function validateDeviceRootClaimPermissionFreshV2(raw:unknown,now?:number):DeviceRootClaimPermissionV2;
+export function deviceRootClaimPermissionMessageV2(raw:unknown):Uint8Array;
+export function deviceRootClaimPublicInputsV2(raw:unknown,ingress?:boolean):readonly string[];
+export function deviceRootClaimDataBytesV2(raw:unknown):Uint8Array;

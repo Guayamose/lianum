@@ -5,6 +5,7 @@ import { assertBeginPayoutAuditRoleProcessV1 } from './native-flow-proof-scope-v
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import { relation } from '../catalog.mjs';
+import {deriveOriginalDeviceRootClaimJobV2} from './private-device-proof-input-v2.mjs';
 import {runBoundedProof,preparePrivateProofJobV1,wipePrivateProofInputsV1,sealPrivateProofJobV1,deriveOriginalDeviceDepositIntentJobV2,deriveOriginalDeviceAuthorizationJobV2,deriveOriginalNativeDeviceAuthorizationJobV2} from './run-bounded.mjs';
 
 assert.equal(process.argv.length, 3, 'PW_ROLE_FIXED_ARGUMENTS');
@@ -22,7 +23,8 @@ const parentDisconnected = () => {
 process.once('disconnect', parentDisconnected);
 try {
   received = await preparePrivateProofJobV1({ relation: spec.name, role: spec.role, jobId });
-  privateDeviceDerivation=deriveOriginalDeviceDepositIntentJobV2(received,spec);
+  privateDeviceDerivation=await deriveOriginalDeviceRootClaimJobV2(received,spec);
+  if(!privateDeviceDerivation)privateDeviceDerivation=deriveOriginalDeviceDepositIntentJobV2(received,spec);
   if(!privateDeviceDerivation)privateGraphDerivation=await deriveOriginalDeviceAuthorizationJobV2(received,spec);
   if(!privateDeviceDerivation&&!privateGraphDerivation)privateGraphDerivation=await deriveOriginalNativeDeviceAuthorizationJobV2(received,spec);
   // Keep the control channel until completion: an abruptly lost owner

@@ -372,3 +372,145 @@ async function createFixedClaimMobileLocalOperator(config,index) {
     });return originalOperator;
   }catch(error){closed=true;try{await shutdown();}catch{}throw error;}
 }
+
+
+import {assertOriginalDeviceRootClaimIntakeV2,readOriginalDeviceRootClaimIntakeContextV2} from '../../claims/controller/controller.mjs';
+import * as DeviceRootClaim from '../../../../mobile-protocol/src/native-claim-device-v1.mjs';
+const rootClaimListeners=new WeakSet();
+/** A separate fixed TLS intake. Ciphertext is larger than the legacy journal
+ * route, so only this new family has a 128 KiB request envelope. */
+async function rootClaimHttpBody(request){
+  if(request.headers['content-type']!=='application/json'||request.headers['content-encoding']!==undefined
+    ||request.headers['transfer-encoding']!==undefined)deviceHttpFail();
+  const n=request.headers['content-length'];if(typeof n!=='string'||!/^[1-9][0-9]{0,5}$/.test(n)||Number(n)>131072)deviceHttpFail();
+  const parts=[];let count=0,bytes;
+  try{for await(const part of request){parts.push(part);count+=part.length;if(count>Number(n)||count>131072)deviceHttpFail();}
+    if(count!==Number(n))deviceHttpFail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));
+  }finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}
+}
+export async function startOriginalDeviceRootClaimTlsV2(input){
+  if(arguments.length!==1)deviceHttpFail();deviceHttpExact(input,['intake','economicState','tls','host']);deviceHttpExact(input.tls,['certificate','privateKey']);
+  const intake=input.intake,descriptor=assertOriginalDeviceRootClaimIntakeV2(intake),original=readOriginalDeviceRootClaimIntakeContextV2(intake);
+  const {assertOriginalWalletEconomicStateV1,originalWalletEconomicDeviceRootClaimBindingsV2}=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');
+  assertOriginalWalletEconomicStateV1(input.economicState);const bindings=originalWalletEconomicDeviceRootClaimBindingsV2(input.economicState);if(bindings.length!==1||bindings[0]!==intake)deviceHttpFail();
+  const origin=new URL(descriptor.claim.origin),hostname=origin.hostname.replace(/^\[|\]$/g,''),host=input.host;
+  if(!['127.0.0.1','0.0.0.0'].includes(host)||rootClaimListeners.has(intake)
+    ||typeof input.tls.certificate!=='string'||Buffer.byteLength(input.tls.certificate)>65536
+    ||typeof input.tls.privateKey!=='string'||Buffer.byteLength(input.tls.privateKey)>16384)deviceHttpFail();
+  let cert;try{cert=new X509Certificate(input.tls.certificate);const key=createPrivateKey(input.tls.privateKey);
+    if(cert.ca||!cert.checkPrivateKey(key)||(isIP(hostname)?cert.checkIP(hostname)!==hostname:cert.checkHost(hostname,{subject:'never',wildcards:false})!==hostname))deviceHttpFail();
+  }catch{deviceHttpFail();}
+  const current=()=>{if(closed||Date.now()<cert.validFromDate.getTime()||Date.now()>=cert.validToDate.getTime())deviceHttpFail();assertOriginalDeviceRootClaimIntakeV2(intake);};
+  let closed=false,closing,server,claimSession;const running=new Set(),sockets=new Set(),key=Buffer.from(input.tls.privateKey);
+  const prefix='/v1/mobile/native-claims/root-note/',routes=new Set(['challenges','reviews','ingress-reviews','effect-challenges','operations']);
+  async function route(path,value){
+    current();
+    if(path==='challenges'){deviceHttpExact(value,['action']);return intake.challenge(value.action);}
+    if(path==='reviews')return intake.reviewD27(value);
+    if(path==='ingress-reviews')return intake.reviewCI51(value);
+    if(path==='effect-challenges'){deviceHttpExact(value,['action']);return intake.effectChallenge(value.action);}
+    deviceHttpExact(value,['permission','signature','packet']);const p=DeviceRootClaim.normalizeDeviceRootClaimPermissionV2(value.permission);
+    if(p.action==='READ'){
+      if(value.packet!==null)deviceHttpFail();if(claimSession)await original.controller.reconcile();current();
+      const observation=await intake.read({permission:p,signature:value.signature});
+      await input.economicState.observe();current();DeviceRootClaim.validateDeviceRootClaimPermissionFreshV2(p);
+      return {...observation,economicState:await input.economicState.snapshot()};
+    }
+    let result;
+    if(p.action==='PROVE_D27'){
+      if(value.packet===null)deviceHttpFail();const proved=await intake.submitD27(value);current();
+      const prepared=await original.controller.prepare({handoff:proved.handoff});await intake.retainPrepared({intentId:prepared.intentId});current();
+      // The same controller/domain/device-root owner identity is admitted before
+      // the first native funding operation, never from a Linux note reader.
+      claimSession=await createNativeClaimSession({controller:original.controller,accountId:'device_root_native_claim_v2',
+        ownerIdentitySHA256:original.ownerIdentitySHA256,claimDomain:descriptor.claim.claimDomain,caller:original.runtime.accounts[original.poolIndex+3]});
+      current();result={stage:'PREPARED',intentId:prepared.intentId,proofSHA256:proved.proof.evidence.proofSHA256};
+    }else if(p.action==='PROVE_CI51'){
+      if(value.packet===null)deviceHttpFail();const proof=await intake.submitCI51(value);result={stage:'CI51_PROVED',proofSHA256:proof.evidence.proofSHA256};
+    }else{
+      if(value.packet!==null||!claimSession)deviceHttpFail();const effect=await intake.authorizeEffect({permission:p,signature:value.signature});current();
+      if(p.action==='FUND_NATIVE_CLAIM'){
+        await original.controller.preposition({intentId:effect.intentId});current();
+        result=await original.controller.ingress({intentId:effect.intentId});
+        const receipt=await original.controller.privateNativeReceipt({operationId:effect.intentId});
+        if(receipt.broadcastAttempts!==1)throw Error('CLAIM_DEVICE_ROOT_ORIGINAL_SEND_REQUIRED');
+        if(descriptor.claim.nativeFamily==='1')await original.claims.nativeRuntimes[original.poolIndex].confirm(receipt.nativeId);
+      }else if(p.action==='ISSUE_CLAIM')result=await original.controller.issue({intentId:effect.intentId,handoff:effect.handoff});
+      else deviceHttpFail();
+    }
+    current();return {profile:descriptor.profile,descriptor,permissionId:p.challengeId,jobId:p.jobId,result};
+  }
+  rootClaimListeners.add(intake);
+  try{
+    server=createTlsServer({cert:input.tls.certificate,key,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
+      const work=(async()=>{current();if(request.socket.encrypted!==true||repeatedHeader(request)||request.headers.host!==origin.host
+        ||request.headers.origin!==descriptor.claim.origin||request.method!=='POST'||!request.url.startsWith(prefix)
+        ||!routes.has(request.url.slice(prefix.length)))deviceHttpFail();
+        const value=await rootClaimHttpBody(request);current();return route(request.url.slice(prefix.length),value);})();
+      running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});
+      // This waits for the already admitted original operation. The signed
+      // permission remains 15s and its proof/native KEY/SEND guards do not move.
+      let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('NATIVE_CLAIM_DEVICE_HTTP_TIMEOUT')),900000);timer.unref();});
+      Promise.race([work,timeout]).then(v=>deviceHttpReply(response,200,v),()=>deviceHttpReply(response,closed?503:403,{error:closed?'DISCONNECTED':'REQUEST_REJECTED'})).finally(()=>clearTimeout(timer)).catch(()=>{});
+    });
+    server.on('connection',s=>{sockets.add(s);s.once('close',()=>sockets.delete(s));});
+    server.requestTimeout=5000;server.headersTimeout=5000;server.keepAliveTimeout=1000;server.maxRequestsPerSocket=1;
+    await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(origin.port)||443,host,resolve);});current();
+  }catch(error){closed=true;if(server)await new Promise(resolve=>server.close(()=>resolve()));for(const s of sockets)s.destroy();await Promise.allSettled([...running]);await claimSession?.close();throw error;}
+  finally{key.fill(0);}
+  return Object.freeze({descriptor,origin:descriptor.claim.origin,close(){if(arguments.length!==0)deviceHttpFail();closed=true;for(const s of sockets)s.destroy();
+    return closing??=(async()=>{let first;try{await new Promise((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}catch(e){first=e;}
+      const settled=await Promise.allSettled([...running]);for(const r of settled)if(r.status==='rejected')first??=r.reason;
+      try{await claimSession?.close();}catch(e){first??=e;}if(first)throw first;return{closed:true,inFlight:0};})();}});
+}
+
+export async function createOriginalDeviceRootBtcClaimLocalOperatorV2(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'BTC');}
+export async function createOriginalDeviceRootSolClaimLocalOperatorV2(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'SOL');}
+export async function createOriginalDeviceRootSplClaimLocalOperatorV2(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'SPL');}
+async function createDeviceRootClaimLocalOperator(config,family){
+  config=normalizedOriginalClaimMobileInfrastructure(config);
+  const [{ROOT},{mkdir,mkdtemp},{join},{randomBytes}]=await Promise.all([import('../../../../proofs/src/catalog.mjs'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
+  const secret=()=>randomBytes(32).toString('hex'),base=join(ROOT,'.local/device-root-native-claims-v2');
+  await mkdir(base,{recursive:true,mode:0o700});const {lstat,realpath}=await import('node:fs/promises'),st=await lstat(base);
+  if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==process.getuid()||(st.mode&0o777)!==0o700||await realpath(base)!==base)deviceHttpFail();
+  const directory=await mkdtemp(join(base,family.toLowerCase()+'-'));let runtime,bitcoin,solana,claims,keeper,controller,intake,server,economicState,closing,closed=false;
+  const operators=[],proofClients={};const live=()=>{if(closed)throw Error('NATIVE_CLAIM_LOCAL_CLOSED');};
+  async function shutdown(){let first;const stop=async work=>{try{await work();}catch(e){first??=e;}};
+    if(server)await stop(()=>server.close());if(economicState)await stop(()=>economicState.close());if(intake)await stop(()=>intake.close());if(controller)await stop(async()=>controller.close());if(keeper)await stop(()=>keeper.close());
+    for(const client of Object.values(proofClients))await stop(async()=>{client.stop();client.close();});for(const op of operators)await stop(()=>op.close());
+    if(solana)await stop(()=>solana.close());if(bitcoin)await stop(()=>bitcoin.close());if(runtime)await stop(()=>runtime.close());
+    if(first)throw first;return{closed:true,originalResourcesStopped:true};
+  }
+  try{
+    const {createOwnedLocalEvmV2}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+    const {createOwnedCombinedBitcoinRuntime}=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
+    const {createOwnedCombinedSolanaRuntime}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');
+    const {createNativeClaimBootstrap,createNativeSplClaimIngressV1Bootstrap,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
+    const {createOwnedClaimObserver}=await import('../../claims/operations/owned-state.mjs');
+    const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
+    const {createRoleProofClient}=await import('../../../../proofs/src/jobs/role-client.mjs');
+    const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
+    const {claimDomainCommitment}=await import('../../claims/protocol/framing.mjs');
+    runtime=await createOwnedLocalEvmV2();live();({custody:bitcoin}=await createOwnedCombinedBitcoinRuntime());live();
+    if(family==='SPL'){const {createOwnedCombinedSolanaSplRuntimeV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');({custody:solana}=await createOwnedCombinedSolanaSplRuntimeV1());}
+    else({custody:solana}=await createOwnedCombinedSolanaRuntime());live();
+    const journalRoot=join(directory,'claim-keepers');await mkdir(journalRoot,{mode:0o700});
+    const bootstrap=await(family==='SPL'?createNativeSplClaimIngressV1Bootstrap:createNativeClaimBootstrap)({runtime,nativeRuntimes:[bitcoin,solana],journalRoot});
+    for(let signerIndex=0;signerIndex<4;signerIndex++)operators.push(createLocalClaimOperator({signerIndex}));
+    claims=await deployNativeClaimSystem(runtime,{deploymentDomain:'0x'+secret(),registryEpoch:'1',rulesRoot:bootstrap.rulesRoot,attesterKeys:operators.map(v=>v.publicKey),
+      pools:[0,1].map(()=>({policy:'0x'+secret(),deploymentDomain:'0x'+secret()})),nativeClaimBootstrap:bootstrap,onDeployment:async()=>{}});live();
+    const observer=await createOwnedClaimObserver({runtime,claims});for(const op of operators)await op.bind(observer);
+    const quorum=createClaimOperatorQuorum({operators:operators.slice(0,3)});keeper=await createDurableNativeClaimControllerKeeper({runtime,claims,path:join(directory,'controller.v2'),password:secret()});
+    for(const role of ['claim_ingress','claim_discharge'])proofClients[role]=createRoleProofClient(role);
+    controller=await createNativeClaimController({runtime,claims,observer,operators,quorum,proofClients,keeper,ingressProverIdentity:secret()});
+    const index=family==='BTC'?0:1;intake=await controller.bindDeviceRootClaimIntakeV2({claimDomain:claimDomainCommitment(claims.configs[index]),origin:config.origin,devicePublicKey:config.devicePublicKey});live();
+    const {createOriginalWalletEconomicStateV1}=await import('../../accounts/state/original-wallet-economic-state-v1.mjs');
+    economicState=await createOriginalWalletEconomicStateV1({catalogues:[],nativeAccounts:[],wrappedPortfolios:[],deviceRootClaimIntakes:[intake],journal:{path:join(directory,'economic-state.vault'),password:secret()}});live();
+    server=await startOriginalDeviceRootClaimTlsV2({intake,economicState,tls:config.tls,host:config.host});live();
+    const now=await runtime.time(),originalWindow=Object.freeze({relation:'D27',validFrom:String(now),validUntil:String(now+86400n)});live();
+    return Object.freeze({originalWindow,profile:'ORIGINAL_DEVICE_ROOT_'+family+'_CLAIM_LOCAL_PRODUCT_V2',descriptor:intake.descriptor,origin:server.origin,
+      custody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM',nativeSelfCustody:false,automaticFunding:false,independentOperators:false,
+      async economicSnapshot(){if(arguments.length!==0)deviceHttpFail();live();await economicState.observe();live();return economicState.snapshot();},
+      close(){if(arguments.length!==0)deviceHttpFail();closed=true;return closing??=shutdown();}});
+  }catch(error){closed=true;try{await shutdown();}catch{}throw error;}
+}

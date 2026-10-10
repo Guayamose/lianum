@@ -3,10 +3,10 @@
  * Callers must authenticate the persisted packet and canonical gateway source. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
+import { createCommitmentCodec, validateStruct, exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
 import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { validateDepositIntentStatement, encodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
-import { validateClaimConfig, claimDomainCommitment, claimIntentId, claimTicketId, validateClaimTicket, claimUint } from '../protocol/framing.mjs';
+import { validateClaimConfig, claimDomainCommitment, claimIntentId, claimTicketId, validateClaimTicket, claimUint, claimDestinationCommitment, claimIngressReceiptCommitment, encodeClaimIngressInputs } from '../protocol/framing.mjs';
 import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../../../../custody/src/signing/flat-owner-custody.mjs';
 
@@ -73,10 +73,12 @@ export function validateRetainedClaimPacket(input, options) {
 /** Private holder V2 authenticated DATA. The real child brand is checked at
  * admission; AEAD keeper provenance remains mandatory on reopen. No opening,
  * root or private spend key is accepted or reconstructed by this validator. */
-export function validateRetainedPrivateClaimPacketV2(input,options) {
+export function validateRetainedPrivateClaimPacketV2(input,options) {return validatePrivatePacket(input,options,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2);}
+export function validateRetainedDeviceRootClaimPacketV2(input,options) {return validatePrivatePacket(input,options,'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_HANDOFF_V2','DEVICE_ROOT_NOTE_NATIVE_BACKEND_LOCAL_QUORUM');}
+function validatePrivatePacket(input,options,profile,trust) {
   exactRecord(options,['config','ingressProverIdentity']);const config=validateClaimConfig(options.config),packet=cloneInput(input);
   exactRecord(packet,PACKET_FIELDS.filter(k=>k!=='opening').concat(['receiptBinding']));
-  assert.equal(packet.version,2,'CLAIM_PRIVATE_PACKET_VERSION');assert.equal(packet.profile,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,'CLAIM_PRIVATE_PACKET_PROFILE');assert.equal(packet.trust,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2,'CLAIM_PRIVATE_PACKET_TRUST');
+  assert.equal(packet.version,2,'CLAIM_PRIVATE_PACKET_VERSION');assert.equal(packet.profile,profile,'CLAIM_PRIVATE_PACKET_PROFILE');assert.equal(packet.trust,trust,'CLAIM_PRIVATE_PACKET_TRUST');
   for(const k of ['ownerIdentitySHA256','claimDomain','ingressProverIdentity','intentIdentitySHA256','handoffIdentitySHA256'])bytes32(packet[k],true);
   assert.equal(packet.claimDomain,claimDomainCommitment(config),'CLAIM_PRIVATE_PACKET_DOMAIN');assert.equal(packet.ingressProverIdentity,bytes32(options.ingressProverIdentity,true),'CLAIM_PRIVATE_PACKET_PROVER');
   assert.equal(packet.revision,0,'CLAIM_PRIVATE_PACKET_NO_RENEWAL');const s=validateDepositIntentStatement(packet.statement);assert.equal(s.scope,config.scope,'CLAIM_PRIVATE_PACKET_SCOPE');assert.equal(s.policy,config.policy,'CLAIM_PRIVATE_PACKET_POLICY');
@@ -147,4 +149,55 @@ export function canonicalClaimDepositProjection(rawRow, rawGateway) {
   assert.ok(['1', '2', '3', '4'].includes(refund.state), 'CLAIM_PROJECTION_REFUND_STATE'); bytes32(refund.payoutRouteCommitment);
   assert.equal(refund.payoutRouteCommitment === ZERO, refund.state === '1', 'CLAIM_PROJECTION_REFUND_ROUTE');
   return frozenInput({ status: refund.state === '4' ? 'REFUNDED' : 'REFUND_PENDING', intent, refund, refundTicketId: ticket.id });
+}
+
+import { FACTS_SCHEMA, validateNativeClaimFacts, encodeNativeClaimFacts, nativeClaimFactsDigest,
+  receiptKeyCommitment, nativeAdmissionNullifier } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeAdmissionRuleRoot, nativeAdmissionRuleCommitment, nativeAdmissionChainDomain }
+  from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
+  from '../../../../engine/src/evidence/native-quorum.mjs';
+
+// Public CI51 validation follows the same original framing and quorum source.
+// It never accepts an opening or produces a proof, deployment or owner brand.
+const ROOT_CLAIM_COMMON_FIELDS=['config','domain','registry','rule','rulePath','certificates','currentRevocation'];
+async function deviceRootClaimPublicContext(input,hashFields){
+  const config=validateClaimConfig(input.config),domain=validateStruct('domain',input.domain),codec=createCommitmentCodec({hashFields});
+  assert.equal(await codec.domainCommitment(domain),config.poolDomain,'CLAIM_POOL_DOMAIN');
+  for(const [dk,ck]of [['scope','scope'],['policy','policy'],['asset','wrapperAssetIdentity'],['hubDomain','hubDomain'],['ledgerNamespace','ledgerNamespace'],['registryCommitment','registryCommitment']])assert.equal(domain[dk],config[ck],'CLAIM_CONFIG_DOMAIN');
+  const {registry,rule,rulePath}=input;
+  assert.equal(registry.hubDomain,config.hubDomain,'CLAIM_REGISTRY_HUB');assert.equal(nativeQuorumRegistryCommitment(registry),config.registryCommitment,'CLAIM_REGISTRY');
+  exactRecord(rulePath,['index','siblings']);fixedArray(rulePath.siblings,3);rulePath.siblings.forEach(v=>bytes32(v));assert.ok(claimUint(rulePath.index,8)<8n,'CLAIM_RULE_INDEX');
+  assert.equal(nativeAdmissionRuleRoot(rule,rulePath),registry.rulesRoot,'CLAIM_RULE_MEMBERSHIP');assert.equal(nativeAdmissionRuleCommitment(rule),config.nativeRuleCommitment,'CLAIM_RULE_COMMITMENT');
+  for(const [k,v]of [['family',config.nativeFamily],['genesis',config.nativeGenesis],['asset',config.nativeAsset]])assert.equal(rule[k],v,'CLAIM_RULE_NATIVE_DOMAIN');
+  const policy={ledgerNamespace:config.ledgerNamespace,hubDomain:config.hubDomain,registryCommitment:config.registryCommitment,rule},indexes=[],signatures=[];
+  fixedArray(input.certificates,3);let frame,facts;
+  for(const c of input.certificates){
+    exactRecord(c,['schema','signerIndex','facts','frameHex','digest','signature']);assert.equal(c.schema,FACTS_SCHEMA,'CLAIM_FACTS_SCHEMA');
+    const checked=validateNativeClaimFacts(c.facts,policy),encoded=encodeNativeClaimFacts(checked,policy);
+    assert.equal(c.frameHex,encoded.toString('hex'),'CLAIM_FACTS_FRAME');assert.equal(c.digest,nativeClaimFactsDigest(checked,policy),'CLAIM_FACTS_DIGEST');assert.equal(encoded.length,829,'CLAIM_FACTS_FRAME_WIDTH');
+    if(frame)assert.ok(frame.equals(encoded),'CLAIM_FACTS_DISAGREE');else{frame=encoded;facts=checked;}
+    const index=claimUint(c.signerIndex,8);assert.ok(index<4n,'CLAIM_ATTESTER_INDEX');assert.match(c.signature,/^[0-9a-f]{128}$/,'CLAIM_SIGNATURE_ENCODING');indexes.push(Number(index));signatures.push(c.signature);
+  }
+  createNativeQuorumHostVerifier({registry,expectedRegistryCommitment:policy.registryCommitment}).assertQuorumForMessage({messageBytes:frame,indexes,signatures});
+  claimUint(facts.observation.amount);
+  const current=input.currentRevocation;exactRecord(current,['revokedDigest','revokedCount','revocationSequence','entries']);fixedArray(current.entries,64);claimUint(current.revokedCount,32);claimUint(current.revocationSequence);
+  assert.equal(await codec.revokedDigest(config.poolDomain,config.hubDomain,current.entries,current.revokedCount),current.revokedDigest,'CLAIM_CURRENT_REVOKED_DIGEST');assert.ok(!current.entries.slice(0,Number(current.revokedCount)).includes(facts.nativeGid),'CLAIM_GID_REVOKED');
+  const admissionRevocationState=await codec.admissionRevocationState(config.poolDomain,{currentRevokedDigest:current.revokedDigest,currentRevokedCount:current.revokedCount,currentRevocationSequence:current.revocationSequence});
+  return{config,codec,facts,claimDomain:claimDomainCommitment(config),admissionRevocationState,nativeChainDomain:nativeAdmissionChainDomain(rule)};
+}
+/** Original public CI51 join, computed before offering the private recipient.
+ * The independent recipient recomputes the same statement from the device's
+ * opening. No opening, witness, root or private key enters this function. */
+export async function buildDeviceRootClaimIngressPublicV2(raw,options){
+ exactRecord(options,['hashFields']);const input=cloneInput(raw);exactRecord(input,[...ROOT_CLAIM_COMMON_FIELDS,'outputQ','amountQ','receiptBinding']);
+ bytes32(input.outputQ,true);assert.ok(claimUint(input.amountQ)>0n,'CLAIM_POSITIVE_AMOUNT');exactRecord(input.receiptBinding,['secret','refundSalt']);for(const k of ['secret','refundSalt'])bytes32(input.receiptBinding[k],true);
+ const c=await deviceRootClaimPublicContext(input,options.hashFields),o=c.facts.observation;
+ assert.equal(o.destinationCommitment,c.config.escrowEndpointCommitment,'CLAIM_INGRESS_ESCROW');assert.equal(o.amount,input.amountQ,'CLAIM_NOTE_AMOUNT');
+ const key=receiptKeyCommitment({ledgerNamespace:c.config.ledgerNamespace,secret:input.receiptBinding.secret});assert.equal(key,c.facts.wireKeyCommitment,'CLAIM_INGRESS_WIRE_KEY');
+ const admissionN=nativeAdmissionNullifier({ledgerNamespace:c.config.ledgerNamespace,secret:input.receiptBinding.secret,nativeGid:c.facts.nativeGid});bytes32(admissionN,true);
+ const refundDestination=claimDestinationCommitment({claimDomain:c.claimDomain,nativeChainDomain:c.nativeChainDomain,endpoint:o.sourceCommitment,amount:input.amountQ,maxFee:c.config.refundMaxFee,salt:input.receiptBinding.refundSalt});
+ const receipt=claimIngressReceiptCommitment({claimDomain:c.claimDomain,outputQ:input.outputQ,amount:input.amountQ,admissionN,refundDestination});
+ const statement={claimDomain:c.claimDomain,outputQ:input.outputQ,admissionN,refundDestination,admissionRevocationState:c.admissionRevocationState,ingressReceiptLeaf:await c.codec.receiptLeaf(c.config.poolDomain,receipt),amountQ:input.amountQ,evidenceFrom:o.evidenceFrom,evidenceUntil:o.evidenceUntil};
+ return frozenInput({statement,expectedPublicInputs:[...encodeClaimIngressInputs(statement)]});
 }

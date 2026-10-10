@@ -228,3 +228,22 @@ test('same ticket with a new observed effect keeps ticket commitment; canonical 
   assert.equal(first.statement.ticketCommitment, second.statement.ticketCommitment);
   assert.notEqual(first.statement.dischargeN, second.statement.dischargeN);
 });
+
+
+test('device-root CI51 public preparation matches original signed facts without accepting a note opening',async()=>{
+ // Load only these two original pure bodies. Importing the full retained
+ // owner module would load an unrelated compiler/layout at module startup.
+ // Every framing/quorum dependency below is the real original implementation.
+ const {readFile}=await import('node:fs/promises'),source=await readFile(new URL(import.meta.resolve('../../../src/claims/controller/controller-retained-state.mjs')),'utf8');
+ const C=await import('../../../src/execution/encoding/commitments.mjs'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),F=await import('../../../src/claims/protocol/framing.mjs'),N=await import('../../../src/chains/shared/dispatch/native-receipt-binding.mjs'),A=await import('../../../../engine/src/execution/native/dispatch/native-admission.mjs'),Q=await import('../../../../engine/src/evidence/native-quorum.mjs');
+ const ports={assert,...C,...R,...F,...N,...A,...Q},start=source.indexOf('const ROOT_CLAIM_COMMON_FIELDS='),body=source.slice(start).replace('export async function buildDeviceRootClaimIngressPublicV2','async function buildDeviceRootClaimIngressPublicV2');assert.ok(start>0);
+ const buildDeviceRootClaimIngressPublicV2=Function(...Object.keys(ports),body+'\nreturn buildDeviceRootClaimIngressPublicV2;')(...Object.values(ports));
+ const raw=await fixture(),original=await buildClaimIngressInputs(raw,{hashFields});
+ const outputQ=original.statement.outputQ,claimDomain=original.statement.claimDomain,
+  receiptBinding={secret:claimReceiptSecret({claimDomain,noteSecret:raw.noteOpening.noteSecret,outputQ}),
+   refundSalt:claimRefundSalt({claimDomain,noteSecret:raw.noteOpening.noteSecret,outputQ})};
+ const {noteOpening,...common}=raw,prepared=await buildDeviceRootClaimIngressPublicV2({...common,outputQ,amountQ:noteOpening.value,receiptBinding},{hashFields});
+ assert.deepEqual(prepared.statement,original.statement);assert.deepEqual(prepared.expectedPublicInputs,original.expectedPublicInputs);
+ await assert.rejects(buildDeviceRootClaimIngressPublicV2({...common,noteOpening,outputQ,amountQ:noteOpening.value,receiptBinding},{hashFields}));
+ await assert.rejects(buildDeviceRootClaimIngressPublicV2({...common,config:{...common.config,nativeGenesis:h('foreign')},outputQ,amountQ:noteOpening.value,receiptBinding},{hashFields}),/NATIVE_DOMAIN/);
+});

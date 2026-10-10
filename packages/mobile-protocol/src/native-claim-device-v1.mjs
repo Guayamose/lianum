@@ -54,3 +54,47 @@ export function normalizeNativeClaimDeviceRedeemPermissionV1(raw){const v=exact(
 export function normalizeNativeClaimDeviceRedeemAdmissionV1(raw){const v=exact(raw,['version','profile','descriptor','permissionId','admitted','action','requestId','state','duplicate']);
  need(v.version===1&&v.profile===NATIVE_CLAIM_DEVICE_REDEEM_ADMISSION_V1&&v.admitted===true&&v.action==='redeem'&&typeof v.duplicate==='boolean');v.descriptor=normalizeNativeClaimDeviceDescriptorV1(v.descriptor);hex(v.permissionId);
  need(match(v.requestId,/^[A-Za-z0-9_-]{8,100}$/)&&['ADMITTED','RUNNING','CONFIRMED','RECONCILIATION_REQUIRED'].includes(v.state));return freeze(v);}
+
+
+/** Separate device-root note profile. The native asset remains in the original
+ * local quorum custody. This frame neither grants a controller nor adopts an
+ * existing Linux note. All proof recipients are one-job original recipients. */
+export const DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2='ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2';
+export const DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2='ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2';
+export const DEVICE_ROOT_NATIVE_CLAIM_HANDOFF_V2='ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_HANDOFF_V2';
+const rootClaimUUID=v=>need(match(v,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/));
+const rootClaimUint=v=>{need(match(v,/^(0|[1-9][0-9]{0,19})$/)&&BigInt(v)<1n<<64n);return v;};
+export function normalizeDeviceRootClaimDescriptorV2(raw){
+ const v=exact(raw,['profile','claim','pool','scope','policy','recipient','noteCustody','nativeCustody']);
+ need(v.profile===DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2&&v.noteCustody==='DEVICE_ROOT_NOTE'&&v.nativeCustody==='BACKEND_LOCAL_QUORUM');
+ v.claim=normalizeNativeClaimDeviceDescriptorV1(v.claim);for(const k of ['scope','policy'])hex(v[k]);
+ for(const k of ['pool','recipient'])need(match(v[k],/^[0-9a-f]{40}$/)&&v[k]!=='0'.repeat(40));need(v.pool!==v.recipient);return freeze(v);
+}
+export function normalizeDeviceRootClaimStatementV2(raw,ingress=false){
+ const fields=ingress?['claimDomain','outputQ','admissionN','refundDestination','admissionRevocationState','ingressReceiptLeaf','amountQ','evidenceFrom','evidenceUntil']:['scope','policy','validFrom','validUntil','amount','output'];
+ const v=exact(raw,fields),numbers=ingress?['amountQ','evidenceFrom','evidenceUntil']:['validFrom','validUntil','amount'];
+ for(const k of fields)numbers.includes(k)?rootClaimUint(v[k]):hex(v[k]);need(BigInt(v[ingress?'amountQ':'amount'])>0n&&BigInt(v[ingress?'evidenceFrom':'validFrom'])<BigInt(v[ingress?'evidenceUntil':'validUntil']));return freeze(v);
+}
+export function deviceRootClaimPublicInputsV2(raw,ingress=false){
+ const s=normalizeDeviceRootClaimStatementV2(raw,ingress),words=v=>Array.from({length:8},(_,i)=>BigInt('0x'+v.slice(i*8,i*8+8)).toString());
+ return freeze(ingress?[...words(s.claimDomain),...words(s.outputQ),...words(s.admissionN),...words(s.refundDestination),...words(s.admissionRevocationState),...words(s.ingressReceiptLeaf),s.amountQ,s.evidenceFrom,s.evidenceUntil]:[...words(s.scope),...words(s.policy),s.validFrom,s.validUntil,s.amount,...words(s.output)]);
+}
+export function normalizeDeviceRootClaimPermissionV2(raw){
+ const v=exact(raw,['version','profile','action','descriptor','rootId','noteRevision','challengeId','nonce','expiresAt','jobId','statement','witnessSHA256','commonSHA256','recipient']);
+ need(v.version===2&&v.profile===DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2&&['ACCESS','READ','PROVE_D27','FUND_NATIVE_CLAIM','PROVE_CI51','ISSUE_CLAIM'].includes(v.action));v.descriptor=normalizeDeviceRootClaimDescriptorV2(v.descriptor);
+ for(const k of ['challengeId','nonce'])hex(v[k]);need(v.challengeId!==v.nonce&&Number.isSafeInteger(v.expiresAt)&&v.expiresAt>0);
+ if(['ACCESS','READ'].includes(v.action)){for(const k of ['rootId','noteRevision','jobId','statement','witnessSHA256','commonSHA256','recipient'])need(v[k]===null);return freeze(v);}
+ hex(v.rootId);need(Number.isSafeInteger(v.noteRevision)&&v.noteRevision>=0&&!Object.is(v.noteRevision,-0));rootClaimUUID(v.jobId);
+ const ingress=v.action==='PROVE_CI51';v.statement=normalizeDeviceRootClaimStatementV2(v.statement,ingress);
+ if(ingress)need(v.statement.claimDomain===v.descriptor.claim.claimDomain);else need(v.statement.scope===v.descriptor.scope&&v.statement.policy===v.descriptor.policy);
+ if(v.action.startsWith('PROVE_')){
+  hex(v.witnessSHA256);if(ingress)hex(v.commonSHA256);else need(v.commonSHA256===null);
+  const q=exact(v.recipient,['type','profile','relation','role','jobId','recipientPublicKey']);need(q.type==='flat-private-proof-input-ready'&&q.profile==='ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1'&&q.jobId===v.jobId&&q.relation===(ingress?'native_claim_ingress':'deposit_intent')&&q.role===(ingress?'claim_ingress':'owner')&&match(q.recipientPublicKey,/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/));v.recipient=q;
+ }else for(const k of ['witnessSHA256','commonSHA256','recipient'])need(v[k]===null);
+ return freeze(v);
+}
+export function validateDeviceRootClaimPermissionFreshV2(raw,now=Date.now()){
+ const v=normalizeDeviceRootClaimPermissionV2(raw);need(Number.isSafeInteger(now)&&now>=0&&v.expiresAt>now&&v.expiresAt<=now+NATIVE_CLAIM_DEVICE_TTL_MS);return v;
+}
+export function deviceRootClaimPermissionMessageV2(raw){const s=DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2+'\n'+JSON.stringify(normalizeDeviceRootClaimPermissionV2(raw));need(s.length<=8192);return Uint8Array.from(s,c=>c.charCodeAt(0));}
+export function deviceRootClaimDataBytesV2(raw){let nodes=0,characters=0;function copy(v,depth){need(++nodes<=10000&&depth<=16);if(v===null||typeof v==='boolean')return v;if(typeof v==='number'){need(Number.isSafeInteger(v)&&v>=0&&!Object.is(v,-0));return v;}if(typeof v==='string'){characters+=v.length;need(v.length<=8192&&characters<=65536&&!/[\u0000-\u001f\u007f-\uffff]/.test(v));return v;}need(v&&typeof v==='object');if(Array.isArray(v)){need(Object.getPrototypeOf(v)===Array.prototype&&v.length<=128&&Reflect.ownKeys(v).length===v.length+1);return Array.from({length:v.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(v,String(i));need(d?.enumerable&&Object.hasOwn(d,'value'));return copy(d.value,depth+1);});}need(Object.getPrototypeOf(v)===Object.prototype);const result={},keys=Reflect.ownKeys(v);need(keys.length<=64);for(const k of keys){need(typeof k==='string'&&!['__proto__','constructor','prototype'].includes(k));characters+=k.length;need(characters<=65536);const d=Object.getOwnPropertyDescriptor(v,k);need(d?.enumerable&&Object.hasOwn(d,'value'));result[k]=copy(d.value,depth+1);}return result;}const text=JSON.stringify(copy(raw,0));need(text.length<=65536);return Uint8Array.from(text,c=>c.charCodeAt(0));}

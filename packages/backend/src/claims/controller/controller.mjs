@@ -13,7 +13,7 @@ import { assertNonceIngressDeployment, auditNonceIngressPreparation, assertNonce
  * provider, proof callback, native retarget or native retry enters this API.
  * All local funds and same-host operator roles are explicitly synthetic. */
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import {randomBytes,createPublicKey,verify} from 'node:crypto';
 import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '../../execution/encoding/commitments.mjs';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
@@ -21,7 +21,9 @@ import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction, r
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../operations/owned-state.mjs';
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/operators.mjs';
 import * as claimOperators from '../operations/operators.mjs';
-import { assertRoleProofClient } from '../../../../proofs/src/jobs/role-client.mjs';
+import {assertRoleProofClient,createRoleProofClient,readOriginalDeviceRootClaimDerivationV2} from '../../../../proofs/src/jobs/role-client.mjs';
+import * as DeviceClaim from '../../../../mobile-protocol/src/native-claim-device-v1.mjs';
+import {originalNativeClaimAssetUnitsV1} from '../operations/native-claim-asset-units-v1.mjs';
 import { loadPinned, resourceModuleURL } from '../../../../proofs/src/tooling/tooling.mjs';
 import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2, assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
 import { ownedClaimControllerJournal } from './controller-journal.mjs';
@@ -41,7 +43,7 @@ import { assertClaimRoute } from '../operations/backing-audit.mjs';
 import { encodeDepositIntentInputs, decodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
 import { encodeControllerClaimCall } from './controller-call.mjs';
 import { compactClaimEvmRequest, compactClaimEvmPreparation, originalClaimEvmRecord } from './controller-evm-record.mjs';
-import { validateRetainedClaimPacket,validateRetainedPrivateClaimPacketV2, canonicalClaimDepositProjection } from './controller-retained-state.mjs';
+import { validateRetainedClaimPacket,validateRetainedPrivateClaimPacketV2,validateRetainedDeviceRootClaimPacketV2, buildDeviceRootClaimIngressPublicV2, canonicalClaimDepositProjection } from './controller-retained-state.mjs';
 export { createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   openDurableNativeClaimControllerKeeper } from './controller-journal.mjs';
 const dispatchTokens = new WeakMap();
@@ -83,7 +85,9 @@ export function openNativeSplClaimIngressSendV1(token,native,prepared,record) {
   for(const name of ['nativeId','nativeWire','transactionSHA256','route'])assert.equal(record[name],state.record[name]);
   assert.deepEqual(record.intent,prepared.intent);return state.open();
 }
-const controllers = new WeakMap();
+const controllers=new WeakMap(),deviceRootClaimHandoffs=new WeakMap(),deviceRootClaimIntakes=new WeakMap();
+const deviceRootProfile=DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_HANDOFF_V2;
+const isPrivateClaimPacket=p=>p.profile===PRIVATE_CI51_PROFILE_V2||p.profile===deviceRootProfile;
 const PRIVATE_CI51_PROFILE_V2='FLAT_OWNER_PRIVATE_NATIVE_CLAIM_INGRESS_HANDOFF_V2';
 // Restrict the whole original diagnostic lifetime, including attempted reopen.
 // Neither the owner state nor its stop marker is a caller-supplied capability.
@@ -486,7 +490,7 @@ async function createController(input, beginAuditOnly) {
     await observer.assertCurrent(snapshot);
   }
   function validatePacket(packet) {
-    return (packet.profile===PRIVATE_CI51_PROFILE_V2?validateRetainedPrivateClaimPacketV2:validateRetainedClaimPacket)(packet, { config: selected(packet.claimDomain).config, ingressProverIdentity });
+    return (packet.profile===deviceRootProfile?validateRetainedDeviceRootClaimPacketV2:packet.profile===PRIVATE_CI51_PROFILE_V2?validateRetainedPrivateClaimPacketV2:validateRetainedClaimPacket)(packet, { config: selected(packet.claimDomain).config, ingressProverIdentity });
   }
   async function deposit(id) { bytes32(id, true); const row = (await journal.read()).deposits.find(v => v.id === id);
     assert.ok(row, 'CLAIM_UNKNOWN_DEPOSIT'); validatePacket(row.packet); return row; }
@@ -503,6 +507,7 @@ async function createController(input, beginAuditOnly) {
   function terms(state, raw) { return { nullifier: ZERO, wireBindingCommitment: ZERO, routeCommitment: ZERO,
     ...raw, claimSequence: state.gateway.claimSequence, hubSequence: state.snapshot.hubStateSequence }; }
   function handoffPacket(handoff, domain) {
+    const mobile=deviceRootClaimHandoffs.get(handoff);if(mobile){assert.equal(mobile.controller,controller,'CLAIM_DEVICE_ROOT_ORIGINAL_CONTROLLER');live();assert.ok(!mobile.closed(),'CLAIM_DEVICE_ROOT_INTAKE_CLOSED');const p=handoff.select();if(domain)assert.equal(p.claimDomain,domain);assert.equal(usesIngressV3,false,'CLAIM_DEVICE_ROOT_ORIGINAL_CI51_ONLY');return validatePacket(p);}
     let privateHolder=false;
     try{assertOwnedPrivateNativeClaimIngressHandoffV2(handoff,{...(domain?{claimDomain:domain}:{}),ingressProverIdentity});privateHolder=true;}
     catch{assertOwnedNativeClaimIngressHandoff(handoff,{...(domain?{claimDomain:domain}:{}),ingressProverIdentity});}
@@ -1102,6 +1107,7 @@ async function createController(input, beginAuditOnly) {
       currentRevocation: { revokedDigest: flat.state.revokedDigest, revokedCount: flat.state.revokedCount,
         revocationSequence: flat.state.revocationSequence, entries: flat.revokedEntries } };
     const ingress = collection === 'deposits', role = ingress ? 'claim_ingress' : 'claim_discharge';
+    if(ingress&&row.packet.profile===deviceRootProfile){assert.equal(row.privateCI51Attempt?.phase,'COMPLETED','CLAIM_DEVICE_ROOT_CI51_REQUIRED');const prior=row.proofs?.find(p=>p.result.evidence.jobId===row.privateCI51Attempt.jobId);assert.ok(prior,'CLAIM_DEVICE_ROOT_ORIGINAL_RESULT_REQUIRED');return prior;}
     if(ingress&&row.packet.profile===PRIVATE_CI51_PROFILE_V2) {
       if(row.privateCI51Attempt){assert.equal(row.privateCI51Attempt.phase,'COMPLETED','CLAIM_PRIVATE_CI51_ORIGINAL_ATTEMPT_OBSERVE_ONLY');const prior=row.proofs?.find(p=>p.result.evidence.jobId===row.privateCI51Attempt.jobId);assert.ok(prior,'CLAIM_PRIVATE_CI51_ORIGINAL_RESULT_REQUIRED');return prior;}
       assertOwnedPrivateNativeClaimIngressHandoffV2(privateHandoff,{claimDomain:row.claimDomain,ownerIdentitySHA256:row.packet.ownerIdentitySHA256,ingressProverIdentity});assert.deepEqual(handoffPacket(privateHandoff,row.claimDomain),row.packet,'CLAIM_PRIVATE_CI51_ORIGINAL_HANDOFF');
@@ -1180,12 +1186,65 @@ async function createController(input, beginAuditOnly) {
     await saveRow(collection, row); return projectTicket(row);
   }
   const controller = Object.freeze({
+    /** New original lifetime, bound before any D27/native/financial effect.
+     * This creates an owner recipient, not an adopted Linux owner. */
+    bindDeviceRootClaimIntakeV2: input => serial(async()=>{
+      exactRecord(input,['claimDomain','origin','devicePublicKey']);input=copy(input);assert.equal(usesIngressV3,false,'CLAIM_DEVICE_ROOT_ORIGINAL_CI51_ONLY');
+      const {config,i}=selected(input.claimDomain),initial=await journal.read();assert.ok(initial.deposits.length===0&&initial.tickets.length===0&&initial.evm.length===0&&!(initial.apiDeviceRootClaims?.length),'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');
+      const original=await view(input.claimDomain);assert.ok(original.snapshot.gateways.every(g=>g.intents.length===0&&g.tickets.length===0),'CLAIM_DEVICE_ROOT_EMPTY_ORIGINAL_GATEWAYS');await observer.assertCurrent(original.snapshot);
+      const units=originalNativeClaimAssetUnitsV1(runtime,claims,config),pairingId=randomBytes(32).toString('hex'),scope=claimHash(Buffer.from(JSON.stringify(['DEVICE_ROOT_NOTE',config,pairingId,input.devicePublicKey]))),ownerIdentitySHA256=claimHash(Buffer.from(JSON.stringify([scope,input.devicePublicKey,config.pool])));
+      const descriptor=DeviceClaim.normalizeDeviceRootClaimDescriptorV2({profile:DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2,claim:{version:1,profile:DeviceClaim.NATIVE_CLAIM_DEVICE_PAIRING_V1,origin:input.origin,pairingId,devicePublicKey:input.devicePublicKey,accountScopeSHA256:scope,lifetimeSHA256:claimHash(Buffer.from(JSON.stringify([scope,config.poolDomain,pairingId]))),claimDomain:input.claimDomain,nativeFamily:config.nativeFamily,nativeGenesis:config.nativeGenesis,nativeAsset:config.nativeAsset,wrapperAssetIdentity:config.wrapperAssetIdentity,...units,nativeAssetKind:units.nativeAssetKind??null,mint:units.mint??null},pool:config.pool,scope:config.scope,policy:config.policy,recipient:runtime.accounts[i+3].slice(2),noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM'});
+      const {createFlatOwnerObserver}=await import('../../../../custody/src/observers/flat-owner-observer.mjs'),{flatAccountAsset}=await import('../../accounts/authority/flat-account-validation.mjs');
+      const noteObserver=await createFlatOwnerObserver({runtime,system:claims.flatSystem,poolIndex:i}),pool=claims.flatSystem.pools[i];
+      const asset=flatAccountAsset({identity:noteObserver.identity,chainId:runtime.metadata.chainId,genesis:runtime.metadata.evmGenesis.slice(2),poolCodeHash:pool.codeHash.slice(2),assetMetadata:pool.assetMetadata});
+      assert.equal(asset.token,config.wrapper,'CLAIM_DEVICE_ROOT_ORIGINAL_WRAPPER');assert.equal(asset.decimals,units.decimals,'CLAIM_DEVICE_ROOT_ORIGINAL_UNITS');
+      const ownerClient=createRoleProofClient('owner'),challenges=new Map();let stopped=false,closing=null,handoff=null,intentId=null,d27=null,ci51=null;
+      const alive=()=>{live();assert.ok(!stopped,'CLAIM_DEVICE_ROOT_INTAKE_CLOSED');assertIngressKeeperLive();};
+      await journal.update(data=>{assert.equal(data.deposits.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');data.apiDeviceRootClaims=[{profile:descriptor.profile,descriptor:copy(descriptor),ownerIdentitySHA256,phase:'BORN',intentId:null,admissions:[]}];return data;});
+      const persist=async(phase,admission=null)=>journal.update(data=>{const row=data.apiDeviceRootClaims?.[0];assert.deepEqual(row?.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');row.phase=phase;row.intentId=intentId;if(admission){assert.ok(row.admissions.length<8,'CLAIM_DEVICE_ROOT_ADMISSION_LIMIT');row.admissions.push(admission);}return data;});
+      function accessCurrent(permission,deadline){alive();DeviceClaim.validateDeviceRootClaimPermissionFreshV2(permission);assert.ok(performance.now()<deadline,'CLAIM_DEVICE_ROOT_ACCESS_EXPIRED');}
+      function challenge(action,fields={},parentExpiry=null){alive();for(const [id,p]of challenges)if(p.expiresAt<=Date.now())challenges.delete(id);assert.ok(challenges.size<8,'CLAIM_DEVICE_ROOT_CHALLENGE_LIMIT');const p=DeviceClaim.validateDeviceRootClaimPermissionFreshV2({version:2,profile:DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2,action,descriptor,rootId:null,noteRevision:null,jobId:null,statement:null,witnessSHA256:null,commonSHA256:null,recipient:null,...fields,challengeId:randomBytes(32).toString('hex'),nonce:randomBytes(32).toString('hex'),expiresAt:Math.min(Date.now()+15000,parentExpiry??Infinity)});challenges.set(p.challengeId,p);return p;}
+      function consume(raw,signature,action){alive();const p=DeviceClaim.validateDeviceRootClaimPermissionFreshV2(raw),original=challenges.get(p.challengeId);assert.equal(p.action,action,'CLAIM_DEVICE_ROOT_PERMISSION_ACTION');assert.ok(original,'CLAIM_DEVICE_ROOT_ORIGINAL_PERMISSION');assert.deepEqual(original,p,'CLAIM_DEVICE_ROOT_PERMISSION_CHANGED');const pub=input.devicePublicKey,key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(pub.slice(2,66),'hex').toString('base64url'),y:Buffer.from(pub.slice(66),'hex').toString('base64url')}}),message=DeviceClaim.deviceRootClaimPermissionMessageV2(p);try{assert.equal(verify('sha256',message,{key,dsaEncoding:'ieee-p1363'},Buffer.from(DeviceClaim.normalizeNativeClaimDeviceSignatureV1(signature),'hex')),true,'CLAIM_DEVICE_ROOT_DEVICE_SIGNATURE');}finally{message.fill(0);}challenges.delete(p.challengeId);return p;}
+      const api=Object.freeze({descriptor,
+        challenge(action){assert.equal(arguments.length,1);assert.ok(['ACCESS','READ'].includes(action));return challenge(action);},
+        reviewD27: request=>serial(async()=>{exactRecord(request,['access','signature','draft']);const access=consume(request.access,request.signature,'ACCESS'),accessDeadline=performance.now()+Math.min(15000,access.expiresAt-Date.now());assert.equal(d27,null,'CLAIM_DEVICE_ROOT_D27_ALREADY_ADMITTED');const v=request.draft;exactRecord(v,['rootId','noteRevision','statement','witnessSHA256']);const statement=DeviceClaim.normalizeDeviceRootClaimStatementV2(v.statement);assert.equal(statement.scope,config.scope);assert.equal(statement.policy,config.policy);const head=await runtime.time();assert.ok(BigInt(statement.validFrom)<=head&&head<BigInt(statement.validUntil),'CLAIM_DEVICE_ROOT_ORIGINAL_WINDOW');
+          const recipient=await ownerClient.preparePrivateDeviceRootClaimV2(DeviceClaim.deviceRootClaimPublicInputsV2(statement));accessCurrent(access,accessDeadline);const consent=challenge('PROVE_D27',{...v,statement,jobId:recipient.jobId,recipient},access.expiresAt);d27={consent,phase:'REVIEWED',result:null};return consent;}),
+        submitD27: request=>serial(async()=>{exactRecord(request,['permission','signature','packet']);const p=consume(request.permission,request.signature,'PROVE_D27');assert.ok(d27?.phase==='REVIEWED'&&d27.consent.challengeId===p.challengeId,'CLAIM_DEVICE_ROOT_ORIGINAL_D27');d27.phase='PROVING';await persist('D27_PROVING',{action:p.action,jobId:p.jobId,permissionSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p))});
+          const binding={kind:'ORIGINAL_CONSENT_V1',jobId:p.jobId,consentSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p)),witnessSHA256:p.witnessSHA256};try{const result=await ownerClient.proveEncryptedDeviceRootClaimV2(request.packet,binding),derived=readOriginalDeviceRootClaimDerivationV2(ownerClient,result);alive();assert.equal(derived.claimDomain,input.claimDomain);assert.equal(derived.commitment,p.statement.output);assert.equal(derived.action,'PROVE_D27');
+            const packet={version:2,profile:deviceRootProfile,trust:'DEVICE_ROOT_NOTE_NATIVE_BACKEND_LOCAL_QUORUM',ownerIdentitySHA256,claimDomain:input.claimDomain,ingressProverIdentity,intentIdentitySHA256:'0'.repeat(64),revision:0,statement:p.statement,proofResult:result,receiptBinding:derived.receiptBinding};
+            // ownerDigest uses the same canonical DATA framing as legacy handoffs.
+            const {ownerDigest,FLAT_OWNER_CLAIM_HANDOFF_PROFILE}=await import('../../../../custody/src/signing/flat-owner-custody.mjs');packet.intentIdentitySHA256=ownerDigest({profile:FLAT_OWNER_CLAIM_HANDOFF_PROFILE,identitySHA256:ownerIdentitySHA256,claimDomain:input.claimDomain,scope:p.statement.scope,policy:p.statement.policy,amount:p.statement.amount,output:p.statement.output});packet.handoffIdentitySHA256=ownerDigest(packet);const retained=validatePacket(packet);handoff=Object.freeze({select(){alive();return retained;}});deviceRootClaimHandoffs.set(handoff,{controller,closed:()=>stopped});d27.phase='PROVED';d27.result=result;d27.derived=derived;await persist('D27_PROVED');return{handoff,proof:result};
+          }catch(error){d27.phase='UNKNOWN';await retainFailure(error,()=>persist('UNKNOWN'));throw error;}}),
+        retainPrepared: prepared=>serial(async()=>{alive();assert.ok(handoff&&d27?.phase==='PROVED');exactRecord(prepared,['intentId']);const row=await deposit(prepared.intentId);assert.deepEqual(row.packet,handoff.select());intentId=row.id;await persist('PREPARED');return freeze(projectDeposit(row));}),
+        effectChallenge(action){assert.equal(arguments.length,1);assert.ok(['FUND_NATIVE_CLAIM','ISSUE_CLAIM'].includes(action)&&intentId&&handoff,'CLAIM_DEVICE_ROOT_PREPARED_REQUIRED');if(action==='ISSUE_CLAIM')assert.equal(ci51?.phase,'COMPLETED','CLAIM_DEVICE_ROOT_CI51_REQUIRED');return challenge(action,{rootId:d27.consent.rootId,noteRevision:d27.consent.noteRevision,jobId:d27.consent.jobId,statement:d27.consent.statement});},
+        authorizeEffect: request=>serial(async()=>{exactRecord(request,['permission','signature']);const action=DeviceClaim.normalizeDeviceRootClaimPermissionV2(request.permission).action,p=consume(request.permission,request.signature,action);assert.ok(['FUND_NATIVE_CLAIM','ISSUE_CLAIM'].includes(p.action)&&intentId);const row=await deposit(intentId);assert.deepEqual(row.packet,handoff.select());const state=await journal.read(),record=state.apiDeviceRootClaims[0];assert.ok(!record.admissions.some(a=>a.action===p.action),'CLAIM_DEVICE_ROOT_EFFECT_ALREADY_ADMITTED');await persist(p.action+'_ADMITTED',{action:p.action,jobId:p.jobId,permissionSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p))});return{intentId,handoff};}),
+        reviewCI51: request=>serial(async()=>{exactRecord(request,['access','signature','witnessSHA256']);const access=consume(request.access,request.signature,'ACCESS'),accessDeadline=performance.now()+Math.min(15000,access.expiresAt-Date.now());assert.ok(intentId&&handoff&&ci51===null,'CLAIM_DEVICE_ROOT_CI51_ALREADY_ADMITTED');const row=await deposit(intentId);assert.ok(await observeNative(row,'deposits'),'CLAIM_NATIVE_FINALITY_UNRESOLVED');const {policy}=selected(row.claimDomain),facts=await quorum.facts(row.native.binding.request),flat=await readers[i].read();assert.equal(flat.head.hash,facts.head.hash,'CLAIM_FACTS_CURRENT_HEAD');const common={config,domain:claims.flatSystem.pools[i].domain,registry:claims.flatSystem.registry,rule:policy.rule,rulePath:rulePaths[i],certificates:facts.certificates,currentRevocation:{revokedDigest:flat.state.revokedDigest,revokedCount:flat.state.revokedCount,revocationSequence:flat.state.revocationSequence,entries:flat.revokedEntries}};
+          const built=await withPinnedHash(hashFields=>buildDeviceRootClaimIngressPublicV2({...common,outputQ:row.packet.statement.output,amountQ:row.packet.statement.amount,receiptBinding:row.packet.receiptBinding},{hashFields}));for(const[k,v]of Object.entries({claimDomain:row.claimDomain,outputQ:row.packet.statement.output,amountQ:row.packet.statement.amount,admissionN:row.native.binding.admissionN,refundDestination:row.refundDestination}))assert.equal(built.statement[k],v,'CLAIM_DEVICE_ROOT_ORIGINAL_NATIVE_BINDING');
+          row.privateCI51Attempt={phase:'PREPARING'};await saveRow('deposits',row);const recipient=await proofClients.claim_ingress.preparePrivateDeviceRootClaimV2(built.expectedPublicInputs);alive();const commonSHA256=claimHash(DeviceClaim.deviceRootClaimDataBytesV2(common));row.privateCI51Attempt={phase:'PREPARED',jobId:recipient.jobId,statement:built.statement};await saveRow('deposits',row);accessCurrent(access,accessDeadline);const consent=challenge('PROVE_CI51',{rootId:d27.consent.rootId,noteRevision:d27.consent.noteRevision,jobId:recipient.jobId,statement:built.statement,witnessSHA256:request.witnessSHA256,commonSHA256,recipient},access.expiresAt);ci51={phase:'REVIEWED',consent,built};return freeze({consent,common});}),
+        submitCI51: request=>serial(async()=>{exactRecord(request,['permission','signature','packet']);const p=consume(request.permission,request.signature,'PROVE_CI51');assert.ok(ci51?.phase==='REVIEWED'&&ci51.consent.challengeId===p.challengeId);const row=await deposit(intentId);ci51.phase='PROVING';row.privateCI51Attempt.phase='PROVING';await saveRow('deposits',row);await persist('CI51_PROVING',{action:p.action,jobId:p.jobId,permissionSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p))});try{const binding={kind:'ORIGINAL_CONSENT_V1',jobId:p.jobId,consentSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p)),witnessSHA256:p.witnessSHA256},result=await proofClients.claim_ingress.proveEncryptedDeviceRootClaimV2(request.packet,binding),derived=readOriginalDeviceRootClaimDerivationV2(proofClients.claim_ingress,result);alive();assert.equal(derived.claimDomain,input.claimDomain);assert.equal(derived.commitment,row.packet.statement.output);assert.equal(derived.commonSHA256,p.commonSHA256);assert.deepEqual(result.publicInputs,ci51.built.expectedPublicInputs);row.proofs??=[];row.proofs.push({statement:ci51.built.statement,result});row.privateCI51Attempt.phase='COMPLETED';await saveRow('deposits',row);ci51.phase='COMPLETED';await persist('CI51_PROVED');return result;}catch(error){ci51.phase='UNKNOWN';row.privateCI51Attempt.phase='UNKNOWN';row.status='UNKNOWN';await retainFailure(error,()=>saveRow('deposits',row));throw error;}}),
+        read: request=>serial(async()=>{exactRecord(request,['permission','signature']);const p=consume(request.permission,request.signature,'READ');const row=intentId?await deposit(intentId):null;const status=row?await syncRow(row,'deposits'):null;return freeze({profile:descriptor.profile,descriptor,permissionId:p.challengeId,observedAt:Date.now(),expiresAt:p.expiresAt,noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM',nativeSelfCustody:false,availablePrivateClaims:null,deposit:status,commitment:row?.packet.statement.output??null,nullifier:d27?.derived?.nullifier??null,requiresReconciliation:journal.requiresReconciliation?.()===true});},{readOrReconcile:true}),
+        economicSnapshot: ()=>serial(async()=>{
+          alive();const before=await journal.read(),source=before.apiDeviceRootClaims?.[0];assert.deepEqual(source.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');
+          const selectedView=await view(input.claimDomain);await observer.assertCurrent(selectedView.snapshot);
+          const after=await journal.read();assert.deepEqual(before,after,'CLAIM_DEVICE_ROOT_OBSERVATION_CHANGED');alive();
+          const requests=source.admissions.map((a,index)=>({requestId:'device_root_claim_'+index+'_'+a.permissionSHA256,
+            assetId:asset.assetId,kind:a.action==='FUND_NATIVE_CLAIM'?'TOP_UP':'GRAPH',state:'UNKNOWN',disposition:null}));
+          // A controller receipt does not supply the device's current note path
+          // or its spend authority. Keep this common row unavailable until a
+          // separately authenticated original note read supplies that evidence.
+          return freeze({descriptor,asset,identity:ownerIdentitySHA256,assets:[{asset,status:'UNAVAILABLE',
+            observed:null,balances:null,backing:null,requests}],journal:requests,revision:null,
+            checkpoint:{source,deposit:intentId?await deposit(intentId):null,observedHead:selectedView.snapshot.head}});
+        },{readOrReconcile:true}),
+        close(){assert.equal(arguments.length,0);stopped=true;challenges.clear();return closing??=(async()=>{let first;for(const client of [ownerClient,...(ci51?[proofClients.claim_ingress]:[])]){try{client.stop();if(client===ownerClient&&!d27)client.close();else await client.closePrivateDeviceRootClaimV2();}catch(error){try{client.close();}catch{}first??=error;}}if(first)throw first;return{closed:true,inFlight:0};})();},
+      });deviceRootClaimIntakes.set(api,{controller,runtime,claims,i,asset,ownerIdentitySHA256,alive});return api;
+    }),
     prepare: request => serial(async () => {
       exactRecord(request, ['handoff']); const packet = handoffPacket(request.handoff), { config } = selected(packet.claimDomain);
       const id = claimIntentId({ claimDomain: packet.claimDomain, outputQ: packet.statement.output, amount: packet.statement.amount });
       const previous = (await journal.read()).deposits.find(v => v.id === id);
       if (previous) { assert.deepEqual(previous.packet, packet, 'CLAIM_PREPARE_ORIGINAL_HANDOFF'); return freeze(projectDeposit(previous)); }
-      const privateHolder=packet.profile===PRIVATE_CI51_PROFILE_V2;
+      const privateHolder=isPrivateClaimPacket(packet);
       const secretInput=privateHolder?null:{claimDomain:packet.claimDomain,noteSecret:packet.opening.noteSecret,outputQ:packet.statement.output};
       const secret=privateHolder?packet.receiptBinding.secret:claimReceiptSecret(secretInput),refundSalt=privateHolder?packet.receiptBinding.refundSalt:claimRefundSalt(secretInput);
       const { native } = selected(packet.claimDomain), refundDestination = destination(packet.claimDomain, native.roles.depositor.endpoint,
@@ -1300,7 +1359,7 @@ async function createController(input, beginAuditOnly) {
       await clearUnknown(); const original = await view(row.claimDomain);
       if (original.gateway.intents.find(v => v.id === row.id)?.state === '2') return freeze(await syncRow(row, 'deposits'));
       assertOriginalIntent(row, original.gateway.intents.find(v => v.id === row.id));
-      if(row.packet.profile===PRIVATE_CI51_PROFILE_V2)assert.ok(!(await journal.read()).evm.some(v=>v.operationId===row.id&&v.method==='issue'),'CLAIM_PRIVATE_CI51_ORIGINAL_ISSUE_OBSERVE_ONLY');
+      if(isPrivateClaimPacket(row.packet))assert.ok(!(await journal.read()).evm.some(v=>v.operationId===row.id&&v.method==='issue'),'CLAIM_PRIVATE_CI51_ORIGINAL_ISSUE_OBSERVE_ONLY');
       const proof = await evidence(row, 'deposits',request.handoff), { config } = selected(row.claimDomain), state = await authorizationView(row.claimDomain);
       const intent = state.gateway.intents.find(v => v.id === row.id); assertOriginalIntent(row, intent);
       const t = terms(state, { action: A.ISSUE, operationId: row.id, revision: intent.revision, amount: row.packet.statement.amount,
@@ -1317,7 +1376,7 @@ async function createController(input, beginAuditOnly) {
       exactRecord(request, ['intentId', 'handoff']); const row = await deposit(request.intentId), packet = handoffPacket(request.handoff, row.claimDomain);
       await clearUnknown(); const state = await view(row.claimDomain), intent = state.gateway.intents.find(v => v.id === row.id);
       assert.equal(intent?.state, '1'); assert.equal(packet.statement.output, row.packet.statement.output); assert.equal(packet.statement.amount, row.packet.statement.amount);
-      assert.notEqual(row.packet.profile,PRIVATE_CI51_PROFILE_V2,'CLAIM_PRIVATE_CI51_NO_RENEWAL');
+      assert.ok(!isPrivateClaimPacket(row.packet),'CLAIM_PRIVATE_CI51_NO_RENEWAL');
       assert.deepEqual(packet.opening, row.packet.opening, 'CLAIM_RENEW_ORIGINAL_OPENING');
       if (intent.validUntil === packet.statement.validUntil && intent.proofHash === claimHash(Buffer.from(packet.proofResult.proof, 'hex'))) {
         if (row.packet.handoffIdentitySHA256 !== packet.handoffIdentitySHA256) { row.history.push(row.packet); row.packet = packet; await saveRow('deposits', row); }
@@ -1649,3 +1708,20 @@ export async function restartNativeClaimController(controller) {
 export function isNativeClaimOriginalKeyAuthorityV4(token) { return originalKeyAuthoritiesV4.has(token); }
 export function isNativeClaimBitcoinSendTokenV4(token) { return bitcoinPayoutSendTokens.has(token); }
 export function isNativeClaimSolanaPayoutAuthorityV4(token) { return solanaPayoutAuthorities.has(token); }
+
+
+/** Original controller-created intake only; copies cannot open any operation. */
+export function assertOriginalDeviceRootClaimIntakeV2(intake){assert.equal(arguments.length,1);const state=deviceRootClaimIntakes.get(intake);assert.ok(state,'CLAIM_DEVICE_ROOT_ORIGINAL_INTAKE_REQUIRED');state.alive();return intake.descriptor;}
+
+/** Original references for the fixed TLS/common-state consumer. A descriptor,
+ * controller ID or serialized intake cannot satisfy this private membership. */
+export function readOriginalDeviceRootClaimIntakeContextV2(intake) {
+  assert.equal(arguments.length,1); const state=deviceRootClaimIntakes.get(intake);
+  assert.ok(state,'CLAIM_DEVICE_ROOT_ORIGINAL_INTAKE_REQUIRED');state.alive();
+  return Object.freeze({controller:state.controller,runtime:state.runtime,claims:state.claims,
+    poolIndex:state.i,asset:state.asset,ownerIdentitySHA256:state.ownerIdentitySHA256});
+}
+
+export async function readOriginalDeviceRootClaimEconomicSnapshotV2(intake){
+  assert.equal(arguments.length,1);assertOriginalDeviceRootClaimIntakeV2(intake);return intake.economicSnapshot();
+}
