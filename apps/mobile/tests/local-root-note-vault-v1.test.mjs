@@ -59,17 +59,17 @@ mock.module('expo-local-authentication', { exports: {
 mock.module('expo-crypto', { exports: {
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' }, AESEncryptionKey: Key, AESSealedData: Sealed,
   async getRandomBytesAsync(width) {
-    assert.equal(width, 32); const bytes = new Uint8Array(32).fill(++control.randomOrdinal);
+    assert.ok(width===32||width===12);const bytes = new Uint8Array(width).fill(++control.randomOrdinal);
     entropyBuffers.push(bytes); return bytes;
   },
   async digest(algorithm, bytes) {
     assert.equal(algorithm, 'SHA-256'); return Uint8Array.from(sha(bytes)).buffer;
   },
   async aesEncryptAsync(clear, key, options) {
-    assert.deepEqual(options.nonce, { length: 12 }); assert.equal(options.tagLength, 16);
+    if(options.nonce.bytes)assert.equal(options.nonce.bytes.length,12);else assert.deepEqual(options.nonce,{length:12});assert.equal(options.tagLength,16);
     if (control.pausedEncrypt) await control.pausedEncrypt();
     // Fixed synthetic IVs only within this host fixture; production Expo uses RNG.
-    const nonce = Buffer.alloc(12, ++control.randomOrdinal), cipher = createCipheriv('aes-256-gcm', heldKey.get(key), nonce);
+    const nonce = options.nonce.bytes?Buffer.from(options.nonce.bytes):Buffer.alloc(12,++control.randomOrdinal), cipher = createCipheriv('aes-256-gcm', heldKey.get(key), nonce);
     cipher.setAAD(Buffer.from(options.additionalData));
     const ciphertext = Buffer.concat([cipher.update(clear), cipher.final()]);
     return new Sealed(Buffer.concat([nonce, ciphertext, cipher.getAuthTag()]));
@@ -155,7 +155,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionObservation', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
+  assert.deepEqual(Object.keys(vault).sort(), ['createDeviceRootClaimRequestV2', 'sealDeviceRootClaimRequestV2', 'deviceRootClaimIngressWitnessHashV2', 'sealDeviceRootClaimIngressV2', 'latchDeviceRootClaimEffectV2', 'applyDeviceRootClaimObservationV2', 'readDeviceRootClaimCustodyV2', 'readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionObservation', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -1063,4 +1063,53 @@ test('sealed native root cancellation and foreign custody preserve the original 
   await importLocalRootNoteVaultV1('0c'.repeat(32)); const foreign = new Map(store);
   await assert.rejects(restoreLocalRootNoteVaultBackupV1(sealed, BACKUP_PASSWORD, created.rootId), /BACKUP_CONFLICT/);
   assert.deepEqual(store, foreign);
+});
+
+
+/** No proof or native funding ports. The real SDK permission membership,
+ * protected original RootNote, X25519/AES wire and original D27 derivation
+ * establish custody retention, binding and rejection after restart. */
+test('device-root claim retains original D27 before encrypted intake, denies copies/reproof and restores SAME custody', async()=>{
+ reset();const {createDeviceRootNativeClaimApiV2}=await import('../src/api/native-claim-device-api-v1.mjs');
+ const C=await import('../../../packages/mobile-protocol/src/native-claim-device-v1.mjs');
+ const {devicePublicKey,signDeviceRootNativeClaimPermissionV2}=await import('../src/custody/signing.mjs');
+ const {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1}=await import('../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs');
+ const {deriveOriginalDeviceRootClaimJobV2}=await import('../../../packages/proofs/src/jobs/private-device-proof-input-v2.mjs');
+ const pop=Buffer.from('09'.repeat(32),'hex'),jobId='11111111-1111-4111-8111-111111111111';
+ const originalRecipient=createPrivateProofRecipientV1({relation:'deposit_intent',role:'owner',jobId});
+ let ordinal=30,permission;
+ const descriptor=C.normalizeDeviceRootClaimDescriptorV2({profile:C.DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2,
+  claim:{version:1,profile:C.NATIVE_CLAIM_DEVICE_PAIRING_V1,origin:'https://127.0.0.1:2443',pairingId:'11'.repeat(32),devicePublicKey:devicePublicKey(pop),
+   accountScopeSHA256:'12'.repeat(32),lifetimeSHA256:'13'.repeat(32),claimDomain:'14'.repeat(32),nativeFamily:'1',nativeGenesis:'15'.repeat(32),nativeAsset:'16'.repeat(32),wrapperAssetIdentity:'17'.repeat(32),
+   nativeSymbol:'BTC',claimSymbol:'cBTC',decimals:8,atomicUnit:'satoshi',nativeAssetKind:null,mint:null},...Object.fromEntries(['pool','scope','policy','recipient'].map(k=>[k,terms[k]])),noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM'});
+ const fetchImpl=async(url,options)=>{
+  const request=JSON.parse(options.body);let response;
+  if(url.endsWith('/challenges'))response={version:2,profile:C.DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2,action:request.action,descriptor,
+   rootId:null,noteRevision:null,jobId:null,statement:null,witnessSHA256:null,commonSHA256:null,recipient:null,
+   challengeId:(++ordinal).toString(16).padStart(64,'0'),nonce:'21'.repeat(32),expiresAt:Date.now()+15000};
+  else{assert.ok(url.endsWith('/reviews'));response={...request.access,action:'PROVE_D27',...request.draft,jobId,recipient:readPrivateProofRecipientV1(originalRecipient)};permission=response;}
+  return new Response(JSON.stringify(response),{status:200,headers:{'content-type':'application/json'}});
+ };
+ const api=createDeviceRootNativeClaimApiV2({descriptor,fetchImpl}),created=await createLocalRootNoteVaultV1(),vault=openLocalRootNoteVaultV1(created.rootId);
+ let opened;
+ try{
+  await vault.prepareUnissuedBalanceNote(terms);const signed=await vault.signPreparedDeposit(await vault.reviewPreparedDeposit({relation:'D27',validFrom:'100',validUntil:'86500'}));
+  const request=await vault.createDeviceRootClaimRequestV2(signed,descriptor),access=await api.challenge('ACCESS');
+  const consent=await api.reviewD27(access,signDeviceRootNativeClaimPermissionV2(pop,access),{rootId:request.rootId,noteRevision:request.noteRevision,statement:request.statement,witnessSHA256:request.witnessSHA256});
+  const signature=signDeviceRootNativeClaimPermissionV2(pop,consent),before=new Map(store);
+  await assert.rejects(async()=>vault.sealDeviceRootClaimRequestV2({...request},consent,signature),/ORIGINAL_CLAIM_PERMISSION_REQUIRED/);assert.deepEqual(store,before);
+  await assert.rejects(async()=>vault.sealDeviceRootClaimRequestV2(request,{...consent},signature),/MOBILE_NATIVE_CLAIM/);assert.deepEqual(store,before);
+  const packet=await vault.sealDeviceRootClaimRequestV2(request,consent,signature),retained=await vault.readDeviceRootClaimCustodyV2();
+  assert.equal(retained.d27JobId,jobId);assert.equal(retained.status,'UNKNOWN');assert.equal(retained.availableBalance,null);
+  assert.equal(JSON.stringify(packet).includes(store.get(ROOT)),false);assert.equal(packet.ciphertext.includes(signed.signature),false);
+  assert.notDeepEqual(store,before);opened=openPrivateProofJobV1(originalRecipient,packet);
+  const derived=await deriveOriginalDeviceRootClaimJobV2(opened,{name:'deposit_intent'});
+  assert.equal(derived.commitment,request.statement.output);assert.equal(derived.claimDomain,descriptor.claim.claimDomain);assert.equal(derived.action,'PROVE_D27');
+  assert.equal(Object.hasOwn(derived,'opening'),false);assert.equal(Object.hasOwn(derived,'noteSecret'),false);
+  await assert.rejects(async()=>vault.sealDeviceRootClaimRequestV2(request,consent,signature),/ORIGINAL_CLAIM_PERMISSION_REQUIRED/);
+  await assert.rejects(async()=>vault.reviewPreparedDeposit({relation:'D27',validFrom:'100',validUntil:'86500'}),/ORIGINAL_REQUIRED/);
+  vault.close();const restored=openLocalRootNoteVaultV1(created.rootId),same=await restored.readDeviceRootClaimCustodyV2();
+  assert.deepEqual(same,retained);assert.equal(await restored.readPreparedNote(),null);
+  await assert.rejects(async()=>restored.createDeviceRootClaimRequestV2(signed,descriptor),/SIGNATURE_REQUIRED/);restored.close();
+ }finally{vault.close();api.close();pop.fill(0);if(opened)wipePrivateProofInputsV1(opened.inputs);closePrivateProofRecipientV1(originalRecipient);}
 });

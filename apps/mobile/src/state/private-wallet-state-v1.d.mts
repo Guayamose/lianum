@@ -10,6 +10,7 @@ export type PrivateWalletStateV1=Readonly<{version:1;revision:number;rows:readon
 export type PrivateWalletStateActorV1=Readonly<{
  acceptAccount(value:OriginalPrivateStateObservationV1):void;
  acceptNativeClaims(value:import('../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs').NativeClaimDeviceObservationV1):void;
+ acceptDeviceRootClaims(value:import('../api/native-claim-device-api-v1.mjs').DeviceRootClaimObservationV2):void;
  acceptPositions(value:DeviceDefiPositionObservationV1):void;
  acceptExternal(value:ExternalFlatStatus):void;
  acceptExternalGraph(value:object):Promise<void>;

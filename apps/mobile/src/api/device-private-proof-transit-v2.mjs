@@ -61,3 +61,27 @@ async function sealFixedWitness(rawConsent,rawSignature,rawWitness,wallet,graph=
     tag:encode(combined.subarray(combined.length-16)),ciphertext:encode(combined.subarray(12,combined.length-16))};
  }finally{externalFlatWipeV1(witness);for(const ownedBytes of [bytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der])ownedBytes?.fill(0);}
 }
+
+
+import * as RootClaim from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
+/** Fixed device-root claim D27/CI51 path. Never called with a root key or note
+ * signing key; the protected RootNote prepares exactly one scoped opening. */
+export async function sealOriginalDeviceRootClaimWitnessV2(rawConsent,rawSignature,rawWitness,rawCommon){
+ need(arguments.length===4);const c=RootClaim.validateDeviceRootClaimPermissionFreshV2(rawConsent),signature=RootClaim.normalizeNativeClaimDeviceSignatureV1(rawSignature),ingress=c.action==='PROVE_CI51';need(ingress||c.action==='PROVE_D27');
+ let witness,bytes,commonBytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der;
+ try{
+  if(ingress){witness=externalFlatExactRootClaim(rawWitness);bytes=RootClaim.deviceRootClaimDataBytesV2(witness);commonBytes=RootClaim.deviceRootClaimDataBytesV2(rawCommon);need(hex(sha256(commonBytes))===c.commonSHA256);}else{need(rawCommon===null);witness=externalFlatWitnessV1('deposit_intent',rawWitness);bytes=externalFlatWitnessBytesV1('deposit_intent',witness);}
+  need(hex(sha256(bytes))===c.witnessSHA256);const expected=RootClaim.deviceRootClaimPublicInputsV2(c.statement,ingress),r=c.recipient;
+  der=decode(r.recipientPublicKey,60);need(der.length===44&&prefix.every((b,i)=>der[i]===b));recipient=der.slice(12);
+  secret=await Crypto.getRandomBytesAsync(32);RootClaim.validateDeviceRootClaimPermissionFreshV2(c);need(secret instanceof Uint8Array&&secret.length===32);sender=x25519.getPublicKey(secret);shared=x25519.getSharedSecret(secret,recipient);need(shared.some(b=>b!==0));
+  const senderDer=new Uint8Array(44);senderDer.set(prefix);senderDer.set(sender,12);
+  const authorization={kind:'ORIGINAL_CONSENT_V1',jobId:c.jobId,consentSHA256:hex(sha256(RootClaim.deviceRootClaimPermissionMessageV2(c))),witnessSHA256:c.witnessSHA256};
+  const header={profile:r.profile,relation:r.relation,role:r.role,jobId:r.jobId,recipientPublicKey:r.recipientPublicKey,senderPublicKey:encode(senderDer),authorization,publicInputsSHA256:hex(sha256(encoder.encode(JSON.stringify(expected))))};senderDer.fill(0);aad=encoder.encode(JSON.stringify(header));
+  const text=JSON.stringify({inputs:{profile:'DEVICE_ROOT_NATIVE_CLAIM_WITNESS_V2',consent:c,signature,witness,common:rawCommon},expectedPublicInputs:expected});need(text.length<=65536);clear=encoder.encode(text);need(clear.length<=65536);
+  salt=await Crypto.getRandomBytesAsync(32);iv=await Crypto.getRandomBytesAsync(12);RootClaim.validateDeviceRootClaimPermissionFreshV2(c);need(salt instanceof Uint8Array&&salt.length===32&&iv instanceof Uint8Array&&iv.length===12);
+  keyBytes=hkdf(sha256,shared,salt,aad,32);const key=await Crypto.AESEncryptionKey.import(keyBytes);RootClaim.validateDeviceRootClaimPermissionFreshV2(c);
+  const sealed=await Crypto.aesEncryptAsync(clear,key,{nonce:{bytes:iv},tagLength:16,additionalData:aad});RootClaim.validateDeviceRootClaimPermissionFreshV2(c);combined=decode(await sealed.combined('base64'),87420);RootClaim.validateDeviceRootClaimPermissionFreshV2(c);need(combined.length===clear.length+28&&iv.every((b,i)=>combined[i]===b));
+  return{type:'flat-private-proof-inputs',...header,salt:encode(salt),iv:encode(iv),tag:encode(combined.subarray(combined.length-16)),ciphertext:encode(combined.subarray(12,combined.length-16))};
+ }finally{externalFlatWipeV1(witness);for(const b of [bytes,commonBytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der])b?.fill(0);}
+}
+function externalFlatExactRootClaim(raw){const bytes=RootClaim.deviceRootClaimDataBytesV2(raw);try{const v=JSON.parse(new TextDecoder().decode(bytes));need(v&&Object.getPrototypeOf(v)===Object.prototype&&Reflect.ownKeys(v).length===5&&['rho','x','y','value','noteSecret'].every(k=>Object.hasOwn(v,k)));for(const k of ['rho','x','y','noteSecret'])need(typeof v[k]==='string'&&/^[0-9a-f]{64}$/.test(v[k]));need(typeof v.value==='string'&&/^[1-9][0-9]{0,19}$/.test(v.value)&&BigInt(v.value)<(1n<<64n));return v;}finally{bytes.fill(0);}}

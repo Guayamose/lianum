@@ -460,3 +460,12 @@ export async function signNativeClaimDevicePermissionV1(raw:unknown,expectedOrig
   frame=protocol.nativeClaimDevicePermissionMessageV1(current());return signDeviceMessage(key,frame);
  }finally{frame?.fill(0);key?.fill(0);retained=null;}
 }
+
+
+/** Explicit device-root claim permission; pairing never imports the note root. */
+export async function signDeviceRootNativeClaimPermissionV2(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+ const protocol=await import('../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'),signing=await import('./signing.mjs');const value=protocol.validateDeviceRootClaimPermissionFreshV2(raw);
+ const current=()=>{if(signal?.aborted)throw Error('MOBILE_NATIVE_CLAIM_CANCELLED');const c=protocol.validateDeviceRootClaimPermissionFreshV2(value);if(c.descriptor.claim.origin!==expectedOrigin||c.descriptor.claim.pairingId!==expectedPairingId)throw Error('MOBILE_KEY_BINDING_CHANGED');return c;};current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.claim.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:'Autorizar '+value.action+' para esta nota de '+value.descriptor.claim.claimSymbol+'; el activo nativo permanece en custodia del quórum local',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
+ try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');const signature=signing.signDeviceRootNativeClaimPermissionV2(key,current());current();return signature;}finally{key?.fill(0);retained=null;}
+}

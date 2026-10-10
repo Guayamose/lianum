@@ -36,6 +36,14 @@ import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1, readDeviceE
 import { readDeviceOutputBalanceV1, readDeviceOutputBalanceDisplayV1 } from '../api/device-owner-output-balance-api-v1';
 import type { DeviceOutputBalanceV1 } from '../../../../packages/mobile-protocol/src/device-output-balance-v1.mjs';
 import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
+import { normalizeDeviceRootClaimDescriptorV2, normalizeDeviceRootClaimPermissionV2, normalizeDeviceRootClaimStatementV2,
+  validateDeviceRootClaimPermissionFreshV2, deviceRootClaimPermissionMessageV2, deviceRootClaimDataBytesV2,
+  type DeviceRootClaimDescriptorV2, type DeviceRootClaimPermissionV2, type DeviceRootClaimStatementV2,
+  type DeviceRootClaimIngressStatementV2 } from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
+import { externalFlatWitnessV1, externalFlatWitnessBytesV1, externalFlatWipeV1 } from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import { readOriginalDeviceRootClaimPermissionV2, readOriginalDeviceRootClaimReviewV2,
+  readOriginalDeviceRootClaimObservationV2 } from '../api/native-claim-device-api-v1.mjs';
+import { sealOriginalDeviceRootClaimWitnessV2 } from '../api/device-private-proof-transit-v2.mjs';
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
 const RECORD = 'lianum.note.root.record.v1';
@@ -170,7 +178,13 @@ export type LocalDepositReviewV1 = Readonly<{ version: 1; profile: 'LOCAL_UNISSU
 export type LocalDepositSignatureV1 = Readonly<{ version: 1; relation: 'D26' | 'D27';
   rootId: string; revision: number; commitment: string; statement: LocalDepositStatementV1;
   signature: string; status: 'UNISSUED'; availableBalance: null; nativeEffectsEstablished: false }>;
-type State = { version: 1; rootId: string; revision: number; note: PreparedNote | null; spend?: DeviceSpend;sourceExit?:LocalExitIntentV1 };
+type RootClaimCustodyV2 = { descriptor: DeviceRootClaimDescriptorV2; rootId: string; noteRevision: number;
+  statement: DeviceRootClaimStatementV2; d27JobId: string; ci51JobId: string | null;
+  admissions: { action: 'PROVE_D27' | 'PROVE_CI51' | 'FUND_NATIVE_CLAIM' | 'ISSUE_CLAIM'; permissionSHA256: string }[] };
+export type LocalDeviceRootClaimRequestV2 = Readonly<{ rootId: string; noteRevision: number;
+  statement: DeviceRootClaimStatementV2; witnessSHA256: string; close(): void }>;
+type State = { version: 1; rootId: string; revision: number; note: PreparedNote | null;
+  spend?: DeviceSpend; sourceExit?: LocalExitIntentV1; rootClaim?: RootClaimCustodyV2 };
 type Pointer = { version: 1; rootId: string; revision: number; recordSHA256: string; state: 'CREATING' | 'ACTIVE' };
 type Envelope = { version: 1; rootId: string; revision: number; sealed: string };
 export type LocalRootNoteInspectionV1 = Readonly<{ version: 1;
@@ -218,7 +232,7 @@ function envelope(raw: string): Envelope {
 async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'revision'>): Promise<State> {
   const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes), initial: unknown = JSON.parse(source);
   if (!initial || typeof initial !== 'object' || Array.isArray(initial)) bad();
-  const x = parsed(source, ['version', 'rootId', 'revision', 'note', ...(Object.hasOwn(initial,'spend')?['spend']:[]),...(Object.hasOwn(initial,'sourceExit')?['sourceExit']:[])],MAX_CLEAR_BYTES);
+  const x = parsed(source, ['version', 'rootId', 'revision', 'note', ...(Object.hasOwn(initial,'spend')?['spend']:[]),...(Object.hasOwn(initial,'sourceExit')?['sourceExit']:[]),...(Object.hasOwn(initial,'rootClaim')?['rootClaim']:[])],MAX_CLEAR_BYTES);
   if (x.version !== 1 || x.rootId !== expected.rootId || x.revision !== expected.revision) return bad();
   let note: PreparedNote | null = null;
   if (x.note !== null) {
@@ -267,6 +281,29 @@ async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'rev
       if (intent.rootId !== result.rootId || intent.noteRevision > result.revision) bad();
   }
   if(Object.hasOwn(x,'sourceExit')){if(!note||note.status!=='FUNDED'||result.spend)bad('MOBILE_LOCAL_SOURCE_EXIT_CONFLICT');result.sourceExit=await retainedSourceExit(x.sourceExit,note,result.rootId,result.revision);}
+  if (Object.hasOwn(x, 'rootClaim')) {
+    if (!note || note.status !== 'UNISSUED' || note.deviceJob || result.spend || result.sourceExit
+      || note.depositIntent?.relation !== 'D27') bad('MOBILE_LOCAL_CLAIM_CUSTODY_CONFLICT');
+    const c = parsed(JSON.stringify(x.rootClaim), ['descriptor','rootId','noteRevision','statement','d27JobId','ci51JobId','admissions'], MAX_CLEAR_BYTES);
+    const descriptor = normalizeDeviceRootClaimDescriptorV2(c.descriptor);
+    const statement = normalizeDeviceRootClaimStatementV2(localUnissuedDepositStatementV1(preparedSummary(note), {relation:'D27',validFrom:note.depositIntent.validFrom,validUntil:note.depositIntent.validUntil})) as DeviceRootClaimStatementV2;
+    if (JSON.stringify(c.statement) !== JSON.stringify(statement) || c.rootId !== result.rootId
+      || integer(c.noteRevision) > result.revision || descriptor.pool !== note.pool
+      || descriptor.scope !== note.scope || descriptor.policy !== note.policy || descriptor.recipient !== note.recipient
+      || typeof c.d27JobId !== 'string' || !/^[0-9a-f-]{36}$/.test(c.d27JobId)
+      || c.ci51JobId !== null && (typeof c.ci51JobId !== 'string' || !/^[0-9a-f-]{36}$/.test(c.ci51JobId))
+      || !Array.isArray(c.admissions) || c.admissions.length < 1 || c.admissions.length > 4) bad('MOBILE_LOCAL_CLAIM_CUSTODY_CHANGED');
+    const admissions = c.admissions.map(raw => {
+      const a = parsed(JSON.stringify(raw), ['action','permissionSHA256']);
+      if (!['PROVE_D27','PROVE_CI51','FUND_NATIVE_CLAIM','ISSUE_CLAIM'].includes(String(a.action))) bad();
+      return { action: a.action as RootClaimCustodyV2['admissions'][number]['action'], permissionSHA256: hex(a.permissionSHA256) };
+    });
+    if (admissions[0].action !== 'PROVE_D27' || new Set(admissions.map(a => a.action)).size !== admissions.length
+      || (c.ci51JobId !== null) !== admissions.some(a => a.action === 'PROVE_CI51')
+      || admissions.some(a => a.action === 'ISSUE_CLAIM') && c.ci51JobId === null) bad();
+    result.rootClaim = { descriptor, rootId: result.rootId, noteRevision: integer(c.noteRevision), statement,
+      d27JobId: c.d27JobId, ci51JobId: c.ci51JobId as string | null, admissions };
+  }
   return result;
 }
 async function retainedSourceExit(raw:unknown,note:PreparedNote,rootId:string,revision:number):Promise<LocalExitIntentV1>{
@@ -600,7 +637,7 @@ const preparedSummary = (note: PreparedNote): LocalPreparedNoteSummaryV1 => {
   scope: note.scope, policy: note.policy, pool: note.pool, recipient: note.recipient,
   commitment: note.commitment, amount: note.opening.value, status: 'UNISSUED',
   availableBalance: null, nativeEffectsEstablished: false }); };
-const summary = (value: State): LocalPreparedNoteSummaryV1 | null => value.note === null || value.note.status !== 'UNISSUED' ? null : preparedSummary(value.note);
+const summary = (value: State): LocalPreparedNoteSummaryV1 | null => value.rootClaim || value.note === null || value.note.status !== 'UNISSUED' ? null : preparedSummary(value.note);
 async function depositIntent(input: unknown, note: PreparedNote): Promise<DepositIntent> {
   if (!input || typeof input !== 'object' || !('relation' in input)) bad();
   const row = parsed(JSON.stringify(input), input.relation === 'D26'
@@ -824,6 +861,10 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     for (const item of Object.values(witness)) if (Array.isArray(item)) item.fill(0);
     outstandingWitnesses.delete(witness);
   };
+  const claimRequests = new WeakMap<LocalDeviceRootClaimRequestV2, { descriptor: DeviceRootClaimDescriptorV2; witness: Record<string, unknown>; used: boolean }>();
+  const outstandingClaimWitnesses = new Set<Record<string, unknown>>();
+  let liveClaimObservation: object | null = null;
+  const wipeClaim = (witness: Record<string, unknown>) => { externalFlatWipeV1(witness); outstandingClaimWitnesses.delete(witness); };
   let pendingReview: LocalDepositReviewV1 | null = null;
   const discardReview = () => { if (pendingReview) reviews.delete(pendingReview); pendingReview = null;
     if (pendingReservation) reservationReviews.delete(pendingReservation); pendingReservation = null; };
@@ -1064,7 +1105,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       const choice = normalizeLocalDepositChoiceV1(input);
       return original('Revisar una firma local de depósito; la nota sigue sin financiar y no se enviará a la red',
         async value => {
-          if (!value.note) bad('MOBILE_LOCAL_NOTE_ORIGINAL_REQUIRED');
+          if (!value.note || value.rootClaim) bad('MOBILE_LOCAL_NOTE_ORIGINAL_REQUIRED');
           const note = preparedSummary(value.note), statement = localUnissuedDepositStatementV1(note, choice);
           const frame = localUnissuedDepositFrameV1(note, choice);
           let random: Uint8Array | null = null;
@@ -1101,7 +1142,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         + ' unidades para la nota local ' + review.note.commitment.slice(0, 12) + '; no financiar ni enviar',
         async (value, key, before, raw, root) => {
           signing.current();
-          if (!value.note || value.rootId !== review.rootId || value.revision !== review.revision
+          if (!value.note || value.rootClaim || value.rootId !== review.rootId || value.revision !== review.revision
             || JSON.stringify(preparedSummary(value.note)) !== JSON.stringify(review.note)) bad('MOBILE_LOCAL_DEPOSIT_REVIEW_CHANGED');
           const frame = localUnissuedDepositFrameV1(preparedSummary(value.note), choice);
           let secretKey: Uint8Array | null = null;
@@ -1155,7 +1196,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       signatures.delete(signed);
       return original('Preparar la revelación de una sola apertura D26 al worker; la raíz y la clave de nota permanecen aquí',
         async value => {
-          if (!value.note || value.note.status !== 'UNISSUED'
+          if (!value.note || value.rootClaim || value.note.status !== 'UNISSUED'
             || value.revision !== signed.revision || value.note.commitment !== signed.commitment
             || value.note.depositIntent?.relation !== 'D26' || !('epoch' in signed.statement)
             || value.note.depositIntent.epoch !== signed.statement.epoch || Date.now() >= expiry) bad('MOBILE_LOCAL_PROOF_SIGNATURE_CHANGED');
@@ -1215,6 +1256,113 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
         }).finally(() => wipeWitness(row.witness));
     },
+    /** The exact locally signed D27 supplies the opening; parsed pairing data
+     * supplies no custody or controller authority. The SDK permission is required
+     * again before any opening leaves this protected scope. */
+    createDeviceRootClaimRequestV2: (signed: LocalDepositSignatureV1, rawDescriptor: DeviceRootClaimDescriptorV2): Promise<LocalDeviceRootClaimRequestV2> => {
+      current(); const expiry = signatures.get(signed), descriptor = normalizeDeviceRootClaimDescriptorV2(rawDescriptor);
+      if (expiry === undefined || Date.now() >= expiry || signed.relation !== 'D27' || signed.rootId !== expectedRootId
+        || !('validFrom' in signed.statement)) bad('MOBILE_LOCAL_CLAIM_SIGNATURE_REQUIRED');
+      signatures.delete(signed);
+      return original('Preparar la apertura de esta nota D27 para el receptor cifrado original de claims', async value => {
+        const n = value.note;
+        if (!n || value.rootClaim || n.status !== 'UNISSUED' || n.deviceJob || value.revision !== signed.revision
+          || n.commitment !== signed.commitment || n.depositIntent?.relation !== 'D27'
+          || descriptor.pool !== n.pool || descriptor.scope !== n.scope || descriptor.policy !== n.policy
+          || descriptor.recipient !== n.recipient || Date.now() >= expiry) bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        const statement = normalizeDeviceRootClaimStatementV2(localUnissuedDepositStatementV1(preparedSummary(n), {relation:'D27',validFrom:n.depositIntent.validFrom,validUntil:n.depositIntent.validUntil})) as DeviceRootClaimStatementV2;
+        if (JSON.stringify(statement) !== JSON.stringify(normalizeDeviceRootClaimStatementV2(signed.statement))) bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        const words = (raw: string) => Array.from({length:8}, (_, i) => Number.parseInt(raw.slice(i*8,i*8+8),16));
+        const witness = externalFlatWitnessV1('deposit_intent', { scope: words(n.scope), policy: words(n.policy),
+          valid_from: statement.validFrom, valid_until: statement.validUntil, amount: n.opening.value, output: words(n.commitment),
+          rho: [...localNoteHexBytesV1(n.opening.rho)], key_x: [...localNoteHexBytesV1(n.opening.x)], key_y: [...localNoteHexBytesV1(n.opening.y)],
+          secret: [...localNoteHexBytesV1(n.opening.secret)], signature: [...localNoteHexBytesV1(signed.signature,64)] }) as Record<string, unknown>;
+        const bytes = externalFlatWitnessBytesV1('deposit_intent', witness);
+        try {
+          const witnessSHA256 = await checked(scope, () => digest(bytes));
+          const request: LocalDeviceRootClaimRequestV2 = Object.freeze({rootId:value.rootId,noteRevision:value.revision,statement,witnessSHA256,
+            close(){const row=claimRequests.get(request);if(row){row.used=true;wipeClaim(row.witness);}}});
+          claimRequests.set(request,{descriptor,witness,used:false});outstandingClaimWitnesses.add(witness);return request;
+        } catch(error) { wipeClaim(witness); throw error; } finally { bytes.fill(0); }
+      });
+    },
+    sealDeviceRootClaimRequestV2: (request: LocalDeviceRootClaimRequestV2, handle: DeviceRootClaimPermissionV2, signature: string) => {
+      current(); const p = readOriginalDeviceRootClaimPermissionV2(handle), row = claimRequests.get(request);
+      if (!row || row.used || p.action !== 'PROVE_D27' || JSON.stringify(p.descriptor) !== JSON.stringify(row.descriptor)
+        || p.rootId !== request.rootId || p.noteRevision !== request.noteRevision || p.witnessSHA256 !== request.witnessSHA256
+        || JSON.stringify(p.statement) !== JSON.stringify(request.statement)) bad('MOBILE_LOCAL_ORIGINAL_CLAIM_PERMISSION_REQUIRED');
+      row.used=true;
+      return original('Autorizar sólo esta apertura cifrada D27; conservar la raíz y la clave de nota en el dispositivo', async(value,key,before,raw,root)=>{
+        readOriginalDeviceRootClaimPermissionV2(handle);
+        if (!value.note || value.rootClaim || value.note.deviceJob || value.revision !== request.noteRevision
+          || value.note.commitment !== request.statement.output) bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        const bytes=deviceRootClaimPermissionMessageV2(p);let permissionSHA256:string;
+        try { permissionSHA256=await checked(scope,()=>digest(bytes)); } finally {bytes.fill(0);}
+        const rootClaim:RootClaimCustodyV2={descriptor:p.descriptor,rootId:value.rootId,noteRevision:request.noteRevision,
+          statement:request.statement,d27JobId:p.jobId!,ci51JobId:null,admissions:[{action:'PROVE_D27',permissionSHA256}]};
+        await persistSpend({...value,revision:value.revision+1,rootClaim},key,before,raw,root);
+        readOriginalDeviceRootClaimPermissionV2(handle);
+        return checked(scope,()=>sealOriginalDeviceRootClaimWitnessV2(p,signature,row.witness,null));
+      }).finally(()=>wipeClaim(row.witness));
+    },
+    deviceRootClaimIngressWitnessHashV2: () => original('Leer sólo el hash de la apertura original para CI51, sin revelar la raíz', async value => {
+      if (!value.note || !value.rootClaim || value.rootClaim.ci51JobId !== null) bad('MOBILE_LOCAL_CLAIM_CUSTODY_REQUIRED');
+      const n=value.note.opening, opening={rho:n.rho,x:n.x,y:n.y,value:n.value,noteSecret:n.secret}, bytes=deviceRootClaimDataBytesV2(opening);
+      try {return await checked(scope,()=>digest(bytes));} finally {bytes.fill(0);externalFlatWipeV1(opening);}
+    }),
+    sealDeviceRootClaimIngressV2: (handle: object, signature: string) => {
+      current(); const review=readOriginalDeviceRootClaimReviewV2(handle),p=review.consent;
+      if(p.action!=='PROVE_CI51')bad('MOBILE_LOCAL_ORIGINAL_CLAIM_PERMISSION_REQUIRED');
+      return original('Autorizar la apertura cifrada CI51 para el mismo ingreso nativo ya observado', async(value,key,before,raw,root)=>{
+        readOriginalDeviceRootClaimReviewV2(handle);const c=value.rootClaim,n=value.note,statement=p.statement as DeviceRootClaimIngressStatementV2;
+        if(!c||!n||c.ci51JobId!==null||p.rootId!==value.rootId||p.noteRevision!==c.noteRevision
+          ||JSON.stringify(p.descriptor)!==JSON.stringify(c.descriptor)||statement.claimDomain!==c.descriptor.claim.claimDomain
+          ||statement.outputQ!==n.commitment||statement.amountQ!==n.opening.value)bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        const opening={rho:n.opening.rho,x:n.opening.x,y:n.opening.y,value:n.opening.value,noteSecret:n.opening.secret};
+        const bytes=deviceRootClaimDataBytesV2(opening),message=deviceRootClaimPermissionMessageV2(p);
+        try{
+          if(await checked(scope,()=>digest(bytes))!==p.witnessSHA256)bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+          const permissionSHA256=await checked(scope,()=>digest(message));
+          await persistSpend({...value,revision:value.revision+1,rootClaim:{...c,ci51JobId:p.jobId!,
+            admissions:[...c.admissions,{action:'PROVE_CI51',permissionSHA256}]}},key,before,raw,root);
+          readOriginalDeviceRootClaimReviewV2(handle);
+          return await checked(scope,()=>sealOriginalDeviceRootClaimWitnessV2(p,signature,opening,review.common));
+        }finally{bytes.fill(0);message.fill(0);externalFlatWipeV1(opening);}
+      });
+    },
+    latchDeviceRootClaimEffectV2: (handle: DeviceRootClaimPermissionV2) => {
+      current();const p=readOriginalDeviceRootClaimPermissionV2(handle);
+      if(!['FUND_NATIVE_CLAIM','ISSUE_CLAIM'].includes(p.action))bad('MOBILE_LOCAL_ORIGINAL_CLAIM_PERMISSION_REQUIRED');
+      return original('Retener el permiso de '+p.action+' de esta misma nota antes del envío original',async(value,key,before,raw,root)=>{
+        const c=value.rootClaim;if(!c||p.rootId!==value.rootId||p.noteRevision!==c.noteRevision||p.jobId!==c.d27JobId
+          ||JSON.stringify(p.descriptor)!==JSON.stringify(c.descriptor)||JSON.stringify(p.statement)!==JSON.stringify(c.statement)
+          ||c.admissions.some(a=>a.action===p.action)||p.action==='ISSUE_CLAIM'&&c.ci51JobId===null)bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        const bytes=deviceRootClaimPermissionMessageV2(p);try{const permissionSHA256=await checked(scope,()=>digest(bytes));
+          readOriginalDeviceRootClaimPermissionV2(handle);
+          await persistSpend({...value,revision:value.revision+1,rootClaim:{...c,admissions:[...c.admissions,
+            {action:p.action as 'FUND_NATIVE_CLAIM'|'ISSUE_CLAIM',permissionSHA256}]}},key,before,raw,root);
+          readOriginalDeviceRootClaimPermissionV2(handle);return{retained:true as const,availableBalance:null};
+        }finally{bytes.fill(0);}
+      });
+    },
+    applyDeviceRootClaimObservationV2: (handle: object) => {
+      current();liveClaimObservation=null;const observation=readOriginalDeviceRootClaimObservationV2(handle);
+      return original('Conciliar sólo la lectura autenticada de este claim; no acreditar BTC/SOL por una respuesta RPC',async value=>{
+        const c=value.rootClaim,n=value.note;if(!c||!n||JSON.stringify(observation.descriptor)!==JSON.stringify(c.descriptor)
+          ||observation.commitment!==null&&observation.commitment!==n.commitment
+          ||observation.nullifier!==null&&observation.nullifier!==localFundedSpendNullifierV1(n.scope,n.commitment,n.opening.secret))bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        readOriginalDeviceRootClaimObservationV2(handle);liveClaimObservation=handle;
+        return Object.freeze({rootId:value.rootId,claimDomain:c.descriptor.claim.claimDomain,commitment:n.commitment,
+          custody:'DEVICE_ROOT_NOTE' as const,nativeCustody:'BACKEND_LOCAL_QUORUM' as const,nativeSelfCustody:false as const,
+          status:observation.deposit?.status??'UNKNOWN',availableBalance:null,nativeEffectsEstablished:false as const});
+      });
+    },
+    readDeviceRootClaimCustodyV2: () => original('Leer los identificadores de la custodia de claim retenida, sin permisos ni apertura',async value=>{
+      const c=value.rootClaim;if(!c)return null;let status='UNKNOWN';
+      if(liveClaimObservation){try{status=readOriginalDeviceRootClaimObservationV2(liveClaimObservation).deposit?.status??'UNKNOWN';}catch{liveClaimObservation=null;}}
+      return Object.freeze({descriptor:c.descriptor,rootId:value.rootId,noteRevision:c.noteRevision,commitment:c.statement.output,
+        d27JobId:c.d27JobId,ci51JobId:c.ci51JobId,status,availableBalance:null,nativeSelfCustody:false as const});
+    }),
     readDeviceOutputBalanceSubject: () => original('Leer sólo los identificadores de estas dos notas; no revelar aperturas ni autorizar W39', async value => {
       const note = value.note, spend = value.spend;
       if (!note?.deviceJob || !note.funding || !spend?.proofJob || !spend.reservation) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
@@ -1792,7 +1940,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     readDeviceReservationIntent: () => original('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
       async value => value.spend?.proofJob ? Object.freeze({ ...value.spend.proofJob, rootId: value.rootId,
         operationId: value.spend.proposal.operationId, nativeEffectsEstablished: false as const }) : null),
-    close() { discardReview(); closed = true; liveInclusion = null; liveOutputBalances = null;
+    close() { discardReview(); closed = true; liveInclusion = null; liveOutputBalances = null; liveClaimObservation = null;
+      for (const witness of outstandingClaimWitnesses) wipeClaim(witness);
       for (const witness of outstandingWitnesses) wipeWitness(witness);
       for (const witness of outstandingAuthorizationWitnesses) wipeAuthorization(witness);
       for (const witness of outstandingExitWitnesses) wipeExit(witness); },

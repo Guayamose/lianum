@@ -2,7 +2,7 @@
  * no signing, proof, funding, custody key or economic execution capability.
  * Durable operations remain in their original journals; restart starts empty. */
 import {readOriginalPrivateStateObservationV1,originalPrivateStateObservationDescriptorV1} from '../api/original-account-api-v2.mjs';
-import {readNativeClaimDeviceObservationV1} from '../api/native-claim-device-api-v1.mjs';
+import {readNativeClaimDeviceObservationV1,readOriginalDeviceRootClaimObservationV2} from '../api/native-claim-device-api-v1.mjs';
 import {readDeviceDefiPositionObservationV1} from '../api/device-defi-position-read-api-v1.mjs';
 import {readDeviceExternalFlatStatusV1} from '../api/device-external-flat-note-api-v1.mjs';
 import {normalizeExternalFlatDescriptorV1,externalFlatHexV1,DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
@@ -56,6 +56,15 @@ export function createPrivateWalletStateV1(){
     available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,
     requests,custody:'BACKEND',observed:{observedAt:v.observedAt,observation:'DURABLE_JOURNAL_ONLY'}}],
     ()=>readNativeClaimDeviceObservationV1(raw));
+  },
+  acceptDeviceRootClaims(raw){
+   const v=readOriginalDeviceRootClaimObservationV2(raw),d=v.descriptor,c=d.claim;
+   const rows=v.economicState.rows.map(row=>({route:{component:'CUSTODIAL_NATIVE_CLAIM',custodyProfile:d.profile,origin:c.origin,
+    pairingId:c.pairingId,lifetime:c.lifetimeSHA256,owner:c.accountScopeSHA256,domain:c.claimDomain,genesis:c.nativeGenesis,
+    nativeAsset:c.nativeAsset,nativeFamily:c.nativeFamily,...row.route},label:c.claimSymbol,decimals:c.decimals,state:row.state,
+    available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,requests:row.requests,
+    custody:'DEVICE',observed:{observedAt:v.observedAt,observation:'ORIGINAL_DEVICE_ROOT_CLAIM_JOURNAL_AND_CURRENT_SOURCE'}}));
+   retain(routeKey(['DEVICE_ROOT_CLAIM',c.origin,c.pairingId,c.claimDomain]),rows,()=>readOriginalDeviceRootClaimObservationV2(raw));
   },
   acceptPositions(raw){
    const v=readDeviceDefiPositionObservationV1(raw);

@@ -1,3 +1,5 @@
+import DeviceRootNativeClaimScreenV2 from './DeviceRootNativeClaimScreenV2';
+import type {DeviceRootClaimObservationV2} from '../api/native-claim-device-api-v1.mjs';
 import {useEffect,useRef,useState} from 'react';
 import {Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput} from 'react-native';
 import {fetch as expoFetch} from 'expo/fetch';
@@ -7,7 +9,8 @@ import {normalizeNativeClaimDeviceDescriptorV1,type NativeClaimDeviceObservation
 import {pendingNativeClaimRedemptionV1} from '../custody/native-claim-pending-store-v1';
 import type {PendingNativeClaimRedemptionV1} from '../custody/native-claim-pending-v1.mjs';
 type Client=ReturnType<typeof createNativeClaimDeviceApiV1>;
-export default function NativeClaimScreen({onObservation}:{onObservation?(value:NativeClaimDeviceObservationV1):void}={}){
+export default function NativeClaimScreen({onObservation,onDeviceRootObservation}:{onObservation?(value:NativeClaimDeviceObservationV1):void;onDeviceRootObservation?(value:DeviceRootClaimObservationV2):void}={}){
+ const [deviceRoot,setDeviceRoot]=useState(false);
  const [pairing,setPairing]=useState(''),[view,setView]=useState<NativeClaimDeviceObservationV1|null>(null),[busy,setBusy]=useState(false);
  const [requestId,setRequestId]=useState(''),[amount,setAmount]=useState(''),[maxFee,setMaxFee]=useState('');
  const [retained,setRetained]=useState<PendingNativeClaimRedemptionV1|null>(null);
@@ -63,8 +66,10 @@ export default function NativeClaimScreen({onObservation}:{onObservation?(value:
   }catch{if(mounted.current&&epoch.current===ticket){admitted.current=true;setNotice('No se pudo comprobar el registro protegido. Conserva el identificador original y recupera su almacenamiento antes de otro gasto.');}}
   finally{working.current=false;if(mounted.current)setBusy(false);}
  }
+ if(deviceRoot)return <DeviceRootNativeClaimScreenV2 onObservation={onDeviceRootObservation} onBack={()=>{clear();setDeviceRoot(false);}}/>;
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}>
   <Text style={styles.title}>Claims BTC / SOL / SPL</Text>
+  <Pressable disabled={busy} onPress={()=>{clear();setDeviceRoot(true);}} style={styles.button}><Text>Nota privada bajo custodia del dispositivo</Text></Pressable>
   <Text style={styles.text}>Custodia del backend y quórum local. Este emparejamiento no entrega una clave BTC/SOL al dispositivo ni convierte un claim en saldo nativo gastable.</Text>
   <TextInput accessibilityLabel="Emparejamiento original de claims" multiline autoCapitalize="none" autoCorrect={false} editable={!busy} value={pairing}
    onChangeText={value=>{clear();setPairing(value);}} placeholder="Descriptor privado del operador" placeholderTextColor="#b8c8cd" style={styles.input}/>
