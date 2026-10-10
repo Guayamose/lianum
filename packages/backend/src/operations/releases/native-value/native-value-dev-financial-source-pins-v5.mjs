@@ -2,7 +2,7 @@
  * closure recorded by the original W39 build. Fixed roots; no caller paths. */
 import assert from 'node:assert/strict';
 import { dirname, join, resolve, relative, sep } from 'node:path';
-import { lstatSync, realpathSync, readFileSync, readdirSync } from 'node:fs';
+import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { ROOT, FLAT, GOLDEN, CANDIDATE } from '../../../../../proofs/src/catalog.mjs';
 import { nativeValueDevHostSourcePinsV5 } from './native-value-dev-source-pins-v5.mjs';
@@ -13,7 +13,7 @@ const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/dev
  ['flat/',FLAT],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
 // Manual SQL product callers have physical pins in native-device-local-operator
 // and the platform SQL source caps; they are not financial-worker imports.
-const FIXED=Object.freeze(['integration/run-device-uniswap-v3-private-note-v1.mjs','workspace-module/apps/platform/src/original-device-cloud-local-gateway-v1.mjs','workspace-module/apps/platform/src/run-original-device-cloud-local-v1.mjs','mobile-app/src/screens/NativeClaimScreen.tsx','mobile-app/src/custody/native-claim-pending-v1.mjs','mobile-app/src/custody/native-claim-pending-v1.d.mts','mobile-app/src/custody/native-claim-pending-store-v1.ts','integration/run-device-aave-static-private-position-v1.mjs','integration/run-native-value-private-worker-durable-note-recovery-v3.mjs','integration/run-native-value-private-authorized-durable-note-recovery-v2.mjs','integration/run-native-value-private-durable-note-recovery-v2.mjs','integration/run-device-external-flat-source-graph-v1.mjs','integration/run-native-original-source-abrupt-v1.mjs','wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-native-source-v1.mjs','integration/run-device-owner-original-f-reorg-v1.mjs','golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
+const FIXED=Object.freeze(['integration/run-device-uniswap-v3-private-note-v1.mjs','mobile-app/src/screens/NativeClaimScreen.tsx','mobile-app/src/custody/native-claim-pending-v1.mjs','mobile-app/src/custody/native-claim-pending-v1.d.mts','mobile-app/src/custody/native-claim-pending-store-v1.ts','integration/run-device-aave-static-private-position-v1.mjs','integration/run-native-value-private-worker-durable-note-recovery-v3.mjs','integration/run-native-value-private-authorized-durable-note-recovery-v2.mjs','integration/run-native-value-private-durable-note-recovery-v2.mjs','integration/run-device-external-flat-source-graph-v1.mjs','integration/run-native-original-source-abrupt-v1.mjs','wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-native-source-v1.mjs','integration/run-device-owner-original-f-reorg-v1.mjs','golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
  'integration/run-native-value-economic-note-recovery-v1.mjs',
  'integration/run-native-value-live-armed-short-restart-v1.mjs','integration/native-value-live-armed-short-restart-flow-v1.mjs','integration/native-device-live-armed-short-successor-v1.mjs',
  'integration/run-evm-metamorpho-recovery-flow-v1.mjs',
@@ -33,14 +33,6 @@ const FIXED=Object.freeze(['integration/run-device-uniswap-v3-private-note-v1.mj
  'wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs',
  'wallet-platform/modules/operations/local/device-external-flat-ordered-local-operator-v1.mjs']);
 const excluded=join(ROOT,'wallet-platform/modules/ops/native-value-dev-release-v5.mjs');
-// The local Cloud CLI imports pg's CommonJS entry. Capture its whole installed
-// public dependency closure, including optional pg-cloudflare, rather than
-// treating a bare import as a local file or omitting runtime require() bytes.
-const PLATFORM_PG_PACKAGES=Object.freeze({pg:'8.23.1','pg-cloudflare':'1.4.1',
- 'pg-connection-string':'2.14.1','pg-int8':'1.0.1','pg-pool':'3.14.0',
- 'pg-protocol':'1.16.1','pg-types':'2.2.0',pgpass:'1.0.5',
- 'postgres-array':'2.0.0','postgres-bytea':'1.0.1','postgres-date':'1.0.7',
- 'postgres-interval':'1.2.0',split2:'4.2.0',xtend:'4.0.2'});
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function pathFor(name){
  assert.ok(typeof name==='string'&&name&&!name.startsWith('/')&&!name.split('/').some(v=>!v||v==='.'||v==='..'),'NV5_FINANCIAL_FIXED_PATH');
@@ -62,32 +54,6 @@ function bytes(path){
 export function nativeValueDevFinancialSourcePinsV5(){
  assert.equal(arguments.length,0,'NV5_FINANCIAL_NO_OPTIONS');const original=nativeValueDevHostSourcePinsV5(),files=new Map(),visited=new Set();
  for(const row of original){const path=pathFor(row.path);assert.equal(sha(bytes(path)),row.sha256);assert.equal(files.has(path),false,'NV5_FINANCIAL_SOURCE_ALIAS');files.set(path,row);}
- let pgCaptured=false;
- function capturePlatformPg(){
-  if(pgCaptured)return;pgCaptured=true;
-  const platform=join(DEVELOPMENT,'apps/platform'),lockPath=join(platform,'package-lock.json'),
-    manifestPath=join(platform,'package.json'),lock=JSON.parse(bytes(lockPath)),manifest=JSON.parse(bytes(manifestPath));
-  assert.equal(lock.lockfileVersion,3,'NV5_FINANCIAL_PG_LOCK_VERSION');
-  assert.deepEqual(manifest.dependencies,{pg:PLATFORM_PG_PACKAGES.pg},'NV5_FINANCIAL_PG_DIRECT_DEPENDENCY');
-  assert.deepEqual(lock.packages[''].dependencies,manifest.dependencies,'NV5_FINANCIAL_PG_LOCK_DIRECT');
-  assert.deepEqual(Object.keys(lock.packages).filter(name=>name!=='').sort(),
-    Object.keys(PLATFORM_PG_PACKAGES).map(name=>'node_modules/'+name).sort(),'NV5_FINANCIAL_PG_LOCK_CLOSURE');
-  for(const path of [manifestPath,lockPath])files.set(path,{path:label(path),sha256:sha(bytes(path))});
-  const captureDirectory=directory=>{
-   assert.equal(realpathSync(directory),directory,'NV5_FINANCIAL_PG_DIRECTORY_ALIAS');
-   for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){
-    const path=join(directory,entry.name);assert.equal(entry.isSymbolicLink(),false,'NV5_FINANCIAL_PG_SOURCE_ALIAS');
-    if(entry.isDirectory())captureDirectory(path);
-    else{assert.ok(entry.isFile(),'NV5_FINANCIAL_PG_SOURCE_FILE');files.set(path,{path:label(path),sha256:sha(bytes(path))});}
-   }
-  };
-  for(const [name,version]of Object.entries(PLATFORM_PG_PACKAGES)){
-   assert.equal(lock.packages['node_modules/'+name].version,version,'NV5_FINANCIAL_PG_LOCK_PACKAGE');
-   const directory=join(platform,'node_modules',name),installed=JSON.parse(bytes(join(directory,'package.json')));
-   assert.equal(installed.name,name,'NV5_FINANCIAL_PG_INSTALLED_NAME');
-   assert.equal(installed.version,version,'NV5_FINANCIAL_PG_INSTALLED_VERSION');captureDirectory(directory);
-  }
- }
  function visit(path){
   if(path===excluded||visited.has(path))return;visited.add(path);const value=bytes(path),name=label(path),prior=files.get(path);
   if(prior)assert.equal(prior.sha256,sha(value),'NV5_FINANCIAL_BASE_SOURCE_CHANGED');else files.set(path,{path:name,sha256:sha(value)});
@@ -98,10 +64,6 @@ export function nativeValueDevFinancialSourcePinsV5(){
   for(const match of source.matchAll(/\bnew\s+URL\s*\(\s*(['"])([^'"]+\.mjs)\1\s*,\s*import\.meta\.url\s*\)/g))imports.add(match[2]);
   for(const name of imports){
    if(name.startsWith('node:')||['@aztec/bb.js','@noir-lang/noir_js','@noir-lang/noir_wasm'].includes(name))continue;
-   if(name==='pg'){
-    assert.equal(path,join(DEVELOPMENT,'apps/platform/src/database-pool.mjs'),'NV5_FINANCIAL_PG_ORIGINAL_IMPORT');
-    capturePlatformPg();continue;
-   }
    // The unchanged full walker already pins public package manifests and bytes.
    if(name==='@lianum/mobile-protocol'){visit(join(DEVELOPMENT,'packages/mobile-protocol/src/authorization.mjs'));continue;}
    if(name==='@lianum/mobile-protocol/original-account-v2'){visit(join(DEVELOPMENT,'packages/mobile-protocol/src/original-account-review-v2.mjs'));continue;}

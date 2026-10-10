@@ -239,10 +239,11 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   const { X509Certificate, createPrivateKey } = await import('node:crypto');
   const { types } = await import('node:util');
   const { normalizeMobileOrigin } = await import('../../../packages/mobile-protocol/src/authorization.mjs');
+  const { assertOriginalDeviceCloudPublicSourcesV1 } = await import('../src/original-device-cloud-source-pins-v1.mjs');
   const source = await readFile(new URL('../src/original-device-cloud-local-gateway-v1.mjs', import.meta.url), 'utf8');
-  assert.equal((source.match(/^import .*;$/gm) ?? []).length, 8);
+  assert.equal((source.match(/^import .*;$/gm) ?? []).length, 9);
   const compile = new Function('createServer', 'tlsRequest', 'checkServerIdentity', 'X509Certificate', 'createPrivateKey', 'types',
-    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1',
+    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1', 'assertOriginalDeviceCloudPublicSourcesV1',
     source.replace(/^import .*;\n/gm, '').replace('export async function startPlatformOriginalDeviceCloudLocalGatewayV1',
       'async function startPlatformOriginalDeviceCloudLocalGatewayV1') + '\nreturn startPlatformOriginalDeviceCloudLocalGatewayV1;');
   const directory = await mkdtemp(join(tmpdir(), 'lianum-original-gateway-host-'));
@@ -274,7 +275,7 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
       await new Promise((resolve, reject) => { upstream.once('error', reject); upstream.listen(port, '127.0.0.1', resolve); });
       return Object.freeze({ profile: 'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3', descriptor: { origin: input.origin, devicePublicKey: input.devicePublicKey },
         automaticFunding: false, durableOriginalAdmission: true, async close() { closed++; await new Promise(resolve => upstream.close(resolve)); return { closed: true, originalResourcesStopped: true }; } });
-    }, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); });
+    }, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); }, assertOriginalDeviceCloudPublicSourcesV1);
   const reservation = http.createServer(); await new Promise(resolve => reservation.listen(0, '127.0.0.1', resolve));
   const originalPort = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
   const app = await start({ origin: `https://localhost:${originalPort}`, devicePublicKey: ownerPublicKey, tls, pool, privacyKey: '91'.repeat(32), port: 0 });

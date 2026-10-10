@@ -2,6 +2,7 @@
  * remains unbound. Requests select neither an upstream nor economic resources;
  * the original listener owns consent, admission, proof deadlines and UNKNOWN. */
 import { createServer } from 'node:http';
+import { assertOriginalDeviceCloudPublicSourcesV1 } from './original-device-cloud-source-pins-v1.mjs';
 import { request as tlsRequest } from 'node:https';
 import { checkServerIdentity } from 'node:tls';
 import { X509Certificate, createPrivateKey } from 'node:crypto';
@@ -59,6 +60,7 @@ async function body(request, maximum) {
 }
 export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
   if (arguments.length !== 1) fail('PLATFORM_ORIGINAL_GATEWAY_CONFIGURATION');
+  assertOriginalDeviceCloudPublicSourcesV1();
   exact(input, ['origin', 'devicePublicKey', 'tls', 'pool', 'privacyKey', 'port']);
   exact(input.tls, ['certificate', 'privateKey']);
   if (normalizeMobileOrigin(input.origin) !== input.origin || !Number.isInteger(input.port) || input.port < 0 || input.port > 65535)
