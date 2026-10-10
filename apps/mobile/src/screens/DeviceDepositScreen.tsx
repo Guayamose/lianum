@@ -17,8 +17,10 @@ import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDevice
   from '../custody/local-root-note-vault-v1';
 import type {DeviceDepositWitnessV1} from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import type {DeviceDepositConsentEitherV2 as DeviceDepositConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import { wipeDeviceReservationWitnessV1, type DeviceReservationConsentV1, type DeviceReservationWitnessV1 }
+import { wipeDeviceReservationWitnessV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import type {DeviceReservationConsentEitherV2 as DeviceReservationConsentV1}
+  from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 const recoveryArmStateLabel=(state:DeviceRecoveryArmStatusV1['state'])=>({ABSENT:'sin activar',ARMED:'activada',DISARMED:'desactivada',FIRING:'recuperando',UNKNOWN:'desconocido',RECOVERED:'recuperada',FULFILLED:'completada'})[state];
 type ExecutionClient = Awaited<ReturnType<typeof createDeviceOwnerExecutionApiV1>>;
 type BalanceClient = Awaited<ReturnType<typeof createDeviceOwnerOutputBalanceApiV1>>;

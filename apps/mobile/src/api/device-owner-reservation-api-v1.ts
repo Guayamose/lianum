@@ -106,7 +106,7 @@ export async function createDeviceOwnerReservationApiV1(descriptor: OriginalAcco
       // local provenance. PROVED/UNKNOWN never issue an inclusion or a balance.
       return value;
     },
-    close() { closed = true; api.deviceReservation.close(); },
+    close() { closed = true; original.deviceReservation.close(); },
   });
 }
 /** DTOs/copies cannot replace this completed fixed native HTTPS response. Its
