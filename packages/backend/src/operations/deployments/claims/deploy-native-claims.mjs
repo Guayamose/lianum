@@ -59,6 +59,16 @@ export async function createNativeClaimBootstrap(input) {
   assert.equal(arguments.length, 1, 'CLAIM_BOOTSTRAP_ARGUMENTS');
   return createBootstrap(input, false);
 }
+/** New before-fund BTC/SOL birth with genuine recent-blockhash CI51 V1 and
+ * CO42 preparation. This selects new provenance, never a historical fallback
+ * or SPL asset/rule/token profile. Caller build/runtime options are rejected. */
+export async function preflightOriginalRecentBlockhashNativeClaimV4Artifacts(){
+  assert.equal(arguments.length,0,'CLAIM_ORIGINAL_V1_PREFLIGHT_NO_OPTIONS');await loadBootstrapArtifacts(false,false,true);
+}
+export async function createOriginalRecentBlockhashNativeClaimBootstrapV4(input){
+  assert.equal(arguments.length,1,'CLAIM_ORIGINAL_V1_BOOTSTRAP_ARITY');return createBootstrap(input,false,false,true);
+}
+
 /** Explicit new-domain entrypoint. No caller-supplied artifacts or profile. */
 export async function createNativeClaimIngressV3Bootstrap(input) {
   assert.equal(arguments.length, 1, 'CLAIM_BOOTSTRAP_ARGUMENTS');
@@ -81,8 +91,9 @@ export async function deployNativeClaimSystem(runtime, options) {
 // Both the no-node V3 preflight and the owned bootstrap use these exact fixed
 // readers. Every call rereads their complete original dependencies; no artifact
 // cache, caller data, path, compatibility pin or runtime authority is accepted.
-async function loadBootstrapArtifacts(ingressV3,spl=false) {
-  const bundlePromise = spl
+async function loadBootstrapArtifacts(ingressV3,spl=false,originalV1=false) {
+  assert.ok(typeof originalV1==='boolean'&&(!originalV1||(!ingressV3&&!spl)),'CLAIM_ORIGINAL_V1_FIXED_BOOTSTRAP');
+  const bundlePromise = (spl||originalV1)
     ? import('./native-spl-claim-v1-artifacts.mjs').then(module=>module.loadNativeSplClaimV1Artifacts())
     : ingressV3
     ? import('./native-claim-ingress-v3-artifacts.mjs').then(module => module.loadNativeClaimIngressV3Artifacts())
@@ -219,7 +230,8 @@ async function nativePreflight(binding) {
     }
   }
 }
-async function createBootstrap(input, ingressV3,spl=false) {
+async function createBootstrap(input, ingressV3,spl=false,originalV1=false) {
+  assert.ok(typeof originalV1==='boolean'&&(!originalV1||(!ingressV3&&!spl)),'CLAIM_ORIGINAL_V1_FIXED_BOOTSTRAP');
   exactRecord(input, ['runtime', 'nativeRuntimes', 'journalRoot']);
   const { runtime, journalRoot } = input; fixedArray(input.nativeRuntimes, 2);
   const nativeRuntimes = Object.freeze([...input.nativeRuntimes]), tree = nativeIdentity(nativeRuntimes,spl);
@@ -246,9 +258,9 @@ async function createBootstrap(input, ingressV3,spl=false) {
   assert.deepEqual(await readdir(journalRoot), [], 'CLAIM_BOOTSTRAP_FRESH_JOURNAL');
   // Artifact loading is eager: missing genuine claim keys or compilation stops
   // before the outer base-ledger deployment can send its first transaction.
-  // Both entrypoints are fixed no-options loaders. Never retry V3 failures
+  // Every entrypoint selects a fixed loader. Never retry V3 failures
   // through the legacy loader, or update an existing domain in place.
-  const { bundle, baseBundle } = await loadBootstrapArtifacts(ingressV3,spl);
+  const { bundle, baseBundle } = await loadBootstrapArtifacts(ingressV3,spl,originalV1);
   const genesis = await runtime.block('0x0'); await runtime.assertCanonical(genesis);
   assert.equal(genesis.hash, runtime.metadata.evmGenesis, 'CLAIM_BOOTSTRAP_EVM_GENESIS');
   const binding = { runtime, nativeRuntimes,spl, nativeRoles: frozenInput(nativeRuntimes.map(native => cloneInput(native.roles))),

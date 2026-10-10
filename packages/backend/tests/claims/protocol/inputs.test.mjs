@@ -337,3 +337,28 @@ test('HOST RootNote original CI51 selects recent-blockhash ingress before birth 
  assert.throws(()=>bootstrapGuard(assert,C.exactRecord,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',[{},v3Surface],false,false),/V3_RUNTIME_REQUIRES_NEW_BOOTSTRAP/);
  bootstrapGuard(assert,C.exactRecord,'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3','LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',[{},v3Surface],true,false);
 });
+
+
+test('HOST RootNote new bare CI51 V1 bootstrap selects reviewed preparation before native birth without SPL or historical fallback',async()=>{
+ // Actual candidate loader/finite entries/consumer selector; imports return
+ // explicitly inert DATA. No native capability, compiler, proof or funds.
+ const {readFile}=await import('node:fs/promises'),{existsSync}=await import('node:fs');
+ const original=(generated,canonical)=>{const value=new URL(generated,import.meta.url);return existsSync(value)?value:new URL(canonical,import.meta.url);};
+ const deployment=await readFile(original('../ops/deploy-native-claims.mjs','../../../src/operations/deployments/claims/deploy-native-claims.mjs'),'utf8');
+ const api=await readFile(original('../api/native-claim-http.mjs','../../../src/api/claims/native-claim-http.mjs'),'utf8');
+ const begin=deployment.indexOf('async function loadBootstrapArtifacts('),end=deployment.indexOf('export async function preflightNativeSplClaimIngressV1Artifacts()',begin);assert.ok(begin>0&&end>begin);
+ const bare=Object.freeze({contracts:Object.freeze({artifacts:Object.freeze({gateway:'HOST_ORIGINAL_GATEWAY',token:'HOST_ORIGINAL_CLAIM_TOKEN'})}),verifiers:Object.freeze({CI51:'HOST_NEW_ORIGINAL_CI51_V1',CO42:'HOST_NEW_ORIGINAL_CO42'})}),base=Object.freeze({ledger:'HOST_ORIGINAL_LEDGER'}),calls=[];
+ const fixedImport=async path=>{calls.push(path);if(path==='./native-spl-claim-v1-artifacts.mjs')return{async loadNativeSplClaimV1Artifacts(){return bare;}};if(path==='./native-claim-ingress-v3-artifacts.mjs')return{async loadNativeClaimIngressV3Artifacts(){return{profile:'HOST_ORIGINAL_V3'};}};if(path==='./native-claim-artifacts.mjs')return{async loadNativeClaimArtifacts(){throw Error('HOST_HISTORICAL_MANIFEST_ABSENT');}};throw Error('HOST_UNKNOWN_IMPORT');};
+ let splExtensions=0;const load=Function('assert','fixedImport','loadFlatDeploymentArtifacts','loadNativeSplClaimTokenArtifactsV1','loadNativeSplClaimValidationArtifactsV1',deployment.slice(begin,end).replaceAll('import(', 'fixedImport(')+'return loadBootstrapArtifacts;')(assert,fixedImport,async()=>base,()=>{splExtensions++;return{artifacts:{nativeSplToken:'HOST_SPL_TOKEN'}};},()=>{splExtensions++;return{artifacts:{nativeSplClaimValidation:'HOST_SPL_VALIDATION'}};});
+ const loaded=await load(false,false,true);assert.equal(loaded.bundle,bare);assert.equal(loaded.baseBundle,base);assert.deepEqual(calls,['./native-spl-claim-v1-artifacts.mjs']);assert.equal(splExtensions,0);assert.equal(Object.hasOwn(loaded.bundle.contracts.artifacts,'nativeSplToken'),false);
+ await assert.rejects(load(false,false,false),/HOST_HISTORICAL_MANIFEST_ABSENT/);assert.equal(calls.filter(p=>p==='./native-spl-claim-v1-artifacts.mjs').length,1);assert.equal(splExtensions,0);
+ await assert.rejects(load(true,false,true),/FIXED_BOOTSTRAP/);await assert.rejects(load(false,true,true),/FIXED_BOOTSTRAP/);await assert.rejects(load(false,false,{}),/FIXED_BOOTSTRAP/);
+ const oldV3=await load(true,false,false);assert.equal(oldV3.bundle.profile,'HOST_ORIGINAL_V3');const oldSpl=await load(false,true,false);assert.equal(oldSpl.bundle.contracts.artifacts.nativeSplToken,'HOST_SPL_TOKEN');assert.equal(splExtensions,2);
+ const ctorBegin=deployment.indexOf('export async function preflightOriginalRecentBlockhashNativeClaimV4Artifacts()'),ctorEnd=deployment.indexOf('export async function createNativeClaimIngressV3Bootstrap(input)',ctorBegin);assert.ok(ctorBegin>0&&ctorEnd>ctorBegin);
+ let nativeBirths=0;const entries=Function('assert','loadBootstrapArtifacts','createBootstrap',deployment.slice(ctorBegin,ctorEnd).replaceAll('export async function','async function')+'return {preflight:preflightOriginalRecentBlockhashNativeClaimV4Artifacts,create:createOriginalRecentBlockhashNativeClaimBootstrapV4};')(assert,load,async(input,...profile)=>{nativeBirths++;assert.deepEqual(profile,[false,false,true]);return input;});
+ await assert.rejects(entries.preflight({}),/NO_OPTIONS/);assert.equal(nativeBirths,0);await entries.preflight();assert.equal(nativeBirths,0);await assert.rejects(entries.create({},{}),/ARITY/);assert.equal(nativeBirths,0);const originalInput=Object.freeze({profile:'HOST_INERT_ORIGINAL_INPUT'});assert.equal(await entries.create(originalInput),originalInput);assert.equal(nativeBirths,1);
+ const body=api.slice(api.indexOf('async function createDeviceRootClaimLocalOperator(config,profile){')),match=/const bootstrap=await\(([^\n]+)\)\(\{runtime,nativeRuntimes/.exec(body);assert.ok(match);
+ const select=Function('family','profile','createNativeSplClaimIngressV1Bootstrap','createOriginalRecentBlockhashNativeClaimBootstrapV4','createNativeClaimBootstrap','return '+match[1]+';'),spl=Object.freeze({}),fresh=Object.freeze({}),legacy=Object.freeze({});
+ for(const family of ['BTC','SOL'])assert.equal(select(family,family+'_EXIT_V3',spl,fresh,legacy),fresh);for(const family of ['BTC','SOL'])assert.equal(select(family,family,spl,fresh,legacy),legacy);assert.equal(select('SPL','SPL_EXIT_V3',spl,fresh,legacy),spl);
+ const preflight=body.indexOf('await preflightOriginalRecentBlockhashNativeClaimV4Artifacts()'),birth=body.indexOf('runtime=await(');assert.ok(preflight>0&&preflight<birth);assert.match(body.slice(0,preflight),/profile\.endsWith\('_EXIT_V3'\)&&family!=='SPL'/);
+});
