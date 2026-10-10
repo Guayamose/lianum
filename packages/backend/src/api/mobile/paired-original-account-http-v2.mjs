@@ -371,8 +371,8 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
           const network = closeTransport(); network.catch(() => {});
           composedClose = (async () => {
             const outcomes = await Promise.allSettled(pending);
-            if(isOriginalNativePrivateDepositBridgeV2(bridge))await bridge.close();else bridge.close();
-            reservationBridge.close();if(isOriginalNativePrivateExecutionBridgeV2(executionBridge))await executionBridge.close();else executionBridge.close();
+            await bridge.close();
+            await reservationBridge.close(); await executionBridge.close();
             await actor.close(); depositContinuations.delete(actor);
             const report = await network;
             return Object.freeze({ ...report, originalDiagnosticsInFlight: running.size,
@@ -450,8 +450,12 @@ export async function stopCapturedNativeDeviceTransportRecoveryV1(transport, aut
     fail('MOBILE_ORIGINAL_HTTP_CLEANUP_UNCONFIRMED');
   // These controllers retain no unclosed original job because running is zero.
   // Their nonce maps are invalidated; economic one-use latches remain in Vault.
-  if(isOriginalNativePrivateDepositBridgeV2(owned.bridge))await owned.bridge.close();else owned.bridge.close();
-  owned.reservationBridge.close();if(isOriginalNativePrivateExecutionBridgeV2(owned.executionBridge))await owned.executionBridge.close();else owned.executionBridge.close();
+  // The coordinator has already fenced the actor/account for capture. These
+  // exact bridge references were authenticated at transport birth; probing a
+  // live profile here would reject the same originals after their fence.
+  // Await every close so private U also drains its retained original job.
+  await owned.bridge.close();
+  await owned.reservationBridge.close(); await owned.executionBridge.close();
   capture.stopped = true; listeners.delete(owned.actor); depositContinuations.delete(owned.actor);
   return Object.freeze({ ...report, actorRetainedForOriginalRecovery: true });
 }

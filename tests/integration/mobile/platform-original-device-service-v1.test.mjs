@@ -237,14 +237,23 @@ test('native recovery privately retires the composed TLS listener before actor c
   assertPairedOriginalAccountActorV2(c.actor);
   await assert.rejects(c.direct('/v2/mobile/original-account/state'));
   await assert.rejects(api.abortNativeDeviceTransportRecoveryV1(transport, { ...issuer.authority }), /CAPTURE_REQUIRED/);
+  const actors = await createActorModule();
+  actors.fenceOriginalNativeActorEconomicRecoveryV1(c.actor, issuer.authority);
+  assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
+  const deposits = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
+  assert.throws(() => deposits.isOriginalNativePrivateDepositBridgeV2(c.input.depositBridge), /ACTOR_CLOSED/);
   const closed = await api.stopCapturedNativeDeviceTransportRecoveryV1(transport, issuer.authority);
   assert.equal(closed.closed, true); assert.equal(closed.listenerClosed, true); assert.equal(closed.ownedSocketsRemaining, 0);
   assert.equal(closed.originalDiagnosticsInFlight, 0); assert.equal(closed.actorRetainedForOriginalRecovery, true);
-  await transport.close(); assertPairedOriginalAccountActorV2(c.actor);
+  await transport.close(); assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
   assert.deepEqual(await api.abortNativeDeviceTransportRecoveryV1(transport, issuer.authority), { closed: true, originalResourcesStopped: true });
   assert.equal((await c.f.session.snapshot()).revision, before.revision);
   assert.equal(c.f.world.sends, 0); assert.equal(c.f.world.proofs, 0);
-  c.actor.close(); assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
+  const actorToken = issuer.token('actor');
+  const retained = actors.captureOriginalNativeActorEconomicRecoveryV1(c.actor, actorToken);
+  issuer.retain(actorToken, retained);
+  assert.equal(actors.stopCapturedNativeActorEconomicRecoveryV1(c.actor, actorToken).closed, true);
+  assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
 });
 
 
