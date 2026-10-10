@@ -211,6 +211,19 @@ def fixed_launcher(source, project):
             'ARBITRUM_ORIGINAL_GENESIS_SCHEDULE_LITERAL')
     source = source.replace(genesis_step, genesis_step +
         '    docker compose run --rm --entrypoint node scripts -e "' + schedule + '"\n')
+    # The one-off generator has already completed and its SAME JSON was
+    # consumed by geth init. Starting beacon dependencies would run the normal
+    # generator again and overwrite SSZ/JSON with another genesis timestamp.
+    # Start the original Geth explicitly, then only those original Prysm roles.
+    beacon_start = '      docker compose up --wait prysm_beacon_chain\n'
+    validator_start = '      docker compose up --wait prysm_validator\n'
+    require(source.count(beacon_start) == 1 and source.count(validator_start) == 1,
+            'ARBITRUM_ORIGINAL_PAIRED_GENESIS_STARTUP_CHANGED')
+    source = source.replace(beacon_start,
+        '      docker compose up --wait geth\n'
+        '      docker compose up --wait --no-deps prysm_beacon_chain\n')
+    source = source.replace(validator_start,
+        '      docker compose up --wait --no-deps prysm_validator\n')
     require('docker volume prune' not in source and 'docker rm -f' not in source
             and 'docker volume rm -f' not in source, 'ARBITRUM_ORIGINAL_UNSCOPED_CLEANUP')
     return source

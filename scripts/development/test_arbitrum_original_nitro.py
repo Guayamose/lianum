@@ -58,6 +58,29 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_GENESIS_LAUNCHER_CHANGED$'):
             m.fixed_launcher(altered, 'lianum-nitro-' + '7' * 32)
 
+    def test_same_paired_genesis_is_not_regenerated_after_original_geth_init(self):
+        spec = importlib.util.spec_from_file_location('original_nitro_single_genesis', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        material = m.repository() / '.local/dependencies/arbitrum-nitro-v1/public' / f'nitro-testnode-{m.COMMIT}.tar.gz'
+        original = m.official_files(material)['test-node.bash'].decode()
+        fixed = m.fixed_launcher(original, 'lianum-nitro-' + '7' * 32)
+        generator = 'docker compose run --rm create_beacon_chain_genesis'
+        init = 'docker compose run --rm geth init --state.scheme hash'
+        startup = ('      docker compose up --wait geth\n'
+                   '      docker compose up --wait --no-deps prysm_beacon_chain\n'
+                   '      docker compose up --wait --no-deps prysm_validator\n')
+        self.assertEqual(fixed.count(generator), 1)
+        self.assertEqual(fixed.count(startup), 1)
+        self.assertLess(fixed.index(generator), fixed.index(init))
+        self.assertLess(fixed.index(init), fixed.index(startup))
+        self.assertNotIn('up --wait prysm_beacon_chain', fixed)
+        self.assertNotIn('up --wait prysm_validator', fixed)
+        self.assertEqual(m.FINALITY_MS, 180_000)
+        changed = original.replace('      docker compose up --wait prysm_beacon_chain\n', '')
+        with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_PAIRED_GENESIS_STARTUP_CHANGED$'):
+            m.fixed_launcher(changed, 'lianum-nitro-' + '7' * 32)
+
     def test_private_read_allows_access_time_but_rejects_mutation(self):
         spec = importlib.util.spec_from_file_location('original_nitro_private_reader', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
         m = importlib.util.module_from_spec(spec)
@@ -202,7 +225,7 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         self.assertTrue('send-l1 --ethamount 0.0001 --from user_l1user' not in launcher)
         self.assertNotIn('docker pull $NITRO_NODE_VERSION', launcher)
         self.assertIn('docker compose run --rm geth init --state.scheme hash', launcher)
-        self.assertIn('docker compose up --wait prysm_validator', launcher)
+        self.assertIn('docker compose up --wait --no-deps prysm_validator', launcher)
         self.assertIn('create-rollup-testnode', launcher)
         # This is a synthetic Compose-config port with the exact physical Docker
         # shape; the transform above used the pinned official source itself.
