@@ -274,7 +274,8 @@ async function runOriginalStepV1(context, reservationMode) {
     assert.equal(transaction.transactionHash, '0x' + observation.transactionHash);
     assert.equal(transaction.request.to, system.pools[0].address); assert.equal(BigInt(transaction.request.value), 500n);
     const beforeReplay = { transactions: runtime.transactions.length, proofs: result.proofs.length };
-    await assert.rejects(api.deviceDeposit.submit(signedFunding), /SERVICE_UNAVAILABLE/);
+    await assert.rejects(api.deviceDeposit.submit(signedFunding), funding.version === 2
+      ? /MOBILE_ORIGINAL_PRIVATE_CONSENT/ : /SERVICE_UNAVAILABLE/);
     await assert.rejects(api.deviceDeposit.challenge('FUND_D26', { ...await access(), jobId: funding.jobId }), /SERVICE_UNAVAILABLE/);
     const fresh = await observe(); assert.equal(fresh.transactionHash, observation.transactionHash);
     assert.deepEqual({ transactions: runtime.transactions.length, proofs: result.proofs.length }, beforeReplay);
