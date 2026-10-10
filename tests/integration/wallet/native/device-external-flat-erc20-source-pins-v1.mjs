@@ -112,7 +112,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
+  "1cd77e68679437bb264c2a989af0ee874f768acf08ffc6e45eb3bb207c7bacd6"
  ],
  [
   "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
@@ -132,11 +132,11 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
+  "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "bcc43fa02857979ec8f750b8a8b87377a0d8b63ab6417b4de3c079459b391813"
+  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
  ]
 ]);
 function pin(base,name,expected){assert.equal(realpathSync(base),base);let path=base;for(const part of name.split('/')){assert.ok(part&&part!=='.'&&part!=='..');path=join(path,part);assert.equal(lstatSync(path).isSymbolicLink(),false);}
@@ -205,7 +205,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "731880e8053a7235e4cc7659c3bfd53bb0a065cc2c360e73f1e8ad698bc41bbc"
+  "a22c07a255b650afd7ffe688f90803d6cccd313040f878a3e14173a16e2eba64"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -225,7 +225,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
+  "1cd77e68679437bb264c2a989af0ee874f768acf08ffc6e45eb3bb207c7bacd6"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
@@ -249,7 +249,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "aa6213bb2a2ef4c9854b81acfcea1d62adb7afbb7813a65ef47806577b911e74"
+  "be4490caeb216b5b9c166d390ad3ef425141c4d6746bcb37a268974b697661b2"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -265,15 +265,15 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "d25ce58e72ad8fc7304b67b3887f9e4b9dbf73aa46c71542c10d036067f1264d"
+  "167c80c050d8518730e4ef6f5b2d4369a7d14c7e1e0590362dcd4258f49bb4f3"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
+  "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "bcc43fa02857979ec8f750b8a8b87377a0d8b63ab6417b4de3c079459b391813"
+  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
@@ -388,7 +388,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "731880e8053a7235e4cc7659c3bfd53bb0a065cc2c360e73f1e8ad698bc41bbc"
+  "a22c07a255b650afd7ffe688f90803d6cccd313040f878a3e14173a16e2eba64"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -420,7 +420,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
+  "1cd77e68679437bb264c2a989af0ee874f768acf08ffc6e45eb3bb207c7bacd6"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
@@ -472,7 +472,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "aa6213bb2a2ef4c9854b81acfcea1d62adb7afbb7813a65ef47806577b911e74"
+  "be4490caeb216b5b9c166d390ad3ef425141c4d6746bcb37a268974b697661b2"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -488,15 +488,15 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "d25ce58e72ad8fc7304b67b3887f9e4b9dbf73aa46c71542c10d036067f1264d"
+  "167c80c050d8518730e4ef6f5b2d4369a7d14c7e1e0590362dcd4258f49bb4f3"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
+  "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "bcc43fa02857979ec8f750b8a8b87377a0d8b63ab6417b4de3c079459b391813"
+  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
@@ -606,7 +606,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "apps/platform/src/run-device-external-flat-local-v1.mjs",
-  "731880e8053a7235e4cc7659c3bfd53bb0a065cc2c360e73f1e8ad698bc41bbc"
+  "a22c07a255b650afd7ffe688f90803d6cccd313040f878a3e14173a16e2eba64"
  ],
  [
   "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
@@ -626,7 +626,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-  "366026c2c848b33e1741bc81b8621fedcd2f86e25600009c925ed7c86012b50b"
+  "1cd77e68679437bb264c2a989af0ee874f768acf08ffc6e45eb3bb207c7bacd6"
  ],
  [
   "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
@@ -650,7 +650,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
-  "aa6213bb2a2ef4c9854b81acfcea1d62adb7afbb7813a65ef47806577b911e74"
+  "be4490caeb216b5b9c166d390ad3ef425141c4d6746bcb37a268974b697661b2"
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
@@ -666,15 +666,15 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
-  "d25ce58e72ad8fc7304b67b3887f9e4b9dbf73aa46c71542c10d036067f1264d"
+  "167c80c050d8518730e4ef6f5b2d4369a7d14c7e1e0590362dcd4258f49bb4f3"
  ],
  [
   "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
-  "900f8b4d1579e87c4fc18fa55560178b6af33d9431bbada3e728bb5dba328668"
+  "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "bcc43fa02857979ec8f750b8a8b87377a0d8b63ab6417b4de3c079459b391813"
+  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
