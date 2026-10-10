@@ -227,8 +227,15 @@ async function createBridge(input,privateD26,privateWorker=false) {
     async observe(input) {
       assert.equal(arguments.length, 1, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
       assert.ok(!busy, 'DEVICE_OWNER_BRIDGE_BUSY'); busy = true;
+      const completion = Promise.withResolvers(); completion.promise.catch(() => {});
+      bridges.get(bridge).observationCompletion = completion.promise;
+      let failed = false, failure;
       try { return await runDeviceOwnerDepositAuthorizationV1(account, bridge, await authorize(input, 'OBSERVE_D26')); }
-      finally { busy = false; }
+      catch (error) { failed = true; failure = error; throw error; }
+      finally {
+        busy = false;
+        if (failed) completion.reject(failure); else completion.resolve();
+      }
     },
     close() { assert.equal(arguments.length, 0); closed = true; pending.clear();
       if(!privateD26)return {closed:true,originalWorkRetained:true};
@@ -261,6 +268,13 @@ export async function awaitDeviceOwnerDepositOriginalFundingV1(bridge) {
   assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
   const value = bridges.get(bridge); assert.ok(value && value.fundingCompletion, 'DEVICE_OWNER_BRIDGE_ORIGINAL_FUNDING_REQUIRED');
   value.original(); const original = value.fundingCompletion; await original; value.original();
+}
+/** Private await of the SAME original observation. HTTP rejection publishes no
+ * cause and grants no retry; the bridge retains the original Promise only. */
+export async function awaitDeviceOwnerDepositOriginalObservationV1(bridge) {
+  assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
+  const value = bridges.get(bridge); assert.ok(value && value.observationCompletion, 'DEVICE_OWNER_BRIDGE_ORIGINAL_OBSERVATION_REQUIRED');
+  value.original(); const original = value.observationCompletion; await original; value.original();
 }
 export function deviceOwnerDepositBridgeActorV1(bridge) {
   assert.equal(arguments.length, 1); assert.ok(!types.isProxy(bridge), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');

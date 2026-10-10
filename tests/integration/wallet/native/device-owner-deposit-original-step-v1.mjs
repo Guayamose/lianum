@@ -13,7 +13,7 @@ import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync, c
 import { join } from 'node:path';
 import { writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { normalizeOriginalNativePrivateDepositFailureV2 } from '../../../../packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
-import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1, awaitDeviceOwnerDepositOriginalObservationV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedDeviceDepositTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
@@ -259,7 +259,10 @@ async function runOriginalStepV1(context, reservationMode) {
         const reply = await deviceApi.submit(signed); assert.equal(reply.state, 'CONFIRMED');
         value = { stage: 'CONFIRMED', authorizationSHA256: sha(deviceDepositConsentMessageV1(consent)), observation: host.deposit.readDeviceDepositInclusionV1(reply.observation) };
         await vault.applyDeviceDepositInclusion(reply.observation);
-      } else value = await api.deviceDeposit.submit(signed);
+      } else {
+        try { value = await api.deviceDeposit.submit(signed); }
+        catch (error) { await awaitDeviceOwnerDepositOriginalObservationV1(bridge); throw error; }
+      }
       assert.equal(value.authorizationSHA256, sha(deviceDepositConsentMessageV1(consent)));
       assert.equal(value.stage, 'CONFIRMED'); assert.equal(value.observation.commitment, commitment);
       return value.observation;

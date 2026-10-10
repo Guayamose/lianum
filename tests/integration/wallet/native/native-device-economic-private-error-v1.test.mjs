@@ -288,3 +288,35 @@ test('HOST aggregate private diagnostics retain bounded primary/cleanup frames w
  assert.equal(JSON.stringify(bounded).includes('nestedTruncated'),true);
  const wide=diagnose(new AggregateError(Array(100).fill(cleanup),'PRIVATE'));assert.equal(wide.errors.length,8);assert.equal(wide.nestedTruncated,true);
 });
+
+test('HOST D26 observation retains the same original failure behind a lost or rejected HTTP reply', async () => {
+  const { types } = await import('node:util');
+  const bridgeSource = readFileSync(new URL('../wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs', import.meta.url), 'utf8');
+  const start = bridgeSource.indexOf('    async observe(input) {'), end = bridgeSource.indexOf('    close()', start);
+  const waitStart = bridgeSource.indexOf('export async function awaitDeviceOwnerDepositOriginalObservationV1(');
+  const waitEnd = bridgeSource.indexOf('export function deviceOwnerDepositBridgeActorV1(', waitStart);
+  assert.ok(start >= 0 && end > start && waitStart >= 0 && waitEnd > waitStart);
+  const factory = new Function('assert', 'types', 'authorize', 'runDeviceOwnerDepositAuthorizationV1', 'original',
+    'const bridges = new WeakMap(), account = Object.freeze({ HOST_INERT_ACCOUNT: true }); let busy = false;' +
+    'const bridge = {' + bridgeSource.slice(start, end) + '}; bridges.set(bridge, { original });' +
+    bridgeSource.slice(waitStart, waitEnd).replace('export async function', 'async function') +
+    ';return { bridge, wait: awaitDeviceOwnerDepositOriginalObservationV1 };');
+  let authorized = 0, observed = 0, checks = 0;
+  const running = Promise.withResolvers(), entered = Promise.withResolvers();
+  const primary = Object.assign(new Error('HOST_ORIGINAL_CANONICAL_OBSERVATION_FAILED'), { code: 'HOST_ORIGINAL_CANONICAL_OBSERVATION_FAILED' });
+  const fixed = factory(assert, types, async (input, action) => {
+    assert.equal(action, 'OBSERVE_D26'); assert.equal(input.kind, 'HOST_SIGNED_OBSERVATION'); authorized++; return input;
+  }, async () => { observed++; entered.resolve(); return running.promise; }, () => { checks++; });
+  await assert.rejects(fixed.wait(Object.freeze({})), /ORIGINAL_OBSERVATION_REQUIRED/);
+  const request = fixed.bridge.observe({ kind: 'HOST_SIGNED_OBSERVATION' }); request.catch(() => {});
+  await entered.promise;
+  const retained = fixed.wait(fixed.bridge); retained.catch(() => {});
+  await assert.rejects(fixed.bridge.observe({ kind: 'HOST_SIGNED_OBSERVATION' }), /DEVICE_OWNER_BRIDGE_BUSY/);
+  assert.equal(authorized, 1); assert.equal(observed, 1);
+  running.reject(primary);
+  await assert.rejects(request, error => error === primary);
+  await assert.rejects(retained, error => error === primary);
+  await assert.rejects(fixed.wait(fixed.bridge), error => error === primary);
+  assert.equal(authorized, 1); assert.equal(observed, 1); assert.ok(checks >= 2);
+  await assert.rejects(fixed.wait(new Proxy(fixed.bridge, {})), /ORIGINAL_REQUIRED/);
+});
