@@ -275,3 +275,17 @@ test('HOST device-root original replacement observes SAME source, missing D27 bi
  const permission=api.challenge('READ'),signature=signer.sign(DeviceClaim.deviceRootClaimPermissionMessageV2(permission)),view=await api.read({permission,signature});assert.equal(view.note.state,'UNKNOWN');assert.equal(view.availablePrivateClaims,null);assert.equal(view.commitment,null);assert.equal(view.nullifier,null);assert.equal(reconciles,1);assert.equal(reads,1);assert.equal(financialPorts,0);
  await assert.rejects(api.read({permission,signature}),/ORIGINAL_PERMISSION/);const changed=api.challenge('READ');data.apiDeviceRootClaims[0].ownerIdentitySHA256=h('foreign-owner');await assert.rejects(api.read({permission:changed,signature:signer.sign(DeviceClaim.deviceRootClaimPermissionMessageV2(changed))}),/RETAINED_OBSERVATION_CHANGED/);assert.equal(financialPorts,0);await api.close();assert.throws(()=>api.challenge('READ'),/INTAKE_CLOSED/);
 });
+
+// Actual completion helper, with explicit inert native/controller ports.
+// No block, finality, wire, proof or economic result is accepted by this HOST.
+test('HOST device-root BTC original payout confirms SAME once-sent wire then completes CO42 without another transfer',async()=>{
+ const {readFile}=await import('node:fs/promises'),{existsSync}=await import('node:fs'),generated=new URL('../api/native-claim-http.mjs',import.meta.url);
+ const text=await readFile(existsSync(generated)?generated:new URL(import.meta.resolve('../../../src/api/claims/native-claim-http.mjs')),'utf8'),start=text.indexOf('async function finishOriginalDeviceRootBtcPayoutV3('),end=text.indexOf('export async function startOriginalDeviceRootClaimTlsV2(',start);assert.ok(start>0&&end>start);
+ const complete=Function('assert',text.slice(start,end)+'\nreturn finishOriginalDeviceRootBtcPayoutV3;')(assert),ticketId=h('same-ticket'),receipt={family:'1',nativeId:h('same-native-wire-id'),transactionSHA256:h('same-native-wire'),broadcastAttempts:1},calls=[];let count=0;
+ const original={descriptor:{claim:{nativeFamily:'1'}},poolIndex:0,claims:{nativeRuntimes:[{async confirm(id){assert.equal(id,receipt.nativeId);calls.push('confirm');}}]},controller:{async privateNativeReceipt(request){assert.deepEqual(request,{operationId:ticketId});calls.push('receipt');return structuredClone(receipt);},async payout(request){assert.deepEqual(request,{ticketId});count++;calls.push('complete');return{status:'DISCHARGED'};}}};
+ assert.deepEqual(await complete(original,ticketId,{status:'UNKNOWN'}),{status:'DISCHARGED'});assert.deepEqual(calls,['receipt','confirm','receipt','complete']);assert.equal(count,1);
+ calls.length=0;assert.deepEqual(await complete(original,ticketId,{status:'DISCHARGED'}),{status:'DISCHARGED'});assert.deepEqual(calls,[]);
+ receipt.broadcastAttempts=2;await assert.rejects(complete(original,ticketId,{status:'UNKNOWN'}),/ORIGINAL_SEND_REQUIRED/);assert.deepEqual(calls,['receipt']);receipt.broadcastAttempts=1;calls.length=0;
+ original.controller.privateNativeReceipt=async request=>{assert.deepEqual(request,{operationId:ticketId});calls.push('receipt');return{...receipt,transactionSHA256:calls.length>1?h('changed-wire'):receipt.transactionSHA256};};await assert.rejects(complete(original,ticketId,{status:'UNKNOWN'}),/PAYOUT_WIRE_CHANGED/);assert.deepEqual(calls,['receipt','confirm','receipt']);assert.equal(count,1);
+ original.descriptor.claim.nativeFamily='2';calls.length=0;assert.deepEqual(await complete(original,ticketId,{status:'UNKNOWN'}),{status:'UNKNOWN'});assert.deepEqual(calls,[]);
+});

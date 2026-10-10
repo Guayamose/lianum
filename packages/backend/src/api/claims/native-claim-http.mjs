@@ -388,6 +388,21 @@ async function rootClaimHttpBody(request){
     if(count!==Number(n))deviceHttpFail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));
   }finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}
 }
+/** Same admitted local BTC payout. Regtest confirmation mines the original
+ * once-sent wire; the second controller call observes that exact reservation
+ * before completing CO42/discharge. It cannot authorize a second transfer. */
+async function finishOriginalDeviceRootBtcPayoutV3(original,ticketId,result){
+  if(original.descriptor.claim.nativeFamily!=='1'||result.status==='DISCHARGED')return result;
+  const receipt=await original.controller.privateNativeReceipt({operationId:ticketId});
+  assert.equal(receipt.family,'1','CLAIM_DEVICE_ROOT_BTC_PAYOUT_FAMILY');
+  assert.equal(receipt.broadcastAttempts,1,'CLAIM_DEVICE_ROOT_ORIGINAL_SEND_REQUIRED');
+  await original.claims.nativeRuntimes[original.poolIndex].confirm(receipt.nativeId);
+  const after=await original.controller.privateNativeReceipt({operationId:ticketId});
+  assert.equal(after.nativeId,receipt.nativeId,'CLAIM_DEVICE_ROOT_PAYOUT_WIRE_CHANGED');
+  assert.equal(after.transactionSHA256,receipt.transactionSHA256,'CLAIM_DEVICE_ROOT_PAYOUT_WIRE_CHANGED');
+  assert.equal(after.broadcastAttempts,1,'CLAIM_DEVICE_ROOT_ORIGINAL_SEND_REQUIRED');
+  return original.controller.payout({ticketId});
+}
 export async function startOriginalDeviceRootClaimTlsV2(input){
   if(arguments.length!==1)deviceHttpFail();deviceHttpExact(input,['intake','economicState','tls','host']);deviceHttpExact(input.tls,['certificate','privateKey']);
   const intake=input.intake,descriptor=assertOriginalDeviceRootClaimIntakeV2(intake),original=readOriginalDeviceRootClaimIntakeContextV2(intake);
@@ -413,7 +428,7 @@ export async function startOriginalDeviceRootClaimTlsV2(input){
       if(p.action.endsWith('W39'))result=await intake.operateW39(value);
       else{if(value.packet!==null)deviceHttpFail();const originalExit=await intake.authorizeNativeExit({permission:p,signature:value.signature});current();
         let first;try{if(originalExit.action==='REDEEM_NATIVE'){const {action,...request}=originalExit;result=await original.controller.requestRedemption(request);}
-          else if(originalExit.action==='PAYOUT_NATIVE')result=await original.controller.payout({ticketId:originalExit.ticketId});
+          else if(originalExit.action==='PAYOUT_NATIVE'){result=await original.controller.payout({ticketId:originalExit.ticketId});result=await finishOriginalDeviceRootBtcPayoutV3({...original,descriptor},originalExit.ticketId,result);}
           else{await original.controller.reconcile({operationId:originalExit.ticketId});result=null;}}catch(error){first=error;}
         try{const retained=await intake.retainNativeExit();if(result===null)result=retained;}catch(error){first??=error;}if(first)throw first;
       }
