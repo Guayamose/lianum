@@ -51,6 +51,11 @@ function parseMetaFourPairing(text:string):MetaFourPairing{
   return {id:d.id,dependsOn:[...d.dependsOn],origin:d.origin,maximumInput:d.maximumInput,shareAmount:d.shareAmount,payoutAmount:d.payoutAmount};
  });return {profile:p.profile,source,targets,deliveries};
 }
+type AavePairing={profile:'DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1';source:ExternalFlatDescriptor;target:ExternalFlatDescriptor};
+function parseAavePairing(text:string):AavePairing{
+ if(typeof text!=='string'||text.length===0||text.length>32768)throw Error('MOBILE_AAVE_PAIRING_INVALID');const p=externalFlatExactV1(JSON.parse(text),['profile','source','target']),source=normalizeExternalFlatDescriptorV1(p.source),target=normalizeExternalFlatDescriptorV1(p.target);
+ if(p.profile!=='DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1'||source.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1||target.profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||source.devicePublicKey!==target.devicePublicKey||source.origin!==target.origin||source.pairingId===target.pairingId||source.poolTerms.pool===target.poolTerms.pool||source.poolTerms.assetIdentity===target.poolTerms.assetIdentity||['genesis','hub','hubCodeHash','hubDomain'].some(k=>source.poolTerms[k as keyof ExternalFlatDescriptor['poolTerms']]!==target.poolTerms[k as keyof ExternalFlatDescriptor['poolTerms']]))throw Error('MOBILE_AAVE_PAIRING_INVALID');return {profile:p.profile,source,target};
+}
 function Button({label,onPress,disabled=false}:{label:string;onPress():void;disabled?:boolean}) {
  return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
   style={[styles.button,disabled&&styles.disabled]}><Text style={styles.buttonText}>{label}</Text></Pressable>;
@@ -85,6 +90,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const [custodyRoute,setCustodyRoute]=useState<'LEGACY'|'ROUTED'>('LEGACY');
  const [metaFourText,setMetaFourText]=useState(''),[metaFour,setMetaFour]=useState<MetaFourPairing|null>(null),[metaFourWindow,setMetaFourWindow]=useState<MetaFourWindow|null>(null),[metaFourReads,setMetaFourReads]=useState<(ExternalFlatStatus|null)[]>([null,null,null,null]);
  const metaFourRef=useRef<MetaFourPairing|null>(null),metaFourWindowRef=useRef<MetaFourWindow|null>(null);
+ const [aaveText,setAaveText]=useState(''),[aavePairing,setAavePairing]=useState<AavePairing|null>(null),aaveRef=useRef<AavePairing|null>(null),aaveWindowRef=useRef<{validFrom:string;validUntil:string;amount:string}|null>(null);
  const mounted=useRef(true),busyRef=useRef(false),epoch=useRef(0),connection=useRef<Connection|null>(null);
  const acquiring=useRef<Promise<Vault>|null>(null),closing=useRef<Promise<unknown>|null>(null),signing=useRef<AbortController|null>(null);
  const graphReviewRef=useRef<GraphReview|null>(null),graphPreparedRef=useRef<GraphPrepared|null>(null);
@@ -126,11 +132,19 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   setMetaFourReads(previous=>previous.map((v,i)=>i===slot?value:v));
  }
  function invalidateMetaFourStatus(descriptor:ExternalFlatDescriptor){const slot=metaFourSlot(descriptor);if(slot>=0)setMetaFourReads(previous=>previous.map((v,i)=>i===slot?null:v));}
+ function clearAave(){aaveRef.current=null;aaveWindowRef.current=null;setAavePairing(null);}
+ async function loadAave(){
+  const p=parseAavePairing(aaveText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMetaFour();clearAave();aaveRef.current=p;setAavePairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
+ }
+ async function selectAave(role:'source'|'target'){
+  const p=aaveRef.current;if(!p)throw Error('MOBILE_AAVE_PAIRING_INVALID');const descriptor=p[role],text=JSON.stringify(descriptor);setDescriptorText(text);setSummary(null);await connect(text,'ROUTED');const selected=requireConnection(),ticket=epoch.current;current(ticket,selected);if(JSON.stringify(selected.descriptor)!==text)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
+  if(role==='target'){const value=await readStatus(selected,ticket),intent=value.jobs.find(v=>v.mode==='deposit_intent');if(intent){const t=intent.consentFields.statement;if(t.validFrom===undefined||t.validUntil===undefined)throw Error('MOBILE_AAVE_RECEPTION_REQUIRED');const w={validFrom:t.validFrom,validUntil:t.validUntil,amount:t.amount};if(aaveWindowRef.current&&JSON.stringify(aaveWindowRef.current)!==JSON.stringify(w))throw Error('MOBILE_AAVE_RECEPTION_CHANGED');aaveWindowRef.current=w;setGraphShareAmount(w.amount);setGraphValidFrom(w.validFrom);setGraphSettleBefore((BigInt(w.validUntil)+60n).toString());}}
+ }
  async function loadMetaFour(){
   const pairing=parseMetaFourPairing(metaFourText),ticket=epoch.current,key=await readDevicePublicKey();
   if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
   if(key!==pairing.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');
-  const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMetaFour();metaFourRef.current=pairing;setMetaFour(pairing);
+  const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMetaFour();clearAave();metaFourRef.current=pairing;setMetaFour(pairing);
   setGraphAssetAmount('400');setGraphShareAmount('400');setGraphPayoutAmount('400');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(pairing.source));setSummary(null);await connect(JSON.stringify(pairing.source));
  }
  async function selectMetaFour(slot:number){
@@ -191,9 +205,11 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  }
  async function prepareGraph(){
   const selected=requireConnection();clearReview();const ticket=epoch.current,value=await readStatus(selected,ticket);if(value.graphClaimed)throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_RESERVED');
+  if(aaveRef.current&&JSON.stringify(selected.descriptor)!==JSON.stringify(aaveRef.current.source))throw Error('MOBILE_AAVE_SOURCE_REQUIRED');
   const local=await selected.vault.summary();current(ticket,selected);const deposit=local.jobs.find(row=>row.mode==='deposit_balance');if(!deposit||deposit.stage!=='CONFIRMED')throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_REQUIRED');
   const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
   const pairing=metaFourRef.current,window=metaFourWindowRef.current;if(pairing&&(JSON.stringify(selected.descriptor)!==JSON.stringify(pairing.source)||!window))throw Error('MOBILE_META_FOUR_WINDOW_REQUIRED');
+  if(aaveRef.current){const w=aaveWindowRef.current;if(!w||graphShareAmount!==w.amount||graphValidFrom!==w.validFrom||graphSettleBefore!==(BigInt(w.validUntil)+60n).toString())throw Error('MOBILE_AAVE_RECEPTION_REQUIRED');}
   const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:pairing?'400':graphAssetAmount,shareAmount:pairing?'400':graphShareAmount,payoutAmount:pairing?'400':graphPayoutAmount,validFrom:window?.validFrom??graphValidFrom,settleBefore:window?.settleBefore??graphSettleBefore});current(ticket,selected);
   if(pairing){const q=readDeviceExternalFlatGraphQuoteV1(quote).quote;if(q.proposal.nodes.length!==4||q.proposal.nodes.some((n:any,slot:number)=>n.id!==pairing.deliveries[slot].id||JSON.stringify(n.dependsOn)!==JSON.stringify(pairing.deliveries[slot].dependsOn)||n.payout.value!==pairing.deliveries[slot].payoutAmount))throw Error('MOBILE_META_FOUR_ORIGINAL_QUOTE_CHANGED');}
   const prepared=await selected.vault.prepareSourceGraph(quote);graphPreparedRef.current=prepared;current(ticket,selected);const next=await selected.vault.summary();current(ticket,selected);setSummary(next);
@@ -255,13 +271,13 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function requestBlue(action:'REDEEM_BLUE'|'OBSERVE_BLUE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_BLUE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readBlueStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_BLUE'&&(blue.observationOnly||previous))throw Error('MOBILE_BLUE_OBSERVE_ONLY');if(action==='OBSERVE_BLUE'&&!previous)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),consent=await client.review(access,signature,{action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??blueMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()});current(ticket,selected);blueReviewRef.current=consent;setBlueReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');}
  async function submitBlue(consent:DeviceMorphoBlueConsentV1){const selected=requireConnection(),client=selected.blueClient,ticket=epoch.current;if(!client||blueReviewRef.current!==consent)throw Error('MOBILE_BLUE_PERMISSION_CHANGED');const signature=await blueSign(selected,consent,ticket);current(ticket,selected);blueReviewRef.current=null;setBlueReview(null);setBlueStatus(null);await client.submit(consent,signature);current(ticket,selected);await readBlueStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
  function confirmBlue(){const value=blueReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitBlue(value));}}],{cancelable:false});}
- async function connect(rawDescriptor:string=descriptorText) {
+ async function connect(rawDescriptor:string=descriptorText,route?:'LEGACY'|'ROUTED') {
   const drain=closeConnection(),ticket=epoch.current;await drain;if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
   const descriptor=normalizeExternalFlatDescriptorV1(JSON.parse(rawDescriptor)),key=await readDevicePublicKey();
   if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
   if(key===null||key!==descriptor.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');
   const client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:expoFetch});
-  const acquisition=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1||custodyRoute==='ROUTED'?createDeviceExternalFlatRoutedNoteVaultV1(descriptor):createDeviceExternalFlatNoteVaultV1();acquiring.current=acquisition;let vault:Vault;
+  const acquisition=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1||(route??custodyRoute)==='ROUTED'?createDeviceExternalFlatRoutedNoteVaultV1(descriptor):createDeviceExternalFlatNoteVaultV1();acquiring.current=acquisition;let vault:Vault;
   try{vault=await acquisition;}catch(error){client.close();throw error;}
   if(acquiring.current!==acquisition||!mounted.current||epoch.current!==ticket||AppState.currentState!=='active'){
    client.close();await vault.close();return;
@@ -408,7 +424,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   <View style={styles.card}><Text style={styles.heading}>Conexión privada</Text>
    <Text style={styles.label}>Descriptor entregado por tu operador</Text>
   <TextInput accessibilityLabel="Descriptor privado de la nota ERC20" multiline style={[styles.input,styles.descriptor]} value={descriptorText} autoCapitalize="none" autoCorrect={false} editable={!busy}
-    onChangeText={text=>{closeConnection();clearMetaFour();setDescriptorText(text);setSummary(null);}}/>
+    onChangeText={text=>{closeConnection();clearMetaFour();clearAave();setDescriptorText(text);setSummary(null);}}/>
    <Text style={styles.label}>Nota que quieres abrir</Text>
    <Text style={styles.muted}>La nota inicial conserva su almacén. Para otro activo, red o conexión, selecciona otra nota. Las participaciones se guardan siempre en su propia conexión.</Text>
    <Button label={(custodyRoute==='LEGACY'?'✓ ':'')+'Nota inicial'} disabled={busy} onPress={()=>{closeConnection();setCustodyRoute('LEGACY');setSummary(null);}}/>
@@ -416,9 +432,15 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    <Button label="Conectar y consultar la nota" disabled={busy} onPress={()=>{void run(connect);}}/>
    <Text style={styles.muted}>{connected?'Conexión comprobada':'Sin conexión comprobada'}</Text>
   </View>
+  <View style={styles.card}><Text style={styles.heading}>Aave: financiación y participaciones propias</Text>
+   <Text style={styles.muted}>Pega paired-aave-static.json del operador original. Prepara y autoriza la recepción de participaciones antes de volver a la fuente para su reserva y ejecución. Cada nota conserva su apertura y sus permisos.</Text>
+   <TextInput accessibilityLabel="Vinculación original Aave" multiline style={[styles.input,styles.descriptor]} value={aaveText} autoCapitalize="none" autoCorrect={false} editable={!busy} onChangeText={text=>{closeConnection();clearMetaFour();clearAave();setAaveText(text);setSummary(null);}}/>
+   <Button label="Abrir las dos conexiones Aave" disabled={busy||aaveText.length===0} onPress={()=>{void run(loadAave,'No se ha abierto Aave. Comprueba la pareja original y la identidad de este dispositivo.');}}/>
+   {aavePairing&&<><Fields values={{Fuente:aavePairing.source.assetMetadata.symbol,Participaciones:aavePairing.target.assetMetadata.symbol,Servicio:aavePairing.source.origin}}/><Button label="Abrir y consultar participaciones Aave" disabled={busy} onPress={()=>{void run(()=>selectAave('target'));}}/><Button label="Volver a financiación y reserva Aave" disabled={busy} onPress={()=>{void run(()=>selectAave('source'));}}/><Text style={styles.muted}>Consulta la recepción autorizada para unir sus importes y plazo a la preparación original. La retirada de participaciones usa la nota propia; no implica una redención de su activo subyacente.</Text></>}
+  </View>
   <View style={styles.card}><Text style={styles.heading}>Cuatro entregas MetaMorpho</Text>
    <Text style={styles.muted}>Pega el archivo paired-meta-four.json del producto original. La fuente y cada participación conservan su propia conexión, apertura y autorización. La consulta de una nota no autoriza otra.</Text>
-   <TextInput accessibilityLabel="Paquete de cuatro vinculaciones MetaMorpho" multiline style={[styles.input,styles.descriptor]} value={metaFourText} autoCapitalize="none" autoCorrect={false} editable={!busy} onChangeText={text=>{closeConnection();clearMetaFour();setMetaFourText(text);setSummary(null);}}/>
+   <TextInput accessibilityLabel="Paquete de cuatro vinculaciones MetaMorpho" multiline style={[styles.input,styles.descriptor]} value={metaFourText} autoCapitalize="none" autoCorrect={false} editable={!busy} onChangeText={text=>{closeConnection();clearMetaFour();clearAave();setMetaFourText(text);setSummary(null);}}/>
    <Button label="Abrir las cuatro vinculaciones originales" disabled={busy||metaFourText.length===0} onPress={()=>{void run(loadMetaFour,'No se ha abierto el paquete. Comprueba las cuatro conexiones originales y la identidad de este dispositivo.');}}/>
    {metaFour&&<><Text style={styles.muted}>Fuente: 500 unidades. Cada entrega invierte 100, recibe 100 participaciones y reserva 100; la reserva total es 400. Revisa los decimales de cada activo. El grafo confirma sus términos en la preparación original.</Text>
     <Fields values={{'Inicio común':metaFourWindow?.validFrom??'Se fija con la primera preparación original','Fin de recepción':metaFourWindow?.validUntil??'Pendiente de preparar','Vencimiento de reserva':metaFourWindow?.settleBefore??'Pendiente de preparar'}}/>
