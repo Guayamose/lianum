@@ -862,3 +862,32 @@ test('HOST SOURCE V3 second hard-exit requires the original generation-one obser
  assert.equal((await call(4,'CHECKPOINT')).ok,false);assert.equal(rotations,1);assert.equal(reads,1);assert.deepEqual(exits,[]);
  assert.equal((await call(5,'HARD_EXIT')).ok,true);assert.equal(rotations,1);assert.equal(reads,2);assert.deepEqual(exits,[17]);assert.equal(runtime.transactions.length,0);assert.equal(runtime.receipts.length,0);assert.equal(opened,1);
 });
+
+
+test('HOST Aave SOURCE private exit snapshots preserve the original live adapter and journal',async t=>{
+ // Actual private checkpoint bodies, real AES Vault storage and explicit inert
+ // fixture/lifetime ports. No runtime, financial proof, wire or TLS is created.
+ const scratch=await mkdtemp(join(tmpdir(),'aave-source-checkpoint-host-'));t.after(()=>rm(scratch,{recursive:true,force:true}));
+ const {Vault}=await import(url('../../../../engine/src/crypto/vault.mjs','../../../../../omnichain-product/src/vault.mjs'));
+ const adapterText=await readFile(url('../../../src/defi/vaults/owned-metamorpho-vault.mjs','../defi-adapters/owned-metamorpho-vault.mjs'),'utf8');
+ const exitText=await readFile(url('../../../src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs','../defi-adapters/device-morpho-blue-private-exit-v1.mjs'),'utf8');
+ const adapterStart=adapterText.indexOf("async checkpoint(){if(busy||capturing||pending)"),adapterEnd=adapterText.indexOf('},async capture()',adapterStart);assert.ok(adapterStart>0&&adapterEnd>adapterStart);
+ const exitStart=exitText.indexOf('async checkpoint(adapterToken){'),exitEnd=exitText.indexOf('},async capture()',exitStart);assert.ok(exitStart>0&&exitEnd>exitStart);
+ const password='48'.repeat(32),file=join(scratch,'operations.vault'),store=new Vault(file),original={schema:'HOST_AAVE_PRIVATE_ORIGINAL',operations:[{jobId:h('aave-original-job'),reference:h('aave-original-reference'),stage:'REDEEMED',wireSHA256:h('aave-original-wire')} ]},record=await store.create(original,password);let reads=0,observations=0,checked=0,originalClosed=false;
+ const lifetime=Object.freeze({async capture(current){assert.deepEqual(current,record);checked++;return{credentials:{path:file,password},checkpoint:{revision:record.revision,stateSHA256:h('aave-original-checkpoint')},pending:null};}});
+ async function healthy(){assert.equal(originalClosed,false);assert.deepEqual(await store.read(password),record);reads++;}
+ const ports={assert,deviceAave:true,variant:'DEVICE_AAVE_STATIC',directory:scratch,keeper:h('aave-original-keeper'),binding:{sameOriginalAdapter:true},clone:structuredClone,build:{sameOriginalCompiler:true},deployment:{sameOriginalDeployment:true},record,lifetime,healthy,observed:async()=>{observations++;}};
+ const makeAdapter=new Function(...Object.keys(ports),`let busy=false,closed=false,capturing=false,poisoned=false,pending=null;const adapter={${adapterText.slice(adapterStart,adapterEnd+1)}};return{adapter,state:()=>({busy,closed,capturing,poisoned,pending}),busy(v){busy=v;},close(){closed=true;}};`);
+ const a=makeAdapter(...Object.values(ports));
+ const first=await a.adapter.checkpoint();assert.deepEqual(first.record,record);assert.equal(first.variant,'DEVICE_AAVE_STATIC');assert.deepEqual(a.state(),{busy:false,closed:false,capturing:false,poisoned:false,pending:null});assert.equal(observations,1);assert.equal(checked,1);
+ assert.deepEqual(await a.adapter.checkpoint(),first);assert.equal(a.state().closed,false);a.busy(true);assert.equal(await a.adapter.checkpoint(),null);a.busy(false);assert.equal(observations,2);
+ const originalToken=Object.freeze({}),foreignToken=Object.freeze({});let checkpointCalls=0;const exitPorts={originalAave:true,live:()=>assert.equal(originalClosed,false),need:(v,c)=>assert.ok(v,c),healthy,adapter:a.adapter,checkpointRetainedOwnedDeviceAaveStaticVaultSourceV3:async(value,token)=>{assert.equal(value,a.adapter);assert.equal(token,originalToken,'HOST_AAVE_ORIGINAL_ADAPTER_TOKEN');checkpointCalls++;return a.adapter.checkpoint();},savedSchema:'DEVICE_AAVE_STATIC_REDEMPTION_PRIVATE_V1',directory:scratch,record,lifetime,copy:structuredClone};
+ const makeExit=new Function(...Object.keys(exitPorts),`let busy=false,capturing=false,checkpointing=false,pending=null,closed=false,password='HOST_SYNTHETIC_PASSWORD';const exit={${exitText.slice(exitStart,exitEnd+1)}};return{exit,busy(v){busy=v;},state:()=>({busy,capturing,checkpointing,pending,closed,password})};`),e=makeExit(...Object.values(exitPorts));
+ await assert.rejects(e.exit.checkpoint(foreignToken),/HOST_AAVE_ORIGINAL_ADAPTER_TOKEN/);assert.equal(e.state().checkpointing,false);
+ const saved=await e.exit.checkpoint(originalToken);assert.deepEqual(saved.record,record);assert.deepEqual(saved.adapter,first);assert.equal(e.state().closed,false);assert.equal(e.state().password,'HOST_SYNTHETIC_PASSWORD');assert.equal(a.state().closed,false);
+ e.busy(true);const before=checkpointCalls;assert.equal(await e.exit.checkpoint(originalToken),null);assert.equal(checkpointCalls,before);e.busy(false);assert.deepEqual(await e.exit.checkpoint(originalToken),saved);
+ // The stored original ciphertext/current record still governs both snapshots;
+ // a changed physical record is rejected and cannot become a new checkpoint.
+ await store.update(password,record.revision,data=>({...data,operations:[]}));await assert.rejects(e.exit.checkpoint(originalToken));assert.equal(e.state().checkpointing,false);assert.equal(e.state().closed,false);assert.equal(checkpointCalls,before+1);
+ a.close();await assert.rejects(a.adapter.checkpoint(),/AAVE_SOURCE_ORIGINAL_ADAPTER/);assert.ok(reads>=8);
+});
