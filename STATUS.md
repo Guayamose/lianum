@@ -60,12 +60,26 @@ las cifras de la tabla anterior no se han vuelto a calcular en este corte.
   receptor original de un solo uso. U devuelve los paquetes de rol cifrados al
   mismo cliente. Las pruebas cortas de ambos SDK/receptores pasan. El fallo de
   importaciones que bloqueó el nuevo D27 quedó corregido y su cierre físico
-  pasa; sus RAW anteriores conservan el rechazo. D26 y W39 están en integración.
+  pasa; sus RAW anteriores conservan el rechazo. D26 y W39 también tienen
+  intake cifrado integrado (`1fa6645`) y sus cinco variantes SDK pasan en
+  488 ms. El segundo salto hacia PC23 usa un worker fijo nuevo (`5afdaf0`):
+  dos IPC reales, corrupción y desconexión pasan en 389 ms. La composición
+  financiera espera corregir tres rutas físicas del worker; no se ha aceptado
+  todavía una prueba financiera de este corte.
+- **PAEG desde el dispositivo:** el servicio de dos a cuatro destinos SHARE
+  está conectado (`492d2b4`). Crea targets y credenciales de proveedor antes de
+  financiar y activa cada slot sólo tras su D27 original. DAG, facturas,
+  cuotas y riesgos usan el mismo U/S y keeper. El caso HOST de dos y cuatro
+  slots pasa en 1,88 s; el recorrido financiero de cuatro entregas está en
+  preparación. No incorpora todavía captura multigrafo ni combinación Blue.
 - **Morpho Blue:** entrada en posición original, contabilidad en shares, salida
   manual con consentimiento nuevo, journaling anterior al envío y reapertura
   observable están conectados a backend y móvil. Pasan 11 pruebas cortas y el
   typecheck móvil. El driver financiero propio está integrado; sus 14 pruebas,
-  redención y recuperación reales todavía no se han ejecutado en este corte.
+  redención y recuperación reales siguen pendientes. El intento propio falló
+  durante preparación con cero pruebas: faltaban sus rutas fijas en el registro
+  y el emisor de recuperación. `bf5e9fd` corrige ambas y su regresión pasa en
+  251 ms, conservando la marca original del receiver.
 - **SQL y recuperación:** el operador duradero tiene captura F de diez
   secciones y reapertura con verificación previa de schema y clave SQL. La
   clave incorrecta no consume el checkpoint económico. Las comprobaciones SQL
@@ -75,13 +89,22 @@ las cifras de la tabla anterior no se han vuelto a calcular en este corte.
   de nuevos perfiles económicos, fijados antes de genesis. Base arrancó ocho
   servicios saludables sobre Reth/Lighthouse propios, pero rechazó la finalidad
   al agotar su plazo; sus nueve contenedores quedaron cerrados. Nitro tiene
-  imágenes originales preparadas para el perfil económico; custodia y envío
-  se están incorporando antes de su nacimiento. Las regresiones de ambas recetas
-  pasan (14 casos); no se ha establecido crédito privado en estas redes.
-- **Composición actual:** el inspector verificó 841 fuentes y 12 roles. Las
-  cápsulas móviles revisadas contienen 43 fuentes GRAPH y 32 ordered. La
-  compilación W39 conserva sus 45 fuentes originales. Esta revisión de fuentes
-  no establece aceptación financiera.
+  imágenes originales preparadas para el perfil económico. Custodia y envío
+  único de Nitro están integrados (`ec1971b`); el caso HOST de AES/CAS/firma
+  pasa en 2,12 s. Base incorpora su comprobación propia de comisiones L1/L2 y
+  operador antes de KEY/SEND (`6db27b0`); el caso HOST pasa en 3,95 s.
+  El primer nacimiento económico de Nitro quedó atascado por génesis de
+  ejecución distintos entre Prysm y Geth y se cerró con su proceso original.
+  `1459848` comparte la salida del generador oficial; nueve casos de receta
+  pasan. El nuevo intento cerró con `ARBITRUM_ORIGINAL_INITIALIZATION_FAILED`,
+  cuya causa está en revisión; no hay contenedores Nitro ejecutándose ni
+  crédito privado establecido.
+- **Composición:** la última publicación validada (`bbbf8c1`) tiene 844
+  fuentes y 12 roles. Tras los nuevos cortes, `8463bb5` revisa 143 filas
+  literales de las tres cápsulas móviles. Falta publicar la composición
+  completa después de corregir las rutas del worker PC23. La compilación W39
+  conserva sus 45 fuentes originales; las publicaciones no declaran aceptación
+  financiera.
 
 El APK anterior sigue descrito abajo como evidencia de su corte; deberá
 recompilarse tras incorporar las nuevas rutas móviles. La prueba física queda
