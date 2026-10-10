@@ -243,6 +243,47 @@ def rpc(url,method,params):
  require(value.get('id')==1 and 'error' not in value and 'result' in value,"BSC_RPC_REJECTED")
  return value['result']
 
+def start_original_v3_miners_after_shared_head(nodes,deadline,parent_alive):
+ # Geth v1.7.8 rejects propagated blocks until its first real download. Start
+ # only one original validator until both non-mining followers have downloaded
+ # its SAME head; do not force synced, mine a replacement chain or infer finality.
+ require(type(nodes) is list and len(nodes)==3,"BSC_ORIGINAL_MINER_NODES")
+ def live():
+  parent_alive();require(time.monotonic()<deadline,"BSC_FINALITY_STARTUP_TIMEOUT")
+  require(all(same_process(p,i) for p,i,u,l in nodes),"BSC_NODE_EXITED")
+ def block(value):
+  require(type(value) is dict and type(value.get('number')) is str and re.fullmatch(r'0x[0-9a-f]+',value['number']) and type(value.get('hash')) is str and re.fullmatch(r'0x[0-9a-f]{64}',value['hash']),"BSC_ORIGINAL_MINER_HEAD")
+  return value['number'],value['hash']
+ while True:
+  live()
+  try:
+   require(all(rpc(u,'eth_chainId',[])=='0x2ca' for p,i,u,l in nodes),"BSC_CHAIN_ID")
+   genesis=[block(rpc(u,'eth_getBlockByNumber',['0x0',False])) for p,i,u,l in nodes]
+   require(all(n=='0x0' for n,h in genesis) and len(set(genesis))==1,"BSC_GENESIS_CONFLICT")
+   initial=[block(rpc(u,'eth_getBlockByNumber',['latest',False])) for p,i,u,l in nodes]
+   require(initial==genesis,"BSC_ORIGINAL_MINER_ALREADY_STARTED")
+   peers=[rpc(u,'net_peerCount',[]) for p,i,u,l in nodes]
+   require(all(type(v) is str and re.fullmatch(r'0x[0-9a-f]+',v) and 0<=int(v,16)<=2 for v in peers),"BSC_ORIGINAL_MINER_PEERS")
+   if all(int(v,16)==2 for v in peers):break
+  except OSError:pass
+  live();time.sleep(.2)
+ # Each start is a fixed local one-use operation. A lost result exits through
+ # the original producer cleanup; it is never retried or exposed via read RPC.
+ live();require(rpc(nodes[0][2],'miner_start',[]) is None,"BSC_ORIGINAL_MINER_START_UNKNOWN")
+ while True:
+  live()
+  try:
+   leader=block(rpc(nodes[0][2],'eth_getBlockByNumber',['latest',False]))
+   followers=[block(rpc(u,'eth_getBlockByNumber',['latest',False])) for p,i,u,l in nodes[1:]]
+   syncing=[rpc(u,'eth_syncing',[]) for p,i,u,l in nodes[1:]]
+   if int(leader[0],16)>0 and all(h==leader for h in followers) and all(v is False for v in syncing):
+    require(all(rpc(u,'eth_chainId',[])=='0x2ca' for p,i,u,l in nodes),"BSC_CHAIN_ID")
+    if block(rpc(nodes[0][2],'eth_getBlockByNumber',['latest',False]))==leader:break
+  except OSError:pass
+  live();time.sleep(.2)
+ for p,i,u,l in nodes[1:]:
+  live();require(rpc(u,'miner_start',[]) is None,"BSC_ORIGINAL_MINER_START_UNKNOWN")
+
 def native_init_genesis_v2(original,receipt):
  # Dev init() already appends all three ValidatorExtra rows and writes the
  # original BLS packet. Preseeding three rows makes its post-init length six.
@@ -455,7 +496,7 @@ def serve(prepared=PREPARED,profile=PROFILE,native_value=False):
    d=realm/f'node{i}';cfg=d/'config.toml';require(cfg.exists(),"BSC_GENERATED_CONFIG")
    text=cfg.read_text();cfg.write_text('\n'.join(x for x in text.splitlines() if '"<nil>"' not in x)+'\n');cfg.chmod(0o600)
    native_command([binary,'--datadir',str(d),'init','--state.scheme','path','--db.engine','pebble',str(prepared/'genesis.json')],realm,realm/'init.private.log',initializationDeadline)
-   http=port();args=[binary,'--config',str(cfg),'--datadir',str(d),'--nodekey',str(d/'geth/nodekey'),'--nodiscover','--nat','none','--ipcdisable','--http','--http.addr','127.0.0.1','--http.port',str(http),'--http.api','eth,net,web3,debug' if native_value else 'eth,net,web3','--http.vhosts','localhost,127.0.0.1','--allow-insecure-unlock','--mine','--vote','--unlock',receipt['validators'][i]['address'],'--miner.etherbase',receipt['validators'][i]['address'],'--password',str(d/'password.txt'),'--blspassword',str(d/'password.txt'),'--gcmode','archive','--syncmode','full']
+   http=port();args=[binary,'--config',str(cfg),'--datadir',str(d),'--nodekey',str(d/'geth/nodekey'),'--nodiscover','--nat','none','--ipcdisable','--http','--http.addr','127.0.0.1','--http.port',str(http),'--http.api',('eth,net,web3,debug' if native_value else 'eth,net,web3')+(',miner' if profile==PROFILE_V3 else ''),'--http.vhosts','localhost,127.0.0.1','--allow-insecure-unlock',*(['--mine'] if profile!=PROFILE_V3 else []),'--vote','--unlock',receipt['validators'][i]['address'],'--miner.etherbase',receipt['validators'][i]['address'],'--password',str(d/'password.txt'),'--blspassword',str(d/'password.txt'),'--gcmode','archive','--syncmode','full']
    log=open(d/'node.private.log','xb');os.chmod(d/'node.private.log',0o600)
    process=subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
    owned=identity(process.pid);nodes.append((process,owned,f'http://127.0.0.1:{http}',log))
@@ -471,6 +512,7 @@ def serve(prepared=PREPARED,profile=PROFILE,native_value=False):
     if all(rpc(u,'eth_chainId',[])=='0x2ca' and rpc(u,'eth_getBlockByNumber',['latest',False]) is not None for p,i,u,l in nodes):break
    except OSError:pass
    require(time.monotonic()<deadline,"BSC_FINALITY_STARTUP_TIMEOUT");time.sleep(.2)
+  if profile==PROFILE_V3:start_original_v3_miners_after_shared_head(nodes,deadline,parent_alive)
   registrationHashes=[]
   for index in range(3) if profile!=PROFILE_V3 else []:
    parent_alive();log=realm/f'register{index}.private.log'

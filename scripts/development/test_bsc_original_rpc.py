@@ -328,5 +328,88 @@ class OriginalNativeGenesisDiffTest(unittest.TestCase):
                 context["validate_seed"](original, changed, codes, credits)
 
 
+class OriginalSharedHeadBeforeMiningTest(unittest.TestCase):
+    def test_v3_downloads_same_head_before_followers_mine_without_resending(self):
+        # Real recipe body over explicitly inert RPC/process/time ports. This
+        # tests sequencing and failure gates, never mining or chain finality.
+        source = pathlib.Path(__file__).with_name('owned_bsc_posa_v1.py')
+        tree = ast.parse(source.read_text())
+        funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)
+                 and n.name in {'require', 'start_original_v3_miners_after_shared_head'}]
+        nodes = [(object(), object(), 'original-node-' + str(i), None) for i in range(3)]
+        zero = {'number': '0x0', 'hash': '0x' + '11' * 32}
+        one = {'number': '0x1', 'hash': '0x' + '22' * 32}
+        for mode in ['same', 'foreign-genesis', 'head-incomplete', 'leader-lost-ack',
+                     'follower-lost-ack', 'parent-gone']:
+            with self.subTest(mode=mode):
+                now, slept, starts, reads = [0.0], [0], [], []
+                def parent_alive():
+                    if mode == 'parent-gone':
+                        raise RuntimeError('BSC_ORIGINAL_PARENT_EXITED')
+                def monotonic():
+                    now[0] += .01
+                    return now[0]
+                def pause(delay):
+                    self.assertEqual(delay, .2)
+                    slept[0] += 1
+                    now[0] += delay
+                def rpc(url, method, params):
+                    index = int(url.rsplit('-', 1)[1])
+                    reads.append((index, method, params))
+                    self.assertNotIn(method, ['eth_sendRawTransaction', 'eth_getBalance'])
+                    if method == 'eth_chainId':
+                        self.assertEqual(params, [])
+                        return '0x2ca'
+                    if method == 'net_peerCount':
+                        return '0x2'
+                    if method == 'eth_getBlockByNumber':
+                        self.assertIn(params, [['latest', False], ['0x0', False]])
+                        if params[0] == '0x0':
+                            return {**zero, 'hash': '0x' + '33' * 32} if mode == 'foreign-genesis' and index == 2 else zero.copy()
+                        if not starts or (index != 0 and (slept[0] == 0 or mode == 'head-incomplete')):
+                            return zero.copy()
+                        return one.copy()
+                    if method == 'eth_syncing':
+                        self.assertEqual(params, [])
+                        return False
+                    if method == 'miner_start':
+                        self.assertEqual(params, [])
+                        self.assertNotIn(index, starts)
+                        if index:
+                            self.assertEqual(starts[0], 0)
+                            self.assertGreater(slept[0], 0)
+                            self.assertNotEqual(mode, 'head-incomplete')
+                        starts.append(index)
+                        if (mode == 'leader-lost-ack' and index == 0) or (mode == 'follower-lost-ack' and index == 1):
+                            raise OSError('HOST_SYNTHETIC_MINER_ACK_LOST')
+                        return None
+                    self.fail('HOST_UNKNOWN_RPC_METHOD')
+                context = {'re': re, 'rpc': rpc, 'same_process': lambda *_: True,
+                           'time': types.SimpleNamespace(monotonic=monotonic, sleep=pause)}
+                exec(compile(ast.Module(body=funcs, type_ignores=[]), str(source), 'exec'), context)
+                run = context['start_original_v3_miners_after_shared_head']
+                if mode == 'same':
+                    run(nodes, 3.0, parent_alive)
+                    self.assertEqual(starts, [0, 1, 2])
+                elif mode == 'foreign-genesis':
+                    with self.assertRaisesRegex(RuntimeError, '^BSC_GENESIS_CONFLICT$'):
+                        run(nodes, 3.0, parent_alive)
+                    self.assertEqual(starts, [])
+                elif mode == 'head-incomplete':
+                    with self.assertRaisesRegex(RuntimeError, '^BSC_FINALITY_STARTUP_TIMEOUT$'):
+                        run(nodes, 1.0, parent_alive)
+                    self.assertEqual(starts, [0])
+                elif mode.endswith('lost-ack'):
+                    with self.assertRaisesRegex(OSError, '^HOST_SYNTHETIC_MINER_ACK_LOST$'):
+                        run(nodes, 3.0, parent_alive)
+                    self.assertEqual(starts, [0] if mode == 'leader-lost-ack' else [0, 1])
+                else:
+                    with self.assertRaisesRegex(RuntimeError, '^BSC_ORIGINAL_PARENT_EXITED$'):
+                        run(nodes, 3.0, parent_alive)
+                    self.assertEqual(starts, [])
+                self.assertFalse(any(method == 'eth_getBlockByNumber' and params == ['finalized', False]
+                                     for _, method, params in reads))
+
+
 if __name__ == "__main__":
     unittest.main()

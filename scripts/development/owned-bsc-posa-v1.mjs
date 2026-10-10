@@ -13,7 +13,7 @@ const PROFILE = 'OWNED_BSC_POSA_THREE_VALIDATORS_V1';
 const PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2';
 const PROFILE_V3 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V3';
 const GENESIS_V3_HELPER_SHA256 = 'c80a262c70130dc355f42d818e6a70b2a3ce75e502d861ea290d20be06a548d1';
-const RECIPE_SHA256 = '177b294521b50e057938487b2e42d7a8bdd15b2af1d5a9102ffc4eccb6c9a47e';
+const RECIPE_SHA256 = 'ba6ff354a910516c8305625d73d4cabbd8a552d8b2b4e731a28e53365fa70c5f';
 // Python's 90-second readiness already contains registrations. This outer
 // watchdog deliberately permits 30 + 3*15 + 90 + an explicit 15-second margin.
 const CONSTRUCTOR_MS = (30 + 3 * 15 + 90 + 15) * 1000;
