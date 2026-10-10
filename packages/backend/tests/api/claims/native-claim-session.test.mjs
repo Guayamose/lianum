@@ -615,3 +615,71 @@ test('original SPL mobile pairing follows confirmed BTC SOURCE without adopting 
     } finally { await session?.close(); await unknown.close(); }
   }
 });
+
+
+test('SPL authenticated READ observes its original direct ingress after send authority expires without admitting another effect', async () => {
+  // Same original session/SDK/PoP and real segmented AEAD. The controller
+  // observation port is explicitly inert; this is no SPL/finality acceptance.
+  const f = await fixture({ spl: true }), keys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
+  const jwk = keys.publicKey.export({ format: 'jwk' }), devicePublicKey = '04'
+    + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');
+  const origin = 'https://127.0.0.1:9443', readers = [], sessions = [], calls = [];
+  const mapped = import.meta.url.includes('/wallet-platform/modules/api/');
+  const { nativeClaimDevicePermissionMessageV1 } = await import(new URL(mapped
+    ? '../../../../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'
+    : '../../../../mobile-protocol/src/native-claim-device-v1.mjs', import.meta.url));
+  const { createNativeClaimDeviceApiV1 } = await import(new URL(mapped
+    ? '../../../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs'
+    : '../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs', import.meta.url));
+  function signature(permission) {
+    const frame = Buffer.from(nativeClaimDevicePermissionMessageV1(permission));
+    try { const bytes = sign('sha256', frame, { key: keys.privateKey, dsaEncoding: 'ieee-p1363' });
+      const order = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n, value = BigInt('0x' + bytes.subarray(32).toString('hex'));
+      if (value > order / 2n) Buffer.from((order - value).toString(16).padStart(64, '0'), 'hex').copy(bytes, 32);
+      return bytes.toString('hex');
+    } finally { frame.fill(0); }
+  }
+  const originalReconcile = f.controller.reconcile.bind(f.controller); let observed = false;
+  f.controller.reconcile = async request => {
+    assert.deepEqual(request, { operationId: intentId }); calls.push(request.operationId);
+    await f.journal.update(data => { const row = data.deposits.find(value => value.id === intentId);
+      assert.equal(row.native.prepared.expiresAt < Date.now(), true);
+      assert.equal(row.native.binding.nativeId, 'synthetic-original-wire-id');
+      row.status = observed ? 'HELD_UNISSUED' : 'UNKNOWN'; return data; });
+    return originalReconcile(request);
+  };
+  async function paired() {
+    const session = await createOriginalNativeSplClaimMobileSessionV1(f.input); sessions.push(session);
+    const reader = await createPairedOriginalNativeClaimSpendingReaderV1({ session, origin, devicePublicKey }); readers.push(reader);
+    const descriptor = assertPairedOriginalNativeClaimReaderV1(reader);
+    const sdk = createNativeClaimDeviceApiV1({ descriptor, fetchImpl: async (target, options) => {
+      const body = JSON.parse(options.body), value = target.endsWith('/challenges') ? await reader.challenge(body) : await reader.operate(body);
+      return new Response(JSON.stringify(value), { status: 200, headers: { 'content-type': 'application/json' } });
+    } }); return { session, reader, descriptor, sdk };
+  }
+  let sdk;
+  try {
+    const original = await paired(); sdk = original.sdk;
+    await f.journal.update(data => { for (const row of data.deposits) { row.status = 'UNKNOWN';
+      row.native = { binding: { nativeId: row.id === intentId ? 'synthetic-original-wire-id' : 'synthetic-foreign-wire-id' },
+        prepared: { expiresAt: Date.now() - 1 }, status: 'UNKNOWN' }; } return data; });
+    const permission = await sdk.challenge('READ_CLAIM_JOURNAL', null);
+    assert.deepEqual(calls, []); // Challenge is not an observation permission.
+    await assert.rejects(original.reader.operate({ permission, signature: '00'.repeat(64) }), /SIGNATURE/);
+    assert.deepEqual(calls, []);
+    const unknown = await sdk.read(permission, signature(permission));
+    assert.equal(unknown.state.deposits[0].status, 'UNKNOWN'); assert.equal(unknown.state.availablePrivateClaims, null);
+    assert.deepEqual(calls, [intentId]); assert.equal((await f.journal.read()).apiAdmissions.length, 0);
+    observed = true; const fresh = await sdk.challenge('READ_CLAIM_JOURNAL', null), held = await sdk.read(fresh, signature(fresh));
+    assert.equal(held.state.deposits[0].status, 'HELD_UNISSUED'); assert.equal(held.state.availablePrivateClaims, null);
+    assert.equal(held.state.nativeSelfCustody, false); assert.equal(held.state.underlyingSpendable, false);
+    await assert.rejects(sdk.read(fresh, signature(fresh))); assert.deepEqual(calls, [intentId, intentId]);
+    assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 }); assert.deepEqual(f.redemptionStats(), { burns: 0, nativeSends: 0 });
+    sdk.close(); original.reader.close(); await original.reader.idle(); await original.session.close(); await f.reopenStore();
+    const reopened = await paired(); sdk = reopened.sdk; assert.deepEqual(reopened.descriptor, original.descriptor);
+    const last = await sdk.challenge('READ_CLAIM_JOURNAL', null); await sdk.read(last, signature(last));
+    assert.deepEqual(calls, [intentId, intentId, intentId]); assert.equal((await f.journal.read()).apiAdmissions.length, 0);
+    assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 }); assert.deepEqual(f.redemptionStats(), { burns: 0, nativeSends: 0 });
+  } finally { sdk?.close(); for (const reader of readers) reader.close(); for (const reader of readers) await reader.idle();
+    for (const session of sessions) await session.close(); await f.close(); }
+});

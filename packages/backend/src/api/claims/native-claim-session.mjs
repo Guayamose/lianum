@@ -409,6 +409,25 @@ async function createClaimSession(input, wrapped, originalSplMobile = false) {
       return view();
     },
   });
+  async function readDeviceState() {
+    this.live(); const before = await journal.read(), status = await controller.status(), data = await journal.read();
+    this.live(); assert.deepEqual(data, before, 'NATIVE_CLAIM_DEVICE_JOURNAL_CHANGED');
+    const deposits = data.deposits.filter(row => row.claimDomain === account.claimDomain
+      && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256), ids = new Set(deposits.map(row => row.id));
+    const ownTickets = new Set(rows(data).map(row => row.controllerRequestId));
+    const tickets = data.tickets.filter(row => row.claimDomain === account.claimDomain
+      && (ownTickets.has(row.redemptionRequestId) || deposits.some(dep => dep.refundTicketId === row.id)));
+    const state = { phase: 'READY', storageAvailable: true,
+      requiresReconciliation: keeper.status().requiresExternalEffectReconciliation === true,
+      requests: rows(data).map(row => ({ ...project(row), requestSHA256: hash([account, row.action, row.request, row.controllerRequestId]) })),
+      deposits: status.deposits.filter(row => ids.has(row.intentId)).map(row => ({ intentId: row.intentId,
+        claimDomain: row.claimDomain, amount: row.amount, status: row.status })),
+      tickets: status.tickets.filter(row => tickets.some(ticket => ticket.id === row.ticketId)).map(row => ({
+        ticketId: row.ticketId, claimDomain: account.claimDomain, status: row.status })),
+      custody: 'BACKEND_LOCAL_QUORUM', nativeSelfCustody: false, underlyingSpendable: false,
+      independentOperators: false, availablePrivateClaims: null };
+    return copy(state);
+  }
   if (!wrapped) deviceContexts.set(session, {
     live() {
       need(!closed && !closing && available && !keeper.status().uncertain, 'NATIVE_CLAIM_DEVICE_SESSION_UNAVAILABLE');
@@ -524,24 +543,27 @@ async function createClaimSession(input, wrapped, originalSplMobile = false) {
     },
     async read() {
       this.live(); need(!pending && !admitting && !ownerReadPending, 'NATIVE_CLAIM_DEVICE_SESSION_BUSY');
+      return enqueue(() => readDeviceState.call(this));
+    },
+    async observe() {
+      this.live(); need(!pending && !admitting && !ownerReadPending, 'NATIVE_CLAIM_DEVICE_SESSION_BUSY');
       return enqueue(async () => {
-        this.live(); const before = await journal.read(), status = await controller.status(), data = await journal.read();
-        this.live(); assert.deepEqual(data, before, 'NATIVE_CLAIM_DEVICE_JOURNAL_CHANGED');
-        const deposits = data.deposits.filter(row => row.claimDomain === account.claimDomain
-          && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256), ids = new Set(deposits.map(row => row.id));
-        const ownTickets = new Set(rows(data).map(row => row.controllerRequestId));
-        const tickets = data.tickets.filter(row => row.claimDomain === account.claimDomain
-          && (ownTickets.has(row.redemptionRequestId) || deposits.some(dep => dep.refundTicketId === row.id)));
-        const state = { phase: 'READY', storageAvailable: true,
-          requiresReconciliation: keeper.status().requiresExternalEffectReconciliation === true,
-          requests: rows(data).map(row => ({ ...project(row), requestSHA256: hash([account, row.action, row.request, row.controllerRequestId]) })),
-          deposits: status.deposits.filter(row => ids.has(row.intentId)).map(row => ({ intentId: row.intentId,
-            claimDomain: row.claimDomain, amount: row.amount, status: row.status })),
-          tickets: status.tickets.filter(row => tickets.some(ticket => ticket.id === row.ticketId)).map(row => ({
-            ticketId: row.ticketId, claimDomain: account.claimDomain, status: row.status })),
-          custody: 'BACKEND_LOCAL_QUORUM', nativeSelfCustody: false, underlyingSpendable: false,
-          independentOperators: false, availablePrivateClaims: null };
-        return copy(state);
+        this.live();
+        // This fixed SPL session was paired before ingress. Its fresh READ PoP
+        // authorizes observation of the SAME retained native bindings only.
+        // No apiAdmission, ingress, issuance, proof, KEY or SEND is created.
+        if (originalSplMobile) {
+          const data = await journal.read();
+          const deposits = data.deposits.filter(row => row.claimDomain === account.claimDomain
+            && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256);
+          const ownTickets = new Set(rows(data).map(row => row.controllerRequestId));
+          const tickets = data.tickets.filter(row => row.claimDomain === account.claimDomain
+            && (ownTickets.has(row.redemptionRequestId) || deposits.some(dep => dep.refundTicketId === row.id)));
+          for (const row of [...deposits, ...tickets]) if (row.native?.binding) {
+            await controller.reconcile({ operationId: row.id }); this.live();
+          }
+        }
+        return readDeviceState.call(this);
       });
     },
     async reconcile(id, expectedSHA256) {
@@ -705,7 +727,7 @@ async function createNativeClaimDeviceReader(input, spending) {
           return { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_RECONCILE_V1', descriptor: copy(descriptor),
             permissionId: row.value.challengeId, ...acknowledgement };
         }
-        const state = await context.read(); fresh(row);
+        const state = await context.observe(); fresh(row);
         return { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_OBSERVATION_V1', descriptor: copy(descriptor),
           permissionId: row.value.challengeId, observedAt: Date.now(), expiresAt: row.value.expiresAt, state };
       });
