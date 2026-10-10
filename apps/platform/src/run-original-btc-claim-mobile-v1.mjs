@@ -31,6 +31,7 @@ try{const backend=await import(product),path=await backend.originalClaimMobileLo
    // or funding on entry. The original pairing is retained before this line.
    process.stdin.setEncoding('utf8');let input='',funding=false;
    process.stdin.on('data',chunk=>{if(input.length+chunk.length>64){stop();return;}input+=chunk;if(!input.includes('\n'))return;
+    if((deviceRootExit||deviceRootSplExit)&&!funding&&input==='RESTART_ROOT_CLAIM_OBSERVATION_ONCE\n'){funding=true;void operator.restartOriginalObservation().then(result=>{if(!closeRequested)process.stdout.write(JSON.stringify({profile:operator.profile,descriptor:result.descriptor,observationOnly:true,sameOriginalRuntime:result.sameOriginalRuntime,keeperChildRestarted:result.keeperChildRestarted})+'\n');},()=>{process.stderr.write('NATIVE_CLAIM_LOCAL_OBSERVATION_RESTART_FAILED\n');stop();});return;}
     if(deviceRoot||deviceRootSpl||deviceRootExit||deviceRootSplExit||funding||input!=='FUND_ORIGINAL_ONCE\n'){process.stderr.write('NATIVE_CLAIM_LOCAL_INPUT_REJECTED\n');stop();return;}funding=true;
     void operator.fundOriginalOnce().then(()=>{if(!closeRequested)process.stdout.write('NATIVE_CLAIM_LOCAL_ORIGINAL_ENDPOINT_READY\n');},()=>{process.stderr.write('NATIVE_CLAIM_LOCAL_FUND_OUTCOME_UNKNOWN\n');stop();});});
    process.stdin.once('end',stop);process.stdin.resume();}}
