@@ -342,6 +342,11 @@
       "sha256": "f5e7fb3f99cf446974836548e2cba9b34f1bf72434a4a3764dbc51fb998aa398"
     },
     {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254.nr",
+      "bytes": 2508,
+      "sha256": "4800b851b4b0e2c71cd6456efb021be865e4fde040c6e63797b6f157c042653a"
+    },
+    {
       "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254/consts.nr",
       "bytes": 1907961,
       "sha256": "0e1ce6ec6ed2ebbab52739ab07a2ab7a9cfb9b479cb012527f5e08447677dfd2"
@@ -350,11 +355,6 @@
       "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254/perm.nr",
       "bytes": 2299,
       "sha256": "1daf55657af0418deb717b74cd45a1a4e9ac9d59678335cf0e677ed8a682be23"
-    },
-    {
-      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254.nr",
-      "bytes": 2508,
-      "sha256": "4800b851b4b0e2c71cd6456efb021be865e4fde040c6e63797b6f157c042653a"
     },
     {
       "path": "packages/crypto/vendor/poseidon/src/poseidon/mod.nr",
