@@ -51,11 +51,12 @@ const requiredSources = Object.freeze([
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
+  Object.freeze({"path":"apps/platform/src/run-original-native-private-durable-note-v2.mjs","bytes":5939,"sha256":"2903605d57b8e7a781e73eb39356a7f0bb769148322325ee9529fa6600688861"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-note-v2.mjs","bytes":4471,"sha256":"dcbbe66468ab80e0aea6fe4a942182edbf3fcb54e5a692d42ac6b5840da8d6bd"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-deposit-v2.mjs","bytes":4481,"sha256":"d71735c784df102c109bd48c465d23ffd0f31341415faf2d90f53af99e0f0458"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-durable-local-reopen-v1.mjs","bytes":241,"sha256":"de056662c9711cd9f14e6fc91dfcb686efd1b8fab8b973eb06cedb7243c381c5"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-live-armed-v1.mjs","bytes":4784,"sha256":"47f77fa07ee1ee45bcf6265a54d0dfc7472a26b50e2eaa70ca5ba1cc19bd6f5f"}),
-  Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":5871,"sha256":"36cfe1b4387a2b0aa537f9a8a94aaa3840b852bc8b96d051002138b6e404a1a0"}),
+  Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":7625,"sha256":"e96f980bead6696aa724bd721abd221ce1327e708fdda5e0b84f10207cd7097c"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-local-v1.mjs","bytes":208,"sha256":"b46e992f973d8dde44f217b1739308e43a0ee03f5bffda5b7c2ccffe49d0c422"}),
   Object.freeze({"path":"apps/platform/src/original-device-local-caller-v1.mjs","bytes":7872,"sha256":"9ebd70097dd37c0a438e12990a3264edbe041d6997b26158fd780888177a1524"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-local-reopen-v1.mjs","bytes":238,"sha256":"cfd3176249afa1b3369f89f4056f1dd28fc9c89e2fe8296147367b8c4a1c2b10"}),

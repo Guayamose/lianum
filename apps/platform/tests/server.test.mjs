@@ -307,3 +307,33 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   assert.equal(closed, 0); release(); await pending; await closing;
   assert.equal(closed, 1); assert.equal(effects, 3); assert.equal(births, 1);
 });
+
+
+test('fixed private durable adapter creates only the original private realm before TLS or effects',async t=>{
+ // Actual platform adapter + fixed dynamic original-module import. Native/SQL
+ // birth is an explicit inert port; no proof/funding/custody acceptance.
+ const {types}=await import('node:util');
+ const {readFile}=await import('node:fs/promises');
+ const source=await readFile(new URL('../src/original-device-local-operator-v1.mjs',import.meta.url),'utf8');
+ const marker='export async function startPlatformOriginalPrivateNativeNoteDurableOperatorV2(input)';
+ const index=source.indexOf(marker);assert.ok(index>=0);
+ const body=source.slice(index).replace(marker,'async function startPlatformOriginalPrivateNativeNoteDurableOperatorV2(input)').replace('await import(original)','await originalModule()');
+ const prefix=source.slice(source.indexOf('function exact('),source.indexOf('const original ='));
+ const build=new Function('types','originalModule',prefix+body+'\nreturn startPlatformOriginalPrivateNativeNoteDurableOperatorV2;');
+ const pool=Object.freeze({HOST_SQL_PORT_ONLY:true}),tls={certificate:'HOST_TLS_CERT',privateKey:'HOST_TLS_PRIVATE'};
+ let births=0,legacyBirths=0,closed=0,retained,release,entered;
+ const admitted=new Promise(resolve=>{entered=resolve;}),blocked=new Promise(resolve=>{release=resolve;});
+ const input={origin:'https://wallet.example.test',devicePublicKey:ownerPublicKey,tls,pool,privacyKey:'92'.repeat(32)};
+ const service=Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_PRIVATE_DURABLE_NOTE_OPERATOR_V2',descriptor:{origin:input.origin,devicePublicKey:input.devicePublicKey},automaticFunding:false,durableOriginalAdmission:true,
+  async close(){closed++;return{closed:true,originalResourcesStopped:true};}});
+ let selected=service;
+ const start=build(types,async()=>({async createOriginalPrivateNativeNoteDurableOperatorV2(value){births++;retained=value;entered();await blocked;return selected;},
+  createOriginalNativeDeviceDurableLocalOperatorV1(){legacyBirths++;throw Error('HOST_LEGACY_BIRTH_DENIED');}}));
+ await assert.rejects(start({...input,privateMode:true}),/LOCAL_OPERATOR_CONFIGURATION/);
+ let invoked=false;await assert.rejects(start({...input,get origin(){invoked=true;return input.origin;}}),/LOCAL_OPERATOR_CONFIGURATION/);assert.equal(invoked,false);assert.equal(births,0);
+ const starting=start(input);await admitted;input.tls.privateKey='HOST_CHANGED_AFTER_START';release();
+ assert.equal(await starting,service);assert.equal(retained.tls.privateKey,'HOST_TLS_PRIVATE');assert.equal(retained.pool,pool);assert.equal(retained.privacyKey,'92'.repeat(32));assert.equal(legacyBirths,0);assert.equal(closed,0);assert.equal(births,1);
+ selected=Object.freeze({...service,profile:'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1'});
+ await assert.rejects(start({...input,tls}),/PRIVATE_DURABLE_OPERATOR_REQUIRED/);assert.equal(closed,1);assert.equal(legacyBirths,0);
+ assert.equal(service.automaticFunding,false);assert.equal(service.durableOriginalAdmission,true);
+});
