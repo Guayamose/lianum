@@ -1,5 +1,5 @@
 /** Native W39 encryption only to the recipient key bound by the device consent. */
-import * as Crypto from 'expo-crypto';
+import * as Crypto from './native-private-crypto-provider-v2.ts';
 import {x25519} from '@noble/curves/ed25519.js';
 import {hkdf} from '@noble/hashes/hkdf.js';
 import {sha256} from '@noble/hashes/sha2.js';

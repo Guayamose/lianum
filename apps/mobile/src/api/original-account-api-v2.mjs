@@ -10,12 +10,10 @@ import { normalizePrivateStateAccessV1, normalizePrivateStateReviewV1,
   validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceDepositConsentEitherV2 as normalizeDeviceDepositConsentV1, validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1,
   normalizeDeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import {sealOriginalNativeDeviceDepositWitnessV2} from './native-private-deposit-transit-v2.mjs';
 import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFreshV1,
   normalizeDeviceReservationWitnessV1, wipeDeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {normalizeDeviceExitConsentEitherV2 as normalizeDeviceExitConsentV1,validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,normalizeDeviceExitWitnessV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
-import {sealOriginalNativeDeviceExitWitnessV2} from './native-private-exit-transit-v2.mjs';
 import { validateDeviceExecutionConsentFreshV1 }
   from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import {validateDeviceRecoveryArmConsentFreshV1,normalizeDeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
@@ -223,7 +221,14 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
         const signature = normalizeOriginalAccountSignatureV2(input.signature);let witness,packet;
         if(consent.version===2){if(privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');const held=privateExitConsents.get(input.consent);if(!held||held.used||!same(held.value,consent))fail('MOBILE_REVIEW_CHANGED');held.used=true;}
         try {
-          if (consent.action === 'PROVE_W39'){witness=normalizeDeviceExitWitnessV1(input.witness);if(consent.version===2)packet=await sealOriginalNativeDeviceExitWitnessV2(consent,signature,witness);if(consent.version===2&&privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');}
+          if (consent.action === 'PROVE_W39') {
+            witness=normalizeDeviceExitWitnessV1(input.witness);
+            if (consent.version===2) {
+              const {sealOriginalNativeDeviceExitWitnessV2}=await import('./native-private-exit-transit-v2.mjs');
+              packet=await sealOriginalNativeDeviceExitWitnessV2(consent,signature,witness);
+              if(privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');
+            }
+          }
           return await request(consent.action === 'PROVE_W39' ? (consent.version===2?'private-jobs':'jobs') : consent.action === 'WITHDRAW_W39' ? 'withdraw' : 'observations',
             { consent, signature, ...(witness ? { witness:packet??witness } : {}) }, 'device-exit');
         } finally {if(packet)packet.ciphertext=null;if(witness)wipeDeviceExitWitnessV1(witness);}
@@ -308,6 +313,7 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
         try {
           if (consent.action === 'PROVE_D26') witness = normalizeDeviceDepositWitnessV1(input.witness);
           if(consent.version===2&&consent.action==='PROVE_D26'){
+            const {sealOriginalNativeDeviceDepositWitnessV2}=await import('./native-private-deposit-transit-v2.mjs');
             packet=await sealOriginalNativeDeviceDepositWitnessV2(consent,signature,witness);
             validateDeviceDepositConsentFreshV1(consent);
           }
