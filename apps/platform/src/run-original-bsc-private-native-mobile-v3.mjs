@@ -13,7 +13,7 @@ assert.deepEqual(process.execArgv,['--max-old-space-size=384'],'BSC_MOBILE_FIXED
 assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
 assert.deepEqual(process.argv,[process.execPath,entry],'BSC_MOBILE_FIXED_ENTRY');assert.equal(await realpath(entry),entry);
 const product=new URL('../../../scripts/development/owned-bsc-private-native-mobile-v3.mjs',import.meta.url),productPath=fileURLToPath(product);
-const productSHA256='cc88548cc5f08e1e02b1cfe366d2cf221fc346e71ff5a7e94ef9e1982c042cfa',productBytes=15946;
+const productSHA256='728aee49a27f8b0e007da306a42a36d9c9b0fa6fa7cfcbef7860064e2ffd5c08',productBytes=15952;
 const fields=['dev','ino','uid','gid','mode','nlink','size','mtimeMs','ctimeMs'];
 async function originalProduct(){assert.equal(await realpath(productPath),productPath,'BSC_MOBILE_PRODUCT_ALIAS');
  const fd=await open(productPath,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;try{const before=await fd.stat();

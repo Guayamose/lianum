@@ -113,6 +113,11 @@ export function installOriginalPrivateNativeNoteServiceV2(input){assert.equal(ar
 export function installOriginalPrivateNativeNoteDurableServiceV2(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,true,true,true);}
 export function installOriginalPrivateNativeAuthorizedNoteDurableServiceV2(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,true,true,true,true);}
 export function installOriginalPrivateNativeWorkerNoteDurableServiceV3(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,true,true,true,true,true);}
+/** Fixed before-fund private worker/U composition for owned native mobile
+ * products. SQL is not an economic grant; original brands/consents/journals
+ * remain the same. No durable flag, runtime mode or caller callback is read. */
+export function installOriginalPrivateNativeWorkerNoteServiceV3(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,false,true,true,true,true);}
+
 async function installOriginalNativeDeviceService(input,durable,privateD26=false,privateW39=false,privateU=false,privateWorker=false) {
   exactRecord(input, ['runtime', 'system', 'owner', 'account', 'nativeExecution', 'session', 'approval', 'provider', 'configuration',
     ...(durable ? ['pool', 'privacyKey'] : [])]);

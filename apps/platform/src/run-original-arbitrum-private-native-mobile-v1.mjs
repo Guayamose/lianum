@@ -13,7 +13,7 @@ assert.deepEqual(process.execArgv,['--max-old-space-size=384'],'NITRO_MOBILE_FIX
 assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
 assert.deepEqual(process.argv,[process.execPath,entry],'NITRO_MOBILE_FIXED_ENTRY');assert.equal(await realpath(entry),entry);
 const product=new URL('../../../scripts/development/owned-arbitrum-private-native-mobile-v1.mjs',import.meta.url),productPath=fileURLToPath(product);
-const productSHA256='0e96430c411730906fb335c144d470bc510db8988d4cd8f0d877454c4e422a62',productBytes=17312;
+const productSHA256='278f6a3cad03d5882a9a889adc1165bc0bc804599a3dc3ae756876f68142d65b',productBytes=17318;
 const fields=['dev','ino','uid','gid','mode','nlink','size','mtimeMs','ctimeMs'];
 async function originalProduct(){assert.equal(await realpath(productPath),productPath,'NITRO_MOBILE_PRODUCT_ALIAS');
  const fd=await open(productPath,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;try{const before=await fd.stat();

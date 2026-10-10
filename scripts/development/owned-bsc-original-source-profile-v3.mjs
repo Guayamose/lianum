@@ -35,7 +35,7 @@ const mobileRuntimeFiles=Object.freeze([
  ...['native-recipient-process.mjs','native-recipient-custody.mjs','generic-balance-native-preparation.mjs','native-admission.mjs']
  .map(path=>['golden/src/paeg/'+path,'.internal/runtime/omnichain-product/src/paeg/'+path])]);
 const selectedMobile=Object.freeze({profile:'ORIGINAL_BSC714_PRIVATE_NATIVE_MOBILE_V3',
- files:Object.freeze([...selected.files,...[{"path":"scripts/development/owned-bsc-private-native-mobile-v3.mjs","sha256":"cc88548cc5f08e1e02b1cfe366d2cf221fc346e71ff5a7e94ef9e1982c042cfa"},{"path":"apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs","sha256":"fbbe91b3180145e960cce9a7a76e5ce09be0af30fc27dc24979357698a8e88e0"}]]),runtimeFiles:mobileRuntimeFiles});
+ files:Object.freeze([...selected.files,...[{"path":"scripts/development/owned-bsc-private-native-mobile-v3.mjs","sha256":"728aee49a27f8b0e007da306a42a36d9c9b0fa6fa7cfcbef7860064e2ffd5c08"},{"path":"apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs","sha256":"a67c271fa93c21768162e7cb9b912d486443ac2eca8dfd126f42a4487a00682d"}]]),runtimeFiles:mobileRuntimeFiles});
 function repository(){let current=dirname(fileURLToPath(import.meta.url));while(current!==parse(current).root){
  if(existsSync(join(current,'scripts/layout.json'))&&existsSync(join(current,'package.json'))
  &&JSON.parse(readFileSync(join(current,'package.json'),'utf8')).name==='lianum')return realpathSync(current);current=dirname(current);}
