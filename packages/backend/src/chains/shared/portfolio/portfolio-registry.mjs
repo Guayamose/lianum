@@ -10,6 +10,7 @@ export const PORTFOLIO_CHAINS = freeze({
   base: { family: 'evm', chainId: '8453', symbol: 'ETH', decimals: 18, layer: 'l2' },
   arbitrum: { family: 'evm', chainId: '42161', symbol: 'ETH', decimals: 18, layer: 'l2' },
   bnb: { family: 'evm', chainId: '56', symbol: 'BNB', decimals: 18, layer: 'l1' },
+  'bsc-local': { family: 'evm', chainId: '714', symbol: 'labBNB', decimals: 18, layer: 'l1' },
   solana: { family: 'solana', chainId: null, symbol: 'SOL', decimals: 9, layer: 'l1' },
   bitcoin: { family: 'bitcoin', chainId: null, symbol: 'BTC', decimals: 8, layer: 'l1' },
   tron: { family: 'tron', chainId: null, symbol: 'TRX', decimals: 6, layer: 'l1' },

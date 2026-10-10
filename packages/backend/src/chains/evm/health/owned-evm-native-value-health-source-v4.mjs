@@ -89,34 +89,40 @@ async function rollupClients() {
       Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-base-rollup-v1.mjs')).href),
         prefix:'BaseRollup',chainId:'8453',profile:'OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1'}),
       Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-arbitrum-nitro-v1.mjs')).href),
-        prefix:'ArbitrumNitro',chainId:'42161',profile:'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1'})]);
+        prefix:'ArbitrumNitro',chainId:'42161',profile:'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1'}),
+      await (async()=>{const path=join(root,'scripts/development/owned-bsc-original-source-profile-v3.mjs');
+        const pin='78b5ea125d3ddc2430d873df834f16b650a684f98991d341329c3de455938183';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
+        const profile=await import(pathToFileURL(path).href);assert.equal(profile.readOriginalOwnedBscSourceModuleV3(),pin,'OWNED_NATIVE_SOURCE_LOADED_BSC_MODULE_CHANGED');profile.inspectOriginalBscSourcesV3();
+        return Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-bsc-posa-v1.mjs')).href),prefix:'BscPoSA',chainId:'714',profile:'OWNED_BSC_POSA_NATIVE_VALUE_714_V3',bsc:true});})()]);
   })();return originalRollupClients;
 }
 /** A branded original native client only; copied profile/genesis/identity data
  * never opens this entry. Null lets the old fixed Tron branch stay unchanged. */
 export async function openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime) {
   assert.equal(arguments.length,1,'OWNED_NATIVE_SOURCE_ORIGINAL_CLIENT_ARITY');
-  const selected=(await rollupClients()).find(row=>row.module['isOwned'+row.prefix+'NativeValueClusterV1'](nativeRuntime));
+  const selected=(await rollupClients()).find(row=>row.module['isOwned'+row.prefix+'NativeValueCluster'+(row.bsc?'V3':'V1')](nativeRuntime));
   if(!selected)return null;
-  const api=selected.module,assertLive=()=>api['assertOwned'+selected.prefix+'NativeValueLiveV1'](nativeRuntime);
+  const api=selected.module,assertLive=()=>api['assertOwned'+selected.prefix+'NativeValueLive'+(selected.bsc?'V3':'V1')](nativeRuntime);
   assertLive();
-  const sourceProfile=api['readOwned'+selected.prefix+'NativeValueSourceProfileV1'](nativeRuntime);
-  assert.equal(sourceProfile.profile,selected.profile);assert.equal(sourceProfile.schema,'OWNED_ORIGINAL_ROLLUP_SOURCE_PROFILE_V1');
-  const original=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentityV1'](nativeRuntime));assertLive();
-  exactRecord(original,['profile','chainId','genesis','parentGenesis','sourceCommit','publicNetwork',
+  const sourceProfile=api['readOwned'+selected.prefix+'NativeValueSourceProfile'+(selected.bsc?'V3':'V1')](nativeRuntime);
+  assert.equal(sourceProfile.profile,selected.profile);assert.equal(sourceProfile.schema,selected.bsc?'OWNED_ORIGINAL_BSC_SOURCE_PROFILE_V3':'OWNED_ORIGINAL_ROLLUP_SOURCE_PROFILE_V1');
+  const original=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentity'+(selected.bsc?'V3':'V1')](nativeRuntime));assertLive();
+  if(selected.bsc){exactRecord(original,['profile','chainId','genesis','clientSHA256','genesisSHA256','validatorCount','publicNetwork','independentInfrastructureEstablished','identity']);
+    assert.equal(original.validatorCount,3);for(const name of ['clientSHA256','genesisSHA256'])assert(/^[0-9a-f]{64}$/.test(original[name]));
+  }else exactRecord(original,['profile','chainId','genesis','parentGenesis','sourceCommit','publicNetwork',
     'independentInfrastructureEstablished','rollupChallengeFinalityEstablished','identity']);
   assert.equal(original.profile,selected.profile);assert.equal(original.chainId,selected.chainId);
-  for(const name of ['genesis','parentGenesis'])assert(/^[0-9a-f]{64}$/.test(original[name]),'OWNED_NATIVE_SOURCE_ORIGINAL_IDENTITY');
-  assert(/^[0-9a-f]{40}$/.test(original.sourceCommit),'OWNED_NATIVE_SOURCE_ORIGINAL_IDENTITY');
-  for(const flag of ['publicNetwork','independentInfrastructureEstablished','rollupChallengeFinalityEstablished'])assert.equal(original[flag],false);
+  for(const name of (selected.bsc?['genesis']:['genesis','parentGenesis']))assert(/^[0-9a-f]{64}$/.test(original[name]),'OWNED_NATIVE_SOURCE_ORIGINAL_IDENTITY');
+  if(!selected.bsc)assert(/^[0-9a-f]{40}$/.test(original.sourceCommit),'OWNED_NATIVE_SOURCE_ORIGINAL_IDENTITY');
+  for(const flag of (selected.bsc?['publicNetwork','independentInfrastructureEstablished']:['publicNetwork','independentInfrastructureEstablished','rollupChallengeFinalityEstablished']))assert.equal(original[flag],false);
   exactRecord(original.identity,['endpointIdentity','clientRelease','chainConfiguration']);
   for(const value of Object.values(original.identity))assert(/^[0-9a-f]{64}$/.test(value),'OWNED_NATIVE_SOURCE_ORIGINAL_IDENTITY');
   const descriptors=frozenInput([0,1,2,3].map(sourceIndex=>({chainId:selected.chainId,genesis:original.genesis,
     sourceIndex:String(sourceIndex),publicNetwork:false,commonHost:true,commonNode:true,
-    classification:'OWNED_LOCAL_ROLLUP_CLIENT_SOURCE_V1',identity:{...original.identity,
+    classification:selected.bsc?'OWNED_LOCAL_BSC_CLIENT_SOURCE_V3':'OWNED_LOCAL_ROLLUP_CLIENT_SOURCE_V1',identity:{...original.identity,
       endpointIdentity:sha('LIANUM/owned-local-rollup-source/1\0'+original.identity.endpointIdentity+'/'+sourceIndex)}})));
   async function assertCurrent() {
-    assertLive();assert.deepEqual(api['readOwned'+selected.prefix+'NativeValueSourceProfileV1'](nativeRuntime),sourceProfile,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_GENERATION_CHANGED');const current=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentityV1'](nativeRuntime));
+    assertLive();assert.deepEqual(api['readOwned'+selected.prefix+'NativeValueSourceProfile'+(selected.bsc?'V3':'V1')](nativeRuntime),sourceProfile,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_GENERATION_CHANGED');const current=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentity'+(selected.bsc?'V3':'V1')](nativeRuntime));
     assert.deepEqual(current,original,'OWNED_NATIVE_SOURCE_ORIGINAL_CLIENT_CHANGED');assertLive();
   }
   async function createSource(raw) {
@@ -132,7 +138,7 @@ export async function openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime)
     await assertCurrent();
     const transport=async(method,params,options)=>{
       assertLive();exactRecord(options,['signal']);assert(options.signal instanceof AbortSignal,'OWNED_NATIVE_SOURCE_ABORT_SIGNAL');options.signal.throwIfAborted();
-      const value=await api['readOwned'+selected.prefix+'NativeValueRpcV1'](nativeRuntime,method,params);
+      const value=await api['readOwned'+selected.prefix+'NativeValueRpc'+(selected.bsc?'V3':'V1')](nativeRuntime,method,params);
       options.signal.throwIfAborted();assertLive();return value;
     };
     const {createOwnedEvmNativeValueHealthSource}=await import('./evm-native-value-health-source-v4.mjs');

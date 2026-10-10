@@ -131,6 +131,7 @@ export function evmNativeTransferNetwork(raw) {
   return freeze({ ...network, nativeAssetCommitment: digest('LIANUM/native-value-asset/1', { nativeAssetId: network.nativeAsset.id }),
     finality: { ...network.finality,
       rule: value.chain === 'ethereum' ? 'ethereum-rpc-finalized' : value.chain === 'bnb' ? 'bsc-rpc-finalized'
+        : value.chain === 'bsc-local' ? 'bsc-owned-local-native-finalized'
         : value.chain === 'base' ? 'base-node-reported-finalized' : 'arbitrum-node-reported-finalized',
       rollupExecutionProofVerified: false, rollupWithdrawalSettlementVerified: false } });
 }

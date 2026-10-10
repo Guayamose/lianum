@@ -36,6 +36,7 @@ URLS = {
 PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2'
 PREPARED_V2 = DEPENDENCIES / 'prepared-native-init-v2'
 PROFILE_V3 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V3'
+NATIVE_VALUE_PROFILE_V3 = 'OWNED_BSC_POSA_NATIVE_VALUE_714_V3'
 PREPARED_V3 = DEPENDENCIES / 'prepared-native-init-v3'
 GENESIS_V3_HELPER_SHA256 = '10a9ba1b1832235ce7115d5e85da5402b4def382e50422d462f49269a243966d'
 # Slots derive from the original compiled Solidity storageLayout (slot11,
@@ -373,7 +374,50 @@ def prepare_native_init_v3():
  sync_directory(staged);os.rename(staged,PREPARED_V3);sync_directory(DEPENDENCIES)
  print(json.dumps({'nativeInitializationPrepared':True,'profile':PROFILE_V3,'originalSystemContracts':17,'originalStakeCreditProxies':3,'nativeFinalityEstablished':False}))
 
-def serve(prepared=PREPARED,profile=PROFILE):
+def native_value_read_input(raw):
+ require(type(raw) is dict and set(raw) == {'method', 'params'}
+         and type(raw['params']) is list and len(json.dumps(raw).encode()) <= 16384,
+         'BSC_ORIGINAL_READ_REQUEST')
+ method, params = raw['method'], raw['params']
+ require(method in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getBlockByHash',
+         'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBalance',
+         'eth_getCode', 'debug_traceTransaction', 'eth_getTransactionCount',
+         'eth_gasPrice', 'eth_estimateGas'), 'BSC_ORIGINAL_READ_METHOD')
+ require((method in ('eth_chainId', 'eth_gasPrice') and params == [])
+         or (method == 'eth_getTransactionCount' and len(params) == 2
+             and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{40}', params[0])
+             and params[1] in ('latest', 'pending'))
+         or (method == 'eth_estimateGas' and len(params) == 2
+             and type(params[0]) is dict and set(params[0]) == {'from','to','value','data','gas','gasPrice','nonce','chainId','type'}
+             and all(type(params[0][key]) is str and re.fullmatch(r'0x[0-9a-f]{40}',params[0][key]) for key in ('from','to'))
+             and type(params[0]['data']) is str and re.fullmatch(r'0x(?:[0-9a-f]{2}){70}',params[0]['data'])
+             and all(type(params[0][key]) is str and re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]{0,63})',params[0][key]) for key in ('value','gas','gasPrice','nonce'))
+             and params[0]['chainId'] == hex(714) and params[0]['type'] == '0x0'
+             and type(params[1]) is str and (params[1] == 'latest' or re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]{0,63})',params[1])))
+         or (method in ('eth_getTransactionByHash', 'eth_getTransactionReceipt') and len(params) == 1
+             and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0]))
+         or (method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and len(params) == 2
+             and params[1] is False and type(params[0]) is str
+             and (params[0] in ('latest', 'safe', 'finalized', '0x0')
+                  or re.fullmatch(r'0x[0-9a-f]{1,64}', params[0])))
+         or (method in ('eth_getBalance', 'eth_getCode') and len(params) == 2
+             and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{40}', params[0])
+             and ((type(params[1]) is str and (params[1] in ('latest', 'safe', 'finalized', '0x0')
+                   or re.fullmatch(r'0x[0-9a-f]{1,64}', params[1])))
+                  or (type(params[1]) is dict and set(params[1]) == {'blockHash', 'requireCanonical'}
+                      and params[1]['requireCanonical'] is True
+                      and type(params[1]['blockHash']) is str
+                      and re.fullmatch(r'0x[0-9a-f]{64}', params[1]['blockHash']))))
+         or (method == 'debug_traceTransaction' and len(params) == 2
+             and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0])
+             and params[1] in [{'tracer':'callTracer','timeout':'5s','reexec':128,
+                               'tracerConfig':{'onlyTopCall':True,'withLog':False}},
+                              {'tracer':'prestateTracer','timeout':'5s','reexec':128,
+                               'tracerConfig':{'diffMode':False,'disableCode':False,'disableStorage':True}}]),
+         'BSC_ORIGINAL_READ_PARAMS')
+ return method,params
+
+def serve(prepared=PREPARED,profile=PROFILE,native_value=False):
  require(prepared.exists(),"BSC_MATERIAL_NOT_PREPARED");private_directory(DEPENDENCIES);private_directory(prepared)
  receipt=json.loads(private_file(prepared/'receipt.json',16384));require(receipt['profile']==profile and receipt['material']==PINS,"BSC_PREPARED_PROFILE")
  require(digest(private_file(prepared/'geth',128*1024*1024))==receipt['clientSHA256'] and digest(private_file(prepared/'genesis.json',1024*1024))==receipt['genesisSHA256'],"BSC_PREPARED_CHANGED")
@@ -388,7 +432,9 @@ def serve(prepared=PREPARED,profile=PROFILE):
   require(v3=={'schema':'BSC_ORIGINAL_NATIVE_EVM_GENESIS_SEED_V3','parentGenesisSHA256':digest(parentGenesis),'seedSHA256':digest(seedBody),'helperSHA256':GENESIS_V3_HELPER_SHA256,'originalGenesisRegistrations':3,'runtimeFinalityEstablished':False} and digest((REPO/'scripts/development/bsc_original_genesis_v3.py').read_bytes())==GENESIS_V3_HELPER_SHA256 and seed['genesisSHA256']==receipt['genesisSHA256'] and seed['parentGenesisSHA256']==digest(parentGenesis),"BSC_NATIVE_INIT_GENERATION_CHANGED")
   require(receipt['validators']==parentReceipt['validators'] and receipt['clientSHA256']==parentReceipt['clientSHA256'] and receipt['stakeHubRegistrarSHA256']==parentReceipt['stakeHubRegistrarSHA256'],"BSC_NATIVE_INIT_ORIGINAL_BINDING_CHANGED")
  private_directory(REALMS);realm=REALMS/str(uuid.uuid4());directory(realm)
- nodes=[];broadcasts=set()
+ nodes=[];broadcasts=set();dispatch_uncertain=False
+ runtime_profile=NATIVE_VALUE_PROFILE_V3 if native_value else profile
+ require(not native_value or profile==PROFILE_V3,"BSC_ORIGINAL_ECONOMIC_PROFILE_REQUIRED")
  parent=identity(os.getppid());initializationDeadline=time.monotonic()+NATIVE_INITIALIZATION_SECONDS
  def parent_alive():
   require(os.getppid()==parent["pid"] and identity(parent["pid"])==parent,"BSC_ORIGINAL_PARENT_EXITED")
@@ -409,12 +455,12 @@ def serve(prepared=PREPARED,profile=PROFILE):
    d=realm/f'node{i}';cfg=d/'config.toml';require(cfg.exists(),"BSC_GENERATED_CONFIG")
    text=cfg.read_text();cfg.write_text('\n'.join(x for x in text.splitlines() if '"<nil>"' not in x)+'\n');cfg.chmod(0o600)
    native_command([binary,'--datadir',str(d),'init','--state.scheme','path','--db.engine','pebble',str(prepared/'genesis.json')],realm,realm/'init.private.log',initializationDeadline)
-   http=port();args=[binary,'--config',str(cfg),'--datadir',str(d),'--nodekey',str(d/'geth/nodekey'),'--nodiscover','--nat','none','--ipcdisable','--http','--http.addr','127.0.0.1','--http.port',str(http),'--http.api','eth,net,web3','--http.vhosts','localhost,127.0.0.1','--allow-insecure-unlock','--mine','--vote','--unlock',receipt['validators'][i]['address'],'--miner.etherbase',receipt['validators'][i]['address'],'--password',str(d/'password.txt'),'--blspassword',str(d/'password.txt'),'--gcmode','archive','--syncmode','full']
+   http=port();args=[binary,'--config',str(cfg),'--datadir',str(d),'--nodekey',str(d/'geth/nodekey'),'--nodiscover','--nat','none','--ipcdisable','--http','--http.addr','127.0.0.1','--http.port',str(http),'--http.api','eth,net,web3,debug' if native_value else 'eth,net,web3','--http.vhosts','localhost,127.0.0.1','--allow-insecure-unlock','--mine','--vote','--unlock',receipt['validators'][i]['address'],'--miner.etherbase',receipt['validators'][i]['address'],'--password',str(d/'password.txt'),'--blspassword',str(d/'password.txt'),'--gcmode','archive','--syncmode','full']
    log=open(d/'node.private.log','xb');os.chmod(d/'node.private.log',0o600)
    process=subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
    owned=identity(process.pid);nodes.append((process,owned,f'http://127.0.0.1:{http}',log))
    require(pathlib.Path(f'/proc/{process.pid}/exe').resolve()==prepared/'geth',"BSC_ORIGINAL_EXECUTABLE_CHANGED")
-   print(json.dumps({'ownedBirth':True,'profile':profile,'originalParent':parent,'ownedProcesses':[identity for child,identity,url,file in nodes]}),flush=True)
+   print(json.dumps({'ownedBirth':True,'profile':runtime_profile,'originalParent':parent,'ownedProcesses':[identity for child,identity,url,file in nodes]}),flush=True)
   deadline=time.monotonic()+NATIVE_FINALITY_STARTUP_SECONDS
   # Official StakeHub registrations use only the public lab validator keys.
   # Each exact fixture transaction is admitted once before the runtime exists.
@@ -449,7 +495,13 @@ def serve(prepared=PREPARED,profile=PROFILE):
    except OSError:pass
    require(time.monotonic()<deadline,"BSC_FINALITY_STARTUP_TIMEOUT");time.sleep(.2)
   require(digest(private_file(prepared/'geth',128*1024*1024))==receipt['clientSHA256'],"BSC_PREPARED_CHANGED")
-  print(json.dumps({'ready':True,'profile':profile,'chainId':714,'genesisSHA256':receipt['genesisSHA256'],'ownedProcesses':[i for p,i,u,l in nodes],'originalParent':parent}),flush=True)
+  print(json.dumps({'ready':True,'profile':runtime_profile,'chainId':714,'genesisSHA256':receipt['genesisSHA256'],'ownedProcesses':[i for p,i,u,l in nodes],'originalParent':parent}),flush=True)
+  original_genesis=[rpc(u,'eth_getBlockByNumber',['0x0',False]) for p,i,u,l in nodes] if native_value else None
+  def native_current():
+   parent_alive();require(all(same_process(p,i) for p,i,u,l in nodes),'BSC_NODE_CHANGED')
+   require(all(rpc(u,'eth_chainId',[])=='0x2ca' for p,i,u,l in nodes),'BSC_CHAIN_ID')
+   require([rpc(u,'eth_getBlockByNumber',['0x0',False]) for p,i,u,l in nodes]==original_genesis,'BSC_ORIGINAL_GENESIS_CHANGED')
+   require(digest(private_file(prepared/'geth',128*1024*1024))==receipt['clientSHA256'] and digest(private_file(prepared/'genesis.json',1024*1024))==receipt['genesisSHA256'],'BSC_PREPARED_CHANGED')
   for line in sys.stdin:
    require(len(line)<=262144,"BSC_COMMAND_BOUND");q=json.loads(line);require(set(q)=={'id','operation','input'} and isinstance(q['id'],int),"BSC_COMMAND_SHAPE")
    try:
@@ -462,10 +514,28 @@ def serve(prepared=PREPARED,profile=PROFILE):
      n=min(int(h['number'],16) for h in heads);common=[rpc(u,'eth_getBlockByNumber',[hex(n),False]) for p,i,u,l in nodes]
      require(len({h['hash'] for h in common})==1,"BSC_FINALITY_CONFLICT")
      out={'blockNumber':str(n),'blockHash':common[0]['hash'],'timestamp':str(int(common[0]['timestamp'],16)),'finality':'bsc-native-finalized','validatorCount':3,'independentOperators':False}
+    elif op=='identity':
+     require(native_value and data is None,'BSC_ORIGINAL_ECONOMIC_PROFILE_REQUIRED');native_current()
+     out={'profile':runtime_profile,'chainId':'714','genesis':original_genesis[0]['hash'][2:],'clientSHA256':receipt['clientSHA256'],'genesisSHA256':receipt['genesisSHA256'],'validatorCount':3,'publicNetwork':False,'independentInfrastructureEstablished':False}
+     native_current()
+    elif op=='read':
+     require(native_value,'BSC_ORIGINAL_ECONOMIC_PROFILE_REQUIRED');method,params=native_value_read_input(data)
+     native_current();out=rpc(nodes[0][2],method,params);native_current()
     elif op=='broadcast':
      require(isinstance(data,str) and re.fullmatch('0x[0-9a-f]+',data) and len(data)%2==0 and len(data)<=260000,"BSC_SIGNED_TRANSACTION")
+     if native_value:
+      require(not dispatch_uncertain,'BSC_ORIGINAL_UNKNOWN_NO_FRESH_SEND');native_current()
      h=digest(data.encode());require(h not in broadcasts,"BSC_BROADCAST_ALREADY_ADMITTED");broadcasts.add(h)
-     out=rpc(nodes[0][2],'eth_sendRawTransaction',[data])
+     if native_value:
+      # Admission is burned before any native send. A lost reply is retained
+      # uncertainty: only original reads remain; no resend or replacement wire.
+      try:
+       expected=rpc(nodes[0][2],'web3_sha3',[data]);require(isinstance(expected,str) and re.fullmatch('0x[0-9a-f]{64}',expected),'BSC_ORIGINAL_WIRE_HASH')
+       returned=rpc(nodes[0][2],'eth_sendRawTransaction',[data]);require(returned==expected,'BSC_ORIGINAL_WIRE_HASH');native_current()
+       out={'transactionHash':returned,'admittedOnce':True}
+      except Exception:
+       dispatch_uncertain=True;raise RuntimeError('BSC_ORIGINAL_OPERATION_UNCERTAIN')
+     else:out=rpc(nodes[0][2],'eth_sendRawTransaction',[data])
     else:raise RuntimeError('BSC_OPERATION_DENIED')
     print(json.dumps({'id':q['id'],'result':out}),flush=True)
    except Exception as e:
@@ -488,7 +558,7 @@ def serve(prepared=PREPARED,profile=PROFILE):
 
 if __name__=='__main__':
  try:
-  require(sys.argv[1:] in ([],['--prepare'],['--fetch-material'],['--prepare-tools'],['--prepare-native-init-v2'],['--native-init-v2'],['--prepare-native-init-v3'],['--native-init-v3']),"BSC_NO_OPTIONS")
+  require(sys.argv[1:] in ([],['--prepare'],['--fetch-material'],['--prepare-tools'],['--prepare-native-init-v2'],['--native-init-v2'],['--prepare-native-init-v3'],['--native-init-v3'],['--native-value-v3']),"BSC_NO_OPTIONS")
   if sys.argv[1:]==['--fetch-material']:fetch_material()
   elif sys.argv[1:]==['--prepare-tools']:prepare_tools()
   elif sys.argv[1:]==['--prepare']:prepare()
@@ -496,6 +566,7 @@ if __name__=='__main__':
   elif sys.argv[1:]==['--native-init-v2']:serve(PREPARED_V2,PROFILE_V2)
   elif sys.argv[1:]==['--prepare-native-init-v3']:prepare_native_init_v3()
   elif sys.argv[1:]==['--native-init-v3']:serve(PREPARED_V3,PROFILE_V3)
+  elif sys.argv[1:]==['--native-value-v3']:serve(PREPARED_V3,PROFILE_V3,True)
   else:serve()
  except Exception as e:
   code=str(e) if isinstance(e,RuntimeError) and re.fullmatch('BSC_[A-Z_]+',str(e)) else 'BSC_CONSTRUCTOR_FAILED'

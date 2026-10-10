@@ -23,6 +23,10 @@ export const OWNED_EVM_NATIVE_VALUE_ARBITRUM_PROFILE_V1 = Object.freeze({
 export const OWNED_EVM_NATIVE_VALUE_BNB_PROFILE_V1 = Object.freeze({
   ...OWNED_EVM_NATIVE_VALUE_PROFILE_V1, classification: 'LOCAL_SYNTHETIC_EVM_CHAIN_ID_56', chainId: '56',
 });
+/** Original BSC geth local genesis 714 only; this is a public codec, never a runtime grant. */
+export const OWNED_BSC_NATIVE_VALUE_PROFILE_V3 = Object.freeze({
+  ...OWNED_EVM_NATIVE_VALUE_PROFILE_V1, classification: 'OWNED_LOCAL_BSC_POSA_GENESIS_714_V3', chainId: '714',
+});
 export const OWNED_EVM_NATIVE_VALUE_FIXED_PROFILES_V1 = Object.freeze({
   ethereum: OWNED_EVM_NATIVE_VALUE_PROFILE_V1, base: OWNED_EVM_NATIVE_VALUE_BASE_PROFILE_V1,
   arbitrum: OWNED_EVM_NATIVE_VALUE_ARBITRUM_PROFILE_V1, bnb: OWNED_EVM_NATIVE_VALUE_BNB_PROFILE_V1,
@@ -61,6 +65,10 @@ export function normalizeOwnedEvmNativeValueArbitrumIntent(raw, original) {
 export function normalizeOwnedEvmNativeValueBnbIntent(raw, original) {
   assert.equal(arguments.length, 2, 'OWNED_NATIVE_VALUE_FIXED_NORMALIZER');
   return normalizeFixedIntent(raw, original, OWNED_EVM_NATIVE_VALUE_BNB_PROFILE_V1);
+}
+export function normalizeOwnedBscNativeValueIntentV3(raw, original) {
+  assert.equal(arguments.length, 2, 'OWNED_NATIVE_VALUE_FIXED_NORMALIZER');
+  return normalizeFixedIntent(raw, original, OWNED_BSC_NATIVE_VALUE_PROFILE_V3);
 }
 function normalizeFixedIntent(raw, original, profile) {
   dataRecord(raw, ['transaction', 'binding']); dataRecord(original, ['accounts', 'genesis']);

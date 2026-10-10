@@ -16,7 +16,7 @@ export const SEMANTIC_PROFILE = 'LIANUM_GENERIC_EVM_NATIVE_VALUE_ADMISSION_V2';
 export const TRACE = 'GETH_COMPATIBLE_CALL_AND_PRESTATE_TRANSACTION_V1';
 export const OBLIGATION = 'SUCCESSFUL_AUTHORIZED_ENDPOINT_VALUE_EXECUTION_NO_RETENTION_V1';
 export const CHAINS = Object.freeze({ '1': ['ethereum', 'ethereum-rpc-finalized'], '8453': ['base', 'base-node-reported-finalized'],
-  '42161': ['arbitrum', 'arbitrum-node-reported-finalized'], '56': ['bnb', 'bsc-rpc-finalized'] });
+  '42161': ['arbitrum', 'arbitrum-node-reported-finalized'], '56': ['bnb', 'bsc-rpc-finalized'], '714': ['bsc-local', 'bsc-owned-local-native-finalized'] });
 export const sha256 = value => createHash('sha256').update(value).digest('hex');
 export const semanticId = sha256(SEMANTIC_PROFILE);
 export const registrySemanticId = sha256('LIANUM_NATIVE_ADAPTER_ENVELOPE_V2');

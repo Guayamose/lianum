@@ -1,5 +1,7 @@
+import {createOriginalBscSourceProfileV3,assertOriginalOwnedBscSourceProfileV3,readOriginalOwnedBscSourceProfileV3,closeOriginalOwnedBscSourceProfileV3} from './owned-bsc-original-source-profile-v3.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { types } from 'node:util';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, parse } from 'node:path';
@@ -11,12 +13,13 @@ const PROFILE = 'OWNED_BSC_POSA_THREE_VALIDATORS_V1';
 const PROFILE_V2 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V2';
 const PROFILE_V3 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V3';
 const GENESIS_V3_HELPER_SHA256 = '10a9ba1b1832235ce7115d5e85da5402b4def382e50422d462f49269a243966d';
-const RECIPE_SHA256 = 'a189b6c20d04eea1aa4b958db82c49a62eac3d9136271ba4e452b73de2137b4a';
+const RECIPE_SHA256 = '84bfc3603377db56ede13ccdd85808e77792a7fbdfae63dda9be22dcfdfe8511';
 // Python's 90-second readiness already contains registrations. This outer
 // watchdog deliberately permits 30 + 3*15 + 90 + an explicit 15-second margin.
 const CONSTRUCTOR_MS = (30 + 3 * 15 + 90 + 15) * 1000;
 const IPC_MS = 30_000, SHUTDOWN_MS = 40_000;
-const owned = new WeakMap();
+const NATIVE_VALUE_PROFILE_V3='OWNED_BSC_POSA_NATIVE_VALUE_714_V3';
+const nativeValues=new WeakSet(), owned = new WeakMap();
 function repository() {
   let current = dirname(fileURLToPath(import.meta.url));
   while (current !== parse(current).root) {
@@ -68,6 +71,7 @@ function fail(state, error, uncertain = false) {
 function live(runtime) {
   const state = owned.get(runtime);
   assert(state && !state.closed && !state.failed, 'BSC_ORIGINAL_RUNTIME_UNAVAILABLE');
+  if(state.sourceProfile)assertOriginalOwnedBscSourceProfileV3(state.sourceProfile);
   sameProcess(state.child, state.identity); return state;
 }
 async function gone(identity, milliseconds) {
@@ -129,10 +133,30 @@ async function shutdown(state) {
       return Object.freeze({ profile: state.profile, closed: true, originalBackendExitCode: result.code,
         originalBackendSignal: result.signal, controlledShutdownSignalUsed: forced,
         originalNativeProcessesSignalled: nativeSignals, originalOutcomeUncertain: state.uncertain, nodeDataRetained: true });
-    } finally { state.lines.close(); }
+    } finally { state.lines.close();if(state.sourceProfile)closeOriginalOwnedBscSourceProfileV3(state.sourceProfile); }
   })();
   return state.stopWork;
 }
+function originalReadInput(method, params) {
+  assert(typeof method==='string' && method.length<=64,'BSC_ORIGINAL_READ_REQUEST');
+  let nodes=0, characters=0;
+  function copy(value,depth=0) {
+    assert(++nodes<=256 && depth<=8,'BSC_ORIGINAL_READ_BOUND');
+    if(value===null || typeof value==='boolean')return value;
+    if(typeof value==='string'){characters+=value.length;assert(characters<=8192,'BSC_ORIGINAL_READ_BOUND');return value;}
+    if(typeof value==='number'){assert(Number.isSafeInteger(value)&&!Object.is(value,-0),'BSC_ORIGINAL_READ_REQUEST');return value;}
+    assert(value && typeof value==='object' && !types.isProxy(value),'BSC_ORIGINAL_READ_REQUEST');
+    const array=Array.isArray(value);assert(Object.getPrototypeOf(value)===(array?Array.prototype:Object.prototype),'BSC_ORIGINAL_READ_REQUEST');
+    const keys=Reflect.ownKeys(value);assert(keys.length<=32,'BSC_ORIGINAL_READ_BOUND');
+    if(array){assert(value.length<=16 && keys.length===value.length+1,'BSC_ORIGINAL_READ_REQUEST');
+      const result=[];for(let i=0;i<value.length;i++){const field=Object.getOwnPropertyDescriptor(value,String(i));assert(field&&Object.hasOwn(field,'value'),'BSC_ORIGINAL_READ_REQUEST');result.push(copy(field.value,depth+1));}return result;}
+    const result={};for(const key of keys){assert(typeof key==='string' && key.length<=64 && !['__proto__','constructor','prototype'].includes(key),'BSC_ORIGINAL_READ_REQUEST');
+      characters+=key.length;assert(characters<=8192,'BSC_ORIGINAL_READ_BOUND');const field=Object.getOwnPropertyDescriptor(value,key);assert(Object.hasOwn(field,'value'),'BSC_ORIGINAL_READ_REQUEST');result[key]=copy(field.value,depth+1);}return result;
+  }
+  assert(Array.isArray(params) && !types.isProxy(params),'BSC_ORIGINAL_READ_REQUEST');
+  const input={method,params:copy(params)};assert(Buffer.byteLength(JSON.stringify(input))<=16384,'BSC_ORIGINAL_READ_BOUND');return input;
+}
+
 async function command(runtime, operation, input) {
   const state = live(runtime), previous = state.tail; let release;
   const held = new Promise(resolve => { release = resolve; });
@@ -159,13 +183,20 @@ async function command(runtime, operation, input) {
 // This file is used by direct canonical import; scripts/development is outside
 // the frozen runtime mapper's sourceRoots. No layout or compiler pin changes.
 async function createFixedOwnedBscPoSACluster(profile, nativeInitV2) {
-  const root = repository(), recipe = join(root, 'scripts/development/owned_bsc_posa_v1.py');
-  assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BSC_ORIGINAL_RECIPE_CHANGED');
-  const helper = join(root, 'scripts/development/bsc_original_genesis_v3.py');
-  if (profile === PROFILE_V3) assert.equal(createHash('sha256').update(readFileSync(helper)).digest('hex'), GENESIS_V3_HELPER_SHA256, 'BSC_ORIGINAL_GENESIS_HELPER_CHANGED');
-  const args = nativeInitV2 === false ? [] : nativeInitV2 === true ? ['--native-init-v2'] : nativeInitV2 === 'NATIVE_INIT_V3' ? ['--native-init-v3'] : assert.fail('BSC_ORIGINAL_RUNTIME_PROFILE');
-  const child = spawn('/usr/bin/python3', [recipe, ...args], { cwd: root, stdio: ['pipe','pipe','ignore'], env: { PATH:'/usr/bin:/bin', LANG:'C.UTF-8' } });
-  const state = { child, profile, identity:null, validators:[], pending:new Map(), sequence:0, tail:Promise.resolve(), closed:false, failed:false, uncertain:false };
+  const nativeValue=profile===NATIVE_VALUE_PROFILE_V3;
+  const sourceProfile=nativeValue?createOriginalBscSourceProfileV3():null;
+  let custody,api,custodyPublic;
+  try{if(nativeValue){api=await import('./owned-bsc-native-value-dispatch-v3.mjs');assertOriginalOwnedBscSourceProfileV3(sourceProfile);custody=await api.createOriginalBscNativeValueCustodyV3();custodyPublic=api.readOriginalBscNativeValueCustodyPublicV3(custody);assertOriginalOwnedBscSourceProfileV3(sourceProfile);}}
+  catch(error){try{if(custody)await api.closeOriginalBscNativeValueCustodyV3(custody);}catch{}finally{if(sourceProfile)closeOriginalOwnedBscSourceProfileV3(sourceProfile);}throw error;}
+  let root,recipe,helper,child;
+  try{
+    root=repository();recipe=join(root,'scripts/development/owned_bsc_posa_v1.py');helper=join(root,'scripts/development/bsc_original_genesis_v3.py');
+    assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BSC_ORIGINAL_RECIPE_CHANGED');
+    if (profile === PROFILE_V3 || nativeValue) assert.equal(createHash('sha256').update(readFileSync(helper)).digest('hex'), GENESIS_V3_HELPER_SHA256, 'BSC_ORIGINAL_GENESIS_HELPER_CHANGED');
+    const args = nativeInitV2 === false ? [] : nativeInitV2 === true ? ['--native-init-v2'] : nativeInitV2 === 'NATIVE_VALUE_V3' ? ['--native-value-v3'] : nativeInitV2 === 'NATIVE_INIT_V3' ? ['--native-init-v3'] : assert.fail('BSC_ORIGINAL_RUNTIME_PROFILE');
+    child = spawn('/usr/bin/python3', [recipe, ...args], { cwd: root, stdio: ['pipe','pipe','ignore'], env: { PATH:'/usr/bin:/bin', LANG:'C.UTF-8' } });
+  }catch(error){try{if(custody)await api.closeOriginalBscNativeValueCustodyV3(custody);}finally{if(sourceProfile)closeOriginalOwnedBscSourceProfileV3(sourceProfile);}throw error;}
+  const state = { child, profile, nativeValue,custody,sourceProfile, identity:null, validators:[], pending:new Map(), sequence:0, tail:Promise.resolve(), closed:false, failed:false, uncertain:false };
   let exitResolve; state.exited = new Promise(resolve => { exitResolve = resolve; });
   child.once('exit', (code,signal) => exitResolve({code,signal}));
   let readyResolve, readyReject;
@@ -185,14 +216,14 @@ async function createFixedOwnedBscPoSACluster(profile, nativeInitV2) {
   }
   state.lines.on('line',line=>{
     try {
-      assert(line.length<=262144,'BSC_ORIGINAL_REPLY_BOUND'); const value=JSON.parse(line);
+      assert(line.length<=(state.nativeValue?8*1024*1024:262144),'BSC_ORIGINAL_REPLY_BOUND'); const value=JSON.parse(line);
       if(value.ownedBirth===true){birth(value);return;}
       if(value.ready===true){birth(value);assert.equal(value.chainId,714);assert(/^[0-9a-f]{64}$/.test(value.genesisSHA256));assert.equal(state.validators.length,3);readyResolve(value);return;}
       if(Object.hasOwn(value,'id')){
         const pending=state.pending.get(value.id);
         if(!pending && (state.failed||state.closed))return;
         assert(pending,'BSC_ORIGINAL_REPLY_ID');state.pending.delete(value.id);clearTimeout(pending.timer);
-        if(value.error){assert(/^BSC_[A-Z_]+$/.test(value.error));const error=errorCode(value.error);pending.reject(error);if(pending.operation==='broadcast'||value.error==='BSC_OPERATION_UNRESOLVED'){fail(state,error,true);void shutdown(state).catch(()=>{});}}else pending.resolve(value.result);
+        if(value.error){assert(/^BSC_[A-Z_]+$/.test(value.error));const error=errorCode(value.error);pending.reject(error);if(state.nativeValue&&pending.operation==='broadcast'&&value.error==='BSC_ORIGINAL_OPERATION_UNCERTAIN'){state.uncertain=true;}else if(pending.operation==='broadcast'||value.error==='BSC_OPERATION_UNRESOLVED'){fail(state,error,true);void shutdown(state).catch(()=>{});}}else pending.resolve(value.result);
       }else{assert(/^BSC_[A-Z_]+$/.test(value.error));readyReject(errorCode(value.error));}
     }catch(error){fail(state,error,true);readyReject(error);void shutdown(state).catch(()=>{});}
   });
@@ -202,12 +233,26 @@ async function createFixedOwnedBscPoSACluster(profile, nativeInitV2) {
     state.identity=processIdentity(child.pid);
     const original=await bounded(ready,CONSTRUCTOR_MS,'BSC_ORIGINAL_CONSTRUCTOR_TIMEOUT');
     assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'),RECIPE_SHA256,'BSC_ORIGINAL_RECIPE_CHANGED');sameProcess(child,state.identity);
-    if (profile === PROFILE_V3) assert.equal(createHash('sha256').update(readFileSync(helper)).digest('hex'), GENESIS_V3_HELPER_SHA256, 'BSC_ORIGINAL_GENESIS_HELPER_CHANGED');
+    if (profile === PROFILE_V3 || nativeValue) assert.equal(createHash('sha256').update(readFileSync(helper)).digest('hex'), GENESIS_V3_HELPER_SHA256, 'BSC_ORIGINAL_GENESIS_HELPER_CHANGED');
     assert(!state.failed&&!state.closed,'BSC_ORIGINAL_RUNTIME_UNAVAILABLE');
-    const runtime=Object.freeze({profile,network:'bsc',chainId:714,scope:'owned-local',independentOperators:false,
-      genesisSHA256:original.genesisSHA256,async close(){assert.equal(arguments.length,0,'BSC_NO_OPTIONS');return shutdown(state);}});
-    owned.set(runtime,state);return runtime;
-  }catch(error){fail(state,error,true);try{await shutdown(state);}catch{}throw error;}
+    let metadata=null;
+    if(nativeValue){const temporary=Object.freeze({profile});owned.set(temporary,state);nativeValues.add(temporary);
+      try{const identity=await readOwnedBscPoSANativeValueIdentityV3(temporary);assert.equal(identity.genesisSHA256,original.genesisSHA256);
+        metadata=Object.freeze({version:profile,classification:'OWNED_LOCAL_ORIGINAL_BSC714_NATIVE_VALUE_V3',chainId:'714',evmGenesis:'0x'+identity.genesis,
+          scratchDirectory:custodyPublic.scratchDirectory,publicNetwork:false,localLaboratorySigner:true,deviceCustody:false,independentOperators:false});
+      }finally{owned.delete(temporary);nativeValues.delete(temporary);}}
+    const runtime=Object.freeze({profile,network:nativeValue?'bsc-local':'bsc',chainId:714,scope:'owned-local',independentOperators:false,
+      genesisSHA256:original.genesisSHA256,...(nativeValue?{metadata,accounts:Object.freeze([custodyPublic.address]),
+        dispatchNativeValueV1(request){assert.equal(arguments.length,1);return api.dispatchOriginalBscNativeValueV3(custody,runtime,request);},
+        assertNativeValuePreparedCurrent(prepared){assert.equal(arguments.length,1);return api.assertOriginalBscNativeValuePreparedCurrentV3(custody,runtime,prepared);},
+        observeNativeValueOriginal(query){assert.equal(arguments.length,1);return api.observeOriginalBscNativeValueV3(custody,runtime,query);},
+        async time(){assert.equal(arguments.length,0);return BigInt((await readOwnedBscPoSANativeValueRpcV3(runtime,'eth_getBlockByNumber',['latest',false])).timestamp);}
+      }:{}),async close(){assert.equal(arguments.length,0,'BSC_NO_OPTIONS');let primary,custodyReceipt;
+        try{if(custody)custodyReceipt=await api.closeOriginalBscNativeValueCustodyV3(custody);}catch(error){primary=error;}
+        let result;try{result=await shutdown(state);}catch(error){primary||=error;}if(primary)throw primary;
+        return custodyReceipt?Object.freeze({...result,originalOutcomeUncertain:result.originalOutcomeUncertain||custodyReceipt.nativeKeyOutcomeUncertain,originalPrivateCustodyClosed:custodyReceipt.closed}):result;}});
+    owned.set(runtime,state);if(nativeValue){nativeValues.add(runtime);await api.bindOriginalBscNativeValueCustodyV3(custody,runtime);}return runtime;
+  }catch(error){fail(state,error,true);try{if(custody)await api.closeOriginalBscNativeValueCustodyV3(custody);}catch{}try{await shutdown(state);}catch{}throw error;}
 }
 export async function createOwnedBscPoSAClusterV1() {
   assert.equal(arguments.length, 0, 'BSC_NO_OPTIONS');
@@ -279,3 +324,15 @@ export async function sendOwnedBscSignedTransactionOnceV3(runtime, signedWire) {
   assert.equal(arguments.length, 2, 'BSC_SIGNED_WIRE_ONLY');
   return sendSignedTransactionOnce(runtime, signedWire, PROFILE_V3);
 }
+
+/** Zero-option own-client birth. Custody and physical source capsule precede native CREATE/funds. */
+export async function createOwnedBscPoSANativeValueClusterV3(){assert.equal(arguments.length,0,'BSC_NO_OPTIONS');return createFixedOwnedBscPoSACluster(NATIVE_VALUE_PROFILE_V3,'NATIVE_VALUE_V3');}
+export function isOwnedBscPoSANativeValueClusterV3(runtime){assert.equal(arguments.length,1);return nativeValues.has(runtime);}
+export function assertOwnedBscPoSANativeValueLiveV3(runtime){assert.equal(arguments.length,1);assert(nativeValues.has(runtime),'BSC_ORIGINAL_ECONOMIC_PROFILE_REQUIRED');live(runtime);}
+export function assertOwnedBscPoSANativeValueCustodyV3(runtime,custody){assert.equal(arguments.length,2);assertOwnedBscPoSANativeValueLiveV3(runtime);assert.equal(live(runtime).custody,custody,'BSC_ORIGINAL_CUSTODY_PAIR');}
+export async function readOwnedBscPoSANativeValueIdentityV3(runtime){assert.equal(arguments.length,1);assertOwnedBscPoSANativeValueLiveV3(runtime);const value=await command(runtime,'identity',null);assertOwnedBscPoSANativeValueLiveV3(runtime);
+ assert.equal(value.profile,NATIVE_VALUE_PROFILE_V3);assert.equal(value.chainId,'714');assert.equal(value.validatorCount,3);for(const name of ['genesis','genesisSHA256','clientSHA256'])assert(/^[0-9a-f]{64}$/.test(value[name]));assert.equal(value.publicNetwork,false);assert.equal(value.independentInfrastructureEstablished,false);
+ const state=live(runtime),hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');return Object.freeze({...value,identity:Object.freeze({endpointIdentity:hash({profile:state.profile,backend:state.identity,validators:state.validators}),clientRelease:hash({clientSHA256:value.clientSHA256}),chainConfiguration:hash({profile:state.profile,chainId:value.chainId,genesis:value.genesis,genesisSHA256:value.genesisSHA256})})});}
+export async function readOwnedBscPoSANativeValueRpcV3(runtime,method,params){assert.equal(arguments.length,3);assertOwnedBscPoSANativeValueLiveV3(runtime);const value=await command(runtime,'read',originalReadInput(method,params));assertOwnedBscPoSANativeValueLiveV3(runtime);return value;}
+export async function sendOwnedBscNativeValueSignedTransactionOnceV3(runtime,wire){assert.equal(arguments.length,2);assertOwnedBscPoSANativeValueLiveV3(runtime);const state=live(runtime);assert.equal(state.uncertain,false,'BSC_ORIGINAL_UNKNOWN_NO_FRESH_SEND');assert(typeof wire==='string'&&/^0x(?:[0-9a-f]{2}){1,65536}$/.test(wire),'BSC_SIGNED_TRANSACTION');return command(runtime,'broadcast',wire);}
+export function readOwnedBscPoSANativeValueSourceProfileV3(runtime){assert.equal(arguments.length,1);assertOwnedBscPoSANativeValueLiveV3(runtime);return readOriginalOwnedBscSourceProfileV3(live(runtime).sourceProfile);}

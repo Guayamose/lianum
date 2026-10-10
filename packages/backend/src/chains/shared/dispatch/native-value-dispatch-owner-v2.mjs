@@ -79,9 +79,9 @@ async function createProviderCustody(input,recovery=null){
  const tronRuntimeModule=evm?null:await import('../../tron/runtime/owned-tron-native-value-runtime.mjs');
  const ownRollup=evm?await openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime):null;
  if(ownRollup){
-   // Actual fixed own-client WeakMap only; Base retains its original GPO L1/
+   // Actual fixed own-client WeakMap only; BSC714 is local and distinct from BNB56. Base retains its original GPO L1/
    // operator fee budget privately before KEY. No Anvil fallback or mark.
-   assert.ok(['OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1','OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1'].includes(nativeRuntime.profile),'NATIVE_VALUE_ORIGINAL_ROLLUP_DISPATCH_NOT_IMPLEMENTED');
+   assert.ok(['OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1','OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1','OWNED_BSC_POSA_NATIVE_VALUE_714_V3'].includes(nativeRuntime.profile),'NATIVE_VALUE_ORIGINAL_ROLLUP_DISPATCH_NOT_IMPLEMENTED');
    for(const method of ['dispatchNativeValueV1','assertNativeValuePreparedCurrent','observeNativeValueOriginal'])assert.equal(typeof nativeRuntime[method],'function','NATIVE_VALUE_ORIGINAL_ROLLUP_DISPATCH_REQUIRED');
    assert.equal(recovery,null,'NATIVE_VALUE_ROLLUP_LEGACY_RECOVERY_DENIED');
  }
