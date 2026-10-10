@@ -36,7 +36,8 @@ async function privateConfiguration() {
 async function publish(service) {
   const destination = join(directory, 'paired-descriptor.json'), value = Buffer.from(JSON.stringify({
     profile: service.profile, descriptor: service.descriptor, localTransport: 'LOOPBACK_HTTP_TO_ORIGINAL_TLS',
-    automaticFunding: false, cloudDeploymentEstablished: false,
+    automaticFunding: false, durableOriginalAdmission: true, privateD26AndW39Intake: true,
+    privateUOpeningIntake: true, nativeRecipientToWorkerEncrypted: true, cloudDeploymentEstablished: false,
   }) + '\n');
   const handle = await open(destination, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
   try { await handle.writeFile(value); await handle.sync(); }

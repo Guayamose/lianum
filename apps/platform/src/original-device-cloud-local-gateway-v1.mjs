@@ -7,7 +7,7 @@ import { checkServerIdentity } from 'node:tls';
 import { X509Certificate, createPrivateKey } from 'node:crypto';
 import { types } from 'node:util';
 import { normalizeMobileOrigin } from '../../../packages/mobile-protocol/src/authorization.mjs';
-import { startPlatformOriginalDeviceDurableLocalOperatorV1 } from './original-device-local-operator-v1.mjs';
+import { startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3 } from './original-device-local-operator-v1.mjs';
 import { assertOriginalDeviceDispatchSchemaV1 } from './original-device-schema-v1.mjs';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -22,13 +22,14 @@ const routes = new Map();
 for (const [prefix, suffixes] of [
   ['/v2/mobile/original-account/', ['challenges', 'reviews', 'diagnostics']],
   ['/v1/mobile/original-account/private-state/', ['challenges', 'reviews', 'observations']],
-  ['/v1/mobile/device-deposit/', ['job-reviews', 'jobs', 'private-jobs', 'funding-reviews', 'fund', 'observation-reviews', 'observations']],
-  ['/v1/mobile/device-reservation/', ['preparation-reviews', 'job-reviews', 'jobs', 'reservation-reviews', 'reserve', 'observation-reviews', 'observations']],
+  ['/v1/mobile/device-deposit/', ['job-reviews', 'private-jobs', 'funding-reviews', 'fund', 'observation-reviews', 'observations']],
+  ['/v1/mobile/device-reservation/', ['preparation-reviews', 'job-reviews', 'private-jobs', 'reservation-reviews', 'reserve', 'observation-reviews', 'observations']],
   ['/v1/mobile/device-execution/', ['execution-reviews', 'execute', 'reconciliation-reviews', 'reconcile', 'recovery-reviews', 'recover', 'output-balances', 'arm-reviews', 'disarm-reviews', 'arm', 'disarm', 'arm-status']],
-  ['/v1/mobile/device-exit/', ['preparation-reviews', 'job-reviews', 'jobs', 'private-jobs', 'withdrawal-reviews', 'withdraw', 'observation-reviews', 'observations']],
+  ['/v1/mobile/device-exit/', ['preparation-reviews', 'job-reviews', 'private-jobs', 'withdrawal-reviews', 'withdraw', 'observation-reviews', 'observations']],
 ]) for (const suffix of suffixes) routes.set(prefix + suffix, {
-  bytes: prefix.includes('device-reservation') && suffix === 'jobs' || prefix.includes('device-exit') && suffix === 'private-jobs'
-    ? 32768 : prefix.includes('device-deposit') && suffix === 'private-jobs' ? 16384 : 8192,
+  bytes: prefix.includes('device-reservation') && suffix === 'private-jobs' ? 81920
+    : prefix.includes('device-exit') && suffix === 'private-jobs' ? 32768
+    : prefix.includes('device-deposit') && suffix === 'private-jobs' ? 16384 : 8192,
   responseMs: suffix === 'private-jobs' ? 900000 : 5000,
 });
 function reply(response, status, bytes) {
@@ -108,10 +109,10 @@ export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
   }
   try {
     await assertOriginalDeviceDispatchSchemaV1(pool);
-    service = await startPlatformOriginalDeviceDurableLocalOperatorV1({ origin: originText, devicePublicKey: devicePublicKey,
+    service = await startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3({ origin: originText, devicePublicKey: devicePublicKey,
       tls: { certificate: ca, privateKey: input.tls.privateKey }, pool: pool, privacyKey: input.privacyKey });
-    if (service.profile !== 'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1' || service.descriptor.origin !== originText
-      || service.descriptor.devicePublicKey !== devicePublicKey || service.automaticFunding !== false) fail('PLATFORM_ORIGINAL_GATEWAY_ORIGINAL');
+    if (service.profile !== 'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3' || service.descriptor.origin !== originText
+      || service.descriptor.devicePublicKey !== devicePublicKey || service.automaticFunding !== false || service.durableOriginalAdmission !== true) fail('PLATFORM_ORIGINAL_GATEWAY_ORIGINAL');
     server = createServer({ maxHeaderSize: 8192 }, (request, response) => {
       const work = (async () => {
         if (closing) return reply(response, 503, errorBytes('DISCONNECTED'));
@@ -153,6 +154,7 @@ export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
     server.maxRequestsPerSocket = 1; server.maxConnections = 4;
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(listeningPort, '127.0.0.1', resolve); });
     return Object.freeze({ profile: 'ORIGINAL_DEVICE_CLOUD_LOCAL_GATEWAY_V1', port: server.address().port,
-      descriptor: service.descriptor, automaticFunding: false, cloudDeploymentEstablished: false, close });
+      descriptor: service.descriptor, automaticFunding: false, durableOriginalAdmission: true,
+      privateD26AndW39Intake: true, privateUOpeningIntake: true, nativeRecipientToWorkerEncrypted: true, cloudDeploymentEstablished: false, close });
   } catch (error) { try { await close(); } catch (failure) { throw new AggregateError([error, failure], 'PLATFORM_ORIGINAL_GATEWAY_START_CLOSE'); } throw error; }
 }

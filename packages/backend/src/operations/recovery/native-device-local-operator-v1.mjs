@@ -51,6 +51,8 @@ const requiredSources = Object.freeze([
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
+  Object.freeze({"path":"apps/platform/src/original-device-cloud-local-gateway-v1.mjs","bytes":11678,"sha256":"fc90554632f8eb62a566a2978891010a471eb6829a9aad28d7d2a17d7767b1bb"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-cloud-local-v1.mjs","bytes":5661,"sha256":"54c5fe0c7fd0db2c14fb1ac001df9d6e2c220f942b7e1213cd7d39d2391cc7c4"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-worker-durable-note-v3.mjs","bytes":6030,"sha256":"15f5f7f94d8b8ebca676542d1452871aad328fcb01320821ee63b5b4c8d3738d"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-durable-note-v2.mjs","bytes":5939,"sha256":"2903605d57b8e7a781e73eb39356a7f0bb769148322325ee9529fa6600688861"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-note-v2.mjs","bytes":4471,"sha256":"dcbbe66468ab80e0aea6fe4a942182edbf3fcb54e5a692d42ac6b5840da8d6bd"}),

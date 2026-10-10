@@ -242,7 +242,7 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   const source = await readFile(new URL('../src/original-device-cloud-local-gateway-v1.mjs', import.meta.url), 'utf8');
   assert.equal((source.match(/^import .*;$/gm) ?? []).length, 8);
   const compile = new Function('createServer', 'tlsRequest', 'checkServerIdentity', 'X509Certificate', 'createPrivateKey', 'types',
-    'normalizeMobileOrigin', 'startPlatformOriginalDeviceDurableLocalOperatorV1', 'assertOriginalDeviceDispatchSchemaV1',
+    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1',
     source.replace(/^import .*;\n/gm, '').replace('export async function startPlatformOriginalDeviceCloudLocalGatewayV1',
       'async function startPlatformOriginalDeviceCloudLocalGatewayV1') + '\nreturn startPlatformOriginalDeviceCloudLocalGatewayV1;');
   const directory = await mkdtemp(join(tmpdir(), 'lianum-original-gateway-host-'));
@@ -272,8 +272,8 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
       });
       const port = Number(new URL(input.origin).port); originalOrigin = input.origin;
       await new Promise((resolve, reject) => { upstream.once('error', reject); upstream.listen(port, '127.0.0.1', resolve); });
-      return Object.freeze({ profile: 'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1', descriptor: { origin: input.origin, devicePublicKey: input.devicePublicKey },
-        automaticFunding: false, async close() { closed++; await new Promise(resolve => upstream.close(resolve)); return { closed: true, originalResourcesStopped: true }; } });
+      return Object.freeze({ profile: 'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3', descriptor: { origin: input.origin, devicePublicKey: input.devicePublicKey },
+        automaticFunding: false, durableOriginalAdmission: true, async close() { closed++; await new Promise(resolve => upstream.close(resolve)); return { closed: true, originalResourcesStopped: true }; } });
     }, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); });
   const reservation = http.createServer(); await new Promise(resolve => reservation.listen(0, '127.0.0.1', resolve));
   const originalPort = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
@@ -294,18 +294,24 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   const raw = '{ "consent" : {"expiresAt":15000,"originalBinding":"HOST_PUBLIC_ONLY"}, "signature":"same" }';
   assert.deepEqual(await call('/v1/mobile/device-execution/reconcile', raw), { status: 200, body: raw });
   assert.equal(received, raw); assert.equal(effects, 1);
+  const encrypted = JSON.stringify({ profile: 'HOST_ENCRYPTED_U_TRANSPORT_ONLY', ciphertext: 'a'.repeat(40000) });
+  assert.deepEqual(await call('/v1/mobile/device-reservation/private-jobs', encrypted), { status: 200, body: encrypted });
+  assert.equal(received, encrypted); assert.equal(effects, 2);
+  for (const kind of ['deposit', 'reservation', 'exit']) assert.equal((await call('/v1/mobile/device-'+kind+'/jobs', raw)).status, 404);
+  assert.equal(app.durableOriginalAdmission, true); assert.equal(app.privateUOpeningIntake, true); assert.equal(app.nativeRecipientToWorkerEncrypted, true);
+
   assert.equal((await call('/v1/mobile/challenges', '{}')).status, 503);
   assert.equal((await call('/v1/mobile/device-execution/execute?upstream=https://foreign.invalid', raw)).status, 404);
   assert.equal((await call('/v1/mobile/device-execution/execute', raw, { Origin: 'https://foreign.invalid' })).status, 403);
   assert.equal((await call('/v1/mobile/device-execution/execute', ' '.repeat(8193))).status, 400);
-  assert.equal(effects, 1); assert.ok(schemaChecks >= 3);
+  assert.equal(effects, 2); assert.ok(schemaChecks >= 3);
   const lost = await call('/v1/mobile/device-deposit/fund', raw);
   assert.equal(lost.status, 502); assert.equal(JSON.parse(lost.body).error, 'ORIGINAL_TRANSPORT_UNAVAILABLE_NO_RETRY');
-  assert.equal(effects, 2); // original listener saw exactly one POST, no resend
+  assert.equal(effects, 3); // original listener saw exactly one POST, no resend
   const pending = call('/v1/mobile/device-execution/recover', raw).catch(() => null); await admitted;
   const closing = app.close(); await new Promise(resolve => setImmediate(resolve));
   assert.equal(closed, 0); release(); await pending; await closing;
-  assert.equal(closed, 1); assert.equal(effects, 3); assert.equal(births, 1);
+  assert.equal(closed, 1); assert.equal(effects, 4); assert.equal(births, 1);
 });
 
 
