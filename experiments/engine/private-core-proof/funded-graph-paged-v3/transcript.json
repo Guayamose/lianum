@@ -1,0 +1,65 @@
+{
+  "schema": "LIANUM_PAGED_BLINDED_TRANSCRIPT_V3",
+  "profile": "LIANUM_PAEG_FUNDED_PAGED_V3",
+  "reserveWords": 119,
+  "foldWords": 66,
+  "terminalWords": 46,
+  "admissionWords": 85,
+  "withdrawWords": 39,
+  "foldIndex": {
+    "domain": 0,
+    "authorization_root": 8,
+    "reserve_nullifier": 16,
+    "previous_private_commitment": 24,
+    "next_private_commitment": 32,
+    "native_evidence": 40,
+    "current_admitted_receipt_root": 48,
+    "next_opaque_ready": 56,
+    "receipt_acceptance_from": 64,
+    "receipt_acceptance_until": 65
+  },
+  "reserveAdditionalIndex": {
+    "initial_private_commitment": 102,
+    "initial_opaque_ready": 110,
+    "frozen_revocation_sequence": 118
+  },
+  "admissionAdditionalIndex": {
+    "same_current_private_commitment": 77
+  },
+  "terminalIndex": {
+    "domain": 0,
+    "authorization_root": 8,
+    "reserve_nullifier": 16,
+    "final_private_commitment": 24,
+    "total_pages": 32,
+    "total_nodes": 33,
+    "budget": 34,
+    "native_evidence": 35,
+    "frozen_revocation_sequence": 43,
+    "receipt_acceptance_from": 44,
+    "receipt_acceptance_until": 45
+  },
+  "privateWitness": [
+    "all previous/next progress roots and cursors",
+    "mode",
+    "last predecessor ordinal",
+    "dependency endpoints and counts",
+    "per-node payout opening/value",
+    "previous/next CSPRNG256 blindings",
+    "opaque Ready CSPRNG256 blinding",
+    "receipt CM/GID/spend tag and authenticated current-native sparse path"
+  ],
+  "blinding": {
+    "bytes": 32,
+    "producer": "original private job producer node:crypto.randomBytes",
+    "progressFrame": "H4(private-progress,domain,authorization,reserveNF,private-accumulator,blinding)",
+    "readyFrame": "H4(private-ready,domain,authorization,reserveNF,current-commitment,independent-blinding)"
+  },
+  "remainingDisclosure": [
+    "number and timing of transitions",
+    "global totals/budget/cutoff",
+    "linked commitments and original native facts/admission windows",
+    "original withdrawal39 amount/recipient/root/nullifier"
+  ],
+  "health": "Original <=30s current quorum-health signatures are separate from proved receipt-acceptance windows. Refreshing health never changes the signed cutoff or original receipt windows."
+}
