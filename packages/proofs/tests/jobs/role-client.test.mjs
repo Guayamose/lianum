@@ -9,6 +9,36 @@ import {spawn} from 'node:child_process';
 import {existsSync,readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 
+test('HOST original private CI51 client relays one ciphertext and validates the same original public result', {timeout:5000}, async t=>{
+ // Actual client, public-word/manifest validators and AEAD. Process/artifact
+ // ports are explicitly inert, with no proof, PID or economic acceptance.
+ const physical=(a,b)=>{const u=new URL(a,import.meta.url);return existsSync(u)?u:new URL(b,import.meta.url);};
+ const roleURL=physical('../../src/jobs/role-client.mjs','./role-client.mjs'),transitURL=new URL('./private-proof-transit-v1.mjs',roleURL),toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('./native-flow-proof-scope-v1.mjs',roleURL);
+ const catalog=await import(physical('../../src/catalog.mjs','./catalog.mjs')),transit=await import(transitURL),tooling=await import(toolingURL),scope=await import(scopeURL),childProcess=await import('node:child_process'),{EventEmitter}=await import('node:events'),{PassThrough}=await import('node:stream');
+ const own=module=>Object.fromEntries(Object.entries(module).filter(([k])=>k!=='default')),digest=b=>createHash('sha256').update(b).digest('hex');
+ const jobId='33333333-3333-4333-8333-333333333333',runId='44444444-4444-4444-8444-444444444444',words=Array(51).fill('0'),binding={kind:'SCOPED_JOB_V1',jobId,consentSHA256:'11'.repeat(32),witnessSHA256:'22'.repeat(32)};let current;
+ t.mock.module(scopeURL.href,{namedExports:{...own(scope),assertBeginPayoutAuditRoleLaunchV1(role,relation){assert.equal(role,'claim_ingress');assert.equal(relation,'native_claim_ingress');return false;}}});
+ t.mock.module(toolingURL.href,{namedExports:{...own(tooling),regular(path){const prefix=catalog.LOCAL+'/attempts/'+runId+'/';assert.ok(path.startsWith(prefix));const name=path.slice(prefix.length);assert.ok(Object.hasOwn(current.files,name));return Buffer.from(current.files[name]);}}});
+ t.mock.module('node:child_process',{namedExports:{...own(childProcess),spawn(binary,args,options){
+  assert.equal(binary,process.execPath);assert.deepEqual(args,[catalog.ROOT+'/proof-workers/role-process.mjs','native_claim_ingress']);assert.equal(options.serialization,'json');const f=current;assert.equal(f.spawned,false);f.spawned=true;
+  const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.stdio=[null,child.stdout,child.stderr];f.recipient=transit.createPrivateProofRecipientV1({relation:'native_claim_ingress',role:'claim_ingress',jobId});
+  child.send=(packet,ack)=>{let opened;try{
+   f.posts++;assert.equal(JSON.stringify(packet).includes('HOST_PRIVATE_CI51_OPENING'),false);opened=transit.openPrivateProofJobV1(f.recipient,packet);assert.deepEqual(opened.authorization,binding);assert.deepEqual(opened.expectedPublicInputs,words);assert.equal(opened.inputs.note_opening.note_secret,'HOST_PRIVATE_CI51_OPENING');
+   const proof=Buffer.from('HOST_INERT_CI51_PUBLIC_PROOF'),publicBytes=Buffer.from(JSON.stringify(words)),manifest={jobId,role:'claim_ingress',relation:'native_claim_ingress',privateTransitBindingSHA256:transit.privateProofBindingSHA256V1(binding),proofSHA256:digest(proof),publicInputsSHA256:digest(publicBytes),keySHA256:'33'.repeat(32),selfVerified:!f.badReport},common={runId,jobId,relation:'native_claim_ingress',phase:'completed'};
+   f.files={'result.json':JSON.stringify({...common,metrics:Object.fromEntries(['initializationMilliseconds','jobPreparationMilliseconds','witnessMilliseconds','proofMilliseconds','verificationMilliseconds','totalMilliseconds','otherMilliseconds'].map(k=>[k,0]))}),'resources.json':JSON.stringify({...common,exitCode:0,signal:null,failure:null}),'proof-manifest.json':JSON.stringify(manifest),'proof.bin':proof,'public-inputs.json':publicBytes};
+   f.release=()=>{if(f.released)return;f.released=true;child.stdout.write(JSON.stringify({phase:'completed',relation:'native_claim_ingress',mode:'prove',runId}));child.emit('close',0,null);};if(!f.hold)setImmediate(f.release);ack?.(null);
+  }catch(error){ack?.(error);setImmediate(()=>child.emit('close',1,null));}finally{transit.wipePrivateProofInputsV1(opened?.inputs);}};
+  setImmediate(()=>child.emit('message',transit.readPrivateProofRecipientV1(f.recipient)));return child;
+ }}});
+ const u=new URL(roleURL);u.search='host-private-ci51-holder';const role=await import(u);
+ const start=async options=>{current={spawned:false,posts:0,hold:false,badReport:false,...options};const f=current,client=role.createRoleProofClient('claim_ingress'),recipient=await client.preparePrivateNativeClaimIngressV2(words),packet=transit.sealPrivateProofJobV1(recipient,{inputs:{note_opening:{note_secret:'HOST_PRIVATE_CI51_OPENING'}},expectedPublicInputs:words,authorization:binding});const run=client.proveEncryptedNativeClaimIngressV2(packet,binding);run.catch(()=>{});return{f,client,run,packet};};
+ try{
+  const good=await start(),result=await good.run;assert.deepEqual(result.publicInputs,words);assert.equal(result.evidence.relation,'native_claim_ingress');assert.equal(good.f.posts,1);await assert.rejects(good.client.proveEncryptedNativeClaimIngressV2(good.packet,binding),/PRIVATE_PREPARATION/);assert.equal(good.f.posts,1);good.client.close();
+  const bad=await start({badReport:true});await assert.rejects(bad.run,/ROLE_CLIENT_/);assert.equal(bad.f.posts,1);bad.client.close();
+  const draining=await start({hold:true});assert.equal(draining.f.posts,1);const close=draining.client.closePrivateNativeClaimIngressV2();assert.throws(()=>role.assertRoleProofClient(draining.client,'claim_ingress'),/OWNED_REQUIRED/);draining.f.release();await assert.rejects(draining.run,/OWNER_STOPPED/);assert.deepEqual(await close,{closed:true,inFlight:0});assert.equal(draining.f.posts,1);
+ }finally{if(current?.recipient)transit.closePrivateProofRecipientV1(current.recipient);}
+});
+
 test('HOST private U SDK binds original preparation and ciphertext recipient; only selected encrypted role packets return', {timeout:20000}, async t=>{
   // Actual SDK, PoP, funded signatures, envelope builder and recipient crypto.
   // Expo AES and SHA-based field hash are explicit HOST ports, not Poseidon2,

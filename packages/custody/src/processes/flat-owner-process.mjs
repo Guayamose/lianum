@@ -7,27 +7,30 @@ import { lstat } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
-import { openTrustedFlatOwnerCustody, ownerCopy, ownerDigest, FLAT_OWNER_PROFILE } from '../signing/flat-owner-custody.mjs';
+import { openTrustedFlatOwnerCustody, ownerCopy, ownerDigest, FLAT_OWNER_PROFILE,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../signing/flat-owner-custody.mjs';
 import { createFlatOwnerObserver, assertOwnedFlatOwnerObserver } from '../observers/flat-owner-observer.mjs';
 import { exactRecord, FIELD_MODULUS, canonicalField } from '../../../backend/src/execution/encoding/commitments.mjs';
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 import { createRoleProofClient } from '../../../proofs/src/jobs/role-client.mjs';
 import { LIMITS } from '../../../proofs/src/catalog.mjs';
+import {claimReceiptSecret,claimRefundSalt} from '../../../backend/src/claims/protocol/framing.mjs';
+import {buildClaimIngressInputs} from '../../../backend/src/claims/protocol/inputs.mjs';
+import {sealPrivateProofJobV1,wipePrivateProofInputsV1} from '../../../proofs/src/jobs/private-proof-transit-v1.mjs';
 
 import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../../backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 import {retainOriginalWrappedRecoverySectionV1,consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1} from '../../../backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 
 const FILE = fileURLToPath(import.meta.url), PROTOCOL = 'FLAT_OWNER_PRIVATE_IPC_V1', LIMIT = 2 * 1024 * 1024;
 const OWNER = ['reauthorizeManualPreparation', 'prepareManualPreparation', 'prepareDeposit', 'prepareDepositIntent', 'bindDepositIntentDelivery', 'reconcileDepositIntent',
-  'createNativeClaimIngressHandoff', 'renewNativeClaimDepositIntent',
+  'createNativeClaimIngressHandoff', 'createPrivateNativeClaimIngressHandoffV2', 'renewNativeClaimDepositIntent',
   'prepareAuthorization', 'invoiceRequests', 'authorize', 'prepareWithdrawal',
   'renewEpoch', 'bindSubmission', 'acknowledgeSubmitted', 'reconcile', 'reconcileCompetingReservation', 'reconcileRecovery'];
 const PROOF = ['depositWitness', 'withdrawalWitness', 'proveAuthorization', 'proveDepositIntent'];
 const plane = method => OWNER.includes(method) ? 'owner' : PROOF.includes(method) ? 'ownerProof'
-  : method === 'bindNativeClaimIssuance' ? 'claimIngress'
+  : ['bindNativeClaimIssuance','preparePrivateNativeClaimIngressProofV2','sealPrivateNativeClaimIngressProofV2'].includes(method) ? 'claimIngress'
     : method === 'selectRole' ? 'role' : ['privateSummary', 'preparationTerms', 'manualPreparations', 'graphPreparationTerms'].includes(method) ? 'ownerView' : ['summary', 'close'].includes(method) ? 'lifecycle' : null;
 const ownedProcesses = new WeakMap();
-const ownedNativeClaimHandoffs = new WeakMap();
+const ownedNativeClaimHandoffs = new WeakMap(),ownedPrivateNativeClaimHandoffsV2=new WeakMap();
 const code = error => /^FLAT_[A-Z0-9_]+$/.test(error?.message ?? '') ? error.message : 'FLAT_OWNER_OPERATION_FAILED';
 const failure = text => Object.assign(new Error(text), { code: text });
 function bounded(value) { const clone = ownerCopy(value); assert.ok(JSON.stringify(clone).length <= LIMIT, 'FLAT_OWNER_IPC_LIMIT'); return clone; }
@@ -59,6 +62,34 @@ export function assertOwnedNativeClaimIngressHandoff(capability, expected = {}) 
   }
 }
 
+
+// Minted only from the fixed child response below. The controller cannot mint
+// this brand by copying the public packet or substituting a proof callback.
+function privateNativeClaimHandoffV2(value,request) {
+  const packet=frozen(ownerCopy(value));let prepared=false,sealed=false;
+  assert.equal(packet.profile,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,'FLAT_OWNER_PRIVATE_CLAIM_PROFILE');
+  const capability=opaque({select(){assert.equal(arguments.length,0,'FLAT_OWNER_PRIVATE_CI51_ARITY');return frozen(ownerCopy(packet));},
+    prepareProof(common){assert.equal(arguments.length,1,'FLAT_OWNER_PRIVATE_CI51_ARITY');assert.equal(prepared,false,'FLAT_OWNER_PRIVATE_CI51_ONE_PREPARATION');prepared=true;return request('preparePrivateNativeClaimIngressProofV2',{packet,common});},
+    sealProof(recipient){assert.equal(arguments.length,1,'FLAT_OWNER_PRIVATE_CI51_ARITY');assert.ok(prepared&&!sealed,'FLAT_OWNER_PRIVATE_CI51_PREPARATION_REQUIRED');sealed=true;return request('sealPrivateNativeClaimIngressProofV2',{handoffIdentitySHA256:packet.handoffIdentitySHA256,recipient});}});
+  ownedPrivateNativeClaimHandoffsV2.set(capability,packet);return capability;
+}
+export function assertOwnedPrivateNativeClaimIngressHandoffV2(capability,expected={}) {
+  assert.ok([1,2].includes(arguments.length),'FLAT_OWNER_PRIVATE_CI51_ARITY');
+  const packet=ownedPrivateNativeClaimHandoffsV2.get(capability);assert.ok(packet,'FLAT_OWNER_ORIGINAL_PRIVATE_CLAIM_HANDOFF_REQUIRED');
+  for(const key of Object.keys(expected)){assert.ok(['claimDomain','ownerIdentitySHA256','ingressProverIdentity'].includes(key));assert.equal(packet[key],expected[key],'FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_BINDING');}
+}
+// Runs inside the original holder child, never a wallet/API parent. A scoped
+// receipt secret is not the opening or spend key; it still stays private DATA.
+function privateClaimPacketV2(legacy) {
+  const {opening,handoffIdentitySHA256,...body}=ownerCopy(legacy);
+  try {
+    const input={claimDomain:body.claimDomain,noteSecret:opening.noteSecret,outputQ:body.statement.output};
+    const packet={...body,version:2,profile:FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,trust:FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2,
+      receiptBinding:{secret:claimReceiptSecret(input),refundSalt:claimRefundSalt(input)}};
+    input.noteSecret=null;return {...packet,handoffIdentitySHA256:ownerDigest(packet)};
+  } finally {wipePrivateProofInputsV1(opening);}
+}
+
 /** Called only inside the fixed child. No private field tuples cross IPC and
  * no parent callback can replace the hash. Backend lifetime is one envelope. */
 async function withPinnedOwnerHash(work) {
@@ -83,14 +114,14 @@ async function childMain() {
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
   globalThis.fetch = async () => { throw Error('FLAT_OWNER_OFFLINE_HASH_ONLY'); };
   for (const name of ['log', 'info', 'warn', 'error', 'debug', 'trace']) console[name] = () => {};
-  let session = null, custody, busy = false, stopped = false, next = 1, sequence = 0, pendingHost = null, proofClient = null;
+  let session = null, custody, busy = false, stopped = false, next = 1, sequence = 0, pendingHost = null, proofClient = null,privateClaimJob=null,privateClaimPrepared=false;
   const send = value => new Promise((resolve, reject) => process.send(bounded({ protocol: PROTOCOL, session, ...value }), error => error ? reject(error) : resolve()));
   async function host(method, input = null) {
     assert.ok(!pendingHost && !stopped); const id = ++sequence;
     const result = new Promise((resolve, reject) => { pendingHost = { id, resolve, reject }; }); result.catch(() => {});
     await send({ type: 'host', id, method, input }); return result;
   }
-  function stop() { if (stopped) return; stopped = true; proofClient?.stop(); try { custody?.close(); } catch {} custody = null;
+  function stop() { if (stopped) return; stopped = true;wipePrivateProofInputsV1(privateClaimJob?.inputs);privateClaimJob=null; proofClient?.stop(); try { custody?.close(); } catch {} custody = null;
     pendingHost?.reject(failure('FLAT_OWNER_PARENT_LOST')); pendingHost = null; if (process.connected) process.disconnect(); }
   process.on('disconnect', stop);
   process.once('SIGTERM', stop); process.once('SIGINT', stop);
@@ -119,7 +150,29 @@ async function childMain() {
     busy = true;
     try {
       let result;
-      if (message.method === 'proveDepositIntent') {
+      if(message.method==='createPrivateNativeClaimIngressHandoffV2') {
+        const legacy=await custody.createNativeClaimIngressHandoff(message.input);
+        try{result=privateClaimPacketV2(legacy);}finally{wipePrivateProofInputsV1(legacy);}
+      } else if(message.method==='preparePrivateNativeClaimIngressProofV2') {
+        exactRecord(message.input,['packet','common']);assert.equal(privateClaimPrepared,false,'FLAT_OWNER_PRIVATE_CI51_ONE_PREPARATION');privateClaimPrepared=true;assert.equal(privateClaimJob,null,'FLAT_OWNER_PRIVATE_CI51_ONE_PREPARATION');
+        const p=message.input.packet;assert.equal(p.profile,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,'FLAT_OWNER_PRIVATE_CLAIM_PROFILE');
+        const legacy=await custody.createNativeClaimIngressHandoff({claimDomain:p.claimDomain,ingressProverIdentity:p.ingressProverIdentity,statement:p.statement});
+        let built;try {
+          assert.deepEqual(privateClaimPacketV2(legacy),p,'FLAT_OWNER_PRIVATE_CI51_ORIGINAL_HANDOFF');
+          built=await withPinnedOwnerHash(hashFields=>buildClaimIngressInputs({...message.input.common,noteOpening:legacy.opening},{hashFields}));
+          assert.equal(built.statement.claimDomain,p.claimDomain,'FLAT_OWNER_PRIVATE_CI51_DOMAIN');assert.equal(built.statement.outputQ,p.statement.output,'FLAT_OWNER_PRIVATE_CI51_OUTPUT');assert.equal(built.statement.amountQ,p.statement.amount,'FLAT_OWNER_PRIVATE_CI51_AMOUNT');
+          const inputs=ownerCopy(built.inputs);privateClaimJob={handoffIdentitySHA256:p.handoffIdentitySHA256,inputs,expectedPublicInputs:ownerCopy(built.expectedPublicInputs),statement:ownerCopy(built.statement),witnessSHA256:ownerDigest(inputs)};
+          result={statement:privateClaimJob.statement,expectedPublicInputs:privateClaimJob.expectedPublicInputs,witnessSHA256:privateClaimJob.witnessSHA256};
+        } finally {wipePrivateProofInputsV1(built?.inputs);wipePrivateProofInputsV1(legacy);}
+      } else if(message.method==='sealPrivateNativeClaimIngressProofV2') {
+        exactRecord(message.input,['handoffIdentitySHA256','recipient']);const job=privateClaimJob;assert.ok(job,'FLAT_OWNER_PRIVATE_CI51_PREPARATION_REQUIRED');privateClaimJob=null;
+        try {
+          assert.equal(message.input.handoffIdentitySHA256,job.handoffIdentitySHA256,'FLAT_OWNER_PRIVATE_CI51_ORIGINAL_HANDOFF');
+          const recipient=message.input.recipient;assert.equal(recipient.relation,'native_claim_ingress','FLAT_OWNER_PRIVATE_CI51_RELATION');assert.equal(recipient.role,'claim_ingress','FLAT_OWNER_PRIVATE_CI51_ROLE');
+          const authorization={kind:'SCOPED_JOB_V1',jobId:recipient.jobId,consentSHA256:ownerDigest({profile:FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,handoffIdentitySHA256:job.handoffIdentitySHA256,statement:job.statement,expectedPublicInputs:job.expectedPublicInputs}),witnessSHA256:job.witnessSHA256};
+          result={packet:sealPrivateProofJobV1(recipient,{inputs:job.inputs,expectedPublicInputs:job.expectedPublicInputs,authorization}),authorization};
+        } finally {wipePrivateProofInputsV1(job.inputs);}
+      } else if (message.method === 'proveDepositIntent') {
         assert.equal(message.input, null);
         // Ordinary D27 proving returns no opening or detached signature to the
         // keeper. The separate claim handoff explicitly discloses one opening;
@@ -322,6 +375,7 @@ async function flatOwnerProcess(input,durable) {
   }
   const owner = opaque(Object.fromEntries(OWNER.map(method => [method, method === 'createNativeClaimIngressHandoff'
     ? async input => nativeClaimHandoff(await request(method, input), value => request('bindNativeClaimIssuance', value))
+      : method === 'createPrivateNativeClaimIngressHandoffV2' ? async input=>privateNativeClaimHandoffV2(await request(method,input),request)
       : input => request(method, input ?? null)])));
   const ownerProof = opaque({ deposit: () => request('depositWitness'), proveAuthorization: () => request('proveAuthorization'),
     proveDepositIntent: () => request('proveDepositIntent'),

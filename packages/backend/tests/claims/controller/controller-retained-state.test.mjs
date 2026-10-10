@@ -3,12 +3,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { validateRetainedClaimPacket, canonicalClaimDepositProjection } from '../../../src/claims/controller/controller-retained-state.mjs';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId } from '../../../src/claims/protocol/framing.mjs';
+import { validateRetainedClaimPacket,validateRetainedPrivateClaimPacketV2, canonicalClaimDepositProjection } from '../../../src/claims/controller/controller-retained-state.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId,claimReceiptSecret,claimRefundSalt } from '../../../src/claims/protocol/framing.mjs';
 import { encodeDepositIntentInputs } from '../../../src/execution/account/preparation/deposit-intent.mjs';
 import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '../../../../custody/src/signing/flat-owner-custody.mjs';
-import { assertOwnedNativeClaimIngressHandoff } from '../../../../custody/src/processes/flat-owner-process.mjs';
+import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2 } from '../../../../custody/src/processes/flat-owner-process.mjs';
 
 const sha = raw => createHash('sha256').update(raw).digest('hex');
 const h = value => sha('synthetic retained claim/' + value), ZERO = '0'.repeat(64);
@@ -158,4 +158,12 @@ test('refund joins reject wrong N/Q/domain/amount/fee/destination/ID, duplicates
   const invalidState = copy(gateway); invalidState.tickets[0].state = '0';
   assert.throws(() => canonicalClaimDepositProjection(row, invalidState), /REFUND_STATE/);
   assert.equal(canonicalClaimDepositProjection({ ...row, status: 'REFUNDED' }, gateway).status, 'REFUND_PENDING');
+});
+
+// Synthetic framing only, never original child/proof authority.
+test('private holder packet keeps opening out of the controller and preserves exact original D27 identity',()=>{
+ const f=fixture(),{opening,...body}=copy(f.packet),input={claimDomain:f.packet.claimDomain,noteSecret:opening.noteSecret,outputQ:f.packet.statement.output},packet=seal({...body,version:2,profile:FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,trust:FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2,receiptBinding:{secret:claimReceiptSecret(input),refundSalt:claimRefundSalt(input)}});
+ const checked=validateRetainedPrivateClaimPacketV2(packet,f.options);assert.deepEqual(checked,packet);assert.equal(Object.hasOwn(checked,'opening'),false);assert.equal(JSON.stringify(checked).includes(opening.noteSecret),false);assert.equal(checked.intentIdentitySHA256,f.packet.intentIdentitySHA256);
+ assert.throws(()=>validateRetainedClaimPacket(packet,f.options));assert.throws(()=>assertOwnedPrivateNativeClaimIngressHandoffV2(checked),/ORIGINAL_PRIVATE_CLAIM_HANDOFF_REQUIRED/);
+ for(const mutate of[p=>{p.receiptBinding.secret=ZERO;},p=>{p.receiptBinding.refundSalt=ZERO;},p=>{p.receiptBinding.noteSecret=opening.noteSecret;},p=>{p.opening=opening;},p=>{p.revision=1;},p=>{p.ingressProverIdentity=h('wrong private prover');},p=>{p.proofResult.publicInputs[0]='1';}]){const bad=copy(packet);mutate(bad);seal(bad);assert.throws(()=>validateRetainedPrivateClaimPacketV2(bad,f.options));}
 });

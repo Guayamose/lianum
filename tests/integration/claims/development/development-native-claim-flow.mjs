@@ -1,6 +1,6 @@
 import {DEVELOPMENT_BTC_SPL_GRAPH_PROFILE,DEVELOPMENT_BTC_SPL_GRAPH_RESULT} from './development-btc-spl-jupiter-policy-v1.mjs';
 import {developmentBtcSplJupiterSourcePinsV1} from './development-btc-spl-jupiter-source-pins-v1.mjs';
-import {createOriginalJupiterSplSourceCreditV1,readOriginalJupiterSplSourceCreditV1} from '../../../../packages/backend/src/operations/local/jupiter-original-private-source-credit-v1.mjs';
+import {createOriginalPrivateJupiterSplSourceCreditV2,readOriginalJupiterSplSourceCreditV1} from '../../../../packages/backend/src/operations/local/jupiter-original-private-source-credit-v1.mjs';
 import {validateNativeSplClaimBindingTransactionV1,decodeNativeSplInventoryV1,NATIVE_SPL_CUSTODY_V1 as SPL} from '../../../../packages/backend/src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 /** Fixed fresh development acceptance, launched by its owned supervisor.
  * Original V3 custody/controller authorities and eight genuine proofs in fresh
@@ -425,7 +425,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
     }
     if(btcToSpl){
       await stage('original-source-sol-wrap-before-spl-ingress');
-      jupiterSourceCredit=await createOriginalJupiterSplSourceCreditV1({controller,sourceProvider:graphCase.sourceProvider,owner:owners[1]});
+      jupiterSourceCredit=await createOriginalPrivateJupiterSplSourceCreditV2({controller,sourceProvider:graphCase.sourceProvider,owner:owners[1]});
       jupiterSourceContext=readOriginalJupiterSplSourceCreditV1(jupiterSourceCredit);
       assert.equal(jupiterSourceCredit.custody,'BACKEND_LOCAL_QUORUM');assert.equal(jupiterSourceCredit.mobileNativeCustody,false);
       splMobileService=jupiterSourceContext.service;fixture.resources.push(jupiterSourceCredit,splMobileService);

@@ -35,6 +35,9 @@ export const FLAT_OWNER_PROFILE = 'FIXED_LOCAL_FLAT_OWNER_CUSTODY_V1';
 export const FLAT_OWNER_OBSERVATION_TRUST = 'OWNED_LOCAL_RPC_NOT_NATIVE_CONSENSUS';
 export const FLAT_OWNER_CLAIM_HANDOFF_PROFILE = 'FLAT_OWNER_NATIVE_CLAIM_INGRESS_HANDOFF_V1';
 export const FLAT_OWNER_CLAIM_HANDOFF_TRUST = 'INGRESS_PROVER_LEARNS_THIS_NOTE_OPENING_BUT_CANNOT_SIGN_SPEND';
+// The same backend-local holder remains custodian; no root/opening crosses its parent IPC.
+export const FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2 = 'FLAT_OWNER_PRIVATE_NATIVE_CLAIM_INGRESS_HANDOFF_V2';
+export const FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 = 'BACKEND_LOCAL_OWNER_CHILD_TO_ORIGINAL_CI51_RECIPIENT_NO_PARENT_OPENING';
 export const ownerCopy = value => JSON.parse(canonical(value));
 export const ownerDigest = value => createHash('sha256').update(canonical(value)).digest('hex');
 const same = (a, b) => assert.equal(canonical(a), canonical(b), 'FLAT_OWNER_BINDING');

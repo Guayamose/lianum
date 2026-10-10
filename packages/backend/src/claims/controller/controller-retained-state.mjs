@@ -8,7 +8,7 @@ import { cloneInput, frozenInput } from '../../execution/account/preparation/rea
 import { validateDepositIntentStatement, encodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
 import { validateClaimConfig, claimDomainCommitment, claimIntentId, claimTicketId, validateClaimTicket, claimUint } from '../protocol/framing.mjs';
 import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../../../../custody/src/signing/flat-owner-custody.mjs';
 
 const PACKET_FIELDS = ['version', 'profile', 'trust', 'ownerIdentitySHA256', 'claimDomain', 'ingressProverIdentity',
   'intentIdentitySHA256', 'revision', 'statement', 'proofResult', 'opening', 'handoffIdentitySHA256'];
@@ -68,6 +68,22 @@ export function validateRetainedClaimPacket(input, options) {
   assert.equal(handoffIdentitySHA256, ownerDigest(body), 'CLAIM_RETAINED_HANDOFF_CHECKSUM');
   assert.ok(Buffer.byteLength(JSON.stringify(packet)) <= 2 * 1024 * 1024, 'CLAIM_RETAINED_PACKET_SIZE');
   return frozenInput(packet);
+}
+
+/** Private holder V2 authenticated DATA. The real child brand is checked at
+ * admission; AEAD keeper provenance remains mandatory on reopen. No opening,
+ * root or private spend key is accepted or reconstructed by this validator. */
+export function validateRetainedPrivateClaimPacketV2(input,options) {
+  exactRecord(options,['config','ingressProverIdentity']);const config=validateClaimConfig(options.config),packet=cloneInput(input);
+  exactRecord(packet,PACKET_FIELDS.filter(k=>k!=='opening').concat(['receiptBinding']));
+  assert.equal(packet.version,2,'CLAIM_PRIVATE_PACKET_VERSION');assert.equal(packet.profile,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,'CLAIM_PRIVATE_PACKET_PROFILE');assert.equal(packet.trust,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2,'CLAIM_PRIVATE_PACKET_TRUST');
+  for(const k of ['ownerIdentitySHA256','claimDomain','ingressProverIdentity','intentIdentitySHA256','handoffIdentitySHA256'])bytes32(packet[k],true);
+  assert.equal(packet.claimDomain,claimDomainCommitment(config),'CLAIM_PRIVATE_PACKET_DOMAIN');assert.equal(packet.ingressProverIdentity,bytes32(options.ingressProverIdentity,true),'CLAIM_PRIVATE_PACKET_PROVER');
+  assert.equal(packet.revision,0,'CLAIM_PRIVATE_PACKET_NO_RENEWAL');const s=validateDepositIntentStatement(packet.statement);assert.equal(s.scope,config.scope,'CLAIM_PRIVATE_PACKET_SCOPE');assert.equal(s.policy,config.policy,'CLAIM_PRIVATE_PACKET_POLICY');
+  exactRecord(packet.proofResult,['proof','publicInputs','evidence']);assert.deepEqual(packet.proofResult.publicInputs,[...encodeDepositIntentInputs(s)],'CLAIM_PRIVATE_PACKET_D27');proofEvidence(packet.proofResult.evidence,proofBytes(packet.proofResult.proof));
+  exactRecord(packet.receiptBinding,['secret','refundSalt']);bytes32(packet.receiptBinding.secret,true);bytes32(packet.receiptBinding.refundSalt,true);
+  assert.equal(packet.intentIdentitySHA256,ownerDigest({profile:FLAT_OWNER_CLAIM_HANDOFF_PROFILE,identitySHA256:packet.ownerIdentitySHA256,claimDomain:packet.claimDomain,scope:s.scope,policy:s.policy,amount:s.amount,output:s.output}),'CLAIM_PRIVATE_PACKET_ORIGINAL_INTENT');
+  const {handoffIdentitySHA256,...body}=packet;assert.equal(handoffIdentitySHA256,ownerDigest(body),'CLAIM_PRIVATE_PACKET_CHECKSUM');assert.ok(Buffer.byteLength(JSON.stringify(packet))<=2*1024*1024,'CLAIM_PRIVATE_PACKET_SIZE');return frozenInput(packet);
 }
 
 /** Supply row.refundMaxFee from the authenticated claim config, never from a

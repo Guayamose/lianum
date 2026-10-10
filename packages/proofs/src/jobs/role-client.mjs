@@ -124,7 +124,7 @@ export function createRoleProofClient(role) {
               authorization=privateProofAuthorizationBindingV1(binding);
               assert.deepEqual(packet.authorization,authorization,'ROLE_CLIENT_PRIVATE_CONSENT');
               assert.equal(packet.publicInputsSHA256,hash(Buffer.from(JSON.stringify(expected))),'ROLE_CLIENT_PRIVATE_PUBLIC');
-              assert.ok(typeof packet.ciphertext==='string'&&packet.ciphertext.length<=(preparation.kind==='authorization'?60116:16384),'ROLE_CLIENT_PRIVATE_BOUND');
+              assert.ok(typeof packet.ciphertext==='string'&&packet.ciphertext.length<=(preparation.kind==='authorization'?60116:preparation.kind==='native_claim_ingress'?2796204:16384),'ROLE_CLIENT_PRIVATE_BOUND');
               sent=true;clearTimeout(preparation.waitTimer);
               child.send(cloneInput(packet),error=>{if(error)stop('ROLE_CLIENT_IPC_FAILED');});
             };
@@ -197,7 +197,7 @@ export function createRoleProofClient(role) {
           keySHA256: manifest.keySHA256, manifestSHA256: hash(regular(join(directory, 'proof-manifest.json'))),
           metricUnits: 'milliseconds', metrics: proofMetricsForTransport(result.metrics) } });
       if(preparation?.kind==='authorization')(preparation.native?privateNativeGraphResults:privateGraphResults).set(output,{client,derived:preparation.derived});
-      else if (preparation) {
+      else if (preparation?.kind==='deposit_intent') {
         const derived = cloneInput(status.privateDeviceDerivation);
         exactRecord(derived, ['profile','jobId','commitment','nullifier','consentSHA256','witnessSHA256']);
         assert.equal(derived.profile, 'ORIGINAL_DEVICE_D27_PRIVATE_DERIVATION_V2', 'ROLE_CLIENT_PRIVATE_DERIVATION');
@@ -280,6 +280,17 @@ export function createRoleProofClient(role) {
       if(state.busy)state.active?.stop('ROLE_CLIENT_OWNER_STOPPED');
       await preparation.run.catch(()=>{});assert.equal(state.busy,false,'ROLE_CLIENT_CLOSE_WHILE_BUSY');state.closed=true;
       return{closed:true,inFlight:0};
+    },
+    async preparePrivateNativeClaimIngressV2(expectedPublicInputs) {
+      assert.equal(arguments.length,1,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,'claim_ingress');assert.equal(state.busy,false,'ROLE_CLIENT_BUSY');assert.equal(state.prepared,null,'ROLE_CLIENT_PRIVATE_ONE_PREPARATION');
+      const expected=publicWords(relation('native_claim_ingress'),cloneInput(expectedPublicInputs)),preparation={kind:'native_claim_ingress',ready:null,send:null,waitTimer:null,run:null,resolveReady:null,rejectReady:null};
+      const ready=new Promise((resolve,reject)=>{preparation.resolveReady=resolve;preparation.rejectReady=reject;});state.prepared=preparation;preparation.run=prove({relation:'native_claim_ingress',inputs:null,expectedPublicInputs:expected},null,preparation);preparation.run.catch(()=>{});return ready;
+    },
+    async proveEncryptedNativeClaimIngressV2(packet,binding) {
+      assert.equal(arguments.length,2,'ROLE_CLIENT_PRIVATE_ARITY');assertRoleProofClient(client,'claim_ingress');const p=state.prepared;assert.ok(p?.kind==='native_claim_ingress'&&p.ready&&p.send,'ROLE_CLIENT_PRIVATE_PREPARATION');const value=privateProofAuthorizationBindingV1(binding);assert.equal(value.kind,'SCOPED_JOB_V1','ROLE_CLIENT_PRIVATE_CI51_HOLDER_BINDING');const send=p.send;p.send=null;send(packet,value);return p.run;
+    },
+    async closePrivateNativeClaimIngressV2() {
+      assert.equal(arguments.length,0,'ROLE_CLIENT_PRIVATE_ARITY');const p=state.prepared;assert.ok(p?.kind==='native_claim_ingress','ROLE_CLIENT_PRIVATE_PREPARATION');state.closed=true;if(state.busy)state.active?.stop('ROLE_CLIENT_OWNER_STOPPED');await p.run.catch(()=>{});assert.equal(state.busy,false,'ROLE_CLIENT_CLOSE_WHILE_BUSY');return{closed:true,inFlight:0};
     },
     proveForOriginalConsentV1(raw, binding) {
       assert.equal(arguments.length, 2, 'ROLE_CLIENT_CONSENT_ARITY');

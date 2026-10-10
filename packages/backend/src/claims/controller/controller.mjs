@@ -23,7 +23,7 @@ import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../ope
 import * as claimOperators from '../operations/operators.mjs';
 import { assertRoleProofClient } from '../../../../proofs/src/jobs/role-client.mjs';
 import { loadPinned, resourceModuleURL } from '../../../../proofs/src/tooling/tooling.mjs';
-import { assertOwnedNativeClaimIngressHandoff, assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
+import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2, assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
 import { ownedClaimControllerJournal } from './controller-journal.mjs';
 import { createClaimEvmDispatchRequest } from '../protocol/evm-dispatch-gate.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
@@ -41,7 +41,7 @@ import { assertClaimRoute } from '../operations/backing-audit.mjs';
 import { encodeDepositIntentInputs, decodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
 import { encodeControllerClaimCall } from './controller-call.mjs';
 import { compactClaimEvmRequest, compactClaimEvmPreparation, originalClaimEvmRecord } from './controller-evm-record.mjs';
-import { validateRetainedClaimPacket, canonicalClaimDepositProjection } from './controller-retained-state.mjs';
+import { validateRetainedClaimPacket,validateRetainedPrivateClaimPacketV2, canonicalClaimDepositProjection } from './controller-retained-state.mjs';
 export { createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   openDurableNativeClaimControllerKeeper } from './controller-journal.mjs';
 const dispatchTokens = new WeakMap();
@@ -84,6 +84,7 @@ export function openNativeSplClaimIngressSendV1(token,native,prepared,record) {
   assert.deepEqual(record.intent,prepared.intent);return state.open();
 }
 const controllers = new WeakMap();
+const PRIVATE_CI51_PROFILE_V2='FLAT_OWNER_PRIVATE_NATIVE_CLAIM_INGRESS_HANDOFF_V2';
 // Restrict the whole original diagnostic lifetime, including attempted reopen.
 // Neither the owner state nor its stop marker is a caller-supplied capability.
 const beginAuditSystemsV1 = new WeakMap(), beginAuditKeepersV1 = new WeakMap();
@@ -485,7 +486,7 @@ async function createController(input, beginAuditOnly) {
     await observer.assertCurrent(snapshot);
   }
   function validatePacket(packet) {
-    return validateRetainedClaimPacket(packet, { config: selected(packet.claimDomain).config, ingressProverIdentity });
+    return (packet.profile===PRIVATE_CI51_PROFILE_V2?validateRetainedPrivateClaimPacketV2:validateRetainedClaimPacket)(packet, { config: selected(packet.claimDomain).config, ingressProverIdentity });
   }
   async function deposit(id) { bytes32(id, true); const row = (await journal.read()).deposits.find(v => v.id === id);
     assert.ok(row, 'CLAIM_UNKNOWN_DEPOSIT'); validatePacket(row.packet); return row; }
@@ -502,8 +503,11 @@ async function createController(input, beginAuditOnly) {
   function terms(state, raw) { return { nullifier: ZERO, wireBindingCommitment: ZERO, routeCommitment: ZERO,
     ...raw, claimSequence: state.gateway.claimSequence, hubSequence: state.snapshot.hubStateSequence }; }
   function handoffPacket(handoff, domain) {
-    assertOwnedNativeClaimIngressHandoff(handoff, { ...(domain ? { claimDomain: domain } : {}), ingressProverIdentity });
+    let privateHolder=false;
+    try{assertOwnedPrivateNativeClaimIngressHandoffV2(handoff,{...(domain?{claimDomain:domain}:{}),ingressProverIdentity});privateHolder=true;}
+    catch{assertOwnedNativeClaimIngressHandoff(handoff,{...(domain?{claimDomain:domain}:{}),ingressProverIdentity});}
     const p = copy(handoff.select()), { config } = selected(p.claimDomain);
+    if(privateHolder){assert.equal(p.profile,PRIVATE_CI51_PROFILE_V2,'CLAIM_PRIVATE_CI51_HANDOFF');assert.equal(usesIngressV3,false,'CLAIM_PRIVATE_CI51_ORIGINAL_V1_ONLY');return validatePacket(p);}
     assert.equal(p.statement.scope, config.scope); assert.equal(p.statement.policy, config.policy);
     assert.deepEqual(p.proofResult.publicInputs, [...encodeDepositIntentInputs(p.statement)], 'CLAIM_EXACT_D27_INPUTS');
     const o = p.opening; exactRecord(o, ['rho', 'x', 'y', 'value', 'noteSecret']); bytes32(o.noteSecret, true);
@@ -1089,7 +1093,7 @@ async function createController(input, beginAuditOnly) {
     // and returns false so the caller preserves the original broadcast error.
     return observeNative(row, collection, true);
   }
-  async function evidence(row, collection) {
+  async function evidence(row, collection,privateHandoff=null) {
     assert.ok(await observeNative(row, collection), 'CLAIM_NATIVE_FINALITY_UNRESOLVED');
     const { config, policy, i } = selected(row.claimDomain), facts = await quorum.facts(row.native.binding.request);
     const flat = await readers[i].read(); assert.equal(flat.head.hash, facts.head.hash, 'CLAIM_FACTS_CURRENT_HEAD');
@@ -1098,6 +1102,24 @@ async function createController(input, beginAuditOnly) {
       currentRevocation: { revokedDigest: flat.state.revokedDigest, revokedCount: flat.state.revokedCount,
         revocationSequence: flat.state.revocationSequence, entries: flat.revokedEntries } };
     const ingress = collection === 'deposits', role = ingress ? 'claim_ingress' : 'claim_discharge';
+    if(ingress&&row.packet.profile===PRIVATE_CI51_PROFILE_V2) {
+      if(row.privateCI51Attempt){assert.equal(row.privateCI51Attempt.phase,'COMPLETED','CLAIM_PRIVATE_CI51_ORIGINAL_ATTEMPT_OBSERVE_ONLY');const prior=row.proofs?.find(p=>p.result.evidence.jobId===row.privateCI51Attempt.jobId);assert.ok(prior,'CLAIM_PRIVATE_CI51_ORIGINAL_RESULT_REQUIRED');return prior;}
+      assertOwnedPrivateNativeClaimIngressHandoffV2(privateHandoff,{claimDomain:row.claimDomain,ownerIdentitySHA256:row.packet.ownerIdentitySHA256,ingressProverIdentity});assert.deepEqual(handoffPacket(privateHandoff,row.claimDomain),row.packet,'CLAIM_PRIVATE_CI51_ORIGINAL_HANDOFF');
+      row.privateCI51Attempt={phase:'PREPARING'};await saveRow(collection,row);
+      const client=proofClients.claim_ingress;let preparedClient=false;
+      try {
+        const built=await privateHandoff.prepareProof(common);exactRecord(built,['statement','expectedPublicInputs','witnessSHA256']);bytes32(built.witnessSHA256,true);assert.deepEqual(decodeClaimIngressInputs(built.expectedPublicInputs),built.statement,'CLAIM_PRIVATE_CI51_PUBLIC');
+        for(const [k,v] of Object.entries({claimDomain:row.claimDomain,outputQ:row.packet.statement.output,amountQ:row.packet.statement.amount,admissionN:row.native.binding.admissionN,refundDestination:row.refundDestination}))assert.equal(built.statement[k],v,'CLAIM_PRIVATE_CI51_ORIGINAL_NATIVE_BINDING');
+        row.privateCI51Attempt={phase:'PREPARED',statement:built.statement,witnessSHA256:built.witnessSHA256};await saveRow(collection,row);assertRoleProofClient(client,'claim_ingress');preparedClient=true;
+        const recipient=await client.preparePrivateNativeClaimIngressV2(built.expectedPublicInputs),sealed=await privateHandoff.sealProof(recipient);exactRecord(sealed,['packet','authorization']);assert.equal(sealed.authorization.witnessSHA256,built.witnessSHA256,'CLAIM_PRIVATE_CI51_WITNESS_BINDING');assert.equal(sealed.authorization.jobId,recipient.jobId,'CLAIM_PRIVATE_CI51_JOB');
+        row.privateCI51Attempt={...row.privateCI51Attempt,phase:'PROVING',jobId:recipient.jobId};await saveRow(collection,row);
+        const result=await client.proveEncryptedNativeClaimIngressV2(sealed.packet,sealed.authorization);assert.deepEqual(result.publicInputs,built.expectedPublicInputs,'CLAIM_PRIVATE_CI51_ORIGINAL_PUBLIC');
+        row.proofs??=[];const proof={statement:built.statement,result};row.proofs.push(proof);row.privateCI51Attempt.phase='COMPLETED';await saveRow(collection,row);return proof;
+      } catch(error) {
+        if(preparedClient)try{await client.closePrivateNativeClaimIngressV2();}catch{}
+        row.status='UNKNOWN';row.privateCI51Attempt.phase='UNKNOWN';await retainFailure(error,()=>saveRow(collection,row));throw error;
+      }
+    }
     const built = await withPinnedHash(hashFields => ingress ? buildClaimIngressInputs({ ...common, noteOpening: row.packet.opening }, { hashFields })
       : buildClaimDischargeInputs({ ...common, ticket: row.ticket, destination: { endpoint: endpoint(config, row.route.endpoint), salt: row.route.salt } }, { hashFields }));
     assertRoleProofClient(proofClients[role], role);
@@ -1163,8 +1185,9 @@ async function createController(input, beginAuditOnly) {
       const id = claimIntentId({ claimDomain: packet.claimDomain, outputQ: packet.statement.output, amount: packet.statement.amount });
       const previous = (await journal.read()).deposits.find(v => v.id === id);
       if (previous) { assert.deepEqual(previous.packet, packet, 'CLAIM_PREPARE_ORIGINAL_HANDOFF'); return freeze(projectDeposit(previous)); }
-      const secretInput = { claimDomain: packet.claimDomain, noteSecret: packet.opening.noteSecret, outputQ: packet.statement.output };
-      const secret = claimReceiptSecret(secretInput), refundSalt = claimRefundSalt(secretInput);
+      const privateHolder=packet.profile===PRIVATE_CI51_PROFILE_V2;
+      const secretInput=privateHolder?null:{claimDomain:packet.claimDomain,noteSecret:packet.opening.noteSecret,outputQ:packet.statement.output};
+      const secret=privateHolder?packet.receiptBinding.secret:claimReceiptSecret(secretInput),refundSalt=privateHolder?packet.receiptBinding.refundSalt:claimRefundSalt(secretInput);
       const { native } = selected(packet.claimDomain), refundDestination = destination(packet.claimDomain, native.roles.depositor.endpoint,
         packet.statement.amount, config.refundMaxFee, refundSalt);
       const row = { id, claimDomain: packet.claimDomain, packet, history: [], secret,
@@ -1277,7 +1300,8 @@ async function createController(input, beginAuditOnly) {
       await clearUnknown(); const original = await view(row.claimDomain);
       if (original.gateway.intents.find(v => v.id === row.id)?.state === '2') return freeze(await syncRow(row, 'deposits'));
       assertOriginalIntent(row, original.gateway.intents.find(v => v.id === row.id));
-      const proof = await evidence(row, 'deposits'), { config } = selected(row.claimDomain), state = await authorizationView(row.claimDomain);
+      if(row.packet.profile===PRIVATE_CI51_PROFILE_V2)assert.ok(!(await journal.read()).evm.some(v=>v.operationId===row.id&&v.method==='issue'),'CLAIM_PRIVATE_CI51_ORIGINAL_ISSUE_OBSERVE_ONLY');
+      const proof = await evidence(row, 'deposits',request.handoff), { config } = selected(row.claimDomain), state = await authorizationView(row.claimDomain);
       const intent = state.gateway.intents.find(v => v.id === row.id); assertOriginalIntent(row, intent);
       const t = terms(state, { action: A.ISSUE, operationId: row.id, revision: intent.revision, amount: row.packet.statement.amount,
         destinationCommitment: row.refundDestination, maxFee: config.refundMaxFee, nullifier: row.native.binding.admissionN,
@@ -1293,6 +1317,7 @@ async function createController(input, beginAuditOnly) {
       exactRecord(request, ['intentId', 'handoff']); const row = await deposit(request.intentId), packet = handoffPacket(request.handoff, row.claimDomain);
       await clearUnknown(); const state = await view(row.claimDomain), intent = state.gateway.intents.find(v => v.id === row.id);
       assert.equal(intent?.state, '1'); assert.equal(packet.statement.output, row.packet.statement.output); assert.equal(packet.statement.amount, row.packet.statement.amount);
+      assert.notEqual(row.packet.profile,PRIVATE_CI51_PROFILE_V2,'CLAIM_PRIVATE_CI51_NO_RENEWAL');
       assert.deepEqual(packet.opening, row.packet.opening, 'CLAIM_RENEW_ORIGINAL_OPENING');
       if (intent.validUntil === packet.statement.validUntil && intent.proofHash === claimHash(Buffer.from(packet.proofResult.proof, 'hex'))) {
         if (row.packet.handoffIdentitySHA256 !== packet.handoffIdentitySHA256) { row.history.push(row.packet); row.packet = packet; await saveRow('deposits', row); }
@@ -1307,11 +1332,13 @@ async function createController(input, beginAuditOnly) {
       return freeze(await syncRow(row, 'deposits'));
     }),
     voidDeposit: request => serial(async () => {
-      exactRecord(request, ['intentId']); const row = await deposit(request.intentId); await clearUnknown();
+      exactRecord(request,['intentId',...(Object.hasOwn(request,'handoff')?['handoff']:[])]);const row=await deposit(request.intentId);
+      if(Object.hasOwn(request,'handoff'))assert.deepEqual(handoffPacket(request.handoff,row.claimDomain),row.packet,'CLAIM_VOID_CURRENT_OWNER_HANDOFF');
+      await clearUnknown();
       let state = await view(row.claimDomain), intent = state.gateway.intents.find(v => v.id === row.id);
       if (intent?.state === '3') return freeze(await syncRow(row, 'deposits'));
       assert.equal(intent?.state, '1'); assert.ok(BigInt(state.snapshot.head.timestamp) >= BigInt(intent.validUntil), 'CLAIM_LATEST_EXPIRY_NOT_PASSED');
-      const proof = await evidence(row, 'deposits');
+      const proof = await evidence(row,'deposits',request.handoff);
       state = await authorizationView(row.claimDomain);
       const health = await authorize('health', { claimDomain: row.claimDomain, mode: 'debt' });
       await assertAuthorizationSnapshot(state.snapshot, health.head);
