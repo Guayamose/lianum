@@ -50,6 +50,43 @@ shares requieren sus productores originales antes de financiar. La nota fuente
 ERC20 del dispositivo ya tiene ese productor y un recorrido local aceptado;
 la autoridad de shares/posiciones DeFi propias sigue pendiente.
 
+## Continuación del 10 de octubre: código integrado y ejecución pendiente
+
+El alcance de PROJECT-VISION.md y EXCLUSIONS.md permanece intacto. Este corte
+distingue las funciones conectadas de la aceptación de sus recorridos reales;
+las cifras de la tabla anterior no se han vuelto a calcular en este corte.
+
+- **Privacidad del dispositivo:** D27 y U ya viajan cifrados desde el SDK al
+  receptor original de un solo uso. U devuelve los paquetes de rol cifrados al
+  mismo cliente. Las pruebas cortas de ambos SDK/receptores pasan. El fallo de
+  importaciones que bloqueó el nuevo D27 quedó corregido y su cierre físico
+  pasa; sus RAW anteriores conservan el rechazo. D26 y W39 están en integración.
+- **Morpho Blue:** entrada en posición original, contabilidad en shares, salida
+  manual con consentimiento nuevo, journaling anterior al envío y reapertura
+  observable están conectados a backend y móvil. Pasan 11 pruebas cortas y el
+  typecheck móvil. El driver financiero propio está integrado; sus 14 pruebas,
+  redención y recuperación reales todavía no se han ejecutado en este corte.
+- **SQL y recuperación:** el operador duradero tiene captura F de diez
+  secciones y reapertura con verificación previa de schema y clave SQL. La
+  clave incorrecta no consume el checkpoint económico. Las comprobaciones SQL
+  y de instalación originales pasan; falta la ejecución financiera nativa con
+  SQL. La captura planificada no demuestra recuperación ante caída abrupta.
+- **Base y Arbitrum:** observadores y bootstrap reciben los clientes originales
+  de nuevos perfiles económicos, fijados antes de genesis. Base arrancó ocho
+  servicios saludables sobre Reth/Lighthouse propios, pero rechazó la finalidad
+  al agotar su plazo; sus nueve contenedores quedaron cerrados. Nitro tiene
+  imágenes originales preparadas para el perfil económico; custodia y envío
+  se están incorporando antes de su nacimiento. Las regresiones de ambas recetas
+  pasan (14 casos); no se ha establecido crédito privado en estas redes.
+- **Composición actual:** el inspector verificó 841 fuentes y 12 roles. Las
+  cápsulas móviles revisadas contienen 43 fuentes GRAPH y 32 ordered. La
+  compilación W39 conserva sus 45 fuentes originales. Esta revisión de fuentes
+  no establece aceptación financiera.
+
+El APK anterior sigue descrito abajo como evidencia de su corte; deberá
+recompilarse tras incorporar las nuevas rutas móviles. La prueba física queda
+para el final. Google Cloud continúa limitado a preparación local.
+
 ## Avance funcional de este turno
 
 Los siete objetivos continúan activos. Estos cambios están implementados y
