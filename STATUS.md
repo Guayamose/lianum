@@ -25,12 +25,12 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición:** `20fa178` conserva la última publicación comprobada de
-  884 fuentes y doce roles (preflight V31), incluido el consumidor de
-  Base/Arbitrum/BSC y Cloud local de 147 archivos. Los cambios posteriores
-  requieren una nueva publicación del productor físico antes de financiar
-  otro laboratorio. Las 45 fuentes originales W39 permanecen intactas;
-  los cuatro indicadores de aceptación de la publicación siguen desactivados.
+- **Composición:** `e8c04d8` publica la generación actual de 884 fuentes
+  físicas y doce roles; el preflight V37 pasa, incluidos Base/Arbitrum/BSC
+  y Cloud local. `606b650` fija por separado las 713 fuentes del grafo
+  paginado móvil; sus lectores canónico y preparado coinciden. Se comprueban
+  antes de CREATE/FUND. Las 45 fuentes W39 y las 100 del compilador paginado
+  permanecen intactas; los cuatro indicadores de aceptación siguen desactivados.
 - **RootNote y salida nativa móvil:** `ff8aaa0`/`4b14a3d`/`0822617` conectan
   D27 y CI51 privados desde la custodia protegida del dispositivo. Las guardas
   conservan términos originales y ACCESS antes y después de las esperas.
@@ -45,10 +45,19 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   seis confirmaciones vigentes y después realiza CO42, rechazando otro wire
   o segundo broadcast. Sus HOST originales pasan; la ejecución económica
   D27→CI51→W39→CO42 sigue pendiente.
-  El primer recorrido económico BTC `b756f9bf…` terminó rechazado antes de
-  generar pruebas, con fuentes intactas, cleanup sin errores y lock liberado.
-  El runtime nativo expone ingreso V3 y el bootstrap seleccionado exige el
-  perfil anterior; se está corrigiendo esa composición sin retirar su guarda.
+  BTC `b756f9bf…` conserva su rechazo antes de probar. `8072164` selecciona
+  el ingreso original recent-blockhash antes del nacimiento; `b82addb3…`
+  reveló después dos metadatos históricos ausentes. `b0e0949` usa la generación
+  auténtica nueva de CI51 V1/CO42: el lector real pasa, sin reconstruir esos
+  metadatos ni afirmar igualdad con la clave histórica. `844f3193…` falló
+  con cero pruebas por `PW_JOB_IMPORT_CLOSURE`; el supervisor lo interrumpió
+  al encontrar el lock retenido del rol fallido. `1905b28` conserva la lista
+  original y pasa el mismo helper D27 por el módulo permitido: el guard
+  original falla antes y pasa después. Tras confirmar ambos PID y su grupo
+  ausentes se conservó el lock exacto en el intento fallido con un journal
+  administrativo, liberando sólo el slot operativo. Los informes rechazados
+  permanecen intactos. `61cb2dd8…` está en curso; aún no hay aceptación BTC
+  del recorrido D27→CI51→W39→CO42 propio del dispositivo.
   `3a8b458` comparte el validador económico existente entre web y móvil,
   conservando sus bytes y reglas; su HOST original pasa sin crear disponible.
 - **SOURCE confirmado y GRAPH:** el intento V2 `f1f4e353…` terminó
@@ -65,8 +74,14 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   explícitamente `null` y su regresión sobre el mismo helper, SDK y Vault
   reproduce el rechazo antes del cambio y pasa después en 447 ms. El intento
   financiero rechazado se conserva sin adopción; fuentes intactas, cleanup
-  sin errores y lock liberado. La aceptación económica V3,
-  broadcast→checkpoint y pérdida del padre/dispositivo siguen pendientes.
+  sin errores y lock liberado. `1aff353` liga nacimiento y aperturas a la
+  misma pareja del dispositivo, sin reutilizar namespaces fallidos.
+  `f2609f53…` llegó a D26 y falló antes de financiar: el audit agregado de
+  wires originales superaba el encoder de 1 MiB. `23dfea0` conserva el hash
+  canónico completo de cada wire/receipt y su orden en otro hash acotado.
+  La regresión sobre el backend real reproduce el fallo y pasa después en
+  279 ms, comprobando mutación y orden. Falta repetir el recorrido; siguen
+  pendientes broadcast→checkpoint y pérdida del padre/dispositivo.
 - **PAEG paginado privado V3:** `ca5291e` incorpora árboles sparse Poseidon2
   BN254 propios con el mismo encuadre en JS/Noir/Solidity. Los cinco HOST pasan;
   Las cinco relaciones R119/Fold66/T46/Admission85/W39 y sus claves propias
@@ -83,8 +98,23 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   2,735 s y TypeScript pasa; la cadena, las pruebas ZK y los puertos Expo
   inferiores son explícitamente inertes en ese HOST. Conserva la respuesta
   original del SDK al actualizar el saldo y compara almacenamiento
-  estructuralmente, sin retirar los checks de readback/CAS. Faltan ejecución
-  económica, backup y reserva/admisión/acumulación/liquidación desde móvil.
+  estructuralmente, sin retirar los checks de readback/CAS. `5f1c269` conecta
+  también reserva, READY, admisión, acumulación, liquidación y W39 al mismo
+  OWNER desde móvil. Las páginas preparan sus commitments una vez antes de
+  enlazar acciones; la salud nativa se renueva sólo para el efecto, sin rehacer
+  pruebas ni ampliar ventanas. El HOST SDK/Vault/Graph pasa en 5,640 s y
+  TypeScript pasa; cadena, pruebas y Expo son puertos inertes en ese HOST.
+  El seal propio comprueba 713 fuentes y los mismos artefactos originales.
+  Faltan ejecución económica paginada/nativa y backup/reinicio completo
+  de este nuevo receptor.
+- **MetaMorpho underlying:** `55c443f`/`e8cda88` conectan backend, SDK y
+  custodia móvil; `d06f2e0` añade recorridos de uno y cuatro destinos. Tras
+  W39 de shares, cada salida exige autorización propia para aprobación y
+  redención, journal anterior al envío y conciliación del mismo trabajo
+  ante respuesta perdida y reapertura ordenada. Mantiene las 14/20 relaciones
+  y ventanas originales. Guards, imports y TypeScript pasan; faltan ambas
+  ejecuciones financieras. El underlying al holder es público: no crea saldo
+  privado disponible.
 - **Aave móvil:** `d2b593db…` terminó rechazado después de la redención real:
   catorce pruebas y saldo de shares 100→0, pero falló la observación W39 tras
   reabrir. `9883f3b` corrige esa lectura: devuelve una observación canónica
