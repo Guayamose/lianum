@@ -1319,7 +1319,7 @@ export async function reopenExternalDefiVaultCatalogueRecoveryV1(authority,input
  * Only ordered capture and one new process's observation continuation exist. */
 function deviceExternalFlatIdentity(input){
  exactRecord(input,['directory','runId','sourceSHA256','deadlineMs']);assert.match(input.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
- assert.equal(resolve(input.directory),input.directory);assert.equal(input.directory,join(FIXED_WALLET_ROOT,'.local/device-external-flat-ordered-observation-v1','attempt-'+input.runId,'private-audit'),'DEVICE_EXTERNAL_FLAT_FIXED_RECOVERY_ATTEMPT');
+ assert.equal(resolve(input.directory),input.directory);assert.ok(['device-external-flat-ordered-observation-v1','device-morpho-blue-private-position-v1'].some(stem=>input.directory===join(FIXED_WALLET_ROOT,'.local',stem,'attempt-'+input.runId,'private-audit')),'DEVICE_EXTERNAL_FLAT_FIXED_RECOVERY_ATTEMPT');
  assert.ok(typeof input.sourceSHA256==='string'&&/^[0-9a-f]{64}$/.exec(input.sourceSHA256)?.[0]===input.sourceSHA256);assert.ok(Number.isSafeInteger(input.deadlineMs)&&input.deadlineMs>0);
  return{profile:DEVICE_EXTERNAL_FLAT_PROFILE,...input};
 }

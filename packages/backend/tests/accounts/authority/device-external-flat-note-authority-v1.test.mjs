@@ -523,3 +523,22 @@ test('HOST original graph capture uses its active original token while idle auth
  assert.throws(()=>api.assertDeviceExternalFlatAccountCaptureAuthorityV1(authority,originalToken),/DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_AUTHORITY/);
  s.closed=true;assert.throws(()=>api.state(authority),/WRAPPED_RECOVERY_ORIGINAL_IDLE_AUTHORITY/);
 });
+
+
+test('HOST Blue fixed recovery namespace uses the original receiver and exact issuer identity',async()=>{
+ const registryText=await readFile(url('../../../src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs','../native-claims/wrapped-private-lifetime-registry-v1.mjs'),'utf8'),issuerText=await readFile(url('../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','../native-claims/wrapped-recovery-authority-v1.mjs'),'utf8');
+ const {exactRecord}=await import(url('../../../src/execution/encoding/commitments.mjs','../paeg/commitments.mjs'));
+ const a=registryText.indexOf('function inputIdentity(input){'),b=registryText.indexOf('const checkpoint=',a),c=issuerText.indexOf('function deviceExternalFlatIdentity(input){'),d=issuerText.indexOf('export function createDeviceExternalFlatRecoveryAuthorityV1',c);assert.ok(a>=0&&b>a&&c>=0&&d>c);
+ const fixedRoot='/host/fixed-wallet',runId='11111111-2222-4333-8444-555555555555',owned=new WeakSet(),runtime=Object.freeze({metadata:Object.freeze({evmGenesis:'0x'+h('host-genesis'),chainId:'31337'})});owned.add(runtime);let receiverChecks=0;
+ // Only ownership is an inert HOST port. Both identity guards below are the
+ // exact production bodies; no issuer, runtime or filesystem is created.
+ const registryIdentity=new Function('assert','exactRecord','join','ROOT','PROFILE','assertOwnedDeviceExternalFlatReceiverV1',registryText.slice(a,b)+';return inputIdentity;')(assert,exactRecord,join,fixedRoot,'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1',value=>{receiverChecks++;assert.ok(owned.has(value),'HOST_ORIGINAL_RECEIVER_REQUIRED');});
+ const {resolve}=await import('node:path'),issuerIdentity=new Function('assert','exactRecord','join','resolve','FIXED_WALLET_ROOT','DEVICE_EXTERNAL_FLAT_PROFILE',issuerText.slice(c,d)+';return deviceExternalFlatIdentity;')(assert,exactRecord,join,resolve,fixedRoot,'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1');
+ const common={runId,sourceSHA256:h('host-reviewed-source'),deadlineMs:123456789};
+ for(const stem of ['device-external-flat-ordered-observation-v1','device-morpho-blue-private-position-v1']){
+  const input={...common,directory:join(fixedRoot,'.local',stem,'attempt-'+runId,'private-audit')},registry=registryIdentity({runtime,...input}),issuer=issuerIdentity(input);for(const key of ['directory','runId','sourceSHA256','deadlineMs'])assert.equal(registry[key],issuer[key]);assert.equal(issuer.profile,'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1');
+  assert.throws(()=>registryIdentity({runtime:{...runtime},...input}),{message:'HOST_ORIGINAL_RECEIVER_REQUIRED'});
+  for(const directory of [input.directory+'-copy',join(fixedRoot,'.local',stem+'-copy','attempt-'+runId,'private-audit'),join(fixedRoot,'.local',stem,'attempt-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee','private-audit')]){assert.throws(()=>registryIdentity({runtime,...input,directory}),{message:'WRAPPED_LIFETIME_FIXED_ATTEMPT_DIRECTORY'});assert.throws(()=>issuerIdentity({...input,directory}),{message:'DEVICE_EXTERNAL_FLAT_FIXED_RECOVERY_ATTEMPT'});}
+ }
+ assert.equal(receiverChecks,4);assert.throws(()=>issuerIdentity({...common,directory:join(fixedRoot,'.local/external-defi-owner-cycle-v1','attempt-'+runId,'private-audit')}),{message:'DEVICE_EXTERNAL_FLAT_FIXED_RECOVERY_ATTEMPT'});
+});
