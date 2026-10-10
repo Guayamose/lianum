@@ -11,8 +11,10 @@ const PROJECT=fileURLToPath(new URL('../../../',import.meta.url));
 const DRIVER=join(PROJECT,'scripts/validation/device-root-native-claim-v3'),MOBILE=join(PROJECT,'apps/mobile/src');
 const EXPLICIT=['local-root-note-vault-v1.ts','signing.mjs','sealed-custody-backup-v1.mjs','key-store.ts'];
 function pin(path){const before=lstatSync(path);assert.ok(before.isFile()&&!before.isSymbolicLink()&&realpathSync(path)===path&&before.size<=2*1024*1024,'DEVICE_ROOT_SOURCE_FILE_REQUIRED');const raw=readFileSync(path),after=lstatSync(path);for(const k of ['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'])assert.equal(after[k],before[k],'DEVICE_ROOT_SOURCE_CHANGED');return{path:relative(PROJECT,path),bytes:raw.length,sha256:createHash('sha256').update(raw).digest('hex')};}
-export function sourcePins(){
- assert.equal(arguments.length,0);const original=developmentNativeClaimSourcePins();const paths=new Set(['run-btc.mjs','flow.mjs','mobile-host.mjs','policy.mjs','source-pins.mjs'].map(n=>join(DRIVER,n)));
+export function sourcePins(){assert.equal(arguments.length,0);return collectFixedSources('device-root-btc-original-note-exit-v3');}
+export function sourcePinsSol(){assert.equal(arguments.length,0);return collectFixedSources('device-root-sol-original-note-exit-v3');}
+export function sourcePinsSpl(){assert.equal(arguments.length,0);return collectFixedSources('device-root-spl-original-note-exit-v3');}
+function collectFixedSources(profile){const original=developmentNativeClaimSourcePins();const paths=new Set(['run-btc.mjs','run-sol.mjs','run-spl.mjs','flow.mjs','mobile-host.mjs','policy.mjs','source-pins.mjs'].map(n=>join(DRIVER,n)));
  for(const n of ['integration/device-owner-reservation-host-vault-v1.mjs','integration/native-device-economic-private-error-v1.mjs','wallet-platform/modules/api/native-claim-http.mjs'])paths.add(join(PROJECT,'.internal/runtime/omnichain-flat-profile/flat-wallet',n));
  for(const n of EXPLICIT)paths.add(join(MOBILE,'custody',n));paths.add(join(MOBILE,'api/native-claim-device-api-v1.mjs'));
  // These are finite before-fund SDK/Vault dependencies, not request-selected
@@ -32,5 +34,5 @@ export function sourcePins(){
  // Traverse only these finite original mobile entrypoints. SDK/RootNote never
  // import the native backend or receive its custody keys.
  for(const path of paths)if(path.startsWith(MOBILE+'/'))visit(path);
- return{profile:'device-root-btc-original-note-exit-v3',original,mobileAndDriver:[...new Set([...paths,...vendor])].map(pin).sort((a,b)=>a.path.localeCompare(b.path))};
+ return{profile,original,mobileAndDriver:[...new Set([...paths,...vendor])].map(pin).sort((a,b)=>a.path.localeCompare(b.path))};
 }
