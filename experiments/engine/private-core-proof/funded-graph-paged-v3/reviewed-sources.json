@@ -103,8 +103,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-64-v2/lib/src/graph.nr",
-      "bytes": 8777,
-      "sha256": "256216e3b7e0db564a0594e387389f06ed5507fa4a838b8a1c3b5f38128e1e7a"
+      "bytes": 8786,
+      "sha256": "6b00dae28c24fcfb5b3fc9bc6dec3dd931f0c2500bcef777be0700ba153c4dc9"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-64-v2/lib/src/lib.nr",
@@ -188,8 +188,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/graph.nr",
-      "bytes": 7973,
-      "sha256": "65cc3562bc0c268343de0e2e9eaacc5408211685b59541b7ca98736ba00984a1"
+      "bytes": 7982,
+      "sha256": "2db36a4bb999f7f9c55de2da2bdbe4b85e8373ddd5ca2b3ab4789c3bc59f2654"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/lib.nr",

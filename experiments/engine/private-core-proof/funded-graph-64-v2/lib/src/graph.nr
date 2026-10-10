@@ -35,7 +35,7 @@ pub fn assert_authorization(w:Witness)->[[u8;32];64]{let s=w.statement;
  for i in 0..64{let n=w.nodes[i];let p=w.payouts[i];
   if i<w.active_count{
    // Canonical topological positions prohibit every future/self dependency.
-   if i==0{assert(n.dependency_mask==0);}else{assert(n.dependency_mask < (1 as u64 << i));}
+   if i==0{assert(n.dependency_mask==0);}else{assert(n.dependency_mask < (1 as u64 << (i as u64)));}
    for j in 0..64{if j<i{assert(n.id_digest!=w.nodes[j].id_digest);assert(n.dispatch_id!=w.nodes[j].dispatch_id);assert(n.local_commitment!=w.nodes[j].local_commitment);assert(n.receipt_rho!=w.nodes[j].receipt_rho);}}
    assert(n.id_digest!=[0;32]);
    assert(n.chain_domain!=[0;32]);
