@@ -1,8 +1,10 @@
 # Desarrollo y comprobaciones
 
-El código se edita en `apps`, `packages` y `contracts`. `./dev build` prepara
-la copia de ejecución en `.internal/runtime`; nunca se edita esa copia.
-Consulta [STRUCTURE.md](STRUCTURE.md) para encontrar cada dominio.
+El código se edita en `apps`, `packages` y `contracts`. La wallet y las pruebas
+host ejecutan directamente esas fuentes. `./dev build` comprueba los manifiestos
+y el lock e instala las dependencias cuando cambian; no materializa otra copia
+del código. Consulta [STRUCTURE.md](STRUCTURE.md) para encontrar cada dominio y
+[WORKFLOW.md](WORKFLOW.md) para elegir comprobaciones por cambio o componente.
 
 ## Copia limpia sin materiales de restauración
 
@@ -10,27 +12,35 @@ Desde Linux/WSL x64, con Git y Python 3.12 o superior, en la raíz de una copia
 del repositorio:
 
 ```sh
-python3 scripts/development/prepare-host-runtime.py
+./dev prepare host
 ./dev build
-python3 scripts/development/verify_layout.py --tracked-delivery
-python3 scripts/development/test_workspace.py
-python3 scripts/development/test_doctor.py
-./dev test
+./dev check
 ./dev start
 ```
 
 El primer comando descarga Node 24.19.0 desde su distribución oficial, verifica
 el SHA256 fijado del archivo y el binario instalado. No modifica Node global.
-La selección habitual ejecuta 244 resultados, incluidos transporte HTTP,
-consentimiento y reconciliación. No requiere los binarios nativos ni el CRS.
+La selección habitual comprueba transporte HTTP, consentimiento y
+reconciliación. No requiere los binarios nativos ni el CRS. Los resultados de
+host utilizan fixtures y no acreditan por sí solos una operación económica.
+
+Para verificar expresamente la conservación histórica:
+
+```sh
+./dev build --legacy
+python3 -B scripts/development/verify_layout.py --tracked-delivery
+python3 -B scripts/development/test_workspace.py
+```
 
 La verificación `--tracked-delivery` comprueba los 1.716 originales versionados
 y declara 933 archivos locales de referencias, paquetes revisados y borradores
 fuera de su alcance. Verifica bytes, SHA256 y el permiso de ejecución que Git
 conserva; Git no conserva diferencias como `0600` frente a `0644`. Rechaza
 fuentes originales obligatorias sin versionar.
-`./dev check` conserva la comprobación de los 2.649 archivos restaurados y
-necesita además las dependencias de Solidity/Noir para sus diagnósticos.
+`./dev legacy check` añade la comprobación completa de los archivos restaurados
+y necesita además las dependencias de Solidity/Noir para sus diagnósticos.
+`./dev check` verifica los contratos entre módulos, la ejecución desde fuentes
+y la selección habitual de pruebas host.
 
 El workflow [host-tests.yml](../.github/workflows/host-tests.yml) ejecuta esos
 controles desde un checkout vacío, sin credenciales del producto. No hay remoto
@@ -42,11 +52,10 @@ locks públicos de móvil y API, verifica contratos/tipos y exporta los bundles.
 También comprueba PostgreSQL real en Docker y Terraform con proveedor simulado.
 No requiere claves, cuenta GCP ni estado privado del laboratorio.
 
-Estas mismas comprobaciones pasan desde una copia limpia sin el paquete de
-restauración: selección habitual, 81 regresiones adicionales, tipos y bundles
-móviles, HTTP/PostgreSQL y seis tests Terraform. Se retienen los informes en
-`.internal/dev/reports/clean-*-ci*.json`. GitHub Actions aún no se ha ejecutado
-en remoto.
+Las comprobaciones de la restauración anterior conservan sus informes en
+`.internal/dev/reports/clean-*-ci*.json`; corresponden a aquella revisión.
+GitHub Actions aún no se ha ejecutado en remoto. Los cambios de herramientas
+añaden regresiones pequeñas de rutas, instalación, selección y generaciones.
 
 Con Google Chrome instalado, se comprueba también el DOM real de la wallet
 desconectada:
@@ -66,8 +75,12 @@ Este smoke no demuestra financiación ni aceptación del recorrido conectado.
 
 ```sh
 ./dev test packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs
+./dev test --changed --plan
+./dev test --component backend
 ./dev artifacts
 ./dev doctor
+./dev sources status
+./dev sources prepare
 ./dev lab prepare
 ./dev lab
 ```
@@ -81,6 +94,11 @@ Los laboratorios con pruebas reales necesitan las dependencias públicas y los
 materiales de restauración descritos en [EVM-LAB.md](EVM-LAB.md). Crean génesis,
 identidades y claves sintéticas nuevos. El arranque desconectado de la wallet
 no acredita fondos ni habilita automáticamente esas operaciones.
+
+Los consumidores con rutas y hashes históricos usan `./dev legacy node …`
+o `./dev legacy test …`. Los comandos `lab` preparan su compatibilidad de forma
+explícita. [SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md) explica la captura de
+fuentes, la reutilización de artefactos y la diferencia entre preparar y publicar.
 
 ## Commits
 

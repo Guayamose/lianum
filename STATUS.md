@@ -1,6 +1,6 @@
 # Estado actual
 
-Actualizado el 10 de octubre de 2026. Hay una base versionada y utilizable para
+Actualizado el 11 de octubre de 2026. Hay una base versionada y utilizable para
 desarrollo; todavía no está completada la wallet omnichain de la visión original.
 Los resultados distinguen código comprobado, laboratorio local y producto
 pendiente. Las entregas históricas permanecen en `archive/`.
@@ -14,6 +14,40 @@ seleccionado quedó respaldado y verificado en `.local/history/`.
 Se conservaron originales, custodia, bases de datos, APK y los dos candidatos
 móviles pendientes. [Entorno y restauración](docs/LOCAL-ENVIRONMENT.md).
 Los objetivos y su evaluación funcional conservan el alcance original.
+
+## Flujo de desarrollo del 11 de octubre
+
+La reorganización del entorno está implementada. `./dev start`, `node`, `test`
+y `check` ejecutan las fuentes editables; `./dev build` comprueba dependencias
+y prepara nueve paquetes npm locales, sin copiar el código. Comprueba el lock
+y evita reinstalar cuando los manifiestos y dependencias ya están vigentes.
+
+- **Módulos:** exports y dependencias declarados; comprobación automática de
+  nuevas importaciones privadas. Se han revisado 803 archivos y 42 imports
+  públicos. Quedan 983 imports privados heredados registrados explícitamente:
+  el control impide añadir más; todavía no son módulos totalmente desacoplados.
+- **Generaciones:** `./dev sources prepare` captura dependencias y autentica
+  los artefactos reutilizados. La preparación actual valida 908 fuentes y doce
+  roles; repetir una preparación idéntica reutiliza sus objetos. El candidato
+  se guarda en `.local/generations/` y conserva la publicación anterior.
+- **Trabajo diario:** `./dev status`, `workflows` y `test --changed --plan`
+  identifican herramientas, entradas y comprobaciones. La selección automática
+  está acotada; las campañas económicas mantienen comandos explícitos.
+- **Validación:** `./dev check` pasa los 251 casos habituales en 6,6 segundos;
+  otros 160 casos de componentes y 62 de generaciones pasan. Navegador real
+  aprobado con la wallet desconectada. Verificados los 1.716 originales
+  versionados. Las regresiones de herramientas también pasan.
+
+Informes locales: `.internal/dev/reports/host-tests.json`,
+`source-workflow-check.log`, `source-first-browser/browser-disconnected.json`
+y `source-generation-prepare-current.json`.
+
+Los workers criptográficos ligados a hashes históricos siguen usando
+`./dev legacy …`. El candidato preparado no está publicado ni adoptado por el
+consumidor financiero; las campañas anteriores corresponden a sus revisiones,
+no prueban automáticamente estos cambios. Los siete objetivos del producto
+mantienen su evaluación funcional. [Guía diaria](docs/WORKFLOW.md),
+[módulos](docs/MODULES.md) y [generaciones](docs/SOURCE-GENERATIONS.md).
 
 ## Corte actual del 10 de octubre
 

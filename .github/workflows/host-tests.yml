@@ -21,9 +21,18 @@ jobs:
           python-version: '3.12'
       - name: Install verified Node runtime
         run: python3 scripts/development/prepare-host-runtime.py
-      - name: Build workspace and verify versioned originals
+      - name: Verify source workflow and module contracts
         run: |
           ./dev build
+          ./dev boundaries
+          python3 -B scripts/development/test_source_runtime.py
+          python3 -B scripts/development/test_source_preparation.py
+          python3 -B scripts/development/test_module_boundaries.py
+          python3 -B scripts/development/test_workflow.py
+          python3 -B scripts/development/test_source_generations.py
+      - name: Verify explicit compatibility and versioned originals
+        run: |
+          ./dev build --legacy
           python3 scripts/development/verify_layout.py --tracked-delivery
           python3 scripts/development/test_workspace.py
           python3 scripts/development/test_doctor.py
@@ -43,7 +52,7 @@ jobs:
         run: ./dev test
       - name: Verify new DeFi and laboratory regressions on the host
         run: >-
-          ./dev test
+          ./dev legacy test
           packages/backend/tests/api/claims/native-claim-session.test.mjs
           packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs
           tests/integration/chains/solana
@@ -82,6 +91,7 @@ jobs:
           packages/backend/tests/operations/payouts/claim-authorization-lifecycle-v4.test.mjs
           packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs
           tests/integration/wallet/native/native-value-dev-release-v5.test.mjs
+          tests/integration/wallet/native/native-value-dev-reuse-v6.test.mjs
           tests/integration/wallet/native/native-value-dev-w39-v5.test.mjs
           tests/integration/wallet/native/native-value-dev-w39-build-dependencies-v5.test.mjs
           tests/integration/wallet/native/native-value-admission-original-roots-v5.test.mjs

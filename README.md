@@ -33,10 +33,11 @@ Desde la raíz del proyecto:
 
 ```sh
 ./dev start     # Wallet local; Ctrl+C para cerrar
-./dev build     # Preparar las rutas compatibles de ejecución
-./dev test      # Selección habitual de pruebas de host
-./dev check     # Comprobar estructura y compilación/arranque
-./dev doctor    # Revisar herramientas e integridad
+./dev build     # Preparar dependencias; ejecutar directamente lo que editas
+./dev status    # Ver herramientas y aplicaciones disponibles
+./dev test      # Selección habitual de pruebas rápidas
+./dev test --changed --plan  # Ver qué pruebas corresponden a tus cambios
+./dev check     # Revisar contratos entre módulos y pruebas de host
 ./dev help      # Todos los comandos
 ```
 
@@ -44,6 +45,13 @@ La wallet inicia desconectada. Los laboratorios económicos se ejecutan con
 comandos propios; arrancar la interfaz no acredita fondos ni una operación.
 La [guía de desarrollo](docs/DEVELOPMENT.md) explica el bootstrap de un clon
 limpio y la selección de pruebas por carpeta.
+
+[Flujo por componente](docs/WORKFLOW.md) · [Interfaces de módulos](docs/MODULES.md).
+`./dev workflows` muestra las entradas actuales, su alcance y sus comprobaciones.
+Los laboratorios y workers que verifican originales históricos usan
+compatibilidad explícita: `./dev build --legacy` y `./dev legacy test …`.
+`./dev sources prepare` prepara una generación nueva y comprueba qué artefactos
+se pueden reutilizar; conserva la publicación anterior y su procedencia.
 
 ## Entorno local y limpieza
 
