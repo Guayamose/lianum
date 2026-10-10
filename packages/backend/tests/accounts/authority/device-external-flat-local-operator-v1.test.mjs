@@ -87,7 +87,7 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   assert.deepEqual(JSON.parse(await readFile(join(ports.multiFourLocal,'paired-descriptor.json'),'utf8')),publishedFour.descriptor);await assert.rejects(lstat(join(ports.multiFourLocal,'paired-share-descriptor.json')),{code:'ENOENT'});await publishedFour.close();await assert.rejects(lstat(join(ports.multiFourLocal,'active.lock')),{code:'ENOENT'});
   // Failure before listener publication still closes the actual acquired
   // account/runtime and never treats close()'s status as a stop receipt.
-  bindFailure=true;missingStopReceipt=true;allowances.clear();inertRuntime.lifecycle=[];
+  events.length=0;bindFailure=true;missingStopReceipt=true;allowances.clear();inertRuntime.lifecycle=[];
   await assert.rejects(create(config),error=>error instanceof AggregateError&&error.message==='DEVICE_EXTERNAL_LOCAL_START_CLEANUP_UNCONFIRMED');
   assert.equal((await lstat(join(directory,'active.lock'))).isFile(),true);
   assert.equal(events.includes('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY'),false);
