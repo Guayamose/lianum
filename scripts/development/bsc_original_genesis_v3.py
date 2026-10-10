@@ -274,9 +274,12 @@ def capture_registration(work, fixture, index, prepared, deadline):
                 need(0 <= length <= 128 * 1024, 'REGISTRAR_RPC_BOUND')
                 request = json.loads(self.rfile.read(length))
                 need(type(request) is dict and request.get('jsonrpc') == '2.0'
-                     and type(request.get('id')) is int and type(request.get('params')) is list,
+                     and type(request.get('id')) is int
+                     and (type(request.get('params')) is list or 'params' not in request
+                          and request.get('method') in ('eth_chainId', 'eth_gasPrice')),
                      'REGISTRAR_RPC_SHAPE')
-                method, params = request['method'], request['params']
+                # The pinned Go client omits params for these original zero-arg reads.
+                method, params = request['method'], request.get('params', [])
                 if method == 'eth_chainId' and params == []:
                     result = hex(714)
                 elif method == 'eth_getTransactionCount' and len(params) == 2 and type(params[0]) is str \

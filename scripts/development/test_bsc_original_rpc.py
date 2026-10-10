@@ -162,6 +162,54 @@ class OriginalNativeGenesisDiffTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, '^BSC_GENESIS_ORIGINAL_ALLOCATION$'):
             context['normalize_allocation']({'0x01': {}})
 
+    def test_original_registrar_omitted_params_only_for_existing_zero_argument_reads(self):
+        # Actual fixed Handler over real loopback HTTP. Requests are inert;
+        # no registrar, EVM, signed wire, native send or finality is created.
+        source = pathlib.Path(__file__).with_name('bsc_original_genesis_v3.py')
+        tree = ast.parse(source.read_text())
+        capture = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                       and node.name == 'capture_registration')
+        handler = next(node for node in capture.body if isinstance(node, ast.ClassDef)
+                       and node.name == 'Handler')
+        held, failure = [], []
+        def need(value, code):
+            if not value:
+                raise RuntimeError('BSC_GENESIS_' + code)
+        def no_wire(*_):
+            self.fail('HOST_REGISTRAR_SIGNED_WIRE_NOT_ALLOWED')
+        context = {'http': http, 'json': json, 'need': need,
+                   'encoded': lambda value: json.dumps(value).encode(),
+                   'fixture': {'address': '0x' + '12' * 20, 'nonce': 0},
+                   'held': held, 'failure': failure, 'decode_registration': no_wire}
+        exec(compile(ast.Module(body=[handler], type_ignores=[]), str(source), 'exec'), context)
+        server = http.server.HTTPServer(('127.0.0.1', 0), context['Handler'])
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = 'http://127.0.0.1:' + str(server.server_port)
+            def request(method, **fields):
+                packet = {'jsonrpc': '2.0', 'id': 1, 'method': method, **fields}
+                command = urllib.request.Request(url, json.dumps(packet).encode(),
+                                                 {'content-type': 'application/json'})
+                with urllib.request.urlopen(command, timeout=2) as response:
+                    return json.loads(response.read(4096))
+            for method, expected in [('eth_chainId', hex(714)), ('eth_gasPrice', '0x0')]:
+                self.assertEqual(request(method)['result'], expected)
+                self.assertEqual(request(method, params=[])['result'], expected)
+                with self.assertRaises(urllib.error.HTTPError) as rejected:
+                    request(method, params=None)
+                self.assertEqual(rejected.exception.code, 400)
+            for method in ['eth_sendRawTransaction', 'eth_getTransactionCount', 'eth_accounts']:
+                with self.assertRaises(urllib.error.HTTPError) as rejected:
+                    request(method)
+                self.assertEqual(rejected.exception.code, 400)
+            self.assertEqual(held, [])
+            self.assertEqual(len(failure), 5)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
     def test_original_fixture_copy_creates_private_root_before_first_file(self):
         # Real private filesystem + the actual copy/write guards; fixture bytes
         # are explicitly inert. No native process, validator or trace is born.

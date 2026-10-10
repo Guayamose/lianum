@@ -38,7 +38,7 @@ PREPARED_V2 = DEPENDENCIES / 'prepared-native-init-v2'
 PROFILE_V3 = 'OWNED_BSC_POSA_THREE_VALIDATORS_V3'
 NATIVE_VALUE_PROFILE_V3 = 'OWNED_BSC_POSA_NATIVE_VALUE_714_V3'
 PREPARED_V3 = DEPENDENCIES / 'prepared-native-init-v3'
-GENESIS_V3_HELPER_SHA256 = 'fe4f9423bf252b7e8bd786d4cc24bd7d85b57a4f2b20d54a37f999fcaf93a22c'
+GENESIS_V3_HELPER_SHA256 = 'c80a262c70130dc355f42d818e6a70b2a3ce75e502d861ea290d20be06a548d1'
 # Slots derive from the original compiled Solidity storageLayout (slot11,
 # struct22words, voteAddress+2) and its original long-bytes storage rule.
 NATIVE_V1_EXTRA_LAYOUT_SHA256 = 'e207cd18bf6545863c8eabbeb1d6f38e825ec9ee43c761efc67abd42ba04db79'
