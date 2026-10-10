@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "2b6580dd827744207eb6f78e23ea80d0661804ff29006fc2d56ea8a3f292a970",
+  "hostSourceClosureSHA256": "c8c6d739746f414f2080415d1c893a436dc136e1dc9695d5ddc55f40e71ec4d9",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -958,7 +958,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/native-device-economic-original-continuation-v1.mjs",
-      "sha256": "62fb739ffa40543e222e55f2e84130ceb017291ab953421756c18cd78dbbd001"
+      "sha256": "0fdd22ac7a76dc80f22823ff7b6785a941f629fc501c604bfe6443bb181bd481"
     },
     {
       "path": "integration/native-device-economic-policy-v1.mjs",
@@ -2234,7 +2234,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/api/native-claim-session.mjs",
-      "sha256": "dfa5407e75a08c724bd7364a85dc9b95b643e4a64f64b4e9e5928288f1882061"
+      "sha256": "cf29b922191a38c8c89a85e795b98871cfd2cad4615060b39a35b23521cacfb3"
     },
     {
       "path": "wallet-platform/modules/api/native-claim-status-client.mjs",
@@ -3482,7 +3482,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-execution-v2.mjs",
-      "sha256": "d5837d2086040e1babd3a0355b47c90a347fff4f029176f20a5e4da968b07fd7"
+      "sha256": "90636032b59473b24a28e60bf97e02c7e698fd9b95283d0c664be7ddd72f3a33"
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-failure-retention.mjs",
@@ -3490,7 +3490,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-graph-admission-v2.mjs",
-      "sha256": "71f38db974d46eaa377d87f7f2a5c1678793842019f32d454b888c487f7ba60d"
+      "sha256": "72b3788d0300ad6629493c17df98275ef55559f3ca99e5aa05ebbe0346e616b0"
     },
     {
       "path": "wallet-platform/modules/paeg/native-value-statements-v2.mjs",
