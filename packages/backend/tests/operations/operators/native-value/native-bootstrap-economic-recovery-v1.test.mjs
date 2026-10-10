@@ -153,7 +153,10 @@ test('copies, arbitrary keys and native/wrapped token substitution cannot restor
 // Genuine AEAD issuer on an isolated HOST directory. This exercises the exact
 // route that failed after F; no runtime/proof/section producer is fabricated.
 test('native-note issuer root is selected only by its finite constructor and reopen',async t=>{
- const runId=randomUUID(),directory=join(fixedRoot,'.local/native-value-economic-note-recovery-v1','attempt-'+runId,'private-audit');
+ for(const profile of ['native-value-economic-note-recovery-v1','native-value-durable-economic-note-recovery-v1',
+   'native-value-private-durable-note-recovery-v2','native-value-private-authorized-durable-note-recovery-v2',
+   'native-value-private-worker-durable-note-recovery-v3']){
+ const runId=randomUUID(),directory=join(fixedRoot,'.local/'+profile,'attempt-'+runId,'private-audit');
  const identity={directory,runId,sourceSHA256:h('note-source'),deadlineMs:Date.now()+60000};
  const legacy={...identity,directory:join(fixedRoot,'.local/native-value-economic-recovery-v1','attempt-'+runId,'private-audit')};
  await mkdir(directory,{recursive:true,mode:0o700});
@@ -176,4 +179,5 @@ test('native-note issuer root is selected only by its finite constructor and reo
  // An accepted directory is not capture authority: missing original sections
  // still reject before any runtime/account/owner is reconstructed.
  await assert.rejects(issuer.openNativeEconomicNoteRecoveryAuthorityV1(identity,status.checkpoint),/CAPTURE_NOT_COMPLETE/);
+ }
 });
