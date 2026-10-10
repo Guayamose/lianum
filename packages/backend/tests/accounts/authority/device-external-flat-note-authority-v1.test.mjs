@@ -649,7 +649,7 @@ test('HOST device multi GRAPH binds two-to-four private targets and exact DAG in
  // are explicit lower HOST ports, with no process, RPC or proof producer.
  const G=await import(url('../../../../mobile-protocol/src/device-external-flat-graph-v1.mjs','../../../../../mobile-protocol/src/device-external-flat-graph-v1.mjs'));
  const {normalizeDeviceReservationCapsuleOptionsV1}=await import(url('../../../../mobile-protocol/src/device-reservation-consent-v1.mjs','../../../../../mobile-protocol/src/device-reservation-consent-v1.mjs'));
- const {Vault}=await import('../../../../engine/src/crypto/vault.mjs');
+ const {Vault}=await import(url('../../../../engine/src/crypto/vault.mjs','../../../../../omnichain-product/src/vault.mjs'));
  const deviceKey=randomBytes(32),descriptor=P.normalizeExternalFlatDescriptorV1({profile:P.DEVICE_EXTERNAL_FLAT_NOTE_V1,origin:'https://localhost:9443',pairingId:h('async-multi-pair'),devicePublicKey:devicePublicKey(deviceKey),lifetime:h('async-multi-life'),poolTerms:{...Object.fromEntries(['pool','poolCodeHash','scope','policy','assetIdentity','asset','assetCodeHash','genesis','domainCommitment','hub','hubCodeHash','hubDomain','ledgerNamespace'].map(k=>[k,h('async-'+k).slice(0,['pool','asset','hub'].includes(k)?40:64)])),scope:domain.scope,policy:domain.policy,assetIdentity:domain.asset,hubDomain:domain.hubDomain,ledgerNamespace:domain.hubDomain},assetMetadata:{kind:'ERC20',symbol:'USDC',decimals:6}});
  const terms={depositJobId:h('async-deposit'),rootId:h('async-root'),...actualTerms},source={depositJobId:terms.depositJobId,rootId:terms.rootId,commitment:h('async-source-CM'),nullifier:h('async-source-NF'),noteRevision:1,amount:'80'},workspace=Object.freeze({}),originalBridge=Object.freeze({});
  const vault=new Vault(join(directory,'async-admission.vault')),password=h('async-original-journal-password');let initial=await vault.create({job:null,quote:null},password),clock=0,workspaceCalls=0,unblock,entered;
@@ -994,4 +994,54 @@ test('HOST admitted external note effects wait for the same bounded result witho
  // This transport budget grants no unsupported FUND_D27 authority.
  assert.throws(()=>P.normalizeExternalFlatConsentV1({...consent(share,'WITHDRAW_W39'),action:'FUND_D27'}));assert.ok(diagnostics.some(d=>d.code==='DEVICE_EXTERNAL_FLAT_HTTP_TIMEOUT'&&d.phase==='OPERATE'));assert.equal(timerPort.timers.size,0);
  }finally{gate?.resolve();signingKey.fill(0);timerPort.timers.clear();}
+});
+
+test('HOST graph output proof metadata is durable before the SOURCE checkpoint',async t=>{
+ // Execute the actual proof/output, save, retention and checkpoint bodies.
+ // Both journals use the real AES/CAS Vault. Cryptographic proof, ownership,
+ // consent and chain ports are explicitly inert; this is no financial proof.
+ const {Vault}=await import('../../../../engine/src/crypto/vault.mjs');
+ const {isDeepStrictEqual}=await import('node:util');
+ const source=await readFile(url('../../../src/accounts/authority/device-external-flat-source-graph-v1.mjs','./device-external-flat-source-graph-v1.mjs'),'utf8');
+ const cut=(from,to)=>{const a=source.indexOf(from),b=source.indexOf(to,a);assert.ok(a>=0&&b>a);return source.slice(a,b);};
+ const storage=cut('function seed(){','async function capture(token)')+cut('async function save(change){','const update=fields=>');
+ const output=cut('function outputWithdrawal(role){','function publicOutput(r){');
+ const privateBody=cut('async function provePrivateOutput(wrapper,packet){','async function sendOutput(wrapper)');
+ const ordinaryBody=cut('async function proveOutput(wrapper,witness){','async function provePrivateOutput(wrapper,packet){');
+ const scratch=await mkdtemp(join(tmpdir(),'graph-output-checkpoint-host-'));t.after(()=>rm(scratch,{recursive:true,force:true}));
+ for(const kind of ['ordinary','private']){
+  const directory=join(scratch,kind);await(await import('node:fs/promises')).mkdir(directory,{mode:0o700});
+  const file=join(directory,'operations.vault'),vault=new Vault(file),password='HOST_SYNTHETIC_GRAPH_PASSWORD';
+  const record=await vault.create({withdrawals:[]},password),retention=new Vault(join(directory,'retention.vault')),retentionPassword='HOST_SYNTHETIC_RETENTION_PASSWORD';let retained=await retention.create({},retentionPassword);
+  const handle=Object.freeze({}),runtime=Object.freeze({}),retentionIdentity=Object.freeze({}),role='change',jobId=h('HOST_CHANGE_JOB'),challengeId=h('HOST_CHANGE_CHALLENGE');
+  const statement={scope:h('HOST_SCOPE'),policy:h('HOST_POLICY'),epoch:'1',root:h('HOST_ROOT'),nullifier:h('HOST_NULLIFIER'),amount:'400',recipient:'12'.repeat(20),commitment:h('HOST_COMMITMENT')};
+  const path={root:statement.root,index:0,leaf:statement.commitment,siblings:[h('HOST_SIBLING')]};
+  const witnessBytes=Buffer.from('HOST_SYNTHETIC_WITNESS'),consent={jobId,challengeId,depositJobId:h('HOST_DEPOSIT'),rootId:h('HOST_CUSTODY'),noteRevision:1,recipient:statement.recipient,statement,path,witnessSHA256:h(witnessBytes),privateProof:{profile:P.DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3}};
+  const wrapper={noteRole:role,consent},words=P.externalFlatWalletPublicInputsV3('withdraw_balance',statement);
+  const result={proof:'ab'.repeat(64),publicInputs:words,metrics:{acceptedResult:true,explicitInertHost:true}},proofs=[],control={verify:true,closed:0};
+  const binding={kind:'ORIGINAL_CONSENT_V1',jobId,consentSHA256:h(Buffer.from('HOST_SYNTHETIC_CONSENT')),witnessSHA256:consent.witnessSHA256};
+  const client={async proveEncrypted(packet,actual){assert.deepEqual(actual,binding);return result;},async close(){control.closed++;}};
+  const privateOutputs=new Map(kind==='private'?[[challengeId,{consent:wrapper,client,timer:null}]]:[]),outputQuotes=new Map([[jobId,{value:wrapper,used:false,until:Number.MAX_SAFE_INTEGER}]]);
+  const view={head:{timestamp:'600'},header:{number:'0x1'},ledger:{tree:{root:'0x'+path.root,path:()=>({root:'0x'+path.root,index:path.index,leaf:'0x'+path.leaf,siblings:path.siblings.map(x=>'0x'+x)})}}};
+  const ports={assert,isDeepStrictEqual,Buffer,clearTimeout,performance,need:(v,c)=>assert.ok(v,c),copy:structuredClone,hash:h,sha:v=>h(JSON.stringify(v)),directory,file,password,vault,record,proofs,retentionHandle:handle,retentionIdentity,runtime,identity:{domain:{scope:statement.scope,policy:statement.policy}},preparation:null,invoiceSignatures:null,proposal:null,privateOutputs,outputQuotes,
+   async updateWrappedPrivateLifetimePartV1(value,next){assert.equal(value,handle);retained=await retention.update(retentionPassword,retained.revision,()=>structuredClone(next));assert.deepEqual(await retention.read(retentionPassword),retained);},
+   async readWrappedPrivateLifetimePartV1(value,slot,identity){assert.equal(value,runtime);assert.equal(slot,'wallet-graph-keeper-0');assert.equal(identity,retentionIdentity);return{handle,privateState:(await retention.read(retentionPassword)).data};},
+   assertWrappedPrivateLifetimePartSealedV1:value=>assert.equal(value,handle),
+   Note:{...P,externalFlatWitnessV1:(mode,value)=>{assert.equal(mode,'withdraw_balance');return structuredClone(value);},externalFlatWitnessBytesV1:()=>Buffer.from(witnessBytes),externalFlatWipeV1:()=>{}},
+   P:{externalFlatGraphOutputPermissionMessageV1:value=>{assert.equal(value,wrapper);return Buffer.from('HOST_SYNTHETIC_CONSENT');}},
+   exact:(value,fields)=>assert.deepEqual(Object.keys(value).sort(),[...fields].sort()),transport:value=>({proof:value.proof,publicInputs:[...value.publicInputs]}),bare:value=>value.slice(2),
+   currentOutputs:async()=>view,originalOutput:(value,selected)=>{assert.equal(value,view);assert.equal(selected,role);return{commitment:statement.commitment,nullifier:statement.nullifier,amount:statement.amount};},
+   freshOutput:value=>assert.equal(value,wrapper),reader:{async assertCurrent(value){assert.equal(value,view);}},system:{async verify(){return control.verify;}},publicOutput:value=>structuredClone(value),
+   readOriginalDeviceWalletNoteDerivationV3:(value,proof)=>{assert.equal(value,client);assert.equal(proof,result);return{noteRole:role,jobId,commitment:statement.commitment,nullifier:statement.nullifier,consentSHA256:binding.consentSHA256,witnessSHA256:binding.witnessSHA256};},
+   walletInputPublicWords:()=>words.map(BigInt),decodeWalletPoolInputs:()=>Object.fromEntries(Object.entries(statement).filter(([k])=>k!=='commitment').map(([k,v])=>[k,['epoch','amount'].includes(k)?v:'0x'+v])),
+   balanceCommitment:()=>Buffer.from(statement.commitment,'hex'),noteNullifier:()=>Buffer.from(statement.nullifier,'hex'),createProofProcess:()=>({async prove(){return result;},async close(){control.closed++;}})};
+  const body=`let poisoned=false,busy=false,preparationWork=null,activeOwner=null;const privatePreparations=new Map();function live(){assert.equal(poisoned,false);}async function physical(){}async function healthy(){live();assert.deepEqual(await vault.read(password),record);}${storage}${output}${kind==='private'?privateBody:ordinaryBody};return{prove:${kind==='private'?'provePrivateOutput':'proveOutput'},checkpoint,seed,proofs,persist};`;
+  const api=new Function(...Object.keys(ports),body)(...Object.values(ports));await api.persist();
+  const input=kind==='private'?{type:'flat-private-proof-inputs',profile:'HOST_SYNTHETIC_PACKET',relation:'withdraw_balance',role:'owner',jobId,recipientPublicKey:'00',senderPublicKey:'00',authorization:binding,publicInputsSHA256:'00',salt:'00',iv:'00',tag:'00',ciphertext:'00'}:{rho:Array(32).fill(1),key_x:Array(32).fill(2),key_y:Array(32).fill(3),secret:Array(32).fill(4),amount:statement.amount,leaf_index:'0',siblings:path.siblings.map(x=>[...Buffer.from(x,'hex')])};
+  assert.equal((await api.prove(wrapper,input)).stage,'PROVED');assert.equal(api.proofs.length,1);assert.equal(control.closed,1);
+  const actual=(await retention.read(retentionPassword)).data;assert.equal(actual.candidate,null);assert.equal(actual.confirmed.record.data.withdrawals[0].stage,'PROVED');assert.equal(JSON.parse(actual.confirmed.proofFrames).length,1);
+  assert.deepEqual(actual.confirmed,api.seed());assert.ok(await api.checkpoint());assert.ok(await api.checkpoint());
+  // A changed retained proof frame is rejected rather than adopted/repaired.
+  retained=await retention.update(retentionPassword,retained.revision,data=>({...data,confirmed:{...data.confirmed,proofFrames:'[]'}}));await assert.rejects(api.checkpoint(),/DEVICE_EXTERNAL_GRAPH_SOURCE_CHECKPOINT/);assert.equal(api.proofs.length,1);
+ }
 });
