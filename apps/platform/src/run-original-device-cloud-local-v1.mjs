@@ -52,12 +52,12 @@ assert.equal(process.env.NODE_OPTIONS, undefined); assert.equal(process.env.NODE
 assert.notEqual(process.env.NODE_TLS_REJECT_UNAUTHORIZED, '0');
 const configuredPort = process.env.PORT ?? '8080';
 assert.ok(/^[1-9][0-9]{0,4}$/.test(configuredPort) && Number(configuredPort) <= 65535);
-let acquisition, service, pool, closed = false, closing;
+let acquisition, service, pool, closed = false, captureRequested = false, closing;
 function close() {
   closed = true;
   return closing ??= (async () => {
     let failure;
-    try { if (acquisition) service = await acquisition; if (service) await service.close(); }
+    try { if (acquisition) service = await acquisition; if(service){if(captureRequested){const value=await service.capture();assert.ok(value.closed&&value.originalResourcesStopped&&value.plannedCaptureForNewProcess,'PLATFORM_ORIGINAL_GATEWAY_CAPTURE_UNCONFIRMED');process.stdout.write('ORIGINAL_DEVICE_LOCAL_TRANSPORT_CAPTURE_READY\n');}else await service.close();} }
     catch (error) { failure = error; }
     try { await pool?.end(); } catch (error) { failure ??= error; }
     if (failure) throw failure;
@@ -65,6 +65,7 @@ function close() {
 }
 function stop() { void close().catch(() => { process.exitCode = 1; process.stderr.write('PLATFORM_ORIGINAL_GATEWAY_CLOSE_UNCONFIRMED\n'); }); }
 process.once('SIGINT', stop); process.once('SIGTERM', stop);
+process.once('SIGUSR2',()=>{if(!closed)captureRequested=true;stop();});
 try {
   const config = await privateConfiguration();
   // A previous pairing requires its own original recovery path. This new-realm

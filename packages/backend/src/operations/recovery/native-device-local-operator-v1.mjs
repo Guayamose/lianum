@@ -51,16 +51,16 @@ const requiredSources = Object.freeze([
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
-  Object.freeze({"path":"apps/platform/src/original-device-cloud-source-pins-v1.mjs","bytes":21978,"sha256":"787acbf57e8f48b6ad8b8fa5394531186a90dfdbdbca0a3ca3832c66957cf532"}),
-  Object.freeze({"path":"apps/platform/src/original-device-cloud-local-gateway-v1.mjs","bytes":11827,"sha256":"91dadd5518205256fdda957c6e34f44ee0a2e91bd13a5296c6c30bf0a3e16b3c"}),
-  Object.freeze({"path":"apps/platform/src/run-original-device-cloud-local-v1.mjs","bytes":5661,"sha256":"54c5fe0c7fd0db2c14fb1ac001df9d6e2c220f942b7e1213cd7d39d2391cc7c4"}),
+  Object.freeze({"path":"apps/platform/src/original-device-cloud-source-pins-v1.mjs","bytes":22128,"sha256":"943f8277efb0cb749731a65a273780623016028888bd9a95f267ae0a482a73cc"}),
+  Object.freeze({"path":"apps/platform/src/original-device-cloud-local-gateway-v1.mjs","bytes":14444,"sha256":"960733e6a7dc54393607d30d0aa1695572c41077ee0e36fac1d9726684ea5b32"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-cloud-local-v1.mjs","bytes":6033,"sha256":"d07acdcd48cd65881dbcd9b29a9f42f5f7995f6528e0dc676ea9a0ebb73d551a"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-worker-durable-note-v3.mjs","bytes":6030,"sha256":"15f5f7f94d8b8ebca676542d1452871aad328fcb01320821ee63b5b4c8d3738d"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-durable-note-v2.mjs","bytes":5939,"sha256":"2903605d57b8e7a781e73eb39356a7f0bb769148322325ee9529fa6600688861"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-note-v2.mjs","bytes":4471,"sha256":"dcbbe66468ab80e0aea6fe4a942182edbf3fcb54e5a692d42ac6b5840da8d6bd"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-deposit-v2.mjs","bytes":4481,"sha256":"d71735c784df102c109bd48c465d23ffd0f31341415faf2d90f53af99e0f0458"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-durable-local-reopen-v1.mjs","bytes":241,"sha256":"de056662c9711cd9f14e6fc91dfcb686efd1b8fab8b973eb06cedb7243c381c5"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-live-armed-v1.mjs","bytes":4784,"sha256":"47f77fa07ee1ee45bcf6265a54d0dfc7472a26b50e2eaa70ca5ba1cc19bd6f5f"}),
-  Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":11233,"sha256":"776cac1b791703f8e948846d8f323e8916b6eea47580c1961c0c8b35869f8bf3"}),
+  Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":12132,"sha256":"3057fad47d03b11c2b33725eba7512f9e04fff783948000879799c1c86e30ae9"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-local-v1.mjs","bytes":208,"sha256":"b46e992f973d8dde44f217b1739308e43a0ee03f5bffda5b7c2ccffe49d0c422"}),
   Object.freeze({"path":"apps/platform/src/original-device-local-caller-v1.mjs","bytes":7872,"sha256":"9ebd70097dd37c0a438e12990a3264edbe041d6997b26158fd780888177a1524"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-local-reopen-v1.mjs","bytes":238,"sha256":"cfd3176249afa1b3369f89f4056f1dd28fc9c89e2fe8296147367b8c4a1c2b10"}),
@@ -70,6 +70,7 @@ const reviewedCallers = Object.freeze([
   Object.freeze({"path":"apps/platform/src/database-pool.mjs","bytes":1058,"sha256":"3f5362721b6b5dab4f6b4a038663a2523c6fe2fa376d6f3fbc2ffb3f55aa3062"}),
   Object.freeze({"path":"apps/platform/src/privacy-key-v1.mjs","bytes":1698,"sha256":"6ded05ce522dda4b60bdb40d5cb287c4d1a5614a1c9715308bd8b89722c66de7"}),
   Object.freeze({"path":"apps/platform/src/run-original-native-private-authorized-durable-note-v2.mjs","bytes":6021,"sha256":"0d0cf663bfa59b0bb1fc86617514fcd17fbeea68ae135667247d1da8fbcab6d1"}),
+  Object.freeze({"path":"apps/platform/src/run-original-device-cloud-local-reopen-v1.mjs","bytes":6842,"sha256":"50504da44f9dd88651216ef30739733ebe732a897d28f49fc38f8d8b04293813"}),
 ]);
 async function assertReviewedLocalProductCallers() {
   const directory = resolve(FLAT, '../../..');

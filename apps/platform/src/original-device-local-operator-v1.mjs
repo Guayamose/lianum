@@ -144,3 +144,13 @@ export async function startPlatformOriginalPrivateNativeWorkerNoteDurableOperato
     throw error;
   }
 }
+
+/** Fixed private-worker ordered continuation. Infrastructure is authenticated
+ * by the original opener before any issuer section is consumed. */
+export async function reopenPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3(input){
+ if(arguments.length!==1)throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
+ exact(input,['origin','devicePublicKey','tls','pool','privacyKey']);exact(input.tls,['certificate','privateKey']);
+ const selected={origin:input.origin,devicePublicKey:input.devicePublicKey,tls:{certificate:input.tls.certificate,privateKey:input.tls.privateKey},pool:input.pool,privacyKey:input.privacyKey};
+ const module=await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-restart-v1.mjs',import.meta.url));
+ return module.reopenOriginalPrivateNativeWorkerDurableLocalOperatorV3(selected);
+}

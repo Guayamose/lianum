@@ -10,7 +10,7 @@ import { normalizeMobileOrigin } from '../../../../mobile-protocol/src/authoriza
 import { join } from 'node:path';
 import { ROOT } from '../../../../proofs/src/catalog.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { assertOwnedNativeValueAccountAuthority } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import { assertOwnedNativeValueAccountAuthority, isOriginalNativePrivateWorkerAccountV3 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertOwnedNativeRecipientProcess } from '../../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
@@ -247,7 +247,13 @@ export function reopenOriginalNativeDeviceLocalOperatorV1(input){
 export function reopenOriginalNativeDeviceDurableLocalOperatorV1(input){
  assert.equal(arguments.length,1);return reopen(input,true);
 }
-async function reopen(input,durable) {
+/** Fixed Cloud continuation selects the same private worker family before TLS.
+ * SQL metadata remains infrastructure; original ten-section open restores all
+ * account/owner/runtime brands and keeps their original deadline verbatim. */
+export function reopenOriginalPrivateNativeWorkerDurableLocalOperatorV3(input){
+ assert.equal(arguments.length,1);return reopen(input,true,true);
+}
+async function reopen(input,durable,privateWorker=false) {
  exactRecord(input,durable?['origin','devicePublicKey','tls','pool','privacyKey']:['origin','devicePublicKey','tls']);
  const selected=normalizeOriginalNativeDeviceLocalConfigurationV1({origin:input.origin,devicePublicKey:input.devicePublicKey,tls:input.tls});
  const infrastructure=durable?{pool:input.pool,privacyKey:input.privacyKey}:null;
@@ -291,6 +297,7 @@ async function reopen(input,durable) {
     assert.equal(opened.receipt.issuerClosed, true); assert.equal(opened.receipt.sourceSHA256, locator.identity.sourceSHA256);
     // The session opener alone restores the authenticated state checkpoint.
     // Legacy captures retain their original branch; never create state on OPEN.
+    if(privateWorker)assert.equal(isOriginalNativePrivateWorkerAccountV3(originals.account),true,'NATIVE_DEVICE_LOCAL_REOPEN_PRIVATE_WORKER_REQUIRED');
     const economicState = readOriginalSessionWalletEconomicStateV1(originals.session);
     if (economicState !== null) await economicState.observe();
     const service = await import('./native-device-economic-service-v1.mjs');
@@ -300,7 +307,7 @@ async function reopen(input,durable) {
       owner: originals.owner, account: originals.account, nativeExecution: originals.nativeExecution,
       providerCustody: originals.providerCustody, actor: originals.actor, tls: selected.tls,...(durable?infrastructure:{}) });
     assert.deepEqual(installed.descriptor, locator.descriptor); assert.equal(installed.parentJobId, locator.parentJobId);
-    return Object.freeze({ profile: durable?'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1':product.ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
+    return Object.freeze({ profile: privateWorker?'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3':durable?'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1':product.ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
       descriptor: installed.descriptor, localFakeValues: true, automaticFunding: false, cloudAuthority: false,
       plannedOriginalFReopen: true, abruptCrashRecoveryEstablished: false, readReconcileWithdrawalOnly: true,...(durable?{durableOriginalAdmission:true}:{}), close });
   } catch (error) {

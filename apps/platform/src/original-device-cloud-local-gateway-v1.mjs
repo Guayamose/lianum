@@ -8,7 +8,7 @@ import { checkServerIdentity } from 'node:tls';
 import { X509Certificate, createPrivateKey } from 'node:crypto';
 import { types } from 'node:util';
 import { normalizeMobileOrigin } from '../../../packages/mobile-protocol/src/authorization.mjs';
-import { startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3 } from './original-device-local-operator-v1.mjs';
+import { startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3, reopenPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3 } from './original-device-local-operator-v1.mjs';
 import { assertOriginalDeviceDispatchSchemaV1 } from './original-device-schema-v1.mjs';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
@@ -59,7 +59,15 @@ async function body(request, maximum) {
   } finally { clearTimeout(timer); for (const part of parts) part.fill(0); }
 }
 export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
-  if (arguments.length !== 1) fail('PLATFORM_ORIGINAL_GATEWAY_CONFIGURATION');
+  if(arguments.length!==1)fail('PLATFORM_ORIGINAL_GATEWAY_CONFIGURATION');
+  return openOriginalGateway(input,false);
+}
+/** Separate fixed entry: no caller mode, existing runtime or checkpoint DTO. */
+export async function reopenPlatformOriginalDeviceCloudLocalGatewayV1(input) {
+  if(arguments.length!==1)fail('PLATFORM_ORIGINAL_GATEWAY_CONFIGURATION');
+  return openOriginalGateway(input,true);
+}
+async function openOriginalGateway(input, reopening) {
   assertOriginalDeviceCloudPublicSourcesV1();
   exact(input, ['origin', 'devicePublicKey', 'tls', 'pool', 'privacyKey', 'port']);
   exact(input.tls, ['certificate', 'privateKey']);
@@ -70,7 +78,7 @@ export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
   if (listeningPort !== 0 && listeningPort === upstreamPort) fail('PLATFORM_ORIGINAL_GATEWAY_PORT_CONFLICT');
   const certificate = new X509Certificate(ca);
   if (certificate.ca || !certificate.checkPrivateKey(createPrivateKey(input.tls.privateKey))) fail('PLATFORM_ORIGINAL_GATEWAY_TLS');
-  let service, server, closing = false, closePromise; const running = new Set(), sockets = new Set();
+  let service, server, closing = false, closePromise, ingressStop, capturePromise; const running = new Set(), sockets = new Set();
   function forward(path, method, bytes, responseMs) {
     return new Promise((resolve, reject) => {
       // TCP destination is fixed loopback. TLS identity and Host remain the
@@ -94,27 +102,51 @@ export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
       request.end(bytes);
     });
   }
-  async function close() {
-    closing = true;
-    return closePromise ??= (async () => {
-      let first;
-      const stopped = server?.listening ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
-      for (const socket of sockets) socket.destroy();
+  function stopIngress() {
+    closing=true;
+    return ingressStop??=(async()=>{
+      const stopped=server?.listening?new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())):Promise.resolve();
+      for(const socket of sockets)socket.destroy();
       await Promise.allSettled([...running]);
-      try { await stopped; }
-      catch (error) { first = error; }
-      try { if (service) { const result = await service.close(); if (!result.closed || !result.originalResourcesStopped) fail('PLATFORM_ORIGINAL_GATEWAY_CLOSE'); } }
-      catch (error) { first ??= error; }
-      if (first) throw first;
-      return Object.freeze({ closed: true, originalResourcesStopped: true });
+      await stopped;
+    })();
+  }
+  function capture() {
+    if(arguments.length!==0||reopening)fail('PLATFORM_ORIGINAL_GATEWAY_CAPTURE_UNAVAILABLE');
+    if(capturePromise)return capturePromise;
+    if(closing||!service)fail('PLATFORM_ORIGINAL_GATEWAY_CLOSED');
+    closing=true;
+    capturePromise=(async()=>{
+      try{
+        await stopIngress();
+        const value=await service.capture();
+        if(!value.closed||!value.originalResourcesStopped||value.plannedCaptureForNewProcess!==true)fail('PLATFORM_ORIGINAL_GATEWAY_CAPTURE_UNCONFIRMED');
+        return Object.freeze({...value,originalIngressStopped:true});
+      }catch(error){
+        try{const value=await service.close();if(!value.closed||!value.originalResourcesStopped)fail('PLATFORM_ORIGINAL_GATEWAY_CLOSE');}
+        catch(failure){throw new AggregateError([error,failure],'PLATFORM_ORIGINAL_GATEWAY_CAPTURE_CLOSE');}
+        throw error;
+      }
+    })();capturePromise.catch(()=>{});return capturePromise;
+  }
+  function close() {
+    if(arguments.length!==0)fail('PLATFORM_ORIGINAL_GATEWAY_CONFIGURATION');
+    closing=true;
+    return closePromise??=(async()=>{
+      let first;
+      try{await stopIngress();}catch(error){first=error;}
+      try{if(capturePromise)await capturePromise;else if(service){const value=await service.close();if(!value.closed||!value.originalResourcesStopped)fail('PLATFORM_ORIGINAL_GATEWAY_CLOSE');}}
+      catch(error){first??=error;}
+      if(first)throw first;
+      return Object.freeze({closed:true,originalResourcesStopped:true});
     })();
   }
   try {
     await assertOriginalDeviceDispatchSchemaV1(pool);
-    service = await startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3({ origin: originText, devicePublicKey: devicePublicKey,
+    service = await (reopening?reopenPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3:startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3)({ origin: originText, devicePublicKey: devicePublicKey,
       tls: { certificate: ca, privateKey: input.tls.privateKey }, pool: pool, privacyKey: input.privacyKey });
     if (service.profile !== 'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3' || service.descriptor.origin !== originText
-      || service.descriptor.devicePublicKey !== devicePublicKey || service.automaticFunding !== false || service.durableOriginalAdmission !== true) fail('PLATFORM_ORIGINAL_GATEWAY_ORIGINAL');
+      || service.descriptor.devicePublicKey !== devicePublicKey || service.automaticFunding !== false || service.durableOriginalAdmission !== true || (reopening&&service.readReconcileWithdrawalOnly!==true)) fail('PLATFORM_ORIGINAL_GATEWAY_ORIGINAL');
     server = createServer({ maxHeaderSize: 8192 }, (request, response) => {
       const work = (async () => {
         if (closing) return reply(response, 503, errorBytes('DISCONNECTED'));
@@ -135,6 +167,12 @@ export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
         if (request.url === '/v1/mobile/challenges' || request.url === '/v1/mobile/authorizations')
           return reply(response, 503, errorBytes('MOBILE_BACKEND_UNAVAILABLE'));
         const selected = routes.get(request.url), read = request.method === 'GET' && request.url === statePath;
+        if(reopening&&!read&&!(request.url.startsWith('/v1/mobile/original-account/private-state/')
+          ||['/v2/mobile/original-account/challenges','/v2/mobile/original-account/reviews','/v2/mobile/original-account/diagnostics',
+            '/v1/mobile/device-deposit/observation-reviews','/v1/mobile/device-deposit/observations',
+            '/v1/mobile/device-reservation/observation-reviews','/v1/mobile/device-reservation/observations',
+            '/v1/mobile/device-execution/reconciliation-reviews','/v1/mobile/device-execution/reconcile','/v1/mobile/device-execution/output-balances'].includes(request.url)
+          ||request.url.startsWith('/v1/mobile/device-exit/')))return reply(response,403,errorBytes('ORIGINAL_OBSERVATION_OR_RETAINED_EXIT_ONLY'));
         if (!read && (request.method !== 'POST' || !selected)) return reply(response, 404, errorBytes('NOT_FOUND'));
         if (request.headers.host !== origin.host || (!read && request.headers.origin !== originText))
           return reply(response, 403, errorBytes('REQUEST_REJECTED'));
@@ -157,6 +195,6 @@ export async function startPlatformOriginalDeviceCloudLocalGatewayV1(input) {
     await new Promise((resolve, reject) => { server.once('error', reject); server.listen(listeningPort, '127.0.0.1', resolve); });
     return Object.freeze({ profile: 'ORIGINAL_DEVICE_CLOUD_LOCAL_GATEWAY_V1', port: server.address().port,
       descriptor: service.descriptor, automaticFunding: false, durableOriginalAdmission: true,
-      privateD26AndW39Intake: true, privateUOpeningIntake: true, nativeRecipientToWorkerEncrypted: true, cloudDeploymentEstablished: false, close });
+      privateD26AndW39Intake: true, privateUOpeningIntake: true, nativeRecipientToWorkerEncrypted: true, cloudDeploymentEstablished: false, originalOrderedReopen: reopening, readReconcileWithdrawalOnly: reopening, capture, close });
   } catch (error) { try { await close(); } catch (failure) { throw new AggregateError([error, failure], 'PLATFORM_ORIGINAL_GATEWAY_START_CLOSE'); } throw error; }
 }

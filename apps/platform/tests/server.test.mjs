@@ -243,9 +243,8 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   const source = await readFile(new URL('../src/original-device-cloud-local-gateway-v1.mjs', import.meta.url), 'utf8');
   assert.equal((source.match(/^import .*;$/gm) ?? []).length, 9);
   const compile = new Function('createServer', 'tlsRequest', 'checkServerIdentity', 'X509Certificate', 'createPrivateKey', 'types',
-    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1', 'assertOriginalDeviceCloudPublicSourcesV1',
-    source.replace(/^import .*;\n/gm, '').replace('export async function startPlatformOriginalDeviceCloudLocalGatewayV1',
-      'async function startPlatformOriginalDeviceCloudLocalGatewayV1') + '\nreturn startPlatformOriginalDeviceCloudLocalGatewayV1;');
+    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3','reopenPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1', 'assertOriginalDeviceCloudPublicSourcesV1',
+    source.replace(/^import .*;\n/gm,'').replace(/export (async )?function /g,'$1function ')+'\nreturn {start:startPlatformOriginalDeviceCloudLocalGatewayV1,reopen:reopenPlatformOriginalDeviceCloudLocalGatewayV1};');
   const directory = await mkdtemp(join(tmpdir(), 'lianum-original-gateway-host-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const certPath = join(directory, 'certificate.pem'), keyPath = join(directory, 'key.pem');
@@ -253,11 +252,11 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
     '-nodes', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost', '-addext', 'basicConstraints=critical,CA:FALSE',
     '-keyout', keyPath, '-out', certPath], { timeout: 5000, maxBuffer: 4096, stdio: 'ignore', env: { PATH: '/usr/bin:/bin', LANG: 'C' } });
   const tls = { certificate: await readFile(certPath, 'utf8'), privateKey: await readFile(keyPath, 'utf8') };
-  let upstream, originalOrigin, ready = true, births = 0, effects = 0, closed = 0, schemaChecks = 0, received;
+  let upstream, originalOrigin, ready = true, births = 0, effects = 0, closed = 0, captures = 0, schemaChecks = 0, received,originalBirth;
   let release, entered; const blocked = new Promise(resolve => { release = resolve; }), admitted = new Promise(resolve => { entered = resolve; });
   const pool = Object.freeze({ HOST_ONLY: true });
-  const start = compile(http.createServer, https.request, checkServerIdentity, X509Certificate, createPrivateKey, types, normalizeMobileOrigin,
-    async input => {
+  const {start,reopen} = compile(http.createServer, https.request, checkServerIdentity, X509Certificate, createPrivateKey, types, normalizeMobileOrigin,
+    originalBirth=async input => {
       assert.equal(input.pool, pool); births++;
       upstream = https.createServer({ cert: tls.certificate, key: tls.privateKey, minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3' }, async (request, response) => {
         assert.equal(request.headers.host, new URL(originalOrigin).host);
@@ -274,11 +273,11 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
       const port = Number(new URL(input.origin).port); originalOrigin = input.origin;
       await new Promise((resolve, reject) => { upstream.once('error', reject); upstream.listen(port, '127.0.0.1', resolve); });
       return Object.freeze({ profile: 'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3', descriptor: { origin: input.origin, devicePublicKey: input.devicePublicKey },
-        automaticFunding: false, durableOriginalAdmission: true, async close() { closed++; await new Promise(resolve => upstream.close(resolve)); return { closed: true, originalResourcesStopped: true }; } });
-    }, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); }, assertOriginalDeviceCloudPublicSourcesV1);
+        automaticFunding:false,durableOriginalAdmission:true,async capture(){captures++;await new Promise(resolve=>upstream.close(resolve));return{closed:true,originalResourcesStopped:true,plannedCaptureForNewProcess:true};},async close(){closed++;await new Promise(resolve=>upstream.close(resolve));return{closed:true,originalResourcesStopped:true};}});
+    }, async input=>{const value=await originalBirth(input);return Object.freeze({...value,readReconcileWithdrawalOnly:true,capture:undefined});}, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); }, assertOriginalDeviceCloudPublicSourcesV1);
   const reservation = http.createServer(); await new Promise(resolve => reservation.listen(0, '127.0.0.1', resolve));
   const originalPort = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
-  const app = await start({ origin: `https://localhost:${originalPort}`, devicePublicKey: ownerPublicKey, tls, pool, privacyKey: '91'.repeat(32), port: 0 });
+  let app = await start({ origin: `https://localhost:${originalPort}`, devicePublicKey: ownerPublicKey, tls, pool, privacyKey: '91'.repeat(32), port: 0 });
   t.after(() => app.close());
   function call(path, raw, changedHeaders = {}) {
     return new Promise((resolve, reject) => {
@@ -310,9 +309,15 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   assert.equal(lost.status, 502); assert.equal(JSON.parse(lost.body).error, 'ORIGINAL_TRANSPORT_UNAVAILABLE_NO_RETRY');
   assert.equal(effects, 3); // original listener saw exactly one POST, no resend
   const pending = call('/v1/mobile/device-execution/recover', raw).catch(() => null); await admitted;
-  const closing = app.close(); await new Promise(resolve => setImmediate(resolve));
-  assert.equal(closed, 0); release(); await pending; await closing;
-  assert.equal(closed, 1); assert.equal(effects, 4); assert.equal(births, 1);
+  const capturing=app.capture();assert.equal(app.capture(),capturing);const closing=app.close();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(captures,0);assert.equal(closed,0);release();await pending;const captured=await capturing;await closing;
+  assert.equal(captured.originalIngressStopped,true);assert.equal(captured.plannedCaptureForNewProcess,true);assert.equal(captures,1);assert.equal(closed,0);assert.equal(effects,4);assert.equal(births,1);
+  app=await reopen({origin:originalOrigin,devicePublicKey:ownerPublicKey,tls,pool,privacyKey:'91'.repeat(32),port:0});
+  assert.equal(app.originalOrderedReopen,true);assert.equal(app.readReconcileWithdrawalOnly,true);assert.throws(()=>app.capture(),/CAPTURE_UNAVAILABLE/);
+  assert.equal((await call('/health/ready')).status,200);
+  assert.deepEqual(await call('/v1/mobile/device-execution/reconcile',raw),{status:200,body:raw});
+  for(const path of ['/v1/mobile/device-deposit/fund','/v1/mobile/device-reservation/reserve','/v1/mobile/device-execution/execute','/v1/mobile/device-execution/recover'])assert.equal((await call(path,raw)).status,403);
+  assert.equal(effects,5);assert.equal(births,2);await app.close();assert.equal(closed,1);assert.equal(captures,1);
 });
 
 
@@ -324,7 +329,8 @@ test('fixed private durable adapter creates only the original private realm befo
  const source=await readFile(new URL('../src/original-device-local-operator-v1.mjs',import.meta.url),'utf8');
  const marker='export async function startPlatformOriginalPrivateNativeNoteDurableOperatorV2(input)';
  const index=source.indexOf(marker);assert.ok(index>=0);
- const body=source.slice(index).replace(marker,'async function startPlatformOriginalPrivateNativeNoteDurableOperatorV2(input)').replace('await import(original)','await originalModule()');
+ const nextExport=source.indexOf('\nexport async function ',index+marker.length);assert.ok(nextExport>index);
+ const body=source.slice(index,nextExport).replace(marker,'async function startPlatformOriginalPrivateNativeNoteDurableOperatorV2(input)').replace('await import(original)','await originalModule()');
  const prefix=source.slice(source.indexOf('function exact('),source.indexOf('const original ='));
  const build=new Function('types','originalModule',prefix+body+'\nreturn startPlatformOriginalPrivateNativeNoteDurableOperatorV2;');
  const pool=Object.freeze({HOST_SQL_PORT_ONLY:true}),tls={certificate:'HOST_TLS_CERT',privateKey:'HOST_TLS_PRIVATE'};
@@ -343,4 +349,34 @@ test('fixed private durable adapter creates only the original private realm befo
  selected=Object.freeze({...service,profile:'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1'});
  await assert.rejects(start({...input,tls}),/PRIVATE_DURABLE_OPERATOR_REQUIRED/);assert.equal(closed,1);assert.equal(legacyBirths,0);
  assert.equal(service.automaticFunding,false);assert.equal(service.durableOriginalAdmission,true);
+});
+
+
+test('HOST fixed Cloud private-worker open checks original SQL key before issuer and rejects mixed account families before TLS',async()=>{
+ // Original opener body; source/SQL/issuer/runtime/proof/native ports are inert.
+ // No DTO in this HOST is an accepted economic or recovery authority.
+ const {readFile}=await import('node:fs/promises');
+ const source=await readFile(new URL('../../../packages/backend/src/operations/recovery/native-device-local-restart-v1.mjs',import.meta.url),'utf8');
+ const start=source.indexOf('async function reopen(input,durable,privateWorker=false)');assert.ok(start>0);
+ const body=source.slice(start).replace(/await import\(([^\n;]*)\)/g,'await originalModule($1)');
+ const build=new Function('assert','exactRecord','normalizeOriginalNativeDeviceLocalConfigurationV1','readLocator','assertOriginalDeviceDurableRecoveryInfrastructureV1',
+  'isOriginalNativePrivateWorkerAccountV3','readOriginalSessionWalletEconomicStateV1','originalModule',body+'\nreturn input=>reopen(input,true,true);');
+ const exact=(value,names)=>assert.deepEqual(Reflect.ownKeys(value).sort(),[...names].sort());
+ const descriptor={origin:'https://localhost:9443',devicePublicKey:ownerPublicKey},pool={HOST_SQL_PORT:true},key='93'.repeat(32),identity={sourceSHA256:'a1'.repeat(32),deadlineMs:Date.now()+60000};
+ const locator={descriptor,identity,checkpoint:{revision:1,commitment:'a2'.repeat(32)},parentJobId:'a3'.repeat(32)};
+ const runtime=()=>({async close(){return{stopped:true};},lifecycle:[{event:'stopped-owned-process',forced:false}]});
+ let infrastructure=true,family=true,opened=0,tls=0;const calls=[];
+ const account={async abort(){return{cancelled:true};},async close(){return{closed:true};}},privateAccounts=new WeakSet([account]);
+ const originals={runtime:runtime(),nativeRuntime:runtime(),account,session:{async close(){return{phase:'CLOSED'};}},nativeExecution:{async close(){return{closed:true};}},
+  providerCustody:{async close(){},report(){return{closed:true};}},owner:{async close(){return{closed:true,childExited:true};}},bootstrap:{close(){}},actor:{close(){}}};
+ const modules={
+  './native-device-local-operator-v1.mjs':{async assertOriginalNativeDeviceLocalSourceReviewV1(){calls.push('source');}},
+  './native-value-economic-successor-v1.mjs':{async reopenOriginalNativeValueEconomicNoteSuccessorV1(i,c){calls.push('issuer');assert.equal(i,identity);assert.equal(c,locator.checkpoint);opened++;return{originals,receipt:{processId:process.pid,originalProcessLifetimeDifferent:true,issuerClosed:true,sourceSHA256:identity.sourceSHA256}};}},
+  './native-device-economic-service-v1.mjs':{async reinstallOriginalNativeDeviceDurableEconomicServiceV1(value){calls.push('tls');assert.equal(value.account,account);assert.equal(value.pool,pool);assert.equal(value.privacyKey,key);tls++;return{descriptor,parentJobId:locator.parentJobId,transport:{url:descriptor.origin,async close(){return{closed:true,originalWorkSettled:true,ownedSocketsRemaining:0};}},dispatch:{close(){}}};}},
+ };
+ const open=build(assert,exact,value=>value,async durable=>{assert.equal(durable,true);calls.push('locator');return locator;},async value=>{calls.push('sql');assert.equal(value.pool,pool);assert.equal(value.privacyKey,key);if(!infrastructure)throw Error('HOST_SQL_KEY_MISMATCH');},value=>family&&privateAccounts.has(value),()=>null,async name=>{assert.ok(Object.hasOwn(modules,name));return modules[name];});
+ const input={...descriptor,tls:{certificate:'HOST_TLS_CERT',privateKey:'HOST_TLS_KEY'},pool,privacyKey:key};
+ infrastructure=false;await assert.rejects(open(input),/HOST_SQL_KEY_MISMATCH/);assert.equal(opened,0);assert.equal(tls,0);
+ infrastructure=true;family=false;calls.length=0;await assert.rejects(open(input),/NATIVE_DEVICE_LOCAL_REOPEN_PRIVATE_WORKER_REQUIRED/);assert.equal(opened,1);assert.equal(tls,0);assert.deepEqual(calls,['source','locator','sql','issuer']);
+ family=true;calls.length=0;const service=await open(input);assert.equal(service.profile,'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3');assert.equal(service.readReconcileWithdrawalOnly,true);assert.deepEqual(calls,['source','locator','sql','issuer','tls']);await service.close();
 });
