@@ -10,9 +10,9 @@ import { normalizePrivateStateAccessV1, normalizePrivateStateReviewV1,
   validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceDepositConsentEitherV2 as normalizeDeviceDepositConsentV1, validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1,
   normalizeDeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFreshV1,
+import { normalizeDeviceReservationConsentEitherV2 as normalizeDeviceReservationConsentV1, validateDeviceReservationConsentEitherFreshV2 as validateDeviceReservationConsentFreshV1,
   normalizeDeviceReservationWitnessV1, wipeDeviceReservationWitnessV1 }
-  from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+  from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 import {normalizeDeviceExitConsentEitherV2 as normalizeDeviceExitConsentV1,validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,normalizeDeviceExitWitnessV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import { validateDeviceExecutionConsentFreshV1 }
   from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
@@ -60,10 +60,10 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     if (Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
     return validateOriginalAccountFreshV2(value);
   }
-  const privateDepositConsents=new WeakMap(),privateExitConsents=new WeakMap();let privateExitClosed=false;
+  const privateDepositConsents=new WeakMap(),privateExitConsents=new WeakMap(),privateReservationConsents=new WeakMap();let privateExitClosed=false,privateReservationClosed=false;
   async function request(path, payload, privateState = false) {
-    const privateDepositProof=privateState==='device-deposit'&&path==='private-jobs'||privateState==='device-exit'&&path==='private-jobs';
-    if(privateDepositProof&&new TextEncoder().encode(JSON.stringify(payload)).byteLength>(privateState==='device-exit'?32768:16384))fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+    const privateDepositProof=privateState==='device-deposit'&&path==='private-jobs'||privateState==='device-exit'&&path==='private-jobs'||privateState==='device-reservation'&&path==='private-jobs';
+    if(privateDepositProof&&new TextEncoder().encode(JSON.stringify(payload)).byteLength>(privateState==='device-reservation'?81920:privateState==='device-exit'?32768:16384))fail('MOBILE_ORIGINAL_REQUEST_INVALID');
     const target = original.origin + (privateState === 'device-execution' ? '/v1/mobile/device-execution/'
       : privateState === 'device-exit' ? '/v1/mobile/device-exit/'
       : privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
@@ -255,6 +255,7 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
           || value.depositJobId !== input.depositJobId || value.quoteId !== input.quoteId
           || value.witnessSHA256 !== input.witnessSHA256 || !same(value.statement, input.statement)
           || !same(value.custody, input.custody) || input.jobId !== null && value.jobId !== input.jobId) fail('MOBILE_REVIEW_CHANGED');
+        if(value.version===2){if(privateReservationClosed)fail('MOBILE_PRIVATE_U_CLIENT_CLOSED');privateReservationConsents.set(value,{canonical:JSON.stringify(value),consumed:false});}
         return value;
       },
       async challenge(action, input) {
@@ -269,18 +270,22 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
       },
       async submit(input) {
         if (!exact(input, input?.consent?.action === 'PROVE_U' ? ['consent', 'signature', 'witness'] : ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
-        const consent = validateDeviceReservationConsentFreshV1(normalizeDeviceReservationConsentV1(input.consent));
+        const retained=input.consent,consent = validateDeviceReservationConsentFreshV1(normalizeDeviceReservationConsentV1(retained));
+        const originalPrivate=consent.version===2?privateReservationConsents.get(retained):null;
+        if(consent.version===2&&(privateReservationClosed||!originalPrivate||originalPrivate.consumed||originalPrivate.canonical!==JSON.stringify(consent)))fail('MOBILE_REVIEW_CHANGED');
         if (Object.keys(original).some(name => consent[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
         const signature = normalizeOriginalAccountSignatureV2(input.signature); let witness;
         try {
           if (consent.action === 'PROVE_U') witness = normalizeDeviceReservationWitnessV1(input.witness);
           // One request. A lost reply is UNKNOWN, never an automatic reproof,
           // fresh quote, reservation or second native submission.
+          if(consent.version===2){const {sealOriginalNativeDeviceAuthorizationWitnessV2}=await import('./native-private-reservation-transit-v2.mjs');const packet=await sealOriginalNativeDeviceAuthorizationWitnessV2(consent,signature,witness);validateDeviceReservationConsentFreshV1(consent);if(privateReservationClosed||originalPrivate.consumed||originalPrivate.canonical!==JSON.stringify(consent))fail('MOBILE_REVIEW_CHANGED');originalPrivate.consumed=true;return await request('private-jobs',{consent,signature,witness:packet},'device-reservation');}
           return await request(consent.action === 'PROVE_U' ? 'jobs'
             : consent.action === 'RESERVE_S' ? 'reserve' : 'observations',
             { consent, signature, ...(witness ? { witness } : {}) }, 'device-reservation');
         } finally { if (witness) wipeDeviceReservationWitnessV1(witness); }
       },
+      close(){privateReservationClosed=true;},
     }),
     deviceDeposit: Object.freeze({
       async challengeJob(input) {

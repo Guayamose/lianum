@@ -96,3 +96,27 @@ export async function startPlatformOriginalPrivateNativeNoteDurableOperatorV2(in
     throw error;
   }
 }
+
+/** New users choose this fixed private D26/U/W39 + SQL realm before funding.
+ * The original TLS API owns all jobs/permissions; V1 gateway remains separate. */
+export async function startPlatformOriginalPrivateNativeAuthorizedNoteDurableOperatorV2(input) {
+  if(arguments.length!==1)throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_ARGUMENTS');
+  exact(input,['origin','devicePublicKey','tls','pool','privacyKey']);exact(input.tls,['certificate','privateKey']);
+  const selected={origin:input.origin,devicePublicKey:input.devicePublicKey,
+    tls:{certificate:input.tls.certificate,privateKey:input.tls.privateKey},pool:input.pool,privacyKey:input.privacyKey};
+  for(const value of [selected.origin,selected.devicePublicKey,selected.tls.certificate,selected.tls.privateKey,selected.privacyKey])
+    if(typeof value!=='string')throw Error('PLATFORM_ORIGINAL_LOCAL_OPERATOR_CONFIGURATION');
+  const {createOriginalPrivateNativeAuthorizedNoteDurableOperatorV2}=await import(original);let service;
+  try {
+    service=await createOriginalPrivateNativeAuthorizedNoteDurableOperatorV2(selected);
+    if(service.profile!=='ORIGINAL_NATIVE_DEVICE_PRIVATE_AUTHORIZED_DURABLE_NOTE_OPERATOR_V2'
+      ||service.descriptor.origin!==selected.origin||service.descriptor.devicePublicKey!==selected.devicePublicKey
+      ||service.automaticFunding!==false||service.durableOriginalAdmission!==true)
+      throw Error('PLATFORM_ORIGINAL_PRIVATE_DURABLE_OPERATOR_REQUIRED');
+    return service;
+  }catch(error){
+    if(service)try{const stopped=await service.close();if(!stopped.closed||!stopped.originalResourcesStopped)throw Error('PLATFORM_ORIGINAL_LOCAL_CLOSE_UNCONFIRMED');}
+      catch(failure){throw new AggregateError([error,failure],'PLATFORM_ORIGINAL_PRIVATE_DURABLE_START_CLOSE');}
+    throw error;
+  }
+}

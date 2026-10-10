@@ -1,3 +1,4 @@
+import {isOriginalNativePrivateReservationBridgeV2} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {isOriginalNativePrivateExecutionBridgeV2} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 /** Direct transport for exactly one retained same-realm actor. The HTTP factory
  * remains loopback-only; an operator may install the same dispatcher with TLS.
@@ -246,12 +247,12 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       }
       if (reservationBridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-reservation/')) {
         if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
-        const methods = { 'preparation-reviews': 'challengePreparation', 'job-reviews': 'challengeJob', 'jobs': 'prove',
+        const methods = { 'preparation-reviews': 'challengePreparation', 'job-reviews': 'challengeJob', 'jobs': 'prove','private-jobs':'prove',
           'reservation-reviews': 'challengeReservation', 'reserve': 'reserve', 'observation-reviews': 'challengeObservation', 'observations': 'observe' };
-        const method = methods[request.url.slice('/v1/mobile/device-reservation/'.length)]; if (!method) fail('HTTP_NOT_FOUND');
+        const route=request.url.slice('/v1/mobile/device-reservation/'.length),method=methods[route],privateU=isOriginalNativePrivateReservationBridgeV2(reservationBridge);if(!method||method==='prove'&&privateU!==(route==='private-jobs'))fail('HTTP_NOT_FOUND');
         // Fixed capacity-four owner witness plus framed consent. Existing
         // diagnostic/D26 and other U/S routes retain their original 8KiB body bound.
-        const input = await jsonBody(request, method === 'prove' ? 32768 : BODY_LIMIT); if (closed) fail('HTTP_CLOSED');
+        const input = await jsonBody(request, method==='prove'?(privateU?81920:32768):BODY_LIMIT); if (closed) fail('HTTP_CLOSED');if(privateU&&method==='prove'){if(requestTimedOut||!request.complete)fail('HTTP_REQUEST_TIMEOUT');armResponseDeadline(900000);}
         try { return dispatch && method === 'reserve'
           ? await runOriginalDeviceDurableDispatchV1(dispatch, reservationBridge, method, input)
           : await reservationBridge[method](input); }

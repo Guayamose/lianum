@@ -10,9 +10,10 @@ import { types } from 'node:util';
 import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1,preparePrivateProofJobV1} from './private-proof-transit-v1.mjs';
 import {deriveOriginalDeviceDepositIntentJobV2} from './private-device-proof-input-v2.mjs';
 import {deriveOriginalDeviceAuthorizationJobV2} from './private-device-authorization-input-v2.mjs';
+import {deriveOriginalNativeDeviceAuthorizationJobV2} from './private-native-device-authorization-input-v2.mjs';
 // Keep the trusted role entry's direct imports in its original closed grammar.
 // These reviewed recipient helpers are captured by noncompiler execution pins.
-export {preparePrivateProofJobV1,wipePrivateProofInputsV1,sealPrivateProofJobV1,deriveOriginalDeviceDepositIntentJobV2,deriveOriginalDeviceAuthorizationJobV2};
+export {preparePrivateProofJobV1,wipePrivateProofInputsV1,sealPrivateProofJobV1,deriveOriginalDeviceDepositIntentJobV2,deriveOriginalDeviceAuthorizationJobV2,deriveOriginalNativeDeviceAuthorizationJobV2};
 import { ROOT, LOCAL, PROFILE, LIMITS, DISCLOSURE, relation, operation } from '../catalog.mjs';
 import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regular, replaceJSON,
   resources, resourceFailure, verifyAPI, verifyVendor, hash, jsonBytes,

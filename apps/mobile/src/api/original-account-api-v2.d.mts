@@ -1,7 +1,8 @@
 import type {DeviceRecoveryArmConsentV1,DeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import type { DeviceExecutionConsentV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import type {DeviceExitConsentEitherV2 as DeviceExitConsentV1,DeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
-import type { DeviceReservationConsentV1, DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import type {DeviceReservationConsentEitherV2 as DeviceReservationConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
+import type { DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import type { DeviceDepositStatementV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import type {DeviceDepositConsentEitherV2 as DeviceDepositConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 import type { OriginalPrivateStateObservationV1 } from '@lianum/mobile-protocol/original-account-v2';
@@ -64,6 +65,7 @@ export function createOriginalAccountApiV2(options: {
       witnessSHA256: string; jobId: string | null }): Promise<DeviceReservationConsentV1>;
     challenge(action: 'RESERVE_S' | 'OBSERVE_S', input: { access: OriginalAccountAccessV2; signature: string; jobId: string }): Promise<DeviceReservationConsentV1>;
     submit(input: { consent: DeviceReservationConsentV1; signature: string; witness?: DeviceReservationWitnessV1 }): Promise<unknown>;
+    close():void;
   }>;
   deviceDeposit: Readonly<{
     challengeJob(input: { access: OriginalAccountAccessV2; signature: string; statement: DeviceDepositStatementV1;

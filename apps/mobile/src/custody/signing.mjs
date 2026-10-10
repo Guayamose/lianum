@@ -6,6 +6,7 @@ import { DEVICE_NATIVE_PRIVATE_DEPOSIT_V2, validateDeviceDepositConsentEitherFre
   deviceDepositConsentEitherMessageV2 } from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 import { DEVICE_NATIVE_PRIVATE_EXIT_V2, validateDeviceExitConsentEitherFreshV2,
   deviceExitConsentEitherMessageV2 } from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
+import {DEVICE_NATIVE_PRIVATE_RESERVATION_V2,validateDeviceReservationConsentEitherFreshV2,deviceReservationConsentEitherMessageV2} from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 export const bytesToHex = bytes => Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
 export function privateKeyFromHex(value) {
   if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) throw new Error('MOBILE_KEY_INVALID');
@@ -35,12 +36,13 @@ export function signNativePrivateDeviceConsentV2(privateKey, raw) {
   if (!version || !Object.hasOwn(version, 'value') || version.value !== 2
     || !profile || !Object.hasOwn(profile, 'value')) throw new Error('MOBILE_NATIVE_PRIVATE_SIGNING_INVALID');
   const deposit = profile.value === DEVICE_NATIVE_PRIVATE_DEPOSIT_V2;
-  if (!deposit && profile.value !== DEVICE_NATIVE_PRIVATE_EXIT_V2) throw new Error('MOBILE_NATIVE_PRIVATE_SIGNING_INVALID');
-  const consent = (deposit ? validateDeviceDepositConsentEitherFreshV2 : validateDeviceExitConsentEitherFreshV2)(raw);
+  const authorization=profile.value===DEVICE_NATIVE_PRIVATE_RESERVATION_V2;
+  if (!deposit && !authorization && profile.value !== DEVICE_NATIVE_PRIVATE_EXIT_V2) throw new Error('MOBILE_NATIVE_PRIVATE_SIGNING_INVALID');
+  const consent = (deposit ? validateDeviceDepositConsentEitherFreshV2 : authorization ? validateDeviceReservationConsentEitherFreshV2 : validateDeviceExitConsentEitherFreshV2)(raw);
   if (consent.devicePublicKey !== devicePublicKey(privateKey)) throw new Error('MOBILE_KEY_BINDING_CHANGED');
   let message;
   try {
-    message = (deposit ? deviceDepositConsentEitherMessageV2 : deviceExitConsentEitherMessageV2)(consent);
+    message = (deposit ? deviceDepositConsentEitherMessageV2 : authorization ? deviceReservationConsentEitherMessageV2 : deviceExitConsentEitherMessageV2)(consent);
     if (!(message instanceof Uint8Array) || message.length === 0 || message.length > 8192)
       throw new Error('MOBILE_MESSAGE_INVALID');
     return signCheckedMessage(privateKey, message);

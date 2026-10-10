@@ -20,8 +20,8 @@ import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage, sign
 import { validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1, deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 
-import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
-  from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import { validateDeviceReservationConsentEitherFreshV2 as validateDeviceReservationConsentFreshV1, deviceReservationConsentEitherMessageV2 as deviceReservationConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 
 import { validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,deviceExitConsentEitherMessageV2 as deviceExitConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
@@ -208,22 +208,23 @@ export async function signDeviceDepositConsentV1(raw: Parameters<typeof validate
  * Neither protected key is serialized into a proof job. */
 export async function signDeviceReservationConsentV1(raw: Parameters<typeof validateDeviceReservationConsentFreshV1>[0],
   expectedOrigin: string, expectedPairingId: string): Promise<string> {
+  const value = validateDeviceReservationConsentFreshV1(raw);
   await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
   if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
-  const value = validateDeviceReservationConsentFreshV1(raw);
   const current = () => { validateDeviceReservationConsentFreshV1(value);
     if (value.origin !== expectedOrigin || value.pairingId !== expectedPairingId || value.devicePublicKey !== publicKey)
       throw new Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'PROVE_U'
-      ? 'Revelar sólo las aperturas de este grafo al worker U; ninguna raíz ni clave privada'
+      ? value.version===2 ? 'Autorizar este grafo con sus aperturas cifradas para el destinatario original' : 'Revelar sólo las aperturas de este grafo al worker U; ninguna raíz ni clave privada'
       : value.action === 'RESERVE_S' ? 'Reservar una sola vez esta nota; cambio y recuperación ya están cifrados'
         : 'Consultar esta reserva original; no repetir la prueba ni el envío' });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
   try {
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
-    current(); message = deviceReservationConsentMessageV1(value);
+    current(); if(value.version===2)return signNativePrivateDeviceConsentV2(key,value);
+    message = deviceReservationConsentMessageV1(value);
     return signDeviceMessage(key, message);
   } finally { message?.fill(0); key.fill(0); retained = null; }
 }

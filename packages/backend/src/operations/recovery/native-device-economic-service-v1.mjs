@@ -6,10 +6,10 @@
 import assert from 'node:assert/strict';
 import {exactRecord} from '../../execution/encoding/commitments.mjs';
 import {assertOwnedNativeValueAccountAuthority,retainOriginalNativeDeviceRecoveredInstallationV1,
- isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,consumeOriginalNativeDeviceRecoveredInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+ isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,isOriginalNativePrivateReservationAccountV2,consumeOriginalNativeDeviceRecoveredInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';
 import {createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2} from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
+import {createDeviceOwnerReservationBridgeV1,createOriginalNativePrivateReservationBridgeV2} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {createDeviceOwnerExecutionBridgeV1,createOriginalNativePrivateExecutionBridgeV2} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {createPairedDeviceAccountTlsServerV1,createPairedDurableDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
 import {createOriginalDeviceDurableDispatchV1} from '../../api/mobile/original-device-durable-dispatch-v1.mjs';
@@ -27,7 +27,7 @@ async function reinstall(input,durable){
  let depositBridge,reservationBridge,executionBridge,transport,dispatch;
  try{
    depositBridge=await(isOriginalNativePrivateDepositAccountV2(account)?createOriginalNativePrivateDepositBridgeV2:createDeviceOwnerDepositBridgeV1)({actor,account,owner,runtime,system,poolIndex:0});
-   reservationBridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
+   reservationBridge=await(isOriginalNativePrivateReservationAccountV2(account)?createOriginalNativePrivateReservationBridgeV2:createDeviceOwnerReservationBridgeV1)({actor,account,owner,runtime,system,poolIndex:0,
      nativePreparation:retained.nativePreparation,invoiceSignatures:retained.invoiceSignatures});
    executionBridge=await(isOriginalNativePrivateExitAccountV2(account)?createOriginalNativePrivateExecutionBridgeV2:createDeviceOwnerExecutionBridgeV1)({account,reservationBridge,nativeExecution,providers:retained.providers,runtime,system,poolIndex:0});
    if(durable)dispatch=await createOriginalDeviceDurableDispatchV1({depositBridge,reservationBridge,executionBridge,pool:input.pool,privacyKey:input.privacyKey});

@@ -5,7 +5,7 @@ import { assertBeginPayoutAuditRoleProcessV1 } from './native-flow-proof-scope-v
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import { relation } from '../catalog.mjs';
-import {runBoundedProof,preparePrivateProofJobV1,wipePrivateProofInputsV1,sealPrivateProofJobV1,deriveOriginalDeviceDepositIntentJobV2,deriveOriginalDeviceAuthorizationJobV2} from './run-bounded.mjs';
+import {runBoundedProof,preparePrivateProofJobV1,wipePrivateProofInputsV1,sealPrivateProofJobV1,deriveOriginalDeviceDepositIntentJobV2,deriveOriginalDeviceAuthorizationJobV2,deriveOriginalNativeDeviceAuthorizationJobV2} from './run-bounded.mjs';
 
 assert.equal(process.argv.length, 3, 'PW_ROLE_FIXED_ARGUMENTS');
 assert.equal(process.execArgv.length, 0, 'PW_NO_EXECUTABLE_OPTIONS');
@@ -24,6 +24,7 @@ try {
   received = await preparePrivateProofJobV1({ relation: spec.name, role: spec.role, jobId });
   privateDeviceDerivation=deriveOriginalDeviceDepositIntentJobV2(received,spec);
   if(!privateDeviceDerivation)privateGraphDerivation=await deriveOriginalDeviceAuthorizationJobV2(received,spec);
+  if(!privateDeviceDerivation&&!privateGraphDerivation)privateGraphDerivation=await deriveOriginalNativeDeviceAuthorizationJobV2(received,spec);
   // Keep the control channel until completion: an abruptly lost owner
   // terminates this role and its bounded child instead of orphaning a prover.
   // U's compiled, measured domain is 2^21; this fixed process profile does not

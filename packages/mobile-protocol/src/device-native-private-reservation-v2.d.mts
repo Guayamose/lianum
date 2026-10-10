@@ -1,0 +1,13 @@
+import type {DeviceReservationConsentV1,DeviceReservationWitnessV1} from './device-reservation-consent-v1.mjs';
+export const DEVICE_NATIVE_PRIVATE_RESERVATION_V2:'LIANUM_DEVICE_ORIGINAL_U_PRIVATE_V2';
+export const DEVICE_NATIVE_PRIVATE_U_PROOF_V2:'ORIGINAL_NATIVE_DEVICE_U_PRIVATE_TRANSIT_V2';
+export type NativePrivateReservationConsentV2=Omit<DeviceReservationConsentV1,'version'|'profile'|'action'|'openingDisclosure'> & {version:2;profile:typeof DEVICE_NATIVE_PRIVATE_RESERVATION_V2;action:'PROVE_U';openingDisclosure:'ENCRYPTED_U_OPENING_TO_ORIGINAL_NATIVE_RECIPIENT';privateProof:{profile:typeof DEVICE_NATIVE_PRIVATE_U_PROOF_V2;recipient:Readonly<{type:string;profile:string;relation:string;role:string;jobId:string;recipientPublicKey:string}>;resultRecipient:Readonly<{type:string;profile:string;relation:string;role:string;jobId:string;recipientPublicKey:string}>;context:{domain:Readonly<Record<string,string>>;proposalSHA256:string;capsuleOptionsSHA256:string;invoiceSignaturesSHA256:string;sourceAmount:string};transcriptSHA256:string}};
+export type DeviceReservationConsentEitherV2=DeviceReservationConsentV1|NativePrivateReservationConsentV2;
+export function normalizeNativePrivateReservationConsentV2(raw:unknown):NativePrivateReservationConsentV2;
+export function normalizeDeviceReservationConsentEitherV2(raw:unknown):DeviceReservationConsentEitherV2;
+export function validateDeviceReservationConsentEitherFreshV2(raw:unknown,now?:number):DeviceReservationConsentEitherV2;
+export function deviceReservationConsentEitherMessageV2(raw:unknown):Uint8Array;
+export function nativePrivateReservationTranscriptBytesV2(raw:unknown):Uint8Array;
+export function nativePrivateReservationDigestV2(raw:unknown):string;
+export function validateNativePrivateReservationWitnessV2(raw:unknown,witness:unknown):NativePrivateReservationConsentV2;
+export {normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,wipeDeviceReservationWitnessV1} from './device-reservation-consent-v1.mjs';

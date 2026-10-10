@@ -139,7 +139,9 @@ import { normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,dev
 import { compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage } from '../../../../engine/src/execution/graph/funded-graph.mjs';
 import { validateGenericBalanceNativePreparation,genericBalanceNativeTerms } from '../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
 import { buildAuthorizedEnvelope } from '../../../../custody/src/signing/authorized-envelope.mjs';
-import { createRoleProofClient } from '../../../../proofs/src/jobs/role-client.mjs';
+import * as PrivateU from '../../../../mobile-protocol/src/device-native-private-reservation-v2.mjs';
+import {isOriginalNativePrivateReservationBridgeV2} from './device-owner-reservation-bridge-v1.mjs';
+import { createRoleProofClient,readOriginalNativeDeviceAuthorizationDerivationV2 } from '../../../../proofs/src/jobs/role-client.mjs';
 import { encodeStatement } from '../../execution/encoding/statements.mjs';
 import {consumeDeviceOwnerExecutionInstallationV1,isOriginalNativePrivateExecutionBridgeV2,consumeDeviceOwnerExecutionAuthorizationV1,assertDeviceOwnerExecutionBridgeV1}
   from './device-owner-execution-bridge-v1.mjs';
@@ -622,7 +624,11 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     value.ownerOperationRef === ref ? { ...value, ...copy(fields) } : value) }));
   // Device custody is a separate durable branch in the SAME original Vault.
   // Linux note preparation/owner acknowledgement is never used for this note.
-  let privateDepositBridge=null,privateExitBridge=null;
+  let privateDepositBridge=null,privateExitBridge=null,privateReservationBridge=null;
+  const privateReservationEnabled=()=>record.data.devicePrivateUProfile===PrivateU.DEVICE_NATIVE_PRIVATE_U_PROOF_V2;
+  async function installPrivateReservation(bridge){return exclusive(async()=>{assert.ok(nativeNote&&!wrapped&&privateDepositEnabled()&&!privateReservationBridge,'NATIVE_PRIVATE_U_ORIGINAL_BIRTH');await healthy();if(!privateReservationEnabled()){assert.equal(record.data.devicePrivateUProfile,undefined);assert.equal(deviceRows().length,0);assert.equal(reservationRows().length,0);const view=await reader.read();assert.equal(view.ledger.commitments.length,0,'NATIVE_PRIVATE_U_BEFORE_FUNDING');assert.equal(view.ledger.nullifiers.length,0);await reader.assertCurrent(view);continueWork();await write(d=>({...d,devicePrivateUProfile:PrivateU.DEVICE_NATIVE_PRIVATE_U_PROOF_V2}));}privateReservationBridge=bridge;return{installed:true,profile:PrivateU.DEVICE_NATIVE_PRIVATE_U_PROOF_V2};});}
+  async function privateReservationContext(bridge,c){return exclusive(async()=>{assert.equal(bridge,privateReservationBridge,'NATIVE_PRIVATE_U_ORIGINAL_BRIDGE');await healthy();reservationBinding(c);const deposit=reservationSubject(c.depositJobId,c.custody.rootId,c),quote=originalQuote(c.quoteId);assert.equal(quote.depositJobId,deposit.jobId);assert.equal(quote.rootId,c.custody.rootId);for(const n of ['origin','pairingId','devicePublicKey'])assert.equal(quote.descriptor[n],c[n]);assert.equal(c.custody.sourceCommitment,deposit.consent.statement.output);assert.equal(c.custody.sourceNullifier,deposit.nullifier);await observeDevice(deposit);await reservationCurrent(c);const preparation=validateGenericBalanceNativePreparation(quote.preparation),proposal={scope:preparation.config.scope,policy:preparation.config.policy,asset:preparation.config.asset,...genericBalanceNativeTerms(preparation)},capsules=normalizeDeviceReservationCapsuleOptionsV1({nodes:preparation.nodes.map(({id,action,receiptSpendSecret})=>({id,action,receiptSpendSecret})),slotSalts:preparation.slotSalts});return{domain:copy(identity.domain),proposalSHA256:PrivateU.nativePrivateReservationDigestV2(proposal),capsuleOptionsSHA256:PrivateU.nativePrivateReservationDigestV2(capsules),invoiceSignaturesSHA256:PrivateU.nativePrivateReservationDigestV2(quote.invoiceSignatures),sourceAmount:deposit.consent.statement.amount};});}
+
   const privateExitEnabled=()=>record.data.devicePrivateW39Profile===PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2;
   async function installPrivateExit(bridge){return exclusive(async()=>{assert.ok(nativeNote&&!wrapped&&privateDepositEnabled()&&!privateExitBridge,'NATIVE_PRIVATE_EXIT_ORIGINAL_BIRTH');await healthy();if(!privateExitEnabled()){assert.equal(record.data.devicePrivateW39Profile,undefined);assert.equal(deviceRows().length,0);assert.equal((record.data.deviceExits??[]).length,0);const view=await reader.read();assert.equal(view.ledger.commitments.length,0,'NATIVE_PRIVATE_EXIT_BEFORE_FUNDING');assert.equal(view.ledger.nullifiers.length,0);await reader.assertCurrent(view);continueWork();await write(d=>({...d,devicePrivateW39Profile:PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2}));}privateExitBridge=bridge;return{installed:true,profile:PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2};});}
   const deviceRows = () => record.data.deviceDeposits ?? [];
@@ -927,7 +933,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
           slotSalts:preparation.slotSalts}),invoiceSignatures:copy(quote.invoiceSignatures),
         observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp}};
     }
-    reservationBinding(consent);const reply=value=>({...value,authorizationSHA256:byteSHA(deviceReservationConsentMessageV1(consent))});
+    reservationBinding(consent);const reply=value=>({...value,authorizationSHA256:byteSHA(PrivateU.deviceReservationConsentEitherMessageV2(consent))});
     if(action==='PROVE_U'){
       assert.ok(!reservationRows().some(row=>row.jobId===consent.jobId||row.consent.custody.sourceCommitment===consent.custody.sourceCommitment),
         'DEVICE_RESERVATION_ORIGINAL_JOB_ALREADY_ADMITTED');
@@ -938,6 +944,29 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       assert.ok(consent.custody.noteRevision>=deposit.consent.noteRevision,'DEVICE_RESERVATION_CUSTODY_REVISION');
       assert.equal(consent.custody.sourceCommitment,deposit.consent.statement.output,'DEVICE_RESERVATION_SOURCE_CHANGED');
       assert.equal(consent.custody.sourceNullifier,deposit.nullifier,'DEVICE_RESERVATION_SOURCE_NULLIFIER_CHANGED');
+      if(privateReservationEnabled()){
+        assert.ok(original.privateU===true&&original.bridge===privateReservationBridge&&isOriginalNativePrivateReservationBridgeV2(original.bridge),'NATIVE_PRIVATE_U_ORIGINAL_BRIDGE');
+        const client=original.client;assert.ok(client,'NATIVE_PRIVATE_U_ORIGINAL_RECIPIENT');let derived;
+        try{
+          PrivateU.validateDeviceReservationConsentEitherFreshV2(consent);assert.equal(consent.version,2);
+          const preparation=validateGenericBalanceNativePreparation(quote.preparation),proposal={scope:preparation.config.scope,policy:preparation.config.policy,asset:preparation.config.asset,...genericBalanceNativeTerms(preparation)},capsules=normalizeDeviceReservationCapsuleOptionsV1({nodes:preparation.nodes.map(({id,action,receiptSpendSecret})=>({id,action,receiptSpendSecret})),slotSalts:preparation.slotSalts});
+          assert.deepEqual(consent.privateProof.context,{domain:identity.domain,proposalSHA256:PrivateU.nativePrivateReservationDigestV2(proposal),capsuleOptionsSHA256:PrivateU.nativePrivateReservationDigestV2(capsules),invoiceSignaturesSHA256:PrivateU.nativePrivateReservationDigestV2(quote.invoiceSignatures),sourceAmount:deposit.consent.statement.amount},'NATIVE_PRIVATE_U_ORIGINAL_CONTEXT');
+          await observeDevice(deposit);await reservationCurrent(consent);PrivateU.validateDeviceReservationConsentEitherFreshV2(consent);
+          await write(data=>({...data,deviceReservations:[...(data.deviceReservations??[]),{jobId:consent.jobId,consent:copy(consent),stage:'PROVING',proofSHA256:null,publicInputsSHA256:null,authorization:null,rolePackets:null,submission:null,observation:null,errorCode:null}]}));
+          PrivateU.validateDeviceReservationConsentEitherFreshV2(consent);activeDeviceOwner=client;
+          const result=await client.proveEncryptedNativeDeviceAuthorizationV2(original.witness,{kind:'ORIGINAL_CONSENT_V1',jobId:consent.jobId,consentSHA256:byteSHA(PrivateU.deviceReservationConsentEitherMessageV2(consent)),witnessSHA256:consent.witnessSHA256});
+          derived=readOriginalNativeDeviceAuthorizationDerivationV2(client,result);assert.equal(derived.sourceAmount,deposit.consent.statement.amount,'NATIVE_PRIVATE_U_SOURCE_AMOUNT');assert.equal(derived.jobId,consent.jobId);assert.equal(derived.consentSHA256,byteSHA(PrivateU.deviceReservationConsentEitherMessageV2(consent)));assert.equal(derived.witnessSHA256,consent.witnessSHA256);
+          assert.deepEqual(derived.expectedPublicInputs,[...encodeStatement('authorization',derived.publicStatement)],'NATIVE_PRIVATE_U_ORIGINAL_PUBLIC');
+          const authorization=transportProof(result),rolePackets=derived.rolePackets,view=await reservationCurrent(consent);
+          assert.equal(await system.verify('authorization',Buffer.from(authorization.proof,'hex'),authorization.publicInputs.map(word=>'0x'+BigInt(word).toString(16).padStart(64,'0')),view.header.number),true,'DEVICE_RESERVATION_DEPLOYED_U_REJECTED');
+          flatAccountGraphBinding({authorization,rolePackets},identity);await reader.assertCurrent(view);continueWork();
+          await onProof({label:'device-reservation-u',relation:'authorization',role:'device-owner',proof:result});
+          await reservationUpdate(consent.jobId,{stage:'PROVED',authorization,rolePackets,...(nativeSourceOriginal?{originalSourceAuthorizationReceipt:sourceProofReceiptFrame('authorization','device-reservation-u',result)}:{}),proofSHA256:byteSHA(Buffer.from(authorization.proof,'hex')),publicInputsSHA256:sha(authorization.publicInputs)});
+          await onPrivateAudit({reference:consent.jobId,phase:'device-reservation-proof-retained',stage:'PROVED'});return reply(reservationPublic(reservationRow(consent.jobId)));
+        }catch(error){if(!unavailable&&reservationRows().some(row=>row.jobId===consent.jobId))await reservationUpdate(consent.jobId,{stage:'FAILED',errorCode:'DEVICE_RESERVATION_U_REJECTED'});throw error;}
+        finally{await client.closePrivateNativeDeviceAuthorizationV2();activeDeviceOwner=null;}
+      }
+      assert.equal(consent.version,1,'NATIVE_PRIVATE_U_FIXED_PROFILE');
       const witness=normalizeDeviceReservationWitnessV1(original.witness),bytes=deviceReservationWitnessBytesV1(witness);
       let capability,ownerInputs,client;
       try{
@@ -2404,7 +2433,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       for(const row of exitRows())if(row.originalSourceExitReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceExitReceipt,row.proof));
       assert.ok(receipts.length<=5,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_COUNT');return receipts;
     });},
-    deviceDeposit,installPrivateDeposit,privateDepositEnabled,installPrivateExit,privateExitEnabled, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
+    deviceDeposit,installPrivateReservation,privateReservationContext,privateReservationEnabled,installPrivateDeposit,privateDepositEnabled,installPrivateExit,privateExitEnabled, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
     async checkReorgPending(executor, ref, id) { await healthy(); assertReorgPending(executor, ref, id); },
     installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true||recovery.source===true)&&nativeExecution!==null&&liveRecovery===null);
       assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);
@@ -2865,3 +2894,7 @@ export async function reopenOriginalNativeAccountSourceV1(token,contexts) {
 export function assertOriginalNativeAccountSourceV1(account,identity) {
   assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);assert.deepEqual(owned.get(account).sourceIdentity(),identity);
 }
+
+export async function installOriginalNativePrivateReservationV2(account,bridge){assert.equal(arguments.length,2);assertDeviceOwnerReservationBridgeV1(bridge,account);assert.ok(isOriginalNativePrivateReservationBridgeV2(bridge),'NATIVE_PRIVATE_U_ORIGINAL_BRIDGE');const row=owned.get(account);assert.ok(row,'NATIVE_PRIVATE_U_ORIGINAL_ACCOUNT');return row.installPrivateReservation(bridge);}
+export function isOriginalNativePrivateReservationAccountV2(account){assert.equal(arguments.length,1);const row=owned.get(account);assert.ok(row,'NATIVE_PRIVATE_U_ORIGINAL_ACCOUNT');return row.privateReservationEnabled();}
+export function readOriginalNativePrivateReservationContextV2(account,bridge,fields){assert.equal(arguments.length,3);assertDeviceOwnerReservationBridgeV1(bridge,account);assert.ok(isOriginalNativePrivateReservationBridgeV2(bridge));const row=owned.get(account);assert.ok(row);return row.privateReservationContext(bridge,copy(fields));}

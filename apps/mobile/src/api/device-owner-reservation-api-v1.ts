@@ -5,8 +5,8 @@ import * as Crypto from 'expo-crypto';
 import { createOriginalAccountApiV2, type OriginalAccountDescriptorV2 } from './original-account-api-v2.mjs';
 import { originalAccountAccessMessageV2, normalizeOriginalAccountAccessV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceReservationQuoteV1, normalizeDeviceReservationStatusV1,
-  deviceReservationConsentMessageV1, validateDeviceReservationConsentFreshV1,
-  type DeviceReservationConsentV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+ } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {deviceReservationConsentEitherMessageV2 as deviceReservationConsentMessageV1,validateDeviceReservationConsentEitherFreshV2 as validateDeviceReservationConsentFreshV1,type DeviceReservationConsentEitherV2 as DeviceReservationConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 type Quote = ReturnType<typeof normalizeDeviceReservationQuoteV1>;
 type Status = ReturnType<typeof normalizeDeviceReservationStatusV1>;
 export type DeviceReservationInclusionV1 = Readonly<{ status: Status;
@@ -106,7 +106,7 @@ export async function createDeviceOwnerReservationApiV1(descriptor: OriginalAcco
       // local provenance. PROVED/UNKNOWN never issue an inclusion or a balance.
       return value;
     },
-    close() { closed = true; },
+    close() { closed = true; api.deviceReservation.close(); },
   });
 }
 /** DTOs/copies cannot replace this completed fixed native HTTPS response. Its

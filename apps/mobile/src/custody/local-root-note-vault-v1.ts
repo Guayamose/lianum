@@ -22,9 +22,10 @@ import { compileLocalFundedBalanceGraphV1, normalizeLocalFundedProposalV1, local
 
 import { readDeviceReservationQuoteV1, readDeviceReservationInclusionV1 } from '../api/device-owner-reservation-api-v1';
 import { normalizeDeviceReservationCapsuleOptionsV1, normalizeDeviceReservationWitnessV1,
-  deviceReservationWitnessBytesV1, wipeDeviceReservationWitnessV1, validateDeviceReservationConsentFreshV1,
-  type DeviceReservationCapsuleOptionsV1, type DeviceReservationWitnessV1, type DeviceReservationConsentV1 }
+  deviceReservationWitnessBytesV1, wipeDeviceReservationWitnessV1,
+  type DeviceReservationCapsuleOptionsV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {validateDeviceReservationConsentEitherFreshV2 as validateDeviceReservationConsentFreshV1,type DeviceReservationConsentEitherV2 as DeviceReservationConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
 
 import { readDeviceExitQuoteV1, readDeviceExitConfirmationV1 } from '../api/device-owner-exit-api-v1';
 import { localDeviceWithdrawalStatementV1, localDeviceWithdrawalFrameV1, localDeviceWithdrawalWitnessV1,
