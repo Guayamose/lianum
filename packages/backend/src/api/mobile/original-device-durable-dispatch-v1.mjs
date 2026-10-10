@@ -8,9 +8,9 @@ import { createHmac, createPublicKey, verify } from 'node:crypto';
 import { cloneInput } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
-import { deviceOwnerDepositBridgeActorV1, assertDeviceOwnerDepositDurableRequestV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { deviceOwnerDepositBridgeActorV1, isOriginalNativePrivateDepositBridgeV2, assertDeviceOwnerDepositDurableRequestV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { deviceOwnerReservationBridgeActorV1, assertDeviceOwnerReservationDurableRequestV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import { deviceOwnerExecutionBridgeActorV1, assertDeviceOwnerExecutionTransportBindingsV1, assertDeviceOwnerExecutionDurableRequestV1 }
+import { deviceOwnerExecutionBridgeActorV1, isOriginalNativePrivateExecutionBridgeV2, assertDeviceOwnerExecutionTransportBindingsV1, assertDeviceOwnerExecutionDurableRequestV1 }
   from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import { normalizeOriginalAccountSignatureV2 } from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
 import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
@@ -21,6 +21,9 @@ import { validateDeviceExecutionConsentFreshV1, deviceExecutionConsentMessageV1 
   from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
 import { validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1 }
   from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
+
+import * as NativeDepositPrivate from '../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
+import * as NativeExitPrivate from '../../../../mobile-protocol/src/device-native-private-exit-v2.mjs';
 
 const owned = new WeakMap();
 const LOCK = Object.freeze([0x4c49414e, 0x44535031]);
@@ -74,6 +77,13 @@ export async function createOriginalDeviceDurableDispatchV1(input) {
     assertDeviceOwnerExecutionTransportBindingsV1(executionBridge, reservationBridge);
   };
   original();
+  const privateD26 = isOriginalNativePrivateDepositBridgeV2(depositBridge);
+  const privateW39 = isOriginalNativePrivateExecutionBridgeV2(executionBridge);
+  // Selection belongs to the SAME original bridges; no request chooses a version.
+  const effects = Object.freeze({ ...EFFECTS,
+    ...(privateD26 ? { fund: ['deposit', 'FUND_D26', NativeDepositPrivate.validateDeviceDepositConsentEitherFreshV2, NativeDepositPrivate.deviceDepositConsentEitherMessageV2, value => value] } : {}),
+    ...(privateW39 ? { withdraw: ['execution', 'WITHDRAW_W39', NativeExitPrivate.validateDeviceExitConsentEitherFreshV2, NativeExitPrivate.deviceExitConsentEitherMessageV2, value => value] } : {}),
+  });
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor), keyBytes = Buffer.from(privacyKey, 'hex');
   const signer = createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
     x: Buffer.from(descriptor.devicePublicKey.slice(2, 66), 'hex').toString('base64url'),
@@ -97,12 +107,14 @@ export async function createOriginalDeviceDurableDispatchV1(input) {
   const bridgeByRole = { deposit: depositBridge, reservation: reservationBridge, execution: executionBridge };
   owned.set(journal, { actor, depositBridge, reservationBridge, executionBridge, live,
     async run(bridge, method, input) {
-      live(); const effect = EFFECTS[method];
+      live(); const effect = effects[method];
       if (!effect || bridgeByRole[effect[0]] !== bridge) fail('DEVICE_DURABLE_ORIGINAL_EFFECT');
       exact(input, ['consent', 'signature']);
       // A data-only signed frame is normalized before any database access. The
       // actual bridge later checks its pending original challenge and account.
       const consent = effect[2](cloneInput(input.consent)), base = effect[4](consent);
+      if ((method === 'fund' && privateD26) || (method === 'withdraw' && privateW39))
+        assert.equal(consent.version, 2, 'DEVICE_DURABLE_ORIGINAL_CONSENT');
       if (consent.action !== effect[1] || base.origin !== descriptor.origin
         || base.pairingId !== descriptor.pairingId || base.devicePublicKey !== descriptor.devicePublicKey)
         fail('DEVICE_DURABLE_ORIGINAL_CONSENT');
