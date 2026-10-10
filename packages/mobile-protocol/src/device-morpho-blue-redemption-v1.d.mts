@@ -22,3 +22,15 @@ export function validateDeviceAaveStaticRedemptionFreshV1(raw:unknown,now?:numbe
 export function deviceAaveStaticRedemptionPermissionMessageV1(raw:unknown):Uint8Array;
 export function normalizeDeviceAaveStaticRedemptionRowV1(raw:unknown):DeviceAaveStaticRowV1;
 export function normalizeDeviceAaveStaticRedemptionStatusV1(raw:unknown):DeviceAaveStaticStatusV1;
+
+export const DEVICE_METAMORPHO_REDEMPTION_V2:'LIANUM_DEVICE_METAMORPHO_REDEMPTION_V2';
+export type DeviceMetaMorphoAccessV2=Readonly<Omit<DeviceMorphoBlueAccessV1,'profile'|'action'>&{profile:typeof DEVICE_METAMORPHO_REDEMPTION_V2;action:'ACCESS_META'}>;
+export type DeviceMetaMorphoConsentV2=Readonly<Omit<DeviceMorphoBlueConsentV1,'profile'|'action'>&{profile:typeof DEVICE_METAMORPHO_REDEMPTION_V2;action:'REDEEM_META'|'OBSERVE_META'}>;
+export type DeviceMetaMorphoRowV2=Readonly<Omit<DeviceMorphoBlueRowV1,'profile'>&{profile:typeof DEVICE_METAMORPHO_REDEMPTION_V2}>;
+export type DeviceMetaMorphoStatusV2=Readonly<Omit<DeviceMorphoBlueStatusV1,'profile'|'operations'>&{profile:typeof DEVICE_METAMORPHO_REDEMPTION_V2;operations:readonly DeviceMetaMorphoRowV2[]}>;
+export function normalizeDeviceMetaMorphoRedemptionAccessV2(raw:unknown):DeviceMetaMorphoAccessV2;
+export function normalizeDeviceMetaMorphoRedemptionConsentV2(raw:unknown):DeviceMetaMorphoConsentV2;
+export function validateDeviceMetaMorphoRedemptionFreshV2(raw:unknown,now?:number):DeviceMetaMorphoAccessV2|DeviceMetaMorphoConsentV2;
+export function deviceMetaMorphoRedemptionPermissionMessageV2(raw:unknown):Uint8Array;
+export function normalizeDeviceMetaMorphoRedemptionRowV2(raw:unknown):DeviceMetaMorphoRowV2;
+export function normalizeDeviceMetaMorphoRedemptionStatusV2(raw:unknown):DeviceMetaMorphoStatusV2;

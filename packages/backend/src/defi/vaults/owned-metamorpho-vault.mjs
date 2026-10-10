@@ -37,6 +37,7 @@ const uint = (value, bits = 128) => { assert.ok(typeof value === 'string' && /^(
 function reference(value) { assert.match(value, /^[0-9a-f]{64}$/); assert.notEqual(value, '0'.repeat(64)); return value; }
 export const isOwnedMetaMorphoVault = value => owned.has(value) && variants.get(value) === 'METAMORPHO';
 export const isOwnedAaveStaticVaultV1 = value => owned.has(value) && variants.get(value) === 'AAVE_STATIC';
+export const isOwnedDeviceMetaMorphoVaultV2 = value => owned.has(value) && variants.get(value) === 'DEVICE_METAMORPHO';
 export const isOwnedDeviceAaveStaticVaultV1 = value => owned.has(value) && variants.get(value) === 'DEVICE_AAVE_STATIC';
 export const isOwnedMorphoBluePositionVaultV1 = value => owned.has(value) && variants.get(value) === 'MORPHO_BLUE_POSITION';
 export const isOwnedOfficialStaticVaultV1 = value => owned.has(value);
@@ -79,6 +80,8 @@ export function createRetainedOwnedMetaMorphoVaultV1(input){assert.equal(argumen
 export function createRetainedOwnedAaveStaticVaultV1(input){assert.equal(arguments.length,1);return createOwnedProtocolVaultV1(input,'AAVE_STATIC',{saved:null});}
 /** Device Aave cannot use the legacy unpermissioned adapter: its execute
  * accepts only the SAME private redemption request issued after SHARE W39. */
+export function createRetainedOwnedDeviceMetaMorphoVaultV2(input){assert.equal(arguments.length,1);return createOwnedProtocolVaultV1(input,'DEVICE_METAMORPHO',{saved:null});}
+export async function reopenRetainedOwnedDeviceMetaMorphoVaultV2(token){assert.equal(arguments.length,1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../operations/local/device-external-flat-source-graph-service-v1.mjs');const {runtime,protocols,saved}=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'meta-exit');assert.equal(saved.variant,'DEVICE_METAMORPHO');assertOfficialProtocolFixture(runtime,protocols);return createOwnedProtocolVaultV1({runtime,protocolFixture:protocols},'DEVICE_METAMORPHO',{saved});}
 export function createRetainedOwnedDeviceAaveStaticVaultV1(input){assert.equal(arguments.length,1);return createOwnedProtocolVaultV1(input,'DEVICE_AAVE_STATIC',{saved:null});}
 export async function reopenRetainedOwnedDeviceAaveStaticVaultV1(token){assert.equal(arguments.length,1);const {consumeOriginalDeviceExternalFlatGraphRecoveryPartV1}=await import('../../operations/local/device-external-flat-source-graph-service-v1.mjs');const {runtime,protocols,saved}=consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,'aave-exit');assert.equal(saved.variant,'DEVICE_AAVE_STATIC');assertOfficialAaveFixtureV1(runtime,protocols);return createOwnedProtocolVaultV1({runtime,protocolFixture:protocols},'DEVICE_AAVE_STATIC',{saved});}
 /** Private SOURCE token binds this non-destructive checkpoint to the same Aave adapter. */
@@ -99,11 +102,11 @@ export async function reopenRetainedOwnedMorphoBluePositionVaultV1(token){
  return createOwnedProtocolVaultV1({runtime,protocolFixture},'MORPHO_BLUE_POSITION',{saved},position);
 }
 async function createOwnedProtocolVaultV1(input, variant, retained = null, position = null) {
-  const deviceAave = variant === 'DEVICE_AAVE_STATIC', aave = deviceAave || variant === 'AAVE_STATIC', blue = variant === 'MORPHO_BLUE_POSITION'; exactRecord(input, ['runtime', 'protocolFixture']);
+  const deviceMeta = variant === 'DEVICE_METAMORPHO', deviceAave = variant === 'DEVICE_AAVE_STATIC', aave = deviceAave || variant === 'AAVE_STATIC', blue = variant === 'MORPHO_BLUE_POSITION'; exactRecord(input, ['runtime', 'protocolFixture']);
   const { runtime, protocolFixture: originalFixture } = input;
   if(blue){assertOwnedOriginalMorphoBluePositionV1(runtime,position);assert.equal(readOwnedOriginalMorphoBluePositionContextV1(runtime,position).protocolFixture,originalFixture);}
   const fixture=blue?Object.freeze({...originalFixture,vault:position.contract}):originalFixture;
-  const adapterProfile=blue?'OWNED_MORPHO_BLUE_POSITION_EXIT_V1':deviceAave?'OWNED_DEVICE_AAVE_STATIC_EXIT_V1':aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1';
+  const adapterProfile=deviceMeta?'OWNED_DEVICE_METAMORPHO_EXIT_V2':blue?'OWNED_MORPHO_BLUE_POSITION_EXIT_V1':deviceAave?'OWNED_DEVICE_AAVE_STATIC_EXIT_V1':aave?'OWNED_AAVE_STATIC_EXIT_V1':'OWNED_METAMORPHO_EXIT_V1';
   const deploymentLabel=blue?'deploy-bounded-morpho-blue-position-exit':aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit';
   await assertOwnedLocalEvmV2(runtime); if(aave)assertOfficialAaveFixtureV1(runtime,fixture);else assertOfficialProtocolFixture(runtime, originalFixture);
   assert.equal(runtime.metadata.chainId, '31337');
@@ -129,7 +132,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null, posit
   if(retained?.saved){assert.deepEqual(binding,retained.saved.binding);assert.deepEqual(record,retained.saved.record);assert.equal(record.data.profile,adapterProfile);assert.deepEqual(record.data.identity,id);assert.equal(record.data.router,router);}
   const lifetime=retained?await (retained.saved?openRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record,retained.saved.lifetime):createRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record)):null;
   let busy = false, poisoned = false, pending = null, adapter,closed=false,capturing=false,blueRequest=null;
-  async function bluePermission(ref){if(!blue&&!deviceAave)return;const {assertOriginalBluePositionRedemptionRequestV1,assertOriginalAaveStaticRedemptionRequestV1}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');(deviceAave?assertOriginalAaveStaticRedemptionRequestV1:assertOriginalBluePositionRedemptionRequestV1)(blueRequest,adapter,ref);}
+  async function bluePermission(ref){if(!blue&&!deviceAave&&!deviceMeta)return;const {assertOriginalBluePositionRedemptionRequestV1,assertOriginalAaveStaticRedemptionRequestV1,assertOriginalMetaMorphoRedemptionRequestV2}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');(deviceMeta?assertOriginalMetaMorphoRedemptionRequestV2:deviceAave?assertOriginalAaveStaticRedemptionRequestV1:assertOriginalBluePositionRedemptionRequestV1)(blueRequest,adapter,ref);}
   const assertFixture = async () => {if(blue)assertOwnedOriginalMorphoBluePositionV1(runtime,position);if(aave)assertOfficialAaveFixtureV1(runtime,originalFixture);else assertOfficialProtocolFixture(runtime, originalFixture);await assertOwnedLocalEvmV2(runtime);};
   async function healthy() { if(retained)assert.ok(!closed,'EXTERNAL_VAULT_CLOSED'); assert.ok(!poisoned, 'METAMORPHO_STORAGE_UNAVAILABLE'); await assertFixture();
     try { if(lifetime)await lifetime.check(record);assert.deepEqual(await store.read(password), record, 'METAMORPHO_JOURNAL_CHANGED'); } catch (error) { poisoned = true; throw error; } }
@@ -326,8 +329,8 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null, posit
       assert.ok((row.quoteHistory?.length ?? 0) < 8, 'METAMORPHO_REQUOTE_CAPACITY');
       await update(row.reference, { action, quoteHistory: [...(row.quoteHistory ?? []), row.action] }); return output(row.reference);
     }); },
-    async execute(ref,originalRequest) { if(blue||deviceAave){assert.equal(arguments.length,2);const {assertOriginalBluePositionRedemptionRequestV1,assertOriginalAaveStaticRedemptionRequestV1}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');(deviceAave?assertOriginalAaveStaticRedemptionRequestV1:assertOriginalBluePositionRedemptionRequestV1)(originalRequest,adapter,ref);}return exclusive(async () => {
-      blueRequest=blue||deviceAave?originalRequest:null;try{
+    async execute(ref,originalRequest) { if(blue||deviceAave||deviceMeta){assert.equal(arguments.length,2);const {assertOriginalBluePositionRedemptionRequestV1,assertOriginalAaveStaticRedemptionRequestV1,assertOriginalMetaMorphoRedemptionRequestV2}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');(deviceMeta?assertOriginalMetaMorphoRedemptionRequestV2:deviceAave?assertOriginalAaveStaticRedemptionRequestV1:assertOriginalBluePositionRedemptionRequestV1)(originalRequest,adapter,ref);}return exclusive(async () => {
+      blueRequest=blue||deviceAave||deviceMeta?originalRequest:null;try{
       let row = find(ref); if (row.execution) return output(ref, await reconcileSend(ref, 'execution'));
       assert.ok(row.phase === 'PREPARED' && !record.data.sendBlocked, 'METAMORPHO_RECONCILE_REQUIRED');
       assert.ok(record.data.operations.every(other => other.reference === ref || other.phase !== 'EXECUTION_UNRESOLVED'), 'METAMORPHO_OTHER_UNRESOLVED');
