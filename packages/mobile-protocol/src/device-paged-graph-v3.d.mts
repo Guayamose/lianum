@@ -1,0 +1,13 @@
+export const DEVICE_PAGED_GRAPH_OWNER_V3:string;
+export const DEVICE_PAGED_GRAPH_COMMANDS_V3:Readonly<Record<string,string>>;
+export function devicePagedGraphProvesV3(action:string):boolean;
+export function devicePagedGraphEffectsV3(action:string):boolean;
+export function normalizeDevicePagedGraphDraftV3(raw:unknown):any;
+export function normalizeDevicePagedGraphConsentV3(raw:unknown):any;
+export function validateDevicePagedGraphConsentFreshV3(raw:unknown,now?:number):any;
+export function devicePagedGraphPermissionMessageV3(raw:unknown):Uint8Array;
+export function normalizeDevicePagedGraphPublicV3(raw:unknown):any;
+export function validateDevicePagedGraphPublicFreshV3(raw:unknown,now?:number):any;
+export function normalizeDevicePagedGraphReplyV3(raw:unknown):any;
+export function snapshotDevicePagedGraphCommandV3(raw:unknown):any;
+export function normalizeDevicePagedGraphHealthV3(raw:unknown):any;
