@@ -6,14 +6,15 @@ import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { ROOT, FLAT, GOLDEN, CANDIDATE } from '../../../../../proofs/src/catalog.mjs';
 import { nativeValueDevHostSourcePinsV5 } from './native-value-dev-source-pins-v5.mjs';
+import { resolveDevelopmentWorkspaceExportV1, isDevelopmentWorkspacePackageLabelV1 } from './workspace-package-source-v1.mjs';
 const DEVELOPMENT=resolve(FLAT,'../../..');
 const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/development')],['development-config/',join(DEVELOPMENT,'scripts')],
  ['golden/',GOLDEN],['candidate/',CANDIDATE],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],
  ['mobile-app/',join(DEVELOPMENT,'apps/mobile')],['mobile-protocol-workspace/',join(DEVELOPMENT,'packages/mobile-protocol')],
- ['flat/',FLAT],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
+ ['flat/',FLAT],['workspace-package/',join(DEVELOPMENT,'packages')],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
 // Manual SQL product callers have physical pins in native-device-local-operator
 // and the platform SQL source caps; they are not financial-worker imports.
-const FIXED=Object.freeze(['integration/run-device-uniswap-v3-private-note-v1.mjs','mobile-app/src/screens/NativeClaimScreen.tsx','mobile-app/src/custody/native-claim-pending-v1.mjs','mobile-app/src/custody/native-claim-pending-v1.d.mts','mobile-app/src/custody/native-claim-pending-store-v1.ts','integration/run-device-aave-static-private-position-v1.mjs','integration/run-native-value-private-worker-durable-note-recovery-v3.mjs','integration/run-native-value-private-authorized-durable-note-recovery-v2.mjs','integration/run-native-value-private-durable-note-recovery-v2.mjs','integration/run-device-external-flat-source-graph-v1.mjs','integration/run-native-original-source-abrupt-v1.mjs','wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-native-source-v1.mjs','integration/run-device-owner-original-f-reorg-v1.mjs','golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
+const FIXED=Object.freeze(['wallet-platform/modules/ops/native-value-dev-producer-v6.mjs','integration/run-device-uniswap-v3-private-note-v1.mjs','mobile-app/src/screens/NativeClaimScreen.tsx','mobile-app/src/custody/native-claim-pending-v1.mjs','mobile-app/src/custody/native-claim-pending-v1.d.mts','mobile-app/src/custody/native-claim-pending-store-v1.ts','integration/run-device-aave-static-private-position-v1.mjs','integration/run-native-value-private-worker-durable-note-recovery-v3.mjs','integration/run-native-value-private-authorized-durable-note-recovery-v2.mjs','integration/run-native-value-private-durable-note-recovery-v2.mjs','integration/run-device-external-flat-source-graph-v1.mjs','integration/run-native-original-source-abrupt-v1.mjs','wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-native-source-v1.mjs','integration/run-device-owner-original-f-reorg-v1.mjs','golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
  'integration/run-native-value-economic-note-recovery-v1.mjs',
  'integration/run-native-value-live-armed-short-restart-v1.mjs','integration/native-value-live-armed-short-restart-flow-v1.mjs','integration/native-device-live-armed-short-successor-v1.mjs',
  'integration/run-evm-metamorpho-recovery-flow-v1.mjs',
@@ -48,6 +49,7 @@ function label(path){
  if(path.startsWith(ROOT+sep))return relative(ROOT,path).split(sep).join('/');
  const selected=roots.find(([,root])=>path.startsWith(root+sep));assert.ok(selected,'NV5_FINANCIAL_LOCAL_SOURCE');
  const name=selected[0]+relative(selected[1],path).split(sep).join('/');
+ if(name.startsWith('workspace-package/'))assert.ok(isDevelopmentWorkspacePackageLabelV1(name),'NV5_FINANCIAL_KNOWN_WORKSPACE_PACKAGE');
  return name;
 }
 function bytes(path){
@@ -73,6 +75,7 @@ export function nativeValueDevFinancialSourcePinsV5(){
    // The unchanged full walker already pins public package manifests and bytes.
    if(name==='@lianum/mobile-protocol'){visit(join(DEVELOPMENT,'packages/mobile-protocol/src/authorization.mjs'));continue;}
    if(name==='@lianum/mobile-protocol/original-account-v2'){visit(join(DEVELOPMENT,'packages/mobile-protocol/src/original-account-review-v2.mjs'));continue;}
+   if(name.startsWith('@lianum/')){const entry=resolveDevelopmentWorkspaceExportV1(name);visit(entry.manifest);visit(entry.target);assert.equal(files.get(entry.manifest).sha256,entry.manifestSHA256,'NV5_FINANCIAL_EXPORT_BINDING_CHANGED');continue;}
    if(name.startsWith('@noble/')){const path=join(DEVELOPMENT,'apps/mobile/node_modules',name);assert.ok(files.has(path),'NV5_FINANCIAL_PINNED_PUBLIC_IMPORT');visit(path);continue;}
    assert.ok(name.startsWith('.'),'NV5_FINANCIAL_STATIC_LOCAL_IMPORT');visit(resolve(dirname(path),name));
   }

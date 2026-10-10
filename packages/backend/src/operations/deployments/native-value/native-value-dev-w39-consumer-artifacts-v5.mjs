@@ -18,6 +18,11 @@ import { nativeValueDevW39CompilerSourcePinsV5, validateW39DevCompilerSourceCaps
   assertW39DevOriginalCompilerInputsV5 } from '../../releases/native-value/native-value-dev-w39-build-dependencies-v5.mjs';
 import { validateW39DevActualComponentsV5 } from './native-value-dev-w39-artifacts-v5.mjs';
 const sha = value => createHash('sha256').update(value).digest('hex');
+/** Read-only public package validation shared by artifact preparation readers. */
+export function inspectW39DevPublicAPIV5() {
+  assert.equal(arguments.length, 0, 'W39_CONSUMER_PUBLIC_API_NO_OPTIONS');
+  return frozenInput(verifyAPI());
+}
 function raw(name) {
   assert.ok(typeof name === 'string' && !name.startsWith('/') && !name.split('/').some(p => !p || p === '.' || p === '..'), 'W39_CONSUMER_FIXED_PATH');
   const golden = name.startsWith('golden/'), base = golden ? GOLDEN : ROOT;

@@ -26,6 +26,8 @@ import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nati
   from '../../releases/native-value/native-value-dev-release-contract-v5.mjs';
 import { inspectProducedW39ConsumerArtifactsV5 as inspectProducedW39ArtifactsV5 } from './native-value-dev-w39-consumer-artifacts-v5.mjs';
 import { inspectProducedW39ArtifactsV5 as inspectCurrentW39CompilerArtifactsV5 } from './native-value-dev-w39-artifacts-v5.mjs';
+import { inspectPublishedW39ReuseArtifactsV6 } from './native-value-dev-w39-reused-artifacts-v6.mjs';
+import { isDevelopmentWorkspacePackageLabelV1 } from '../../releases/native-value/workspace-package-source-v1.mjs';
 const issued = new WeakSet();
 const ADMISSION_PREPARED_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/native-value-verifier-preparation';
 const ADMISSION_COMPILE_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/generic-native-admission-compile';
@@ -54,8 +56,9 @@ function bytes(path, maximum = 128*1024*1024) {
   assert.equal(typeof path,'string'); assert.ok(path.length && !path.startsWith('/') && !path.split('/').some(p=>!p||p==='.'||p==='..'),'NATIVE_VALUE_ARTIFACT_PATH');
   if(path.startsWith('development-'))assert.ok(NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5.includes(path),'NATIVE_VALUE_DEV_FIXED_DEVELOPMENT_SOURCE_ONLY');
   if(path.startsWith('workspace-module/'))assert.ok(NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5.includes(path),'NATIVE_VALUE_DEV_FIXED_WORKSPACE_MODULE_ONLY');
-  const roots=[['workspace-module/',resolve(FLAT,'../../..')],['development-tooling/',resolve(FLAT,'../../../scripts/development')],['development-config/',resolve(FLAT,'../../../scripts')],['development-root/',resolve(FLAT,'../../..')],['golden/',GOLDEN],['candidate/',CANDIDATE],['flat/',FLAT],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],['mobile-app/',resolve(FLAT,'../../../apps/mobile')],['mobile-protocol-workspace/',resolve(FLAT,'../../../packages/mobile-protocol')],['admission-prepared/',ADMISSION_PREPARED_ROOT],['admission-compile/',ADMISSION_COMPILE_ROOT]];
-  const selected=roots.find(([prefix])=>path.startsWith(prefix));let p=selected?.[1]??ROOT;if(selected&&['workspace-module/','mobile-protocol/','mobile-app/','mobile-protocol-workspace/','development-tooling/','development-config/','development-root/'].includes(selected[0]))assert.equal(realpathSync(p),p,'NATIVE_VALUE_DEV_FIXED_ROOT_ALIAS');const parts=(selected?path.slice(selected[0].length):path).split('/'); for (const part of parts) { p=join(p,part); assert.ok(!lstatSync(p).isSymbolicLink(),'NATIVE_VALUE_ARTIFACT_SYMLINK'); }
+  if(path.startsWith('workspace-package/'))assert.ok(isDevelopmentWorkspacePackageLabelV1(path),'NATIVE_VALUE_DEV_KNOWN_WORKSPACE_PACKAGE');
+  const roots=[['workspace-package/',resolve(FLAT,'../../../packages')],['workspace-module/',resolve(FLAT,'../../..')],['development-tooling/',resolve(FLAT,'../../../scripts/development')],['development-config/',resolve(FLAT,'../../../scripts')],['development-root/',resolve(FLAT,'../../..')],['golden/',GOLDEN],['candidate/',CANDIDATE],['flat/',FLAT],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],['mobile-app/',resolve(FLAT,'../../../apps/mobile')],['mobile-protocol-workspace/',resolve(FLAT,'../../../packages/mobile-protocol')],['admission-prepared/',ADMISSION_PREPARED_ROOT],['admission-compile/',ADMISSION_COMPILE_ROOT]];
+  const selected=roots.find(([prefix])=>path.startsWith(prefix));let p=selected?.[1]??ROOT;if(selected&&['workspace-package/','workspace-module/','mobile-protocol/','mobile-app/','mobile-protocol-workspace/','development-tooling/','development-config/','development-root/'].includes(selected[0]))assert.equal(realpathSync(p),p,'NATIVE_VALUE_DEV_FIXED_ROOT_ALIAS');const parts=(selected?path.slice(selected[0].length):path).split('/'); for (const part of parts) { p=join(p,part); assert.ok(!lstatSync(p).isSymbolicLink(),'NATIVE_VALUE_ARTIFACT_SYMLINK'); }
   const s=lstatSync(p); assert.ok(s.isFile() && s.size<=maximum,'NATIVE_VALUE_ARTIFACT_FILE');
   const result=readFileSync(p); assert.equal(result.length,s.size,'NATIVE_VALUE_ARTIFACT_FILE_CHANGED'); return result;
 }
@@ -326,12 +329,15 @@ function retainedRawFilesUnchanged(release, producedLedger) {
       'NATIVE_VALUE_DEV_LEDGER_SOURCE_CHANGED');
   inspectOriginalW39Adapter(); inspectNativeValueAdmissionReaderPins();
 }
-async function inspectFixedRetainedNativeValueArtifactsV5(compilerEvidenceOnly = false) {
+async function inspectFixedRetainedNativeValueArtifactsV5(compilerEvidenceOnly = false, preparePublishedReuse = false) {
   // The fixed candidate producer can inspect a newly completed compilation before
   // its reviewed publication. Financial loading always requires the published
   // raw descriptor and its unchanged current dependency/receipt joins.
   assert.equal(typeof compilerEvidenceOnly, 'boolean');
-  const inspectW39 = compilerEvidenceOnly ? inspectCurrentW39CompilerArtifactsV5 : inspectProducedW39ArtifactsV5;
+  assert.equal(typeof preparePublishedReuse, 'boolean');
+  assert.ok(!(compilerEvidenceOnly && preparePublishedReuse), 'NATIVE_VALUE_DEV_SINGLE_INSPECTION_MODE');
+  const inspectW39 = preparePublishedReuse ? inspectPublishedW39ReuseArtifactsV6
+    : compilerEvidenceOnly ? inspectCurrentW39CompilerArtifactsV5 : inspectProducedW39ArtifactsV5;
   const retained = nativeValueDevRetainedMetadataV5();
   assert.deepEqual(verifyToolchain(), retained.toolchain, 'NATIVE_VALUE_DEV_TOOLCHAIN');
   assert.deepEqual(verifyCRS(), retained.crs, 'NATIVE_VALUE_DEV_CRS');
@@ -371,6 +377,20 @@ export async function inspectReviewedRetainedNativeValueArtifactsForDevV5() {
     producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor,
     verifierRoles: Object.keys(loaded.verifiers), artifactBundleIssued: false,
     compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
+    toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
+}
+/** V6 preparation data only: authenticate retained artifacts for a new source
+ * generation. No bundle WeakSet insertion or financial consumer is exposed. */
+export async function inspectRetainedNativeValueReuseForPreparationV6() {
+  assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_REUSE_INSPECTION_NO_OPTIONS');
+  assert.ok(NATIVE_VALUE_DEV_RELEASE_V5 !== null, 'NATIVE_VALUE_DEV_REUSE_PUBLICATION_REQUIRED');
+  validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5);
+  const loaded = await inspectFixedRetainedNativeValueArtifactsV5(false, true);
+  return frozenInput({ historicalReleaseSHA256: NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5,
+    retainedMetadataSHA256: NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
+    producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor,
+    verifierRoles: Object.keys(loaded.verifiers), reuseReceipt: loaded.producedW39.reuseReceipt,
+    artifactBundleIssued: false, compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
     toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
 }
 /** New fixed publication only. Default null stops before toolchain/files/runtime.

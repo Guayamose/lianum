@@ -10,6 +10,7 @@ import { NATIVE_VALUE_RELEASE, NATIVE_VALUE_SOURCE_CLOSURE } from './native-valu
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 } from './native-value-wallet-host-source-pins-v4.mjs';
 import { NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5, NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 } from './native-value-dev-mobile-package-pins-v5.mjs';
 import { validateW39DevDescriptorV5 } from './native-value-dev-w39-contract-v5.mjs';
+import { isDevelopmentWorkspacePackageLabelV1 } from './workspace-package-source-v1.mjs';
 export const NATIVE_VALUE_DEV_LEDGER_COMPILED_PATH_V5 = '.local/development-native-value-ledger/v5/compiled.json';
 export const NATIVE_VALUE_DEV_LEDGER_RECEIPT_PATH_V5 = '.local/development-native-value-ledger/v5/receipt.json';
 export const NATIVE_VALUE_DEV_LEDGER_KIND_V5 = 'NEW_SOLIDITY_LEDGER_WITH_EXACT_ORIGINAL_COMPONENT_IDENTITIES';
@@ -145,6 +146,7 @@ export function validateNativeValueDevReleaseV5(input) {
       'NATIVE_VALUE_DEV_FIXED_DEVELOPMENT_SOURCE_ONLY');
     if (row.path.startsWith('workspace-module/')) assert.ok(NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5.includes(row.path),
       'NATIVE_VALUE_DEV_FIXED_WORKSPACE_MODULE_ONLY');
+    if (row.path.startsWith('workspace-package/')) assert.ok(isDevelopmentWorkspacePackageLabelV1(row.path), 'NATIVE_VALUE_DEV_KNOWN_WORKSPACE_PACKAGE');
     assert.notEqual(row.path, 'wallet-platform/modules/ops/native-value-dev-release-v5.mjs',
       'NATIVE_VALUE_DEV_NO_SELF_PIN');
     hash(row.sha256); assert.ok(!seen.has(row.path), 'NATIVE_VALUE_DEV_DUPLICATE_SOURCE'); seen.add(row.path);
