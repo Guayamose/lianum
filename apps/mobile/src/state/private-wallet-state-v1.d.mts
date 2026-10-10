@@ -9,6 +9,7 @@ export type PrivateWalletRowV1=Readonly<{key:string;route:Readonly<Record<string
 export type PrivateWalletStateV1=Readonly<{version:1;revision:number;rows:readonly PrivateWalletRowV1[];aggregateBalance:null;completePortfolio:false;readOnly:true}>;
 export type PrivateWalletStateActorV1=Readonly<{
  acceptAccount(value:OriginalPrivateStateObservationV1):void;
+ acceptNativeClaims(value:import('../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs').NativeClaimDeviceObservationV1):void;
  acceptPositions(value:DeviceDefiPositionObservationV1):void;
  acceptExternal(value:ExternalFlatStatus):void;
  acceptExternalGraph(value:object):Promise<void>;

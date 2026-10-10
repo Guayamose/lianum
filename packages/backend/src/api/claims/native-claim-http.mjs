@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { types } from 'node:util';
-import { assertNativeClaimSession, nativeClaimApiErrorCode } from './native-claim-session.mjs';
+import { assertNativeClaimSession, nativeClaimApiErrorCode, createNativeClaimSession, createPairedOriginalNativeClaimReaderV1, assertPairedOriginalNativeClaimReaderV1 } from './native-claim-session.mjs';
 
 export const NATIVE_CLAIM_BODY_LIMIT = 4096;
 const prefix = '/api/native-claims';
@@ -147,5 +147,73 @@ export async function startNativeClaimHttp(options) {
         return await session.close();
       })();
     },
+  });
+}
+
+/** TLS-only finite READ and exact admitted-request RECONCILE routes. Infrastructure certificate material is never
+ * note custody; the original reader remains the sole admission authority. */
+import {createServer as createTlsServer} from 'node:https';
+import {createPrivateKey,X509Certificate} from 'node:crypto';
+
+import {isIP} from 'node:net';
+const deviceListeners=new WeakSet(),MAX_BODY=8192,MAX_REPLY=65536;
+const deviceHttpFail=()=>{throw Error('NATIVE_CLAIM_DEVICE_TLS_CONFIGURATION');};
+function deviceHttpExact(v,keys){if(!v||types.isProxy(v)||Object.getPrototypeOf(v)!==Object.prototype||Reflect.ownKeys(v).length!==keys.length||!keys.every(k=>Object.hasOwn(Object.getOwnPropertyDescriptor(v,k)??{},'value')))deviceHttpFail();}
+function deviceHttpReply(response,status,value){if(response.destroyed||response.writableEnded)return;let bytes=Buffer.from(JSON.stringify(value));if(bytes.length>MAX_REPLY){status=403;bytes=Buffer.from('{"error":"REQUEST_REJECTED"}');}
+ response.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':bytes.length,'cache-control':'no-store','connection':'close','x-content-type-options':'nosniff'});response.end(bytes);}
+async function deviceHttpBody(request){if(request.headers['content-type']!=='application/json'||request.headers['content-encoding']!==undefined||request.headers['transfer-encoding']!==undefined)deviceHttpFail();
+ const length=request.headers['content-length'];if(typeof length!=='string'||/^(0|[1-9][0-9]{0,4})$/.exec(length)?.[0]!==length||Number(length)<2||Number(length)>MAX_BODY)deviceHttpFail();
+ const parts=[];let count=0,bytes;try{for await(const part of request){parts.push(part);count+=part.length;if(count>Number(length)||count>MAX_BODY)deviceHttpFail();}if(count!==Number(length))deviceHttpFail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));}finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}}
+export async function startPairedNativeClaimTlsV1(input){
+ if(arguments.length!==1)deviceHttpFail();const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['reader','tls','host']:['reader','tls'];deviceHttpExact(input,keys);deviceHttpExact(input.tls,['certificate','privateKey']);
+ const reader=input.reader,descriptor=assertPairedOriginalNativeClaimReaderV1(reader),origin=new URL(descriptor.origin),host=input.host??'127.0.0.1',hostname=origin.hostname.replace(/^\[|\]$/g,'');
+ if(!['127.0.0.1','0.0.0.0'].includes(host)||deviceListeners.has(reader)||typeof input.tls.certificate!=='string'||Buffer.byteLength(input.tls.certificate)>65536||typeof input.tls.privateKey!=='string'||Buffer.byteLength(input.tls.privateKey)>16384)deviceHttpFail();
+ let certificate;try{certificate=new X509Certificate(input.tls.certificate);const key=createPrivateKey(input.tls.privateKey);if(certificate.ca||!certificate.checkPrivateKey(key)||(isIP(hostname)?certificate.checkIP(hostname)!==hostname:certificate.checkHost(hostname,{subject:'never',wildcards:false})!==hostname))deviceHttpFail();}catch{deviceHttpFail();}
+ const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())deviceHttpFail();};current();
+ const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
+ const routes=Object.freeze({'/v1/mobile/native-claims/challenges':'challenge','/v1/mobile/native-claims/operations':'operate'});
+ deviceListeners.add(reader);
+ try{server=createTlsServer({cert:input.tls.certificate,key:privateKey,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
+  const work=(async()=>{if(closed)deviceHttpFail();current();if(request.socket.encrypted!==true||request.headers.host!==origin.host||request.headers.origin!==descriptor.origin||request.method!=='POST'||!Object.hasOwn(routes,request.url))deviceHttpFail();
+   const value=await deviceHttpBody(request);if(closed)deviceHttpFail();assertPairedOriginalNativeClaimReaderV1(reader);
+   return reader[routes[request.url]](value);})();
+  running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('NATIVE_CLAIM_DEVICE_HTTP_TIMEOUT')),15000);timer.unref();});
+  Promise.race([work,timeout]).then(v=>deviceHttpReply(response,200,v),()=>deviceHttpReply(response,closed?503:403,{error:closed?'DISCONNECTED':'REQUEST_REJECTED'})).finally(()=>clearTimeout(timer)).catch(()=>{});
+ });}catch(error){deviceListeners.delete(reader);reader.close();throw error;}finally{privateKey.fill(0);}
+ server.headersTimeout=2000;server.requestTimeout=15000;server.keepAliveTimeout=1;server.maxRequestsPerSocket=1;server.maxConnections=4;
+ const track=socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));};server.on('connection',track);server.on('secureConnection',track);server.on('tlsClientError',(_error,socket)=>socket.destroy());
+ try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(origin.port||443),host,()=>{server.off('error',reject);resolve();});});}
+ catch(error){closed=true;reader.close();deviceListeners.delete(reader);const ownedSockets=[...sockets],drain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));for(const socket of ownedSockets)socket.destroy();await Promise.all([drain,new Promise(resolve=>server.close(()=>resolve()))]);throw error;}
+ return Object.freeze({descriptor,url:descriptor.origin,
+  close(){if(arguments.length!==0)deviceHttpFail();if(closing)return closing;closed=true;reader.close();const admitted=[...running];
+   const ownedSockets=[...sockets],socketDrain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));const network=new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));for(const socket of ownedSockets)socket.destroy();
+   closing=(async()=>{const results=await Promise.allSettled([...admitted,network,socketDrain]);await reader.idle();if(results.slice(admitted.length).some(r=>r.status==='rejected')||sockets.size||running.size)throw Error('NATIVE_CLAIM_DEVICE_TLS_CLOSE_UNCONFIRMED');deviceListeners.delete(reader);
+    return{closed:true,ownedSocketsRemaining:0,originalReadsInFlight:0,retainedOriginalCustody:true};})();return closing;},
+ });
+}
+
+/** Trusted product birth after the ORIGINAL handoff is PREPARED and before
+ * preposition/ingress/FUND. Pairing authorizes the SAME journal, not native keys.
+ * Reopen reuses its persisted descriptor; it cannot mint pairing after effects. */
+export async function createOriginalNativeClaimMobileServiceV1(input) {
+  if (arguments.length !== 1) deviceHttpFail();
+  deviceHttpExact(input, ['controller','accountId','ownerIdentitySHA256','claimDomain','caller','origin','devicePublicKey','tls','host']);
+  let session, reader, server;
+  try {
+    session = await createNativeClaimSession({ controller: input.controller, accountId: input.accountId,
+      ownerIdentitySHA256: input.ownerIdentitySHA256, claimDomain: input.claimDomain, caller: input.caller });
+    reader = await createPairedOriginalNativeClaimReaderV1({ session, origin: input.origin, devicePublicKey: input.devicePublicKey });
+    server = await startPairedNativeClaimTlsV1({ reader, tls: input.tls, host: input.host });
+  } catch (error) { reader?.close(); await Promise.allSettled([reader?.idle(), session?.close()]); throw error; }
+  let closing;
+  return Object.freeze({ descriptor: server.descriptor, origin: server.url,
+    profile: 'ORIGINAL_NATIVE_CLAIM_MOBILE_SERVICE_V1',
+    close() { if (arguments.length !== 0) deviceHttpFail(); return closing ??= (async () => {
+      let first; try { await server.close(); } catch (error) { first = error; }
+      try { await session.close(); } catch (error) { first ??= error; }
+      if (first) throw first;
+      return { closed: true, retainedOriginalNativeCustody: true, mobileNativeCustody: false };
+    })(); },
   });
 }

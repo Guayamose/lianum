@@ -4,7 +4,9 @@ import {originalNativeClaimAssetUnitsV1} from '../../claims/operations/native-cl
  * Native custody and RPC authority remain in the trusted local bootstrap. */
 import assert from 'node:assert/strict';
 import { AssertionError } from 'node:assert';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes, createPublicKey, verify } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
+import { types } from 'node:util';
 import { exactRecord, bytes32 } from '../../execution/encoding/commitments.mjs';
 import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { claimUint, claimDomainCommitment } from '../../claims/protocol/framing.mjs';
@@ -14,6 +16,7 @@ import { ownedNativeClaimControllerBindings as nativeBindings, restartNativeClai
 const wrappedSessions = new WeakSet();
 const privateFailures = new WeakMap();
 const sessions = new WeakMap(), identities = new WeakMap(), leasedControllers = new WeakSet();
+const deviceContexts = new WeakMap(), deviceReaders = new WeakMap();
 const requestId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{8,100}$/.exec(value)?.[0] === value;
 const copy = value => structuredClone(value);
 const fail = code => Object.assign(new Error(code), { code });
@@ -337,5 +340,202 @@ async function createClaimSession(input, wrapped) {
       return view();
     },
   });
+  if (!wrapped) deviceContexts.set(session, {
+    live() {
+      need(!closed && !closing && available && !keeper.status().uncertain, 'NATIVE_CLAIM_DEVICE_SESSION_UNAVAILABLE');
+      const original = nativeBindings(controller);
+      need(original.runtime === runtime && original.claims === claims && original.keeper === keeper, 'NATIVE_CLAIM_DEVICE_SOURCE_CHANGED');
+    },
+    async bind(infrastructure) {
+      this.live(); need(!pending && !admitting && !ownerReadPending, 'NATIVE_CLAIM_DEVICE_SESSION_BUSY');
+      return enqueue(async () => {
+        this.live(); const current = await journal.read();
+        const scope = hash([PROFILE, account, identity]);
+        const previous = (current.apiDevicePairings ?? []).find(row => row.accountScopeSHA256 === scope);
+        if (previous) {
+          need(previous.origin === infrastructure.origin && previous.devicePublicKey === infrastructure.devicePublicKey,
+            'NATIVE_CLAIM_DEVICE_PAIRING_REBOUND');
+          assert.deepEqual(previous.claimIdentity, identity, 'NATIVE_CLAIM_DEVICE_PAIRING_REBOUND');
+          const d = previous.descriptor;
+          need(d && typeof d.pairingId === 'string' && /^[0-9a-f]{64}$/.exec(d.pairingId)?.[0] === d.pairingId,
+            'NATIVE_CLAIM_DEVICE_PAIRING_REBOUND');
+          const expected = { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_PAIRING_V1',
+            origin: infrastructure.origin, pairingId: d.pairingId, devicePublicKey: infrastructure.devicePublicKey,
+            accountScopeSHA256: scope, lifetimeSHA256: hash([scope, d.pairingId, identity]),
+            claimDomain: identity.claimDomain, nativeFamily: identity.nativeFamily, nativeGenesis: identity.nativeGenesis,
+            nativeAsset: identity.nativeAsset, wrapperAssetIdentity: identity.wrapperAssetIdentity,
+            claimSymbol: identity.claimSymbol, nativeSymbol: identity.nativeSymbol, decimals: identity.decimals,
+            atomicUnit: identity.atomicUnit, nativeAssetKind: identity.nativeAssetKind ?? null, mint: identity.mint ?? null };
+          assert.deepEqual(d, expected, 'NATIVE_CLAIM_DEVICE_PAIRING_REBOUND');
+          return copy(expected);
+        }
+        const owned = current.deposits.filter(row => row.claimDomain === account.claimDomain
+          && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256);
+        need(owned.length > 0 && owned.every(row => row.status === 'PREPARED' && row.native == null && row.route == null)
+          && rows(current).length === 0 && current.tickets.every(row => row.claimDomain !== account.claimDomain)
+          && current.evm.length === 0, 'NATIVE_CLAIM_DEVICE_PAIRING_BEFORE_EFFECTS_REQUIRED');
+        const pairingId = randomBytes(32).toString('hex');
+        const descriptor = { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_PAIRING_V1',
+          origin: infrastructure.origin, pairingId, devicePublicKey: infrastructure.devicePublicKey,
+          accountScopeSHA256: scope, lifetimeSHA256: hash([scope, pairingId, identity]),
+          claimDomain: identity.claimDomain, nativeFamily: identity.nativeFamily, nativeGenesis: identity.nativeGenesis,
+          nativeAsset: identity.nativeAsset, wrapperAssetIdentity: identity.wrapperAssetIdentity,
+          claimSymbol: identity.claimSymbol, nativeSymbol: identity.nativeSymbol, decimals: identity.decimals,
+          atomicUnit: identity.atomicUnit, nativeAssetKind: identity.nativeAssetKind ?? null, mint: identity.mint ?? null };
+        await journal.update(data => {
+          data.apiDevicePairings ??= [];
+          need(data.apiDevicePairings.length < 32 && !data.apiDevicePairings.some(row => row.accountScopeSHA256 === scope),
+            'NATIVE_CLAIM_DEVICE_PAIRING_CONFLICT');
+          data.apiDevicePairings.push({ accountScopeSHA256: scope, ...infrastructure, claimIdentity: copy(identity), descriptor: copy(descriptor) });
+          return data;
+        });
+        this.live(); const actual = await journal.read();
+        assert.deepEqual(actual.apiDevicePairings.find(row => row.accountScopeSHA256 === scope)?.descriptor, descriptor,
+          'NATIVE_CLAIM_DEVICE_PAIRING_READBACK');
+        return descriptor;
+      });
+    },
+    async read() {
+      this.live(); need(!pending && !admitting && !ownerReadPending, 'NATIVE_CLAIM_DEVICE_SESSION_BUSY');
+      return enqueue(async () => {
+        this.live(); const before = await journal.read(), status = await controller.status(), data = await journal.read();
+        this.live(); assert.deepEqual(data, before, 'NATIVE_CLAIM_DEVICE_JOURNAL_CHANGED');
+        const deposits = data.deposits.filter(row => row.claimDomain === account.claimDomain
+          && row.packet.ownerIdentitySHA256 === account.ownerIdentitySHA256), ids = new Set(deposits.map(row => row.id));
+        const ownTickets = new Set(rows(data).map(row => row.controllerRequestId));
+        const tickets = data.tickets.filter(row => row.claimDomain === account.claimDomain
+          && (ownTickets.has(row.redemptionRequestId) || deposits.some(dep => dep.refundTicketId === row.id)));
+        const state = { phase: 'READY', storageAvailable: true,
+          requiresReconciliation: keeper.status().requiresExternalEffectReconciliation === true,
+          requests: rows(data).map(row => ({ ...project(row), requestSHA256: hash([account, row.action, row.request, row.controllerRequestId]) })),
+          deposits: status.deposits.filter(row => ids.has(row.intentId)).map(row => ({ intentId: row.intentId,
+            claimDomain: row.claimDomain, amount: row.amount, status: row.status })),
+          tickets: status.tickets.filter(row => tickets.some(ticket => ticket.id === row.ticketId)).map(row => ({
+            ticketId: row.ticketId, claimDomain: account.claimDomain, status: row.status })),
+          custody: 'BACKEND_LOCAL_QUORUM', nativeSelfCustody: false, underlyingSpendable: false,
+          independentOperators: false, availablePrivateClaims: null };
+        return copy(state);
+      });
+    },
+    async reconcile(id, expectedSHA256) {
+      this.live(); need(!pending && !admitting && !ownerReadPending, 'NATIVE_CLAIM_DEVICE_SESSION_BUSY');
+      admitting++;
+      try {
+        const acknowledgement = await enqueue(async () => {
+          this.live(); const current = await journal.read(), row = locate(current, id);
+          need(hash([account, row.action, row.request, row.controllerRequestId]) === expectedSHA256,
+            'NATIVE_CLAIM_DEVICE_REQUEST_CHANGED');
+          await change(id, { lastRequestedAction: 'reconcile' });
+          return { admitted: true, action: 'reconcile', requestId: id, state: row.state };
+        });
+        schedule(id, true); return acknowledgement;
+      } finally { admitting--; }
+    },
+  });
   sessions.set(session, () => controller); if (!wrapped) privateFailures.set(session, failures); if (wrapped) wrappedSessions.add(session); identities.set(session, identity); return session;
+}
+
+
+// A separate mobile permission family over the retained ORIGINAL session. The
+// descriptor is configuration; only this WeakMap reader can admit a reconcile.
+const DEVICE_PROFILE = 'LIANUM_NATIVE_CLAIM_DEVICE_PERMISSION_V1', DEVICE_TTL = 15000;
+function deviceData(raw) {
+  let nodes = 0, characters = 0;
+  function check(value, depth) {
+    need(++nodes <= 6000 && depth <= 12, 'NATIVE_CLAIM_DEVICE_FRAME');
+    if (typeof value === 'string') { characters += value.length; need(value.length <= 512 && characters <= 65536, 'NATIVE_CLAIM_DEVICE_FRAME'); return; }
+    if (value === null || typeof value === 'boolean') return;
+    if (typeof value === 'number') { need(Number.isSafeInteger(value) && value >= 0 && !Object.is(value, -0), 'NATIVE_CLAIM_DEVICE_FRAME'); return; }
+    need(value && typeof value === 'object' && !types.isProxy(value), 'NATIVE_CLAIM_DEVICE_FRAME');
+    if (Array.isArray(value)) need(Object.getPrototypeOf(value) === Array.prototype && value.length <= 128
+      && Reflect.ownKeys(value).length === value.length + 1, 'NATIVE_CLAIM_DEVICE_FRAME');
+    else need(Object.getPrototypeOf(value) === Object.prototype && Reflect.ownKeys(value).length <= 32, 'NATIVE_CLAIM_DEVICE_FRAME');
+    for (const key of Reflect.ownKeys(value)) {
+      if (Array.isArray(value) && key === 'length') continue;
+      need(typeof key === 'string' && !['__proto__', 'constructor', 'prototype'].includes(key), 'NATIVE_CLAIM_DEVICE_FRAME');
+      const entry = Object.getOwnPropertyDescriptor(value, key);
+      need(entry.enumerable && Object.hasOwn(entry, 'value'), 'NATIVE_CLAIM_DEVICE_FRAME'); check(entry.value, depth + 1);
+    }
+  }
+  check(raw, 0);
+}
+function deviceExact(raw, keys) { deviceData(raw); exactRecord(raw, keys); }
+function deviceOrigin(value) {
+  need(typeof value === 'string' && value.length <= 256, 'NATIVE_CLAIM_DEVICE_ORIGIN');
+  const url = new URL(value);
+  need(url.protocol === 'https:' && url.origin === value && !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash,
+    'NATIVE_CLAIM_DEVICE_ORIGIN'); return value;
+}
+export function assertPairedOriginalNativeClaimReaderV1(reader) {
+  need(arguments.length === 1 && deviceReaders.has(reader), 'NATIVE_CLAIM_DEVICE_ORIGINAL_READER');
+  const state = deviceReaders.get(reader); state.live(); return copy(state.descriptor);
+}
+export async function createPairedOriginalNativeClaimReaderV1(input) {
+  need(arguments.length === 1, 'NATIVE_CLAIM_DEVICE_ARGUMENTS');
+  need(input && !types.isProxy(input) && Object.getPrototypeOf(input) === Object.prototype, 'NATIVE_CLAIM_DEVICE_INPUT');
+  exactRecord(input, ['session', 'origin', 'devicePublicKey']);
+  need(Reflect.ownKeys(input).every(key => Object.hasOwn(Object.getOwnPropertyDescriptor(input, key) ?? {}, 'value')), 'NATIVE_CLAIM_DEVICE_INPUT');
+  assertNativeClaimSession(input.session);
+  const context = deviceContexts.get(input.session); need(context, 'NATIVE_CLAIM_DEVICE_ORIGINAL_SESSION'); context.live();
+  deviceOrigin(input.origin); need(typeof input.devicePublicKey === 'string'
+    && /^04[0-9a-f]{128}$/.exec(input.devicePublicKey)?.[0] === input.devicePublicKey, 'NATIVE_CLAIM_DEVICE_PUBLIC_KEY');
+  const publicKey = createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
+    x: Buffer.from(input.devicePublicKey.slice(2, 66), 'hex').toString('base64url'),
+    y: Buffer.from(input.devicePublicKey.slice(66), 'hex').toString('base64url') } });
+  const descriptor = await context.bind({ origin: input.origin, devicePublicKey: input.devicePublicKey });
+  const permissions = new Map(); let closed = false, active = null;
+  const live = () => { need(!closed, 'NATIVE_CLAIM_DEVICE_READER_CLOSED'); context.live(); };
+  const fresh = row => { live(); const now = Date.now(); need(Number.isSafeInteger(now) && row.value.expiresAt > now
+    && row.value.expiresAt <= now + DEVICE_TTL && performance.now() < row.deadline, 'NATIVE_CLAIM_DEVICE_PERMISSION_EXPIRED'); };
+  function run(work) { live(); need(active === null, 'NATIVE_CLAIM_DEVICE_READER_BUSY');
+    const pending = Promise.resolve().then(work); active = pending;
+    pending.finally(() => { if (active === pending) active = null; }).catch(() => {}); return pending; }
+  const reader = Object.freeze({
+    challenge(raw) {
+      need(arguments.length === 1); deviceExact(raw, ['action', 'requestId']);
+      need(['READ_CLAIM_JOURNAL', 'RECONCILE_CLAIM_REQUEST'].includes(raw.action), 'NATIVE_CLAIM_DEVICE_ACTION');
+      need(raw.action === 'READ_CLAIM_JOURNAL' ? raw.requestId === null : requestId(raw.requestId), 'NATIVE_CLAIM_DEVICE_REQUEST');
+      return run(async () => {
+        const state = await context.read(); live(); const request = raw.action === 'READ_CLAIM_JOURNAL' ? null
+          : state.requests.find(row => row.requestId === raw.requestId);
+        need(raw.action === 'READ_CLAIM_JOURNAL' || request, 'NATIVE_CLAIM_DEVICE_OWN_ADMITTED_REQUEST');
+        for (const [id, row] of permissions) if (row.consumed || performance.now() >= row.deadline) permissions.delete(id);
+        need(permissions.size < 16, 'NATIVE_CLAIM_DEVICE_CAPACITY');
+        const value = { version: 1, profile: DEVICE_PROFILE, action: raw.action, descriptor: copy(descriptor),
+          challengeId: randomBytes(32).toString('hex'), nonce: randomBytes(32).toString('hex'),
+          expiresAt: Date.now() + DEVICE_TTL, requestId: raw.requestId, requestSHA256: request?.requestSHA256 ?? null };
+        permissions.set(value.challengeId, { value, deadline: performance.now() + DEVICE_TTL, consumed: false }); return copy(value);
+      });
+    },
+    operate(raw) {
+      need(arguments.length === 1); deviceExact(raw, ['permission', 'signature']);
+      deviceExact(raw.permission, ['version', 'profile', 'action', 'descriptor', 'challengeId', 'nonce', 'expiresAt', 'requestId', 'requestSHA256']);
+      return run(async () => {
+        const row = permissions.get(raw.permission.challengeId);
+        need(row && !row.consumed, 'NATIVE_CLAIM_DEVICE_PERMISSION');
+        assert.deepEqual(raw.permission, row.value, 'NATIVE_CLAIM_DEVICE_PERMISSION'); fresh(row);
+        need(typeof raw.signature === 'string' && /^[0-9a-f]{128}$/.exec(raw.signature)?.[0] === raw.signature,
+          'NATIVE_CLAIM_DEVICE_SIGNATURE');
+        const r = BigInt('0x' + raw.signature.slice(0, 64)), s = BigInt('0x' + raw.signature.slice(64));
+        const order = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+        need(r > 0n && r < order && s > 0n && s <= order / 2n, 'NATIVE_CLAIM_DEVICE_SIGNATURE');
+        const frame = Buffer.from(DEVICE_PROFILE + '\n' + JSON.stringify(row.value));
+        try { need(frame.length <= 4096 && verify('sha256', frame, { key: publicKey, dsaEncoding: 'ieee-p1363' },
+          Buffer.from(raw.signature, 'hex')), 'NATIVE_CLAIM_DEVICE_SIGNATURE'); } finally { frame.fill(0); }
+        row.consumed = true;
+        if (row.value.action === 'RECONCILE_CLAIM_REQUEST') {
+          const acknowledgement = await context.reconcile(row.value.requestId, row.value.requestSHA256);
+          return { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_RECONCILE_V1', descriptor: copy(descriptor),
+            permissionId: row.value.challengeId, ...acknowledgement };
+        }
+        const state = await context.read(); fresh(row);
+        return { version: 1, profile: 'LIANUM_NATIVE_CLAIM_DEVICE_OBSERVATION_V1', descriptor: copy(descriptor),
+          permissionId: row.value.challengeId, observedAt: Date.now(), expiresAt: row.value.expiresAt, state };
+      });
+    },
+    close() { need(arguments.length === 0); closed = true; for (const row of permissions.values()) row.consumed = true;
+      return { closed: true, retainedOriginalCustody: true }; },
+    async idle() { need(arguments.length === 0); if (active) await active.catch(() => {}); await input.session.idle(); return { closed, originalWorkDrained: true }; },
+  });
+  deviceReaders.set(reader, { live, descriptor }); return reader;
 }

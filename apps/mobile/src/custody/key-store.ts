@@ -429,11 +429,23 @@ export async function signDeviceMorphoBlueRedemptionPermissionV1(raw:unknown,exp
  try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=blueRedemption.deviceMorphoBlueRedemptionPermissionMessageV1(check());return signDeviceMessage(key,frame);}finally{frame?.fill(0);key.fill(0);retained=null;}
 }
 
-/** Separate manual Aave redemption after the SAME original SHARE withdrawal. */
-export async function signDeviceAaveStaticRedemptionPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
- const value=blueRedemption.validateDeviceAaveStaticRedemptionFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
- const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceAaveStaticRedemptionFreshV1(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
- const reviewed=check(),prompt=reviewed.action==='ACCESS_AAVE'?'Consultar la redención Aave original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
- try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=blueRedemption.deviceAaveStaticRedemptionPermissionMessageV1(check());return signDeviceMessage(key,frame);}finally{frame?.fill(0);key.fill(0);retained=null;}
+/** SAME native-claim journal only. Pairing never imports the backend's native key. */
+export async function signNativeClaimDevicePermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+ const protocol=await import('../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs');
+ const value=protocol.validateNativeClaimDevicePermissionFreshV1(raw);
+ const current=()=>{if(signal?.aborted)throw Error('MOBILE_NATIVE_CLAIM_CANCELLED');const v=protocol.validateNativeClaimDevicePermissionFreshV1(value);
+ if(v.descriptor.origin!==expectedOrigin||v.descriptor.pairingId!==expectedPairingId)throw Error('MOBILE_NATIVE_CLAIM_BINDING');return v;};
+ current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();
+ if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:value.action==='READ_CLAIM_JOURNAL'
+  ?'Leer el journal de claims custodiados por este operador; no gastar fondos'
+  :'Conciliar esta solicitud original de claims; no firmar, probar ni reenviar fondos',
+  cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+ current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
+ let retained:string|null=null,key:Uint8Array|undefined,frame:Uint8Array|undefined;
+ try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();
+  if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);
+  if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+  frame=protocol.nativeClaimDevicePermissionMessageV1(current());return signDeviceMessage(key,frame);
+ }finally{frame?.fill(0);key?.fill(0);retained=null;}
 }

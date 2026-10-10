@@ -1,0 +1,16 @@
+export type NativeClaimDeviceDescriptorV1=Readonly<{version:1;profile:'LIANUM_NATIVE_CLAIM_DEVICE_PAIRING_V1';origin:string;pairingId:string;devicePublicKey:string;accountScopeSHA256:string;lifetimeSHA256:string;claimDomain:string;nativeFamily:'1'|'2';nativeGenesis:string;nativeAsset:string;wrapperAssetIdentity:string;claimSymbol:string;nativeSymbol:string;decimals:number;atomicUnit:string;nativeAssetKind:string|null;mint:string|null}>;
+export type NativeClaimDevicePermissionV1=Readonly<{version:1;profile:'LIANUM_NATIVE_CLAIM_DEVICE_PERMISSION_V1';action:'READ_CLAIM_JOURNAL'|'RECONCILE_CLAIM_REQUEST';descriptor:NativeClaimDeviceDescriptorV1;challengeId:string;nonce:string;expiresAt:number;requestId:string|null;requestSHA256:string|null}>;
+export type NativeClaimDeviceRequestV1=Readonly<{requestId:string;action:'deposit'|'refund'|'redeem'|'restartKeeper';state:'ADMITTED'|'RUNNING'|'CONFIRMED'|'RECONCILIATION_REQUIRED';errorCode:string|null;requestSHA256:string}>;
+export type NativeClaimDeviceObservationV1=Readonly<{version:1;profile:'LIANUM_NATIVE_CLAIM_DEVICE_OBSERVATION_V1';descriptor:NativeClaimDeviceDescriptorV1;permissionId:string;observedAt:number;expiresAt:number;state:Readonly<{phase:'READY';storageAvailable:true;requiresReconciliation:boolean;requests:readonly NativeClaimDeviceRequestV1[];deposits:readonly Readonly<{intentId:string;claimDomain:string;amount:string;status:string}>[];tickets:readonly Readonly<{ticketId:string;claimDomain:string;status:string}>[];custody:'BACKEND_LOCAL_QUORUM';nativeSelfCustody:false;underlyingSpendable:false;independentOperators:false;availablePrivateClaims:null}>}>;
+export type NativeClaimDeviceReconcileV1=Readonly<{version:1;profile:'LIANUM_NATIVE_CLAIM_DEVICE_RECONCILE_V1';descriptor:NativeClaimDeviceDescriptorV1;permissionId:string;admitted:true;action:'reconcile';requestId:string;state:NativeClaimDeviceRequestV1['state']}>;
+export const NATIVE_CLAIM_DEVICE_PAIRING_V1:string;
+export const NATIVE_CLAIM_DEVICE_PERMISSION_V1:string;
+export const NATIVE_CLAIM_DEVICE_OBSERVATION_V1:string;
+export const NATIVE_CLAIM_DEVICE_TTL_MS:15000;
+export function normalizeNativeClaimDeviceDescriptorV1(raw:unknown):NativeClaimDeviceDescriptorV1;
+export function normalizeNativeClaimDevicePermissionV1(raw:unknown):NativeClaimDevicePermissionV1;
+export function validateNativeClaimDevicePermissionFreshV1(raw:unknown,now?:number):NativeClaimDevicePermissionV1;
+export function nativeClaimDevicePermissionMessageV1(raw:unknown):Uint8Array;
+export function normalizeNativeClaimDeviceSignatureV1(raw:unknown):string;
+export function normalizeNativeClaimDeviceObservationV1(raw:unknown):NativeClaimDeviceObservationV1;
+export function normalizeNativeClaimDeviceReconcileV1(raw:unknown):NativeClaimDeviceReconcileV1;

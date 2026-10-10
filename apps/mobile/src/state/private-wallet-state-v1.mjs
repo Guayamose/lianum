@@ -2,6 +2,7 @@
  * no signing, proof, funding, custody key or economic execution capability.
  * Durable operations remain in their original journals; restart starts empty. */
 import {readOriginalPrivateStateObservationV1,originalPrivateStateObservationDescriptorV1} from '../api/original-account-api-v2.mjs';
+import {readNativeClaimDeviceObservationV1} from '../api/native-claim-device-api-v1.mjs';
 import {readDeviceDefiPositionObservationV1} from '../api/device-defi-position-read-api-v1.mjs';
 import {readDeviceExternalFlatStatusV1} from '../api/device-external-flat-note-api-v1.mjs';
 import {normalizeExternalFlatDescriptorV1,externalFlatHexV1,DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
@@ -40,6 +41,21 @@ export function createPrivateWalletStateV1(){
    retain(routeKey(route),[{route,label:a.symbol,decimals:a.decimals,state,available:state==='LIVE'?v.balances.available:null,
     reserved:state==='LIVE'?v.balances.reserved:null,locked:state==='LIVE'?v.balances.locked:null,recovery:state==='LIVE'?v.balances.recovery:null,
     shares:null,valuation:null,noteAmount:null,requests:[...requests.values()],custody:'BACKEND',observed:v.observed}],()=>readOriginalPrivateStateObservationV1(raw));
+  },
+  acceptNativeClaims(raw){
+   const v=readNativeClaimDeviceObservationV1(raw),d=v.descriptor,s=v.state;
+   const route={component:'CUSTODIAL_NATIVE_CLAIM',origin:d.origin,pairingId:d.pairingId,
+    lifetime:d.lifetimeSHA256,owner:d.accountScopeSHA256,domain:d.claimDomain,
+    genesis:d.nativeGenesis,assetId:d.wrapperAssetIdentity,nativeAsset:d.nativeAsset,nativeFamily:d.nativeFamily};
+   // These are ORIGINAL journal observations, not current private-ledger/quorum
+   // balances. A native receipt or a deposited amount cannot become available.
+   const requests=[...s.requests.map(r=>({requestId:r.requestId,kind:'CLAIM_'+r.action.toUpperCase(),state:r.state,disposition:null})),
+    ...s.deposits.map(r=>({requestId:r.intentId,kind:'CLAIM_INGRESS',state:r.status,disposition:null})),
+    ...s.tickets.map(r=>({requestId:r.ticketId,kind:'CLAIM_NATIVE_DELIVERY',state:r.status,disposition:null}))];
+   retain(routeKey(['NATIVE_CLAIM',route]),[{route,label:d.claimSymbol,decimals:d.decimals,state:'UNKNOWN',
+    available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,
+    requests,custody:'BACKEND',observed:{observedAt:v.observedAt,observation:'DURABLE_JOURNAL_ONLY'}}],
+    ()=>readNativeClaimDeviceObservationV1(raw));
   },
   acceptPositions(raw){
    const v=readDeviceDefiPositionObservationV1(raw);

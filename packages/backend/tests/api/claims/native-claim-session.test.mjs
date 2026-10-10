@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '../../../src/claims/protocol/framing.mjs';
 import { createClaimRecordStore, openClaimRecordStore } from '../../../src/claims/storage/segmented-record-store.mjs';
 const bindings = new WeakMap(), journals = new WeakMap(), syntheticUnitBindings = new WeakMap();
@@ -29,7 +29,7 @@ mock.module(url('../native-claims/native-claim-asset-units-v1.mjs'), { exports: 
       : { claimSymbol: 'cSOL', nativeSymbol: 'SOL', decimals: 9, atomicUnit: 'lamport' });
   },
 } });
-const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures } = await import('../../../src/api/claims/native-claim-session.mjs');
+const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures, createPairedOriginalNativeClaimReaderV1, assertPairedOriginalNativeClaimReaderV1 } = await import('../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../src/api/claims/native-claim-http.mjs');
 const hash = value => createHash('sha256').update(value).digest('hex');
 function syntheticConfig(family = '2') {
@@ -425,4 +425,61 @@ test('captured identity remains immutable through original keeper restart, unava
     const closedReads = f.storageStats(); assert.equal(nativeClaimSessionIdentity(session), identity);
     assert.deepEqual(f.storageStats(), closedReads); assert.equal(f.stats().signing, 0);
   } finally { await f.close(); }
+});
+
+
+test('original mobile claim pairing persists before effects and reconciles only its same admitted request without native replay', async () => {
+  // Real encrypted journal and secp256k1 PoP; controller native/proof ports are
+  // the explicitly synthetic fixture above. This establishes no native credit.
+  const f = await fixture(), keys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
+  const jwk = keys.publicKey.export({ format: 'jwk' }), publicKey = '04' + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');
+  const origin = 'https://127.0.0.1:9443', readers = [];
+  function signature(permission) {
+    const frame = Buffer.from('LIANUM_NATIVE_CLAIM_DEVICE_PERMISSION_V1\n' + JSON.stringify(permission));
+    try { const bytes = sign('sha256', frame, { key: keys.privateKey, dsaEncoding: 'ieee-p1363' });
+      const order = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+      const s = BigInt('0x' + bytes.subarray(32).toString('hex'));
+      if (s > order / 2n) Buffer.from((order - s).toString(16).padStart(64, '0'), 'hex').copy(bytes, 32);
+      return bytes.toString('hex');
+    } finally { frame.fill(0); }
+  }
+  async function reader(session, devicePublicKey = publicKey) {
+    const value = await createPairedOriginalNativeClaimReaderV1({ session, origin, devicePublicKey }); readers.push(value); return value;
+  }
+  try {
+    const session = await f.session(), mobile = await reader(session);
+    const descriptor = assertPairedOriginalNativeClaimReaderV1(mobile), retained = await f.journal.read();
+    assert.equal(retained.apiDevicePairings.length, 1); assert.deepEqual(retained.apiDevicePairings[0].descriptor, descriptor);
+    assert.equal(descriptor.nativeSymbol, 'SOL'); assert.equal(descriptor.claimSymbol, 'cSOL'); assert.equal(descriptor.decimals, 9);
+    assert.deepEqual(f.stats(), { signing: 0, issuance: 0, restartCount: 0 });
+    assert.throws(() => assertPairedOriginalNativeClaimReaderV1({ ...mobile }), /ORIGINAL_READER/);
+    await assert.rejects(reader({ ...session }), /ORIGINAL_SESSION/);
+    await assert.rejects(mobile.challenge({ action: 'RECONCILE_CLAIM_REQUEST', requestId: 'foreign_request_01' }), /OWN_ADMITTED_REQUEST/);
+    const permission = await mobile.challenge({ action: 'READ_CLAIM_JOURNAL', requestId: null });
+    await assert.rejects(mobile.operate({ permission: { ...permission, nonce: 'ff'.repeat(32) }, signature: signature(permission) }), /PERMISSION/);
+    const read = await mobile.operate({ permission, signature: signature(permission) });
+    assert.equal(read.state.deposits.length, 1); assert.equal(read.state.deposits[0].intentId, intentId);
+    assert.equal(read.state.availablePrivateClaims, null); assert.equal(read.state.nativeSelfCustody, false);
+    assert.equal(read.state.underlyingSpendable, false); assert.equal(read.state.independentOperators, false);
+    await assert.rejects(mobile.operate({ permission, signature: signature(permission) }), /PERMISSION/);
+    await session.submit('deposit', { requestId: 'same_original_deposit_01', intentId }); await session.idle();
+    const effects = f.stats(), reconciled = f.reconciliations();
+    const reconcile = await mobile.challenge({ action: 'RECONCILE_CLAIM_REQUEST', requestId: 'same_original_deposit_01' });
+    const acknowledgement = await mobile.operate({ permission: reconcile, signature: signature(reconcile) });
+    assert.equal(acknowledgement.admitted, true); assert.equal(acknowledgement.action, 'reconcile');
+    await mobile.idle(); assert.deepEqual(f.stats(), effects); assert.equal(f.reconciliations(), reconciled + 1);
+    await assert.rejects(mobile.operate({ permission: reconcile, signature: signature(reconcile) }), /PERMISSION/);
+    assert.deepEqual(f.stats(), effects);
+    mobile.close(); await mobile.idle(); await session.close(); await f.reopenStore();
+    const reopened = await f.session(), restored = await reader(reopened);
+    assert.deepEqual(assertPairedOriginalNativeClaimReaderV1(restored), descriptor, 'same durable pairing/lifetime after original keeper reopening');
+    const otherKeys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }).publicKey.export({ format: 'jwk' });
+    const otherPublicKey = '04' + Buffer.from(otherKeys.x, 'base64url').toString('hex') + Buffer.from(otherKeys.y, 'base64url').toString('hex');
+    await assert.rejects(reader(reopened, otherPublicKey), /PAIRING_REBOUND/);
+    restored.close(); await restored.idle(); await reopened.close();
+    const late = await f.session({ accountId: 'late_mobile_account_01' });
+    await assert.rejects(reader(late), /BEFORE_EFFECTS_REQUIRED/);
+    assert.deepEqual(f.stats(), effects);
+    assert.equal((await f.journal.read()).apiDevicePairings.length, 1);
+  } finally { for (const value of readers) value.close(); for (const value of readers) await value.idle(); await f.close(); }
 });
