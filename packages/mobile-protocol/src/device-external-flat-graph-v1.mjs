@@ -124,6 +124,18 @@ export function normalizeExternalFlatGraphOutputConsentV1(raw){const v=exact(raw
 export function validateExternalFlatGraphOutputFreshV1(raw,now=Date.now()){const v=normalizeExternalFlatGraphOutputConsentV1(raw);Note.validateExternalFlatFreshV1(v.consent,now);return v;}
 export function externalFlatGraphOutputPermissionMessageV1(raw){const v=normalizeExternalFlatGraphOutputConsentV1(raw),tag=new TextEncoder().encode('LIANUM/device-external-flat-graph-output/'+(v.consent.privateProof?'2':'1')+'/full-consent-sha256'),body=new TextEncoder().encode(permissionCanonicalV1(v));need(body.length<=8192);let digest;try{digest=sha256(body);const bytes=new Uint8Array(8+tag.length+32),view=new DataView(bytes.buffer);view.setUint32(0,tag.length,false);bytes.set(tag,4);view.setUint32(4+tag.length,32,false);bytes.set(digest,8+tag.length);return bytes;}finally{body.fill(0);digest?.fill(0);}}
 export function normalizeExternalFlatGraphOutputRowV1(raw){const v=exact(raw,['profile','noteRole','row']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1);outputRole(v.noteRole);v.row=Note.normalizeExternalFlatRowV1(v.row);need(v.row.mode==='withdraw_balance'&&v.row.profile===Note.DEVICE_EXTERNAL_FLAT_NOTE_V1&&v.row.consentFields.noteRevision===1);return freeze(v);}
+/** A canonical reread has a fresh head; the already confirmed effect remains
+ * historical. This envelope grants no new spend or effect authority. */
+export const DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_READ_V2='DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_READ_V2';
+export function normalizeExternalFlatGraphOutputReadV2(raw){
+ const v=exact(raw,['profile','result','observed']);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_READ_V2);
+ v.result=normalizeExternalFlatGraphOutputRowV1(v.result);v.observed=normalizeExternalFlatObservedV1(v.observed);
+ const row=v.result.row;need(row.stage==='CONFIRMED'&&row.observation?.status==='CONFIRMED');
+ const original=row.observation.observed;
+ need(BigInt(v.observed.blockNumber)>=BigInt(original.blockNumber)&&BigInt(v.observed.timestamp)>=BigInt(original.timestamp));
+ if(v.observed.blockNumber===original.blockNumber)need(v.observed.blockHash===original.blockHash);
+ return freeze(v);
+}
 function normalizeOutputRows(raw,status){need(Array.isArray(raw)&&Object.getPrototypeOf(raw)===Array.prototype&&raw.length<=2&&Reflect.ownKeys(raw).length===raw.length+1);const out=Array.from({length:raw.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(raw,String(i));need(d?.enumerable&&Object.hasOwn(d,'value'));const v=normalizeExternalFlatGraphOutputRowV1(d.value),g=status.jobs[0];need(g&&same(v.row.descriptor,status.descriptor)&&v.row.consentFields.depositJobId===g.reservation.jobId&&v.row.consentFields.rootId===g.reservation.consentFields.custody.rootId&&v.row.consentFields.statement.commitment===g.reservation.statement[v.noteRole+'Commitment']);return v;});need(new Set(out.map(v=>v.noteRole)).size===out.length&&new Set(out.map(v=>v.row.jobId)).size===out.length);return out;}
 
 /** Fixed V2 recipient and public context. Hashes bind the original preparation
