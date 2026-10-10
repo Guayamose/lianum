@@ -143,7 +143,10 @@ async function createClaimSession(input, wrapped, originalSplMobile = false) {
     const units = originalNativeClaimAssetUnitsV1(runtime, claims, claims.configs[1]);
     need(units.nativeAssetKind === 'SOLANA_SPL_USDC' && units.mint === identity.mint,
       'NATIVE_CLAIM_DEVICE_ORIGINAL_SPL_DOMAIN');
-    return native.transfers.length === 0 && data.evm.every(row => row.domain === foreignDomain
+    const domainAccounts = new Set(data.apiAccounts.filter(row => row.claimDomain === account.claimDomain)
+      .map(row => row.accountId));
+    return native.transfers.length === 0 && data.apiAdmissions.every(row => !domainAccounts.has(row.accountId))
+      && data.evm.every(row => row.domain === foreignDomain
       && ['SUCCEEDED', 'REVERTED', 'REJECTED_NO_KEY'].includes(row.status))
       && data.deposits.every(row => row.claimDomain === account.claimDomain
         || row.claimDomain === foreignDomain && ['ISSUED', 'REFUNDED'].includes(row.status))

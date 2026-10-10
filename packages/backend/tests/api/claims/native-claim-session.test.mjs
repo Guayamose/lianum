@@ -594,11 +594,24 @@ test('original SPL mobile pairing follows confirmed BTC SOURCE without adopting 
     await assert.rejects(sourceSession({ accountId: 'forged_spl_mobile_01' }), /TEST_ORIGINAL_SPL_RUNTIME/); f.claims.nativeRuntimes[1] = original;
   } finally { for (const reader of readers) reader.close(); for (const reader of readers) await reader.idle();
     for (const session of heldSessions) await session.close(); await f.close(); }
-  const unknown = await fixture({ spl: true }); let session;
-  try {
-    await unknown.journal.update(data => { data.evm[0].status = 'UNKNOWN'; return data; });
-    session = await createOriginalNativeSplClaimMobileSessionV1(unknown.input);
-    await assert.rejects(createPairedOriginalNativeClaimSpendingReaderV1({ session, origin, devicePublicKey }), /BEFORE_EFFECTS_REQUIRED/);
-    assert.equal((await unknown.journal.read()).apiDevicePairings?.length ?? 0, 0); assert.deepEqual(unknown.stats(), { signing: 0, issuance: 0, restartCount: 0 });
-  } finally { await session?.close(); await unknown.close(); }
+  for (const kind of ['FOREIGN_UNKNOWN', 'SAME_DOMAIN_PENDING']) {
+    const unknown = await fixture({ spl: true }); let session;
+    try {
+      await unknown.journal.update(data => {
+        if (kind === 'FOREIGN_UNKNOWN') data.evm[0].status = 'UNKNOWN';
+        else {
+          const original = { ...unknown.input, accountId: 'prior_spl_account_01' }; delete original.controller;
+          data.apiAccounts.push(original);
+          data.apiAdmissions.push({ accountId: original.accountId, requestId: 'prior_spl_deposit_01', action: 'deposit',
+            request: { requestId: 'prior_spl_deposit_01', intentId }, controllerRequestId: hash('prior_spl_deposit_01'),
+            state: 'RECONCILIATION_REQUIRED', errorCode: 'CLAIM_ORIGINAL_PENDING', result: null });
+        }
+        return data;
+      });
+      session = await createOriginalNativeSplClaimMobileSessionV1(unknown.input);
+      await assert.rejects(createPairedOriginalNativeClaimSpendingReaderV1({ session, origin, devicePublicKey }), /BEFORE_EFFECTS_REQUIRED/);
+      assert.equal((await unknown.journal.read()).apiDevicePairings?.length ?? 0, 0); assert.deepEqual(unknown.stats(), { signing: 0, issuance: 0, restartCount: 0 });
+      assert.deepEqual(unknown.redemptionStats(), { burns: 0, nativeSends: 0 });
+    } finally { await session?.close(); await unknown.close(); }
+  }
 });
