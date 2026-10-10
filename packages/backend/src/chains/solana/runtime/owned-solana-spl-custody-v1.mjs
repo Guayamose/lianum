@@ -70,7 +70,12 @@ export async function createOwnedSolanaSplCustodyFromOriginalV1(token){
   assert.ok(!transfers.has(record.nativeId)&&!infrastructure.some(r=>r.nativeId===record.nativeId),'SPL_NO_REPLACEMENT_SIGNATURE');if(route)transfers.set(record.nativeId,record);else infrastructure.push(record);await ctx.persistTransfer(record);await persist();return record;
  }
  async function latchAndSend(record,authority=null,prepared=null){
-  assert.equal(record.phase,'SIGNED_NOT_BROADCAST');assert.equal(record.broadcastAttempts,0);record.phase='BROADCAST_UNKNOWN';record.broadcastAttempts=1;await ctx.persistTransfer(record);await persist();
+  assert.equal(record.phase,'SIGNED_NOT_BROADCAST');assert.equal(record.broadcastAttempts,0);
+  // An already expired original preparation has not admitted any broadcast.
+  // Keep its exact signed wire at zero attempts; the original final guards
+  // still run after durable admission and immediately before the same send.
+  if(prepared!==null)activeBudget(prepared);
+  record.phase='BROADCAST_UNKNOWN';record.broadcastAttempts=1;await ctx.persistTransfer(record);await persist();
   if(authority){await authority.beforeSend(prepared);authority.assertBeforeSend(prepared);activeBudget(prepared);}
   live();try{assert.equal(await ctx.sendOnce(record.nativeWire),record.signature);record.phase='BROADCAST';await ctx.persistTransfer(record);await persist();}catch(cause){record.broadcastFailure='SPL_ORIGINAL_SEND_REPLY_UNAVAILABLE';await persist();const error=new Error('SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE',{cause});error.nativeId=record.nativeId;throw error;}
  }
