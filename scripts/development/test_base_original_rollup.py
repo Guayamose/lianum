@@ -162,5 +162,32 @@ class OriginalBaseLocalTest(unittest.TestCase):
         self.assertEqual(len(calls),before)
 
 
+    def test_original_fee_port_and_uncertain_wire_keep_same_original_network(self):
+        m=module();m.NATIVE_VALUE=True;m.CHAIN_ID=8453
+        cluster=m.OriginalCluster.__new__(m.OriginalCluster);cluster.l2='original-private-l2';cluster.admitted=set();cluster.failed=False
+        genesis={'number':'0x0','hash':'0x'+'a'*64};cluster.l2_genesis=m.header(genesis);cluster.healthy=lambda:None
+        calls=[]
+        def rpc(url,method,params):
+            self.assertEqual(url,cluster.l2);calls.append((method,params))
+            if method=='eth_chainId':return hex(m.CHAIN_ID)
+            if method=='eth_getBlockByNumber':return dict(genesis)
+            if method=='web3_sha3':return '0x'+'b'*64
+            if method=='eth_sendRawTransaction':raise OSError('synthetic original reply lost')
+            if method=='eth_call':return '0x'+format(123,'064x')
+            self.fail('unexpected original synthetic port')
+        m.rpc=rpc
+        with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_OPERATION_UNCERTAIN$'):cluster.send_once('0x01')
+        self.assertFalse(cluster.failed)
+        for wire in ['0x01','0x02']:
+            with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_UNKNOWN_NO_FRESH_BROADCAST$'):cluster.send_once(wire)
+        self.assertEqual(sum(method=='eth_sendRawTransaction' for method,params in calls),1)
+        call=[{'to':'0x420000000000000000000000000000000000000f','data':'0xf1c7a58b'+format(200,'064x')},'latest']
+        self.assertEqual(cluster.read_original({'method':'eth_call','params':call}),'0x'+format(123,'064x'))
+        before=len(calls)
+        for forbidden in [dict(call[0],to='0x'+'c'*40),dict(call[0],data='0xdeadbeef'),dict(call[0],value='0x1')]:
+            with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_READ_PARAMS$'):cluster.read_original({'method':'eth_call','params':[forbidden,'latest']})
+        self.assertEqual(len(calls),before)
+
+
 if __name__ == '__main__':
     unittest.main()

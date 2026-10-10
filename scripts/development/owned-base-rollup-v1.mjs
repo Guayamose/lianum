@@ -7,11 +7,13 @@ import { dirname, join, parse } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
+import {createOriginalBaseNativeValueCustodyV1,readOriginalBaseNativeValueCustodyPublicV1,bindOriginalBaseNativeValueCustodyV1,dispatchOriginalBaseNativeValueV1,assertOriginalBaseNativeValuePreparedCurrentV1,observeOriginalBaseNativeValueV1,closeOriginalBaseNativeValueCustodyV1} from './owned-base-native-value-dispatch-v1.mjs';
 
 const PROFILE = 'OWNED_BASE_NATIVE_ROLLUP_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1';
 const nativeValues = new WeakSet();
-const RECIPE_SHA256 = '26f61f10d378f9b6a364d061854ae805fd093cab6c872e7507ceee64aaee0836';
+const RECIPE_SHA256 = '4d7e2a4b079ac8649341c188360de0ad2de8414aa20c7ccf0ff98e2a1a76e7c6';
+const CUSTODY_SHA256 = 'a344fb661cd31045c4f481e5117671c2ada3fe0498d5d38119fcd2825e8b1f80';
 const BIRTH_MS = 600_000 + 240_000 + 120_000 + 15_000;
 const IPC_MS = 30_000;
 const owned = new WeakMap();
@@ -167,7 +169,10 @@ async function command(runtime, operation, input) {
     });
     const value = await bounded(result, IPC_MS, 'BASE_ORIGINAL_OPERATION_UNCERTAIN');
     live(runtime); return value;
-  } catch (error) { fail(state, error, true); void shutdown(state).catch(() => {}); throw error; }
+  } catch (error) {
+    if(operation==='broadcast' && state.nativeValue && !state.failed && error.code==='BASE_ORIGINAL_OPERATION_UNCERTAIN'){sameProcess(state);state.uncertain=true;throw error;}
+    fail(state,error,true);void shutdown(state).catch(()=>{});throw error;
+  }
   finally { release(); }
 }
 
@@ -176,9 +181,12 @@ async function createFixedBaseRollupClusterV1(nativeValue) {
   const profile = nativeValue ? NATIVE_VALUE_PROFILE : PROFILE;
   const root = repository(), recipe = join(root, 'scripts/development/owned_base_rollup_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BASE_ORIGINAL_RECIPE_CHANGED');
+  if(nativeValue)assert.equal(createHash('sha256').update(readFileSync(join(root,'scripts/development/owned-base-native-value-dispatch-v1.mjs'))).digest('hex'),CUSTODY_SHA256,'BASE_ORIGINAL_CUSTODY_SOURCE_CHANGED');
+  const custody=nativeValue?await createOriginalBaseNativeValueCustodyV1():null;
+  const custodyPublic=custody?readOriginalBaseNativeValueCustodyPublicV1(custody):null;
   const child = spawn('/usr/bin/python3', [recipe, ...(nativeValue ? ['--native-value'] : [])], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'],
     env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' } });
-  const state = { child, profile, nativeValue, identity: null, pending: new Map(), containers: new Map(), project: null,
+  const state = { child, profile, nativeValue, custody, identity: null, pending: new Map(), containers: new Map(), project: null,
     sequence: 0, tail: Promise.resolve(), failed: false, closed: false, uncertain: false };
   let readyResolve, readyReject, exitResolve;
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
@@ -237,11 +245,18 @@ async function createFixedBaseRollupClusterV1(nativeValue) {
     await bounded(ready, BIRTH_MS, 'BASE_ORIGINAL_CONSTRUCTOR_TIMEOUT');
     sameProcess(state); assert(!state.failed && !state.closed, 'BASE_ORIGINAL_RUNTIME_UNAVAILABLE');
     assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BASE_ORIGINAL_RECIPE_CHANGED');
+    if(nativeValue)assert.equal(createHash('sha256').update(readFileSync(join(root,'scripts/development/owned-base-native-value-dispatch-v1.mjs'))).digest('hex'),CUSTODY_SHA256,'BASE_ORIGINAL_CUSTODY_SOURCE_CHANGED');
+    let metadata=null;if(nativeValue){const view=Object.freeze(Object.create(null));owned.set(view,state);nativeValues.add(view);try{const identity=await readOwnedBaseRollupNativeValueIdentityV1(view);metadata=Object.freeze({version:profile,classification:'OWNED_LOCAL_ORIGINAL_BASE_NATIVE_VALUE_V1',chainId:'8453',evmGenesis:'0x'+identity.genesis,parentGenesis:'0x'+identity.parentGenesis,scratchDirectory:custodyPublic.scratchDirectory,publicNetwork:false,localLaboratorySigner:true,independentOperators:false,rollupChallengeFinalityEstablished:false,deviceCustody:false});}finally{nativeValues.delete(view);owned.delete(view);}}
     const runtime = Object.freeze({ profile, network: 'base-rollup', chainId: nativeValue ? 8453 : 84538453,
       parentChainId: 1337, scope: 'owned-local', independentOperators: false,
-      async close() { assert.equal(arguments.length, 0, 'BASE_NO_OPTIONS'); return shutdown(state); } });
-    owned.set(runtime, state); if(nativeValue) nativeValues.add(runtime); return runtime;
-  } catch (error) { fail(state, error, true); try { await shutdown(state); } catch {} throw error; }
+      ...(nativeValue?{metadata,accounts:Object.freeze([custodyPublic.address]),
+        dispatchNativeValueV1(request){assert.equal(arguments.length,1);return dispatchOriginalBaseNativeValueV1(custody,runtime,request);},
+        assertNativeValuePreparedCurrent(prepared){assert.equal(arguments.length,1);return assertOriginalBaseNativeValuePreparedCurrentV1(custody,runtime,prepared);},
+        observeNativeValueOriginal(query){assert.equal(arguments.length,1);return observeOriginalBaseNativeValueV1(custody,runtime,query);},
+        async time(){assert.equal(arguments.length,0);const head=await readOwnedBaseRollupNativeValueRpcV1(runtime,'eth_getBlockByNumber',['latest',false]);assert(/^0x(?:0|[1-9a-f][0-9a-f]*)$/.test(head.timestamp));return BigInt(head.timestamp);}}:{}),
+      async close(){assert.equal(arguments.length,0,'BASE_NO_OPTIONS');let primary,custodyReceipt;try{if(custody)custodyReceipt=await closeOriginalBaseNativeValueCustodyV1(custody);}catch(error){primary=error;}const result=await shutdown(state);if(primary)throw primary;return custodyReceipt?Object.freeze({...result,originalOutcomeUncertain:result.originalOutcomeUncertain||custodyReceipt.nativeKeyOutcomeUncertain,originalPrivateCustodyClosed:custodyReceipt.closed}):result;}  });
+    owned.set(runtime,state);if(nativeValue){nativeValues.add(runtime);await bounded(bindOriginalBaseNativeValueCustodyV1(custody,runtime),IPC_MS,'BASE_ORIGINAL_CUSTODY_BIND_TIMEOUT');}return runtime;
+  } catch(error){fail(state,error,true);try{if(custody)await closeOriginalBaseNativeValueCustodyV1(custody);}catch{}try{await shutdown(state);}catch{}throw error;}
 }
 export function assertOwnedBaseRollupClusterV1(runtime) {
   assert.equal(arguments.length, 1, 'BASE_RUNTIME_ONLY'); live(runtime); return runtime;
@@ -285,3 +300,6 @@ export async function readOwnedBaseRollupNativeValueRpcV1(runtime,method,params)
   const input=originalReadInput(method,params);
   const value=await command(runtime,'read',input);assertOwnedBaseRollupNativeValueLiveV1(runtime);return value;
 }
+
+/** The factory alone binds custody before this original client starts. */
+export function assertOwnedBaseRollupNativeValueCustodyV1(runtime,custody){assert.equal(arguments.length,2);assertOwnedBaseRollupNativeValueLiveV1(runtime);assert.equal(live(runtime).custody,custody,'BASE_ORIGINAL_CUSTODY_PAIR');}

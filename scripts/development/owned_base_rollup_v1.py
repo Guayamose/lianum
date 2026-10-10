@@ -355,6 +355,20 @@ def finalized_pair(l1, l2, builder, beacon):
             'independentOperators': False, 'privateCreditEstablished': False}
 
 
+
+def original_fee_oracle_call(params):
+    if not (len(params)==2 and type(params[0]) is dict and set(params[0])=={'to','data'} and params[0]['to']=='0x420000000000000000000000000000000000000f' and type(params[0]['data']) is str and type(params[1]) is str and (params[1]=='latest' or re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]*)',params[1]))):
+        return False
+    data=params[0]['data']
+    if data in ('0x960e3a23','0x54fd4d50'):
+        return True
+    if re.fullmatch(r'0x(?:f1c7a58b|275aedd2)[0-9a-f]{64}',data):
+        return int(data[10:],16)<=65536*2
+    if not re.fullmatch(r'0x49948e0e[0-9a-f]{128,8192}',data):
+        return False
+    offset=int(data[10:74],16);size=int(data[74:138],16);body=data[138:]
+    return offset==32 and 0<size<=2048 and len(body)==((size+31)//32)*64 and set(body[size*2:])<=set('0')
+
 class OriginalCluster:
     def __init__(self, root):
         self.root, self.closed, self.failed = root, False, False
@@ -540,7 +554,7 @@ class OriginalCluster:
         method, params = raw['method'], raw['params']
         require(method in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getBlockByHash',
                 'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBalance',
-                'eth_getCode', 'debug_traceTransaction'), 'BASE_ORIGINAL_READ_METHOD')
+                'eth_getCode', 'eth_getTransactionCount', 'eth_gasPrice', 'eth_estimateGas', 'eth_call', 'eth_getStorageAt', 'debug_traceTransaction'), 'BASE_ORIGINAL_READ_METHOD')
         require((method == 'eth_chainId' and params == [])
                 or (method in ('eth_getTransactionByHash', 'eth_getTransactionReceipt') and len(params) == 1
                     and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0]))
@@ -556,6 +570,11 @@ class OriginalCluster:
                              and params[1]['requireCanonical'] is True
                              and type(params[1]['blockHash']) is str
                              and re.fullmatch(r'0x[0-9a-f]{64}', params[1]['blockHash']))))
+                or (method == 'eth_getTransactionCount' and len(params)==2 and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{40}',params[0]) and params[1] in ('latest','pending'))
+                or (method == 'eth_gasPrice' and params==[])
+                or (method == 'eth_estimateGas' and len(params)==2 and type(params[0]) is dict and set(params[0])=={'from','to','value','data','gas','gasPrice','nonce','chainId','type'} and params[0]['chainId']=='0x2105' and params[0]['type']=='0x0' and all(type(params[0][k]) is str and re.fullmatch(r'0x[0-9a-f]{40}',params[0][k]) for k in ('from','to')) and re.fullmatch(r'0x[0-9a-f]{140}',params[0]['data']) and all(type(params[0][k]) is str and re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]*)',params[0][k]) and len(params[0][k])<=66 for k in ('value','gas','gasPrice','nonce')) and type(params[1]) is str and (params[1]=='latest' or re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]*)',params[1])))
+                or (method == 'eth_getStorageAt' and len(params)==3 and params[0]=='0x420000000000000000000000000000000000000f' and params[1]=='0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' and type(params[2]) is str and (params[2]=='latest' or re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]*)',params[2])))
+                or (method == 'eth_call' and original_fee_oracle_call(params))
                 or (method == 'debug_traceTransaction' and len(params) == 2
                     and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0])
                     and params[1] in [{'tracer':'callTracer','timeout':'5s','reexec':128,
@@ -587,6 +606,7 @@ class OriginalCluster:
         self.healthy()
         require(isinstance(wire, str) and re.fullmatch(r'0x(?:[0-9a-f]{2}){1,65536}', wire),
                 'BASE_ORIGINAL_SIGNED_WIRE')
+        require(not (NATIVE_VALUE and getattr(self,'dispatch_uncertain',False)), 'BASE_ORIGINAL_UNKNOWN_NO_FRESH_BROADCAST')
         key = digest(wire.encode())
         require(key not in self.admitted, 'BASE_ORIGINAL_ALREADY_ADMITTED')
         self.admitted.add(key)  # Burn admission before any native RPC; never retry.
@@ -599,7 +619,10 @@ class OriginalCluster:
             return {'profile': PROFILE, 'transactionHash': returned, 'admittedOnce': True,
                     'privateCreditEstablished': False}
         except BaseException:
-            self.failed = True
+            if NATIVE_VALUE:
+                self.dispatch_uncertain=True
+            else:
+                self.failed=True
             raise ClosedError('BASE_ORIGINAL_OPERATION_UNCERTAIN') from None
 
     def close(self):
