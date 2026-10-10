@@ -61,5 +61,45 @@
     "linked commitments and original native facts/admission windows",
     "original withdrawal39 amount/recipient/root/nullifier"
   ],
-  "health": "Original <=30s current quorum-health signatures are separate from proved receipt-acceptance windows. Refreshing health never changes the signed cutoff or original receipt windows."
+  "health": "Original <=30s current quorum-health signatures are separate from proved receipt-acceptance windows. Refreshing health never changes the signed cutoff or original receipt windows.",
+  "sparseTrees": {
+    "encoding": "BN254_POSEIDON2_SPARSE_V3",
+    "domain": "LIANUM_PAGED_TREE_P2_V3",
+    "field": "BN254 scalar field; canonical roots/siblings only",
+    "kinds": [
+      "pages",
+      "nodes",
+      "outputs",
+      "frontier",
+      "admitted"
+    ],
+    "leafTuple": [
+      "profile",
+      "version3",
+      "purpose2",
+      "payloadCount3",
+      "kind",
+      "rawDigestHi128",
+      "rawDigestLo128"
+    ],
+    "branchTuple": [
+      "profile",
+      "version3",
+      "purpose3",
+      "payloadCount4",
+      "kind",
+      "parentLevel1to64",
+      "leftField",
+      "rightField"
+    ],
+    "emptyTuple": [
+      "profile",
+      "version3",
+      "purpose1",
+      "payloadCount1",
+      "kind"
+    ],
+    "rawDigests": "Exact two u128 limbs; no truncation or modular reduction",
+    "unchanged": "SHA authorization/progress/Ready framing, CSPRNG256 blindings, note PC23/NF, source funding depth8, signatures and public word counts"
+  }
 }

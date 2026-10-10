@@ -57,6 +57,11 @@
       "sha256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c"
     },
     {
+      "path": "apps/mobile/src/custody/poseidon2-bn254-v1.mjs",
+      "bytes": 22660,
+      "sha256": "a647de5c112bb8f76bfd39362f2ef0442c0c7c95e041014198e3788782bf74ab"
+    },
+    {
       "path": "contracts/wallet/FlatHubCodec.sol",
       "bytes": 14909,
       "sha256": "aadabeafefc8c985f485f3c31cdd31002426b14dd90096e6d38113f14035d487"
@@ -68,8 +73,8 @@
     },
     {
       "path": "contracts/wallet/PrivatePagedFundedGraphNativeStateV3.sol",
-      "bytes": 10602,
-      "sha256": "3844779c0fa0df521d4d9f97d03f5c1f9074c655ee2edf32fae2c32eb103adf0"
+      "bytes": 11124,
+      "sha256": "0e27ed56f7f117c779c41fb15cf797370578c2b626e5b0de45098fc9642bb5b9"
     },
     {
       "path": "contracts/wallet/PrivatePagedFundedGraphPoolV3.sol",
@@ -80,6 +85,11 @@
       "path": "contracts/wallet/PrivatePagedFundedGraphStateV3.sol",
       "bytes": 10900,
       "sha256": "e6b3a4c6f098a78fcc0cb0d8180d9fd5a09335fb6b34c465d62f72fc0bfa8881"
+    },
+    {
+      "path": "contracts/wallet/crypto/PagedSparsePoseidon2V3.sol",
+      "bytes": 1496,
+      "sha256": "1ea06c05f2089af476342edda84428d245d71565f08811e6105eacf2b08cc49f"
     },
     {
       "path": "contracts/wallet/crypto/Poseidon2.sol",
@@ -123,8 +133,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/artifacts.mjs",
-      "bytes": 16817,
-      "sha256": "73b90a14408b11680a5e18f297a61e12a462d24111baaaca2e3fddbbac3005cc"
+      "bytes": 17543,
+      "sha256": "6c0c66de0c7cf2be2ed2d1ffb6c07b743d5b9ea2cb95a80b8d7b3b09a42ec57b"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/admission/Nargo.toml",
@@ -143,8 +153,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/fold/src/main.nr",
-      "bytes": 7386,
-      "sha256": "4a620b4d192510eb73990d3800975586031fe511ce5479ca6ef135aa7fdff96e"
+      "bytes": 7401,
+      "sha256": "fafc76aef9bf4f2f70933127a69a1ac80b2450dc205620312c858458ed02a567"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/reserve/Nargo.toml",
@@ -178,8 +188,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/Nargo.toml",
-      "bytes": 331,
-      "sha256": "f7dbecc58b56d0eb90f29c9b27f53bd6aa5b3d53951be52388b7c2a4b43095e1"
+      "bytes": 402,
+      "sha256": "6eb0ed19375aa5a36b84ae0997694cd42d3873a8448e7a7d97b7cb0082eaba9c"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/framing.nr",
@@ -188,18 +198,23 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/graph.nr",
-      "bytes": 7982,
-      "sha256": "2db36a4bb999f7f9c55de2da2bdbe4b85e8373ddd5ca2b3ab4789c3bc59f2654"
+      "bytes": 7615,
+      "sha256": "b3d174422a187ead8213594b6cc394350ed76dd3b583c9c2bb0c0c8e45293a30"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/lib.nr",
-      "bytes": 50,
-      "sha256": "6130c6d97434b0dd08e668e2c8a1beaceca2a916d0c9037767fbd2aeab71e7c6"
+      "bytes": 66,
+      "sha256": "88928a003a797b15e03126df2e28a5c54b2034f7b7e04ebe86f2628891ee1261"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/progress.nr",
       "bytes": 3299,
       "sha256": "17f10d09212b8d0eb87eef97c53ea4fc3c226c3f23a885ba2599be19ce8bcf86"
+    },
+    {
+      "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/sparse.nr",
+      "bytes": 5762,
+      "sha256": "ee184d68fc4b7883407b7f746fcc431df7543d7c4e70b27755f11ab37b06c81a"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-client.mjs",
@@ -208,8 +223,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-process.mjs",
-      "bytes": 4322,
-      "sha256": "4c5af43bb5f2cc30727fc8eb5accc3a42377e1d77fdf0373860858a796147879"
+      "bytes": 4369,
+      "sha256": "ac4bd78d91c55bce4696c083ee6eb23da2b6ee7f9ecaa2aa175fd55ceb78ad37"
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/run-bounded.mjs",
@@ -218,8 +233,8 @@
     },
     {
       "path": "experiments/engine/private-core-proof/funded-graph-paged-v3/transcript.json",
-      "bytes": 2219,
-      "sha256": "2caf394b92df495f0ff8e08039dac4b10526020720306d74992cc9cdb49e5b01"
+      "bytes": 3191,
+      "sha256": "56db41cef1f1ee07d4be7f98d2e0c529c117a2de111989209cb0169d3452e484"
     },
     {
       "path": "experiments/engine/private-core-proof/generic-funding/lib/Nargo.toml",
@@ -307,6 +322,56 @@
       "sha256": "54bb703e8a0ff47addcdee0960f4c92b2ec0a98fce7f2ead5aedad75167c93f3"
     },
     {
+      "path": "packages/crypto/vendor/poseidon/Nargo.toml",
+      "bytes": 102,
+      "sha256": "551d27ec7bf58e6e40896ee424210ac0f3724b29c05068cf34fef3ea8ca1b57a"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/bench.nr",
+      "bytes": 1693,
+      "sha256": "64f658d97495738f12585aa0fbba025bcf51e9bc7930da8ca94fe02d3c9b479a"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/lib.nr",
+      "bytes": 121,
+      "sha256": "5d8b3eeccceb4ac36b66430d3678fc2e8d9e6ab5b759556244be1234882fdff9"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/oracle_tests.nr",
+      "bytes": 4002,
+      "sha256": "f5e7fb3f99cf446974836548e2cba9b34f1bf72434a4a3764dbc51fb998aa398"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254/consts.nr",
+      "bytes": 1907961,
+      "sha256": "0e1ce6ec6ed2ebbab52739ab07a2ab7a9cfb9b479cb012527f5e08447677dfd2"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254/perm.nr",
+      "bytes": 2299,
+      "sha256": "1daf55657af0418deb717b74cd45a1a4e9ac9d59678335cf0e677ed8a682be23"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254.nr",
+      "bytes": 2508,
+      "sha256": "4800b851b4b0e2c71cd6456efb021be865e4fde040c6e63797b6f157c042653a"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/mod.nr",
+      "bytes": 10045,
+      "sha256": "d0b044a17c0d7c26470137c17b7a43c172051da8ea74e56797323f3cc07a5a84"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon2.nr",
+      "bytes": 4704,
+      "sha256": "727ab4c68338938edb3d300c1f7949395beda882f6b06456bc21e8917102b507"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/tests.nr",
+      "bytes": 3424,
+      "sha256": "8364bc5d1cfdf4783728c0ed0ef1001a9423a38b06d04dddfc3275a78bf215a0"
+    },
+    {
       "path": "packages/engine/src/assembly/private-assembly-history.mjs",
       "bytes": 4604,
       "sha256": "9b9d6d18cfc51d6cc5c2c278e3289d61aba0535baaa5b051b7787964a7e33993"
@@ -347,9 +412,14 @@
       "sha256": "d8fcb494326e7ad9befd975a8252651fc60a75b4dd6b2ad10c14bc78c7f71915"
     },
     {
+      "path": "packages/engine/src/execution/graph/funded-graph-paged-trees-v3.mjs",
+      "bytes": 1899,
+      "sha256": "5d889f2f365bb89ef1fe6a96269534c97e74021799f6b0739be5e067ce90cd22"
+    },
+    {
       "path": "packages/engine/src/execution/graph/funded-graph-paged-v3.mjs",
-      "bytes": 52188,
-      "sha256": "9068f69bdc0c6d90868d9230f8b6e1222e0e539f11309ee1ddcec14fcd69aa89"
+      "bytes": 52630,
+      "sha256": "0c78278135f719afc593c4eef8e196784371e15a414ae353a9f2db2bdec6f779"
     },
     {
       "path": "packages/engine/src/execution/graph/funded-graph.mjs",

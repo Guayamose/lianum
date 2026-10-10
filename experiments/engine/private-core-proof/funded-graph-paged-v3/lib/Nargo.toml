@@ -8,3 +8,4 @@ graph_support = { path = "../../generic-graph/lib" }
 funding_support = { path = "../../generic-funding/lib" }
 native_support = { path = "../../generic-native/lib" }
 original64 = { path = "../../funded-graph-64-v2/lib" }
+poseidon = { path = "../../../../../packages/crypto/vendor/poseidon" }
