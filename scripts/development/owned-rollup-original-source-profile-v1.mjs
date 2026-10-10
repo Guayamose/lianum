@@ -21,6 +21,20 @@ const runtimeFiles=Object.freeze([
  ...['paeg/readiness-inputs.mjs','paeg/commitments.mjs',
  'chain-adapters/native-economic-local-signing-v2.mjs','chain-adapters/owned-evm-v2-runtime.mjs',
  'chain-adapters/owned-evm-native-value-profile.mjs','chain-adapters/native-value-evm-dispatch-gate.mjs'].map(path=>['wallet-platform/modules/'+path,runtimeRoot+path])]);
+// Separate fixed mobile composition. No runtime, path, hash, callback or
+// selected mode is accepted from its caller. All direct dynamic imports below
+// must also be current authenticated publication members before native birth.
+const mobileRuntimeFiles=Object.freeze([
+ ...['ops/native-device-local-restart-v1.mjs','ops/native-value-local-operator-bootstrap-v4.mjs',
+ 'ops/native-value-system-v2.mjs','ops/native-value-deployment-artifacts-v2.mjs',
+ 'paeg/native-value-execution-v2.mjs','global-state/native-value-account-authority-v2.mjs',
+ 'api/flat-manual-graph-session.mjs','ops/native-device-local-operator-v1.mjs',
+ 'solvers/native-value-provider-v2.mjs','chain-adapters/generic-native-value-v2.mjs']
+ .map(path=>['wallet-platform/modules/'+path,runtimeRoot+path]),
+ ['mobile-core/native-value-owner-process-v2.mjs','.internal/runtime/omnichain-flat-profile/flat-wallet/mobile-core/native-value-owner-process-v2.mjs'],
+ ...['native-recipient-process.mjs','native-recipient-custody.mjs','generic-balance-native-preparation.mjs','native-admission.mjs']
+ .map(path=>['golden/src/paeg/'+path,'.internal/runtime/omnichain-product/src/paeg/'+path])]);
+const mobileArbitrum=Object.freeze({profile:'ORIGINAL_ARBITRUM42161_PRIVATE_NATIVE_MOBILE_V1',files:Object.freeze([...profiles.Arbitrum.files,...[{"path":"scripts/development/owned-arbitrum-private-native-mobile-v1.mjs","sha256":"0e96430c411730906fb335c144d470bc510db8988d4cd8f0d877454c4e422a62"},{"path":"apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs","sha256":"c71561d0d578db2adfa2a287cb5314f710e228eaf432e41eec239c2d9c20dd31"}]]),runtimeFiles:mobileRuntimeFiles});
 function repository(){let current=dirname(fileURLToPath(import.meta.url));while(current!==parse(current).root){
  if(existsSync(join(current,'scripts/layout.json'))&&existsSync(join(current,'package.json'))
  &&JSON.parse(readFileSync(join(current,'package.json'),'utf8')).name==='lianum')return realpathSync(current);current=dirname(current);}
@@ -53,7 +67,7 @@ function publication(){const bytes=physical(publicationPath);try{const text=byte
  return {sha256:sha(bytes),rows};}finally{bytes.fill(0);}}
 function capture(selected){assert.equal(fileHash(modulePath),loadedSourceSHA256,'OWNED_ROLLUP_SOURCE_LOADED_MODULE_CHANGED');
  const published=publication(),own=selected.files.map(row=>{assert.equal(fileHash(row.path),row.sha256,'OWNED_ROLLUP_SOURCE_REVIEWED_FILE_CHANGED');return {...row};});
- const runtime=runtimeFiles.map(([path,physicalPath])=>{const expected=published.rows.get(path);assert(expected,'OWNED_ROLLUP_SOURCE_ORIGINAL_RUNTIME_MEMBER_REQUIRED');
+ const runtime=[...runtimeFiles,...(selected.runtimeFiles??[])].map(([path,physicalPath])=>{const expected=published.rows.get(path);assert(expected,'OWNED_ROLLUP_SOURCE_ORIGINAL_RUNTIME_MEMBER_REQUIRED');
  assert.equal(fileHash(physicalPath),expected,'OWNED_ROLLUP_SOURCE_ORIGINAL_RUNTIME_CHANGED');return {path,physicalPath,sha256:expected};});
  assert.equal(publication().sha256,published.sha256,'OWNED_ROLLUP_SOURCE_PUBLICATION_CHANGED');
  const value={schema:CAPSULE,profile:selected.profile,moduleSHA256:loadedSourceSHA256,publicationSHA256:published.sha256,ownFiles:own,runtimeFiles:runtime};
@@ -63,6 +77,8 @@ function birth(selected){const initial=capture(selected),token=Object.freeze(Obj
  assertOriginalOwnedRollupSourceProfileV1(token);return token;}
 export function createOriginalBaseRollupSourceProfileV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(profiles.Base);}
 export function createOriginalArbitrumRollupSourceProfileV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(profiles.Arbitrum);}
+/** Separate fixed mobile composition, before custody/native CREATE. */
+export function createOriginalArbitrumNativeMobileSourceV1(){assert.equal(arguments.length,0,'OWNED_ROLLUP_SOURCE_NO_OPTIONS');return birth(mobileArbitrum);}
 export function assertOriginalOwnedRollupSourceProfileV1(token){assert.equal(arguments.length,1,'OWNED_ROLLUP_SOURCE_TOKEN_ARITY');
  const state=slots.get(token);assert(state&&!state.closed&&!state.poisoned,'OWNED_ROLLUP_SOURCE_ORIGINAL_TOKEN_REQUIRED');
  try{const next=capture(state.selected);assert.equal(next.sha256,state.sha256,'OWNED_ROLLUP_SOURCE_GENERATION_CHANGED');assert.deepEqual(next.value,state.value,'OWNED_ROLLUP_SOURCE_GENERATION_CHANGED');}
