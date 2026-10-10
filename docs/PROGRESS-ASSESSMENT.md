@@ -22,6 +22,14 @@ El usuario recupera las 500 unidades del activo fuente; el proveedor pierde
 firmados originales. Pool/backing/reservas quedan a cero sin duplicados.
 **4.5 pasa a 75 y el punto 4 a 75%; las otras 34 notas no cambian.**
 
+Correcciones posteriores del corte actual: `811f3b4` conserva metadatos de
+prueba y PROVED en el mismo checkpoint SOURCE; `6c61234` deriva la guardia de
+bibliotecas paginadas desde el artefacto original; `7e243fb` conserva la causa
+de nacimiento BSC antes del cierre. Sus tres regresiones focales pasan. La
+publicación `e0ecd93` y sellos `2effdd8`/`3a81438` capturan las fuentes revisadas.
+Las nuevas ejecuciones económicas siguen pendientes de resultado; las 35
+notas y los siete porcentajes permanecen iguales.
+
 Código posterior integrado, sin cambio de estas notas: RootNote móvil conecta
 D27/CI51/W39/redención/payout en commits separados; su HOST original y
 TypeScript pasan, pero falta el recorrido económico integrado. La custodia de
@@ -315,7 +323,7 @@ La media de un punto no elimina los requisitos de la visión:
 | Privacidad sistémica | Faltan protección y comprobación de correlaciones y colusiones; el punto 2 lo refleja. |
 | Revisión criptográfica externa | Pendiente; la revisión de código y las pruebas internas no la sustituyen. |
 | Rendimiento | Medidas individuales, sin acreditar el objetivo completo en caliente. No se amplía trabajo de optimización durante este recálculo. |
-| Móvil y Cloud | APK Android construido; uso físico al final. Cloud preparado sólo localmente, sin proyecto ni despliegue; el puente API/SQL económico aún no está conectado y readiness permanece en 503. |
+| Móvil y Cloud | APK Android construido; uso físico al final. Cloud preparado sólo localmente, sin proyecto ni despliegue. El perfil económico V3 conecta API/SQL antes de FUND y conserva captura/reapertura ordenada de las mismas diez secciones; la integración tiene HOST focales. La entrada genérica V1 permanece sin productor económico y con readiness 503. Falta continuidad económica V3 ante caída abrupta y operación Cloud completa. |
 
 Para cambiar una cifra se revisa su requisito y se registra qué cobertura
 cambió. Una corrección posterior no altera un resultado histórico rechazado y

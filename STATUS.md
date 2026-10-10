@@ -25,11 +25,12 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición:** `6886950` publica la generación actual de 901 fuentes
-  físicas y doce roles; el preflight V41 pasa, incluidos Base/Arbitrum/BSC
-  y Cloud local. `479445a` fija las 722 fuentes del grafo paginado y
-  `d5f2c8c` las 716 del consumidor nativo; los lectores canónicos y preparados
-  coinciden. Las dos anclas tienen una relación de hashes sin ciclos y conservan
+- **Composición:** `e0ecd93` publica la generación actual de 901 fuentes
+  físicas y doce roles después de las correcciones SOURCE, paginada y BSC.
+  `3a81438` fija las 722 fuentes del grafo paginado y `2effdd8` las 716 del
+  consumidor nativo. Las tres preparaciones terminaron correctamente y el
+  preflight SOURCE de Uniswap comprueba sus fuentes actuales. Las dos anclas
+  tienen una relación de hashes sin ciclos y conservan
   las hojas de producción y los artefactos originales. Se comprueban
   antes de CREATE/FUND. Las 45 fuentes W39 y las 100 del compilador paginado
   permanecen intactas; los cuatro indicadores de aceptación siguen desactivados.
@@ -101,7 +102,15 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   resultado ya admitido: `d56cd88` conserva el presupuesto de respuesta
   existente de 900.000 ms para FUND_D26/WITHDRAW_W39. El permiso de 15 segundos,
   el consumo único y las lecturas de 15 segundos permanecen. La regresión
-  causal pasa en 358 ms con reloj controlado; falta repetir el recorrido económico.
+  causal pasa en 358 ms con reloj controlado. El intento posterior
+  `2675bbd9-adae-4cdb-92be-97c775121e6a` conserva trece pruebas capturadas y
+  termina rechazado en PROVE_W39: el checkpoint original detectó que los
+  metadatos de la prueba se añadían después de persistir PROVED. `811f3b4`
+  guarda ambos en la misma actualización durable, conservando witness/PC23,
+  época, verificador desplegado, hashes, CAS y rechazo ante incertidumbre.
+  La regresión ejecuta ambas rutas originales con Vault AES/CAS real y pasa
+  en 4,980 s, incluyendo rechazo de metadatos retenidos alterados. La nueva
+  repetición económica está en curso; todavía no acredita las dos caídas.
   `fdaecdb` conserva también la causa RPC original en el diagnóstico privado,
   sin devolver parámetros ni datos financieros. El intento anterior no acredita
   las dos caídas; siguen pendientes
@@ -141,7 +150,7 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   borrado de la misma custodia y restauración antes de R, con READ/OBSERVE
   frescos sobre la misma operación. `83bd4b9` limita la revelación al ejecutor
   nativo a su nodo y cinco campos de vinculación; su HOST causal pasa en 460 ms.
-  La publicación `6886950` y ambos sellos incluyen estas fuentes actuales.
+  La publicación actual y ambos sellos incluyen estas fuentes.
   El primer nacimiento financiero `a196edfa…` se rechazó antes de financiar
   con ENOENT en el locator del runtime EVM desde la ruta canónica. Los recursos
   quedaron cerrados. `b44f5b3` usa host/operador/flow preparados en el mismo
@@ -149,7 +158,16 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   sin modificar el harness vinculado a los artefactos 45/100. El nuevo
   nacimiento `c49d711f…` superó ese locator y se rechazó todavía antes de FUND,
   al resolver una biblioteca de linkReferences del despliegue paginado.
-  Se investiga el bundle original de esa biblioteca; no hay aceptación financiera.
+  `481ea6e` resuelve las bibliotecas desde la tabla plana del loader original,
+  con comprobación de fuente y contrato; su HOST causal pasa en 302 ms.
+  El intento `b4a71495-48fa-456e-9274-c4df918713b6` supera ese paso y falla
+  todavía antes de FUND por `NATIVE_LIBRARY_GUARD_TEMPLATE`: dos bibliotecas
+  pure/view no llevan la guardia de dirección que sí llevan las del verificador.
+  `6c61234` selecciona el derivador según la plantilla original del compilador,
+  antes del envío, conservando igualdad completa de runtime, keccak, nonce,
+  receipt, bloque canónico y plan prospectivo. El HOST sobre cuatro artefactos
+  públicos originales pasa en 356 ms. Falta repetir económicamente NativePaged21;
+  los intentos rechazados no cambian de resultado.
   Falta aceptar la ejecución económica paginada/nativa y su recuperación;
   el HOST no acredita pruebas ZK, hardware ni caída abrupta del backend.
 - **MetaMorpho underlying:** `55c443f`/`e8cda88` conectan backend, SDK y

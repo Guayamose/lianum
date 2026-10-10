@@ -26,6 +26,15 @@ notas quedan en 65/45/70/75/70/80/65 con el mismo método.
 El trabajo inmediato es ejecutar SOURCE/GRAPH V3 con sus dos caídas y
 aperturas del mismo checkpoint, repetir Aave móvil tras la corrección de
 observación W39 y completar D27/CI51/W39/CO42 desde RootNote propias.
+La repetición SOURCE usa `811f3b4`: los metadatos verificados de W39 y PROVED
+se guardan juntos antes del checkpoint. NativePaged21 tiene corregidos el
+loader plano de bibliotecas (`481ea6e`) y la selección de su guardia original
+(`6c61234`); necesita su nueva ejecución económica. BSC conserva ahora la
+causa inicial antes de cleanup (`7e243fb`), necesaria para resolver su nacimiento.
+La integración móvil SOURCE en curso une consentimiento propio antes de FUND,
+PoP y journal de la misma operación a la entrega original; los cuatro pasos
+destino RootNote ya estaban conectados. Estas correcciones no cierran por sí
+solas otro requisito ni cambian las 35 notas.
 Los cinco programas paginados y sus claves, consumer y verificadores ya
 compilan. El productor OWNER y su depósito original están integrados;
 la conexión móvil D26/W39 y el grafo completo pasan sus HOST causales y TypeScript.
