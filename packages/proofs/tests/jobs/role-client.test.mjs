@@ -390,12 +390,12 @@ test('HOST private Native D26 SDK encrypts original opening for same recipient a
  // Actual SDK/AEAD/PoP/PC23 derivation. Public binding/HTTP result are explicit
  // HOST ports, with no Native proof, pool credit, receipt or payment.
  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
- const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs'),cryptoURL=new URL('./native-private-deposit-transit-v2.mjs',sdkURL);
+ const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs'),cryptoURL=new URL('./native-private-deposit-transit-v2.mjs',sdkURL),cryptoProviderURL=new URL('./native-private-crypto-provider-v2.ts',sdkURL);
  const {registerHooks}=await import('node:module');
  const oracle=`import{createHash,randomBytes,createCipheriv}from'node:crypto';export const getRandomBytesAsync=async n=>new Uint8Array(randomBytes(n));
   export const AESEncryptionKey={import:async b=>({bytes:new Uint8Array(b)})};export const aesEncryptAsync=async(b,k,o)=>{const c=createCipheriv('aes-256-gcm',k.bytes,o.nonce.bytes);c.setAAD(o.additionalData);
    const encrypted=Buffer.concat([c.update(b),c.final()]),all=Buffer.concat([Buffer.from(o.nonce.bytes),encrypted,c.getAuthTag()]);k.bytes.fill(0);encrypted.fill(0);return{combined:async encoding=>{const result=all.toString(encoding);all.fill(0);return result;}};};`;
- const hook=registerHooks({resolve(specifier,context,next){if(specifier==='expo-crypto'&&[cryptoURL.href].includes(context.parentURL))return{url:'data:text/javascript,'+encodeURIComponent(oracle),shortCircuit:true};return next(specifier,context);}});t.after(()=>hook.deregister());
+ const hook=registerHooks({resolve(specifier,context,next){if(specifier==='expo-crypto'&&context.parentURL===cryptoProviderURL.href)return{url:'data:text/javascript,'+encodeURIComponent(oracle),shortCircuit:true};return next(specifier,context);}});t.after(()=>hook.deregister());
  const P=await import(physical('../../../mobile-protocol/src/device-native-private-deposit-v2.mjs','../../../mobile-protocol/src/device-native-private-deposit-v2.mjs'));
  const {deriveOriginalNativePrivateDepositV2}=await import(physical('../../src/jobs/private-native-device-deposit-input-v2.mjs','./private-native-device-deposit-input-v2.mjs'));
  const {createOriginalAccountApiV2}=await import(sdkURL),{sealOriginalNativeDeviceDepositWitnessV2}=await import(cryptoURL);
@@ -430,10 +430,10 @@ test('HOST private Native W39 SDK binds deposited/change/recovery openings to or
  // Actual SDK/AEAD/PoP/PC23 W39 derivation; HTTP/binding are explicit ports.
  // This case spawns no Native worker and produces no financial proof/receipt.
  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
- const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs'),cryptoURL=new URL('./native-private-exit-transit-v2.mjs',sdkURL),depositCryptoURL=new URL('./native-private-deposit-transit-v2.mjs',sdkURL);
+ const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs'),cryptoURL=new URL('./native-private-exit-transit-v2.mjs',sdkURL),cryptoProviderURL=new URL('./native-private-crypto-provider-v2.ts',sdkURL);
  const {registerHooks}=await import('node:module');
  const oracle=`import{randomBytes,createCipheriv}from'node:crypto';export const getRandomBytesAsync=async n=>new Uint8Array(randomBytes(n));export const AESEncryptionKey={import:async b=>({bytes:new Uint8Array(b)})};export const aesEncryptAsync=async(b,k,o)=>{const c=createCipheriv('aes-256-gcm',k.bytes,o.nonce.bytes);c.setAAD(o.additionalData);const e=Buffer.concat([c.update(b),c.final()]),all=Buffer.concat([Buffer.from(o.nonce.bytes),e,c.getAuthTag()]);k.bytes.fill(0);e.fill(0);return{combined:async f=>{const s=all.toString(f);all.fill(0);return s;}};};`;
- const hook=registerHooks({resolve(s,c,n){if(s==='expo-crypto'&&[cryptoURL.href,depositCryptoURL.href].includes(c.parentURL))return{url:'data:text/javascript,'+encodeURIComponent(oracle),shortCircuit:true};return n(s,c);}});t.after(()=>hook.deregister());
+ const hook=registerHooks({resolve(s,c,n){if(s==='expo-crypto'&&c.parentURL===cryptoProviderURL.href)return{url:'data:text/javascript,'+encodeURIComponent(oracle),shortCircuit:true};return n(s,c);}});t.after(()=>hook.deregister());
  const P=await import(physical('../../../mobile-protocol/src/device-native-private-exit-v2.mjs','../../../mobile-protocol/src/device-native-private-exit-v2.mjs')),
  {deriveOriginalNativePrivateExitV2}=await import(physical('../../src/jobs/private-native-device-exit-input-v2.mjs','./private-native-device-exit-input-v2.mjs')),
  {createOriginalAccountApiV2}=await import(sdkURL),{sealOriginalNativeDeviceExitWitnessV2}=await import(cryptoURL),
