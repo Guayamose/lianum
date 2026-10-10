@@ -192,6 +192,25 @@ def fixed_launcher(source, project):
     traffic = '    run_script send-l1 --ethamount 0.0001 --from user_l1user --to user_l1user --wait --delay 1000 --times 1000000 > /dev/null &\n'
     require(source.count(traffic) == 1, 'ARBITRUM_ORIGINAL_LAUNCHER_CHANGED')
     source = source.replace(traffic, '    : # No background fixture transaction generator\n')
+    # Geth 1.16.4 validates every scheduled fork, including future Prague.
+    # Prysm's official output supplies that fork time; the pinned upstream
+    # template omitted its blob schedule. Add ONLY Geth's official default
+    # using the SAME pinned scripts image/Node, before generating either chain.
+    # No timestamp, fork epoch, account, contract or validator is changed.
+    genesis_step = '    run_script write-geth-genesis-config\n'
+    require(source.count(genesis_step) == 1, 'ARBITRUM_ORIGINAL_GENESIS_LAUNCHER_CHANGED')
+    schedule = (
+        "const fs=require('fs'),assert=require('assert/strict'),p='/config/geth_genesis.json';"
+        "const g=JSON.parse(fs.readFileSync(p,'utf8'));"
+        "assert.deepEqual(g.config.blobSchedule,{cancun:{target:3,max:6,baseFeeUpdateFraction:3338477}});"
+        "g.config.blobSchedule.prague={target:6,max:9,baseFeeUpdateFraction:5007716};"
+        "fs.writeFileSync(p,JSON.stringify(g),{mode:0o600});")
+    # Double quotes are absent in the fixed expression. The launcher supplies
+    # no caller arguments and prints no genesis/key/wire data.
+    require('\"' not in schedule and '$' not in schedule and '`' not in schedule,
+            'ARBITRUM_ORIGINAL_GENESIS_SCHEDULE_LITERAL')
+    source = source.replace(genesis_step, genesis_step +
+        '    docker compose run --rm --entrypoint node scripts -e "' + schedule + '"\n')
     require('docker volume prune' not in source and 'docker rm -f' not in source
             and 'docker volume rm -f' not in source, 'ARBITRUM_ORIGINAL_UNSCOPED_CLEANUP')
     return source

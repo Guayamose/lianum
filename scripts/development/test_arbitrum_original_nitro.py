@@ -39,6 +39,25 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_PAIRED_GENESIS_COMMAND_CHANGED$'):
             m.fixed_runtime_compose(altered, images, 'lianum-nitro-' + '3' * 32)
 
+    def test_official_prague_schedule_precedes_paired_genesis_generation(self):
+        spec = importlib.util.spec_from_file_location('original_nitro_prague_schedule', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        material = m.repository() / '.local/dependencies/arbitrum-nitro-v1/public' / f'nitro-testnode-{m.COMMIT}.tar.gz'
+        original = m.official_files(material)['test-node.bash'].decode()
+        launcher = m.fixed_launcher(original, 'lianum-nitro-' + '7' * 32)
+        command = 'docker compose run --rm --entrypoint node scripts -e '
+        self.assertEqual(launcher.count(command), 1)
+        self.assertLess(launcher.index('run_script write-geth-genesis-config'), launcher.index(command))
+        self.assertLess(launcher.index(command), launcher.index('run_script write-prysm-config'))
+        self.assertIn('g.config.blobSchedule.prague={target:6,max:9,baseFeeUpdateFraction:5007716}', launcher)
+        self.assertNotIn('g.config.pragueTime=', launcher)
+        self.assertNotIn('g.timestamp=', launcher)
+        self.assertIn('docker compose run --rm geth init --state.scheme hash', launcher)
+        altered = original.replace('    run_script write-geth-genesis-config\n', '')
+        with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_GENESIS_LAUNCHER_CHANGED$'):
+            m.fixed_launcher(altered, 'lianum-nitro-' + '7' * 32)
+
     def test_private_read_allows_access_time_but_rejects_mutation(self):
         spec = importlib.util.spec_from_file_location('original_nitro_private_reader', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
         m = importlib.util.module_from_spec(spec)
