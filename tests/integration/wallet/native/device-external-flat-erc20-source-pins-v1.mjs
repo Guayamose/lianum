@@ -723,3 +723,8 @@ const META_FOUR_MOBILE=Object.freeze([
 ]);
 const META_FOUR_RUNNER=Object.freeze(['integration/run-device-external-flat-meta-four-deliveries-v1.mjs',...GRAPH_RUNNER.slice(1,6)]);
 export function deviceMetaFourGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_META_FOUR_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_META_FOUR_GRAPH_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:[...GRAPH_PRODUCERS].map(name=>pin(ROOT,name)),originalRunner:META_FOUR_RUNNER.map(name=>pin(ROOT,name)),originalMobile:META_FOUR_MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}
+
+/** Current Meta V2 producers remain in the original source closure. */
+const META_UNDERLYING_PRODUCERS_V2=['wallet-platform/modules/defi-adapters/owned-metamorpho-vault.mjs','wallet-platform/modules/defi-adapters/device-morpho-blue-private-exit-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs'];
+export function deviceMetaUnderlyingGraphSourcePinsV2(){assert.equal(arguments.length,0,'DEVICE_META_UNDERLYING_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_META_UNDERLYING_SOURCE_CAPSULE_V2',sharedOriginalClosure:deviceExternalFlatGraphSourcePinsV1(),originalMeta:META_UNDERLYING_PRODUCERS_V2.map(name=>pin(ROOT,name))};}
+export function deviceMetaFourUnderlyingGraphSourcePinsV2(){assert.equal(arguments.length,0,'DEVICE_META_FOUR_UNDERLYING_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_META_FOUR_UNDERLYING_SOURCE_CAPSULE_V2',sharedOriginalClosure:deviceMetaFourGraphSourcePinsV1(),originalMeta:META_UNDERLYING_PRODUCERS_V2.map(name=>pin(ROOT,name))};}
