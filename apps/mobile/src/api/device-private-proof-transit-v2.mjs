@@ -6,8 +6,10 @@ import {hkdf} from '@noble/hashes/hkdf.js';
 import {sha256} from '@noble/hashes/sha2.js';
 import {normalizeExternalFlatConsentV1,normalizeExternalFlatSignatureV1,validateExternalFlatFreshV1,
   externalFlatPermissionMessageV1,externalFlatPrivateProofTranscriptBytesV2,externalFlatIntentPublicInputsV2,
+  DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3,externalFlatPrivateWalletTranscriptBytesV3,externalFlatWalletPublicInputsV3,
   externalFlatWitnessV1,externalFlatWitnessBytesV1,externalFlatWipeV1}
   from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import * as Graph from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 const encoder=new TextEncoder(),alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const fail=()=>{throw Error('MOBILE_PRIVATE_D27_TRANSIT_REJECTED');};
 const need=value=>{if(!value)fail();};
@@ -20,24 +22,34 @@ function decode(value,maximum){need(typeof value==='string'&&value.length<=maxim
  for(let i=0;i<value.length;i+=4){const a=alphabet.indexOf(value[i]),b=alphabet.indexOf(value[i+1]),c=value[i+2]==='='?0:alphabet.indexOf(value[i+2]),d=value[i+3]==='='?0:alphabet.indexOf(value[i+3]);need(a>=0&&b>=0&&c>=0&&d>=0);const n=(a<<18)|(b<<12)|(c<<6)|d;out[pos++]=(n>>16)&255;if(pos<out.length)out[pos++]=(n>>8)&255;if(pos<out.length)out[pos++]=n&255;}
  need(encode(out)===value);return out;}
 export async function sealOriginalDeviceDepositIntentWitnessV2(rawConsent,rawSignature,rawWitness){
- need(arguments.length===3);const c=normalizeExternalFlatConsentV1(rawConsent),signature=normalizeExternalFlatSignatureV1(rawSignature);
- need(c.action==='PROVE_D27'&&c.privateProof);validateExternalFlatFreshV1(c);
+ need(arguments.length===3);return sealFixedWitness(rawConsent,rawSignature,rawWitness,false);
+}
+export async function sealOriginalDeviceWalletNoteWitnessV3(rawConsent,rawSignature,rawWitness){
+ need(arguments.length===3);return sealFixedWitness(rawConsent,rawSignature,rawWitness,true);
+}
+export async function sealOriginalDeviceGraphOutputWitnessV3(rawConsent,rawSignature,rawWitness){
+ need(arguments.length===3);return sealFixedWitness(rawConsent,rawSignature,rawWitness,true,true);
+}
+async function sealFixedWitness(rawConsent,rawSignature,rawWitness,wallet,graph=false){
+ const wrapper=graph?Graph.normalizeExternalFlatGraphOutputConsentV1(rawConsent):null,c=wrapper?wrapper.consent:normalizeExternalFlatConsentV1(rawConsent),signature=normalizeExternalFlatSignatureV1(rawSignature);
+ need(wallet?['PROVE_D26','PROVE_W39'].includes(c.action)&&c.privateProof?.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3:c.action==='PROVE_D27'&&c.privateProof);
+ const mode=wallet?(c.action==='PROVE_D26'?'deposit_balance':'withdraw_balance'):'deposit_intent';if(wallet)need(graph?c.privateProof.noteRole===wrapper.noteRole:c.privateProof.noteRole===null);validateExternalFlatFreshV1(c);
  let witness,bytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der;
  try{
-  need(hex(sha256(externalFlatPrivateProofTranscriptBytesV2(c)))===c.privateProof.transcriptSHA256);
-  witness=externalFlatWitnessV1('deposit_intent',rawWitness);bytes=externalFlatWitnessBytesV1('deposit_intent',witness);
+  need(hex(sha256(wallet?externalFlatPrivateWalletTranscriptBytesV3(c):externalFlatPrivateProofTranscriptBytesV2(c)))===c.privateProof.transcriptSHA256);
+  witness=externalFlatWitnessV1(mode,rawWitness);bytes=externalFlatWitnessBytesV1(mode,witness);
   need(hex(sha256(bytes))===c.witnessSHA256);
-  const expected=externalFlatIntentPublicInputsV2(c.statement),r=c.privateProof.recipient;
+  const expected=wallet?externalFlatWalletPublicInputsV3(mode,c.statement):externalFlatIntentPublicInputsV2(c.statement),r=c.privateProof.recipient;
   der=decode(r.recipientPublicKey,60);need(der.length===44&&prefix.every((b,i)=>der[i]===b));recipient=der.slice(12);
   secret=await Crypto.getRandomBytesAsync(32);validateExternalFlatFreshV1(c);need(secret instanceof Uint8Array&&secret.length===32);
   sender=x25519.getPublicKey(secret);shared=x25519.getSharedSecret(secret,recipient);need(shared.some(b=>b!==0));
   const senderDer=new Uint8Array(44);senderDer.set(prefix);senderDer.set(sender,12);
   const authorization={kind:'ORIGINAL_CONSENT_V1',jobId:c.jobId,
-    consentSHA256:hex(sha256(externalFlatPermissionMessageV1(c))),witnessSHA256:c.witnessSHA256};
+    consentSHA256:hex(sha256(wrapper?Graph.externalFlatGraphOutputPermissionMessageV1(wrapper):externalFlatPermissionMessageV1(c))),witnessSHA256:c.witnessSHA256};
   const header={profile:r.profile,relation:r.relation,role:r.role,jobId:r.jobId,recipientPublicKey:r.recipientPublicKey,
     senderPublicKey:encode(senderDer),authorization,publicInputsSHA256:hex(sha256(encoder.encode(JSON.stringify(expected))))};
   senderDer.fill(0);aad=encoder.encode(JSON.stringify(header));
-  const text=JSON.stringify({inputs:{profile:'DEVICE_D27_PRIVATE_WITNESS_INPUT_V2',consent:c,signature,witness},expectedPublicInputs:expected});
+  const text=JSON.stringify({inputs:{profile:wallet?'DEVICE_WALLET_NOTE_PRIVATE_WITNESS_INPUT_V3':'DEVICE_D27_PRIVATE_WITNESS_INPUT_V2',consent:wrapper??c,signature,witness},expectedPublicInputs:expected});
   need(text.length<=12288);clear=encoder.encode(text);need(clear.length<=12288);
   salt=await Crypto.getRandomBytesAsync(32);iv=await Crypto.getRandomBytesAsync(12);validateExternalFlatFreshV1(c);
   need(salt instanceof Uint8Array&&salt.length===32&&iv instanceof Uint8Array&&iv.length===12);

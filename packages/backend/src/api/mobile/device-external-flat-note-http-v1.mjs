@@ -11,7 +11,7 @@ import {lstatSync,realpathSync} from 'node:fs';
 import {join,relative,resolve,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {ROOT,FLAT,GOLDEN} from '../../../../proofs/src/catalog.mjs';
-import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1,isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
+import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1,isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2,isOriginalDeviceExternalFlatPrivateNoteAuthorityV3} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 const listeners=new WeakSet(),diagnosticSlots=new WeakMap(),MAX_BODY=8192,MAX_REPLY=65536;
 const fail=()=>{throw Error('DEVICE_EXTERNAL_FLAT_TLS_CONFIGURATION');};
 const DIAGNOSTIC_TYPES=new Map([[AssertionError.prototype,'ASSERTION_ERROR'],[TypeError.prototype,'TYPE_ERROR'],[RangeError.prototype,'RANGE_ERROR'],[Error.prototype,'ERROR'],[AggregateError.prototype,'AGGREGATE_ERROR']]);
@@ -124,7 +124,7 @@ export async function createOriginalDeviceExternalFlatTlsServerV1(input){
  const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())fail();};current();
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
  const prefix=descriptor.profile==='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1'?'/v1/mobile/external-flat-share':'/v1/mobile/external-flat';
- const routes=Object.freeze({[prefix+'/challenges']:'challenge',[prefix+'/reviews']:'review',[prefix+'/operations']:'operate',[prefix+'/status']:'status',...(isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2(reader)?{[prefix+'/private-operations']:'operate'}:{})});
+ const routes=Object.freeze({[prefix+'/challenges']:'challenge',[prefix+'/reviews']:'review',[prefix+'/operations']:'operate',[prefix+'/status']:'status',...((isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2(reader)||isOriginalDeviceExternalFlatPrivateNoteAuthorityV3(reader))?{[prefix+'/private-operations']:'operate'}:{})});
  listeners.add(reader);diagnosticSlots.set(reader,{latest:null});
  try{server=createServer({cert:input.tls.certificate,key:privateKey,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
   let resetResponseTimeout,requestBody,phase='REQUEST',action=null;
@@ -166,9 +166,9 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
  let certificate;try{certificate=new X509Certificate(input.tls.certificate);const key=createPrivateKey(input.tls.privateKey);if(certificate.ca||!certificate.checkPrivateKey(key)||(isIP(hostname)?certificate.checkIP(hostname)!==hostname:certificate.checkHost(hostname,{subject:'never',wildcards:false})!==hostname))fail();}catch{fail();}
  const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())fail();};current();
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
- const routes=Object.freeze({'/v1/mobile/external-flat/challenges':'challenge','/v1/mobile/external-flat/reviews':'review','/v1/mobile/external-flat/operations':'operate','/v1/mobile/external-flat/status':'status',
+ const routes=Object.freeze({... (isOriginalDeviceExternalFlatPrivateNoteAuthorityV3(reader)?{'/v1/mobile/external-flat/private-operations':'operate'}:{}),'/v1/mobile/external-flat/challenges':'challenge','/v1/mobile/external-flat/reviews':'review','/v1/mobile/external-flat/operations':'operate','/v1/mobile/external-flat/status':'status',
  '/v1/mobile/external-flat-share/challenges':'challenge','/v1/mobile/external-flat-share/reviews':'review','/v1/mobile/external-flat-share/operations':'operate','/v1/mobile/external-flat-share/status':'status',...(isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2(target)?{'/v1/mobile/external-flat-share/private-operations':'operate'}:{}),
- '/v1/mobile/external-flat/source-graph/challenges':'challenge','/v1/mobile/external-flat/source-graph/preparations':'preparation','/v1/mobile/external-flat/source-graph/reviews':'review','/v1/mobile/external-flat/source-graph/operations':'operate','/v1/mobile/external-flat/source-graph/private-operations':'operate','/v1/mobile/external-flat/source-graph/status':'status','/v1/mobile/external-flat/source-graph/output-quotes':'outputQuote','/v1/mobile/external-flat/source-graph/output-reviews':'outputReview','/v1/mobile/external-flat/source-graph/output-operations':'outputOperate',
+ '/v1/mobile/external-flat/source-graph/challenges':'challenge','/v1/mobile/external-flat/source-graph/preparations':'preparation','/v1/mobile/external-flat/source-graph/reviews':'review','/v1/mobile/external-flat/source-graph/operations':'operate','/v1/mobile/external-flat/source-graph/private-operations':'operate','/v1/mobile/external-flat/source-graph/status':'status','/v1/mobile/external-flat/source-graph/output-quotes':'outputQuote','/v1/mobile/external-flat/source-graph/output-reviews':'outputReview','/v1/mobile/external-flat/source-graph/output-operations':'outputOperate','/v1/mobile/external-flat/source-graph/private-output-operations':'outputOperate',
  '/v1/mobile/external-flat/morpho-blue/challenges':'blueChallenge','/v1/mobile/external-flat/morpho-blue/reviews':'blueReview','/v1/mobile/external-flat/morpho-blue/operations':'blueOperate','/v1/mobile/external-flat/morpho-blue/status':'blueStatus'});
  listeners.add(reader);listeners.add(target);diagnosticSlots.set(reader,{latest:null});
  try{server=createServer({cert:input.tls.certificate,key:privateKey,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['http/1.1'],maxHeaderSize:8192,handshakeTimeout:2000},(request,response)=>{
@@ -176,7 +176,7 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
   const work=(async()=>{if(closed)fail();current();if(request.socket.encrypted!==true||request.headers.host!==origin.host||request.headers.origin!==descriptor.origin||request.method!=='POST'||!Object.hasOwn(routes,request.url))fail();
    const graph=request.url.startsWith('/v1/mobile/external-flat/source-graph/'),blue=request.url.startsWith('/v1/mobile/external-flat/morpho-blue/'),selected=graph||blue?workspace:request.url.startsWith('/v1/mobile/external-flat-share/')?target:reader;
    phase={challenge:'CHALLENGE',preparation:'REVIEW',review:'REVIEW',operate:'OPERATE',status:'STATUS',outputQuote:'REVIEW',outputReview:'REVIEW',outputOperate:'OPERATE',blueChallenge:'CHALLENGE',blueReview:'REVIEW',blueOperate:'OPERATE',blueStatus:'STATUS'}[routes[request.url]];
-   const value=requestBody=await body(request,graph?65536:request.url==='/v1/mobile/external-flat-share/private-operations'?16384:MAX_BODY);if(closed)fail();
+   const value=requestBody=await body(request,graph?65536:['/v1/mobile/external-flat-share/private-operations','/v1/mobile/external-flat/private-operations'].includes(request.url)?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
    // Permission admission remains15s. Only waiting for the SAME original
    // finite worker result uses its unchanged900000ms operation bound.

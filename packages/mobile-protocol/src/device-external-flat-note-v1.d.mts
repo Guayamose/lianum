@@ -4,7 +4,7 @@ export type ExternalFlatStatement={scope:string;policy:string;epoch?:string;vali
 export type ExternalFlatPath={root:string;index:number;leaf:string;siblings:string[]};
 export type ExternalFlatAccess={profile:string;action:'ACCESS';origin:string;pairingId:string;devicePublicKey:string;challengeId:string;nonce:string;expiresAt:number};
 export type ExternalFlatAction='PROVE_D26'|'FUND_D26'|'OBSERVE_D26'|'PROVE_D27'|'OBSERVE_D27'|'QUOTE_W39'|'PROVE_W39'|'WITHDRAW_W39'|'OBSERVE_W39';
-export type ExternalFlatConsent={profile:string;action:ExternalFlatAction;descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;jobId:string;depositJobId:string;rootId:string;noteRevision:number;recipient:string;statement:ExternalFlatStatement;path:ExternalFlatPath|null;witnessSHA256:string|null;proofSHA256:string|null;publicInputsSHA256:string|null;observed:ExternalFlatObserved;openingDisclosure:string|null;privateProof?:ExternalFlatPrivateProofV2};
+export type ExternalFlatConsent={profile:string;action:ExternalFlatAction;descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;jobId:string;depositJobId:string;rootId:string;noteRevision:number;recipient:string;statement:ExternalFlatStatement;path:ExternalFlatPath|null;witnessSHA256:string|null;proofSHA256:string|null;publicInputsSHA256:string|null;observed:ExternalFlatObserved;openingDisclosure:string|null;privateProof?:ExternalFlatPrivateProofV2|ExternalFlatPrivateWalletProofV3};
 export type ExternalFlatFields=Pick<ExternalFlatConsent,'jobId'|'depositJobId'|'rootId'|'noteRevision'|'recipient'|'statement'|'path'|'witnessSHA256'|'proofSHA256'|'publicInputsSHA256'>;
 export type ExternalFlatDraft={action:ExternalFlatAction;jobId:string|null;rootId:string;noteRevision:number;recipient:string;statement:ExternalFlatStatement|null;path:ExternalFlatPath|null;witnessSHA256:string|null};
 export type ExternalFlatObservation={profile:string;jobId:string;depositJobId:string;rootId:string;commitment:string;amount:string;recipient:string;proofSHA256:string;publicInputsSHA256:string;transactionHash:string;calldataSHA256:string;receiptBlockHash:string;observed:ExternalFlatObserved;status:'CONFIRMED';canonicalRpcVerifiedBy:'ORIGINAL_BACKEND_OBSERVER';mobileCanonicalRpcVerified:false};
@@ -38,3 +38,9 @@ export const DEVICE_EXTERNAL_FLAT_PRIVATE_D27_V2:string;
 export function normalizeExternalFlatPrivateProofV2(raw:unknown):ExternalFlatPrivateProofV2;
 export function externalFlatPrivateProofTranscriptBytesV2(raw:unknown):Uint8Array;
 export function externalFlatIntentPublicInputsV2(raw:unknown):string[];
+
+export type ExternalFlatPrivateWalletProofV3={profile:string;noteRole:null|'change'|'recovery';recipient:{type:string;profile:string;relation:'deposit_balance'|'withdraw_balance';role:'owner';jobId:string;recipientPublicKey:string};transcriptSHA256:string};
+export const DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3:string;
+export function normalizeExternalFlatPrivateWalletProofV3(raw:unknown,mode:'deposit_balance'|'withdraw_balance'):ExternalFlatPrivateWalletProofV3;
+export function externalFlatPrivateWalletTranscriptBytesV3(raw:unknown):Uint8Array;
+export function externalFlatWalletPublicInputsV3(mode:'deposit_balance'|'withdraw_balance',raw:unknown):string[];

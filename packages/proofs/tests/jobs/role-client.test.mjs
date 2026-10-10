@@ -281,3 +281,59 @@ test('HOST private D27 SDK sends only recipient ciphertext and original recipien
     client.close();assert.throws(()=>sdk.readDeviceExternalFlatRowV1(row));
   }finally{client.close();P.externalFlatWipeV1(witness);wipePrivateProofInputsV1(note);}
 });
+
+test('HOST private original26/39 SDK hides openings and same recipient validates original PC23 tuple/path/signatures', {timeout:20000}, async t=>{
+ // Original mobile transport/crypto/PC23 derivation. Response rows below are
+ // explicit inert ports; this case creates no proof, pool credit or payment.
+  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+  const sdkURL=physical('../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs','../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs'),cryptoURL=new URL('./device-private-proof-transit-v2.mjs',sdkURL);
+  const graphSdkURL=new URL('./device-external-flat-graph-api-v1.mjs',sdkURL);
+  const {registerHooks}=await import('node:module');
+  const oracle=`import{createHash,randomBytes,createCipheriv}from'node:crypto';
+    export const CryptoDigestAlgorithm={SHA256:'SHA256'};
+    export const getRandomBytesAsync=async n=>new Uint8Array(randomBytes(n));
+    export const digest=async(_,b)=>new Uint8Array(createHash('sha256').update(new Uint8Array(b)).digest()).buffer;
+    export const AESEncryptionKey={import:async b=>({bytes:new Uint8Array(b)})};
+    export const aesEncryptAsync=async(b,k,o)=>{const cipher=createCipheriv('aes-256-gcm',k.bytes,o.nonce.bytes);cipher.setAAD(o.additionalData);
+      const encrypted=Buffer.concat([cipher.update(b),cipher.final()]),all=Buffer.concat([Buffer.from(o.nonce.bytes),encrypted,cipher.getAuthTag()]);
+      k.bytes.fill(0);encrypted.fill(0);return{combined:async encoding=>{const result=all.toString(encoding);all.fill(0);return result;}};};`;
+  const hook=registerHooks({resolve(specifier,context,next){if(specifier==='expo-crypto'&&[sdkURL.href,graphSdkURL.href,cryptoURL.href].includes(context.parentURL))return{url:'data:text/javascript,'+encodeURIComponent(oracle),shortCircuit:true};return next(specifier,context);}});t.after(()=>hook.deregister());
+
+ const P=await import(physical('../../../mobile-protocol/src/device-external-flat-note-v1.mjs','../../../mobile-protocol/src/device-external-flat-note-v1.mjs'));
+ const {deriveOriginalDeviceWalletNoteJobV3}=await import(physical('../../src/jobs/private-device-wallet-note-input-v3.mjs','./private-device-wallet-note-input-v3.mjs'));
+ const {sealOriginalDeviceWalletNoteWitnessV3,sealOriginalDeviceGraphOutputWitnessV3}=await import(cryptoURL),sdk=await import(sdkURL),graphSdk=await import(graphSdkURL),Graph=await import(physical('../../../mobile-protocol/src/device-external-flat-graph-v1.mjs','../../../mobile-protocol/src/device-external-flat-graph-v1.mjs'));
+ const {freshKey,signature,nullifier}=await import(physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'));
+ const {balanceCommitment,walletDepositInput,walletWithdrawInput}=await import(physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs'));
+ const {PrivateNoteTree}=await import(physical('../../../engine/src/notes/private-note-tree.mjs','../../../omnichain-product/src/private-note-tree.mjs'));
+ const h=b=>createHash('sha256').update(b).digest('hex'),device=freshKey(),owner=freshKey();
+ for(const [mode,profile,role] of [['deposit_balance',P.DEVICE_EXTERNAL_FLAT_NOTE_V1,null],['withdraw_balance',P.DEVICE_EXTERNAL_FLAT_NOTE_V1,null],['withdraw_balance',P.DEVICE_EXTERNAL_FLAT_SHARE_V1,null],['withdraw_balance',P.DEVICE_EXTERNAL_FLAT_NOTE_V1,'change'],['withdraw_balance',P.DEVICE_EXTERNAL_FLAT_NOTE_V1,'recovery']]){
+  const label=mode+profile+(role??''),descriptor=P.normalizeExternalFlatDescriptorV1({profile,origin:'https://localhost:9443',pairingId:h(label+'pair'),devicePublicKey:'04'+device.x.toString('hex')+device.y.toString('hex'),lifetime:h(label+'life'),
+   poolTerms:Object.fromEntries(['pool','poolCodeHash','scope','policy','assetIdentity','asset','assetCodeHash','genesis','domainCommitment','hub','hubCodeHash','hubDomain','ledgerNamespace'].map(k=>[k,h(label+k).slice(0,['pool','asset','hub'].includes(k)?40:64)])),assetMetadata:{kind:'ERC20',symbol:'NOTE',decimals:6}});
+  const note={type:4,rho:Buffer.from(h(label+'rho'),'hex'),...owner,value:'20',secret:Buffer.from(h(label+'secret'),'hex')};
+  const scope=descriptor.poolTerms.scope,policy=descriptor.poolTerms.policy,cm=balanceCommitment(scope,policy,note).toString('hex'),nf=nullifier(scope,cm,note.secret).toString('hex'),tree=new PrivateNoteTree(['0x'+cm]),originalPath=tree.path(0),recipient='90'.repeat(20),path={root:originalPath.root.slice(2),index:0,leaf:cm,siblings:originalPath.siblings.map(s=>s.slice(2))};
+  const deposit=mode==='deposit_balance',statement=deposit?{scope,policy,epoch:'10',amount:note.value,output:cm}:{scope,policy,epoch:'10',root:path.root,nullifier:nf,amount:note.value,recipient,commitment:cm};
+  const witness=deposit?walletDepositInput({scope,policy,epoch:'10',note}):walletWithdrawInput({scope,policy,epoch:'10',note,path:originalPath,recipient});
+  const bytes=P.externalFlatWitnessBytesV1(mode,witness),witnessSHA256=h(bytes);bytes.fill(0);
+  const make=ready=>{const c={profile,action:deposit?'PROVE_D26':'PROVE_W39',descriptor,challengeId:h(label+'challenge'),nonce:h(label+'nonce'),expiresAt:Date.now()+15000,jobId:h(label+'job'),depositJobId:deposit?h(label+'job'):h(label+'parent'),rootId:h(label+'root'),noteRevision:1,recipient,statement,path:deposit?null:path,witnessSHA256,proofSHA256:null,publicInputsSHA256:null,observed:{blockNumber:'1',blockHash:h(label+'head'),timestamp:'6000'},openingDisclosure:P.DEVICE_EXTERNAL_FLAT_OPENING_V1,
+   privateProof:{profile:P.DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3,recipient:ready,noteRole:role,transcriptSHA256:'1'.repeat(64)}};c.privateProof.transcriptSHA256=h(P.externalFlatPrivateWalletTranscriptBytesV3(c));return role?Graph.normalizeExternalFlatGraphOutputConsentV1({profile:Graph.DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1,noteRole:role,consent:c}):P.normalizeExternalFlatConsentV1(c);};
+  const own=createPrivateProofRecipientV1({relation:mode,role:'owner',jobId:'private-wallet-recipient'}),consent=make(readPrivateProofRecipientV1(own));
+  const inner=role?consent.consent:consent,message=c=>c.profile===Graph.DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1?Graph.externalFlatGraphOutputPermissionMessageV1(c):P.externalFlatPermissionMessageV1(c),seal=role?sealOriginalDeviceGraphOutputWitnessV3:sealOriginalDeviceWalletNoteWitnessV3,sign=c=>signature(device,message(c)).toString('hex');let posts=0,packet,derived;
+  const response=value=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}}),client=(role?graphSdk.createDeviceExternalFlatGraphApiV1:sdk.createDeviceExternalFlatNoteApiV1)({descriptor,fetchImpl:async(url,init)=>{
+   const action=new URL(url).pathname.split('/').at(-1),request=JSON.parse(init.body);assert.equal(url.includes('/external-flat-share/'),profile===P.DEVICE_EXTERNAL_FLAT_SHARE_V1);
+   if(action==='challenges')return response({profile,action:'ACCESS',origin:descriptor.origin,pairingId:descriptor.pairingId,devicePublicKey:descriptor.devicePublicKey,challengeId:h(label+'access'),nonce:h(label+'accessNonce'),expiresAt:Date.now()+15000});
+   if(action==='reviews'||action==='output-reviews')return response(role?consent:{consent});assert.equal(action,role?'private-output-operations':'private-operations');posts++;packet=structuredClone(request.witness);
+   assert.ok(Buffer.byteLength(init.body)<=16384);for(const key of ['"rho"','"key_x"','"secret"','"signature":['])assert.equal(init.body.includes(key),false);assert.equal(init.body.includes(note.secret.toString('hex')),false);
+   const opened=openPrivateProofJobV1(own,request.witness);try{derived=deriveOriginalDeviceWalletNoteJobV3(opened,mode);assert.deepEqual(opened.inputs,witness);assert.deepEqual(opened.expectedPublicInputs,P.externalFlatWalletPublicInputsV3(mode,statement));}finally{wipePrivateProofInputsV1(opened.inputs);}
+   const fields=Object.fromEntries(['jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256'].map(k=>[k,inner[k]])),row={profile,descriptor,jobId:inner.jobId,mode,stage:'PROVED',consentFields:{...fields,proofSHA256:h(label+'inertProof'),publicInputsSHA256:h(JSON.stringify(P.externalFlatWalletPublicInputsV3(mode,statement)))},observation:null,errorCode:null};return response(role?{profile:Graph.DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1,noteRole:role,row}:row);
+  }});
+  try{
+   const access=await client.challenge(),fields={action:inner.action,jobId:deposit?null:inner.jobId,rootId:inner.rootId,noteRevision:1,recipient,statement,path:deposit?null:path,witnessSHA256},draft=role?{profile:Graph.DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1,noteRole:role,draft:fields}:fields,review=await (role?client.outputReview:client.review)(access,sign(access),draft),submit=role?client.outputSubmit:client.submit,row=await submit(review,sign(review),witness),readRow=role?graphSdk.readDeviceExternalFlatGraphOutputRowV1:sdk.readDeviceExternalFlatRowV1;
+   assert.equal(readRow(row),row);assert.throws(()=>readRow(structuredClone(row)));assert.equal(derived.commitment,cm);assert.equal(derived.nullifier,nf);assert.equal(derived.consentSHA256,h(message(consent)));assert.equal(posts,1);await assert.rejects(submit(review,sign(review),witness));assert.equal(posts,1);assert.throws(()=>openPrivateProofJobV1(own,packet),/ONE_HANDOFF/);
+   assert.throws(()=>deriveOriginalDeviceWalletNoteJobV3({inputs:{profile:'DEVICE_WALLET_NOTE_PRIVATE_WITNESS_INPUT_V3',consent,signature:sign(consent),witness}},mode),/ORIGINAL_RECIPIENT/);
+   assert.equal(derived.noteRole,role);const changed=structuredClone(consent),changedInner=role?changed.consent:changed;changedInner.recipient='91'.repeat(20);if(!deposit)changedInner.statement.recipient=changedInner.recipient;await assert.rejects(seal(changed,sign(consent),witness));if(role){const switched=structuredClone(consent);switched.noteRole=role==='change'?'recovery':'change';await assert.rejects(seal(switched,sign(consent),witness));}
+   const wrong=createPrivateProofRecipientV1({relation:mode,role:'owner',jobId:'private-wallet-wrong-signer'}),wrongConsent=make(readPrivateProofRecipientV1(wrong)),bad=await seal(wrongConsent,signature(owner,message(wrongConsent)).toString('hex'),witness),opened=openPrivateProofJobV1(wrong,bad);try{assert.throws(()=>deriveOriginalDeviceWalletNoteJobV3(opened,mode),/DEVICE_SIGNATURE/);}finally{wipePrivateProofInputsV1(opened.inputs);}
+   const corrupt=createPrivateProofRecipientV1({relation:mode,role:'owner',jobId:'private-wallet-corrupt'}),corruptConsent=make(readPrivateProofRecipientV1(corrupt)),good=await seal(corruptConsent,sign(corruptConsent),witness),badTag=structuredClone(good);badTag.tag=Buffer.alloc(16).toString('base64');assert.throws(()=>openPrivateProofJobV1(corrupt,badTag),/INVALID_ENCRYPTED_JOB/);assert.throws(()=>openPrivateProofJobV1(corrupt,good),/ONE_HANDOFF/);
+   client.close();assert.throws(()=>readRow(row));
+  }finally{client.close();P.externalFlatWipeV1(witness);note.rho.fill(0);note.secret.fill(0);}
+ }
+});

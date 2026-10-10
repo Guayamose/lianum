@@ -4,7 +4,7 @@ import * as Crypto from 'expo-crypto';
 import { DEVICE_EXTERNAL_FLAT_SHARE_V1, normalizeExternalFlatDescriptorV1, normalizeExternalFlatAccessV1,
   normalizeExternalFlatConsentV1, normalizeExternalFlatRowV1, normalizeExternalFlatStatusV1,
   normalizeExternalFlatSignatureV1, externalFlatExactV1, externalFlatWitnessV1,
-  externalFlatWitnessBytesV1, externalFlatWipeV1, externalFlatPrivateProofTranscriptBytesV2, validateExternalFlatFreshV1 }
+  externalFlatWitnessBytesV1, externalFlatWipeV1, externalFlatPrivateProofTranscriptBytesV2, externalFlatPrivateWalletTranscriptBytesV3, DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3, validateExternalFlatFreshV1 }
   from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 const rows = new WeakMap(), statuses = new WeakMap(), quotes = new WeakMap();
 const fail = () => { throw Error('MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED'); };
@@ -127,7 +127,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
         if (draft.jobId !== null && value.jobId !== draft.jobId) fail();
         for (const name of ['statement', 'path', 'witnessSHA256']) if (!same(value[name], draft[name])) fail();
       }
-      if(value.privateProof){if(value.action!=='PROVE_D27'||await digest(externalFlatPrivateProofTranscriptBytesV2(value))!==value.privateProof.transcriptSHA256)fail();consentScope(value);}
+      if(value.privateProof){if(await digest(value.privateProof.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3?externalFlatPrivateWalletTranscriptBytesV3(value):externalFlatPrivateProofTranscriptBytesV2(value))!==value.privateProof.transcriptSHA256)fail();consentScope(value);}
       consents.set(value, { consumed: false }); return value;
     },
     async submit(consent, signature, rawWitness = null) {
@@ -141,7 +141,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
           bytes = externalFlatWitnessBytesV1(consent.action === 'PROVE_D27' ? 'deposit_intent' : consent.action === 'PROVE_D26' ? 'deposit_balance' : 'withdraw_balance', witness);
           if (await digest(bytes) !== consent.witnessSHA256) fail();
         } else if (rawWitness !== null) fail();
-        let wireWitness=witness;if(consent.privateProof){const{sealOriginalDeviceDepositIntentWitnessV2}=await import('./device-private-proof-transit-v2.mjs');consentScope(consent);wireWitness=await sealOriginalDeviceDepositIntentWitnessV2(consent,signature,witness);}
+        let wireWitness=witness;if(consent.privateProof){const crypto=await import('./device-private-proof-transit-v2.mjs');consentScope(consent);wireWitness=await (consent.privateProof.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3?crypto.sealOriginalDeviceWalletNoteWitnessV3:crypto.sealOriginalDeviceDepositIntentWitnessV2)(consent,signature,witness);}
         consentScope(consent); entry.consumed = true;
         const response = await post(consent.privateProof?'private-operations':'operations', { consent, signature, witness:wireWitness }, consent.action === 'PROVE_D26' || consent.action === 'PROVE_D27' || consent.action === 'PROVE_W39'); live();
         if (consent.action === 'QUOTE_W39') {

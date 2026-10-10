@@ -8,6 +8,7 @@ export const DEVICE_EXTERNAL_FLAT_NOTE_V1='LIANUM_DEVICE_EXTERNAL_FLAT_SOURCE_NO
 export const DEVICE_EXTERNAL_FLAT_SHARE_V1='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1';
 const profile=v=>v===DEVICE_EXTERNAL_FLAT_NOTE_V1||v===DEVICE_EXTERNAL_FLAT_SHARE_V1;
 export const DEVICE_EXTERNAL_FLAT_PRIVATE_D27_V2='ORIGINAL_DEVICE_D27_PRIVATE_TRANSIT_V2';
+export const DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3='ORIGINAL_DEVICE_WALLET_NOTE_PRIVATE_TRANSIT_V3';
 export const DEVICE_EXTERNAL_FLAT_OPENING_V1='ONE_ORIGINAL_OPENING_TO_FIXED_EPHEMERAL_WORKER';
 const fail=()=>{throw Error('DEVICE_EXTERNAL_FLAT_DATA');};
 export function externalFlatExactV1(raw,names){if(!raw||Object.getPrototypeOf(raw)!==Object.prototype||Reflect.ownKeys(raw).length!==names.length)fail();
@@ -35,7 +36,7 @@ export function normalizeExternalFlatConsentV1(raw){const privateField=raw&&type
  if(!profile(v.profile)||!['PROVE_D26','FUND_D26','OBSERVE_D26','PROVE_D27','OBSERVE_D27','QUOTE_W39','PROVE_W39','WITHDRAW_W39','OBSERVE_W39'].includes(v.action))fail();
  v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);for(const k of ['challengeId','nonce','jobId','depositJobId','rootId'])nonzero(v[k]);integer(v.expiresAt);integer(v.noteRevision);externalFlatHexV1(v.recipient,40);if(v.recipient==='0'.repeat(40)||v.recipient===v.descriptor.poolTerms.pool)fail();
  const intent=v.action.endsWith('D27'),deposit=v.action.endsWith('D26')||intent;
- if(privateField){if(v.action!=='PROVE_D27')fail();v.privateProof=normalizeExternalFlatPrivateProofV2(v.privateProof);}
+ if(privateField){if(v.action==='PROVE_D27')v.privateProof=normalizeExternalFlatPrivateProofV2(v.privateProof);else{if(!['PROVE_D26','PROVE_W39'].includes(v.action))fail();v.privateProof=normalizeExternalFlatPrivateWalletProofV3(v.privateProof,v.action==='PROVE_D26'?'deposit_balance':'withdraw_balance');}}
  if(v.profile!==v.descriptor.profile||intent&&v.profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||v.action.endsWith('D26')&&v.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1)fail();
  v.statement=intent?normalizeExternalFlatIntentStatementV1(v.statement):deposit?normalizeExternalFlatDepositStatementV1(v.statement):normalizeDeviceExitStatementV1(v.statement);
  if(v.statement.scope!==v.descriptor.poolTerms.scope||v.statement.policy!==v.descriptor.poolTerms.policy)fail();
@@ -55,7 +56,7 @@ export function validateExternalFlatFreshV1(raw,now=Date.now()){const v=accessFr
 /** A closed canonical JSON vocabulary inside a length-prefixed NEW domain.
  * No NativeValue permission or arbitrary message can be signed by this API. */
 export function externalFlatPermissionMessageV1(raw){const v=accessFrame(raw)?normalizeExternalFlatAccessV1(raw):normalizeExternalFlatConsentV1(raw),text=JSON.stringify(v);
- const domain=new TextEncoder().encode(v.profile+(v.privateProof?'/permission/2':'/permission/1')),body=new TextEncoder().encode(text);if(body.length>8192)fail();const out=new Uint8Array(8+domain.length+body.length),view=new DataView(out.buffer);view.setUint32(0,domain.length);out.set(domain,4);view.setUint32(4+domain.length,body.length);out.set(body,8+domain.length);return out;}
+ const domain=new TextEncoder().encode(v.profile+(v.privateProof?.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3?'/permission/3':v.privateProof?'/permission/2':'/permission/1')),body=new TextEncoder().encode(text);if(body.length>8192)fail();const out=new Uint8Array(8+domain.length+body.length),view=new DataView(out.buffer);view.setUint32(0,domain.length);out.set(domain,4);view.setUint32(4+domain.length,body.length);out.set(body,8+domain.length);return out;}
 export function externalFlatWitnessV1(mode,raw){if(mode==='deposit_balance')return normalizeDeviceDepositWitnessV1(raw);if(mode==='withdraw_balance')return normalizeDeviceExitWitnessV1(raw);if(mode==='deposit_intent'){
  const v=externalFlatExactV1(raw,['scope','policy','valid_from','valid_until','amount','output','rho','key_x','key_y','secret','signature']);
  externalFlatUintV1(v.valid_from);externalFlatUintV1(v.valid_until);if(BigInt(v.valid_from)>=BigInt(v.valid_until))fail();
@@ -96,3 +97,25 @@ export function externalFlatPrivateProofTranscriptBytesV2(raw){const c=normalize
   deviceJobId:c.jobId,descriptor:c.descriptor,rootId:c.rootId,noteRevision:c.noteRevision,recipientAddress:c.recipient,
   statement:c.statement,witnessSHA256:c.witnessSHA256,challengeId:c.challengeId,nonce:c.nonce,expiresAt:c.expiresAt}));}
 export function externalFlatIntentPublicInputsV2(raw){const s=normalizeExternalFlatIntentStatementV1(raw),words=v=>Array.from({length:8},(_,i)=>BigInt('0x'+v.slice(i*8,i*8+8)).toString());return frozen([...words(s.scope),...words(s.policy),s.validFrom,s.validUntil,s.amount,...words(s.output)]);}
+
+/** Separate fixed PC23 family: original26/39 ABI, a new signed recipient. */
+export function normalizeExternalFlatPrivateWalletProofV3(raw,mode){
+ if(!['deposit_balance','withdraw_balance'].includes(mode))fail();
+ const p=externalFlatExactV1(raw,['profile','recipient','noteRole','transcriptSHA256']);if(p.profile!==DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3||![null,'change','recovery'].includes(p.noteRole)||mode==='deposit_balance'&&p.noteRole!==null)fail();nonzero(p.transcriptSHA256);
+ const r=p.recipient=externalFlatExactV1(p.recipient,['type','profile','relation','role','jobId','recipientPublicKey']);
+ if(r.type!=='flat-private-proof-input-ready'||r.profile!=='ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1'||r.relation!==mode||r.role!=='owner'||typeof r.jobId!=='string'||/^[a-z0-9-]{8,100}$/.exec(r.jobId)?.[0]!==r.jobId)fail();
+ if(typeof r.recipientPublicKey!=='string'||/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/.exec(r.recipientPublicKey)?.[0]!==r.recipientPublicKey)fail();return frozen(p);
+}
+export function externalFlatPrivateWalletTranscriptBytesV3(raw){
+ const c=normalizeExternalFlatConsentV1(raw);if(c.privateProof?.profile!==DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3)fail();
+ return new TextEncoder().encode(JSON.stringify({profile:DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3,recipient:c.privateProof.recipient,noteRole:c.privateProof.noteRole,
+  deviceJobId:c.jobId,depositJobId:c.depositJobId,descriptor:c.descriptor,rootId:c.rootId,noteRevision:c.noteRevision,
+  action:c.action,recipientAddress:c.recipient,statement:c.statement,path:c.path,observed:c.observed,
+  witnessSHA256:c.witnessSHA256,challengeId:c.challengeId,nonce:c.nonce,expiresAt:c.expiresAt}));
+}
+export function externalFlatWalletPublicInputsV3(mode,raw){
+ const s=mode==='deposit_balance'?normalizeExternalFlatDepositStatementV1(raw):mode==='withdraw_balance'?normalizeDeviceExitStatementV1(raw):fail(),
+ words=v=>Array.from({length:v.length/8},(_,i)=>BigInt('0x'+v.slice(i*8,i*8+8)).toString());
+ return frozen(mode==='deposit_balance'?[...words(s.scope),...words(s.policy),s.epoch,s.amount,...words(s.output)]:
+ [...words(s.scope),...words(s.policy),s.epoch,...words(s.root),...words(s.nullifier),s.amount,...words(s.recipient)]);
+}
