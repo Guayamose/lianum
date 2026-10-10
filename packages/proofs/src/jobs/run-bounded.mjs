@@ -7,7 +7,11 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { types } from 'node:util';
-import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1,preparePrivateProofJobV1} from './private-proof-transit-v1.mjs';
+import {deriveOriginalDeviceDepositIntentJobV2} from './private-device-proof-input-v2.mjs';
+// Keep the trusted role entry's direct imports in its original closed grammar.
+// These reviewed recipient helpers are captured by noncompiler execution pins.
+export {preparePrivateProofJobV1,wipePrivateProofInputsV1,deriveOriginalDeviceDepositIntentJobV2};
 import { ROOT, LOCAL, PROFILE, LIMITS, DISCLOSURE, relation, operation } from '../catalog.mjs';
 import { argumentsFor, attemptPath, assertID, ensureDirectory, writeJSON, regular, replaceJSON,
   resources, resourceFailure, verifyAPI, verifyVendor, hash, jsonBytes,

@@ -5,9 +5,7 @@ import { assertBeginPayoutAuditRoleProcessV1 } from './native-flow-proof-scope-v
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import { relation } from '../catalog.mjs';
-import {preparePrivateProofJobV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
-import {deriveOriginalDeviceDepositIntentJobV2} from './private-device-proof-input-v2.mjs';
-import { runBoundedProof } from './run-bounded.mjs';
+import {runBoundedProof,preparePrivateProofJobV1,wipePrivateProofInputsV1,deriveOriginalDeviceDepositIntentJobV2} from './run-bounded.mjs';
 
 assert.equal(process.argv.length, 3, 'PW_ROLE_FIXED_ARGUMENTS');
 assert.equal(process.execArgv.length, 0, 'PW_NO_EXECUTABLE_OPTIONS');
