@@ -74,6 +74,17 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         with contextlib.redirect_stdout(output):
             runtime.enroll()
         self.assertEqual(output.getvalue(), '')
+        auxiliary = dict(original, id='d' * 64, service='create_beacon_chain_genesis',
+                         running=True, pid=os.getpid())
+        rows[auxiliary['id']] = auxiliary
+        with contextlib.redirect_stdout(output):
+            runtime.enroll()
+        self.assertEqual(output.getvalue(), '')
+        self.assertIsNone(runtime.containers[auxiliary['id']]['process'])
+        self.assertEqual(runtime.containers[auxiliary['id']]['id'], auxiliary['id'])
+        # The official setup service can complete and run again without being
+        # published as a live node or replacing any live kernel identity.
+        rows[auxiliary['id']]['running'] = False
         rows[original['id']]['running'] = True
         rows[original['id']]['pid'] = os.getpid()
         with contextlib.redirect_stdout(output):
@@ -81,6 +92,8 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         birth = json.loads(output.getvalue())['originalContainers']
         self.assertEqual(len(birth), 1)
         self.assertEqual(birth[0]['process'], module.process_identity(os.getpid()))
+        self.assertEqual(birth[0]['service'], 'geth')
+        self.assertNotIn(auxiliary['id'], {row['id'] for row in birth})
         rows[original['id']]['pid'] = os.getpid() + 999000
         with self.assertRaisesRegex(module.ClosedError, '^ARBITRUM_ORIGINAL_NATIVE_CHANGED$'):
             runtime.enroll()

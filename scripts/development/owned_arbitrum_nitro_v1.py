@@ -444,7 +444,7 @@ class OriginalCluster:
                             'ARBITRUM_ORIGINAL_NATIVE_CHANGED')
             else:
                 birth = None
-            if not birth and item['running'] and item['pid'] > 0:
+            if not birth and item['service'] in LIVE_SERVICES and item['running'] and item['pid'] > 0:
                 birth = process_identity(item['pid'])
                 changed = True
             item['process'] = birth

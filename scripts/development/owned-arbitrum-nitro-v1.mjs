@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
-const RECIPE_SHA256 = '0d25d29ebd095af5f5f1d69efaa1e97dec9dc953eaa4fda9e9c31d04be915070';
+const RECIPE_SHA256 = 'b9b67ea0871e9f009b3c15fc2fe95f964a0f659aa1d6f257cc17bf31b7262d6b';
 const BIRTH_MS = 600_000 + 180_000 + 15_000;
 const IPC_MS = 30_000;
 const owned = new WeakMap();
