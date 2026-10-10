@@ -16,6 +16,17 @@ def module():
 
 
 class OriginalBaseLocalTest(unittest.TestCase):
+    def test_host_and_null_networks_have_no_subnet_without_adopting_malformed_bridge(self):
+        m = module()
+        for driver in ('host', 'null'):
+            self.assertEqual(m.original_network_subnets({'Driver':driver,'IPAM':{'Config':None}}),[])
+        original={'Driver':'bridge','IPAM':{'Config':[{'Subnet':'172.28.16.0/24'}]}}
+        self.assertEqual(str(m.original_network_subnets(original)[0]),'172.28.16.0/24')
+        for invalid in ({'Driver':'bridge','IPAM':{'Config':None}},
+                        {'Driver':'bridge','IPAM':{'Config':[{'Subnet':'invalid'}]}}):
+            with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_NETWORK_INSPECTION$'):
+                m.original_network_subnets(invalid)
+
     def test_private_read_allows_access_time_but_rejects_mutation(self):
         m = module()
         with tempfile.TemporaryDirectory(prefix='original-private-read-') as value:

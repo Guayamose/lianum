@@ -205,6 +205,24 @@ def fixed_runtime_compose(original, images, project, realm):
     return value
 
 
+def original_network_subnets(item):
+    require(isinstance(item, dict) and isinstance(item.get('IPAM'), dict),
+            'BASE_ORIGINAL_NETWORK_INSPECTION')
+    rows = item['IPAM'].get('Config')
+    if rows is None:
+        require(item.get('Driver') in ('host', 'null'),
+                'BASE_ORIGINAL_NETWORK_INSPECTION')
+        return []
+    require(isinstance(rows, list) and len(rows) <= 64
+            and all(isinstance(row, dict) for row in rows),
+            'BASE_ORIGINAL_NETWORK_INSPECTION')
+    try:
+        return [ipaddress.ip_network(row['Subnet'], strict=False)
+                for row in rows if row.get('Subnet')]
+    except (ValueError, TypeError):
+        raise ClosedError('BASE_ORIGINAL_NETWORK_INSPECTION') from None
+
+
 def run(command, cwd, log, seconds=30, env=None):
     try:
         result = subprocess.run(command, cwd=cwd, stdout=subprocess.PIPE,
@@ -374,8 +392,7 @@ class OriginalCluster:
             require(len(network_ids) <= 128, 'BASE_ORIGINAL_NETWORK_BOUND')
             if network_ids:
                 for item in docker_json(['network', 'inspect', *network_ids], self.realm, self.log):
-                    occupied.extend(ipaddress.ip_network(row['Subnet'], strict=False)
-                                    for row in item['IPAM']['Config'] if row.get('Subnet'))
+                    occupied.extend(original_network_subnets(item))
             octet = next((n for n in range(16, 240) if all(not ipaddress.ip_network(f'172.28.{n}.0/24').overlaps(x)
                           for x in occupied if x.version == 4)), None)
             require(octet is not None, 'BASE_ORIGINAL_SUBNET_UNAVAILABLE')
