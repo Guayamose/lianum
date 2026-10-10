@@ -49,7 +49,7 @@ export function createNativeClaimDeviceApiV1({descriptor,fetchImpl=globalThis.fe
 
 
 import * as RootClaim from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
-import {validateOriginalWalletEconomicStateV1} from '../../../../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs';
+import {validateOriginalWalletEconomicStateV1} from '../../../../packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs';
 const freezeRootClaimData=value=>{if(value&&typeof value==='object'){for(const v of Object.values(value))freezeRootClaimData(v);Object.freeze(value);}return value;};
 const rootClaimPermissions=new WeakMap(),rootClaimReviews=new WeakMap(),rootClaimObservations=new WeakMap();
 export function readOriginalDeviceRootClaimPermissionV2(value){const r=rootClaimPermissions.get(value);if(!r)fail();r.live();return RootClaim.validateDeviceRootClaimPermissionFreshV2(value);}
