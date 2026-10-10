@@ -125,3 +125,27 @@ export function classifyNativePrivateAuthorizedDurableNoteRestartProcessV2(argv,
  if(basename(executable??'')==='anvil'||typeof argv[0]==='string'&&basename(argv[0])==='anvil')return unexpected();
  return null;
 }
+
+/** Own recipient V3 argv and authentic same-generation parent. */
+export const NATIVE_PRIVATE_WORKER_DURABLE_NOTE_MAIN_V3=join(ROOT,'integration/native-value-private-worker-durable-note-flow-v3.mjs');
+export const NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3=join(ROOT,'integration/run-native-value-private-worker-durable-note-successor-v3.mjs');
+const PRIVATE_WORKER_RECIPIENTS_V3=Object.freeze([
+ join(ROOT,'proof-workers/native-device-private-deposit-recipient-v3.mjs'),
+ join(ROOT,'proof-workers/native-device-private-exit-recipient-v3.mjs')]);
+export function classifyNativePrivateWorkerDurableNoteRestartProcessV3(argv,executable,parent=null){
+ assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
+ const main=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_WORKER_DURABLE_NOTE_MAIN_V3)),next=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3));
+ if(argv.includes(NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3))return executable===process.execPath&&main&&fixedNode(argv,NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3)?{role:'native-economic-successor-role',proofWorker:false}:unexpected();
+ const oldRecipient=argv.some(part=>typeof part==='string'&&/^native-device-private-(deposit|exit)-recipient-v2\.mjs$/.test(basename(part)));
+ if(oldRecipient)return unexpected();
+ const mode=argv.some(part=>typeof part==='string'&&basename(part)==='native-private-note-deposit-worker-v3.mjs')?'deposit':argv.some(part=>typeof part==='string'&&basename(part)==='native-private-note-withdraw-worker-v3.mjs')?'exit':null;
+ if(mode){const ownWorker=join(ROOT,'proof-workers/native-private-note-'+(mode==='deposit'?'deposit':'withdraw')+'-worker-v3.mjs'),ownRecipient=join(ROOT,'proof-workers/native-device-private-'+mode+'-recipient-v3.mjs');return executable===process.execPath&&fixedNode(argv,ownWorker)&&parent&&fixedNode(parent.argv,ownRecipient)?{role:'economic-note-native-coordinator',proofWorker:false}:unexpected();}
+ if(argv.some(part=>typeof part==='string'&&/^note-(deposit|withdraw)-native-worker-v1\.mjs$/.test(basename(part))))return unexpected();
+ const recipient=PRIVATE_WORKER_RECIPIENTS_V3.find(path=>argv.includes(path));
+ if(recipient||argv.some(part=>typeof part==='string'&&PRIVATE_WORKER_RECIPIENTS_V3.some(path=>basename(part)===basename(path))))
+  return recipient&&executable===process.execPath&&(main||next)&&fixedNode(argv,recipient)?{role:'native-private-note-recipient',proofWorker:false}:unexpected();
+ if(executable===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1||argv[0]===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1)
+  return executable===NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1&&(main||next)&&originalAnvilArguments(argv,next)?{role:'evm-runtime',proofWorker:false}:unexpected();
+ if(basename(executable??'')==='anvil'||typeof argv[0]==='string'&&basename(argv[0])==='anvil')return unexpected();
+ return null;
+}

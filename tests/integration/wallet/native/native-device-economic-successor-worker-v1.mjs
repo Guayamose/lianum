@@ -1,3 +1,5 @@
+import{isOriginalNativePrivateWorkerDepositBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import{isOriginalNativePrivateWorkerExecutionBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import{isOriginalNativePrivateReservationBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import{isOriginalNativePrivateDepositBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import{isOriginalNativePrivateExecutionBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
@@ -26,17 +28,19 @@ export function runNativeDeviceNoteEconomicSuccessorV1(){assert.equal(arguments.
 export function runNativeDeviceDurableNoteEconomicSuccessorV1(){assert.equal(arguments.length,0);return runOriginalSuccessor(true,true);}
 export function runNativePrivateDurableNoteEconomicSuccessorV2(){assert.equal(arguments.length,0);return runOriginalSuccessor(true,true,true);}
 export function runNativePrivateAuthorizedDurableNoteEconomicSuccessorV2(){assert.equal(arguments.length,0);return runOriginalSuccessor(true,true,true,true);}
-function runOriginalSuccessor(nativeNote,durable=false,privateNative=false,privateAuthorized=false){
+export function runNativePrivateWorkerDurableNoteEconomicSuccessorV3(){assert.equal(arguments.length,0);return runOriginalSuccessor(true,true,true,true,true);}
+function runOriginalSuccessor(nativeNote,durable=false,privateNative=false,privateAuthorized=false,privateWorker=false){
+assert.ok(!privateWorker||privateAuthorized);
 assert.ok(!privateAuthorized||nativeNote&&durable&&privateNative);
 assert.equal(launched,false,'NATIVE_ECONOMIC_SUCCESSOR_SINGLE_ENTRY');launched=true;
-const HERE=join(ROOT,privateAuthorized?'integration/run-native-value-private-authorized-durable-note-successor-v2.mjs':privateNative?'integration/run-native-value-private-durable-note-successor-v2.mjs':durable?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs'),MAXIMUM_IPC_BYTES=2*1024*1024;
+const HERE=join(ROOT,privateWorker?'integration/run-native-value-private-worker-durable-note-successor-v3.mjs':privateAuthorized?'integration/run-native-value-private-authorized-durable-note-successor-v2.mjs':privateNative?'integration/run-native-value-private-durable-note-successor-v2.mjs':durable?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs'),MAXIMUM_IPC_BYTES=2*1024*1024;
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),HERE);assert.equal(realpathSync(process.cwd()),ROOT);
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
 assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');
 assert.equal(process.connected,true);assert.equal(typeof process.send,'function');
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);
 assert.equal(parent.length,2);assert.equal(parent[0],process.execPath);assert.equal(realpathSync(`/proc/${process.ppid}/exe`),process.execPath);
-assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,privateAuthorized?'integration/native-value-private-authorized-durable-note-flow-v2.mjs':privateNative?'integration/native-value-private-durable-note-flow-v2.mjs':durable?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
+assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,privateWorker?'integration/native-value-private-worker-durable-note-flow-v3.mjs':privateAuthorized?'integration/native-value-private-authorized-durable-note-flow-v2.mjs':privateNative?'integration/native-value-private-durable-note-flow-v2.mjs':durable?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
 let originals,service,identity,durableInfrastructure,sequence=0,opened=false,closing,deadline,acquisition,closeRequested=false,firstErrorRetained=false;
 const send=async value=>{assert.ok(Buffer.byteLength(JSON.stringify(value))<=MAXIMUM_IPC_BYTES,'NATIVE_ECONOMIC_SUCCESSOR_PUBLIC_IPC_LIMIT');
  await new Promise((done,reject)=>process.send(value,error=>error?reject(error):done()));};
@@ -72,8 +76,9 @@ async function handle(packet){assert.ok(Buffer.byteLength(JSON.stringify(packet)
    acquisition.catch(()=>{});const value=await acquisition;
    assert.ok(!closeRequested&&Date.now()<identity.deadlineMs,'NATIVE_ECONOMIC_SUCCESSOR_CLOSED_DURING_REOPEN');
    if(privateNative){assert.equal(isOriginalNativePrivateDepositBridgeV2(service.depositBridge),true);assert.equal(isOriginalNativePrivateExecutionBridgeV2(service.executionBridge),true);}
+   if(privateWorker){assert.equal(isOriginalNativePrivateWorkerDepositBridgeV3(service.depositBridge),true);assert.equal(isOriginalNativePrivateWorkerExecutionBridgeV3(service.executionBridge),true);}
    if(privateAuthorized)assert.equal(isOriginalNativePrivateReservationBridgeV2(service.reservationBridge),true);
-   await send({sequence,ok:true,value:{...(privateAuthorized?{privateUOriginalBridgeEstablished:true}:{}),receipt:value.receipt,descriptor:service.descriptor,parentJobId:service.parentJobId,depositJobId:service.depositJobId,rootId:service.rootId,...(durable?{durableInfrastructureVerifiedBeforeIssuerOpen:true,durableEffectRows:(await durableInfrastructure.snapshot()).length}:{})}});return;}
+   await send({sequence,ok:true,value:{...(privateWorker?{privateNativeWorkerOriginalBridgesEstablished:true}:{}),...(privateAuthorized?{privateUOriginalBridgeEstablished:true}:{}),receipt:value.receipt,descriptor:service.descriptor,parentJobId:service.parentJobId,depositJobId:service.depositJobId,rootId:service.rootId,...(durable?{durableInfrastructureVerifiedBeforeIssuerOpen:true,durableEffectRows:(await durableInfrastructure.snapshot()).length}:{})}});return;}
  assert.ok(service&&!closeRequested&&!closing&&Date.now()<identity.deadlineMs,'NATIVE_ECONOMIC_SUCCESSOR_ORIGINAL_LIVE');
  if(packet.action==='WAIT'){await awaitDeviceOwnerExecutionOriginalWorkV1(service.executionBridge);await send({sequence,ok:true,value:{originalWorkCompleted:true}});}
  else if(packet.action==='AUDIT'){const value=await auditNativeDeviceEconomicSuccessorV1(originals,service);await send({sequence,ok:true,value:{...value,...(durable?{durableEffectRows:(await durableInfrastructure.snapshot()).length}:{})}});}

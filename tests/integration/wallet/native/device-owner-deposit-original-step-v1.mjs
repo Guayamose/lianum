@@ -1,3 +1,5 @@
+import{isOriginalNativePrivateWorkerDepositBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import{isOriginalNativePrivateWorkerExecutionBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import{isOriginalNativePrivateReservationBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
 /** One original D26 job and funding wire, driven by the real mobile API and
  * Noble note signature. This fixed private step shares the existing bootstrap,
@@ -22,7 +24,7 @@ import { verifyPrivateNotePath } from '../../../../packages/engine/src/notes/pri
 import { nullifier } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
-import {installOriginalNativeDeviceDurableLocalServiceV1,installOriginalPrivateNativeNoteDurableServiceV2,installOriginalPrivateNativeAuthorizedNoteDurableServiceV2} from '../../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs';
+import {installOriginalNativeDeviceDurableLocalServiceV1,installOriginalPrivateNativeNoteDurableServiceV2,installOriginalPrivateNativeAuthorizedNoteDurableServiceV2,installOriginalPrivateNativeWorkerNoteDurableServiceV3} from '../../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs';
 import {prepareDeviceOwnerReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
 import { runDeviceOwnerReservationContinuationV1 } from './device-owner-reservation-original-continuation-v1.mjs';
 import { openDeviceReservationHostVaultV1 } from './device-owner-reservation-host-vault-v1.mjs';
@@ -127,7 +129,7 @@ async function runOriginalStepV1(context, reservationMode) {
     if(context.deviceDurableSQL){
       context.durablePrepared=await prepareDeviceOwnerReservationOriginalV1({runtime,system,nativeRuntime,bootstrap:context.bootstrap});
       let durableProvidersClosing;context.deferDeviceProviderCleanup(()=>durableProvidersClosing??=(async()=>{if(context.economicLifetime.captured)return;const stopped=await context.durablePrepared.recipient.close();assert.equal(stopped.exited,true);assert.deepEqual(stopped.exit,{code:0,signal:null});result.cleanup.closedDeviceRecipient=true;if(!context.durablePrepared.custody.report().closed)await context.durablePrepared.custody.close();assert.equal(context.durablePrepared.custody.report().closed,true);result.cleanup.closedDeviceProvider=true;})());
-      context.durableInstalled=await(context.devicePrivateAuthorized?installOriginalPrivateNativeAuthorizedNoteDurableServiceV2:context.devicePrivateNative?installOriginalPrivateNativeNoteDurableServiceV2:installOriginalNativeDeviceDurableLocalServiceV1)({runtime,system,owner,account,nativeExecution:context.nativeExecution,session:joined.session,approval:preparation.approval,provider:context.durablePrepared,
+      context.durableInstalled=await(context.devicePrivateWorker?installOriginalPrivateNativeWorkerNoteDurableServiceV3:context.devicePrivateAuthorized?installOriginalPrivateNativeAuthorizedNoteDurableServiceV2:context.devicePrivateNative?installOriginalPrivateNativeNoteDurableServiceV2:installOriginalNativeDeviceDurableLocalServiceV1)({runtime,system,owner,account,nativeExecution:context.nativeExecution,session:joined.session,approval:preparation.approval,provider:context.durablePrepared,
         configuration:{origin,devicePublicKey:devicePublicKey(deviceKey),tls:{certificate:readFileSync(certificatePath,'utf8'),privateKey:readFileSync(keyPath,'utf8')}},pool:context.durableInfrastructure.pool,privacyKey:context.durableInfrastructure.privacyKey});
       ({actor,depositBridge:bridge,transport:server}=context.durableInstalled);Object.assign(result.durableOriginalAdmission,{beforeD26:true,sameActor:true,sameThreeBridges:true});if(context.devicePrivateNative)result.nativePrivateIntake={installedBeforeFunding:true,d26EncryptedHttp:false,d26PrivateConsent:false,w39ChangeEncryptedHttp:false,w39RecoveryEncryptedHttp:false,samePrivateJournalAfterReopen:false,originalNativeThreads:12,originalPermissionMs:15000,nativeRecipientToWorkerEncrypted:false,chainRpcAnonymityEstablished:false,operatorIndependenceEstablished:false};
     }else{
@@ -147,6 +149,7 @@ async function runOriginalStepV1(context, reservationMode) {
       assert.equal(realpathSync(tlsDirectory), tlsDirectory); rmSync(tlsDirectory, { recursive: true });
       assert.equal(existsSync(tlsDirectory), false); result.cleanup.syntheticDeviceTlsMaterialRemoved = true;
     } }; pairs.push(ownedPair);
+    if(context.devicePrivateWorker){assert.equal(isOriginalNativePrivateWorkerDepositBridgeV3(context.durableInstalled.depositBridge),true);assert.equal(isOriginalNativePrivateWorkerExecutionBridgeV3(context.durableInstalled.executionBridge),true);Object.assign(result.nativePrivateIntake,{privateNativeWorkerBeforeFunding:true,samePrivateNativeWorkerJournalAfterReopen:false,nativeRecipientToWorkerEncrypted:true});}
     if(context.devicePrivateAuthorized){assert.equal(isOriginalNativePrivateReservationBridgeV2(context.durableInstalled.reservationBridge),true);Object.assign(result.nativePrivateIntake,{uInstalledBeforeFunding:true,uEncryptedHttp:false,uPrivateConsent:false,uOriginalRecipient:false,samePrivateUJournalAfterReopen:false});}
     const transport = { posts: {}, responses: [], dropFund: false, fundReplyDiscarded: false,...(context.devicePrivateNative?{privateNative:true,privatePosts:{},privateAuthorized:context.devicePrivateAuthorized===true}:{}) };
     const fixedFetch = exactTlsFetch(descriptor, readFileSync(certificatePath, 'utf8'), transport);
