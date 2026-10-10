@@ -226,3 +226,84 @@ test('expiry during durable consumption prevents dispatch and preserves UNKNOWN 
   assert.deepEqual(await persistence.receipt(challenge), expected);
   assert.equal(effects, 0);
 });
+
+test('fixed local original gateway preserves TLS bytes, rejects generic authority and drains the same admitted work', async t => {
+  // Actual HTTP/TLS and the product gateway body; original Native construction
+  // and SQL schema are explicitly inert HOST ports. No funded/proof acceptance.
+  const { readFile, mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { execFileSync } = await import('node:child_process');
+  const http = await import('node:http'), https = await import('node:https');
+  const { checkServerIdentity } = await import('node:tls');
+  const { X509Certificate, createPrivateKey } = await import('node:crypto');
+  const { types } = await import('node:util');
+  const { normalizeMobileOrigin } = await import('../../../packages/mobile-protocol/src/authorization.mjs');
+  const source = await readFile(new URL('../src/original-device-cloud-local-gateway-v1.mjs', import.meta.url), 'utf8');
+  assert.equal((source.match(/^import .*;$/gm) ?? []).length, 8);
+  const compile = new Function('createServer', 'tlsRequest', 'checkServerIdentity', 'X509Certificate', 'createPrivateKey', 'types',
+    'normalizeMobileOrigin', 'startPlatformOriginalDeviceDurableLocalOperatorV1', 'assertOriginalDeviceDispatchSchemaV1',
+    source.replace(/^import .*;\n/gm, '').replace('export async function startPlatformOriginalDeviceCloudLocalGatewayV1',
+      'async function startPlatformOriginalDeviceCloudLocalGatewayV1') + '\nreturn startPlatformOriginalDeviceCloudLocalGatewayV1;');
+  const directory = await mkdtemp(join(tmpdir(), 'lianum-original-gateway-host-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const certPath = join(directory, 'certificate.pem'), keyPath = join(directory, 'key.pem');
+  execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-sha256', '-days', '2',
+    '-nodes', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost', '-addext', 'basicConstraints=critical,CA:FALSE',
+    '-keyout', keyPath, '-out', certPath], { timeout: 5000, maxBuffer: 4096, stdio: 'ignore', env: { PATH: '/usr/bin:/bin', LANG: 'C' } });
+  const tls = { certificate: await readFile(certPath, 'utf8'), privateKey: await readFile(keyPath, 'utf8') };
+  let upstream, originalOrigin, ready = true, births = 0, effects = 0, closed = 0, schemaChecks = 0, received;
+  let release, entered; const blocked = new Promise(resolve => { release = resolve; }), admitted = new Promise(resolve => { entered = resolve; });
+  const pool = Object.freeze({ HOST_ONLY: true });
+  const start = compile(http.createServer, https.request, checkServerIdentity, X509Certificate, createPrivateKey, types, normalizeMobileOrigin,
+    async input => {
+      assert.equal(input.pool, pool); births++;
+      upstream = https.createServer({ cert: tls.certificate, key: tls.privateKey, minVersion: 'TLSv1.3', maxVersion: 'TLSv1.3' }, async (request, response) => {
+        assert.equal(request.headers.host, new URL(originalOrigin).host);
+        if (request.url === '/v2/mobile/original-account/state') {
+          response.end(JSON.stringify({ profile: 'PAIRED_ORIGINAL_ACCOUNT_SERVICE_V2', connection: ready ? 'PAIRED' : 'DISCONNECTED' })); return;
+        }
+        assert.equal(request.headers.origin, originalOrigin);
+        const parts = []; for await (const part of request) parts.push(part);
+        received = Buffer.concat(parts).toString('utf8'); effects++;
+        if (request.url.endsWith('/recover')) { entered(); await blocked; }
+        if (request.url.endsWith('/fund')) { response.destroy(); return; }
+        response.statusCode = 200; response.end(received);
+      });
+      const port = Number(new URL(input.origin).port); originalOrigin = input.origin;
+      await new Promise((resolve, reject) => { upstream.once('error', reject); upstream.listen(port, '127.0.0.1', resolve); });
+      return Object.freeze({ profile: 'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1', descriptor: { origin: input.origin, devicePublicKey: input.devicePublicKey },
+        automaticFunding: false, async close() { closed++; await new Promise(resolve => upstream.close(resolve)); return { closed: true, originalResourcesStopped: true }; } });
+    }, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); });
+  const reservation = http.createServer(); await new Promise(resolve => reservation.listen(0, '127.0.0.1', resolve));
+  const originalPort = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
+  const app = await start({ origin: `https://localhost:${originalPort}`, devicePublicKey: ownerPublicKey, tls, pool, privacyKey: '91'.repeat(32), port: 0 });
+  t.after(() => app.close());
+  function call(path, raw, changedHeaders = {}) {
+    return new Promise((resolve, reject) => {
+      const request = http.request({ hostname: '127.0.0.1', port: app.port, path, method: raw === undefined ? 'GET' : 'POST',
+        headers: { Host: new URL(originalOrigin).host, ...(raw === undefined ? {} : { Origin: originalOrigin,
+          'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(raw) }), ...changedHeaders } }, response => {
+        const parts = []; response.on('data', part => parts.push(part)); response.once('error', reject);
+        response.once('end', () => resolve({ status: response.statusCode, body: Buffer.concat(parts).toString('utf8') }));
+      }); request.once('error', reject); request.end(raw);
+    });
+  }
+  assert.equal(births, 1); assert.equal(closed, 0); assert.equal((await call('/health/ready')).status, 200);
+  ready = false; assert.equal((await call('/health/ready')).status, 503); ready = true;
+  const raw = '{ "consent" : {"expiresAt":15000,"originalBinding":"HOST_PUBLIC_ONLY"}, "signature":"same" }';
+  assert.deepEqual(await call('/v1/mobile/device-execution/reconcile', raw), { status: 200, body: raw });
+  assert.equal(received, raw); assert.equal(effects, 1);
+  assert.equal((await call('/v1/mobile/challenges', '{}')).status, 503);
+  assert.equal((await call('/v1/mobile/device-execution/execute?upstream=https://foreign.invalid', raw)).status, 404);
+  assert.equal((await call('/v1/mobile/device-execution/execute', raw, { Origin: 'https://foreign.invalid' })).status, 403);
+  assert.equal((await call('/v1/mobile/device-execution/execute', ' '.repeat(8193))).status, 400);
+  assert.equal(effects, 1); assert.ok(schemaChecks >= 3);
+  const lost = await call('/v1/mobile/device-deposit/fund', raw);
+  assert.equal(lost.status, 502); assert.equal(JSON.parse(lost.body).error, 'ORIGINAL_TRANSPORT_UNAVAILABLE_NO_RETRY');
+  assert.equal(effects, 2); // original listener saw exactly one POST, no resend
+  const pending = call('/v1/mobile/device-execution/recover', raw).catch(() => null); await admitted;
+  const closing = app.close(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal(closed, 0); release(); await pending; await closing;
+  assert.equal(closed, 1); assert.equal(effects, 3); assert.equal(births, 1);
+});
