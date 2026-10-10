@@ -61,7 +61,7 @@ try{
   pool=createPlatformPool(process.env.DATABASE_URL);await assertOriginalDeviceDispatchSchemaV1(pool);
   if(closeRequested){config.tls=null;await close();}else{
   acquisition=startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3({...config,pool,privacyKey:readPlatformPrivacyKeyV1()});acquisition.catch(()=>{});config.tls=null;service=await acquisition;
-  assert.equal(service.profile,'ORIGINAL_NATIVE_DEVICE_PRIVATE_AUTHORIZED_DURABLE_NOTE_OPERATOR_V2');
+  assert.equal(service.profile,'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3');
   if(closeRequested)await close();else{await publishDescriptor(dirname(path),service);if(closeRequested)await close();else process.stdout.write('ORIGINAL_PRIVATE_NATIVE_NOTE_DURABLE_SERVICE_READY\n');}}
  }else config.tls=null;
 }catch{process.exitCode=1;try{await close();}catch{process.stderr.write('PLATFORM_ORIGINAL_PRIVATE_DURABLE_NOTE_CLOSE_UNCONFIRMED\n');}process.stderr.write('PLATFORM_ORIGINAL_PRIVATE_DURABLE_NOTE_START_FAILED\n');}
