@@ -1,3 +1,4 @@
+import {pathToFileURL} from 'node:url';
 import{NATIVE_PRIVATE_WORKER_DURABLE_NOTE_RESULT_V3,assertNativePrivateWorkerDurableNoteReleaseV3,assertNativePrivateWorkerDurableNoteResultV3}from'../wallet/native/native-device-private-worker-durable-note-policy-v3.mjs';
 import{classifyNativePrivateEconomicNoteProcessV3}from'../../../packages/proofs/src/jobs/native-private-note-execution-v3.mjs';
 import{NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_RESULT_V2,assertNativePrivateAuthorizedDurableNoteReleaseV2,assertNativePrivateAuthorizedDurableNoteResultV2}from'../wallet/native/native-device-private-authorized-durable-note-policy-v2.mjs';
@@ -130,7 +131,9 @@ import {nativeDeviceLiveArmedShortSourcePinsV1} from '../wallet/native/native-de
 import {classifyNativeLiveArmedShortProcessV1,assertNativeLiveArmedShortRecoverableAnvilV1} from '../wallet/native/native-device-live-armed-short-process-scope-v1.mjs';
 import {DEVICE_F_REORG_RESULT_V1,assertDeviceFReorgReleaseV1,assertDeviceFReorgResultV1} from '../wallet/native/device-owner-original-f-reorg-policy-v1.mjs';
 import {deviceOwnerFReorgSourcePinsV1} from '../wallet/native/device-owner-original-f-reorg-source-pins-v1.mjs';
+let deviceRootBtcPolicyV3,deviceRootBtcPinsV3;
 const FLOW_PROFILES = Object.freeze({
+  deviceRootBtcOriginalNoteV3:Object.freeze({entry:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/run-btc.mjs'),worker:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/flow.mjs'),local:join(ROOT,'.local/device-root-btc-original-note-exit-v3'),resultFormat:'LIANUM_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_RESULT_V3',resourcesFormat:'LIANUM_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_LOCK_V3',attemptFormat:'LIANUM_DEVICE_ROOT_BTC_ORIGINAL_NOTE_EXIT_ATTEMPT_V3',classification:'ORIGINAL_DEVICE_ROOT_NOTE_BTC_D27_CI51_W39_CO42_SAME_RUNTIME_OBSERVATION_RESTART_NOT_PHONE_OR_NATIVE_SELF_CUSTODY',sourcePins:()=>deviceRootBtcPinsV3.sourcePins(),cleanupKeys:Object.freeze(['closedProduct','closedMobileVault','closedMobileHost'])}),
   nativeSourceAbruptV1:Object.freeze({entry:join(ROOT,'integration/run-native-original-source-abrupt-v1.mjs'),worker:join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'),local:join(ROOT,'.local/native-original-source-abrupt-v1'),resultFormat:NATIVE_SOURCE_ABRUPT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_HARD_BACKEND_EXIT_SAME_SOURCE_NEW_PID_U_S_FIRST_ARM_BEFORE_EIGHT_HOURS_NOT_F_OR_PHONE',sourcePins:nativeSourceAbruptSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution','closedBackend'])}),
   deviceOwnerFReorgV1:Object.freeze({entry:join(ROOT,'integration/run-device-owner-original-f-reorg-v1.mjs'),worker:join(ROOT,'integration/device-owner-original-f-reorg-flow-v1.mjs'),local:join(ROOT,'.local/device-owner-original-f-reorg-v1'),resultFormat:DEVICE_F_REORG_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_F_EXACT_PARENT_REORG_SAME_RETAINED_WIRE_RECONFIRMATION_LOCAL_NOT_PHONE_OR_DEEP_REORG',sourcePins:deviceOwnerFReorgSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
   nativeDeviceLiveArmedShortV1:Object.freeze({entry:join(ROOT,'integration/run-native-value-live-armed-short-restart-v1.mjs'),worker:join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'),local:join(ROOT,'.local/native-value-live-armed-recovery-v1'),resultFormat:NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_U_S_FRESH_ARM_PLANNED_NEW_PROCESS_BEFORE_EIGHT_HOUR_CUTOFF_NOT_F_OR_PHONE',sourcePins:nativeDeviceLiveArmedShortSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
@@ -836,6 +839,7 @@ function validateCompletedResult(result, supervisorPID, workerPID, profile) {
   for (const key of profile.cleanupKeys)
     assert.equal(result.cleanup?.[key], true, 'NATIVE_RESULT_RUNTIME_CLEANUP');
   let scoped = {};
+  if(profile===FLOW_PROFILES.deviceRootBtcOriginalNoteV3)scoped=deviceRootBtcPolicyV3.assertResult(result);
   if(profile===FLOW_PROFILES.deviceUniswapConfirmedSourceV2||profile===FLOW_PROFILES.deviceMetaConfirmedSourceV2)scoped=assertDeviceConfirmedSourceResultV2(result);
   if(profile===FLOW_PROFILES.deviceUniswapConfirmedGraphSourceV2||profile===FLOW_PROFILES.deviceMetaConfirmedGraphSourceV2)scoped=assertDeviceConfirmedGraphSourceResultV2(result);
   if(profile===FLOW_PROFILES.deviceUniswapConfirmedGraphSourceV3||profile===FLOW_PROFILES.deviceMetaConfirmedGraphSourceV3)scoped=assertDeviceConfirmedGraphSourceResultV3(result);
@@ -1309,6 +1313,7 @@ async function runFixedFlowSupervisor(profile) {
     if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const p=classifyNativeSplClaimV1Preparation(argv);if(p)return p;}
     if(confirmedSource){const p=procStat(pid),parent=p&&procStat(p.ppid);const scoped=classifyDeviceConfirmedSourceProcessV2(argv,readlinkSync(`/proc/${pid}/exe`),parent?{pid:parent.pid,argv:readFileSync(`/proc/${parent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     const script = argv[1];
+    if(profile===FLOW_PROFILES.deviceRootBtcOriginalNoteV3&&script===join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs')&&argv.length===3&&argv[2]==='withdraw_balance'&&readlinkSync(`/proc/${pid}/exe`)===process.execPath&&procStat(pid)?.ppid===child.pid)return{role:'device-root-original-private-w39-worker',proofWorker:true};
     const nativeStat=procStat(pid),nativeParent=nativeStat?procStat(nativeStat.ppid):null;
     if(profile===FLOW_PROFILES.deviceMetaFourGraphV1){const scoped=classifyDeviceMetaFourGraphProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.deviceExternalFlatGraphV1){const scoped=classifyDeviceExternalFlatGraphProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
@@ -1924,3 +1929,11 @@ export async function runDeviceMetaFourGraphSupervisorV1(){assert.equal(argument
 export async function runDeviceAaveStaticGraphSupervisorV1(){assert.equal(arguments.length,0);assertDeviceAaveStaticGraphReleaseV1();await assertNativeEconomicRecoverableAnvilV1();return runFixedFlowSupervisor(FLOW_PROFILES.deviceAaveStaticGraphV1);}
 
 export async function runDeviceUniswapGraphSupervisorV1(){assert.equal(arguments.length,0);assertDeviceUniswapGraphReleaseV1();await assertNativeEconomicRecoverableAnvilV1();return runFixedFlowSupervisor(process.argv.length===4&&process.argv[2]==='--source-recovery-v3'&&process.argv[3]==='--after-graph'?FLOW_PROFILES.deviceUniswapConfirmedGraphSourceV3:process.argv.length===4&&process.argv[2]==='--source-recovery'&&process.argv[3]==='--after-graph'?FLOW_PROFILES.deviceUniswapConfirmedGraphSourceV2:process.argv.length===3&&process.argv[2]==='--source-recovery'?FLOW_PROFILES.deviceUniswapConfirmedSourceV2:FLOW_PROFILES.deviceUniswapGraphV1);}
+
+export async function runDeviceRootBtcOriginalNoteSupervisorV3(){
+  assert.equal(arguments.length,0,'DEVICE_ROOT_BTC_NO_SUPERVISOR_OPTIONS');
+  deviceRootBtcPolicyV3=await import(pathToFileURL(resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/policy.mjs')).href);
+  deviceRootBtcPinsV3=await import(pathToFileURL(resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/source-pins.mjs')).href);
+  deviceRootBtcPolicyV3.assertRelease();
+  return runFixedFlowSupervisor(FLOW_PROFILES.deviceRootBtcOriginalNoteV3);
+}

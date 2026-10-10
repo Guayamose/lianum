@@ -5,20 +5,20 @@ import assert from 'node:assert/strict';
 import {registerHooks} from 'node:module';
 import {randomBytes,createHash,createCipheriv,createDecipheriv} from 'node:crypto';
 import {mkdirSync,lstatSync,realpathSync,readFileSync,writeFileSync,existsSync,readdirSync,rmSync} from 'node:fs';
-import {join} from 'node:path';
+import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 let state=null; const keys=new WeakMap(),heldKeys=new Set();
-const ROOT_KEY='lianum.note.root.encryption.v1';
+const ROOT_KEY='lianum.note.root.encryption.v1',OWNER_KEY='lianum.owner.secp256k1.v1',OWNER_PUBLIC='lianum.owner.public.v1';
 function live(){assert.ok(state&&!state.closed,'DEVICE_US_HOST_ADAPTER_CLOSED');return state;}
-function file(name){assert.match(name,/^lianum\.note\.(?:root\.(?:pointer|record)\.v1|record\.chunk\.v1\.[0-9a-f]{64}\.[0-9]{1,2})$/);return join(live().directory,name);}
+function file(name){if(state?.rootClaim&&name===OWNER_PUBLIC)return join(live().directory,name);assert.match(name,/^lianum\.note\.(?:root\.(?:pointer|record)\.v1|record\.chunk\.v1\.[0-9a-f]{64}\.[0-9]{1,2})$/);return join(live().directory,name);}
 export const HostSecureStore=Object.freeze({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6,
  isAvailableAsync:async()=>{live();return true;},canUseBiometricAuthentication:()=>{live();return true;},
- async getItemAsync(name,options){const s=live();if(name===ROOT_KEY){assert.equal(options.requireAuthentication,true);return s.root;}
+ async getItemAsync(name,options){const s=live();if(name===ROOT_KEY){assert.equal(options.requireAuthentication,true);return s.root;}if(s.rootClaim&&name===OWNER_KEY){assert.equal(options.requireAuthentication,true);return s.owner;}
   const p=file(name);if(!existsSync(p))return null;const before=lstatSync(p);assert.equal(before.isSymbolicLink(),false);
   assert.equal(before.uid,process.getuid());assert.ok(before.isFile()&&(before.mode&0o077)===0&&before.size<=2048);
   const raw=readFileSync(p,'utf8'),after=lstatSync(p);for(const k of ['dev','ino','size','mtimeMs','ctimeMs'])assert.equal(after[k],before[k]);return raw;},
  async setItemAsync(name,raw,options){const s=live();assert.equal(typeof raw,'string');assert.ok(Buffer.byteLength(raw)<=2048);
-  if(name===ROOT_KEY){assert.equal(options.requireAuthentication,true);s.root=raw;return;}
+  if(name===ROOT_KEY){assert.equal(options.requireAuthentication,true);s.root=raw;return;}if(s.rootClaim&&name===OWNER_KEY){assert.equal(options.requireAuthentication,true);s.owner=raw;return;}
   writeFileSync(file(name),raw,{mode:0o600,flag:'w'});s.writes++;},
 });
 export const HostAuthentication=Object.freeze({hasHardwareAsync:async()=>{live();return true;},isEnrolledAsync:async()=>{live();return true;},
@@ -43,11 +43,14 @@ export const hostFixedTlsFetch=(...args)=>live().fetch(...args);
 /** Called only by this enumerated private profile, never an application route.
  * The fixed TLS transport remains exact-origin/certificate-bound. Hooks cannot
  * replace account/owner/proof/provider modules or any mobile authority brand. */
-export async function openDeviceReservationHostVaultV1({appRoot,directory,fetch}){
+export async function openDeviceReservationHostVaultV1(input){assert.equal(arguments.length,1);return openFixedDeviceReservationHostVault(input,false);}
+/** Fixed RootNote-native profile; original mobile identity remains private in HOST RAM. */
+export async function openDeviceRootClaimHostVaultV3(input){assert.equal(arguments.length,1);return openFixedDeviceReservationHostVault(input,true);}
+async function openFixedDeviceReservationHostVault({appRoot,directory,fetch},rootClaim){
  assert.equal(state,null,'DEVICE_US_ONE_HOST_ADAPTER');assert.equal(realpathSync(appRoot),appRoot);mkdirSync(directory,{mode:0o700});
  assert.equal(realpathSync(directory),directory);const info=lstatSync(directory);assert.equal(info.uid,process.getuid());assert.equal(info.mode&0o077,0);
- state={directory,fetch,root:null,closed:false,writes:0,prompts:0};
- const own=import.meta.url,root=pathToFileURL(join(appRoot,'src')).href+'/',vaultURL=root+'custody/local-root-note-vault-v1.ts';
+ state={directory,fetch,root:null,owner:null,rootClaim,closed:false,writes:0,prompts:0};
+ const own=import.meta.url,root=pathToFileURL(join(appRoot,'src')).href+'/',vaultURL=root+'custody/local-root-note-vault-v1.ts',keyURL=root+'custody/key-store.ts';
  const sources={
   'expo-secure-store':`import{HostSecureStore as x}from${JSON.stringify(own)};export const{WHEN_UNLOCKED_THIS_DEVICE_ONLY,isAvailableAsync,canUseBiometricAuthentication,getItemAsync,setItemAsync}=x;`,
   'expo-local-authentication':`import{HostAuthentication as x}from${JSON.stringify(own)};export const{hasHardwareAsync,isEnrolledAsync,authenticateAsync}=x;`,
@@ -58,19 +61,22 @@ export async function openDeviceReservationHostVaultV1({appRoot,directory,fetch}
  const hook=registerHooks({resolve(specifier,context,next){
   if(context.parentURL?.startsWith(root)&&Object.hasOwn(sources,specifier))return{url:'data:text/javascript,'+encodeURIComponent(sources[specifier]),shortCircuit:true};
   if(context.parentURL===vaultURL&&['../api/device-owner-deposit-api-v1','../api/device-owner-reservation-api-v1','../api/device-owner-exit-api-v1','../api/device-owner-execution-api-v1','../api/device-owner-output-balance-api-v1'].includes(specifier))return next(specifier+'.ts',context);
+  if(rootClaim&&context.parentURL===keyURL&&specifier==='@lianum/mobile-protocol')return next(pathToFileURL(resolve(appRoot,'../../packages/mobile-protocol/src/authorization.mjs')).href,context);
+  if(rootClaim&&context.parentURL===keyURL&&specifier==='@lianum/mobile-protocol/original-account-v2')return next(pathToFileURL(resolve(appRoot,'../../packages/mobile-protocol/src/original-account-review-v2.mjs')).href,context);
   return next(specifier,context);
  }});
  try{
   const original=await import(vaultURL),deposit=await import(root+'api/device-owner-deposit-api-v1.ts'),reservation=await import(root+'api/device-owner-reservation-api-v1.ts'),
    execution=await import(root+'api/device-owner-execution-api-v1.ts'),exit=await import(root+'api/device-owner-exit-api-v1.ts'),outputBalance=await import(root+'api/device-owner-output-balance-api-v1.ts');
-  return Object.freeze({original,deposit,reservation,execution,exit,outputBalance,
+  const claim=rootClaim?await import(root+'api/native-claim-device-api-v1.mjs'):null,identity=rootClaim?await import(keyURL):null;
+  return Object.freeze({original,deposit,reservation,execution,exit,outputBalance,...(rootClaim?{claim,identity}:{}),
    evidence(){const s=live(),rows=readdirSync(directory).map(name=>{const p=file(name),info=lstatSync(p);assert.ok(info.isFile()&&!info.isSymbolicLink());
      const raw=readFileSync(p);assert.ok(raw.length<=2048);return{key:name,bytes:raw.length,sha256:createHash('sha256').update(raw).digest('hex')};});
     return{nodeAesGcm:true,nodeCryptographicEntropy:true,ciphertextPersisted:rows.length>0,maximumStoredValueBytes:Math.max(0,...rows.map(r=>r.bytes)),ciphertextFiles:rows,
      writes:s.writes,hostConsentPrompts:s.prompts,secureStoreHardware:false,biometricHardware:false,rootPersistedToFile:false};},
-   close(){if(state.closed)return;hook.deregister();for(const key of heldKeys)key.fill(0);heldKeys.clear();state.root=null;state.fetch=null;state.closed=true;},
+   close(){if(state.closed)return;hook.deregister();for(const key of heldKeys)key.fill(0);heldKeys.clear();state.root=null;state.owner=null;state.fetch=null;state.closed=true;},
    retire(){assert.equal(state.closed,true);const info=lstatSync(directory);assert.equal(info.uid,process.getuid());assert.equal(realpathSync(directory),directory);
     assert.equal(info.isSymbolicLink(),false);rmSync(directory,{recursive:true});assert.equal(existsSync(directory),false);return{removed:true};},
   });
- }catch(error){hook.deregister();state.closed=true;for(const key of heldKeys)key.fill(0);heldKeys.clear();state.root=null;throw error;}
+ }catch(error){hook.deregister();state.closed=true;for(const key of heldKeys)key.fill(0);heldKeys.clear();state.root=null;state.owner=null;state.fetch=null;throw error;}
 }
