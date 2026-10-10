@@ -18,10 +18,10 @@ import { loadNativeValueDevDeploymentArtifactsV5 } from '../deployments/native-v
 import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../releases/native-value/native-value-dev-release-v5.mjs';
 import { createNativeValueOwnerProcess } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueExecution, assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
-import { createNativeEconomicNoteAccountAuthorityV1,createNativeLiveArmedNoteAccountAuthorityV1, assertOwnedNativeValueAccountAuthority } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import { createNativeEconomicNoteAccountAuthorityV1,createNativeLiveArmedNoteAccountAuthorityV1, assertOwnedNativeValueAccountAuthority,isOriginalNativePrivateDepositAccountV2 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
-import { createDeviceOwnerDepositBridgeV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createDeviceOwnerReservationBridgeV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import { createDeviceOwnerExecutionBridgeV1 } from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
@@ -51,6 +51,7 @@ const requiredSources = Object.freeze([
 // compiler allowlist. Their literals live in this V5-authenticated backend;
 // no caller path/hash or expanded release-contract root is admitted.
 const reviewedCallers = Object.freeze([
+  Object.freeze({"path":"apps/platform/src/run-original-native-private-deposit-v2.mjs","bytes":4481,"sha256":"d71735c784df102c109bd48c465d23ffd0f31341415faf2d90f53af99e0f0458"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-durable-local-reopen-v1.mjs","bytes":241,"sha256":"de056662c9711cd9f14e6fc91dfcb686efd1b8fab8b973eb06cedb7243c381c5"}),
   Object.freeze({"path":"apps/platform/src/run-original-device-live-armed-v1.mjs","bytes":4784,"sha256":"47f77fa07ee1ee45bcf6265a54d0dfc7472a26b50e2eaa70ca5ba1cc19bd6f5f"}),
   Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":5871,"sha256":"36cfe1b4387a2b0aa537f9a8a94aaa3840b852bc8b96d051002138b6e404a1a0"}),
@@ -101,7 +102,9 @@ export async function installOriginalNativeDeviceDurableLocalServiceV1(input) {
   assert.equal(arguments.length, 1);
   return installOriginalNativeDeviceService(input, true);
 }
-async function installOriginalNativeDeviceService(input, durable) {
+/** Separate fixed private installation; no mode field enters configuration. */
+export function installOriginalPrivateNativeDeviceLocalServiceV2(input){assert.equal(arguments.length,1);return installOriginalNativeDeviceService(input,false,true);}
+async function installOriginalNativeDeviceService(input, durable,privateD26=false) {
   exactRecord(input, ['runtime', 'system', 'owner', 'account', 'nativeExecution', 'session', 'approval', 'provider', 'configuration',
     ...(durable ? ['pool', 'privacyKey'] : [])]);
   const { runtime, system, owner, account, nativeExecution, session, approval, provider } = input;
@@ -115,7 +118,7 @@ async function installOriginalNativeDeviceService(input, durable) {
     actor = await createPairedOriginalAccountActorV2({ session, approval, owner,
       origin: selected.origin, devicePublicKey: selected.devicePublicKey });
     const original = { actor, account, owner, runtime, system, poolIndex: 0 };
-    depositBridge = await createDeviceOwnerDepositBridgeV1(original);
+    depositBridge = await (privateD26||isOriginalNativePrivateDepositAccountV2(account)?createOriginalNativePrivateDepositBridgeV2:createDeviceOwnerDepositBridgeV1)(original);
     reservationBridge = await createDeviceOwnerReservationBridgeV1({ ...original,
       nativePreparation: provider.nativePreparation, invoiceSignatures: provider.invoiceSignatures });
     executionBridge = await createDeviceOwnerExecutionBridgeV1({ account, reservationBridge, nativeExecution,
@@ -156,8 +159,10 @@ export function createOriginalNativeDeviceDurableLocalOperatorV1(input){
  * selects/relabels the old realm or claims post-cutoff Native10 restoration. */
 export function createOriginalNativeDeviceLiveRecoveryOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,true);}
 export function createOriginalNativeDeviceLiveArmedRecoveryOperatorV1(input){assert.equal(arguments.length,1);return createLocalProduct(input,true,true);}
-async function createLocalProduct(input,liveObserved,liveArmed=false,durable=null) {
-  assert.ok(arguments.length>=2&&arguments.length<=4); const selected = configuration(input); // detach before first await
+/** New original producer fixes private intake BEFORE account admission/funds. */
+export function createOriginalPrivateNativeDeviceLocalOperatorV2(input){assert.equal(arguments.length,1);return createLocalProduct(input,false,false,null,true);}
+async function createLocalProduct(input,liveObserved,liveArmed=false,durable=null,privateD26=false) {
+  assert.ok(arguments.length>=2&&arguments.length<=5); const selected = configuration(input); // detach before first await
   const restartDeadlineMs = Date.now() + 90 * 60 * 1000 - 15000;
   await assertOriginalNativeDeviceLocalSourceReviewV1();
   if(!liveArmed)await(durable?assertOriginalNativeDeviceDurableLocalColdStartV1:assertOriginalNativeDeviceLocalColdStartV1)();
@@ -259,7 +264,7 @@ async function createLocalProduct(input,liveObserved,liveArmed=false,durable=nul
       : await prepareOriginalNativeDeviceLocalProviderV1({ runtime, system, nativeRuntime, bootstrap });
     if(!liveObserved) restart = await(durable?prepareOriginalNativeDeviceDurableLocalRestartV1:prepareOriginalNativeDeviceLocalRestartV1)({ runtime, nativeRuntime, bootstrap, system, owner,
       nativeExecution, account, session: joined.session, provider, deadlineMs: restartDeadlineMs }); // issuer ready before TLS
-    installed = await (durable?installOriginalNativeDeviceDurableLocalServiceV1:installOriginalNativeDeviceLocalServiceV1)({
+    installed = await (privateD26?installOriginalPrivateNativeDeviceLocalServiceV2:durable?installOriginalNativeDeviceDurableLocalServiceV1:installOriginalNativeDeviceLocalServiceV1)({
       runtime, system, owner, account, nativeExecution, session: joined.session, approval, provider, configuration: selected,
       ...(durable?durable:{}) });
     if(!liveObserved)(durable?bindOriginalNativeDeviceDurableLocalRestartV1:bindOriginalNativeDeviceLocalRestartV1)(restart, installed);
@@ -277,7 +282,7 @@ async function createLocalProduct(input,liveObserved,liveArmed=false,durable=nul
     if(durable)return Object.freeze({profile:'ORIGINAL_NATIVE_DEVICE_DURABLE_LOCAL_OPERATOR_V1',origin:installed.transport.url,
       descriptor:installed.descriptor,localFakeValues:true,automaticFunding:false,durableOriginalAdmission:true,
       plannedOriginalFReopen:true,newProcessRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,cloudAuthority:false,capture,close});
-    return Object.freeze({ profile: ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
+    return Object.freeze({ profile: privateD26?'ORIGINAL_NATIVE_DEVICE_PRIVATE_DEPOSIT_OPERATOR_V2':ORIGINAL_NATIVE_DEVICE_LOCAL_PROFILE_V1, origin: installed.transport.url,
       descriptor: installed.descriptor, localFakeValues: true, automaticFunding: false,
       cloudAuthority: false, capture, close });
   } catch (error) {

@@ -8,8 +8,9 @@ import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
 import { normalizePrivateStateAccessV1, normalizePrivateStateReviewV1,
   privateStateAccessFrameV1, privateStateReviewFrameV1, normalizePrivateStateObservationV1,
   validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-v2';
-import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1,
-  normalizeDeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { normalizeDeviceDepositConsentEitherV2 as normalizeDeviceDepositConsentV1, validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1,
+  normalizeDeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
+import {sealOriginalNativeDeviceDepositWitnessV2} from './native-private-deposit-transit-v2.mjs';
 import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFreshV1,
   normalizeDeviceReservationWitnessV1, wipeDeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
@@ -61,7 +62,10 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     if (Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
     return validateOriginalAccountFreshV2(value);
   }
+  const privateDepositConsents=new WeakMap();
   async function request(path, payload, privateState = false) {
+    const privateDepositProof=privateState==='device-deposit'&&path==='private-jobs';
+    if(privateDepositProof&&new TextEncoder().encode(JSON.stringify(payload)).byteLength>16384)fail('MOBILE_ORIGINAL_REQUEST_INVALID');
     const target = original.origin + (privateState === 'device-execution' ? '/v1/mobile/device-execution/'
       : privateState === 'device-exit' ? '/v1/mobile/device-exit/'
       : privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
@@ -72,7 +76,7 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     let timeout, reader;
     try {
       const deadline = new Promise((_resolve, reject) => {
-        timeout = setTimeout(() => { controller.abort(); reject(new Error('MOBILE_SERVICE_UNAVAILABLE')); }, 15_000);
+        timeout = setTimeout(() => { controller.abort(); reject(new Error('MOBILE_SERVICE_UNAVAILABLE')); }, privateDepositProof?900_000:15_000);
       });
       const work = (async () => {
         const response = await fetchImpl(target, { method: payload === undefined ? 'GET' : 'POST',
@@ -279,6 +283,7 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
         if (value.action !== 'PROVE_D26' || Object.keys(original).some(name => value[name] !== original[name])
           || !same(value.statement, input.statement) || value.rootId !== input.rootId
           || value.noteRevision !== input.noteRevision || value.witnessSHA256 !== input.witnessSHA256) fail('MOBILE_REVIEW_CHANGED');
+        if(value.version===2)privateDepositConsents.set(value,{snapshot:JSON.stringify(value),used:false});
         return value;
       },
       async challenge(action, input) {
@@ -287,22 +292,30 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
         const value = validateDeviceDepositConsentFreshV1(await request(action === 'FUND_D26'
           ? 'funding-reviews' : 'observation-reviews', input, 'device-deposit'));
         if (value.action !== action || value.jobId !== input.jobId || Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
+        if(value.version===2)privateDepositConsents.set(value,{snapshot:JSON.stringify(value),used:false});
         return value;
       },
       async submit(input) {
         if (!exact(input, input?.consent?.action === 'PROVE_D26' ? ['consent', 'signature', 'witness'] : ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
         const consent = validateDeviceDepositConsentFreshV1(normalizeDeviceDepositConsentV1(input.consent));
         if (Object.keys(original).some(name => consent[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
-        normalizeOriginalAccountSignatureV2(input.signature);
-        let witness;
+        const signature=normalizeOriginalAccountSignatureV2(input.signature);
+        if(consent.version===2){const issued=privateDepositConsents.get(input.consent);
+          if(!issued||issued.used||issued.snapshot!==JSON.stringify(consent))fail('MOBILE_ORIGINAL_PRIVATE_CONSENT');issued.used=true;}
+        let witness,packet;
         try {
           if (consent.action === 'PROVE_D26') witness = normalizeDeviceDepositWitnessV1(input.witness);
-          // One POST only. A timeout/lost response is UNKNOWN; never retry a
-          // proof or funding call. Subsequent explicit consent observes same job.
-          return await request(consent.action === 'PROVE_D26' ? 'jobs'
-            : consent.action === 'FUND_D26' ? 'fund' : 'observations', { consent, signature: input.signature,
-              ...(witness ? { witness } : {}) }, 'device-deposit');
-        } finally { if (witness) for (const item of Object.values(witness)) if (Array.isArray(item)) item.fill(0); }
+          if(consent.version===2&&consent.action==='PROVE_D26'){
+            packet=await sealOriginalNativeDeviceDepositWitnessV2(consent,signature,witness);
+            validateDeviceDepositConsentFreshV1(consent);
+          }
+          // The original review is burned before encryption/POST. Reply loss
+          // requires a fresh explicit observation of the SAME durable job.
+          return await request(consent.action === 'PROVE_D26' ? (consent.version===2?'private-jobs':'jobs')
+            : consent.action === 'FUND_D26' ? 'fund' : 'observations', { consent, signature,
+              ...(witness ? { witness:packet??witness } : {}) }, 'device-deposit');
+        } finally { if (witness) for (const item of Object.values(witness)) if (Array.isArray(item)) item.fill(0);
+          if(packet)for(const name of ['ciphertext','tag','iv','salt'])packet[name]=''; }
       },
     }),
     async state() { return normalizeOriginalAccountServiceV2(await request('state')); },

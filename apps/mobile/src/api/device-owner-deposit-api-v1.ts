@@ -4,8 +4,8 @@
  * No full proof/root/private key crosses this boundary. */
 import * as Crypto from 'expo-crypto';
 import { createOriginalAccountApiV2 } from './original-account-api-v2.mjs';
-import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1, type DeviceDepositConsentV1 }
-  from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1, deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1, type DeviceDepositConsentEitherV2 as DeviceDepositConsentV1 }
+  from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 const observations = new WeakMap<object, { live(): void; value: DeviceDepositInclusionV1 }>();
 export type DeviceDepositInclusionV1 = Readonly<{ version: 1; profile: 'ORIGINAL_DEVICE_D26_INCLUSION_V1';
   jobId: string; rootId: string; commitment: string; amount: string; assetId: string; pool: string;

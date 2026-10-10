@@ -122,11 +122,13 @@ export function assertNativeValueAccountManualGraphExecution(capability) {
   manualGraphs.get(capability).checkRoute();
 }
 import { validateNativeValueManualReview, validateNativeValueManualRecords } from '../../../../custody/src/preparation/native-value-owner-manual-binding-v1.mjs';
-import { consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1 }
+import { consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1,isOriginalNativePrivateDepositBridgeV2 }
   from './device-owner-deposit-bridge-v1.mjs';
 import { walletInputPublicWords, decodeWalletPoolInputs, balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, deviceDepositConsentMessageV1 }
   from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
+import * as PrivateDeposit from '../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
+import {readOriginalNativePrivateDepositDerivationV2} from '../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
 import { createHash } from 'node:crypto';
 import { nullifier } from '../../../../engine/src/notes/private-note-encoding.mjs';
 import { consumeDeviceOwnerReservationAuthorizationV1,assertDeviceOwnerReservationBridgeV1,readDeviceOwnerReservationOriginalPreparationV1 } from './device-owner-reservation-bridge-v1.mjs';
@@ -278,6 +280,9 @@ export async function readDeviceOwnerReservationStatusV1(account,bridge,jobId) {
 /** These seams expose no arbitrary executor/witness callback. The argument
  * must be the capability emitted by a genuine bridge after its distinct
  * signature has been authenticated and consumed. JSON never becomes a grant. */
+/** Only a fixed private bridge can install this journal profile before funding. */
+export async function installOriginalNativePrivateDepositV2(account,bridge){assert.equal(arguments.length,2);assertOwnedNativeValueAccountAuthority(account);assert.equal(isOriginalNativePrivateDepositBridgeV2(bridge),true);assertDeviceOwnerDepositBridgeV1(bridge,account);return owned.get(account).installPrivateDeposit(bridge);}
+export function isOriginalNativePrivateDepositAccountV2(account){assert.equal(arguments.length,1);assertOwnedNativeValueAccountAuthority(account);return owned.get(account).privateDepositEnabled();}
 export async function runDeviceOwnerDepositAuthorizationV1(account, bridge, authorization) {
   assert.equal(arguments.length, 3);
   assertOwnedNativeValueAccountAuthority(account);
@@ -613,7 +618,16 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     value.ownerOperationRef === ref ? { ...value, ...copy(fields) } : value) }));
   // Device custody is a separate durable branch in the SAME original Vault.
   // Linux note preparation/owner acknowledgement is never used for this note.
+  let privateDepositBridge=null;
   const deviceRows = () => record.data.deviceDeposits ?? [];
+  const privateDepositEnabled=()=>record.data.devicePrivateD26Profile===PrivateDeposit.DEVICE_NATIVE_PRIVATE_PROOF_V2;
+  async function installPrivateDeposit(bridge){return exclusive(async()=>{
+    assert.ok(nativeNote&&!wrapped&&!privateDepositBridge,'NATIVE_PRIVATE_DEPOSIT_ORIGINAL_BIRTH');await healthy();
+    if(!privateDepositEnabled()){assert.equal(record.data.devicePrivateD26Profile,undefined);assert.equal(deviceRows().length,0);
+      const view=await reader.read();assert.equal(view.ledger.commitments.length,0,'NATIVE_PRIVATE_DEPOSIT_BEFORE_FUNDING');assert.equal(view.ledger.nullifiers.length,0);await reader.assertCurrent(view);continueWork();
+      await write(d=>({...d,devicePrivateD26Profile:PrivateDeposit.DEVICE_NATIVE_PRIVATE_PROOF_V2}));}
+    privateDepositBridge=bridge;return{installed:true,profile:PrivateDeposit.DEVICE_NATIVE_PRIVATE_PROOF_V2};
+  });}
   const deviceRow = id => { reference(id); const row = deviceRows().find(value => value.jobId === id);
     assert.ok(row, 'DEVICE_DEPOSIT_ORIGINAL_JOB_REQUIRED'); return row; };
   const deviceUpdate = (id, fields) => write(data => ({ ...data,
@@ -683,10 +697,35 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     if(recovery?.source)recovery.sourceObservationRequired=false;
     return { ...devicePublic(deviceRow(row.jobId)), observation: retained };
   }
-  async function deviceDeposit({ action, consent, witness }) {
+  async function provePrivateDeviceDeposit(consent,packet,client,originalPrivate,signature){
+    assert.ok(originalPrivate&&client&&privateDepositBridge&&nativeNote&&!wrapped,'NATIVE_PRIVATE_DEPOSIT_ORIGINAL_RECIPIENT');
+    assert.equal(isOriginalNativePrivateDepositBridgeV2(privateDepositBridge),true);PrivateDeposit.validateDeviceDepositConsentEitherFreshV2(consent);
+    assert.ok(!deviceRows().some(r=>r.jobId===consent.jobId||r.consent.statement.output===consent.statement.output),'DEVICE_DEPOSIT_ORIGINAL_JOB_ONLY');
+    assert.ok(deviceRows().length<64,'DEVICE_DEPOSIT_JOURNAL_CAPACITY');const words=PrivateDeposit.nativePrivateDepositPublicInputsV2(consent);
+    assert.deepEqual(packet.authorization,{kind:'ORIGINAL_CONSENT_V1',jobId:consent.jobId,consentSHA256:byteSHA(PrivateDeposit.deviceDepositConsentEitherMessageV2(consent)),witnessSHA256:consent.witnessSHA256});
+    let started=false;
+    try{
+      const before=await deviceCurrent(consent,true);assert.ok(!before.ledger.commitments.includes('0x'+consent.statement.output),'DEVICE_DEPOSIT_OUTPUT_PRESENT');await reader.assertCurrent(before);
+      PrivateDeposit.validateDeviceDepositConsentEitherFreshV2(consent);await write(d=>({...d,deviceDeposits:[...(d.deviceDeposits??[]),{jobId:consent.jobId,consent:copy(consent),stage:'PROVING',proof:null,proofSHA256:null,publicInputsSHA256:null,nullifier:null,submission:null,observation:null,errorCode:null}]}));started=true;
+      PrivateDeposit.validateDeviceDepositConsentEitherFreshV2(consent);activeLegacy=client;
+      const result=await client.proveEncrypted(packet,packet.authorization),derived=readOriginalNativePrivateDepositDerivationV2(client,result);
+      assert.equal(derived.jobId,consent.jobId);assert.equal(derived.commitment,consent.statement.output);assert.equal(derived.consentSHA256,packet.authorization.consentSHA256);assert.equal(derived.witnessSHA256,consent.witnessSHA256);
+      assert.equal(result.metrics.acceptedResult,true,'DEVICE_DEPOSIT_PROOF_NOT_ACCEPTED');assert.deepEqual(result.publicInputs,words);
+      const view=await deviceCurrent(consent,true),proof=transportProof(result);assert.ok(!view.ledger.commitments.includes('0x'+consent.statement.output),'DEVICE_DEPOSIT_OUTPUT_PRESENT');
+      assert.equal(await system.verify('deposit_balance',Buffer.from(proof.proof,'hex'),proof.publicInputs.map(w=>'0x'+BigInt(w).toString(16).padStart(64,'0')),view.header.number),true,'DEVICE_DEPOSIT_DEPLOYED_VERIFIER_REJECTED');await reader.assertCurrent(view);continueWork();
+      await onProof({label:'device-deposit-d26',relation:'deposit_balance',role:'device-owner',proof:{...proof,metrics:result.metrics}});
+      await deviceUpdate(consent.jobId,{stage:'PROVED',proof,proofSHA256:byteSHA(Buffer.from(proof.proof,'hex')),publicInputsSHA256:sha(proof.publicInputs),nullifier:derived.nullifier,
+        ...(nativeSourceOriginal?{originalSourceProofReceipt:sourceProofReceiptFrame('deposit_balance','device-deposit-d26',{...proof,metrics:result.metrics})}:{})});
+      await onPrivateAudit({reference:consent.jobId,phase:'device-deposit-proof-retained',stage:'PROVED'});return devicePublic(deviceRow(consent.jobId));
+    }catch(error){if(started&&!unavailable)await deviceUpdate(consent.jobId,{stage:'FAILED',errorCode:'DEVICE_DEPOSIT_PRIVATE_PROOF_REJECTED'});await onPrivateAudit({reference:consent.jobId,phase:'device-deposit-proof-retained',stage:'FAILED'}).catch(()=>{});throw error;}
+    finally{await client?.close();activeLegacy=null;}
+  }
+  async function deviceDeposit({ action, consent, witness,privateD26=false,client=null,signature=null }) {
     if(recovery?.native)assert.equal(action,'OBSERVE_D26','NATIVE_DEVICE_RECOVERY_OBSERVE_ORIGINAL_ONLY');
     return exclusive(async () => {
       deviceBinding(consent);
+      assert.equal(consent.version,privateDepositEnabled()?2:1,'NATIVE_PRIVATE_DEPOSIT_PROFILE_REQUIRED');
+      if(action==='PROVE_D26'&&privateDepositEnabled())return provePrivateDeviceDeposit(consent,witness,client,privateD26,signature);
       if (action === 'PROVE_D26') {
         assert.ok(!wrapped && !deviceRows().some(row => row.jobId === consent.jobId
           || row.consent.statement.output === consent.statement.output), 'DEVICE_DEPOSIT_ORIGINAL_JOB_ONLY');
@@ -744,7 +783,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       for (const field of ['rootId', 'noteRevision', 'witnessSHA256', 'proofSHA256', 'publicInputsSHA256'])
         assert.equal(consent[field], fields[field], 'DEVICE_DEPOSIT_ORIGINAL_JOB_CHANGED');
       assert.deepEqual(consent.statement, fields.statement, 'DEVICE_DEPOSIT_STATEMENT_CHANGED');
-      if (action === 'OBSERVE_D26') return { ...(await observeDevice(row)), authorizationSHA256: byteSHA(deviceDepositConsentMessageV1(consent)) };
+      if (action === 'OBSERVE_D26') return { ...(await observeDevice(row)), authorizationSHA256: byteSHA(PrivateDeposit.deviceDepositConsentEitherMessageV2(consent)) };
       assert.equal(action, 'FUND_D26'); assert.equal(row.stage, 'PROVED', 'DEVICE_DEPOSIT_RECONCILE_ORIGINAL_ONLY');
       assert.equal(row.submission, null, 'DEVICE_DEPOSIT_RECONCILE_ORIGINAL_ONLY');
       await tokenFundingReady(consent.statement.amount);
@@ -768,7 +807,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
         continueWork(); const receipt = await runtime.send('flat-account-device-deposit', { to: pool.address,
           data: calldata, value: nativeAsset ? consent.statement.amount : '0' });
         await deviceUpdate(row.jobId, { submission: { ...submission, transactionHash: bare(receipt.transactionHash) } });
-        return { ...(await observeDevice(deviceRow(row.jobId))), authorizationSHA256: byteSHA(deviceDepositConsentMessageV1(consent)) };
+        return { ...(await observeDevice(deviceRow(row.jobId))), authorizationSHA256: byteSHA(PrivateDeposit.deviceDepositConsentEitherMessageV2(consent)) };
       } catch (error) {
         const hash = error.transactionRecord?.transactionHash;
         if (hash && !unavailable) await deviceUpdate(row.jobId, { submission: { ...submission, transactionHash: bare(hash) } });
@@ -2353,7 +2392,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       for(const row of exitRows())if(row.originalSourceExitReceipt)receipts.push(restoreSourceProofReceipt(row.originalSourceExitReceipt,row.proof));
       assert.ok(receipts.length<=5,'NATIVE_SOURCE_ORIGINAL_PROOF_RECEIPT_COUNT');return receipts;
     });},
-    deviceDeposit, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
+    deviceDeposit,installPrivateDeposit,privateDepositEnabled, deviceReservation,deviceExecution, reorgState, retainReorg, assertReorgPending,
     async checkReorgPending(executor, ref, id) { await healthy(); assertReorgPending(executor, ref, id); },
     installLiveRecovery(row){assert.ok(nativeNote&&!wrapped&&(!recovery||recovery.liveArmed===true||recovery.source===true)&&nativeExecution!==null&&liveRecovery===null);
       assertDeviceOwnerExecutionBridgeV1(row.bridge,capability);

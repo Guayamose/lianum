@@ -15,7 +15,8 @@ import { readDevicePublicKey, signOriginalAccountAccessV2, signOriginalPrivateSt
   signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1, signDeviceExitConsentV1, signDeviceExecutionConsentV1, signDeviceRecoveryArmConsentV1 } from '../custody/key-store';
 import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceExitProofRequestV1, type LocalDeviceProofRequestV1, type LocalDeviceAuthorizationRequestV1, type LocalDeviceReservationReviewV1 }
   from '../custody/local-root-note-vault-v1';
-import type { DeviceDepositConsentV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import type {DeviceDepositWitnessV1} from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import type {DeviceDepositConsentEitherV2 as DeviceDepositConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 import { wipeDeviceReservationWitnessV1, type DeviceReservationConsentV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 const recoveryArmStateLabel=(state:DeviceRecoveryArmStatusV1['state'])=>({ABSENT:'sin activar',ARMED:'activada',DISARMED:'desactivada',FIRING:'recuperando',UNKNOWN:'desconocido',RECOVERED:'recuperada',FULFILLED:'completada'})[state];
@@ -172,7 +173,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const authenticated = await access(held);
     const jobReview = await api.challengeJob({ ...authenticated, statement: proofRequest.statement, rootId: proofRequest.rootId,
       noteRevision: proofRequest.noteRevision, witnessSHA256: proofRequest.witnessSHA256, jobId: proofRequest.jobId }); live(held);
-    setConsent(jobReview); setApproved(false); setMessage('Revisa la revelación acotada antes de generar D26.');
+    setConsent(jobReview); setApproved(false); setMessage(jobReview.version===2?'Revisa el envío cifrado de esta apertura antes de generar la prueba.':'Revisa la revelación acotada antes de generar D26.');
   }
   async function review(action: 'FUND_D26' | 'OBSERVE_D26', held: number) {
     clearNativeReview();
@@ -437,7 +438,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   const edit = (update: (value: string) => void, value: string) => { clear(); update(value); };
   return <ScrollView contentContainerStyle={styles.body}>
     <Text style={styles.title}>Financiar tu nota local</Text>
-    <Text style={styles.text}>La raíz y la clave de nota permanecen en el dispositivo. D26 revela una sola apertura al worker original. Este flujo requiere un backend original instalado por el operador y TLS de confianza.</Text>
+    <Text style={styles.text}>La raíz y la clave de nota permanecen en el dispositivo. Revisa cómo se envía esta única apertura al generar la prueba. Este flujo requiere un backend original instalado por el operador y TLS de confianza.</Text>
     <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://origen privado" placeholderTextColor="#9cb0b8" />
     <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#9cb0b8" />
     <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Abrir nota y vinculación</Text></Pressable>
@@ -451,7 +452,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     <Pressable disabled={busy || !note?.job || note.status === 'FUNDED'} onPress={() => void run(held => review('FUND_D26', held))}><Text style={styles.button}>Revisar financiación única</Text></Pressable>
     <Pressable disabled={busy || !note?.job} onPress={() => void run(held => review('OBSERVE_D26', held))}><Text style={styles.button}>Consultar envío original</Text></Pressable>
     {consent && <>
-      <Text style={styles.text}>{consent.action}\nPool {consent.binding.asset.pool}\nNota {consent.statement.output}\nImporte {consent.statement.amount}\n{consent.openingDisclosure ?? 'No se revela otra apertura'}</Text>
+      <Text style={styles.text}>{consent.action}\nPool {consent.binding.asset.pool}\nNota {consent.statement.output}\nImporte {consent.statement.amount}\n{consent.action==='PROVE_D26'?(consent.version===2?'Esta apertura se envía cifrada al destinatario original de la prueba.':'Esta apertura se revela al worker original de la prueba.'):'No se revela otra apertura'}</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
         onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado esta acción exacta</Text></Pressable>
       <Pressable disabled={busy || !approved} onPress={() => void run(submit)}><Text style={styles.button}>Autorizar esta acción</Text></Pressable>

@@ -17,8 +17,8 @@ import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
 import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
   from '@lianum/mobile-protocol/original-account-v2';
 import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } from './signing.mjs';
-import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
-  from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1, deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 
 import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
@@ -182,15 +182,16 @@ export function signOriginalPrivateStateReviewV1(value: OriginalReviewV2, origin
  * note key/signature hidden in its opening. */
 export async function signDeviceDepositConsentV1(raw: Parameters<typeof validateDeviceDepositConsentFreshV1>[0],
   expectedOrigin: string, expectedPairingId: string): Promise<string> {
-  await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
-  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
   const value = validateDeviceDepositConsentFreshV1(raw);
+  await assertProtectedStorage(); validateDeviceDepositConsentFreshV1(value); const publicKey = await readDevicePublicKey();
+  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
   const current = () => { validateDeviceDepositConsentFreshV1(value);
     if (value.origin !== expectedOrigin || value.pairingId !== expectedPairingId || value.devicePublicKey !== publicKey)
       throw new Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'PROVE_D26'
-      ? 'Revelar únicamente la apertura de esta nota al worker D26; conserva la raíz y la clave en el teléfono'
+      ? value.version===2?'Enviar cifrada la apertura de esta nota al destinatario D26 original; conserva la raíz y la clave en el teléfono'
+        :'Revelar únicamente la apertura de esta nota al worker D26; conserva la raíz y la clave en el teléfono'
       : value.action === 'FUND_D26' ? 'Financiar una sola vez esta nota de ' + value.statement.amount + ' unidades'
         : 'Consultar el envío original de esta nota; no reenviar ni generar otra prueba' });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');

@@ -13,8 +13,8 @@ import { normalizeLocalDepositChoiceV1, localUnissuedDepositStatementV1, localUn
   type LocalDepositChoiceV1, type LocalDepositStatementV1 } from './unissued-deposit-terms-v1.mjs';
 import { localBalanceCommitmentMessageV1, localNoteHexBytesV1, localNoteUintBytesV1,
   type LocalBalanceOpeningV1 } from './balance-note-codec-v1.mjs';
-import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, validateDeviceDepositConsentFreshV1,
-  type DeviceDepositConsentV1, type DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1, type DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+import {validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1, type DeviceDepositConsentEitherV2 as DeviceDepositConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 import { readDeviceDepositInclusionV1, readDeviceDepositDisplayV1, type DeviceDepositInclusionV1 } from '../api/device-owner-deposit-api-v1';
 import { compileLocalFundedBalanceGraphV1, normalizeLocalFundedProposalV1, localFundedOwnerFrameV1,
   localFundedAuthorizationWordsV1, localFundedSpendNullifierV1, localFundedInvoiceFrameV1, localNativeTransferActionCommitmentV1,

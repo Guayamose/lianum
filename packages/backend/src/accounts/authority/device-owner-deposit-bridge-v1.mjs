@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { randomBytes, createHash, createPublicKey, verify } from 'node:crypto';
 import { assertOwnedNativeValueAccountAuthority, runDeviceOwnerDepositAuthorizationV1,
-  readDeviceOwnerDepositStatusV1 } from './native-value-account-authority-v2.mjs';
+  readDeviceOwnerDepositStatusV1,installOriginalNativePrivateDepositV2 } from './native-value-account-authority-v2.mjs';
 import { assertPairedOriginalAccountActorV2, assertPairedOriginalAccountActorAccountV2,
   pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../../operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
@@ -17,6 +17,8 @@ import { normalizeOriginalAccountSignatureV2 } from '../../../../mobile-protocol
 import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1,
   normalizeDeviceDepositStatementV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1,
   DEVICE_DEPOSIT_CONSENT_V1 } from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
+import * as Private from '../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
+import {createOriginalNativePrivateDepositProofClientV2} from '../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
 const bridges = new WeakMap(), admissions = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const nonce = () => randomBytes(32).toString('hex');
@@ -29,12 +31,12 @@ function exact(value, names) {
 }
 /** Reject proxies before introspection, getters/functions and oversized nested
  * values before normalizing; this copies data, never constructor authorities. */
-function data(raw) {
+function data(raw,maximum=8192) {
   let nodes = 0, bytes = 0;
   function visit(value, depth) {
     assert.ok(++nodes <= 512 && depth <= 8 && !types.isProxy(value), 'DEVICE_OWNER_BRIDGE_DATA');
     if (value === null || typeof value === 'number' || typeof value === 'boolean') return value;
-    if (typeof value === 'string') { bytes += value.length; assert.ok(bytes <= 8192, 'DEVICE_OWNER_BRIDGE_DATA'); return value; }
+    if (typeof value === 'string') { bytes += value.length; assert.ok(bytes <= maximum, 'DEVICE_OWNER_BRIDGE_DATA'); return value; }
     assert.ok(value && typeof value === 'object', 'DEVICE_OWNER_BRIDGE_DATA');
     const array = Array.isArray(value);
     assert.equal(Object.getPrototypeOf(value), array ? Array.prototype : Object.prototype, 'DEVICE_OWNER_BRIDGE_DATA');
@@ -56,8 +58,12 @@ const wipe = value => { if (value && typeof value === 'object') {
 const opaque = () => Object.freeze(Object.defineProperty(Object.create(null), 'toJSON', {
   value() { throw Error('DEVICE_OWNER_BRIDGE_NOT_SERIALIZABLE'); },
 }));
-export async function createDeviceOwnerDepositBridgeV1(input) {
-  assert.equal(arguments.length, 1, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
+export function createDeviceOwnerDepositBridgeV1(input){assert.equal(arguments.length,1);return createBridge(input,false);}
+/** Fixed private producer installed before funding, never selected by HTTP data. */
+export function createOriginalNativePrivateDepositBridgeV2(input){assert.equal(arguments.length,1);return createBridge(input,true);}
+export function isOriginalNativePrivateDepositBridgeV2(bridge){assert.equal(arguments.length,1);const s=bridges.get(bridge);assert.ok(s);s.original();return s.privateD26===true;}
+async function createBridge(input,privateD26) {
+  assert.equal(arguments.length, 2, 'DEVICE_OWNER_BRIDGE_ARGUMENTS');
   exact(input, ['actor', 'account', 'owner', 'runtime', 'system', 'poolIndex']);
   const { actor, account, owner, runtime, system, poolIndex } = input;
   const original = () => {
@@ -70,7 +76,7 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
   const key = createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
     x: Buffer.from(descriptor.devicePublicKey.slice(2, 66), 'hex').toString('base64url'),
     y: Buffer.from(descriptor.devicePublicKey.slice(66), 'hex').toString('base64url') } });
-  const pending = new Map(), issuedJobs = new Map(); let closed = false, busy = false;
+  const pending = new Map(), issuedJobs = new Map(),prepared=new Map(); let closed = false, busy = false;
   const live = () => { assert.ok(!closed, 'DEVICE_OWNER_BRIDGE_CLOSED'); original(); };
   async function current() { live(); const view = await reader.read(); live(); await reader.assertCurrent(view); live(); return view; }
   function asset(view) {
@@ -89,35 +95,48 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
   function issue(action, bound, selected, view, fields) {
     for (const [id, row] of pending) if (row.consumed || row.value.expiresAt <= Date.now()) pending.delete(id);
     assert.ok(pending.size < 4, 'DEVICE_OWNER_BRIDGE_CHALLENGE_CAPACITY');
-    const value = normalizeDeviceDepositConsentV1({ version: 1, profile: DEVICE_DEPOSIT_CONSENT_V1,
+    const normalize=privateD26?Private.normalizeNativePrivateDepositConsentV2:normalizeDeviceDepositConsentV1;
+    let value = { version: privateD26?2:1, profile: privateD26?Private.DEVICE_NATIVE_PRIVATE_DEPOSIT_V2:DEVICE_DEPOSIT_CONSENT_V1,
       action, ...descriptor, challengeId: nonce(), nonce: nonce(), expiresAt: Date.now() + 15_000,
       binding: bound, poolTerms: { scope: selected.scope, policy: selected.policy, codeHash: selected.codeHash,
         assetIdentity: selected.assetIdentity, domainCommitment: view.domainCommitment },
       ...fields, observed: { blockNumber: view.head.number, blockHash: view.head.hash, timestamp: view.head.timestamp },
-      openingDisclosure: action === 'PROVE_D26' ? 'ONE_D26_OPENING_TO_ORIGINAL_EPHEMERAL_WORKER' : null });
+      openingDisclosure: action === 'PROVE_D26' ? (privateD26?'ENCRYPTED_D26_OPENING_TO_ORIGINAL_NATIVE_RECIPIENT':'ONE_D26_OPENING_TO_ORIGINAL_EPHEMERAL_WORKER') : null,
+      ...(privateD26?{privateProof:action==='PROVE_D26'?fields.privateProof:null}:{}) };
+    if(privateD26&&action==='PROVE_D26')value.privateProof={...value.privateProof,transcriptSHA256:sha(Private.nativePrivateDepositTranscriptBytesV2(value))};
+    value=normalize(value);
     pending.set(value.challengeId, { value, consumed: false }); return structuredClone(value);
   }
   async function authorize(input, action, consume = true) {
     exact(input, action === 'PROVE_D26' ? ['consent', 'signature', 'witness'] : ['consent', 'signature']); live();
-    const value = validateDeviceDepositConsentFreshV1(data(input.consent));
+    const value = Private.validateDeviceDepositConsentEitherFreshV2(data(input.consent));
+    assert.equal(value.version,privateD26?2:1,'DEVICE_OWNER_BRIDGE_PROFILE');
     const row = pending.get(value.challengeId);
     assert.ok(row && !row.consumed && value.action === action && JSON.stringify(value) === JSON.stringify(row.value),
       'DEVICE_OWNER_BRIDGE_ORIGINAL_CONSENT');
     const signature = normalizeOriginalAccountSignatureV2(input.signature);
-    assert.equal(verify('sha256', deviceDepositConsentMessageV1(value), { key, dsaEncoding: 'ieee-p1363' },
+    assert.equal(verify('sha256', Private.deviceDepositConsentEitherMessageV2(value), { key, dsaEncoding: 'ieee-p1363' },
       Buffer.from(signature, 'hex')), true, 'DEVICE_OWNER_BRIDGE_DEVICE_SIGNATURE');
     assert.deepEqual(await actor.deviceDepositOriginalBinding(), value.binding, 'DEVICE_OWNER_BRIDGE_BINDING_CHANGED'); live();
-    validateDeviceDepositConsentFreshV1(value);
+    Private.validateDeviceDepositConsentEitherFreshV2(value);
     let witness = null;
     if (action === 'PROVE_D26') {
-      witness = normalizeDeviceDepositWitnessV1(data(input.witness));
-      const bytes = deviceDepositWitnessBytesV1(witness);
+      if(privateD26){witness=data(input.witness,16384);exact(witness,['type','profile','relation','role','jobId','recipientPublicKey','senderPublicKey','authorization','publicInputsSHA256','salt','iv','tag','ciphertext']);
+        const own=prepared.get(value.jobId);assert.ok(own&&!own.admitted&&JSON.stringify(own.consent)===JSON.stringify(value),'DEVICE_OWNER_BRIDGE_PRIVATE_RECIPIENT');
+        for(const name of ['profile','relation','role','jobId','recipientPublicKey'])assert.equal(witness[name],value.privateProof.recipient[name]);
+        assert.deepEqual(witness.authorization,{kind:'ORIGINAL_CONSENT_V1',jobId:value.jobId,consentSHA256:sha(Private.deviceDepositConsentEitherMessageV2(value)),witnessSHA256:value.witnessSHA256});
+        assert.equal(witness.publicInputsSHA256,sha(JSON.stringify(Private.nativePrivateDepositPublicInputsV2(value))));assert.ok(typeof witness.ciphertext==='string'&&witness.ciphertext.length<=16384);
+      }else witness = normalizeDeviceDepositWitnessV1(data(input.witness));
+      if(!privateD26){const bytes = deviceDepositWitnessBytesV1(witness);
       try { assert.equal(sha(bytes), value.witnessSHA256, 'DEVICE_OWNER_BRIDGE_WITNESS_CHANGED'); }
-      finally { bytes.fill(0); }
+      finally { bytes.fill(0); }}
     }
     if (!consume) return value; // read-only ORIGINAL pending consent validation
     row.consumed = true; const capability = opaque();
-    admissions.set(capability, { bridge, account, action, consent: value, witness, consumed: false }); return capability;
+    const own=privateD26&&action==='PROVE_D26'?prepared.get(value.jobId):null;
+    if(own){own.admitted=true;clearTimeout(own.timer);}
+    admissions.set(capability, { bridge, account, action, consent: value, witness, consumed: false,
+      ...(own?{privateD26:true,client:own.client,signature}:{}) }); return capability;
   }
   const bridge = Object.freeze({
     async challengeJob(input) {
@@ -137,7 +156,14 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
         let jobId = input.jobId;
         if (jobId === null) { assert.ok(issuedJobs.size < 64, 'DEVICE_OWNER_BRIDGE_JOB_CAPACITY'); jobId = nonce(); issuedJobs.set(jobId, context); }
         else assert.deepEqual(issuedJobs.get(jobId), context, 'DEVICE_OWNER_BRIDGE_ORIGINAL_JOB_REQUIRED');
-        return issue('PROVE_D26', bound, selected, view, { ...context, jobId, proofSHA256: null, publicInputsSHA256: null });
+        if(!privateD26)return issue('PROVE_D26', bound, selected, view, { ...context, jobId, proofSHA256: null, publicInputsSHA256: null });
+        assert.ok(!prepared.has(jobId)&&prepared.size<4,'DEVICE_OWNER_BRIDGE_PRIVATE_CAPACITY');
+        const client=createOriginalNativePrivateDepositProofClientV2(),own={client,consent:null,admitted:false,timer:null};prepared.set(jobId,own);
+        try{const words=[...statement.scope.match(/.{8}/g).map(x=>String(parseInt(x,16))),...statement.policy.match(/.{8}/g).map(x=>String(parseInt(x,16))),statement.epoch,statement.amount,...statement.output.match(/.{8}/g).map(x=>String(parseInt(x,16)))];
+          const recipient=await client.prepare(words);live();await reader.assertCurrent(view);live();
+          const value=issue('PROVE_D26',bound,selected,view,{...context,jobId,proofSHA256:null,publicInputsSHA256:null,privateProof:{profile:Private.DEVICE_NATIVE_PRIVATE_PROOF_V2,recipient,transcriptSHA256:'1'.repeat(64)}});own.consent=value;
+          own.timer=setTimeout(()=>{if(!own.admitted){prepared.delete(jobId);void client.close();}},Math.max(1,value.expiresAt-Date.now()));own.timer.unref();return value;
+        }catch(error){prepared.delete(jobId);await client.close();throw error;}
       } finally { busy = false; }
     },
     async prove(input) {
@@ -154,7 +180,8 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
         return await runDeviceOwnerDepositAuthorizationV1(account, bridge, admission);
       } catch (error) { failed = true; failure = error; throw error; }
       finally {
-        if (admission) wipe(admissions.get(admission)?.witness); busy = false;
+        if (admission) wipe(admissions.get(admission)?.witness);
+        if(privateD26&&admission){const j=admissions.get(admission).consent.jobId,own=prepared.get(j);prepared.delete(j);if(own){clearTimeout(own.timer);await own.client.close();}}busy = false;
         // Resolve only AFTER the original authority Promise and its prover.close
         // have completed and this bridge released its unchanged busy guard.
         if (completion) { if (failed) completion.reject(failure); else completion.resolve(); }
@@ -201,14 +228,17 @@ export async function createDeviceOwnerDepositBridgeV1(input) {
       try { return await runDeviceOwnerDepositAuthorizationV1(account, bridge, await authorize(input, 'OBSERVE_D26')); }
       finally { busy = false; }
     },
-    close() { assert.equal(arguments.length, 0); closed = true; pending.clear(); return { closed: true, originalWorkRetained: true }; },
+    close() { assert.equal(arguments.length, 0); closed = true; pending.clear();
+      if(!privateD26)return {closed:true,originalWorkRetained:true};
+      const stops=[...prepared.values()].filter(v=>!v.admitted).map(v=>{clearTimeout(v.timer);return v.client.close();});
+      return Promise.all(stops).then(()=>({closed:true,originalWorkRetained:true})); },
   });
-  bridges.set(bridge, { account, actor, original, descriptor,
+  bridges.set(bridge, { account, actor, original, descriptor,privateD26,
     async durableFunding(input) {
       assert.ok(!busy, 'DEVICE_OWNER_BRIDGE_BUSY'); busy = true;
       try { return await authorize(input, 'FUND_D26', false); } finally { busy = false; }
     },
-  }); return bridge;
+  });if(privateD26)await installOriginalNativePrivateDepositV2(account,bridge); return bridge;
 }
 /** Validate a pending FUND signature before SQL consumes an admission. No
  * challenge, permission, journal mutation, proof or send is created here. */
@@ -246,6 +276,7 @@ export function consumeDeviceOwnerDepositAuthorizationV1(bridge, admission, acco
   assert.ok(!types.isProxy(admission), 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
   const row = admissions.get(admission);
   assert.ok(row && row.bridge === bridge && row.account === account && !row.consumed, 'DEVICE_OWNER_BRIDGE_ORIGINAL_REQUIRED');
-  validateDeviceDepositConsentFreshV1(row.consent); row.consumed = true;
-  return { action: row.action, consent: row.consent, witness: row.witness };
+  Private.validateDeviceDepositConsentEitherFreshV2(row.consent); row.consumed = true;
+  return { action: row.action, consent: row.consent, witness: row.witness,
+    ...(row.privateD26?{privateD26:true,client:row.client,signature:row.signature}:{}) };
 }

@@ -14,7 +14,7 @@ import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/de
 import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
-import { deviceOwnerDepositBridgeActorV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { deviceOwnerDepositBridgeActorV1,isOriginalNativePrivateDepositBridgeV2 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { assertOriginalDeviceDurableDispatchBindingsV1, runOriginalDeviceDurableDispatchV1 }
   from './original-device-durable-dispatch-v1.mjs';
 const listeners = new WeakSet(), ownedTransports = new WeakMap(), depositContinuations = new WeakMap();
@@ -211,6 +211,8 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
   if (listeners.has(actor)) fail('MOBILE_ORIGINAL_HTTP_ALREADY_BOUND'); listeners.add(actor);
   const sockets = new Set(), running = new Set(); let closed = false, closePromise, confirmOwnedClose;
   const handler = (request, response) => {
+    let deadline,requestTimedOut=false,rejectDeadline;
+    const armResponseDeadline=milliseconds=>{clearTimeout(deadline);deadline=setTimeout(()=>{requestTimedOut=true;rejectDeadline(Object.assign(new Error('HTTP_REQUEST_TIMEOUT'),{code:'HTTP_REQUEST_TIMEOUT'}));},milliseconds);deadline.unref();};
     const work = (async () => {
       if (closed) fail('HTTP_CLOSED');
       if (tls) {
@@ -256,11 +258,15 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       }
       if (bridge !== null && request.method === 'POST' && request.url.startsWith('/v1/mobile/device-deposit/')) {
         if (!tls || request.headers.origin !== descriptor.origin) fail('HTTP_ORIGIN_REJECTED');
-        const methods = { 'job-reviews': 'challengeJob', 'jobs': 'prove', 'funding-reviews': 'challengeFunding',
+        const route=request.url.slice('/v1/mobile/device-deposit/'.length),privateBridge=isOriginalNativePrivateDepositBridgeV2(bridge);
+        const methods = { 'job-reviews': 'challengeJob', 'jobs': 'prove', 'private-jobs':'prove','funding-reviews': 'challengeFunding',
           'fund': 'fund', 'observation-reviews': 'challengeObservation', 'observations': 'observe' };
-        const method = methods[request.url.slice('/v1/mobile/device-deposit/'.length)];
-        if (!method) fail('HTTP_NOT_FOUND');
-        const input = await jsonBody(request); if (closed) fail('HTTP_CLOSED');
+        const method = methods[route];
+        if (!method||(route==='private-jobs'&&!privateBridge)||(route==='jobs'&&privateBridge)) fail('HTTP_NOT_FOUND');
+        const input = await jsonBody(request,route==='private-jobs'?16384:BODY_LIMIT); if (closed) fail('HTTP_CLOSED');
+        // Only the fixed private producer gets the original proof response
+        // window, after its body met the unchanged 5s ingestion deadline.
+        if(route==='private-jobs'){if(requestTimedOut||!request.complete)fail('HTTP_REQUEST_TIMEOUT');armResponseDeadline(900000);}
         // A proof job is retained by the original account even if this HTTP
         // response is lost/times out. Its opening has no logs/journal storage.
         try { return dispatch && method === 'fund'
@@ -294,9 +300,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       return actor.submit(value);
     })();
     running.add(work); work.finally(() => running.delete(work)).catch(() => {});
-    let deadline;
-    const timeout = new Promise((_, reject) => { deadline = setTimeout(() => reject(Object.assign(
-      new Error('HTTP_REQUEST_TIMEOUT'), { code: 'HTTP_REQUEST_TIMEOUT' })), REQUEST_MS); deadline.unref(); });
+    const timeout = new Promise((_, reject) => {rejectDeadline=reject;armResponseDeadline(REQUEST_MS);});
     Promise.race([work, timeout]).then(value => reply(response, 200, value), error => {
       const code = error?.code;
       const status = code === 'HTTP_NOT_FOUND' ? 404 : code === 'HTTP_BODY_REJECTED' ? 400
@@ -365,7 +369,8 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
           const network = closeTransport(); network.catch(() => {});
           composedClose = (async () => {
             const outcomes = await Promise.allSettled(pending);
-            bridge.close(); reservationBridge.close(); executionBridge.close();
+            if(isOriginalNativePrivateDepositBridgeV2(bridge))await bridge.close();else bridge.close();
+            reservationBridge.close(); executionBridge.close();
             await actor.close(); depositContinuations.delete(actor);
             const report = await network;
             return Object.freeze({ ...report, originalDiagnosticsInFlight: running.size,
@@ -375,6 +380,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
         }
         return composedClose;
       }
+      if(!owned.transferred&&bridge&&isOriginalNativePrivateDepositBridgeV2(bridge)){const network=closeTransport();return(async()=>{await Promise.allSettled([...running]);await bridge.close();await actor.close();depositContinuations.delete(actor);return network;})();}
       if (!owned.transferred) { const actorClose=actor.close(); depositContinuations.delete(actor);if(actorClose instanceof Promise)return actorClose.then(()=>closeTransport()); }
       return closeTransport();
     },
@@ -442,7 +448,8 @@ export async function stopCapturedNativeDeviceTransportRecoveryV1(transport, aut
     fail('MOBILE_ORIGINAL_HTTP_CLEANUP_UNCONFIRMED');
   // These controllers retain no unclosed original job because running is zero.
   // Their nonce maps are invalidated; economic one-use latches remain in Vault.
-  owned.bridge.close(); owned.reservationBridge.close(); owned.executionBridge.close();
+  if(isOriginalNativePrivateDepositBridgeV2(owned.bridge))await owned.bridge.close();else owned.bridge.close();
+  owned.reservationBridge.close(); owned.executionBridge.close();
   capture.stopped = true; listeners.delete(owned.actor); depositContinuations.delete(owned.actor);
   return Object.freeze({ ...report, actorRetainedForOriginalRecovery: true });
 }
