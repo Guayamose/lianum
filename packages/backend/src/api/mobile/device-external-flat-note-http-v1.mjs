@@ -7,6 +7,7 @@ import {createPrivateKey,X509Certificate} from 'node:crypto';
 import {types} from 'node:util';
 import {externalFlatWipeV1,readExternalFlatFreshFailureV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {isIP} from 'node:net';
+import {originalOwnedRuntimeRpcFailureV1} from '../../../../engine/src/chains/shared/runtime-harness.mjs';
 import {privateFailureDiagnostic} from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import {AssertionError} from 'node:assert';
 import {lstatSync,realpathSync} from 'node:fs';
@@ -91,13 +92,29 @@ function privateFirstError(error){
 const DIAGNOSTIC_CODE=/^(?:(?:DEVICE_EXTERNAL_FLAT|NATIVE_ECONOMIC|LOCAL_EVM|EVM|FLAT|VAULT|PW|NATIVE)_[A-Z0-9_]{1,100}|ERR_ASSERTION)$/;
 const DIAGNOSTIC_PHASES=new Set(['REQUEST','CHALLENGE','REVIEW','OPERATE','STATUS']);
 const DIAGNOSTIC_ACTIONS=new Set(['PROVE_D26','PROVE_D27','OBSERVE_D27','FUND_D26','OBSERVE_D26','QUOTE_W39','PROVE_W39','WITHDRAW_W39','OBSERVE_W39']);
+/** SAME original loopback exception only. Private diagnostic DATA cannot
+ * select a runtime/effect; retain no RPC message, arguments or raw revert. */
+function privateOriginalRpcFailure(error){
+ const seen=new Set();let current=error;
+ for(let depth=0;current&&depth<5&&!seen.has(current);depth++){
+  if(typeof current!=='object'||types.isProxy(current))return null;seen.add(current);
+  const original=originalOwnedRuntimeRpcFailureV1(current);
+  if(original?.schema==='ORIGINAL_OWNED_LOOPBACK_RPC_FAILURE_V1'&&!original.projectionFailed){
+   return Object.freeze({schema:original.schema,method:original.method,rpcCode:original.rpcCode,
+    revert:Object.freeze({selector:original.revert.selector,panicCode:original.revert.panicCode,bytes:original.revert.bytes,sha256:original.revert.sha256}),
+    requestOrParametersRetained:false,rawDataRetained:false,messageRetained:false});
+  }
+  const cause=Object.getOwnPropertyDescriptor(current,'cause');current=cause&&Object.hasOwn(cause,'value')?cause.value:null;
+ }
+ return null;
+}
 function retainFailure(account,error,phase,action){
  const slot=diagnosticSlots.get(account);if(!slot||!DIAGNOSTIC_PHASES.has(phase)||(action!==null&&!DIAGNOSTIC_ACTIONS.has(action)))return;
  try{
   const original=privateFirstError(error),safe=!!error&&typeof error==='object'&&!types.isProxy(error);
   const supplied=safe?Object.getOwnPropertyDescriptor(error,'code')?.value:undefined,sourceLabel=safe&&types.isNativeError(error)?Object.getOwnPropertyDescriptor(error,'message')?.value:undefined;
-  const diagnostic=privateFailureDiagnostic(error),closed=value=>typeof value==='string'&&DIAGNOSTIC_CODE.exec(value)?.[0]===value?value:null;
-  slot.latest=Object.freeze({format:'LIANUM_DEVICE_EXTERNAL_FLAT_HTTP_LATEST_ERROR_PRIVATE_V1',phase,action,errorType:original.errorType,errorCode:closed(supplied)??closed(sourceLabel)??closed(diagnostic.code)??null,clockFailure:readExternalFlatFreshFailureV1(error),frames:original.frames});
+  const diagnostic=privateFailureDiagnostic(error),rpc=privateOriginalRpcFailure(error),closed=value=>typeof value==='string'&&DIAGNOSTIC_CODE.exec(value)?.[0]===value?value:null;
+  slot.latest=Object.freeze({format:'LIANUM_DEVICE_EXTERNAL_FLAT_HTTP_LATEST_ERROR_PRIVATE_V1',phase,action,errorType:original.errorType,errorCode:closed(supplied)??closed(sourceLabel)??closed(diagnostic.code)??null,clockFailure:readExternalFlatFreshFailureV1(error),frames:original.frames,...(rpc?{originalRpc:rpc}:{})});
  }catch{ /* A diagnostic cannot replace or release the original failure. */ }
 }
 /** Private fixed-caller diagnostic only. The key is the SAME account accepted

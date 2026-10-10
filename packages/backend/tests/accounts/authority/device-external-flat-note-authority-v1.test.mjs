@@ -70,13 +70,14 @@ test('HOST original TLS latest-error slot retains only bounded original metadata
  const source=await readFile(url('../../../src/api/mobile/device-external-flat-note-http-v1.mjs','../mobile/device-external-flat-note-http-v1.mjs'),'utf8');
  const roots=await import(url('../../../../proofs/src/catalog.mjs','../../../proof-workers/catalog.mjs'));
  const diagnostic=await import(url('../../../src/execution/account/reconciliation/failure-diagnostics.mjs','../paeg/failure-diagnostics.mjs'));
+ const originalRpc=await import(url('../../../../engine/src/chains/shared/runtime-harness.mjs','../../../../../omnichain-product/src/chains/runtime-harness.mjs'));
  const {types}=await import('node:util'),{AssertionError}=await import('node:assert'),fs=await import('node:fs'),path=await import('node:path');
  const start=source.indexOf('const DIAGNOSTIC_TYPES='),end=source.indexOf('function exact(',start);assert.ok(start>=0&&end>start);
  // Actual producer/getter bodies, explicit HOST slots only. No listener,
  // account, protocol request or financial authority is fabricated here.
- const factory=new Function('readExternalFlatFreshFailureV1','diagnosticSlots','types','privateFailureDiagnostic','fail','AssertionError','ROOT','FLAT','GOLDEN','join','relative','resolve','isAbsolute','fileURLToPath','realpathSync','lstatSync',source.slice(start,end).replace('export function readOriginal','function readOriginal')+';return{retainFailure,readOriginalDeviceExternalFlatHttpFailureV1};');
+ const factory=new Function('readExternalFlatFreshFailureV1','diagnosticSlots','types','privateFailureDiagnostic','originalOwnedRuntimeRpcFailureV1','fail','AssertionError','ROOT','FLAT','GOLDEN','join','relative','resolve','isAbsolute','fileURLToPath','realpathSync','lstatSync',source.slice(start,end).replace('export function readOriginal','function readOriginal')+';return{retainFailure,readOriginalDeviceExternalFlatHttpFailureV1};');
  const slots=new WeakMap(),key=Object.freeze({}),copy=Object.freeze({});slots.set(key,{latest:null});
- const body=factory(P.readExternalFlatFreshFailureV1,slots,types,diagnostic.privateFailureDiagnostic,()=>{throw Error('HOST_DIAGNOSTIC_DENIED');},AssertionError,roots.ROOT,roots.FLAT,roots.GOLDEN,path.join,path.relative,path.resolve,path.isAbsolute,fileURLToPath,fs.realpathSync,fs.lstatSync);
+ const body=factory(P.readExternalFlatFreshFailureV1,slots,types,diagnostic.privateFailureDiagnostic,originalRpc.originalOwnedRuntimeRpcFailureV1,()=>{throw Error('HOST_DIAGNOSTIC_DENIED');},AssertionError,roots.ROOT,roots.FLAT,roots.GOLDEN,path.join,path.relative,path.resolve,path.isAbsolute,fileURLToPath,fs.realpathSync,fs.lstatSync);
  const error=Object.assign(Error('EXPLICIT_PRIVATE_HOST_MESSAGE_NEVER_OUTPUT'),{code:'NATIVE_ECONOMIC_FIXED_PREPARATION',privateKey:'HOST_PRIVATE_VALUE_NEVER_OUTPUT',actual:'HOST_ACTUAL_NEVER_OUTPUT',expected:'HOST_EXPECTED_NEVER_OUTPUT'});
  const here=fileURLToPath(url('../../../src/api/mobile/device-external-flat-note-http-v1.mjs','../mobile/device-external-flat-note-http-v1.mjs'));error.stack='HOST\n at original ('+here+':31:9)';
  const workMarker='return reader[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(';assert.equal(source.includes(workMarker),true);
@@ -105,6 +106,25 @@ test('HOST original TLS latest-error slot retains only bounded original metadata
  }
  assert.equal(P.readExternalFlatFreshFailureV1(new Proxy({}, {get(){throw Error('HOST_CLOCK_GETTER');}})),null);
  assert.equal(first.clockFailure,null);
+ // Actual loopback RPC exception, with an explicitly inert fetch port. Keep
+ // its closed provenance through the SAME original HTTP failure slot before
+ // the public mapper. No runtime, transaction or financial permission exists.
+ const rpcFetch=mock.method(globalThis,'fetch',async(_endpoint,input)=>{
+  const request=JSON.parse(input.body);assert.equal(request.method,'eth_estimateGas');
+  return{ok:true,async json(){return{error:{code:3,message:'HOST_RPC_MESSAGE_PRIVATE_NEVER_RETAIN',data:'0xdeadbeef'+'ab'.repeat(32)}};}};
+ });
+ let rpcError;try{await originalRpc.ownedRuntimeRpc('http://127.0.0.1:12345','eth_estimateGas',[{data:'HOST_REQUEST_PRIVATE_NEVER_RETAIN'}]);}
+ catch(error){rpcError=error;}finally{rpcFetch.mock.restore();}
+ assert.ok(rpcError);assert.equal(rpcError.message,'OWNED_RPC_REMOTE_ERROR');
+ const wrapped=Error('FLAT_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED',{cause:rpcError});
+ body.retainFailure(key,wrapped,'OPERATE',null);const rpc=body.readOriginalDeviceExternalFlatHttpFailureV1(key).originalRpc;
+ assert.equal(rpc.method,'eth_estimateGas');assert.equal(rpc.rpcCode,3);assert.equal(rpc.revert.selector,'0xdeadbeef');assert.equal(rpc.revert.bytes,36);
+ assert.equal(rpc.messageRetained,false);assert.equal(rpc.rawDataRetained,false);assert.equal(rpc.requestOrParametersRetained,false);
+ const privateText=JSON.stringify(rpc);for(const value of ['HOST_RPC_MESSAGE','HOST_REQUEST','ab'.repeat(32),'message:','params'])assert.equal(privateText.includes(value),false);
+ rpc.rpcCode=9;assert.equal(body.readOriginalDeviceExternalFlatHttpFailureV1(key).originalRpc.rpcCode,3);
+ const fake=Object.assign(Error('OWNED_RPC_REMOTE_ERROR'),{rpcCode:3,data:'0xdeadbeef'});body.retainFailure(key,fake,'OPERATE',null);assert.equal(Object.hasOwn(body.readOriginalDeviceExternalFlatHttpFailureV1(key),'originalRpc'),false);
+ const unsafeCause=Object.defineProperty(Error('FLAT_FAILURE'),'cause',{get(){reads++;throw Error('HOST_RPC_GETTER');}});
+ body.retainFailure(key,unsafeCause,'OPERATE',null);assert.equal(reads,0);assert.equal(Object.hasOwn(body.readOriginalDeviceExternalFlatHttpFailureV1(key),'originalRpc'),false);
 
 });
 
