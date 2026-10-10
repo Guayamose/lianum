@@ -154,7 +154,7 @@ async function localOperator(input,reopening,originalBlue=false,originalMultiFou
     for(const contract of [official.first,share])capabilities.push(await createOwnedPoolAsset({runtime,
       deployment:{address:contract.address,transactionHash:contract.receipt.transactionHash,expectedCode:contract.code,codeHash:evmRuntimeCodeHash(contract.code)},
       symbol:(await official.read(contract,'symbol'))[0],decimals:Number((await official.read(contract,'decimals'))[0]),kind:'ERC20'}));
-    assert.ok(capabilities[0].metadata.symbol==='USDC'&&capabilities[0].metadata.decimals===6,'DEVICE_EXTERNAL_LOCAL_FIXED_USDC');
+    assert.ok(capabilities[0].metadata.symbol===(originalAave?'USDC':'PALT')&&capabilities[0].metadata.decimals===6,'DEVICE_EXTERNAL_LOCAL_FIXED_SOURCE_ASSET');
     const shareIdentity=derivePrivateAssetIdentity(runtime.metadata.chainId,share.address,evmRuntimeCodeHash(share.code)).slice(2);
     const rule={family:'3',genesis:bare(runtime.metadata.evmGenesis),asset:shareIdentity,finalityKind:'3',minimumConfirmations:'1',maximumEvidenceLifetime:'86400',maximumClockSkew:'30'},rules=nativeAdmissionRulesTree([rule]);
     for(let signerIndex=0;signerIndex<4;signerIndex++)operators.push(createLocalFlatOperator({signerIndex}));
