@@ -2,6 +2,7 @@
  * only infrastructure and the device public key; native fixture custody stays
  * on this laboratory backend. Entry never funds, proves or dispatches. */
 import assert from 'node:assert/strict';
+import {retainOriginalNetworkMobileFirstErrorV1} from '../../../scripts/development/original-network-mobile-private-diagnostic-v1.mjs';
 import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
 import {open,lstat,realpath} from 'node:fs/promises';
@@ -40,4 +41,4 @@ try{const backend=await originalProduct(),path=backend.originalOwnedTronMobileCo
  if(!closeRequested){acquisition=backend.createOriginalOwnedTronPrivateNativeMobileV1(config);acquisition.catch(()=>{});config.tls=null;service=await acquisition;
  assert.equal(service.profile,'ORIGINAL_TRON_PRIVATE_NATIVE_MOBILE_V1');if(closeRequested)await close();else{await publish(path,service);if(closeRequested)await close();else process.stdout.write('TRON_PRIVATE_NATIVE_MOBILE_READY\n');}}
  else config.tls=null;
-}catch{process.exitCode=1;try{await close();}catch{process.stderr.write('TRON_MOBILE_CLOSE_UNCONFIRMED\n');}process.stderr.write('TRON_MOBILE_START_FAILED\n');}
+}catch(error){process.exitCode=1;try{await retainOriginalNetworkMobileFirstErrorV1('TRON',error);}catch{process.stderr.write('NATIVE_ECONOMIC_PRIVATE_DIAGNOSTIC_UNAVAILABLE\n');}try{await close();}catch{process.stderr.write('TRON_MOBILE_CLOSE_UNCONFIRMED\n');}process.stderr.write('TRON_MOBILE_START_FAILED\n');}

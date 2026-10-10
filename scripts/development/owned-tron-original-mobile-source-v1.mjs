@@ -9,7 +9,7 @@ import {dirname,join,parse,relative,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-value-dev-release-v5.mjs';
 const CAPSULE='OWNED_ORIGINAL_TRON_MOBILE_SOURCE_PROFILE_V1';
-const selected={profile:'ORIGINAL_TRON_PRIVATE_NATIVE_MOBILE_V1',files:[{"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","sha256":"6802c9d7d65328b0d9d18c453427eea9198834ae370136e6dd4448df14b1ef6b"},{"path":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","sha256":"d9488009048f7c06a051a0fd8cb6aa814edfe5fdd48f23fd58688c7a14a0384f"}]};
+const selected={profile:'ORIGINAL_TRON_PRIVATE_NATIVE_MOBILE_V1',files:[{"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","sha256":"6802c9d7d65328b0d9d18c453427eea9198834ae370136e6dd4448df14b1ef6b"},{"path":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","sha256":"337079a86fdcd8001e6a7ea8d79cf90136370faf999d8d910e30bfefe9dcb800"},{"path":"scripts/development/original-network-mobile-private-diagnostic-v1.mjs","sha256":"3d093a920d9d1f9818700391ee58a9485accb86bcae9cf11c91b854d9bf6690a"},{"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","sha256":"5059190aa698d6bfcabcdb0511d23bb88e33006dcdf74413e8a7cfa7346aca84"}]};
 const slots=new WeakMap(),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const stats=['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'];
 const publicationPath='.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-value-dev-release-v5.mjs';

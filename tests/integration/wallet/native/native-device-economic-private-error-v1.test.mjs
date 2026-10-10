@@ -3,7 +3,10 @@ import {test} from 'node:test';
 import assert,{AssertionError} from 'node:assert';
 import {readFileSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,mkdir,readdir,lstat,realpath,open,rm} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {createHash,randomUUID} from 'node:crypto';
+import {resolve,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fork} from 'node:child_process';
 import {once} from 'node:events';
@@ -12,7 +15,7 @@ import {types} from 'node:util';
 import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
-import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose} from './native-device-economic-private-error-v1.mjs';
+import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose,privateOwnedNetworkMobileFirstErrorV1 as networkDiagnose} from './native-device-economic-private-error-v1.mjs';
 // The public catalog is an existing source under the fixed root in both layouts.
 const catalogPath=existsSync(join(ROOT,'proof-workers/catalog.mjs'))?join(ROOT,'proof-workers/catalog.mjs'):join(ROOT,'src/catalog.mjs');
 const safeFrame=`    at original (${catalogPath}:41:7)`;
@@ -319,4 +322,51 @@ test('HOST D26 observation retains the same original failure behind a lost or re
   await assert.rejects(fixed.wait(fixed.bridge), error => error === primary);
   assert.equal(authorized, 1); assert.equal(observed, 1); assert.ok(checks >= 2);
   await assert.rejects(fixed.wait(new Proxy(fixed.bridge, {})), /ORIGINAL_REQUIRED/);
+});
+
+
+test('HOST fixed network CLI retains its first sanitized cause before cleanup with private immutable files', async () => {
+ // No CLI/native/runtime starts. Original parser and writer bodies use real
+ // filesystem ports with a declared inert process identity under a temp root.
+ const repository=ROOT.endsWith('/.internal/runtime/omnichain-flat-profile/flat-wallet')
+  ?resolve(ROOT,'../../../..'):resolve(new URL('../../../../',import.meta.url).pathname),networkPath=join(repository,'scripts/development/owned-bsc-posa-v1.mjs');
+ const original=new Error('PRIVATE ERROR MESSAGE'),cause=new Error('BSC_FINALITY_STARTUP_TIMEOUT');
+ original.cause=cause;original.stack='Error: PRIVATE ERROR MESSAGE\n    at private ('+networkPath+':41:7)\n    at secret (/tmp/private-witness.mjs:1:2)';
+ const metadata=networkDiagnose(original,'BSC714');assert.equal(metadata.diagnostic.cause.networkCode,'BSC_FINALITY_STARTUP_TIMEOUT');
+ assert.ok(metadata.diagnostic.frames.some(row=>row.root==='network-source'&&row.path==='scripts/development/owned-bsc-posa-v1.mjs'));
+ const privateJSON=JSON.stringify(metadata);for(const forbidden of['PRIVATE ERROR MESSAGE','private-witness','message','actual','expected','nativeWire'])assert.equal(privateJSON.includes(forbidden),false);
+ let reads=0;const hostile=new Error('PRIVATE');Object.defineProperty(hostile,'message',{get(){reads++;throw Error('HOST_GETTER_MUST_NOT_RUN');}});
+ Object.defineProperty(hostile,'cause',{get(){reads++;throw Error('HOST_GETTER_MUST_NOT_RUN');}});
+ Object.defineProperty(hostile,'stack',{get(){reads++;throw Error('HOST_GETTER_MUST_NOT_RUN');}});
+ assert.equal(networkDiagnose(hostile,'BSC714').diagnostic.networkCode,null);assert.equal(reads,0);
+ const filesystem=Object.assign(new Error('PRIVATE path details'),{code:'ENOENT'});assert.equal(networkDiagnose(filesystem,'BASE8453').diagnostic.networkCode,'ENOENT');
+ assert.throws(()=>networkDiagnose(original,'PUBLIC_OTHER'));assert.equal(networkDiagnose(new Error('BSC_FAKE_SECRET'),'BSC714').diagnostic.networkCode,null);
+ const helper=await readFile(join(repository,'scripts/development/original-network-mobile-private-diagnostic-v1.mjs'),'utf8');
+ const literal=/const PARSER=\{path:("[^"]+"),sha256:("[0-9a-f]{64}"),bytes:([0-9]+)\};/.exec(helper);assert.ok(literal);
+ const PARSER={path:JSON.parse(literal[1]),sha256:JSON.parse(literal[2]),bytes:Number(literal[3])};
+ const selected=/const NETWORKS=Object.freeze\(([^\n]+)\);/.exec(helper);assert.ok(selected);const NETWORKS=JSON.parse(selected[1]);
+ const root=await mkdtemp(join(tmpdir(),'network-first-error-host-'));const directory=join(root,NETWORKS.BSC714.directory);
+ await mkdir(directory,{recursive:true,mode:0o700});await mkdir(dirname(join(root,PARSER.path)),{recursive:true,mode:0o700});
+ await writeFile(join(root,PARSER.path),await readFile(join(repository,PARSER.path)),{mode:0o644});
+ const body=helper.slice(helper.indexOf("const FIELDS=")).replace('export async function retainOriginalNetworkMobileFirstErrorV1','async function retainOriginalNetworkMobileFirstErrorV1');
+ function writer(){const node=join(root,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
+  const env={assert,createHash,randomUUID,constants,open,lstat,realpath,join,root,PARSER,NETWORKS,
+   privateOwnedNetworkMobileFirstErrorV1:networkDiagnose,
+   process:{execPath:node,argv:[node,join(root,NETWORKS.BSC714.entry)],execArgv:['--max-old-space-size=384'],env:{},getuid:()=>process.getuid()}};
+  return new Function(...Object.keys(env),body+'\nreturn retainOriginalNetworkMobileFirstErrorV1;')(...Object.values(env));
+ }
+ try {
+  let cleanup=false;const retain=writer();const receipt=await retain('BSC714',original);assert.equal(cleanup,false);cleanup=true;assert.equal(receipt.retained,true);
+  const files=await readdir(directory);assert.equal(files.length,1);assert.match(files[0],/^first-error-private-[0-9a-f-]{36}\.json$/);
+  const path=join(directory,files[0]),bytes=await readFile(path);assert.deepEqual(JSON.parse(bytes.toString()),metadata);
+  assert.equal((await lstat(path)).mode&0o777,0o600);assert.equal((await lstat(directory)).mode&0o777,0o700);
+  await assert.rejects(retain('BSC714',cause),/FIXED_FIRST_ERROR/);assert.deepEqual(await readFile(path),bytes);
+  // The next original CLI lifetime gets a unique file; the first remains exact.
+  await writer()('BSC714',cause);assert.equal((await readdir(directory)).length,2);assert.deepEqual(await readFile(path),bytes);
+  for(const entry of ['run-original-bsc-private-native-mobile-v3.mjs','run-original-arbitrum-private-native-mobile-v1.mjs','run-original-base-private-native-mobile-v1.mjs','run-original-tron-private-native-mobile-v1.mjs']){
+   const source=await readFile(join(repository,'apps/platform/src',entry),'utf8');
+   const first=source.lastIndexOf('}catch(error){process.exitCode=1;'),diagnostic=source.indexOf('await retainOriginalNetworkMobileFirstErrorV1(',first),close=source.indexOf('try{await close();}',first);
+   assert.ok(first>=0&&diagnostic>first&&close>diagnostic,'HOST diagnostic retained before same original cleanup');
+  }
+ }finally{await rm(root,{recursive:true,force:true});}
 });
