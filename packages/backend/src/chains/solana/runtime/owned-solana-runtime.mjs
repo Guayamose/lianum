@@ -38,6 +38,11 @@ export function assertOwnedSolanaSplGraphPairV1(spl,graph){
  const group=originalSplFacadesV1.get(spl);requireCondition(originalSplGraphsV1.get(graph)===group&&group.spl===spl&&group.graph===graph&&spl!==graph&&spl.close===graph.close,'SOLANA_SPL_SAME_ORIGINAL_VALIDATOR');
  requireCondition(group.genesis===spl.genesis&&group.genesis===graph.genesis&&group.splAsset!==group.solAsset,'SOLANA_SPL_DISTINCT_PHYSICAL_DOMAINS');return true;
 }
+/** Fixed original co-owned graph, never selected by a supplied ID/genesis. */
+export function readOwnedSolanaSplOriginalGraphV3(spl){
+ requireCondition(arguments.length===1,'SOLANA_SPL_GRAPH_CONTEXT_ARITY');assertOwnedSolanaSplCustodyV1(spl);
+ const group=originalSplFacadesV1.get(spl);assertOwnedSolanaSplGraphPairV1(spl,group.graph);return group.graph;
+}
 export function assertOwnedSolanaSplClaimCohortV1(runtimes){
  requireCondition(arguments.length===1&&Array.isArray(runtimes)&&runtimes.length===2,'SOLANA_SPL_FIXED_COHORT');const [spl,sol]=runtimes;assertOwnedSolanaSplCustodyV1(spl);assertOwnedSolanaRuntimeLive(sol);
  const group=originalSplFacadesV1.get(spl);requireCondition(group.spl===spl&&group.sol===sol&&group.close===spl.close&&group.close===sol.close&&spl!==sol,'SOLANA_SPL_SHARED_ORIGINAL_VALIDATOR');

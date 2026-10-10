@@ -1,7 +1,8 @@
 import { assertBeginPayoutAuditReleaseV1, assertBeginPayoutAuditReceiptV1, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1,
   CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1 } from '../payouts/begin-payout-audit-policy-v1.mjs';
 import { readOwnedBitcoinRuntimeAuditState } from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
-import { isOwnedSolanaSplCustodyV1, assertOwnedSolanaSplCustodyV1 } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
+import { isOwnedSolanaSplCustodyV1, assertOwnedSolanaSplCustodyV1, readOwnedSolanaSplOriginalGraphV3, assertOwnedSolanaSplGraphPairV1 } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
+import {assertOwnedFlatNativeProvider,captureOwnedFlatSolanaSourceForSplV1} from '../../providers/native-provider.mjs';
 import { validateNativeSplClaimBindingTransactionV1 } from '../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 import { readOwnedSolanaRuntimeAuditState } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { CLAIM_BITCOIN_PAYOUT_FINAL_SEND_PROFILE } from '../payouts/bitcoin-payout-broadcast.mjs';
@@ -1201,7 +1202,7 @@ async function createController(input, beginAuditOnly) {
       const noteObserver=await createFlatOwnerObserver({runtime,system:claims.flatSystem,poolIndex:i}),pool=claims.flatSystem.pools[i];
       const asset=flatAccountAsset({identity:noteObserver.identity,chainId:runtime.metadata.chainId,genesis:runtime.metadata.evmGenesis.slice(2),poolCodeHash:pool.codeHash.slice(2),assetMetadata:pool.assetMetadata});
       assert.equal(asset.token,config.wrapper,'CLAIM_DEVICE_ROOT_ORIGINAL_WRAPPER');assert.equal(asset.decimals,units.decimals,'CLAIM_DEVICE_ROOT_ORIGINAL_UNITS');
-      const ownerClient=createRoleProofClient('owner'),challenges=new Map();let stopped=false,closing=null,handoff=null,intentId=null,d27=null,ci51=null;
+      const ownerClient=createRoleProofClient('owner'),challenges=new Map();let stopped=false,closing=null,handoff=null,intentId=null,d27=null,ci51=null,splSourceBinding=null;
       const alive=()=>{live();assert.ok(!stopped,'CLAIM_DEVICE_ROOT_INTAKE_CLOSED');assertIngressKeeperLive();};
       await journal.update(data=>{assert.equal(data.deposits.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');data.apiDeviceRootClaims=[{profile:descriptor.profile,descriptor:copy(descriptor),ownerIdentitySHA256,phase:'BORN',intentId:null,admissions:[]}];return data;});
       const persist=async(phase,admission=null)=>journal.update(data=>{const row=data.apiDeviceRootClaims?.[0];assert.deepEqual(row?.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');row.phase=phase;row.intentId=intentId;if(d27?.phase==='PROVED'&&d27.derived)row.d27Observation={consent:copy(d27.consent),commitment:d27.derived.commitment,nullifier:d27.derived.nullifier};if(ci51?.phase==='COMPLETED')row.ci51Observation={jobId:ci51.consent.jobId,statement:copy(ci51.built.statement)};if(admission){assert.ok(row.admissions.length<8,'CLAIM_DEVICE_ROOT_ADMISSION_LIMIT');row.admissions.push(admission);}return data;});
@@ -1258,7 +1259,7 @@ async function createController(input, beginAuditOnly) {
       }
       const api=Object.freeze({descriptor,
         challenge(action){assert.equal(arguments.length,1);assert.ok(['ACCESS','READ'].includes(action));return challenge(action);},
-        reviewD27: request=>serial(async()=>{exactRecord(request,['access','signature','draft']);const access=consume(request.access,request.signature,'ACCESS'),accessDeadline=performance.now()+Math.min(15000,access.expiresAt-Date.now());assert.equal(d27,null,'CLAIM_DEVICE_ROOT_D27_ALREADY_ADMITTED');const v=request.draft;exactRecord(v,['rootId','noteRevision','statement','witnessSHA256']);const statement=DeviceClaim.normalizeDeviceRootClaimStatementV2(v.statement);assert.equal(statement.scope,config.scope);assert.equal(statement.policy,config.policy);const head=await runtime.time();assert.ok(BigInt(statement.validFrom)<=head&&head<BigInt(statement.validUntil),'CLAIM_DEVICE_ROOT_ORIGINAL_WINDOW');
+        reviewD27: request=>serial(async()=>{exactRecord(request,['access','signature','draft']);const access=consume(request.access,request.signature,'ACCESS'),accessDeadline=performance.now()+Math.min(15000,access.expiresAt-Date.now());assert.equal(d27,null,'CLAIM_DEVICE_ROOT_D27_ALREADY_ADMITTED');const v=request.draft;exactRecord(v,['rootId','noteRevision','statement','witnessSHA256']);const statement=DeviceClaim.normalizeDeviceRootClaimStatementV2(v.statement);if(splSourceBinding){assert.equal(splSourceBinding.phase,'READY','CLAIM_DEVICE_ROOT_SPL_SOURCE_REQUIRED');assert.equal(statement.amount,splSourceBinding.amount,'CLAIM_DEVICE_ROOT_SPL_ORIGINAL_QUOTE');}assert.equal(statement.scope,config.scope);assert.equal(statement.policy,config.policy);const head=await runtime.time();assert.ok(BigInt(statement.validFrom)<=head&&head<BigInt(statement.validUntil),'CLAIM_DEVICE_ROOT_ORIGINAL_WINDOW');
           const recipient=await ownerClient.preparePrivateDeviceRootClaimV2(DeviceClaim.deviceRootClaimPublicInputsV2(statement));accessCurrent(access,accessDeadline);const consent=challenge('PROVE_D27',{...v,statement,jobId:recipient.jobId,recipient},access.expiresAt);d27={consent,phase:'REVIEWED',result:null};return consent;}),
         submitD27: request=>serial(async()=>{exactRecord(request,['permission','signature','packet']);const p=consume(request.permission,request.signature,'PROVE_D27');assert.ok(d27?.phase==='REVIEWED'&&d27.consent.challengeId===p.challengeId,'CLAIM_DEVICE_ROOT_ORIGINAL_D27');d27.phase='PROVING';await persist('D27_PROVING',{action:p.action,jobId:p.jobId,permissionSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p))});
           const binding={kind:'ORIGINAL_CONSENT_V1',jobId:p.jobId,consentSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p)),witnessSHA256:p.witnessSHA256};try{const result=await ownerClient.proveEncryptedDeviceRootClaimV2(request.packet,binding),derived=readOriginalDeviceRootClaimDerivationV2(ownerClient,result);alive();assert.equal(derived.claimDomain,input.claimDomain);assert.equal(derived.commitment,p.statement.output);assert.equal(derived.action,'PROVE_D27');
@@ -1322,6 +1323,11 @@ async function createController(input, beginAuditOnly) {
         },{readOrReconcile:true}),
         close(){assert.equal(arguments.length,0);stopped=true;challenges.clear();exitQuotes.clear();exitChallenges.clear();return closing??=(async()=>{let first;try{await exitClient.close();}catch(e){first=e;}for(const client of [ownerClient,...(ci51?[proofClients.claim_ingress]:[])]){try{client.stop();if(client===ownerClient&&!d27)client.close();else await client.closePrivateDeviceRootClaimV2();}catch(error){try{client.close();}catch{}first??=error;}}if(first)throw first;return{closed:true,inFlight:0};})();},
       });deviceRootClaimIntakes.set(api,{controller,runtime,claims,i,asset,ownerIdentitySHA256,alive,
+        splSourceOriginal:{serial,alive,journal,descriptor,ownerIdentitySHA256,
+          originalNative:()=>{assert.equal(i,1,'CLAIM_DEVICE_ROOT_SPL_SOURCE_DOMAIN');assert.equal(claims.nativeSplCustodyProfile,true,'CLAIM_DEVICE_ROOT_SPL_SOURCE_SYSTEM');const native=claims.nativeRuntimes[i];assertOwnedSolanaSplCustodyV1(native);return native;},
+          install:binding=>{alive();assert.equal(splSourceBinding,null,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ONCE');assert.equal(d27,null,'CLAIM_DEVICE_ROOT_SPL_BEFORE_D27');assert.equal(handoff,null,'CLAIM_DEVICE_ROOT_SPL_BEFORE_D27');assert.equal(intentId,null,'CLAIM_DEVICE_ROOT_SPL_BEFORE_FUND');splSourceBinding=binding;},
+          beforeTarget:()=>{alive();assert.equal(d27,null,'CLAIM_DEVICE_ROOT_SPL_BEFORE_D27');assert.equal(handoff,null,'CLAIM_DEVICE_ROOT_SPL_BEFORE_D27');assert.equal(intentId,null,'CLAIM_DEVICE_ROOT_SPL_BEFORE_FUND');},
+          empty:async()=>{const v=await view(input.claimDomain);assert.equal(v.snapshot.gateways[i].wrapperSupply,'0','CLAIM_DEVICE_ROOT_SPL_EMPTY_TARGET');assert.equal(v.snapshot.gateways[i].intents.length,0,'CLAIM_DEVICE_ROOT_SPL_EMPTY_TARGET');assert.equal(v.snapshot.gateways[i].tickets.length,0,'CLAIM_DEVICE_ROOT_SPL_EMPTY_TARGET');await observer.assertCurrent(v.snapshot);alive();}},
         retainObservation:()=>serial(async()=>{
           alive();stopped=true;challenges.clear();exitQuotes.clear();exitChallenges.clear();await exitClient.close();
           ownerClient.stop();if(d27)await ownerClient.closePrivateDeviceRootClaimV2();else ownerClient.close();
@@ -1804,6 +1810,37 @@ export function isNativeClaimSolanaPayoutAuthorityV4(token) { return solanaPayou
 
 /** Original controller-created intake only; copies cannot open any operation. */
 export function assertOriginalDeviceRootClaimIntakeV2(intake){assert.equal(arguments.length,1);const state=deviceRootClaimIntakes.get(intake);assert.ok(state,'CLAIM_DEVICE_ROOT_ORIGINAL_INTAKE_REQUIRED');state.alive();return intake.descriptor;}
+
+/** Prospectively fixes the ORIGINAL provider and co-owned SOL/SPL pair before
+ * any controller FUND. It authorizes no SOURCE delivery: that provider still
+ * requires its own original GRAPH proofs, invoice, lease and dispatch gate. */
+export async function createOriginalDeviceRootSplSourceBindingV3(intake,provider){
+  assert.equal(arguments.length,2,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');const retained=deviceRootClaimIntakes.get(intake);
+  assert.ok(retained?.splSourceOriginal,'CLAIM_DEVICE_ROOT_ORIGINAL_INTAKE_REQUIRED');retained.alive();
+  const original={...retained.splSourceOriginal,runtime:retained.runtime,claims:retained.claims};
+  return createDeviceRootSplSourceBindingV3(original,provider);
+}
+async function createDeviceRootSplSourceBindingV3(original,provider){
+  const {serial,alive,journal,descriptor}=original,native=original.originalNative(),graph=readOwnedSolanaSplOriginalGraphV3(native);
+  const expected={runtime:original.runtime,system:original.claims.flatSystem,poolIndex:0,nativeRuntime:graph,family:'2',recipientIndex:1};
+  let closed=false,closing=false,closeWork,work=null,admitted=false;const observations=new Set();const binding={phase:'BORN',amount:null};
+  const current=()=>{assert.ok(!closed,'CLAIM_DEVICE_ROOT_SPL_SOURCE_CLOSED');alive();assertOwnedSolanaSplGraphPairV1(native,graph);assertOwnedFlatNativeProvider(provider,expected);};
+  const open=()=>{assert.ok(!closing,'CLAIM_DEVICE_ROOT_SPL_SOURCE_CLOSED');current();};
+  const row=async()=>{const data=await journal.read(),r=data.apiDeviceRootClaims?.[0];assert.deepEqual(r?.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');assert.equal(r.ownerIdentitySHA256,original.ownerIdentitySHA256);return{data,r};};
+  const store=async phase=>{binding.phase=phase;await journal.update(data=>{const r=data.apiDeviceRootClaims?.[0];assert.deepEqual(r?.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');assert.equal(r.ownerIdentitySHA256,original.ownerIdentitySHA256);r.splSource={profile:'ORIGINAL_DEVICE_ROOT_SPL_SOURCE_BINDING_V3',phase,amount:binding.amount};return data;});};
+  await serial(async()=>{current();original.beforeTarget();const {data,r}=await row();assert.equal(data.deposits.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');assert.equal(data.tickets.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');assert.equal(data.evm.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');assert.equal(r.phase,'BORN','CLAIM_DEVICE_ROOT_SPL_BEFORE_D27');assert.equal(r.admissions.length,0,'CLAIM_DEVICE_ROOT_SPL_BEFORE_FUND');assert.equal(r.splSource,undefined,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ONCE');assert.equal(native.transfers.length,0,'CLAIM_DEVICE_ROOT_SPL_BEFORE_NATIVE');await original.empty();current();original.install(binding);await store('BORN');current();});
+  const producer=Object.freeze({profile:'ORIGINAL_DEVICE_ROOT_SPL_SOURCE_BINDING_V3',custody:'BACKEND_LOCAL_QUORUM',automaticSourceDelivery:false,
+    bindObservedOriginalOnce(){assert.equal(arguments.length,0,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');open();assert.equal(admitted,false,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ALREADY_ADMITTED');admitted=true;
+      work=serial(async()=>{current();original.beforeTarget();const {r}=await row();assert.deepEqual(r.splSource,{profile:'ORIGINAL_DEVICE_ROOT_SPL_SOURCE_BINDING_V3',phase:'BORN',amount:null},'CLAIM_DEVICE_ROOT_SPL_SOURCE_CHANGED');assert.equal(native.transfers.length,0,'CLAIM_DEVICE_ROOT_SPL_BEFORE_NATIVE');await original.empty();current();
+        // Durable UNKNOWN fence precedes capture and the original wrapping KEY.
+        await store('BINDING');try{const token=await captureOwnedFlatSolanaSourceForSplV1(provider);current();await native.bindOriginalSourceV1(token);current();const amount=await native.quoteOriginalDepositAmountV1();current();assert.ok(typeof amount==='string'&&/^[1-9][0-9]*$/.test(amount),'CLAIM_DEVICE_ROOT_SPL_ORIGINAL_QUOTE');binding.amount=amount;await store('READY');current();return Object.freeze({profile:producer.profile,claimDomain:descriptor.claim.claimDomain,amount,sourceCustody:'BACKEND_LOCAL_QUORUM',privateCreditEstablished:false});}
+        catch(error){binding.amount=null;try{await store('UNKNOWN');}catch{}throw error;}});work.catch(()=>{});return work;
+    },
+    status(){assert.equal(arguments.length,0,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');open();const observation=serial(async()=>{current();const{r}=await row();current();assert.deepEqual(r.splSource,{profile:producer.profile,phase:binding.phase,amount:binding.amount},'CLAIM_DEVICE_ROOT_SPL_SOURCE_CHANGED');return Object.freeze({profile:producer.profile,phase:binding.phase,amount:binding.phase==='READY'?binding.amount:null,privateCreditEstablished:false,availablePrivateClaims:null});},{readOrReconcile:true});observations.add(observation);observation.finally(()=>observations.delete(observation)).catch(()=>{});return observation;},
+    close(){assert.equal(arguments.length,0,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');closing=true;return closeWork??=(async()=>{let first;try{if(work)await work;}catch(error){first=error;}for(const observation of observations)try{await observation;}catch(error){first??=error;}closed=true;if(first)throw first;return{closed:true};})();},
+    toJSON(){throw Error('CLAIM_DEVICE_ROOT_SPL_SOURCE_NOT_SERIALIZABLE');}});
+  return producer;
+}
 
 /** Original references for the fixed TLS/common-state consumer. A descriptor,
  * controller ID or serialized intake cannot satisfy this private membership. */
