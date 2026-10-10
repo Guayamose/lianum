@@ -136,7 +136,7 @@ const MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
+  "0f9b1c5345e20b8c40b5ee759a00bd955846d84015a94c4e656dc1b9a4f3df5a"
  ]
 ]);
 function pin(base,name,expected){assert.equal(realpathSync(base),base);let path=base;for(const part of name.split('/')){assert.ok(part&&part!=='.'&&part!=='..');path=join(path,part);assert.equal(lstatSync(path).isSymbolicLink(),false);}
@@ -273,7 +273,7 @@ const GRAPH_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
+  "0f9b1c5345e20b8c40b5ee759a00bd955846d84015a94c4e656dc1b9a4f3df5a"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
@@ -496,7 +496,7 @@ const BLUE_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
+  "0f9b1c5345e20b8c40b5ee759a00bd955846d84015a94c4e656dc1b9a4f3df5a"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
@@ -674,7 +674,7 @@ const META_FOUR_MOBILE=Object.freeze([
  ],
  [
   "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
-  "9a8abdfc4fe079edc938479fd3a5be1cfcda695c71fa66eb69dfd777b3efdd3d"
+  "0f9b1c5345e20b8c40b5ee759a00bd955846d84015a94c4e656dc1b9a4f3df5a"
  ],
  [
   "packages/mobile-protocol/src/authorization.mjs",
