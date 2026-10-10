@@ -39,3 +39,14 @@ export function validateDeviceRootClaimPermissionFreshV2(raw:unknown,now?:number
 export function deviceRootClaimPermissionMessageV2(raw:unknown):Uint8Array;
 export function deviceRootClaimPublicInputsV2(raw:unknown,ingress?:boolean):readonly string[];
 export function deviceRootClaimDataBytesV2(raw:unknown):Uint8Array;
+
+import type {DeviceExitStatementV1} from './device-exit-consent-v1.mjs';
+import type {ExternalFlatPath as ExternalFlatPathV1} from './device-external-flat-note-v1.mjs';
+export const DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3:'ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3';
+export type DeviceRootClaimExitQuoteV3=Readonly<{profile:typeof DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3;descriptor:DeviceRootClaimDescriptorV2;quoteId:string;rootId:string;noteRevision:number;statement:DeviceExitStatementV1;path:ExternalFlatPathV1;observed:Readonly<{blockNumber:string;blockHash:string;timestamp:string}>;expiresAt:number}>;
+export type DeviceRootClaimExitPermissionV3=Readonly<{version:3;profile:typeof DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3;action:'PROVE_W39'|'WITHDRAW_W39'|'OBSERVE_W39'|'REDEEM_NATIVE'|'PAYOUT_NATIVE'|'OBSERVE_NATIVE';descriptor:DeviceRootClaimDescriptorV2;rootId:string;noteRevision:number;jobId:string;quoteId:string|null;statement:DeviceExitStatementV1|null;path:ExternalFlatPathV1|null;witnessSHA256:string|null;proofSHA256:string|null;publicInputsSHA256:string|null;recipient:DeviceRootClaimPermissionV2['recipient'];requestId:string|null;ticketId:string|null;amount:string|null;maxFee:string|null;challengeId:string;nonce:string;expiresAt:number}>;
+export function normalizeDeviceRootClaimExitQuoteV3(raw:unknown):DeviceRootClaimExitQuoteV3;
+export function normalizeDeviceRootClaimExitPermissionV3(raw:unknown):DeviceRootClaimExitPermissionV3;
+export function validateDeviceRootClaimExitPermissionFreshV3(raw:unknown,now?:number):DeviceRootClaimExitPermissionV3;
+export function deviceRootClaimExitPermissionMessageV3(raw:unknown):Uint8Array;
+export function deviceRootClaimExitPublicInputsV3(raw:unknown):readonly string[];

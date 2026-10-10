@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import * as P from '../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
 import * as Graph from '../../../mobile-protocol/src/device-external-flat-graph-v1.mjs';
+import * as RootClaim from '../../../mobile-protocol/src/native-claim-device-v1.mjs';
 import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import {walletInputPublicWords,balanceCommitment,balanceDepositFrame,balanceWithdrawFrame} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
@@ -13,13 +14,16 @@ const publicKey=(x,y)=>createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k
 export function deriveOriginalDeviceWalletNoteJobV3(received,mode){
  assert.equal(arguments.length,2,'PW_PRIVATE_WALLET_ARITY');assert.ok(['deposit_balance','withdraw_balance'].includes(mode),'PW_PRIVATE_WALLET_MODE');
  const original=readOriginalPrivateProofRecipientV1(received),p=P.externalFlatExactV1(received.inputs,['profile','consent','signature','witness']);
- assert.equal(p.profile,'DEVICE_WALLET_NOTE_PRIVATE_WITNESS_INPUT_V3','PW_PRIVATE_WALLET_FRAME');
- const wrapper=p.consent?.profile===Graph.DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1?Graph.normalizeExternalFlatGraphOutputConsentV1(p.consent):null,c=wrapper?wrapper.consent:P.normalizeExternalFlatConsentV1(p.consent);
+ const root=p.profile==='DEVICE_ROOT_NATIVE_CLAIM_EXIT_WITNESS_V3'?RootClaim.validateDeviceRootClaimExitPermissionFreshV3(p.consent):null;
+ assert.ok(root||p.profile==='DEVICE_WALLET_NOTE_PRIVATE_WITNESS_INPUT_V3','PW_PRIVATE_WALLET_FRAME');
+ if(root)assert.equal(mode,'withdraw_balance','PW_PRIVATE_WALLET_ROOT_EXIT_ONLY');
+ const wrapper=p.consent?.profile===Graph.DEVICE_EXTERNAL_FLAT_GRAPH_OUTPUT_V1?Graph.normalizeExternalFlatGraphOutputConsentV1(p.consent):null,c=root?{...root,recipient:root.statement.recipient,descriptor:{devicePublicKey:root.descriptor.claim.devicePublicKey},privateProof:{profile:P.DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3,noteRole:null,recipient:root.recipient}}:wrapper?wrapper.consent:P.normalizeExternalFlatConsentV1(p.consent);
+ const fresh=()=>root?RootClaim.validateDeviceRootClaimExitPermissionFreshV3(root):P.validateExternalFlatFreshV1(c);
  assert.equal(c.privateProof?.noteRole,wrapper?wrapper.noteRole:null,'PW_PRIVATE_WALLET_OUTPUT_ROLE');assert.equal(c.action,mode==='deposit_balance'?'PROVE_D26':'PROVE_W39','PW_PRIVATE_WALLET_ACTION');
  assert.equal(c.privateProof?.profile,P.DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3,'PW_PRIVATE_WALLET_ORIGINAL');
- assert.deepEqual(c.privateProof.recipient,original,'PW_PRIVATE_WALLET_RECIPIENT');P.validateExternalFlatFreshV1(c);
- assert.equal(h(P.externalFlatPrivateWalletTranscriptBytesV3(c)),c.privateProof.transcriptSHA256,'PW_PRIVATE_WALLET_TRANSCRIPT');
- const message=wrapper?Graph.externalFlatGraphOutputPermissionMessageV1(wrapper):P.externalFlatPermissionMessageV1(c),deviceKey=publicKey(Buffer.from(c.descriptor.devicePublicKey.slice(2,66),'hex'),Buffer.from(c.descriptor.devicePublicKey.slice(66),'hex'));
+ assert.deepEqual(c.privateProof.recipient,original,'PW_PRIVATE_WALLET_RECIPIENT');fresh();
+ if(!root)assert.equal(h(P.externalFlatPrivateWalletTranscriptBytesV3(c)),c.privateProof.transcriptSHA256,'PW_PRIVATE_WALLET_TRANSCRIPT');
+ const message=root?RootClaim.deviceRootClaimExitPermissionMessageV3(root):wrapper?Graph.externalFlatGraphOutputPermissionMessageV1(wrapper):P.externalFlatPermissionMessageV1(c),deviceKey=publicKey(Buffer.from(c.descriptor.devicePublicKey.slice(2,66),'hex'),Buffer.from(c.descriptor.devicePublicKey.slice(66),'hex'));
  assert.equal(verify('sha256',message,{key:deviceKey,dsaEncoding:'ieee-p1363'},Buffer.from(P.normalizeExternalFlatSignatureV1(p.signature),'hex')),true,'PW_PRIVATE_WALLET_DEVICE_SIGNATURE');
  assert.deepEqual(received.authorization,{kind:'ORIGINAL_CONSENT_V1',jobId:c.jobId,consentSHA256:h(message),witnessSHA256:c.witnessSHA256},'PW_PRIVATE_WALLET_BINDING');
  let witness,bytes;const opening={};
@@ -36,7 +40,7 @@ export function deriveOriginalDeviceWalletNoteJobV3(received,mode){
    assert.deepEqual(witness.siblings,c.path.siblings.map(v=>[...Buffer.from(v,'hex')]),'PW_PRIVATE_WALLET_PATH');
    assert.equal(verifyPrivateNotePath({root:Buffer.from(c.path.root,'hex'),leaf:Buffer.from(cm,'hex'),index:c.path.index,siblings:c.path.siblings.map(v=>Buffer.from(v,'hex'))}),true,'PW_PRIVATE_WALLET_PATH');
   }
-  P.validateExternalFlatFreshV1(c);const input=structuredClone(witness);wipePrivateProofInputsV1(received.inputs);received.inputs=input;
+  fresh();const input=structuredClone(witness);wipePrivateProofInputsV1(received.inputs);received.inputs=input;
   return Object.freeze({profile:'ORIGINAL_DEVICE_WALLET_NOTE_PRIVATE_DERIVATION_V3',mode,noteRole:wrapper?.noteRole??null,jobId:c.jobId,commitment:cm,nullifier:nf,consentSHA256:received.authorization.consentSHA256,witnessSHA256:c.witnessSHA256});
  }finally{bytes?.fill(0);for(const b of Object.values(opening))b.fill(0);P.externalFlatWipeV1(witness);}
 }

@@ -402,16 +402,30 @@ export async function startOriginalDeviceRootClaimTlsV2(input){
   }catch{deviceHttpFail();}
   const current=()=>{if(closed||Date.now()<cert.validFromDate.getTime()||Date.now()>=cert.validToDate.getTime())deviceHttpFail();assertOriginalDeviceRootClaimIntakeV2(intake);};
   let closed=false,closing,server,claimSession;const running=new Set(),sockets=new Set(),key=Buffer.from(input.tls.privateKey);
-  const prefix='/v1/mobile/native-claims/root-note/',routes=new Set(['challenges','reviews','ingress-reviews','effect-challenges','operations']);
+  const prefix='/v1/mobile/native-claims/root-note/',routes=new Set(['challenges','reviews','ingress-reviews','effect-challenges','operations','exit-quotes','exit-reviews','exit-challenges','exit-operations']);
   async function route(path,value){
     current();
+    if(path==='exit-quotes')return intake.quoteW39(value);
+    if(path==='exit-reviews')return intake.reviewW39(value);
+    if(path==='exit-challenges')return intake.exitChallenge(value);
+    if(path==='exit-operations'){
+      deviceHttpExact(value,['permission','signature','packet']);const p=DeviceRootClaim.normalizeDeviceRootClaimExitPermissionV3(value.permission);let result;
+      if(p.action.endsWith('W39'))result=await intake.operateW39(value);
+      else{if(value.packet!==null)deviceHttpFail();const originalExit=await intake.authorizeNativeExit({permission:p,signature:value.signature});current();
+        let first;try{if(originalExit.action==='REDEEM_NATIVE'){const {action,...request}=originalExit;result=await original.controller.requestRedemption(request);}
+          else if(originalExit.action==='PAYOUT_NATIVE')result=await original.controller.payout({ticketId:originalExit.ticketId});
+          else{await original.controller.reconcile({operationId:originalExit.ticketId});result=null;}}catch(error){first=error;}
+        try{const retained=await intake.retainNativeExit();if(result===null)result=retained;}catch(error){first??=error;}if(first)throw first;
+      }
+      current();return{profile:DeviceRootClaim.DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3,descriptor,permissionId:p.challengeId,jobId:p.jobId,result};
+    }
     if(path==='challenges'){deviceHttpExact(value,['action']);return intake.challenge(value.action);}
     if(path==='reviews')return intake.reviewD27(value);
     if(path==='ingress-reviews')return intake.reviewCI51(value);
     if(path==='effect-challenges'){deviceHttpExact(value,['action']);return intake.effectChallenge(value.action);}
     deviceHttpExact(value,['permission','signature','packet']);const p=DeviceRootClaim.normalizeDeviceRootClaimPermissionV2(value.permission);
     if(p.action==='READ'){
-      if(value.packet!==null)deviceHttpFail();if(claimSession)await original.controller.reconcile();current();
+      if(value.packet!==null)deviceHttpFail();if(claimSession)await original.controller.reconcile();current();await intake.retainNativeExit();current();
       const observation=await intake.read({permission:p,signature:value.signature});
       await input.economicState.observe();current();DeviceRootClaim.validateDeviceRootClaimPermissionFreshV2(p);
       return {...observation,economicState:await input.economicState.snapshot()};
@@ -467,7 +481,11 @@ export async function startOriginalDeviceRootClaimTlsV2(input){
 export async function createOriginalDeviceRootBtcClaimLocalOperatorV2(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'BTC');}
 export async function createOriginalDeviceRootSolClaimLocalOperatorV2(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'SOL');}
 export async function createOriginalDeviceRootSplClaimLocalOperatorV2(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'SPL');}
-async function createDeviceRootClaimLocalOperator(config,family){
+export async function createOriginalDeviceRootBtcClaimExitLocalOperatorV3(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'BTC_EXIT_V3');}
+export async function createOriginalDeviceRootSolClaimExitLocalOperatorV3(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'SOL_EXIT_V3');}
+export async function createOriginalDeviceRootSplClaimExitLocalOperatorV3(config){if(arguments.length!==1)deviceHttpFail();return createDeviceRootClaimLocalOperator(config,'SPL_EXIT_V3');}
+async function createDeviceRootClaimLocalOperator(config,profile){
+  const family=profile.endsWith('_EXIT_V3')?profile.slice(0,-8):profile;if(!['BTC','SOL','SPL'].includes(family))deviceHttpFail();
   config=normalizedOriginalClaimMobileInfrastructure(config);
   const [{ROOT},{mkdir,mkdtemp},{join},{randomBytes}]=await Promise.all([import('../../../../proofs/src/catalog.mjs'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
   const secret=()=>randomBytes(32).toString('hex'),base=join(ROOT,'.local/device-root-native-claims-v2');
@@ -482,7 +500,7 @@ async function createDeviceRootClaimLocalOperator(config,family){
     if(first)throw first;return{closed:true,originalResourcesStopped:true};
   }
   try{
-    const {createOwnedLocalEvmV2}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+    const {createOwnedLocalEvmV2,createOwnedDeviceExternalFlatReceiverV1,assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
     const {createOwnedCombinedBitcoinRuntime}=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
     const {createOwnedCombinedSolanaRuntime}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');
     const {createNativeClaimBootstrap,createNativeSplClaimIngressV1Bootstrap,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
@@ -491,7 +509,7 @@ async function createDeviceRootClaimLocalOperator(config,family){
     const {createRoleProofClient}=await import('../../../../proofs/src/jobs/role-client.mjs');
     const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
     const {claimDomainCommitment}=await import('../../claims/protocol/framing.mjs');
-    runtime=await createOwnedLocalEvmV2();live();({custody:bitcoin}=await createOwnedCombinedBitcoinRuntime());live();
+    runtime=await(profile.endsWith('_EXIT_V3')?createOwnedDeviceExternalFlatReceiverV1():createOwnedLocalEvmV2());live();if(profile.endsWith('_EXIT_V3'))assertOwnedDeviceExternalFlatReceiverV1(runtime);({custody:bitcoin}=await createOwnedCombinedBitcoinRuntime());live();
     if(family==='SPL'){const {createOwnedCombinedSolanaSplRuntimeV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');({custody:solana}=await createOwnedCombinedSolanaSplRuntimeV1());}
     else({custody:solana}=await createOwnedCombinedSolanaRuntime());live();
     const journalRoot=join(directory,'claim-keepers');await mkdir(journalRoot,{mode:0o700});
@@ -508,7 +526,7 @@ async function createDeviceRootClaimLocalOperator(config,family){
     economicState=await createOriginalWalletEconomicStateV1({catalogues:[],nativeAccounts:[],wrappedPortfolios:[],deviceRootClaimIntakes:[intake],journal:{path:join(directory,'economic-state.vault'),password:secret()}});live();
     server=await startOriginalDeviceRootClaimTlsV2({intake,economicState,tls:config.tls,host:config.host});live();
     const now=await runtime.time(),originalWindow=Object.freeze({relation:'D27',validFrom:String(now),validUntil:String(now+86400n)});live();
-    return Object.freeze({originalWindow,profile:'ORIGINAL_DEVICE_ROOT_'+family+'_CLAIM_LOCAL_PRODUCT_V2',descriptor:intake.descriptor,origin:server.origin,
+    return Object.freeze({originalWindow,profile:'ORIGINAL_DEVICE_ROOT_'+family+'_CLAIM_LOCAL_PRODUCT_'+(profile.endsWith('_EXIT_V3')?'V3':'V2'),descriptor:intake.descriptor,origin:server.origin,
       custody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM',nativeSelfCustody:false,automaticFunding:false,independentOperators:false,
       async economicSnapshot(){if(arguments.length!==0)deviceHttpFail();live();await economicState.observe();live();return economicState.snapshot();},
       close(){if(arguments.length!==0)deviceHttpFail();closed=true;return closing??=shutdown();}});

@@ -1,3 +1,4 @@
+import {consumeOriginalDeviceRootClaimSendV3} from '../../claims/controller/controller.mjs';
 import {consumeOriginalDeviceExternalFlatGraphOutputSendV1} from './device-external-flat-source-graph-v1.mjs';
 /** Original DeviceExternalFlat: one device D26 source and its direct W39.
  * The original pool observer supplies authority; HTTP data cannot install one.
@@ -57,7 +58,7 @@ export async function releaseOriginalDeviceExternalFlatSourceGraphV1(account,bri
  need(arguments.length===3);const s=owned.get(account);need(s&&!s.share,'DEVICE_EXTERNAL_FLAT_SOURCE_REQUIRED');s.live();return s.releaseGraph(bridge,input);
 }
 
-export function consumeOriginalDeviceExternalFlatSendV1(request,runtime){need(arguments.length===2);const r=sends.get(request);if(!r)return consumeOriginalDeviceExternalFlatGraphOutputSendV1(request,runtime);need(r&&r.runtime===runtime&&!r.opened,'DEVICE_EXTERNAL_FLAT_ORIGINAL_SEND');r.check();r.opened=true;return r.scope;}
+export function consumeOriginalDeviceExternalFlatSendV1(request,runtime){need(arguments.length===2);const r=sends.get(request);if(!r){try{return consumeOriginalDeviceExternalFlatGraphOutputSendV1(request,runtime);}catch(error){if(error?.message!=='DEVICE_EXTERNAL_GRAPH_OUTPUT_ORIGINAL_SEND')throw error;return consumeOriginalDeviceRootClaimSendV3(request,runtime);}}need(r&&r.runtime===runtime&&!r.opened,'DEVICE_EXTERNAL_FLAT_ORIGINAL_SEND');r.check();r.opened=true;return r.scope;}
 export async function readOriginalDeviceExternalFlatShareWithdrawalV1(account,input){
  need(arguments.length===2);const s=owned.get(account);need(s?.share,'DEVICE_EXTERNAL_FLAT_SHARE_ORIGINAL_REQUIRED');s.live();return s.blueWithdrawal(input);
 }

@@ -13,8 +13,9 @@ async function main(){
  process.once('disconnect',stop);process.once('SIGTERM',stop);
  try{
   received=await preparePrivateProofJobV1({relation:mode,role:'owner',jobId:randomUUID()});assert.equal(stopping,false,'PW_PRIVATE_WALLET_CLOSED');
+  const deviceRootExit=received.inputs?.profile==='DEVICE_ROOT_NATIVE_CLAIM_EXIT_WITNESS_V3';
   const derivation=deriveOriginalDeviceWalletNoteJobV3(received,mode);prover=createOriginalWalletNotePrivateProverV4(received);
-  const result=await prover.prove(mode,received.inputs,received.expectedPublicInputs,mode==='deposit_balance'?'device-external-flat-d26':derivation.noteRole?'device-external-graph-w39-'+derivation.noteRole:'device-external-flat-w39');
+  const result=await prover.prove(mode,received.inputs,received.expectedPublicInputs,mode==='deposit_balance'?'device-external-flat-d26':deviceRootExit?'device-root-native-claim-w39':derivation.noteRole?'device-external-graph-w39-'+derivation.noteRole:'device-external-flat-w39');
   assert.equal(result.metrics.acceptedResult,true,'PW_PRIVATE_WALLET_PROOF_REJECTED');assert.equal(stopping,false,'PW_PRIVATE_WALLET_CLOSED');await prover.close();prover=null;
   const publicResult={type:'original-private-wallet-proof-result-v3',mode,recipientJobId:derivation?received.authorization.jobId:null,
    derivation,result:{...result,proof:typeof result.proof==='string'?result.proof:Buffer.from(result.proof).toString('hex'),publicInputs:[...result.publicInputs]}};

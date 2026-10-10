@@ -1,6 +1,8 @@
 /** Public permission framing only. Parsed pairing metadata never grants native
  * custody, native balance or authority to select a controller/domain/caller. */
 import {normalizeMobileOrigin} from './authorization.mjs';
+import {normalizeDeviceExitStatementV1} from './device-exit-consent-v1.mjs';
+import {normalizeExternalFlatPathV1,externalFlatWalletPublicInputsV3} from './device-external-flat-note-v1.mjs';
 export const NATIVE_CLAIM_DEVICE_PAIRING_V1='LIANUM_NATIVE_CLAIM_DEVICE_PAIRING_V1';
 export const NATIVE_CLAIM_DEVICE_PERMISSION_V1='LIANUM_NATIVE_CLAIM_DEVICE_PERMISSION_V1';
 export const NATIVE_CLAIM_DEVICE_OBSERVATION_V1='LIANUM_NATIVE_CLAIM_DEVICE_OBSERVATION_V1';
@@ -98,3 +100,35 @@ export function validateDeviceRootClaimPermissionFreshV2(raw,now=Date.now()){
 }
 export function deviceRootClaimPermissionMessageV2(raw){const s=DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2+'\n'+JSON.stringify(normalizeDeviceRootClaimPermissionV2(raw));need(s.length<=8192);return Uint8Array.from(s,c=>c.charCodeAt(0));}
 export function deviceRootClaimDataBytesV2(raw){let nodes=0,characters=0;function copy(v,depth){need(++nodes<=10000&&depth<=16);if(v===null||typeof v==='boolean')return v;if(typeof v==='number'){need(Number.isSafeInteger(v)&&v>=0&&!Object.is(v,-0));return v;}if(typeof v==='string'){characters+=v.length;need(v.length<=8192&&characters<=65536&&!/[\u0000-\u001f\u007f-\uffff]/.test(v));return v;}need(v&&typeof v==='object');if(Array.isArray(v)){need(Object.getPrototypeOf(v)===Array.prototype&&v.length<=128&&Reflect.ownKeys(v).length===v.length+1);return Array.from({length:v.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(v,String(i));need(d?.enumerable&&Object.hasOwn(d,'value'));return copy(d.value,depth+1);});}need(Object.getPrototypeOf(v)===Object.prototype);const result={},keys=Reflect.ownKeys(v);need(keys.length<=64);for(const k of keys){need(typeof k==='string'&&!['__proto__','constructor','prototype'].includes(k));characters+=k.length;need(characters<=65536);const d=Object.getOwnPropertyDescriptor(v,k);need(d?.enumerable&&Object.hasOwn(d,'value'));result[k]=copy(d.value,depth+1);}return result;}const text=JSON.stringify(copy(raw,0));need(text.length<=65536);return Uint8Array.from(text,c=>c.charCodeAt(0));}
+
+/** A separate exit consent for the SAME before-fund device-root intake. The
+ * old D27/CI51 permissions do not acquire any new action or lifetime. */
+export const DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3='ORIGINAL_DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3';
+export function normalizeDeviceRootClaimExitQuoteV3(raw){
+ const v=exact(raw,['profile','descriptor','quoteId','rootId','noteRevision','statement','path','observed','expiresAt']);
+ need(v.profile===DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3);v.descriptor=normalizeDeviceRootClaimDescriptorV2(v.descriptor);
+ hex(v.quoteId);hex(v.rootId);need(Number.isSafeInteger(v.noteRevision)&&v.noteRevision>=0);v.statement=normalizeDeviceExitStatementV1(v.statement);v.path=normalizeExternalFlatPathV1(v.path);
+ need(v.statement.scope===v.descriptor.scope&&v.statement.policy===v.descriptor.policy&&v.statement.recipient===v.descriptor.recipient&&v.path.root===v.statement.root&&v.path.leaf===v.statement.commitment);
+ v.observed=exact(v.observed,['blockNumber','blockHash','timestamp']);rootClaimUint(v.observed.blockNumber);hex(v.observed.blockHash);rootClaimUint(v.observed.timestamp);
+ need(v.statement.epoch===(BigInt(v.observed.timestamp)/600n).toString()&&Number.isSafeInteger(v.expiresAt)&&v.expiresAt>0);return freeze(v);
+}
+export function normalizeDeviceRootClaimExitPermissionV3(raw){
+ const v=exact(raw,['version','profile','action','descriptor','rootId','noteRevision','jobId','quoteId','statement','path','witnessSHA256','proofSHA256','publicInputsSHA256','recipient','requestId','ticketId','amount','maxFee','challengeId','nonce','expiresAt']);
+ need(v.version===3&&v.profile===DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3&&['PROVE_W39','WITHDRAW_W39','OBSERVE_W39','REDEEM_NATIVE','PAYOUT_NATIVE','OBSERVE_NATIVE'].includes(v.action));v.descriptor=normalizeDeviceRootClaimDescriptorV2(v.descriptor);
+ for(const k of ['rootId','challengeId','nonce'])hex(v[k]);need(v.challengeId!==v.nonce&&Number.isSafeInteger(v.noteRevision)&&v.noteRevision>=0&&Number.isSafeInteger(v.expiresAt)&&v.expiresAt>0);rootClaimUUID(v.jobId);
+ if(v.action.endsWith('W39')){
+  hex(v.quoteId);v.statement=normalizeDeviceExitStatementV1(v.statement);v.path=normalizeExternalFlatPathV1(v.path);hex(v.witnessSHA256);
+  need(v.statement.scope===v.descriptor.scope&&v.statement.policy===v.descriptor.policy&&v.statement.recipient===v.descriptor.recipient&&v.path.root===v.statement.root&&v.path.leaf===v.statement.commitment);
+  need(v.requestId===null&&v.ticketId===null&&v.amount===null&&v.maxFee===null);
+  if(v.action==='PROVE_W39'){need(v.proofSHA256===null&&v.publicInputsSHA256===null);const r=exact(v.recipient,['type','profile','relation','role','jobId','recipientPublicKey']);need(r.type==='flat-private-proof-input-ready'&&r.profile==='ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1'&&r.relation==='withdraw_balance'&&r.role==='owner'&&r.jobId===v.jobId&&match(r.recipientPublicKey,/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/));v.recipient=r;}
+  else{hex(v.proofSHA256);hex(v.publicInputsSHA256);need(v.recipient===null);}
+ }else{
+  for(const k of ['quoteId','statement','path','witnessSHA256','proofSHA256','publicInputsSHA256','recipient'])need(v[k]===null);
+  hex(v.requestId);rootClaimUint(v.amount);rootClaimUint(v.maxFee);need(BigInt(v.amount)>0n&&BigInt(v.maxFee)>0n);
+  if(v.action==='REDEEM_NATIVE')need(v.ticketId===null);else hex(v.ticketId);
+ }
+ return freeze(v);
+}
+export function validateDeviceRootClaimExitPermissionFreshV3(raw,now=Date.now()){const v=normalizeDeviceRootClaimExitPermissionV3(raw);need(Number.isSafeInteger(now)&&now>=0&&v.expiresAt>now&&v.expiresAt<=now+15000);return v;}
+export function deviceRootClaimExitPermissionMessageV3(raw){const s=DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3+'\n'+JSON.stringify(normalizeDeviceRootClaimExitPermissionV3(raw));need(s.length<=8192);return Uint8Array.from(s,c=>c.charCodeAt(0));}
+export function deviceRootClaimExitPublicInputsV3(raw){return externalFlatWalletPublicInputsV3('withdraw_balance',raw);}
