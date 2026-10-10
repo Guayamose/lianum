@@ -37,7 +37,13 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
   const permission=await access(outputApi),readPosts=transport.posts['/v1/mobile/device-execution/output-balances']??0,
    handle=await outputApi.observe({...permission,...subject});
   assert.equal(transport.posts['/v1/mobile/device-execution/output-balances'],readPosts+1);
-  const value=host.outputBalance.readDeviceOutputBalanceV1(handle),original=await audit();
+  const value=host.outputBalance.readDeviceOutputBalanceV1(handle);
+  // Consume the original fifteen-second READ while it is fresh. The owned
+  // RPC audit is independent of custody and may outlive that display lease.
+  // It checks the same effect afterwards; it cannot renew this handle.
+  await vault.applyDeviceOutputBalances(handle);const local=(await vault.readDeviceNote()).localReservation;
+  await vault.applyDeviceOutputBalances(handle);
+  const original=await audit();
   assert.equal(value.authorizationSHA256,sha(originalAccountAccessMessageV2(permission.access)));
   assert.equal(value.reservationTransactionHash,result.deviceReservation.observation.transactionHash);assert.equal(value.sourceNullifier,result.deviceNote.observation.nullifier);
   assert.equal(value.sourceNullifierSpent,true);assert.equal(value.nativeOutcome,'RECOVERED');assert.deepEqual(value.observed,original.head);
@@ -45,14 +51,13 @@ export async function runNativeDeviceEconomicOriginalContinuationV1(context){
   for(const[role,amount]of[['change','400'],['recovery','100']]){const row=value[role];assert.equal(row.commitment,result.deviceCustody[role+'Commitment']);
    assert.equal(row.nullifier,subject[role+'Nullifier']);assert.equal(row.amount,amount);assert.equal(row.state,states[role]);
    assert.deepEqual(row.path,original.ledger.paths[row.commitment]);assert.equal(original.ledger.nullifiers.includes('0x'+row.nullifier),row.state==='SPENT');}
-  await vault.applyDeviceOutputBalances(handle);const local=(await vault.readDeviceNote()).localReservation;
   assert.equal(local.assetIdentity,value.poolTerms.assetIdentity);assert.equal(local.domainCommitment,value.poolTerms.domainCommitment);
   const notes={};let available=0n;
   for(const role of['change','recovery']){const row=local[role],expected=states[role]==='UNSPENT'?value[role].amount:'0';
    assert.equal(row.availableBalance,expected);assert.equal(row.amount,value[role].amount);assert.equal(row.commitment,value[role].commitment);
    assert.equal(row.state,states[role]==='SPENT'?'WITHDRAWN':'UNSPENT');assert.equal(row.freshness,'OBSERVED_AT_RETAINED_HEAD');
    assert.equal(row.observation.headHash,value.observed.blockHash);notes[role]=row;available+=BigInt(expected);}
-  await vault.applyDeviceOutputBalances(handle);await audit();assert.deepEqual(counts(),before);assert.equal(host.evidence().writes,writes);
+  await audit();assert.deepEqual(counts(),before);assert.equal(host.evidence().writes,writes);
   result.deviceOutputBalances.reads.push({phase,response:value,local:notes,sameAssetAvailableAtomic:available.toString(),countsBefore:before,countsAfter:counts(),
    encryptedWritesBefore:writes,encryptedWritesAfter:host.evidence().writes,originalReadPosts:transport.posts['/v1/mobile/device-execution/output-balances']-readPosts,
    originalHeadAndLedgerMatched:true,repeatedApplyNoWrites:true,originalReaderInSuccessor:true});save();
