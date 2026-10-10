@@ -9,9 +9,11 @@ import {fileURLToPath} from 'node:url';
 const root=new URL('../../../',import.meta.url),entry=fileURLToPath(import.meta.url);
 assert.equal(process.execPath,fileURLToPath(new URL('.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node',root)));
 assert.deepEqual(process.execArgv,['--max-old-space-size=384']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
+const deviceRootExit=process.argv.length===3&&process.argv[2]==='--device-root-exit';
+const deviceRootSplExit=process.argv.length===3&&process.argv[2]==='--device-root-spl-exit';
 const deviceRoot=process.argv.length===3&&process.argv[2]==='--device-root-note';
 const deviceRootSpl=process.argv.length===3&&process.argv[2]==='--device-root-spl';
-assert.deepEqual(process.argv,[process.execPath,entry,...(deviceRoot?['--device-root-note']:deviceRootSpl?['--device-root-spl']:[])]);assert.equal(await realpath(entry),entry);
+assert.deepEqual(process.argv,[process.execPath,entry,...(deviceRootExit?['--device-root-exit']:deviceRootSplExit?['--device-root-spl-exit']:deviceRoot?['--device-root-note']:deviceRootSpl?['--device-root-spl']:[])]);assert.equal(await realpath(entry),entry);
 const product=new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/native-claim-http.mjs',import.meta.url);
 let acquisition,operator,closing,closeRequested=false;
 async function configFile(path){const parent=dirname(path),st=await lstat(parent);assert.ok(st.isDirectory()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(st.mode&0o777)===0o700&&await realpath(parent)===parent);
@@ -23,13 +25,13 @@ async function configFile(path){const parent=dirname(path),st=await lstat(parent
 function close(){closeRequested=true;return closing??=(async()=>{if(acquisition)operator=await acquisition;if(operator){const receipt=await operator.close();assert.ok(receipt.closed&&receipt.originalResourcesStopped);}})();}
 const stop=()=>{void close().catch(()=>{process.stderr.write('NATIVE_CLAIM_LOCAL_CLOSE_UNCONFIRMED\n');process.exitCode=1;});};process.once('SIGTERM',stop);process.once('SIGINT',stop);
 try{const backend=await import(product),path=await backend.originalClaimMobileLocalConfigurationPathV1(),config=await configFile(path);
- if(!closeRequested){acquisition=deviceRootSpl?backend.createOriginalDeviceRootSplClaimLocalOperatorV2(config):deviceRoot?backend.createOriginalDeviceRootSolClaimLocalOperatorV2(config):backend.createOriginalSolClaimMobileLocalOperatorV1(config);acquisition.catch(()=>{});operator=await acquisition;
-  if(closeRequested)await close();else{process.stdout.write(JSON.stringify({profile:operator.profile,descriptor:operator.descriptor,custody:operator.custody,nativeSelfCustody:false,automaticFunding:false,...(deviceRoot||deviceRootSpl?{originalWindow:operator.originalWindow,nativeCustody:operator.nativeCustody}: {})})+'\n');
+ if(!closeRequested){acquisition=deviceRootExit?backend.createOriginalDeviceRootSolClaimExitLocalOperatorV3(config):deviceRootSplExit?backend.createOriginalDeviceRootSplClaimExitLocalOperatorV3(config):deviceRootSpl?backend.createOriginalDeviceRootSplClaimLocalOperatorV2(config):deviceRoot?backend.createOriginalDeviceRootSolClaimLocalOperatorV2(config):backend.createOriginalSolClaimMobileLocalOperatorV1(config);acquisition.catch(()=>{});operator=await acquisition;
+  if(closeRequested)await close();else{process.stdout.write(JSON.stringify({profile:operator.profile,descriptor:operator.descriptor,custody:operator.custody,nativeSelfCustody:false,automaticFunding:false,...(deviceRoot||deviceRootSpl||deviceRootExit||deviceRootSplExit?{originalWindow:operator.originalWindow,nativeCustody:operator.nativeCustody}: {})})+'\n');
    // One exact local instruction. No selected target/action, resumption, retries
    // or funding on entry. The original pairing is retained before this line.
    process.stdin.setEncoding('utf8');let input='',funding=false;
    process.stdin.on('data',chunk=>{if(input.length+chunk.length>64){stop();return;}input+=chunk;if(!input.includes('\n'))return;
-    if(deviceRoot||deviceRootSpl||funding||input!=='FUND_ORIGINAL_ONCE\n'){process.stderr.write('NATIVE_CLAIM_LOCAL_INPUT_REJECTED\n');stop();return;}funding=true;
+    if(deviceRoot||deviceRootSpl||deviceRootExit||deviceRootSplExit||funding||input!=='FUND_ORIGINAL_ONCE\n'){process.stderr.write('NATIVE_CLAIM_LOCAL_INPUT_REJECTED\n');stop();return;}funding=true;
     void operator.fundOriginalOnce().then(()=>{if(!closeRequested)process.stdout.write('NATIVE_CLAIM_LOCAL_ORIGINAL_ENDPOINT_READY\n');},()=>{process.stderr.write('NATIVE_CLAIM_LOCAL_FUND_OUTCOME_UNKNOWN\n');stop();});});
    process.stdin.once('end',stop);process.stdin.resume();}}
 }catch{process.exitCode=1;try{await close();}catch{process.stderr.write('NATIVE_CLAIM_LOCAL_CLOSE_UNCONFIRMED\n');}process.stderr.write('NATIVE_CLAIM_LOCAL_START_FAILED\n');}
