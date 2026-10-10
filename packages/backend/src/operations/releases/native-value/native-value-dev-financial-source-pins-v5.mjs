@@ -11,7 +11,7 @@ const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/dev
  ['golden/',GOLDEN],['candidate/',CANDIDATE],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],
  ['mobile-app/',join(DEVELOPMENT,'apps/mobile')],['mobile-protocol-workspace/',join(DEVELOPMENT,'packages/mobile-protocol')],
  ['flat/',FLAT],['workspace-module/',DEVELOPMENT],['development-root/',DEVELOPMENT]]);
-const FIXED=Object.freeze(['integration/run-device-external-flat-source-graph-v1.mjs','integration/run-native-original-source-abrupt-v1.mjs','wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-native-source-v1.mjs','integration/run-device-owner-original-f-reorg-v1.mjs','golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
+const FIXED=Object.freeze(['integration/run-native-value-private-durable-note-recovery-v2.mjs','integration/run-device-external-flat-source-graph-v1.mjs','integration/run-native-original-source-abrupt-v1.mjs','wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs','workspace-module/apps/platform/src/run-original-native-source-v1.mjs','integration/run-device-owner-original-f-reorg-v1.mjs','golden/src/paeg/note-deposit-native-worker-v1.mjs','golden/src/paeg/note-withdraw-native-worker-v1.mjs',
  'integration/run-native-value-economic-note-recovery-v1.mjs',
  'integration/run-native-value-live-armed-short-restart-v1.mjs','integration/native-value-live-armed-short-restart-flow-v1.mjs','integration/native-device-live-armed-short-successor-v1.mjs',
  'integration/run-evm-metamorpho-recovery-flow-v1.mjs',
