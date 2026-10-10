@@ -23,7 +23,7 @@ import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../ope
 import * as claimOperators from '../operations/operators.mjs';
 import { assertRoleProofClient } from '../../../../proofs/src/jobs/role-client.mjs';
 import { loadPinned, resourceModuleURL } from '../../../../proofs/src/tooling/tooling.mjs';
-import { assertOwnedNativeClaimIngressHandoff } from '../../../../custody/src/processes/flat-owner-process.mjs';
+import { assertOwnedNativeClaimIngressHandoff, assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
 import { ownedClaimControllerJournal } from './controller-journal.mjs';
 import { createClaimEvmDispatchRequest } from '../protocol/evm-dispatch-gate.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
@@ -1578,6 +1578,22 @@ export function ownedNativeClaimControllerBindings(controller) {
   const state = controllers.get(controller); assert.ok(state, 'CLAIM_OWNED_CONTROLLER_REQUIRED'); state.live();
   const { runtime, claims, keeper } = state.input;
   return Object.freeze({ runtime, claims, keeper });
+}
+
+/** Fixed private SOURCE producer context. The original controller and owner
+ * must already belong to the SAME SPL system; no caller identity/role packet
+ * can mint this binding. The public prover identity is not a signing grant. */
+export function originalNativeSplClaimSourceContextV1(controller, owner) {
+  assert.equal(arguments.length, 2, 'CLAIM_SPL_SOURCE_CONTEXT_ARITY');
+  const state = controllers.get(controller); assert.ok(state, 'CLAIM_OWNED_CONTROLLER_REQUIRED'); state.live();
+  const { runtime, claims, keeper, ingressProverIdentity } = state.input;
+  assert.equal(claims.nativeSplCustodyProfile, true, 'CLAIM_SPL_ORIGINAL_SOURCE_SYSTEM');
+  assert.equal(claims.configs.length, 2, 'CLAIM_SPL_ORIGINAL_SOURCE_SYSTEM');
+  const native = claims.nativeRuntimes[1]; assertOwnedSolanaSplCustodyV1(native);
+  assertOwnedFlatOwnerProcess(owner, { runtime, system: claims.flatSystem, poolIndex: 1 });
+  assert.equal(owner.report().closed, false, 'CLAIM_SPL_SOURCE_OWNER_CLOSED');
+  bytes32(ingressProverIdentity, true);
+  return Object.freeze({ runtime, claims, keeper, native, ingressProverIdentity });
 }
 
 /** A real child-process replacement, preserving the original native/EVM

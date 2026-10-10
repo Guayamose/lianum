@@ -18,6 +18,58 @@ test('two claim gateways share the same SOL genesis but all three original BTC/S
  const originalTree=nativeAdmissionRulesTree(actual.registeredRules);assert.equal(actual.root,originalTree.root);assert.deepEqual(actual.paths,originalTree.paths);assert.deepEqual(actual.paths.map(p=>p.index),['0','1','2']);assert.notEqual(actual.root,nativeAdmissionRulesTree(actual.rules).root);
  assert.throws(()=>buildNativeSplClaimRulesV1({bitcoinGenesis,solanaGenesis,splAsset:baseline.rules[1].asset}),/CLAIM_SPL_DISTINCT_REGISTERED_ASSET/);
 });
+
+// HOST lifecycle only. The actual producer body runs against explicitly inert
+// original runtime/proof/TLS ports; no proof, native balance or ownership brand
+// is manufactured or claimed by this fixture.
+test('HOST original Jupiter SOURCE producer pairs before ingress, admits once and only observes an uncertain original wire',async()=>{
+ const url=new URL('../../../../packages/backend/src/operations/local/jupiter-original-private-source-credit-v1.mjs',import.meta.url);
+ const text=readFileSync(existsSync(url)?url:join(ROOT,'wallet-platform/modules/operations/local/jupiter-original-private-source-credit-v1.mjs'),'utf8');
+ const {types}=await import('node:util');
+ function fixture({lost=false,wrongProvider=false,blockIngress=false}={}){
+  let enterIngress,releaseIngress;const ingressEntered=new Promise(resolve=>enterIngress=resolve),ingressGate=new Promise(resolve=>releaseIngress=resolve),lostError=Error('SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE');
+  const events=[],proof=Object.freeze({proof:'inert-public-proof',publicInputs:Object.freeze(['inert-original-public-inputs'])}),service={descriptor:{claimDomain:'d',nativeAssetKind:'SOLANA_SPL_USDC'},async close(){events.push('service-close');}},
+    owner={owner:{async prepareDepositIntent(p){assert.equal(p.amount,'17');events.push('D27-prepare');},async createNativeClaimIngressHandoff(){events.push('handoff');return handoff;},async reconcileDepositIntent(){events.push('owner-reconcile');}},ownerProof:{async proveDepositIntent(){events.push('D27-proof');return proof;}},async suspend(){events.push('owner-suspend');},async restart(){events.push('owner-restart');}},
+    handoff={select(){return{ownerIdentitySHA256:'i'};}},native={transfers:[],async bindOriginalSourceV1(token){assert.equal(token,sourceToken);events.push('wrap');},async quoteOriginalDepositAmountV1(){events.push('quote');return'17';},async observe(id){assert.equal(id,'original-native-id');events.push('native-observe');return{status:'observed'};},async inventory(){events.push('native-inventory');return{spl:'inert-inventory'};}},
+    runtime={accounts:[0,1,2,3,'0x'+'4'.repeat(40)],async time(){return 100n;}},claims={flatSystem:{},configs:[{},{}]},keeper={},provider={},sourceToken={},controller={
+      async prepare({handoff:actual}){assert.equal(actual,handoff);events.push('controller-prepare');return Object.freeze({intentId:'original-intent',amount:'17',claimDomain:'d',status:'PREPARED'});},
+      async preposition({intentId}){assert.equal(intentId,'original-intent');assert.ok(events.includes('pairing'));events.push('preposition');},
+      async ingress({intentId}){assert.equal(intentId,'original-intent');events.push('ingress');if(blockIngress){enterIngress();await ingressGate;}if(lost)throw lostError;},
+      async privateNativeReceipt(){return{nativeId:'original-native-id',broadcastAttempts:1};},async issue({handoff:actual}){assert.equal(actual,handoff);events.push('issue');return{status:'ISSUED',submission:{original:true}};},
+      async reconcile({operationId}){assert.equal(operationId,'original-intent');events.push('reconcile');return{status:lost?'UNKNOWN':'ISSUED'};},
+    },context={runtime,claims,keeper,native,ingressProverIdentity:'p'};
+  const names=['assert','types','originalNativeSplClaimSourceContextV1','claimDomainCommitment','assertOwnedFlatNativeProvider','captureOwnedFlatSolanaSourceForSplV1','readOriginalNativeSplClaimMobileInfrastructureV1','createOriginalNativeSplClaimMobileSpendingServiceV1','decodeDepositIntentInputs','decodeNativeSplInventoryV1'];
+  const values=[assert,types,(c,o)=>{assert.equal(c,controller);assert.equal(o,owner);return context;},()=> 'd',(p,expected)=>{assert.equal(p,provider);assert.equal(expected.runtime,runtime);if(wrongProvider)throw Error('SPL_SOURCE_ORIGINAL_SOL_PROVIDER');},async p=>{assert.equal(p,provider);events.push('capture-source');return sourceToken;},async()=>{events.push('infrastructure');return{};},async p=>{assert.equal(p.controller,controller);assert.equal(p.ownerIdentitySHA256,'i');assert.equal(p.claimDomain,'d');assert.equal(p.caller,runtime.accounts[4]);assert.ok(events.includes('controller-prepare'));assert.equal(events.includes('preposition'),false);events.push('pairing');return service;},words=>{assert.equal(words,proof.publicInputs);return{amount:'17'};},value=>{assert.equal(value,'inert-inventory');return{nativePrincipalAvailable:'17',nativePrincipalReserved:'0'};}];
+  const body=text.replace(/^import[^\n]*;\s*$/gm,'').replace(/^export /gm,'');
+  const api=new Function(...names,body+'\nreturn {createOriginalJupiterSplSourceCreditV1,readOriginalJupiterSplSourceCreditV1};')(...values);
+  return{api,controller,owner,provider,events,service,ingressEntered,releaseIngress,lostError};
+ }
+ const a=fixture(),producer=await a.api.createOriginalJupiterSplSourceCreditV1({controller:a.controller,owner:a.owner,sourceProvider:a.provider}),before=a.events.slice();
+ assert.deepEqual(before,['infrastructure','capture-source','wrap','quote','D27-prepare','D27-proof','handoff','controller-prepare','pairing']);
+ const context=a.api.readOriginalJupiterSplSourceCreditV1(producer);assert.equal(context.service,a.service);assert.equal(context.prepared.status,'PREPARED');
+ assert.equal(producer.custody,'BACKEND_LOCAL_QUORUM');assert.equal(producer.mobileNativeCustody,false);
+ assert.throws(()=>a.api.readOriginalJupiterSplSourceCreditV1({...producer}),/CLAIM_SPL_ORIGINAL_SOURCE_PRODUCER/);
+ assert.throws(()=>JSON.stringify(producer),/CLAIM_SPL_SOURCE_CAPABILITY_NOT_SERIALIZABLE/);
+ assert.equal((await producer.fundOriginalOnce()).status,'ISSUED');
+ await assert.rejects(producer.fundOriginalOnce(),/CLAIM_SPL_SOURCE_ALREADY_ADMITTED/);assert.equal(a.events.filter(e=>e==='ingress').length,1);
+ const count=a.events.filter(e=>e==='ingress'||e==='issue').length;assert.equal((await producer.observeOriginal()).status,'ISSUED');assert.equal(a.events.filter(e=>e==='ingress'||e==='issue').length,count);
+ await producer.close();assert.equal(a.events.at(-1),'service-close');assert.throws(()=>a.api.readOriginalJupiterSplSourceCreditV1(producer),/CLAIM_SPL_ORIGINAL_SOURCE_PRODUCER/);
+ const b=fixture({lost:true}),uncertain=await b.api.createOriginalJupiterSplSourceCreditV1({controller:b.controller,owner:b.owner,sourceProvider:b.provider});
+ await assert.rejects(uncertain.fundOriginalOnce(),/SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE/);
+ const observed=await uncertain.observeOriginal();assert.equal(observed.status,'UNKNOWN');assert.equal(observed.availablePrivateBalance,null);assert.equal(observed.privateCreditEstablished,false);
+ await assert.rejects(uncertain.fundOriginalOnce(),/CLAIM_SPL_SOURCE_ALREADY_ADMITTED/);assert.equal(b.events.filter(e=>e==='ingress').length,1);assert.equal(b.events.includes('issue'),false);
+ await assert.rejects(uncertain.close(),error=>error===b.lostError);assert.equal(b.events.at(-1),'service-close');
+ const d=fixture({blockIngress:true}),draining=await d.api.createOriginalJupiterSplSourceCreditV1({controller:d.controller,owner:d.owner,sourceProvider:d.provider});
+ const admitted=draining.fundOriginalOnce();await d.ingressEntered;
+ const close=draining.close();assert.equal(draining.close(),close);let settled=false;close.then(()=>settled=true);await Promise.resolve();assert.equal(settled,false);
+ assert.equal(d.events.includes('service-close'),false);assert.equal(d.events.includes('owner-suspend'),true);
+ await assert.rejects(draining.fundOriginalOnce(),/CLAIM_SPL_SOURCE_CLOSED/);
+ await assert.rejects(draining.observeOriginal(),/CLAIM_SPL_SOURCE_CLOSED/);
+ assert.throws(()=>d.api.readOriginalJupiterSplSourceCreditV1(draining),/CLAIM_SPL_ORIGINAL_SOURCE_PRODUCER/);
+ assert.equal(d.events.filter(e=>e==='ingress').length,1);d.releaseIngress();assert.equal((await admitted).status,'ISSUED');
+ assert.equal((await close).closed,true);assert.equal(d.events.filter(e=>e==='issue').length,1);assert.equal(d.events.at(-1),'service-close');assert.equal(draining.close(),close);
+ const c=fixture({wrongProvider:true});await assert.rejects(c.api.createOriginalJupiterSplSourceCreditV1({controller:c.controller,owner:c.owner,sourceProvider:c.provider}),/SPL_SOURCE_ORIGINAL_SOL_PROVIDER/);assert.deepEqual(c.events,[]);
+});
 test('fixed USDC mint/program domain binds actual genesis, config and vault; relabelled SOL and caller mint cannot replace it',()=>{
  const input={genesis:solanaGenesis,config:identity.config.address,vault:identity.vault.address};assert.equal(nativeSplAssetCommitmentV1(input),asset);
  for(const change of [{genesis:'5'.repeat(64)},{config:address(6)},{vault:address(7)}])assert.notEqual(nativeSplAssetCommitmentV1({...input,...change}),asset);

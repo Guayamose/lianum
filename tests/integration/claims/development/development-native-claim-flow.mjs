@@ -1,6 +1,6 @@
 import {DEVELOPMENT_BTC_SPL_GRAPH_PROFILE,DEVELOPMENT_BTC_SPL_GRAPH_RESULT} from './development-btc-spl-jupiter-policy-v1.mjs';
 import {developmentBtcSplJupiterSourcePinsV1} from './development-btc-spl-jupiter-source-pins-v1.mjs';
-import {captureOwnedFlatSolanaSourceForSplV1} from '../../../../packages/backend/src/providers/native-provider.mjs';
+import {createOriginalJupiterSplSourceCreditV1,readOriginalJupiterSplSourceCreditV1} from '../../../../packages/backend/src/operations/local/jupiter-original-private-source-credit-v1.mjs';
 import {validateNativeSplClaimBindingTransactionV1,decodeNativeSplInventoryV1,NATIVE_SPL_CUSTODY_V1 as SPL} from '../../../../packages/backend/src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 /** Fixed fresh development acceptance, launched by its owned supervisor.
  * Original V3 custody/controller authorities and eight genuine proofs in fresh
@@ -77,7 +77,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
   // The fixed SPL caller publishes a usable original mobile endpoint. TLS/PoP
   // infrastructure is normalized before native birth; there is no owner import.
   const splMobileInfrastructure=btcToSpl?await readOriginalNativeSplClaimMobileInfrastructureV1():null;
-  let splMobileService=null;
+  let splMobileService=null,jupiterSourceCredit=null,jupiterSourceContext=null;
   const directory = join(ROOT, lock.attempt), privateDirectory = join(directory, 'private-audit'), proofsDirectory = join(directory, 'public-proofs');
   mkdirSync(privateDirectory, { mode: 0o700 }); mkdirSync(proofsDirectory, { mode: 0o700 });
   const result = { format: btcToSpl?DEVELOPMENT_BTC_SPL_GRAPH_RESULT:btcToSol ? DEVELOPMENT_BTC_SOL_GRAPH_RESULT : DEVELOPMENT_NATIVE_CLAIM_RESULT,
@@ -173,6 +173,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
       const close = async (name, work) => { try { await work(); return true; } catch (error) { result.cleanup.errors.push({ name, code: code(error) }); return false; } };
       for (const account of accounts) await close('abortAccountAuthority', () => account.abort());
       if (claimHttp) await close('claimHttp', () => claimHttp.close()); else if (claimSession) await close('claimSession', () => claimSession.close());
+      if (jupiterSourceCredit) await close('jupiterSourceCredit', () => jupiterSourceCredit.close());
       if (splMobileService) await close('splMobileService', () => splMobileService.close());
       if (http) await close('accountHttp', () => http.close()); else if (session) await close('accountSession', () => session.close());
       else if (accountKeeper) await close('accountKeeper', () => accountKeeper.close());
@@ -423,9 +424,19 @@ export async function runDevelopmentNativeClaimAcceptance() {
       result.graph = graphCase.report; result.graphExecutionEstablished = true;
     }
     if(btcToSpl){
-      await stage('original-source-sol-wrap-before-spl-ingress');const sourceToken=await captureOwnedFlatSolanaSourceForSplV1(graphCase.sourceProvider);await fixture.solana.bindOriginalSourceV1(sourceToken);
-      amounts[1]=await fixture.solana.quoteOriginalDepositAmountV1();assert.match(amounts[1],/^[1-9][0-9]*$/);selectedAssets.push(1);
-      await issueOriginalNative(1);await accountRequest('restart');const credited=await ownerView();assert.deepEqual(credited.assets.map(asset=>asset.balances.available),['80000',amounts[1]]);
+      await stage('original-source-sol-wrap-before-spl-ingress');
+      jupiterSourceCredit=await createOriginalJupiterSplSourceCreditV1({controller,sourceProvider:graphCase.sourceProvider,owner:owners[1]});
+      jupiterSourceContext=readOriginalJupiterSplSourceCreditV1(jupiterSourceCredit);
+      assert.equal(jupiterSourceCredit.custody,'BACKEND_LOCAL_QUORUM');assert.equal(jupiterSourceCredit.mobileNativeCustody,false);
+      splMobileService=jupiterSourceContext.service;fixture.resources.push(jupiterSourceCredit,splMobileService);
+      assert.equal(splMobileService.descriptor.origin,splMobileInfrastructure.origin);assert.equal(splMobileService.descriptor.devicePublicKey,splMobileInfrastructure.devicePublicKey);
+      assert.equal(fixture.solana.transfers.length,0,'DEVELOPMENT_CLAIM_SPL_PAIRING_BEFORE_NATIVE');
+      writeFixturePrivate(join(privateDirectory,'paired-original-spl-claim.json'),splMobileService.descriptor);
+      amounts[1]=jupiterSourceContext.prepared.amount;assert.match(amounts[1],/^[1-9][0-9]*$/);selectedAssets.push(1);
+      deposits[1]=jupiterSourceContext.prepared;retainProof('asset-1-D27','deposit_intent',jupiterSourceContext.proof);
+      const issued=await jupiterSourceCredit.fundOriginalOnce();assert.equal(issued.status,'ISSUED');
+      const beforeDuplicateReconcile=runtime.transactions.length;await owners[1].owner.reconcileDepositIntent(issued.submission);assert.equal(runtime.transactions.length,beforeDuplicateReconcile);
+      await accountRequest('restart');const credited=await ownerView();assert.deepEqual(credited.assets.map(asset=>asset.balances.available),['80000',amounts[1]]);
       const usdc=credited.nativeClaims[1];assert.equal(usdc.nativeAssetKind,'SOLANA_SPL_USDC');assert.equal(usdc.nativeSymbol,'USDC');assert.equal(usdc.availablePrivateClaims,amounts[1]);assert.equal(usdc.underlyingSpendable,false);assert.equal(usdc.decimals,6);assert.equal(usdc.mint,SPL.mint);
       const native=await fixture.solana.inventory(),funds=decodeNativeSplInventoryV1(native.spl);assert.equal(funds.nativePrincipalAvailable,amounts[1]);assert.equal(funds.nativePrincipalReserved,'0');
       const record=fixture.solana.transfers[0],wire=validateNativeSplClaimBindingTransactionV1(record.nativeWire,record.intent);assert.equal(record.intent.operation,'deposit');assert.equal(record.intent.amount,amounts[1]);assert.equal(wire.signatureHex,record.nativeId);assert.equal(record.phase,'OBSERVED_FINALIZED');assert.equal(record.broadcastAttempts,1);assert.equal(native.accounts.find(row=>row.role==='depositor').total,record.observation.surplusReturned);assert.equal(BigInt(record.observation.actualOutputReceived),BigInt(amounts[1])+BigInt(record.observation.surplusReturned));
@@ -448,8 +459,8 @@ export async function runDevelopmentNativeClaimAcceptance() {
       if(btcToSpl&&index===1){
         const originalDescriptor=splMobileService.descriptor;
         splMobileService=await createOriginalNativeSplClaimMobileSpendingServiceV1({controller,
-          accountId:'development_native_claim_1',ownerIdentitySHA256:handoffs[1].select().ownerIdentitySHA256,
-          claimDomain:claimDomainCommitment(claims.configs[1]),caller:runtime.accounts[4],...splMobileInfrastructure});
+          accountId:jupiterSourceContext.accountId,ownerIdentitySHA256:jupiterSourceContext.ownerIdentitySHA256,
+          claimDomain:jupiterSourceContext.claimDomain,caller:runtime.accounts[4],...splMobileInfrastructure});
         fixture.resources.push(splMobileService);
         assert.deepEqual(splMobileService.descriptor,originalDescriptor,'DEVELOPMENT_CLAIM_SPL_PAIRING_REBOUND');
       }
