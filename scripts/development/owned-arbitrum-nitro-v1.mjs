@@ -1,3 +1,4 @@
+import {createOriginalArbitrumRollupSourceProfileV1,assertOriginalOwnedRollupSourceProfileV1,readOriginalOwnedRollupSourceProfileV1,closeOriginalOwnedRollupSourceProfileV1} from './owned-rollup-original-source-profile-v1.mjs';
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { spawn, execFile } from 'node:child_process';
@@ -7,7 +8,6 @@ import { dirname, join, parse } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
-import {createOriginalArbitrumNativeValueCustodyV1,readOriginalArbitrumNativeValueCustodyPublicV1,bindOriginalArbitrumNativeValueCustodyV1,dispatchOriginalArbitrumNativeValueV1,assertOriginalArbitrumNativeValuePreparedCurrentV1,observeOriginalArbitrumNativeValueV1,closeOriginalArbitrumNativeValueCustodyV1} from './owned-arbitrum-native-value-dispatch-v1.mjs';
 
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1';
@@ -65,6 +65,7 @@ function fail(state, error, uncertain = false) {
 function live(runtime) {
   const state = owned.get(runtime);
   assert(state && !state.closed && !state.failed, 'ARBITRUM_ORIGINAL_RUNTIME_UNAVAILABLE');
+  if(state.sourceProfile)assertOriginalOwnedRollupSourceProfileV1(state.sourceProfile);
   sameProcess(state); return state;
 }
 function docker(arguments_) {
@@ -89,6 +90,7 @@ async function sameContainer(state, original) {
 async function shutdown(state) {
   if (state.stopWork) return state.stopWork;
   state.closed = true;
+  if(state.sourceProfile)closeOriginalOwnedRollupSourceProfileV1(state.sourceProfile);
   state.stopWork = (async () => {
     let primary = null, controlledSignal = false, result = null;
     try {
@@ -183,6 +185,9 @@ async function command(runtime, operation, input) {
 // Direct canonical import is outside the frozen compiler/runtime mapper.
 async function createFixedArbitrumNitroClusterV1(nativeValue) {
   const profile = nativeValue ? NATIVE_VALUE_PROFILE : PROFILE;
+  const sourceProfile = nativeValue ? createOriginalArbitrumRollupSourceProfileV1() : null;
+  const {createOriginalArbitrumNativeValueCustodyV1,readOriginalArbitrumNativeValueCustodyPublicV1,bindOriginalArbitrumNativeValueCustodyV1,dispatchOriginalArbitrumNativeValueV1,assertOriginalArbitrumNativeValuePreparedCurrentV1,observeOriginalArbitrumNativeValueV1,closeOriginalArbitrumNativeValueCustodyV1}=nativeValue?await import('./owned-arbitrum-native-value-dispatch-v1.mjs'):{};
+  if(sourceProfile)assertOriginalOwnedRollupSourceProfileV1(sourceProfile);
   const root = repository(), recipe = join(root, 'scripts/development/owned_arbitrum_nitro_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'ARBITRUM_ORIGINAL_RECIPE_CHANGED');
   if(nativeValue)assert.equal(createHash('sha256').update(readFileSync(join(root,'scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs'))).digest('hex'),CUSTODY_SHA256,'ARBITRUM_ORIGINAL_CUSTODY_SOURCE_CHANGED');
@@ -190,9 +195,11 @@ async function createFixedArbitrumNitroClusterV1(nativeValue) {
   // or the pinned official setup funds its solver account. No retrofit.
   const custody = nativeValue ? await createOriginalArbitrumNativeValueCustodyV1() : null;
   const custodyPublic = custody ? readOriginalArbitrumNativeValueCustodyPublicV1(custody) : null;
+  try{if(sourceProfile)assertOriginalOwnedRollupSourceProfileV1(sourceProfile);}
+  catch(error){try{if(custody)await closeOriginalArbitrumNativeValueCustodyV1(custody);}finally{if(sourceProfile)closeOriginalOwnedRollupSourceProfileV1(sourceProfile);}throw error;}
   const child = spawn('/usr/bin/python3', [recipe, ...(nativeValue ? ['--native-value'] : [])], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'],
     env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' } });
-  const state = { child, profile, nativeValue, custody, identity: null, pending: new Map(), containers: new Map(), project: null,
+  const state = { child, profile, nativeValue, custody, sourceProfile, identity: null, pending: new Map(), containers: new Map(), project: null,
     sequence: 0, tail: Promise.resolve(), failed: false, closed: false, uncertain: false };
   let readyResolve, readyReject, exitResolve;
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
@@ -328,4 +335,9 @@ export async function readOwnedArbitrumNitroNativeValueRpcV1(runtime,method,para
 export function assertOwnedArbitrumNitroNativeValueCustodyV1(runtime,custody){
  assert.equal(arguments.length,2,'ARBITRUM_ORIGINAL_CUSTODY_ARITY');assertOwnedArbitrumNitroNativeValueLiveV1(runtime);
  assert.equal(live(runtime).custody,custody,'ARBITRUM_ORIGINAL_CUSTODY_PAIR');
+}
+
+export function readOwnedArbitrumNitroNativeValueSourceProfileV1(runtime){
+ assert.equal(arguments.length,1);assertOwnedArbitrumNitroNativeValueLiveV1(runtime);
+ return readOriginalOwnedRollupSourceProfileV1(live(runtime).sourceProfile);
 }

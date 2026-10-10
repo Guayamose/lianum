@@ -78,6 +78,13 @@ async function rollupClients() {
       root=dirname(root);
     }
     assert(root!==parse(root).root,'OWNED_NATIVE_SOURCE_ORIGINAL_REPOSITORY_REQUIRED');root=realpathSync(root);
+    const sourcePath=join(root,'scripts/development/owned-rollup-original-source-profile-v1.mjs');
+    const sourcePin='29e4a0e7ac91ce4ec56840d39e7e5970f08ad0b40b83dbbbe80d9a5d1f8fbf4e';
+    assert.equal(sha(readFileSync(sourcePath)),sourcePin,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_MODULE_CHANGED');
+    const sourceModule=await import(pathToFileURL(sourcePath).href);
+    assert.equal(sourceModule.readOriginalOwnedRollupSourceModuleV1(),sourcePin,'OWNED_NATIVE_SOURCE_LOADED_ROLLUP_MODULE_CHANGED');
+    sourceModule.inspectOriginalBaseRollupSourcesV1();
+    sourceModule.inspectOriginalArbitrumRollupSourcesV1();
     return Object.freeze([
       Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-base-rollup-v1.mjs')).href),
         prefix:'BaseRollup',chainId:'8453',profile:'OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1'}),
@@ -93,6 +100,8 @@ export async function openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime)
   if(!selected)return null;
   const api=selected.module,assertLive=()=>api['assertOwned'+selected.prefix+'NativeValueLiveV1'](nativeRuntime);
   assertLive();
+  const sourceProfile=api['readOwned'+selected.prefix+'NativeValueSourceProfileV1'](nativeRuntime);
+  assert.equal(sourceProfile.profile,selected.profile);assert.equal(sourceProfile.schema,'OWNED_ORIGINAL_ROLLUP_SOURCE_PROFILE_V1');
   const original=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentityV1'](nativeRuntime));assertLive();
   exactRecord(original,['profile','chainId','genesis','parentGenesis','sourceCommit','publicNetwork',
     'independentInfrastructureEstablished','rollupChallengeFinalityEstablished','identity']);
@@ -107,7 +116,7 @@ export async function openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime)
     classification:'OWNED_LOCAL_ROLLUP_CLIENT_SOURCE_V1',identity:{...original.identity,
       endpointIdentity:sha('LIANUM/owned-local-rollup-source/1\0'+original.identity.endpointIdentity+'/'+sourceIndex)}})));
   async function assertCurrent() {
-    assertLive();const current=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentityV1'](nativeRuntime));
+    assertLive();assert.deepEqual(api['readOwned'+selected.prefix+'NativeValueSourceProfileV1'](nativeRuntime),sourceProfile,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_GENERATION_CHANGED');const current=cloneInput(await api['readOwned'+selected.prefix+'NativeValueIdentityV1'](nativeRuntime));
     assert.deepEqual(current,original,'OWNED_NATIVE_SOURCE_ORIGINAL_CLIENT_CHANGED');assertLive();
   }
   async function createSource(raw) {

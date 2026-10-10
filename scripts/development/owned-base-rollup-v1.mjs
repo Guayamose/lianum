@@ -1,3 +1,4 @@
+import {createOriginalBaseRollupSourceProfileV1,assertOriginalOwnedRollupSourceProfileV1,readOriginalOwnedRollupSourceProfileV1,closeOriginalOwnedRollupSourceProfileV1} from './owned-rollup-original-source-profile-v1.mjs';
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { spawn, execFile } from 'node:child_process';
@@ -7,7 +8,6 @@ import { dirname, join, parse } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
-import {createOriginalBaseNativeValueCustodyV1,readOriginalBaseNativeValueCustodyPublicV1,bindOriginalBaseNativeValueCustodyV1,dispatchOriginalBaseNativeValueV1,assertOriginalBaseNativeValuePreparedCurrentV1,observeOriginalBaseNativeValueV1,closeOriginalBaseNativeValueCustodyV1} from './owned-base-native-value-dispatch-v1.mjs';
 
 const PROFILE = 'OWNED_BASE_NATIVE_ROLLUP_POS_V1';
 const NATIVE_VALUE_PROFILE = 'OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1';
@@ -65,6 +65,7 @@ function fail(state, error, uncertain = false) {
 function live(runtime) {
   const state = owned.get(runtime);
   assert(state && !state.closed && !state.failed, 'BASE_ORIGINAL_RUNTIME_UNAVAILABLE');
+  if(state.sourceProfile)assertOriginalOwnedRollupSourceProfileV1(state.sourceProfile);
   sameProcess(state); return state;
 }
 function docker(arguments_) {
@@ -89,6 +90,7 @@ async function sameContainer(state, original) {
 async function shutdown(state) {
   if (state.stopWork) return state.stopWork;
   state.closed = true;
+  if(state.sourceProfile)closeOriginalOwnedRollupSourceProfileV1(state.sourceProfile);
   state.stopWork = (async () => {
     let primary = null, controlledSignal = false, result = null;
     try {
@@ -179,14 +181,19 @@ async function command(runtime, operation, input) {
 // Direct canonical import is outside the frozen compiler/runtime mapper.
 async function createFixedBaseRollupClusterV1(nativeValue) {
   const profile = nativeValue ? NATIVE_VALUE_PROFILE : PROFILE;
+  const sourceProfile = nativeValue ? createOriginalBaseRollupSourceProfileV1() : null;
+  const {createOriginalBaseNativeValueCustodyV1,readOriginalBaseNativeValueCustodyPublicV1,bindOriginalBaseNativeValueCustodyV1,dispatchOriginalBaseNativeValueV1,assertOriginalBaseNativeValuePreparedCurrentV1,observeOriginalBaseNativeValueV1,closeOriginalBaseNativeValueCustodyV1}=nativeValue?await import('./owned-base-native-value-dispatch-v1.mjs'):{};
+  if(sourceProfile)assertOriginalOwnedRollupSourceProfileV1(sourceProfile);
   const root = repository(), recipe = join(root, 'scripts/development/owned_base_rollup_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'BASE_ORIGINAL_RECIPE_CHANGED');
   if(nativeValue)assert.equal(createHash('sha256').update(readFileSync(join(root,'scripts/development/owned-base-native-value-dispatch-v1.mjs'))).digest('hex'),CUSTODY_SHA256,'BASE_ORIGINAL_CUSTODY_SOURCE_CHANGED');
   const custody=nativeValue?await createOriginalBaseNativeValueCustodyV1():null;
   const custodyPublic=custody?readOriginalBaseNativeValueCustodyPublicV1(custody):null;
+  try{if(sourceProfile)assertOriginalOwnedRollupSourceProfileV1(sourceProfile);}
+  catch(error){try{if(custody)await closeOriginalBaseNativeValueCustodyV1(custody);}finally{if(sourceProfile)closeOriginalOwnedRollupSourceProfileV1(sourceProfile);}throw error;}
   const child = spawn('/usr/bin/python3', [recipe, ...(nativeValue ? ['--native-value'] : [])], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'],
     env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' } });
-  const state = { child, profile, nativeValue, custody, identity: null, pending: new Map(), containers: new Map(), project: null,
+  const state = { child, profile, nativeValue, custody, sourceProfile, identity: null, pending: new Map(), containers: new Map(), project: null,
     sequence: 0, tail: Promise.resolve(), failed: false, closed: false, uncertain: false };
   let readyResolve, readyReject, exitResolve;
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
@@ -303,3 +310,8 @@ export async function readOwnedBaseRollupNativeValueRpcV1(runtime,method,params)
 
 /** The factory alone binds custody before this original client starts. */
 export function assertOwnedBaseRollupNativeValueCustodyV1(runtime,custody){assert.equal(arguments.length,2);assertOwnedBaseRollupNativeValueLiveV1(runtime);assert.equal(live(runtime).custody,custody,'BASE_ORIGINAL_CUSTODY_PAIR');}
+
+export function readOwnedBaseRollupNativeValueSourceProfileV1(runtime){
+ assert.equal(arguments.length,1);assertOwnedBaseRollupNativeValueLiveV1(runtime);
+ return readOriginalOwnedRollupSourceProfileV1(live(runtime).sourceProfile);
+}
