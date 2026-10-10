@@ -25,9 +25,9 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición:** `e8c04d8` publica la generación actual de 884 fuentes
-  físicas y doce roles; el preflight V37 pasa, incluidos Base/Arbitrum/BSC
-  y Cloud local. `606b650` fija por separado las 713 fuentes del grafo
+- **Composición:** `8681c99` publica la generación actual de 884 fuentes
+  físicas y doce roles; el preflight V38 pasa, incluidos Base/Arbitrum/BSC
+  y Cloud local. `5d4c243` fija por separado las 713 fuentes del grafo
   paginado móvil; sus lectores canónico y preparado coinciden. Se comprueban
   antes de CREATE/FUND. Las 45 fuentes W39 y las 100 del compilador paginado
   permanecen intactas; los cuatro indicadores de aceptación siguen desactivados.
@@ -56,8 +56,13 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   original falla antes y pasa después. Tras confirmar ambos PID y su grupo
   ausentes se conservó el lock exacto en el intento fallido con un journal
   administrativo, liberando sólo el slot operativo. Los informes rechazados
-  permanecen intactos. `61cb2dd8…` está en curso; aún no hay aceptación BTC
-  del recorrido D27→CI51→W39→CO42 propio del dispositivo.
+  permanecen intactos. `61cb2dd8…` completó D27 y falló esperando la respuesta
+  de FUND: el SDK imponía 15 segundos también al resultado de un efecto ya
+  autorizado. `97f1675` usa para FUND/ISSUE el presupuesto de respuesta que
+  ya utilizaba la salida, conservando el permiso consumido, su caducidad y
+  todas las verificaciones. La regresión causal del SDK pasa en 69 ms;
+  no renueva permisos ni reenvía efectos. Falta repetir económicamente BTC
+  D27→CI51→W39→CO42 propio del dispositivo.
   `3a8b458` comparte el validador económico existente entre web y móvil,
   conservando sus bytes y reglas; su HOST original pasa sin crear disponible.
 - **SOURCE confirmado y GRAPH:** el intento V2 `f1f4e353…` terminó
@@ -80,8 +85,11 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   wires originales superaba el encoder de 1 MiB. `23dfea0` conserva el hash
   canónico completo de cada wire/receipt y su orden en otro hash acotado.
   La regresión sobre el backend real reproduce el fallo y pasa después en
-  279 ms, comprobando mutación y orden. Falta repetir el recorrido; siguen
-  pendientes broadcast→checkpoint y pérdida del padre/dispositivo.
+  279 ms, comprobando mutación y orden. El nuevo intento `e711389e…` llegó
+  a cuatro pruebas originales y terminó rechazado por una aserción del
+  recorrido, todavía en diagnóstico: fuentes intactas, cleanup sin errores
+  y lock liberado. No acredita las dos caídas; siguen pendientes
+  broadcast→checkpoint y pérdida del padre/dispositivo.
 - **PAEG paginado privado V3:** `ca5291e` incorpora árboles sparse Poseidon2
   BN254 propios con el mismo encuadre en JS/Noir/Solidity. Los cinco HOST pasan;
   Las cinco relaciones R119/Fold66/T46/Admission85/W39 y sus claves propias
@@ -91,7 +99,7 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   byte a byte y conserva las claves en una generación separada, sin tocar
   los artefactos originales. `59263a4` conecta el depósito PC23 D26 original
   y las bibliotecas reales de los cinco verificadores; el HOST original pasa.
-  Faltan el recorrido económico paginado y la composición móvil completa.
+  Falta el recorrido económico paginado; la composición móvil se detalla abajo.
   No se sustituyen las 45 fuentes originales ni se acredita privacidad
   sistémica. `ba3dbbc`/`081622b` conectan D26/W39 desde la custodia protegida
   móvil, con SDK, AEAD y journal propios. El HOST causal original pasa en
@@ -120,8 +128,17 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   reabrir. `9883f3b` corrige esa lectura: devuelve una observación canónica
   fresca separada del receipt confirmado, conservando los mismos checks,
   job, prueba, nullifier y journal histórico. La regresión SDK/backend pasa;
-  falta repetir el recorrido financiero con esta corrección. `c5004783…`
+  falta repetir el recorrido financiero con esta corrección. `b8196b4` conecta
+  además SOURCE V3 antes de financiar y conserva dos aperturas de la misma
+  pareja/operación después de caídas. Su regresión SDK pasa en 238 ms;
+  no crea otros trabajos ni autoriza envíos al observar. `c5004783…`
   conserva su rechazo anterior; el plazo original permanece sin cambios.
+- **SPL desde SOURCE original:** `2bc13a3` fija el nuevo receptor antes de
+  financiar; `c1d786e` ejecuta SOURCE original antes de capturar, envolver y
+  cotizar el ingreso SPL para la nota raíz del dispositivo. La entrega se
+  registra antes del efecto y la observación concilia la misma operación.
+  Sus dos HOST pasan en 752 ms; no acreditan entrega o crédito económicos.
+  La aceptación del recorrido completo permanece pendiente.
 - **APK:** la última compilación conservada es `e4b88b53…`, 43.077.407 bytes,
   109 inputs y 36 uniones, sin Metro. Es anterior a los cambios móviles recientes;
   falta recompilarla. La prueba física continúa prevista para el final.
