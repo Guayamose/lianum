@@ -13,7 +13,12 @@ export const PAEG_PAGED_WORDS_V3=Object.freeze({reserve:119,fold:66,terminal:46,
 export const PAEG_PAGED_SETTINGS_V3=Object.freeze({ipaAccumulation:false,oracleHashType:'keccak',disableZk:false,optimizedSolidityVerifier:false});
 export const PAEG_PAGED_ROOT_V3=fileURLToPath(new URL('.',import.meta.url));
 export const PAEG_PAGED_SPARSE_ENCODING_V3='BN254_POSEIDON2_SPARSE_V3';
-export const PAEG_PAGED_ARTIFACT_DIRECTORY_V3=join(PAEG_PAGED_ROOT_V3,'.local/poseidon-sparse-v3');
+// The original five-key generation and its rejected consumer compile remain
+// untouched. The successor retains those exact keys only after recompiling all
+// five complete programs and proving byte-for-byte identity with that generation.
+export const PAEG_PAGED_ARTIFACT_DIRECTORY_V3=join(PAEG_PAGED_ROOT_V3,'.local/poseidon-sparse-v3-consumer-fix-v1');
+const originalArtifactDirectory=join(PAEG_PAGED_ROOT_V3,'.local/poseidon-sparse-v3');
+const originalArtifactManifestSHA256='0bafbc32a6ff4e645bb9aba4b6a20e50f552cbc251203764558d8527924fef8e';
 const project=resolve(PAEG_PAGED_ROOT_V3,'../../../..');
 const original=join(project,'.internal/runtime/omnichain-product');
 const sha=v=>createHash('sha256').update(v).digest('hex');
@@ -93,21 +98,58 @@ export function retainFundedPagedGraphFailureV3(error,stage,m,childOutput=''){
  return Object.freeze({stage:'failed',code,errorType:record.errorType,frames,diagnosticFile,diagnosticSHA256:sha(bytes)});
 }
 
-export function loadFundedPagedGraphArtifactsV3(expectedManifestSHA256){
+function pinnedManifest(directory,expectedManifestSHA256){
  assert.match(expectedManifestSHA256,/^[0-9a-f]{64}$/,'PAEG_PAGED_REVIEWED_MANIFEST_REQUIRED');
- const bytes=regular(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'manifest.json'));assert.equal(sha(bytes),expectedManifestSHA256,'PAEG_PAGED_MANIFEST_PIN');const manifest=JSON.parse(bytes);
- assert.equal(manifest.profile,PAEG_PAGED_PROFILE_V3);assert.equal(manifest.sparseTreeEncoding,PAEG_PAGED_SPARSE_ENCODING_V3,'PAEG_PAGED_SPARSE_GENERATION_REQUIRED');assert.equal(manifest.phase,'completed');assert.deepEqual(manifest.settings,PAEG_PAGED_SETTINGS_V3);assert.deepEqual(manifest.sources,fundedPagedGraphSourcePinsV3(),'PAEG_PAGED_SOURCE_CHANGED');
- for(const m of Object.keys(PAEG_PAGED_WORDS_V3)){const r=manifest.roles[m];assert.equal(r.words,PAEG_PAGED_WORDS_V3[m]);assert.equal(r.target,'evm');assert.ok(r.dyadic>0&&r.dyadic<=2097152,'PAEG_PAGED_EXISTING_CRS_TOO_SMALL');for(const [ext,key] of [['json','programSHA256'],['vk','keySHA256'],['sol','soliditySHA256']])assert.equal(sha(regular(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'prepared',m+'.'+ext))),r[key],'PAEG_PAGED_ARTIFACT_PIN');}
+ const bytes=regular(join(directory,'manifest.json'));assert.equal(sha(bytes),expectedManifestSHA256,'PAEG_PAGED_MANIFEST_PIN');const manifest=JSON.parse(bytes);
+ assert.equal(manifest.profile,PAEG_PAGED_PROFILE_V3);assert.equal(manifest.sparseTreeEncoding,PAEG_PAGED_SPARSE_ENCODING_V3,'PAEG_PAGED_SPARSE_GENERATION_REQUIRED');assert.equal(manifest.phase,'completed');assert.deepEqual(manifest.settings,PAEG_PAGED_SETTINGS_V3);
+ assert.deepEqual(Object.keys(manifest.roles),Object.keys(PAEG_PAGED_WORDS_V3),'PAEG_PAGED_EXACT_ROLES');
+ for(const m of Object.keys(PAEG_PAGED_WORDS_V3)){const r=manifest.roles[m];assert.equal(r.words,PAEG_PAGED_WORDS_V3[m]);assert.equal(r.target,'evm');assert.ok(r.dyadic>0&&r.dyadic<=2097152,'PAEG_PAGED_EXISTING_CRS_TOO_SMALL');for(const [ext,key] of [['json','programSHA256'],['vk','keySHA256'],['sol','soliditySHA256']])assert.equal(sha(regular(join(directory,'prepared',m+'.'+ext))),r[key],'PAEG_PAGED_ARTIFACT_PIN');}
+ return manifest;
+}
+function sourceRebind(original,sourcePins){
+ assert.deepEqual(original.sources.map(r=>r.path),sourcePins.map(r=>r.path),'PAEG_PAGED_REBIND_SOURCE_SET');
+ const changed=sourcePins.filter((r,i)=>r.sha256!==original.sources[i].sha256||r.bytes!==original.sources[i].bytes).map(r=>r.path);
+ assert.deepEqual(changed.sort(),['contracts/wallet/PrivatePagedFundedGraphPoolV3.sol','experiments/engine/private-core-proof/funded-graph-paged-v3/artifacts.mjs','experiments/engine/private-core-proof/funded-graph-paged-v3/run-bounded.mjs'].sort(),'PAEG_PAGED_REBIND_FIXED_CHANGE');
+ const poolPath='contracts/wallet/PrivatePagedFundedGraphPoolV3.sol',pool=regular(join(project,poolPath)).toString('utf8');
+ assert.equal(pool.split('bytes1(uint8(1))').length,2,'PAEG_PAGED_REBIND_FIXED_SOLIDITY_TYPE');
+ assert.equal(sha(pool.replace('bytes1(uint8(1))','bytes1(1)')),original.sources.find(r=>r.path===poolPath).sha256,'PAEG_PAGED_REBIND_EXACT_SOLIDITY_CHANGE');
+ return {profile:'EXACT_COMPLETE_PROGRAM_RECOMPILE_V1',originDirectory:'.local/poseidon-sparse-v3',originManifestSHA256:originalArtifactManifestSHA256,recompiledProgramSHA256:Object.fromEntries(Object.entries(original.roles).map(([m,r])=>[m,r.programSHA256]))};
+}
+export function loadFundedPagedGraphArtifactsV3(expectedManifestSHA256){
+ const manifest=pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,expectedManifestSHA256),sourcePins=fundedPagedGraphSourcePinsV3();assert.deepEqual(manifest.sources,sourcePins,'PAEG_PAGED_SOURCE_CHANGED');
+ if(manifest.artifactSourceRebind){const original=pinnedManifest(originalArtifactDirectory,originalArtifactManifestSHA256);assert.deepEqual(manifest.artifactSourceRebind,sourceRebind(original,sourcePins),'PAEG_PAGED_REBIND_PROVENANCE');assert.deepEqual(manifest.roles,original.roles,'PAEG_PAGED_REBIND_EXACT_KEYS');}
  return Object.freeze(manifest);
 }
+async function rebindCompletePrograms(sourcePins){
+ const previous=pinnedManifest(originalArtifactDirectory,originalArtifactManifestSHA256),provenance=sourceRebind(previous,sourcePins);
+ assert.equal(existsSync(PAEG_PAGED_ARTIFACT_DIRECTORY_V3),false,'PAEG_PAGED_EXISTING_REBIND_RETAINED');
+ // Resolve only through the original pinned offline toolchain, as compilation
+ // does. Consumer source changes cannot justify borrowing a different ACIR/VK.
+ const compiler=await import(pathToFileURL(createRequire(join(original,'experiments/private-core-proof/package.json')).resolve('@noir-lang/noir_wasm')));
+ const staged=[];
+ for(const m of Object.keys(PAEG_PAGED_WORDS_V3)){
+  const {program}=await compiler.compile(compiler.createFileManager(join(PAEG_PAGED_ROOT_V3,'circuits',m)),undefined,captureCompilerDiagnostic,()=>{}),bytes=Buffer.from(JSON.stringify(program));
+  assert.equal(sha(bytes),previous.roles[m].programSHA256,'PAEG_PAGED_REBIND_COMPLETE_PROGRAM_CHANGED');assert.deepEqual(bytes,regular(join(originalArtifactDirectory,'prepared',m+'.json')),'PAEG_PAGED_REBIND_PROGRAM_BYTES');
+  assert.equal(program.abi.parameters.filter(p=>p.visibility==='public').reduce((n,p)=>n+publicWords(p.type),0),PAEG_PAGED_WORDS_V3[m],'PAEG_PAGED_ABI_WORDS');assert.match(program.noir_version,/^1\.0\.0-beta\.25\b/,'PAEG_PAGED_NOIR_VERSION');
+  staged.push({mode:m,bytes,key:regular(join(originalArtifactDirectory,'prepared',m+'.vk')),solidity:regular(join(originalArtifactDirectory,'prepared',m+'.sol')),pin:previous.roles[m]});
+ }
+ assert.deepEqual(fundedPagedGraphSourcePinsV3(),sourcePins,'PAEG_PAGED_SOURCE_CHANGED_DURING_REBIND');
+ for(const {mode:m,bytes,key,solidity,pin} of staged){
+  newFile(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'compiled',m+'.json'),bytes);newFile(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'compiled',m+'.json.manifest.json'),JSON.stringify({profile:PAEG_PAGED_PROFILE_V3,sparseTreeEncoding:PAEG_PAGED_SPARSE_ENCODING_V3,mode:m,programSHA256:pin.programSHA256,sourceCommitment:sha(JSON.stringify(sourcePins)),sources:sourcePins,artifactSourceRebind:provenance})+'\n');
+  for(const [ext,data]of [['json',bytes],['vk',key],['sol',solidity],['key.json',JSON.stringify(pin)+'\n']])newFile(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'prepared',m+'.'+ext),data);
+ }
+ newFile(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'manifest.json'),JSON.stringify({profile:PAEG_PAGED_PROFILE_V3,sparseTreeEncoding:PAEG_PAGED_SPARSE_ENCODING_V3,phase:'completed',settings:PAEG_PAGED_SETTINGS_V3,sources:sourcePins,roles:previous.roles,artifactSourceRebind:provenance})+'\n');
+ return {stage:'exact-programs-recompiled',roles:staged.length,originalKeysRetained:true,proofGenerated:false,deployed:false};
+}
 export async function prepareFundedPagedGraphArtifactV3(stage,m){
- fixedSupervisor(stage,m);assert.ok(['compile','prepare-key','compile-consumer'].includes(stage),'PAEG_PAGED_FIXED_STAGE');if(stage==='compile-consumer')assert.match(m,/^[0-9a-f]{64}$/,'PAEG_PAGED_MANIFEST_PIN');else mode(m);
+ fixedSupervisor(stage,m);assert.ok(['compile','prepare-key','compile-consumer','rebind-artifacts'].includes(stage),'PAEG_PAGED_FIXED_STAGE');if(stage==='compile-consumer'||stage==='rebind-artifacts')assert.match(m,/^[0-9a-f]{64}$/,'PAEG_PAGED_MANIFEST_PIN');else mode(m);
  const sourcePins=fundedPagedGraphSourcePinsV3();const approved=JSON.parse(regular(join(PAEG_PAGED_ROOT_V3,'reviewed-sources.json')));
  assert.deepEqual(approved,{profile:PAEG_PAGED_PROFILE_V3,sources:sourcePins},'PAEG_PAGED_REVIEWED_SOURCE_CHANGED');
  if(stage==='compile-consumer')return compileConsumer(m,sourcePins);
  const rootRequire=createRequire(join(original,'experiments/private-core-proof/package.json'));
  const resources=await import(pathToFileURL(join(original,'experiments/private-core-proof/wallet-notes/resources.mjs')));
  resources.verifyToolchain();resources.verifyCRS();resources.guard();
+ if(stage==='rebind-artifacts'){assert.equal(m,originalArtifactManifestSHA256,'PAEG_PAGED_REBIND_FIXED_ORIGIN');return rebindCompletePrograms(sourcePins);}
  const toolkit=await import(pathToFileURL(rootRequire.resolve('@aztec/bb.js')));const compiled=join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'compiled',m+'.json');
  const oldFetch=globalThis.fetch;globalThis.fetch=async()=>{throw new Error('PAEG_PAGED_OFFLINE_REQUIRED');};let api;
  try {

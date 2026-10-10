@@ -6,7 +6,7 @@ import {openSync,closeSync,readFileSync,writeFileSync,unlinkSync,statfsSync,mkdi
 import {join} from 'node:path';
 import {PAEG_PAGED_ROOT_V3,PAEG_PAGED_WORDS_V3,retainFundedPagedGraphFailureV3} from './artifacts.mjs';
 import {PRIVATE_RESOURCE_POLICY as limits} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
-assert.equal(process.argv.length,4,'PAEG_PAGED_FIXED_ARGUMENTS');assert.ok((['compile','prepare-key'].includes(process.argv[2])&&Object.hasOwn(PAEG_PAGED_WORDS_V3,process.argv[3]))||(process.argv[2]==='compile-consumer'&&/^[0-9a-f]{64}$/.test(process.argv[3])),'PAEG_PAGED_FIXED_OPERATION');
+assert.equal(process.argv.length,4,'PAEG_PAGED_FIXED_ARGUMENTS');assert.ok((['compile','prepare-key'].includes(process.argv[2])&&Object.hasOwn(PAEG_PAGED_WORDS_V3,process.argv[3]))||(['compile-consumer','rebind-artifacts'].includes(process.argv[2])&&/^[0-9a-f]{64}$/.test(process.argv[3])),'PAEG_PAGED_FIXED_OPERATION');
 assert.equal(process.execArgv.length,0,'PAEG_PAGED_NO_FLAGS');assert.ok(!process.env.NODE_OPTIONS,'PAEG_PAGED_NO_NODE_OPTIONS');
 const dir=join(PAEG_PAGED_ROOT_V3,'.local');mkdirSync(dir,{recursive:true,mode:0o700});const lock=join(dir,'active.lock');const fd=openSync(lock,'wx',0o600);writeFileSync(fd,JSON.stringify({pid:process.pid,stage:process.argv[2],mode:process.argv[3]}));closeSync(fd);
 let child,closed=false,output=0,reason=null,interval,timer,reported=false;const stdout=[],stderr=[];
