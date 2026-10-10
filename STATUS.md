@@ -5,6 +5,16 @@ desarrollo; todavía no está completada la wallet omnichain de la visión origi
 Los resultados distinguen código comprobado, laboratorio local y producto
 pendiente. Las entregas históricas permanecen en `archive/`.
 
+## Limpieza del entorno
+
+El desarrollo funcional permanece pausado durante esta reorganización.
+La limpieza del 10 de octubre redujo el proyecto de **29,8 a 19,8 GiB**:
+**10 GiB liberados**. Se retiraron cachés y copias temporales; el historial
+seleccionado quedó respaldado y verificado en `.local/history/`.
+Se conservaron originales, custodia, bases de datos, APK y los dos candidatos
+móviles pendientes. [Entorno y restauración](docs/LOCAL-ENVIRONMENT.md).
+Los objetivos y su evaluación funcional conservan el alcance original.
+
 ## Corte actual del 10 de octubre
 
 - **Uniswap móvil aceptado:** `45a420b8-9dd9-4e83-b513-91c2c4c885a6`
@@ -110,7 +120,9 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   época, verificador desplegado, hashes, CAS y rechazo ante incertidumbre.
   La regresión ejecuta ambas rutas originales con Vault AES/CAS real y pasa
   en 4,980 s, incluyendo rechazo de metadatos retenidos alterados. La nueva
-  repetición económica está en curso; todavía no acredita las dos caídas.
+  repetición económica `21e7c807…` fue detenida a petición del usuario:
+  conservó dos pruebas, fuentes intactas y lock liberado; registró
+  `NATIVE_SUPERVISOR_SIGTERM` y un error de cleanup. No acredita las dos caídas.
   `fdaecdb` conserva también la causa RPC original en el diagnóstico privado,
   sin devolver parámetros ni datos financieros. El intento anterior no acredita
   las dos caídas; siguen pendientes

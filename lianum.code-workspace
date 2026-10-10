@@ -1,8 +1,8 @@
 {
   "folders": [{ "name": "Lianum", "path": "." }],
   "settings": {
-    "files.exclude": { "**/.internal": true, "**/node_modules": true, "**/__pycache__": true },
-    "search.exclude": { "**/.internal/**": true, "**/archive/**": true, "**/node_modules/**": true },
+    "files.exclude": { "**/.internal": true, "**/.local": true, "**/node_modules": true, "**/__pycache__": true, "**/.gradle": true, "**/.expo": true, "apps/mobile/android/app/build": true, "apps/mobile/dist": true },
+    "search.exclude": { "**/.internal/**": true, "**/.local/**": true, "**/archive/**": true, "**/node_modules/**": true, "**/build/**": true, "**/.gradle/**": true, "**/.expo/**": true, "apps/mobile/dist/**": true },
     "explorer.compactFolders": false
   }
 }

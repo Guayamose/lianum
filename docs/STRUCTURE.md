@@ -1,14 +1,14 @@
 # Estructura del código
 
-Las carpetas de trabajo contienen archivos físicos editables. Los nombres de
-entregas y versiones anteriores quedan dentro de `archive/` y de la copia
-interna utilizada durante la ejecución.
+El código del producto se edita en las carpetas visibles de la raíz. Las
+herramientas, los recursos restaurados y el estado de esta máquina se describen
+por separado en [LOCAL-ENVIRONMENT.md](LOCAL-ENVIRONMENT.md).
 
 | Carpeta | Contenido | Primer archivo útil |
 | --- | --- | --- |
 | `apps/wallet/` | Aplicación web y servidor HTTP que compone las sesiones | `src/server/run.mjs`, `src/server/server.mjs`, `src/client/app.mjs` |
 | `apps/mobile/` | Cliente nativo, custodia de dispositivo y permisos móviles | `App.tsx`, `README.md` |
-| `apps/platform/` | API móvil y registro PostgreSQL; adaptador económico pendiente | `src/run.mjs`, `README.md` |
+| `apps/platform/` | API móvil, registro PostgreSQL y gateway económico local | `src/run.mjs`, `README.md` |
 | `packages/mobile-protocol/` | Esquemas y bytes firmados compartidos sin Node | `src/authorization.mjs` |
 | `packages/backend/` | API, estado de cuentas, ejecución y adaptadores | `src/api/accounts/flat-account-session.mjs` |
 | `packages/custody/` | Custodia local, firmas y procesos del propietario | `src/processes/flat-owner-process.mjs` |
@@ -25,6 +25,20 @@ interna utilizada durante la ejecución.
 | `experiments/` | Circuitos y código experimental heredado; algunos siguen siendo dependencias | `engine/private-core-proof/` |
 | `docs/` | Documentación y referencias del producto | Este archivo |
 | `archive/` | Entregas originales, propuestas, recibos y respaldo de la restauración | `README.md` |
+
+`packages/` agrupa módulos compartidos por las aplicaciones. No representa
+una colección de servicios desplegados independientemente. `apps/mobile/`
+es un cliente propio: comparte protocolos con la web y el backend, pero no
+se obtiene convirtiendo automáticamente la interfaz web.
+
+La entrada genérica V1 de `apps/platform/src/run.mjs` conserva el adaptador
+económico desconectado: estado privado desconocido y readiness 503. El gateway
+económico V3 tiene una integración local distinta, ligada al actor, executor
+y bridges originales antes de financiar, con persistencia SQL y
+captura/reapertura ordenada. Sus límites y aceptaciones figuran en
+[STATUS.md](../STATUS.md) y en el [README de plataforma](../apps/platform/README.md).
+La infraestructura de Google Cloud se prepara y comprueba localmente;
+no hay despliegue autorizado.
 
 ## Interior de los componentes
 
@@ -83,11 +97,11 @@ packages/                     ──┼── ./dev build ──> .internal/runt
 contracts/, tests/, scripts/  ──┘
 ```
 
-El código heredado valida rutas físicas y hashes. El comando de preparación
-copia los archivos a sus rutas compatibles y traduce los imports relativos
-para ese recorrido. Los imports del código editable apuntan a la estructura
-nueva. La traducción inicial reproduce exactamente los 1.684 archivos
-originales, sin enlaces simbólicos ni cambios en la lógica del producto.
+Parte del código heredado valida rutas físicas y hashes. El comando de
+preparación copia los archivos a sus rutas compatibles y traduce los imports
+relativos. Los imports del código editable apuntan a la estructura nueva.
+Esta copia sigue siendo necesaria para esos consumidores; no debe editarse
+directamente ni confundirse con otro lugar donde desarrollar el producto.
 
 `start`, `test`, `check` y `node` preparan esa copia automáticamente. Edita las
 carpetas normales, guarda el archivo y vuelve a ejecutar el comando. Los
@@ -105,16 +119,32 @@ cambie código ligado a pruebas o releases. Una edición funcional puede
 invalidar un hash de origen: esa validación debe revisarse junto con el cambio,
 sin desactivar las comprobaciones para conseguir que una operación pase.
 
-La copia interna incluye dependencias y herramientas públicas restauradas. El
-bootstrap de [DEVELOPMENT.md](DEVELOPMENT.md) permite ejecutar las pruebas de host
-desde un clon limpio. La restauración completa de releases y runtimes necesita
-los materiales descritos en `scripts/development/README.md`.
+La copia interna incluye dependencias y artefactos públicos restaurados.
+Las herramientas se guardan en `.internal/dev/toolchains/`. El bootstrap de
+[DEVELOPMENT.md](DEVELOPMENT.md) permite ejecutar las pruebas de host desde un
+clon limpio. La restauración completa de releases y runtimes necesita los
+materiales descritos en [la guía de restauración](../scripts/development/README.md).
 
 `apps/mobile`, `apps/platform`, `packages/mobile-protocol` e `infra` se ejecutan
 directamente con dependencias explícitas; no usan la traducción de rutas heredada.
-El cliente móvil no es una conversión automática de la wallet web y la API aún
-no conecta sus permisos al motor económico.
 
 Mientras exista la compatibilidad, conserva nombres de archivo específicos.
 El build rechaza dos fuentes que correspondan a la misma ruta antigua.
 Las guías README nuevas no se incluyen en la copia de ejecución.
+
+## Archivos locales e historial
+
+| Ubicación | Qué contiene |
+| --- | --- |
+| `.internal/runtime/` | Copia compatible, recursos originales y laboratorios que la usan |
+| `.internal/dev/toolchains/` | Herramientas de desarrollo instaladas localmente |
+| `.internal/dev/drafts/` | Trabajo pendiente todavía no integrado; se conserva físico |
+| `.internal/dev/reports/` | Resúmenes actuales y evidencia enlazada por las guías |
+| `.local/` | Configuración privada, claves, bases de datos, estado y cachés |
+| `.local/history/cleanup-*/` | Historial compactado con manifiesto y archivos `drafts.tar.gz`, `reports.tar.gz` y `snapshots.tar.gz`, según la selección |
+
+`./dev clean` muestra la selección sin modificar archivos. `./dev clean --apply`
+retira copias temporales y cachés regenerables, y compacta el historial
+seleccionado antes de retirar sus carpetas. No elimina los recursos originales
+ni el estado económico. [LOCAL-ENVIRONMENT.md](LOCAL-ENVIRONMENT.md) detalla
+qué se conserva y cómo recuperar cada clase de respaldo.
