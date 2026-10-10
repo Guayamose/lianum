@@ -269,6 +269,17 @@ def fixed_runtime_compose(original, images, project):
     for name, target in [('geth', 8545), ('sequencer', 8547), ('prysm_beacon_chain', 3500)]:
         value['services'][name]['ports'] = [{'target': target, 'published': '0',
                                            'host_ip': '127.0.0.1', 'protocol': 'tcp'}]
+    # The upstream creator also serves later L2 deployment tasks. Its generic
+    # sequencer dependency starts Nitro during create-rollup/JQ, before the
+    # SAME launcher writes sequencer_config.json. Keep the already started L1
+    # dependency; the original explicit sequencer start remains after configs.
+    creator = value['services']['rollupcreator']
+    dependencies = creator.get('depends_on')
+    require(dependencies == {
+        'geth': {'condition': 'service_started', 'required': True},
+        'sequencer': {'condition': 'service_started', 'required': True}},
+        'ARBITRUM_ORIGINAL_CREATOR_DEPENDENCIES_CHANGED')
+    del dependencies['sequencer']
     return value
 
 

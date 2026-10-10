@@ -28,6 +28,9 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         original['services']['create_beacon_chain_genesis']['command'] = commands
         original['services']['geth']['command'] = ['--dev', '--dev.period=1', '--mine',
              '--miner.etherbase=0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E', '--state.scheme=hash']
+        original['services']['rollupcreator']['depends_on'] = {
+            'geth': {'condition': 'service_started', 'required': True},
+            'sequencer': {'condition': 'service_started', 'required': True}}
         images = {name: 'sha256:' + 'a' * 64 for name in m.SERVICES}
         fixed = m.fixed_runtime_compose(original, images, 'lianum-nitro-' + '3' * 32)
         self.assertEqual(fixed['services']['create_beacon_chain_genesis']['command'],
@@ -80,6 +83,44 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         changed = original.replace('      docker compose up --wait prysm_beacon_chain\n', '')
         with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_PAIRED_GENESIS_STARTUP_CHANGED$'):
             m.fixed_launcher(changed, 'lianum-nitro-' + '7' * 32)
+
+    def test_creator_never_starts_sequencer_before_original_config(self):
+        spec = importlib.util.spec_from_file_location('original_nitro_creator_birth', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        material = m.repository() / '.local/dependencies/arbitrum-nitro-v1/public' / f'nitro-testnode-{m.COMMIT}.tar.gz'
+        files = m.official_files(material)
+        launcher = m.fixed_launcher(files['test-node.bash'].decode(), 'lianum-nitro-' + '8' * 32)
+        # Exact Docker Compose config shape is an explicitly synthetic port;
+        # native birth/finality/transactions are not simulated or accepted.
+        original = {'services': {name: {'image': 'upstream', 'command': []}
+                                 for name in m.SERVICES}, 'volumes': {}, 'networks': {}}
+        original['services']['create_beacon_chain_genesis']['command'] = [
+            'testnet', 'generate-genesis', '--geth-genesis-json-in=/config/geth_genesis.json']
+        original['services']['geth']['command'] = ['--dev', '--dev.period=1', '--mine',
+            '--miner.etherbase=0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E', '--state.scheme=hash']
+        dependencies = {'geth': {'condition': 'service_started', 'required': True},
+                        'sequencer': {'condition': 'service_started', 'required': True}}
+        original['services']['rollupcreator']['depends_on'] = dependencies
+        original['services']['sequencer']['depends_on'] = {'geth': {'condition': 'service_started', 'required': True}}
+        images = {name: 'sha256:' + 'a' * 64 for name in m.SERVICES}
+        fixed = m.fixed_runtime_compose(original, images, 'lianum-nitro-' + '8' * 32)
+        self.assertEqual(fixed['services']['rollupcreator']['depends_on'], {'geth': dependencies['geth']})
+        self.assertEqual(original['services']['rollupcreator']['depends_on'], dependencies)
+        self.assertEqual(fixed['services']['sequencer']['depends_on'], original['services']['sequencer']['depends_on'])
+        self.assertEqual(fixed['services']['rollupcreator']['command'], original['services']['rollupcreator']['command'])
+        deployment = launcher.index('rollupcreator create-rollup-testnode')
+        configuration = launcher.index('run_script write-config')
+        sequencer_start = launcher.index('docker compose up --wait $INITIAL_SEQ_NODES')
+        self.assertLess(deployment, configuration)
+        self.assertLess(configuration, sequencer_start)
+        self.assertEqual(launcher.count('docker compose run --rm create_beacon_chain_genesis'), 1)
+        self.assertEqual(len(m.LIVE_SERVICES), 8)
+        self.assertEqual(m.FINALITY_MS, 180_000)
+        altered = json.loads(json.dumps(original))
+        altered['services']['rollupcreator']['depends_on']['sequencer']['condition'] = 'service_healthy'
+        with self.assertRaisesRegex(m.ClosedError, '^ARBITRUM_ORIGINAL_CREATOR_DEPENDENCIES_CHANGED$'):
+            m.fixed_runtime_compose(altered, images, 'lianum-nitro-' + '8' * 32)
 
     def test_private_read_allows_access_time_but_rejects_mutation(self):
         spec = importlib.util.spec_from_file_location('original_nitro_private_reader', Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
@@ -239,6 +280,9 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
             '--authrpc.jwtsecret=/config/jwt.hex', '--http', '--datadir=/datadir']
         source['services']['create_beacon_chain_genesis']['command'] = [
             'testnet', 'generate-genesis', '--geth-genesis-json-in=/config/geth_genesis.json']
+        source['services']['rollupcreator']['depends_on'] = {
+            'geth': {'condition': 'service_started', 'required': True},
+            'sequencer': {'condition': 'service_started', 'required': True}}
         saved = json.loads(json.dumps(source))
         value = module.fixed_runtime_compose(source, images, project)
         self.assertEqual(source, saved)
