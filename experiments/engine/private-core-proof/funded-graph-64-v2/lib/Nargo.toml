@@ -1,0 +1,9 @@
+[package]
+name = "funded_graph_64_v2_support"
+type = "lib"
+authors = ["Lianum bounded general graph"]
+
+[dependencies]
+graph_support = { path = "../../generic-graph/lib" }
+funding_support = { path = "../../generic-funding/lib" }
+native_support = { path = "../../generic-native/lib" }

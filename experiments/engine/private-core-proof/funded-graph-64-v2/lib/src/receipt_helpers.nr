@@ -1,0 +1,2 @@
+use native_support::receipt;
+pub fn empty_receipt(r:receipt::ReceiptRead){assert(r.hub_domain==[0;32]);assert(r.registry_commitment==[0;32]);assert(r.global_effect_id==[0;32]);assert(r.scope==[0;32]);assert(r.policy==[0;32]);assert(r.local_commitment==[0;32]);assert(r.dispatch_id==[0;32]);assert(r.chain_domain==[0;32]);assert(r.evidence_policy==[0;32]);assert(r.action_commitment==[0;32]);assert(r.payout_commitment==[0;32]);assert(r.receipt_key_commitment==[0;32]);assert(r.receipt_rho==[0;32]);assert(r.valid_from==0);assert(r.valid_until==0);}
