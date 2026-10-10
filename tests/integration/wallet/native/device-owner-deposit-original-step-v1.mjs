@@ -247,7 +247,9 @@ async function runOriginalStepV1(context, reservationMode) {
     } else assert.equal(transport.fundReplyDiscarded, false);
     await stage('device-explicit-original-inclusion-same-opening');
     const observe = async () => {
-      const consent = await api.deviceDeposit.challenge('OBSERVE_D26', { ...await access(), jobId: funding.jobId });
+      // V2 reviews belong to the SDK instance that issued them. The mobile
+      // inclusion adapter must issue and consume its own original review.
+      const consent = await (reservationMode ? deviceApi : api.deviceDeposit).challenge('OBSERVE_D26', { ...await access(), jobId: funding.jobId });
       const signed = { consent, signature: signDepositConsent(consent) };
       let value;
       if (reservationMode) {
