@@ -25,8 +25,8 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición:** `b9cf29f` conserva la última publicación comprobada de
-  884 fuentes y doce roles (preflight V30), incluido el consumidor de
+- **Composición:** `20fa178` conserva la última publicación comprobada de
+  884 fuentes y doce roles (preflight V31), incluido el consumidor de
   Base/Arbitrum/BSC y Cloud local de 147 archivos. Los cambios posteriores
   requieren una nueva publicación del productor físico antes de financiar
   otro laboratorio. Las 45 fuentes originales W39 permanecen intactas;
@@ -45,6 +45,10 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   seis confirmaciones vigentes y después realiza CO42, rechazando otro wire
   o segundo broadcast. Sus HOST originales pasan; la ejecución económica
   D27→CI51→W39→CO42 sigue pendiente.
+  El primer recorrido económico BTC `b756f9bf…` terminó rechazado antes de
+  generar pruebas, con fuentes intactas, cleanup sin errores y lock liberado.
+  El runtime nativo expone ingreso V3 y el bootstrap seleccionado exige el
+  perfil anterior; se está corrigiendo esa composición sin retirar su guarda.
   `3a8b458` comparte el validador económico existente entre web y móvil,
   conservando sus bytes y reglas; su HOST original pasa sin crear disponible.
 - **SOURCE confirmado y GRAPH:** el intento V2 `f1f4e353…` terminó
@@ -56,8 +60,13 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   propio antes de CREATE/FUND, y `c58bc18` conecta las dos caídas y aperturas
   al mismo recorrido de catorce relaciones, sin prueba ni envío nuevos al
   observar. Las comprobaciones focales originales pasan; el recorrido
-  financiero V3 aún no se ha ejecutado. Broadcast→checkpoint y pérdida del
-  padre/dispositivo siguen pendientes.
+  financiero V3 `bdfaa0ff…` terminó rechazado tras D26 y antes de financiar:
+  el helper omitía el tercer argumento exigido por el SDK. `0dbe141` pasa
+  explícitamente `null` y su regresión sobre el mismo helper, SDK y Vault
+  reproduce el rechazo antes del cambio y pasa después en 447 ms. El intento
+  financiero rechazado se conserva sin adopción; fuentes intactas, cleanup
+  sin errores y lock liberado. La aceptación económica V3,
+  broadcast→checkpoint y pérdida del padre/dispositivo siguen pendientes.
 - **PAEG paginado privado V3:** `ca5291e` incorpora árboles sparse Poseidon2
   BN254 propios con el mismo encuadre en JS/Noir/Solidity. Los cinco HOST pasan;
   Las cinco relaciones R119/Fold66/T46/Admission85/W39 y sus claves propias
