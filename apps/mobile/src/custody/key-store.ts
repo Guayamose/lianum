@@ -16,7 +16,7 @@ import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
   from '@lianum/mobile-protocol/original-account-v2';
 import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
   from '@lianum/mobile-protocol/original-account-v2';
-import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage } from './signing.mjs';
+import { bytesToHex, privateKeyFromHex, devicePublicKey, signDeviceMessage, signNativePrivateDeviceConsentV2 } from './signing.mjs';
 import { validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConsentFreshV1, deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 
@@ -198,7 +198,8 @@ export async function signDeviceDepositConsentV1(raw: Parameters<typeof validate
   const key = privateKeyFromHex(retained);
   try {
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
-    current(); return signDeviceMessage(key, deviceDepositConsentMessageV1(value));
+    current(); return value.version===2 ? signNativePrivateDeviceConsentV2(key,value)
+      : signDeviceMessage(key, deviceDepositConsentMessageV1(value));
   } finally { key.fill(0); retained = null; }
 }
 
@@ -245,7 +246,8 @@ export async function signDeviceExitConsentV1(raw: Parameters<typeof validateDev
   const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
   try {
     if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw new Error('MOBILE_KEY_BINDING_CHANGED');
-    current(); message = deviceExitConsentMessageV1(value); return signDeviceMessage(key, message);
+    current(); if(value.version===2)return signNativePrivateDeviceConsentV2(key,value);
+    message = deviceExitConsentMessageV1(value); return signDeviceMessage(key, message);
   } finally { message?.fill(0); key.fill(0); retained = null; }
 }
 

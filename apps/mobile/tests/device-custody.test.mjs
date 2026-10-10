@@ -3,7 +3,10 @@
  * biometrics, hardware isolation, mobile fund recovery or native acceptance. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
+import {createCipheriv,createDecipheriv,randomBytes,createPublicKey,verify} from 'node:crypto';
+import {deviceReservationFixtureV1} from './helpers/device-reservation-fixture-v1.mjs';
+import {normalizeNativePrivateDepositConsentV2,deviceDepositConsentEitherMessageV2,DEVICE_NATIVE_PRIVATE_DEPOSIT_V2} from '../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
+import {normalizeNativePrivateExitConsentV2,deviceExitConsentEitherMessageV2,DEVICE_NATIVE_PRIVATE_EXIT_V2} from '../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import { MOBILE_AUTHORIZATION_PROFILE, mobileReceiptMessage } from '@lianum/mobile-protocol';
 import * as signing from '../src/custody/signing.mjs';
 
@@ -53,7 +56,8 @@ mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { expor
   ...signing,
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },
 } });
-const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge, signReviewedReceipt,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1 } = await import('../src/custody/key-store.ts');
+const { createDeviceIdentity, readDevicePublicKey, signReviewedChallenge, signReviewedReceipt,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,
+  signDeviceDepositConsentV1,signDeviceExitConsentV1 } = await import('../src/custody/key-store.ts');
 const { retainPendingOperation, readPendingOperation, assertPendingOperationIdentity } = await import('../src/custody/pending-operations.ts');
 function reset() {
   store.clear(); calls.length = 0; privateBuffers.length = 0; backupKeyInputs.length=0;
@@ -270,4 +274,32 @@ test('sealed identity backup restores the SAME PoP after total loss and rejects 
   control.discardIdentityWrite=true;await assert.rejects(importDeviceIdentityBackupV1(sealed,password,publicKey),/BACKUP_WRITE_UNCERTAIN/);assert.equal(store.size,0);control.discardIdentityWrite=false;
   store.set(PUBLIC,publicKey);await importDeviceIdentityBackupV1(sealed,password,publicKey);assert.equal(store.get(PRIVATE),originalPrivate);assert.equal(store.get(PUBLIC),publicKey);
   assert.ok(privateBuffers.every(bytes=>bytes.every(b=>b===0)));assert.ok(backupKeyInputs.every(bytes=>bytes.every(b=>b===0)));
+});
+
+
+test('protected Native private V2 signing accepts original W39 framing without widening legacy or replacing custody',async()=>{
+ reset();const publicKey=await createDeviceIdentity(),originalPrivate=store.get(PRIVATE),originalKey=signing.privateKeyFromHex(originalPrivate);
+ const fixture=deviceReservationFixtureV1(originalKey),hex=n=>n.toString(16).padStart(64,'0');
+ const publicObject=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(publicKey.slice(2,66),'hex').toString('base64url'),y:Buffer.from(publicKey.slice(66),'hex').toString('base64url')}});
+ function consent(method){const base={version:2,profile:method==='fund'?DEVICE_NATIVE_PRIVATE_DEPOSIT_V2:DEVICE_NATIVE_PRIVATE_EXIT_V2,action:method==='fund'?'FUND_D26':'WITHDRAW_W39',...fixture.descriptor,
+  challengeId:hex(100),nonce:hex(101),expiresAt:Date.now()+15000,binding:structuredClone(fixture.consent.binding),poolTerms:structuredClone(fixture.consent.poolTerms),rootId:hex(102),noteRevision:1,jobId:hex(103),
+  witnessSHA256:hex(104),proofSHA256:hex(105),publicInputsSHA256:hex(106),observed:{blockNumber:'1',blockHash:hex(107),timestamp:'6000'},openingDisclosure:null,privateProof:null};
+  if(method==='fund')base.statement={scope:base.poolTerms.scope,policy:base.poolTerms.policy,epoch:'10',amount:'500',output:hex(108)};
+  else Object.assign(base,{parentJobId:hex(109),nativeBindingSHA256:hex(110),quoteId:hex(111),noteRole:'change',statement:{scope:base.poolTerms.scope,policy:base.poolTerms.policy,epoch:'10',root:hex(112),nullifier:hex(113),amount:'400',recipient:'e1'.repeat(20),commitment:hex(114)}});
+  return(method==='fund'?normalizeNativePrivateDepositConsentV2:normalizeNativePrivateExitConsentV2)(base);}
+ let time;try{
+  for(const method of ['fund','withdraw']){const value=consent(method),message=(method==='fund'?deviceDepositConsentEitherMessageV2:deviceExitConsentEitherMessageV2)(value),sign=method==='fund'?signDeviceDepositConsentV1:signDeviceExitConsentV1;
+   try{assert.ok(message.length<=8192);if(method==='withdraw'){assert.ok(message.length>4096);assert.throws(()=>signing.signDeviceMessage(originalKey,message),/MOBILE_MESSAGE_INVALID/);}
+    const signature=await sign(value,value.origin,value.pairingId);assert.equal(verify('sha256',message,{key:publicObject,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'hex')),true);
+    const substituted=structuredClone(value);substituted.statement.amount='1';const changed=(method==='fund'?deviceDepositConsentEitherMessageV2:deviceExitConsentEitherMessageV2)(substituted);
+    try{assert.equal(verify('sha256',changed,{key:publicObject,dsaEncoding:'ieee-p1363'},Buffer.from(signature,'hex')),false);}finally{changed.fill(0);}
+    const before=calls.length;await assert.rejects(sign(value,'https://other.example',value.pairingId),/MOBILE_REVIEW_CHANGED/);assert.equal(calls.slice(before).some(c=>c.key===PRIVATE),false);
+   }finally{message.fill(0);}}
+  assert.throws(()=>signing.signNativePrivateDeviceConsentV2(originalKey,{version:1,profile:DEVICE_NATIVE_PRIVATE_EXIT_V2}),/PRIVATE_SIGNING_INVALID/);
+  assert.throws(()=>signing.signNativePrivateDeviceConsentV2(originalKey,new Uint8Array(8193)),/PRIVATE_SIGNING_INVALID/);
+  let invoked=false;assert.throws(()=>signing.signNativePrivateDeviceConsentV2(originalKey,{version:2,get profile(){invoked=true;return DEVICE_NATIVE_PRIVATE_EXIT_V2;}}),/PRIVATE_SIGNING_INVALID/);assert.equal(invoked,false);
+  const value=consent('withdraw');let now=Date.now();time=mock.method(Date,'now',()=>now);control.slowRead=async()=>{now=value.expiresAt;};
+  await assert.rejects(signDeviceExitConsentV1(value,value.origin,value.pairingId),/MOBILE_NATIVE_PRIVATE_W39_INVALID/);
+  assert.equal(store.get(PRIVATE),originalPrivate);assert.ok(privateBuffers.every(bytes=>bytes.every(byte=>byte===0)));
+ }finally{time?.mock.restore();originalKey.fill(0);control.slowRead=null;}
 });
