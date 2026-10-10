@@ -124,6 +124,39 @@ class OriginalNativeInitializationGenesisTest(unittest.TestCase):
 
 
 class OriginalNativeGenesisDiffTest(unittest.TestCase):
+    def test_original_genesis_allocation_forms_preserve_accounts_and_deny_alias(self):
+        source = pathlib.Path(__file__).with_name('bsc_original_genesis_v3.py')
+        tree = ast.parse(source.read_text())
+        nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                 and node.name in {'need', 'normalize_allocation'}]
+        class OriginalGuard:
+            @staticmethod
+            def require(value, code):
+                if not value:
+                    raise RuntimeError(code)
+        context = {'copy': copy, 're': re, 'bsc': OriginalGuard}
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), str(source), 'exec'), context)
+        root = next(parent for parent in source.resolve().parents
+                    if (parent / 'scripts/layout.json').is_file() and (parent / 'package.json').is_file())
+        # The physically retained original V2 genesis is input only. This test
+        # creates no process, trace, registration, funded account or finality.
+        original = json.loads((root / '.local/dependencies/bsc-posav1/prepared-native-init-v2/genesis.json').read_text())['alloc']
+        self.assertEqual(sum(bool(re.fullmatch(r'[0-9a-fA-F]{40}', key)) for key in original), 3)
+        normalized = context['normalize_allocation'](original)
+        self.assertEqual(len(normalized), len(original))
+        for key, row in original.items():
+            target = '0x' + key.removeprefix('0x').lower()
+            self.assertEqual(normalized[target], row)
+            self.assertIsNot(normalized[target], row)
+        self.assertEqual(sum(bool(row.get('code')) for row in normalized.values()), 17)
+        fixture_key = next(key for key in original if re.fullmatch(r'[0-9a-fA-F]{40}', key))
+        alias = copy.deepcopy(original)
+        alias['0x' + fixture_key] = copy.deepcopy(original[fixture_key])
+        with self.assertRaisesRegex(RuntimeError, '^BSC_GENESIS_ORIGINAL_ALLOCATION_ALIAS$'):
+            context['normalize_allocation'](alias)
+        with self.assertRaisesRegex(RuntimeError, '^BSC_GENESIS_ORIGINAL_ALLOCATION$'):
+            context['normalize_allocation']({'0x01': {}})
+
     def test_original_diff_keeps_unchanged_fields_and_rejects_foreign_seed(self):
         # Tracer replies here are explicitly synthetic. This case checks the
         # source fold/guards, and does not establish native BLS or finality.

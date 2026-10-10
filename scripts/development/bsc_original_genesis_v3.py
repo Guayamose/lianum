@@ -57,6 +57,21 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def normalize_allocation(allocation):
+    # Geth accepts both JSON address forms in its original genesis allocator.
+    # Prefix/case normalization does not change any account state, and two
+    # input keys may never alias the same native account.
+    need(type(allocation) is dict and 0 < len(allocation) <= 128, 'ORIGINAL_ALLOCATION')
+    normalized = {}
+    for key, row in allocation.items():
+        need(type(key) is str and re.fullmatch(r'(?:0x)?[0-9a-fA-F]{40}', key)
+             and type(row) is dict, 'ORIGINAL_ALLOCATION')
+        native_address = '0x' + key.removeprefix('0x').lower()
+        need(native_address not in normalized, 'ORIGINAL_ALLOCATION_ALIAS')
+        normalized[native_address] = copy.deepcopy(row)
+    return normalized
+
+
 def address(number):
     return '0x' + format(number, '040x')
 
@@ -343,9 +358,7 @@ def produce(work):
          and sha(bsc.private_file(prepared / 'create-validator', 128 * 1024 * 1024)) ==
          receipt['stakeHubRegistrarSHA256'], 'ORIGINAL_BINARY_CHANGED')
     original = json.loads(body)
-    original['alloc'] = {key.lower(): row for key, row in original['alloc'].items()}
-    need(len(original['alloc']) <= 128 and all(ADDRESS.fullmatch(key) for key in original['alloc']),
-         'ORIGINAL_ALLOCATION')
+    original['alloc'] = normalize_allocation(original['alloc'])
     original_codes = {key: sha(bytes.fromhex(row['code'].removeprefix('0x')))
                       for key, row in original['alloc'].items() if row.get('code')}
     need(len(original_codes) == 17 and not original['alloc'][STAKE_HUB].get('storage'),
