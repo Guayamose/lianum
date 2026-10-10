@@ -39,11 +39,12 @@ import { deviceExecutionConsentMessageV1 } from '../../../../packages/mobile-pro
 import { normalizeDeviceRootClaimDescriptorV2, normalizeDeviceRootClaimPermissionV2, normalizeDeviceRootClaimStatementV2,
   validateDeviceRootClaimPermissionFreshV2, deviceRootClaimPermissionMessageV2, deviceRootClaimDataBytesV2,
   type DeviceRootClaimDescriptorV2, type DeviceRootClaimPermissionV2, type DeviceRootClaimStatementV2,
-  type DeviceRootClaimIngressStatementV2 } from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
+  type DeviceRootClaimIngressStatementV2,normalizeDeviceRootClaimExitQuoteV3,normalizeDeviceRootClaimExitPermissionV3,
+  type DeviceRootClaimExitQuoteV3,type DeviceRootClaimExitPermissionV3 } from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
 import { externalFlatWitnessV1, externalFlatWitnessBytesV1, externalFlatWipeV1 } from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import { readOriginalDeviceRootClaimPermissionV2, readOriginalDeviceRootClaimReviewV2,
-  readOriginalDeviceRootClaimObservationV2 } from '../api/native-claim-device-api-v1.mjs';
-import { sealOriginalDeviceRootClaimWitnessV2 } from '../api/device-private-proof-transit-v2.mjs';
+  readOriginalDeviceRootClaimObservationV2,readOriginalDeviceRootClaimExitQuoteV3,readOriginalDeviceRootClaimExitPermissionV3 } from '../api/native-claim-device-api-v1.mjs';
+import { sealOriginalDeviceRootClaimWitnessV2,sealOriginalDeviceRootClaimExitWitnessV3 } from '../api/device-private-proof-transit-v2.mjs';
 const ROOT = 'lianum.note.root.encryption.v1';
 const POINTER = 'lianum.note.root.pointer.v1';
 const RECORD = 'lianum.note.root.record.v1';
@@ -178,8 +179,11 @@ export type LocalDepositReviewV1 = Readonly<{ version: 1; profile: 'LOCAL_UNISSU
 export type LocalDepositSignatureV1 = Readonly<{ version: 1; relation: 'D26' | 'D27';
   rootId: string; revision: number; commitment: string; statement: LocalDepositStatementV1;
   signature: string; status: 'UNISSUED'; availableBalance: null; nativeEffectsEstablished: false }>;
+type RootClaimExitCustodyV3={quote:DeviceRootClaimExitQuoteV3;phase:'PREPARED'|'PROVE_ADMITTED'|'SEND_ADMITTED';jobId:string|null;signature:string;witnessSHA256:string;proofSHA256:string|null;publicInputsSHA256:string|null};
+export type LocalDeviceRootClaimExitRequestV3=Readonly<{quoteId:string;rootId:string;noteRevision:number;statement:LocalDeviceWithdrawalStatementV1;path:LocalDeviceWithdrawalPathV1;witnessSHA256:string;close():void}>;
 type RootClaimCustodyV2 = { descriptor: DeviceRootClaimDescriptorV2; rootId: string; noteRevision: number;
   statement: DeviceRootClaimStatementV2; d27JobId: string; ci51JobId: string | null;
+  exit?:RootClaimExitCustodyV3;redemption?:{requestId:string;ticketId:string|null;amount:string;maxFee:string;payoutAdmitted:boolean};
   admissions: { action: 'PROVE_D27' | 'PROVE_CI51' | 'FUND_NATIVE_CLAIM' | 'ISSUE_CLAIM'; permissionSHA256: string }[] };
 export type LocalDeviceRootClaimRequestV2 = Readonly<{ rootId: string; noteRevision: number;
   statement: DeviceRootClaimStatementV2; witnessSHA256: string; close(): void }>;
@@ -284,7 +288,7 @@ async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'rev
   if (Object.hasOwn(x, 'rootClaim')) {
     if (!note || note.status !== 'UNISSUED' || note.deviceJob || result.spend || result.sourceExit
       || note.depositIntent?.relation !== 'D27') bad('MOBILE_LOCAL_CLAIM_CUSTODY_CONFLICT');
-    const c = parsed(JSON.stringify(x.rootClaim), ['descriptor','rootId','noteRevision','statement','d27JobId','ci51JobId','admissions'], MAX_CLEAR_BYTES);
+    const c = parsed(JSON.stringify(x.rootClaim), ['descriptor','rootId','noteRevision','statement','d27JobId','ci51JobId','admissions',...(Object.hasOwn(x.rootClaim as object,'exit')?['exit']:[]),...(Object.hasOwn(x.rootClaim as object,'redemption')?['redemption']:[])], MAX_CLEAR_BYTES);
     const descriptor = normalizeDeviceRootClaimDescriptorV2(c.descriptor);
     const statement = normalizeDeviceRootClaimStatementV2(localUnissuedDepositStatementV1(preparedSummary(note), {relation:'D27',validFrom:note.depositIntent.validFrom,validUntil:note.depositIntent.validUntil})) as DeviceRootClaimStatementV2;
     if (JSON.stringify(c.statement) !== JSON.stringify(statement) || c.rootId !== result.rootId
@@ -303,6 +307,14 @@ async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'rev
       || admissions.some(a => a.action === 'ISSUE_CLAIM') && c.ci51JobId === null) bad();
     result.rootClaim = { descriptor, rootId: result.rootId, noteRevision: integer(c.noteRevision), statement,
       d27JobId: c.d27JobId, ci51JobId: c.ci51JobId as string | null, admissions };
+    if(Object.hasOwn(c,'exit')){const e=parsed(JSON.stringify(c.exit),['quote','phase','jobId','signature','witnessSHA256','proofSHA256','publicInputsSHA256'],MAX_CLEAR_BYTES),q=normalizeDeviceRootClaimExitQuoteV3(e.quote),statement=localDeviceWithdrawalStatementV1({scope:note.scope,policy:note.policy,epoch:q.statement.epoch,opening:note.opening,path:q.path,recipient:note.recipient});
+      if(!admissions.some(a=>a.action==='ISSUE_CLAIM')||JSON.stringify(q.descriptor)!==JSON.stringify(descriptor)||q.rootId!==result.rootId||q.noteRevision!==c.noteRevision||JSON.stringify(statement)!==JSON.stringify(q.statement)||!['PREPARED','PROVE_ADMITTED','SEND_ADMITTED'].includes(String(e.phase))||(e.phase==='PREPARED'?e.jobId!==null:typeof e.jobId!=='string'||!/^[0-9a-f-]{36}$/.test(e.jobId)))bad('MOBILE_LOCAL_CLAIM_EXIT_CONTEXT_CHANGED');
+      const signature=hex(e.signature,64),frame=localDeviceWithdrawalFrameV1(statement);try{if(!secp256k1.verify(localNoteHexBytesV1(signature,64),frame,localNoteHexBytesV1('04'+note.opening.x+note.opening.y,65),{prehash:true,lowS:true}))bad();}finally{frame.fill(0);}
+      const witness=localDeviceWithdrawalWitnessV1({statement,opening:note.opening,path:q.path,signature}),bytes=deviceExitWitnessBytesV1(witness);try{if(await digest(bytes)!==e.witnessSHA256)bad();}finally{bytes.fill(0);wipeDeviceExitWitnessV1(witness);}
+      if(e.phase==='SEND_ADMITTED'){hex(e.proofSHA256);hex(e.publicInputsSHA256);}else if(e.proofSHA256!==null||e.publicInputsSHA256!==null)bad();
+      result.rootClaim.exit={quote:q,phase:e.phase as RootClaimExitCustodyV3['phase'],jobId:e.jobId as string|null,signature,witnessSHA256:hex(e.witnessSHA256),proofSHA256:e.proofSHA256 as string|null,publicInputsSHA256:e.publicInputsSHA256 as string|null};
+    }
+    if(Object.hasOwn(c,'redemption')){const r=parsed(JSON.stringify(c.redemption),['requestId','ticketId','amount','maxFee','payoutAdmitted']);if(result.rootClaim.exit?.phase!=='SEND_ADMITTED'||r.amount!==statement.amount||typeof r.payoutAdmitted!=='boolean')bad();for(const k of ['amount','maxFee']){const value=r[k];if(typeof value!=='string')bad();localNoteUintBytesV1(value);}if(BigInt(r.maxFee as string)<=0n)bad();if(r.ticketId!==null)hex(r.ticketId);if(r.payoutAdmitted&&r.ticketId===null)bad();result.rootClaim.redemption={requestId:hex(r.requestId),ticketId:r.ticketId as string|null,amount:r.amount as string,maxFee:r.maxFee as string,payoutAdmitted:r.payoutAdmitted};}
   }
   return result;
 }
@@ -861,6 +873,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     for (const item of Object.values(witness)) if (Array.isArray(item)) item.fill(0);
     outstandingWitnesses.delete(witness);
   };
+  const claimExitRequests=new WeakMap<LocalDeviceRootClaimExitRequestV3,{quote:object;witness:DeviceExitWitnessV1;used:boolean}>();
   const claimRequests = new WeakMap<LocalDeviceRootClaimRequestV2, { descriptor: DeviceRootClaimDescriptorV2; witness: Record<string, unknown>; used: boolean }>();
   const outstandingClaimWitnesses = new Set<Record<string, unknown>>();
   let liveClaimObservation: object | null = null;
@@ -1345,23 +1358,71 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         }finally{bytes.fill(0);}
       });
     },
+    prepareDeviceRootClaimExitV3: (handle: object) => {
+      current();const quote=readOriginalDeviceRootClaimExitQuoteV3(handle);
+      return original('Preparar W39 de esta misma nota privada emitida; conservar apertura en RootNote',async(value,key,before,raw,root)=>{
+        const c=value.rootClaim,n=value.note;if(!c||!n||c.ci51JobId===null||!c.admissions.some(a=>a.action==='ISSUE_CLAIM')
+          ||JSON.stringify(quote.descriptor)!==JSON.stringify(c.descriptor)||quote.rootId!==value.rootId||quote.noteRevision!==c.noteRevision
+          ||c.exit&&c.exit.phase!=='PREPARED')bad('MOBILE_LOCAL_CLAIM_EXIT_OBSERVE_ONLY');
+        const statement=localDeviceWithdrawalStatementV1({scope:n.scope,policy:n.policy,epoch:quote.statement.epoch,opening:n.opening,path:quote.path,recipient:n.recipient});
+        if(JSON.stringify(statement)!==JSON.stringify(quote.statement)||statement.commitment!==n.commitment)bad('MOBILE_LOCAL_CLAIM_EXIT_CONTEXT_CHANGED');
+        let noteKey:Uint8Array|null=null,frame:Uint8Array|null=null,witness:DeviceExitWitnessV1|null=null;
+        try{noteKey=privateKeyFromHex(n.privateKey);frame=localDeviceWithdrawalFrameV1(statement);const signature=signDeviceMessage(noteKey,frame);
+          witness=normalizeDeviceExitWitnessV1(localDeviceWithdrawalWitnessV1({statement,opening:n.opening,path:quote.path,signature}));const bytes=deviceExitWitnessBytesV1(witness);let witnessSHA256:string;
+          try{witnessSHA256=await checked(scope,()=>digest(bytes));}finally{bytes.fill(0);}
+          readOriginalDeviceRootClaimExitQuoteV3(handle);const exit:RootClaimExitCustodyV3={quote,phase:'PREPARED',jobId:null,signature,witnessSHA256,proofSHA256:null,publicInputsSHA256:null};
+          liveClaimObservation=null;await persistSpend({...value,revision:value.revision+1,rootClaim:{...c,exit}},key,before,raw,root);readOriginalDeviceRootClaimExitQuoteV3(handle);
+          const request:LocalDeviceRootClaimExitRequestV3=Object.freeze({quoteId:quote.quoteId,rootId:value.rootId,noteRevision:c.noteRevision,statement,path:quote.path,witnessSHA256,
+            close(){const r=claimExitRequests.get(request);if(r){r.used=true;wipeExit(r.witness);}}});claimExitRequests.set(request,{quote:handle,witness,used:false});outstandingExitWitnesses.add(witness);witness=null;return request;
+        }finally{noteKey?.fill(0);frame?.fill(0);if(witness)wipeExit(witness);}
+      });
+    },
+    sealDeviceRootClaimExitV3: (request:LocalDeviceRootClaimExitRequestV3,handle:DeviceRootClaimExitPermissionV3,signature:string) => {
+      current();const p=readOriginalDeviceRootClaimExitPermissionV3(handle),r=claimExitRequests.get(request);
+      if(!r||r.used||p.action!=='PROVE_W39'||p.quoteId!==request.quoteId||p.rootId!==request.rootId||p.noteRevision!==request.noteRevision
+        ||JSON.stringify(p.statement)!==JSON.stringify(request.statement)||JSON.stringify(p.path)!==JSON.stringify(request.path)||p.witnessSHA256!==request.witnessSHA256)bad('MOBILE_LOCAL_CLAIM_EXIT_PERMISSION_REQUIRED');r.used=true;
+      return original('Conservar el único job W39 antes de entregar su apertura cifrada al receptor original',async(value,key,before,raw,root)=>{
+        readOriginalDeviceRootClaimExitPermissionV3(handle);const c=value.rootClaim;if(!c?.exit||c.exit.phase!=='PREPARED'||c.exit.quote.quoteId!==p.quoteId
+          ||JSON.stringify(c.descriptor)!==JSON.stringify(p.descriptor)||c.exit.witnessSHA256!==p.witnessSHA256)bad('MOBILE_LOCAL_CLAIM_EXIT_CONTEXT_CHANGED');
+        liveClaimObservation=null;await persistSpend({...value,revision:value.revision+1,rootClaim:{...c,exit:{...c.exit,phase:'PROVE_ADMITTED',jobId:p.jobId}}},key,before,raw,root);
+        readOriginalDeviceRootClaimExitPermissionV3(handle);return checked(scope,()=>sealOriginalDeviceRootClaimExitWitnessV3(p,signature,r.witness));
+      }).finally(()=>wipeExit(r.witness));
+    },
+    latchDeviceRootClaimExitV3: (handle:DeviceRootClaimExitPermissionV3) => {
+      current();const p=readOriginalDeviceRootClaimExitPermissionV3(handle);if(!['WITHDRAW_W39','REDEEM_NATIVE','PAYOUT_NATIVE'].includes(p.action))bad('MOBILE_LOCAL_CLAIM_EXIT_PERMISSION_REQUIRED');
+      return original('Conservar la autorización única de salida antes de POST; una respuesta perdida sólo se observa',async(value,key,before,raw,root)=>{
+        readOriginalDeviceRootClaimExitPermissionV3(handle);const c=value.rootClaim,e=c?.exit;if(!c||!e||JSON.stringify(c.descriptor)!==JSON.stringify(p.descriptor)
+          ||p.rootId!==value.rootId||p.noteRevision!==c.noteRevision||p.jobId!==e.jobId)bad('MOBILE_LOCAL_CLAIM_EXIT_CONTEXT_CHANGED');let next:RootClaimCustodyV2;
+        if(p.action==='WITHDRAW_W39'){if(e.phase!=='PROVE_ADMITTED'||p.quoteId!==e.quote.quoteId||JSON.stringify(p.statement)!==JSON.stringify(e.quote.statement)
+            ||JSON.stringify(p.path)!==JSON.stringify(e.quote.path)||p.witnessSHA256!==e.witnessSHA256)bad('MOBILE_LOCAL_CLAIM_EXIT_OBSERVE_ONLY');
+          next={...c,exit:{...e,phase:'SEND_ADMITTED',proofSHA256:p.proofSHA256,publicInputsSHA256:p.publicInputsSHA256}};
+        }else if(p.action==='REDEEM_NATIVE'){if(e.phase!=='SEND_ADMITTED'||c.redemption||p.amount!==c.statement.amount)bad('MOBILE_LOCAL_CLAIM_EXIT_OBSERVE_ONLY');
+          next={...c,redemption:{requestId:p.requestId!,ticketId:null,amount:p.amount!,maxFee:p.maxFee!,payoutAdmitted:false}};
+        }else{const x=c.redemption;if(!x||x.payoutAdmitted||x.requestId!==p.requestId||x.amount!==p.amount||x.maxFee!==p.maxFee)bad('MOBILE_LOCAL_CLAIM_EXIT_OBSERVE_ONLY');
+          next={...c,redemption:{...x,ticketId:p.ticketId,payoutAdmitted:true}};
+        }
+        liveClaimObservation=null;await persistSpend({...value,revision:value.revision+1,rootClaim:next},key,before,raw,root);readOriginalDeviceRootClaimExitPermissionV3(handle);return{retained:true as const,availableBalance:null};
+      });
+    },
     applyDeviceRootClaimObservationV2: (handle: object) => {
       current();liveClaimObservation=null;const observation=readOriginalDeviceRootClaimObservationV2(handle);
       return original('Conciliar sólo la lectura autenticada de este claim; no acreditar BTC/SOL por una respuesta RPC',async value=>{
         const c=value.rootClaim,n=value.note;if(!c||!n||JSON.stringify(observation.descriptor)!==JSON.stringify(c.descriptor)
           ||observation.commitment!==null&&observation.commitment!==n.commitment
           ||observation.nullifier!==null&&observation.nullifier!==localFundedSpendNullifierV1(n.scope,n.commitment,n.opening.secret))bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
+        if(observation.note?.path){const path=observation.note.path;if(path.leaf!==n.commitment)bad('MOBILE_LOCAL_CLAIM_PATH_CHANGED');localDeviceWithdrawalStatementV1({scope:n.scope,policy:n.policy,epoch:'0',opening:n.opening,path,recipient:n.recipient});}
+        if(observation.note?.state==='LIVE'&&(observation.note.available!==n.opening.value||observation.deposit?.status!=='ISSUED'||c.exit&&c.exit.phase!=='PREPARED'))bad('MOBILE_LOCAL_CLAIM_AVAILABLE_UNCONFIRMED');
         readOriginalDeviceRootClaimObservationV2(handle);liveClaimObservation=handle;
         return Object.freeze({rootId:value.rootId,claimDomain:c.descriptor.claim.claimDomain,commitment:n.commitment,
           custody:'DEVICE_ROOT_NOTE' as const,nativeCustody:'BACKEND_LOCAL_QUORUM' as const,nativeSelfCustody:false as const,
-          status:observation.deposit?.status??'UNKNOWN',availableBalance:null,nativeEffectsEstablished:false as const});
+          status:observation.note?.state??observation.deposit?.status??'UNKNOWN',availableBalance:observation.note?.state==='LIVE'?observation.note.available:null,nativeEffectsEstablished:false as const});
       });
     },
     readDeviceRootClaimCustodyV2: () => original('Leer los identificadores de la custodia de claim retenida, sin permisos ni apertura',async value=>{
       const c=value.rootClaim;if(!c)return null;let status='UNKNOWN';
       if(liveClaimObservation){try{status=readOriginalDeviceRootClaimObservationV2(liveClaimObservation).deposit?.status??'UNKNOWN';}catch{liveClaimObservation=null;}}
       return Object.freeze({descriptor:c.descriptor,rootId:value.rootId,noteRevision:c.noteRevision,commitment:c.statement.output,
-        d27JobId:c.d27JobId,ci51JobId:c.ci51JobId,status,availableBalance:null,nativeSelfCustody:false as const});
+        d27JobId:c.d27JobId,ci51JobId:c.ci51JobId,exit:c.exit?{phase:c.exit.phase,jobId:c.exit.jobId}:null,redemption:c.redemption??null,status,availableBalance:null,nativeSelfCustody:false as const});
     }),
     readDeviceOutputBalanceSubject: () => original('Leer sólo los identificadores de estas dos notas; no revelar aperturas ni autorizar W39', async value => {
       const note = value.note, spend = value.spend;

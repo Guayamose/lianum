@@ -52,3 +52,6 @@ export function signNativePrivateDeviceConsentV2(privateKey, raw) {
 
 import {validateDeviceRootClaimPermissionFreshV2,deviceRootClaimPermissionMessageV2} from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
 export function signDeviceRootNativeClaimPermissionV2(key,raw){const c=validateDeviceRootClaimPermissionFreshV2(raw);if(c.descriptor.claim.devicePublicKey!==devicePublicKey(key))throw Error('MOBILE_KEY_BINDING_CHANGED');let message;try{message=deviceRootClaimPermissionMessageV2(c);if(message.length===0||message.length>8192)throw Error('MOBILE_MESSAGE_INVALID');return signCheckedMessage(key,message);}finally{message?.fill(0);}}
+
+import {validateDeviceRootClaimExitPermissionFreshV3,deviceRootClaimExitPermissionMessageV3} from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
+export function signDeviceRootNativeClaimExitPermissionV3(key,raw){const c=validateDeviceRootClaimExitPermissionFreshV3(raw);if(c.descriptor.claim.devicePublicKey!==devicePublicKey(key))throw Error('MOBILE_KEY_BINDING_CHANGED');let message;try{message=deviceRootClaimExitPermissionMessageV3(c);if(message.length===0||message.length>8192)throw Error('MOBILE_MESSAGE_INVALID');return signCheckedMessage(key,message);}finally{message?.fill(0);}}

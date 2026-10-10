@@ -62,7 +62,7 @@ export function createPrivateWalletStateV1(){
    const rows=v.economicState.rows.map(row=>({route:{component:'CUSTODIAL_NATIVE_CLAIM',custodyProfile:d.profile,origin:c.origin,
     pairingId:c.pairingId,lifetime:c.lifetimeSHA256,owner:c.accountScopeSHA256,domain:c.claimDomain,genesis:c.nativeGenesis,
     nativeAsset:c.nativeAsset,nativeFamily:c.nativeFamily,...row.route},label:c.claimSymbol,decimals:c.decimals,state:row.state,
-    available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,requests:row.requests,
+    available:row.state==='LIVE'&&v.note?.state==='LIVE'?row.balances?.available??null:null,reserved:row.state==='LIVE'?row.balances?.reserved??null:null,locked:row.state==='LIVE'?row.balances?.locked??null:null,recovery:row.state==='LIVE'?row.balances?.recovery??null:null,shares:null,valuation:null,noteAmount:null,requests:row.requests,
     custody:'DEVICE',observed:{observedAt:v.observedAt,observation:'ORIGINAL_DEVICE_ROOT_CLAIM_JOURNAL_AND_CURRENT_SOURCE'}}));
    retain(routeKey(['DEVICE_ROOT_CLAIM',c.origin,c.pairingId,c.claimDomain]),rows,()=>readOriginalDeviceRootClaimObservationV2(raw));
   },

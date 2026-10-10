@@ -155,7 +155,7 @@ test('root remains protected and separate from HTTP identity; real encrypted not
   assert.equal(store.get(RECORD).includes(decrypted.note.privateKey), false);
   assert.equal(store.get(RECORD).includes(decrypted.note.opening.secret), false);
   assert.equal(JSON.stringify(prepared).includes(decrypted.note.privateKey), false);
-  assert.deepEqual(Object.keys(vault).sort(), ['createDeviceRootClaimRequestV2', 'sealDeviceRootClaimRequestV2', 'deviceRootClaimIngressWitnessHashV2', 'sealDeviceRootClaimIngressV2', 'latchDeviceRootClaimEffectV2', 'applyDeviceRootClaimObservationV2', 'readDeviceRootClaimCustodyV2', 'readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionObservation', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
+  assert.deepEqual(Object.keys(vault).sort(), ['prepareDeviceRootClaimExitV3','sealDeviceRootClaimExitV3','latchDeviceRootClaimExitV3','createDeviceRootClaimRequestV2', 'sealDeviceRootClaimRequestV2', 'deviceRootClaimIngressWitnessHashV2', 'sealDeviceRootClaimIngressV2', 'latchDeviceRootClaimEffectV2', 'applyDeviceRootClaimObservationV2', 'readDeviceRootClaimCustodyV2', 'readDeviceOutputBalanceSubject', 'applyDeviceOutputBalances', 'forgetDeviceOutputBalanceObservation', 'retainDeviceExecutionIntent', 'readDeviceExecutionIntent', 'applyDeviceExecutionObservation', 'applyDeviceExecutionTerminal', 'readDeviceExitSubject', 'createDeviceExitProofRequest', 'bindDeviceExitProofRequest', 'readDeviceExitIntent', 'applyDeviceExitConfirmation', 'applyDeviceReservationInclusion', 'applyDeviceDepositInclusion', 'bindDeviceAuthorizationRequest', 'bindDeviceProofRequest', 'createDeviceAuthorizationRequest', 'prepareDeviceReservationFromQuote', 'readDeviceReservationIntent', 'close', 'createDeviceProofRequest', 'exportBackup', 'prepareDeviceReservation', 'prepareUnissuedBalanceNote', 'readDeviceNote', 'readPreparedNote', 'reviewPreparedDeposit', 'signDeviceReservation', 'signPreparedDeposit'].sort());
   vault.close(); assert.deepEqual(await openLocalRootNoteVaultV1(first.rootId).readPreparedNote(), prepared);
   await assert.rejects(createLocalRootNoteVaultV1(), /ALREADY_EXISTS/); assert.equal(store.get(ROOT), root);
   assert.ok(entropyBuffers.every(bytes => bytes.every(byte => byte === 0)));
@@ -1112,4 +1112,44 @@ test('device-root claim retains original D27 before encrypted intake, denies cop
   assert.deepEqual(same,retained);assert.equal(await restored.readPreparedNote(),null);
   await assert.rejects(async()=>restored.createDeviceRootClaimRequestV2(signed,descriptor),/SIGNATURE_REQUIRED/);restored.close();
  }finally{vault.close();api.close();pop.fill(0);if(opened)wipePrivateProofInputsV1(opened.inputs);closePrivateProofRecipientV1(originalRecipient);}
+});
+
+
+test('HOST device-root W39 uses original PC23 opening/path and private recipient, burns same SDK POST before lost reply',async()=>{
+ // Cryptography, exact protocol and transport only; server responses are inert.
+ // This case creates no proof, pool credit, native transfer or economic authority.
+ reset();const C=await import('../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'),P=await import('../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs');
+ const {createDeviceRootNativeClaimApiV2,readOriginalDeviceRootClaimExitPermissionV3}=await import('../src/api/native-claim-device-api-v1.mjs');
+ const {sealOriginalDeviceRootClaimExitWitnessV3}=await import('../src/api/device-private-proof-transit-v2.mjs');
+ const {freshKey,signature,nullifier}=await import('../../../packages/engine/src/notes/private-note-encoding.mjs');
+ const {walletWithdrawInput}=await import('../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs');
+ const {PrivateNoteTree}=await import('../../../packages/engine/src/notes/private-note-tree.mjs');
+ const {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1}=await import('../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs');
+ const {deriveOriginalDeviceWalletNoteJobV3}=await import('../../../packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs');
+ const owner=freshKey(),device=freshKey(),h=b=>createHash('sha256').update(b).digest('hex'),jobId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+ const note={type:4,rho:Buffer.from('31'.repeat(32),'hex'),...owner,value:'20',secret:Buffer.from('32'.repeat(32),'hex')},cm=balanceCommitment(terms.scope,terms.policy,note).toString('hex'),nf=nullifier(terms.scope,cm,note.secret).toString('hex');
+ const originalPath=new PrivateNoteTree(['0x'+cm]).path(0),path={root:originalPath.root.slice(2),index:0,leaf:cm,siblings:originalPath.siblings.map(s=>s.slice(2))},statement={scope:terms.scope,policy:terms.policy,epoch:'1',root:path.root,nullifier:nf,amount:note.value,recipient:terms.recipient,commitment:cm};
+ const witness=walletWithdrawInput({scope:terms.scope,policy:terms.policy,epoch:'1',note,path:originalPath,recipient:terms.recipient}),bytes=P.externalFlatWitnessBytesV1('withdraw_balance',witness),witnessSHA256=h(bytes);bytes.fill(0);
+ const own=createPrivateProofRecipientV1({relation:'withdraw_balance',role:'owner',jobId});let ordinal=70,posts=0,packet;
+ const descriptor=C.normalizeDeviceRootClaimDescriptorV2({profile:C.DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2,claim:{version:1,profile:C.NATIVE_CLAIM_DEVICE_PAIRING_V1,origin:'https://127.0.0.1:2443',pairingId:'11'.repeat(32),devicePublicKey:'04'+device.x.toString('hex')+device.y.toString('hex'),accountScopeSHA256:'12'.repeat(32),lifetimeSHA256:'13'.repeat(32),claimDomain:'14'.repeat(32),nativeFamily:'1',nativeGenesis:'15'.repeat(32),nativeAsset:'16'.repeat(32),wrapperAssetIdentity:'17'.repeat(32),nativeSymbol:'BTC',claimSymbol:'cBTC',decimals:8,atomicUnit:'satoshi',nativeAssetKind:null,mint:null},...Object.fromEntries(['pool','scope','policy','recipient'].map(k=>[k,terms[k]])),noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM'});
+ const rootId='33'.repeat(32),quoteId='34'.repeat(32),base={version:3,profile:C.DEVICE_ROOT_NATIVE_CLAIM_EXIT_V3,descriptor,rootId,noteRevision:1,jobId,quoteId,statement,path,witnessSHA256,proofSHA256:null,publicInputsSHA256:null,recipient:readPrivateProofRecipientV1(own),requestId:null,ticketId:null,amount:null,maxFee:null,challengeId:'35'.repeat(32),nonce:'36'.repeat(32),expiresAt:Date.now()+15000};
+ const api=createDeviceRootNativeClaimApiV2({descriptor,fetchImpl:async(url,options)=>{const request=JSON.parse(options.body);let value;
+  if(url.endsWith('/challenges'))value={version:2,profile:C.DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2,action:request.action,descriptor,rootId:null,noteRevision:null,jobId:null,statement:null,witnessSHA256:null,commonSHA256:null,recipient:null,challengeId:(++ordinal).toString(16).padStart(64,'0'),nonce:'37'.repeat(32),expiresAt:base.expiresAt};
+  else if(url.endsWith('/exit-quotes'))value={profile:base.profile,descriptor,quoteId,rootId,noteRevision:1,statement,path,observed:{blockNumber:'1',blockHash:'38'.repeat(32),timestamp:'600'},expiresAt:base.expiresAt};
+  else if(url.endsWith('/exit-reviews'))value={...base,action:'PROVE_W39'};
+  else if(url.endsWith('/exit-challenges'))value={...base,action:request.action,recipient:null,proofSHA256:'39'.repeat(32),publicInputsSHA256:'40'.repeat(32),challengeId:(++ordinal).toString(16).padStart(64,'0')};
+  else{posts++;packet=request.packet;throw Error('HOST_ORIGINAL_REPLY_LOST');}
+  return new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
+ }});const sign=p=>signature(device,p.version===3?C.deviceRootClaimExitPermissionMessageV3(p):C.deviceRootClaimPermissionMessageV2(p)).toString('hex');let opened;
+ try{
+  const access=await api.challenge('ACCESS'),quote=await api.quoteW39(access,sign(access)),next=await api.challenge('ACCESS'),consent=await api.reviewW39(next,sign(next),quote,witnessSHA256);
+  assert.throws(()=>readOriginalDeviceRootClaimExitPermissionV3({...consent}),/MOBILE_NATIVE_CLAIM/);
+  const sealed=await sealOriginalDeviceRootClaimExitWitnessV3(consent,sign(consent),witness);assert.equal(JSON.stringify(sealed).includes(owner.privateKey.export({format:'der',type:'sec1'}).toString('hex')),false);assert.equal(JSON.stringify(sealed).includes(note.secret.toString('hex')),false);
+  opened=openPrivateProofJobV1(own,sealed);const derived=deriveOriginalDeviceWalletNoteJobV3(opened,'withdraw_balance');assert.equal(derived.commitment,cm);assert.equal(derived.nullifier,nf);assert.deepEqual(opened.inputs,witness);assert.deepEqual(opened.expectedPublicInputs,C.deviceRootClaimExitPublicInputsV3(statement));
+  assert.throws(()=>deriveOriginalDeviceWalletNoteJobV3({...opened},'withdraw_balance'),/ORIGINAL_RECIPIENT/);
+  const sendAccess=await api.challenge('ACCESS'),send=await api.exitChallenge(sendAccess,sign(sendAccess),'WITHDRAW_W39');await assert.rejects(api.exitSubmit(send,sign(send)),/HOST_ORIGINAL_REPLY_LOST/);assert.equal(posts,1);assert.equal(packet,null);
+  await assert.rejects(api.exitSubmit(send,sign(send)),/MOBILE_NATIVE_CLAIM/);assert.equal(posts,1);
+  const observeAccess=await api.challenge('ACCESS'),observe=await api.exitChallenge(observeAccess,sign(observeAccess),'OBSERVE_W39');assert.equal(observe.jobId,send.jobId);assert.equal(observe.proofSHA256,send.proofSHA256);
+  await assert.rejects(api.exitSubmit(observe,sign(observe),sealed),/MOBILE_NATIVE_CLAIM/);assert.equal(posts,1);
+ }finally{api.close();P.externalFlatWipeV1(witness);if(opened)wipePrivateProofInputsV1(opened.inputs);closePrivateProofRecipientV1(own);wipePrivateProofInputsV1(note);wipePrivateProofInputsV1(device);}
 });

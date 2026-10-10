@@ -85,3 +85,23 @@ export async function sealOriginalDeviceRootClaimWitnessV2(rawConsent,rawSignatu
  }finally{externalFlatWipeV1(witness);for(const b of [bytes,commonBytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der])b?.fill(0);}
 }
 function externalFlatExactRootClaim(raw){const bytes=RootClaim.deviceRootClaimDataBytesV2(raw);try{const v=JSON.parse(new TextDecoder().decode(bytes));need(v&&Object.getPrototypeOf(v)===Object.prototype&&Reflect.ownKeys(v).length===5&&['rho','x','y','value','noteSecret'].every(k=>Object.hasOwn(v,k)));for(const k of ['rho','x','y','noteSecret'])need(typeof v[k]==='string'&&/^[0-9a-f]{64}$/.test(v[k]));need(typeof v.value==='string'&&/^[1-9][0-9]{0,19}$/.test(v.value)&&BigInt(v.value)<(1n<<64n));return v;}finally{bytes.fill(0);}}
+
+/** The original39 witness of the SAME RootNote, encrypted to the signed
+ * one-job recipient. No root or note signing key enters this packet. */
+export async function sealOriginalDeviceRootClaimExitWitnessV3(rawConsent,rawSignature,rawWitness){
+ need(arguments.length===3);const c=RootClaim.validateDeviceRootClaimExitPermissionFreshV3(rawConsent),signature=RootClaim.normalizeNativeClaimDeviceSignatureV1(rawSignature);need(c.action==='PROVE_W39');
+ let witness,bytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der;
+ try{
+  witness=externalFlatWitnessV1('withdraw_balance',rawWitness);bytes=externalFlatWitnessBytesV1('withdraw_balance',witness);need(hex(sha256(bytes))===c.witnessSHA256);
+  const expected=RootClaim.deviceRootClaimExitPublicInputsV3(c.statement),r=c.recipient;
+  der=decode(r.recipientPublicKey,60);need(der.length===44&&prefix.every((b,i)=>der[i]===b));recipient=der.slice(12);
+  secret=await Crypto.getRandomBytesAsync(32);RootClaim.validateDeviceRootClaimExitPermissionFreshV3(c);need(secret instanceof Uint8Array&&secret.length===32);sender=x25519.getPublicKey(secret);shared=x25519.getSharedSecret(secret,recipient);need(shared.some(b=>b!==0));
+  const senderDer=new Uint8Array(44);senderDer.set(prefix);senderDer.set(sender,12);const authorization={kind:'ORIGINAL_CONSENT_V1',jobId:c.jobId,consentSHA256:hex(sha256(RootClaim.deviceRootClaimExitPermissionMessageV3(c))),witnessSHA256:c.witnessSHA256};
+  const header={profile:r.profile,relation:r.relation,role:r.role,jobId:r.jobId,recipientPublicKey:r.recipientPublicKey,senderPublicKey:encode(senderDer),authorization,publicInputsSHA256:hex(sha256(encoder.encode(JSON.stringify(expected))))};senderDer.fill(0);aad=encoder.encode(JSON.stringify(header));
+  const text=JSON.stringify({inputs:{profile:'DEVICE_ROOT_NATIVE_CLAIM_EXIT_WITNESS_V3',consent:c,signature,witness},expectedPublicInputs:expected});need(text.length<=12288);clear=encoder.encode(text);need(clear.length<=12288);
+  salt=await Crypto.getRandomBytesAsync(32);iv=await Crypto.getRandomBytesAsync(12);RootClaim.validateDeviceRootClaimExitPermissionFreshV3(c);need(salt instanceof Uint8Array&&salt.length===32&&iv instanceof Uint8Array&&iv.length===12);
+  keyBytes=hkdf(sha256,shared,salt,aad,32);const key=await Crypto.AESEncryptionKey.import(keyBytes);RootClaim.validateDeviceRootClaimExitPermissionFreshV3(c);
+  const sealed=await Crypto.aesEncryptAsync(clear,key,{nonce:{bytes:iv},tagLength:16,additionalData:aad});RootClaim.validateDeviceRootClaimExitPermissionFreshV3(c);combined=decode(await sealed.combined('base64'),16424);RootClaim.validateDeviceRootClaimExitPermissionFreshV3(c);need(combined.length===clear.length+28&&iv.every((b,i)=>combined[i]===b));
+  return{type:'flat-private-proof-inputs',...header,salt:encode(salt),iv:encode(iv),tag:encode(combined.subarray(combined.length-16)),ciphertext:encode(combined.subarray(12,combined.length-16))};
+ }finally{externalFlatWipeV1(witness);for(const b of [bytes,secret,sender,recipient,shared,salt,iv,keyBytes,aad,clear,combined,der])b?.fill(0);}
+}
