@@ -1,3 +1,4 @@
+import {isOriginalNativePrivateExecutionBridgeV2} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 /** Direct transport for exactly one retained same-realm actor. The HTTP factory
  * remains loopback-only; an operator may install the same dispatcher with TLS.
  * No public platform adoption or new economic capabilities are issued.
@@ -225,10 +226,10 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
       }
       if(executionBridge!==null&&request.method==='POST'&&request.url.startsWith('/v1/mobile/device-exit/')){
         if(!tls||request.headers.origin!==descriptor.origin)fail('HTTP_ORIGIN_REJECTED');
-        const methods={'preparation-reviews':'prepareExit','job-reviews':'challengeExitJob',jobs:'proveExit',
+        const methods={'preparation-reviews':'prepareExit','job-reviews':'challengeExitJob',jobs:'proveExit','private-jobs':'proveExit',
           'withdrawal-reviews':'challengeWithdrawal',withdraw:'withdraw','observation-reviews':'challengeExitObservation',observations:'observeExit'};
         const method=methods[request.url.slice('/v1/mobile/device-exit/'.length)];if(!method)fail('HTTP_NOT_FOUND');
-        const input=await jsonBody(request);if(closed)fail('HTTP_CLOSED');
+        const privateExit=isOriginalNativePrivateExecutionBridgeV2(executionBridge),route=request.url.slice('/v1/mobile/device-exit/'.length);if(method==='proveExit'&&privateExit!==(route==='private-jobs'))fail('HTTP_NOT_FOUND');const input=await jsonBody(request,privateExit&&method==='proveExit'?32768:undefined);if(closed)fail('HTTP_CLOSED');if(privateExit&&method==='proveExit'){if(requestTimedOut||!request.complete)fail('HTTP_REQUEST_TIMEOUT');armResponseDeadline(900000);}
         try{return dispatch && method === 'withdraw'
           ? await runOriginalDeviceDurableDispatchV1(dispatch, executionBridge, method, input)
           : await executionBridge[method](input);}finally{if(method==='proveExit')wipeDeviceExitWitnessV1(input.witness);}
@@ -370,7 +371,7 @@ async function startOriginalTransport(actor, tls, host, bridge = null, reservati
           composedClose = (async () => {
             const outcomes = await Promise.allSettled(pending);
             if(isOriginalNativePrivateDepositBridgeV2(bridge))await bridge.close();else bridge.close();
-            reservationBridge.close(); executionBridge.close();
+            reservationBridge.close();if(isOriginalNativePrivateExecutionBridgeV2(executionBridge))await executionBridge.close();else executionBridge.close();
             await actor.close(); depositContinuations.delete(actor);
             const report = await network;
             return Object.freeze({ ...report, originalDiagnosticsInFlight: running.size,
@@ -449,7 +450,7 @@ export async function stopCapturedNativeDeviceTransportRecoveryV1(transport, aut
   // These controllers retain no unclosed original job because running is zero.
   // Their nonce maps are invalidated; economic one-use latches remain in Vault.
   if(isOriginalNativePrivateDepositBridgeV2(owned.bridge))await owned.bridge.close();else owned.bridge.close();
-  owned.reservationBridge.close(); owned.executionBridge.close();
+  owned.reservationBridge.close();if(isOriginalNativePrivateExecutionBridgeV2(owned.executionBridge))await owned.executionBridge.close();else owned.executionBridge.close();
   capture.stopped = true; listeners.delete(owned.actor); depositContinuations.delete(owned.actor);
   return Object.freeze({ ...report, actorRetainedForOriginalRecovery: true });
 }

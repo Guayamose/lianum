@@ -29,8 +29,8 @@ import { normalizeDeviceReservationCapsuleOptionsV1, normalizeDeviceReservationW
 import { readDeviceExitQuoteV1, readDeviceExitConfirmationV1 } from '../api/device-owner-exit-api-v1';
 import { localDeviceWithdrawalStatementV1, localDeviceWithdrawalFrameV1, localDeviceWithdrawalWitnessV1,
   type LocalDeviceWithdrawalStatementV1, type LocalDeviceWithdrawalPathV1 } from './device-balance-withdrawal-codec-v1.mjs';
-import { normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1, deviceExitWitnessBytesV1, validateDeviceExitConsentFreshV1,
-  type DeviceExitConsentV1, type DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1, deviceExitWitnessBytesV1, validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,
+  type DeviceExitConsentEitherV2 as DeviceExitConsentV1, type DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import { readDeviceExecutionReviewV1, readDeviceExecutionTerminalV1, readDeviceExecutionObservationV1 } from '../api/device-owner-execution-api-v1';
 import { readDeviceOutputBalanceV1, readDeviceOutputBalanceDisplayV1 } from '../api/device-owner-output-balance-api-v1';
 import type { DeviceOutputBalanceV1 } from '../../../../packages/mobile-protocol/src/device-output-balance-v1.mjs';
@@ -119,14 +119,15 @@ type DeviceSpend = { version: 1; phase: 'PREPARED' | 'SIGNED'; proposal: LocalFu
   change: LocalSpendOpening; recovery: LocalSpendOpening; statement: LocalFundedStatementV1;
   frameSHA256: string; signature: string | null; preparation?: LocalEnvelopePreparation;
   proofJob?: LocalReservationProofJob; reservation?: LocalReservationReceipt; execution?: LocalNativeExecutionV1;
-  exits?: Partial<Record<DeviceExitRoleV1, LocalExitIntentV1>> };
+  exits?: Partial<Record<OutputExitRoleV1, LocalExitIntentV1>> };
 type LocalNativeAttemptV1 = { consentSHA256: string; executionSnapshotSHA256: string };
 type LocalNativeTerminalV1 = { transactionHash: string; blockHash: string; blockNumber: string; calldataSHA256: string; outcome: 'FULFILLED' | 'RECOVERED' };
 type LocalNativeExecutionV1 = { version: 1; jobId: string; nativeBindingSHA256: string; reservationTransactionHash: string;
   execute?: LocalNativeAttemptV1; recovery?: LocalNativeAttemptV1;
   terminal?: LocalNativeTerminalV1; reorganizations?: LocalNativeTerminalV1[];
   reorganizationPending?: {state: 'OBSERVATION_PENDING'; authorizationSHA256: string; executionSnapshotSHA256: string} };
-type DeviceExitRoleV1 = 'change' | 'recovery';
+type OutputExitRoleV1='change'|'recovery';
+type DeviceExitRoleV1=OutputExitRoleV1|'deposit';
 type LocalExitIntentV1 = { version: 1; phase: 'PREPARED' | 'SIGNED'; parentJobId: string; nativeBindingSHA256: string;
   quoteId: string; jobId: string; origin: string; pairingId: string; devicePublicKey: string; rootId: string;
   noteRevision: number; noteRole: DeviceExitRoleV1; statement: LocalDeviceWithdrawalStatementV1;
@@ -168,7 +169,7 @@ export type LocalDepositReviewV1 = Readonly<{ version: 1; profile: 'LOCAL_UNISSU
 export type LocalDepositSignatureV1 = Readonly<{ version: 1; relation: 'D26' | 'D27';
   rootId: string; revision: number; commitment: string; statement: LocalDepositStatementV1;
   signature: string; status: 'UNISSUED'; availableBalance: null; nativeEffectsEstablished: false }>;
-type State = { version: 1; rootId: string; revision: number; note: PreparedNote | null; spend?: DeviceSpend };
+type State = { version: 1; rootId: string; revision: number; note: PreparedNote | null; spend?: DeviceSpend;sourceExit?:LocalExitIntentV1 };
 type Pointer = { version: 1; rootId: string; revision: number; recordSHA256: string; state: 'CREATING' | 'ACTIVE' };
 type Envelope = { version: 1; rootId: string; revision: number; sealed: string };
 export type LocalRootNoteInspectionV1 = Readonly<{ version: 1;
@@ -216,7 +217,7 @@ function envelope(raw: string): Envelope {
 async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'revision'>): Promise<State> {
   const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes), initial: unknown = JSON.parse(source);
   if (!initial || typeof initial !== 'object' || Array.isArray(initial)) bad();
-  const x = parsed(source, ['version', 'rootId', 'revision', 'note', ...(Object.hasOwn(initial, 'spend') ? ['spend'] : [])], MAX_CLEAR_BYTES);
+  const x = parsed(source, ['version', 'rootId', 'revision', 'note', ...(Object.hasOwn(initial,'spend')?['spend']:[]),...(Object.hasOwn(initial,'sourceExit')?['sourceExit']:[])],MAX_CLEAR_BYTES);
   if (x.version !== 1 || x.rootId !== expected.rootId || x.revision !== expected.revision) return bad();
   let note: PreparedNote | null = null;
   if (x.note !== null) {
@@ -264,7 +265,18 @@ async function state(bytes: Uint8Array, expected: Pick<Envelope, 'rootId' | 'rev
     for (const intent of Object.values(result.spend.exits ?? {}))
       if (intent.rootId !== result.rootId || intent.noteRevision > result.revision) bad();
   }
+  if(Object.hasOwn(x,'sourceExit')){if(!note||note.status!=='FUNDED'||result.spend)bad('MOBILE_LOCAL_SOURCE_EXIT_CONFLICT');result.sourceExit=await retainedSourceExit(x.sourceExit,note,result.rootId,result.revision);}
   return result;
+}
+async function retainedSourceExit(raw:unknown,note:PreparedNote,rootId:string,revision:number):Promise<LocalExitIntentV1>{
+ const e=parsed(JSON.stringify(raw),['version','phase','parentJobId','nativeBindingSHA256','quoteId','jobId','origin','pairingId','devicePublicKey','rootId','noteRevision','noteRole','statement','path','signature','witnessSHA256',...(raw&&typeof raw==='object'&&Object.hasOwn(raw,'receipt')?['receipt']:[])],MAX_CLEAR_BYTES);
+ if(e.version!==1||!['PREPARED','SIGNED'].includes(String(e.phase))||!note.deviceJob||!note.funding||e.parentJobId!==note.deviceJob.jobId||e.origin!==note.deviceJob.origin||e.pairingId!==note.deviceJob.pairingId||e.rootId!==rootId||e.noteRole!=='deposit'||integer(e.noteRevision)>revision||integer(e.noteRevision)<note.deviceJob.noteRevision)bad('MOBILE_LOCAL_SOURCE_EXIT_CHANGED');
+ const old=e.statement as LocalDeviceWithdrawalStatementV1,path=e.path as LocalDeviceWithdrawalPathV1,statement=localDeviceWithdrawalStatementV1({scope:note.scope,policy:note.policy,epoch:old.epoch,opening:note.opening,path,recipient:old.recipient});
+ if(JSON.stringify(statement)!==JSON.stringify(old)||statement.commitment!==note.commitment)bad('MOBILE_LOCAL_SOURCE_EXIT_CHANGED');
+ const intent:LocalExitIntentV1={version:1,phase:e.phase==='SIGNED'?'SIGNED':'PREPARED',parentJobId:hex(e.parentJobId),nativeBindingSHA256:hex(e.nativeBindingSHA256),quoteId:hex(e.quoteId),jobId:hex(e.jobId),origin:e.origin as string,pairingId:hex(e.pairingId),devicePublicKey:hex(e.devicePublicKey,65),rootId:hex(e.rootId),noteRevision:integer(e.noteRevision),noteRole:'deposit',statement,path,signature:e.signature===null?null:hex(e.signature,64),witnessSHA256:e.witnessSHA256===null?null:hex(e.witnessSHA256)};
+ if((intent.phase==='SIGNED')!==(intent.signature!==null&&intent.witnessSHA256!==null)||intent.phase==='PREPARED'&&(intent.signature!==null||intent.witnessSHA256!==null))bad();
+ if(intent.signature){const frame=localDeviceWithdrawalFrameV1(statement);try{if(!secp256k1.verify(localNoteHexBytesV1(intent.signature,64),frame,localNoteHexBytesV1('04'+note.opening.x+note.opening.y,65),{prehash:true,lowS:true}))bad();}finally{frame.fill(0);}const witness=localDeviceWithdrawalWitnessV1({statement,opening:note.opening,path,signature:intent.signature}),bytes=deviceExitWitnessBytesV1(witness);try{if(await digest(bytes)!==intent.witnessSHA256)bad();}finally{bytes.fill(0);wipeDeviceExitWitnessV1(witness);}}
+ if(Object.hasOwn(e,'receipt')){if(intent.phase!=='SIGNED')bad();const r=parsed(JSON.stringify(e.receipt),['transactionHash','blockHash','blockNumber','calldataSHA256','timestamp','domainCommitment']);if(typeof r.blockNumber!=='string'||typeof r.timestamp!=='string'||r.domainCommitment!==note.deviceJob.domainCommitment)bad();localNoteUintBytesV1(r.blockNumber);localNoteUintBytesV1(r.timestamp);intent.receipt={transactionHash:hex(r.transactionHash),blockHash:hex(r.blockHash),blockNumber:r.blockNumber,calldataSHA256:hex(r.calldataSHA256),timestamp:r.timestamp,domainCommitment:hex(r.domainCommitment)};}return intent;
 }
 function compiledSpend(note: PreparedNote, spend: DeviceSpend) {
   return compileLocalFundedBalanceGraphV1({ ...spend.proposal, reservationNonce: spend.reservationNonce,
@@ -386,7 +398,7 @@ async function retainedSpend(raw: unknown, note: PreparedNote): Promise<DeviceSp
     const roles = Object.keys(value.exits); if (roles.length < 1 || roles.some(role => !['change', 'recovery'].includes(role))) bad();
     spend.exits = {};
     for (const rawRole of roles) {
-      const role = rawRole as DeviceExitRoleV1, source = (value.exits as Record<string, unknown>)[role];
+      const role = rawRole as OutputExitRoleV1, source = (value.exits as Record<string, unknown>)[role];
       const e = parsed(JSON.stringify(source), ['version', 'phase', 'parentJobId', 'nativeBindingSHA256', 'quoteId', 'jobId',
         'origin', 'pairingId', 'devicePublicKey', 'rootId', 'noteRevision', 'noteRole', 'statement', 'path', 'signature', 'witnessSHA256',
         ...(source && typeof source === 'object' && Object.hasOwn(source, 'receipt') ? ['receipt'] : [])], MAX_CLEAR_BYTES);
@@ -871,7 +883,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       return readback;
     } catch (cause) { closed = true; throw new Error('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN', { cause }); }
   }
-  function fundedSource(value: State) {
+  function fundedSource(value:State){if(value.sourceExit)bad('MOBILE_LOCAL_SOURCE_EXIT_RETAINED');
     const note = value.note, observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null;
     if (!note || note.status !== 'FUNDED' || !note.funding || !note.deviceJob?.assetIdentity || !note.deviceJob.domainCommitment
       || !observation || observation.commitment !== note.commitment || observation.rootId !== value.rootId
@@ -882,6 +894,12 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       || localFundedSpendNullifierV1(note.scope, note.commitment, note.opening.secret) !== observation.nullifier)
       bad('MOBILE_LOCAL_FRESH_FUNDED_SOURCE_REQUIRED');
     return { note, observation };
+  }
+  function createSourceExitRequest(handle:object):Promise<LocalDeviceExitProofRequestV1>{const quote=readDeviceExitQuoteV1(handle);if(quote.version!==2||quote.noteRole!=='deposit')bad('MOBILE_LOCAL_PRIVATE_SOURCE_EXIT_REQUIRED');
+   return original('Guardar la retirada de esta nota depositada antes de cifrar su única apertura W39',async(value,key,before,raw,root)=>{const note=value.note;if(!note?.deviceJob||!note.funding||note.status!=='FUNDED'||value.spend||value.sourceExit||quote.rootId!==value.rootId||quote.noteRevision!==value.revision||quote.parentJobId!==note.deviceJob.jobId||quote.origin!==note.deviceJob.origin||quote.pairingId!==note.deviceJob.pairingId||quote.poolTerms.scope!==note.scope||quote.poolTerms.policy!==note.policy||quote.poolTerms.assetIdentity!==note.deviceJob.assetIdentity||quote.poolTerms.domainCommitment!==note.deviceJob.domainCommitment)bad('MOBILE_LOCAL_SOURCE_EXIT_CHANGED');
+    const statement=localDeviceWithdrawalStatementV1({scope:note.scope,policy:note.policy,epoch:quote.statement.epoch,opening:note.opening,path:quote.path,recipient:quote.statement.recipient});if(JSON.stringify(statement)!==JSON.stringify(quote.statement)||statement.commitment!==note.commitment)bad();const entropy=await checked(scope,()=>Crypto.getRandomBytesAsync(32));let noteKey:Uint8Array|null=null,message:Uint8Array|null=null,witness:DeviceExitWitnessV1|null=null;
+    try{const intent:LocalExitIntentV1={version:1,phase:'PREPARED',parentJobId:quote.parentJobId,nativeBindingSHA256:quote.nativeBindingSHA256,quoteId:quote.quoteId,jobId:bytesToHex(entropy),origin:quote.origin,pairingId:quote.pairingId,devicePublicKey:quote.devicePublicKey,rootId:value.rootId,noteRevision:quote.noteRevision,noteRole:'deposit',statement,path:quote.path,signature:null,witnessSHA256:null};if(intent.jobId==='0'.repeat(64))bad('MOBILE_ENTROPY_FAILED');const next:State={...value,revision:value.revision+1,sourceExit:intent};readDeviceExitQuoteV1(handle);liveInclusion=null;outputDisplayGeneration++;await persistSpend(next,key,before,raw,root);current();readDeviceExitQuoteV1(handle);const nextBefore=await checked(scope,()=>SecureStore.getItemAsync(POINTER,DATA)),nextRaw=await readStoredRecord(scope);if(nextBefore===null||nextRaw===null||pointer(nextBefore).revision!==next.revision)bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');noteKey=privateKeyFromHex(note.privateKey);message=localDeviceWithdrawalFrameV1(statement);const signature=signDeviceMessage(noteKey,message);witness=normalizeDeviceExitWitnessV1(localDeviceWithdrawalWitnessV1({statement,opening:note.opening,path:quote.path,signature}));const bytes=deviceExitWitnessBytesV1(witness);let witnessSHA256:string;try{witnessSHA256=await checked(scope,()=>digest(bytes));}finally{bytes.fill(0);}const signed:LocalExitIntentV1={...intent,phase:'SIGNED',signature,witnessSHA256},final:State={...next,revision:next.revision+1,sourceExit:signed};readDeviceExitQuoteV1(handle);await persistSpend(final,key,nextBefore,nextRaw,root);current();readDeviceExitQuoteV1(handle);const request:LocalDeviceExitProofRequestV1=Object.freeze({rootId:value.rootId,parentJobId:intent.parentJobId,nativeBindingSHA256:intent.nativeBindingSHA256,quoteId:intent.quoteId,jobId:intent.jobId,noteRevision:intent.noteRevision,noteRole:'deposit',statement,witnessSHA256,expiresAt:quote.expiresAt,close(){const row=exitRequests.get(request);if(row){row.consumed=true;wipeExit(row.witness);}}});exitRequests.set(request,{witness,quote:handle,consumed:false});outstandingExitWitnesses.add(witness);witness=null;return request;
+    }finally{entropy.fill(0);noteKey?.fill(0);message?.fill(0);if(witness)wipeDeviceExitWitnessV1(witness);}});
   }
   async function spendOpening(amount: string): Promise<LocalSpendOpening> {
     if (amount === '0') return { privateKey: null, opening: { type: 4, rho: '0'.repeat(64), x: '0'.repeat(64),
@@ -1267,8 +1285,9 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         amount: note.opening.value, status: note.status, job: note.deviceJob ? Object.freeze({ ...note.deviceJob }) : null,
         observation: observation ? Object.freeze({ transactionHash: observation.transactionHash, assetId: observation.assetId,
           headHash: observation.head.hash, observedAt: observation.observedAt, expiresAt: observation.expiresAt }) : null,
-        availableBalance: fresh ? note.opening.value : null, nativeEffectsEstablished: note.status === 'FUNDED',
-        freshness: fresh ? 'OBSERVED_AT_RETAINED_HEAD' : 'UNKNOWN',
+        availableBalance:fresh&&!value.sourceExit?note.opening.value:null, nativeEffectsEstablished: note.status === 'FUNDED',
+        freshness:fresh&&!value.sourceExit?'OBSERVED_AT_RETAINED_HEAD':'UNKNOWN',
+        sourceWithdrawal:value.sourceExit?{jobId:value.sourceExit.jobId,stage:value.sourceExit.receipt?'CONFIRMED':'UNKNOWN',amount:value.sourceExit.statement.amount,transactionHash:value.sourceExit.receipt?.transactionHash??null}:null,
         localReservation: value.spend ? { operationId: value.spend.proposal.operationId, phase: value.spend.phase,
           stage: value.spend.reservation ? 'RESERVED_AT_RETAINED_HEAD' : 'UNKNOWN',
           sourceSpentAtRetainedHead: value.spend.reservation !== undefined,
@@ -1545,10 +1564,10 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         }).catch(cause => { wipeAuthorization(retained.witness); throw cause; });
     },
     readDeviceExitSubject: (role: DeviceExitRoleV1, recipient: string) => {
-      current(); if (!['change', 'recovery'].includes(role)) bad('MOBILE_LOCAL_EXIT_ROLE'); hex(recipient, 20);
+      current();if(!['deposit','change','recovery'].includes(role))bad('MOBILE_LOCAL_EXIT_ROLE');hex(recipient,20);
       if (recipient === '0'.repeat(40)) bad('MOBILE_LOCAL_EXIT_RECIPIENT');
       return original('Consultar la salida de esta misma apertura local; todavía requiere estado original y consentimiento W39', async value => {
-        const note = value.note, spend = value.spend;
+        const note=value.note,spend=value.spend;if(role==='deposit'){if(value.sourceExit||spend)bad('MOBILE_LOCAL_SOURCE_EXIT_CONFLICT');const source=fundedSource(value);return Object.freeze({parentJobId:source.note.deviceJob!.jobId,noteRole:role,rootId:value.rootId,noteRevision:value.revision,nullifier:localFundedSpendNullifierV1(source.note.scope,source.note.commitment,source.note.opening.secret),recipient,commitment:source.note.commitment,amount:source.note.opening.value,availableBalance:null});}
         if (!note || !spend?.reservation || !spend.proofJob || !spend[role].privateKey || BigInt(spend[role].opening.value) <= 0n) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
         if (spend.exits?.[role]) bad('MOBILE_LOCAL_ORIGINAL_EXIT_ALREADY_RETAINED');
         const commitment = spend.statement[role === 'change' ? 'changeCommitment' : 'recoveryCommitment'];
@@ -1558,10 +1577,10 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       });
     },
     createDeviceExitProofRequest: (handle: object): Promise<LocalDeviceExitProofRequestV1> => {
-      current(); discardReview(); const quote = readDeviceExitQuoteV1(handle);
+      current(); discardReview(); const quote=readDeviceExitQuoteV1(handle);if(quote.noteRole==='deposit')return createSourceExitRequest(handle);
       return original('Autorizar W39 para esta apertura de ' + quote.noteRole + ', importe ' + quote.statement.amount + ' y destinatario ' + quote.statement.recipient
         + '; revelar sólo la apertura al worker, ninguna raíz o clave privada', async (value, key, before, raw, root) => {
-          const note = value.note, spend = value.spend, role = quote.noteRole, job = spend?.proofJob;
+          const note = value.note, spend = value.spend, role=quote.noteRole as OutputExitRoleV1,job=spend?.proofJob;
           if (!note?.deviceJob || !spend?.reservation || !job || !spend[role].privateKey || spend.exits?.[role]
             || quote.rootId !== value.rootId || quote.noteRevision !== value.revision || quote.parentJobId !== job.jobId
             || quote.origin !== job.origin || quote.pairingId !== job.pairingId || quote.devicePublicKey !== job.devicePublicKey
@@ -1615,7 +1634,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       } catch (cause) { wipeExit(row.witness); throw cause; }
       return original('Confirmar esta única revelación W39; no exportar raíz/clave ni repetir otro trabajo', async value => {
         try {
-          const retained = value.spend?.exits?.[request.noteRole];
+          const retained=request.noteRole==='deposit'?value.sourceExit:value.spend?.exits?.[request.noteRole];
           if (!retained || retained.phase !== 'SIGNED' || retained.jobId !== request.jobId || retained.witnessSHA256 !== request.witnessSHA256
             || retained.receipt || JSON.stringify(retained.statement) !== JSON.stringify(request.statement)) bad('MOBILE_LOCAL_EXIT_CONSENT_CHANGED');
           const bytes = deviceExitWitnessBytesV1(row.witness);
@@ -1627,7 +1646,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       }).catch(cause => { wipeExit(row.witness); throw cause; });
     },
     readDeviceExitIntent: (role: DeviceExitRoleV1) => original('Consultar el trabajo W39 durable original; no regenerar/reintentar salida', async value => {
-      if (!['change', 'recovery'].includes(role)) bad('MOBILE_LOCAL_EXIT_ROLE'); const row = value.spend?.exits?.[role];
+      if(!['deposit','change','recovery'].includes(role))bad('MOBILE_LOCAL_EXIT_ROLE');const row=role==='deposit'?value.sourceExit:value.spend?.exits?.[role];
       return row ? Object.freeze({ parentJobId: row.parentJobId, nativeBindingSHA256: row.nativeBindingSHA256, jobId: row.jobId,
         quoteId: row.quoteId, rootId: row.rootId, noteRevision: row.noteRevision, noteRole: role, phase: row.phase,
         statement: row.statement, witnessSHA256: row.witnessSHA256, receipt: row.receipt ? Object.freeze({ ...row.receipt }) : null,
@@ -1637,8 +1656,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       current(); const confirmation = readDeviceExitConfirmationV1(response);
       return original('Guardar la salida W39 canónica original de esta misma apertura; no reenviar ni sumar dinero local', async (value, key, before, raw, root) => {
         const repeated = readDeviceExitConfirmationV1(response), consent = confirmation.consent, status = confirmation.status;
-        const spend = value.spend, row = spend?.exits?.[consent.noteRole], observed = status.observation;
-        if (repeated.status !== status || !spend || !row || !observed || row.phase !== 'SIGNED' || status.stage !== 'CONFIRMED'
+        const spend=value.spend,row=consent.noteRole==='deposit'?value.sourceExit:spend?.exits?.[consent.noteRole],observed=status.observation;
+        if(repeated.status!==status||(consent.noteRole!=='deposit'&&!spend)||!row || !observed || row.phase !== 'SIGNED' || status.stage !== 'CONFIRMED'
           || row.origin !== consent.origin || row.pairingId !== consent.pairingId || row.devicePublicKey !== consent.devicePublicKey
           || JSON.stringify(row.statement) !== JSON.stringify(status.statement) || row.witnessSHA256 !== consent.witnessSHA256) bad('MOBILE_LOCAL_ORIGINAL_EXIT_CONFIRMATION_REQUIRED');
         for (const name of ['parentJobId', 'nativeBindingSHA256', 'quoteId', 'jobId', 'rootId', 'noteRevision', 'noteRole'] as const)
@@ -1646,8 +1665,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         const receipt = { transactionHash: observed.transactionHash, blockHash: observed.blockHash, blockNumber: observed.blockNumber,
           calldataSHA256: observed.calldataSHA256, timestamp: observed.timestamp, domainCommitment: observed.domainCommitment };
         if (row.receipt && JSON.stringify(row.receipt) !== JSON.stringify(receipt)) bad('MOBILE_LOCAL_ORIGINAL_EXIT_CONFIRMATION_CHANGED');
-        if (!row.receipt) { const next: State = { ...value, revision: value.revision + 1, spend: { ...spend,
-          exits: { ...spend.exits, [consent.noteRole]: { ...row, receipt } } } }; readDeviceExitConfirmationV1(response); await persistSpend(next, key, before, raw, root); }
+        if(!row.receipt){const next:State=consent.noteRole==='deposit'?{...value,revision:value.revision+1,sourceExit:{...row,receipt}}:{...value,revision:value.revision+1,spend:{...spend!,exits:{...spend!.exits,[consent.noteRole]:{...row,receipt}}}}; readDeviceExitConfirmationV1(response); await persistSpend(next, key, before, raw, root); }
         current(); readDeviceExitConfirmationV1(response); return Object.freeze({ jobId: row.jobId, noteRole: row.noteRole,
           commitment: row.statement.commitment, nullifier: row.statement.nullifier, recipient: row.statement.recipient,
           withdrawnAmount: row.statement.amount, transactionHash: receipt.transactionHash, availableBalance: null,

@@ -9,8 +9,8 @@ import { createDeviceOwnerExecutionApiV1 } from '../api/device-owner-execution-a
 import { createDeviceOwnerOutputBalanceApiV1 } from '../api/device-owner-output-balance-api-v1';
 import type { DeviceExecutionConsentV1, DeviceExecutionStatusV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import { createDeviceOwnerExitApiV1, readDeviceExitQuoteV1 } from '../api/device-owner-exit-api-v1';
-import { wipeDeviceExitWitnessV1, type DeviceExitConsentV1, type DeviceExitWitnessV1, type DeviceExitQuoteV1 }
-  from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { wipeDeviceExitWitnessV1, type DeviceExitConsentEitherV2 as DeviceExitConsentV1,type DeviceExitWitnessV1,type DeviceExitQuoteEitherV2 as DeviceExitQuoteV1 }
+  from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import { readDevicePublicKey, signOriginalAccountAccessV2, signOriginalPrivateStateAccessV1,
   signOriginalPrivateStateReviewV1, signDeviceDepositConsentV1, signDeviceReservationConsentV1, signDeviceExitConsentV1, signDeviceExecutionConsentV1, signDeviceRecoveryArmConsentV1 } from '../custody/key-store';
 import { inspectLocalRootNoteVaultV1, openLocalRootNoteVaultV1, type LocalDeviceExitProofRequestV1, type LocalDeviceProofRequestV1, type LocalDeviceAuthorizationRequestV1, type LocalDeviceReservationReviewV1 }
@@ -38,7 +38,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   const [executionIntent, setExecutionIntent] = useState<Awaited<ReturnType<Vault['readDeviceExecutionIntent']>>>(null);
   const executionClient = useRef<ExecutionClient | null>(null), nativeSigning = useRef<AbortController | null>(null);
   const balanceClient = useRef<BalanceClient | null>(null);
-  const [exitRole, setExitRole] = useState<'change' | 'recovery'>('change'), [exitRecipient, setExitRecipient] = useState('');
+  const [exitRole, setExitRole] = useState<'deposit'|'change'|'recovery'>('change'), [exitRecipient, setExitRecipient] = useState('');
   const [exitReview, setExitReview] = useState<DeviceExitQuoteV1 | null>(null), [exitConsent, setExitConsent] = useState<DeviceExitConsentV1 | null>(null);
   const [exitJob, setExitJob] = useState<string | null>(null);
   const [exitIntent, setExitIntent] = useState<Awaited<ReturnType<Vault['readDeviceExitIntent']>>>(null);
@@ -376,7 +376,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   }
   async function selectExitRole(held: number) {
     const custody = vault.current; if (!custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
-    const role = exitRole === 'change' ? 'recovery' : 'change';
+    const role=exitRole==='deposit'?'change':exitRole==='change'?'recovery':'deposit';
     exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
     setExitReview(null); setExitConsent(null); clearNativeReview(); setExitJob(null); setExitIntent(null); setApproved(false);
     const pending = await custody.readDeviceExitIntent(role); live(held);
@@ -397,7 +397,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const handle = await api.preparation({ ...await exitAccess(held), parentJobId: subject.parentJobId, rootId: subject.rootId,
       noteRole: subject.noteRole, noteRevision: subject.noteRevision, nullifier: subject.nullifier, recipient: subject.recipient }); live(held);
     exitQuote.current = handle; setExitReview(readDeviceExitQuoteV1(handle));
-    setMessage('El observador original comprueba esta apertura no gastada y el recibo S/F necesario. Revisa la salida exacta antes de firmar.');
+    setMessage('El observador original comprueba esta apertura no gastada y su recibo D26 o S/F original. Revisa la salida exacta antes de firmar.');
   }
   async function reviewExitProof(held: number) {
     clearNativeReview();
@@ -407,7 +407,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const pending = await custody.createDeviceExitProofRequest(handle); live(held);
     exitRequest.current?.close(); exitRequest.current = pending; setExitJob(pending.jobId);
     const value = await api.challengeJob({ ...await exitAccess(held), quoteId: pending.quoteId, jobId: pending.jobId, witnessSHA256: pending.witnessSHA256 }); live(held);
-    setExitConsent(value); setMessage('Intención W39 cifrada antes de firmar/enviar. Revisa por separado la revelación de esta única apertura.');
+    setExitConsent(value); setMessage('Intención W39 guardada antes de firmar/enviar. Revisa por separado el destinatario del cifrado de esta única apertura.');
   }
   async function reviewExit(action: 'WITHDRAW_W39' | 'OBSERVE_W39', held: number) {
     clearNativeReview();
@@ -523,7 +523,7 @@ Intención de recuperación: {executionIntent.recoveryAttemptRetained ? 'guardad
       <Text style={styles.title}>Salida de la misma custodia</Text>
       <Text style={styles.text}>El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original. La prueba W39 revela una sola apertura al worker y requiere otra autorización para retirar. No hay adopción de notas por Linux ni reintentos automáticos.</Text>
       <Pressable disabled={busy} onPress={() => void run(selectExitRole)}>
-        <Text style={styles.button}>Apertura: {exitRole === 'change' ? 'cambio' : 'recuperación'}</Text></Pressable>
+        <Text style={styles.button}>Apertura: {exitRole==='deposit'?'nota depositada':exitRole==='change'?'cambio':'recuperación'}</Text></Pressable>
       {exitIntent && <Text style={styles.text}>Trabajo W39 retenido {exitIntent.jobId}
 Estado local {exitIntent.receipt ? 'Retirada confirmada por el recibo original' : exitIntent.phase + ' · resultado pendiente de consulta'}
 Destinatario retenido {exitIntent.statement.recipient}

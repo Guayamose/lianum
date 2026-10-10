@@ -1,0 +1,15 @@
+import type {DeviceExitConsentV1,DeviceExitQuoteV1,DeviceExitStatusV1,DeviceExitWitnessV1} from './device-exit-consent-v1.mjs';
+export type NativePrivateExitConsentV2=Readonly<Omit<DeviceExitConsentV1,'version'|'profile'|'noteRole'|'openingDisclosure'> & {version:2;profile:'LIANUM_DEVICE_ORIGINAL_W39_PRIVATE_V2';noteRole:'deposit'|'change'|'recovery';openingDisclosure:string|null;privateProof:null|Readonly<{profile:string;recipient:Readonly<{type:string;profile:string;relation:string;role:string;jobId:string;recipientPublicKey:string}>;path:DeviceExitQuoteV1['path'];transcriptSHA256:string}>}>;
+export type DeviceExitConsentEitherV2=DeviceExitConsentV1|NativePrivateExitConsentV2;
+export type DeviceExitQuoteEitherV2=DeviceExitQuoteV1|Readonly<Omit<DeviceExitQuoteV1,'version'|'profile'|'noteRole'> & {version:2;profile:string;noteRole:'deposit'|'change'|'recovery'}>;
+export type DeviceExitStatusEitherV2=Readonly<Omit<DeviceExitStatusV1,'consentFields'|'observation'> & {consentFields:Omit<DeviceExitStatusV1['consentFields'],'noteRole'> & {noteRole:'deposit'|'change'|'recovery'};observation:null|(Omit<NonNullable<DeviceExitStatusV1['observation']>,'noteRole'> & {noteRole:'deposit'|'change'|'recovery'})}>;
+export const DEVICE_NATIVE_PRIVATE_EXIT_V2:string,DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2:string;
+export function normalizeNativePrivateExitConsentV2(raw:unknown):NativePrivateExitConsentV2;
+export function normalizeDeviceExitConsentEitherV2(raw:unknown):DeviceExitConsentEitherV2;
+export function validateDeviceExitConsentEitherFreshV2(raw:unknown,now?:number):DeviceExitConsentEitherV2;
+export function deviceExitConsentEitherMessageV2(raw:unknown):Uint8Array;
+export function nativePrivateExitTranscriptBytesV2(raw:unknown):Uint8Array;
+export function nativePrivateExitPublicInputsV2(raw:unknown):string[];
+export function normalizeDeviceExitQuoteEitherV2(raw:unknown):DeviceExitQuoteEitherV2;
+export function normalizeDeviceExitStatusEitherV2(raw:unknown):DeviceExitStatusEitherV2;
+export {normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1,type DeviceExitWitnessV1} from './device-exit-consent-v1.mjs';

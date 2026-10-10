@@ -6,11 +6,11 @@
 import assert from 'node:assert/strict';
 import {exactRecord} from '../../execution/encoding/commitments.mjs';
 import {assertOwnedNativeValueAccountAuthority,retainOriginalNativeDeviceRecoveredInstallationV1,
- consumeOriginalNativeDeviceRecoveredInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+ isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,consumeOriginalNativeDeviceRecoveredInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';
-import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import {createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2} from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {createDeviceOwnerExecutionBridgeV1,createOriginalNativePrivateExecutionBridgeV2} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {createPairedDeviceAccountTlsServerV1,createPairedDurableDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
 import {createOriginalDeviceDurableDispatchV1} from '../../api/mobile/original-device-durable-dispatch-v1.mjs';
 export function reinstallOriginalNativeDeviceEconomicServiceV1(input){
@@ -26,16 +26,16 @@ async function reinstall(input,durable){
  const cap=await retainOriginalNativeDeviceRecoveredInstallationV1(account,actor,providerCustody),retained=consumeOriginalNativeDeviceRecoveredInstallationV1(cap,account,actor);
  let depositBridge,reservationBridge,executionBridge,transport,dispatch;
  try{
-   depositBridge=await createDeviceOwnerDepositBridgeV1({actor,account,owner,runtime,system,poolIndex:0});
+   depositBridge=await(isOriginalNativePrivateDepositAccountV2(account)?createOriginalNativePrivateDepositBridgeV2:createDeviceOwnerDepositBridgeV1)({actor,account,owner,runtime,system,poolIndex:0});
    reservationBridge=await createDeviceOwnerReservationBridgeV1({actor,account,owner,runtime,system,poolIndex:0,
      nativePreparation:retained.nativePreparation,invoiceSignatures:retained.invoiceSignatures});
-   executionBridge=await createDeviceOwnerExecutionBridgeV1({account,reservationBridge,nativeExecution,providers:retained.providers,runtime,system,poolIndex:0});
+   executionBridge=await(isOriginalNativePrivateExitAccountV2(account)?createOriginalNativePrivateExecutionBridgeV2:createDeviceOwnerExecutionBridgeV1)({account,reservationBridge,nativeExecution,providers:retained.providers,runtime,system,poolIndex:0});
    if(durable)dispatch=await createOriginalDeviceDurableDispatchV1({depositBridge,reservationBridge,executionBridge,pool:input.pool,privacyKey:input.privacyKey});
    transport=await(durable?createPairedDurableDeviceAccountTlsServerV1:createPairedDeviceAccountTlsServerV1)({depositBridge,reservationBridge,executionBridge,tls,...(durable?{dispatch}:{})});
    return Object.freeze({transport,depositBridge,reservationBridge,executionBridge,descriptor:retained.descriptor,
      parentJobId:retained.parentJobId,depositJobId:retained.depositJobId,rootId:retained.rootId,...(durable?{dispatch}:{})});
  }catch(error){const failures=[];if(transport)try{await transport.close();}catch(failure){failures.push(failure);}
    try{dispatch?.close();}catch(failure){failures.push(failure);}
-   for(const bridge of [executionBridge,reservationBridge,depositBridge])try{bridge?.close();}catch(failure){failures.push(failure);}
+   for(const bridge of [executionBridge,reservationBridge,depositBridge])try{await bridge?.close();}catch(failure){failures.push(failure);}
    if(failures.length)throw new AggregateError([error,...failures],'NATIVE_DEVICE_RECOVERY_SERVICE_CLEANUP_FAILED',{cause:error});throw error;}
 }

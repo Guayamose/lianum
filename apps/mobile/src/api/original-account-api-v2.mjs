@@ -14,8 +14,8 @@ import {sealOriginalNativeDeviceDepositWitnessV2} from './native-private-deposit
 import { normalizeDeviceReservationConsentV1, validateDeviceReservationConsentFreshV1,
   normalizeDeviceReservationWitnessV1, wipeDeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
-import { normalizeDeviceExitConsentV1, validateDeviceExitConsentFreshV1, normalizeDeviceExitWitnessV1, wipeDeviceExitWitnessV1 }
-  from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import {normalizeDeviceExitConsentEitherV2 as normalizeDeviceExitConsentV1,validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,normalizeDeviceExitWitnessV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
+import {sealOriginalNativeDeviceExitWitnessV2} from './native-private-exit-transit-v2.mjs';
 import { validateDeviceExecutionConsentFreshV1 }
   from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 import {validateDeviceRecoveryArmConsentFreshV1,normalizeDeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
@@ -62,10 +62,10 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
     if (Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
     return validateOriginalAccountFreshV2(value);
   }
-  const privateDepositConsents=new WeakMap();
+  const privateDepositConsents=new WeakMap(),privateExitConsents=new WeakMap();let privateExitClosed=false;
   async function request(path, payload, privateState = false) {
-    const privateDepositProof=privateState==='device-deposit'&&path==='private-jobs';
-    if(privateDepositProof&&new TextEncoder().encode(JSON.stringify(payload)).byteLength>16384)fail('MOBILE_ORIGINAL_REQUEST_INVALID');
+    const privateDepositProof=privateState==='device-deposit'&&path==='private-jobs'||privateState==='device-exit'&&path==='private-jobs';
+    if(privateDepositProof&&new TextEncoder().encode(JSON.stringify(payload)).byteLength>(privateState==='device-exit'?32768:16384))fail('MOBILE_ORIGINAL_REQUEST_INVALID');
     const target = original.origin + (privateState === 'device-execution' ? '/v1/mobile/device-execution/'
       : privateState === 'device-exit' ? '/v1/mobile/device-exit/'
       : privateState === 'device-reservation' ? '/v1/mobile/device-reservation/'
@@ -206,7 +206,7 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
         const value = validateDeviceExitConsentFreshV1(await request('job-reviews', input, 'device-exit'));
         if (value.action !== 'PROVE_W39' || Object.keys(original).some(name => value[name] !== original[name])
           || value.quoteId !== input.quoteId || value.witnessSHA256 !== input.witnessSHA256
-          || input.jobId !== null && value.jobId !== input.jobId) fail('MOBILE_REVIEW_CHANGED'); return value;
+          || input.jobId !== null && value.jobId !== input.jobId) fail('MOBILE_REVIEW_CHANGED'); if(value.version===2){if(privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');privateExitConsents.set(value,{value,used:false});}return value;
       },
       async challenge(action, input) {
         if (!['WITHDRAW_W39', 'OBSERVE_W39'].includes(action) || !exact(input, ['access', 'signature', 'jobId'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
@@ -214,19 +214,21 @@ export function createOriginalAccountApiV2({ descriptor, fetchImpl = globalThis.
         if (access.action !== 'read') fail('MOBILE_ORIGINAL_ACTION'); normalizeOriginalAccountSignatureV2(input.signature);
         const value = validateDeviceExitConsentFreshV1(await request(action === 'WITHDRAW_W39'
           ? 'withdrawal-reviews' : 'observation-reviews', input, 'device-exit'));
-        if (value.action !== action || value.jobId !== input.jobId || Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED'); return value;
+        if (value.action !== action || value.jobId !== input.jobId || Object.keys(original).some(name => value[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');if(value.version===2){if(privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');privateExitConsents.set(value,{value,used:false});}return value;
       },
       async submit(input) {
         if (!exact(input, input?.consent?.action === 'PROVE_W39' ? ['consent', 'signature', 'witness'] : ['consent', 'signature'])) fail('MOBILE_ORIGINAL_REQUEST_INVALID');
         const consent = validateDeviceExitConsentFreshV1(normalizeDeviceExitConsentV1(input.consent));
         if (Object.keys(original).some(name => consent[name] !== original[name])) fail('MOBILE_REVIEW_CHANGED');
-        const signature = normalizeOriginalAccountSignatureV2(input.signature); let witness;
+        const signature = normalizeOriginalAccountSignatureV2(input.signature);let witness,packet;
+        if(consent.version===2){if(privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');const held=privateExitConsents.get(input.consent);if(!held||held.used||!same(held.value,consent))fail('MOBILE_REVIEW_CHANGED');held.used=true;}
         try {
-          if (consent.action === 'PROVE_W39') witness = normalizeDeviceExitWitnessV1(input.witness);
-          return await request(consent.action === 'PROVE_W39' ? 'jobs' : consent.action === 'WITHDRAW_W39' ? 'withdraw' : 'observations',
-            { consent, signature, ...(witness ? { witness } : {}) }, 'device-exit');
-        } finally { if (witness) wipeDeviceExitWitnessV1(witness); }
+          if (consent.action === 'PROVE_W39'){witness=normalizeDeviceExitWitnessV1(input.witness);if(consent.version===2)packet=await sealOriginalNativeDeviceExitWitnessV2(consent,signature,witness);if(consent.version===2&&privateExitClosed)fail('MOBILE_PRIVATE_EXIT_CLIENT_CLOSED');}
+          return await request(consent.action === 'PROVE_W39' ? (consent.version===2?'private-jobs':'jobs') : consent.action === 'WITHDRAW_W39' ? 'withdraw' : 'observations',
+            { consent, signature, ...(witness ? { witness:packet??witness } : {}) }, 'device-exit');
+        } finally {if(packet)packet.ciphertext=null;if(witness)wipeDeviceExitWitnessV1(witness);}
       },
+      close(){privateExitClosed=true;},
     }),
     deviceReservation: Object.freeze({
       async preparation(input) {

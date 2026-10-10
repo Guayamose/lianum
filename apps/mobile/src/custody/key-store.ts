@@ -23,8 +23,8 @@ import { validateDeviceDepositConsentEitherFreshV2 as validateDeviceDepositConse
 import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 
-import { validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1 }
-  from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,deviceExitConsentEitherMessageV2 as deviceExitConsentMessageV1 }
+  from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import { validateDeviceExecutionConsentFreshV1, deviceExecutionConsentMessageV1 }
   from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
 const PRIVATE_KEY = 'lianum.owner.secp256k1.v1';
@@ -231,15 +231,14 @@ export async function signDeviceReservationConsentV1(raw: Parameters<typeof vali
  * the exact PC23 withdrawal frame locally; neither protected key is exported. */
 export async function signDeviceExitConsentV1(raw: Parameters<typeof validateDeviceExitConsentFreshV1>[0],
   expectedOrigin: string, expectedPairingId: string): Promise<string> {
-  await assertProtectedStorage(); const publicKey = await readDevicePublicKey();
-  if (publicKey === null) throw new Error('MOBILE_KEY_REQUIRED');
-  const value = validateDeviceExitConsentFreshV1(raw);
+  const value=validateDeviceExitConsentFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();
+  if(publicKey===null)throw new Error('MOBILE_KEY_REQUIRED');
   const current = () => { validateDeviceExitConsentFreshV1(value);
     if (value.origin !== expectedOrigin || value.pairingId !== expectedPairingId || value.devicePublicKey !== publicKey)
       throw new Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'PROVE_W39'
-      ? 'Revelar una única apertura de ' + value.noteRole + ' al worker W39; ninguna raíz o clave privada'
+      ? (value.version===2?'Cifrar esta única apertura W39 para el destinatario original; ninguna raíz o clave privada':'Revelar una única apertura de '+value.noteRole+' al worker W39; ninguna raíz o clave privada')
       : value.action === 'WITHDRAW_W39' ? 'Retirar una sola vez ' + value.statement.amount + ' unidades al destinatario ' + value.statement.recipient
         : 'Consultar esta salida original; no generar otra prueba ni reenviar' });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');

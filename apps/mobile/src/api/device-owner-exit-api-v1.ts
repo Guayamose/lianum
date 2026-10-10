@@ -3,8 +3,8 @@
 import * as Crypto from 'expo-crypto';
 import { createOriginalAccountApiV2, type OriginalAccountDescriptorV2 } from './original-account-api-v2.mjs';
 import { originalAccountAccessMessageV2, normalizeOriginalAccountAccessV2 } from '@lianum/mobile-protocol/original-account-v2';
-import { normalizeDeviceExitQuoteV1, normalizeDeviceExitStatusV1, validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1,
-  type DeviceExitQuoteV1, type DeviceExitStatusV1, type DeviceExitConsentV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import { normalizeDeviceExitQuoteEitherV2 as normalizeDeviceExitQuoteV1,normalizeDeviceExitStatusEitherV2 as normalizeDeviceExitStatusV1,validateDeviceExitConsentEitherFreshV2 as validateDeviceExitConsentFreshV1,deviceExitConsentEitherMessageV2 as deviceExitConsentMessageV1,
+  type DeviceExitQuoteEitherV2 as DeviceExitQuoteV1,type DeviceExitStatusEitherV2 as DeviceExitStatusV1,type DeviceExitConsentEitherV2 as DeviceExitConsentV1 } from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 const quotes = new WeakMap<object, { live(): void; value: DeviceExitQuoteV1 }>();
 const confirmations = new WeakMap<object, { live(): void; value: DeviceExitStatusV1; consent: DeviceExitConsentV1; expiresAt: number }>();
 function bad(): never { throw Error('MOBILE_DEVICE_EXIT_RESPONSE_INVALID'); }
@@ -62,7 +62,7 @@ export async function createDeviceOwnerExitApiV1(descriptor: OriginalAccountDesc
       }
       return value;
     },
-    close() { closed = true; },
+    close(){closed=true;original.deviceExit.close();},
   });
 }
 export function readDeviceExitQuoteV1(handle: object): DeviceExitQuoteV1 {

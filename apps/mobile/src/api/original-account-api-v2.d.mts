@@ -1,6 +1,6 @@
 import type {DeviceRecoveryArmConsentV1,DeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import type { DeviceExecutionConsentV1 } from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
-import type { DeviceExitConsentV1, DeviceExitWitnessV1 } from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import type {DeviceExitConsentEitherV2 as DeviceExitConsentV1,DeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import type { DeviceReservationConsentV1, DeviceReservationCustodyV1, DeviceReservationStatementV1, DeviceReservationWitnessV1 } from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import type { DeviceDepositStatementV1, DeviceDepositWitnessV1 } from '../../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
 import type {DeviceDepositConsentEitherV2 as DeviceDepositConsentV1} from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
@@ -50,11 +50,12 @@ export function createOriginalAccountApiV2(options: {
     submit(input: { consent: DeviceExecutionConsentV1; signature: string }): Promise<unknown>;
   }>;
   deviceExit: Readonly<{
-    preparation(input: { access: OriginalAccountAccessV2; signature: string; parentJobId: string; noteRole: 'change' | 'recovery';
+    preparation(input: { access: OriginalAccountAccessV2; signature: string; parentJobId: string; noteRole:'deposit'|'change'|'recovery';
       rootId: string; noteRevision: number; nullifier: string; recipient: string }): Promise<unknown>;
     challengeJob(input: { access: OriginalAccountAccessV2; signature: string; quoteId: string; jobId: string | null; witnessSHA256: string }): Promise<DeviceExitConsentV1>;
     challenge(action: 'WITHDRAW_W39' | 'OBSERVE_W39', input: { access: OriginalAccountAccessV2; signature: string; jobId: string }): Promise<DeviceExitConsentV1>;
-    submit(input: { consent: DeviceExitConsentV1; signature: string; witness?: DeviceExitWitnessV1 }): Promise<unknown>;
+    submit(input:{consent:DeviceExitConsentV1;signature:string;witness?:DeviceExitWitnessV1}):Promise<unknown>;
+    close():void;
   }>;
   deviceReservation: Readonly<{
     preparation(input: { access: OriginalAccountAccessV2; signature: string; depositJobId: string; rootId: string }): Promise<unknown>;
