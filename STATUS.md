@@ -5,6 +5,41 @@ desarrollo; todavía no está completada la wallet omnichain de la visión origi
 Los resultados distinguen código comprobado, laboratorio local y producto
 pendiente. Las entregas históricas permanecen en `archive/`.
 
+## Corte actual del 10 de octubre
+
+- **Uniswap móvil aceptado:** `45a420b8-9dd9-4e83-b513-91c2c4c885a6`
+  completó las 14 relaciones originales, swap exact-output, retirada del
+  resultado y del cambio, respuesta perdida, restauración cifrada de la
+  custodia SOURCE/SHARE/PoP y observación de los mismos trabajos en otro PID.
+  Reabrió cuatro secciones originales sin otra prueba ni envío; fuentes
+  intactas, cleanup sin errores y lock liberado. Es el perfil local sobre TLS
+  y custodia software del dispositivo; teléfono y caída abrupta quedan pendientes.
+- **Recuperación nativa con SQL:** el intento `7085c0fa…` acreditó captura de
+  diez secciones, reapertura del mismo F en otro PID y saldo fresco. No completó
+  W39: el codec de métricas trataba el recibo privado V3 como legacy V1.
+  `98575a2` corrige esa selección conservando la verificación original y tiene
+  regresión focal de Vault/CAS. El intento `4c50417a…` falló antes de financiar
+  por dos referencias de fuente antiguas; `89a22ac` las actualiza después de
+  revisar el cambio. Ambos resultados conservan su rechazo; el cierre financiero
+  completo sigue pendiente.
+- **Composición actual:** `7dd8135` publica 880 fuentes y doce roles. El
+  productor físico y las cápsulas actuales pasan, incluido el consumidor de
+  Base/Arbitrum/BSC. Las 45 fuentes originales W39 no cambian y los cuatro
+  indicadores de aceptación de la publicación siguen desactivados.
+- **Claims y diagnóstico:** `7af1207` conecta CI51 privado al mismo holder
+  Linux, con opening retenido en el child e intake cifrado; no acredita todavía
+  RootNote móvil ni el crédito Jupiter completo. `6ac8ed6` conserva la primera
+  causa privada de los cuatro CLI antes del cierre, sin payloads ni secretos.
+- **APK:** la última compilación conservada es `e4b88b53…`, 43.077.407 bytes,
+  109 inputs y 36 uniones, sin Metro. Es anterior a los cambios móviles recientes;
+  falta recompilarla. La prueba física continúa prevista para el final.
+
+Las 35 notas permanecen iguales en este corte: **65 / 45 / 70 / 70 / 70 / 80 / 65**.
+Uniswap amplía el ámbito móvil acreditado de criterios que ya tenían 75;
+no completa por sí solo las siete redes, la privacidad sistémica o la
+recuperación abrupta. Los apartados históricos siguientes conservan la
+evidencia de sus respectivos cortes, no sustituyen este estado actual.
+
 ## Objetivos originales del producto
 
 Los objetivos son los de [PROJECT-VISION.md](PROJECT-VISION.md). Las seis tareas
@@ -24,7 +59,7 @@ sistémica sigue sin acreditarse; las aceptaciones locales conservan su alcance.
 
 | Punto original | Estimación recalculada | Avance comprobado y pendiente principal |
 | --- | --- | --- |
-| 1. Wallet unificada para siete redes | 65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. APK85/36 actualizado y compilado sin Metro con el contrato de salidas bloqueadas; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
+| 1. Wallet unificada para siete redes | 65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. Último APK109/36 compilado sin Metro; recompilación pendiente tras los cambios móviles recientes; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
 | 2. Privacidad por defecto | 45% | READ autenticado, copia RootNote cifrada y SQL con HMAC por propietario/request que cambia el seudónimo entre solicitudes; redacción legacy integrada sin renovar permisos. El criterio 2.4 sube a 25 sólo por protección parcial de nuevas copias SQL sin clave API. Cadena/RPC/red, tiempos, rutas, colusión con API, copias antiguas y authKey histórico siguen pendientes. |
 | 3. PAEG genérico | 70% | BTC/SOL, Uniswap, Aave y Meta desde reserva privada aceptados con el mismo núcleo y relaciones; continúan los cuatro slots y la privacidad de topología por cerrar. |
 | 4. Liquidación y recuperación económica | 70% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. El timeout del keeper se comprobó con reloj controlado y el cutoff original, sin esperar ocho horas. Quedan mayor cobertura DeFi, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |

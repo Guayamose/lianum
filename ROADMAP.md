@@ -14,6 +14,21 @@ explica los cierres funcionales y enlaza el
 Las cifras estiman cobertura funcional; no miden tiempo ni esfuerzo restante
 y no sustituyen los pendientes concretos.
 
+El corte actual ya acepta Uniswap desde la custodia software propia del
+dispositivo: 14 relaciones, ambas retiradas, respuesta perdida, restauración
+cifrada de custodia y observación del mismo backend en otro PID sin efecto
+nuevo. La recuperación SQL llegó a captura de diez secciones, F y saldo fresco,
+pero falta aceptar ambas W39 tras corregir el codec privado V3. Las notas de
+los siete objetivos siguen en 65/45/70/70/70/80/65 con los mismos 35 criterios.
+
+El trabajo inmediato es cerrar ese recorrido SQL y Aave móvil, conectar la
+recuperación abrupta a SOURCE/GRAPH originales, admitir claims desde RootNote
+y compilar las relaciones paginadas genéricas con sus propios verificadores.
+Después se continúa con los productores pendientes de las siete redes,
+privacidad entre roles y la compilación móvil actualizada. Cloud sigue limitado
+a infraestructura local; teléfono al final. Las evidencias siguientes describen
+sus respectivos perfiles y cortes históricos.
+
 - **Wallet y estado:** EVM9 acepta D26/U/S, ejecución nativa, F, ambas W39 y
   cinco READ firmadas: diez secciones originales reabiertas en otro PID, una
   entrega y disponible final cero, sin efecto duplicado. La captura es ordenada
@@ -56,10 +71,11 @@ y no sustituyen los pendientes concretos.
   confirmados, sin señales. No acredita teléfono ni caída abrupta. La entrada
   local crea la cuenta antes de aprobación exacta y TLS, sin financiar ni
   probar automáticamente; captura/reapertura tiene un productor propio.
-- **Android actual:** APK
-  `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`,
-  de 42.841.007 bytes,
-  85 inputs iguales, 36 uniones con el bundle y sin Metro. Incluye la copia
+- **Último Android compilado:** APK
+  `e4b88b53271da0f29fdc14cf6aac3bb2c7a181d3de687b37556f10daa945ce4d`,
+  de 43.077.407 bytes,
+  109 inputs iguales, 36 uniones con el bundle y sin Metro. Recompilación
+  pendiente tras los cambios móviles recientes. Incluye la copia
   RootNote cifrada y la actualización del estado común después de ejecución/W39.
   Instalación y uso físico quedan para el final. `e25d752e`, `d07f578f`, `e19ad1eb` y
   `6adc78c0` conservan sus ámbitos históricos; no son el APK actual.
@@ -119,9 +135,10 @@ Próximos cierres funcionales de los siete objetivos originales:
 2. **Privacidad por defecto:** extender la protección SQL/backup a las fronteras
    API/worker/RPC y resolver exposición de direcciones, rutas, topología y
    correlaciones bajo el modelo de observadores, sin atribuir anonimato a TLS.
-3. **PAEG genérico:** cerrar el nuevo GRAPH14 sobre la observación original
-   corregida, reutilizando el mismo núcleo, ABI y verificadores; ampliar
-   combinaciones dentro del perfil original.
+3. **PAEG genérico:** compilar y conectar el recorrido paginado con relaciones
+   propias reutilizables, una reserva y liquidación global única; acreditar
+   combinaciones más allá de los perfiles acotados. Uniswap móvil14 ya está
+   aceptado; el GRAPH histórico rechazado conserva su resultado.
 4. **Liquidación y recuperación:** resolver SOURCE/GRAPH sobre el mismo journal,
    permiso y envío; completar fallos combinados y contabilidad económica de
    costes/pérdidas. UNKNOWN sigue bloqueado hasta conciliación, sin renovación
