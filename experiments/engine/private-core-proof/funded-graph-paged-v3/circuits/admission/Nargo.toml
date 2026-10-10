@@ -1,0 +1,10 @@
+[package]
+name = "funded_graph_paged_admission_v3"
+type = "bin"
+authors = ["Lianum paged graph"]
+
+[dependencies]
+paged = { path = "../../lib" }
+graph_support = { path = "../../../generic-graph/lib" }
+native_support = { path = "../../../generic-native/lib" }
+original64 = { path = "../../../funded-graph-64-v2/lib" }
