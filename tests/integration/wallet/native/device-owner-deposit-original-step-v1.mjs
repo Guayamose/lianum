@@ -255,14 +255,13 @@ async function runOriginalStepV1(context, reservationMode) {
       const consent = await (reservationMode ? deviceApi : api.deviceDeposit).challenge('OBSERVE_D26', { ...await access(), jobId: funding.jobId });
       const signed = { consent, signature: signDepositConsent(consent) };
       let value;
-      if (reservationMode) {
-        const reply = await deviceApi.submit(signed); assert.equal(reply.state, 'CONFIRMED');
-        value = { stage: 'CONFIRMED', authorizationSHA256: sha(deviceDepositConsentMessageV1(consent)), observation: host.deposit.readDeviceDepositInclusionV1(reply.observation) };
-        await vault.applyDeviceDepositInclusion(reply.observation);
-      } else {
-        try { value = await api.deviceDeposit.submit(signed); }
-        catch (error) { await awaitDeviceOwnerDepositOriginalObservationV1(bridge); throw error; }
-      }
+      try {
+        if (reservationMode) {
+          const reply = await deviceApi.submit(signed); assert.equal(reply.state, 'CONFIRMED');
+          value = { stage: 'CONFIRMED', authorizationSHA256: sha(deviceDepositConsentMessageV1(consent)), observation: host.deposit.readDeviceDepositInclusionV1(reply.observation) };
+          await vault.applyDeviceDepositInclusion(reply.observation);
+        } else value = await api.deviceDeposit.submit(signed);
+      } catch (error) { await awaitDeviceOwnerDepositOriginalObservationV1(bridge); throw error; }
       assert.equal(value.authorizationSHA256, sha(deviceDepositConsentMessageV1(consent)));
       assert.equal(value.stage, 'CONFIRMED'); assert.equal(value.observation.commitment, commitment);
       return value.observation;
