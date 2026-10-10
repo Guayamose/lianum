@@ -28,11 +28,14 @@ aperturas del mismo checkpoint, repetir Aave móvil tras la corrección de
 observación W39 y completar D27/CI51/W39/CO42 desde RootNote propias.
 Los cinco programas paginados y sus claves, consumer y verificadores ya
 compilan. El productor OWNER y su depósito original están integrados;
-la primera conexión móvil D26/W39 pasa su HOST causal y TypeScript. Se conecta reserva,
-admisión, acumulación de dependencias y liquidación desde esa custodia.
+la conexión móvil D26/W39 y el grafo completo pasan sus HOST causales y TypeScript.
+Reserva, READY, admisión, acumulación de dependencias, liquidación y W39 están
+conectados a esa misma custodia. La ejecución nativa de cinco nodos y dos páginas
+está integrada, con 21 pruebas previstas; su copia y restauración conservan las
+mismas aperturas y exigen nuevos READ/OBSERVE.
 Falta acreditar sus recorridos económicos con el mismo núcleo. En paralelo continúan
 los productores pendientes de las siete redes y la continuidad de las mismas
-operaciones. Se compilará el APK una vez integrado el siguiente corte móvil.
+operaciones. El APK ya incorpora la copia Paged del corte móvil actual.
 Cloud conserva el alcance local y el teléfono queda para el final. Las
 evidencias siguientes describen sus respectivos perfiles y cortes históricos.
 
@@ -79,10 +82,12 @@ evidencias siguientes describen sus respectivos perfiles y cortes históricos.
   local crea la cuenta antes de aprobación exacta y TLS, sin financiar ni
   probar automáticamente; captura/reapertura tiene un productor propio.
 - **Último Android compilado:** APK
-  `e4b88b53271da0f29fdc14cf6aac3bb2c7a181d3de687b37556f10daa945ce4d`,
-  de 43.077.407 bytes,
-  109 inputs iguales, 36 uniones con el bundle y sin Metro. Recompilación
-  pendiente tras los cambios móviles recientes. Incluye la copia
+  `118fc7c7dcb5810bb2bbfa1e659166862062c499ee1b8ef5824b59ac552a5646`,
+  de 43.429.187 bytes,
+  128 inputs iguales, 36 uniones originales y otras 12 Paged/RootNote
+  comprobadas en el bundle, sin Metro.
+  Incluye el holder DeFi original, la espera del resultado autorizado
+  y la copia y restauración cifradas Paged actuales. Incluye la copia
   RootNote cifrada y la actualización del estado común después de ejecución/W39.
   Instalación y uso físico quedan para el final. `e25d752e`, `d07f578f`, `e19ad1eb` y
   `6adc78c0` conservan sus ámbitos históricos; no son el APK actual.
@@ -142,8 +147,8 @@ Próximos cierres funcionales de los siete objetivos originales:
 2. **Privacidad por defecto:** extender la protección SQL/backup a las fronteras
    API/worker/RPC y resolver exposición de direcciones, rutas, topología y
    correlaciones bajo el modelo de observadores, sin atribuir anonimato a TLS.
-3. **PAEG genérico:** compilar y conectar el recorrido paginado con relaciones
-   propias reutilizables, una reserva y liquidación global única; acreditar
+3. **PAEG genérico:** aceptar el recorrido paginado ya compilado y conectado,
+   con relaciones propias reutilizables, una reserva y liquidación global única; acreditar
    combinaciones más allá de los perfiles acotados. Uniswap móvil14 ya está
    aceptado; el GRAPH histórico rechazado conserva su resultado.
 4. **Liquidación y recuperación:** resolver SOURCE/GRAPH sobre el mismo journal,
@@ -273,8 +278,10 @@ y su topología no se exponen por defecto.
 
 Componer nuevas acciones y redes reutilizando relaciones, verificadores y
 contratos de evidencia, sin un circuito distinto por combinación de ruta.
-Cerrar la generalidad real y los límites del perfil de cuatro slots; ese perfil
-no equivale a admitir grafos arbitrariamente grandes.
+El perfil histórico conserva cuatro slots; Paged V3 ya permite varias páginas
+de hasta 64 nodos con las mismas cinco relaciones. Aceptar su recorrido
+económico y ampliar tamaños, dependencias y proveedores. Los límites u64,
+almacenamiento y cutoff permanecen; no equivale a tamaño ilimitado.
 
 El grafo Bitcoin → Solana está aceptado con el núcleo existente. Integrar las
 acciones DeFi oficiales y las restantes redes conservando unión con el grafo,

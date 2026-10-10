@@ -122,11 +122,11 @@ cumplirse. Ninguno de los siete está completo.
 
 | Requisito | Nota | Código y cobertura actual | Falta para completar el requisito |
 | --- | ---: | --- | --- |
-| Representar pasos y dependencias en un grafo válido | 75 | [Grafo](../packages/engine/src/execution/graph/graph.mjs): nodos, aristas, ciclos, orden y compromisos; usado por los recorridos DeFi aceptados. | Mayor cobertura de tamaños y topologías; el productor actual tiene de uno a cuatro slots. |
+| Representar pasos y dependencias en un grafo válido | 75 | [Grafo](../packages/engine/src/execution/graph/graph.mjs) usado por DeFi aceptado y [Paged V3](../packages/engine/src/execution/graph/funded-graph-paged-v3.mjs): páginas de hasta 64 nodos, índices u64, raíces sparse y dependencias verificadas incrementalmente. La implementación paginada elimina la cota global de cuatro slots del perfil histórico. | Aceptar el recorrido económico paginado de cinco nodos/dos páginas y ampliar la cobertura acreditada de tamaños y dependencias. |
 | Unir autorizaciones y condiciones con cada operación | 75 | [Grafo financiado](../packages/engine/src/execution/graph/funded-graph.mjs) y [pool](../contracts/wallet/PrivateFlatAssetNotePool.sol): conservación, política, plazo, autorización y nullifiers unidos a U/S. | Uniswap móvil14 acepta su GRAPH original. Faltan las combinaciones y redes restantes. |
 | Comprobar cumplimiento global antes de liquidar | 75 | [Relación de liquidación](../packages/proofs/circuits/settlement/src/main.nr) y pool: completions, identidad, evidencias, ventanas y consumo único. Aave, Meta y Uniswap aceptan esos pasos. | Ampliar fuera de las rutas y perfiles locales acreditados. |
-| Dar información mínima a cada ejecutor y ocultar el grafo completo | 50 | [Paquetes nativos](../packages/engine/src/execution/native/dispatch/native-capsules.mjs) y grafo definen paquetes/roles cerrados. Declaran no colusión y host común. | Acreditar la ocultación entre operadores independientes y ante correlación. Privacidad sistémica no aceptada. |
-| Reutilizar relaciones/verificadores/evidencia al combinar acciones y redes | 75 | [Catálogo de relaciones](../packages/proofs/src/catalog.mjs) y [ejecución común](../packages/backend/src/execution/account/execution/flat-native-execution.mjs). BTC/SOL y composiciones DeFi reutilizan el núcleo. | Generalidad fuera de las combinaciones comprobadas y del perfil de cuatro slots. No se acredita tamaño arbitrario. |
+| Dar información mínima a cada ejecutor y ocultar el grafo completo | 50 | [Paquetes nativos](../packages/engine/src/execution/native/dispatch/native-capsules.mjs) y grafo definen paquetes/roles cerrados. `83bd4b9` retira SOURCE, presupuesto y tamaños globales del ejecutor Paged; conserva sólo su nodo y cinco campos de vinculación. Su HOST causal pasa; continúa el host común. | Acreditar la ocultación entre operadores independientes y ante correlación. Privacidad sistémica no aceptada. |
+| Reutilizar relaciones/verificadores/evidencia al combinar acciones y redes | 75 | [Catálogo de relaciones](../packages/proofs/src/catalog.mjs) y [ejecución común](../packages/backend/src/execution/account/execution/flat-native-execution.mjs). BTC/SOL y DeFi reutilizan el núcleo. Paged conecta OWNER, SDK/Vault y cinco relaciones/claves reutilizables; cambiar el grafo no exige otro circuito. | Aceptar el recorrido económico Paged y ampliar proveedores/evidencias fuera del perfil nativo EVM local. Sus límites u64, de página, almacenamiento y cutoff permanecen; no se acredita tamaño ilimitado. |
 
 ## 4. Liquidación y recuperación económica — 75%
 
@@ -310,7 +310,7 @@ La media de un punto no elimina los requisitos de la visión:
 | Requisito original | Situación que sigue abierta |
 | --- | --- |
 | Mantenibilidad | Estructura modular y entradas documentadas; sigue existiendo legado dependiente del runtime de compatibilidad. |
-| Generalidad | Núcleo reutilizado, pero cuatro slots y cobertura limitada de combinaciones. |
+| Generalidad | Núcleo reutilizado y Paged conectado sin cota global de cuatro slots; falta aceptar su ejecución económica y ampliar la cobertura de tamaños, dependencias y proveedores. |
 | Confianza minimizada | Autoridades y claves separadas en laboratorio; faltan operadores independientes y garantías distribuidas completas. |
 | Privacidad sistémica | Faltan protección y comprobación de correlaciones y colusiones; el punto 2 lo refleja. |
 | Revisión criptográfica externa | Pendiente; la revisión de código y las pruebas internas no la sustituyen. |

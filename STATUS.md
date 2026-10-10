@@ -25,10 +25,12 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   intactas, cleanup sin errores y lock liberado. PostgreSQL propio queda cerrado.
   Los intentos `7085c0fa…` y `4c50417a…` conservan sus rechazos; las correcciones
   `98575a2` y `89a22ac` permiten este nuevo recorrido.
-- **Composición:** `8681c99` publica la generación actual de 884 fuentes
-  físicas y doce roles; el preflight V38 pasa, incluidos Base/Arbitrum/BSC
-  y Cloud local. `5d4c243` fija por separado las 713 fuentes del grafo
-  paginado móvil; sus lectores canónico y preparado coinciden. Se comprueban
+- **Composición:** `6886950` publica la generación actual de 901 fuentes
+  físicas y doce roles; el preflight V41 pasa, incluidos Base/Arbitrum/BSC
+  y Cloud local. `479445a` fija las 722 fuentes del grafo paginado y
+  `d5f2c8c` las 716 del consumidor nativo; los lectores canónicos y preparados
+  coinciden. Las dos anclas tienen una relación de hashes sin ciclos y conservan
+  las hojas de producción y los artefactos originales. Se comprueban
   antes de CREATE/FUND. Las 45 fuentes W39 y las 100 del compilador paginado
   permanecen intactas; los cuatro indicadores de aceptación siguen desactivados.
 - **RootNote y salida nativa móvil:** `ff8aaa0`/`4b14a3d`/`0822617` conectan
@@ -86,9 +88,23 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   canónico completo de cada wire/receipt y su orden en otro hash acotado.
   La regresión sobre el backend real reproduce el fallo y pasa después en
   279 ms, comprobando mutación y orden. El nuevo intento `e711389e…` llegó
-  a cuatro pruebas originales y terminó rechazado por una aserción del
-  recorrido, todavía en diagnóstico: fuentes intactas, cleanup sin errores
-  y lock liberado. No acredita las dos caídas; siguen pendientes
+  a cuatro pruebas originales y terminó rechazado antes del envío GRAPH:
+  fuentes intactas, cleanup sin errores y lock liberado. El contrato original
+  exige aprobar exactamente el máximo de ejecución; el productor aprobaba
+  500 del depósito para una ruta de 200. `8bce35e` separa ambas cantidades
+  antes de CREATE/FUND y rechaza una ruta distinta antes de consumir D27.
+  Su regresión original pasa en 119 ms; no cambia Solidity ni amplía permisos.
+  El nuevo intento `d17d6c32…` alcanzó trece de las catorce pruebas originales,
+  incluida la ejecución GRAPH, y terminó rechazado en WITHDRAW_W39:
+  el HTTP/SDK aún agotaba la respuesta a los 15 segundos. Conservó las fuentes,
+  cerró sin errores de cleanup y liberó el lock. Se corrige la espera del
+  resultado ya admitido: `d56cd88` conserva el presupuesto de respuesta
+  existente de 900.000 ms para FUND_D26/WITHDRAW_W39. El permiso de 15 segundos,
+  el consumo único y las lecturas de 15 segundos permanecen. La regresión
+  causal pasa en 358 ms con reloj controlado; falta repetir el recorrido económico.
+  `fdaecdb` conserva también la causa RPC original en el diagnóstico privado,
+  sin devolver parámetros ni datos financieros. El intento anterior no acredita
+  las dos caídas; siguen pendientes
   broadcast→checkpoint y pérdida del padre/dispositivo.
 - **PAEG paginado privado V3:** `ca5291e` incorpora árboles sparse Poseidon2
   BN254 propios con el mismo encuadre en JS/Noir/Solidity. Los cinco HOST pasan;
@@ -112,9 +128,30 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   enlazar acciones; la salud nativa se renueva sólo para el efecto, sin rehacer
   pruebas ni ampliar ventanas. El HOST SDK/Vault/Graph pasa en 5,640 s y
   TypeScript pasa; cadena, pruebas y Expo son puertos inertes en ese HOST.
-  El seal propio comprueba 713 fuentes y los mismos artefactos originales.
-  Faltan ejecución económica paginada/nativa y backup/reinicio completo
-  de este nuevo receptor.
+  `117fc85` conecta cinco entregas nativas sobre dos páginas y cinco nodos,
+  usando READY, firma, wire y journal originales, con 21 pruebas previstas;
+  ante respuesta perdida observa el mismo wire y bloquea otro envío.
+  El guard causal de READY/clave/envío pasa en 134 ms con puertos inferiores
+  inertes. `af0d40a` añade copia y restauración cifradas de la misma raíz,
+  páginas, aperturas, preparación y pendientes; conserva un bloqueo durable
+  hasta nuevos READ/OBSERVE y rechaza raíces o revisiones ajenas. El HOST de
+  SDK/Vault/cifrado pasa en 7,723 s y TypeScript pasa. Los seals actuales
+  comprueban 722/716 fuentes y los mismos artefactos originales.
+  `c9d6a3e` incorpora al recorrido financiero la copia cifrada, cierre,
+  borrado de la misma custodia y restauración antes de R, con READ/OBSERVE
+  frescos sobre la misma operación. `83bd4b9` limita la revelación al ejecutor
+  nativo a su nodo y cinco campos de vinculación; su HOST causal pasa en 460 ms.
+  La publicación `6886950` y ambos sellos incluyen estas fuentes actuales.
+  El primer nacimiento financiero `a196edfa…` se rechazó antes de financiar
+  con ENOENT en el locator del runtime EVM desde la ruta canónica. Los recursos
+  quedaron cerrados. `b44f5b3` usa host/operador/flow preparados en el mismo
+  namespace y resuelve los SDK móviles originales desde ambas ubicaciones,
+  sin modificar el harness vinculado a los artefactos 45/100. El nuevo
+  nacimiento `c49d711f…` superó ese locator y se rechazó todavía antes de FUND,
+  al resolver una biblioteca de linkReferences del despliegue paginado.
+  Se investiga el bundle original de esa biblioteca; no hay aceptación financiera.
+  Falta aceptar la ejecución económica paginada/nativa y su recuperación;
+  el HOST no acredita pruebas ZK, hardware ni caída abrupta del backend.
 - **MetaMorpho underlying:** `55c443f`/`e8cda88` conectan backend, SDK y
   custodia móvil; `d06f2e0` añade recorridos de uno y cuatro destinos. Tras
   W39 de shares, cada salida exige autorización propia para aprobación y
@@ -138,10 +175,24 @@ pendiente. Las entregas históricas permanecen en `archive/`.
   cotizar el ingreso SPL para la nota raíz del dispositivo. La entrega se
   registra antes del efecto y la observación concilia la misma operación.
   Sus dos HOST pasan en 752 ms; no acreditan entrega o crédito económicos.
-  La aceptación del recorrido completo permanece pendiente.
-- **APK:** la última compilación conservada es `e4b88b53…`, 43.077.407 bytes,
-  109 inputs y 36 uniones, sin Metro. Es anterior a los cambios móviles recientes;
-  falta recompilarla. La prueba física continúa prevista para el final.
+  `87bbf99` conecta el recorrido financiero de 16 pruebas originales:
+  doce para SOURCE y cuatro para D27/CI51/W39/CO42 en el destino SPL,
+  sin mezclar sus recibos ni repetir efectos al observar. El guard focal pasa
+  en 72 ms y el preflight de los artefactos originales pasa; falta su ejecución
+  financiera. Los gates históricos SOL/SPL siguen cerrados.
+- **Cloud local:** `0e10885` conecta captura ordenada y reapertura del mismo
+  gateway privado V3, ya ligado al actor, executor y bridges antes de financiar.
+  Drena el trabajo HTTP antes de capturar las diez secciones originales;
+  la reapertura exige el mismo SQL, schema, clave y checkpoint y permite
+  observación sin otro envío. Pasan los HOST de captura/reapertura y adaptador
+  fijo. El executor genérico V1 sigue sin ligar; no sustituye este gateway V3.
+  No hay proyecto GCP, despliegue ni aceptación de caída abrupta.
+- **APK:** la última compilación terminada es `118fc7c7…`, 43.429.187 bytes,
+  128 inputs iguales antes/después, 36 uniones originales y otras 12 del
+  corte Paged/RootNote comprobadas en el bundle,
+  sin Metro. Incluye la copia y restauración Paged de `af0d40a`.
+  Incluye el holder DeFi original de `cbd7b0b` y la espera del resultado
+  autorizado de `d56cd88`. La prueba física continúa prevista para el final.
 
 El criterio **4.5 sube de 50 a 75**, y el punto 4 de 70 a 75. Las otras 34
 notas no cambian: **65 / 45 / 70 / 75 / 70 / 80 / 65**.
@@ -170,9 +221,9 @@ sistémica sigue sin acreditarse; las aceptaciones locales conservan su alcance.
 
 | Punto original | Estimación recalculada | Avance comprobado y pendiente principal |
 | --- | --- | --- |
-| 1. Wallet unificada para siete redes | 65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. Último APK109/36 compilado sin Metro; recompilación pendiente tras los cambios móviles recientes; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
+| 1. Wallet unificada para siete redes | 65% | Web EVM y SDK con owners originales Linux aceptados. Custodia raíz móvil, backup y firmas implementados; D26 de clave propia aceptado en Node/TLS. U/S, ejecución nativa, F y W39 tienen reinicio ordenado EVM9 aceptado en Node/TLS; teléfono y pérdida abrupta pendientes. La nota ERC20 propia aceptó D26/W39, dos envíos y reapertura ordenada en otro PID, sin efectos nuevos al observar. Último APK128/36 compilado sin Metro, incluida la copia Paged; uso físico al final. Teléfono, pérdida abrupta y siete redes pendientes. |
 | 2. Privacidad por defecto | 45% | READ autenticado, copia RootNote cifrada y SQL con HMAC por propietario/request que cambia el seudónimo entre solicitudes; redacción legacy integrada sin renovar permisos. El criterio 2.4 sube a 25 sólo por protección parcial de nuevas copias SQL sin clave API. Cadena/RPC/red, tiempos, rutas, colusión con API, copias antiguas y authKey histórico siguen pendientes. |
-| 3. PAEG genérico | 70% | BTC/SOL, Uniswap, Aave y Meta desde reserva privada aceptados con el mismo núcleo y relaciones; continúan los cuatro slots y la privacidad de topología por cerrar. |
+| 3. PAEG genérico | 70% | BTC/SOL, Uniswap, Aave y Meta desde reserva privada aceptados con el mismo núcleo. Paged V3 ya elimina la cota global de cuatro slots con páginas de hasta 64 nodos y cinco relaciones reutilizables; falta aceptar su ejecución económica y ampliar la cobertura de tamaños, redes y privacidad entre operadores. |
 | 4. Liquidación y recuperación económica | 75% | Reconciliación/F desde DOM y T/EXIT/pago al solver de Uniswap aceptados. Meta15, Uniswap F y el reinicio ordenado EVM9 están aceptados; MetaMorpho F1 acepta mint irreversible, F y tres W39 en el perfil local controlado, sin duplicados ni pérdida neta del solver acreditada. Meta y Aave reabren sus backends originales después de EXIT/redención; LIVE_ARMED aceptó conservar la misma reserva/ARM en otro PID antes del cutoff. La reorganización F quedó aceptada con nueve pruebas y ambas retiradas. El timeout del keeper se comprobó con reloj controlado y el cutoff original, sin esperar ocho horas. NativeSQL9 acepta entrega irreversible, F, ambas W39, mismo backend/SQL en otro PID y pérdida del proveedor más gas bajo consentimiento explícito. Quedan generalidad, insolvencia, liquidez adversa, pérdida abrupta de keeper/nodos/custodia y fallos combinados. |
 | 5. DeFi privado real | 70% | Uniswap desde reserva privada aceptado: PAEG, swap, T, EXIT y replay sin efecto duplicado. Aave y Meta15 privados también aceptados; Meta y Aave aceptan backend retenido en otro PID y dos READ cada uno; Uniswap F y MetaMorpho F1 aceptados en sus perfiles controlados; faltan más acciones Morpho, crédito privado Jupiter y mayor cobertura de posiciones. |
 | 6. Estado privado global | 80% | Journals y reconciliación originales; SDK vinculado aceptado con saldo privado 500→0. READ de cambio/recuperación y reapertura D26 implementadas; EVM9 aceptado con cinco lecturas firmadas, disponible final cero y reapertura ordenada. Dos READ por protocolo y reapertura Meta/Aave aceptadas. La unión privada por activo y dominio está conectada al backend/wallet y a las vistas móviles originales; persiste checkpoints cifrados y reabre STALE hasta nueva observación, sin crédito por valoración. HOST/CAS/TSC pasaron; native/wrapped ya se conectan a sus sesiones originales y capturan el mismo checkpoint cifrado. La actividad original BTC/SOL ya se muestra y Conciliar usa su ruta original; el journal compara estructura sin falsos cambios por orden JSON. El ancla nace antes de financiar y conserva credenciales y checkpoints confirmado/pendiente; su reapertura rechaza revisiones ajenas y permanece STALE/UNKNOWN. La restauración SOURCE y GRAPH ya está conectada y tiene pruebas focales de almacenamiento/custodia; falta aceptar su recuperación económica completa ante caída abrupta y pérdida de custodia. |
@@ -196,7 +247,7 @@ shares requieren sus productores originales antes de financiar. La nota fuente
 ERC20 del dispositivo ya tiene ese productor y un recorrido local aceptado;
 la autoridad de shares/posiciones DeFi propias sigue pendiente.
 
-## Continuación del 10 de octubre: código integrado y ejecución pendiente
+## Corte histórico: continuación previa del 10 de octubre
 
 El alcance de PROJECT-VISION.md y EXCLUSIONS.md permanece intacto. Este corte
 distingue las funciones conectadas de la aceptación de sus recorridos reales;
