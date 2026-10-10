@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "4265c694d100b80268cf20162c8d5baa8170d6a326e1004e75f3d31b2d50d2e2",
+  "hostSourceClosureSHA256": "88889f085bfdf9354782451e60c0e609b11b0d379d79d58014d0ae7d47ba6c62",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -710,7 +710,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-policy-v1.mjs",
-      "sha256": "b3acdd1af959a22fe1d4cb15e2930f75d9506d787ff99edde7e0811673a357c8"
+      "sha256": "de39239ca018b81db45cb0a9b9fdf87ec72f3e7a964baeb12a6f88b7ac504a19"
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
