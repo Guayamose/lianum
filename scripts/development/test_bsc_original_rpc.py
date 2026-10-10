@@ -4,6 +4,11 @@ import copy
 import hashlib
 import http.server
 import json
+import os
+import stat
+import tempfile
+import types
+from unittest import mock
 import pathlib
 import re
 import threading
@@ -156,6 +161,63 @@ class OriginalNativeGenesisDiffTest(unittest.TestCase):
             context['normalize_allocation'](alias)
         with self.assertRaisesRegex(RuntimeError, '^BSC_GENESIS_ORIGINAL_ALLOCATION$'):
             context['normalize_allocation']({'0x01': {}})
+
+    def test_original_fixture_copy_creates_private_root_before_first_file(self):
+        # Real private filesystem + the actual copy/write guards; fixture bytes
+        # are explicitly inert. No native process, validator or trace is born.
+        source = pathlib.Path(__file__).with_name('bsc_original_genesis_v3.py')
+        tree = ast.parse(source.read_text())
+        produce = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                       and node.name == 'produce')
+        index = next(i for i, node in enumerate(produce.body)
+                     if isinstance(node, ast.For) and isinstance(node.iter, ast.Call)
+                     and isinstance(node.iter.func, ast.Attribute)
+                     and node.iter.func.attr == 'rglob')
+        copy_body = produce.body[index - 2:index + 1]
+        self.assertEqual(len(copy_body), 3)
+        recipe = source.with_name('owned_bsc_posa_v1.py')
+        helpers = [node for node in ast.parse(recipe.read_text()).body
+                   if isinstance(node, ast.FunctionDef) and node.name in
+                   {'require', 'private_file', 'write', 'directory', 'private_directory'}]
+        ports = {'os': os, 'stat': stat, 'pathlib': pathlib}
+        exec(compile(ast.Module(body=helpers, type_ignores=[]), str(recipe), 'exec'), ports)
+        original = types.SimpleNamespace(**ports)
+        with tempfile.TemporaryDirectory() as temporary:
+            base = pathlib.Path(temporary)
+            prepared, work = base / 'prepared', base / 'work'
+            original.directory(prepared)
+            original.directory(work)
+            original.directory(prepared / 'keys')
+            original.write(prepared / 'keys' / 'inert-first', b'original-file-first')
+            original.directory(prepared / 'keys' / 'nested')
+            original.write(prepared / 'keys' / 'nested' / 'inert-second', b'original-nested-file')
+            retained = list((prepared / 'keys').rglob('*'))
+            # Native rglob has no root/ordering guarantee: exercise file-first.
+            first = next(path for path in retained if path.is_file()
+                         and path.parent == prepared / 'keys')
+            retained = [first] + [path for path in retained if path != first]
+            self.assertTrue(retained[0].is_file())
+            context = {'bsc': original, 'prepared': prepared, 'work': work}
+            program = compile(ast.Module(body=copy_body, type_ignores=[]), str(source), 'exec')
+            with mock.patch.object(pathlib.Path, 'rglob', return_value=retained):
+                exec(program, context)
+            for path in retained:
+                target = work / path.relative_to(prepared)
+                self.assertEqual(target.stat().st_mode & 0o777, 0o700 if path.is_dir() else 0o600)
+                if path.is_file():
+                    self.assertEqual(target.read_bytes(), path.read_bytes())
+            self.assertEqual((work / 'keys').stat().st_mode & 0o777, 0o700)
+            with self.assertRaises(FileExistsError):
+                exec(program, context)
+            # A caller-created symlink is rejected before target creation.
+            other = base / 'foreign'
+            original.directory(other)
+            (other / 'keys').symlink_to(prepared / 'keys', target_is_directory=True)
+            second = base / 'second'
+            original.directory(second)
+            with self.assertRaisesRegex(RuntimeError, '^BSC_PRIVATE_DIRECTORY$'):
+                exec(program, {'bsc': original, 'prepared': other, 'work': second})
+            self.assertFalse((second / 'keys').exists())
 
     def test_original_diff_keeps_unchanged_fields_and_rejects_foreign_seed(self):
         # Tracer replies here are explicitly synthetic. This case checks the

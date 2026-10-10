@@ -368,6 +368,9 @@ def produce(work):
          original_codes[STAKE_HUB], 'ORIGINAL_STAKE_HUB_ARTIFACT')
     fixtures = [{**row, 'description': f'Val{i}'} for i, row in enumerate(receipt['validators'])]
     need(len(fixtures) == 3 and len({row['address'] for row in fixtures}) == 3, 'ORIGINAL_FIXTURES')
+    # The retained root is not yielded by rglob; a file may be yielded first.
+    bsc.private_directory(prepared / 'keys')
+    bsc.directory(work / 'keys')
     for path in (prepared / 'keys').rglob('*'):
         target = work / path.relative_to(prepared)
         if path.is_dir():
