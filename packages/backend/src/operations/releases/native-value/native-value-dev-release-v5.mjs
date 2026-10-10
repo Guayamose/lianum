@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "65e8a1673c2fe7c1e1a8935ebe52c397d175ecf06c19435155979885b899f89e",
+  "hostSourceClosureSHA256": "e0af50e08eecbd9db96d379507161d4db2e814801e6757177663e00dccf03635",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -750,7 +750,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "integration/device-external-flat-erc20-source-pins-v1.mjs",
-      "sha256": "6879d82bcc9a2bece5e555a6bedfd79414793b203b56e8ca6adfbe47e770d189"
+      "sha256": "a60a8ecd72d71d5a4af89bcb7881c9cf61fd301cdb45452b729f9d1cbb261efe"
     },
     {
       "path": "integration/device-owner-deposit-original-step-v1.mjs",
@@ -2882,7 +2882,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs",
-      "sha256": "85e96772247d0ba98730c81ff4377d755fb2fcef3134305580074923d3b55e91"
+      "sha256": "b216633d070759d8bca65b496e3e44d43bf83ec84eff4c5dff931e41ae053f98"
     },
     {
       "path": "wallet-platform/modules/mobile/original-device-durable-dispatch-v1.mjs",
@@ -3098,7 +3098,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs",
-      "sha256": "c723b619cce97b9b17c57715836bceb7c44c72b0904a4e518908b0b146b75f8f"
+      "sha256": "65cc2d0777b292c2b146c29a3cbc9bd9b8f9dc5270f4ddef25583680b6bc8648"
     },
     {
       "path": "wallet-platform/modules/operations/local/device-external-flat-ordered-local-operator-v1.mjs",
@@ -3110,7 +3110,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs",
-      "sha256": "4a8df9670dc7bde08956075cbaa9cf0158a3f676f168b7b948bba22f41921a75"
+      "sha256": "dc09fc812c8fab1b569acdaccd87ff7cfe21df04579ca9fca4c872cf1094d4c6"
     },
     {
       "path": "wallet-platform/modules/operations/local/funded-graph-paged-device-graph-operator-v3.mjs",
@@ -3230,7 +3230,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-device-local-operator-v1.mjs",
-      "sha256": "aa65474535ae1e64b86f949cb0edf5eea4ffdc47b27cb4b047d9d5f92dcd1260"
+      "sha256": "3da403e0774a3c9ad70b88a7d9c827c721b408f8eefd7df68a350ec50e636337"
     },
     {
       "path": "wallet-platform/modules/ops/native-device-local-provider-v1.mjs",
@@ -3238,7 +3238,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "wallet-platform/modules/ops/native-device-local-restart-v1.mjs",
-      "sha256": "37d59b16905ad33ab2b61d1c89dfb6cc043a8bc8906724d65ddaf2499e0510c0"
+      "sha256": "b29afc80b263fd8b757e5986095375f3f82955fa4e141db8753e863e92f30078"
     },
     {
       "path": "wallet-platform/modules/ops/native-operators.mjs",
