@@ -348,12 +348,12 @@ test('HOST fixed network CLI retains its first sanitized cause before cleanup wi
  const root=await mkdtemp(join(tmpdir(),'network-first-error-host-'));const directory=join(root,NETWORKS.BSC714.directory);
  await mkdir(directory,{recursive:true,mode:0o700});await mkdir(dirname(join(root,PARSER.path)),{recursive:true,mode:0o700});
  await writeFile(join(root,PARSER.path),await readFile(join(repository,PARSER.path)),{mode:0o644});
- const body=helper.slice(helper.indexOf("const FIELDS=")).replace('export async function retainOriginalNetworkMobileFirstErrorV1','async function retainOriginalNetworkMobileFirstErrorV1');
+ const body=helper.slice(helper.indexOf("const FIELDS=")).replaceAll('export async function ','async function ').replaceAll('export function ','function ');
  function writer(){const node=join(root,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
   const env={assert,createHash,randomUUID,constants,open,lstat,realpath,join,root,PARSER,NETWORKS,
    privateOwnedNetworkMobileFirstErrorV1:networkDiagnose,
    process:{execPath:node,argv:[node,join(root,NETWORKS.BSC714.entry)],execArgv:['--max-old-space-size=384'],env:{},getuid:()=>process.getuid()}};
-  return new Function(...Object.keys(env),body+'\nreturn retainOriginalNetworkMobileFirstErrorV1;')(...Object.values(env));
+  return new Function(...Object.keys(env),body+'\nreturn Object.assign(retainOriginalNetworkMobileFirstErrorV1,{close:retainOriginalNetworkMobileCloseErrorV1,hasFirst:originalNetworkMobileFirstErrorRetainedV1});')(...Object.values(env));
  }
  try {
   let cleanup=false;const retain=writer();const receipt=await retain('BSC714',original);assert.equal(cleanup,false);cleanup=true;assert.equal(receipt.retained,true);
@@ -361,8 +361,40 @@ test('HOST fixed network CLI retains its first sanitized cause before cleanup wi
   const path=join(directory,files[0]),bytes=await readFile(path);assert.deepEqual(JSON.parse(bytes.toString()),metadata);
   assert.equal((await lstat(path)).mode&0o777,0o600);assert.equal((await lstat(directory)).mode&0o777,0o700);
   await assert.rejects(retain('BSC714',cause),/FIXED_FIRST_ERROR/);assert.deepEqual(await readFile(path),bytes);
-  // The next original CLI lifetime gets a unique file; the first remains exact.
-  await writer()('BSC714',cause);assert.equal((await readdir(directory)).length,2);assert.deepEqual(await readFile(path),bytes);
+  // Startup primary is retained before the SAME producer's original cleanup.
+  // The actual close block retains its first original cleanup error separately.
+  const product=await readFile(join(repository,'scripts/development/owned-bsc-private-native-mobile-v3.mjs'),'utf8');
+  const startupStart=product.lastIndexOf('}catch(error){')+'}catch(error){'.length,startupEnd=product.trimEnd().length-2;
+  assert.ok(startupStart>0&&product.trimEnd().endsWith('}}'));
+  const startupBody=product.slice(startupStart,startupEnd),closeStart=product.indexOf('selected.tls=null;if(errors.length)'),closeEnd=product.indexOf('return Object.freeze({closed:true,originalResourcesStopped:true',closeStart);
+  assert.ok(closeStart>0&&closeEnd>closeStart);
+  const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+  const lifetime=writer(),events=[],cleanupOriginal=Object.assign(new Error('PRIVATE CLOSE PAYLOAD'),{code:'EIO'}),primary=Object.assign(new Error('PRIVATE START PAYLOAD'),{code:'ENOENT'});
+  const runClose=new AsyncFunction('errors','selected','retainOriginalNetworkMobileCloseErrorV1','process',product.slice(closeStart,closeEnd));
+  const runStartup=new AsyncFunction('error','retainOriginalNetworkMobileFirstErrorV1','close','process',startupBody);
+  const inertProcess={stderr:{write(){throw Error('HOST diagnostic must retain original failures');}}};
+  await assert.rejects(runStartup(primary,async(network,error)=>{assert.equal(error,primary);events.push('START_RETAIN');return lifetime(network,error);},async()=>{assert.deepEqual(events,['START_RETAIN']);events.push('CLEANUP');return runClose([cleanupOriginal],{tls:{}},async(network,error)=>{assert.equal(error,cleanupOriginal);events.push('CLOSE_RETAIN');return lifetime.close(network,error);},inertProcess);},inertProcess),error=>error.cause===primary&&error.errors[1].errors[0]===cleanupOriginal);
+  assert.deepEqual(events,['START_RETAIN','CLEANUP','CLOSE_RETAIN']);
+  const all=await readdir(directory),closeFiles=all.filter(name=>/^close-error-private-[0-9a-f-]{36}\.json$/.test(name));assert.equal(closeFiles.length,1);
+  const closePath=join(directory,closeFiles[0]),closeBytes=await readFile(closePath),closeRecord=JSON.parse(closeBytes.toString());
+  assert.equal(closeRecord.schema,'ORIGINAL_NETWORK_MOBILE_CLOSE_ERROR_PRIVATE_V1');assert.equal(closeRecord.diagnostic.networkCode,'EIO');assert.equal((await lstat(closePath)).mode&0o777,0o600);
+  for(const forbidden of['PRIVATE CLOSE PAYLOAD','PRIVATE START PAYLOAD','message','actual','expected','nativeWire'])assert.equal(closeBytes.toString().includes(forbidden),false);
+  await assert.rejects(lifetime.close('BSC714',primary),/FIXED_FIRST_ERROR/);assert.deepEqual(await readFile(closePath),closeBytes);assert.deepEqual(await readFile(path),bytes);
+  // The next original CLI lifetime gets a unique file; previous files stay exact.
+  await writer()('BSC714',cause);assert.equal((await readdir(directory)).length,4);assert.deepEqual(await readFile(path),bytes);
+  // Creation can reject during validation before the producer's try/catch.
+  // The actual CLI checks durable writer completion, never acquisition truthiness.
+  const cli=await readFile(join(repository,'apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs'),'utf8');
+  const cliStart=cli.lastIndexOf('}catch(error){')+'}catch(error){'.length,cliEnd=cli.trimEnd().length-1;
+  assert.ok(cliStart>0&&cli.trimEnd().endsWith('}'));
+  const runCLI=new AsyncFunction('error','originalNetworkMobileFirstErrorRetainedV1','retainOriginalNetworkMobileFirstErrorV1','close','process',cli.slice(cliStart,cliEnd));
+  const earlyLifetime=writer();assert.equal(earlyLifetime.hasFirst(),false);assert.throws(()=>earlyLifetime.hasFirst(null),/FIRST_ERROR_ARITY/);
+  let earlyWrites=0,earlyClosed=0;const cliEvents=[],cliProcess={exitCode:0,stderr:{write(code){cliEvents.push(code);}}};
+  await runCLI(primary,earlyLifetime.hasFirst,async(network,error)=>{assert.equal(error,primary);earlyWrites++;return earlyLifetime(network,error);},async()=>{assert.equal(earlyLifetime.hasFirst(),true);earlyClosed++;},cliProcess);
+  assert.equal(earlyWrites,1);assert.equal(earlyClosed,1);assert.equal(cliProcess.exitCode,1);assert.deepEqual(cliEvents,['BSC_MOBILE_START_FAILED\n']);assert.equal((await readdir(directory)).length,5);
+  // An already fully retained producer cause survives the CLI wrapper unchanged.
+  await runCLI(new AggregateError([primary,cleanupOriginal],'PRIVATE WRAPPER'),earlyLifetime.hasFirst,async()=>{throw Error('HOST duplicate first write must not run');},async()=>{earlyClosed++;},cliProcess);
+  assert.equal(earlyWrites,1);assert.equal(earlyClosed,2);assert.equal((await readdir(directory)).length,5);assert.deepEqual(await readFile(path),bytes);
   for(const entry of ['run-original-bsc-private-native-mobile-v3.mjs','run-original-arbitrum-private-native-mobile-v1.mjs','run-original-base-private-native-mobile-v1.mjs','run-original-tron-private-native-mobile-v1.mjs']){
    const source=await readFile(join(repository,'apps/platform/src',entry),'utf8');
    const first=source.lastIndexOf('}catch(error){process.exitCode=1;'),diagnostic=source.indexOf('await retainOriginalNetworkMobileFirstErrorV1(',first),close=source.indexOf('try{await close();}',first);

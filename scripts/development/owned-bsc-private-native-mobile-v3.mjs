@@ -3,6 +3,7 @@
  * Local fixture signers are backend custody, never the paired device's root.
  * Original Native10/SOURCE capture cannot restore this distinct native family. */
 import assert from 'node:assert/strict';
+import {retainOriginalNetworkMobileFirstErrorV1,retainOriginalNetworkMobileCloseErrorV1} from './original-network-mobile-private-diagnostic-v1.mjs';
 import {randomBytes,X509Certificate,createPrivateKey,createPublicKey} from 'node:crypto';
 import {constants} from 'node:fs';
 import {mkdir,mkdtemp,lstat,realpath,open} from 'node:fs/promises';
@@ -62,7 +63,7 @@ export async function createOriginalOwnedBscPrivateNativeMobileV3(raw){assert.eq
  if(s.bootstrap)await stop('bootstrap',async()=>{s.bootstrap.close();return {closed:true};},v=>v.closed);
  if(s.nativeRuntime)await stop('nativeRuntime',()=>s.nativeRuntime.close(),v=>v.closed&&v.originalPrivateCustodyClosed);
  if(s.runtime)await stop('receiver',()=>s.runtime.close({removeScratch:false}),v=>v.stopped);if(s.source)await stop('source',()=>closeOriginalOwnedBscSourceProfileV3(s.source),v=>v.closed);
- selected.tls=null;if(errors.length)throw new AggregateError(errors,'BSC_MOBILE_ORIGINAL_CLOSE_UNCONFIRMED');return Object.freeze({closed:true,originalResourcesStopped:true,retainedEncryptedJournals:true,stopped:Object.freeze(stopped)});})();return s.closeWork;}
+ selected.tls=null;if(errors.length){try{await retainOriginalNetworkMobileCloseErrorV1('BSC714',errors[0]);}catch{process.stderr.write('NATIVE_ECONOMIC_PRIVATE_DIAGNOSTIC_UNAVAILABLE\n');}throw new AggregateError(errors,'BSC_MOBILE_ORIGINAL_CLOSE_UNCONFIRMED');}return Object.freeze({closed:true,originalResourcesStopped:true,retainedEncryptedJournals:true,stopped:Object.freeze(stopped)});})();return s.closeWork;}
  try{s.source=createOriginalBscNativeMobileSourceV3();assertOriginalOwnedBscSourceProfileV3(s.source);
  const receiverApi=await load('chain-adapters/owned-evm-v2-runtime.mjs'),bootstrapApi=await load('ops/native-value-local-operator-bootstrap-v4.mjs'),systemApi=await load('ops/native-value-system-v2.mjs'),artifacts=await load('ops/native-value-deployment-artifacts-v2.mjs'),ownerApi=await import(pathToFileURL(join(runtimeRoot,'mobile-core/native-value-owner-process-v2.mjs')).href),executionApi=await load('paeg/native-value-execution-v2.mjs'),accountApi=await load('global-state/native-value-account-authority-v2.mjs'),sessionApi=await load('api/flat-manual-graph-session.mjs'),installer=await load('ops/native-device-local-operator-v1.mjs'),vaultApi=await import(pathToFileURL(join(root,'.internal/runtime/omnichain-product/src/vault.mjs')).href);
  await artifacts.loadNativeValueDevDeploymentArtifactsV5();assertOriginalOwnedBscSourceProfileV3(s.source);
@@ -79,4 +80,4 @@ export async function createOriginalOwnedBscPrivateNativeMobileV3(raw){assert.eq
  s.economicState=await sessionApi.createOriginalSessionWalletEconomicStateV1(s.session);await s.economicState.observe();await receiverApi.refreshNativeValueReceiverClock(s.runtime);s.provider=await provider(s);
  s.installed=await installer.installOriginalPrivateNativeWorkerNoteServiceV3({runtime:s.runtime,system:s.system,owner:s.owner,account:s.account,nativeExecution:s.execution,session:s.session,approval,provider:s.provider,configuration:selected});
  assertOriginalOwnedBscSourceProfileV3(s.source);assertOwnedBscPoSANativeValueLiveV3(s.nativeRuntime);const service=Object.freeze({profile:'ORIGINAL_BSC714_PRIVATE_NATIVE_MOBILE_V3',origin:s.installed.transport.url,descriptor:s.installed.descriptor,nativeChainId:'714',nativeProfile:'OWNED_BSC_POSA_NATIVE_VALUE_714_V3',publicNetwork:false,localFakeValues:true,custody:'BACKEND_LOCAL_PUBLIC_LAB_FIXTURE',nativeSelfCustody:false,independentOperators:false,automaticFunding:false,automaticNativeDelivery:false,plannedOriginalReopenEstablished:false,abruptCrashRecoveryEstablished:false,cloudAuthority:false,source:readOriginalOwnedBscSourceProfileV3(s.source),close});return service;
- }catch(error){try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'BSC_MOBILE_ORIGINAL_START_CLEANUP_UNCONFIRMED',{cause:error});}throw error;}}
+ }catch(error){try{await retainOriginalNetworkMobileFirstErrorV1('BSC714',error);}catch{process.stderr.write('NATIVE_ECONOMIC_PRIVATE_DIAGNOSTIC_UNAVAILABLE\n');}try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'BSC_MOBILE_ORIGINAL_START_CLEANUP_UNCONFIRMED',{cause:error});}throw error;}}
