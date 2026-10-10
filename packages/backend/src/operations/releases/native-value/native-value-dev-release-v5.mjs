@@ -138,7 +138,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     "historicalArtifactRecovered": false,
     "proofAcceptanceEstablished": false
   },
-  "hostSourceClosureSHA256": "20541aac1723861d26cb1bbeb593c84eed1c4c02454e68be5b13c5a1b62f46f4",
+  "hostSourceClosureSHA256": "913bbe972ee6c35c446f81d244cdc4d9f1b74f85d9dc7606a16a2ef056388101",
   "sourceFiles": [
     {
       "path": "candidate/lib/Nargo.toml",
@@ -474,7 +474,7 @@ export const NATIVE_VALUE_DEV_RELEASE_V5 = Object.freeze({
     },
     {
       "path": "golden/src/paeg/funded-graph-paged-deployment-v3.mjs",
-      "sha256": "5519020be8d13099fa8f60481f54e34ddaf7b82ce7d22d9ebd33161bb3d3ac0f"
+      "sha256": "51b1c7743c063b22323f9daa8e844ff26c2d6d8a81fed22c6e105b696177e15f"
     },
     {
       "path": "golden/src/paeg/funded-graph-paged-trees-v3.mjs",
