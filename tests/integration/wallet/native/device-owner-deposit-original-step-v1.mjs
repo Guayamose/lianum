@@ -8,6 +8,8 @@ import { request as httpsRequest } from 'node:https';
 import { createServer } from 'node:net';
 import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
+import { writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
+import { normalizeOriginalNativePrivateDepositFailureV2 } from '../../../../packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
 import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
@@ -207,6 +209,16 @@ async function runOriginalStepV1(context, reservationMode) {
     await stage('device-original-D26-job-HTTP-UNKNOWN');
     if(context.devicePrivateNative){try{const proved=await api.deviceDeposit.submit(signedProof);assert.equal(proved.jobId,consent.jobId);assert.equal(proved.stage,'PROVED');}catch(error){assert.match(error.message,/SERVICE_UNAVAILABLE/);}}else await assert.rejects(api.deviceDeposit.submit(signedProof), /SERVICE_UNAVAILABLE/);
     const proofPath=context.devicePrivateNative?'/v1/mobile/device-deposit/private-jobs':'/v1/mobile/device-deposit/jobs',proofResponse = transport.responses.find(row => row.path===proofPath);
+    if(context.devicePrivateNative&&! [200,504].includes(proofResponse.status)){
+      // Wait for the SAME admitted call before asserting its HTTP mapping.
+      // Retain only the recipient's closed diagnostic; never replay the job.
+      try{await awaitDeviceOwnerDepositOriginalProofV1(bridge);}catch(error){
+        try{const diagnostic=Object.getOwnPropertyDescriptor(error,'nativePrivateProofDiagnostic')?.value;
+          writeFixturePrivate(join(privateDirectory,'native-private-deposit-first-error.json'),normalizeOriginalNativePrivateDepositFailureV2(diagnostic));
+        }catch{/* Diagnostic storage cannot replace the original proof failure. */}
+        throw error;
+      }
+    }
     if(context.devicePrivateNative)assert.ok([200,504].includes(proofResponse.status));else assert.equal(proofResponse.status,504);assert.equal(transport.posts[proofPath],1);if(context.devicePrivateNative){assert.equal(transport.privatePosts[proofPath],1);result.nativePrivateIntake.d26EncryptedHttp=true;}
     // An explicit replay is a negative boundary, never an automatic retry.
     await assert.rejects(api.deviceDeposit.submit(signedProof));
