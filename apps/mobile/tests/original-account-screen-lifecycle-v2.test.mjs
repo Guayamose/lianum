@@ -83,3 +83,83 @@ test('background or input invalidation removes previously displayed private quan
     assert.equal(f.globals.observationEpoch.current, 1);
   }
 });
+
+test('native screen reopens deposit W39 against D26 and output W39 against the same U without new admission', async () => {
+  const input = readFileSync(new URL('../src/screens/DeviceDepositScreen.tsx', import.meta.url), 'utf8');
+  const tree = ts.createSourceFile('DeviceDepositScreen.tsx', input, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const component = tree.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'DeviceDepositScreen');
+  assert.ok(component?.body);
+  const selectedBody = name => {
+    const node = component.body.statements.find(item => ts.isFunctionDeclaration(item) && item.name?.text === name);
+    assert.ok(node?.body, name); return input.slice(node.body.getStart(tree), node.body.end);
+  };
+  const transpiled = name => ts.transpileModule('(async function ' + name + (name === 'publishNote' ? '(value, held) ' : '(held, sameOperation) ') + selectedBody(name) + ')',
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const depositId = 'd'.repeat(64), reservationId = 'a'.repeat(64), rootId = 'b'.repeat(64), pub = '04' + 'c'.repeat(128);
+  function local(role, mutate = () => {}) {
+    const values = { exitRole: role === 'deposit' ? 'change' : 'deposit', exitIntent: null, exitJob: null, note: null }, events = [];
+    const state = { rootId, job: { jobId: depositId, origin: 'https://native.original.test', pairingId: 'e'.repeat(64) },
+      status: 'FUNDED', availableBalance: null, localReservation: role === 'deposit' ? null : { sourceSpentAtRetainedHead: true } };
+    const intent = role === 'deposit' ? null : { rootId, depositJobId: depositId, jobId: reservationId,
+      origin: state.job.origin, pairingId: state.job.pairingId, devicePublicKey: pub };
+    const pending = { rootId, parentJobId: role === 'deposit' ? depositId : reservationId, jobId: 'f'.repeat(64),
+      noteRole: role, statement: { recipient: '1'.repeat(40) }, receipt: null, phase: 'SIGNED', availableBalance: null };
+    const world = { state, intent, pending }; mutate(world);
+    // Explicit inert custody projection and five SDK acquisition boundaries.
+    // The product body consumes only these authenticated-reader projections;
+    // AEAD and SDK branding have their existing original integration tests.
+    const custody = { async readDeviceNote() { events.push('read-note'); return world.state; },
+      async readDeviceReservationIntent() { return world.intent; }, async readDeviceExecutionIntent() { return null; },
+      async readDeviceExitIntent(selected) { events.push('read-exit-' + selected); return world.pending; },
+      close() { events.push('custody-close'); } };
+    const globals = { origin: state.job.origin, pairingId: state.job.pairingId, exitRole: values.exitRole, onObservation: undefined,
+      inspectLocalRootNoteVaultV1: async () => ({ rootId, status: 'ACTIVE' }), openLocalRootNoteVaultV1: id => { assert.equal(id, rootId); return custody; },
+      readDevicePublicKey: async () => pub, live() {}, clearNativeReview() {},
+      setOrigin() {}, setPairingId() {}, setReservationJob() {}, setExecutionIntent() {}, setExitRecipient() {}, setConsent() {},
+      setOwnerReview() {}, setReservationConsent() {}, setExitReview() {}, setExitConsent() {}, setApproved() {}, setMessage() {},
+      setExitRole(value) { values.exitRole = typeof value === 'function' ? value(values.exitRole) : value; },
+      setExitJob(value) { values.exitJob = value; }, setExitIntent(value) { values.exitIntent = value; }, setNote(value) { values.note = value; },
+    };
+    for (const name of ['request', 'authorizationRequest', 'exitRequest', 'quote', 'exitQuote', 'client', 'reservationClient', 'exitClient', 'executionClient', 'balanceClient', 'vault'])
+      globals[name] = { current: null };
+    for (const name of ['createDeviceOwnerDepositApiV1', 'createDeviceOwnerReservationApiV1', 'createDeviceOwnerExitApiV1', 'createDeviceOwnerExecutionApiV1', 'createDeviceOwnerOutputBalanceApiV1'])
+      globals[name] = async descriptor => { assert.equal(descriptor.origin, state.job.origin); assert.equal(descriptor.pairingId, state.job.pairingId);
+        assert.equal(descriptor.devicePublicKey, pub); events.push('sdk-open'); return { descriptor, close() { events.push('sdk-close'); } }; };
+    globals.publishNote = new Script(transpiled('publishNote')).runInNewContext(globals);
+    const connect = new Script(transpiled('openConnection')).runInNewContext(globals);
+    return { connect, values, events, globals, world };
+  }
+  for (const role of ['deposit', 'change', 'recovery']) {
+    const f = local(role);
+    // The stored role choice is meaningful only among S outputs. Start this
+    // recovery case on recovery to ensure the selection survives the reads.
+    if (role === 'recovery') f.globals.exitRole = 'recovery';
+    await f.connect(0, true);
+    assert.equal(f.values.exitRole, role); assert.equal(f.values.exitJob, f.world.pending.jobId);
+    assert.equal(f.values.exitIntent, f.world.pending); assert.equal(f.values.exitIntent.availableBalance, null);
+    assert.equal(f.values.note, f.world.state); assert.equal(f.events.filter(value => value === 'sdk-open').length, 5);
+    assert.equal(f.events.some(value => /prove|fund|reserve|send/.test(value)), false);
+  }
+  for (const mutate of [w => { w.pending.parentJobId = '0'.repeat(64); }, w => { w.pending.rootId = '0'.repeat(64); },
+    w => { w.pending.noteRole = 'change'; }, w => { w.intent = { rootId, depositJobId: depositId, jobId: reservationId,
+      origin: w.state.job.origin, pairingId: w.state.job.pairingId, devicePublicKey: pub }; }]) {
+    const f = local('deposit', mutate); await assert.rejects(f.connect(0, true), /MOBILE_LOCAL_ORIGINAL_JOB_CHANGED/);
+    assert.equal(f.events.includes('sdk-open'), false); assert.equal(f.events.includes('custody-close'), true);
+  }
+  const foreignOutput = local('change', w => { w.intent = null; });
+  await assert.rejects(foreignOutput.connect(0, true), /MOBILE_LOCAL_ORIGINAL_JOB_CHANGED/);
+  assert.equal(foreignOutput.events.includes('sdk-open'), false);
+  // Actual JSX subtree: W39 has its own funded-D26-or-confirmed-S condition,
+  // rather than remaining hidden inside the original reservation-only branch.
+  let withdrawalGate = false;
+  function visit(node) {
+    if (ts.isJsxExpression(node) && node.expression && node.getText(tree).includes('Salida de la misma custodia')) {
+      if (ts.isBinaryExpression(node.expression) && node.expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+        const condition = node.expression.left.getText(tree);
+        if (condition.includes("note?.status === 'FUNDED'") && condition.includes('!note.localReservation')) withdrawalGate = true;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(component); assert.equal(withdrawalGate, true);
+});

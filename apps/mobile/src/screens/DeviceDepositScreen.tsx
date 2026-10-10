@@ -38,7 +38,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   const [executionIntent, setExecutionIntent] = useState<Awaited<ReturnType<Vault['readDeviceExecutionIntent']>>>(null);
   const executionClient = useRef<ExecutionClient | null>(null), nativeSigning = useRef<AbortController | null>(null);
   const balanceClient = useRef<BalanceClient | null>(null);
-  const [exitRole, setExitRole] = useState<'deposit'|'change'|'recovery'>('change'), [exitRecipient, setExitRecipient] = useState('');
+  const [exitRole, setExitRole] = useState<'deposit'|'change'|'recovery'>('deposit'), [exitRecipient, setExitRecipient] = useState('');
   const [exitReview, setExitReview] = useState<DeviceExitQuoteV1 | null>(null), [exitConsent, setExitConsent] = useState<DeviceExitConsentV1 | null>(null);
   const [exitJob, setExitJob] = useState<string | null>(null);
   const [exitIntent, setExitIntent] = useState<Awaited<ReturnType<Vault['readDeviceExitIntent']>>>(null);
@@ -91,7 +91,9 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   }, [ownerReview, reservationConsent, exitReview, exitConsent, executionConsent, recoveryArmReview]);
   const live = (held: number) => { if (!visible.current || held !== epoch.current) throw Error('MOBILE_DEVICE_DEPOSIT_REVOKED'); };
   async function publishNote(value:Awaited<ReturnType<Vault['readDeviceNote']>>,held:number){
-    live(held);if(value&&onObservation){await onObservation(value);live(held);}setNote(value);
+    live(held);if(value&&onObservation){await onObservation(value);live(held);}
+    if(value)setExitRole(role=>value.localReservation ? role==='deposit'?'change':role : 'deposit');
+    setNote(value);
   }
   async function run(work: (held: number) => Promise<void>) {
     if (busyRef.current || !visible.current) return; busyRef.current = true; setBusy(true); const held = epoch.current;
@@ -119,13 +121,17 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       const publicKey = await readDevicePublicKey(); live(held); if (!publicKey) throw Error('MOBILE_KEY_REQUIRED');
       const intent = await custody.readDeviceReservationIntent(); live(held);
       const nativeIntent = await custody.readDeviceExecutionIntent(); live(held);
-      const pendingExit = await custody.readDeviceExitIntent(exitRole); live(held);
+      // D26 withdrawal is parented by the original deposit; S outputs use U.
+      // Select only roles that exist in this same authenticated custody record.
+      const selectedExitRole = state.localReservation ? exitRole === 'deposit' ? 'change' : exitRole : 'deposit';
+      const pendingExit = await custody.readDeviceExitIntent(selectedExitRole); live(held);
       if (intent && (intent.rootId !== state.rootId || intent.depositJobId !== state.job?.jobId
         || intent.origin !== descriptorOrigin || intent.pairingId !== descriptorPairing || intent.devicePublicKey !== publicKey))
         throw Error('MOBILE_LOCAL_ORIGINAL_DOMAIN_CHANGED');
       if (nativeIntent && (!intent || nativeIntent.rootId !== state.rootId || nativeIntent.jobId !== intent.jobId)
-        || pendingExit && (!intent || pendingExit.rootId !== state.rootId || pendingExit.parentJobId !== intent.jobId
-          || pendingExit.noteRole !== exitRole)) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_CHANGED');
+        || pendingExit && (pendingExit.rootId !== state.rootId || pendingExit.noteRole !== selectedExitRole
+          || (selectedExitRole === 'deposit' ? !state.job || intent !== null || pendingExit.parentJobId !== state.job.jobId
+            : !intent || pendingExit.parentJobId !== intent.jobId))) throw Error('MOBILE_LOCAL_ORIGINAL_JOB_CHANGED');
       next = await createDeviceOwnerDepositApiV1({ origin: descriptorOrigin, pairingId: descriptorPairing, devicePublicKey: publicKey }); live(held);
       reservations = await createDeviceOwnerReservationApiV1(next.descriptor); live(held);
       exits = await createDeviceOwnerExitApiV1(next.descriptor); live(held);
@@ -140,7 +146,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       client.current = next; reservationClient.current = reservations; exitClient.current = exits;
       executionClient.current = executions; balanceClient.current = balances; vault.current = custody;
       setOrigin(descriptorOrigin); setPairingId(descriptorPairing); setReservationJob(intent?.jobId ?? null);
-      setExecutionIntent(nativeIntent); setExitJob(pendingExit?.jobId ?? null); setExitIntent(pendingExit);
+      setExecutionIntent(nativeIntent); setExitRole(selectedExitRole); setExitJob(pendingExit?.jobId ?? null); setExitIntent(pendingExit);
       if (pendingExit) setExitRecipient(pendingExit.statement.recipient);
       setConsent(null); setOwnerReview(null); setReservationConsent(null); setExitReview(null); setExitConsent(null); setApproved(false);
       await publishNote(state,held); setMessage(sameOperation
@@ -376,7 +382,8 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   }
   async function selectExitRole(held: number) {
     const custody = vault.current; if (!custody) throw Error('MOBILE_DEVICE_CONNECTION_REQUIRED');
-    const role=exitRole==='deposit'?'change':exitRole==='change'?'recovery':'deposit';
+    const role: 'deposit'|'change'|'recovery' = note?.localReservation?.sourceSpentAtRetainedHead
+      ? exitRole === 'change' ? 'recovery' : 'change' : 'deposit';
     exitRequest.current?.close(); exitRequest.current = null; exitQuote.current = null;
     setExitReview(null); setExitConsent(null); clearNativeReview(); setExitJob(null); setExitIntent(null); setApproved(false);
     const pending = await custody.readDeviceExitIntent(role); live(held);
@@ -520,9 +527,13 @@ Intención de recuperación: {executionIntent.recoveryAttemptRetained ? 'guardad
       {recoveryArmReview&&<><Text style={styles.text}>Acción {recoveryArmReview.action} · reserva {recoveryArmReview.execution.reservation.jobId} · plazo original {recoveryArmReview.settleBefore}</Text>
         <Pressable disabled={busy} onPress={()=>setApproved(value=>!value)}><Text style={styles.button}>{approved?'Permiso revisado':'Revisar y consentir este permiso separado'}</Text></Pressable>
         <Pressable disabled={busy||!approved} onPress={()=>void run(submitRecoveryArm)}><Text style={styles.button}>Firmar una vez este permiso</Text></Pressable></>}
+    </>}
+    {note?.status === 'FUNDED' && (!note.localReservation || note.localReservation.sourceSpentAtRetainedHead) && <>
       <Text style={styles.title}>Salida de la misma custodia</Text>
-      <Text style={styles.text}>El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original. La prueba W39 revela una sola apertura al worker y requiere otra autorización para retirar. No hay adopción de notas por Linux ni reintentos automáticos.</Text>
-      <Pressable disabled={busy} onPress={() => void run(selectExitRole)}>
+      <Text style={styles.text}>{note.localReservation
+        ? 'El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original.'
+        : 'La nota depositada necesita su D26 original y nullifier no gastado. No requiere crear una reserva U/S.'} Cada prueba W39 usa esta misma apertura y requiere otra autorización para retirar. No hay reintentos automáticos.</Text>
+      <Pressable disabled={busy || !note.localReservation} onPress={() => void run(selectExitRole)}>
         <Text style={styles.button}>Apertura: {exitRole==='deposit'?'nota depositada':exitRole==='change'?'cambio':'recuperación'}</Text></Pressable>
       {exitIntent && <Text style={styles.text}>Trabajo W39 retenido {exitIntent.jobId}
 Estado local {exitIntent.receipt ? 'Retirada confirmada por el recibo original' : exitIntent.phase + ' · resultado pendiente de consulta'}
