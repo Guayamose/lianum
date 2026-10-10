@@ -7,12 +7,27 @@ import {normalizeNativeClaimDeviceDescriptorV1,type NativeClaimDeviceObservation
 type Client=ReturnType<typeof createNativeClaimDeviceApiV1>;
 export default function NativeClaimScreen({onObservation}:{onObservation?(value:NativeClaimDeviceObservationV1):void}={}){
  const [pairing,setPairing]=useState(''),[view,setView]=useState<NativeClaimDeviceObservationV1|null>(null),[busy,setBusy]=useState(false);
+ const [requestId,setRequestId]=useState(''),[amount,setAmount]=useState(''),[maxFee,setMaxFee]=useState('');
+ const admitted=useRef(false);
  const [notice,setNotice]=useState('Introduce el emparejamiento entregado por tu operador antes del ingreso original.');
  const mounted=useRef(true),epoch=useRef(0),working=useRef(false),client=useRef<Client|null>(null),signing=useRef<AbortController|null>(null);
  function clear(){epoch.current++;signing.current?.abort();signing.current=null;client.current?.close();client.current=null;setView(null);}
  useEffect(()=>{mounted.current=true;const subscription=AppState.addEventListener('change',state=>{if(state!=='active')clear();});
   return()=>{mounted.current=false;epoch.current++;signing.current?.abort();client.current?.close();subscription.remove();};},[]);
  useEffect(()=>{if(!view)return;const original=epoch.current,timer=setTimeout(()=>{if(mounted.current&&epoch.current===original){setView(null);setNotice('La lectura ha caducado. Autoriza otra consulta.');}},Math.max(0,view.expiresAt-Date.now()));return()=>clearTimeout(timer);},[view]);
+ async function redeem(){if(working.current||admitted.current||AppState.currentState!=='active')return;working.current=true;setBusy(true);clear();const ticket=epoch.current;
+  const current=()=>{if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_NATIVE_CLAIM_CONTEXT_CHANGED');};
+  try{if(pairing.length>8192)throw Error('MOBILE_NATIVE_CLAIM_PAIRING');const descriptor=normalizeNativeClaimDeviceDescriptorV1(JSON.parse(pairing));
+   const key=await readDevicePublicKey();current();if(key!==descriptor.devicePublicKey)throw Error('MOBILE_NATIVE_CLAIM_PAIRING');
+   const selected=createNativeClaimDeviceApiV1({descriptor,fetchImpl:expoFetch});current();client.current=selected;
+   const permission=await selected.redemptionChallenge({requestId,amount,maxFee});current();
+   const abort=new AbortController();signing.current=abort;
+   const signature=await signNativeClaimDevicePermissionV1(permission,descriptor.origin,descriptor.pairingId,abort.signal);current();
+   admitted.current=true;await selected.redeem(permission,signature);current();
+   setNotice('Gasto original admitido. Conserva su identificador y autoriza una lectura; sólo concilia esa misma solicitud si el resultado es incierto.');
+  }catch{if(mounted.current&&epoch.current===ticket){clear();setNotice(admitted.current?'Resultado incierto. Conserva el identificador y concilia la solicitud original; no repitas el gasto.':'Gasto no autorizado. Comprueba el emparejamiento, importe y comisión máxima originales.');}}
+  finally{signing.current=null;working.current=false;if(mounted.current)setBusy(false);}
+ }
  async function run(requestId:string|null){if(working.current||AppState.currentState!=='active')return;working.current=true;setBusy(true);clear();const ticket=epoch.current;
   const current=()=>{if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_NATIVE_CLAIM_CONTEXT_CHANGED');};
   try{if(pairing.length>8192)throw Error('MOBILE_NATIVE_CLAIM_PAIRING');const descriptor=normalizeNativeClaimDeviceDescriptorV1(JSON.parse(pairing));
@@ -33,6 +48,11 @@ export default function NativeClaimScreen({onObservation}:{onObservation?(value:
    onChangeText={value=>{clear();setPairing(value);}} placeholder="Descriptor privado del operador" placeholderTextColor="#b8c8cd" style={styles.input}/>
   <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void run(null)} style={styles.button}><Text>Autorizar lectura original</Text></Pressable>
   <Text style={styles.text}>{notice}</Text>
+  <Text style={styles.text}>Redimir claims custodiados mediante el ticket de quema y entrega originales. El destinatario nativo queda fijado por el operador antes del ingreso. No es una transferencia de autocustodia móvil.</Text>
+  <TextInput accessibilityLabel="Identificador durable del gasto" value={requestId} onChangeText={setRequestId} editable={!busy&&!admitted.current} autoCapitalize="none" style={styles.input} placeholder="Identificador único; conservar tras un error"/>
+  <TextInput accessibilityLabel="Importe en unidades atómicas originales" value={amount} onChangeText={setAmount} editable={!busy&&!admitted.current} keyboardType="numeric" style={styles.input} placeholder="Importe atómico de claims"/>
+  <TextInput accessibilityLabel="Comisión máxima nativa original" value={maxFee} onChangeText={setMaxFee} editable={!busy&&!admitted.current} keyboardType="numeric" style={styles.input} placeholder="Comisión máxima atómica"/>
+  <Pressable accessibilityRole="button" disabled={busy||admitted.current} onPress={()=>void redeem()} style={styles.button}><Text>Autorizar quema y entrega original</Text></Pressable>
   {view&&<><Text style={styles.title}>{view.descriptor.claimSymbol} · {view.descriptor.atomicUnit}</Text>
    <Text selectable style={styles.text}>Dominio: {view.descriptor.claimDomain}{'\n'}Génesis nativa: {view.descriptor.nativeGenesis}</Text>
    <Text style={styles.text}>Disponible: no acreditado por esta lectura del journal.</Text>

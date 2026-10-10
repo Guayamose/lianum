@@ -29,7 +29,7 @@ mock.module(url('../native-claims/native-claim-asset-units-v1.mjs'), { exports: 
       : { claimSymbol: 'cSOL', nativeSymbol: 'SOL', decimals: 9, atomicUnit: 'lamport' });
   },
 } });
-const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures, createPairedOriginalNativeClaimReaderV1, assertPairedOriginalNativeClaimReaderV1 } = await import('../../../src/api/claims/native-claim-session.mjs');
+const { createNativeClaimSession, nativeClaimApiErrorCode, nativeClaimSessionIdentity, nativeClaimSessionPrivateFailures, createPairedOriginalNativeClaimReaderV1, createPairedOriginalNativeClaimSpendingReaderV1, assertPairedOriginalNativeClaimReaderV1 } = await import('../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../src/api/claims/native-claim-http.mjs');
 const hash = value => createHash('sha256').update(value).digest('hex');
 function syntheticConfig(family = '2') {
@@ -83,7 +83,7 @@ async function fixture({ family = '2' } = {}) {
   ], tickets: [], evm: [], apiAccounts: [], apiAdmissions: [] };
   let store = await createClaimRecordStore(options, initial), fault = false, interrupted = false, gate = null;
   let signing = 0, issuance = 0, restartCount = 0, reconciliations = 0, loseIssueReply = false, failRestart = false;
-  let journalReads = 0, journalWrites = 0, nextReconcileError = null;
+  let journalReads = 0, journalWrites = 0, nextReconcileError = null, burns = 0, nativeSends = 0, losePayoutReply = false;
   const journal = {
     read: async () => { journalReads++; return structuredClone((await store.read()).data); },
     async update(transform) {
@@ -102,14 +102,17 @@ async function fixture({ family = '2' } = {}) {
       if (nextReconcileError) { const failure = nextReconcileError; nextReconcileError = null;
         if (failure.uncertain) fault = true; throw failure.error; }
       return { reconciled: true }; },
-    async reconcile({ operationId }) { const data = await journal.read(); return projection(data.deposits.find(row => row.id === operationId)); },
+    async reconcile({ operationId }) { const data = await journal.read(); const ticket=data.tickets.find(row=>row.id===operationId);return ticket?{ticketId:ticket.id,status:ticket.status}:projection(data.deposits.find(row => row.id === operationId)); },
     async preposition({ intentId: id }) { await journal.update(data => { const row = data.deposits.find(item => item.id === id); if (row.status === 'PREPARED') row.status = 'PREPOSITIONED'; return data; }); return controller.reconcile({ operationId: id }); },
     async ingress({ intentId: id }) { await journal.update(data => { const row = data.deposits.find(item => item.id === id); if (!row.native) { signing++; row.native = { originalId: 'synthetic-single-send' }; } return data; }); },
     async issue({ intentId: id }) { issuance++; await journal.update(data => { data.deposits.find(row => row.id === id).status = 'ISSUED'; return data; });
       if (loseIssueReply) { loseIssueReply = false; throw Error('CLAIM_TEST_LOST_REPLY'); }
       return controller.reconcile({ operationId: id }); },
-    async status() { const data = await journal.read(); return { deposits: data.deposits.map(projection), tickets: [] }; },
+    async requestRedemption(request){assert.equal(request.claimDomain,domain);assert.equal(request.caller,input.caller);let ticket;await journal.update(data=>{ticket=data.tickets.find(row=>row.redemptionRequestId===request.requestId);if(!ticket){burns++;ticket={id:hash(request.requestId),claimDomain:domain,redemptionRequestId:request.requestId,status:'BURNED',nativeSent:false};data.tickets.push(ticket);}return data;});return {ticketId:ticket.id,status:ticket.status};},
+    async payout({ticketId}){await journal.update(data=>{const row=data.tickets.find(row=>row.id===ticketId);if(!row.nativeSent){nativeSends++;row.nativeSent=true;}row.status='DISCHARGED';return data;});if(losePayoutReply){losePayoutReply=false;throw Error('SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE');}return {ticketId,status:'DISCHARGED'};},
+    async status() { const data = await journal.read(); return { deposits: data.deposits.map(projection), tickets:data.tickets.map(row=>({ticketId:row.id,status:row.status})) }; },
   };
+  claims.nativeRuntimes=[{roles:{recipient:{endpoint:family==='1'?'0014'+'88'.repeat(20):'88'.repeat(32)}}}];
   const input = { controller, accountId: 'owner_account_01', ownerIdentitySHA256: owner, claimDomain: domain, caller: '0x' + '66'.repeat(20) };
   const runtime = { accounts: [input.caller, '0x' + '77'.repeat(20)] };
   syntheticUnitBindings.set(claims, runtime);
@@ -121,6 +124,7 @@ async function fixture({ family = '2' } = {}) {
   return { input, controller, journal, keeper, claims, config,
     storageStats: () => ({ journalReads, journalWrites }),
     stats: () => ({ signing, issuance, restartCount }),
+    redemptionStats:()=>({burns,nativeSends}),loseRedemptionReply(){losePayoutReply=true;},
     reconciliations: () => reconciliations,
     loseReply() { loseIssueReply = true; },
     failRestartOnce() { failRestart = true; },
@@ -482,4 +486,34 @@ test('original mobile claim pairing persists before effects and reconciles only 
     assert.deepEqual(f.stats(), effects);
     assert.equal((await f.journal.read()).apiDevicePairings.length, 1);
   } finally { for (const value of readers) value.close(); for (const value of readers) await value.idle(); await f.close(); }
+});
+
+
+test('mobile redemption retains before-fund destination and fresh PoP in the same original journal, lost reply reconciles without another effect',async()=>{
+ const f=await fixture(),keys=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),jwk=keys.publicKey.export({format:'jwk'}),devicePublicKey='04'+Buffer.from(jwk.x,'base64url').toString('hex')+Buffer.from(jwk.y,'base64url').toString('hex');
+ const origin='https://127.0.0.1:9443',readers=[];
+ const mapped=import.meta.url.includes('/wallet-platform/modules/api/');
+ const {nativeClaimDevicePermissionMessageV1,normalizeNativeClaimDevicePermissionV1}=await import(new URL(mapped?'../../../../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs':'../../../../mobile-protocol/src/native-claim-device-v1.mjs',import.meta.url));
+ const {createNativeClaimDeviceApiV1}=await import(new URL(mapped?'../../../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs':'../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs',import.meta.url));
+ function signature(permission){const bytes=sign('sha256',nativeClaimDevicePermissionMessageV1(permission),{key:keys.privateKey,dsaEncoding:'ieee-p1363'}),order=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n,s=BigInt('0x'+bytes.subarray(32).toString('hex'));if(s>order/2n)Buffer.from((order-s).toString(16).padStart(64,'0'),'hex').copy(bytes,32);return bytes.toString('hex');}
+ async function reader(session){const value=await createPairedOriginalNativeClaimSpendingReaderV1({session,origin,devicePublicKey});readers.push(value);return value;}
+ try{const session=await f.session(),mobile=await reader(session),descriptor=assertPairedOriginalNativeClaimReaderV1(mobile);
+  const paired=await f.journal.read();assert.equal(paired.apiDevicePairings[0].redemptionBinding.custody,'BACKEND_LOCAL_QUORUM');assert.equal(paired.apiDevicePairings[0].redemptionBinding.nativeSelfCustody,false);assert.deepEqual(f.redemptionStats(),{burns:0,nativeSends:0});
+  await assert.rejects(mobile.challenge({action:'REDEEM_NATIVE_CLAIM',requestId:'native_spend_01',amount:'1',maxFee:'1'}),/ORIGINAL_ISSUANCE_REQUIRED/);
+  await session.submit('deposit',{requestId:'same_mobile_fund_01',intentId});await session.idle();
+  let posts=0;const sdk=createNativeClaimDeviceApiV1({descriptor,fetchImpl:async(target,options)=>{const input=JSON.parse(options.body);let value;if(target.endsWith('/challenges'))value=await mobile.challenge(input);else{posts++;value=await mobile.operate(input);}return new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});}});
+  const permission=await sdk.redemptionChallenge({requestId:'native_spend_01',amount:'1',maxFee:'1'});assert.equal(normalizeNativeClaimDevicePermissionV1(permission).profile,'LIANUM_NATIVE_CLAIM_DEVICE_REDEEM_PERMISSION_V1');
+  const altered=structuredClone(permission);altered.redemptionBinding.recipientEndpoint='99'.repeat(32);await assert.rejects(mobile.operate({permission:altered,signature:signature(permission)}),/PERMISSION/);
+  f.loseRedemptionReply();const ack=await sdk.redeem(permission,signature(permission));assert.equal(ack.admitted,true);await mobile.idle();assert.deepEqual(f.redemptionStats(),{burns:1,nativeSends:1});
+  await assert.rejects(sdk.redeem(permission,signature(permission)));assert.equal(posts,1,'SDK burns permission before POST');
+  const current=await session.snapshot();assert.equal(current.requests.find(row=>row.requestId==='native_spend_01').state,'RECONCILIATION_REQUIRED');
+  await assert.rejects(mobile.challenge({action:'REDEEM_NATIVE_CLAIM',requestId:'native_spend_02',amount:'1',maxFee:'1'}),/OBSERVE_ORIGINAL_PENDING/);
+  const duplicate=await sdk.redemptionChallenge({requestId:'native_spend_01',amount:'1',maxFee:'1'});assert.equal((await sdk.redeem(duplicate,signature(duplicate))).duplicate,true);await mobile.idle();assert.deepEqual(f.redemptionStats(),{burns:1,nativeSends:1});
+  const reconcile=await sdk.challenge('RECONCILE_CLAIM_REQUEST','native_spend_01');await sdk.reconcile(reconcile,signature(reconcile));await mobile.idle();assert.deepEqual(f.redemptionStats(),{burns:1,nativeSends:1});
+  const journal=await f.journal.read(),admission=journal.apiAdmissions.find(row=>row.requestId==='native_spend_01');assert.equal(admission.state,'CONFIRMED');assert.deepEqual(admission.mobileRedemption.permission.redemptionBinding,paired.apiDevicePairings[0].redemptionBinding);
+  sdk.close();mobile.close();await mobile.idle();await session.close();await f.reopenStore();const reopened=await f.session(),restored=await reader(reopened);assert.deepEqual(assertPairedOriginalNativeClaimReaderV1(restored),descriptor);
+  const retained=await restored.challenge({action:'REDEEM_NATIVE_CLAIM',requestId:'native_spend_01',amount:'1',maxFee:'1'});assert.equal((await restored.operate({permission:retained,signature:signature(retained)})).duplicate,true);await restored.idle();assert.deepEqual(f.redemptionStats(),{burns:1,nativeSends:1});
+  restored.close();await restored.idle();await reopened.close();
+  const late=await f.session({accountId:'late_spending_binding_01'});await assert.rejects(createPairedOriginalNativeClaimSpendingReaderV1({session:late,origin,devicePublicKey}),/BEFORE_EFFECTS_REQUIRED/);
+ }finally{for(const value of readers)value.close();for(const value of readers)await value.idle();await f.close();}
 });

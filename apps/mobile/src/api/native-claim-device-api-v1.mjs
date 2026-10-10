@@ -1,7 +1,7 @@
 /** Fixed SAME-session TLS client. No native keys, automatic retry or resume. */
 import {normalizeNativeClaimDeviceDescriptorV1,normalizeNativeClaimDevicePermissionV1,
  validateNativeClaimDevicePermissionFreshV1,normalizeNativeClaimDeviceSignatureV1,
- normalizeNativeClaimDeviceObservationV1,normalizeNativeClaimDeviceReconcileV1}
+ normalizeNativeClaimDeviceObservationV1,normalizeNativeClaimDeviceReconcileV1,normalizeNativeClaimDeviceRedeemAdmissionV1}
  from '../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs';
 const fail=()=>{throw Error('MOBILE_NATIVE_CLAIM_REJECTED');};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),observations=new WeakMap();
@@ -28,7 +28,7 @@ export function createNativeClaimDeviceApiV1({descriptor,fetchImpl=globalThis.fe
   if(!retained||retained.consumed||permission.action!==action)fail();scope(permission);
   signature=normalizeNativeClaimDeviceSignatureV1(signature);retained.consumed=true;
   const raw=await post('operations',{permission,signature});live();
-  const value=action==='READ_CLAIM_JOURNAL'?normalizeNativeClaimDeviceObservationV1(raw):normalizeNativeClaimDeviceReconcileV1(raw);
+  const value=action==='READ_CLAIM_JOURNAL'?normalizeNativeClaimDeviceObservationV1(raw):action==='REDEEM_NATIVE_CLAIM'?normalizeNativeClaimDeviceRedeemAdmissionV1(raw):normalizeNativeClaimDeviceReconcileV1(raw);
   if(!same(value.descriptor,original)||value.permissionId!==permission.challengeId)fail();
   if(action==='READ_CLAIM_JOURNAL'){scope(permission);if(value.expiresAt!==permission.expiresAt)fail();observations.set(value,{expiresAt:permission.expiresAt});}
   else if(value.requestId!==permission.requestId)fail();return value;
@@ -37,6 +37,10 @@ export function createNativeClaimDeviceApiV1({descriptor,fetchImpl=globalThis.fe
   async challenge(action='READ_CLAIM_JOURNAL',requestId=null){if(arguments.length>2||!['READ_CLAIM_JOURNAL','RECONCILE_CLAIM_REQUEST'].includes(action))fail();
    const value=normalizeNativeClaimDevicePermissionV1(await post('challenges',{action,requestId}));scope(value);
    if(value.action!==action||value.requestId!==requestId)fail();permissions.set(value,{consumed:false});return value;},
+  async redemptionChallenge(input){if(arguments.length!==1||!input||Object.getPrototypeOf(input)!==Object.prototype||Reflect.ownKeys(input).length!==3||!['requestId','amount','maxFee'].every(k=>Object.hasOwn(Object.getOwnPropertyDescriptor(input,k)??{},'value')))fail();
+   const value=normalizeNativeClaimDevicePermissionV1(await post('challenges',{action:'REDEEM_NATIVE_CLAIM',requestId:input.requestId,amount:input.amount,maxFee:input.maxFee}));scope(value);
+   if(value.action!=='REDEEM_NATIVE_CLAIM'||value.requestId!==input.requestId||value.amount!==input.amount||value.maxFee!==input.maxFee)fail();permissions.set(value,{consumed:false});return value;},
+  redeem(permission,signature){if(arguments.length!==2)fail();return consume(permission,signature,'REDEEM_NATIVE_CLAIM');},
   read(permission,signature){if(arguments.length!==2)fail();return consume(permission,signature,'READ_CLAIM_JOURNAL');},
   reconcile(permission,signature){if(arguments.length!==2)fail();return consume(permission,signature,'RECONCILE_CLAIM_REQUEST');},
   close(){if(arguments.length!==0)fail();closed=true;for(const controller of controllers)controller.abort();return{closed:true};},

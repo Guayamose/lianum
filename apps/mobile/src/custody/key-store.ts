@@ -446,7 +446,9 @@ export async function signNativeClaimDevicePermissionV1(raw:unknown,expectedOrig
  if(v.descriptor.origin!==expectedOrigin||v.descriptor.pairingId!==expectedPairingId)throw Error('MOBILE_NATIVE_CLAIM_BINDING');return v;};
  current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();
  if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:value.action==='READ_CLAIM_JOURNAL'
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:value.action==='REDEEM_NATIVE_CLAIM'
+  ?'Quemar este importe de claims y entregar una sola vez al destinatario nativo original; custodia del operador'
+  :value.action==='READ_CLAIM_JOURNAL'
   ?'Leer el journal de claims custodiados por este operador; no gastar fondos'
   :'Conciliar esta solicitud original de claims; no firmar, probar ni reenviar fondos',
   cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
