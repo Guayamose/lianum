@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { types } from 'node:util';
 import { spawn, execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
@@ -8,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 
 const PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1';
-const RECIPE_SHA256 = 'b9b67ea0871e9f009b3c15fc2fe95f964a0f659aa1d6f257cc17bf31b7262d6b';
+const NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1';
+const nativeValues = new WeakSet();
+const RECIPE_SHA256 = 'dab6f6776210b8e6b1175650d2bc2ea90863f06debd7023b6ee61bdbf4fc28b3';
 const BIRTH_MS = 600_000 + 180_000 + 15_000;
 const IPC_MS = 30_000;
 const owned = new WeakMap();
@@ -123,7 +126,7 @@ async function shutdown(state) {
       }
       assert(result && state.identity && !present(state.identity), 'ARBITRUM_ORIGINAL_BACKEND_CLOSE_UNCONFIRMED');
       if (primary) throw primary;
-      return Object.freeze({ profile: PROFILE, closed: true, originalBackendExitCode: result.code,
+      return Object.freeze({ profile: state.profile, closed: true, originalBackendExitCode: result.code,
         originalBackendSignal: result.signal, controlledShutdownSignalUsed: controlledSignal,
         containerCount: state.containers.size, containerDataRetained: true,
         originalOutcomeUncertain: state.uncertain });
@@ -131,6 +134,26 @@ async function shutdown(state) {
   })();
   return state.stopWork;
 }
+function originalReadInput(method, params) {
+  assert(typeof method==='string' && method.length<=64,'ARBITRUM_ORIGINAL_READ_REQUEST');
+  let nodes=0, characters=0;
+  function copy(value,depth=0) {
+    assert(++nodes<=256 && depth<=8,'ARBITRUM_ORIGINAL_READ_BOUND');
+    if(value===null || typeof value==='boolean')return value;
+    if(typeof value==='string'){characters+=value.length;assert(characters<=8192,'ARBITRUM_ORIGINAL_READ_BOUND');return value;}
+    if(typeof value==='number'){assert(Number.isSafeInteger(value)&&!Object.is(value,-0),'ARBITRUM_ORIGINAL_READ_REQUEST');return value;}
+    assert(value && typeof value==='object' && !types.isProxy(value),'ARBITRUM_ORIGINAL_READ_REQUEST');
+    const array=Array.isArray(value);assert(Object.getPrototypeOf(value)===(array?Array.prototype:Object.prototype),'ARBITRUM_ORIGINAL_READ_REQUEST');
+    const keys=Reflect.ownKeys(value);assert(keys.length<=32,'ARBITRUM_ORIGINAL_READ_BOUND');
+    if(array){assert(value.length<=16 && keys.length===value.length+1,'ARBITRUM_ORIGINAL_READ_REQUEST');
+      const result=[];for(let i=0;i<value.length;i++){const field=Object.getOwnPropertyDescriptor(value,String(i));assert(field&&Object.hasOwn(field,'value'),'ARBITRUM_ORIGINAL_READ_REQUEST');result.push(copy(field.value,depth+1));}return result;}
+    const result={};for(const key of keys){assert(typeof key==='string' && key.length<=64 && !['__proto__','constructor','prototype'].includes(key),'ARBITRUM_ORIGINAL_READ_REQUEST');
+      characters+=key.length;assert(characters<=8192,'ARBITRUM_ORIGINAL_READ_BOUND');const field=Object.getOwnPropertyDescriptor(value,key);assert(Object.hasOwn(field,'value'),'ARBITRUM_ORIGINAL_READ_REQUEST');result[key]=copy(field.value,depth+1);}return result;
+  }
+  assert(Array.isArray(params) && !types.isProxy(params),'ARBITRUM_ORIGINAL_READ_REQUEST');
+  const input={method,params:copy(params)};assert(Buffer.byteLength(JSON.stringify(input))<=16384,'ARBITRUM_ORIGINAL_READ_BOUND');return input;
+}
+
 async function command(runtime, operation, input) {
   const state = live(runtime), previous = state.tail; let release;
   const held = new Promise(resolve => { release = resolve; });
@@ -149,13 +172,13 @@ async function command(runtime, operation, input) {
 }
 
 // Direct canonical import is outside the frozen compiler/runtime mapper.
-export async function createOwnedArbitrumNitroClusterV1() {
-  assert.equal(arguments.length, 0, 'ARBITRUM_NO_OPTIONS');
+async function createFixedArbitrumNitroClusterV1(nativeValue) {
+  const profile = nativeValue ? NATIVE_VALUE_PROFILE : PROFILE;
   const root = repository(), recipe = join(root, 'scripts/development/owned_arbitrum_nitro_v1.py');
   assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'ARBITRUM_ORIGINAL_RECIPE_CHANGED');
-  const child = spawn('/usr/bin/python3', [recipe], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'],
+  const child = spawn('/usr/bin/python3', [recipe, ...(nativeValue ? ['--native-value'] : [])], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'],
     env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' } });
-  const state = { child, identity: null, pending: new Map(), containers: new Map(), project: null,
+  const state = { child, profile, nativeValue, identity: null, pending: new Map(), containers: new Map(), project: null,
     sequence: 0, tail: Promise.resolve(), failed: false, closed: false, uncertain: false };
   let readyResolve, readyReject, exitResolve;
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
@@ -171,7 +194,7 @@ export async function createOwnedArbitrumNitroClusterV1() {
       assert(line.length <= 262144, 'ARBITRUM_ORIGINAL_REPLY_BOUND');
       const value = JSON.parse(line);
       if (value.ownedBirth === true) {
-        sameProcess(state); assert.equal(value.profile, PROFILE);
+        sameProcess(state); assert.equal(value.profile, state.profile);
         assert.deepEqual(value.originalParent, processIdentity(process.pid));
         assert.deepEqual(value.originalBackend, state.identity);
         assert(/^lianum-nitro-[0-9a-f]{32}$/.test(value.project), 'ARBITRUM_ORIGINAL_PROJECT');
@@ -188,7 +211,7 @@ export async function createOwnedArbitrumNitroClusterV1() {
         return;
       }
       if (value.ready === true) {
-        sameProcess(state); assert.equal(value.profile, PROFILE); assert.equal(value.project, state.project);
+        sameProcess(state); assert.equal(value.profile, state.profile); assert.equal(value.project, state.project);
         assert.deepEqual(value.originalParent, processIdentity(process.pid)); assert.deepEqual(value.originalBackend, state.identity);
         assert.equal(new Set([...state.containers.values()].map(row => row.service)).size, roles.size);
         assert.equal(value.finality.scope, 'owned-local-nitro-parent-finality');
@@ -214,10 +237,10 @@ export async function createOwnedArbitrumNitroClusterV1() {
     await bounded(ready, BIRTH_MS, 'ARBITRUM_ORIGINAL_CONSTRUCTOR_TIMEOUT');
     sameProcess(state); assert(!state.failed && !state.closed, 'ARBITRUM_ORIGINAL_RUNTIME_UNAVAILABLE');
     assert.equal(createHash('sha256').update(readFileSync(recipe)).digest('hex'), RECIPE_SHA256, 'ARBITRUM_ORIGINAL_RECIPE_CHANGED');
-    const runtime = Object.freeze({ profile: PROFILE, network: 'arbitrum-nitro', chainId: 412346,
+    const runtime = Object.freeze({ profile, network: 'arbitrum-nitro', chainId: nativeValue ? 42161 : 412346,
       parentChainId: 1337, scope: 'owned-local', independentOperators: false,
       async close() { assert.equal(arguments.length, 0, 'ARBITRUM_NO_OPTIONS'); return shutdown(state); } });
-    owned.set(runtime, state); return runtime;
+    owned.set(runtime, state); if(nativeValue) nativeValues.add(runtime); return runtime;
   } catch (error) { fail(state, error, true); try { await shutdown(state); } catch {} throw error; }
 }
 export function assertOwnedArbitrumNitroClusterV1(runtime) {
@@ -230,4 +253,35 @@ export async function sendOwnedArbitrumNitroSignedTransactionOnceV1(runtime, wir
   assert.equal(arguments.length, 2, 'ARBITRUM_ORIGINAL_SIGNED_WIRE_ONLY');
   assert(typeof wire === 'string' && /^0x(?:[0-9a-f]{2}){1,65536}$/.test(wire), 'ARBITRUM_ORIGINAL_SIGNED_WIRE');
   return command(runtime, 'broadcast', wire);
+}
+
+export async function createOwnedArbitrumNitroClusterV1() {
+  assert.equal(arguments.length,0,'ARBITRUM_NO_OPTIONS'); return createFixedArbitrumNitroClusterV1(false);
+}
+export async function createOwnedArbitrumNitroNativeValueClusterV1() {
+  assert.equal(arguments.length,0,'ARBITRUM_NO_OPTIONS'); return createFixedArbitrumNitroClusterV1(true);
+}
+export function isOwnedArbitrumNitroNativeValueClusterV1(runtime) {
+  assert.equal(arguments.length,1,'ARBITRUM_RUNTIME_ONLY'); return nativeValues.has(runtime);
+}
+export function assertOwnedArbitrumNitroNativeValueLiveV1(runtime) {
+  assert.equal(arguments.length,1,'ARBITRUM_RUNTIME_ONLY'); assert(nativeValues.has(runtime),'ARBITRUM_ORIGINAL_ECONOMIC_PROFILE_REQUIRED'); live(runtime);
+}
+export async function readOwnedArbitrumNitroNativeValueIdentityV1(runtime) {
+  assertOwnedArbitrumNitroNativeValueLiveV1(runtime); const value=await command(runtime,'identity',null);
+  assertOwnedArbitrumNitroNativeValueLiveV1(runtime); assert.equal(value.profile,NATIVE_VALUE_PROFILE);
+  assert.equal(value.chainId,String(42161));assert(/^[0-9a-f]{64}$/.test(value.genesis));
+  const state=live(runtime), containers=[...state.containers.values()].map(row=>({
+    id:row.id,image:row.image,created:row.created,process:row.process,service:row.service})).sort((a,b)=>a.service.localeCompare(b.service));
+  const hash=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+  return Object.freeze({...value,identity:Object.freeze({
+    endpointIdentity:hash({profile:state.profile,backend:state.identity,containers}),
+    clientRelease:hash({sourceCommit:value.sourceCommit,images:containers.map(x=>x.image)}),
+    chainConfiguration:hash({profile:value.profile,chainId:value.chainId,genesis:value.genesis,
+      parentGenesis:value.parentGenesis,sourceCommit:value.sourceCommit})})});
+}
+export async function readOwnedArbitrumNitroNativeValueRpcV1(runtime,method,params) {
+  assert.equal(arguments.length,3,'ARBITRUM_ORIGINAL_READ_ARITY'); assertOwnedArbitrumNitroNativeValueLiveV1(runtime);
+  const input=originalReadInput(method,params);
+  const value=await command(runtime,'read',input);assertOwnedArbitrumNitroNativeValueLiveV1(runtime);return value;
 }

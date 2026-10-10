@@ -160,6 +160,50 @@ class OriginalNitroNamespaceTest(unittest.TestCase):
         with self.assertRaisesRegex(module.ClosedError, '^ARBITRUM_ORIGINAL_PROJECT$'):
             module.fixed_runtime_compose(saved, images, 'arbitrary-project')
 
+    def test_economic_profile_changes_only_original_id_before_birth(self):
+        spec=importlib.util.spec_from_file_location('original_nitro_native_value',Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+        files=m.official_files(m.repository()/'.local/dependencies/arbitrum-nitro-v1/public'/f'nitro-testnode-{m.COMMIT}.tar.gz')
+        self.assertEqual(m.economic_files(files),files)
+        m.NATIVE_VALUE=True
+        changed=m.economic_files(files)
+        self.assertEqual(set(changed),set(files))
+        self.assertEqual(changed['scripts/config.ts'],files['scripts/config.ts'].replace(b'412346',b'42161'))
+        self.assertEqual({k:v for k,v in changed.items() if k!='scripts/config.ts'},
+                         {k:v for k,v in files.items() if k!='scripts/config.ts'})
+
+    def test_original_economic_read_port_is_readonly_and_keeps_network_guards(self):
+        spec=importlib.util.spec_from_file_location('original_nitro_native_value',Path(__file__).with_name('owned_arbitrum_nitro_v1.py'))
+        m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+        m.NATIVE_VALUE=True;m.CHAIN_ID=42161
+        cluster=m.OriginalCluster.__new__(m.OriginalCluster)
+        cluster.l2='original-private-l2'
+        genesis={'number':'0x0','hash':'0x'+'a'*64}
+        cluster.l2_genesis=m.header(genesis)
+        health=[];cluster.healthy=lambda:health.append(True)
+        calls=[]
+        def rpc(url,method,params):
+            self.assertEqual(url,cluster.l2);calls.append((method,params))
+            if method=='eth_chainId':return hex(m.CHAIN_ID)
+            if method=='eth_getBlockByNumber':self.assertEqual(params,['0x0',False]);return dict(genesis)
+            if method=='debug_traceTransaction':return {'type':'CALL'}
+            self.fail('unexpected synthetic port')
+        m.rpc=rpc
+        trace={'tracer':'callTracer','timeout':'5s','reexec':128,'tracerConfig':{'onlyTopCall':True,'withLog':False}}
+        result=cluster.read_original({'method':'debug_traceTransaction','params':['0x'+'b'*64,trace]})
+        self.assertEqual(result,{'type':'CALL'});self.assertEqual(len(health),2)
+        before=len(calls)
+        with self.assertRaisesRegex(m.ClosedError,'^ARBITRUM_ORIGINAL_READ_METHOD$'):
+            cluster.read_original({'method':'eth_sendRawTransaction','params':['0x01']})
+        self.assertEqual(len(calls),before)
+        with self.assertRaisesRegex(m.ClosedError,'^ARBITRUM_ORIGINAL_READ_PARAMS$'):
+            cluster.read_original({'method':'debug_traceTransaction','params':['0x'+'b'*64,dict(trace,timeout='30s')]})
+        self.assertEqual(len(calls),before)
+        m.NATIVE_VALUE=False
+        with self.assertRaisesRegex(m.ClosedError,'^ARBITRUM_ORIGINAL_ECONOMIC_PROFILE_REQUIRED$'):
+            cluster.read_original({'method':'eth_chainId','params':[]})
+        self.assertEqual(len(calls),before)
+
 
 if __name__ == '__main__':
     unittest.main()

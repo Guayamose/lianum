@@ -88,6 +88,46 @@ class OriginalBaseLocalTest(unittest.TestCase):
         self.assertEqual(calls.count('eth_sendRawTransaction'), 1)
         self.assertEqual(len(runtime.admitted), 1)
 
+    def test_economic_profile_changes_only_original_id_before_birth(self):
+        m = module()
+        files=m.official_files(m.repository()/'.local/dependencies/base-original-v1/public'/f'base-{m.COMMIT}.tar.gz')
+        original=m.infrastructure_env(files['etc/docker/devnet-env'].decode(),27)
+        self.assertIn('L2_CHAIN_ID=84538453',original)
+        m.NATIVE_VALUE=True
+        changed=m.infrastructure_env(files['etc/docker/devnet-env'].decode(),27)
+        self.assertEqual(changed,original.replace('L2_CHAIN_ID=84538453','L2_CHAIN_ID=8453'))
+
+    def test_original_economic_read_port_is_readonly_and_keeps_network_guards(self):
+        m = module()
+        m.NATIVE_VALUE=True;m.CHAIN_ID=8453
+        cluster=m.OriginalCluster.__new__(m.OriginalCluster)
+        cluster.l2='original-private-l2'
+        genesis={'number':'0x0','hash':'0x'+'a'*64}
+        cluster.l2_genesis=m.header(genesis)
+        health=[];cluster.healthy=lambda:health.append(True)
+        calls=[]
+        def rpc(url,method,params):
+            self.assertEqual(url,cluster.l2);calls.append((method,params))
+            if method=='eth_chainId':return hex(m.CHAIN_ID)
+            if method=='eth_getBlockByNumber':self.assertEqual(params,['0x0',False]);return dict(genesis)
+            if method=='debug_traceTransaction':return {'type':'CALL'}
+            self.fail('unexpected synthetic port')
+        m.rpc=rpc
+        trace={'tracer':'callTracer','timeout':'5s','reexec':128,'tracerConfig':{'onlyTopCall':True,'withLog':False}}
+        result=cluster.read_original({'method':'debug_traceTransaction','params':['0x'+'b'*64,trace]})
+        self.assertEqual(result,{'type':'CALL'});self.assertEqual(len(health),2)
+        before=len(calls)
+        with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_READ_METHOD$'):
+            cluster.read_original({'method':'eth_sendRawTransaction','params':['0x01']})
+        self.assertEqual(len(calls),before)
+        with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_READ_PARAMS$'):
+            cluster.read_original({'method':'debug_traceTransaction','params':['0x'+'b'*64,dict(trace,timeout='30s')]})
+        self.assertEqual(len(calls),before)
+        m.NATIVE_VALUE=False
+        with self.assertRaisesRegex(m.ClosedError,'^BASE_ORIGINAL_ECONOMIC_PROFILE_REQUIRED$'):
+            cluster.read_original({'method':'eth_chainId','params':[]})
+        self.assertEqual(len(calls),before)
+
 
 if __name__ == '__main__':
     unittest.main()

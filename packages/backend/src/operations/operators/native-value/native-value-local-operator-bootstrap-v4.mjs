@@ -27,7 +27,7 @@ import * as Tron from '../../../chains/tron/transfers/tron-native-graph-profile.
 import { bindOriginalEvmGraphTransfer } from '../../../chains/evm/transfers/evm-graph-transfer-binding.mjs';
 import { isOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmNativeValueRuntimeLive }
   from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import { describeOwnedLocalEvmNativeValueSource, createOwnedLocalEvmNativeValueHealthSource }
+import { describeOwnedLocalEvmNativeValueSource, createOwnedLocalEvmNativeValueHealthSource, openOriginalOwnedRollupNativeValueSourcesV1 }
   from '../../../chains/evm/health/owned-evm-native-value-health-source-v4.mjs';
 import { NATIVE_QUORUM_PROFILE } from '../../../../../engine/src/evidence/native-quorum.mjs';
 import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../recovery/native-original-source-capsule-v1.mjs';
@@ -70,6 +70,12 @@ async function runtimeEntry(nativeRuntime,sourceLimits=limits) {
     preliminary=createProfile({chain:CHAINS[first.chainId][0],genesisHash:'0x'+first.genesis,sourceSetRoot:sha256('native-value-local-unbound-source-root'),...sourceLimits});
     createSource=input=>createOwnedLocalEvmNativeValueHealthSource({nativeRuntime,...input});
   } else {
+    const rollup=await openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime);
+    if(rollup){
+      ({descriptors,assertLive,createSource}=rollup);assertLive();const first=descriptors[0];
+      assert.ok(CHAINS[first.chainId],'NATIVE_VALUE_LOCAL_REGISTERED_EVM_CHAIN');
+      preliminary=createProfile({chain:CHAINS[first.chainId][0],genesisHash:'0x'+first.genesis,sourceSetRoot:sha256('native-value-local-unbound-source-root'),...sourceLimits});
+    }else{
     // Exact fixed factory modules, never a caller module path or transport.
     const R=await import('../../../chains/tron/runtime/owned-tron-native-value-runtime.mjs');
     assert.ok(R.isOwnedLocalTronNativeValueV1(nativeRuntime),'NATIVE_VALUE_LOCAL_ORIGINAL_RUNTIME_REQUIRED');
@@ -82,6 +88,7 @@ async function runtimeEntry(nativeRuntime,sourceLimits=limits) {
     const S=await import('../../../chains/tron/health/owned-tron-native-value-health-source-v4.mjs');
     descriptors=await drained([0,1,2,3].map(i=>()=>S.describeOwnedLocalTronNativeValueSource(nativeRuntime,{profile:preliminary,sourceIndex:String(i)})));assertLive();
     createSource=input=>S.createOwnedLocalTronNativeValueHealthSource({nativeRuntime,...input});
+    }
   }
   const sources=descriptors.map((descriptor,i)=>{
     assert.equal(descriptor.publicNetwork,false,'NATIVE_VALUE_LOCAL_PUBLIC_NETWORK_REJECTED');

@@ -17,6 +17,10 @@ import urllib.request
 import uuid
 
 PROFILE = 'OWNED_BASE_NATIVE_ROLLUP_POS_V1'
+PREPARED_PROFILE = PROFILE
+NATIVE_VALUE_PROFILE = 'OWNED_BASE_NATIVE_VALUE_ROLLUP_POS_V1'
+NATIVE_VALUE = False
+CHAIN_ID = 84538453
 COMMIT = '5034ef80bc90261ff6c4841fdf4baed34283abad'
 ARCHIVE_SHA = '354a94ce7c2d8e0293288b39cfe0de867b538a638441f2eb5715ab16d15a595c'
 SLOT_SECONDS = 2  # Official generator override fixed before this new birth.
@@ -158,6 +162,9 @@ def infrastructure_env(source, subnet_octet):
     # fork, batcher or native confirmation term is derived from this value.
     value = source.replace('172.30.0.', f'172.28.{subnet_octet}.')
     require('L1_SLOT_DURATION_OVERRIDE=' not in value, 'BASE_ORIGINAL_SLOT_SOURCE_CHANGED')
+    if NATIVE_VALUE:
+        require(value.count('L2_CHAIN_ID=84538453') == 1, 'BASE_ORIGINAL_CHAIN_SOURCE_CHANGED')
+        value = value.replace('L2_CHAIN_ID=84538453', 'L2_CHAIN_ID=8453')
     return value + f'\nL1_SLOT_DURATION_OVERRIDE={SLOT_SECONDS}\n'
 
 
@@ -333,7 +340,7 @@ class OriginalCluster:
             prepared = root / '.local/dependencies/base-original-v1/prepared-v1'
             self.receipt = json.loads(private_read(prepared / 'receipt.json'))
             require(self.receipt['schema'] == 'ORIGINAL_BASE_NATIVE_PREPARED_V1'
-                    and self.receipt['profile'] == PROFILE and self.receipt['archiveSHA256'] == ARCHIVE_SHA
+                    and self.receipt['profile'] == PREPARED_PROFILE and self.receipt['archiveSHA256'] == ARCHIVE_SHA
                     and self.receipt['sourceCommit'] == COMMIT and self.receipt['slotSeconds'] == SLOT_SECONDS,
                     'BASE_ORIGINAL_PREPARATION_CHANGED')
             for image in set(self.receipt['images'].values()):
@@ -399,8 +406,8 @@ class OriginalCluster:
                     'BASE_ORIGINAL_NATIVE_MEMBERSHIP')
             self.l1, self.l2 = self.endpoint('l1-el', '4545/tcp'), self.endpoint('base-rpc', '8645/tcp')
             self.builder, self.beacon = self.endpoint('base-builder', '7545/tcp'), self.endpoint('l1-cl', '4052/tcp')
-            require(rpc(self.l1, 'eth_chainId', []) == hex(1337) and rpc(self.l2, 'eth_chainId', []) == hex(84538453)
-                    and rpc(self.builder, 'eth_chainId', []) == hex(84538453), 'BASE_ORIGINAL_CHAIN_CHANGED')
+            require(rpc(self.l1, 'eth_chainId', []) == hex(1337) and rpc(self.l2, 'eth_chainId', []) == hex(CHAIN_ID)
+                    and rpc(self.builder, 'eth_chainId', []) == hex(CHAIN_ID), 'BASE_ORIGINAL_CHAIN_CHANGED')
             self.l1_genesis = header(rpc(self.l1, 'eth_getBlockByNumber', ['0x0', False]))
             self.l2_genesis = header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False]))
             require(header(rpc(self.builder, 'eth_getBlockByNumber', ['0x0', False])) == self.l2_genesis,
@@ -500,6 +507,57 @@ class OriginalCluster:
         self.healthy()
         return value
 
+    def read_original(self, raw):
+        require(NATIVE_VALUE, 'BASE_ORIGINAL_ECONOMIC_PROFILE_REQUIRED')
+        require(type(raw) is dict and set(raw) == {'method', 'params'}
+                and type(raw['params']) is list and len(data_bytes(raw)) <= 16384,
+                'BASE_ORIGINAL_READ_REQUEST')
+        method, params = raw['method'], raw['params']
+        require(method in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getBlockByHash',
+                'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBalance',
+                'eth_getCode', 'debug_traceTransaction'), 'BASE_ORIGINAL_READ_METHOD')
+        require((method == 'eth_chainId' and params == [])
+                or (method in ('eth_getTransactionByHash', 'eth_getTransactionReceipt') and len(params) == 1
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0]))
+                or (method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and len(params) == 2
+                    and params[1] is False and type(params[0]) is str
+                    and (params[0] in ('latest', 'safe', 'finalized', '0x0')
+                         or re.fullmatch(r'0x[0-9a-f]{1,64}', params[0])))
+                or (method in ('eth_getBalance', 'eth_getCode') and len(params) == 2
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{40}', params[0])
+                    and ((type(params[1]) is str and (params[1] in ('latest', 'safe', 'finalized', '0x0')
+                          or re.fullmatch(r'0x[0-9a-f]{1,64}', params[1])))
+                         or (type(params[1]) is dict and set(params[1]) == {'blockHash', 'requireCanonical'}
+                             and params[1]['requireCanonical'] is True
+                             and type(params[1]['blockHash']) is str
+                             and re.fullmatch(r'0x[0-9a-f]{64}', params[1]['blockHash']))))
+                or (method == 'debug_traceTransaction' and len(params) == 2
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0])
+                    and params[1] in [{'tracer':'callTracer','timeout':'5s','reexec':128,
+                                      'tracerConfig':{'onlyTopCall':True,'withLog':False}},
+                                     {'tracer':'prestateTracer','timeout':'5s','reexec':128,
+                                      'tracerConfig':{'diffMode':False,'disableCode':False,'disableStorage':True}}]),
+                'BASE_ORIGINAL_READ_PARAMS')
+        self.healthy()
+        require(rpc(self.l2, 'eth_chainId', []) == hex(CHAIN_ID)
+                and header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False])) == self.l2_genesis,
+                'BASE_ORIGINAL_READ_NETWORK_CHANGED')
+        value = rpc(self.l2, method, params)
+        self.healthy()
+        require(header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False])) == self.l2_genesis,
+                'BASE_ORIGINAL_READ_NETWORK_CHANGED')
+        return value
+
+    def source_identity(self):
+        require(NATIVE_VALUE, 'BASE_ORIGINAL_ECONOMIC_PROFILE_REQUIRED')
+        self.healthy()
+        value = {'profile':PROFILE,'chainId':str(CHAIN_ID),'genesis':self.l2_genesis['hash'][2:],
+                 'parentGenesis':self.l1_genesis['hash'][2:],'sourceCommit':COMMIT,
+                 'publicNetwork':False,'independentInfrastructureEstablished':False,
+                 'rollupChallengeFinalityEstablished':False}
+        self.healthy()
+        return value
+
     def send_once(self, wire):
         self.healthy()
         require(isinstance(wire, str) and re.fullmatch(r'0x(?:[0-9a-f]{2}){1,65536}', wire),
@@ -592,6 +650,11 @@ def serve(root):
                 if operation == 'head':
                     require(value['input'] is None, 'BASE_NO_OPTIONS')
                     result = runtime.head()
+                elif operation == 'read':
+                    result = runtime.read_original(value['input'])
+                elif operation == 'identity':
+                    require(value['input'] is None, 'BASE_NO_OPTIONS')
+                    result = runtime.source_identity()
                 elif operation == 'broadcast':
                     result = runtime.send_once(value['input'])
                 else:
@@ -608,6 +671,11 @@ def main():
         raise ClosedError('BASE_ORIGINAL_CONTROLLED_SHUTDOWN')
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
+    global PROFILE, NATIVE_VALUE, CHAIN_ID
+    if sys.argv[1:] == ['--native-value']:
+        PROFILE, NATIVE_VALUE, CHAIN_ID = NATIVE_VALUE_PROFILE, True, 8453
+        serve(repository())
+        return
     root = repository()
     if sys.argv[1:] == ['--fetch']:
         fetch(root)

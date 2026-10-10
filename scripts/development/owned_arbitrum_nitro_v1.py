@@ -16,6 +16,10 @@ import urllib.request
 import uuid
 
 PROFILE = 'OWNED_ARBITRUM_NITRO_POS_V1'
+PREPARED_PROFILE = PROFILE
+NATIVE_VALUE_PROFILE = 'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1'
+NATIVE_VALUE = False
+CHAIN_ID = 412346
 COMMIT = '72ac4bb1f07fadc108448ad5fae01ea2e044fe69'
 ARCHIVE_SHA = 'bafdf1a22c302424903d88419543f862aba77610ff3194a4fb48d761398eeee4'
 CONTRACT_COMMIT = '9d0e90ef588f94a9d2ffa4dc22713d91a76f57d4'
@@ -133,6 +137,18 @@ def official_files(archive):
     return result
 
 
+def economic_files(files):
+    result = dict(files)
+    if NATIVE_VALUE:
+        name = 'scripts/config.ts'
+        source = result[name].decode()
+        require(source.count('412346') == 3, 'ARBITRUM_ORIGINAL_ECONOMIC_CONFIG_CHANGED')
+        # Exactly the official L2 config ID, node ID and filterer ID. All
+        # contracts, keys, forks, settlement and validation settings unchanged.
+        result[name] = source.replace('412346', '42161').encode()
+    return result
+
+
 def active_compose(source):
     """Keep original blocks for the exact exercised official services only."""
     require(source.startswith('services:\n'), 'ARBITRUM_ORIGINAL_COMPOSE')
@@ -238,10 +254,10 @@ def fetch(root):
 def prepare(root):
     archive = fetch(root)
     base = directory(root / '.local/dependencies/arbitrum-nitro-v1')
-    prepared = base / 'prepared-v1'
+    prepared = base / ('prepared-native-value-v1' if NATIVE_VALUE else 'prepared-v1')
     require(not prepared.exists(), 'ARBITRUM_ORIGINAL_PREPARATION_EXISTS')
     work = directory(base / ('.prepare-' + uuid.uuid4().hex))
-    files = official_files(archive)
+    files = economic_files(official_files(archive))
     for name, content in files.items():
         target = work / name
         directory(target.parent)
@@ -259,7 +275,7 @@ def prepare(root):
             details = docker_json(['image', 'inspect', reference], work, log)
             require(len(details) == 1, 'ARBITRUM_ORIGINAL_IMAGE')
             images[role] = details[0]['Id']
-        scripts_tag = 'lianum-nitro-scripts-' + COMMIT
+        scripts_tag = 'lianum-nitro-scripts-' + ('native-value-' if NATIVE_VALUE else '') + COMMIT
         creator_tag = 'lianum-nitro-creator-' + CONTRACT_COMMIT
         run(['/usr/bin/docker', 'build', '-t', scripts_tag, str(work / 'scripts')], work, log, 900)
         run(['/usr/bin/docker', 'build', '--build-arg', 'NITRO_CONTRACTS_BRANCH=' + CONTRACT_COMMIT,
@@ -270,6 +286,7 @@ def prepare(root):
         receipt = {'schema': 'ORIGINAL_ARBITRUM_NITRO_PREPARED_V1', 'profile': PROFILE,
                    'archiveSHA256': ARCHIVE_SHA, 'sourceCommit': COMMIT,
                    'contractsCommit': CONTRACT_COMMIT, 'images': fixed_images,
+                   'configurationSHA256': digest(files['scripts/config.ts']),
                    'sourceCompose': original, 'nativeFinalityEstablished': False,
                    'privateCreditEstablished': False}
         private_write(work / 'receipt.json', data_bytes(receipt))
@@ -334,7 +351,7 @@ class OriginalCluster:
         self.realm = directory(root / '.local/owned-arbitrum-nitro-v1' / self.project)
         self.log = open(os.open(self.realm / 'native.private.log',
                                 os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb')
-        prepared = root / '.local/dependencies/arbitrum-nitro-v1/prepared-v1'
+        prepared = root / '.local/dependencies/arbitrum-nitro-v1' / ('prepared-native-value-v1' if NATIVE_VALUE else 'prepared-v1')
         self.receipt = json.loads(private_read(prepared / 'receipt.json'))
         require(self.receipt['schema'] == 'ORIGINAL_ARBITRUM_NITRO_PREPARED_V1'
                 and self.receipt['profile'] == PROFILE
@@ -349,15 +366,18 @@ class OriginalCluster:
             actual = docker_json(['image', 'inspect', reference], self.realm, self.log)[0]['Id']
             expected = self.receipt['images']['sequencer' if name == 'nitro' else name]
             require(actual == expected, 'ARBITRUM_ORIGINAL_IMAGE_CHANGED')
-        for name, reference in [('scripts', 'lianum-nitro-scripts-' + COMMIT),
+        for name, reference in [('scripts', 'lianum-nitro-scripts-' + ('native-value-' if NATIVE_VALUE else '') + COMMIT),
                                 ('rollupcreator', 'lianum-nitro-creator-' + CONTRACT_COMMIT)]:
             require(docker_json(['image', 'inspect', reference], self.realm, self.log)[0]['Id']
                     == self.receipt['images'][name], 'ARBITRUM_ORIGINAL_IMAGE_CHANGED')
-        files = official_files(fetch(root))
+        files = economic_files(official_files(fetch(root)))
         for name, content in files.items():
             target = self.realm / name
             directory(target.parent)
             private_write(target, content)
+        if NATIVE_VALUE or 'configurationSHA256' in self.receipt:
+            require(self.receipt.get('configurationSHA256') == digest(files['scripts/config.ts']),
+                    'ARBITRUM_ORIGINAL_CONFIG_CHANGED')
         launcher = fixed_launcher(files['test-node.bash'].decode(), self.project)
         private_write(self.realm / 'fixed-launcher.bash', launcher.encode())
         # Derive commands, mounts and dependencies again from the physically
@@ -390,7 +410,7 @@ class OriginalCluster:
             self.l1 = self.endpoint('geth', '8545/tcp')
             self.l2 = self.endpoint('sequencer', '8547/tcp')
             require(rpc(self.l1, 'eth_chainId', []) == '0x539'
-                    and rpc(self.l2, 'eth_chainId', []) == '0x64aba', 'ARBITRUM_ORIGINAL_CHAIN_CHANGED')
+                    and rpc(self.l2, 'eth_chainId', []) == hex(CHAIN_ID), 'ARBITRUM_ORIGINAL_CHAIN_CHANGED')
             self.l1_genesis = header(rpc(self.l1, 'eth_getBlockByNumber', ['0x0', False]))
             self.l2_genesis = header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False]))
             deadline = time.monotonic() + FINALITY_MS / 1000
@@ -482,6 +502,57 @@ class OriginalCluster:
                 and header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False])) == self.l2_genesis,
                 'ARBITRUM_ORIGINAL_GENESIS_CHANGED')
         value = finalized_pair(self.l1, self.l2)
+        self.healthy()
+        return value
+
+    def read_original(self, raw):
+        require(NATIVE_VALUE, 'ARBITRUM_ORIGINAL_ECONOMIC_PROFILE_REQUIRED')
+        require(type(raw) is dict and set(raw) == {'method', 'params'}
+                and type(raw['params']) is list and len(data_bytes(raw)) <= 16384,
+                'ARBITRUM_ORIGINAL_READ_REQUEST')
+        method, params = raw['method'], raw['params']
+        require(method in ('eth_chainId', 'eth_getBlockByNumber', 'eth_getBlockByHash',
+                'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBalance',
+                'eth_getCode', 'debug_traceTransaction'), 'ARBITRUM_ORIGINAL_READ_METHOD')
+        require((method == 'eth_chainId' and params == [])
+                or (method in ('eth_getTransactionByHash', 'eth_getTransactionReceipt') and len(params) == 1
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0]))
+                or (method in ('eth_getBlockByNumber', 'eth_getBlockByHash') and len(params) == 2
+                    and params[1] is False and type(params[0]) is str
+                    and (params[0] in ('latest', 'safe', 'finalized', '0x0')
+                         or re.fullmatch(r'0x[0-9a-f]{1,64}', params[0])))
+                or (method in ('eth_getBalance', 'eth_getCode') and len(params) == 2
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{40}', params[0])
+                    and ((type(params[1]) is str and (params[1] in ('latest', 'safe', 'finalized', '0x0')
+                          or re.fullmatch(r'0x[0-9a-f]{1,64}', params[1])))
+                         or (type(params[1]) is dict and set(params[1]) == {'blockHash', 'requireCanonical'}
+                             and params[1]['requireCanonical'] is True
+                             and type(params[1]['blockHash']) is str
+                             and re.fullmatch(r'0x[0-9a-f]{64}', params[1]['blockHash']))))
+                or (method == 'debug_traceTransaction' and len(params) == 2
+                    and type(params[0]) is str and re.fullmatch(r'0x[0-9a-f]{64}', params[0])
+                    and params[1] in [{'tracer':'callTracer','timeout':'5s','reexec':128,
+                                      'tracerConfig':{'onlyTopCall':True,'withLog':False}},
+                                     {'tracer':'prestateTracer','timeout':'5s','reexec':128,
+                                      'tracerConfig':{'diffMode':False,'disableCode':False,'disableStorage':True}}]),
+                'ARBITRUM_ORIGINAL_READ_PARAMS')
+        self.healthy()
+        require(rpc(self.l2, 'eth_chainId', []) == hex(CHAIN_ID)
+                and header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False])) == self.l2_genesis,
+                'ARBITRUM_ORIGINAL_READ_NETWORK_CHANGED')
+        value = rpc(self.l2, method, params)
+        self.healthy()
+        require(header(rpc(self.l2, 'eth_getBlockByNumber', ['0x0', False])) == self.l2_genesis,
+                'ARBITRUM_ORIGINAL_READ_NETWORK_CHANGED')
+        return value
+
+    def source_identity(self):
+        require(NATIVE_VALUE, 'ARBITRUM_ORIGINAL_ECONOMIC_PROFILE_REQUIRED')
+        self.healthy()
+        value = {'profile':PROFILE,'chainId':str(CHAIN_ID),'genesis':self.l2_genesis['hash'][2:],
+                 'parentGenesis':self.l1_genesis['hash'][2:],'sourceCommit':COMMIT,
+                 'publicNetwork':False,'independentInfrastructureEstablished':False,
+                 'rollupChallengeFinalityEstablished':False}
         self.healthy()
         return value
 
@@ -577,6 +648,11 @@ def serve(root):
                 if operation == 'head':
                     require(value['input'] is None, 'ARBITRUM_NO_OPTIONS')
                     result = runtime.head()
+                elif operation == 'read':
+                    result = runtime.read_original(value['input'])
+                elif operation == 'identity':
+                    require(value['input'] is None, 'ARBITRUM_NO_OPTIONS')
+                    result = runtime.source_identity()
                 elif operation == 'broadcast':
                     result = runtime.send_once(value['input'])
                 else:
@@ -593,6 +669,14 @@ def main():
         raise ClosedError('ARBITRUM_ORIGINAL_CONTROLLED_SHUTDOWN')
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
+    global PROFILE, NATIVE_VALUE, CHAIN_ID
+    if sys.argv[1:] in (['--native-value'], ['--prepare-native-value']):
+        PROFILE, NATIVE_VALUE, CHAIN_ID = NATIVE_VALUE_PROFILE, True, 42161
+        if sys.argv[1:] == ['--native-value']:
+            serve(repository())
+        else:
+            print(json.dumps(prepare(repository())))
+        return
     root = repository()
     if sys.argv[1:] == ['--fetch']:
         fetch(root)
