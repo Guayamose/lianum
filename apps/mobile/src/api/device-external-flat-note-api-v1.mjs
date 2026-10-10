@@ -56,7 +56,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
     live(); if (!same(value.descriptor, original)) fail();
     if (fresh) validateExternalFlatFreshV1(value);
   }
-  async function post(path, payload, proofResponse = false) {
+  async function post(path, payload, originalResultResponse = false) {
     live(); const target = original.origin + (original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
     const body = JSON.stringify(payload);
     if (new TextEncoder().encode(body).byteLength > (path==='private-operations'?16384:8192)) fail();
@@ -67,7 +67,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
     });
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => {
       controller.abort(); reject(Error('MOBILE_EXTERNAL_FLAT_REQUEST_TIMEOUT'));
-    }, proofResponse ? 900000 : 15000); });
+    }, originalResultResponse ? 900000 : 15000); });
     const work = (async () => {
       const response = await fetchImpl(target, { method: 'POST', headers: { Accept: 'application/json', Origin: original.origin,
         'Content-Type': 'application/json' }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
@@ -143,14 +143,14 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
         } else if (rawWitness !== null) fail();
         let wireWitness=witness;if(consent.privateProof){const crypto=await import('./device-private-proof-transit-v2.mjs');consentScope(consent);wireWitness=await (consent.privateProof.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3?crypto.sealOriginalDeviceWalletNoteWitnessV3:crypto.sealOriginalDeviceDepositIntentWitnessV2)(consent,signature,witness);}
         consentScope(consent); entry.consumed = true;
-        const response = await post(consent.privateProof?'private-operations':'operations', { consent, signature, witness:wireWitness }, consent.action === 'PROVE_D26' || consent.action === 'PROVE_D27' || consent.action === 'PROVE_W39'); live();
+        const response = await post(consent.privateProof?'private-operations':'operations', { consent, signature, witness:wireWitness }, ['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(consent.action)); live();
         if (consent.action === 'QUOTE_W39') {
           const value = normalizeExternalFlatConsentV1(externalFlatExactV1(response, ['quote']).quote);
           consentScope(value); if (!same(value, consent)) fail(); quotes.set(value, { live, descriptor: original });
           return Object.freeze({ quote: value });
         }
-        // Admission consumed a fresh permission BEFORE the worker started.
-        // A completed proof can outlive that permission; no effect reuses it.
+        // Admission consumed a fresh permission BEFORE the original operation.
+        // An admitted proof/effect result can outlive that permission; no effect reuses it.
         return originalRow(response, consent);
       } finally { bytes?.fill(0); externalFlatWipeV1(witness); }
     },

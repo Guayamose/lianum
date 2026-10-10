@@ -158,9 +158,9 @@ const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['account',
    phase={challenge:'CHALLENGE',review:'REVIEW',operate:'OPERATE',status:'STATUS',metaChallenge:'CHALLENGE',metaReview:'REVIEW',metaOperate:'OPERATE',metaStatus:'STATUS'}[routes[request.url]];
    const value=requestBody=await body(request,request.url===prefix+'/private-operations'?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
-   // Permission admission remains15s. Only waiting for the SAME original
-   // finite worker result uses its unchanged900000ms operation bound.
-   if(routes[request.url]==='operate'&&['PROVE_D26','PROVE_D27','PROVE_W39'].includes(value?.consent?.action))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);
+   // Permission admission remains 15s. Only waiting for the SAME original
+   // admitted proof/effect result uses its unchanged 900000ms operation bound.
+   if(routes[request.url]==='operate'&&['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(value?.consent?.action))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);
    if(meta&&routes[request.url].startsWith('meta')){assertOriginalDeviceMetaMorphoPrivateExitBindingV2(meta,reader);const method=routes[request.url].slice(4).toLowerCase();if(method==='operate'&&value?.consent?.action==='REDEEM_META')resetResponseTimeout(900000);if(method==='challenge'){exact(value,[]);return meta.challenge();}return meta[method](value);}
    if(routes[request.url]==='challenge'){exact(value,[]);return reader.challenge();}return reader[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(()=>externalFlatWipeV1(requestBody?.witness));
   running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;
@@ -205,13 +205,13 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
    phase={challenge:'CHALLENGE',preparation:'REVIEW',review:'REVIEW',operate:'OPERATE',status:'STATUS',outputQuote:'REVIEW',outputReview:'REVIEW',outputOperate:'OPERATE',blueChallenge:'CHALLENGE',blueReview:'REVIEW',blueOperate:'OPERATE',blueStatus:'STATUS',aaveChallenge:'CHALLENGE',aaveReview:'REVIEW',aaveOperate:'OPERATE',aaveStatus:'STATUS',metaChallenge:'CHALLENGE',metaReview:'REVIEW',metaOperate:'OPERATE',metaStatus:'STATUS'}[routes[request.url]];
    const value=requestBody=await body(request,graph?65536:['/v1/mobile/external-flat-share/private-operations','/v1/mobile/external-flat/private-operations'].includes(request.url)?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
-   // Permission admission remains15s. Only waiting for the SAME original
-   // finite worker result uses its unchanged900000ms operation bound.
+   // Permission admission remains 15s. Only waiting for the SAME original
+   // admitted proof/effect result uses its unchanged 900000ms operation bound.
    if(routes[request.url]==='metaOperate'&&value?.consent?.action==='REDEEM_META')resetResponseTimeout(900000);
    if(routes[request.url]==='aaveOperate'&&value?.consent?.action==='REDEEM_AAVE')resetResponseTimeout(900000);
    if(routes[request.url]==='blueOperate'&&value?.consent?.action==='REDEEM_BLUE')resetResponseTimeout(900000);
    if(routes[request.url]==='outputOperate'&&['PROVE_W39','WITHDRAW_W39'].includes(value?.consent?.consent?.action))resetResponseTimeout(900000);
-   if(routes[request.url]==='operate'&&(!graph&&['PROVE_D26','PROVE_D27','PROVE_W39'].includes(value?.consent?.action)||graph&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(value?.consent?.draft?.action)))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);assertOriginalDeviceExternalFlatNoteAuthorityV1(target);assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});
+   if(routes[request.url]==='operate'&&(!graph&&['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(value?.consent?.action)||graph&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(value?.consent?.draft?.action)))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);assertOriginalDeviceExternalFlatNoteAuthorityV1(target);assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});
    if(routes[request.url]==='challenge'||routes[request.url]==='blueChallenge'||routes[request.url]==='aaveChallenge'||routes[request.url]==='metaChallenge'){exact(value,[]);return selected[routes[request.url]]();}return selected[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(()=>externalFlatWipeV1(requestBody?.witness));
   running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;
   const timeout=new Promise((_,reject)=>{resetResponseTimeout=milliseconds=>{clearTimeout(timer);timer=setTimeout(()=>reject(Error('DEVICE_EXTERNAL_FLAT_HTTP_TIMEOUT')),milliseconds);timer.unref();};resetResponseTimeout(15000);});
