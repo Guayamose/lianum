@@ -2,7 +2,7 @@
  * reads its lock, ancestry and source capsule; it creates no new registry or
  * permission token and accepts no caller-selected profile or process IDs. */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants, openSync, closeSync, fstatSync, readFileSync, realpathSync, readdirSync, readlinkSync, lstatSync, existsSync } from 'node:fs';
 import { join, resolve, relative, basename } from 'node:path';
 import { ROOT, FLAT, GOLDEN } from '../../../../../../proofs/src/catalog.mjs';
@@ -22,6 +22,7 @@ const PROFILES = Object.freeze([...['acceptance', 'preflight'].map(kind => Objec
 const PROOF_SCRIPTS = new Set(['worker.mjs','native-value-live-v2-worker.mjs','native-value-dev-live-v5-worker.mjs','native-ingress-v3-worker.mjs',
  'native-claims-build-worker.mjs'].map(name => join(ROOT, 'proof-workers', name)));
 PROOF_SCRIPTS.add(join(GOLDEN, 'src/paeg/proof-worker.mjs'));
+PROOF_SCRIPTS.add(join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs'));
 const LOCKS = Object.freeze([[join(ROOT,'.local/proof-workers/active.lock'),'pid'],
  [join(ROOT,'.local/proof-workers-native-ingress-v3/active.lock'),'pid'],['/tmp/lianum-paeg-proof-host.lock','parentPID']]);
 const MOBILE_PROTOCOL=resolve(FLAT,'../mobile-protocol');
@@ -104,7 +105,64 @@ export function assertTronProductSupervisorEvidenceV1(value) {
   'TRON_PRODUCT_SCOPE_ORIGINAL_DEADLINE');
  return true; // Metadata only, not a runtime/permission token.
 }
+// Distinct fixed mobile producer, before Java-Tron/receiver/native effects.
+// Exact kernel/source ancestry is read here; no PID, hash, flags or DTO can
+// request a host scope. The historical supervisor checks below are unchanged.
+const MOBILE_ENTRY=join(resolve(ROOT,'../../../..'),'apps/platform/src/run-original-tron-private-native-mobile-v1.mjs');
+const MOBILE_SOURCES=Object.freeze([{"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","sha256":"6802c9d7d65328b0d9d18c453427eea9198834ae370136e6dd4448df14b1ef6b","bytes":15313},{"path":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","sha256":"d9488009048f7c06a051a0fd8cb6aa814edfe5fdd48f23fd58688c7a14a0384f","bytes":5994},{"path":"scripts/development/owned-tron-original-mobile-source-v1.mjs","sha256":"4873741313f963acec6a3e3221fd5226f2e95d43f2f3fdd9090becb3aa0e018c","bytes":9894}]);
+let originalMobile=null;
+function mobileFiles(){
+ const repository=resolve(ROOT,'../../../..'),files=new Map();
+ for(const row of MOBILE_SOURCES){const path=join(repository,row.path),before=lstatSync(path);
+  assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.nlink===1&&before.uid===process.getuid()&&(before.mode&0o777)===0o644,'TRON_MOBILE_ORIGINAL_SOURCE_FILE');
+  const bytes=regular(path);assert.equal(bytes.length,row.bytes,'TRON_MOBILE_ORIGINAL_SOURCE_CHANGED');assert.equal(sha(bytes),row.sha256,'TRON_MOBILE_ORIGINAL_SOURCE_CHANGED');
+  const after=lstatSync(path);for(const name of ['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'])assert.equal(after[name],before[name],'TRON_MOBILE_ORIGINAL_SOURCE_CHANGED');
+  files.set(path,row);
+ }
+ const publicationPath=join(ROOT,'wallet-platform/modules/ops/native-value-dev-release-v5.mjs'),bytes=regular(publicationPath);
+ const match=/^\/\*\*[\s\S]*?\*\/\s*export const NATIVE_VALUE_DEV_RELEASE_V5 = Object\.freeze\(([\s\S]*)\);\s*$/.exec(bytes.toString('utf8'));
+ assert.ok(match,'TRON_MOBILE_ORIGINAL_PUBLICATION_REQUIRED');const publication=JSON.parse(match[1]);
+ assert.equal(publication.schema,'LIANUM_NATIVE_VALUE_RETAINED_ARTIFACT_DEV_RELEASE_V5','TRON_MOBILE_ORIGINAL_PUBLICATION_REQUIRED');
+ assert.ok(Array.isArray(publication.sourceFiles)&&publication.sourceFiles.length>0&&publication.sourceFiles.length<=4096,'TRON_MOBILE_ORIGINAL_PUBLICATION_REQUIRED');
+ const seen=new Set();for(const row of publication.sourceFiles){assert.deepEqual(Object.keys(row).sort(),['path','sha256']);
+  assert.ok(typeof row.path==='string'&&!row.path.startsWith('/')&&!row.path.split('/').some(v=>!v||v==='.'||v==='..')&&!seen.has(row.path),'TRON_MOBILE_ORIGINAL_PUBLICATION_REQUIRED');seen.add(row.path);assert.match(row.sha256,/^[0-9a-f]{64}$/);
+  if(row.path.startsWith('proof-workers/')||row.path==='golden/src/paeg/proof-worker.mjs'){const path=row.path.startsWith('golden/')?join(GOLDEN,row.path.slice('golden/'.length)):join(ROOT,row.path),info=lstatSync(path);assert.ok(info.isFile()&&!info.isSymbolicLink()&&info.uid===process.getuid()&&info.nlink===1&&info.size<=8*1024*1024,'TRON_MOBILE_ORIGINAL_PROOF_SOURCE_FILE');files.set(path,{...row,bytes:info.size});}
+ }
+ for(const path of [join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs'),join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'),join(GOLDEN,'src/paeg/proof-worker.mjs')])assert.ok(files.has(path),'TRON_MOBILE_ORIGINAL_PROOF_SOURCE_REQUIRED');
+ return {files,publicationSHA256:sha(bytes)};
+}
+function captureOriginalMobileScope(){
+ const s=originalMobile;assert.ok(s&&!s.closed,'TRON_MOBILE_ORIGINAL_HOST_LIFETIME_REQUIRED');
+ const main=proc(process.pid),parent=proc(process.ppid);own(main);own(parent);
+ assert.ok(same(main,s.main)&&same(parent,s.parent)&&main.parent===s.parent.pid&&main.group===main.pid&&main.session===main.pid,'TRON_MOBILE_ORIGINAL_PROCESS_CHANGED');
+ assert.equal(main.executable,s.main.executable,'TRON_MOBILE_ORIGINAL_PROCESS_CHANGED');assert.deepEqual(main.argv,s.main.argv,'TRON_MOBILE_ORIGINAL_PROCESS_CHANGED');assert.equal(main.cwd,s.main.cwd,'TRON_MOBILE_ORIGINAL_PROCESS_CHANGED');
+ assert.ok(Date.now()>=s.started&&Date.now()-s.started<BUDGET,'TRON_MOBILE_ORIGINAL_DEADLINE');
+ const current=mobileFiles();assert.equal(current.publicationSHA256,s.publicationSHA256,'TRON_MOBILE_ORIGINAL_PUBLICATION_CHANGED');
+ return {main,supervisor:parent,lock:{runId:s.runId,startedAt:new Date(s.started).toISOString()},
+  profile:{entry:MOBILE_ENTRY,worker:MOBILE_ENTRY,local:join(ROOT,'.local/original-tron-private-native-mobile-v1')},
+  attempt:null,files:current.files,mobileOriginal:true};
+}
+function assertOriginalMobileDescendant(scope,row){
+ const seen=new Set();let current=row;for(let i=0;i<128;i++){
+  own(current);assert.equal(seen.has(current.pid),false,'TRON_MOBILE_ORIGINAL_ANCESTRY');seen.add(current.pid);
+  if(current.pid===scope.main.pid){assert.ok(same(current,scope.main),'TRON_MOBILE_ORIGINAL_ANCESTRY');return;}
+  const again=proc(current.pid);assert.ok(same(current,again)&&current.parent===again.parent,'TRON_MOBILE_ORIGINAL_ANCESTRY');current=proc(current.parent);
+ }throw Error('TRON_MOBILE_ORIGINAL_ANCESTRY');
+}
+export function beginOriginalTronPrivateMobileLifetimeV1(){
+ assert.equal(arguments.length,0,'TRON_MOBILE_ORIGINAL_HOST_NO_OPTIONS');assert.equal(originalMobile,null,'TRON_MOBILE_ORIGINAL_HOST_ONCE');
+ const main=proc(process.pid),parent=proc(process.ppid);own(main);own(parent);
+ const node=join(resolve(ROOT,'../../../..'),'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
+ assert.equal(realpathSync(node),node);assert.equal(main.executable,node,'TRON_MOBILE_ORIGINAL_NODE');
+ assert.deepEqual(main.argv,[node,'--max-old-space-size=384',MOBILE_ENTRY],'TRON_MOBILE_ORIGINAL_ENTRY');
+ assert.deepEqual(process.execArgv,['--max-old-space-size=384']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
+ assert.equal(main.parent,parent.pid);assert.equal(main.group,main.pid,'TRON_MOBILE_ORIGINAL_PROCESS_GROUP');assert.equal(main.session,main.pid,'TRON_MOBILE_ORIGINAL_PROCESS_SESSION');
+ const current=mobileFiles();originalMobile={main,parent,closed:false,runId:randomUUID(),started:Date.now(),publicationSHA256:current.publicationSHA256};
+ captureOriginalMobileScope();return Object.freeze({profile:'ORIGINAL_TRON_PRIVATE_MOBILE_HOST_LIFETIME_V1',close(){assert.equal(arguments.length,0);originalMobile.closed=true;return Object.freeze({closed:true});}});
+}
+
 function captureScope() {
+ if(originalMobile)return captureOriginalMobileScope();
  const main = proc(process.pid), supervisor = proc(process.ppid); own(main); own(supervisor);
  const index = PROFILES.findIndex(profile => script(main)===profile.worker);
  if(index < 0) { assert.equal(PROFILES.some(profile=>script(supervisor)===profile.entry),false,'TRON_PRODUCT_SCOPE_WORKER_REBOUND');
@@ -142,7 +200,7 @@ export function createTronProductHostGuardV1() {
   for(const [path,field] of LOCKS) {
    if(!existsSync(path))continue;
    let lock; try { lock=JSON.parse(regular(path,4096)); }catch(error){if(absent(error))continue;throw error;}
-   assert.ok(scope,'TRON_PRODUCT_FOREIGN_OR_STALE_PROOF_LOCK'); const owner=proc(lock[field]); own(owner);
+   assert.ok(scope,'TRON_PRODUCT_FOREIGN_OR_STALE_PROOF_LOCK'); const owner=proc(lock[field]); own(owner);if(scope.mobileOriginal)assertOriginalMobileDescendant(scope,owner);
    assert.ok(owner.group===scope.main.pid && owner.session===scope.main.pid,'TRON_PRODUCT_FOREIGN_OR_STALE_PROOF_LOCK');
    const after=proc(owner.pid); assert.ok(same(owner,after) && after.group===owner.group && after.session===owner.session,
     'TRON_PRODUCT_PROOF_LOCK_OWNER_CHANGED');
@@ -160,7 +218,7 @@ export function createTronProductHostGuardV1() {
     own(row); assert.ok(same(row,ownedTron) && row.parent===process.pid && row.group===ownedTron.group && row.session===ownedTron.session, 'TRON_PRODUCT_CHILD_BIRTH_CHANGED');
     assert.equal(row.executable,join(GOLDEN,'.local/owned-tron-native-value-v1/jdk8/bin/java')); continue;
    }
-   assert.ok(scope,'TRON_PRODUCT_PARALLEL_HEAVY_WORK'); own(row);
+   assert.ok(scope,'TRON_PRODUCT_PARALLEL_HEAVY_WORK'); own(row);if(scope.mobileOriginal)assertOriginalMobileDescendant(scope,row);
    assert.ok(row.group===scope.main.pid && row.session===scope.main.pid,'TRON_PRODUCT_FOREIGN_HEAVY_WORK');
    // Compiler/toolchain work is never part of this running wallet phase.
    assert.equal(/^(?:nargo|cargo|rustc|rust-lld|ld\.lld|cc1|cc1plus|javac)$/.test(executable),false,'TRON_PRODUCT_PARALLEL_COMPILATION');
@@ -180,7 +238,7 @@ export function createTronProductHostGuardV1() {
    assert.equal(existsSync(join(ROOT,'.local/proof-workers',name+'.lock')),false,'TRON_PRODUCT_OTHER_COMPILATION_LOCK');
   return scope ? {scope:'ORIGINAL_NATIVE_WALLET_SUPERVISOR',runId:scope.lock.runId,supervisorPID:scope.supervisor.pid,
    supervisorStartTimeTicks:scope.supervisor.start,workerPID:scope.main.pid,workerStartTimeTicks:scope.main.start,
-   startedAt:scope.lock.startedAt,originalTotalMilliseconds:BUDGET} : {scope:'EXCLUSIVE_LOCAL_DRIVER_NO_WALLET_AUTHORITY',originalTotalMilliseconds:BUDGET};
+   startedAt:scope.lock.startedAt,originalTotalMilliseconds:BUDGET,...(scope.mobileOriginal?{scope:'ORIGINAL_TRON_PRIVATE_MOBILE_HOST',singleWitness:true,privateNativeCreditEstablished:false}: {})} : {scope:'EXCLUSIVE_LOCAL_DRIVER_NO_WALLET_AUTHORITY',originalTotalMilliseconds:BUDGET};
  }
  const evidence={...check(),originalFactoryIdentity:proc(process.pid)}; return Object.freeze({evidence:Object.freeze(evidence),assertActive:check,
   bindOriginalChild(handle) { assert.equal(arguments.length,1); assert.equal(ownedTron,undefined,'TRON_PRODUCT_ONE_ORIGINAL_CHILD');

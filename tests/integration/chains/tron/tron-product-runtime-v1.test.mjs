@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
-import { realpathSync } from 'node:fs';
-import { join } from 'node:path';
+import { realpathSync, lstatSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createTronPrivateLogCapture, TRON_PRIVATE_LOG_PREFIX_BYTES } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-private-log-capture-v1.mjs';
 import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
@@ -502,4 +502,49 @@ test('HOST original Tron journal fresh read authenticates bounded real FDs with 
   assert.equal(typeof result.then,'function');await assert.rejects(result,error=>error===closedError);assert.equal(openCount,beforeClosedOpen);assert.equal(active,0);
   assert.ok(liveCount>=16);
  }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+
+test('original private Tron mobile host lifetime is born before effects and admits only its fixed source and kernel descendants',async()=>{
+ // Original production functions run in this realm with explicit inert /proc,
+ // lock and discovery ports. Real reviewed source/publication files are read;
+ // no native process, proof, network delivery or permission is started.
+ const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-product-host-scope-v1.mjs'),'utf8');
+ const a=text.indexOf('const MOBILE_ENTRY='),b=text.indexOf('function captureScope() {',a),c=text.indexOf('export function createTronProductHostGuardV1()');
+ assert.ok(a>=0&&b>a&&c>b);const mobile=text.slice(a,b).replace('export function beginOriginalTronPrivateMobileLifetimeV1','function beginOriginalTronPrivateMobileLifetimeV1');
+ const helpers=text.slice(text.indexOf('function own(row)'),text.indexOf('/** Data-only joins'));
+ const capturedScript=text.slice(text.indexOf('function assertCapturedScript(scope,path)'),c);
+ const guardBody=text.slice(c).replace('export function createTronProductHostGuardV1','function createTronProductHostGuardV1');
+ const repo=resolve(ROOT,'../../../..'),entry=join(repo,'apps/platform/src/run-original-tron-private-native-mobile-v1.mjs'),node=join(repo,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
+ const proof=join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs'),nativeProof=join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'),goldenProof=join(GOLDEN,'src/paeg/proof-worker.mjs');
+ function fixture(mutate=()=>{}){
+  const main={...originalMain(),executable:node,argv:[node,'--max-old-space-size=384',entry],cwd:repo};
+  const parent={...originalMain(),pid:main.parent,parent:1,start:'90',executable:'/usr/bin/setsid',argv:['/usr/bin/setsid','--wait'],group:main.parent,session:main.parent};
+  const state={main,parent,heavy:null,changedSource:false,changedPublication:false};mutate(state);
+  const environment={assert,ROOT,GOLDEN,join,resolve,BUDGET:5400000,
+   process:{pid:process.pid,ppid:process.ppid,getuid:()=>process.getuid(),execArgv:['--max-old-space-size=384'],env:{}},
+   randomUUID:()=> '10000000-0000-4000-8000-000000000000',
+   sha:bytes=>createHash('sha256').update(bytes).digest('hex'),realpathSync,lstatSync,
+   regular(path){let bytes=readFileSync(path);if(state.changedSource&&path===entry)bytes=Buffer.concat([bytes,Buffer.from('\n')]);
+    if(state.changedPublication&&path.endsWith('/native-value-dev-release-v5.mjs'))bytes=Buffer.concat([bytes,Buffer.from('\n')]);return bytes;},
+   proc:pid=>{const row=pid===main.pid?state.main:pid===parent.pid?state.parent:state.heavy?.pid===pid?state.heavy:null;return row?structuredClone(row):null;},
+   same:(x,y)=>x&&y&&x.pid===y.pid&&x.start===y.start,
+   PROOF_SCRIPTS:new Set([proof,nativeProof,goldenProof]),LOCKS:[],existsSync:()=>false,
+   readdirSync:path=>path==='/proc'&&state.heavy?[String(state.heavy.pid)]:[],
+   discover:pid=>state.heavy?.pid===pid?{...state.heavy,heavy:true}:null,
+   basename:path=>path.split('/').at(-1),readOriginalTronProductChildBirthV1:()=>{throw Error('HOST_NO_NATIVE_CHILD');}};
+  const api=new Function(...Object.keys(environment),helpers+'\n'+mobile+'\nfunction captureScope(){return originalMobile?captureOriginalMobileScope():null;}\n'+capturedScript+'\n'+guardBody+'\nreturn {begin:beginOriginalTronPrivateMobileLifetimeV1,guard:createTronProductHostGuardV1,capture:captureOriginalMobileScope};')(...Object.values(environment));
+  return {state,api};
+ }
+ for(const mutate of [s=>s.main.argv.push('--caller'),s=>s.main.group++,s=>s.main.session++,s=>s.main.executable='/foreign/node'])assert.throws(()=>fixture(mutate).api.begin(),/TRON_MOBILE_ORIGINAL/);
+ const f=fixture(),handle=f.api.begin();assert.equal(handle.profile,'ORIGINAL_TRON_PRIVATE_MOBILE_HOST_LIFETIME_V1');assert.throws(()=>f.api.begin(),/HOST_ONCE/);
+ const guard=f.api.guard();assert.equal(guard.evidence.scope,'ORIGINAL_TRON_PRIVATE_MOBILE_HOST');assert.equal(guard.evidence.privateNativeCreditEstablished,false);
+ f.state.heavy={...f.state.main,pid:process.pid+200000,parent:process.pid,start:'101',argv:['/synthetic/anvil'],executable:'/synthetic/anvil'};
+ assert.equal(guard.assertActive().scope,'ORIGINAL_TRON_PRIVATE_MOBILE_HOST');
+ f.state.heavy.parent=process.pid+300000;assert.throws(()=>guard.assertActive(),/ANCESTRY|LIVE_IDENTITY/);f.state.heavy.parent=process.pid;
+ f.state.heavy={...f.state.heavy,executable:node,argv:[node,proof]};assert.equal(guard.assertActive().scope,'ORIGINAL_TRON_PRIVATE_MOBILE_HOST');
+ f.state.changedSource=true;assert.throws(()=>guard.assertActive(),/SOURCE_CHANGED/);f.state.changedSource=false;
+ f.state.changedPublication=true;assert.throws(()=>guard.assertActive(),/PUBLICATION_CHANGED/);f.state.changedPublication=false;
+ f.state.parent={...f.state.parent,start:'91'};assert.throws(()=>guard.assertActive(),/PROCESS_CHANGED/);
+ const closed=fixture(),lease=closed.api.begin(),closedGuard=closed.api.guard();assert.equal(lease.close().closed,true);assert.throws(()=>closedGuard.assertActive(),/HOST_LIFETIME_REQUIRED/);
 });
