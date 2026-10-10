@@ -69,6 +69,54 @@ test('HOST private U SDK binds original preparation and ciphertext recipient; on
   }finally{client.close();P.wipeDeviceReservationWitnessV1(witness);wipePrivateProofInputsV1(derived);wipePrivateProofInputsV1(input);}
 });
 
+test('HOST original PC23 second encrypted IPC preserves binding, burns corruption and drains disconnect', {timeout:20000}, async()=>{
+ // Two real fresh IPC children use the production crypto/request validator.
+ // Only a witness digest returns: no Noir/proof/acceptedResult is manufactured.
+ const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const transit=physical('../../src/jobs/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/wallet-note-private-prover-v4.mjs','./wallet-note-private-prover-v4.mjs');
+ const encoding=physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs');
+ const {ORIGINAL_WALLET_PRIVATE_PROVER_V4,readOriginalWalletNoteProverRequestV4}=await import(work);
+ const {walletInputPublicWords,walletDepositInput}=await import(encoding);
+ const notes=physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'),{freshKey}=await import(notes);
+ const owner=freshKey(),note={type:4,...owner,rho:Buffer.alloc(32,7),secret:Buffer.alloc(32,9),value:'20'},mode='deposit_balance',scope='10'.repeat(32),policy='20'.repeat(32);
+ const input=walletDepositInput({scope,policy,epoch:'10',note}),expected=walletInputPublicWords(mode,input),authorization={kind:'ORIGINAL_CONSENT_V1',jobId:'31'.repeat(32),consentSHA256:'41'.repeat(32),witnessSHA256:createHash('sha256').update(JSON.stringify(input)).digest('hex')};
+ const payload={inputs:{profile:ORIGINAL_WALLET_PRIVATE_PROVER_V4,protocol:'LIANUM_PRIVATE_PROOF_PROCESS_V1',purpose:'owner',operation:'prove',mode,label:'host-private-pc23',input},expectedPublicInputs:expected,authorization};
+ const fresh=()=>createPrivateProofRecipientV1({relation:mode,role:'owner',jobId:'host-pc23-corruption'});
+ for(const change of [p=>p.tag=Buffer.alloc(16).toString('base64'),p=>p.role='recipient',p=>p.authorization.consentSHA256='99'.repeat(32),p=>p.publicInputsSHA256='99'.repeat(32)]){
+  const own=fresh(),good=sealPrivateProofJobV1(readPrivateProofRecipientV1(own),payload),corrupt=structuredClone(good);change(corrupt);assert.throws(()=>openPrivateProofJobV1(own,corrupt));assert.throws(()=>openPrivateProofJobV1(own,good),/ONE_HANDOFF/);
+ }
+ const own=fresh(),opened=openPrivateProofJobV1(own,sealPrivateProofJobV1(readPrivateProofRecipientV1(own),payload));
+ try{assert.deepEqual(readOriginalWalletNoteProverRequestV4(opened,mode).expected,expected);assert.throws(()=>readOriginalWalletNoteProverRequestV4(structuredClone(opened),mode),/ORIGINAL_RECIPIENT/);opened.inputs.mode='withdraw_balance';assert.throws(()=>readOriginalWalletNoteProverRequestV4(opened,mode),/PRIVATE_SCOPE/);}finally{wipePrivateProofInputsV1(opened.inputs);}
+ const script=`import assert from'node:assert/strict';import{spawn}from'node:child_process';import{createHash}from'node:crypto';
+  import{preparePrivateProofJobV1,sealPrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1}from${JSON.stringify(transit.href)};
+  import{readOriginalWalletNoteProverRequestV4}from${JSON.stringify(work.href)};
+  import{walletInputPublicWords}from${JSON.stringify(encoding.href)};
+  const mode='deposit_balance',stage=process.argv[1];let opened;
+  try{opened=await preparePrivateProofJobV1({relation:mode,role:'owner',jobId:'host-pc23-'+stage});const current=readOriginalWalletNoteProverRequestV4(opened,mode);
+   assert.deepEqual(walletInputPublicWords(mode,current.request.input),current.expected);
+   if(stage==='second'){await new Promise((resolve,reject)=>process.send({type:'host-public-digest',digest:createHash('sha256').update(JSON.stringify(current.request.input)).digest('hex'),binding:privateProofBindingSHA256V1(current.binding)},e=>e?reject(e):resolve()));}
+   else{const child=spawn(process.execPath,['--input-type=module','-e',process.env.HOST_PC23_SOURCE,'second'],{env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe','ipc'],serialization:'advanced'});
+    const completed=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(code,signal)=>code===0&&signal===null?resolve():reject(Error('HOST_PC23_EXIT')));});let sent=false,output=0;
+    for(const stream of[child.stdout,child.stderr])stream.on('data',b=>{output+=b.length;b.fill(0);if(output>4096)child.kill('SIGTERM');});
+    child.on('message',m=>{if(m.type==='host-public-digest'){process.send(m);return;}assert.equal(sent,false);sent=true;const packet=sealPrivateProofJobV1(m,opened);assert.equal(Object.hasOwn(packet,'inputs'),false);child.send(packet,()=>wipePrivateProofInputsV1(packet));wipePrivateProofInputsV1(opened.inputs);});
+    await completed;assert.equal(sent,true);assert.equal(output,0);}
+  }catch{process.exitCode=1;}finally{wipePrivateProofInputsV1(opened?.inputs);if(process.connected)process.disconnect();}`;
+ const children=[],drains=[];let output=0,timer;
+ const start=stage=>{const child=spawn(process.execPath,['--input-type=module','-e',script,stage],{env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8',HOST_PC23_SOURCE:script},stdio:['ignore','pipe','pipe','ipc'],serialization:'advanced'});children.push(child);
+  for(const stream of[child.stdout,child.stderr])stream.on('data',b=>{output+=b.length;b.fill(0);if(output>4096)child.kill('SIGTERM');});
+  const exited=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>resolve({code,signal}));}),closed=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(code,signal)=>resolve({code,signal}));});return{child,exited,closed};};
+ const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('HOST_PC23_PRIVATE_IPC_TIMEOUT')),15000);});
+ try{
+  const first=start('first');drains.push(first.closed);let returned,sent=false;first.child.on('message',m=>{if(m.type==='host-public-digest'){returned=m;return;}assert.equal(sent,false);sent=true;const packet=sealPrivateProofJobV1(m,payload);assert.equal(JSON.stringify(packet).includes('"secret"'),false);first.child.send(packet,()=>wipePrivateProofInputsV1(packet));});
+  assert.deepEqual(await Promise.race([first.closed,deadline]),{code:0,signal:null});assert.equal(sent,true);assert.deepEqual(returned,{type:'host-public-digest',digest:createHash('sha256').update(JSON.stringify(input)).digest('hex'),binding:privateProofBindingSHA256V1(authorization)});
+  const disconnected=start('second');drains.push(disconnected.exited);disconnected.child.once('message',()=>disconnected.child.disconnect());assert.deepEqual(await Promise.race([disconnected.exited,deadline]),{code:1,signal:null});
+  assert.equal(existsSync('/proc/'+disconnected.child.pid),false,'HOST_PC23_PRIVATE_IPC_PID_ABSENT');for(const stream of[disconnected.child.stdout,disconnected.child.stderr])stream.destroy();assert.equal(output,0);
+ }finally{
+  clearTimeout(timer);for(const child of children){if(child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');if(child.connected)child.disconnect();for(const stream of[child.stdout,child.stderr])stream?.destroy();}
+  let drain;try{await Promise.race([Promise.allSettled(drains),new Promise((_,reject)=>{drain=setTimeout(()=>reject(Error('HOST_PC23_PRIVATE_IPC_DRAIN_TIMEOUT')),1000);})]);}finally{clearTimeout(drain);wipePrivateProofInputsV1(input);note.rho.fill(0);note.secret.fill(0);owner.privateKey=null;note.privateKey=null;}
+ }
+});
+
 test('fractional measured durations cross unchanged integer-only owner transport as strings', () => {
   const metrics = { initializationMilliseconds: 36985.618175, jobPreparationMilliseconds: 22.837479000000002,
     witnessMilliseconds: 1384.2186120000042, proofMilliseconds: 123896.52390700001,

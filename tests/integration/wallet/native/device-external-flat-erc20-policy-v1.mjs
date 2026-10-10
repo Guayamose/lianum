@@ -64,7 +64,12 @@ export const DEVICE_EXTERNAL_FLAT_GRAPH_RESULT_V1='LIANUM_DEVICE_EXTERNAL_FLAT_S
 export const DEVICE_EXTERNAL_FLAT_GRAPH_RELEASE_V1=Object.freeze({format:'REVIEWED_ORIGINAL_DEVICE_EXTERNAL_FLAT_SOURCE_GRAPH_RELEASE_V1',profile:DEVICE_EXTERNAL_FLAT_GRAPH_PROFILE_V1,localOnly:true,fakeFundsOnly:true,publicNetwork:false,physicalPhone:false,sourceAmountAtomic:'500',shareAmountAtomic:'100',originalGraph:true});
 export function assertDeviceExternalFlatGraphReleaseV1(){assert.equal(arguments.length,0);assert.deepEqual(DEVICE_EXTERNAL_FLAT_GRAPH_RELEASE_V1,{format:'REVIEWED_ORIGINAL_DEVICE_EXTERNAL_FLAT_SOURCE_GRAPH_RELEASE_V1',profile:DEVICE_EXTERNAL_FLAT_GRAPH_PROFILE_V1,localOnly:true,fakeFundsOnly:true,publicNetwork:false,physicalPhone:false,sourceAmountAtomic:'500',shareAmountAtomic:'100',originalGraph:true},'DEVICE_EXTERNAL_FLAT_GRAPH_RELEASE_PENDING');}
 export function classifyDeviceExternalFlatGraphProcessV1(argv,executable,parent){assert.equal(arguments.length,3);
- const recipient=join(ROOT,'proof-workers/wallet-note-private-recipient-v3.mjs');
+ const prover=join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs'),recipient=join(ROOT,'proof-workers/wallet-note-private-recipient-v3.mjs');
+ if(Array.isArray(argv)&&argv.includes(prover)){
+  const originalParent=parent&&Array.isArray(parent.argv)&&parent.argv.length===3&&parent.argv[0]===process.execPath&&parent.argv[1]===recipient&&['deposit_balance','withdraw_balance'].includes(parent.argv[2]);
+  if(executable!==process.execPath||!originalParent||argv.length!==3||argv[0]!==process.execPath||argv[1]!==prover||argv[2]!==parent.argv[2])return{role:'device-external-flat-unexpected-process',proofWorker:true};
+  return{role:'device-external-flat-private-pc23-prover',proofWorker:true};
+ }
  if(Array.isArray(argv)&&argv.includes(recipient)){
   const originalParent=parent&&Array.isArray(parent.argv)&&parent.argv.length===2&&parent.argv[0]===process.execPath&&parent.argv[1]===join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs');
   if(executable!==process.execPath||!originalParent||argv.length!==3||argv[0]!==process.execPath||argv[1]!==recipient||!['deposit_balance','withdraw_balance'].includes(argv[2]))return{role:'device-external-flat-unexpected-process',proofWorker:true};

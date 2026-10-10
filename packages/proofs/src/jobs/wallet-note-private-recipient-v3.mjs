@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {preparePrivateProofJobV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import {deriveOriginalDeviceWalletNoteJobV3} from './private-device-wallet-note-input-v3.mjs';
-import {createProofProcess} from '../../../engine/src/execution/proofs/proof-process.mjs';
+import {createOriginalWalletNotePrivateProverV4} from './wallet-note-private-prover-v4.mjs';
 async function main(){
  const mode=process.argv[2];assert.ok(process.argv.length===3&&['deposit_balance','withdraw_balance'].includes(mode)&&process.connected,'PW_PRIVATE_WALLET_ENTRY');
  let received,prover,stopping=false;
@@ -13,7 +13,7 @@ async function main(){
  process.once('disconnect',stop);process.once('SIGTERM',stop);
  try{
   received=await preparePrivateProofJobV1({relation:mode,role:'owner',jobId:randomUUID()});assert.equal(stopping,false,'PW_PRIVATE_WALLET_CLOSED');
-  const derivation=deriveOriginalDeviceWalletNoteJobV3(received,mode);prover=createProofProcess({purpose:'owner',modes:[mode]});
+  const derivation=deriveOriginalDeviceWalletNoteJobV3(received,mode);prover=createOriginalWalletNotePrivateProverV4(received);
   const result=await prover.prove(mode,received.inputs,received.expectedPublicInputs,mode==='deposit_balance'?'device-external-flat-d26':derivation.noteRole?'device-external-graph-w39-'+derivation.noteRole:'device-external-flat-w39');
   assert.equal(result.metrics.acceptedResult,true,'PW_PRIVATE_WALLET_PROOF_REJECTED');assert.equal(stopping,false,'PW_PRIVATE_WALLET_CLOSED');await prover.close();prover=null;
   const publicResult={type:'original-private-wallet-proof-result-v3',mode,recipientJobId:derivation?received.authorization.jobId:null,
