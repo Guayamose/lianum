@@ -6,7 +6,7 @@ import {nativeValueWatermark as watermark} from '../../../../src/operations/oper
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {assertGraphNativeStateV4,graphNativeProjectionV4} from '../../../../src/operations/operators/wrapped/graph-native-state-v4.mjs';
-import { cloneInput as copy, frozenInput as freeze, inputUint } from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze, inputUint } from "@lianum/components/plain-input";
 const operations = new WeakMap();
 const readWrappedGraphDispatchOperationV4 = token => { const read = operations.get(token); assert.ok(read, 'TEST_ORIGINAL_OPERATION_REQUIRED'); return freeze(copy(read())); };
 const api = {

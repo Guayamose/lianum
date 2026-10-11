@@ -3,7 +3,7 @@
  * witness branch. Same public ABI never licenses an old admission key. */
 import assert from 'node:assert/strict';
 import { exactRecord, fixedArray, digestBytes } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import * as E from '../../evm/transfers/evm-native-value-v2.mjs';
 import * as T from '../../tron/transfers/tron-native-graph-profile.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';

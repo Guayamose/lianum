@@ -5,7 +5,7 @@ import { refreshNativeValueReceiverClock } from '../../../chains/evm/runtime/own
  * No native dispatch/sign/broadcast method is supplied by this preflight. */
 import assert from 'node:assert/strict';
 import { exactRecord, canonicalField, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { joinNativeValueAdmission } from '@lianum/components/encoding/native-value-statements-v2';
 import { createNativeValueSystemStateReader as nativeReader, decodeFlatWords } from '../reconciliation/native-value-system-state-v2.mjs';
 import { assertOwnedNativeValueSystem as nativeSystem } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';

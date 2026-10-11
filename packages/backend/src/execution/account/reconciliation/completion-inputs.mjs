@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField,
   validateStruct, structToNoir, digestBytes, digestWords, ZERO } from '@lianum/components/encoding/commitments';
 import { validateStatement } from '@lianum/components/encoding/statements';
-import { cloneInput, frozenInput, inputUint, inputPath, validateFlatInputs } from '../preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint, inputPath } from "@lianum/components/plain-input";
+import { validateFlatInputs } from "../preparation/readiness-inputs.mjs";
 import { nativeReceiptReadOpening, nativeReceiptCommitment, nativeReceiptToNoir, RECEIPT_HASH_FIELDS }
   from '@lianum/engine/execution/native/state/native-receipt';
 import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';

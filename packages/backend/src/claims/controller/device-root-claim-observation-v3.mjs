@@ -3,10 +3,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, createPublicKey, verify } from "node:crypto";
 import { exactRecord } from "@lianum/components/encoding/commitments";
-import {
-  cloneInput as copy,
-  frozenInput as freeze,
-} from "../../execution/account/preparation/readiness-inputs.mjs";
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import * as DeviceClaim from "@lianum/mobile-protocol/device/native-claim-v1";
 import { verifyPrivateNotePath } from "@lianum/engine/notes/private-note-tree";
 /** Canonical controller supplies these four private bindings once. No canonical

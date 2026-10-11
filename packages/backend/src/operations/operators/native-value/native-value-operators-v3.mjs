@@ -13,7 +13,7 @@ import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
 import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { assertOwnedNativeValueSystem, nativeValueOperatorResources } from '../../deployments/native-value/native-value-system-v2.mjs';
 import { createNativeValueSystemStateReader, assertNativeValueCurrentView } from '../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import { encodeFacts, validateFacts, factsSchema, profileCommitment, registryCommitment, assertFactsQuorum, sha256 }

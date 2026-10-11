@@ -9,7 +9,8 @@ import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct
   structToNoir, digestBytes, digestWords } from '@lianum/components/encoding/commitments';
 import { joinReadiness } from '@lianum/components/encoding/statements';
 import { validateNativeValueAdmissionInputs } from '@lianum/proofs/native-value/metadata/native-value-v2-profile';
-import { cloneInput, frozenInput, inputUint, inputPath, readyDescriptorWords } from './readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint, inputPath } from "@lianum/components/plain-input";
+import { readyDescriptorWords } from "./readiness-inputs.mjs";
 import { receiptKeyCommitment, nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeTransferActionCommitment, nativeActionToNoir }
   from '@lianum/engine/execution/native/dispatch/native-capsules';

@@ -3,7 +3,7 @@
  * observation or substitutes a previous audit for a current native read. */
 import assert from 'node:assert/strict';
 import { canonical } from '@lianum/engine/crypto/privacy';
-import { cloneInput as copy } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy } from "@lianum/components/plain-input";
 import { bytes32 } from '@lianum/components/encoding/commitments';
 import { claimHash, claimFrame } from '@lianum/engine/claims/permits';
 import { claimEconomicInventory } from '../operations/backing-audit.mjs';

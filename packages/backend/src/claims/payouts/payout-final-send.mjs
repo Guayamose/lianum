@@ -2,7 +2,7 @@
  * after its original broadcast collection. No signing, collection, retry,
  * preparation, replacement certificate or transport is exposed here. */
 import assert from 'node:assert/strict';
-import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { claimPayoutBroadcastFrame } from '@lianum/engine/claims/permits';
 import { assertCanonicalClaimReservation } from '../authorization/reservation-facts-gate.mjs';
 export const CLAIM_PAYOUT_FINAL_SEND_PROFILE = 'CLAIM_PAYOUT_ORIGINAL_AUTHORITY_LIFETIME_V2';

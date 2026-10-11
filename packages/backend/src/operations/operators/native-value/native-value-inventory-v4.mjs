@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { createPublicKey, verify } from 'node:crypto';
 import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { encodeFacts, validateFacts, factsSchema, profileCommitment, nativeWireBytes, registryCommitment, sha256 }
   from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { checkpointAuthorizationFrame, MAX_NATIVE_VALUE_CHECKPOINTS } from '../../recovery/native-value-checkpoint-v4.mjs';

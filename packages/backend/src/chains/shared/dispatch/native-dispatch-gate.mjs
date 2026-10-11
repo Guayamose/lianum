@@ -12,7 +12,8 @@ import { performance } from 'node:perf_hooks';
 import { assertPinnedVerifier } from '@lianum/proofs/verification';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField,
   validateStruct, ZERO } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint, inputPath, readyDescriptorWords } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint, inputPath } from "@lianum/components/plain-input";
+import { readyDescriptorWords } from "../../../execution/account/preparation/readiness-inputs.mjs";
 import { decodeStatement, joinReadiness } from '@lianum/components/encoding/statements';
 import { receiptKeyCommitment, nativeRuleCommitment, nativeCustodyCommitment, nativeFactIdentity,
   encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage,

@@ -12,7 +12,7 @@ import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
 import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { assertOwnedWrappedClaimGraphSystem, wrappedClaimGraphOperatorResources } from '../../deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1, assertWrappedClaimGraphCurrentViewV1 } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';
 import { assertOwnedNativeValueHealthObservation as assertTypedSourceObservation } from '../../../chains/shared/health/native-value-health-source-v4.mjs';

@@ -9,7 +9,7 @@ import { canonicalNativeEffectId } from '@lianum/engine/execution/native/state/n
 import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeQuorumRegistryCommitment } from '@lianum/engine/evidence/native-quorum';
 import { createCommitmentCodec, validateStruct, fixedArray } from '@lianum/components/encoding/commitments';
-import { cloneInput, inputPath } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, inputPath } from "@lianum/components/plain-input";
 import { validateStatement, joinReadiness } from '@lianum/components/encoding/statements';
 import { membership } from '@lianum/engine/execution/native/state/native-state';
 export const PROFILE_SCHEMA = 'LIANUM_TRON_NATIVE_VALUE_SOURCE_PROFILE_V2';

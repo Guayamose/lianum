@@ -21,7 +21,7 @@ import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispat
 import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
 import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment } from '@lianum/engine/evidence/native-quorum';
 import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
-import { cloneInput as copy, frozenInput as freeze } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import * as bitcoinRuntimeLiveness from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';

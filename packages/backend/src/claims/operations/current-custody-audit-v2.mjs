@@ -4,7 +4,7 @@
  * currentness. The owned combined reader/key factory remains a separate gate. */
 import assert from 'node:assert/strict';
 import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { assertClaimAccounting } from './owned-state.mjs';
 import { auditClaimGateway, auditClaimNativeInventory, assertClaimHealthState } from './backing-audit.mjs';
 import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';

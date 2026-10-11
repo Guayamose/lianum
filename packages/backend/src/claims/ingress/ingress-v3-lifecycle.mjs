@@ -4,7 +4,7 @@
  * extend their fixed signing allowlists, and pass the normal artifact gate.
  */
 import assert from 'node:assert/strict';
-import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { claimUint } from '@lianum/engine/claims/framing';
 import { auditClaimGateway } from '../operations/backing-audit.mjs';
 import { auditNonceIngressPreparation, auditDualNonceInventory, validateNonceIngressBinding,

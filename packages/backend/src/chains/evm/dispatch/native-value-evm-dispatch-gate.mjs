@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { retainNativeValueFailurePhase, retainNativeValueSecondaryFailure } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import { performance } from 'node:perf_hooks';
 import { exactRecord, createCommitmentCodec } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { assertOwnedNativeValueSystem } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/native-value/native-value-operators-v4.mjs';
 import { createNativeValueSystemStateReader, assertNativeValueCurrentView, decodeFlatWords } from '../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';

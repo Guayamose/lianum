@@ -11,7 +11,7 @@ import { createNativeRecipientProcess } from '../../../../../packages/backend/sr
 import { NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { assertOwnedFlatOwnerProcess } from '../../../../../packages/backend/src/custody/processes/flat-owner-process.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import { inputUint } from '../../../../../packages/backend/src/execution/account/preparation/readiness-inputs.mjs';
+import { inputUint } from "@lianum/components/plain-input";
 import { createOwnedFlatNativeProvider } from '../../../../../packages/backend/src/providers/native-provider.mjs';
 import { freshFixtureId } from '../../../fixtures/runners/owned-flat-fixture.mjs';
 

@@ -2,7 +2,7 @@
  * No ownership, observed backing, deployment, signing or mint capability. */
 import assert from 'node:assert/strict';
 import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { validateClaimConfig } from '@lianum/engine/claims/framing';
 import { nativeAdmissionRuleCommitment } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { h4, sha256, registryCommitment, pathRoot, sourceCommitment, PROFILE_SCHEMA as EVM_SCHEMA }

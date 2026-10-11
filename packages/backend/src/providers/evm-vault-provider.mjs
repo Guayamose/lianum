@@ -30,7 +30,7 @@ import { assertOwnedFlatOperatorQuorum } from '../operations/operators/claims/na
 import { createFlatSystemStateReader } from '../execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord, fixedArray, bytes32, canonicalField, validateStruct, FIELD_MODULUS }
   from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { nativeRuleCommitment, nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { createNativeDispatchJournal, normalizeNativeDispatchBinding }
   from '../chains/shared/dispatch/native-dispatch-gate.mjs';

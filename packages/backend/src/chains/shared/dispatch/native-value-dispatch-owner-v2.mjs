@@ -23,7 +23,7 @@ import { assertNativeValueOperatorBootstrapForSystem, assertNativeValueBootstrap
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/native-value/native-value-operators-v4.mjs';
 import { createNativeValueSystemStateReader } from '../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import { exactRecord,bytes32,canonicalField,FIELD_MODULUS } from '@lianum/components/encoding/commitments';
-import { cloneInput,frozenInput,inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { profileCommitment,chainDomain } from '../transfers/generic-native-value-v2.mjs';
 import { PROFILE_SCHEMA,CHAINS } from '../../evm/transfers/evm-native-value-v2.mjs';
 import { evmNativeTransferNetwork } from '../../evm/observations/evm-native-transfer-observer.mjs';

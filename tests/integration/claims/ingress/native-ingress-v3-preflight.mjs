@@ -13,7 +13,7 @@ import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { claimEconomicInventory, auditClaimGateway, auditClaimNativeInventory } from '../../../../packages/backend/src/claims/operations/backing-audit.mjs';
 import { ownedCustodyRoute } from '../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBootstrapTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
-import { cloneInput as copy, frozenInput as freeze } from '../../../../packages/backend/src/execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { assertNonceIngressDeployment, auditDualNonceInventory, nonceForRoute } from '../../../../packages/backend/src/claims/ingress/ingress-v3-host.mjs';
 
 import { PREFLIGHT_PROFILE, PRODUCTION_PREFLIGHT_PROFILE } from './native-ingress-v3-preflight-policy.mjs';

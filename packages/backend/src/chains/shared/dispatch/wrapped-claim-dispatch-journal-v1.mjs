@@ -4,7 +4,8 @@
 import assert from 'node:assert/strict';
 import { createPublicKey, verify } from 'node:crypto';
 import { exactRecord, bytes32, validateStruct } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint, readyDescriptorWords } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
+import { readyDescriptorWords } from "../../../execution/account/preparation/readiness-inputs.mjs";
 import { joinReadiness } from '@lianum/components/encoding/statements';
 import { normalizeNativeValueDispatchBinding, nativeValueBindingDigest, equal, assertNativeValuePrepared, assertNativeValueSigned, normalizeOriginalNativeValueEvmPreparation, normalizeOriginalNativeValueTronPreparation, selectedNativeValueProfile } from './wrapped-claim-dispatch-binding-v1.mjs';
 import { PROFILE_SCHEMA as EVM_SCHEMA } from '../../evm/transfers/evm-native-value-v2.mjs';

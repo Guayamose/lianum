@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import { CLAIM_ACTIONS as A } from '@lianum/engine/claims/permits';
-import { cloneInput as copy, frozenInput as freeze } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 
 const claimSource = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
 const controllerSource = readFileSync(new URL('./controller.mjs', import.meta.url), 'utf8');

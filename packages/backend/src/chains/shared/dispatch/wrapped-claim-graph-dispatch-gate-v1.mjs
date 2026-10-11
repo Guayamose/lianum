@@ -10,7 +10,7 @@ import * as graphAuthorizationV4 from '../../../operations/operators/wrapped/wra
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { exactRecord, createCommitmentCodec } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { assertOwnedWrappedClaimGraphSystem } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1, assertWrappedClaimGraphCurrentViewV1, decodeFlatWords } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';

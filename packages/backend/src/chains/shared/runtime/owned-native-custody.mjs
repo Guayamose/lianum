@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 
 export const OWNED_CUSTODY_ROUTES = frozenInput({
   deposit: { sourceRole: 'depositor', destinationRole: 'escrow', recipientIndex: 0 },

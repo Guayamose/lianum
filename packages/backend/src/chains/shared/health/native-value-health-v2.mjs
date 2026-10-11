@@ -2,7 +2,7 @@
  * changes the signed bytes; this verifier never treats a V1 raw root as V2. */
 import assert from 'node:assert/strict';
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
-import { cloneInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, inputUint } from "@lianum/components/plain-input";
 import { encodeFlatNativeHealth, FLAT_HEALTH_FIELDS } from './native-health.mjs';
 import { registryCommitment } from '../transfers/generic-native-value-v2.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }

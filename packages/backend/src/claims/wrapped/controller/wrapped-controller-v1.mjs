@@ -13,7 +13,7 @@ import { auditNonceIngressPreparation, assertNonceIngressFirstSend }
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
-import { cloneInput as copy, frozenInput as freeze } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { assertOwnedWrappedClaimSystem } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertSignedEvmTransaction } from '../../../chains/evm/contracts/transaction-wire-codec.mjs';
 import { LOCAL_EVM_PROFILE } from '../../../chains/evm/runtime/local-evm-profiles.mjs';

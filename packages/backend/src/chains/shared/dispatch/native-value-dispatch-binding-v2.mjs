@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import { createHash, createPublicKey } from 'node:crypto';
 import { exactRecord, bytes32, validateStruct, createCommitmentCodec } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint, readyDescriptorWords } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
+import { readyDescriptorWords } from "../../../execution/account/preparation/readiness-inputs.mjs";
 import { decodeStatement, joinReadiness } from '@lianum/components/encoding/statements';
 import { assertNativeValueRegistrations } from '../../../operations/deployments/native-value/native-value-registry-v2.mjs';
 import { profileCommitment, chainDomain, registryCommitment } from '../transfers/generic-native-value-v2.mjs';

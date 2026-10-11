@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { exactRecord, fixedArray, bytes32, digestBytes } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { nativeFactIdentity, nativeCustodyCommitment, nativeObservedEffectCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { evmNativeTransferNetwork } from '../observations/evm-native-transfer-observer.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import { cloneInput as copy } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy } from "@lianum/components/plain-input";
 
 function wireHash(value) {
   assert.ok(typeof value === 'string' && value.length <= 262146

@@ -78,7 +78,7 @@ function createSyntheticKey() {
 }
 
 import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { encodeSolanaBindingMessage, validateSolanaBindingTransaction, assertMemoProgramAccount,
   MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction,

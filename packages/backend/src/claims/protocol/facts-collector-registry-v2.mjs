@@ -4,7 +4,7 @@
  * This is host conformance, never an owned observer or backing/signing authority. */
 import assert from 'node:assert/strict';
 import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { FACTS_SCHEMA, validateNativeClaimFacts, encodeNativeClaimFacts, nativeClaimFactsDigest } from '@lianum/engine/native/native-receipt-binding';
 import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment } from '@lianum/engine/evidence/native-quorum';
 import { assertCustodyRegistration, assertCustodySources } from './registry-envelope-v2.mjs';

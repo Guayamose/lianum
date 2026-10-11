@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { exactRecord, fixedArray, ZERO } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { registryCommitment, assertRegistration, assertSource, profileCommitment, validateProfile }
   from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { PROFILE_SCHEMA as EVM_SCHEMA } from '../../../chains/evm/transfers/evm-native-value-v2.mjs';

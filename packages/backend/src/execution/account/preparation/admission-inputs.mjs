@@ -8,7 +8,8 @@ import { createPublicKey, verify } from 'node:crypto';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
   structToNoir, digestBytes, digestWords } from '@lianum/components/encoding/commitments';
 import { validateStatement } from '@lianum/components/encoding/statements';
-import { cloneInput, frozenInput, inputUint, inputPath, readyDescriptorWords, validateFlatInputs } from './readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint, inputPath } from "@lianum/components/plain-input";
+import { readyDescriptorWords, validateFlatInputs } from "./readiness-inputs.mjs";
 import { FACTS_SCHEMA, validateNativeFacts, encodeNativeFacts, nativeFactsDigest,
   receiptKeyCommitment, nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeTransferActionCommitment, nativeActionToNoir }

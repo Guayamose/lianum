@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { checkpointAuthorizationFrame, checkpointAuthorizationDigest, assertCheckpointAuthorizationValid }
   from '@lianum/engine/evidence/native-hub-messages';
 import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 export const NATIVE_VALUE_CHECKPOINT_PROFILE = 'FIXED_NATIVE_VALUE_CHECKPOINT_ACTION_V4';
 export const MAX_NATIVE_VALUE_CHECKPOINTS = 64;
 export { checkpointAuthorizationFrame, checkpointAuthorizationDigest };

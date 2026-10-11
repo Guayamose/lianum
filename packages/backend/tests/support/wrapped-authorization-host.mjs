@@ -21,7 +21,7 @@ import { createClaimReservationBinding } from '../../src/claims/authorization/re
 import { CLAIM_ACTIONS, claimHash, claimFrame, claimRouteCommitment } from '@lianum/engine/claims/permits';
 import { currentFixture, tree, h, copy, ZERO } from '../fixtures/operations/deployments/wrapped/wrapped-v4-host-fixtures.mjs';
 import { checkpointAuthorizationDigest } from '../../src/operations/recovery/native-value-checkpoint-v4.mjs';
-import { frozenInput as freeze } from '../../src/execution/account/preparation/readiness-inputs.mjs';
+import { frozenInput as freeze } from "@lianum/components/plain-input";
 import { registryCommitment } from '../../src/chains/shared/transfers/generic-native-value-v2.mjs';
 import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { ownedCustodyRoute, ownedCustodyFeeAudit, summarizeOwnedBitcoinCoins } from '../../src/chains/shared/runtime/owned-native-custody.mjs';

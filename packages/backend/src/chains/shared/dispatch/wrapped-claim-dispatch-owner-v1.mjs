@@ -22,7 +22,7 @@ import { assertWrappedClaimOperatorBootstrapForSystemV1, assertWrappedClaimBoots
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1 } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';
 import { exactRecord,bytes32,canonicalField,FIELD_MODULUS } from '@lianum/components/encoding/commitments';
-import { cloneInput,frozenInput,inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { profileCommitment,chainDomain } from '../transfers/generic-native-value-v2.mjs';
 import { PROFILE_SCHEMA,CHAINS } from '../../evm/transfers/evm-native-value-v2.mjs';
 import { evmNativeTransferNetwork } from '../../evm/observations/evm-native-transfer-observer.mjs';

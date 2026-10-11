@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { exactRecord, bytes32, ZERO } from '@lianum/components/encoding/commitments';
-import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { ownedCustodyRoute, assertOwnedCustodyIntent, auditOwnedSolanaNonceInfrastructure,
   ownedCustodyFeeAudit } from '../../chains/shared/runtime/owned-native-custody.mjs';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction }
