@@ -1,3 +1,4 @@
+import { createOriginalFactsRetentionV2 } from './original-facts-retention-v2.mjs';
 /** Bounded same-host synthetic operators, one dedicated attester key each.
  * No arbitrary-message signer, unowned observer/clock/store, native transfer,
  * independent-operator claim or restart/rotation service is exposed. */
@@ -405,32 +406,11 @@ function createFlatOperator(input, custody, recovered = null) {
       return freeze({ message: copy(message), signerIndex, signature, abiSignature, head: copy(activeView.head), audit });
     } catch (cause) { poison(); throw signingFailure(cause); }
   }
-  function originalFactsEntry(certificate, request, head, original = null) {
-    exactRecord(certificate, ['schema', 'signerIndex', 'facts', 'frameHex', 'digest', 'signature']);
-    assert.equal(certificate.schema, FACTS_SCHEMA, 'FLAT_OPERATOR_ORIGINAL_FACTS_SCHEMA');
-    assert.equal(certificate.signerIndex, String(signerIndex), 'FLAT_OPERATOR_ORIGINAL_FACTS_SIGNER');
-    assert.equal(certificate.facts.family, request.family, 'FLAT_OPERATOR_ORIGINAL_FACTS_FAMILY');
-    const entry = record.data.inventories[request.family].state.entries.find(value => value.facts.nativeGid === certificate.facts.nativeGid);
-    assert.ok(entry && entry.signature, 'FLAT_OPERATOR_ORIGINAL_FACTS_MISSING');
-    equal(entry.request, request); equal(entry.facts, certificate.facts);
-    assert.equal(entry.signature, certificate.signature, 'FLAT_OPERATOR_ORIGINAL_FACTS_SIGNATURE');
-    assert.ok(entry.status === 'live' && entry.reason === null && !record.data.adverse[entry.facts.nativeGid],
-      'FLAT_OPERATOR_ORIGINAL_FACTS_NOT_LIVE');
-    const bytes = encodeNativeFacts(entry.facts, policies[request.family]);
-    assert.equal(certificate.frameHex, bytes.toString('hex'), 'FLAT_OPERATOR_ORIGINAL_FACTS_FRAME');
-    assert.equal(certificate.digest, sha(bytes), 'FLAT_OPERATOR_ORIGINAL_FACTS_DIGEST');
-    const at = inputUint(head.timestamp), observation = entry.facts.observation;
-    assert.equal(observation.observedAt, head.timestamp, 'FLAT_OPERATOR_ORIGINAL_FACTS_HEAD');
-    assert.ok(inputUint(observation.evidenceFrom) <= at && at < inputUint(observation.evidenceUntil),
-      'FLAT_OPERATOR_ORIGINAL_FACTS_EXPIRED');
-    assert.ok(inputUint(entry.maximumEvidenceUntil) >= inputUint(observation.evidenceUntil), 'FLAT_OPERATOR_ORIGINAL_FACTS_BOUND');
-    if (original) {
-      equal(certificate, original.certificate); equal(request, original.request); equal(head, original.head);
-      for (const name of ['request', 'nativeWire', 'intent', 'facts', 'maximumEvidenceUntil', 'signature'])
-        equal(entry[name], original.entry[name], 'FLAT_OPERATOR_ORIGINAL_FACTS_ENTRY_CHANGED');
-    }
-    return entry;
-  }
+  const {originalFactsEntry,validateOriginalFacts}=createOriginalFactsRetentionV2(Object.freeze({
+    schema:FACTS_SCHEMA,signerIndex,record:()=>record,encodeNativeFacts,policies,equal,sha,inputUint,
+    retained,original:certificate=>originalFactsCertificates.get(certificate),serial,
+    healthAllowed,clearAudit,auditAll,coverageFreshness,
+  }));
   async function certify(request, anchor) {
     request = copy(request); exactRecord(request, ['family', 'recipientIndex', 'nativeId', 'wireKeyCommitment']);
     assert.ok(retained().families.includes(request.family), 'FLAT_OPERATOR_FAMILY');
@@ -713,22 +693,7 @@ function createFlatOperator(input, custody, recovered = null) {
     attachRetention(state){assert.ok(!custody&&!retention&&!busy);retention=state;},
     assertRetainedLive(){live();assert.ok(!busy,'FLAT_OPERATOR_CAPTURE_BUSY');},
     captureInitialization(){live();assert.ok(!busy,'FLAT_OPERATOR_CAPTURE_BUSY');return privateInitialization();},
-    validateOriginalFacts(certificate, request, expectedHead) {
-      retained();
-      const original = originalFactsCertificates.get(certificate);
-      assert.ok(original, 'FLAT_OPERATOR_ORIGINAL_FACTS_REQUIRED');
-      equal(request, original.request); equal(expectedHead, original.head);
-      return serial(0, async (view, freshness) => {
-        equal(view.head, original.head); healthAllowed(view);
-        originalFactsEntry(certificate, request, view.head, original);
-        // Full fresh original graph and reciprocal claim audits, never certify
-        // or refresh. Context/adverse/audit writes remain; signatures do not.
-        clearAudit(await auditAll(view, freshness));
-        await coverageFreshness(view, freshness)();
-        originalFactsEntry(certificate, request, view.head, original);
-        await freshness();
-      });
-    },
+    validateOriginalFacts,
     anchor(certificate, request, started) {
       const b = retained(), entry = record.data.inventories[request.family].state.entries.find(item => item.facts.nativeGid === certificate.facts.nativeGid);
       assert.ok(entry && entry.signature === certificate.signature, 'FLAT_OPERATOR_ANCHOR_CERTIFICATE');
