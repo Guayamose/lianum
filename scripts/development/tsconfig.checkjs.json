@@ -9,7 +9,8 @@
     "target": "ES2024",
     "types": [
       "node"
-    ]
+    ],
+    "allowImportingTsExtensions": true
   },
   "files": [
     "../../packages/environment/src/paths.mjs",
@@ -70,6 +71,8 @@
     "../../packages/proofs/src/toolchain/current-source-generation.mjs",
     "../../packages/backend/src/operations/operators/wrapped/graph-native-state-v4.mjs",
     "../../packages/backend/src/operations/operators/native-value/original-current-round-v4.mjs",
-    "../../packages/mobile-protocol/src/bounded-permission-sha256-v1.mjs"
+    "../../packages/mobile-protocol/src/bounded-permission-sha256-v1.mjs",
+    "../../apps/mobile/src/custody/device-graph-string-table-v5.ts",
+    "../../apps/mobile/src/custody/device-note-stored-state-v1.ts"
   ]
 }

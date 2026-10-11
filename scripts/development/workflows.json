@@ -119,7 +119,8 @@
         "apps/mobile/tests/local-root-note-vault-v1.test.mjs",
         "packages/mobile-protocol/tests/shared-entrypoints.test.mjs",
         "packages/mobile-protocol/tests/wallet-client-architecture.test.mjs",
-        "packages/mobile-protocol/tests/consent-wire-compatibility.test.mjs"
+        "packages/mobile-protocol/tests/consent-wire-compatibility.test.mjs",
+        "apps/mobile/tests/device-graph-string-table.test.mjs"
       ]
     },
     "platform": {
