@@ -1,6 +1,7 @@
 /** Synthetic public wire vectors captured from the pre-typing implementation.
  * These hashes fix serialization only; they confer no account/proof authority. */
 import test from 'node:test';
+import {boundedPermissionSha256V1} from '../src/bounded-permission-sha256-v1.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {originalAccountFramesV2} from '../../../apps/mobile/tests/helpers/original-account-frames-v2.mjs';
@@ -99,4 +100,14 @@ const EXPECTED = {
 
 test('signed consent domains and snapshots retain their exact original wire bytes', () => {
   assert.deepEqual(wireVectors(), EXPECTED);
+});
+
+
+test('portable permission SHA256 preserves padding boundaries, input bytes and the original size bound',()=>{
+ for(const n of [0,3,55,56,63,64,8192]){
+  const bytes=n===3?new TextEncoder().encode('abc'):Uint8Array.from({length:n},(_,i)=>(i*29)&255),before=bytes.slice();
+  assert.equal(Buffer.from(boundedPermissionSha256V1(bytes)).toString('hex'),createHash('sha256').update(bytes).digest('hex'));
+  assert.deepEqual(bytes,before);
+ }
+ for(const bytes of [null,{},'abc',new Uint16Array(3),new Uint8Array(8193)])assert.throws(()=>boundedPermissionSha256V1(bytes),/MOBILE_PERMISSION_SHA256_BYTES/);
 });
