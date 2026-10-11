@@ -1,0 +1,217 @@
+{
+  "schema": "LIANUM_LAB_PROFILES_V1",
+  "coverage": "curated-minimum-inventory",
+  "requirements": {
+    "node": {
+      "kind": "executable",
+      "path": ".internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node",
+      "scope": "Node 24.19.0 at its pinned installation path; executable presence only"
+    },
+    "source-dependencies": {
+      "kind": "npm",
+      "path": ".",
+      "scope": "Workspace links, public lock/manifest agreement and installed direct versions"
+    },
+    "platform-dependencies": {
+      "kind": "npm",
+      "path": "apps/platform",
+      "scope": "Platform public lock/manifest agreement and installed package metadata"
+    },
+    "mobile-dependencies": {
+      "kind": "npm",
+      "path": "apps/mobile",
+      "scope": "Mobile public lock/manifest agreement and installed package metadata; no APK build"
+    },
+    "compatibility-runtime": {
+      "kind": "runtime",
+      "scope": "Recorded public compatibility sources compared with editable sources; no financial release acceptance"
+    },
+    "anvil": {
+      "kind": "executable",
+      "path": ".internal/runtime/omnichain-product/.local/linux-runtimes/foundry-v1.8.4/anvil",
+      "scope": "Official local EVM tool presence; no process started"
+    },
+    "bitcoind": {
+      "kind": "executable",
+      "path": ".internal/runtime/omnichain-product/.local/linux-runtimes/bitcoin-v31.1/bitcoin-31.1/bin/bitcoind",
+      "scope": "Bitcoin Core 31.1 executable presence"
+    },
+    "bitcoin-cli": {
+      "kind": "executable",
+      "path": ".internal/runtime/omnichain-product/.local/linux-runtimes/bitcoin-v31.1/bitcoin-31.1/bin/bitcoin-cli",
+      "scope": "Bitcoin Core 31.1 CLI presence"
+    },
+    "solana-candidate": {
+      "kind": "executable",
+      "path": ".internal/runtime/omnichain-product/.local/linux-runtimes/agave-v2.3.13-loopback-memtable128m-candidate-20261005/solana-test-validator",
+      "scope": "Original selected custom Solana runtime presence; not replaced by stock Agave"
+    },
+    "evm-public-build": {
+      "kind": "file",
+      "path": ".internal/runtime/omnichain-flat-profile/flat-wallet/.local/development-evm/v1/manifest.json",
+      "scope": "Public build manifest presence only; downstream loader verifies artifact hashes"
+    },
+    "native-claims-public-build": {
+      "kind": "file",
+      "path": ".internal/runtime/omnichain-flat-profile/flat-wallet/.local/development-native-claims/v2/manifest.json",
+      "scope": "CI51/CO42 public build manifest presence only; no regeneration"
+    },
+    "backed-assets-public-build": {
+      "kind": "file",
+      "path": ".internal/runtime/omnichain-flat-profile/flat-wallet/.local/backed-assets/v1/manifest.json",
+      "scope": "Public backed-assets manifest presence only"
+    }
+  },
+  "profiles": {
+    "host": {
+      "description": "Pruebas rápidas de host y desarrollo de paquetes",
+      "requirements": [
+        "node",
+        "source-dependencies"
+      ],
+      "entrypoints": [
+        "scripts/development/run_tests.py"
+      ],
+      "commands": [
+        "./dev check"
+      ],
+      "prepare": [
+        "source-runtime"
+      ],
+      "economic": false
+    },
+    "wallet": {
+      "description": "Wallet web desde fuentes, sin cuenta financiada",
+      "requirements": [
+        "node",
+        "source-dependencies"
+      ],
+      "entrypoints": [
+        "apps/wallet/src/server/run.mjs"
+      ],
+      "commands": [
+        "./dev start"
+      ],
+      "prepare": [
+        "source-runtime"
+      ],
+      "economic": false
+    },
+    "platform": {
+      "description": "API local de admisión; no valida credenciales ni disponibilidad de PostgreSQL",
+      "requirements": [
+        "node",
+        "source-dependencies",
+        "platform-dependencies"
+      ],
+      "entrypoints": [
+        "apps/platform/src/entry.mjs"
+      ],
+      "commands": [
+        "./dev platform admission"
+      ],
+      "prepare": [
+        "source-runtime",
+        "platform-dependencies"
+      ],
+      "economic": false
+    },
+    "evm": {
+      "description": "Inventario mínimo del laboratorio nuevo EVM; ejecución y preparación criptográfica siguen explícitas",
+      "requirements": [
+        "node",
+        "source-dependencies",
+        "compatibility-runtime",
+        "anvil",
+        "evm-public-build",
+        "backed-assets-public-build"
+      ],
+      "entrypoints": [
+        "tests/integration/wallet/manual/run-manual-wallet-acceptance.mjs"
+      ],
+      "commands": [
+        "./dev lab run",
+        "./dev lab recovery"
+      ],
+      "prepare": [
+        "source-runtime",
+        "compatibility-runtime"
+      ],
+      "economic": true
+    },
+    "btc-sol": {
+      "description": "Inventario mínimo de la ruta CBTC/SOL con runtime Solana personalizado original",
+      "requirements": [
+        "node",
+        "source-dependencies",
+        "compatibility-runtime",
+        "anvil",
+        "evm-public-build",
+        "backed-assets-public-build",
+        "bitcoind",
+        "bitcoin-cli",
+        "solana-candidate",
+        "native-claims-public-build"
+      ],
+      "entrypoints": [
+        "tests/integration/claims/development/run-development-btc-sol-graph-flow.mjs"
+      ],
+      "commands": [
+        "./dev lab btc-sol"
+      ],
+      "prepare": [
+        "source-runtime",
+        "compatibility-runtime"
+      ],
+      "economic": true
+    },
+    "defi": {
+      "description": "Inventario mínimo de entradas Uniswap/MetaMorpho y salida MetaMorpho; no acredita todas las integraciones DeFi",
+      "requirements": [
+        "node",
+        "source-dependencies",
+        "compatibility-runtime",
+        "anvil",
+        "evm-public-build",
+        "backed-assets-public-build"
+      ],
+      "entrypoints": [
+        "tests/integration/defi/entry/run-development-defi-entry-flow.mjs",
+        "tests/integration/defi/run-private-metamorpho-flow.mjs"
+      ],
+      "commands": [
+        "./dev lab defi",
+        "./dev lab metamorpho"
+      ],
+      "prepare": [
+        "source-runtime",
+        "compatibility-runtime"
+      ],
+      "economic": true
+    },
+    "mobile-original": {
+      "description": "Recorrido original V2 de cliente Node pareado; no implica custodia ni prueba en teléfono",
+      "requirements": [
+        "node",
+        "source-dependencies",
+        "compatibility-runtime",
+        "anvil",
+        "evm-public-build",
+        "backed-assets-public-build",
+        "mobile-dependencies"
+      ],
+      "entrypoints": [
+        "tests/integration/wallet/native/run-paired-native-note-v2.mjs"
+      ],
+      "commands": [
+        "./dev lab mobile-original"
+      ],
+      "prepare": [
+        "source-runtime",
+        "mobile-dependencies",
+        "compatibility-runtime"
+      ],
+      "economic": true
+    }
+  }
+}
