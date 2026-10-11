@@ -123,7 +123,7 @@ const { createNativeClaimController, createNativeClaimControllerKeeper, createDu
   restartNativeClaimController, assertNativeClaimBitcoinPayoutSendToken,
   authorizeNativeClaimBitcoinPayoutSend, authorizeNativeClaimBitcoinPayoutLatch, consumeNativeClaimBitcoinPayoutSend, consumeNativeClaimOriginalKeyAuthorityV4 } = await import('../../../src/claims/controller/controller.mjs');
 const { ownedClaimControllerJournal } = await import('../../../src/claims/controller/controller-journal.mjs');
-const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../src/claims/protocol/evm-dispatch-gate.mjs');
+const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../src/claims/controller/controller.mjs');
 const zero = '0'.repeat(64), p = v => '0x' + v;
 async function fixture({ durable = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'claim-bitcoin-controller-source-only-')), path = join(directory, 'controller.vault');

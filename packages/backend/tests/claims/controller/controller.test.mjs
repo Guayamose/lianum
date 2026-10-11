@@ -34,7 +34,7 @@ const { createNativeClaimController, createNativeClaimControllerKeeper, createDu
 const { ownedClaimControllerJournal } = await import('../../../src/claims/controller/controller-journal.mjs');
 const { createNativeClaimSession, nativeClaimSessionController } = await import('../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../src/api/claims/native-claim-http.mjs');
-const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../src/claims/protocol/evm-dispatch-gate.mjs');
+const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../src/claims/controller/controller.mjs');
 test('encrypted prepared opening survives controller reopen and rejects rollback or fake capabilities', async () => {
   const f = await fixture();
   try {

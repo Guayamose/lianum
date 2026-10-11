@@ -14,7 +14,7 @@ mock.module(new URL('../../../../../omnichain-product/src/private-asset-runtime.
 } });
 const realBrands = new WeakSet(), scopes = new WeakMap();
 const nativeClaimScopes = new WeakMap(), wrappedClaimScopes = new WeakMap();
-for (const [file, registry] of [['../native-claims/evm-dispatch-gate.mjs',nativeClaimScopes],['../native-claims/wrapped-evm-dispatch-gate-v1.mjs',wrappedClaimScopes]]) {
+for (const [file, registry] of [['../../../../src/claims/controller/controller.mjs',nativeClaimScopes],['../../../../src/claims/wrapped/controller/wrapped-controller-v1.mjs',wrappedClaimScopes]]) {
   mock.module(new URL(file, import.meta.url).href, { exports: {
     isOwnedClaimEvmDispatchRequest: request => registry.has(request),
     assertOwnedClaimEvmDispatchRequest(request, runtime) {const row=registry.get(request);assert.ok(row && row.runtime===runtime,'TEST_ORIGINAL_V4_SCOPE');return row.callbacks;}

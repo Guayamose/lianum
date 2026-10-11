@@ -122,7 +122,7 @@ mock.module(url('../../../../../omnichain-product/src/paeg/native-admission.mjs'
 const { createWrappedNativeClaimControllerV1, createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   restartWrappedNativeClaimControllerV1, openNativeClaimControllerDispatch, openNativeClaimSolanaPayoutAuthority, consumeWrappedClaimOriginalKeyAuthorityV4 } = await import('../../../../../src/claims/wrapped/controller/wrapped-controller-v1.mjs');
 const { ownedClaimControllerJournal } = await import('../../../../../src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs');
-const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../../../src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs');
+const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../../../src/claims/wrapped/controller/wrapped-controller-v1.mjs');
 const zero = '0'.repeat(64), p = v => '0x' + v;
 async function fixture({ durable = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'claim-controller-host-')), path = join(directory, 'controller.vault');

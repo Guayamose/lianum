@@ -66,7 +66,7 @@ const { createNativeClaimController, createNativeClaimControllerKeeper, createDu
 const { ownedClaimControllerJournal } = await import('../../../../src/claims/controller/controller-journal.mjs');
 const { createNativeClaimSession, nativeClaimSessionController } = await import('../../../../src/api/claims/native-claim-session.mjs');
 const { startNativeClaimHttp } = await import('../../../../src/api/claims/native-claim-http.mjs');
-const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../../src/claims/protocol/evm-dispatch-gate.mjs');
+const { assertOwnedClaimEvmDispatchRequest, createClaimEvmDispatchRequest } = await import('../../../../src/claims/controller/controller.mjs');
 const zero = '0'.repeat(64), p = v => '0x' + v;
 async function fixture({ durable = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'claim-controller-host-')), path = join(directory, 'controller.vault');
