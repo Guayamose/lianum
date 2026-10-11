@@ -81,7 +81,6 @@ import {
   ownedNativeValueManualGraphReview as nativeGraphReview,
 } from "./../../../src/execution/native-value/execution/native-value-execution-v2.mjs";
 import { createNativeValueTerminalObserver as nativeTerminal } from "./../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs";
-import { decodeStatement } from "@lianum/components/encoding/statements";
 import { assertOwnedNativeValueOwnerProcess as nativeOwner } from "./../../../src/custody/processes/native-value-owner-process-v2.mjs";
 import {
   createNativeValueOwnerObserver as nativeObserver,
@@ -239,7 +238,6 @@ test("native account implementation owns encrypted account state and isolated fa
     nativeExecutionAssert,
     nativeGraphReview,
     nativeTerminal,
-    decodeStatement,
     nativeOwner,
     nativeObserver,
     nativeObserverAssert,

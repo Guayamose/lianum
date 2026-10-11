@@ -115,7 +115,6 @@ import {
 import {
   createOriginalDeviceExternalFlatPrivateMultiSourceGraphV4,
   createOriginalDeviceExternalFlatPrivateSourceGraphV2,
-  assertOriginalDeviceExternalFlatSourceGraphV1,
   readOriginalDeviceExternalFlatSourceGraphProofsV1,
 } from "../../accounts/authority/device-external-flat-source-graph-v1.mjs";
 import { createFlatNativeExecution } from "../../execution/account/execution/flat-native-execution.mjs";
@@ -240,7 +239,6 @@ const originalGraph = buildDeviceExternalFlatSourceGraphServiceV1(
       bindOriginalDeviceExternalFlatShareGraphV1,
       createOriginalDeviceExternalFlatPrivateMultiSourceGraphV4,
       createOriginalDeviceExternalFlatPrivateSourceGraphV2,
-      assertOriginalDeviceExternalFlatSourceGraphV1,
       readOriginalDeviceExternalFlatSourceGraphProofsV1,
       createFlatNativeExecution,
       createOriginalDeviceMetaMorphoTargetTlsServerV2,

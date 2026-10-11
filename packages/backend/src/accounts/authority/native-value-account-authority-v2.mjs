@@ -71,7 +71,6 @@ import {
   ownedNativeValueManualGraphReview as nativeGraphReview,
 } from "../../execution/native-value/execution/native-value-execution-v2.mjs";
 import { createNativeValueTerminalObserver as nativeTerminal } from "../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs";
-import { decodeStatement } from "@lianum/components/encoding/statements";
 import { assertOwnedNativeValueOwnerProcess as nativeOwner } from "../../custody/processes/native-value-owner-process-v2.mjs";
 import {
   createNativeValueOwnerObserver as nativeObserver,
@@ -164,7 +163,6 @@ const originalNativeAccount = buildNativeValueAccountAuthorityV2(
       nativeExecutionAssert,
       nativeGraphReview,
       nativeTerminal,
-      decodeStatement,
       nativeOwner,
       nativeObserver,
       nativeObserverAssert,
