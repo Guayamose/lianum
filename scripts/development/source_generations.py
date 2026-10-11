@@ -19,6 +19,7 @@ import tempfile
 
 from import_paths import map_path, translate
 from workspace import layout as workspace_layout, build as workspace_build
+from source_pins import run as check_current_pins
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ".internal/runtime/"
@@ -398,6 +399,26 @@ def main():
     parser.add_argument("action", nargs="?", choices=("status", "check", "prepare"), default="status")
     parser.add_argument("--json", action="store_true", help="Return machine-readable details")
     args = parser.parse_args()
+    if args.action == "prepare":
+        # The native producer already depends on these mobile packages. Do not
+        # require the separate Cloud installation or approve hashes implicitly.
+        try:
+            pins = check_current_pins("check", "mobile", ROOT)
+        except (ValueError, OSError, KeyError, TypeError, IndexError) as error:
+            pins = {"status": "BLOCKED", "error": str(error)}
+        if pins["status"] != "CURRENT":
+            result = {"inspection": "BLOCKED", "code": "CURRENT_MOBILE_PINS_" + pins["status"],
+                      "next": "./dev pins check --profile mobile --json", "pins": pins,
+                      "published": False, "compiled": False, "financialAcceptance": False}
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                print("Source preparation blocked: " + result["code"])
+                print(pins.get("error", "Current mobile manifests differ from the reviewed pin table."))
+                print("Inspect: " + result["next"])
+                if pins["status"] == "STALE":
+                    print("After reviewing that diff: ./dev pins update --profile mobile")
+            return 2
     report, capture = inventory()
     if args.action == "prepare":
         # Explicit preparation is the only action that updates compatibility

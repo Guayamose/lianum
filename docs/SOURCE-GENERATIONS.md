@@ -49,6 +49,47 @@ El consumidor financiero V5 conserva sus comprobaciones. El candidato V6 y su re
 
 ## Cambios de dependencias locales
 
+Los hashes vigentes se calculan con un comando; no hace falta editar cadenas
+SHA a mano al cambiar una fuente o un manifiesto permitido:
+
+```sh
+./dev pins check
+./dev pins check --profile platform --json
+./dev pins update
+git diff
+./dev sources prepare
+```
+
+`check` solo lee y devuelve 1 si hay cambios propuestos, 2 si encuentra un
+problema que impide prepararlos. Su salida enumera cada campo anterior y nuevo;
+`--json` incluye además el diff exacto de los archivos propuestos. `update`
+aplica únicamente esos campos en las tres tablas vigentes. Repetirlo con los
+mismos archivos no escribe nada.
+
+| Perfil | Campos actualizables | Datos que solo se verifican |
+| --- | --- | --- |
+| `mobile` | Hash de tres manifiestos y digest del catálogo | Versiones e integridades Noble, 46 archivos públicos instalados |
+| `platform` | Hash y tamaño de las 15 fuentes/manifiestos declarados | Los 138 archivos públicos y sus 14 paquetes exactos |
+| `callers` | Hash y tamaño de los 25 consumidores locales declarados | Lista exacta de rutas revisadas |
+
+El perfil `platform` incluye automáticamente `callers`: el backend autentica
+la propia cápsula de Platform y ambos hashes deben actualizarse juntos. `all`
+es el valor por defecto. `scripts/development/source-pins.json` declara las
+rutas permitidas; añadir una ruta o cambiar dependencias públicas exige
+revisar explícitamente esa política, nunca se incorpora por descubrimiento
+automático. El comando rechaza symlinks, entradas privadas, archivos originales
+históricos y cambios concurrentes detectados antes o durante la escritura.
+Los archivos de salida se sustituyen de forma atómica individualmente; si se
+detecta una edición concurrente se revierten únicamente las escrituras que
+siguen siendo las del comando, sin pisar la edición ajena.
+
+`sources prepare` comprueba primero el perfil móvil, que ya es obligatorio
+para el productor nativo. Si está desactualizado muestra el comando de revisión
+y termina; no llama a `pins update` ni exige instalar Cloud para preparar las
+fuentes nativas. Actualizar pins identifica el código actual para revisión:
+no modifica publicaciones ni recibos originales, no publica un release y no
+acepta financieramente esa generación.
+
 Al trasladar contratos o primitivas a paquetes compartidos cambian los
 manifiestos locales. El catálogo actual mantiene fijados sus hashes y los de
 las dependencias públicas instaladas. La preparación V6 autentica la publicación
