@@ -4,9 +4,9 @@
  * no fake runtime/account facade or authority is reconstructed in this PID. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {deviceExecutionConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
-import {deviceExitConsentEitherMessageV2 as deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
+import {deviceExecutionConsentMessageV1} from '@lianum/mobile-protocol/device-execution-consent-v1';
+import {deviceExitConsentEitherMessageV2 as deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '@lianum/mobile-protocol/device/native-withdrawal-v2';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {join} from 'node:path';

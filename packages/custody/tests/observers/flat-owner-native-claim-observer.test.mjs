@@ -5,13 +5,13 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { ownerCopy, ownerDigest, flatOwnerIdentity, FLAT_OWNER_CLAIM_HANDOFF_PROFILE } from '../../src/signing/flat-owner-custody.mjs';
-import { decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../../../backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../../../backend/src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { evmRuntimeCodeHash } from '../../../backend/src/chains/evm/contracts/evm-code-hash.mjs';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, encodeClaimIngressInputs } from '../../../backend/src/claims/protocol/framing.mjs';
-import { CLAIM_BACKING_FIELDS } from '../../../backend/src/claims/authorization/permits.mjs';
-import { encodeNativeClaimIssueCall } from '../../../backend/src/claims/protocol/issue-call.mjs';
-import { encodeDepositIntentInputs } from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
-import { derivePrivateAssetIdentity } from '../../../engine/src/notes/private-asset-runtime.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, encodeClaimIngressInputs } from '@lianum/engine/claims/framing';
+import { CLAIM_BACKING_FIELDS } from '@lianum/engine/claims/permits';
+import { encodeNativeClaimIssueCall } from '@lianum/engine/claims/issue-call';
+import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
 
 let runtime, system, claims, claimObserver, flat, claimView;
 mock.module(new URL('../wallet-platform/modules/ops/deploy-system.mjs', import.meta.url).href, { exports: {
@@ -42,7 +42,7 @@ mock.module(new URL('./flat-owner-custody.mjs', import.meta.url).href, { exports
   ownerCopy, ownerDigest, flatOwnerIdentity, FLAT_OWNER_CLAIM_HANDOFF_PROFILE,
   flatOwnerSnapshot() { return { commitments: [] }; },
 } });
-const { createFlatOwnerNativeClaimObserver } = await import('../../src/observers/flat-owner-native-claim-observer.mjs');
+const { createFlatOwnerNativeClaimObserver } = await import('../../../backend/src/custody/observers/flat-owner-native-claim-observer.mjs');
 const h = text => createHash('sha256').update('offline issue fixture/' + text).digest('hex'), p = value => '0x' + value;
 const w = value => p(BigInt(value).toString(16).padStart(64, '0'));
 const code = '0x6000', codeHash = evmRuntimeCodeHash(code);

@@ -7,7 +7,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {createContext,Script} from 'node:vm';
 import {join} from 'node:path';
 import {isDeepStrictEqual} from 'node:util';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {normalizeTronBlock} from '../../../../src/chains/tron/observations/tron-observation-adapter.mjs';
 import {need,checkFreshBlock} from '../../../../src/chains/shared/portfolio/portfolio-registry.mjs';
 

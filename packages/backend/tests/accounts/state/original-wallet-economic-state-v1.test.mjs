@@ -8,9 +8,9 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {request} from 'node:http';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {sha, genericAccountIdentity} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
-import {exactRecord} from '../../../src/execution/encoding/commitments.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
+import {sha, genericAccountIdentity} from '@lianum/engine/accounts/journal';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 let createFlatAccountSession;
 import {ORIGINAL_SPL_USDC_UNITS_V1} from '../../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
 import {validateOriginalWalletEconomicStateV1, projectOriginalWalletEconomicStateV1, originalEconomicRouteKeyV1}
@@ -360,7 +360,7 @@ test('original native claim portfolio joins common state with BTC/SPL units, sam
  let state,transport,session,app,healthReads=0,phase='CONFIRMED',splReady=true;
  t.after(async()=>{try{await app?.close();await transport?.close();await state?.close();await session?.close();}finally{await rm(directory,{recursive:true,force:true});}});
  const runtime={},btc={...asset(h('claim-btc'),'first'),symbol:'CBTC',decimals:8},spl={...asset(h('claim-usdc'),'second'),symbol:'CUSDC',decimals:6},authority=Object.freeze({});
- const {CLAIM_CONFIG_SCHEMA,claimDomainCommitment}=await import(moduleURL('../../../src/claims/protocol/framing.mjs','../../native-claims/framing.mjs'));
+ const {CLAIM_CONFIG_SCHEMA,claimDomainCommitment}=await import(moduleURL('../../../../engine/src/claims/framing.mjs','../../native-claims/framing.mjs'));
  const configs=[btc,spl].map((a,i)=>{const config=Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([name,type])=>[name,type.startsWith('u')?'1':type==='address'?h(name+i).slice(0,40):type==='field32'?'0'.repeat(63)+'1':h(name+i)]));
   return{...config,evmChainId:a.chainId,evmGenesis:a.genesis,wrapper:a.token,pool:a.pool,scope:a.scope,policy:a.policy,nativeFamily:String(i+1),ledgerNamespace:config.hubDomain};});
  const domains=configs.map(claimDomainCommitment);

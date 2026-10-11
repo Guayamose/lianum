@@ -111,10 +111,10 @@ async function bounded(work, milliseconds, code) {
 
 export async function runSharedPrivateAccountsAcceptance(argv = process.argv.slice(2)) {
   const runProfile=m26RunProfile(argv),balanceOnly=runProfile==='BALANCE_RECOVERY_ONLY';
-  const {startLocalServer} = await import('../../../../packages/engine/src/api/server.mjs');
+  const {startLocalServer} = await import('../../../../packages/backend/src/api/private-runtime-server.mjs');
   const {projectRoot} = await import('../../../../packages/engine/src/chains/shared/runtime-harness.mjs');
-  const {createPrivateAccountCohortService, PRIVATE_ACCOUNT_COHORT_PROFILE} = await import('../../../../packages/engine/src/accounts/private-account-cohort-service.mjs');
-  const {PRIVATE_WALLET_SOURCE_PROFILE, checkPrivateWalletSourcePrerequisites} = await import('../../../../packages/engine/src/wallet/notes/private-wallet-prerequisites.mjs');
+  const {createPrivateAccountCohortService, PRIVATE_ACCOUNT_COHORT_PROFILE} = await import('../../../../packages/backend/src/accounts/runtime/private-account-cohort-service.mjs');
+  const {PRIVATE_WALLET_SOURCE_PROFILE, checkPrivateWalletSourcePrerequisites} = await import('../../../../packages/backend/src/operations/wallet/private-wallet-prerequisites.mjs');
   const {isPrivateWalletExitReceipt} = await import('../../lib/private-wallet-exit-receipts.mjs');
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   const folder = join(projectRoot, 'evidence/m26-shared-account-native', runId);

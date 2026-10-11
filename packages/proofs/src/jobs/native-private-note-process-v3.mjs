@@ -1,4 +1,4 @@
-import{sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1}from'./private-proof-transit-v1.mjs';
+import{sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1}from'@lianum/engine/crypto/private-proof-transit-v1';
 import{ROOT}from'../catalog.mjs';
 /** Trusted in-process facade for short-lived offline proof workers.
  * Authorization/capsule proving belongs to the owner. Never expose this factory as a
@@ -13,15 +13,15 @@ import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync, unlinkSync
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { PRIVATE_RESOURCE_POLICY } from '../../../engine/src/crypto/private-resource-policy.mjs';
-import { selectProofResourcePolicy } from '../../../engine/src/execution/proofs/proof-resource-policy.mjs';
-import { filePin } from '../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
+import { selectProofResourcePolicy } from '../execution/proof-resource-policy.mjs';
+import { filePin } from '@lianum/proofs/toolchain/wallet-resources';
 import {
   PROOF_PROJECT_ROOT, PROOF_PROTOCOL, PROOF_MODES, PROOF_DEFAULT_MODES, PROOF_PURPOSES, PROOF_MAX_MESSAGE_BYTES,
   proofError, need, exactObject, encodeProofMessage, decodeProofMessage,
   normalizePublicInputs, assertExpectedInputs, normalizeProofWitness,
   publicInputsFromWitness, encodePrivateProof, decodePrivateProof, loadProofProfile, wipePrivate, proofRoleAllows, assertProofRole,
-} from '../../../engine/src/execution/proofs/proof-worker.mjs';
+} from '../execution/proof-worker.mjs';
 
 const legacyWorkerFile=join(PROOF_PROJECT_ROOT,'src/paeg/proof-worker.mjs');
 const nativeNoteRunnerFile=join(ROOT,'proof-workers/native-private-note-execution-v3.mjs');

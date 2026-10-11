@@ -8,10 +8,10 @@ import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promise
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as facts from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
-import { nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { checkpointAuthorizationDigest } from '../../../../../engine/src/evidence/native-hub-messages.mjs';
-import { recoverSecp256k1Sender } from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { checkpointAuthorizationDigest } from '@lianum/engine/evidence/native-hub-messages';
+import { recoverSecp256k1Sender } from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { flatNativeHealthDigest } from '../../../../src/chains/shared/health/native-health.mjs';
 import { SOLANA_NONCE_INGRESS_PROFILE } from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
 

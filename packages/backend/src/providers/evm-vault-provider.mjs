@@ -8,34 +8,34 @@ import { randomBytes } from 'node:crypto';
 import { lstat, realpath, mkdtemp, chmod } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Vault } from '@lianum/engine/crypto/vault';
-import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
+import { freshKey, signature } from '@lianum/engine/notes/private-note-encoding';
 import { assertOwnedLocalEvmV2 } from '../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import { assertOwnedNativeRecipientProcess } from '../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { nativeTransferActionCommitment } from '../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { assertOwnedNativeRecipientProcess } from '../execution/native/recipients/native-recipient-process.mjs';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIdentity,
   nativeDeliveryRiskCommitment, nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { evmFundingEndpointCommitment } from '../chains/evm/dispatch/evm-facts-binding.mjs';
 import { validateEvmGraphDeliveryDescriptorV1, evmGraphDeliveryDescriptorCommitmentV1,
   encodeEvmGraphDeliveryCallV1, evmGraphDeliveryTermsV1, isMetaMorphoGraphDescriptorV1, isUniswapGraphDescriptorV1, isAaveStaticGraphDescriptorV1, isMorphoBluePositionGraphDescriptorV1 } from '../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
-import { decodeEvmVaultDepositStatement } from '../chains/evm/vault/evm-vault-delivery.mjs';
+import { decodeEvmVaultDepositStatement } from '@lianum/engine/encoding/evm-vault-delivery';
 import { assertOwnedEvmGraphDeliveryRouterV1, assertOwnedEvmGraphDeliveryObserverV1,
   assertOwnedEvmGraphDeliveryDescriptorV1 } from '../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
 import { isOwnedMetaMorphoGraphDeliveryObserverV1, isOwnedUniswapGraphDeliveryObserverV1, isOwnedAaveStaticGraphDeliveryObserverV1, isOwnedMorphoBluePositionGraphDeliveryObserverV1 } from '../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { createOwnedEvmVaultDispatchGate } from '../chains/evm/dispatch/evm-dispatch-gate.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 import { assertOwnedFlatSystem } from '../operations/deployments/system/deploy-system.mjs';
 import { assertOwnedFlatOperatorQuorum } from '../operations/operators/claims/native-operators.mjs';
 import { createFlatSystemStateReader } from '../execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord, fixedArray, bytes32, canonicalField, validateStruct, FIELD_MODULUS }
-  from '../execution/encoding/commitments.mjs';
+  from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../execution/account/preparation/readiness-inputs.mjs';
-import { nativeRuleCommitment, nativeCustodyCommitment } from '../chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeRuleCommitment, nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { createNativeDispatchJournal, normalizeNativeDispatchBinding }
   from '../chains/shared/dispatch/native-dispatch-gate.mjs';
 import { createPinnedVerifier } from '@lianum/proofs/verification';
-import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
+import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
 
 export const OWNED_FLAT_EVM_VAULT_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_EVM_VAULT_PROVIDER_V1';
 export const OWNED_FLAT_METAMORPHO_PROVIDER_PROFILE_V1 = 'OWNED_OFFICIAL_FLAT_METAMORPHO_PROVIDER_V1';

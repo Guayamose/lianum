@@ -7,11 +7,11 @@ import {createHash} from 'node:crypto';
 import {types} from 'node:util';
 import {copy} from '@lianum/engine/accounts/journal';
 import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1}
-  from '../../../../engine/src/execution/proofs/note-native-execution-v1.mjs';
+  from '@lianum/proofs/execution/note-native-execution-v1';
 import {assertNativePrivateEconomicNoteReceiptV3,PRIVATE_NOTE_NATIVE_PROFILE_V1}
-  from '../../../../proofs/src/jobs/native-private-note-execution-v3.mjs';
-import {PRIVATE_RESOURCE_POLICY} from '../../../../engine/src/crypto/private-resource-policy.mjs';
-import {LIMITS} from '../../../../proofs/src/catalog.mjs';
+  from '@lianum/proofs/jobs/native-private-note-execution-v3';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {LIMITS} from '@lianum/proofs/catalog';
 const PROFILE='ORIGINAL_NATIVE_DEVICE_W39_PUBLIC_METRICS_FRAME_V1',MAX_BYTES=1024*1024;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 // This private telemetry codec is separate from the integer-only economic JSON

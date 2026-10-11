@@ -7,13 +7,13 @@ import assert from 'node:assert/strict';
 import { readFileSync, realpathSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createGenericAccountKeeper } from '../../../../packages/engine/src/execution/accounts/generic-account-keeper.mjs';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
-import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { createGenericAccountKeeper } from '@lianum/engine/accounts/keeper';
+import { ROOT } from '@lianum/proofs/catalog';
+import { hash } from '@lianum/proofs/tooling/tooling';
 import { createFlatNativeExecution } from '../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs';
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
-import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
-import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
+import { createFlatAccountSession } from '@lianum/backend/accounts/session';
+import { startFlatAccountHttp } from '@lianum/backend/accounts/http';
 import { accountRecoverySourcePins } from '../../runners/source-pins.mjs';
 import { createOwnedFlatFixture, prepareFixtureGraph, freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 

@@ -2,8 +2,8 @@
  * the native-transfer observer. This parser alone selects NO action profile.
  * No signer, broadcast, recipient-code, execution or native-consensus claim. */
 import { createHash } from 'node:crypto';
-import { decodeCanonicalEvmTransaction, recoverSecp256k1Sender } from '../runtime/owned-evm-v2-runtime.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { decodeCanonicalEvmTransaction, recoverSecp256k1Sender } from '../contracts/transaction-wire-codec.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { need, freeze } from '../../shared/portfolio/portfolio-registry.mjs';
 
 const MAX_WIRE = 131072;

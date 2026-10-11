@@ -9,11 +9,11 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
 import { nativeAdmissionRulesTree, nativeAdmissionRuleCommitment }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { createCommitmentCodec, SCHEMAS, ZERO } from '../../../../src/execution/encoding/commitments.mjs';
-import { FIELD_MODULUS, encodeStatement, RELATIONS } from '../../../../src/execution/encoding/statements.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { createCommitmentCodec, SCHEMAS, ZERO } from '@lianum/components/encoding/commitments';
+import { FIELD_MODULUS, encodeStatement, RELATIONS } from '@lianum/components/encoding/statements';
 import { FLAT_TRANSACTION_METHODS } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import * as actualReadiness from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
 import * as actualEvmRuntime from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';

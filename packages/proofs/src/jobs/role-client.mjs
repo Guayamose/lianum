@@ -12,10 +12,10 @@ import { relationWithNativeIngressV3 as relation, publicWordsWithNativeIngressV3
   NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION,
   NATIVE_INGRESS_V3_KEY_SHA256 } from '../native-ingress/metadata/native-ingress-v3-profile.mjs';
 import { regular, hash, assertID } from '../tooling/tooling.mjs';
-import { cloneInput, frozenInput } from '../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import {encodeStatement} from '@lianum/components/encoding/statements';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1,createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1} from './private-proof-transit-v1.mjs';
+import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1,createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 
 const MODES = Object.freeze({ owner: ['authorization', 'deposit_intent'], reservation: ['reservation'],
   dependency: ['dependency'], local: ['ready', 'admission', 'node'], assembler: ['settlement'], recovery: ['recovery'],

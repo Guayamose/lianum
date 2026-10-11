@@ -4,8 +4,8 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, renameS
 import { dirname, resolve, relative, sep, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { ROOT, FLAT, GOLDEN, LOCAL, CATALOG, LIMITS, SETTINGS, NOIR_VERSION } from '../../../packages/proofs/src/catalog.mjs';
-import { regular, verifyAPI, verifyVendor, sourceManifest, resourceModuleURL } from '../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT, GOLDEN, LOCAL, CATALOG, LIMITS, SETTINGS, NOIR_VERSION } from '@lianum/proofs/catalog';
+import { regular, verifyAPI, verifyVendor, sourceManifest, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
 export { ROOT, LOCAL, CATALOG, LIMITS, SETTINGS, NOIR_VERSION };
 export const DIR = fileURLToPath(new URL('./', import.meta.url));
 export const CANDIDATE = resolve(DIR, '../native-ingress-v3');

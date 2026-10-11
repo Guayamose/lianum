@@ -1,7 +1,7 @@
 /** Fixed labels only: the original supervisor owns PID/UID4/birth/group/RSS. */
 import assert from 'node:assert/strict';
 import {dirname,basename,join} from 'node:path';
-import {ROOT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,GOLDEN} from '@lianum/proofs/catalog';
 import {NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1} from '../../wallet/native/native-device-economic-process-scope-v1.mjs';
 const main=join(ROOT,'integration/evm-vault-flow.mjs'),successor=join(ROOT,'integration/external-defi-vault-exit-successor-v1.mjs');
 const node=(argv,script)=>Array.isArray(argv)&&argv.length===2&&argv[0]===process.execPath&&argv[1]===script;

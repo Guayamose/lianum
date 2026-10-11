@@ -3,8 +3,8 @@
  * Run: node --experimental-test-module-mocks --test owned-pool-asset.test.mjs */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { predictNativeCreateAddress } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { predictNativeCreateAddress } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
 import { assertOwnedPoolAsset as actualBrand, createOwnedPoolAsset as actualFactory,
   createNativePoolAsset as actualNativeFactory } from '../../../../src/chains/shared/contracts/owned-pool-asset.mjs';
 

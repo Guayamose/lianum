@@ -11,7 +11,7 @@ import { validateSolanaPreparedState, revalidateSolanaPreparedState, validateSol
   validateSolanaNonceFailureObservation, validateSolanaNonceBootstrapObservation, assertSolanaNonceFirstSendState,
   solanaNonceBootstrapFundingReady }
   from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
-import { encodeSolanaBindingMessage, validateSolanaBindingTransaction, MEMO_PROGRAM } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { encodeSolanaBindingMessage, validateSolanaBindingTransaction, MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction, encodeSolanaNonceBootstrapMessage,
   validateSolanaNonceBootstrapTransaction } from '../../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 

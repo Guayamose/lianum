@@ -1,19 +1,19 @@
 /** Withdrawals operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
-import * as PrivateExit from "../../../../../mobile-protocol/src/device-native-private-exit-v2.mjs";
+import * as PrivateExit from "@lianum/mobile-protocol/device/native-withdrawal-v2";
 import assert from "node:assert/strict";
 import { isOriginalNativePrivateWorkerExecutionBridgeV3, assertDeviceOwnerExecutionBridgeV1, isOriginalNativePrivateExecutionBridgeV2 } from "../device-owner-execution-bridge-v1.mjs";
-import { copy, sha } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
-import { verifyPrivateNotePath } from "../../../../../engine/src/notes/private-note-tree.mjs";
-import { exactRecord } from "../../../execution/encoding/commitments.mjs";
-import { genericBalanceNativeTerms, validateGenericBalanceNativePreparation } from "../../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs";
+import { copy, sha } from "@lianum/engine/accounts/journal";
+import { verifyPrivateNotePath } from "@lianum/engine/notes/private-note-tree";
+import { exactRecord } from "@lianum/components/encoding/commitments";
+import { genericBalanceNativeTerms, validateGenericBalanceNativePreparation } from "@lianum/engine/execution/balances/generic-balance-native-preparation";
 import { validateFlatAccountOwnerObservation, flatAccountCalldataHash } from "../flat-account-validation.mjs";
-import { readOriginalNativePrivateExitDerivationV2 } from "../../../../../proofs/src/jobs/native-device-private-exit-client-v2.mjs";
+import { readOriginalNativePrivateExitDerivationV2 } from "@lianum/proofs/jobs/native-device-private-exit-client-v2";
 import { captureNativeDeviceOriginalW39MetricsFrameV1 } from "../native-device-original-w39-metrics-frame-v1.mjs";
-import { normalizeDeviceExitWitnessV1, deviceExitWitnessBytesV1, wipeDeviceExitWitnessV1 } from "../../../../../mobile-protocol/src/device-exit-consent-v1.mjs";
-import { walletInputPublicWords, decodeWalletPoolInputs, balanceCommitment } from "../../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs";
-import { nullifier } from "../../../../../engine/src/notes/private-note-encoding.mjs";
-import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "../../../../../engine/src/execution/proofs/proof-process.mjs";
+import { normalizeDeviceExitWitnessV1, deviceExitWitnessBytesV1, wipeDeviceExitWitnessV1 } from "@lianum/mobile-protocol/device-exit-consent-v1";
+import { walletInputPublicWords, decodeWalletPoolInputs, balanceCommitment } from "@lianum/engine/wallet/notes/private-wallet-note-encoding";
+import { nullifier } from "@lianum/engine/notes/private-note-encoding";
+import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "@lianum/proofs/execution/proof-process";
 import { privateFailureDiagnostic } from "../../../execution/account/reconciliation/failure-diagnostics.mjs";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
 export function createNativeValueWithdrawals({

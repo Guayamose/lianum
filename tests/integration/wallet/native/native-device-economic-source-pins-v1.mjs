@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {deviceOwnerRecoverySourcePinsV1} from './device-owner-recovery-source-pins-v1.mjs';
 const FIXED=Object.freeze(['integration/native-value-economic-recovery-flow-v1.mjs','integration/run-native-value-economic-recovery-v1.mjs',
  'integration/native-device-economic-source-pins-v1.mjs','integration/native-device-economic-policy-v1.mjs','integration/native-device-economic-launcher-v1.mjs',

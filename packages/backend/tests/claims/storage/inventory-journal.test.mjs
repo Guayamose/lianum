@@ -6,12 +6,12 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
-import { claimFrame, claimHash } from '../../../src/claims/authorization/permits.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
+import { claimFrame, claimHash } from '@lianum/engine/claims/permits';
 import { claimEconomicInventory } from '../../../src/claims/operations/backing-audit.mjs';
 import { appendClaimInventoryAudit, readClaimInventoryAudit } from '../../../src/claims/storage/inventory-journal.mjs';
 import { createClaimVaultSession } from '../../../src/claims/storage/vault-session.mjs';
-import { MEMO_PROGRAM, assertMemoProgramAccount } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { MEMO_PROGRAM, assertMemoProgramAccount } from '@lianum/engine/native/native-receipt-binding';
 const hash = value => createHash('sha256').update(String(value)).digest('hex');
 const copy = value => structuredClone(value);
 const sorted = value => Array.isArray(value) ? value.map(sorted) : value && typeof value === 'object'

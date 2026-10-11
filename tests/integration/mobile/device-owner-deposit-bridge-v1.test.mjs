@@ -4,9 +4,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, device, createActorModule } from './paired-original-account-host-fixture.mjs';
-import { originalAccountAccessMessageV2 } from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+import { originalAccountAccessMessageV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceDepositConsentV1, deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1 }
-  from '../../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-deposit-consent-v1';
 const { createPairedOriginalAccountActorV2 } = await createActorModule();
 const { createDeviceOwnerDepositBridgeV1, consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1,
   assertDeviceOwnerDepositDurableRequestV1 }

@@ -3,7 +3,7 @@
  * generate its witness/proof owner-side. It never contains signing keys.
  */
 import assert from 'node:assert/strict';
-import { FUNDED_GRAPH_PROFILE, fundedAuthorizationWords } from '../../../../packages/engine/src/execution/graph/funded-graph.mjs';
+import { FUNDED_GRAPH_PROFILE, fundedAuthorizationWords } from '@lianum/engine/execution/graph/funded-graph';
 import { GRAPH_PROFILE } from '../../../../packages/engine/src/execution/graph/graph.mjs';
 import { openingInputs } from '../generic-graph/witness.mjs';
 

@@ -4,8 +4,8 @@
  * process lifetime and one-use ordered claims. No restored DTO is a capability.
  */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { openNativeEconomicRecoveryAuthorityV1, openNativeEconomicNoteRecoveryAuthorityV1, reopenNativeEconomicFromAuthorityV1 }
   from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 

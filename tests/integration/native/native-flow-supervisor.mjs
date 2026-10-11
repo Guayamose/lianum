@@ -2,7 +2,7 @@ import {DEVICE_META_UNDERLYING_GRAPH_RESULT_V2,DEVICE_META_FOUR_UNDERLYING_GRAPH
 import {deviceMetaUnderlyingGraphSourcePinsV2,deviceMetaFourUnderlyingGraphSourcePinsV2} from '../wallet/native/device-external-flat-erc20-source-pins-v1.mjs';
 import {pathToFileURL} from 'node:url';
 import{NATIVE_PRIVATE_WORKER_DURABLE_NOTE_RESULT_V3,assertNativePrivateWorkerDurableNoteReleaseV3,assertNativePrivateWorkerDurableNoteResultV3}from'../wallet/native/native-device-private-worker-durable-note-policy-v3.mjs';
-import{classifyNativePrivateEconomicNoteProcessV3}from'../../../packages/proofs/src/jobs/native-private-note-execution-v3.mjs';
+import{classifyNativePrivateEconomicNoteProcessV3}from'@lianum/proofs/jobs/native-private-note-execution-v3';
 import{NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_RESULT_V2,assertNativePrivateAuthorizedDurableNoteReleaseV2,assertNativePrivateAuthorizedDurableNoteResultV2}from'../wallet/native/native-device-private-authorized-durable-note-policy-v2.mjs';
 import {NATIVE_SOURCE_ABRUPT_RESULT_V1,assertNativeSourceAbruptReleaseV1,assertNativeSourceAbruptResultV1} from '../wallet/native/native-original-source-abrupt-policy-v1.mjs';
 import {nativeSourceAbruptSourcePinsV1} from '../wallet/native/native-original-source-abrupt-source-pins-v1.mjs';
@@ -13,7 +13,7 @@ import {deviceUniswapGraphSourcePinsV1,DEVICE_UNISWAP_GRAPH_RESULT_V1,assertDevi
 import {classifyExternalDefiVaultExitProcessV1,externalDefiVaultExitProcessFailureV1} from '../chains/evm/external-defi-vault-exit-process-scope-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from '../chains/evm/external-defi-vault-exit-source-pins-v1.mjs';
 import {assertExternalVaultExitRecoveryReleaseV1,assertExternalDefiVaultExitRecoveryResultV1} from '../chains/evm/external-defi-vault-exit-policy-v1.mjs';
-import {classifyNativeEconomicNoteProcessV1} from '../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs';
+import {classifyNativeEconomicNoteProcessV1} from '@lianum/proofs/execution/note-native-execution-v1';
 import {nativeSplClaimValidationCompilationSourcePinsV1} from '../chains/evm/native-spl-claim-validation-compilation-source-pins-v1.mjs';
 import {SPL_VALIDATION_COMPILATION_RESULT_V1,assertNativeSplClaimValidationCompilationResultV1,nativeSplClaimValidationCompilationProcessFailureV1} from '../chains/evm/native-spl-claim-validation-compilation-policy-v1.mjs';
 import {developmentBtcSplJupiterSourcePinsV1} from '../claims/development/development-btc-spl-jupiter-source-pins-v1.mjs';
@@ -25,7 +25,7 @@ import {SPL_TOKEN_COMPILATION_RESULT_V1,assertNativeSplClaimTokenCompilationResu
 import {classifyReservationNativeProcessV1} from '../../../packages/proofs/src/jobs/reservation-native-execution-v1.mjs';
 import {classifyNodeNativeProcessV1} from '../../../packages/proofs/src/jobs/node-native-execution-v1.mjs';
 import {classifyAuthorizationNativeProcessV1} from '../../../packages/proofs/src/jobs/authorization-native-execution-v1.mjs';
-import {classifyI84NativeProcessV1} from '../../../packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
+import {classifyI84NativeProcessV1} from '../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {nativeSplCompilationSourcePinsV1} from '../chains/solana/native-spl-compilation-source-pins-v1.mjs';
 import {SPL_COMPILATION_RESULT_V1,SPL_COMPILATION_LIMITS_V1,assertNativeSplCompilationResultV1,nativeSplCompilationProcessFailureV1,classifyNativeSplCompilerProcessV1} from '../chains/solana/native-spl-compilation-policy-v1.mjs';
 import {jupiterOrcaPublicSwapSourcePinsV1} from '../chains/solana/jupiter-orca-public-swap-source-pins-v1.mjs';
@@ -73,7 +73,7 @@ import {assertWrappedColdCycleReleaseV1,writeWrappedColdStageGrantV1,assertWrapp
 import { parseNativeProcStat, nativeProcStatV1 as procStat, readNativeFlowRegularV1 as readRegular, nativeProcStatIntegerDiagnosticV1 } from './native-flow-owned-files-v1.mjs';
 export { parseNativeProcStat } from './native-flow-owned-files-v1.mjs';
 import { nativeOwnedRSSV1 } from './native-flow-owned-rss-v1.mjs';
-import { classifyBeginPayoutAuditProofProcessV1, beginPayoutAuditProcessFailureV1 } from '../../../packages/proofs/src/jobs/native-flow-proof-scope-v1.mjs';
+import { classifyBeginPayoutAuditProofProcessV1, beginPayoutAuditProcessFailureV1 } from '@lianum/proofs/jobs/native-flow-proof-scope-v1';
 // Fixed wrapped-only loader. Generic profiles never evaluate the external bootstrap.
 let wrappedSourceModuleV2 = null;
 async function initializeWrappedSupervisorSourceV2() {
@@ -88,7 +88,7 @@ function inspectWrappedInstallationSourcesV2() {
 }
 import { WRAPPED_DEPLOYMENT_ONLY_RESULT_V1, assertWrappedDeploymentOnlyReleaseV1, assertWrappedDeploymentOnlyResultV1, WRAPPED_WALLET_FIXED_RELEASE_V1, WRAPPED_WALLET_FIXED_PREFLIGHT_RELEASE_V1, WRAPPED_WALLET_FIXED_RESULT_V1, WRAPPED_WALLET_FIXED_PREFLIGHT_RESULT_V1, assertWrappedWalletFixedResultV1, assertWrappedWalletFixedPreflightResultV1 } from '../wallet/wrapped/validation/wrapped-wallet-fixed-policy-v1.mjs';
 import { wrappedWalletFixedSourcePinsV1 } from '../wallet/wrapped/validation/wrapped-wallet-fixed-source-pins-v1.mjs';
-import { assertBeginPayoutAuditReleaseV1 } from '../../../packages/backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+import { assertBeginPayoutAuditReleaseV1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 import { BEGIN_PAYOUT_AUDIT_RESULT_V1, assertBeginPayoutAuditResultV1 } from '../claims/payouts/native-claim-begin-payout-audit-policy-v1.mjs';
 import { NATIVE_WALLET_UNFUNDED_RELEASE_V1, NATIVE_WALLET_REAL_RELEASE_V1, NATIVE_WALLET_RESULT_V1,
   NATIVE_WALLET_PREFLIGHT_RESULT_V1, assertNativeWalletRealResult, assertNativeWalletUnfundedResult } from '../wallet/native/native-wallet-real-policy-v1.mjs';
@@ -110,9 +110,9 @@ import { constants, closeSync, createReadStream, existsSync, fstatSync, fsyncSyn
   mkdirSync, openSync, readFileSync, readdirSync, readlinkSync, realpathSync,
   renameSync, statfsSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
-import { ROOT, GOLDEN, LOCAL as PROOF_LOCAL, LIMITS as PROOF_LIMITS } from '../../../packages/proofs/src/catalog.mjs';
+import { ROOT, GOLDEN, LOCAL as PROOF_LOCAL, LIMITS as PROOF_LIMITS } from '@lianum/proofs/catalog';
 import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS,
-  PRIVATE_PROOF_WORKER_RSS_LIMIT } from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
+  PRIVATE_PROOF_WORKER_RSS_LIMIT } from '@lianum/engine/crypto/private-resource-policy';
 import { nativeFlowSourcePins, accountRecoverySourcePins, assetPortfolioSourcePins, evmVaultSourcePins } from '../runners/source-pins.mjs';
 import {EVM_METAMORPHO_RECOVERY_RESULT_V1,assertMetaMorphoFReleaseV1,assertEvmMetaMorphoRecoveryResultV1} from '../chains/evm/evm-metamorpho-recovery-policy-v1.mjs';
 import {evmMetaMorphoRecoverySourcePinsV1} from '../chains/evm/evm-metamorpho-recovery-source-pins-v1.mjs';
@@ -647,17 +647,8 @@ const HASH = data => createHash('sha256').update(data).digest('hex');
 const live = process => !/^[ZX]$/.test(process.state) || (process.liveThreadCount ?? 0) > 0;
 const METRICS = Object.freeze(['availableRAMBytes', 'freeDiskBytes', 'supervisorRSSBytes',
   'mainWorkerRSSBytes', 'descendantRSSBytes', 'ownedGroupRSSBytes', 'maximumProofWorkerRSSBytes']);
-export const NATIVE_FLOW_LIMITS = Object.freeze({
-  minimumAvailableRAMBytes: PRIVATE_RESOURCE_FLOORS.availableRAM,
-  minimumFreeDiskBytes: PRIVATE_RESOURCE_FLOORS.freeDisk,
-  maximumProofOrMainRSSBytes: PRIVATE_PROOF_WORKER_RSS_LIMIT,
-  sampleMilliseconds: PRIVATE_RESOURCE_POLICY.externalSampleMilliseconds,
-  totalMilliseconds: 90 * 60 * 1000,
-  cleanupReserveMilliseconds: 15000,
-  killGraceMilliseconds: PROOF_LIMITS.killGraceMilliseconds,
-  maximumOutputBytes: 4 * 1024 * 1024,
-  maximumResultBytes: 8 * 1024 * 1024,
-});
+import {NATIVE_FLOW_LIMITS} from '@lianum/proofs/host/native-flow-limits';
+export {NATIVE_FLOW_LIMITS} from '@lianum/proofs/host/native-flow-limits';
 
 function integer(value) {
   assert.ok(Number.isSafeInteger(value) && value >= 0, 'NATIVE_RESOURCE_INTEGER');

@@ -1,12 +1,12 @@
 /** The new hub retains the exact health/1 frame. Its wrapped registry/domain
  * changes the signed bytes; this verifier never treats a V1 raw root as V2. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { cloneInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { encodeFlatNativeHealth, FLAT_HEALTH_FIELDS } from './native-health.mjs';
 import { registryCommitment } from '../transfers/generic-native-value-v2.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 export { encodeFlatNativeHealth as encodeNativeValueHealth };
 export function assertNativeValueHealthAllowed(current) {
   assert.equal(current.halted, '0', 'NATIVE_VALUE_HEALTH_HALTED');

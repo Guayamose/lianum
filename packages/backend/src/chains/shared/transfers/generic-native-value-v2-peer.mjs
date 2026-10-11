@@ -3,7 +3,7 @@
  * source override, action, receipt secret, arbitrary frame or authority boolean. */
 import assert from 'node:assert/strict';
 import { KeyObject, createPublicKey, sign, verify } from 'node:crypto';
-import { exactRecord, bytes32, fixedArray } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, fixedArray } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertTypedSourceObservation } from './generic-native-value-v2-source.mjs';
 import { factsSchema, nativeWireBytes, assertRegistration, assertSource, profileCommitment, registryCommitment,

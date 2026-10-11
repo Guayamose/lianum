@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, unlinkSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DIR, ROOT, LOCAL, LIMITS, hash, json, parse, writeNew, replace, fingerprint } from './common.mjs';
-import { resources, resourceFailure } from '../../../packages/proofs/src/tooling/tooling.mjs';
+import { resources, resourceFailure } from '@lianum/proofs/tooling/tooling';
 assert.equal(process.argv.length, 2); assert.deepEqual(process.execArgv, []); assert.ok(!process.env.NODE_OPTIONS);
 assert.equal(realpathSync(process.argv[1]), join(DIR, 'run.mjs'));
 const local = join(DIR, '.local'); mkdirSync(local, { recursive: true, mode: 0o700 });

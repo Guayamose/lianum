@@ -5,8 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { claimUint } from '../../../src/claims/protocol/framing.mjs';
-import { claimHash } from '../../../src/claims/authorization/permits.mjs';
+import { claimUint } from '@lianum/engine/claims/framing';
+import { claimHash } from '@lianum/engine/claims/permits';
 
 const source = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('  function assertOriginalAuthorization('), end = source.indexOf('\n  async function signed(', start);

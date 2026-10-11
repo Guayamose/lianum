@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../../packages/engine/src/execution/graph/funded-graph.mjs';
+import { FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '@lianum/engine/execution/graph/funded-graph';
 
 export const PROFILE = 'LIANUM_PAEG_FUNDED_4_V1';
 export const ADMISSION_DOMAIN = 'LIANUM/PAEG/reservation-admission/1';

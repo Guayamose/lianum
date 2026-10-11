@@ -13,8 +13,8 @@ import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { MEMO_PROGRAM } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
-import * as runtimeHarness from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
+import { MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
+import * as runtimeHarness from '@lianum/engine/chains/shared/runtime-harness';
 // Original public Agave fixture, verified below against the production codec pin.
 const memoBytes = fs.readFileSync(new URL('./fixtures/spl_memo-3.0.0.so', import.meta.url));
 const copy = value => structuredClone(value), h = value => crypto.createHash('sha256').update(value).digest('hex');

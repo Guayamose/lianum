@@ -5,8 +5,10 @@ import { createRequire } from 'node:module';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync,
   renameSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { isCompatibilityModule, legacyDataRoot, sourceURL } from '@lianum/environment';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { legacyDataRoot, ENVIRONMENT_MODULE_URL } from '@lianum/environment';
+import { WALLET_RESOURCES_MODULE_URL } from './resources/wallet-resources.mjs';
+import { PRIVATE_VERIFIER_CRS_MODULE_URL } from './resources/private-verifier-crs.mjs';
 
 export const ROOT = legacyDataRoot('components');
 export const GOLDEN = legacyDataRoot('engine');
@@ -28,12 +30,11 @@ export const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 export const jsonBytes = value => JSON.stringify(value, null, 2) + '\n';
 export const requirePinned = createRequire(join(EXPERIMENT, 'package.json'));
 export const loadPinned = name => import(pathToFileURL(requirePinned.resolve(name)));
-export const resourceModuleURL = isCompatibilityModule(import.meta.url)
-  ? pathToFileURL(join(EXPERIMENT, 'wallet-notes/resources.mjs'))
-  : sourceURL('experiments/engine/private-core-proof/wallet-notes/resources.mjs');
-export const verifierCRSModuleURL = isCompatibilityModule(import.meta.url)
-  ? pathToFileURL(join(GOLDEN, 'src/private-verifier-crs.mjs'))
-  : sourceURL('packages/engine/src/crypto/private-verifier-crs.mjs');
+export const resourceModuleURL = new URL('./resources/wallet-resources.mjs', import.meta.url);
+export const verifierCRSModuleURL = new URL('./resources/private-verifier-crs.mjs', import.meta.url);
+assert.equal(WALLET_RESOURCES_MODULE_URL, resourceModuleURL.href, 'RESOURCE_MODULE_IDENTITY');
+assert.equal(PRIVATE_VERIFIER_CRS_MODULE_URL, verifierCRSModuleURL.href, 'VERIFIER_CRS_MODULE_IDENTITY');
+assert.equal(ENVIRONMENT_MODULE_URL, new URL('../../environment/src/paths.mjs', import.meta.url).href, 'RESOURCE_ENVIRONMENT_IDENTITY');
 
 export function modeFromArguments() {
   assert.equal(process.argv.length, 3, 'FLAT_FIXED_MODE_ONLY');
@@ -170,12 +171,31 @@ export function sourceManifest() {
   visit(CIRCUIT);
   return [...files].sort().map(record);
 }
+// Pin the active implementations here, outside the resources being verified.
+// All locations are fixed literals; resource modules supply neither paths nor
+// hashes. Keep historical records and reject manifests with a different closure.
+const activeResourceSources = Object.freeze([
+  ['active-components', 'file-integrity.mjs', new URL('./file-integrity.mjs', import.meta.url).href],
+  ['active-components', 'resources/private-resource-policy.mjs', new URL('./resources/private-resource-policy.mjs', import.meta.url).href],
+  ['active-components', 'resources/private-verifier-crs.mjs', new URL('./resources/private-verifier-crs.mjs', import.meta.url).href],
+  ['active-components', 'resources/wallet-resources.mjs', new URL('./resources/wallet-resources.mjs', import.meta.url).href],
+  ['active-environment', 'paths.mjs', new URL('../../environment/src/paths.mjs', import.meta.url).href],
+].map(entry => Object.freeze(entry)));
+
+export function activeResourceSourceRecords() {
+  return activeResourceSources.map(([root, path, url]) => {
+    const absolute = fileURLToPath(url);
+    const bytes = regular(absolute);
+    return {root, path, bytes: bytes.length, sha256: hash(bytes)};
+  });
+}
+
 export function executionSources() {
   return [join(ROOT, 'scripts/run-bounded-component.mjs'), join(ROOT, 'scripts/component-worker.mjs'),
     join(ROOT, 'src/component-tooling.mjs'), join(ROOT, 'src/node-fixtures.mjs'),
     join(ROOT, 'src/framing.mjs'), join(EXPERIMENT, 'wallet-notes/resources.mjs'),
     join(GOLDEN, 'src/private-resource-policy.mjs'), join(GOLDEN, 'src/private-verifier-crs.mjs')]
-    .sort().map(record);
+    .sort().map(record).concat(activeResourceSourceRecords());
 }
 const uint = width => ({ kind: 'integer', sign: 'unsigned', width });
 const array = (type, length) => ({ kind: 'array', length, type });

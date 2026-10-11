@@ -8,7 +8,7 @@ import { CATALOG } from '../../catalog.mjs';
 import { publicWords } from '../../tooling/tooling.mjs';
 import { validateJobAgainstABI } from '../../jobs/trusted-jobs.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const bytes = readFileSync(new URL('./wrapped-claim-abi-reviewed-v3.json', import.meta.url));
 assert.equal(sha(bytes), '41b4d973c2b46937ac08186ec3ed4ededc27b6bec20a803e6b6900def85d6d83', 'WRAPPED_ABI_DECLARATION_PIN');

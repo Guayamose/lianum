@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { buildSyntheticEnvelopeFixture } from '../../../../../../tests/integration/fixtures/proofs/envelopes/synthetic-envelope-fixture.mjs';
-import { FIELD_MODULUS, encodeStatement } from '../../../../src/execution/encoding/statements.mjs';
+import { FIELD_MODULUS, encodeStatement } from '@lianum/components/encoding/statements';
 import { validateFlatExecutionPreparation, assertOwnedFlatNativeExecution } from '../../../../src/execution/account/execution/flat-native-execution.mjs';
 import { assertOwnedFlatNativeProvider } from '../../../../src/providers/native-provider.mjs';
 import { assertOwnedFlatEvmVaultProvider } from '../../../../src/providers/evm-vault-provider.mjs';

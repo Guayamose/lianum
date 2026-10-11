@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {deviceOwnerExecutionSourcePinsV1} from './device-owner-execution-source-pins-v1.mjs';
 const FIXED=Object.freeze(['integration/device-owner-recovery-flow-v1.mjs','integration/run-device-owner-recovery-v1.mjs',
  'integration/device-owner-recovery-policy-v1.mjs','integration/device-owner-recovery-source-pins-v1.mjs']);

@@ -1,14 +1,14 @@
 /** Owner-facing private claim balances with an explicit native-custody layer.
  * A wrapper note is never relabeled as a spendable native self-custody balance. */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { assertOwnedFlatPortfolio } from '../../accounts/authority/flat-portfolio-authority.mjs';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from './owned-state.mjs';
 import { assertOwnedClaimOperatorQuorum } from './operators.mjs';
 import {originalNativeClaimAssetUnitsV1} from './native-claim-asset-units-v1.mjs';
-import { claimDomainCommitment } from '../protocol/framing.mjs';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 const originalViews = new WeakMap();
 export function readOriginalNativeClaimPortfolioViewV1(view, runtime) {
   assert.equal(arguments.length, 2); const original = originalViews.get(view);

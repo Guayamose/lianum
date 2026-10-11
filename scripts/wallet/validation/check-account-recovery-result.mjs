@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { ROOT, LOCAL } from '../../../packages/proofs/src/catalog.mjs';
 import { hash } from '../../../packages/proofs/src/tooling/tooling.mjs';
 import { encodeFlatTransaction } from '../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
-import { decodeStatement, joinReservation } from '../../../packages/backend/src/execution/encoding/statements.mjs';
+import { decodeStatement, joinReservation } from '@lianum/components/encoding/statements';
 import { decodeWalletPoolInputs } from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { validateBitcoinTransferWire } from '../../../packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 

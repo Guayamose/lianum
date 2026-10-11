@@ -7,19 +7,19 @@ import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {readFileSync,writeFileSync,mkdirSync,openSync,closeSync,unlinkSync,fstatSync,statSync,statfsSync} from 'node:fs';
-import {PRIVATE_RESOURCE_POLICY} from '../../../engine/src/crypto/private-resource-policy.mjs';
-import {selectProofResourcePolicy} from '../../../engine/src/execution/proofs/proof-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
+import {selectProofResourcePolicy} from '../execution/proof-resource-policy.mjs';
 import {PROOF_PROJECT_ROOT,PROOF_PROTOCOL,need,exactObject,encodeProofMessage,decodeProofMessage,
  normalizePublicInputs,assertExpectedInputs,normalizeProofWitness,publicInputsFromWitness,
- decodePrivateProof,loadProofProfile,wipePrivate,proofError} from '../../../engine/src/execution/proofs/proof-worker.mjs';
-import {filePin} from '../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+ decodePrivateProof,loadProofProfile,wipePrivate,proofError} from '../execution/proof-worker.mjs';
+import {filePin} from '@lianum/proofs/toolchain/wallet-resources';
 import {sealPrivateProofJobV1,readOriginalPrivateProofRecipientV1,privateProofAuthorizationBindingV1,
- privateProofBindingSHA256V1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+ privateProofBindingSHA256V1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 export const ORIGINAL_WALLET_PRIVATE_PROVER_V4='ORIGINAL_PC23_TWO_PRIVATE_IPC_V4';
 const worker=fileURLToPath(new URL('./wallet-note-private-worker-v4.mjs',import.meta.url));
 const telemetryDirectory=join(PROOF_PROJECT_ROOT,'evidence/paeg-proof-attempts'),hostLock='/tmp/lianum-paeg-proof-host.lock';
 const codePaths=Object.freeze({worker,parent:fileURLToPath(import.meta.url),originalWorker:join(PROOF_PROJECT_ROOT,'src/paeg/proof-worker.mjs'),
- privateTransit:fileURLToPath(new URL('./private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:join(PROOF_PROJECT_ROOT,'src/private-resource-policy.mjs'),
+ privateTransit:fileURLToPath(new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:join(PROOF_PROJECT_ROOT,'src/private-resource-policy.mjs'),
  originalProver:join(PROOF_PROJECT_ROOT,'experiments/private-core-proof/wallet-notes/prover.mjs')});
 const stages=new Set(['checking-pins','legacy-proof-and-self-verification']);
 const modes=new Set(['deposit_balance','withdraw_balance']),digest=b=>createHash('sha256').update(b).digest('hex');

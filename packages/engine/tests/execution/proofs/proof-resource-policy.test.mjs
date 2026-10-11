@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PRIVATE_RESOURCE_POLICY } from '../../../src/crypto/private-resource-policy.mjs';
-import { NATIVE_2M_PROOF_RESOURCE_POLICY, selectProofResourcePolicy } from '../../../src/execution/proofs/proof-resource-policy.mjs';
+import { NATIVE_2M_PROOF_RESOURCE_POLICY, selectProofResourcePolicy } from '../../../../proofs/src/execution/proof-resource-policy.mjs';
 
 test('only verified native 2M profiles get the bounded RSS budget', () => {
   for (const mode of ['capsule', 'ready', 'node', 'admission', 'aggregate_pair', 'aggregate_all', 'fulfill']) {

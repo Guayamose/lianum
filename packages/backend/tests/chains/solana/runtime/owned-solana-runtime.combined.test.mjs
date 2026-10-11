@@ -12,7 +12,7 @@ import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { MEMO_PROGRAM } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
 const memoBytes = fs.readFileSync(new URL('../../../../../solana-candidate-20261005-0720/.local/agave-linux-bounded-build/derived/'
   + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
 const copy = value => structuredClone(value), h = value => crypto.createHash('sha256').update(value).digest('hex');

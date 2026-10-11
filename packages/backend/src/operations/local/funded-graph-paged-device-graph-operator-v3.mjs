@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:https';
 import {createOwnedLocalEvmV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {assertFundedPagedLocalDeploymentArtifactsV3,deployOriginalFundedPagedGraphWalletV3,closeOriginalFundedPagedGraphDeploymentV3} from '../../../../engine/src/execution/local/funded-graph-paged-deployment-v3.mjs';
+import {assertFundedPagedLocalDeploymentArtifactsV3,deployOriginalFundedPagedGraphWalletV3,closeOriginalFundedPagedGraphDeploymentV3} from './funded-graph-paged-deployment-v3.mjs';
 import {createOriginalDevicePagedGraphNoteAuthorityV3,assertOriginalDevicePagedGraphNoteAuthorityV3} from '../../accounts/authority/device-paged-note-authority-v3.mjs';
 import {assertOriginalDevicePagedGraphSourceV3} from './funded-graph-paged-device-graph-source-v3.mjs';
 import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';

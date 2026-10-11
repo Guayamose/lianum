@@ -1,12 +1,12 @@
 /** Pure USDC arithmetic alongside the unchanged BTC/SOL audits. This parser
  * grants no owned-runtime brand, observer, registry or native send authority. */
 import assert from 'node:assert/strict';
-import {bytes32,exactRecord} from '../../execution/encoding/commitments.mjs';
-import {cloneInput,frozenInput} from '../../execution/account/preparation/readiness-inputs.mjs';
+import {bytes32,exactRecord} from '@lianum/components/encoding/commitments';
+import {cloneInput,frozenInput} from '@lianum/components/plain-input';
 import {NATIVE_SPL_CUSTODY_V1,NATIVE_SPL_CLAIM_INTENT_PROFILE_V1,decodeNativeSplInventoryV1,encodeNativeSplClaimUnsignedWireV1} from '../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 import {base58Decode} from '../../chains/solana/runtime/solana-base58.mjs';
 import {ownedCustodyFeeAudit} from '../../chains/shared/runtime/owned-native-custody.mjs';
-import {claimUint,claimDomainCommitment,nativeClaimEndpointCommitment} from '../protocol/framing.mjs';
+import {claimUint,claimDomainCommitment,nativeClaimEndpointCommitment} from '@lianum/engine/claims/framing';
 export const OWNED_NATIVE_SPL_INVENTORY_PROFILE_V1='OWNED_NATIVE_SPL_USDC_INVENTORY_V1';
 export function assertNativeSplClaimPreparationV1(raw,config){
  const p=cloneInput(raw);exactRecord(p,['genesis','intent','unsignedWire','funds']);assert.equal(config.nativeFamily,'2');assert.equal(p.genesis,config.nativeGenesis);

@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 import {assertNativeSplClaimV1ProducedProgramBytesV1} from './native-spl-claim-v1-program-provenance.mjs';
 import {join} from 'node:path';
-import {ROOT,relation,SETTINGS,PROFILE} from '../../../../../proofs/src/catalog.mjs';
-import {regular,hash,resourceModuleURL,circuitIdentity,versionDirectory,loadCompiled,loadPrepared,loadStats,assertSuccessfulAttempt,assertID,assertKeyBytes,assertStats,assertABI} from '../../../../../proofs/src/tooling/tooling.mjs';
-import {compileSoliditySources} from '../../../../../proofs/src/tooling/solidity-compiler.mjs';
-import {GENERIC_COMPILER_PIN,deriveGenericVerifierImmutables} from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import {ROOT,relation,SETTINGS,PROFILE} from '@lianum/proofs/catalog';
+import {regular,hash,resourceModuleURL,circuitIdentity,versionDirectory,loadCompiled,loadPrepared,loadStats,assertSuccessfulAttempt,assertID,assertKeyBytes,assertStats,assertABI} from '@lianum/proofs/tooling/tooling';
+import {compileSoliditySources} from '@lianum/proofs/tooling/solidity-compiler';
+import {GENERIC_COMPILER_PIN,deriveGenericVerifierImmutables} from '@lianum/engine/execution/local/local-deployment';
 const helpers=await import(resourceModuleURL);
 export const NATIVE_SPL_CLAIM_V1_ORIGINAL_PINS=Object.freeze({
  CI51:Object.freeze({relation:'native_claim_ingress',publicWords:51,sourceVersion:'c13d5cc0e1be06158727cf933013492fe44efe987d09e4dee9bb9216c04fb418',programSHA256:'c418794daae0160e0f5acfe1dc5f3a1f65bb6a8312c2118a9b4e05a39cc44edf'}),

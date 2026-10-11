@@ -2,7 +2,7 @@
  * owned fixture; the pure validators alone confer no chain/proof authority. */
 import assert from 'node:assert/strict';
 import { assertLocalEvm } from '../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs';
-import { exactRecord } from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 const copy = value => structuredClone(value);
 const match = (value, expression) => typeof value === 'string' && expression.exec(value)?.[0] === value;
 const quantity = value => { assert.ok(match(value, /^0x(?:0|[1-9a-f][0-9a-f]*)$/), 'EVM_VAULT_REPLAY_QUANTITY'); return BigInt(value); };

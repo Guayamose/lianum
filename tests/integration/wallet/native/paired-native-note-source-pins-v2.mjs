@@ -3,8 +3,8 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { readFileSync, lstatSync, realpathSync } from 'node:fs';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
-import { verifyAPI, verifyVendor, hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { verifyAPI, verifyVendor, hash } from '@lianum/proofs/tooling/tooling';
 import { nativeValueDevHostSourcePinsV5 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-source-pins-v5.mjs';
 export function pairedNativeNoteSourcePinsV2() {
   assert.equal(arguments.length, 0, 'PAIRED_NATIVE_NOTE_SOURCE_NO_OPTIONS');

@@ -11,7 +11,7 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync,writeFileSync,readdirSync,lstatSync,realpathSync,mkdirSync,chmodSync,rmSync,existsSync,unlinkSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {FLAT} from '../../../../packages/proofs/src/catalog.mjs';
+import {FLAT} from '@lianum/proofs/catalog';
 import {createOriginalDeviceExternalFlatPrivateNoteAuthorityV3,createOriginalDeviceExternalFlatPrivateShareNoteAuthorityV3} from '../../../../packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs';
 import {createOriginalRetainedDeviceMetaMorphoUnderlyingServiceV2,createOriginalRetainedDeviceMetaMorphoMultiUnderlyingServiceV2,createOriginalRetainedDeviceUniswapGraphServiceV1,createOriginalRetainedDeviceAaveStaticGraphServiceV1,createOriginalRetainedDeviceExternalFlatMultiGraphServiceV4,readOriginalDeviceExternalFlatMultiGraphContextV4,createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1,createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1,captureOriginalDeviceExternalFlatGraphServiceV1} from '../../../../packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs';
 import {createOriginalDeviceExternalFlatNoteServiceV1} from '../../../../packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs';

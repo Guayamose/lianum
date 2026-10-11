@@ -1,4 +1,4 @@
-import{deviceReservationConsentEitherMessageV2 as deviceReservationConsentMessageV1}from'../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
+import{deviceReservationConsentEitherMessageV2 as deviceReservationConsentMessageV1}from'@lianum/mobile-protocol/device/native-reservation-v2';
 /** Fixed continuation of the SAME original funded D26 opening. No bootstrap,
  * Linux note adoption, arbitrary executor or proof worker is introduced. */
 import assert from 'node:assert/strict';
@@ -9,10 +9,10 @@ import {createDeviceOwnerReservationBridgeV1,awaitDeviceOwnerReservationOriginal
 import {createDeviceOwnerExecutionBridgeV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {runDeviceOwnerExecutionContinuationV1} from './device-owner-execution-original-continuation-v1.mjs';
 import {createPairedDeviceAccountTlsServerV1,createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
-import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
+import {wipeDeviceReservationWitnessV1} from '@lianum/mobile-protocol/device-reservation-consent-v1';
 import {prepareDeviceOwnerReservationOriginalV1,prepareDeviceOwnerLiveArmedReservationOriginalV1} from './device-owner-reservation-original-preparation-v1.mjs';
-import {verifyPrivateNotePath} from '../../../../packages/engine/src/notes/private-note-tree.mjs';
+import {verifyPrivateNotePath} from '@lianum/engine/notes/private-note-tree';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
 import {runNativeDeviceLiveArmedShortContinuationV1} from './native-device-live-armed-short-continuation-v1.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');

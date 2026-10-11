@@ -4,7 +4,7 @@ import { auditClaimNativeInventory } from '../../../../../packages/backend/src/c
 import { auditDualNonceInventory } from '../../../../../packages/backend/src/claims/ingress/ingress-v3-host.mjs';
 import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
-import { nativeClaimEndpointCommitment } from '../../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 import { ownedCustodyFeeAudit } from '../../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
 import { encodeSolanaNonceBindingMessage, encodeSolanaNonceBootstrapMessage,
   validateSolanaNonceBindingTransaction, validateSolanaNonceBootstrapTransaction }

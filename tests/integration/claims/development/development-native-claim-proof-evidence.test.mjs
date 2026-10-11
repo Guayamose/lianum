@@ -2,7 +2,7 @@
  * provide a branded controller/client or accepted cryptographic proof. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PROFILE, SETTINGS, LIMITS } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROFILE, SETTINGS, LIMITS } from '@lianum/proofs/catalog';
 import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import { assertRoleProofReceiptRecords, assertWithdrawalProofTelemetry } from './development-native-claim-proof-evidence.mjs';
 const runId = '11111111-1111-4111-8111-111111111111', jobId = '22222222-2222-4222-8222-222222222222';

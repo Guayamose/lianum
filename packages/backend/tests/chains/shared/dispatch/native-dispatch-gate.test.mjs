@@ -8,19 +8,19 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, ECDH, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { createCommitmentCodec, ZERO } from '../../../../src/execution/encoding/commitments.mjs';
-import { encodeStatement } from '../../../../src/execution/encoding/statements.mjs';
+import { createCommitmentCodec, ZERO } from '@lianum/components/encoding/commitments';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { encodeFlatNativeHealth, flatNativeHealthDigest, assertFlatNativeHealth } from '../../../../src/chains/shared/health/native-health.mjs';
 import { receiptKeyCommitment, nativeRuleCommitment, nativeCustodyCommitment,
-  encodeSolanaBindingMessage, encodeBitcoinBinding, validateSolanaBindingTransaction, MEMO_PROGRAM } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  encodeSolanaBindingMessage, encodeBitcoinBinding, validateSolanaBindingTransaction, MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
 import { nativeAdmissionChainDomain, nativeProviderIdentity, nativeDeliveryRiskCommitment,
   nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
-import { nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE } from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { boundedListDigest, snapshotDigest } from '../../../../../engine/src/execution/native/state/native-state.mjs';
-import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
-import { decodeBitcoinTransaction } from '../../../../../engine/src/chains/bitcoin/bitcoin-runtime.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
+import { nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE } from '@lianum/engine/evidence/native-quorum';
+import { boundedListDigest, snapshotDigest } from '@lianum/engine/execution/native/state/native-state';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
+import { decodeBitcoinTransaction } from '@lianum/engine/chains/bitcoin/bitcoin-runtime';
 
 const syntheticVerifiers = new WeakSet();
 mock.module(new URL('../../../proof-workers/pinned-verifier.mjs', import.meta.url).href, {
@@ -32,7 +32,7 @@ const gateModule = await import('../../../../src/chains/shared/dispatch/native-d
 const { evmDeliveryFixture, signedDeliveryWire } = await import('../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs');
 const { decodeCanonicalEvmTransaction } = await import('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs');
 const { evmFundingEndpointCommitment } = await import('../../../../src/chains/evm/dispatch/evm-facts-binding.mjs');
-const { evmVaultDeliveryDescriptorCommitment } = await import('../../../../src/chains/evm/vault/evm-vault-delivery.mjs');
+const { evmVaultDeliveryDescriptorCommitment } = await import('@lianum/engine/encoding/evm-vault-delivery');
 const { createNativeDispatchGate, createNativeDispatchJournal, assertNativeDispatchBinding,
   assertNativeDispatchState, assertNativeDispatchPrepared, assertNativeDispatchSigned } = gateModule;
 const sha = value => createHash('sha256').update(value).digest('hex');

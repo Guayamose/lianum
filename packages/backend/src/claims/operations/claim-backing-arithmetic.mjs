@@ -3,15 +3,15 @@ import {OWNED_NATIVE_SPL_INVENTORY_PROFILE_V1,assertNativeSplClaimPreparationV1,
 /** Pure arithmetic over complete owned snapshots. Supplying these records does
  * not turn them into trusted observations or mint/signing capabilities. */
 import assert from 'node:assert/strict';
-import { exactRecord, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord, bytes32, ZERO } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { summarizeOwnedBitcoinCoins, ownedCustodyFeeAudit, assertOwnedCustodyIntent,
   auditOwnedSolanaNonceInfrastructure } from '../../chains/shared/runtime/owned-native-custody.mjs';
-import { encodeBitcoinBinding, encodeSolanaBindingMessage, receiptKeyCommitment } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { encodeBitcoinBinding, encodeSolanaBindingMessage, receiptKeyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage } from '../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { claimUint, claimDomainCommitment, claimIntentId, claimTicketCommitment, validateClaimTicket,
-  nativeClaimEndpointCommitment, claimDestinationCommitment, claimTicketSecret } from '../protocol/framing.mjs';
-import { claimFrame, claimHash, claimRouteCommitment, claimUnsignedWireCommitment } from '../authorization/permits.mjs';
+  nativeClaimEndpointCommitment, claimDestinationCommitment, claimTicketSecret } from '@lianum/engine/claims/framing';
+import { claimFrame, claimHash, claimRouteCommitment, claimUnsignedWireCommitment } from '@lianum/engine/claims/permits';
 
 export const CLAIM_LIFETIME_LIMITS = Object.freeze({ ingress: 16, tickets: 32, originalNativeIdentities: 48 });
 const u = value => claimUint(value, 256);

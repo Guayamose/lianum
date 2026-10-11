@@ -1,5 +1,5 @@
 // Public capability-artifact integrity only; this command performs no proving.
-import assert from 'node:assert/strict';import {readFileSync,readdirSync,writeFileSync,statSync} from 'node:fs';import {fileURLToPath} from 'node:url';import {join,relative} from 'node:path';import {sha256} from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
+import assert from 'node:assert/strict';import {readFileSync,readdirSync,writeFileSync,statSync} from 'node:fs';import {fileURLToPath} from 'node:url';import {join,relative} from 'node:path';import {sha256} from '@lianum/engine/notes/private-note-encoding';
 const root=fileURLToPath(new URL('../../../',import.meta.url)),run=process.argv[2];assert.match(run,/^[0-9TZ-]+$/);const reportPath=join(root,'evidence/m18-capability-'+run+'.json'),directory=join(root,'evidence/m18-capability',run),r=JSON.parse(readFileSync(reportPath));assert.equal(r.phase,'completed');
 const hash=b=>sha256(b).toString('hex'),files=[];function walk(p){for(const n of readdirSync(p)){const f=join(p,n);if(statSync(f).isDirectory())walk(f);else{const b=readFileSync(f);files.push({path:relative(directory,f),bytes:b.length,sha256:hash(b)});}}}walk(directory);
 for(const [name,entry]of Object.entries(r.artifacts)){const b=readFileSync(join(directory,name));assert.equal(b.length,entry.bytes);assert.equal(hash(b),entry.sha256);}

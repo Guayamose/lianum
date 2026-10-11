@@ -3,22 +3,22 @@
  * canonical gateway/hub establish acceptance. No owner key is accepted. */
 import assert from 'node:assert/strict';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
-  structToNoir, digestBytes, digestWords } from '../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+  structToNoir, digestBytes, digestWords } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { FACTS_SCHEMA, validateNativeClaimFacts as validateNativeFacts,
   encodeNativeClaimFacts as encodeNativeFacts, nativeClaimFactsDigest as nativeFactsDigest,
-  receiptKeyCommitment, nativeAdmissionNullifier } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+  receiptKeyCommitment, nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeAdmissionRuleCommitment, nativeAdmissionRuleRoot, nativeAdmissionChainDomain,
   nativeAdmissionRuleToNoir, nativeAdmissionObservationToNoir, nativeAdmissionRegistryToNoir }
-  from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeEffectToNoir } from '../../../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeEffectToNoir } from '@lianum/engine/execution/native/state/native-receipt';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../../engine/src/evidence/native-quorum.mjs';
-import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  from '@lianum/engine/evidence/native-quorum';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { claimUint, validateClaimConfig, claimDomainCommitment, claimConfigToNoir,
   claimReceiptSecret, claimRefundSalt, claimDestinationCommitment, claimIngressReceiptCommitment,
   validateClaimTicket, claimTicketCommitment, claimTicketToNoir, claimTicketSecret,
-  encodeClaimIngressInputs, encodeClaimDischargeInputs } from '../protocol/framing.mjs';
+  encodeClaimIngressInputs, encodeClaimDischargeInputs } from '@lianum/engine/claims/framing';
 
 import { assertCustodyRegistration, assertCustodySources } from '../protocol/registry-envelope-v2.mjs';
 import { registryCommitment, sourceToNoir } from '../../chains/evm/transfers/evm-native-value-v2.mjs';

@@ -4,10 +4,12 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { filePin } from '../../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+import {pathToFileURL} from 'node:url';
+import {legacyDataRoot} from '@lianum/environment';
+import { filePin } from '@lianum/components/file-integrity';
 import { GENERIC_POOL_SOURCE_SHA256 } from './local-deployment.mjs';
 
-const root = new URL('../../', import.meta.url);
+const root = pathToFileURL(legacyDataRoot('engine') + '/');
 const paths = Object.freeze({
   deposit_balance: 'experiments/private-core-proof/wallet-notes/.local/prepared/deposit_balance.sol',
   withdraw_balance: 'experiments/private-core-proof/wallet-notes/.local/prepared/withdraw_balance.sol',

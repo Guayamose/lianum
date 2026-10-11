@@ -6,9 +6,9 @@ import { WRAPPED_CLAIM_STAGE_HISTORY_V2 } from './wrapped-claim-stage-provenance
 import { types } from 'node:util';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { wrappedClaimRelationV1, validateWrappedClaimABIV1 } from '../../../../../proofs/src/wrapped-claims/metadata/wrapped-claim-profile-v1.mjs';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
+import { wrappedClaimRelationV1, validateWrappedClaimABIV1 } from '@lianum/proofs/wrapped-claims/metadata/wrapped-claim-profile-v1';
 import { WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1, WRAPPED_CLAIM_PROOF_RELEASE_V1,
   WRAPPED_CLAIM_DEPLOYMENT_RELEASE_V1, WRAPPED_CLAIM_FIXED_DRIVER_V1, WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1 } from './wrapped-claim-release-v1.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

@@ -3,7 +3,7 @@
  * preparation, replacement certificate or transport is exposed here. */
 import assert from 'node:assert/strict';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { claimPayoutBroadcastFrame } from '../authorization/permits.mjs';
+import { claimPayoutBroadcastFrame } from '@lianum/engine/claims/permits';
 import { assertCanonicalClaimReservation } from '../authorization/reservation-facts-gate.mjs';
 export const CLAIM_PAYOUT_FINAL_SEND_PROFILE = 'CLAIM_PAYOUT_ORIGINAL_AUTHORITY_LIFETIME_V2';
 export function createPayoutFinalSendGate({ ctx, prepared, binding, scope }) {

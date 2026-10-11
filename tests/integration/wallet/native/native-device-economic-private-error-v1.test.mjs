@@ -12,8 +12,8 @@ import {fork} from 'node:child_process';
 import {once} from 'node:events';
 import {runInNewContext} from 'node:vm';
 import {types} from 'node:util';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
-import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose,privateOwnedNetworkMobileFirstErrorV1 as networkDiagnose} from './native-device-economic-private-error-v1.mjs';
 // The public catalog is an existing source under the fixed root in both layouts.
@@ -235,7 +235,7 @@ test('HOST original legacy resource receipt uses actual completed report and sam
  const a=policy.indexOf(" assert.deepEqual(result.proofs.map(p=>p.relation),"),b=policy.indexOf(" assert.equal(result.assetMetadata.kind,",a);assert.ok(a>=0&&b>a);
  const check=runInNewContext('(result)=>{'+policy.slice(a,b)+'}',{assert,PRIVATE_RESOURCE_POLICY});
  const generated=import.meta.url.endsWith('/integration/native-device-economic-private-error-v1.test.mjs');
- const producerURL=new URL(generated?'../../../omnichain-product/src/paeg/proof-process.mjs':'../../../../packages/engine/src/execution/proofs/proof-process.mjs',import.meta.url);
+ const producerURL=new URL(generated?'../../../omnichain-product/src/paeg/proof-process.mjs':'../../../../packages/proofs/src/execution/proof-process.mjs',import.meta.url);
  const producer=readFileSync(producerURL,'utf8');
  assert.equal(producer.includes('resourceReceiptCompleted'),false);
  const c=producer.indexOf('    const finish = (exitCode, signal) => {'),z=producer.indexOf('\n    current = { done, stop };',c);assert.ok(c>=0&&z>c);

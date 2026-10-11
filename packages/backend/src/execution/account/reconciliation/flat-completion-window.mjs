@@ -1,7 +1,7 @@
 /** Intersect already-admitted evidence with the original owner cutoff.
  * This never renews a receipt or changes the timeout recovery authorization. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray } from '../../encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 
 function timestamp(value) {
   assert.ok(typeof value === 'string' && /^(0|[1-9][0-9]*)$/.exec(value)?.[0] === value,

@@ -3,19 +3,20 @@
  * No callback, receipt object or profile flag can mint this private brand. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { assertOwnedLocalEvmV2, assertSignedEvmTransaction, LOCAL_EVM_PROFILE,
-  encodeCanonicalEvmUnsignedTransaction } from '../runtime/owned-evm-v2-runtime.mjs';
+import { assertSignedEvmTransaction, encodeCanonicalEvmUnsignedTransaction } from '../contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../runtime/local-evm-profiles.mjs';
+import { assertOwnedLocalEvmV2 } from '../runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedFlatSystem } from '../../../operations/deployments/system/deploy-system.mjs';
 import { createOwnedPrivateExternalRouterV1, assertOwnedPrivateExternalRouterV1 } from '../../../operations/deployments/defi/deploy-private-external-router-v1.mjs';
 import { assertOwnedOriginalMorphoBluePositionV1, readOwnedOriginalMorphoBluePositionContextV1 } from '../../../operations/deployments/defi/deploy-morpho-blue-position-v1.mjs';
-import { assertOfficialProtocolFixture } from '../../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
+import { assertOfficialProtocolFixture } from '../../../operations/deployments/defi/official-protocol-fixture-v3.mjs';
 import { createPrivateExternalIncomingObserverV1, assertOwnedPrivateExternalIncomingObservationV1 }
   from '../../shared/observations/private-external-incoming-observer-v1.mjs';
 import { createFlatSystemStateReader } from '../../../execution/account/reconciliation/flat-system-state.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mjs';
-import { decodeDepositIntentInputs } from '../../../execution/account/preparation/deposit-intent.mjs';
-import { decodePrivateExternalDeliveryCall } from '../../../defi/delivery/private-external-delivery.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
+import { decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
+import { decodePrivateExternalDeliveryCall } from '@lianum/engine/encoding/private-external-delivery';
 import { evmRuntimeCodeHash } from '../contracts/evm-code-hash.mjs';
 import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, AAVE_STATIC_GRAPH_DELIVERY_PROFILE_V1, MORPHO_BLUE_POSITION_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 } from '../dispatch/evm-graph-delivery-codec-v1.mjs';

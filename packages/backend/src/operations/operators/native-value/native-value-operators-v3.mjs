@@ -1,17 +1,21 @@
+import { need as observationNeed } from '../../../chains/shared/portfolio/portfolio-registry.mjs';
+import { PROFILE_SCHEMA as EVM_HEALTH_SCHEMA } from '../../../chains/evm/transfers/evm-native-value-v2.mjs';
+import { PROFILE_SCHEMA as TRON_HEALTH_SCHEMA } from '../../../chains/tron/transfers/tron-native-graph-profile.mjs';
+import { prepareEvmNativeValueHealthReaderV3, createEvmNativeValueHealthReaderV3 } from '../../../chains/evm/health/evm-native-value-health-reader-v3.mjs';
+import { prepareTronNativeValueHealthReaderV3, createTronNativeValueHealthReaderV3 } from '../../../chains/tron/health/tron-native-value-health-reader-v3.mjs';
 /** Fixed-purpose owned V2 operators. One private key and one atomic CAS journal
  * per signer, complete typed inventory, no raw signer/audit callback/verified
  * boolean. Shares only an authenticated immutable receiver head with siblings.
  * Activation is impossible until native-value-system-v2 owns a real deployment. */
 import assert from 'node:assert/strict';
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { nativeHubSignatureToAbi } from '../../../../../engine/src/evidence/native-hub-messages.mjs';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeValueSystem, nativeValueOperatorResources } from '../../deployments/native-value/native-value-system-v2.mjs';
 import { createNativeValueSystemStateReader, assertNativeValueCurrentView } from '../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import { assertOwnedNativeValueHealthObservation as assertTypedSourceObservation } from '../../../chains/shared/health/native-value-health-source-v3.mjs';
 import { encodeFacts, validateFacts, factsSchema, profileCommitment, registryCommitment, assertFactsQuorum, sha256 }
   from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { encodeNativeValueHealth, assertNativeValueHealth, assertNativeValueHealthAllowed } from '../../../chains/shared/health/native-value-health-v2.mjs';
@@ -334,3 +338,47 @@ export function consumeNativeValueOperatorBootstrapRequest(token, { runtime, sys
   assert.ok(entry && entry.runtime === runtime && entry.system === system, 'NATIVE_VALUE_PRIVATE_BOOTSTRAP_REQUEST');
   bootstrapRequests.delete(token); return freeze({ signerIndex: entry.signerIndex, publicKey: entry.publicKey });
 }
+
+/** Source-history issuance, source construction and output provenance share this
+ * fixed kernel. The RPC readers below this boundary cannot mint owned outputs. */
+const evmHealthOwners = new WeakSet(), evmHealthObservations = new WeakMap();
+const tronHealthOwners = new WeakSet(), tronHealthObservations = new WeakMap();
+function ownHealthReader(reader, owners, observations) {
+  const source = Object.freeze({ ...reader, async observe(query) {
+    const value = await reader.observe(query);
+    observations.set(value, source);
+    return value;
+  } });
+  owners.add(source);
+  return source;
+}
+export async function createOwnedEvmNativeValueHealthSource(raw) {
+  const prepared = prepareEvmNativeValueHealthReaderV3(raw);
+  const history = nativeValueRetainedSourceHistory(prepared.historyToken, {
+    policy: prepared.policy, sourceIndex: prepared.sourcePin.index, nativeId: prepared.identity.nativeId,
+  });
+  return ownHealthReader(createEvmNativeValueHealthReaderV3(prepared, history), evmHealthOwners, evmHealthObservations);
+}
+export function createOwnedTronNativeValueHealthSource(raw) {
+  const prepared = prepareTronNativeValueHealthReaderV3(raw);
+  const history = nativeValueRetainedSourceHistory(prepared.historyToken, {
+    policy: prepared.policy, sourceIndex: prepared.pin.index, nativeId: prepared.identity.nativeId,
+  });
+  return ownHealthReader(createTronNativeValueHealthReaderV3(prepared, history), tronHealthOwners, tronHealthObservations);
+}
+export function assertOwnedEvmNativeValueHealthObservation(value, source) {
+  observationNeed(evmHealthOwners.has(source) && evmHealthObservations.get(value) === source,
+    'EVM_GRAPH_SOURCE_OBSERVATION_PROVENANCE');
+}
+export function assertOwnedTronNativeValueHealthObservation(value, source) {
+  observationNeed(tronHealthOwners.has(source) && tronHealthObservations.get(value) === source,
+    'TRON_GRAPH_OBSERVATION_PROVENANCE');
+}
+export function assertOwnedNativeValueHealthObservation(value, source, policy) {
+  if (policy.profile.schema === EVM_HEALTH_SCHEMA) assertOwnedEvmNativeValueHealthObservation(value, source);
+  else {
+    assert.equal(policy.profile.schema, TRON_HEALTH_SCHEMA);
+    assertOwnedTronNativeValueHealthObservation(value, source);
+  }
+}
+const assertTypedSourceObservation = assertOwnedNativeValueHealthObservation;

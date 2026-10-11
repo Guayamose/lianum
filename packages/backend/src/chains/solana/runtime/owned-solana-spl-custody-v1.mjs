@@ -11,11 +11,11 @@ import {OWNED_NATIVE_SPL_INVENTORY_PROFILE_V1} from '../../../claims/operations/
 import {assertOwnedClaimObserver,ownedClaimObserverBindings} from '../../../claims/operations/owned-state.mjs';
 import {consumeOwnedFlatSolanaSourceForSplV1} from '../../../providers/native-provider.mjs';
 import {consumeNativeClaimOriginalKeyAuthorityV4,openNativeClaimSolanaPayoutAuthority,consumeNativeSplClaimPayoutPreparationV1,consumeNativeSplClaimBeginAuthorizationV1} from '../../../claims/controller/controller.mjs';
-import {exactRecord,bytes32} from '../../../execution/encoding/commitments.mjs';
-import {cloneInput,frozenInput} from '../../../execution/account/preparation/readiness-inputs.mjs';
+import {exactRecord,bytes32} from '@lianum/components/encoding/commitments';
+import {cloneInput,frozenInput} from '@lianum/components/plain-input';
 import {ownedCustodyRoute,ownedCustodyFeeAudit} from '../../shared/runtime/owned-native-custody.mjs';
-import {claimDomainCommitment,nativeClaimEndpointCommitment} from '../../../claims/protocol/framing.mjs';
-import {claimActionDigest,claimBackingDigest,assertClaimBackingQuorum} from '../../../claims/authorization/permits.mjs';
+import {claimDomainCommitment,nativeClaimEndpointCommitment} from '@lianum/engine/claims/framing';
+import {claimActionDigest,claimBackingDigest,assertClaimBackingQuorum} from '@lianum/engine/claims/permits';
 const sha=x=>createHash('sha256').update(x).digest('hex'),hex=key=>base58Decode(key,32).toString('hex'),addr=h=>base58Encode(Buffer.from(h,'hex'));
 const safe=value=>{assert.ok(Number.isSafeInteger(value)&&value>=0&&!Object.is(value,-0),'SPL_SAFE_NATIVE_INTEGER');return BigInt(value);};
 const fixedAmount=value=>{assert.match(value,/^[1-9][0-9]*$/);const n=BigInt(value);assert.ok(n<=BigInt(P.maximumAmount));return n;};
@@ -85,7 +85,7 @@ export async function createOwnedSolanaSplCustodyFromOriginalV1(token){
   const config=bound.configs[at];assert.equal(config.nativeFamily,'2');assert.equal(config.nativeGenesis,ctx.genesisHex);assert.equal(config.nativeAsset,ctx.splAsset);assert.equal(config.escrowEndpointCommitment,nativeClaimEndpointCommitment({family:'2',genesis:ctx.genesisHex,asset:ctx.splAsset,endpoint:roles.escrow.endpoint}));assert.deepEqual(bound.nativeRuntimes[0].roles.depositor!==undefined,true);
   const view=await capability.read();await capability.assertCurrent(view);const initialization={instance:ctx.instance,genesis:ctx.genesisHex,config:configAddress,vault:vaultAddress,asset:ctx.splAsset,claimDomain:claimDomainCommitment(config),custodyInventoryDomain:config.custodyInventoryDomain,nativeChainDomain:'0'.repeat(64),registry:bound.registry};
   // The chain domain is defined by the registered native rule, not a caller.
-  const {nativeAdmissionChainDomain}=await import('../../../../../engine/src/execution/native/dispatch/native-admission.mjs');initialization.nativeChainDomain=nativeAdmissionChainDomain(bound.policies[at].rule);
+  const {nativeAdmissionChainDomain}=await import('@lianum/engine/execution/native/dispatch/native-admission');initialization.nativeChainDomain=nativeAdmissionChainDomain(bound.policies[at].rule);
   ctx.beginOperation({name:'initialize-spl-registry'});try{await program();const empty=await accounts([configAddress,vaultAddress]);assert.equal(empty.rows[0].account,null);assert.equal(empty.rows[1].account,null);
    const rents=await Promise.all([610,165].map(size=>ctx.read('getMinimumBalanceForRentExemption',[size,{commitment:'finalized'}])));rents.forEach(safe);
    await infrastructureSend('fee',blockhash=>encodeNativeSplInitializeMessageV1({payer:keys.feePayer,blockhash,initialization}),async(record,observation)=>{

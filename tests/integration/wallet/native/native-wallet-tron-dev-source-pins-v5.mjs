@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { join, resolve, relative } from 'node:path';
 import { readFileSync,lstatSync,realpathSync } from 'node:fs';
-import { ROOT,FLAT,GOLDEN,CANDIDATE } from '../../../../packages/proofs/src/catalog.mjs';
-import { hash,verifyAPI,verifyVendor } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT,FLAT,GOLDEN,CANDIDATE } from '@lianum/proofs/catalog';
+import { hash,verifyAPI,verifyVendor } from '@lianum/proofs/tooling/tooling';
 import { nativeValueDevFinancialSourcePinsV5 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
 const project=resolve(FLAT,'../../..'),roots=Object.freeze([['development-tooling/',join(project,'scripts/development')],['development-config/',join(project,'scripts')],
  ['golden/',GOLDEN],['candidate/',CANDIDATE],['mobile-protocol/',resolve(FLAT,'../mobile-protocol')],['mobile-app/',join(project,'apps/mobile')],

@@ -8,11 +8,11 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
 import { nativeAdmissionRulesTree, nativeAdmissionRuleCommitment }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { createCommitmentCodec, SCHEMAS, ZERO } from '../../../../src/execution/encoding/commitments.mjs';
-import { FIELD_MODULUS, encodeStatement, RELATIONS } from '../../../../src/execution/encoding/statements.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { createCommitmentCodec, SCHEMAS, ZERO } from '@lianum/components/encoding/commitments';
+import { FIELD_MODULUS, encodeStatement, RELATIONS } from '@lianum/components/encoding/statements';
 import { FLAT_TRANSACTION_METHODS } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import { validateFlatExecutionPreparation } from '../../../../src/execution/account/execution/flat-native-execution.mjs';
 import * as actualReadiness from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
@@ -109,7 +109,7 @@ mockModule(new URL('../../../../src/execution/native-value/reconciliation/native
   },
   createWrappedWalletTerminalObserverV1() { throw new Error('TEST_UNUSED_WRAPPED_BRANCH'); },
 });
-mockModule(new URL('../../../../../proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs', import.meta.url), { async loadNativeValueLiveArtifacts() {} });
+mockModule(new URL('../../../../src/proving/native-value/metadata/native-value-live-v2-artifacts.mjs', import.meta.url), { async loadNativeValueLiveArtifacts() {} });
 mockModule(new URL('../../../../src/execution/account/execution/flat-native-execution.mjs', import.meta.url), { validateFlatExecutionPreparation });
 mockModule(new URL('../../../../../engine/src/crypto/vault.mjs', import.meta.url), { Vault: class {
   constructor(path) { this.path = path; }

@@ -1,7 +1,7 @@
 /** Fixed supervisor routes. No request supplies a directory or worker path. */
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 
 export const NATIVE_CLAIM_RUN_ROUTES = Object.freeze({
   beginPayoutAuditV1: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs'),

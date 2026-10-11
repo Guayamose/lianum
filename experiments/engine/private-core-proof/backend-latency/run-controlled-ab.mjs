@@ -4,7 +4,7 @@ import {fork} from 'node:child_process';
 import {readFileSync,writeFileSync,readdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {walletFixture,walletFixtureInput} from '../wallet-notes/fixtures.mjs';
-import {walletInputPublicWords} from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import {walletInputPublicWords} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import {hash,guard,resources,WALLET_RESOURCE_FLOORS,filePin} from '../wallet-notes/resources.mjs';
 const root=fileURLToPath(new URL('.',import.meta.url));
 const report={classification:'SYNTHETIC_STATEMENT_GENUINE_PROOF_PERFORMANCE_NOT_NATIVE_SETTLEMENT_OR_WALLET_UX_ACCEPTANCE',startedAt:new Date().toISOString(),mode:'reserve_from_note',statementWords:74,fixtureType:4,fixtureCount:1,privateMaterialPersisted:false,coldLifetimes:true,serialOrder:['native','wasm'],threadsEach:1,proofsPerBackend:1,provingKeyReuse:false,backendSharingAcrossOwners:false,hostLimitsChanged:false,floors:WALLET_RESOURCE_FLOORS,monitorIntervalMilliseconds:250,timeoutEachMilliseconds:900000,phase:'starting',results:[]};

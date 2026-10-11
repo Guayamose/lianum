@@ -1,8 +1,8 @@
 /** Fixed official public Jupiter snapshot. Not recovered/compiled/private evidence. */
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../../proofs/src/tooling/tooling.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 export const JUPITER_OFFICIAL_COMMIT_V1='cc068c9d1df0060c62f9a8a4fc37ea13ea7b9b39';
 export const JUPITER_OFFICIAL_PROGRAM_V1='JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4';
 export const ORCA_OFFICIAL_PROGRAM_V1='9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP';

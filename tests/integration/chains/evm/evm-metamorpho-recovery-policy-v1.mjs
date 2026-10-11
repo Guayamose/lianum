@@ -1,7 +1,7 @@
 /** Fixed original MetaMorpho F postconditions. These validators confer no
  * owner, proof, receipt or dispatch authority. Legacy profiles are separate. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 export const EVM_METAMORPHO_RECOVERY_RESULT_V1='FLAT_WALLET_PRIVATE_METAMORPHO_TIMEOUT_RECOVERY_RESULT_V1';
 export const METAMORPHO_F_REVIEWED_RELEASE_V1='SOURCE_REVIEWED_FIXED_LOCAL_METAMORPHO_F_V1';
 export function assertMetaMorphoFReleaseV1(){

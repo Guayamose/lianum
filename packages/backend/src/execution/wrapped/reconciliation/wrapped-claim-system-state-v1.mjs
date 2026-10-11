@@ -9,13 +9,13 @@ import { assertCombinedAdapterRegistrationsV2 } from '../../../claims/protocol/r
 import { registryCommitment, SEMANTIC_PROFILE } from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { WRAPPED_CLAIM_GRAPH_VERIFIER_ORDER_V1 as FLAT_VERIFIER_ORDER } from '../../../operations/deployments/wrapped/wrapped-claim-deployment-artifacts-v1.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
-import { inspectGenericSnapshot } from '../../../../../engine/src/execution/local/local-ledger.mjs';
+import { inspectGenericSnapshot } from '@lianum/engine/execution/local/local-ledger';
 import { decodeNativeCheckpoint, decodeNativeCheckpointTree }
-  from '../../../../../engine/src/execution/native/state/native-system-state.mjs';
+  from '../../native/state/native-system-state.mjs';
 import { boundedListDigest, snapshotDigest, nodeHash }
-  from '../../../../../engine/src/execution/native/state/native-state.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { exactRecord, fixedArray, bytes32, canonicalField, validateStruct, ZERO } from '../../encoding/commitments.mjs';
+  from '@lianum/engine/execution/native/state/native-state';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { exactRecord, fixedArray, bytes32, canonicalField, validateStruct, ZERO } from '@lianum/components/encoding/commitments';
 import { assertOwnedPoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
 import { createFlatPureMathLease, discardFlatPureMathCache } from '../../encoding/flat-pure-math-cache.mjs';

@@ -2,7 +2,7 @@
  * resource receipt, custody or financial authority is created by this fixture. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PROFILE,SETTINGS,CATALOG} from '../../../../packages/proofs/src/catalog.mjs';
+import {PROFILE,SETTINGS,CATALOG} from '@lianum/proofs/catalog';
 import {PROVING_LIMITS} from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import {assertBtcSolGraphProofReceipts,DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS} from './development-btc-sol-graph-proof-evidence.mjs';
 

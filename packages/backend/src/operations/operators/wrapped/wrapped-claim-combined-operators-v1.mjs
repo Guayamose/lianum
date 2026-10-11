@@ -1,4 +1,4 @@
-import { inspectWrappedInstallationSourcesV2 } from '../../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { inspectWrappedInstallationSourcesV2 } from '@lianum/components/verification/wrapped-installation';
 import { claimBitcoinPayoutBroadcastFrame } from '../../../claims/payouts/bitcoin-payout-broadcast.mjs';
 /** One owned synthetic attester identity, two separately validated domains.
  * The token and key never leave this module's factory/constructor call path.
@@ -6,16 +6,16 @@ import { claimBitcoinPayoutBroadcastFrame } from '../../../claims/payouts/bitcoi
  * import keys, return keys, sign caller-selected bytes, or mint a token. */
 import assert from 'node:assert/strict';
 import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
+import { signature } from '@lianum/engine/notes/private-note-encoding';
 import { checkpointAuthorizationFrame, revocationFrame }
-  from '../../../../../engine/src/evidence/native-hub-messages.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
-import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+  from '@lianum/engine/evidence/native-hub-messages';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { frozenInput } from '@lianum/components/plain-input';
 import { createNativeFactsSigner, createNativeClaimFactsSigner } from '../../../chains/shared/dispatch/native-facts-peer.mjs';
 import { encodeFlatNativeHealth } from '../../../chains/shared/health/native-health.mjs';
 import { claimBackingFrame, claimIngressAuthorizationFrame, claimPayoutAuthorizationFrame,
-  claimPayoutBroadcastFrame } from '../../../claims/authorization/permits.mjs';
-import { encodeNativeClaimFacts } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+  claimPayoutBroadcastFrame } from '@lianum/engine/claims/permits';
+import { encodeNativeClaimFacts } from '@lianum/engine/native/native-receipt-binding';
 import { nonceIngressBroadcastFrame } from '../../../claims/ingress/ingress-v3-host.mjs';
 import { createScopedClaimOperator, consumeWrappedClaimOperatorKeyLeaseV4, consumeWrappedClaimPayoutFactsKeyLeaseV4 } from '../../../claims/wrapped/operations/wrapped-operators-v1.mjs';
 import { createScopedWrappedClaimGraphOperatorV1, consumeWrappedGraphOperatorKeyLeaseV4 } from './wrapped-claim-graph-operators-v1.mjs';

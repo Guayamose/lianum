@@ -7,7 +7,7 @@ import { ROOT, CATALOG } from '../../catalog.mjs';
 import { publicWords } from '../../tooling/tooling.mjs';
 import { NATIVE_VALUE_ADMISSION_SPEC, NATIVE_VALUE_ACCEPTED_SOURCE_VERSION,
   validateNativeValueAdmissionInputs } from './native-value-v2-profile.mjs';
-import { decodeNativeValueAdmissionStatement } from '../../../../backend/src/execution/encoding/native-value-statements-v2.mjs';
+import { decodeNativeValueAdmissionStatement } from '@lianum/components/encoding/native-value-statements-v2';
 export const NATIVE_VALUE_LIVE_V2_ABI_SHA256='548072fa8bf66cfdc893aefca2f9145e50de445a9f491cde1a21253198e7aab0';
 export const NATIVE_VALUE_LIVE_V2_PROFILE='LIANUM_DYNAMIC_NATIVE_VALUE_ADMISSION_V2';
 export const NATIVE_VALUE_LIVE_V2_SPEC=NATIVE_VALUE_ADMISSION_SPEC;

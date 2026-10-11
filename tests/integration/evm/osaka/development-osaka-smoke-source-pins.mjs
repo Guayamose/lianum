@@ -1,8 +1,8 @@
 /** Dedicated source closure; preserves the historical collector unchanged. */
 import assert from 'node:assert/strict';
 import { dirname, join, resolve, relative, sep } from 'node:path';
-import { ROOT, FLAT, GOLDEN, CANDIDATE, TRUSTED_JOB_SOURCES, TRUSTED_PARENTS } from '../../../../packages/proofs/src/catalog.mjs';
-import { regular, hash, verifyAPI, verifyVendor } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT, GOLDEN, CANDIDATE, TRUSTED_JOB_SOURCES, TRUSTED_PARENTS } from '@lianum/proofs/catalog';
+import { regular, hash, verifyAPI, verifyVendor } from '@lianum/proofs/tooling/tooling';
 
 export function osakaSmokeSourcePins() {
   assert.equal(arguments.length, 0, 'OSAKA_SOURCE_PINS_NO_OPTIONS');

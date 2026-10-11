@@ -103,7 +103,7 @@ test('original native audit timings survive the same failure chain without DTOs 
 test('original quorum timing spans certify and final fresh coverage without renewing the thirty-second start',async()=>{
   const {readFileSync,existsSync}=await import('node:fs');
   const {join}=await import('node:path');const {Script,createContext}=await import('node:vm');
-  const {ROOT}=await import('../../../../../proofs/src/catalog.mjs');
+  const {ROOT}=await import('@lianum/proofs/catalog');
   const file=new URL('../../../../src/operations/operators/native-value/native-value-operators-v4.mjs',import.meta.url);
   const source=readFileSync(existsSync(file)?file:join(ROOT,'wallet-platform/modules/ops/native-value-operators-v4.mjs'),'utf8');
   const from=source.indexOf('  async function serial(poolIndex,'),to=source.indexOf('  function keySign(',from);

@@ -8,12 +8,12 @@ import { loadNativeClaimArtifacts } from '../../../../src/operations/deployments
 import { deriveFlatLibraryPlans, FLAT_VERIFIER_ORDER } from '../../../../src/operations/deployments/system/deployment-plan.mjs';
 import { buildNativeClaimDeploymentPlan, buildOwnedNativeClaimRules,
   deriveOwnedNativeCurrencyAsset, claimArtifactMethod } from '../../../../src/operations/deployments/claims/native-claim-deployment-plan.mjs';
-import { claimABIType } from '../../../../src/claims/protocol/abi.mjs';
+import { claimABIType } from '@lianum/engine/claims/abi';
 import { assertOwnedNativeClaimBootstrap, assertOwnedNativeClaimSystem,
   createNativeClaimBootstrap } from '../../../../src/operations/deployments/claims/deploy-native-claims.mjs';
-import { predictNativeCreateAddress } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { FIELD_MODULUS } from '../../../../src/execution/encoding/commitments.mjs';
-import { claimDomainCommitment, claimVerifierSetCommitment } from '../../../../src/claims/protocol/framing.mjs';
+import { predictNativeCreateAddress } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
+import { FIELD_MODULUS } from '@lianum/components/encoding/commitments';
+import { claimDomainCommitment, claimVerifierSetCommitment } from '@lianum/engine/claims/framing';
 
 const digest = n => BigInt(n).toString(16).padStart(64, '0'), address = n => '0x' + BigInt(n).toString(16).padStart(40, '0');
 const hash = value => createHash('sha256').update(value).digest('hex');

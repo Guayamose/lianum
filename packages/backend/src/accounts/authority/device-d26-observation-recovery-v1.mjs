@@ -8,12 +8,12 @@ import {randomBytes,createHash,createPublicKey,verify} from 'node:crypto';
 import {reopenNativeValueD26ObservationSystemV1,assertOwnedNativeValueObservationSystemV1}
   from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import {createNativeValueObservationStateReaderV1} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import {createNativeValueObservationOwnerObserverV1} from '../../../../custody/src/observers/native-value-owner-observer-v2.mjs';
+import {createNativeValueObservationOwnerObserverV1} from '../../custody/observers/native-value-owner-observer-v2.mjs';
 import {flatAccountAsset,flatAccountCalldataHash,validateFlatAccountOwnerObservation} from './flat-account-validation.mjs';
 import {sha,immutable,copy} from '@lianum/engine/accounts/journal';
-import {decodeWalletPoolInputs} from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
-import {nativeProofCalldata} from '../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+import {decodeWalletPoolInputs} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {exactRecord} from '@lianum/components/encoding/commitments';
+import {nativeProofCalldata} from '../../execution/native/dispatch/native-deployment.mjs';
 import {originalAccountAccessMessageV2,normalizeOriginalAccountAccessV2,normalizeOriginalAccountSignatureV2,
   validateOriginalAccountFreshV2,ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2} from '@lianum/mobile-protocol/original-account-v2';
 const issued=new WeakMap(),bare=value=>value.slice(2),byteSHA=value=>createHash('sha256').update(value).digest('hex');

@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
-import { exactRecord, fixedArray, bytes32, ZERO } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { createLocalNativeValueOperator, createNativeValueOperatorQuorum, assertNativeOperatorEconomicRecoveryIdleV1,
   fenceOriginalNativeOperatorEconomicRecoveryV1, captureOriginalNativeOperatorEconomicRecoveryV1,
   stopCapturedNativeOperatorEconomicRecoveryV1, abortNativeOperatorEconomicRecoveryV1,
@@ -28,8 +28,8 @@ import { bindOriginalEvmGraphTransfer } from '../../../chains/evm/transfers/evm-
 import { isOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmNativeValueRuntimeLive }
   from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { describeOwnedLocalEvmNativeValueSource, createOwnedLocalEvmNativeValueHealthSource, openOriginalOwnedRollupNativeValueSourcesV1 }
-  from '../../../chains/evm/health/owned-evm-native-value-health-source-v4.mjs';
-import { NATIVE_QUORUM_PROFILE } from '../../../../../engine/src/evidence/native-quorum.mjs';
+  from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { NATIVE_QUORUM_PROFILE } from '@lianum/engine/evidence/native-quorum';
 import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../recovery/native-original-source-capsule-v1.mjs';
 export const NATIVE_VALUE_LOCAL_BOOTSTRAP_PROFILE = 'OWNED_LOCAL_FULL_HISTORY_NATIVE_VALUE_BOOTSTRAP_V4';
 const owns=new WeakMap(),claimedNativeRuntimes=new WeakSet(),pendingNativeRuntimes=new WeakSet(),copy=cloneInput,freeze=frozenInput;

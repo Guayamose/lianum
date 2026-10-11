@@ -4,10 +4,11 @@
 import assert from 'node:assert/strict';
 import { open, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { linuxRuntimePins } from '../../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
+import { linuxRuntimePins } from '@lianum/engine/chains/shared/linux-runtime-pins';
 import { pinnedBinary, scratchDirectory, unusedLoopbackPort, startOwnProcess,
-  stopOwnProcess, removeOwnScratch, ownedRuntimeRpc, sleep } from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
-import { LOCAL_EVM_PROFILE, assertSignedEvmTransaction } from './owned-evm-v2-runtime.mjs';
+  stopOwnProcess, removeOwnScratch, ownedRuntimeRpc, sleep } from '@lianum/engine/chains/shared/runtime-harness';
+import { assertSignedEvmTransaction } from '../contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from './local-evm-profiles.mjs';
 const marker = fileURLToPath(new URL('../../../.local/evm-sign-only-probe.once', import.meta.url));
 const output = fileURLToPath(new URL('../../../evidence/evm-sign-only-compatibility.json', import.meta.url));
 const created = await open(marker, 'wx', 0o600); await created.writeFile(new Date().toISOString()); await created.sync(); await created.close();

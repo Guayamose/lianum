@@ -2,10 +2,10 @@
  * Ordinary exports perform checks only; no callbacks and no ownership mint. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { canonicalField } from '../../../execution/encoding/commitments.mjs';
+import { canonicalField } from '@lianum/components/encoding/commitments';
 import { assertOwnedPoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
-import { nativeStaticArguments } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { nativeStaticArguments } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { SEMANTIC_PROFILE } from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 const ZERO32='0x'+'00'.repeat(32),ZERO_ADDRESS='0x'+'00'.repeat(20);
 const sha=b=>createHash('sha256').update(b).digest('hex');

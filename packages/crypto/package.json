@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Implementaci\u00f3n candidata Poseidon",
+  "description": "Implementación candidata Poseidon",
   "exports": {
     "./framing": "./src/framing.mjs",
     "./portable-poseidon2": "./src/portable/poseidon2-bn254-v1.mjs"

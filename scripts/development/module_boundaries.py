@@ -168,7 +168,7 @@ def historical_inventory_errors(root, policy):
     errors = []
     inventory = json.loads((root / location).read_text())
     historical = inventory["historicalPackage"]
-    active = inventory["activePackage"]
+    active = inventory.get("activePackages", [inventory["activePackage"]])
     retained = {row["path"]: row["sha256"] for row in inventory["historicalFiles"]}
     present = {path.relative_to(root).as_posix()
                for path in (root / historical / "src").rglob("*") if path.is_file()}
@@ -184,7 +184,7 @@ def historical_inventory_errors(root, policy):
     for pair in inventory["pairs"]:
         if (pair["historical"] not in retained
                 or retained[pair["historical"]] != pair["historicalSHA256"]
-                or not pair["active"].startswith(active + "/src/")
+                or not any(pair["active"].startswith(package + "/src/") for package in active)
                 or not (root / pair["active"]).is_file()):
             errors.append(f"{pair.get('historical')}: invalid active/historical implementation pair")
     return errors
@@ -235,7 +235,10 @@ def inspect(root, policy):
                                  if candidate in active_sources), None)
                 if resolved:
                     file_graph.add((source, resolved))
-            if target.startswith(("tests/", "experiments/")):
+            target_parts = Path(target).parts
+            package_support = (len(target_parts) > 2 and target_parts[0] in {"packages", "apps"}
+                               and target_parts[2] in {"tests", "test", "experiments"})
+            if target.startswith(("tests/", "experiments/")) or package_support:
                 support.add((source, target))
             if dependency is None or dependency == component:
                 continue
@@ -281,6 +284,8 @@ def inspect(root, policy):
     return {"files": len(source_paths), "public": len(public),
             "legacyPrivate": len(private & legacy), "retiredLegacy": len(legacy - private),
             "legacySupport": len(support & legacy_support),
+            "activeSupport": sum(source in active_sources for source, _ in support),
+            "historicalSupport": sum(owner(source) in historical for source, _ in support),
             "retiredSupport": len(legacy_support - support),
             "graph": [list(edge) for edge in sorted(graph)], "errors": errors,
             "packageCycles": [list(cycle) for cycle in sorted(cycles)],
@@ -330,7 +335,8 @@ def main(argv=None):
     else:
         print(f"Module boundaries: {report['files']} files, {report['public']} public imports, "
               f"{report['legacyPrivate']} inherited private imports, "
-              f"{report['legacySupport']} retained test/experiment dependencies.")
+              f"{report['activeSupport']} active test/experiment dependencies; "
+              f"{report['historicalSupport']} frozen historical dependencies.")
         print(f"Dependency cycles: {len(report['packageCycles'])} package cycles; "
               f"{len(report['moduleCycleComponents'])} cyclic file components / "
               f"{len(report['moduleCycleImports'])} imports. New cycles are rejected.")

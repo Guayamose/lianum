@@ -2,7 +2,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { encodeWalletPoolInputs } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { encodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction } from '../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 const owned = new WeakSet();
 mock.module('../../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs', {

@@ -8,13 +8,13 @@ import assert from 'node:assert/strict';
 import { readFileSync, realpathSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createNativeRecipientProcess } from '../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { createProofProcess } from '../../../../packages/engine/src/execution/proofs/proof-process.mjs';
-import { walletInputPublicWords } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { noteWordsToHash } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
-import { nativeStaticCalldata } from '../../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
-import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { createNativeRecipientProcess } from '../../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs';
+import { createProofProcess } from '@lianum/proofs/execution/proof-process';
+import { walletInputPublicWords } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { noteWordsToHash } from '@lianum/engine/notes/private-note-tree';
+import { nativeStaticCalldata } from '../../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { hash } from '@lianum/proofs/tooling/tooling';
 import { createOwnedEvmVaultFixture, prepareEvmVaultFixtureGraph } from '../../fixtures/chains/evm/owned-evm-vault-fixture.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { manualWalletSourcePins } from './manual-wallet-source-pins.mjs';
@@ -33,14 +33,14 @@ import { assertManualWalletConvertedPosition } from './manual-wallet-position-ch
 import { createFlatPoolAdmissionPolicy } from '../../../../packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs';
 import { createFlatJournalGeneration, createFlatJournalCatalogue, closeUnattachedFlatJournalGeneration }
   from '../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
-import { createFlatManualGraphCatalogueSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
-import { createGenerationPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs';
+import { createFlatManualGraphCatalogueSession } from '@lianum/backend/accounts/manual-graph';
+import { createGenerationPrivateVaultExit } from '@lianum/backend/defi/generation-withdrawal';
 import { MANUAL_WALLET_REAL_RUN_DISABLED, assertManualWalletResult } from './manual-wallet-acceptance-policy.mjs';
 import { MANUAL_WALLET_RECOVERY_FORMAT, assertManualWalletRecoveryResult } from './manual-wallet-recovery-policy.mjs';
 import { MANUAL_WALLET_BROWSER_RECOVERY_FORMAT, assertManualWalletBrowserRecoveryResult } from './manual-wallet-browser-recovery-policy.mjs';
 import { manualWalletBrowserRecoverySourcePins } from './manual-wallet-browser-recovery-source-pins.mjs';
 import { createOwnedBackedVault, assertOwnedBackedVaultReceipt } from '../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs';
-import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
+import { createOwnedPrivateVaultExit } from '@lianum/backend/defi/withdrawal';
 
 const bare = value => value.slice(2);
 const safeCode = error => {

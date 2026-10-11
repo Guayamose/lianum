@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ROOT, FLAT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT, FLAT } from '@lianum/proofs/catalog';
 import { pairedNativeNoteSourcePinsV2 } from './paired-native-note-source-pins-v2.mjs';
 const MOBILE = resolve(FLAT, '../../../apps/mobile');
 const CLIENT = Object.freeze(['src/api/original-account-api-v2.mjs', 'src/custody/signing.mjs',

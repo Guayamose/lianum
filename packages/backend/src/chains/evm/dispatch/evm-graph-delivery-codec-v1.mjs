@@ -2,11 +2,11 @@
  * authority. The original router/observer/provider brands remain mandatory. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { validateEvmVaultDeliveryDescriptor, evmVaultDeliveryDescriptorCommitment,
-  encodeEvmVaultDeliveryCall, decodeEvmVaultDeliveryCall } from '../vault/evm-vault-delivery.mjs';
+  encodeEvmVaultDeliveryCall, decodeEvmVaultDeliveryCall } from '@lianum/engine/encoding/evm-vault-delivery';
 import { preparePrivateExternalDelivery, encodePrivateExternalDelivery,
-  decodePrivateExternalDeliveryCall } from '../../../defi/delivery/private-external-delivery.mjs';
+  decodePrivateExternalDeliveryCall } from '@lianum/engine/encoding/private-external-delivery';
 
 export const METAMORPHO_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_METAMORPHO_GRAPH_DELIVERY_V1';
 export const UNISWAP_GRAPH_DELIVERY_PROFILE_V1 = 'LIANUM_FLAT_UNISWAP_V3_GRAPH_DELIVERY_V1';

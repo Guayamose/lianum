@@ -4,15 +4,15 @@ import test from 'node:test';
 import {readFileSync,existsSync} from 'node:fs';
 import {Script,createContext} from 'node:vm';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
-import {nativeRuleCommitment} from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {nativeRuleCommitment} from '@lianum/engine/native/native-receipt-binding';
 import {buildOwnedNativeClaimRules,buildNativeSplClaimRulesV1} from '../../../../packages/backend/src/operations/deployments/claims/native-claim-deployment-plan.mjs';
-import {nativeAdmissionRulesTree,nativeAdmissionChainDomain} from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+import {nativeAdmissionRulesTree,nativeAdmissionChainDomain} from '@lianum/engine/execution/native/dispatch/native-admission';
 import {nativeSplAssetCommitmentV1,deriveNativeSplConfigurationV1} from '../../../../packages/backend/src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 import {base58Encode} from '../../../../packages/backend/src/chains/solana/runtime/solana-base58.mjs';
-import {claimReceiptSecret,claimRefundSalt} from '../../../../packages/backend/src/claims/protocol/framing.mjs';
-import {ownerCopy,ownerDigest,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2} from '../../../../packages/custody/src/signing/flat-owner-custody.mjs';
-import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,sealPrivateProofJobV1,wipePrivateProofInputsV1} from '../../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs';
+import {claimReceiptSecret,claimRefundSalt} from '@lianum/engine/claims/framing';
+import {ownerCopy,ownerDigest,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2} from '@lianum/custody/owner';
+import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,sealPrivateProofJobV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 const bitcoinGenesis='1'.repeat(64),solanaGenesis='2'.repeat(64),address=n=>base58Encode(Buffer.alloc(32,n));
 const identity=deriveNativeSplConfigurationV1({payer:address(3),instance:'4'.repeat(64)}),asset=nativeSplAssetCommitmentV1({genesis:solanaGenesis,config:identity.config.address,vault:identity.vault.address});
 test('two claim gateways share the same SOL genesis but all three original BTC/SPL/SOL rules are registered and distinct',()=>{
@@ -90,7 +90,7 @@ test('HOST original CI51 holder keeps opening off parent IPC and seals once to t
  // Actual holder dispatch/packet producer/WeakMaps and recipient AEAD. The
  // owner Vault/proof builder below are explicitly inert ports; this is no
  // D27/CI51 proof, native finality or custodial ownership acceptance.
- const url=new URL('../../../../packages/custody/src/processes/flat-owner-process.mjs',import.meta.url),text=readFileSync(existsSync(url)?url:join(ROOT,'mobile-core/flat-owner-process.mjs'),'utf8');
+ const url=new URL('../../../../packages/backend/src/custody/processes/flat-owner-process.mjs',import.meta.url),text=readFileSync(existsSync(url)?url:join(ROOT,'mobile-core/flat-owner-process.mjs'),'utf8');
  const packetStart=text.indexOf('function privateClaimPacketV2('),packetEnd=text.indexOf('/** Called only inside the fixed child.',packetStart),dispatchStart=text.indexOf("if(message.method==='createPrivateNativeClaimIngressHandoffV2')"),dispatchEnd=text.indexOf("} else if (message.method === 'proveDepositIntent')",dispatchStart);
  const brandStart=text.indexOf('function privateNativeClaimHandoffV2('),brandEnd=text.indexOf('// Runs inside the original holder child',brandStart);
  assert.ok(packetStart>0&&packetEnd>packetStart&&dispatchStart>0&&dispatchEnd>dispatchStart&&brandStart>0&&brandEnd>brandStart);

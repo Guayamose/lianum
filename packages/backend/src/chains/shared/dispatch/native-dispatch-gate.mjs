@@ -9,29 +9,30 @@
 import assert from 'node:assert/strict';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { assertPinnedVerifier } from '../../../../../proofs/src/verification/pinned-verifier.mjs';
+import { assertPinnedVerifier } from '@lianum/proofs/verification';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField,
-  validateStruct, ZERO } from '../../../execution/encoding/commitments.mjs';
+  validateStruct, ZERO } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint, inputPath, readyDescriptorWords } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { decodeStatement, joinReadiness } from '../../../execution/encoding/statements.mjs';
+import { decodeStatement, joinReadiness } from '@lianum/components/encoding/statements';
 import { receiptKeyCommitment, nativeRuleCommitment, nativeCustodyCommitment, nativeFactIdentity,
   encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage,
-  validateSolanaBindingTransaction, assertMemoProgramAccount } from './native-receipt-binding.mjs';
+  validateSolanaBindingTransaction, assertMemoProgramAccount } from '@lianum/engine/native/native-receipt-binding';
 import { assertFlatNativeHealth } from '../health/native-health.mjs';
 import { evmFundingEndpointCommitment, validateEvmDeliveryWire } from '../../evm/dispatch/evm-facts-binding.mjs';
 import { validateEvmGraphDeliveryDescriptorV1, evmGraphDeliveryDescriptorCommitmentV1,
   encodeEvmGraphDeliveryCallV1, evmGraphDeliveryTermsV1 } from '../../evm/dispatch/evm-graph-delivery-codec-v1.mjs';
-import { assertSignedEvmTransaction, encodeCanonicalEvmUnsignedTransaction, LOCAL_EVM_PROFILE } from '../../evm/runtime/owned-evm-v2-runtime.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { assertSignedEvmTransaction, encodeCanonicalEvmUnsignedTransaction } from '../../evm/contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../../evm/runtime/local-evm-profiles.mjs';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIdentity,
   nativeDeliveryRiskCommitment, nativeReadyStatementDigest, nativeDispatchStatementFrame,
-  NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 import { snapshotDigest, SNAPSHOT_FIELDS, boundedListDigest, membership }
-  from '../../../../../engine/src/execution/native/state/native-state.mjs';
-import { inspectGenericSnapshot } from '../../../../../engine/src/execution/local/local-ledger.mjs';
-import { decodeBitcoinTransaction } from '../../../../../engine/src/chains/bitcoin/bitcoin-runtime.mjs';
+  from '@lianum/engine/execution/native/state/native-state';
+import { inspectGenericSnapshot } from '@lianum/engine/execution/local/local-ledger';
+import { decodeBitcoinTransaction } from '@lianum/engine/chains/bitcoin/bitcoin-runtime';
 
 export const NATIVE_DISPATCH_GATE_PROFILE = 'LIANUM_FLAT_NATIVE_DISPATCH_GATE_V1';
 export const NATIVE_DISPATCH_JOURNAL_SCHEMA = 'LIANUM_FLAT_NATIVE_DISPATCH_JOURNAL_V1';

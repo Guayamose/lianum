@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { BACKED_ASSET_BUILD_PIN, loadBackedAssetDeploymentArtifacts, buildBackedAssetDeploymentPlan,
   deployBackedAssets, assertOwnedBackedAssets } from '../../../../src/operations/deployments/defi/deploy-backed-assets.mjs';
 import { prepareBackedAssetArtifacts } from '../../../../../../scripts/wallet/preparation/prepare-backed-assets.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { validateVaultIdentity } from '../../../../src/defi/vaults/backed-vault.mjs';
 
 const root = new URL('../../../', import.meta.url);

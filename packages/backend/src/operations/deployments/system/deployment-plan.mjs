@@ -6,15 +6,15 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, deriveNativeHubDomain,
-  nativeStaticArguments } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+  nativeStaticArguments } from '../../../execution/native/dispatch/native-deployment.mjs';
 import { derivePrivateAssetIdentity, derivePrivateAssetPoolScope,
-  linkPrivateBytecode } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+  linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry,
-  nativeQuorumRegistryCommitment } from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
-import { createCommitmentCodec, exactRecord, fixedArray, canonicalField } from '../../../execution/encoding/commitments.mjs';
-import { RELATIONS, PROFILE } from '../../../execution/encoding/statements.mjs';
+  nativeQuorumRegistryCommitment } from '@lianum/engine/evidence/native-quorum';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
+import { createCommitmentCodec, exactRecord, fixedArray, canonicalField } from '@lianum/components/encoding/commitments';
+import { RELATIONS, PROFILE } from '@lianum/components/encoding/statements';
 
 const ZERO32 = '0x' + '00'.repeat(32), ZERO_ADDRESS = '0x' + '00'.repeat(20);
 const sha = value => createHash('sha256').update(value).digest('hex');

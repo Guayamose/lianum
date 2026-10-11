@@ -6,8 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, unlinkSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, LOCAL, LIMITS } from '../../../packages/proofs/src/catalog.mjs';
-import { resources, resourceFailure, ensureDirectory, writeJSON, replaceJSON, regular } from '../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, LOCAL, LIMITS } from '@lianum/proofs/catalog';
+import { resources, resourceFailure, ensureDirectory, writeJSON, replaceJSON, regular } from '@lianum/proofs/tooling/tooling';
 import { integrationSourcePins } from './source-pins.mjs';
 import { integrationTask } from './task-catalog.mjs';
 

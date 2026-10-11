@@ -5,9 +5,9 @@ import {createRequire} from 'node:module';
 import {realpathSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {FLAT} from '../../../../../proofs/src/catalog.mjs';
+import {FLAT} from '@lianum/proofs/catalog';
 import {inspectNativeValueDevMobileDependenciesV5} from '../../../operations/releases/native-value/native-value-dev-source-pins-v5.mjs';
-import {publicKeccak256} from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import {publicKeccak256} from '@lianum/engine/cohorts/private-cohort-public-native';
 const APP=resolve(FLAT,'../../../apps/mobile');
 const require=createRequire(join(APP,'src/custody/signing.mjs'));
 async function curve(){

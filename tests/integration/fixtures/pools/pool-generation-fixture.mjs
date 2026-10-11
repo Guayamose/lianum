@@ -11,15 +11,15 @@ import { deployFlatAppendOnlySystem, assertOwnedFlatSystem } from '../../../../p
 import { deployBackedAssets, loadBackedAssetDeploymentArtifacts } from '../../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs';
 import { createOwnedPoolAsset } from '../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs';
 import { createLocalFlatOperator } from '../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
-import { createFlatOwnerProcess } from '../../../../packages/custody/src/processes/flat-owner-process.mjs';
+import { createFlatOwnerProcess } from '../../../../packages/backend/src/custody/processes/flat-owner-process.mjs';
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
 import { createFlatPoolAdmissionPolicy } from '../../../../packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs';
 import { createFlatJournalGeneration } from '../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
 import { createFlatSystemStateReader } from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { freshFixtureId, writeFixturePrivate } from '../runners/owned-flat-fixture.mjs';
-import { nativeAdmissionRulesTree } from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
-import { derivePrivateAssetIdentity } from '../../../../packages/engine/src/notes/private-asset-runtime.mjs';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
 
 export async function createOwnedPoolGenerationFixture(directory, onProof) {
   assert.equal(arguments.length, 2); assert.equal(typeof onProof, 'function');

@@ -6,7 +6,7 @@ import * as fs from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import vm from 'node:vm';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
 
 const named = module => Object.fromEntries(Object.entries(module).filter(([name]) => name !== 'default'));
 const secrets = new Set(), derivations = [], events = [];

@@ -9,7 +9,7 @@ import { FACTS_SCHEMA, validateNativeFacts, encodeNativeFacts, nativeFactsDigest
   validateNativeClaimFacts, encodeNativeClaimFacts, nativeClaimFactsDigest,
   nativeRuleCommitment, nativeFactIdentity, nativeCustodyCommitment,
   nativeObservedEffectCommitment, validateBitcoinBinding,
-  validateSolanaBindingTransaction } from './native-receipt-binding.mjs';
+  validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { validateNativeSplClaimBindingTransactionV1 } from '../../solana/dispatch/native-spl-custody-codec-v1.mjs';
 import { validateClaimSolanaBindingTransaction } from '../../solana/runtime/owned-solana-nonce-binding.mjs';
 import { validateEvmDeliveryWire, evmFundingEndpointCommitment } from '../../evm/dispatch/evm-facts-binding.mjs';

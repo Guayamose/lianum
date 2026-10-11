@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import * as P from '@lianum/mobile-protocol/device/native-deposit-v2';
 import {normalizeOriginalAccountSignatureV2} from '@lianum/mobile-protocol/original-account-v2';
-import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
-import {walletInputPublicWords,balanceCommitment,balanceDepositFrame} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
+import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
+import {walletInputPublicWords,balanceCommitment,balanceDepositFrame} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {nullifier} from '@lianum/engine/notes/private-note-encoding';
 const h=b=>createHash('sha256').update(b).digest('hex');
 const key=(x,y)=>createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(x).toString('base64url'),y:Buffer.from(y).toString('base64url')}});
 export function deriveOriginalNativePrivateDepositV2(received){

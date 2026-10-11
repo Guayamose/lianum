@@ -6,7 +6,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '../../../../src/claims/protocol/framing.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { createClaimRecordStore, openClaimRecordStore } from '../../../../src/claims/storage/segmented-record-store.mjs';
 const bindings = new WeakMap(), journals = new WeakMap();
 const url = path => new URL(path, import.meta.url).href;

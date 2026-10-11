@@ -7,8 +7,8 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
-import { canonical, decryptJson } from '../../../../engine/src/crypto/privacy.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical, decryptJson } from '@lianum/engine/crypto/privacy';
 const keys = [], events = []; let failDirectorySync = null;
 const named = module => Object.fromEntries(Object.entries(module).filter(([name]) => name !== 'default'));
 mock.module('node:crypto', { exports: { ...named(crypto), scryptSync(...args) {

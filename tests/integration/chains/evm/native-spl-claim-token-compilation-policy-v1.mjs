@@ -1,9 +1,9 @@
 /** Compilation evidence only, never an NativeSplClaimToken source/deployment/private release. */
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import {GENERIC_COMPILER_PIN} from '../../../../packages/engine/src/execution/local/local-deployment.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
+import {GENERIC_COMPILER_PIN} from '@lianum/engine/execution/local/local-deployment';
 export {assertNativeSplClaimTokenCompilationArtifactsV1};
 export const SPL_TOKEN_COMPILATION_RESULT_V1='LIANUM_SPL_TOKEN_COMPILATION_ONLY_RESULT_V1';
 export const SPL_TOKEN_COMPILATION_PROFILE_V1='NATIVE_SPL_CLAIM_TOKEN_NEW_COMPILATION_ONLY_V1';

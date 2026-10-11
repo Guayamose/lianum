@@ -1,8 +1,8 @@
 /** Source/key/compiler preparation only; no proof or financial authority. */
 import assert from 'node:assert/strict';
 import {join,relative} from 'node:path';
-import {ROOT,LOCAL} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,LOCAL} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {inspectNativeSplClaimV1PreparedBytes,assertNativeSplClaimV1Verifier,NATIVE_SPL_CLAIM_V1_ORIGINAL_PINS} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs';
 export const SPL_CLAIM_V1_COMPILATION_RESULT='LIANUM_SPL_CLAIM_V1_COMPILATION_ONLY_RESULT_V1';
 export const SPL_CLAIM_V1_COMPILATION_PROFILE='NEW_ORIGINAL_CI51_V1_CO42_COMPILATION_ONLY';

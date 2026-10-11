@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { exactRecord } from '../../../src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { projectPrivateVaultPosition } from '../../../src/defi/vaults/private-vault-position.mjs';
 
 async function fixedSource(physical, generated) {

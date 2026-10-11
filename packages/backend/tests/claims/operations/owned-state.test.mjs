@@ -3,15 +3,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId } from '../../../src/claims/protocol/framing.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId } from '@lianum/engine/claims/framing';
 import { decodeClaimConfiguration, decodeClaimIntent, decodeClaimTicket, assertClaimAccounting,
   createOwnedClaimObserver, assertOwnedClaimObserver, ownedClaimObserverBindings } from '../../../src/claims/operations/owned-state.mjs';
 import { createFlatOwnerNativeClaimObserver, assertOwnedFlatOwnerNativeClaimObserver,
-  validateFlatOwnerNativeClaimQuery, decodeNativeClaimIssueEvents } from '../../../../custody/src/observers/flat-owner-native-claim-observer.mjs';
-import { FLAT_OWNER_CLAIM_HANDOFF_PROFILE, flatOwnerIdentity, ownerDigest } from '../../../../custody/src/signing/flat-owner-custody.mjs';
-import { derivePrivateAssetIdentity } from '../../../../engine/src/notes/private-asset-runtime.mjs';
-import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { ZERO } from '../../../src/execution/encoding/commitments.mjs';
+  validateFlatOwnerNativeClaimQuery, decodeNativeClaimIssueEvents } from '../../../src/custody/observers/flat-owner-native-claim-observer.mjs';
+import { FLAT_OWNER_CLAIM_HANDOFF_PROFILE, flatOwnerIdentity, ownerDigest } from '@lianum/custody/owner';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { ZERO } from '@lianum/components/encoding/commitments';
 
 const h = value => createHash('sha256').update('synthetic claim observer fixture/' + value).digest('hex');
 const p = value => '0x' + value;

@@ -1,7 +1,7 @@
 /** In-memory bounded one-operation protocol. fd3 only typed proof result. */
 import {writeSync} from 'node:fs';
 import {proveWallet,verifyWallet} from './prover.mjs';
-import {WALLET_MODES,assertWalletStatement} from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import {WALLET_MODES,assertWalletStatement} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 const parentPid=process.ppid,parentWatch=setInterval(()=>{if(process.ppid!==parentPid)process.exit(2);},1000);
 const chunks=[];let size=0,request,encoded;
 const exact=(o,fields)=>{if(!o||typeof o!=='object'||Array.isArray(o)||Object.keys(o).sort().join(',')!==fields.sort().join(','))throw Error('PC23_WORKER_FIELDS');};

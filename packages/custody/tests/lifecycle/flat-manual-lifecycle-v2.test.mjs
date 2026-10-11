@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { FLAT_TRANSACTION_METHODS } from '../../../backend/src/execution/encoding/transaction-codec.mjs';
 import { createHash } from 'node:crypto';
-import { derivePrivateAssetIdentity } from '../../../engine/src/notes/private-asset-runtime.mjs';
-import { genericAccountIdentity, bindGenericAccountRequest, sha } from '../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { genericAccountIdentity, bindGenericAccountRequest, sha } from '@lianum/engine/accounts/journal';
 const h = s => createHash('sha256').update(s).digest('hex');
 const worlds = new WeakMap(), systemWorlds = new WeakMap(), ownerWorlds = new WeakMap();
 const url = p => new URL(p, import.meta.url).href;
@@ -111,9 +111,9 @@ async function setup(t, { custody = false } = {}) {
       localCustody.close(); localCustody = await openTrustedFlatOwnerCustody({ ...ownerConfig, create: false, checkpoint: ownerCheckpoint }, deps);
     } };
 }
-import { PrivateNoteTree, privateSpentDigest } from '../../../engine/src/notes/private-note-tree.mjs';
+import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
 import { openTrustedFlatOwnerCustody, ownerDigest } from '../../src/signing/flat-owner-custody.mjs';
-const { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } = await import('../../src/preparation/flat-owner-manual-preparation.mjs');
+const { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } = await import('@lianum/backend/custody/preparation/flat-owner-manual-preparation');
 const ZERO = '0'.repeat(64), p = v => '0x' + v;
 const word = v => typeof v === 'string' && v.startsWith('0x') ? v.slice(2).padStart(64, '0') : BigInt(v).toString(16).padStart(64, '0');
 const words = values => '0x' + values.map(word).join('');
@@ -320,7 +320,7 @@ test('new keeper refuses an existing legacy journal and another live keeper with
     account: f.account, path: join(f.directory, 'second-manual.vault'), password: 'synthetic-keeper-password', onCheckpoint: async () => {} }), /ALREADY_BOUND/);
   assert.equal((await keeper.privateStatus()).requests.length, 1);
 });
-import { createFlatAccountSession } from '../../../backend/src/api/accounts/flat-account-session.mjs';
+import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 import { WALLET_PROFILE, validateWalletState, projectWalletState, accountActionContext } from '../../../../apps/wallet/src/client/state/view-model.mjs';
 test('real FlatAccountSession and wallet view model display typed stop safely and require separate manual reauthorization', async t => {
   const { f, keeper, id } = await lifecycle(t), session = await createFlatAccountSession({ keeper, ownerHandoff: { ownerView: f.account.ownerView } });

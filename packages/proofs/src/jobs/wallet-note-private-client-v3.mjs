@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {fork} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {privateProofAuthorizationBindingV1} from './private-proof-transit-v1.mjs';
+import {privateProofAuthorizationBindingV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 const results=new WeakMap(),owned=new WeakMap(),h=b=>createHash('sha256').update(b).digest('hex');
 const exact=(v,keys)=>{assert.ok(v&&Object.getPrototypeOf(v)===Object.prototype,'PW_PRIVATE_WALLET_DATA');assert.deepEqual(Reflect.ownKeys(v).sort(),[...keys].sort(),'PW_PRIVATE_WALLET_FIELDS');for(const k of keys)assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(v,k),'value'),'PW_PRIVATE_WALLET_FIELDS');};
 const frozen=v=>{if(v&&typeof v==='object'){Object.values(v).forEach(frozen);Object.freeze(v);}return v;};

@@ -5,10 +5,10 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { deriveNativeRuntimeCode, predictNativeCreateAddress } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { deriveNativeRuntimeCode, predictNativeCreateAddress } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
 import { buildBackedAssetDeploymentPlan, loadBackedAssetDeploymentArtifacts } from '../../../../src/operations/deployments/defi/deploy-backed-assets.mjs';
-import { LOCAL_EVM_PROFILE } from '../../../../../engine/src/execution/local/local-evm.mjs';
+import { LOCAL_EVM_PROFILE } from '@lianum/engine/execution/local/local-evm';
 const brands = { runtimes: new WeakSet(), systems: new WeakMap(), assets: new WeakMap(), pools: new WeakSet() };
 mock.module(new URL('../chain-adapters/owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: { LOCAL_EVM_PROFILE } });
 mock.module(new URL('../chain-adapters/local-evm-ownership.mjs', import.meta.url).href, { exports: {

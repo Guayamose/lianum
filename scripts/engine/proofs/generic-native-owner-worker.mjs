@@ -9,11 +9,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Vault } from '../../../packages/engine/src/crypto/vault.mjs';
 import { canonical } from '../../../packages/engine/src/crypto/privacy.mjs';
-import { createProofProcess } from '../../../packages/engine/src/execution/proofs/proof-process.mjs';
-import { encodeProofMessage, decodeProofMessage, encodePrivateProof, wipePrivate } from '../../../packages/engine/src/execution/proofs/proof-worker.mjs';
+import { createProofProcess } from '../../../packages/proofs/src/execution/proof-process.mjs';
+import { encodeProofMessage, decodeProofMessage, encodePrivateProof, wipePrivate } from '../../../packages/proofs/src/execution/proof-worker.mjs';
 import { NATIVE_OWNER_PROTOCOL, NATIVE_OWNER_MAX_REQUEST_BYTES, nativeOwnerError, nativeOwnerNeed,
   nativeOwnerExact, normalizeNativeOwnerPrepare, normalizeNativeOwnerAuthorize,
-  canonicalNativeOwnerNodes, nativeOwnerPayoutNote } from '../../../packages/engine/src/execution/native/dispatch/native-owner.mjs';
+  canonicalNativeOwnerNodes, nativeOwnerPayoutNote } from '../../../packages/backend/src/execution/native/dispatch/native-owner.mjs';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fundedAuthorizationWords } from '../../../packages/engine/src/execution/graph/funded-graph.mjs';
 import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferActionCommitment,
   capsuleAuthorizationWords } from '../../../packages/engine/src/execution/native/dispatch/native-capsules.mjs';

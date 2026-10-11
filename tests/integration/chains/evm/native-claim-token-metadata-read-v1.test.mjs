@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 import {Script,createContext} from 'node:vm';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {claimArtifactMethod} from '../../../../packages/backend/src/operations/deployments/claims/native-claim-deployment-plan.mjs';
 import {loadNativeSplClaimV1RetainedContracts} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs';
-import {encodeClaimABI} from '../../../../packages/backend/src/claims/protocol/abi.mjs';
+import {encodeClaimABI} from '@lianum/engine/claims/abi';
 test('the actual bootstrap metadata read compares original dynamic string ABI and rejects mismatched raw reply',async()=>{
  const url=new URL('../../../../packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs',import.meta.url);
  const source=readFileSync(existsSync(url)?url:join(ROOT,'wallet-platform/modules/ops/deploy-native-claims.mjs'),'utf8');

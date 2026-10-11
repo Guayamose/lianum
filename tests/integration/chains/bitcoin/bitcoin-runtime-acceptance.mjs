@@ -11,9 +11,9 @@ import { startBitcoinAcceptanceGuard, BITCOIN_ACCEPTANCE_GUARD_POLICY } from './
 import { createOwnedCombinedBitcoinRuntime, assertOwnedBitcoinRuntime, BITCOIN_REGTEST_GENESIS,
   BITCOIN_TRANSFER_LIMITS, decodeBitcoinTransaction, validateBitcoinTransferWire }
   from '../../../../packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
-import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
-import { PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
-import { ROOT, FLAT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
+import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
 
 const HERE = fileURLToPath(import.meta.url), OPT_IN = '--run-owned-regtest';
 const sha = value => createHash('sha256').update(value).digest('hex');

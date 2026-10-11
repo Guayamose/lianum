@@ -2,7 +2,7 @@
  * This confers no receipt, custody, runtime or private-credit authority. The
  * adapter obtains all fields from its fixed original fixture at canonical heads. */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 const integer = value => {
   assert.ok(typeof value === 'string' && /^(0|[1-9][0-9]*)$/.test(value) && value.length <= 78, 'MORPHO_REDEMPTION_INTEGER');
   const result = BigInt(value); assert.ok(result < 1n << 256n, 'MORPHO_REDEMPTION_INTEGER'); return result;

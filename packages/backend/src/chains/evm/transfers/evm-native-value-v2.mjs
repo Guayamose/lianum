@@ -2,11 +2,11 @@
  * Does not mutate or activate the old Rule, 829-byte codec, I key or vault route. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, fixedArray, bytes32, digestBytes } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32, digestBytes } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { nativeFactIdentity, nativeCustodyCommitment, nativeObservedEffectCommitment } from '../../shared/dispatch/native-receipt-binding.mjs';
+import { nativeFactIdentity, nativeCustodyCommitment, nativeObservedEffectCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { evmNativeTransferNetwork } from '../observations/evm-native-transfer-observer.mjs';
-import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '../../../../../engine/src/evidence/native-quorum.mjs';
+import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
 
 export const PROFILE_SCHEMA = 'LIANUM_NATIVE_VALUE_SOURCE_PROFILE_V2';
 export const REGISTRY_SCHEMA = 'LIANUM_NATIVE_ADAPTER_REGISTRY_V2';

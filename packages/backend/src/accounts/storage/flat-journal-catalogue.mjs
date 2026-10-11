@@ -4,11 +4,11 @@
 import assert from 'node:assert/strict';
 import { resolve, dirname } from 'node:path';
 import { lstat, realpath } from 'node:fs/promises';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
-import { validateJournalCredentials } from '../../../../engine/src/execution/accounts/generic-account-process.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { validateJournalCredentials } from '@lianum/engine/execution/accounts/generic-account-process';
 import { immutable, sha, genericAccountIdentity, validateInput, validateBoundRequest, bindGenericAccountRequest }
   from '@lianum/engine/accounts/journal';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedFlatPortfolio, describeFlatPortfolioJournalAuthority } from '../authority/flat-portfolio-authority.mjs';
 import { assertOwnedFlatPoolAdmissionPolicy } from '../authority/flat-pool-admission-policy.mjs';
 import { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper, createRetainedFlatManualPortfolioKeeperV1, captureRetainedFlatManualPortfolioKeeperV1 } from '../portfolio/flat-manual-portfolio-keeper.mjs';

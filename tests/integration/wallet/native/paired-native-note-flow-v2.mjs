@@ -1,5 +1,5 @@
 import{NATIVE_PRIVATE_WORKER_DURABLE_NOTE_PROFILE_V3,NATIVE_PRIVATE_WORKER_DURABLE_NOTE_RESULT_V3,assertNativePrivateWorkerDurableNoteReleaseV3,assertNativePrivateWorkerDurableNoteResultV3}from'./native-device-private-worker-durable-note-policy-v3.mjs';
-import{assertNativePrivateEconomicNoteTelemetryV3}from'../../../../packages/proofs/src/jobs/native-private-note-execution-v3.mjs';
+import{assertNativePrivateEconomicNoteTelemetryV3}from'@lianum/proofs/jobs/native-private-note-execution-v3';
 import{NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_PROFILE_V2,NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_RESULT_V2,assertNativePrivateAuthorizedDurableNoteReleaseV2,assertNativePrivateAuthorizedDurableNoteResultV2}from'./native-device-private-authorized-durable-note-policy-v2.mjs';
 import{NATIVE_PRIVATE_DURABLE_NOTE_PROFILE_V2,NATIVE_PRIVATE_DURABLE_NOTE_RESULT_V2,assertNativePrivateDurableNoteReleaseV2,assertNativePrivateDurableNoteResultV2}from'./native-device-private-durable-note-policy-v2.mjs';
 /** Fixed private Linux acceptance, inert on import. Two genuine native notes
@@ -10,19 +10,19 @@ import { randomBytes, createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, realpathSync, writeFileSync, existsSync, readdirSync, lstatSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ROOT, FLAT, GOLDEN, LOCAL } from '../../../../packages/proofs/src/catalog.mjs';
-import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
-import { decodeWalletPoolInputs } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { ROOT, FLAT, GOLDEN, LOCAL } from '@lianum/proofs/catalog';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/engine/crypto/private-resource-policy';
+import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { createOwnedLocalEvmV2, createOwnedLocalEvmNativeValueV1, createOwnedNativeEconomicReceiverV2, createOwnedNativeEconomicGraphRuntimeV2,
   assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, assertOwnedLocalEvmNativeValueRuntime } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOwnedLocalNativeValueOperatorBootstrap } from '../../../../packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import { deployNativeValueDevSystemV5, assertOwnedNativeValueSystem } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import { loadNativeValueDevDeploymentArtifactsV5, NATIVE_VALUE_VERIFIER_ORDER } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 import { createNativeValueSystemStateReader } from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import { createNativeValueOwnerProcess } from '../../../../packages/custody/src/processes/native-value-owner-process-v2.mjs';
+import { createNativeValueOwnerProcess } from '../../../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs';
 import {createNativeValueExecution} from '../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs';
-import {NATIVE_VALUE_LIVE_V2_LOCAL as NATIVE_VALUE_DEV_LIVE_V5_LOCAL} from '../../../../packages/proofs/src/native-value/tooling/native-value-dev-live-v5-tooling.mjs';
-import {NATIVE_VALUE_LIVE_V2_SPEC,nativeValueLivePublicWords} from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
+import {NATIVE_VALUE_LIVE_V2_LOCAL as NATIVE_VALUE_DEV_LIVE_V5_LOCAL} from '../../../../packages/backend/src/proving/native-value/tooling/native-value-dev-live-v5-tooling.mjs';
+import {NATIVE_VALUE_LIVE_V2_SPEC,nativeValueLivePublicWords} from '@lianum/proofs/native-value/metadata/native-value-live-v2-profile';
 import {decodeNativeWalletAdmissionCalldata} from './native-wallet-real-evidence-v1.mjs';
 import {deviceOwnerExecutionSourcePinsV1} from './device-owner-execution-source-pins-v1.mjs';
 import {DEVICE_EXECUTION_PROFILE_V1,DEVICE_EXECUTION_RESULT_V1,assertDeviceExecutionReleaseV1,assertDeviceExecutionResultV1} from './device-owner-execution-policy-v1.mjs';
@@ -31,15 +31,15 @@ import {DEVICE_RECOVERY_PROFILE_V1,DEVICE_RECOVERY_RESULT_V1,assertDeviceRecover
 import {nativeDeviceEconomicSourcePinsV1} from './native-device-economic-source-pins-v1.mjs';
 import {nativeDeviceEconomicNoteSourcePinsV1,nativeDeviceDurableEconomicNoteSourcePinsV1,nativeDevicePrivateDurableNoteSourcePinsV2,nativeDevicePrivateAuthorizedDurableNoteSourcePinsV2,nativeDevicePrivateWorkerDurableNoteSourcePinsV3,openNativeDeviceDurableAcceptanceInfrastructureV1} from './native-device-economic-note-source-pins-v1.mjs';
 import {NATIVE_DEVICE_DURABLE_NOTE_PROFILE_V1,NATIVE_DEVICE_DURABLE_NOTE_RESULT_V1,assertNativeDeviceDurableNoteReleaseV1,assertNativeDeviceDurableNoteResultV1,NATIVE_DEVICE_ECONOMIC_NOTE_PROFILE_V1,NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1,assertNativeDeviceEconomicNoteReleaseV1,assertNativeDeviceEconomicNoteResultV1} from './native-device-economic-note-policy-v1.mjs';
-import {assertNativeEconomicNoteTelemetryV1} from '../../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs';
+import {assertNativeEconomicNoteTelemetryV1} from '@lianum/proofs/execution/note-native-execution-v1';
 import {NATIVE_DEVICE_ECONOMIC_PROFILE_V1,NATIVE_DEVICE_ECONOMIC_RESULT_V1,assertNativeDeviceEconomicReleaseV1,assertNativeDeviceEconomicResultV1} from './native-device-economic-policy-v1.mjs';
 import {assertDeviceOwnerNativeInclusionV1} from './device-owner-execution-native-checks-v1.mjs';
 import { createNativeValueAccountAuthority, createNativeEconomicNoteAccountAuthorityV1, nativeValueAccountManualNoteDetails } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1, readOriginalSessionWalletEconomicStateV1 } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
+import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1, readOriginalSessionWalletEconomicStateV1 } from '@lianum/backend/accounts/manual-graph';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedOriginalAccountHttpServerV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, validateOriginalAccountFreshV2,
-  privateStateAccessMessageV1, privateStateReviewMessageV1 } from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+  privateStateAccessMessageV1, privateStateReviewMessageV1 } from '@lianum/mobile-protocol/original-account-v2';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';

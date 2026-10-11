@@ -3,12 +3,12 @@
  * Callers must authenticate the persisted packet and canonical gateway source. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createCommitmentCodec, validateStruct, exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { validateDepositIntentStatement, encodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
-import { validateClaimConfig, claimDomainCommitment, claimIntentId, claimTicketId, validateClaimTicket, claimUint, claimDestinationCommitment, claimIngressReceiptCommitment, encodeClaimIngressInputs } from '../protocol/framing.mjs';
-import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+import { createCommitmentCodec, validateStruct, exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
+import { validateDepositIntentStatement, encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
+import { validateClaimConfig, claimDomainCommitment, claimIntentId, claimTicketId, validateClaimTicket, claimUint, claimDestinationCommitment, claimIngressReceiptCommitment, encodeClaimIngressInputs } from '@lianum/engine/claims/framing';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '@lianum/custody/owner';
 
 const PACKET_FIELDS = ['version', 'profile', 'trust', 'ownerIdentitySHA256', 'claimDomain', 'ingressProverIdentity',
   'intentIdentitySHA256', 'revision', 'statement', 'proofResult', 'opening', 'handoffIdentitySHA256'];
@@ -152,11 +152,11 @@ export function canonicalClaimDepositProjection(rawRow, rawGateway) {
 }
 
 import { FACTS_SCHEMA, validateNativeClaimFacts, encodeNativeClaimFacts, nativeClaimFactsDigest,
-  receiptKeyCommitment, nativeAdmissionNullifier } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+  receiptKeyCommitment, nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeAdmissionRuleRoot, nativeAdmissionRuleCommitment, nativeAdmissionChainDomain }
-  from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 
 // Public CI51 validation follows the same original framing and quorum source.
 // It never accepts an opening or produces a proof, deployment or owner brand.

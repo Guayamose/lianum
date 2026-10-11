@@ -1,9 +1,9 @@
 // Bounded synthetic ACVM checks, explicitly NOT backend proof security evidence.
 import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import {fileURLToPath} from 'node:url';import {Noir} from '@noir-lang/noir_js';
 import {syntheticSetup,syntheticCertificate} from '../native-notes/fixtures.mjs';
-import {assemblyAuthorizationInput,assemblyLocalInput} from '../../../../packages/engine/src/assembly/private-assembly-encoding.mjs';
+import {assemblyAuthorizationInput,assemblyLocalInput} from '@lianum/engine/assembly/private-assembly-encoding';
 import {requireConstraintFailure} from '../../pc5-proof-probe/validation/expected-constraint-failure.mjs';
-import {sha256} from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
+import {sha256} from '@lianum/engine/notes/private-note-encoding';
 const root=fileURLToPath(new URL('.',import.meta.url)),s=syntheticSetup();const inputs={authorization:assemblyAuthorizationInput(s.graph,s.tree),...Object.fromEntries(['sol','btc'].map(role=>[role+'_local',assemblyLocalInput({role,scope:s.graph.scope,policy:s.policy,local:s.graph[role],certificate:syntheticCertificate(s,role)})]))};
 const report={classification:'SYNTHETIC_ACVM_CONSTRAINT_CHECKS_NOT_CRYPTOGRAPHIC_PROOF',startedAt:new Date().toISOString(),positive:[],negative:[]};const stamp=new Date().toISOString().replaceAll(':','-').replaceAll('.','-'),path=root+'../../../evidence/m18-witness-'+stamp+'.json';const save=()=>writeFileSync(path,JSON.stringify(report,null,2)+'\n');const noirs={};
 try{for(const [mode,input]of Object.entries(inputs)){const program=JSON.parse(readFileSync(root+'.local/compiled/'+mode+'.json'));noirs[mode]=new Noir(program);const started=performance.now();await noirs[mode].execute(input);report.positive.push({mode,milliseconds:performance.now()-started,circuitSHA256:sha256(Buffer.from(program.bytecode,'base64')).toString('hex')});save();}

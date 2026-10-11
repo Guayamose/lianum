@@ -4,7 +4,7 @@ import {compile,createFileManager} from '@noir-lang/noir_wasm';
 import {Barretenberg,BackendType} from '@aztec/bb.js';
 import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
-import {WALLET_PUBLIC_WORDS} from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import {WALLET_PUBLIC_WORDS} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import {root,hash,guard,verifyToolchain} from './resources.mjs';
 const mode=process.argv[2];assert.ok(Object.hasOwn(WALLET_PUBLIC_WORDS,mode),'PC23_MODE');
 mkdirSync(root+'.local/compiled',{recursive:true});const path=root+'.local/compiled/'+mode+'.compile.json';

@@ -1,7 +1,8 @@
 /** Exact ownership facade. No copying, branding, endpoint discovery or wrapping. */
-import { assertLocalEvm as assertGoldenLocalEvm } from '../../../../../engine/src/execution/local/local-evm.mjs';
+import { assertLocalEvm as assertGoldenLocalEvm } from '@lianum/engine/execution/local/local-evm';
 import assert from 'node:assert/strict';
-import { LOCAL_EVM_PROFILE, LOCAL_OSAKA_EVM_PROFILE_V1, isOwnedLocalEvmV2, assertOwnedLocalEvmV2 } from './owned-evm-v2-runtime.mjs';
+import { LOCAL_EVM_PROFILE, LOCAL_OSAKA_EVM_PROFILE_V1 } from './local-evm-profiles.mjs';
+import { isOwnedLocalEvmV2, assertOwnedLocalEvmV2 } from './owned-evm-v2-runtime.mjs';
 export async function assertLocalEvm(runtime) {
   if (isOwnedLocalEvmV2(runtime)) return assertOwnedLocalEvmV2(runtime);
   return assertGoldenLocalEvm(runtime);

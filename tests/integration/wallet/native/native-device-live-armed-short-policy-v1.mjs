@@ -1,6 +1,6 @@
 /** Fixed short original ARMED restart, never proof of post-cutoff recovery. */
 import assert from 'node:assert/strict';
-import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1} from '../../../../packages/engine/src/execution/proofs/note-native-execution-v1.mjs';
+import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1} from '@lianum/proofs/execution/note-native-execution-v1';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
 export const NATIVE_DEVICE_LIVE_ARMED_SHORT_PROFILE_V1='native-value-live-armed-recovery-v1';
 export const NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1='LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1';

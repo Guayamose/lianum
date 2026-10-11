@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createPrivateCohortCoordinator,PRIVATE_COHORT_TERMS,PRIVATE_COHORT_MAX_CONSENT_MS,validatePrivateCohortTerms} from '../../src/cohorts/private-cohort-coordinator.mjs';
+import {createPrivateCohortCoordinator,PRIVATE_COHORT_TERMS,PRIVATE_COHORT_MAX_CONSENT_MS,validatePrivateCohortTerms} from '../../../backend/src/coordination/cohorts/private-cohort-coordinator.mjs';
 import {createPrivateCohortStageGate,wrapPrivateCohortOperationHost} from '../../src/cohorts/private-cohort-gate.mjs';
 
 const delay=()=>new Promise(resolve=>setImmediate(resolve));

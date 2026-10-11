@@ -50,7 +50,7 @@ mock.module(url('../../../omnichain-product/src/paeg/proof-process.mjs'), { expo
 } });
 const { createNativeValueAccountAuthority, nativeValueAccountManualNoteDetails } = await import('../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const { createNativeValueManualGraphAccountSession } = await import('../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
-const { createNativeValueOwnerManualPreparation } = await import('../../../../../packages/custody/src/preparation/native-value-owner-manual-preparation-v1.mjs');
+const { createNativeValueOwnerManualPreparation } = await import('../../../../../packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs');
 const { startWalletApplication } = await import('../../../src/server/server.mjs');
 const { createWalletApplicationClient } = await import('../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs');
 async function fixture(t, kind = 'TOP_UP') {

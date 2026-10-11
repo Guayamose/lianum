@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {openSync,closeSync,readFileSync,writeFileSync,unlinkSync,statfsSync,mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {PAEG64_ROOT_V2,PAEG64_WORDS_V2} from './artifacts.mjs';
-import {PRIVATE_RESOURCE_POLICY as limits} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY as limits} from '@lianum/engine/crypto/private-resource-policy';
 assert.equal(process.argv.length,4,'PAEG64_FIXED_ARGUMENTS');assert.ok((['compile','prepare-key'].includes(process.argv[2])&&Object.hasOwn(PAEG64_WORDS_V2,process.argv[3]))||(process.argv[2]==='compile-consumer'&&/^[0-9a-f]{64}$/.test(process.argv[3])),'PAEG64_FIXED_OPERATION');
 assert.equal(process.execArgv.length,0,'PAEG64_NO_FLAGS');assert.ok(!process.env.NODE_OPTIONS,'PAEG64_NO_NODE_OPTIONS');
 const dir=join(PAEG64_ROOT_V2,'.local');mkdirSync(dir,{recursive:true,mode:0o700});const lock=join(dir,'active.lock');const fd=openSync(lock,'wx',0o600);writeFileSync(fd,JSON.stringify({pid:process.pid,stage:process.argv[2],mode:process.argv[3]}));closeSync(fd);

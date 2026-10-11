@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {privateAccountNoteSnapshot} from '../../src/accounts/private-account-runtime.mjs';
+import {privateAccountNoteSnapshot} from '../../../backend/src/accounts/runtime/private-account-runtime.mjs';
 import {PrivateNoteTree,privateSpentDigest,privateEffectDigest,ZERO_NOTE_HASH} from '../../src/notes/private-note-tree.mjs';
 import {privateAssemblyRevocationDigest} from '../../src/assembly/private-assembly-revocations.mjs';
 import {privateRootHistoryDigest} from '../../src/assembly/private-assembly-history.mjs';

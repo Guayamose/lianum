@@ -4,7 +4,7 @@ import test from 'node:test';
 import {existsSync,readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {ROOT,LOCAL} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,LOCAL} from '@lianum/proofs/catalog';
 import {assertNativeSplClaimV1ProducedProgramBytesV1,NATIVE_SPL_CLAIM_V1_PRODUCED_PROGRAM_PINS as P} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-program-provenance.mjs';
 const directory=join(LOCAL,'relations/native_claim_ingress/c13d5cc0e1be06158727cf933013492fe44efe987d09e4dee9bb9216c04fb418'),pointer=join(directory,'compiled.json');
 test('genuine NEW raw programme keeps exact ACIR/ABI and its sole historical path preimage without rewriting bytes',{skip:!existsSync(pointer)},()=>{

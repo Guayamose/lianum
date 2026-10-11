@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { derivePrivateAssetIdentity } from '../../../../../packages/engine/src/notes/private-asset-runtime.mjs';
 import { sha } from '../../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
-import { encodeStatement } from '../../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { flatAccountGraphBinding } from '../../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs';
 const h = s => createHash('sha256').update(s).digest('hex'), address = n => n.toString(16).padStart(40, '0');
 const clone = structuredClone, worlds = new WeakMap(), owners = new WeakMap(), executors = new WeakMap();

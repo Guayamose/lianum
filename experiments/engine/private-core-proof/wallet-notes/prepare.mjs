@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdirSync,readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {Barretenberg,BackendType,UltraHonkBackend} from '@aztec/bb.js';
-import {WALLET_MODES} from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import {WALLET_MODES} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import {root,hash,guard,resources,filePin,verifyToolchain,verifyCRS,CRS} from './resources.mjs';
 const mode=process.argv[2];assert.ok(WALLET_MODES.includes(mode),'PC23_MODE');assert.equal(process.argv.length,3,'PC23_NO_MEMORY_OVERRIDE');mkdirSync(root+'.local/prepared',{recursive:true});assert.equal(existsSync(root+'.local/prepared/'+mode+'.key.json'),false,'PC23_KEY_ALREADY_PREPARED');const began=performance.now(),report={classification:'ACTUAL_OFFICIAL_VERIFICATION_KEY_GENERATION_NOT_PROOF',mode,target:'evm',maximumPages:32768,zeroKnowledgeEnabled:true,startedAt:new Date().toISOString(),phase:'starting'},dir=root+'../../../evidence/m23-wallet-keys/';mkdirSync(dir,{recursive:true});const path=dir+new Date().toISOString().replace(/[:.]/g,'-')+'-'+mode+'.json';let api;const save=()=>writeFileSync(path,JSON.stringify(report,null,2)+'\n'),phase=p=>{report.phase=p;report.latestResources=guard();save();};globalThis.fetch=async()=>{throw Error('PC23_KEYS_OFFLINE');};
 const watchdog=setInterval(()=>{try{guard();}catch{report.phase='bounded-resource-abort';save();process.exit(2);}},1000),timer=setTimeout(()=>{report.phase='bounded-key-timeout';save();process.exit(2);},600000);

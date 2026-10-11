@@ -2,8 +2,8 @@
  * reviewed EVM terminal checks; no vault semantics or economic actions. */
 import assert from 'node:assert/strict';
 import { assertLocalEvm } from '../../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs';
-import { exactRecord } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
-import { decodeWalletPoolInputs } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction } from '../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 const copy = value => structuredClone(value);
 const match = (value, expression) => typeof value === 'string' && expression.exec(value)?.[0] === value;

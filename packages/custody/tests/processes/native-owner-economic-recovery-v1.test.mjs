@@ -10,15 +10,15 @@ import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { ownerDigest } from '../../src/signing/native-value-owner-custody-v3.mjs';
 const h = v => createHash('sha256').update('inert owner recovery HOST:' + v).digest('hex');
 const mapped = fileURLToPath(import.meta.url).includes('/mobile-core/');
 const paths = mapped ? { owner: './native-value-owner-process-v2.mjs', wallet: '../wallet-platform/modules/ops/native-value-wallet-binding-v2.mjs',
   source: '../wallet-platform/modules/ops/native-value-system-v2.mjs', observer: './native-value-owner-observer-v2.mjs',
   authority: '../wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs' } : {
-  owner: '../../src/processes/native-value-owner-process-v2.mjs', wallet: '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs',
-  source: '../../../backend/src/operations/deployments/native-value/native-value-system-v2.mjs', observer: '../../src/observers/native-value-owner-observer-v2.mjs',
+  owner: '../../../backend/src/custody/processes/native-value-owner-process-v2.mjs', wallet: '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs',
+  source: '../../../backend/src/operations/deployments/native-value/native-value-system-v2.mjs', observer: '../../../backend/src/custody/observers/native-value-owner-observer-v2.mjs',
   authority: '../../../backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs' };
 const urls = Object.fromEntries(Object.entries(paths).map(([key, value]) => [key, new URL(value, import.meta.url).href]));
 const worlds = new WeakMap(), observations = new WeakMap(), issuers = new WeakSet(), tokens = new WeakMap(), children = new Map();

@@ -6,7 +6,7 @@ import {mkdtemp,mkdir,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {performance} from 'node:perf_hooks';
-import {isolatedRuntimeEnvironment,sleep} from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
+import {isolatedRuntimeEnvironment,sleep} from '@lianum/engine/chains/shared/runtime-harness';
 import {startOriginalNativeSourceProcessV1} from '../../../../src/operations/recovery/native-original-source-process-v1.mjs';
 
 const helperUrl=new URL(import.meta.url.endsWith('/wallet-platform/modules/chain-adapters/native-original-source-process-v1.test.mjs')?'../ops/native-original-source-process-v1.mjs':'../../../../src/operations/recovery/native-original-source-process-v1.mjs',import.meta.url).href;

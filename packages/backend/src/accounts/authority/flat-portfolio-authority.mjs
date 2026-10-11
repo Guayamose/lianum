@@ -6,10 +6,10 @@ import { bindGenericAccountRequest, validateBoundRequest, validateGenericAccount
   genericAccountIdentity, validateOutcome, immutable, sha }
   from '@lianum/engine/accounts/journal';
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { assertOwnedFlatAccountAuthority } from './flat-account-authority.mjs';
 import { assertOwnedFlatManualPortfolioKeeper } from '../portfolio/flat-manual-portfolio-keeper.mjs';
-import { validateFlatManualReauthorization } from '../../../../custody/src/preparation/flat-owner-manual-binding.mjs';
+import { validateFlatManualReauthorization } from '@lianum/custody/preparation/flat-owner-manual-binding';
 import { assertOwnedFlatPoolAdmissionPolicy } from './flat-pool-admission-policy.mjs';
 
 const profile = 'OWNED_FLAT_PRIVATE_PORTFOLIO_V1';

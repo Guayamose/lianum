@@ -1,5 +1,5 @@
 import { assertBeginPayoutAuditReleaseV1, assertBeginPayoutAuditReceiptV1, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1,
-  CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1 } from '../payouts/begin-payout-audit-policy-v1.mjs';
+  CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 import { readOwnedBitcoinRuntimeAuditState } from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { isOwnedSolanaSplCustodyV1, assertOwnedSolanaSplCustodyV1, readOwnedSolanaSplOriginalGraphV3, assertOwnedSolanaSplGraphPairV1 } from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import {assertOwnedFlatNativeProvider,captureOwnedFlatSolanaSourceForSplV1} from '../../providers/native-provider.mjs';
@@ -15,40 +15,59 @@ import { assertNonceIngressDeployment, auditNonceIngressPreparation, assertNonce
  * All local funds and same-host operator roles are explicitly synthetic. */
 import assert from 'node:assert/strict';
 import {randomBytes,createPublicKey,verify} from 'node:crypto';
-import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
-import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction, refreshNativeValueReceiverClock, nativeValueReceiverInclusionSecondV1 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertSignedEvmTransaction } from '../../chains/evm/contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../../chains/evm/runtime/local-evm-profiles.mjs';
+import { assertOwnedLocalEvmV2, refreshNativeValueReceiverClock, nativeValueReceiverInclusionSecondV1 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../operations/owned-state.mjs';
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/operators.mjs';
 import * as claimOperators from '../operations/operators.mjs';
-import {assertRoleProofClient,createRoleProofClient,readOriginalDeviceRootClaimDerivationV2} from '../../../../proofs/src/jobs/role-client.mjs';
+import {assertRoleProofClient,createRoleProofClient,readOriginalDeviceRootClaimDerivationV2} from '@lianum/proofs/client';
 import * as DeviceClaim from '@lianum/mobile-protocol/device/native-claim-v1';
 import {originalNativeClaimAssetUnitsV1} from '../operations/native-claim-asset-units-v1.mjs';
-import { loadPinned, resourceModuleURL } from '../../../../proofs/src/tooling/tooling.mjs';
-import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2, assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
+import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
+import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2, assertOwnedFlatOwnerProcess } from '../../custody/processes/flat-owner-process.mjs';
 import { ownedClaimControllerJournal } from './controller-journal.mjs';
-import { createClaimEvmDispatchRequest } from '../protocol/evm-dispatch-gate.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
-import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { verifyPrivateNotePath } from '../../../../engine/src/notes/private-note-tree.mjs';
-import { nativeAdmissionChainDomain, nativeAdmissionRulesTree } from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { receiptKeyCommitment, validateBitcoinBinding } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { verifyPrivateNotePath } from '@lianum/engine/notes/private-note-tree';
+import { nativeAdmissionChainDomain, nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { receiptKeyCommitment, validateBitcoinBinding } from '@lianum/engine/native/native-receipt-binding';
 import { validateClaimSolanaBindingTransaction } from '../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { claimDomainCommitment, claimIntentId, claimReceiptSecret, claimRefundSalt, claimDestinationCommitment,
-  claimTicketId, claimTicketSecret, nativeClaimEndpointCommitment, claimUint } from '../protocol/framing.mjs';
-import { decodeClaimIngressInputs, decodeClaimDischargeInputs } from '../protocol/framing.mjs';
-import { CLAIM_ACTIONS as A, claimHash, claimRouteCommitment } from '../authorization/permits.mjs';
-import { buildClaimIngressInputs, buildClaimDischargeInputs } from '../protocol/inputs.mjs';
+  claimTicketId, claimTicketSecret, nativeClaimEndpointCommitment, claimUint } from '@lianum/engine/claims/framing';
+import { decodeClaimIngressInputs, decodeClaimDischargeInputs } from '@lianum/engine/claims/framing';
+import { CLAIM_ACTIONS as A, claimHash, claimRouteCommitment } from '@lianum/engine/claims/permits';
+import { buildClaimIngressInputs, buildClaimDischargeInputs } from '@lianum/engine/claims/inputs';
 import { createClaimReservationBinding, assertCanonicalClaimReservation } from '../authorization/reservation-facts-gate.mjs';
 import { assertClaimRoute } from '../operations/backing-audit.mjs';
-import { encodeDepositIntentInputs, decodeDepositIntentInputs } from '../../execution/account/preparation/deposit-intent.mjs';
+import { encodeDepositIntentInputs, decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { encodeControllerClaimCall } from './controller-call.mjs';
 import { compactClaimEvmRequest, compactClaimEvmPreparation, originalClaimEvmRecord } from './controller-evm-record.mjs';
 import { validateRetainedClaimPacket,validateRetainedPrivateClaimPacketV2,validateRetainedDeviceRootClaimPacketV2, buildDeviceRootClaimIngressPublicV2, canonicalClaimDepositProjection } from './controller-retained-state.mjs';
 export { createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   openDurableNativeClaimControllerKeeper } from './controller-journal.mjs';
 const dispatchTokens = new WeakMap();
+
+/** EVM request emission and validation share the original controller lifetime. */
+const evmDispatchRequests = new WeakMap();
+export async function createClaimEvmDispatchRequest(token) {
+  // Preserve the asynchronous handoff before consuming the original token.
+  await Promise.resolve();
+  const scope = openNativeClaimControllerDispatch(token);
+  const request = Object.freeze(Object.create(null)); evmDispatchRequests.set(request, { scope, opened: false }); return request;
+}
+export function isOwnedClaimEvmDispatchRequest(request) { return evmDispatchRequests.has(request); }
+export function assertOwnedClaimEvmDispatchRequest(request, runtime) {
+  const row = evmDispatchRequests.get(request); assert.ok(row && row.scope.runtime === runtime, 'CLAIM_ORIGINAL_EVM_REQUEST_REQUIRED');
+  assert.ok(!row.opened, 'CLAIM_EVM_REQUEST_ALREADY_OPENED'); row.scope.assertLive(); row.opened = true;
+  const { transaction, beforeSign, consumeBeforeKey, onSigned } = row.scope;
+  return Object.freeze({ transaction, beforeSign, consumeBeforeKey, onSigned });
+}
+
+
 const deviceRootClaimSends=new WeakMap();
 export function consumeOriginalDeviceRootClaimSendV3(request,runtime){assert.equal(arguments.length,2);const r=deviceRootClaimSends.get(request);assert.ok(r&&r.runtime===runtime&&!r.opened,'CLAIM_DEVICE_ROOT_ORIGINAL_SEND_REQUIRED');r.check();r.opened=true;return r.scope;}
 // Minted only by completed genuine controller operations, never by a public
@@ -1198,7 +1217,7 @@ async function createController(input, beginAuditOnly) {
       const original=await view(input.claimDomain);assert.ok(original.snapshot.gateways.every(g=>g.intents.length===0&&g.tickets.length===0),'CLAIM_DEVICE_ROOT_EMPTY_ORIGINAL_GATEWAYS');await observer.assertCurrent(original.snapshot);
       const units=originalNativeClaimAssetUnitsV1(runtime,claims,config),pairingId=randomBytes(32).toString('hex'),scope=claimHash(Buffer.from(JSON.stringify(['DEVICE_ROOT_NOTE',config,pairingId,input.devicePublicKey]))),ownerIdentitySHA256=claimHash(Buffer.from(JSON.stringify([scope,input.devicePublicKey,config.pool])));
       const descriptor=DeviceClaim.normalizeDeviceRootClaimDescriptorV2({profile:DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2,claim:{version:1,profile:DeviceClaim.NATIVE_CLAIM_DEVICE_PAIRING_V1,origin:input.origin,pairingId,devicePublicKey:input.devicePublicKey,accountScopeSHA256:scope,lifetimeSHA256:claimHash(Buffer.from(JSON.stringify([scope,config.poolDomain,pairingId]))),claimDomain:input.claimDomain,nativeFamily:config.nativeFamily,nativeGenesis:config.nativeGenesis,nativeAsset:config.nativeAsset,wrapperAssetIdentity:config.wrapperAssetIdentity,...units,nativeAssetKind:units.nativeAssetKind??null,mint:units.mint??null},pool:config.pool,scope:config.scope,policy:config.policy,recipient:runtime.accounts[i+3].slice(2),noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM'});
-      const {createFlatOwnerObserver}=await import('../../../../custody/src/observers/flat-owner-observer.mjs'),{flatAccountAsset}=await import('../../accounts/authority/flat-account-validation.mjs');
+      const {createFlatOwnerObserver}=await import('../../custody/observers/flat-owner-observer.mjs'),{flatAccountAsset}=await import('../../accounts/authority/flat-account-validation.mjs');
       const noteObserver=await createFlatOwnerObserver({runtime,system:claims.flatSystem,poolIndex:i}),pool=claims.flatSystem.pools[i];
       const asset=flatAccountAsset({identity:noteObserver.identity,chainId:runtime.metadata.chainId,genesis:runtime.metadata.evmGenesis.slice(2),poolCodeHash:pool.codeHash.slice(2),assetMetadata:pool.assetMetadata});
       assert.equal(asset.token,config.wrapper,'CLAIM_DEVICE_ROOT_ORIGINAL_WRAPPER');assert.equal(asset.decimals,units.decimals,'CLAIM_DEVICE_ROOT_ORIGINAL_UNITS');
@@ -1210,11 +1229,11 @@ async function createController(input, beginAuditOnly) {
       function challenge(action,fields={},parentExpiry=null){alive();for(const [id,p]of challenges)if(p.expiresAt<=Date.now())challenges.delete(id);assert.ok(challenges.size<8,'CLAIM_DEVICE_ROOT_CHALLENGE_LIMIT');const p=DeviceClaim.validateDeviceRootClaimPermissionFreshV2({version:2,profile:DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_PERMISSION_V2,action,descriptor,rootId:null,noteRevision:null,jobId:null,statement:null,witnessSHA256:null,commonSHA256:null,recipient:null,...fields,challengeId:randomBytes(32).toString('hex'),nonce:randomBytes(32).toString('hex'),expiresAt:Math.min(Date.now()+15000,parentExpiry??Infinity)});challenges.set(p.challengeId,p);return p;}
       function consume(raw,signature,action){alive();const p=DeviceClaim.validateDeviceRootClaimPermissionFreshV2(raw),original=challenges.get(p.challengeId);assert.equal(p.action,action,'CLAIM_DEVICE_ROOT_PERMISSION_ACTION');assert.ok(original,'CLAIM_DEVICE_ROOT_ORIGINAL_PERMISSION');assert.deepEqual(original,p,'CLAIM_DEVICE_ROOT_PERMISSION_CHANGED');const pub=input.devicePublicKey,key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(pub.slice(2,66),'hex').toString('base64url'),y:Buffer.from(pub.slice(66),'hex').toString('base64url')}}),message=DeviceClaim.deviceRootClaimPermissionMessageV2(p);try{assert.equal(verify('sha256',message,{key,dsaEncoding:'ieee-p1363'},Buffer.from(DeviceClaim.normalizeNativeClaimDeviceSignatureV1(signature),'hex')),true,'CLAIM_DEVICE_ROOT_DEVICE_SIGNATURE');}finally{message.fill(0);}challenges.delete(p.challengeId);return p;}
       const {assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
-      const {createOriginalDeviceWalletNoteProofClientV3,readOriginalDeviceWalletNoteDerivationV3}=await import('../../../../proofs/src/jobs/wallet-note-private-client-v3.mjs');
-      const {verifyPrivateNotePath}=await import('../../../../engine/src/notes/private-note-tree.mjs');
+      const {createOriginalDeviceWalletNoteProofClientV3,readOriginalDeviceWalletNoteDerivationV3}=await import('@lianum/proofs/jobs/wallet-note-private-client-v3');
+      const {verifyPrivateNotePath}=await import('@lianum/engine/notes/private-note-tree');
       const {encodeFlatTransaction}=await import('../../execution/encoding/transaction-codec.mjs');
       const {flatAccountCalldataHash,validateFlatAccountOwnerObservation}=await import('../../accounts/authority/flat-account-validation.mjs');
-      const {ownerDigest}=await import('../../../../custody/src/signing/flat-owner-custody.mjs');
+      const {ownerDigest}=await import('@lianum/custody/owner');
       // The fixed proof client and send producer belong to this before-fund
       // intake. A parsed RootNote, descriptor or copied request issues neither.
       const exitClient=createOriginalDeviceWalletNoteProofClientV3('withdraw_balance'),exitQuotes=new Map(),exitChallenges=new Map();let exitReview=null;
@@ -1265,7 +1284,7 @@ async function createController(input, beginAuditOnly) {
           const binding={kind:'ORIGINAL_CONSENT_V1',jobId:p.jobId,consentSHA256:claimHash(DeviceClaim.deviceRootClaimPermissionMessageV2(p)),witnessSHA256:p.witnessSHA256};try{const result=await ownerClient.proveEncryptedDeviceRootClaimV2(request.packet,binding),derived=readOriginalDeviceRootClaimDerivationV2(ownerClient,result);alive();assert.equal(derived.claimDomain,input.claimDomain);assert.equal(derived.commitment,p.statement.output);assert.equal(derived.action,'PROVE_D27');
             const packet={version:2,profile:deviceRootProfile,trust:'DEVICE_ROOT_NOTE_NATIVE_BACKEND_LOCAL_QUORUM',ownerIdentitySHA256,claimDomain:input.claimDomain,ingressProverIdentity,intentIdentitySHA256:'0'.repeat(64),revision:0,statement:p.statement,proofResult:result,receiptBinding:derived.receiptBinding};
             // ownerDigest uses the same canonical DATA framing as legacy handoffs.
-            const {ownerDigest,FLAT_OWNER_CLAIM_HANDOFF_PROFILE}=await import('../../../../custody/src/signing/flat-owner-custody.mjs');packet.intentIdentitySHA256=ownerDigest({profile:FLAT_OWNER_CLAIM_HANDOFF_PROFILE,identitySHA256:ownerIdentitySHA256,claimDomain:input.claimDomain,scope:p.statement.scope,policy:p.statement.policy,amount:p.statement.amount,output:p.statement.output});packet.handoffIdentitySHA256=ownerDigest(packet);const retained=validatePacket(packet);handoff=Object.freeze({select(){alive();return retained;}});deviceRootClaimHandoffs.set(handoff,{controller,closed:()=>stopped});d27.phase='PROVED';d27.result=result;d27.derived=derived;await persist('D27_PROVED');return{handoff,proof:result};
+            const {ownerDigest,FLAT_OWNER_CLAIM_HANDOFF_PROFILE}=await import('@lianum/custody/owner');packet.intentIdentitySHA256=ownerDigest({profile:FLAT_OWNER_CLAIM_HANDOFF_PROFILE,identitySHA256:ownerIdentitySHA256,claimDomain:input.claimDomain,scope:p.statement.scope,policy:p.statement.policy,amount:p.statement.amount,output:p.statement.output});packet.handoffIdentitySHA256=ownerDigest(packet);const retained=validatePacket(packet);handoff=Object.freeze({select(){alive();return retained;}});deviceRootClaimHandoffs.set(handoff,{controller,closed:()=>stopped});d27.phase='PROVED';d27.result=result;d27.derived=derived;await persist('D27_PROVED');return{handoff,proof:result};
           }catch(error){d27.phase='UNKNOWN';await retainFailure(error,()=>persist('UNKNOWN'));throw error;}}),
         retainPrepared: prepared=>serial(async()=>{alive();assert.ok(handoff&&d27?.phase==='PROVED');exactRecord(prepared,['intentId']);const row=await deposit(prepared.intentId);assert.deepEqual(row.packet,handoff.select());intentId=row.id;await persist('PREPARED');return freeze(projectDeposit(row));}),
         effectChallenge(action){assert.equal(arguments.length,1);assert.ok(['FUND_NATIVE_CLAIM','ISSUE_CLAIM'].includes(action)&&intentId&&handoff,'CLAIM_DEVICE_ROOT_PREPARED_REQUIRED');if(action==='ISSUE_CLAIM')assert.equal(ci51?.phase,'COMPLETED','CLAIM_DEVICE_ROOT_CI51_REQUIRED');return challenge(action,{rootId:d27.consent.rootId,noteRevision:d27.consent.noteRevision,jobId:d27.consent.jobId,statement:d27.consent.statement});},

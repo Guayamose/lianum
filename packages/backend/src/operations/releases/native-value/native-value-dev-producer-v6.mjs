@@ -7,7 +7,7 @@ import { nativeValueDevDigestV5, validateNativeValueDevReleaseV5 } from './nativ
 import { inspectRetainedNativeValueReuseForPreparationV6, validateRetainedNativeValuePublicationV6 }
   from '../../deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 import { NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 } from './native-value-dev-mobile-package-pins-v5.mjs';
-import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { frozenInput } from '@lianum/components/plain-input';
 
 export async function prepareNativeValueDevReleaseV6Candidate() {
   assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_V6_PRODUCER_NO_OPTIONS');

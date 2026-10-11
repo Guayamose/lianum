@@ -4,11 +4,11 @@
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { authorizationInputs, A0_HASH_FIELDS, A0_TIME_FIELDS }
-  from '../../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
+  from '@lianum/engine/execution/inputs/funding-witness';
 import { prepareNativeCapsules, localCapsuleToNoir, dependencyCapsuleToNoir, nativeActionToNoir, a0Context }
-  from '../../../engine/src/execution/native/dispatch/native-capsules.mjs';
-import { fundedAdmission } from '../../../engine/src/execution/graph/funded-graph.mjs';
-import {assertDistinctNativeReceiptSpendSecretsV1} from '../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-capsules';
+import { fundedAdmission } from '@lianum/engine/execution/graph/funded-graph';
+import {assertDistinctNativeReceiptSpendSecretsV1} from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
   structToNoir, digestBytes, digestWords, ZERO }
   from '@lianum/components/encoding/commitments';

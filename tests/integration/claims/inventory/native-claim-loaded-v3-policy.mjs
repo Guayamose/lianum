@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { CLAIM_GRAPH_V3_NATIVE_PROTOCOL } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
-  from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 export const CLAIM_LOADED_V3_REAL_RUN_DISABLED = true;
 export const CLAIM_LOADED_V3_PROFILE = 'SOLANA_LOADED_POST_DELIVERY_REDEMPTION_INGRESS_V3';
 export const CLAIM_LOADED_V3_SCOPE = 'LOADED_POST_DELIVERY_REDEMPTION_INGRESS_V3_ONLY';

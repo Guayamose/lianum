@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canonical } from '../../../src/crypto/privacy.mjs';
-import { wipePrivate } from '../../../src/execution/proofs/proof-worker.mjs';
-import { detachGenericProofMetrics } from '../../../src/execution/native/dispatch/generic-native-execution.mjs';
+import { wipePrivate } from '@lianum/proofs/execution/proof-worker';
+import { detachGenericProofMetrics } from '../../../../backend/src/execution/native/dispatch/generic-native-execution.mjs';
 
 test('fractional proof timings are metadata and survive erasure of their source package', () => {
   const proof = { proof: Buffer.from('c0ffee', 'hex'), metrics: {

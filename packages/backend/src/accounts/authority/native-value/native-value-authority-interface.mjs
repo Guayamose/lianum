@@ -1,9 +1,9 @@
 /** Interface operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
 import assert from "node:assert/strict";
-import { copy, immutable, sha } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
-import { exactRecord } from "../../../execution/encoding/commitments.mjs";
-import { validateNativeValueManualReview, validateNativeValueManualRecords } from "../../../../../custody/src/preparation/native-value-owner-manual-binding-v1.mjs";
+import { copy, immutable, sha } from "@lianum/engine/accounts/journal";
+import { exactRecord } from "@lianum/components/encoding/commitments";
+import { validateNativeValueManualReview, validateNativeValueManualRecords } from "@lianum/custody/preparation/native-value-owner-manual-binding-v1";
 import { flatAccountGraphBinding, validateFlatManualGraphAdmissionTime } from "../flat-account-validation.mjs";
 import { validateWrappedClaimOperationalRegistration } from "../../../claims/ingress/operational-registration-v2.mjs";
 import { validateOwnerGraphReview } from "@lianum/mobile-protocol/wallet/owner-graph-review-v1";
@@ -163,7 +163,7 @@ export function createNativeValueAccountInterface({
         assert.equal(arguments.length, 0, 'NATIVE_VALUE_MANUAL_NOTE_ARGUMENTS');
         const {
           createNativeValueOwnerManualPreparation
-        } = await import("../../../../../custody/src/preparation/native-value-owner-manual-preparation-v1.mjs");
+        } = await import("../../../custody/preparation/native-value-owner-manual-preparation-v1.mjs");
         return createNativeValueOwnerManualPreparation({
           runtime: chain.runtime,
           system: chain.system,
@@ -176,7 +176,7 @@ export function createNativeValueAccountInterface({
         assert.equal(arguments.length, 0, 'NATIVE_VALUE_MANUAL_NOTE_ARGUMENTS');
         const {
           restoreNativeValueOwnerManualPreparation
-        } = await import("../../../../../custody/src/preparation/native-value-owner-manual-preparation-v1.mjs");
+        } = await import("../../../custody/preparation/native-value-owner-manual-preparation-v1.mjs");
         return restoreNativeValueOwnerManualPreparation({
           runtime: chain.runtime,
           system: chain.system,

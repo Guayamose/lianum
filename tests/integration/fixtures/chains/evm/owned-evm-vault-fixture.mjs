@@ -6,25 +6,25 @@
 import assert from 'node:assert/strict';
 import { lstatSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { derivePrivateAssetIdentity } from '../../../../../packages/engine/src/notes/private-asset-runtime.mjs';
-import { createNativeRecipientProcess } from '../../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { createNativeRecipientProcess } from '../../../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs';
 import { nativeAdmissionRulesTree, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { createOwnedLocalEvmV2, createOwnedExternalDefiReceiverV2 } from '../../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOwnedPoolAsset } from '../../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs';
 import { createEvmVaultDeliveryObserver }
   from '../../../../../packages/backend/src/chains/evm/vault/evm-vault-delivery-observer.mjs';
 import { validateEvmVaultDeliveryDescriptor }
-  from '../../../../../packages/backend/src/chains/evm/vault/evm-vault-delivery.mjs';
+  from '@lianum/engine/encoding/evm-vault-delivery';
 import { deployBackedAssets } from '../../../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs';
 import { deployFlatSystem } from '../../../../../packages/backend/src/operations/deployments/system/deploy-system.mjs';
 import { deployEvmVaultRouter } from '../../../../../packages/backend/src/operations/deployments/defi/deploy-evm-vault-router.mjs';
 import { createLocalFlatOperator, createFlatOperatorQuorum } from '../../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
 import { createFlatSystemStateReader } from '../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
-import { exactRecord } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
-import { decodeDepositIntentInputs } from '../../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { createOwnedFlatEvmVaultProvider, createOwnedFlatMetaMorphoProviderV1, createOwnedFlatUniswapProviderV1, createOwnedFlatAaveStaticProviderV1 } from '../../../../../packages/backend/src/providers/evm-vault-provider.mjs';
-import { createFlatOwnerProcess, createRetainedFlatOwnerProcessV1 } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
+import { createFlatOwnerProcess, createRetainedFlatOwnerProcessV1 } from '../../../../../packages/backend/src/custody/processes/flat-owner-process.mjs';
 import { createOfficialProtocolFixture } from '../../../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { createOfficialAaveFixtureV1 } from '../../../../../packages/backend/tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import { createOwnedPrivateExternalRouterV1 } from '../../../../../packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs';

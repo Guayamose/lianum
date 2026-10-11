@@ -2,8 +2,8 @@
  * establishes an ingress, claim credit, original payout or wallet acceptance. */
 import assert from 'node:assert/strict';
 import {join,resolve} from 'node:path';
-import {ROOT,FLAT} from '../../../../../proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../../proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {NATIVE_SPL_CUSTODY_V1,deriveNativeSplProgramDataV1} from '../../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 const freezeBuildPins=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freezeBuildPins(child);Object.freeze(value);}return value;};
 export const NATIVE_SPL_PRODUCED_PROGRAM_REVIEW_V1=freezeBuildPins({"localOnly":true,"privateCreditEstablished":false,"program":"5RnJjhp7NKPgawoXnPJiXJtjJ5ktkMUrRuBtP4YmLSUM","publicNetwork":false,"runId":"e4ecbedb-0f19-44d2-a353-07e394a3a5a6","files":{"lianum_native_spl_custody_v1.so":{"bytes":150576,"sha256":"a8521c684df423a85355808f9babc276670bcd7af5307eeff16a2bfa372361ce"},"receipt.json":{"bytes":1616,"sha256":"755c10ccab779b8e7feec045080b78b33c94b094c369809b34c77968b835e9ea"},"result.json":{"bytes":2896020,"sha256":"c3ae2451e9bef4a1d6b30c9d316729f30c94a4a514f6b6ec0d354605ff5811f9"},"resources.json":{"bytes":2941611,"sha256":"d7c85d878ea3d6733c78c9093f7030cf29cc1655f4702b5b3a2a3d343334c1c7"},"source-pins.json":{"bytes":2789437,"sha256":"8fc5592ec7456492ad32f6914849dac1d274e6d204cc27e518cb7f9588ce28ab"},"generated-key-cleanup-receipt.json":{"bytes":380,"sha256":"2fa9834f3f510cdde42c7317c39e40cd71f57d476e30ee1cbee6ebe732b6c851"}}});

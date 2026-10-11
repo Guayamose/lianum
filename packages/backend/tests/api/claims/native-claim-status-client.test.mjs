@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '../../../src/claims/protocol/framing.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claims/framing';
 let active;
 mock.module('node:http', { exports: { request(options, callback) {
   const c = active; assert.ok(c, 'HOST_ONLY_HTTP_REQUIRED'); c.calls.push(structuredClone(options));

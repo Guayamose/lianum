@@ -7,8 +7,8 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { PrivateNoteTree } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
-import { prepareNativeDependency } from '../../../../packages/engine/src/execution/native/dispatch/native-dependency.mjs';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
+import { prepareNativeDependency } from '@lianum/engine/execution/native/dispatch/native-dependency';
 
 const PROFILE = 'LIANUM_PAEG_NATIVE_4_V2';
 const ZERO = '0'.repeat(64);

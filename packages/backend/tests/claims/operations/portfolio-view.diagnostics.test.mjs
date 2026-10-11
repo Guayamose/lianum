@@ -4,7 +4,7 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '../../../src/claims/protocol/framing.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claims/framing';
 
 const systems = new WeakMap(), portfolios = new WeakMap(), observers = new WeakMap(), quorums = new WeakMap();
 const url = path => new URL(path, import.meta.url).href;

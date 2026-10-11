@@ -4,17 +4,17 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress }
-  from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { linkPrivateBytecode } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  from '../../../execution/native/dispatch/native-deployment.mjs';
+import { linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { evmRuntimeCodeHash, evmFunctionSelector } from '../../../chains/evm/contracts/evm-code-hash.mjs';
-import { nativeRuleCommitment } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { claimFrame, claimHash } from '../../../claims/authorization/permits.mjs';
-import { claimABIType, encodeClaimABI } from '../../../claims/protocol/abi.mjs';
+import { nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
+import { claimFrame, claimHash } from '@lianum/engine/claims/permits';
+import { claimABIType, encodeClaimABI } from '@lianum/engine/claims/abi';
 import { CLAIM_CONFIG_SCHEMA, validateClaimConfig, claimDomainCommitment,
-  claimVerifierSetCommitment, nativeClaimEndpointCommitment, claimUint } from '../../../claims/protocol/framing.mjs';
+  claimVerifierSetCommitment, nativeClaimEndpointCommitment, claimUint } from '@lianum/engine/claims/framing';
 import { buildWrappedClaimGraphDeploymentPlanV1 } from './wrapped-claim-graph-plan-v1.mjs';
 import { assertWrappedClaimDeploymentArtifactsV1 } from './wrapped-claim-deployment-artifacts-v1.mjs';
 import { validateWrappedClaimOperationalRegistration } from '../../../claims/ingress/operational-registration-v2.mjs';

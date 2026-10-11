@@ -13,11 +13,11 @@ import { join } from 'node:path';
 import { types } from 'node:util';
 import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 import {assertDeviceExternalFlatRecoveryAuthorityV1,deviceExternalFlatAccountCaptureIdentityV1} from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
-import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { isOwnedLocalEvmV2, refreshNativeValueReceiverClock } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import { nativeAdmissionRuleCommitment, nativeAdmissionRuleRoot } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeAdmissionRuleCommitment, nativeAdmissionRuleRoot } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { assertOwnedFlatSystem } from '../../../operations/deployments/system/deploy-system.mjs';
 import { assertOwnedFlatOperatorQuorum, ownedFlatOperatorQuorumBindings } from '../../../operations/operators/claims/native-operators.mjs';
 import { assertOwnedFlatNativeProvider, ownedFlatNativeProviderReview } from '../../../providers/native-provider.mjs';
@@ -25,8 +25,8 @@ import { assertOwnedFlatEvmVaultProvider, ownedFlatEvmVaultProviderReview } from
 import { isOwnedOfficialGraphDeliveryObserverV1 } from '../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { createFlatSystemStateReader } from '../reconciliation/flat-system-state.mjs';
 import { createFlatTerminalObserver } from '../reconciliation/flat-terminal-observer.mjs';
-import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField } from '../../encoding/commitments.mjs';
-import { decodeStatement, joinReadiness, joinAdmission, joinSettlement } from '../../encoding/statements.mjs';
+import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField } from '@lianum/components/encoding/commitments';
+import { decodeStatement, joinReadiness, joinAdmission, joinSettlement } from '@lianum/components/encoding/statements';
 import { buildDependencyInputs, buildReadyInputs } from '../preparation/readiness-inputs.mjs';
 import { buildAdmissionInputs } from '../preparation/admission-inputs.mjs';
 import { buildNodeInputs, buildSettlementInputs } from '../reconciliation/completion-inputs.mjs';
@@ -34,7 +34,7 @@ import { flatCompletionWindow } from '../reconciliation/flat-completion-window.m
 import { privateFailureDiagnostic } from '../reconciliation/failure-diagnostics.mjs';
 import { recoveryWitness } from '../preparation/funding-inputs.mjs';
 import { encodeFlatTransaction } from '../../encoding/transaction-codec.mjs';
-import { withFlatHash, loadFlatABI, createFlatProofRunner } from '../../../../../proofs/src/tooling/scoped-proof-tools.mjs';
+import { withFlatHash, loadFlatABI, createFlatProofRunner } from '@lianum/proofs/tooling/scoped-proof-tools';
 
 export const FLAT_EXECUTION_PROFILE = 'OWNED_FLAT_EXECUTION_KEEPER_V1';
 const owners = new WeakMap(), ZERO = '0'.repeat(64), MAX_OPERATIONS = 8;

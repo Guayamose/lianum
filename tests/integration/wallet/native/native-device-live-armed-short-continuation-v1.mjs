@@ -1,8 +1,8 @@
 /** Same device D26/U/S; original fresh ARM and ordered new-process reopen. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {deviceRecoveryArmConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
+import {deviceRecoveryArmConsentMessageV1} from '@lianum/mobile-protocol/device-recovery-arm-consent-v1';
 import {createOriginalNativeDeviceLiveRecoveryProducerV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs';
 import {auditNativeDeviceLiveArmedShortV1} from './native-device-live-armed-short-audit-v1.mjs';
 import {captureAndLaunchNativeDeviceLiveArmedShortSuccessorV1} from './native-device-economic-launcher-v1.mjs';

@@ -18,14 +18,15 @@ import { createDisposableNativeIssuerLifetime, effectConsumptionHash } from '../
 import { createCurrentFinalityAuthority, FINALITY_PROFILE_NAME } from '../../../../packages/engine/src/finality/private-finality-authority.mjs';
 import { deployPrivateAssemblyNativePool } from '../../../../packages/engine/src/assembly/private-assembly-runtime.mjs';
 import { captureAssemblyEvmReceipt } from '../../../../packages/engine/src/assembly/private-assembly-evm-audit.mjs';
-import { launchAssemblyProcess, createAssemblyFrameDecoder, encodeAssemblyFrame, validateAssemblyProofPackage, assemblyPackageDigest } from '../../../../packages/engine/src/assembly/private-assembly-actors.mjs';
+import { createAssemblyFrameDecoder, encodeAssemblyFrame, validateAssemblyProofPackage, assemblyPackageDigest } from '../../../../packages/engine/src/assembly/private-assembly-actors.mjs';
+import { launchAssemblyProcess } from '@lianum/proofs/execution/assembly-workers';
 import { createAssemblyNativeDispatch, assemblyFieldInventory, assemblyEvmProof, assemblyProofDigest } from '../../../../packages/engine/src/assembly/private-assembly-native-dispatch.mjs';
 import { policyCommitment } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { PrivateNoteTree, noteWordsToHash, PRIVATE_POOL_INPUT_WORDS } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
 import { discoverRecipientWithdrawal } from '../../../../packages/engine/src/recipients/private-recipient-graph.mjs';
 import { importRecipientInvoice, recipientWithdrawalInput } from '../../../../packages/engine/src/recipients/private-recipient-custody.mjs';
 
-import { sideEndpoint, startRecipient, proveRecipientWithdrawal, completeAssemblyPaidPayment } from '../../../../packages/engine/src/payments/private-payment-engine.mjs';
+import { sideEndpoint, startRecipient, proveRecipientWithdrawal, completeAssemblyPaidPayment } from '../../../../packages/backend/src/payments/private-payment-engine.mjs';
 
 const stamp = () => process.hrtime.bigint().toString();
 const sha = value => createHash('sha256').update(value).digest('hex');

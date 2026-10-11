@@ -7,8 +7,8 @@ import {randomUUID} from 'node:crypto';
 import {constants} from 'node:fs';
 import {mkdir,lstat,realpath,open} from 'node:fs/promises';
 import {join} from 'node:path';
-import {ROOT} from '../../../../proofs/src/catalog.mjs';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {createNativeLiveArmedRecoveryAuthorityV1,openNativeLiveArmedRecoveryAuthorityV1,assertNativeLiveArmedRecoveryCaptureV1,
  reopenNativeLiveArmedFromAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
@@ -84,7 +84,7 @@ export async function installOriginalNativeDeviceLiveArmedServiceV1(input,tls){
  }catch(error){const errors=[];if(transport)try{await transport.close();}catch(e){errors.push(e);}for(const bridge of [executionBridge,reservationBridge,depositBridge])try{bridge?.close();}catch(e){errors.push(e);}
   if(errors.length)throw new AggregateError([error,...errors],'NATIVE_LIVE_ARMED_INSTALL_CLEANUP_FAILED',{cause:error});throw error;}}
 export async function reopenOriginalNativeDeviceLiveArmedOperatorV1(input){
- assert.equal(arguments.length,1);const selected=normalizeOriginalNativeDeviceLocalConfigurationV1(input),product=await import('./native-device-local-operator-v1.mjs');await product.assertOriginalNativeDeviceLocalSourceReviewV1();
+ assert.equal(arguments.length,1);const selected=normalizeOriginalNativeDeviceLocalConfigurationV1(input),product=await import('./native-device-source-review-v1.mjs');await product.assertOriginalNativeDeviceLocalSourceReviewV1();
  const locator=await privateRead();exactRecord(locator,['schema','identity','checkpoint','descriptor','arm','capturedProcessId']);assert.equal(locator.schema,'ORIGINAL_NATIVE_LIVE_ARMED_CAPTURE_V1');
  exactRecord(locator.identity,['directory','runId','sourceSHA256','deadlineMs']);exactRecord(locator.checkpoint,['revision','commitment']);exactRecord(locator.arm,['parentJobId','armSHA256','settleBefore','state']);
  assert.ok(hex(locator.arm.parentJobId)&&hex(locator.arm.armSHA256)&&['ARMED','FIRING','UNKNOWN','RECOVERED'].includes(locator.arm.state));

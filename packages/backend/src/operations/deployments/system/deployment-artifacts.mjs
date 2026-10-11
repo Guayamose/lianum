@@ -3,13 +3,13 @@
  * retained files; it never starts a compiler, backend, prover, RPC or EVM. */
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { ROOT, FLAT, GOLDEN, relation } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN, relation } from '@lianum/proofs/catalog';
 import { regular, hash, resourceModuleURL, circuitIdentity, versionDirectory,
-  loadCompiled, loadPrepared } from '../../../../../proofs/src/tooling/tooling.mjs';
+  loadCompiled, loadPrepared } from '@lianum/proofs/tooling/tooling';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
-  from '../../../../../engine/src/execution/local/local-deployment.mjs';
-import { NATIVE_SOURCE_PINS } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { loadProofProfile } from '../../../../../engine/src/execution/proofs/proof-worker.mjs';
+  from '@lianum/engine/execution/local/local-deployment';
+import { NATIVE_SOURCE_PINS } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { loadProofProfile } from '@lianum/proofs/execution/proof-worker';
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from './deployment-plan.mjs';
 import { DEVELOPMENT_EVM_DIRECTORY, DEVELOPMENT_EVM_BUILD_PIN, developmentEvmBuildAvailable, readDevelopmentEvmBuild } from './development-evm-build.mjs';
 

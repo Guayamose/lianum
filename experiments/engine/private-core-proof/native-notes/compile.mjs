@@ -3,7 +3,7 @@ import {Barretenberg,BackendType} from '@aztec/bb.js';
 import{mkdirSync,readFileSync,writeFileSync}from'node:fs';
 import{fileURLToPath}from'node:url';
 import{gunzipSync}from'node:zlib';
-import{sha256}from'../../../../packages/engine/src/notes/private-note-encoding.mjs';
+import{sha256}from'@lianum/engine/notes/private-note-encoding';
 const root=fileURLToPath(new URL('.',import.meta.url));globalThis.fetch=async()=>{throw Error('PC15_NOTES_OFFLINE_COMPILE');};mkdirSync(root+'.local/compiled',{recursive:true});
 const evidence={classification:'CIRCUIT_COMPILATION_AND_STATS_NOT_PROOF',node:process.version,records:[]};const save=()=>writeFileSync(root+'../../../evidence/m15-notes-compile.json',JSON.stringify(evidence,null,2)+'\n');
 const names=process.argv.slice(2);const chosen=names.length?names:['reserve','fulfill','refund','withdraw','sol_ready','btc_ready'];

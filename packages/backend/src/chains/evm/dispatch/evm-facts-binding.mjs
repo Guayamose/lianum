@@ -2,8 +2,8 @@
  * call does not establish canonical execution, backing or reader ownership. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
-import { decodeCanonicalEvmTransaction } from '../runtime/owned-evm-v2-runtime.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeCanonicalEvmTransaction } from '../contracts/transaction-wire-codec.mjs';
 import { encodeEvmGraphDeliveryCallV1, evmGraphDeliveryDescriptorCommitmentV1, evmGraphDeliveryTermsV1 }
   from './evm-graph-delivery-codec-v1.mjs';
 

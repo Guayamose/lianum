@@ -13,8 +13,8 @@ import { createOwnedClaimObserver } from '../../../../../packages/backend/src/cl
 import { createLocalClaimOperator, createClaimOperatorQuorum } from '../../../../../packages/backend/src/claims/operations/operators.mjs';
 import { createCombinedLocalNativeOperator } from '../../../../../packages/backend/src/operations/operators/claims/combined-native-operators.mjs';
 import { createFlatOperatorQuorum } from '../../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
-import { createFlatOwnerNativeClaimObserver } from '../../../../../packages/custody/src/observers/flat-owner-native-claim-observer.mjs';
-import { createFlatOwnerProcess } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
+import { createFlatOwnerNativeClaimObserver } from '../../../../../packages/backend/src/custody/observers/flat-owner-native-claim-observer.mjs';
+import { createFlatOwnerProcess } from '../../../../../packages/backend/src/custody/processes/flat-owner-process.mjs';
 import { freshFixtureId, writeFixturePrivate } from '../../runners/owned-flat-fixture.mjs';
 
 function privateDirectory(path) {

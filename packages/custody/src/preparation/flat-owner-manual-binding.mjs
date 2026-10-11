@@ -3,8 +3,8 @@
 import assert from 'node:assert/strict';
 import { sha } from '@lianum/engine/accounts/journal';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import { validateFlatAccountPrepare } from '../../../backend/src/api/accounts/flat-account-session.mjs';
-import { validatePrivateAccountRegistry } from '../../../engine/src/accounts/private-account-state.mjs';
+import { validateFlatAccountPrepare } from '@lianum/engine/accounts/account-prepare-contract';
+import { validatePrivateAccountRegistry } from '@lianum/engine/accounts/private-account-state';
 
 export const FLAT_MANUAL_KINDS = Object.freeze(['deposit', 'withdraw_source', 'withdraw_change', 'withdraw_recovery']);
 const whole = (v, re) => typeof v === 'string' && re.exec(v)?.[0] === v;

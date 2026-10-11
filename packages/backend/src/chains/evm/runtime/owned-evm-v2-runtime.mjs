@@ -1,8 +1,13 @@
+import { buildOwnedEvmNativeSourceBackend } from '../health/owned-evm-native-value-health-source-backend-v4.mjs';
+import { OWNED_LOCAL_EVM_V2, OWNED_LOCAL_EVM_NATIVE_VALUE_V1, LOCAL_EVM_PROFILE, LOCAL_OSAKA_EVM_PROFILE_V1, LOCAL_OBSERVED_RECEIVER_PROFILE_V1, LOCAL_OBSERVED_RECEIVER_RELEASE_V1, assertLocalObservedReceiverReleaseV1 } from './local-evm-profiles.mjs';
+export { OWNED_LOCAL_EVM_V2, OWNED_LOCAL_EVM_NATIVE_VALUE_V1, LOCAL_EVM_PROFILE, LOCAL_OSAKA_EVM_PROFILE_V1, LOCAL_OBSERVED_RECEIVER_PROFILE_V1, LOCAL_OBSERVED_RECEIVER_RELEASE_V1, assertLocalObservedReceiverReleaseV1 } from './local-evm-profiles.mjs';
+import { recoverSecp256k1Sender, encodeCanonicalEvmUnsignedTransaction, decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../contracts/transaction-wire-codec.mjs';
+export { recoverSecp256k1Sender, encodeCanonicalEvmUnsignedTransaction, decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../contracts/transaction-wire-codec.mjs';
 import {startOriginalNativeSourceProcessV1} from '../../../operations/recovery/native-original-source-process-v1.mjs';
 import {consumeOriginalNativeSourceRuntimeRequestV1,originalNativeSourceRuntimeRequestIdentityV1,readOriginalNativeSourceRuntimeSeedV1,retainOriginalNativeSourceRuntimeSeedV1,resumeOriginalNativeSourceRuntimeSeedV1,originalNativeSourceRuntimeOwnedProcessV1,readOriginalNativeSourceRuntimeStateV1,attachOriginalNativeSourceRuntimeV1,beginOriginalNativeSourceMutationV1,confirmOriginalNativeSourceMutationV1,confirmOriginalNativeSourceBirthV1,updateOriginalNativeSourceSectionV1} from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
 import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,assertOwnedExternalDefiStateDumpV3,assertOwnedExternalDefiPrivateRecordV3} from './owned-external-defi-receiver-state-v3.mjs';
 import {assertOwnedEvmRecoveryStateDumpV1} from './owned-evm-recovery-state-bound-v1.mjs';
-import {createNativeEconomicObservedLocalCustodyV2,reopenNativeEconomicObservedLocalCustodyV2,createNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,checkNativeEconomicLocalCustodyV2,signNativeEconomicCustodyTransactionV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,captureNativeEconomicLocalCustodyV2,closeNativeEconomicLocalCustodyV2,NATIVE_ECONOMIC_ANVIL_PIN_V2} from './native-economic-local-custody-v2.mjs';
+import { buildNativeEconomicCustodyBackend, NATIVE_ECONOMIC_ANVIL_PIN_V2 } from './native-economic-local-custody-backend-v2.mjs';
 import { shouldUseOwnedEvmStateFileV1, writeOwnedEvmStateFileV1, writeOwnedExternalDefiStateFileV3, assertOwnedEvmStateFileV1 } from './owned-evm-state-file-v1.mjs';
 import { assertOwnedReceiverPreopenRepairV1, claimOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
 export { assertOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
@@ -13,56 +18,28 @@ import { observedNativeValueReceiverSecond } from '../../shared/health/native-va
  * fixed here. Only a newly spawned, pinned, loopback Anvil is usable.
  */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {consumeOriginalDeviceGraphSourceRequestV2,consumeOriginalDeviceGraphSourceSectionV2,originalDeviceGraphSourceSectionIdentityV2,beginOriginalDeviceGraphSourceActivityV2,endOriginalDeviceGraphSourceActivityV2} from '../../../operations/recovery/device-external-flat-original-source-v2.mjs';
 const DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2='DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2',originalDeviceGraphSourceReceiversV2=new WeakMap();
-import { createHash, ECDH } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { open, readFile, lstat } from 'node:fs/promises';
 import { assertOwnedRecoveryScratchV1, writeInitialNativeCredentialsV1, claimStoppedNativeRecoveryV1, writePrivateRuntimeRecoveryV1, readPrivateRuntimeRecoveryV1, sealStoppedNativeFilesV1, assertStoppedNativeFilesV1, cloneRuntimeRecoveryV1 } from '../../shared/runtime/owned-runtime-recovery-files-v1.mjs';
 import { consumeExternalDefiReceiverRepairV1, consumeWrappedRuntimeRecoveryV1, assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, externalDefiReceiverCaptureIdentityV2, consumeExternalDefiReceiverRuntimeSectionV2, deviceExternalFlatReceiverCaptureIdentityV1, consumeDeviceExternalFlatReceiverRuntimeSectionV1, assertNativeLiveArmedRecoveryCaptureV1, nativeLiveArmedRecoverySectionIdentityV1, consumeNativeLiveArmedRecoverySectionV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { join } from 'node:path';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { linuxRuntimePins } from '../../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { linuxRuntimePins } from '@lianum/engine/chains/shared/linux-runtime-pins';
 import {
   pinnedBinary, scratchDirectory, removeOwnScratch, unusedLoopbackPort,
   startOwnProcess, stopOwnProcess, ownedRuntimeRpc, originalOwnedRuntimeRpcFailureV1, sleep,
-} from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
+} from '@lianum/engine/chains/shared/runtime-harness';
 import { createOwnedEvmReadBatch } from './owned-evm-read-batch.mjs';
-import { POOL_GENERATION_PHASE1_RELEASE, POOL_GENERATION_PHASE2_RELEASE } from '../../../../../../tests/integration/pools/pool-generation-acceptance-policy.mjs';
-import { decodePrivateRevert } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
+import { POOL_GENERATION_PHASE1_RELEASE, POOL_GENERATION_PHASE2_RELEASE } from './pool-generation-acceptance-policy.mjs';
+import { decodePrivateRevert } from '@lianum/engine/notes/private-asset-runtime';
 import { OWNED_EVM_NATIVE_VALUE_PROFILE_V1, normalizeOwnedEvmNativeValueIntent,
   OWNED_EVM_NATIVE_VALUE_BASE_PROFILE_V1, OWNED_EVM_NATIVE_VALUE_ARBITRUM_PROFILE_V1, OWNED_EVM_NATIVE_VALUE_BNB_PROFILE_V1,
   normalizeOwnedEvmNativeValueBaseIntent, normalizeOwnedEvmNativeValueArbitrumIntent, normalizeOwnedEvmNativeValueBnbIntent,
   ownedEvmNativeValueAuditCommitments } from '../transfers/owned-evm-native-value-profile.mjs';
 
-export const OWNED_LOCAL_EVM_V2 = 'OWNED_FLAT_LOCAL_EVM_V2';
-export const OWNED_LOCAL_EVM_NATIVE_VALUE_V1 = 'OWNED_FLAT_LOCAL_EVM_NATIVE_VALUE_V1';
-export const LOCAL_EVM_PROFILE = Object.freeze({
-  name: 'PAEG_LOCAL_FAKE_CLOCK_V1', chainId: 31337, hardfork: 'cancun',
-  genesisTimestamp: 1_900_000_210, accountCount: 5, accountBalanceWei: '10000000000000000000',
-  maxGas: 30_000_000, manualMining: true, publicNetwork: false,
-});
-// New fixed development profile; historical Cancun/wire/recovery factories stay unchanged.
-export const LOCAL_OSAKA_EVM_PROFILE_V1 = Object.freeze({ ...LOCAL_EVM_PROFILE,
-  name: 'PAEG_LOCAL_OSAKA_CAPPED_GAS_V1', hardfork: 'osaka', maxGas: 16_777_216,
-  blockGas: 30_000_000, enforcedTransactionGasLimit: true,
-});
-// Additive receiver fixture, separate from every legacy immutable clock/state.
-// Actual genesis and every newly mined timestamp are sampled from host walltime;
-// this neither changes host time nor relabels Java-Tron's own block timestamps.
-export const LOCAL_OBSERVED_RECEIVER_PROFILE_V1=Object.freeze({...LOCAL_EVM_PROFILE,
-  name:'PAEG_LOCAL_OBSERVED_WALLCLOCK_RECEIVER_V1',genesisTimestamp:null,
-  clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',publicNetwork:false});
-export const LOCAL_OBSERVED_RECEIVER_RELEASE_V1=Object.freeze({format:'REVIEWED_LOCAL_OBSERVED_RECEIVER_SOURCE_V1',
-  clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',localOnly:true,publicNetwork:false,
-  acceptedRuntimeEstablished:false,privateNativeCreditEstablished:false});
-export function assertLocalObservedReceiverReleaseV1(){
- assert.equal(arguments.length,0,'LOCAL_OBSERVED_RELEASE_NO_OPTIONS');
- assert.ok(LOCAL_OBSERVED_RECEIVER_RELEASE_V1,'LOCAL_OBSERVED_RECEIVER_RELEASE_ABSENT');
- assert.deepEqual(LOCAL_OBSERVED_RECEIVER_RELEASE_V1,{format:'REVIEWED_LOCAL_OBSERVED_RECEIVER_SOURCE_V1',
-  clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',localOnly:true,publicNetwork:false,
-  acceptedRuntimeEstablished:false,privateNativeCreditEstablished:false});return true;
-}
 const observedReceiverClocks=new WeakMap();
 export async function createOwnedLocalEvmObservedClockV1(){
   assert.equal(arguments.length,0,'LOCAL_OBSERVED_CLOCK_FIXED_CONSTRUCTOR');
@@ -116,6 +93,8 @@ const LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2=Object.freeze({...LOCAL_NATIVE_VA
 nativeProcessProfiles.set(LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2,nativeProcessProfiles.get(LOCAL_NATIVE_VALUE_PROCESS_PROFILE));
 const NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2=Symbol('ORIGINAL_NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2');
 const observedEconomicCustodyRequestsV2=new WeakMap(),observedEconomicRuntimeClocksV2=new WeakMap();
+const originalEconomicCustody = buildNativeEconomicCustodyBackend(consumeNativeEconomicObservedCustodyRequestV2);
+export const { createNativeEconomicLocalCustodyV2, createNativeEconomicObservedLocalCustodyV2, assertNativeEconomicGenesisV2, reopenNativeEconomicLocalCustodyV2, reopenNativeEconomicObservedLocalCustodyV2, nativeEconomicLocalCustodyPublicV2, checkNativeEconomicLocalCustodyV2, signNativeEconomicCustodyTransactionV2, captureNativeEconomicLocalCustodyV2, prepareNativeEconomicCustodySigningV2, consumeNativeEconomicCustodySigningV2, revokeNativeEconomicCustodySigningV2, closeNativeEconomicLocalCustodyV2 } = originalEconomicCustody;
 // A separate original producer, born with retention before any economic effect.
 const NATIVE_LIVE_ARMED_OBSERVED_RUNTIME_V1=Symbol('ORIGINAL_NATIVE_LIVE_ARMED_OBSERVED_RUNTIME_V1');
 const originalLiveArmedRuntimeStatesV1=new WeakMap(),originalLiveArmedClockPairsV1=new WeakMap();
@@ -239,6 +218,22 @@ const ownedRuntimes = new WeakSet(), ownedNativeValueRuntimes = new WeakSet(), o
 const ownedRuntimeGasLimits = new WeakMap(), ownedOsakaGasProbes = new WeakMap();
 const nativeSourceOpeners = new WeakMap(), nativeRuntimeLiveness = new WeakMap(), nativeAuditStatesV4 = new WeakMap(), wrappedGraphOperationsV4 = new WeakMap();
 let nativeRuntimeSequence = 0n;
+// This closed wiring is never taken from a constructor argument or request.
+const originalNativeSources = buildOwnedEvmNativeSourceBackend(Object.freeze({
+  assertOwnedLocalEvmNativeValueRuntime,
+  openOwnedLocalEvmNativeValueSource,
+  async createOwnedEvmNativeValueHealthSource(input) {
+    const observer = await import('../health/evm-native-value-health-source-v4.mjs');
+    return observer.createOwnedEvmNativeValueHealthSource(input);
+  },
+}));
+export const {
+  consumeOwnedEvmNativeSourceRequest,
+  describeOwnedLocalEvmNativeValueSource,
+  createOwnedLocalEvmNativeValueHealthSource,
+  openOriginalOwnedRollupNativeValueSourcesV1
+} = originalNativeSources;
+
 /** One fixed negative request, exclusively on its original fresh Osaka node.
  * No options, endpoint, sender, payload or callback can be supplied. */
 export async function probeOwnedOsakaTransactionGasRejectionV1(runtime) {
@@ -385,7 +380,8 @@ export function ownedLocalEvmNativeValueRuntimeIdentity(runtime) {
 export async function openOwnedLocalEvmNativeValueSource(runtime, request) {
   assert.equal(arguments.length, 2, 'OWNED_NATIVE_SOURCE_FIXED_OPENER');
   assert.ok(ownedNativeValueFamily.has(runtime), 'OWNED_NATIVE_VALUE_ORIGINAL_RUNTIME_REQUIRED');
-  const { consumeOwnedEvmNativeSourceRequest } = await import('../health/owned-evm-native-value-health-source-v4.mjs');
+  // Preserve the original asynchronous handoff before consuming the request.
+  await Promise.resolve();
   const sourceIndex = consumeOwnedEvmNativeSourceRequest(request, runtime);
   return nativeSourceOpeners.get(runtime)(sourceIndex);
 }
@@ -414,13 +410,6 @@ function uint(value, bits = 256) {
   const n = BigInt(value); assert.ok(n >= 0n && n < (1n << BigInt(bits)), 'LOCAL_EVM_INTEGER_RANGE'); return n;
 }
 
-// Canonical legacy EIP-155 transactions. Public verification only: SEC 1
-// ECDSA public-key recovery on secp256k1, with OpenSSL point decompression.
-// No private scalar, key import, ECDSA signing or alternate signature scheme.
-const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
-const FIELD = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
-const GENERATOR = [0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798n,
-  0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8n];
 const sha = raw => createHash('sha256').update(raw).digest('hex');
 const keccak = raw => publicKeccak256(raw);
 const freeze = value => {
@@ -428,138 +417,6 @@ const freeze = value => {
   return value;
 };
 const cloned = value => freeze(structuredClone(value));
-const mod = (value, modulus) => (value % modulus + modulus) % modulus;
-function inverse(value, modulus) {
-  let [a, b, x, y] = [mod(value, modulus), modulus, 1n, 0n];
-  assert.notEqual(a, 0n, 'EVM_SIGNATURE_ZERO_INVERSE');
-  while (b) { const q = a / b; [a, b] = [b, a - q * b]; [x, y] = [y, x - q * y]; }
-  assert.equal(a, 1n, 'EVM_SIGNATURE_INVERSE'); return mod(x, modulus);
-}
-function addPoint(p, q) {
-  if (p === null) return q; if (q === null) return p;
-  if (p[0] === q[0] && mod(p[1] + q[1], FIELD) === 0n) return null;
-  const slope = p[0] === q[0] ? mod(3n * p[0] * p[0] * inverse(2n * p[1], FIELD), FIELD)
-    : mod((q[1] - p[1]) * inverse(q[0] - p[0], FIELD), FIELD);
-  const x = mod(slope * slope - p[0] - q[0], FIELD);
-  return [x, mod(slope * (p[0] - x) - p[1], FIELD)];
-}
-function multiplyPoint(p, scalar) {
-  let result = null, factor = p;
-  for (let n = scalar; n > 0n; n >>= 1n) { if (n & 1n) result = addPoint(result, factor); factor = addPoint(factor, factor); }
-  return result;
-}
-function recoverSender(hash, r, s, parity) {
-  assert.ok(r > 0n && r < ORDER && s > 0n && s <= ORDER / 2n, 'EVM_SIGNATURE_LOW_S');
-  // Ethereum's v encodes only parity (recovery x = r), not x-overflow.
-  const compressed = Buffer.from((parity ? '03' : '02') + r.toString(16).padStart(64, '0'), 'hex');
-  const point = ECDH.convertKey(compressed, 'secp256k1', undefined, undefined, 'uncompressed');
-  const R = [BigInt('0x' + point.subarray(1, 33).toString('hex')), BigInt('0x' + point.subarray(33).toString('hex'))];
-  assert.equal(multiplyPoint(R, ORDER), null, 'EVM_SIGNATURE_POINT_ORDER');
-  const z = BigInt('0x' + hash.toString('hex'));
-  const Q = multiplyPoint(addPoint(multiplyPoint(R, s), multiplyPoint(GENERATOR, mod(-z, ORDER))), inverse(r, ORDER));
-  assert.ok(Q, 'EVM_SIGNATURE_INFINITY');
-  const check = addPoint(multiplyPoint(GENERATOR, mod(z * inverse(s, ORDER), ORDER)),
-    multiplyPoint(Q, mod(r * inverse(s, ORDER), ORDER)));
-  assert.ok(check && mod(check[0], ORDER) === r, 'EVM_SIGNATURE_INVALID');
-  const uncompressed = Buffer.from('04' + Q.map(n => n.toString(16).padStart(64, '0')).join(''), 'hex');
-  assert.deepEqual(ECDH.convertKey(uncompressed, 'secp256k1', undefined, undefined, 'uncompressed'), uncompressed,
-    'EVM_SIGNATURE_PUBLIC_KEY');
-  return '0x' + keccak(uncompressed.subarray(1)).subarray(12).toString('hex');
-}
-/** Public-only recovery primitive for independent standard ECDSA test vectors.
- * Digest/r/s are exact bare 32-byte hex; parity is 0 or 1. Never signs. */
-export function recoverSecp256k1Sender({ digest, r, s, parity }) {
-  for (const value of [digest, r, s]) assert.match(value, /^[0-9a-f]{64}$/, 'EVM_SIGNATURE_HEX');
-  assert.ok(parity === 0 || parity === 1, 'EVM_SIGNATURE_PARITY');
-  return recoverSender(Buffer.from(digest, 'hex'), BigInt('0x' + r), BigInt('0x' + s), parity);
-}
-function integerBytes(number) {
-  const n = uint(number); if (n === 0n) return Buffer.alloc(0);
-  let raw = n.toString(16); if (raw.length % 2) raw = '0' + raw; return Buffer.from(raw, 'hex');
-}
-function rlpLength(length, offset) {
-  if (length < 56) return Buffer.from([offset + length]);
-  const raw = integerBytes(length); return Buffer.concat([Buffer.from([offset + 55 + raw.length]), raw]);
-}
-function encodeRlp(value) {
-  if (Array.isArray(value)) { const body = Buffer.concat(value.map(encodeRlp)); return Buffer.concat([rlpLength(body.length, 0xc0), body]); }
-  if (value.length === 1 && value[0] < 0x80) return value;
-  return Buffer.concat([rlpLength(value.length, 0x80), value]);
-}
-function decodeRlp(raw) {
-  let position = 0;
-  const read = (end, depth) => {
-    assert.ok(position < end && depth <= 1, 'EVM_RLP_STRUCTURE');
-    const first = raw[position++]; if (first < 0x80) return Buffer.from([first]);
-    const list = first >= 0xc0, offset = list ? 0xc0 : 0x80;
-    let length = first - offset;
-    if (length > 55) {
-      const lengthBytes = length - 55;
-      assert.ok(lengthBytes <= 4 && position + lengthBytes <= end && raw[position] !== 0, 'EVM_RLP_LENGTH');
-      length = Number(BigInt('0x' + raw.subarray(position, position + lengthBytes).toString('hex')));
-      position += lengthBytes; assert.ok(length >= 56, 'EVM_RLP_NONCANONICAL_LENGTH');
-    }
-    assert.ok(position + length <= end, 'EVM_RLP_TRUNCATED'); const boundary = position + length;
-    if (!list) { const body = raw.subarray(position, boundary); position = boundary;
-      assert.ok(length !== 1 || body[0] >= 0x80, 'EVM_RLP_NONCANONICAL_STRING'); return body; }
-    const values = []; while (position < boundary) values.push(read(boundary, depth + 1)); return values;
-  };
-  const decoded = read(raw.length, 0); assert.equal(position, raw.length, 'EVM_RLP_TRAILING');
-  assert.deepEqual(encodeRlp(decoded), raw, 'EVM_RLP_CANONICAL'); return decoded;
-}
-function decodeInteger(raw) {
-  assert.ok(Buffer.isBuffer(raw) && raw.length <= 32 && (raw.length === 0 || raw[0] !== 0), 'EVM_RLP_INTEGER');
-  return raw.length ? BigInt('0x' + raw.toString('hex')) : 0n;
-}
-const unsignedFields = tx => [integerBytes(tx.nonce), integerBytes(tx.gasPrice), integerBytes(tx.gas),
-  Buffer.from(tx.to?.slice(2) ?? '', 'hex'), integerBytes(tx.value), Buffer.from(tx.data.slice(2), 'hex'),
-  integerBytes(tx.chainId), Buffer.alloc(0), Buffer.alloc(0)];
-/** Pure canonical signing preimage for the exact prepared dispatch fields. */
-export function encodeCanonicalEvmUnsignedTransaction(expected) {
-  assert.ok(expected && Object.getPrototypeOf(expected) === Object.prototype, 'EVM_EXPECTED_TRANSACTION_FIELDS');
-  const names = ['chainId', 'data', 'from', 'gas', 'gasPrice', 'nonce', 'to', 'value'];
-  assert.deepEqual(Reflect.ownKeys(expected).sort(), names);
-  for (const name of names) assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(expected, name) ?? {}, 'value'),
-    'EVM_EXPECTED_TRANSACTION_FIELDS');
-  for (const name of ['chainId', 'gas', 'gasPrice', 'nonce', 'value']) {
-    const value = expected[name];
-    assert.ok(typeof value === 'string' && value.length <= 78 && /^(0|[1-9][0-9]*)$/.exec(value)?.[0] === value
-      && BigInt(value).toString() === value && BigInt(value) < 1n << 256n, 'EVM_EXPECTED_TRANSACTION_INTEGER');
-  }
-  assert.ok(BigInt(expected.chainId) > 0n && BigInt(expected.gas) > 0n, 'EVM_EXPECTED_TRANSACTION_INTEGER');
-  for (const name of ['from', 'to']) assert.ok(typeof expected[name] === 'string' && expected[name].length === 42
-    && /^0x[0-9a-f]{40}$/.exec(expected[name])?.[0] === expected[name], 'EVM_EXPECTED_TRANSACTION_ADDRESS');
-  assert.ok(typeof expected.data === 'string' && expected.data.length <= 262146
-    && /^0x(?:[0-9a-f]{2})*$/.exec(expected.data)?.[0] === expected.data, 'EVM_EXPECTED_TRANSACTION_DATA');
-  return '0x' + encodeRlp(unsignedFields(expected)).toString('hex');
-}
-/** Pure read-only canonical wire verifier, also used by receipt observers.
- * Supports only replay-protected legacy transactions with low-S signatures.
- */
-export function decodeCanonicalEvmTransaction(rawHex) {
-  assert.equal(typeof rawHex, 'string', 'EVM_WIRE_BYTES');
-  assert.ok(/^0x[0-9a-f]+$/.exec(rawHex)?.[0] === rawHex && rawHex.length % 2 === 0 && rawHex.length <= 262_146, 'EVM_WIRE_BYTES');
-  const raw = Buffer.from(rawHex.slice(2), 'hex'), values = decodeRlp(raw);
-  assert.ok(Array.isArray(values) && values.length === 9 && values.every(Buffer.isBuffer), 'EVM_LEGACY_TRANSACTION');
-  const [nonce, gasPrice, gas] = values.slice(0, 3).map(decodeInteger);
-  assert.ok(values[3].length === 0 || values[3].length === 20, 'EVM_WIRE_TARGET');
-  const value = decodeInteger(values[4]), v = decodeInteger(values[6]), r = decodeInteger(values[7]), s = decodeInteger(values[8]);
-  assert.ok(v >= 37n, 'EVM_REPLAY_PROTECTION_REQUIRED');
-  const chainId = (v - 35n) / 2n, parity = Number((v - 35n) % 2n);
-  const tx = { chainId: chainId.toString(), nonce: nonce.toString(), gasPrice: gasPrice.toString(), gas: gas.toString(),
-    to: values[3].length ? '0x' + values[3].toString('hex') : null, value: value.toString(), data: '0x' + values[5].toString('hex') };
-  const unsignedWire = '0x' + encodeRlp(unsignedFields(tx)).toString('hex');
-  const from = recoverSender(keccak(Buffer.from(unsignedWire.slice(2), 'hex')), r, s, parity);
-  return freeze({ ...tx, from, unsignedWire, nativeId: '0x' + keccak(raw).toString('hex'),
-    transactionSHA256: sha(raw), nativeWire: rawHex });
-}
-export function assertSignedEvmTransaction(rawHex, expected) {
-  const signed = decodeCanonicalEvmTransaction(rawHex);
-  assert.deepEqual(Object.keys(expected).sort(), ['chainId', 'data', 'from', 'gas', 'gasPrice', 'nonce', 'to', 'value'].sort(),
-    'EVM_EXPECTED_TRANSACTION_FIELDS');
-  for (const [name, value] of Object.entries(expected)) assert.equal(signed[name], value, 'EVM_SIGNED_' + name.toUpperCase());
-  return signed;
-}
 
 export async function assertOwnedLocalEvmV2(runtime) {
   assert.ok(ownedRuntimes.has(runtime), 'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED');
@@ -675,7 +532,7 @@ export async function abortOwnedDeviceExternalFlatReceiverCaptureV1(runtime,toke
   return originalDeviceExternalFlatReceiverCapturesV1.get(runtime).abort(token);
 }
 export function isOwnedNativeEconomicRuntimeV2(runtime){assert.equal(arguments.length,1);return originalEconomicV2Runtimes.has(runtime);}
-async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance = false, recovery = null, recoveryAdmitted = false, preopenRepair = null, sourceRequest = null) {
+async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptance = false, recovery = null, recoveryAdmitted = false, preopenRepair = null, sourceRequest = null) {
   assert.ok(!poolGenerationAcceptance || processProfile === LOCAL_EVM_PROFILE, 'POOL_GENERATION_NATIVE_PROFILE_INCOMPATIBLE');
   const nativeDescriptor = nativeProcessProfiles.get(processProfile);
   const externalDefiV3=recoveryAdmitted===EXTERNAL_DEFI_RECEIVER_RUNTIME_V3;
@@ -1286,8 +1143,8 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
       // It completes before preparation; no import/RPC is inserted after the
       // final beforeSign check and the actual sign-only RPC.
       const { assertOwnedEvmDispatchRequest } = await import('../dispatch/evm-dispatch-gate.mjs');
-      const { isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest } = await import('../../../claims/protocol/evm-dispatch-gate.mjs');
-      const { isOwnedClaimEvmDispatchRequest: isWrapped, assertOwnedClaimEvmDispatchRequest: openWrapped } = await import('../../../claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs');
+      const { isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest } = await import('../../../claims/controller/controller.mjs');
+      const { isOwnedClaimEvmDispatchRequest: isWrapped, assertOwnedClaimEvmDispatchRequest: openWrapped } = await import('../../../claims/wrapped/controller/wrapped-controller-v1.mjs');
       if (observedClaim) assert.ok(isOwnedClaimEvmDispatchRequest(scopedRequest),
         'LOCAL_OBSERVED_RECEIVER_ORIGINAL_CLAIM_REQUIRED');
       const claimV4 = isOwnedClaimEvmDispatchRequest(scopedRequest) || isWrapped(scopedRequest);
@@ -1328,7 +1185,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
           assert.ok(estimate > 0n && estimate <= BigInt(tx.gas), 'EVM_DISPATCH_GAS_ESTIMATE');
           const prepared = cloned({ genesis: genesisHash,
             head: { number: head.number, hash: head.hash, timestamp: head.timestamp }, transaction: txExact,
-            unsignedWire: '0x' + encodeRlp(unsignedFields(txExact)).toString('hex'),
+            unsignedWire: encodeCanonicalEvmUnsignedTransaction(txExact),
             funds: { balanceWei: balanceWei.toString(), estimatedGas: estimate.toString(),
               targetCodeHash: '0x' + keccak(Buffer.from(targetCode.slice(2), 'hex')).toString('hex') } });
           entry = { label: 'gated EVM vault delivery', request: tx, senderNonce: pending,
@@ -1416,7 +1273,7 @@ async function createFixedOwnedLocalEvm(processProfile, poolGenerationAcceptance
         const balanceWei=BigInt(await rpc('eth_getBalance',[tx.from,head.number])),recipientBalance=BigInt(await rpc('eth_getBalance',[tx.to,head.number]));assert.ok(balanceWei>=BigInt(tx.value)+BigInt(tx.gas)*gasPrice);
         const txExact={chainId:scope.chainId,from:tx.from,to:tx.to,nonce:BigInt(pending).toString(),gasPrice:gasPrice.toString(),gas:BigInt(tx.gas).toString(),value:BigInt(tx.value).toString(),data:tx.data};const signingRequest=Object.freeze({...tx,nonce:pending,chainId:hex(processProfile.chainId),gasPrice:hex(gasPrice),type:'0x0'});
         const estimate=BigInt(await rpc('eth_estimateGas',[signingRequest,head.number]));assert.ok(estimate>0n&&estimate<=BigInt(tx.gas));
-        const prepared=cloned({genesis:genesisHash,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},transaction:txExact,unsignedWire:'0x'+encodeRlp(unsignedFields(txExact)).toString('hex'),funds:{balanceWei:balanceWei.toString(),recipientBalanceWei:recipientBalance.toString(),estimatedGas:estimate.toString(),targetCodeHash:'0x'+keccak(Buffer.alloc(0)).toString('hex')}});
+        const prepared=cloned({genesis:genesisHash,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},transaction:txExact,unsignedWire:encodeCanonicalEvmUnsignedTransaction(txExact),funds:{balanceWei:balanceWei.toString(),recipientBalanceWei:recipientBalance.toString(),estimatedGas:estimate.toString(),targetCodeHash:'0x'+keccak(Buffer.alloc(0)).toString('hex')}});
         entry={label:'original Paged LOCAL_SYNTHETIC native delivery V3',request:tx,senderNonce:pending,prepared,phase:'prepared-before-final-guard'};transactions.push(entry);
         const authority=await scope.beforeSign(prepared),auditStart=performance.now();assert.deepEqual(await block(),head);for(const tag of ['latest','pending'])assert.equal(await rpc('eth_getTransactionCount',[tx.from,tag]),pending);assert.equal(await rpc('eth_getCode',[tx.to,'latest']),targetCode);assert.equal(BigInt(await rpc('eth_getBalance',[tx.from,'latest'])),balanceWei);assert.equal(BigInt(await rpc('eth_getBalance',[tx.to,'latest'])),recipientBalance);assert.equal(BigInt(await rpc('eth_estimateGas',[signingRequest,'latest'])),estimate);assert.deepEqual(await block(),head);
         await scope.finalCurrent(authority,prepared);scope.consumeBeforeKey(authority,prepared);assert.ok(performance.now()-auditStart<30000,'PAGED_NATIVE_AUDIT_TOO_OLD');assertAlive();keyUsePossible=true;entry.phase='signing-outcome-unknown';

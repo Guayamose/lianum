@@ -1,4 +1,4 @@
-import {sha as canonicalJournalSHA} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import {sha as canonicalJournalSHA} from '@lianum/engine/accounts/journal';
 /** Actual affected path: one private underlying reservation pays a solver only after
  * its gated official action backs the preauthorized private output note.
  * This uses one owned local EVM and the original four-slot generic protocol.
@@ -9,14 +9,14 @@ import { readFileSync, realpathSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {ownedEvmRecoveryStateBoundFailureV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-recovery-state-bound-v1.mjs';
-import { createFlatManualGraphAccountSession } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
-import { createNativeRecipientProcess } from '../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { createProofProcess } from '../../../../packages/engine/src/execution/proofs/proof-process.mjs';
-import { walletInputPublicWords } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { noteWordsToHash } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
-import { nativeStaticCalldata } from '../../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
-import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { createFlatManualGraphAccountSession } from '@lianum/backend/accounts/manual-graph';
+import { createNativeRecipientProcess } from '../../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs';
+import { createProofProcess } from '@lianum/proofs/execution/proof-process';
+import { walletInputPublicWords } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { noteWordsToHash } from '@lianum/engine/notes/private-note-tree';
+import { nativeStaticCalldata } from '../../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { hash } from '@lianum/proofs/tooling/tooling';
 import { createOwnedEvmVaultFixture, createOwnedRetainedMetaMorphoVaultFixtureV1, createOwnedRetainedAaveVaultFixtureV1, prepareEvmVaultFixtureGraph } from '../../fixtures/chains/evm/owned-evm-vault-fixture.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { evmVaultSourcePins } from '../../runners/source-pins.mjs';
@@ -29,13 +29,13 @@ import { encodeFlatTransaction } from '../../../../packages/backend/src/executio
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
 import {assertOwnedFlatJournalCatalogueAccount} from '../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
-import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
+import { startFlatAccountHttp } from '@lianum/backend/accounts/http';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
 import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
 import { createManualWalletAppDriver } from '../../wallet/manual/manual-wallet-app-driver.mjs';
 import { createOwnedMetaMorphoVault, createOwnedAaveStaticVaultV1, assertOwnedMetaMorphoReceipt } from '../../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
 import { createPrivateVaultPortfolioView } from '../../../../packages/backend/src/defi/vaults/private-vault-position.mjs';
-import { createOwnedPrivateVaultExit } from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
+import { createOwnedPrivateVaultExit } from '@lianum/backend/defi/withdrawal';
 
 import {createRetainedMetaMorphoNoteExitWalletV1,createRetainedAaveNoteExitWalletV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-source-pins-v1.mjs';

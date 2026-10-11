@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import vm from 'node:vm';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 const text = readFileSync(join(ROOT, 'integration/native-flow-supervisor.mjs'), 'utf8');
 const start = text.indexOf('async function consumePairedNativeNoteStartPipeV2() {');
 const end = text.indexOf('export async function runDevelopmentOsakaSmokeSupervisor()', start);

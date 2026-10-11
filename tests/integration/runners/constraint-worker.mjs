@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, LOCAL, LIMITS, relation } from '../../../packages/proofs/src/catalog.mjs';
+import { ROOT, LOCAL, LIMITS, relation } from '@lianum/proofs/catalog';
 import { assertID, regular, hash, replaceJSON, loadPinned, resourceModuleURL,
-  circuitIdentity, versionDirectory, loadCompiled, compiledPins } from '../../../packages/proofs/src/tooling/tooling.mjs';
-import { validateJobAgainstABI } from '../../../packages/proofs/src/jobs/trusted-jobs.mjs';
-import { encodeStatement, FIELD_MODULUS } from '../../../packages/backend/src/execution/encoding/statements.mjs';
+  circuitIdentity, versionDirectory, loadCompiled, compiledPins } from '@lianum/proofs/tooling/tooling';
+import { validateJobAgainstABI } from '@lianum/proofs/jobs/trusted-jobs';
+import { encodeStatement, FIELD_MODULUS } from '@lianum/components/encoding/statements';
 import { integrationSourcePins } from './source-pins.mjs';
 
 export async function runConstraintWorker({ suite, relationNames, buildCases }) {

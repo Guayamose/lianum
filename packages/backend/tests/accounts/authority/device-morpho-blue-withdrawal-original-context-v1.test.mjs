@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {types} from 'node:util';
-import {externalFlatExactV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatExactV1} from '@lianum/mobile-protocol/device/source-note-v1';
 const source=readFileSync(new URL('../../../src/accounts/authority/device-external-flat-note-authority-v1.mjs',import.meta.url),'utf8');
 const start=source.indexOf('const blueWithdrawal=raw=>run(async()=>{'),end=source.indexOf('\n const shareCapability=',start);
 assert(start>=0&&end>start);
@@ -32,7 +32,7 @@ test('Meta device underlying redemption journals before the effect and reopens o
  // Actual exit body, protocol/PoP and AES storage; runtime/adapter/lifetime
  // ports are inert and issue no native or financial authority in this HOST.
  const {mkdtemp,chmod,rm}=await import('node:fs/promises'),{tmpdir}=await import('node:os'),{join,dirname}=await import('node:path'),{randomBytes,createHash,createPublicKey,generateKeyPairSync,sign,verify}=await import('node:crypto');
- const {Vault}=await import('../../../../engine/src/crypto/vault.mjs'),P=await import('../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs');
+ const {Vault}=await import('@lianum/engine/crypto/vault'),P=await import('@lianum/mobile-protocol/device-morpho-blue-redemption-v1');
  const scratch=await mkdtemp(join(tmpdir(),'meta-underlying-host-'));t.after(()=>rm(scratch,{recursive:true,force:true}));
  const {privateKey,publicKey}=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),jwk=publicKey.export({format:'jwk'}),pub='04'+Buffer.from(jwk.x,'base64url').toString('hex')+Buffer.from(jwk.y,'base64url').toString('hex'),hex=n=>n.toString(16).padStart(64,'0'),addr=n=>n.toString(16).padStart(40,'0');
  const descriptor={profile:'LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1',origin:'https://original.local:9557',pairingId:hex(1),devicePublicKey:pub,lifetime:hex(2),poolTerms:{pool:addr(1),poolCodeHash:hex(3),scope:hex(4),policy:hex(5),assetIdentity:hex(6),asset:addr(2),assetCodeHash:hex(7),genesis:hex(8),domainCommitment:hex(9),hub:addr(3),hubCodeHash:hex(10),hubDomain:hex(11),ledgerNamespace:hex(12)},assetMetadata:{kind:'ERC20',symbol:'MMV',decimals:6}},runtime={metadata:{scratchDirectory:scratch}},system={},account={},protocols={vault:{address:'0x'+addr(2)}},binding={sender:addr(4),receiver:addr(4),identity:{asset:addr(5)}},requests=new WeakMap(),owned=new WeakMap(),fresh=()=>randomBytes(32).toString('hex'),observed={blockNumber:'20',blockHash:hex(20),timestamp:'1000'},jobId=hex(22);

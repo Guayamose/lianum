@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
-import { CLAIM_ACTIONS as A } from '../../../src/claims/authorization/permits.mjs';
+import { CLAIM_ACTIONS as A } from '@lianum/engine/claims/permits';
 import { cloneInput as copy, frozenInput as freeze } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
 
 const claimSource = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');

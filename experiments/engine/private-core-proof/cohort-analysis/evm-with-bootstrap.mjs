@@ -8,7 +8,7 @@
  * Compiler/source pin provenance and capture completeness remain adapter duties.
  */
 import { createHash } from 'node:crypto';
-import { PrivateNoteTree, noteWordsToHash, derivePrivatePoolScope, privateSpentDigest, ZERO_NOTE_HASH, assertPrivateNoteHeadroom } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
+import { PrivateNoteTree, noteWordsToHash, derivePrivatePoolScope, privateSpentDigest, ZERO_NOTE_HASH, assertPrivateNoteHeadroom } from '@lianum/engine/notes/private-note-tree';
 
 export const PUBLIC_COHORT_EVM_SOURCE_SHA256 = '4f180ee3ab38e59790c6e0229bd1086d0b8c17f917d9bbef9fabefb5f1a133e3';
 // Keccak-256 of exact Solidity signatures, not FIPS SHA3. These are checked

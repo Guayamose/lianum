@@ -19,6 +19,7 @@
     "../../packages/mobile-protocol/src/authorization.mjs",
     "../../packages/mobile-protocol/src/original-account-review-contract-v2.mjs",
     "../../packages/mobile-protocol/src/original-account-private-state-v1.mjs",
+    "../../packages/components/src/file-integrity.mjs",
     "../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
     "../../packages/mobile-protocol/src/device-execution-consent-v1.mjs",
     "../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs",

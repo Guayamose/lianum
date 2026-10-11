@@ -6,10 +6,10 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
-import { createProofProcess } from '../../../../engine/src/execution/proofs/proof-process.mjs';
-import { reserveProjection } from '../../../../engine/src/execution/local/local-ledger.mjs';
+import { createProofProcess } from '@lianum/proofs/execution/proof-process';
+import { reserveProjection } from '@lianum/engine/execution/local/local-ledger';
 import { genericAccountIdentity, validateGenericAccountConfig, validateBoundRequest, validateOutcome, immutable, copy, sha }
   from '@lianum/engine/accounts/journal';
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
@@ -17,19 +17,19 @@ import { createFlatSystemStateReader } from '../../execution/account/reconciliat
 import { assertOwnedPoolAsset } from '../../chains/shared/contracts/owned-pool-asset.mjs';
 import { assertOwnedFlatNativeExecution, ownedFlatManualEvmGraphReview } from '../../execution/account/execution/flat-native-execution.mjs';
 import { createFlatTerminalObserver, decodeFlatTerminalCalldata } from '../../execution/account/reconciliation/flat-terminal-observer.mjs';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { decodeStatement } from '../../execution/encoding/statements.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeStatement } from '@lianum/components/encoding/statements';
 import { reservationWitness } from '../../execution/account/preparation/funding-inputs.mjs';
 import { encodeFlatTransaction } from '../../execution/encoding/transaction-codec.mjs';
 import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
-import { assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
-import { createFlatOwnerObserver, assertOwnedFlatOwnerObserver } from '../../../../custody/src/observers/flat-owner-observer.mjs';
-import { createFlatProofRunner, withFlatHash } from '../../../../proofs/src/tooling/scoped-proof-tools.mjs';
+import { assertOwnedFlatOwnerProcess } from '../../custody/processes/flat-owner-process.mjs';
+import { createFlatOwnerObserver, assertOwnedFlatOwnerObserver } from '../../custody/observers/flat-owner-observer.mjs';
+import { createFlatProofRunner, withFlatHash } from '@lianum/proofs/tooling/scoped-proof-tools';
 import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash, validateFlatAccountOwnerObservation, validateFlatManualGraphAdmissionTime }
   from './flat-account-validation.mjs';
 
 import { validateFlatManualReview, validateFlatManualRecords, validateFlatManualReauthorization,
-  currentFlatManualAuthorization } from '../../../../custody/src/preparation/flat-owner-manual-binding.mjs';
+  currentFlatManualAuthorization } from '@lianum/custody/preparation/flat-owner-manual-binding';
 import { assertOwnedFlatManualAccountKeeper } from '../storage/flat-manual-account-keeper.mjs';
 import { assertOwnedFlatManualPortfolioKeeper, assertRetainedFlatManualPortfolioKeeperIdentityV1 } from '../portfolio/flat-manual-portfolio-keeper.mjs';
 import { assertOwnedFlatPortfolioAccount } from './flat-portfolio-authority.mjs';
@@ -963,7 +963,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
       async createManualPreparation() {
         assert.equal(arguments.length, 0); assertOwnedFlatAccountAuthority(capability, { runtime, system, poolIndex, owner });
         if (!manualPreparation) {
-          const construction = import('../../../../custody/src/preparation/flat-owner-manual-preparation.mjs')
+          const construction = import('../../custody/preparation/flat-owner-manual-preparation.mjs')
             .then(module => module.createFlatOwnerManualPreparation({ runtime, system, poolIndex, owner, account: capability }));
           manualPreparation = construction;
           construction.catch(() => { if (manualPreparation === construction) manualPreparation = null; });
@@ -972,7 +972,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
       },
       async restoreManualPreparation() {
         assert.equal(arguments.length, 0); assertOwnedFlatAccountAuthority(capability, { runtime, system, poolIndex, owner });
-        const module = await import('../../../../custody/src/preparation/flat-owner-manual-preparation.mjs');
+        const module = await import('../../custody/preparation/flat-owner-manual-preparation.mjs');
         return module.restoreFlatOwnerManualPreparation({ runtime, system, poolIndex, owner, account: capability });
       },
       // Original registration observation only; no witness, write, retry,

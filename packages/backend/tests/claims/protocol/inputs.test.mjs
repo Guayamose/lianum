@@ -3,20 +3,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createECDH, createPrivateKey, sign } from 'node:crypto';
-import { buildClaimIngressInputs, buildClaimDischargeInputs } from '../../../src/claims/protocol/inputs.mjs';
+import { buildClaimIngressInputs, buildClaimDischargeInputs } from '@lianum/engine/claims/inputs';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimReceiptSecret, claimRefundSalt,
   claimDestinationCommitment, claimIngressReceiptCommitment, claimTicketId, claimTicketSecret,
   claimTicketCommitment, nativeClaimEndpointCommitment, decodeClaimIngressInputs, decodeClaimDischargeInputs }
-  from '../../../src/claims/protocol/framing.mjs';
-import { createCommitmentCodec, ZERO } from '../../../src/execution/encoding/commitments.mjs';
-import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  from '@lianum/engine/claims/framing';
+import { createCommitmentCodec, ZERO } from '@lianum/components/encoding/commitments';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { nativeAdmissionRuleRoot, nativeAdmissionChainDomain }
-  from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment }
-  from '../../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 import { FACTS_SCHEMA, nativeFactIdentity, nativeRuleCommitment, nativeCustodyCommitment,
   nativeObservedEffectCommitment, receiptKeyCommitment, encodeNativeFacts, nativeFactsDigest,
-  nativeAdmissionNullifier } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 
 const h = label => createHash('sha256').update('SYNTHETIC-NATIVE-CLAIMS/' + label).digest('hex');
 const hashFields = async fields => '00' + h(fields.map(String).join(':')).slice(2);
@@ -235,7 +235,7 @@ test('device-root CI51 public preparation matches original signed facts without 
  // owner module would load an unrelated compiler/layout at module startup.
  // Every framing/quorum dependency below is the real original implementation.
  const {readFile}=await import('node:fs/promises'),source=await readFile(new URL(import.meta.resolve('../../../src/claims/controller/controller-retained-state.mjs')),'utf8');
- const C=await import('../../../src/execution/encoding/commitments.mjs'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),F=await import('../../../src/claims/protocol/framing.mjs'),N=await import('../../../src/chains/shared/dispatch/native-receipt-binding.mjs'),A=await import('../../../../engine/src/execution/native/dispatch/native-admission.mjs'),Q=await import('../../../../engine/src/evidence/native-quorum.mjs');
+ const C=await import('@lianum/components/encoding/commitments'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),F=await import('@lianum/engine/claims/framing'),N=await import('@lianum/engine/native/native-receipt-binding'),A=await import('@lianum/engine/execution/native/dispatch/native-admission'),Q=await import('@lianum/engine/evidence/native-quorum');
  const ports={assert,...C,...R,...F,...N,...A,...Q},start=source.indexOf('const ROOT_CLAIM_COMMON_FIELDS='),body=source.slice(start).replace('export async function buildDeviceRootClaimIngressPublicV2','async function buildDeviceRootClaimIngressPublicV2');assert.ok(start>0);
  const buildDeviceRootClaimIngressPublicV2=Function(...Object.keys(ports),body+'\nreturn buildDeviceRootClaimIngressPublicV2;')(...Object.values(ports));
  const raw=await fixture(),original=await buildClaimIngressInputs(raw,{hashFields});
@@ -257,7 +257,7 @@ test('HOST device-root original replacement observes SAME source, missing D27 bi
  const generatedController=new URL('./controller.mjs',import.meta.url),controllerSource=existsSync(generatedController)?generatedController:new URL(import.meta.resolve('../../../src/claims/controller/controller.mjs'));
  const text=await readFile(controllerSource,'utf8');
  const start=text.indexOf('/** Private observation facade.');assert.ok(start>0);const body=text.slice(start).replace('export function retainOriginalDeviceRootClaimObservationV3','function retainOriginalDeviceRootClaimObservationV3').replace('export async function reopenOriginalDeviceRootClaimObservationV3','async function reopenOriginalDeviceRootClaimObservationV3');
- const DeviceClaim=await import('../../../../mobile-protocol/src/native-claim-device-v1.mjs'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),C=await import('../../../src/execution/encoding/commitments.mjs'),N=await import('../../../../engine/src/notes/private-note-tree.mjs'),crypto=await import('node:crypto');
+ const DeviceClaim=await import('@lianum/mobile-protocol/device/native-claim-v1'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),C=await import('@lianum/components/encoding/commitments'),N=await import('@lianum/engine/notes/private-note-tree'),crypto=await import('node:crypto');
  const maps={controllers:new WeakMap(),deviceRootClaimIntakes:new WeakMap(),deviceRootClaimObservationRestartsV3:new WeakMap()},ports={assert,randomBytes:crypto.randomBytes,createPublicKey:crypto.createPublicKey,verify:crypto.verify,...R,copy:R.cloneInput,freeze:R.frozenInput,...C,...N,DeviceClaim,...maps,performance};
  const {reopen}=Function(...Object.keys(ports),body+'\nreturn {reopen:reopenOriginalDeviceRootClaimObservationV3};')(...Object.values(ports));
  const signer=fixtureSigner(9),descriptor=DeviceClaim.normalizeDeviceRootClaimDescriptorV2({profile:DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2,claim:{version:1,profile:DeviceClaim.NATIVE_CLAIM_DEVICE_PAIRING_V1,origin:'https://127.0.0.1:2443',pairingId:h('root-pair'),devicePublicKey:'04'+signer.publicKey.x+signer.publicKey.y,accountScopeSHA256:h('scope'),lifetimeSHA256:h('lifetime'),claimDomain:h('domain'),nativeFamily:'1',nativeGenesis:h('genesis'),nativeAsset:h('native'),wrapperAssetIdentity:h('wrapper'),nativeSymbol:'BTC',claimSymbol:'cBTC',decimals:8,atomicUnit:'satoshi',nativeAssetKind:null,mint:null},pool:'11'.repeat(20),scope:'12'.repeat(32),policy:'13'.repeat(32),recipient:'14'.repeat(20),noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM'});
@@ -325,7 +325,7 @@ test('HOST RootNote original CI51 selects recent-blockhash ingress before birth 
  // Keep the original bootstrap refusal for every nonce ingress unchanged.
  const bStart=bootstrapText.indexOf('  if (ingressV3&&!spl)'),bEnd=bootstrapText.indexOf('  assert.ok(!nativeRuntimes.every',bStart);
  const endGuard=bEnd<0?bootstrapText.indexOf('  assert.ok(nativeRuntimes.every',bStart):bEnd;assert.ok(bStart>0&&endGuard>bStart);
- const C=await import('../../../src/execution/encoding/commitments.mjs'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs');
+ const C=await import('@lianum/components/encoding/commitments'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs');
  const bootstrapGuard=Function('assert','exactRecord','SOLANA_NONCE_INGRESS_PROFILE','NATIVE_INGRESS_V3_PROFILE','nativeRuntimes','ingressV3','spl',bootstrapText.slice(bStart,endGuard));
  const propertyStart=runtimeText.indexOf('...(custody ? { roles, inventory, syntheticPrefunding,'),propertyEnd=runtimeText.indexOf(' : {',runtimeText.indexOf('payoutFinalSendProfile: SOLANA_PAYOUT_FINAL_SEND_PROFILE',propertyStart));assert.ok(propertyStart>0&&propertyEnd>propertyStart);
  const objectBody=runtimeText.slice(propertyStart+'...(custody ? '.length,propertyEnd);
@@ -422,9 +422,9 @@ test('HOST RootNote SPL SOURCE consumer fixes original birth before FUND and los
   if(name==='node:fs/promises')return fs;if(name==='node:path')return path;if(name==='node:crypto')return crypto;if(name==='node:util')return util;
   if(name==='../../claims/storage/vault-session.mjs')return{createClaimVaultSession};
   if(name==='../../providers/native-provider.mjs')return{assertOwnedFlatNativeProvider:(provider,expected)=>{assert.equal(provider,f.provider);for(const[k,v]of Object.entries(expected))assert.equal(v,f.expected[k]);}};
-  if(name==='../../../../custody/src/observers/flat-owner-native-claim-observer.mjs')return{createFlatOwnerNativeClaimObserver:async input=>{assert.equal(input.runtime,f.runtime);assert.equal(input.claims,f.claims);assert.equal(f.funds,0);return Object.freeze({profile:'HOST_INERT_OBSERVER'});}};
-  if(name==='../../../../custody/src/processes/flat-owner-process.mjs')return{createFlatOwnerProcess:async input=>{assert.equal(input.runtime,f.runtime);assert.equal(input.system,f.system);assert.equal(input.poolIndex,0);assert.equal(f.funds,0);f.births.push('owner');return f.owner;}};
-  if(name==='../../../../engine/src/execution/native/recipients/native-recipient-process.mjs')return{createNativeRecipientProcess:async boot=>{assert.equal(f.funds,0);assert.equal(boot.expectedTerms.value,'20000');assert.equal(boot.expectedTerms.actionTemplate.amount,'10000000');f.births.push('recipient');return f.recipient;}};
+  if(name==='../../../src/custody/observers/flat-owner-native-claim-observer.mjs')return{createFlatOwnerNativeClaimObserver:async input=>{assert.equal(input.runtime,f.runtime);assert.equal(input.claims,f.claims);assert.equal(f.funds,0);return Object.freeze({profile:'HOST_INERT_OBSERVER'});}};
+  if(name==='../../../src/custody/processes/flat-owner-process.mjs')return{createFlatOwnerProcess:async input=>{assert.equal(input.runtime,f.runtime);assert.equal(input.system,f.system);assert.equal(input.poolIndex,0);assert.equal(f.funds,0);f.births.push('owner');return f.owner;}};
+  if(name==='../../../src/execution/native/recipients/native-recipient-process.mjs')return{createNativeRecipientProcess:async boot=>{assert.equal(f.funds,0);assert.equal(boot.expectedTerms.value,'20000');assert.equal(boot.expectedTerms.actionTemplate.amount,'10000000');f.births.push('recipient');return f.recipient;}};
   if(name==='../../execution/account/execution/flat-native-execution.mjs')return{createFlatNativeExecution:async(input,callbacks)=>{assert.equal(f.funds,0);assert.equal(input.quorum,f.quorum);f.births.push('execution');f.execCallbacks=callbacks;return f.execution;}};
   if(name==='../../accounts/authority/flat-account-authority.mjs')return{createFlatAccountAuthority:async(input,callbacks)=>{assert.equal(f.funds,0);assert.equal(input.owner,f.owner);assert.equal(input.nativeExecution,f.execution);f.births.push('account');f.accountCallbacks=callbacks;return f.account;}};
   if(name==='../../../../engine/src/execution/accounts/generic-account-keeper.mjs')return{createGenericAccountKeeper:async input=>{assert.equal(f.funds,0);assert.equal(input.config,f.account.config);assert.equal(input.authority,f.account.authority);f.births.push('keeper');return f.accountKeeper;}};

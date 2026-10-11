@@ -3,18 +3,18 @@
  * Prospective incoming credit is authorization arithmetic, never backing.
  */
 import assert from 'node:assert/strict';
-import { exactRecord, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, ZERO } from '@lianum/components/encoding/commitments';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { ownedCustodyRoute, assertOwnedCustodyIntent, auditOwnedSolanaNonceInfrastructure,
   ownedCustodyFeeAudit } from '../../chains/shared/runtime/owned-native-custody.mjs';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction }
   from '../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { receiptKeyCommitment, nativeFactIdentity, nativeAdmissionNullifier }
-  from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 import { claimUint, claimDomainCommitment, claimIntentId, claimVerifierSetCommitment }
-  from '../protocol/framing.mjs';
+  from '@lianum/engine/claims/framing';
 import { claimFrame, claimHash, claimUnsignedWireCommitment, claimSignedWireCommitment }
-  from '../authorization/permits.mjs';
+  from '@lianum/engine/claims/permits';
 import { auditClaimNativeInventoryBase as auditClaimNativeInventory, auditClaimGateway, assertClaimHealthState }
   from '../operations/claim-backing-arithmetic.mjs';
 

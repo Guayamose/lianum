@@ -29,7 +29,7 @@ const relative=mapped?{
  provider:'../../../../src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs',system:'../../../../src/operations/deployments/native-value/native-value-system-v2.mjs',
  quorum:'../../../../src/operations/operators/native-value/native-value-operators-v4.mjs',bootstrap:'../../../../src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs',
  runtime:'../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',reader:'../../../../src/execution/native-value/reconciliation/native-value-system-state-v2.mjs',
- recipient:'../../../../../engine/src/execution/native/recipients/native-recipient-process.mjs',binding:'../../../../src/chains/shared/dispatch/native-value-dispatch-binding-v2.mjs',
+ recipient:'../../../../src/execution/native/recipients/native-recipient-process.mjs',binding:'../../../../src/chains/shared/dispatch/native-value-dispatch-binding-v2.mjs',
  journal:'../../../../src/chains/shared/dispatch/native-value-dispatch-journal-v2.mjs',gate:'../../../../src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs',
  profile:'../../../../src/chains/evm/transfers/evm-native-value-v2.mjs',authority:'../../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',
  admission:'../../../../../engine/src/execution/native/dispatch/native-admission.mjs',

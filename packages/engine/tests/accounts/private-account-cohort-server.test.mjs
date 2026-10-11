@@ -5,7 +5,7 @@ import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {startLocalServer} from '../../src/api/server.mjs';
+import {startLocalServer} from '../../../backend/src/api/private-runtime-server.mjs';
 const profile = 'PC26_SHARED_ASSET_ACCOUNTS_V1', assetId = 'a'.repeat(64);
 function mockService() {
   let state, callback, effects = 0, creates = 0, release, held;

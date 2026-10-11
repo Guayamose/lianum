@@ -1,4 +1,4 @@
-import { inspectWrappedInstallationSourcesV2, assertWrappedProofHostRowsV2 } from '../../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { inspectWrappedInstallationSourcesV2, assertWrappedProofHostRowsV2 } from '@lianum/components/verification/wrapped-installation';
 /** Fixed read-only future wrapped proof owner. No graph-only release/import,
  * caller paths, registry, backend, compiler, transport, keys or fallback.
  * The genuine literal review and pins remain null. Nothing heavy happens on
@@ -11,20 +11,20 @@ import { loadWrappedRetainedCO42OriginV1 } from './wrapped-claim-retained-co-ori
 import { WRAPPED_CLAIM_STAGE_HISTORY_V2, validateWrappedStageProvenanceV3, assertWrappedRetainedStageV2, assertWrappedStageRuntimeV2, assertWrappedOriginalStageReportsV2, assertWrappedConstraintInputJoinV2, wrappedStatisticsOriginPinsV2, assertWrappedPreparationInputsV2 } from './wrapped-claim-stage-provenance-v2.mjs';
 import { join, resolve, relative, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, FLAT, GOLDEN, SETTINGS, NOIR_VERSION, LIMITS, PROFILE } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN, SETTINGS, NOIR_VERSION, LIMITS, PROFILE } from '@lianum/proofs/catalog';
 import { regular, hash, verifyAPI, verifyVendor, assertStats, assertKeyBytes, resourceModuleURL }
-  from '../../../../../proofs/src/tooling/tooling.mjs';
+  from '@lianum/proofs/tooling/tooling';
 import { wrappedClaimRelationV1, validateWrappedClaimABIV1, wrappedClaimPublicWordsV1,
-  WRAPPED_CLAIM_PROFILE_V1 } from '../../../../../proofs/src/wrapped-claims/metadata/wrapped-claim-profile-v1.mjs';
+  WRAPPED_CLAIM_PROFILE_V1 } from '@lianum/proofs/wrapped-claims/metadata/wrapped-claim-profile-v1';
 import { WRAPPED_CLAIM_PROOF_PIN_SET_V1, WRAPPED_CLAIM_PROOF_PIN_SCHEMA_V3,
   WRAPPED_CLAIM_PROOF_RELEASE_SCHEMA_V3, WRAPPED_CLAIM_PROOF_ACTUAL_REFS_V1 }
-  from '../../../../../proofs/src/wrapped-claims/metadata/wrapped-claim-proof-pins-v1.mjs';
+  from '@lianum/proofs/wrapped-claims/metadata/wrapped-claim-proof-pins-v1';
 import { WRAPPED_CLAIM_PROOF_RELEASE_V1 } from './wrapped-claim-release-v1.mjs';
 import { validateWrappedClaimCompiledPinsV1, validateWrappedClaimConstraintReportsV1 } from './wrapped-claim-artifact-contract-v1.mjs';
-import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mjs';
-import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
+import { frozenInput } from '@lianum/components/plain-input';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
-  from '../../../../../engine/src/execution/local/local-deployment.mjs';
+  from '@lianum/engine/execution/local/local-deployment';
 const ROOTS = Object.freeze({ wallet: ROOT, flat: FLAT, golden: GOLDEN });
 const DIR = join(ROOT, 'experiments/wrapped-claim-proof-artifacts-v1');
 const ROLES = Object.freeze(['claim_ingress', 'claim_discharge']);

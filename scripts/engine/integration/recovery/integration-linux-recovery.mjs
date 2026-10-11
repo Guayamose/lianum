@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { startLocalServer } from '../../../../packages/engine/src/api/server.mjs';
+import { startLocalServer } from '../../../../packages/backend/src/api/private-runtime-server.mjs';
 import { sleep, projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import { sha } from '../../../../packages/engine/src/chains/shared/native-runtime.mjs';
 

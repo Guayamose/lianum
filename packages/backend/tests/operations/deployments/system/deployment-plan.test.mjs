@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { buildFlatDeploymentPlan, deriveFlatLibraryPlans, FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from '../../../../src/operations/deployments/system/deployment-plan.mjs';
-import { FIELD_MODULUS, PROFILE_FIELD } from '../../../../src/execution/encoding/commitments.mjs';
-import { predictNativeCreateAddress, nativeStaticArguments } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { FIELD_MODULUS, PROFILE_FIELD } from '@lianum/components/encoding/commitments';
+import { predictNativeCreateAddress, nativeStaticArguments } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 
 const root = new URL('../../../', import.meta.url);
 const compiledPath = process.env.FLAT_PLAN_COMPILED_BUNDLE

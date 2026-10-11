@@ -19,7 +19,7 @@ import {
   NATIVE_OWNER_ACTION_TEMPLATE_FIELDS, canonicalNativeOwnerNodes,
   nativeOwnerExact, nativeOwnerHash, nativeOwnerNeed, nativeOwnerPayoutNote,
   nativeOwnerUint,
-} from '../native/dispatch/native-owner.mjs';
+} from '../native/dispatch/native-owner-contract.mjs';
 import { compileFundedGraph, fundedAuthorizationWords } from '../graph/funded-graph.mjs';
 import {
   nativeReceiptKeyCommitment, nativeTransferActionCommitment,

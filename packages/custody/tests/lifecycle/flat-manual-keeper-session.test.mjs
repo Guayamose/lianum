@@ -14,7 +14,7 @@ mock.module(new URL('./flat-owner-process.mjs', import.meta.url).href, { exports
   assertOwnedFlatOwnerProcess(owner) { assert.ok(owners.has(owner)); }
 } });
 const { createFlatManualAccountKeeper, assertOwnedFlatManualAccountKeeper } = await import('../../../backend/src/accounts/storage/flat-manual-account-keeper.mjs');
-const { createFlatAccountSession } = await import('../../../backend/src/api/accounts/flat-account-session.mjs');
+const { createFlatAccountSession } = await import('@lianum/backend/accounts/session');
 const { projectWalletState } = await import('../../../../apps/wallet/src/client/state/view-model.mjs');
 const h = n => n.toString(16).padStart(64, '0');
 test('durable CONFIRMED duplicate execute/reconcile and session restart do not repeat authority execution', async t => {

@@ -7,7 +7,7 @@ import {
   predictNativeCreateAddress, deriveNativeHubDomain, deriveNativeRuntimeCode,
   assertNativeRuntimeCode, buildNativeDeploymentPlan, validateNativeSystemSources,
   compileNativeSystem, deployNativeSystem,
-} from '../../../../src/execution/native/dispatch/native-deployment.mjs';
+} from '../../../../../backend/src/execution/native/dispatch/native-deployment.mjs';
 import { publicKeccak256 } from '../../../../src/cohorts/private-cohort-public-native.mjs';
 import { nativeQuorumRegistryCommitment } from '../../../../src/evidence/native-quorum.mjs';
 

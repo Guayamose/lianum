@@ -6,18 +6,18 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { PrivateNoteTree } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
-import { boundedListDigest } from '../../../../packages/engine/src/execution/native/state/native-state.mjs';
-import { nativeReadyStatementDigest } from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
+import { boundedListDigest } from '@lianum/engine/execution/native/state/native-state';
+import { nativeReadyStatementDigest } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { createCommitmentCodec, exactRecord, digestBytes, digestWords, FIELD_MODULUS, ZERO }
-  from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+  from '@lianum/components/encoding/commitments';
 import { buildDependencyInputs, buildReadyInputs, readyDescriptorWords,
   cloneInput, frozenInput, validateFlatInputs } from '../../../../packages/backend/src/execution/account/preparation/readiness-inputs.mjs';
 import { buildAdmissionInputs } from '../../../../packages/backend/src/execution/account/preparation/admission-inputs.mjs';
-import { joinReadiness, joinAdmission } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { joinReadiness, joinAdmission } from '@lianum/components/encoding/statements';
 import { FACTS_SCHEMA, nativeFactIdentity, nativeRuleCommitment, nativeCustodyCommitment,
   nativeObservedEffectCommitment, encodeNativeFacts, nativeFactsDigest,
-  validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+  validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 
 const LABEL = 'LIANUM flat synthetic native fixture v1: ';
 const h = name => createHash('sha256').update(LABEL + name).digest('hex');

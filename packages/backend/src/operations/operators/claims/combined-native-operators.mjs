@@ -5,16 +5,16 @@ import { claimBitcoinPayoutBroadcastFrame } from '../../../claims/payouts/bitcoi
  * import keys, return keys, sign caller-selected bytes, or mint a token. */
 import assert from 'node:assert/strict';
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
+import { signature } from '@lianum/engine/notes/private-note-encoding';
 import { checkpointAuthorizationFrame, revocationFrame }
-  from '../../../../../engine/src/evidence/native-hub-messages.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
-import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+  from '@lianum/engine/evidence/native-hub-messages';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { frozenInput } from '@lianum/components/plain-input';
 import { createNativeFactsSigner, createNativeClaimFactsSigner, createNativeSplClaimFactsSigner } from '../../../chains/shared/dispatch/native-facts-peer.mjs';
 import { encodeFlatNativeHealth } from '../../../chains/shared/health/native-health.mjs';
 import { claimBackingFrame, claimIngressAuthorizationFrame, claimPayoutAuthorizationFrame,
-  claimPayoutBroadcastFrame } from '../../../claims/authorization/permits.mjs';
-import { encodeNativeClaimFacts } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+  claimPayoutBroadcastFrame } from '@lianum/engine/claims/permits';
+import { encodeNativeClaimFacts } from '@lianum/engine/native/native-receipt-binding';
 import { nonceIngressBroadcastFrame } from '../../../claims/ingress/ingress-v3-host.mjs';
 import { createScopedClaimOperator, consumeClaimOperatorKeyLeaseV4, consumeClaimPayoutFactsKeyLeaseV4 } from '../../../claims/operations/operators.mjs';
 import { createScopedFlatOperator } from './native-operators.mjs';

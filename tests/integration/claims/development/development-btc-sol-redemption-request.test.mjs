@@ -6,10 +6,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimUint }
-  from '../../../../packages/backend/src/claims/protocol/framing.mjs';
-import { claimHash } from '../../../../packages/backend/src/claims/authorization/permits.mjs';
+  from '@lianum/engine/claims/framing';
+import { claimHash } from '@lianum/engine/claims/permits';
 import { bytes32, exactRecord }
-  from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+  from '@lianum/components/encoding/commitments';
 
 const helper = readFileSync(new URL('./development-btc-sol-graph-case.mjs', import.meta.url), 'utf8');
 // Filesystem URLs intentionally are not import-rewritten by ./dev. Read the

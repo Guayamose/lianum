@@ -5,12 +5,12 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { lstat, realpath } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { PROFILE as GENERIC_PROFILE, genericAccountIdentity, bindGenericAccountRequest, validateBoundRequest,
   validateOutcome, validateObservation, immutable, copy, sha } from '@lianum/engine/accounts/journal';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedFlatPortfolio, claimFlatPortfolioJournalAuthority } from '../authority/flat-portfolio-authority.mjs';
-import { validateFlatManualReauthorization } from '../../../../custody/src/preparation/flat-owner-manual-binding.mjs';
+import { validateFlatManualReauthorization } from '@lianum/custody/preparation/flat-owner-manual-binding';
 const owned = new WeakMap();
 const NDRA = 'NO_DISPATCH_REAUTHORIZATION_REQUIRED';
 const PROFILE = 'FLAT_MANUAL_PORTFOLIO_KEEPER_V3';

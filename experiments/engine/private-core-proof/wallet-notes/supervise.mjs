@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {root,guard,resources,WALLET_RESOURCE_FLOORS} from './resources.mjs';
-import {WALLET_MODES} from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import {WALLET_MODES} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 const operation=process.argv[2],mode=process.argv[3];assert.ok(['compile','prepare','witnesses'].includes(operation),'PC23_OPERATION');assert.ok(WALLET_MODES.includes(mode),'PC23_MODE');
 const at=new Date().toISOString(),dir=root+'../../../evidence/m23-wallet-supervision/';mkdirSync(dir,{recursive:true});const path=dir+at.replace(/[:.]/g,'-')+'-'+operation+'-'+mode+'.json',report={classification:'BOUNDED_OFFICIAL_CHILD_SUPERVISION',operation,mode,startedAt:at,phase:'starting',floors:WALLET_RESOURCE_FLOORS,maximumPages:32768,before:guard(),minimumAvailableRAM:Infinity,minimumFreeDisk:Infinity,peakChildRSSKiB:0,hostLimitsChanged:false};const save=()=>writeFileSync(path,JSON.stringify(report,null,2)+'\n');save();
 const child=spawn(process.execPath,[root+operation+'.mjs',mode],{stdio:['ignore','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'}});let failure=null,killTimer,closed=false,outSize=0,errSize=0;const stop=code=>{if(closed)return;failure??=code;child.kill('SIGTERM');killTimer??=setTimeout(()=>{if(!closed)child.kill('SIGKILL');},5000);};

@@ -4,10 +4,10 @@ import { existsSync, readdirSync, realpathSync, renameSync, writeFileSync } from
 import { dirname, resolve, relative, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { ROOT, FLAT, GOLDEN, LOCAL, CATALOG, LIMITS, SETTINGS, MEMORY, pagesFor } from '../../../packages/proofs/src/catalog.mjs';
-import { regular, resourceModuleURL, assertABI, assertStats } from '../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT, GOLDEN, LOCAL, CATALOG, LIMITS, SETTINGS, MEMORY, pagesFor } from '@lianum/proofs/catalog';
+import { regular, resourceModuleURL, assertABI, assertStats } from '@lianum/proofs/tooling/tooling';
 import { fingerprint as validationFingerprint } from '../native-ingress-v3-validation/common.mjs';
-import { GENERIC_COMPILER_PIN } from '../../../packages/engine/src/execution/local/local-deployment.mjs';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 export { ROOT, LOCAL, CATALOG, LIMITS, SETTINGS, MEMORY, pagesFor };
 export const DIR = fileURLToPath(new URL('./', import.meta.url));
 export const VALIDATION = resolve(DIR, '../native-ingress-v3-validation');

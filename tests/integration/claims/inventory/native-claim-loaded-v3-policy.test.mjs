@@ -9,7 +9,7 @@ import { runNativeClaimLoadedV3Supervisor, validateNativeClaimLoadedV3Result } f
 import { NATIVE_CLAIM_RUN_ROUTES, nativeClaimRunDirectory } from '../lifecycle/native-claim-run-route.mjs';
 import { CLAIM_GRAPH_V3_PROFILE } from '../graph/validation/native-claim-graph-v3-policy.mjs';
 import { CLAIM_GRAPH_V3_NATIVE_PROTOCOL } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
-import { NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 } from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+import { NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 const source = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 const copy = v => structuredClone(v);
 const relations = ['deposit_intent', NATIVE_INGRESS_V3_RELATION, 'withdraw_balance', 'native_claim_discharge'];

@@ -1,7 +1,7 @@
 // Fixed byte contracts only. No topology, active count, keys or runtime values
 // specialize this source. H4 and the exact legacy tag framing remain separate.
 import { readFile, writeFile } from 'node:fs/promises';
-import { FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../../packages/engine/src/execution/graph/funded-graph.mjs';
+import { FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '@lianum/engine/execution/graph/funded-graph';
 const profile = Buffer.from(FUNDED_GRAPH_PROFILE.id);
 const h = name => [name, 32];
 const u = name => [name, 8];

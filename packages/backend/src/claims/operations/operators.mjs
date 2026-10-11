@@ -11,12 +11,12 @@ import assert from 'node:assert/strict';
 import { createPublicKey, generateKeyPairSync, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { createClaimRecordStore } from '@lianum/engine/storage/records';
-import { signature as lowSignature } from '../../../../engine/src/notes/private-note-encoding.mjs';
-import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { nativeAdmissionRulesTree } from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeHubSignatureToAbi } from '../../../../engine/src/evidence/native-hub-messages.mjs';
-import { createNativeQuorumHostVerifier } from '../../../../engine/src/evidence/native-quorum.mjs';
-import { exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
+import { signature as lowSignature } from '@lianum/engine/notes/private-note-encoding';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
+import { createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
+import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedBitcoinRuntime } from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import * as bitcoinRuntimeLiveness from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
@@ -33,12 +33,12 @@ import { createNativeClaimFactsSigner as createNativeFactsSigner,
 import { encodeFlatNativeHealth } from '../../chains/shared/health/native-health.mjs';
 import { assertStableClaimOperatorFact as assertStableOperatorFact } from '../../operations/operators/claims/operator-fact-audit.mjs';
 import { assertOwnedCustodyIntent, ownedCustodyRoute } from '../../chains/shared/runtime/owned-native-custody.mjs';
-import { FACTS_SCHEMA, encodeNativeClaimFacts, nativeRuleCommitment } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { FACTS_SCHEMA, encodeNativeClaimFacts, nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from './owned-state.mjs';
-import { claimUint, claimDomainCommitment, claimIntentId, claimTicketId } from '../protocol/framing.mjs';
+import { claimUint, claimDomainCommitment, claimIntentId, claimTicketId } from '@lianum/engine/claims/framing';
 import { CLAIM_ACTIONS as A, claimActionDigest, claimActionFrame, claimBackingFrame, claimHash,
   claimFrame, claimRouteCommitment, assertClaimBackingQuorum, claimIngressAuthorizationFrame,
-  claimPayoutAuthorizationFrame, claimPayoutBroadcastFrame } from '../authorization/permits.mjs';
+  claimPayoutAuthorizationFrame, claimPayoutBroadcastFrame } from '@lianum/engine/claims/permits';
 import { createClaimReservationBinding, validateClaimReservationBinding, claimFactsRequest,
   observeReservedClaimFact, assertCanonicalClaimReservation } from '../authorization/reservation-facts-gate.mjs';
 import { auditClaimGateway, auditClaimNativeInventory, assertClaimHealthState, assertClaimRoute,

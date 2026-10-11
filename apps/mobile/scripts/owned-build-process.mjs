@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ChildProcess } from 'node:child_process';
 import { types } from 'node:util';
 import { readFileSync, readdirSync } from 'node:fs';
-import { nativeProcStatV1 } from '../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import { nativeProcStatV1 } from '@lianum/proofs/host/process-files';
 
 
 // Diagnostic-only: no message, stack, argv, syscall path or unknown PID escapes.

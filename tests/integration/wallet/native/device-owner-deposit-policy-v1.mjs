@@ -1,7 +1,7 @@
 /** One actual D26 and one original funding wire; this report grants no
  * account/device authority and establishes no SecureStore or phone execution. */
 import assert from 'node:assert/strict';
-import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/engine/crypto/private-resource-policy';
 export const DEVICE_DEPOSIT_PROFILE_V1 = 'device-owner-deposit-v1';
 export const DEVICE_DEPOSIT_RESULT_V1 = 'LIANUM_DEVICE_OWNER_DEPOSIT_RESULT_V1';
 export const DEVICE_DEPOSIT_REAL_RELEASE_V1 = Object.freeze({

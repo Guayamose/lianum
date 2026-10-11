@@ -2,14 +2,14 @@
  * issuer may supply a successor token. This restores retained EXIT bindings;
  * it neither adopts legacy journals nor restores consent/new admissions. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {captureRetainedFlatJournalCatalogueV1,retainedFlatJournalCatalogueRuntimeV1,reopenRetainedFlatJournalCatalogueV1,reopenRetainedFlatJournalGenerationV1} from '../storage/flat-journal-catalogue.mjs';
 import {captureRetainedFlatAccountV1,reopenRetainedCatalogueFlatAccountV1} from '../authority/flat-account-authority.mjs';
 import {createFlatPortfolioAuthority} from '../authority/flat-portfolio-authority.mjs';
 import {createFlatPoolAdmissionPolicy} from '../authority/flat-pool-admission-policy.mjs';
 import {reopenRetainedFlatManualPortfolioKeeperV1} from '../portfolio/flat-manual-portfolio-keeper.mjs';
 import {assertOwnedFlatSystem} from '../../operations/deployments/system/deploy-system.mjs';
-import {assertOwnedFlatOwnerProcess} from '../../../../custody/src/processes/flat-owner-process.mjs';
+import {assertOwnedFlatOwnerProcess} from '../../custody/processes/flat-owner-process.mjs';
 import {assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 import {retainOriginalWrappedRecoverySectionV1,consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 const restoredMembers=new WeakMap();
@@ -23,7 +23,7 @@ export function consumeExternalDefiPrivateVaultExitReopenV1(token){assert.equal(
 export function consumeExternalDefiProtocolFixtureReopenV1(token){assert.equal(arguments.length,1);return consume(token,'protocol-fixture');}
 export function consumeExternalDefiCatalogueReopenV1(token){assert.equal(arguments.length,1);return consume(token,'catalogue');}
 export async function reopenOriginalDeviceExternalFlatAaveProtocolV1(token){
- assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');const {runtime,record}=consumeExternalDefiBootstrapPartV1(token,'protocols');const {assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');assertOwnedDeviceExternalFlatReceiverV1(runtime);assert.equal(record.schema,'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1');const {reopenOfficialAaveFixtureRecoveryV1}=await import('../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs');return issue('protocol-fixture',{runtime,record},reopenOfficialAaveFixtureRecoveryV1);
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');const {runtime,record}=consumeExternalDefiBootstrapPartV1(token,'protocols');const {assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');assertOwnedDeviceExternalFlatReceiverV1(runtime);assert.equal(record.schema,'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1');const {reopenOfficialAaveFixtureRecoveryV1}=await import('../../operations/deployments/defi/official-aave-fixture-v1.mjs');return issue('protocol-fixture',{runtime,record},reopenOfficialAaveFixtureRecoveryV1);
 }
 async function issue(kind,value,work){const token=opaque(),entry={kind,value,used:false};tokens.set(token,entry);try{const result=await work(token);assert.equal(entry.used,true,'EXTERNAL_CATALOGUE_TOKEN_UNUSED');return result;}finally{tokens.delete(token);}}
 function callbacksCheck(callbacks){exactRecord(callbacks,Object.keys(callbacks));assert.ok(Object.keys(callbacks).every(name=>name==='onProof'));if(callbacks.onProof!==undefined)assert.equal(typeof callbacks.onProof,'function');}
@@ -105,7 +105,7 @@ export async function retainExternalDefiVaultCatalogueForReopenV1(input,attemptA
  const records=[],fixtures=[],fixtureIndexes=new Map();let failure,economic;
  try{
   economic=await captureOriginalRetainedVaultEconomicStateV1(catalogue);
-  for(const row of contexts){let fixtureIndex=fixtureIndexes.get(row.vault.fixture);if(fixtureIndex===undefined){fixtureIndex=fixtures.length;fixtureIndexes.set(row.vault.fixture,fixtureIndex);const module=row.vault.variant==='AAVE_STATIC'?await import('../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs'):await import('../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs');const record=await (row.vault.variant==='AAVE_STATIC'?module.captureOfficialAaveFixtureRecoveryV1:module.captureOfficialProtocolFixtureRecoveryV1)(runtime,row.vault.fixture);fixtures.push({variant:row.vault.variant,record});}
+  for(const row of contexts){let fixtureIndex=fixtureIndexes.get(row.vault.fixture);if(fixtureIndex===undefined){fixtureIndex=fixtures.length;fixtureIndexes.set(row.vault.fixture,fixtureIndex);const module=row.vault.variant==='AAVE_STATIC'?await import('../../operations/deployments/defi/official-aave-fixture-v1.mjs'):await import('../../operations/deployments/defi/official-protocol-fixture-v3.mjs');const record=await (row.vault.variant==='AAVE_STATIC'?module.captureOfficialAaveFixtureRecoveryV1:module.captureOfficialProtocolFixtureRecoveryV1)(runtime,row.vault.fixture);fixtures.push({variant:row.vault.variant,record});}
    const exit=await exits.captureRetainedOwnedPrivateVaultExitV1(row.service),vault=await vaults.captureRetainedOwnedOfficialStaticVaultV1(row.context.vault);
    records.push({generationId:row.member.generationId,poolIndex:row.context.poolIndex,account:structuredClone(row.context.account.config),fixtureIndex,vault,exit});
   }
@@ -121,7 +121,7 @@ export async function reopenExternalDefiVaultCatalogueFromRecoveryV1(input){
  const r=consumeOriginalWrappedRecoverySectionV1(attemptAuthority,'wallet');const withEconomic=r.schema==='EXTERNAL_ORIGINAL_CATALOGUE_VAULT_ECONOMIC_WALLET_V1';exactRecord(r,withEconomic?['schema','sourceSHA256','saved','fixtures','services','economic']:['schema','sourceSHA256','saved','fixtures','services']);if(!withEconomic)assert.equal(r.schema,'EXTERNAL_ORIGINAL_CATALOGUE_VAULT_WALLET_V1');assert.equal(r.sourceSHA256,original.sourceSHA256);assert.ok(Array.isArray(r.services)&&r.services.length>=1&&r.services.length<=2);assert.ok(Array.isArray(r.fixtures)&&r.fixtures.length>=1&&r.fixtures.length<=r.services.length);
  const resources=[],fixtures=[],services=[];let catalogue;
  try{
-  for(const row of r.fixtures){exactRecord(row,['variant','record']);assert.ok(['METAMORPHO','AAVE_STATIC'].includes(row.variant));const module=row.variant==='AAVE_STATIC'?await import('../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs'):await import('../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs');fixtures.push(await issue('protocol-fixture',{runtime,record:row.record},row.variant==='AAVE_STATIC'?module.reopenOfficialAaveFixtureRecoveryV1:module.reopenOfficialProtocolVaultFixtureRecoveryV1));}
+  for(const row of r.fixtures){exactRecord(row,['variant','record']);assert.ok(['METAMORPHO','AAVE_STATIC'].includes(row.variant));const module=row.variant==='AAVE_STATIC'?await import('../../operations/deployments/defi/official-aave-fixture-v1.mjs'):await import('../../operations/deployments/defi/official-protocol-fixture-v3.mjs');fixtures.push(await issue('protocol-fixture',{runtime,record:row.record},row.variant==='AAVE_STATIC'?module.reopenOfficialAaveFixtureRecoveryV1:module.reopenOfficialProtocolVaultFixtureRecoveryV1));}
   catalogue=await reopenCatalogueV1({runtime,system,owners},r.saved);
   const {closeRetainedFlatJournalCatalogueV1,assertOwnedFlatJournalCatalogueAccount}=await import('../storage/flat-journal-catalogue.mjs');resources.push({close:()=>closeRetainedFlatJournalCatalogueV1(catalogue)});
   const vaults=await import('../../defi/vaults/owned-metamorpho-vault.mjs'),exits=await import('../../defi/withdrawals/private-vault-exit.mjs'),{createGenerationPrivateVaultExit}=await import('../../defi/withdrawals/generation-private-vault-exit.mjs');

@@ -2,10 +2,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { encodeNativeClaimIssueCall, decodeNativeClaimIssueCall, NATIVE_CLAIM_ISSUE_SIGNATURE } from '../../../src/claims/protocol/issue-call.mjs';
-import { CLAIM_BACKING_FIELDS } from '../../../src/claims/authorization/permits.mjs';
-import { encodeClaimIngressInputs } from '../../../src/claims/protocol/framing.mjs';
-import { encodeDepositIntentInputs } from '../../../src/execution/account/preparation/deposit-intent.mjs';
+import { encodeNativeClaimIssueCall, decodeNativeClaimIssueCall, NATIVE_CLAIM_ISSUE_SIGNATURE } from '@lianum/engine/claims/issue-call';
+import { CLAIM_BACKING_FIELDS } from '@lianum/engine/claims/permits';
+import { encodeClaimIngressInputs } from '@lianum/engine/claims/framing';
+import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 
 const h = label => createHash('sha256').update('synthetic issue calldata/' + label).digest('hex');
 const p = value => '0x' + value;

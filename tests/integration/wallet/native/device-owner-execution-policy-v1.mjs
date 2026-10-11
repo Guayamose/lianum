@@ -2,9 +2,9 @@
  * the mobile custody code, never physical-phone or full-mobile acceptance. */
 import assert from 'node:assert/strict';
 import {assertDeviceOwnerOutputBalanceReadsV1} from './device-owner-execution-native-checks-v1.mjs';
-import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
-import {NATIVE_VALUE_LIVE_V2_SPEC} from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
-import {assertI84NativeReceiptV1} from '../../../../packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {NATIVE_VALUE_LIVE_V2_SPEC} from '@lianum/proofs/native-value/metadata/native-value-live-v2-profile';
+import {assertI84NativeReceiptV1} from '../../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {assertDeviceReservationResultV1,DEVICE_RESERVATION_PROFILE_V1,DEVICE_RESERVATION_RESULT_V1} from './device-owner-reservation-policy-v1.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
 export const DEVICE_EXECUTION_PROFILE_V1='device-owner-execution-v1',DEVICE_EXECUTION_RESULT_V1='LIANUM_DEVICE_OWNER_EXECUTION_RESULT_V1';

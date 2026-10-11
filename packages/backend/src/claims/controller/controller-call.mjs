@@ -2,8 +2,8 @@
  * commitments are bare hex; Solidity bytes are prefixed only at this boundary.
  * This converter grants no call, signing, observation or proof capability. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
-import { claimABIType, encodeClaimCall } from '../protocol/abi.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { claimABIType, encodeClaimCall } from '@lianum/engine/claims/abi';
 export const CONTROLLER_CLAIM_METHODS = Object.freeze(['preposition', 'renewIntent', 'reserveSignedEffect', 'issue',
   'voidDeposit', 'requestRedemption', 'beginPayout', 'discharge']);
 function convert(input, value) {

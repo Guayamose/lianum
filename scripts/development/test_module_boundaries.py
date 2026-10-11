@@ -116,6 +116,15 @@ class ModuleBoundariesTests(unittest.TestCase):
         self.write("packages/backend/src/session.mjs", "import '@lianum/protocol/api';\n")
         self.assertIn("cannot consume the historical package", "\n".join(self.report()["errors"]))
 
+    def test_package_local_test_support_is_an_execution_dependency(self):
+        source = "packages/backend/src/session.mjs"
+        target = "packages/backend/tests/fixture.mjs"
+        self.write(target, "export const value = 1;\n")
+        self.write(source, "import {value} from '../tests/fixture.mjs';\n")
+        report = self.report()
+        self.assertIn((source, target), report["supportImports"])
+        self.assertIn("new execution dependency", "\n".join(report["errors"]))
+
     def test_parser_handles_literal_dynamic_import_and_ignores_text(self):
         text = '''// import 'comment'
         const message = "import 'not-code'";

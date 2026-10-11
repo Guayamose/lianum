@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime, SOLANA_NONCE_INGRESS_PROFILE } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
-import { exactRecord, fixedArray } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 
 const queues = new WeakMap(), readerQueues = new WeakMap(), quiescenceLeases = new WeakMap();
 let queueIdentity = 0;

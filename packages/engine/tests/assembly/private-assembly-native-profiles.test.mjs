@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assemblyNativeScenarioProfile, runAssemblyNativeIntegration } from '../../../../scripts/engine/integration/assembly/integration-private-assembly-native.mjs';
-import { ASSEMBLY_WORKER_RESOURCE_FLOORS, assemblyWorkerResourceViolations } from '../../src/assembly/private-assembly-actors.mjs';
+import { ASSEMBLY_WORKER_RESOURCE_FLOORS, assemblyWorkerResourceViolations } from '@lianum/proofs/execution/assembly-workers';
 
 test('default profile preserves all three schedules and two consumed effect pairs', () => {
   assert.deepEqual(assemblyNativeScenarioProfile(), { name: 'full', runSuccessSchedules: true, runTimeoutSchedule: true, runPaidControlSchedule: false, completedEffectPairs: 2, requestedSchedules: ['A', 'B', 'C'] });

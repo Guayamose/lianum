@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { encodeSolanaBindingMessage, validateSolanaBindingTransaction, decodeWireCommitment }
-  from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingMessage,
   validateSolanaNonceBindingTransaction, validateClaimSolanaBindingTransaction,
   decodeSolanaNonceAccountData, encodeSolanaNonceBootstrapMessage,

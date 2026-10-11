@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "description": "Ubicaciones explícitas de fuentes y recursos locales del proyecto",
-  "exports": { ".": "./src/paths.mjs" },
-  "lianum": { "status": "active" }
+  "exports": {
+    ".": "./src/paths.mjs"
+  },
+  "lianum": {
+    "status": "active"
+  },
+  "dependencies": {}
 }

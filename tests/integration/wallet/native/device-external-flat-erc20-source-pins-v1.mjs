@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {constants,openSync,closeSync,fstatSync,readFileSync,lstatSync,realpathSync} from 'node:fs';
 import {join,resolve} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
 import {nativeValueDevFinancialSourcePinsV5} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
 const DEVELOPMENT=resolve(FLAT,'../../..');
 const RUNNER=Object.freeze(['integration/run-device-external-flat-erc20-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs','integration/device-external-flat-ordered-restart-v1.mjs','integration/device-external-flat-ordered-successor-v1.mjs']);

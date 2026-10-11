@@ -16,6 +16,8 @@ function repository(url) {
   throw new Error('LIANUM_PROJECT_ROOT_REQUIRED');
 }
 
+// Exact active implementation identity for fixed source-pin collectors.
+export const ENVIRONMENT_MODULE_URL = import.meta.url;
 export const projectRoot = repository(import.meta.url);
 const compatibilityRoot = join(projectRoot, '.internal/runtime');
 const dataRoots = Object.freeze({

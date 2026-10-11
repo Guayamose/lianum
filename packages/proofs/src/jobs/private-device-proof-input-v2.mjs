@@ -2,11 +2,11 @@
  * CM/NF are descriptive until the same owned proof client and pool verify. */
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import {wipePrivateProofInputsV1,readOriginalPrivateProofRecipientV1} from './private-proof-transit-v1.mjs';
+import {wipePrivateProofInputsV1,readOriginalPrivateProofRecipientV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import * as P from '@lianum/mobile-protocol/device/source-note-v1';
-import {depositIntentWitness} from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
-import {balanceCommitment} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
+import {depositIntentWitness} from '@lianum/engine/execution/inputs/deposit-intent';
+import {balanceCommitment} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {nullifier} from '@lianum/engine/notes/private-note-encoding';
 export function deriveOriginalDeviceDepositIntentJobV2(received,spec) {
   assert.equal(arguments.length,2,'PW_PRIVATE_D27_ARITY');
   const originalRecipient=readOriginalPrivateProofRecipientV1(received);
@@ -49,8 +49,8 @@ export function deriveOriginalDeviceDepositIntentJobV2(received,spec) {
 
 
 import * as ClaimDevice from '@lianum/mobile-protocol/device/native-claim-v1';
-import {claimReceiptSecret,claimRefundSalt} from '../../../backend/src/claims/protocol/framing.mjs';
-import {buildClaimIngressInputs} from '../../../backend/src/claims/protocol/inputs.mjs';
+import {claimReceiptSecret,claimRefundSalt} from '@lianum/engine/claims/framing';
+import {buildClaimIngressInputs} from '@lianum/engine/claims/inputs';
 import {withFlatHash} from '../tooling/scoped-proof-tools.mjs';
 /** Fixed original D27/CI51 derivation inside the existing owned recipient.
  * A device permission binds the SAME domain and opening. Root/signing keys

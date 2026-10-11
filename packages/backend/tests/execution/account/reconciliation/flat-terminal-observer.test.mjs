@@ -8,10 +8,10 @@ import { createFlatTerminalObserver, assertOwnedFlatTerminalObserver, decodeFlat
 import { decodeNativeValueTerminalCalldata, inspectFlatTerminalDelta as inspectNativeValueTerminalDelta }
   from '../../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import { encodeFlatTransaction } from '../../../../src/execution/encoding/transaction-codec.mjs';
-import { encodeStatement } from '../../../../src/execution/encoding/statements.mjs';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { decodeFlatWords } from '../../../../src/execution/account/reconciliation/flat-system-state.mjs';
-import { PrivateNoteTree, privateSpentDigest } from '../../../../../engine/src/notes/private-note-tree.mjs';
-import { boundedListDigest } from '../../../../../engine/src/execution/native/state/native-state.mjs';
+import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
+import { boundedListDigest } from '@lianum/engine/execution/native/state/native-state';
 
 const hash = value => createHash('sha256').update('FAKE terminal parser fixture: ' + value).digest('hex');
 const field = value => BigInt(value).toString(16).padStart(64, '0'), zero = field(0), prefix = value => '0x' + value;

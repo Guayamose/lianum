@@ -11,7 +11,7 @@ import { createOwnedBitcoinCustodyRuntime, createOwnedFlatBitcoinRuntime, decode
   from '../../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { createOwnedSolanaCustodyRuntime, createOwnedSolanaCohortRuntime } from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
 import { encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage,
-  validateSolanaBindingTransaction } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 
 const h = value => createHash('sha256').update(value).digest('hex');
 const btcRoles = Object.fromEntries(['depositor', 'escrow', 'recipient'].map(role => [role, { endpoint: '0014' + h(role).slice(0, 40) }]));

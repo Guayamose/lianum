@@ -1,20 +1,20 @@
 /** Reservations operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
-import * as PrivateU from "../../../../../mobile-protocol/src/device-native-private-reservation-v2.mjs";
+import * as PrivateU from "@lianum/mobile-protocol/device/native-reservation-v2";
 import assert from "node:assert/strict";
-import { validateGenericBalanceNativePreparation, genericBalanceNativeTerms } from "../../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs";
-import { normalizeDeviceReservationCapsuleOptionsV1, normalizeDeviceReservationWitnessV1, deviceReservationWitnessBytesV1, wipeDeviceReservationWitnessV1 } from "../../../../../mobile-protocol/src/device-reservation-consent-v1.mjs";
-import { copy, sha } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
+import { validateGenericBalanceNativePreparation, genericBalanceNativeTerms } from "@lianum/engine/execution/balances/generic-balance-native-preparation";
+import { normalizeDeviceReservationCapsuleOptionsV1, normalizeDeviceReservationWitnessV1, deviceReservationWitnessBytesV1, wipeDeviceReservationWitnessV1 } from "@lianum/mobile-protocol/device-reservation-consent-v1";
+import { copy, sha } from "@lianum/engine/accounts/journal";
 import { validateFlatAccountOwnerObservation, flatAccountGraphBinding, flatAccountCalldataHash } from "../flat-account-validation.mjs";
-import { decodeStatement, encodeStatement } from "../../../execution/encoding/statements.mjs";
+import { decodeStatement, encodeStatement } from "@lianum/components/encoding/statements";
 import { randomBytes } from "node:crypto";
 import { isOriginalNativePrivateReservationBridgeV2 } from "../device-owner-reservation-bridge-v1.mjs";
-import { readOriginalNativeDeviceAuthorizationDerivationV2, createRoleProofClient } from "../../../../../proofs/src/jobs/role-client.mjs";
-import { compileFundedGraph, attachFundedSignatures, ownerAuthorizationMessage } from "../../../../../engine/src/execution/graph/funded-graph.mjs";
-import { withFlatHash } from "../../../../../proofs/src/tooling/scoped-proof-tools.mjs";
-import { buildAuthorizedEnvelope } from "../../../../../custody/src/signing/authorized-envelope.mjs";
+import { readOriginalNativeDeviceAuthorizationDerivationV2, createRoleProofClient } from "@lianum/proofs/client";
+import { compileFundedGraph, attachFundedSignatures, ownerAuthorizationMessage } from "@lianum/engine/execution/graph/funded-graph";
+import { withFlatHash } from "@lianum/proofs/tooling/scoped-proof-tools";
+import { buildAuthorizedEnvelope } from "@lianum/custody/signing/authorized-envelope";
 import { reservationWitness } from "../../../execution/account/preparation/funding-inputs.mjs";
-import { reserveProjection } from "../../../../../engine/src/execution/local/local-ledger.mjs";
+import { reserveProjection } from "@lianum/engine/execution/local/local-ledger";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
 export function createNativeValueReservations({
   journal,

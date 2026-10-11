@@ -7,7 +7,7 @@ import {constants,readFileSync,writeFileSync,lstatSync,realpathSync,mkdirSync,ex
 import {join,resolve,dirname} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash,randomBytes,createCipheriv,createDecipheriv} from 'node:crypto';
-import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 let state=null;const hosts=new WeakMap(),copies=new WeakMap(),keys=new WeakMap(),buffers=new Set(),sha=x=>createHash('sha256').update(x).digest('hex');
 function live(){assert.ok(state&&!state.closed,'PAGED_MOBILE_HOST_CLOSED');return state;}
 const privateLabel=name=>name==='lianum.owner.secp256k1.v1'||/^lianum\.device\.paged\.graph\.v3\.[0-9a-f]{64}\.root$/.test(name);

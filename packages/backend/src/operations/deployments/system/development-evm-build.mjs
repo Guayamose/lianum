@@ -4,8 +4,8 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
-import { regular, hash } from '../../../../../proofs/src/tooling/tooling.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { regular, hash } from '@lianum/proofs/tooling/tooling';
 export const DEVELOPMENT_EVM_DIRECTORY = join(ROOT, '.local/development-evm/v1');
 export const DEVELOPMENT_EVM_BUILD_PIN = Object.freeze({
   manifestSHA256: '2c35cb4017e7afc3844422e0e93e1e68651459bc51aea123d60b7be692de4958',

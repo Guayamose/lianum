@@ -14,7 +14,7 @@ const authorityURL=new URL(generated?'../native-claims/wrapped-recovery-authorit
 const runtimeURL=new URL(generated?'../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url);
 const registryURL=new URL('./wrapped-private-lifetime-registry-v1.mjs',authorityURL);
 const systemURL=new URL(generated?'../ops/external-defi-bootstrap-recovery-v1.mjs':'../../../src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs',import.meta.url);
-const ownersURL=new URL(generated?'../../../mobile-core/flat-owner-process.mjs':'../../../../custody/src/processes/flat-owner-process.mjs',import.meta.url);
+const ownersURL=new URL(generated?'../../../mobile-core/flat-owner-process.mjs':'../../../src/custody/processes/flat-owner-process.mjs',import.meta.url);
 const walletURL=new URL(generated?'./external-defi-catalogue-recovery-v1.mjs':'../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs',import.meta.url);
 const fixedRoot=fileURLToPath(new URL('../../../',authorityURL));
 const runtimes=new WeakMap();let captures=0,aborts=0,authority;

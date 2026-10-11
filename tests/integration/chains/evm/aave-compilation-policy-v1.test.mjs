@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {aaveCompilationProcessFailureV1,assertAaveCompilationArtifactsV1} from './aave-compilation-policy-v1.mjs';
-import {GENERIC_COMPILER_PIN} from '../../../../packages/engine/src/execution/local/local-deployment.mjs';
+import {GENERIC_COMPILER_PIN} from '@lianum/engine/execution/local/local-deployment';
 test('compilation-only rejects every non-main process including exited proof/native history',()=>{
  assert.equal(aaveCompilationProcessFailureV1([{role:'main-worker',proofWorker:false,state:'R'}]),null);
  for(const row of [{role:'main-worker',proofWorker:true,state:'Z'},{role:'owned-anvil',proofWorker:false,state:'X'},{role:'owned-descendant',proofWorker:false,state:'S'}])

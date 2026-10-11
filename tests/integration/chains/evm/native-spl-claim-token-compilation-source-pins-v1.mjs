@@ -1,8 +1,8 @@
 /** Fixed compilation closure and official material, no caller roots. */
 import assert from 'node:assert/strict';
 import {join,relative,sep} from 'node:path';
-import {ROOT,FLAT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT,GOLDEN} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {nativeFlowSourcePins} from '../../runners/source-pins.mjs';
 export function nativeSplClaimTokenCompilationSourcePinsV1(){
  assert.equal(arguments.length,0,'SPL_TOKEN_COMPILATION_SOURCE_NO_OPTIONS');

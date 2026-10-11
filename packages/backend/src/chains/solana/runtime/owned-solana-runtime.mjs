@@ -19,7 +19,7 @@ import { readFile, writeFile, realpath, mkdir, lstat, open, rename } from 'node:
 import { join, sep, dirname } from 'node:path';
 import { createServer, createConnection } from 'node:net';
 import { createSocket } from 'node:dgram';
-import { scratchDirectory, removeOwnScratch, stopOwnProcess, ownedRuntimeRpc, sleep, projectRoot } from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
+import { scratchDirectory, removeOwnScratch, stopOwnProcess, ownedRuntimeRpc, sleep, projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
 
 const PKCS8_ED25519 = Buffer.from('302e020100300506032b657004220420', 'hex');
 const PUBLIC_GENESIS = new Set(['5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1', '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY']);
@@ -77,10 +77,10 @@ function createSyntheticKey() {
   return { seed, publicBytes, address: base58Encode(publicBytes) };
 }
 
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { encodeSolanaBindingMessage, validateSolanaBindingTransaction, assertMemoProgramAccount,
-  MEMO_PROGRAM } from '../../shared/dispatch/native-receipt-binding.mjs';
+  MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction,
   decodeSolanaNonceAccountData, encodeSolanaNonceBootstrapMessage,
   validateSolanaNonceBootstrapTransaction } from './owned-solana-nonce-binding.mjs';

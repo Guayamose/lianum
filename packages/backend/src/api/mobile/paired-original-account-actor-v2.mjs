@@ -11,7 +11,7 @@ import { nativeValueAccountManualNoteDetails, assertOwnedNativeValueAccountAutho
 import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
 import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
   from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
-import { normalizeMobileOrigin } from '../../../../mobile-protocol/src/authorization.mjs';
+import { normalizeMobileOrigin } from '@lianum/mobile-protocol';
 import { ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_TTL_MS,
   normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2, normalizeOriginalAccountSignatureV2,
   validateOriginalAccountFreshV2, originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
@@ -19,7 +19,7 @@ import { ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2,
 import { privateStateAccessFrameV1, privateStateReviewFrameV1, normalizePrivateStateAccessV1,
   normalizePrivateStateReviewV1, privateStateAccessMessageV1, privateStateReviewMessageV1,
   PRIVATE_STATE_SCOPE_V1, PRIVATE_STATE_OBSERVATION_V1, normalizePrivateStateObservationV1,
-  validatePrivateStateFreshV1 } from '../../../../mobile-protocol/src/original-account-private-state-v1.mjs';
+  validatePrivateStateFreshV1 } from '@lianum/mobile-protocol/original-account-private-state-v1';
 const pairings = new WeakMap(), actorBrands = new WeakMap();
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const need = (value, code) => { if (!value) fail(code); };

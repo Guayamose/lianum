@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {join,relative,sep} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {nativeFlowSourcePins} from '../../runners/source-pins.mjs';
 import {nativeSplCompilationMaterialV1} from './native-spl-compilation-material-v1.mjs';
 export function nativeSplCompilationSourcePinsV1(){

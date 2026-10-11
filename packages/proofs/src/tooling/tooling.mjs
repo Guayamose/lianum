@@ -5,21 +5,22 @@ import { createRequire } from 'node:module';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync,
   renameSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { types } from 'node:util';
-import { isCompatibilityModule, sourceURL } from '@lianum/environment';
+import { ENVIRONMENT_MODULE_URL } from '@lianum/environment';
+import { WALLET_RESOURCES_MODULE_URL } from '@lianum/components/resources/wallet-resources';
+import { PRIVATE_VERIFIER_CRS_MODULE_URL } from '@lianum/components/resources/private-verifier-crs';
 import { ROOT, FLAT, CANDIDATE, GOLDEN, EXPERIMENT, LOCAL, PROFILE, LIMITS, SETTINGS,
   NOIR_VERSION, MODES, CATALOG, NODE_PINS, TRUSTED_JOB_SOURCES, TRUSTED_PARENTS, relation, operation, pagesFor } from '../catalog.mjs';
 import { decodeStatement } from '@lianum/components/encoding/statements';
 export { hash, jsonBytes };
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const jsonBytes = value => JSON.stringify(value, null, 2) + '\n';
-export const resourceModuleURL = isCompatibilityModule(import.meta.url)
-  ? pathToFileURL(join(EXPERIMENT, 'wallet-notes/resources.mjs'))
-  : sourceURL('experiments/engine/private-core-proof/wallet-notes/resources.mjs');
-export const verifierCRSModuleURL = isCompatibilityModule(import.meta.url)
-  ? pathToFileURL(join(GOLDEN, 'src/private-verifier-crs.mjs'))
-  : sourceURL('packages/engine/src/crypto/private-verifier-crs.mjs');
+export const resourceModuleURL = new URL('../../../components/src/resources/wallet-resources.mjs', import.meta.url);
+export const verifierCRSModuleURL = new URL('../../../components/src/resources/private-verifier-crs.mjs', import.meta.url);
+assert.equal(WALLET_RESOURCES_MODULE_URL, resourceModuleURL.href, 'RESOURCE_MODULE_IDENTITY');
+assert.equal(PRIVATE_VERIFIER_CRS_MODULE_URL, verifierCRSModuleURL.href, 'VERIFIER_CRS_MODULE_IDENTITY');
+assert.equal(ENVIRONMENT_MODULE_URL, new URL('../../../environment/src/paths.mjs', import.meta.url).href, 'RESOURCE_ENVIRONMENT_IDENTITY');
 const requirePinned = createRequire(join(EXPERIMENT, 'package.json'));
 const VENDOR = join(CANDIDATE, 'vendor/poseidon');
 const VENDOR_COMMIT = 'e105cdd5c79c222860d53c5dfdb8fa8012b291c0';
@@ -295,6 +296,25 @@ export function sourceManifest(spec) {
   }
   return [...files].sort().map(record);
 }
+// Pin the active implementations here, outside the resources being verified.
+// All locations are fixed literals; resource modules supply neither paths nor
+// hashes. Keep historical records and reject manifests with a different closure.
+const activeResourceSources = Object.freeze([
+  ['active-components', 'file-integrity.mjs', new URL('../../../components/src/file-integrity.mjs', import.meta.url).href],
+  ['active-components', 'resources/private-resource-policy.mjs', new URL('../../../components/src/resources/private-resource-policy.mjs', import.meta.url).href],
+  ['active-components', 'resources/private-verifier-crs.mjs', new URL('../../../components/src/resources/private-verifier-crs.mjs', import.meta.url).href],
+  ['active-components', 'resources/wallet-resources.mjs', new URL('../../../components/src/resources/wallet-resources.mjs', import.meta.url).href],
+  ['active-environment', 'paths.mjs', new URL('../../../environment/src/paths.mjs', import.meta.url).href],
+].map(entry => Object.freeze(entry)));
+
+export function activeResourceSourceRecords() {
+  return activeResourceSources.map(([root, path, url]) => {
+    const absolute = fileURLToPath(url);
+    const bytes = regular(absolute);
+    return {root, path, bytes: bytes.length, sha256: hash(bytes)};
+  });
+}
+
 export function executionSources(spec, mode) {
   const fixed = ['catalog.mjs', 'tooling.mjs', 'worker.mjs', 'run-bounded.mjs'].map(name => join(ROOT, 'proof-workers', name));
   fixed.push(join(ROOT, 'wallet-platform/modules/paeg/statements.mjs'),
@@ -332,7 +352,7 @@ export function executionSources(spec, mode) {
       fixed.push(path);
     }
   }
-  return [...new Set(fixed)].sort().map(record);
+  return [...new Set(fixed)].sort().map(record).concat(activeResourceSourceRecords());
 }
 export function assertABI(spec, program) {
   assert.equal(program.noir_version, NOIR_VERSION, 'PW_NOIR_VERSION');

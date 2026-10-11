@@ -1,3 +1,5 @@
+import { ownerCopy, ownerDigest, flatOwnerIdentity, flatOwnerSnapshot, FLAT_OWNER_OBSERVATION_TRUST, flatOwnerHex as hex, flatOwnerUint as uint } from './owner-observation-contract.mjs';
+export { ownerCopy, ownerDigest, flatOwnerIdentity, flatOwnerSnapshot, FLAT_OWNER_OBSERVATION_TRUST } from './owner-observation-contract.mjs';
 import {FLAT_OWNER_EXTERNAL_D27_DELIVERY_V1,validateFlatOwnerExternalIncomingV1} from '../claims/flat-owner-external-incoming-v1.mjs';
 /** Fixed local fake-value owner custody. Only a private, authenticated owner
  * process may instantiate this module. Observations are trusted local RPC
@@ -7,47 +9,44 @@ import { fileURLToPath } from 'node:url';
 import { createHash, createPrivateKey, createPublicKey, randomBytes, verify } from 'node:crypto';
 import { lstat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../engine/src/crypto/privacy.mjs';
-import { signature, nullifier } from '../../../engine/src/notes/private-note-encoding.mjs';
-import { derivePrivateAssetIdentity } from '../../../engine/src/notes/private-asset-runtime.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
+import { signature, nullifier } from '@lianum/engine/notes/private-note-encoding';
 import { createBalanceNote, balanceCommitment, walletDepositInput, walletWithdrawInput,
   balanceDepositFrame, balanceWithdrawFrame, walletInputPublicWords, encodeWalletPoolInputs }
-  from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { compileFundedGraph, attachFundedSignatures, fundedSigningRequests }
-  from '../../../engine/src/execution/graph/funded-graph.mjs';
+  from '@lianum/engine/execution/graph/funded-graph';
 import { createGenericBalanceNativePreparation, validateGenericBalanceNativePreparation,
   genericBalanceNativeTerms, genericBalanceNativeInvoiceRequests }
-  from '../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
-import { inspectGenericSnapshot, reserveProjection } from '../../../engine/src/execution/local/local-ledger.mjs';
+  from '@lianum/engine/execution/balances/generic-balance-native-preparation';
+import { reserveProjection } from '@lianum/engine/execution/local/local-ledger';
 import { buildAuthorizedEnvelope } from './authorized-envelope.mjs';
-import { createCommitmentCodec, exactRecord, canonicalField, validateStruct, ZERO }
+import { createCommitmentCodec, exactRecord, ZERO }
   from '@lianum/components/encoding/commitments';
 import { encodeStatement, decodeStatement } from '@lianum/components/encoding/statements';
 import { encodeDepositIntentInputs, decodeDepositIntentInputs, depositIntentFrame, depositIntentWitness }
-  from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
-import { decodeEvmVaultDeliveryCall } from '../../../backend/src/chains/evm/vault/evm-vault-delivery.mjs';
+  from '@lianum/engine/execution/inputs/deposit-intent';
+import { decodeEvmVaultDeliveryCall } from '@lianum/engine/encoding/evm-vault-delivery';
 import { FLAT_OWNER_NATIVE_CLAIM_ISSUE, validateFlatOwnerNativeClaimTransition } from '../claims/flat-owner-claim-transition.mjs';
 
 import { validateFlatManualReview, validateFlatManualRecords, validateFlatManualReauthorization, currentFlatManualAuthorization } from '../preparation/flat-owner-manual-binding.mjs';
 
 export const FLAT_OWNER_PROFILE = 'FIXED_LOCAL_FLAT_OWNER_CUSTODY_V1';
-export const FLAT_OWNER_OBSERVATION_TRUST = 'OWNED_LOCAL_RPC_NOT_NATIVE_CONSENSUS';
+
 export const FLAT_OWNER_CLAIM_HANDOFF_PROFILE = 'FLAT_OWNER_NATIVE_CLAIM_INGRESS_HANDOFF_V1';
 export const FLAT_OWNER_CLAIM_HANDOFF_TRUST = 'INGRESS_PROVER_LEARNS_THIS_NOTE_OPENING_BUT_CANNOT_SIGN_SPEND';
 // The same backend-local holder remains custodian; no root/opening crosses its parent IPC.
 export const FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2 = 'FLAT_OWNER_PRIVATE_NATIVE_CLAIM_INGRESS_HANDOFF_V2';
 export const FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 = 'BACKEND_LOCAL_OWNER_CHILD_TO_ORIGINAL_CI51_RECIPIENT_NO_PARENT_OPENING';
-export const ownerCopy = value => JSON.parse(canonical(value));
-export const ownerDigest = value => createHash('sha256').update(canonical(value)).digest('hex');
 const same = (a, b) => assert.equal(canonical(a), canonical(b), 'FLAT_OWNER_BINDING');
 // Fixed original wrapped-child selector, never an owner issuer or caller option.
 // Shared non-wrapped custody keeps its existing source/authority contract.
 const WRAPPED_OWNER_CHILD_SOURCE_BOUND_V1 = Boolean(process.argv[1]
-  && resolve(process.argv[1]) === fileURLToPath(new URL('./wrapped-claim-owner-process-v1.mjs', import.meta.url))
+  && resolve(process.argv[1]) === fileURLToPath(new URL('../../../backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs', import.meta.url))
   && process.argv[2] === '--wrapped-claim-owner-child-v1');
 const WRAPPED_OWNER_SOURCE_MODULE_V1 = WRAPPED_OWNER_CHILD_SOURCE_BOUND_V1
-  ? await import('../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs') : null;
+  ? await import('@lianum/components/verification/wrapped-installation') : null;
 function assertWrappedOwnerCustodySourceV1() {
   if (WRAPPED_OWNER_CHILD_SOURCE_BOUND_V1) WRAPPED_OWNER_SOURCE_MODULE_V1.inspectWrappedInstallationSourcesV2();
 }
@@ -61,35 +60,10 @@ const METHODS = {
   recovery: ['recoverGeneric(bytes,bytes32[])', 41],
   withdrawal: ['withdrawBalance(bytes,bytes32[])', 39],
 };
-function hex(value, width = 32, nonzero = true) {
-  assert.ok(typeof value === 'string' && value.length === width * 2
-    && /^[0-9a-f]+$/.test(value) && (!nonzero || value !== '0'.repeat(width * 2)), 'FLAT_OWNER_HEX');
-  return value;
-}
-function uint(value, positive = false) {
-  assert.ok(typeof value === 'string' && /^(0|[1-9][0-9]*)$/.test(value) && value.length <= 20
-    && BigInt(value) < (1n << 64n) && BigInt(value).toString() === value
-    && (!positive || BigInt(value) > 0n), 'FLAT_OWNER_UINT'); return BigInt(value);
-}
 function role(value) { assert.ok(['source', 'change', 'recovery'].includes(value), 'FLAT_OWNER_NOTE_ROLE'); return value; }
 function freeze(value) { if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); } return value; }
 const detached = value => freeze(ownerCopy(value));
 const calldataDigest = value => createHash('sha256').update(Buffer.from(value.slice(2), 'hex')).digest('hex');
-export function flatOwnerIdentity(input) {
-  const value = ownerCopy(input), token = Object.hasOwn(value, 'assetBinding');
-  exactRecord(value, ['pool', 'domain', 'domainCommitment', ...(token ? ['assetBinding'] : [])]);
-  hex(value.pool, 20); validateStruct('domain', value.domain); canonicalField(value.domainCommitment, true);
-  assert.equal(value.domain.ledgerNamespace, value.domain.hubDomain, 'FLAT_OWNER_INITIAL_NAMESPACE');
-  let asset = '0'.repeat(40), codeHash = ZERO;
-  if (token) {
-    exactRecord(value.assetBinding, ['token', 'codeHash']);
-    asset = hex(value.assetBinding.token, 20); codeHash = hex(value.assetBinding.codeHash);
-    assert.notEqual(asset, value.pool, 'FLAT_OWNER_ASSET_POOL');
-  }
-  assert.equal(value.domain.asset, derivePrivateAssetIdentity(31337, '0x' + asset, '0x' + codeHash).slice(2),
-    'FLAT_OWNER_ASSET_DOMAIN');
-  return value;
-}
 
 function assetBalance(value) {
   assert.ok(typeof value === 'string' && value.length <= 78 && /^(0|[1-9][0-9]*)$/.test(value)
@@ -319,25 +293,6 @@ function validateState(state, id) {
       invoiceSignatures: a.invoiceSignatures }));
     if (a.envelope) { assert.ok(a.signed); same(a.envelope.publicStatement.domainCommitment, id.domainCommitment); }
   }
-}
-export function flatOwnerSnapshot(rawInput, identity) {
-  const raw = ownerCopy(rawInput);
-  exactRecord(raw, ['identitySHA256', 'blockHash', 'canonicalBlockHashBefore', 'canonicalBlockHashAfter',
-    'timestamp', 'rawState', 'rawHistory', 'rawBacking']);
-  assert.equal(raw.identitySHA256, ownerDigest(identity), 'FLAT_OWNER_OBSERVATION_IDENTITY');
-  for (const name of ['blockHash', 'canonicalBlockHashBefore', 'canonicalBlockHashAfter']) hex(raw[name]);
-  assert.equal(raw.blockHash, raw.canonicalBlockHashBefore); assert.equal(raw.blockHash, raw.canonicalBlockHashAfter);
-  uint(raw.timestamp);
-  for (const [field, length] of [['rawState', 135], ['rawHistory', 68], ['rawBacking', 6]])
-    assert.ok(typeof raw[field] === 'string' && /^0x(?:[0-9a-f]{64})*$/.test(raw[field])
-      && raw[field].length === 2 + 64 * length, 'FLAT_OWNER_RAW_STATE');
-  const decoded = inspectGenericSnapshot({ ...raw, scope: '0x' + identity.domain.scope });
-  const p = decoded.publicState;
-  assert.equal(new Set(decoded.commitments).size, decoded.commitments.length);
-  assert.equal(new Set(decoded.nullifiers).size, decoded.nullifiers.length);
-  assert.ok(p.leaves + 4 * p.liveReservations <= 64 && p.spent + 5 * p.liveReservations + p.outputCapacity <= 64,
-    'FLAT_OWNER_HEADROOM');
-  return { ...decoded, raw };
 }
 
 /** Canonical fixed ABI decoder for owned transaction matching. Proof bytes are

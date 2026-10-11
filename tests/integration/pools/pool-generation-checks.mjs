@@ -7,8 +7,8 @@ import { assertLocalEvm } from '../../../packages/backend/src/chains/evm/runtime
 import { loadAppendOnlyLedgerArtifacts } from '../../../packages/backend/src/operations/deployments/system/append-only-deployment-artifacts.mjs';
 import { APPEND_ONLY_BUILD_PIN } from '../../../packages/backend/src/operations/deployments/system/append-only-deployment-plan.mjs';
 import { deriveNativeRuntimeCode, nativeStaticArguments, nativeStaticCalldata, predictNativeCreateAddress }
-  from '../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../packages/engine/src/cohorts/private-cohort-public-native.mjs';
+  from '../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { fixtureJSON, freshFixtureId } from '../fixtures/runners/owned-flat-fixture.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const words = values => nativeStaticArguments(values.map(() => ({ type: 'uint256' })), values);

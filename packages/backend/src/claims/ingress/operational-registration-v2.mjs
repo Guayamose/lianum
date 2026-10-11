@@ -2,9 +2,9 @@
  * profile. This validator is data only. It cannot mint an owned observer,
  * runtime, system, bootstrap, signer, custody capability or credit. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { validateClaimConfig, claimDomainCommitment } from '../protocol/framing.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
+import { validateClaimConfig, claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { assertCombinedAdapterRegistrationsV2, assertCustodyRegistration, custodyProfileCommitment } from '../protocol/registry-envelope-v2.mjs';
 import { profileCommitment, registryCommitment } from '../../chains/shared/transfers/generic-native-value-v2.mjs';
 

@@ -4,7 +4,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {privateWalletAccountBindings} from '../../../src/wallet/notes/private-wallet-account-bindings.mjs';
-import {createPrivateCohortParticipantView} from '../../../src/wallet/custody/private-wallet-authority.mjs';
+import {createPrivateCohortParticipantView} from '../../../../backend/src/custody/wallet/private-wallet-authority.mjs';
 import {PRIVATE_COHORT_PROFILE} from '../../../src/cohorts/private-cohort-runtime.mjs';
 const accounts=Array.from({length:9},(_,i)=>'0x'+(i+1).toString(16).padStart(40,'0'));
 const bindings=i=>({profile:PRIVATE_COHORT_PROFILE,ownerIndex:i,deposit:accounts[i],ownerWithdrawal:accounts[i],relayer:accounts[6],payouts:{sol:accounts[2+2*i],btc:accounts[3+2*i]},authorities:{sol:accounts[7],btc:accounts[8]}});

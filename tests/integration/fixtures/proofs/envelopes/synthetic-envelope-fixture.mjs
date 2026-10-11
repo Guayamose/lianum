@@ -5,22 +5,22 @@
 import assert from 'node:assert/strict';
 import { createHash, createECDH, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fundedHash, FUNDED_DOMAINS }
-  from '../../../../../packages/engine/src/execution/graph/funded-graph.mjs';
+  from '@lianum/engine/execution/graph/funded-graph';
 import { nativeReceiptKeyCommitment, nativeTransferActionCommitment }
-  from '../../../../../packages/engine/src/execution/native/dispatch/native-capsules.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleCommitment, nativeAdmissionRulesTree,
   nativeProviderIdentity, nativeDeliveryRiskCommitment, nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment }
-  from '../../../../../packages/engine/src/evidence/native-quorum.mjs';
-import { signature, uintBE } from '../../../../../packages/engine/src/notes/private-note-encoding.mjs';
-import { walletNoteCommitment } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { PrivateNoteTree } from '../../../../../packages/engine/src/notes/private-note-tree.mjs';
-import { buildAuthorizedEnvelope } from '../../../../../packages/custody/src/signing/authorized-envelope.mjs';
-import { createCommitmentCodec, exactRecord, ZERO } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
-import { encodeStatement, RELATIONS } from '../../../../../packages/backend/src/execution/encoding/statements.mjs';
+  from '@lianum/engine/evidence/native-quorum';
+import { signature, uintBE } from '@lianum/engine/notes/private-note-encoding';
+import { walletNoteCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
+import { buildAuthorizedEnvelope } from '@lianum/custody/signing/authorized-envelope';
+import { createCommitmentCodec, exactRecord, ZERO } from '@lianum/components/encoding/commitments';
+import { encodeStatement, RELATIONS } from '@lianum/components/encoding/statements';
 import { nativeCustodyCommitment, encodeNativeFacts, encodeSolanaBindingMessage }
-  from '../../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 import { reservationWitness, recoveryWitness } from '../../../../../packages/backend/src/execution/account/preparation/funding-inputs.mjs';
 
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;

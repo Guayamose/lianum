@@ -51,7 +51,8 @@ def encoded(value):
 
 
 def relative(name):
-    if not isinstance(name, str) or not name or name.startswith("/") or "\\" in name:
+    if (not isinstance(name, str) or not name or name.startswith("/") or "\\" in name
+            or any(ord(char) < 32 or ord(char) == 127 for char in name)):
         raise ValueError("Expected a repository-relative path")
     if any(not part or part in (".", "..", ".git") or part.startswith(".env") for part in name.split("/")):
         raise ValueError("Refusing non-public or escaping path")
@@ -100,11 +101,54 @@ def label_path(name):
     return relative(FLAT + name)
 
 
+def unique_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("Duplicate layout field: " + key)
+        value[key] = item
+    return value
+
+
+def source_relocations(definition):
+    """Explicit one-to-one historical source names, never filesystem aliases.
+
+    Only an absent old public source may resolve to a present physical source.
+    Chains and merged destinations require a new explicit review rather than
+    silently choosing an implementation for an old publication.
+    """
+    relocations = definition.get("sourceRelocations", {})
+    if not isinstance(relocations, dict):
+        raise ValueError("Source relocations must be an explicit path map")
+    destinations = set()
+    for old, new in relocations.items():
+        for name in (old, new):
+            relative(name)
+            if (name.split("/", 1)[0] not in {"packages", "apps", "scripts", "tests", "experiments", "contracts"}
+                    or any(part.startswith(".") or part in {"node_modules", "secrets"} for part in name.split("/"))
+                    or name.endswith((".pem", ".key", ".p12", ".pfx"))):
+                raise ValueError("Source relocation requires a public source path: " + name)
+        if new in relocations:
+            raise ValueError("Chained or cyclic source relocation: " + old)
+        if new in destinations:
+            raise ValueError("Ambiguous source relocation destination: " + new)
+        destinations.add(new)
+        if physical(old).exists():
+            raise ValueError("Source relocation would hide an existing source: " + old)
+        if not physical(new).is_file():
+            raise ValueError("Source relocation target is missing or not a file: " + new)
+    return dict(relocations)
+
+
 class Capture:
     """Resolve published paths to editable sources without building the runtime."""
     def __init__(self):
         self.layout_bytes = read("scripts/layout.json")
+        definition = json.loads(self.layout_bytes, object_pairs_hook=unique_object)
         self.layout = workspace_layout(ROOT)
+        if read("scripts/layout.json") != self.layout_bytes:
+            raise ValueError("Layout changed while resolving current sources")
+        self.relocations = source_relocations(definition)
         self.files = {}
         self.objects = {}
         # Forward-map today's real files. Several domain directories share one
@@ -147,6 +191,13 @@ class Capture:
                 if map_path(mapped, self.layout, "runtime") != runtime:
                     raise ValueError("Non-reversible source mapping: " + target)
                 source = mapped
+        original_source = source
+        if source in self.relocations:
+            # Recheck absence at observation time: a restored file must never be
+            # shadowed by a candidate mapping captured earlier in this process.
+            if physical(source).exists():
+                raise ValueError("Source relocation would hide an existing source: " + source)
+            source = self.relocations[source]
         try:
             value = read(source)
         except FileNotFoundError:
@@ -167,6 +218,8 @@ class Capture:
                     row["runtimeMatchesSource"] = sha(read(target)) == generated_sha
                 except FileNotFoundError:
                     row["runtimeMatchesSource"] = False
+        if source != original_source:
+            row["sourceRelocation"] = {"from": original_source, "to": source}
         self.files[target] = row
         return row
 

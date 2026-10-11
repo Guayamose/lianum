@@ -9,8 +9,8 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:
 import { open, lstat, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { types } from 'node:util';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
 const MAX_JSON_BYTES = 1024 * 1024, MAX_FILE_BYTES = 2 * MAX_JSON_BYTES;
 const KDF = Object.freeze({ name: 'scrypt', N: 32768, r: 8, p: 1 });
 const problem = (code, message) => Object.assign(new Error(message), { code });

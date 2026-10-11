@@ -2,11 +2,11 @@
  * The new I relation computes the selected tagged frame and zeroes the other
  * witness branch. Same public ABI never licenses an old admission key. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray, digestBytes } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, digestBytes } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import * as E from '../../evm/transfers/evm-native-value-v2.mjs';
 import * as T from '../../tron/transfers/tron-native-graph-profile.mjs';
-import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '../../../../../engine/src/evidence/native-quorum.mjs';
+import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
 export const RELATION = E.RELATION;
 export const SEMANTIC_PROFILE = 'LIANUM_GENERIC_NATIVE_VALUE_ADMISSION_V2';
 export const EVM_PREDICATE = E.sha256('LIANUM_EVM_NATIVE_VALUE_EXACT_K_ADMISSION_V2');

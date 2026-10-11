@@ -9,9 +9,9 @@ import {join} from 'node:path';
 import {createHash,createCipheriv,createDecipheriv,randomBytes,createPublicKey,verify} from 'node:crypto';
 import {registerHooks,stripTypeScriptTypes} from 'node:module';
 import {fileURLToPath} from 'node:url';
-import {createBalanceNote,walletDepositInput} from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {derivePrivateAssetIdentity} from '../../../../engine/src/notes/private-asset-runtime.mjs';
-import * as P from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {createBalanceNote,walletDepositInput} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {derivePrivateAssetIdentity} from '@lianum/engine/notes/private-asset-runtime';
+import * as P from '@lianum/mobile-protocol/device/source-note-v1';
 const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/global-state/device-external-flat-note-authority-v1.test.mjs');
 const url=(raw,mapped)=>new URL(generated?mapped:raw,import.meta.url);
 const {devicePublicKey,signDeviceMessage}=await import(url('../../../../../apps/mobile/src/custody/signing.mjs','../../../../../../../apps/mobile/src/custody/signing.mjs'));
@@ -20,8 +20,8 @@ const facadeURL=url('../../../src/chains/evm/runtime/local-evm-ownership.mjs','.
 const systemURL=url('../../../src/operations/deployments/system/deploy-system.mjs','../ops/deploy-system.mjs');
 const assetURL=url('../../../src/chains/shared/contracts/owned-pool-asset.mjs','../chain-adapters/owned-pool-asset.mjs');
 const readerURL=url('../../../src/execution/account/reconciliation/flat-system-state.mjs','../paeg/flat-system-state.mjs');
-const observerURL=url('../../../../custody/src/observers/flat-owner-observer.mjs','../../../mobile-core/flat-owner-observer.mjs');
-const proofURL=url('../../../../engine/src/execution/proofs/proof-process.mjs','../../../../../omnichain-product/src/paeg/proof-process.mjs');
+const observerURL=url('../../../src/custody/observers/flat-owner-observer.mjs','../../../mobile-core/flat-owner-observer.mjs');
+const proofURL=url('../../../../proofs/src/execution/proof-process.mjs','../../../../../omnichain-product/src/paeg/proof-process.mjs');
 const accountURL=url('../../../src/accounts/authority/device-external-flat-note-authority-v1.mjs','./device-external-flat-note-authority-v1.mjs');
 const brands={runtime:new WeakSet(),system:new WeakSet(),asset:new WeakSet(),observer:new WeakMap()};let view,worker=0,send=0,workerClose=0,deployed=0,orderedProofPort=null,orderedObserverPort=null;
 // Preserve all unrelated original exports at mock boundaries. Only explicit
@@ -586,7 +586,7 @@ test('HOST original graph capture uses its active original token while idle auth
 
 test('HOST Blue fixed recovery namespace uses the original receiver and exact issuer identity',async()=>{
  const registryText=await readFile(url('../../../src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs','../native-claims/wrapped-private-lifetime-registry-v1.mjs'),'utf8'),issuerText=await readFile(url('../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','../native-claims/wrapped-recovery-authority-v1.mjs'),'utf8');
- const {exactRecord}=await import(url('../../../src/execution/encoding/commitments.mjs','../paeg/commitments.mjs'));
+ const {exactRecord}=await import(url('@lianum/components/encoding/commitments','../paeg/commitments.mjs'));
  const a=registryText.indexOf('function inputIdentity(input){'),b=registryText.indexOf('const checkpoint=',a),c=issuerText.indexOf('function deviceExternalFlatIdentity(input){'),d=issuerText.indexOf('export function createDeviceExternalFlatRecoveryAuthorityV1',c);assert.ok(a>=0&&b>a&&c>=0&&d>c);
  const fixedRoot='/host/fixed-wallet',runId='11111111-2222-4333-8444-555555555555',owned=new WeakSet(),runtime=Object.freeze({metadata:Object.freeze({evmGenesis:'0x'+h('host-genesis'),chainId:'31337'})});owned.add(runtime);let receiverChecks=0;
  // Only ownership is an inert HOST port. Both identity guards below are the
@@ -607,7 +607,7 @@ test('HOST Blue fixed recovery namespace uses the original receiver and exact is
  * ownership ports. This establishes no proof or financial acceptance. */
 test('HOST device multi GRAPH binds two-to-four private targets and exact DAG invoices without widening legacy pool claims',async t=>{
  const {types}=await import('node:util'),{randomBytes,verify,createPublicKey}=await import('node:crypto'),{chmod}=await import('node:fs/promises');
- const {canonicalNativeOwnerNodes}=await import(url('../../../../engine/src/execution/native/dispatch/native-owner.mjs','../../../../../omnichain-product/src/paeg/native-owner.mjs'));
+ const {canonicalNativeOwnerNodes}=await import(url('../../../src/execution/native/dispatch/native-owner.mjs','../../../../../omnichain-product/src/paeg/native-owner.mjs'));
  const {createGenericBalanceNativePreparation,validateGenericBalanceNativePreparation,genericBalanceNativeTerms}=await import(url('../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs','../../../../../omnichain-product/src/paeg/generic-balance-native-preparation.mjs'));
  const {createNativeRecipientCustody,nativeRecipientInvoiceRequest,nativeRecipientInvoiceMessage}=await import(url('../../../../engine/src/execution/native/recipients/native-recipient-custody.mjs','../../../../../omnichain-product/src/paeg/native-recipient-custody.mjs'));
  const serviceText=await readFile(url('../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs','../operations/local/device-external-flat-source-graph-service-v1.mjs'),'utf8'),graphText=await readFile(new URL(accountURL.href.replace('device-external-flat-note-authority-v1.mjs','device-external-flat-source-graph-v1.mjs')),'utf8'),noteText=await readFile(accountURL,'utf8');
@@ -690,7 +690,7 @@ test('HOST fixed Meta four-target mobile transport keeps original namespace and 
 
 
 test('HOST original multi GRAPH reopens five exact encrypted accounts and four original routers without effects',async t=>{
- const {Vault}=await import('../../../../engine/src/crypto/vault.mjs');
+ const {Vault}=await import('@lianum/engine/crypto/vault');
  const {canonicalClaimRecordDataV1}=await import('../../../src/claims/storage/segmented-record-store.mjs');
  const {chmod,mkdir}=await import('node:fs/promises');
  const text=await readFile(url('../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs','../operations/local/device-external-flat-source-graph-service-v1.mjs'),'utf8');
@@ -736,7 +736,7 @@ test('HOST original GRAPH SOURCE AEAD checkpoint precedes effects; pending and o
  const fs=await import('node:fs/promises'),{constants}=await import('node:fs'),{types}=await import('node:util'),{dirname}=await import('node:path'),crypto=await import('node:crypto');
  const {Vault}=await import(url('../../../../engine/src/crypto/vault.mjs','../../../../../omnichain-product/src/vault.mjs'));
  const {canonical}=await import(url('../../../../engine/src/crypto/privacy.mjs','../../../../../omnichain-product/src/privacy.mjs'));
- const {exactRecord}=await import(url('../../../src/execution/encoding/commitments.mjs','../paeg/commitments.mjs'));
+ const {exactRecord}=await import(url('@lianum/components/encoding/commitments','../paeg/commitments.mjs'));
  const sourceURL=url('../../../src/operations/recovery/device-external-flat-original-source-v2.mjs','../ops/device-external-flat-original-source-v2.mjs');
  let code=await readFile(sourceURL,'utf8');code=code.replace(/^import .*?;\s*$/gm,'').replace(/export (?=(?:async )?function|const)/g,'');
  const fixedModules=['device-external-flat-source-graph-service-v1.mjs','owned-evm-v2-runtime.mjs','wrapped-private-lifetime-registry-v1.mjs','device-external-flat-ordered-observation-recovery-v1.mjs'];
@@ -1000,7 +1000,7 @@ test('HOST graph output proof metadata is durable before the SOURCE checkpoint',
  // Execute the actual proof/output, save, retention and checkpoint bodies.
  // Both journals use the real AES/CAS Vault. Cryptographic proof, ownership,
  // consent and chain ports are explicitly inert; this is no financial proof.
- const {Vault}=await import('../../../../engine/src/crypto/vault.mjs');
+ const {Vault}=await import('@lianum/engine/crypto/vault');
  const {isDeepStrictEqual}=await import('node:util');
  const source=await readFile(url('../../../src/accounts/authority/device-external-flat-source-graph-v1.mjs','./device-external-flat-source-graph-v1.mjs'),'utf8');
  const cut=(from,to)=>{const a=source.indexOf(from),b=source.indexOf(to,a);assert.ok(a>=0&&b>a);return source.slice(a,b);};

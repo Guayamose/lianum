@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
 import {Script,createContext} from 'node:vm';
 import {join} from 'node:path';
-import {ROOT} from '../../../../proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 
 test('the original current-state getter pins SPL to its separate library and keeps BTC/SOL unchanged',async()=>{
  const url=new URL('../../../src/claims/operations/owned-state.mjs',import.meta.url);

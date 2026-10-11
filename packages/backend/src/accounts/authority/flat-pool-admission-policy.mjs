@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { assertOwnedFlatSystem, describeOwnedFlatPoolRegistry } from '../../operations/deployments/system/deploy-system.mjs';
 import { assertOwnedFlatAccountAuthority } from './flat-account-authority.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { genericAccountIdentity, immutable } from '@lianum/engine/accounts/journal';
 import { poolRouteDigest, poolEconomicIdentity, projectPoolCapacity, assertPoolHistoryAdvance,
   assertFreshPoolSuccessor } from '../storage/flat-pool-route-state.mjs';

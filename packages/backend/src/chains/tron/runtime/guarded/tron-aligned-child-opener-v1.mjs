@@ -6,14 +6,14 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, readdir, lstat, readlink, realpath, writeFile, statfs } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../../proofs/src/catalog.mjs';
-import { projectRoot } from '../../../../../../engine/src/chains/shared/runtime-harness.mjs';
-import { PRIVATE_RESOURCE_FLOORS } from '../../../../../../engine/src/crypto/private-resource-policy.mjs';
-import { TRON_UPSTREAM } from '../../transfers/owned-tron-node-driver.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
+import { TRON_UPSTREAM } from './tron-upstream-release-v1.mjs';
 import { createTronPrivateLogCapture } from './tron-private-log-capture-v1.mjs';
 import { captureTronCandidateDiskLogs } from './tron-private-disk-log-capture-v1.mjs';
 import { captureTronAlignedRocksDbNativeAudit } from './tron-aligned-native-audit-v1.mjs';
-import { createTronProductHostGuardV1 } from './tron-product-host-scope-v1.mjs';
+import { captureTronHostScopeV1, readTronHostProcessV1, assertTronHostProcessV1, sameTronHostProcessV1, assertTronHostScopeV1 } from './tron-host-observation-v1.mjs';
 import { inspectOwnedTronAlignedCandidateMaterialV1, inspectOwnedTronReviewedMaterialV1 } from './tron-reviewed-material-v1.mjs';
 import { assertOwnedTronProductReleaseV1 } from './tron-product-release-v1.mjs';
 import { inspectOwnedTronFirstErrorPrivateMaterialV3 } from './tron-first-error-private-material-v3.mjs';
@@ -343,4 +343,18 @@ export async function startOwnedTronFirstErrorPrivateProductChildV3(directory, a
   const material = await inspectOwnedTronFirstErrorPrivateMaterialV3(); hostGuard.assertActive();
   const child = await startAlignedChild(directory, audit, signal, FIRST_ERROR_PRODUCT, hostGuard);
   return Object.assign(child, { material, originalHostScope: hostGuard.evidence });
+}
+
+/** The guard can only admit births recorded by the fixed opener in this module. */
+export function createTronProductHostGuardV1() {
+ assert.equal(arguments.length,0,'TRON_PRODUCT_HOST_GUARD_NO_OPTIONS'); const original = captureTronHostScopeV1(); let ownedTron;
+
+ const check = () => assertTronHostScopeV1(original, ownedTron);
+ const evidence={...check(),originalFactoryIdentity:readTronHostProcessV1(process.pid)}; return Object.freeze({evidence:Object.freeze(evidence),assertActive:check,
+  bindOriginalChild(handle) { assert.equal(arguments.length,1); assert.equal(ownedTron,undefined,'TRON_PRODUCT_ONE_ORIGINAL_CHILD');
+   const birth=readOriginalTronProductChildBirthV1(handle), row=readTronHostProcessV1(birth.pid); assertTronHostProcessV1(row);
+   assert.ok(sameTronHostProcessV1(row,birth) && row.parent===process.pid && row.group===birth.group && row.session===birth.session,'TRON_PRODUCT_CHILD_BIRTH_CHANGED');
+   ownedTron=birth; check();
+  },
+ });
 }

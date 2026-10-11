@@ -3,21 +3,21 @@
  * perform independent fresh reads on each same-host/same-node synthetic chain;
  * distinct slots do NOT establish independent infrastructure or consensus. */
 import assert from 'node:assert/strict';
-import { consumeWrappedSystemRecoveryPartV1 } from '../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs';
+import { consumeWrappedSystemRecoveryPartV1 } from '../../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs';
 import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
-import { exactRecord, fixedArray, bytes32, ZERO } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { createNativeValueOperatorQuorum } from './wrapped-claim-graph-operators-v1.mjs';
 import { createCombinedWrappedClaimOperatorV1, captureCombinedWrappedClaimOperatorRecoveryV1, fenceCombinedWrappedClaimOperatorRecoveryV1, snapshotCombinedWrappedClaimInitializationV1 } from './wrapped-claim-combined-operators-v1.mjs';
 import { createClaimOperatorQuorum } from '../../../claims/wrapped/operations/wrapped-operators-v1.mjs';
 import { createOwnedWrappedClaimObserverV1 } from '../../../claims/wrapped/operations/wrapped-owned-state-v1.mjs';
 import { assertOwnedWrappedClaimBootstrap, ownedWrappedClaimBootstrapBindings } from './wrapped-claim-custody-bootstrap-v1.mjs';
 import { validateCustodyProfile, custodyProfileCommitment, CUSTODY_SCHEMA, CUSTODY_PREDICATE } from '../../../claims/protocol/registry-envelope-v2.mjs';
-import { nativeClaimEndpointCommitment } from '../../../claims/protocol/framing.mjs';
-import { nativeRuleCommitment } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
+import { nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { createClaimRecordStore, openClaimRecordStore } from '@lianum/engine/storage/records';
@@ -31,8 +31,8 @@ import { bindOriginalEvmGraphTransfer } from '../../../chains/evm/transfers/evm-
 import { isOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmNativeValueRuntimeLive, readOwnedLocalEvmNativeValueAuditStateV4 }
   from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { describeOwnedLocalEvmNativeValueSource, createOwnedLocalEvmNativeValueHealthSource }
-  from '../../../chains/evm/health/owned-evm-native-value-health-source-v4.mjs';
-import { NATIVE_QUORUM_PROFILE } from '../../../../../engine/src/evidence/native-quorum.mjs';
+  from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { NATIVE_QUORUM_PROFILE } from '@lianum/engine/evidence/native-quorum';
 export const NATIVE_VALUE_LOCAL_BOOTSTRAP_PROFILE = 'OWNED_WRAPPED_CLAIM_GRAPH_BOOTSTRAP_V1';
 const owns=new WeakMap(),claimedNativeRuntimes=new WeakSet(),pendingNativeRuntimes=new WeakSet(),copy=cloneInput,freeze=frozenInput;
 const node=(a,b)=>sha256(Buffer.from('01'+a+b,'hex')),originalKey=(p,n)=>p+':'+n;

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { ROOT, FLAT, GOLDEN, CANDIDATE } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN, CANDIDATE } from '@lianum/proofs/catalog';
 import { nativeValueDevHostSourcePinsV5 } from './native-value-dev-source-pins-v5.mjs';
 import { resolveDevelopmentWorkspaceExportV1, isDevelopmentWorkspacePackageLabelV1 } from './workspace-package-source-v1.mjs';
 const DEVELOPMENT=resolve(FLAT,'../../..');

@@ -2,8 +2,8 @@
  * verifier are never fallbacks. Full financial source scope is captured anew. */
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../../proofs/src/tooling/tooling.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {NATIVE_SPL_CLAIM_V1_ORIGINAL_PINS,loadNativeSplClaimV1Prepared,loadNativeSplClaimV1RetainedContracts,assertNativeSplClaimV1Verifier} from './native-spl-claim-v1-compilation.mjs';
 // Only this reviewed compilation can be consumed. Nested file/lineage pins
 // cannot be edited through the exported metadata by an importing caller.

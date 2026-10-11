@@ -3,7 +3,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
+import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 const defiBrands = new WeakMap();
 mock.module('../wallet-platform/modules/defi-adapters/private-vault-exit.mjs', { exports: {
   assertOwnedPrivateVaultExit(runtime, service) { assert.equal(defiBrands.get(service), runtime, 'SYNTHETIC_ORIGINAL_DEFI_REQUIRED'); },

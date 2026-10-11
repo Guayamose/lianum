@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { derivePrivateAssetIdentity } from '../../../../../packages/engine/src/notes/private-asset-runtime.mjs';
 import { sha, genericAccountIdentity } from '../../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
 import * as actualSystemState from '../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
-import { encodeStatement } from '../../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { flatAccountGraphBinding } from '../../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs';
 import { createWalletClient, accountReviewDetails } from '../../../src/client/state/view-model.mjs';
 import { bindManualActionConsent } from '../../../src/client/features/accounts/manual-action-dom.mjs';

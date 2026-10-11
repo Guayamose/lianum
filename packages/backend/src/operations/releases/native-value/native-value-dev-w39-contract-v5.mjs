@@ -2,10 +2,10 @@
  * capability. The V5 fixed filesystem inspector joins the actual bytes. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { NATIVE_VALUE_RELEASE } from './native-value-wallet-release-v4.mjs';
-import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 // V5 export names remain the fixed deployment API; this is a new physical generation.
 // Historical v5/v6/v7/v8 raw files/receipts are retained and cannot satisfy this V9 descriptor.
 export const W39_DEV_DIRECTORY_V5 = '.local/development-native-value-w39/v9';

@@ -1,7 +1,7 @@
 /** Fixed historical stages plus pure future receipt conformance; no authority issuer. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {exactRecord,bytes32} from '../../../execution/encoding/commitments.mjs';
+import {exactRecord,bytes32} from '@lianum/components/encoding/commitments';
 const freeze=v=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};
 const hash=b=>createHash('sha256').update(b).digest('hex');
 export const WRAPPED_CLAIM_STAGE_HISTORY_V2=freeze({

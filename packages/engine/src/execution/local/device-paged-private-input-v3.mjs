@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
-import {readOriginalPrivateProofRecipientV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1} from '../../../../proofs/src/jobs/private-proof-transit-v1.mjs';
+import {readOriginalPrivateProofRecipientV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1} from '../../crypto/private-proof-transit-v1.mjs';
 import {walletNoteCommitment,balanceDepositFrame,balanceWithdrawFrame,walletInputPublicWords} from '../../wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../notes/private-note-encoding.mjs';
 import {noteNodeHash} from '../../notes/private-note-tree.mjs';

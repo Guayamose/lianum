@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
-import { FIELD_MODULUS } from '../../../src/execution/encoding/commitments.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
+import { FIELD_MODULUS } from '@lianum/components/encoding/commitments';
 import { memoizedFlatPureHash as hash, discardFlatPureMathCache as discard, createFlatPureMathLease, FLAT_PURE_MATH_LIMITS as LIMIT } from '../../../src/execution/encoding/flat-pure-math-cache.mjs';
 const b32=n=>'0x'+BigInt(n).toString(16).padStart(64,'0');
 const result=(signature,args)=>b32(BigInt('0x'+createHash('sha256').update(canonical([signature,args])).digest('hex'))%FIELD_MODULUS);

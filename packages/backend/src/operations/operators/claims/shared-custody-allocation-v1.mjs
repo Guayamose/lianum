@@ -5,7 +5,7 @@ import {assertOwnedSolanaSplCustodyV1} from '../../../chains/solana/runtime/owne
  * bootstrap attempts retain their reservations. There is no release/reset API. */
 import assert from 'node:assert/strict';
 import { isAbsolute, resolve } from 'node:path';
-import { fixedArray } from '../../../execution/encoding/commitments.mjs';
+import { fixedArray } from '@lianum/components/encoding/commitments';
 import { assertOwnedBitcoinRuntime, BITCOIN_CUSTODY_PROFILE } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime, SOLANA_CUSTODY_PROFILE } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
 const allocated = new WeakSet(), journals = new Set();

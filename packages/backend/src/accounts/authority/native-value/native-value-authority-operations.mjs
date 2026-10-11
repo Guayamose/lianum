@@ -1,15 +1,15 @@
 /** Operations operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
-import { validateBoundRequest, sha, immutable, copy, validateOutcome } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
+import { validateBoundRequest, sha, immutable, copy, validateOutcome } from "@lianum/engine/accounts/journal";
 import assert from "node:assert/strict";
 import { flatAccountGraphBinding, validateFlatAccountOwnerObservation, flatAccountCalldataHash, validateFlatManualGraphAdmissionTime } from "../flat-account-validation.mjs";
-import { decodeStatement } from "../../../execution/encoding/statements.mjs";
-import { validateNativeValueManualReview, validateNativeValueManualRecords } from "../../../../../custody/src/preparation/native-value-owner-manual-binding-v1.mjs";
-import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "../../../../../engine/src/execution/proofs/proof-process.mjs";
+import { decodeStatement } from "@lianum/components/encoding/statements";
+import { validateNativeValueManualReview, validateNativeValueManualRecords } from "@lianum/custody/preparation/native-value-owner-manual-binding-v1";
+import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "@lianum/proofs/execution/proof-process";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
-import { withFlatHash } from "../../../../../proofs/src/tooling/scoped-proof-tools.mjs";
+import { withFlatHash } from "@lianum/proofs/tooling/scoped-proof-tools";
 import { reservationWitness } from "../../../execution/account/preparation/funding-inputs.mjs";
-import { reserveProjection } from "../../../../../engine/src/execution/local/local-ledger.mjs";
+import { reserveProjection } from "@lianum/engine/execution/local/local-ledger";
 import { privateFailureDiagnostic } from "../../../execution/account/reconciliation/failure-diagnostics.mjs";
 import { decodeNativeValueTerminalCalldata } from "../../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs";
 export function createNativeValueOwnerOperations({

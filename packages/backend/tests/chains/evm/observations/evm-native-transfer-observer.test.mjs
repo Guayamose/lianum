@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createEvmNativeTransferObserver, evmNativeTransferNetwork, assertEvmNativeTransferObservation, assertEvmNativeTransferObserver } from '../../../../src/chains/evm/observations/evm-native-transfer-observer.mjs';
 import { originalFixture, hash, quantity } from '../../../fixtures/chains/evm/transfers/evm-native-transfer-fixture.mjs';
-import { nativeFactIdentity, nativeObservedEffectCommitment } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeFactIdentity, nativeObservedEffectCommitment } from '@lianum/engine/native/native-receipt-binding';
 const query = f => ({ nativeId: f.original.expected.nativeId });
 const copy = value => structuredClone(value);
 

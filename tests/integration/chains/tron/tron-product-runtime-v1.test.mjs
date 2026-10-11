@@ -6,9 +6,10 @@ import { readFile } from 'node:fs/promises';
 import { realpathSync, lstatSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { sourceURL } from '@lianum/environment';
 import { createTronPrivateLogCapture, TRON_PRIVATE_LOG_PREFIX_BYTES } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-private-log-capture-v1.mjs';
-import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
-import { ROOT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
+import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
+import { ROOT, GOLDEN } from '@lianum/proofs/catalog';
 import { OWNED_TRON_RUNTIME_RELEASE, startFixedOwnedTronDriver } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
 import { OWNED_TRON_PRODUCT_DRIVER_RELEASE_V1, OWNED_TRON_PRODUCT_TOTAL_MILLISECONDS_V1, assertOwnedTronProductReleaseV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-release-v1.mjs';
@@ -17,6 +18,25 @@ import { startOwnedTronAlignedCandidateChildV1, startOwnedTronAlignedProductChil
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs';
 import { assertTronProductSupervisorEvidenceV1 }
  from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-product-host-scope-v1.mjs';
+
+// Exercise the real split observation and child-lifecycle bodies with inert IO.
+// Inlining here belongs only to the VM regression harness; production imports
+// retain the private birth registry in the fixed child opener.
+async function hostGuardSource() {
+ const base='packages/backend/src/chains/tron/runtime/guarded/';
+ const [policy,opener]=await Promise.all([
+  readFile(sourceURL(base+'tron-host-observation-v1.mjs'),'utf8'),
+  readFile(sourceURL(base+'tron-aligned-child-opener-v1.mjs'),'utf8')]);
+ const start=policy.indexOf('export function assertTronHostScopeV1(original, ownedTron) {');
+ const end=policy.indexOf('\nexport { captureScope',start);
+ assert.ok(start>=0 && end>start);
+ const check=policy.slice(start,end).replace('export function assertTronHostScopeV1(original, ownedTron)', 'function check()').trim();
+ let guard=opener.slice(opener.indexOf('export function createTronProductHostGuardV1()'));
+ for(const [actual,local] of Object.entries({captureTronHostScopeV1:'captureScope',readTronHostProcessV1:'proc',assertTronHostProcessV1:'own',sameTronHostProcessV1:'same'}))
+  guard=guard.replaceAll(actual,local);
+ guard=guard.replace('const check = () => assertTronHostScopeV1(original, ownedTron);',check);
+ return policy.slice(0,start)+guard;
+}
 
 const originalMain=()=>({pid:process.pid,parent:process.ppid,start:'100',group:process.pid,session:process.pid,state:'S',
  uid:process.getuid(),uids:Array(4).fill(process.getuid()),executable:realpathSync(process.execPath),cwd:ROOT,
@@ -64,7 +84,7 @@ test('original supervisor joins reject stale birth, UID, group, script, UUID, fa
 });
 
 test('the real host-guard body rejects foreign or stale proof locks and heavy children; only the same original group can coexist',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-product-host-scope-v1.mjs'),'utf8');
+ const text=await hostGuardSource();
  const start=text.indexOf('export function createTronProductHostGuardV1()');assert.ok(start>=0);
  const body=text.slice(start+'export '.length),main=originalMain(),proof=join(ROOT,'proof-workers/worker.mjs');
  const lockPath='/tmp/synthetic-proof.lock',owner={...main,pid:main.pid+101,parent:main.pid,argv:[main.executable,proof]};
@@ -127,7 +147,7 @@ test('the real host-guard body rejects foreign or stale proof locks and heavy ch
 });
 
 test('fixed opener and actual terminal cleanup reject caller profiles and preserve scratch/lock on rejected closure',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
  assert.match(text,/const CANDIDATE = Object\.freeze\(\{ helper: HELPER, milliseconds: 300_000 \}\)/);
  assert.match(text,/const PRODUCT = Object\.freeze\(\{ helper: HELPER, milliseconds: 90 \* 60 \* 1000 \}\)/);
  const from=text.indexOf('async function startAlignedChild('),to=text.indexOf('export async function startOwnedTronAlignedCandidateChildV1(');
@@ -136,7 +156,7 @@ test('fixed opener and actual terminal cleanup reject caller profiles and preser
  await assert.rejects(actual('/caller','/caller',new AbortController().signal,{helper:'/caller',milliseconds:Infinity}),/FIXED_OPENER_PROFILE/);
  assert.equal(spawned,false);
  // Execute the actual finish body with metadata-only IO. No child is created.
- const driver=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-product-node-driver-v1.mjs'),'utf8');
+ const driver=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs'),'utf8');
  const finish=driver.slice(driver.indexOf(' async function finish()'),driver.indexOf(' const close=()=>')).trim();
  assert.ok(finish.startsWith('async function finish()'));
  async function runFinish(code,receipt,{attempted=true,hasOriginal=true,startup=false}={}) {
@@ -219,7 +239,7 @@ test('the original runtime fresh journal scan overlaps eight independent reads a
 });
 
 test('fresh original process metadata drains four independent reads between unchanged birth observations',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
  const helper=text.slice(text.indexOf('async function freshTronOriginalProcessReadsV1('),text.indexOf('async function hostResources('));
  const body=text.slice(text.indexOf('async function proc(pid)'),text.indexOf('function assertTronAlignedRocksDbStartupIdentity('));
  assert.ok(helper.includes('function originalTronProcessReadV1(')&&body.includes('async function alignedProc('));
@@ -243,7 +263,7 @@ test('fresh original process metadata drains four independent reads between unch
 });
 
 test('each original command waits for the fresh eight-FD audit and preserves socket, missing-FD and first-error guards',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
  const helper=text.slice(text.indexOf('async function freshTronOriginalProcessReadsV1('),text.indexOf('async function hostResources('));
  const audit=text.slice(text.indexOf('  async function auditNative()'),text.indexOf('  let interval;',text.indexOf('  async function auditNative()')));
  const command=text.slice(text.indexOf('  async function command(kind,'),text.indexOf('  function close()',text.indexOf('  async function command(kind,')));
@@ -275,7 +295,7 @@ test('each original command waits for the fresh eight-FD audit and preserves soc
 // Explicit inert HOST ports for the actual stdout/stderr and command bodies.
 // No Java, process, runtime authority, native wire or financial receipt exists.
 async function originalTronProtocolHostV1({which='product',ready=true,timedOut=false}={}) {
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
  const from=text.indexOf("  child.stderr.on('data', bytes =>"),to=text.indexOf('  const started = Date.now()',from);
  const commandFrom=text.indexOf('  async function command(kind,'),commandTo=text.indexOf('  function close()',commandFrom);
  assert.ok(from>=0&&to>from&&commandFrom>=0&&commandTo>commandFrom);
@@ -349,7 +369,7 @@ test('candidate, pre-ready product and stderr retain the original diagnostic-bou
 
 // HOST ports below are inert metadata and fresh IO; no owned process or key.
 test('post-ready product identity overlaps only fresh exe and argv, drains late failures and preserves original birth and startup guards',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
  const helper=text.slice(text.indexOf('async function freshTronOriginalProcessReadsV1('),text.indexOf('async function hostResources('));
  const body=text.slice(text.indexOf('  async function identity('),text.indexOf('  async function auditNative()'));
  assert.ok(body.includes('const executableReads')&&body.includes('const after = await alignedProc(child.pid)'));
@@ -386,7 +406,7 @@ test('post-ready product identity overlaps only fresh exe and argv, drains late 
 });
 
 test('product command drains fresh status, unix, FD-list and resource reads with original error priority before the original eight-FD audit and stdin',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs'),'utf8');
  const helper=text.slice(text.indexOf('async function freshTronOriginalProcessReadsV1('),text.indexOf('async function hostResources('));
  const resource=text.slice(text.indexOf('async function hostResources('),text.indexOf('function bindTronCandidateChildCancellation('));
  const audit=text.slice(text.indexOf('  async function auditNative()'),text.indexOf('  let interval;',text.indexOf('  async function auditNative()')));
@@ -509,7 +529,7 @@ test('original private Tron mobile host lifetime is born before effects and admi
  // Original production functions run in this realm with explicit inert /proc,
  // lock and discovery ports. Real reviewed source/publication files are read;
  // no native process, proof, network delivery or permission is started.
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/guarded/tron-product-host-scope-v1.mjs'),'utf8');
+ const text=await hostGuardSource();
  const a=text.indexOf('const MOBILE_ENTRY='),b=text.indexOf('function captureScope() {',a),c=text.indexOf('export function createTronProductHostGuardV1()');
  assert.ok(a>=0&&b>a&&c>b);const mobile=text.slice(a,b).replace('export function beginOriginalTronPrivateMobileLifetimeV1','function beginOriginalTronPrivateMobileLifetimeV1');
  const helpers=text.slice(text.indexOf('function own(row)'),text.indexOf('/** Data-only joins'));

@@ -1,8 +1,8 @@
 // Source-only PC18 generator. Reuses exact unchanged PC15 SHA/graph/cert framing.
 import {mkdirSync,readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {frame,sha256} from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
-import {assemblySchema} from '../../../../packages/engine/src/assembly/private-assembly-encoding.mjs';
+import {frame,sha256} from '@lianum/engine/notes/private-note-encoding';
+import {assemblySchema} from '@lianum/engine/assembly/private-assembly-encoding';
 const dir=fileURLToPath(new URL('.',import.meta.url));
 const reserve=readFileSync(dir+'../native-notes/circuits/reserve/src/main.nr','utf8');
 const fulfill=readFileSync(dir+'../native-notes/circuits/fulfill/src/main.nr','utf8');

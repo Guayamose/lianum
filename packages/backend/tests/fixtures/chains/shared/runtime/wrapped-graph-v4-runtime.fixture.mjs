@@ -3,8 +3,8 @@
  * are explicitly synthetic. No native process, compiler, prover or real funds. */
 import {mock} from 'node:test';import assert from 'node:assert/strict';import {performance} from 'node:perf_hooks';
 import {EventEmitter} from 'node:events';import {mkdtemp,readFile} from 'node:fs/promises';import {readFileSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';
-import {freshKey,signature as actualSignature} from '../../../../../../engine/src/notes/private-note-encoding.mjs';
-import {publicKeccak256} from '../../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import {freshKey,signature as actualSignature} from '@lianum/engine/notes/private-note-encoding';
+import {publicKeccak256} from '@lianum/engine/cohorts/private-cohort-public-native';
 let control,Gate;
 const url=p=>new URL(p,import.meta.url).href,quantity=v=>'0x'+BigInt(v).toString(16);
 const harnessURL=url('../../../../../omnichain-product/src/chains/runtime-harness.mjs'),actualHarness=await import(harnessURL);
@@ -56,9 +56,9 @@ mock.module(url('./owned-tron-node-driver.mjs'),{exports:{
 }});
 const Evm=await import('../../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),Tron=await import('../../../../../src/chains/tron/runtime/owned-tron-native-value-runtime.mjs');
 const Public=await import('../transfers/wrapped-graph-v4-public.fixture.mjs'),B=await import('../../../../../src/chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs'),J=await import('../../../../../src/chains/shared/dispatch/wrapped-claim-dispatch-journal-v1.mjs');
-const Commitments=await import('../../../../../src/execution/encoding/commitments.mjs'),Inputs=await import('../../../../../src/execution/account/preparation/readiness-inputs.mjs'),Health=await import('../../../../../src/chains/shared/health/native-value-health-v2.mjs'),Generic=await import('../../../../../src/chains/shared/transfers/generic-native-value-v2.mjs');
+const Commitments=await import('@lianum/components/encoding/commitments'),Inputs=await import('../../../../../src/execution/account/preparation/readiness-inputs.mjs'),Health=await import('../../../../../src/chains/shared/health/native-value-health-v2.mjs'),Generic=await import('../../../../../src/chains/shared/transfers/generic-native-value-v2.mjs');
 const NativeHealth=await import('../../../../../src/chains/shared/health/native-health.mjs'),EvmProfile=await import('../../../../../src/chains/evm/transfers/evm-native-value-v2.mjs'),TronProfile=await import('../../../../../src/chains/tron/transfers/tron-native-graph-profile.mjs');
-const NativeAdmission=await import('../../../../../../engine/src/execution/native/dispatch/native-admission.mjs'),Binding=await import('../../../../../src/chains/evm/transfers/evm-graph-transfer-binding.mjs');
+const NativeAdmission=await import('@lianum/engine/execution/native/dispatch/native-admission'),Binding=await import('../../../../../src/chains/evm/transfers/evm-graph-transfer-binding.mjs');
 const clone=structuredClone,freeze=Inputs.frozenInput;
 const exportNames=source=>[...source.matchAll(/^export (?:async )?(?:function|const)\s+(\w+)/gm)].map(x=>x[1]);
 function executeSource(file,env){let source=readFileSync(new URL(file,import.meta.url),'utf8');const names=exportNames(source);

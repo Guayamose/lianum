@@ -4,8 +4,8 @@ import {Barretenberg,BackendType,UltraHonkBackend,deflattenFields,fieldsToString
 import {mkdirSync,readFileSync,writeFileSync,statfsSync,existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {gunzipSync} from 'node:zlib';
-import {sha256} from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
-import {ASSEMBLY_PUBLIC_WORDS,ASSEMBLY_RECURSIVE_MODES} from '../../../../packages/engine/src/assembly/private-assembly-encoding.mjs';
+import {sha256} from '@lianum/engine/notes/private-note-encoding';
+import {ASSEMBLY_PUBLIC_WORDS,ASSEMBLY_RECURSIVE_MODES} from '@lianum/engine/assembly/private-assembly-encoding';
 const root=fileURLToPath(new URL('.',import.meta.url)),mode=process.argv[2],maximumPages=Number(process.argv[3]??32768);assert.ok([32768,65536].includes(maximumPages));assert.ok(Object.hasOwn(ASSEMBLY_PUBLIC_WORDS,mode));const recursive=ASSEMBLY_RECURSIVE_MODES.includes(mode),target=recursive?'noir-recursive':'evm';
 const stamp=new Date().toISOString().replaceAll(':','-').replaceAll('.','-'),reportPath=root+'../../../evidence/m18-key-'+mode+'-'+stamp+'.json';mkdirSync(root+'.local/prepared',{recursive:true});
 const report={classification:'ACTUAL_OFFICIAL_VERIFICATION_KEY_GENERATION_NOT_PROOF',mode,target,backend:'Wasm',threads:1,maximumPages,startedAt:new Date().toISOString(),phase:'initializing'};

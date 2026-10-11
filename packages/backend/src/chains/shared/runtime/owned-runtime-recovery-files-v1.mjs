@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import{createHash}from'node:crypto';import{constants}from'node:fs';
 import{realpath,lstat,readdir,open,rename}from'node:fs/promises';import{join,dirname,basename}from'node:path';
-import{projectRoot}from'../../../../../engine/src/chains/shared/runtime-harness.mjs';
+import{projectRoot}from'@lianum/engine/chains/shared/runtime-harness';
 const ROOT=join(projectRoot,'.local/integrations'),MAX_RECORD=64*1024*1024,MAX_FILES=20000,MAX_TOTAL=8*1024*1024*1024;
 const SHA=b=>createHash('sha256').update(b).digest('hex');
 const privateNames=new Set(['wrapped-runtime-capture.json','wrapped-runtime-terminal.json']);

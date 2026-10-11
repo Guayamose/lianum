@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { PRODUCTION_PREFLIGHT_REAL_RUN_DISABLED as PREFLIGHT_REAL_RUN_DISABLED, PRODUCTION_PREFLIGHT_PROFILE as PREFLIGHT_PROFILE, PRODUCTION_PREFLIGHT_RESULT as PREFLIGHT_RESULT, assertNativeIngressV3ProductionPreflightResult as assertNativeIngressV3PreflightResult, assertSingleProductionProofRun } from './native-ingress-v3-preflight-policy.mjs';
 async function main() {
   assert.equal(PREFLIGHT_REAL_RUN_DISABLED, false, 'V3_PRODUCTION_PREFLIGHT_REQUIRES_FROZEN_CHECKPOINT_AND_EXPLICIT_LAUNCH');
-  const { ROOT, LOCAL } = await import('../../../../packages/proofs/src/catalog.mjs');
+  const { ROOT, LOCAL } = await import('@lianum/proofs/catalog');
   const { createOwnedNativeClaimIngressV3PreflightFixture } = await import('../../fixtures/claims/ingress/owned-native-ingress-v3-preflight-fixture.mjs');
   const { probeNativeIngressV3ProductionProof } = await import('./native-ingress-v3-preflight.mjs');
   const { proveNativeClaimIngressV3ProductionBoundary } = await import('./native-claim-ingress-v3-production-proof.mjs');

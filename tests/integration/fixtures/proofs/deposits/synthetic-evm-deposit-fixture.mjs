@@ -6,21 +6,21 @@
 import assert from 'node:assert/strict';
 import { createHash, createECDH, createPrivateKey, sign } from 'node:crypto';
 import { buildAdmissionInputs } from '../../../../../packages/backend/src/execution/account/preparation/admission-inputs.mjs';
-import { createCommitmentCodec, digestBytes, digestWords, ZERO } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import { createCommitmentCodec, digestBytes, digestWords, ZERO } from '@lianum/components/encoding/commitments';
 import { readyDescriptorWords } from '../../../../../packages/backend/src/execution/account/preparation/readiness-inputs.mjs';
 import { FACTS_SCHEMA, nativeFactIdentity, nativeRuleCommitment, nativeCustodyCommitment,
   nativeObservedEffectCommitment, receiptKeyCommitment, encodeNativeFacts, nativeFactsDigest,
-  nativeAdmissionNullifier } from '../../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+  nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIdentity,
   nativeReadyStatementDigest, nativeDeliveryRiskCommitment, nativeDispatchStatementFrame,
-  NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../../packages/engine/src/execution/native/dispatch/native-capsules.mjs';
+  NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment }
-  from '../../../../../packages/engine/src/evidence/native-quorum.mjs';
-import { PrivateNoteTree } from '../../../../../packages/engine/src/notes/private-note-tree.mjs';
+  from '@lianum/engine/evidence/native-quorum';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
 
-import { depositIntentWitness, depositIntentFrame } from '../../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
-import { balanceCommitment } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { depositIntentWitness, depositIntentFrame } from '@lianum/engine/execution/inputs/deposit-intent';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 
 const h = label => createHash('sha256').update('SYNTHETIC-EVM-ADMISSION/' + label).digest('hex');
 const field = label => '00' + h(label).slice(2);

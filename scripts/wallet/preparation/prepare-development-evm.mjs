@@ -11,8 +11,8 @@ import { compileSoliditySources } from '../../../packages/proofs/src/tooling/sol
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from '../../../packages/backend/src/operations/deployments/system/deployment-plan.mjs';
 import { EVM_VAULT_ROUTER_BUILD_PIN } from '../../../packages/backend/src/operations/deployments/defi/deploy-evm-vault-router.mjs';
 import { deriveGenericVerifierImmutables } from '../../../packages/engine/src/execution/local/local-deployment.mjs';
-import { NATIVE_SOURCE_PINS } from '../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
-import { loadProofProfile } from '../../../packages/engine/src/execution/proofs/proof-worker.mjs';
+import { NATIVE_SOURCE_PINS } from '../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
+import { loadProofProfile } from '../../../packages/proofs/src/execution/proof-worker.mjs';
 
 assert.equal(process.argv.length, 2, 'DEVELOPMENT_EVM_FIXED_INVOCATION');
 assert.deepEqual(process.execArgv, [], 'DEVELOPMENT_EVM_NO_EXEC_ARGUMENTS');

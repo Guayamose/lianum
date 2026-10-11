@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join,resolve} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
 import {nativeValueDevFinancialSourcePinsV5} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
 import {nativeDeviceEconomicNoteSourcePinsV1} from './native-device-economic-note-source-pins-v1.mjs';
 const FIXED=Object.freeze(["integration/run-native-value-live-armed-short-restart-v1.mjs", "integration/native-value-live-armed-short-restart-flow-v1.mjs", "integration/native-device-live-armed-short-successor-v1.mjs", "integration/native-device-live-armed-short-policy-v1.mjs", "integration/native-device-live-armed-short-source-pins-v1.mjs", "integration/native-device-live-armed-short-process-scope-v1.mjs", "integration/native-device-live-armed-short-audit-v1.mjs", "integration/native-device-live-armed-short-continuation-v1.mjs"]);

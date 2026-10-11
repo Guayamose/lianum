@@ -22,7 +22,7 @@ mock.module(paths.account.href, { exports: { assertOwnedFlatAccountAuthority(acc
 } } });
 mock.module(paths.system.href, { exports: { assertOwnedFlatSystem(runtime, system) { assert.equal(worlds.get(runtime)?.system, system); } } });
 mock.module(paths.runtime.href, { exports: { async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); } } });
-const { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } = await import('../../src/preparation/flat-owner-manual-preparation.mjs');
+const { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } = await import('@lianum/backend/custody/preparation/flat-owner-manual-preparation');
 
 function fixture() {
   const runtime = {}, system = {}, calls = [];

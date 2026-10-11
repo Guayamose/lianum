@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, lstatSync } from 'node:fs';
 import { assertLocalEvm, assertLocalEvmDeploymentProfile } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
-import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
-  nativeStaticCalldata } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+  nativeStaticCalldata } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { validateVaultIdentity, VAULT_ACTION_TAG } from '../../../defi/vaults/backed-vault.mjs';
 
 const root = new URL('../../../', import.meta.url);

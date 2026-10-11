@@ -4,11 +4,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { validateRetainedClaimPacket,validateRetainedPrivateClaimPacketV2, canonicalClaimDepositProjection } from '../../../src/claims/controller/controller-retained-state.mjs';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId,claimReceiptSecret,claimRefundSalt } from '../../../src/claims/protocol/framing.mjs';
-import { encodeDepositIntentInputs } from '../../../src/execution/account/preparation/deposit-intent.mjs';
-import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../../../../custody/src/signing/flat-owner-custody.mjs';
-import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2 } from '../../../../custody/src/processes/flat-owner-process.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId,claimReceiptSecret,claimRefundSalt } from '@lianum/engine/claims/framing';
+import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '@lianum/custody/owner';
+import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2 } from '../../../src/custody/processes/flat-owner-process.mjs';
 
 const sha = raw => createHash('sha256').update(raw).digest('hex');
 const h = value => sha('synthetic retained claim/' + value), ZERO = '0'.repeat(64);

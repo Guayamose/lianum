@@ -6,23 +6,23 @@
 import assert from 'node:assert/strict';
 import { createPublicKey, verify } from 'node:crypto';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
-  structToNoir, digestBytes, digestWords } from '../../encoding/commitments.mjs';
-import { validateStatement } from '../../encoding/statements.mjs';
+  structToNoir, digestBytes, digestWords } from '@lianum/components/encoding/commitments';
+import { validateStatement } from '@lianum/components/encoding/statements';
 import { cloneInput, frozenInput, inputUint, inputPath, readyDescriptorWords, validateFlatInputs } from './readiness-inputs.mjs';
 import { FACTS_SCHEMA, validateNativeFacts, encodeNativeFacts, nativeFactsDigest,
-  receiptKeyCommitment, nativeAdmissionNullifier } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+  receiptKeyCommitment, nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeTransferActionCommitment, nativeActionToNoir }
-  from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeReceiptReadOpening, nativeReceiptCommitment, nativeReceiptToNoir, nativeEffectToNoir }
-  from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/execution/native/state/native-receipt';
 import { nativeAdmissionRuleCommitment, nativeAdmissionRuleToNoir, nativeAdmissionRuleRoot,
   nativeAdmissionChainDomain, nativeAdmissionObservationToNoir, nativeAdmissionRegistryToNoir,
   nativeProviderIdentity, nativeReadyStatementDigest, nativeDeliveryRiskCommitment,
   nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { membership } from '../../../../../engine/src/execution/native/state/native-state.mjs';
+  from '@lianum/engine/evidence/native-quorum';
+import { membership } from '@lianum/engine/execution/native/state/native-state';
 
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 function hex(value, size) {

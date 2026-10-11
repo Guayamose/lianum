@@ -9,7 +9,7 @@ import * as graphAuthorizationV4 from '../../../operations/operators/wrapped/wra
  * below, leaving its old vault/claim value-zero dispatch predicates unchanged. */
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
-import { exactRecord, createCommitmentCodec } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, createCommitmentCodec } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedWrappedClaimGraphSystem } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';

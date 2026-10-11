@@ -15,15 +15,15 @@ import { assertOwnedSolanaRuntime, SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_
 import { createOwnedPoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress }
-  from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { linkPrivateBytecode } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { encodeClaimABI } from '../../../claims/protocol/abi.mjs';
-import { nativeClaimEndpointCommitment, claimDomainCommitment } from '../../../claims/protocol/framing.mjs';
+  from '../../../execution/native/dispatch/native-deployment.mjs';
+import { linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
+import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
+import { encodeClaimABI } from '@lianum/engine/claims/abi';
+import { nativeClaimEndpointCommitment, claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { auditClaimNativeInventory } from '../../../claims/operations/backing-audit.mjs';
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from '../system/deployment-plan.mjs';
-import { NATIVE_INGRESS_V3_PROFILE } from '../../../../../proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+import { NATIVE_INGRESS_V3_PROFILE } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import { loadFlatDeploymentArtifacts } from '../system/deployment-artifacts.mjs';
 import { deployFlatSystem, assertOwnedFlatSystem } from '../system/deploy-system.mjs';
 import { NATIVE_CLAIM_REFUND_FEES, buildOwnedNativeClaimRules,

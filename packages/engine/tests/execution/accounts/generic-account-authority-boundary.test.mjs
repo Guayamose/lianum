@@ -4,14 +4,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createGenericBalanceAccountAuthority, genericBalanceAccountAsset, validateGenericAccountRecoveryObservation}
-  from '../../../src/execution/balances/generic-balance-account-authority.mjs';
+  from '../../../../backend/src/accounts/balances/generic-balance-account-authority.mjs';
 import {bindGenericAccountRequest, validateGenericAccountConfig, validateBoundRequest, sha} from '../../../src/execution/accounts/generic-account-journal.mjs';
 import {identity as fixtureIdentity, ledger, artifact} from '../balances/generic-balance-fixtures.mjs';
 import {PrivateNoteTree} from '../../../src/notes/private-note-tree.mjs';
 import {inspectGenericSnapshot} from '../../../src/execution/local/local-ledger.mjs';
 import {genericProofCalldata} from '../../../src/execution/local/local-deployment.mjs';
-import {decodeGenericBalanceCalldata} from '../../../src/execution/balances/generic-balance-observer.mjs';
-import {digestWords} from '../../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
+import {decodeGenericBalanceCalldata} from '../../../../backend/src/accounts/balances/generic-balance-observer.mjs';
+import {digestWords} from '../../../src/execution/inputs/funding-wrappers.mjs';
 
 const h = n => n.toString(16).padStart(64, '0');
 const identity = {

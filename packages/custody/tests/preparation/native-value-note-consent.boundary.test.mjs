@@ -3,10 +3,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createNativeValueOwnerManualPreparation, restoreNativeValueOwnerManualPreparation } from '../../src/preparation/native-value-owner-manual-preparation-v1.mjs';
-import { createNativeValueOwnerProcess, assertOwnedNativeValueOwnerProcess } from '../../src/processes/native-value-owner-process-v2.mjs';
+import { createNativeValueOwnerManualPreparation, restoreNativeValueOwnerManualPreparation } from '../../../backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs';
+import { createNativeValueOwnerProcess, assertOwnedNativeValueOwnerProcess } from '../../../backend/src/custody/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueAccountAuthority, nativeValueAccountManualNoteDetails } from '../../../backend/src/accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession } from '../../../backend/src/api/accounts/flat-manual-graph-session.mjs';
+import { createNativeValueManualGraphAccountSession } from '@lianum/backend/accounts/manual-graph';
 const source = path => readFile(new URL(path, import.meta.url), 'utf8');
 test('real native brands reject copied, legacy-shaped, wrapped-shaped and caller-asserted owner/account/system ports before touching methods', async () => {
   let touched = false; const trap = () => { touched = true; throw Error('CALLER_PORT'); };

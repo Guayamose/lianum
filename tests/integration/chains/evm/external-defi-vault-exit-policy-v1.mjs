@@ -2,8 +2,8 @@
  * These metadata joins grant no new proof, key, execution or consent authority. */
 import assert from 'node:assert/strict';
 import {assertAavePrivateGraphResultV1,AAVE_PRIVATE_GRAPH_RELATIONS_V1} from './aave-private-graph-policy-v1.mjs';
-import {sha as canonicalJournalSHA} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
-import {exactRecord} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import {sha as canonicalJournalSHA} from '@lianum/engine/accounts/journal';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 // SOURCE REVIEW ONLY: enables the two fixed local genuine callers below.
 // It is neither an economic receipt nor GRAPH/abrupt-crash recovery acceptance.
 export const EXTERNAL_VAULT_EXIT_RECOVERY_RELEASE_V1=Object.freeze({profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',protocols:Object.freeze(['OFFICIAL_METAMORPHO_V1','OFFICIAL_AAVE_STATIC_V1']),localOnly:true,fakeFundsOnly:true,sourceReviewOnly:true,privateGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,publicNetwork:false});

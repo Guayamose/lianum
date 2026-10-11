@@ -13,7 +13,7 @@ import { assertSolanaCandidateAcceptanceGate } from './solana-candidate-acceptan
 import { createCandidateResourceGuard, assertCandidateNoParallelHeavyWork } from './solana-candidate-acceptance-guard.mjs';
 import { ACCEPTANCE_AMOUNTS, checkBootstrap, checkCandidateMetadata, checkCustodyBalances,
   checkOriginalRecord, checkCustodyDeposit, inventoryState, publicAcceptanceReport } from './solana-candidate-acceptance-evidence.mjs';
-import { validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { SOLANA_PAYOUT_FINAL_SEND_PROFILE } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
 const HERE = fileURLToPath(import.meta.url), ROOT = resolve(dirname(HERE), '..');

@@ -8,7 +8,7 @@ import { fields, need, freeze, hash32, rpcQuantity, safeMilliseconds, observatio
 import { normalizeEvmBlock } from './evm-observation-adapter.mjs';
 import { bindOriginalEvmNativeTransfer } from '../transfers/evm-native-transfer-wire.mjs';
 import { evmFundingEndpointCommitment } from '../dispatch/evm-facts-binding.mjs';
-import { nativeFactIdentity, nativeObservedEffectCommitment } from '../../shared/dispatch/native-receipt-binding.mjs';
+import { nativeFactIdentity, nativeObservedEffectCommitment } from '@lianum/engine/native/native-receipt-binding';
 
 const issued = new WeakMap(), owners = new WeakSet();
 const ZERO = '0'.repeat(64), RECHECK_MS = 30000;

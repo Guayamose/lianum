@@ -7,14 +7,14 @@ import { createHash } from 'node:crypto';
 import { buildAuthorizedEnvelope } from '../../src/signing/authorized-envelope.mjs';
 import { createCommitmentCodec, canonicalField, rawDigestLimbs, bytes32, validateStruct,
   structToNoir, digestBytes, digestWords, FIELD_MODULUS, PROFILE_FIELD, ZERO }
-  from '../../../backend/src/execution/encoding/commitments.mjs';
-import { authorizationInputs } from '../../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
+  from '@lianum/components/encoding/commitments';
+import { authorizationInputs } from '@lianum/engine/execution/inputs/funding-witness';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures }
-  from '../../../engine/src/execution/graph/funded-graph.mjs';
+  from '@lianum/engine/execution/graph/funded-graph';
 import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferActionCommitment,
   localCapsuleToNoir, dependencyCapsuleToNoir, nativeActionToNoir }
-  from '../../../engine/src/execution/native/dispatch/native-capsules.mjs';
-import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-capsules';
+import { freshKey, signature } from '@lianum/engine/notes/private-note-encoding';
 
 const h = label => createHash('sha256').update('flat owner test: ' + label).digest('hex');
 const f = value => BigInt(value).toString(16).padStart(64, '0');

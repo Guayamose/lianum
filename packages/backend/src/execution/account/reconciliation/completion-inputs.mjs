@@ -4,14 +4,14 @@
  * remain external requirements; opening a commitment establishes none of them. */
 import assert from 'node:assert/strict';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField,
-  validateStruct, structToNoir, digestBytes, digestWords, ZERO } from '../../encoding/commitments.mjs';
-import { validateStatement } from '../../encoding/statements.mjs';
+  validateStruct, structToNoir, digestBytes, digestWords, ZERO } from '@lianum/components/encoding/commitments';
+import { validateStatement } from '@lianum/components/encoding/statements';
 import { cloneInput, frozenInput, inputUint, inputPath, validateFlatInputs } from '../preparation/readiness-inputs.mjs';
 import { nativeReceiptReadOpening, nativeReceiptCommitment, nativeReceiptToNoir, RECEIPT_HASH_FIELDS }
-  from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
-import { verifyPrivateNotePath } from '../../../../../engine/src/notes/private-note-tree.mjs';
-import { receiptKeyCommitment, terminalReceiptTag } from '../../../../../components/src/framing.mjs';
+  from '@lianum/engine/execution/native/state/native-receipt';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
+import { verifyPrivateNotePath } from '@lianum/engine/notes/private-note-tree';
+import { receiptKeyCommitment, terminalReceiptTag } from '@lianum/components/framing';
 
 const snake = name => name.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase());
 const RECEIPT_DIGESTS = [...RECEIPT_HASH_FIELDS, 'receiptKeyCommitment', 'receiptRho'];

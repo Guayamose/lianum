@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { assertOwnedFlatOperatorQuorum } from '../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
-import { validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { freshFixtureId, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 
 const probes = new WeakSet();

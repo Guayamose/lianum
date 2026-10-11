@@ -1,8 +1,8 @@
 /** New fixed consumer closure; historical proof/compiler sources stay intact. */
 import assert from 'node:assert/strict';
 import {join,relative,sep} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {aavePrivateGraphSourcePinsV1} from './aave-private-graph-source-pins-v1.mjs';
 export function externalDefiVaultExitSourcePinsV1(){
  assert.equal(arguments.length,0,'EXTERNAL_VAULT_SOURCE_NO_OPTIONS');

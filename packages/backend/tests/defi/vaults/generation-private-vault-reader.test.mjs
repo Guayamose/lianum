@@ -7,14 +7,14 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { bindGenericAccountRequest, genericAccountIdentity } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { bindGenericAccountRequest, genericAccountIdentity } from '@lianum/engine/accounts/journal';
 import { mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Vault as RealVault } from '../../../../engine/src/crypto/vault.mjs';
-import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { Vault as RealVault } from '@lianum/engine/crypto/vault';
+import { encodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
-import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/local-evm-profiles.mjs';
 const worlds = new WeakMap(), receipts = new WeakMap(), bySystem = new WeakMap(), byAccount = new WeakMap(), byVault = new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet(), unreadablePaths = new Set(), readerPaths = new WeakMap(), serviceJournalPaths = [];

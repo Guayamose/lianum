@@ -10,10 +10,10 @@ import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.
 import { FLAT_HEALTH_FIELDS } from '../../../chains/shared/health/native-health.mjs';
 import { createWrappedClaimGraphStateReaderV1 as createFlatSystemStateReader, decodeFlatWords } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';
 import { validateWrappedClaimOperationalRegistration } from '../../ingress/operational-registration-v2.mjs';
-import { exactRecord, bytes32, canonicalField, ZERO } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, canonicalField, ZERO } from '@lianum/components/encoding/commitments';
 import { CLAIM_CONFIG_SCHEMA, CLAIM_TICKET_FIELDS, claimUint, validateClaimConfig,
   claimDomainCommitment, claimVerifierSetCommitment, claimIntentId, claimTicketId,
-  validateClaimTicket, claimTicketCommitment } from '../../protocol/framing.mjs';
+  validateClaimTicket, claimTicketCommitment } from '@lianum/engine/claims/framing';
 
 // Preserve every started read through rejection; no caller may begin cleanup
 // while a sibling RPC or nested reconstruction still belongs to this read.

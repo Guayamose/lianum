@@ -3,12 +3,12 @@
  * return to the same client encrypted; original U verification still applies. */
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import * as P from '@lianum/mobile-protocol/device/native-reservation-v2';
-import {compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage} from '../../../engine/src/execution/graph/funded-graph.mjs';
-import {walletNoteCommitment} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
-import {buildAuthorizedEnvelope} from '../../../custody/src/signing/authorized-envelope.mjs';
+import {compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage} from '@lianum/engine/execution/graph/funded-graph';
+import {walletNoteCommitment} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {nullifier} from '@lianum/engine/notes/private-note-encoding';
+import {buildAuthorizedEnvelope} from '@lianum/custody/signing/authorized-envelope';
 import {withFlatHash} from '../tooling/scoped-proof-tools.mjs';
 import {encodeStatement} from '@lianum/components/encoding/statements';
 import {externalFlatExactV1} from '@lianum/mobile-protocol/device/source-note-v1';

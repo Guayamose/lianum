@@ -3,7 +3,7 @@
  * balance, confirmation or route. The private catalogue supplies the bindings. */
 import assert from 'node:assert/strict';
 import { copy, immutable } from '@lianum/engine/accounts/journal';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 
 export function projectCatalogueOwnerRequests(input) {
   exactRecord(input, ['generationId', 'bindings', 'portfolio']);

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeNativeHubState, decodeNativeCheckpoint, decodeNativeCheckpointTree, readNativeSystemState } from '../../../../src/execution/native/state/native-system-state.mjs';
+import { decodeNativeHubState, decodeNativeCheckpoint, decodeNativeCheckpointTree, readNativeSystemState } from '../../../../../backend/src/execution/native/state/native-system-state.mjs';
 import { PrivateNoteTree, ZERO_NOTE_HASH } from '../../../../src/notes/private-note-tree.mjs';
 import { boundedListDigest, evidenceStateDigest, nodeHash, membership } from '../../../../src/execution/native/state/native-state.mjs';
-import { assertOwnedNativeSystem } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
+import { assertOwnedNativeSystem } from '../../../../../backend/src/execution/native/dispatch/native-deployment.mjs';
 
 const hubDomain = '0x' + '11'.repeat(32), registryCommitment = '0x' + '22'.repeat(32);
 const domains = { hubDomain, registryCommitment }, tree = new PrivateNoteTree();

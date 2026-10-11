@@ -11,9 +11,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createGenericBalanceNativePreparation } from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
+import { createGenericBalanceNativePreparation } from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
-  from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+  from '@lianum/mobile-protocol/original-account-v2';
 const executors = new WeakMap(), providers = new WeakMap();
 async function deniedNativeFunctions(path, code) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');

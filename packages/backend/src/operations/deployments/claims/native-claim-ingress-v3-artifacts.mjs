@@ -2,14 +2,14 @@
  * arbitrary pins, compilation, deployment or profile activation on import. */
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
-import { ROOT, FLAT, GOLDEN, CATALOG, PROFILE, SETTINGS, NOIR_VERSION, LIMITS } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN, CATALOG, PROFILE, SETTINGS, NOIR_VERSION, LIMITS } from '@lianum/proofs/catalog';
 import { regular, hash, resourceModuleURL, verifyAPI, verifyVendor, assertABI, assertKeyBytes, assertStats }
-  from '../../../../../proofs/src/tooling/tooling.mjs';
+  from '@lianum/proofs/tooling/tooling';
 import { NATIVE_INGRESS_V3_PROFILE, NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_SOURCE_VERSION,
-  NATIVE_INGRESS_V3_KEY_SHA256 } from '../../../../../proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  NATIVE_INGRESS_V3_KEY_SHA256 } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import { loadNativeClaimArtifacts } from './native-claim-artifacts.mjs';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
-  from '../../../../../engine/src/execution/local/local-deployment.mjs';
+  from '@lianum/engine/execution/local/local-deployment';
 import { hasDevelopmentNativeClaimsBuild, loadDevelopmentNativeClaimsArtifacts,
   loadDevelopmentNativeIngressV3ProofArtifacts } from './development-native-claims-build.mjs';
 const DIR = join(ROOT, 'experiments/native-ingress-v3-artifacts');

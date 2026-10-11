@@ -7,7 +7,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
 import {assertOriginalPagedNativeFinancialReviewV3} from './device-paged-native-financial-policy-v3.mjs';
 import {assertOriginalPagedNativeFinancialSourceV3} from '../../../../packages/backend/src/operations/local/funded-paged-native-source-v3.mjs';
-import {PAEG_PAGED_ARTIFACT_DIRECTORY_V3,loadFundedPagedGraphArtifactsV3} from '../../../../packages/proofs/src/tooling/original-paged-artifacts-v3.mjs';
+import {PAEG_PAGED_ARTIFACT_DIRECTORY_V3,loadFundedPagedGraphArtifactsV3} from '@lianum/proofs/tooling/original-paged-artifacts-v3';
 const entry=fileURLToPath(import.meta.url);assert.equal(process.argv.length,2);assert.equal(process.argv[1],entry);assert.equal(await realpath(entry),entry);assert.deepEqual(process.execArgv,['--max-old-space-size=384']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);let project=dirname(entry);for(let i=0;i<16;i++){try{if((await lstat(join(project,'scripts/layout.json'))).isFile())break;}catch(e){if(e.code!=='ENOENT')throw e;}project=dirname(project);}assert.equal(process.execPath,join(project,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node'));assertOriginalPagedNativeFinancialReviewV3();assertOriginalPagedNativeFinancialSourceV3();
 // Keep the original prepared namespace whole: runtime/gate/provider and
 // account/deployment/flow WeakMaps must belong to these same module instances.

@@ -5,9 +5,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { encodeControllerClaimCall } from '../../../../packages/backend/src/claims/controller/controller-call.mjs';
-import { encodeCanonicalEvmUnsignedTransaction } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { encodeCanonicalEvmUnsignedTransaction } from '../../../../packages/backend/src/chains/evm/contracts/transaction-wire-codec.mjs';
 
 const RUN = '2e88a2e1-ddbc-4d6c-8c82-20f26cb6258a';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

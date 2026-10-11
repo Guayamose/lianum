@@ -5,8 +5,8 @@
  * roots, vectors, snapshots, certificates or witnesses are retained as values. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, fixedArray, canonicalField } from './commitments.mjs';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
+import { exactRecord, fixedArray, canonicalField } from '@lianum/components/encoding/commitments';
+import { canonical } from '@lianum/engine/crypto/privacy';
 const scopes = new WeakMap();
 export const FLAT_PURE_MATH_LIMITS = Object.freeze({ entries: 2048, pending: 256, inFlight: 32, argumentBytes: 8192 });
 const EVIDENCE = Object.freeze(['hubDomain', 'registryCommitment', 'receiptRoot', 'receiptCount', 'revokedDigest', 'revokedCount', 'revocationSequence']);

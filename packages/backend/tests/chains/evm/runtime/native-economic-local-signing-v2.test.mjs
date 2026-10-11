@@ -5,9 +5,8 @@ import test from 'node:test';
 import {nativeEconomicLocalAddressV2,signNativeEconomicLocalTransactionV2,
   prepareNativeEconomicLocalSignerV2,consumeNativeEconomicLocalSignerV2,revokeNativeEconomicLocalSignerV2}
   from '../../../../src/chains/evm/runtime/native-economic-local-signing-v2.mjs';
-import {encodeCanonicalEvmUnsignedTransaction,decodeCanonicalEvmTransaction,assertSignedEvmTransaction}
-  from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {publicKeccak256} from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { encodeCanonicalEvmUnsignedTransaction, decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
+import {publicKeccak256} from '@lianum/engine/cohorts/private-cohort-public-native';
 
 // Scalar one is a public synthetic fixture, never a customer credential.
 const fixtureKey=()=>Buffer.from('00'.repeat(31)+'01','hex');

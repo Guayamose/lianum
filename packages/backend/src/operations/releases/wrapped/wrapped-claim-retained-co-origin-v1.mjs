@@ -4,7 +4,7 @@ import { readFileSync, lstatSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 const RECOVERY_ROOT=resolve(ROOT,'../..'),READER_ROOT=join(RECOVERY_ROOT,'drafts/wrapped-co-recovered-consumer-20261006');
 const MANIFEST_SHA256='ec5bbec0246dd5468a1b751f20b0145b87ffb511256ecb22c6fb4038f45403b7',MANIFEST_BYTES=676;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');

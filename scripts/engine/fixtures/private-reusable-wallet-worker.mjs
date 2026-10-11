@@ -1,8 +1,8 @@
 /** Integration-only exact old-S replay after two genuine payments. The actual
  * production action/keeper engine is unchanged; no replay/arbitrary-call
  * command is added to HTTP or the production worker allowlist. */
-import {createPrivateWalletWorkerHost} from '../../../packages/engine/src/wallet/runtime/private-wallet-worker.mjs';
-import {createPrivateWalletAuthority} from '../../../packages/engine/src/wallet/runtime/private-wallet-engine.mjs';
+import {createPrivateWalletWorkerHost} from '../../../packages/backend/src/custody/wallet/private-wallet-worker.mjs';
+import {createPrivateWalletAuthority} from '../../../packages/backend/src/custody/wallet/private-wallet-engine.mjs';
 if(typeof process.send!=='function')throw Error('PRIVATE_WALLET_IPC_REQUIRED');
 const host=createPrivateWalletWorkerHost({transport:process,createAuthority:options=>{
  const authority=createPrivateWalletAuthority(options),intents=new Map(),payments=[];

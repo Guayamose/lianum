@@ -9,12 +9,12 @@ import { createHash, createPublicKey, verify } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
-import { freshKey } from '../../../engine/src/notes/private-note-encoding.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { freshKey } from '@lianum/engine/notes/private-note-encoding';
 import { nativeAdmissionRulesTree, nativeDeliveryRiskCommitment, nativeDispatchStatementFrame,
-  NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE } from '../../../engine/src/evidence/native-quorum.mjs';
-import { nativeTransferActionCommitment } from '../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+  NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE } from '@lianum/engine/evidence/native-quorum';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { normalizeNativeDispatchBinding, createNativeDispatchJournal } from '../../src/chains/shared/dispatch/native-dispatch-gate.mjs';
 import { assertOwnedFlatSystem as actualSystemBrand } from '../../src/operations/deployments/system/deploy-system.mjs';
 import { assertOwnedFlatOperatorQuorum as actualQuorumBrand } from '../../src/operations/operators/claims/native-operators.mjs';
@@ -22,7 +22,7 @@ import * as actualRuntime from '../../src/chains/evm/runtime/owned-evm-v2-runtim
 import { assertOwnedEvmVaultRouter as actualRouterBrand } from '../../src/operations/deployments/defi/deploy-evm-vault-router.mjs';
 import { assertOwnedEvmVaultDeliveryObserver as actualObserverBrand } from '../../src/chains/evm/vault/evm-vault-delivery-observer.mjs';
 import { evmDeliveryFixture } from '../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';
-import { assertOwnedNativeRecipientProcess as actualRecipientBrand } from '../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
+import { assertOwnedNativeRecipientProcess as actualRecipientBrand } from '../../src/execution/native/recipients/native-recipient-process.mjs';
 
 const systems = new WeakMap(), runtimes = new WeakSet(), routers = new WeakMap(), observers = new WeakMap(), quorums = new WeakMap(), recipients = new WeakSet();
 const lifecycle = { verifierCreated: 0, verifierDisposed: 0, hashCreated: 0, hashDestroyed: 0, gateClosed: 0,

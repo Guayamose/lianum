@@ -5,8 +5,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { cpuUsage } from 'node:process';
-import { ROOT, LOCAL, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
-import { NATIVE_INGRESS_V3_LOCAL } from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+import { ROOT, LOCAL, GOLDEN } from '@lianum/proofs/catalog';
+import { NATIVE_INGRESS_V3_LOCAL } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import { claimOperatorPrivateAuditActivity, claimOperatorPrivateAuditMetrics }
   from '../../../../packages/backend/src/claims/operations/operators.mjs';
 import { graphOperatorPrivateAuditActivity }

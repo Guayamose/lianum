@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { createHmac, createPublicKey, verify } from 'node:crypto';
-import { cloneInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput } from '@lianum/components/plain-input';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
 import { deviceOwnerDepositBridgeActorV1, isOriginalNativePrivateDepositBridgeV2, assertDeviceOwnerDepositDurableRequestV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
@@ -14,13 +14,13 @@ import { deviceOwnerExecutionBridgeActorV1, isOriginalNativePrivateExecutionBrid
   from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
 import { normalizeOriginalAccountSignatureV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
-  from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-deposit-consent-v1';
 import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
-  from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-reservation-consent-v1';
 import { validateDeviceExecutionConsentFreshV1, deviceExecutionConsentMessageV1 }
-  from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-execution-consent-v1';
 import { validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1 }
-  from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-exit-consent-v1';
 
 import * as NativeDepositPrivate from '@lianum/mobile-protocol/device/native-deposit-v2';
 import * as NativeExitPrivate from '@lianum/mobile-protocol/device/native-withdrawal-v2';

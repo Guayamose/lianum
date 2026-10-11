@@ -9,7 +9,7 @@ import { assertOwnedSolanaRuntime } from '../../../../packages/backend/src/chain
 import { assertOwnedNativeClaimSystem } from '../../../../packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs';
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../../../../packages/backend/src/claims/operations/owned-state.mjs';
 import { assertOwnedClaimOperatorQuorum } from '../../../../packages/backend/src/claims/operations/operators.mjs';
-import { claimDomainCommitment } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { claimEconomicInventory, auditClaimGateway, auditClaimNativeInventory } from '../../../../packages/backend/src/claims/operations/backing-audit.mjs';
 import { ownedCustodyRoute } from '../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBootstrapTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';

@@ -1,8 +1,8 @@
 /** Fixed Aave closure extends the original financial collector; no caller roots. */
 import assert from 'node:assert/strict';
 import {join,relative,resolve,sep} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {evmVaultSourcePins} from '../../runners/source-pins.mjs';
 import {AAVE_CORE_V3_MATERIAL_V1,AAVE_STATIC_WRAPPER_MATERIAL_V1,
   loadOfficialAaveCoreArtifactsV1,loadOfficialAaveWrapperSourcesV1}

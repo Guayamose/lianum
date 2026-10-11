@@ -3,14 +3,14 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, CATALOG, SETTINGS, MEMORY, relation } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, CATALOG, SETTINGS, MEMORY, relation } from '@lianum/proofs/catalog';
 import { regular, hash, assertABI, assertStats, assertKeyBytes, circuitIdentity,
-  versionDirectory, resourceModuleURL, loadCompiled, loadPrepared } from '../../../../../proofs/src/tooling/tooling.mjs';
-import { identities, publicProgramSHA256 } from '../../../../../proofs/src/native-ingress/tooling/native-claims-build-common.mjs';
+  versionDirectory, resourceModuleURL, loadCompiled, loadPrepared } from '@lianum/proofs/tooling/tooling';
+import { identities, publicProgramSHA256 } from '../../../proving/native-ingress/tooling/native-claims-build-common.mjs';
 import { NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
-  from '../../../../../proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
-  from '../../../../../engine/src/execution/local/local-deployment.mjs';
+  from '@lianum/engine/execution/local/local-deployment';
 const DIRECTORY=join(ROOT,'.local/development-native-claims/v2');
 export const DEVELOPMENT_NATIVE_CLAIMS_PIN=Object.freeze({
   // Remains closed until the actual bounded build and outputs are reviewed.

@@ -3,7 +3,7 @@
  * No expiry/admission pruning and no side journal that can lose old signatures. */
 import assert from 'node:assert/strict';
 import { createPublicKey, verify } from 'node:crypto';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { encodeFacts, validateFacts, factsSchema, profileCommitment, nativeWireBytes, registryCommitment, sha256 }
   from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
@@ -13,7 +13,7 @@ import { assertCombinedAdapterRegistrationsV2 as assertNativeValueRegistrations 
 export const wrappedGraphProfilesV1 = binding => binding.profiles.filter(row => row.kind === 'native-value');
 import { decodeEvmSignedTransactionWire } from '../../../chains/evm/transfers/evm-signed-transaction-wire.mjs';
 import { decodeTronNativeTransferWire } from '../../../chains/tron/transfers/tron-native-transfer-wire.mjs';
-import { decodeWireCommitment } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { decodeWireCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { evmFundingEndpointCommitment } from '../../../chains/evm/dispatch/evm-facts-binding.mjs';
 import { tronGraphEndpoint } from '../../../chains/tron/transfers/tron-native-graph-profile.mjs';
 export const NATIVE_VALUE_INVENTORY_SCHEMA = 'OWNED_WRAPPED_CLAIM_GRAPH_FULL_HISTORY_INVENTORY_V1';

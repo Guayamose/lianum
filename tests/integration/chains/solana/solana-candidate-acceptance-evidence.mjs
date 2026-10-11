@@ -1,7 +1,7 @@
 /** Pure functional checks and public projection. Native wires and account
  * identifiers stay exclusively in the excluded local private audit. */
 import assert from 'node:assert/strict';
-import { validateSolanaBindingTransaction, MEMO_PROGRAM } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { validateSolanaBindingTransaction, MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
 import { validateSolanaNonceBindingTransaction, validateSolanaNonceBootstrapTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { auditOwnedSolanaNonceInfrastructure } from '../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
 

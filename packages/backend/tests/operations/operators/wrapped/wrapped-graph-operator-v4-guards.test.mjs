@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { exactRecord, bytes32 } from '../../../../src/execution/encoding/commitments.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput as copy, frozenInput as freeze, inputUint } from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
 const source = readFileSync(new URL('./wrapped-claim-graph-operators-v1.mjs', import.meta.url), 'utf8');
 const a = source.indexOf('function graphNativeProjectionV4('), b = source.indexOf('function assertMessageWindowV4(', a);
@@ -73,7 +73,7 @@ test('HOST original wrapped audit avoids key-order-only AEAD commits and keeps e
   };
   const storeModule = await import(moduleURL('../../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
   const readiness = await import(moduleURL('../../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
-  const commitments = await import(moduleURL('../../../../src/execution/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
+  const commitments = await import(moduleURL('../../../../../components/src/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
   const inventorySource = readFileSync(moduleURL('../../../../src/operations/operators/wrapped/wrapped-claim-graph-inventory-v1.mjs', './wrapped-claim-graph-inventory-v1.mjs'), 'utf8');
   const watermarkLine = inventorySource.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
   assert.equal(watermarkLine.length, 1);

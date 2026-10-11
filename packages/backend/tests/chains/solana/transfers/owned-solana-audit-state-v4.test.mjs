@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-import {cloneInput,frozenInput} from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
+import {cloneInput,frozenInput} from '@lianum/components/plain-input';
 const source=readFileSync(new URL('./owned-solana-runtime.mjs',import.meta.url),'utf8');
 const cut=(a,b)=>{const start=source.indexOf(a),end=source.indexOf(b,start);assert.ok(start>=0&&end>start);return source.slice(start,end);};
 const registry=cut('const ownedSolanaRuntimes =','const safeInteger =').replaceAll('export ','');

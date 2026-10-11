@@ -7,10 +7,10 @@
 import assert from 'node:assert/strict';
 import { lstatSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { createNativeRecipientProcess } from '../../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
-import { assertOwnedFlatOwnerProcess } from '../../../../../packages/custody/src/processes/flat-owner-process.mjs';
-import { exactRecord } from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import { createNativeRecipientProcess } from '../../../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs';
+import { NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { assertOwnedFlatOwnerProcess } from '../../../../../packages/backend/src/custody/processes/flat-owner-process.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { inputUint } from '../../../../../packages/backend/src/execution/account/preparation/readiness-inputs.mjs';
 import { createOwnedFlatNativeProvider } from '../../../../../packages/backend/src/providers/native-provider.mjs';
 import { freshFixtureId } from '../../../fixtures/runners/owned-flat-fixture.mjs';

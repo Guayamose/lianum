@@ -4,14 +4,14 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { exactRecord, bytes32, canonicalField, ZERO } from '@lianum/components/encoding/commitments';
-import { decodeDepositIntentInputs } from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
+import { decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { validateClaimConfig, claimDomainCommitment, claimIntentId, decodeClaimIngressInputs, claimUint }
-  from '../../../backend/src/claims/protocol/framing.mjs';
+  from '@lianum/engine/claims/framing';
 import { CLAIM_ACTIONS, CLAIM_BACKING_FIELDS, claimActionDigest, claimBackingFrame }
-  from '../../../backend/src/claims/authorization/permits.mjs';
-import { decodeNativeClaimIssueCall } from '../../../backend/src/claims/protocol/issue-call.mjs';
+  from '@lianum/engine/claims/permits';
+import { decodeNativeClaimIssueCall } from '@lianum/engine/claims/issue-call';
 import { ownerCopy, ownerDigest, flatOwnerIdentity, flatOwnerSnapshot, FLAT_OWNER_OBSERVATION_TRUST }
-  from '../signing/flat-owner-custody.mjs';
+  from '../signing/owner-observation-contract.mjs';
 
 export const FLAT_OWNER_NATIVE_CLAIM_ISSUE = 'NATIVE_CLAIM_ISSUE';
 const same = (actual, expected) => assert.equal(ownerDigest(actual), ownerDigest(expected), 'FLAT_OWNER_CLAIM_BINDING');

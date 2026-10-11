@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { classifyNativeIngressV3Executable, nativeExitedProcessClassification, nativeProofProcessResources, nativeResourceFailure,
   NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';
 import { productionPreflightForbiddenProcess, preflightForbiddenProcess,

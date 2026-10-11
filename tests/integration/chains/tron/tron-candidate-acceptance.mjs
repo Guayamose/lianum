@@ -11,13 +11,13 @@ import { homedir } from 'node:os';
 import { beginTronCandidateLifetime, bindTronCandidateChildCancellation } from './tron-candidate-lifetime.mjs';
 import { createTronPrivateLogCapture } from './tron-candidate-log-capture.mjs';
 import { captureTronCandidateDiskLogs } from './tron-candidate-disk-log-capture.mjs';
-import { ROOT, FLAT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
-import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
-import { PRIVATE_RESOURCE_FLOORS } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
+import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
 import { prepareOwnedTronNative, assertPreparationCurrent, bindOwnedTronSigned, PROFILE }
   from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs';
 import { decodeTronNativeTransferWire } from '../../../../packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs';
-import { createTronNativeTransferObserver } from '../../../../packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs';
+import { createTronNativeTransferObserver } from '@lianum/backend/transfers/tron';
 import { OWNED_TRON_RUNTIME_RELEASE, TRON_UPSTREAM }
   from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
 

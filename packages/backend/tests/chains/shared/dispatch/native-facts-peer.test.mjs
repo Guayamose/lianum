@@ -6,15 +6,15 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { encodeSolanaNonceBindingMessage } from '../../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
-import { encodeSolanaBindingMessage, encodeBitcoinBinding, validateBitcoinBinding, nativeFactIdentity } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { encodeSolanaBindingMessage, encodeBitcoinBinding, validateBitcoinBinding, nativeFactIdentity } from '@lianum/engine/native/native-receipt-binding';
 import { createNativeFactsSigner, createNativeFactsPeer, createNativeFactsCollector,
   createNativeFactsInventory, createNativeClaimFactsSigner, createNativeClaimFactsPeer,
   createNativeClaimFactsCollector, createNativeClaimFactsInventory, CLAIM_FACTS_INVENTORY_SCHEMA,
   nativeFactsRegistryCommitment, FACTS_QUORUM_PROFILE,
   FACTS_PEER_ASSURANCE } from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
-import { nativeRuleCommitment } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { evmDeliveryFixture, signedDeliveryWire } from '../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';
-import { evmVaultDeliveryDescriptorCommitment } from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+import { evmVaultDeliveryDescriptorCommitment } from '@lianum/engine/encoding/evm-vault-delivery';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const copy = value => structuredClone(value);

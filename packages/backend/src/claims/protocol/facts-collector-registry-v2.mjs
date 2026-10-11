@@ -3,10 +3,10 @@
  * to verify signatures after custody and source memberships are authenticated.
  * This is host conformance, never an owned observer or backing/signing authority. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray, bytes32 } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { FACTS_SCHEMA, validateNativeClaimFacts, encodeNativeClaimFacts, nativeClaimFactsDigest } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
-import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment } from '../../../../engine/src/evidence/native-quorum.mjs';
+import { FACTS_SCHEMA, validateNativeClaimFacts, encodeNativeClaimFacts, nativeClaimFactsDigest } from '@lianum/engine/native/native-receipt-binding';
+import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment } from '@lianum/engine/evidence/native-quorum';
 import { assertCustodyRegistration, assertCustodySources } from './registry-envelope-v2.mjs';
 
 export function createWrappedClaimFactsCollector(input) {

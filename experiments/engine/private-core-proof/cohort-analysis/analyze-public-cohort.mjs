@@ -1,7 +1,7 @@
 /** Read-only analysis of a completed captured cohort. Never reads private owner
  * journals/certificates or starts a runtime. Raw output stays in private audit. */
 import assert from 'node:assert/strict';import {readFile,readdir,writeFile,mkdir} from 'node:fs/promises';import {join} from 'node:path';import {createHash} from 'node:crypto';
-import {normalizePublicCohortEvm} from './evm-with-bootstrap.mjs';import {normalizePublicCohortNative} from '../../../../packages/engine/src/cohorts/private-cohort-public-native.mjs';
+import {normalizePublicCohortEvm} from './evm-with-bootstrap.mjs';import {normalizePublicCohortNative} from '@lianum/engine/cohorts/private-cohort-public-native';
 import {evaluatePublicCohort,publicCohortMetrics,COHORT_PUBLIC_SCHEMA,COHORT_PUBLIC_PROFILE,COHORT_COVERAGE} from './evaluator-with-bootstrap.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex'),hexHash=b=>'0x'+hash(b),project=process.cwd(),runId=process.argv[2];assert.match(runId,/^[0-9TZ-]{1,80}$/);
 const reportPath=join(project,'evidence/m24-cohort-native',runId,'report.json'),reportBytes=await readFile(reportPath),report=JSON.parse(reportBytes);assert.equal(report.phase,'completed','ACTUAL_FUNCTIONAL_RUN_NOT_COMPLETED');assert.equal(report.actualFunctionalCompleted,true);assert.match(report.cohortId,/^[0-9a-f]{32}$/);

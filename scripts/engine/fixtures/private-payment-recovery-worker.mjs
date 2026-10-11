@@ -1,8 +1,8 @@
 /** Integration-only crash injection. The production entrypoint has no crash
  * option and the HTTP/worker request shapes cannot select this fixture. Real
  * owned nodes, original proofs/custody, and production transport remain in use. */
-import { createPrivatePaymentWorkerHost } from '../../../packages/engine/src/payments/private-payment-worker.mjs';
-import { createPrivatePaymentKeeperForTest } from '../../../packages/engine/src/payments/private-payment-keeper.mjs';
+import { createPrivatePaymentWorkerHost } from '../../../packages/backend/src/payments/private-payment-worker.mjs';
+import { createPrivatePaymentKeeperForTest } from '../../../packages/backend/src/payments/private-payment-keeper.mjs';
 if(typeof process.send!=='function')throw Error('PRIVATE_PAYMENT_IPC_REQUIRED');
 let injected=false;
 const host=createPrivatePaymentWorkerHost({transport:process,createKeeper:(options,{onResult})=>createPrivatePaymentKeeperForTest(options,{onResult,afterOperation:async({operation,mode,child})=>{

@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { createPairedOriginalAccountActorV2 } from '../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
-import { createFlatAccountSession } from '../../../packages/backend/src/api/accounts/flat-account-session.mjs';
+import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 const jwk = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }).publicKey.export({ format: 'jwk' });
 const devicePublicKey = '04' + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');
 test('unmocked original session/native approval WeakMaps reject copies and shaped accounts before any caller method', async () => {

@@ -1,40 +1,23 @@
+import { frozenInput, cloneInput } from '@lianum/components/plain-input';
+export { frozenInput, cloneInput } from '@lianum/components/plain-input';
 /** Scoped P42/R50 witness preparation. Pure host checks/encoding only: no
  * backend, proof verifier, state oracle, signing capability or authority flag.
  * Actual pinned proofs and authenticated state provenance remain mandatory.
  */
 import assert from 'node:assert/strict';
-import { types } from 'node:util';
 import { createHash } from 'node:crypto';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField,
-  validateStruct, structToNoir, digestBytes, digestWords, SCHEMAS, ZERO } from '../../encoding/commitments.mjs';
-import { encodeStatement, validateStatement } from '../../encoding/statements.mjs';
-import { CATALOG } from '../../../../../proofs/src/catalog.mjs';
-import { validateJobAgainstABI } from '../../../../../proofs/src/jobs/trusted-jobs.mjs';
+  validateStruct, structToNoir, digestBytes, digestWords, SCHEMAS, ZERO } from '@lianum/components/encoding/commitments';
+import { encodeStatement, validateStatement } from '@lianum/components/encoding/statements';
+import { CATALOG } from '@lianum/proofs/catalog';
+import { validateJobAgainstABI } from '@lianum/proofs/jobs/trusted-jobs';
 import { snapshotDigest, snapshotToNoir, membership }
-  from '../../../../../engine/src/execution/native/state/native-state.mjs';
+  from '@lianum/engine/execution/native/state/native-state';
 import { nativeReceiptReadOpening, nativeReceiptCommitment, nativeReceiptToNoir, RECEIPT_HASH_FIELDS }
-  from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/execution/native/state/native-receipt';
 import { nativeTransferActionCommitment, nativeActionToNoir }
-  from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-capsules';
 
-export function frozenInput(value) {
-  if (value && typeof value === 'object') { Object.values(value).forEach(frozenInput); Object.freeze(value); }
-  return value;
-}
-/** Snapshot untrusted plain data before any await or legacy codec call. */
-export function cloneInput(value) {
-  const seen = new Set();
-  const visit = v => {
-    if (v === null || ['string', 'boolean'].includes(typeof v)) return;
-    if (typeof v === 'number') { assert.ok(Number.isSafeInteger(v) && !Object.is(v, -0), 'INPUT_INTEGER'); return; }
-    assert.ok(v && typeof v === 'object' && !types.isProxy(v) && !seen.has(v), 'INPUT_PLAIN_DATA');
-    seen.add(v);
-    if (Array.isArray(v)) fixedArray(v, v.length);
-    else { const keys = Reflect.ownKeys(v); assert.ok(keys.every(key => typeof key === 'string')); exactRecord(v, keys); }
-    Object.values(v).forEach(visit); seen.delete(v);
-  };
-  visit(value); return structuredClone(value);
-}
 export function inputUint(value, bits = 64, maximum = (1n << BigInt(bits)) - 1n) {
   assert.equal(typeof value, 'string', 'INPUT_UINT_STRING');
   assert.ok(value.length <= 39 && /^(0|[1-9][0-9]*)$/.test(value), 'INPUT_UINT_ENCODING');

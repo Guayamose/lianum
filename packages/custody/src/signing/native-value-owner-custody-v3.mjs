@@ -6,26 +6,26 @@ import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey, randomBytes, verify } from 'node:crypto';
 import { lstat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../engine/src/crypto/privacy.mjs';
-import { signature, nullifier } from '../../../engine/src/notes/private-note-encoding.mjs';
-import { derivePrivateAssetIdentity } from '../../../engine/src/notes/private-asset-runtime.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
+import { signature, nullifier } from '@lianum/engine/notes/private-note-encoding';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
 import { createBalanceNote, balanceCommitment, walletDepositInput, walletWithdrawInput,
   balanceDepositFrame, balanceWithdrawFrame, walletInputPublicWords, encodeWalletPoolInputs }
-  from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { compileFundedGraph, attachFundedSignatures, fundedSigningRequests }
-  from '../../../engine/src/execution/graph/funded-graph.mjs';
+  from '@lianum/engine/execution/graph/funded-graph';
 import { createGenericBalanceNativePreparation, validateGenericBalanceNativePreparation,
   genericBalanceNativeTerms, genericBalanceNativeInvoiceRequests }
-  from '../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
-import { inspectGenericSnapshot, reserveProjection } from '../../../engine/src/execution/local/local-ledger.mjs';
+  from '@lianum/engine/execution/balances/generic-balance-native-preparation';
+import { inspectGenericSnapshot, reserveProjection } from '@lianum/engine/execution/local/local-ledger';
 import { buildAuthorizedEnvelope } from './authorized-envelope.mjs';
 import { createCommitmentCodec, exactRecord, canonicalField, validateStruct, ZERO }
   from '@lianum/components/encoding/commitments';
 import { encodeStatement, decodeStatement } from '@lianum/components/encoding/statements';
 import { encodeDepositIntentInputs, decodeDepositIntentInputs, depositIntentFrame, depositIntentWitness }
-  from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
-import { decodeEvmVaultDeliveryCall } from '../../../backend/src/chains/evm/vault/evm-vault-delivery.mjs';
+  from '@lianum/engine/execution/inputs/deposit-intent';
+import { decodeEvmVaultDeliveryCall } from '@lianum/engine/encoding/evm-vault-delivery';
 import { FLAT_OWNER_NATIVE_CLAIM_ISSUE, validateFlatOwnerNativeClaimTransition } from '../claims/flat-owner-claim-transition.mjs';
 
 import { validateNativeValueManualReview, validateNativeValueManualRecords, validateNativeValueManualReauthorization, currentNativeValueManualAuthorization } from '../preparation/native-value-owner-manual-binding-v1.mjs';

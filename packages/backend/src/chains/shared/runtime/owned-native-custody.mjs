@@ -2,7 +2,7 @@
  * signer, RPC or backing authority. These are opt-in to the custody factories.
  */
 import assert from 'node:assert/strict';
-import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 
 export const OWNED_CUSTODY_ROUTES = frozenInput({

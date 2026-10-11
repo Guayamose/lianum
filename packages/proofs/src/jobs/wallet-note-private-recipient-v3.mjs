@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {preparePrivateProofJobV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+import {preparePrivateProofJobV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import {deriveOriginalDeviceWalletNoteJobV3} from './private-device-wallet-note-input-v3.mjs';
 import {createOriginalWalletNotePrivateProverV4} from './wallet-note-private-prover-v4.mjs';
 async function main(){

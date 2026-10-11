@@ -3,18 +3,20 @@
  * Supplied receipts, events, facts, booleans or callbacks cannot mint it. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { assertOwnedLocalEvmV2, assertSignedEvmTransaction, LOCAL_EVM_PROFILE } from '../runtime/owned-evm-v2-runtime.mjs';
+import { assertSignedEvmTransaction } from '../contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../runtime/local-evm-profiles.mjs';
+import { assertOwnedLocalEvmV2 } from '../runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedEvmVaultRouter } from '../../../operations/deployments/defi/deploy-evm-vault-router.mjs';
 import { assertOwnedFlatSystem } from '../../../operations/deployments/system/deploy-system.mjs';
 import { assertOwnedPoolAsset } from '../../shared/contracts/owned-pool-asset.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { createFlatSystemStateReader, decodeFlatWords } from '../../../execution/account/reconciliation/flat-system-state.mjs';
-import { flatOwnerIdentity, flatOwnerSnapshot, ownerDigest } from '../../../../../custody/src/signing/flat-owner-custody.mjs';
-import { nativeStaticCalldata } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { decodeGenericBalanceStateAdvanced } from '../../../../../engine/src/execution/balances/generic-balance-observer.mjs';
+import { flatOwnerIdentity, flatOwnerSnapshot, ownerDigest } from '@lianum/custody/owner';
+import { nativeStaticCalldata } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { decodeGenericBalanceStateAdvanced } from '../../../accounts/balances/generic-balance-observer.mjs';
 import { encodeEvmVaultDeliveryCall, decodeEvmVaultDeliveryCall, decodeEvmVaultDepositStatement, inspectEvmVaultDeliveryTransition }
-  from './evm-vault-delivery.mjs';
+  from '@lianum/engine/encoding/evm-vault-delivery';
 
 const owned = new WeakMap(), issuedObservations = new WeakMap(), issuedFacts = new WeakMap();
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

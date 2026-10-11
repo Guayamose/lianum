@@ -12,8 +12,8 @@ import { PrivateNoteTree } from '../../../../src/notes/private-note-tree.mjs';
 import { walletNoteCommitment, balanceWithdrawFrame } from '../../../../src/wallet/notes/private-wallet-note-encoding.mjs';
 import { compileFundedGraph, fundedAuthorizationWords } from '../../../../src/execution/graph/funded-graph.mjs';
 import { a0Context } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
-import { encodePrivateProof } from '../../../../src/execution/proofs/proof-worker.mjs';
-import { openGenericOwnerRecoveryCustody, OWNER_RECOVERY_SCHEMA } from '../../../../src/execution/native/recovery/native-owner-recovery-custody.mjs';
+import { encodePrivateProof } from '@lianum/proofs/execution/proof-worker';
+import { openGenericOwnerRecoveryCustody, OWNER_RECOVERY_SCHEMA } from '../../../../../backend/src/execution/native/recovery/native-owner-recovery-custody.mjs';
 
 const hash = text => createHash('sha256').update('synthetic recovery fixture:' + text).digest('hex');
 const zero = '0'.repeat(64);

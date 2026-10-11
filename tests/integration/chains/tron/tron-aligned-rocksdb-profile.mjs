@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 import { readFile, readdir, lstat, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
+import { ROOT } from '@lianum/proofs/catalog';
 import { OWNED_TRON_RUNTIME_RELEASE } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs';
 
 export const TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE = {"format":"REVIEWED_LOCAL_TRON_ALIGNED_ROCKSDB_CANDIDATE_V1","sourceSHA256":"d2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0","buildReportSHA256":"3914c0bc2d07852049bc3747475287d720173ca92702c4f7c81037daf8d7a7ee","classSHA256":"65313f923fac150adfcda7f2f66e3e5e17cf093b8fb26be81844c49bc9aaf029","innerClassSHA256":"963a36503e3be315c095413fd2c4301d79e36016575fd1872d43a0fe0a977921"};

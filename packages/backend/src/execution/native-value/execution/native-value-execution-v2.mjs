@@ -2,7 +2,7 @@ import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV
 import {assertOwnedNativeDurableSourceReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {buildOwnerNativeGraphRoute} from '../../account/preparation/owner-native-graph-review-v1.mjs';
 import {createHash as recoveryHash} from 'node:crypto';
-import {canonical as recoveryCanonical} from '../../../../../engine/src/crypto/privacy.mjs';
+import {canonical as recoveryCanonical} from '@lianum/engine/crypto/privacy';
 const privateRecoveryDigest=value=>recoveryHash('sha256').update(recoveryCanonical(value)).digest('hex');
 import { assertWrappedWalletAccountReleasedV1 } from '../../../operations/releases/wrapped/wrapped-wallet-release-v1.mjs';
 import { refreshNativeValueReceiverClock } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
@@ -17,8 +17,8 @@ import { randomBytes, createHash } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { types } from 'node:util';
-import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { assertOwnedNativeValueSystem as nativeSystem, nativeValueOriginalRecoverySourceV1 } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { assertOwnedNativeValueQuorum as nativeQuorum } from '../../../operations/operators/native-value/native-value-operators-v4.mjs';
@@ -27,12 +27,12 @@ import { createOwnedNativeValueProvider as nativeProvider } from '../../../chain
 import { createOwnedNativeValueGraphAdmission as nativeAdmission } from '../preparation/native-value-graph-admission-v2.mjs';
 import { createNativeValueSystemStateReader as nativeReader } from '../reconciliation/native-value-system-state-v2.mjs';
 import { createNativeValueTerminalObserver as nativeTerminal, readOriginalNativeRecoveryCheckpointV1 } from '../reconciliation/native-value-terminal-observer-v2.mjs';
-import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField } from '../../encoding/commitments.mjs';
-import { decodeStatement, joinReadiness, joinAdmission, joinSettlement } from '../../encoding/statements.mjs';
+import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField } from '@lianum/components/encoding/commitments';
+import { decodeStatement, joinReadiness, joinAdmission, joinSettlement } from '@lianum/components/encoding/statements';
 import { buildDependencyInputs, buildReadyInputs } from '../../account/preparation/readiness-inputs.mjs';
 import { validateFlatExecutionPreparation } from '../../account/execution/flat-native-execution.mjs';
 import { nativeValueOriginalAdmissionConsumer } from '../preparation/native-value-dev-admission-consumer-v5.mjs';
-import { loadNativeValueLiveArtifacts } from '../../../../../proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs';
+import { loadNativeValueLiveArtifacts } from '../../../proving/native-value/metadata/native-value-live-v2-artifacts.mjs';
 import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
   from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { assertNativeValueBootstrapNativeRuntime } from '../../../operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
@@ -41,9 +41,9 @@ import { flatCompletionWindow } from '../../account/reconciliation/flat-completi
 import { nativeValueFailureDiagnostic } from '../reconciliation/native-value-failure-retention.mjs';
 import { recoveryWitness } from '../../account/preparation/funding-inputs.mjs';
 import { encodeFlatTransaction } from '../../encoding/transaction-codec.mjs';
-import { withFlatHash, loadFlatABI, createFlatProofRunner } from '../../../../../proofs/src/tooling/scoped-proof-tools.mjs';
+import { withFlatHash, loadFlatABI, createFlatProofRunner } from '@lianum/proofs/tooling/scoped-proof-tools';
 
-import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
+import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedNativeValueQuorum as wrappedQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';
 import { assertOwnedNativeValueProviderCustody as wrappedCustody, ownedNativeValueProviderCustodyReview as wrappedCustodyReview } from '../../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs';
 import { createOwnedNativeValueProvider as wrappedProvider } from '../../../chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs';
@@ -626,7 +626,7 @@ export async function stopCapturedWrappedWalletExecutionV1(execution){
  const state=owners.get(execution);assert.ok(state?.wrapped,'WRAPPED_EXECUTION_ORIGINAL_REQUIRED');return execution.close();
 }
 export async function reopenWrappedWalletExecutionFromRecoveryV1(token){
- const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+ const {consumeWrappedWalletRecoveryPartV1}=await import('../../../operations/wallet/wrapped-wallet-composition-v1.mjs');
  const retained=consumeWrappedWalletRecoveryPartV1(token,'execution');exactRecord(retained,['input','record','providers','adapters']);
  exactRecord(retained.record,['schema','poolIndex','directory','password','checkpointSHA256','providerBindings','adapters']);
  assert.equal(retained.record.schema,'WRAPPED_ORIGINAL_EXECUTION_RECOVERY_V1');assert.equal(retained.input.poolIndex,retained.record.poolIndex);

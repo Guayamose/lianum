@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { CLAIM_GRAPH_PROFILE, CLAIM_GRAPH_PROOF_COUNTS, claimGraphProofPackets, validateClaimGraphResult }
   from './native-claim-graph-artifacts.mjs';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
-import { encodeStatement } from '../../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { flatCompletionWindow } from '../../../../../packages/backend/src/execution/account/reconciliation/flat-completion-window.mjs';
 
 const h = value => BigInt(value).toString(16).padStart(64, '0');

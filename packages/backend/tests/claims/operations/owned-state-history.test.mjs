@@ -4,7 +4,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimVerifierSetCommitment } from '../../../src/claims/protocol/framing.mjs';
+import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimVerifierSetCommitment } from '@lianum/engine/claims/framing';
 import { evmRuntimeCodeHash } from '../../../src/chains/evm/contracts/evm-code-hash.mjs';
 import { decodeFlatWords } from '../../../src/execution/account/reconciliation/flat-system-state.mjs';
 

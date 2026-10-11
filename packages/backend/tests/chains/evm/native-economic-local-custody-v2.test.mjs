@@ -6,8 +6,9 @@ import {mkdtemp,readFile,writeFile,rm,lstat,utimes} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createNativeEconomicLocalCustodyV2,checkNativeEconomicLocalCustodyV2,captureNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,closeNativeEconomicLocalCustodyV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,signNativeEconomicCustodyTransactionV2} from '../../../src/chains/evm/runtime/native-economic-local-custody-v2.mjs';
-import {LOCAL_EVM_PROFILE,assertSignedEvmTransaction} from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
+import { assertSignedEvmTransaction } from '../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/local-evm-profiles.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
 import {createNativeValueAccountJournals} from '../../../src/accounts/authority/native-value/native-value-authority-journals.mjs';
 import {extractDeclaration as extractAuthorityDeclaration} from '../../support/authority-source-host.mjs';
 function terms(from){return Object.freeze({chainId:'31337',from,to:'0x'+'22'.repeat(20),nonce:'3',gas:'100000',gasPrice:'1000000000',value:'1000',data:'0x1234'});}
@@ -131,14 +132,14 @@ test('HOST original external-note send branch uses the same frozen custody prepa
 
 test('HOST live-armed observed runtime keeps its original pair and authenticated five-key genesis across reopening',async()=>{
  const {default:vm}=await import('node:vm');
- const {canonical}=await import('../../../../engine/src/crypto/privacy.mjs');
+ const {canonical}=await import('@lianum/engine/crypto/privacy');
  const {randomBytes,createHash}=await import('node:crypto');
  const {constants}=await import('node:fs');
  const fs=await import('node:fs/promises');
  const {fileURLToPath}=await import('node:url');
  const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
  const runtimeURL=new URL(generated?'../../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url);
- const custodyURL=new URL(generated?'../../chain-adapters/native-economic-local-custody-v2.mjs':'../../../src/chains/evm/runtime/native-economic-local-custody-v2.mjs',import.meta.url);
+ const custodyURL=new URL(generated?'../../chain-adapters/native-economic-local-custody-backend-v2.mjs':'../../../src/chains/evm/runtime/native-economic-local-custody-backend-v2.mjs',import.meta.url);
  const signing=await import(new URL(generated?'../../chain-adapters/native-economic-local-signing-v2.mjs':'../../../src/chains/evm/runtime/native-economic-local-signing-v2.mjs',import.meta.url));
  const runtimeSource=await readFile(runtimeURL,'utf8'),custodySource=await readFile(custodyURL,'utf8');
  const cut=(start,end)=>{const a=runtimeSource.indexOf(start),b=runtimeSource.indexOf(end,a);assert.ok(a>=0&&b>a);return runtimeSource.slice(a,b);};
@@ -179,7 +180,7 @@ test('HOST live-armed observed runtime keeps its original pair and authenticated
  // Keep the actual canonical/Vault checks in their original realm: plain
  // source-created records are not foreign VM objects or altered DTOs.
  const custodyNames=['assert','randomBytes','createHash','constants','open','lstat','realpath','join','Vault','canonical','consumeNativeEconomicObservedCustodyRequestV2','nativeEconomicLocalAddressV2','prepareNativeEconomicLocalSignerV2','consumeNativeEconomicLocalSignerV2','revokeNativeEconomicLocalSignerV2'];
- const custodyPorts=new Function(...custodyNames,script+'\nreturn {createNativeEconomicObservedLocalCustodyV2,reopenNativeEconomicObservedLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,captureNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,closeNativeEconomicLocalCustodyV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2};')(...custodyNames.map(name=>custodyContext[name]));
+ const custodyPorts=new Function(...custodyNames,script+'\nreturn buildNativeEconomicCustodyBackend(consumeNativeEconomicObservedCustodyRequestV2);')(...custodyNames.map(name=>custodyContext[name]));
  const cwd=await mkdtemp(join(tmpdir(),'lianum-live-armed-custody-host-'));let first,second;
  try{const profile={...receiverProfile,genesisTimestamp:Math.floor(Date.now()/1000)-2},input={cwd,family:'receiver',profile};const request=()=>{const cap=Object.freeze(Object.create(null));requests.set(cap,input);return cap;};
   first=await custodyPorts.createNativeEconomicObservedLocalCustodyV2(request());const view=custodyPorts.nativeEconomicLocalCustodyPublicV2(first),retained=await custodyPorts.captureNativeEconomicLocalCustodyV2(first);custodyPorts.closeNativeEconomicLocalCustodyV2(first);
@@ -196,7 +197,7 @@ test('HOST live-armed observed runtime keeps its original pair and authenticated
 // signed bytes. RPC/history/proof acceptance below are explicit inert ports;
 // this test does not establish a chain reorg or economic proof acceptance.
 test('HOST original F reorg invalidates both AEAD journals before one exact retained-wire emission', async()=>{
- const {fileURLToPath}=await import('node:url'),{canonical}=await import('../../../../engine/src/crypto/privacy.mjs');
+ const {fileURLToPath}=await import('node:url'),{canonical}=await import('@lianum/engine/crypto/privacy');
  const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
  const moduleURL=(name,canonicalPath)=>new URL(generated?'../../'+name:canonicalPath,import.meta.url);
  const runtimeSource=await readFile(moduleURL('chain-adapters/owned-evm-v2-runtime.mjs','../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),'utf8');
@@ -205,10 +206,10 @@ test('HOST original F reorg invalidates both AEAD journals before one exact reta
  const accountExecutionSource=await readFile(moduleURL('global-state/native-value/native-value-authority-execution.mjs','../../../src/accounts/authority/native-value/native-value-authority-execution.mjs'),'utf8');
  const accountReservationSource=await readFile(moduleURL('global-state/native-value/native-value-authority-reservations.mjs','../../../src/accounts/authority/native-value/native-value-authority-reservations.mjs'),'utf8');
  const observerSource=await readFile(moduleURL('paeg/native-value-terminal-observer-v2.mjs','../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs'),'utf8');
- const {encodeStatement,validateStatement}=await import(moduleURL('paeg/statements.mjs','../../../src/execution/encoding/statements.mjs'));
+ const {encodeStatement,validateStatement}=await import(moduleURL('paeg/statements.mjs','../../../../components/src/encoding/statements.mjs'));
  const {encodeFlatTransaction}=await import(moduleURL('paeg/transaction-codec.mjs','../../../src/execution/encoding/transaction-codec.mjs'));
  const {decodeNativeValueTerminalCalldata}=await import(moduleURL('paeg/native-value-terminal-observer-v2.mjs','../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs'));
- const {exactRecord}=await import(moduleURL('paeg/commitments.mjs','../../../src/execution/encoding/commitments.mjs'));
+ const {exactRecord}=await import(moduleURL('paeg/commitments.mjs','../../../../components/src/encoding/commitments.mjs'));
  const {createHash}=await import('node:crypto');
  const cut=(text,a,b)=>{const start=text.indexOf(a),end=text.indexOf(b,start);assert.ok(start>=0&&end>start);return text.slice(start,end);};
  const compile=(body,ports)=>new Function(...Object.keys(ports),body)(...Object.values(ports));

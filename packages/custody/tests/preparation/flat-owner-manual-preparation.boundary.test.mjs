@@ -3,9 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } from '../../src/preparation/flat-owner-manual-preparation.mjs';
+import { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } from '@lianum/backend/custody/preparation/flat-owner-manual-preparation';
 import { assertOwnedFlatAccountAuthority } from '../../../backend/src/accounts/authority/flat-account-authority.mjs';
-import { assertOwnedFlatOwnerProcess } from '../../src/processes/flat-owner-process.mjs';
+import { assertOwnedFlatOwnerProcess } from '../../../backend/src/custody/processes/flat-owner-process.mjs';
 
 test('unmocked production entry rejects fabricated original capabilities before any supplied method runs', async () => {
   let invoked = false; const forbidden = () => { invoked = true; throw Error('caller method invoked'); };

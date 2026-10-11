@@ -8,10 +8,10 @@ import { decodeEvmNativeTransferWire } from '../../../../src/chains/evm/transfer
 import { createEvmNativeTransferObserver } from '../../../../src/chains/evm/observations/evm-native-transfer-observer.mjs';
 import { originalFixture, fixtureRlp } from '../../../fixtures/chains/evm/transfers/evm-native-transfer-fixture.mjs';
 import { receiptKeyCommitment, nativeAdmissionNullifier, validateNativeFacts }
-  from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
-import { nativeAdmissionChainDomain } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
-import { canonicalNativeEffectId } from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
+import { nativeAdmissionChainDomain } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
+import { canonicalNativeEffectId } from '@lianum/engine/execution/native/state/native-receipt';
 
 // Test-only public mathematical fixtures: fixed r=Gx, s=1 determine public
 // recovered senders for each EIP signing preimage. No keys or signing API.

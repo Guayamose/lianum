@@ -6,14 +6,13 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
-import { createOwnedLocalEvmOsakaV1, LOCAL_OSAKA_EVM_PROFILE_V1,
-  ownedLocalEvmTransactionGasLimit, probeOwnedOsakaTransactionGasRejectionV1 }
-  from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { LOCAL_OSAKA_EVM_PROFILE_V1 } from '../../../../packages/backend/src/chains/evm/runtime/local-evm-profiles.mjs';
+import { createOwnedLocalEvmOsakaV1, ownedLocalEvmTransactionGasLimit, probeOwnedOsakaTransactionGasRejectionV1 } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOwnedPoolAsset } from '../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs';
-import { derivePrivateAssetIdentity } from '../../../../packages/engine/src/notes/private-asset-runtime.mjs';
-import { nativeAdmissionRulesTree } from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeStaticCalldata } from '../../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeStaticCalldata } from '../../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
 import { deployBackedAssets, loadBackedAssetDeploymentArtifacts } from '../../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs';
 import { deployFlatSystem } from '../../../../packages/backend/src/operations/deployments/system/deploy-system.mjs';
 import { deployEvmVaultRouter } from '../../../../packages/backend/src/operations/deployments/defi/deploy-evm-vault-router.mjs';

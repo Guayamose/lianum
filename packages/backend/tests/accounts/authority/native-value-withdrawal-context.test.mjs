@@ -2,8 +2,8 @@
  * the bridge's capability guard explicitly represented by an inert port. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { PrivateNoteTree } from '../../../../engine/src/notes/private-note-tree.mjs';
-import { DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2 } from '../../../../mobile-protocol/src/device-native-private-exit-v2.mjs';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
+import { DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2 } from '@lianum/mobile-protocol/device/native-withdrawal-v2';
 
 const bridgeURL = new URL('../../../src/accounts/authority/device-owner-execution-bridge-v1.mjs', import.meta.url);
 const originalBridgeModule = await import(bridgeURL);

@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { encodeFlatTransaction as encode, FLAT_TRANSACTION_METHODS as methods } from '../../../src/execution/encoding/transaction-codec.mjs';
-import { encodeStatement, FIELD_MODULUS } from '../../../src/execution/encoding/statements.mjs';
-import { decodeFlatOwnerCalldata } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+import { encodeStatement, FIELD_MODULUS } from '@lianum/components/encoding/statements';
+import { decodeFlatOwnerCalldata } from '@lianum/custody/owner';
 
 const hex = value => BigInt(value).toString(16).padStart(64, '0');
 const digest = value => '0x' + hex(value);

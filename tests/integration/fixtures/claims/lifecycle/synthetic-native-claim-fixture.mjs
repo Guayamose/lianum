@@ -7,22 +7,22 @@
 import assert from 'node:assert/strict';
 import { createHash, createECDH, createPrivateKey, sign } from 'node:crypto';
 import { buildClaimIngressInputs, buildClaimDischargeInputs }
-  from '../../../../../packages/backend/src/claims/protocol/inputs.mjs';
+  from '@lianum/engine/claims/inputs';
 import { CLAIM_CONFIG_SCHEMA, CLAIM_INGRESS_PUBLIC_WORDS, CLAIM_DISCHARGE_PUBLIC_WORDS,
   claimDomainCommitment, claimReceiptSecret, claimDestinationCommitment,
   claimTicketId, claimTicketSecret, nativeClaimEndpointCommitment }
-  from '../../../../../packages/backend/src/claims/protocol/framing.mjs';
+  from '@lianum/engine/claims/framing';
 import { createCommitmentCodec, digestBytes, digestWords, ZERO }
-  from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
-import { balanceCommitment } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  from '@lianum/components/encoding/commitments';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { nativeAdmissionRuleRoot, nativeAdmissionChainDomain }
-  from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../../../packages/engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 import { FACTS_SCHEMA, nativeFactIdentity, nativeRuleCommitment, nativeCustodyCommitment,
   nativeObservedEffectCommitment, receiptKeyCommitment, nativeAdmissionNullifier,
   encodeNativeClaimFacts, nativeClaimFactsDigest }
-  from '../../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 
 const h = label => createHash('sha256').update('SYNTHETIC-NATIVE-CLAIMS/' + label).digest('hex');
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;

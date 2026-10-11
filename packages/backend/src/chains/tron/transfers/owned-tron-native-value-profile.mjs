@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { decodeTronNativeTransferWire } from './tron-native-transfer-wire.mjs';
-import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
 export const OWNED_TRON_NATIVE_VALUE_PROFILE = 'LIANUM_OWNED_LOCAL_TRON_NATIVE_VALUE_V1';
 export const TRON_LOCAL_CLASSIFICATION = 'LOCAL_SYNTHETIC_TRON_JAVA_TRON_CONSENSUS';
 export const PROFILE = Object.freeze({ classification: TRON_LOCAL_CLASSIFICATION, publicNetwork: false,

@@ -5,8 +5,8 @@ import { assertOriginalNativeAccountSourceV1 } from '../../accounts/authority/na
 /** Private source-authenticated composition of the existing portfolio, mixed keeper
  * and FlatAccountSession. No new journal, graph schema or HTTP factory.
  * Use at initial trusted bootstrap, never migrate/replace a live keeper. */
-import { genericAccountIdentity, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedFlatPortfolio, assertOwnedFlatPortfolioAccount } from '../../accounts/authority/flat-portfolio-authority.mjs';
 import { flatAccountManualGraphDetails, assertFlatAccountManualGraphExecution } from '../../accounts/authority/flat-account-authority.mjs';
 
@@ -422,7 +422,7 @@ export async function captureWrappedWalletGraphSessionV1(session){
  catch(error){try{await state.durableKeeper.close();}catch(cleanup){throw new AggregateError([error,cleanup],'WRAPPED_GRAPH_CAPTURE_CLEANUP_FAILED',{cause:error});}throw error;}
 }
 export async function reopenWrappedWalletGraphSessionV1(token){
- const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+ const {consumeWrappedWalletRecoveryPartV1}=await import('../../operations/wallet/wrapped-wallet-composition-v1.mjs');
  const retained=consumeWrappedWalletRecoveryPartV1(token,'graph-keeper');exactRecord(retained,['input','record','approvals']);
  const economic=retained.record.schema==='WRAPPED_ORIGINAL_GRAPH_SESSION_ECONOMIC_RECOVERY_V1';
  exactRecord(retained.record,economic?['schema','keeper','reviews','economicState']:['schema','keeper','reviews']);need(economic||retained.record.schema==='WRAPPED_ORIGINAL_GRAPH_SESSION_RECOVERY_V1','WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');

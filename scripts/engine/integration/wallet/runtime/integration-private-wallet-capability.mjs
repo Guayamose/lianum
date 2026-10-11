@@ -9,7 +9,7 @@ import {createGraph,freshKey,policyCommitment,nullifier} from '../../../../../pa
 import {createBalanceNote,walletDepositInput,walletReserveInput,walletWithdrawInput,walletInputPublicWords,decodeWalletPoolInputs} from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {PrivateNoteTree,noteHashToWords} from '../../../../../packages/engine/src/notes/private-note-tree.mjs';
 import {deployPrivateWalletNativePool,privateVerifierCalldata} from '../../../../../packages/engine/src/wallet/runtime/private-wallet-runtime.mjs';
-import {createAssemblyProofWorkerRunner} from '../../../../../packages/engine/src/assembly/private-assembly-actors.mjs';
+import { createAssemblyProofWorkerRunner } from '@lianum/proofs/execution/assembly-workers';
 import {loadWalletVerifierSources,walletVerificationPins} from '../../../../../experiments/engine/private-core-proof/wallet-notes/prover.mjs';
 import {linuxRuntimePins} from '../../../../../packages/engine/src/chains/shared/linux-runtime-pins.mjs';
 import {pinnedBinary,scratchDirectory,removeOwnScratch,unusedLoopbackPort,startOwnProcess,stopOwnProcess,ownedRuntimeRpc,sleep,projectRoot} from '../../../../../packages/engine/src/chains/shared/runtime-harness.mjs';

@@ -22,33 +22,33 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { assertNativeEconomicRecoveryCaptureV1, assertNativeLiveArmedRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
   from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { nativeValueOriginalRecoverySourceV1 } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
-import { nativeValueOwnerEconomicIdentityV1 } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
+import { nativeValueOwnerEconomicIdentityV1 } from '../../custody/processes/native-value-owner-process-v2.mjs';
 import { ownedNativeValueProviderCustodyReview as nativeRecoveryProviderReviewV1 } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
 
-import { genericAccountIdentity, validateGenericAccountConfig, immutable, copy, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
-import { assertOwnedNativeValueWalletSystem as nativeSystem } from '../../operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
+import { genericAccountIdentity, validateGenericAccountConfig, immutable, copy, sha } from '@lianum/engine/accounts/journal';
+import { assertOwnedNativeValueWalletSystem as nativeSystem } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { createNativeValueSystemStateReader as nativeReader } from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import { assertOwnedPoolAsset } from '../../chains/shared/contracts/owned-pool-asset.mjs';
 import { assertOwnedNativeValueExecution as nativeExecutionAssert, ownedNativeValueManualGraphReview as nativeGraphReview } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { createNativeValueTerminalObserver as nativeTerminal } from '../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { decodeStatement } from '../../execution/encoding/statements.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeStatement } from '@lianum/components/encoding/statements';
 
-import { assertOwnedNativeValueOwnerProcess as nativeOwner } from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
-import { createNativeValueOwnerObserver as nativeObserver, assertOwnedNativeValueOwnerObserver as nativeObserverAssert } from '../../../../custody/src/observers/native-value-owner-observer-v2.mjs';
-import { createFlatProofRunner } from '../../../../proofs/src/tooling/scoped-proof-tools.mjs';
+import { assertOwnedNativeValueOwnerProcess as nativeOwner } from '../../custody/processes/native-value-owner-process-v2.mjs';
+import { createNativeValueOwnerObserver as nativeObserver, assertOwnedNativeValueOwnerObserver as nativeObserverAssert } from '../../custody/observers/native-value-owner-observer-v2.mjs';
+import { createFlatProofRunner } from '@lianum/proofs/tooling/scoped-proof-tools';
 import { flatAccountAsset, flatAccountGraphBinding } from './flat-account-validation.mjs';
 
-import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
+import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
 import { createWrappedWalletTerminalObserverV1 } from '../../execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs';
-import { assertOwnedWrappedClaimOwnerProcessV1 } from '../../../../custody/src/processes/wrapped-claim-owner-process-v1.mjs';
-import { createWrappedClaimOwnerObserverV1, assertOwnedWrappedClaimOwnerObserverV1 } from '../../../../custody/src/observers/wrapped-claim-owner-observer-v1.mjs';
+import { assertOwnedWrappedClaimOwnerProcessV1 } from '../../custody/processes/wrapped-claim-owner-process-v1.mjs';
+import { createWrappedClaimOwnerObserverV1, assertOwnedWrappedClaimOwnerObserverV1 } from '../../custody/observers/wrapped-claim-owner-observer-v1.mjs';
 
 const wrappedOwnerAccounts = new WeakSet();
 export function originalDeviceNativeFReorgStateV1(account, executor, ref) {
@@ -118,16 +118,16 @@ export function assertNativeValueAccountManualGraphExecution(capability) {
   nativeValueAccountManualGraphDetails(capability);
   manualGraphs.get(capability).checkRoute();
 }
-import { validateNativeValueManualReview } from '../../../../custody/src/preparation/native-value-owner-manual-binding-v1.mjs';
+import { validateNativeValueManualReview } from '@lianum/custody/preparation/native-value-owner-manual-binding-v1';
 import { consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1,isOriginalNativePrivateDepositBridgeV2 }
   from './device-owner-deposit-bridge-v1.mjs';
-import { decodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 
 import { createHash } from 'node:crypto';
 
 import { consumeDeviceOwnerReservationAuthorizationV1,assertDeviceOwnerReservationBridgeV1,readDeviceOwnerReservationOriginalPreparationV1 } from './device-owner-reservation-bridge-v1.mjs';
 
-import { validateGenericBalanceNativePreparation } from '../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
+import { validateGenericBalanceNativePreparation } from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 
 import {isOriginalNativePrivateReservationBridgeV2} from './device-owner-reservation-bridge-v1.mjs';
 
@@ -1501,7 +1501,7 @@ export async function stopCapturedWrappedWalletAccountV1(account){
  const state=owned.get(account);assert.ok(state?.wrapped,'WRAPPED_ACCOUNT_ORIGINAL_REQUIRED');return account.close();
 }
 export async function reopenWrappedWalletAccountFromRecoveryV1(token){
- const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+ const {consumeWrappedWalletRecoveryPartV1}=await import('../../operations/wallet/wrapped-wallet-composition-v1.mjs');
  const retained=consumeWrappedWalletRecoveryPartV1(token,'account');exactRecord(retained,['input','record','providers']);
  exactRecord(retained.record,['schema','poolIndex','directory','password','accountId','journalId','checkpointSHA256','providerBindings','approvals']);
  assert.equal(retained.record.schema,'WRAPPED_ORIGINAL_ACCOUNT_RECOVERY_V1');

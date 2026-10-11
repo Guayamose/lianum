@@ -6,20 +6,20 @@
 import assert from 'node:assert/strict';
 import { createPublicKey, verify } from 'node:crypto';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
-  structToNoir, digestBytes, digestWords } from '../../encoding/commitments.mjs';
-import { joinReadiness } from '../../encoding/statements.mjs';
-import { validateNativeValueAdmissionInputs } from '../../../../../proofs/src/native-value/metadata/native-value-v2-profile.mjs';
+  structToNoir, digestBytes, digestWords } from '@lianum/components/encoding/commitments';
+import { joinReadiness } from '@lianum/components/encoding/statements';
+import { validateNativeValueAdmissionInputs } from '@lianum/proofs/native-value/metadata/native-value-v2-profile';
 import { cloneInput, frozenInput, inputUint, inputPath, readyDescriptorWords } from './readiness-inputs.mjs';
-import { receiptKeyCommitment, nativeAdmissionNullifier } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { receiptKeyCommitment, nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeTransferActionCommitment, nativeActionToNoir }
-  from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeReceiptReadOpening, nativeReceiptCommitment, nativeReceiptToNoir, nativeEffectToNoir }
-  from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/execution/native/state/native-receipt';
 import { nativeAdmissionRegistryToNoir,
   nativeProviderIdentity, nativeReadyStatementDigest, nativeDeliveryRiskCommitment,
   nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { membership } from '../../../../../engine/src/execution/native/state/native-state.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { membership } from '@lianum/engine/execution/native/state/native-state';
 
 import { validateProfile, assertRegistration, profileCommitment, chainDomain,
   assertFactsQuorum, profileToNoir, sourceToNoir, observationToNoir, evidenceToNoir } from '../../../chains/shared/transfers/generic-native-value-v2.mjs';

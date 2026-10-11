@@ -14,8 +14,8 @@ import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescripto
 import { assertNativeEconomicRecoveryCaptureV1 } from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
-import {wipeDeviceExitWitnessV1} from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
-import { wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
+import {wipeDeviceExitWitnessV1} from '@lianum/mobile-protocol/device-exit-consent-v1';
+import { wipeDeviceReservationWitnessV1 } from '@lianum/mobile-protocol/device-reservation-consent-v1';
 import { deviceOwnerDepositBridgeActorV1,isOriginalNativePrivateDepositBridgeV2 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { assertOriginalDeviceDurableDispatchBindingsV1, runOriginalDeviceDurableDispatchV1 }
   from './original-device-durable-dispatch-v1.mjs';

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { validateNativeFacts, validateNativeClaimFacts, validateBitcoinBinding, validateSolanaBindingTransaction }
-  from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 import { validateClaimSolanaBindingTransaction } from '../../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { validateEvmDeliveryWire } from '../../../chains/evm/dispatch/evm-facts-binding.mjs';
 import { evmGraphDeliveryTermsV1 } from '../../../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';

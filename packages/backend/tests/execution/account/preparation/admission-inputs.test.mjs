@@ -7,18 +7,18 @@ import assert from 'node:assert/strict';
 import { createHash, createECDH, createPrivateKey, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { buildAdmissionInputs } from '../../../../src/execution/account/preparation/admission-inputs.mjs';
-import { createCommitmentCodec, ZERO } from '../../../../src/execution/encoding/commitments.mjs';
+import { createCommitmentCodec, ZERO } from '@lianum/components/encoding/commitments';
 import { readyDescriptorWords } from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
 import { FACTS_SCHEMA, nativeFactIdentity, nativeRuleCommitment, nativeCustodyCommitment,
   nativeObservedEffectCommitment, receiptKeyCommitment, encodeNativeFacts, nativeFactsDigest,
-  nativeAdmissionNullifier } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  nativeAdmissionNullifier } from '@lianum/engine/native/native-receipt-binding';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIdentity,
   nativeReadyStatementDigest, nativeDeliveryRiskCommitment, nativeDispatchStatementFrame,
-  NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+  NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment }
-  from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
+  from '@lianum/engine/evidence/native-quorum';
+import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
 
 const h = label => createHash('sha256').update('SYNTHETIC-EVM-ADMISSION/' + label).digest('hex');
 const field = label => '00' + h(label).slice(2);

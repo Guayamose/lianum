@@ -2,12 +2,12 @@
  * bootstrap, never HTTP IDs/DTOs or caller callbacks. All fences run before the
  * first await; the encrypted issuer subsequently owns stop and publication. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {profileCommitment} from '../../chains/shared/transfers/generic-native-value-v2.mjs';
 import {assertNativeEconomicRecoveryCaptureV1,assertNativeLiveArmedRecoveryCaptureV1,retainNativeEconomicRecoveryV1,retainNativeLiveArmedRecoveryV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {assertOwnedNativeValueAccountAuthority,assertNativeLiveArmedAccountCaptureV1,fenceOriginalNativeAccountEconomicRecoveryV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertOwnedNativeValueExecution,fenceOriginalNativeExecutionEconomicRecoveryV1} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
-import {assertOwnedNativeValueOwnerProcess,fenceOriginalNativeOwnerEconomicRecoveryV1} from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
+import {assertOwnedNativeValueOwnerProcess,fenceOriginalNativeOwnerEconomicRecoveryV1} from '../../custody/processes/native-value-owner-process-v2.mjs';
 import {assertOwnedNativeValueProviderCustody,fenceOriginalNativeProviderEconomicRecoveryV1} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import {assertNativeValueOperatorBootstrapForSystem,assertNativeValueBootstrapNativeRuntime,fenceOriginalNativeBootstrapEconomicRecoveryV1} from '../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import {nativeValueOriginalRecoverySourceV1,fenceOriginalNativeSystemEconomicRecoveryV1} from '../deployments/native-value/native-value-system-v2.mjs';

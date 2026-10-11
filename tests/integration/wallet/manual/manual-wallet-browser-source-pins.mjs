@@ -1,8 +1,8 @@
 /** Additive fixed DOM closure. No caller-selected roots or distribution hashes. Historical collectors remain unchanged. */
 import assert from 'node:assert/strict';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { ROOT, FLAT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
-import { regular, hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
+import { regular, hash } from '@lianum/proofs/tooling/tooling';
 import { manualWalletSourcePins } from './manual-wallet-source-pins.mjs';
 import { walletBrowserRuntimePins } from './wallet-browser-runtime-pins.mjs';
 

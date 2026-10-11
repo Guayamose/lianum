@@ -1,4 +1,4 @@
-import { inspectWrappedInstallationSourcesV2, assertWrappedWithdrawalSourceRowsV2 } from '../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { inspectWrappedInstallationSourcesV2, assertWrappedWithdrawalSourceRowsV2 } from '@lianum/components/verification/wrapped-installation';
 /** Literal reviewed source authority only. No request/environment override. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';

@@ -4,10 +4,10 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, fixedArray, bytes32, canonicalField } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32, canonicalField } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { createNativeQuorumHostVerifier }
-  from '../../../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 
 export const FLAT_HEALTH_TAG = 'LIANUM/PAEG/flat-native-health/1';
 export const FLAT_HEALTH_PROFILE = 'LIANUM_PAEG_P2_V1';

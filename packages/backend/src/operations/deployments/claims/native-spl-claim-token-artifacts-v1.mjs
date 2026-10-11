@@ -2,9 +2,9 @@
  * The retained native token and its compilation are never replaced. */
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../../proofs/src/tooling/tooling.mjs';
-import {GENERIC_COMPILER_PIN} from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
+import {GENERIC_COMPILER_PIN} from '@lianum/engine/execution/local/local-deployment';
 import {assertNativeSplClaimTokenCompilationArtifactsV1} from './native-spl-claim-token-compilation-v1.mjs';
 const freezeBuildPins=value=>{if(value&&typeof value==='object'){for(const child of Object.values(value))freezeBuildPins(child);Object.freeze(value);}return value;};
 export const NATIVE_SPL_CLAIM_TOKEN_BUILD_RELEASE_V1=freezeBuildPins({"format":"LIANUM_NEW_SPL_CLAIM_TOKEN_REVIEWED_BUILD_V1","runId":"ed8bc23a-6dd2-4ad6-a116-deefd8f90f3e","historicalArtifactRecovered":false,"privateCreditEstablished":false,"files":{"compiled.json":{"bytes":592321,"sha256":"4841e27395a5b460a308518262f28cf19876719a8a0db1318dc8e01df8c4aec6"},"receipt.json":{"bytes":1101,"sha256":"089b0f870d4da37014456691a36713c998fb5554dd30736903bf1bc1d17ad9a0"},"resources.json":{"bytes":113314,"sha256":"454560f52b6461f9d358d09d397c72b825f202d6f09f197fc306ef40b0b2035b"},"result.json":{"bytes":108407,"sha256":"3105d80a74b90da78db01c14c8be041e2f2caff5f680b7b8aed5bf5362fe5ab1"},"source-pins.json":{"bytes":102168,"sha256":"fcaadee9315b1099d4bcfaa2b6ae5ad105cded3be34f9c9af401d8b8817490b6"}}});

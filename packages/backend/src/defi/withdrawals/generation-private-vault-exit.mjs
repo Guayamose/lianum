@@ -4,13 +4,13 @@ import {POSITION_STATE_PROFILE} from '@lianum/mobile-protocol/wallet/generation-
  * Uses the catalogue's already durable request bindings, never a second keeper,
  * mutable registry, public service registration, new request ID or resend. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import * as originalExits from './private-vault-exit.mjs';
 import { assertOwnedFlatJournalCatalogue, assertOwnedFlatJournalCatalogueAccount }
   from '../../accounts/storage/flat-journal-catalogue.mjs';
 import { assertFlatManualGraphCatalogueSession } from '../../api/accounts/flat-manual-graph-session.mjs';
 import { isOwnedOfficialStaticVaultV1 } from '../vaults/owned-metamorpho-vault.mjs';
-import { projectPrivateVaultPosition } from '../vaults/private-vault-position.mjs';
+import { projectPrivateVaultPosition } from '../positions/private-vault-position-projection.mjs';
 
 export const GENERATION_VAULT_POSITION_PROFILE = 'OWNED_GENERATION_PRIVATE_VAULT_POSITIONS_V1';
 const owned = new WeakMap();

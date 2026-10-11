@@ -16,26 +16,26 @@ import { developmentBtcSolGraphSourcePins } from './development-btc-sol-graph-so
 import { runDevelopmentBtcSolGraphCase,runDevelopmentBtcSplSourceGraphCaseV1, exitAndRedeemDevelopmentBtcSolPayout } from './development-btc-sol-graph-case.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, assertBtcSolRecipientWithdrawalTelemetry }
   from './development-btc-sol-graph-proof-evidence.mjs';
-import { ROOT, LOCAL, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
-import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, LOCAL, GOLDEN } from '@lianum/proofs/catalog';
+import { hash } from '@lianum/proofs/tooling/tooling';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
-import { createRoleProofClient } from '../../../../packages/proofs/src/jobs/role-client.mjs';
+import { createRoleProofClient } from '@lianum/proofs/client';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
-  from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import { createOwnedNativeClaimGraphV3Fixture,createOwnedNativeSplClaimGraphFixtureV1 } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';
 import { createDurableNativeClaimControllerKeeper, createNativeClaimController,
   nativeClaimControllerPrivateFinalAuditTimingV1 }
   from '../../../../packages/backend/src/claims/controller/controller.mjs';
-import { claimDomainCommitment } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
-import { decodeDepositIntentInputs } from '../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
+import { decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
 import { createNativeClaimPortfolioView } from '../../../../packages/backend/src/claims/operations/portfolio-view.mjs';
-import {createOriginalWalletEconomicStateV1} from '../../../../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs';
-import { createGenericAccountKeeper } from '../../../../packages/engine/src/execution/accounts/generic-account-keeper.mjs';
-import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
-import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
-import { createNativeClaimSession, nativeClaimSessionController, nativeClaimSessionPrivateFailures } from '../../../../packages/backend/src/api/claims/native-claim-session.mjs';
+import {createOriginalWalletEconomicStateV1} from '@lianum/backend/accounts/state/original-wallet-economic-state-v1';
+import { createGenericAccountKeeper } from '@lianum/engine/accounts/keeper';
+import { createFlatAccountSession } from '@lianum/backend/accounts/session';
+import { startFlatAccountHttp } from '@lianum/backend/accounts/http';
+import { createNativeClaimSession, nativeClaimSessionController, nativeClaimSessionPrivateFailures } from '@lianum/backend/claims/session';
 import { startNativeClaimHttp, readOriginalNativeSplClaimMobileInfrastructureV1, createOriginalNativeSplClaimMobileSpendingServiceV1, readOriginalNativeClaimMobileServiceSessionV1 } from '../../../../packages/backend/src/api/claims/native-claim-http.mjs';
 import { checkClaimGraphV3Bootstrap, checkClaimGraphV3Inventory } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';

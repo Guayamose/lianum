@@ -5,12 +5,12 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
-import { LOCAL_EVM_PROFILE } from '../../../../engine/src/execution/local/local-evm.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
+import { LOCAL_EVM_PROFILE } from '@lianum/engine/execution/local/local-evm';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
-import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { validateVaultIdentity, prepareVaultAction, encodeVaultCall, vaultActionCommitment,
   validateVaultReceipt, observeVaultPosition } from './backed-vault.mjs';
 

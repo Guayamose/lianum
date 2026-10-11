@@ -7,10 +7,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, LOCAL } from '../../../packages/proofs/src/catalog.mjs';
 import { hash } from '../../../packages/proofs/src/tooling/tooling.mjs';
-import { decodeStatement } from '../../../packages/backend/src/execution/encoding/statements.mjs';
+import { decodeStatement } from '@lianum/components/encoding/statements';
 import { FLAT_TRANSACTION_METHODS } from '../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { validateBitcoinTransferWire } from '../../../packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
-import { validateSolanaBindingTransaction } from '../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { validateSolanaBindingTransaction } from '../../../packages/engine/src/native/native-receipt-binding.mjs';
 
 const runId = '784ca751-da7e-4ad0-8ba7-fc23540df93d';
 const directory = join(ROOT, '.local/native-flow/attempt-' + runId);

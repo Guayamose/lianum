@@ -4,11 +4,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { PrivateNoteTree, privateSpentDigest } from '../../../../engine/src/notes/private-note-tree.mjs';
-import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { derivePrivateAssetIdentity } from '../../../../engine/src/notes/private-asset-runtime.mjs';
-import { ownerDigest, flatOwnerSnapshot } from '../../../../custody/src/signing/flat-owner-custody.mjs';
-import { encodeStatement } from '../../../src/execution/encoding/statements.mjs';
+import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
+import { encodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { ownerDigest, flatOwnerSnapshot } from '@lianum/custody/owner';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
 import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash, validateFlatAccountOwnerObservation, validateFlatManualGraphAdmissionTime }
   from '../../../src/accounts/authority/flat-account-validation.mjs';

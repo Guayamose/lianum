@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import * as E from '../../../../../src/chains/evm/transfers/evm-native-value-v2.mjs';
 import * as C from '../../../../../src/claims/protocol/registry-envelope-v2.mjs';
-import { nativeClaimEndpointCommitment, claimDomainCommitment } from '../../../../../src/claims/protocol/framing.mjs';
+import { nativeClaimEndpointCommitment, claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { FLAT_HEALTH_FIELDS } from '../../../../../src/chains/shared/health/native-health.mjs';
 export const publicVectors = JSON.parse(readFileSync(new URL('./fixtures/wrapped-v4-public-registry.json', import.meta.url))).vectors;
 const publicGraph = JSON.parse(readFileSync(new URL('./fixtures/wrapped-v4-public-native-value.json', import.meta.url)));

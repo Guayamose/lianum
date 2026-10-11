@@ -10,9 +10,9 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync,lstatSync,realpathSync,mkdirSync,chmodSync,rmSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {FLAT,ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {FLAT,ROOT} from '@lianum/proofs/catalog';
 import {retainedExternalVaultWalletContextV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
-import {deviceDefiPositionPermissionMessageV1,deviceDefiPositionStateBytesV1,validateDeviceDefiPositionHeadsFreshV1} from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
+import {deviceDefiPositionPermissionMessageV1,deviceDefiPositionStateBytesV1,validateDeviceDefiPositionHeadsFreshV1} from '@lianum/mobile-protocol/device-defi-position-read-v1';
 const DEVELOPMENT=resolve(FLAT,'../../..'),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const SOURCE=Object.freeze([
  ['apps/mobile/src/api/device-defi-position-read-api-v1.mjs','b9def71bbdef7b554b7528170b67b54f54446bbd857203a86c957f1c6c59118a'],

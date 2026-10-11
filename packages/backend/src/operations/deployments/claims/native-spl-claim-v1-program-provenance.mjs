@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {gunzipSync} from 'node:zlib';
 import {join} from 'node:path';
-import {ROOT,NOIR_VERSION} from '../../../../../proofs/src/catalog.mjs';
+import {ROOT,NOIR_VERSION} from '@lianum/proofs/catalog';
 export const NATIVE_SPL_CLAIM_V1_PRODUCED_PROGRAM_PINS=Object.freeze({"rawBytes":1265928,"rawSHA256":"c2def3ef9056a339521de1e580e46abaf6dacca15f2f9b0b9687db5aa869f6a5","bytecodeSHA256":"97b8ee566479f1e13c1ee7cb45135128bfbb310763309cbc6f5a3c6ee1b702b4","bytecodeBytes":605684,"uncompressedBytecodeSHA256":"ac0c09cf8ac426ae4da0da621a93f7db5de2615205f92502d955f9de6fdd9020","uncompressedBytecodeBytes":9289617,"abiSHA256":"72cf6e7bcdcaef5197debc822b3a134ab712cff0c5872e1322b48e42aeaff8bd","noirVersion":"1.0.0-beta.25+75061fab15986eedee4e7d9104ff87dd9fa4ca10","programHash":"1753768340","debugSymbolsSHA256":"2826d4fd556acccd20c81b49aa443c4995e806550ecefa58db5d96da7e03e73e","fileMapSHA256":"916d047949f58a112baa251fd347ada9996cba4464cb563dcd24192da7d558a2","originalProgrammeSHA256":"c418794daae0160e0f5acfe1dc5f3a1f65bb6a8312c2118a9b4e05a39cc44edf","originalProgrammeBytes":1265865,"originalMainPath":"/workspace/scratch/770c47ebf757/omnichain-flat-profile/flat-wallet/proof-relations/native-claim-ingress/src/main.nr"});
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 /** Fixed literal pins; the input is public bytes, never a caller path/profile.

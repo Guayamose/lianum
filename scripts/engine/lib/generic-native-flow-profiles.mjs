@@ -25,11 +25,11 @@ export async function runPartialRefundNativeFlow({ evm, system, solana, bitcoin,
   owner, ownerConfig, prepared, reserveIndex, sourceNullifier, cutoff, ready, action,
   deliveryRiskSalt, coordinator, readyRole, privateDirectory, fresh, report,
   stage, persist, audit, prove, proofRole, savePublic, send, setReturningOwner, markRefunded }) {
-  const { readNativeSystemState } = await import('../../../packages/engine/src/execution/native/state/native-system-state.mjs');
-  const { createGenericOwnerRecoveryProcess } = await import('../../../packages/engine/src/execution/native/recovery/native-owner-recovery-process.mjs');
+  const { readNativeSystemState } = await import('../../../packages/backend/src/execution/native/state/native-system-state.mjs');
+  const { createGenericOwnerRecoveryProcess } = await import('../../../packages/backend/src/execution/native/recovery/native-owner-recovery-process.mjs');
   const { refundInputs, publicWords, digestHex } = await import('../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs');
   const { walletInputPublicWords } = await import('../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs');
-  const { wipePrivate } = await import('../../../packages/engine/src/execution/proofs/proof-worker.mjs');
+  const { wipePrivate } = await import('../../../packages/proofs/src/execution/proof-worker.mjs');
   const pool = system.pools[0];
   const read = () => readNativeSystemState(evm, system, 0);
   const assertOwnerAbsent = () => assert.equal(owner.report().exited, true, 'GENERIC_NATIVE_OWNER_RETURNED_BEFORE_REFUND');

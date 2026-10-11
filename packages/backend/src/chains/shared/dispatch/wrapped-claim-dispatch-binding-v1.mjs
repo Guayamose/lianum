@@ -2,9 +2,9 @@
  * a signer, lease, source reader, custody claim, proof acceptance or authority. */
 import assert from 'node:assert/strict';
 import { createHash, createPublicKey } from 'node:crypto';
-import { exactRecord, bytes32, validateStruct, createCommitmentCodec } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, validateStruct, createCommitmentCodec } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint, readyDescriptorWords } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { decodeStatement, joinReadiness } from '../../../execution/encoding/statements.mjs';
+import { decodeStatement, joinReadiness } from '@lianum/components/encoding/statements';
 import { assertCombinedAdapterRegistrationsV2 } from '../../../claims/protocol/registry-envelope-v2.mjs';
 import { profileCommitment, chainDomain, registryCommitment } from '../transfers/generic-native-value-v2.mjs';
 import { PROFILE_SCHEMA as EVM_SCHEMA, CHAINS } from '../../evm/transfers/evm-native-value-v2.mjs';
@@ -15,11 +15,11 @@ import { ownedEvmNativeValueAuditCommitments } from '../../evm/transfers/owned-e
 import { PROFILE_SCHEMA as TRON_SCHEMA, bindOriginalTronGraphTransfer, tronGraphEndpoint, tronGraphCustody } from '../../tron/transfers/tron-native-graph-profile.mjs';
 import { validateOwnedTronPreparation, OWNED_TRON_NATIVE_VALUE_PROFILE } from '../../tron/transfers/owned-tron-native-value-profile.mjs';
 import { decodeTronNativeTransferWire } from '../../tron/transfers/tron-native-transfer-wire.mjs';
-import { receiptKeyCommitment, nativeAdmissionNullifier, nativeCustodyCommitment } from './native-receipt-binding.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { receiptKeyCommitment, nativeAdmissionNullifier, nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeProviderIdentity, nativeReadyStatementDigest, nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '../../../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
 export const DISPATCH_PROFILE = 'LIANUM_WRAPPED_CLAIM_ORIGINAL_GRAPH_DISPATCH_V1';
 export const sha256 = v => createHash('sha256').update(v).digest('hex');
 export const canonicalData = value => JSON.stringify((function sort(v){return Array.isArray(v)?v.map(sort):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,sort(v[k])])):v;})(value));

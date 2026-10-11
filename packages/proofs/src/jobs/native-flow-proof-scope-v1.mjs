@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path';
 import { ROOT, GOLDEN } from '../catalog.mjs';
 import { nativeProcStatV1, readNativeFlowRegularV1 } from '../host/process-files.mjs';
 import { CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, assertBeginPayoutAuditReleaseV1 }
-  from '../../../backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+  from './begin-payout-audit-policy-v1.mjs';
 const ENTRY = join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs');
 const WORKER = join(ROOT, 'integration/native-claim-flow.mjs');
 const OWNER = join(ROOT, 'mobile-core/flat-owner-process.mjs');

@@ -6,7 +6,7 @@ import { compileFundedGraph, attachFundedSignatures, fundedSigningRequests, fund
 import { walletNoteCommitment } from '../../../src/wallet/notes/private-wallet-note-encoding.mjs';
 import { nullifier, frame as legacyFrame, uintBE } from '../../../src/notes/private-note-encoding.mjs';
 import { positiveFixtures, negativeFixtures } from '../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
-import { authorizationInputs, authorizationPublicWords } from '../../../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
+import { authorizationInputs, authorizationPublicWords } from '../../../src/execution/inputs/funding-witness.mjs';
 
 const fixtures = positiveFixtures();
 const base = fixtures.find(f => f.name === 'two-independent-type4');

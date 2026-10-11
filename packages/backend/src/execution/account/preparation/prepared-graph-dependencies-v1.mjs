@@ -3,8 +3,8 @@
  * could only fail later when their per-leg readiness proofs are constructed.
  */
 import assert from 'node:assert/strict';
-import {validateStruct} from '../../encoding/commitments.mjs';
-import {cloneInput, frozenInput} from './readiness-inputs.mjs';
+import {validateStruct} from '@lianum/components/encoding/commitments';
+import {cloneInput, frozenInput} from '@lianum/components/plain-input';
 
 const ZERO = '0'.repeat(64);
 const PREDECESSOR_BINDINGS = Object.freeze([

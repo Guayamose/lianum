@@ -2,14 +2,14 @@
  * boundary. Importing does nothing. Run only under the explicitly authorized
  * bounded integration supervisor after durable merged-source checkpointing. */
 import assert from 'node:assert/strict';
-import { loadPinned,resourceModuleURL } from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import { createRoleProofClient } from '../../../../packages/proofs/src/jobs/role-client.mjs';
+import { loadPinned,resourceModuleURL } from '@lianum/proofs/tooling/tooling';
+import { createRoleProofClient } from '@lianum/proofs/client';
 import { loadNativeClaimIngressV3ProofArtifacts } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs';
 import { loadNativeClaimArtifacts } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-artifacts.mjs';
-import { FIELD_MODULUS } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { FIELD_MODULUS } from '@lianum/components/encoding/statements';
 import { buildSyntheticGenericIngressV3Fixture } from '../../../../experiments/wallet/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs';
-import { regular } from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { regular } from '@lianum/proofs/tooling/tooling';
+import { ROOT } from '@lianum/proofs/catalog';
 import { join } from 'node:path';
 export async function proveNativeClaimIngressV3ProductionBoundary(){
  assert.equal(arguments.length,0,'V3_PRODUCTION_BOUNDARY_NO_OPTIONS');

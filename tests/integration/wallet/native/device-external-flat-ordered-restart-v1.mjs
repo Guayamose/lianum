@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {fork} from 'node:child_process';
 import {join} from 'node:path';
 import {realpathSync,readFileSync} from 'node:fs';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {nativeProcStatV1} from '../../native/native-flow-owned-files-v1.mjs';
 import {assertOwnedDeviceExternalFlatReceiverV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 const WORKER=join(ROOT,'integration/device-external-flat-ordered-successor-v1.mjs');

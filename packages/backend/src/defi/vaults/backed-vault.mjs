@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 
 const MAX = (1n << 128n) - 1n;
 const ZERO_ADDRESS = '0'.repeat(40);

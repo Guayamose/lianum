@@ -6,28 +6,28 @@ import { AssertionError } from 'node:assert';
 import { createHash, createPublicKey, createPrivateKey, generateKeyPairSync, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { types, isDeepStrictEqual } from 'node:util';
-import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
 import { createClaimRecordStore, openClaimRecordStore } from '@lianum/engine/storage/records';
-import { signature as lowSignature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { signature as lowSignature } from '@lianum/engine/notes/private-note-encoding';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
-import { decodeCanonicalEvmTransaction } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { decodeCanonicalEvmTransaction } from '../../../chains/evm/contracts/transaction-wire-codec.mjs';
 import {isOwnedMetaMorphoGraphDeliveryBatchV4} from '../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 import { assertOwnedEvmGraphDeliveryObserverV1, assertOwnedEvmGraphDeliveryFactsV1 }
   from '../../../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
-import { nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { checkpointAuthorizationFrame, checkpointAuthorizationDigest, assertCheckpointAuthorizationValid,
   revocationFrame, revocationMessage, assertRevocationAuthorizationValid, nativeHubSignatureToAbi,
-  createNativeHubMessageHostVerifier } from '../../../../../engine/src/evidence/native-hub-messages.mjs';
+  createNativeHubMessageHostVerifier } from '@lianum/engine/evidence/native-hub-messages';
 import { assertOwnedFlatSystem } from '../../deployments/system/deploy-system.mjs';
 import { createFlatSystemStateReader } from '../../../execution/account/reconciliation/flat-system-state.mjs';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { createOriginalMetaMorphoBatchFactsPeerV4,createOriginalMetaMorphoBatchFactsInventoryV4,createNativeFactsSigner, createNativeFactsPeer, createNativeFactsInventory,
   createNativeFactsCollector } from '../../../chains/shared/dispatch/native-facts-peer.mjs';
-import { nativeRuleCommitment, nativeFactsDigest, encodeNativeFacts, FACTS_SCHEMA } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeRuleCommitment, nativeFactsDigest, encodeNativeFacts, FACTS_SCHEMA } from '@lianum/engine/native/native-receipt-binding';
 import { encodeFlatNativeHealth, flatNativeHealthDigest, assertFlatNativeHealth } from '../../../chains/shared/health/native-health.mjs';
 import { assertStableOperatorFact } from './operator-fact-audit.mjs';
 import { createOwnedOperatorNativeReads } from './owned-native-operator-reads.mjs';

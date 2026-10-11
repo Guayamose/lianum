@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, lstatSync, mkdirSync, writeFileSync, openSync, fsyncSync, closeSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ROOT } from '../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { POOL_GENERATION_PHASE1_RELEASE, POOL_GENERATION_PHASE2_RELEASE, PHASE1_FORMAT, PHASE2_FORMAT,
   POOL_GENERATION_LIMITS, assertPoolGenerationPhase1Result, assertPoolGenerationPhase2Result } from './pool-generation-acceptance-policy.mjs';
 import { NATIVE_FLOW_LIMITS } from '../native/native-flow-supervisor.mjs';
@@ -15,10 +15,10 @@ import { retainedOriginalPoolFacts, registrySnapshot, verifyPoolGenerationRuntim
   from './pool-generation-checks.mjs';
 import { appendFlatPoolSuccessor, describeOwnedFlatPoolRegistry } from '../../../packages/backend/src/operations/deployments/system/deploy-system.mjs';
 import { loadBackedAssetDeploymentArtifacts } from '../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs';
-import { nativeStaticCalldata } from '../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
+import { nativeStaticCalldata } from '../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
 import { createFlatNativeExecution } from '../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs';
 import { createFlatJournalCatalogue, closeUnattachedFlatJournalGeneration } from '../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
-import { createFlatManualGraphCatalogueSession } from '../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
+import { createFlatManualGraphCatalogueSession } from '@lianum/backend/accounts/manual-graph';
 import { startWalletApplication } from '../../../apps/wallet/src/server/server.mjs';
 import { createManualWalletAppDriver } from '../wallet/manual/manual-wallet-app-driver.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../fixtures/runners/owned-flat-fixture.mjs';

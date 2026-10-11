@@ -8,10 +8,10 @@ import {mkdir,lstat,realpath,open,rename,unlink,readFile} from 'node:fs/promises
 import {join,resolve} from 'node:path';
 import {types} from 'node:util';
 import {deflateRawSync,inflateRawSync} from 'node:zlib';
-import {ROOT} from '../../../../proofs/src/catalog.mjs';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {canonical} from '../../../../engine/src/crypto/privacy.mjs';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {Vault} from '@lianum/engine/crypto/vault';
+import {canonical} from '@lianum/engine/crypto/privacy';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {assertOwnedEvmRecoveryStateDumpV1} from '../../chains/evm/runtime/owned-evm-recovery-state-bound-v1.mjs';
 

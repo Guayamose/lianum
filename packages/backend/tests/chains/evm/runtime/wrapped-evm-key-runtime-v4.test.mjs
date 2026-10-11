@@ -8,7 +8,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtemp, rm, open as actualOpen, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 mock.module(new URL('../../../../../omnichain-product/src/private-asset-runtime.mjs', import.meta.url).href, { exports: {
   decodePrivateRevert() { throw new Error('SYNTHETIC_REVERT_TRACE_NOT_USED'); },
 } });
@@ -84,7 +84,7 @@ mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness
 } });
 // Fake only the private HTTP boundary; no endpoint is contacted. The real
 // batching helper is exercised by every runtime test below.
-const { ownedRuntimeRpc: syntheticRpc } = await import('../../../../../engine/src/chains/shared/runtime-harness.mjs');
+const { ownedRuntimeRpc: syntheticRpc } = await import('@lianum/engine/chains/shared/runtime-harness');
 mock.method(globalThis, 'fetch', async (endpoint, options) => {
   assert.equal(endpoint, 'http://127.0.0.1:31338');
   assert.equal(options.method, 'POST'); assert.equal(options.redirect, 'error');

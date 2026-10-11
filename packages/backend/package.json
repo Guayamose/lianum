@@ -21,6 +21,8 @@
     "./encoding/commitments": "./src/execution/encoding/commitments.mjs",
     "./storage/records": "./src/claims/storage/segmented-record-store.mjs",
     "./accounts/durable-keeper": "./src/accounts/storage/durable-generic-account-keeper.mjs",
+    "./custody/preparation/flat-owner-manual-preparation": "./src/custody/preparation/flat-owner-manual-preparation.mjs",
+    "./accounts/state/original-wallet-economic-state-v1": "./src/accounts/state/original-wallet-economic-state-v1.mjs",
     "./wallet/http-service": "./src/api/wallet/http-service.mjs",
     "./api/wallet/http/exact-action-capabilities": "./src/api/wallet/http/exact-action-capabilities.mjs",
     "./api/wallet/http/public-errors": "./src/api/wallet/http/public-errors.mjs"
@@ -33,6 +35,8 @@
     "@lianum/proofs": "file:../proofs",
     "@lianum/custody": "file:../custody",
     "@lianum/mobile-protocol": "file:../mobile-protocol",
-    "@lianum/components": "file:../components"
+    "@lianum/components": "file:../components",
+    "@lianum/environment": "file:../environment",
+    "@lianum/crypto": "file:../crypto"
   }
 }

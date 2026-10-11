@@ -9,23 +9,23 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimTicketId, claimTicketSecret,
-  claimDestinationCommitment, nativeClaimEndpointCommitment, encodeClaimIngressInputs, encodeClaimDischargeInputs, claimUint } from '../../../src/claims/protocol/framing.mjs';
-import { CLAIM_BACKING_FIELDS, claimFrame, claimHash, claimRouteCommitment } from '../../../src/claims/authorization/permits.mjs';
-import { encodeDepositIntentInputs } from '../../../src/execution/account/preparation/deposit-intent.mjs';
-import { balanceCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import * as originalAdmission from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import * as originalTooling from '../../../../proofs/src/tooling/tooling.mjs';
-import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { claimABIType } from '../../../src/claims/protocol/abi.mjs';
-import { encodeSolanaBindingMessage, receiptKeyCommitment } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  claimDestinationCommitment, nativeClaimEndpointCommitment, encodeClaimIngressInputs, encodeClaimDischargeInputs, claimUint } from '@lianum/engine/claims/framing';
+import { CLAIM_BACKING_FIELDS, claimFrame, claimHash, claimRouteCommitment } from '@lianum/engine/claims/permits';
+import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import * as originalAdmission from '@lianum/engine/execution/native/dispatch/native-admission';
+import * as originalTooling from '@lianum/proofs/tooling/tooling';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { claimABIType } from '@lianum/engine/claims/abi';
+import { encodeSolanaBindingMessage, receiptKeyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction } from '../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { createClaimReservationBinding } from '../../../src/claims/authorization/reservation-facts-gate.mjs';
-import { decryptJson } from '../../../../engine/src/crypto/privacy.mjs';
-import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+import { decryptJson } from '@lianum/engine/crypto/privacy';
+import { ownerDigest, FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '@lianum/custody/owner';
 import { fixture, hash, zero, poisonedOperators, poisonedQuorums,
   consumeNativeClaimOriginalKeyAuthorityV4 } from '../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs';
 import { base58Encode } from '../../../src/chains/solana/runtime/solana-base58.mjs';
-import { cloneInput, frozenInput } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { NATIVE_SPL_CLAIM_INTENT_PROFILE_V1, deriveNativeSplDepositV1, encodeNativeSplClaimUnsignedWireV1,
   validateNativeSplClaimBindingTransactionV1 } from '../../../src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 const p = v => '0x' + v;
@@ -1277,7 +1277,7 @@ async function fourOriginalPeerRetentionHost(mode) {
   const translated = new URL('./operators.mjs', import.meta.url);
   const bodies = originalPeerRetentionBodies(await readFile(existsSync(translated) ? translated : canonical, 'utf8'));
   const { createClaimVaultSession } = await import('../../../src/claims/storage/vault-session.mjs');
-  const { exactRecord } = await import('../../../src/execution/encoding/commitments.mjs');
+  const { exactRecord } = await import('@lianum/components/encoding/commitments');
   const { assertOwnedCustodyIntent } = await import('../../../src/chains/shared/runtime/owned-native-custody.mjs');
   const f = originalSplIngressCallbacksFixture(source), directory = await mkdtemp(join(tmpdir(), 'claim-original-four-retention-'));
   f.row.secret = hash('original peer retention HOST private receipt');

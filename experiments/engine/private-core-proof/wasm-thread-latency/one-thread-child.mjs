@@ -33,7 +33,7 @@ try{
  await phase('module-import');t=performance.now();
  const bb=await import('@aztec/bb.js');
  const {Barretenberg,BackendType,UltraHonkBackend,UltraHonkVerifierBackend,BN254_G1_GENERATOR}=bb;
- const encoding=await import('../../../../packages/engine/src/assembly/private-assembly-encoding.mjs');
+ const encoding=await import('@lianum/engine/assembly/private-assembly-encoding');
  const key=readFileSync(join(assembly,'.local/prepared/btc_ready.vk'));
  const keyRecord=JSON.parse(readFileSync(join(assembly,'.local/prepared/btc_ready.key.json')));
  assert.equal(keyRecord.phase,'completed','WT_KEY_COMPLETED');assert.equal(keyRecord.target,spec.target,'WT_KEY_TARGET');assert.equal(keyRecord.maximumPages,spec.maximumPages,'WT_EXISTING_CAPACITY_EXCEPTION');
@@ -46,7 +46,7 @@ try{
  let program;
  if(role==='prove'){
   await phase('complete-capability-and-input-checks');t=performance.now();
-  const {readFixedCapability}=await import('../../../../packages/engine/src/payments/private-payment-engine.mjs');
+  const {readFixedCapability}=await import('../../../../packages/backend/src/payments/private-payment-engine.mjs');
   const fixed=await readFixedCapability();assert.ok(fixed.proofs.some(p=>p.mode==='btc_ready'&&p.circuitSHA256===spec.circuitSHA256&&p.verified),'WT_FIXED_CAPABILITY');
   const {reconstructSyntheticInput}=await import('./synthetic-input.mjs');
   reconstruction=reconstructSyntheticInput();
@@ -71,7 +71,7 @@ try{
   const response=await api.srsInitSrs({pointsBuf,numPoints:2097152,g2Point});
   assert.equal(response.pointsBuf.length,0,'WT_UNCOMPRESSED_REQUIRED');metrics.fullProvingCrsPoints=2097152;
  }else{
-  const {initializePrivateVerifierCRS}=await import('../../../../packages/engine/src/crypto/private-verifier-crs.mjs');
+  const {initializePrivateVerifierCRS}=await import('@lianum/engine/crypto/private-verifier-crs');
   metrics.verificationOnlyCRS=await initializePrivateVerifierCRS(api,BN254_G1_GENERATOR,g2Point);
  }
  times.crsInitialization=performance.now()-t;pointsBuf?.fill(0);g2Point.fill(0);pointsBuf=g2Point=undefined;

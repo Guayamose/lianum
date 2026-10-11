@@ -2,8 +2,8 @@
  * No raw signing interface. The V4 operator owns current views and keys. */
 import assert from 'node:assert/strict';
 import { checkpointAuthorizationFrame, checkpointAuthorizationDigest, assertCheckpointAuthorizationValid }
-  from '../../../../engine/src/evidence/native-hub-messages.mjs';
-import { exactRecord, bytes32 } from '../../execution/encoding/commitments.mjs';
+  from '@lianum/engine/evidence/native-hub-messages';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
 export const NATIVE_VALUE_CHECKPOINT_PROFILE = 'FIXED_NATIVE_VALUE_CHECKPOINT_ACTION_V4';
 export const MAX_NATIVE_VALUE_CHECKPOINTS = 64;

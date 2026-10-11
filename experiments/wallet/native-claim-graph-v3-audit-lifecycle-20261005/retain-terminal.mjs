@@ -8,7 +8,7 @@ import { nativeClaimSourcePins } from '../../../tests/integration/claims/lifecyc
 import { claimGraphProofPackets } from '../../../tests/integration/claims/graph/validation/native-claim-graph-artifacts.mjs';
 import { validateClaimGraphV3Result } from '../../../tests/integration/claims/graph/validation/native-claim-graph-v3-policy.mjs';
 import { NATIVE_CLAIM_CONTRACT_PIN } from '../../../packages/backend/src/operations/deployments/claims/native-claim-artifacts.mjs';
-import { publicKeccak256 } from '../../../packages/engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 const out='experiments/native-claim-graph-v3-audit-lifecycle-20261005';
 const json=p=>JSON.parse(readFileSync(p)),sha=b=>createHash('sha256').update(b).digest('hex');
 const emitted=[];

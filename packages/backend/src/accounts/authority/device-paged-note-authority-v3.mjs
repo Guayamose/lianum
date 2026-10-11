@@ -5,14 +5,14 @@ import {createHash,randomBytes,randomUUID,createPublicKey,verify} from 'node:cry
 import {resolve,dirname} from 'node:path';
 import {mkdir,lstat,realpath} from 'node:fs/promises';
 import {isDeepStrictEqual} from 'node:util';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {assertOriginalFundedPagedGraphWalletV3,readOriginalFundedPagedGraphDeploymentV3,pagedGraphProofDataV3,pagedGraphStaticDataV3} from '../../../../engine/src/execution/local/funded-graph-paged-deployment-v3.mjs';
-import {prepareOriginalDevicePagedProofClientV3,readOriginalDevicePagedProofResultV3} from '../../../../engine/src/execution/local/device-paged-proof-client-v3.mjs';
-import {nativeProofCalldata} from '../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import {noteNodeHash} from '../../../../engine/src/notes/private-note-tree.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
+import {assertOriginalFundedPagedGraphWalletV3,readOriginalFundedPagedGraphDeploymentV3,pagedGraphProofDataV3,pagedGraphStaticDataV3} from '../../operations/local/funded-graph-paged-deployment-v3.mjs';
+import {prepareOriginalDevicePagedProofClientV3,readOriginalDevicePagedProofResultV3} from '@lianum/engine/execution/local/device-paged-proof-client-v3';
+import {nativeProofCalldata} from '../../execution/native/dispatch/native-deployment.mjs';
+import {noteNodeHash} from '@lianum/engine/notes/private-note-tree';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
-import {createOriginalDevicePagedGraphClientV3,readOriginalDevicePagedGraphResultV3,readOriginalDevicePagedNativeReadyV3} from '../../../../engine/src/execution/local/device-paged-graph-client-v3.mjs';
+import {createOriginalDevicePagedGraphClientV3,readOriginalDevicePagedGraphResultV3,readOriginalDevicePagedNativeReadyV3} from '@lianum/engine/execution/local/device-paged-graph-client-v3';
 const owned=new WeakMap(),used=new WeakSet(),nativeReadyGrants=new WeakMap(),sha=v=>createHash('sha256').update(v).digest('hex'),hex=v=>'0x'+v,word=v=>'0x'+BigInt(v).toString(16).padStart(64,'0');
 const copy=v=>structuredClone(v),signature=v=>{assert.match(v,/^[0-9a-f]{128}$/);const n=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;assert.ok(BigInt('0x'+v.slice(0,64))>0n&&BigInt('0x'+v.slice(0,64))<n&&BigInt('0x'+v.slice(64))>0n&&BigInt('0x'+v.slice(64))<=n/2n);return v;};
 async function createAuthority(runtime,system,input,graphMode){

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeClaimABI } from '../../../src/claims/protocol/abi.mjs';
+import { encodeClaimABI } from '@lianum/engine/claims/abi';
 import { nativeStaticArguments, nativeProofCalldata }
-  from '../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+  from '../../../src/execution/native/dispatch/native-deployment.mjs';
 import { publicKeccak256 }
-  from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+  from '@lianum/engine/cohorts/private-cohort-public-native';
 
 const word = n => BigInt(n).toString(16).padStart(64, '0');
 test('nested static values match the established fixed ABI encoder', () => {

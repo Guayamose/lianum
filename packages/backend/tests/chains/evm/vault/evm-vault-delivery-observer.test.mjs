@@ -6,12 +6,12 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { PrivateNoteTree, privateSpentDigest } from '../../../../../engine/src/notes/private-note-tree.mjs';
-import { derivePrivateAssetIdentity } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { flatOwnerIdentity, ownerDigest, validateFlatOwnerDepositIntentTransition } from '../../../../../custody/src/signing/flat-owner-custody.mjs';
-import { decodeDepositIntentInputs } from '../../../../src/execution/account/preparation/deposit-intent.mjs';
-import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment, EVM_VAULT_DELIVERY_TOPIC } from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { flatOwnerIdentity, ownerDigest, validateFlatOwnerDepositIntentTransition } from '@lianum/custody/owner';
+import { decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
+import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment, EVM_VAULT_DELIVERY_TOPIC } from '@lianum/engine/encoding/evm-vault-delivery';
 
 let current;
 const sha = value => createHash('sha256').update(value).digest('hex');

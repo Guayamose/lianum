@@ -15,15 +15,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createClaimVaultSession } from '../../../src/claims/storage/vault-session.mjs';
 import { claimBackingFrame, claimIngressAuthorizationFrame, claimHash, assertClaimBackingQuorum }
-  from '../../../src/claims/authorization/permits.mjs';
-import { claimUint } from '../../../src/claims/protocol/framing.mjs';
+  from '@lianum/engine/claims/permits';
+import { claimUint } from '@lianum/engine/claims/framing';
 import { encodeFlatNativeHealth } from '../../../src/chains/shared/health/native-health.mjs';
-import { signature as lowSignature } from '../../../../engine/src/notes/private-note-encoding.mjs';
-import { nativeHubSignatureToAbi } from '../../../../engine/src/evidence/native-hub-messages.mjs';
+import { signature as lowSignature } from '@lianum/engine/notes/private-note-encoding';
+import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
 import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE }
-  from '../../../../engine/src/evidence/native-quorum.mjs';
-import { CLAIM_ACTIONS as A } from '../../../src/claims/authorization/permits.mjs';
-import { cloneInput, frozenInput } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
+  from '@lianum/engine/evidence/native-quorum';
+import { CLAIM_ACTIONS as A } from '@lianum/engine/claims/permits';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 
 const source = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('export function createClaimOperatorQuorum(input) {');

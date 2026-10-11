@@ -7,7 +7,14 @@
   "exports": {
     "./framing": "./src/framing.mjs",
     "./encoding/commitments": "./src/encoding/commitments.mjs",
-    "./encoding/statements": "./src/encoding/statements.mjs"
+    "./encoding/statements": "./src/encoding/statements.mjs",
+    "./verification/wrapped-installation": "./src/verification/wrapped-installation-source-inspector-v2.mjs",
+    "./file-integrity": "./src/file-integrity.mjs",
+    "./encoding/native-value-statements-v2": "./src/encoding/native-value-statements-v2.mjs",
+    "./plain-input": "./src/plain-input.mjs",
+    "./resources/wallet-resources": "./src/resources/wallet-resources.mjs",
+    "./resources/private-resource-policy": "./src/resources/private-resource-policy.mjs",
+    "./resources/private-verifier-crs": "./src/resources/private-verifier-crs.mjs"
   },
   "lianum": {
     "status": "active"

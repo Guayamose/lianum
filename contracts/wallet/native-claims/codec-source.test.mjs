@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { CLAIM_CONFIG_SCHEMA, CLAIM_TICKET_FIELDS, claimDomainFrame, claimTicketFrame,
-  claimIntentId, claimTicketId } from '../../../packages/backend/src/claims/protocol/framing.mjs';
+  claimIntentId, claimTicketId } from '@lianum/engine/claims/framing';
 
 const read = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 const codec = read('NativeClaimCodec.sol'), types = read('NativeClaimTypes.sol');

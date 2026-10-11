@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {bindNativeSplClaimValidationLibrariesV1} from '../../../../packages/backend/src/operations/deployments/claims/native-claim-deployment-plan.mjs';
 import {loadNativeSplClaimV1RetainedContracts} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs';
-import {linkPrivateBytecode} from '../../../../packages/engine/src/notes/private-asset-runtime.mjs';
+import {linkPrivateBytecode} from '@lianum/engine/notes/private-asset-runtime';
 import {loadNativeSplClaimValidationArtifactsV1,NATIVE_SPL_CLAIM_VALIDATION_BUILD_RELEASE_V1}
  from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-validation-artifacts-v1.mjs';
 const key='native-claims/NativeClaimValidation.sol:NativeClaimValidation';

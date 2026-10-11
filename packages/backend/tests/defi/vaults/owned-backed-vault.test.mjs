@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { prepareVaultAction, encodeVaultCall, vaultActionCommitment, validateVaultReceipt,
   previewVaultDeposit, previewVaultRedeem, VAULT_TOPICS } from '../../../src/defi/vaults/backed-vault.mjs';
 import { inspectBackedVaultTransition, inspectBackedVaultApproval, createOwnedBackedVault,

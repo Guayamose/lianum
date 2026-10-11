@@ -1,4 +1,4 @@
-import { inspectWrappedInstallationSourcesV2 } from '../../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { inspectWrappedInstallationSourcesV2 } from '@lianum/components/verification/wrapped-installation';
 /** Read-only fixed-release loader. It cannot compile, prove, start a node, accept
  * caller paths/pins, or mint system ownership. A private bundle brand is issued
  * only after every fixed file, ABI, source, program, key and artifact join passes. */
@@ -7,15 +7,15 @@ import { join, resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { ROOT, FLAT, GOLDEN, CANDIDATE, relation, NOIR_VERSION, SETTINGS } from '../../../../../proofs/src/catalog.mjs';
-import { assertABI, circuitIdentity, loadCompiled, loadPrepared, versionDirectory } from '../../../../../proofs/src/tooling/tooling.mjs';
-import { NATIVE_VALUE_ADMISSION_SPEC, NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256, assertNativeValueCompiledIdentity } from '../../../../../proofs/src/native-value/metadata/native-value-v2-profile.mjs';
-import { loadProofProfile } from '../../../../../engine/src/execution/proofs/proof-worker.mjs';
-import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables } from '../../../../../engine/src/execution/local/local-deployment.mjs';
-import { exactRecord, fixedArray } from '../../../execution/encoding/commitments.mjs';
-import { frozenInput, cloneInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { ROOT, FLAT, GOLDEN, CANDIDATE, relation, NOIR_VERSION, SETTINGS } from '@lianum/proofs/catalog';
+import { assertABI, circuitIdentity, loadCompiled, loadPrepared, versionDirectory } from '@lianum/proofs/tooling/tooling';
+import { NATIVE_VALUE_ADMISSION_SPEC, NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256, assertNativeValueCompiledIdentity } from '@lianum/proofs/native-value/metadata/native-value-v2-profile';
+import { loadProofProfile } from '@lianum/proofs/execution/proof-worker';
+import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables } from '@lianum/engine/execution/local/local-deployment';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { frozenInput, cloneInput } from '@lianum/components/plain-input';
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 as NATIVE_VALUE_HOST_SOURCE_PINS } from '../../releases/native-value/native-value-wallet-host-source-pins-v4.mjs';
-import { verifyToolchain, verifyCRS } from '../../../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+import { verifyToolchain, verifyCRS } from '@lianum/proofs/toolchain/wallet-resources';
 import { NATIVE_VALUE_SOURCE_CLOSURE } from '../../releases/native-value/native-value-wallet-release-v4.mjs';
 import { WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1, WRAPPED_CLAIM_DEPLOYMENT_RELEASE_V1,
   WRAPPED_CLAIM_RELEASE_SCHEMA_V1, WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1 } from '../../releases/wrapped/wrapped-claim-release-v1.mjs';

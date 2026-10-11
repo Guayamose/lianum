@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
-import { exactRecord } from '../../../src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { prepareVaultAction, encodeVaultCall, vaultActionCommitment } from '../../../src/defi/vaults/backed-vault.mjs';
 const source = readFileSync(new URL('./owned-backed-vault.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('  async function prepareOriginal('), end = source.indexOf('  const adapter =', start);

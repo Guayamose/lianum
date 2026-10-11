@@ -3,9 +3,9 @@
  */
 import { createHash } from 'node:crypto';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fundedHash,
-  fundedFrame, FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../../packages/engine/src/execution/graph/funded-graph.mjs';
-import { freshKey, signature, nullifier, uintBE } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
-import { walletNoteCommitment } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  fundedFrame, FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '@lianum/engine/execution/graph/funded-graph';
+import { freshKey, signature, nullifier, uintBE } from '@lianum/engine/notes/private-note-encoding';
+import { walletNoteCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { openingHashes } from '../generic-graph/fixtures.mjs';
 import { authorizationInputs, A0_HASH_FIELDS, A0_TIME_FIELDS } from './witness.mjs';
 

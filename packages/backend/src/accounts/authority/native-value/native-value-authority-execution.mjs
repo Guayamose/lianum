@@ -2,15 +2,15 @@
  * Journal access is restricted to this domain; account ownership stays in the root. */
 import assert from "node:assert/strict";
 import { flatAccountGraphBinding, flatAccountCalldataHash } from "../flat-account-validation.mjs";
-import { sha, copy } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
+import { sha, copy } from "@lianum/engine/accounts/journal";
 import { decodeNativeValueTerminalCalldata } from "../../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs";
 import { refreshOriginalNativeSourceObservedClockV1, assertOriginalNativeSourceObservedClockV1 } from "../../../operations/recovery/native-original-source-observed-clock-v1.mjs";
 import { refreshOriginalNativeDeviceLocalObservedClockV1, assertOriginalNativeDeviceLiveArmedObservedClockV1 } from "../../../operations/recovery/native-device-local-observed-clock-v1.mjs";
-import { validateDeviceRecoveryArmConsentFreshV1, deviceRecoveryArmConsentMessageV1 } from "../../../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs";
+import { validateDeviceRecoveryArmConsentFreshV1, deviceRecoveryArmConsentMessageV1 } from "@lianum/mobile-protocol/device-recovery-arm-consent-v1";
 import { nativeValueOriginalRecoverySourceV1 } from "../../../operations/deployments/native-value/native-value-system-v2.mjs";
 import { privateFailureDiagnostic } from "../../../execution/account/reconciliation/failure-diagnostics.mjs";
 import { reconcileOriginalDeviceNativeRecoveryV1 } from "../../../execution/native-value/execution/native-value-execution-v2.mjs";
-import { deviceExecutionConsentMessageV1 } from "../../../../../mobile-protocol/src/device-execution-consent-v1.mjs";
+import { deviceExecutionConsentMessageV1 } from "@lianum/mobile-protocol/device-execution-consent-v1";
 export function createNativeValueExecutionOperations({
   approvals,
   chain,

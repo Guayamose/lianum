@@ -16,12 +16,12 @@ async function runFixedStepsV1(fixture,deadlineMs,phase){
  assert.equal(arguments.length,3);assert.ok(['full','capture','resume'].includes(phase));assert.ok(WRAPPED_WALLET_FIXED_RELEASE_V1,'WRAPPED_FIXED_NOT_RELEASED');
  const s=ownedWrappedWalletFixedFixtureV1(fixture),{runtime,system,graphNative}=s,owner=s.owners[1],caller=runtime.accounts[4];
  const {freshFixtureId,writeFixturePrivate}=await import('../../../fixtures/runners/owned-flat-fixture.mjs');
- const {claimDomainCommitment}=await import('../../../../../packages/backend/src/claims/protocol/framing.mjs');
- const {decodeDepositIntentInputs}=await import('../../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs');
+ const {claimDomainCommitment}=await import('@lianum/engine/claims/framing');
+ const {decodeDepositIntentInputs}=await import('@lianum/engine/execution/inputs/deposit-intent');
  const {createOwnedNativeValueProviderCustody}=await import('../../../../../packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs');
  const {profileCommitment}=await import('../../../../../packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs');
  const {createWrappedFixedRecipientWithLifetimeV1}=await import('../../../fixtures/wallet/wrapped/flows/wrapped-wallet-fixed-fixture-v1.mjs');
- const {NATIVE_ADMISSION_LOSS_CLAUSE}=await import('../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs');
+ const {NATIVE_ADMISSION_LOSS_CLAUSE}=await import('@lianum/engine/execution/native/dispatch/native-admission');
  const check=()=>{inspectWrappedInstallationSourcesV2();assert.ok(Date.now()<deadlineMs,'WRAPPED_FIXED_ORIGINAL_DEADLINE');};
  const retained=[],retain=(label,relation,result)=>{const p=proof(result);retained.push({label,relation,proof:p});writeFixturePrivate(join(s.directory,'fixed-proof-'+label+'.json'),{label,relation,proof:p});return p;};
  let wallet;

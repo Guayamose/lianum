@@ -2,16 +2,16 @@
  * no proof verification, signing authority, state freshness or dispatch grant.
  * Importing this module starts no compiler, prover, backend, RPC or runtime. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray } from './commitments.mjs';
-import { RELATIONS, decodeStatement, joinReservation, joinAdmission, joinSettlement } from './statements.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { RELATIONS, decodeStatement, joinReservation, joinAdmission, joinSettlement } from '@lianum/components/encoding/statements';
 import { nativeStaticArguments, nativeProofCalldata }
-  from '../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+  from '../native/dispatch/native-deployment.mjs';
 import { nativeHubSignatureToHost }
-  from '../../../../engine/src/evidence/native-hub-messages.mjs';
+  from '@lianum/engine/evidence/native-hub-messages';
 import { decodeWalletPoolInputs, encodeWalletPoolInputs }
-  from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+  from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { publicKeccak256 }
-  from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+  from '@lianum/engine/cohorts/private-cohort-public-native';
 
 const MAX_CALLDATA_HEX_LENGTH = 2 * 1024 * 1024; // Same bound as owner custody.
 const MAX_PROOF_BYTES = 1024 * 1024;

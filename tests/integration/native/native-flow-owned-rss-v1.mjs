@@ -1,2 +1,2 @@
 /** Compatibility entry; the shared implementation has one owner. */
-export * from '../../../packages/proofs/src/host/process-rss.mjs';
+export * from '@lianum/proofs/host/process-rss';

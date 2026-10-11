@@ -6,16 +6,16 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { assertOwnedPoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
-import { decodeGenericBalanceStateAdvanced } from '../../../../../engine/src/execution/balances/generic-balance-observer.mjs';
-import { boundedListDigest } from '../../../../../engine/src/execution/native/state/native-state.mjs';
+import { decodeGenericBalanceStateAdvanced } from '../../../accounts/balances/generic-balance-observer.mjs';
+import { boundedListDigest } from '@lianum/engine/execution/native/state/native-state';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
-import { assertOwnedNativeValueWalletSystem as assertNativeWallet } from '../../../operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
-import { exactRecord, bytes32, canonicalField, ZERO } from '../../encoding/commitments.mjs';
+import { assertOwnedNativeValueWalletSystem as assertNativeWallet } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
+import { exactRecord, bytes32, canonicalField, ZERO } from '@lianum/components/encoding/commitments';
 import { createNativeValueSystemStateReader as createNativeReader, decodeFlatWords, decodeFlatPoolObservation } from './native-value-system-state-v2.mjs';
-import { decodeStatement, validateStatement } from '../../encoding/statements.mjs';
+import { decodeStatement, validateStatement } from '@lianum/components/encoding/statements';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../encoding/transaction-codec.mjs';
 
-import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
+import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
 const originalRecoveryObservations = new WeakMap();
 export function readOriginalNativeRecoveryCheckpointV1(observer, result) {

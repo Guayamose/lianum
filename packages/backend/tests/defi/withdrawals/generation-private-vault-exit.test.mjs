@@ -10,16 +10,16 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import {existsSync} from 'node:fs';
 import vm from 'node:vm';
-import {exactRecord} from '../../../src/execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { bindGenericAccountRequest, genericAccountIdentity } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { bindGenericAccountRequest, genericAccountIdentity } from '@lianum/engine/accounts/journal';
 import { mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { Vault as RealVault } from '../../../../engine/src/crypto/vault.mjs';
-import { encodeWalletPoolInputs } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { Vault as RealVault } from '@lianum/engine/crypto/vault';
+import { encodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../../src/execution/encoding/transaction-codec.mjs';
-import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/local-evm-profiles.mjs';
 const worlds = new WeakMap(), receipts = new WeakMap(), bySystem = new WeakMap(), byAccount = new WeakMap(), byVault = new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
@@ -392,7 +392,7 @@ test('without an original same-generation underlying registry capability no meta
 // READ DeFi uses the actual catalogue/session/private-exit/position producers
 // above and real secp256k1 signatures. Lower native observations remain HOST
 // ports; these cases do not claim node/proof/financial/phone acceptance.
-const defiPositionProtocol = await import('../../../../mobile-protocol/src/device-defi-position-read-v1.mjs');
+const defiPositionProtocol = await import('@lianum/mobile-protocol/device-defi-position-read-v1');
 const { createPairedOriginalDefiPositionReaderV1, assertPairedOriginalDefiPositionReaderV1 } =
   await import('../../../src/api/mobile/paired-original-defi-position-reader-v1.mjs');
 const { createPairedOriginalDefiPositionTlsServerV1 } =

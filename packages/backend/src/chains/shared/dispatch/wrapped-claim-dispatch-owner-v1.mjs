@@ -11,26 +11,26 @@ import { createPrivateKey,createPublicKey } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute,join,relative,resolve,sep } from 'node:path';
-import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
-import { freshKey, signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
-import { assertOwnedNativeRecipientProcess } from '../../../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { nativeProviderIdentity, NATIVE_ADMISSION_LOSS_CLAUSE, nativeDispatchStatementFrame } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { freshKey, signature } from '@lianum/engine/notes/private-note-encoding';
+import { assertOwnedNativeRecipientProcess } from '../../../execution/native/recipients/native-recipient-process.mjs';
+import { nativeProviderIdentity, NATIVE_ADMISSION_LOSS_CLAUSE, nativeDispatchStatementFrame } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { PROFILE_SCHEMA as TRON_SCHEMA, tronGraphAsset, tronGraphEndpoint, tronGraphCustody } from '../../tron/transfers/tron-native-graph-profile.mjs';
 import { assertOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmObservedClockV1 } from '../../evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedWrappedClaimGraphSystem } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertWrappedClaimOperatorBootstrapForSystemV1, assertWrappedClaimBootstrapNativeRuntimeV1 } from '../../../operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs';
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1 } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';
-import { exactRecord,bytes32,canonicalField,FIELD_MODULUS } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord,bytes32,canonicalField,FIELD_MODULUS } from '@lianum/components/encoding/commitments';
 import { cloneInput,frozenInput,inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { profileCommitment,chainDomain } from '../transfers/generic-native-value-v2.mjs';
 import { PROFILE_SCHEMA,CHAINS } from '../../evm/transfers/evm-native-value-v2.mjs';
 import { evmNativeTransferNetwork } from '../../evm/observations/evm-native-transfer-observer.mjs';
 import { evmFundingEndpointCommitment } from '../../evm/dispatch/evm-facts-binding.mjs';
-import { nativeCustodyCommitment } from './native-receipt-binding.mjs';
+import { nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { normalizeNativeValueDispatchBinding,bindNativeValueDispatchRequest,equal,sha256 } from './wrapped-claim-dispatch-binding-v1.mjs';
 import { createNativeValueDispatchJournal,readNativeValueDispatchJournal } from './wrapped-claim-dispatch-journal-v1.mjs';
-import { loadPinned,resourceModuleURL } from '../../../../../proofs/src/tooling/tooling.mjs';
+import { loadPinned,resourceModuleURL } from '@lianum/proofs/tooling/tooling';
 import { consumeWrappedGraphProviderAuthorityV4 } from './wrapped-claim-graph-dispatch-gate-v1.mjs';
 const leases=new WeakMap(),custodies=new WeakMap(),copy=cloneInput,freeze=frozenInput;
 export const NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS=Object.freeze(['NEW_NATIVE_VALUE_SYSTEM_RELEASE_ARTIFACTS_ABSENT','ACTUAL_LOCAL_NATIVE_PROVIDER_INTEGRATION_UNEXECUTED','ACTUAL_TRON_NATIVE_AND_DISPATCH_ACCEPTANCE_UNEXECUTED']);
@@ -200,12 +200,12 @@ export function captureOwnedNativeValueProviderRecoveryV1(custody){assert.equal(
 export function abortOwnedNativeValueProviderRecoveryV1(custody){assert.equal(arguments.length,1);const s=custodies.get(custody);assert.ok(s,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');return s.abortCaptured();}
 export function stopCapturedNativeValueProviderRecoveryV1(custody){assert.equal(arguments.length,1);const s=custodies.get(custody);assert.ok(s,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');return s.stopCaptured();}
 export async function reopenOwnedNativeValueProviderRecoveryV1(token){
- assert.equal(arguments.length,1);const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+ assert.equal(arguments.length,1);const {consumeWrappedWalletRecoveryPartV1}=await import('../../../operations/wallet/wrapped-wallet-composition-v1.mjs');
  const {runtime,system,poolIndex,nativeRuntime,bootstrap,record}=consumeWrappedWalletRecoveryPartV1(token,'provider');
  exactRecord(record,['schema','input','record','nativeIdentity','lease','lifetimeIdentity']);assert.equal(record.schema,'WRAPPED_NATIVE_PROVIDER_RECOVERY_V1');assert.equal(poolIndex,record.input.poolIndex);
  return createProviderCustodyV1({...record.input,runtime,system,nativeRuntime,bootstrap},record);
 }
 export async function takeRecoveredNativeValueProviderLeaseV1(token){
- assert.equal(arguments.length,1);const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+ assert.equal(arguments.length,1);const {consumeWrappedWalletRecoveryPartV1}=await import('../../../operations/wallet/wrapped-wallet-composition-v1.mjs');
  const {custody}=consumeWrappedWalletRecoveryPartV1(token,'provider-lease');const s=custodies.get(custody);assert.ok(s,'NATIVE_VALUE_ORIGINAL_PROVIDER_CUSTODY_REQUIRED');return s.takeRecoveredLease();
 }

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, lstatSync } from 'node:fs';
 import { join, resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, FLAT, GOLDEN } from '../../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
 const MOBILE_PROTOCOL=resolve(FLAT,'../mobile-protocol');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 function regular(path) { assert.equal(realpathSync(path),path,'TRON_PRODUCT_SOURCE_SYMLINK');

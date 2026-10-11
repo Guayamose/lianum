@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { ROOT, FLAT } from '../../../../packages/proofs/src/catalog.mjs';
-import { regular, hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT } from '@lianum/proofs/catalog';
+import { regular, hash } from '@lianum/proofs/tooling/tooling';
 import { developmentNativeClaimSourcePins } from './development-native-claim-source-pins.mjs';
 import { developmentBtcSolGraphSourcePins } from './development-btc-sol-graph-source-pins.mjs';
 

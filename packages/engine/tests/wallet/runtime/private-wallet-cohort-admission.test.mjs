@@ -8,9 +8,9 @@ import {join} from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {PrivateNoteTree,privateSpentDigest} from '../../../src/notes/private-note-tree.mjs';
 import {freshKey,createGraph,reserveInput} from '../../../src/notes/private-note-encoding.mjs';
-import {decodeWalletProofCalldata,walletCustodySnapshot} from '../../../src/wallet/custody/private-wallet-authority.mjs';
+import {decodeWalletProofCalldata,walletCustodySnapshot} from '../../../../backend/src/custody/wallet/private-wallet-authority.mjs';
 import {privateVerifierCalldata} from '../../../src/wallet/runtime/private-wallet-runtime.mjs';
-import {createPrivateWalletAuthority} from '../../../src/wallet/runtime/private-wallet-engine.mjs';
+import {createPrivateWalletAuthority} from '../../../../backend/src/custody/wallet/private-wallet-engine.mjs';
 import {recoverPrivateWalletCustody} from '../../../src/wallet/custody/private-wallet-custody.mjs';
 const h=n=>'0x'+n.toString(16).padStart(64,'0'),w=n=>BigInt(n).toString(16).padStart(64,'0');
 

@@ -6,15 +6,20 @@
   "description": "Custodia, firmas y consentimiento del propietario",
   "exports": {
     "./owner": "./src/signing/flat-owner-custody.mjs",
-    "./preparation": "./src/preparation/flat-owner-manual-preparation.mjs"
+    "./claims/flat-owner-claim-transition": "./src/claims/flat-owner-claim-transition.mjs",
+    "./claims/flat-owner-external-incoming-v1": "./src/claims/flat-owner-external-incoming-v1.mjs",
+    "./preparation/flat-owner-manual-binding": "./src/preparation/flat-owner-manual-binding.mjs",
+    "./preparation/native-value-owner-manual-binding-v1": "./src/preparation/native-value-owner-manual-binding-v1.mjs",
+    "./signing/authorized-envelope": "./src/signing/authorized-envelope.mjs",
+    "./signing/native-value-owner-custody-v3": "./src/signing/native-value-owner-custody-v3.mjs"
   },
   "lianum": {
     "status": "active"
   },
   "dependencies": {
-    "@lianum/backend": "file:../backend",
     "@lianum/engine": "file:../engine",
-    "@lianum/proofs": "file:../proofs",
-    "@lianum/components": "file:../components"
+    "@lianum/components": "file:../components",
+    "@lianum/environment": "file:../environment",
+    "@lianum/mobile-protocol": "file:../mobile-protocol"
   }
 }

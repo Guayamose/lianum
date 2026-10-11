@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, LOCAL } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT, LOCAL } from '@lianum/proofs/catalog';
 import { createOwnedNativeClaimGraphFixture } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';
 import { writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { nativeClaimSourcePins } from '../lifecycle/native-claim-source-pins.mjs';

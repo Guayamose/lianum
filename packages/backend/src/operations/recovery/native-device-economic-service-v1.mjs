@@ -4,7 +4,7 @@
  * and execute/recover are fenced in the recovered account; fresh signed reads,
  * terminal reconciliation and separate W39 admissions remain original. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {assertOwnedNativeValueAccountAuthority,retainOriginalNativeDeviceRecoveredInstallationV1,
  isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,isOriginalNativePrivateReservationAccountV2,isOriginalNativePrivateWorkerAccountV3,consumeOriginalNativeDeviceRecoveredInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';

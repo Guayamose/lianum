@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
 import { readFileSync, realpathSync } from 'node:fs';
-import { ROOT, LOCAL, CANDIDATE } from '../../../../packages/proofs/src/catalog.mjs';
-import { assertID, regular, hash, replaceJSON } from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import { createPinnedVerifier, assertPinnedVerifier } from '../../../../packages/proofs/src/verification/pinned-verifier.mjs';
+import { ROOT, LOCAL, CANDIDATE } from '@lianum/proofs/catalog';
+import { assertID, regular, hash, replaceJSON } from '@lianum/proofs/tooling/tooling';
+import { createPinnedVerifier, assertPinnedVerifier } from '@lianum/proofs/verification';
 import { integrationSourcePins } from '../../runners/source-pins.mjs';
 
 assert.equal(process.argv.length, 3, 'PINNED_CHECK_FIXED_ARGS');

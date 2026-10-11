@@ -3,13 +3,13 @@ import {NATIVE_SPL_CLAIM_INTENT_PROFILE_V1,validateNativeSplClaimBindingTransact
  * Owned operators retain these bindings in their separate encrypted journals;
  * the only ordinary facts request remains family/recipientIndex/nativeId/K. */
 import assert from 'node:assert/strict';
-import { exactRecord, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord, bytes32, ZERO } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { receiptKeyCommitment, nativeAdmissionNullifier, nativeFactIdentity,
-  validateBitcoinBinding } from '../../chains/shared/dispatch/native-receipt-binding.mjs';
+  validateBitcoinBinding } from '@lianum/engine/native/native-receipt-binding';
 import { validateClaimSolanaBindingTransaction } from '../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
-import { claimUint, claimTicketSecret } from '../protocol/framing.mjs';
-import { claimSignedWireCommitment } from './permits.mjs';
+import { claimUint, claimTicketSecret } from '@lianum/engine/claims/framing';
+import { claimSignedWireCommitment } from '@lianum/engine/claims/permits';
 
 export const CLAIM_FACT_REQUEST_FIELDS = Object.freeze(['family', 'recipientIndex', 'nativeId', 'wireKeyCommitment']);
 const PRIVATE_FIELDS = ['claimDomain', 'gateway', 'ledgerNamespace', 'genesis', 'asset', 'operationId',

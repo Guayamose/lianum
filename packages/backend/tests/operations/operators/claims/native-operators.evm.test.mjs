@@ -5,16 +5,15 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { checkpointAuthorizationDigest, revocationMessage }
-  from '../../../../../engine/src/evidence/native-hub-messages.mjs';
+  from '@lianum/engine/evidence/native-hub-messages';
 import { FACTS_QUORUM_PROFILE, nativeFactsRegistryCommitment } from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
 import * as originalFactsPeer from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
 import { encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage }
-  from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
-import { decodeCanonicalEvmTransaction, recoverSecp256k1Sender }
-  from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
+import { decodeCanonicalEvmTransaction, recoverSecp256k1Sender } from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { flatNativeHealthDigest } from '../../../../src/chains/shared/health/native-health.mjs';
 import { evmDeliveryFixture } from '../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';
 

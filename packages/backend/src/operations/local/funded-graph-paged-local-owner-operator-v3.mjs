@@ -4,8 +4,8 @@
 import assert from 'node:assert/strict';
 import {types} from 'node:util';
 import {createOwnedLocalEvmV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {assertFundedPagedLocalDeploymentArtifactsV3,deployOriginalFundedPagedGraphWalletV3,closeOriginalFundedPagedGraphDeploymentV3} from '../../../../engine/src/execution/local/funded-graph-paged-deployment-v3.mjs';
-import {createOriginalFundedPagedLocalOwnerWalletV3,assertOriginalFundedPagedLocalOwnerWalletV3} from '../../../../engine/src/wallet/notes/funded-graph-paged-wallet-v3.mjs';
+import {assertFundedPagedLocalDeploymentArtifactsV3,deployOriginalFundedPagedGraphWalletV3,closeOriginalFundedPagedGraphDeploymentV3} from './funded-graph-paged-deployment-v3.mjs';
+import {createOriginalFundedPagedLocalOwnerWalletV3,assertOriginalFundedPagedLocalOwnerWalletV3} from '../../custody/paged/funded-graph-paged-wallet-v3.mjs';
 export const ORIGINAL_PAGED_LOCAL_OWNER_OPERATOR_V3='ORIGINAL_PAGED_LOCAL_OWNER_OPERATOR_V3';
 const owned=new WeakMap();
 function exact(value,keys){assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype,'PAGED_OPERATOR_DATA');assert.deepEqual(Reflect.ownKeys(value).sort(),[...keys].sort(),'PAGED_OPERATOR_FIELDS');for(const k of keys)assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(value,k),'value'),'PAGED_OPERATOR_DATA');}

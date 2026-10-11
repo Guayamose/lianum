@@ -2,10 +2,10 @@
  * stored once under the existing signed commitment. This never supplies an
  * observation or substitutes a previous audit for a current native read. */
 import assert from 'node:assert/strict';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
 import { cloneInput as copy } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { bytes32 } from '../../execution/encoding/commitments.mjs';
-import { claimHash, claimFrame } from '../authorization/permits.mjs';
+import { bytes32 } from '@lianum/components/encoding/commitments';
+import { claimHash, claimFrame } from '@lianum/engine/claims/permits';
 import { claimEconomicInventory } from '../operations/backing-audit.mjs';
 
 const commitment = value => claimHash(claimFrame('LIANUM/PAEG/native-claim-inventory/1', [Buffer.from(canonical(value))]));

@@ -3,11 +3,11 @@
  * Loading artifacts never compiles, proves, deploys or observes native value. */
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { ROOT, LOCAL, FLAT, relation } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, LOCAL, FLAT, relation } from '@lianum/proofs/catalog';
 import { regular, hash, resourceModuleURL, circuitIdentity, versionDirectory,
-  loadCompiled, loadPrepared } from '../../../../../proofs/src/tooling/tooling.mjs';
+  loadCompiled, loadPrepared } from '@lianum/proofs/tooling/tooling';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables }
-  from '../../../../../engine/src/execution/local/local-deployment.mjs';
+  from '@lianum/engine/execution/local/local-deployment';
 
 export const NATIVE_CLAIM_CONTRACT_PIN = Object.freeze({
   runId: 'e3e645b6-9466-4f3c-aab1-4dcaa93b7f51',

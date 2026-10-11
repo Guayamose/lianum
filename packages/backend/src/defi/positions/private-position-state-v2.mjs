@@ -2,7 +2,7 @@
  * account/vault reads. Retains ownership when independent valuation is absent. */
 import assert from 'node:assert/strict';
 import {validateVaultIdentity} from '../vaults/backed-vault.mjs';
-import {projectPrivateVaultPosition} from '../vaults/private-vault-position.mjs';
+import {projectPrivateVaultPosition} from './private-vault-position-projection.mjs';
 import {validateFlatOwnerReadPayload} from '@lianum/mobile-protocol/wallet/owner-portfolio-contract';
 import {validatePositionStateRow} from '@lianum/mobile-protocol/wallet/generation-position-state-v2';
 const frozen=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(frozen);Object.freeze(value);}return value;};

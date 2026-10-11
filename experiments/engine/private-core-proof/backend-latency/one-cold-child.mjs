@@ -13,7 +13,7 @@ const phase=p=>{metrics.phase=p;process.send({type:'phase',phase:p});};
 let hash,resources;
 try {
  let t=performance.now();
- const [noir,bb,rs,pv,encoding]=await Promise.all([import('@noir-lang/noir_js'),import('@aztec/bb.js'),import('../wallet-notes/resources.mjs'),import('../wallet-notes/prover.mjs'),import('../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs')]);
+ const [noir,bb,rs,pv,encoding]=await Promise.all([import('@noir-lang/noir_js'),import('@aztec/bb.js'),import('../wallet-notes/resources.mjs'),import('../wallet-notes/prover.mjs'),import('@lianum/engine/wallet/notes/private-wallet-note-encoding')]);
  times.moduleImport=performance.now()-t;
  const {Noir}=noir,{Barretenberg,BackendType,UltraHonkBackend,UltraHonkVerifierBackend}=bb;
  ({hash,resources}=rs);const {root,guard,filePin,verifyToolchain,verifyCRS,CRS}=rs;

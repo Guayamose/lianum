@@ -1,5 +1,5 @@
 /** Host-only fake: no node, proof, runtime, signing, chain or performance work. */
-import {PRIVATE_COHORT_PROFILE,PRIVATE_COHORT_TERMS} from '../../src/cohorts/private-cohort-coordinator.mjs';
+import {PRIVATE_COHORT_PROFILE,PRIVATE_COHORT_TERMS} from '../../../backend/src/coordination/cohorts/private-cohort-coordinator.mjs';
 export function mockCohortFactory({beforeEffect=async()=>{},holdOpen=null,holdExecute=null,leakOwner=false}={}){
  const instances=[];const factory=options=>{
   const c={profile:PRIVATE_COHORT_PROFILE,cohortId:options.cohortId,state:'WAITING_FOR_COHORT',opened:false,active:false,counts:{joined:0,reservationsConfirmed:0,solCompleted:0,btcCompleted:0,settled:0},expiresAt:null,errorCode:null,privacyEvaluation:'NOT_EVALUATED',transparentFallback:false,observerModel:'COMMON_TRUSTED_CONTROLLER_LOCAL_SYNTHETIC_ONLY'};let sequence=0,closed=false;

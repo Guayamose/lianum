@@ -6,7 +6,7 @@ import {isOriginalDeviceGraphSourceSectionV2} from '../../operations/recovery/de
 import {createHash} from 'node:crypto';
 import {types} from 'node:util';
 import {join,dirname} from 'node:path';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
 import {assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOwnedFlatSystem,captureOwnedFlatSystemRecoveryV1} from '../../operations/deployments/system/deploy-system.mjs';

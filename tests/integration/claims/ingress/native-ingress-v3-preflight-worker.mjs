@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { PREFLIGHT_REAL_RUN_DISABLED, PREFLIGHT_PROFILE, PREFLIGHT_RESULT, assertNativeIngressV3PreflightResult } from './native-ingress-v3-preflight-policy.mjs';
 async function main() {
   assert.equal(PREFLIGHT_REAL_RUN_DISABLED, false, 'V3_PREFLIGHT_REQUIRES_FROZEN_CHECKPOINT_AND_EXPLICIT_LAUNCH');
-  const { ROOT, LOCAL } = await import('../../../../packages/proofs/src/catalog.mjs');
+  const { ROOT, LOCAL } = await import('@lianum/proofs/catalog');
   const { createOwnedNativeClaimIngressV3PreflightFixture } = await import('../../fixtures/claims/ingress/owned-native-ingress-v3-preflight-fixture.mjs');
   const { probeNativeIngressV3Proofless } = await import('./native-ingress-v3-preflight.mjs');
   const { writeFixturePrivate } = await import('../../fixtures/runners/owned-flat-fixture.mjs');

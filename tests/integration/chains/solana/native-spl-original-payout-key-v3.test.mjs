@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {claimTicketSecret} from '../../../../packages/backend/src/claims/protocol/framing.mjs';
-import {receiptKeyCommitment} from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import {claimTicketSecret} from '@lianum/engine/claims/framing';
+import {receiptKeyCommitment} from '@lianum/engine/native/native-receipt-binding';
 const expected='7fc4fb20c2b8734f0e48b9089e91afab2f28ae4b09e571b8d1408532f5b450b6';
 test('original payout key framing fixes the oracle and separates domain, namespace and ticket',()=>{
  const claimDomain='11'.repeat(32),ledgerNamespace='22'.repeat(32),ticketId='33'.repeat(32);

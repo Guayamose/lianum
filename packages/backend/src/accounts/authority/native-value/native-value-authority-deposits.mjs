@@ -1,16 +1,16 @@
 /** Deposits operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
-import * as PrivateDeposit from "../../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs";
+import * as PrivateDeposit from "@lianum/mobile-protocol/device/native-deposit-v2";
 import assert from "node:assert/strict";
 import { isOriginalNativePrivateWorkerDepositBridgeV3, isOriginalNativePrivateDepositBridgeV2 } from "../device-owner-deposit-bridge-v1.mjs";
-import { copy, sha } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
+import { copy, sha } from "@lianum/engine/accounts/journal";
 import { createHash } from "node:crypto";
 import { validateFlatAccountOwnerObservation, flatAccountCalldataHash } from "../flat-account-validation.mjs";
-import { readOriginalNativePrivateDepositDerivationV2 } from "../../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs";
-import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 } from "../../../../../mobile-protocol/src/device-deposit-consent-v1.mjs";
-import { walletInputPublicWords, decodeWalletPoolInputs } from "../../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs";
-import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "../../../../../engine/src/execution/proofs/proof-process.mjs";
-import { nullifier } from "../../../../../engine/src/notes/private-note-encoding.mjs";
+import { readOriginalNativePrivateDepositDerivationV2 } from "@lianum/proofs/jobs/native-device-private-deposit-client-v2";
+import { normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 } from "@lianum/mobile-protocol/device-deposit-consent-v1";
+import { walletInputPublicWords, decodeWalletPoolInputs } from "@lianum/engine/wallet/notes/private-wallet-note-encoding";
+import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "@lianum/proofs/execution/proof-process";
+import { nullifier } from "@lianum/engine/notes/private-note-encoding";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
 export function createNativeValueDeposits({
   journal,

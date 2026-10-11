@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { nativeSystemSources, compileNativeSystem } from '../../../packages/engine/src/execution/native/dispatch/native-deployment.mjs';
+import { nativeSystemSources, compileNativeSystem } from '../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runId = new Date().toISOString().replace(/[:.]/g, '-');

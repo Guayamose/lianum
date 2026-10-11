@@ -6,13 +6,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import {
-  createAssemblyOwner, createAssemblyProducer, createAssemblyAssembler, assemblyActorPublicInputs,
-  validateAssemblyProofPackage, decodeAssemblyProofPackage, assemblyPackageDigest,
-  createAssemblyFrameDecoder, encodeAssemblyFrame, attachAssemblyControl, launchAssemblyProcess, createAssemblyProofWorkerRunner, createAssemblyVerificationWorkerRunner,
-  ASSEMBLY_IPC_MAX_BYTES, ASSEMBLY_PROOF_MAX_BYTES, ASSEMBLY_OPERATION_INVENTORY,
-} from '../../src/assembly/private-assembly-actors.mjs';
-import { assemblyBackendVerificationPackage } from '../../src/assembly/private-assembly-actor-process.mjs';
+import { createAssemblyOwner, createAssemblyProducer, createAssemblyAssembler, assemblyActorPublicInputs, validateAssemblyProofPackage, decodeAssemblyProofPackage, assemblyPackageDigest, createAssemblyFrameDecoder, encodeAssemblyFrame, attachAssemblyControl, ASSEMBLY_IPC_MAX_BYTES, ASSEMBLY_PROOF_MAX_BYTES, ASSEMBLY_OPERATION_INVENTORY } from '../../src/assembly/private-assembly-actors.mjs';
+import { launchAssemblyProcess, createAssemblyProofWorkerRunner, createAssemblyVerificationWorkerRunner } from '@lianum/proofs/execution/assembly-workers';
+import { assemblyBackendVerificationPackage } from '@lianum/proofs/execution/private-assembly-actor-process';
 import { ASSEMBLY_PUBLIC_WORDS, ASSEMBLY_RECURSIVE_MODES } from '../../src/assembly/private-assembly-encoding.mjs';
 import { freshKey, signature, invoiceFrame, paymentCommitment, localCommitment, policyCommitment } from '../../src/notes/private-note-encoding.mjs';
 import { PrivateNoteTree, privateSpentDigest, privateEffectDigest, noteWordsToHash, ZERO_NOTE_HASH } from '../../src/notes/private-note-tree.mjs';
@@ -243,8 +239,8 @@ test('HOST ONLY: framed IPC survives every split UTF-8 byte, enforces size/EOF a
 // This test-only child explicitly injects mock callbacks. The production entry
 // point has no TEST/MOCK environment switch, arbitrary import or eval IPC route.
 function spawnHostOnlyActor(kind, config) {
-  const actorURL = new URL('../src/private-assembly-actors.mjs', import.meta.url).href;
-  const entryURL = new URL(kind === 'owner' ? '../src/private-assembly-owner-process.mjs' : '../src/private-assembly-actor-process.mjs', import.meta.url).href;
+  const actorURL = new URL('../../src/assembly/private-assembly-actors.mjs', import.meta.url).href;
+  const entryURL = (kind === 'owner' ? new URL('../../../proofs/src/execution/private-assembly-owner-process.mjs', import.meta.url) : new URL('../../../proofs/src/execution/private-assembly-actor-process.mjs', import.meta.url)).href;
   const code = `import {${kind === 'owner' ? 'runAssemblyOwnerProcess' : 'runAssemblyActorProcess'}} from ${JSON.stringify(entryURL)};
     import {assemblyActorPublicInputs} from ${JSON.stringify(actorURL)};
     const modes=${JSON.stringify(modes)};
@@ -368,7 +364,7 @@ test('HOST ONLY backend verification boundary preserves decimal words exactly as
 
 
 test('HOST ONLY nested noisy proof worker cannot corrupt actor stdout; fd3 result waits for actual worker exit', { timeout: 10000 }, async () => {
-  const f = await prepared(), actorURL = new URL('../src/private-assembly-actors.mjs', import.meta.url).href;
+  const f = await prepared(), actorURL = new URL('../../../proofs/src/execution/assembly-workers.mjs', import.meta.url).href;
   const wire = { proof: f.reserve.proofBase64, publicInputs: f.reserve.publicInputs, metrics: { milliseconds: 1.25, privateDiagnostic: 'DO_NOT_FORWARD_TEST_ONLY' } };
   const workerCode = `import {writeSync} from 'node:fs';
     let input='';for await(const chunk of process.stdin)input+=chunk;

@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { buildNodeInputs, buildSettlementInputs } from '../../../../packages/backend/src/execution/account/reconciliation/completion-inputs.mjs';
 import { createCommitmentCodec, exactRecord, fixedArray, digestBytes, digestWords,
-  structToNoir, FIELD_MODULUS } from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+  structToNoir, FIELD_MODULUS } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, validateFlatInputs } from '../../../../packages/backend/src/execution/account/preparation/readiness-inputs.mjs';
-import { joinSettlement } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { joinSettlement } from '@lianum/components/encoding/statements';
 
 const h = value => createHash('sha256').update('LIANUM synthetic completion fixture v1: ' + value).digest('hex');
 const publicJob = (name, relation, job) => ({ name, relation, inputs: job.inputs,

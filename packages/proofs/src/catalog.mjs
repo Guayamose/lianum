@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { resolve, join } from 'node:path';
 import { legacyDataRoot } from '@lianum/environment';
-import { RELATIONS } from '@lianum/backend/encoding/statements';
+import { RELATIONS } from '@lianum/components/encoding/statements';
 
 // These names identify retained artifacts and private job state. Source imports
 // resolve independently through package exports; moving this module does not

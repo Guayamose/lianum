@@ -1,7 +1,7 @@
 /** Public receipt checks only. No proof verification, role/client, runtime,
  * native finality or original controller authority can be minted here. */
 import assert from 'node:assert/strict';
-import { PROFILE, SETTINGS, LIMITS } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROFILE, SETTINGS, LIMITS } from '@lianum/proofs/catalog';
 import { PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);

@@ -5,10 +5,10 @@
 import assert from 'node:assert/strict';
 import {types} from 'node:util';
 import {originalNativeSplClaimSourceContextV1} from '../../claims/controller/controller.mjs';
-import {claimDomainCommitment} from '../../claims/protocol/framing.mjs';
+import {claimDomainCommitment} from '@lianum/engine/claims/framing';
 import {assertOwnedFlatNativeProvider,captureOwnedFlatSolanaSourceForSplV1} from '../../providers/native-provider.mjs';
 import {readOriginalNativeSplClaimMobileInfrastructureV1,createOriginalNativeSplClaimMobileSpendingServiceV1} from '../../api/claims/native-claim-http.mjs';
-import {decodeDepositIntentInputs} from '../../execution/account/preparation/deposit-intent.mjs';
+import {decodeDepositIntentInputs} from '@lianum/engine/execution/inputs/deposit-intent';
 import {decodeNativeSplInventoryV1} from '../../chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 
 const producers = new WeakMap(), leasedControllers = new WeakSet();

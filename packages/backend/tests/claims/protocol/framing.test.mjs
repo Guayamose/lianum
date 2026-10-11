@@ -10,8 +10,8 @@ import { CLAIM_CONFIG_SCHEMA, CLAIM_INGRESS_FIELDS, CLAIM_DISCHARGE_FIELDS,
   claimIntentId, claimTicketId, claimTicketSecret, claimTicketFrame, claimTicketCommitment,
   claimVerifierSetFrame, claimVerifierSetCommitment, nativeClaimEndpointCommitment,
   encodeClaimIngressInputs, decodeClaimIngressInputs, encodeClaimDischargeInputs, decodeClaimDischargeInputs }
-  from '../../../src/claims/protocol/framing.mjs';
-import { ZERO, FIELD_MODULUS } from '../../../src/execution/encoding/commitments.mjs';
+  from '@lianum/engine/claims/framing';
+import { ZERO, FIELD_MODULUS } from '@lianum/components/encoding/commitments';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const h = label => hash(Buffer.from('CLAIM-CODEC-FIXTURE/' + label));

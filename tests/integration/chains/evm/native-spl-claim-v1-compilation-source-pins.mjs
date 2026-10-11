@@ -1,8 +1,8 @@
 /** Fixed public preparation dependencies; generated outputs are separate receipts. */
 import assert from 'node:assert/strict';
 import {join,relative,resolve,sep} from 'node:path';
-import {ROOT,FLAT,GOLDEN,CANDIDATE,relation} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash,resourceModuleURL,executionSources,verifyAPI,verifyVendor} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT,GOLDEN,CANDIDATE,relation} from '@lianum/proofs/catalog';
+import {regular,hash,resourceModuleURL,executionSources,verifyAPI,verifyVendor} from '@lianum/proofs/tooling/tooling';
 import {nativeFlowSourcePins} from '../../runners/source-pins.mjs';
 const helper=await import(resourceModuleURL);
 export function nativeSplClaimV1CompilationSourcePins(){

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createGenericNativeExecutionKeeper, assertOwnedGenericNativeExecutionKeeper,
-  validateGenericNativeExecutionPreparation } from '../../../../src/execution/native/dispatch/generic-native-execution.mjs';
+  validateGenericNativeExecutionPreparation } from '../../../../../backend/src/execution/native/dispatch/generic-native-execution.mjs';
 import { createGenericBalanceNativePreparation, genericBalanceNativeTerms,
   prepareGenericBalanceNativeCapsules } from '../../../../src/execution/balances/generic-balance-native-preparation.mjs';
 import { capsuleAuthorizationWords, dependencyCapsuleCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';

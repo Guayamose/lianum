@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createPrivateAccountCohortService} from '../../src/accounts/private-account-cohort-service.mjs';
+import {createPrivateAccountCohortService} from '../../../backend/src/accounts/runtime/private-account-cohort-service.mjs';
 const asset='a'.repeat(64),terms={budget:'100',solCompensation:'40',amountSol:'30',numerator:'1',denominator:'30'};
 const hex=n=>n.toString(16).padStart(32,'0');
 async function fixture(t,{failExecute=false,checkpoint=async()=>{}}={}){

@@ -8,7 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { ownSpawnedBuildGroup,buildProcessFailureDiagnosticV1 } from './owned-build-process.mjs';
-import { nativeProcStatV1 } from '../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import { nativeProcStatV1 } from '@lianum/proofs/host/process-files';
 import nativeBuildLimits from '../plugins/with-native-build-limits.cjs';
 
 const mobile = fileURLToPath(new URL('../', import.meta.url));

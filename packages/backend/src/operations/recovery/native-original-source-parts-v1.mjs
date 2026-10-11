@@ -1,13 +1,13 @@
 /** Fixed consumers of private SOURCE section tokens. No caller factory, role,
  * path, callback, serialized capability or CAPTURED fallback is accepted. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {nativeSourceRecoveryOriginalReferenceV1} from './native-original-source-capsule-v1.mjs';
 import {createOwnedNativeDurableSourceRuntimeV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {retainOriginalNativeSourceBootstrapV1,reopenOriginalNativeSourceBootstrapV1} from '../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import {retainOriginalNativeSystemSourceV1,reopenOriginalNativeSystemSourceV1} from '../deployments/native-value/native-value-system-v2.mjs';
 import {retainOriginalNativeSourceProviderV1,reopenOriginalNativeSourceProviderV1} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
-import {retainOriginalNativeSourceOwnerV1,reopenOriginalNativeSourceOwnerV1} from '../../../../custody/src/processes/native-value-owner-process-v2.mjs';
+import {retainOriginalNativeSourceOwnerV1,reopenOriginalNativeSourceOwnerV1} from '../../custody/processes/native-value-owner-process-v2.mjs';
 import {retainOriginalNativeExecutorSourceV1,reopenOriginalNativeExecutorSourceV1} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import {reopenOriginalNativeAccountSourceV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {reopenOriginalNativeSessionSourceV1} from '../../api/accounts/flat-manual-graph-session.mjs';

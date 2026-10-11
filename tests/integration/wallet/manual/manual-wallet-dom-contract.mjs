@@ -2,7 +2,7 @@
  * No chain, keys, funds, native transactions or proof is created here. */
 import assert from 'node:assert/strict';
 import { mock } from 'node:test';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { join } from 'node:path';
 import { walletBrowserRuntimePins } from './wallet-browser-runtime-pins.mjs';
 import { createManualWalletDomDriver } from './manual-wallet-dom-driver.mjs';
@@ -11,7 +11,7 @@ const { startOwnedWalletBrowser } = await import('./owned-wallet-browser.mjs');
 
 const accountBrand = new WeakSet(), vaultBrand = new WeakMap();
 const code = name => Object.assign(new Error(name), { code: name });
-const originalAccount = await import('../../../../packages/backend/src/api/accounts/flat-account-session.mjs');
+const originalAccount = await import('@lianum/backend/accounts/session');
 mock.module('../wallet-platform/modules/api/flat-account-session.mjs', { exports: {
   validateFlatAccountPrepare: originalAccount.validateFlatAccountPrepare,
   assertFlatAccountSession(value) { if (!accountBrand.has(value)) throw code('SYNTHETIC_ACCOUNT_REQUIRED'); },

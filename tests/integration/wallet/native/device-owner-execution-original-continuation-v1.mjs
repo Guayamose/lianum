@@ -3,9 +3,9 @@
  * Linux note custody never adopts this opening; physical phone is untested. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {originalAccountAccessMessageV2} from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {deviceExecutionConsentMessageV1} from '../../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
-import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '../../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
+import {deviceExecutionConsentMessageV1} from '@lianum/mobile-protocol/device-execution-consent-v1';
+import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '@lianum/mobile-protocol/device-exit-consent-v1';
 import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
 import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';

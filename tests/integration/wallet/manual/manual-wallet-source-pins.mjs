@@ -4,8 +4,8 @@
  * This is not a caller-selected source collector or a historical pin override. */
 import assert from 'node:assert/strict';
 import { dirname, join, relative, resolve, sep } from 'node:path';
-import { ROOT, FLAT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
-import { regular, hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
+import { regular, hash } from '@lianum/proofs/tooling/tooling';
 import { evmVaultSourcePins } from '../../runners/source-pins.mjs';
 
 export function manualWalletSourcePins() {

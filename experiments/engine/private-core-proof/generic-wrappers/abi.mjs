@@ -2,7 +2,7 @@
 // The returned object contains PRIVATE child proof inputs and membership paths.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { fundedAdmission } from '../../../../packages/engine/src/execution/graph/funded-graph.mjs';
+import { fundedAdmission } from '@lianum/engine/execution/graph/funded-graph';
 
 export const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 export const A0 = Object.freeze({

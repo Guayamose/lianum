@@ -1,12 +1,12 @@
 /** Manual operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
-import { exactRecord } from "../../../execution/encoding/commitments.mjs";
+import { exactRecord } from "@lianum/components/encoding/commitments";
 import assert from "node:assert/strict";
-import { validateFlatManualReauthorization, validateFlatManualRecords, validateFlatManualReview, currentFlatManualAuthorization } from "../../../../../custody/src/preparation/flat-owner-manual-binding.mjs";
+import { validateFlatManualReauthorization, validateFlatManualRecords, validateFlatManualReview, currentFlatManualAuthorization } from "@lianum/custody/preparation/flat-owner-manual-binding";
 import { assertOwnedFlatManualAccountKeeper } from "../../storage/flat-manual-account-keeper.mjs";
 import { assertOwnedFlatManualPortfolioKeeper } from "../../portfolio/flat-manual-portfolio-keeper.mjs";
 import { assertOwnedFlatPortfolioAccount } from "../flat-portfolio-authority.mjs";
-import { sha, immutable } from "../../../../../engine/src/execution/accounts/generic-account-journal.mjs";
+import { sha, immutable } from "@lianum/engine/accounts/journal";
 export function createNativeValueManualLifecycle({
   journal,
   format,

@@ -7,10 +7,10 @@ import { privateFailureDiagnostic } from '../../../execution/account/reconciliat
 import { retainNativeValueOriginalAuditTimingV1 } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import { types, isDeepStrictEqual } from 'node:util';
 import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { nativeHubSignatureToAbi } from '../../../../../engine/src/evidence/native-hub-messages.mjs';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeValueSystem, nativeValueOperatorResources } from '../../deployments/native-value/native-value-system-v2.mjs';
 import { createNativeValueSystemStateReader, assertNativeValueCurrentView } from '../../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';

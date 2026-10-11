@@ -4,7 +4,7 @@
  * regardless of address, block, chain or freshness; none of those is cached.
  */
 import assert from 'node:assert/strict';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 
 const MAX_RUNTIME_BYTES = 24_576;
 // The 14-verifier claim deployment's distinct public code set costs about

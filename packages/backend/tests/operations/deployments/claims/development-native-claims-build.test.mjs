@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
-import { hash } from '../../../../../proofs/src/tooling/tooling.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { hash } from '@lianum/proofs/tooling/tooling';
 import { loadNativeClaimIngressV3Artifacts,loadNativeClaimIngressV3ProofArtifacts,
   loadNativeClaimIngressV3PublicProof } from '../../../../src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs';
 import { preflightNativeClaimIngressV3Artifacts } from '../../../../src/operations/deployments/claims/deploy-native-claims.mjs';

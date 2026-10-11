@@ -3,8 +3,8 @@
  * A syntax-check copy fills only declared holes; it is never executable output. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {publicKeccak256} from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import {exactRecord,fixedArray} from '../../../execution/encoding/commitments.mjs';
+import {publicKeccak256} from '@lianum/engine/cohorts/private-cohort-public-native';
+import {exactRecord,fixedArray} from '@lianum/components/encoding/commitments';
 const LIBRARIES=Object.freeze(['RelationsLib','ZKTranscriptLib']);
 const sha=b=>createHash('sha256').update(b).digest('hex');
 function named(ast,name){const matches=ast.nodes.filter(n=>n.nodeType==='ContractDefinition'&&n.name===name);assert.equal(matches.length,1,'WRAPPED_LINK_NAMED_AST');return matches[0];}

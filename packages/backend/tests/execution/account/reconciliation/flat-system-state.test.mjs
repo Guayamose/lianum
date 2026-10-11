@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createFlatSystemStateReader, decodeFlatWords, decodeFlatPoolObservation,
   decodeFlatFieldTree, decodeFlatHubState, decodeFlatOverflow, decodeFlatEvidenceHistory } from '../../../../src/execution/account/reconciliation/flat-system-state.mjs';
-import { createCommitmentCodec, FIELD_MODULUS, ZERO } from '../../../../src/execution/encoding/commitments.mjs';
-import { PrivateNoteTree, privateSpentDigest } from '../../../../../engine/src/notes/private-note-tree.mjs';
-import { boundedListDigest } from '../../../../../engine/src/execution/native/state/native-state.mjs';
+import { createCommitmentCodec, FIELD_MODULUS, ZERO } from '@lianum/components/encoding/commitments';
+import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
+import { boundedListDigest } from '@lianum/engine/execution/native/state/native-state';
 
 const h = value => createHash('sha256').update('fake flat-state parser: ' + value).digest('hex');
 const f = value => BigInt(value).toString(16).padStart(64, '0');

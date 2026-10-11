@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, canonicalField,
   validateStruct, structToNoir, digestBytes, digestWords }
-  from '../../encoding/commitments.mjs';
-import { encodeStatement, validateStatement } from '../../encoding/statements.mjs';
-import { fundedAdmission } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
-import { verifyPrivateNotePath } from '../../../../../engine/src/notes/private-note-tree.mjs';
+  from '@lianum/components/encoding/commitments';
+import { encodeStatement, validateStatement } from '@lianum/components/encoding/statements';
+import { fundedAdmission } from '@lianum/engine/execution/graph/funded-graph';
+import { verifyPrivateNotePath } from '@lianum/engine/notes/private-note-tree';
 
 function frozenCopy(value) {
   const result = structuredClone(value);

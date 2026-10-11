@@ -8,7 +8,7 @@ import {normalizeDeviceDefiPositionDescriptorV1,normalizeDeviceDefiPositionAcces
  validateDeviceDefiPositionFreshV1,deviceDefiPositionPermissionMessageV1,normalizeDeviceDefiPositionSignatureV1,
  deviceDefiPositionTargetsV1,deviceDefiPositionStateBytesV1,validateDeviceDefiPositionHeadsFreshV1,
  normalizeDeviceDefiPositionObservationV1,DEFI_POSITION_ACCESS_V1,DEFI_POSITION_READ_V1,
- DEFI_POSITION_OBSERVATION_V1,DEFI_POSITION_TTL_MS} from '../../../../mobile-protocol/src/device-defi-position-read-v1.mjs';
+ DEFI_POSITION_OBSERVATION_V1,DEFI_POSITION_TTL_MS} from '@lianum/mobile-protocol/device-defi-position-read-v1';
 const owned=new WeakMap();
 const fail=code=>{throw Object.assign(new Error(code),{code});};
 const need=(ok,code='DEVICE_DEFI_ORIGINAL_REQUIRED')=>{if(!ok)fail(code);};

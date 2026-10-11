@@ -9,7 +9,7 @@ import { CLAIM_GRAPH_V3_REAL_RUN_DISABLED, CLAIM_GRAPH_V3_PROFILE, CLAIM_GRAPH_V
 import { NATIVE_CLAIM_RUN_ROUTES, nativeClaimRunDirectory } from '../../lifecycle/native-claim-run-route.mjs';
 import { CLAIM_GRAPH_V3_NATIVE_PROTOCOL } from '../validation/native-claim-graph-v3-nonce-checks.mjs';
 import { NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
-  from '../../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 const text = name => readFileSync(new URL('../' + name, import.meta.url), 'utf8');
 const baselineFixture = text('native-claim-graph-artifacts.test.mjs');
 const source = baselineFixture.slice(baselineFixture.indexOf('function completeResult()'), baselineFixture.indexOf("test('fixed graph profile"));

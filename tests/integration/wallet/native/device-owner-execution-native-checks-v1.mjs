@@ -1,8 +1,8 @@
 /** Read-only check of the same fixed local native inclusion schedule. This
  * cannot advance a native clock, renew windows, dispatch or create authority. */
 import assert from 'node:assert/strict';
-import {normalizeDeviceOutputBalanceV1} from '../../../../packages/mobile-protocol/src/device-output-balance-v1.mjs';
-import {decodeStatement,joinReadiness} from '../../../../packages/backend/src/execution/encoding/statements.mjs';
+import {normalizeDeviceOutputBalanceV1} from '@lianum/mobile-protocol/device-output-balance-v1';
+import {decodeStatement,joinReadiness} from '@lianum/components/encoding/statements';
 import {assertOwnedLocalEvmNativeValueV1} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 /** Both fixed DEVICE continuations include one I84 receipt before N0. Compare
  * canonical digest strings directly; these bare hashes are not decimal numbers. */

@@ -6,7 +6,7 @@ import { EventEmitter } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { assertTronAlignedRocksDbSourceDelta, assertTronAlignedRocksDbStartupIdentity, assertTronAlignedRocksDbReleaseMetadata, assertTronAlignedRocksDbGate,
   verifyTronAlignedRocksDbCandidateBuild, TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE, TRON_ALIGNED_ROCKSDB_SOURCE_SHA256 } from './tron-aligned-rocksdb-profile.mjs';
 import { assertTronAlignedRocksDbLibraryEvidence } from './tron-aligned-rocksdb-native-audit.mjs';

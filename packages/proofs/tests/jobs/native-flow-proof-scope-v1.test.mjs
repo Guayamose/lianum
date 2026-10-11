@@ -122,10 +122,10 @@ test('supervisor retains bounded relation labels and rejects unexpected/missing/
 test('the real launch sites call guard before spawn/fork and the child guard before execute; supervisor checks live and terminal histories', () => {
   const role = readFileSync(new URL('../../src/jobs/role-client.mjs', import.meta.url), 'utf8');
   assert.ok(role.indexOf('assertBeginPayoutAuditRoleLaunchV1(role, spec.name);') < role.indexOf('child = spawn(process.execPath'));
-  const legacy = readFileSync(new URL('../../../engine/src/execution/proofs/proof-process.mjs', import.meta.url), 'utf8');
+  const legacy = readFileSync(new URL('../../src/execution/proof-process.mjs', import.meta.url), 'utf8');
   assert.ok(legacy.indexOf('assertBeginPayoutAuditLegacyLaunchV1(purpose, operation, mode)') < legacy.indexOf('child = fork(workerFile'));
   assert.match(legacy, /fork\(workerFile, beginAuditProof \? \['withdraw_balance'\] : \[\]/);
-  const child = readFileSync(new URL('../../../engine/src/execution/proofs/proof-worker.mjs', import.meta.url), 'utf8');
+  const child = readFileSync(new URL('../../src/execution/proof-worker.mjs', import.meta.url), 'utf8');
   assert.ok(child.indexOf('assertBeginPayoutAuditLegacyJobV1(request.purpose, request.operation, request.mode);') < child.indexOf('const result = await execute(request, phase);'));
   const supervisor = readFileSync(new URL('../../../../tests/integration/native/native-flow-supervisor.mjs', import.meta.url), 'utf8');
   assert.match(supervisor, /beginPayoutAuditProcessFailureV1\(\[\.\.\.history\.values\(\)\]\)/);

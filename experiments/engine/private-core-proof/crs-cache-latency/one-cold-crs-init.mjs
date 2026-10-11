@@ -35,8 +35,8 @@ try {
   phase('module-import'); t = performance.now();
   const [bb,rs,pv,encoding,actors,engine] = await Promise.all([
     import('@aztec/bb.js'),import('../wallet-notes/resources.mjs'),import('../owner-independent/prover.mjs'),
-    import('../../../../packages/engine/src/assembly/private-assembly-encoding.mjs'),import('../../../../packages/engine/src/assembly/private-assembly-actors.mjs'),
-    import('../../../../packages/engine/src/payments/private-payment-engine.mjs'),
+    import('@lianum/engine/assembly/private-assembly-encoding'),import('@lianum/engine/assembly/private-assembly-actors'),
+    import('../../../../packages/backend/src/payments/private-payment-engine.mjs'),
   ]);
   timings.moduleImport = performance.now() - t;
   const {Barretenberg,BackendType,UltraHonkVerifierBackend,BN254_G1_GENERATOR} = bb;

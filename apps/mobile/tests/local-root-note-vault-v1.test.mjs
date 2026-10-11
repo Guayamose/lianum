@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { createHash, createCipheriv, createDecipheriv, createPublicKey, verify } from 'node:crypto';
 import { balanceCommitment, balanceDepositFrame, balanceWithdrawFrame }
   from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { depositIntentFrame } from '../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
+import { depositIntentFrame } from '../../../packages/engine/src/execution/inputs/deposit-intent.mjs';
 import { localBalanceCommitmentMessageV1, localBalanceDepositMessageV1,
   localBalanceWithdrawalMessageV1, localDepositIntentMessageV1 } from '../src/custody/balance-note-codec-v1.mjs';
 
@@ -1073,7 +1073,7 @@ test('device-root claim retains original D27 before encrypted intake, denies cop
  reset();const {createDeviceRootNativeClaimApiV2}=await import('../src/api/native-claim-device-api-v1.mjs');
  const C=await import('../../../packages/mobile-protocol/src/native-claim-device-v1.mjs');
  const {devicePublicKey,signDeviceRootNativeClaimPermissionV2}=await import('../src/custody/signing.mjs');
- const {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1}=await import('../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs');
+ const {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1}=await import('../../../packages/engine/src/crypto/private-proof-transit-v1.mjs');
  const {deriveOriginalDeviceRootClaimJobV2}=await import('../../../packages/proofs/src/jobs/private-device-proof-input-v2.mjs');
  const pop=Buffer.from('09'.repeat(32),'hex'),jobId='11111111-1111-4111-8111-111111111111';
  const originalRecipient=createPrivateProofRecipientV1({relation:'deposit_intent',role:'owner',jobId});
@@ -1124,7 +1124,7 @@ test('HOST device-root W39 uses original PC23 opening/path and private recipient
  const {freshKey,signature,nullifier}=await import('../../../packages/engine/src/notes/private-note-encoding.mjs');
  const {walletWithdrawInput}=await import('../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs');
  const {PrivateNoteTree}=await import('../../../packages/engine/src/notes/private-note-tree.mjs');
- const {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1}=await import('../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs');
+ const {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1}=await import('../../../packages/engine/src/crypto/private-proof-transit-v1.mjs');
  const {deriveOriginalDeviceWalletNoteJobV3}=await import('../../../packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs');
  const owner=freshKey(),device=freshKey(),h=b=>createHash('sha256').update(b).digest('hex'),jobId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
  const note={type:4,rho:Buffer.from('31'.repeat(32),'hex'),...owner,value:'20',secret:Buffer.from('32'.repeat(32),'hex')},cm=balanceCommitment(terms.scope,terms.policy,note).toString('hex'),nf=nullifier(terms.scope,cm,note.secret).toString('hex');

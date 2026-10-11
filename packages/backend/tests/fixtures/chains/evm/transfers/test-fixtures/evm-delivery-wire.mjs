@@ -1,8 +1,8 @@
 /** Offline public test vector only. Deterministic private scalar 1 and nonce 1
  * are intentionally insecure and are NEVER used by a runtime or account. */
 import { createHash } from 'node:crypto';
-import { publicKeccak256 } from '../../../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { encodeEvmVaultDeliveryCall } from '../../../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { encodeEvmVaultDeliveryCall } from '@lianum/engine/encoding/evm-vault-delivery';
 
 const sha = input => createHash('sha256').update(input).digest('hex');
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;

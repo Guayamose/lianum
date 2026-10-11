@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 import { assertBeginPayoutAuditReleaseV1, assertBeginPayoutAuditReceiptV1,
   CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1,
-  CLAIM_BEGIN_PAYOUT_AUDIT_RELEASE_V1 } from '../../../src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+  CLAIM_BEGIN_PAYOUT_AUDIT_RELEASE_V1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 const source = readFileSync(new URL('./controller.mjs', import.meta.url), 'utf8');
 const cut = (text, a, b) => { const start = text.indexOf(a), end = text.indexOf(b, start); assert.ok(start >= 0 && end > start); return text.slice(start, end); };
 const compile = (body, env) => vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {' + body + '\n})')(env);

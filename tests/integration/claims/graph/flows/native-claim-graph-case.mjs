@@ -6,11 +6,11 @@ import { join } from 'node:path';
 import { freshFixtureId, writeFixturePrivate } from '../../../fixtures/runners/owned-flat-fixture.mjs';
 import { prepareNativeClaimGraph } from './prepare-native-claim-graph.mjs';
 import { createFlatSystemStateReader } from '../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
-import { createProofProcess } from '../../../../../packages/engine/src/execution/proofs/proof-process.mjs';
-import { walletInputPublicWords, decodeWalletPoolInputs } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { createProofProcess } from '@lianum/proofs/execution/proof-process';
+import { walletInputPublicWords, decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction } from '../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { readClaimGraphReplayState, assertClaimGraphPayoutReplay } from '../validation/native-claim-graph-terminal-checks.mjs';
-import { claimDomainCommitment } from '../../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 
 export const CLAIM_GRAPH_AMOUNTS = Object.freeze({ source: '3000000', payout: '1200000',
   change: '1800000', nativeDelivery: '1000000' });

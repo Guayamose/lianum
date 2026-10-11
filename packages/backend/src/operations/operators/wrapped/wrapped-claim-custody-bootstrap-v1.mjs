@@ -8,9 +8,9 @@ import { isAbsolute, resolve } from 'node:path';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { assertOwnedBitcoinRuntime, BITCOIN_CUSTODY_PROFILE } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime, SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_PROFILE } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
-import { exactRecord, fixedArray } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { nativeClaimEndpointCommitment } from '../../../claims/protocol/framing.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
+import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 import { auditClaimNativeInventory } from '../../../claims/operations/backing-audit.mjs';
 import { NATIVE_CLAIM_REFUND_FEES, buildOwnedNativeClaimRules } from '../../deployments/wrapped/wrapped-claim-deployment-plan-v1.mjs';
 import { loadWrappedClaimDeploymentArtifactsV1, assertWrappedClaimDeploymentArtifactsV1 } from '../../deployments/wrapped/wrapped-claim-deployment-artifacts-v1.mjs';
@@ -134,7 +134,7 @@ export function captureWrappedClaimCustodyBootstrapRecoveryV1(runtime,capability
 }
 export async function reopenWrappedClaimCustodyBootstrapRecoveryV1(token) {
   assert.equal(arguments.length,1);
-  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs');
   const {runtime,nativeRuntimes,record:r}=consumeWrappedSystemRecoveryPartV1(token,'custody');
   exactRecord(r,['schema','nativeRoles','rules','inventoryDomains','journalRoot','evmGenesis','claimIngressProfile','provenance']);
   assert.equal(r.schema,'WRAPPED_CUSTODY_BOOTSTRAP_RECOVERY_V1');

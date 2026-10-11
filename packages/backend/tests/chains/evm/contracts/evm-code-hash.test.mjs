@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { evmRuntimeCodeHash, evmFunctionSelector, EVM_CODE_HASH_RETAINED_BYTES } from '../../../../src/chains/evm/contracts/evm-code-hash.mjs';
 
 test('pure code hashes retain exact-byte semantics and reject normalized spellings', () => {

@@ -9,7 +9,7 @@ import {
   nativeFactIdentity, encodeNativeFacts, nativeFactsDigest,
 } from '../src/framing.mjs';
 import { canonicalNativeEffectId, nativeReceiptKeyCommitment }
-  from '../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/execution/native/state/native-receipt';
 
 const h = value => createHash('sha256').update(String(value)).digest('hex');
 const copy = value => structuredClone(value);

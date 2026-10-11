@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, readdirSync, writeFileSync, statfsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { manualWalletSourcePins } from '../../../tests/integration/runners/source-pins.mjs';
-import { linuxRuntimePins } from '../../../packages/engine/src/chains/shared/linux-runtime-pins.mjs';
+import { linuxRuntimePins } from '@lianum/engine/chains/shared/linux-runtime-pins';
 import { verifyToolchain, verifyCRS } from '../../engine/private-core-proof/wallet-notes/resources.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex'), hash = path => sha(readFileSync(path));
 const out = 'experiments/manual-wallet-sdk-acceptance-20261005';

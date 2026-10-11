@@ -5,9 +5,9 @@ import { assertOwnedNativeClaimSystem } from '../../../../packages/backend/src/o
 import { assertOwnedClaimObserver } from '../../../../packages/backend/src/claims/operations/owned-state.mjs';
 import { readOwnedSolanaRuntimeAuditState } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
 import { auditClaimNativeInventory } from '../../../../packages/backend/src/claims/operations/backing-audit.mjs';
-import { assertBeginPayoutAuditReceiptV1 } from '../../../../packages/backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+import { assertBeginPayoutAuditReceiptV1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 import { assertOwnedNativeClaimBeginPayoutAuditReceiptV1, ownedNativeClaimControllerBindings } from '../../../../packages/backend/src/claims/controller/controller.mjs';
-import { claimHash } from '../../../../packages/backend/src/claims/authorization/permits.mjs';
+import { claimHash } from '@lianum/engine/claims/permits';
 const beforeStates = new WeakMap(), capturedOwners = new WeakSet();
 const runtimes = fixture => [fixture.bitcoin, fixture.solana, fixture.graphBitcoin, fixture.graphSolana];
 const effects = fixture => runtimes(fixture).map(native => native.transfers.map(row => Object.fromEntries(

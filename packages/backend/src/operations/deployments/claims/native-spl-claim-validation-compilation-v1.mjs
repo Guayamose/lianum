@@ -2,10 +2,10 @@
  * compiler dependencies, circuits, keys and accepted artifacts stay untouched. */
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../../proofs/src/tooling/tooling.mjs';
-import {compileSoliditySources} from '../../../../../proofs/src/tooling/solidity-compiler.mjs';
-import {GENERIC_COMPILER_PIN} from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
+import {compileSoliditySources} from '@lianum/proofs/tooling/solidity-compiler';
+import {GENERIC_COMPILER_PIN} from '@lianum/engine/execution/local/local-deployment';
 import {loadNativeSplClaimV1RetainedContracts} from './native-spl-claim-v1-compilation.mjs';
 export const NATIVE_SPL_CLAIM_VALIDATION_SOURCE_V1='native-claims/NativeSplClaimValidationV1.sol';
 export const NATIVE_SPL_CLAIM_VALIDATION_NAME_V1='NativeSplClaimValidationV1';

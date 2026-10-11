@@ -5,7 +5,7 @@ import {types} from 'node:util';
 import {lstatSync,realpathSync} from 'node:fs';
 import {join,relative,resolve,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {ROOT,FLAT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,FLAT,GOLDEN} from '@lianum/proofs/catalog';
 const CODE=/^(?:ERR|FLAT|CLAIM|NATIVE_CLAIM|COMBINED_OPERATOR|OPERATOR_NATIVE|SOLANA|BITCOIN|LOCAL_EVM|ROLE_CLIENT|PW|VAULT|NATIVE|COMMITMENT)_[A-Z0-9_]{1,100}$/;
 // These exact SDK labels carry no response, permission or comparison values.
 // Accept no arbitrary message, even if it resembles a diagnostic code.

@@ -11,14 +11,14 @@ import { assertOwnedNativeValueAccountAuthority, runDeviceOwnerDepositAuthorizat
   readDeviceOwnerDepositStatusV1,installOriginalNativePrivateDepositV2 } from './native-value-account-authority-v2.mjs';
 import { assertPairedOriginalAccountActorV2, assertPairedOriginalAccountActorAccountV2,
   pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
-import { assertOwnedNativeValueWalletSystem } from '../../operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
+import { assertOwnedNativeValueWalletSystem } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { createNativeValueSystemStateReader } from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import { normalizeOriginalAccountSignatureV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1,
   normalizeDeviceDepositStatementV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1,
-  DEVICE_DEPOSIT_CONSENT_V1 } from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
+  DEVICE_DEPOSIT_CONSENT_V1 } from '@lianum/mobile-protocol/device-deposit-consent-v1';
 import * as Private from '@lianum/mobile-protocol/device/native-deposit-v2';
-import {createOriginalNativePrivateDepositProofClientV2,createOriginalNativePrivateDepositProofClientV3} from '../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
+import {createOriginalNativePrivateDepositProofClientV2,createOriginalNativePrivateDepositProofClientV3} from '@lianum/proofs/jobs/native-device-private-deposit-client-v2';
 const bridges = new WeakMap(), admissions = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');
 const nonce = () => randomBytes(32).toString('hex');

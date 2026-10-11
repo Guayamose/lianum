@@ -5,12 +5,12 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { createProofProcess } from '../../../packages/engine/src/execution/proofs/proof-process.mjs';
-import { encodeProofMessage, decodeProofMessage, encodePrivateProof, wipePrivate } from '../../../packages/engine/src/execution/proofs/proof-worker.mjs';
+import { createProofProcess } from '../../../packages/proofs/src/execution/proof-process.mjs';
+import { encodeProofMessage, decodeProofMessage, encodePrivateProof, wipePrivate } from '../../../packages/proofs/src/execution/proof-worker.mjs';
 import {
   GENERIC_OWNER_PROTOCOL, OWNER_MAX_REQUEST_BYTES, ownerError, ownerNeed, ownerExact,
   normalizeOwnerInit, normalizeOwnerWithdrawal,
-} from '../../../packages/engine/src/execution/local/local-owner.mjs';
+} from '../../../packages/backend/src/operations/local/local-owner.mjs';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fundedAuthorizationWords } from '../../../packages/engine/src/execution/graph/funded-graph.mjs';
 import { authorizationInputs } from '../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
 import { freshKey, signature } from '../../../packages/engine/src/notes/private-note-encoding.mjs';

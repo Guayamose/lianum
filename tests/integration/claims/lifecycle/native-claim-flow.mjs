@@ -1,4 +1,4 @@
-import { CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, assertBeginPayoutAuditReleaseV1 } from '../../../../packages/backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+import { CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, assertBeginPayoutAuditReleaseV1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 import { BEGIN_PAYOUT_AUDIT_RESULT_V1, assertBeginPayoutAuditResultV1 } from '../payouts/native-claim-begin-payout-audit-policy-v1.mjs';
 import { captureBeginPayoutAuditBeforeV1, captureBeginPayoutAuditTerminalV1 } from '../payouts/native-claim-begin-payout-audit-terminal-v1.mjs';
 import { CLAIM_LOADED_V3_REAL_RUN_DISABLED, CLAIM_LOADED_V3_PROFILE, assertLoadedV3ProofBoundary, captureLoadedV3RedemptionAudit } from '../inventory/native-claim-loaded-v3-policy.mjs';
@@ -11,18 +11,18 @@ import assert from 'node:assert/strict';
 import { readFileSync, realpathSync, mkdirSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROOT, LOCAL } from '../../../../packages/proofs/src/catalog.mjs';
-import { hash } from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import { createRoleProofClient } from '../../../../packages/proofs/src/jobs/role-client.mjs';
+import { ROOT, LOCAL } from '@lianum/proofs/catalog';
+import { hash } from '@lianum/proofs/tooling/tooling';
+import { createRoleProofClient } from '@lianum/proofs/client';
 import { createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   createNativeClaimController, createNativeClaimBeginPayoutAuditControllerV1, isNativeClaimBeginPayoutAuditStopV1, consumeNativeClaimBeginPayoutAuditStopV1 } from '../../../../packages/backend/src/claims/controller/controller.mjs';
-import { claimDomainCommitment } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { auditClaimNativeInventory } from '../../../../packages/backend/src/claims/operations/backing-audit.mjs';
 import { auditOwnedSolanaNonceInfrastructure } from '../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
-import { validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { validateSolanaNonceBindingTransaction,
   validateSolanaNonceBootstrapTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
-import { decodeDepositIntentInputs } from '../../../../packages/backend/src/execution/account/preparation/deposit-intent.mjs';
+import { decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { createFlatNativeExecution } from '../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs';
 import { preflightFundedClaimGraph, preflightFundedClaimGraphV3 } from '../graph/validation/native-claim-graph-preflight.mjs';
 import { LOADED_FACTS_PROFILE, probeLoadedPostDeliveryFacts, assertLoadedFactsProofBoundary }
@@ -31,11 +31,11 @@ import { privateFailureDiagnostic } from '../../../../packages/backend/src/execu
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
 import { createNativeClaimPortfolioView } from '../../../../packages/backend/src/claims/operations/portfolio-view.mjs';
-import {createOriginalWalletEconomicStateV1} from '../../../../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs';
-import { createGenericAccountKeeper } from '../../../../packages/engine/src/execution/accounts/generic-account-keeper.mjs';
-import { createFlatAccountSession } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
-import { startFlatAccountHttp } from '../../../../packages/backend/src/api/accounts/flat-account-http.mjs';
-import { createNativeClaimSession, nativeClaimSessionController } from '../../../../packages/backend/src/api/claims/native-claim-session.mjs';
+import {createOriginalWalletEconomicStateV1} from '@lianum/backend/accounts/state/original-wallet-economic-state-v1';
+import { createGenericAccountKeeper } from '@lianum/engine/accounts/keeper';
+import { createFlatAccountSession } from '@lianum/backend/accounts/session';
+import { startFlatAccountHttp } from '@lianum/backend/accounts/http';
+import { createNativeClaimSession, nativeClaimSessionController } from '@lianum/backend/claims/session';
 import { startNativeClaimHttp } from '../../../../packages/backend/src/api/claims/native-claim-http.mjs';
 import { createOwnedNativeClaimFixture, createOwnedNativeClaimGraphFixture, createOwnedNativeClaimGraphV3Fixture } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';
 import { CLAIM_GRAPH_AMOUNTS, runNativeClaimGraphCase, exitAndRedeemClaimGraphPayout }
@@ -48,7 +48,7 @@ import { CLAIM_GRAPH_V3_REAL_RUN_DISABLED, CLAIM_GRAPH_V3_PROFILE } from '../gra
 import { CLAIM_GRAPH_V3_NATIVE_PROTOCOL, checkClaimGraphV3Bootstrap, checkClaimGraphV3Transfers }
   from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION,
-  NATIVE_INGRESS_V3_KEY_SHA256 } from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  NATIVE_INGRESS_V3_KEY_SHA256 } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 
 // Open only after the source/checkpoint and affected integration checks finish.
 const REAL_NATIVE_RUN_DISABLED = true;

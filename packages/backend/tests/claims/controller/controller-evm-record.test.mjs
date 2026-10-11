@@ -6,11 +6,12 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
-import { decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { legacyDataRoot } from '@lianum/environment';
+import { canonical } from '@lianum/engine/crypto/privacy';
+import { decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { compactClaimEvmRequest, compactClaimEvmPreparation, originalClaimEvmRecord } from '../../../src/claims/controller/controller-evm-record.mjs';
 import { createClaimVaultSession } from '../../../src/claims/storage/vault-session.mjs';
-import { MEMO_PROGRAM, assertMemoProgramAccount, encodeSolanaBindingMessage } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { MEMO_PROGRAM, assertMemoProgramAccount, encodeSolanaBindingMessage } from '@lianum/engine/native/native-receipt-binding';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const copy = value => structuredClone(value);
 const integer = value => { let text = BigInt(value).toString(16); if (text === '0') return Buffer.alloc(0);
@@ -88,8 +89,7 @@ test('duplicated proof-bearing history exceeds the unchanged vault bound; compac
   } finally { vault.close(); await rm(directory, { recursive: true, force: true }); }
 });
 test('SOL issue/redemption/expiry/refund storage includes four complete pinned Memo preparations', async () => {
-  const memo = await readFile(new URL('../../../../../omnichain-product/.local/agave-linux-bounded-build/derived/'
-    + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
+  const memo = await readFile(join(legacyDataRoot('engine'), '.local/test-programs/spl_memo-3.0.0.so'));
   const memoProgram = { address: MEMO_PROGRAM.address, owner: MEMO_PROGRAM.owner, executable: true, dataBase64: memo.toString('base64') };
   assertMemoProgramAccount(memoProgram); assert.equal(memoProgram.dataBase64.length, 99736);
   const native = index => {

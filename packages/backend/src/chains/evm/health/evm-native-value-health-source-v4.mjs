@@ -11,8 +11,8 @@ import { fields, need, freeze, rpcQuantity as rawRpcQuantity, safeMilliseconds,
 import { normalizeEvmBlock } from '../observations/evm-observation-adapter.mjs';
 import { normalizeObservedEvmTransaction, normalizeObservedEvmReceipt, normalizeEvmInclusionBlock }
   from '../observations/evm-transfer-observation-codec.mjs';
-import { nativeObservedEffectCommitment } from '../../shared/dispatch/native-receipt-binding.mjs';
-import { cloneInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { nativeObservedEffectCommitment } from '@lianum/engine/native/native-receipt-binding';
+import { cloneInput } from '@lianum/components/plain-input';
 import { assertSource, validateProfile, assertRegistration, profileCommitment, registryCommitment,
   encodeFacts, FACTS_SCHEMA, CHAINS, TRACE, OBLIGATION } from '../transfers/evm-native-value-v2.mjs';
 import { bindOriginalEvmGraphTransfer } from '../transfers/evm-graph-transfer-binding.mjs';

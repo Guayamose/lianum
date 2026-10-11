@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join,resolve} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
 import {nativeValueDevFinancialSourcePinsV5} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
 const project=resolve(FLAT,'../../..');
 const integration=Object.freeze(['run-native-original-source-abrupt-v1.mjs','native-original-source-abrupt-flow-v1.mjs','native-original-source-abrupt-backend-v1.mjs','native-original-source-abrupt-policy-v1.mjs','native-original-source-abrupt-source-pins-v1.mjs','native-original-source-abrupt-process-scope-v1.mjs']);

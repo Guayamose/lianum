@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, device, createActorModule, hostEconomicRecovery } from './paired-original-account-host-fixture.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, normalizeOriginalAccountReviewV2 }
-  from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+  from '@lianum/mobile-protocol/original-account-v2';
 const origin = 'https://private-actor.example';
 const { createPairedOriginalAccountActorV2 } = await createActorModule();
 const pair = f => createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
@@ -242,7 +242,7 @@ test('prepared original EXIT approval can be privately read without withdrawal e
 // No economic or native/phone restart acceptance is claimed by this HOST case.
 test('native pairing recovery keeps original journal/nonces/expiry and reissues approval only from original owner records', async t => {
   const accountAPI = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
-  const sessionAPI = await import('../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+  const sessionAPI = await import('@lianum/backend/accounts/manual-graph');
   const actorAPI = await createActorModule();
   const f = await fixture(t), actor = await pair(f), issuer = hostEconomicRecovery();
   const selected = await review(actor, f); await actor.submit(signed(selected, f));
@@ -282,7 +282,7 @@ test('native pairing recovery keeps original journal/nonces/expiry and reissues 
   // The unused generic permission keeps its original deadline, not a new TTL.
   t.mock.timers.enable({ apis: ['Date'], now: Math.max(unused.expiresAt, privateUnused.challenge.expiresAt) });
   await assert.rejects(reopened.openReview({ challenge: unused, signature: f.device.sign(originalAccountAccessMessageV2(unused)) }), /EXPIRED/);
-  const { privateStateAccessMessageV1 } = await import('../../../packages/mobile-protocol/src/original-account-private-state-v1.mjs');
+  const { privateStateAccessMessageV1 } = await import('@lianum/mobile-protocol/original-account-private-state-v1');
   await assert.rejects(reopened.openPrivateStateReview({ challenge: privateUnused,
     signature: f.device.sign(privateStateAccessMessageV1(privateUnused.challenge)) }), /EXPIRED/);
   t.mock.timers.reset();

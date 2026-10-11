@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { types } from 'node:util';
 import { BINDING_LIMITS, MEMO_PROGRAM, validateSolanaBindingTransaction }
-  from '../../shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 
 const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

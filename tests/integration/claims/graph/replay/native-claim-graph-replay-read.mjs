@@ -1,16 +1,16 @@
 /** Diagnostic-only public parsers over a separately replayed EVM. This module
  * never creates an owned runtime, observer, operator, or current native claim. */
 import assert from 'node:assert/strict';
-import { encodeClaimABI } from '../../../../../packages/backend/src/claims/protocol/abi.mjs';
+import { encodeClaimABI } from '@lianum/engine/claims/abi';
 import { decodeFlatWords, decodeFlatPoolObservation, decodeFlatHubState, decodeFlatFieldTree }
   from '../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { createFlatPureMathLease } from '../../../../../packages/backend/src/execution/encoding/flat-pure-math-cache.mjs';
 import { decodeClaimConfiguration, decodeClaimIntent, assertClaimAccounting }
   from '../../../../../packages/backend/src/claims/operations/owned-state.mjs';
-import { claimDomainCommitment } from '../../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { auditClaimGateway, auditClaimNativeInventory } from '../../../../../packages/backend/src/claims/operations/backing-audit.mjs';
 import { ownedCustodyFeeAudit } from '../../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
-import { validateSolanaBindingTransaction } from '../../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 
 const bare = value => value.slice(2), prefix = value => '0x' + value;
 const one = raw => decodeFlatWords(raw, 1)[0];

@@ -1,3 +1,5 @@
+import { validateFlatAccountPrepare } from '@lianum/engine/accounts/account-prepare-contract';
+export { validateFlatAccountPrepare } from '@lianum/engine/accounts/account-prepare-contract';
 /** Local presentation boundary over one already-created, surviving keeper.
  * Admissions below are volatile UI state, never a second account journal. */
 import { types } from 'node:util';
@@ -53,13 +55,6 @@ export function flatAccountErrorCode(error) {
     ? candidate : 'FLAT_ACCOUNT_OPERATION_FAILED';
 }
 
-export function validateFlatAccountPrepare(input) {
-  record(input, ['requestId', 'kind', 'ownerOperationRef', 'assetId'], 'FLAT_ACCOUNT_REQUEST_FIELDS');
-  need(requestId(input.requestId) && kinds.has(input.kind) && hex(input.ownerOperationRef) && hex(input.assetId),
-    'FLAT_ACCOUNT_REQUEST');
-  return Object.freeze({ requestId: input.requestId, kind: input.kind,
-    ownerOperationRef: input.ownerOperationRef, assetId: input.assetId });
-}
 
 function command(action, input) {
   need(actions.has(action), 'FLAT_ACCOUNT_ACTION');

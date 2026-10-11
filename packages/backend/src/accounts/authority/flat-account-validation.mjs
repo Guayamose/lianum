@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { immutable, sha } from '@lianum/engine/accounts/journal';
-import { validatePrivateAccountRegistry } from '../../../../engine/src/accounts/private-account-state.mjs';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { decodeStatement } from '../../execution/encoding/statements.mjs';
-import { flatOwnerIdentity, validateFlatOwnerTransition } from '../../../../custody/src/signing/flat-owner-custody.mjs';
+import { validatePrivateAccountRegistry } from '@lianum/engine/accounts/private-account-state';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeStatement } from '@lianum/components/encoding/statements';
+import { flatOwnerIdentity, validateFlatOwnerTransition } from '@lianum/custody/owner';
 
 export const flatAccountCalldataHash = calldata => {
   assert.ok(typeof calldata === 'string' && /^0x(?:[0-9a-f]{2})+$/.test(calldata), 'FLAT_ACCOUNT_CALLDATA');

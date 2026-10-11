@@ -2,7 +2,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { preparePrivateReserveProjection, assertPrivateReservePrestate, createPrivateFundingPreparation, PRIVATE_PAYMENT_AMOUNTS, loadPrivateGuardedFundingSourcePins } from '../../src/payments/private-payment-engine.mjs';
+import { preparePrivateReserveProjection, assertPrivateReservePrestate, createPrivateFundingPreparation, PRIVATE_PAYMENT_AMOUNTS, loadPrivateGuardedFundingSourcePins } from '../../../backend/src/payments/private-payment-engine.mjs';
 import { PrivateNoteTree, noteHashToWords, ZERO_NOTE_HASH, verifyPrivateNotePath } from '../../src/notes/private-note-tree.mjs';
 import { assemblySchema } from '../../src/assembly/private-assembly-encoding.mjs';
 import { assemblyPackageDigest } from '../../src/assembly/private-assembly-actors.mjs';

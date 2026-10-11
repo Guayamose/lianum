@@ -1,8 +1,8 @@
 /** Exact original inventory identity bytes retained inside the native AEAD
  * bootstrap section. This DATA codec cannot issue a token or operator brand. */
 import assert from 'node:assert/strict';
-import { exactRecord, bytes32 } from '../../../execution/encoding/commitments.mjs';
-import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
+import { frozenInput } from '@lianum/components/plain-input';
 import { sha256 } from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { nativeValueInventoryBinding } from './native-value-inventory-v4.mjs';
 const PROFILE = 'ORIGINAL_NATIVE_OPERATOR_BINDING_FRAME_V1';

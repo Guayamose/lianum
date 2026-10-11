@@ -3,10 +3,10 @@
  * Importing or creating this module starts no runtime and sends no transaction. */
 import assert from 'node:assert/strict';
 import { assertLocalEvm } from '../../evm/runtime/local-evm-ownership.mjs';
-import { predictNativeCreateAddress } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { predictNativeCreateAddress } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { evmRuntimeCodeHash } from '../../evm/contracts/evm-code-hash.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 
 // Preserve every started read through rejection; no caller may begin cleanup
 // while a sibling RPC or nested reconstruction still belongs to this read.

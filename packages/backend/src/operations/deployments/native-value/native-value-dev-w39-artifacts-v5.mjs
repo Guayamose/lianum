@@ -5,11 +5,11 @@ import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { ROOT, GOLDEN } from '../../../../../proofs/src/catalog.mjs';
-import { verifyAPI } from '../../../../../proofs/src/tooling/tooling.mjs';
-import { verifyToolchain, verifyCRS } from '../../../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
-import { deriveGenericVerifierImmutables, GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
-import { frozenInput, cloneInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { ROOT, GOLDEN } from '@lianum/proofs/catalog';
+import { verifyAPI } from '@lianum/proofs/tooling/tooling';
+import { verifyToolchain, verifyCRS } from '@lianum/proofs/toolchain/wallet-resources';
+import { deriveGenericVerifierImmutables, GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
+import { frozenInput, cloneInput } from '@lianum/components/plain-input';
 import { W39_DEV_DIRECTORY_V5, W39_DEV_FILES_V5, W39_DEV_SOURCE_V5, W39_DEV_HISTORICAL_MISSING_V5,
   W39_DEV_KIND_V5, W39_DEV_NOIR_VERSION_V5, w39DevDigestV5, w39DevOriginalBasisV5,
   validateW39DevDescriptorV5, validateW39DevGenerationV5, validateW39DevReceiptV5,

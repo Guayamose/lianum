@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { readFileSync, realpathSync, lstatSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { ROOT, FLAT, GOLDEN, CANDIDATE } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN, CANDIDATE } from '@lianum/proofs/catalog';
 import { nativeValueDevHostSourcePinsV5 } from './native-value-dev-source-pins-v5.mjs';
-import { cloneInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput } from '@lianum/components/plain-input';
 import { W39_DEV_SOURCE_V5, w39DevDigestV5 } from './native-value-dev-w39-contract-v5.mjs';
 const DEVELOPMENT = resolve(FLAT, '../../..');
 const roots = Object.freeze([

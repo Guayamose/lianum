@@ -1,7 +1,7 @@
 /** Fixed source review and acceptance metadata. No proof, reserve, native
  * finality, registry, key or signing authority is created here. */
 import assert from 'node:assert/strict';
-import {hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {hash} from '@lianum/proofs/tooling/tooling';
 import {inspectNativeSplClaimV1PreparedBytes} from '../../../../packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs';
 import {NATIVE_SPL_CUSTODY_V1 as SPL} from '../../../../packages/backend/src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 export const DEVELOPMENT_BTC_SPL_GRAPH_SOURCE_REVIEW_V1=Object.freeze({"profile":"FRESH_PRIVATE_CBTC_SOURCE_SOL_JUPITER_USDC_CUSTODY_V1","sourceLamports":"10000000","nativeMint":"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v","custodyProgram":"5RnJjhp7NKPgawoXnPJiXJtjJ5ktkMUrRuBtP4YmLSUM","ci51VerifierKeySHA256":"003e1915d3d9178ad78c1286844ff1658457d4da84746dc572b424bb5b5451e4","verifierCompilationRunId":"0290bdde-0deb-4c65-9e8d-b4c5bf62ce3f","verifierCompilationSHA256":"4b5d5dabb57d762ce754bf0142896eafb14162085d53b041517e44dae1aa05da","custodyElfSHA256":"a8521c684df423a85355808f9babc276670bcd7af5307eeff16a2bfa372361ce","localOnly":true,"fakeFundsOnly":true,"publicNetwork":false,"privateGraphAcceptanceEstablished":false,"fullWalletAcceptance":false});

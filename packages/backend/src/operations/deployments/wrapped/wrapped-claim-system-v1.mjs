@@ -1,5 +1,6 @@
-import { originalOwnedRuntimeRpcFailureV1 } from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
-import { inspectWrappedInstallationSourcesV2 } from '../../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { validateWrappedClaimOperationalRegistration } from '../../../claims/ingress/operational-registration-v2.mjs';
+import { originalOwnedRuntimeRpcFailureV1 } from '@lianum/engine/chains/shared/runtime-harness';
+import { inspectWrappedInstallationSourcesV2 } from '@lianum/components/verification/wrapped-installation';
 /** Genuine-artifact-bound combined wrapped-custody and generic native graph bootstrap. This module never starts an EVM or owns its
  * lifecycle. Only a golden createLocalEvm capability can receive deployments.
  * Importing it loads no artifacts, compiler, prover, backend or runtime. */
@@ -8,11 +9,11 @@ import { createHash } from 'node:crypto';
 import { evmFunctionSelector } from '../../../chains/evm/contracts/evm-code-hash.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
-  nativeProofCalldata } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { linkPrivateBytecode } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '../../../execution/encoding/commitments.mjs';
+  nativeProofCalldata } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '@lianum/engine/evidence/native-quorum';
+import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '@lianum/components/encoding/commitments';
 import { buildWrappedClaimDeploymentPlanV1, claimConfigurationABI, claimArtifactMethod } from './wrapped-claim-deployment-plan-v1.mjs';
 import { WRAPPED_CLAIM_LEDGER_ROLES_V1 as NATIVE_VALUE_LEDGER_ROLES, WRAPPED_CLAIM_GRAPH_VERIFIER_ORDER_V1 as FLAT_VERIFIER_ORDER, WRAPPED_CLAIM_VERIFIER_ORDER_V1, loadWrappedClaimDeploymentArtifactsV1 } from './wrapped-claim-deployment-artifacts-v1.mjs';
 import { assertWrappedClaimOperatorBootstrapV1, assertWrappedClaimOperatorCustodyBootstrapV1, provisionWrappedClaimOperatorsV1, finishWrappedClaimOperatorsV1 } from '../../operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs';
@@ -20,8 +21,8 @@ import { consumeWrappedClaimGraphOperatorBootstrapRequestV1 } from '../../operat
 import { verifyWrappedClaimGraphConstructorStorageV1 } from './wrapped-claim-deployment-checks-v1.mjs';
 import { WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1 } from '../../releases/wrapped/wrapped-claim-release-v1.mjs';
 import { assertOwnedWrappedClaimBootstrap, ownedWrappedClaimBootstrapBindings, recheckOriginalWrappedClaimCustodyV1, revokeWrappedClaimCustodyBootstrapV1 } from '../../operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs';
-import { encodeClaimABI } from '../../../claims/protocol/abi.mjs';
-import { claimDomainCommitment } from '../../../claims/protocol/framing.mjs';
+import { encodeClaimABI } from '@lianum/engine/claims/abi';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
 export const WRAPPED_CLAIM_SYSTEM_PROFILE_V1 = 'LIANUM_OWNED_WRAPPED_CUSTODY_NATIVE_GRAPH_V1';
 export const WRAPPED_CLAIM_ACTIVATION_BLOCKERS_V1 = WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1;
@@ -669,7 +670,7 @@ export async function assertCapturedWrappedClaimSystemUnchangedV1(runtime,system
 }
 export async function reopenWrappedClaimGraphSystemRecoveryV1(token) {
   assert.equal(arguments.length,1);inspectWrappedInstallationSourcesV2();
-  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
+  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs');
   const {runtime,bootstrap,custodyBootstrap,record:r}=consumeWrappedSystemRecoveryPartV1(token,'contracts');
   exactRecord(r,['schema','system','claims','hub','pools','libraries','generatedLibraries','verifiers','claimAuthority','claimGateways','claimWrappers','claimLibraries','claimVerifiers','views','claimView','evmGenesis']);
   assert.equal(r.schema,'WRAPPED_GRAPH_SYSTEM_RECOVERY_V1');await assertLocalEvm(runtime);
@@ -710,4 +711,11 @@ export async function reopenWrappedClaimGraphSystemRecoveryV1(token) {
     assert.deepEqual(views,r.views,'WRAPPED_RECOVERY_GRAPH_STATE_CHANGED');assert.deepEqual(claimView,r.claimView,'WRAPPED_RECOVERY_CLAIM_STATE_CHANGED');
     await drained(readers.map((v,i)=>()=>v.assertCurrent(views[i])));await handles.observer.assertCurrent(claimView);await unchangedHead(runtime,head);live();return system;
   }catch(error){ownedSystems.delete(system);ownedClaims.delete(claims);throw error;}
+}
+
+/** Wallet eligibility checked by the original deployment owner. */
+export function assertOwnedWrappedClaimWalletSystemV1(runtime, system) {
+  assertOwnedWrappedClaimGraphSystem(runtime,system);assertOwnedWrappedClaimSystem(runtime,system.claims);
+  assert.equal(system.profile,WRAPPED_CLAIM_SYSTEM_PROFILE_V1);assert.equal(system.claimsEnabled,true);
+  assert.ok(Object.isFrozen(system));validateWrappedClaimOperationalRegistration(system.custodyRegistration);
 }

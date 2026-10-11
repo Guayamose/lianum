@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, verify } from 'node:crypto';
 import { DEPOSIT_INTENT_TAG, DEPOSIT_INTENT_PUBLIC_WORDS, validateDepositIntentStatement,
-  encodeDepositIntentInputs, decodeDepositIntentInputs, depositIntentFrame, depositIntentWitness } from '../../../../src/execution/account/preparation/deposit-intent.mjs';
-import { freshKey, signature, uintBE } from '../../../../../engine/src/notes/private-note-encoding.mjs';
+  encodeDepositIntentInputs, decodeDepositIntentInputs, depositIntentFrame, depositIntentWitness } from '@lianum/engine/execution/inputs/deposit-intent';
+import { freshKey, signature, uintBE } from '@lianum/engine/notes/private-note-encoding';
 import { balanceCommitment, balanceDepositFrame, walletDepositInput, walletInputPublicWords }
-  from '../../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { SECP256K1_ORDER } from '../../../../../engine/src/notes/private-native-certificate.mjs';
+  from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { SECP256K1_ORDER } from '@lianum/engine/notes/private-native-certificate';
 
 const hex = byte => byte.repeat(32);
 function fixture({ amount = '400', validFrom = '1700000000', validUntil = '1700007200' } = {}) {

@@ -2,7 +2,7 @@
  * broadcast. Recovered owner-address equality is NOT current account permission
  * authorization, TAPOS/head validity, inclusion, finality or graph authority. */
 import { createHash } from 'node:crypto';
-import { recoverSecp256k1Sender } from '../../evm/runtime/owned-evm-v2-runtime.mjs';
+import { recoverSecp256k1Sender } from '../../evm/contracts/transaction-wire-codec.mjs';
 import { fields, need, freeze } from '../../shared/portfolio/portfolio-registry.mjs';
 
 export const TRON_TRANSFER_WIRE_PROFILE = 'flat-tron-original-transfer-wire/1';

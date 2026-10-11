@@ -2,8 +2,8 @@
  * original quorum and its same-head complete reciprocal custody/graph audits.
  * No caller inventory, signer, transport, clock or callback can substitute. */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../encoding/commitments.mjs';
-import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1 } from './wrapped-claim-system-state-v1.mjs';
 const issued = new WeakMap();

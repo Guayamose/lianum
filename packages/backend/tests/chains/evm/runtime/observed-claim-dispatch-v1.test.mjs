@@ -29,13 +29,13 @@ function fixture(observedClock,{wrongKey=false,expired=false}={}) {
     assertOwnedEvmDispatchRequest(request,boundRuntime){const row=generic.get(request);assert.ok(row&&row.runtime===boundRuntime,'HOST_GENERIC_SCOPE_REQUIRED');return row.callbacks;}}};
   const context={assert:{...assert, // Explicit host/VM metadata bridge; production validators unchanged.
       deepEqual:(a,b,message)=>assert.deepEqual(structuredClone(a),structuredClone(b),message)},
-    Buffer,modules,observedClock,observedEconomicV2:false,economicRecoveryFence:null,economicV2:false,nativeValueOnly:false,
+    Buffer,modules,observedClock,observedEconomicV2:false,deviceSourceObservationOnly:false,economicRecoveryFence:null,economicV2:false,nativeValueOnly:false,
     runtime,localCustody:null,performance:{now:()=>state.now},Date:{now:()=>state.walltime},
     observedNativeValueReceiverSecond,usedDispatches:new WeakSet(),transactions:[],receipts:[],
     genesisHash:'0x'+'f'.repeat(64),lastTimestamp:100n,uncertainMutation:false,uncertainSignedHash:null,
     send(){},refreshObservedClock(){},advanceTo(){},dispatchNativeValueV1(){},assertNativeValuePreparedCurrent(){},observeNativeValueOriginal(){},logicalReadV4:value=>value,
     cloned:structuredClone,quantity:value=>value,bytes:value=>value,hex:value=>'0x'+BigInt(value).toString(16),
-    unsignedFields:value=>value,encodeRlp:()=>Buffer.from('01','hex'),keccak:()=>Buffer.alloc(32,1),
+    encodeCanonicalEvmUnsignedTransaction:()=> '0x01',keccak:()=>Buffer.alloc(32,1),
     request(value){state.prepares++;return {...value,gas:'0xc350',value:'0x0'};},
     async mutate(work){state.mutations++;return work();},async block(){return structuredClone(state.head);},
     async rpc(method,params){events.push(method);switch(method){

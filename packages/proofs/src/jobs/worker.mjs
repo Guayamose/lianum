@@ -1,6 +1,6 @@
 /** Internal one-task process. Its actual parent, sources and IPC are authenticated. */
 import assert from 'node:assert/strict';
-import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';

@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { cloneInput as copy, frozenInput as freeze } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { claimUint } from '../protocol/framing.mjs';
+import { claimUint } from '@lianum/engine/claims/framing';
 import { auditClaimGateway } from '../operations/backing-audit.mjs';
 import { auditNonceIngressPreparation, auditDualNonceInventory, validateNonceIngressBinding,
   assertCanonicalNonceIngressReservation, assertProspectiveIngressCoverage, candidateCommitment,

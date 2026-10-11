@@ -5,15 +5,17 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { freshKey } from '../../../../../engine/src/notes/private-note-encoding.mjs';
+import { freshKey } from '@lianum/engine/notes/private-note-encoding';
 import { nativeAdmissionRulesTree, nativeAdmissionChainDomain, nativeProviderIdentity, nativeDeliveryRiskCommitment,
-  NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE } from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { nativeCustodyCommitment } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeQuorumRegistryCommitment, NATIVE_QUORUM_PROFILE } from '@lianum/engine/evidence/native-quorum';
+import { nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { normalizeNativeDispatchBinding } from '../../../../src/chains/shared/dispatch/native-dispatch-gate.mjs';
-import { evmVaultDeliveryDescriptorCommitment } from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+import { evmVaultDeliveryDescriptorCommitment } from '@lianum/engine/encoding/evm-vault-delivery';
 import { evmFundingEndpointCommitment } from '../../../../src/chains/evm/dispatch/evm-facts-binding.mjs';
-import { decodeCanonicalEvmTransaction, LOCAL_EVM_PROFILE, assertOwnedLocalEvmV2 as actualRuntimeBrand } from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { decodeCanonicalEvmTransaction } from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../../../../src/chains/evm/runtime/local-evm-profiles.mjs';
+import { assertOwnedLocalEvmV2 as actualRuntimeBrand } from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedEvmVaultDeliveryObserver as actualObserverBrand } from '../../../../src/chains/evm/vault/evm-vault-delivery-observer.mjs';
 import { assertOwnedEvmVaultRouter as actualRouterBrand } from '../../../../src/operations/deployments/defi/deploy-evm-vault-router.mjs';
 import { evmDeliveryFixture, signedDeliveryWire } from '../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';

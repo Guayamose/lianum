@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
+import {GOLDEN} from '@lianum/proofs/catalog';
 import {classifyNativeEconomicRestartProcessV1 as classify,NATIVE_ECONOMIC_RESTART_WORKER_V1 as MAIN,NATIVE_ECONOMIC_SUCCESSOR_WORKER_V1 as NEXT,NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1 as ANVIL} from './native-device-economic-process-scope-v1.mjs';
 const parent=script=>({argv:[process.execPath,script]});
 function anvil(successor){const directory=join(GOLDEN,'.local/integrations','flat-economic-native-v2-ABC123');return [ANVIL,'--host','127.0.0.1','--port','45678','--chain-id','1','--hardfork','cancun','--timestamp','1900000310','--accounts','0',...(successor?['--load-state',join(directory,'reopen-state-1.json')]:['--init',join(directory,'native-economic-genesis-v2.json')]),'--quiet','--no-cors','--no-mining','--gas-limit','30000000'];}
@@ -61,7 +61,7 @@ test('HOST private Native worker generation uses own actors and requires the rev
  assert.deepEqual(c([process.execPath,next],process.execPath,parent(main)),{role:'native-economic-successor-role',proofWorker:false});assert.deepEqual(c(anvil(false),ANVIL,parent(main)),{role:'evm-runtime',proofWorker:false});assert.deepEqual(c(anvil(true),ANVIL,parent(next)),{role:'evm-runtime',proofWorker:false});
  for(const old of [p.NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2,p.NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2,MAIN,NEXT])assert.deepEqual(c([process.execPath,next],process.execPath,parent(old)),unexpected);
  // Actual expected physical paths come from the original catalogue, not this fixture's URLs.
- const{ROOT}=await import('../../../../packages/proofs/src/catalog.mjs');
+ const{ROOT}=await import('@lianum/proofs/catalog');
  for(const role of ['deposit','exit']){const own=ROOT+'/proof-workers/native-device-private-'+role+'-recipient-v3.mjs',old=ROOT+'/proof-workers/native-device-private-'+role+'-recipient-v2.mjs';assert.deepEqual(c([process.execPath,own],process.execPath,parent(main)),{role:'native-private-note-recipient',proofWorker:false});assert.deepEqual(c([process.execPath,own],process.execPath,parent(next)),{role:'native-private-note-recipient',proofWorker:false});assert.deepEqual(c([process.execPath,own],process.execPath,parent(p.NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2)),unexpected);assert.deepEqual(c([process.execPath,old],process.execPath,parent(main)),unexpected);const worker=ROOT+'/proof-workers/native-private-note-'+(role==='deposit'?'deposit':'withdraw')+'-worker-v3.mjs';assert.deepEqual(c([process.execPath,worker],process.execPath,parent(own)),{role:'economic-note-native-coordinator',proofWorker:false});assert.deepEqual(c([process.execPath,worker,'withdraw_balance'],process.execPath,parent(own)),unexpected);assert.deepEqual(c([process.execPath,worker],process.execPath,parent(old)),unexpected);}
  const policy=await import('./native-device-private-worker-durable-note-policy-v3.mjs');policy.assertNativePrivateWorkerDurableNoteReleaseV3();const release=policy.NATIVE_PRIVATE_WORKER_DURABLE_NOTE_RELEASE_V3;assert.equal(Object.isFrozen(release),true);assert.equal(release.originalPermissionMs,15000);for(const field of ['publicNetwork','phone','abruptCrash'])assert.equal(release[field],false);assert.throws(()=>policy.assertNativePrivateWorkerDurableNoteResultV3({}),{code:'ERR_ASSERTION'});
 });

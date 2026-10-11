@@ -253,7 +253,7 @@ export async function createOriginalSolClaimMobileLocalOperatorV1(config) {
   if(arguments.length!==1)deviceHttpFail();return createFixedClaimMobileLocalOperator(config,1);
 }
 export async function originalClaimMobileLocalConfigurationPathV1() {
-  if(arguments.length!==0)deviceHttpFail();const {ROOT}=await import('../../../../proofs/src/catalog.mjs');
+  if(arguments.length!==0)deviceHttpFail();const {ROOT}=await import('@lianum/proofs/catalog');
   const {join}=await import('node:path');return join(ROOT,'.local/native-claim-mobile-v1/config.json');
 }
 function normalizedOriginalClaimMobileInfrastructure(config) {
@@ -274,7 +274,7 @@ function normalizedOriginalClaimMobileInfrastructure(config) {
 export async function readOriginalNativeSplClaimMobileInfrastructureV1() {
   if(arguments.length!==0)deviceHttpFail();
   const [{ROOT},{join},{open,lstat,realpath},{constants}]=await Promise.all([
-    import('../../../../proofs/src/catalog.mjs'),import('node:path'),import('node:fs/promises'),import('node:fs')]);
+    import('@lianum/proofs/catalog'),import('node:path'),import('node:fs/promises'),import('node:fs')]);
   const directory=join(ROOT,'.local/native-claim-mobile-v1'),path=join(directory,'spl-config.json');
   const parent=await lstat(directory);if(!parent.isDirectory()||parent.isSymbolicLink()
     ||parent.uid!==process.getuid()||(parent.mode&0o777)!==0o700||await realpath(directory)!==directory)deviceHttpFail();
@@ -292,21 +292,21 @@ export async function readOriginalNativeSplClaimMobileInfrastructureV1() {
 async function createFixedClaimMobileLocalOperator(config,index) {
   config=normalizedOriginalClaimMobileInfrastructure(config);
   const [{ROOT},{mkdtemp,mkdir,open},{join},{randomBytes}]=await Promise.all([
-    import('../../../../proofs/src/catalog.mjs'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
+    import('@lianum/proofs/catalog'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
   const {createOwnedLocalEvmV2}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
   const {createOwnedCombinedBitcoinRuntime}=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
   const {createOwnedCombinedSolanaRuntime}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');
   const {createNativeClaimIngressV3Bootstrap,preflightNativeClaimIngressV3Artifacts,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
   const {createOwnedClaimObserver}=await import('../../claims/operations/owned-state.mjs');
   const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
-  const {createFlatOwnerNativeClaimObserver}=await import('../../../../custody/src/observers/flat-owner-native-claim-observer.mjs');
-  const {createFlatOwnerProcess}=await import('../../../../custody/src/processes/flat-owner-process.mjs');
-  const {createRoleProofClient}=await import('../../../../proofs/src/jobs/role-client.mjs');
+  const {createFlatOwnerNativeClaimObserver}=await import('../../custody/observers/flat-owner-native-claim-observer.mjs');
+  const {createFlatOwnerProcess}=await import('../../custody/processes/flat-owner-process.mjs');
+  const {createRoleProofClient}=await import('@lianum/proofs/client');
   const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
-  const {claimDomainCommitment}=await import('../../claims/protocol/framing.mjs');
-  const {decodeDepositIntentInputs}=await import('../../execution/account/preparation/deposit-intent.mjs');
+  const {claimDomainCommitment}=await import('@lianum/engine/claims/framing');
+  const {decodeDepositIntentInputs}=await import('@lianum/engine/execution/inputs/deposit-intent');
   const {createFlatAccountAuthority}=await import('../../accounts/authority/flat-account-authority.mjs');
-  const {createGenericAccountKeeper}=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const {createGenericAccountKeeper}=await import('@lianum/engine/accounts/keeper');
   const {createFlatAccountSession}=await import('../accounts/flat-account-session.mjs');
   const secret=()=>randomBytes(32).toString('hex'),bare=value=>value.slice(2);
   const base=join(ROOT,'.local/native-claim-mobile-v1');await mkdir(base,{recursive:true,mode:0o700});
@@ -511,7 +511,7 @@ export function readOriginalDeviceRootSplSourceProductContextV3(service){
 async function createDeviceRootClaimLocalOperator(config,profile){
   const sourceSpl=profile==='SPL_SOURCE_EXIT_V4',family=sourceSpl?'SPL':profile.endsWith('_EXIT_V3')?profile.slice(0,-8):profile;if(!['BTC','SOL','SPL'].includes(family))deviceHttpFail();
   config=normalizedOriginalClaimMobileInfrastructure(config);
-  const [{ROOT},{mkdir,mkdtemp},{join},{randomBytes}]=await Promise.all([import('../../../../proofs/src/catalog.mjs'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
+  const [{ROOT},{mkdir,mkdtemp},{join},{randomBytes}]=await Promise.all([import('@lianum/proofs/catalog'),import('node:fs/promises'),import('node:path'),import('node:crypto')]);
   const secret=()=>randomBytes(32).toString('hex'),base=join(ROOT,'.local/device-root-native-claims-v2');
   await mkdir(base,{recursive:true,mode:0o700});const {lstat,realpath}=await import('node:fs/promises'),st=await lstat(base);
   if(!st.isDirectory()||st.isSymbolicLink()||st.uid!==process.getuid()||(st.mode&0o777)!==0o700||await realpath(base)!==base)deviceHttpFail();
@@ -530,9 +530,9 @@ async function createDeviceRootClaimLocalOperator(config,profile){
     const {createNativeClaimBootstrap,createOriginalRecentBlockhashNativeClaimBootstrapV4,preflightOriginalRecentBlockhashNativeClaimV4Artifacts,createNativeSplClaimIngressV1Bootstrap,preflightNativeSplClaimIngressV1Artifacts,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
     const {createOwnedClaimObserver}=await import('../../claims/operations/owned-state.mjs');
     const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
-    const {createRoleProofClient}=await import('../../../../proofs/src/jobs/role-client.mjs');
+    const {createRoleProofClient}=await import('@lianum/proofs/client');
     const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
-    const {claimDomainCommitment}=await import('../../claims/protocol/framing.mjs');
+    const {claimDomainCommitment}=await import('@lianum/engine/claims/framing');
     if(profile.endsWith('_EXIT_V3')&&family!=='SPL'){await preflightOriginalRecentBlockhashNativeClaimV4Artifacts();live();}
     if(sourceSpl){await preflightNativeSplClaimIngressV1Artifacts();live();}
     runtime=await(sourceSpl||profile.endsWith('_EXIT_V3')?createOwnedDeviceExternalFlatReceiverV1():createOwnedLocalEvmV2());live();if(sourceSpl||profile.endsWith('_EXIT_V3'))assertOwnedDeviceExternalFlatReceiverV1(runtime);({custody:bitcoin,graph:graphBitcoin}=await createOwnedCombinedBitcoinRuntime());live();
@@ -552,7 +552,7 @@ async function createDeviceRootClaimLocalOperator(config,profile){
       const {assertOwnedSolanaSplGraphPairV1}=await import('../../chains/solana/runtime/owned-solana-runtime.mjs');assertOwnedSolanaSplGraphPairV1(solana,graphSolana);
       for(const op of graphOperators)await op.bind({runtime,system:claims.flatSystem,bitcoin:graphBitcoin,solana:graphSolana,rules:[bootstrap.rules[0],bootstrap.graphSolanaRule],rulePaths:[bootstrap.rulePaths[0],bootstrap.rulePaths[2]]});live();
       const {createFlatOperatorQuorum}=await import('../../operations/operators/claims/native-operators.mjs');graphQuorum=createFlatOperatorQuorum({operators:graphOperators.slice(0,3)});
-      const {createOwnedFlatNativeProvider}=await import('../../providers/native-provider.mjs'),{NATIVE_ADMISSION_LOSS_CLAUSE}=await import('../../../../engine/src/execution/native/dispatch/native-admission.mjs');
+      const {createOwnedFlatNativeProvider}=await import('../../providers/native-provider.mjs'),{NATIVE_ADMISSION_LOSS_CLAUSE}=await import('@lianum/engine/execution/native/dispatch/native-admission');
       const now=await runtime.time(),domain=claims.flatSystem.pools[0].domain,providerDirectory=join(directory,'original-sol-source-provider');await mkdir(providerDirectory,{mode:0o700});live();
       sourceProvider=await createOwnedFlatNativeProvider({runtime,system:claims.flatSystem,poolIndex:0,nativeRuntime:graphSolana,operatorQuorum:graphQuorum,rule:bootstrap.graphSolanaRule,rulePath:bootstrap.rulePaths[2],recipientIndex:1,
         terms:{scope:domain.scope,policy:domain.policy,asset:domain.asset,amount:'10000000',executionFrom:String(now),executionUntil:String(now+7140n),settleBefore:String(now+7200n)},acceptedLossClause:NATIVE_ADMISSION_LOSS_CLAUSE,directory:providerDirectory,password:secret()});live();
@@ -589,7 +589,7 @@ async function createDeviceRootClaimLocalOperator(config,profile){
 async function createDeviceRootSplOriginalSourceExecutionV4(original){
   const {runtime,bitcoin,graphBitcoin,graphSolana,claims,bootstrap,observer,graphQuorum,controller,ingressProverIdentity,sourceProvider,sourceBinding,directory}=original;
   const [{mkdir},{join},{createHash},{createClaimVaultSession},{assertOwnedFlatNativeProvider},{createFlatOwnerProcess},{createFlatOwnerNativeClaimObserver},{createFlatNativeExecution},{createFlatAccountAuthority},{createGenericAccountKeeper},{createNativeRecipientProcess},{decodeDepositIntentInputs},{claimDomainCommitment},{validateSolanaBindingTransaction},{isDeepStrictEqual}]=await Promise.all([
-    import('node:fs/promises'),import('node:path'),import('node:crypto'),import('../../claims/storage/vault-session.mjs'),import('../../providers/native-provider.mjs'),import('../../../../custody/src/processes/flat-owner-process.mjs'),import('../../../../custody/src/observers/flat-owner-native-claim-observer.mjs'),import('../../execution/account/execution/flat-native-execution.mjs'),import('../../accounts/authority/flat-account-authority.mjs'),import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs'),import('../../../../engine/src/execution/native/recipients/native-recipient-process.mjs'),import('../../execution/account/preparation/deposit-intent.mjs'),import('../../claims/protocol/framing.mjs'),import('../../chains/shared/dispatch/native-receipt-binding.mjs'),import('node:util')]);
+    import('node:fs/promises'),import('node:path'),import('node:crypto'),import('../../claims/storage/vault-session.mjs'),import('../../providers/native-provider.mjs'),import('../../custody/processes/flat-owner-process.mjs'),import('../../custody/observers/flat-owner-native-claim-observer.mjs'),import('../../execution/account/execution/flat-native-execution.mjs'),import('../../accounts/authority/flat-account-authority.mjs'),import('@lianum/engine/accounts/keeper'),import('../../execution/native/recipients/native-recipient-process.mjs'),import('@lianum/engine/execution/inputs/deposit-intent'),import('@lianum/engine/claims/framing'),import('@lianum/engine/native/native-receipt-binding'),import('node:util')]);
   const system=claims.flatSystem,domain=system.pools[0].domain,secret=()=>randomBytes(32).toString('hex'),digest=value=>createHash('sha256').update(value).digest('hex');
   const expected={runtime,system,poolIndex:0,nativeRuntime:graphSolana,operatorQuorum:graphQuorum,family:'2',recipientIndex:1};
   let owner,recipient,execution,account,accountKeeper,vault,record,closing=false,closed=false,closeWork,work=null,admitted=false,sourceIntent=null,graphAdmitted=false;

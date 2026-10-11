@@ -11,11 +11,11 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdir, writeFile, open } from 'node:fs/promises';
 import { join } from 'node:path';
-import { linuxRuntimePins } from '../../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
+import { linuxRuntimePins } from '@lianum/engine/chains/shared/linux-runtime-pins';
 import { pinnedBinary, scratchDirectory, removeOwnScratch, unusedLoopbackPort, startOwnProcess,
-  stopOwnProcess, isolatedRuntimeEnvironment, sleep } from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
+  stopOwnProcess, isolatedRuntimeEnvironment, sleep } from '@lianum/engine/chains/shared/runtime-harness';
 
-import { encodeWireCommitment, validateBitcoinBinding } from '../../shared/dispatch/native-receipt-binding.mjs';
+import { encodeWireCommitment, validateBitcoinBinding } from '@lianum/engine/native/native-receipt-binding';
 import { readBitcoinInventoryOutputs } from '../transfers/owned-bitcoin-inventory-reads.mjs';
 import { createOwnedBitcoinInventoryReader } from '../transfers/owned-bitcoin-inventory-rpc.mjs';
 import { ownedCustodyRoute, assertOwnedCustodyIntent, summarizeOwnedBitcoinCoins, ownedCustodyFeeAudit, createOwnedCustodyReservationReadWindow } from '../../shared/runtime/owned-native-custody.mjs';

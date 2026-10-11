@@ -1,7 +1,7 @@
 /** Synthetic public receipt metadata only; never a branded client or proof. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROFILE, SETTINGS, LIMITS, CATALOG } from '@lianum/proofs/catalog';
 import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS, limitsForMode } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, assertBtcSolRecipientWithdrawalTelemetry }
   from './development-btc-sol-graph-proof-evidence.mjs';

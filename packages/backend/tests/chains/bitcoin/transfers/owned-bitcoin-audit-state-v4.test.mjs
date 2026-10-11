@@ -10,9 +10,9 @@ import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
-import { encodeBitcoinBinding } from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { encodeBitcoinBinding } from '@lianum/engine/native/native-receipt-binding';
 import { auditClaimNativeInventory } from '../../../../src/claims/operations/backing-audit.mjs';
-import { nativeClaimEndpointCommitment } from '../../../../src/claims/protocol/framing.mjs';
+import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const hash160 = value => createHash('ripemd160').update(createHash('sha256').update(value).digest()).digest('hex');

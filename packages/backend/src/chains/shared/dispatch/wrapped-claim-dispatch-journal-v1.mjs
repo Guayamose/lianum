@@ -3,14 +3,14 @@
  * There is deliberately no RESET, replacement, fee-bump or resend transition. */
 import assert from 'node:assert/strict';
 import { createPublicKey, verify } from 'node:crypto';
-import { exactRecord, bytes32, validateStruct } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, validateStruct } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint, readyDescriptorWords } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { joinReadiness } from '../../../execution/encoding/statements.mjs';
+import { joinReadiness } from '@lianum/components/encoding/statements';
 import { normalizeNativeValueDispatchBinding, nativeValueBindingDigest, equal, assertNativeValuePrepared, assertNativeValueSigned, normalizeOriginalNativeValueEvmPreparation, normalizeOriginalNativeValueTronPreparation, selectedNativeValueProfile } from './wrapped-claim-dispatch-binding-v1.mjs';
 import { PROFILE_SCHEMA as EVM_SCHEMA } from '../../evm/transfers/evm-native-value-v2.mjs';
 import { assertNativeValueHealth } from '../health/native-value-health-v2.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
-import { nativeDispatchStatementFrame, nativeReadyStatementDigest } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
+import { nativeDispatchStatementFrame, nativeReadyStatementDigest } from '@lianum/engine/execution/native/dispatch/native-admission';
 export const JOURNAL_SCHEMA='LIANUM_WRAPPED_CLAIM_APPEND_ONLY_GRAPH_DISPATCH_JOURNAL_V1';
 export const MAX_DISPATCH_EVENTS=128;
 const clone=cloneInput,freeze=frozenInput;

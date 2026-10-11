@@ -2,26 +2,26 @@ import { CLAIM_GRAPH_V3_PROFILE, CLAIM_GRAPH_V3_PROOF_COUNTS, validateClaimGraph
 import { checkClaimGraphV3Bootstrap, checkClaimGraphV3Transfers } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { assertClaimGraphPayoutReplay } from '../graph/validation/native-claim-graph-terminal-checks.mjs';
 import { assertNonceIngressDeployment } from '../../../../packages/backend/src/claims/ingress/ingress-v3-host.mjs';
-import { validateClaimConfig } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { validateClaimConfig } from '@lianum/engine/claims/framing';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION,
-  NATIVE_INGRESS_V3_KEY_SHA256, NATIVE_INGRESS_V3_PROFILE } from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  NATIVE_INGRESS_V3_KEY_SHA256, NATIVE_INGRESS_V3_PROFILE } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 /** Read-only check of a completed retained fixture. This does not run a node,
  * reprove a relation, establish public-chain consensus or perform an audit. */
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
-import { publicKeccak256 } from '../../../../packages/engine/src/cohorts/private-cohort-public-native.mjs';
-import { decodeWalletPoolInputs } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { NATIVE_CLAIM_CONTRACT_PIN } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-artifacts.mjs';
-import { decodeClaimIngressInputs, decodeClaimDischargeInputs } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
-import { validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { decodeClaimIngressInputs, decodeClaimDischargeInputs } from '@lianum/engine/claims/framing';
+import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { validateSolanaNonceBindingTransaction,
   validateSolanaNonceBootstrapTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { auditOwnedSolanaNonceInfrastructure, ownedCustodyFeeAudit } from '../../../../packages/backend/src/chains/shared/runtime/owned-native-custody.mjs';
 import { FLAT_TRANSACTION_METHODS } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
-import { decodeStatement } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { decodeStatement } from '@lianum/components/encoding/statements';
 import { CLAIM_GRAPH_PROFILE, CLAIM_GRAPH_PROOF_COUNTS, claimGraphProofPackets, validateClaimGraphResult }
   from '../graph/validation/native-claim-graph-artifacts.mjs';
 

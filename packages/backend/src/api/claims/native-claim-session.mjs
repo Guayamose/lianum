@@ -7,9 +7,9 @@ import { AssertionError } from 'node:assert';
 import { createHash, randomBytes, createPublicKey, verify } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { types } from 'node:util';
-import { exactRecord, bytes32 } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
-import { claimUint, claimDomainCommitment, nativeClaimEndpointCommitment } from '../../claims/protocol/framing.mjs';
+import { claimUint, claimDomainCommitment, nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 import { ownedClaimControllerJournal as nativeJournal } from '../../claims/controller/controller-journal.mjs';
 import { ownedNativeClaimControllerBindings as nativeBindings, restartNativeClaimController as nativeRestart } from '../../claims/controller/controller.mjs';
 

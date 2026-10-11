@@ -11,17 +11,17 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as stores from '../../../src/claims/storage/segmented-record-store.mjs';
-import { recoverSecp256k1Sender } from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { recoverSecp256k1Sender } from '../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { encodeSolanaNonceBindingMessage } from '../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
-import { receiptKeyCommitment, nativeRuleCommitment } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { receiptKeyCommitment, nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { nativeFactsRegistryCommitment, FACTS_QUORUM_PROFILE } from '../../../src/chains/shared/dispatch/native-facts-peer.mjs';
 import { ownedCustodyRoute, ownedCustodyFeeAudit } from '../../../src/chains/shared/runtime/owned-native-custody.mjs';
-import { nativeAdmissionRulesTree } from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { createNativeQuorumHostVerifier } from '../../../../engine/src/evidence/native-quorum.mjs';
+import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimTicketId, claimTicketSecret,
-  nativeClaimEndpointCommitment, claimDestinationCommitment } from '../../../src/claims/protocol/framing.mjs';
+  nativeClaimEndpointCommitment, claimDestinationCommitment } from '@lianum/engine/claims/framing';
 import { claimFrame, claimHash, claimRouteCommitment, claimPayoutAuthorizationFrame,
-  claimPayoutBroadcastFrame } from '../../../src/claims/authorization/permits.mjs';
+  claimPayoutBroadcastFrame } from '@lianum/engine/claims/permits';
 import { createClaimReservationBinding } from '../../../src/claims/authorization/reservation-facts-gate.mjs';
 
 const hash = value => createHash('sha256').update('synthetic broadcast boundary/' + value).digest('hex');

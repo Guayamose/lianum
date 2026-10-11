@@ -9,7 +9,7 @@ test('HOST retained EXIT assessment rejects UNKNOWN, substituted receipt and sec
 });
 
 import {classifyExternalDefiVaultExitProcessV1,externalDefiVaultExitProcessFailureV1} from './external-defi-vault-exit-process-scope-v1.mjs';
-import {ROOT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,GOLDEN} from '@lianum/proofs/catalog';
 import {join} from 'node:path';
 import {NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1} from '../../wallet/native/native-device-economic-process-scope-v1.mjs';
 test('HOST fixed successor rejects foreign parent/flags and init plus load-state before fallback',()=>{
@@ -28,7 +28,7 @@ test('HOST fixed successor rejects foreign parent/flags and init plus load-state
 
 
 import {readFileSync} from 'node:fs';
-import {bindGenericAccountRequest,validateBoundRequest,validateOutcome} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import {bindGenericAccountRequest,validateBoundRequest,validateOutcome} from '@lianum/engine/accounts/journal';
 test('HOST actual retained-note guard requires the original TOP_UP and EXIT terminals and excludes GRAPH',()=>{
   // Execute the production guard itself with original request/outcome validators.
   // Fixture statements are public synthetic metadata, never acceptance authority.
@@ -105,7 +105,7 @@ test('HOST original retained fixture keeps the late-created lifetime accessor wi
 });
 
 
-import {immutable,sha as canonicalJournalSHA,genericAccountIdentity} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import {immutable,sha as canonicalJournalSHA,genericAccountIdentity} from '@lianum/engine/accounts/journal';
 test('HOST original catalogue status commits only authenticated false-to-true admission fencing and rejects every other change',()=>{
   // Run the actual catalogue factory's saved-state initialization, descriptor
   // and status closure. Public synthetic data ports contain no issuer, vault,

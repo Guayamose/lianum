@@ -5,9 +5,9 @@ import { assertWrappedWalletAccountReleasedV1 } from '../../operations/releases/
 import assert from 'node:assert/strict';
 import { validateBoundRequest, validateGenericAccountConfig,
   genericAccountIdentity, validateOutcome, immutable, sha } from '@lianum/engine/accounts/journal';
-import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { bindFlatPortfolioChildRequest } from '../authority/flat-portfolio-authority.mjs';
-import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
+import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedWrappedWalletAccountAuthorityV1 } from '../authority/wrapped-wallet-account-authority-v1.mjs';
 export const WRAPPED_WALLET_PORTFOLIO_PROFILE_V1 = 'OWNED_WRAPPED_WALLET_PORTFOLIO_V1';
 const owned = new WeakMap(), claimed = new WeakSet();

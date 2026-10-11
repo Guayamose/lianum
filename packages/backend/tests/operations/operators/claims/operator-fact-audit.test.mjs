@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage }
-  from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 import { encodeSolanaNonceBindingMessage } from '../../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { createNativeFactsSigner, createNativeFactsInventory, createNativeFactsPeer,
   createNativeClaimFactsSigner, createNativeClaimFactsInventory, createNativeClaimFactsPeer }

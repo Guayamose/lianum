@@ -3,12 +3,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import * as binding from '../../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
-import * as original from '../../../../../components/src/framing.mjs';
+import * as binding from '@lianum/engine/native/native-receipt-binding';
+import * as original from '@lianum/components/framing';
 import { canonicalNativeEffectId, nativeEffectToNoir }
-  from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+  from '@lianum/engine/execution/native/state/native-receipt';
 import { nativeAdmissionRuleCommitment, nativeAdmissionChainDomain }
-  from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 
 const ZERO = '0'.repeat(64);
 const hash = label => createHash('sha256').update('SYNTHETIC-BINDING/' + label).digest('hex');

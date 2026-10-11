@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {ROOT,LIMITS} from '../../src/catalog.mjs';
 import {I84_NATIVE_PROFILE_V1,I84_NATIVE_BINARY_V1,I84_NATIVE_BINARY_SHA256_V1,I84_NATIVE_LIMITS_V1,
   classifyI84NativeProcessV1,assertI84NativeReceiptV1,nativeI84ExecutionSourcesV1}
-  from '../../src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
+  from '../../../backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {NATIVE_VALUE_LIVE_V2_SPEC,NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,NATIVE_VALUE_LIVE_V2_KEY_SHA256,NATIVE_VALUE_LIVE_V2_KEY_MANIFEST_SHA256}
   from '../../src/native-value/metadata/native-value-live-v2-profile.mjs';
 import {nativeProofProcessResources,nativeResourceFailure,NATIVE_FLOW_LIMITS}

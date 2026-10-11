@@ -6,13 +6,13 @@ import { gunzipSync } from 'node:zlib';
 import { DIR, ROOT, CATALOG, LIMITS, SETTINGS, hash, json, parse, writeNew, replace,
   fingerprint, acceptedProgram, loadPhase, memoryFor } from './common.mjs';
 import { regular, loadPinned, assertStats, assertKeyBytes, canonicalKeyHash, publicWords,
-  verifierWords, resourceModuleURL } from '../../../packages/proofs/src/tooling/tooling.mjs';
-import { validateJobAgainstABI } from '../../../packages/proofs/src/jobs/trusted-jobs.mjs';
-import { compileSoliditySources } from '../../../packages/proofs/src/tooling/solidity-compiler.mjs';
-import { FIELD_MODULUS } from '../../../packages/backend/src/execution/encoding/statements.mjs';
+  verifierWords, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
+import { validateJobAgainstABI } from '@lianum/proofs/jobs/trusted-jobs';
+import { compileSoliditySources } from '@lianum/proofs/tooling/solidity-compiler';
+import { FIELD_MODULUS } from '@lianum/components/encoding/statements';
 import { buildSyntheticGenericIngressV3Fixture } from '../native-ingress-v3/fixtures/synthetic-ingress-v3.mjs';
 import { verifyPinnedCO42 } from '../native-ingress-v3-validation/common.mjs';
-import { deriveGenericVerifierImmutables } from '../../../packages/engine/src/execution/local/local-deployment.mjs';
+import { deriveGenericVerifierImmutables } from '@lianum/engine/execution/local/local-deployment';
 
 for(const name of ['log','info','warn','error','debug','trace'])console[name]=()=>{};
 globalThis.fetch=async()=>{throw Error('V3A_OFFLINE_REQUIRED');};

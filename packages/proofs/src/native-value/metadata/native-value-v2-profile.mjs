@@ -9,7 +9,7 @@ import { ROOT, CATALOG, NOIR_VERSION } from '../../catalog.mjs';
 import { assertABI } from '../../tooling/tooling.mjs';
 import { validateJobAgainstABI } from '../../jobs/trusted-jobs.mjs';
 import { NATIVE_VALUE_ADMISSION_RELATION, validateNativeValueAdmissionStatement,
-  encodeNativeValueAdmissionStatement } from '../../../../backend/src/execution/encoding/native-value-statements-v2.mjs';
+  encodeNativeValueAdmissionStatement } from '@lianum/components/encoding/native-value-statements-v2';
 export { NATIVE_VALUE_ADMISSION_RELATION };
 export const NATIVE_VALUE_ACCEPTED_SOURCE_VERSION='4a6503d4b139e20e4d672ca39eb5d5f1f75497555ba6d55a7d6c424dcbb5d92e';
 export const NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256='fa23b3b8867c0418834d3acd4eb70cf10aca558434fe0a19c84f59d05e5b614c';

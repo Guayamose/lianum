@@ -39,7 +39,16 @@
     "./device/native-withdrawal-v2": "./src/device-native-private-exit-v2.mjs",
     "./device/native-reservation-v2": "./src/device-native-private-reservation-v2.mjs",
     "./device/paged-owner-v3": "./src/device-paged-owner-v3.mjs",
-    "./device/paged-graph-v3": "./src/device-paged-graph-v3.mjs"
+    "./device/paged-graph-v3": "./src/device-paged-graph-v3.mjs",
+    "./device-defi-position-read-v1": "./src/device-defi-position-read-v1.mjs",
+    "./device-deposit-consent-v1": "./src/device-deposit-consent-v1.mjs",
+    "./device-execution-consent-v1": "./src/device-execution-consent-v1.mjs",
+    "./device-exit-consent-v1": "./src/device-exit-consent-v1.mjs",
+    "./device-morpho-blue-redemption-v1": "./src/device-morpho-blue-redemption-v1.mjs",
+    "./device-output-balance-v1": "./src/device-output-balance-v1.mjs",
+    "./device-recovery-arm-consent-v1": "./src/device-recovery-arm-consent-v1.mjs",
+    "./device-reservation-consent-v1": "./src/device-reservation-consent-v1.mjs",
+    "./original-account-private-state-v1": "./src/original-account-private-state-v1.mjs"
   },
   "types": "./src/authorization.d.mts",
   "dependencies": {}

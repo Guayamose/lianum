@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { createOwnedLocalEvmV2 } from '../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { createOfficialProtocolFixture } from '../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import { createOwnedMetaMorphoVault, assertOwnedMetaMorphoReceipt } from '../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
-import { ROOT } from '../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 
 assert.deepEqual(process.argv.slice(2), ['--run-local-fixture'], 'EXPLICIT_LOCAL_DEFI_FIXTURE_REQUIRED');
 const report = { schema: 'LIANUM_LOCAL_METAMORPHO_ACCEPTANCE_V1', success: false, publicNetwork: false,
@@ -49,7 +49,7 @@ try {
   stage('atomic-minimum-and-expiry-rejection');
   const router = adapter.metadata.routerAddress;
   await fixture.send(fixture.vault, 'approve', [router, shares]);
-  const bounded = await import('../../../packages/engine/src/cohorts/private-cohort-public-native.mjs');
+  const bounded = await import('@lianum/engine/cohorts/private-cohort-public-native');
   const selector = bounded.publicKeccak256(Buffer.from('redeem(uint128,uint128,uint64,bytes32)')).subarray(0, 4).toString('hex');
   const calldata = (minimum, deadline) => '0x' + selector + [shares, minimum, deadline]
     .map(value => BigInt(value).toString(16).padStart(64, '0')).join('') + randomBytes(32).toString('hex');

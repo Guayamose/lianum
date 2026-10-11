@@ -1,8 +1,8 @@
 /** Synthetic public mathematical signatures and RPC fixtures for bounded tests.
  * No private keys or signing: fixed r=Gx, s=1 recover a different public sender
  * for each declared payload. These are not transactions submitted to any chain. */
-import { publicKeccak256 } from '../../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { recoverSecp256k1Sender } from '../../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { recoverSecp256k1Sender } from '../../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { PORTFOLIO_CHAINS } from '../../../../../src/chains/shared/portfolio/portfolio-registry.mjs';
 const Gx = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
 export const quantity = n => '0x' + BigInt(n).toString(16);

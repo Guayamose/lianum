@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {join,relative} from 'node:path';
-import {ROOT,LOCAL} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,LOCAL} from '@lianum/proofs/catalog';
 import {classifyNativeSplClaimV1Preparation,nativeSplClaimV1CompilationProcessFailure,parseNativeSplClaimV1PreparationStatus} from './native-spl-claim-v1-compilation-policy.mjs';
 test('fixed CI51 V1 public preparation accepts no prove, alternative relation or argv; exited foreign work also rejects',()=>{
  const node='/usr/bin/node',id='5aa01bb7-1c2b-41ad-a161-a03b030a2768';

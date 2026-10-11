@@ -1,10 +1,10 @@
-import {sha as canonicalJournalSHA} from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import {sha as canonicalJournalSHA} from '@lianum/engine/accounts/journal';
 import {retainedExternalVaultWalletContextV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
-import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
+import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '@lianum/backend/defi/withdrawal';
 import {externalVaultExitLifetimeContextV1,markExternalVaultExitCapturedV1} from '../../chains/evm/external-defi-vault-exit-lifetime-v1.mjs';
 import {externalDefiVaultExitSourcePinsV1} from '../../chains/evm/external-defi-vault-exit-source-pins-v1.mjs';
 import {commitExternalVaultExitCatalogueTransitionV1} from '../../chains/evm/external-defi-vault-exit-policy-v1.mjs';
-import {hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {hash} from '@lianum/proofs/tooling/tooling';
 import {retainExternalDefiVaultCatalogueRecoveryV1,retainExternalDefiOwnersRecoveryV1,retainExternalDefiVaultExitSystemRecoveryV1,retainWrappedPrivateLifetimeRecoveryV1,retainExternalDefiReceiverRuntimeV2,finishWrappedRecoveryCaptureV1,closeWrappedRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 /** Fixed planned F capture and original successor. The caller is the PRIVATE
  * original fixture, not HTTP/SQL. No device root/opening/key is serialized over
@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import {fork} from 'node:child_process';
 import {readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {nativeValueOriginalRecoverySourceV1} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import {createNativeEconomicRecoveryAuthorityV1,createNativeEconomicNoteRecoveryAuthorityV1,closeNativeEconomicRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {captureNativeValueEconomicRecoveryV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs';

@@ -1,8 +1,8 @@
 /** Fixed compilation closure and official material, no caller roots. */
 import assert from 'node:assert/strict';
 import {join,relative,sep} from 'node:path';
-import {ROOT,FLAT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT,GOLDEN} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {aavePrivateGraphSourcePinsV1} from './aave-private-graph-source-pins-v1.mjs';
 export function aaveCompilationSourcePinsV1(){
  assert.equal(arguments.length,0,'AAVE_COMPILATION_SOURCE_NO_OPTIONS');

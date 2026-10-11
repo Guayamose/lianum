@@ -8,16 +8,16 @@ import { createConnection, createServer as createPortReservation } from 'node:ne
 import { request as httpsRequest } from 'node:https';
 import { execFileSync } from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {createGenericBalanceNativePreparation} from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
+import {createGenericBalanceNativePreparation} from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { fixture, createActorModule } from './paired-original-account-host-fixture.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
-  from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+  from '@lianum/mobile-protocol/original-account-v2';
 import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
-  from '../../../packages/mobile-protocol/src/original-account-private-state-v1.mjs';
+  from '@lianum/mobile-protocol/original-account-private-state-v1';
 // Framework sources stay in their actual app directory. This host test is run
 // through ./dev after build and public apps/mobile dependencies are installed.
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';

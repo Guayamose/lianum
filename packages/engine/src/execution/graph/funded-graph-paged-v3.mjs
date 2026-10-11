@@ -10,7 +10,7 @@ import {nullifier,uintBE} from '../../notes/private-note-encoding.mjs';
 import {nativeReceiptReadOpening,nativeReceiptCommitment,nativeReceiptNullifier,nativeReceiptToNoir,RECEIPT_HASH_FIELDS,canonicalNativeEffectId,nativeEffectToNoir} from '../native/state/native-receipt.mjs';
 import {nativeAdmissionRegistryToNoir,nativeAdmissionRuleToNoir,nativeAdmissionObservationToNoir,nativeAdmissionRuleCommitment,nativeAdmissionRuleRoot,nativeAdmissionChainDomain,nativeProviderIdentity,nativeDispatchStatementFrame,nativeDispatchStatementDigest,nativeAttestationStatementFrame} from '../native/dispatch/native-admission.mjs';
 import {nativeActionToNoir,nativeTransferActionCommitment} from '../native/dispatch/native-capsules.mjs';
-import {wipePrivateProofInputsV1} from '../../../../proofs/src/jobs/private-proof-transit-v1.mjs';
+import {wipePrivateProofInputsV1} from '../../crypto/private-proof-transit-v1.mjs';
 import {normalizeNativeQuorumRegistry,nativeQuorumRegistryCommitment,createNativeQuorumHostVerifier} from '../../evidence/native-quorum.mjs';
 export const FUNDED_GRAPH_PAGED_V3=Object.freeze({id:'LIANUM_PAEG_FUNDED_PAGED_V3',pageSize:64});
 const builders=new WeakMap(),sealed=new WeakMap(),privateStates=new WeakMap(),Z='0'.repeat(64),U64=1n<<64n;

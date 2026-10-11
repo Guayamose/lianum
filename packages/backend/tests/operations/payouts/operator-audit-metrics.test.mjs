@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
-import { ROOT } from '../../../../proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 
 let wall = 0;
 let user = 0;

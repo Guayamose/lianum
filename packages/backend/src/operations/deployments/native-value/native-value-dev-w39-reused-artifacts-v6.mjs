@@ -7,8 +7,8 @@ import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { ROOT, GOLDEN } from '@lianum/proofs/catalog';
-import { verifyToolchain, verifyCRS } from '../../../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
-import { frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { verifyToolchain, verifyCRS } from '@lianum/proofs/toolchain/wallet-resources';
+import { frozenInput } from '@lianum/components/plain-input';
 import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../../releases/native-value/native-value-dev-release-v5.mjs';
 import { W39_DEV_DIRECTORY_V5, W39_DEV_FILES_V5, W39_DEV_SOURCE_V5, W39_DEV_HISTORICAL_MISSING_V5,
   W39_DEV_KIND_V5, w39DevDigestV5, w39DevOriginalBasisV5,

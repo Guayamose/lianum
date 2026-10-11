@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { GENERIC_COMPILER_PIN } from '../../../engine/src/execution/local/local-deployment.mjs';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 import { legacyDataRoot } from '@lianum/environment';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

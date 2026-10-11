@@ -8,7 +8,7 @@ import { refreshNativeValueReceiverClock } from '../runtime/owned-evm-v2-runtime
 import assert from 'node:assert/strict';
 import { retainNativeValueFailurePhase, retainNativeValueSecondaryFailure } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import { performance } from 'node:perf_hooks';
-import { exactRecord, createCommitmentCodec } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, createCommitmentCodec } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedNativeValueSystem } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { assertOwnedNativeValueQuorum } from '../../../operations/operators/native-value/native-value-operators-v4.mjs';

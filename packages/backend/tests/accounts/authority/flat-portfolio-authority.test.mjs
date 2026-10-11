@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { bindGenericAccountRequest, validateGenericAccountConfig }
-  from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+  from '@lianum/engine/accounts/journal';
 import { bindFlatPortfolioChildRequest, projectFlatPortfolioOutcome, createFlatPortfolioAuthority }
   from '../../../src/accounts/authority/flat-portfolio-authority.mjs';
 

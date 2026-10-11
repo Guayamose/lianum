@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { prepareNativeClaimGraph,prepareNativeSplSourceGraphV1 } from '../graph/flows/prepare-native-claim-graph.mjs';
 import { createFlatSystemStateReader } from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
-import { createProofProcess } from '../../../../packages/engine/src/execution/proofs/proof-process.mjs';
-import { walletInputPublicWords, decodeWalletPoolInputs } from '../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { createProofProcess } from '@lianum/proofs/execution/proof-process';
+import { walletInputPublicWords, decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
-import { validateSolanaBindingTransaction } from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
-import { claimDomainCommitment } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
+import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
+import { claimDomainCommitment } from '@lianum/engine/claims/framing';
 import { freshFixtureId, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 
 export const DEVELOPMENT_BTC_SOL_AMOUNTS = Object.freeze({ source: '100000', payout: '20000',

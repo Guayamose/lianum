@@ -7,14 +7,14 @@ import {createHash,randomBytes} from 'node:crypto';
 import {realpath} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
-import {Graph} from '../../../../packages/proofs/src/tooling/original-paged-artifacts-v3.mjs';
+import {Graph} from '@lianum/proofs/tooling/original-paged-artifacts-v3';
 import {readOriginalPagedNativeExecutionContextV3} from '../../../../packages/backend/src/operations/local/funded-paged-native-operator-v3.mjs';
 import {prepareOriginalPagedNativeActionsV3,readOriginalPagedNativeAdmissionV3,readOriginalPagedNativeHealthV3} from '../../../../packages/backend/src/providers/funded-paged-native-provider-v3.mjs';
 import {dispatchOriginalDevicePagedNativeNodeV3} from '../../../../packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs';
-import {readOriginalFundedPagedGraphDeploymentV3} from '../../../../packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs';
-import {nativeReceiptCommitment} from '../../../../packages/engine/src/execution/native/state/native-receipt.mjs';
-import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
-import * as C from '../../../../packages/mobile-protocol/src/device-paged-graph-v3.mjs';
+import {readOriginalFundedPagedGraphDeploymentV3} from '../../../../packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs';
+import {nativeReceiptCommitment} from '@lianum/engine/execution/native/state/native-receipt';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
+import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
 import {assertOriginalPagedMobileHostV3,retainOriginalPagedMobileCustodyCopyV3,eraseOriginalPagedMobileCustodyNamespaceV3,readOriginalPagedMobileCustodyCopyV3} from './device-paged-mobile-host-v3.mjs';
 // The prepared flow shares the canonical original mobile SDK/Vault/PoP.
 // Only these two exact source layouts are accepted; no CWD/env/path selection.

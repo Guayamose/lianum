@@ -1,7 +1,7 @@
 // Generates fixed binary framing around official SHA256/ECDSA black boxes only.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { frame } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
+import { frame } from '@lianum/engine/notes/private-note-encoding';
 const dir=fileURLToPath(new URL('.',import.meta.url));
 const source=readFileSync(dir+'../circuits/authorization/src/main.nr','utf8');
 const helpers=source.slice(source.indexOf('// FIPS'),source.indexOf('fn main('))+`

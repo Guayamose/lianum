@@ -5,18 +5,18 @@ import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
-import { validateJobAgainstABI } from '../../../../packages/proofs/src/jobs/trusted-jobs.mjs';
+import { CATALOG } from '@lianum/proofs/catalog';
+import { validateJobAgainstABI } from '@lianum/proofs/jobs/trusted-jobs';
 import { buildSyntheticGenericIngressV3Fixture } from '../fixtures/synthetic-ingress-v3.mjs';
-import { buildClaimIngressInputs } from '../../../../packages/backend/src/claims/protocol/inputs.mjs';
+import { buildClaimIngressInputs } from '@lianum/engine/claims/inputs';
 import { claimDomainCommitment, claimReceiptSecret, claimRefundSalt, claimDestinationCommitment,
   claimIngressReceiptCommitment, claimVerifierSetCommitment, encodeClaimIngressInputs,
-  encodeClaimDischargeInputs } from '../../../../packages/backend/src/claims/protocol/framing.mjs';
+  encodeClaimDischargeInputs } from '@lianum/engine/claims/framing';
 import { encodeNativeClaimFacts, validateNativeClaimFacts, nativeClaimFactsDigest,
   receiptKeyCommitment, nativeAdmissionNullifier, nativeFactIdentity }
-  from '../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 import { createNativeQuorumHostVerifier }
-  from '../../../../packages/engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 
 const h = label => createHash('sha256').update(label).digest('hex');
 const hashFields = async fields => '00' + h('TEST-ONLY-NOT-POSEIDON/' + fields.map(String).join(':')).slice(2);

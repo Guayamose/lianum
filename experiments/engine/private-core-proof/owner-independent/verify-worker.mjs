@@ -1,4 +1,4 @@
-import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS_LIMIT} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS_LIMIT} from '@lianum/engine/crypto/private-resource-policy';
 /** Short-lived actual verifier; fd3 result is isolated from toolchain logging. */
 import {writeSync,readFileSync,statfsSync} from 'node:fs';import {verifyAssembly} from './prover.mjs';
 const parts=[];let bytes=0;const timer=setTimeout(()=>process.exit(2),300000);const monitor=setInterval(()=>{const disk=statfsSync(process.cwd()),ram=Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo','utf8'))[1])*1024;if(ram<PRIVATE_RESOURCE_FLOORS.availableRAM||disk.bavail*disk.bsize<PRIVATE_RESOURCE_FLOORS.freeDisk){writeSync(3,JSON.stringify({ok:false,code:'PC18_RESOURCE_FLOOR',name:'Error'})+'\n');process.exit(2);}},1000);

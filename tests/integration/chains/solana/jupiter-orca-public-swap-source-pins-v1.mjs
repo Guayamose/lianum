@@ -1,8 +1,8 @@
 /** Fixed original supervisor closure + official public snapshot; no caller roots. */
 import assert from 'node:assert/strict';
 import {join,relative,resolve,sep} from 'node:path';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {nativeFlowSourcePins} from '../../runners/source-pins.mjs';
 import {JUPITER_OFFICIAL_FILES_V1,loadJupiterOfficialMaterialV1} from '../../../../packages/backend/src/operations/deployments/defi/jupiter-official-material-v1.mjs';
 export function jupiterOrcaPublicSwapSourcePinsV1(){

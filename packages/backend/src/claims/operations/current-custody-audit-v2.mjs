@@ -3,11 +3,11 @@
  * Supplying a head or passing this function establishes neither provenance nor
  * currentness. The owned combined reader/key factory remains a separate gate. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { assertClaimAccounting } from './owned-state.mjs';
 import { auditClaimGateway, auditClaimNativeInventory, assertClaimHealthState } from './backing-audit.mjs';
-import { nativeClaimEndpointCommitment } from '../protocol/framing.mjs';
+import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 import { validateWrappedClaimOperationalRegistration } from '../ingress/operational-registration-v2.mjs';
 import { FLAT_HEALTH_FIELDS } from '../../chains/shared/health/native-health.mjs';
 

@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { DIR, ROOT, CANDIDATE, CIRCUIT, CATALOG, LIMITS, SETTINGS, NOIR_VERSION,
   hash, json, parse, writeNew, replace, fingerprint, verifyPinnedCO42 } from './common.mjs';
-import { regular, loadPinned, assertABI } from '../../../packages/proofs/src/tooling/tooling.mjs';
-import { validateJobAgainstABI } from '../../../packages/proofs/src/jobs/trusted-jobs.mjs';
-import { FIELD_MODULUS } from '../../../packages/backend/src/execution/encoding/statements.mjs';
+import { regular, loadPinned, assertABI } from '@lianum/proofs/tooling/tooling';
+import { validateJobAgainstABI } from '@lianum/proofs/jobs/trusted-jobs';
+import { FIELD_MODULUS } from '@lianum/components/encoding/statements';
 import { buildSyntheticGenericIngressV3Fixture } from '../native-ingress-v3/fixtures/synthetic-ingress-v3.mjs';
 
 for (const name of ['log','info','warn','error','debug','trace']) console[name] = () => {};

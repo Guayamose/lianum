@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startLocalServer } from '../../src/api/server.mjs';
+import { startLocalServer } from '../../../backend/src/api/private-runtime-server.mjs';
 
 test('loopback client: signed local workflow, authentic state, no private keys, origin/token/body checks',async()=>{
   const directory=await mkdtemp(join(tmpdir(),'paeg-server-test-')); const app=await startLocalServer({port:0,directory,initialTime:1800000000000});

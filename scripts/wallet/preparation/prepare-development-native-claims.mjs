@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { nativeProcStatV1 } from '../../../tests/integration/native/native-flow-owned-files-v1.mjs';
 import { catalog, tools, DIRECTORY, STEPS, parse, write, replace, fingerprint, co42Artifacts }
-  from '../../../packages/proofs/src/native-ingress/tooling/native-claims-build-common.mjs';
+  from '../../../packages/backend/src/proving/native-ingress/tooling/native-claims-build-common.mjs';
 assert.equal(process.argv.length,2,'NATIVE_REBUILD_FIXED_INVOCATION');
 assert.deepEqual(process.execArgv,[]);assert.ok(!process.env.NODE_OPTIONS&&!process.env.NODE_PATH);
 const env={PATH:'/usr/bin:/bin',LANG:'C.UTF-8'};

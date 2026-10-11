@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { realpathSync } from 'node:fs';
-import { ROOT, FLAT, GOLDEN } from '../../../../packages/proofs/src/catalog.mjs';
-import { regular, hash, verifyAPI, verifyVendor } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
+import { regular, hash, verifyAPI, verifyVendor } from '@lianum/proofs/tooling/tooling';
 export function nativeClaimEmptyAuditSourcePins() {
   assert.equal(arguments.length, 0); const files = new Map();
   // This new diagnostic accepts only the generated public workspace runtime,

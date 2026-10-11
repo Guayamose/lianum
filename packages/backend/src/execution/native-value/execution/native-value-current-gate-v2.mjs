@@ -4,14 +4,14 @@ import { refreshNativeValueReceiverClock } from '../../../chains/evm/runtime/own
  * actual P42/R50/new-I84 and purpose-18/health atomically at actual admission.
  * No native dispatch/sign/broadcast method is supplied by this preflight. */
 import assert from 'node:assert/strict';
-import { exactRecord, canonicalField, bytes32 } from '../../encoding/commitments.mjs';
+import { exactRecord, canonicalField, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../account/preparation/readiness-inputs.mjs';
-import { joinNativeValueAdmission } from '../../encoding/native-value-statements-v2.mjs';
+import { joinNativeValueAdmission } from '@lianum/components/encoding/native-value-statements-v2';
 import { createNativeValueSystemStateReader as nativeReader, decodeFlatWords } from '../reconciliation/native-value-system-state-v2.mjs';
 import { assertOwnedNativeValueSystem as nativeSystem } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { assertOwnedNativeValueQuorum as nativeQuorum } from '../../../operations/operators/native-value/native-value-operators-v4.mjs';
 import { assertNativeValueHealth } from '../../../chains/shared/health/native-value-health-v2.mjs';
-import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';
+import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedNativeValueQuorum as assertWrappedQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
 const prefix = value => '0x' + value;

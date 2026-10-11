@@ -1,12 +1,12 @@
-import { inspectWrappedInstallationSourcesV2, assertWrappedAccountSourceRowsV2 } from '../../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { inspectWrappedInstallationSourcesV2, assertWrappedAccountSourceRowsV2 } from '@lianum/components/verification/wrapped-installation';
 /** Unreleased source join. This gate is independent of graph-only/native note
  * releases and the underlying wrapped deployment release. No caller overrides. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { lstatSync, readFileSync } from 'node:fs';
-import { ROOT, FLAT, GOLDEN } from '../../../../../proofs/src/catalog.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1 } from './wrapped-claim-release-v1.mjs';
 export const WRAPPED_WALLET_ACCOUNT_RELEASE_V1 = {
   "schema": "WRAPPED_WALLET_ACCOUNT_SOURCE_RELEASE_V1",

@@ -2,7 +2,7 @@
  * no RPC text, revert, request/response, receipt, key or economic authority. */
 import assert from 'node:assert/strict';
 import {types} from 'node:util';
-import {originalOwnedRuntimeRpcFailureV1} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
+import {originalOwnedRuntimeRpcFailureV1} from '@lianum/engine/chains/shared/runtime-harness';
 import {privateNativeEconomicSuccessorFirstErrorV1} from '../../wallet/native/native-device-economic-private-error-v1.mjs';
 const RPC_METHODS=new Set(['eth_chainId','eth_getBalance','eth_getTransactionCount','eth_getCode','eth_call',
  'web3_sha3','eth_sendTransaction','evm_setNextBlockTimestamp','evm_mine','eth_getBlockByNumber','eth_getTransactionReceipt']);

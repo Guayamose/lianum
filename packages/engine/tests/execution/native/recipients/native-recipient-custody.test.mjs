@@ -14,7 +14,7 @@ import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../.
 import { nativeTransferActionCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
 import { createNativeRecipientCustody, recoverNativeRecipientCustody, nativeRecipientPayoutNote,
   nativeRecipientInvoiceRequest, nativeRecipientInvoiceMessage } from '../../../../src/execution/native/recipients/native-recipient-custody.mjs';
-import { createNativeRecipientProcess, assertOwnedNativeRecipientProcess } from '../../../../src/execution/native/recipients/native-recipient-process.mjs';
+import { createNativeRecipientProcess, assertOwnedNativeRecipientProcess } from '../../../../../backend/src/execution/native/recipients/native-recipient-process.mjs';
 import { positiveFixtures } from '../../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
 
 const hash = text => createHash('sha256').update('synthetic recipient test:' + text).digest('hex');
@@ -283,7 +283,7 @@ test('raw owner IPC rejects arbitrary signing, key export, destination replaceme
 });
 
 test('separate native owner preparation feeds the exact scoped invoice into recipient custody without proving', async t => {
-  const { createNativeOwnerProcess } = await import('../../../../src/execution/native/dispatch/native-owner.mjs');
+  const { createNativeOwnerProcess } = await import('../../../../../backend/src/execution/native/dispatch/native-owner.mjs');
   const { cfg, directory } = await setup(t), recipient = await createNativeRecipientProcess({ mode: 'create', ...cfg });
   t.after(() => recipient.close());
   const offer = await recipient.offer(), owner = createNativeOwnerProcess();

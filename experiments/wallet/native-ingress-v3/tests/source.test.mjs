@@ -5,8 +5,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CATALOG, relation } from '../../../../packages/proofs/src/catalog.mjs';
-import { sourceManifest } from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import { CATALOG, relation } from '@lianum/proofs/catalog';
+import { sourceManifest } from '@lianum/proofs/tooling/tooling';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const candidate = fileURLToPath(new URL('../', import.meta.url));

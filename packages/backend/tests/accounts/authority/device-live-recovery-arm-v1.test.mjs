@@ -8,9 +8,9 @@ import {readFile,mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {createCommitmentCodec,SCHEMAS} from '../../../src/execution/encoding/commitments.mjs';
-import {FIELD_MODULUS} from '../../../src/execution/encoding/statements.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
+import {createCommitmentCodec,SCHEMAS} from '@lianum/components/encoding/commitments';
+import {FIELD_MODULUS} from '@lianum/components/encoding/statements';
 import {recoveryWitness} from '../../../src/execution/account/preparation/funding-inputs.mjs';
 import {encodeFlatTransaction} from '../../../src/execution/encoding/transaction-codec.mjs';
 import {decodeNativeValueTerminalCalldata} from '../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
@@ -22,7 +22,7 @@ async function actualSource(file='native-value-account-authority-v2.mjs'){
 }
 const source=await actualSource();
 const fragments=await Promise.all(['execution','reservations','withdrawals'].map(name=>actualSource('native-value/native-value-authority-'+name+'.mjs')));
-const {PrivateNoteTree,verifyPrivateNotePath}=await import('../../../../engine/src/notes/private-note-tree.mjs');
+const {PrivateNoteTree,verifyPrivateNotePath}=await import('@lianum/engine/notes/private-note-tree');
 function body(start,end){
  const name=marker=>marker.trim().replace(/^(export |async |function |const )+/g,'').match(/^\w+/)[0];
  const first=name(start),next=name(end);

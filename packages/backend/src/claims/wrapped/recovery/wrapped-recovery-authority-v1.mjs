@@ -10,9 +10,9 @@ import { constants } from 'node:fs';
 import { lstat, realpath, mkdir, open, unlink, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { canonicalClaimRecordDataV1 } from '@lianum/engine/storage/records';
-import { LOCAL_EVM_PROFILE } from '../../../../../engine/src/execution/local/local-evm.mjs';
+import { LOCAL_EVM_PROFILE } from '@lianum/engine/execution/local/local-evm';
 import { assertStoppedNativeFilesV1 } from '../../../chains/shared/runtime/owned-runtime-recovery-files-v1.mjs';
 import { createClaimRecordStore, openClaimRecordStore, observeClaimRecordStoreV1 } from '@lianum/engine/storage/records';
 
@@ -128,21 +128,21 @@ export async function retainWrappedRuntimeRecoveryV1(authority,family,runtime){
  });
 }
 export async function retainWrappedSystemRecoveryV1(authority,input){
- assert.equal(arguments.length,2);exactRecord(input,['runtime','system','bootstrap','custodyBootstrap']);return fixedCapture(authority,'system',async token=>{const m=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');return m.retainWrappedWalletSystemForReopenV1({...input,attemptAuthority:token});});
+ assert.equal(arguments.length,2);exactRecord(input,['runtime','system','bootstrap','custodyBootstrap']);return fixedCapture(authority,'system',async token=>{const m=await import('./wrapped-system-composition-v1.mjs');return m.retainWrappedWalletSystemForReopenV1({...input,attemptAuthority:token});});
 }
 export async function retainWrappedOwnersRecoveryV1(authority,input){
- assert.equal(arguments.length,2);exactRecord(input,['owners']);return fixedCapture(authority,'owners',async token=>{const m=await import('../../../../../custody/src/processes/wrapped-claim-owner-process-v1.mjs');return m.retainWrappedClaimOwnersForReopenV1({...input,attemptAuthority:token});});
+ assert.equal(arguments.length,2);exactRecord(input,['owners']);return fixedCapture(authority,'owners',async token=>{const m=await import('../../../custody/processes/wrapped-claim-owner-process-v1.mjs');return m.retainWrappedClaimOwnersForReopenV1({...input,attemptAuthority:token});});
 }
 export async function retainWrappedKeeperRecoveryV1(authority,keeper){
  assert.equal(arguments.length,2);return fixedCapture(authority,'keeper',async token=>{const m=await import('../controller/wrapped-controller-journal-v1.mjs');return m.retainWrappedKeeperForReopenV1(keeper,token);});
 }
 export async function retainWrappedPrivateLifetimeRecoveryV1(authority,runtime){assert.equal(arguments.length,2);return fixedCapture(authority,'privateLifetime',async token=>{const m=await import('./wrapped-private-lifetime-registry-v1.mjs');return m.retainWrappedPrivateLifetimeRegistryForReopenV1(runtime,token);});}
 export async function retainWrappedFixtureRecoveryV1(authority,fixture){
- assert.equal(arguments.length,2);return fixedCapture(authority,'fixture',async token=>{const m=await import('../../../../../../tests/integration/fixtures/wallet/wrapped/flows/wrapped-wallet-fixed-fixture-v1.mjs');return m.retainWrappedFixtureContextForReopenV1(fixture,token);});
+ assert.equal(arguments.length,2);return fixedCapture(authority,'fixture',async token=>{const m=await import('../../../operations/local/wrapped-wallet-runtime-v1.mjs');return m.retainWrappedFixtureContextForReopenV1(fixture,token);});
 }
 export async function retainWrappedWalletRecoveryV1(authority,wallet){
  assert.equal(arguments.length,2);assert.ok(fundedIdentity(state(authority).identity),'WRAPPED_RECOVERY_FUNDED_AUTHORITY_REQUIRED');
- return fixedCapture(authority,'wallet',async token=>{const m=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');return m.retainWrappedWalletForReopenV1(wallet,token);});
+ return fixedCapture(authority,'wallet',async token=>{const m=await import('../../../operations/wallet/wrapped-wallet-composition-v1.mjs');return m.retainWrappedWalletForReopenV1(wallet,token);});
 }
 // Finalization intents are private publication anchors, never reopening tokens.
 const FINALIZATION_SCHEMA='WRAPPED_RECOVERY_FINALIZATION_INTENT_V1';
@@ -259,17 +259,17 @@ export async function reopenWrappedRuntimeFromAuthorityV1(authority,family){
   const m=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');if(family==='receiver'&&externalIdentity(stateForRepairToken(token).identity)&&stateForRepairToken(token).identity.profile===EXTERNAL_REPAIR_PROFILE)return m.reopenOwnedReceiverPreopenRepairV1(token);return family==='receiver'?m.reopenOwnedReceiverRecoveryV1(token):m.reopenOwnedGraphNativeRecoveryV1(token);
  },runtime=>runtime.close());
 }
-export async function reopenWrappedSystemFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','nativeRuntimes','graphNativeRuntimes']);return fixedReopen(authority,'system',async token=>{const m=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');return m.reopenWrappedWalletAcceptanceSystemV1({...input,attemptAuthority:token});},async value=>{const errors=[];try{value.bootstrap.close();}catch(error){errors.push(error);}try{const m=await import('../../../operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs');m.revokeWrappedClaimCustodyBootstrapV1(input.runtime,value.custodyBootstrap);}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'WRAPPED_RECOVERY_SYSTEM_CLEANUP_FAILED');});}
-export async function reopenWrappedOwnersFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','system','nativeClaimObservers']);return fixedReopen(authority,'owners',async token=>{const m=await import('../../../../../custody/src/processes/wrapped-claim-owner-process-v1.mjs');return m.reopenWrappedClaimOwnersV1({...input,attemptAuthority:token});},async owners=>{const results=await Promise.allSettled(owners.map(owner=>owner.close()));const failed=results.filter(row=>row.status==='rejected');if(failed.length)throw new AggregateError(failed.map(row=>row.reason),'WRAPPED_RECOVERY_OWNER_CLEANUP_FAILED');});}
+export async function reopenWrappedSystemFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','nativeRuntimes','graphNativeRuntimes']);return fixedReopen(authority,'system',async token=>{const m=await import('./wrapped-system-composition-v1.mjs');return m.reopenWrappedWalletAcceptanceSystemV1({...input,attemptAuthority:token});},async value=>{const errors=[];try{value.bootstrap.close();}catch(error){errors.push(error);}try{const m=await import('../../../operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs');m.revokeWrappedClaimCustodyBootstrapV1(input.runtime,value.custodyBootstrap);}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'WRAPPED_RECOVERY_SYSTEM_CLEANUP_FAILED');});}
+export async function reopenWrappedOwnersFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','system','nativeClaimObservers']);return fixedReopen(authority,'owners',async token=>{const m=await import('../../../custody/processes/wrapped-claim-owner-process-v1.mjs');return m.reopenWrappedClaimOwnersV1({...input,attemptAuthority:token});},async owners=>{const results=await Promise.allSettled(owners.map(owner=>owner.close()));const failed=results.filter(row=>row.status==='rejected');if(failed.length)throw new AggregateError(failed.map(row=>row.reason),'WRAPPED_RECOVERY_OWNER_CLEANUP_FAILED');});}
 export async function reopenWrappedKeeperFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','claims']);return fixedReopen(authority,'keeper',async token=>{const m=await import('../controller/wrapped-controller-journal-v1.mjs');return m.reopenWrappedKeeperFromAuthorityV1({...input,attemptAuthority:token});},keeper=>keeper.close());}
 export async function reopenWrappedFixtureFromAuthorityV1(authority,input){
  assert.equal(arguments.length,2);exactRecord(input,['runtime','nativeRuntimes','graphNativeRuntimes','system','bootstrap','custodyBootstrap','owners','keeper']);
- return fixedReopen(authority,'fixture',async token=>{const m=await import('../../../../../../tests/integration/fixtures/wallet/wrapped/flows/wrapped-wallet-fixed-fixture-v1.mjs');return m.reopenWrappedWalletFixedFixtureV1({...input,attemptAuthority:token});},fixture=>fixture.close());
+ return fixedReopen(authority,'fixture',async token=>{const m=await import('../../../operations/local/wrapped-wallet-runtime-v1.mjs');return m.reopenWrappedWalletFixedFixtureV1({...input,attemptAuthority:token});},fixture=>fixture.close());
 }
 export async function reopenWrappedWalletFromAuthorityV1(authority,input){
  assert.equal(arguments.length,2);assert.ok(fundedIdentity(state(authority).identity),'WRAPPED_RECOVERY_FUNDED_AUTHORITY_REQUIRED');
  exactRecord(input,['runtime','system','owners','controller','bootstrap','nativeRuntimes','deadlineMs']);
- return fixedReopen(authority,'wallet',async token=>{const m=await import('../../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');return m.reopenWrappedWalletAcceptanceV1({...input,attemptAuthority:token});},wallet=>wallet.close());
+ return fixedReopen(authority,'wallet',async token=>{const m=await import('../../../operations/wallet/wrapped-wallet-composition-v1.mjs');return m.reopenWrappedWalletAcceptanceV1({...input,attemptAuthority:token});},wallet=>wallet.close());
 }
 export async function reopenWrappedPrivateLifetimeFromAuthorityV1(authority,runtime){assert.equal(arguments.length,2);return fixedReopen(authority,'privateLifetime',async token=>{const m=await import('./wrapped-private-lifetime-registry-v1.mjs');return m.reopenWrappedPrivateLifetimeRegistryFromAuthorityV1({runtime,attemptAuthority:token});},async registry=>{const m=await import('./wrapped-private-lifetime-registry-v1.mjs');return m.closeWrappedPrivateLifetimeRegistryV1(registry);});}
 /** A failure deliberately leaves the persisted claim OPENING. Neither this
@@ -332,11 +332,11 @@ export async function reopenExternalDefiSystemFromAuthorityV1(authority,input){
 }
 export async function retainExternalDefiOwnersRecoveryV1(authority,input){
  externalAuthority(authority);exactRecord(input,['owners']);return fixedCapture(authority,'owners',async token=>{
-  const m=await import('../../../../../custody/src/processes/flat-owner-process.mjs');return m.retainFlatOwnersForReopenV1({...input,attemptAuthority:token});});
+  const m=await import('../../../custody/processes/flat-owner-process.mjs');return m.retainFlatOwnersForReopenV1({...input,attemptAuthority:token});});
 }
 export async function reopenExternalDefiOwnersFromAuthorityV1(authority,input){
  externalAuthority(authority);exactRecord(input,['runtime','system','deliveryObservers']);return fixedReopen(authority,'owners',async token=>{
-  const m=await import('../../../../../custody/src/processes/flat-owner-process.mjs');return m.reopenFlatOwnersFromAuthorityV1({...input,attemptAuthority:token});},async owners=>{
+  const m=await import('../../../custody/processes/flat-owner-process.mjs');return m.reopenFlatOwnersFromAuthorityV1({...input,attemptAuthority:token});},async owners=>{
   const r=await Promise.allSettled(owners.map(owner=>owner.close()));const errors=r.filter(x=>x.status==='rejected');if(errors.length)throw new AggregateError(errors.map(x=>x.reason),'EXTERNAL_OWNER_CLOSE_FAILED');});
 }
 export async function retainExternalDefiWalletRecoveryV1(authority,wallet){
@@ -1178,7 +1178,7 @@ const nativeProducerModules=Object.freeze({
  account:async()=>({module:await import('../../../accounts/authority/native-value-account-authority-v2.mjs'),stem:'NativeAccount'}),
  executor:async()=>({module:await import('../../../execution/native-value/execution/native-value-execution-v2.mjs'),stem:'NativeExecution'}),
  provider:async()=>({module:await import('../../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs'),stem:'NativeProvider'}),
- owner:async()=>({module:await import('../../../../../custody/src/processes/native-value-owner-process-v2.mjs'),stem:'NativeOwner'}),
+ owner:async()=>({module:await import('../../../custody/processes/native-value-owner-process-v2.mjs'),stem:'NativeOwner'}),
  bootstrap:async()=>({module:await import('../../../operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs'),stem:'NativeBootstrap'}),
  system:async()=>({module:await import('../../../operations/deployments/native-value/native-value-system-v2.mjs'),stem:'NativeSystem'}),
  receiver:async()=>({module:await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs'),stem:null}),
@@ -1297,7 +1297,7 @@ export async function retainNativeEconomicBootstrapV1(authority,bootstrap){
 export async function reopenExternalDefiVaultExitOwnersRecoveryV1(authority,input){
  assert.equal(arguments.length,2);assert.equal(state(authority).identity.profile,EXTERNAL_PROFILE,'EXTERNAL_VAULT_EXIT_ORIGINAL_ISSUER');
  exactRecord(input,['runtime','system']);return fixedReopen(authority,'owners',async token=>{
-  const module=await import('../../../../../custody/src/processes/flat-owner-process.mjs');
+  const module=await import('../../../custody/processes/flat-owner-process.mjs');
   return module.reopenFlatOwnersForVaultExitV1({...input,attemptAuthority:token});
  },async owners=>{const results=await Promise.allSettled(owners.map(owner=>owner.close()));
   const failures=results.filter(row=>row.status==='rejected');if(failures.length)throw new AggregateError(failures.map(row=>row.reason),'EXTERNAL_VAULT_EXIT_OWNER_CLEANUP_FAILED');});

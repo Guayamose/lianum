@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import vm from 'node:vm';
-import { ROOT } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 const source = readFileSync(join(ROOT, 'wallet-platform/modules/ops/native-value-deployment-artifacts-v2.mjs'), 'utf8');
 const declarations = ['ADMISSION_PREPARED_ROOT', 'ADMISSION_COMPILE_ROOT'].map(name => {
   const actual = new RegExp('^const ' + name + ' = [^;]+;', 'm').exec(source);

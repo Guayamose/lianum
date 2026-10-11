@@ -2,10 +2,10 @@
  * no artifact/key/proof role and cannot open a release via environment/options.
  * A source-only host pass is not authority to replace the null release. */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedNativeValueAccountAuthority } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
-import { createNativeValueManualGraphAccountSession,createOriginalSessionWalletEconomicStateV1 } from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
+import { createNativeValueManualGraphAccountSession,createOriginalSessionWalletEconomicStateV1 } from '@lianum/backend/accounts/manual-graph';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
 import { createManualWalletAppDriver } from '../manual/manual-wallet-app-driver.mjs';
 export const NATIVE_NOTE_WALLET_ACCEPTANCE_RELEASE = null;

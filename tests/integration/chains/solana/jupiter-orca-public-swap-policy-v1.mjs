@@ -1,8 +1,8 @@
 /** Genuine public bank/swap only. This policy grants no note/claim authority. */
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {solanaCandidateBoundedLedgerCompatibilityPin} from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
 import {validateJupiterOrcaSwapObservationV1} from '../../../../packages/backend/src/chains/solana/observations/jupiter-orca-swap-observation-v1.mjs';
 import {jupiterPublicBankGenesisV1} from '../../../../packages/backend/src/chains/solana/runtime/jupiter-orca-bank-state-v1.mjs';

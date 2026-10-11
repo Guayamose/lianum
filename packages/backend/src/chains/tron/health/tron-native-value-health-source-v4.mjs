@@ -8,7 +8,7 @@ import { types, isDeepStrictEqual } from 'node:util';
 import { fields, need, freeze, safeMilliseconds, checkFreshBlock, ObservationError } from '../../shared/portfolio/portfolio-registry.mjs';
 import { normalizeTronBlock } from '../observations/tron-observation-adapter.mjs';
 import { createTronNativeTransferObserver } from '../observations/tron-native-transfer-observer.mjs';
-import { cloneInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput } from '@lianum/components/plain-input';
 import { exact, integer, hex, sha256, FACTS_SCHEMA, REPLAY_SCHEMA, OBLIGATION,
   assertRegistration, assertSource, sourceCommitment, registryCommitment, bindOriginalTronGraphTransfer,
   tronGraphObservedEffect, encodeFacts, bindTronGraphReadiness, assertTronGraphCurrentState } from '../transfers/tron-native-graph-profile.mjs';

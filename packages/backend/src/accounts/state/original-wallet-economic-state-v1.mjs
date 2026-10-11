@@ -6,9 +6,9 @@ import {types} from 'node:util';
 import {lstat, realpath, mkdir, open, readFile, readlink, unlink} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {dirname, resolve} from 'node:path';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
 import {genericAccountIdentity, immutable, sha} from '@lianum/engine/accounts/journal';
-import {exactRecord, fixedArray} from '../../execution/encoding/commitments.mjs';
+import {exactRecord, fixedArray} from '@lianum/components/encoding/commitments';
 import {assertOwnedFlatJournalCatalogue} from '../storage/flat-journal-catalogue.mjs';
 import {assertFlatManualGraphCatalogueSession,assertNativeWalletEconomicSessionV1,assertWrappedWalletEconomicSessionV1,readOriginalSessionWalletEconomicSnapshotV1} from '../../api/accounts/flat-manual-graph-session.mjs';
 import {assertOwnedNativeValueAccountAuthority} from '../authority/native-value-account-authority-v2.mjs';
@@ -21,7 +21,7 @@ import {ORIGINAL_ECONOMIC_STATE_V1, ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS, validate
 
 import {readOriginalNativeClaimPortfolioViewV1} from '../../claims/operations/portfolio-view.mjs';
 import {originalNativeClaimAssetUnitsV1} from '../../claims/operations/native-claim-asset-units-v1.mjs';
-import {claimDomainCommitment} from '../../claims/protocol/framing.mjs';
+import {claimDomainCommitment} from '@lianum/engine/claims/framing';
 import {assertOriginalNativeClaimEconomicSessionV1,readOriginalNativeClaimEconomicSnapshotV1} from '../../api/accounts/flat-account-session.mjs';
 import {assertOriginalDeviceRootClaimIntakeV2,readOriginalDeviceRootClaimIntakeContextV2,readOriginalDeviceRootClaimEconomicSnapshotV2} from '../../claims/controller/controller.mjs';
 const owned = new WeakMap();

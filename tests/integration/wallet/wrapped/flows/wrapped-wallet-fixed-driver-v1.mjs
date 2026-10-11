@@ -5,7 +5,7 @@ import { inspectWrappedInstallationSourcesV2 } from '../../../deployments/wrappe
 import assert from 'node:assert/strict';
 import { mkdirSync,readFileSync,realpathSync,writeFileSync,openSync,fsyncSync,closeSync,existsSync,lstatSync } from 'node:fs';
 import { join,resolve } from 'node:path';
-import { ROOT } from '../../../../../packages/proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { NATIVE_FLOW_LIMITS } from '../../../native/native-flow-supervisor.mjs';
 import { wrappedWalletFixedSourcePinsV1 } from '../validation/wrapped-wallet-fixed-source-pins-v1.mjs';
 import { WRAPPED_WALLET_FIXED_RELEASE_V1,WRAPPED_WALLET_FIXED_PREFLIGHT_RELEASE_V1,WRAPPED_DEPLOYMENT_ONLY_RESULT_V1,assertWrappedDeploymentOnlyReleaseV1,assertWrappedDeploymentOnlyResultV1,
@@ -14,7 +14,7 @@ import { WRAPPED_WALLET_FIXED_RELEASE_V1,WRAPPED_WALLET_FIXED_PREFLIGHT_RELEASE_
 import { createWrappedWalletFixedFixtureV1,createWrappedDeploymentOnlyFixtureV1,ownedWrappedWalletFixedFixtureV1,originalWrappedFixtureConstructionFailureV1,captureWrappedWalletFixedFixtureV1,captureWrappedWalletFixedFundedFixtureV1,reopenWrappedWalletFixedRecoveryV1 } from '../../../fixtures/wallet/wrapped/flows/wrapped-wallet-fixed-fixture-v1.mjs';
 import { captureWrappedWalletEmptyV1,assertWrappedWalletClosedV1,originalWrappedWalletObservationFailureV1 } from '../validation/wrapped-wallet-fixed-terminal-v1.mjs';
 import { runWrappedWalletFixedStepsV1,runWrappedWalletFixedStepsUntilRecoveryV1,resumeWrappedWalletFixedStepsAfterRecoveryV1 } from './wrapped-wallet-fixed-steps-v1.mjs';
-import { originalOwnedRuntimeRpcFailureV1 } from '../../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
+import { originalOwnedRuntimeRpcFailureV1 } from '@lianum/engine/chains/shared/runtime-harness';
 // Bounded private details for an actual caught worker failure. Never raw logs,
 // requests, observations, inventories, native wires, witnesses or key material.
 const failureOwn=(value,key)=>{try{const d=Object.getOwnPropertyDescriptor(value,key);return d&&Object.hasOwn(d,'value')?d.value:undefined;}catch{return undefined;}};

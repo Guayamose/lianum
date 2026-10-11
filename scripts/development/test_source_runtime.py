@@ -10,6 +10,54 @@ from workspace import node_export
 
 
 class DirectExecutionTests(unittest.TestCase):
+    def test_reviewed_gateway_keeps_one_canonical_capability_owner(self):
+        from source_runtime import NODE
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / 'packages/example'
+            package.mkdir(parents=True)
+            (package / 'package.json').write_text(json.dumps({
+                'name': '@lianum/example', 'type': 'module',
+                'exports': {'./authority': './authority.mjs'},
+            }))
+            authority = "const tokens=new WeakSet(); export function issue(){const t={};tokens.add(t);return t;} export const accepts=t=>tokens.has(t);\n"
+            (package / 'authority.mjs').write_text(authority)
+            link = root / 'node_modules/@lianum/example'
+            link.parent.mkdir(parents=True)
+            link.symlink_to(package, target_is_directory=True)
+            source = 'packages/example/gateway.mjs'
+            runtime = 'old/gateway.mjs'
+            config = {'files': [
+                {'source': source, 'path': runtime},
+                {'source': 'packages/example/authority.mjs', 'path': 'old/authority.mjs'},
+            ], 'rules': [], '_workspaceExports': {'@lianum/example/authority': 'packages/example/authority.mjs'},
+                'canonicalImports': {source: ['@lianum/example/authority']}}
+            original = "export {issue, accepts} from '@lianum/example/authority';\n"
+            (root / source).write_text(original)
+            snapshot = root / '.internal/runtime'
+            (snapshot / 'old').mkdir(parents=True)
+            (snapshot / runtime).write_text(translate(original, source, runtime, config, 'runtime')[0])
+            (snapshot / 'old/authority.mjs').write_text(authority)
+            # The exception belongs to this gateway only. Ordinary consumers
+            # must still use their own snapshot, not mix capability registries.
+            ordinary = translate(original, 'packages/example/ordinary.mjs', 'old/ordinary.mjs', config, 'runtime')[0]
+            (snapshot / 'old/ordinary.mjs').write_text(ordinary)
+            entry = root / 'entry.mjs'
+            entry.write_text("""import assert from 'node:assert/strict';
+import * as source from './packages/example/gateway.mjs';
+import * as canonical from '@lianum/example/authority';
+import * as gateway from './.internal/runtime/old/gateway.mjs';
+import * as ordinary from './.internal/runtime/old/ordinary.mjs';
+assert.equal(gateway.issue, source.issue);
+assert.equal(gateway.issue, canonical.issue);
+const token=source.issue();
+assert.equal(gateway.accepts(token), true);
+assert.equal(gateway.accepts({...token}), false);
+assert.equal(ordinary.accepts(token), false);
+assert.equal(gateway.accepts(ordinary.issue()), false);
+""")
+            subprocess.run([str(NODE), str(entry)], cwd=root, capture_output=True, text=True, check=True)
+
     def test_edits_execute_without_touching_stale_runtime_and_exports_keep_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -99,6 +147,11 @@ class CompatibilityTranslationTests(unittest.TestCase):
                                       'default': './fallback.mjs'}), './node.mjs')
 
     def test_unknown_public_export_fails_instead_of_mixing_module_instances(self):
+        with self.assertRaisesRegex(RuntimeError, 'Unknown public workspace import'):
+            self.translated("import '@lianum/example/private';")
+
+    def test_canonical_gateway_does_not_allow_undeclared_exports(self):
+        self.config['canonicalImports'] = {self.source: ['@lianum/example/private']}
         with self.assertRaisesRegex(RuntimeError, 'Unknown public workspace import'):
             self.translated("import '@lianum/example/private';")
 

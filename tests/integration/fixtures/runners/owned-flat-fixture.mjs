@@ -6,28 +6,21 @@ import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
 import { mkdirSync, openSync, writeFileSync, fsyncSync, closeSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { createLocalEvm } from '../../../../packages/engine/src/execution/local/local-evm.mjs';
-import { createNativeRecipientProcess } from '../../../../packages/engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { nativeAdmissionRulesTree, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+import { createLocalEvm } from '@lianum/engine/execution/local/local-evm';
+import { createNativeRecipientProcess } from '../../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs';
+import { nativeAdmissionRulesTree, NATIVE_ADMISSION_LOSS_CLAUSE } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { createOwnedFlatBitcoinRuntime } from '../../../../packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { createOwnedSolanaCohortRuntime, base58Decode } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
 import { deployFlatSystem } from '../../../../packages/backend/src/operations/deployments/system/deploy-system.mjs';
 import { createLocalFlatOperator, createFlatOperatorQuorum } from '../../../../packages/backend/src/operations/operators/claims/native-operators.mjs';
-import { createFlatOwnerProcess } from '../../../../packages/custody/src/processes/flat-owner-process.mjs';
+import { createFlatOwnerProcess } from '../../../../packages/backend/src/custody/processes/flat-owner-process.mjs';
 import { createFlatSystemStateReader } from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { createOwnedFlatNativeProvider } from '../../../../packages/backend/src/providers/native-provider.mjs';
 
-export const freshFixtureId = () => randomBytes(32).toString('hex');
-export const fixtureJSON = value => JSON.stringify(value, (_key, child) => typeof child === 'bigint' ? child.toString() : child, 2) + '\n';
+import {freshFixtureId,fixtureJSON,writeFixturePrivate} from '../../../../packages/backend/src/storage/private-json-file.mjs';
+export {freshFixtureId,fixtureJSON,writeFixturePrivate} from '../../../../packages/backend/src/storage/private-json-file.mjs';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const bare = value => value.slice(2);
-export function writeFixturePrivate(file, value) {
-  const temporary = file + '.' + freshFixtureId() + '.tmp';
-  const fd = openSync(temporary, 'wx', 0o600);
-  try { writeFileSync(fd, fixtureJSON(value)); fsyncSync(fd); } finally { closeSync(fd); }
-  renameSync(temporary, file);
-  const parent = openSync(dirname(file), 'r'); try { fsyncSync(parent); } finally { closeSync(parent); }
-}
 
 export async function createOwnedFlatFixture(privateDirectory, callbacks = {}) {
   const onStage = callbacks.onStage ?? (async () => {}), onDeployment = callbacks.onDeployment ?? (async () => {});

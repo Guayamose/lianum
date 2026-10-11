@@ -3,9 +3,9 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {exactRecord} from '@lianum/components/encoding/commitments';
-import {decodeDepositIntentInputs} from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
-import {decodePrivateExternalDeliveryCall} from '../../../backend/src/defi/delivery/private-external-delivery.mjs';
-import {flatOwnerIdentity,flatOwnerSnapshot,ownerCopy,ownerDigest,FLAT_OWNER_OBSERVATION_TRUST} from '../signing/flat-owner-custody.mjs';
+import {decodeDepositIntentInputs} from '@lianum/engine/execution/inputs/deposit-intent';
+import {decodePrivateExternalDeliveryCall} from '@lianum/engine/encoding/private-external-delivery';
+import {flatOwnerIdentity,flatOwnerSnapshot,ownerCopy,ownerDigest,FLAT_OWNER_OBSERVATION_TRUST} from '../signing/owner-observation-contract.mjs';
 export const FLAT_OWNER_EXTERNAL_D27_DELIVERY_V1 = 'FLAT_OWNER_EXTERNAL_D27_DELIVERY_V1';
 const hex=(value,bytes=32)=>assert.ok(typeof value==='string'&&new RegExp(`^[0-9a-f]{${bytes*2}}$`).test(value),'EXTERNAL_INCOMING_HEX');
 const uint=value=>{assert.ok(typeof value==='string'&&/^(0|[1-9][0-9]{0,77})$/.test(value),'EXTERNAL_INCOMING_UINT');const n=BigInt(value);assert.ok(n<(1n<<256n));return n;};

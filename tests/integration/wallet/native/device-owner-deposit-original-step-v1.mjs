@@ -12,16 +12,16 @@ import { createServer } from 'node:net';
 import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
-import { normalizeOriginalNativePrivateDepositFailureV2 } from '../../../../packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
+import { normalizeOriginalNativePrivateDepositFailureV2 } from '@lianum/proofs/jobs/native-device-private-deposit-client-v2';
 import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1, awaitDeviceOwnerDepositOriginalObservationV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedDeviceDepositTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
-import { originalAccountAccessMessageV2 } from '../../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
+import { originalAccountAccessMessageV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 }
-  from '../../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import { verifyPrivateNotePath } from '../../../../packages/engine/src/notes/private-note-tree.mjs';
-import { nullifier } from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
+  from '@lianum/mobile-protocol/device/native-deposit-v2';
+import { verifyPrivateNotePath } from '@lianum/engine/notes/private-note-tree';
+import { nullifier } from '@lianum/engine/notes/private-note-encoding';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../../../packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs';
 import {installOriginalNativeDeviceDurableLocalServiceV1,installOriginalPrivateNativeNoteDurableServiceV2,installOriginalPrivateNativeAuthorizedNoteDurableServiceV2,installOriginalPrivateNativeWorkerNoteDurableServiceV3} from '../../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs';

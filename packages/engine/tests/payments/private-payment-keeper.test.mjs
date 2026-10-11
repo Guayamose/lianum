@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { createPrivatePaymentKeeperForTest } from '../../src/payments/private-payment-keeper.mjs';
-import { createPrivatePaymentWorkerHost } from '../../src/payments/private-payment-worker.mjs';
-import { PRIVATE_PAYMENT_PROFILE, PRIVATE_PAYMENT_AMOUNTS } from '../../src/payments/private-payment-engine.mjs';
+import { createPrivatePaymentKeeperForTest } from '../../../backend/src/payments/private-payment-keeper.mjs';
+import { createPrivatePaymentWorkerHost } from '../../../backend/src/payments/private-payment-worker.mjs';
+import { PRIVATE_PAYMENT_PROFILE, PRIVATE_PAYMENT_AMOUNTS } from '../../../backend/src/payments/private-payment-engine.mjs';
 import { PRIVATE_PAYMENT_PROGRAMS } from '../../src/payments/private-payment-coordinator.mjs';
 
 const operationId='keeper_test_12345';

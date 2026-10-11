@@ -63,7 +63,7 @@ mock.module('../wallet-platform/modules/global-state/flat-journal-catalogue.mjs'
   },
 } });
 const { createFlatManualGraphAccountSession, createFlatManualGraphCatalogueSession, flatManualGraphReviews, flatManualGraphActionTarget } =
-  await import('../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+  await import('@lianum/backend/accounts/manual-graph');
 const { startWalletApplication } = await import('../../../../apps/wallet/src/server/server.mjs');
 const h = n => n.repeat(64), a = n => n.repeat(40), id = 'manual_vault_graph_01';
 const body = { requestId: id, kind: 'GRAPH', ownerOperationRef: h('1'), assetId: h('2') };

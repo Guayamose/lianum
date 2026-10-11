@@ -3,9 +3,9 @@
  * checked exclusively by the fixed loader in the genuine artifact module. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
-import { exactRecord, fixedArray } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import { NATIVE_VALUE_RELEASE, NATIVE_VALUE_SOURCE_CLOSURE } from './native-value-wallet-release-v4.mjs';
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 } from './native-value-wallet-host-source-pins-v4.mjs';
 import { NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5, NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 } from './native-value-dev-mobile-package-pins-v5.mjs';

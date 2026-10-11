@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import {constants} from 'node:fs';
 import {access,lstat,realpath} from 'node:fs/promises';
 import {dirname,join,basename} from 'node:path';
-import {ROOT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
-import {pinnedBinary} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
+import {ROOT,GOLDEN} from '@lianum/proofs/catalog';
+import {pinnedBinary} from '@lianum/engine/chains/shared/runtime-harness';
 
 export const NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1=Object.freeze([
   'foundry-v1.8.4/anvil',

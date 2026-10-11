@@ -7,7 +7,7 @@ import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 } from './native-value-dev-mobile-package-pins-v5.mjs';
-import { ROOT, FLAT, GOLDEN, CANDIDATE } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT, FLAT, GOLDEN, CANDIDATE } from '@lianum/proofs/catalog';
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 } from './native-value-wallet-host-source-pins-v4.mjs';
 import { NATIVE_VALUE_DEV_REQUIRED_HOST_ROOTS_V5, NATIVE_VALUE_DEV_DEVELOPMENT_FILE_ROOTS_V5, NATIVE_VALUE_DEV_WORKSPACE_MODULE_ROOTS_V5 } from './native-value-dev-release-contract-v5.mjs';
 import { resolveDevelopmentWorkspaceExportV1, isDevelopmentWorkspacePackageLabelV1 } from './workspace-package-source-v1.mjs';

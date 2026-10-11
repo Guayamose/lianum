@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createOwnedSharedAccountRuntimeForTest,SHARED_ACCOUNT_INITIAL_PALT_SUPPLY,SHARED_ACCOUNT_OWNER1_PALT_PREFUND} from '../../src/accounts/private-shared-account-runtime.mjs';
+import {createOwnedSharedAccountRuntimeForTest,SHARED_ACCOUNT_INITIAL_PALT_SUPPLY,SHARED_ACCOUNT_OWNER1_PALT_PREFUND} from '../../../backend/src/accounts/runtime/private-shared-account-runtime.mjs';
 import {createReusableAssetCohortController} from '../../src/accounts/private-reusable-cohort.mjs';
 import {base58Encode,createBoundSolanaRecipientViews} from '../../src/chains/solana/solana-runtime.mjs';
 const h=(n,w=64)=>n.toString(16).padStart(w,'0'),hx=n=>'0x'+h(n),addr=n=>'0x'+h(n,40);

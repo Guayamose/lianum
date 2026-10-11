@@ -69,7 +69,7 @@ test('cleanup retains process identity continuity when the original leader exits
 // /proc parser, enrolment, failure/lost latch and cleanup events are real.
 test('original build monitor retains its first finite FS or parser cause before losing ownership',linux,async()=>{
   const guardian=readFileSync(new URL('../scripts/owned-build-process.mjs',import.meta.url),'utf8');
-  const proc=readFileSync(new URL('../../../tests/integration/native/native-flow-owned-files-v1.mjs',import.meta.url),'utf8');
+  const proc=readFileSync(new URL('../../../packages/proofs/src/host/process-files.mjs',import.meta.url),'utf8');
   const plain=source=>source.replace(/^import[\s\S]*?;\n/gm,'').replace(/^export /gm,'');
   for(const kind of ['FS','PARSER']){
     const owned=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});
@@ -81,8 +81,8 @@ test('original build monitor retains its first finite FS or parser cause before 
         if(injecting&&path===`/proc/${owned.pid}/stat`){reads++;if(kind==='FS')throw originalError;return '';}
         return readFileSync(path,...options);
       }};
-    const api=runInNewContext(plain(proc)+'\n'+plain(guardian)+'\n({ownSpawnedBuildGroup,buildProcessFailureDiagnosticV1})',environment);
     try{
+      const api=runInNewContext(plain(proc)+'\n'+plain(guardian)+'\n({ownSpawnedBuildGroup,buildProcessFailureDiagnosticV1})',environment);
       const guard=api.ownSpawnedBuildGroup(owned,{allowDetachedDescendants:true});
       assert.equal(guard.firstFailure(),null);injecting=true;
       let primary;try{guard.snapshot();}catch(error){primary=error;}

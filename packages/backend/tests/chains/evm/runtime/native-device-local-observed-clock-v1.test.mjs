@@ -34,7 +34,7 @@ test('HOST original clock pair binds exact resources, observes native before rec
  for(const clock of [{},{...pair.clock}])assert.throws(()=>f.ports.assertOriginalNativeDeviceLocalObservedClockV1(clock,{runtime:pair.runtime,nativeRuntime:pair.nativeRuntime}),/ORIGINAL_OBSERVED_CLOCK/);
  assert.throws(()=>f.ports.assertOriginalNativeDeviceLocalObservedClockV1(pair.clock,{runtime:pair.nativeRuntime,nativeRuntime:pair.runtime}),/ORIGINAL_REFERENCES/);
  assert.throws(()=>f.ports.refreshOriginalNativeDeviceLocalObservedClockV1(pair.clock,{cutoff:'100'}),/ARITY/);
- await assert.rejects(f.ports.createOriginalNativeDeviceLocalObservedClocksV1({}),/NO_OPTIONS/);
+ assert.throws(()=>f.ports.createOriginalNativeDeviceLocalObservedClocksV1({}),/NO_OPTIONS/);
  f.state.wall=125000;const heads=await f.ports.refreshOriginalNativeDeviceLocalObservedClockV1(pair.clock);
  assert.deepEqual(f.events,['native','receiver']);assert.equal(BigInt(heads.native.timestamp),125n);assert.equal(BigInt(heads.receiver.timestamp),125n);
  f.state.wall=124000;await assert.rejects(f.ports.refreshOriginalNativeDeviceLocalObservedClockV1(pair.clock),/ROLLBACK/);

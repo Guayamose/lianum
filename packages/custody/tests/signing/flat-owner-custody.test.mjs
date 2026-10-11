@@ -6,21 +6,21 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
-import { PrivateNoteTree, privateSpentDigest } from '../../../engine/src/notes/private-note-tree.mjs';
-import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
-import { derivePrivateAssetIdentity } from '../../../engine/src/notes/private-asset-runtime.mjs';
-import { nativeRecipientInvoiceMessage } from '../../../engine/src/execution/native/recipients/native-recipient-custody.mjs';
-import { createCommitmentCodec } from '../../../backend/src/execution/encoding/commitments.mjs';
-import { encodeStatement } from '../../../backend/src/execution/encoding/statements.mjs';
-import { encodeDepositIntentInputs } from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
+import { freshKey, signature } from '@lianum/engine/notes/private-note-encoding';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { nativeRecipientInvoiceMessage } from '@lianum/engine/execution/native/recipients/native-recipient-custody';
+import { createCommitmentCodec } from '@lianum/components/encoding/commitments';
+import { encodeStatement } from '@lianum/components/encoding/statements';
+import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, encodeClaimIngressInputs }
-  from '../../../backend/src/claims/protocol/framing.mjs';
-import { CLAIM_BACKING_FIELDS, claimActionDigest } from '../../../backend/src/claims/authorization/permits.mjs';
-import { encodeNativeClaimIssueCall, decodeNativeClaimIssueCall } from '../../../backend/src/claims/protocol/issue-call.mjs';
-import { assertOwnedNativeClaimIngressHandoff } from '../../src/processes/flat-owner-process.mjs';
+  from '@lianum/engine/claims/framing';
+import { CLAIM_BACKING_FIELDS, claimActionDigest } from '@lianum/engine/claims/permits';
+import { encodeNativeClaimIssueCall, decodeNativeClaimIssueCall } from '@lianum/engine/claims/issue-call';
+import { assertOwnedNativeClaimIngressHandoff } from '../../../backend/src/custody/processes/flat-owner-process.mjs';
 import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment }
-  from '../../../backend/src/chains/evm/vault/evm-vault-delivery.mjs';
+  from '@lianum/engine/encoding/evm-vault-delivery';
 import { openTrustedFlatOwnerCustody, ownerDigest, flatOwnerIdentity, flatOwnerSnapshot,
   decodeFlatOwnerCalldata, validateFlatOwnerTransition, validateFlatOwnerDepositIntentTransition,
   FLAT_OWNER_CLAIM_HANDOFF_PROFILE, FLAT_OWNER_CLAIM_HANDOFF_TRUST } from '../../src/signing/flat-owner-custody.mjs';

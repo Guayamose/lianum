@@ -1,10 +1,10 @@
 /** A partial, terminal audit gate. This cannot validate full redemption. */
 import assert from 'node:assert/strict';
 import { CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, assertBeginPayoutAuditReceiptV1 }
-  from '../../../../packages/backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+  from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 import { CLAIM_GRAPH_V3_NATIVE_PROTOCOL } from '../graph/validation/native-claim-graph-v3-nonce-checks.mjs';
 import { NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
-  from '../../../../packages/proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 export const BEGIN_PAYOUT_AUDIT_RESULT_V1 = 'LIANUM_SOL_BEGIN_PAYOUT_BACKING_AUDIT_RESULT_V1';
 export function assertBeginPayoutAuditResultV1(result) {
   assert.equal(result.format, BEGIN_PAYOUT_AUDIT_RESULT_V1); assert.equal(result.profile, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1);

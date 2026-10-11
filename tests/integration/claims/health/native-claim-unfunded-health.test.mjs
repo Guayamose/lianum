@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import vm from 'node:vm';
-import { ROOT, LIMITS } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT, LIMITS } from '@lianum/proofs/catalog';
 import { NATIVE_CLAIM_RUN_ROUTES, nativeClaimRunDirectory } from '../lifecycle/native-claim-run-route.mjs';
 import { NATIVE_FLOW_LIMITS, validateNativeClaimUnfundedHealthResult, runNativeClaimUnfundedHealthSupervisor }
   from '../../native/native-flow-supervisor.mjs';

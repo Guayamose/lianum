@@ -7,7 +7,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { PrivatePaymentSession, validatePrivateCheckpoint } from '../../src/payments/private-payment-session.mjs';
+import { PrivatePaymentSession, validatePrivateCheckpoint } from '../../../backend/src/payments/private-payment-session.mjs';
 import { PrivateOperationStore } from '../../src/payments/private-operation-store.mjs';
 
 const payload = (change={}) => ({phase:'PREPARING',progressCode:'PREPARING_ENVIRONMENT',engineState:'RUNNING',ownerState:'PREPARING',settlementState:'NOT_FUNDED',exposure:{evm:'NONE',sol:'NONE',btc:'NONE'},payouts:{sol:{state:'PENDING',amountWei:null},btc:{state:'PENDING',amountWei:null}},cleanupState:'NOT_STARTED',errorCode:null,observation:'LIVE',...change});

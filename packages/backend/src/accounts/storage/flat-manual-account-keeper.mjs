@@ -5,13 +5,13 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { lstat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { Vault } from '../../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 import { PROFILE as GENERIC_PROFILE, genericAccountIdentity, bindGenericAccountRequest, validateBoundRequest,
   validateOutcome, validateObservation, immutable, copy, sha } from '@lianum/engine/accounts/journal';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedFlatAccountAuthority } from '../authority/flat-account-authority.mjs';
-import { assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';
-import { validateFlatManualReauthorization } from '../../../../custody/src/preparation/flat-owner-manual-binding.mjs';
+import { assertOwnedFlatOwnerProcess } from '../../custody/processes/flat-owner-process.mjs';
+import { validateFlatManualReauthorization } from '@lianum/custody/preparation/flat-owner-manual-binding';
 const owned = new WeakMap();
 const NDRA = 'NO_DISPATCH_REAUTHORIZATION_REQUIRED';
 const PROFILE = 'FLAT_MANUAL_ACCOUNT_KEEPER_V2';

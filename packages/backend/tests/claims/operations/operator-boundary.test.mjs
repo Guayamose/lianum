@@ -6,19 +6,19 @@ import * as backingArithmetic from '../../../src/claims/operations/claim-backing
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId, claimTicketSecret,
-  claimDestinationCommitment, nativeClaimEndpointCommitment } from '../../../src/claims/protocol/framing.mjs';
+  claimDestinationCommitment, nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 import { claimBackingFrame, claimActionFrame, claimSignedWireCommitment, claimRouteCommitment,
   assertClaimBackingQuorum, CLAIM_BACKING_FIELDS, claimFrame, claimHash, claimIngressAuthorizationFrame,
-  claimPayoutAuthorizationFrame } from '../../../src/claims/authorization/permits.mjs';
+  claimPayoutAuthorizationFrame } from '@lianum/engine/claims/permits';
 import { createClaimReservationBinding, assertCanonicalClaimReservation, claimFactsRequest,
   observeReservedClaimFact } from '../../../src/claims/authorization/reservation-facts-gate.mjs';
 import { auditClaimGateway, auditClaimNativeInventory, assertClaimHealthState, assertClaimRoute, claimEconomicInventory,
   auditClaimIngressPreparation, auditClaimPayoutPreparation } from '../../../src/claims/operations/backing-audit.mjs';
 import { createLocalClaimOperator, createClaimOperatorQuorum, assertOwnedClaimOperatorQuorum } from '../../../src/claims/operations/operators.mjs';
-import { receiptKeyCommitment, encodeSolanaBindingMessage } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { receiptKeyCommitment, encodeSolanaBindingMessage } from '@lianum/engine/native/native-receipt-binding';
 import { summarizeOwnedBitcoinCoins, ownedCustodyFeeAudit } from '../../../src/chains/shared/runtime/owned-native-custody.mjs';
 import { nativeFactsRegistryCommitment, FACTS_QUORUM_PROFILE } from '../../../src/chains/shared/dispatch/native-facts-peer.mjs';
-import { createNativeQuorumHostVerifier } from '../../../../engine/src/evidence/native-quorum.mjs';
+import { createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
 
 const h = value => createHash('sha256').update(value).digest('hex'), ZERO = '0'.repeat(64);
 const copy = value => structuredClone(value);

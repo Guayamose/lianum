@@ -12,38 +12,57 @@ import { auditNonceIngressPreparation, assertNonceIngressFirstSend }
  * All local funds and same-host operator roles are explicitly synthetic. */
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, ZERO, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
 import { cloneInput as copy, frozenInput as freeze } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedWrappedClaimSystem } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
-import { assertOwnedLocalEvmV2, LOCAL_EVM_PROFILE, assertSignedEvmTransaction } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { assertSignedEvmTransaction } from '../../../chains/evm/contracts/transaction-wire-codec.mjs';
+import { LOCAL_EVM_PROFILE } from '../../../chains/evm/runtime/local-evm-profiles.mjs';
+import { assertOwnedLocalEvmV2 } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOwnedWrappedClaimObserverV1, ownedWrappedClaimObserverBindingsV1 } from '../operations/wrapped-owned-state-v1.mjs';
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/wrapped-operators-v1.mjs';
 import * as claimOperators from '../operations/wrapped-operators-v1.mjs';
-import { assertWrappedClaimRoleProofClientV1 } from '../../../../../proofs/src/wrapped-claims/runtime/wrapped-claim-client-v1.mjs';
-import { loadPinned, resourceModuleURL } from '../../../../../proofs/src/tooling/tooling.mjs';
-import { assertOwnedWrappedClaimIngressHandoffV1 as assertOwnedNativeClaimIngressHandoff } from '../../../../../custody/src/processes/wrapped-claim-owner-process-v1.mjs';
+import { assertWrappedClaimRoleProofClientV1 } from '../../../proving/wrapped-claims/runtime/wrapped-claim-client-v1.mjs';
+import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
+import { assertOwnedWrappedClaimIngressHandoffV1 as assertOwnedNativeClaimIngressHandoff } from '../../../custody/processes/wrapped-claim-owner-process-v1.mjs';
 import { ownedClaimControllerJournal } from './wrapped-controller-journal-v1.mjs';
-import { createClaimEvmDispatchRequest } from '../protocol/wrapped-evm-dispatch-gate-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1 } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';
-import { balanceCommitment } from '../../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import { nativeAdmissionChainDomain, nativeAdmissionRulesTree } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { receiptKeyCommitment, validateBitcoinBinding } from '../../../chains/shared/dispatch/native-receipt-binding.mjs';
+import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { nativeAdmissionChainDomain, nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
+import { receiptKeyCommitment, validateBitcoinBinding } from '@lianum/engine/native/native-receipt-binding';
 import { validateClaimSolanaBindingTransaction } from '../../../chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { claimDomainCommitment, claimIntentId, claimReceiptSecret, claimRefundSalt, claimDestinationCommitment,
-  claimTicketId, claimTicketSecret, nativeClaimEndpointCommitment, claimUint } from '../../protocol/framing.mjs';
-import { decodeClaimIngressInputs, decodeClaimDischargeInputs } from '../../protocol/framing.mjs';
-import { CLAIM_ACTIONS as A, claimHash, claimRouteCommitment } from '../../authorization/permits.mjs';
+  claimTicketId, claimTicketSecret, nativeClaimEndpointCommitment, claimUint } from '@lianum/engine/claims/framing';
+import { decodeClaimIngressInputs, decodeClaimDischargeInputs } from '@lianum/engine/claims/framing';
+import { CLAIM_ACTIONS as A, claimHash, claimRouteCommitment } from '@lianum/engine/claims/permits';
 import { buildClaimIngressNonceRegistryV3Inputs as buildClaimIngressInputs } from '../../authorization/inputs-nonce-registry-v3.mjs';
 import { buildClaimDischargeRegistryV2Inputs as buildClaimDischargeInputs } from '../../authorization/inputs-registry-v2.mjs';
 import { createClaimReservationBinding, assertCanonicalClaimReservation } from '../../authorization/reservation-facts-gate.mjs';
 import { assertClaimRoute } from '../../operations/backing-audit.mjs';
-import { encodeDepositIntentInputs, decodeDepositIntentInputs } from '../../../execution/account/preparation/deposit-intent.mjs';
+import { encodeDepositIntentInputs, decodeDepositIntentInputs } from '@lianum/engine/execution/inputs/deposit-intent';
 import { encodeControllerClaimCall } from '../../controller/controller-call.mjs';
 import { compactClaimEvmRequest, compactClaimEvmPreparation, originalClaimEvmRecord } from '../../controller/controller-evm-record.mjs';
 import { validateRetainedClaimPacket, canonicalClaimDepositProjection } from '../../controller/controller-retained-state.mjs';
 export { createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   openDurableNativeClaimControllerKeeper } from './wrapped-controller-journal-v1.mjs';
 const dispatchTokens = new WeakMap();
+
+/** EVM request emission and validation share the original controller lifetime. */
+const evmDispatchRequests = new WeakMap();
+export async function createClaimEvmDispatchRequest(token) {
+  // Preserve the asynchronous handoff before consuming the original token.
+  await Promise.resolve();
+  const scope = openNativeClaimControllerDispatch(token);
+  const request = Object.freeze(Object.create(null)); evmDispatchRequests.set(request, { scope, opened: false }); return request;
+}
+export function isOwnedClaimEvmDispatchRequest(request) { return evmDispatchRequests.has(request); }
+export function assertOwnedClaimEvmDispatchRequest(request, runtime) {
+  const row = evmDispatchRequests.get(request); assert.ok(row && row.scope.runtime === runtime, 'CLAIM_ORIGINAL_EVM_REQUEST_REQUIRED');
+  assert.ok(!row.opened, 'CLAIM_EVM_REQUEST_ALREADY_OPENED'); row.scope.assertLive(); row.opened = true;
+  const { transaction, beforeSign, consumeBeforeKey, onSigned } = row.scope;
+  return Object.freeze({ transaction, beforeSign, consumeBeforeKey, onSigned });
+}
+
+
 // Minted only by completed genuine controller operations, never by a public
 // issuer or a caller-supplied context. Refused consumption burns the token.
 const originalKeyAuthoritiesV4 = new WeakMap();

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {join,resolve,sep} from 'node:path';
 import {realpathSync} from 'node:fs';
 import {homedir} from 'node:os';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 export const SPL_COMPILATION_RESULT_V1='LIANUM_NEW_NATIVE_SPL_COMPILATION_ONLY_RESULT_V1';
 export const SPL_COMPILATION_LIMITS_V1=Object.freeze({deadlineMilliseconds:600000,maximumCompilerRSSBytes:3*1024**3});
 export function classifyNativeSplCompilerProcessV1(argv,executable){

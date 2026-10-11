@@ -7,7 +7,7 @@ import {createHash,createPrivateKey,createPublicKey,randomUUID} from 'node:crypt
 import {mkdir,readFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {NATIVE_QUORUM_PROFILE} from '../../../../../engine/src/evidence/native-quorum.mjs';
+import {NATIVE_QUORUM_PROFILE} from '@lianum/engine/evidence/native-quorum';
 const mapped=import.meta.url.includes('/wallet-platform/modules/operations/operators/native-value/');
 const relative=mapped?{
  bootstrap:'../../../ops/native-value-local-operator-bootstrap-v4.mjs',operators:'../../../ops/native-value-operators-v4.mjs',system:'../../../ops/native-value-system-v2.mjs',
@@ -25,7 +25,7 @@ const relative=mapped?{
  issuer:'../../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',
  store:'../../../../src/claims/storage/segmented-record-store.mjs',
  profile:'../../../../src/chains/evm/transfers/evm-native-value-v2.mjs',
- commitments:'../../../../src/execution/encoding/commitments.mjs'};
+ commitments:'@lianum/components/encoding/commitments'};
 const urls=Object.fromEntries(Object.entries(relative).map(([name,path])=>[name,new URL(path,import.meta.url).href]));
 const native=new WeakSet(),systems=new WeakMap(),h=value=>createHash('sha256').update('INERT native bootstrap HOST:'+value).digest('hex');
 const recoveryHostTokens=new WeakMap();

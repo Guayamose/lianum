@@ -3,11 +3,11 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
+import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import {ORIGINAL_WALLET_PRIVATE_PROVER_V4,readOriginalWalletNoteProverRequestV4} from './wallet-note-private-prover-v4.mjs';
 import {need,proofError,exactObject,encodeProofMessage,decodeProofMessage,normalizeProofWitness,assertExpectedInputs,publicInputsFromWitness,
- loadProofProfile,encodePrivateProof,wipePrivate} from '../../../engine/src/execution/proofs/proof-worker.mjs';
-import {hash,verifyToolchain,verifyCRS} from '../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+ loadProofProfile,encodePrivateProof,wipePrivate} from '../execution/proof-worker.mjs';
+import {hash,verifyToolchain,verifyCRS} from '@lianum/proofs/toolchain/wallet-resources';
 async function main(){
  const mode=process.argv[2];need(process.argv.length===3&&['deposit_balance','withdraw_balance'].includes(mode)&&process.connected,'PAEG_PROOF_PRIVATE_ENTRY');process.umask(0o077);
  let opened,input,proof,pendingAck,sequence=0;const terminate=()=>{wipePrivate(input);wipePrivateProofInputsV1(opened?.inputs);process.exit(2);};process.once('disconnect',terminate);process.once('SIGTERM',terminate);
@@ -19,7 +19,7 @@ async function main(){
   const loaded=loadProofProfile(mode);need(loaded.legacy===true&&loaded.target==='evm'&&loaded.maximumPages===32768,'PAEG_PROOF_PRIVATE_PROFILE');const toolchain=verifyToolchain(),crs=verifyCRS();
   globalThis.fetch=async()=>{throw proofError('PAEG_PROOF_OFFLINE_REQUIRED');};input=normalizeProofWitness(loaded.program,request.input);assertExpectedInputs(mode,publicInputsFromWitness(loaded.program,input),expected);const metrics={...loaded.publicPins,privateTransitProfile:ORIGINAL_WALLET_PRIVATE_PROVER_V4,zeroKnowledgeEnabled:true,maximumPages:loaded.maximumPages,threads:1,toolchain,crs};
   await phase('legacy-proof-and-self-verification');
-  const{proveWallet}=await import('../../../../experiments/engine/private-core-proof/wallet-notes/prover.mjs');proof=await proveWallet(mode,input,request.label);
+  const{proveWallet}=await import('../toolchain/wallet-prover.mjs');proof=await proveWallet(mode,input,request.label);
   assert.equal(proof.metrics.verified,true,'PAEG_PROOF_SELF_VERIFICATION_FAILED');proof.publicInputs=assertExpectedInputs(mode,proof.publicInputs,expected);metrics.verified=true;metrics.proofSHA256=hash(proof.proof);metrics.publicInputsSHA256=hash(JSON.stringify(proof.publicInputs));metrics.proofBytes=proof.proof.length;metrics.publicInputCount=proof.publicInputs.length;
   const result={proofPackage:encodePrivateProof(mode,proof),metrics};try{await send({event:'result',result,authorizationBindingSHA256:privateProofBindingSHA256V1(binding)});}finally{wipePrivate(result.proofPackage);}
  }catch(e){const code=/^PAEG_PROOF_[A-Z_]+$/.test(e?.code??'')?e.code:'PAEG_PROOF_TOOLCHAIN_OR_CONSTRAINT_FAILURE';if(process.connected)await send({event:'failure',code}).catch(()=>{});process.exitCode=1;}

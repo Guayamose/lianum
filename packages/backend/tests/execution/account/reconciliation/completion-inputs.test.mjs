@@ -5,10 +5,10 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { buildNodeInputs, buildSettlementInputs } from '../../../../src/execution/account/reconciliation/completion-inputs.mjs';
-import { createCommitmentCodec, ZERO } from '../../../../src/execution/encoding/commitments.mjs';
+import { createCommitmentCodec, ZERO } from '@lianum/components/encoding/commitments';
 import { buildSyntheticEnvelopeFixture } from '../../../../../../tests/integration/fixtures/proofs/envelopes/synthetic-envelope-fixture.mjs';
-import { nativeReceiptCommitment } from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
-import { terminalReceiptTag } from '../../../../../components/src/framing.mjs';
+import { nativeReceiptCommitment } from '@lianum/engine/execution/native/state/native-receipt';
+import { terminalReceiptTag } from '@lianum/components/framing';
 
 const h = value => createHash('sha256').update(value).digest('hex');
 const hashFields = async fields => '00' + h(fields.map(String).join(':')).slice(2);

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { a0Context } from './native-capsules.mjs';
 import { FUNDED_GRAPH_PROFILE } from '../../graph/funded-graph.mjs';
 import { A0, FIELD_MODULUS, digestHex, digestWords, membershipRoot }
-  from '../../../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
+  from '../../inputs/funding-wrappers.mjs';
 
 export const NATIVE_AGGREGATE_PAIR_PUBLIC_INPUT_COUNT = 67;
 export const NATIVE_AGGREGATE_ALL_PUBLIC_INPUT_COUNT = 98;

@@ -1,6 +1,6 @@
 /** Consistency of fresh canonical Aave reads; no object or proof authority. */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 const keys=['pool','aToken','wrapper','rate','scaledWrapper','scaledTotal','wrapperAssets','poolUnderlying','wrapperUnderlying','inputSupply','stableDebt','variableDebt'];
 const uint=value=>{assert.ok(typeof value==='string'&&/^(0|[1-9][0-9]*)$/.test(value));const n=BigInt(value);assert.ok(n<1n<<256n);return n;};
 export function assertAaveStaticRedemptionAccountingV1(input) {

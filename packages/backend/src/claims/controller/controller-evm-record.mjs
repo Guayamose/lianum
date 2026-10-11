@@ -3,7 +3,7 @@
  * Reopening still requires the same owned runtime and its original journal. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput as copy } from '../../execution/account/preparation/readiness-inputs.mjs';
 
 function wireHash(value) {

@@ -5,12 +5,12 @@ import {createHash} from 'node:crypto';
 import {readFileSync,lstatSync,realpathSync} from 'node:fs';
 import {join,resolve,posix} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
-import {inspectWrappedInstallationSourcesV2} from '../../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
-import {WRAPPED_CLAIM_PROOF_PIN_SET_V1,WRAPPED_CLAIM_PROOF_PIN_SCHEMA_V3,WRAPPED_CLAIM_PROOF_RELEASE_SCHEMA_V3} from '../../../../../proofs/src/wrapped-claims/metadata/wrapped-claim-proof-pins-v1.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {inspectWrappedInstallationSourcesV2} from '@lianum/components/verification/wrapped-installation';
+import {WRAPPED_CLAIM_PROOF_PIN_SET_V1,WRAPPED_CLAIM_PROOF_PIN_SCHEMA_V3,WRAPPED_CLAIM_PROOF_RELEASE_SCHEMA_V3} from '@lianum/proofs/wrapped-claims/metadata/wrapped-claim-proof-pins-v1';
 import {WRAPPED_CLAIM_PROOF_RELEASE_V1} from './wrapped-claim-release-v1.mjs';
 import {validateWrappedStageProvenanceV3} from './wrapped-claim-stage-provenance-v2.mjs';
-import {exactRecord} from '../../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 const READER_ROOT=resolve(ROOT,'../../drafts/wrapped-ci-retained-preparation-20261006'),sha=b=>createHash('sha256').update(b).digest('hex'),jsha=v=>sha(JSON.stringify(v));
 let permanentlyFaulted=false,firstReaderManifest=null;
 function pinRead(root,relative,pin){

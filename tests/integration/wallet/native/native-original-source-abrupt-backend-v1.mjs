@@ -3,12 +3,12 @@
 import assert from 'node:assert/strict';
 import {readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {createOriginalNativeSourceLocalOperatorV1,reopenOriginalNativeSourceLocalOperatorV1,
  readOriginalNativeSourceLocalContextV1,readOriginalNativeSourceLocalOwnedProcessesV1,
  readOriginalNativeSourceLocalArmedAuditV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-local-operator-v1.mjs';
-import {readOriginalSessionWalletEconomicStateV1} from '../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs';
-import {assertOriginalWalletEconomicStateV1,originalWalletEconomicStateBindingsV1} from '../../../../packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs';
+import {readOriginalSessionWalletEconomicStateV1} from '@lianum/backend/accounts/manual-graph';
+import {assertOriginalWalletEconomicStateV1,originalWalletEconomicStateBindingsV1} from '@lianum/backend/accounts/state/original-wallet-economic-state-v1';
 import {originalNativeSourceCapsuleStatusV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs';
 import {readOriginalNativeSourceProofReceiptsV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';

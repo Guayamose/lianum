@@ -5,14 +5,14 @@ import assert from 'node:assert/strict';
 import {runInNewContext} from 'node:vm';
 import {createHash,createECDH,createPublicKey,verify} from 'node:crypto';
 import {fixture,createActorModule} from './paired-original-account-host-fixture.mjs';
-import {originalAccountAccessMessageV2} from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {createGenericBalanceNativePreparation,genericBalanceNativeTerms} from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
-import {compileFundedGraph} from '../../../packages/engine/src/execution/graph/funded-graph.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
+import {createGenericBalanceNativePreparation,genericBalanceNativeTerms} from '@lianum/engine/execution/balances/generic-balance-native-preparation';
+import {compileFundedGraph} from '@lianum/engine/execution/graph/funded-graph';
 import {normalizeDeviceReservationConsentV1,deviceReservationConsentMessageV1,normalizeDeviceReservationWitnessV1,
   deviceReservationWitnessBytesV1,normalizeDeviceReservationStatusV1,validateDeviceReservationConsentFreshV1,
-  wipeDeviceReservationWitnessV1} from '../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
-import {normalizeOriginalAccountSignatureV2} from '../../../packages/mobile-protocol/src/original-account-review-v2.mjs';
-import {exactRecord} from '../../../packages/backend/src/execution/encoding/commitments.mjs';
+  wipeDeviceReservationWitnessV1} from '@lianum/mobile-protocol/device-reservation-consent-v1';
+import {normalizeOriginalAccountSignatureV2} from '@lianum/mobile-protocol/original-account-v2';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 const {createPairedOriginalAccountActorV2}=await createActorModule();
 const {createDeviceOwnerReservationBridgeV1,assertDeviceOwnerReservationBridgeV1,consumeDeviceOwnerReservationAuthorizationV1}
   =await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
@@ -100,13 +100,13 @@ test('fixed U/S framing signs all custody and witness bindings below4096 and rej
 const {createDeviceOwnerExecutionBridgeV1,consumeDeviceOwnerExecutionAuthorizationV1}
   =await import('../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs');
 import {normalizeDeviceExecutionConsentV1,deviceExecutionConsentMessageV1,normalizeDeviceExecutionStatusV1,deviceExecutionSnapshotBytesV1}
-  from '../../../packages/mobile-protocol/src/device-execution-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-execution-consent-v1';
 import {normalizeDeviceExitConsentV1,deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1}
-  from '../../../packages/mobile-protocol/src/device-exit-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-exit-consent-v1';
 import {createBalanceNote,walletWithdrawInput,walletInputPublicWords,balanceWithdrawFrame}
-  from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {PrivateNoteTree} from '../../../packages/engine/src/notes/private-note-tree.mjs';
-import {canonical} from '../../../packages/engine/src/crypto/privacy.mjs';
+  from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {PrivateNoteTree} from '@lianum/engine/notes/private-note-tree';
+import {canonical} from '@lianum/engine/crypto/privacy';
 test('device continuation rejects caller executors/providers before dispatch and keeps native PoP domains distinct',async t=>{
   const {f,actor,bridge}=await setup(t);let effects=0;
   await assert.rejects(createDeviceOwnerExecutionBridgeV1({account:f.account,reservationBridge:bridge,

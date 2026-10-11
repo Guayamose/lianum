@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {assertDeviceFinalOriginalReceiptTreeV1} from './device-owner-execution-native-checks-v1.mjs';
 import {decodeFlatFieldTree} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import {FIELD_MODULUS} from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import {FIELD_MODULUS} from '@lianum/components/encoding/commitments';
 const ZERO='0'.repeat(64);
 const hostField=(label,...values)=>((BigInt('0x'+createHash('sha256').update(JSON.stringify([label,...values])).digest('hex'))%(FIELD_MODULUS-1n))+1n).toString(16).padStart(64,'0');
 const DOMAIN=hostField('INERT_HOST_RECEIPT_DOMAIN'),KIND=2;

@@ -1,10 +1,10 @@
 /** Pure source codecs for distinct custody leaves in the frozen V2 envelope.
  * No ownership, observed backing, deployment, signing or mint capability. */
 import assert from 'node:assert/strict';
-import { exactRecord, fixedArray, bytes32, ZERO } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, bytes32, ZERO } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../execution/account/preparation/readiness-inputs.mjs';
-import { validateClaimConfig } from './framing.mjs';
-import { nativeAdmissionRuleCommitment } from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { validateClaimConfig } from '@lianum/engine/claims/framing';
+import { nativeAdmissionRuleCommitment } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { h4, sha256, registryCommitment, pathRoot, sourceCommitment, PROFILE_SCHEMA as EVM_SCHEMA }
   from '../../chains/evm/transfers/evm-native-value-v2.mjs';
 import * as NativeValue from '../../chains/shared/transfers/generic-native-value-v2.mjs';

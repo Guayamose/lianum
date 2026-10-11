@@ -2,7 +2,7 @@
  * It creates no session/runtime/proof and never exposes GRAPH through the app.
  * Explicit driver reads are not UI polling or settlement from an HTTP ack. */
 import assert from 'node:assert/strict';
-import { exactRecord } from '../../../../packages/backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 const routes = Object.freeze({ account: Object.freeze({ prepare: '/api/wallet/account/prepare',
   execute: '/api/wallet/account/execute', reconcile: '/api/wallet/account/reconcile' }),
   defi: Object.freeze({ prepare: '/api/wallet/defi/prepare', requote: '/api/wallet/defi/requote',

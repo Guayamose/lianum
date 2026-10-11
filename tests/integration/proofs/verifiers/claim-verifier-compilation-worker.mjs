@@ -3,12 +3,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ROOT, LOCAL, relation } from '../../../../packages/proofs/src/catalog.mjs';
+import { ROOT, LOCAL, relation } from '@lianum/proofs/catalog';
 import { assertID, regular, hash, writeJSON, writeNew, replaceJSON, resourceModuleURL,
-  circuitIdentity, versionDirectory, loadCompiled, loadPrepared } from '../../../../packages/proofs/src/tooling/tooling.mjs';
-import { compileSoliditySources } from '../../../../packages/proofs/src/tooling/solidity-compiler.mjs';
+  circuitIdentity, versionDirectory, loadCompiled, loadPrepared } from '@lianum/proofs/tooling/tooling';
+import { compileSoliditySources } from '@lianum/proofs/tooling/solidity-compiler';
 import { integrationSourcePins } from '../../runners/source-pins.mjs';
-import { deriveGenericVerifierImmutables } from '../../../../packages/engine/src/execution/local/local-deployment.mjs';
+import { deriveGenericVerifierImmutables } from '@lianum/engine/execution/local/local-deployment';
 
 assert.equal(process.argv.length, 3, 'VERIFIER_FIXED_ARGS');
 assert.deepEqual(process.execArgv, [], 'VERIFIER_NO_EXEC_OPTIONS');

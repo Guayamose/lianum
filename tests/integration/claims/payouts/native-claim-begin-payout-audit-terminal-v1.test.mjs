@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
-import { assertBeginPayoutAuditReceiptV1, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1 } from '../../../../packages/backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
+import { assertBeginPayoutAuditReceiptV1, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 const source = readFileSync(new URL('./native-claim-begin-payout-audit-terminal-v1.mjs', import.meta.url), 'utf8');
 const body = source.slice(source.indexOf('const beforeStates')).replaceAll('export ', '');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');

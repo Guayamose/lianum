@@ -1,5 +1,5 @@
 import{randomUUID}from'node:crypto';
-import{preparePrivateProofJobV1,privateProofAuthorizationBindingV1,readOriginalPrivateProofRecipientV1}from'./private-proof-transit-v1.mjs';
+import{preparePrivateProofJobV1,privateProofAuthorizationBindingV1,readOriginalPrivateProofRecipientV1}from'@lianum/engine/crypto/private-proof-transit-v1';
 /** Fixed D26/W39 economic producers. Private witness, original prepared VK,
  * official BB5.2 Native12; this grants no account or financial authority. */
 import assert from 'node:assert/strict';
@@ -10,10 +10,10 @@ import {accessSync,constants,closeSync,fstatSync,lstatSync,openSync,readFileSync
 import {join} from 'node:path';
 import {ROOT,GOLDEN,EXPERIMENT,LIMITS,MEMORY} from '../catalog.mjs';
 import {loadProofProfile,assertExpectedInputs,wipePrivate,PROOF_PROTOCOL,encodeProofMessage,decodeProofMessage,
- exactObject,assertProofRole,normalizePublicInputs,normalizeProofWitness,publicInputsFromWitness,encodePrivateProof,decodePrivateProof,need,proofError} from '../../../engine/src/execution/proofs/proof-worker.mjs';
-import {PRIVATE_RESOURCE_POLICY} from '../../../engine/src/crypto/private-resource-policy.mjs';
-import {initializePrivateVerifierCRS} from '../../../engine/src/crypto/private-verifier-crs.mjs';
-import {CRS,verifyToolchain,verifyCRS} from '../../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+ exactObject,assertProofRole,normalizePublicInputs,normalizeProofWitness,publicInputsFromWitness,encodePrivateProof,decodePrivateProof,need,proofError} from '../execution/proof-worker.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
+import {initializePrivateVerifierCRS} from '@lianum/components/resources/private-verifier-crs';
+import {CRS,verifyToolchain,verifyCRS} from '@lianum/proofs/toolchain/wallet-resources';
 import {gunzipSync} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
 import {regular,hash,resources} from '../tooling/tooling.mjs';

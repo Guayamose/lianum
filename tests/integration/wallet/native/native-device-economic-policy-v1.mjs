@@ -2,9 +2,9 @@
  * phone claim. Historical profiles and their cleanup/receipt meanings remain
  * unchanged. These joins consume public original receipts, never authority. */
 import assert from 'node:assert/strict';
-import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
-import {NATIVE_VALUE_LIVE_V2_SPEC} from '../../../../packages/proofs/src/native-value/metadata/native-value-live-v2-profile.mjs';
-import {assertI84NativeReceiptV1} from '../../../../packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {NATIVE_VALUE_LIVE_V2_SPEC} from '@lianum/proofs/native-value/metadata/native-value-live-v2-profile';
+import {assertI84NativeReceiptV1} from '../../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
 import {assertDeviceOwnerOutputBalanceReadsV1} from './device-owner-execution-native-checks-v1.mjs';
 import {DEVICE_RECOVERY_RELATIONS_V1} from './device-owner-recovery-policy-v1.mjs';

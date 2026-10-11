@@ -1,7 +1,7 @@
 /** Complete typed adapter-root inventory. Pure validation grants no ownership. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, fixedArray, ZERO } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord, fixedArray, ZERO } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { registryCommitment, assertRegistration, assertSource, profileCommitment, validateProfile }
   from '../../../chains/shared/transfers/generic-native-value-v2.mjs';

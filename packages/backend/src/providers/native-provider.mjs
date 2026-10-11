@@ -7,29 +7,29 @@ import assert from 'node:assert/strict';
 import { lstat, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { Vault } from '@lianum/engine/crypto/vault';
-import { freshKey, signature } from '../../../engine/src/notes/private-note-encoding.mjs';
+import { freshKey, signature } from '@lianum/engine/notes/private-note-encoding';
 import { assertLocalEvm } from '../chains/evm/runtime/local-evm-ownership.mjs';
-import { assertOwnedNativeRecipientProcess } from '../../../engine/src/execution/native/recipients/native-recipient-process.mjs';
-import { nativeTransferActionCommitment } from '../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { assertOwnedNativeRecipientProcess } from '../execution/native/recipients/native-recipient-process.mjs';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 import { nativeAdmissionChainDomain, nativeAdmissionRuleRoot, nativeProviderIdentity,
   nativeDeliveryRiskCommitment, nativeDispatchStatementFrame, NATIVE_ADMISSION_LOSS_CLAUSE }
-  from '../../../engine/src/execution/native/dispatch/native-admission.mjs';
-import { nativeFixtureEndpointCommitment } from '../../../engine/src/evidence/native-quorum-observer.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
+import { nativeFixtureEndpointCommitment } from '../evidence/native-quorum-observer.mjs';
 import { nativeQuorumRegistryCommitment, createNativeQuorumHostVerifier }
-  from '../../../engine/src/evidence/native-quorum.mjs';
+  from '@lianum/engine/evidence/native-quorum';
 import { assertOwnedFlatSystem } from '../operations/deployments/system/deploy-system.mjs';
 import { assertOwnedFlatOperatorQuorum } from '../operations/operators/claims/native-operators.mjs';
 import { createFlatSystemStateReader } from '../execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord, fixedArray, bytes32, canonicalField, validateStruct, FIELD_MODULUS }
-  from '../execution/encoding/commitments.mjs';
+  from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedBitcoinRuntime } from '../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime } from '../chains/solana/runtime/owned-solana-runtime.mjs';
-import { nativeRuleCommitment, nativeCustodyCommitment } from '../chains/shared/dispatch/native-receipt-binding.mjs';
+import { nativeRuleCommitment, nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { createNativeDispatchGate, createNativeDispatchJournal, normalizeNativeDispatchBinding }
   from '../chains/shared/dispatch/native-dispatch-gate.mjs';
 import { createPinnedVerifier } from '@lianum/proofs/verification';
-import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
+import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
 
 export const OWNED_FLAT_NATIVE_PROVIDER_PROFILE = 'OWNED_SYNTHETIC_FLAT_NATIVE_PROVIDER_V1';
 const ownedProviders = new WeakMap(), originalSolanaSplSourcesV1 = new WeakMap();

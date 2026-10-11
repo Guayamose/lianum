@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join,resolve,dirname,basename} from 'node:path';
-import {ROOT,FLAT,GOLDEN} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT,FLAT,GOLDEN} from '@lianum/proofs/catalog';
 import {assertNativeLiveArmedShortRecoverableAnvilV1} from './native-device-live-armed-short-process-scope-v1.mjs';
 const WORKER=join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'),CHILD=join(ROOT,'integration/native-original-source-abrupt-backend-v1.mjs');
 const ANVIL=join(GOLDEN,'.local/linux-runtimes/foundry-v1.8.4/anvil');

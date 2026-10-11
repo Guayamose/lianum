@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RELATIONS, FIELD_MODULUS, decodeStatement, encodeStatement,
-  joinAdmission, joinReadiness, joinReservation, joinSettlement } from '../../../src/execution/encoding/statements.mjs';
+  joinAdmission, joinReadiness, joinReservation, joinSettlement } from '@lianum/components/encoding/statements';
 
 const hex = value => BigInt(value).toString(16).padStart(64, '0');
 const raw = 'ff'.repeat(32);

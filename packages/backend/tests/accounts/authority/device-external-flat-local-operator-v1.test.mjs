@@ -11,7 +11,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
 import {types} from 'node:util';
 import {EventEmitter} from 'node:events';
-import {FLAT} from '../../../../proofs/src/catalog.mjs';
+import {FLAT} from '@lianum/proofs/catalog';
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/global-state/device-external-flat-local-operator-v1.test.mjs');
 const backendURL=new URL(generated?'../operations/local/device-external-flat-local-operator-v1.mjs':'../../../src/operations/local/device-external-flat-local-operator-v1.mjs',import.meta.url);

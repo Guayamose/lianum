@@ -1,6 +1,6 @@
 import {describeWrappedResumeSuccessorV1} from './wrapped-withdrawal-successor-review-v1.mjs';
 import {projectStoredWrappedResumeAdmissionV1} from './wrapped-withdrawal-admission-read-v1.mjs';
-import { inspectWrappedInstallationSourcesV2 } from '../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
+import { inspectWrappedInstallationSourcesV2 } from '@lianum/components/verification/wrapped-installation';
 /** Original wrapped note withdrawal service. Source/change and the second
  * recipient keep distinct private process brands. No public amount, destination,
  * proof, key, observer, callback, restore or send-retry input is accepted. */
@@ -17,16 +17,16 @@ export function wrappedWithdrawalSessionBindingV1(session){assertOwnedWrappedWit
 export async function createWrappedWithdrawalSessionV1(input){assert.equal(arguments.length,1);return withdrawalSession(input,null);}
 async function withdrawalSession(input,recovery){
 await assertWrappedWithdrawalReleasedV1();
- const { exactRecord }=await import('../../execution/encoding/commitments.mjs');
- const { assertOwnedWrappedClaimWalletSystemV1 }=await import('../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs');
- const { assertOwnedWrappedClaimOwnerProcessV1,assertWrappedClaimOwnerOriginalLifetimeV1 }=await import('../../../../custody/src/processes/wrapped-claim-owner-process-v1.mjs');
+ const { exactRecord }=await import('@lianum/components/encoding/commitments');
+ const { assertOwnedWrappedClaimWalletSystemV1 }=await import('../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs');
+ const { assertOwnedWrappedClaimOwnerProcessV1,assertWrappedClaimOwnerOriginalLifetimeV1 }=await import('../../custody/processes/wrapped-claim-owner-process-v1.mjs');
  const { assertOwnedWrappedWalletAccountAuthorityV1,wrappedWalletAccountManualGraphDetailsV1 }=await import('../../accounts/authority/wrapped-wallet-account-authority-v1.mjs');
- const { assertOwnedNativeRecipientProcess,assertOriginalNativeRecipientRecoveryV1 }=await import('../../../../engine/src/execution/native/recipients/native-recipient-process.mjs');
+ const { assertOwnedNativeRecipientProcess,assertOriginalNativeRecipientRecoveryV1 }=await import('../../execution/native/recipients/native-recipient-process.mjs');
  const { assertOwnedNativeValueProviderCustody,ownedNativeValueProviderCustodyReview }=await import('../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs');
  const { createWrappedWalletStateReaderV1 }=await import('../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs');
  const { createClaimRecordStore,openClaimRecordStore }=await import('@lianum/engine/storage/records');
- const { createProofProcess }=await import('../../../../engine/src/execution/proofs/proof-process.mjs');
- const { walletInputPublicWords,decodeWalletPoolInputs }=await import('../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs');
+ const { createProofProcess }=await import('@lianum/proofs/execution/proof-process');
+ const { walletInputPublicWords,decodeWalletPoolInputs }=await import('@lianum/engine/wallet/notes/private-wallet-note-encoding');
  const { encodeFlatTransaction }=await import('../../execution/encoding/transaction-codec.mjs');
  exactRecord(input,['runtime','system','owner','account','journal']);exactRecord(input.journal,['path','password']);
  const {runtime,system,owner,account}=input,pool=system.pools[1],journal={...input.journal};
@@ -418,8 +418,8 @@ await assertWrappedWithdrawalReleasedV1();
 export async function captureWrappedWithdrawalSessionForReopenV1(session){const state=owned.get(session);need(state,'WRAPPED_WITHDRAWAL_ORIGINAL_SESSION_REQUIRED');return state.capture();}
 export async function stopCapturedWrappedWithdrawalSessionV1(session){need(owned.has(session),'WRAPPED_WITHDRAWAL_ORIGINAL_SESSION_REQUIRED');return session.close();}
 export async function reopenWrappedWithdrawalSessionFromRecoveryV1(token){
- const {consumeWrappedWalletRecoveryPartV1}=await import('../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs');
- const {exactRecord}=await import('../../execution/encoding/commitments.mjs');
+ const {consumeWrappedWalletRecoveryPartV1}=await import('../../operations/wallet/wrapped-wallet-composition-v1.mjs');
+ const {exactRecord}=await import('@lianum/components/encoding/commitments');
  const retained=consumeWrappedWalletRecoveryPartV1(token,'withdrawal');exactRecord(retained,['input','record','recipient']);
  exactRecord(retained.record,['schema','journal','binding','checkpoint','recipientBinding','ownerLifetime']);need(retained.record.schema==='WRAPPED_ORIGINAL_WITHDRAWAL_RECOVERY_V1','WRAPPED_WITHDRAWAL_ORIGINAL_SESSION_REQUIRED');
  assert.equal(sha(retained.input.journal),sha(retained.record.journal),'WRAPPED_WITHDRAWAL_ORIGINAL_CREDENTIALS_CHANGED');return withdrawalSession(retained.input,retained);

@@ -7,10 +7,10 @@ import { assertCombinedClaimCoverageV4, assertCombinedClaimSourceCurrentV4, capt
 import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
-import { signature as sign } from '../../../../../engine/src/notes/private-note-encoding.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { nativeHubSignatureToAbi } from '../../../../../engine/src/evidence/native-hub-messages.mjs';
-import { exactRecord, fixedArray, bytes32 } from '../../../execution/encoding/commitments.mjs';
+import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { nativeHubSignatureToAbi } from '@lianum/engine/evidence/native-hub-messages';
+import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { assertOwnedWrappedClaimGraphSystem, wrappedClaimGraphOperatorResources } from '../../deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedClaimGraphStateReaderV1, assertWrappedClaimGraphCurrentViewV1 } from '../../../execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs';

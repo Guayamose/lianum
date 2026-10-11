@@ -5,10 +5,10 @@ import {createHash,createPublicKey,verify} from 'node:crypto';
 import * as P from '@lianum/mobile-protocol/device/source-note-v1';
 import * as Graph from '@lianum/mobile-protocol/device/source-graph-v1';
 import * as RootClaim from '@lianum/mobile-protocol/device/native-claim-v1';
-import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
-import {walletInputPublicWords,balanceCommitment,balanceDepositFrame,balanceWithdrawFrame} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
-import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
-import {verifyPrivateNotePath} from '../../../engine/src/notes/private-note-tree.mjs';
+import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
+import {walletInputPublicWords,balanceCommitment,balanceDepositFrame,balanceWithdrawFrame} from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import {nullifier} from '@lianum/engine/notes/private-note-encoding';
+import {verifyPrivateNotePath} from '@lianum/engine/notes/private-note-tree';
 const h=bytes=>createHash('sha256').update(bytes).digest('hex');
 const publicKey=(x,y)=>createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(x).toString('base64url'),y:Buffer.from(y).toString('base64url')}});
 export function deriveOriginalDeviceWalletNoteJobV3(received,mode){

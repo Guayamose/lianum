@@ -17,7 +17,7 @@ POLICY = "scripts/development/source-pins.json"
 TARGETS = {
     "mobile": "packages/backend/src/operations/releases/native-value/native-value-dev-mobile-package-pins-v5.mjs",
     "platform": "apps/platform/src/original-device-cloud-source-pins-v1.mjs",
-    "callers": "packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs",
+    "callers": "packages/backend/src/operations/recovery/native-device-source-review-v1.mjs",
 }
 MOBILE_MANIFESTS = {
     "packageLockSHA256": "apps/mobile/package-lock.json",

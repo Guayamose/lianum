@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
-import { exactRecord } from '../../../src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { inputUint } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
-import { FACTS_SCHEMA } from '../../../src/chains/shared/dispatch/native-receipt-binding.mjs';
+import { FACTS_SCHEMA } from '@lianum/engine/native/native-receipt-binding';
 
 const source = readFileSync(new URL('./native-operators.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('  function originalFactsEntry('), end = source.indexOf('\n  async function certify(', start);

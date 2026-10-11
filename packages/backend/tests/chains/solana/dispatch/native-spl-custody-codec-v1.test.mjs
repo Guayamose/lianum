@@ -4,10 +4,10 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import vm from 'node:vm';
-import {ROOT} from '../../../../../proofs/src/catalog.mjs';
-import {cloneInput,frozenInput} from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
+import {cloneInput,frozenInput} from '@lianum/components/plain-input';
 import {base58Encode,base58Decode} from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
-import {claimActionFrame,claimBackingFrame,CLAIM_ACTION_FIELDS,CLAIM_BACKING_FIELDS} from '../../../../src/claims/authorization/permits.mjs';
+import {claimActionFrame,claimBackingFrame,CLAIM_ACTION_FIELDS,CLAIM_BACKING_FIELDS} from '@lianum/engine/claims/permits';
 import {NATIVE_SPL_CUSTODY_V1,NATIVE_SPL_CUSTODY_SOURCE_REVIEW_V1,NATIVE_SPL_CUSTODY_COMPILED_RELEASE_V1,nativeSplAssetCommitmentV1,encodeNativeSplAuthorizeV1,encodeNativeSplAuthorizeMessageV1,encodeNativeSplSwapMessageV1,decodeNativeSplInventoryV1} from '../../../../src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex'),b32=n=>n.toString(16).padStart(64,'0'),pk=n=>base58Encode(Buffer.from(b32(n),'hex'));
 function fixture(){

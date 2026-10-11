@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { assertOwnedLocalEvmV2 } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import { assertOfficialProtocolFixture } from '../../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+import { assertOfficialProtocolFixture } from './official-protocol-fixture-v3.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { expectedAaveRuntimeCodeV1 } from './aave-v3-runtime-code-v1.mjs';
 import { compileOriginalMorphoBluePositionContractsV1 } from './morpho-blue-position-compilation-v1.mjs';
 

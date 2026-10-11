@@ -12,11 +12,11 @@ import { canonical } from '../../../src/crypto/privacy.mjs';
 import { derivePrivateWalletAssetIdentity } from '../../../src/wallet/notes/private-wallet-asset-binding.mjs';
 import { derivePrivateAssetPoolScope } from '../../../src/notes/private-asset-runtime.mjs';
 import { PrivateNoteTree } from '../../../src/notes/private-note-tree.mjs';
-import { loadProofProfile, wipePrivate } from '../../../src/execution/proofs/proof-worker.mjs';
+import { loadProofProfile, wipePrivate } from '@lianum/proofs/execution/proof-worker';
 import { FUNDED_GRAPH_PROFILE, FUNDED_DOMAINS, fundedHash, fundedAuthorizationWords }
   from '../../../src/execution/graph/funded-graph.mjs';
 import { openGenericRefundHandoff, deriveGenericRefundBinding, HANDOFF_SCHEMA, HANDOFF_CLASSIFICATION }
-  from '../../../src/execution/accounts/generic-account-refund-handoff.mjs';
+  from '../../../../backend/src/execution/accounts/generic-account-refund-handoff.mjs';
 
 const root = fileURLToPath(new URL('./', import.meta.url));
 const h = text => createHash('sha256').update('SYNTHETIC-NON-PROOF-STORAGE-FIXTURE:' + text).digest('hex');

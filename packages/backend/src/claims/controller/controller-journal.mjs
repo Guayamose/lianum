@@ -3,9 +3,9 @@
  * are deliberately not presented as recoverable custody. */
 import assert from 'node:assert/strict';
 import { createClaimVaultSession } from '../storage/vault-session.mjs';
-import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
+import { canonical } from '@lianum/engine/crypto/privacy';
 import { createHash } from 'node:crypto';
-import { exactRecord } from '../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
 import { startClaimRecordStoreProcess } from '../storage/record-store-process.mjs';
 const keepers = new WeakMap();

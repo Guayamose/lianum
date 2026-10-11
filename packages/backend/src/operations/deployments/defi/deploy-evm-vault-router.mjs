@@ -6,16 +6,16 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { readFileSync, lstatSync } from 'node:fs';
 import { assertLocalEvm, assertLocalEvmDeploymentProfile } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
-import { GENERIC_COMPILER_PIN } from '../../../../../engine/src/execution/local/local-deployment.mjs';
+import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments, nativeStaticCalldata }
-  from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+  from '../../../execution/native/dispatch/native-deployment.mjs';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedFlatSystem } from '../system/deploy-system.mjs';
 import { assertOwnedBackedAssets, loadBackedAssetDeploymentArtifacts } from './deploy-backed-assets.mjs';
 import { assertOwnedPoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
 import { validateEvmVaultDeliveryIdentity, EVM_VAULT_DELIVERY_SELECTOR, EVM_VAULT_DEPOSIT_SELECTOR }
-  from '../../../chains/evm/vault/evm-vault-delivery.mjs';
+  from '@lianum/engine/encoding/evm-vault-delivery';
 
 const root = new URL('../../../', import.meta.url), owned = new WeakMap(), attempts = new WeakSet();
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

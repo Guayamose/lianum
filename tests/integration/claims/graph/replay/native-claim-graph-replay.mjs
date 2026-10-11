@@ -7,10 +7,10 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { ROOT } from '../../../../../packages/proofs/src/catalog.mjs';
-import { publicKeccak256 } from '../../../../../packages/engine/src/cohorts/private-cohort-public-native.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { pinnedBinary, scratchDirectory, removeOwnScratch, unusedLoopbackPort, startOwnProcess, stopOwnProcess }
-  from '../../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
+  from '@lianum/engine/chains/shared/runtime-harness';
 import { createDiagnosticReadFacade, reconstructPostReservation, inspectRetainedNonemptySolInventory }
   from './native-claim-graph-replay-read.mjs';
 import { createReplayLifecycle } from './native-claim-graph-replay-lifecycle.mjs';

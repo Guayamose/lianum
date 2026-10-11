@@ -1,3 +1,4 @@
+import { assertNativeValueRegistrations } from './native-value-registry-v2.mjs';
 import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../recovery/native-original-source-capsule-v1.mjs';
 import {assertOwnedNativeDurableSourceReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 /** Genuine-artifact-bound new native-value graph-only local bootstrap. This module never starts an EVM or owns its
@@ -7,11 +8,11 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
-  nativeProofCalldata } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { linkPrivateBytecode } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '../../../execution/encoding/commitments.mjs';
+  nativeProofCalldata } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '@lianum/engine/evidence/native-quorum';
+import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '@lianum/components/encoding/commitments';
 import { buildNativeValueDeploymentPlan } from './native-value-deployment-plan-v2.mjs';
 import { NATIVE_VALUE_LEDGER_ROLES, NATIVE_VALUE_VERIFIER_ORDER as FLAT_VERIFIER_ORDER, loadNativeValueDeploymentArtifacts, loadNativeValueDevDeploymentArtifactsV5 } from './native-value-deployment-artifacts-v2.mjs';
 import { assertNativeValueOperatorBootstrap, provisionNativeValueOperators, finishNativeValueOperators, assertNativeBootstrapEconomicCaptureV1 } from '../../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
@@ -579,4 +580,13 @@ export async function retainOriginalNativeSystemSourceV1(token,system){
 export async function reopenOriginalNativeSystemSourceV1(token,input){
  assert.equal(arguments.length,2);exactRecord(input,['runtime','bootstrap']);assertOwnedNativeDurableSourceReceiverV1(input.runtime);const identity=nativeSourceRecoverySectionIdentityV1(token,'system'),wrapper=consumeOriginalNativeSourceSectionV1(token,'system');assert.equal(wrapper.schema,'ORIGINAL_NATIVE_SYSTEM_DURABLE_SOURCE_V1');assert.equal(wrapper.candidate,null);assert.equal(wrapper.sourceSHA256,identity.sourceSHA256);const capture=wrapper.confirmed;assert.equal(capture.schema,'ORIGINAL_NATIVE_SYSTEM_SOURCE_SEED_V1');assert.equal(capture.retainedHostSourceSHA256,identity.sourceSHA256);assert.equal(input.runtime.metadata.restoredOriginalState,true);
  const system=await restoreOriginalNativeEconomicSystem(input.runtime,input.bootstrap,capture,identity),handle=resumeOriginalNativeSourceSectionV1(token,'system');await updateOriginalNativeSourceSectionV1(handle,wrapper);sourceSystems.set(system,{handle,identity});return system;
+}
+
+/** Wallet eligibility checked by the original deployment owner. */
+export function assertOwnedNativeValueWalletSystem(runtime, system) {
+  assertOwnedNativeValueSystem(runtime, system);
+  assert.equal(system.profile, NATIVE_VALUE_SYSTEM_PROFILE, 'NATIVE_VALUE_WALLET_PROFILE');
+  assert.equal(system.claimsEnabled, false, 'NATIVE_VALUE_WALLET_GRAPH_ONLY');
+  assert.ok(Object.isFrozen(system), 'NATIVE_VALUE_WALLET_FROZEN_DEPLOYMENT');
+  assertNativeValueRegistrations({ registry: system.registry, profiles: system.adapterProfiles });
 }

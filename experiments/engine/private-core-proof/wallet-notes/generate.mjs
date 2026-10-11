@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {frame,sha256} from '../../../../packages/engine/src/notes/private-note-encoding.mjs';
+import {frame,sha256} from '@lianum/engine/notes/private-note-encoding';
 export const walletExperiment=fileURLToPath(new URL('.',import.meta.url));
 export const LEGACY_RESERVE_SOURCE_SHA256='c08bfd63453faff529c8cda734a81506807a73a052139d5491369db467e09112';
 export const LEGACY_GENERATOR_SHA256='f547ed121d9c7618a915393642606a1c0947c6b7af93b5d04620a6552b315b88';

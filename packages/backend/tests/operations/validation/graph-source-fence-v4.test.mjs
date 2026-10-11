@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { isDeepStrictEqual } from 'node:util';
 import { cloneInput as copy, frozenInput as freeze } from '../../../src/execution/account/preparation/readiness-inputs.mjs';
-import { exactRecord } from '../../../src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 const graphSource = readFileSync(new URL('./native-operators.mjs', import.meta.url), 'utf8');
 const bridgeSource = readFileSync(new URL('./combined-native-operators.mjs', import.meta.url), 'utf8');
 const claimSource = readFileSync(new URL('../native-claims/operators.mjs', import.meta.url), 'utf8');

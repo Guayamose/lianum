@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { validateEvmDeliveryWire, evmFundingEndpointCommitment } from '../../../../src/chains/evm/dispatch/evm-facts-binding.mjs';
-import { evmVaultDeliveryDescriptorCommitment } from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+import { evmVaultDeliveryDescriptorCommitment } from '@lianum/engine/encoding/evm-vault-delivery';
 import { evmDeliveryFixture, signedDeliveryWire } from '../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';
 
 test('EVM wire joins signed sender, exact calldata, full SHA and canonical identity', () => {

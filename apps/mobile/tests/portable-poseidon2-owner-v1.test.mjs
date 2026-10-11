@@ -6,7 +6,7 @@ import { PORTABLE_POSEIDON2_MODULUS_V1 as P, portablePoseidon2HashV1,
   portablePoseidon2HexV1, portablePoseidon2PermutationV1 } from '../src/custody/poseidon2-bn254-v1.mjs';
 import { createPortableOwnerCommitmentCodecV1, portableRawDigestLimbsV1 }
   from '../src/custody/owner-commitment-codec-v1.mjs';
-import { createCommitmentCodec } from '../../../packages/backend/src/execution/encoding/commitments.mjs';
+import { createCommitmentCodec } from '@lianum/components/encoding/commitments';
 
 test('Poseidon2 matches BB5.2 exact official permutation and installed hash snapshot', () => {
   // v5.2.0 poseidon2_params.hpp TEST_VECTOR_INPUT/OUTPUT, unchanged at49a592.

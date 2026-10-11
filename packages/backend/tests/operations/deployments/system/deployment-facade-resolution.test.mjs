@@ -7,13 +7,13 @@ import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from '../../../../src/operations/deployments/system/deployment-plan.mjs';
 import { canonicalClaimRecordDataV1 } from '../../../../src/claims/storage/segmented-record-store.mjs';
-import { genericAccountIdentity, immutable } from '../../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { genericAccountIdentity, immutable } from '@lianum/engine/accounts/journal';
 import { poolRouteDigest, poolEconomicIdentity } from '../../../../src/accounts/storage/flat-pool-route-state.mjs';
 import { claimArtifactMethod } from '../../../../src/operations/deployments/claims/native-claim-deployment-plan.mjs';
-import { encodeClaimABI } from '../../../../src/claims/protocol/abi.mjs';
+import { encodeClaimABI } from '@lianum/engine/claims/abi';
 import { evmFunctionSelector } from '../../../../src/chains/evm/contracts/evm-code-hash.mjs';
-import { exactRecord, fixedArray } from '../../../../src/execution/encoding/commitments.mjs';
-import { nativeStaticArguments } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
+import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+import { nativeStaticArguments } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
 const source = name => readFileSync(new URL(name, import.meta.url), 'utf8');
 function cut(source, begin, end) {
   const start = source.indexOf(begin), stop = source.indexOf(end, start);

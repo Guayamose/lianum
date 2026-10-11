@@ -4,8 +4,8 @@
 import assert from 'node:assert/strict';
 import {types} from 'node:util';
 import {createHash,createPublicKey,randomBytes,verify} from 'node:crypto';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
-import {cloneInput} from '../../execution/account/preparation/readiness-inputs.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
+import {cloneInput} from '@lianum/components/plain-input';
 import {assertOwnedNativeValueExecution} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import {assertOwnedNativeValueProviderCustody} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import {assertDeviceOwnerReservationBridgeV1,deviceOwnerReservationBridgeActorV1} from './device-owner-reservation-bridge-v1.mjs';
@@ -15,17 +15,17 @@ import {installDeviceOwnerExecutionV1,readDeviceOwnerExecutionStatusV1,runDevice
 import {createNativeValueSystemStateReader} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {normalizeOriginalAccountSignatureV2} from '@lianum/mobile-protocol/original-account-v2';
 import {DEVICE_EXECUTION_CONSENT_V1,normalizeDeviceExecutionConsentV1,validateDeviceExecutionConsentFreshV1,
-  deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
+  deviceExecutionConsentMessageV1} from '@lianum/mobile-protocol/device-execution-consent-v1';
 import {DEVICE_RECOVERY_ARM_V1,normalizeDeviceRecoveryArmConsentV1,validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1,normalizeDeviceRecoveryArmStatusV1}
-  from '../../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
-import {DEVICE_RESERVATION_CONSENT_V1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-recovery-arm-consent-v1';
+import {DEVICE_RESERVATION_CONSENT_V1} from '@lianum/mobile-protocol/device-reservation-consent-v1';
 import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
-import {DEVICE_OUTPUT_BALANCE_V1,normalizeDeviceOutputBalanceV1} from '../../../../mobile-protocol/src/device-output-balance-v1.mjs';
+import {DEVICE_OUTPUT_BALANCE_V1,normalizeDeviceOutputBalanceV1} from '@lianum/mobile-protocol/device-output-balance-v1';
 import {DEVICE_EXIT_CONSENT_V1,DEVICE_EXIT_DISCLOSURE_V1,normalizeDeviceExitConsentV1,validateDeviceExitConsentFreshV1,
   deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1}
-  from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
+  from '@lianum/mobile-protocol/device-exit-consent-v1';
 import * as PrivateExit from '@lianum/mobile-protocol/device/native-withdrawal-v2';
-import {createOriginalNativePrivateExitProofClientV2,createOriginalNativePrivateExitProofClientV3} from '../../../../proofs/src/jobs/native-device-private-exit-client-v2.mjs';
+import {createOriginalNativePrivateExitProofClientV2,createOriginalNativePrivateExitProofClientV3} from '@lianum/proofs/jobs/native-device-private-exit-client-v2';
 const bridges=new WeakMap(),admissions=new WeakMap(),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exitNormalize=PrivateExit.normalizeDeviceExitConsentEitherV2,exitFresh=PrivateExit.validateDeviceExitConsentEitherFreshV2,exitMessage=PrivateExit.deviceExitConsentEitherMessageV2;
 const nonce=()=>randomBytes(32).toString('hex');

@@ -9,9 +9,9 @@ import { normalizeRetainedTransferInclusion } from './evm-native-transfer-wire.m
 import { evmNativeTransferNetwork } from '../observations/evm-native-transfer-observer.mjs';
 import { evmFundingEndpointCommitment } from '../dispatch/evm-facts-binding.mjs';
 import { encodeWireCommitment, decodeWireCommitment, nativeFactIdentity,
-  nativeCustodyCommitment } from '../../shared/dispatch/native-receipt-binding.mjs';
-import { fundedFrame } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
-import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+  nativeCustodyCommitment } from '@lianum/engine/native/native-receipt-binding';
+import { fundedFrame } from '@lianum/engine/execution/graph/funded-graph';
+import { nativeTransferActionCommitment } from '@lianum/engine/execution/native/dispatch/native-capsules';
 
 const ZERO = '0'.repeat(64), bindings = new WeakSet();
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

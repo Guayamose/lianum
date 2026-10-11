@@ -8,10 +8,10 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { derivePrivateAssetIdentity } from '../../../../packages/engine/src/notes/private-asset-runtime.mjs';
-import { sha, genericAccountIdentity } from '../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { sha, genericAccountIdentity } from '@lianum/engine/accounts/journal';
 import * as actualSystemState from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
-import { encodeStatement } from '../../../../packages/backend/src/execution/encoding/statements.mjs';
+import { encodeStatement } from '@lianum/components/encoding/statements';
 import { flatAccountGraphBinding } from '../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs';
 import { createWalletClient, accountReviewDetails } from '../../../../apps/wallet/src/client/state/view-model.mjs';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
@@ -58,7 +58,7 @@ mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: {
 const { createFlatAccountAuthority, flatAccountManualGraphDetails } = await import('../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs');
 const { createFlatPortfolioAuthority } = await import('../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs');
 const { createFlatJournalGeneration, createFlatJournalCatalogue } = await import('../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs');
-const { createFlatManualGraphCatalogueSession } = await import('../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+const { createFlatManualGraphCatalogueSession } = await import('@lianum/backend/accounts/manual-graph');
 const { startWalletApplication } = await import('../../../../apps/wallet/src/server/server.mjs');
 const { createManualWalletAppDriver } = await import('./manual-wallet-app-driver.mjs');
 async function fixture(t, { manual = false, driver = false } = {}) {

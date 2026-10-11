@@ -10,10 +10,10 @@ import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs
 import { evmRuntimeCodeHash } from '../../chains/evm/contracts/evm-code-hash.mjs';
 import { FLAT_HEALTH_FIELDS } from '../../chains/shared/health/native-health.mjs';
 import { createFlatSystemStateReader, decodeFlatWords } from '../../execution/account/reconciliation/flat-system-state.mjs';
-import { exactRecord, bytes32, canonicalField, ZERO } from '../../execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, canonicalField, ZERO } from '@lianum/components/encoding/commitments';
 import { CLAIM_CONFIG_SCHEMA, CLAIM_TICKET_FIELDS, claimUint, validateClaimConfig,
   claimDomainCommitment, claimVerifierSetCommitment, claimIntentId, claimTicketId,
-  validateClaimTicket, claimTicketCommitment } from '../protocol/framing.mjs';
+  validateClaimTicket, claimTicketCommitment } from '@lianum/engine/claims/framing';
 
 const owned = new WeakMap(), ZERO_ADDRESS = '0'.repeat(40);
 const freeze = value => {

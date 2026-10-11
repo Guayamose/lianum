@@ -4,8 +4,8 @@ import {lstatSync,readlinkSync,realpathSync,readdirSync,openSync,readSync,fstatS
 import {createHash} from 'node:crypto';
 import {join,resolve,relative,sep,dirname} from 'node:path';
 import {homedir} from 'node:os';
-import {ROOT,FLAT} from '../../../../packages/proofs/src/catalog.mjs';
-import {regular,hash} from '../../../../packages/proofs/src/tooling/tooling.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
+import {regular,hash} from '@lianum/proofs/tooling/tooling';
 export const SPL_COMPILATION_PROJECT_V1=resolve(FLAT,'../../..');
 export const SPL_COMPILATION_MATERIAL_V1=join(SPL_COMPILATION_PROJECT_V1,'.internal/dev/toolchains/native-spl-custody-v3');
 export const SPL_COMPILATION_TOOLS_V1=join(SPL_COMPILATION_PROJECT_V1,'.internal/dev/toolchains/platform-tools-v1.48');

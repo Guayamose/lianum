@@ -8,7 +8,7 @@ import { prepareNativeAggregatePair, prepareNativeAggregateAll, prepareNativeFul
 import { a0Context } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
 import { FUNDED_GRAPH_PROFILE, fundedAuthorizationWords } from '../../../../src/execution/graph/funded-graph.mjs';
 import { PrivateNoteTree } from '../../../../src/notes/private-note-tree.mjs';
-import { A0, FIELD_MODULUS, digestWords, digestHex } from '../../../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
+import { A0, FIELD_MODULUS, digestWords, digestHex } from '../../../../src/execution/inputs/funding-wrappers.mjs';
 import { NATIVE_PROFILES } from '../../../../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
 
 // Host byte/schema tests only. Every recursive proof/VK field package below is

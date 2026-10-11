@@ -14,13 +14,13 @@ import {captureNativeDeviceOriginalW39MetricsFrameV1,restoreNativeDeviceOriginal
 import {createContext,Script} from 'node:vm';
 import {NOTE_NATIVE_PROFILE_V1,NOTE_NATIVE_THREADS_V1,NOTE_NATIVE_BINARY_V1,NOTE_NATIVE_BINARY_SHA256_V1,
  NOTE_NATIVE_PINS_V1,NOTE_NATIVE_WORKERS_V1,NOTE_NATIVE_LINEAGE_V1,classifyNativeEconomicNoteProcessV1,assertNativeEconomicNoteTelemetryV1,
- assertNativeEconomicNoteReceiptV1} from '../../../src/execution/proofs/note-native-execution-v1.mjs';
+ assertNativeEconomicNoteReceiptV1} from '@lianum/proofs/execution/note-native-execution-v1';
 import {PRIVATE_NOTE_NATIVE_PROFILE_V1,assertNativePrivateEconomicNoteReceiptV3}
- from '../../../../proofs/src/jobs/native-private-note-execution-v3.mjs';
+ from '@lianum/proofs/jobs/native-private-note-execution-v3';
 import {nativeProofProcessResources,nativeResourceFailure,nativeWalletUnfundedProcessFailure,NATIVE_FLOW_LIMITS}
  from '../../../../../tests/integration/native/native-flow-supervisor.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '../../../src/crypto/private-resource-policy.mjs';
-import {LIMITS,MEMORY} from '../../../../proofs/src/catalog.mjs';
+import {LIMITS,MEMORY} from '@lianum/proofs/catalog';
 function receipt(mode){
  const execution={profile:NOTE_NATIVE_PROFILE_V1,backend:'NativeUnixSocket',threads:12,bbVersion:'5.2.0',
   binarySHA256:NOTE_NATIVE_BINARY_SHA256_V1,originalPreparedKeyRequired:true,oneEphemeralJob:true,
@@ -126,7 +126,7 @@ test('fixed D26/W39 preserve prepared lineage, native receipt and an opaque cons
  // Execute the actual facade finish boundary: missing startup capture is
  // unknown, even after the original coordinator close. This synthetic HOST
  // metadata establishes no actual subprocess/lock or financial acceptance.
- const facade=readFileSync(new URL(physical?'../../../src/execution/proofs/proof-process.mjs':'../../src/paeg/proof-process.mjs',import.meta.url),'utf8');
+ const facade=readFileSync(new URL(physical?'../../../../proofs/src/execution/proof-process.mjs':'../../src/paeg/proof-process.mjs',import.meta.url),'utf8');
  const finishBegin=facade.indexOf('const finish = (exitCode, signal) => {'),finishEnd=facade.indexOf('    current = { done, stop };',finishBegin);
  assert.ok(finishBegin>=0&&finishEnd>finishBegin);const finishBody=facade.slice(finishBegin,finishEnd);
  function finishFixture(body,identities){
@@ -157,7 +157,7 @@ test('fixed D26/W39 preserve prepared lineage, native receipt and an opaque cons
  assert.throws(()=>{NOTE_NATIVE_PINS_V1[0][1]='34'.repeat(32);},TypeError);
 });
 test('actual note verification continuation waits for original Child.close and never opens Wasm after rejected closure',async()=>{
- const source=readFileSync(new URL(import.meta.url.includes('/packages/engine/tests/')?'../../../src/execution/proofs/note-native-execution-v1.mjs'
+ const source=readFileSync(new URL(import.meta.url.includes('/packages/engine/tests/')?'../../../../proofs/src/execution/note-native-execution-v1.mjs'
   :'../../src/paeg/note-native-execution-v1.mjs',import.meta.url),'utf8');
  const begin=source.indexOf('async function verifyOriginalNoteAfterNativeCloseV1('),end=source.indexOf('export async function proveNativeEconomicNoteV1(',begin);
  assert.ok(begin>=0&&end>begin);const original=source.slice(begin,end);

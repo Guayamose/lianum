@@ -96,7 +96,7 @@ test('HOST original native audit avoids key-order-only AEAD commits and keeps ev
   };
   const storeModule = await import(moduleURL('../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
   const readiness = await import(moduleURL('../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
-  const commitments = await import(moduleURL('../../../src/execution/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
+  const commitments = await import(moduleURL('../../../../components/src/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
   const inventorySource = readFileSync(moduleURL('../../../src/operations/operators/native-value/native-value-inventory-v4.mjs', './native-value-inventory-v4.mjs'), 'utf8');
   const watermarkLine = inventorySource.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
   assert.equal(watermarkLine.length, 1);
@@ -181,7 +181,7 @@ test('HOST original retained native certification persists only a changed observ
   };
   const storeModule = await import(moduleURL('../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
   const readiness = await import(moduleURL('../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
-  const commitments = await import(moduleURL('../../../src/execution/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
+  const commitments = await import(moduleURL('../../../../components/src/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
   const inventory = readFileSync(moduleURL('../../../src/operations/operators/native-value/native-value-inventory-v4.mjs', './native-value-inventory-v4.mjs'), 'utf8');
   const watermarkLine = inventory.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
   assert.equal(watermarkLine.length, 1);

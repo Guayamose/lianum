@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { proofMetricsForTransport } from '../../src/jobs/role-client.mjs';
-import { ownerCopy } from '../../../custody/src/signing/flat-owner-custody.mjs';
+import { ownerCopy } from '@lianum/custody/owner';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,sealPrivateProofJobV1,
   openPrivateProofJobV1,closePrivateProofRecipientV1,privateProofBindingSHA256V1,
-  wipePrivateProofInputsV1} from '../../src/jobs/private-proof-transit-v1.mjs';
+  wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import {spawn} from 'node:child_process';
 import {existsSync,readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
@@ -103,7 +103,7 @@ test('HOST original PC23 second encrypted IPC preserves binding, burns corruptio
  // Two real fresh IPC children use the production crypto/request validator.
  // Only a witness digest returns: no Noir/proof/acceptedResult is manufactured.
  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
- const transit=physical('../../src/jobs/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/wallet-note-private-prover-v4.mjs','./wallet-note-private-prover-v4.mjs');
+ const transit=physical('../../../engine/src/crypto/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/wallet-note-private-prover-v4.mjs','./wallet-note-private-prover-v4.mjs');
  const encoding=physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs');
  const {ORIGINAL_WALLET_PRIVATE_PROVER_V4,readOriginalWalletNoteProverRequestV4}=await import(work);
  const {walletInputPublicWords,walletDepositInput}=await import(encoding);
@@ -165,7 +165,7 @@ test('original private proof transit encrypts two actual IPC hops and burns corr
   phase('CRYPTO');
   // Original transport and ABI validator; the short child is an explicit HOST
   // recipient. It produces no proof, account, consent or economic authority.
-  const canonical = new URL('../../src/jobs/private-proof-transit-v1.mjs', import.meta.url);
+  const canonical = new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs', import.meta.url);
   const transitURL = existsSync(canonical) ? canonical : new URL('./private-proof-transit-v1.mjs', import.meta.url);
   const trustedCanonical = new URL('../../src/jobs/trusted-jobs.mjs', import.meta.url);
   const trustedURL = existsSync(trustedCanonical) ? trustedCanonical : new URL('./trusted-jobs.mjs', import.meta.url);
@@ -308,7 +308,7 @@ test('HOST private D27 SDK sends only recipient ciphertext and original recipien
   const {sealOriginalDeviceDepositIntentWitnessV2}=await import(cryptoURL),sdk=await import(sdkURL);
   const {freshKey,signature,nullifier}=await import(physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'));
   const {balanceCommitment}=await import(physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs'));
-  const {depositIntentWitness,depositIntentFrame}=await import(physical('../../../backend/src/execution/account/preparation/deposit-intent.mjs','../wallet-platform/modules/paeg/deposit-intent.mjs'));
+  const {depositIntentWitness,depositIntentFrame}=await import(physical('../../../engine/src/execution/inputs/deposit-intent.mjs','../wallet-platform/modules/paeg/deposit-intent.mjs'));
   const h=bytes=>createHash('sha256').update(bytes).digest('hex'),device=freshKey(),owner=freshKey();
   const descriptor=P.normalizeExternalFlatDescriptorV1({profile:P.DEVICE_EXTERNAL_FLAT_SHARE_V1,origin:'https://localhost:9443',pairingId:h('private-pair'),devicePublicKey:'04'+device.x.toString('hex')+device.y.toString('hex'),lifetime:h('private-life'),
     poolTerms:Object.fromEntries(['pool','poolCodeHash','scope','policy','assetIdentity','asset','assetCodeHash','genesis','domainCommitment','hub','hubCodeHash','hubDomain','ledgerNamespace'].map(k=>[k,h('private-'+k).slice(0,['pool','asset','hub'].includes(k)?40:64)])),assetMetadata:{kind:'ERC20',symbol:'SHARE',decimals:6}});
@@ -481,7 +481,7 @@ test('HOST private Native W39 SDK binds deposited/change/recovery openings to or
  // result is produced. The producer is required to reach source review, and
  // the private bridge must install both profiles before the TLS port opens.
  const bridgeURL=physical('../../../backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs','../wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs'),operatorURL=physical('../../../backend/src/operations/recovery/native-device-local-operator-v1.mjs','../wallet-platform/modules/ops/native-device-local-operator-v1.mjs');
- const {createPublicKey}=await import('node:crypto'),{types}=await import('node:util'),{exactRecord}=await import(physical('../../../backend/src/execution/encoding/commitments.mjs','../wallet-platform/modules/paeg/commitments.mjs'));
+ const {createPublicKey}=await import('node:crypto'),{types}=await import('node:util'),{exactRecord}=await import(physical('@lianum/components/encoding/commitments','../wallet-platform/modules/paeg/commitments.mjs'));
  const source=readFileSync(bridgeURL,'utf8'),begin=source.indexOf('export function createDeviceOwnerExecutionBridgeV1(input)'),end=source.indexOf('/** Verifies only an existing original native/W39 challenge');assert.ok(begin>0&&end>begin);
  let hostNow=Date.now(),standbyMs=0,clientCloses=0,sequence=0;const order=[],runtime=Object.freeze({}),system=Object.freeze({}),nativeExecution=Object.freeze({}),reservationBridge=Object.freeze({}),custody=Object.freeze({}),sourceAccount=Object.freeze({config:{registry:[{codeHash:h('code')}]}}),hostOwner=Object.freeze({});
  const descriptor={origin,pairingId,devicePublicKey},actor=Object.freeze({deviceDepositSignedReadBindingV1:async()=>binding}),view={domain:{scope,policy,asset:h('asset')},domainCommitment:h('domain'),head:{number:'1',hash:h('head'),timestamp:'6000'}},terms={parentJobId:h('host-constructor-parent'),nativeBindingSHA256:h('host-constructor-deposit-receipt'),rootId:h('host-constructor-root'),noteRevision:1,noteRole:'deposit',nullifierSpent:false,statement:{scope,policy,epoch:'10',root:member.root,nullifier:nf,amount:'20',recipient,commitment:cm},path:member,poolTerms:{scope,policy,codeHash:h('code'),assetIdentity:h('asset'),domainCommitment:h('domain')},observed:{blockNumber:'1',blockHash:h('head'),timestamp:'6000'}};
@@ -572,7 +572,7 @@ test('HOST original Native note encrypted worker IPC preserves binding, burns co
  // Two real fresh IPC children use the production crypto/request validator.
  // Only a witness digest returns: no Noir/proof/acceptedResult is manufactured.
  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
- const transit=physical('../../src/jobs/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/native-private-note-execution-v3.mjs','./native-private-note-execution-v3.mjs');
+ const transit=physical('../../../engine/src/crypto/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/native-private-note-execution-v3.mjs','./native-private-note-execution-v3.mjs');
  const encoding=physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs');
  const {readOriginalNativePrivateNoteProverRequestV3}=await import(work);
  const {walletInputPublicWords,walletDepositInput}=await import(encoding);
@@ -624,7 +624,7 @@ test('HOST Native V3 facade hands its original consent to the actual encrypted c
  // No Native/BB/proof/receipt/effect is produced and no physical proof lock is used.
  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
  const facadeURL=physical('../../src/jobs/native-private-note-process-v3.mjs','./native-private-note-process-v3.mjs'),nativeURL=new URL('./native-private-note-execution-v3.mjs',facadeURL),transitURL=new URL('./private-proof-transit-v1.mjs',facadeURL);
- const actualFS=await import('node:fs'),actualChild=await import('node:child_process'),native=await import(nativeURL),proof=await import(physical('../../../engine/src/execution/proofs/proof-worker.mjs','../../../omnichain-product/src/paeg/proof-worker.mjs'));
+ const actualFS=await import('node:fs'),actualChild=await import('node:child_process'),native=await import(nativeURL),proof=await import(physical('../../src/execution/proof-worker.mjs','../../../omnichain-product/src/paeg/proof-worker.mjs'));
  const {walletInputPublicWords,walletDepositInput}=await import(physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs'));
  const {freshKey}=await import(physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'));
  const owner=freshKey(),note={type:4,...owner,rho:Buffer.alloc(32,7),secret:Buffer.alloc(32,9),value:'20'},mode='deposit_balance',input=walletDepositInput({scope:'10'.repeat(32),policy:'20'.repeat(32),epoch:'10',note}),expected=walletInputPublicWords(mode,input),binding={kind:'ORIGINAL_CONSENT_V1',jobId:'host-native-private-facade',consentSHA256:'41'.repeat(32),witnessSHA256:createHash('sha256').update(JSON.stringify(input)).digest('hex')};
@@ -664,7 +664,7 @@ test('HOST private U client releases its retained role packets on failure or dra
  const toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('./native-flow-proof-scope-v1.mjs',roleURL);
  const catalog=await import(physical('../../src/catalog.mjs','./catalog.mjs')),actualTransit=await import(transitURL),actualTooling=await import(toolingURL),actualScope=await import(scopeURL),actualChild=await import('node:child_process');
  const {EventEmitter}=await import('node:events'),{PassThrough}=await import('node:stream');
- const {encodeStatement}=await import(physical('../../../backend/src/execution/encoding/statements.mjs','../wallet-platform/modules/paeg/statements.mjs'));
+ const {encodeStatement}=await import(physical('@lianum/components/encoding/statements','../wallet-platform/modules/paeg/statements.mjs'));
  const ownExports=module=>Object.fromEntries(Object.entries(module).filter(([name])=>name!=='default'));
  const digest=bytes=>createHash('sha256').update(bytes).digest('hex'),processJobId='11111111-1111-4111-8111-111111111111',runId='22222222-2222-4222-8222-222222222222';
  const statement={domainCommitment:'11'.repeat(32),envelope:'22'.repeat(32)},words=[...encodeStatement('authorization',statement)];

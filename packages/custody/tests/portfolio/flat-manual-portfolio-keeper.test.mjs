@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { genericAccountIdentity, validateBoundRequest, immutable, sha } from '../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { genericAccountIdentity, validateBoundRequest, immutable, sha } from '@lianum/engine/accounts/journal';
 const accountBrands = new WeakMap(), systems = new WeakMap();
 // Explicit synthetic registry/issuer ports. The keeper and its encrypted
 // journal below are real; these ports do not claim financial recovery.
@@ -58,7 +58,7 @@ const { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper,
   createRetainedFlatManualPortfolioKeeperV1, captureRetainedFlatManualPortfolioKeeperV1,
   reopenRetainedFlatManualPortfolioKeeperV1, assertRetainedFlatManualPortfolioKeeperIdentityV1,
 } = await import('../../../backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs');
-const { createFlatAccountSession } = await import('../../../backend/src/api/accounts/flat-account-session.mjs');
+const { createFlatAccountSession } = await import('@lianum/backend/accounts/session');
 const h = n => Number(n).toString(16).padStart(64, '0'), clone = x => structuredClone(x), NDRA = 'NO_DISPATCH_REAUTHORIZATION_REQUIRED';
 function child(runtime, system, poolIndex, restored = null) {
   const asset = { assetId: h(10 + poolIndex), kind: 'NATIVE', symbol: poolIndex ? 'ETHB' : 'ETHA', decimals: 18,
@@ -233,7 +233,7 @@ test('real FlatAccountSession accepts mixed original states, recovery and same-k
   const before = await readFile(f.path); session.restartCoordinator(); await session.idle();
   assert.equal((await session.snapshot()).phase, 'READY'); assert.deepEqual(await readFile(f.path), before);
 });
-import { Vault } from '../../../engine/src/crypto/vault.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
 test('existing legacy journal is never overwritten and failed creation retains its one-time child lease', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'mixed-legacy-test-')); t.after(() => rm(directory, { recursive: true, force: true }));
   const runtime = {}, system = { bootstrap: 'legacy_fixture' }; systems.set(runtime, system); const source = child(runtime, system, 0);

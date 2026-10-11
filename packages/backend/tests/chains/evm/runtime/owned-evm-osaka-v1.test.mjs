@@ -7,15 +7,18 @@ import {writeFileSync} from 'node:fs';
 import {mkdtemp,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {projectRoot} from '../../../../../engine/src/chains/shared/runtime-harness.mjs';
+import * as actualRuntimeHarness from '@lianum/engine/chains/shared/runtime-harness';
+const {projectRoot}=actualRuntimeHarness;
+import * as actualPrivateAsset from '@lianum/engine/notes/private-asset-runtime';
+import * as actualGoldenRuntime from '@lianum/engine/execution/local/local-evm';
 let control;
 const scopes=new WeakMap(),failures=new WeakMap(),golden=new WeakSet();
-mock.module(new URL('../../../../../omnichain-product/src/private-asset-runtime.mjs',import.meta.url).href,{exports:{decodePrivateRevert(){throw Error('UNEXPECTED_REVERT');}}});
-mock.module(new URL('../../../../../omnichain-product/src/paeg/local-evm.mjs',import.meta.url).href,{exports:{
+mock.module(import.meta.resolve('@lianum/engine/notes/private-asset-runtime'),{exports:{...actualPrivateAsset,decodePrivateRevert(){throw Error('UNEXPECTED_REVERT');}}});
+mock.module(import.meta.resolve('@lianum/engine/execution/local/local-evm'),{exports:{...actualGoldenRuntime,
   LOCAL_EVM_PROFILE:Object.freeze({name:'PAEG_LOCAL_FAKE_CLOCK_V1',chainId:31337,hardfork:'cancun',genesisTimestamp:1900000210,accountCount:5,accountBalanceWei:'10000000000000000000',maxGas:30000000,manualMining:true,publicNetwork:false}),
   async assertLocalEvm(runtime){assert.ok(golden.has(runtime),'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED');return runtime.health();}
 }});
-mock.module(new URL('./evm-dispatch-gate.mjs',import.meta.url).href,{exports:{
+mock.module(new URL('../../../../src/chains/evm/dispatch/evm-dispatch-gate.mjs',import.meta.url).href,{exports:{
   assertOwnedEvmDispatchRequest(request,runtime){const value=scopes.get(request);assert.ok(value&&value.runtime===runtime,'SYNTHETIC_ORIGINAL_SCOPE_REQUIRED');return value.callbacks;}
 }});
 const hash=c=>'0x'+c.repeat(64),hex=n=>'0x'+BigInt(n).toString(16),target='0x'+'99'.repeat(20),clock=1900000210;
@@ -52,7 +55,7 @@ async function rpc(endpoint,method,params=[]) {
     default:throw Error('SYNTHETIC_UNEXPECTED_RPC_'+method);
   }
 }
-mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness.mjs',import.meta.url).href,{exports:{
+mock.module(import.meta.resolve('@lianum/engine/chains/shared/runtime-harness'),{exports:{...actualRuntimeHarness,
   projectRoot, async pinnedBinary(...args){assert.equal(args[0],'foundry-v1.8.4/anvil');return '/synthetic/pinned-anvil';},
   async scratchDirectory(){control.directory=await mkdtemp(join(tmpdir(),'osaka-host-'));return control.directory;},
   async removeOwnScratch(path){assert.equal(path,control.directory);await rm(path,{recursive:true});},
@@ -72,7 +75,7 @@ mock.method(globalThis,'fetch',async(endpoint,options)=>{
   return new Response(JSON.stringify(rows.reverse()));
 });
 const actualRecovery=await import('../../../../src/chains/shared/runtime/owned-runtime-recovery-files-v1.mjs');
-mock.module(new URL('./owned-runtime-recovery-files-v1.mjs',import.meta.url).href,{exports:{...actualRecovery,
+mock.module(new URL('../../../../src/chains/shared/runtime/owned-runtime-recovery-files-v1.mjs',import.meta.url).href,{exports:{...actualRecovery,
  async writeInitialNativeCredentialsV1(cwd,family,value){assert.equal(cwd,control.directory);assert.equal(family,'receiver');assert.equal(value.profile,'PAEG_LOCAL_FAKE_CLOCK_V1');control.syntheticInitialCredentials=true;return null;}
 }});
 const {createOwnedLocalEvmOsakaV1,createOwnedLocalEvmV2,LOCAL_OSAKA_EVM_PROFILE_V1,LOCAL_EVM_PROFILE,

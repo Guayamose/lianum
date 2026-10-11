@@ -1,7 +1,7 @@
 /** Original SOURCE clock, coupled to the same two authentic restored runtimes.
  * Host time is observed; original cutoffs and leases are never reset. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {observedNativeValueReceiverSecond} from '../../chains/shared/health/native-value-observed-clock-v1.mjs';
 import {assertOwnedNativeDurableSourceReceiverV1,assertOwnedNativeDurableSourceGraphRuntimeV1,readOwnedNativeDurableSourceClockPairV1,refreshNativeValueReceiverClock,refreshOwnedNativeEconomicObservedGraphClockV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOriginalNativeSourceCapsuleV1,createOriginalNativeSourceClockPairV1,readOriginalNativeSourceClockCheckpointV1,retainOriginalNativeSourceClockCheckpointV1} from './native-original-source-capsule-v1.mjs';

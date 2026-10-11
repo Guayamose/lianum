@@ -8,9 +8,9 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { derivePrivateAssetIdentity } from '../../../packages/engine/src/notes/private-asset-runtime.mjs';
-import { sha, genericAccountIdentity } from '../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
-import { encodeWalletPoolInputs } from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
+import { sha, genericAccountIdentity } from '@lianum/engine/accounts/journal';
+import { encodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 const h = value => createHash('sha256').update('MOBILE HOST SYNTHETIC ' + value).digest('hex');
 const worlds = new WeakMap(), systems = new WeakMap(), owners = new WeakMap(), observers = new WeakMap(), assets = new WeakMap();
 const owned = runtime => { const world = worlds.get(runtime); assert.ok(world, 'SYNTHETIC_RUNTIME_ORIGINAL'); return world; };
@@ -104,7 +104,7 @@ export function hostEconomicRecovery() {
     retain(token, record) { const row = hostTokens.get(token); assert.ok(row && row.record === null); row.record = structuredClone(record); } };
 }
 const { createNativeValueAccountAuthority } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
-const { createNativeValueManualGraphAccountSession } = await import('../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+const { createNativeValueManualGraphAccountSession } = await import('@lianum/backend/accounts/manual-graph');
 export const createActorModule = () => import('../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs');
 export function device() {
   const keys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }), jwk = keys.publicKey.export({ format: 'jwk' });

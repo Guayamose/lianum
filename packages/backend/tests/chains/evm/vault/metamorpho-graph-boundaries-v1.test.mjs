@@ -3,7 +3,7 @@ import {mkdtemp,chmod,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {types} from 'node:util';
-import {Vault} from '../../../../../engine/src/crypto/vault.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
 import {canonicalClaimRecordDataV1} from '../../../../src/claims/storage/segmented-record-store.mjs';
 import {assertMorphoBluePositionRedemptionAccountingV1} from '../../../../src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs';
 /** Pure host boundaries only. No chain, compilation, prover or financial
@@ -15,9 +15,9 @@ import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1
   evmGraphDeliveryTermsV1, evmGraphDeliveryDescriptorCommitmentV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 }
   from '../../../../src/chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';
-import { encodePrivateExternalDelivery } from '../../../../src/defi/delivery/private-external-delivery.mjs';
+import { encodePrivateExternalDelivery } from '@lianum/engine/encoding/private-external-delivery';
 import { encodeEvmVaultDeliveryCall, evmVaultDeliveryDescriptorCommitment }
-  from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+  from '@lianum/engine/encoding/evm-vault-delivery';
 import { assertOwnedEvmGraphDeliveryObserverV1, assertOwnedEvmGraphDeliveryFactsV1,
   assertOwnedEvmGraphDeliveryDescriptorV1 } from '../../../../src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
 import { prepareOwnedMetaMorphoGraphDescriptorV1, assertOwnedMetaMorphoGraphDeliveryFactsV1, prepareOwnedMorphoBluePositionGraphDescriptorV1,

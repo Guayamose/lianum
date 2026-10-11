@@ -3,7 +3,7 @@ import {assertOriginalNativeSourceObservedClockV1} from './native-original-sourc
  * permission. Only a fresh device-armed original S can cause original F work.
  * This producer never executes native delivery or Native10 capture/reopen. Existing explicit execution permissions remain separate. */
 import assert from 'node:assert/strict';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {assertOwnedNativeValueAccountAuthority,createDeviceOwnerLiveRecoveryLeaseV1,createOriginalNativeSourceLiveRecoveryLeaseV1,
  tickDeviceOwnerLiveRecoveryLeaseV1,closeDeviceOwnerLiveRecoveryLeaseV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';

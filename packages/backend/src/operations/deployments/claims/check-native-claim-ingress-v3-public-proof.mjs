@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { assertOwnedNativeClaimSystem } from './deploy-native-claims.mjs';
 import { loadNativeClaimIngressV3PublicProof } from './native-claim-ingress-v3-artifacts.mjs';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
-import { exactRecord } from '../../../execution/encoding/commitments.mjs';
-import { cloneInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
-import { regular, hash, assertID } from '../../../../../proofs/src/tooling/tooling.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { cloneInput } from '@lianum/components/plain-input';
+import { regular, hash, assertID } from '@lianum/proofs/tooling/tooling';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION,
-  NATIVE_INGRESS_V3_KEY_SHA256 } from '../../../../../proofs/src/native-ingress/metadata/native-ingress-v3-profile.mjs';
+  NATIVE_INGRESS_V3_KEY_SHA256 } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 export async function verifyOwnedNativeClaimIngressV3PublicProof(input){
   assert.equal(arguments.length,1,'V3_PUBLIC_PROOF_ARGUMENTS');exactRecord(input,['runtime','claims']);
   const {runtime,claims}=input;assertOwnedNativeClaimSystem(runtime,claims);

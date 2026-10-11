@@ -26,6 +26,8 @@ test('actual wrapped factories expose existing APIs and reject fake construction
 });
 
 test('unmocked wrapper consumers reject shape, callback, proxy and legacy-name lookalikes without any fallback',async()=>{
+  for(const name of ['createClaimEvmDispatchRequest','isOwnedClaimEvmDispatchRequest','assertOwnedClaimEvmDispatchRequest'])
+    assert.equal(Gate[name],Wrapped[name], 'COMPATIBILITY_FACADE_USES_ORIGINAL_CONTROLLER_AUTHORITY');
   for(const token of [undefined,null,true,{},Object.freeze({profile:'WRAPPED_CLAIM_ORIGINAL_NATIVE_KEY_AUTHORITY_V4'}),
     Object.freeze({profile:'CLAIM_ORIGINAL_NATIVE_KEY_AUTHORITY_V4'}),new Proxy({},{}),{assertBeforeKey(){assert.fail('CALLER_CALLBACK');}}]){
     assert.equal(Wrapped.isWrappedClaimOriginalKeyAuthorityV4(token),false);
@@ -44,7 +46,8 @@ test('original wrapped scope migration and narrow fixed runtime routing are cohe
   assert.match(controller,/WRAPPED_CLAIM_AUTHORIZATION_LIFECYCLE_V4/);
   assert.match(controller,/openWrappedClaimOriginalAuthorizationLeaseV4\(token, quorum, result\)/);
   assert.match(controller,/return payoutKeyAuthorityV4\(row, prepared, authorization\)/);
-  assert.match(gate,/transaction, beforeSign, consumeBeforeKey, onSigned/);
+  assert.match(controller,/transaction, beforeSign, consumeBeforeKey, onSigned/);
+  assert.match(gate,/export \{ createClaimEvmDispatchRequest, isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest \} from/);
   assert.match(evm,/const claimV4 = isOwnedClaimEvmDispatchRequest\(scopedRequest\) \|\| isWrapped\(scopedRequest\)/);
   assert.doesNotMatch(source('./payout-controller-dispatch-v1.mjs'),/catch|register|UNRELEASED/);
   for(const file of ['../chain-adapters/owned-bitcoin-runtime.mjs','../chain-adapters/owned-solana-runtime.mjs'])

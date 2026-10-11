@@ -7,14 +7,14 @@ import { readFileSync } from 'node:fs';
 import { buildSyntheticEnvelopeFixture } from './synthetic-envelope-fixture.mjs';
 import { reservationWitness, recoveryWitness } from '../../../../../packages/backend/src/execution/account/preparation/funding-inputs.mjs';
 import { createCommitmentCodec, digestBytes, FIELD_MODULUS, ZERO }
-  from '../../../../../packages/backend/src/execution/encoding/commitments.mjs';
-import { RELATIONS, encodeStatement } from '../../../../../packages/backend/src/execution/encoding/statements.mjs';
-import { fundedAdmission, fundedHash } from '../../../../../packages/engine/src/execution/graph/funded-graph.mjs';
-import { verifyPrivateNotePath } from '../../../../../packages/engine/src/notes/private-note-tree.mjs';
+  from '@lianum/components/encoding/commitments';
+import { RELATIONS, encodeStatement } from '@lianum/components/encoding/statements';
+import { fundedAdmission, fundedHash } from '@lianum/engine/execution/graph/funded-graph';
+import { verifyPrivateNotePath } from '@lianum/engine/notes/private-note-tree';
 import { nativeDispatchStatementFrame, nativeDeliveryRiskCommitment }
-  from '../../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
+  from '@lianum/engine/execution/native/dispatch/native-admission';
 import { nativeFactIdentity, nativeObservedEffectCommitment, encodeNativeFacts, validateSolanaBindingTransaction }
-  from '../../../../../packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs';
+  from '@lianum/engine/native/native-receipt-binding';
 
 const h = value => createHash('sha256').update(value).digest('hex');
 const options = { hashFields: async fields => '00' + h(fields.map(String).join(':')).slice(2) };

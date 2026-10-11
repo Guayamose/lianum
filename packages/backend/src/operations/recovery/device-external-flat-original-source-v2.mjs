@@ -7,12 +7,12 @@ import {constants} from 'node:fs';
 import {mkdir,lstat,realpath,open,readFile,readdir,rename,unlink} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
 import {types} from 'node:util';
-import {ROOT,FLAT} from '../../../../proofs/src/catalog.mjs';
+import {ROOT,FLAT} from '@lianum/proofs/catalog';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {loadNativeValueDevDeploymentArtifactsV5} from '../deployments/native-value/native-value-deployment-artifacts-v2.mjs';
-import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {canonical} from '../../../../engine/src/crypto/privacy.mjs';
-import {exactRecord} from '../../execution/encoding/commitments.mjs';
+import {Vault} from '@lianum/engine/crypto/vault';
+import {canonical} from '@lianum/engine/crypto/privacy';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 const PROFILE='ORIGINAL_DEVICE_EXTERNAL_FLAT_SOURCE_OBSERVATION_V2',PROFILE_V3='ORIGINAL_DEVICE_EXTERNAL_FLAT_SOURCE_OBSERVATION_V3',MAX=64*1024*1024;
 function sourceProfile(version){assert.ok(version===2||version===3,'DEVICE_GRAPH_SOURCE_FIXED_VERSION');return version===3?PROFILE_V3:PROFILE;}
 const META='METAMORPHO_PRIVATE_SHARE_MINT_V1',UNI='UNISWAP_PRIVATE_OUTPUT_NOTE_V1',AAVE='AAVE_STATIC_PRIVATE_SHARE_MINT_V1';

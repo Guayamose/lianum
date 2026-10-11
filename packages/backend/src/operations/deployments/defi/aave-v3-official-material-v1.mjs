@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 const sha = value => createHash('sha256').update(value).digest('hex');
 export const AAVE_CORE_V3_MATERIAL_V1 = Object.freeze({
   "version": "1.19.3",

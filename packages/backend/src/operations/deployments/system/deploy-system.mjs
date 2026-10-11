@@ -6,11 +6,11 @@ import { createHash } from 'node:crypto';
 import { evmFunctionSelector } from '../../../chains/evm/contracts/evm-code-hash.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
-  nativeProofCalldata } from '../../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
-import { linkPrivateBytecode } from '../../../../../engine/src/notes/private-asset-runtime.mjs';
-import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
-import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '../../../../../engine/src/evidence/native-quorum.mjs';
-import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '../../../execution/encoding/commitments.mjs';
+  nativeProofCalldata } from '../../../execution/native/dispatch/native-deployment.mjs';
+import { linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import { NATIVE_QUORUM_PROFILE, normalizeNativeQuorumRegistry } from '@lianum/engine/evidence/native-quorum';
+import { exactRecord, fixedArray, canonicalField, PROFILE_FIELD } from '@lianum/components/encoding/commitments';
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER, buildFlatDeploymentPlan } from './deployment-plan.mjs';
 import { loadFlatDeploymentArtifacts } from './deployment-artifacts.mjs';
 import { loadAppendOnlyDeploymentArtifacts, loadAppendOnlyLedgerArtifacts } from './append-only-deployment-artifacts.mjs';

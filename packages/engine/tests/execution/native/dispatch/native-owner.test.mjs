@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { canonicalNativeOwnerNodes, createNativeOwnerProcess, nativeOwnerPayoutNote,
-  normalizeNativeOwnerPrepare, normalizeNativeOwnerAuthorize } from '../../../../src/execution/native/dispatch/native-owner.mjs';
+  normalizeNativeOwnerPrepare, normalizeNativeOwnerAuthorize } from '../../../../../backend/src/execution/native/dispatch/native-owner.mjs';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures } from '../../../../src/execution/graph/funded-graph.mjs';
 import { nativeReceiptKeyCommitment, nativeTransferActionCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
 import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../src/execution/native/dispatch/native-admission.mjs';

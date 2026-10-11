@@ -4,7 +4,7 @@ import {assertNativeAuthorizationReceiptV1} from '../../../../packages/proofs/sr
 /** Public receipt joins for the seven fixed original graph relations, original
  * F41 recovery and recipient W39 telemetry. No proof/custody authority is issued. */
 import assert from 'node:assert/strict';
-import { PROFILE, SETTINGS, LIMITS, CATALOG } from '../../../../packages/proofs/src/catalog.mjs';
+import { PROFILE, SETTINGS, LIMITS, CATALOG } from '@lianum/proofs/catalog';
 import { PROVING_LIMITS,NODE_NATIVE_PROVING_LIMITS_V1,RESERVATION_NATIVE_PROVING_LIMITS_V1, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_SIXTEEN_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 const id = value => assert.match(value, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 const digest = value => assert.match(value, /^[0-9a-f]{64}$/);

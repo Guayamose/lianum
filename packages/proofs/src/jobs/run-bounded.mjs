@@ -7,7 +7,7 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { types } from 'node:util';
-import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1,preparePrivateProofJobV1} from './private-proof-transit-v1.mjs';
+import {sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1,preparePrivateProofJobV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import {deriveOriginalDeviceDepositIntentJobV2,deriveOriginalDeviceRootClaimJobV2} from './private-device-proof-input-v2.mjs';
 import {deriveOriginalDeviceAuthorizationJobV2} from './private-device-authorization-input-v2.mjs';
 import {deriveOriginalNativeDeviceAuthorizationJobV2} from './private-native-device-authorization-input-v2.mjs';

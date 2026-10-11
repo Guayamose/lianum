@@ -52,6 +52,11 @@ def translate(text, source, runtime, config, direction, original_spellings=None)
             target = config.get('_workspaceExports', {}).get(specifier)
             if target is None:
                 raise RuntimeError(f'Unknown public workspace import: {specifier}')
+            # A reviewed gateway may deliberately share a canonical authority
+            # with source callers. Keep only its exact declared public imports;
+            # ordinary modules still resolve within their compatibility layout.
+            if not resource and specifier in config.get('canonicalImports', {}).get(source, []):
+                return match.group(0)
             mapped = map_path(target, config, direction)
             if mapped is None:
                 raise RuntimeError(f'Public workspace import has no compatibility path: {specifier}')

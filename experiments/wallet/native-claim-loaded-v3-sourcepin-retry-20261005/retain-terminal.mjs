@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { nativeClaimSourcePins } from '../../../tests/integration/claims/lifecycle/native-claim-source-pins.mjs';
 import { validateClaimLoadedV3Result } from '../../../tests/integration/claims/inventory/native-claim-loaded-v3-policy.mjs';
 import { NATIVE_CLAIM_CONTRACT_PIN } from '../../../packages/backend/src/operations/deployments/claims/native-claim-artifacts.mjs';
-import { publicKeccak256 } from '../../../packages/engine/src/cohorts/private-cohort-public-native.mjs';
+import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 const out = 'experiments/native-claim-loaded-v3-sourcepin-retry-20261005';
 assert.equal(process.argv.length, 2); assert.deepEqual(process.execArgv, []);
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

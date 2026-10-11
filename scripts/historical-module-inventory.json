@@ -54,7 +54,7 @@
       "historicalSHA256": "1506475bc345d7c66a707c7861976910832d873a7796b08a7abbca23250c44b2"
     },
     {
-      "active": "packages/engine/src/evidence/native-quorum-observer.mjs",
+      "active": "packages/backend/src/evidence/native-quorum-observer.mjs",
       "historical": "packages/protocol/src/evidence/native-quorum-observer.mjs",
       "historicalSHA256": "41f4cf18bc27138a850fbcf4d58027771eab4f2816b2ea104decacbdc82d6d19"
     },
@@ -89,7 +89,7 @@
       "historicalSHA256": "9451759d4ed80edf8953d7ec565363316a13398ad410355484da56d2c08715f3"
     },
     {
-      "active": "packages/engine/src/execution/balances/generic-balance-owner-process.mjs",
+      "active": "packages/backend/src/accounts/balances/generic-balance-owner-process.mjs",
       "historical": "packages/protocol/src/execution/balances/generic-balance-owner-process.mjs",
       "historicalSHA256": "04b315e7e9dbd46deb4b58552ac5ff727de78c9ffb4a9ddf3677c538248714dd"
     },
@@ -124,7 +124,7 @@
       "historicalSHA256": "c1a09c6ee91a4ae5dbf813534710e030bc7ebae48811f70c43e274deca90cdab"
     },
     {
-      "active": "packages/engine/src/execution/local/local-owner.mjs",
+      "active": "packages/backend/src/operations/local/local-owner.mjs",
       "historical": "packages/protocol/src/execution/local/local-owner.mjs",
       "historicalSHA256": "bf85d0b77393ad857065bc96d7588ab53428cb30edf2b6e5cb51e5a43f94978c"
     },
@@ -149,7 +149,7 @@
       "historicalSHA256": "664e91c84922ee0407e31c694c360e04f3f4921d26495656d9604b1a6fb6d6e1"
     },
     {
-      "active": "packages/engine/src/execution/native/dispatch/native-owner.mjs",
+      "active": "packages/backend/src/execution/native/dispatch/native-owner.mjs",
       "historical": "packages/protocol/src/execution/native/dispatch/native-owner.mjs",
       "historicalSHA256": "cedfd5a3a999cb305bea717a1a859f7fb9eeb7af57abdef618b50a8ae665e3a9"
     },
@@ -159,17 +159,17 @@
       "historicalSHA256": "98bfe7d63bb3d17c36e3306a0a59d6820f7ef1f3ba61b812887e0c155b67cea0"
     },
     {
-      "active": "packages/engine/src/execution/native/recipients/native-recipient-withdrawal.mjs",
+      "active": "packages/backend/src/execution/native/recipients/native-recipient-withdrawal.mjs",
       "historical": "packages/protocol/src/execution/native/recipients/native-recipient-withdrawal.mjs",
       "historicalSHA256": "77dbb052ca6df4b87007e8733fced9f1d0c63ccd60e828396213639536497ad1"
     },
     {
-      "active": "packages/engine/src/execution/native/recovery/native-owner-recovery-child.mjs",
+      "active": "packages/backend/src/execution/native/recovery/native-owner-recovery-child.mjs",
       "historical": "packages/protocol/src/execution/native/recovery/native-owner-recovery-child.mjs",
       "historicalSHA256": "e9848b026756773d501090acb9bc3f96a481547c69994e088cd8ac5c077dcbf6"
     },
     {
-      "active": "packages/engine/src/execution/native/recovery/native-owner-recovery-process.mjs",
+      "active": "packages/backend/src/execution/native/recovery/native-owner-recovery-process.mjs",
       "historical": "packages/protocol/src/execution/native/recovery/native-owner-recovery-process.mjs",
       "historicalSHA256": "70cfa53665090fa8062c540eb656c7c3cafa3fb2bc1831613ad4b4e7a1f4cbce"
     },
@@ -184,17 +184,17 @@
       "historicalSHA256": "0432453c7aafb8e4612e231f2aed1f9415aa6473c9d165edd72e51ad0f86fd33"
     },
     {
-      "active": "packages/engine/src/execution/native/state/native-system-state.mjs",
+      "active": "packages/backend/src/execution/native/state/native-system-state.mjs",
       "historical": "packages/protocol/src/execution/native/state/native-system-state.mjs",
       "historicalSHA256": "11861b323cfcf15664f86bc4386798473d8167fdbc2c4ff310aca8f6f170c08c"
     },
     {
-      "active": "packages/engine/src/execution/proofs/native-proof-pins.mjs",
+      "active": "packages/proofs/src/execution/native-proof-pins.mjs",
       "historical": "packages/protocol/src/execution/proofs/native-proof-pins.mjs",
       "historicalSHA256": "a735a21d7530a490876af74b76954a80bce6df93c096c02ee40ad6db1b12d630"
     },
     {
-      "active": "packages/engine/src/execution/proofs/proof-resource-policy.mjs",
+      "active": "packages/proofs/src/execution/proof-resource-policy.mjs",
       "historical": "packages/protocol/src/execution/proofs/proof-resource-policy.mjs",
       "historicalSHA256": "9221e344d4c9efdbcae11f0d67377d2c9ba33c259a65385feb774f7414177355"
     },
@@ -467,5 +467,10 @@
       "path": "packages/protocol/src/wallet/notes/private-wallet-note-encoding.mjs",
       "sha256": "8633efa599ebf6b70d13b5b5a615b614dcb60c891206409aefa7baf685be33e6"
     }
+  ],
+  "activePackages": [
+    "packages/backend",
+    "packages/engine",
+    "packages/proofs"
   ]
 }

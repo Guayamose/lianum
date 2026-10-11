@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startLocalServer } from '../../src/api/server.mjs';
+import { startLocalServer } from '../../../backend/src/api/private-runtime-server.mjs';
 import { toBTC, decodeReservation } from '../../src/native/native-triple.mjs';
 test('triple client is explicit opt-in and refuses arbitrary RPC, origin and body fields', async () => {
  const directory = await mkdtemp(join(tmpdir(),'triple-client-')), app = await startLocalServer({ port:0, directory });

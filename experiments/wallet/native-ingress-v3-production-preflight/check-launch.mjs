@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {readFileSync,existsSync,readdirSync,writeFileSync,statfsSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
 import {nativeClaimSourcePins} from '../../../tests/integration/claims/lifecycle/native-claim-source-pins.mjs';
-import {linuxRuntimePins} from '../../../packages/engine/src/chains/shared/linux-runtime-pins.mjs';
+import {linuxRuntimePins} from '@lianum/engine/chains/shared/linux-runtime-pins';
 import {solanaCandidateBoundedLedgerCompatibilityPin,solanaRuntimePins} from '../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
 import {verifyToolchain,verifyCRS} from '../../engine/private-core-proof/wallet-notes/resources.mjs';
 const root=process.cwd(),hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');

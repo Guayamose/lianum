@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT } from '../../../../../proofs/src/catalog.mjs';
+import { ROOT } from '@lianum/proofs/catalog';
 import { assertDevelopmentEvmBuildBytes } from '../../../../src/operations/deployments/system/development-evm-build.mjs';
 const bytes=readFileSync(join(ROOT,'wallet-platform/modules/fixtures/development-evm-build-v1.json'));
 test('reviewed deterministic manifest retains twelve genuine role/key/ABI/source bindings',()=>{

@@ -5,7 +5,7 @@ import { EVM_VAULT_DELIVERY_SELECTOR, EVM_VAULT_DEPOSIT_SELECTOR, EVM_VAULT_DELI
   EVM_VAULT_IDENTITY_FIELDS, EVM_VAULT_DELIVERY_LIMITS, decodeEvmVaultDepositStatement,
   validateEvmVaultDeliveryDescriptor, evmVaultDeliveryFrame, evmVaultDeliveryDescriptorCommitment,
   encodeEvmVaultDeliveryCall, decodeEvmVaultDeliveryCall, validateEvmVaultDeliveryReceipt,
-  inspectEvmVaultDeliveryTransition } from '../../../../src/chains/evm/vault/evm-vault-delivery.mjs';
+  inspectEvmVaultDeliveryTransition } from '@lianum/engine/encoding/evm-vault-delivery';
 
 const zero = '0'.repeat(64), digest = n => n.toString(16).padStart(2, '0').repeat(32);
 const address = n => n.toString(16).padStart(2, '0').repeat(20);

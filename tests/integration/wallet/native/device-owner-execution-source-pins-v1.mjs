@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join} from 'node:path';
-import {ROOT} from '../../../../packages/proofs/src/catalog.mjs';
+import {ROOT} from '@lianum/proofs/catalog';
 import {deviceOwnerReservationSourcePinsV1} from './device-owner-reservation-source-pins-v1.mjs';
 const RUNNER=Object.freeze(['integration/device-owner-execution-flow-v1.mjs','integration/run-device-owner-execution-v1.mjs',
  'integration/device-owner-execution-original-continuation-v1.mjs','integration/device-owner-execution-native-checks-v1.mjs',

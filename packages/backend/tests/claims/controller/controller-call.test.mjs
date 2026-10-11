@@ -2,9 +2,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+import { resourcePath } from '@lianum/environment';
 import { encodeControllerClaimCall } from '../../../src/claims/controller/controller-call.mjs';
-import { encodeNativeClaimIssueCall } from '../../../src/claims/protocol/issue-call.mjs';
-import { CLAIM_BACKING_FIELDS } from '../../../src/claims/authorization/permits.mjs';
+import { encodeNativeClaimIssueCall } from '@lianum/engine/claims/issue-call';
+import { CLAIM_BACKING_FIELDS } from '@lianum/engine/claims/permits';
 const h = 'ab'.repeat(32), p = '0x' + h;
 const signature = i => ({ signerIndex: i, v: 27, r: p, s: p });
 const authorization = { permit: Object.fromEntries(CLAIM_BACKING_FIELDS.map(([name, type]) => [name, type === 'b32' ? h : '1'])),
@@ -12,7 +14,7 @@ const authorization = { permit: Object.fromEntries(CLAIM_BACKING_FIELDS.map(([na
 const owner = { proof: '0xabcd', inputs: Array(27).fill('0x' + '00'.repeat(31) + '01') };
 const ingress = { proof: '0x1234', inputs: Array(51).fill('0x' + '00'.repeat(31) + '01') };
 async function artifact() {
-  const root = new URL('../../../.local/native-claims-contracts/', import.meta.url);
+  const root = pathToFileURL(resourcePath('wallet', '.local/native-claims-contracts') + '/');
   for (const id of (await readdir(root)).reverse()) {
     const compiled = JSON.parse(await readFile(new URL(id + '/compiled.json', root)));
     const found = compiled.contracts['native-claims/NativeClaimGateway.sol']?.NativeClaimGateway;

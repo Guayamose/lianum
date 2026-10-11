@@ -9,7 +9,7 @@ import {constants} from 'node:fs';
 import {lstat,realpath,mkdir,open,unlink,readFile} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {exactRecord} from '../../../execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {assertOwnedLocalEvmV2,assertOwnedDeviceExternalFlatReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {createClaimRecordStore,openClaimRecordStore} from '@lianum/engine/storage/records';
 const PROFILE='WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1';

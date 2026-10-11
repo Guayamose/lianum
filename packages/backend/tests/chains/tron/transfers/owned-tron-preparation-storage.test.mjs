@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
-import { canonical } from '../../../../../engine/src/crypto/privacy.mjs';
+import { Vault } from '@lianum/engine/crypto/vault';
+import { canonical } from '@lianum/engine/crypto/privacy';
 import { prepareOwnedTronNative, validateOwnedTronPreparation, assertPreparationCurrent }
   from '../../../../src/chains/tron/transfers/owned-tron-native-value-profile.mjs';
 
