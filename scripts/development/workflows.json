@@ -52,7 +52,10 @@
         "packages/backend/tests/accounts/authority/device-source-graph-release-v1.test.mjs",
         "packages/backend/tests/accounts/authority/device-note-source-lease-v1.test.mjs",
         "packages/backend/tests/accounts/authority/native-session-backend-isolation.test.mjs",
-        "packages/backend/tests/accounts/authority/device-multi-reopen-v4.test.mjs"
+        "packages/backend/tests/accounts/authority/device-multi-reopen-v4.test.mjs",
+        "packages/backend/tests/claims/operations/native-spl-state-validation-pin-v1.test.mjs",
+        "packages/backend/tests/chains/tron/observations/tron-receiver-anchored-solid-v4.test.mjs",
+        "packages/backend/tests/chains/shared/dispatch/metamorpho-batch-facts.test.mjs"
       ]
     },
     "custody": {

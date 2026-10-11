@@ -2,6 +2,7 @@
  * cannot mint the private observer brand. Native inventory is deliberately not
  * supplied here: each operator must independently inspect its owned native chain. */
 import assert from 'node:assert/strict';
+import {assertNativeClaimValidationLibraryV1} from './claim-validation-library-v1.mjs';
 import {isOwnedSolanaSplCustodyV1} from '../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { createHash } from 'node:crypto';
 import { assertOwnedNativeClaimSystem } from '../../operations/deployments/claims/deploy-native-claims.mjs';
@@ -216,10 +217,11 @@ async function assertPins(runtime, claims, header) {
     await Promise.all([
       ...Object.entries({ claimDomain: prefix(claimDomainCommitment(config)), hub: word(system.hub.address), pool: word(pool.address),
         authority: word(claims.authority.address), authorityCodeHash: claims.authority.codeHash,
-        codecCodeHash: claims.libraries.nativeClaimCodec.codeHash, validationCodeHash: claims.nativeSplCustodyProfile===true&&i===1?claims.libraries.nativeSplClaimValidation.codeHash:claims.libraries.nativeClaimValidation.codeHash,
+        codecCodeHash: claims.libraries.nativeClaimCodec.codeHash,
         configurationCommitment: gateway.configurationCommitment,
         custodyInventoryDomain: prefix(config.custodyInventoryDomain), nativeAssetKey: assetKey, isSealed: word(1),
         MAX_INTENTS: word(16), MAX_TICKETS: word(32) }).map(([key, value]) => expect(gateway, key + '()', [], value)),
+      assertNativeClaimValidationLibraryV1(claims, i, expected => expect(gateway, 'validationCodeHash()', [], expected)),
       expect(wrapper, 'gateway()', [], word(gateway.address)), expect(wrapper, 'decimals()', [], word(config.nativeFamily === '1' ? 8 : claims.nativeSplCustodyProfile===true?6:9)),
       expect(claims.authority, 'gateways(uint256)', [i], word(gateway.address)),
       expect(claims.authority, 'gatewayPool(address)', [gateway.address], word(pool.address)),

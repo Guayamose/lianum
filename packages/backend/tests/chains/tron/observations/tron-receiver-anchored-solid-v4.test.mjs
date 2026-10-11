@@ -1,21 +1,11 @@
-/** HOST header metadata only. Actual private selector body and original block
+/** HOST header metadata only. Actual selector module and original block
  * codecs; no native transaction, payout, certificate, runtime or credit. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createHash} from 'node:crypto';
-import {readFileSync,existsSync} from 'node:fs';
-import {createContext,Script} from 'node:vm';
-import {join} from 'node:path';
-import {isDeepStrictEqual} from 'node:util';
-import {ROOT} from '@lianum/proofs/catalog';
 import {normalizeTronBlock} from '../../../../src/chains/tron/observations/tron-observation-adapter.mjs';
-import {need,checkFreshBlock} from '../../../../src/chains/shared/portfolio/portfolio-registry.mjs';
-
-const url=new URL('../../../../src/chains/tron/health/tron-native-value-health-source-v4.mjs',import.meta.url);
-const source=readFileSync(existsSync(url)?url:join(ROOT,'wallet-platform/modules/chain-adapters/tron-native-value-health-source-v4.mjs'),'utf8');
-const begin=source.indexOf('async function readOriginalKnownTronHeadersV4('),end=source.indexOf('function retained(',begin);
-assert.ok(begin>=0&&end>begin);
-const readAtReceiver=new Script('(()=>{'+source.slice(begin,end)+';return readReceiverAnchoredTronSolidV4;})()').runInContext(createContext({normalizeTronBlock,need,checkFreshBlock,same:isDeepStrictEqual}));
+import {checkFreshBlock} from '../../../../src/chains/shared/portfolio/portfolio-registry.mjs';
+import {readReceiverAnchoredTronSolidV4 as readAtReceiver} from '../../../../src/chains/tron/observations/receiver-anchored-solid-v4.mjs';
 const at=1_900_000_000_000;
 const profile={maximumAncestry:'32',maximumClockSkewMs:'5000',maximumBlockAgeMs:'15000',maximumQueryMs:'10000'};
 const id=height=>BigInt(height).toString(16).padStart(16,'0')+createHash('sha256').update('public-header-'+height).digest('hex').slice(16);

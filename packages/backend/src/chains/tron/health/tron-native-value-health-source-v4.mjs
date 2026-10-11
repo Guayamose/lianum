@@ -7,6 +7,7 @@ import { nativeValueRetainedSourceHistory, nativeValueRetainedSourceClock } from
 import { types, isDeepStrictEqual } from 'node:util';
 import { fields, need, freeze, safeMilliseconds, checkFreshBlock, ObservationError } from '../../shared/portfolio/portfolio-registry.mjs';
 import { normalizeTronBlock } from '../observations/tron-observation-adapter.mjs';
+import {readReceiverAnchoredTronSolidV4,readOriginalKnownTronHeadersV4,originalTronHeaderReadV4} from '../observations/receiver-anchored-solid-v4.mjs';
 import { createTronNativeTransferObserver } from '../observations/tron-native-transfer-observer.mjs';
 import { cloneInput } from '@lianum/components/plain-input';
 import { exact, integer, hex, sha256, FACTS_SCHEMA, REPLAY_SCHEMA, OBLIGATION,
@@ -64,52 +65,6 @@ export function validateTronExecutionContext(raw, signed, inclusion, parent, ref
     recoveredSignerAddress: signed.signature.signerAddress, authorizedWeight: matched.weight, referenceBlockId: reference.hash, referenceBlockHeight: reference.height,
     nextBlockSlotTimeMs: nextSlot.toString(), permissionCheck: 'independent-threshold-check-on-trusted-historical-prestate',
     taposCheck: 'exact-recent-canonical-reference-under-registered-source', expirationCheck: 'parent-window-and-pinned-fork-rule' });
-}
-// Only already-known original heights enter this fixed read queue. All fresh
-// requests drain before their outcomes are validated in original order. It is
-// never used for selection, dependent parent traversal, replay, keys or sends.
-async function readOriginalKnownTronHeadersV4(headers,read){
-  const outcomes=new Array(headers.length);let next=0;
-  async function worker(){while(next<headers.length){const i=next++;try{outcomes[i]={ok:true,value:await read(headers[i])};}catch(error){outcomes[i]={ok:false,error};}}}
-  await Promise.allSettled(Array.from({length:Math.min(4,headers.length)},()=>worker()));
-  return outcomes;
-}
-function originalTronHeaderReadV4(outcome){if(!outcome.ok)throw outcome.error;return outcome.value;}
-/** Private V4 selection from fresh canonical reads, never a cached certificate.
- * Receiver time is issued by the original round/history token below. The live
- * solid tip may advance while that immutable common receiver round is audited.
- */
-async function readReceiverAnchoredTronSolidV4(readLatest,readBlock,at,profile,previous) {
-  const rawLatest=await readLatest(),latest=normalizeTronBlock(rawLatest);
-  // An advancing live context is bounded by the unchanged whole-round 30 s
-  // guard plus registered skew. This does not change selected-block freshness,
-  // certificate time, the source query timer or the quorum's audit deadline.
-  need(BigInt(latest.timestampMs)<=BigInt(at)+30000n+BigInt(profile.maximumClockSkewMs),'FUTURE_BLOCK');
-  if(previous){
-    need(BigInt(latest.height)>=BigInt(previous.height)&&BigInt(latest.timestampMs)>=BigInt(previous.timestampMs),'TRON_GRAPH_ANCESTRY_CHANGED');
-    if(latest.height===previous.height)need(same(latest,previous),'TRON_GRAPH_ANCESTRY_CHANGED');
-  }
-  const headers=[latest];let child=latest,rawChild=rawLatest,selected=null,steps=0n;
-  if(BigInt(child.timestampMs)<=BigInt(at))selected={header:child,raw:rawChild};
-  while(selected===null||(previous&&BigInt(child.height)>BigInt(previous.height))){
-    need(steps<BigInt(profile.maximumAncestry)&&BigInt(child.height)>0n,'TRON_GRAPH_SOLIDIFIED_ANCESTRY_BOUND');steps++;
-    const height=(BigInt(child.height)-1n).toString(),rawParent=await readBlock(height),parent=normalizeTronBlock(rawParent,height==='0');
-    need(parent.height===height,'TRON_GRAPH_REQUESTED_HEIGHT');
-    need(child.parentHash===parent.hash&&BigInt(parent.timestampMs)<=BigInt(child.timestampMs),'TRON_GRAPH_CANONICAL_ANCESTRY_CHANGED');
-    if(previous&&parent.height===previous.height)need(same(parent,previous),'TRON_GRAPH_ANCESTRY_CHANGED');
-    child=parent;rawChild=rawParent;headers.push(parent);
-    if(selected===null&&BigInt(child.timestampMs)<=BigInt(at))selected={header:child,raw:rawChild};
-  }
-  // Every previously traversed header is independently fetched again, including
-  // the actual latest solid tip. No old source observation supplies its truth.
-  const rechecks=await readOriginalKnownTronHeadersV4(headers,
-    async header=>normalizeTronBlock(await readBlock(header.height),header.height==='0'));
-  for(let i=0;i<headers.length;i++){
-    const header=headers[i],current=originalTronHeaderReadV4(rechecks[i]);
-    need(same(header,current),'TRON_GRAPH_ANCESTRY_CHANGED');
-  }
-  checkFreshBlock(selected.header,at,{maxBlockAgeMs:Number(profile.maximumBlockAgeMs),maxFutureSkewMs:Number(profile.maximumClockSkewMs)});
-  return {raw:selected.raw,latest};
 }
 function retained(raw, identity, registration) {
   const r = exact(raw, ['schema', 'nativeId', 'nativeGid', 'transactionSHA256', 'profileCommitment', 'registryCommitment', 'inclusion', 'executionEvidenceCommitment']);

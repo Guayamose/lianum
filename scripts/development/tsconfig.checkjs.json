@@ -87,6 +87,7 @@
     "../../tests/integration/wallet/native/device-confirmed-source-channel-v2.mjs",
     "../../tests/integration/wallet/native/device-confirmed-source-cleanup-v2.mjs",
     "../../tests/integration/wallet/native/device-confirmed-source-consent-v2.mjs",
-    "../../tests/integration/wallet/native/device-external-flat-host-routing-v1.mjs"
+    "../../tests/integration/wallet/native/device-external-flat-host-routing-v1.mjs",
+    "../../packages/backend/src/claims/operations/claim-validation-library-v1.mjs"
   ]
 }
