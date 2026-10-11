@@ -22801,6 +22801,8 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/portfolio-owner-view-v1.mjs": "packages/backend/src/accounts/authority/portfolio-owner-view-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-audit-currentness-v1.mjs": "packages/backend/src/claims/wrapped/operations/wrapped-audit-currentness-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/original-facts-retention-v2.mjs": "packages/backend/src/operations/operators/claims/original-facts-retention-v2.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/defi-adapters/vault-preparation.mjs": "packages/backend/src/defi/vaults/vault-preparation.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/defi-adapters/vault-preparation.mjs": "packages/backend/src/defi/vaults/vault-preparation.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/solana-transfers.mjs": "packages/backend/src/chains/solana/transfers/solana-transfers.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/nonce-first-send-state.mjs": "packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs"
   }
 }

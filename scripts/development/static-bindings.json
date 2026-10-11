@@ -10,6 +10,8 @@
     "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs",
     "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs",
     "packages/backend/src/accounts/authority/native-value/native-value-authority-journals.mjs",
-    "packages/backend/src/accounts/authority/native-value-account-backend-v2.mjs"
+    "packages/backend/src/accounts/authority/native-value-account-backend-v2.mjs",
+    "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+    "packages/backend/src/chains/solana/transfers/solana-transfers.mjs"
   ]
 }
