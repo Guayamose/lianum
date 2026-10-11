@@ -1,5 +1,6 @@
 /** Host-only storage audit. No previous observation is used as fresh evidence. */
 import test from 'node:test';
+import { legacyDataRoot } from '@lianum/environment';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -35,8 +36,7 @@ test('snapshot references reproduce every full audit and the unchanged signed co
   assert.equal(Object.keys(data.inventorySnapshots).length, 1); assert.equal(data.inventoryAudits.length, 25);
   assert.throws(() => canonical({ inventoryAudits: legacy }), /Canonical JSON exceeds byte limit/);
   assert.ok(Buffer.byteLength(canonical(data)) < 70000);
-  const memo = await readFile(new URL('../../../../../omnichain-product/.local/agave-linux-bounded-build/derived/'
-    + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
+  const memo = await readFile(join(legacyDataRoot('engine'), '.local/test-programs/spl_memo-3.0.0.so'));
   const memoProgram = { address: MEMO_PROGRAM.address, owner: MEMO_PROGRAM.owner, executable: true, dataBase64: memo.toString('base64') };
   assertMemoProgramAccount(memoProgram);
   // Retain all four deposit/redemption/expired-deposit/refund program bodies,
