@@ -187,6 +187,16 @@ def external_resources(document):
 
 ADOPTION = 'scripts/development/adopted-generation.json'
 ADOPTION_READER = 'packages/proofs/src/toolchain/current-source-generation.mjs'
+# Two retained public compiler records also occur in the adopted inventory.
+# Keep their exact original bytes; this grants no general access to .local and
+# does not turn either record into executable source. The manifest is separately
+# checked by the paged reader; the complete consumer program is retained evidence.
+ADOPTED_RETAINED_PUBLIC_FILES = {
+    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/consumer.json':
+        'd3ad4ad81918ef832f35f4399ad64aa15a47f7fe99359b8d0a719a7eb9287fc3',
+    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/manifest.json':
+        'a3cfb7d05246a5876590f1c5c0a50ab8313c7d1e863dfe7636f18aa8199fe8aa',
+}
 
 
 def adopted_npm_package(parts):
@@ -255,6 +265,9 @@ def adopted_source_inventory(root):
     rows = sources.get('currentSourceContract', {}).get('files')
     if not isinstance(rows, list) or not 0 < len(rows) <= 8192:
         raise ValueError('Invalid adopted current source inventory')
+    evidence = sources['currentSourceContract'].get('retainedEvidenceRoots', [])
+    if not isinstance(evidence, list) or not all(isinstance(name, str) for name in evidence):
+        raise ValueError('Invalid adopted retained evidence inventory')
     files, npm_packages = {}, set()
     for row in rows:
         name = safe_relative(row['source'])
@@ -270,6 +283,10 @@ def adopted_source_inventory(root):
         # Published npm dist/build files are exact adopted resources. Other
         # private/generated directories and all environment files stay forbidden.
         forbidden = IGNORED - {'node_modules', 'dist', 'build'} if npm else IGNORED
+        if name in ADOPTED_RETAINED_PUBLIC_FILES:
+            if name not in evidence or row['sourceSHA256'] != ADOPTED_RETAINED_PUBLIC_FILES[name]:
+                raise ValueError('Adopted retained public record differs from its original evidence: ' + name)
+            forbidden = forbidden - {'.local'}
         if set(parts).intersection(forbidden) or any(part.startswith('.env') for part in parts):
             raise ValueError('Adoption names private/generated data: ' + name)
         digest = row['sourceSHA256']

@@ -98,7 +98,7 @@ console.log(JSON.stringify({state: exported.value, arguments: process.argv.slice
                                cwd='/', capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(child.stdout)['state'], 7)
 
-    def adopted_fixture(self, alias=False):
+    def adopted_fixture(self, alias=False, retained_evidence=()):
         # Production adoption entry AND its actual owner/export closure. The
         # entry may re-export a lower package; copying only that facade would
         # omit the implementation whose validation this fixture must exercise.
@@ -119,7 +119,8 @@ console.log(JSON.stringify({state: exported.value, arguments: process.argv.slice
             rows[0]['path'] = '.internal/runtime/obsolete.mjs'
         source_hash = hashlib.sha256(bundle.canonical(rows)).hexdigest()
         sources = bundle.canonical({'schema': 'LIANUM_DEVELOPMENT_SOURCE_GENERATION_V1',
-                                    'currentSourceContract': {'files': rows, 'sourceClosureSHA256': source_hash}})
+                                    'currentSourceContract': {'files': rows, 'sourceClosureSHA256': source_hash,
+                                                              'retainedEvidenceRoots': list(retained_evidence)}})
         generation = hashlib.sha256(sources).hexdigest()
         base = '.local/generations/' + generation
         self.write(base + '/sources.json', sources.decode())
@@ -184,6 +185,19 @@ console.log(JSON.stringify({state: exported.value, arguments: process.argv.slice
             bundle.adopted_npm_package(('packages', 'fixture', 'node_modules', 'unreviewed', 'index.js'))
         with self.assertRaises(ValueError):
             bundle.source_allowed(package + '/sha2.js')
+
+    def test_adopted_generation_rejects_arbitrary_private_state(self):
+        self.write('apps/fixture/.local/account.json', '{"privateState":"fixture"}')
+        self.adopted_fixture()
+        with self.assertRaisesRegex(ValueError, 'private/generated data'):
+            bundle.adopted_source_inventory(self.root)
+
+    def test_adopted_retained_label_cannot_replace_original_public_bytes(self):
+        path = next(iter(bundle.ADOPTED_RETAINED_PUBLIC_FILES))
+        self.write(path, '{"substitutedProgram":true}')
+        self.adopted_fixture(retained_evidence=[path])
+        with self.assertRaisesRegex(ValueError, 'differs from its original evidence'):
+            bundle.adopted_source_inventory(self.root)
 
     def test_tamper_and_unlisted_files_stop_before_worker(self):
         self.build()
