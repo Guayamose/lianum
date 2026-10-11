@@ -1,25 +1,31 @@
-/** Read-only bridge to the original source walker and artifact inspector.
- * No compiler, financial execution, publication, hooks or caller paths. */
+/** Read-only artifact inspection for the explicit current-source candidate.
+ * Historical source capsules stay intact; no compiler, financial execution,
+ * publication, hooks or caller paths are accepted. */
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
+import { inspectRetainedNativeValueReuseForPreparationV6 }
+  from '../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import { inspectNativeValueDevMobileDependenciesV5 }
+  from '../../packages/backend/src/operations/releases/native-value/native-value-dev-source-pins-v5.mjs';
+import { inspectFundedPagedGraphArtifactsForPreparationV4 }
+  from '../../packages/proofs/src/toolchain/paged-artifacts-v3.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const runtime = new URL('../../.internal/runtime/omnichain-flat-profile/flat-wallet/', import.meta.url);
 assert.equal(process.argv.length, 2);
 assert.equal(realpathSync(process.cwd()), realpathSync(root));
 const safeCode = error => {
   const values = String(error?.message ?? '').match(/\b[A-Z][A-Z0-9_]{7,120}\b/g);
-  return values?.[0] ?? 'ORIGINAL_INSPECTOR_REJECTED';
+  return values?.[0] ?? (error?.code === 'ENOENT' ? 'RETAINED_INSPECTION_FILE_MISSING' : 'RETAINED_INSPECTOR_REJECTED');
 };
-const output = { status: 'BLOCKED', code: null, sourceFiles: null, compilationInputs: null,
-  candidate: null, published: false, compiled: false, financialAcceptance: false };
+const output = { status: 'BLOCKED', code: null, nativeValue: null, paged: null,
+  published: false, compiled: false, financialAcceptance: false };
 try {
-  const walker = await import(new URL('wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs', runtime));
-  output.sourceFiles = walker.nativeValueDevFinancialSourcePinsV5();
-  const producer = await import(new URL('wallet-platform/modules/ops/native-value-dev-producer-v6.mjs', runtime));
-  output.candidate = await producer.prepareNativeValueDevReleaseV6Candidate();
-  output.status = 'VALIDATED_CANDIDATE';
+  inspectNativeValueDevMobileDependenciesV5();
+  output.paged = inspectFundedPagedGraphArtifactsForPreparationV4();
+  output.nativeValue = await inspectRetainedNativeValueReuseForPreparationV6();
+  inspectNativeValueDevMobileDependenciesV5();
+  output.status = 'VERIFIED_RETAINED_ARTIFACTS';
 } catch (error) {
   output.code = safeCode(error);
 }

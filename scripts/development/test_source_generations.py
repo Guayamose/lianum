@@ -40,10 +40,138 @@ class SourceGenerationsTest(unittest.TestCase):
     def report(self, value=b"export const version = 2;", stale=False):
         digest = generations.sha(value)
         return {"schema": "LIANUM_DEVELOPMENT_SOURCE_GENERATION_V1", "groups": [
-            {"name": "native-release", "files": [{"path": "packages/source.mjs",
+            {"name": "native-release", "manifest": "release.mjs", "manifestSHA256": "f" * 64, "files": [{"path": "packages/source.mjs",
                 "sha256": digest, "sourceSHA256": digest, "status": "CHANGED",
                 "runtimeMatchesSource": not stale}]}], "artifacts": [],
-                "publicationChanged": False, "financialAcceptance": False}
+                "publicationChanged": False, "financialAcceptance": False,
+                "currentSourceContract": self.contract([{"path": "packages/source.mjs", "source": "packages/source.mjs",
+                    "sha256": digest, "sourceSHA256": digest, "bytes": len(value), "status": "PRESENT"}])}
+
+    def contract(self, rows):
+        return {"schema": "LIANUM_CURRENT_SOURCE_CONTRACT_V2", "roots": [row["source"] for row in rows],
+                "files": rows, "sourceClosureSHA256": generations.sha(generations.encoded(rows)),
+                "historicalInventoriesModified": False, "financialAcceptance": False}
+
+    def inspection(self):
+        return {"status": "VERIFIED_RETAINED_ARTIFACTS", "code": None,
+                "published": False, "compiled": False, "financialAcceptance": False,
+                "nativeValue": {"artifactBundleIssued": False, "verifierRoles": ["node"],
+                    "reuseReceipt": {"schema": "LIANUM_W39_EXACT_PUBLISHED_REUSE_V6"},
+                    "nodeReuseReceipt": {"schema": "RETAINED_NODE_COMPILER_REUSE_V1"}},
+                "paged": {"schema": "LIANUM_PAGED_EXACT_RETAINED_REUSE_V4", "artifactBundleIssued": False,
+                          "roles": {"reserve": {"programSHA256": "f" * 64}}}}
+
+    def closure_fixture(self, roots, relocations=None):
+        for name in {generations.RELEASE, *generations.CATALOGS.values(), *generations.CURRENT_SOURCE_INPUTS}:
+            self.write(name, b"{}\n")
+        self.write("packages/a/package.json", b'{"name":"@lianum/a","exports":{"./main":"./src/main.mjs"}}')
+        self.write("packages/b/package.json", b'{"name":"@lianum/b","exports":{"./leaf":"./src/leaf.mjs"}}')
+        self.write("apps/mobile/package.json", b'{"dependencies":{"expo-crypto":"1.0.0"}}')
+        self.layout(relocations)
+        capture = generations.Capture()
+        return {"groups": [{"files": [capture.observe(path) for path in roots]}]}, capture
+
+    def test_current_closure_follows_real_exports_and_workers_without_rewriting_original_names(self):
+        old, current = "packages/a/src/old.mjs", "packages/a/src/main.mjs"
+        self.write(current, b"import {value} from '@lianum/b/leaf';\nnew URL('./worker.mjs',import.meta.url);\n")
+        self.write("packages/a/src/worker.mjs", b"export const worker=1;\n")
+        leaf = self.write("packages/b/src/leaf.mjs", b"export const value=1;\n")
+        report, capture = self.closure_fixture([old], {old: current})
+        contract = generations.current_source_contract(report, capture)
+        names = {row["path"] for row in contract["files"]}
+        self.assertTrue({current, "packages/a/src/worker.mjs", "packages/b/src/leaf.mjs",
+                         "packages/b/package.json"}.issubset(names))
+        self.assertNotIn(old, names)
+        self.assertEqual(report["groups"][0]["files"][0]["path"], old)
+        self.assertEqual(report["groups"][0]["files"][0]["sourceRelocation"], {"from": old, "to": current})
+        leaf.write_bytes(b"export const value=2;\n")
+        changed = generations.current_source_contract(report, generations.Capture())
+        self.assertNotEqual(changed["sourceClosureSHA256"], contract["sourceClosureSHA256"])
+        self.write(current, b"import './old.mjs';\n")
+        with self.assertRaisesRegex(ValueError, "Current import still names a relocated source"):
+            generations.current_source_contract(report, generations.Capture())
+
+    def test_fixed_resources_and_mobile_bundler_are_explicit_and_reject_undeclared_dependencies(self):
+        entry = "packages/a/src/main.mjs"
+        mobile = "apps/mobile/src/client.mjs"
+        self.write(entry, b"import {createRequire} from 'node:module';const require=createRequire(import.meta.url);require('ethers');\n")
+        self.write(mobile, b"import {digest} from 'expo-crypto';\n")
+        report, capture = self.closure_fixture([entry, mobile])
+        contract = generations.current_source_contract(report, capture)
+        self.assertEqual(contract["fixedRuntimeResourceBindings"], [{"source": entry, "specifier": "ethers",
+                         "acceptance": "FIXED_CONSUMER_VALIDATION_REQUIRED"}])
+        self.assertEqual(contract["mobileBundlerBindings"], [{"source": mobile, "specifier": "expo-crypto",
+                         "acceptance": "MOBILE_BUNDLER_VALIDATION_REQUIRED"}])
+        self.assertFalse(contract["runtimeResourceAcceptanceEstablished"])
+        self.write(entry, b"const other=require('undeclared-package');\n")
+        with self.assertRaisesRegex(ValueError, "Undeclared fixed runtime package binding"):
+            generations.current_source_contract(report, generations.Capture())
+        self.write(entry, b"import 'undeclared-package';\n")
+        with self.assertRaisesRegex(ValueError, "Current source dependency requires review"):
+            generations.current_source_contract(report, generations.Capture())
+        self.write(entry, b"export const valid=true;\n")
+        self.write(mobile, b"import 'undeclared-mobile-package';\n")
+        with self.assertRaisesRegex(ValueError, "Current source dependency requires review"):
+            generations.current_source_contract(report, generations.Capture())
+
+    def test_frozen_evidence_is_not_a_current_entry_but_operational_imports_are_followed(self):
+        frozen, active = "experiments/old/frozen.mjs", "packages/a/src/main.mjs"
+        self.write(frozen, b"import './missing-historical-implementation.mjs';\n")
+        self.write(active, b"export const current=true;\n")
+        report, capture = self.closure_fixture([frozen, active])
+        contract = generations.current_source_contract(report, capture)
+        self.assertEqual(contract["retainedEvidenceRoots"], [frozen])
+        self.assertIn(frozen, {row["path"] for row in contract["files"]})
+        self.write(active, b"import '../../../experiments/old/frozen.mjs';\n")
+        with self.assertRaisesRegex(ValueError, "Current source dependency is missing"):
+            generations.current_source_contract(report, generations.Capture())
+
+    def test_generated_execution_is_checked_before_preparation_and_after_readback_inspection(self):
+        value = b"export const version=1;\n"
+        report = self.report(value)
+        target = ".internal/runtime/entry.mjs"
+        report["currentSourceContract"]["files"][0]["path"] = target
+        report["currentSourceContract"] = self.contract(report["currentSourceContract"]["files"])
+        runtime = self.write(target, b"stale executable")
+        capture = SimpleNamespace(objects={generations.sha(value): value})
+        with patch.object(generations, "inventory", return_value=(report, capture)), \
+             patch.object(generations, "inspect_candidate") as inspector:
+            self.assertEqual(generations.prepare(report, capture)["code"], "LEGACY_RUNTIME_STALE")
+            inspector.assert_not_called()
+        runtime.write_bytes(value)
+        with patch.object(generations, "inventory", return_value=(report, capture)), \
+             patch.object(generations, "inspect_candidate", return_value=self.inspection()):
+            prepared = generations.prepare(report, capture)
+            digest = Path(prepared["generation"]).name
+            self.assertEqual(generations.verify_generation(digest)["verification"], "READBACK_VERIFIED")
+            def mutate_during_inspection():
+                runtime.write_bytes(b"mutated while inspecting")
+                return self.inspection()
+            with patch.object(generations, "inspect_candidate", side_effect=mutate_during_inspection):
+                with self.assertRaisesRegex(ValueError, "Generated executable changed during readback"):
+                    generations.verify_generation(digest)
+
+    def test_retained_compiler_bodies_are_cached_as_original_evidence_and_tamper_rejected(self):
+        value = b"export const version=1;\n"
+        report = self.report(value)
+        capture = SimpleNamespace(objects={generations.sha(value): value})
+        inspection = self.inspection()
+        original = b"original compiler body, not executable candidate code\n"
+        source = "archive/source-evidence/compiler.source"
+        path = self.write(source, original)
+        inspection["paged"]["hostSources"] = [{"path": "packages/old-original.mjs", "source": source,
+            "sha256": generations.sha(original), "bytes": len(original)}]
+        with patch.object(generations, "inventory", return_value=(report, capture)), \
+             patch.object(generations, "inspect_candidate", return_value=inspection):
+            prepared = generations.prepare(report, capture)
+            cached = generations.ROOT / ".local/generations/objects" / generations.sha(original)
+            self.assertEqual(cached.read_bytes(), original)
+            cached.write_bytes(b"corrupt original evidence")
+            with self.assertRaisesRegex(ValueError, "object was modified"):
+                generations.verify_generation(Path(prepared["generation"]).name)
+            path.write_bytes(b"changed original body")
+            with self.assertRaisesRegex(ValueError, "Retained compiler evidence changed"):
+                generations.prepare(report, capture)
 
     def test_reads_editable_sources_and_detects_stale_translated_runtime(self):
         self.layout()
@@ -71,7 +199,7 @@ class SourceGenerationsTest(unittest.TestCase):
         value = b"export const version = 2;"
         report = self.report(value)
         capture = SimpleNamespace(objects={generations.sha(value): value})
-        inspection = {"status": "VALIDATED_CANDIDATE", "candidate": {"scope": {"claimsEnabled": False}}}
+        inspection = self.inspection()
         with patch.object(generations, "inventory", return_value=(report, capture)), \
              patch.object(generations, "inspect_candidate", return_value=inspection):
             first = generations.prepare(report, capture)
@@ -142,40 +270,58 @@ class SourceGenerationsTest(unittest.TestCase):
         self.assertEqual(capture.objects[row["sha256"]], value)
         report = self.report(value)
         report["groups"][0]["files"] = [row]
-        inspection = {"status": "VALIDATED_CANDIDATE", "candidate": {},
-                      "sourceFiles": [{"path": "workspace-module/" + new, "sha256": expected}]}
+        inspection = self.inspection()
+        report["currentSourceContract"] = self.contract([dict(capture.observe(new))])
         with patch.object(generations, "inventory", return_value=(report, capture)), \
              patch.object(generations, "inspect_candidate", return_value=inspection):
             prepared = generations.prepare(report, capture)
         manifest = json.loads((generations.ROOT / prepared["generation"] / "sources.json").read_bytes())
         self.assertEqual(manifest["groups"][0]["files"][0], row)
-        self.assertEqual(manifest["currentSourceFiles"][0]["source"], new)
+        self.assertEqual(manifest["currentSourceContract"]["files"][0]["source"], new)
         self.assertEqual(publication.read_bytes(), original_publication)
         self.assertFalse((generations.ROOT / old).exists())
         self.assertFalse(prepared["published"])
         self.assertFalse(prepared["financialAcceptance"])
 
-    def test_relocated_source_tamper_is_changed_and_stale_inspector_cannot_stage(self):
-        old, new = "packages/a/src/original.mjs", "packages/b/src/current.mjs"
-        original = b"export const version = 1;\n"
-        modified = b"export const version = 2;\n"
-        expected = generations.sha(original)
-        self.write(new, modified)
-        self.layout({old: new})
-        capture = generations.Capture()
-        row = capture.compare(old, expected)
-        self.assertEqual(row["status"], "CHANGED")
-        self.assertEqual(row["expectedSHA256"], expected)
-        self.assertEqual(row["sha256"], generations.sha(modified))
-        report = self.report(modified)
-        report["groups"][0]["files"] = [row]
-        inspection = {"status": "VALIDATED_CANDIDATE", "candidate": {},
-                      "sourceFiles": [{"path": "workspace-module/" + new, "sha256": expected}]}
+    def test_readback_checks_current_sources_objects_metadata_and_retained_artifacts(self):
+        value = b"export const version = 1;\n"
+        report = self.report(value)
+        capture = SimpleNamespace(objects={generations.sha(value): value})
+        inspection = self.inspection()
         with patch.object(generations, "inventory", return_value=(report, capture)), \
              patch.object(generations, "inspect_candidate", return_value=inspection):
-            with self.assertRaisesRegex(ValueError, "Inspected current source changed"):
-                generations.prepare(report, capture)
-        self.assertEqual(list((generations.ROOT / ".local/generations").glob("*/candidate-release.json")), [])
+            prepared = generations.prepare(report, capture)
+            digest = Path(prepared["generation"]).name
+            self.assertEqual(generations.verify_generation(digest)["verification"], "READBACK_VERIFIED")
+            object_path = generations.ROOT / ".local/generations/objects" / generations.sha(value)
+            object_path.write_bytes(b"tamper")
+            with self.assertRaisesRegex(ValueError, "object was modified"):
+                generations.verify_generation(digest)
+            object_path.write_bytes(value)
+            candidate_path = generations.ROOT / prepared["generation"] / "candidate-release.json"
+            original = candidate_path.read_bytes()
+            candidate = json.loads(original)
+            candidate["financialAcceptance"] = True
+            candidate_path.write_bytes(generations.encoded(candidate))
+            with self.assertRaisesRegex(ValueError, "metadata was modified"):
+                generations.verify_generation(digest)
+            candidate_path.write_bytes(original)
+            changed = copy.deepcopy(report)
+            changed["groups"][0]["files"][0]["sha256"] = "0" * 64
+            with patch.object(generations, "inventory", return_value=(changed, capture)):
+                with self.assertRaisesRegex(ValueError, "Current sources"):
+                    generations.verify_generation(digest)
+            stale = copy.deepcopy(report)
+            stale["groups"][0]["files"][0]["runtimeMatchesSource"] = False
+            with patch.object(generations, "inventory", return_value=(stale, capture)):
+                with self.assertRaisesRegex(ValueError, "Generated executable differs"):
+                    generations.verify_generation(digest)
+            with patch.object(generations, "inspect_candidate", return_value={"status": "BLOCKED", "code": "TAMPERED_ARTIFACT"}):
+                with self.assertRaisesRegex(ValueError, "did not authenticate"):
+                    generations.verify_generation(digest)
+        for bad in ("../escape", ".local/generations/" + digest, "0" * 63):
+            with self.assertRaisesRegex(ValueError, "exact source-generation"):
+                generations.verify_generation(bad)
 
     def test_relocations_reject_existing_missing_unsafe_ambiguous_and_cyclic_paths(self):
         old, new = "packages/a/src/old.mjs", "packages/b/src/new.mjs"

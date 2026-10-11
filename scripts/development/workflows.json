@@ -29,7 +29,8 @@
         "packages/backend/tests/operations/support/native-health-authority.test.mjs",
         "packages/backend/tests/operations/support/evm-kernel-authority.test.mjs",
         "packages/backend/tests/operations/support/operational-support-ownership.test.mjs",
-        "packages/backend/tests/payments/private-payment-operational-sources.test.mjs"
+        "packages/backend/tests/payments/private-payment-operational-sources.test.mjs",
+        "packages/backend/tests/claims/recovery/wrapped-data-location.test.mjs"
       ]
     },
     "custody": {
@@ -69,7 +70,9 @@
         "packages/proofs/tests/jobs/native-device-private-deposit-diagnostic-v2.test.mjs",
         "packages/proofs/tests/toolchain/paged-authority.test.mjs",
         "packages/proofs/tests/execution/assembly-workers.test.mjs",
-        "packages/proofs/tests/toolchain/operational-toolchain.test.mjs"
+        "packages/proofs/tests/toolchain/operational-toolchain.test.mjs",
+        "packages/proofs/tests/toolchain/retained-node-artifacts.test.mjs",
+        "packages/proofs/tests/toolchain/paged-reuse.test.mjs"
       ]
     },
     "crypto": {
@@ -275,8 +278,8 @@
       "description": "Comprobar dependencias y exports entre m\u00f3dulos"
     },
     {
-      "usage": "./dev sources [status|prepare|check]",
-      "description": "Inspeccionar o preparar una generaci\u00f3n de desarrollo"
+      "usage": "./dev sources [status|prepare|check|verify]",
+      "description": "Inspeccionar, preparar o verificar por digest una generaci\u00f3n de fuentes"
     },
     {
       "usage": "./dev bundle [build|verify|run]",
