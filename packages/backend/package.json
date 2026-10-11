@@ -20,7 +20,10 @@
     "./encoding/statements": "./src/execution/encoding/statements.mjs",
     "./encoding/commitments": "./src/execution/encoding/commitments.mjs",
     "./storage/records": "./src/claims/storage/segmented-record-store.mjs",
-    "./accounts/durable-keeper": "./src/accounts/storage/durable-generic-account-keeper.mjs"
+    "./accounts/durable-keeper": "./src/accounts/storage/durable-generic-account-keeper.mjs",
+    "./wallet/http-service": "./src/api/wallet/http-service.mjs",
+    "./api/wallet/http/exact-action-capabilities": "./src/api/wallet/http/exact-action-capabilities.mjs",
+    "./api/wallet/http/public-errors": "./src/api/wallet/http/public-errors.mjs"
   },
   "lianum": {
     "status": "active"

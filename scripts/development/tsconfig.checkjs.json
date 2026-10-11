@@ -13,7 +13,7 @@
   },
   "files": [
     "../../packages/environment/src/paths.mjs",
-    "../../apps/wallet/src/server/errors/public-errors.mjs",
+    "../../packages/backend/src/api/wallet/http/public-errors.mjs",
     "../../packages/backend/src/chains/shared/observations/observation-errors.mjs",
     "../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs",
     "../../packages/mobile-protocol/src/authorization.mjs",

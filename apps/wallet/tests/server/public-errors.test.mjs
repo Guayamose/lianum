@@ -10,11 +10,13 @@ const failure = code => Object.assign(new Error(code), { code });
 const fallback = native => native ? 'NATIVE_CLAIM_OPERATION_FAILED' : 'WALLET_OPERATION_FAILED';
 const prefixes = ['WALLET', 'PRIVATE_VAULT_EXIT', 'BACKED_VAULT', 'NATIVE_CLAIM', 'CLAIM',
   'VAULT', 'SOLANA', 'BITCOIN', 'LOCAL_EVM', 'ROLE_CLIENT', 'FLAT_OPERATOR', 'COMBINED_OPERATOR', 'FLAT_ACCOUNT', 'JOURNAL'];
+const formatterURL = import.meta.resolve('@lianum/backend/api/wallet/http/public-errors');
 
 // Exercise every literal in the explicit vocabulary through real own-data and
 // Node assertion producers, while testing intended public codes independently.
 test('every fixed contract code remains exact through each supported owned error shape', async () => {
-  const source = await readFile(new URL('../../src/server/errors/public-errors.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL(formatterURL), 'utf8');
+  assert.equal(publicCode, (await import(formatterURL)).publicCode, 'App facade preserves the backend formatter');
   const list = source.slice(source.indexOf('const publicCodes = new Set(['), source.indexOf('\n]);'));
   const codes = [...list.matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map(match => match[1]);
   assert.equal(codes.length, 225); assert.equal(new Set(codes).size, codes.length);
@@ -153,15 +155,16 @@ test('public and opaque failures preserve SDK UNKNOWN and require manual origina
 });
 
 test('server uses the private helper at every existing thrown-error boundary', async () => {
-  const serverURL = new URL('../../src/server/server.mjs', import.meta.url);
+  const serverURL = new URL(import.meta.resolve('@lianum/backend/wallet/http-service'));
   const server = await readFile(serverURL, 'utf8');
   const importedHelper = /import \{ publicCode \} from '([^']+)';/.exec(server);
   assert.ok(importedHelper, 'Server must import the shared public error formatter');
   assert.equal(new URL(importedHelper[1], serverURL).href,
-    new URL('../../src/server/errors/public-errors.mjs', import.meta.url).href);
+    formatterURL);
   assert.doesNotMatch(server, /function publicCode\(/);
   assert.equal([...server.matchAll(/publicCode\(error/g)].length, 5);
-  assert.doesNotMatch(server.slice(server.indexOf('const assets ='), server.indexOf('const sensitiveHeaders')), /public-errors/);
+  const app = await readFile(new URL('../../src/server/server.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(app, /public-errors/);
 });
 
 // Preserve the existing consumed-token failure response asserted by
