@@ -39,8 +39,13 @@ conserva; Git no conserva diferencias como `0600` frente a `0644`. Rechaza
 fuentes originales obligatorias sin versionar.
 `./dev legacy check` añade la comprobación completa de los archivos restaurados
 y necesita además las dependencias de Solidity/Noir para sus diagnósticos.
-`./dev check` verifica los contratos entre módulos, la ejecución desde fuentes
-y la selección habitual de pruebas host.
+`./dev check` verifica los contratos entre módulos, sintaxis/imports, las APIs
+de checkJs declaradas, documentación de comandos, ejecución desde fuentes y
+la selección habitual host. Las pruebas muestran salida en directo y tienen
+120 segundos por selección (`--timeout N`), con cierre de hijos y resultado
+explícito al agotar el plazo. Los informes incluyen revisión y huella de cambios.
+Consulta [WORKFLOW.md](WORKFLOW.md) para el alcance y [COMMANDS.md](COMMANDS.md)
+para la referencia generada desde el mismo catálogo que `./dev help`.
 
 El workflow [host-tests.yml](../.github/workflows/host-tests.yml) ejecuta esos
 controles desde un checkout vacío, sin credenciales del producto. No hay remoto
@@ -56,6 +61,7 @@ Las comprobaciones de la restauración anterior conservan sus informes en
 `.internal/dev/reports/clean-*-ci*.json`; corresponden a aquella revisión.
 GitHub Actions aún no se ha ejecutado en remoto. Los cambios de herramientas
 añaden regresiones pequeñas de rutas, instalación, selección y generaciones.
+No se publica ni configura un remoto como parte de preparar el entorno local.
 
 Con Google Chrome instalado, se comprueba también el DOM real de la wallet
 desconectada:

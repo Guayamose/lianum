@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, parse, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+/** @param {string | URL} url */
 function repository(url) {
   let directory = dirname(fileURLToPath(url));
   while (directory !== parse(directory).root) {
@@ -25,11 +26,13 @@ const dataRoots = Object.freeze({
   components: 'omnichain-flat-profile',
 });
 
+/** @param {keyof typeof dataRoots} family */
 export function legacyDataRoot(family) {
   if (!Object.hasOwn(dataRoots, family)) throw new Error('LIANUM_RESOURCE_FAMILY');
   return join(compatibilityRoot, dataRoots[family]);
 }
 
+/** @param {string} path */
 export function sourcePath(path) {
   if (typeof path !== 'string' || !path || isAbsolute(path)
       || path.includes('\\') || path.split('/').some(part => !part || part === '.' || part === '..')) {
@@ -38,15 +41,20 @@ export function sourcePath(path) {
   return join(projectRoot, path);
 }
 
+/** @param {string} path */
 export const sourceURL = path => pathToFileURL(sourcePath(path));
 
+/** @param {string | URL} url */
 export function isCompatibilityModule(url) {
   const path = relative(compatibilityRoot, fileURLToPath(url));
   return path !== '..' && !path.startsWith('..' + sep) && !isAbsolute(path);
 }
 
 /** An explicit source location plus the former location for historical runs.
- * No filesystem probing or fallback to stale generated code is performed. */
+ * No filesystem probing or fallback to stale generated code is performed.
+ * @param {string | URL} url
+ * @param {string} sourceRelative
+ * @param {string} legacyRelative */
 export function moduleResource(url, sourceRelative, legacyRelative) {
   const source = sourceURL(sourceRelative);
   return isCompatibilityModule(url) ? new URL(legacyRelative, url) : source;

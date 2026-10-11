@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""Run the selected existing host tests and retain their unmodified result."""
+"""Stream selected host tests with a deadline and a revision-bound result."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -8,6 +12,7 @@ import sys
 
 from workspace import RUNTIME, runtime_relative, build
 from source_runtime import prepare
+from bounded_process import run_bounded
 
 ROOT = Path(__file__).resolve().parents[2]
 FLAT = ROOT / ".internal/runtime/omnichain-flat-profile/flat-wallet"
@@ -27,15 +32,48 @@ DEFAULT_TESTS = [
 ]
 
 
+def revision(root=ROOT):
+    """Identify HEAD plus actual modified/untracked development bytes, not secrets."""
+    def git(*arguments):
+        return subprocess.check_output(['git', *arguments], cwd=root, stderr=subprocess.DEVNULL)
+    head = git('rev-parse', 'HEAD').decode().strip()
+    scopes = ['apps', 'packages', 'scripts', 'tests', 'contracts', 'infra', '.github',
+              'dev', 'package.json', 'package-lock.json']
+    changed = set(git('diff', '--name-only', '-z', 'HEAD', '--', *scopes).split(b'\0'))
+    changed.update(git('ls-files', '--others', '--exclude-standard', '-z', '--', *scopes).split(b'\0'))
+    changed.discard(b'')
+    # Documentation edits do not change the code under test.
+    changed = sorted(name for name in changed if not name.endswith(b'.md'))
+    digest = hashlib.sha256()
+    for name in changed:
+        path = root / name.decode()
+        digest.update(name + b'\0')
+        if path.is_symlink():
+            digest.update(b'LINK\0' + str(path.readlink()).encode())
+        elif path.is_file():
+            with path.open('rb') as stream:
+                digest.update(hashlib.file_digest(stream, 'sha256').digest())
+        else:
+            digest.update(b'DELETED')
+    return {'commit': head, 'dirty': bool(changed), 'changedFiles': [name.decode() for name in changed],
+            'workingChangesSha256': digest.hexdigest()}
+
+
 def main():
-    arguments = sys.argv[1:]
-    legacy = bool(arguments and arguments[0] == '--legacy')
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--legacy', action='store_true')
+    parser.add_argument('--timeout', type=float, default=120,
+                        help='Maximum seconds for this entire selection (default: 120)')
+    parser.add_argument('tests', nargs='*')
+    args = parser.parse_args()
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error('--timeout must be positive')
+    legacy = args.legacy
     if legacy:
-        arguments = arguments[1:]
         build(quiet=True)
     else:
         prepare(quiet=True)
-    tests = arguments or DEFAULT_TESTS
+    tests = args.tests or DEFAULT_TESTS
     executable_tests = []
     for test in tests:
         path = ROOT / test
@@ -61,28 +99,39 @@ def main():
             # Keep runtime-relative paths accepted for archived commands.
             executable_tests.append(str(RUNTIME / relative) if relative else test)
     executable_tests = list(dict.fromkeys(executable_tests))
-    result = subprocess.run([str(NODE), "--max-old-space-size=384", "--test-concurrency=1",
-                             "--experimental-test-module-mocks", "--test",
-                             "--test-reporter=tap", *executable_tests], cwd=FLAT if legacy else ROOT, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     REPORTS.mkdir(parents=True, exist_ok=True)
     report_name = "host-tests" if tests == DEFAULT_TESTS else "selected-host-tests"
     if legacy:
         report_name += '-legacy'
-    (REPORTS / (report_name + ".log")).write_text(result.stdout)
+    started_at = datetime.now(timezone.utc).isoformat()
+    source_revision = revision()
+    result = run_bounded([str(NODE), "--max-old-space-size=384", "--test-concurrency=1",
+                          "--experimental-test-module-mocks", "--test",
+                          "--test-reporter=tap", *executable_tests], cwd=FLAT if legacy else ROOT,
+                         timeout_seconds=args.timeout, log_path=REPORTS / (report_name + '.log'))
+    ending_revision = revision()
+    source_changed = source_revision != ending_revision
+    if source_changed and result['status'] == 'PASS':
+        result.update(status='SOURCE_CHANGED', exitCode=2)
     counts = {key: int(value) for key, value in re.findall(
-        r"^# (tests|suites|pass|fail|cancelled|skipped|todo) (\d+)$", result.stdout, re.MULTILINE)}
-    report = {"schema": "LIANUM_HOST_TEST_RESULT_V1", "status": "PASS" if result.returncode == 0 else "FAIL",
+        r"^# (tests|suites|pass|fail|cancelled|skipped|todo) (\d+)$", result['stdout'], re.MULTILINE)}
+    if result['status'] == 'PASS' and (not counts.get('pass') or counts.get('cancelled') or counts.get('fail')):
+        result.update(status='NO_COMPLETE_PASS', exitCode=2)
+    report = {"schema": "LIANUM_HOST_TEST_RESULT_V1", "status": result['status'],
               "node": subprocess.check_output([str(NODE), "--version"], text=True).strip(),
-              "exitCode": result.returncode, "testFiles": tests,
+              "exitCode": result['exitCode'], "testFiles": tests,
               "resolvedTestFiles": executable_tests, "counts": counts,
               "defaultSelection": tests == DEFAULT_TESTS,
               "execution": "compatibility" if legacy else "editable-sources",
+              "startedAt": started_at, "finishedAt": datetime.now(timezone.utc).isoformat(),
+              "durationSeconds": result['durationSeconds'], "timeoutSeconds": args.timeout,
+              "outputBytes": result['outputBytes'], "maxOutputBytes": result['maxOutputBytes'],
+              "revision": source_revision, "revisionAtEnd": ending_revision,
+              "sourceChangedDuringRun": source_changed,
               "scope": "Selected existing host tests only; not native chain or original proof acceptance"}
     (REPORTS / (report_name + ".json")).write_text(json.dumps(report, indent=2) + "\n")
-    sys.stdout.write(result.stdout)
-    print(f"Report: {REPORTS / (report_name + '.json')}")
-    sys.exit(result.returncode)
+    print(f"{report['status']} ({report['durationSeconds']}s): {REPORTS / (report_name + '.json')}")
+    sys.exit(result['exitCode'])
 
 
 if __name__ == "__main__":

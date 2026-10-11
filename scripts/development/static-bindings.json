@@ -1,0 +1,13 @@
+{
+  "schema": "LIANUM_STATIC_LEXICAL_BINDINGS_V1",
+  "files": [
+    "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs",
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs"
+  ]
+}

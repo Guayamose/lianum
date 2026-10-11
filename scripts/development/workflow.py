@@ -10,6 +10,10 @@ import re
 import shutil
 import subprocess
 import sys
+import time
+import math
+
+from bounded_process import run_bounded
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = Path(__file__).with_name("workflows.json")
@@ -231,7 +235,7 @@ def print_plan(plan):
     print(plan["scope"])
 
 
-def run_plan(plan, maximum):
+def run_plan(plan, maximum, timeout=120):
     if plan["unmappedChanges"] or plan["manualChecksRequired"]:
         print("Checks not started: unmapped changes need an explicit selection.", file=sys.stderr)
         return 2
@@ -244,12 +248,25 @@ def run_plan(plan, maximum):
     python_tests = [path for path in plan["testFiles"] if path.endswith(".py")]
     node_tests = [path for path in plan["testFiles"] if path.endswith(".mjs")]
     commands = [[sys.executable, "-B", str(ROOT / path)] for path in python_tests]
-    if node_tests:
-        commands.append([str(ROOT / "dev"), "test", *node_tests])
+    started = time.monotonic()
     for command in commands:
-        result = subprocess.run(command, cwd=ROOT)
-        if result.returncode:
-            return result.returncode
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            print('TIMEOUT: selection exhausted its wall-time budget.', file=sys.stderr)
+            return 124
+        result = run_bounded(command, cwd=ROOT, timeout_seconds=remaining,
+                             log_path=ROOT / '.internal/dev/reports' / (Path(command[-1]).stem + '.log'))
+        if result['exitCode']:
+            print(f"{result['status']}: {command[-1]}", file=sys.stderr)
+            return result['exitCode']
+    if node_tests:
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            return 124
+        # Give the nested runner time to close its owned group and write its cancellation report.
+        result = run_bounded([str(ROOT / 'dev'), 'test', '--timeout', str(remaining), *node_tests],
+                             cwd=ROOT, timeout_seconds=remaining, termination_grace=.75)
+        return result['exitCode']
     return 0
 
 
@@ -258,6 +275,8 @@ def main(arguments=None):
     commands = parser.add_subparsers(dest="command", required=True)
     for name in ("status", "catalog"):
         commands.add_parser(name).add_argument("--json", action="store_true")
+    commands.add_parser('help')
+    commands.add_parser('docs-check')
     commands.add_parser("prepare").add_argument("scope", nargs="?", default="host", choices=("host", "mobile", "platform"))
     tests = commands.add_parser("test")
     choice = tests.add_mutually_exclusive_group(required=True)
@@ -267,6 +286,7 @@ def main(arguments=None):
     tests.add_argument("--plan", action="store_true")
     tests.add_argument("--json", action="store_true")
     tests.add_argument("--max-files", type=int, default=24)
+    tests.add_argument('--timeout', type=float, default=120)
     args = parser.parse_args(arguments)
     if args.command == "status":
         report = environment_status()
@@ -284,6 +304,18 @@ def main(arguments=None):
         prepare(args.scope)
         return 0
     data = catalog()
+    if args.command in {'help', 'docs-check'}:
+        lines = [f"{row['usage']:<39} {row['description']}" for row in data['commands']]
+        if args.command == 'help':
+            print('Lianum — ejecutar desde la raíz del proyecto\n' + '\n'.join(lines))
+            return 0
+        path = ROOT / 'docs/COMMANDS.md'
+        expected = '# Comandos de desarrollo\n\nGenerado desde `scripts/development/workflows.json`; `./dev help` usa el mismo catálogo.\n\n```text\n' + '\n'.join(lines) + '\n```\n'
+        if not path.is_file() or path.read_text() != expected:
+            print('docs/COMMANDS.md no coincide con workflows.json.', file=sys.stderr)
+            return 1
+        print('Command documentation matches the executable help catalog.')
+        return 0
     if args.command == "catalog":
         if args.json:
             print(json.dumps(data, indent=2))
@@ -296,6 +328,8 @@ def main(arguments=None):
         parser.error("--base requires --changed")
     if args.max_files < 1:
         parser.error("--max-files must be positive")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error('--timeout must be positive')
     if args.json and not args.plan:
         parser.error("--json requires --plan when selecting tests")
     unknown = set(args.component or ()) - set(data["components"])
@@ -309,7 +343,7 @@ def main(arguments=None):
         print_plan(plan)
     if args.plan:
         return 0
-    return run_plan(plan, args.max_files)
+    return run_plan(plan, args.max_files, args.timeout)
 
 
 if __name__ == "__main__":

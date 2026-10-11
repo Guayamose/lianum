@@ -10,39 +10,7 @@ export PATH="$task_node_dir:$PATH"
 task_command="${1:-help}"
 if [ "$#" -gt 0 ]; then shift; fi
 case "$task_command" in
-  help|-h|--help)
-    printf '%s\n' \
-      'Lianum — ejecutar desde la raíz del proyecto' \
-      './dev start          Abrir la wallet local (Ctrl+C para cerrar)' \
-      './dev build          Preparar los paquetes para ejecutar las fuentes directamente' \
-      './dev clean          Mostrar la limpieza local propuesta (sin borrar)' \
-      './dev clean --apply  Compactar historial y retirar cachés/copias temporales' \
-      './dev check          Verificar módulos, rutas y pruebas rápidas del entorno' \
-      './dev test [rutas]   Ejecutar pruebas directamente desde las fuentes' \
-      './dev status         Estado rápido de herramientas y aplicaciones' \
-      './dev prepare [host|mobile|platform] Preparar dependencias explícitas' \
-      './dev workflows      Entradas actuales y comprobaciones por componente' \
-      './dev boundaries     Comprobar contratos públicos y dependencias' \
-      './dev sources [status|prepare|check] Preparar una generación de desarrollo' \
-      './dev test --changed Seleccionar pruebas según tus cambios' \
-      './dev build --legacy Preparar explícitamente la compatibilidad histórica' \
-      './dev legacy [start|node|test|check] Ejecutar comandos heredados' \
-      './dev doctor         Verificar herramientas e integridad de la base original' \
-      './dev evidence       Comprobar las evidencias públicas originales' \
-      './dev lab [prepare|run|recovery|browser|browser-recovery]   Laboratorio EVM nuevo: SDK o DOM, feliz o F real' \
-      './dev lab audit-base Seis auditorías originales vacías con métricas privadas acotadas' \
-      './dev lab btc-sol    Factura privada CBTC, entrega SOL y dos redenciones BTC originales' \
-      './dev lab claims     Ingreso y redención privada de claims BTC/SOL en un laboratorio nuevo' \
-      './dev lab metamorpho Nota privada de shares, EXIT y redención oficial en un laboratorio nuevo' \
-      './dev lab defi       Entrada pública Uniswap/MetaMorpho, nota privada D27 y EXIT' \
-      './dev lab osaka      Despliegues originales y una transferencia pública local con gas limitado' \
-      './dev lab mobile-original Lectura/reconcile V2 de TOP_UP y EXIT originales mediante cliente Node pareado' \
-      './dev lab mobile-original-ledger Compilación nueva del ledger nativo V5 con watchdog fijo' \
-      './dev artifacts      Inventariar los artefactos históricos de encoding' \
-      './dev node [args]    Ejecutar Node 24.19 sobre los archivos que editas' \
-      './dev npm [args]     Ejecutar npm con el Node local' \
-      '' \
-      'Restauración: setup, import, restore-package, canonical, legacy-node.' ;;
+  help|-h|--help) exec python3 -B "$task_helpers/workflow.py" help ;;
   lab)
     if [ "${1:-}" = "mobile-original-ledger" ]; then
       shift
@@ -85,6 +53,11 @@ case "$task_command" in
   prepare) exec python3 -B "$task_helpers/workflow.py" prepare "$@" ;;
   workflows) exec python3 -B "$task_helpers/workflow.py" catalog "$@" ;;
   boundaries) exec python3 -B "$task_helpers/module_boundaries.py" "$@" ;;
+  static)
+    python3 -B "$task_helpers/source_runtime.py" --quiet
+    exec "$task_node_dir/node" --max-old-space-size=384 "$task_helpers/static-check.mjs" "$@" ;;
+  platform)
+    exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/apps/platform/src/entry.mjs" "$@" ;;
   sources) exec python3 -B "$task_helpers/source_generations.py" "$@" ;;
   legacy)
     task_legacy_command="${1:-help}"
@@ -111,6 +84,8 @@ case "$task_command" in
   check)
     python3 -B "$task_helpers/source_runtime.py"
     python3 -B "$task_helpers/module_boundaries.py"
+    "$task_node_dir/node" --max-old-space-size=384 "$task_helpers/static-check.mjs"
+    python3 -B "$task_helpers/workflow.py" docs-check
     python3 -B "$task_helpers/test_source_runtime.py"
     exec python3 -B "$task_helpers/run_tests.py" "$@" ;;
   test)

@@ -19,23 +19,31 @@ el Node global. `./dev legacy-node` conserva Node 24.14.0 para locks antiguos.
 También están disponibles Noir 1.0.0-beta.25, Barretenberg 5.2.0, Solidity
 0.8.37, Foundry 1.8.4, Bitcoin Core 31.1 y Agave 2.3.13.
 
-`workspace.py` prepara archivos físicos en `.internal/runtime/` desde las
-reglas de `scripts/layout.json`. Traduce los imports relativos del código
-editable a las rutas del recorrido original. El resto de las rutas y datos
-de pinning permanece intacto. No utiliza enlaces ni hardlinks. Los comandos
-que ejecutan el producto preparan esa copia antes de arrancarlo. Se deben
-reiniciar los procesos para cargar cambios.
+`start`, `node` y `test` ejecutan las fuentes editables. `build` comprueba
+manifiestos/lock y prepara dependencias. `workspace.py` materializa otra
+distribución únicamente con `./dev build --legacy` o los comandos explícitos
+de restauración y laboratorio que la necesitan. Se deben reiniciar los
+procesos para cargar cambios.
 
-`check` verifica el archivo original y la sincronización del código, compila
-ABI/tipos de los contratos y comprueba Noir y el HTTP de la wallet.
+`check` verifica las fronteras entre módulos, los imports/exports y sintaxis,
+las APIs con checkJs declarado, las rutas y la selección host. Solidity,
+Noir y los recorridos con fondos tienen comprobaciones explícitas separadas.
 `test` ejecuta doce archivos de pruebas de host, incluidas las regresiones de
 reconciliación terminal, o las rutas indicadas. Conserva la selección habitual
 en `.internal/dev/reports/host-tests.*` y las selecciones particulares en
-`selected-host-tests.*`, para no sustituir un resultado completo por otro de
-alcance distinto. Los mocks y expectativas desactualizados están corregidos.
+`selected-host-tests.*`. La salida se muestra en directo; cada selección tiene
+120 segundos por defecto (`--timeout N`) y un máximo de 8 MiB de salida.
+Los informes incluyen fecha, commit y huella de modificaciones; timeout,
+cancelación, procesos abandonados o fuentes modificadas durante la prueba
+nunca se presentan como PASS.
 `doctor` distingue herramientas, integridad histórica,
 resultados de pruebas y bloqueos de producto. `evidence` lee los originales
 CI51, CO42 e I84.
+
+La ayuda y el catálogo completo de comandos tienen una única fuente en
+[`workflows.json`](workflows.json). `./dev help` y
+[COMMANDS.md](../../docs/COMMANDS.md) se verifican contra ella.
+La rutina y sus límites están en [WORKFLOW.md](../../docs/WORKFLOW.md).
 
 `doctor` verifica las fuentes originales en el archivo inmutable y la
 sincronización del código editable por separado. Editar el producto no altera

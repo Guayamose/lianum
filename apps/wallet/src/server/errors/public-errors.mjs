@@ -243,11 +243,13 @@ const publicCodes = new Set([
   'CLAIM_ZERO',
 ]);
 const maxCodeLength = Math.max(...[...publicCodes].map(code => code.length));
+/** @param {object} value @param {PropertyKey} key @returns {unknown} */
 const ownData = (value, key) => {
   const descriptor = Object.getOwnPropertyDescriptor(value, key);
   return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
 };
 
+/** @param {unknown} error @param {boolean} [native] @returns {string} */
 export function publicCode(error, native = false) {
   const fallback = native ? 'NATIVE_CLAIM_OPERATION_FAILED' : 'WALLET_OPERATION_FAILED';
   try {

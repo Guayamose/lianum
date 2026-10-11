@@ -1,0 +1,65 @@
+{
+  "schema": "LIANUM_EXACT_STATIC_COMPATIBILITY_EXCEPTIONS_V1",
+  "missingHistoricalImports": [
+    {
+      "source": "packages/protocol/src/execution/balances/generic-balance-observer.mjs",
+      "specifier": "../../crypto/private-cohort-public-native.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/local/local-profile.mjs",
+      "specifier": "../../../../../experiments/protocol/private-core-proof/wallet-notes/resources.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/native/dispatch/native-deployment.mjs",
+      "specifier": "../../../crypto/private-cohort-public-native.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/native/dispatch/native-dispatch-gate.mjs",
+      "specifier": "../../../crypto/private-native-certificate.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/native/recipients/native-recipient-custody.mjs",
+      "specifier": "../../../crypto/private-native-certificate.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/native/recovery/native-owner-recovery-custody.mjs",
+      "specifier": "../../../crypto/private-native-certificate.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/native/recovery/native-owner-recovery-protocol.mjs",
+      "specifier": "../../../crypto/private-native-certificate.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/proofs/proof-process.mjs",
+      "specifier": "../../../../../experiments/protocol/private-core-proof/wallet-notes/resources.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/execution/proofs/proof-worker.mjs",
+      "specifier": "../../../../../experiments/protocol/private-core-proof/wallet-notes/resources.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/notes/private-asset-runtime.mjs",
+      "specifier": "../crypto/private-assembly-history.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/notes/private-asset-runtime.mjs",
+      "specifier": "../crypto/private-assembly-revocations.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    },
+    {
+      "source": "packages/protocol/src/notes/private-note-encoding.mjs",
+      "specifier": "../crypto/private-native-certificate.mjs",
+      "reason": "Missing original in the frozen golden-overlay-v17 family; active consumers are forbidden by module boundaries. Do not redirect to another authority realm."
+    }
+  ]
+}

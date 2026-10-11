@@ -2,7 +2,8 @@
 
 La rutina de desarrollo comienza en las fuentes de `apps/` y `packages/`.
 Las pruebas del componente y los laboratorios completos tienen comandos
-distintos. El catálogo de comandos y comprobaciones está en
+distintos. La [referencia de comandos](COMMANDS.md), `./dev help` y el
+catálogo de comprobaciones se generan o leen desde
 [`scripts/development/workflows.json`](../scripts/development/workflows.json).
 
 ## Preparar y comprobar el entorno
@@ -81,14 +82,54 @@ bytecode.
 
 El límite habitual es 24 archivos de prueba. Una selección mayor se muestra y
 devuelve código 2 antes de arrancar pruebas. Puede acotarse por componente o
-ampliarse expresamente con `--max-files 40`. Este límite controla el número de
-archivos, no impone una duración garantizada. Un fallo de prueba conserva su
-código de salida y detiene la selección.
+ampliarse expresamente con `--max-files 40`. Además, la selección completa
+tiene un presupuesto de 120 segundos, configurable con `--timeout 30` o un
+valor explícito mayor. Python y Node comparten ese presupuesto. Al agotarlo
+se detiene el grupo de procesos propio y se devuelve 124. La cancelación
+devuelve 130/143 y también cierra los hijos. Los comandos de pruebas no deben
+desacoplar procesos; los laboratorios tienen su propia gestión explícita.
+
+La salida de las pruebas se muestra y guarda conforme llega. Cada proceso
+tiene un límite de 8 MiB de salida; excederlo devuelve 125. Los informes host
+incluyen fecha de comienzo/final, duración, selección, commit y SHA256 de las
+modificaciones de código. `TIMEOUT`, `CANCELLED`, `OUTPUT_LIMIT`,
+`ORPHANED_PROCESS` y `SOURCE_CHANGED` no son aprobaciones. Una ejecución sin
+pruebas aprobadas tampoco se etiqueta PASS. Un fallo detiene la selección.
 
 `./dev test` sin opciones mantiene la selección habitual de pruebas host.
 `--component` permite pedir varios componentes concretos, mientras que
 `--changed` utiliza el cambio en Git. `--plan --json` proporciona la selección
 para herramientas del editor sin ejecutar pruebas.
+
+## Análisis estático sin ejecutar el producto
+
+```sh
+./dev static
+./dev static --changed
+```
+
+El parser de TypeScript comprueba sintaxis y nombres importados/exportados
+en las declaraciones estáticas del núcleo, sin cargar sus módulos ni crear
+custodia. `--changed` limita ese análisis a los archivos modificados y nuevos.
+No infiere imports calculados ni demuestra comportamiento económico.
+
+`scripts/development/tsconfig.checkjs.json` añade checkJs estricto a las APIs
+de rutas, errores públicos y acciones de recuperación compartidas. Es una
+adopción incremental: el resto del núcleo JavaScript no se declara tipado.
+La configuración no usa `@ts-ignore` ni desactiva errores para hacerla pasar.
+Además se comprueban nombres sin binding léxico en la fábrica de autoridad y
+sus siete módulos de operaciones (`static-bindings.json`). Este control
+detecta referencias como un `account` que no se haya pasado ni declarado;
+analiza esos archivos sin cargar su grafo de dependencias y no equivale a
+tipar todas sus estructuras dinámicas.
+Las doce referencias históricas ausentes de `protocol` están enumeradas
+exactamente en `static-check-exceptions.json`, visibles en la salida y
+prohibidas como dependencias activas por el control de módulos. Un import
+roto nuevo falla; una excepción cuyo archivo ya se recuperó también falla
+hasta retirarla. No se redirigen esas identidades históricas a otro módulo.
+
+`./dev check` incluye estos controles. La CI verifica además que la referencia
+de comandos coincide con el catálogo: `python3 -B scripts/development/workflow.py docs-check`.
 
 ## Qué demuestra cada nivel
 

@@ -25,10 +25,14 @@ jobs:
         run: |
           ./dev build
           ./dev boundaries
+          ./dev static
+          python3 -B scripts/development/workflow.py docs-check
           python3 -B scripts/development/test_source_runtime.py
           python3 -B scripts/development/test_source_preparation.py
           python3 -B scripts/development/test_module_boundaries.py
           python3 -B scripts/development/test_workflow.py
+          python3 -B scripts/development/test_bounded_process.py
+          ./dev test --timeout 30 scripts/development/test-static-check.test.mjs
           python3 -B scripts/development/test_source_generations.py
       - name: Verify explicit compatibility and versioned originals
         run: |

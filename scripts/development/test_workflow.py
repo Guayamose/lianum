@@ -90,11 +90,15 @@ class WorkflowTests(unittest.TestCase):
             run.assert_not_called()
 
     def test_runner_preserves_failure_and_uses_explicit_source_paths(self):
-        with patch.object(workflow, "ROOT", self.root), patch.object(workflow.subprocess, "run") as run:
-            run.return_value.returncode = 19
+        with patch.object(workflow, "ROOT", self.root), patch.object(workflow, "run_bounded") as run:
+            run.return_value = {'exitCode': 19, 'status': 'FAIL'}
             plan = self.plan(components=["b"])
             self.assertEqual(workflow.run_plan(plan, 24), 19)
-            run.assert_called_once_with([str(self.root / "dev"), "test", self.test], cwd=self.root)
+            command = run.call_args.args[0]
+            self.assertEqual(command[:3], [str(self.root / 'dev'), 'test', '--timeout'])
+            self.assertEqual(command[-1], self.test)
+            self.assertLessEqual(float(command[3]), 120)
+            self.assertEqual(run.call_args.kwargs['cwd'], self.root)
 
     def test_git_detects_committed_staged_unstaged_deleted_and_untracked_changes(self):
         def git(*arguments):
