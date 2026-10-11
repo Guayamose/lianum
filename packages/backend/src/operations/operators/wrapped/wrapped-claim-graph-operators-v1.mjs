@@ -1,3 +1,4 @@
+import {assertGraphNativeStateV4,graphNativeProjectionV4 as compareGraphNativeStateV4} from './graph-native-state-v4.mjs';
 import { readWrappedGraphDispatchOperationV4 } from '../../../chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs';
 import { assertCombinedClaimCoverageV4, assertCombinedClaimSourceCurrentV4, captureCombinedClaimNativeStateV4, quiesceCombinedClaimNativeV4, assertCombinedClaimNativeQuiescenceV4, releaseCombinedClaimNativeQuiescenceV4, assertCombinedGraphOperatorIdleV4, beginWrappedGraphAuditRoundV4, signWrappedGraphAuthorizationV4, acquireCombinedOperatorCustody, assertCombinedOperatorLive, poisonCombinedOperator, closeCombinedOperator, registerCombinedOperatorBranch, consumeCombinedBranchRecoveryV1, enterWrappedOperatorBranchV1, exitWrappedOperatorBranchV1, reserveWrappedOperatorV1, releaseWrappedOperatorV1 } from './wrapped-claim-combined-operators-v1.mjs';
 /** Fixed-purpose owned V2 operators. One private key and one atomic CAS journal
@@ -43,46 +44,14 @@ function budget(started) {
   const elapsed = performance.now() - started;
   assert.ok(elapsed >= 0 && elapsed < 30_000, 'NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE');
 }
-function graphNativeProjectionV4(before, after) {
-  const identity = rows => rows.map(row => { const value = copy(row); delete value.state.readGeneration; return value; });
-  equal(identity(before), identity(after));
-  for (let i = 0; i < before.length; i++) assert.ok(inputUint(after[i].state.readGeneration) >= inputUint(before[i].state.readGeneration), 'WRAPPED_GRAPH_READ_GENERATION_ROLLBACK');
-}
 function operationIdentityV4(operation) {
   if (operation === null) return null;
   const value = copy(readWrappedGraphDispatchOperationV4(operation)); delete value.physicalState; delete value.nativeAuditStarted; return freeze(value);
 }
 function graphNativeStateV4(rows, operation = null) {
   assert.ok(Array.isArray(rows) && rows.length > 0 && rows.length <= 5, 'WRAPPED_GRAPH_NATIVE_REGISTRY_REQUIRED');
-  const original = operation === null ? null : readWrappedGraphDispatchOperationV4(operation), seen = new Set(); let matched = 0;
-  if (original) {
-    assert.equal(original.profile, 'WRAPPED_GRAPH_DISPATCH_OPERATION_V4', 'WRAPPED_GRAPH_OPERATION_PROFILE');
-    assert.ok(['native-key', 'provider-key', 'send'].includes(original.phase), 'WRAPPED_GRAPH_OPERATION_PHASE');
-  }
-  for (const row of rows) {
-    exactRecord(row, ['profileCommitment', 'state']); bytes32(row.profileCommitment, true);
-    assert.ok(!seen.has(row.profileCommitment), 'WRAPPED_GRAPH_NATIVE_DUPLICATE_PROFILE'); seen.add(row.profileCommitment);
-    const state = row.state;
-    assert.equal(state.profile, 'OWNED_WRAPPED_GRAPH_NATIVE_AUDIT_STATE_V4', 'WRAPPED_GRAPH_NATIVE_STATE_PROFILE');
-    assert.ok(['EVM', 'TRON'].includes(state.family), 'WRAPPED_GRAPH_NATIVE_STATE_FAMILY');
-    exactRecord(state, ['profile', 'family', 'lifetimeId', 'genesis', 'readGeneration', 'activeReads', 'readsIdle',
-      'mutationGeneration', 'activeMutations', 'busy', 'closed', 'uncertain', 'pending', 'adverseHistory',
-      ...(state.family === 'EVM' ? ['transactions', 'receipts', 'lifecycle', 'lastTimestamp'] : ['entry', 'journal'])]);
-    assert.ok(typeof state.lifetimeId === 'string' && state.lifetimeId.length > 0, 'WRAPPED_GRAPH_NATIVE_LIFETIME');
-    inputUint(state.readGeneration); inputUint(state.mutationGeneration);
-    assert.equal(state.activeReads, 0, 'WRAPPED_GRAPH_NATIVE_READ_IN_FLIGHT'); assert.equal(state.readsIdle, true, 'WRAPPED_GRAPH_NATIVE_READ_IN_FLIGHT');
-    for (const flag of ['closed', 'uncertain', 'adverseHistory']) assert.equal(state[flag], false, 'WRAPPED_GRAPH_NATIVE_STATE_' + flag);
-    if (original && row.profileCommitment === original.profileCommitment) {
-      matched++; assert.equal(state.family, original.family, 'WRAPPED_GRAPH_OPERATION_FAMILY');
-      assert.equal(state.lifetimeId, original.lifetimeId, 'WRAPPED_GRAPH_OPERATION_LIFETIME');
-      equal(state, original.physicalState); assert.equal(state.busy, true, 'WRAPPED_GRAPH_ORIGINAL_OPERATION_BUSY');
-      assert.equal(state.pending, true, 'WRAPPED_GRAPH_ORIGINAL_OPERATION_PENDING'); assert.equal(state.activeMutations, 1, 'WRAPPED_GRAPH_ORIGINAL_OPERATION_MUTATION');
-    } else {
-      assert.equal(state.activeMutations, 0, 'WRAPPED_GRAPH_NATIVE_MUTATION_IN_FLIGHT');
-      assert.equal(state.busy, false, 'WRAPPED_GRAPH_NATIVE_STATE_busy'); assert.equal(state.pending, false, 'WRAPPED_GRAPH_NATIVE_STATE_pending');
-    }
-  }
-  assert.equal(matched, original ? 1 : 0, 'WRAPPED_GRAPH_EXACT_REGISTERED_OPERATION_REQUIRED'); return rows;
+  const original = operation === null ? null : readWrappedGraphDispatchOperationV4(operation);
+  return assertGraphNativeStateV4(rows, original, inputUint);
 }
 function assertMessageWindowV4(kind, message, head) {
   const now = inputUint(head.timestamp);
@@ -488,7 +457,7 @@ export function createScopedWrappedClaimGraphOperatorV1(raw, custody) {
       assertCombinedGraphOperatorIdleV4(custody, permit); equal(sourceStateV4(), retained.source); equal(evmFenceV4(), retained.evmFence);
       equal(operationIdentityV4(retained.operation), retained.operationIdentity);
       assertCombinedClaimSourceCurrentV4(custody, retained.claimSource);
-      graphNativeProjectionV4(retained.graphNative, graphNativeStateV4(bound.resources.nativeStateV4(), retained.operation));
+      compareGraphNativeStateV4(retained.graphNative, graphNativeStateV4(bound.resources.nativeStateV4(), retained.operation), inputUint);
     },
     coverage: shared => serial(shared.view.poolIndex, () => coverage(), shared),
     useCount: () => uses, poisonIfUsed: count => { if (uses !== count) poison(); }, poison,
@@ -603,7 +572,7 @@ export function createNativeValueOperatorQuorum(raw) {
       await first.readers[input.poolIndex].assertCurrent(view); binding();
       claimQuiet = await states[0].quiesceClaimNativeV4(); graphQuiet = await first.resources.quiesceNativeV4();
       const claimSnapshot = states[0].claimNativeStateV4(), graphSnapshot = graphNativeStateV4(first.resources.nativeStateV4(), operation);
-      graphNativeProjectionV4(graphBefore, graphSnapshot);
+      compareGraphNativeStateV4(graphBefore, graphSnapshot, inputUint);
       const operationSnapshot = operation === null ? null : readWrappedGraphDispatchOperationV4(operation);
       if (operationBefore) {
         assert.equal(operationSnapshot.nativeAuditStarted, operationBefore.nativeAuditStarted, 'WRAPPED_GRAPH_NATIVE_ROUND_REPLACED');

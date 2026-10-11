@@ -3,15 +3,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
+import {assertGraphNativeStateV4,graphNativeProjectionV4} from '../../../../src/operations/operators/wrapped/graph-native-state-v4.mjs';
 import { cloneInput as copy, frozenInput as freeze, inputUint } from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
-const source = readFileSync(new URL('./wrapped-claim-graph-operators-v1.mjs', import.meta.url), 'utf8');
-const a = source.indexOf('function graphNativeProjectionV4('), b = source.indexOf('function assertMessageWindowV4(', a);
-assert.ok(a > 0 && b > a);
+const source = readFileSync(new URL('../../../../src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs', import.meta.url), 'utf8');
 const operations = new WeakMap();
 const readWrappedGraphDispatchOperationV4 = token => { const read = operations.get(token); assert.ok(read, 'TEST_ORIGINAL_OPERATION_REQUIRED'); return freeze(copy(read())); };
-const api = new Function('assert','copy','freeze','inputUint','exactRecord','bytes32','readWrappedGraphDispatchOperationV4','equal',
-  source.slice(a,b) + '\nreturn {graphNativeStateV4,graphNativeProjectionV4};')(assert,copy,freeze,inputUint,exactRecord,bytes32,readWrappedGraphDispatchOperationV4,assert.deepEqual);
+const api = {
+  graphNativeStateV4(rows, token) {
+    return assertGraphNativeStateV4(rows, token === null ? null : readWrappedGraphDispatchOperationV4(token), inputUint);
+  },
+  graphNativeProjectionV4: (before,after) => graphNativeProjectionV4(before,after,inputUint),
+};
 const h = digit => digit.repeat(64);
 function fixture(family = 'EVM') {
   const state = { profile:'OWNED_WRAPPED_GRAPH_NATIVE_AUDIT_STATE_V4',family,lifetimeId:h('1'),genesis:h('2'),readGeneration:'0',activeReads:0,readsIdle:true,
@@ -45,14 +47,14 @@ test('cross-signer GRAPH progress allows monotonic reads only; every physical hi
   const changed=copy(f.rows);changed[0].state.transactions.push({phase:'unknown'});assert.throws(()=>api.graphNativeProjectionV4(f.rows,changed));
 });
 test('reverse claim ticket is completed inside original serial after final awaits and fixed native quiescence',()=>{
-  const claim=readFileSync(new URL('../native-claims/wrapped-operators-v1.mjs',import.meta.url),'utf8');
+  const claim=readFileSync(new URL('../../../../src/claims/wrapped/operations/wrapped-operators-v1.mjs',import.meta.url),'utf8');
   const start=claim.indexOf('if (reverseCoverageTicketsV4.has(result))'),capture=claim.indexOf('reverseCoverageStatesV4.set(result, snapshot)',start);
   const body=claim.slice(start,capture);
   assert.ok(body.includes('await readVault(); await current();'));
   assert.ok(body.includes('await quiesceOwnedOperatorNativeReads([...nativeReads.values()])'));
   assert.ok(body.includes('performance.now() - started'));assert.ok(claim.indexOf('return result;',capture)>capture);
   assert.ok(source.includes('consumeWrappedGraphOperatorKeyLeaseV4'));assert.ok(!source.includes('signWrappedGraphAuthorizationV1'));
-  const combined=readFileSync(new URL('./wrapped-claim-combined-operators-v1.mjs',import.meta.url),'utf8');
+  const combined=readFileSync(new URL('../../../../src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs',import.meta.url),'utf8');
   assert.ok(!combined.includes('export function signWrappedGraphAuthorizationV1'));assert.ok(combined.includes('consumeWrappedGraphOperatorKeyLeaseV4(lease, token, kind, message, policy, frame)'));
 });
 
