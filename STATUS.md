@@ -34,13 +34,13 @@ La reorganización actual deja estos resultados comprobados:
 
 - **Paquetes y consumidores:** cero ciclos entre paquetes, cero imports privados
   activos entre paquetes y cero enlaces activos hacia pruebas/experimentos.
-  La comprobación inspecciona 956 fuentes y 1.752 imports públicos. Los trece
+  La comprobación inspecciona 957 fuentes y 1.753 imports públicos. Los trece
   enlaces de soporte de `protocol` son históricos y permanecen separados.
 - **Familias privadas:** mecánica EVM, reloj SOURCE, tres bridges, actor móvil y
   sesión nativa tienen propietarios por instancia y contratos concretos. La
   composición original conserva las funciones públicas y los validadores no
   aceptan marcas de otro builder. Se mantienen AEAD, CAS y tokens de un uso.
-- **Tipado:** la comprobación estricta tiene 87 entradas explícitas, frente a
+- **Tipado:** la comprobación estricta tiene 88 entradas explícitas, frente a
   las 27 anteriores. Comprueba los cuerpos completos del actor y sesión nativa,
   depósitos y ejecución de cuenta, además de los mecanismos extraídos de
   journal, recuperación, observación, DeFi y formatos móviles. Incluye también
@@ -73,8 +73,8 @@ La reorganización actual deja estos resultados comprobados:
   generales, módulos variables, campos sobrantes y acceso general a escritura.
 
 La adopción actual es
-`b0a2cbbb5aee39a1e2c8ec40f80429b785914ca6d6f9406b1215cf219f8572aa`, con
-**1.450 fuentes y cero aliases de ejecución** en su contrato. Preparación y
+`61ffc7b069f59a4ad3979ac182609ec03307b34c72a28330762bc3053bd38990`, con
+**1.453 fuentes y cero aliases de ejecución** en su contrato. Preparación y
 adopción autentican los doce roles nativos y los cinco paginados, los originales
 W39/N32, programas, claves, compiler inputs y recibos. Los catálogos anteriores
 quedan archivados por sus bytes exactos; no se ejecutan ni se reescriben.
@@ -89,9 +89,9 @@ Se comprobó también el paquete paginado/wrapped/I84 trasladado desde `cwd=/`, 
 Node autorizado a leer únicamente dentro del paquete. Sus lectores reales
 aceptan las fuentes adoptadas y rechazan una clave paginada original alterada.
 Para I84 rechazan alteraciones de clave, programa, recibo de verificación y
-cápsula. Lleva 375 recursos públicos (248.167.371 bytes); el paquete completo
-ocupó 290.400.469 bytes, unos 277 MiB, y fue eliminado después. La última
-comprobación sobre la adopción actual terminó en 6,3 segundos. No usa el
+cápsula. Lleva 2.235 recursos públicos (276.564.901 bytes); el paquete completo
+ocupó 320.323.703 bytes, unos 305 MiB, y fue eliminado después. La última
+comprobación sobre la adopción actual terminó en 9,8 segundos. No usa el
 checkout, laboratorio ni `.internal/runtime` de la máquina original.
 
 I84 autentica una publicación inmutable del resultado del lector original y
@@ -120,6 +120,23 @@ con salida física de un proceso, publicación nativa, OPENING y CAS de cuenta p
 en 14,8 segundos. La última fachada SOURCE, 1.929 bytes, queda conservada como
 evidencia `.source` y su consumidor abrupt-backend importa directamente al dueño.
 
+La carga del compilador Solidity ahora tiene un único propietario de engine,
+completo bajo tipado estricto. El compilador genérico, Morpho Blue y Aave
+reutilizan su verificación de lock, origen, integridad, módulo, versión y API C
+sin callbacks. El objeto original `GENERIC_COMPILER_PIN` mantiene la identidad en
+ambas entradas públicas; los contratos Blue/Aave compilan con el build original.
+Sus fuentes host anteriores se conservan con bytes/hashes exactos como evidencia
+paginada, sin cambiar manifests de artefactos ni ejecutar el histórico.
+
+El paquete trasladado carga además el SDK ABI oficial y ese compilador desde sus
+recursos declarados. El SDK codifica el calldata esperado; el compilador solo se
+carga en ese paquete. Se rechazan cambios en manifest/entrada ABI y lock/módulo
+Solc, además de las cuatro alteraciones I84 y la clave paginada anteriores. Los
+módulos ejecutables de recursos se limitan al árbol original del SDK autenticado
+por su manifest. El paquete temporal se elimina después de la comprobación; no
+se duplican herramientas o parámetros permanentemente ni se copia el laboratorio.
+Esto acepta la carga trasladada de herramientas, no un nuevo recorrido financiero.
+
 **Deuda que permanece:** el SCC interno pasó de 154 archivos/845 imports a
 **133 archivos/756 imports**, pero sigue reuniendo SOURCE, autoridad nativa,
 recuperación wrapped, servicio GRAPH y recuperación del catálogo DeFi. Sus
@@ -136,12 +153,12 @@ Estado concreto de los seis puntos de deuda y cinco de simplificación:
 | Deuda 1: ciclos backend | Cortes privados, checkpoints de datos y consumidores directos; cero ciclos de paquetes. | Separar las cinco composiciones superiores del SCC de 133 archivos. |
 | Deuda 2: adopción económica | Generación actual adoptada; lectura real paginada/nativa/wrapped y rechazo de copia del bundle. | No se cuenta esta lectura como una nueva operación financiera. |
 | Deuda 3: pins actuales | Inventario gestionado de móvil, plataforma, callers y runtime; 200 verificaciones inmutables separadas. | Las ampliaciones futuras deben declarar sus fuentes; no se actualizan hashes históricos. |
-| Deuda 4: disposición y recursos | Fuentes canónicas, bundle wallet y lectores paginado/wrapped/I84 trasladados; recursos declarados sin fallback. | Portar y aceptar todos los workers y recorridos económicos/DeFi con sus recursos reales. |
-| Deuda 5: tipado del núcleo | 87 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
+| Deuda 4: disposición y recursos | Fuentes canónicas, bundle wallet, lectores paginado/wrapped/I84, SDK ABI y Solc trasladados; recursos declarados sin fallback. | Portar y aceptar todos los workers y recorridos económicos/DeFi con sus recursos reales. |
+| Deuda 5: tipado del núcleo | 88 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
 | Deuda 6: pruebas por interfaces | Actor, sesión, journal, recuperación y fixtures wrapped usan interfaces completas; autorización e I84 ya no extraen JavaScript. | Migrar las extracciones restantes y aceptar las matrices wrapped completas. |
 | Limpieza 1: histórico separado | Búsquedas, dependencias cotidianas y clones de desarrollo excluyen el histórico; originales conservados. | Nada adicional identificado en este bloque. |
 | Limpieza 2: fachadas | Catorce fachadas wallet y siete backend retiradas; consumidores directos y bytes históricos autenticados fuera de `src`. | Nada adicional identificado entre las fachadas retiradas de este bloque; se conservan las entradas públicas útiles. |
-| Limpieza 3: caminos de ejecución | Veintitrés copias retiradas; las cinco fuentes nuevas compartidas no generan otra copia. | Retirar la compatibilidad que todavía usa el sistema económico completo. |
+| Limpieza 3: caminos de ejecución | Veintitrés copias retiradas; las seis fuentes nuevas compartidas no generan otra copia. | Retirar la compatibilidad que todavía usa el sistema económico completo. |
 | Limpieza 4: herramientas y pruebas | Catálogo de comandos comprobado; campañas largas explícitas y selección diaria acotada. | Pruebas frágiles restantes y validación de las matrices migradas. |
 | Limpieza 5: legibilidad y propietarios | Helpers sustituidos retirados, puertos económicos explícitos y codecs con un propietario. | Descomprimir/separar las composiciones superiores junto con sus contratos y pruebas. |
 

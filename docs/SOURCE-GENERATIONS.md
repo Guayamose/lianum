@@ -155,3 +155,12 @@ antigua ni declara que sus fuentes fueran las actuales.
 `adopt` registra su uso explícito por los consumidores migrados, que vuelven a
 comprobar fuentes y artefactos durante la carga. Una prueba HOST no sustituye
 la aceptación de una operación económica en su red.
+
+La generación actual conserva también el compilador host paginado anterior en
+`paged-original-host-v4/compiler-provenance-v1.json`, junto con sus bytes originales
+localizados en Git y el respaldo. El lector comprueba los mismos hashes históricos;
+las fuentes actuales del cargador Solc se autentican en la generación adoptada.
+El paquete económico trasladado añade el SDK ABI y Solc originales, con rechazo de
+sus cuatro alteraciones de integridad. Los recursos del SDK incluyen módulos de
+vendor autenticados por el manifest; los drivers históricos siguen siendo evidencia
+`.source`. No se importa un backend histórico ni se copia estado privado.

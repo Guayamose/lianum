@@ -132,7 +132,7 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **87 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **88 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
 El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
@@ -195,3 +195,11 @@ estados de SOURCE pertenece a `source-journal/native-state-cipher-v1.mjs`, bajo
 tipado estricto; no tiene autoridad, registro ni acceso al sistema de archivos.
 La orquestación SOURCE conserva sus guardas y funciones, ahora formateadas; su
 composición superior sigue pendiente de separación y tipado completo.
+
+La carga de Solc pertenece a
+`packages/engine/src/execution/local/solidity-compiler-v1.mjs`. El compilador
+genérico y los perfiles Blue/Aave delegan sus comprobaciones y API C en este dueño,
+con los mismos pins originales y sin callbacks/imports remotos. El lector ABI
+oficial conserva la autenticación del árbol completo del SDK mediante el manifest
+original; ambos cargadores funcionan desde recursos trasladados, bajo Node sin
+permiso para leer fuera del paquete. Esto no acredita ejecución económica.
