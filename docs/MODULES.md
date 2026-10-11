@@ -118,7 +118,7 @@ El gateway paginado usa tres imports canónicos declarados en
 compatibilidad. Las fuentes experimentales fijadas por esa generación
 permanecen intactas como evidencia y no se ejecutan desde ese gateway.
 
-Queda **un componente cíclico interno de 139 archivos y 765 imports**, frente a
+Queda **un componente cíclico interno de 133 archivos y 756 imports**, frente a
 los 154 archivos y 845 imports del corte anterior. Están fuera de él la mecánica
 EVM, el reloj SOURCE, los tres mecanismos de bridges, el actor móvil y la sesión
 nativa: cada familia conserva sus registros privados y recibe contratos fijos.
@@ -132,12 +132,21 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **84 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **86 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
+El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
+tipados. Los números canónicos y hashes de claims pertenecen a `value-codecs`;
+sus consumidores no necesitan importar el protocolo/quorum para decodificar bytes.
 Siguen fuera los cuerpos superiores de autoridad nativa, keeper duradero,
 sesión general, estado económico, composición SOURCE y recuperación GRAPH/DeFi.
 Un contrato tipado de un puerto no acredita el tipado de su implementación.
+
+SOURCE conserva la emisión y consumo de sus tokens privados de checkpoint y
+llama directamente al reconciliador de datos del journal. Ya no delega esa
+lectura a la autoridad de cuenta. Las entradas wrapped de cuenta, ejecutor,
+terminal, claims y sesión tienen consumidores directos a sus propietarios;
+las seis fachadas versionadas restantes solo están referenciadas por evidencia.
 
 Las excepciones identifican consumidor y destino exactos. Las reubicaciones
 conservan su procedencia; no conceden permiso para añadir nuevas dependencias.
@@ -163,6 +172,12 @@ Un bundle candidato lleva su descriptor `runtime-resources.json`, cierre de
 fuentes y recursos declarados con hashes. Cuando existe ese descriptor, no usa
 como respaldo el runtime histórico de la máquina. Los verificadores originales
 siguen decidiendo si las herramientas, claves, fuentes y pruebas son aceptables.
+
+El lector I84 actual usa una cápsula pública sellada por SHA-256 y vuelve a
+autenticar los 244 archivos originales desde los recursos declarados. El código
+del lector histórico se conserva como `.source`, sin ejecutarlo. El bundle
+paginado/wrapped/I84 pasa con Node autorizado a leer solo dentro del candidato;
+su traslado no valida por sí solo el arranque de todos los workers económicos.
 
 Los comandos `./dev bundle build`, `verify` y `run` están en
 [COMMANDS.md](COMMANDS.md). Preparar o trasladar un bundle no publica una release

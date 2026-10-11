@@ -51,6 +51,41 @@ N32 comprueba sus nueve entradas originales de compilación en el archivo de ent
 
 El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Los dos catálogos anteriores también se conservan por sus hashes en `archive/source-evidence/paged-source-catalogues/`. Las entradas actuales verifican la adopción explícita y la procedencia original de los artefactos.
 
+## Cómo se reutiliza I84
+
+`retained-i84-publication-v1.json` fija una publicación inmutable del resultado
+del lector original y los hashes de su reader, manifiesto de drivers y versión
+de fuentes. La cápsula autentica también los 244 recursos públicos que leyó:
+fuentes, programas, clave, Solidity, pruebas, recibos, toolchain, Wasm y CRS.
+El propietario actual de lectura verifica sus bytes desde
+`environment.externalResourcesRoot`; no importa código del lector histórico ni
+usa `/workspace` como respaldo. Los directorios originales que devuelve son
+etiquetas de procedencia. La cápsula no concede propiedad de una cuenta, sistema
+ni bundle de despliegue.
+
+La exportación se realiza una vez desde los originales restaurados y se
+comprueba que devuelve el resultado original completo. No es un pin de código
+actual que haya que actualizar al editar o hacer commits. Si falta esta
+publicación al restaurar el entorno, con la instalación original disponible:
+
+```sh
+./dev proof-node scripts/protocol/proofs/export-retained-i84-public.mjs
+```
+
+El exportador comprueba los pins del lector original antes de ejecutarlo,
+observa sus lecturas normales y por streaming y restaura sus hooks antes de
+publicar. No compila, prueba circuitos, genera claves ni lee estados privados de
+cuentas. Reutiliza los recursos restaurados; guarda los módulos históricos como
+evidencia `.source`. Rechaza sobrescribir una publicación distinta. La operación
+ordinaria consume esa publicación; solo la restauración necesita el lector en
+su ubicación histórica.
+
+La prueba portátil conjunta incluye I84, paginada y el inspector de fuentes
+wrapped. Ejecuta desde `/` con permiso de lectura limitado al paquete y rechaza
+una clave paginada alterada, además de alteraciones de clave/programa/recibo y
+cápsula I84. Esta comprobación no ejecuta operaciones económicas ni arranca el
+sistema completo con sus workers.
+
 ## Cómo se reutiliza W39
 
 V9 sigue siendo la generación del artefacto original. V6 identifica el **nuevo procedimiento de preparación y su recibo de reutilización**; no afirma haber recompilado V9.
