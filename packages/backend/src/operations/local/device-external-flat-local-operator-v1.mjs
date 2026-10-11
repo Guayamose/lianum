@@ -36,7 +36,7 @@ const metaUnderlyingLocal=join(ROOT,'.local/original-device-metamorpho-underlyin
 const multiFourLocal=join(ROOT,'.local/original-device-external-flat-meta-four-local-v1'),aaveLocal=join(ROOT,'.local/original-device-aave-static-local-v1'),uniswapLocal=join(ROOT,'.local/original-device-uniswap-v3-local-v1');
 const sourceOperatorsV2=new WeakMap();
 const fresh=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
-const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-local-v1.mjs',bytes:9668,sha256:'4a4dc50f894e811399e21e1f6d3d9bfb5eeb8e69a535d4c5d68532418eff0eb3'});
+const callerPin=Object.freeze({"path":"apps/platform/src/run-device-external-flat-local-v1.mjs","bytes":9612,"sha256":"d849ed15368f6a57201741cb827f05c7ad8c17a972399a633c5debb1f35a266f"});
 function exact(value,names){
   assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype
     &&Reflect.ownKeys(value).length===names.length&&names.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable&&Object.hasOwn(d,'value');}),'DEVICE_EXTERNAL_LOCAL_CONFIGURATION');

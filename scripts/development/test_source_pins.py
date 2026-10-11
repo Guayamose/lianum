@@ -126,6 +126,35 @@ class SourcePinsTest(unittest.TestCase):
             pins.run("update", "runtime", self.root)
         self.assertEqual((self.root / target).read_bytes(), before)
 
+    def test_runtime_record_updates_bytes_and_hash_with_other_pin_in_same_file(self):
+        source, caller, target = "packages/backend/src/guard.mjs", "apps/platform/src/caller.mjs", "packages/backend/src/owner.mjs"
+        self.write(source, "export const guard = 1;\n")
+        self.write(caller, "export const caller = 1;\n")
+        old = {"path": caller, "bytes": len((self.root / caller).read_bytes()), "sha256": pins.sha((self.root / caller).read_bytes())}
+        self.write(target, "const helperSHA='" + pins.sha((self.root / source).read_bytes()) + "';\n"
+                   + "const callerPin=Object.freeze(" + json.dumps(old) + ");\n"
+                   + "assert.equal(actual.sha256,callerPin.sha256);\nconst historical='" + "ab" * 32 + "';\n")
+        policy = json.loads((self.root / pins.POLICY).read_text())
+        policy["profiles"]["runtime"] = {"bindings": [{"target": target, "source": source, "declaration": "const helperSHA="}],
+            "records": [{"target": target, "source": caller, "declaration": "const callerPin=Object.freeze("}]}
+        self.write(pins.POLICY, json.dumps(policy))
+        self.write(source, "export const guard = 2;\n")
+        self.write(caller, "export const caller = 'reviewed longer source';\n")
+        result = pins.run("update", "runtime", self.root)
+        self.assertEqual(result["written"], [target])
+        text = (self.root / target).read_text()
+        self.assertIn(pins.sha((self.root / source).read_bytes()), text)
+        self.assertIn(json.dumps({"path": caller, "bytes": len((self.root / caller).read_bytes()),
+                      "sha256": pins.sha((self.root / caller).read_bytes())}, separators=(",", ":")), text)
+        self.assertIn("assert.equal(actual.sha256,callerPin.sha256);", text)
+        self.assertIn("const historical='" + "ab" * 32, text)
+        self.assertEqual(pins.run("check", "runtime", self.root)["status"], "CURRENT")
+        self.write(target, text.replace('"path":"' + caller + '"', '"path":"apps/platform/src/other.mjs"'))
+        before = (self.root / target).read_bytes()
+        with self.assertRaisesRegex(ValueError, "exact reviewed source"):
+            pins.run("update", "runtime", self.root)
+        self.assertEqual((self.root / target).read_bytes(), before)
+
     def test_changed_dependency_bytes_cannot_be_rebaselined(self):
         original = self.before()
         for path in ("apps/mobile/node_modules/@noble/curves/index.js", "apps/platform/node_modules/pg/index.js"):

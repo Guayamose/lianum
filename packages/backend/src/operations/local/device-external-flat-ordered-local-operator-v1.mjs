@@ -28,7 +28,7 @@ import {loadNativeValueDevDeploymentArtifactsV5} from '../deployments/native-val
 
 const local=join(ROOT,'.local/original-device-external-flat-ordered-local-v1');
 const fresh=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
-const callerPin=Object.freeze({path:'apps/platform/src/run-device-external-flat-ordered-local-v1.mjs',bytes:4944,sha256:'eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08'});
+const callerPin=Object.freeze({"path":"apps/platform/src/run-device-external-flat-ordered-local-v1.mjs","bytes":4888,"sha256":"e4be9bb16ad90ddbad0a2d99568b939ffdf7cc494d604f3adde0c57d8e3e1c53"});
 function exact(value,names){
   assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype
     &&Reflect.ownKeys(value).length===names.length&&names.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable&&Object.hasOwn(d,'value');}),'DEVICE_EXTERNAL_LOCAL_CONFIGURATION');

@@ -219,6 +219,33 @@ class Plan:
             self.change("runtime", source, "sha256", match["hash"], digest, target)
             if match["hash"] != digest:
                 self.pending[target] = (text[:match.start("hash")] + digest + text[match.end("hash"):]).encode()
+        for binding in policy.get("records", []):
+            if set(binding) != {"target", "source", "declaration"}:
+                raise ValueError("Unexpected current runtime record fields")
+            target, source = (public_path(binding[key]) for key in ("target", "source"))
+            if any(not name.startswith(("apps/", "packages/", "scripts/", "tests/"))
+                   or name.startswith("packages/protocol/") or "/node_modules/" in name
+                   for name in (target, source)):
+                raise ValueError("Runtime records require active public source paths")
+            declaration = binding["declaration"]
+            if not re.fullmatch(r"const [A-Za-z_$][\w$]*\s*=\s*Object\.freeze\(", declaration):
+                raise ValueError("Expected one frozen current pin record declaration")
+            if (target, declaration) in seen:
+                raise ValueError("Duplicate runtime binding")
+            seen.add((target, declaration))
+            text = self.source(target).decode()
+            record, start, end = json_at(text, marker_start(text, declaration))
+            if (not isinstance(record, dict) or set(record) != {"path", "bytes", "sha256"}
+                    or record["path"] != source or type(record["bytes"]) is not int or record["bytes"] < 0
+                    or not isinstance(record["sha256"], str) or re.fullmatch(r"[0-9a-f]{64}", record["sha256"]) is None
+                    or not text[end:].startswith(")")):
+                raise ValueError("Current runtime record must name its exact reviewed source")
+            raw = self.source(source)
+            updated = {"path": source, "bytes": len(raw), "sha256": sha(raw)}
+            for field in ("bytes", "sha256"):
+                self.change("runtime", source, field, record[field], updated[field], target)
+            if record != updated:
+                self.pending[target] = (text[:start] + json.dumps(updated, separators=(",", ":")) + text[end:]).encode()
 
     def verify_packages(self, base, packages, exact=False):
         lock = DECODER.decode(self.snapshot.read(base + "/package-lock.json").decode())

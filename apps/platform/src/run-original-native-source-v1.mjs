@@ -6,7 +6,7 @@ import {open,lstat,realpath} from 'node:fs/promises';
 import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const entry=fileURLToPath(import.meta.url),root=new URL('../../../',import.meta.url);
-const product=new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs',import.meta.url);
+const product=new URL('../../../packages/backend/src/operations/recovery/native-original-source-local-operator-v1.mjs',import.meta.url);
 assert.equal(process.execPath,fileURLToPath(new URL('.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node',root)));
 assert.deepEqual(process.execArgv,['--max-old-space-size=384']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
 assert.equal(process.argv[1],entry);assert.equal(await realpath(entry),entry);assert.ok(process.argv.length===2||process.argv.length===3&&process.argv[2]==='--open-source');

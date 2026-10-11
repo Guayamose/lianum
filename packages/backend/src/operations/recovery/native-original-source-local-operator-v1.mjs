@@ -33,7 +33,7 @@ import {createOriginalNativeSourceCapsuleV1,openOriginalNativeSourceCapsuleV1,as
 const services=new WeakMap();
 const fresh=()=>randomBytes(32).toString('hex');
 const local=join(ROOT,'.local/original-native-source-durable-operator-v1');
-const callerPin=Object.freeze({path:'apps/platform/src/run-original-native-source-v1.mjs',bytes:4040,sha256:'796e759333325c8e232091d3778820a4d5c59c3828bb66f1668590ed2d1c06cc'});
+const callerPin=Object.freeze({"path":"apps/platform/src/run-original-native-source-v1.mjs","bytes":4000,"sha256":"2983ef762bac32ee49889cc46c0d028373726bfdd76443bbbc646203cae04a1a"});
 export function originalNativeSourceLocalConfigurationPathV1(){assert.equal(arguments.length,0);return join(local,'operator.json');}
 async function reviewed(){
  await loadNativeValueDevDeploymentArtifactsV5();assert.ok(NATIVE_VALUE_DEV_RELEASE_V5.sourceFiles.some(row=>row.path==='wallet-platform/modules/ops/native-original-source-local-operator-v1.mjs'),'NATIVE_SOURCE_PRODUCT_REVIEW_REQUIRED');

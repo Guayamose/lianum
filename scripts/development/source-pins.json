@@ -352,6 +352,43 @@
           "target": "scripts/development/owned-arbitrum-nitro-v1.mjs",
           "source": "scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs",
           "declaration": "const CUSTODY_SHA256 = "
+        },
+        {
+          "target": "scripts/development/owned-base-rollup-v1.mjs",
+          "source": "scripts/development/owned_base_rollup_v1.py",
+          "declaration": "const RECIPE_SHA256 = "
+        },
+        {
+          "target": "scripts/development/owned-arbitrum-nitro-v1.mjs",
+          "source": "scripts/development/owned_arbitrum_nitro_v1.py",
+          "declaration": "const RECIPE_SHA256 = "
+        },
+        {
+          "target": "scripts/development/owned-bsc-posa-v1.mjs",
+          "source": "scripts/development/owned_bsc_posa_v1.py",
+          "declaration": "const RECIPE_SHA256 = "
+        },
+        {
+          "target": "scripts/development/owned-bsc-posa-v1.mjs",
+          "source": "scripts/development/bsc_original_genesis_v3.py",
+          "declaration": "const GENESIS_V3_HELPER_SHA256 = "
+        }
+      ],
+      "records": [
+        {
+          "target": "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
+          "source": "apps/platform/src/run-device-external-flat-local-v1.mjs",
+          "declaration": "const callerPin=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/operations/local/device-external-flat-ordered-local-operator-v1.mjs",
+          "source": "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+          "declaration": "const callerPin=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/operations/recovery/native-original-source-local-operator-v1.mjs",
+          "source": "apps/platform/src/run-original-native-source-v1.mjs",
+          "declaration": "const callerPin=Object.freeze("
         }
       ]
     }
