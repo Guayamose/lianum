@@ -1,3 +1,4 @@
+import {originalActorExactV1 as exact,originalActorFrameDataV1 as frameData,reconcileNativeSourceActorCheckpointDataV1} from '../../operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs';
 import {nativeSourceRecoveryOriginalReferenceV1,nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1,consumeOriginalNativeSourceActorCheckpointV1} from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 /** Private same-realm bootstrap only. Public platform HTTP is not connected.
  * Holds original session/approval/owner references; no factories or callbacks.
@@ -24,43 +25,6 @@ const pairings = new WeakMap(), actorBrands = new WeakMap();
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const need = (value, code) => { if (!value) fail(code); };
 const hex = () => randomBytes(32).toString('hex');
-function exact(value, fields) {
-  need(value && !types.isProxy(value) && Object.getPrototypeOf(value) === Object.prototype,
-    'MOBILE_ORIGINAL_ACTOR_FIELDS');
-  const keys = Reflect.ownKeys(value);
-  need(keys.length === fields.length && keys.every(key => fields.includes(key))
-    && fields.every(key => Object.hasOwn(Object.getOwnPropertyDescriptor(value, key) ?? {}, 'value')),
-  'MOBILE_ORIGINAL_ACTOR_FIELDS');
-}
-// Only untrusted public frames are copied. Opaque constructor originals must
-// retain their reference identity and never pass through this normalizer.
-function frameData(value) {
-  let nodes = 0, bytes = 0;
-  const budget = size => { bytes += size; need(bytes <= 8192, 'MOBILE_ORIGINAL_FRAME_DATA'); };
-  function copy(input, depth) {
-    need(++nodes <= 192 && depth <= 6 && !types.isProxy(input), 'MOBILE_ORIGINAL_FRAME_DATA');
-    if (input === null || typeof input === 'boolean') { budget(5); return input; }
-    if (typeof input === 'number') {
-      need(Number.isFinite(input), 'MOBILE_ORIGINAL_FRAME_DATA'); budget(32); return input;
-    }
-    if (typeof input === 'string') {
-      need(input.length <= 512, 'MOBILE_ORIGINAL_FRAME_DATA'); budget(Buffer.byteLength(input, 'utf8')); return input;
-    }
-    need(input && typeof input === 'object' && Object.getPrototypeOf(input) === Object.prototype,
-      'MOBILE_ORIGINAL_FRAME_DATA');
-    const names = Reflect.ownKeys(input);
-    need(names.length <= 40 && names.every(name => typeof name === 'string' && name.length <= 64),
-      'MOBILE_ORIGINAL_FRAME_DATA');
-    const entries = [];
-    for (const name of names) {
-      const descriptor = Object.getOwnPropertyDescriptor(input, name);
-      need(descriptor && Object.hasOwn(descriptor, 'value'), 'MOBILE_ORIGINAL_FRAME_DATA');
-      budget(Buffer.byteLength(name, 'utf8')); entries.push([name, copy(descriptor.value, depth + 1)]);
-    }
-    return Object.fromEntries(entries);
-  }
-  return copy(value, 0);
-}
 function key(value) {
   need(typeof value === 'string' && /^04[0-9a-f]{128}$/.exec(value)?.[0] === value, 'MOBILE_ORIGINAL_PUBLIC_KEY');
   return createPublicKey({ format: 'jwk', key: { kty: 'EC', crv: 'secp256k1',
@@ -447,13 +411,8 @@ export function assertNativeActorSessionAccountMembershipV1(actor, expected) {
 /** Pending actor calls never restore a possibly used permission. Only the
  * original capsule can request this read-only fold of its authenticated seed. */
 export function reconcileOriginalNativeActorSourceCheckpointV1(request){
- need(arguments.length===1,'NATIVE_SOURCE_ACTOR_ARGUMENTS');const {identity,section}=consumeOriginalNativeSourceActorCheckpointV1(request);
- exact(section,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);need(section.schema==='ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1'&&section.sourceSHA256===identity.sourceSHA256,'NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');need(section.ownedProcesses.length===0,'NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');
- exact(section.candidate,['kind','method']);need(section.candidate.kind==='ACTOR_PERMISSION_OR_OBSERVATION'&&['challenge','openReview','submit','privateStateChallenge','openPrivateStateReview','readPrivateState','deviceDepositSignedReadBindingV1','deviceDepositOriginalBinding'].includes(section.candidate.method),'NATIVE_SOURCE_ACTOR_ORIGINAL_INTERRUPTION');
- const seed=section.confirmed;exact(seed,['schema','origin','pairingId','devicePublicKey','initial','challenges']);need(seed.schema==='ORIGINAL_NATIVE_ACTOR_SOURCE_SEED_V1','NATIVE_SOURCE_ACTOR_ORIGINAL_BINDING');exact(seed.challenges,['accesses','reviews','stateAccesses','stateReviews']);
- const challenges={},normalizers={accesses:normalizeOriginalAccountAccessV2,reviews:normalizeOriginalAccountReviewV2,stateAccesses:normalizeOriginalAccountAccessV2,stateReviews:normalizeOriginalAccountReviewV2};
- for(const name of Object.keys(normalizers)){const seen=new Set(),rows=seed.challenges[name];need(Array.isArray(rows)&&rows.length<=4,'MOBILE_ORIGINAL_RECOVERED_CHALLENGES_INVALID');challenges[name]=rows.map(row=>{exact(row,['id','value','consumed']);const value=normalizers[name](frameData(row.value));need(row.id===value.challengeId&&!seen.has(row.id)&&typeof row.consumed==='boolean'&&value.origin===seed.origin&&value.pairingId===seed.pairingId&&value.devicePublicKey===seed.devicePublicKey,'MOBILE_ORIGINAL_RECOVERED_CHALLENGE_CHANGED');seen.add(row.id);return{id:row.id,value:structuredClone(row.value),consumed:true};});}
- return{...section,confirmed:{...structuredClone(seed),challenges},candidate:null};
+ need(arguments.length===1,'NATIVE_SOURCE_ACTOR_ARGUMENTS');
+ return reconcileNativeSourceActorCheckpointDataV1(consumeOriginalNativeSourceActorCheckpointV1(request));
 }
 
 export async function retainOriginalNativeActorSourceV1(token,actor){need(arguments.length===2,'MOBILE_ORIGINAL_ACTOR_ARGUMENTS');const state=actorBrands.get(actor);need(state,'NATIVE_SOURCE_ORIGINAL_ACTOR');return state.sourceRetain(token);}

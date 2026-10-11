@@ -1,3 +1,4 @@
+import {readNativeDeviceOutputBalance} from './native-device-output-balance.mjs';
 /** Withdrawals operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
 import * as PrivateExit from "@lianum/mobile-protocol/device/native-withdrawal-v2";
@@ -215,95 +216,10 @@ export function createNativeValueWithdrawals({
       }
     };
   }
-  async function outputBalance(bridge, input) {
-    exactRecord(input, ['parentJobId', 'rootId', 'noteRevision', 'changeNullifier', 'recoveryNullifier']);
-    format.reference(input.changeNullifier);
-    format.reference(input.recoveryNullifier);
-    const parent = reservations.reservationRow(input.parentJobId),
-      installation = execution.deviceExecutionOriginal(bridge, parent);
-    assert.equal(input.rootId, parent.consent.custody.rootId, 'DEVICE_OUTPUT_ROOT_CHANGED');
-    assert.ok(Number.isSafeInteger(input.noteRevision) && input.noteRevision >= parent.consent.custody.noteRevision, 'DEVICE_OUTPUT_CUSTODY_REVISION');
-    const reserved = await reservations.reservationObservation(parent);
-    assert.equal(reserved.stage, 'RESERVED', 'DEVICE_OUTPUT_ORIGINAL_S_REQUIRED');
-    const sourceNullifier = parent.consent.statement.inputNullifier;
-    assert.equal(new Set([sourceNullifier, input.changeNullifier, input.recoveryNullifier]).size, 3, 'DEVICE_OUTPUT_NULLIFIERS_CHANGED');
-    if (parent.nativeOutcome !== null) {
-      assert.ok(parent.nativeTerminal, 'DEVICE_OUTPUT_ORIGINAL_TERMINAL_REQUIRED');
-      assert.equal(chain.nativeExecution.snapshot(parent.jobId).outcome, parent.nativeOutcome, 'DEVICE_OUTPUT_ORIGINAL_TERMINAL_CHANGED');
-      const terminal = await chain.runtime.receipt('0x' + parent.nativeTerminal.transactionHash);
-      assert.ok(terminal);
-      await chain.runtime.checkReceipt(terminal);
-      await chain.runtime.assertCanonical(terminal);
-    }
-    const quote = reservations.originalQuote(parent.consent.quoteId),
-      deposit = reservations.reservationSubject(parent.consent.depositJobId, input.rootId, installation.descriptor),
-      budget = BigInt(genericBalanceNativeTerms(validateGenericBalanceNativePreparation(quote.preparation)).budget),
-      view = await chain.reader.read();
-    assert.ok(view.ledger.nullifiers.includes('0x' + sourceNullifier), 'DEVICE_OUTPUT_ORIGINAL_SOURCE_SPEND_REQUIRED');
-    function note(role, amount) {
-      // Full-budget S inserts the original empty-change marker. It has an
-      // inclusion path, but no positive note or withdrawal authority.
-      assert.ok(amount > 0n || role === 'change' && amount === 0n, 'DEVICE_OUTPUT_POSITIVE_NOTE_REQUIRED');
-      const commitment = parent.nativeBinding[role === 'change' ? 'changeCommitment' : 'recoveryCommitment'],
-        nullifier = input[role + 'Nullifier'];
-      if (parent.nativeFReorg && parent.nativeFReorg.phase !== 'RECONFIRMED' || role === 'recovery' && parent.nativeOutcome !== 'RECOVERED') return {
-        noteRole: role,
-        commitment,
-        nullifier,
-        amount: amount.toString(),
-        state: 'LOCKED',
-        path: null
-      };
-      const indices = view.ledger.commitments.flatMap((leaf, index) => leaf === '0x' + commitment ? [index] : []);
-      assert.equal(indices.length, 1, 'DEVICE_OUTPUT_ORIGINAL_NOTE_REQUIRED');
-      const path = view.ledger.tree.path(indices[0]);
-      assert.equal(verifyPrivateNotePath(path), true, 'DEVICE_OUTPUT_ORIGINAL_PATH');
-      if (amount === 0n) assert.ok(!view.ledger.nullifiers.includes('0x' + nullifier), 'DEVICE_OUTPUT_EMPTY_CHANGE_SPENT');
-      return {
-        noteRole: role,
-        commitment,
-        nullifier,
-        amount: amount.toString(),
-        state: view.ledger.nullifiers.includes('0x' + nullifier) ? 'SPENT' : 'UNSPENT',
-        path: {
-          root: format.bare(path.root),
-          index: path.index,
-          leaf: format.bare(path.leaf),
-          siblings: path.siblings.map(format.bare)
-        }
-      };
-    }
-    const change = note('change', BigInt(deposit.consent.statement.amount) - budget),
-      recovery = note('recovery', budget);
-    await chain.reader.assertCurrent(view);
-    lifecycle.continueWork();
-    return {
-      parentJobId: parent.jobId,
-      rootId: input.rootId,
-      noteRevision: input.noteRevision,
-      nativeBindingSHA256: sha(parent.nativeBinding),
-      reservationTransactionHash: reserved.observation.transactionHash,
-      assetId: profile.asset.assetId,
-      pool: profile.identity.pool,
-      poolTerms: {
-        scope: profile.asset.scope,
-        policy: profile.asset.policy,
-        codeHash: profile.asset.codeHash,
-        assetIdentity: profile.asset.assetIdentity,
-        domainCommitment: profile.identity.domainCommitment
-      },
-      sourceNullifier,
-      sourceNullifierSpent: true,
-      nativeOutcome: parent.nativeOutcome,
-      change,
-      recovery,
-      observed: {
-        blockNumber: view.head.number,
-        blockHash: view.head.hash,
-        timestamp: view.head.timestamp
-      }
-    };
-  }
+  const outputBalance=(bridge,input)=>readNativeDeviceOutputBalance(bridge,input,{
+    format,reservations,execution,chain,profile,lifecycle,
+    preparationTerms:preparation=>genericBalanceNativeTerms(validateGenericBalanceNativePreparation(preparation)),verifyPath:verifyPrivateNotePath,hash:sha
+  });
   function exitBinding(consent, bridge) {
     reservations.reservationBinding(consent);
     if (consent.noteRole === 'deposit') {

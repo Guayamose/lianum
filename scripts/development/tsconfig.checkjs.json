@@ -43,6 +43,15 @@
     "../../packages/backend/src/claims/wrapped/recovery/wrapped-lifetime-record-v1.mjs",
     "../../packages/backend/src/claims/wrapped/recovery/wrapped-lifetime-registry-backend-v1.mjs",
     "../../packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
-    "../../packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs"
+    "../../packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/journal-codec-v1.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/private-files-v1.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/process-identity-v1.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/account-lock-v1.mjs",
+    "../../packages/backend/src/accounts/authority/native-value/native-value-live-recovery.mjs",
+    "../../packages/backend/src/accounts/authority/native-value/live-recovery-leases.mjs",
+    "../../packages/backend/src/accounts/authority/native-value/native-device-output-balance.mjs",
+    "../../packages/backend/src/accounts/authority/native-value/recovered-device-installations.mjs"
   ]
 }

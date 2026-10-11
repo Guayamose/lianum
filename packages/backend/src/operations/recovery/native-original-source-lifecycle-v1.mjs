@@ -1,3 +1,7 @@
+import {privateDirectory,syncDirectory,readPrivate,exclusive,replace} from './source-journal/private-files-v1.mjs';
+import {processIdentity,validateProcess,absent} from './source-journal/process-identity-v1.mjs';
+import {clearNativeSourceAccountCheckpointLockV1} from './source-journal/account-lock-v1.mjs';
+import {createNativeSourceJournalCodecV1} from './source-journal/journal-codec-v1.mjs';
 import * as wrappedRecovery from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import * as deviceSourceAuthority from './device-external-flat-original-source-v2.mjs';
 /** Original same-host durable source. It can reopen a confirmed point between
@@ -5,11 +9,8 @@ import * as deviceSourceAuthority from './device-external-flat-original-source-v
  * UNKNOWN; this does not recover a destroyed native process mid-mutation. */
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID,createHash,createHmac,createCipheriv,createDecipheriv} from 'node:crypto';
-import {constants} from 'node:fs';
-import {mkdir,lstat,realpath,open,rename,unlink,readFile} from 'node:fs/promises';
+import {mkdir,lstat,unlink} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
-import {types} from 'node:util';
-import {deflateRawSync,inflateRawSync} from 'node:zlib';
 import {ROOT} from '@lianum/proofs/catalog';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {canonical} from '@lianum/engine/crypto/privacy';
@@ -29,59 +30,7 @@ const SECTION_SCHEMAS=Object.freeze({receiver:'ORIGINAL_NATIVE_SOURCE_RUNTIME_V1
 const authorities=new WeakMap(),writes=new WeakMap(),reads=new WeakMap(),handles=new WeakMap(),runtimes=new WeakMap(),mutations=new WeakMap(),requests=new WeakMap(),checkpointRequests=new WeakMap();
 const opaque=()=>Object.freeze(Object.create(null));
 const copy=value=>JSON.parse(JSON.stringify(value));
-// Deployment sections contain all original contracts. Keep the generic Vault
-// limits intact and encode only this private SOURCE journal losslessly.
-const JOURNAL_CODEC='ORIGINAL_NATIVE_SOURCE_PRIVATE_JOURNAL_CODEC_V1';
-function sourceJSON(value){
- let nodes=0,bytes=0;const ancestors=new Set();
- const account=text=>{bytes+=Buffer.byteLength(text);assert.ok(bytes<=MAX_RECORD,'NATIVE_SOURCE_JOURNAL_CLEAR_CAPACITY');return text;};
- const visit=(item,depth)=>{assert.ok(++nodes<=100000&&depth<=64,'NATIVE_SOURCE_JOURNAL_COMPLEXITY');
-  if(item===null||typeof item!=='object')return account(canonical(item));
-  assert.ok(!types.isProxy(item)&&!ancestors.has(item),'NATIVE_SOURCE_JOURNAL_DATA');ancestors.add(item);
-  try{const descriptors=Object.getOwnPropertyDescriptors(item),keys=Reflect.ownKeys(descriptors);assert.ok(keys.every(k=>typeof k==='string'),'NATIVE_SOURCE_JOURNAL_DATA');
-   if(Array.isArray(item)){assert.ok(Object.getPrototypeOf(item)===Array.prototype&&item.length<=100000&&keys.length===item.length+1,'NATIVE_SOURCE_JOURNAL_DATA');account('[]');const parts=[];
-    for(let i=0;i<item.length;i++){const d=descriptors[String(i)];assert.ok(d&&Object.hasOwn(d,'value')&&d.enumerable,'NATIVE_SOURCE_JOURNAL_DATA');if(i)account(',');parts.push(visit(d.value,depth+1));}return '['+parts.join(',')+']';}
-   assert.ok(Object.getPrototypeOf(item)===Object.prototype||Object.getPrototypeOf(item)===null,'NATIVE_SOURCE_JOURNAL_DATA');account('{}');const parts=[];
-   for(const k of keys.sort()){const d=descriptors[k];assert.ok(d.enumerable&&Object.hasOwn(d,'value'),'NATIVE_SOURCE_JOURNAL_DATA');if(parts.length)account(',');const name=account(canonical(k)+':');parts.push(name+visit(d.value,depth+1));}return '{'+parts.join(',')+'}';
-  }finally{ancestors.delete(item);}
- };return visit(value,0);
-}
-const dataCopy=value=>JSON.parse(sourceJSON(value));
-// Only the small confirmed index is stored in the generic Vault. The body
-// stays under the original private SOURCE bound, in two fixed AEAD slots.
-const JOURNAL_BODY='ORIGINAL_NATIVE_SOURCE_PRIVATE_JOURNAL_BODY_V1';
-const JOURNAL_BODY_MAGIC=Buffer.from('LIANUM_NATIVE_SOURCE_JOURNAL_BODY_V1\0');
-const JOURNAL_BODY_OVERHEAD=JOURNAL_BODY_MAGIC.length+12+16;
-function journalBodyKey(password){assert.ok(hex(password),'NATIVE_SOURCE_JOURNAL_ORIGINAL_KEY');const secret=Buffer.from(password,'hex');
- try{return createHmac('sha256',secret).update('LIANUM_NATIVE_SOURCE_JOURNAL_BODY_V1').digest();}finally{secret.fill(0);}}
-function journalBodyAAD(identity,index){const {schema,encoding,path,revision,bytes,clearBytes,clearSHA256,packedBytes}=index;
- return Buffer.from(canonical({identity,schema,encoding,path,revision,bytes,clearBytes,clearSHA256,packedBytes}));}
-function validateJournalBodyIndex(index,revision){exactRecord(index,['schema','encoding','path','revision','bytes','sha256','clearBytes','clearSHA256','packedBytes']);
- assert.ok(index.schema===JOURNAL_BODY&&index.encoding==='DEFLATE_RAW'&&['source-body-0.aead','source-body-1.aead'].includes(index.path),'NATIVE_SOURCE_JOURNAL_BODY_INDEX');
- assert.ok(Number.isSafeInteger(index.revision)&&index.revision>=0&&index.revision===revision,'NATIVE_SOURCE_JOURNAL_BODY_REVISION');
- assert.ok(Number.isSafeInteger(index.bytes)&&index.bytes>JOURNAL_BODY_OVERHEAD&&index.bytes<=MAX_RECORD&&hex(index.sha256)&&Number.isSafeInteger(index.clearBytes)&&index.clearBytes>0&&index.clearBytes<=MAX_RECORD&&hex(index.clearSHA256)&&Number.isSafeInteger(index.packedBytes)&&index.packedBytes===index.bytes-JOURNAL_BODY_OVERHEAD,'NATIVE_SOURCE_JOURNAL_BODY_BOUND');canonical(index);}
-function decodeJournal(data){if(data?.schema===SCHEMA)return data;exactRecord(data,['schema','encoding','clearBytes','clearSHA256','packed']);
- assert.ok(data.schema===JOURNAL_CODEC&&data.encoding==='DEFLATE_RAW'&&Number.isSafeInteger(data.clearBytes)&&data.clearBytes>0&&data.clearBytes<=MAX_RECORD&&hex(data.clearSHA256)&&typeof data.packed==='string'&&data.packed.length<=1024*1024,'NATIVE_SOURCE_JOURNAL_CODEC');
- const packed=Buffer.from(data.packed,'base64');let clear;try{assert.equal(packed.toString('base64'),data.packed,'NATIVE_SOURCE_JOURNAL_CODEC');clear=inflateRawSync(packed,{maxOutputLength:data.clearBytes});assert.ok(clear.length===data.clearBytes&&hash(clear)===data.clearSHA256,'NATIVE_SOURCE_JOURNAL_CLEAR_PIN');
-  const value=JSON.parse(clear.toString('utf8'));assert.equal(sourceJSON(value),clear.toString('utf8'),'NATIVE_SOURCE_JOURNAL_CANONICAL');return value;
- }finally{packed.fill(0);clear?.fill(0);}}
-async function decodeRecord(record,identity,password){if(record.data?.schema!==JOURNAL_BODY)return {...record,data:decodeJournal(record.data)};
- validateIdentity(identity);const index=record.data;validateJournalBodyIndex(index,record.revision);const bytes=await readPrivate(join(identity.directory,index.path),MAX_RECORD);let key,packed,clear;
- try{assert.equal(bytes.length,index.bytes,'NATIVE_SOURCE_JOURNAL_BODY_BYTES');assert.equal(hash(bytes),index.sha256,'NATIVE_SOURCE_JOURNAL_BODY_BYTES');
-  assert.ok(bytes.subarray(0,JOURNAL_BODY_MAGIC.length).equals(JOURNAL_BODY_MAGIC),'NATIVE_SOURCE_JOURNAL_BODY_FRAME');key=journalBodyKey(password);
-  const decipher=createDecipheriv('aes-256-gcm',key,bytes.subarray(JOURNAL_BODY_MAGIC.length,JOURNAL_BODY_MAGIC.length+12));decipher.setAAD(journalBodyAAD(identity,index));decipher.setAuthTag(bytes.subarray(JOURNAL_BODY_MAGIC.length+12,JOURNAL_BODY_OVERHEAD));
-  packed=Buffer.concat([decipher.update(bytes.subarray(JOURNAL_BODY_OVERHEAD)),decipher.final()]);assert.equal(packed.length,index.packedBytes,'NATIVE_SOURCE_JOURNAL_BODY_BOUND');
-  clear=inflateRawSync(packed,{maxOutputLength:index.clearBytes});assert.ok(clear.length===index.clearBytes&&hash(clear)===index.clearSHA256,'NATIVE_SOURCE_JOURNAL_CLEAR_PIN');
-  const value=JSON.parse(clear.toString('utf8'));assert.equal(sourceJSON(value),clear.toString('utf8'),'NATIVE_SOURCE_JOURNAL_CANONICAL');assert.deepEqual(value.identity,identity,'NATIVE_SOURCE_JOURNAL_BODY_IDENTITY');return {...record,data:value};
- }finally{bytes.fill(0);key?.fill(0);packed?.fill(0);clear?.fill(0);}}
-const readJournal=async(vault,password,identity)=>decodeRecord(await vault.read(password),identity,password);
-async function encodeJournal(data,identity,password,revision,previous){validateIdentity(identity);const clear=Buffer.from(sourceJSON(data));let packed,key,iv,ciphertext,bytes;
- try{assert.deepEqual(data.identity,identity,'NATIVE_SOURCE_JOURNAL_BODY_IDENTITY');packed=deflateRawSync(clear);assert.ok(packed.length>0&&packed.length<=MAX_RECORD-JOURNAL_BODY_OVERHEAD,'NATIVE_SOURCE_JOURNAL_BODY_BOUND');
-  const path=previous?.schema===JOURNAL_BODY&&previous.path==='source-body-0.aead'?'source-body-1.aead':'source-body-0.aead';
-  const index={schema:JOURNAL_BODY,encoding:'DEFLATE_RAW',path,revision,bytes:packed.length+JOURNAL_BODY_OVERHEAD,sha256:null,clearBytes:clear.length,clearSHA256:hash(clear),packedBytes:packed.length};
-  key=journalBodyKey(password);iv=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(journalBodyAAD(identity,index));ciphertext=Buffer.concat([cipher.update(packed),cipher.final()]);bytes=Buffer.concat([JOURNAL_BODY_MAGIC,iv,cipher.getAuthTag(),ciphertext]);index.sha256=hash(bytes);validateJournalBodyIndex(index,revision);
-  await replace(join(identity.directory,path),bytes);const prepared=await decodeRecord({revision,data:index},identity,password);assert.deepEqual(prepared.data,data,'NATIVE_SOURCE_JOURNAL_BODY_READBACK');return index;
- }finally{clear.fill(0);packed?.fill(0);key?.fill(0);iv?.fill(0);ciphertext?.fill(0);bytes?.fill(0);}}
+const {sourceJSON,dataCopy,decodeRecord,readJournal,encodeJournal}=createNativeSourceJournalCodecV1({canonical,validateIdentity,readPrivate,replace});
 const STATE_MAGIC=Buffer.from('LIANUM_NATIVE_SOURCE_STATE_V1\0');
 const STATE_OVERHEAD=STATE_MAGIC.length+12+16;
 function stateKey(s,family,generation){const secret=Buffer.from(s.password,'hex');try{return createHmac('sha256',secret).update('LIANUM_NATIVE_SOURCE_STATE_V1/'+family+'/'+generation).digest();}finally{secret.fill(0);}}
@@ -90,30 +39,6 @@ function encryptState(s,family,pin,plaintext){const key=stateKey(s,family,pin.ge
 function decryptState(s,family,pin,bytes){assert.ok(bytes.length>STATE_OVERHEAD&&bytes.subarray(0,STATE_MAGIC.length).equals(STATE_MAGIC),'NATIVE_SOURCE_NATIVE_FRAME');const key=stateKey(s,family,pin.generation);try{const cipher=createDecipheriv('aes-256-gcm',key,bytes.subarray(STATE_MAGIC.length,STATE_MAGIC.length+12));cipher.setAAD(stateAAD(s.identity,family,pin));cipher.setAuthTag(bytes.subarray(STATE_MAGIC.length+12,STATE_OVERHEAD));return Buffer.concat([cipher.update(bytes.subarray(STATE_OVERHEAD)),cipher.final()]);}finally{key.fill(0);}}
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const hex=value=>typeof value==='string'&&/^[0-9a-f]{64}$/.exec(value)?.[0]===value;
-const procFields=['pid','startTicks','uid','pgrp','session'];
-async function privateDirectory(path){const s=await lstat(path);assert.ok(s.isDirectory()&&!s.isSymbolicLink()&&s.uid===process.getuid()&&(s.mode&0o777)===0o700&&await realpath(path)===path,'NATIVE_SOURCE_PRIVATE_DIRECTORY');}
-async function syncDirectory(path){const f=await open(path,constants.O_RDONLY|constants.O_DIRECTORY|constants.O_NOFOLLOW);try{await f.sync();}finally{await f.close();}}
-async function readPrivate(path,maximum){
- await privateDirectory(resolve(path,'..'));const f=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;
- try{const a=await f.stat();assert.ok(a.isFile()&&a.nlink===1&&a.uid===process.getuid()&&(a.mode&0o777)===0o600&&a.size>0&&a.size<=maximum,'NATIVE_SOURCE_PRIVATE_FILE');
-  bytes=Buffer.alloc(a.size+1);let offset=0;while(offset<bytes.length){const n=(await f.read(bytes,offset,bytes.length-offset,offset)).bytesRead;if(!n)break;offset+=n;}
-  const b=await f.stat(),named=await lstat(path);for(const k of ['dev','ino','uid','mode','nlink','size','mtimeMs','ctimeMs'])assert.ok(a[k]===b[k]&&a[k]===named[k],'NATIVE_SOURCE_FILE_CHANGED');
-  assert.equal(named.isSymbolicLink(),false);assert.equal(offset,a.size,'NATIVE_SOURCE_FILE_BOUND');return Buffer.from(bytes.subarray(0,offset));
- }finally{bytes?.fill(0);await f.close();}
-}
-async function exclusive(path,bytes){const f=await open(path,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);try{await f.writeFile(bytes);await f.sync();}finally{await f.close();}await syncDirectory(resolve(path,'..'));}
-async function replace(path,bytes){const temporary=path+'.next-'+randomBytes(16).toString('hex');let published=false;
- try{await exclusive(temporary,bytes);await rename(temporary,path);published=true;await syncDirectory(resolve(path,'..'));const actual=await readPrivate(path,MAX_RECORD);try{assert.deepEqual(actual,bytes,'NATIVE_SOURCE_SNAPSHOT_READBACK');}finally{actual.fill(0);}}
- finally{if(!published)try{await unlink(temporary);}catch(e){if(e.code!=='ENOENT')throw e;}}
-}
-async function processIdentity(pid){assert.ok(Number.isSafeInteger(pid)&&pid>0,'NATIVE_SOURCE_PROCESS_ID');const path='/proc/'+pid;
- const a=await lstat(path);assert.equal(a.uid,process.getuid(),'NATIVE_SOURCE_PROCESS_UID');const raw=await readFile(path+'/stat','utf8');
- const end=raw.lastIndexOf(')');assert.ok(end>0&&raw.slice(0,raw.indexOf(' '))===String(pid),'NATIVE_SOURCE_PROCESS_STAT');const f=raw.slice(end+2).trimEnd().split(/ +/);
- for(const i of [2,3,19])assert.ok(/^[1-9][0-9]*$/.exec(f[i])?.[0]===f[i],'NATIVE_SOURCE_PROCESS_STAT');
- const result={pid,startTicks:f[19],uid:a.uid,pgrp:Number(f[2]),session:Number(f[3])};validateProcess(result);return result;
-}
-function validateProcess(value){exactRecord(value,procFields);assert.ok(Number.isSafeInteger(value.pid)&&value.pid>0&&Number.isSafeInteger(value.uid)&&value.uid===process.getuid()&&Number.isSafeInteger(value.pgrp)&&value.pgrp>0&&Number.isSafeInteger(value.session)&&value.session>0,'NATIVE_SOURCE_PROCESS_IDENTITY');assert.ok(typeof value.startTicks==='string'&&/^[1-9][0-9]*$/.exec(value.startTicks)?.[0]===value.startTicks,'NATIVE_SOURCE_PROCESS_IDENTITY');}
-async function absent(value){validateProcess(value);try{await lstat('/proc/'+value.pid);assert.fail('NATIVE_SOURCE_OLD_PROCESS_PRESENT');}catch(e){if(e.code!=='ENOENT'&&e.code!=='ESRCH')throw e;}}
 function validateIdentity(value){exactRecord(value,['profile','directory','runId','sourceSHA256','deadlineMs']);assert.equal(value.profile,ORIGINAL_NATIVE_SOURCE_PROFILE_V1);assert.ok(typeof value.runId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(value.runId)?.[0]===value.runId);assert.equal(value.directory,join(BASE,'realms','realm-'+value.runId));assert.ok(hex(value.sourceSHA256)&&Number.isSafeInteger(value.deadlineMs)&&value.deadlineMs>0);}
 function validateSection(value,identity,section){exactRecord(value,['schema','sourceSHA256','ownedProcesses','confirmed','candidate']);assert.equal(value.schema,SECTION_SCHEMAS[section],'NATIVE_SOURCE_SECTION_SCHEMA');assert.equal(value.sourceSHA256,identity.sourceSHA256,'NATIVE_SOURCE_SECTION_CLOSURE');assert.ok(Array.isArray(value.ownedProcesses)&&value.ownedProcesses.length<=16);value.ownedProcesses.forEach(validateProcess);assert.ok(value.confirmed&&typeof value.confirmed==='object'&&!Array.isArray(value.confirmed));assert.ok(value.candidate===null||value.candidate&&typeof value.candidate==='object'&&!Array.isArray(value.candidate));}
 function validate(record,identity){exactRecord(record,['revision','data']);assert.ok(Number.isSafeInteger(record.revision)&&record.revision>=0);const d=record.data;exactRecord(d,['schema','identity','phase','generation','creator','sections','native','clockSecond']);assert.ok(typeof d.clockSecond==='string'&&/^(?:0|[1-9][0-9]{0,19})$/.exec(d.clockSecond)?.[0]===d.clockSecond,'NATIVE_SOURCE_ORIGINAL_CLOCK_CHECKPOINT');assert.equal(d.schema,SCHEMA);assert.deepEqual(d.identity,identity);validateIdentity(identity);assert.ok(['SEEDING','CONFIRMED','OPENING','UNKNOWN'].includes(d.phase));assert.ok(Number.isSafeInteger(d.generation)&&d.generation>=0&&d.generation<16);validateProcess(d.creator);exactRecord(d.sections,SECTIONS);exactRecord(d.native,FAMILIES);
@@ -153,14 +78,7 @@ async function clearOriginalSourceVaultLock(s){const path=s.vault.lockPath;let b
  try{const lock=JSON.parse(bytes.toString('utf8'));exactRecord(lock,['version','pid','token']);assert.equal(lock.version,1);assert.equal(lock.pid,s.record.data.creator.pid,'NATIVE_SOURCE_STALE_LOCK_OWNER');assert.ok(hex(lock.token));await absent(s.record.data.creator);const again=await readPrivate(path,2048);try{assert.deepEqual(again,bytes);}finally{again.fill(0);}await unlink(path);await syncDirectory(s.identity.directory);}finally{bytes.fill(0);}}
 // Explicit recovery of this authenticated account's own Vault lock. The
 // capsule has already proved the former original creator physically absent.
-async function clearOriginalAccountCheckpointLock(s,account){
- const directory=account.confirmed.directory,path=join(directory,'operations.vault.lock');await privateDirectory(directory);let bytes;
- try{bytes=await readPrivate(path,1024);}catch(error){if(error.code==='ENOENT')return;throw error;}
- try{const lock=JSON.parse(bytes.toString('utf8'));exactRecord(lock,['version','pid','token']);assert.equal(lock.version,1);
-  assert.equal(lock.pid,s.record.data.creator.pid,'NATIVE_SOURCE_STALE_ACCOUNT_LOCK_OWNER');assert.ok(hex(lock.token));await absent(s.record.data.creator);
-  const again=await readPrivate(path,1024);try{assert.deepEqual(again,bytes,'NATIVE_SOURCE_STALE_ACCOUNT_LOCK_CHANGED');}finally{again.fill(0);}
-  await unlink(path);await syncDirectory(directory);
- }finally{bytes.fill(0);}}
+const clearOriginalAccountCheckpointLock=(s,account)=>clearNativeSourceAccountCheckpointLockV1(s.record.data.creator,account);
 async function acquire(s,creating){const path=join(s.identity.directory,'source.active');
  if(!creating){let bytes;try{bytes=await readPrivate(path,2048);}catch(e){if(e.code!=='ENOENT')throw e;}if(bytes)try{const old=JSON.parse(bytes.toString('utf8'));exactRecord(old,['profile','creator','token']);assert.equal(old.profile,ORIGINAL_NATIVE_SOURCE_PROFILE_V1);assert.deepEqual(old.creator,s.record.data.creator);assert.ok(hex(old.token));await absent(old.creator);const again=await readPrivate(path,2048);try{assert.deepEqual(again,bytes);}finally{again.fill(0);}await unlink(path);await syncDirectory(s.identity.directory);}finally{bytes.fill(0);}}
  const creator=await processIdentity(process.pid),bytes=Buffer.from(JSON.stringify({profile:ORIGINAL_NATIVE_SOURCE_PROFILE_V1,creator,token:randomBytes(32).toString('hex')}));

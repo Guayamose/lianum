@@ -22794,7 +22794,8 @@
     "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",
     "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
     "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
-    "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs"
+    "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
+    "packages/backend/tests/support/authority-source-host.mjs": "packages/backend/tests/support/native-source-host.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
