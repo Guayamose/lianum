@@ -1,5 +1,7 @@
 /** Signed synthetic codec/inventory examples, never actual finality. */
 import test from 'node:test';
+import { auditClaimNativeInventory } from '../../../../../packages/backend/src/claims/operations/backing-audit.mjs';
+import { auditDualNonceInventory } from '../../../../../packages/backend/src/claims/ingress/ingress-v3-host.mjs';
 import assert from 'node:assert/strict';
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { nativeClaimEndpointCommitment } from '../../../../../packages/backend/src/claims/protocol/framing.mjs';
@@ -96,4 +98,16 @@ test('postmint principal cannot pass an empty/final inventory assertion', () => 
   const f = fixture(); f.final.escrow.total = String(BigInt(f.final.escrow.total) + 3000000n);
   f.final.escrow.spendable = f.final.escrow.total; f.final.accounts[1] = structuredClone(f.final.escrow);
   assert.throws(() => checkClaimGraphV3Inventory(f.final, f.native, f.config));
+});
+
+test('public inventory dispatch preserves dual-nonce backing and requires the original bootstrap pins', () => {
+  const f = fixture(), pins = f.native.nonceInfrastructureByAuthority;
+  for (const inventory of [f.initial, f.final]) {
+    const expected = auditDualNonceInventory(inventory, f.config, f.native.roles, pins);
+    assert.deepEqual(auditClaimNativeInventory(inventory, f.config, f.native.roles, pins), expected);
+    assert.throws(() => auditClaimNativeInventory(inventory, f.config, f.native.roles), /CLAIM_V3_ORIGINAL_BOOTSTRAP_PINS_REQUIRED/);
+    const changed = structuredClone(inventory);
+    changed.nonceInfrastructureByAuthority.depositor.authorityPublicKey = f.native.roles.escrow.endpoint;
+    assert.throws(() => auditClaimNativeInventory(changed, f.config, f.native.roles, pins));
+  }
 });

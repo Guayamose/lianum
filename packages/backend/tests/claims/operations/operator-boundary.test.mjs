@@ -1,6 +1,8 @@
 /** Pure host conformance only: no native daemon, proof, compiler or deployment.
  * Synthetic observation inputs here do not carry the production owned brand. */
 import test from 'node:test';
+import * as publicBacking from '../../../src/claims/operations/backing-audit.mjs';
+import * as backingArithmetic from '../../../src/claims/operations/claim-backing-arithmetic.mjs';
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketId, claimTicketSecret,
@@ -280,4 +282,11 @@ test('dedicated pre-sign gates bind exact unexpired ingress or active payout wir
   verifier.assertQuorumForMessage({ messageBytes: ingressFrame, indexes, signatures });
   assert.throws(() => verifier.assertQuorumForMessage({ messageBytes: payoutFrame, indexes, signatures }), /SIGNATURE_INVALID/);
   verifier.assertQuorumForMessage({ messageBytes: payoutFrame, indexes, signatures: pairs.slice(0, 3).map(pair => signLow(pair, payoutFrame)) });
+});
+
+test('public backing exports keep the same pure functions across the composition boundary', () => {
+  for (const name of ['CLAIM_LIFETIME_LIMITS', 'claimEconomicInventory', 'auditClaimPayoutPreparation',
+    'auditClaimGateway', 'assertClaimHealthState', 'assertClaimRoute']) {
+    assert.equal(publicBacking[name], backingArithmetic[name], name);
+  }
 });

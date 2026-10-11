@@ -15,8 +15,8 @@ import { claimUint, claimDomainCommitment, claimIntentId, claimVerifierSetCommit
   from '../protocol/framing.mjs';
 import { claimFrame, claimHash, claimUnsignedWireCommitment, claimSignedWireCommitment }
   from '../authorization/permits.mjs';
-import { auditClaimNativeInventory, auditClaimGateway, assertClaimHealthState }
-  from '../operations/backing-audit.mjs';
+import { auditClaimNativeInventoryBase as auditClaimNativeInventory, auditClaimGateway, assertClaimHealthState }
+  from '../operations/claim-backing-arithmetic.mjs';
 
 export const CANDIDATE = freeze({ profile: 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',
   relation: 'native_claim_ingress_v3', active: false, publicFields: 51, factsFrameBytes: 829,
