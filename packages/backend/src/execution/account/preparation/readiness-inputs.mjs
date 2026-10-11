@@ -1,5 +1,5 @@
-import { frozenInput, cloneInput } from '@lianum/components/plain-input';
-export { frozenInput, cloneInput } from '@lianum/components/plain-input';
+import { frozenInput, cloneInput, inputUint, inputPath } from '@lianum/components/plain-input';
+export { frozenInput, cloneInput, inputUint, inputPath } from '@lianum/components/plain-input';
 /** Scoped P42/R50 witness preparation. Pure host checks/encoding only: no
  * backend, proof verifier, state oracle, signing capability or authority flag.
  * Actual pinned proofs and authenticated state provenance remain mandatory.
@@ -18,20 +18,6 @@ import { nativeReceiptReadOpening, nativeReceiptCommitment, nativeReceiptToNoir,
 import { nativeTransferActionCommitment, nativeActionToNoir }
   from '@lianum/engine/execution/native/dispatch/native-capsules';
 
-export function inputUint(value, bits = 64, maximum = (1n << BigInt(bits)) - 1n) {
-  assert.equal(typeof value, 'string', 'INPUT_UINT_STRING');
-  assert.ok(value.length <= 39 && /^(0|[1-9][0-9]*)$/.test(value), 'INPUT_UINT_ENCODING');
-  const number = BigInt(value); assert.equal(number.toString(), value, 'INPUT_UINT_CANONICAL');
-  assert.ok(number <= maximum && number < (1n << BigInt(bits)), 'INPUT_UINT_RANGE'); return number;
-}
-export function inputPath(value, depth, field = false) {
-  exactRecord(value, ['root', 'index', 'siblings']);
-  assert.ok(Number.isSafeInteger(value.index) && !Object.is(value.index, -0)
-    && value.index >= 0 && value.index < 2 ** depth, 'INPUT_PATH_INDEX');
-  fixedArray(value.siblings, depth);
-  (field ? canonicalField : bytes32)(value.root);
-  value.siblings.forEach(item => (field ? canonicalField : bytes32)(item)); return value;
-}
 /** ABI is supplied by independently pinned artifact loading. The worker repeats
  * artifact/source checks; an arbitrary caller ABI cannot establish acceptance.
  */

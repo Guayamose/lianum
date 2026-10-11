@@ -2,6 +2,7 @@
  * this reader cannot create a certificate or restore its private provenance. */
 import assert from "node:assert/strict";
 import { exactRecord } from "@lianum/components/encoding/commitments";
+import { inputUint } from "@lianum/components/plain-input";
 
 /** @typedef {{family:string,recipientIndex:string,nativeId:string,wireKeyCommitment:string}} Request */
 /** @typedef {{family:string,nativeGid:string,observation:{observedAt:string,evidenceFrom:string,evidenceUntil:string},[field:string]:unknown}} Facts */
@@ -16,7 +17,6 @@ import { exactRecord } from "@lianum/components/encoding/commitments";
 /** @param {{schema:string,signerIndex:number,record():RecordState,
  * encodeNativeFacts(facts:Facts,policy:unknown):Buffer,policies:Record<string,unknown>,
  * equal(left:unknown,right:unknown,message?:string):void,sha(bytes:Buffer):string,
- * inputUint(value:unknown):bigint,
  * retained():unknown,original(certificate:Certificate):Original|undefined,
  * serial(pool:number,work:(view:View,freshness:Freshness)=>Promise<void>):Promise<void>,
  * healthAllowed(view:View):void,clearAudit(report:unknown):void,
@@ -32,7 +32,6 @@ export function createOriginalFactsRetentionV2(ports) {
     "policies",
     "equal",
     "sha",
-    "inputUint",
     "retained",
     "original",
     "serial",
@@ -49,7 +48,6 @@ export function createOriginalFactsRetentionV2(ports) {
     policies,
     equal,
     sha,
-    inputUint,
     retained,
     original: getOriginal,
     serial,
@@ -63,7 +61,6 @@ export function createOriginalFactsRetentionV2(ports) {
     encodeNativeFacts,
     equal,
     sha,
-    inputUint,
     retained,
     getOriginal,
     serial,

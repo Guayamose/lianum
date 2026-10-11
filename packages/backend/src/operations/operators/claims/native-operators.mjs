@@ -23,7 +23,7 @@ import { checkpointAuthorizationFrame, checkpointAuthorizationDigest, assertChec
 import { assertOwnedFlatSystem } from '../../deployments/system/deploy-system.mjs';
 import { createFlatSystemStateReader } from '../../../execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord, fixedArray, bytes32 } from '@lianum/components/encoding/commitments';
-import { cloneInput, frozenInput, inputUint } from '../../../execution/account/preparation/readiness-inputs.mjs';
+import { cloneInput, frozenInput, inputUint } from "@lianum/components/plain-input";
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { assertOwnedSolanaRuntime } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
 import { createOriginalMetaMorphoBatchFactsPeerV4,createOriginalMetaMorphoBatchFactsInventoryV4,createNativeFactsSigner, createNativeFactsPeer, createNativeFactsInventory,
@@ -407,7 +407,7 @@ function createFlatOperator(input, custody, recovered = null) {
     } catch (cause) { poison(); throw signingFailure(cause); }
   }
   const {originalFactsEntry,validateOriginalFacts}=createOriginalFactsRetentionV2(Object.freeze({
-    schema:FACTS_SCHEMA,signerIndex,record:()=>record,encodeNativeFacts,policies,equal,sha,inputUint,
+    schema:FACTS_SCHEMA,signerIndex,record:()=>record,encodeNativeFacts,policies,equal,sha,
     retained,original:certificate=>originalFactsCertificates.get(certificate),serial,
     healthAllowed,clearAudit,auditAll,coverageFreshness,
   }));

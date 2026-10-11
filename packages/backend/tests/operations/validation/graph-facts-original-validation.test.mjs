@@ -5,7 +5,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { FACTS_SCHEMA } from "@lianum/engine/native/native-receipt-binding";
-import { inputUint } from "../../../src/execution/account/preparation/readiness-inputs.mjs";
 
 import { createOriginalFactsRetentionV2 } from "../../../src/operations/operators/claims/original-facts-retention-v2.mjs";
 const makeRetention = ({ originalFactsCertificates, head, ...deps }) =>
@@ -19,7 +18,6 @@ const makeRetention = ({ originalFactsCertificates, head, ...deps }) =>
     policies: { 2: {} },
     equal: assert.deepEqual,
     sha,
-    inputUint,
     retained() {},
     original: () => undefined,
     async serial(pool, work) {
