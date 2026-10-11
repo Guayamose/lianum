@@ -1,3 +1,7 @@
+import {assertOriginalBlueSupplyAccountingV1} from '../../../../src/chains/evm/vault/blue-supply-observation-v1.mjs';
+import {completeOriginalDeliveryObservationV1} from '../../../../src/chains/evm/vault/delivery-observation-completion-v1.mjs';
+import {assertOfficialVaultFixtureV1} from '../../../../src/defi/vaults/official-vault-observation-v1.mjs';
+import {loadDevicePrivateExitHost} from '../../../support/device-private-exit-host.mjs';
 import {generateKeyPairSync,sign,createHash,createPublicKey,verify,randomBytes} from 'node:crypto';
 import {mkdtemp,chmod,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -6,11 +10,12 @@ import {types} from 'node:util';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {canonicalClaimRecordDataV1} from '../../../../src/claims/storage/segmented-record-store.mjs';
 import {assertMorphoBluePositionRedemptionAccountingV1} from '../../../../src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs';
+import {assertOriginalDeviceGraphSourceAvailableV2,beginOriginalDeviceGraphSourceActivityV2,endOriginalDeviceGraphSourceActivityV2}
+  from '../../../../src/operations/recovery/device-external-flat-original-source-v2.mjs';
 /** Pure host boundaries only. No chain, compilation, prover or financial
  * acceptance. The fresh original graph flow still requires real acceptance. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { METAMORPHO_GRAPH_DELIVERY_PROFILE_V1, UNISWAP_GRAPH_DELIVERY_PROFILE_V1, MORPHO_BLUE_POSITION_GRAPH_DELIVERY_PROFILE_V1, validateEvmGraphDeliveryDescriptorV1,
   evmGraphDeliveryTermsV1, evmGraphDeliveryDescriptorCommitmentV1,
   encodeEvmGraphDeliveryCallV1, decodeEvmGraphDeliveryCallV1, inspectEvmGraphDeliveryEconomicsV1 }
@@ -196,27 +201,19 @@ test('original delivery economics conserve token debit, native gas and output ba
     const changed = structuredClone(trace); mutate(changed); assert.throws(() => inspectEvmGraphDeliveryEconomicsV1(changed));
   }
   assert.ok(Object.isFrozen(result) && Object.isFrozen(result.targetBacking));
-  // Actual observer tail; fixed inert RPC ports prove that a missing optional
-  // cost read does not hide or replace any original financial guard.
-  const observerURL = import.meta.url.includes('/modules/chain-adapters/')
-    ? new URL('./metamorpho-graph-delivery-observer-v1.mjs', import.meta.url)
-    : new URL('../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs', import.meta.url);
-  const source = await readFile(observerURL, 'utf8'), from = source.indexOf('    // Financial inclusion remains subject to the original guards below.');
-  assert.ok(from > 0); const to = source.indexOf('\n  }\n  observer =', from); assert.ok(to > from);
-  const ports = ['assert','bare','quantity','detached','inspectEvmGraphDeliveryEconomicsV1','query','descriptor','runtime','sourceReader','targetReader',
-    'wire','receipt','arrival','spent','amount','row','current','context','intent','header','beforeSource','afterSource'];
-  const tail = new Function(...ports, 'return (async()=>{' + source.slice(from, to) + '})();');
+  // Actual completion mechanism keeps all canonical guards mandatory.
   const checks = [], runtime = { async balance(){ throw Error('HOST_COST_RPC_UNAVAILABLE'); },
     async checkReceipt(){ checks.push('receipt'); } }, sourceReader = { async assertCanonical(){ checks.push('source'); } },
     targetReader = { async assertCurrent(){ checks.push('current'); } };
-  const call = () => tail(assert,value=>value.slice(2),value=>BigInt(value), value=>structuredClone(value), inspectEvmGraphDeliveryEconomicsV1,
-    {transactionHash:trace.transactionHash},trace.descriptor,runtime,sourceReader,targetReader,
-    {gas:'30000000',gasPrice:trace.gasPrice,from:'0x'+trace.descriptor.plan.identity.solver},
-    {gasUsed:'0x5208',effectiveGasPrice:'0x3b9aca00'},
-    {assetObservation:{before:{solverInput:trace.solverInputBefore},after:{solverInput:trace.solverInputAfter}}},
-    1700n,'1000',{prepared:{funds:{balanceWei:trace.nativeBalanceBefore}}},
-    {header:{hash:'0x'+trace.observedHeadHash},ledger:{publicState:{actualAssetBalance:'1100',backedAmount:'1000',surplus:'100'}}},
-    trace.descriptor.context,{}, {hash:'0x'+trace.blockHash,number:'0x1'}, {}, {});
+  const call = () => completeOriginalDeliveryObservationV1({
+    query:{transactionHash:trace.transactionHash},descriptor:trace.descriptor,
+    wire:{gas:'30000000',gasPrice:trace.gasPrice,from:'0x'+trace.descriptor.plan.identity.solver},
+    receipt:{gasUsed:'0x5208',effectiveGasPrice:'0x3b9aca00'},
+    arrival:{assetObservation:{before:{solverInput:trace.solverInputBefore},after:{solverInput:trace.solverInputAfter}}},
+    spent:1700n,amount:'1000',row:{prepared:{funds:{balanceWei:trace.nativeBalanceBefore}}},
+    current:{header:{hash:'0x'+trace.observedHeadHash},ledger:{publicState:{actualAssetBalance:'1100',backedAmount:'1000',surplus:'100'}}},
+    context:trace.descriptor.context,intent:{},header:{hash:'0x'+trace.blockHash,number:'0x1'},beforeSource:{},afterSource:{}
+   },{runtime,sourceReader,targetReader,inspect:inspectEvmGraphDeliveryEconomicsV1});
   assert.equal((await call()).economics.status,'UNKNOWN'); assert.deepEqual(checks,['receipt','source','source','current']);
   runtime.balance=async()=>BigInt(trace.nativeBalanceAfter); checks.length=0;
   assert.equal((await call()).economics.status,'OBSERVED'); assert.deepEqual(checks,['receipt','source','source','current']);
@@ -242,22 +239,17 @@ test('original Blue position framing binds its distinct profile without granting
 });
 
 test('actual Blue supply observer checks exact original share rounding and keeps NAV separate from input',async()=>{
-  const url=import.meta.url.includes('/chain-adapters/')
-    ?new URL('./metamorpho-graph-delivery-observer-v1.mjs',import.meta.url)
-    :new URL('../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs',import.meta.url);
-  const source=await readFile(url,'utf8'),begin='    } else if(blue) {',end='    } else {\n      assert.equal(spent, BigInt(before.previewMint)';
-  assert.equal(source.split(begin).length-1,1);const start=source.indexOf(begin)+begin.length,finish=source.indexOf(end,start);assert(finish>start);
-  const inspect=new Function('assert','before','after','spent','shares',source.slice(start,finish));
+  const inspect=assertOriginalBlueSupplyAccountingV1;
   const before={totalAssets:'0',totalShares:'1000000',previewMint:'2',maxMint:'9000000',
     market:['10','10000009','0','0','1','0'],position:['1000000','0','0'],morphoUnderlying:'10',vaultUnderlying:'0',solverShares:'0',routerShares:'0'};
   const after={...structuredClone(before),totalAssets:'2',totalShares:'2000001',market:['12','11000010','0','0','1','0'],position:['2000001','0','0'],morphoUnderlying:'12'};
-  inspect(assert,before,after,2n,1000001n);
+  inspect(before,after,2n,1000001n);
   // Correlated wrong market/position balances still fail the original ceil.
   const wrong=structuredClone(after);wrong.market[1]='11000009';wrong.position[0]=wrong.totalShares='2000000';
-  assert.throws(()=>inspect(assert,before,wrong,2n,1000000n));
-  const debt=structuredClone(after);debt.market[2]='1';assert.throws(()=>inspect(assert,before,debt,2n,1000001n));
-  const unbacked=structuredClone(after);unbacked.morphoUnderlying='11';assert.throws(()=>inspect(assert,before,unbacked,2n,1000001n));
-  const inventedNAV=structuredClone(after);inventedNAV.totalAssets='3';assert.throws(()=>inspect(assert,before,inventedNAV,2n,1000001n));
+  assert.throws(()=>inspect(before,wrong,2n,1000000n));
+  const debt=structuredClone(after);debt.market[2]='1';assert.throws(()=>inspect(before,debt,2n,1000001n));
+  const unbacked=structuredClone(after);unbacked.morphoUnderlying='11';assert.throws(()=>inspect(before,unbacked,2n,1000001n));
+  const inventedNAV=structuredClone(after);inventedNAV.totalAssets='3';assert.throws(()=>inspect(before,inventedNAV,2n,1000001n));
 });
 
 
@@ -276,10 +268,8 @@ test('actual device Blue and Aave redemption require confirmed original SHARE W3
  const protocolURL=mapped?new URL('../../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs',import.meta.url):new URL('../../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs',import.meta.url);
  const noteURL=mapped?new URL('../../../../../mobile-protocol/src/device-external-flat-note-v1.mjs',import.meta.url):new URL('../../../../../mobile-protocol/src/device-external-flat-note-v1.mjs',import.meta.url);
  const P=await import(protocolURL),Note=await import(noteURL),redeemAction=originalAave?'REDEEM_AAVE':'REDEEM_BLUE',observeAction=originalAave?'OBSERVE_AAVE':'OBSERVE_BLUE',frameFor=originalAave?P.deviceAaveStaticRedemptionPermissionMessageV1:P.deviceMorphoBlueRedemptionPermissionMessageV1;
- const backendURL=mapped?new URL('../defi-adapters/device-morpho-blue-private-exit-v1.mjs',import.meta.url):new URL('../../../../src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs',import.meta.url);
- const original=await readFile(backendURL,'utf8');const body=original.replace(/^import .*?;$/gm,'').replace(/^export /gm,'');
- assert.equal((original.match(/const owned=new WeakMap\(\),requests=new WeakMap\(\)/g)||[]).length,1);
  const ports={assert,types,randomBytes,createHash,createPublicKey,verify,mkdtemp,chmod,join,dirname,Vault,canonicalClaimRecordDataV1,P,
+  assertOriginalDeviceGraphSourceAvailableV2,beginOriginalDeviceGraphSourceActivityV2,endOriginalDeviceGraphSourceActivityV2,
   externalFlatExactV1:Note.externalFlatExactV1,normalizeExternalFlatSignatureV1:Note.normalizeExternalFlatSignatureV1};
  const directory=await mkdtemp(join(tmpdir(),'original-blue-private-exit-host-'));await chmod(directory,0o700);
  const runtime={metadata:{scratchDirectory:directory}},system={},account={},position={contract:{address:'0x'+a(9)}},protocols={vault:{address:'0x'+a(9)}};
@@ -298,7 +288,7 @@ test('actual device Blue and Aave redemption require confirmed original SHARE W3
  ports.readOriginalOfficialVaultNativeCostsV1=(a,r)=>{assert.equal(a,adapter);assert.equal(r.phase,'OBSERVED');return{approval:null,redemption:null};};
  const originalLifetime=async(_r,_i,credentials,initial)=>{let checkpoint=structuredClone(initial),candidate=null;return{async capture(current){assert.deepEqual(current,checkpoint);assert.equal(candidate,null);return{credentials,checkpoint:structuredClone(checkpoint)};},async check(current){assert.deepEqual(current,checkpoint);assert.equal(candidate,null);},async before(current,next){assert.deepEqual(current,checkpoint);assert.equal(candidate,null);candidate=structuredClone(next);},async acknowledged(next){assert.deepEqual(next,candidate);assert.deepEqual(await new Vault(credentials.path).read(credentials.password),next);checkpoint=structuredClone(next);candidate=null;}};};
  ports.createRetainedPrivateVaultExitJournalV1=originalLifetime;ports.openRetainedPrivateVaultExitJournalV1=async(r,i,c,record,saved)=>{assert.ok(originalAave);assert.deepEqual(c,saved.credentials);assert.deepEqual(record,saved.checkpoint);return originalLifetime(r,i,c,record);};ports.assertOriginalExternalVaultJournalV1=async(r,path)=>{assert.equal(r,runtime);assert.equal(dirname(dirname(path)),directory);};ports.captureRetainedOwnedOfficialStaticVaultV1=async value=>{assert.ok(originalAave);assert.equal(value,adapter);return{variant:'DEVICE_AAVE_STATIC',explicitInertNativePort:true};};ports.hostOriginalRecoveryParts=async()=>({consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,kind){assert.equal(token,originalRecoveryToken);assert.equal(kind,'aave-redemption');assert.equal(recoveryConsumed,false);recoveryConsumed=true;return token.value;}});
- const recoveryPath=[...(mapped?['..']:['..','..']),'operations','local','device-external-flat-source-graph-service-v1.mjs'].join('/'),originalImport="await "+"im"+"port('"+recoveryPath+"')";assert.ok(body.includes(originalImport),'HOST_ORIGINAL_RECOVERY_IMPORT_REQUIRED');const linked=body.replaceAll(originalImport,'await hostOriginalRecoveryParts()');const loaded=new Function(...Object.keys(ports),linked+'\nreturn {createOriginalDeviceMorphoBluePrivateExitV1,createOriginalDeviceAaveStaticPrivateExitV1,reopenOriginalDeviceAaveStaticPrivateExitV1,captureOriginalDeviceAaveStaticPrivateExitV1,assertOriginalBluePositionRedemptionRequestV1,assertOriginalAaveStaticRedemptionRequestV1};')(...Object.values(ports));
+ const host=await loadDevicePrivateExitHost(ports,await ports.hostOriginalRecoveryParts()),loaded=host.api;
  const signature=value=>{const frame=frameFor(value);try{assert.ok(frame.length<=4096);const bytes=sign('sha256',frame,{key:pair.privateKey,dsaEncoding:'ieee-p1363'});const order=BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141'),scalar=BigInt('0x'+bytes.subarray(32).toString('hex'));if(scalar>order/2n)Buffer.from((order-scalar).toString(16).padStart(64,'0'),'hex').copy(bytes,32);return bytes.toString('hex');}finally{frame.fill(0);}};
  try{service=await (originalAave?loaded.createOriginalDeviceAaveStaticPrivateExitV1:loaded.createOriginalDeviceMorphoBluePrivateExitV1)({runtime,system,account,...(originalAave?{protocols}:{position}),adapter});const denied=service.challenge();await assert.rejects(service.review({access:denied,signature:signature(denied),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}),/HOST_ORIGINAL_SHARE_UNCONFIRMED/);assert.equal(sends,0);assert.equal(adapterCalls,0);
   confirmed=true;const access=service.challenge(),{consent}=await service.review({access,signature:signature(access),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const altered={...consent,recipient:a(5)};await assert.rejects(service.operate({consent:altered,signature:signature(consent)}));assert.equal(sends,0);
@@ -306,13 +296,15 @@ test('actual device Blue and Aave redemption require confirmed original SHARE W3
   await assert.rejects(service.operate({consent,signature:signature(consent)}));assert.equal(sends,1);assert.throws(()=>loaded.assertOriginalBluePositionRedemptionRequestV1(Object.freeze(Object.create(null)),adapter,consent.reference));
   if(originalAave){const snapshot=await loaded.captureOriginalDeviceAaveStaticPrivateExitV1(service);assert.equal(snapshot.record.data.operations[0].stage,'REDEMPTION_UNKNOWN');assert.equal(snapshot.record.data.operations[0].reference,consent.reference);originalRecoveryToken={value:{input:{runtime,system,account,protocols,adapter},saved:snapshot}};service=await loaded.reopenOriginalDeviceAaveStaticPrivateExitV1(originalRecoveryToken);await assert.rejects(loaded.reopenOriginalDeviceAaveStaticPrivateExitV1(originalRecoveryToken));const access=service.challenge(),review=await service.review({access,signature:signature(access),draft:{action:observeAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const observedRow=await service.operate({consent:review.consent,signature:signature(review.consent)});assert.equal(observedRow.stage,'REDEEMED');assert.equal(observedRow.reference,consent.reference);assert.equal(sends,1);const deny=service.challenge();await assert.rejects(service.review({access:deny,signature:signature(deny),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}));assert.equal(adapterCalls,1);}
   const again=service.challenge(),status=await service.status({access:again,signature:signature(again)});assert.equal(status.observationOnly,originalAave);assert.equal(status.operations.length,1);assert.equal(status.operations[0].withdrawalTransactionHash,consent.withdrawalTransactionHash);assert.equal(status.operations[0].stage,'REDEEMED');assert.equal(sends,1);assert.ok(subjectReads>=4);
- }finally{if(service)await service.close();await rm(directory,{recursive:true,force:true});}
+ }finally{try{if(service)await service.close();}finally{host.restore();await rm(directory,{recursive:true,force:true});}}
  }
 });
 
 test('Aave adapter checks the original Aave fixture on every healthy read and legacy Meta retains its own brand',async()=>{
- const mapped=import.meta.url.includes('/modules/chain-adapters/'),url=mapped?new URL('../defi-adapters/owned-metamorpho-vault.mjs',import.meta.url):new URL('../../../../src/defi/vaults/owned-metamorpho-vault.mjs',import.meta.url),text=await readFile(url,'utf8'),match=text.match(/const assertFixture = async \(\) => \{([^\n]+)\};/);assert.ok(match);const calls=[],runtime={},originalFixture={},position={};
- const check=new Function('blue','aave','runtime','originalFixture','position','assertOwnedOriginalMorphoBluePositionV1','assertOfficialAaveFixtureV1','assertOfficialProtocolFixture','assertOwnedLocalEvmV2','return async()=>{'+match[1]+'}');
- const ports=[runtime,originalFixture,position,()=>calls.push('blue'),(r,f)=>{assert.equal(r,runtime);assert.equal(f,originalFixture);calls.push('aave');},(r,f)=>{assert.equal(r,runtime);assert.equal(f,originalFixture);calls.push('meta');},async r=>{assert.equal(r,runtime);calls.push('runtime');}];
- await check(false,true,...ports)();assert.deepEqual(calls,['aave','runtime']);calls.length=0;await check(false,false,...ports)();assert.deepEqual(calls,['meta','runtime']);calls.length=0;await check(true,false,...ports)();assert.deepEqual(calls,['blue','meta','runtime']);
+ const calls=[],runtime={},originalFixture={},position={};
+ const ports={assertBlue:()=>calls.push('blue'),assertAave:(r,f)=>{assert.equal(r,runtime);assert.equal(f,originalFixture);calls.push('aave');},assertMeta:(r,f)=>{assert.equal(r,runtime);assert.equal(f,originalFixture);calls.push('meta');},assertRuntime:async r=>{assert.equal(r,runtime);calls.push('runtime');}};
+ const check=(blue,aave)=>assertOfficialVaultFixtureV1({blue,aave,runtime,originalFixture,position},ports);
+ await check(false,true);assert.deepEqual(calls,['aave','runtime']);calls.length=0;await check(false,false);assert.deepEqual(calls,['meta','runtime']);calls.length=0;await check(true,false);assert.deepEqual(calls,['blue','meta','runtime']);
+ ports.assertAave=()=>{throw Error('HOST_ORIGINAL_AAVE_DENIED');};calls.length=0;await assert.rejects(check(false,true),/HOST_ORIGINAL_AAVE_DENIED/);assert.deepEqual(calls,[]);
+
 });

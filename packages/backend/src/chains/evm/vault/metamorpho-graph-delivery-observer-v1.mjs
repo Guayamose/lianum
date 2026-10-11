@@ -1,3 +1,5 @@
+import {assertOriginalBlueSupplyAccountingV1} from './blue-supply-observation-v1.mjs';
+import {completeOriginalDeliveryObservationV1} from './delivery-observation-completion-v1.mjs';
 /** Fixed original official-protocol family-3 readers. Authority requires the original fixed
  * protocol, router, signed runtime wire, canonical D27 arrival and backing.
  * No callback, receipt object or profile flag can mint this private brand. */
@@ -280,22 +282,7 @@ async function createOwnedOfficialObserver(input, protocolKind) {
       const delta=BigInt(after.totalAssets)-BigInt(before.totalAssets)-spent;
       assert.ok(delta>=-1n&&delta<=1n,'AAVE_GRAPH_RAY_ROUNDING');
     } else if(blue) {
-      assert.equal(spent,BigInt(before.previewMint),'BLUE_GRAPH_ORIGINAL_PREVIEW');assert.ok(shares<=BigInt(before.maxMint));
-      const numerator=shares*(BigInt(before.market[0])+1n),denominator=BigInt(before.market[1])+1_000_000n;
-      assert.equal(spent,(numerator+denominator-1n)/denominator,'BLUE_GRAPH_ORIGINAL_SHARE_ROUNDING');
-      assert.equal(BigInt(after.totalShares)-BigInt(before.totalShares),shares,'BLUE_GRAPH_EXACT_POSITION_SHARES');
-      assert.equal(BigInt(after.market[0])-BigInt(before.market[0]),spent,'BLUE_GRAPH_EXACT_MARKET_ASSETS');
-      assert.equal(BigInt(after.market[1])-BigInt(before.market[1]),shares,'BLUE_GRAPH_EXACT_MARKET_SHARES');
-      assert.equal(before.position[0],before.totalShares,'BLUE_GRAPH_EXACT_POSITION_BACKING');
-      assert.equal(after.position[0],after.totalShares,'BLUE_GRAPH_EXACT_POSITION_BACKING');
-      assert.equal(BigInt(after.morphoUnderlying)-BigInt(before.morphoUnderlying),spent,'BLUE_GRAPH_EXACT_TOKEN_BACKING');
-      for(const key of ['solverShares','routerShares','vaultUnderlying'])assert.equal(after[key],before[key],'BLUE_GRAPH_NO_UNCLAIMED_POSITION');
-      for(const state of [before,after]){
-        for(const index of [2,3,5])assert.equal(state.market[index],'0','BLUE_GRAPH_NO_DEBT');
-        for(const index of [1,2])assert.equal(state.position[index],'0','BLUE_GRAPH_NO_DEBT');
-        const assets=BigInt(state.totalShares)*(BigInt(state.market[0])+1n)/(BigInt(state.market[1])+1_000_000n);
-        assert.equal(BigInt(state.totalAssets),assets,'BLUE_GRAPH_ORIGINAL_POSITION_VALUE');
-      }
+      assertOriginalBlueSupplyAccountingV1(before,after,spent,shares);
     } else {
       assert.equal(spent, BigInt(before.previewMint), 'METAMORPHO_GRAPH_OFFICIAL_PREVIEW'); assert.ok(shares <= BigInt(before.maxMint));
       assert.equal(BigInt(after.totalAssets), BigInt(before.totalAssets) + spent, 'METAMORPHO_GRAPH_PROTOCOL_ASSET_DELTA');
@@ -309,31 +296,7 @@ async function createOwnedOfficialObserver(input, protocolKind) {
       for (const index of [1, 2]) assert.equal(after.position[index], before.position[index]);
     }
     const current = await targetReader.read(); sameContext(await router.read(current.header.number));
-    // Financial inclusion remains subject to the original guards below. A missing
-    // optional native-cost read never reclassifies that canonical delivery.
-    let economics;
-    try {
-      const gasUsed = quantity(receipt.gasUsed);
-      assert.ok(gasUsed > 0n && gasUsed <= BigInt(wire.gas), 'METAMORPHO_GRAPH_ORIGINAL_GAS');
-      assert.equal(quantity(receipt.effectiveGasPrice).toString(), wire.gasPrice, 'METAMORPHO_GRAPH_ORIGINAL_GAS');
-      economics = inspectEvmGraphDeliveryEconomicsV1({ descriptor, transactionHash: query.transactionHash,
-        blockHash: bare(header.hash), observedHeadHash: bare(current.header.hash),
-        solverInputBefore: arrival.assetObservation.before.solverInput, solverInputAfter: arrival.assetObservation.after.solverInput,
-        inputSpent: spent.toString(), outputDelivered: amount, gasUsed: gasUsed.toString(), gasPrice: wire.gasPrice,
-        nativeBalanceBefore: row.prepared.funds.balanceWei, nativeBalanceAfter: String(await runtime.balance(wire.from, header.number)),
-        targetBacking: { held: current.ledger.publicState.actualAssetBalance, liabilities: current.ledger.publicState.backedAmount,
-          surplus: current.ledger.publicState.surplus } });
-    } catch {
-      economics = detached({ profile: 'ORIGINAL_EVM_DEFI_DELIVERY_ECONOMICS_V1', status: 'UNKNOWN',
-        transactionHash: query.transactionHash, blockHash: bare(header.hash), observedHeadHash: bare(current.header.hash),
-        sourceAssetIdentity: context.sourceAssetIdentity, targetAssetIdentity: context.targetAssetIdentity,
-        actualInputSpentAtomic: null, deliveredOutputAtomic: null, nativeGasCostWei: null, targetBacking: null,
-        errorCode: 'ORIGINAL_DELIVERY_COST_OBSERVATION_UNAVAILABLE', futureSolvencyEstablished: false,
-        netSolverWealthLossEstablished: false, outputsValuedAsSourceAtomic: false });
-    }
-    await runtime.checkReceipt(receipt); await sourceReader.assertCanonical(beforeSource); await sourceReader.assertCanonical(afterSource);
-    await targetReader.assertCurrent(current);
-    return { intent, arrival, wire, header, tip: current.header, economics };
+    return completeOriginalDeliveryObservationV1({query,descriptor,wire,receipt,arrival,spent,amount,row,current,context,intent,header,beforeSource,afterSource},{runtime,sourceReader,targetReader,inspect:inspectEvmGraphDeliveryEconomicsV1});
   }
   observer = Object.freeze({ identity: detached(id),
     binding: detached({ poolIndex, recipientIndex: String(poolIndex), genesis: context.genesisHash,

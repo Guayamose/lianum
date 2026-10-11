@@ -15,7 +15,7 @@ const metamorphoWorlds = new WeakMap(),nativeOutputs=new WeakMap();
 const retainedParts=new Map(),exitReopenTokens=new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
-mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault: class extends RealVault {
+mock.module('@lianum/engine/crypto/vault', { exports: { Vault: class extends RealVault {
   async read(password) {
     if (pendingReadFailures.delete(this)) throw Error('SYNTHETIC_LOST_DURABLE_READBACK');
     return super.read(password);
@@ -26,18 +26,18 @@ mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault
     return result;
   }
 } } });
-mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: { assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME') } });
-mock.module('../ops/deploy-system.mjs', { exports: { assertOwnedFlatSystem: (runtime, system) => assert.equal(worlds.get(runtime)?.system, system, 'MOCK_OWNED_SYSTEM') } });
-mock.module('../global-state/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
+mock.module('../../../src/chains/evm/runtime/local-evm-ownership.mjs', { exports: { assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME') } });
+mock.module('../../../src/operations/deployments/system/deploy-system.mjs', { exports: { assertOwnedFlatSystem: (runtime, system) => assert.equal(worlds.get(runtime)?.system, system, 'MOCK_OWNED_SYSTEM') } });
+mock.module('../../../src/accounts/authority/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
   const world = worlds.get(expected.runtime); assert.ok(world && world.account === account && world.system === expected.system
     && expected.poolIndex === 1, 'MOCK_OWNED_ACCOUNT');
 } } });
-mock.module('./owned-backed-vault.mjs', { exports: {
+mock.module('../../../src/defi/vaults/owned-backed-vault.mjs', { exports: {
   assertOwnedBackedVault(runtime, vault) { assert.equal(worlds.get(runtime)?.vault, vault, 'MOCK_OWNED_VAULT'); },
   ownedBackedVaultBinding(runtime, vault) { assert.equal(worlds.get(runtime)?.vault, vault); return structuredClone(worlds.get(runtime).binding); },
   assertOwnedBackedVaultReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_RECEIPT_REQUIRED'); },
 } });
-mock.module('./owned-metamorpho-vault.mjs', { exports: {
+mock.module('../../../src/defi/vaults/owned-metamorpho-vault.mjs', { exports: {
   isOwnedOfficialStaticVaultV1: vault => metamorphoWorlds.has(vault),
   isOwnedMetaMorphoVault: vault => metamorphoWorlds.has(vault),
   assertOwnedMetaMorphoVault(runtime, vault) { assert.equal(metamorphoWorlds.get(vault)?.runtime, runtime, 'MOCK_ORIGINAL_METAMORPHO'); },
@@ -45,13 +45,13 @@ mock.module('./owned-metamorpho-vault.mjs', { exports: {
   assertOwnedMetaMorphoReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_METAMORPHO_RECEIPT'); },
   readOriginalOfficialVaultNativeCostsV1(vault,result){const value=nativeOutputs.get(result);assert.ok(metamorphoWorlds.has(vault)&&value?.vault===vault,'HOST_ORIGINAL_NATIVE_COSTS');return structuredClone(value.costs);},
 } });
-mock.module('../native-claims/wrapped-private-lifetime-registry-v1.mjs',{exports:{
+mock.module('../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',{exports:{
  async retainWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity,privateState){assert.equal(family,'wallet-vault-exit');const handle={};retainedParts.set(handle,{runtime,identity:clone(identity),privateState:clone(privateState)});return handle;},
  async readWrappedPrivateLifetimeIndexedPartV1(runtime,family,identity){assert.equal(family,'wallet-vault-exit');const entries=[...retainedParts].filter(([,row])=>row.runtime===runtime&&JSON.stringify(row.identity)===JSON.stringify(identity));assert.equal(entries.length,1);return {handle:entries[0][0],privateState:clone(entries[0][1].privateState)};},
  async updateWrappedPrivateLifetimePartV1(handle,privateState){const row=retainedParts.get(handle);assert.ok(row);row.privateState=clone(privateState);},
  assertWrappedPrivateLifetimePartSealedV1:handle=>assert.ok(retainedParts.has(handle)),
 }});
-mock.module('../global-state/external-defi-catalogue-recovery-v1.mjs',{exports:{
+mock.module('../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs',{exports:{
  consumeExternalDefiPrivateVaultExitReopenV1(token){const row=exitReopenTokens.get(token);assert.ok(row&&!row.used,'HOST_ORIGINAL_EXIT_TOKEN');row.used=true;return row.value;},
 }});
 const { createOwnedPrivateVaultExit, assertOwnedPrivateVaultExit,createRetainedOwnedPrivateVaultExitV1,captureRetainedOwnedPrivateVaultExitV1,reopenRetainedOwnedPrivateVaultExitV1 } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');

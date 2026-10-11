@@ -56,6 +56,12 @@
     "../../packages/backend/src/execution/native-value/reconciliation/terminal-actions-v2.mjs",
     "../../packages/backend/src/execution/native-value/reconciliation/terminal-reconciliation-v2.mjs",
     "../../packages/backend/src/chains/evm/runtime/device-receiver-family-v1.mjs",
-    "../../packages/backend/src/chains/evm/runtime/native-economic-recovery-access-v1.mjs"
+    "../../packages/backend/src/chains/evm/runtime/native-economic-recovery-access-v1.mjs",
+    "../../packages/backend/src/defi/vaults/official-vault-observation-v1.mjs",
+    "../../packages/backend/src/defi/withdrawals/generation-position-reader-v1.mjs",
+    "../../packages/backend/src/chains/evm/vault/blue-supply-observation-v1.mjs",
+    "../../packages/backend/src/chains/evm/vault/delivery-observation-completion-v1.mjs",
+    "../../packages/backend/src/accounts/authority/confirmed-share-withdrawal-v1.mjs",
+    "../../packages/backend/src/operations/local/fixed-meta-redemption-acquisition-v2.mjs"
   ]
 }

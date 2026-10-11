@@ -1,3 +1,4 @@
+import {createGenerationPositionReaderV1} from './generation-position-reader-v1.mjs';
 import {projectPrivatePositionStateV2} from '../positions/private-position-state-v2.mjs';
 import {POSITION_STATE_PROFILE} from '@lianum/mobile-protocol/wallet/generation-position-state-v2';
 /** Fixed private composition of original branded private-share EXIT services.
@@ -70,13 +71,7 @@ export function createGenerationPrivateVaultExit(input) {
     assets.set(share.assetId, entry); return entry;
   }));
   let busy = false;
-  function genuine(entry) {
-    assertOwnedFlatJournalCatalogue(catalogue, { runtime });
-    need(originalExits.ownedPrivateVaultExitBinding(runtime, entry.service) === entry.original, 'ORIGINAL_SERVICE_CHANGED');
-    const current = assertOwnedFlatJournalCatalogueAccount(catalogue, entry.original.account);
-    need(current.runtime === runtime && current.portfolio === entry.membership.portfolio
-      && current.generationId === entry.membership.generationId, 'ORIGINAL_GENERATION_CHANGED');
-  }
+  const {genuine,readOriginalPositionVault}=createGenerationPositionReaderV1({runtime,catalogue,need,originalBinding:originalExits.ownedPrivateVaultExitBinding,assertCatalogue:assertOwnedFlatJournalCatalogue,assertAccount:assertOwnedFlatJournalCatalogueAccount,isOfficial:isOwnedOfficialStaticVaultV1});
   function route(requestId) {
     need(id(requestId), 'REQUEST_ID');
     assertOwnedFlatJournalCatalogue(catalogue, { runtime });
@@ -112,14 +107,6 @@ export function createGenerationPrivateVaultExit(input) {
   function generationRow(entry, errorCode = null, requestIds = null) {
     return { generationId: entry.membership.generationId, shareAssetId: entry.shareAssetId,
       status: errorCode === null ? 'AVAILABLE' : 'UNAVAILABLE', requestIds, errorCode };
-  }
-  async function readOriginalPositionVault(entry, portfolioView) {
-    genuine(entry);
-    if (!isOwnedOfficialStaticVaultV1(entry.original.vault)) return entry.original.vault.observe();
-    const share = portfolioView.assets.find(value => value.asset.assetId === entry.shareAssetId);
-    const asset = entry.membership.portfolio.registry.find(value => value.assetId === entry.shareAssetId);
-    need(share?.status === 'LIVE' && asset, 'ORIGINAL_SHARE_POSITION_UNAVAILABLE');
-    return entry.original.vault.observePrivateShares({ amount: share.balances.available, holder: '0x' + asset.pool });
   }
   const facade = Object.freeze({
     async prepare(input) { assert.equal(arguments.length, 1); exactRecord(input, ['requestId', 'minimumOutput', 'deadline']);

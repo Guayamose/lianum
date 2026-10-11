@@ -1,30 +1,11 @@
-/** HOST only: actual generation-reader, original official preview body and
- * projection, with explicitly synthetic brands/observations and inert reads.
+/** HOST only: actual generation-reader, original official preview interface and
+ * projection, with explicitly inert observations and inert reads.
  * No protocol, private credit, signing, node, proof or financial acceptance. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import vm from 'node:vm';
-import { exactRecord } from '@lianum/components/encoding/commitments';
+import {createGenerationPositionReaderV1} from '../../../src/defi/withdrawals/generation-position-reader-v1.mjs';
+import {observeOfficialPrivateSharesV1} from '../../../src/defi/vaults/official-vault-observation-v1.mjs';
 import { projectPrivateVaultPosition } from '../../../src/defi/vaults/private-vault-position.mjs';
-
-async function fixedSource(physical, generated) {
-  for (const relative of [physical, generated]) {
-    try { return await readFile(new URL(relative, import.meta.url), 'utf8'); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
-  }
-  throw Error('HOST_FIXED_ORIGINAL_SOURCE_REQUIRED');
-}
-const generation = await fixedSource('../../../src/defi/withdrawals/generation-private-vault-exit.mjs', './generation-private-vault-exit.mjs');
-const official = await fixedSource('../../../src/defi/vaults/owned-metamorpho-vault.mjs', './owned-metamorpho-vault.mjs');
-function section(source, start, end) {
-  const a = source.indexOf(start), b = source.indexOf(end, a);
-  assert.ok(a >= 0 && b > a, 'HOST_ACTUAL_BODY_BOUNDARY');
-  return source.slice(a, b);
-}
-const genuine = section(generation, '  function genuine(entry) {', '  function route(requestId) {');
-const reader = section(generation, '  async function readOriginalPositionVault(', '  const facade =');
-const preview = section(official, '    observePrivateShares(input) {', '    validateQuote:');
 
 function fixture(kind = 'AAVE_STATIC') {
   const runtime = {}, catalogue = {}, account = {}, service = {}, protocolVault = {};
@@ -38,8 +19,6 @@ function fixture(kind = 'AAVE_STATIC') {
   runtime.block = async () => ({ ...header, ...(state.changedHead ? { hash: '0x' + '9a'.repeat(32) } : {}) });
   const previewPorts = {
     assert, BigInt, runtime, vault: protocolVault,
-    // Explicit host/VM metadata bridge, never a production validator change.
-    exactRecord: (value, keys) => exactRecord(structuredClone(value), structuredClone(keys)),
     exclusive: work => work(), detached: structuredClone, observed: async () => structuredClone(view),
     read: async (target, method, args, tag) => {
       assert.equal(target, protocolVault); assert.equal(tag, header.number);
@@ -48,7 +27,7 @@ function fixture(kind = 'AAVE_STATIC') {
       return [method === 'previewRedeem' ? 103n : method === 'maxRedeem' ? state.maximum : 100n];
     },
   };
-  const vault = vm.runInNewContext('({' + preview + '})', previewPorts);
+  const vault = {observePrivateShares: input => observeOfficialPrivateSharesV1(input, previewPorts)};
   vault.observe = async () => { state.ordinaryReads++; return structuredClone(view); };
   const portfolioView = { status: 'LIVE', coherent: true, observed, assets: [
     { asset: { assetId: shareAssetId }, status: 'LIVE', balances: { available: '100' }, backing: { held: '100' } },
@@ -61,26 +40,23 @@ function fixture(kind = 'AAVE_STATIC') {
   const services = new WeakMap([[service, original]]), vaultKinds = new WeakMap([[vault, kind]]);
   const ports = { runtime, catalogue,
     need: (condition, code) => assert.ok(condition, code),
-    originalExits: { ownedPrivateVaultExitBinding(actualRuntime, actualService) {
+    originalBinding(actualRuntime, actualService) {
       assert.equal(actualRuntime, runtime); return services.get(actualService);
-    } },
-    assertOwnedFlatJournalCatalogue(actual, binding) { assert.equal(actual, catalogue); assert.equal(binding.runtime, runtime); },
-    assertOwnedFlatJournalCatalogueAccount(actual, actualAccount) {
+    },
+    assertCatalogue(actual, binding) { assert.equal(actual, catalogue); assert.equal(binding.runtime, runtime); },
+    assertAccount(actual, actualAccount) {
       assert.equal(actual, catalogue); assert.equal(actualAccount, account); return membership;
     },
-    isOwnedOfficialStaticVaultV1(value) { assert.equal(arguments.length, 1); return vaultKinds.has(value) && vaultKinds.get(value) !== 'BACKED'; },
-    isOwnedMetaMorphoVault(value) { return vaultKinds.get(value) === 'METAMORPHO'; },
+    isOfficial(value) { assert.equal(arguments.length, 1); return vaultKinds.has(value) && vaultKinds.get(value) !== 'BACKED'; },
   };
-  const open = body => vm.runInNewContext(genuine + body + '\nreadOriginalPositionVault;', ports);
+  const {readOriginalPositionVault: read}=createGenerationPositionReaderV1(ports);
   const project = vaultView => projectPrivateVaultPosition({ portfolioView, vaultView, shareAssetId, underlyingAssetId });
-  return { state, entry, portfolioView, project, read: open(reader),
-    // Same actual body with its former fixed selector, to reproduce the bug.
-    oldRead: open(reader.replace('isOwnedOfficialStaticVaultV1', 'isOwnedMetaMorphoVault')) };
+  return {state,entry,portfolioView,project,read,generic:()=>vault.observe()};
 }
 
 test('generation Aave position uses original canonical preview and maxRedeem rather than the generic vault ratio', async () => {
   const f = fixture(), before = structuredClone(f.portfolioView);
-  const oldView = f.project(await f.oldRead(f.entry, f.portfolioView));
+  const oldView = f.project(await f.generic());
   assert.equal(oldView.estimatedRedeemableUnderlying, '102');
   const fixed = f.project(await f.read(f.entry, f.portfolioView));
   assert.equal(fixed.estimatedRedeemableUnderlying, '103'); assert.equal(fixed.status, 'LIVE');
@@ -91,11 +67,24 @@ test('generation Aave position uses original canonical preview and maxRedeem rat
   const blocked = f.project(await f.read(f.entry, f.portfolioView));
   assert.equal(blocked.status, 'STALE'); assert.equal(blocked.estimatedRedeemableUnderlying, null);
   assert.deepEqual(f.portfolioView, before, 'ORIGINAL_SHARE_OWNERSHIP_AND_UNDERLYING_UNCHANGED');
-  assert.equal(f.project(await f.oldRead(f.entry, f.portfolioView)).status, 'LIVE', 'FORMER_READER_OMITTED_MAX_REDEEM');
+  assert.equal(f.project(await f.generic()).status, 'LIVE', 'FORMER_READER_OMITTED_MAX_REDEEM');
   f.state.changedHead = true;
   await assert.rejects(f.read(f.entry, f.portfolioView), /METAMORPHO_PRIVATE_POSITION_HEAD_CHANGED/);
   await assert.rejects(f.read({ ...f.entry, original: { ...f.entry.original } }, f.portfolioView), /ORIGINAL_SERVICE_CHANGED/);
   const backed = fixture('BACKED');
   assert.equal(backed.project(await backed.read(backed.entry, backed.portfolioView)).estimatedRedeemableUnderlying, '102');
   assert.equal(backed.state.ordinaryReads, 1); assert.deepEqual(backed.state.reads, []);
+});
+
+
+test('official private share preview rejects malformed input before any RPC read', async () => {
+  let reads = 0;
+  const forbidden = async () => { reads++; throw Error('HOST_UNEXPECTED_READ'); };
+  const ports = { runtime: { assertCanonical: forbidden, block: forbidden }, vault: {},
+    observed: forbidden, read: forbidden, detached: structuredClone };
+  const holder = '0x' + '12'.repeat(20);
+  for (const input of [null, { amount: '01', holder }, { amount: '-1', holder },
+    { amount: (1n << 64n).toString(), holder }, { amount: '1', holder: '0x' + '0'.repeat(40) },
+    { amount: '1', holder, extra: true }]) await assert.rejects(observeOfficialPrivateSharesV1(input, ports));
+  assert.equal(reads, 0);
 });

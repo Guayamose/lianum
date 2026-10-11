@@ -1,3 +1,4 @@
+import {observeOfficialPrivateSharesV1,assertOfficialVaultFixtureV1} from './official-vault-observation-v1.mjs';
 /** Local official MetaMorpho redemption. Only an original owned fixture can
  * create this adapter. A confirmed private EXIT is joined by private-vault-exit;
  * this adapter itself neither authenticates private notes nor credits balances.
@@ -128,7 +129,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null, posit
   const lifetime=retained?await (retained.saved?openRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record,retained.saved.lifetime):createRetainedOfficialVaultJournalV1(runtime,lifetimeIdentity,{path:store.path,password},record)):null;
   let busy = false, poisoned = false, pending = null, adapter,closed=false,capturing=false,blueRequest=null;
   async function bluePermission(ref){if(!blue&&!deviceAave&&!deviceMeta)return;const {assertOriginalBluePositionRedemptionRequestV1,assertOriginalAaveStaticRedemptionRequestV1,assertOriginalMetaMorphoRedemptionRequestV2}=await import('../withdrawals/device-morpho-blue-private-exit-v1.mjs');(deviceMeta?assertOriginalMetaMorphoRedemptionRequestV2:deviceAave?assertOriginalAaveStaticRedemptionRequestV1:assertOriginalBluePositionRedemptionRequestV1)(blueRequest,adapter,ref);}
-  const assertFixture = async () => {if(blue)assertOwnedOriginalMorphoBluePositionV1(runtime,position);if(aave)assertOfficialAaveFixtureV1(runtime,originalFixture);else assertOfficialProtocolFixture(runtime, originalFixture);await assertOwnedLocalEvmV2(runtime);};
+  const assertFixture = () => assertOfficialVaultFixtureV1({blue,aave,runtime,originalFixture,position},{assertBlue:assertOwnedOriginalMorphoBluePositionV1,assertAave:assertOfficialAaveFixtureV1,assertMeta:assertOfficialProtocolFixture,assertRuntime:assertOwnedLocalEvmV2});
   async function healthy() { if(retained)assert.ok(!closed,'EXTERNAL_VAULT_CLOSED'); assert.ok(!poisoned, 'METAMORPHO_STORAGE_UNAVAILABLE'); await assertFixture();
     try { if(lifetime)await lifetime.check(record);assert.deepEqual(await store.read(password), record, 'METAMORPHO_JOURNAL_CHANGED'); } catch (error) { poisoned = true; throw error; } }
   async function exclusive(work) {if(retained)assert.ok(!closed&&!capturing,'EXTERNAL_VAULT_CLOSED'); assert.ok(!busy, 'METAMORPHO_BUSY'); busy = true; try { await healthy(); return await work(); } finally { busy = false; } }
@@ -292,21 +293,7 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null, posit
     /** Read-only official conversion at the same pinned block as share custody.
      * A private note still requires original EXIT before public redemption. */
     observePrivateShares(input) { return exclusive(async () => {
-      exactRecord(input, ['amount', 'holder']);
-      assert.ok(typeof input.amount === 'string' && /^(0|[1-9][0-9]*)$/.test(input.amount)
-        && BigInt(input.amount) < (1n << 64n), 'METAMORPHO_PRIVATE_SHARE_AMOUNT');
-      assert.ok(typeof input.holder === 'string' && /^0x[0-9a-f]{40}$/.test(input.holder)
-        && input.holder !== '0x' + '0'.repeat(40), 'METAMORPHO_PRIVATE_SHARE_HOLDER');
-      const amount = input.amount, holder = input.holder, current = await observed(), at = current.header.number;
-      const [preview, maximum, held] = await Promise.all([
-        read(vault, 'previewRedeem', [amount], at), read(vault, 'maxRedeem', [holder], at),
-        read(vault, 'balanceOf', [holder], at),
-      ]);
-      assert.ok(BigInt(amount) <= held[0], 'METAMORPHO_PRIVATE_SHARE_BACKING');
-      await runtime.assertCanonical(current.header);
-      assert.deepEqual(await runtime.block(), current.header, 'METAMORPHO_PRIVATE_POSITION_HEAD_CHANGED');
-      return detached({ ...current, privateSharePreview: { amount, holder,
-        redeemableUnderlying: preview[0].toString(), maximumShares: maximum[0].toString(), heldShares: held[0].toString() } });
+      return observeOfficialPrivateSharesV1(input,{runtime,vault,observed,read,detached});
     }); },
     validateQuote: intent => exclusive(() => quote(clone(intent))),
     async prepareOnce(intent) { return exclusive(async () => {
