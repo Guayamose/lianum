@@ -2,6 +2,7 @@
  * remains unbound. Requests select neither an upstream nor economic resources;
  * the original listener owns consent, admission, proof deadlines and UNKNOWN. */
 import { createServer } from 'node:http';
+import { platformDiagnostic } from './diagnostics.mjs';
 import { assertOriginalDeviceCloudPublicSourcesV1 } from './original-device-cloud-source-pins-v1.mjs';
 import { request as tlsRequest } from 'node:https';
 import { checkServerIdentity } from 'node:tls';
@@ -160,7 +161,7 @@ async function openOriginalGateway(input, reopening) {
             if (original.status !== 200 || state.profile !== 'PAIRED_ORIGINAL_ACCOUNT_SERVICE_V2' || state.connection !== 'PAIRED' || closing)
               fail('PLATFORM_ORIGINAL_GATEWAY_NOT_READY');
             reply(response, 200, Buffer.from(JSON.stringify({ status: 'READY', originalListener: true, economicObservation: null, cloudDeploymentEstablished: false })));
-          } catch { reply(response, 503, errorBytes('UNAVAILABLE')); }
+          } catch { platformDiagnostic('ORIGINAL_GATEWAY_READY_FAILED'); reply(response, 503, errorBytes('UNAVAILABLE')); }
           finally { original?.bytes.fill(0); }
           return;
         }
@@ -182,7 +183,7 @@ async function openOriginalGateway(input, reopening) {
           if (closing) fail('PLATFORM_ORIGINAL_GATEWAY_CLOSED');
           original = await forward(request.url, request.method, bytes, read ? 5000 : selected.responseMs);
           reply(response, original.status, original.bytes);
-        } catch (error) { reply(response, error?.code === 'PLATFORM_ORIGINAL_GATEWAY_BODY' ? 400 : 502,
+        } catch (error) { if(error?.code !== 'PLATFORM_ORIGINAL_GATEWAY_BODY')platformDiagnostic('ORIGINAL_TRANSPORT_FAILED'); reply(response, error?.code === 'PLATFORM_ORIGINAL_GATEWAY_BODY' ? 400 : 502,
           errorBytes(error?.code === 'PLATFORM_ORIGINAL_GATEWAY_BODY' ? 'REQUEST_REJECTED' : 'ORIGINAL_TRANSPORT_UNAVAILABLE_NO_RETRY')); }
         finally { bytes?.fill(0); original?.bytes.fill(0); }
       })();

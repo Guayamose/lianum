@@ -2,6 +2,7 @@
  * a valid mobile signature alone cannot mint notes or authorize chain effects. */
 import { createServer } from 'node:http';
 import { randomBytes, createPublicKey, verify } from 'node:crypto';
+import { platformDiagnostic } from './diagnostics.mjs';
 import { normalizeMobileIntent, normalizeMobileChallenge, normalizeMobileOrigin,
   normalizeMobileAuthorization, mobileAuthorizationMessage, validateMobileChallenge,
   normalizeMobileReceiptRequest, validateMobileReceiptReview, mobileReceiptMessage,
@@ -28,12 +29,13 @@ export async function startPlatformServer({origin,store=null,executor=null,port=
   const capacities = Object.fromEntries(['prepare','execute','reconcile','recover'].map(action=>[action,Boolean(executor?.capabilities?.[action])]));
   const ready = async () => {
     try { return Boolean(store && typeof executor?.submit==='function' && Object.values(capacities).some(Boolean) && await store.ready()); }
-    catch { return false; }
+    catch { platformDiagnostic('SQL_READY_FAILED'); return false; }
   };
   const persist=async operation=>{
     try{return await operation();}
     catch(error){
       if(/^MOBILE_[A-Z_]{1,60}$/.test(error?.code??''))throw error;
+      platformDiagnostic('SQL_OPERATION_FAILED');
       throw Object.assign(new Error('MOBILE_PERSISTENCE_UNAVAILABLE'),{code:'MOBILE_PERSISTENCE_UNAVAILABLE'});
     }
   };
@@ -103,12 +105,12 @@ export async function startPlatformServer({origin,store=null,executor=null,port=
               now: now(), allowInsecureLocalhost });
             return executor.submit(challenge);
           }),
-            new Promise(resolve=>{timer=setTimeout(()=>resolve(null),submitTimeoutMs);})]);
+            new Promise(resolve=>{timer=setTimeout(()=>{platformDiagnostic('ADAPTER_TIMEOUT');resolve(null);},submitTimeoutMs);})]);
         } finally {clearTimeout(timer);}
         if(outcome?.admitted===true)result={status:'ACCEPTED',requestId:challenge.intent.requestId,operationState:'ADMITTED',retryAllowed:false};
         else if(outcome?.rejectedBeforeEffect===true)result={status:'REJECTED',requestId:challenge.intent.requestId,operationState:'REJECTED',retryAllowed:false};
-      } catch { /* A lost reply/crash never makes an admitted effect retryable. */ }
-      try {await store.finish(admission.key,result);} catch {result=admission.response;}
+      } catch { platformDiagnostic('ADAPTER_FAILED'); /* A lost reply never permits redispatch. */ }
+      try {await store.finish(admission.key,result);} catch {platformDiagnostic('SQL_FINALIZE_FAILED');result=admission.response;}
       return send(200,result);
     } catch(error) {
       const code=/^MOBILE_[A-Z_]{1,60}$/.test(error?.code??'')?error.code:'MOBILE_REQUEST_REJECTED';

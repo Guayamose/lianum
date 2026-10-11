@@ -7,14 +7,16 @@
     "node": ">=24.19.0"
   },
   "scripts": {
-    "start": "node src/run.mjs",
+    "start": "node src/entry.mjs",
     "db:migrate": "node src/migrate.mjs",
     "db:migrate:original-device": "node src/migrate-original-device-v1.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:postgres": "node scripts/test-postgres.mjs",
     "test:docker": "node scripts/test-docker.mjs",
     "local:start": "node scripts/local.mjs start",
-    "local:stop": "node scripts/local.mjs stop"
+    "local:stop": "node scripts/local.mjs stop",
+    "start:original": "node --max-old-space-size=384 src/entry.mjs original-native-new",
+    "reopen:original": "node --max-old-space-size=384 src/entry.mjs original-native-reopen"
   },
   "dependencies": {
     "pg": "8.23.1"

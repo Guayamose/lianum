@@ -4,6 +4,7 @@ import {generateKeyPairSync,sign,randomBytes} from 'node:crypto';
 import {connect} from 'node:net';
 import {once} from 'node:events';
 import {startPlatformServer} from '../src/server.mjs';
+import {platformDiagnosticSnapshot} from '../src/diagnostics.mjs';
 import {authorizationKey,operationTerms} from '../src/authorization-store.mjs';
 import {mobileAuthorizationMessage,mobileReceiptMessage,MOBILE_AUTHORIZATION_RECEIPT_PROFILE} from '../../../packages/mobile-protocol/src/authorization.mjs';
 const ORDER=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -68,13 +69,16 @@ test('signature covers terms and one consumed authorization never dispatches twi
   assert.deepEqual((await call('/v1/mobile/authorizations',authorization)).body,first.body);assert.equal(effects,1);
 });
 test('lost adapter response remains unknown without automatic resubmission',async t=>{
+  const before=platformDiagnosticSnapshot().counts.ADAPTER_FAILED;
   let effects=0;const {call}=await fixture(t,{capabilities:{execute:true},submit:async()=>{effects++;throw new Error('private failure payload');}});
   const challenge=(await call('/v1/mobile/challenges',{ownerPublicKey,intent:{...intent,action:'execute'}})).body.challenge;
   const authorization=signed(challenge),response=(await call('/v1/mobile/authorizations',authorization)).body;
   assert.deepEqual(response,{status:'UNKNOWN',requestId:intent.requestId,operationState:'UNKNOWN',retryAllowed:false});
   assert.deepEqual((await call('/v1/mobile/authorizations',authorization)).body,response);assert.equal(effects,1);
+  assert.equal(platformDiagnosticSnapshot().counts.ADAPTER_FAILED,before+1);
 });
 test('pending adapter is bounded; a late admission cannot replace UNKNOWN or dispatch the same permission again',async t=>{
+  const before=platformDiagnosticSnapshot().counts.ADAPTER_TIMEOUT;
   let effects=0,resolveSubmit;const pending=new Promise(resolve=>{resolveSubmit=resolve;});
   const {call}=await fixture(t,{capabilities:{prepare:true},submit:async()=>{effects++;return pending;}},store(),{submitTimeoutMs:20});
   const challenge=(await call('/v1/mobile/challenges',{ownerPublicKey,intent})).body.challenge;
@@ -82,6 +86,7 @@ test('pending adapter is bounded; a late admission cannot replace UNKNOWN or dis
   assert.deepEqual(response,{status:'UNKNOWN',requestId:intent.requestId,operationState:'UNKNOWN',retryAllowed:false});
   assert.equal(effects,1);resolveSubmit({admitted:true});await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual((await call('/v1/mobile/authorizations',authorization)).body,response);assert.equal(effects,1);
+  assert.equal(platformDiagnosticSnapshot().counts.ADAPTER_TIMEOUT,before+1);
 });
 test('persistence failure after readiness returns 503 before dispatch; a failed final write preserves initial UNKNOWN',async t=>{
   let effects=0;const persistence=store(),originalConsume=persistence.consume;
@@ -241,9 +246,9 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   const { normalizeMobileOrigin } = await import('../../../packages/mobile-protocol/src/authorization.mjs');
   const { assertOriginalDeviceCloudPublicSourcesV1 } = await import('../src/original-device-cloud-source-pins-v1.mjs');
   const source = await readFile(new URL('../src/original-device-cloud-local-gateway-v1.mjs', import.meta.url), 'utf8');
-  assert.equal((source.match(/^import .*;$/gm) ?? []).length, 9);
+  assert.equal((source.match(/^import .*;$/gm) ?? []).length, 10);
   const compile = new Function('createServer', 'tlsRequest', 'checkServerIdentity', 'X509Certificate', 'createPrivateKey', 'types',
-    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3','reopenPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1', 'assertOriginalDeviceCloudPublicSourcesV1',
+    'normalizeMobileOrigin', 'startPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3','reopenPlatformOriginalPrivateNativeWorkerNoteDurableOperatorV3', 'assertOriginalDeviceDispatchSchemaV1', 'assertOriginalDeviceCloudPublicSourcesV1', 'platformDiagnostic',
     source.replace(/^import .*;\n/gm,'').replace(/export (async )?function /g,'$1function ')+'\nreturn {start:startPlatformOriginalDeviceCloudLocalGatewayV1,reopen:reopenPlatformOriginalDeviceCloudLocalGatewayV1};');
   const directory = await mkdtemp(join(tmpdir(), 'lianum-original-gateway-host-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -255,6 +260,7 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   let upstream, originalOrigin, ready = true, births = 0, effects = 0, closed = 0, captures = 0, schemaChecks = 0, received,originalBirth;
   let release, entered; const blocked = new Promise(resolve => { release = resolve; }), admitted = new Promise(resolve => { entered = resolve; });
   const pool = Object.freeze({ HOST_ONLY: true });
+  const diagnosticCodes=[];
   const {start,reopen} = compile(http.createServer, https.request, checkServerIdentity, X509Certificate, createPrivateKey, types, normalizeMobileOrigin,
     originalBirth=async input => {
       assert.equal(input.pool, pool); births++;
@@ -274,7 +280,7 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
       await new Promise((resolve, reject) => { upstream.once('error', reject); upstream.listen(port, '127.0.0.1', resolve); });
       return Object.freeze({ profile: 'ORIGINAL_NATIVE_DEVICE_PRIVATE_WORKER_DURABLE_NOTE_OPERATOR_V3', descriptor: { origin: input.origin, devicePublicKey: input.devicePublicKey },
         automaticFunding:false,durableOriginalAdmission:true,async capture(){captures++;await new Promise(resolve=>upstream.close(resolve));return{closed:true,originalResourcesStopped:true,plannedCaptureForNewProcess:true};},async close(){closed++;await new Promise(resolve=>upstream.close(resolve));return{closed:true,originalResourcesStopped:true};}});
-    }, async input=>{const value=await originalBirth(input);return Object.freeze({...value,readReconcileWithdrawalOnly:true,capture:undefined});}, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); }, assertOriginalDeviceCloudPublicSourcesV1);
+    }, async input=>{const value=await originalBirth(input);return Object.freeze({...value,readReconcileWithdrawalOnly:true,capture:undefined});}, async value => { assert.equal(value, pool); schemaChecks++; if (!ready) throw Error('HOST_SQL_NOT_READY'); }, assertOriginalDeviceCloudPublicSourcesV1, code=>diagnosticCodes.push(code));
   const reservation = http.createServer(); await new Promise(resolve => reservation.listen(0, '127.0.0.1', resolve));
   const originalPort = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
   let app = await start({ origin: `https://localhost:${originalPort}`, devicePublicKey: ownerPublicKey, tls, pool, privacyKey: '91'.repeat(32), port: 0 });
@@ -318,6 +324,8 @@ test('fixed local original gateway preserves TLS bytes, rejects generic authorit
   assert.deepEqual(await call('/v1/mobile/device-execution/reconcile',raw),{status:200,body:raw});
   for(const path of ['/v1/mobile/device-deposit/fund','/v1/mobile/device-reservation/reserve','/v1/mobile/device-execution/execute','/v1/mobile/device-execution/recover'])assert.equal((await call(path,raw)).status,403);
   assert.equal(effects,5);assert.equal(births,2);await app.close();assert.equal(closed,1);assert.equal(captures,1);
+  assert.ok(diagnosticCodes.includes('ORIGINAL_GATEWAY_READY_FAILED'));
+  assert.ok(diagnosticCodes.includes('ORIGINAL_TRANSPORT_FAILED'));
 });
 
 

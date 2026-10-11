@@ -8,4 +8,4 @@ COPY --chown=node:node apps/platform/migrations ./migrations
 COPY --chown=node:node packages/mobile-protocol /app/packages/mobile-protocol
 USER node
 EXPOSE 8080
-CMD ["node", "src/run.mjs"]
+CMD ["node", "src/entry.mjs", "admission"]

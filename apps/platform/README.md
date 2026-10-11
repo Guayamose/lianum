@@ -1,5 +1,11 @@
 # API móvil y base de operación
 
+La [composición local actual](docs/LOCAL-COMPOSITION.md) usa una entrada común:
+`./dev platform admission`, `original-native-new` o `original-native-reopen`.
+El perfil original monta los constructores existentes en el mismo proceso;
+la admisión V1 descrita abajo conserva sus capacidades cerradas por defecto.
+La guía indica dependencias, Docker local, reapertura y diagnóstico sin datos privados.
+
 La [entrada de cuenta nativa y recuperación local](docs/NATIVE-RECOVERY.md)
 conserva sus fuentes antes de financiar y permite reabrirlas desde disco.
 Es una entrada separada del arranque API/SQL descrito aquí; su aceptación

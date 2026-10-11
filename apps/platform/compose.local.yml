@@ -48,6 +48,11 @@ services:
     memswap_limit: 256m
     cpus: 1
     pids_limit: 64
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: "2"
     depends_on:
       database:
         condition: service_healthy

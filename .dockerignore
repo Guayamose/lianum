@@ -10,7 +10,7 @@ apps/platform/*
 !apps/platform/src
 !apps/platform/src/**
 !apps/platform/migrations
-!apps/platform/migrations/001_mobile_authorizations.sql
+!apps/platform/migrations/*.sql
 !packages
 packages/*
 !packages/mobile-protocol
