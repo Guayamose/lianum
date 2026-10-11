@@ -1,15 +1,16 @@
 /** Fixed V5 source capsule including physical public client/dependencies and
  * Python launchers. The V5 literal is retained separately, avoiding self hash. */
 import assert from 'node:assert/strict';
+import {projectRoot} from '@lianum/environment';
 import { join } from 'node:path';
 import { readFileSync, lstatSync, realpathSync } from 'node:fs';
 import { ROOT } from '@lianum/proofs/catalog';
 import { verifyAPI, verifyVendor, hash } from '@lianum/proofs/tooling/tooling';
-import { nativeValueDevHostSourcePinsV5 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-source-pins-v5.mjs';
+import { captureNativeValueCurrentHostSourcesV6 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-source-pins-v5.mjs';
 export function pairedNativeNoteSourcePinsV2() {
   assert.equal(arguments.length, 0, 'PAIRED_NATIVE_NOTE_SOURCE_NO_OPTIONS');
-  const local = nativeValueDevHostSourcePinsV5();
-  const releasePath = join(ROOT, 'wallet-platform/modules/ops/native-value-dev-release-v5.mjs');
+  const local = captureNativeValueCurrentHostSourcesV6();
+  const releasePath = join(projectRoot, 'packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs');
   assert.equal(realpathSync(releasePath), releasePath, 'PAIRED_NATIVE_NOTE_FIXED_LITERAL_PATH');
   const before = lstatSync(releasePath);
   assert.ok(before.isFile() && !before.isSymbolicLink() && before.size <= 2 * 1024 * 1024,
