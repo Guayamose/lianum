@@ -2224,9 +2224,6 @@
       "packages/backend/src/chains/shared/health/native-value-health-v2.mjs": [
         "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
       ],
-      "packages/backend/src/chains/shared/observations/observation-addresses.mjs": [
-        "packages/backend/src/chains/shared/portfolio/portfolio-registry.mjs"
-      ],
       "packages/backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
@@ -2235,9 +2232,6 @@
         "packages/backend/src/operations/deployments/system/deploy-system.mjs",
         "packages/custody/src/claims/flat-owner-external-incoming-v1.mjs",
         "packages/custody/src/signing/flat-owner-custody.mjs"
-      ],
-      "packages/backend/src/chains/shared/portfolio/portfolio-registry.mjs": [
-        "packages/backend/src/chains/shared/observations/observation-addresses.mjs"
       ],
       "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs": [
         "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
@@ -2353,15 +2347,9 @@
         "packages/custody/src/processes/flat-owner-process.mjs",
         "packages/custody/src/signing/flat-owner-custody.mjs"
       ],
-      "packages/backend/src/claims/ingress/ingress-v3-host.mjs": [
-        "packages/backend/src/claims/operations/backing-audit.mjs"
-      ],
       "packages/backend/src/claims/ingress/operational-registration-v2.mjs": [
         "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
         "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
-      ],
-      "packages/backend/src/claims/operations/backing-audit.mjs": [
-        "packages/backend/src/claims/ingress/ingress-v3-host.mjs"
       ],
       "packages/backend/src/claims/operations/native-claim-asset-units-v1.mjs": [
         "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",

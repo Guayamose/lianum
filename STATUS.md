@@ -15,6 +15,14 @@ Se conservaron originales, custodia, bases de datos, APK y los dos candidatos
 móviles pendientes. [Entorno y restauración](docs/LOCAL-ENVIRONMENT.md).
 Los objetivos y su evaluación funcional conservan el alcance original.
 
+El 11 de octubre se clasificaron los recursos locales por función y se separó
+la caché npm común en `.local/cache/npm/`. La limpieza por clase retiró otros
+68 MiB de cachés regenerables y compactó tres carpetas de informes antiguos con
+respaldo verificado. `./dev resources` muestra el inventario; no quedan raíces
+sin clasificar en los directorios gestionados. El proyecto sigue ocupando unos
+19,9 GiB: herramientas, originales, dependencias y estado retenido siguen siendo
+necesarios. No se ha presentado ese volumen como código eliminable.
+
 ## Ingeniería del 11 de octubre
 
 El código diario se ejecuta desde las fuentes editables. `./dev build` prepara
@@ -44,8 +52,12 @@ los nueve paquetes npm locales; la compatibilidad histórica requiere
   pertenecen a components; custody y proofs ya no los obtienen de backend.
   El coordinador genérico pertenece a engine y la persistencia duradera a
   backend. El puerto de persistencia no acredita identidad SOURCE. Los imports
-  privados bajan de 976 a 803; permanecen 15 ciclos entre paquetes y seis
+  privados bajan de 976 a 803; permanecen 15 ciclos entre paquetes y cuatro
   componentes cíclicos de archivos, con controles que rechazan ciclos nuevos.
+  Los errores de observación tienen un contrato independiente del registro;
+  la aritmética de backing está separada del despacho SPL/nonce. Estas dos
+  extracciones reducen los imports cíclicos de 1.034 a 1.030, conservando
+  identidad de errores, cálculos y verificaciones de autoridad.
 - **Activo e histórico:** inventariadas 42 parejas engine/protocol; los 63
   archivos históricos de protocol conservan hashes comprobados. Los nuevos
   consumidores deben utilizar el motor activo.
@@ -54,7 +66,7 @@ los nueve paquetes npm locales; la compatibilidad histórica requiere
   descriptor; ya no intenta crearlo otra vez. Docker local utiliza la misma
   composición, con el laboratorio retenido en su ruta y UID originales.
 - **Comprobación estática:** sintaxis e imports/exports del núcleo; checkJs
-  estricto en tres APIs y referencias léxicas en la autoridad y sus siete
+  estricto en cuatro APIs y referencias léxicas en la autoridad y sus siete
   módulos, además de los diarios. Se comprueba que los siete contratos solo
   reciben los miembros que utilizan, sin contexto general ni campos sobrantes.
   No representa tipado completo del backend. Los doce imports
@@ -67,22 +79,40 @@ los nueve paquetes npm locales; la compatibilidad histórica requiere
 - **Diagnóstico:** códigos fijos de SQL, adaptador y transporte de workers,
   con contadores y salida limitada. No incluyen payloads, secretos ni
   excepciones completas; no cambian el resultado de una operación.
+- **Hashes actuales:** `./dev pins check|update` calcula las tres tablas
+  declaradas de móvil, plataforma y callers, muestra los cambios y verifica
+  las dependencias inmutables. Conserva originales y publicaciones históricas.
+  `sources prepare` señala pins móviles desactualizados antes de capturar.
+- **Laboratorios:** siete perfiles con inventario explícito y preparación
+  selectiva. `./dev lab plan evm` indica qué falta;
+  `./dev lab prepare-profile evm` prepara dependencias y compatibilidad sin
+  financiar, arrancar redes ni generar pruebas. El inventario mínimo no
+  acredita una operación económica ni una generación financiera aceptada.
+- **Recursos locales:** política única para clasificar recursos y seleccionar
+  cachés. `./dev clean --scope caches|history` separa ambas tareas; el estado
+  privado y los originales no son candidatos de limpieza automática.
 
-**Comprobado al cerrar esta reorganización:** `./dev check` pasa; 850 archivos
-revisados por las fronteras, 796 módulos en el análisis estático, siete contratos
-de operaciones y 251 casos HOST aprobados en 7,5 segundos. También pasan las
+**Comprobado al cerrar esta reorganización:** `./dev check` pasa; 852 archivos
+revisados por las fronteras, 798 módulos en el análisis estático, siete contratos
+de operaciones y 251 casos HOST aprobados en 6,6 segundos. También pasan las
 selecciones focales: wallet/HTTP/arquitectura (116), SDK backend/transporte (45),
 plataforma (31), coordinador genérico (9), keeper duradero (2), diarios (6),
 retirada e identidad original, recuperación armada (10) y reorganización de F.
 Chromium real carga el cliente dividido. Las selecciones pueden solaparse;
 no se suman como una suite única ni acreditan un recorrido económico nuevo.
+Las nuevas comprobaciones de pins, perfiles, inventario y limpieza pasan con
+fixtures breves. Los siete inventarios mínimos están disponibles; repetir la
+preparación EVM ejecuta cero acciones. Pasan 48 casos focales de
+observación/backing/nonce y dos de
+inventory-journal: este último ya usa la ruta del binario SPL original
+restaurado, manteniendo su verificación de hash.
 
 Verificados los 1.716 originales versionados y los 52 archivos protegidos de
 visión, exclusiones y trabajo retenido. Las ausencias históricas no se regeneran:
 una prueba antigua de statements requiere `public-inputs.json`, que sigue ausente.
 
-La preparación actual valida **953 fuentes y doce roles de artefactos**, en
-`.local/generations/18241e95f86815f3eb2edf96288a652fb811c63d4409f72cd123ca33c92dcf07/`.
+La preparación actual valida **955 fuentes y doce roles de artefactos**, en
+`.local/generations/04e5a97c8ba1ce82ca121009150dc4bf44b9ee25c18e8edad7202cae5825348a/`.
 Conserva los originales y autentica la publicación anterior completa; no compila,
 publica ni adopta el candidato en el consumidor financiero. La tabla móvil actual
 refleja los exports revisados de mobile-protocol; Noble y sus 46 archivos fijados
@@ -93,7 +123,9 @@ plataforma y sus 25 callers locales siguen coincidiendo sin modificar sus pins.
 Informes locales: `.internal/dev/reports/cohesion-check.log`,
 `cohesion-authority-small.log`, `host-tests.json`,
 `wallet-cohesion-browser/browser-disconnected.json` y
-`source-generation-cohesion-current.json`.
+`source-generation-cohesion-current.json`, `cleanup-debt-check.log`,
+`source-generation-cleanup-current.json`, `lab-profile-evm-current.json` y
+`lab-profiles-current.json`, además de `local-resources-current.json`.
 
 El mecanismo de identidad, custodia y autoridad entre procesos (punto 4 de la
 revisión de ingeniería) permanece fuera de esta reorganización. Persisten los

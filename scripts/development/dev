@@ -12,6 +12,9 @@ if [ "$#" -gt 0 ]; then shift; fi
 case "$task_command" in
   help|-h|--help) exec python3 -B "$task_helpers/workflow.py" help ;;
   lab)
+    case "${1:-}" in
+      profiles|plan|check|prepare-profile) exec python3 -B "$task_helpers/lab_profiles.py" "$@" ;;
+    esac
     if [ "${1:-}" = "mobile-original-ledger" ]; then
       shift
       python3 -B "$task_helpers/workspace.py" --quiet
@@ -58,6 +61,8 @@ case "$task_command" in
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_helpers/static-check.mjs" "$@" ;;
   platform)
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/apps/platform/src/entry.mjs" "$@" ;;
+  pins) exec python3 -B "$task_helpers/source_pins.py" "$@" ;;
+  resources) exec python3 -B "$task_helpers/local_resources.py" "$@" ;;
   sources) exec python3 -B "$task_helpers/source_generations.py" "$@" ;;
   legacy)
     task_legacy_command="${1:-help}"
@@ -104,6 +109,6 @@ case "$task_command" in
   canonical) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/materialize_canonical.py" "$@" ;;
   legacy-node) export PATH="$task_legacy_node_dir:$PATH"; exec "$task_legacy_node_dir/node" "$@" ;;
   proof-node) exec "$task_node_dir/node" "$@" ;;
-  npm) exec "$task_node_dir/node" "$task_node_dir/../lib/node_modules/npm/bin/npm-cli.js" "$@" ;;
+  npm) unset NPM_CONFIG_CACHE; export npm_config_cache="$task_root/.local/cache/npm"; exec "$task_node_dir/node" "$task_node_dir/../lib/node_modules/npm/bin/npm-cli.js" "$@" ;;
   *) printf 'Comando desconocido: %s. Consulta ./dev help\n' "$task_command" >&2; exit 2 ;;
 esac

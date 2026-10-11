@@ -21,7 +21,11 @@
         "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs",
         "packages/backend/tests/accounts/storage/durable-generic-account-keeper.test.mjs",
         "packages/backend/tests/accounts/authority/native-value-withdrawal-context.test.mjs",
-        "packages/backend/tests/accounts/authority/native-value-authority-journals.test.mjs"
+        "packages/backend/tests/accounts/authority/native-value-authority-journals.test.mjs",
+        "packages/backend/tests/chains/shared/portfolio/observation-error-contract.test.mjs",
+        "packages/backend/tests/chains/shared/portfolio/portfolio-registry.test.mjs",
+        "packages/backend/tests/chains/shared/portfolio/http-portfolio-registry.test.mjs",
+        "packages/backend/tests/claims/operations/operator-boundary.test.mjs"
       ]
     },
     "custody": {
@@ -138,7 +142,11 @@
         "scripts/development/test_workspace.py",
         "scripts/development/test_doctor.py",
         "scripts/development/test_bounded_process.py",
-        "scripts/development/test-static-check.test.mjs"
+        "scripts/development/test-static-check.test.mjs",
+        "scripts/development/test_clean.py",
+        "scripts/development/test_local_resources.py",
+        "scripts/development/test_source_pins.py",
+        "scripts/development/test_lab_profiles.py"
       ]
     }
   },
@@ -261,8 +269,32 @@
       "description": "Inspeccionar o preparar una generaci\u00f3n de desarrollo"
     },
     {
-      "usage": "./dev clean [--apply]",
-      "description": "Proponer limpieza; --apply respalda y retira cach\u00e9s elegibles"
+      "usage": "./dev pins [check|update] [--profile NOMBRE]",
+      "description": "Revisar o actualizar hashes actuales; conserva publicaciones hist\u00f3ricas"
+    },
+    {
+      "usage": "./dev resources [status|check]",
+      "description": "Espacio por funci\u00f3n y rutas locales sin clasificar"
+    },
+    {
+      "usage": "./dev resources migrate-caches [--apply]",
+      "description": "Previsualizar o mover cach\u00e9s a su ubicaci\u00f3n com\u00fan"
+    },
+    {
+      "usage": "./dev lab profiles",
+      "description": "Mostrar perfiles y alcance del inventario m\u00ednimo"
+    },
+    {
+      "usage": "./dev lab [plan|check] PERFIL",
+      "description": "Inspeccionar dependencias del perfil sin ejecutar redes"
+    },
+    {
+      "usage": "./dev lab prepare-profile PERFIL",
+      "description": "Preparar solo dependencias y compatibilidad necesarias del perfil"
+    },
+    {
+      "usage": "./dev clean [--scope caches|history|all] [--apply]",
+      "description": "Previsualizar limpieza por clase; --apply aplica la selecci\u00f3n"
     },
     {
       "usage": "./dev build --legacy",

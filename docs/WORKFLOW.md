@@ -41,6 +41,39 @@ materiales restaurados. Se utiliza después de restaurar o cambiar esos
 materiales, o al investigar un fallo de integridad; `status` cubre la consulta
 diaria de preparación. Ninguno de ambos acredita una operación económica.
 
+## Preparar solo el laboratorio necesario
+
+```sh
+./dev lab profiles
+./dev lab plan evm
+./dev lab prepare-profile evm
+./dev lab check evm
+```
+
+Los perfiles `host`, `wallet`, `platform`, `evm`, `btc-sol`, `defi` y
+`mobile-original` declaran sus dependencias. Plan y check son de lectura;
+prepare instala únicamente dependencias ausentes o desactualizadas y prepara
+la compatibilidad cuando el perfil la necesita. No arranca redes ni crea
+cuentas o pruebas criptográficas. Un original ausente sigue apareciendo como
+ausente; no se fabrica para aprobar el inventario. El alcance de cada perfil
+está en [LAB-PROFILES.md](LAB-PROFILES.md).
+
+## Actualizar hashes de las fuentes actuales
+
+```sh
+./dev pins check
+./dev pins update --profile mobile
+git diff
+```
+
+El comando sustituye la edición manual de las tres tablas actuales declaradas:
+`mobile`, `platform` y `callers` (`all` las incluye). Muestra cada cambio y
+verifica las dependencias públicas fijadas antes de escribir. Platform actualiza
+también su referencia en callers. No cambia originales, publicaciones ni
+recibos históricos, ni acepta automáticamente archivos nuevos en la política.
+Los consumidores económicos conservan su paso explícito de aceptación de
+generación. [Detalle y límites](SOURCE-GENERATIONS.md).
+
 ## Elegir qué comprobar
 
 ```sh
@@ -114,7 +147,8 @@ custodia. `--changed` limita ese análisis a los archivos modificados y nuevos.
 No infiere imports calculados ni demuestra comportamiento económico.
 
 `scripts/development/tsconfig.checkjs.json` añade checkJs estricto a las APIs
-de rutas, errores públicos y acciones de recuperación compartidas. Es una
+de rutas, errores públicos, errores de observación y acciones de recuperación
+compartidas. Es una
 adopción incremental: el resto del núcleo JavaScript no se declara tipado.
 La configuración no usa `@ts-ignore` ni desactiva errores para hacerla pasar.
 Además se comprueban nombres sin binding léxico en la fábrica de autoridad y

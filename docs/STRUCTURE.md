@@ -151,6 +151,7 @@ Las guías README nuevas no se incluyen en la copia de ejecución.
 | `.internal/dev/drafts/` | Trabajo pendiente todavía no integrado; se conserva físico |
 | `.internal/dev/reports/` | Resúmenes actuales y evidencia enlazada por las guías |
 | `.local/` | Configuración privada, claves, bases de datos, estado y cachés |
+| `.local/cache/npm/` | Caché npm compartida y regenerable, separada del estado privado |
 | `.local/history/cleanup-*/` | Historial compactado con manifiesto y archivos `drafts.tar.gz`, `reports.tar.gz` y `snapshots.tar.gz`, según la selección |
 
 `./dev clean` muestra la selección sin modificar archivos. `./dev clean --apply`
@@ -158,3 +159,8 @@ retira copias temporales y cachés regenerables, y compacta el historial
 seleccionado antes de retirar sus carpetas. No elimina los recursos originales
 ni el estado económico. [LOCAL-ENVIRONMENT.md](LOCAL-ENVIRONMENT.md) detalla
 qué se conserva y cómo recuperar cada clase de respaldo.
+
+`./dev resources` muestra el espacio por función y señala recursos sin
+clasificar. `./dev clean --scope caches` limita la selección a cachés;
+`--scope history` selecciona historial para respaldo. Los perfiles de
+`./dev lab profiles` permiten preparar solo las dependencias de cada recorrido.

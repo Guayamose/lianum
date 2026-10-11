@@ -16,7 +16,13 @@ Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo c
 ./dev workflows                         Entradas vigentes y alcance de cada comprobación
 ./dev boundaries                        Comprobar dependencias y exports entre módulos
 ./dev sources [status|prepare|check]    Inspeccionar o preparar una generación de desarrollo
-./dev clean [--apply]                   Proponer limpieza; --apply respalda y retira cachés elegibles
+./dev pins [check|update] [--profile NOMBRE] Revisar o actualizar hashes actuales; conserva publicaciones históricas
+./dev resources [status|check]          Espacio por función y rutas locales sin clasificar
+./dev resources migrate-caches [--apply] Previsualizar o mover cachés a su ubicación común
+./dev lab profiles                      Mostrar perfiles y alcance del inventario mínimo
+./dev lab [plan|check] PERFIL           Inspeccionar dependencias del perfil sin ejecutar redes
+./dev lab prepare-profile PERFIL        Preparar solo dependencias y compatibilidad necesarias del perfil
+./dev clean [--scope caches|history|all] [--apply] Previsualizar limpieza por clase; --apply aplica la selección
 ./dev build --legacy                    Materializar expresamente la compatibilidad histórica
 ./dev legacy [start|node|test|check]    Ejecutar el recorrido heredado correspondiente
 ./dev doctor                            Comprobar restauración e integridad; necesita materiales
