@@ -22797,6 +22797,7 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/original-btc-payout-completion-v3.mjs": "packages/backend/src/claims/operations/original-btc-payout-completion-v3.mjs",
     "omnichain-flat-profile/flat-wallet/modules/account/source-proof-receipts-v1.mjs": "packages/backend/src/accounts/authority/native-value/source-proof-receipts-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-lifecycle-backend-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-lifecycle-backend-v1.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-recovery-backend-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-backend-v1.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-recovery-backend-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-backend-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/device-root-spl-source-binding-v3.mjs": "packages/backend/src/claims/controller/device-root-spl-source-binding-v3.mjs"
   }
 }

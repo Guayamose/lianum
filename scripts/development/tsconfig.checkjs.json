@@ -103,6 +103,7 @@
     "../../packages/backend/src/operations/recovery/source-journal/native-state-cipher-v1.mjs",
     "../../packages/engine/src/execution/local/solidity-compiler-v1.mjs",
     "../../packages/backend/src/claims/operations/original-btc-payout-completion-v3.mjs",
-    "../../packages/backend/src/accounts/authority/native-value/source-proof-receipts-v1.mjs"
+    "../../packages/backend/src/accounts/authority/native-value/source-proof-receipts-v1.mjs",
+    "../../packages/backend/src/claims/controller/device-root-spl-source-binding-v3.mjs"
   ]
 }

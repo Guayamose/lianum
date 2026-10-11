@@ -1,3 +1,5 @@
+import {buildDeviceRootSplSourceBindingV3} from './device-root-spl-source-binding-v3.mjs';
+const createDeviceRootSplSourceBindingV3=buildDeviceRootSplSourceBindingV3({readOwnedSolanaSplOriginalGraphV3,assertOwnedSolanaSplGraphPairV1,assertOwnedFlatNativeProvider,captureOwnedFlatSolanaSourceForSplV1});
 import { assertBeginPayoutAuditReleaseV1, assertBeginPayoutAuditReceiptV1, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1,
   CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
 import { readOwnedBitcoinRuntimeAuditState } from '../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
@@ -1839,27 +1841,7 @@ export async function createOriginalDeviceRootSplSourceBindingV3(intake,provider
   const original={...retained.splSourceOriginal,runtime:retained.runtime,claims:retained.claims};
   return createDeviceRootSplSourceBindingV3(original,provider);
 }
-async function createDeviceRootSplSourceBindingV3(original,provider){
-  const {serial,alive,journal,descriptor}=original,native=original.originalNative(),graph=readOwnedSolanaSplOriginalGraphV3(native);
-  const expected={runtime:original.runtime,system:original.claims.flatSystem,poolIndex:0,nativeRuntime:graph,family:'2',recipientIndex:1};
-  let closed=false,closing=false,closeWork,work=null,admitted=false;const observations=new Set();const binding={phase:'BORN',amount:null};
-  const current=()=>{assert.ok(!closed,'CLAIM_DEVICE_ROOT_SPL_SOURCE_CLOSED');alive();assertOwnedSolanaSplGraphPairV1(native,graph);assertOwnedFlatNativeProvider(provider,expected);};
-  const open=()=>{assert.ok(!closing,'CLAIM_DEVICE_ROOT_SPL_SOURCE_CLOSED');current();};
-  const row=async()=>{const data=await journal.read(),r=data.apiDeviceRootClaims?.[0];assert.deepEqual(r?.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');assert.equal(r.ownerIdentitySHA256,original.ownerIdentitySHA256);return{data,r};};
-  const store=async phase=>{binding.phase=phase;await journal.update(data=>{const r=data.apiDeviceRootClaims?.[0];assert.deepEqual(r?.descriptor,descriptor,'CLAIM_DEVICE_ROOT_ORIGINAL_SOURCE');assert.equal(r.ownerIdentitySHA256,original.ownerIdentitySHA256);r.splSource={profile:'ORIGINAL_DEVICE_ROOT_SPL_SOURCE_BINDING_V3',phase,amount:binding.amount};return data;});};
-  await serial(async()=>{current();original.beforeTarget();const {data,r}=await row();assert.equal(data.deposits.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');assert.equal(data.tickets.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');assert.equal(data.evm.length,0,'CLAIM_DEVICE_ROOT_BEFORE_FUND_REQUIRED');assert.equal(r.phase,'BORN','CLAIM_DEVICE_ROOT_SPL_BEFORE_D27');assert.equal(r.admissions.length,0,'CLAIM_DEVICE_ROOT_SPL_BEFORE_FUND');assert.equal(r.splSource,undefined,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ONCE');assert.equal(native.transfers.length,0,'CLAIM_DEVICE_ROOT_SPL_BEFORE_NATIVE');await original.empty();current();original.install(binding);await store('BORN');current();});
-  const producer=Object.freeze({profile:'ORIGINAL_DEVICE_ROOT_SPL_SOURCE_BINDING_V3',custody:'BACKEND_LOCAL_QUORUM',automaticSourceDelivery:false,
-    bindObservedOriginalOnce(){assert.equal(arguments.length,0,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');open();assert.equal(admitted,false,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ALREADY_ADMITTED');admitted=true;
-      work=serial(async()=>{current();original.beforeTarget();const {r}=await row();assert.deepEqual(r.splSource,{profile:'ORIGINAL_DEVICE_ROOT_SPL_SOURCE_BINDING_V3',phase:'BORN',amount:null},'CLAIM_DEVICE_ROOT_SPL_SOURCE_CHANGED');assert.equal(native.transfers.length,0,'CLAIM_DEVICE_ROOT_SPL_BEFORE_NATIVE');await original.empty();current();
-        // Durable UNKNOWN fence precedes capture and the original wrapping KEY.
-        await store('BINDING');try{const token=await captureOwnedFlatSolanaSourceForSplV1(provider);current();await native.bindOriginalSourceV1(token);current();const amount=await native.quoteOriginalDepositAmountV1();current();assert.ok(typeof amount==='string'&&/^[1-9][0-9]*$/.test(amount),'CLAIM_DEVICE_ROOT_SPL_ORIGINAL_QUOTE');binding.amount=amount;await store('READY');current();return Object.freeze({profile:producer.profile,claimDomain:descriptor.claim.claimDomain,amount,sourceCustody:'BACKEND_LOCAL_QUORUM',privateCreditEstablished:false});}
-        catch(error){binding.amount=null;try{await store('UNKNOWN');}catch{}throw error;}});work.catch(()=>{});return work;
-    },
-    status(){assert.equal(arguments.length,0,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');open();const observation=serial(async()=>{current();const{r}=await row();current();assert.deepEqual(r.splSource,{profile:producer.profile,phase:binding.phase,amount:binding.amount},'CLAIM_DEVICE_ROOT_SPL_SOURCE_CHANGED');return Object.freeze({profile:producer.profile,phase:binding.phase,amount:binding.phase==='READY'?binding.amount:null,privateCreditEstablished:false,availablePrivateClaims:null});},{readOrReconcile:true});observations.add(observation);observation.finally(()=>observations.delete(observation)).catch(()=>{});return observation;},
-    close(){assert.equal(arguments.length,0,'CLAIM_DEVICE_ROOT_SPL_SOURCE_ARITY');closing=true;return closeWork??=(async()=>{let first;try{if(work)await work;}catch(error){first=error;}for(const observation of observations)try{await observation;}catch(error){first??=error;}closed=true;if(first)throw first;return{closed:true};})();},
-    toJSON(){throw Error('CLAIM_DEVICE_ROOT_SPL_SOURCE_NOT_SERIALIZABLE');}});
-  return producer;
-}
+
 
 /** Original references for the fixed TLS/common-state consumer. A descriptor,
  * controller ID or serialized intake cannot satisfy this private membership. */
