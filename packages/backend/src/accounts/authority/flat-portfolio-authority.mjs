@@ -2,6 +2,7 @@
  * Routing changes request bindings, never amounts, proofs, destinations or
  * original outcomes. Each child remains the authority for its own asset. */
 import assert from 'node:assert/strict';
+import {createFlatPortfolioOwnerReaderV1, FLAT_PRIVATE_PORTFOLIO_VIEW_PROFILE_V1 as profile} from './portfolio-owner-view-v1.mjs';
 import { bindGenericAccountRequest, validateBoundRequest, validateGenericAccountConfig,
   genericAccountIdentity, validateOutcome, immutable, sha }
   from '@lianum/engine/accounts/journal';
@@ -12,7 +13,7 @@ import { assertOwnedFlatManualPortfolioKeeper } from '../portfolio/flat-manual-p
 import { validateFlatManualReauthorization } from '@lianum/custody/preparation/flat-owner-manual-binding';
 import { assertOwnedFlatPoolAdmissionPolicy } from './flat-pool-admission-policy.mjs';
 
-const profile = 'OWNED_FLAT_PRIVATE_PORTFOLIO_V1';
+const readFlatPortfolioOwnerViewV1 = createFlatPortfolioOwnerReaderV1({immutable});
 const inputFields = ['requestId', 'kind', 'assetId', 'ownerOperationRef'];
 const owned = new WeakMap(), journalClaims = new WeakSet();
 export function assertOwnedFlatPortfolio(runtime, portfolio) {
@@ -278,26 +279,7 @@ export function createFlatPortfolioAuthority(options) {
     }),
   });
   const portfolio = Object.freeze({ config, registry: config.registry, authority, manualLifecycle,
-    async ownerView() { return exclusive(async () => {
-      const assets = [];
-      for (const child of accounts) {
-        const view = await child.account.ownerView();
-        assert.equal(view.asset.assetId, child.asset.assetId, 'FLAT_PORTFOLIO_VIEW_ASSET');
-        assert.equal(view.asset.symbol, child.asset.symbol); assert.equal(view.asset.decimals, child.asset.decimals);
-        assets.push(view);
-      }
-      const observed = assets.filter(view => view.observed !== null);
-      const coherent = observed.length === assets.length && observed.every(view =>
-        view.observed.blockHash === observed[0].observed.blockHash
-        && view.observed.blockNumber === observed[0].observed.blockNumber
-        && view.observed.timestamp === observed[0].observed.timestamp);
-      const status = observed.length === 0 ? 'UNAVAILABLE' : observed.length < assets.length ? 'PARTIAL'
-        : coherent && assets.every(view => view.status === 'LIVE') ? 'LIVE' : 'STALE';
-      return immutable({ version: 1, profile, status, coherent,
-        observed: coherent ? observed[0].observed : null, assets,
-        capabilities: { coordinatorRestart: true, keeperRestart: false, crossAssetAtomicConversion: false,
-          privateDeFiComposability: false, fullWalletAcceptance: false } });
-    }); },
+    async ownerView() { return exclusive(() => readFlatPortfolioOwnerViewV1(accounts)); },
     async abort() { await Promise.allSettled(accounts.map(child => child.account.abort())); },
     close() { assert.equal(busy, false, 'FLAT_PORTFOLIO_BUSY'); closed = true;
       return { closed: true, originalChildrenRetained: true }; },

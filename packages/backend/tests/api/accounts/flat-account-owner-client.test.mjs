@@ -1,14 +1,15 @@
 /** Host-only clients over mocked node:http.request. Genuine pure producer
- * projections (and the verbatim portfolio ownerView body) use synthetic data.
+ * projections and the complete portfolio reader use synthetic data.
  * No server, socket, native node, compiler, proof, signing or durable storage. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
 import { projectFlatAccountOwnerView } from '../../../src/accounts/authority/flat-account-authority.mjs';
 import { projectNativeClaimPosition } from '../../../src/claims/operations/portfolio-view.mjs';
 import { createFlatAccountSession } from '../../../src/api/accounts/flat-account-session.mjs';
+import {createFlatPortfolioOwnerReaderV1} from '../../../src/accounts/authority/portfolio-owner-view-v1.mjs';
+import {immutable} from '@lianum/engine/accounts/journal';
+const readFlatPortfolioOwnerViewV1 = createFlatPortfolioOwnerReaderV1({immutable});
 let active;
 mock.module('node:http', { exports: { request(options, callback) {
   const c = active; assert.ok(c, 'HOST_ONLY_TRANSPORT'); c.calls.push(structuredClone(options));
@@ -38,14 +39,11 @@ function input(index = 0) {
     { requestId: 'unresolved_request', kind: 'EXIT', state: 'UNRESOLVED', disposition: null }] };
 }
 const account = (index = 0, mutate = () => {}) => { const value = input(index); mutate(value); return projectFlatAccountOwnerView(value); };
-const portfolioSource = readFileSync(new URL('../global-state/flat-portfolio-authority.mjs', import.meta.url), 'utf8');
-const method = portfolioSource.match(/async ownerView\(\) \{ return exclusive\(async \(\) => \{[\s\S]*?\n    \}\); \},/)?.[0]; assert.ok(method);
-const portfolioProfile = portfolioSource.match(/const profile = '([^']+)'/)?.[1];
 async function portfolio(assets) {
-  const build = vm.runInThisContext('(function({ accounts, profile, exclusive, immutable, assert }) { return ({ ' + method + ' }); })');
-  const producer = build({ accounts: assets.map(view => ({ asset: view.asset, account: { ownerView: async () => view } })),
-    profile: portfolioProfile, exclusive: async work => work(), immutable: clone, assert });
-  return producer.ownerView();
+  // Mutable wire fixture for adverse input cases; the real reader stays frozen.
+  return clone(await readFlatPortfolioOwnerViewV1(assets.map(view => ({
+    asset: view.asset, account: {ownerView: async () => view},
+  }))));
 }
 function transport(body, options = {}) {
   const bytes = Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
@@ -257,16 +255,19 @@ test('actual session forwards original owner shape without a new server contract
   finally { await session.close(); }
 });
 
-test('public client has only one fixed private read and shares three fixed read routes', () => {
-  const source = readFileSync(new URL('./flat-account-owner-client.mjs', import.meta.url), 'utf8');
-  assert.deepEqual([...source.matchAll(/export async function (\w+)/g)].map(match => match[1]), ['readFlatAccountOwnerPortfolio']);
-  assert.deepEqual([...source.matchAll(/from '([^']+)'/g)].map(match => match[1]), ['./fixed-owner-read-transport.mjs', '../../../wallet-app/public/owner-portfolio-contract.mjs']);
-  assert.doesNotMatch(source, /setInterval|writeFile|console\.|\.submit\(|\.sign\(|method: 'POST'/);
-  const transport = readFileSync(new URL('./fixed-owner-read-transport.mjs', import.meta.url), 'utf8');
-  assert.deepEqual([...transport.matchAll(/path: '([^']+)'/g)].map(match => match[1]),
-    ['/api/native-claims/snapshot', '/api/native-claims/owner', '/api/flat-account/owner']);
+test('public owner clients expose fixed read interfaces and issue one GET on each original route', async () => {
+  const client = await import('../../../src/api/accounts/flat-account-owner-client.mjs');
+  assert.deepEqual(Object.keys(client), ['readFlatAccountOwnerPortfolio']);
+  for (const [read, path] of [
+    [readNativeClaimSnapshot, '/api/native-claims/snapshot'],
+    [readNativeClaimOwnerStatus, '/api/native-claims/owner'],
+    [readFlatAccountOwnerPortfolio, '/api/flat-account/owner'],
+  ]) {
+    const c = transport({}); await read({origin, token});
+    assert.equal(c.calls.length, 1); assert.equal(c.calls[0].path, path);
+    assert.equal(c.calls[0].method, 'GET');
+  }
 });
-
 
 test('versioned generation read uses the same fixed private endpoint without aggregation or a fallback', async () => {
   const assets = [clone(account(0)), clone(account(1))];
