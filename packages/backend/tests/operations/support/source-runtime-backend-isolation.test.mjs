@@ -107,3 +107,29 @@ test('the canonical observed EVM graph retains its brands and does not open roll
     if (runtime) await runtime.close({ removeScratch: true });
   }
 });
+
+// These two constructors exercise the real fixed core without signing or
+// sending a transaction. SOURCE must retain the ordered family's issuer mark.
+test('ordered and SOURCE device cores retain the same private receiver domain', { timeout: 20000 }, async () => {
+  const other = buildOwnedEvmRuntimeBackendV1(isolatedContracts());
+  for (const create of [canonical.createOwnedDeviceExternalFlatReceiverV1, canonical.createOwnedDeviceExternalFlatSourceReceiverV2]) {
+    let runtime;
+    try {
+      runtime = await create();
+      assert.equal(canonical.isOwnedLocalEvmV2(runtime), true);
+      canonical.assertOwnedDeviceExternalFlatReceiverV1(runtime);
+      if (create === canonical.createOwnedDeviceExternalFlatSourceReceiverV2) canonical.assertOwnedDeviceExternalFlatSourceReceiverV2(runtime);
+      else assert.throws(() => canonical.assertOwnedDeviceExternalFlatSourceReceiverV2(runtime), /SOURCE_ORIGINAL_RECEIVER/);
+      assert.throws(() => canonical.assertOwnedExternalDefiReceiverV2(runtime), /EXTERNAL_RECEIVER_ORIGINAL/);
+      assert.throws(() => canonical.assertOwnedNativeEconomicRuntimeRecoverableV1(runtime), /DISTINCT_ISSUER/);
+      assert.throws(() => canonical.fenceOwnedNativeEconomicRuntimeV1(runtime, opaque()), /DISTINCT_ISSUER/);
+      await assert.rejects(canonical.captureOwnedNativeEconomicRuntimeV1(runtime, opaque()), /DISTINCT_ISSUER/);
+      await assert.rejects(canonical.abortOwnedNativeEconomicRuntimeV1(runtime, opaque()), /DISTINCT_ISSUER/);
+      assert.throws(() => canonical.assertOwnedDeviceExternalFlatReceiverV1({ ...runtime }), /ORIGINAL_REQUIRED/);
+      assert.throws(() => other.assertOwnedDeviceExternalFlatReceiverV1(runtime), /ORIGINAL_REQUIRED/);
+      assert.throws(() => other.assertOwnedNativeEconomicRuntimeRecoverableV1(runtime), /EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED/);
+    } finally {
+      if (runtime) await runtime.close({ removeScratch: true });
+    }
+  }
+});

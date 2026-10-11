@@ -9,12 +9,10 @@ import{join,resolve}from'node:path';
 import{tmpdir}from'node:os';
 import{fileURLToPath}from'node:url';
 import{spawn}from'node:child_process';
-import{runInNewContext}from'node:vm';
 const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/global-state/external-defi-receiver-runtime-v2.test.mjs');
 const authorityURL=new URL(generated?'../native-claims/wrapped-recovery-authority-v1.mjs':'../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',import.meta.url);
 const runtimeURL=new URL(generated?'../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url);
-const registryURL=new URL('./wrapped-private-lifetime-registry-v1.mjs',authorityURL);
-const systemURL=new URL(generated?'../ops/external-defi-bootstrap-recovery-v1.mjs':'../../../src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs',import.meta.url);
+const systemURL=new URL(generated?'../ops/external-defi-bootstrap-recovery-v1.mjs':'../../../src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs',import.meta.url);
 const ownersURL=new URL(generated?'../../../mobile-core/flat-owner-process.mjs':'../../../src/custody/processes/flat-owner-process.mjs',import.meta.url);
 const walletURL=new URL(generated?'./external-defi-catalogue-recovery-v1.mjs':'../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs',import.meta.url);
 const fixedRoot=legacyDataRoot('wallet');
@@ -29,11 +27,20 @@ mock.module(runtimeURL,{exports:{
  async abortOwnedExternalDefiReceiverCaptureV2(runtime,token){const state=runtimes.get(runtime);assert.equal(state.token,token);aborts++;state.closed=true;return{closed:true,recoveryIncomplete:true};}
 }});
 async function section(token,name){await authority.retainOriginalWrappedRecoverySectionV1(token,name,{schema:'EXPLICIT_INERT_HOST_SECTION',financialAcceptance:false});return{retained:true,originalResourcesStopped:true};}
-mock.module(systemURL,{exports:{retainExternalDefiVaultExitSystemForReopenV1(input){assert.ok(runtimes.has(input.runtime));return section(input.attemptAuthority,'system');}}});
+mock.module(systemURL,{exports:{buildExternalDefiBootstrapRecoveryV1(){return {retainExternalDefiVaultExitSystemForReopenV1(input){assert.ok(runtimes.has(input.runtime));return section(input.attemptAuthority,'system');}};}}});
+// This test owns only receiver/AEAD admission. The inert system backend above
+// never invokes deployment contracts; keep their namespaces explicitly inert.
+for (const source of [
+ generated?'../ops/deploy-system.mjs':'../../../src/operations/deployments/system/deploy-system.mjs',
+ generated?'../ops/official-protocol-fixture-v3.mjs':'../../../src/operations/deployments/defi/official-protocol-fixture-v3.mjs',
+ generated?'../ops/deploy-private-external-router-v1.mjs':'../../../src/operations/deployments/defi/deploy-private-external-router-v1.mjs',
+ generated?'../ops/native-operators.mjs':'../../../src/operations/operators/claims/native-operators.mjs',
+]) mock.module(new URL(source,import.meta.url),{exports:{}});
+
 mock.module(ownersURL,{exports:{retainFlatOwnersForReopenV1(input){return section(input.attemptAuthority,'owners');}}});
 mock.module(walletURL,{exports:{retainExternalDefiVaultCatalogueForReopenV1(input,token){return section(token,'wallet');}}});
 authority=await import(authorityURL);
-const registry=await import(registryURL);
+const registry=authority;
 async function fixture(t,{forced=false,v3=false}={}){
  const runId=randomUUID(),directory=join(fixedRoot,'.local/external-defi-owner-cycle-v1','attempt-'+runId,'private-audit');
  await mkdir(directory,{recursive:true,mode:0o700});
@@ -125,37 +132,36 @@ test('External5 V3 authenticated section keeps its fixed format in a new process
 
 
 test('HOST ordered device receiver retains before effects and preserves its distinct original capture token',async()=>{
- // Native/issuer ports below are explicit inert private brands. Exercise the
- // production factory, public brand checks and synchronous core fence bodies;
- // no native process, wallet, proof, keys, funding or financial acceptance.
- const source=await readFile(new URL('./owned-evm-runtime-backend-v1.mjs',runtimeURL),'utf8');
- const between=(start,end)=>{const a=source.indexOf(start),b=source.indexOf(end,a);assert.ok(a>=0&&b>a);return source.slice(a,b);};
- const definitions=between('const originalExternalDefiReceiverV2=new WeakSet(),','const originalEvmRecoveryCapturesV1 =');
- const create=between('async function createOwnedExternalDefiReceiverV2(){','function isOwnedNativeEconomicRuntimeV2(').replace(/^export /gm,'');
- const reopen=between('async function reopenOwnedDeviceExternalFlatReceiverV1(token){','async function reopenOwnedNativeEconomicGraphRuntimeV1(').replace(/^export /gm,'');
- const fence=between('    if(deviceExternalFlatV1){let originalDeviceCaptureToken=null;','    if(originalEvmRecoveryCapturesV1.has(runtime))originalEvmRetentionArmsV1.set(');
- const native=source.slice(source.indexOf('function assertOwnedNativeEconomicRuntimeRecoverableV1(runtime){'),source.indexOf('  const sourceRuntime = buildOriginalNativeSourceRuntimeBackendV1')).replace(/^export /gm,'');
- assert.ok(native.includes('DEVICE_EXTERNAL_FLAT_RECEIVER_DISTINCT_ISSUER_REQUIRED'));
- const localProfile=Object.freeze({explicitInertHost:true}),nativePin=Object.freeze(['explicit-inert-host','ab'.repeat(32)]);
- const events=[],instances=new WeakMap(),writes=new WeakMap(),reads=new WeakMap();let factoryCalls=0,retentionGate=null,retentionError=null,cleanupError=null,captureGate=null,captureError=null,bridge;
+ // Real instance-scoped family and synchronous capture mechanism. Core,
+ // retention and token readers below are finite inert ports, without processes.
+ const {buildDeviceReceiverFamilyV1,createDeviceReceiverCaptureControlV1}=await import(new URL('./device-receiver-family-v1.mjs',runtimeURL));
+ const {createNativeEconomicRecoveryAccessV1}=await import(new URL('./native-economic-recovery-access-v1.mjs',runtimeURL));
+ const events=[],instances=new WeakMap(),writes=new WeakMap(),reads=new WeakMap(),sourceReads=new WeakMap(),sourceRequests=new WeakMap();let factoryCalls=0,retentionGate=null,retentionError=null,cleanupError=null,captureGate=null,captureError=null;
  const identity=Object.freeze({profile:'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1',sourceSHA256:'cd'.repeat(32)});
  const record=Object.freeze({schema:'OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3',family:'receiver',terminal:Object.freeze({ownedProcessStopped:true,forced:false}),explicitInertHost:true});
  const captureIdentity=token=>{const saved=writes.get(token);assert.ok(saved&&!saved.fault,'HOST_ORIGINAL_DEVICE_WRITE_TOKEN');return saved.identity;};
  const consume=token=>{const saved=reads.get(token);assert.ok(saved&&!saved.used,'HOST_ORIGINAL_DEVICE_OPEN_TOKEN');saved.used=true;return saved.record;};
- const bind=runInNewContext('(make)=>{'+definitions+create+reopen+native+
-  ';return {symbol:DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1,install(runtime,state){let economicRecoveryFence=null,recoveryRetained=false,recoveryCapturing=false;const deviceExternalFlatV1=true,busy=false,recoveryRpcActive=0,nativeActiveReadsV4=0,runtimePin=NATIVE_ECONOMIC_ANVIL_PIN_V2;const assertAlive=()=>assert.equal(state.closed,false);const recoveryCapture=()=>{assert.equal(recoveryRetained,true);events.push("capture");state.fenced=true;return make.capture(runtime);};const close=()=>{assert.equal(recoveryCapturing,true);return runtime.close();};'+fence+'},create:createOwnedDeviceExternalFlatReceiverV1,assert:assertOwnedDeviceExternalFlatReceiverV1,capture:captureOwnedDeviceExternalFlatReceiverV1,abort:abortOwnedDeviceExternalFlatReceiverCaptureV1,reopen:reopenOwnedDeviceExternalFlatReceiverV1,external:assertOwnedExternalDefiReceiverV2,native:assertOwnedNativeEconomicRuntimeRecoverableV1,fenceNative:fenceOwnedNativeEconomicRuntimeV1,captureNative:captureOwnedNativeEconomicRuntimeV1,abortNative:abortOwnedNativeEconomicRuntimeV1};}',{
-  assert,events,EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:record.schema,LOCAL_EVM_PROFILE:localProfile,NATIVE_ECONOMIC_ANVIL_PIN_V2:nativePin,
-  originalEvmEconomicFencesV1:new WeakMap(),cloneRuntimeRecoveryV1:structuredClone,
-  recoveryContract:{deviceExternalFlatReceiverCaptureIdentityV1:captureIdentity,consumeDeviceExternalFlatReceiverRuntimeSectionV1:consume},
-  async createFixedOwnedLocalEvm(profile,generation,saved,selector){factoryCalls++;assert.equal(profile,localProfile);assert.equal(generation,false);assert.equal(selector,bridge.symbol);assert.ok(saved===null||saved===record);
-   const state={closed:false,fenced:false};const runtime=Object.freeze({async close(){events.push('close');state.closed=true;if(cleanupError)throw cleanupError;return{closed:true};}});instances.set(runtime,state);bridge.install(runtime,state);events.push(saved?'open-core':'new-core');return runtime;},
-  async armOwnedEvmRecoveryRetentionV1(runtime){assert.ok(instances.has(runtime));events.push('retain-before-effects');if(retentionGate)await retentionGate;if(retentionError)throw retentionError;return{retained:true,explicitInertHost:true};}
- });
- bridge=bind({capture:async runtime=>{assert.ok(instances.get(runtime).fenced);if(captureGate)await captureGate;if(captureError)throw captureError;return record;}});
+ const createCore=async(saved,source)=>{factoryCalls++;assert.ok(saved===null||saved===record);const state={closed:false,fenced:false,retained:false};
+   const runtime=Object.freeze({async close(){events.push('close');state.closed=true;if(cleanupError)throw cleanupError;return{closed:true};}});instances.set(runtime,state);
+   const capture=createDeviceReceiverCaptureControlV1({captureIdentity,
+     assertAliveAndPin(){assert.equal(state.closed,false);},assertQuiescent(){assert.equal(state.fenced,false,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');},
+     installFence(value){assert.equal(value,identity);state.fenced=true;state.retained=true;},
+     async captureRetained(){assert.equal(state.retained,true);assert.equal(state.fenced,true);events.push('capture');if(captureGate)await captureGate;if(captureError)throw captureError;return record;},
+     async closeCaptured(){await runtime.close();}
+   });events.push(saved?'open-core':'new-core');
+   return{runtime,capture,source:source?{observationOnly:saved!==null,preflight(){assert.equal(state.closed,false);},async snapshot(opening){assert.equal(opening,saved!==null);return record;}}:null};
+ };
+ const ports={createOrderedCore:saved=>createCore(saved,false),createSourceCore:saved=>createCore(saved,true),consumeOrderedSection:consume,
+   consumeSourceSection(token){const saved=sourceReads.get(token);assert.ok(saved&&!saved.used,'HOST_ORIGINAL_SOURCE_OPEN_TOKEN');saved.used=true;return saved.record;},
+   consumeSourceCheckpoint(token,runtime){const saved=sourceRequests.get(token);assert.ok(saved&&!saved.used&&saved.runtime===runtime,'HOST_ORIGINAL_SOURCE_CHECKPOINT_TOKEN');saved.used=true;return{opening:saved.opening};},
+   async armRetention(runtime){assert.ok(instances.has(runtime));events.push('retain-before-effects');if(retentionGate)await retentionGate;if(retentionError)throw retentionError;return{retained:true,explicitInertHost:true};}
+ };
+ const family=buildDeviceReceiverFamilyV1(ports),native=createNativeEconomicRecoveryAccessV1({assertDistinctReceiver:family.assertDistinct,readOriginalFence(){return undefined;}});
+ const bridge={...family,assert:family.assertReceiver,native:native.assertRecoverable,fenceNative:native.fence,captureNative:native.capture,abortNative:native.abort};
  let releaseRetention;retentionGate=new Promise(resolve=>{releaseRetention=resolve;});let returned=false;
  const creation=bridge.create().then(runtime=>{returned=true;return runtime;});await new Promise(resolve=>setTimeout(resolve,0));
  assert.deepEqual(events,['new-core','retain-before-effects']);assert.equal(returned,false);releaseRetention();const runtime=await creation;retentionGate=null;
- assert.equal(bridge.assert(runtime),undefined);assert.throws(()=>bridge.assert({...runtime}),/ORIGINAL_REQUIRED/);assert.throws(()=>bridge.external(runtime),/EXTERNAL_RECEIVER_ORIGINAL/);assert.throws(()=>bridge.native(runtime),/DISTINCT_ISSUER/);
+ assert.equal(bridge.assert(runtime),undefined);assert.throws(()=>bridge.assert({...runtime}),/ORIGINAL_REQUIRED/);assert.throws(()=>bridge.native(runtime),/DISTINCT_ISSUER/);
  assert.throws(()=>bridge.fenceNative(runtime,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.captureNative(runtime,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.abortNative(runtime,{}),/DISTINCT_ISSUER/);
  await assert.rejects(bridge.create({}),/0/);await assert.rejects(bridge.abort(runtime,null),/ORIGINAL_CAPTURE_TOKEN/);assert.equal(instances.get(runtime).closed,false);
  const token=Object.freeze(Object.create(null));writes.set(token,{identity,fault:false});assert.throws(()=>bridge.capture(runtime,{...token}),/HOST_ORIGINAL_DEVICE_WRITE_TOKEN/);assert.throws(()=>bridge.capture({...runtime},token),/ORIGINAL_REQUIRED/);
@@ -168,6 +174,17 @@ test('HOST ordered device receiver retains before effects and preserves its dist
  const before=factoryCalls;await assert.rejects(bridge.reopen({...readToken}),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);assert.equal(factoryCalls,before);
  const recovered=await bridge.reopen(readToken);assert.equal(factoryCalls,before+1);assert.equal(bridge.assert(recovered),undefined);await assert.rejects(bridge.reopen(readToken),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);
  const wrong=Object.freeze(Object.create(null));reads.set(wrong,{record:{...record,schema:'OWNED_FIXED_EVM_CAPTURE_V2'},used:false});await assert.rejects(bridge.reopen(wrong),/FIXED_V3/);assert.equal(factoryCalls,before+1);await assert.rejects(bridge.reopen(wrong),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);
+ // SOURCE births and reopened observation receivers belong to the same
+ // private distinct-issuer set; neither can enter the generic native issuer.
+ const source=await family.createSource();assert.equal(family.assertSource(source),undefined);assert.equal(family.assertReceiver(source),undefined);
+ assert.throws(()=>family.assertSource(runtime),/SOURCE_ORIGINAL_RECEIVER/);assert.throws(()=>family.assertSource({...source}),/SOURCE_ORIGINAL_RECEIVER/);
+ for(const receiver of [runtime,recovered,source]){assert.throws(()=>bridge.native(receiver),/DISTINCT_ISSUER/);assert.throws(()=>bridge.fenceNative(receiver,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.captureNative(receiver,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.abortNative(receiver,{}),/DISTINCT_ISSUER/);}
+ const checkpoint=Object.freeze({});sourceRequests.set(checkpoint,{runtime:source,opening:false,used:false});
+ await assert.rejects(family.checkpointSource(source,{...checkpoint}),/SOURCE_CHECKPOINT_TOKEN/);assert.equal(await family.checkpointSource(source,checkpoint),record);await assert.rejects(family.checkpointSource(source,checkpoint),/SOURCE_CHECKPOINT_TOKEN/);
+ const sourceToken=Object.freeze({});sourceReads.set(sourceToken,{record,used:false});await assert.rejects(family.reopenSource({...sourceToken}),/SOURCE_OPEN_TOKEN/);const restoredSource=await family.reopenSource(sourceToken);await assert.rejects(family.reopenSource(sourceToken),/SOURCE_OPEN_TOKEN/);assert.throws(()=>bridge.native(restoredSource),/DISTINCT_ISSUER/);
+ const wrongCheckpoint=Object.freeze({});sourceRequests.set(wrongCheckpoint,{runtime:restoredSource,opening:false,used:false});await assert.rejects(family.checkpointSource(restoredSource,wrongCheckpoint),/SOURCE_ORIGINAL_RECEIVER/);
+ const separate=buildDeviceReceiverFamilyV1(ports),foreign=await separate.createSource();assert.throws(()=>family.assertReceiver(foreign),/ORIGINAL_REQUIRED/);assert.throws(()=>separate.assertReceiver(source),/ORIGINAL_REQUIRED/);assert.equal(family.assertDistinct(foreign),undefined);assert.throws(()=>bridge.native(foreign),/EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED/);
+ await source.close();await restoredSource.close();await foreign.close();
  await recovered.close();const originalRetentionError=new Error('HOST_RETENTION_FAILED'),originalCleanupError=new Error('HOST_CLEANUP_FAILED');retentionError=originalRetentionError;
  await assert.rejects(bridge.create(),error=>error===originalRetentionError);cleanupError=originalCleanupError;
  await assert.rejects(bridge.create(),error=>error.cause===originalRetentionError&&error.errors[0]===originalRetentionError&&error.errors[1]===originalCleanupError);
@@ -178,13 +195,12 @@ test('HOST ordered device receiver retains before effects and preserves its dist
  * ledger/proof-verification ports. No circuit, Native receiver or financial
  * acceptance is exercised by this HOST continuation regression. */
 test('HOST original Meta four ordered audit preserves all twenty bindings and denies extra effects',async()=>{
- const {createHash}=await import('node:crypto'),sha=value=>createHash('sha256').update(value).digest('hex'),root='/explicit-inert-fixed-wallet';
+ const {createHash}=await import('node:crypto'),sha=value=>createHash('sha256').update(value).digest('hex'),root=fixedRoot;
  const integration=name=>new URL(generated?'../../../integration/'+name:'../../../../../tests/integration/wallet/native/'+name,import.meta.url);
- const policy=await readFile(integration('device-external-flat-erc20-policy-v1.mjs'),'utf8'),successor=await readFile(integration('device-external-flat-ordered-successor-v1.mjs'),'utf8');
- const a=policy.indexOf('export function classifyDeviceExternalFlatErc20ProcessV1('),b=policy.indexOf('export function assertDeviceExternalFlatErc20ResultV1',a),c=policy.indexOf('export function classifyDeviceExternalFlatGraphProcessV1('),d=policy.indexOf('export function assertDeviceExternalFlatGraphResultV1',c),e=policy.indexOf('export function classifyDeviceMetaFourGraphProcessV1('),f=policy.indexOf('export function assertDeviceMetaFourGraphResultV1',e);assert.ok(a>=0&&b>a&&c>=0&&d>c&&e>=0&&f>e);
- const {basename,dirname}=await import('node:path'),code=[policy.slice(a,b),policy.slice(c,d),policy.slice(e,f)].join('\n').replace(/^export /gm,''),classify=new Function('assert','join','basename','dirname','ROOT','GOLDEN','process','NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1',code+';return classifyDeviceMetaFourGraphProcessV1;')(assert,join,basename,dirname,root,root,{execPath:'/explicit-inert-node'},'/explicit-inert-anvil');
- const worker=join(root,'integration/device-external-flat-ordered-successor-v1.mjs'),main=join(root,'integration/device-external-flat-erc20-flow-v1.mjs'),argv=['/explicit-inert-node',worker];assert.deepEqual(classify(argv,argv[0],{argv:[argv[0],main]}),{role:'device-external-flat-observation-successor',proofWorker:false});for(const parent of [[argv[0],main,'extra'],[argv[0],main+'-copy']])assert.equal(classify(argv,argv[0],{argv:parent}).role,'device-external-flat-unexpected-process');assert.equal(classify([...argv,'extra'],argv[0],{argv:[argv[0],main]}).role,'device-external-flat-unexpected-process');
- const start=successor.indexOf('async function auditGraph(){'),end=successor.indexOf('async function handle(packet)',start);assert.ok(start>=0&&end>start);const body=successor.slice(start,end),head={number:'22',hash:'0x'+'ab'.repeat(32)},pins={sameOriginalSources:'cd'.repeat(32)},account=Object.freeze({}),targets=Object.freeze(Array.from({length:4},()=>Object.freeze({}))),service=Object.freeze({}),originalRows=new WeakMap();
+ const {classifyDeviceMetaFourGraphProcessV1:classify}=await import(integration('device-external-flat-erc20-policy-v1.mjs'));
+ const {auditDeviceExternalFlatOrderedGraphV1}=await import(integration('device-external-flat-ordered-audit-v1.mjs'));
+ const worker=join(root,'integration/device-external-flat-ordered-successor-v1.mjs'),main=join(root,'integration/device-external-flat-erc20-flow-v1.mjs'),argv=[process.execPath,worker];assert.deepEqual(classify(argv,argv[0],{argv:[argv[0],main]}),{role:'device-external-flat-observation-successor',proofWorker:false});for(const parent of [[argv[0],main,'extra'],[argv[0],main+'-copy']])assert.equal(classify(argv,argv[0],{argv:parent}).role,'device-external-flat-unexpected-process');assert.equal(classify([...argv,'extra'],argv[0],{argv:[argv[0],main]}).role,'device-external-flat-unexpected-process');
+ const head={number:'22',hash:'0x'+'ab'.repeat(32)},pins={sameOriginalSources:'cd'.repeat(32)},account=Object.freeze({}),targets=Object.freeze(Array.from({length:4},()=>Object.freeze({}))),service=Object.freeze({}),originalRows=new WeakMap();
  const proof=(label,relation,index)=>({label,relation,result:{proof:Buffer.from([index+1]).toString('hex'),publicInputs:[String(index+1)]}});originalRows.set(account,[proof('device-external-flat-d26','deposit_balance',0)]);for(let slot=0;slot<4;slot++)originalRows.set(targets[slot],[proof('device-external-flat-d27','deposit_intent',slot+1),proof('device-external-flat-w39','withdraw_balance',slot+5)]);
  const graphRows=Array.from({length:11},(_,i)=>proof('original-graph-'+i,['authorization','reservation','dependency','ready','admission','node','node','node','node','settlement','withdraw_balance'][i],i+9));
  const rows=[...originalRows.get(account),...targets.flatMap((a,slot)=>originalRows.get(a).map(row=>({...row,label:'multi-slot-'+slot+'-'+row.label}))),...graphRows],bindings=rows.map(row=>[row.label,row.relation,sha(Buffer.from(row.result.proof,'hex'))+sha(Buffer.from(JSON.stringify(row.result.publicInputs)))]);assert.equal(bindings.length,20);
@@ -192,7 +208,7 @@ test('HOST original Meta four ordered audit preserves all twenty bindings and de
  const runtime={get transactions(){return extraWire?[...receiptHashes,'forbidden']:receiptHashes;},receipts:receiptHashes,block:async()=>head,assertCanonical:async value=>{if(Object.hasOwn(value,'transactionHash')){assert.equal(value.blockHash,head.hash);assert.equal(value.status,'0x1');assert.ok(receiptHashes.includes(value.transactionHash.slice(2)));}else assert.deepEqual(value,head);},async transaction(hash){assert.ok(receiptHashes.includes(hash.slice(2)));return{hash,blockHash:head.hash,input:'0x01'};},async receipt(hash){assert.ok(receiptHashes.includes(hash.slice(2)));return{transactionHash:hash,blockHash:head.hash,status:'0x1'};},checkReceipt:async()=>{checkedReceipts++;}},system={pools:views.map(()=>({assetCapability:{balance:async()=>0n}})),async verify(relation,proof,words){verifiedProofs++;return rows.some(r=>r.relation===relation&&Buffer.from(r.result.proof,'hex').equals(proof)&&words[0]==='0x'+BigInt(r.result.publicInputs[0]).toString(16).padStart(64,'0'));}};
  const expected={schema:'DEVICE_META_FOUR_GRAPH_ORDERED_AUDIT_V4',descriptorSHA256:'11'.repeat(32),targetDescriptorSHA256:'22'.repeat(32),head,recipient:'12'.repeat(20),wireCount:receiptHashes.length,receiptCount:receiptHashes.length,pools:views.map((view,poolIndex)=>({poolIndex,...Object.fromEntries(['rawState','rawHistory','rawBacking'].map(k=>[k+'SHA256',sha(Buffer.from(view.poolObservation[k]))])),nullifiers:['ef'.repeat(32)],backing:'0',assetBalance:'0',recipientBalance:'0'})),financialReceipts:receiptHashes.map(hash=>hash+head.hash.slice(2)+sha(Buffer.from([1]))),proofs:bindings};
  const identity={sourceSHA256:sha(JSON.stringify(pins))},context={runtime,system,account,targetAccount:targets[0],targetAccounts:targets},ports={assert,Buffer,process:{pid:4242},sha,live(){},exactRecord:(v,keys)=>assert.deepEqual(Object.keys(v).sort(),[...keys].sort()),expected,multiParent:true,blueParent:false,aaveParent:false,metaParent:false,uniswapParent:false,context,service,identity,currentPins:()=>sourceChange?{}:pins,createFlatSystemStateReader:async q=>({read:async()=>views[q.poolIndex],assertCurrent:async v=>assert.equal(v,views[q.poolIndex])}),readOriginalDeviceExternalFlatProofReceiptsV1:a=>originalRows.get(a),readOriginalDeviceExternalFlatSourceGraphServiceProofsV1:s=>{assert.equal(s,service);return graphRows;}};
- const audit=new Function(...Object.keys(ports),body+';return auditGraph;')(...Object.values(ports)),observed=await audit();assert.equal(observed.proofCount,20);assert.equal(verifiedProofs,20);assert.equal(checkedReceipts,13);assert.equal(observed.noAdditionalWire,true);assert.equal(observed.noAdditionalProof,true);assert.equal(observed.wireCount,receiptHashes.length);
+ const audit=()=>auditDeviceExternalFlatOrderedGraphV1({expected,identity,context,service,variants:{multiParent:true,blueParent:false,aaveParent:false,metaParent:false,uniswapParent:false}},ports),observed=await audit();assert.equal(observed.proofCount,20);assert.equal(verifiedProofs,20);assert.equal(checkedReceipts,13);assert.equal(observed.noAdditionalWire,true);assert.equal(observed.noAdditionalProof,true);assert.equal(observed.wireCount,receiptHashes.length);
  const identityPacket={profile:'DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1',directory:join(root,'.local/device-external-flat-ordered-observation-v1/attempt-11111111-2222-4333-8444-555555555555/private-audit'),runId:'11111111-2222-4333-8444-555555555555',sourceSHA256:identity.sourceSHA256,deadlineMs:1900000000000};assert.ok(Buffer.byteLength(JSON.stringify({sequence:1,action:'OPEN',identity:identityPacket,checkpoint:{revision:1,stateSHA256:'cd'.repeat(32)},expected}))<=8192);
  const originalProofBinding=expected.proofs[2][2];expected.proofs[2][2]='ff'.repeat(64);await assert.rejects(audit());expected.proofs[2][2]=originalProofBinding; // retain no tampered proof as authority
  sourceChange=true;await assert.rejects(audit());sourceChange=false;expected.wireCount++;await assert.rejects(audit());expected.wireCount--;extraWire=true;await assert.rejects(audit());assert.equal(verifiedProofs>20,true);

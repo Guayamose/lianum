@@ -54,6 +54,8 @@
     "../../packages/backend/src/accounts/authority/native-value/native-device-output-balance.mjs",
     "../../packages/backend/src/accounts/authority/native-value/recovered-device-installations.mjs",
     "../../packages/backend/src/execution/native-value/reconciliation/terminal-actions-v2.mjs",
-    "../../packages/backend/src/execution/native-value/reconciliation/terminal-reconciliation-v2.mjs"
+    "../../packages/backend/src/execution/native-value/reconciliation/terminal-reconciliation-v2.mjs",
+    "../../packages/backend/src/chains/evm/runtime/device-receiver-family-v1.mjs",
+    "../../packages/backend/src/chains/evm/runtime/native-economic-recovery-access-v1.mjs"
   ]
 }
