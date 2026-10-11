@@ -117,7 +117,7 @@ test('manual default preserves broad multi-action access; exact-only exposes no 
   assert.equal(Object.hasOwn(exact, 'actionAccess'), false);
   assert.equal((await post(exact, manual.actionAccess)).status, 403);
   const page = await http(exact, '/'); assert.match(page.text, /name="wallet-action-token" content=""/);
-  for (const path of ['/', '/app.mjs', '/view-model.mjs', '/style.css']) {
+  for (const path of ['/', '/app.mjs', '/packages/mobile-protocol/src/wallet/client/view-model.mjs', '/style.css']) {
     const asset = await http(exact, path); assert.equal(asset.status, 200);
     assert.ok(!asset.text.includes(cap.token)); assert.ok(!asset.text.includes(manual.actionAccess.token));
   }
