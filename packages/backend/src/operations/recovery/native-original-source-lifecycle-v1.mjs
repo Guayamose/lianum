@@ -489,6 +489,7 @@ async function prepareOriginalNativeSessions() {
       ]);
       return buildNativeManualSessionV1(
         Object.freeze({
+          format: Object.freeze({genericAccountIdentity,sha:accountJournalSHA256}),
           account: Object.freeze({
             assertOriginalNativeAccountSourceV1: (...args) =>
               account.assertOriginalNativeAccountSourceV1(...args),

@@ -94,6 +94,8 @@
     "../../packages/components/src/verification/wrapped-installation-data-v2.mjs",
     "../../packages/backend/src/claims/operations/claim-validation-library-v1.mjs",
     "../../packages/backend/src/api/mobile/paired-original-account-actor-backend-v2.mjs",
-    "../../packages/backend/src/api/mobile/paired-original-account-actor-contract-v2.mjs"
+    "../../packages/backend/src/api/mobile/paired-original-account-actor-contract-v2.mjs",
+    "../../packages/backend/src/api/accounts/native-manual-session-backend-v1.mjs",
+    "../../packages/backend/src/api/accounts/native-manual-session-contract-v1.mjs"
   ]
 }

@@ -1,3 +1,4 @@
+import {genericAccountIdentity,sha} from '@lianum/engine/accounts/journal';
 /** Real session/keeper owners over explicit inert native ports. The factory may
  * create a separate family; it cannot issue canonical SOURCE memberships. */
 import test from "node:test";
@@ -25,6 +26,7 @@ const shared = await import(
 const pick = (namespace, names) =>
   Object.fromEntries(names.map((name) => [name, namespace[name]]));
 const contracts = () => ({
+  format: {genericAccountIdentity,sha},
   account: pick(account, [
     "assertOriginalNativeAccountSourceV1",
     "assertOwnedNativeValueAccountAuthority",

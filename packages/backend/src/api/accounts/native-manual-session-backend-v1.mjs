@@ -1,10 +1,43 @@
+/** @typedef {import("./native-manual-session-contract-v1.mjs").SessionContracts} SessionContracts */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Body} Body */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Action} Action */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Session} Session */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Account} Account */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").State} State */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").SourceContext} SourceContext */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").EconomicSeed} EconomicSeed */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").SourceSeed} SourceSeed */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").SourceSection} SourceSection */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Candidate} Candidate */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").EconomicRecord} EconomicRecord */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Keeper} Keeper */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").KeeperSnapshot} KeeperSnapshot */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").OwnedProcess} OwnedProcess */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").CreateInput} CreateInput */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Membership} Membership */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Recovery} Recovery */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Snapshot} Snapshot */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Journal} Journal */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").Joined} Joined */
+/** @typedef {import("./native-manual-session-contract-v1.mjs").EconomicInput} EconomicInput */
 /** Native session lifetime: original account, durable keeper, approvals and
  * SOURCE/economic recovery remain in one private instance. No registry writer
  * or caller-selected canonical ports are exported. */
-import { genericAccountIdentity, sha } from "@lianum/engine/accounts/journal";
+
 import { exactRecord } from "@lianum/components/encoding/commitments";
+/** @param {SessionContracts} contracts */
 export function buildNativeManualSessionV1(contracts) {
-  exactRecord(contracts, ["account", "economic", "source", "resources"]);
+  exactRecord(contracts, [
+    "account",
+    "economic",
+    "source",
+    "resources",
+    "format",
+  ]);
+  exactRecord(contracts.format, ["sha", "genericAccountIdentity"]);
+  const { sha, genericAccountIdentity } = contracts.format;
+  if (typeof sha !== "function" || typeof genericAccountIdentity !== "function")
+    throw new TypeError("NATIVE_SESSION_FIXED_CONTRACT");
   exactRecord(contracts.account, [
     "assertOriginalNativeAccountSourceV1",
     "assertOwnedNativeValueAccountAuthority",
@@ -88,16 +121,22 @@ export function buildNativeManualSessionV1(contracts) {
   ])
     if (typeof method !== "function")
       throw new TypeError("NATIVE_SESSION_FIXED_CONTRACT");
-  const sessions = new WeakMap(),
-    nativeAccounts = new WeakSet();
+  /** @type {WeakMap<object,State>} */
+  const sessions = new WeakMap();
+  /** @type {WeakSet<Account>} */
+  const nativeAccounts = new WeakSet();
+  /** @param {string|undefined} code @returns {never} */
   const fail = (code) => {
     throw Object.assign(new Error(code), { code });
   };
+  /** @type {(value:unknown,code?:string)=>asserts value} */
   const need = (value, code) => {
     if (!value) fail(code);
   };
+  /** @param {unknown} v @returns {v is string} */
   const id = (v) =>
     typeof v === "string" && /^[A-Za-z0-9_-]{8,100}$/.exec(v)?.[0] === v;
+  /** @param {object} session @param {object} approval */
   function originalNote(session, approval) {
     const binding = sessions.get(session);
     need(binding?.nativeAccount, "NATIVE_VALUE_MANUAL_NOTE_SESSION_REQUIRED");
@@ -114,6 +153,7 @@ export function buildNativeManualSessionV1(contracts) {
     return details;
   }
 
+  /** @param {object} session */
   function flatManualNativeNoteReviews(session) {
     const binding = sessions.get(session);
     return [...(binding?.notes?.values() ?? [])].map(
@@ -121,6 +161,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
   }
 
+  /** @param {object} session @param {Action} action @param {{requestId:string}&Partial<Body>} input */
   function flatManualNativeNoteActionTarget(session, action, input) {
     const binding = sessions.get(session),
       approval = binding?.notes?.get(input.requestId);
@@ -138,7 +179,7 @@ export function buildNativeManualSessionV1(contracts) {
     const details = originalNote(session, approval);
     if (action === "prepare")
       need(
-        Object.keys(details.body).every(
+        /** @type {(keyof Body)[]} */ (Object.keys(details.body)).every(
           (key) => input[key] === details.body[key],
         ),
         "NATIVE_VALUE_MANUAL_NOTE_BODY_CHANGED",
@@ -146,10 +187,12 @@ export function buildNativeManualSessionV1(contracts) {
     return approval;
   }
 
+  /** @param {CreateInput} input */
   async function createNativeValueManualGraphAccountSession(input) {
     return nativeGraphSession(input, null);
   }
 
+  /** @param {CreateInput} input @param {Recovery|null} recovery @returns {Promise<Joined>} */
   async function nativeGraphSession(input, recovery) {
     exactRecord(input, [
       "runtime",
@@ -194,8 +237,11 @@ export function buildNativeManualSessionV1(contracts) {
           journal,
           authority: account.authority,
         });
-    let session, state;
-    const originalApproval = (action, value) => {
+    /** @type {Session} */ let session;
+    /** @type {State|undefined} */ let state;
+    /** @param {["prepare",Body]|[Exclude<Action,"prepare">,string]} args */
+    const originalApproval = (...args) => {
+      const [action, value] = args;
       const body = action === "prepare" ? value : { requestId: value };
       const approval =
         nativeManualGraphActionTarget(session, action, body) ??
@@ -203,20 +249,24 @@ export function buildNativeManualSessionV1(contracts) {
       need(approval, "WALLET_ACCOUNT_GRAPH_FORBIDDEN");
     };
     const graphKeeper = Object.freeze({
+      /** @param {Body} value */
       prepare(value) {
         originalApproval("prepare", value);
         return originalSourceSessionWork(session, () => keeper.prepare(value));
       },
+      /** @param {string} value */
       execute(value) {
         originalApproval("execute", value);
         return originalSourceSessionWork(session, () => keeper.execute(value));
       },
+      /** @param {string} value */
       reconcile(value) {
         originalApproval("reconcile", value);
         return originalSourceSessionWork(session, () =>
           keeper.reconcile(value),
         );
       },
+      /** @param {string} value */
       recover(value) {
         originalApproval("recover", value);
         return originalSourceSessionWork(session, () => keeper.recover(value));
@@ -245,8 +295,8 @@ export function buildNativeManualSessionV1(contracts) {
       await keeper.close();
       throw error;
     }
-    const graphs = new Map(),
-      notes = new Map();
+    /** @type {Map<string,object>} */ const graphs = new Map();
+    /** @type {Map<string,object>} */ const notes = new Map();
     state = {
       runtime,
       system,
@@ -256,6 +306,7 @@ export function buildNativeManualSessionV1(contracts) {
       notes,
       journal,
       durableKeeper: keeper,
+      nativeReviews: [],
       nativeCaptured: false,
       nativeFence: null,
       nativeIdentity: null,
@@ -267,6 +318,7 @@ export function buildNativeManualSessionV1(contracts) {
     sessions.set(session, state);
     const joined = Object.freeze({
       session,
+      /** @param {object} approval */
       bindManualNote(approval) {
         const details = originalNote(session, approval),
           requestId = details.body.requestId,
@@ -292,6 +344,7 @@ export function buildNativeManualSessionV1(contracts) {
         notes.set(requestId, approval);
         return structuredClone(details.body);
       },
+      /** @param {object} approval */
       bindManualGraph(approval) {
         const details = original(session, approval),
           requestId = details.body.requestId;
@@ -331,6 +384,7 @@ export function buildNativeManualSessionV1(contracts) {
             ? null
             : await account.ownerActions.restoreManualPreparation();
         for (const retained of recovery.notes) {
+          need(preparation, "NATIVE_SESSION_ORIGINAL_NOTE_CHANGED");
           await preparation.reconcileOriginal({
             requestId: retained.body.requestId,
           });
@@ -362,6 +416,7 @@ export function buildNativeManualSessionV1(contracts) {
     return joined;
   }
 
+  /** @param {object} session @param {Omit<Membership,"owner">} expected */
   function assertNativeWalletEconomicSessionV1(session, expected) {
     need(arguments.length === 2, "NATIVE_SESSION_ARGUMENTS");
     exactRecord(expected, ["runtime", "system", "account"]);
@@ -383,6 +438,7 @@ export function buildNativeManualSessionV1(contracts) {
     });
   }
 
+  /** @param {Session} session @param {object} authority */
   function fenceOriginalNativeSessionEconomicRecoveryV1(session, authority) {
     need(arguments.length === 2, "NATIVE_SESSION_ARGUMENTS");
     const admitted = assertNativeEconomicRecoveryCaptureV1(authority),
@@ -418,6 +474,7 @@ export function buildNativeManualSessionV1(contracts) {
     state.nativeFence.catch(() => {});
   }
 
+  /** @param {object} session @param {object} token */
   function captureOriginalNativeSessionEconomicRecoveryV1(session, token) {
     need(arguments.length === 2, "NATIVE_SESSION_ARGUMENTS");
     const admitted = nativeEconomicRecoverySectionIdentityV1(token, "session"),
@@ -430,15 +487,23 @@ export function buildNativeManualSessionV1(contracts) {
       sha(admitted) === sha(state.nativeIdentity),
       "NATIVE_SESSION_CAPTURE_CHANGED",
     );
+    const nativeFence = state.nativeFence;
     state.nativeCaptured = true;
     state.nativeCapturePromise = (async () => {
-      const drained = await Promise.allSettled([
-        state.nativeFence,
-        state.economicCapture ?? Promise.resolve(null),
-      ]);
+      const drained = await Promise.allSettled(
+        /** @type {const} */ ([
+          nativeFence,
+          state.economicCapture ?? Promise.resolve(null),
+        ]),
+      );
       for (const outcome of drained)
         if (outcome.status === "rejected") throw outcome.reason;
-      const originalSnapshot = drained[0].value;
+      const settledSnapshot = drained[0];
+      need(
+        settledSnapshot.status === "fulfilled",
+        "NATIVE_SESSION_ORIGINAL_IDLE_REQUIRED",
+      );
+      const originalSnapshot = settledSnapshot.value;
       need(
         !originalSnapshot.busy && originalSnapshot.queued === 0,
         "NATIVE_SESSION_ORIGINAL_IDLE_REQUIRED",
@@ -471,6 +536,7 @@ export function buildNativeManualSessionV1(contracts) {
     return state.nativeCapturePromise;
   }
 
+  /** @param {object} session @param {object} token */
   async function stopCapturedNativeSessionEconomicRecoveryV1(session, token) {
     need(arguments.length === 2, "NATIVE_SESSION_ARGUMENTS");
     const state = sessions.get(session);
@@ -488,6 +554,7 @@ export function buildNativeManualSessionV1(contracts) {
     return { closed: true, originalResourcesStopped: true };
   }
 
+  /** @param {object} session @param {object} token */
   async function abortNativeSessionEconomicRecoveryV1(session, token) {
     need(arguments.length === 2, "NATIVE_SESSION_ARGUMENTS");
     const state = sessions.get(session);
@@ -496,7 +563,7 @@ export function buildNativeManualSessionV1(contracts) {
         sha(nativeEconomicRecoverySectionIdentityV1(token, "session")) ===
           sha(state.nativeIdentity),
     );
-    let captureError = null;
+    /** @type {unknown} */ let captureError = null;
     try {
       if (state.nativeCapturePromise) await state.nativeCapturePromise;
       else await state.nativeFence;
@@ -532,6 +599,7 @@ export function buildNativeManualSessionV1(contracts) {
     return { closed: true, originalResourcesStopped: true };
   }
 
+  /** @param {object} token @param {Membership} contexts */
   async function reopenOriginalNativeSessionEconomicRecoveryV1(
     token,
     contexts,
@@ -587,6 +655,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
   }
 
+  /** @param {object} session @param {Membership} expected */
   function assertNativeSessionEconomicMembershipV1(session, expected) {
     need(arguments.length === 2, "NATIVE_SESSION_ARGUMENTS");
     exactRecord(expected, ["runtime", "system", "account", "owner"]);
@@ -609,6 +678,7 @@ export function buildNativeManualSessionV1(contracts) {
     });
   }
 
+  /** @param {object} session @param {Keeper|null} [keeper] */
   function originalSourceSessionState(session, keeper = null) {
     const state = sessions.get(session);
     need(
@@ -639,15 +709,19 @@ export function buildNativeManualSessionV1(contracts) {
       state.graphs.size === 0,
       "NATIVE_SOURCE_GRAPH_RESTORATION_PRODUCER_REQUIRED",
     );
-    return state;
+    return /** @type {State&{nativeSource:SourceContext}} */ (state);
   }
 
+  /** @param {object} session @param {Keeper} keeper */
   function assertOriginalNativeSessionSourceKeeperV1(session, keeper) {
     need(arguments.length === 2, "NATIVE_SOURCE_SESSION_ARGUMENTS");
     originalSourceSessionState(session, keeper);
   }
 
+  /** @param {State} state @param {KeeperSnapshot} snapshot @returns {SourceSeed} */
   function sourceSessionPayload(state, snapshot) {
+    const source = state.nativeSource;
+    need(source, "NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED");
     const checkpoint = snapshot.keeper.checkpoint;
     need(
       checkpoint &&
@@ -657,7 +731,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
     return {
       schema: "ORIGINAL_NATIVE_SOURCE_SESSION_SEED_V1",
-      sourceSHA256: state.nativeSource.identity.sourceSHA256,
+      sourceSHA256: source.identity.sourceSHA256,
       poolIndex: state.poolIndex,
       accountIdentitySHA256: sha(
         genericAccountIdentity(state.nativeAccount.config),
@@ -665,13 +739,16 @@ export function buildNativeManualSessionV1(contracts) {
       journalRevision: checkpoint.revision,
       keeper: structuredClone(snapshot.keeper),
       notes: [...state.notes.values()].map((approval) => {
-        const details = originalNote(state.nativeSource.session, approval);
+        const details = originalNote(source.session, approval);
         return structuredClone({ body: details.body, review: details.review });
       }),
     };
   }
 
+  /** @param {State} state @param {KeeperSnapshot} snapshot */
   async function sourceOwnedCoordinatorProcesses(state, snapshot) {
+    const source = state.nativeSource;
+    need(source, "NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED");
     need(
       Array.isArray(snapshot.ownedProcesses) &&
         snapshot.ownedProcesses.length === 1,
@@ -679,7 +756,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
     const expected = snapshot.ownedProcesses[0],
       actual = await nativeSourceRecoveryOwnedProcessV1(
-        state.nativeSource.token,
+        source.token,
         "session",
         expected.pid,
       );
@@ -690,32 +767,36 @@ export function buildNativeManualSessionV1(contracts) {
     return [actual];
   }
 
+  /** @param {State} state @param {SourceSeed} confirmed @param {OwnedProcess[]} ownedProcesses @param {Candidate} candidate */
   async function updateSourceSession(
     state,
     confirmed,
     ownedProcesses,
     candidate,
   ) {
+    const source = state.nativeSource;
+    need(source, "NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED");
+    need(source.handle, "NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED");
+    /** @type {SourceSection} */
     const section = {
       schema: "ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1",
-      sourceSHA256: state.nativeSource.identity.sourceSHA256,
+      sourceSHA256: source.identity.sourceSHA256,
       ownedProcesses: structuredClone(ownedProcesses),
       confirmed,
       candidate,
     };
-    await updateOriginalNativeSourceSectionV1(
-      state.nativeSource.handle,
-      section,
-    );
-    state.nativeSource.section = structuredClone(section);
+    await updateOriginalNativeSourceSectionV1(source.handle, section);
+    source.section = structuredClone(section);
   }
 
+  /** @param {Session} session @param {Keeper} keeper */
   async function prepareOriginalNativeSessionKeeperSourceCheckpointV1(
     session,
     keeper,
   ) {
     need(arguments.length === 2, "NATIVE_SOURCE_SESSION_ARGUMENTS");
     const state = originalSourceSessionState(session, keeper);
+    need(state.nativeSource.section, "NATIVE_SOURCE_ORIGINAL_CHECKPOINT");
     const module = await loadDurableKeeper();
     const candidate =
       await module.readOriginalNativeSourceSessionKeeperCandidateV1(
@@ -737,12 +818,14 @@ export function buildNativeManualSessionV1(contracts) {
     );
   }
 
+  /** @param {Session} session @param {Keeper} keeper */
   async function confirmOriginalNativeSessionKeeperSourceCheckpointV1(
     session,
     keeper,
   ) {
     need(arguments.length === 2, "NATIVE_SOURCE_SESSION_ARGUMENTS");
     const state = originalSourceSessionState(session, keeper);
+    need(state.nativeSource.section, "NATIVE_SOURCE_ORIGINAL_CHECKPOINT");
     const module = await loadDurableKeeper();
     const snapshot = await module.readOriginalNativeSourceSessionKeeperV1(
       keeper,
@@ -770,11 +853,13 @@ export function buildNativeManualSessionV1(contracts) {
     );
   }
 
+  /** @template T @param {Session} session @param {()=>T|Promise<T>} work @returns {Promise<T>} */
   async function originalSourceSessionWork(session, work) {
     const state = sessions.get(session);
     if (!state?.nativeSource) return work();
     const source = state.nativeSource;
     originalSourceSessionState(session);
+    need(source.section, "NATIVE_SOURCE_ORIGINAL_CHECKPOINT");
     need(!source.busy && !source.fault, "NATIVE_SOURCE_SESSION_UNAVAILABLE");
     source.busy = true;
     try {
@@ -805,11 +890,13 @@ export function buildNativeManualSessionV1(contracts) {
     }
   }
 
+  /** @param {Joined} joined */
   function originalSourceJoinedSession(joined) {
     // SOURCE callers await this binding before funding; ordinary joined sessions
     // keep their existing synchronous methods and no new persistence work.
     return Object.freeze({
       session: joined.session,
+      /** @param {object} approval */
       async bindManualNote(approval) {
         return originalSourceSessionWork(joined.session, () =>
           joined.bindManualNote(approval),
@@ -821,6 +908,7 @@ export function buildNativeManualSessionV1(contracts) {
     });
   }
 
+  /** @param {object} token @param {CreateInput&{owner:object}} input */
   async function createOriginalNativeSourceGraphAccountSessionV1(token, input) {
     need(arguments.length === 2, "NATIVE_SOURCE_SESSION_ARGUMENTS");
     exactRecord(input, [
@@ -851,6 +939,7 @@ export function buildNativeManualSessionV1(contracts) {
     const { owner, ...original } = input,
       joined = await nativeGraphSession(original, null),
       state = sessions.get(joined.session);
+    need(state, "NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED");
     state.nativeSource = {
       identity,
       owner,
@@ -867,6 +956,7 @@ export function buildNativeManualSessionV1(contracts) {
         state.durableKeeper,
         joined.session,
       );
+      /** @type {SourceSection} */
       const section = {
         schema: "ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1",
         sourceSHA256: identity.sourceSHA256,
@@ -901,6 +991,7 @@ export function buildNativeManualSessionV1(contracts) {
     }
   }
 
+  /** @param {object} token @param {Membership} contexts */
   async function reopenOriginalNativeSessionSourceV1(token, contexts) {
     need(arguments.length === 2, "NATIVE_SOURCE_SESSION_ARGUMENTS");
     exactRecord(contexts, ["runtime", "system", "account", "owner"]);
@@ -967,6 +1058,7 @@ export function buildNativeManualSessionV1(contracts) {
         { ...retained, source: true, owner: contexts.owner },
       ),
       state = sessions.get(joined.session);
+    need(state, "NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED");
     state.nativeSource = {
       identity,
       owner: contexts.owner,
@@ -1008,6 +1100,7 @@ export function buildNativeManualSessionV1(contracts) {
     }
   }
 
+  /** @param {object} session */
   function nativeManualGraphReviews(session) {
     const binding = sessions.get(session);
     if (!binding) return [];
@@ -1016,6 +1109,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
   }
 
+  /** @param {object} session */
   function nativeManualGraphHandoffBindings(session) {
     const binding = sessions.get(session);
     if (!binding) return [];
@@ -1039,6 +1133,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
   }
 
+  /** @param {object} session @param {Action} action @param {{requestId:string}&Partial<Body>} input */
   function nativeManualGraphActionTarget(session, action, input) {
     need(
       ["prepare", "execute", "reconcile", "recover"].includes(action),
@@ -1069,7 +1164,9 @@ export function buildNativeManualSessionV1(contracts) {
     if (action === "prepare") {
       exactRecord(input, ["requestId", "kind", "ownerOperationRef", "assetId"]);
       need(
-        Object.keys(body).every((key) => input[key] === body[key]),
+        /** @type {(keyof Body)[]} */ (Object.keys(body)).every(
+          (key) => input[key] === body[key],
+        ),
         "WALLET_ACCOUNT_GRAPH_BINDING_CHANGED",
       );
     } else {
@@ -1079,6 +1176,7 @@ export function buildNativeManualSessionV1(contracts) {
     return approval;
   }
 
+  /** @param {Session} session */
   async function readOriginalNativeSessionWalletEconomicSnapshotV1(session) {
     need(arguments.length === 1, "WALLET_ECONOMIC_SESSION_ARGUMENTS");
     const state = sessions.get(session);
@@ -1107,6 +1205,7 @@ export function buildNativeManualSessionV1(contracts) {
     return { ...snapshot, requests };
   }
 
+  /** @param {State} state @param {Session} session @param {Journal} journal @returns {EconomicInput} */
   function sessionEconomicInput(state, session, journal) {
     return {
       catalogues: [],
@@ -1123,6 +1222,7 @@ export function buildNativeManualSessionV1(contracts) {
     };
   }
 
+  /** @param {Session} session @param {EconomicRecord|null|undefined} retained @param {boolean} [afterCrash] */
   async function sessionEconomicState(session, retained, afterCrash = false) {
     const state = sessions.get(session);
     need(
@@ -1178,6 +1278,7 @@ export function buildNativeManualSessionV1(contracts) {
     return state.economicAcquisition;
   }
 
+  /** @param {Session} session */
   async function createOriginalNativeSessionWalletEconomicStateV1(session) {
     need(arguments.length === 1, "WALLET_ECONOMIC_SESSION_ARGUMENTS");
     const state = sessions.get(session);
@@ -1190,6 +1291,7 @@ export function buildNativeManualSessionV1(contracts) {
     return sessionEconomicState(session, null);
   }
 
+  /** @param {Session} session */
   async function reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(
     session,
   ) {
@@ -1204,6 +1306,7 @@ export function buildNativeManualSessionV1(contracts) {
     return sessionEconomicState(session, null, true);
   }
 
+  /** @param {object} session */
   function readOriginalNativeSessionWalletEconomicStateV1(session) {
     need(arguments.length === 1, "WALLET_ECONOMIC_SESSION_ARGUMENTS");
     const state = sessions.get(session);
@@ -1214,26 +1317,33 @@ export function buildNativeManualSessionV1(contracts) {
     return state.economicState ?? null;
   }
 
+  /** @param {State} state */
   function fenceSessionEconomicState(state) {
     if (state.economicState)
       state.economicCapture = state.economicState.capture();
     else if (state.economicAcquisition)
       state.economicCapture = (async () => {
         const capability = await state.economicAcquisition;
+        need(capability, "WALLET_ECONOMIC_ORIGINAL_SESSION_REQUIRED");
         return capability.capture();
       })();
     state.economicCapture?.catch(() => {});
   }
 
+  /** @param {State} state @returns {Promise<EconomicRecord|null>} */
   async function capturedSessionEconomicState(state) {
     if (!state.economicState) return null;
-    need(state.economicCapture, "WALLET_ECONOMIC_ORIGINAL_CAPTURE_REQUIRED");
+    need(
+      state.economicCapture && state.economicJournal,
+      "WALLET_ECONOMIC_ORIGINAL_CAPTURE_REQUIRED",
+    );
     return {
       journal: { ...state.economicJournal },
       checkpoint: await state.economicCapture,
     };
   }
 
+  /** @param {object} session @param {object} approval */
   function original(session, approval) {
     const binding = sessions.get(session);
     need(binding?.nativeAccount, "WALLET_ACCOUNT_GRAPH_FORBIDDEN");
@@ -1249,6 +1359,7 @@ export function buildNativeManualSessionV1(contracts) {
     );
     return details;
   }
+  /** @param {object} session */
   function isOriginalNativeManualSessionV1(session) {
     return sessions.has(session);
   }

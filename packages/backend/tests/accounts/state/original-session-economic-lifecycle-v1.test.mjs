@@ -90,7 +90,7 @@ test('HOST real native and wrapped session factories retain pending state and re
  // exact instance through the mocked composition never fabricates membership.
  const {buildNativeManualSessionV1}=await import('../../../src/api/accounts/native-manual-session-backend-v1.mjs');
  const recovery=lowerModules.get('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
- const native=buildNativeManualSessionV1({account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
+ const native=buildNativeManualSessionV1({format:{genericAccountIdentity,sha},account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
   economic:{assertNativeEconomicRecoveryCaptureV1:recovery.assertNativeEconomicRecoveryCaptureV1,nativeEconomicRecoverySectionIdentityV1:recovery.nativeEconomicRecoverySectionIdentityV1,
    consumeNativeEconomicRecoverySectionV1:recovery.consumeNativeEconomicRecoverySectionV1,...lowerModules.get('operations/deployments/native-value/native-value-system-v2.mjs')},
   source:sourcePorts,resources:{loadDurableKeeper:()=>import('../../../src/accounts/storage/durable-generic-account-keeper.mjs'),

@@ -8,7 +8,7 @@ import {tmpdir} from 'node:os';
 import {createDurableGenericAccountKeeperV1, reopenDurableGenericAccountKeeperV1, captureDurableGenericAccountKeeperV1,
   bindOriginalNativeSourceSessionKeeperV1, readOriginalNativeSourceSessionKeeperV1} from '../../../src/accounts/storage/durable-generic-account-keeper.mjs';
 import {createGenericAccountKeeper, assertOriginalGenericAccountKeeperV1} from '@lianum/engine/accounts/keeper';
-import {genericAccountIdentity} from '@lianum/engine/accounts/journal';
+import {genericAccountIdentity,sha} from '@lianum/engine/accounts/journal';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {startGenericAccountKeeper} from '@lianum/engine/accounts/coordinator-lifecycle';
 import * as durableKeeperAPI from '../../../src/accounts/storage/durable-generic-account-keeper.mjs';
@@ -82,7 +82,7 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
     async createDurableGenericAccountKeeperV1(input){assert.equal(keeper,undefined);keeper=await createDurableGenericAccountKeeperV1(input);return keeper;},
   });
   const {buildNativeManualSessionV1}=await import('../../../src/api/accounts/native-manual-session-backend-v1.mjs');
-  const actual=buildNativeManualSessionV1({account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
+  const actual=buildNativeManualSessionV1({format:{genericAccountIdentity,sha},account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
     economic:{...lowerModules.get('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs'),...lowerModules.get('operations/deployments/native-value/native-value-system-v2.mjs')},
     source:sourcePorts,resources:{loadDurableKeeper:()=>import('../../../src/accounts/storage/durable-generic-account-keeper.mjs'),
       loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
