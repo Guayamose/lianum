@@ -18,7 +18,7 @@ import { assertFactsQuorum } from '../../shared/transfers/generic-native-value-v
 import { PROFILE_SCHEMA as TRON_SCHEMA } from '../../tron/transfers/tron-native-graph-profile.mjs';
 import { PROFILE_SCHEMA as EVM_SCHEMA } from '../transfers/evm-native-value-v2.mjs';
 import { encodeEvmGraphTransferMemo } from '../transfers/evm-graph-transfer-binding.mjs';
-import { openNativeValueDispatchLease, NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS } from '../../shared/dispatch/native-value-dispatch-owner-v2.mjs';
+import { openNativeValueDispatchLease } from '../../shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { DISPATCH_PROFILE, normalizeNativeValueDispatchBinding, bindNativeValueDispatchRequest, selectedNativeValueProfile,
   nativeValueEvmScopeBinding, normalizeOriginalNativeValueEvmPreparation, nativeValueTronScopeBinding, normalizeOriginalNativeValueTronPreparation, assertNativeValueSigned, nativeValueDispatchNullifier, equal } from '../../shared/dispatch/native-value-dispatch-binding-v2.mjs';
 import { MAX_DISPATCH_EVENTS, readNativeValueDispatchJournal, appendNativeValueDispatchEvent, assertNativeValueRetainedIntent, nativeValueDispatchStatement } from '../../shared/dispatch/native-value-dispatch-journal-v2.mjs';
@@ -48,7 +48,7 @@ export function assertOwnedNativeValueProvider(provider,expected) {
  exactRecord(expected,['runtime','system','poolIndex']);const r=providers.get(provider);
  assert.ok(r,'NATIVE_VALUE_ORIGINAL_PROVIDER_REQUIRED');for(const k of Object.keys(expected))assert.equal(r[k],expected[k]);r.assertLive();return provider;
 }
-export const NATIVE_VALUE_PROVIDER_BLOCKERS=NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS;
+export { NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS as NATIVE_VALUE_PROVIDER_BLOCKERS } from '../../shared/dispatch/native-value-dispatch-owner-v2.mjs';
 export async function createOwnedNativeValueProvider(input) {
  exactRecord(input,['runtime','system','poolIndex','dispatchLease']);const {runtime,system,poolIndex,dispatchLease}=input;
  assert.ok(Number.isSafeInteger(poolIndex)&&!Object.is(poolIndex,-0)&&poolIndex>=0&&poolIndex<2);
