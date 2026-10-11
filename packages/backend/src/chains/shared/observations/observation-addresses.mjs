@@ -1,5 +1,5 @@
 /** Public identifier framing only. Never a signing or key derivation API. */
-import {need} from '../portfolio/portfolio-registry.mjs';
+import {need} from './observation-errors.mjs';
 const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 export function solanaPublicKey(value) {
   need(typeof value === 'string' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value), 'INVALID_SOLANA_ADDRESS');

@@ -1,4 +1,6 @@
 import {solanaPublicKey, bitcoinWatchAddress} from '../observations/observation-addresses.mjs';
+import {ObservationError, need} from '../observations/observation-errors.mjs';
+export {ObservationError, need} from '../observations/observation-errors.mjs';
 /** Read-only display observations. These capabilities cannot authorize a credit,
  * spend, mint, bridge receipt or native-consensus claim. Construct privately. */
 import { createHash } from 'node:crypto';
@@ -18,12 +20,6 @@ export const PORTFOLIO_CHAINS = freeze({
 const adapters = new WeakMap();
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-export class ObservationError extends Error {
-  constructor(code, status = 'unknown') { super(code); this.code = code; this.status = status; }
-}
-export function need(condition, code = 'MALFORMED_RESPONSE', status = 'unknown') {
-  if (!condition) throw new ObservationError(code, status);
-}
 export function freeze(value) {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;

@@ -50,7 +50,8 @@ async function fixture(t, override = () => undefined) {
 test('one SDK/bootstrap capability reads five distinct native assets through actual HTTP adapters', async t => {
   const { networks, calls } = await fixture(t), registry = createHttpPortfolioRegistry({ networks, now: () => 1005000 });
   assert.deepEqual(Object.keys(registry), ['listChains', 'observe']);
-  assert.ok(registry.listChains().every(item => item.configured));
+  assert.deepEqual(registry.listChains().filter(item => item.configured).map(item => item.chain), chains);
+  assert.deepEqual(registry.listChains().filter(item => !item.configured).map(item => item.chain), ['bsc-local', 'solana', 'bitcoin']);
   assert.equal(calls.length, 0, 'bootstrap must not cause network I/O');
   const results = await Promise.all(chains.map(chain => registry.observe(request(chain))));
   for (const [index, observed] of results.entries()) {
@@ -90,7 +91,7 @@ test('bootstrap snapshots every target and freshness policy before caller mutati
   const input = request('ethereum'), pending = registry.observe(input); input.chain = 'bnb'; input.address = '0x' + 'ab'.repeat(20);
   const observed = await pending;
   assert.equal(observed.status, 'fresh'); assert.equal(observed.address, evmAddress); assert.equal(observed.validUntilMs, '1006000');
-  assert.equal(registry.listChains().length, 5); assert.ok(calls.every(call => call.path === '/ethereum'));
+  assert.equal(registry.listChains().filter(item => item.configured).length, 5); assert.ok(calls.every(call => call.path === '/ethereum'));
 });
 
 test('network mismatch and unsupported EIP-1898 never fall back or reuse a previous balance', async t => {

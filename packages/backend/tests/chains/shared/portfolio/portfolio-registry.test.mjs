@@ -6,7 +6,7 @@ import { createEvmObservationAdapter } from '../../../../src/chains/evm/observat
 const address = '0x' + '12'.repeat(20);
 test('registry has fixed chain/native query allowlist and explicit unconfigured unknowns', async () => {
   const registry = createPortfolioRegistry({ adapters: [] });
-  assert.deepEqual(registry.listChains().map(item => item.chain), ['ethereum', 'base', 'arbitrum', 'bnb', 'tron']);
+  assert.deepEqual(registry.listChains().map(item => item.chain), ['ethereum', 'base', 'arbitrum', 'bnb', 'bsc-local', 'solana', 'bitcoin', 'tron']);
   assert.ok(registry.listChains().every(item => item.configured === false && item.network === null));
   const result = await registry.observe({ chain: 'ethereum', address, query: 'native-balance' });
   assert.equal(result.status, 'unknown'); assert.equal(result.reason, 'ADAPTER_NOT_CONFIGURED');
