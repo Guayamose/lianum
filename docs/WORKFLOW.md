@@ -216,7 +216,9 @@ compatibilidad con artefactos originales. Su identificación y preparación
 se consultan con `./dev sources status` y se documentan en
 [SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md). `./dev sources prepare` prepara
 una instantánea de fuentes; no equivale a compilar, publicar o aprobar una
-generación económica. Esa gestión se solicita independientemente de las
+operación económica. `./dev sources adopt --generation <huella>` registra su
+adopción por los consumidores migrados tras verificar las fuentes y los
+artefactos originales. Esa gestión se solicita independientemente de las
 pruebas rápidas.
 
 Para trasladar una entrada fuera de este checkout se utiliza `./dev bundle`:

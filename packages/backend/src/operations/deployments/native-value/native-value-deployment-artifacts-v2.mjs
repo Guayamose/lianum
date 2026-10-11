@@ -10,6 +10,7 @@ import { ROOT, FLAT, GOLDEN, CANDIDATE, relation, NOIR_VERSION, SETTINGS } from 
 import { assertABI, circuitIdentity, loadCompiled, loadPrepared, versionDirectory } from '@lianum/proofs/tooling/tooling';
 import { NATIVE_VALUE_ADMISSION_SPEC, NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256, assertNativeValueCompiledIdentity } from '@lianum/proofs/native-value/metadata/native-value-v2-profile';
 import { inspectRetainedNodeArtifactsForPreparationV1 } from '@lianum/proofs/tooling/retained-node-artifacts-v1';
+import {hasAdoptedSourceGeneration, assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
 import { loadProofProfile } from '@lianum/proofs/execution/proof-worker';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables } from '@lianum/engine/execution/local/local-deployment';
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
@@ -20,6 +21,7 @@ import { NATIVE_VALUE_RELEASE, NATIVE_VALUE_RELEASE_SCHEMA, NATIVE_VALUE_SOURCE_
   NATIVE_VALUE_REQUIRED_ARTIFACTS } from '../../releases/native-value/native-value-wallet-release-v4.mjs';
 import { inspectNativeValueDevMobileDependenciesV5 } from '../../releases/native-value/native-value-dev-source-pins-v5.mjs';
 import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../../releases/native-value/native-value-dev-release-v5.mjs';
+import {NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5} from '../../releases/native-value/native-value-dev-mobile-package-pins-v5.mjs';
 import { validateNativeValueDevReleaseV5, nativeValueDevRetainedMetadataV5, nativeValueDevDigestV5, validateNativeValueDevPinnedBytesV5,
   NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5, NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
   NATIVE_VALUE_DEV_LEDGER_COMPILED_PATH_V5, NATIVE_VALUE_DEV_LEDGER_RECEIPT_PATH_V5, NATIVE_VALUE_DEV_LEDGER_KIND_V5,
@@ -418,25 +420,33 @@ export async function loadNativeValueDevDeploymentArtifactsV5() {
   assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_ARTIFACT_NO_CALLER_OVERRIDE');
   if (NATIVE_VALUE_DEV_RELEASE_V5 === null)
     throw Object.assign(new Error('NATIVE_VALUE_DEV_RELEASE_UNPUBLISHED'), { code: 'NATIVE_VALUE_DEV_RELEASE_UNPUBLISHED' });
-  const release = validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5);
+  const adopted = hasAdoptedSourceGeneration() ? assertAdoptedSourceGeneration() : null;
+  const publication = adopted ? validateRetainedNativeValuePublicationV6 : validateNativeValueDevReleaseV5;
+  const release = publication(NATIVE_VALUE_DEV_RELEASE_V5);
   pinned(release.producedLedger.compiled);pinned(release.producedLedger.receipt);
   inspectNativeValueDevMobileDependenciesV5();
-  for (const row of release.sourceFiles) validateNativeValueDevPinnedBytesV5(row, bytes(row.path));
-  const loaded = await inspectFixedRetainedNativeValueArtifactsV5();
+  if (!adopted) for (const row of release.sourceFiles) validateNativeValueDevPinnedBytesV5(row, bytes(row.path));
+  // Adoption authenticates current host code separately. Exact original
+  // programs, keys, compiler inputs, receipts and descriptors still gate the
+  // canonical bundle brand; current hosts never become its original producers.
+  const loaded = await inspectFixedRetainedNativeValueArtifactsV5(false, Boolean(adopted));
   assert.deepEqual(loaded.producedLedger,release.producedLedger,'NATIVE_VALUE_DEV_REVIEWED_PRODUCED_LEDGER_PIN');
   assert.deepEqual(loaded.producedW39.descriptor,release.producedW39,'NATIVE_VALUE_DEV_REVIEWED_PRODUCED_W39_PIN');
-  for (const row of release.sourceFiles) validateNativeValueDevPinnedBytesV5(row, bytes(row.path));
+  if (!adopted) for (const row of release.sourceFiles) validateNativeValueDevPinnedBytesV5(row, bytes(row.path));
   inspectNativeValueDevMobileDependenciesV5();
-  assert.deepEqual(validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5), release,
+  assert.deepEqual(publication(NATIVE_VALUE_DEV_RELEASE_V5), release,
     'NATIVE_VALUE_DEV_PUBLICATION_CHANGED');
+  if (adopted) assert.deepEqual(assertAdoptedSourceGeneration(), adopted, 'NATIVE_VALUE_DEV_ADOPTED_SOURCE_CHANGED');
   const bundle = frozenInput({ ledger: loaded.ledger, verifiers: loaded.verifiers,
     provenance: { schema: release.schema, releaseSHA256: nativeValueDevDigestV5(release),
       sourceClosureSHA256: loaded.retained.sourceClosureSHA256,
       compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
-      hostSourceClosureSHA256: release.hostSourceClosureSHA256,
+      hostSourceClosureSHA256: adopted?.sourceSHA256 ?? release.hostSourceClosureSHA256,
+      ...(adopted ? {hostSourceSchema: 'LIANUM_ADOPTED_SOURCE_GENERATION_V1',
+        adoptedSourceGeneration: adopted.generation, originalHostSourceClosureSHA256: release.hostSourceClosureSHA256} : {}),
       historicalReleaseSHA256: release.historicalReleaseSHA256,
       retainedMetadataSHA256: release.retainedMetadataSHA256,
-      publicMobilePackagesSHA256: release.publicMobilePackagesSHA256,
+      publicMobilePackagesSHA256: adopted ? NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 : release.publicMobilePackagesSHA256,
       producedLedger: release.producedLedger, producedW39: release.producedW39, historicalArtifactRecovered: false,
       pc15WithdrawProofAcceptanceEstablished: false,
       toolchain: loaded.retained.toolchain, crs: loaded.retained.crs,

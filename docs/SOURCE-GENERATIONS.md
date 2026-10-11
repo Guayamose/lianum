@@ -6,6 +6,7 @@ La generación de desarrollo identifica las fuentes actuales y reúne un candida
 ./dev sources status
 ./dev sources prepare
 ./dev sources verify --generation <huella-devuelta-por-prepare>
+./dev sources adopt --generation <huella-devuelta-por-prepare>
 ```
 
 `status` lee las fuentes editables y muestra las diferencias respecto a la publicación existente: release nativa, catálogo de ejecución paginada nativa y catálogo de grafos paginados. También identifica copias de ejecución desactualizadas y comprueba los hashes publicados del ledger V5 y W39 V9. No escribe archivos.
@@ -34,6 +35,8 @@ Los resultados viven en `.local/generations/`, fuera del código versionado:
 
 `verify --generation <huella>` relee los objetos, las fuentes actuales, los exports y reglas de reubicación; vuelve a autenticar los artefactos conservados. Rechaza una captura manipulada o desactualizada y devuelve `READBACK_VERIFIED` cuando todo coincide. No modifica la generación.
 
+`adopt --generation <huella>` hace esa misma verificación y escribe el registro versionado `scripts/development/adopted-generation.json`. El registro fija el digest del candidato y el cierre actual de fuentes. Los catálogos paginados y el cargador de despliegue nativo V5 comprueban ese registro y los bytes actuales antes de consumir los artefactos originales. Cambiar una fuente invalida la adopción: hay que preparar y adoptar la generación nueva. El comando no compila, despliega ni declara aceptada una operación económica.
+
 Repetir la preparación con las mismas fuentes reutiliza la generación y los objetos existentes. No crea otra copia del repositorio, herramientas, redes, custodia o compilaciones. Una modificación del objeto guardado se detecta y detiene la preparación.
 
 ## Qué se considera una dependencia
@@ -44,9 +47,9 @@ El informe de compilación sigue los módulos importados desde la entrada de com
 
 ## Artefactos N32 y paginados
 
-N32 comprueba sus nueve entradas originales de compilación en el archivo de entrega, con el manifiesto original fijado. Las fachadas nuevas de recursos no se hacen pasar por aquellas entradas. El lector conserva las verificaciones de programa, ABI, clave, stats, toolchain y CRS.
+N32 comprueba sus nueve entradas originales de compilación en el archivo de entrega, con el manifiesto original fijado. Los propietarios actuales de recursos se identifican por separado de aquellas entradas. El lector conserva las verificaciones de programa, ABI, clave, stats, toolchain y CRS.
 
-El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Registra esos lanzadores por separado de las fuentes actuales. Los lectores financieros mantienen sus condiciones originales.
+El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Los dos catálogos anteriores también se conservan por sus hashes en `archive/source-evidence/paged-source-catalogues/`. Las entradas actuales verifican la adopción explícita y la procedencia original de los artefactos.
 
 ## Cómo se reutiliza W39
 
@@ -54,7 +57,7 @@ V9 sigue siendo la generación del artefacto original. V6 identifica el **nuevo 
 
 La inspección comprueba los ocho archivos contra sus hashes publicados, el recibo original, la cápsula original de fuentes, los bytes de Noir/Nargo/programa/clave/Solidity, el ABI, ACIR, AST, opciones de compilación, toolchain y CRS. Reutiliza el validador semántico de componentes existente. Los lanzadores actuales se registran en las fuentes actuales; no se presentan como productores de una compilación anterior.
 
-El consumidor financiero V5 conserva sus comprobaciones. El candidato V7 y sus recibos son datos para revisión: no emiten la marca interna que autoriza a usar un bundle, no publican un release y no declaran una operación financiera aceptada. La publicación y la adopción de una nueva generación por ese consumidor requieren un cambio explícito con su validación correspondiente.
+El candidato V7 y sus recibos no emiten la marca interna de un bundle. Después de adoptar explícitamente sus fuentes, el cargador canónico V5 autentica la publicación original completa, el ledger, W39 y N32; sólo ese cargador conserva la emisión de su marca privada. Los programas, claves, ABI y recibos originales mantienen sus hashes. Sin registro de adopción se conserva el recorrido anterior. El registro nunca convierte una copia de un objeto en un bundle canónico.
 
 ## Cambios de dependencias locales
 
@@ -72,7 +75,7 @@ git diff
 `check` solo lee y devuelve 1 si hay cambios propuestos, 2 si encuentra un
 problema que impide prepararlos. Su salida enumera cada campo anterior y nuevo;
 `--json` incluye además el diff exacto de los archivos propuestos. `update`
-aplica únicamente esos campos en las tres tablas vigentes. Repetirlo con los
+aplica únicamente los campos declarados en el inventario vigente. Repetirlo con los
 mismos archivos no escribe nada.
 
 | Perfil | Campos actualizables | Datos que solo se verifican |
@@ -80,6 +83,7 @@ mismos archivos no escribe nada.
 | `mobile` | Hash de tres manifiestos y digest del catálogo | Versiones e integridades Noble, 46 archivos públicos instalados |
 | `platform` | Hash y tamaño de las 15 fuentes/manifiestos declarados | Los 138 archivos públicos y sus 14 paquetes exactos |
 | `callers` | Hash y tamaño de los 25 consumidores locales declarados | Lista exacta de rutas revisadas |
+| `runtime` | Pins actuales de perfiles de red, despachadores y guard de proceso | Declaraciones exactas permitidas; los pins históricos siguen fijos |
 
 El perfil `platform` incluye automáticamente `callers`: el backend autentica
 la propia cápsula de Platform y ambos hashes deben actualizarse juntos. `all`
@@ -106,7 +110,7 @@ retenida completa mediante un digest histórico fijo, y valida el candidato con
 el catálogo actual. No reescribe el catálogo registrado dentro de una publicación
 antigua ni declara que sus fuentes fueran las actuales.
 
-El consumidor financiero V5 conserva sus comprobaciones: rechaza una publicación
-que ya no corresponda al catálogo o código actual. `VALIDATED_CANDIDATE` confirma
-la preparación y procedencia comprobadas; su adopción económica sigue siendo un
-paso distinto. Una prueba HOST no sustituye esa aceptación.
+`VALIDATED_CANDIDATE` confirma la preparación y procedencia comprobadas.
+`adopt` registra su uso explícito por los consumidores migrados, que vuelven a
+comprobar fuentes y artefactos durante la carga. Una prueba HOST no sustituye
+la aceptación de una operación económica en su red.

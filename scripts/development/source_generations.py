@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare reviewable source generations without publishing or rebuilding proofs.
+"""Prepare and explicitly adopt current sources without rebuilding original proofs.
 
 The published release remains authoritative. Development snapshots use a shared
 content-addressed store; repeated preparation never clones the laboratory.
@@ -26,8 +26,8 @@ RUNTIME = ".internal/runtime/"
 FLAT = RUNTIME + "omnichain-flat-profile/flat-wallet/"
 RELEASE = "packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs"
 CATALOGS = {
-    "native-paged": "packages/backend/src/operations/local/funded-paged-native-source-v3.mjs",
-    "graph-paged": "packages/backend/src/operations/local/funded-graph-paged-device-graph-source-v3.mjs",
+    "native-paged": "archive/source-evidence/paged-source-catalogues/0f0b25053fab8aa1de09585680325604700e68f1c69c71fe9a95867a8371b1f7.source",
+    "graph-paged": "archive/source-evidence/paged-source-catalogues/d38c5f6c7e31445f28cdc2d3a15396fd125482968cf084e2e6e8fb643ee583b8.source",
 }
 PREFIXES = (
     ("development-tooling/", "scripts/development/"), ("development-config/", "scripts/"),
@@ -41,12 +41,406 @@ PREFIXES = (
 )
 MAX_BYTES = 128 * 1024 * 1024
 CURRENT_SOURCE_INPUTS = (
+    "packages/backend/src/api/accounts/native-manual-session-contract-v1.mjs",
+    "packages/backend/src/api/mobile/paired-original-account-actor-contract-v2.mjs",
+    "tests/integration/proofs/source-generation-financial-readback.mjs",
+    "tests/integration/proofs/source-generation-portable-readback.mjs",
+    "packages/components/src/verification/current-source-generation.mjs",
     "package.json", "package-lock.json", "scripts/layout.json", "scripts/module-boundaries.json",
     "scripts/development/source-pins.json", "scripts/development/source-generation-inspect.mjs",
     "scripts/development/source_generations.py", "scripts/development/source_pins.py",
     "scripts/development/module_boundaries.py", "scripts/development/import_paths.py",
     "scripts/development/workspace.py", "apps/mobile/package.json", "apps/mobile/package-lock.json",
     "archive/source-evidence/paged-original-host-v4/provenance.json",
+    "packages/backend/src/operations/local/funded-paged-native-source-v3.mjs",
+    "packages/backend/src/operations/local/funded-graph-paged-device-graph-source-v3.mjs",
+    "apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs",
+    "apps/platform/src/run-original-base-private-native-mobile-v1.mjs",
+    "apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs",
+    "apps/platform/src/run-original-tron-private-native-mobile-v1.mjs",
+    "scripts/development/bsc_original_genesis_v3.py",
+    "scripts/development/original-network-mobile-private-diagnostic-v1.mjs",
+    "scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs",
+    "scripts/development/owned-arbitrum-nitro-v1.mjs",
+    "scripts/development/owned-arbitrum-private-native-mobile-v1.mjs",
+    "scripts/development/owned-base-native-value-dispatch-v1.mjs",
+    "scripts/development/owned-base-private-native-mobile-v1.mjs",
+    "scripts/development/owned-base-rollup-v1.mjs",
+    "scripts/development/owned-bsc-native-value-dispatch-v3.mjs",
+    "scripts/development/owned-bsc-original-source-profile-v3.mjs",
+    "scripts/development/owned-bsc-posa-v1.mjs",
+    "scripts/development/owned-bsc-private-native-mobile-v3.mjs",
+    "scripts/development/owned-rollup-original-source-profile-v1.mjs",
+    "scripts/development/owned-tron-original-mobile-source-v1.mjs",
+    "scripts/development/owned-tron-private-native-mobile-v1.mjs",
+    "scripts/development/owned_arbitrum_nitro_v1.py",
+    "scripts/development/owned_base_rollup_v1.py",
+    "scripts/development/owned_bsc_posa_v1.py",
+    "tests/integration/wallet/native/native-device-economic-private-error-v1.mjs",
+    "tests/integration/wallet/manual/run-manual-wallet-acceptance.mjs",
+    "tests/integration/wallet/manual/run-manual-wallet-timeout-recovery.mjs",
+    "tests/integration/wallet/manual/run-manual-wallet-browser-acceptance.mjs",
+    "tests/integration/wallet/manual/run-manual-wallet-browser-timeout-recovery.mjs",
+    "tests/integration/wallet/manual/manual-wallet-acceptance.mjs",
+    "tests/integration/wallet/manual/manual-wallet-timeout-recovery.mjs",
+    "tests/integration/wallet/manual/manual-wallet-browser-acceptance.mjs",
+    "tests/integration/wallet/manual/manual-wallet-browser-timeout-recovery.mjs",
+    "scripts/development/evm_lab.py",
+    "scripts/wallet/preparation/prepare-development-evm.mjs",
+    "scripts/wallet/preparation/prepare-development-native-claims.mjs",
+    "scripts/wallet/preparation/prepare-backed-assets.mjs",
+    "packages/proofs/src/native-ingress/tooling/native-claims-parent-death.py",
+    "apps/wallet/src/client/app.mjs",
+    "apps/wallet/src/client/index.html",
+    "apps/wallet/src/client/style.css",
+    "apps/mobile/src/custody/device-graph-string-table-v5.ts",
+    "apps/mobile/tsconfig.json", "apps/platform/package.json", "apps/platform/package-lock.json",
+    "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
+    "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
+    "apps/mobile/src/api/device-morpho-blue-redemption-api-v1.mjs",
+    "apps/mobile/src/api/device-private-graph-proof-transit-v2.mjs",
+    "apps/mobile/src/api/device-private-proof-transit-v2.mjs",
+    "apps/mobile/src/custody/balance-note-codec-v1.mjs",
+    "apps/mobile/src/custody/device-balance-withdrawal-codec-v1.mjs",
+    "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
+    "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
+    "apps/mobile/src/custody/key-store.ts",
+    "apps/mobile/src/custody/native-claim-pending-store-v1.ts",
+    "apps/mobile/src/custody/native-claim-pending-v1.d.mts",
+    "apps/mobile/src/custody/native-claim-pending-v1.mjs",
+    "apps/mobile/src/custody/sealed-custody-backup-v1.d.mts",
+    "apps/mobile/src/custody/sealed-custody-backup-v1.mjs",
+    "apps/mobile/src/custody/signing.mjs",
+    "apps/platform/src/run-device-external-flat-local-v1.mjs",
+    "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+    "dev",
+    "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+    "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
+    "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
+    "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+    "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+    "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+    "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+    "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
+    "packages/backend/src/api/accounts/flat-account-http.mjs",
+    "packages/backend/src/api/accounts/flat-account-session.mjs",
+    "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
+    "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs",
+    "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs",
+    "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+    "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+    "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
+    "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+    "packages/backend/src/claims/wrapped/recovery/wrapped-terminal-baseline-v1.mjs",
+    "packages/backend/src/custody/processes/flat-owner-process.mjs",
+    "packages/backend/src/custody/processes/native-value-owner-process-v2.mjs",
+    "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs",
+    "packages/backend/src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs",
+    "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+    "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs",
+    "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
+    "packages/backend/src/execution/encoding/terminal-calldata-codec.mjs",
+    "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+    "packages/backend/src/execution/native-value/preparation/native-value-graph-admission-v2.mjs",
+    "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
+    "packages/backend/src/operations/deployments/claims/native-spl-claim-v1-compilation.mjs",
+    "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+    "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+    "packages/backend/src/operations/deployments/defi/morpho-blue-position-compilation-v1.mjs",
+    "packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs",
+    "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs",
+    "packages/backend/src/operations/local/device-external-flat-ordered-local-operator-v1.mjs",
+    "packages/backend/src/operations/local/device-external-flat-ordered-observation-service-v1.mjs",
+    "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+    "packages/backend/src/operations/local/wrapped-wallet-runtime-v1.mjs",
+    "packages/backend/src/operations/recovery/native-device-economic-service-v1.mjs",
+    "packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs",
+    "packages/backend/src/operations/recovery/native-value-economic-successor-v1.mjs",
+    "packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs",
+    "packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs",
+    "packages/backend/src/operations/releases/wrapped/wrapped-wallet-fixed-policy-v1.mjs",
+    "packages/backend/src/operations/releases/wrapped/wrapped-wallet-fixed-source-pins-v1.mjs",
+    "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs",
+    "packages/backend/src/proving/native-ingress/runtime/native-claims-build-worker.mjs",
+    "packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-role-process.mjs",
+    "packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-worker.mjs",
+    "packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-role-process.mjs",
+    "packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs",
+    "packages/backend/src/proving/native-value/runtime/native-value-live-v2-role-process.mjs",
+    "packages/backend/src/proving/native-value/runtime/native-value-live-v2-worker.mjs",
+    "packages/backend/src/proving/native-value/tooling/native-value-live-v2-run-bounded.mjs",
+    "packages/backend/src/proving/roles/role-client.mjs",
+    "packages/backend/src/proving/wrapped-claims/runtime/wrapped-claim-role-process-v1.mjs",
+    "packages/backend/src/proving/wrapped-claims/runtime/wrapped-claim-worker-v1.mjs",
+    "packages/components/src/resources/private-resource-policy.mjs",
+    "packages/components/src/resources/private-verifier-crs.mjs",
+    "packages/components/src/resources/wallet-resources.mjs",
+    "packages/components/src/verification/wrapped-installation-source-inspector-v2.mjs",
+    "packages/crypto/src/portable/poseidon2-bn254-v1.mjs",
+    "packages/custody/src/signing/flat-owner-custody.mjs",
+    "packages/engine/src/chains/shared/linux-runtime-pins.mjs",
+    "packages/engine/src/crypto/private-proof-transit-v1.mjs",
+    "packages/engine/src/execution/accounts/generic-account-child.mjs",
+    "packages/engine/src/execution/accounts/generic-account-coordinator.mjs",
+    "packages/engine/src/execution/accounts/generic-account-process.mjs",
+    "packages/engine/src/execution/balances/generic-balance-owner-child.mjs",
+    "packages/mobile-protocol/src/authorization.mjs",
+    "packages/mobile-protocol/src/device-defi-position-read-v1.mjs",
+    "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
+    "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
+    "packages/mobile-protocol/src/device-exit-consent-v1.mjs",
+    "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
+    "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
+    "packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs",
+    "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
+    "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
+    "packages/mobile-protocol/src/original-account-private-state-v1.mjs",
+    "packages/mobile-protocol/src/original-account-review-v2.mjs",
+    "packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs",
+    "packages/proofs/src/execution/proof-worker.mjs",
+    "packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs",
+    "packages/proofs/src/jobs/native-device-private-deposit-recipient-v2.mjs",
+    "packages/proofs/src/jobs/native-device-private-deposit-recipient-v3.mjs",
+    "packages/proofs/src/jobs/native-device-private-exit-client-v2.mjs",
+    "packages/proofs/src/jobs/native-device-private-exit-recipient-v2.mjs",
+    "packages/proofs/src/jobs/native-device-private-exit-recipient-v3.mjs",
+    "packages/proofs/src/jobs/native-private-note-deposit-worker-v3.mjs",
+    "packages/proofs/src/jobs/native-private-note-execution-v3.mjs",
+    "packages/proofs/src/jobs/native-private-note-process-v3.mjs",
+    "packages/proofs/src/jobs/native-private-note-withdraw-worker-v3.mjs",
+    "packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs",
+    "packages/proofs/src/jobs/private-native-device-authorization-input-v2.mjs",
+    "packages/proofs/src/jobs/private-native-device-deposit-input-v2.mjs",
+    "packages/proofs/src/jobs/private-native-device-exit-input-v2.mjs",
+    "packages/proofs/src/jobs/role-process.mjs",
+    "packages/proofs/src/jobs/run-bounded.mjs",
+    "packages/proofs/src/jobs/trusted-jobs.mjs",
+    "packages/proofs/src/jobs/wallet-note-private-client-v3.mjs",
+    "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs",
+    "packages/proofs/src/jobs/wallet-note-private-recipient-v3.mjs",
+    "packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs",
+    "packages/proofs/src/jobs/worker.mjs",
+    "packages/proofs/src/toolchain/wallet-prover.mjs",
+    "packages/proofs/src/verification/pinned-verifier.mjs",
+    "scripts/development/aave_material.py",
+    "scripts/development/dev",
+    "scripts/development/empty_audit_lab.py",
+    "scripts/development/jupiter_material.py",
+    "scripts/development/native_economic_note_receipts.py",
+    "scripts/development/osaka_lab.py",
+    "scripts/development/paired_original_account_lab.py",
+    "tests/integration/accounts/recovery/account-recovery.mjs",
+    "tests/integration/accounts/recovery/run-account-recovery.mjs",
+    "tests/integration/chains/evm/aave-compilation-policy-v1.mjs",
+    "tests/integration/chains/evm/aave-compilation-source-pins-v1.mjs",
+    "tests/integration/chains/evm/aave-compilation-worker-v1.mjs",
+    "tests/integration/chains/evm/aave-private-graph-policy-v1.mjs",
+    "tests/integration/chains/evm/aave-private-graph-source-pins-v1.mjs",
+    "tests/integration/chains/evm/evm-metamorpho-recovery-policy-v1.mjs",
+    "tests/integration/chains/evm/evm-metamorpho-recovery-source-pins-v1.mjs",
+    "tests/integration/chains/evm/evm-vault-flow.mjs",
+    "tests/integration/chains/evm/external-defi-vault-exit-lifetime-v1.mjs",
+    "tests/integration/chains/evm/external-defi-vault-exit-policy-v1.mjs",
+    "tests/integration/chains/evm/external-defi-vault-exit-source-pins-v1.mjs",
+    "tests/integration/chains/evm/external-defi-vault-exit-successor-v1.mjs",
+    "tests/integration/chains/evm/native-spl-claim-token-compilation-policy-v1.mjs",
+    "tests/integration/chains/evm/native-spl-claim-token-compilation-source-pins-v1.mjs",
+    "tests/integration/chains/evm/native-spl-claim-token-compilation-worker-v1.mjs",
+    "tests/integration/chains/evm/native-spl-claim-v1-compilation-policy.mjs",
+    "tests/integration/chains/evm/native-spl-claim-v1-compilation-source-pins.mjs",
+    "tests/integration/chains/evm/native-spl-claim-v1-compilation-worker.mjs",
+    "tests/integration/chains/evm/native-spl-claim-validation-compilation-policy-v1.mjs",
+    "tests/integration/chains/evm/native-spl-claim-validation-compilation-source-pins-v1.mjs",
+    "tests/integration/chains/evm/native-spl-claim-validation-compilation-worker-v1.mjs",
+    "tests/integration/chains/evm/run-evm-aave-compilation-v1.mjs",
+    "tests/integration/chains/evm/run-evm-aave-exit-recovery-v1.mjs",
+    "tests/integration/chains/evm/run-evm-aave-flow.mjs",
+    "tests/integration/chains/evm/run-evm-metamorpho-exit-recovery-v1.mjs",
+    "tests/integration/chains/evm/run-evm-metamorpho-recovery-flow-v1.mjs",
+    "tests/integration/chains/evm/run-evm-uniswap-flow.mjs",
+    "tests/integration/chains/evm/run-evm-uniswap-recovery-flow.mjs",
+    "tests/integration/chains/evm/run-evm-vault-flow.mjs",
+    "tests/integration/chains/evm/run-native-spl-claim-token-compilation-v1.mjs",
+    "tests/integration/chains/evm/run-native-spl-claim-v1-compilation.mjs",
+    "tests/integration/chains/evm/run-native-spl-claim-validation-compilation-v1.mjs",
+    "tests/integration/chains/solana/jupiter-orca-public-swap-policy-v1.mjs",
+    "tests/integration/chains/solana/jupiter-orca-public-swap-source-pins-v1.mjs",
+    "tests/integration/chains/solana/jupiter-orca-public-swap-worker-v1.mjs",
+    "tests/integration/chains/solana/native-spl-compilation-material-v1.mjs",
+    "tests/integration/chains/solana/native-spl-compilation-policy-v1.mjs",
+    "tests/integration/chains/solana/native-spl-compilation-source-pins-v1.mjs",
+    "tests/integration/chains/solana/native-spl-compilation-worker-v1.mjs",
+    "tests/integration/chains/solana/run-jupiter-orca-public-swap-v1.mjs",
+    "tests/integration/chains/solana/run-native-spl-compilation-v1.mjs",
+    "tests/integration/claims/development/development-btc-sol-graph-flow.mjs",
+    "tests/integration/claims/development/development-btc-sol-graph-policy.mjs",
+    "tests/integration/claims/development/development-btc-sol-graph-source-pins.mjs",
+    "tests/integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs",
+    "tests/integration/claims/development/development-btc-spl-jupiter-policy-v1.mjs",
+    "tests/integration/claims/development/development-btc-spl-jupiter-source-pins-v1.mjs",
+    "tests/integration/claims/development/development-native-claim-flow.mjs",
+    "tests/integration/claims/development/development-native-claim-policy.mjs",
+    "tests/integration/claims/development/development-native-claim-source-pins.mjs",
+    "tests/integration/claims/development/run-development-btc-sol-graph-flow.mjs",
+    "tests/integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs",
+    "tests/integration/claims/development/run-development-native-claim-flow.mjs",
+    "tests/integration/claims/graph/flows/run-native-claim-graph-flow.mjs",
+    "tests/integration/claims/graph/flows/run-native-claim-graph-v3-flow.mjs",
+    "tests/integration/claims/health/native-claim-unfunded-health-worker.mjs",
+    "tests/integration/claims/health/run-native-claim-unfunded-health.mjs",
+    "tests/integration/claims/ingress/native-claim-ingress-v3-production-proof.mjs",
+    "tests/integration/claims/ingress/native-ingress-v3-preflight-policy.mjs",
+    "tests/integration/claims/ingress/native-ingress-v3-preflight-worker.mjs",
+    "tests/integration/claims/ingress/native-ingress-v3-preflight.mjs",
+    "tests/integration/claims/ingress/native-ingress-v3-production-preflight-worker.mjs",
+    "tests/integration/claims/ingress/run-native-ingress-v3-preflight.mjs",
+    "tests/integration/claims/ingress/run-native-ingress-v3-production-preflight.mjs",
+    "tests/integration/claims/inventory/run-native-claim-loaded-facts-probe.mjs",
+    "tests/integration/claims/inventory/run-native-claim-loaded-v3-flow.mjs",
+    "tests/integration/claims/lifecycle/check-native-claim-artifacts.mjs",
+    "tests/integration/claims/lifecycle/native-claim-flow.mjs",
+    "tests/integration/claims/lifecycle/native-claim-source-pins.mjs",
+    "tests/integration/claims/lifecycle/run-native-claim-flow.mjs",
+    "tests/integration/claims/metrics/native-claim-empty-audit-policy-v1.mjs",
+    "tests/integration/claims/metrics/native-claim-empty-audit-source-pins-v1.mjs",
+    "tests/integration/claims/metrics/native-claim-empty-audit-v1.mjs",
+    "tests/integration/claims/metrics/run-native-claim-empty-audit-v1.mjs",
+    "tests/integration/claims/payouts/run-native-claim-begin-payout-audit-v1.mjs",
+    "tests/integration/defi/entry/development-defi-entry-flow.mjs",
+    "tests/integration/defi/entry/development-defi-entry-source-pins.mjs",
+    "tests/integration/defi/entry/run-development-defi-entry-flow.mjs",
+    "tests/integration/defi/private-metamorpho-flow.mjs",
+    "tests/integration/defi/private-metamorpho-source-pins.mjs",
+    "tests/integration/defi/run-private-metamorpho-flow.mjs",
+    "tests/integration/deployments/wrapped/run-wrapped-deployment-only-v1.mjs",
+    "tests/integration/deployments/wrapped/wrapped-deployment-only-v1.mjs",
+    "tests/integration/evm/osaka/development-osaka-smoke-source-pins.mjs",
+    "tests/integration/evm/osaka/development-osaka-smoke.mjs",
+    "tests/integration/evm/osaka/run-development-osaka-smoke.mjs",
+    "tests/integration/fixtures/claims/ingress/owned-native-ingress-v3-preflight-fixture.mjs",
+    "tests/integration/fixtures/pools/pool-generation-fixture.mjs",
+    "tests/integration/native/native-flow-supervisor.mjs",
+    "tests/integration/native/native-flow.mjs",
+    "tests/integration/native/run-native-flow.mjs",
+    "tests/integration/pools/pool-generation-acceptance.mjs",
+    "tests/integration/pools/pool-generation-checks.mjs",
+    "tests/integration/pools/pool-generation-phase1.mjs",
+    "tests/integration/pools/pool-generation-phase2.mjs",
+    "tests/integration/pools/pool-generation-source-pins.mjs",
+    "tests/integration/pools/run-pool-generation-phase1.mjs",
+    "tests/integration/pools/run-pool-generation-phase2.mjs",
+    "tests/integration/portfolio/asset-portfolio.mjs",
+    "tests/integration/portfolio/run-asset-portfolio.mjs",
+    "tests/integration/runners/source-pins.mjs",
+    "tests/integration/wallet/native/device-confirmed-source-backend-v2.mjs",
+    "tests/integration/wallet/native/device-confirmed-source-channel-v2.mjs",
+    "tests/integration/wallet/native/device-confirmed-source-cleanup-v2.mjs",
+    "tests/integration/wallet/native/device-external-flat-erc20-flow-v1.mjs",
+    "tests/integration/wallet/native/device-external-flat-erc20-host-vault-v1.mjs",
+    "tests/integration/wallet/native/device-external-flat-erc20-policy-v1.mjs",
+    "tests/integration/wallet/native/device-external-flat-erc20-source-pins-v1.mjs",
+    "tests/integration/wallet/native/device-external-flat-ordered-restart-v1.mjs",
+    "tests/integration/wallet/native/device-external-flat-ordered-successor-v1.mjs",
+    "tests/integration/wallet/native/device-external-flat-private-error-v1.mjs",
+    "tests/integration/wallet/native/device-owner-deposit-flow-v1.mjs",
+    "tests/integration/wallet/native/device-owner-deposit-original-step-v1.mjs",
+    "tests/integration/wallet/native/device-owner-execution-flow-v1.mjs",
+    "tests/integration/wallet/native/device-owner-execution-native-checks-v1.mjs",
+    "tests/integration/wallet/native/device-owner-execution-original-continuation-v1.mjs",
+    "tests/integration/wallet/native/device-owner-execution-policy-v1.mjs",
+    "tests/integration/wallet/native/device-owner-execution-source-pins-v1.mjs",
+    "tests/integration/wallet/native/device-owner-original-f-reorg-flow-v1.mjs",
+    "tests/integration/wallet/native/device-owner-recovery-flow-v1.mjs",
+    "tests/integration/wallet/native/device-owner-recovery-policy-v1.mjs",
+    "tests/integration/wallet/native/device-owner-recovery-source-pins-v1.mjs",
+    "tests/integration/wallet/native/device-owner-reservation-flow-v1.mjs",
+    "tests/integration/wallet/native/device-owner-reservation-host-vault-v1.mjs",
+    "tests/integration/wallet/native/device-owner-reservation-original-continuation-v1.mjs",
+    "tests/integration/wallet/native/device-owner-reservation-original-preparation-v1.mjs",
+    "tests/integration/wallet/native/device-owner-reservation-policy-v1.mjs",
+    "tests/integration/wallet/native/device-owner-reservation-source-pins-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-launcher-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-note-policy-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-note-process-scope-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-note-source-pins-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-note-successor-worker-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-original-continuation-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-policy-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-source-pins-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-successor-audit-v1.mjs",
+    "tests/integration/wallet/native/native-device-economic-successor-worker-v1.mjs",
+    "tests/integration/wallet/native/native-device-live-armed-short-audit-v1.mjs",
+    "tests/integration/wallet/native/native-device-live-armed-short-continuation-v1.mjs",
+    "tests/integration/wallet/native/native-device-live-armed-short-policy-v1.mjs",
+    "tests/integration/wallet/native/native-device-live-armed-short-process-scope-v1.mjs",
+    "tests/integration/wallet/native/native-device-live-armed-short-source-pins-v1.mjs",
+    "tests/integration/wallet/native/native-device-live-armed-short-successor-v1.mjs",
+    "tests/integration/wallet/native/native-device-private-authorized-durable-note-policy-v2.mjs",
+    "tests/integration/wallet/native/native-device-private-durable-note-policy-v2.mjs",
+    "tests/integration/wallet/native/native-device-private-worker-durable-note-policy-v3.mjs",
+    "tests/integration/wallet/native/native-original-source-abrupt-backend-v1.mjs",
+    "tests/integration/wallet/native/native-original-source-abrupt-flow-v1.mjs",
+    "tests/integration/wallet/native/native-original-source-abrupt-policy-v1.mjs",
+    "tests/integration/wallet/native/native-original-source-abrupt-process-scope-v1.mjs",
+    "tests/integration/wallet/native/native-original-source-abrupt-source-pins-v1.mjs",
+    "tests/integration/wallet/native/native-value-economic-note-recovery-flow-v1.mjs",
+    "tests/integration/wallet/native/native-value-economic-recovery-flow-v1.mjs",
+    "tests/integration/wallet/native/native-value-live-armed-short-restart-flow-v1.mjs",
+    "tests/integration/wallet/native/native-value-private-authorized-durable-note-flow-v2.mjs",
+    "tests/integration/wallet/native/native-value-private-durable-note-flow-v2.mjs",
+    "tests/integration/wallet/native/native-value-private-worker-durable-note-flow-v3.mjs",
+    "tests/integration/wallet/native/native-wallet-real-acceptance-v1.mjs",
+    "tests/integration/wallet/native/native-wallet-real-driver-v1.mjs",
+    "tests/integration/wallet/native/native-wallet-real-preflight-v1.mjs",
+    "tests/integration/wallet/native/native-wallet-real-source-pins-v1.mjs",
+    "tests/integration/wallet/native/native-wallet-tron-dev-v5.mjs",
+    "tests/integration/wallet/native/paired-native-note-flow-v2.mjs",
+    "tests/integration/wallet/native/run-device-aave-static-private-position-v1.mjs",
+    "tests/integration/wallet/native/run-device-external-flat-erc20-v1.mjs",
+    "tests/integration/wallet/native/run-device-external-flat-meta-four-deliveries-v1.mjs",
+    "tests/integration/wallet/native/run-device-external-flat-source-graph-v1.mjs",
+    "tests/integration/wallet/native/run-device-morpho-blue-private-position-v1.mjs",
+    "tests/integration/wallet/native/run-device-owner-deposit-v1.mjs",
+    "tests/integration/wallet/native/run-device-owner-execution-v1.mjs",
+    "tests/integration/wallet/native/run-device-owner-original-f-reorg-v1.mjs",
+    "tests/integration/wallet/native/run-device-owner-recovery-v1.mjs",
+    "tests/integration/wallet/native/run-device-owner-reservation-v1.mjs",
+    "tests/integration/wallet/native/run-device-uniswap-v3-private-note-v1.mjs",
+    "tests/integration/wallet/native/run-native-original-source-abrupt-v1.mjs",
+    "tests/integration/wallet/native/run-native-value-durable-economic-note-recovery-v1.mjs",
+    "tests/integration/wallet/native/run-native-value-durable-economic-note-successor-v1.mjs",
+    "tests/integration/wallet/native/run-native-value-economic-note-recovery-v1.mjs",
+    "tests/integration/wallet/native/run-native-value-economic-recovery-v1.mjs",
+    "tests/integration/wallet/native/run-native-value-live-armed-short-restart-v1.mjs",
+    "tests/integration/wallet/native/run-native-value-private-authorized-durable-note-recovery-v2.mjs",
+    "tests/integration/wallet/native/run-native-value-private-authorized-durable-note-successor-v2.mjs",
+    "tests/integration/wallet/native/run-native-value-private-durable-note-recovery-v2.mjs",
+    "tests/integration/wallet/native/run-native-value-private-durable-note-successor-v2.mjs",
+    "tests/integration/wallet/native/run-native-value-private-worker-durable-note-recovery-v3.mjs",
+    "tests/integration/wallet/native/run-native-value-private-worker-durable-note-successor-v3.mjs",
+    "tests/integration/wallet/native/run-native-wallet-real-acceptance-v1.mjs",
+    "tests/integration/wallet/native/run-native-wallet-real-preflight-v1.mjs",
+    "tests/integration/wallet/native/run-native-wallet-tron-dev-v5.mjs",
+    "tests/integration/wallet/native/run-paired-native-note-v2.mjs",
+    "tests/integration/wallet/wrapped/flows/run-wrapped-wallet-fixed-acceptance-v1.mjs",
+    "tests/integration/wallet/wrapped/flows/wrapped-wallet-fixed-acceptance-v1.mjs",
+    "tests/integration/wallet/wrapped/flows/wrapped-wallet-fixed-driver-v1.mjs",
+    "tests/integration/wallet/wrapped/flows/wrapped-wallet-fixed-steps-v1.mjs",
+    "tests/integration/wallet/wrapped/validation/run-wrapped-wallet-fixed-preflight-v1.mjs",
+    "tests/integration/wallet/wrapped/validation/wrapped-wallet-fixed-preflight-v1.mjs",
+    'packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-client.mjs',
+    'packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs',
+    'packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-public-crs.mjs',
+    'packages/backend/src/proving/native-value/tooling/native-value-dev-live-v5-run-bounded.mjs',
+    'packages/backend/src/proving/native-value/tooling/native-value-dev-live-v5-tooling.mjs',
+    'packages/proofs/src/host/process-files.mjs',
+    'packages/proofs/src/jobs/standard-proof-resources-v1.mjs',
+    'tests/integration/native/native-flow-owned-rss-v1.mjs',
+    'apps/mobile/src/custody/device-recovery-copy-gate-v1.ts',
+    'apps/mobile/src/custody/device-note-stored-state-v1.ts',
+    'packages/backend/src/operations/operators/native-value/original-current-round-v4.mjs',
+    'scripts/development/source_bundle.py',
+    'packages/backend/src/operations/operators/native-value/original-inventory-round-v4.mjs',
 )
 
 
@@ -118,6 +512,11 @@ def unique_object(pairs):
     return value
 
 
+def retained_source_evidence(path):
+    """A retired collector's exact bytes; never an executable replacement."""
+    return re.fullmatch(r"archive/source-evidence/retired-source-collectors/[0-9a-f]{64}\.source", path) is not None
+
+
 def source_relocations(definition):
     """Explicit one-to-one historical source names, never filesystem aliases.
 
@@ -132,6 +531,10 @@ def source_relocations(definition):
     for old, new in relocations.items():
         for name in (old, new):
             relative(name)
+            if name == new and retained_source_evidence(name):
+                if sha(read(name)) != Path(name).stem:
+                    raise ValueError("Retired source collector evidence was modified: " + name)
+                continue
             if (name.split("/", 1)[0] not in {"packages", "apps", "scripts", "tests", "experiments", "contracts"}
                     or any(part.startswith(".") or part in {"node_modules", "secrets"} for part in name.split("/"))
                     or name.endswith((".pem", ".key", ".p12", ".pfx"))):
@@ -163,6 +566,26 @@ class Capture:
         # historical flat directory, so reversing a directory rule is ambiguous
         # for modules added after the frozen layout inventory.
         self.reverse = {row["path"]: row["source"] for row in self.layout["files"]}
+        # Retired execution paths remain labels in frozen publications. Resolve
+        # only their reviewed source relocations; never read or recreate a copy.
+        self.retired_runtime_sources = definition.get("retiredRuntimeSources", {})
+        if not isinstance(self.retired_runtime_sources, dict):
+            raise ValueError("Retired runtime sources must be an explicit path map")
+        for runtime, old in self.retired_runtime_sources.items():
+            relative(runtime)
+            if runtime in self.reverse or old not in self.relocations:
+                raise ValueError("Retired runtime mapping requires an absent relocated source: " + runtime)
+        self.canonical_runtime_sources = definition.get('canonicalRuntimeSources', {})
+        if not isinstance(self.canonical_runtime_sources, dict):
+            raise ValueError('Canonical runtime sources must be an explicit path map')
+        for runtime, source in self.canonical_runtime_sources.items():
+            relative(runtime)
+            relative(source)
+            if (runtime in self.reverse or runtime in self.retired_runtime_sources
+                    or source in self.relocations or not physical(source).is_file()):
+                raise ValueError('Canonical runtime source must have one live owner: ' + runtime)
+        if len(set(self.canonical_runtime_sources.values())) != len(self.canonical_runtime_sources):
+            raise ValueError('Canonical runtime source owner must be unique')
         seen = {}
         ignored = {"node_modules", ".local", ".git", "__pycache__", ".DS_Store"}
         for name in self.layout.get("sourceRoots", []):
@@ -177,6 +600,8 @@ class Capture:
                                  if entry not in ignored and not entry.startswith(".env"))
             for path in paths:
                 source = path.relative_to(ROOT).as_posix()
+                if source in self.canonical_runtime_sources.values():
+                    continue
                 target = map_path(source, self.layout, "runtime")
                 if target is None or path.name in {"README.md", "package.json", "package-lock.json"}:
                     continue
@@ -191,12 +616,19 @@ class Capture:
             return self.files[target]
         source = target
         mapped = None
+        retired = False
         if target.startswith(RUNTIME):
             runtime = target[len(RUNTIME):]
             mapped = self.reverse.get(runtime)
+            canonical = runtime in self.canonical_runtime_sources
+            if canonical:
+                mapped = self.canonical_runtime_sources[runtime]
+            retired = canonical or mapped is None and runtime in self.retired_runtime_sources
+            if retired and not canonical:
+                mapped = self.retired_runtime_sources[runtime]
             if mapped is not None:
                 relative(mapped)
-                if map_path(mapped, self.layout, "runtime") != runtime:
+                if not retired and map_path(mapped, self.layout, "runtime") != runtime:
                     raise ValueError("Non-reversible source mapping: " + target)
                 source = mapped
         original_source = source
@@ -221,7 +653,9 @@ class Capture:
             self.objects[generated_sha] = generated
             row = {"path": target, "source": source, "sourceSHA256": canonical_sha,
                    "sha256": generated_sha, "bytes": len(generated), "status": "PRESENT"}
-            if mapped is not None:
+            if retired:
+                row["runtimeDisposition"] = "RETIRED_PUBLICATION_LABEL"
+            elif mapped is not None:
                 try:
                     row["runtimeMatchesSource"] = sha(read(target)) == generated_sha
                 except FileNotFoundError:
@@ -250,6 +684,8 @@ def inventory():
                row["sha256"]) | {"label": row["path"]} for row in publication["sourceFiles"]]}]
     for name, path in CATALOGS.items():
         raw = read(path)
+        if path.endswith(".source") and sha(raw) != Path(path).stem:
+            raise ValueError("Original source catalogue evidence was modified")
         rows = literal(raw, "const rows=Object.freeze(")
         files = []
         for row in rows:
@@ -299,10 +735,15 @@ def current_source_contract(report, capture):
     external = set()
     resource_bindings = set()
     mobile_bindings = set()
+    platform_bindings = set()
+    imported_by = {}
     mobile_dependencies = json.loads(read("apps/mobile/package.json")).get("dependencies", {})
+    platform_dependencies = json.loads(read("apps/platform/package.json")).get("dependencies", {})
+    platform_policy = json.loads(read("scripts/development/source-pins.json"))["profiles"]["platform"]
     url_pattern = re.compile(r"\bnew\s+URL\s*\(\s*(['\"])([^'\"]+\.mjs)\1\s*,\s*import\.meta\.url\s*\)")
     def evidence_only(path):
-        return path.startswith(("experiments/", "packages/protocol/")) or path == "packages/crypto/src/component-tooling.mjs"
+        return (retained_source_evidence(path) or path.startswith(("experiments/", "packages/protocol/"))
+                or path == "packages/crypto/src/component-tooling.mjs")
     queue = [(path, not evidence_only(path)) for path in sorted(roots)]
     while queue:
         path, follow = queue.pop()
@@ -314,8 +755,20 @@ def current_source_contract(report, capture):
         row = dict(capture.observe(path))
         if row["status"] != "PRESENT":
             raise ValueError("Current source dependency is missing: " + path)
+        if row.get('runtimeDisposition') == 'RETIRED_PUBLICATION_LABEL':
+            chain, parent = [], path
+            while parent in imported_by and parent not in chain and len(chain) < 12:
+                chain.append(parent)
+                parent = imported_by[parent]
+            raise ValueError('Current import names a retired runtime copy: ' + path
+                             + ' imported through ' + ' <- '.join([*chain[1:], parent]))
         if path not in roots and row.get("sourceRelocation"):
-            raise ValueError("Current import still names a relocated source: " + path)
+            chain, parent = [], path
+            while parent in imported_by and parent not in chain and len(chain) < 8:
+                chain.append(parent)
+                parent = imported_by[parent]
+            raise ValueError("Current import still names a relocated source: " + path
+                             + " imported through " + " <- ".join([*chain[1:], parent]))
         row.pop("runtimeMatchesSource", None)
         selected[path] = row
         # Public package manifests are included whether a module was reached
@@ -325,7 +778,9 @@ def current_source_contract(report, capture):
             manifest = "/".join(parts[:2]) + "/package.json"
             if physical(manifest).is_file():
                 queue.append((manifest, False))
-        if not follow or not path.endswith(".mjs"):
+        if retained_source_evidence(row["source"]):
+            row["sourceDisposition"] = "RETAINED_SOURCE_EVIDENCE"
+        if not follow or retained_source_evidence(row["source"]) or not path.endswith(".mjs"):
             continue
         expanded.add(path)
         content = capture.objects[row["sha256"]].decode("utf8")
@@ -358,6 +813,7 @@ def current_source_contract(report, capture):
             if name.startswith("."):
                 target = posixpath.normpath(posixpath.join(posixpath.dirname(path), name))
                 relative(target)
+                imported_by[target] = path
                 queue.append((target, code_import or not evidence_only(target)))
             elif name.startswith("@lianum/"):
                 package = name.split("/")[1]
@@ -374,6 +830,21 @@ def current_source_contract(report, capture):
                 if target not in roots:
                     raise ValueError("Current npm import is outside the pinned public inventory: " + name)
                 queue.append((target, True))
+            elif path.startswith("apps/platform/") and name == "pg" and name in platform_dependencies:
+                # Platform's existing reviewed public inventory covers the CJS
+                # dependency tree; do not treat arbitrary npm imports as code.
+                package_path = "apps/platform/node_modules/pg/package.json"
+                package = json.loads(read(package_path))
+                locked = json.loads(read("apps/platform/package-lock.json"))["packages"]["node_modules/pg"]
+                if package.get("name") != "pg" or package.get("version") != platform_dependencies[name] \
+                        or locked.get("version") != package.get("version"):
+                    raise ValueError("Platform PostgreSQL package differs from its exact manifest and lock")
+                for dependency in platform_policy["dependencyPaths"]:
+                    queue.append(("apps/platform/" + relative(dependency), False))
+                queue.extend([("apps/platform/package.json", False),
+                              ("apps/platform/package-lock.json", False),
+                              (platform_policy["target"], False)])
+                platform_bindings.add((path, name, package["version"]))
             elif path.startswith("apps/mobile/") and name in mobile_dependencies:
                 # Native Expo/React packages are resolved by the mobile bundler,
                 # whose package manifest/lock are byte-pinned and checked by
@@ -390,6 +861,10 @@ def current_source_contract(report, capture):
                 "acceptance": "FIXED_CONSUMER_VALIDATION_REQUIRED"} for path, name in sorted(resource_bindings)],
             "mobileBundlerBindings": [{"source": path, "specifier": name,
                 "acceptance": "MOBILE_BUNDLER_VALIDATION_REQUIRED"} for path, name in sorted(mobile_bindings)],
+            "platformPackageBindings": [{"source": path, "specifier": name, "version": version,
+                "inventory": platform_policy["target"],
+                "acceptance": "EXACT_MANIFEST_LOCK_AND_REVIEWED_PUBLIC_FILES"}
+                for path, name, version in sorted(platform_bindings)],
             "runtimeResourceAcceptanceEstablished": False,
             "historicalInventoriesModified": False, "financialAcceptance": False}
 
@@ -684,13 +1159,36 @@ def verify_generation(generation):
             "sourceAcceptance": "PREPARED_FOR_REVIEW", "published": False, "compiled": False,
             "artifactBundleIssued": False, "financialAcceptance": False}
 
+
+def adopt_generation(generation):
+    """Select verified current host sources; original artifact pins stay separate."""
+    result = verify_generation(generation)
+    candidate = read(".local/generations/" + generation + "/candidate-release.json")
+    record = {"schema": "LIANUM_ADOPTED_SOURCE_GENERATION_V1", "generation": generation,
+              "candidateSHA256": sha(candidate)}
+    target = ROOT / "scripts/development/adopted-generation.json"
+    value = encoded(record)
+    if target.exists() and read("scripts/development/adopted-generation.json") == value:
+        return result | {"sourceAcceptance": "ADOPTED_CURRENT_HOST_SOURCES", "written": []}
+    with tempfile.NamedTemporaryFile(dir=target.parent, prefix=".source-adoption-", delete=False) as stream:
+        temporary = Path(stream.name)
+        stream.write(value)
+        stream.flush()
+        os.fsync(stream.fileno())
+    try:
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return result | {"sourceAcceptance": "ADOPTED_CURRENT_HOST_SOURCES",
+                     "written": ["scripts/development/adopted-generation.json"]}
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", nargs="?", choices=("status", "check", "prepare", "verify"), default="status")
+    parser.add_argument("action", nargs="?", choices=("status", "check", "prepare", "verify", "adopt"), default="status")
     parser.add_argument("--json", action="store_true", help="Return machine-readable details")
     parser.add_argument("--generation", help="Exact digest for a read-only candidate verification")
     args = parser.parse_args()
-    if args.action in {"prepare", "verify"}:
+    if args.action in {"prepare", "verify", "adopt"}:
         # The native producer already depends on these mobile packages. Do not
         # require the separate Cloud installation or approve hashes implicitly.
         try:
@@ -710,12 +1208,12 @@ def main():
                 if pins["status"] == "STALE":
                     print("After reviewing that diff: ./dev pins update --profile mobile")
             return 2
-    if args.action == "verify":
-        result = verify_generation(args.generation)
-        print(json.dumps(result, indent=2) if args.json else "Verified source candidate: " + result["generation"])
+    if args.action in {"verify", "adopt"}:
+        result = adopt_generation(args.generation) if args.action == "adopt" else verify_generation(args.generation)
+        print(json.dumps(result, indent=2) if args.json else result["sourceAcceptance"] + ": " + result["generation"])
         return 0
     if args.generation is not None:
-        raise ValueError("--generation is only valid with sources verify")
+        raise ValueError("--generation is only valid with sources verify/adopt")
     report, capture = inventory()
     if args.action == "prepare":
         # Explicit preparation is the only action that updates compatibility

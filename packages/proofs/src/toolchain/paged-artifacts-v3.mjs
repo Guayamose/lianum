@@ -5,8 +5,9 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,lstatSync,realpathSync} from 'node:fs';
 import {join,relative,resolve,dirname} from 'node:path';
-import {projectRoot,sourcePath} from '@lianum/environment';
+import {projectRoot,sourcePath,resourcePath,resourceMode} from '@lianum/environment';
 import {verifyToolchain,verifyCRS} from '@lianum/components/resources/wallet-resources';
+import {hasAdoptedSourceGeneration,assertAdoptedSourceGeneration} from './current-source-generation.mjs';
 export const PAEG_PAGED_PROFILE_V3='LIANUM_PAEG_FUNDED_PAGED_V3';
 export const PAEG_PAGED_WORDS_V3=Object.freeze({reserve:119,fold:66,terminal:46,admission:85,withdraw:39});
 export const PAEG_PAGED_SETTINGS_V3=Object.freeze({ipaAccumulation:false,oracleHashType:'keccak',disableZk:false,optimizedSolidityVerifier:false});
@@ -15,8 +16,13 @@ export const PAEG_PAGED_SPARSE_ENCODING_V3='BN254_POSEIDON2_SPARSE_V3';
 // The original five-key generation and its rejected consumer compile remain
 // untouched. The successor retains those exact keys only after recompiling all
 // five complete programs and proving byte-for-byte identity with that generation.
-export const PAEG_PAGED_ARTIFACT_DIRECTORY_V3=join(PAEG_PAGED_ROOT_V3,'.local/poseidon-sparse-v3-consumer-fix-v1');
-const originalArtifactDirectory=join(PAEG_PAGED_ROOT_V3,'.local/poseidon-sparse-v3');
+// A transported candidate carries public artifacts separately from executable
+// sources. The local retained installation keeps its original data location.
+// An explicit candidate never falls back to that installation.
+const artifactRoot=resourceMode==='candidate'
+ ?resourcePath('engine','experiments/private-core-proof/funded-graph-paged-v3'):PAEG_PAGED_ROOT_V3;
+export const PAEG_PAGED_ARTIFACT_DIRECTORY_V3=join(artifactRoot,'.local/poseidon-sparse-v3-consumer-fix-v1');
+const originalArtifactDirectory=join(artifactRoot,'.local/poseidon-sparse-v3');
 const originalArtifactManifestSHA256='0bafbc32a6ff4e645bb9aba4b6a20e50f552cbc251203764558d8527924fef8e';
 // Fixed byte evidence for the relocated/changed host records. These files
 // are read and hashed only; they are never imported or installed as launchers.
@@ -36,6 +42,15 @@ const project=projectRoot;
 const original=join(project,'.internal/runtime/omnichain-product');
 const sha=v=>createHash('sha256').update(v).digest('hex');
 const regular=p=>{assert.equal(realpathSync(p),resolve(p),'PAEG_PAGED_FILE_SYMLINK');assert.ok(lstatSync(p).isFile(),'PAEG_PAGED_REGULAR_FILE');return readFileSync(p);};
+function retainedSource(row){
+ assert.match(row.sha256,/^[0-9a-f]{64}$/,'PAEG_PAGED_RETAINED_SOURCE_DIGEST');
+ const source=Object.hasOwn(retainedHostSources,row.path)?retainedHostSources[row.path]:row.path;
+ // The fixed, authenticated artifact manifest selects these bytes. A content
+ // digest names evidence only: no historical JavaScript is imported here.
+ const path=resourceMode==='candidate'
+  ?resourcePath('engine','evidence/paged-v3/sources/'+row.sha256+'.source'):join(project,source);
+ return {source,bytes:regular(path)};
+}
 function files(dir,out=[]){for(const e of readdirSync(dir,{withFileTypes:true})){assert.ok(!e.isSymbolicLink(),'PAEG_PAGED_SOURCE_SYMLINK');if(e.name==='.local')continue;const p=join(dir,e.name);if(e.isDirectory())files(p,out);else if(/\.(nr|toml|mjs|sol)$/.test(e.name))out.push(p);}return out;}
 function sourceClosure(seeds){
  const seen=new Set();function visit(p){p=resolve(p);assert.ok(p.startsWith(project+'/'),'PAEG_PAGED_SOURCE_OUTSIDE_PROJECT');if(seen.has(p))return;assert.ok(seen.size<1024,'PAEG_PAGED_SOURCE_CLOSURE_BOUND');const text=regular(p).toString('utf8');seen.add(p);const re=/\b(?:from|import)\s*(?:\(\s*)?["'](\.[^"']+)["']/g;const sol=/\bimport\s+(?:[^;]*?\sfrom\s+)?["'](\.[^"']+)["']/g;for(const pattern of [re,sol])for(const m of text.matchAll(pattern)){const next=resolve(dirname(p),m[1]);if(/\.(mjs|ts|sol)$/.test(next))visit(next);}}seeds.forEach(visit);return [...seen];
@@ -62,12 +77,19 @@ function sourceRebind(original,sourcePins){
  assert.deepEqual(original.sources.map(r=>r.path),sourcePins.map(r=>r.path),'PAEG_PAGED_REBIND_SOURCE_SET');
  const changed=sourcePins.filter((r,i)=>r.sha256!==original.sources[i].sha256||r.bytes!==original.sources[i].bytes).map(r=>r.path);
  assert.deepEqual(changed.sort(),['contracts/wallet/PrivatePagedFundedGraphPoolV3.sol','experiments/engine/private-core-proof/funded-graph-paged-v3/artifacts.mjs','experiments/engine/private-core-proof/funded-graph-paged-v3/run-bounded.mjs'].sort(),'PAEG_PAGED_REBIND_FIXED_CHANGE');
- const poolPath='contracts/wallet/PrivatePagedFundedGraphPoolV3.sol',pool=regular(join(project,poolPath)).toString('utf8');
+ const poolPath='contracts/wallet/PrivatePagedFundedGraphPoolV3.sol',pool=retainedSource(sourcePins.find(row=>row.path===poolPath)).bytes.toString('utf8');
  assert.equal(pool.split('bytes1(uint8(1))').length,2,'PAEG_PAGED_REBIND_FIXED_SOLIDITY_TYPE');
  assert.equal(sha(pool.replace('bytes1(uint8(1))','bytes1(1)')),original.sources.find(r=>r.path===poolPath).sha256,'PAEG_PAGED_REBIND_EXACT_SOLIDITY_CHANGE');
  return {profile:'EXACT_COMPLETE_PROGRAM_RECOMPILE_V1',originDirectory:'.local/poseidon-sparse-v3',originManifestSHA256:originalArtifactManifestSHA256,recompiledProgramSHA256:Object.fromEntries(Object.entries(original.roles).map(([m,r])=>[m,r.programSHA256]))};
 }
 export function loadFundedPagedGraphArtifactsV3(expectedManifestSHA256){
+ if(hasAdoptedSourceGeneration()){
+  const generation=assertAdoptedSourceGeneration();
+  assert.equal(expectedManifestSHA256,generation.pagedManifestSHA256,'PAEG_PAGED_ADOPTED_ARTIFACT_GENERATION');
+  const retained=inspectFundedPagedGraphArtifactsForPreparationV4();
+  assert.equal(retained.manifestSHA256,expectedManifestSHA256,'PAEG_PAGED_ADOPTED_REUSE_PIN');
+  return Object.freeze(pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,expectedManifestSHA256));
+ }
  const manifest=pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,expectedManifestSHA256),sourcePins=fundedPagedGraphSourcePinsV3();assert.deepEqual(manifest.sources,sourcePins,'PAEG_PAGED_SOURCE_CHANGED');
  if(manifest.artifactSourceRebind){const original=pinnedManifest(originalArtifactDirectory,originalArtifactManifestSHA256);assert.deepEqual(manifest.artifactSourceRebind,sourceRebind(original,sourcePins),'PAEG_PAGED_REBIND_PROVENANCE');assert.deepEqual(manifest.roles,original.roles,'PAEG_PAGED_REBIND_EXACT_KEYS');}
  return Object.freeze(manifest);
@@ -91,15 +113,14 @@ export function inspectFundedPagedGraphArtifactsForPreparationV4(){
  for(const row of manifest.sources){
   assert.ok(typeof row.path==='string'&&!row.path.startsWith('/')&&!row.path.split('/').some(p=>!p||p==='.'||p==='..'),'PAEG_PAGED_RETAINED_SOURCE_PATH');
   if(row.path.endsWith('.mjs')){
-   const source=Object.hasOwn(retainedHostSources,row.path)?retainedHostSources[row.path]:row.path;
-   const value=regular(join(project,source));
+   const {source,bytes:value}=retainedSource(row);
    assert.equal(value.length,row.bytes,'PAEG_PAGED_RETAINED_HOST_BYTES');
    assert.equal(sha(value),row.sha256,'PAEG_PAGED_RETAINED_HOST_PIN');
    hostSources.push({...row,source});
    continue;
   }
   assert.ok(/\.(nr|toml|sol|json)$/.test(row.path),'PAEG_PAGED_RETAINED_SOURCE_KIND');
-  const value=regular(join(project,row.path));
+  const value=retainedSource(row).bytes;
   assert.equal(value.length,row.bytes,'PAEG_PAGED_RETAINED_COMPILER_BYTES');
   assert.equal(sha(value),row.sha256,'PAEG_PAGED_RETAINED_COMPILER_PIN');
   compilerInputs.push({...row});

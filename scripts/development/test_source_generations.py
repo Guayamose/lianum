@@ -67,6 +67,8 @@ class SourceGenerationsTest(unittest.TestCase):
         self.write("packages/a/package.json", b'{"name":"@lianum/a","exports":{"./main":"./src/main.mjs"}}')
         self.write("packages/b/package.json", b'{"name":"@lianum/b","exports":{"./leaf":"./src/leaf.mjs"}}')
         self.write("apps/mobile/package.json", b'{"dependencies":{"expo-crypto":"1.0.0"}}')
+        self.write("apps/platform/package.json", b'{"dependencies":{}}')
+        self.write("scripts/development/source-pins.json", b'{"profiles":{"platform":{"dependencyPaths":[]}}}')
         self.layout(relocations)
         capture = generations.Capture()
         return {"groups": [{"files": [capture.observe(path) for path in roots]}]}, capture
@@ -103,6 +105,7 @@ class SourceGenerationsTest(unittest.TestCase):
         self.assertEqual(contract["mobileBundlerBindings"], [{"source": mobile, "specifier": "expo-crypto",
                          "acceptance": "MOBILE_BUNDLER_VALIDATION_REQUIRED"}])
         self.assertFalse(contract["runtimeResourceAcceptanceEstablished"])
+
         self.write(entry, b"const other=require('undeclared-package');\n")
         with self.assertRaisesRegex(ValueError, "Undeclared fixed runtime package binding"):
             generations.current_source_contract(report, generations.Capture())
@@ -112,6 +115,45 @@ class SourceGenerationsTest(unittest.TestCase):
         self.write(entry, b"export const valid=true;\n")
         self.write(mobile, b"import 'undeclared-mobile-package';\n")
         with self.assertRaisesRegex(ValueError, "Current source dependency requires review"):
+            generations.current_source_contract(report, generations.Capture())
+
+    def test_retired_publication_label_needs_no_copy_and_never_shadows_current_code(self):
+        old, current = "packages/a/src/retired.mjs", "packages/a/src/main.mjs"
+        self.write(current, b"export const value=1;\n")
+        self.layout({old: current})
+        definition = json.loads(generations.read("scripts/layout.json"))
+        definition["retiredRuntimeSources"] = {"flat/retired.mjs": old, "flat/main.mjs": old}
+        self.write("scripts/layout.json", json.dumps(definition).encode())
+        capture = generations.Capture()
+        retired = capture.observe(generations.RUNTIME + "flat/retired.mjs")
+        self.assertEqual(retired["source"], current)
+        self.assertEqual(retired["runtimeDisposition"], "RETIRED_PUBLICATION_LABEL")
+        self.assertNotIn("runtimeMatchesSource", retired)
+        self.assertFalse((generations.ROOT / retired["path"]).exists())
+        active = capture.observe(generations.RUNTIME + "flat/main.mjs")
+        self.assertEqual(active["source"], current)
+        self.assertNotIn("sourceRelocation", active)
+        self.assertNotIn("runtimeDisposition", active)
+        self.assertFalse(active["runtimeMatchesSource"])
+
+    def test_live_canonical_owner_retires_only_its_exact_copy_and_rejects_current_alias_import(self):
+        owner, entry = 'packages/a/src/worker.mjs', 'packages/a/src/main.mjs'
+        self.write(owner, b'export const worker=1;\n')
+        self.write(entry, b"import './worker.mjs';\n")
+        self.closure_fixture([entry])
+        definition = json.loads(generations.read('scripts/layout.json'))
+        definition['canonicalRuntimeSources'] = {'flat/worker.mjs': owner}
+        self.write('scripts/layout.json', json.dumps(definition).encode())
+        capture = generations.Capture()
+        historical = capture.observe(generations.RUNTIME + 'flat/worker.mjs')
+        self.assertEqual(historical['source'], owner)
+        self.assertEqual(historical['runtimeDisposition'], 'RETIRED_PUBLICATION_LABEL')
+        self.assertNotIn('runtimeMatchesSource', historical)
+        report = {'groups': [{'files': [historical, capture.observe(entry)]}]}
+        current = generations.current_source_contract(report, capture)
+        self.assertNotIn(historical['path'], {row['path'] for row in current['files']})
+        self.write(entry, b"import '../../../.internal/runtime/flat/worker.mjs';\n")
+        with self.assertRaisesRegex(ValueError, 'Current import names a retired runtime copy'):
             generations.current_source_contract(report, generations.Capture())
 
     def test_frozen_evidence_is_not_a_current_entry_but_operational_imports_are_followed(self):
@@ -150,6 +192,26 @@ class SourceGenerationsTest(unittest.TestCase):
             with patch.object(generations, "inspect_candidate", side_effect=mutate_during_inspection):
                 with self.assertRaisesRegex(ValueError, "Generated executable changed during readback"):
                     generations.verify_generation(digest)
+
+    def test_adoption_is_idempotent_and_rejects_changed_sources_before_writing(self):
+        value = b"export const version=1;\n"
+        report = self.report(value)
+        self.write("packages/source.mjs", value)
+        (generations.ROOT / "scripts/development").mkdir(parents=True)
+        capture = SimpleNamespace(objects={generations.sha(value): value})
+        with patch.object(generations, "inventory", return_value=(report, capture)), \
+             patch.object(generations, "inspect_candidate", return_value=self.inspection()):
+            prepared = generations.prepare(report, capture)
+            digest = Path(prepared["generation"]).name
+            self.assertEqual(generations.adopt_generation(digest)["sourceAcceptance"], "ADOPTED_CURRENT_HOST_SOURCES")
+            record = generations.ROOT / "scripts/development/adopted-generation.json"
+            before = record.read_bytes()
+            self.assertEqual(generations.adopt_generation(digest)["written"], [])
+            changed = self.report(b"export const version=2;\n")
+            with patch.object(generations, "inventory", return_value=(changed, capture)):
+                with self.assertRaisesRegex(ValueError, "differ from the candidate"):
+                    generations.adopt_generation(digest)
+            self.assertEqual(record.read_bytes(), before)
 
     def test_retained_compiler_bodies_are_cached_as_original_evidence_and_tamper_rejected(self):
         value = b"export const version=1;\n"
@@ -354,6 +416,21 @@ class SourceGenerationsTest(unittest.TestCase):
         self.write(old, b"restored original")
         with self.assertRaisesRegex(ValueError, "hide an existing source"):
             capture.observe(old)
+
+    def test_retired_collector_evidence_is_hash_authenticated_and_not_executed(self):
+        old = "packages/a/src/old.mjs"
+        raw = b"import './removed-legacy-worker.mjs';\n"
+        target = "archive/source-evidence/retired-source-collectors/" + generations.sha(raw) + ".source"
+        archive = self.write(target, raw)
+        report, capture = self.closure_fixture([old], {old: target})
+        contract = generations.current_source_contract(report, capture)
+        row = next(row for row in contract["files"] if row["source"] == target)
+        self.assertEqual(row["sourceSHA256"], generations.sha(raw))
+        self.assertEqual(row["sourceDisposition"], "RETAINED_SOURCE_EVIDENCE")
+        self.assertFalse(any("removed-legacy-worker" in row["path"] for row in contract["files"]))
+        archive.write_bytes(raw + b"// altered\n")
+        with self.assertRaisesRegex(ValueError, "evidence was modified"):
+            generations.Capture()
 
     def test_duplicate_relocation_key_is_not_silently_overridden(self):
         self.write("scripts/layout.json", b'{"sourceRelocations":{"packages/a/old.mjs":"packages/b/one.mjs",'
