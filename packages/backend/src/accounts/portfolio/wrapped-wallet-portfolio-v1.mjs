@@ -8,7 +8,7 @@ import { validateBoundRequest, validateGenericAccountConfig,
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { bindFlatPortfolioChildRequest } from '../authority/flat-portfolio-authority.mjs';
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
-import { assertOwnedWrappedWalletAccountAuthorityV1 } from '../authority/wrapped-wallet-account-authority-v1.mjs';
+import { assertOwnedWrappedWalletAccountAuthorityV1 } from '../authority/native-value-account-authority-v2.mjs';
 export const WRAPPED_WALLET_PORTFOLIO_PROFILE_V1 = 'OWNED_WRAPPED_WALLET_PORTFOLIO_V1';
 const owned = new WeakMap(), claimed = new WeakSet();
 export function assertOwnedWrappedWalletPortfolioV1(runtime, portfolio) {

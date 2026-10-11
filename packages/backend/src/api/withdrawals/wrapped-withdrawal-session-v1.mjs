@@ -20,7 +20,7 @@ await assertWrappedWithdrawalReleasedV1();
  const { exactRecord }=await import('@lianum/components/encoding/commitments');
  const { assertOwnedWrappedClaimWalletSystemV1 }=await import('../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs');
  const { assertOwnedWrappedClaimOwnerProcessV1,assertWrappedClaimOwnerOriginalLifetimeV1 }=await import('../../custody/processes/wrapped-claim-owner-process-v1.mjs');
- const { assertOwnedWrappedWalletAccountAuthorityV1,wrappedWalletAccountManualGraphDetailsV1 }=await import('../../accounts/authority/wrapped-wallet-account-authority-v1.mjs');
+ const { assertOwnedWrappedWalletAccountAuthorityV1,wrappedWalletAccountManualGraphDetailsV1 }=await import("../../accounts/authority/native-value-account-authority-v2.mjs");
  const { assertOwnedNativeRecipientProcess,assertOriginalNativeRecipientRecoveryV1 }=await import('../../execution/native/recipients/native-recipient-process.mjs');
  const { assertOwnedNativeValueProviderCustody,ownedNativeValueProviderCustodyReview }=await import('../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs');
  const { createWrappedWalletStateReaderV1 }=await import('../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs');

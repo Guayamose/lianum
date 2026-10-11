@@ -60,11 +60,11 @@ async function walletAcceptanceV1(input,recovery){
   const domain=claimDomainCommitment(system.claims.configs[1]), scope=await owners[1].publicView.summary();
   assert.equal(scope.closed,false);
   if(!recovery)assertOwnedWrappedClaimIngressHandoffV1(handoff,{claimDomain:domain,ownerIdentitySHA256:scope.identitySHA256});
-  const { createWrappedWalletExecutionV1,reopenWrappedWalletExecutionFromRecoveryV1,wrappedWalletExecutionPrivateInitializationV1 } = await import('../../execution/wrapped/execution/wrapped-wallet-execution-v1.mjs');
-  const { createWrappedWalletAccountAuthorityV1,reopenWrappedWalletAccountFromRecoveryV1,wrappedWalletAccountPrivateInitializationV1,recoveredWrappedWalletManualGraphApprovalsV1 } = await import('../../accounts/authority/wrapped-wallet-account-authority-v1.mjs');
+  const { createWrappedWalletExecutionV1,reopenWrappedWalletExecutionFromRecoveryV1,wrappedWalletExecutionPrivateInitializationV1 } = await import("../../execution/native-value/execution/native-value-execution-v2.mjs");
+  const { createWrappedWalletAccountAuthorityV1,reopenWrappedWalletAccountFromRecoveryV1,wrappedWalletAccountPrivateInitializationV1,recoveredWrappedWalletManualGraphApprovalsV1 } = await import("../../accounts/authority/native-value-account-authority-v2.mjs");
   const { createWrappedWalletPortfolioAuthorityV1 } = await import('../../accounts/portfolio/wrapped-wallet-portfolio-v1.mjs');
-  const { createWrappedWalletManualGraphSessionV1,reopenWrappedWalletGraphSessionV1 } = await import('../../api/wallet/wrapped-wallet-session-v1.mjs');
-  const { createWrappedClaimSessionV1, wrappedClaimSessionControllerV1 } = await import('../../api/claims/wrapped/wrapped-claim-session-v1.mjs');
+  const { createWrappedWalletManualGraphSessionV1,reopenWrappedWalletGraphSessionV1 } = await import("../../api/accounts/flat-manual-graph-session.mjs");
+  const { createWrappedClaimSessionV1, wrappedClaimSessionControllerV1 } = await import("../../api/claims/native-claim-session.mjs");
   const { createWrappedWithdrawalSessionV1,reopenWrappedWithdrawalSessionFromRecoveryV1 } = await import('../../api/withdrawals/wrapped-withdrawal-session-v1.mjs');
   const {createOriginalSessionWalletEconomicStateV1,readOriginalSessionWalletEconomicStateV1}=await import('../../api/accounts/flat-manual-graph-session.mjs');
   const { startWalletApplication } = await import('../../api/wallet/http-service.mjs');
@@ -186,8 +186,8 @@ async function walletAcceptanceV1(input,recovery){
     });
     originalWalletLifetimesV1.set(wallet,{resources(){assert.ok(recovery&&!closed,'WRAPPED_WALLET_RECOVERED_RESOURCES_REQUIRED');return Object.freeze({providers:Object.freeze([...reopenedProviders]),recipient:reopenedRecipient});},async capture(attemptAuthority){
       assert.ok(!closed&&!busy,'WRAPPED_ACCEPTANCE_BUSY_OR_CLOSED');closed=true;const appClosing=app.close(),claimClosing=claimSession.close();appClosing.catch(()=>{});claimClosing.catch(()=>{});
-      const accountModule=await import('../../accounts/authority/wrapped-wallet-account-authority-v1.mjs'),executionModule=await import('../../execution/wrapped/execution/wrapped-wallet-execution-v1.mjs');
-      const graphModule=await import('../../api/wallet/wrapped-wallet-session-v1.mjs'),withdrawalModule=await import('../../api/withdrawals/wrapped-withdrawal-session-v1.mjs');
+      const accountModule=await import("../../accounts/authority/native-value-account-authority-v2.mjs"),executionModule=await import("../../execution/native-value/execution/native-value-execution-v2.mjs");
+      const graphModule=await import("../../api/accounts/flat-manual-graph-session.mjs"),withdrawalModule=await import('../../api/withdrawals/wrapped-withdrawal-session-v1.mjs');
       const providerModule=await import('../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs'),recipientModule=await import('../../execution/native/recipients/native-recipient-process.mjs');
       const providerHandles=[],providerIds=new Map(),fencedProviders=new Set();let recipientHandle=null;
       const mapProviders=rows=>rows.map(({reference,providers})=>({reference,providers:providers.map(({custody,...metadata})=>{if(!providerIds.has(custody)){providerIds.set(custody,providerHandles.length);providerHandles.push(custody);}return {...metadata,providerId:providerIds.get(custody)};})}));

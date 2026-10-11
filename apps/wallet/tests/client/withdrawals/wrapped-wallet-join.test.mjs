@@ -41,7 +41,20 @@ mock.module(url('../../../../../packages/backend/src/custody/observers/wrapped-c
 mock.module(url('../../../../../packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs'), { exports: {
   async createWrappedWalletStateReaderV1({ runtime, poolIndex }) { return worlds.get(runtime).rows[poolIndex].reader; }
 } });
-mock.module(url('../../../../../packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs'), { exports: {
+  // The executor is an explicit lower port. Native and recovery operations
+  // must remain unavailable in this synthetic account/session host fixture.
+  FLAT_EXECUTION_PROFILE: 'SYNTHETIC_FORBIDDEN_NATIVE_EXECUTOR',
+  createNativeValueExecution: forbidden, assertOwnedNativeValueExecution: forbidden,
+  ownedNativeValueManualGraphReview: forbidden, consumeOriginalNativeFReorgProbeV1: forbidden,
+  rewindOriginalNativeFReorgProbeV1: forbidden, reconcileOriginalDeviceNativeRecoveryV1: forbidden,
+  consumeOriginalNativeRecoveryReorgWireV1: forbidden, captureWrappedWalletExecutionForReopenV1: forbidden,
+  stopCapturedWrappedWalletExecutionV1: forbidden, reopenWrappedWalletExecutionFromRecoveryV1: forbidden,
+  wrappedWalletExecutionPrivateInitializationV1: forbidden, fenceWrappedWalletExecutionRecoveryV1: forbidden,
+  fenceOriginalNativeExecutionEconomicRecoveryV1: forbidden, captureOriginalNativeExecutionEconomicRecoveryV1: forbidden,
+  stopCapturedNativeExecutionEconomicRecoveryV1: forbidden, abortNativeExecutionEconomicRecoveryV1: forbidden,
+  reopenOriginalNativeExecutionEconomicRecoveryV1: forbidden, retainOriginalNativeExecutorSourceV1: forbidden,
+  reopenOriginalNativeExecutorSourceV1: forbidden,
   createWrappedWalletExecutionV1: forbidden, WRAPPED_WALLET_EXECUTION_PROFILE_V1: 'SYNTHETIC_LOWER_EXECUTOR',
   assertOwnedWrappedWalletExecutionV1(executor, expected) { const row = executors.get(executor); assert.ok(row);
     for (const key of ['runtime', 'system', 'poolIndex']) assert.equal(row[key], expected[key]); },
@@ -76,10 +89,10 @@ mock.module(lifetimeURL, { namedExports: {
     row.privateState = clone(privateState);
   }
 } });
-const { createWrappedWalletAccountAuthorityV1, wrappedWalletAccountManualGraphDetailsV1 } = await import('../../../../../packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs');
+const { createWrappedWalletAccountAuthorityV1, wrappedWalletAccountManualGraphDetailsV1 } = await import("../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs");
 const { assertOwnedNativeValueAccountAuthority, nativeValueAccountManualGraphDetails } = await import('../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const { createWrappedWalletPortfolioAuthorityV1 } = await import('../../../../../packages/backend/src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs');
-const { createWrappedWalletManualGraphSessionV1 } = await import('../../../../../packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs');
+const { createWrappedWalletManualGraphSessionV1 } = await import("../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs");
 const { startWalletApplication } = await import('../../../src/server/server.mjs');
 const { createWalletApplicationClient } = await import('../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs');
 async function fixture(t) {

@@ -24,10 +24,7 @@ import {
   assertFlatAccountManualGraphExecution,
 } from "../../accounts/authority/flat-account-authority.mjs";
 
-import {
-  wrappedWalletAccountManualGraphDetailsV1,
-  assertWrappedWalletAccountManualGraphExecutionV1,
-} from "../../accounts/authority/wrapped-wallet-account-authority-v1.mjs";
+import { wrappedWalletAccountManualGraphDetailsV1, assertWrappedWalletAccountManualGraphExecutionV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {
   assertOwnedWrappedWalletPortfolioV1,
   assertOwnedWrappedWalletPortfolioAccountV1,
