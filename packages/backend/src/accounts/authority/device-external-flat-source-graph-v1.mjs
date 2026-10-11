@@ -15,7 +15,7 @@ import {canonical} from '../../../../engine/src/crypto/privacy.mjs';
 import {compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage} from '../../../../engine/src/execution/graph/funded-graph.mjs';
 import {createProofProcess} from '../../../../engine/src/execution/proofs/proof-process.mjs';
 import {createOriginalDeviceWalletNoteProofClientV3,readOriginalDeviceWalletNoteDerivationV3} from '../../../../proofs/src/jobs/wallet-note-private-client-v3.mjs';
-import * as Note from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import * as Note from '@lianum/mobile-protocol/device/source-note-v1';
 import {verifyPrivateNotePath} from '../../../../engine/src/notes/private-note-tree.mjs';
 import {walletInputPublicWords,decodeWalletPoolInputs,balanceCommitment,walletNoteCommitment} from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier as noteNullifier} from '../../../../engine/src/notes/private-note-encoding.mjs';
@@ -38,8 +38,8 @@ import {assertOwnedPoolAsset} from '../../chains/shared/contracts/owned-pool-ass
 import {flatAccountGraphBinding,flatAccountCalldataHash,validateFlatAccountOwnerObservation} from './flat-account-validation.mjs';
 import {assertOriginalDeviceExternalFlatNoteAuthorityV1,readOriginalDeviceExternalFlatSourceSubjectV1,
  latchOriginalDeviceExternalFlatSourceGraphV1,releaseOriginalDeviceExternalFlatSourceGraphV1} from './device-external-flat-note-authority-v1.mjs';
-import {externalFlatExactV1,externalFlatPermissionMessageV1,validateExternalFlatFreshV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
-import * as P from '../../../../mobile-protocol/src/device-external-flat-graph-v1.mjs';
+import {externalFlatExactV1,externalFlatPermissionMessageV1,validateExternalFlatFreshV1} from '@lianum/mobile-protocol/device/source-note-v1';
+import * as P from '@lianum/mobile-protocol/device/source-graph-v1';
 import {normalizeDeviceReservationCapsuleOptionsV1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
 import {assertOriginalDeviceExternalFlatGraphWorkspaceV1,prepareOriginalDeviceExternalFlatGraphWorkspaceV1,readOriginalDeviceExternalFlatMultiGraphBindingsV4,isOriginalDeviceExternalFlatMultiGraphWorkspaceV4} from '../../operations/local/device-external-flat-source-graph-service-v1.mjs';
 const outputSends=new WeakMap();

@@ -10,8 +10,8 @@ import { decodeWalletPoolInputs } from '../../../engine/src/wallet/notes/private
 import { assertOwnedNativeValueWalletSystem } from '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
 import { assertOwnedPoolAsset } from '../../../backend/src/chains/shared/contracts/owned-pool-asset.mjs';
 import { createNativeValueSystemStateReader } from '../../../backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import { exactRecord } from '../../../backend/src/execution/encoding/commitments.mjs';
-import { decodeStatement } from '../../../backend/src/execution/encoding/statements.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
+import { decodeStatement } from '@lianum/components/encoding/statements';
 import { ownerCopy, ownerDigest, flatOwnerIdentity, flatOwnerSnapshot, decodeFlatOwnerCalldata }
   from '../signing/flat-owner-custody.mjs';
 import { decodeDepositIntentInputs } from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';

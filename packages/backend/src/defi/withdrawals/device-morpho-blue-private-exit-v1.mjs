@@ -14,7 +14,7 @@ import {assertOwnedOriginalMorphoBluePositionV1} from '../../operations/deployme
 import {assertOriginalDeviceExternalFlatNoteAuthorityV1,readOriginalDeviceExternalFlatShareWithdrawalV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 import {assertOwnedMetaMorphoVault,isOwnedMorphoBluePositionVaultV1,isOwnedDeviceAaveStaticVaultV1,isOwnedDeviceMetaMorphoVaultV2,ownedMetaMorphoVaultBinding,readOriginalOfficialVaultNativeCostsV1,captureRetainedOwnedOfficialStaticVaultV1,checkpointRetainedOwnedDeviceAaveStaticVaultSourceV3} from '../vaults/owned-metamorpho-vault.mjs';
 import {createRetainedPrivateVaultExitJournalV1,openRetainedPrivateVaultExitJournalV1,assertOriginalExternalVaultJournalV1} from '../vaults/retained-external-vault-journal-v1.mjs';
-import {externalFlatExactV1,normalizeExternalFlatSignatureV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatExactV1,normalizeExternalFlatSignatureV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import * as P from '../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
 import {consumeOriginalDeviceGraphSourceRequestV2,beginOriginalDeviceGraphSourceActivityV2,endOriginalDeviceGraphSourceActivityV2,assertOriginalDeviceGraphSourceAvailableV2} from '../../operations/recovery/device-external-flat-original-source-v2.mjs';
 const owned=new WeakMap(),requests=new WeakMap(),fresh=()=>randomBytes(32).toString('hex'),copy=structuredClone;

@@ -3,7 +3,7 @@
  * byte pins or canonicality. Those belong to the branded gateway observer. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, bytes32, canonicalField, ZERO } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord, bytes32, canonicalField, ZERO } from '@lianum/components/encoding/commitments';
 import { decodeDepositIntentInputs } from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
 import { validateClaimConfig, claimDomainCommitment, claimIntentId, decodeClaimIngressInputs, claimUint }
   from '../../../backend/src/claims/protocol/framing.mjs';

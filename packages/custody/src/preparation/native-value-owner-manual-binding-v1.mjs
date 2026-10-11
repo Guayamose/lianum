@@ -2,8 +2,8 @@
 /** Strict bounded owner-local manual binding. Contains display terms only;
  * no consent, secret, opening, root, witness, endpoint or execution capability. */
 import assert from 'node:assert/strict';
-import { sha } from '../../../engine/src/execution/accounts/generic-account-journal.mjs';
-import { exactRecord } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { sha } from '@lianum/engine/accounts/journal';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { validateFlatAccountPrepare } from '../../../backend/src/api/accounts/flat-account-session.mjs';
 import { validatePrivateAccountRegistry } from '../../../engine/src/accounts/private-account-state.mjs';
 

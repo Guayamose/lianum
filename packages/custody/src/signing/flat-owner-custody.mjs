@@ -22,8 +22,8 @@ import { createGenericBalanceNativePreparation, validateGenericBalanceNativePrep
 import { inspectGenericSnapshot, reserveProjection } from '../../../engine/src/execution/local/local-ledger.mjs';
 import { buildAuthorizedEnvelope } from './authorized-envelope.mjs';
 import { createCommitmentCodec, exactRecord, canonicalField, validateStruct, ZERO }
-  from '../../../backend/src/execution/encoding/commitments.mjs';
-import { encodeStatement, decodeStatement } from '../../../backend/src/execution/encoding/statements.mjs';
+  from '@lianum/components/encoding/commitments';
+import { encodeStatement, decodeStatement } from '@lianum/components/encoding/statements';
 import { encodeDepositIntentInputs, decodeDepositIntentInputs, depositIntentFrame, depositIntentWitness }
   from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
 import { decodeEvmVaultDeliveryCall } from '../../../backend/src/chains/evm/vault/evm-vault-delivery.mjs';

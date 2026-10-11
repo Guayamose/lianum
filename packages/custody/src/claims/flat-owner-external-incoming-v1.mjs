@@ -2,7 +2,7 @@
  * this branch in production. It never establishes provider reimbursement. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {exactRecord} from '../../../backend/src/execution/encoding/commitments.mjs';
+import {exactRecord} from '@lianum/components/encoding/commitments';
 import {decodeDepositIntentInputs} from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
 import {decodePrivateExternalDeliveryCall} from '../../../backend/src/defi/delivery/private-external-delivery.mjs';
 import {flatOwnerIdentity,flatOwnerSnapshot,ownerCopy,ownerDigest,FLAT_OWNER_OBSERVATION_TRUST} from '../signing/flat-owner-custody.mjs';

@@ -4,7 +4,7 @@ import { assertWrappedWalletAccountReleasedV1 } from '../../operations/releases/
  * it does not create new notes, migrate journals or grant a legacy brand. */
 import assert from 'node:assert/strict';
 import { validateBoundRequest, validateGenericAccountConfig,
-  genericAccountIdentity, validateOutcome, immutable, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+  genericAccountIdentity, validateOutcome, immutable, sha } from '@lianum/engine/accounts/journal';
 import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
 import { bindFlatPortfolioChildRequest } from '../authority/flat-portfolio-authority.mjs';
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs';

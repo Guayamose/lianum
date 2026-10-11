@@ -23,7 +23,7 @@ import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../operati
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/operators.mjs';
 import * as claimOperators from '../operations/operators.mjs';
 import {assertRoleProofClient,createRoleProofClient,readOriginalDeviceRootClaimDerivationV2} from '../../../../proofs/src/jobs/role-client.mjs';
-import * as DeviceClaim from '../../../../mobile-protocol/src/native-claim-device-v1.mjs';
+import * as DeviceClaim from '@lianum/mobile-protocol/device/native-claim-v1';
 import {originalNativeClaimAssetUnitsV1} from '../operations/native-claim-asset-units-v1.mjs';
 import { loadPinned, resourceModuleURL } from '../../../../proofs/src/tooling/tooling.mjs';
 import { assertOwnedNativeClaimIngressHandoff,assertOwnedPrivateNativeClaimIngressHandoffV2, assertOwnedFlatOwnerProcess } from '../../../../custody/src/processes/flat-owner-process.mjs';

@@ -5,8 +5,8 @@ import {spawn} from 'node:child_process';
 import {readFileSync,statfsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {PRIVATE_RESOURCE_POLICY as limits} from '../../crypto/private-resource-policy.mjs';
-import * as P from '../../../../mobile-protocol/src/device-paged-owner-v3.mjs';
-import * as C from '../../../../mobile-protocol/src/device-paged-graph-v3.mjs';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
+import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
 const owned=new WeakMap(),results=new WeakMap(),nativeReadies=new WeakMap(),sha=v=>createHash('sha256').update(v).digest('hex');
 const childURL=new URL('./device-paged-graph-recipient-v3.mjs',import.meta.url),coreURL=new URL('./device-paged-private-graph-v3.mjs',import.meta.url);
 function deepFreezeNativeReady(value){if(value&&typeof value==='object'){for(const item of Object.values(value))deepFreezeNativeReady(item);Object.freeze(value);}return value;}

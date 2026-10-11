@@ -10,7 +10,7 @@ import { NATIVE_VALUE_LIVE_V2_SPEC, NATIVE_VALUE_LIVE_V2_LOCAL, NATIVE_VALUE_LIV
 import { loadNativeValueLiveArtifacts } from '../metadata/native-value-live-v2-artifacts.mjs';
 import { regular, hash, assertID } from '../../tooling/tooling.mjs';
 import { cloneInput, frozenInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 
 const owned = new WeakMap();
 /** Timing evidence is descriptive, never a circuit scalar. The owner custody

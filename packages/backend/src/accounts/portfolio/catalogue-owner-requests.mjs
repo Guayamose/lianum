@@ -2,7 +2,7 @@
  * account preparation. Pure synthetic-test seam; this creates no authority,
  * balance, confirmation or route. The private catalogue supplies the bindings. */
 import assert from 'node:assert/strict';
-import { copy, immutable } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { copy, immutable } from '@lianum/engine/accounts/journal';
 import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
 
 export function projectCatalogueOwnerRequests(input) {

@@ -7,7 +7,7 @@ import {lstat, realpath, mkdir, open, readFile, readlink, unlink} from 'node:fs/
 import {constants} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {genericAccountIdentity, immutable, sha} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import {genericAccountIdentity, immutable, sha} from '@lianum/engine/accounts/journal';
 import {exactRecord, fixedArray} from '../../execution/encoding/commitments.mjs';
 import {assertOwnedFlatJournalCatalogue} from '../storage/flat-journal-catalogue.mjs';
 import {assertFlatManualGraphCatalogueSession,assertNativeWalletEconomicSessionV1,assertWrappedWalletEconomicSessionV1,readOriginalSessionWalletEconomicSnapshotV1} from '../../api/accounts/flat-manual-graph-session.mjs';

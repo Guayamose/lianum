@@ -6,7 +6,7 @@ import { assertOwnedFlatSystem, describeOwnedFlatPoolRegistry } from '../../oper
 import { assertOwnedFlatAccountAuthority } from './flat-account-authority.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { genericAccountIdentity, immutable } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { genericAccountIdentity, immutable } from '@lianum/engine/accounts/journal';
 import { poolRouteDigest, poolEconomicIdentity, projectPoolCapacity, assertPoolHistoryAdvance,
   assertFreshPoolSuccessor } from '../storage/flat-pool-route-state.mjs';
 const owned = new WeakMap();

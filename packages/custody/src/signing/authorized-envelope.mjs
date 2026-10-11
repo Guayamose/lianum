@@ -11,7 +11,7 @@ import { fundedAdmission } from '../../../engine/src/execution/graph/funded-grap
 import {assertDistinctNativeReceiptSpendSecretsV1} from '../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
 import { createCommitmentCodec, exactRecord, fixedArray, bytes32, validateStruct,
   structToNoir, digestBytes, digestWords, ZERO }
-  from '../../../backend/src/execution/encoding/commitments.mjs';
+  from '@lianum/components/encoding/commitments';
 
 function freeze(value) {
   if (value && typeof value === 'object') {

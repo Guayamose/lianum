@@ -8,14 +8,14 @@ import { randomBytes, createPublicKey, verify } from 'node:crypto';
 import { assertFlatAccountSession } from '../accounts/flat-account-session.mjs';
 import { flatManualNativeNoteActionTarget } from '../accounts/flat-manual-graph-session.mjs';
 import { nativeValueAccountManualNoteDetails, assertOwnedNativeValueAccountAuthority, nativeValueOriginalRecoverySourceV1FromAccount } from '../../accounts/authority/native-value-account-authority-v2.mjs';
-import { genericAccountIdentity, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
 import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1, consumeNativeEconomicRecoverySectionV1 }
   from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { normalizeMobileOrigin } from '../../../../mobile-protocol/src/authorization.mjs';
 import { ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_PROFILE_V2, ORIGINAL_ACCOUNT_REVIEW_TTL_MS,
   normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2, normalizeOriginalAccountSignatureV2,
   validateOriginalAccountFreshV2, originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
-  from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+  from '@lianum/mobile-protocol/original-account-v2';
 import { privateStateAccessFrameV1, privateStateReviewFrameV1, normalizePrivateStateAccessV1,
   normalizePrivateStateReviewV1, privateStateAccessMessageV1, privateStateReviewMessageV1,
   PRIVATE_STATE_SCOPE_V1, PRIVATE_STATE_OBSERVATION_V1, normalizePrivateStateObservationV1,

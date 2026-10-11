@@ -12,7 +12,7 @@ import { deviceOwnerDepositBridgeActorV1, isOriginalNativePrivateDepositBridgeV2
 import { deviceOwnerReservationBridgeActorV1, assertDeviceOwnerReservationDurableRequestV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
 import { deviceOwnerExecutionBridgeActorV1, isOriginalNativePrivateExecutionBridgeV2, assertDeviceOwnerExecutionTransportBindingsV1, assertDeviceOwnerExecutionDurableRequestV1 }
   from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
-import { normalizeOriginalAccountSignatureV2 } from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import { normalizeOriginalAccountSignatureV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
   from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
 import { validateDeviceReservationConsentFreshV1, deviceReservationConsentMessageV1 }
@@ -22,8 +22,8 @@ import { validateDeviceExecutionConsentFreshV1, deviceExecutionConsentMessageV1 
 import { validateDeviceExitConsentFreshV1, deviceExitConsentMessageV1 }
   from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
 
-import * as NativeDepositPrivate from '../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import * as NativeExitPrivate from '../../../../mobile-protocol/src/device-native-private-exit-v2.mjs';
+import * as NativeDepositPrivate from '@lianum/mobile-protocol/device/native-deposit-v2';
+import * as NativeExitPrivate from '@lianum/mobile-protocol/device/native-withdrawal-v2';
 
 const owned = new WeakMap();
 const LOCK = Object.freeze([0x4c49414e, 0x44535031]);

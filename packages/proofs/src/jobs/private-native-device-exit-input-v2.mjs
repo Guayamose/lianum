@@ -1,8 +1,8 @@
 /** Only an original opened recipient derives this same Native PC23 W39. */
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import * as P from '../../../mobile-protocol/src/device-native-private-exit-v2.mjs';
-import {normalizeOriginalAccountSignatureV2} from '../../../mobile-protocol/src/original-account-review-v2.mjs';
+import * as P from '@lianum/mobile-protocol/device/native-withdrawal-v2';
+import {normalizeOriginalAccountSignatureV2} from '@lianum/mobile-protocol/original-account-v2';
 import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import {walletInputPublicWords,balanceCommitment,balanceWithdrawFrame} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';

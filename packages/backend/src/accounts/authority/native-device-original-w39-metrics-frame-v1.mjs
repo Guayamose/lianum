@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {types} from 'node:util';
-import {copy} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import {copy} from '@lianum/engine/accounts/journal';
 import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1}
   from '../../../../engine/src/execution/proofs/note-native-execution-v1.mjs';
 import {assertNativePrivateEconomicNoteReceiptV3,PRIVATE_NOTE_NATIVE_PROFILE_V1}

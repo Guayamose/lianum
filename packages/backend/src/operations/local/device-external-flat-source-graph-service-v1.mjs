@@ -23,7 +23,7 @@ import {retainOriginalDeviceExternalFlatGraphAccountV1,checkpointOriginalDeviceE
 import {createOriginalRetainedDeviceExternalFlatPrivateMultiSourceGraphV4,createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2,checkpointOriginalDeviceExternalFlatSourceGraphSourceV2,captureOriginalDeviceExternalFlatSourceGraphV1,reopenOriginalDeviceExternalFlatSourceGraphV1} from '../../accounts/authority/device-external-flat-source-graph-v1.mjs';
 import {retainOriginalDeviceExternalFlatGraphExecutionV1,checkpointOriginalDeviceExternalFlatGraphExecutionSourceV2,captureOriginalDeviceExternalFlatGraphExecutionV1,reopenOriginalDeviceExternalFlatGraphExecutionV1} from '../../execution/account/execution/flat-native-execution.mjs';
 import {quiesceOriginalDeviceExternalFlatGraphTargetTlsServerV4,quiesceOriginalDeviceExternalFlatGraphTlsServerV1} from '../../api/mobile/device-external-flat-note-http-v1.mjs';
-import {externalFlatExactV1,externalFlatUintV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatExactV1,externalFlatUintV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {canonicalNativeOwnerNodes} from '../../../../engine/src/execution/native/dispatch/native-owner.mjs';
 import {createFlatSystemStateReader} from '../../execution/account/reconciliation/flat-system-state.mjs';
 import {createGenericBalanceNativePreparation} from '../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';

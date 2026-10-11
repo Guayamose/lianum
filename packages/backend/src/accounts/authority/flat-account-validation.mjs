@@ -2,7 +2,7 @@
  * Production observations come only from the private branded flat observer. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { immutable, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { immutable, sha } from '@lianum/engine/accounts/journal';
 import { validatePrivateAccountRegistry } from '../../../../engine/src/accounts/private-account-state.mjs';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { decodeStatement } from '../../execution/encoding/statements.mjs';

@@ -13,18 +13,18 @@ import {installDeviceOwnerExecutionV1,readDeviceOwnerExecutionStatusV1,runDevice
   installOriginalNativePrivateExitV2,assertOwnedNativeValueAccountAuthority,prepareDeviceOwnerExitV1,readDeviceOwnerExitStatusV1,runDeviceOwnerExitAuthorizationV1,readDeviceOwnerOutputBalanceV1,readDeviceOwnerRecoveryArmTermsV1,runDeviceOwnerRecoveryArmAuthorizationV1}
   from './native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import {normalizeOriginalAccountSignatureV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import {normalizeOriginalAccountSignatureV2} from '@lianum/mobile-protocol/original-account-v2';
 import {DEVICE_EXECUTION_CONSENT_V1,normalizeDeviceExecutionConsentV1,validateDeviceExecutionConsentFreshV1,
   deviceExecutionConsentMessageV1} from '../../../../mobile-protocol/src/device-execution-consent-v1.mjs';
 import {DEVICE_RECOVERY_ARM_V1,normalizeDeviceRecoveryArmConsentV1,validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1,normalizeDeviceRecoveryArmStatusV1}
   from '../../../../mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import {DEVICE_RESERVATION_CONSENT_V1} from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
-import {originalAccountAccessMessageV2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
 import {DEVICE_OUTPUT_BALANCE_V1,normalizeDeviceOutputBalanceV1} from '../../../../mobile-protocol/src/device-output-balance-v1.mjs';
 import {DEVICE_EXIT_CONSENT_V1,DEVICE_EXIT_DISCLOSURE_V1,normalizeDeviceExitConsentV1,validateDeviceExitConsentFreshV1,
   deviceExitConsentMessageV1,normalizeDeviceExitWitnessV1,deviceExitWitnessBytesV1,wipeDeviceExitWitnessV1}
   from '../../../../mobile-protocol/src/device-exit-consent-v1.mjs';
-import * as PrivateExit from '../../../../mobile-protocol/src/device-native-private-exit-v2.mjs';
+import * as PrivateExit from '@lianum/mobile-protocol/device/native-withdrawal-v2';
 import {createOriginalNativePrivateExitProofClientV2,createOriginalNativePrivateExitProofClientV3} from '../../../../proofs/src/jobs/native-device-private-exit-client-v2.mjs';
 const bridges=new WeakMap(),admissions=new WeakMap(),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const exitNormalize=PrivateExit.normalizeDeviceExitConsentEitherV2,exitFresh=PrivateExit.validateDeviceExitConsentEitherFreshV2,exitMessage=PrivateExit.deviceExitConsentEitherMessageV2;

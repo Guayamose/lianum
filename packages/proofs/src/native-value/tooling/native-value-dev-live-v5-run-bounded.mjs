@@ -10,7 +10,7 @@ import { resources, resourceFailure, regular, hash, assertID } from '../../tooli
 import { NATIVE_VALUE_LIVE_V2_SPEC, validateNativeValueLiveV2Job } from '../metadata/native-value-live-v2-profile.mjs';
 import { NATIVE_VALUE_LIVE_V2_LOCAL, GLOBAL_PROOF_LOCK, NV2_WORKER, NV2_ROLE_PROCESS, json, readJSON, outputDirectory, writeNew, replace, runtimePins } from './native-value-dev-live-v5-tooling.mjs';
 import { loadNativeValueDevLiveArtifactsV5 } from '../metadata/native-value-dev-live-v5-artifacts.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 import {I84_NATIVE_LIMITS_V1,nativeI84ResourcesV1,assertI84NativeReceiptV1} from '../runtime/native-value-dev-live-v5-native-execution.mjs';
 import {nativeProcStatV1} from '../../host/process-files.mjs';

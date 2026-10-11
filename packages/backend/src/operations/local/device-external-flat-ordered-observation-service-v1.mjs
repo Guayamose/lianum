@@ -3,7 +3,7 @@
  * before funding; the new process can only ACCESS/STATUS/OBSERVE original jobs. */
 import assert from 'node:assert/strict';
 import {types} from 'node:util';
-import {externalFlatExactV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatExactV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOwnedFlatSystem} from '../deployments/system/deploy-system.mjs';
 import {createOriginalRetainedDeviceExternalFlatNoteAuthorityV1,assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityContextV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';

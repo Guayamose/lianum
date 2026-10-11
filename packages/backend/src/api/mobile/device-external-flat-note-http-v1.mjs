@@ -5,7 +5,7 @@ import {assertOriginalDeviceExternalFlatGraphAccountBindingV1} from '../../accou
 import {createServer} from 'node:https';
 import {createPrivateKey,X509Certificate} from 'node:crypto';
 import {types} from 'node:util';
-import {externalFlatWipeV1,readExternalFlatFreshFailureV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatWipeV1,readExternalFlatFreshFailureV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {isIP} from 'node:net';
 import {originalOwnedRuntimeRpcFailureV1} from '../../../../engine/src/chains/shared/runtime-harness.mjs';
 import {privateFailureDiagnostic} from '../../execution/account/reconciliation/failure-diagnostics.mjs';

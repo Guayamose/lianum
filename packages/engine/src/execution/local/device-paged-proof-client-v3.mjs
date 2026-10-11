@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {readFileSync,statfsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import * as P from '../../../../mobile-protocol/src/device-paged-owner-v3.mjs';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import {privateProofBindingSHA256V1} from '../../../../proofs/src/jobs/private-proof-transit-v1.mjs';
 import {PRIVATE_RESOURCE_POLICY as limits} from '../../crypto/private-resource-policy.mjs';
 const owned=new WeakMap(),results=new WeakMap(),sha=v=>createHash('sha256').update(v).digest('hex');

@@ -7,10 +7,10 @@ import { assertOwnedNativeValueOwnerProcess } from '../processes/native-value-ow
 import { assertOwnedNativeValueAccountAuthority } from '../../../backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
 import { assertLocalEvm } from '../../../backend/src/chains/evm/runtime/local-evm-ownership.mjs';
-import { exactRecord } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { validateFlatAccountPrepare } from '../../../backend/src/api/accounts/flat-account-session.mjs';
 
-import { genericAccountIdentity, sha } from '../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
 import { validateNativeValueManualReview, validateNativeValueManualRecords } from './native-value-owner-manual-binding-v1.mjs';
 
 const boundOwners = new WeakSet(), boundAccounts = new WeakSet();

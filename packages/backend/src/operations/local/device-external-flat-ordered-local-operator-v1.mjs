@@ -10,7 +10,7 @@ import {isIP} from 'node:net';
 import {types} from 'node:util';
 import {ROOT,FLAT} from '../../../../proofs/src/catalog.mjs';
 import {normalizeMobileOrigin} from '../../../../mobile-protocol/src/authorization.mjs';
-import {externalFlatUintV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatUintV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {derivePrivateAssetIdentity} from '../../../../engine/src/notes/private-asset-runtime.mjs';
 import {nativeAdmissionRulesTree} from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import {createOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';

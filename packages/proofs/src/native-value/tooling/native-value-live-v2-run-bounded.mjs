@@ -9,7 +9,7 @@ import { resources, resourceFailure, regular, hash, assertID } from '../../tooli
 import { NATIVE_VALUE_LIVE_V2_SPEC, NATIVE_VALUE_LIVE_V2_LOCAL, validateNativeValueLiveV2Job } from '../metadata/native-value-live-v2-profile.mjs';
 import { GLOBAL_PROOF_LOCK, NV2_WORKER, NV2_ROLE_PROCESS, json, readJSON, outputDirectory, writeNew, replace, runtimePins } from './native-value-live-v2-tooling.mjs';
 import { loadNativeValueLiveArtifacts } from '../metadata/native-value-live-v2-artifacts.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 export async function runNativeValueLiveV2Proof(raw){
  assert.equal(realpathSync(process.argv[1]),NV2_ROLE_PROCESS,'NV2_JOB_FIXED_ROLE_PARENT');assert.deepEqual(process.argv.slice(2),[NATIVE_VALUE_LIVE_V2_SPEC.name]);

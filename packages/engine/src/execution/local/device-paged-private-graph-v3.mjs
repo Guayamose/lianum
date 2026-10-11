@@ -9,8 +9,8 @@ import {walletNoteCommitment} from '../../wallet/notes/private-wallet-note-encod
 import {nativeReceiptKeyCommitment} from '../native/state/native-receipt.mjs';
 import {nativeTransferActionCommitment} from '../native/dispatch/native-capsules.mjs';
 import {nullifier} from '../../notes/private-note-encoding.mjs';
-import * as P from '../../../../mobile-protocol/src/device-paged-owner-v3.mjs';
-import * as C from '../../../../mobile-protocol/src/device-paged-graph-v3.mjs';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
+import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
 const sha=v=>createHash('sha256').update(v).digest('hex'),hex=v=>Buffer.from(v,'hex'),Z='0'.repeat(64);
 const uint=v=>{P.pagedOwnerUintV3(String(v),true);const b=Buffer.alloc(8);b.writeBigUInt64BE(BigInt(v));return b;};
 const chain=(tag,previous,index,digest)=>Graph.pagedGraphHashV3(tag,[hex(previous),uint(index),hex(digest)]);

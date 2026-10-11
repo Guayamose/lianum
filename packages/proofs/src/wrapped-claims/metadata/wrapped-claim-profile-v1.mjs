@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { CATALOG } from '../../catalog.mjs';
 import { publicWords } from '../../tooling/tooling.mjs';
 import { validateJobAgainstABI } from '../../jobs/trusted-jobs.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const bytes = readFileSync(new URL('./wrapped-claim-abi-reviewed-v3.json', import.meta.url));

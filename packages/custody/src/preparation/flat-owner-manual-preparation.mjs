@@ -7,10 +7,10 @@ import { assertOwnedFlatOwnerProcess } from '../processes/flat-owner-process.mjs
 import { assertOwnedFlatAccountAuthority } from '../../../backend/src/accounts/authority/flat-account-authority.mjs';
 import { assertOwnedFlatSystem } from '../../../backend/src/operations/deployments/system/deploy-system.mjs';
 import { assertLocalEvm } from '../../../backend/src/chains/evm/runtime/local-evm-ownership.mjs';
-import { exactRecord } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { validateFlatAccountPrepare } from '../../../backend/src/api/accounts/flat-account-session.mjs';
 
-import { genericAccountIdentity, sha } from '../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
 import { validateFlatManualReview, validateFlatManualRecords } from './flat-owner-manual-binding.mjs';
 
 const boundOwners = new WeakSet(), boundAccounts = new WeakSet();

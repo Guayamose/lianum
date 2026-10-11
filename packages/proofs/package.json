@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Producci\u00f3n y verificaci\u00f3n de pruebas criptogr\u00e1ficas",
+  "description": "Producción y verificación de pruebas criptográficas",
   "exports": {
     "./client": "./src/jobs/role-client.mjs",
     "./catalog": "./src/catalog.mjs",
@@ -19,6 +19,7 @@
     "@lianum/engine": "file:../engine",
     "@lianum/custody": "file:../custody",
     "@lianum/mobile-protocol": "file:../mobile-protocol",
-    "@lianum/environment": "file:../environment"
+    "@lianum/environment": "file:../environment",
+    "@lianum/components": "file:../components"
   }
 }

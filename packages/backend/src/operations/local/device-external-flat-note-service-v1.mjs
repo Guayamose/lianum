@@ -1,6 +1,6 @@
 /** Private fixed caller: original runtime/system/token must already be owned.
  * Install this service before funding. HTTP has no constructor/deploy/funder. */
-import {externalFlatExactV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatExactV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {createOriginalDeviceExternalFlatNoteAuthorityV1,createOriginalDeviceExternalFlatShareNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 import {createOriginalDeviceExternalFlatTlsServerV1} from '../../api/mobile/device-external-flat-note-http-v1.mjs';
 export async function createOriginalDeviceExternalFlatNoteServiceV1(input){

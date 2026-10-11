@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { relation } from '../catalog.mjs';
-import { FIELD_MODULUS } from '../../../backend/src/execution/encoding/statements.mjs';
+import { FIELD_MODULUS } from '@lianum/components/encoding/statements';
 import { loadPinned, resourceModuleURL, circuitIdentity, versionDirectory, loadCompiled, hash } from './tooling.mjs';
 import { createRoleProofClient } from '../jobs/role-client.mjs';
 

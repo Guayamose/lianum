@@ -18,7 +18,7 @@ import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIde
 import { openTrustedNativeValueOwnerCustody, ownerCopy, ownerDigest, NATIVE_VALUE_OWNER_PROFILE } from '../signing/native-value-owner-custody-v3.mjs';
 import { createNativeValueOwnerObserver, assertOwnedNativeValueOwnerObserver } from '../observers/native-value-owner-observer-v2.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
-import { exactRecord, FIELD_MODULUS, canonicalField } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 import { createRoleProofClient } from '../../../proofs/src/jobs/role-client.mjs';
 import { LIMITS } from '../../../proofs/src/catalog.mjs';

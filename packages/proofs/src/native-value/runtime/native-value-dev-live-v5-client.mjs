@@ -12,7 +12,7 @@ import { NATIVE_VALUE_LIVE_V2_SPEC, NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,
 import { loadNativeValueDevLiveArtifactsV5 } from '../metadata/native-value-dev-live-v5-artifacts.mjs';
 import { regular, hash, assertID } from '../../tooling/tooling.mjs';
 import { cloneInput, frozenInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import {I84_NATIVE_LIMITS_V1,assertI84NativeReceiptV1} from './native-value-dev-live-v5-native-execution.mjs';
 
 const owned = new WeakMap();

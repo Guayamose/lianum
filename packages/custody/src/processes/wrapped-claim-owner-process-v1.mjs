@@ -7,7 +7,7 @@ if (ORIGINAL_WRAPPED_OWNER_CHILD_V1) inspectWrappedInstallationSourcesV2();
 const { assertOwnedWrappedClaimWalletSystemV1 } = await import('../../../backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs');
 const { openTrustedFlatOwnerCustody, ownerCopy, ownerDigest, FLAT_OWNER_PROFILE } = await import('../signing/flat-owner-custody.mjs');
 const { createWrappedClaimOwnerObserverV1: createFlatOwnerObserver, assertOwnedWrappedClaimOwnerObserverV1: assertOwnedFlatOwnerObserver } = await import('../observers/wrapped-claim-owner-observer-v1.mjs');
-const { exactRecord, FIELD_MODULUS, canonicalField } = await import('../../../backend/src/execution/encoding/commitments.mjs');
+const { exactRecord, FIELD_MODULUS, canonicalField } = await import('@lianum/components/encoding/commitments');
 const { loadPinned, resourceModuleURL } = await import('../../../proofs/src/tooling/tooling.mjs');
 const { createRoleProofClient } = await import('../../../proofs/src/jobs/role-client.mjs');
 const { LIMITS } = await import('../../../proofs/src/catalog.mjs');

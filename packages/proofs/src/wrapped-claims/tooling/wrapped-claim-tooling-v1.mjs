@@ -6,7 +6,7 @@ import { ROOT, LOCAL, LIMITS } from '../../catalog.mjs';
 import { regular, hash, assertID } from '../../tooling/tooling.mjs';
 import { wrappedClaimRelationV1, validateWrappedClaimJobV1, WRAPPED_CLAIM_PROFILE_V1 } from '../metadata/wrapped-claim-profile-v1.mjs';
 import { assertWrappedClaimProofSourcePinsV1, loadWrappedClaimRoleProofArtifactsV1 } from '../../../../backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 export const WRAPPED_CLAIM_LOCAL_V1=join(ROOT,'.local/proof-workers-wrapped-claim-v1');
 export const WRAPPED_CLAIM_GLOBAL_LOCK_V1=join(LOCAL,'active.lock');

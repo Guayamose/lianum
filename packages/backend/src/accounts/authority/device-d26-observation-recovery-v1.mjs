@@ -10,12 +10,12 @@ import {reopenNativeValueD26ObservationSystemV1,assertOwnedNativeValueObservatio
 import {createNativeValueObservationStateReaderV1} from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {createNativeValueObservationOwnerObserverV1} from '../../../../custody/src/observers/native-value-owner-observer-v2.mjs';
 import {flatAccountAsset,flatAccountCalldataHash,validateFlatAccountOwnerObservation} from './flat-account-validation.mjs';
-import {sha,immutable,copy} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import {sha,immutable,copy} from '@lianum/engine/accounts/journal';
 import {decodeWalletPoolInputs} from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {exactRecord} from '../../execution/encoding/commitments.mjs';
 import {nativeProofCalldata} from '../../../../engine/src/execution/native/dispatch/native-deployment.mjs';
 import {originalAccountAccessMessageV2,normalizeOriginalAccountAccessV2,normalizeOriginalAccountSignatureV2,
-  validateOriginalAccountFreshV2,ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2} from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+  validateOriginalAccountFreshV2,ORIGINAL_ACCOUNT_ACCESS_PROFILE_V2} from '@lianum/mobile-protocol/original-account-v2';
 const issued=new WeakMap(),bare=value=>value.slice(2),byteSHA=value=>createHash('sha256').update(value).digest('hex');
 const nonce=()=>randomBytes(32).toString('hex');
 export const DEVICE_D26_RECOVERY_READ_DOMAIN_V1='LIANUM_DEVICE_D26_RECOVERY_READ_V1';

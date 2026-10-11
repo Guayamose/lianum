@@ -9,7 +9,7 @@ import { resources, resourceFailure, regular, hash, assertID } from '../../tooli
 import { NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_LOCAL, validateNativeIngressV3Job } from '../metadata/native-ingress-v3-profile.mjs';
 import { GLOBAL_PROOF_LOCK, V3_WORKER, V3_ROLE_PROCESS, json, readJSON, outputDirectory, writeNew, replace, runtimePins } from './native-ingress-v3-tooling.mjs';
 import { loadNativeClaimIngressV3ProofArtifacts } from '../../../../backend/src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 export async function runNativeIngressV3Proof(raw){
  assert.equal(realpathSync(process.argv[1]),V3_ROLE_PROCESS,'V3_JOB_FIXED_ROLE_PARENT');assert.deepEqual(process.argv.slice(2),[NATIVE_INGRESS_V3_SPEC.name]);

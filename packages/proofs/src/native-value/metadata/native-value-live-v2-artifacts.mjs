@@ -13,7 +13,7 @@ import { NATIVE_VALUE_LIVE_V2_RELEASE, NATIVE_VALUE_LIVE_V2_RELEASE_SCHEMA } fro
 import { NATIVE_VALUE_WALLET_ROLE_SOURCE_PINS_V4 as NATIVE_VALUE_LIVE_V2_SOURCE_PINS } from './native-value-wallet-role-source-pins-v4.mjs';
 import { inspectNativeValueAdmissionReaderPins, loadNativeValueDeploymentArtifacts } from '../../../../backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 import { NATIVE_VALUE_RELEASE } from '../../../../backend/src/operations/releases/native-value/native-value-wallet-release-v4.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 const PREPARED=resolve(ROOT,'../../drafts/native-value-verifier-preparation');
 const DRIVER=join(PREPARED,'layout/omnichain-flat-profile/flat-wallet/proof-workers');
 const hexWord=i=>'0x'+BigInt(i).toString(16).padStart(64,'0');

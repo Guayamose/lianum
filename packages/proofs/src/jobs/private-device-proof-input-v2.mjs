@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import {wipePrivateProofInputsV1,readOriginalPrivateProofRecipientV1} from './private-proof-transit-v1.mjs';
-import * as P from '../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import * as P from '@lianum/mobile-protocol/device/source-note-v1';
 import {depositIntentWitness} from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
 import {balanceCommitment} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
@@ -48,7 +48,7 @@ export function deriveOriginalDeviceDepositIntentJobV2(received,spec) {
 }
 
 
-import * as ClaimDevice from '../../../mobile-protocol/src/native-claim-device-v1.mjs';
+import * as ClaimDevice from '@lianum/mobile-protocol/device/native-claim-v1';
 import {claimReceiptSecret,claimRefundSalt} from '../../../backend/src/claims/protocol/framing.mjs';
 import {buildClaimIngressInputs} from '../../../backend/src/claims/protocol/inputs.mjs';
 import {withFlatHash} from '../tooling/scoped-proof-tools.mjs';

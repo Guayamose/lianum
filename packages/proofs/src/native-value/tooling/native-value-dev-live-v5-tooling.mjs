@@ -8,7 +8,7 @@ import { ROOT, FLAT, GOLDEN, LOCAL, LIMITS } from '../../catalog.mjs';
 import { regular, hash, verifyAPI, verifyVendor, resourceModuleURL } from '../../tooling/tooling.mjs';
 import { NATIVE_VALUE_LIVE_V2_SPEC, NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,
   NATIVE_VALUE_LIVE_V2_KEY_SHA256, validateNativeValueLiveV2Job } from '../metadata/native-value-live-v2-profile.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertNativeValueDevLiveSourcePinsV5 } from '../metadata/native-value-dev-live-v5-artifacts.mjs';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 import {nativeI84ExecutionSourcesV1} from '../runtime/native-value-dev-live-v5-native-execution.mjs';

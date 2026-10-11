@@ -1,8 +1,8 @@
 /** A parsed consent/opening is never a recipient or native prover grant. */
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import * as P from '../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
-import {normalizeOriginalAccountSignatureV2} from '../../../mobile-protocol/src/original-account-review-v2.mjs';
+import * as P from '@lianum/mobile-protocol/device/native-deposit-v2';
+import {normalizeOriginalAccountSignatureV2} from '@lianum/mobile-protocol/original-account-v2';
 import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import {walletInputPublicWords,balanceCommitment,balanceDepositFrame} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';

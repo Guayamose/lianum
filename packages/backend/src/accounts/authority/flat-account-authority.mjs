@@ -11,7 +11,7 @@ import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs
 import { createProofProcess } from '../../../../engine/src/execution/proofs/proof-process.mjs';
 import { reserveProjection } from '../../../../engine/src/execution/local/local-ledger.mjs';
 import { genericAccountIdentity, validateGenericAccountConfig, validateBoundRequest, validateOutcome, immutable, copy, sha }
-  from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+  from '@lianum/engine/accounts/journal';
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
 import { assertOwnedPoolAsset } from '../../chains/shared/contracts/owned-pool-asset.mjs';

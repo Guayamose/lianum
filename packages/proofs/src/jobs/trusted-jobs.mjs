@@ -2,7 +2,7 @@
  * signing key, caller file or endpoint. The calling process is a scoped role. */
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
-import { RELATIONS, FIELD_MODULUS } from '../../../backend/src/execution/encoding/statements.mjs';
+import { RELATIONS, FIELD_MODULUS } from '@lianum/components/encoding/statements';
 
 export const MAX_JOB_BYTES = 2 * 1024 * 1024;
 const pending = new Set();

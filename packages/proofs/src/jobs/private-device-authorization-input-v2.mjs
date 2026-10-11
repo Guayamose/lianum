@@ -4,14 +4,14 @@
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
-import * as P from '../../../mobile-protocol/src/device-external-flat-graph-v1.mjs';
+import * as P from '@lianum/mobile-protocol/device/source-graph-v1';
 import {compileFundedGraph,attachFundedSignatures,ownerAuthorizationMessage} from '../../../engine/src/execution/graph/funded-graph.mjs';
 import {walletNoteCommitment} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';
 import {buildAuthorizedEnvelope} from '../../../custody/src/signing/authorized-envelope.mjs';
 import {withFlatHash} from '../tooling/scoped-proof-tools.mjs';
-import {encodeStatement} from '../../../backend/src/execution/encoding/statements.mjs';
-import {externalFlatExactV1} from '../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {encodeStatement} from '@lianum/components/encoding/statements';
+import {externalFlatExactV1} from '@lianum/mobile-protocol/device/source-note-v1';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export async function deriveOriginalDeviceAuthorizationJobV2(received,spec){
  assert.equal(arguments.length,2,'PW_PRIVATE_U_ARITY');

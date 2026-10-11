@@ -7,7 +7,7 @@ import { lstat, realpath } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { Vault } from '../../../../engine/src/crypto/vault.mjs';
 import { PROFILE as GENERIC_PROFILE, genericAccountIdentity, bindGenericAccountRequest, validateBoundRequest,
-  validateOutcome, validateObservation, immutable, copy, sha } from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+  validateOutcome, validateObservation, immutable, copy, sha } from '@lianum/engine/accounts/journal';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedFlatPortfolio, claimFlatPortfolioJournalAuthority } from '../authority/flat-portfolio-authority.mjs';
 import { validateFlatManualReauthorization } from '../../../../custody/src/preparation/flat-owner-manual-binding.mjs';

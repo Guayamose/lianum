@@ -11,7 +11,7 @@ import {types} from 'node:util';
 import {reserveOriginalDeviceGraphSourceBirthV3,reserveOriginalDeviceAaveStaticGraphSourceBirthV3,reopenOriginalDeviceAaveStaticGraphSourceV3,reopenOriginalDeviceExternalFlatGraphSourceV2,reopenOriginalDeviceUniswapGraphSourceV2,reopenOriginalDeviceExternalFlatGraphSourceV3,reopenOriginalDeviceUniswapGraphSourceV3} from '../recovery/device-external-flat-original-source-v2.mjs';
 import {ROOT,FLAT} from '../../../../proofs/src/catalog.mjs';
 import {normalizeMobileOrigin} from '../../../../mobile-protocol/src/authorization.mjs';
-import {externalFlatUintV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {externalFlatUintV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {derivePrivateAssetIdentity} from '../../../../engine/src/notes/private-asset-runtime.mjs';
 import {nativeAdmissionRulesTree} from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';
 import {createOwnedDeviceExternalFlatReceiverV1,createOwnedDeviceExternalFlatSourceReceiverV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';

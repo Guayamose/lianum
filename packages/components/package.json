@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Contratos de framing y componentes de circuitos",
   "exports": {
-    "./framing": "./src/framing.mjs"
+    "./framing": "./src/framing.mjs",
+    "./encoding/commitments": "./src/encoding/commitments.mjs",
+    "./encoding/statements": "./src/encoding/statements.mjs"
   },
   "lianum": {
     "status": "active"

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { openTrustedFlatOwnerCustody, ownerCopy, ownerDigest, FLAT_OWNER_PROFILE,FLAT_OWNER_PRIVATE_CLAIM_HANDOFF_V2,FLAT_OWNER_PRIVATE_CLAIM_TRUST_V2 } from '../signing/flat-owner-custody.mjs';
 import { createFlatOwnerObserver, assertOwnedFlatOwnerObserver } from '../observers/flat-owner-observer.mjs';
-import { exactRecord, FIELD_MODULUS, canonicalField } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
 import { loadPinned, resourceModuleURL } from '../../../proofs/src/tooling/tooling.mjs';
 import { createRoleProofClient } from '../../../proofs/src/jobs/role-client.mjs';
 import { LIMITS } from '../../../proofs/src/catalog.mjs';

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { bindGenericAccountRequest, validateBoundRequest, validateGenericAccountConfig,
   genericAccountIdentity, validateOutcome, immutable, sha }
-  from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+  from '@lianum/engine/accounts/journal';
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
 import { exactRecord, fixedArray } from '../../execution/encoding/commitments.mjs';
 import { assertOwnedFlatAccountAuthority } from './flat-account-authority.mjs';

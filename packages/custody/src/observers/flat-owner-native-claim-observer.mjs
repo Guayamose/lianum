@@ -2,7 +2,7 @@
  * deployment and claim-observer capabilities can construct this brand. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { exactRecord, bytes32 } from '../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { validateDepositIntentStatement } from '../../../backend/src/execution/account/preparation/deposit-intent.mjs';
 import { assertOwnedFlatSystem } from '../../../backend/src/operations/deployments/system/deploy-system.mjs';
 import { assertOwnedNativeClaimSystem } from '../../../backend/src/operations/deployments/claims/deploy-native-claims.mjs';

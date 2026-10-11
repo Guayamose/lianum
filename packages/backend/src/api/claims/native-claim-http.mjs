@@ -375,7 +375,7 @@ async function createFixedClaimMobileLocalOperator(config,index) {
 
 
 import {assertOriginalDeviceRootClaimIntakeV2,readOriginalDeviceRootClaimIntakeContextV2} from '../../claims/controller/controller.mjs';
-import * as DeviceRootClaim from '../../../../mobile-protocol/src/native-claim-device-v1.mjs';
+import * as DeviceRootClaim from '@lianum/mobile-protocol/device/native-claim-v1';
 const rootClaimListeners=new WeakSet();
 /** A separate fixed TLS intake. Ciphertext is larger than the legacy journal
  * route, so only this new family has a 128 KiB request envelope. */

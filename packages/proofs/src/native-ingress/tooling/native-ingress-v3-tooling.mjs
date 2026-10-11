@@ -7,7 +7,7 @@ import { ROOT, FLAT, GOLDEN, LOCAL, LIMITS } from '../../catalog.mjs';
 import { regular, hash, verifyAPI, verifyVendor, resourceModuleURL } from '../../tooling/tooling.mjs';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_SOURCE_VERSION,
   NATIVE_INGRESS_V3_KEY_SHA256, validateNativeIngressV3Job } from '../metadata/native-ingress-v3-profile.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 export const GLOBAL_PROOF_LOCK = join(LOCAL,'active.lock');
 export const V3_WORKER = join(ROOT,'proof-workers/native-ingress-v3-worker.mjs');

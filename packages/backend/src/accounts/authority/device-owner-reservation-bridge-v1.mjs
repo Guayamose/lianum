@@ -14,12 +14,12 @@ import { createNativeValueSystemStateReader } from '../../execution/native-value
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
 import { cloneInput } from '../../execution/account/preparation/readiness-inputs.mjs';
 import { validateGenericBalanceNativePreparation } from '../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
-import { normalizeOriginalAccountSignatureV2,originalAccountAccessMessageV2 } from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import { normalizeOriginalAccountSignatureV2,originalAccountAccessMessageV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { DEVICE_RESERVATION_CONSENT_V1,DEVICE_RESERVATION_DISCLOSURE_V1,normalizeDeviceReservationConsentV1,
   validateDeviceReservationConsentFreshV1,deviceReservationConsentMessageV1,normalizeDeviceReservationStatementV1,
   normalizeDeviceReservationCustodyV1,normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,
   wipeDeviceReservationWitnessV1 } from '../../../../mobile-protocol/src/device-reservation-consent-v1.mjs';
-import * as PrivateU from '../../../../mobile-protocol/src/device-native-private-reservation-v2.mjs';
+import * as PrivateU from '@lianum/mobile-protocol/device/native-reservation-v2';
 import {createRoleProofClient} from '../../../../proofs/src/jobs/role-client.mjs';
 const reservationFresh=PrivateU.validateDeviceReservationConsentEitherFreshV2,reservationMessage=PrivateU.deviceReservationConsentEitherMessageV2;
 const bridges=new WeakMap(),admissions=new WeakMap();

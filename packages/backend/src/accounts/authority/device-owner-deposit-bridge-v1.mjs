@@ -13,11 +13,11 @@ import { assertPairedOriginalAccountActorV2, assertPairedOriginalAccountActorAcc
   pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
 import { assertOwnedNativeValueWalletSystem } from '../../operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
 import { createNativeValueSystemStateReader } from '../../execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import { normalizeOriginalAccountSignatureV2 } from '../../../../mobile-protocol/src/original-account-review-v2.mjs';
+import { normalizeOriginalAccountSignatureV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { normalizeDeviceDepositConsentV1, validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1,
   normalizeDeviceDepositStatementV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1,
   DEVICE_DEPOSIT_CONSENT_V1 } from '../../../../mobile-protocol/src/device-deposit-consent-v1.mjs';
-import * as Private from '../../../../mobile-protocol/src/device-native-private-deposit-v2.mjs';
+import * as Private from '@lianum/mobile-protocol/device/native-deposit-v2';
 import {createOriginalNativePrivateDepositProofClientV2,createOriginalNativePrivateDepositProofClientV3} from '../../../../proofs/src/jobs/native-device-private-deposit-client-v2.mjs';
 const bridges = new WeakMap(), admissions = new WeakMap();
 const sha = value => createHash('sha256').update(value).digest('hex');

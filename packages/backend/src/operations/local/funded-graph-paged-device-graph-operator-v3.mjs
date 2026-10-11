@@ -6,8 +6,8 @@ import {createOwnedLocalEvmV2} from '../../chains/evm/runtime/owned-evm-v2-runti
 import {assertFundedPagedLocalDeploymentArtifactsV3,deployOriginalFundedPagedGraphWalletV3,closeOriginalFundedPagedGraphDeploymentV3} from '../../../../engine/src/execution/local/funded-graph-paged-deployment-v3.mjs';
 import {createOriginalDevicePagedGraphNoteAuthorityV3,assertOriginalDevicePagedGraphNoteAuthorityV3} from '../../accounts/authority/device-paged-note-authority-v3.mjs';
 import {assertOriginalDevicePagedGraphSourceV3} from './funded-graph-paged-device-graph-source-v3.mjs';
-import * as C from '../../../../mobile-protocol/src/device-paged-graph-v3.mjs';
-import * as P from '../../../../mobile-protocol/src/device-paged-owner-v3.mjs';
+import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 const owned=new WeakMap();
 export async function startOriginalDevicePagedGraphLocalOperatorV3(raw){assert.equal(arguments.length,1);return createOriginalGraphOperator(raw,null);}
 /** New fixed original provider is joined before TLS/FUND. No request selects it. */

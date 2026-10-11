@@ -10,7 +10,7 @@ import { types } from 'node:util';
 import { isCompatibilityModule, sourceURL } from '@lianum/environment';
 import { ROOT, FLAT, CANDIDATE, GOLDEN, EXPERIMENT, LOCAL, PROFILE, LIMITS, SETTINGS,
   NOIR_VERSION, MODES, CATALOG, NODE_PINS, TRUSTED_JOB_SOURCES, TRUSTED_PARENTS, relation, operation, pagesFor } from '../catalog.mjs';
-import { decodeStatement } from '../../../backend/src/execution/encoding/statements.mjs';
+import { decodeStatement } from '@lianum/components/encoding/statements';
 export { hash, jsonBytes };
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const jsonBytes = value => JSON.stringify(value, null, 2) + '\n';

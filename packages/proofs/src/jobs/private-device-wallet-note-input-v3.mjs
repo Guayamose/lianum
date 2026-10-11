@@ -2,9 +2,9 @@
  * derive or issue the original PC23 note proof. Original26/39 ABI is unchanged. */
 import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import * as P from '../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
-import * as Graph from '../../../mobile-protocol/src/device-external-flat-graph-v1.mjs';
-import * as RootClaim from '../../../mobile-protocol/src/native-claim-device-v1.mjs';
+import * as P from '@lianum/mobile-protocol/device/source-note-v1';
+import * as Graph from '@lianum/mobile-protocol/device/source-graph-v1';
+import * as RootClaim from '@lianum/mobile-protocol/device/native-claim-v1';
 import {readOriginalPrivateProofRecipientV1,wipePrivateProofInputsV1} from './private-proof-transit-v1.mjs';
 import {walletInputPublicWords,balanceCommitment,balanceDepositFrame,balanceWithdrawFrame} from '../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier} from '../../../engine/src/notes/private-note-encoding.mjs';

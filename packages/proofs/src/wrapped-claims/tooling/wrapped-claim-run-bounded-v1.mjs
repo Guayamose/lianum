@@ -10,7 +10,7 @@ import { resources, resourceFailure, regular, hash, assertID } from '../../tooli
 import { wrappedClaimRelationV1, validateWrappedClaimJobV1, WRAPPED_CLAIM_PROFILE_V1 } from '../metadata/wrapped-claim-profile-v1.mjs';
 import { WRAPPED_CLAIM_GLOBAL_LOCK_V1 as GLOBAL_PROOF_LOCK, WRAPPED_CLAIM_WORKER_V1 as WORKER, WRAPPED_CLAIM_ROLE_PROCESS_V1 as ROLE_PROCESS, WRAPPED_CLAIM_LOCAL_V1 as LOCAL, json, readJSON, outputDirectory, writeNew, replace, wrappedClaimRuntimePinsV1 } from './wrapped-claim-tooling-v1.mjs';
 import { loadWrappedClaimRoleProofArtifactsV1 } from '../../../../backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs';
-import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
+import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 export async function runWrappedClaimRoleProofV1(raw){
  inspectWrappedInstallationSourcesV2();

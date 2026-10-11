@@ -12,7 +12,7 @@ import {assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/
 import {assertOwnedFlatSystem,captureOwnedFlatSystemRecoveryV1} from '../../operations/deployments/system/deploy-system.mjs';
 import {readWrappedPrivateLifetimePartV1,retainWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 import {originalWrappedRecoverySectionIdentityV1,consumeOriginalWrappedRecoverySectionV1,retainOriginalWrappedRecoverySectionV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
-import {normalizeExternalFlatDescriptorV1} from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {normalizeExternalFlatDescriptorV1} from '@lianum/mobile-protocol/device/source-note-v1';
 const PROFILE='DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1',accounts=new WeakMap(),systems=new WeakMap();
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex'),sha=value=>hash(canonicalClaimRecordDataV1(value));
 function attempt(runtime,token,section){const identity=originalWrappedRecoverySectionIdentityV1(token,section);assert.equal(identity.profile,PROFILE,'DEVICE_EXTERNAL_FLAT_DISTINCT_RECOVERY_TOKEN');assertOwnedDeviceExternalFlatReceiverV1(runtime);assertWrappedPrivateLifetimeAttemptV1(runtime,identity);return identity;}
