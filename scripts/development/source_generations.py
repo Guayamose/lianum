@@ -729,7 +729,12 @@ def current_source_contract(report, capture):
     """
     from module_boundaries import imports as module_imports, TOKEN
     roots = {row["source"] for group in report["groups"] for row in group["files"]}
-    roots.update({RELEASE, *CATALOGS.values(), *CURRENT_SOURCE_INPUTS})
+    # Fixed inventory inputs may still name an old reviewed owner. Publish its
+    # current name in this contract; retain the old label only in the original
+    # inventory report. Imports are checked below and cannot use this mapping
+    # to keep executing a removed source.
+    roots.update(capture.observe(path)["source"]
+                 for path in {RELEASE, *CATALOGS.values(), *CURRENT_SOURCE_INPUTS})
     selected = {}
     expanded = set()
     external = set()

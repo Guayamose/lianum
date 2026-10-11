@@ -93,6 +93,18 @@ class SourceGenerationsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Current import still names a relocated source"):
             generations.current_source_contract(report, generations.Capture())
 
+    def test_fixed_current_inputs_use_the_surviving_owner_without_runtime_aliases(self):
+        old, current = "packages/a/src/old.mjs", "packages/a/src/main.mjs"
+        self.write(current, b"export const value=1;\n")
+        report, capture = self.closure_fixture([], {old: current})
+        with patch.object(generations, "CURRENT_SOURCE_INPUTS", (old,)):
+            contract = generations.current_source_contract(report, capture)
+        names = {row["path"] for row in contract["files"]}
+        self.assertIn(current, names)
+        self.assertNotIn(old, names)
+        self.assertTrue(all(row["path"] == row["source"] for row in contract["files"]))
+        self.assertFalse((generations.ROOT / old).exists())
+
     def test_fixed_resources_and_mobile_bundler_are_explicit_and_reject_undeclared_dependencies(self):
         entry = "packages/a/src/main.mjs"
         mobile = "apps/mobile/src/client.mjs"
