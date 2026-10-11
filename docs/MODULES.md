@@ -8,9 +8,9 @@ import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 import { createRoleProofClient } from '@lianum/proofs/client';
 ```
 
-Las entradas apuntan a una única implementación. Una fachada de compatibilidad
-reexporta las mismas funciones; no crea otra custodia, estado ni registro de
-identidad. Los paquetes son módulos del producto, no servicios que deban
+Las entradas apuntan a una única implementación. Las fachadas públicas que siguen teniendo consumidores reexportan las mismas
+funciones; las fachadas privadas sustituidas se retiran. No crean otra custodia,
+estado ni registro de identidad. Los paquetes son módulos del producto, no servicios que deban
 desplegarse por separado.
 
 ## Responsabilidades y dirección de las dependencias
@@ -52,7 +52,7 @@ importar la aplicación. Los contratos y el cliente sin DOM pertenecen a
 
 | Código | Lugar donde se edita | Compatibilidad |
 | --- | --- | --- |
-| Contratos y cliente compartido de wallet | `packages/mobile-protocol/src/wallet/` | Las entradas anteriores de wallet reexportan la implementación |
+| Contratos y cliente compartido de wallet | `packages/mobile-protocol/src/wallet/` | Wallet importa los exports compartidos; se retiraron sus fachadas duplicadas |
 | Servicio HTTP de wallet y controles de petición | `packages/backend/src/api/wallet/` | La app añade su lista cerrada de recursos web |
 | Poseidon2 portátil | `packages/crypto/src/portable/poseidon2-bn254-v1.mjs` | Reexport desde custodia móvil |
 | Registro segmentado cifrado | `packages/engine/src/storage/segmented-record-store.mjs` | Reexport desde backend claims/storage |
@@ -118,11 +118,26 @@ El gateway paginado usa tres imports canónicos declarados en
 compatibilidad. Las fuentes experimentales fijadas por esa generación
 permanecen intactas como evidencia y no se ejecutan desde ese gateway.
 
-Queda **un componente cíclico interno de 154 archivos y 845 imports** en la
-composición backend de cuentas, ejecución, custodia y recuperación. El backend
-mecánico de EVM está fuera de ese componente. La composición SOURCE aún enlaza
-cuentas y sesiones que consumen sus permisos; ese acoplamiento sigue visible.
-La separación entre paquetes no equivale a eliminar esos ciclos internos.
+Queda **un componente cíclico interno de 139 archivos y 765 imports**, frente a
+los 154 archivos y 845 imports del corte anterior. Están fuera de él la mecánica
+EVM, el reloj SOURCE, los tres mecanismos de bridges, el actor móvil y la sesión
+nativa: cada familia conserva sus registros privados y recibe contratos fijos.
+La composición original conserva las funciones públicas y no acepta sustitutos.
+
+El grupo restante reúne cinco familias principales: recuperación wrapped
+(`wrapped-recovery-authority-v1.mjs`), composición SOURCE
+(`native-original-source-lifecycle-v1.mjs`), autoridad nativa
+(`native-value-account-authority-v2.mjs`), servicio GRAPH del dispositivo
+(`device-external-flat-source-graph-service-v1.mjs`) y recuperación del catálogo
+DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
+siguen visibles; no son cinco componentes independientes ni deuda resuelta.
+
+La selección estricta tiene **84 entradas explícitas**. Se comprueban los cuerpos
+completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
+de los mecanismos de journal, recuperación, observación y formatos extraídos.
+Siguen fuera los cuerpos superiores de autoridad nativa, keeper duradero,
+sesión general, estado económico, composición SOURCE y recuperación GRAPH/DeFi.
+Un contrato tipado de un puerto no acredita el tipado de su implementación.
 
 Las excepciones identifican consumidor y destino exactos. Las reubicaciones
 conservan su procedencia; no conceden permiso para añadir nuevas dependencias.

@@ -26,136 +26,100 @@ necesarios. No se ha presentado ese volumen como código eliminable.
 ## Ingeniería del 11 de octubre
 
 El código diario se ejecuta desde `apps/` y `packages/`. `./dev build` prepara
-los nueve paquetes npm; `./dev build --legacy` sincroniza las reproducciones que
-requieren la disposición histórica. Los comandos vigentes están en
-[COMMANDS.md](docs/COMMANDS.md), generado desde el catálogo de `./dev help`.
+los nueve paquetes npm; `./dev build --legacy` conserva las reproducciones que
+necesitan la disposición histórica. El histórico está excluido de búsquedas y
+análisis cotidianos. Los objetivos funcionales y la visión no han cambiado.
 
-La reorganización ha separado responsabilidades reales y sus consumidores:
+La reorganización actual deja estos resultados comprobados:
 
-- **Dependencias de paquetes:** los 15 ciclos entre paquetes pasan a cero y los
-  803 imports privados heredados pasan a cero. La orquestación de cuentas,
-  firmas, workers y redes pertenece al backend. Engine mantiene los algoritmos,
-  contratos y almacenamiento compartidos; custody conserva firma y validación
-  de consentimiento; proofs conserva las herramientas y producción de pruebas.
-  Los exports son explícitos y las direcciones están declaradas en los manifests.
-- **Código operativo:** el grafo de imports literales de aplicaciones y paquetes
-  activos tiene cero enlaces hacia pruebas o experimentos, incluyendo las carpetas de pruebas
-  internas de cada paquete. El servidor HTTP pertenece al backend; la app wallet
-  compone los recursos de navegador. Los tests anteriores delegan en sus
-  implementaciones operativas cuando corresponde. Los 13 enlaces de soporte
-  del protocolo histórico congelado permanecen separados en el informe.
-  Los workers de assembly/pagos y el cliente paginado se ejecutan desde proofs;
-  política, recursos y CRS pertenecen a components. Sus cargadores tienen rutas
-  literales y sus inventarios calculan los hashes de las implementaciones reales.
-- **Ciclos de archivos:** se han eliminado los ciclos de revisión/estado móvil,
-  revisión de fuentes del operador, observadores de salud y supervisor Tron.
-  Custodia EVM y fuentes nativas tienen registros privados por instancia; los
-  validadores de solicitudes claim viven junto a sus emisores. Los codecs,
-  perfiles y proyecciones DeFi puros tienen módulos propios.
-- **Autoridad y recuperación:** las extracciones conservan tokens de un uso,
-  revocación, marcas originales y controles de reapertura. Un backend alternativo
-  no puede fabricar permisos del singleton real. El ciclo de vida de procesos
-  propios y el guard de muerte del padre tienen tipos estrictos para entradas,
-  PID, nacimiento y handles. No se deserializan objetos con autoridad.
-- **Contratos comprobados:** checkJs estricto pasa sobre 27 entradas reales,
-  frente a 17 en el corte anterior. Añade formatos de commitments/statements,
-  recursos y CRS, preparación de cuentas y lectura de procesos/RSS. Incluye autorizaciones y consentimientos móviles,
-  revisión y estado privado, rutas, errores, integridad y procesos. Treinta
-  vectores originales conservan exactamente los bytes firmados y las entradas
-  públicas. El resto del JavaScript todavía no está tipado de forma completa.
-- **Ejecución trasladable:** `./dev bundle` empaqueta fuentes y recursos públicos
-  declarados, comprueba integridad y conserva una identidad única por módulo.
-  Se comprobó el arranque HTTP y la interfaz wallet después de trasladar el
-  paquete, sin `.internal/runtime`. Esto acredita ese arranque; cada worker con
-  cargas dinámicas necesita su declaración de recursos y aceptación propia.
+- **Paquetes y consumidores:** cero ciclos entre paquetes, cero imports privados
+  activos entre paquetes y cero enlaces activos hacia pruebas/experimentos.
+  La comprobación inspecciona 958 fuentes y 1.743 imports públicos. Los trece
+  enlaces de soporte de `protocol` son históricos y permanecen separados.
+- **Familias privadas:** mecánica EVM, reloj SOURCE, tres bridges, actor móvil y
+  sesión nativa tienen propietarios por instancia y contratos concretos. La
+  composición original conserva las funciones públicas y los validadores no
+  aceptan marcas de otro builder. Se mantienen AEAD, CAS y tokens de un uso.
+- **Tipado:** la comprobación estricta tiene 84 entradas explícitas, frente a
+  las 27 anteriores. Comprueba los cuerpos completos del actor y sesión nativa,
+  depósitos y ejecución de cuenta, además de los mecanismos extraídos de
+  journal, recuperación, observación, DeFi y formatos móviles. El núcleo
+  superior completo sigue pendiente; un contrato de puerto no equivale al
+  tipado de su implementación.
+- **Simplificación:** se retiraron las catorce fachadas duplicadas de wallet,
+  fachadas privadas sustituidas y tres recolectores manuales de fuentes. Los
+  consumidores usan sus propietarios actuales; los exports públicos útiles
+  conservan su identidad. Dieciséis copias de fuentes del runtime histórico
+  dejaron de regenerarse (277.111 bytes). Las herramientas y originales no se
+  eliminaron para reducir artificialmente el tamaño del proyecto.
+- **Pins actuales:** `./dev pins check|update --profile all` gestiona móvil,
+  plataforma, consumidores y runtime. Incluye los pins de procesos/redes, los
+  registros de callers y diez registros antes manuales: cuatro launchers,
+  cinco fuentes móviles TRON y un parser de diagnóstico. La actualización
+  respeta el orden fuente → launcher → host y conserva los validadores.
+  Los 200 controles de dependencias inmutables siguen separados.
+- **Contratos estáticos:** las siete factories económicas usan miembros
+  explícitos, incluida la delegación a recuperación y saldo. El comprobador
+  reconoce destructuración fija y guardas auténticas; rechaza callbacks
+  generales, módulos variables, campos sobrantes y acceso general a escritura.
 
-La comprobación de fronteras mantiene **un grupo circular interno de 154 archivos
-con 845 imports**, visible en `./dev boundaries`. La política conserva la
-procedencia revisada de los imports trasladados, incluidos los que antes estaban
-fuera de `src`; no presenta esas dependencias como ciclos eliminados. Los ciclos
-nuevos siguen rechazados. El DAG de paquetes no equivale a independencia de
-cada módulo interno.
+La adopción actual es
+`8dc2fbdac8056d36b7381ada9d6e956043043bf7bb8c2e4787978162f8edbd31`, con
+**1.444 fuentes y cero aliases de ejecución** en su contrato. Preparación y
+adopción autentican los doce roles nativos y los cinco paginados, los originales
+W39/N32, programas, claves, compiler inputs y recibos. Los catálogos anteriores
+quedan archivados por sus bytes exactos; no se ejecutan ni se reescriben.
 
-**SOURCE y runtime:** la mecánica EVM está en
-`owned-evm-runtime-backend-v1.mjs`, fuera del componente cíclico. Sus registros
-privados de runtime, custodia y observación pertenecen a cada instancia. La
-composición fija `native-original-source-lifecycle-v1.mjs` conserva journal,
-AEAD/CAS y tokens de un uso, y conecta seis contratos concretos; las fachadas
-anteriores mantienen las mismas funciones. Las instancias alternativas se
-rechazan por los validadores del propietario original. Los consumidores actuales
-usan directamente el propietario del protocolo SOURCE.
+El recorrido real de lectura económica comprueba las cinco relaciones paginadas,
+las doce nativas, la procedencia I84 y los 502 registros originales wrapped;
+conserva el rechazo de copias del bundle con marca privada. Esto cierra la lectura
+de los artefactos desde el código reorganizado, no una nueva aceptación de
+transferencia ni una prueba criptográfica.
 
-Se corrigieron también dos bloqueos al ejecutar fuentes: la recuperación wrapped
-buscaba el estado privado dentro de `backend/src`, y el clasificador de redes
-inspeccionaba rollups antes de reconocer un EVM propio. Los datos conservan su
-ubicación explícita; la clasificación usa la identidad privada del runtime y
-espera su comprobación de actividad. Dos pins corrientes de rollups y el pin del
-guard de procesos se revisaron contra sus cambios originales de código.
+Se comprobó también el paquete paginado/wrapped trasladado desde `cwd=/`, con
+Node autorizado a leer únicamente dentro del paquete. Sus lectores reales
+aceptan las fuentes adoptadas y rechazan una clave original alterada. Lleva
+154 recursos públicos (235.858.288 bytes); el paquete completo de esa prueba
+ocupó 277.875.960 bytes, unos 265 MiB, y fue eliminado después. La última
+comprobación sobre la adopción actual terminó en 7,4 segundos. No usa el
+checkout, laboratorio ni `.internal/runtime` de la máquina original.
 
-**Deuda que permanece:** el componente circular de composición todavía enlaza
-cuentas, sesiones, controladores y recuperación. Aislar el backend EVM no elimina
-ese grupo. El tipado estricto tampoco abarca todo el JavaScript. La preparación
-de fuentes está desbloqueada, pero su publicación y aceptación económica siguen
-siendo trabajo distinto. No se declara cerrada toda la deuda estructural.
+**Deuda que permanece:** el SCC interno pasó de 154 archivos/845 imports a
+**139 archivos/765 imports**, pero sigue reuniendo SOURCE, autoridad nativa,
+recuperación wrapped, servicio GRAPH y recuperación del catálogo DeFi. Sus
+composiciones superiores no están tipadas por completo. Persisten pruebas que
+extraen código por texto fuera de las familias migradas. El lector I84/nativo
+original todavía exige recursos en una ruta absoluta; la prueba portátil no lo
+incluye. No se declara terminada toda la deuda ni los once puntos de limpieza.
 
-**Verificación de esta revisión:** `./dev check` pasa con 251 casos HOST en
-7,9 segundos, fronteras sobre 919 fuentes, análisis estático de 865 módulos,
-27 entradas checkJs, nueve archivos con controles léxicos y siete contratos de
-operaciones. Pasan además 25 casos focales de los cortes EVM/DeFi, 5 de
-persistencia/reapertura SOURCE, las comprobaciones de procesos y los vectores
-móviles. Las selecciones se solapan y no constituyen una campaña económica.
-Las regresiones de fronteras y pins pasan con 13 y 10 casos respectivamente.
-Se corrigieron dos pruebas que inspeccionaban la antigua ubicación del servidor:
-conservan los 225 códigos públicos y las cinco fronteras de errores originales.
+Las matrices wrapped de 69 casos de ciclo de vida y 22 de runtime se conservan
+como campañas explícitas. No forman parte de la selección rápida. La revisión de
+sus fixtures reemplaza cuerpos extraídos y mapas sintéticos por módulos
+completos y dependencias inferiores explícitas; su ejecución completa después
+de esa migración sigue pendiente. Los flujos diarios conservan pruebas focales
+de contratos, identidad y recuperación. La comprobación adicional de composición
+agotó su límite de 120 segundos sin terminar; no se cuenta como aprobada ni se
+añade al ciclo diario.
 
-Verificados los **2.649 originales restaurados**, incluidos los 1.716 versionados,
-y los **52 archivos protegidos** de
-visión, exclusiones, APK y trabajo retenido. `pins check` confirma las tres tablas
-actuales y 200 verificaciones de dependencias inmutables. No se regeneran las
-ausencias históricas: siguen identificados los doce imports de protocol y el
-`public-inputs.json` que requiere una prueba antigua de statements.
+Las comprobaciones de esta integración incluyen 21 casos de generaciones, diez
+regresiones de contratos estáticos, diez de disposición/source-runtime, cinco
+casos de perfiles Base/Arbitrum/BSC, ocho de workers/procesos y siete del lector
+compartido/manifiesto wrapped. Actor y sesión nativa pasan sus regresiones de
+identidad, SOURCE/CAS y recuperación; las selecciones se solapan y no constituyen
+una campaña económica nueva. Los 52 archivos protegidos de visión, exclusiones,
+APK y trabajo retenido conservan sus hashes.
 
-Las últimas extracciones pasan 30 casos de actores, IPC y fuentes de pagos,
-y seis casos de recursos, identidad, alteración de código y symlinks. Las URLs
-traducidas del snapshot conservan la autoridad canónica paginada y los dos
-cargadores de recursos. Estas pruebas no generan pruebas criptográficas.
+`./dev check` completo pasa: límites entre paquetes, análisis estático, tipado,
+catálogo de comandos, diez casos de source-runtime y 252 comprobaciones HOST.
+La prueba de capacidades exactas usa ahora la URL pública del módulo compartido,
+sin restaurar una fachada retirada. El guard EVM reexporta el bloqueo de su
+propietario sin evaluarlo prematuramente durante la carga circular; conserva
+la misma identidad y las verificaciones de leases.
 
-`./dev sources prepare` ya termina en **VALIDATED_CANDIDATE**. La generación
-`a7e2eb6b1895ed4bbbaf834112e9521c40eadda820af3ae4d48634f0b459ccec`
-captura **1.641 archivos**, respeta las 98 reubicaciones y autentica los doce
-roles nativos y cinco paginados. `./dev sources verify --generation <huella>`
-termina en **READBACK_VERIFIED** tras releer objetos, fuentes, exports,
-publicaciones y artefactos. El contrato V7 declara sus límites: cierre ESM,
-inventarios móviles fijados y recursos dinámicos pendientes de sus consumidores.
-No presenta las fuentes actuales como las de una publicación histórica.
-
-N32 autentica sus nueve entradas originales de compilación archivadas. Paged
-verifica sus cien registros originales, incluidos los diez que difieren de las
-rutas actuales. Se conservaron cinco cuerpos exactos recuperados de Git
-(94.693 bytes) en `archive/source-evidence/`; el resto ya estaba archivado.
-Los objetos por contenido incluyen esa evidencia sin ejecutarla. Los lectores
-financieros y las publicaciones históricas mantienen sus condiciones originales.
-No se han generado pruebas, publicado una release ni aceptado económicamente
-esta nueva captura. [Contrato y comandos](docs/SOURCE-GENERATIONS.md).
-
-El corte adicional pasa tres pruebas de aislamiento con custodia y Anvil
-locales reales, seis de recuperación del proveedor, doce de recuperación
-wrapped/bootstrap y las regresiones SOURCE de AEAD/CAS y caída abrupta. Pasan
-19 casos de formatos/recursos/RSS, 16 de preparación/readback y los controles
-de manipulación de N32 y Paged. Son selecciones focales y algunas se solapan;
-no se presentan como una campaña económica nueva. La verificación de disposición
-comprueba 2.440 archivos físicos y los 2.649 originales. Los 52 archivos
-protegidos de la revisión, incluida la visión, conservan sus hashes.
-
-Los hashes actuales se gestionan con `./dev pins check|update`; los originales y
-las publicaciones mantienen sus verificaciones independientes. El inventario y
-preparación selectiva de los siete laboratorios siguen en `./dev lab`; no se
-arrancan redes ni se generan pruebas para comprobar la arquitectura. Los estados
-privados y originales siguen excluidos de la limpieza automática.
-
-[Mapa del código](docs/STRUCTURE.md), [módulos](docs/MODULES.md),
-[flujo diario](docs/WORKFLOW.md), [paquetes trasladables](packages/environment/README.md)
-y [arranque local](apps/platform/docs/LOCAL-COMPOSITION.md).
+Los originales restaurados y las ausencias históricas siguen inventariados.
+Conservar ese material no implica que toda la generación histórica sea
+operativa. [Mapa del código](docs/STRUCTURE.md), [módulos](docs/MODULES.md),
+[fuentes y artefactos](docs/SOURCE-GENERATIONS.md) y [comandos](docs/COMMANDS.md).
 
 ## Aceptaciones funcionales conservadas del 10 de octubre
 
