@@ -1,13 +1,18 @@
-/** Host-only actual runtime factory + exact-source wrapped provider gate and
- * provider-key closure. Ownership, quorum, hash-backend and native I/O ports
- * are explicitly synthetic. No native process, compiler, prover or real funds. */
-import {mock} from 'node:test';import assert from 'node:assert/strict';import {performance} from 'node:perf_hooks';
-import {EventEmitter} from 'node:events';import {mkdtemp,readFile} from 'node:fs/promises';import {readFileSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';
-import {freshKey,signature as actualSignature} from '@lianum/engine/notes/private-note-encoding';
-import {publicKeccak256} from '@lianum/engine/cohorts/private-cohort-public-native';
+/** Complete runtime, bootstrap, quorum, gate and provider owners over explicit
+ * lower chain, deployment, hash and storage ports. Private constructor requests,
+ * operation tokens and one-use authorizations are produced by their real owners. */
+import {mock} from 'node:test';import assert from 'node:assert/strict';
+import {EventEmitter} from 'node:events';import {mkdtemp,mkdir,rm} from 'node:fs/promises';import {randomUUID} from 'node:crypto';import {tmpdir} from 'node:os';import {join} from 'node:path';
+import {writeFileSync} from 'node:fs';
+import {freshKey} from '@lianum/engine/notes/private-note-encoding';
+import {legacyDataRoot} from '@lianum/environment';
+import * as originalRecords from '@lianum/engine/storage/records';
+import {Vault} from '@lianum/engine/crypto/vault';
 let control,Gate;
 const url=p=>new URL(p,import.meta.url).href,quantity=v=>'0x'+BigInt(v).toString(16);
-const harnessURL=url('../../../../../omnichain-product/src/chains/runtime-harness.mjs'),actualHarness=await import(harnessURL);
+const harnessURL='@lianum/engine/chains/shared/runtime-harness',actualHarness=await import(harnessURL);
+const source=p=>url('../../../../../src/'+p);
+const gateURL=source('chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs');
 async function lowerRpc(method,params=[]){const c=control;c.calls.push(method);await c.rpcHook?.(method,params);
  switch(method){
  case 'eth_chainId':return '0x1';case 'eth_accounts':return [...c.accounts];case 'eth_blockNumber':return c.head.number;
@@ -24,8 +29,12 @@ async function lowerRpc(method,params=[]){const c=control;c.calls.push(method);a
  }
 }
 mock.module(harnessURL,{exports:{...actualHarness,
- async pinnedBinary(){return '/inert/anvil';},async scratchDirectory(){control.directory=await mkdtemp(join(tmpdir(),'wrapped-graph-v4-host-'));return control.directory;},async unusedLoopbackPort(){return 31338;},async sleep(){},
- async removeOwnScratch(){},startOwnProcess(binary,args){assert.equal(binary,'/inert/anvil');assert.equal(args[args.indexOf('--chain-id')+1],'1');const child=new EventEmitter();Object.assign(child,{pid:42,exitCode:null,signalCode:null});control.child=child;return {child,assertAlive(){assert.equal(child.exitCode,null,'HOST_PROCESS_DEAD');}};},
+ async pinnedBinary(){return '/inert/anvil';},async scratchDirectory(prefix){control.directory=await actualHarness.scratchDirectory(prefix);return control.directory;},async unusedLoopbackPort(){return 31338;},async sleep(){},
+ startOwnProcess(binary,args){assert.equal(binary,'/inert/anvil');assert.equal(args[args.indexOf('--chain-id')+1],'1');
+  // Public BIP39 test vector: the lower process only emits the startup file;
+  // the complete runtime still validates and retains it through its own guard.
+  writeFileSync(args[args.indexOf('--config-out')+1],JSON.stringify({available_accounts:control.accounts,wallet:{mnemonic:'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'}}));
+  const child=new EventEmitter();Object.assign(child,{pid:42,exitCode:null,signalCode:null});control.child=child;return {child,assertAlive(){assert.equal(child.exitCode,null,'HOST_PROCESS_DEAD');}};},
  async stopOwnProcess(handle){handle.child.exitCode=0;handle.child.emit('exit',0,null);return {stopped:true,forced:false};},
  async ownedRuntimeRpc(endpoint,method,params){assert.equal(endpoint,'http://127.0.0.1:31338');return lowerRpc(method,params);},
 }});
@@ -34,16 +43,18 @@ mock.method(globalThis,'fetch',async(endpoint,options)=>{assert.equal(endpoint,'
 // Fixed actual source export names. Calls delegate to the gate's exact source
 // module closure below, never to a caller-selected signer or authority issuer.
 const gateExports=['isWrappedClaimGraphDispatchRequestV1','assertOwnedNativeValueEvmDispatchRequest','consumeOwnedNativeValueTronDispatchRequest','consumeWrappedGraphDispatchAuthorityV4','consumeWrappedGraphProviderAuthorityV4','readWrappedGraphDispatchOperationV4','consumeNativeValueProviderBindRequest','assertOwnedNativeValueProvider','createOwnedNativeValueProvider'];
-mock.module(url('./wrapped-claim-graph-dispatch-gate-v1.mjs'),{exports:Object.fromEntries(gateExports.map(name=>[name,(...args)=>{
+const gatePorts=Object.fromEntries(gateExports.map(name=>[name,(...args)=>{
  if(['assertOwnedNativeValueEvmDispatchRequest','consumeOwnedNativeValueTronDispatchRequest'].includes(name)&&control)control.runtimeRequest=args[0];
  if(name==='consumeWrappedGraphDispatchAuthorityV4'&&control){control.lastNativeAuthority=args.slice();control.beforeNativeConsume?.(args);
   if(control.nativeAuthorityFault===args[1]){const fault=control.authorityFault;
    if(fault==='copy')args[0]={...args[0]};if(fault==='prepared-copy')args[4]=clone(args[4]);if(fault==='operation-copy')args[2]={...args[2]};if(fault==='runtime-copy')args[3]={...args[3]};if(fault==='purpose')args[1]=args[1]==='send'?'native-key':'send';
    if(fault==='replay')Gate[name](...args);
   }}
+ if(name==='consumeWrappedGraphProviderAuthorityV4'&&control){control.lastProviderAuthority=args.slice();control.beforeProviderConsume?.(args);}
  return Gate[name](...args);
-}]))});
-mock.module(url('./owned-tron-node-driver.mjs'),{exports:{
+}]));
+const initialGateMock=mock.module(gateURL,{exports:gatePorts});
+mock.module(source('chains/tron/transfers/owned-tron-node-driver.mjs'),{exports:{
  async startFixedOwnedTronDriver(){const c=control;c.directory=await mkdtemp(join(tmpdir(),'wrapped-tron-v4-host-'));const id='12'.repeat(32);let closed=false;
   return {directory:c.directory,metadata:{classification:'LOCAL_SYNTHETIC_TRON_JAVA_TRON_CONSENSUS',genesis:c.data.profile.genesis,solverEndpoint:c.data.binding.native.solverEndpoint,recipientEndpoint:c.data.binding.native.recipientEndpoint},
    assertAlive(){assert.equal(closed,false,'HOST_TRON_PROCESS_DEAD');},async health(){return {genesis:c.data.profile.genesis};},
@@ -54,74 +65,139 @@ mock.module(url('./owned-tron-node-driver.mjs'),{exports:{
    async observe(){return {status:'unknown',nativeId:c.data.signed.nativeId,nativeWire:null};},async close(){closed=true;}};
  },inspectOwnedTronRuntimePrerequisites(){throw Error('HOST_NATIVE_STARTUP_DISABLED');}
 }});
-const Evm=await import('../../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),Tron=await import('../../../../../src/chains/tron/runtime/owned-tron-native-value-runtime.mjs');
-const Public=await import('../transfers/wrapped-graph-v4-public.fixture.mjs'),B=await import('../../../../../src/chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs'),J=await import('../../../../../src/chains/shared/dispatch/wrapped-claim-dispatch-journal-v1.mjs');
-const Commitments=await import('@lianum/components/encoding/commitments'),Inputs=await import('../../../../../src/execution/account/preparation/readiness-inputs.mjs'),Health=await import('../../../../../src/chains/shared/health/native-value-health-v2.mjs'),Generic=await import('../../../../../src/chains/shared/transfers/generic-native-value-v2.mjs');
-const NativeHealth=await import('../../../../../src/chains/shared/health/native-health.mjs'),EvmProfile=await import('../../../../../src/chains/evm/transfers/evm-native-value-v2.mjs'),TronProfile=await import('../../../../../src/chains/tron/transfers/tron-native-graph-profile.mjs');
-const NativeAdmission=await import('@lianum/engine/execution/native/dispatch/native-admission'),Binding=await import('../../../../../src/chains/evm/transfers/evm-graph-transfer-binding.mjs');
-const clone=structuredClone,freeze=Inputs.frozenInput;
-const exportNames=source=>[...source.matchAll(/^export (?:async )?(?:function|const)\s+(\w+)/gm)].map(x=>x[1]);
-function executeSource(file,env){let source=readFileSync(new URL(file,import.meta.url),'utf8');const names=exportNames(source);
- source=source.replace(/^import\s+[\s\S]*?\sfrom\s+['"][^'"]+['"];\n/gm,'').replace(/^export\s*\{[^}]+\};\n/gm,'').replace(/^export\s+/gm,'');
- return new Function(...Object.keys(env),source+'\nreturn {'+names.join(',')+'};')(...Object.values(env));}
-const syntheticLeases=new WeakMap(),syntheticOriginals=new WeakMap();
-let graphAPI;
-function snapshotOperation(operation){return Gate.readWrappedGraphDispatchOperationV4(operation);}
-function healthResult(quorum,request){const c=control;assert.equal(quorum,c.quorum);const message={...clone(c.health),validFrom:c.headView.timestamp,validUntil:request.validUntil};delete message.timestamp;
- return freeze({message,indexes:[0,1,2],signatures:c.keys.slice(0,3).map(key=>actualSignature(key,Health.encodeNativeValueHealth(message)).toString('hex')),abiSignatures:[],head:clone(c.headView),audits:[]});}
-graphAPI={
- assertOwnedNativeValueQuorum(q,{runtime,system}){assert.equal(q,control.quorum);assert.equal(runtime,control.receiver);assert.equal(system,control.system);},
- async issueWrappedGraphDispatchHealthV4(q,request,operation){const physical=snapshotOperation(operation);assert.equal(physical.physicalState.busy,true);assert.equal(physical.physicalState.activeMutations,1);
-  const result=healthResult(q,request);syntheticOriginals.set(result,{quorum:q,operation,captured:clone(result),phase:physical.phase});control.issued.push(result);control.operations.push(operation);await control.issueHook?.(physical.phase,result);return result;},
- async validateWrappedGraphOriginalAuthorizationV4(q,result){const original=syntheticOriginals.get(result);assert.ok(original&&original.quorum===q);assert.deepEqual(result,original.captured);
-  const started=performance.now();await control.validationHook?.(original.phase,result);const operation=snapshotOperation(original.operation);assert.equal(operation.phase,original.phase);
-  const token=Object.freeze({});syntheticLeases.set(token,{...original,result,started,snapshot:operation});control.validations.push({phase:original.phase,result,operation});control.afterValidationHook?.(original.phase,result);return token;},
- consumeWrappedGraphOriginalAuthorizationV4(token,q,result){const state=syntheticLeases.get(token);assert.ok(state&&state.quorum===q&&state.result===result,'HOST_ORIGINAL_GRAPH_LEASE');syntheticLeases.delete(token);
-  assert.deepEqual(result,state.captured);assert.deepEqual(snapshotOperation(state.operation),state.snapshot,'HOST_GRAPH_NATIVE_STATE_CHANGED');const elapsed=performance.now()-state.started;assert.ok(Number.isFinite(elapsed)&&elapsed>=0&&elapsed<30000,'HOST_GRAPH_AUDIT_TOO_OLD');
-  control.consumeHook?.(state.phase,result);return state.started;},
-};
-const ownerSource=readFileSync(new URL('./wrapped-claim-dispatch-owner-v1.mjs',import.meta.url),'utf8');
-const signStart=ownerSource.indexOf('      signDispatchOnce(statement,authority,operation){'),signEnd=ownerSource.indexOf('      observeOriginal:',signStart);assert.ok(signStart>0&&signEnd>signStart);
-function actualProviderSigner(c,scoped,key){let keyStarted=false;const expression=ownerSource.slice(signStart,signEnd).trim().replace(/,$/,'');
- const factory=new Function('env','const {live,assert,readNativeValueDispatchJournal,binding,record,equal,nativeDispatchStatementFrame,consumeWrappedGraphProviderAuthorityV4,nativeRuntime,performance,signature,key,scoped}=env;let keyStarted=false;return ({'+expression+'}).signDispatchOnce;');
- return factory({live(){assert.equal(c.closed,false);},assert,readNativeValueDispatchJournal:J.readNativeValueDispatchJournal,binding:c.data.binding,
-  record:{get data(){return {dispatch:c.record};}},equal:B.equal,nativeDispatchStatementFrame:NativeAdmission.nativeDispatchStatementFrame,
-  consumeWrappedGraphProviderAuthorityV4:(...args)=>{control.lastProviderAuthority=args.slice();control.beforeProviderConsume?.(args);return Gate.consumeWrappedGraphProviderAuthorityV4(...args);},nativeRuntime:c.native,performance,
-  signature(key,frame){c.providerSigns++;return actualSignature(key,frame);},key,scoped});}
-const env={refreshNativeValueReceiverClock:async()=>{},readOwnedEvmWrappedGraphOperationV4:Evm.readOwnedEvmWrappedGraphOperationV4,readOwnedTronWrappedGraphOperationV4:Tron.readOwnedTronWrappedGraphOperationV4,
- graphAuthorizationV4:graphAPI,assert,performance,...Commitments,...Inputs,
- assertOwnedWrappedClaimGraphSystem(runtime,system){assert.equal(runtime,control.receiver);assert.equal(system,control.system);},assertOwnedNativeValueQuorum:graphAPI.assertOwnedNativeValueQuorum,
- async createWrappedClaimGraphStateReaderV1(){return {read:async()=>control.view,assertCurrent:async view=>{assert.equal(view,control.view);await control.currentHook?.();}};},
- assertWrappedClaimGraphCurrentViewV1(view){assert.equal(view,control.view);},decodeFlatWords:()=>['0'],assertNativeValueHealth:Health.assertNativeValueHealth,assertFactsQuorum:Generic.assertFactsQuorum,
- TRON_SCHEMA:TronProfile.PROFILE_SCHEMA,EVM_SCHEMA:EvmProfile.PROFILE_SCHEMA,encodeEvmGraphTransferMemo:Binding.encodeEvmGraphTransferMemo,
- async openNativeValueDispatchLease(lease,expected,request){const c=control;assert.equal(lease,c.lease);assert.deepEqual(expected,{runtime:c.receiver,system:c.system,poolIndex:0});Gate.consumeNativeValueProviderBindRequest(request,{...expected,lease});return c.resources;},
- NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS:Object.freeze(['EXPLICIT_HOST_FIXTURE_ONLY']),...B,...J};
-Gate=executeSource('./wrapped-claim-graph-dispatch-gate-v1.mjs',env);
+const {buildOwnedEvmRuntimeBackendV1}=await import(source('chains/evm/runtime/owned-evm-runtime-backend-v1.mjs'));
+const deny=()=>assert.fail('HOST_UNRELATED_AUTHORITY_PORT');
+const methods=names=>Object.fromEntries(names.map(name=>[name,deny]));
+const Evm=buildOwnedEvmRuntimeBackendV1({journal:methods(['beginOriginalNativeSourceMutationV1','confirmOriginalNativeSourceMutationV1','originalNativeSourceRuntimeOwnedProcessV1','originalNativeSourceRuntimeRequestIdentityV1','readOriginalNativeSourceRuntimeSeedV1','readOriginalNativeSourceRuntimeStateV1','resumeOriginalNativeSourceRuntimeSeedV1','retainOriginalNativeSourceRuntimeSeedV1','updateOriginalNativeSourceSectionV1']),
+ recovery:methods(['consumeExternalDefiReceiverRepairV1','consumeWrappedRuntimeRecoveryV1','assertNativeEconomicRecoveryCaptureV1','nativeEconomicRecoverySectionIdentityV1','externalDefiReceiverCaptureIdentityV2','consumeExternalDefiReceiverRuntimeSectionV2','deviceExternalFlatReceiverCaptureIdentityV1','consumeDeviceExternalFlatReceiverRuntimeSectionV1','assertNativeLiveArmedRecoveryCaptureV1','nativeLiveArmedRecoverySectionIdentityV1','consumeNativeLiveArmedRecoverySectionV1','nativeD26','economic']),
+ deviceSource:methods(['consumeOriginalDeviceGraphSourceRequestV2','consumeOriginalDeviceGraphSourceSectionV2','originalDeviceGraphSourceSectionIdentityV2','beginOriginalDeviceGraphSourceActivityV2','endOriginalDeviceGraphSourceActivityV2']),
+ reorg:methods(['probe','recovery']),dispatch:{...methods(['deviceNote','claim','paged']),native:async()=>({...gatePorts,assertOwnedNativeValueEvmDispatchRequest:deny,openWrappedNativeValueEvmDispatchRequest:gatePorts.assertOwnedNativeValueEvmDispatchRequest})},
+ observation:{nativeValue:()=>import('../../../../../src/chains/evm/health/evm-native-value-health-source-v4.mjs?complete-wrapped-native')},
+});
+const Tron=await import(source('chains/tron/runtime/owned-tron-native-value-runtime.mjs')+'?complete-wrapped-native');
+initialGateMock.restore();
+const Host=await import('../../../../support/wrapped-authorization-host.mjs');
+const Public=await import('../transfers/wrapped-graph-v4-public.fixture.mjs'),B=await import(source('chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs')),J=await import(source('chains/shared/dispatch/wrapped-claim-dispatch-journal-v1.mjs'));
+const Binding=await import(source('chains/evm/transfers/evm-graph-transfer-binding.mjs'));
+const NativeAdmission=await import('@lianum/engine/execution/native/dispatch/native-admission');
+const clone=structuredClone;
+// Runtime brands are confined to the real isolated family. The receiver used
+// for deployment/current reads is the explicit lower, observation-only port.
+await Host.mockLower(source('chains/evm/runtime/owned-evm-v2-runtime.mjs'),{exports:{...Evm,
+ refreshNativeValueReceiverClock:async runtime=>{assert.equal(runtime,control.receiver);},
+ assertOwnedLocalEvmObservedClockV1:runtime=>assert.equal(runtime,control.receiver),
+}});
+await Host.mockLower(source('chains/tron/runtime/owned-tron-native-value-runtime.mjs'),{exports:{...Tron}});
+// The native runtime calls the same actual gate whose operation map the full
+// graph quorum reads. No fixture creates an operation or authorization token.
+await Host.mockLower(gateURL,{exports:gatePorts});
+Host.readWrappedHostPhysicalOperations(operation=>Gate.readWrappedGraphDispatchOperationV4(operation));
+const graphURL=source('operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs');
+await Host.mockLower(graphURL,{exports:{...Host.graphModule,
+ async issueWrappedGraphDispatchHealthV4(q,request,operation){
+  const snapshot=Gate.readWrappedGraphDispatchOperationV4(operation),result=await Host.graphModule.issueWrappedGraphDispatchHealthV4(q,request,operation);
+  control.issued.push(result);control.operations.push(operation);control.issuePhases.push(snapshot.phase);await control.issueHook?.(snapshot.phase,result);return result;
+ },
+ async validateWrappedGraphOriginalAuthorizationV4(q,result){const index=control.issued.indexOf(result);assert.ok(index>=0);const phase=control.issuePhases[index];
+  await control.validationHook?.(phase,result);const lease=await Host.graphModule.validateWrappedGraphOriginalAuthorizationV4(q,result);
+  const operation=Gate.readWrappedGraphDispatchOperationV4(control.operations[index]);control.validations.push({phase,result,operation});control.afterValidationHook?.(phase,result);return lease;
+ },
+ consumeWrappedGraphOriginalAuthorizationV4(token,q,result){const started=Host.graphModule.consumeWrappedGraphOriginalAuthorizationV4(token,q,result);
+  control.consumeHook?.(control.issuePhases[control.issued.indexOf(result)],result);return started;
+ },
+}});
+const {buildWrappedPrivateLifetimeRegistryV1}=await import(source('claims/wrapped/recovery/wrapped-lifetime-registry-backend-v1.mjs'));
+const Lifetime=buildWrappedPrivateLifetimeRegistryV1({runtime:{assertOwnedLocalEvmV2:async runtime=>assert.equal(runtime,control.receiver),assertOwnedDeviceExternalFlatReceiverV1:deny},
+ recovery:methods(['retainOriginalWrappedRecoverySectionV1','originalWrappedRecoverySectionIdentityV1','consumeOriginalWrappedRecoverySectionV1']),
+ deviceSource:methods(['originalDeviceGraphSourceSectionIdentityV2','consumeOriginalDeviceGraphSourceSectionV2']),
+ storage:{async create({directory,identity}){return originalRecords.createClaimRecordStore({path:join(directory,'registry.vault'),password:control.password,identity},{profile:'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1',identity,parts:{}});},open:deny},
+});
+await Host.mockLower(source('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs'),{exports:{...Lifetime}});
+await Host.mockLower(source('execution/native/recipients/native-recipient-process.mjs'),{exports:{assertOwnedNativeRecipientProcess:recipient=>assert.equal(recipient,control.recipient)}});
+// Real provider custody keeps its original Vault CAS and private scoped lease.
+// Only the lower Poseidon implementation is a deterministic schema fixture.
+const toolsURL='@lianum/proofs/tooling/tooling';
+await Host.mockLower(toolsURL,{exports:{resourceModuleURL:new URL('../../../../support/wrapped-hash-port.fixture.mjs',import.meta.url).href,
+ async loadPinned(name){assert.equal(name,'@aztec/bb.js');return {BackendType:{Wasm:'HOST'},Barretenberg:{async new(){return {async poseidon2Hash({inputs}){return {hash:Buffer.from(await Public.traceHash(inputs.map(bytes=>BigInt('0x'+Buffer.from(bytes).toString('hex')))),'hex')};},async destroy(){}};}}};}
+}});
+function observeProviderRecord(record){if(record?.data?.schema==='OWNED_WRAPPED_CLAIM_GRAPH_PROVIDER_CUSTODY_V1')control.record=clone(record.data.dispatch);return record;}
+class ObservedVault extends Vault {
+ async create(...args){return observeProviderRecord(await super.create(...args));}
+ async read(...args){return observeProviderRecord(await super.read(...args));}
+ async update(...args){return observeProviderRecord(await super.update(...args));}
+}
+await Host.mockLower('@lianum/engine/crypto/vault',{exports:{Vault:ObservedVault}});
+const ownerURL=source('chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs'),originalOwner=await import(ownerURL);
+let Owner;
+mock.module(ownerURL,{exports:Object.fromEntries(Object.entries(originalOwner).map(([name,value])=>[name,typeof value==='function'?(...args)=>Owner[name](...args):value]))});
+Owner=await import(ownerURL+'?complete-wrapped-owner');
+Gate=await import(gateURL+'?complete-wrapped-gate');
+
 export async function fixture({family='EVM'}={}){
- const keys=Array.from({length:4},()=>freshKey()),providerKey=freshKey(),publicKey=key=>({x:key.x.toString('hex'),y:key.y.toString('hex')});
- const options={providerKeyOverride:publicKey(providerKey),keysOverride:keys.map(publicKey)};
- const data=family==='TRON'?await Public.tronLowerFixture(options):await Public.fixture('ethereum',0,options),intent=await B.bindNativeValueDispatchRequest(data.binding,data.request,{hashFields:Public.traceHash});
- const timestamp=family==='TRON'?'1900000000':'1900000310',headView={number:'7',hash:Public.H('receiver-head'),timestamp};
- const c=control={data,keys,closed:false,providerSigns:0,signs:0,sends:0,calls:[],issued:[],operations:[],validations:[],headView,
-  receiver:{},lease:Object.freeze({}),nonce:'0x0',accounts:[data.binding.native.solverEndpoint,...['22','44','55','66'].map(v=>'0x'+v.repeat(20))],
-  genesis:{number:'0x0',hash:'0x'+data.profile.genesis,timestamp:quantity(timestamp),transactions:[],baseFeePerGas:quantity(1000000000)},};c.head=clone(c.genesis);c.blocks=new Map([['0',clone(c.genesis)]]);
- const tx=data.prepared.transaction;if(family==='EVM')c.signRequest={from:tx.from,to:tx.to,gas:quantity(tx.gas),value:quantity(tx.value),data:Binding.encodeEvmGraphTransferMemo(tx.wireKeyCommitment),nonce:'0x0',chainId:'0x1',gasPrice:quantity(tx.fees.gasPrice),type:'0x0'};
- if(family==='TRON')c.dateMock=mock.method(Date,'now',()=>Number(data.raw.transaction.timestampMs));
- c.native=family==='TRON'?await Tron.createOwnedLocalTronNativeValueV1():await Evm.createOwnedLocalEvmNativeValueV1();for(const name of ['advanceTo','send','dispatch','rpc','sign'])assert.equal(c.native[name],undefined,'ACTUAL_NATIVE_FACADE');
- c.quorum=Object.freeze({signerIndexes:Object.freeze([0,1,2]),health:async request=>healthResult(c.quorum,request)});
- c.system=Object.freeze({registry:data.binding.registry,adapterProfiles:data.binding.profiles,claimsEnabled:true,quorum:c.quorum,
-  pools:Object.freeze([Object.freeze({address:'0x'+data.binding.pool,domain:data.binding.domain})]),hub:Object.freeze({call:async()=> '0x'+'00'.repeat(32)}),async verify(){return true;}});
- c.health=Object.fromEntries(NativeHealth.FLAT_HEALTH_FIELDS.slice(0,-2).map(([name,width,kind])=>[name,width===20?data.binding.pool:['bytes','field'].includes(kind)?Public.F(name):'0']));
- Object.assign(c.health,{pool:data.binding.pool,hubDomain:data.binding.domain.hubDomain,registryCommitment:data.binding.domain.registryCommitment,timestamp});
- c.view=freeze({head:headView,header:{number:'0x7'},dispatch:{checkpointSnapshot:{timestamp}},snapshot:{timestamp},evidenceState:intent.ready.readinessEvidenceState,
-  healthState:c.health,overflow:{count:'0'},revokedEntries:[],state:{revokedCount:'0'}});
- c.record={revision:'0',state:J.createNativeValueDispatchJournal(data.binding)};
- const store=Object.freeze({async load(){await c.storeHook?.('read');return clone(c.record);},async commit({expectedRevision,nextState}){assert.equal(c.record.revision,expectedRevision);await c.storeHook?.('write');c.record={revision:String(BigInt(c.record.revision)+1n),state:clone(nextState)};return clone(c.record);}});
- const signer=actualProviderSigner(c,c.lease,providerKey);
- c.resources=Object.freeze({binding:data.binding,approvedIntent:intent,nativeRuntime:c.native,store,hashFields:Public.traceHash,gasLimit:'100000',
-  assertLive(){assert.equal(c.closed,false,'HOST_OWNER_CLOSED');},async assertLeaseCurrent(){assert.equal(c.closed,false);await c.native.health();},
-  assertPreparedCurrent:prepared=>c.native.assertNativeValuePreparedCurrent(prepared),signDispatchOnce:signer,observeOriginal:q=>c.native.observeNativeValueOriginal(q),retainOriginal(){throw Error('HOST_NO_RECONCILIATION');},async close(){c.closed=true;}});
+ const cleanup=[];const providerKey=freshKey(),publicKey=key=>({x:key.x.toString('hex'),y:key.y.toString('hex')});
+ const options={providerKeyOverride:publicKey(providerKey)};
+ const preliminary=family==='TRON'?await Public.tronLowerFixture(options):await Public.fixture('ethereum',0,options);
+ const timestamp=family==='TRON'?'1900000000':'1900000310';
+ const c=control={data:preliminary,password:'wrapped-runtime-fixture-'+randomUUID(),closed:false,providerSigns:0,signs:0,sends:0,calls:[],issued:[],operations:[],issuePhases:[],validations:[],
+  receiver:{metadata:{version:'OWNED_FLAT_LOCAL_EVM_V2',evmGenesis:'0x'+'55'.repeat(32),chainId:'31337'},ingressSendState:{epoch:'0',busy:false,uncertain:false}},nonce:'0x0',
+  accounts:[preliminary.binding.native.solverEndpoint,...['22','44','55','66'].map(v=>'0x'+v.repeat(20))],
+  genesis:{number:'0x0',hash:'0x'+preliminary.profile.genesis,timestamp:quantity(timestamp),transactions:[],baseFeePerGas:quantity(1000000000)},};c.head=clone(c.genesis);c.blocks=new Map([['0',clone(c.genesis)]]);
+ if(family==='TRON')c.dateMock=mock.method(Date,'now',()=>Number(preliminary.raw.transaction.timestampMs));
+ let lifetimeDirectory;
+ async function close(){
+  const failures=[];const step=async fn=>{try{await fn();}catch(error){failures.push(error);}};
+  await step(()=>c.provider?c.provider.close():c.custody?.close());
+  await step(()=>c.native?.close());
+  for(const fn of cleanup.splice(0).reverse())await step(fn);
+  if(c.lifetime)await step(()=>Lifetime.closeWrappedPrivateLifetimeRegistryV1(c.lifetime));
+  c.dateMock?.mock.restore();Host.observeWrappedHostKeys();
+  if(lifetimeDirectory)await step(()=>rm(join(lifetimeDirectory,'..'),{recursive:true,force:true}));
+  if(c.directory)await step(()=>rm(c.directory,{recursive:true,force:true}));
+  if(failures.length)throw new AggregateError(failures,'WRAPPED_HOST_FIXTURE_CLEANUP');
+ }
+ try {
+ c.native=family==='TRON'?await Tron.createOwnedLocalTronNativeValueV1():await Evm.createOwnedLocalEvmNativeValueV1();
+ for(const name of ['advanceTo','send','dispatch','rpc','sign'])assert.equal(c.native[name],undefined,'ACTUAL_NATIVE_FACADE');
+ const runId=randomUUID();lifetimeDirectory=join(legacyDataRoot('wallet'),'.local/wrapped-deployment-only-v1','attempt-'+runId,'private-audit');
+ await mkdir(lifetimeDirectory,{recursive:true,mode:0o700});c.lifetime=await Lifetime.createWrappedPrivateLifetimeRegistryV1({runtime:c.receiver,directory:lifetimeDirectory,runId,sourceSHA256:Public.H('host-source'),deadlineMs:Date.now()+600000});
+ let keyAllocations=0;
+ Host.observeWrappedHostKeys({freshKey(){assert.equal(keyAllocations++,0);return providerKey;},signature(key){if(key.x.equals(providerKey.x)&&key.y.equals(providerKey.y))c.providerSigns++;}});
+ const host=await Host.fixture({after:fn=>cleanup.push(fn)},{receiver:c.receiver,hubDomain:preliminary.binding.domain.hubDomain,timestamp,
+  nativeGraph:{runtime:c.native,family,genesis:preliminary.profile.genesis,chainId:preliminary.profile.chainId,read:()=>family==='TRON'?Tron.readOwnedLocalTronNativeValueAuditStateV4(c.native):Evm.readOwnedLocalEvmNativeValueAuditStateV4(c.native)},
+  deployment:{async prepare({registration}){
+   const args={...options,registrationOverride:registration,poolOverride:registration.claims[0].config.pool};
+   c.data=family==='TRON'?await Public.tronLowerFixture(args):await Public.fixture('ethereum',0,args);
+   c.intent=await B.bindNativeValueDispatchRequest(c.data.binding,c.data.request,{hashFields:Public.traceHash});
+   return {pools:[{address:'0x'+c.data.binding.pool,domain:c.data.binding.domain}],async verify(){return true;}};
+  },view(value){return {...value,dispatch:{checkpointSnapshot:{...value.snapshot,timestamp}},evidenceState:c.intent.ready.readinessEvidenceState,
+   overflow:{count:'0'},revokedEntries:[],state:{revokedCount:'0'}};}}
+ });
+ c.host=host;c.system=host.system;c.quorum=host.graphQuorum;c.headView=host.head;
+ host.controls.beforeGraphCurrent=()=>c.currentHook?.();
+ const data=c.data,tx=data.prepared.transaction;
+ if(family==='EVM')c.signRequest={from:tx.from,to:tx.to,gas:quantity(tx.gas),value:quantity(tx.value),data:Binding.encodeEvmGraphTransferMemo(tx.wireKeyCommitment),nonce:'0x0',chainId:'0x1',gasPrice:quantity(tx.fees.gasPrice),type:'0x0'};
+ // The real custody chooses the same original ephemeral key only after ownership
+// and path checks. Recipient acceptance is public quote data at the lower port.
+ const action=data.binding.quote.action,terms=Object.fromEntries(['scope','policy','asset'].map(k=>[k,data.binding.domain[k]]));
+ for(const k of ['amount','executionFrom','executionUntil','settleBefore'])terms[k]=action[k];
+ const custody=await Owner.createOwnedNativeValueProviderCustody({runtime:c.receiver,system:c.system,poolIndex:0,nativeRuntime:c.native,bootstrap:host.bootstrap,profileCommitment:data.binding.profileCommitment,
+  recipientEndpoint:data.binding.native.recipientEndpoint,terms,acceptedLossClause:NativeAdmission.NATIVE_ADMISSION_LOSS_CLAUSE,directory:c.directory,password:c.password});
+ c.custody=custody;
+ Host.wrappedHostDiagnostic('provider-custody-created');
+ const offer=custody.offer();assert.deepEqual(offer.providerKey,publicKey(providerKey));
+ const leaseId=B.sha256('LIANUM/original-native-value-provider/2\0'+data.binding.providerKey.x+data.binding.providerKey.y+data.binding.domain.hubDomain);
+ const amended={...options,registrationOverride:host.c.registration,poolOverride:data.binding.pool,leaseIdOverride:leaseId};
+ c.data=family==='TRON'?await Public.tronLowerFixture(amended):await Public.fixture('ethereum',0,amended);c.intent=await B.bindNativeValueDispatchRequest(c.data.binding,c.data.request,{hashFields:Public.traceHash});
+ for(const [name,value] of Object.entries(offer.actionTemplate))assert.equal(c.data.binding.quote.action[name],value,'HOST_QUOTE_'+name);
+ c.recipient=Object.freeze({acceptedQuote:async()=>({...Object.fromEntries(['scope','policy','asset','hubDomain','registryCommitment'].map(k=>[k,c.data.binding.domain[k]])),...c.data.binding.quote})});
+ await custody.bindQuote({recipientCustody:c.recipient});
+ Host.wrappedHostDiagnostic('provider-quote-bound');
+ c.lease=await custody.bindDispatch({request:c.data.request});
+ Host.wrappedHostDiagnostic('provider-dispatch-bound');
  const provider=await Gate.createOwnedNativeValueProvider({runtime:c.receiver,system:c.system,poolIndex:0,dispatchLease:c.lease});c.provider=provider;
- return {c,provider,Gate,Evm,Tron,data,intent,async close(){await provider.close();await c.native.close();c.dateMock?.mock.restore();}};
+ Host.wrappedHostDiagnostic('provider-gate-opened');
+ return {c,provider,Gate,Evm,Tron,data:c.data,intent:c.intent,close};
+ }catch(error){try{await close();}catch(cleanupError){throw new AggregateError([error,cleanupError],'WRAPPED_HOST_FIXTURE_SETUP_FAILED',{cause:error});}throw error;}
+
 }
 export {Gate,Evm,Public,B,J};

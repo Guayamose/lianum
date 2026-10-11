@@ -256,6 +256,20 @@
       "entry": "scripts/development/defi_entry_lab.py",
       "command": "./dev lab defi",
       "description": "Laboratorio Uniswap/MetaMorpho y salida seg\u00fan docs/DEVELOPMENT.md."
+    },
+    {
+      "id": "wrapped-lifecycle-campaign",
+      "level": "campaign",
+      "entry": "packages/backend/tests/operations/payouts/wrapped-authorization-lifecycle-v4.test.mjs",
+      "command": "./dev test --timeout 3600 packages/backend/tests/operations/payouts/wrapped-authorization-lifecycle-v4.test.mjs",
+      "description": "69 casos de autorizaciones wrapped con auditorias reciprocas y fuentes originales completas; ejecucion lenta explicita, sin aceptacion economica."
+    },
+    {
+      "id": "wrapped-runtime-campaign",
+      "level": "campaign",
+      "entry": "packages/backend/tests/chains/shared/runtime/wrapped-graph-v4-runtime.test.mjs",
+      "command": "./dev test --timeout 3600 packages/backend/tests/chains/shared/runtime/wrapped-graph-v4-runtime.test.mjs",
+      "description": "22 casos EVM/TRON de autoridades de un solo uso, firmas y limites temporales con propietarios completos y puertos inferiores de prueba; ejecucion lenta explicita."
     }
   ],
   "commands": [
