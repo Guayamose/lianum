@@ -52,6 +52,8 @@ CURRENT_SOURCE_INPUTS = (
     "scripts/development/module_boundaries.py", "scripts/development/import_paths.py",
     "scripts/development/workspace.py", "apps/mobile/package.json", "apps/mobile/package-lock.json",
     "archive/source-evidence/paged-original-host-v4/provenance.json",
+    "archive/source-evidence/paged-original-host-v4/compiler-provenance-v1.json",
+    "archive/source-evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source",
     "packages/backend/src/operations/local/funded-paged-native-source-v3.mjs",
     "packages/backend/src/operations/local/funded-graph-paged-device-graph-source-v3.mjs",
     "apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs",

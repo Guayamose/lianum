@@ -1,0 +1,21 @@
+{
+  "schema": "LIANUM_PAGED_ORIGINAL_COMPILER_HOST_EVIDENCE_V1",
+  "retainedManifestSHA256": "a3cfb7d05246a5876590f1c5c0a50ab8313c7d1e863dfe7636f18aa8199fe8aa",
+  "files": [
+    {
+      "path": "packages/engine/src/execution/local/local-deployment.mjs",
+      "bytes": 31459,
+      "sha256": "214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813",
+      "evidence": "archive/source-evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source",
+      "commit": "a42848c0f2a6df82ae42efd39b134c905ff9c9c3"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/paeg/local-deployment.mjs",
+      "bytes": 31440,
+      "sha256": "849eb503f5212c22ffb1a3a3eeb5b716eabc517990e533e16e70a59e69067bc2",
+      "evidence": "archive/delivery/source-snapshot/omnichain-product/src/paeg/local-deployment.mjs"
+    }
+  ],
+  "executed": false,
+  "repinned": false
+}

@@ -92,7 +92,8 @@
     "./wallet/runtime/private-wallet-session": "./src/wallet/runtime/private-wallet-session.mjs",
     "./chains/shared/owned-process-lifecycle": "./src/chains/shared/owned-process-lifecycle.mjs",
     "./crypto/private-resource-policy": "./src/crypto/private-resource-policy.mjs",
-    "./crypto/private-verifier-crs": "./src/crypto/private-verifier-crs.mjs"
+    "./crypto/private-verifier-crs": "./src/crypto/private-verifier-crs.mjs",
+    "./execution/local/solidity-compiler-v1": "./src/execution/local/solidity-compiler-v1.mjs"
   },
   "lianum": {
     "status": "active"

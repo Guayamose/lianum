@@ -27,6 +27,8 @@ const originalArtifactManifestSHA256='0bafbc32a6ff4e645bb9aba4b6a20e50f552cbc251
 // Fixed byte evidence for the relocated/changed host records. These files
 // are read and hashed only; they are never imported or installed as launchers.
 const retainedHostSources=Object.freeze({
+ '.internal/runtime/omnichain-product/src/paeg/local-deployment.mjs':'archive/delivery/source-snapshot/omnichain-product/src/paeg/local-deployment.mjs',
+ 'packages/engine/src/execution/local/local-deployment.mjs':'archive/source-evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source',
  '.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs':'archive/delivery/source-snapshot/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs',
  '.internal/runtime/omnichain-product/src/chains/runtime-harness.mjs':'archive/delivery/source-snapshot/omnichain-product/src/chains/runtime-harness.mjs',
  '.internal/runtime/omnichain-product/src/private-resource-policy.mjs':'archive/delivery/source-snapshot/omnichain-product/src/private-resource-policy.mjs',

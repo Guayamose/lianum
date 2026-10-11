@@ -3,11 +3,9 @@
  * No circuit, proving key, historical receipt or compiler input is replaced. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { join, sep } from 'node:path';
-import { sourcePath, resourcePath } from '@lianum/environment';
-import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
+import { readFileSync } from 'node:fs';
+import { sourcePath } from '@lianum/environment';
+import { GENERIC_COMPILER_PIN,loadOriginalSolidityCompilerV1 } from '@lianum/engine/execution/local/solidity-compiler-v1';
 export function compileOriginalMorphoBluePositionContractsV1() {
   assert.equal(arguments.length, 0);
   const sources = {};
@@ -18,26 +16,12 @@ export function compileOriginalMorphoBluePositionContractsV1() {
   for (const [name,path] of Object.entries(currentContracts))
     sources['contracts/defi/' + name] = {content: readFileSync(path, 'utf8')};
   const sha = value => createHash('sha256').update(value).digest('hex');
-  const tools = realpathSync(resourcePath('engine','tools/solidity-js'));
-  const lock = readFileSync(join(tools,'package-lock.json'));
-  assert.equal(sha(lock),GENERIC_COMPILER_PIN.lockSHA256,'BLUE_POSITION_SOLC_LOCK_PIN');
-  const dependency = JSON.parse(lock).packages['node_modules/solc'];
-  assert.equal(dependency.version,GENERIC_COMPILER_PIN.packageVersion);
-  assert.equal(dependency.resolved,GENERIC_COMPILER_PIN.resolved);
-  assert.equal(dependency.integrity,GENERIC_COMPILER_PIN.integrity);
-  const modulePath = realpathSync(join(tools,'node_modules/solc/soljson.js'));
-  assert.ok(modulePath.startsWith(tools+sep),'BLUE_POSITION_SOLC_MODULE_PATH');
-  assert.equal(sha(readFileSync(modulePath)),GENERIC_COMPILER_PIN.soljsonSHA256,'BLUE_POSITION_SOLC_MODULE_PIN');
-  const compiler = createRequire(join(tools,'package.json'))(modulePath);
-  const version = compiler.cwrap('solidity_version','string',[])();
-  assert.equal(version,GENERIC_COMPILER_PIN.version,'BLUE_POSITION_SOLC_VERSION_PIN');
-  const compile = compiler.cwrap('solidity_compile','string',['string','number','number']);
-  const reset = compiler.cwrap('solidity_reset',null,[]);
+  const compiler = loadOriginalSolidityCompilerV1(), version = compiler.version;
   const settings = {optimizer: {enabled: true, runs: 200}, evmVersion: 'cancun',
     outputSelection: {'*': {'*': ['abi', 'evm.bytecode', 'evm.deployedBytecode'], '': ['ast']}}};
   const input = {language: 'Solidity', sources, settings}, inputRaw = JSON.stringify(input);
   let output;
-  try { output = JSON.parse(compile(inputRaw,0,0)); } finally { reset(); }
+  output = JSON.parse(compiler.compile(inputRaw));
   assert.deepEqual((output.errors ?? []).filter(row => row.severity === 'error'), [], 'BLUE_POSITION_SOLIDITY_COMPILATION');
   const artifact = name => ({...output.contracts['contracts/defi/' + name + '.sol'][name],
     sourceName: 'contracts/defi/' + name + '.sol', contractName: name});

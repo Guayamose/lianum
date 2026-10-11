@@ -1,3 +1,4 @@
+import {GENERIC_COMPILER_PIN,loadOriginalSolidityCompilerV1} from './solidity-compiler-v1.mjs';
 /** Exact-source local compilation and deployment. A deployed verifier is not
  * evidence of an accepted proof. The trusted caller supplies independently
  * reviewed source pins; no arbitrary script, import callback or remote compiler
@@ -5,10 +6,8 @@
  */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { readFile, realpath } from 'node:fs/promises';
-import { join, sep } from 'node:path';
-import { projectRoot } from '../../chains/shared/runtime-harness.mjs';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   linkPrivateBytecode, derivePrivateAssetIdentity, derivePrivateAssetPoolScope,
 } from '../../notes/private-asset-runtime.mjs';
@@ -23,14 +22,7 @@ export const GENERIC_SOURCE_NAMES = Object.freeze({
 export const GENERIC_INPUT_WORDS = Object.freeze({ deposit_balance: 26, withdraw_balance: 39, withdraw: 39, reserve_generic: 66, recover_generic: 51 });
 export const GENERIC_POOL_SOURCE_SHA256 = '7be184488edeeb464a335696edee678112678eac3c6587ab3f5a026a4f0de9df';
 export const GENERIC_TOKEN_SOURCE_SHA256 = '397538dba08caa692165e93036804c2045fb646e7edbd719899036912853461e';
-export const GENERIC_COMPILER_PIN = Object.freeze({
-  version: '0.8.37+commit.f401782d.Emscripten.clang',
-  packageVersion: '0.8.37',
-  resolved: 'https://registry.npmjs.org/solc/-/solc-0.8.37.tgz',
-  integrity: 'sha512-ieUYdPDRGNKMsZpCfi9tY64Q+ASoL8tyhLuvf9cFiqDs+6ijlx8Wn2CRi0N71AlCvRx0V092rlUYu3b3PuxWlA==',
-  lockSHA256: '01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4',
-  soljsonSHA256: '221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c',
-});
+export {GENERIC_COMPILER_PIN} from './solidity-compiler-v1.mjs';
 const MODES = Object.freeze(Object.keys(GENERIC_INPUT_WORDS));
 const EIP170_LIMIT = 24_576;
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -194,23 +186,8 @@ export function deriveGenericVerifierImmutables(ast, expectedPublicInputs) {
  * pointers, avoiding the wrapper's remote-version loader altogether.
  */
 async function compiler() {
-  const toolRoot = await realpath(join(projectRoot, 'tools/solidity-js'));
-  const lockBytes = await readFile(join(toolRoot, 'package-lock.json'));
-  assert.equal(sha(lockBytes), GENERIC_COMPILER_PIN.lockSHA256, 'GENERIC_SOLC_LOCK_HASH');
-  const pin = JSON.parse(lockBytes).packages?.['node_modules/solc'];
-  assert.equal(pin?.version, GENERIC_COMPILER_PIN.packageVersion, 'GENERIC_SOLC_VERSION_PIN');
-  assert.equal(pin.resolved, GENERIC_COMPILER_PIN.resolved, 'GENERIC_SOLC_ORIGIN_PIN');
-  assert.equal(pin.integrity, GENERIC_COMPILER_PIN.integrity, 'GENERIC_SOLC_INTEGRITY_PIN');
-  const modulePath = await realpath(join(toolRoot, 'node_modules/solc/soljson.js'));
-  assert.ok(modulePath.startsWith(toolRoot + sep), 'GENERIC_SOLC_PATH_ESCAPE');
-  assert.equal(sha(await readFile(modulePath)), GENERIC_COMPILER_PIN.soljsonSHA256, 'GENERIC_SOLJSON_HASH');
-  const require = createRequire(join(toolRoot, 'package.json'));
-  const soljson = require(modulePath);
-  const version = soljson.cwrap('solidity_version', 'string', [])();
-  assert.equal(version, GENERIC_COMPILER_PIN.version, 'GENERIC_SOLC_BUILD');
-  const compile = soljson.cwrap('solidity_compile', 'string', ['string', 'number', 'number']);
-  const reset = soljson.cwrap('solidity_reset', null, []);
-  return { version, compile: input => { try { return compile(JSON.stringify(input), 0, 0); } finally { reset(); } } };
+  const retained = loadOriginalSolidityCompilerV1();
+  return {version:retained.version,compile:input=>retained.compile(JSON.stringify(input))};
 }
 
 /** Compile only supplied, hash-checked sources. Each self-contained generated
