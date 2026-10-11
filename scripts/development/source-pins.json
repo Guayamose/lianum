@@ -389,6 +389,56 @@
           "target": "packages/backend/src/operations/recovery/native-original-source-local-operator-v1.mjs",
           "source": "apps/platform/src/run-original-native-source-v1.mjs",
           "declaration": "const callerPin=Object.freeze("
+        },
+        {
+          "target": "apps/platform/src/run-original-base-private-native-mobile-v1.mjs",
+          "source": "scripts/development/owned-base-private-native-mobile-v1.mjs",
+          "declaration": "const productPin=Object.freeze("
+        },
+        {
+          "target": "apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs",
+          "source": "scripts/development/owned-arbitrum-private-native-mobile-v1.mjs",
+          "declaration": "const productPin=Object.freeze("
+        },
+        {
+          "target": "apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs",
+          "source": "scripts/development/owned-bsc-private-native-mobile-v3.mjs",
+          "declaration": "const productPin=Object.freeze("
+        },
+        {
+          "target": "apps/platform/src/run-original-tron-private-native-mobile-v1.mjs",
+          "source": "scripts/development/owned-tron-private-native-mobile-v1.mjs",
+          "declaration": "const productPin=Object.freeze("
+        },
+        {
+          "target": "scripts/development/original-network-mobile-private-diagnostic-v1.mjs",
+          "source": "tests/integration/wallet/native/native-device-economic-private-error-v1.mjs",
+          "declaration": "const PARSER=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/chains/tron/runtime/guarded/tron-host-observation-v1.mjs",
+          "source": "scripts/development/owned-tron-private-native-mobile-v1.mjs",
+          "declaration": "const MOBILE_PRODUCT_PIN=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/chains/tron/runtime/guarded/tron-host-observation-v1.mjs",
+          "source": "apps/platform/src/run-original-tron-private-native-mobile-v1.mjs",
+          "declaration": "const MOBILE_ENTRY_PIN=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/chains/tron/runtime/guarded/tron-host-observation-v1.mjs",
+          "source": "scripts/development/owned-tron-original-mobile-source-v1.mjs",
+          "declaration": "const MOBILE_PROFILE_PIN=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/chains/tron/runtime/guarded/tron-host-observation-v1.mjs",
+          "source": "scripts/development/original-network-mobile-private-diagnostic-v1.mjs",
+          "declaration": "const MOBILE_DIAGNOSTIC_PIN=Object.freeze("
+        },
+        {
+          "target": "packages/backend/src/chains/tron/runtime/guarded/tron-host-observation-v1.mjs",
+          "source": "tests/integration/wallet/native/native-device-economic-private-error-v1.mjs",
+          "declaration": "const MOBILE_PARSER_PIN=Object.freeze("
         }
       ]
     }

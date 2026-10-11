@@ -14,7 +14,8 @@ assert.deepEqual(process.execArgv,['--max-old-space-size=384'],'BASE_MOBILE_FIXE
 assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
 assert.deepEqual(process.argv,[process.execPath,entry],'BASE_MOBILE_FIXED_ENTRY');assert.equal(await realpath(entry),entry);
 const product=new URL('../../../scripts/development/owned-base-private-native-mobile-v1.mjs',import.meta.url),productPath=fileURLToPath(product);
-const productSHA256='90b74cd9a332fde4e0d805283a40ecd2f9a54625c7b33554d3976af94fc6fec3',productBytes=17377;
+const productPin=Object.freeze({"path":"scripts/development/owned-base-private-native-mobile-v1.mjs","bytes":17556,"sha256":"10152741c0e2e6ffc2708dd7fd6d769166c9e9a59dc70c052e0d7c0003ac278b"});
+const productSHA256=productPin.sha256,productBytes=productPin.bytes;
 const fields=['dev','ino','uid','gid','mode','nlink','size','mtimeMs','ctimeMs'];
 async function originalProduct(){assert.equal(await realpath(productPath),productPath,'BASE_MOBILE_PRODUCT_ALIAS');
  const fd=await open(productPath,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;try{const before=await fd.stat();

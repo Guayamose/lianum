@@ -155,6 +155,42 @@ class SourcePinsTest(unittest.TestCase):
             pins.run("update", "runtime", self.root)
         self.assertEqual((self.root / target).read_bytes(), before)
 
+    def test_runtime_record_chain_uses_updated_launcher_and_preserves_guard_table(self):
+        product = 'scripts/development/mobile-product.mjs'
+        entry = 'apps/platform/src/mobile-entry.mjs'
+        host = 'packages/backend/src/mobile-host.mjs'
+        self.write(product, 'export const version = 1;\n')
+        product_pin = json.dumps(self.row(product, product), separators=(',', ':'))
+        self.write(entry, 'const productPin=Object.freeze(' + product_pin + ');\n'
+                   'assert.equal(actual.sha256,productPin.sha256);\n')
+        entry_pin = json.dumps(self.row(entry, entry), separators=(',', ':'))
+        guard_table = ('const MOBILE_SOURCES=Object.freeze([MOBILE_PRODUCT_PIN,MOBILE_ENTRY_PIN]);\n'
+                       'for(const pin of MOBILE_SOURCES) assert.equal(readHash(pin.path),pin.sha256);\n')
+        self.write(host, 'const MOBILE_PRODUCT_PIN=Object.freeze(' + product_pin + ');\n'
+                   'const MOBILE_ENTRY_PIN=Object.freeze(' + entry_pin + ');\n' + guard_table)
+        policy = json.loads((self.root / pins.POLICY).read_text())
+        policy['profiles']['runtime'] = {'bindings': [], 'records': [
+            {'target': entry, 'source': product, 'declaration': 'const productPin=Object.freeze('},
+            {'target': host, 'source': product, 'declaration': 'const MOBILE_PRODUCT_PIN=Object.freeze('},
+            {'target': host, 'source': entry, 'declaration': 'const MOBILE_ENTRY_PIN=Object.freeze('},
+        ]}
+        self.write(pins.POLICY, json.dumps(policy))
+        self.write(product, 'export const version = "reviewed longer source";\n')
+        historical = (self.root / self.historical).read_bytes()
+        result = pins.run('update', 'runtime', self.root)
+        self.assertEqual(set(result['written']), {entry, host})
+        for target, marker, source in [(entry, 'const productPin=Object.freeze(', product),
+                                       (host, 'const MOBILE_PRODUCT_PIN=Object.freeze(', product),
+                                       (host, 'const MOBILE_ENTRY_PIN=Object.freeze(', entry)]:
+            text = (self.root / target).read_text()
+            record, _, _ = pins.json_at(text, pins.marker_start(text, marker))
+            self.assertEqual(record, self.row(source, source))
+        self.assertIn(guard_table, (self.root / host).read_text())
+        self.assertIn('assert.equal(actual.sha256,productPin.sha256);', (self.root / entry).read_text())
+        self.assertEqual((self.root / self.historical).read_bytes(), historical)
+        self.assertEqual(pins.run('check', 'runtime', self.root)['status'], 'CURRENT')
+        self.assertEqual(pins.run('update', 'runtime', self.root)['written'], [])
+
     def test_changed_dependency_bytes_cannot_be_rebaselined(self):
         original = self.before()
         for path in ("apps/mobile/node_modules/@noble/curves/index.js", "apps/platform/node_modules/pg/index.js"):

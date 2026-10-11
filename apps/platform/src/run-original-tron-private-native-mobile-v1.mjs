@@ -14,7 +14,8 @@ assert.deepEqual(process.execArgv,['--max-old-space-size=384'],'TRON_MOBILE_FIXE
 assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
 assert.deepEqual(process.argv,[process.execPath,entry],'TRON_MOBILE_FIXED_ENTRY');assert.equal(await realpath(entry),entry);
 const product=new URL('../../../scripts/development/owned-tron-private-native-mobile-v1.mjs',import.meta.url),productPath=fileURLToPath(product);
-const productSHA256='6802c9d7d65328b0d9d18c453427eea9198834ae370136e6dd4448df14b1ef6b',productBytes=15313;
+const productPin=Object.freeze({"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","bytes":15527,"sha256":"539db91c05c9e9f19a76e22aba7130ed28584a42bfba33ba080958622fc1a773"});
+const productSHA256=productPin.sha256,productBytes=productPin.bytes;
 const fields=['dev','ino','uid','gid','mode','nlink','size','mtimeMs','ctimeMs'];
 async function originalProduct(){assert.equal(await realpath(productPath),productPath,'TRON_MOBILE_PRODUCT_ALIAS');
  const fd=await open(productPath,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;try{const before=await fd.stat();

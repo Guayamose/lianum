@@ -108,7 +108,12 @@ export function assertTronProductSupervisorEvidenceV1(value) {
 // Exact kernel/source ancestry is read here; no PID, hash, flags or DTO can
 // request a host scope. The historical supervisor checks below are unchanged.
 const MOBILE_ENTRY=join(resolve(ROOT,'../../../..'),'apps/platform/src/run-original-tron-private-native-mobile-v1.mjs');
-const MOBILE_SOURCES=Object.freeze([{"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","sha256":"6802c9d7d65328b0d9d18c453427eea9198834ae370136e6dd4448df14b1ef6b","bytes":15313},{"path":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","sha256":"337079a86fdcd8001e6a7ea8d79cf90136370faf999d8d910e30bfefe9dcb800","bytes":6282},{"path":"scripts/development/owned-tron-original-mobile-source-v1.mjs","sha256":"9700c24aae7bfe268d3dc85206476dafad1a746515a4d5bd3daf3ddcc19d2de5","bytes":10214},{"path":"scripts/development/original-network-mobile-private-diagnostic-v1.mjs","sha256":"3d093a920d9d1f9818700391ee58a9485accb86bcae9cf11c91b854d9bf6690a","bytes":5381},{"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","sha256":"5059190aa698d6bfcabcdb0511d23bb88e33006dcdf74413e8a7cfa7346aca84","bytes":37856}]);
+const MOBILE_PRODUCT_PIN=Object.freeze({"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","bytes":15527,"sha256":"539db91c05c9e9f19a76e22aba7130ed28584a42bfba33ba080958622fc1a773"});
+const MOBILE_ENTRY_PIN=Object.freeze({"path":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","bytes":6438,"sha256":"95ff5035df87a2a4685960d4c35decc54d66350c074088e34b7cdf354ac1631c"});
+const MOBILE_PROFILE_PIN=Object.freeze({"path":"scripts/development/owned-tron-original-mobile-source-v1.mjs","bytes":13093,"sha256":"c2a88a066a1f8a740352357d8529f1b0b99d388c8b82a6d57ddd00327ef267cc"});
+const MOBILE_DIAGNOSTIC_PIN=Object.freeze({"path":"scripts/development/original-network-mobile-private-diagnostic-v1.mjs","bytes":6271,"sha256":"870e84474716d5c49f5b289428434ccc7cccfb88b2794ea5b6e7bf6cc74f1bd7"});
+const MOBILE_PARSER_PIN=Object.freeze({"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","bytes":37835,"sha256":"adec7f79c404d7153dbe34e0013cffdb1383f084683553896f7356007c00aa28"});
+const MOBILE_SOURCES=Object.freeze([MOBILE_PRODUCT_PIN,MOBILE_ENTRY_PIN,MOBILE_PROFILE_PIN,MOBILE_DIAGNOSTIC_PIN,MOBILE_PARSER_PIN]);
 let originalMobile=null;
 function mobileFiles(){
  const repository=resolve(ROOT,'../../../..'),files=new Map();
