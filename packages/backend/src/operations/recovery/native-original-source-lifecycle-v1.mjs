@@ -1,3 +1,4 @@
+import {genericAccountIdentity,sha as accountJournalSHA256} from '@lianum/engine/accounts/journal';
 import {buildNativeManualSessionV1} from '../../api/accounts/native-manual-session-backend-v1.mjs';
 import {originalActorFrameDataV1, reconcileNativeSourceActorCheckpointDataV1} from './source-journal/checkpoint-reconciliation-v1.mjs';
 import {buildOriginalNativeSourceClockBackendV1} from './native-original-source-clock-backend-v1.mjs';
@@ -425,6 +426,7 @@ async function prepareOriginalPairedActor() {
     ]);
 // Fixed original actor composition. The instance and all selected contracts stay private.
 return buildPairedOriginalAccountActorV2(Object.freeze({
+  format: Object.freeze({genericAccountIdentity,sha:accountJournalSHA256}),
   session: Object.freeze({
     assertFlatAccountSession: (...args) => originalFlatAccountSession.assertFlatAccountSession(...args),
     flatManualNativeNoteActionTarget: (...args) => flatManualNativeNoteActionTarget(...args),

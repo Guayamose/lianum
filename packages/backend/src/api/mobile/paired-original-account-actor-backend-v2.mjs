@@ -1,3 +1,25 @@
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Admission} Admission */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Diagnostic} Diagnostic */
+/** @template T @typedef {import("./paired-original-account-actor-contract-v2.mjs").Permission<T>} Permission */
+/** @template T @typedef {import("./paired-original-account-actor-contract-v2.mjs").SavedPermission<T>} SavedPermission */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").ActorContracts} ActorContracts */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").ActorState} ActorState */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Actor} Actor */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Access} Access */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Review} Review */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Binding} Binding */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Session} Session */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Owner} Owner */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Account} Account */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").OwnerObservation} OwnerObservation */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").CreateInput} CreateInput */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Membership} Membership */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").RecoverySeed} RecoverySeed */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").RecoveryIdentity} RecoveryIdentity */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").SourceSection} SourceSection */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").Candidate} Candidate */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").SourceSeed} SourceSeed */
+/** @typedef {import("./paired-original-account-actor-contract-v2.mjs").EconomicSeed} EconomicSeed */
 import {
   originalActorExactV1 as exact,
   originalActorFrameDataV1 as frameData,
@@ -9,8 +31,6 @@ import {
  * originals. No GRAPH, prepare, execute, recover, restart or adoption. */
 import { types } from "node:util";
 import { randomBytes, createPublicKey, verify } from "node:crypto";
-
-import { genericAccountIdentity, sha } from "@lianum/engine/accounts/journal";
 
 import { normalizeMobileOrigin } from "@lianum/mobile-protocol";
 import {
@@ -41,8 +61,19 @@ import { exactRecord } from "@lianum/components/encoding/commitments";
 /** An isolated actor family. Only the closed lifecycle composition owns the
  * instance admitted by canonical guards. Source/economic tokens are consumed
  * through fixed contracts; no private map or issuer is exposed. */
+/** @param {ActorContracts} contracts */
 export function buildPairedOriginalAccountActorV2(contracts) {
-  exactRecord(contracts, ["session", "account", "economic", "source"]);
+  exactRecord(contracts, [
+    "session",
+    "account",
+    "economic",
+    "source",
+    "format",
+  ]);
+  exactRecord(contracts.format, ["sha", "genericAccountIdentity"]);
+  const { sha, genericAccountIdentity } = contracts.format;
+  if (typeof sha !== "function" || typeof genericAccountIdentity !== "function")
+    throw new TypeError("MOBILE_ORIGINAL_ACTOR_FIXED_CONTRACT");
   exactRecord(contracts.session, [
     "assertFlatAccountSession",
     "flatManualNativeNoteActionTarget",
@@ -115,15 +146,20 @@ export function buildPairedOriginalAccountActorV2(contracts) {
   ])
     if (typeof method !== "function")
       throw new TypeError("MOBILE_ORIGINAL_ACTOR_FIXED_CONTRACT");
-  const pairings = new WeakMap(),
-    actorBrands = new WeakMap();
+  /** @type {WeakMap<Session,WeakSet<object>>} */
+  const pairings = new WeakMap();
+  /** @type {WeakMap<object,ActorState>} */
+  const actorBrands = new WeakMap();
+  /** @param {string|undefined} code @returns {never} */
   const fail = (code) => {
     throw Object.assign(new Error(code), { code });
   };
+  /** @type {(value:unknown,code?:string)=>asserts value} */
   const need = (value, code) => {
     if (!value) fail(code);
   };
   const hex = () => randomBytes(32).toString("hex");
+  /** @param {unknown} value */
   function key(value) {
     need(
       typeof value === "string" &&
@@ -142,10 +178,12 @@ export function buildPairedOriginalAccountActorV2(contracts) {
   }
   /** Pairing is a local operator action over retained opaque originals, never a
    * pairingId/publicKey lookup or a challenge request received from HTTP. */
+  /** @param {CreateInput} input */
   async function createPairedOriginalAccountActorV2(input) {
     need(arguments.length === 1, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
     return createOriginalActor(input, null);
   }
+  /** @param {CreateInput} input @param {RecoverySeed|null} recovery @returns {Promise<Actor>} */
   async function createOriginalActor(input, recovery) {
     exact(input, ["session", "approval", "owner", "origin", "devicePublicKey"]);
     const { session, approval, owner, origin, devicePublicKey } = input;
@@ -187,23 +225,27 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       return details;
     };
     original();
-    const pairingId = recovery?.pairingId ?? hex(),
-      accesses = new Map(),
-      reviews = new Map(),
-      stateAccesses = new Map(),
-      stateReviews = new Map();
+    const pairingId = recovery?.pairingId ?? hex();
+    /** @type {Map<string,Permission<Access>>} */ const accesses = new Map();
+    /** @type {Map<string,Permission<Review>>} */ const reviews = new Map();
+    /** @type {Map<string,Permission<Access>>} */ const stateAccesses =
+      new Map();
+    /** @type {Map<string,Permission<Review>>} */ const stateReviews =
+      new Map();
     let busy = false,
       closed = false,
       capturing = false,
-      captureIdentity = null,
       captured = false,
-      sourceHandle = null,
-      sourceWrapper = null,
       sourceBusy = false,
       sourceClosing = false,
-      sourceWork = null,
       sourceFault = false;
+    /** @type {RecoveryIdentity|null} */ let captureIdentity = null;
+    /** @type {object|null} */ let sourceHandle = null;
+    /** @type {SourceSection|null} */ let sourceWrapper = null;
+    /** @type {Promise<unknown>|null} */ let sourceWork = null;
+    /** @returns {SourceSeed} */
     function sourceSeed() {
+      /** @template {Access|Review} T @param {Map<string,Permission<T>>} map @returns {SavedPermission<T>[]} */
       const rows = (map) =>
         [...map].map(([id, row]) => ({
           id,
@@ -227,8 +269,10 @@ export function buildPairedOriginalAccountActorV2(contracts) {
         },
       };
     }
+    /** @param {Candidate} candidate */
     async function sourceCheckpoint(candidate) {
       if (sourceHandle) {
+        need(sourceWrapper, "NATIVE_SOURCE_ORIGINAL_ACTOR_IDLE");
         const next = { ...sourceWrapper, confirmed: sourceSeed(), candidate };
         await updateOriginalNativeSourceSectionV1(sourceHandle, next);
         sourceWrapper = next;
@@ -241,6 +285,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       );
       original();
     }
+    /** @param {"read"|"reconcile"} action @returns {Promise<Binding>} */
     async function binding(action) {
       live();
       const journal = await session.snapshot();
@@ -259,7 +304,9 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       need(
         rows.length === 1 &&
           rows[0].kind === initial.body.kind &&
-          ["PREPARED", "UNKNOWN", "CONFIRMED"].includes(rows[0].state),
+          (rows[0].state === "PREPARED" ||
+            rows[0].state === "UNKNOWN" ||
+            rows[0].state === "CONFIRMED"),
         "MOBILE_ORIGINAL_ALREADY_ADMITTED_REQUIRED",
       );
       const details = original(),
@@ -270,13 +317,16 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       );
       need(operations.length === 1, "MOBILE_ORIGINAL_OPERATION_REQUIRED");
       const operation = operations[0];
+      const boundRequest = operation.request;
       need(
-        operation.request !== null &&
-          Object.keys(initial.body).every(
-            (name) => operation.request[name] === initial.body[name],
-          ) &&
+        boundRequest !== null &&
+          /** @type {(keyof typeof initial.body)[]} */ (
+            Object.keys(initial.body)
+          ).every((name) => boundRequest[name] === initial.body[name]) &&
           sha(operation.nativeManualReview) === details.review.termsSHA256 &&
-          ["READY", "UNKNOWN", "CONFIRMED"].includes(operation.stage),
+          (operation.stage === "READY" ||
+            operation.stage === "UNKNOWN" ||
+            operation.stage === "CONFIRMED"),
         "MOBILE_ORIGINAL_OPERATION_CHANGED",
       );
       if (action === "reconcile")
@@ -331,8 +381,8 @@ export function buildPairedOriginalAccountActorV2(contracts) {
         observedProcessGeneration: process.processGeneration,
         originalReviewSHA256: reviewSHA256,
         termsSHA256: details.review.termsSHA256,
-        requestBindingSHA256: operation.request.bindingSHA256,
-        assetBindingSHA256: operation.request.assetBindingSHA256,
+        requestBindingSHA256: boundRequest.bindingSHA256,
+        assetBindingSHA256: boundRequest.assetBindingSHA256,
         journalRevision: journal.revision,
         requestState: rows[0].state,
         authorityStage: operation.stage,
@@ -370,11 +420,13 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     if (!retained) pairings.set(session, (retained = new WeakSet()));
     need(!retained.has(approval), "MOBILE_ORIGINAL_ALREADY_PAIRED");
     retained.add(approval);
+    /** @template {Access|Review} T @param {Map<string,Permission<T>>} map */
     function capacity(map) {
       for (const [id, row] of map)
         if (row.consumed || row.value.expiresAt <= Date.now()) map.delete(id);
       need(map.size < 4, "MOBILE_ORIGINAL_CHALLENGE_CAPACITY");
     }
+    /** @template {Access|Review} T @param {unknown} input @param {(value:unknown)=>T} normalizer @param {(value:T)=>Uint8Array} message @param {Map<string,Permission<T>>} map @param {"challenge"|"review"} field @returns {T} */
     function authenticate(input, normalizer, message, map, field) {
       exact(input, [field, "signature"]);
       const value = validateOriginalAccountFreshV2(
@@ -403,9 +455,10 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       retained.consumed = true;
       return value;
     }
-    let actor = Object.freeze({
+    const rawActor = Object.freeze({
       /** The generic nonce reveals no account or operation. The following signed
        * bootstrap permission is required before any private review is returned. */
+      /** @param {unknown} input */
       challenge(input) {
         need(
           arguments.length === 1 && !busy && !closed && !capturing,
@@ -413,7 +466,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
         );
         exact(input, ["action"]);
         need(
-          ["read", "reconcile"].includes(input.action),
+          input.action === "read" || input.action === "reconcile",
           "MOBILE_ORIGINAL_ACTION",
         );
         capacity(accesses);
@@ -431,6 +484,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
         accesses.set(value.challengeId, { value, consumed: false });
         return structuredClone(value);
       },
+      /** @param {unknown} input */
       async openReview(input) {
         need(
           arguments.length === 1 && !busy && !closed && !capturing,
@@ -468,6 +522,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
           busy = false;
         }
       },
+      /** @param {unknown} input @returns {Promise<Diagnostic>} */
       async submit(input) {
         need(
           arguments.length === 1 && !busy && !closed && !capturing,
@@ -490,16 +545,18 @@ export function buildPairedOriginalAccountActorV2(contracts) {
           );
           validateOriginalAccountFreshV2(review);
           original();
+          /** @type {Admission|null} */
           let admission = null;
           if (review.action === "reconcile") {
             // This may write original custody acknowledgements/checkpoints. The
             // genuine coordinator returns cached terminal entries when CONFIRMED;
             // neither branch is treated here as new canonical balance evidence.
-            admission = session.reconcile(requestId);
+            const accepted = session.reconcile(requestId);
+            admission = accepted;
             const completed = await session.idle();
             live();
             const row = completed.admissions.find(
-              (value) => value.sequence === admission.sequence,
+              (value) => value.sequence === accepted.sequence,
             );
             need(
               row?.action === "reconcile" && row.requestId === requestId,
@@ -551,6 +608,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
         stateAccesses.set(value.challengeId, { value, consumed: false });
         return structuredClone(privateStateAccessFrameV1(value));
       },
+      /** @param {unknown} input */
       async openPrivateStateReview(input) {
         need(
           arguments.length === 1 && !busy && !closed && !capturing,
@@ -592,6 +650,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
           busy = false;
         }
       },
+      /** @param {unknown} input */
       async readPrivateState(input) {
         need(
           arguments.length === 1 && !busy && !closed && !capturing,
@@ -627,6 +686,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
           // Two original reads fence head/backing changes during disclosure.
           // Timestamps may advance; every monetary field and retained request
           // disposition must still agree. No retry refreshes an old permission.
+          /** @param {OwnerObservation} value */
           const observationIdentity = (value) =>
             JSON.stringify({
               status: value.status,
@@ -695,6 +755,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       },
       /** A signed read releases only the original binding. The device bridge
        * issues its own distinct economic consent; no unused V2 review is created. */
+      /** @param {unknown} input */
       async deviceDepositSignedReadBindingV1(input) {
         need(
           arguments.length === 1 && !busy && !closed && !capturing,
@@ -770,19 +831,16 @@ export function buildPairedOriginalAccountActorV2(contracts) {
         "stateAccesses",
         "stateReviews",
       ]);
-      const sets = {
-        accesses: [accesses, normalizeOriginalAccountAccessV2],
-        reviews: [reviews, normalizeOriginalAccountReviewV2],
-        stateAccesses: [stateAccesses, normalizeOriginalAccountAccessV2],
-        stateReviews: [stateReviews, normalizeOriginalAccountReviewV2],
-      };
-      for (const [name, [map, normalize]] of Object.entries(sets)) {
+      /** @template {Access|Review} T
+       * @param {SavedPermission<T>[]} saved
+       * @param {Map<string,Permission<T>>} map
+       * @param {(value:unknown)=>T} normalize */
+      function restoreChallenges(saved, map, normalize) {
         need(
-          Array.isArray(recovery.challenges[name]) &&
-            recovery.challenges[name].length <= 4,
+          Array.isArray(saved) && saved.length <= 4,
           "MOBILE_ORIGINAL_RECOVERED_CHALLENGES_INVALID",
         );
-        for (const retained of recovery.challenges[name]) {
+        for (const retained of saved) {
           exact(retained, ["id", "value", "consumed"]);
           const value = normalize(frameData(retained.value));
           need(
@@ -794,63 +852,110 @@ export function buildPairedOriginalAccountActorV2(contracts) {
               value.devicePublicKey === devicePublicKey,
             "MOBILE_ORIGINAL_RECOVERED_CHALLENGE_CHANGED",
           );
-          // Preserve consumed status and exact expiry even when it is past. The
-          // ordinary authenticate/capacity guards reject replay; no renewal here.
+          // Preserve consumed status and exact expiry; recovery cannot renew.
           map.set(retained.id, { value, consumed: retained.consumed });
         }
       }
+      restoreChallenges(
+        recovery.challenges.accesses,
+        accesses,
+        normalizeOriginalAccountAccessV2,
+      );
+      restoreChallenges(
+        recovery.challenges.reviews,
+        reviews,
+        normalizeOriginalAccountReviewV2,
+      );
+      restoreChallenges(
+        recovery.challenges.stateAccesses,
+        stateAccesses,
+        normalizeOriginalAccountAccessV2,
+      );
+      restoreChallenges(
+        recovery.challenges.stateReviews,
+        stateReviews,
+        normalizeOriginalAccountReviewV2,
+      );
     }
-    const rawActor = actor;
+
+    /** @type {Actor} */
+    let actor = rawActor;
     function installSourceFacade() {
-      const entries = Object.entries(rawActor).map(([name, method]) => [
-        name,
-        name === "close"
-          ? function () {
-              need(arguments.length === 0, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
-              sourceClosing = true;
-              const pending = sourceWork;
-              return (async () => {
-                if (pending)
-                  try {
-                    await pending;
-                  } catch {}
-                return rawActor.close();
-              })();
+      /** @template {unknown[]} Args @template Value
+       * @param {string} name @param {(...args:Args)=>Value|Promise<Value>} method
+       * @returns {(...args:Args)=>Promise<Value>} */
+      function sourceMethod(name, method) {
+        return async function (...args) {
+          need(
+            !sourceClosing && !sourceFault && !sourceBusy,
+            "NATIVE_SOURCE_ACTOR_UNAVAILABLE",
+          );
+          sourceBusy = true;
+          const work = (async () => {
+            await sourceCheckpoint({
+              kind: "ACTOR_PERMISSION_OR_OBSERVATION",
+              method: name,
+            });
+            try {
+              const result = await method(...args);
+              await sourceCheckpoint(null);
+              return result;
+            } catch (error) {
+              sourceFault = true;
+              throw error;
             }
-          : async function (...args) {
-              need(
-                !sourceClosing && !sourceFault && !sourceBusy,
-                "NATIVE_SOURCE_ACTOR_UNAVAILABLE",
-              );
-              sourceBusy = true;
-              const work = (async () => {
-                await sourceCheckpoint({
-                  kind: "ACTOR_PERMISSION_OR_OBSERVATION",
-                  method: name,
-                });
-                try {
-                  const result = await method(...args);
-                  await sourceCheckpoint(null);
-                  return result;
-                } catch (error) {
-                  sourceFault = true;
-                  throw error;
-                }
-              })();
-              sourceWork = work;
+          })();
+          sourceWork = work;
+          try {
+            return await work;
+          } finally {
+            sourceBusy = false;
+            if (sourceWork === work) sourceWork = null;
+          }
+        };
+      }
+      actor = Object.freeze({
+        challenge: sourceMethod("challenge", rawActor.challenge),
+        openReview: sourceMethod("openReview", rawActor.openReview),
+        submit: sourceMethod("submit", rawActor.submit),
+        privateStateChallenge: sourceMethod(
+          "privateStateChallenge",
+          rawActor.privateStateChallenge,
+        ),
+        openPrivateStateReview: sourceMethod(
+          "openPrivateStateReview",
+          rawActor.openPrivateStateReview,
+        ),
+        readPrivateState: sourceMethod(
+          "readPrivateState",
+          rawActor.readPrivateState,
+        ),
+        deviceDepositSignedReadBindingV1: sourceMethod(
+          "deviceDepositSignedReadBindingV1",
+          rawActor.deviceDepositSignedReadBindingV1,
+        ),
+        deviceDepositOriginalBinding: sourceMethod(
+          "deviceDepositOriginalBinding",
+          rawActor.deviceDepositOriginalBinding,
+        ),
+        close() {
+          need(arguments.length === 0, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
+          sourceClosing = true;
+          const pending = sourceWork;
+          return (async () => {
+            if (pending)
               try {
-                return await work;
-              } finally {
-                sourceBusy = false;
-                if (sourceWork === work) sourceWork = null;
-              }
-            },
-      ]);
-      actor = Object.freeze(Object.fromEntries(entries));
+                await pending;
+              } catch {}
+            return rawActor.close();
+          })();
+        },
+      });
       actorBrands.set(actor, state);
       actorBrands.delete(rawActor);
       return actor;
     }
+    /** @type {ActorState} */
     const state = {
       account,
       session,
@@ -939,6 +1044,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
           "MOBILE_ORIGINAL_CAPTURE_REQUIRED",
         );
         captured = true;
+        /** @template {Access|Review} T @param {Map<string,Permission<T>>} map @returns {SavedPermission<T>[]} */
         const rows = (map) =>
           [...map].map(([id, row]) => ({
             id,
@@ -999,6 +1105,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
   }
 
   /** Authority originates in the private same-realm bootstrap, never metadata. */
+  /** @param {object} actor */
   function assertPairedOriginalAccountActorV2(actor) {
     need(
       arguments.length === 1 && !types.isProxy(actor),
@@ -1009,24 +1116,28 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     retained.live();
   }
   /** Explicit operator pairing handoff only; HTTP never exposes this descriptor. */
+  /** @param {object} actor */
   function pairedOriginalAccountActorDescriptorV2(actor) {
     need(arguments.length === 1, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
     assertPairedOriginalAccountActorV2(actor);
-    return actorBrands.get(actor).descriptor;
+    const state = actorBrands.get(actor);
+    need(state, "MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED");
+    return state.descriptor;
   }
 
   /** Only original reference membership, never IDs or copied capabilities. */
+  /** @param {object} actor @param {Account} account */
   function assertPairedOriginalAccountActorAccountV2(actor, account) {
     need(arguments.length === 2, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
     assertPairedOriginalAccountActorV2(actor);
-    need(
-      actorBrands.get(actor).account === account,
-      "MOBILE_ORIGINAL_ACTOR_ACCOUNT_CHANGED",
-    );
+    const state = actorBrands.get(actor);
+    need(state, "MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED");
+    need(state.account === account, "MOBILE_ORIGINAL_ACTOR_ACCOUNT_CHANGED");
   }
 
   /** One fixed producer from the genuine actor. Grants, pair identity and nonce
    * state are encrypted by the issuer; HTTP never receives this checkpoint. */
+  /** @param {object} actor @param {object} authority */
   function fenceOriginalNativeActorEconomicRecoveryV1(actor, authority) {
     need(
       arguments.length === 2 && !types.isProxy(actor),
@@ -1036,6 +1147,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     need(state, "MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED");
     return state.fence(authority);
   }
+  /** @param {object} actor @param {object} token */
   function captureOriginalNativeActorEconomicRecoveryV1(actor, token) {
     need(
       arguments.length === 2 && !types.isProxy(actor),
@@ -1045,6 +1157,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     need(state, "MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED");
     return state.capture(token);
   }
+  /** @param {object} actor @param {object} token */
   function stopCapturedNativeActorEconomicRecoveryV1(actor, token) {
     need(
       arguments.length === 2 && !types.isProxy(actor),
@@ -1054,6 +1167,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     need(state, "MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED");
     return state.stop(token);
   }
+  /** @param {object} actor @param {object} token */
   function abortNativeActorEconomicRecoveryV1(actor, token) {
     need(
       arguments.length === 2 && !types.isProxy(actor),
@@ -1063,6 +1177,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     need(state, "MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED");
     return state.abort(token);
   }
+  /** @param {object} token @param {Membership} contexts */
   async function reopenOriginalNativeActorEconomicRecoveryV1(token, contexts) {
     need(arguments.length === 2, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
     exact(contexts, ["session", "account", "owner"]);
@@ -1109,6 +1224,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     );
   }
 
+  /** @param {object} actor @param {Membership} expected */
   function assertNativeActorEconomicMembershipV1(actor, expected) {
     need(
       arguments.length === 2 && !types.isProxy(actor),
@@ -1126,6 +1242,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     );
   }
 
+  /** @param {object} actor */
   function nativePairedActorEconomicSourceV1(actor) {
     need(
       arguments.length === 1 && !types.isProxy(actor),
@@ -1137,6 +1254,7 @@ export function buildPairedOriginalAccountActorV2(contracts) {
     return nativeValueOriginalRecoverySourceV1FromAccount(state.account);
   }
 
+  /** @param {object} actor @param {Pick<Membership,"session"|"account">} expected */
   function assertNativeActorSessionAccountMembershipV1(actor, expected) {
     need(
       arguments.length === 2 && !types.isProxy(actor),
@@ -1155,12 +1273,14 @@ export function buildPairedOriginalAccountActorV2(contracts) {
   /** Pending actor calls never restore a possibly used permission. Only the
    * original capsule can request this read-only fold of its authenticated seed. */
 
+  /** @param {object} token @param {object} actor */
   async function retainOriginalNativeActorSourceV1(token, actor) {
     need(arguments.length === 2, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
     const state = actorBrands.get(actor);
     need(state, "NATIVE_SOURCE_ORIGINAL_ACTOR");
     return state.sourceRetain(token);
   }
+  /** @param {object} token @param {Membership} contexts */
   async function reopenOriginalNativeActorSourceV1(token, contexts) {
     need(arguments.length === 2, "MOBILE_ORIGINAL_ACTOR_ARGUMENTS");
     exact(contexts, ["session", "account", "owner"]);
@@ -1214,7 +1334,9 @@ export function buildPairedOriginalAccountActorV2(contracts) {
       seed,
     );
     try {
-      return await actorBrands.get(actor).sourceResume(token, wrapper);
+      const state = actorBrands.get(actor);
+      need(state, "NATIVE_SOURCE_ORIGINAL_ACTOR");
+      return await state.sourceResume(token, wrapper);
     } catch (error) {
       actor.close();
       throw error;

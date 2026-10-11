@@ -1,3 +1,4 @@
+import {genericAccountIdentity,sha} from '@lianum/engine/accounts/journal';
 /** Production actor families with original account/session/approval owners over
  * explicit inert native ports. Isolated families never gain canonical brands. */
 import test from "node:test";
@@ -19,6 +20,7 @@ const economic = await import(
 const pick = (namespace, names) =>
   Object.fromEntries(names.map((name) => [name, namespace[name]]));
 const contracts = () => ({
+  format: {genericAccountIdentity,sha},
   session: {
     assertFlatAccountSession: basic.assertFlatAccountSession,
     flatManualNativeNoteActionTarget: source.flatManualNativeNoteActionTarget,
