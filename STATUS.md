@@ -30,8 +30,22 @@ los nueve paquetes npm locales; la compatibilidad histórica requiere
 - **Autoridad de cuenta:** siete módulos para depósitos, reservas, ejecución,
   retiradas, operaciones del propietario, ciclo manual e interfaz. La entrada
   mantiene el Vault, el bloqueo y los registros originales de identidad.
+  Eliminado el contexto compartido de 104 propiedades: cada módulo recibe
+  puertos con miembros explícitos. Bridges, recuperación y ciclo manual tienen
+  propietarios privados; los diarios entregan instantáneas inmutables y solo
+  permiten escribir en su dominio, a través del CAS original.
   Corregidas dos referencias a una cuenta no declarada al retirar un depósito:
   se comprueba la capability original y se rechazan copias.
+- **Cohesión de wallet:** el view-model de 1.165 líneas pasa a una fachada de
+  doce líneas. Validación, acciones, presentación, transporte HTTP y sesión
+  tienen módulos separados, con dirección de dependencias acíclica comprobada.
+  El SDK backend consume las APIs concretas y conserva sus mismos bindings.
+- **Dependencias del núcleo:** los formatos puros de statements/commitments
+  pertenecen a components; custody y proofs ya no los obtienen de backend.
+  El coordinador genérico pertenece a engine y la persistencia duradera a
+  backend. El puerto de persistencia no acredita identidad SOURCE. Los imports
+  privados bajan de 976 a 803; permanecen 15 ciclos entre paquetes y seis
+  componentes cíclicos de archivos, con controles que rechazan ciclos nuevos.
 - **Activo e histórico:** inventariadas 42 parejas engine/protocol; los 63
   archivos históricos de protocol conservan hashes comprobados. Los nuevos
   consumidores deben utilizar el motor activo.
@@ -41,7 +55,9 @@ los nueve paquetes npm locales; la compatibilidad histórica requiere
   composición, con el laboratorio retenido en su ruta y UID originales.
 - **Comprobación estática:** sintaxis e imports/exports del núcleo; checkJs
   estricto en tres APIs y referencias léxicas en la autoridad y sus siete
-  módulos. No representa tipado completo del backend. Los doce imports
+  módulos, además de los diarios. Se comprueba que los siete contratos solo
+  reciben los miembros que utilizan, sin contexto general ni campos sobrantes.
+  No representa tipado completo del backend. Los doce imports
   históricos ausentes están enumerados exactamente y cualquier fallo nuevo
   bloquea la comprobación.
 - **Pruebas:** salida en directo, plazo predeterminado de 120 segundos,
@@ -52,25 +68,32 @@ los nueve paquetes npm locales; la compatibilidad histórica requiere
   con contadores y salida limitada. No incluyen payloads, secretos ni
   excepciones completas; no cambian el resultado de una operación.
 
-**Comprobado al cerrar esta reorganización:** `./dev check` pasa; 829 archivos
-revisados por las fronteras, 775 módulos en el análisis estático y 251 casos
-HOST aprobados en 7,1 segundos. Pasan las regresiones focales de arquitectura
-(228 casos cubiertos), autoridad (17), plataforma (26) y generaciones (106),
-además de las comprobaciones nuevas de herramientas. Chromium real y las dos
-configuraciones de Compose también pasan. Verificados los 1.716 originales
-versionados y los 52 archivos protegidos de visión, exclusiones y trabajo
-retenido. Las selecciones pueden solaparse; no se suman como una suite única.
+**Comprobado al cerrar esta reorganización:** `./dev check` pasa; 850 archivos
+revisados por las fronteras, 796 módulos en el análisis estático, siete contratos
+de operaciones y 251 casos HOST aprobados en 7,5 segundos. También pasan las
+selecciones focales: wallet/HTTP/arquitectura (116), SDK backend/transporte (45),
+plataforma (31), coordinador genérico (9), keeper duradero (2), diarios (6),
+retirada e identidad original, recuperación armada (10) y reorganización de F.
+Chromium real carga el cliente dividido. Las selecciones pueden solaparse;
+no se suman como una suite única ni acreditan un recorrido económico nuevo.
 
-La preparación actual valida **929 fuentes y doce roles de artefactos**, en
-`.local/generations/e0cfa2f53066809f2f204e9508a5f7cd54475b53b1520fa60410be375c458519/`.
+Verificados los 1.716 originales versionados y los 52 archivos protegidos de
+visión, exclusiones y trabajo retenido. Las ausencias históricas no se regeneran:
+una prueba antigua de statements requiere `public-inputs.json`, que sigue ausente.
+
+La preparación actual valida **953 fuentes y doce roles de artefactos**, en
+`.local/generations/18241e95f86815f3eb2edf96288a652fb811c63d4409f72cd123ca33c92dcf07/`.
 Conserva los originales y autentica la publicación anterior completa; no compila,
 publica ni adopta el candidato en el consumidor financiero. La tabla móvil actual
-refleja los nuevos paquetes locales; Noble y sus 46 archivos fijados permanecen
-intactos. Activar un laboratorio económico sigue requiriendo una generación
-aceptada por su consumidor.
+refleja los exports revisados de mobile-protocol; Noble y sus 46 archivos fijados
+permanecen intactos. Activar un laboratorio económico sigue requiriendo una
+generación aceptada por su consumidor. Las 153 fuentes de la cápsula pública de
+plataforma y sus 25 callers locales siguen coincidiendo sin modificar sus pins.
 
-Informes locales: `.internal/dev/reports/engineering-check.log`,
-`host-tests.json` y `source-generation-engineering-current.json`.
+Informes locales: `.internal/dev/reports/cohesion-check.log`,
+`cohesion-authority-small.log`, `host-tests.json`,
+`wallet-cohesion-browser/browser-disconnected.json` y
+`source-generation-cohesion-current.json`.
 
 El mecanismo de identidad, custodia y autoridad entre procesos (punto 4 de la
 revisión de ingeniería) permanece fuera de esta reorganización. Persisten los

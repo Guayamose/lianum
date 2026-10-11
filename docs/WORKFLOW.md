@@ -118,10 +118,17 @@ de rutas, errores públicos y acciones de recuperación compartidas. Es una
 adopción incremental: el resto del núcleo JavaScript no se declara tipado.
 La configuración no usa `@ts-ignore` ni desactiva errores para hacerla pasar.
 Además se comprueban nombres sin binding léxico en la fábrica de autoridad y
-sus siete módulos de operaciones (`static-bindings.json`). Este control
+los módulos de operaciones y diario enumerados en `static-bindings.json`. Este control
 detecta referencias como un `account` que no se haya pasado ni declarado;
 analiza esos archivos sin cargar su grafo de dependencias y no equivale a
 tipar todas sus estructuras dinámicas.
+Los siete contratos de operaciones enumerados en `static-operation-ports.json`
+se contrastan por AST con su composición: cada puerto declara miembros
+explícitos y recibe exactamente los que utiliza, sin campos sobrantes, spreads
+ni reenvío del puerto completo. El control impide pasar capacidades generales
+llamadas `context`, `record`, `password` o `write`; el acceso al registro y al
+writer permanece en la fábrica y su diario privado. Este control estructural
+no demuestra por sí solo el comportamiento de los callbacks.
 Las doce referencias históricas ausentes de `protocol` están enumeradas
 exactamente en `static-check-exceptions.json`, visibles en la salida y
 prohibidas como dependencias activas por el control de módulos. Un import

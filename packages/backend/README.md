@@ -20,6 +20,23 @@ Entrada de cuentas:
 Cliente de la aplicación:
 [wallet-application-client.mjs](src/api/wallet/wallet-application-client.mjs).
 
+La autoridad nativa compone operaciones desde `accounts/authority/native-value/`.
+Depósitos, reservas, ejecución, retiradas, operaciones del propietario y ciclo
+manual tienen módulos propios. `native-value-authority-journals.mjs` ofrece las
+escrituras concretas de cada operación; los módulos no reciben el registro ni
+la contraseña completos. La fábrica conserva identidad, exclusión y cierre.
+`./dev static` contrasta los siete contratos con los miembros efectivamente
+utilizados e impide ampliar sus objetos de composición con campos sobrantes.
+
+`accounts/storage/durable-generic-account-keeper.mjs` posee el keeper duradero,
+su WeakMap y la validación SOURCE. Consume el coordinador genérico de engine;
+engine no necesita importar la sesión backend para coordinar checkpoints.
+El ciclo original entre sesión y keeper duradero permanece explícito dentro
+del backend, con las mismas comprobaciones de identidad.
+
+Los formatos puros de `execution/encoding/{statements,commitments}.mjs` son
+entradas de compatibilidad. Su implementación única pertenece a components.
+
 Las entradas públicas de `@lianum/backend` están en
 [`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
 para consumirlas y comprobar los límites entre componentes.
