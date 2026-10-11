@@ -98,6 +98,8 @@ class EconomicSourceBundleTests(unittest.TestCase):
             moved = Path(temporary) / 'relocated'
             original.rename(moved)
             manifest = bundle.verify(moved)
+            bundle_bytes = sum(row['bytes'] for row in manifest['files'].values())
+            bundle_bytes += (moved / 'source-bundle.json').stat().st_size
             self.assertFalse((moved / '.internal').exists())
             self.assertFalse(any(path.startswith('.internal/') for path in manifest['sourceFiles']))
             self.assertFalse(list((moved / 'resources').rglob('*.mjs')))
@@ -126,6 +128,7 @@ class EconomicSourceBundleTests(unittest.TestCase):
             print(json.dumps({'bundleSHA256': result['bundleSHA256'],
                               'generation': manifest['adoptedGeneration'],
                               'resourceFiles': len(resources['files']), 'resourceBytes': resource_bytes,
+                              'bundleBytes': bundle_bytes,
                               'sourceFiles': len(manifest['sourceFiles']),
                               'outsideBundleReads': False, 'originalKeyTamperRejected': True,
                               'nativeFixedPathReaderIncluded': False}))

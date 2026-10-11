@@ -189,6 +189,49 @@ ADOPTION = 'scripts/development/adopted-generation.json'
 ADOPTION_READER = 'packages/proofs/src/toolchain/current-source-generation.mjs'
 
 
+def adopted_npm_package(parts):
+    """Only the two reviewed application dependency inventories are transportable.
+
+    Ordinary source discovery still refuses node_modules. This path is reached
+    only for an exact row of an already adopted, hash-authenticated inventory.
+    """
+    if (len(parts) < 5 or parts[:2] not in {('apps', 'mobile'), ('apps', 'platform')}
+            or parts[2] != 'node_modules' or parts.count('node_modules') != 1):
+        raise ValueError('Adopted npm file is outside a reviewed application inventory')
+    count = 5 if parts[3].startswith('@') else 4
+    if len(parts) <= count or parts[3] == '@':
+        raise ValueError('Adopted npm package path is incomplete')
+    return '/'.join(parts[:2]), '/'.join(parts[:count]), '/'.join(parts[3:count])
+
+
+def validate_adopted_npm(root, files, packages):
+    def pinned_json(name):
+        if name not in files:
+            raise ValueError('Adopted npm dependency lacks its pinned manifest or lock: ' + name)
+        raw = physical(root, name).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != files[name]:
+            raise ValueError('Adopted npm manifest or lock changed: ' + name)
+        return json.loads(raw)
+
+    locks = {}
+    for application, package_root, name in sorted(packages):
+        if application not in locks:
+            owner = pinned_json(application + '/package.json')
+            if owner.get('name') != '@lianum/' + application.split('/')[1]:
+                raise ValueError('Adopted npm dependency has no reviewed application owner')
+            locks[application] = pinned_json(application + '/package-lock.json')
+        manifest = pinned_json(package_root + '/package.json')
+        locked = locks[application].get('packages', {}).get('node_modules/' + name)
+        if (not isinstance(locked, dict) or manifest.get('name') != name
+                or not isinstance(manifest.get('version'), str)
+                or locked.get('version') != manifest['version'] or locked.get('link')
+                or not isinstance(locked.get('integrity'), str)
+                or not re.fullmatch(r'sha(?:1|256|384|512)-[A-Za-z0-9+/]+=*', locked['integrity'])
+                or not isinstance(locked.get('resolved'), str)
+                or not locked['resolved'].startswith('https://registry.npmjs.org/')):
+            raise ValueError('Adopted npm dependency differs from its public manifest and lock: ' + name)
+
+
 def adopted_source_inventory(root):
     """Transport the existing generation unchanged; its real reader validates it.
 
@@ -212,7 +255,7 @@ def adopted_source_inventory(root):
     rows = sources.get('currentSourceContract', {}).get('files')
     if not isinstance(rows, list) or not 0 < len(rows) <= 8192:
         raise ValueError('Invalid adopted current source inventory')
-    files = {}
+    files, npm_packages = {}, set()
     for row in rows:
         name = safe_relative(row['source'])
         parts = PurePosixPath(name).parts
@@ -221,13 +264,20 @@ def adopted_source_inventory(root):
         if (name not in {'dev', 'package.json', 'package-lock.json'} and
                 not (parts[0] in SOURCE_AREAS or name.startswith('archive/source-evidence/'))):
             raise ValueError('Adoption names a non-source path: ' + name)
-        if set(parts).intersection(IGNORED) or any(part.startswith('.env') for part in parts):
+        npm = 'node_modules' in parts
+        if npm:
+            npm_packages.add(adopted_npm_package(parts))
+        # Published npm dist/build files are exact adopted resources. Other
+        # private/generated directories and all environment files stay forbidden.
+        forbidden = IGNORED - {'node_modules', 'dist', 'build'} if npm else IGNORED
+        if set(parts).intersection(forbidden) or any(part.startswith('.env') for part in parts):
             raise ValueError('Adoption names private/generated data: ' + name)
         digest = row['sourceSHA256']
         if (not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest)
                 or name in files or row['sha256'] != digest):
             raise ValueError('Invalid or duplicate adopted source owner: ' + name)
         files[name] = digest
+    validate_adopted_npm(root, files, npm_packages)
     if ADOPTION_READER not in files:
         raise ValueError('The adopted generation must include its actual validation owner')
     metadata = {ADOPTION: sha(pointer), source_name: generation,

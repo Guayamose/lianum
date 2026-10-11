@@ -161,6 +161,30 @@ console.log(JSON.stringify({state: exported.value, arguments: process.argv.slice
             self.build(adopted_generation=True)
         self.assertFalse(self.output.exists())
 
+    def test_adopted_public_npm_inventory_requires_exact_package_and_lock(self):
+        package = 'apps/mobile/node_modules/@noble/hashes'
+        self.write('apps/mobile/package.json', json.dumps({'name': '@lianum/mobile', 'type': 'module'}))
+        self.write(package + '/package.json', json.dumps({'name': '@noble/hashes', 'version': '2.0.0'}))
+        self.write(package + '/sha2.js', 'export const fixture = 1;\n')
+        self.write('apps/mobile/package-lock.json', json.dumps({'packages': {
+            'node_modules/@noble/hashes': {'version': '2.0.0',
+                'integrity': 'sha512-Zml4dHVyZQ==',
+                'resolved': 'https://registry.npmjs.org/@noble/hashes/-/hashes-2.0.0.tgz'}}}))
+        self.adopted_fixture()
+        files, _, _ = bundle.adopted_source_inventory(self.root)
+        self.assertIn(package + '/sha2.js', files)
+        # Local unreviewed changes cannot become transportable dependencies.
+        (self.root / package / 'package.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'manifest or lock changed'):
+            bundle.adopted_source_inventory(self.root)
+        (self.root / package / 'package.json').unlink()
+        with self.assertRaisesRegex(ValueError, 'Missing required file'):
+            bundle.adopted_source_inventory(self.root)
+        with self.assertRaises(ValueError):
+            bundle.adopted_npm_package(('packages', 'fixture', 'node_modules', 'unreviewed', 'index.js'))
+        with self.assertRaises(ValueError):
+            bundle.source_allowed(package + '/sha2.js')
+
     def test_tamper_and_unlisted_files_stop_before_worker(self):
         self.build()
         source = self.output / 'packages/fixture/src/state.mjs'
