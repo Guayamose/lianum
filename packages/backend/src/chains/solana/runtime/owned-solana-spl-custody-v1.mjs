@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {consumeOwnedSolanaSplContextV1,assertOwnedSolanaRuntimeLive} from './owned-solana-runtime.mjs';
 import {base58Encode,base58Decode} from './solana-base58.mjs';
+import {createSplTransferJournal} from '../transfers/spl-transfer-journal.mjs';
 import {NATIVE_SPL_CUSTODY_V1 as P,NATIVE_SPL_CLAIM_INTENT_PROFILE_V1,deriveNativeSplDepositV1,deriveNativeSplTicketV1,deriveNativeSplProgramDataV1,nativeSplAssetCommitmentV1,encodeNativeSplInitializeMessageV1,encodeNativeSplSourceWrapMessageV1,encodeNativeSplClaimUnsignedWireV1,encodeNativeSplAuthorizeMessageV1,validateNativeSplExactSignedWireV1,validateNativeSplClaimBindingTransactionV1,decodeNativeSplInventoryV1} from '../dispatch/native-spl-custody-codec-v1.mjs';
 import {JUPITER_ORCA_V1 as J,quoteJupiterOrcaSolUsdcV1,decodeJupiterSplTokenAccountV1,decodeJupiterSplMintV1} from '../dispatch/jupiter-orca-route-codec-v1.mjs';
 import {validateNativeSplCanonicalWireV1,validateNativeSplCustodyObservationV1,validateNativeSplInfrastructureObservationV1} from '../observations/native-spl-custody-observation-v1.mjs';
@@ -69,16 +70,12 @@ export async function createOwnedSolanaSplCustodyFromOriginalV1(token){
   const record={...extra,genesis:ctx.genesis,asset:ctx.splAsset,nativeId:base58Decode(decoded.signature,64).toString('hex'),signature:decoded.signature,nativeWire:wire,transactionSHA256:decoded.transactionSHA256,keys:quote.encoded.keys,before:quote.before.rows,preparedFee:quote.feeLamports,phase:'SIGNED_NOT_BROADCAST',broadcastAttempts:0,observation:null,...(route?{route}:{} )};
   assert.ok(!transfers.has(record.nativeId)&&!infrastructure.some(r=>r.nativeId===record.nativeId),'SPL_NO_REPLACEMENT_SIGNATURE');if(route)transfers.set(record.nativeId,record);else infrastructure.push(record);await ctx.persistTransfer(record);await persist();return record;
  }
- async function latchAndSend(record,authority=null,prepared=null){
-  assert.equal(record.phase,'SIGNED_NOT_BROADCAST');assert.equal(record.broadcastAttempts,0);
-  // An already expired original preparation has not admitted any broadcast.
-  // Keep its exact signed wire at zero attempts; the original final guards
-  // still run after durable admission and immediately before the same send.
-  if(prepared!==null)activeBudget(prepared);
-  record.phase='BROADCAST_UNKNOWN';record.broadcastAttempts=1;await ctx.persistTransfer(record);await persist();
-  if(authority){await authority.beforeSend(prepared);authority.assertBeforeSend(prepared);activeBudget(prepared);}
-  live();try{assert.equal(await ctx.sendOnce(record.nativeWire),record.signature);record.phase='BROADCAST';await ctx.persistTransfer(record);await persist();}catch(cause){record.broadcastFailure='SPL_ORIGINAL_SEND_REPLY_UNAVAILABLE';await persist();const error=new Error('SOLANA_BROADCAST_UNKNOWN_OBSERVE_EXACT_SIGNATURE',{cause});error.nativeId=record.nativeId;throw error;}
- }
+ const transferJournal=createSplTransferJournal({
+  persistTransfer:record=>ctx.persistTransfer(record),persistState:persist,
+  sendOnce:wire=>ctx.sendOnce(wire),assertLive:live,assertPreparation:activeBudget,
+  readTransfers:()=>transfers.values(),
+ });
+ const {latchAndSend}=transferJournal;
  async function infrastructureSend(kind,encode,validate){const quote=await recent(encode),record=await signRecord(kind,quote,null);ctx.setSigningUnresolved(false);await persist();await latchAndSend(record);const observed=await wait(record);await validate(record,observed);record.observation=observed.basic;record.phase='OBSERVED_FINALIZED';await ctx.persistTransfer(record);ctx.setSigningUnresolved(false);await persist();return record;}
  async function initialize(capability){
   live();assert.equal(observer,null,'SPL_REGISTRY_INITIALIZE_ONCE');assertOwnedClaimObserver(capability);const bound=ownedClaimObserverBindings(capability),at=bound.nativeRuntimes.indexOf(runtime);assert.equal(at,1,'SPL_FIXED_REGISTERED_DOMAIN');assert.equal(bound.nativeRuntimes[at],runtime);
@@ -182,7 +179,7 @@ export async function createOwnedSolanaSplCustodyFromOriginalV1(token){
  }
  const runtime=Object.freeze({family:'2',genesis:ctx.genesis,genesisHex:'0x'+ctx.genesisHex,roles,syntheticPrefunding,payoutFinalSendProfile:'OWNED_SOLANA_PAYOUT_AUTHORITY_LIFETIME_V2',
   metadata:frozenInput({classification:'OWNED_NATIVE_SPL_CUSTODY_V1',localOnly:true,physicalValidatorSharedWithOriginalGraph:true,nativePrincipalUnit:P.principalUnit,nativeFeeUnit:P.feeUnit,program:P.program,mint:P.mint,vault:vaultAddress,asset:ctx.splAsset,privateCreditEstablished:false}),
-  close:ctx.close,get transfers(){return frozenInput(cloneInput([...transfers.values()]));},inventory,async quoteOriginalDepositAmountV1(){assert.equal(arguments.length,0,'SPL_FIXED_QUOTE_NO_OPTIONS');live();assert.ok(observer&&wrapped&&transfers.size===0,'SPL_ORIGINAL_UNSPENT_SOURCE_REQUIRED');await readMarket();return quoteJupiterOrcaSolUsdcV1(lastMarket.source,lastMarket.destination).minimumOutput;},assertOriginalEmptyBootstrapV1:emptyBootstrap,initializeOriginalClaimRegistryV1:initialize,bindOriginalSourceV1:bindSource,
+  close:ctx.close,get transfers(){return transferJournal.snapshot();},inventory,async quoteOriginalDepositAmountV1(){assert.equal(arguments.length,0,'SPL_FIXED_QUOTE_NO_OPTIONS');live();assert.ok(observer&&wrapped&&transfers.size===0,'SPL_ORIGINAL_UNSPENT_SOURCE_REQUIRED');await readMarket();return quoteJupiterOrcaSolUsdcV1(lastMarket.source,lastMarket.destination).minimumOutput;},assertOriginalEmptyBootstrapV1:emptyBootstrap,initializeOriginalClaimRegistryV1:initialize,bindOriginalSourceV1:bindSource,
   adapter(input){exactRecord(input,['asset','route']);assert.equal(input.asset,ctx.splAsset);const selected=binding(input.route);return Object.freeze({binding:selected,transfer:(request,callbacks)=>transfer(input.route,request,callbacks),assertPrepared,authorizeOriginalBeginV1:authorizeBegin,observe:async request=>{exactRecord(request,['nativeId']);const record=transfers.get(request.nativeId);assert.ok(record&&record.route===input.route);return observeRecord(record);}});},
   factReader(input){const selected=runtime.adapter(input);return Object.freeze({observe:async request=>{exactRecord(request,['family','recipientIndex','nativeId']);assert.equal(request.family,'2');assert.equal(request.recipientIndex,String(selected.binding.recipientIndex));const actual=await selected.observe({nativeId:request.nativeId});if(actual.status!=='observed')return {status:actual.status==='pending'?'unavailable':actual.status,reason:actual.reason};return frozenInput({status:'observed',genesis:ctx.genesisHex,asset:ctx.splAsset,nativeWire:actual.nativeWire,intent:actual.intent,blockId:actual.blockId,blockHeight:actual.blockHeight,finalityKind:'2',confirmations:'0',nativeContext:{observedTipId:'0'.repeat(64),observedTipHeight:'0',transactionSlot:actual.transactionSlot,parentSlot:actual.parentSlot,observedSlot:actual.observedSlot}});}});},
   async observe(nativeId,{timeoutMs=45000}={}){assert.equal(timeoutMs,45000,'SPL_FIXED_OBSERVATION_BUDGET');const record=transfers.get(nativeId);assert.ok(record);for(let i=0;i<225;i++){const observed=await observeRecord(record);if(['observed','adverse'].includes(observed.status))return observed;await pause();}return{status:'unknown',reason:'SPL_NATIVE_FINALITY_UNRESOLVED'};},

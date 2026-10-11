@@ -116,6 +116,7 @@
     "../../packages/backend/src/defi/vaults/vault-preparation.mjs",
     "../../packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs",
     "../../packages/backend/src/chains/solana/runtime/solana-profiles.mjs",
-    "../../packages/backend/src/chains/solana/runtime/solana-base58.mjs"
+    "../../packages/backend/src/chains/solana/runtime/solana-base58.mjs",
+    "../../packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs"
   ]
 }

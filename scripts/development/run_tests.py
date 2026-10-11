@@ -48,6 +48,8 @@ DEFAULT_TESTS = [
     'packages/backend/tests/chains/solana/transfers/owned-solana-payout-final-send.test.mjs',
     'packages/backend/tests/chains/solana/runtime/owned-solana-runtime.test.mjs',
     'packages/backend/tests/chains/solana/runtime/owned-solana-runtime.combined.test.mjs',
+    'packages/backend/tests/chains/solana/dispatch/native-spl-custody-codec-v1.test.mjs',
+    'packages/backend/tests/chains/solana/observations/jupiter-orca-swap-observation-v1.test.mjs',
 ]
 
 
