@@ -55,7 +55,7 @@ mock.module(url('../../../../../packages/proofs/src/execution/proof-process.mjs'
   createNativeEconomicNoteProofProcessV1: forbidden, createProofProcess() { return { async prove(_mode, _inputs, publicInputs) { proofs++; return { proof: 'c0ffee'.padEnd(64, '0'), publicInputs, metrics: { acceptedResult: true } }; }, async close() {} }; }
 } });
 const { createNativeValueAccountAuthority, nativeValueAccountManualNoteDetails } = await import('../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
-const { createNativeValueManualGraphAccountSession } = await import('../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
+const { createNativeValueManualGraphAccountSession } = await import('../../../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs');
 const { createNativeValueOwnerManualPreparation } = await import('../../../../../packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs');
 const { startWalletApplication } = await import('../../../src/server/server.mjs');
 const { createWalletApplicationClient } = await import('../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs');

@@ -14,7 +14,7 @@ import { assertOwnedNativeValueAccountAuthority, isOriginalNativePrivateWorkerAc
 import { assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { assertOwnedNativeRecipientProcess } from '../../execution/native/recipients/native-recipient-process.mjs';
-import { readOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
+import { readOriginalNativeSessionWalletEconomicStateV1 as readOriginalSessionWalletEconomicStateV1 } from './native-original-source-lifecycle-v1.mjs';
 import {assertOriginalDeviceDurableDispatchBindingsV1,assertOriginalDeviceDurableRecoveryInfrastructureV1} from '../../api/mobile/original-device-durable-dispatch-v1.mjs';
 const local = join(ROOT, '.local/original-device-local-operator-v1');
 const durableLocal = join(ROOT, '.local/original-device-durable-local-operator-v1');

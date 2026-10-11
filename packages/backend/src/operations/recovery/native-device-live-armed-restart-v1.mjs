@@ -22,7 +22,7 @@ import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/native-
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createPairedDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
-import {readOriginalSessionWalletEconomicStateV1} from '../../api/accounts/flat-manual-graph-session.mjs';
+import { readOriginalNativeSessionWalletEconomicStateV1 as readOriginalSessionWalletEconomicStateV1 } from './native-original-source-lifecycle-v1.mjs';
 const local=join(ROOT,'.local/original-device-live-armed-operator-v1'),locatorPath=join(local,'armed-checkpoint.json'),prepared=new WeakMap();
 const hex=value=>typeof value==='string'&&/^[0-9a-f]{64}$/.test(value);
 export function originalNativeDeviceLiveArmedConfigurationPathV1(){assert.equal(arguments.length,0);return join(local,'operator.json');}

@@ -17,7 +17,8 @@ import { deployNativeValueDevSystemV5 } from '../deployments/native-value/native
 import { createNativeValueOwnerProcess } from '../../custody/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueExecution, assertOwnedNativeValueExecution } from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import { createNativeEconomicNoteAccountAuthorityV1,createNativeLiveArmedNoteAccountAuthorityV1, assertOwnedNativeValueAccountAuthority,isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,isOriginalNativePrivateReservationAccountV2,isOriginalNativePrivateWorkerAccountV3 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
+import { createOriginalNativeSessionWalletEconomicStateV1 as createOriginalSessionWalletEconomicStateV1 } from './native-original-source-lifecycle-v1.mjs';
+import { createNativeValueManualGraphAccountSession } from './native-original-source-lifecycle-v1.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from './native-original-source-lifecycle-v1.mjs';
 import { createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2,createOriginalNativePrivateWorkerDepositBridgeV3 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { createDeviceOwnerReservationBridgeV1,createOriginalNativePrivateReservationBridgeV2 } from '../../accounts/authority/native-value-account-authority-v2.mjs';

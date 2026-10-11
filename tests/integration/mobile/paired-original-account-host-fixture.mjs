@@ -106,7 +106,7 @@ export function hostEconomicRecovery() {
     retain(token, record) { const row = hostTokens.get(token); assert.ok(row && row.record === null); row.record = structuredClone(record); } };
 }
 const { createNativeValueAccountAuthority } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
-const { createNativeValueManualGraphAccountSession } = await import('@lianum/backend/accounts/manual-graph');
+const { createNativeValueManualGraphAccountSession } = await import('@lianum/backend/operations/recovery/native-original-source-lifecycle-v1');
 export const createActorModule = () => import('../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs');
 export function device() {
   const keys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }), jwk = keys.publicKey.export({ format: 'jwk' });

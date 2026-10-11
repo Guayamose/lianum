@@ -348,11 +348,13 @@
         "packages/backend/src/claims/controller/controller.mjs",
         "packages/backend/src/claims/operations/native-claim-asset-units-v1.mjs",
         "packages/backend/src/claims/operations/portfolio-view.mjs",
-        "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs"
+        "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs": [
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs": [
         "packages/backend/src/accounts/authority/flat-account-authority.mjs",
@@ -406,7 +408,8 @@
         "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
-        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": [
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
@@ -422,7 +425,8 @@
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/api/mobile/paired-original-defi-position-http-v1.mjs": [
         "packages/backend/src/api/mobile/paired-original-defi-position-reader-v1.mjs"
@@ -437,7 +441,8 @@
         "packages/backend/src/api/claims/native-claim-session.mjs",
         "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs",
         "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs",
-        "packages/backend/src/defi/withdrawals/private-vault-exit.mjs"
+        "packages/backend/src/defi/withdrawals/private-vault-exit.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs": [
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
@@ -702,6 +707,7 @@
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs",
         "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
         "packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs",
         "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs"
       ],
@@ -1157,6 +1163,9 @@
       "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs": [
         "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs",
+        "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+        "packages/backend/src/api/accounts/flat-account-session.mjs",
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
         "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs",
@@ -1168,6 +1177,7 @@
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
         "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
         "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs"
@@ -1200,7 +1210,8 @@
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
         "packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs",
-        "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs"
+        "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/operations/recovery/native-value-history-dispatch-v1.mjs": [
         "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
@@ -1710,6 +1721,72 @@
           "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
         ],
         "reason": "The complete original paired actor family now lives in a private instance composed by SOURCE lifecycle. Its factory owns both actor and pairing maps; consumers call the same original APIs from this closed composition. No new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs",
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs",
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+        ],
+        "reason": "The complete native session family now belongs to a private instance composed by SOURCE lifecycle. Native keepers, approvals, session membership, economic capture and SOURCE checkpoint consumers moved together; wrapped/catalogue session families stay in the existing mixed owner. Only the original native import changed owner; no new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+        ],
+        "reason": "The complete native session family now belongs to a private instance composed by SOURCE lifecycle. Native keepers, approvals, session membership, economic capture and SOURCE checkpoint consumers moved together; wrapped/catalogue session families stay in the existing mixed owner. Only the original native import changed owner; no new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/wallet/http-service.mjs",
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+        ],
+        "to": [
+          "packages/backend/src/api/wallet/http-service.mjs",
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+        ],
+        "reason": "The complete native session family now belongs to a private instance composed by SOURCE lifecycle. Native keepers, approvals, session membership, economic capture and SOURCE checkpoint consumers moved together; wrapped/catalogue session families stay in the existing mixed owner. Only the original native import changed owner; no new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+          "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+          "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs"
+        ],
+        "reason": "The complete native session family now belongs to a private instance composed by SOURCE lifecycle. Native keepers, approvals, session membership, economic capture and SOURCE checkpoint consumers moved together; wrapped/catalogue session families stay in the existing mixed owner. Only the original native import changed owner; no new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs"
+        ],
+        "reason": "The complete native session family now belongs to a private instance composed by SOURCE lifecycle. Native keepers, approvals, session membership, economic capture and SOURCE checkpoint consumers moved together; wrapped/catalogue session families stay in the existing mixed owner. Only the original native import changed owner; no new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+          "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+          "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs"
+        ],
+        "reason": "The complete native session family now belongs to a private instance composed by SOURCE lifecycle. Native keepers, approvals, session membership, economic capture and SOURCE checkpoint consumers moved together; wrapped/catalogue session families stay in the existing mixed owner. Only the original native import changed owner; no new authority or dependency family."
       }
     ],
     "ownershipReview": {

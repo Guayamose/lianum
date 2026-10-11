@@ -40,7 +40,8 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
   };
   const account={config,authority,features:{nativeManualNoteConsent:true},ownerView(){return{};}};
   const mocks=[],forbidden=()=>{throw Error('HOST_SOURCE_UNUSED_PORT');};
-  const install=(path,exports)=>mocks.push(mock.module(new URL(path,backend),{exports}));
+  const lowerModules=new Map();
+  const install=(path,exports)=>{lowerModules.set(path,exports);mocks.push(mock.module(new URL(path,backend),{exports}));};
   const unused=(path,names)=>install(path,Object.fromEntries(names.map(name=>[name,forbidden])));
   t.after(async()=>{try{await session?.close().catch(()=>{});await keeper?.close().catch(()=>{});}finally{for(const installed of mocks.reverse())installed.restore();await rm(directory,{recursive:true,force:true});}});
   install('accounts/authority/native-value-account-authority-v2.mjs',{
@@ -49,7 +50,7 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
     nativeValueAccountManualGraphDetails:forbidden,assertNativeValueAccountManualGraphExecution:forbidden,
     nativeValueAccountManualNoteDetails(value){assert.equal(value,approval);return{account,body:sourceRequest,review:{fixture:'lower-original-note-consent'}};},
   });
-  install('operations/recovery/native-original-source-lifecycle-v1.mjs',{
+  const sourcePorts={
     nativeSourceRecoverySectionIdentityV1(value,part){assert.equal(value,token);assert.equal(part,'session');return identity;},
     async nativeSourceRecoveryOwnedProcessV1(value,part,pid){assert.equal(value,token);assert.equal(part,'session');assert.notEqual(pid,process.pid);return processIdentity(pid);},
     async retainOriginalNativeSourceSectionV1(value,part,section){assert.equal(value,token);assert.equal(part,'session');assert.equal(sectionRecord,null);sectionRecord=await sourceVault.create(section,sourcePassword);return handle;},
@@ -59,7 +60,7 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
       if(failAfterCandidate&&next.candidate?.kind==='KEEPER_CAS')throw Object.assign(new Error('SYNTHETIC_SOURCE_REPLY_LOST'),{code:'SYNTHETIC_SOURCE_REPLY_LOST'});
     },
     consumeOriginalNativeSourceSectionV1:forbidden,resumeOriginalNativeSourceSectionV1:forbidden,
-  });
+  };
   install('operations/deployments/native-value/native-value-system-v2.mjs',{
     nativeValueOriginalRecoverySourceV1(value,contracts){assert.equal(value,runtime);assert.equal(contracts,system);return identity.sourceSHA256;},
   });
@@ -80,7 +81,12 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
     ...durableKeeperAPI,
     async createDurableGenericAccountKeeperV1(input){assert.equal(keeper,undefined);keeper=await createDurableGenericAccountKeeperV1(input);return keeper;},
   });
-  const actual=await import('../../../src/api/accounts/flat-manual-graph-session.mjs');
+  const {buildNativeManualSessionV1}=await import('../../../src/api/accounts/native-manual-session-backend-v1.mjs');
+  const actual=buildNativeManualSessionV1({account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
+    economic:{...lowerModules.get('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs'),...lowerModules.get('operations/deployments/native-value/native-value-system-v2.mjs')},
+    source:sourcePorts,resources:{loadDurableKeeper:()=>import('../../../src/accounts/storage/durable-generic-account-keeper.mjs'),
+      loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
+  install('operations/recovery/native-original-source-lifecycle-v1.mjs',{...sourcePorts,...actual});
   const joined=await actual.createOriginalNativeSourceGraphAccountSessionV1(token,{runtime,system,poolIndex:0,account,journal,owner});
   session=joined.session;
   const snapshot=await readOriginalNativeSourceSessionKeeperV1(keeper,session);

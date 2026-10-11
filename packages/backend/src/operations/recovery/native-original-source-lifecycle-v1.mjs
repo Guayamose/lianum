@@ -477,63 +477,180 @@ export async function reopenOriginalNativeActorSourceV1(...args) { const actor =
 let originalNativeSessions = null;
 let originalNativeSessionsPending = null;
 async function prepareOriginalNativeSessions() {
- if(!originalNativeSessionsPending) originalNativeSessionsPending=(async()=>{
-  const [account,system]=await Promise.all([
-   import('../../accounts/authority/native-value-account-authority-v2.mjs'),
-   import('../deployments/native-value/native-value-system-v2.mjs'),
-  ]);
-  return buildNativeManualSessionV1(Object.freeze({
-   account: Object.freeze({
-    assertOriginalNativeAccountSourceV1:(...args)=>account.assertOriginalNativeAccountSourceV1(...args),
-    assertOwnedNativeValueAccountAuthority:(...args)=>account.assertOwnedNativeValueAccountAuthority(...args),
-    nativeValueAccountManualGraphDetails:(...args)=>account.nativeValueAccountManualGraphDetails(...args),
-    assertNativeValueAccountManualGraphExecution:(...args)=>account.assertNativeValueAccountManualGraphExecution(...args),
-    nativeValueAccountManualNoteDetails:(...args)=>account.nativeValueAccountManualNoteDetails(...args),
-   }),
-   economic: Object.freeze({
-    assertNativeEconomicRecoveryCaptureV1:(...args)=>wrappedRecovery.assertNativeEconomicRecoveryCaptureV1(...args),
-    nativeEconomicRecoverySectionIdentityV1:(...args)=>wrappedRecovery.nativeEconomicRecoverySectionIdentityV1(...args),
-    consumeNativeEconomicRecoverySectionV1:(...args)=>wrappedRecovery.consumeNativeEconomicRecoverySectionV1(...args),
-    nativeValueOriginalRecoverySourceV1:(...args)=>system.nativeValueOriginalRecoverySourceV1(...args),
-   }),
-   source: Object.freeze({
-    nativeSourceRecoverySectionIdentityV1:(...args)=>nativeSourceRecoverySectionIdentityV1(...args),
-    retainOriginalNativeSourceSectionV1:(...args)=>retainOriginalNativeSourceSectionV1(...args),
-    consumeOriginalNativeSourceSectionV1:(...args)=>consumeOriginalNativeSourceSectionV1(...args),
-    updateOriginalNativeSourceSectionV1:(...args)=>updateOriginalNativeSourceSectionV1(...args),
-    resumeOriginalNativeSourceSectionV1:(...args)=>resumeOriginalNativeSourceSectionV1(...args),
-    nativeSourceRecoveryOwnedProcessV1:(...args)=>nativeSourceRecoveryOwnedProcessV1(...args),
-   }),
-   resources: Object.freeze({
-    loadDurableKeeper:()=>import('../../accounts/storage/durable-generic-account-keeper.mjs'),
-    loadAccountSession:()=>import('../../api/accounts/flat-account-session.mjs'),
-    loadEconomicState:()=>import('../../accounts/state/original-wallet-economic-state-v1.mjs'),
-   }),
-  }));
- })().then(instance=>(originalNativeSessions=instance));
- return originalNativeSessionsPending;
+  if (!originalNativeSessionsPending)
+    originalNativeSessionsPending = (async () => {
+      const [account, system] = await Promise.all([
+        import(
+          "../../accounts/authority/native-value-account-authority-v2.mjs"
+        ),
+        import("../deployments/native-value/native-value-system-v2.mjs"),
+      ]);
+      return buildNativeManualSessionV1(
+        Object.freeze({
+          account: Object.freeze({
+            assertOriginalNativeAccountSourceV1: (...args) =>
+              account.assertOriginalNativeAccountSourceV1(...args),
+            assertOwnedNativeValueAccountAuthority: (...args) =>
+              account.assertOwnedNativeValueAccountAuthority(...args),
+            nativeValueAccountManualGraphDetails: (...args) =>
+              account.nativeValueAccountManualGraphDetails(...args),
+            assertNativeValueAccountManualGraphExecution: (...args) =>
+              account.assertNativeValueAccountManualGraphExecution(...args),
+            nativeValueAccountManualNoteDetails: (...args) =>
+              account.nativeValueAccountManualNoteDetails(...args),
+          }),
+          economic: Object.freeze({
+            assertNativeEconomicRecoveryCaptureV1: (...args) =>
+              wrappedRecovery.assertNativeEconomicRecoveryCaptureV1(...args),
+            nativeEconomicRecoverySectionIdentityV1: (...args) =>
+              wrappedRecovery.nativeEconomicRecoverySectionIdentityV1(...args),
+            consumeNativeEconomicRecoverySectionV1: (...args) =>
+              wrappedRecovery.consumeNativeEconomicRecoverySectionV1(...args),
+            nativeValueOriginalRecoverySourceV1: (...args) =>
+              system.nativeValueOriginalRecoverySourceV1(...args),
+          }),
+          source: Object.freeze({
+            nativeSourceRecoverySectionIdentityV1: (...args) =>
+              nativeSourceRecoverySectionIdentityV1(...args),
+            retainOriginalNativeSourceSectionV1: (...args) =>
+              retainOriginalNativeSourceSectionV1(...args),
+            consumeOriginalNativeSourceSectionV1: (...args) =>
+              consumeOriginalNativeSourceSectionV1(...args),
+            updateOriginalNativeSourceSectionV1: (...args) =>
+              updateOriginalNativeSourceSectionV1(...args),
+            resumeOriginalNativeSourceSectionV1: (...args) =>
+              resumeOriginalNativeSourceSectionV1(...args),
+            nativeSourceRecoveryOwnedProcessV1: (...args) =>
+              nativeSourceRecoveryOwnedProcessV1(...args),
+          }),
+          resources: Object.freeze({
+            loadDurableKeeper: () =>
+              import(
+                "../../accounts/storage/durable-generic-account-keeper.mjs"
+              ),
+            loadAccountSession: () =>
+              import("../../api/accounts/flat-account-session.mjs"),
+            loadEconomicState: () =>
+              import(
+                "../../accounts/state/original-wallet-economic-state-v1.mjs"
+              ),
+          }),
+        }),
+      );
+    })().then((instance) => (originalNativeSessions = instance));
+  return originalNativeSessionsPending;
 }
-function originalNativeSessionFamily(){if(!originalNativeSessions)throw Object.assign(new Error('NATIVE_SESSION_ORIGINAL_REQUIRED'),{code:'NATIVE_SESSION_ORIGINAL_REQUIRED'});return originalNativeSessions;}
-export function flatManualNativeNoteReviews(...args){return originalNativeSessionFamily().flatManualNativeNoteReviews(...args);}
-export function flatManualNativeNoteActionTarget(...args){return originalNativeSessionFamily().flatManualNativeNoteActionTarget(...args);}
-export async function createNativeValueManualGraphAccountSession(...args){const family=await prepareOriginalNativeSessions();return family.createNativeValueManualGraphAccountSession(...args);}
-export function assertNativeWalletEconomicSessionV1(...args){return originalNativeSessionFamily().assertNativeWalletEconomicSessionV1(...args);}
-export function fenceOriginalNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().fenceOriginalNativeSessionEconomicRecoveryV1(...args);}
-export function captureOriginalNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().captureOriginalNativeSessionEconomicRecoveryV1(...args);}
-export function stopCapturedNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().stopCapturedNativeSessionEconomicRecoveryV1(...args);}
-export function abortNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().abortNativeSessionEconomicRecoveryV1(...args);}
-export async function reopenOriginalNativeSessionEconomicRecoveryV1(...args){const family=await prepareOriginalNativeSessions();return family.reopenOriginalNativeSessionEconomicRecoveryV1(...args);}
-export function assertNativeSessionEconomicMembershipV1(...args){return originalNativeSessionFamily().assertNativeSessionEconomicMembershipV1(...args);}
-export function assertOriginalNativeSessionSourceKeeperV1(...args){return originalNativeSessionFamily().assertOriginalNativeSessionSourceKeeperV1(...args);}
-export function prepareOriginalNativeSessionKeeperSourceCheckpointV1(...args){return originalNativeSessionFamily().prepareOriginalNativeSessionKeeperSourceCheckpointV1(...args);}
-export function confirmOriginalNativeSessionKeeperSourceCheckpointV1(...args){return originalNativeSessionFamily().confirmOriginalNativeSessionKeeperSourceCheckpointV1(...args);}
-export async function createOriginalNativeSourceGraphAccountSessionV1(...args){const family=await prepareOriginalNativeSessions();return family.createOriginalNativeSourceGraphAccountSessionV1(...args);}
-export async function reopenOriginalNativeSessionSourceV1(...args){const family=await prepareOriginalNativeSessions();return family.reopenOriginalNativeSessionSourceV1(...args);}
-export function nativeManualGraphReviews(...args){return originalNativeSessionFamily().nativeManualGraphReviews(...args);}
-export function nativeManualGraphHandoffBindings(...args){return originalNativeSessionFamily().nativeManualGraphHandoffBindings(...args);}
-export function nativeManualGraphActionTarget(...args){return originalNativeSessionFamily().nativeManualGraphActionTarget(...args);}
-export function readOriginalNativeSessionWalletEconomicSnapshotV1(...args){return originalNativeSessionFamily().readOriginalNativeSessionWalletEconomicSnapshotV1(...args);}
-export function createOriginalNativeSessionWalletEconomicStateV1(...args){return originalNativeSessionFamily().createOriginalNativeSessionWalletEconomicStateV1(...args);}
-export function reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(...args){return originalNativeSessionFamily().reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(...args);}
-export function readOriginalNativeSessionWalletEconomicStateV1(...args){return originalNativeSessionFamily().readOriginalNativeSessionWalletEconomicStateV1(...args);}
-export function isOriginalNativeManualSessionV1(session){return originalNativeSessions?.isOriginalNativeManualSessionV1(session)??false;}
+function originalNativeSessionFamily() {
+  if (!originalNativeSessions)
+    throw Object.assign(new Error("NATIVE_SESSION_ORIGINAL_REQUIRED"), {
+      code: "NATIVE_SESSION_ORIGINAL_REQUIRED",
+    });
+  return originalNativeSessions;
+}
+export function flatManualNativeNoteReviews(...args) {
+  return originalNativeSessions?.flatManualNativeNoteReviews(...args) ?? [];
+}
+export function flatManualNativeNoteActionTarget(...args) {
+  return (
+    originalNativeSessions?.flatManualNativeNoteActionTarget(...args) ?? null
+  );
+}
+export async function createNativeValueManualGraphAccountSession(...args) {
+  const family = await prepareOriginalNativeSessions();
+  return family.createNativeValueManualGraphAccountSession(...args);
+}
+export function assertNativeWalletEconomicSessionV1(...args) {
+  return originalNativeSessionFamily().assertNativeWalletEconomicSessionV1(
+    ...args,
+  );
+}
+export function fenceOriginalNativeSessionEconomicRecoveryV1(...args) {
+  return originalNativeSessionFamily().fenceOriginalNativeSessionEconomicRecoveryV1(
+    ...args,
+  );
+}
+export function captureOriginalNativeSessionEconomicRecoveryV1(...args) {
+  return originalNativeSessionFamily().captureOriginalNativeSessionEconomicRecoveryV1(
+    ...args,
+  );
+}
+export function stopCapturedNativeSessionEconomicRecoveryV1(...args) {
+  return originalNativeSessionFamily().stopCapturedNativeSessionEconomicRecoveryV1(
+    ...args,
+  );
+}
+export function abortNativeSessionEconomicRecoveryV1(...args) {
+  return originalNativeSessionFamily().abortNativeSessionEconomicRecoveryV1(
+    ...args,
+  );
+}
+export async function reopenOriginalNativeSessionEconomicRecoveryV1(...args) {
+  const family = await prepareOriginalNativeSessions();
+  return family.reopenOriginalNativeSessionEconomicRecoveryV1(...args);
+}
+export function assertNativeSessionEconomicMembershipV1(...args) {
+  return originalNativeSessionFamily().assertNativeSessionEconomicMembershipV1(
+    ...args,
+  );
+}
+export function assertOriginalNativeSessionSourceKeeperV1(...args) {
+  return originalNativeSessionFamily().assertOriginalNativeSessionSourceKeeperV1(
+    ...args,
+  );
+}
+export function prepareOriginalNativeSessionKeeperSourceCheckpointV1(...args) {
+  return originalNativeSessionFamily().prepareOriginalNativeSessionKeeperSourceCheckpointV1(
+    ...args,
+  );
+}
+export function confirmOriginalNativeSessionKeeperSourceCheckpointV1(...args) {
+  return originalNativeSessionFamily().confirmOriginalNativeSessionKeeperSourceCheckpointV1(
+    ...args,
+  );
+}
+export async function createOriginalNativeSourceGraphAccountSessionV1(...args) {
+  const family = await prepareOriginalNativeSessions();
+  return family.createOriginalNativeSourceGraphAccountSessionV1(...args);
+}
+export async function reopenOriginalNativeSessionSourceV1(...args) {
+  const family = await prepareOriginalNativeSessions();
+  return family.reopenOriginalNativeSessionSourceV1(...args);
+}
+export function nativeManualGraphReviews(...args) {
+  return originalNativeSessionFamily().nativeManualGraphReviews(...args);
+}
+export function nativeManualGraphHandoffBindings(...args) {
+  return originalNativeSessionFamily().nativeManualGraphHandoffBindings(
+    ...args,
+  );
+}
+export function nativeManualGraphActionTarget(...args) {
+  return originalNativeSessionFamily().nativeManualGraphActionTarget(...args);
+}
+export function readOriginalNativeSessionWalletEconomicSnapshotV1(...args) {
+  return originalNativeSessionFamily().readOriginalNativeSessionWalletEconomicSnapshotV1(
+    ...args,
+  );
+}
+export function createOriginalNativeSessionWalletEconomicStateV1(...args) {
+  return originalNativeSessionFamily().createOriginalNativeSessionWalletEconomicStateV1(
+    ...args,
+  );
+}
+export function reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(
+  ...args
+) {
+  return originalNativeSessionFamily().reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(
+    ...args,
+  );
+}
+export function readOriginalNativeSessionWalletEconomicStateV1(...args) {
+  return originalNativeSessionFamily().readOriginalNativeSessionWalletEconomicStateV1(
+    ...args,
+  );
+}
+export function isOriginalNativeManualSessionV1(session) {
+  return (
+    originalNativeSessions?.isOriginalNativeManualSessionV1(session) ?? false
+  );
+}

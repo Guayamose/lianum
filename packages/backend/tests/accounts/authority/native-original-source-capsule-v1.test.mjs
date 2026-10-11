@@ -22,8 +22,9 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE fixed session co
  t.after(()=>{for(const item of mocks.reverse())item.restore();});
  const unused=()=>assert.fail('HOST_UNEXPECTED_PART_PORT');
  install('./native-original-source-lifecycle-v1.mjs',{
+  async reopenOriginalNativeSessionSourceV1(actual,contexts){assert.equal(actual,token);assert.equal(contexts.owner,originals.get('owner'));return joined;},
   nativeSourceRecoveryOriginalReferenceV1(actual,section,name){assert.equal(actual,token);assert.ok(['session','actor'].includes(section));return originals.get(name);},
-  createOwnedNativeDurableSourceRuntimeV1:unused});
+  createOwnedNativeDurableSourceRuntimeV1:unused,retainOriginalNativeActorSourceV1:unused,async reopenOriginalNativeActorSourceV1(actual,contexts){assert.equal(actual,token);assert.equal(contexts.session,session);actorCalls++;return{explicitSyntheticActor:true};}});
  for(const [path,names]of [
   ['../operators/native-value/native-value-local-operator-bootstrap-v4.mjs',['retainOriginalNativeSourceBootstrapV1','reopenOriginalNativeSourceBootstrapV1']],
   ['../deployments/native-value/native-value-system-v2.mjs',['retainOriginalNativeSystemSourceV1','reopenOriginalNativeSystemSourceV1']],
@@ -32,8 +33,8 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE fixed session co
   ['../../execution/native-value/execution/native-value-execution-v2.mjs',['retainOriginalNativeExecutorSourceV1','reopenOriginalNativeExecutorSourceV1']],
   ['../../accounts/authority/native-value-account-authority-v2.mjs',['reopenOriginalNativeAccountSourceV1']],
  ])install(path,Object.fromEntries(names.map(name=>[name,unused])));
- install('../../api/accounts/flat-manual-graph-session.mjs',{async reopenOriginalNativeSessionSourceV1(actual,contexts){assert.equal(actual,token);assert.equal(contexts.owner,originals.get('owner'));return joined;}});
- install('../../api/mobile/paired-original-account-actor-v2.mjs',{retainOriginalNativeActorSourceV1:unused,async reopenOriginalNativeActorSourceV1(actual,contexts){assert.equal(actual,token);assert.equal(contexts.session,session);actorCalls++;return{explicitSyntheticActor:true};}});
+
+
  const {reopenFixedOriginalNativeSourcePartV1:consumer}=await import(new URL('?session='+randomUUID(),partsURL));
  const contexts={runtime:originals.get('receiver'),system:originals.get('system'),account:originals.get('account'),owner:originals.get('owner')};
  const recovered=await consumer(token,'session',contexts);assert.equal(recovered,session);assert.notEqual(recovered,joined);
@@ -90,8 +91,8 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE resumes complete
  const root=await mkdtemp(join(tmpdir(),'native-source-partial-host-'));t.after(()=>rm(root,{recursive:true,force:true}));
  const first=await launch(root,'native-completed'),host=await capsule(root),{api}=host,oldCreator=await host.processIdentity(first.child.pid);
  await assert.rejects(api.openOriginalNativeSourceCapsuleV1(),/OLD_PROCESS_PRESENT/);first.child.send({exit:true});assert.deepEqual(await first.completion,{code:17,signal:null});await assert.rejects(lstat('/proc/'+first.child.pid),{code:'ENOENT'});
- const partial=await launch(root,'opening');assert.deepEqual(partial.announced.checkpointChecks,{account:1,actor:1});await assert.rejects(api.openOriginalNativeSourceCapsuleV1(),/OLD_PROCESS_PRESENT/);partial.child.send({exit:true});assert.deepEqual(await partial.completion,{code:17,signal:null});await assert.rejects(lstat('/proc/'+partial.child.pid),{code:'ENOENT'});
- const authority=await api.openOriginalNativeSourceCapsuleV1();assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).generation,2);assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).pending,false);
+ const partial=await launch(root,'opening');assert.deepEqual(partial.announced.checkpointChecks,{account:1});await assert.rejects(api.openOriginalNativeSourceCapsuleV1(),/OLD_PROCESS_PRESENT/);partial.child.send({exit:true});assert.deepEqual(await partial.completion,{code:17,signal:null});await assert.rejects(lstat('/proc/'+partial.child.pid),{code:'ENOENT'});
+ const authority=await api.openOriginalNativeSourceCapsuleV1();assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).generation,2);const actorCheckpoint=(await host.readRecord(authority)).data.sections.actor;assert.equal(actorCheckpoint.candidate,null);for(const kind of ['accesses','stateAccesses'])assert.equal(actorCheckpoint.confirmed.challenges[kind][0].consumed,true);assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).pending,false);
  for(const section of Object.keys(schemas))await api.reopenOriginalNativeSourceReferenceV1(authority,section,{});await api.finishOriginalNativeSourceReopenV1(authority);
  const directory=join(root,'original-account');await mkdir(directory,{mode:0o700});const password='synthetic-original-account-cas',vault=new Vault(join(directory,'operations.vault'));
  const digest=value=>createHash('sha256').update(canonical(value)).digest('hex'),accountIdentity={accountId:'original-account',journalId:'original-journal',lifetime:'11'.repeat(32),registrySHA256:'22'.repeat(32)},initial=await vault.create({version:1,identitySHA256:'33'.repeat(32),accountIdentity,operations:[]},password);

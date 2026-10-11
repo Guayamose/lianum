@@ -34,7 +34,8 @@ test('HOST real native and wrapped session factories retain pending state and re
  const authority=Object.freeze({}),section=Object.freeze({}),sourceSHA256=h('original-state-source'),identity={sourceSHA256};
  let keeperCaptures=0,effects=0;const mocks=[],live=new Set();
  const no=()=>{throw Error('HOST_UNUSED_LOWER_PORT');};
- const install=(path,exports)=>mocks.push(mock.module(new URL(path,backend),{exports}));
+ const lowerModules=new Map();
+ const install=(path,exports)=>{lowerModules.set(path,exports);mocks.push(mock.module(new URL(path,backend),{exports}));};
  const unused=(path,names)=>install(path,Object.fromEntries(names.map(name=>[name,no])));
  t.after(async()=>{try{for(const value of live)await value.close().catch(()=>{});}finally{for(const installed of mocks.reverse())installed.restore();await rm(directory,{recursive:true,force:true});}});
  const noteDetails=value=>{assert.ok(details.has(value),'HOST_ORIGINAL_APPROVAL_REQUIRED');return details.get(value);};
@@ -58,7 +59,7 @@ test('HOST real native and wrapped session factories retain pending state and re
  unused('claims/operations/native-claim-asset-units-v1.mjs',['originalNativeClaimAssetUnitsV1']);
  unused('claims/controller/controller.mjs',['assertOriginalDeviceRootClaimIntakeV2','readOriginalDeviceRootClaimIntakeContextV2','readOriginalDeviceRootClaimEconomicSnapshotV2']);
  unused('defi/withdrawals/generation-private-vault-exit.mjs',['generationPrivateVaultExitBinding','assertGenerationPrivateVaultExitSession','generationPrivateVaultExitActionTarget']);
- unused('operations/recovery/native-original-source-lifecycle-v1.mjs',['nativeSourceRecoverySectionIdentityV1','retainOriginalNativeSourceSectionV1','consumeOriginalNativeSourceSectionV1','updateOriginalNativeSourceSectionV1','resumeOriginalNativeSourceSectionV1','nativeSourceRecoveryOwnedProcessV1']);
+ const sourcePorts=Object.fromEntries(['nativeSourceRecoverySectionIdentityV1','retainOriginalNativeSourceSectionV1','consumeOriginalNativeSourceSectionV1','updateOriginalNativeSourceSectionV1','resumeOriginalNativeSourceSectionV1','nativeSourceRecoveryOwnedProcessV1'].map(name=>[name,no]));
  install('operations/deployments/native-value/native-value-system-v2.mjs',{nativeValueOriginalRecoverySourceV1(){return sourceSHA256;}});
  install('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',{
   assertNativeEconomicRecoveryCaptureV1(value){assert.equal(value,authority);return identity;},
@@ -85,8 +86,17 @@ test('HOST real native and wrapped session factories retain pending state and re
   ['@lianum/backend/transfers/tron',['assertTronNativeTransferObserver']],
   ['@lianum/backend/transfers/evm',['assertEvmNativeTransferObserver']],
  ])mocks.push(mock.module(specifier,{exports:Object.fromEntries(names.map(name=>[name,no]))}));
- // Import complete production owners only after their explicit lower ports.
- const APIs=await import('../../../src/api/accounts/flat-manual-graph-session.mjs');
+ // The full native implementation has per-instance maps; forwarding this
+ // exact instance through the mocked composition never fabricates membership.
+ const {buildNativeManualSessionV1}=await import('../../../src/api/accounts/native-manual-session-backend-v1.mjs');
+ const recovery=lowerModules.get('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+ const native=buildNativeManualSessionV1({account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
+  economic:{assertNativeEconomicRecoveryCaptureV1:recovery.assertNativeEconomicRecoveryCaptureV1,nativeEconomicRecoverySectionIdentityV1:recovery.nativeEconomicRecoverySectionIdentityV1,
+   consumeNativeEconomicRecoverySectionV1:recovery.consumeNativeEconomicRecoverySectionV1,...lowerModules.get('operations/deployments/native-value/native-value-system-v2.mjs')},
+  source:sourcePorts,resources:{loadDurableKeeper:()=>import('../../../src/accounts/storage/durable-generic-account-keeper.mjs'),
+   loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
+ install('operations/recovery/native-original-source-lifecycle-v1.mjs',{...sourcePorts,...native});
+ const APIs={...native,...await import('../../../src/api/accounts/flat-manual-graph-session.mjs')};
  const {reopenOriginalWalletEconomicStateAfterCrashV1,originalWalletEconomicStateBindingsV1}=await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');
  const {startWalletApplication}=await import('../../../../../apps/wallet/src/server/server.mjs');
  async function family(kind,recovered=null,crashName=null,password='original-observation-private-password'){

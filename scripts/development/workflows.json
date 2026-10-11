@@ -50,7 +50,9 @@
         "packages/backend/tests/accounts/authority/device-aave-source-checkpoint-v3.test.mjs",
         "packages/backend/tests/accounts/authority/device-external-flat-note-authority-v1.test.mjs",
         "packages/backend/tests/accounts/authority/device-source-graph-release-v1.test.mjs",
-        "packages/backend/tests/accounts/authority/device-note-source-lease-v1.test.mjs"
+        "packages/backend/tests/accounts/authority/device-note-source-lease-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/native-session-backend-isolation.test.mjs",
+        "packages/backend/tests/accounts/authority/device-multi-reopen-v4.test.mjs"
       ]
     },
     "custody": {

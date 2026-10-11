@@ -1189,7 +1189,7 @@ export function closeNativeEconomicRecoveryAuthorityV1(authority){
 // section callbacks and JSON records never enter its write-token registry.
 const nativeProducerModules=Object.freeze({
  actor:async()=>({module:await import('../../../operations/recovery/native-original-source-lifecycle-v1.mjs'),stem:'NativeActor'}),
- session:async()=>({module:await import('../../../api/accounts/flat-manual-graph-session.mjs'),stem:'NativeSession'}),
+ session:async()=>({module:await import('../../../operations/recovery/native-original-source-lifecycle-v1.mjs'),stem:'NativeSession'}),
  account:async()=>({module:await import('../../../accounts/authority/native-value-account-authority-v2.mjs'),stem:'NativeAccount'}),
  executor:async()=>({module:await import('../../../execution/native-value/execution/native-value-execution-v2.mjs'),stem:'NativeExecution'}),
  provider:async()=>({module:await import('../../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs'),stem:'NativeProvider'}),

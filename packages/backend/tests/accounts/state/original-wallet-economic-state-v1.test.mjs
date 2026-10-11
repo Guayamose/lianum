@@ -19,6 +19,7 @@ const mapped = new URL(import.meta.url).pathname.includes('/wallet-platform/modu
 const moduleURL = (raw, flat) => new URL(mapped ? flat : raw, import.meta.url);
 const catalogues = new WeakMap(), natives = new WeakMap(), pairs = new WeakMap(), positions = new WeakMap(), wrapped = new WeakMap();
 const no = () => {throw Error('SYNTHETIC_LOWER_PORT_REJECTED');};
+mock.module(new URL('../../../src/operations/recovery/native-original-source-lifecycle-v1.mjs',import.meta.url),{exports:{assertNativeWalletEconomicSessionV1:no,flatManualNativeNoteReviews(){return[];},flatManualNativeNoteActionTarget(){return null;}}});
 // Unused sibling services cannot supply authority to these observation tests.
 mock.module(new URL('../../../src/claims/controller/controller.mjs',import.meta.url),{exports:{
  assertOriginalDeviceRootClaimIntakeV2:no,readOriginalDeviceRootClaimIntakeContextV2:no,readOriginalDeviceRootClaimEconomicSnapshotV2:no,
@@ -84,11 +85,10 @@ mock.module(moduleURL('../../../src/accounts/authority/native-value-account-auth
 // synthetic port; no copied session/portfolio is admitted by that port.
 mock.module(moduleURL('../../../src/api/accounts/flat-manual-graph-session.mjs', '../../api/flat-manual-graph-session.mjs'), {namedExports: {
   assertFlatManualGraphCatalogueSession(session, expected) {const p = pairs.get(session); if (!p || p.runtime !== expected.runtime || p.catalogue !== expected.catalogue) no();},
-  assertNativeWalletEconomicSessionV1() {no();},
   assertWrappedWalletEconomicSessionV1() {no();},
   readOriginalSessionWalletEconomicSnapshotV1() {no();},
   flatManualGraphReviews() {return [];}, flatManualGraphActionTarget() {return null;}, flatManualGraphHandoffBindings() {return [];},
-  flatManualNativeNoteReviews() {return [];}, flatManualNativeNoteActionTarget() {return null;}, flatManualWrappedGraphActionTarget() {return null;},
+  flatManualWrappedGraphActionTarget() {return null;},
 }});
 mock.module(moduleURL('../../../src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs', '../../global-state/wrapped-wallet-portfolio-v1.mjs'), {namedExports: {
   assertOwnedWrappedWalletPortfolioV1(runtime, value) {if(wrapped.get(value)?.runtime!==runtime)no();},

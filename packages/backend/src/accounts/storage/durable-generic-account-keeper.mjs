@@ -69,7 +69,7 @@ async function durableKeeper(input, durable) {
       opening: {create: durable.create, ...immutable(parentRecord.data)},
       async retain({checkpoint, pendingCheckpoint}) {
         if (sourceSession) {
-          const source = await import('../../api/accounts/flat-manual-graph-session.mjs');
+          const source = await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
           await source.prepareOriginalNativeSessionKeeperSourceCheckpointV1(sourceSession, keeper);
         }
         const next = await parentStore.update(parentRecord.revision, () => ({checkpoint, pendingCheckpoint}));
@@ -77,7 +77,7 @@ async function durableKeeper(input, durable) {
         same(actual, next, 'JOURNAL_PARENT_READBACK');
         parentRecord = actual;
         if (sourceSession) {
-          const source = await import('../../api/accounts/flat-manual-graph-session.mjs');
+          const source = await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
           await source.confirmOriginalNativeSessionKeeperSourceCheckpointV1(sourceSession, keeper);
         }
         if (durable.lifetimeHandle) {
@@ -104,21 +104,21 @@ async function durableKeeper(input, durable) {
     async bindSource(session) {
       need(!sourceSession, 'JOURNAL_SOURCE_ORIGINAL_KEEPER_REQUIRED');
       control.assertIdle();
-      const source = await import('../../api/accounts/flat-manual-graph-session.mjs');
+      const source = await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
       source.assertOriginalNativeSessionSourceKeeperV1(session, keeper);
       sourceSession = session;
       return sourceSnapshot();
     },
     async readSource(session) {
       need(!sourceSession || sourceSession === session, 'JOURNAL_SOURCE_ORIGINAL_SESSION_CHANGED');
-      const source = await import('../../api/accounts/flat-manual-graph-session.mjs');
+      const source = await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
       source.assertOriginalNativeSessionSourceKeeperV1(session, keeper);
       return sourceSnapshot();
     },
     async readSourceCandidate(session) {
       need(sourceSession === session, 'JOURNAL_SOURCE_ORIGINAL_SESSION_CHANGED');
       control.assertBusy();
-      const source = await import('../../api/accounts/flat-manual-graph-session.mjs');
+      const source = await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
       source.assertOriginalNativeSessionSourceKeeperV1(session, keeper);
       const actual = await parentStore.read();
       same(actual, parentRecord, 'JOURNAL_PARENT_READBACK');

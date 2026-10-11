@@ -16,7 +16,7 @@ import {loadNativeValueDevDeploymentArtifactsV5} from '../deployments/native-val
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {createNativeValueOwnerProcess} from '../../custody/processes/native-value-owner-process-v2.mjs';
 import {createNativeValueExecution} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
-import {readOriginalSessionWalletEconomicStateV1} from '../../api/accounts/flat-manual-graph-session.mjs';
+import { readOriginalNativeSessionWalletEconomicStateV1 as readOriginalSessionWalletEconomicStateV1 } from './native-original-source-lifecycle-v1.mjs';
 import {createPairedOriginalAccountActorV2,pairedOriginalAccountActorDescriptorV2} from './native-original-source-lifecycle-v1.mjs';
 import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';

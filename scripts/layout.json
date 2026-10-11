@@ -2778,6 +2778,10 @@
     {
       "source": "packages/backend/src/api/mobile/paired-original-account-actor-backend-v2.mjs",
       "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-backend-v2.mjs"
+    },
+    {
+      "source": "packages/backend/src/api/accounts/native-manual-session-backend-v1.mjs",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/native-manual-session-backend-v1.mjs"
     }
   ],
   "files": [

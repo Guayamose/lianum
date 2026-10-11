@@ -18,7 +18,7 @@ export const sourceHostSchemas=Object.freeze({receiver:'ORIGINAL_NATIVE_SOURCE_R
 const recoveryURL=new URL('../../src/operations/recovery/',import.meta.url);
 
 export async function createNativeSourceHost(root){
- const brands=new WeakMap(),identities=new WeakMap(),resources={},handles={},tokens={},sections={},mocks=[],checkpointChecks={account:0,actor:0};
+ const brands=new WeakMap(),identities=new WeakMap(),resources={},handles={},tokens={},sections={},mocks=[],checkpointChecks={account:0};
  let api,rootFault=false,candidateFault=false,stopAfterCandidate=false;
  const accountReaders={readAccountRecord:(directory,password)=>new Vault(join(directory,'operations.vault')).read(password),hashRecord:sha,immutable};
  const codec=createNativeSourceJournalCodecV1({canonical,validateIdentity(identity){assert.equal(identity.directory,join(root,'.local/original-native-source-durable-operator-v1/realms','realm-'+identity.runId));},readPrivate,replace});
@@ -82,12 +82,8 @@ export async function createNativeSourceHost(root){
    assert.throws(()=>api.consumeOriginalNativeSourceAccountCheckpointV1(request),/ORIGINAL_CHECKPOINT_REQUEST/);checkpointChecks.account++;return result;
   }
  });
- install(new URL('../../api/mobile/paired-original-account-actor-v2.mjs',recoveryURL),{reconcileOriginalNativeActorSourceCheckpointV1(request){
-  assert.throws(()=>api.consumeOriginalNativeSourceActorCheckpointV1({...request}),/ORIGINAL_CHECKPOINT_REQUEST/);
-  const result=reconcileNativeSourceActorCheckpointDataV1(api.consumeOriginalNativeSourceActorCheckpointV1(request));
-  assert.throws(()=>api.consumeOriginalNativeSourceActorCheckpointV1(request),/ORIGINAL_CHECKPOINT_REQUEST/);checkpointChecks.actor++;return result;
- }});
- install(new URL('../../api/accounts/flat-manual-graph-session.mjs',recoveryURL),{async createOriginalNativeSourceGraphAccountSessionV1(token){const session=Object.freeze({financialAcceptance:false});await retain(token,'session',session);return{session};}});
+ install(new URL('../deployments/native-value/native-value-system-v2.mjs',recoveryURL),{});
+ install(new URL('../../api/accounts/native-manual-session-backend-v1.mjs',recoveryURL),{buildNativeManualSessionV1(contracts){assert.ok(contracts.source);return Object.freeze({async createOriginalNativeSourceGraphAccountSessionV1(token){const session=Object.freeze({financialAcceptance:false});await retain(token,'session',session);return{session};}});}});
  try{api=await import(new URL('native-original-source-lifecycle-v1.mjs?host='+randomUUID(),recoveryURL));}
  catch(error){for(const item of mocks.reverse())item.restore();throw error;}
  async function stored(authority){const identity=identities.get(authority)??api.assertOriginalNativeSourceCapsuleV1(authority);identities.set(authority,identity);const secret=await readFile(join(identity.directory,'source.secret'));

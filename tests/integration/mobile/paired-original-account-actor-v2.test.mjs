@@ -242,7 +242,7 @@ test('prepared original EXIT approval can be privately read without withdrawal e
 // No economic or native/phone restart acceptance is claimed by this HOST case.
 test('native pairing recovery keeps original journal/nonces/expiry and reissues approval only from original owner records', async t => {
   const accountAPI = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
-  const sessionAPI = await import('@lianum/backend/accounts/manual-graph');
+  const sessionAPI = await import('@lianum/backend/operations/recovery/native-original-source-lifecycle-v1');
   const actorAPI = await createActorModule();
   const f = await fixture(t), actor = await pair(f), issuer = hostEconomicRecovery();
   const selected = await review(actor, f); await actor.submit(signed(selected, f));

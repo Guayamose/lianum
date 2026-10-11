@@ -13,9 +13,6 @@ const account = await import(
 const basic = await import(
   "../../../src/api/accounts/flat-account-session.mjs"
 );
-const manual = await import(
-  "../../../src/api/accounts/flat-manual-graph-session.mjs"
-);
 const economic = await import(
   "../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
 );
@@ -24,7 +21,7 @@ const pick = (namespace, names) =>
 const contracts = () => ({
   session: {
     assertFlatAccountSession: basic.assertFlatAccountSession,
-    flatManualNativeNoteActionTarget: manual.flatManualNativeNoteActionTarget,
+    flatManualNativeNoteActionTarget: source.flatManualNativeNoteActionTarget,
   },
   account: pick(account, [
     "nativeValueAccountManualNoteDetails",
