@@ -10,6 +10,7 @@ import { constants } from 'node:fs';
 import { lstat, realpath, mkdir, open, unlink, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { legacyDataRoot } from '@lianum/environment';
 import { exactRecord } from '@lianum/components/encoding/commitments';
 import { canonicalClaimRecordDataV1 } from '@lianum/engine/storage/records';
 import { LOCAL_EVM_PROFILE } from '@lianum/engine/execution/local/local-evm';
@@ -35,7 +36,10 @@ const FUNDED_PROFILE='WRAPPED_FIXED_FUNDED_PRIVATE_RECOVERY_AUTHORITY_V1';
 const TRON_PROFILE='WRAPPED_FIXED_TRON_PRIVATE_RECOVERY_AUTHORITY_V1',FUNDED_TRON_PROFILE='WRAPPED_FIXED_FUNDED_TRON_PRIVATE_RECOVERY_AUTHORITY_V1';
 const fundedIdentity=identity=>[FUNDED_PROFILE,FUNDED_TRON_PROFILE,EXTERNAL_FUNDED_PROFILE].includes(identity.profile);
 const tronIdentity=identity=>[TRON_PROFILE,FUNDED_TRON_PROFILE].includes(identity.profile);
-const FIXED_WALLET_ROOT=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
+// Retained attempt data must not move when this implementation is relocated.
+const FIXED_WALLET_ROOT=legacyDataRoot('wallet');
+// Source approvals retain their existing execution scope, independently of data.
+const FIXED_SOURCE_ROOT=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
 const RUNTIMES=Object.freeze(['bitcoin','solana','receiver','graphNative']);
 const ALL_RUNTIMES=Object.freeze([...RUNTIMES,'graphNativeTron']);
 const SECTIONS=Object.freeze([...RUNTIMES,'system','owners','keeper','fixture','privateLifetime']);
@@ -411,7 +415,7 @@ async function repairAdmission(){
  }
  assert.ok(Array.isArray(a.approvedSources)&&a.approvedSources.length>=2&&a.approvedSources.length<=8);
  assert.equal(new Set(a.approvedSources.map(row=>row.path)).size,a.approvedSources.length);
- for(const row of a.approvedSources)assert.ok(row.path.startsWith(FIXED_WALLET_ROOT+'/')&&row.path.endsWith('.mjs'),'EXTERNAL_REPAIR_SOURCE_SCOPE');
+ for(const row of a.approvedSources)assert.ok(row.path.startsWith(FIXED_SOURCE_ROOT+'/')&&row.path.endsWith('.mjs'),'EXTERNAL_REPAIR_SOURCE_SCOPE');
  exactRecord(a.native,['repairOrdinal','capturedGeneration','captureSHA256','predecessorClaim','predecessorMnemonic']);assert.equal(a.native.repairOrdinal,1);assert.equal(a.native.capturedGeneration,0);assert.ok(hex(a.native.captureSHA256));
  for(const row of [a.native.predecessorClaim,a.native.predecessorMnemonic]){exactRecord(row,['path','bytes','sha256']);assert.ok(Number.isSafeInteger(row.bytes)&&row.bytes>0&&row.bytes<=4096&&hex(row.sha256));}
  assert.equal(a.native.predecessorClaim.path,'wrapped-runtime-open-0.json');assert.equal(a.native.predecessorMnemonic.path,'reopen-mnemonic-1.txt');return a;
@@ -518,7 +522,7 @@ async function bootstrapPartialAdmission(prefix=false){
  assert.equal(new Set(a.approvedSources.map(row=>row.path)).size,a.approvedSources.length);
  for(const row of [...Object.values(a.evidence),...a.approvedSources]){exactRecord(row,['path','sha256']);assert.equal(resolve(row.path),row.path);assert.ok(hex(row.sha256));
   const st=await lstat(row.path);assert.ok(st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&st.size<=8*1024*1024);assert.equal(bytesHash(await readFile(row.path)),row.sha256,'PARTIAL_RESTORE_EVIDENCE_CHANGED');}
- for(const row of a.approvedSources)assert.ok(row.path.startsWith(FIXED_WALLET_ROOT+'/')&&row.path.endsWith('.mjs'),'PARTIAL_RESTORE_SOURCE_SCOPE');
+ for(const row of a.approvedSources)assert.ok(row.path.startsWith(FIXED_SOURCE_ROOT+'/')&&row.path.endsWith('.mjs'),'PARTIAL_RESTORE_SOURCE_SCOPE');
  exactRecord(a.permit,['id','issuedAtMs','deadlineMs','scope','effectAuthority']);assert.equal(a.permit.scope,'RESTORE_ORIGINAL_UNFUNDED_ACTORS_ONLY');assert.equal(a.permit.effectAuthority,false);assert.ok(hex(a.permit.id));
  assert.ok(Number.isSafeInteger(a.permit.issuedAtMs)&&Number.isSafeInteger(a.permit.deadlineMs)&&a.permit.deadlineMs>a.permit.issuedAtMs&&a.permit.deadlineMs-a.permit.issuedAtMs<=3600000);
  assert.ok(Date.now()>=a.permit.issuedAtMs&&Date.now()<a.permit.deadlineMs,'PARTIAL_RESTORE_PERMIT_EXPIRED');return a;
@@ -776,7 +780,7 @@ async function captureLineageAdmission() {
   assert.match(cleanup.process.startTicks, /^[0-9]+$/);
   assert.ok(typeof cleanup.process.pidNamespace === 'string' && cleanup.process.pidNamespace.length > 0);
   assert.ok(typeof cleanup.process.bootId === 'string' && cleanup.process.bootId.length > 0);
-  for (const pin of a.approvedSources) assert.ok(pin.path.startsWith(FIXED_WALLET_ROOT + '/') && pin.path.endsWith('.mjs'));
+  for (const pin of a.approvedSources) assert.ok(pin.path.startsWith(FIXED_SOURCE_ROOT + '/') && pin.path.endsWith('.mjs'));
   exactRecord(a.permit, ['id','issuedAtMs','deadlineMs','scope','effectAuthority']);
   assert.ok(hex(a.permit.id)); assert.equal(a.permit.scope, 'RESTORE_ORIGINAL_ACTORS_ONLY'); assert.equal(a.permit.effectAuthority, false);
   assert.ok(Number.isSafeInteger(a.permit.issuedAtMs) && Number.isSafeInteger(a.permit.deadlineMs));
@@ -960,7 +964,7 @@ async function originalFreshCaptureSource(identity) {
   for (const row of rows) {
     exactRecord(row, ['path','sha256']);
     assert.equal(resolve(row.path), row.path);
-    assert.ok(row.path.startsWith(FIXED_WALLET_ROOT + '/') && row.path.endsWith('.mjs'));
+    assert.ok(row.path.startsWith(FIXED_SOURCE_ROOT + '/') && row.path.endsWith('.mjs'));
     assert.ok(!row.path.endsWith('/external-fresh-capture-admission-v1.mjs'), 'FRESH_CAPTURE_NONCIRCULAR_SOURCE_SET');
     assert.ok(hex(row.sha256));
     const info = await lstat(row.path);
