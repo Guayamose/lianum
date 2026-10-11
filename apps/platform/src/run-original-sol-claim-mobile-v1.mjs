@@ -15,7 +15,7 @@ const deviceRootSplExit=process.argv.length===3&&process.argv[2]==='--device-roo
 const deviceRoot=process.argv.length===3&&process.argv[2]==='--device-root-note';
 const deviceRootSpl=process.argv.length===3&&process.argv[2]==='--device-root-spl';
 assert.deepEqual(process.argv,[process.execPath,entry,...(deviceRootExit?['--device-root-exit']:deviceRootSplSourceExit?['--device-root-spl-source-exit']:deviceRootSplExit?['--device-root-spl-exit']:deviceRoot?['--device-root-note']:deviceRootSpl?['--device-root-spl']:[])]);assert.equal(await realpath(entry),entry);
-const product=new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/native-claim-http.mjs',import.meta.url);
+const product=new URL('../../../packages/backend/src/api/claims/native-claim-http.mjs',import.meta.url);
 let acquisition,operator,closing,closeRequested=false;
 async function configFile(path){const parent=dirname(path),st=await lstat(parent);assert.ok(st.isDirectory()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(st.mode&0o777)===0o700&&await realpath(parent)===parent);
  const fd=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;

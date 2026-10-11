@@ -7,9 +7,7 @@
  * requires an original recovery contract; SQL or this descriptor cannot make
  * a replacement actor/account. No root or private note key is accepted here. */
 import { types } from 'node:util';
-// Use the one generated ORIGINAL module graph. Importing canonical backend
-// copies here would create different WeakMaps and must not adopt their shapes.
-const backend = new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/', import.meta.url);
+// All bridges and servers share the canonical backend authority instance.
 export async function startPlatformOriginalDeviceServiceV1(input) {
   if (arguments.length !== 1 || !input || types.isProxy(input) || Object.getPrototypeOf(input) !== Object.prototype)
     throw new Error('PLATFORM_ORIGINAL_DEVICE_CONFIGURATION');
@@ -19,9 +17,9 @@ export async function startPlatformOriginalDeviceServiceV1(input) {
   if (Reflect.ownKeys(input).length !== names.length || !names.every(name =>
     Object.hasOwn(Object.getOwnPropertyDescriptor(input, name) ?? {}, 'value')))
     throw new Error('PLATFORM_ORIGINAL_DEVICE_CONFIGURATION');
-  const { createPairedDeviceAccountTlsServerV1 } = await import(new URL('paired-original-account-http-v2.mjs', backend));
-  const { pairedOriginalAccountActorDescriptorV2 } = await import(new URL('paired-original-account-actor-v2.mjs', backend));
-  const { deviceOwnerDepositBridgeActorV1 } = await import(new URL('../global-state/device-owner-deposit-bridge-v1.mjs', backend));
+  const { createPairedDeviceAccountTlsServerV1 } = await import(new URL('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs', import.meta.url));
+  const { pairedOriginalAccountActorDescriptorV2 } = await import(new URL('../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs', import.meta.url));
+  const { deviceOwnerDepositBridgeActorV1 } = await import(new URL('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs', import.meta.url));
   // Private delivery to the operator who performed explicit device pairing.
   // This value is never returned by GET state or obtained from a public ID.
   const descriptor = pairedOriginalAccountActorDescriptorV2(deviceOwnerDepositBridgeActorV1(input.depositBridge));

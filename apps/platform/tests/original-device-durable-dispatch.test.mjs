@@ -14,7 +14,7 @@ import {normalizeDeviceExitConsentV1,deviceExitConsentMessageV1} from '../../../
 import {normalizeNativePrivateDepositConsentV2,deviceDepositConsentEitherMessageV2,DEVICE_NATIVE_PRIVATE_DEPOSIT_V2} from '../../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs';
 import {normalizeNativePrivateExitConsentV2,deviceExitConsentEitherMessageV2,DEVICE_NATIVE_PRIVATE_EXIT_V2} from '../../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs';
 import { signDeviceMessage,signNativePrivateDeviceConsentV2 } from '../../mobile/src/custody/signing.mjs';
-const base = new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/', import.meta.url);
+const base = new URL('../../../packages/backend/src/', import.meta.url);
 const fixture = deviceReservationFixtureV1(), actor = Object.freeze({
   async deviceDepositOriginalBinding() { return fixture.consent.binding; },
 });
@@ -35,31 +35,29 @@ const deposit=Object.freeze({fund(input){return inertEffect(deposit,'fund',input
 const privateDeposit=Object.freeze({fund(input){return inertEffect(privateDeposit,'fund',input);}}),privateExecution=Object.freeze({withdraw(input){return inertEffect(privateExecution,'withdraw',input);}});
 const effectBrand=(value,legacy,privateOriginal)=>branded(value,value===privateOriginal?privateOriginal:legacy);
 const branded = (value, expected) => { assert.equal(value, expected, 'HOST_ORIGINAL_REFERENCE'); return actor; };
-mock.module(new URL('mobile/paired-original-account-actor-v2.mjs', base), { exports: {
+mock.module(new URL('operations/recovery/native-original-source-lifecycle-v1.mjs', base), { exports: {
   assertPairedOriginalAccountActorV2(value) { assert.equal(value, actor); },
   pairedOriginalAccountActorDescriptorV2(value) { assert.equal(value, actor); return fixture.descriptor; },
 } });
-mock.module(new URL('global-state/device-owner-deposit-bridge-v1.mjs', base), { exports: {
+mock.module(new URL('accounts/authority/native-value-account-authority-v2.mjs', base), { exports: {
   deviceOwnerDepositBridgeActorV1(value) { return effectBrand(value,deposit,privateDeposit); },
   isOriginalNativePrivateDepositBridgeV2(value){effectBrand(value,deposit,privateDeposit);return value===privateDeposit;},
   assertDeviceOwnerDepositDurableRequestV1(value,input){effectBrand(value,deposit,privateDeposit);effectPreflights++;return issuedEffect(value,'fund',input);},
-} });
-mock.module(new URL('global-state/device-owner-reservation-bridge-v1.mjs', base), { exports: {
+
   deviceOwnerReservationBridgeActorV1(value) { return branded(value, bridge); },
   async assertDeviceOwnerReservationDurableRequestV1(value, input) {
     branded(value, bridge); preflights++;
     assert.deepEqual(issued.get(input.consent.challengeId), input.consent, 'HOST_ISSUED_CONSENT_REQUIRED');
     return input.consent;
   },
-} });
-mock.module(new URL('global-state/device-owner-execution-bridge-v1.mjs', base), { exports: {
+
   deviceOwnerExecutionBridgeActorV1(value) { return effectBrand(value,execution,privateExecution); },
   isOriginalNativePrivateExecutionBridgeV2(value){effectBrand(value,execution,privateExecution);return value===privateExecution;},
   assertDeviceOwnerExecutionTransportBindingsV1(value,reservation){effectBrand(value,execution,privateExecution);branded(reservation,bridge);},
   assertDeviceOwnerExecutionDurableRequestV1(value,method,input){effectBrand(value,execution,privateExecution);effectPreflights++;assert.equal(method,'withdraw');return issuedEffect(value,method,input);},
 } });
 const { createOriginalDeviceDurableDispatchV1, runOriginalDeviceDurableDispatchV1, assertOriginalDeviceDurableDispatchBindingsV1, assertOriginalDeviceDurableRecoveryInfrastructureV1 }
-  = await import(new URL('mobile/original-device-durable-dispatch-v1.mjs', base));
+  = await import(new URL('api/mobile/original-device-durable-dispatch-v1.mjs', base));
 const bridges = { depositBridge: deposit, reservationBridge: bridge, executionBridge: execution };
 const key = '51'.repeat(32), deviceKey = new Uint8Array(32).fill(11);
 let nextId = 100;

@@ -37,7 +37,7 @@ assert.equal(process.execPath,fileURLToPath(new URL('../../../.internal/dev/tool
 assert.equal(process.argv.length,2,'PLATFORM_ORIGINAL_LOCAL_FIXED_ENTRY');assert.equal(process.argv[1],entry);
 assert.equal(await realpath(entry),entry);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
 assert.deepEqual(process.execArgv,['--max-old-space-size=384'],'PLATFORM_ORIGINAL_LOCAL_FIXED_HEAP');
-const backend=await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-operator-v1.mjs',import.meta.url));
+const backend=await import(new URL('../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs',import.meta.url));
 let acquisition,service,closeRequested=false,closing;
 function close(){closeRequested=true;return closing??=(async()=>{if(acquisition)service=await acquisition;if(service){const result=await service.close();assert.ok(result.closed&&result.originalResourcesStopped,'PLATFORM_ORIGINAL_LOCAL_CLOSE_UNCONFIRMED');}})();}
 const stop=()=>{void close().catch(()=>{process.stderr.write('PLATFORM_ORIGINAL_PRIVATE_NOTE_CLOSE_UNCONFIRMED\n');process.exitCode=1;});};
