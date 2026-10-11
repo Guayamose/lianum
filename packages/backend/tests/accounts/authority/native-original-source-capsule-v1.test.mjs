@@ -138,10 +138,14 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE continuation fen
   'refreshOriginalNativeDeviceLocalObservedClockV1','assertOriginalNativeDeviceLiveArmedObservedClockV1',
   'nativeValueOriginalRecoverySourceV1','reconcileOriginalDeviceNativeRecoveryV1'
  ].map(name=>[name,()=>{assert.fail('SOURCE continuation fence must reject before '+name);}])));
- let effects=0;const lease={},ports={assert,originalRecovery,format:Object.fromEntries(['sha','copy','graphBinding','calldataHash','decodeTerminal'].map(name=>[name,()=>assert.fail('no '+name+' before SOURCE fence')])),
+ let effects=0;const deny=name=>()=>{effects++;assert.fail('no '+name+' before SOURCE fence');};
+ const lease={},ports={originalRecovery,format:Object.fromEntries(['sha','copy','graphBinding','calldataHash','decodeTerminal','reference','bare','byteSHA'].map(name=>[name,deny(name)])),
+  profile:{nativeNote:true,wrapped:false,identity:Object.freeze({})},
+  chain:{runtime:Object.freeze({}),system:Object.freeze({}),pool:Object.freeze({}),nativeExecution:Object.freeze({}),reader:{read:deny('read'),assertCurrent:deny('assertCurrent')}},
+  approvals:{deviceExecutionInstallations:new WeakMap()},operations:{privateOwnerView:deny('privateOwnerView')},account:{capability:deny('capability')},
   continuity:{recovery:{source:true,sourceObservationRequired:true},lease:()=>lease},
   lifecycle:{exclusive:async work=>work(),healthy:async()=>{},continueWork(){},isBusy:()=>false,isClosed:()=>false,isCancelled:()=>false,isUnavailable:()=>false,isCapturing:()=>false},
-  reservations:{reservationRows:()=>{effects++;throw Error('effect must not run');}}};
+  reservations:Object.fromEntries(['reservationRow','reservationRows','reservationUpdate','reservationSubject','reservationObservation','originalReservationConsent'].map(name=>[name,deny(name)]))};
  const operations=createNativeValueExecutionOperations(ports),actual={arm:operations.armLiveRecovery,tick:operations.tickLiveRecovery};
  await assert.rejects(actual.arm({action:'ARM_RECOVERY',bridge:{},consent:{}}),/OBSERVE_BEFORE_CONTINUATION/);
  assert.deepEqual(await actual.tick(lease),{state:'BUSY'});assert.equal(effects,0);
