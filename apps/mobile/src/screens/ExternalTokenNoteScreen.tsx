@@ -1,3 +1,4 @@
+import {sameDeviceRecoveryCheckpointV1 as sameRecoveryCheckpoint,verifyDeviceRecoveryCopyV1,reviewDeviceRecoveryPreparationV1} from '../custody/device-recovery-copy-gate-v1.ts';
 import {readDeviceMetaMorphoRedemptionStatusV2,readDeviceMorphoBlueRedemptionStatusV1,readDeviceAaveStaticRedemptionStatusV1,createDeviceMetaMorphoRedemptionApiV2,createDeviceMorphoBlueRedemptionApiV1,createDeviceAaveStaticRedemptionApiV1} from '../api/device-morpho-blue-redemption-api-v1.mjs';
 import type {DeviceMetaMorphoConsentV2,DeviceMetaMorphoStatusV2,DeviceMorphoBlueConsentV1,DeviceMorphoBlueStatusV1,DeviceAaveStaticConsentV1,DeviceAaveStaticStatusV1} from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
 import {useEffect,useRef,useState} from 'react';
@@ -373,19 +374,12 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    setRecoveryCopy(copy);setNotice(prepared?'Guarda esta copia completa y su contraseña fuera del dispositivo. Incluye las nuevas aperturas; una copia anterior no las recupera. Confirma que la has guardado para revisar la autorización.':'Copia cifrada de tu identidad, esta nota y sus operaciones actuales. Guárdala fuera del dispositivo junto con tu contraseña. Las aperturas creadas después requieren una copia nueva.');
   }finally{password='';if(signing.current===controller)signing.current=null;}
  }
- function sameRecoveryCheckpoint(a:RecoveryCheckpoint,b:RecoveryCheckpoint){return a.rootId===b.rootId&&a.noteRevision===b.noteRevision&&a.descriptorSHA256===b.descriptorSHA256&&a.revision===b.revision&&a.recordSHA256===b.recordSHA256;}
  async function verifyRecoveryCut(selected:Connection,kind:RecoveryPreparation,witness:unknown,ticket:number){
-  const cut=recoveryCut.current;if(!cut||cut.selected!==selected||cut.kind!==kind||cut.prepared.witness!==witness)throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_REQUIRED');
-  const checkpoint=await selected.vault.recoveryCheckpoint();current(ticket,selected);
-  if(recoveryCut.current!==cut||!sameRecoveryCheckpoint(cut.checkpoint,checkpoint))throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_CHANGED');
+  return verifyDeviceRecoveryCopyV1(selected,kind,witness,ticket,{readCopy:()=>recoveryCut.current,assertCurrent:current});
  }
  async function reviewBackedPreparation(){
-  const selected=requireConnection(),ticket=epoch.current,cut=recoveryCut.current;
-  if(!cut||cut.selected!==selected||(cut.kind==='GRAPH'?graphPreparedRef.current:preparedRef.current)!==cut.prepared)throw Error('MOBILE_EXTERNAL_FLAT_RECOVERY_COPY_REQUIRED');
-  await verifyRecoveryCut(selected,cut.kind,cut.prepared.witness,ticket);
-  if(cut.kind==='GRAPH'){const prepared=graphPreparedRef.current!;await makeGraphReview(selected,prepared.draft,ticket,prepared.witness);}
-  else{const prepared=preparedRef.current!;await makeReview(selected,prepared.draft,ticket,prepared.witness);}
-  setRecoveryPreparation(null);
+  return reviewDeviceRecoveryPreparationV1(requireConnection(),epoch.current,{readCopy:()=>recoveryCut.current,assertCurrent:current,
+   readGraph:()=>graphPreparedRef.current,readShare:()=>preparedRef.current,reviewGraph:makeGraphReview,reviewShare:makeReview,clearPreparation:()=>setRecoveryPreparation(null)});
  }
  function confirmBackedPreparation(){if(busyRef.current)return;Alert.alert('Confirmar copia guardada','Confirma que has guardado fuera del dispositivo esta copia completa y su contraseña. Se revisará una autorización nueva; todavía no se envía la operación.',[{text:'Cancelar',style:'cancel'},{text:'He guardado la copia',onPress:()=>{void run(reviewBackedPreparation);}}],{cancelable:false});}
  async function restoreRecovery(){

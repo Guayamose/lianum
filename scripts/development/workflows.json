@@ -120,7 +120,8 @@
         "packages/mobile-protocol/tests/shared-entrypoints.test.mjs",
         "packages/mobile-protocol/tests/wallet-client-architecture.test.mjs",
         "packages/mobile-protocol/tests/consent-wire-compatibility.test.mjs",
-        "apps/mobile/tests/device-graph-string-table.test.mjs"
+        "apps/mobile/tests/device-graph-string-table.test.mjs",
+        "apps/mobile/tests/device-recovery-copy-gate.test.mjs"
       ]
     },
     "platform": {
