@@ -123,6 +123,10 @@ los 154 archivos y 845 imports del corte anterior. Están fuera de él la mecán
 EVM, el reloj SOURCE, los tres mecanismos de bridges, el actor móvil y la sesión
 nativa: cada familia conserva sus registros privados y recibe contratos fijos.
 La composición original conserva las funciones públicas y no acepta sustitutos.
+La implementación SOURCE (`native-original-source-lifecycle-backend-v1.mjs`)
+también está fuera del SCC; su composición canónica sigue dentro. Sus mapas son
+privados por instancia. La composición fija dieciséis loaders diferidos y diez
+dependencias originales; los 185 miembros públicos conservan sus firmas y guardas.
 
 El grupo restante reúne cinco familias principales: recuperación wrapped
 (`wrapped-recovery-authority-v1.mjs`), composición SOURCE
@@ -132,11 +136,12 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **88 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **90 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
 El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
-tipados. Los números canónicos y hashes de claims pertenecen a `value-codecs`;
+tipados. También están tipados el cierre BTC y los recibos SOURCE de datos,
+que no emiten autoridad de cuenta. Los números canónicos y hashes de claims pertenecen a `value-codecs`;
 sus consumidores no necesitan importar el protocolo/quorum para decodificar bytes.
 Siguen fuera los cuerpos superiores de autoridad nativa, keeper duradero,
 sesión general, estado económico, composición SOURCE y recuperación GRAPH/DeFi.

@@ -90,7 +90,9 @@ La prueba portátil conjunta incluye I84, paginada y el inspector de fuentes
 wrapped. Ejecuta desde `/` con permiso de lectura limitado al paquete y rechaza
 una clave paginada alterada, además de alteraciones de clave/programa/recibo y
 cápsula I84. Esta comprobación no ejecuta operaciones económicas ni arranca el
-sistema completo con sus workers.
+sistema completo con sus workers. El paquete también carga el worker RootNote
+canónico y comprueba la selección fija SPL SOURCE, sin invocar su constructor
+económico. El compilador y SDK ABI originales se cargan desde recursos autenticados.
 
 ## Cómo se reutiliza W39
 
