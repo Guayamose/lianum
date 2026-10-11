@@ -46,7 +46,7 @@ El informe de compilación sigue los módulos importados desde la entrada de com
 
 N32 comprueba sus nueve entradas originales de compilación en el archivo de entrega, con el manifiesto original fijado. Las fachadas nuevas de recursos no se hacen pasar por aquellas entradas. El lector conserva las verificaciones de programa, ABI, clave, stats, toolchain y CRS.
 
-El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Registra los lanzadores históricos por separado de las fuentes actuales. Los lectores financieros mantienen sus condiciones originales.
+El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Registra esos lanzadores por separado de las fuentes actuales. Los lectores financieros mantienen sus condiciones originales.
 
 ## Cómo se reutiliza W39
 

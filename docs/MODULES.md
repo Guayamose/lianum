@@ -61,6 +61,8 @@ importar la aplicación. Los contratos y el cliente sin DOM pertenecen a
 | Toolchain wallet/assembly y validadores de claves | `packages/proofs/src/toolchain/` y `src/verification/` | Entradas experimentales anteriores reexportan estos propietarios |
 | Despliegues DeFi y composición local wrapped | `packages/backend/src/operations/` | Los fixtures anteriores remiten a la implementación operativa |
 | Identidad de procesos y observación RSS | `packages/proofs/src/host/` | Helpers de tests reexportan la implementación |
+| Mecánica de runtime EVM y custodia por instancia | `packages/backend/src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs` | La fachada `owned-evm-v2-runtime.mjs` conserva las funciones del propietario original |
+| Journal SOURCE y composición original de runtime | `packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs` | La cápsula anterior reexporta el mismo propietario |
 
 Las pruebas importan implementaciones operativas. Los imports literales activos
 ya no apuntan a conductores de pruebas ni módulos ejecutables de `experiments/`.
@@ -75,6 +77,14 @@ observaciones health EVM/TRON; los lectores RPC separados no pueden emitir una
 observación acreditada por sí solos. La custodia económica local de EVM tiene
 una instancia fija creada por el kernel de runtime. Otra instancia del mecanismo
 no comparte sus handles ni permisos de firma.
+
+El backend mecánico de EVM recibe seis contratos concretos: journal,
+recuperación, SOURCE de dispositivo, reorg, dispatch y observación. No importa
+sus consumidores de cuentas, sesiones o controladores. La composición fija
+enlaza esos contratos con los propietarios originales; no ofrece configuración
+para sustituirlos en la instancia real. El journal conserva AEAD, CAS, tokens
+de un uso y sus registros privados. Las pruebas comprueban que otra instancia,
+incluso con un proceso local real, no obtiene autoridad del singleton original.
 
 ## Comprobación y deuda pendiente
 
@@ -108,11 +118,11 @@ El gateway paginado usa tres imports canónicos declarados en
 compatibilidad. Las fuentes experimentales fijadas por esa generación
 permanecen intactas como evidencia y no se ejecutan desde ese gateway.
 
-Queda **un componente cíclico interno** pendiente, principalmente en la composición backend de cuentas, ejecución, custodia y
-recuperación. El ciclo duradero SOURCE y las capacidades que cruzan esos dominios
-siguen siendo deuda pendiente. La separación entre paquetes no resuelve por sí
-sola ese acoplamiento. Consulta el informe del comprobador para el recuento y
-las aristas vigentes después de nuevos cambios.
+Queda **un componente cíclico interno de 154 archivos y 845 imports** en la
+composición backend de cuentas, ejecución, custodia y recuperación. El backend
+mecánico de EVM está fuera de ese componente. La composición SOURCE aún enlaza
+cuentas y sesiones que consumen sus permisos; ese acoplamiento sigue visible.
+La separación entre paquetes no equivale a eliminar esos ciclos internos.
 
 Las excepciones identifican consumidor y destino exactos. Las reubicaciones
 conservan su procedencia; no conceden permiso para añadir nuevas dependencias.

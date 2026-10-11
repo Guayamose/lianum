@@ -139,6 +139,8 @@ preparan la compatibilidad antes de ejecutarse. Nunca se edita la copia interna.
 `./dev sources status` identifica qué fuentes publicadas han cambiado.
 `./dev sources prepare` captura la nueva generación y verifica la reutilización
 exacta de artefactos; no ejecuta operaciones económicas ni publica una release.
+`./dev sources verify --generation <huella>` relee esa captura y la contrasta
+con las fuentes actuales y los artefactos originales.
 `./dev sources check` detecta diferencias frente a la publicación anterior,
 también después de preparar un candidato nuevo.
 Una generación preparada no acredita por sí sola el recorrido económico.

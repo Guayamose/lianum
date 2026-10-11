@@ -57,8 +57,9 @@ La reorganización ha separado responsabilidades reales y sus consumidores:
   no puede fabricar permisos del singleton real. El ciclo de vida de procesos
   propios y el guard de muerte del padre tienen tipos estrictos para entradas,
   PID, nacimiento y handles. No se deserializan objetos con autoridad.
-- **Contratos comprobados:** checkJs estricto pasa sobre 17 entradas reales,
-  frente a cuatro anteriores. Incluye autorizaciones y consentimientos móviles,
+- **Contratos comprobados:** checkJs estricto pasa sobre 27 entradas reales,
+  frente a 17 en el corte anterior. Añade formatos de commitments/statements,
+  recursos y CRS, preparación de cuentas y lectura de procesos/RSS. Incluye autorizaciones y consentimientos móviles,
   revisión y estado privado, rutas, errores, integridad y procesos. Treinta
   vectores originales conservan exactamente los bytes firmados y las entradas
   públicas. El resto del JavaScript todavía no está tipado de forma completa.
@@ -69,25 +70,37 @@ La reorganización ha separado responsabilidades reales y sus consumidores:
   cargas dinámicas necesita su declaración de recursos y aceptación propia.
 
 La comprobación de fronteras mantiene **un grupo circular interno de 154 archivos
-con 848 imports**, visible en `./dev boundaries`. La política conserva la
+con 845 imports**, visible en `./dev boundaries`. La política conserva la
 procedencia revisada de los imports trasladados, incluidos los que antes estaban
 fuera de `src`; no presenta esas dependencias como ciclos eliminados. Los ciclos
 nuevos siguen rechazados. El DAG de paquetes no equivale a independencia de
 cada módulo interno.
 
-**Pendiente estructural principal:** separar el contrato SOURCE entre cápsula,
-runtime, cuenta y sesión. Identidad/generación/revisión, inicio y confirmación de
-mutaciones, y consumo/reactivación de secciones siguen distribuidos mediante
-imports mutuos. La persistencia cifrada, el CAS y la reapertura ordenada ya
-existen; falta hacer explícitos sus contratos internos sin abrir emisores de
-permisos ni sustituir registros originales. El guard de procesos tipado no cierra
-por sí solo ese protocolo. También quedan módulos dinámicos sin tipado estricto
-y la aceptación económica de las nuevas fuentes. La deuda estructural no está
-cerrada al 100 %.
+**SOURCE y runtime:** la mecánica EVM está en
+`owned-evm-runtime-backend-v1.mjs`, fuera del componente cíclico. Sus registros
+privados de runtime, custodia y observación pertenecen a cada instancia. La
+composición fija `native-original-source-lifecycle-v1.mjs` conserva journal,
+AEAD/CAS y tokens de un uso, y conecta seis contratos concretos; las fachadas
+anteriores mantienen las mismas funciones. Las instancias alternativas se
+rechazan por los validadores del propietario original. Los consumidores actuales
+usan directamente el propietario del protocolo SOURCE.
+
+Se corrigieron también dos bloqueos al ejecutar fuentes: la recuperación wrapped
+buscaba el estado privado dentro de `backend/src`, y el clasificador de redes
+inspeccionaba rollups antes de reconocer un EVM propio. Los datos conservan su
+ubicación explícita; la clasificación usa la identidad privada del runtime y
+espera su comprobación de actividad. Dos pins corrientes de rollups y el pin del
+guard de procesos se revisaron contra sus cambios originales de código.
+
+**Deuda que permanece:** el componente circular de composición todavía enlaza
+cuentas, sesiones, controladores y recuperación. Aislar el backend EVM no elimina
+ese grupo. El tipado estricto tampoco abarca todo el JavaScript. La preparación
+de fuentes está desbloqueada, pero su publicación y aceptación económica siguen
+siendo trabajo distinto. No se declara cerrada toda la deuda estructural.
 
 **Verificación de esta revisión:** `./dev check` pasa con 251 casos HOST en
-7,2 segundos, fronteras sobre 916 fuentes, análisis estático de 862 módulos,
-17 entradas checkJs, nueve archivos con controles léxicos y siete contratos de
+7,9 segundos, fronteras sobre 919 fuentes, análisis estático de 865 módulos,
+27 entradas checkJs, nueve archivos con controles léxicos y siete contratos de
 operaciones. Pasan además 25 casos focales de los cortes EVM/DeFi, 5 de
 persistencia/reapertura SOURCE, las comprobaciones de procesos y los vectores
 móviles. Las selecciones se solapan y no constituyen una campaña económica.
@@ -107,14 +120,32 @@ y seis casos de recursos, identidad, alteración de código y symlinks. Las URLs
 traducidas del snapshot conservan la autoridad canónica paginada y los dos
 cargadores de recursos. Estas pruebas no generan pruebas criptográficas.
 
-`./dev sources prepare` registra 98 reubicaciones explícitas y conserva los
-hashes de la publicación. La captura `b3657626…` existe sin fuentes inventadas,
-pero el inspector original sigue **bloqueado**: su lista fija aún exige, entre
-otras, la antigua ruta de `native-receipt-binding.mjs` en backend, ahora ubicada
-en engine. El perfil paginado conserva además ocho divergencias frente a sus
-fuentes publicadas. No se ha publicado, compilado ni aceptado económicamente
-esta captura. La compatibilidad de esa publicación necesita una migración
-explícita; tener el grafo de paquetes limpio no acredita esa aceptación.
+`./dev sources prepare` ya termina en **VALIDATED_CANDIDATE**. La generación
+`a7e2eb6b1895ed4bbbaf834112e9521c40eadda820af3ae4d48634f0b459ccec`
+captura **1.641 archivos**, respeta las 98 reubicaciones y autentica los doce
+roles nativos y cinco paginados. `./dev sources verify --generation <huella>`
+termina en **READBACK_VERIFIED** tras releer objetos, fuentes, exports,
+publicaciones y artefactos. El contrato V7 declara sus límites: cierre ESM,
+inventarios móviles fijados y recursos dinámicos pendientes de sus consumidores.
+No presenta las fuentes actuales como las de una publicación histórica.
+
+N32 autentica sus nueve entradas originales de compilación archivadas. Paged
+verifica sus cien registros originales, incluidos los diez que difieren de las
+rutas actuales. Se conservaron cinco cuerpos exactos recuperados de Git
+(94.693 bytes) en `archive/source-evidence/`; el resto ya estaba archivado.
+Los objetos por contenido incluyen esa evidencia sin ejecutarla. Los lectores
+financieros y las publicaciones históricas mantienen sus condiciones originales.
+No se han generado pruebas, publicado una release ni aceptado económicamente
+esta nueva captura. [Contrato y comandos](docs/SOURCE-GENERATIONS.md).
+
+El corte adicional pasa tres pruebas de aislamiento con custodia y Anvil
+locales reales, seis de recuperación del proveedor, doce de recuperación
+wrapped/bootstrap y las regresiones SOURCE de AEAD/CAS y caída abrupta. Pasan
+19 casos de formatos/recursos/RSS, 16 de preparación/readback y los controles
+de manipulación de N32 y Paged. Son selecciones focales y algunas se solapan;
+no se presentan como una campaña económica nueva. La verificación de disposición
+comprueba 2.440 archivos físicos y los 2.649 originales. Los 52 archivos
+protegidos de la revisión, incluida la visión, conservan sus hashes.
 
 Los hashes actuales se gestionan con `./dev pins check|update`; los originales y
 las publicaciones mantienen sus verificaciones independientes. El inventario y
