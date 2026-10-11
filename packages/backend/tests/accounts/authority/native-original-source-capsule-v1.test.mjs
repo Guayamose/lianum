@@ -43,8 +43,8 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE fixed session co
  assert.equal((await recovered.close()).phase,'CLOSED');assert.equal(sessionCloses,1);
 });
 let activeHost;
-async function capsule(root){activeHost?.restore();activeHost=await createNativeSourceHost(root);return activeHost;}
-async function prepare(root,mode){const host=await capsule(root),{api,resources}=host,authority=await api.createOriginalNativeSourceCapsuleV1();const joinedClock=await api.createOriginalNativeSourceObservedClocksV1(authority);
+async function capsule(root,options){activeHost?.restore();activeHost=await createNativeSourceHost(root,options);return activeHost;}
+async function prepare(root,mode){const host=await capsule(root,{largeContracts:mode==='large-body'}),{api,resources}=host,authority=await api.createOriginalNativeSourceCapsuleV1();const joinedClock=await api.createOriginalNativeSourceObservedClocksV1(authority);
  for(const section of ['bootstrap','system','provider','owner','executor'])await api.retainOriginalNativeSourceReferenceV1(authority,section,Object.freeze({financialAcceptance:false}));
  const account=await api.createOriginalNativeSourceAccountV1(authority,{});await api.createOriginalNativeSourceSessionV1(authority,{account});await api.retainOriginalNativeSourceReferenceV1(authority,'actor',Object.freeze({financialAcceptance:false}));await api.retainOriginalNativeSourceClockCheckpointV1(authority,joinedClock.clock);await api.finishOriginalNativeSourceBirthV1(authority);
  if(mode==='native-completed'){
@@ -79,7 +79,7 @@ if(process.argv[2]==='--source-capsule-child'){
   if(mode!=='confirmed'){assert.equal(status.phase,'UNKNOWN');assert.equal(status.pending,true);assert.equal(status.observationOnly,true);await assert.rejects(api.createOriginalNativeSourceClockPairV1(authority),/PENDING_UNKNOWN/);await assert.rejects(api.reopenOriginalNativeSourceReferenceV1(authority,'receiver',{}),/PENDING_UNKNOWN/);await api.closeOriginalNativeSourceCapsuleV1(authority);continue;}
   assert.equal(status.phase,'OPENING');assert.equal(status.generation,1);
   for(const section of Object.keys(schemas))await api.reopenOriginalNativeSourceReferenceV1(authority,section,{});
-  assert.deepEqual(host.section('system').confirmed.originalContracts.map(value=>value.length),[933336,933336]);
+  assert.deepEqual(host.section('system').confirmed.originalContracts.map(value=>value.length),[128,128]);
   await api.finishOriginalNativeSourceReopenV1(authority);assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).phase,'CONFIRMED');assert.equal(host.tokenIdentity('account').profile,'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1');
   const original=host.section('account');await host.update('account',original);assert.equal(api.originalNativeSourceCapsuleStatusV1(authority).pending,false);assert.throws(()=>api.assertOriginalNativeSourceCapsuleV1({...authority}),/ORIGINAL_CAPSULE/);
   await api.closeOriginalNativeSourceCapsuleV1(authority);await assert.rejects(api.openOriginalNativeSourceCapsuleV1(),/OLD_PROCESS_PRESENT/);
@@ -117,7 +117,7 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE resumes complete
 
 if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE journal body keeps the confirmed AEAD slot when root CAS fails',async t=>{
  const root=await mkdtemp(join(tmpdir(),'native-source-body-host-'));t.after(()=>rm(root,{recursive:true,force:true}));
- const host=await prepare(root,'confirmed'),{api,authority}=host,identity=api.assertOriginalNativeSourceCapsuleV1(authority),before=await host.stored(authority),clear=Buffer.from(host.codec.sourceJSON((await host.readRecord(authority)).data)),packed=deflateRawSync(clear),sizes={oldBase64Chars:packed.toString('base64').length,clearBytes:clear.length};clear.fill(0);packed.fill(0);
+ const host=await prepare(root,'large-body'),{api,authority}=host,identity=api.assertOriginalNativeSourceCapsuleV1(authority),before=await host.stored(authority),clear=Buffer.from(host.codec.sourceJSON((await host.readRecord(authority)).data)),packed=deflateRawSync(clear),sizes={oldBase64Chars:packed.toString('base64').length,clearBytes:clear.length};clear.fill(0);packed.fill(0);
  assert.ok(sizes.oldBase64Chars>1024*1024,'HOST_ORIGINAL_INLINE_VAULT_CAPACITY_REPRODUCED');assert.ok(sizes.clearBytes<=64*1024*1024);assert.ok(Buffer.byteLength(canonical(before.data))<1024);
  assert.equal(before.data.schema,'ORIGINAL_NATIVE_SOURCE_PRIVATE_JOURNAL_BODY_V1');assert.equal(before.data.revision,before.revision);
  const path=join(identity.directory,before.data.path),original=await readFile(path);assert.equal(original.length,before.data.bytes);assert.equal(createHash('sha256').update(original).digest('hex'),before.data.sha256);

@@ -16,7 +16,6 @@ import {assertOwnedFlatManualPortfolioKeeper} from '../portfolio/flat-manual-por
 import {assertOwnedFlatManualAccountKeeper} from '../storage/flat-manual-account-keeper.mjs';
 import {createRecoveredDeviceInstallations} from './native-value/recovered-device-installations.mjs';
 import {createLiveRecoveryLeaseFamily} from './native-value/live-recovery-leases.mjs';
-import {reconcileNativeSourceAccountCheckpointDataV1} from '../../operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs';
 import { createNativeValueAccountJournals } from './native-value/native-value-authority-journals.mjs';
 import { createNativeValueDeposits } from './native-value/native-value-authority-deposits.mjs';
 import { createNativeValueReservations } from './native-value/native-value-authority-reservations.mjs';
@@ -27,7 +26,7 @@ import { createNativeValueManualLifecycle } from './native-value/native-value-au
 import { createNativeValueAccountInterface } from './native-value/native-value-authority-interface.mjs';
 
 import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
-  updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1, consumeOriginalNativeSourceAccountCheckpointV1 }
+  updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 }
   from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { assertOriginalNativeSourceObservedClockV1 } from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 
@@ -65,7 +64,7 @@ import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash, val
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
-import { createWrappedWalletTerminalObserverV1 } from '../../execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs';
+import { createWrappedWalletTerminalObserverV1 } from '../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import { assertOwnedWrappedClaimOwnerProcessV1 } from '../../custody/processes/wrapped-claim-owner-process-v1.mjs';
 import { createWrappedClaimOwnerObserverV1, assertOwnedWrappedClaimOwnerObserverV1 } from '../../custody/observers/wrapped-claim-owner-observer-v1.mjs';
 
@@ -541,7 +540,7 @@ async function createOriginalNativeSourceAccount(token,input,callbacks) {
 }
 async function createAccountAuthority(input, callbacks, wrapped, recovery=null,nativeNote=false,liveArmedOriginal=null,nativeSourceOriginal=null) {
   assert.ok(!nativeNote||!wrapped,'NATIVE_ECONOMIC_NOTE_ORIGINAL_NATIVE_ONLY');
-  const wrappedExecution = wrapped ? await import('../../execution/wrapped/execution/wrapped-wallet-execution-v1.mjs') : null;
+  const wrappedExecution = wrapped ? await import("../../execution/native-value/execution/native-value-execution-v2.mjs") : null;
   const assertOwnedNativeValueWalletSystem = wrapped ? assertOwnedWrappedClaimWalletSystemV1 : nativeSystem;
   const createNativeValueSystemStateReader = wrapped ? createWrappedWalletStateReaderV1 : nativeReader;
   const assertOwnedNativeValueExecution = wrapped ? wrappedExecution.assertOwnedWrappedWalletExecutionV1 : nativeExecutionAssert;
@@ -1634,16 +1633,6 @@ export async function reopenOriginalNativeAccountEconomicRecoveryV1(token, conte
 export function nativeValueOriginalRecoverySourceV1FromAccount(account) {
   assert.equal(arguments.length, 1); assertOwnedNativeValueAccountAuthority(account);
   const state = owned.get(account); return nativeValueOriginalRecoverySourceV1(state.runtime, state.system);
-}
-
-/** Private capsule-only checkpoint reconciliation. This reads the original
- * encrypted account journal and never issues account, proof or send authority.
- * A foreign/latest revision cannot replace either authenticated checkpoint. */
-export async function reconcileOriginalNativeAccountSourceCheckpointV1(request) {
- assert.equal(arguments.length,1);
- return reconcileNativeSourceAccountCheckpointDataV1(consumeOriginalNativeSourceAccountCheckpointV1(request),{
-  readAccountRecord:(directory,password)=>new Vault(join(directory,'operations.vault')).read(password),hashRecord:sha,immutable,
- });
 }
 
 /** Abrupt SOURCE opening is possible only after the capsule has proved every

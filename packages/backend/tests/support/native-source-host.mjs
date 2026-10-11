@@ -12,12 +12,13 @@ import {createNativeSourceJournalCodecV1} from '../../src/operations/recovery/so
 import {privateDirectory,readPrivate,replace} from '../../src/operations/recovery/source-journal/private-files-v1.mjs';
 import {processIdentity} from '../../src/operations/recovery/source-journal/process-identity-v1.mjs';
 import {clearNativeSourceAccountCheckpointLockV1} from '../../src/operations/recovery/source-journal/account-lock-v1.mjs';
-import {reconcileNativeSourceAccountCheckpointDataV1,reconcileNativeSourceActorCheckpointDataV1} from '../../src/operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs';
+import * as originalCheckpointData from '../../src/operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs';
+const {reconcileNativeSourceAccountCheckpointDataV1,reconcileNativeSourceActorCheckpointDataV1}=originalCheckpointData;
 
 export const sourceHostSchemas=Object.freeze({receiver:'ORIGINAL_NATIVE_SOURCE_RUNTIME_V1',graphNative:'ORIGINAL_NATIVE_SOURCE_RUNTIME_V1',bootstrap:'ORIGINAL_NATIVE_BOOTSTRAP_DURABLE_SOURCE_V1',system:'ORIGINAL_NATIVE_SYSTEM_DURABLE_SOURCE_V1',provider:'ORIGINAL_NATIVE_PROVIDER_DURABLE_SOURCE_V1',owner:'ORIGINAL_NATIVE_OWNER_DURABLE_SOURCE_V1',executor:'ORIGINAL_NATIVE_EXECUTOR_DURABLE_SOURCE_V1',account:'ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1',session:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',actor:'ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1'});
 const recoveryURL=new URL('../../src/operations/recovery/',import.meta.url);
 
-export async function createNativeSourceHost(root){
+export async function createNativeSourceHost(root,{largeContracts=false}={}){
  const brands=new WeakMap(),identities=new WeakMap(),resources={},handles={},tokens={},sections={},mocks=[],checkpointChecks={account:0};
  let api,rootFault=false,candidateFault=false,stopAfterCandidate=false;
  const accountReaders={readAccountRecord:(directory,password)=>new Vault(join(directory,'operations.vault')).read(password),hashRecord:sha,immutable};
@@ -35,7 +36,8 @@ export async function createNativeSourceHost(root){
  const install=(url,exports)=>mocks.push(mock.module(url,{exports}));
  async function retain(token,section,resource){
   const identity=api.nativeSourceRecoverySectionIdentityV1(token,section);
-  const value={schema:sourceHostSchemas[section],sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:{schema:'EXPLICIT_INERT_SOURCE_HOST_SECTION_V1',section,financialAcceptance:false,...(section==='system'?{originalContracts:[randomBytes(700000).toString('base64'),randomBytes(700000).toString('base64')]}:{})},candidate:null};
+  const contractBytes=largeContracts?700000:96;
+  const value={schema:sourceHostSchemas[section],sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:{schema:'EXPLICIT_INERT_SOURCE_HOST_SECTION_V1',section,financialAcceptance:false,...(section==='system'?{originalContracts:[randomBytes(contractBytes).toString('base64'),randomBytes(contractBytes).toString('base64')]}:{})},candidate:null};
   handles[section]=await api.retainOriginalNativeSourceSectionV1(token,section,value);tokens[section]=token;sections[section]=value;resources[section]=resource;return resource;
  }
  const nativeBackend={
@@ -76,10 +78,13 @@ export async function createNativeSourceHost(root){
  install(new URL('native-original-source-parts-v1.mjs',recoveryURL),parts);
  install(new URL('../../accounts/authority/native-value-account-authority-v2.mjs',recoveryURL),{
   createOriginalNativeSourceNoteAccountAuthorityV1:token=>retain(token,'account',Object.freeze({financialAcceptance:false})),
-  async reconcileOriginalNativeAccountSourceCheckpointV1(request){
-   assert.throws(()=>api.consumeOriginalNativeSourceAccountCheckpointV1({...request}),/ORIGINAL_CHECKPOINT_REQUEST/);
-   const input=api.consumeOriginalNativeSourceAccountCheckpointV1(request),result=await reconcileNativeSourceAccountCheckpointDataV1(input,accountReaders);
-   assert.throws(()=>api.consumeOriginalNativeSourceAccountCheckpointV1(request),/ORIGINAL_CHECKPOINT_REQUEST/);checkpointChecks.account++;return result;
+ });
+ install(new URL('source-journal/checkpoint-reconciliation-v1.mjs',recoveryURL),{
+  ...originalCheckpointData,
+  async reconcileNativeSourceAccountCheckpointDataV1(input,readers){
+   assert.throws(()=>api.consumeOriginalNativeSourceAccountCheckpointV1({...input}),/ORIGINAL_CHECKPOINT_REQUEST/);
+   const result=await reconcileNativeSourceAccountCheckpointDataV1(input,readers);
+   checkpointChecks.account++;return result;
   }
  });
  install(new URL('../deployments/native-value/native-value-system-v2.mjs',recoveryURL),{});

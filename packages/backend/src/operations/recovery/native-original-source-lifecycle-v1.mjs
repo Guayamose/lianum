@@ -1,6 +1,6 @@
-import {genericAccountIdentity,sha as accountJournalSHA256} from '@lianum/engine/accounts/journal';
+import {genericAccountIdentity,immutable,sha as accountJournalSHA256} from '@lianum/engine/accounts/journal';
 import {buildNativeManualSessionV1} from '../../api/accounts/native-manual-session-backend-v1.mjs';
-import {originalActorFrameDataV1, reconcileNativeSourceActorCheckpointDataV1} from './source-journal/checkpoint-reconciliation-v1.mjs';
+import {originalActorFrameDataV1, reconcileNativeSourceActorCheckpointDataV1, reconcileNativeSourceAccountCheckpointDataV1} from './source-journal/checkpoint-reconciliation-v1.mjs';
 import {buildOriginalNativeSourceClockBackendV1} from './native-original-source-clock-backend-v1.mjs';
 import {privateDirectory,syncDirectory,readPrivate,exclusive,replace} from './source-journal/private-files-v1.mjs';
 import {processIdentity,validateProcess,absent} from './source-journal/process-identity-v1.mjs';
@@ -69,7 +69,18 @@ export function consumeOriginalNativeSourceActorCheckpointV1(request){assert.equ
 async function reconcileCheckpoints(s){const before=copy(s.record.data),native={};
  for(const name of FAMILIES){const row=before.native[name];if(row.pending!==null){await readNativeState(s,name,row.candidate.confirmed);native[name]={pending:null,confirmed:copy(row.candidate.confirmed),candidate:null};}}
  let actor=null;if(before.sections.actor.candidate!==null){const request=opaque();checkpointRequests.set(request,{s,section:'actor',revision:s.record.revision,used:false});await Promise.resolve();actor=await reconcileOriginalNativeActorSourceCheckpointV1(request);validateSection(actor,s.identity,'actor');assert.equal(actor.candidate,null);}
- let account=null;if(before.sections.account.candidate!==null||actor){const request=opaque();checkpointRequests.set(request,{s,section:'account',revision:s.record.revision,used:false});const module=await import('../../accounts/authority/native-value-account-authority-v2.mjs');account=await module.reconcileOriginalNativeAccountSourceCheckpointV1(request);validateSection(account,s.identity,'account');assert.equal(account.candidate,null);await clearOriginalAccountCheckpointLock(s,account);}
+ let account=null;
+ if(before.sections.account.candidate!==null||actor){
+  const request=opaque();
+  checkpointRequests.set(request,{s,section:'account',revision:s.record.revision,used:false});
+  account=await reconcileNativeSourceAccountCheckpointDataV1(consumeOriginalNativeSourceAccountCheckpointV1(request),{
+   readAccountRecord:(directory,password)=>new Vault(join(directory,'operations.vault')).read(password),
+   hashRecord:accountJournalSHA256,immutable,
+  });
+  validateSection(account,s.identity,'account');
+  assert.equal(account.candidate,null);
+  await clearOriginalAccountCheckpointLock(s,account);
+ }
  if(Object.keys(native).length||account||actor)await update(s,data=>{assert.deepEqual(data,before,'NATIVE_SOURCE_ORIGINAL_CHECKPOINT_CHANGED');for(const name of Object.keys(native))data.native[name]=native[name];if(account)data.sections.account=dataCopy(account);if(actor)data.sections.actor=dataCopy(actor);return data;});}
 function original(authority,allowUnknown=false){const s=authorities.get(authority);assert.ok(s&&!s.closed&&!s.fault,'NATIVE_SOURCE_ORIGINAL_CAPSULE');assert.ok(allowUnknown||s.record.data.phase!=='UNKNOWN','NATIVE_SOURCE_PENDING_UNKNOWN');assert.ok(Date.now()<s.identity.deadlineMs,'NATIVE_SOURCE_ORIGINAL_DEADLINE');return s;}
 async function update(s,change){const operation=s.tail.then(async()=>{assert.ok(!s.closed&&!s.fault,'NATIVE_SOURCE_UNAVAILABLE');await privateDirectory(s.identity.directory);
@@ -232,7 +243,7 @@ const originalEvmRuntimeBackend = buildOwnedEvmRuntimeBackendV1(Object.freeze({
    return Object.freeze({ assertOwnedEvmDispatchRequest: module0.assertOwnedEvmDispatchRequest, isOwnedClaimEvmDispatchRequest: module1.isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest: module1.assertOwnedClaimEvmDispatchRequest, isWrapped: module2.isOwnedClaimEvmDispatchRequest, openWrapped: module2.assertOwnedClaimEvmDispatchRequest });
   },
   async paged() {
-   const module0 = await import('../../chains/evm/dispatch/funded-paged-native-gate-v3.mjs');
+   const module0 = await import("../../providers/funded-paged-native-provider-v3.mjs");
    return Object.freeze({ openOriginalPagedNativeDispatchV3: module0.openOriginalPagedNativeDispatchV3 });
   },
   async native() {
