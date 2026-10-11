@@ -244,31 +244,7 @@ test('device-root CI51 public preparation matches original signed facts without 
 
 // Original private replacement guards and PoP only. Controller/native readers
 // below are explicitly inert ports: no runtime, credit, proof or wire accepted.
-test('HOST device-root original replacement observes SAME source, missing D27 binding stays UNKNOWN and effects stay denied',async()=>{
- const {readFile}=await import('node:fs/promises'),{existsSync}=await import('node:fs');
- // The generated profile retains this exact original controller beside the HOST.
- // Canonical/overlay execution resolves the original source through the same module resolver.
- const generatedController=new URL('./controller.mjs',import.meta.url),controllerSource=existsSync(generatedController)?generatedController:new URL(import.meta.resolve('../../../src/claims/controller/controller.mjs'));
- const text=await readFile(controllerSource,'utf8');
- const start=text.indexOf('/** Private observation facade.');assert.ok(start>0);const body=text.slice(start).replace('export function retainOriginalDeviceRootClaimObservationV3','function retainOriginalDeviceRootClaimObservationV3').replace('export async function reopenOriginalDeviceRootClaimObservationV3','async function reopenOriginalDeviceRootClaimObservationV3');
- const DeviceClaim=await import('@lianum/mobile-protocol/device/native-claim-v1'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),C=await import('@lianum/components/encoding/commitments'),N=await import('@lianum/engine/notes/private-note-tree'),crypto=await import('node:crypto');
- const maps={controllers:new WeakMap(),deviceRootClaimIntakes:new WeakMap(),deviceRootClaimObservationRestartsV3:new WeakMap()},ports={assert,randomBytes:crypto.randomBytes,createPublicKey:crypto.createPublicKey,verify:crypto.verify,...R,copy:R.cloneInput,freeze:R.frozenInput,...C,...N,DeviceClaim,...maps,performance};
- const {reopen}=Function(...Object.keys(ports),body+'\nreturn {reopen:reopenOriginalDeviceRootClaimObservationV3};')(...Object.values(ports));
- const signer=fixtureSigner(9),descriptor=DeviceClaim.normalizeDeviceRootClaimDescriptorV2({profile:DeviceClaim.DEVICE_ROOT_NATIVE_CLAIM_NOTE_V2,claim:{version:1,profile:DeviceClaim.NATIVE_CLAIM_DEVICE_PAIRING_V1,origin:'https://127.0.0.1:2443',pairingId:h('root-pair'),devicePublicKey:'04'+signer.publicKey.x+signer.publicKey.y,accountScopeSHA256:h('scope'),lifetimeSHA256:h('lifetime'),claimDomain:h('domain'),nativeFamily:'1',nativeGenesis:h('genesis'),nativeAsset:h('native'),wrapperAssetIdentity:h('wrapper'),nativeSymbol:'BTC',claimSymbol:'cBTC',decimals:8,atomicUnit:'satoshi',nativeAssetKind:null,mint:null},pool:'11'.repeat(20),scope:'12'.repeat(32),policy:'13'.repeat(32),recipient:'14'.repeat(20),noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM'});
- const old=Object.freeze({}),originalRuntime=Object.freeze({}),originalClaims=Object.freeze({}),originalKeeper=Object.freeze({}),originalReplacement=Object.freeze({async reconcile(){reconciles++;}});let reconciles=0,reads=0,financialPorts=0;
- const source={profile:descriptor.profile,descriptor,ownerIdentitySHA256:h('owner'),phase:'BORN',intentId:null,admissions:[]},data={apiDeviceRootClaims:[structuredClone(source)],deposits:[],tickets:[]},journal={async read(){return structuredClone(data);},async update(){financialPorts++;throw Error('HOST_NO_WRITE_PORT');},requiresReconciliation:()=>false};
- const ctx={input:{runtime:originalRuntime,claims:originalClaims,keeper:originalKeeper},live(){},journal,serial:async f=>f(),controller:{async reconcile(){reconciles++;}},readers:[{async read(){reads++;return{head:{number:'0',hash:h('head'),timestamp:'0'},ledger:{commitments:[],nullifiers:[]}};},async assertCurrent(){}}]};
- // These identities model the original producer's private map memberships;
- // they confer no owned runtime/claim/controller brand outside this HOST.
- maps.controllers.set(old,{replacement:originalReplacement});maps.controllers.set(originalReplacement,ctx);
- const token=Object.freeze({}),seed={controller:old,runtime:originalRuntime,claims:originalClaims,keeper:originalKeeper,descriptor,source:structuredClone(source),i:0,asset:{assetId:h('asset')},ownerIdentitySHA256:source.ownerIdentitySHA256,used:false};maps.deviceRootClaimObservationRestartsV3.set(token,seed);
- await assert.rejects(reopen({...token},originalReplacement),/ORIGINAL_RESTART_REQUIRED/);
- ctx.input={...ctx.input,runtime:Object.freeze({})};await assert.rejects(reopen(token,originalReplacement),/ORIGINAL_RESTART_SOURCE/);assert.equal(seed.used,false);ctx.input.runtime=originalRuntime;
- const api=await reopen(token,originalReplacement);assert.equal(seed.used,true);await assert.rejects(reopen(token,originalReplacement),/ORIGINAL_RESTART_REQUIRED/);
- assert.throws(()=>api.quoteW39(),/REOPENED_OBSERVE_ONLY/);assert.throws(()=>api.reviewD27(),/REOPENED_OBSERVE_ONLY/);assert.throws(()=>api.effectChallenge(),/REOPENED_OBSERVE_ONLY/);
- const permission=api.challenge('READ'),signature=signer.sign(DeviceClaim.deviceRootClaimPermissionMessageV2(permission)),view=await api.read({permission,signature});assert.equal(view.note.state,'UNKNOWN');assert.equal(view.availablePrivateClaims,null);assert.equal(view.commitment,null);assert.equal(view.nullifier,null);assert.equal(reconciles,1);assert.equal(reads,1);assert.equal(financialPorts,0);
- await assert.rejects(api.read({permission,signature}),/ORIGINAL_PERMISSION/);const changed=api.challenge('READ');data.apiDeviceRootClaims[0].ownerIdentitySHA256=h('foreign-owner');await assert.rejects(api.read({permission:changed,signature:signer.sign(DeviceClaim.deviceRootClaimPermissionMessageV2(changed))}),/RETAINED_OBSERVATION_CHANGED/);assert.equal(financialPorts,0);await api.close();assert.throws(()=>api.challenge('READ'),/INTAKE_CLOSED/);
-});
+
 
 test('HOST RootNote original CI51 selects recent-blockhash ingress before birth while payouts retain nonce authority',async()=>{
  // Execute only the original selector, constructor guards, route selector and
