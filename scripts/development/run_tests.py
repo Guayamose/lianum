@@ -37,6 +37,7 @@ DEFAULT_TESTS = [
     'packages/backend/tests/claims/recovery/device-root-claim-observation-v3.test.mjs',
     'packages/backend/tests/operations/support/wrapped-recovery-composition.test.mjs',
     'packages/backend/tests/operations/support/device-graph-recovery-contracts.test.mjs',
+    'packages/engine/tests/storage/bounded-file-reader-v1.test.mjs',
 ]
 
 

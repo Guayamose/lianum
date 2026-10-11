@@ -7,6 +7,7 @@ import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync }
 import { lstat, mkdir, open, readdir, rename, unlink } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { types } from 'node:util';
+import { createBoundedFileReaderV1 } from './bounded-file-reader-v1.mjs';
 
 const FORMAT = 'LIANUM_CLAIM_RECORD_STORE_V3';
 const KDF = Object.freeze({ name: 'scrypt', N: 32768, r: 8, p: 1 });
@@ -103,34 +104,7 @@ async function directory(path) {
   const stat = await lstat(path);
   check(stat.isDirectory() && !stat.isSymbolicLink(), 'CLAIM_STORE_UNSAFE_DIRECTORY');
 }
-async function boundedRead(path, maximum = LIMIT.envelopeBytes) {
-  const metadata = await lstat(path);
-  check(metadata.isFile() && !metadata.isSymbolicLink(), 'CLAIM_STORE_UNSAFE_FILE');
-  const handle = await open(path, 'r');
-  try {
-    const stat = await handle.stat();
-    check(stat.isFile() && stat.size <= maximum, 'CLAIM_STORE_FILE_SIZE');
-    // FD size selects allocation only, never the trusted read limit or EOF.
-    // Tiny encrypted cells need not allocate/wipe the whole 2 MiB envelope
-    // bound. A concurrent grow still reads/probes through the original max+1.
-    let buffer = Buffer.alloc(Math.min(maximum + 1, Math.max(4096, stat.size + 1))), offset = 0;
-    try {
-      while (offset < maximum + 1) {
-        if (offset === buffer.length) {
-          const larger = Buffer.alloc(Math.min(maximum + 1, buffer.length * 2));
-          try { buffer.copy(larger, 0, 0, offset); }
-          catch (error) { larger.fill(0); throw error; }
-          buffer.fill(0); buffer = larger;
-        }
-        const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
-        if (!bytesRead) break;
-        offset += bytesRead;
-      }
-      check(offset <= maximum, 'CLAIM_STORE_FILE_SIZE');
-      return buffer.subarray(0, offset).toString('utf8');
-    } finally { buffer.fill(0); }
-  } finally { await handle.close(); }
-}
+const boundedRead = createBoundedFileReaderV1({ lstat, open, check, defaultMaximum: LIMIT.envelopeBytes });
 async function syncDirectory(path) {
   if (process.platform === 'win32') return; // Same explicit platform limit as Vault.
   const handle = await open(path, 'r');
