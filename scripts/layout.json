@@ -4,6 +4,14 @@
   "delivery": "archive/delivery",
   "rules": [
     {
+      "source": "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/account/durable-generic-account-keeper.mjs"
+    },
+    {
+      "source": "packages/backend/tests/support/",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/test-support/"
+    },
+    {
       "source": "packages/proofs/src/host/",
       "runtime": "omnichain-flat-profile/flat-wallet/proof-workers/host/"
     },

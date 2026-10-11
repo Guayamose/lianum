@@ -1,0 +1,34 @@
+{
+  "schema": "LIANUM_STATIC_OPERATION_PORTS_V1",
+  "composition": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+  "factories": [
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
+      "name": "createNativeValueDeposits"
+    },
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs",
+      "name": "createNativeValueReservations"
+    },
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs",
+      "name": "createNativeValueExecutionOperations"
+    },
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs",
+      "name": "createNativeValueWithdrawals"
+    },
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs",
+      "name": "createNativeValueOwnerOperations"
+    },
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs",
+      "name": "createNativeValueManualLifecycle"
+    },
+    {
+      "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs",
+      "name": "createNativeValueAccountInterface"
+    }
+  ]
+}

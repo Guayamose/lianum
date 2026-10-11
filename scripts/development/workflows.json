@@ -18,7 +18,10 @@
       "tests": [
         "packages/backend/tests/api/wallet/wallet-application-client.test.mjs",
         "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs",
-        "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs"
+        "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs",
+        "packages/backend/tests/accounts/storage/durable-generic-account-keeper.test.mjs",
+        "packages/backend/tests/accounts/authority/native-value-withdrawal-context.test.mjs",
+        "packages/backend/tests/accounts/authority/native-value-authority-journals.test.mjs"
       ]
     },
     "custody": {
@@ -71,7 +74,8 @@
         "packages/components/"
       ],
       "tests": [
-        "packages/components/test/framing.test.mjs"
+        "packages/components/test/framing.test.mjs",
+        "packages/components/test/encoding-boundary.test.mjs"
       ]
     },
     "environment": {
@@ -87,7 +91,7 @@
         "contracts/"
       ],
       "tests": [],
-      "manual": "Seleccionar compilación y pruebas del contrato cambiado; el catálogo host no acredita bytecode ni despliegue. Consultar contracts/README.md."
+      "manual": "Seleccionar compilaci\u00f3n y pruebas del contrato cambiado; el cat\u00e1logo host no acredita bytecode ni despliegue. Consultar contracts/README.md."
     },
     "mobile": {
       "watch": [
@@ -97,7 +101,9 @@
       "tests": [
         "apps/mobile/tests/authorization.test.mjs",
         "apps/mobile/tests/original-account-api-v2.test.mjs",
-        "apps/mobile/tests/local-root-note-vault-v1.test.mjs"
+        "apps/mobile/tests/local-root-note-vault-v1.test.mjs",
+        "packages/mobile-protocol/tests/shared-entrypoints.test.mjs",
+        "packages/mobile-protocol/tests/wallet-client-architecture.test.mjs"
       ]
     },
     "platform": {
@@ -142,28 +148,28 @@
       "level": "host",
       "entry": "apps/wallet/src/server/run.mjs",
       "command": "./dev start",
-      "description": "Wallet web local; la disponibilidad económica depende del perfil conectado."
+      "description": "Wallet web local; la disponibilidad econ\u00f3mica depende del perfil conectado."
     },
     {
       "id": "mobile",
       "level": "component",
       "entry": "apps/mobile/package.json",
       "command": "./dev npm --prefix apps/mobile start",
-      "description": "Cliente Expo; necesita dependencias móviles y un development build."
+      "description": "Cliente Expo; necesita dependencias m\u00f3viles y un development build."
     },
     {
       "id": "platform",
       "level": "component",
       "entry": "apps/platform/src/entry.mjs",
       "command": "./dev platform admission",
-      "description": "API de admisión; original-native-new y original-native-reopen son perfiles explícitos con configuración privada y estado original conservado."
+      "description": "API de admisi\u00f3n; original-native-new y original-native-reopen son perfiles expl\u00edcitos con configuraci\u00f3n privada y estado original conservado."
     },
     {
       "id": "paired-http",
       "level": "integration",
       "entry": "tests/integration/mobile/paired-original-account-http-v2.test.mjs",
       "command": "./dev test tests/integration/mobile/paired-original-account-http-v2.test.mjs",
-      "description": "Contrato HTTP pareado con fixtures; no aceptación económica."
+      "description": "Contrato HTTP pareado con fixtures; no aceptaci\u00f3n econ\u00f3mica."
     },
     {
       "id": "postgres",
@@ -177,28 +183,28 @@
       "level": "economic",
       "entry": "scripts/development/evm_lab.py",
       "command": "./dev lab run",
-      "description": "Laboratorio EVM con identidades nuevas, redes y pruebas originales; requiere materiales públicos."
+      "description": "Laboratorio EVM con identidades nuevas, redes y pruebas originales; requiere materiales p\u00fablicos."
     },
     {
       "id": "evm-recovery",
       "level": "economic",
       "entry": "scripts/development/evm_lab.py",
       "command": "./dev lab recovery",
-      "description": "Recuperación EVM en laboratorio nuevo; ejecución explícita."
+      "description": "Recuperaci\u00f3n EVM en laboratorio nuevo; ejecuci\u00f3n expl\u00edcita."
     },
     {
       "id": "original-account",
       "level": "economic",
       "entry": "scripts/development/paired_original_account_lab.py",
       "command": "./dev lab mobile-original",
-      "description": "Cuenta original V2 pareada: lectura y reconciliación; no equivale a cliente móvil completo."
+      "description": "Cuenta original V2 pareada: lectura y reconciliaci\u00f3n; no equivale a cliente m\u00f3vil completo."
     },
     {
       "id": "defi",
       "level": "economic",
       "entry": "scripts/development/defi_entry_lab.py",
       "command": "./dev lab defi",
-      "description": "Laboratorio Uniswap/MetaMorpho y salida según docs/DEVELOPMENT.md."
+      "description": "Laboratorio Uniswap/MetaMorpho y salida seg\u00fan docs/DEVELOPMENT.md."
     }
   ],
   "commands": [
@@ -208,7 +214,7 @@
     },
     {
       "usage": "./dev platform [admission|original-native-new|original-native-reopen]",
-      "description": "Arrancar API o perfil original explícito, con estado conservado"
+      "description": "Arrancar API o perfil original expl\u00edcito, con estado conservado"
     },
     {
       "usage": "./dev build",
@@ -216,15 +222,15 @@
     },
     {
       "usage": "./dev check",
-      "description": "Comprobar módulos, análisis estático y selección host"
+      "description": "Comprobar m\u00f3dulos, an\u00e1lisis est\u00e1tico y selecci\u00f3n host"
     },
     {
       "usage": "./dev test [rutas] [--timeout 120]",
-      "description": "Pruebas host con salida en directo y plazo por selección"
+      "description": "Pruebas host con salida en directo y plazo por selecci\u00f3n"
     },
     {
       "usage": "./dev test --changed [--plan]",
-      "description": "Seleccionar pruebas del cambio; límite de 24 archivos y 120 s"
+      "description": "Seleccionar pruebas del cambio; l\u00edmite de 24 archivos y 120 s"
     },
     {
       "usage": "./dev test --component NOMBRE",
@@ -232,35 +238,35 @@
     },
     {
       "usage": "./dev static [--changed]",
-      "description": "Sintaxis e imports del núcleo; checkJs estricto de APIs declaradas"
+      "description": "Sintaxis e imports del n\u00facleo; checkJs estricto de APIs declaradas"
     },
     {
       "usage": "./dev status",
-      "description": "Presencia y versión de herramientas; no certifica integridad"
+      "description": "Presencia y versi\u00f3n de herramientas; no certifica integridad"
     },
     {
       "usage": "./dev prepare [host|mobile|platform]",
-      "description": "Instalar dependencias públicas del perfil"
+      "description": "Instalar dependencias p\u00fablicas del perfil"
     },
     {
       "usage": "./dev workflows",
-      "description": "Entradas vigentes y alcance de cada comprobación"
+      "description": "Entradas vigentes y alcance de cada comprobaci\u00f3n"
     },
     {
       "usage": "./dev boundaries",
-      "description": "Comprobar dependencias y exports entre módulos"
+      "description": "Comprobar dependencias y exports entre m\u00f3dulos"
     },
     {
       "usage": "./dev sources [status|prepare|check]",
-      "description": "Inspeccionar o preparar una generación de desarrollo"
+      "description": "Inspeccionar o preparar una generaci\u00f3n de desarrollo"
     },
     {
       "usage": "./dev clean [--apply]",
-      "description": "Proponer limpieza; --apply respalda y retira cachés elegibles"
+      "description": "Proponer limpieza; --apply respalda y retira cach\u00e9s elegibles"
     },
     {
       "usage": "./dev build --legacy",
-      "description": "Materializar expresamente la compatibilidad histórica"
+      "description": "Materializar expresamente la compatibilidad hist\u00f3rica"
     },
     {
       "usage": "./dev legacy [start|node|test|check]",
@@ -268,15 +274,15 @@
     },
     {
       "usage": "./dev doctor",
-      "description": "Comprobar restauración e integridad; necesita materiales"
+      "description": "Comprobar restauraci\u00f3n e integridad; necesita materiales"
     },
     {
       "usage": "./dev artifacts",
-      "description": "Inventariar originales históricos ausentes"
+      "description": "Inventariar originales hist\u00f3ricos ausentes"
     },
     {
       "usage": "./dev evidence",
-      "description": "Verificar evidencias públicas originales restauradas"
+      "description": "Verificar evidencias p\u00fablicas originales restauradas"
     },
     {
       "usage": "./dev node [args]",
@@ -288,23 +294,23 @@
     },
     {
       "usage": "./dev lab [prepare|run|recovery]",
-      "description": "Laboratorio EVM explícito; no se añade a pruebas host"
+      "description": "Laboratorio EVM expl\u00edcito; no se a\u00f1ade a pruebas host"
     },
     {
       "usage": "./dev lab [browser|browser-recovery]",
-      "description": "Recorrido económico EVM desde el navegador"
+      "description": "Recorrido econ\u00f3mico EVM desde el navegador"
     },
     {
       "usage": "./dev lab [btc-sol|claims|osaka]",
-      "description": "Laboratorios nativos explícitos; requieren materiales"
+      "description": "Laboratorios nativos expl\u00edcitos; requieren materiales"
     },
     {
       "usage": "./dev lab [defi|metamorpho]",
-      "description": "Laboratorios DeFi explícitos con custodia y pruebas"
+      "description": "Laboratorios DeFi expl\u00edcitos con custodia y pruebas"
     },
     {
       "usage": "./dev lab mobile-original",
-      "description": "Cuenta original V2 pareada: lectura y conciliación"
+      "description": "Cuenta original V2 pareada: lectura y conciliaci\u00f3n"
     },
     {
       "usage": "./dev lab mobile-original-ledger",
@@ -312,15 +318,15 @@
     },
     {
       "usage": "./dev lab audit-base",
-      "description": "Auditorías originales vacías; ejecución explícita"
+      "description": "Auditor\u00edas originales vac\u00edas; ejecuci\u00f3n expl\u00edcita"
     },
     {
       "usage": "./dev [setup|import|restore-package]",
-      "description": "Restauración de herramientas y materiales originales"
+      "description": "Restauraci\u00f3n de herramientas y materiales originales"
     },
     {
       "usage": "./dev canonical",
-      "description": "Preparar la ubicación fija del lector I84"
+      "description": "Preparar la ubicaci\u00f3n fija del lector I84"
     },
     {
       "usage": "./dev [legacy-node|proof-node] [args]",

@@ -87,6 +87,66 @@ def default_export(value):
     return None
 
 
+def directed_cycles(edges):
+    """Exact simple directed package cycles, canonicalized by their smallest node.
+
+    An SCC alone is insufficient: a new reverse edge inside it can add cycles.
+    Package graphs are deliberately small; file graphs use linear SCC analysis.
+    """
+    adjacency = {}
+    for source, target in edges:
+        adjacency.setdefault(source, set()).add(target)
+        adjacency.setdefault(target, set())
+    cycles = set()
+    for start in sorted(adjacency):
+        def visit(path):
+            for target in sorted(adjacency[path[-1]]):
+                if target == start:
+                    cycles.add(tuple(path))
+                elif target > start and target not in path:
+                    visit([*path, target])
+        visit([start])
+    return cycles
+
+
+def cyclic_components(edges):
+    """Return actual cyclic file components and their exact internal import edges."""
+    adjacency = {}
+    for source, target in edges:
+        adjacency.setdefault(source, set()).add(target)
+        adjacency.setdefault(target, set())
+    counter, indices, low, stack, pending, components = 0, {}, {}, [], set(), []
+    def visit(node):
+        nonlocal counter
+        indices[node] = low[node] = counter
+        counter += 1
+        stack.append(node)
+        pending.add(node)
+        for target in sorted(adjacency[node]):
+            if target not in indices:
+                visit(target)
+                low[node] = min(low[node], low[target])
+            elif target in pending:
+                low[node] = min(low[node], indices[target])
+        if low[node] == indices[node]:
+            component = []
+            while True:
+                target = stack.pop()
+                pending.remove(target)
+                component.append(target)
+                if target == node:
+                    break
+            if len(component) > 1 or node in adjacency[node]:
+                components.append(sorted(component))
+    for node in sorted(adjacency):
+        if node not in indices:
+            visit(node)
+    membership = {node: index for index, component in enumerate(components) for node in component}
+    cyclic_edges = {(source, target) for source, target in edges
+                    if source in membership and membership.get(target) == membership[source]}
+    return sorted(components), cyclic_edges
+
+
 def resolve_package(specifier, manifests):
     segments = specifier.split("/")
     name = "/".join(segments[:2])
@@ -134,6 +194,10 @@ def inspect(root, policy):
     manifests = packages(root)
     errors, private, public, graph, support = [], set(), set(), set(), set()
     historical = set(policy.get("historicalPackages", []))
+    source_paths = list(sources(root))
+    active_sources = {path.relative_to(root).as_posix() for path in source_paths
+                      if owner(path.relative_to(root)) not in historical}
+    file_graph = set()
     export_owners = {}
     for name, manifest in manifests.items():
         for key, value in manifest.get("exports", {}).items():
@@ -145,7 +209,7 @@ def inspect(root, policy):
                 errors.append(f"{name}: export target missing: {target}")
             else:
                 export_owners[posixpath.normpath(posixpath.join(manifest["root"], target))] = name
-    for path in sources(root):
+    for path in source_paths:
         source = path.relative_to(root).as_posix()
         component = owner(source)
         for specifier in imports(path.read_text()):
@@ -164,6 +228,13 @@ def inspect(root, policy):
             else:
                 continue
             dependency = owner(target)
+            if source in active_sources:
+                # ESM extensions are explicit; TS app imports may omit them.
+                resolved = next((candidate for candidate in [target, target + '.ts', target + '.tsx',
+                                                             target + '.mjs', target + '/index.ts']
+                                 if candidate in active_sources), None)
+                if resolved:
+                    file_graph.add((source, resolved))
             if target.startswith(("tests/", "experiments/")):
                 support.add((source, target))
             if dependency is None or dependency == component:
@@ -197,11 +268,26 @@ def inspect(root, policy):
     for source, target in sorted(support - legacy_support):
         errors.append(f"{source}: new execution dependency on tests or experiments: {target}")
     errors.extend(historical_inventory_errors(root, policy))
-    return {"files": sum(1 for _ in sources(root)), "public": len(public),
+    cycles = directed_cycles(graph)
+    cycle_policy = policy.get('cycles', {})
+    allowed_cycles = {tuple(cycle) for cycle in cycle_policy.get('allowedPackageCycles', [])}
+    for cycle in sorted(cycles - allowed_cycles):
+        errors.append('new package dependency cycle: ' + ' -> '.join([*cycle, cycle[0]]))
+    components, cyclic_edges = cyclic_components(file_graph)
+    allowed_edges = {(source, target) for source, targets in cycle_policy.get('allowedModuleCycleImports', {}).items()
+                     for target in targets}
+    for source, target in sorted(cyclic_edges - allowed_edges):
+        errors.append(f'{source}: new cyclic module import {target}')
+    return {"files": len(source_paths), "public": len(public),
             "legacyPrivate": len(private & legacy), "retiredLegacy": len(legacy - private),
             "legacySupport": len(support & legacy_support),
             "retiredSupport": len(legacy_support - support),
             "graph": [list(edge) for edge in sorted(graph)], "errors": errors,
+            "packageCycles": [list(cycle) for cycle in sorted(cycles)],
+            "moduleCycleComponents": components,
+            "moduleCycleImports": sorted(cyclic_edges),
+            "retiredPackageCycles": len(allowed_cycles - cycles),
+            "retiredModuleCycleImports": len(allowed_edges - cyclic_edges),
             "privateImports": sorted(private), "supportImports": sorted(support)}
 
 
@@ -227,6 +313,15 @@ def main(argv=None):
             for source, targets in policy.get("legacySupportImports", {}).items()
             if any((source, target) in current_support for target in targets)
         }
+        if 'cycles' in policy:
+            current_cycles = {tuple(cycle) for cycle in report['packageCycles']}
+            policy['cycles']['allowedPackageCycles'] = [cycle for cycle in policy['cycles']['allowedPackageCycles']
+                                                         if tuple(cycle) in current_cycles]
+            current_edges = set(report['moduleCycleImports'])
+            policy['cycles']['allowedModuleCycleImports'] = {
+                source: [target for target in targets if (source, target) in current_edges]
+                for source, targets in policy['cycles']['allowedModuleCycleImports'].items()
+                if any((source, target) in current_edges for target in targets)}
         POLICY.write_text(json.dumps(policy, indent=2) + "\n")
     del report["privateImports"]
     del report["supportImports"]
@@ -236,8 +331,12 @@ def main(argv=None):
         print(f"Module boundaries: {report['files']} files, {report['public']} public imports, "
               f"{report['legacyPrivate']} inherited private imports, "
               f"{report['legacySupport']} retained test/experiment dependencies.")
+        print(f"Dependency cycles: {len(report['packageCycles'])} package cycles; "
+              f"{len(report['moduleCycleComponents'])} cyclic file components / "
+              f"{len(report['moduleCycleImports'])} imports. New cycles are rejected.")
         if report["retiredLegacy"]:
-            print(f"{report['retiredLegacy']} inherited exceptions can be removed with --prune.")
+            action = 'removed' if args.prune else 'can be removed with --prune'
+            print(f"{report['retiredLegacy']} inherited exceptions {action}.")
         for error in report["errors"]:
             print(error, file=sys.stderr)
     return 1 if report["errors"] else 0

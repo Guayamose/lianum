@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { inspectBindings, inspectModules } from './static-check.mjs';
+import { inspectOperationPorts } from './operation-ports.mjs';
 
 function fixture(t, files) {
   const root = mkdtempSync(join(tmpdir(), 'lianum-static-'));
@@ -70,4 +71,36 @@ test('authority extraction cannot leave an unbound account in a withdrawal closu
   writeFileSync(join(root, 'withdraw.mjs'),
     'export function createWithdrawals({accountRef}) { return () => accountRef(); }');
   assert.deepEqual(inspectBindings(['withdraw.mjs'], root), []);
+});
+
+test('operation ports reject whole-account access, surplus fields and spreads before execution', t => {
+  const config = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation' }] };
+  const helper = 'throw Error("MUST_NOT_EXECUTE"); export function createOperation({journal}) { return () => journal.rows(); }';
+  const root = fixture(t, { 'operation.mjs': helper,
+    'root.mjs': 'createOperation({journal:Object.freeze({rows:readRows})});' });
+  assert.deepEqual(inspectOperationPorts(config, root), []);
+  for (const [source, pattern] of [
+    ['createOperation({journal:{rows:readRows},spare:{}});', /unused or unknown field spare/],
+    ['createOperation({journal:{rows:readRows,password}});', /forbidden general capability password/],
+    ['createOperation({journal:{rows:readRows,unused}});', /unused or unknown field unused/],
+    ['createOperation({journal:{}});', /missing field rows/],
+    ['createOperation({journal:allAccountState});', /requires an explicit object literal/],
+    ['createOperation({...context,journal:{rows:readRows}});', /without spreads or accessors/],
+  ]) {
+    writeFileSync(join(root, 'root.mjs'), source);
+    assert.ok(inspectOperationPorts(config, root).some(message => pattern.test(message)), source);
+  }
+  writeFileSync(join(root, 'operation.mjs'), 'export function createOperation({record}) { return record.data; }');
+  assert.ok(inspectOperationPorts(config, root).some(message => /forbidden general capability record/.test(message)));
+});
+
+test('operation ports prohibit dynamic/whole-port forwarding while respecting local shadowed names', t => {
+  const config = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation' }] };
+  const root = fixture(t, { 'root.mjs': 'createOperation({journal:{rows:readRows}});',
+    'operation.mjs': 'export function createOperation({journal}) { const local = journal => journal.ignored(); return journal.rows(); }' });
+  assert.deepEqual(inspectOperationPorts(config, root), []);
+  for (const expression of ['forward(journal)', 'journal[key]', '({journal})']) {
+    writeFileSync(join(root, 'operation.mjs'), `export function createOperation({journal}) { return ${expression}; }`);
+    assert.ok(inspectOperationPorts(config, root).some(message => /whole-port forwarding or dynamic access/.test(message)));
+  }
 });

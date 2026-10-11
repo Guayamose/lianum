@@ -21,12 +21,14 @@
       "packages/engine",
       "packages/custody",
       "packages/mobile-protocol",
-      "packages/environment"
+      "packages/environment",
+      "packages/components"
     ],
     "packages/custody": [
       "packages/backend",
       "packages/engine",
-      "packages/proofs"
+      "packages/proofs",
+      "packages/components"
     ],
     "packages/crypto": [
       "packages/components"
@@ -55,120 +57,34 @@
     "apps/mobile/src/api/device-defi-position-read-api-v1.mjs": [
       "packages/mobile-protocol/src/device-defi-position-read-v1.mjs"
     ],
-    "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
-    ],
-    "apps/mobile/src/api/device-external-flat-note-api-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
-    ],
     "apps/mobile/src/api/device-morpho-blue-redemption-api-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs"
-    ],
-    "apps/mobile/src/api/device-owner-deposit-api-v1.ts": [
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs"
     ],
     "apps/mobile/src/api/device-owner-execution-api-v1.ts": [
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
       "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs"
     ],
-    "apps/mobile/src/api/device-owner-exit-api-v1.ts": [
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs"
-    ],
     "apps/mobile/src/api/device-owner-output-balance-api-v1.ts": [
       "packages/mobile-protocol/src/device-output-balance-v1.mjs"
     ],
     "apps/mobile/src/api/device-owner-reservation-api-v1.ts": [
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
       "packages/mobile-protocol/src/device-reservation-consent-v1.mjs"
-    ],
-    "apps/mobile/src/api/device-paged-graph-api-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/api/device-paged-graph-transit-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/api/device-paged-owner-api-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/api/device-paged-owner-transit-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/api/device-private-graph-proof-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs"
-    ],
-    "apps/mobile/src/api/device-private-proof-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
-    ],
-    "apps/mobile/src/api/native-claim-device-api-v1.mjs": [
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
-    ],
-    "apps/mobile/src/api/native-private-deposit-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs"
-    ],
-    "apps/mobile/src/api/native-private-exit-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs"
-    ],
-    "apps/mobile/src/api/native-private-reservation-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs"
     ],
     "apps/mobile/src/api/original-account-api-v2.mjs": [
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
       "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs"
-    ],
-    "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts": [
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
-    ],
-    "apps/mobile/src/custody/device-paged-note-vault-v3.ts": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/custody/device-paged-permission-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
     ],
     "apps/mobile/src/custody/key-store.ts": [
       "packages/mobile-protocol/src/device-defi-position-read-v1.mjs",
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
-      "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
+      "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs"
     ],
     "apps/mobile/src/custody/local-root-note-vault-v1.ts": [
       "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
       "packages/mobile-protocol/src/device-output-balance-v1.mjs",
-      "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
-    ],
-    "apps/mobile/src/custody/native-claim-pending-v1.mjs": [
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
-    ],
-    "apps/mobile/src/custody/signing.mjs": [
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
+      "packages/mobile-protocol/src/device-reservation-consent-v1.mjs"
     ],
     "apps/mobile/src/screens/DefiPositionsScreen.tsx": [
       "packages/mobile-protocol/src/device-defi-position-read-v1.mjs"
@@ -176,41 +92,19 @@
     "apps/mobile/src/screens/DeviceDepositScreen.tsx": [
       "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
       "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
       "packages/mobile-protocol/src/device-reservation-consent-v1.mjs"
     ],
-    "apps/mobile/src/screens/DevicePagedGraphScreen.tsx": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/screens/DevicePagedNoteScreen.tsx": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
-    "apps/mobile/src/screens/DeviceRootNativeClaimScreenV2.tsx": [
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
-    ],
     "apps/mobile/src/screens/ExternalTokenNoteScreen.tsx": [
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs"
-    ],
-    "apps/mobile/src/screens/NativeClaimScreen.tsx": [
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
-    ],
-    "apps/mobile/src/state/private-wallet-state-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
     ],
     "apps/wallet/src/server/server.mjs": [
       "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs"
     ],
     "packages/backend/src/accounts/authority/device-d26-observation-recovery-v1.mjs": [
       "packages/custody/src/observers/native-value-owner-observer-v2.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
       "packages/engine/src/execution/native/dispatch/native-deployment.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs": [
       "packages/custody/src/observers/flat-owner-observer.mjs",
@@ -220,7 +114,6 @@
       "packages/engine/src/notes/private-note-encoding.mjs",
       "packages/engine/src/notes/private-note-tree.mjs",
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/proofs/src/jobs/role-client.mjs",
       "packages/proofs/src/jobs/wallet-note-private-client-v3.mjs"
     ],
@@ -237,8 +130,6 @@
       "packages/engine/src/notes/private-note-encoding.mjs",
       "packages/engine/src/notes/private-note-tree.mjs",
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
       "packages/proofs/src/jobs/role-client.mjs",
       "packages/proofs/src/jobs/wallet-note-private-client-v3.mjs",
@@ -246,25 +137,19 @@
     ],
     "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs": [
       "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs",
       "packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs"
     ],
     "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs": [
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
       "packages/mobile-protocol/src/device-exit-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
       "packages/mobile-protocol/src/device-output-balance-v1.mjs",
       "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
       "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs",
       "packages/proofs/src/jobs/native-device-private-exit-client-v2.mjs"
     ],
     "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs": [
       "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
       "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs",
       "packages/proofs/src/jobs/role-client.mjs"
     ],
     "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs": [
@@ -273,9 +158,7 @@
       "packages/engine/src/execution/local/device-paged-proof-client-v3.mjs",
       "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs",
       "packages/engine/src/execution/native/dispatch/native-deployment.mjs",
-      "packages/engine/src/notes/private-note-tree.mjs",
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
+      "packages/engine/src/notes/private-note-tree.mjs"
     ],
     "packages/backend/src/accounts/authority/flat-account-authority.mjs": [
       "packages/custody/src/observers/flat-owner-observer.mjs",
@@ -283,26 +166,19 @@
       "packages/custody/src/preparation/flat-owner-manual-preparation.mjs",
       "packages/custody/src/processes/flat-owner-process.mjs",
       "packages/engine/src/crypto/vault.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
       "packages/engine/src/execution/local/local-ledger.mjs",
       "packages/engine/src/execution/proofs/proof-process.mjs",
       "packages/proofs/src/tooling/scoped-proof-tools.mjs"
     ],
     "packages/backend/src/accounts/authority/flat-account-validation.mjs": [
       "packages/custody/src/signing/flat-owner-custody.mjs",
-      "packages/engine/src/accounts/private-account-state.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
-    ],
-    "packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs": [
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/engine/src/accounts/private-account-state.mjs"
     ],
     "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": [
-      "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/custody/src/preparation/flat-owner-manual-binding.mjs"
     ],
     "packages/backend/src/accounts/authority/native-device-original-w39-metrics-frame-v1.mjs": [
       "packages/engine/src/crypto/private-resource-policy.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
       "packages/engine/src/execution/proofs/note-native-execution-v1.mjs",
       "packages/proofs/src/catalog.mjs",
       "packages/proofs/src/jobs/native-private-note-execution-v3.mjs"
@@ -319,19 +195,9 @@
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
       "packages/proofs/src/tooling/scoped-proof-tools.mjs"
     ],
-    "packages/backend/src/accounts/portfolio/catalogue-owner-requests.mjs": [
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
-    ],
     "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs": [
       "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
-      "packages/engine/src/crypto/vault.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
-    ],
-    "packages/backend/src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs": [
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
-    ],
-    "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
+      "packages/engine/src/crypto/vault.mjs"
     ],
     "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs": [
       "packages/custody/src/processes/flat-owner-process.mjs"
@@ -340,28 +206,22 @@
       "packages/custody/src/processes/flat-owner-process.mjs"
     ],
     "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs": [
-      "packages/custody/src/processes/flat-owner-process.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
-      "packages/engine/src/execution/accounts/generic-account-keeper.mjs"
+      "packages/custody/src/processes/flat-owner-process.mjs"
     ],
     "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs": [
-      "packages/engine/src/crypto/vault.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/engine/src/crypto/vault.mjs"
     ],
     "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs": [
       "packages/engine/src/crypto/vault.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
       "packages/engine/src/execution/accounts/generic-account-process.mjs"
     ],
     "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs": [
       "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
       "packages/custody/src/processes/flat-owner-process.mjs",
-      "packages/engine/src/crypto/vault.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/engine/src/crypto/vault.mjs"
     ],
     "packages/backend/src/api/accounts/flat-manual-graph-session.mjs": [
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
-      "packages/engine/src/execution/accounts/generic-account-keeper.mjs"
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
     ],
     "packages/backend/src/api/claims/native-claim-http.mjs": [
       "packages/custody/src/observers/flat-owner-native-claim-observer.mjs",
@@ -369,29 +229,22 @@
       "packages/engine/src/execution/accounts/generic-account-keeper.mjs",
       "packages/engine/src/execution/native/dispatch/native-admission.mjs",
       "packages/engine/src/execution/native/recipients/native-recipient-process.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs",
       "packages/proofs/src/catalog.mjs",
       "packages/proofs/src/jobs/role-client.mjs"
     ],
     "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs": [
       "packages/engine/src/chains/shared/runtime-harness.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/proofs/src/catalog.mjs"
     ],
     "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs": [
       "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
       "packages/mobile-protocol/src/device-exit-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/device-reservation-consent-v1.mjs"
     ],
     "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": [
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
       "packages/mobile-protocol/src/authorization.mjs",
-      "packages/mobile-protocol/src/original-account-private-state-v1.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/original-account-private-state-v1.mjs"
     ],
     "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs": [
       "packages/mobile-protocol/src/device-exit-consent-v1.mjs",
@@ -592,7 +445,6 @@
       "packages/engine/src/execution/native/dispatch/native-admission.mjs",
       "packages/engine/src/notes/private-note-tree.mjs",
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs",
       "packages/proofs/src/jobs/role-client.mjs",
       "packages/proofs/src/jobs/wallet-note-private-client-v3.mjs",
       "packages/proofs/src/tooling/tooling.mjs"
@@ -673,7 +525,6 @@
     ],
     "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs": [
       "packages/engine/src/crypto/vault.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs"
     ],
     "packages/backend/src/defi/withdrawals/private-vault-exit.mjs": [
@@ -984,21 +835,13 @@
       "packages/engine/src/execution/native/dispatch/native-admission.mjs",
       "packages/engine/src/notes/private-asset-runtime.mjs",
       "packages/mobile-protocol/src/authorization.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/proofs/src/catalog.mjs"
-    ],
-    "packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
     ],
     "packages/backend/src/operations/local/device-external-flat-ordered-local-operator-v1.mjs": [
       "packages/engine/src/execution/native/dispatch/native-admission.mjs",
       "packages/engine/src/notes/private-asset-runtime.mjs",
       "packages/mobile-protocol/src/authorization.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/proofs/src/catalog.mjs"
-    ],
-    "packages/backend/src/operations/local/device-external-flat-ordered-observation-service-v1.mjs": [
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
     ],
     "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs": [
       "packages/engine/src/crypto/vault.mjs",
@@ -1006,17 +849,13 @@
       "packages/engine/src/execution/native/dispatch/native-admission.mjs",
       "packages/engine/src/execution/native/dispatch/native-owner.mjs",
       "packages/engine/src/execution/native/recipients/native-recipient-custody.mjs",
-      "packages/engine/src/execution/native/recipients/native-recipient-process.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
+      "packages/engine/src/execution/native/recipients/native-recipient-process.mjs"
     ],
     "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs": [
-      "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
+      "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs"
     ],
     "packages/backend/src/operations/local/funded-graph-paged-device-operator-v3.mjs": [
-      "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
+      "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs"
     ],
     "packages/backend/src/operations/local/funded-graph-paged-local-owner-operator-v3.mjs": [
       "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs",
@@ -1181,13 +1020,11 @@
       "packages/backend/src/claims/authorization/permits.mjs",
       "packages/backend/src/claims/protocol/framing.mjs",
       "packages/backend/src/claims/protocol/issue-call.mjs",
-      "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/deposit-intent.mjs"
     ],
     "packages/custody/src/claims/flat-owner-external-incoming-v1.mjs": [
       "packages/backend/src/defi/delivery/private-external-delivery.mjs",
-      "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/deposit-intent.mjs"
     ],
     "packages/custody/src/observers/flat-owner-native-claim-observer.mjs": [
       "packages/backend/src/chains/evm/contracts/evm-code-hash.mjs",
@@ -1199,7 +1036,6 @@
       "packages/backend/src/claims/protocol/issue-call.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
       "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs",
       "packages/backend/src/operations/deployments/system/deploy-system.mjs",
       "packages/engine/src/cohorts/private-cohort-public-native.mjs",
@@ -1212,8 +1048,6 @@
       "packages/backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
       "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/backend/src/operations/deployments/system/deploy-system.mjs",
       "packages/engine/src/execution/balances/generic-balance-observer.mjs",
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
@@ -1222,8 +1056,6 @@
       "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
       "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
       "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
       "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
@@ -1239,7 +1071,6 @@
       "packages/backend/src/claims/protocol/issue-call.mjs",
       "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
       "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
       "packages/engine/src/cohorts/private-cohort-public-native.mjs",
@@ -1249,8 +1080,6 @@
       "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
       "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
       "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
       "packages/engine/src/execution/balances/generic-balance-observer.mjs",
@@ -1258,38 +1087,29 @@
     ],
     "packages/custody/src/preparation/flat-owner-manual-binding.mjs": [
       "packages/backend/src/api/accounts/flat-account-session.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/engine/src/accounts/private-account-state.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/engine/src/accounts/private-account-state.mjs"
     ],
     "packages/custody/src/preparation/flat-owner-manual-preparation.mjs": [
       "packages/backend/src/accounts/authority/flat-account-authority.mjs",
       "packages/backend/src/api/accounts/flat-account-session.mjs",
       "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/operations/deployments/system/deploy-system.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/backend/src/operations/deployments/system/deploy-system.mjs"
     ],
     "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs": [
       "packages/backend/src/api/accounts/flat-account-session.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/engine/src/accounts/private-account-state.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/engine/src/accounts/private-account-state.mjs"
     ],
     "packages/custody/src/preparation/native-value-owner-manual-preparation-v1.mjs": [
       "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
       "packages/backend/src/api/accounts/flat-account-session.mjs",
       "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
-      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+      "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs"
     ],
     "packages/custody/src/processes/flat-owner-process.mjs": [
       "packages/backend/src/claims/protocol/framing.mjs",
       "packages/backend/src/claims/protocol/inputs.mjs",
       "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
       "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/proofs/src/catalog.mjs",
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs",
       "packages/proofs/src/jobs/role-client.mjs",
@@ -1297,7 +1117,6 @@
     ],
     "packages/custody/src/processes/native-value-owner-process-v2.mjs": [
       "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
       "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
       "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
@@ -1309,14 +1128,12 @@
     "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs": [
       "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
       "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
       "packages/proofs/src/catalog.mjs",
       "packages/proofs/src/jobs/role-client.mjs",
       "packages/proofs/src/tooling/tooling.mjs"
     ],
     "packages/custody/src/signing/authorized-envelope.mjs": [
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
       "packages/engine/src/execution/graph/funded-graph.mjs",
       "packages/engine/src/execution/native/dispatch/native-capsules.mjs"
@@ -1324,8 +1141,6 @@
     "packages/custody/src/signing/flat-owner-custody.mjs": [
       "packages/backend/src/chains/evm/vault/evm-vault-delivery.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/engine/src/crypto/privacy.mjs",
       "packages/engine/src/crypto/vault.mjs",
       "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
@@ -1338,8 +1153,6 @@
     "packages/custody/src/signing/native-value-owner-custody-v3.mjs": [
       "packages/backend/src/chains/evm/vault/evm-vault-delivery.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/engine/src/crypto/privacy.mjs",
       "packages/engine/src/crypto/vault.mjs",
       "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
@@ -1349,35 +1162,21 @@
       "packages/engine/src/notes/private-note-encoding.mjs",
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
-    "packages/engine/src/execution/accounts/generic-account-keeper.mjs": [
-      "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
-      "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
-    ],
     "packages/engine/src/execution/graph/funded-graph-paged-v3.mjs": [
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs"
     ],
-    "packages/engine/src/execution/local/device-paged-graph-client-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
-    ],
     "packages/engine/src/execution/local/device-paged-graph-recipient-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs",
       "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs"
     ],
     "packages/engine/src/execution/local/device-paged-private-graph-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs",
       "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs"
     ],
     "packages/engine/src/execution/local/device-paged-private-input-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs"
     ],
     "packages/engine/src/execution/local/device-paged-proof-client-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs"
     ],
     "packages/engine/src/execution/local/device-paged-proof-recipient-v3.mjs": [
@@ -1428,61 +1227,40 @@
       "packages/engine/src/execution/proofs/proof-worker.mjs"
     ],
     "packages/proofs/src/jobs/private-device-authorization-input-v2.mjs": [
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/custody/src/signing/authorized-envelope.mjs",
       "packages/engine/src/execution/graph/funded-graph.mjs",
       "packages/engine/src/notes/private-note-encoding.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/proofs/src/jobs/private-device-proof-input-v2.mjs": [
       "packages/backend/src/claims/protocol/framing.mjs",
       "packages/backend/src/claims/protocol/inputs.mjs",
       "packages/backend/src/execution/account/preparation/deposit-intent.mjs",
       "packages/engine/src/notes/private-note-encoding.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/proofs/src/jobs/private-device-wallet-note-input-v3.mjs": [
       "packages/engine/src/notes/private-note-encoding.mjs",
       "packages/engine/src/notes/private-note-tree.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/proofs/src/jobs/private-native-device-authorization-input-v2.mjs": [
-      "packages/backend/src/execution/encoding/statements.mjs",
       "packages/custody/src/signing/authorized-envelope.mjs",
       "packages/engine/src/execution/graph/funded-graph.mjs",
       "packages/engine/src/notes/private-note-encoding.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/proofs/src/jobs/private-native-device-deposit-input-v2.mjs": [
       "packages/engine/src/notes/private-note-encoding.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/proofs/src/jobs/private-native-device-exit-input-v2.mjs": [
       "packages/engine/src/notes/private-note-encoding.mjs",
       "packages/engine/src/notes/private-note-tree.mjs",
-      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs"
     ],
     "packages/proofs/src/jobs/role-client.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
-      "packages/backend/src/execution/encoding/statements.mjs"
-    ],
-    "packages/proofs/src/jobs/trusted-jobs.mjs": [
-      "packages/backend/src/execution/encoding/statements.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs": [
       "packages/engine/src/crypto/private-resource-policy.mjs",
@@ -1500,12 +1278,10 @@
     ],
     "packages/proofs/src/native-ingress/tooling/native-ingress-v3-run-bounded.mjs": [
       "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs"
     ],
     "packages/proofs/src/native-ingress/tooling/native-ingress-v3-tooling.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/native-value/metadata/native-value-dev-live-v5-artifacts.mjs": [
       "packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs",
@@ -1514,7 +1290,6 @@
       "packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs"
     ],
     "packages/proofs/src/native-value/metadata/native-value-live-v2-artifacts.mjs": [
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs",
       "packages/backend/src/operations/releases/native-value/native-value-wallet-release-v4.mjs"
     ],
@@ -1525,45 +1300,31 @@
       "packages/backend/src/execution/encoding/native-value-statements-v2.mjs"
     ],
     "packages/proofs/src/native-value/runtime/native-value-dev-live-v5-client.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/native-value/runtime/native-value-live-v2-client.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/native-value/tooling/native-value-dev-live-v5-run-bounded.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/native-value/tooling/native-value-dev-live-v5-tooling.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/native-value/tooling/native-value-live-v2-run-bounded.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/native-value/tooling/native-value-live-v2-tooling.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
-    ],
-    "packages/proofs/src/tooling/scoped-proof-tools.mjs": [
-      "packages/backend/src/execution/encoding/statements.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/tooling/solidity-compiler.mjs": [
       "packages/engine/src/execution/local/local-deployment.mjs"
     ],
-    "packages/proofs/src/tooling/tooling.mjs": [
-      "packages/backend/src/execution/encoding/statements.mjs"
-    ],
     "packages/proofs/src/wrapped-claims/metadata/wrapped-claim-profile-v1.mjs": [
-      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs"
+      "packages/backend/src/execution/account/preparation/readiness-inputs.mjs"
     ],
     "packages/proofs/src/wrapped-claims/runtime/wrapped-claim-client-v1.mjs": [
       "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs"
     ],
     "packages/proofs/src/wrapped-claims/runtime/wrapped-claim-role-process-v1.mjs": [
@@ -1574,12 +1335,10 @@
     ],
     "packages/proofs/src/wrapped-claims/tooling/wrapped-claim-run-bounded-v1.mjs": [
       "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs"
     ],
     "packages/proofs/src/wrapped-claims/tooling/wrapped-claim-tooling-v1.mjs": [
       "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
-      "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs"
     ],
     "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs": [
@@ -1850,5 +1609,1585 @@
       "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
       "reason": "Same original dependencies after splitting account operations; exact targets only."
     }
+  },
+  "cycles": {
+    "reviewedAtCommit": "f5c10cab2ea48c1d7c35ffc77fe864ad4f2d2a78",
+    "scope": "Literal runtime imports between active sources; exact directed package cycles and existing imports participating in file cycles. New cycles require review; --prune only removes retired entries.",
+    "allowedPackageCycles": [
+      [
+        "packages/backend",
+        "packages/custody"
+      ],
+      [
+        "packages/backend",
+        "packages/custody",
+        "packages/engine"
+      ],
+      [
+        "packages/backend",
+        "packages/custody",
+        "packages/engine",
+        "packages/proofs"
+      ],
+      [
+        "packages/backend",
+        "packages/custody",
+        "packages/proofs"
+      ],
+      [
+        "packages/backend",
+        "packages/custody",
+        "packages/proofs",
+        "packages/engine"
+      ],
+      [
+        "packages/backend",
+        "packages/engine"
+      ],
+      [
+        "packages/backend",
+        "packages/engine",
+        "packages/proofs"
+      ],
+      [
+        "packages/backend",
+        "packages/engine",
+        "packages/proofs",
+        "packages/custody"
+      ],
+      [
+        "packages/backend",
+        "packages/proofs"
+      ],
+      [
+        "packages/backend",
+        "packages/proofs",
+        "packages/custody"
+      ],
+      [
+        "packages/backend",
+        "packages/proofs",
+        "packages/custody",
+        "packages/engine"
+      ],
+      [
+        "packages/backend",
+        "packages/proofs",
+        "packages/engine"
+      ],
+      [
+        "packages/custody",
+        "packages/engine",
+        "packages/proofs"
+      ],
+      [
+        "packages/custody",
+        "packages/proofs"
+      ],
+      [
+        "packages/engine",
+        "packages/proofs"
+      ]
+    ],
+    "allowedModuleCycleImports": {
+      "packages/backend/src/accounts/authority/device-d26-observation-recovery-v1.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/custody/src/observers/native-value-owner-observer-v2.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
+        "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/controller/controller.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/custody/src/observers/flat-owner-observer.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/providers/evm-vault-provider.mjs",
+        "packages/custody/src/observers/flat-owner-observer.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs": [
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+        "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs"
+      ],
+      "packages/backend/src/accounts/authority/flat-account-authority.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs",
+        "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-terminal-observer.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/observers/flat-owner-observer.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-preparation.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs"
+      ],
+      "packages/backend/src/accounts/authority/flat-account-validation.mjs": [
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+      ],
+      "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs",
+        "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs",
+        "packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
+        "packages/custody/src/observers/native-value-owner-observer-v2.mjs",
+        "packages/custody/src/observers/wrapped-claim-owner-observer-v1.mjs",
+        "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs",
+        "packages/custody/src/processes/native-value-owner-process-v2.mjs",
+        "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/claims/ingress/operational-registration-v2.mjs",
+        "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs",
+        "packages/custody/src/preparation/native-value-owner-manual-preparation-v1.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs": [
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs",
+        "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs"
+      ],
+      "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs"
+      ],
+      "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs"
+      ],
+      "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs": [
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs"
+      ],
+      "packages/backend/src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs": [
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs"
+      ],
+      "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+      ],
+      "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs",
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs",
+        "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs",
+        "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+        "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs",
+        "packages/backend/src/defi/withdrawals/private-vault-exit.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs"
+      ],
+      "packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs",
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/recovery/retained-vault-device-position-service-v1.mjs",
+        "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs",
+        "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+        "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs",
+        "packages/backend/src/defi/withdrawals/private-vault-exit.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs"
+      ],
+      "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs",
+        "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs"
+      ],
+      "packages/backend/src/accounts/recovery/retained-vault-device-position-service-v1.mjs": [
+        "packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs",
+        "packages/backend/src/api/mobile/paired-original-defi-position-http-v1.mjs",
+        "packages/backend/src/api/mobile/paired-original-defi-position-reader-v1.mjs"
+      ],
+      "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs",
+        "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+        "packages/backend/src/api/accounts/flat-account-session.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/claims/controller/controller.mjs",
+        "packages/backend/src/claims/operations/native-claim-asset-units-v1.mjs",
+        "packages/backend/src/claims/operations/portfolio-view.mjs",
+        "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs"
+      ],
+      "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs",
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+      ],
+      "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs"
+      ],
+      "packages/backend/src/api/accounts/flat-account-session.mjs": [
+        "packages/backend/src/claims/operations/portfolio-view.mjs"
+      ],
+      "packages/backend/src/api/accounts/flat-manual-graph-session.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs",
+        "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs",
+        "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+        "packages/backend/src/api/accounts/flat-account-session.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs"
+      ],
+      "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
+        "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs"
+      ],
+      "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
+      ],
+      "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/accounts/flat-account-session.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+      ],
+      "packages/backend/src/api/mobile/paired-original-defi-position-http-v1.mjs": [
+        "packages/backend/src/api/mobile/paired-original-defi-position-reader-v1.mjs"
+      ],
+      "packages/backend/src/api/mobile/paired-original-defi-position-reader-v1.mjs": [
+        "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs"
+      ],
+      "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs": [
+        "packages/backend/src/claims/payouts/payout-controller-dispatch-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+      ],
+      "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-dispatch-gate.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+      ],
+      "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs": [
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs"
+      ],
+      "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-binding-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-journal-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs"
+      ],
+      "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs": [
+        "packages/backend/src/chains/evm/vault/evm-vault-delivery-observer.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-evm-vault-router.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs"
+      ],
+      "packages/backend/src/chains/evm/health/evm-native-value-health-source-v3.mjs": [
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v3.mjs"
+      ],
+      "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/operations/recovery/native-value-history-dispatch-v1.mjs"
+      ],
+      "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-v4.mjs": [
+        "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-transfer-wire.mjs"
+      ],
+      "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/chains/evm/runtime/native-economic-local-custody-v2.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs",
+        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/evm/runtime/native-economic-local-custody-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/claims/protocol/evm-dispatch-gate.mjs",
+        "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-transfer-wire.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs"
+      ],
+      "packages/backend/src/chains/evm/transfers/evm-native-transfer-wire.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs"
+      ],
+      "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs": [
+        "packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs"
+      ],
+      "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/chains/evm/vault/evm-vault-delivery-observer.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-evm-vault-router.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+      ],
+      "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/native-dispatch-gate.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/native-value-dispatch-binding-v2.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/native-value-dispatch-journal-v2.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-binding-v2.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-binding-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-journal-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/engine/src/execution/native/recipients/native-recipient-process.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-journal-v1.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-journal-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs",
+        "packages/engine/src/execution/native/recipients/native-recipient-process.mjs"
+      ],
+      "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-binding-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-journal-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
+      ],
+      "packages/backend/src/chains/shared/health/native-value-health-source-v3.mjs": [
+        "packages/backend/src/chains/evm/health/evm-native-value-health-source-v3.mjs",
+        "packages/backend/src/chains/tron/health/tron-native-value-health-source-v3.mjs"
+      ],
+      "packages/backend/src/chains/shared/health/native-value-health-source-v4.mjs": [
+        "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/health/tron-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs"
+      ],
+      "packages/backend/src/chains/shared/health/native-value-health-v2.mjs": [
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/chains/shared/observations/observation-addresses.mjs": [
+        "packages/backend/src/chains/shared/portfolio/portfolio-registry.mjs"
+      ],
+      "packages/backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/claims/flat-owner-external-incoming-v1.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/chains/shared/portfolio/portfolio-registry.mjs": [
+        "packages/backend/src/chains/shared/observations/observation-addresses.mjs"
+      ],
+      "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs"
+      ],
+      "packages/backend/src/chains/solana/observations/jupiter-orca-swap-observation-v1.mjs": [
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs"
+      ],
+      "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs": [
+        "packages/backend/src/chains/solana/observations/jupiter-orca-swap-observation-v1.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-spl-custody-v1.mjs",
+        "packages/backend/src/claims/payouts/payout-controller-dispatch-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+      ],
+      "packages/backend/src/chains/solana/runtime/owned-solana-spl-custody-v1.mjs": [
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/claims/controller/controller.mjs",
+        "packages/backend/src/claims/operations/owned-state.mjs",
+        "packages/backend/src/providers/native-provider.mjs"
+      ],
+      "packages/backend/src/chains/tron/dispatch/native-value-tron-dispatch-gate.mjs": [
+        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs"
+      ],
+      "packages/backend/src/chains/tron/health/owned-tron-native-value-health-source-v4.mjs": [
+        "packages/backend/src/chains/tron/health/tron-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs"
+      ],
+      "packages/backend/src/chains/tron/health/tron-native-value-health-source-v3.mjs": [
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v3.mjs"
+      ],
+      "packages/backend/src/chains/tron/health/tron-native-value-health-source-v4.mjs": [
+        "packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/operations/recovery/native-value-history-dispatch-v1.mjs"
+      ],
+      "packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs": [
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs"
+      ],
+      "packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs": [
+        "packages/backend/src/chains/tron/runtime/guarded/tron-first-error-private-material-v3.mjs",
+        "packages/backend/src/chains/tron/runtime/guarded/tron-product-host-scope-v1.mjs",
+        "packages/backend/src/chains/tron/runtime/guarded/tron-reviewed-material-v1.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs"
+      ],
+      "packages/backend/src/chains/tron/runtime/guarded/tron-first-error-private-material-v3.mjs": [
+        "packages/backend/src/chains/tron/runtime/guarded/tron-reviewed-material-v1.mjs"
+      ],
+      "packages/backend/src/chains/tron/runtime/guarded/tron-product-host-scope-v1.mjs": [
+        "packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs"
+      ],
+      "packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs": [
+        "packages/backend/src/chains/tron/runtime/guarded/tron-aligned-child-opener-v1.mjs",
+        "packages/backend/src/chains/tron/runtime/guarded/tron-product-host-scope-v1.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs"
+      ],
+      "packages/backend/src/chains/tron/runtime/guarded/tron-reviewed-material-v1.mjs": [
+        "packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs"
+      ],
+      "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs": [
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/chains/tron/dispatch/native-value-tron-dispatch-gate.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-journal.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs"
+      ],
+      "packages/backend/src/chains/tron/transfers/owned-tron-native-value-journal.mjs": [
+        "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs"
+      ],
+      "packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs": [
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs"
+      ],
+      "packages/backend/src/chains/tron/transfers/owned-tron-node-driver.mjs": [
+        "packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs"
+      ],
+      "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs": [
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs"
+      ],
+      "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/claims/authorization/inputs-nonce-registry-v3.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/claims/authorization/inputs-registry-v2.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/claims/controller/controller-journal.mjs": [
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs"
+      ],
+      "packages/backend/src/claims/controller/controller-retained-state.mjs": [
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/claims/controller/controller.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-validation.mjs",
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/claims/controller/controller-journal.mjs",
+        "packages/backend/src/claims/controller/controller-retained-state.mjs",
+        "packages/backend/src/claims/operations/native-claim-asset-units-v1.mjs",
+        "packages/backend/src/claims/operations/operators.mjs",
+        "packages/backend/src/claims/operations/owned-state.mjs",
+        "packages/backend/src/claims/protocol/evm-dispatch-gate.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs",
+        "packages/backend/src/providers/native-provider.mjs",
+        "packages/custody/src/observers/flat-owner-observer.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/claims/ingress/ingress-v3-host.mjs": [
+        "packages/backend/src/claims/operations/backing-audit.mjs"
+      ],
+      "packages/backend/src/claims/ingress/operational-registration-v2.mjs": [
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/claims/operations/backing-audit.mjs": [
+        "packages/backend/src/claims/ingress/ingress-v3-host.mjs"
+      ],
+      "packages/backend/src/claims/operations/native-claim-asset-units-v1.mjs": [
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs"
+      ],
+      "packages/backend/src/claims/operations/operators.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-spl-custody-v1.mjs",
+        "packages/backend/src/claims/operations/owned-state.mjs",
+        "packages/backend/src/operations/operators/claims/combined-native-operators.mjs",
+        "packages/backend/src/operations/operators/claims/operator-fact-audit.mjs",
+        "packages/backend/src/operations/operators/claims/owned-native-operator-reads.mjs"
+      ],
+      "packages/backend/src/claims/operations/owned-state.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+      ],
+      "packages/backend/src/claims/operations/portfolio-view.mjs": [
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/claims/operations/native-claim-asset-units-v1.mjs",
+        "packages/backend/src/claims/operations/operators.mjs",
+        "packages/backend/src/claims/operations/owned-state.mjs",
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs"
+      ],
+      "packages/backend/src/claims/payouts/payout-controller-dispatch-v1.mjs": [
+        "packages/backend/src/claims/controller/controller.mjs",
+        "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs"
+      ],
+      "packages/backend/src/claims/protocol/evm-dispatch-gate.mjs": [
+        "packages/backend/src/claims/controller/controller.mjs"
+      ],
+      "packages/backend/src/claims/protocol/facts-collector-registry-v2.mjs": [
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/claims/protocol/registry-envelope-v2.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs": [
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/claims/authorization/inputs-nonce-registry-v3.mjs",
+        "packages/backend/src/claims/authorization/inputs-registry-v2.mjs",
+        "packages/backend/src/claims/controller/controller-retained-state.mjs",
+        "packages/backend/src/claims/ingress/operational-registration-v2.mjs",
+        "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs",
+        "packages/backend/src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
+        "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+        "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs": [
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/claims/ingress/operational-registration-v2.mjs",
+        "packages/backend/src/claims/protocol/facts-collector-registry-v2.mjs",
+        "packages/backend/src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
+        "packages/backend/src/operations/operators/claims/operator-fact-audit.mjs",
+        "packages/backend/src/operations/operators/claims/owned-native-operator-reads.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/claims/ingress/operational-registration-v2.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs": [
+        "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
+      ],
+      "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-d26-observation-recovery-v1.mjs",
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs",
+        "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs",
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+        "packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs",
+        "packages/custody/src/processes/native-value-owner-process-v2.mjs",
+        "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs"
+      ],
+      "packages/backend/src/defi/positions/private-position-state-v2.mjs": [
+        "packages/backend/src/defi/vaults/private-vault-position.mjs"
+      ],
+      "packages/backend/src/defi/vaults/owned-backed-vault.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs"
+      ],
+      "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs": [
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs",
+        "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
+      ],
+      "packages/backend/src/defi/vaults/private-vault-position.mjs": [
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
+        "packages/backend/src/defi/vaults/owned-backed-vault.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs"
+      ],
+      "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs": [
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+      ],
+      "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+        "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
+      ],
+      "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs": [
+        "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/defi/positions/private-position-state-v2.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+        "packages/backend/src/defi/vaults/private-vault-position.mjs",
+        "packages/backend/src/defi/withdrawals/private-vault-exit.mjs"
+      ],
+      "packages/backend/src/defi/withdrawals/private-vault-exit.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/defi/vaults/owned-backed-vault.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+        "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/backend/src/execution/account/execution/flat-native-execution.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-terminal-observer.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/providers/evm-vault-provider.mjs",
+        "packages/backend/src/providers/native-provider.mjs"
+      ],
+      "packages/backend/src/execution/account/preparation/admission-native-value-v2-inputs.mjs": [
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+      ],
+      "packages/backend/src/execution/account/reconciliation/flat-terminal-observer.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+      ],
+      "packages/backend/src/execution/native-value/execution/native-value-current-gate-v2.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
+      ],
+      "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
+        "packages/backend/src/execution/native-value/preparation/native-value-dev-admission-consumer-v5.mjs",
+        "packages/backend/src/execution/native-value/preparation/native-value-graph-admission-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs",
+        "packages/backend/src/execution/wrapped/preparation/wrapped-wallet-graph-admission-v1.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/execution/native-value/preparation/native-value-dev-admission-consumer-v5.mjs": [
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs"
+      ],
+      "packages/backend/src/execution/native-value/preparation/native-value-graph-admission-v2.mjs": [
+        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/execution/account/preparation/admission-native-value-v2-inputs.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-current-gate-v2.mjs",
+        "packages/backend/src/execution/native-value/preparation/native-value-dev-admission-consumer-v5.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs"
+      ],
+      "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs"
+      ],
+      "packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs"
+      ],
+      "packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs": [
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs"
+      ],
+      "packages/backend/src/execution/wrapped/preparation/wrapped-wallet-graph-admission-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/execution/account/preparation/admission-native-value-v2-inputs.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-current-gate-v2.mjs",
+        "packages/backend/src/execution/native-value/preparation/native-value-graph-admission-v2.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
+      ],
+      "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
+      ],
+      "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs": [
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
+      ],
+      "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs": [
+        "packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/operators/claims/shared-custody-allocation-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs"
+      ],
+      "packages/backend/src/operations/deployments/defi/deploy-evm-vault-router.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+      ],
+      "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/native-value/native-value-deployment-checks-v2.mjs": [
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/native-value/native-value-deployment-plan-v2.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-deployment-checks-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-deployment-plan-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs": [
+        "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/system/deploy-system.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs",
+        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-checks-v1.mjs": [
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-plan-v1.mjs": [
+        "packages/backend/src/claims/ingress/operational-registration-v2.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-graph-plan-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/wrapped/wrapped-claim-graph-plan-v1.mjs": [
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-checks-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-plan-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs"
+      ],
+      "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs": [
+        "packages/backend/src/claims/ingress/operational-registration-v2.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
+      ],
+      "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
+        "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
+        "packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs",
+        "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
+        "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs",
+        "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+        "packages/backend/src/providers/evm-vault-provider.mjs",
+        "packages/engine/src/execution/native/recipients/native-recipient-process.mjs"
+      ],
+      "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs": [
+        "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+        "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs"
+      ],
+      "packages/backend/src/operations/operators/claims/combined-native-operators.mjs": [
+        "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
+        "packages/backend/src/claims/operations/operators.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs"
+      ],
+      "packages/backend/src/operations/operators/claims/native-operators.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/operators/claims/combined-native-operators.mjs",
+        "packages/backend/src/operations/operators/claims/operator-fact-audit.mjs",
+        "packages/backend/src/operations/operators/claims/owned-native-operator-reads.mjs"
+      ],
+      "packages/backend/src/operations/operators/claims/operator-fact-audit.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs"
+      ],
+      "packages/backend/src/operations/operators/claims/owned-native-operator-reads.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs"
+      ],
+      "packages/backend/src/operations/operators/claims/shared-custody-allocation-v1.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs"
+      ],
+      "packages/backend/src/operations/operators/native-value/native-value-economic-binding-frame-v1.mjs": [
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-inventory-v4.mjs"
+      ],
+      "packages/backend/src/operations/operators/native-value/native-value-inventory-v4.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs"
+      ],
+      "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs": [
+        "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/health/owned-tron-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-registry-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-economic-binding-frame-v1.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-inventory-v4.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/operations/operators/native-value/native-value-operators-v3.mjs": [
+        "packages/backend/src/chains/shared/health/native-value-health-source-v3.mjs"
+      ],
+      "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs": [
+        "packages/backend/src/chains/shared/health/native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-inventory-v4.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs": [
+        "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs"
+      ],
+      "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-plan-v1.mjs",
+        "packages/backend/src/operations/operators/claims/shared-custody-allocation-v1.mjs"
+      ],
+      "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-inventory-v1.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-signed-transaction-wire.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs"
+      ],
+      "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs": [
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/shared/health/native-value-health-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-inventory-v1.mjs"
+      ],
+      "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-native-value-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/chains/tron/health/owned-tron-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
+        "packages/backend/src/chains/tron/transfers/tron-native-graph-profile.mjs",
+        "packages/backend/src/claims/protocol/registry-envelope-v2.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-inventory-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs": [
+        "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": [
+        "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
+        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-device-live-armed-restart-v1.mjs": [
+        "packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-restart-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs": [
+        "packages/backend/src/operations/recovery/native-device-live-armed-restart-v1.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-restart-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-device-local-restart-v1.mjs": [
+        "packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/custody/src/processes/native-value-owner-process-v2.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+        "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+        "packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs",
+        "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
+        "packages/custody/src/processes/native-value-owner-process-v2.mjs"
+      ],
+      "packages/backend/src/operations/recovery/native-value-history-dispatch-v1.mjs": [
+        "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
+      ],
+      "packages/backend/src/providers/evm-vault-provider.mjs": [
+        "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-dispatch-gate.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs",
+        "packages/engine/src/execution/native/recipients/native-recipient-process.mjs"
+      ],
+      "packages/backend/src/providers/funded-paged-native-provider-v3.mjs": [
+        "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs",
+        "packages/backend/src/chains/evm/dispatch/evm-facts-binding.mjs",
+        "packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/transfers/evm-graph-transfer-binding.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs",
+        "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs"
+      ],
+      "packages/backend/src/providers/native-provider.mjs": [
+        "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/dispatch/native-dispatch-gate.mjs",
+        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs",
+        "packages/engine/src/execution/native/recipients/native-recipient-process.mjs"
+      ],
+      "packages/custody/src/claims/flat-owner-claim-transition.mjs": [
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/claims/flat-owner-external-incoming-v1.mjs": [
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/observers/flat-owner-native-claim-observer.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/operations/owned-state.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/claims/flat-owner-claim-transition.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/observers/flat-owner-observer.mjs": [
+        "packages/backend/src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs",
+        "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/observers/native-value-owner-observer-v2.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/observers/wrapped-claim-owner-claim-observer-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+        "packages/custody/src/claims/flat-owner-claim-transition.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/observers/wrapped-claim-owner-observer-v1.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/preparation/flat-owner-manual-binding.mjs": [
+        "packages/backend/src/api/accounts/flat-account-session.mjs"
+      ],
+      "packages/custody/src/preparation/flat-owner-manual-preparation.mjs": [
+        "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+        "packages/backend/src/api/accounts/flat-account-session.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
+        "packages/custody/src/processes/flat-owner-process.mjs"
+      ],
+      "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs": [
+        "packages/backend/src/api/accounts/flat-account-session.mjs"
+      ],
+      "packages/custody/src/preparation/native-value-owner-manual-preparation-v1.mjs": [
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+        "packages/backend/src/api/accounts/flat-account-session.mjs",
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
+        "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs",
+        "packages/custody/src/processes/native-value-owner-process-v2.mjs"
+      ],
+      "packages/custody/src/processes/flat-owner-process.mjs": [
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/custody/src/observers/flat-owner-native-claim-observer.mjs",
+        "packages/custody/src/observers/flat-owner-observer.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/processes/native-value-owner-process-v2.mjs": [
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/custody/src/observers/native-value-owner-observer-v2.mjs",
+        "packages/custody/src/signing/native-value-owner-custody-v3.mjs"
+      ],
+      "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs": [
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
+        "packages/custody/src/observers/wrapped-claim-owner-claim-observer-v1.mjs",
+        "packages/custody/src/observers/wrapped-claim-owner-observer-v1.mjs",
+        "packages/custody/src/signing/flat-owner-custody.mjs"
+      ],
+      "packages/custody/src/signing/flat-owner-custody.mjs": [
+        "packages/custody/src/claims/flat-owner-claim-transition.mjs",
+        "packages/custody/src/claims/flat-owner-external-incoming-v1.mjs",
+        "packages/custody/src/preparation/flat-owner-manual-binding.mjs"
+      ],
+      "packages/custody/src/signing/native-value-owner-custody-v3.mjs": [
+        "packages/custody/src/claims/flat-owner-claim-transition.mjs",
+        "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs"
+      ],
+      "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs": [
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs"
+      ],
+      "packages/engine/src/execution/native/recipients/native-recipient-process.mjs": [
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+      ],
+      "packages/mobile-protocol/src/original-account-private-state-v1.mjs": [
+        "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      ],
+      "packages/mobile-protocol/src/original-account-review-v2.mjs": [
+        "packages/mobile-protocol/src/original-account-private-state-v1.mjs"
+      ],
+      "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs": [
+        "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+      ]
+    },
+    "reviewedImportRelocations": [
+      {
+        "from": [
+          "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs",
+          "packages/engine/src/execution/accounts/generic-account-keeper.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs",
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs"
+        ],
+        "reason": "Reviewed ownership move of the existing durable SOURCE/session cycle from engine to backend; same WeakMap identity, exact session checks and causal persistence checks retained. Not a newly enabled dependency."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+          "packages/engine/src/execution/accounts/generic-account-keeper.mjs"
+        ],
+        "to": [
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs"
+        ],
+        "reason": "Reviewed ownership move of the existing durable SOURCE/session cycle from engine to backend; same WeakMap identity, exact session checks and causal persistence checks retained. Not a newly enabled dependency."
+      },
+      {
+        "from": [
+          "packages/engine/src/execution/accounts/generic-account-keeper.mjs",
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+          "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+        ],
+        "reason": "Reviewed ownership move of the existing durable SOURCE/session cycle from engine to backend; same WeakMap identity, exact session checks and causal persistence checks retained. Not a newly enabled dependency."
+      },
+      {
+        "from": [
+          "packages/engine/src/execution/accounts/generic-account-keeper.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "reason": "Reviewed ownership move of the existing durable SOURCE/session cycle from engine to backend; same WeakMap identity, exact session checks and causal persistence checks retained. Not a newly enabled dependency."
+      }
+    ]
   }
 }

@@ -402,5 +402,10 @@ test('original native claim portfolio joins common state with BTC/SPL units, sam
  app=await startWalletApplication({accountSession:session,economicState:state,actionAccessMode:'exact-only'});
  const rendered=projectWalletState(validateWalletState((await http(app)).body));assert.equal(rendered.nativeClaims[0].amount,null);assert.equal(rendered.nativeClaims[0].custody,'UNAVAILABLE');assert.equal(rendered.nativeClaims[1].amount,'1000000');await app.close();app=null;
  phase='CONFIRMED';splReady=false;value=await state.observe();assert.equal(value.rows[0].state,'LIVE');assert.equal(value.rows[1].state,'UNKNOWN');assert.equal(value.rows[1].balances,null);
- splReady=true;await state.observe();const checkpoint=state.checkpoint();await state.close();state=await openOriginalWalletEconomicStateV1({...input,checkpoint});assert.equal((await state.snapshot()).rows[0].state,'STALE');assert.equal((await state.observe()).rows[1].balances.available,'1000000');
+ splReady=true;await state.observe();const checkpoint=state.checkpoint();await state.close();
+ state=await openOriginalWalletEconomicStateV1({...input,checkpoint});
+ assert.equal((await state.snapshot()).rows[0].state,'STALE');
+ const reopenedObservation=await state.observe();
+ assert.equal(reopenedObservation.status,'LIVE',JSON.stringify(reopenedObservation));
+ assert.equal(reopenedObservation.rows[1].balances.available,'1000000');
 });

@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { inspectOperationPorts } from './operation-ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const options = { allowJs: true, noEmit: true, module: ts.ModuleKind.NodeNext,
@@ -141,6 +142,8 @@ function main(args) {
   const result = inspectModules(files, ROOT, exceptions.missingHistoricalImports);
   const bindingFiles = JSON.parse(readFileSync(resolve(ROOT, 'scripts/development/static-bindings.json'), 'utf8')).files;
   const bindingFailures = inspectBindings(bindingFiles);
+  const portsConfig = JSON.parse(readFileSync(resolve(ROOT, 'scripts/development/static-operation-ports.json'), 'utf8'));
+  const portFailures = inspectOperationPorts(portsConfig, ROOT);
   const config = ts.readConfigFile(resolve(ROOT, 'scripts/development/tsconfig.checkjs.json'), ts.sys.readFile);
   if (config.error) throw Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'));
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, resolve(ROOT, 'scripts/development'));
@@ -150,11 +153,13 @@ function main(args) {
     getCanonicalFileName: path => path, getCurrentDirectory: () => ROOT, getNewLine: () => '\n' }));
   for (const failure of result.failures) process.stderr.write(failure + '\n');
   for (const failure of bindingFailures) process.stderr.write(failure + '\n');
+  for (const failure of portFailures) process.stderr.write(failure + '\n');
   process.stdout.write(`Static modules: ${result.filesChecked} files, ${result.importsChecked} imported names; strict checkJs: ${parsed.fileNames.length} API files.\n`);
   process.stdout.write(`Lexical name bindings: ${bindingFiles.length} authority/operation files; no imported authority graph is loaded.\n`);
+  process.stdout.write(`Operation ports: ${portsConfig.factories.length} factories; explicit members match composition, no surplus fields or general record/write capability.\n`);
   process.stdout.write(`Missing historical imports: ${result.compatibilityExceptions.length} exact recorded exceptions (static-check-exceptions.json); no new exceptions accepted automatically.\n`);
   process.stdout.write('Scope: literal imports/exports and syntax; strict types apply only to tsconfig.checkjs.json.\n');
-  process.exitCode = result.failures.length || diagnostics.length || bindingFailures.length ? 1 : 0;
+  process.exitCode = result.failures.length || diagnostics.length || bindingFailures.length || portFailures.length ? 1 : 0;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main(process.argv.slice(2));

@@ -129,6 +129,41 @@ class ModuleBoundariesTests(unittest.TestCase):
         self.assertEqual(list(boundaries.imports(text)),
                          ['@lianum/a', '@lianum/b', '@lianum/c', '@lianum/d', '@lianum/e'])
 
+    def test_exact_cycles_detect_a_new_reverse_edge_inside_an_existing_component(self):
+        original = {('a', 'b'), ('b', 'c'), ('c', 'a')}
+        self.assertEqual(boundaries.directed_cycles(original), {('a', 'b', 'c')})
+        added = boundaries.directed_cycles(original | {('b', 'a')})
+        self.assertEqual(added - boundaries.directed_cycles(original), {('a', 'b')})
+
+    def test_package_and_file_cycles_need_exact_reviewed_exceptions(self):
+        self.write('packages/engine/src/api.mjs', "import '@lianum/backend/session'; export const value=1;\n")
+        self.manifest('backend', {'./session': './src/session.mjs'}, {'@lianum/engine': 'file:../engine'})
+        self.manifest('engine', {'./api': './src/api.mjs'}, {'@lianum/backend': 'file:../backend'})
+        self.policy['dependencies']['packages/engine'] = ['packages/backend']
+        report = self.report()
+        self.assertIn('new package dependency cycle', '\n'.join(report['errors']))
+        self.assertIn('new cyclic module import', '\n'.join(report['errors']))
+        self.policy['cycles'] = {
+            'allowedPackageCycles': [['packages/backend', 'packages/engine']],
+            'allowedModuleCycleImports': {
+                'packages/backend/src/session.mjs': ['packages/engine/src/api.mjs'],
+                'packages/engine/src/api.mjs': ['packages/backend/src/session.mjs']}}
+        self.assertEqual(self.report()['errors'], [])
+        self.write('packages/engine/src/api.mjs', 'export const value=1;\n')
+        retired = self.report()
+        self.assertEqual(retired['errors'], [])
+        self.assertEqual(retired['retiredPackageCycles'], 1)
+        self.assertEqual(retired['retiredModuleCycleImports'], 2)
+
+    def test_new_internal_file_cycle_is_rejected_even_without_a_package_cycle(self):
+        self.write('packages/engine/src/api.mjs', "import './other.mjs'; export const value=1;\n")
+        self.write('packages/engine/src/other.mjs', "import './api.mjs';\n")
+        report = self.report()
+        self.assertEqual(report['packageCycles'], [])
+        self.assertEqual(len(report['moduleCycleImports']), 2)
+        self.assertIn('new cyclic module import', '\n'.join(report['errors']))
+        self.assertNotIn('cycles', self.policy)  # Inspection never approves a baseline.
+
 
 if __name__ == "__main__":
     unittest.main()
