@@ -147,12 +147,12 @@ class CompatibilityTranslationTests(unittest.TestCase):
                                       'default': './fallback.mjs'}), './node.mjs')
 
     def test_unknown_public_export_fails_instead_of_mixing_module_instances(self):
-        with self.assertRaisesRegex(RuntimeError, 'Unknown public workspace import'):
+        with self.assertRaisesRegex(RuntimeError, r'(?i)unknown public workspace import: @lianum/example/private'):
             self.translated("import '@lianum/example/private';")
 
     def test_canonical_gateway_does_not_allow_undeclared_exports(self):
         self.config['canonicalImports'] = {self.source: ['@lianum/example/private']}
-        with self.assertRaisesRegex(RuntimeError, 'Unknown public workspace import'):
+        with self.assertRaisesRegex(RuntimeError, r'(?i)unknown public workspace import: @lianum/example/private'):
             self.translated("import '@lianum/example/private';")
 
     def test_mock_and_source_resource_move_together(self):
