@@ -11,6 +11,7 @@ import { assertNonceIngressDeployment } from '../ingress/wrapped-ingress-deploym
  * owned construction and independently repeated reads, never supplied totals.
  * This is not independent infrastructure or a threshold native spending key. */
 import assert from 'node:assert/strict';
+import {createWrappedAuditCurrentnessV1,createWrappedJointCurrentnessV1,wrappedAuditMethodV1} from './wrapped-audit-currentness-v1.mjs';
 import { createPublicKey, generateKeyPairSync, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { createClaimRecordStore, openClaimRecordStore } from '@lianum/engine/storage/records';
@@ -157,26 +158,11 @@ function createClaimOperator(input, custody) {
       equal(await vault.read(), next, 'CLAIM_OPERATOR_JOURNAL_READBACK'); record = next;
     } catch (cause) { poison(); throw new Error('CLAIM_OPERATOR_DURABLE_WRITE_UNCERTAIN', { cause }); }
   }
-  function auditBudgetFailure(error, phase, elapsed) {
-    error.auditBudget = Object.freeze({ phase, method: auditMethod, round: auditRound,
-      elapsedMilliseconds: Number.isFinite(elapsed) ? Math.min(3_600_000, Math.max(0, Math.ceil(elapsed))) : 3_600_000,
-      limitMilliseconds: 30_000 });
-    return error;
-  }
-  async function current(phase = 'claim-current') {
-    live();
-    const withinBudget = () => {
-      let elapsed;
-      try { assert.ok(activeView && (elapsed = performance.now() - started) < 30_000, 'CLAIM_OPERATOR_AUDIT_TOO_OLD'); }
-      catch (error) { throw auditBudgetFailure(error, phase, elapsed); }
-    };
-    try {
-      withinBudget();
-      await observer.assertCurrent(activeView);
-      live();
-      withinBudget();
-    } catch (error) { cachedView = undefined; throw error; }
-  }
+  const {current,assertTerminalBudget}=createWrappedAuditCurrentnessV1(Object.freeze({
+    live,now:()=>performance.now(),started:()=>started,view:()=>activeView,
+    assertCurrent:view=>observer.assertCurrent(view),clearCache:()=>{cachedView=undefined;},
+    labels:()=>({method:auditMethod,round:auditRound}),
+  }));
   async function readCurrentView() {
     // Reciprocal coverage repeatedly enters the combined key at one EVM head.
     // Retain one original immutable reconstruction per operator, never a
@@ -196,16 +182,11 @@ function createClaimOperator(input, custody) {
       const view = await observer.read(); cachedView = view; return view;
     } catch (error) { cachedView = undefined; throw error; }
   }
-  async function jointCurrent() {
-    await current('before-graph-coverage');
-    if (custody) {
-      if (activeV4) activeV4.setGraphSource(await assertCombinedGraphCoverageV4(custody, activeView.head));
-      else { const report = await auditOwn(jointAuditOptions);
-        if (jointProjection) await jointProjection(report); else assertReconciledCoverage(report);
-        await assertCombinedGraphCoverage(custody, activeView.head); }
-      await current('after-graph-coverage'); if (activeV4) activeV4.assertGraphSource();
-    }
-  }
+  const jointCurrent=createWrappedJointCurrentnessV1(Object.freeze({
+    current,custody,active:()=>activeV4,view:()=>activeView,options:()=>jointAuditOptions,
+    auditOwn,projection:()=>jointProjection,assertReconciled:assertReconciledCoverage,
+    assertCoverage:assertCombinedGraphCoverage,assertCoverageV4:assertCombinedGraphCoverageV4,
+  }));
   const clock = Object.freeze({ async read() { await current(); return freeze({ timestamp: activeView.head.timestamp, head: activeView.head.hash }); },
     async assertCurrent(header) { equal(header, { timestamp: activeView.head.timestamp, head: activeView.head.hash }); await current(); } });
   function selected(domain) {
@@ -537,10 +518,7 @@ function createClaimOperator(input, custody) {
   }
   async function signedV4(prepare, original = null, request) {
     assert.ok(custody, 'CLAIM_V4_COMBINED_OPERATOR_REQUIRED');
-    auditMethod = request.terms?.action === A.BEGIN_PAYOUT ? 'begin-payout'
-      : request.terms?.action === A.REDEEM ? 'redeem'
-        : request.terms?.action === A.RESERVE_PAYOUT ? 'reserve-payout'
-          : request.mode === 'debt' ? 'debt-health' : Object.hasOwn(request, 'nativeId') ? 'payout-broadcast' : 'presign-payout';
+    auditMethod = wrappedAuditMethodV1(request,A);
     auditRound = original ? 'original-validation' : 'initial-preparation';
     const head = freeze(copy(activeView.head)), evmFence = captureV4EvmFence(), quiet = roundQuiescence(), graphFence = graphSourceFenceV4();
     const candidate = freeze(copy(await prepare()));
@@ -572,9 +550,7 @@ function createClaimOperator(input, custody) {
         assert.ok(from <= now && now + 1n < until && until - from <= 30n, 'CLAIM_ORIGINAL_AUTHORIZATION_EXPIRED');
       }
       quiet.assertCurrent(); graphFence.assertGraphSource(); assertV4Live(evmFence);
-      const elapsed = performance.now() - started;
-      try { assert.ok(Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'CLAIM_OPERATOR_AUDIT_TOO_OLD'); }
-      catch (error) { throw auditBudgetFailure(error, 'synchronous-v4-fence', elapsed); }
+      assertTerminalBudget();
     };
     activeV4 = { assertCurrent, release: quiet.release, nativeStates: quiet.nativeStates, graphNativeStates: quiet.graphNativeStates, ...graphFence };
     const assertPreparationHistory = () => {

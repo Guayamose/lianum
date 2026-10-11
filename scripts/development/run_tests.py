@@ -40,6 +40,7 @@ DEFAULT_TESTS = [
     'packages/engine/tests/storage/bounded-file-reader-v1.test.mjs',
     'packages/backend/tests/operations/operators/wrapped/wrapped-graph-native-queue-v4.test.mjs',
     'packages/backend/tests/api/accounts/flat-account-owner-client.test.mjs',
+    'packages/backend/tests/operations/operators/wrapped/wrapped-claim-audit-diagnostics-v1.test.mjs',
 ]
 
 

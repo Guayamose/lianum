@@ -110,6 +110,7 @@
     "../../packages/backend/src/operations/local/device-graph-preparation-terms-v1.mjs",
     "../../packages/engine/src/storage/bounded-file-reader-v1.mjs",
     "../../packages/backend/src/operations/operators/wrapped/graph-native-queues-v4.mjs",
-    "../../packages/backend/src/accounts/authority/portfolio-owner-view-v1.mjs"
+    "../../packages/backend/src/accounts/authority/portfolio-owner-view-v1.mjs",
+    "../../packages/backend/src/claims/wrapped/operations/wrapped-audit-currentness-v1.mjs"
   ]
 }
