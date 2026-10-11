@@ -22796,6 +22796,7 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/value-codecs.mjs": "packages/engine/src/claims/value-codecs.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/retained-authorization-record-v1.mjs": "packages/backend/src/claims/authorization/retained-authorization-record-v1.mjs",
     "omnichain-flat-profile/flat-wallet/proof-workers/retained-i84-artifacts-v1.mjs": "packages/proofs/src/tooling/retained-i84-artifacts-v1.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/device-root-spl-source-execution-v4.mjs": "packages/backend/src/operations/recovery/device-root-spl-source-execution-v4.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/device-root-spl-source-execution-v4.mjs": "packages/backend/src/operations/recovery/device-root-spl-source-execution-v4.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-state-cipher-v1.mjs": "packages/backend/src/operations/recovery/source-journal/native-state-cipher-v1.mjs"
   }
 }
